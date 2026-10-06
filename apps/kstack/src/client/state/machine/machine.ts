@@ -1,8 +1,9 @@
 import { Effect, Schema, Stream } from 'effect';
+import { Accounts } from '@kstackz/auth-toolkit/clients/accounts';
 import { fromEffect, fromEffectEventStream, setupEffect } from '@xstate/effect';
 import type { Session } from '../session/index.ts';
 import { type Checked, check, switchTo } from './check.ts';
-import { Sessions, type SignedIn, SignInService } from './services.ts';
+import { Sessions, type SignedIn } from './services.ts';
 
 /** Everything Ledger knows about who is signed in, and the open Session. */
 export type AppContext = {
@@ -65,8 +66,8 @@ const switching = fromEffect(({ input }: { input: SignedIn }) =>
 // after it deletes their copies and opens whoever is left.
 const signingOut = fromEffect(({ input }: { input: string | null }) =>
   Effect.gen(function* () {
-    const service = yield* SignInService;
-    yield* input === null ? service.signOutEveryone : service.signOut(input);
+    const accounts = yield* Accounts;
+    yield* input === null ? accounts.signOutAll : accounts.signOut(input);
   }),
 );
 

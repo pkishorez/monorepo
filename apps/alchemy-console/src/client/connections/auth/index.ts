@@ -1,1 +1,1 @@
-export { authClient } from './auth.ts';
+export { accounts } from './auth.ts';

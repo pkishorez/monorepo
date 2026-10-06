@@ -1,15 +1,19 @@
-import { Effect, Scope } from 'effect';
+import { Effect, ManagedRuntime, Scope } from 'effect';
+import { Accounts } from '@kstackz/auth-toolkit/clients/accounts';
 import { createEffectActor, type EffectActor } from '@xstate/effect';
 import { useMemo, useSyncExternalStore } from 'react';
 import type { SnapshotFrom } from 'xstate';
 import type { Session } from '../session/index.ts';
-import { authClient } from './auth.ts';
 import { appLive, forgetTabUser } from './live.ts';
 import { appMachine } from './machine.ts';
 import type { SignedIn } from './services.ts';
 
 type AppActor = EffectActor<typeof appMachine>;
 type AppSnapshot = SnapshotFrom<typeof appMachine>;
+
+// One set of services for the machine and for signing in, so both see the
+// same Signed-in Accounts.
+const runtime = ManagedRuntime.make(appLive);
 
 let app: AppActor | undefined;
 
@@ -19,11 +23,8 @@ let app: AppActor | undefined;
  */
 const getApp = (): AppActor => {
   if (app !== undefined) return app;
-  const started = Effect.runSync(
-    createEffectActor(appMachine).pipe(
-      Scope.provide(Scope.makeUnsafe()),
-      Effect.provide(appLive),
-    ),
+  const started = runtime.runSync(
+    createEffectActor(appMachine).pipe(Scope.provide(Scope.makeUnsafe())),
   );
   const check = () => started.send({ type: 'CHECK' });
   window.addEventListener('online', check);
@@ -89,14 +90,26 @@ export const switchUser = (userId: string) =>
 export const checkAgain = () => getApp().send({ type: 'CHECK' });
 
 /**
- * Add User: goes to Google and comes back to this Place. Signing in makes the
- * new User the browser's active one, so this tab forgets its own to open them.
+ * Signs one more User in, the first or an Add User: by way of Google, coming
+ * back to this Place. The new User becomes the browser's active one, so this
+ * tab first forgets its own, to open them at the next check. Fails when the
+ * sign-in service can't be reached.
  */
-export const addUser = async () => {
-  const { error } = await authClient.signIn.google();
-  if (error) throw error;
-  forgetTabUser();
-};
+export const addUser = () =>
+  runtime
+    .runPromise(
+      Effect.gen(function* () {
+        yield* Effect.sync(forgetTabUser);
+        yield* (yield* Accounts).signIn();
+      }),
+    )
+    .then(checkAgain);
+
+/** Why the last sign-in came back without signing anyone in, once. */
+export const takeLoginError = () =>
+  runtime.runPromise(
+    Effect.flatMap(Accounts, (accounts) => accounts.takeLoginError),
+  );
 
 /** Signs the open User out of this device; whoever is left opens. */
 export const signOut = () => getApp().send({ type: 'SIGN_OUT' });

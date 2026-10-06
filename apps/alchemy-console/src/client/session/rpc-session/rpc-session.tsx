@@ -3,7 +3,7 @@ import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useComponentLifecycle, useRunEffect } from 'use-effect-ts';
 import { makeRpcRuntime, Rpc } from '../../connections/rpc/index.ts';
-import { authClient } from '../../connections/auth/index.ts';
+import { useSession } from './auth-session.tsx';
 
 import {
   QueryClientProvider,
@@ -99,12 +99,12 @@ function message(error: unknown): string {
 }
 
 const refreshExpiredSession =
-  (refetch: () => Promise<unknown>) => (error: unknown) =>
+  (refresh: () => Promise<void>) => (error: unknown) =>
     typeof error === 'object' &&
     error !== null &&
     '_tag' in error &&
     error._tag === 'Unauthenticated'
-      ? Effect.promise(refetch).pipe(Effect.ignore)
+      ? Effect.promise(refresh).pipe(Effect.ignore)
       : Effect.void;
 
 export function useRpcQuery<A, E>(
@@ -116,14 +116,14 @@ export function useRpcQuery<A, E>(
   } = {},
 ) {
   const connection = useRpc();
-  const session = authClient.useSession();
+  const session = useSession();
   const client = useQueryClient();
   const effect =
     connection.status === 'ready'
       ? Effect.flatMap(connection.runtime.contextEffect, (context) =>
           query.pipe(
             Effect.provide(context),
-            Effect.tapError(refreshExpiredSession(session.refetch)),
+            Effect.tapError(refreshExpiredSession(session.refresh)),
           ),
         )
       : Effect.die('RPC is not connected');
@@ -149,7 +149,7 @@ export function useRpcAction<Input, A, E>(
   options: { errorMessage?: (error: unknown) => string } = {},
 ) {
   const connection = useRpc();
-  const session = authClient.useSession();
+  const session = useSession();
   const active = useRef(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -160,7 +160,7 @@ export function useRpcAction<Input, A, E>(
       const exit = yield* action(input).pipe(
         Effect.withSpan('UI.action'),
         Effect.provide(context),
-        Effect.tapError(refreshExpiredSession(session.refetch)),
+        Effect.tapError(refreshExpiredSession(session.refresh)),
         Effect.exit,
       );
       if (Exit.isFailure(exit) && Cause.hasInterrupts(exit.cause)) return;

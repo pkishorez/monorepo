@@ -12,3 +12,4 @@ export {
   type AccessTokenIdentity,
 } from './access-token.js';
 export type { Branding, BrandStyle, PagesContext } from './pages-context.js';
+export { mockToken, mockUser } from './mock-token.js';
