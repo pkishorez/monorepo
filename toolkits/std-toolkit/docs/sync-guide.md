@@ -121,8 +121,13 @@ A Platform is three pieces: `store(syncName)` returns the Sync Store layer,
   named `std-sync:<name>` (override with `databaseName`), Web Locks, and
   BroadcastChannel. Each piece is on by default and falls back to none where
   the browser lacks it; pass `leadership: false` to let every tab read.
+- `expo({ database, tableName })`: a table named `std-sync:<name>` (override
+  with `tableName`) in an expo-sqlite database the app opened, no locks, no
+  Doorbell: a native app is one process. `listStdSyncs(database)` and
+  `deleteStdSync(database, name)` find and drop those tables; dispose a live
+  Std Sync before deleting it, since nothing rings it closed.
 
-The type is public, so a custom Platform (a test harness, React Native, Node)
+The type is public, so a custom Platform (a test harness, Node)
 is a plain object; build its store with any adapter over `syncStore`.
 
 ## Offline and reloads

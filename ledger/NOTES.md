@@ -214,3 +214,75 @@ browser smoke test behaved as before.
 - `ledger/web/laymos.config.json` now declares the screens as a module graph
   (shell, the Places, the sheets, the parts) with each edge stated, instead
   of shared modules.
+
+## Phase 2b: std-toolkit on Expo
+
+`@kstackz/std-toolkit` gained two entry points, tested against an in-memory
+`node:sqlite` database dressed in expo-sqlite's async API.
+
+- `@kstackz/std-toolkit/db/sqlite/expo`: `makeExpoSQLite({ database })`, a
+  `SQLiteDriver` over a database from `openDatabaseAsync`/`openDatabaseSync`.
+  It uses `runAsync`, `getAllAsync` and `withExclusiveTransactionAsync`
+  (guarded writes throw `SQLiteChangesMismatch` inside it, and expo-sqlite
+  rolls back). It runs the shared StdTable conformance suite, like the Node,
+  better-sqlite3 and D1 drivers.
+- `@kstackz/std-toolkit/sync/platform/expo`: `expo({ database, tableName? })`
+  is a `StdSyncPlatform` with a table `std-sync:<name>` per Std Sync in that
+  one database (set up when the store opens), `noLeadership`, `noDoorbell`.
+  `listStdSyncs(database)` returns `{ name, tableName }[]`;
+  `deleteStdSync(database, name)` drops the table and its indexes.
+
+What the Expo app's platform Layer should do (Phase 3a/4b):
+
+```ts
+const database = await openDatabaseAsync('ledger.db');
+const driver = makeExpoSQLite({ database });
+// storage.table(table, kind): SQLite.setup + SQLite.make(table, { database: driver, tableName })
+// storage.copies: expo({ database })
+// storage.listCopies: () => listStdSyncs(database)
+// storage.deleteCopy: (name) => deleteStdSync(database, name)
+```
+
+**Challenges**
+
+- Declaring `expo-sqlite` as an optional peer of std-toolkit made pnpm 11
+  auto-install it as std-toolkit's own dependency, resolving `expo@58` and
+  `react-native@0.87` and rewriting ~4,000 lockfile lines (drizzle's
+  optional `expo-sqlite` peer then resolved too). That was reverted.
+
+**Hacks and drawbacks**
+
+- So expo-sqlite is **not** a dependency at all: the driver describes the
+  three methods it calls as a structural `ExpoSQLiteDatabase` type, as the D1
+  driver does for its binding. Neither entry point imports expo-sqlite, at
+  runtime or for types. I checked once, outside the repo, that expo-sqlite
+  57.0.3's real `SQLiteDatabase` assigns to it; nothing in CI re-checks that.
+  If expo-sqlite changes those signatures, the app's typecheck catches it,
+  not std-toolkit's.
+- The driver never opens or closes a database; the app owns it (no `close`).
+- The test fake runs the "exclusive" transaction on the same connection;
+  expo-sqlite opens a second one. Concurrency between that connection and
+  the main one is not covered by tests.
+- No Doorbell means `deleteStdSync` does not stop a live Std Sync, unlike
+  the browser preset. Dispose it first; a live one would then fail on the
+  missing table.
+
+**Open questions**
+
+- `withExclusiveTransactionAsync` runs on its own connection. Do queries on
+  the main connection meet `SQLITE_BUSY` while it holds the write lock, or
+  does expo-sqlite wait? Check on the Simulator under sync load; WAL mode
+  (`PRAGMA journal_mode = WAL`, set by the app) should help.
+- Should all of Ledger's tables (device, local-backend, copies) share one
+  database file, or one file each as on web? One file keeps listing simple;
+  the presets above work either way.
+
+**Improvements**
+
+- If live deletion matters on native, an in-process Doorbell (a PubSub per
+  database) would let `deleteStdSync` ring `closedTopic` as the browser does.
+
+**Cleanup owed**
+
+- Run the Expo conformance against the real expo-sqlite on a device once
+  `ledger/expo` exists (Phase 3a), e.g. a dev-only screen or Maestro test.
