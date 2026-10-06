@@ -1,24 +1,19 @@
 # Ledger on Expo: build notes
 
-Running log of the Ledger on Expo build (spec: `.claude/specs/ledger-on-expo.md`).
-Each step adds a section: challenges, hacks, drawbacks, open questions,
-cleanup still owed, and improvements.
+Running log of the Ledger on Expo build (brief: the untracked `plan.md`;
+spec: `.claude/specs/ledger-on-expo.md`). Each phase adds a section:
+challenges, hacks, drawbacks, open questions, cleanup still owed, and
+improvements.
 
-## For the morning: read first
+## Sign-in: OAuth + PKCE
 
-- **Two conflicting sign-in ADRs.** Another session working in this same
-  worktree committed `apps/kstack/docs/adr/0009-native-ledger-signs-in-as-an-oauth-client.md`
-  (9eb9f68a: native Ledger as an OAuth client with PKCE), which you approved
-  there; here you approved Device Login (`toolkits/auth-toolkit/docs/adr/0017`).
-  Device Login is what was built. Pick one: if Device Login stands, revert
-  9eb9f68a's ADR (it also collides with ADR number 0009). Its duplicate
-  Gesture Haptics glossary entry was merged into the one approved here.
-- **An untracked `plan.md` at the repo root** (also from the other session) is
-  a brief for a fresh session to rebuild this with OAuth + PKCE and revert the
-  Device Login work. It was left untouched. Don't start a session on it unless
-  you choose OAuth + PKCE.
+Native Ledger signs in as a public OAuth client with PKCE (Ledger ADR 0009).
+The Device Login plan from an earlier session (auth-toolkit ADR 0017, its
+glossary edits and the old spec) was dropped; the spec now follows `plan.md`.
+The app-level ADR on the split was renumbered to 0010 so it no longer
+collides with ADR 0009.
 
-## Step 1: workspace
+## Phase 0: workspace
 
 `ledger/*` is a workspace glob, and the default catalog holds the Expo SDK 57
 set: expo 57.0.26, react-native 0.86.3, React and react-dom 19.2.3 (down from

@@ -65,11 +65,11 @@ The Session token local auth hands a Local Account, which carries the User it na
 _Avoid_: fake token, test token
 
 **Device Login**:
-How a First-Party program without cookies, such as a CLI or a native app, obtains a Session: it shows a code and URL, the User approves the code in a browser on the Auth Worker's device page, and the program receives a Session token. Always a Session, never an Access Token; no Client Registration, Scopes, or consent are involved.
+How a First-Party program without a browser, such as a CLI, obtains a Session: it shows a code and URL, the User approves the code in a browser on the Auth Worker's device page, and the program receives a Session token. Always a Session, never an Access Token; no Client Registration, Scopes, or consent are involved.
 _Avoid_: device flow, device authorization grant (the Third-Party OAuth grant, which the toolkit does not offer), CLI auth
 
 **Session Store**:
-Where a First-Party program without cookies, such as a CLI or a native app, keeps the Session token of each User it signed in with Device Login: a file for a CLI, the device's secure storage for a native app. Holds each token and the User it belongs to, keyed by Auth Worker; nothing in it goes stale, because the token never changes and the Auth Worker slides its expiry on use.
+Where a First-Party CLI keeps its Device Login Session token between runs: the CLI's cookie jar. Holds the token and the User it belongs to, keyed by Auth Worker; nothing in it goes stale, because the token never changes and the Auth Worker slides its expiry on use.
 _Avoid_: credentials file (ties the concept to one storage), token cache (nothing is cached; it is the credential itself)
 
 **Authorization Server Role**:
