@@ -43,7 +43,9 @@ const columnsOf = (
  * through a list; right opens the marked choice's own choices, starting
  * on the one last marked there in this swipe, and left goes back. Lifting
  * the finger chooses the marked choice, unless it is where the swipe began
- * or on the way to it; lifting the thumb first chooses nothing. Each Lock, Step, opening, going back and Wrong Way is told, for sound
+ * or on the way to it; lifting the thumb first chooses nothing. A Wrong
+ * Way shakes the menu. Each Lock, Step, opening, going back and Wrong Way
+ * is told, for sound
  * and touch to follow.
  */
 export function ThumbPicker(props: {
@@ -58,6 +60,8 @@ export function ThumbPicker(props: {
   readonly step?: number;
 }) {
   const [walk, setWalk] = useState<Walk>();
+  // How many Wrong Ways the menu has shaken for.
+  const [shakes, setShakes] = useState(0);
   // The walk as the finger left it, ahead of the next render.
   const walking = useRef<Walk>(undefined);
   const latest = useRef(props);
@@ -83,6 +87,7 @@ export function ThumbPicker(props: {
         step: step ?? DISTANCES.step,
       });
       for (const event of after.events) onFeedback?.(event);
+      if (after.events.includes('wrong')) setShakes((count) => count + 1);
       if (after.walk !== walking.current) show(after.walk);
     },
     onEnd: (lifted) => {
@@ -96,6 +101,7 @@ export function ThumbPicker(props: {
 
   return (
     <Menu
+      shakes={shakes}
       columns={
         walk === undefined || !walk.shown
           ? undefined

@@ -130,9 +130,9 @@ What shows, at the top of the screen, from the moment a Thumb Lock swipe first m
 _Avoid_: lift hint, place switcher, wheel, menu, launcher
 
 **Gesture Sounds**:
-The sounds of the Thumb Lock: soft as it locks and arms, a tick at each Step, a gentle chime when it goes, an error on a Wrong Way. They follow the one Sounds setting, like the sounds of Commands.
+The sounds of the Thumb Lock: soft as it locks and arms, a tick at each Step, a gentle chime when it goes. A Wrong Way makes none. They follow the one Sounds setting, like the sounds of Commands.
 _Avoid_: haptics, audio feedback
 
 **Wrong Way**:
-A Thumb Lock swipe sideways where there is nowhere to go: right on a Place with no Sections, or left among the Places. The whole screen shakes, an error sounds if Sounds are on, and the phone buzzes where it can.
+A Thumb Lock swipe sideways where there is nowhere to go: right on a Place with no Sections, or left among the Places. The Place Picker shakes; nothing sounds or buzzes.
 _Avoid_: error, invalid gesture
