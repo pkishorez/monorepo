@@ -1,4 +1,4 @@
-import { GestureProvider, GestureZone } from '@kstackz/use-gesture';
+import { GestureProvider, GestureZone } from '@kstackz/use-gesture/web';
 import { cn } from 'cn';
 import { motion, type MotionStyle } from 'motion/react';
 import {

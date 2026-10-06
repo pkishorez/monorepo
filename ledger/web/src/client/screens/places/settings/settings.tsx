@@ -21,8 +21,11 @@ import {
 } from '@kstackz/ui-toolkit/components/ui/tabs';
 import { ExternalLink, Moon, Sun } from '@kstackz/ui-toolkit/lucide';
 import { cn } from '@kstackz/ui-toolkit/utils';
-import { GestureZone } from '@kstackz/use-gesture';
-import { type SwipeRelease, useSwipe } from '@kstackz/use-gesture/recognizers';
+import {
+  GestureZone,
+  type SwipeRelease,
+  useSwipe,
+} from '@kstackz/use-gesture/web';
 import {
   animate,
   motion,

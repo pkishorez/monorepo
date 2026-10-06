@@ -1,6 +1,6 @@
-import { type Pointer, useGesture } from '@kstackz/use-gesture/core';
+import { type Pointer, useGesture } from '@kstackz/use-gesture/web';
 import { useRef } from 'react';
-import type { Point } from './walk.ts';
+import type { TreeWalk } from '@kstackz/use-gesture';
 
 // The thumb lands on this part of the screen's width, from the left.
 const THUMB_PART = 0.5;
@@ -18,7 +18,7 @@ const STILL = 14;
 export function useThumbLock(props: {
   readonly enabled: boolean;
   readonly onLock: () => void;
-  readonly onMove: (finger: Point) => void;
+  readonly onMove: (finger: TreeWalk.Point) => void;
   readonly onEnd: (lifted: boolean) => void;
 }) {
   const thumb = useRef<Pointer>(undefined);

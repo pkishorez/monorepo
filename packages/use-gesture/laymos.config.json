@@ -4,34 +4,70 @@
   "layers": {
     "core": {
       "paths": ["src/core"],
-      "description": "Core — a GestureProvider follows every finger of each Gesture, with motion values, and hands it to every enabled useGesture in the nested GestureZones that hear it. It never says what a Gesture means.",
+      "description": "Core — platform-free: a Gesture Provider that any touch source feeds plain finger samples, finding its zones through a Zone Tree it is handed; the Direction a touch first moves; what a Swipe decides; and the Tree Walk a picker moves through as a finger goes. No DOM, no React, no Motion: a browser and a phone both build on it.",
       "moduleGraphs": {
         "core": {
-          "description": "touch-input listens to the page and holds the browser back on each zone, leaving Native Scrolls their touches; zone follows the fingers, walks up the zones to find who hears each Gesture, and puts it together for React. Whether a release clicks is the browser's call unless a listener prevents it",
+          "description": "provider runs the one Gesture under way and reads its Direction; swipe judges a Swipe by Direction; tree-walk reads a finger's moves as Directions through a tree. Each stands on direction alone.",
           "path": "src/core",
+          "modules": {
+            "direction": {
+              "exposed": true
+            },
+            "provider": {
+              "exposed": true
+            },
+            "swipe": {
+              "exposed": true
+            },
+            "tree-walk": {
+              "exposed": true
+            }
+          },
+          "rules": {
+            "provider": ["direction"],
+            "swipe": ["direction"],
+            "tree-walk": ["direction"]
+          }
+        }
+      }
+    },
+    "entry": {
+      "paths": ["src/index.ts"],
+      "description": "Entry — the package root, the platform-free core's one door: what a touch source on any platform builds on, the web's included.",
+      "modules": {
+        "src/index.ts": {
+          "exposed": true
+        }
+      }
+    },
+    "web-zones": {
+      "paths": ["src/web/zones"],
+      "description": "Web zones — the browser as the touch source: a GestureProvider feeds the core every touch and pen pointer on the page and holds the browser back on each zone, leaving Native Scrolls their touches; GestureZones are DOM elements; useGesture hands each enabled listener every finger as motion values. It never says what a Gesture means.",
+      "moduleGraphs": {
+        "zones": {
+          "description": "touch-input listens to the page, holds the browser back on each zone and says how zones nest in the DOM; zone runs the core's provider over it and puts it together for React with motion values. Whether a release clicks is the browser's call unless a listener prevents it",
+          "path": "src/web/zones",
           "modules": {
             "index.ts": {
               "exposed": true
             },
-            "zone": {
-              "exposed": true
-            },
+            "zone": {},
             "touch-input": {}
           },
           "rules": {
-            "index.ts": ["zone", "touch-input"],
+            "index.ts": ["zone"],
             "zone": ["touch-input"]
           }
         }
       }
     },
-    "recognizers": {
-      "paths": ["src/recognizers"],
-      "description": "Recognizers — one generic meaning read from a Gesture, such as a Swipe: Possible, then Tracking with live values for feedback, then a Commit or a Cancel. They never know about each other.",
+    "web-recognizers": {
+      "paths": ["src/web/recognizers"],
+      "description": "Web recognizers — one generic meaning read from a Gesture, such as a Swipe: Possible, then Tracking with live motion values for feedback, then a Commit or a Cancel, decided by the core's rules. They never know about each other.",
       "moduleGraphs": {
         "recognizers": {
           "description": "Each Recognizer reads Pointers from useGesture on its own.",
-          "path": "src/recognizers",
+          "path": "src/web/recognizers",
           "modules": {
             "index.ts": {
               "exposed": true
@@ -44,13 +80,13 @@
         }
       }
     },
-    "patterns": {
-      "paths": ["src/patterns"],
-      "description": "Patterns — purpose-built touch behaviours an app uses as they are, built from Recognizers, giving exactly the values their UI needs and settling themselves.",
+    "web-patterns": {
+      "paths": ["src/web/patterns"],
+      "description": "Web patterns — purpose-built touch behaviours an app uses as they are, built from Recognizers, giving exactly the motion values their UI needs and settling themselves.",
       "moduleGraphs": {
         "patterns": {
           "description": "Each Pattern stands alone on the Recognizers.",
-          "path": "src/patterns",
+          "path": "src/web/patterns",
           "modules": {
             "index.ts": {
               "exposed": true
@@ -64,11 +100,11 @@
         }
       }
     },
-    "facade": {
-      "paths": ["src/index.ts"],
-      "description": "Facade — the package root: the provider and zone every hook needs, and the Patterns. Core and Recognizers are their own entry points.",
+    "web-entry": {
+      "paths": ["src/web/index.ts"],
+      "description": "Web entry — `./web`: the provider, zone and useGesture, the Recognizers and the Patterns, for apps in a browser.",
       "modules": {
-        "src/index.ts": {
+        "src/web/index.ts": {
           "exposed": true
         }
       }
@@ -76,12 +112,14 @@
   },
   "layerGraphs": {
     "use-gesture": {
-      "description": "The root entry re-exports the provider, the zone and the Patterns; lower layers never import higher ones.",
+      "description": "Read bottom-up: the platform-free core and its door; the web builds on that door the way any other platform would, and nothing below `./web` ever imports it.",
       "rules": {
         "core": [],
-        "recognizers": ["core"],
-        "patterns": ["recognizers"],
-        "facade": ["core", "patterns"]
+        "entry": ["core"],
+        "web-zones": ["entry"],
+        "web-recognizers": ["web-zones"],
+        "web-patterns": ["web-recognizers"],
+        "web-entry": ["web-zones", "web-recognizers", "web-patterns"]
       }
     }
   }

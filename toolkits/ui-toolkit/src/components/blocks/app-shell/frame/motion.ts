@@ -1,4 +1,4 @@
-import { useSidebar as useSwipeSidebar } from '@kstackz/use-gesture';
+import { useSidebar as useSwipeSidebar } from '@kstackz/use-gesture/web';
 import { animate, type MotionValue, motionValue } from 'motion/react';
 import { useCallback, useState, useSyncExternalStore } from 'react';
 import { MOBILE_QUERY } from '#hooks/use-mobile';

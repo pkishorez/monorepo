@@ -1,8 +1,9 @@
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import type { TreeWalk } from '@kstackz/use-gesture';
+import type { Choice } from './choice.ts';
 import { List } from './list.tsx';
-import type { Choice } from './tree.ts';
 
 const EASE = [0.23, 1, 0.32, 1] as const;
 const SPRING = { type: 'spring', duration: 0.18, bounce: 0.15 } as const;
@@ -14,13 +15,7 @@ const BEHIND = { x: -104, y: -28 } as const;
 // A Wrong Way: the menu shakes side to side, once.
 const SHAKE = [0, -6, 5, -3, 2, 0].map((x) => `translateX(${x}px)`);
 
-/** One list on the way down, and what in it is marked and where you are. */
-export type Column = {
-  readonly id: string;
-  readonly choices: ReadonlyArray<Choice>;
-  readonly marked: number;
-  readonly here: number | undefined;
-};
+type Column = TreeWalk.Column<Choice>;
 
 /**
  * Where letting go will take you, at the top centre of the screen and
