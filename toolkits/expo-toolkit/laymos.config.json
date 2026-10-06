@@ -1,0 +1,229 @@
+{
+  "$schema": "../../devtools/laymos/schema.json",
+  "sourceRoots": ["src"],
+  "layers": {
+    "theme": {
+      "paths": ["src/theme"],
+      "description": "Ledger's design tokens for Uniwind (theme.css), the Inter faces, the light/dark switch and cn(). Knows nothing above it.",
+      "modules": {
+        "src/theme": {
+          "exposed": true
+        }
+      }
+    },
+    "feedback": {
+      "paths": ["src/feedback"],
+      "description": "What a gesture feels and sounds like: haptics through expo-haptics, short sounds through a preloaded expo-audio player pool.",
+      "modules": {
+        "src/feedback": {
+          "exposed": true
+        }
+      }
+    },
+    "input": {
+      "paths": ["src/input"],
+      "description": "Touch input: Gesture Handler touches fed into @kstackz/use-gesture's platform-free core. A stub until Phase 3.",
+      "modules": {
+        "src/input": {
+          "exposed": true
+        }
+      }
+    },
+    "components": {
+      "paths": ["src/components"],
+      "description": "Owned Panel UI copies, restyled through the theme's tokens. Exposed components are the package's ./components/*; parts/ is their private interior.",
+      "moduleGraphs": {
+        "panel": {
+          "description": "Panel UI as copied: each exposed component is a door; text, icons and the parts/ internals (portal, scrim, pressable, direction, keyboard and platform bridges) are what they share, each edge declared.",
+          "path": "src/components",
+          "modules": {
+            "bottom-sheet.tsx": {
+              "exposed": true
+            },
+            "button.tsx": {
+              "exposed": true
+            },
+            "card.tsx": {
+              "exposed": true
+            },
+            "dialog.tsx": {
+              "exposed": true
+            },
+            "drawer.tsx": {
+              "exposed": true
+            },
+            "empty-state.tsx": {
+              "exposed": true
+            },
+            "field.tsx": {
+              "exposed": true
+            },
+            "icons.tsx": {
+              "exposed": true
+            },
+            "input.tsx": {
+              "exposed": true
+            },
+            "item.tsx": {
+              "exposed": true
+            },
+            "label.tsx": {
+              "exposed": true
+            },
+            "panel-ui-provider.tsx": {
+              "exposed": true
+            },
+            "separator.tsx": {
+              "exposed": true
+            },
+            "spinner.tsx": {
+              "exposed": true
+            },
+            "swipe.tsx": {
+              "exposed": true
+            },
+            "switch.tsx": {
+              "exposed": true
+            },
+            "tabs.tsx": {
+              "exposed": true
+            },
+            "text.tsx": {
+              "exposed": true
+            },
+            "toast.tsx": {
+              "exposed": true
+            },
+            "typography.tsx": {
+              "exposed": true
+            },
+            "parts/animated-pressable.tsx": {},
+            "parts/focus-restoration-store.ts": {},
+            "parts/haptics.ts": {},
+            "parts/input-content-padding.ts": {},
+            "parts/keyboard-avoider.tsx": {},
+            "parts/modal-isolation-store.ts": {},
+            "parts/native-host.tsx": {},
+            "parts/native.ts": {},
+            "parts/portal.tsx": {},
+            "parts/scrim.tsx": {},
+            "parts/toast-store.ts": {},
+            "parts/use-back-handler.ts": {},
+            "parts/use-direction.ts": {},
+            "parts/use-keyboard-avoidance.ts": {}
+          },
+          "rules": {
+            "bottom-sheet.tsx": [
+              "icons.tsx",
+              "parts/haptics.ts",
+              "parts/native.ts",
+              "parts/portal.tsx",
+              "parts/scrim.tsx",
+              "parts/use-back-handler.ts",
+              "text.tsx"
+            ],
+            "button.tsx": [
+              "icons.tsx",
+              "parts/animated-pressable.tsx",
+              "parts/native.ts",
+              "spinner.tsx",
+              "text.tsx"
+            ],
+            "card.tsx": ["text.tsx"],
+            "dialog.tsx": [
+              "parts/portal.tsx",
+              "parts/scrim.tsx",
+              "parts/use-back-handler.ts",
+              "text.tsx"
+            ],
+            "drawer.tsx": [
+              "icons.tsx",
+              "parts/portal.tsx",
+              "parts/scrim.tsx",
+              "parts/use-back-handler.ts",
+              "parts/use-direction.ts",
+              "text.tsx"
+            ],
+            "empty-state.tsx": ["text.tsx"],
+            "field.tsx": ["label.tsx", "separator.tsx", "text.tsx"],
+            "icons.tsx": ["parts/use-direction.ts"],
+            "input.tsx": [
+              "icons.tsx",
+              "label.tsx",
+              "parts/input-content-padding.ts",
+              "parts/keyboard-avoider.tsx",
+              "parts/use-keyboard-avoidance.ts",
+              "text.tsx"
+            ],
+            "item.tsx": ["parts/animated-pressable.tsx", "text.tsx"],
+            "label.tsx": ["text.tsx"],
+            "panel-ui-provider.tsx": ["parts/portal.tsx", "toast.tsx"],
+            "separator.tsx": ["text.tsx"],
+            "swipe.tsx": [
+              "icons.tsx",
+              "parts/animated-pressable.tsx",
+              "parts/haptics.ts",
+              "parts/use-direction.ts",
+              "text.tsx"
+            ],
+            "switch.tsx": [
+              "field.tsx",
+              "parts/haptics.ts",
+              "parts/native.ts",
+              "parts/use-direction.ts"
+            ],
+            "tabs.tsx": ["parts/use-direction.ts", "text.tsx"],
+            "text.tsx": ["parts/use-direction.ts"],
+            "toast.tsx": [
+              "button.tsx",
+              "icons.tsx",
+              "parts/portal.tsx",
+              "parts/toast-store.ts",
+              "text.tsx"
+            ],
+            "typography.tsx": ["text.tsx"],
+            "parts/keyboard-avoider.tsx": [
+              "parts/use-keyboard-avoidance.ts",
+              "text.tsx"
+            ],
+            "parts/native.ts": ["parts/native-host.tsx"],
+            "parts/portal.tsx": [
+              "parts/focus-restoration-store.ts",
+              "parts/modal-isolation-store.ts"
+            ]
+          }
+        }
+      }
+    },
+    "patterns": {
+      "paths": ["src/patterns"],
+      "description": "Whole interactions built from components, input and feedback: the Thumb Lock's Place Picker, the Sidebar, the sheet, the Key Bar. Stubs until Phase 3; each becomes a module graph.",
+      "modules": {
+        "src/patterns/thumb-picker": {
+          "exposed": true
+        },
+        "src/patterns/sidebar": {
+          "exposed": true
+        },
+        "src/patterns/sheet": {
+          "exposed": true
+        },
+        "src/patterns/key-bar": {
+          "exposed": true
+        }
+      }
+    }
+  },
+  "layerGraphs": {
+    "expo-toolkit": {
+      "description": "Patterns stand on components, input and feedback; components stand on theme; theme, feedback and input stand alone.",
+      "rules": {
+        "patterns": ["components", "input", "feedback"],
+        "components": ["theme"],
+        "input": [],
+        "feedback": [],
+        "theme": []
+      }
+    }
+  }
+}

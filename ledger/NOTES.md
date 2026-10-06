@@ -405,3 +405,131 @@ a browser smoke test of the Thumb Lock behaved as before.
 - `use-keys` still needs the same core/`./web` split (Phase 1 drawback).
 - ADRs 0002–0015 name the old `src/core`/`src/recognizers` paths; they read
   as history. ADR 0010 is marked partly superseded by 0016.
+  ||||||| be46cd20
+
+## Phase 2c: Expo foundation
+
+`@kstackz/expo-toolkit` (`toolkits/expo-toolkit`) and `@ledger/expo`
+(`ledger/expo`) exist. The app renders one screen in Expo Go on the iPhone 17
+Pro Simulator with the toolkit's theme (Inter, Ledger's colours, light and
+dark), Panel UI components and feedback
+(`ledger/expo/docs/screens/phase-2-blank.png`, `phase-2-blank-dark.png`).
+Whole-repo `pnpm lint`, `pnpm test` and `pnpm build` pass.
+
+**What is where**
+
+- The toolkit's layers (laymos, `toolkits/expo-toolkit/laymos.config.json`):
+  `theme` → nothing, `feedback` → nothing, `input` → nothing,
+  `components` → `theme`, `patterns` → `components`, `input`, `feedback`.
+  Subpaths: `./theme`, `./theme.css`, `./feedback`, `./input`,
+  `./components/*`, `./patterns/*`. It ships TypeScript source, as ui-toolkit
+  does; Metro compiles it.
+- `theme`: `theme.css` carries ui-toolkit's oklch tokens converted to hex
+  (native has no oklch or color-mix), under Panel UI's token names; Panel's
+  extra tokens (`overlay`, `inset`, `surface-*`, `info`, `warning`, `code-*`)
+  follow the web's surface ladder or keep Panel's values; `success` is the
+  web's `positive`. Inter from `@expo-google-fonts/inter` (four static
+  faces), wired as `font-normal`…`font-bold`. `useTheme`, `useThemeFonts`,
+  `cn`. The moon/grass themes were dropped.
+- `feedback`: `haptic(kind)` (`selection`, `light`, `medium`, `heavy`,
+  `success`, `warning`, `error`; never throws) and
+  `createSounds({ name: require(...) }, { voices?, volume? })` →
+  `{ play(name), release() }`: three preloaded expo-audio players per sound
+  taken round-robin, audio mode `mixWithOthers` and silent on the mute
+  switch. The pool is plain code with a test.
+- `components`: Panel UI copies made with `panelui-cli` 0.6.2 through
+  `pnpm add-panelui <names>` (`toolkits/expo-toolkit/scripts/add-panelui.mjs`):
+  panel-ui-provider, button, bottom-sheet, card, dialog, drawer,
+  empty-state, field, icons, input, item, label, separator, spinner, swipe,
+  switch, tabs, text, toast, typography. What they pull in sits in
+  `src/components/parts` (exported as `null`, so private). One module graph,
+  `panel`, declares every edge. MIT notice:
+  `src/components/LICENSE-panelui`.
+- `input` and `patterns/{thumb-picker,sidebar,sheet,key-bar}` are stubs
+  that export nothing, with TODOs for Phase 3.
+- Catalog: added expo-audio 57.0.5, expo-auth-session 57.0.13,
+  tailwind-variants, the two Hugeicons packages and
+  `@expo-google-fonts/inter`; removed `react-native-audio-api` (the plan uses
+  expo-audio) and `panelui-native` (the copies replace it). React stays one
+  copy repo-wide: `node_modules/.pnpm` holds one `react@19.2.3`, one
+  `react-dom@19.2.3` and one `react-native@0.86.3`. The app and the toolkit
+  resolve the same expo, expo-font, expo-audio, uniwind and reanimated
+  directories. No new install scripts came up for `allowBuilds`.
+
+**Challenges**
+
+- `expo start --ios` dies in this environment: it asks System Events
+  through `osascript` whether Simulator.app is running, and that is not
+  allowed here. Workaround: `expo start` alone, then
+  `xcrun simctl openurl booted exp://127.0.0.1:<port>`. On the user's Mac,
+  `pnpm --filter @ledger/expo ios` should work as usual.
+- Expo Go's first launch covers the app with its developer-menu
+  introduction. Without a way to tap, it was dismissed with
+  `xcrun simctl spawn booted defaults write host.exp.Exponent
+EXDevMenuIsOnboardingFinished -bool YES`.
+- Metro treats a `require` inside `try` as optional only when the `require`
+  is a statement directly in the `try` block. Panel UI's provider had it
+  inside an `if`, so the bundle failed on the missing
+  `react-native-keyboard-controller`. Fixed in our copy
+  (`panel-ui-provider.tsx`); worth reporting upstream.
+- React Navigation paints its own grey (`#f2f2f2`) behind screens. The
+  layout gives it a theme with a transparent background so the provider's
+  `bg-background` shows.
+- `expo install --fix` cannot respect catalogs: it runs
+  `pnpm add name@~version`, which writes a plain version into the
+  package.json and never touches the catalog. pnpm's `catalogMode: prefer`
+  only writes `catalog:` when the catalog already has a matching version,
+  which is never the case for an upgrade. Use `npx expo install --check`
+  (read-only) to see what the SDK wants, then edit the catalog by hand.
+
+**Hacks**
+
+- `src/components` is in `vite.config.ts`'s lint and fmt ignore lists, like
+  ui-toolkit's shadcn copies, so the copies stay diffable against upstream.
+  `ledger/expo/uniwind-types.d.ts` is ignored too: Uniwind regenerates it
+  whenever Metro starts. It is committed so `tsc` passes without Metro.
+- The sound is a generated 30 ms 2 kHz tick
+  (`ledger/expo/assets/sounds/tick.wav`), only for the shell.
+
+**Drawbacks**
+
+- `./input` and `./patterns/*` are published subpaths that export nothing
+  yet.
+- Panel UI is young (0.x, one maintainer). Our copies no longer follow its
+  updates: `add-panelui` rewrites imports, so `panelui-cli update` cannot be
+  used. Rerun `pnpm add-panelui <name> --overwrite` and review the diff
+  instead.
+- Panel UI's own haptics bridge (`parts/haptics.ts`, behind the `haptics`
+  prop of Switch, Swipe and BottomSheet) is separate from `feedback`. The
+  plan's arrows keep `components` off `feedback`, so they stay apart.
+- Uniwind needs `@expo/metro-config`, `metro`, `metro-cache` and
+  `metro-transform-worker` as peers; pnpm's auto-installed peers give them
+  to it. Nothing was hoisted; the isolated layout works as is.
+- `node_modules/.pnpm` holds three peer variants of `expo@57.0.26` (and two
+  of `expo-asset` and `@expo/cli`), differing only in optional peers such as
+  TypeScript 6 vs 7. The app and the toolkit share one; check that it stays
+  so when more packages use Expo.
+
+**Open questions**
+
+- `expo install --check` expects TypeScript `~6.0.3`; the repo is on
+  TypeScript 7. `tsc` passes in both packages; nothing broke so far.
+- Haptics and sounds were wired but not felt or heard: the Simulator has no
+  haptic engine and nobody listened. Check on a phone, and check expo-audio
+  latency for gesture sounds there (plan, "Not yet verified").
+
+**Cleanup owed**
+
+- Move the Expo set to 57.0.27 once it clears the release-age hold
+  (see Phase 0); `expo install --check` lists expo, expo-constants,
+  expo-linking and expo-router.
+- Phase 3 fills `input` (Gesture Handler touches into use-gesture's core,
+  after 2a) and `patterns`, each pattern as its own module graph, and
+  replaces the shell screen.
+- The later web-toolkit should copy this shape: layers per job, subpath per
+  layer, owned copies behind a module graph, private `parts/`.
+
+**Improvements**
+
+- `pnpm add-panelui` makes adding a Panel UI component one command, like
+  ui-toolkit's `addcomp`.
