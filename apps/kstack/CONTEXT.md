@@ -70,6 +70,10 @@ _Avoid_: page, route, view
 How Ledger looks, sounds and is driven on this device, the same for every User of it: the theme, the sounds, the Keys and Gestures switches with every Command's key, and whether Switch User reaches other tabs. Also the Place to change them, along with the currency of the User's money and the way to Manage Google Accounts.
 _Avoid_: preferences, options
 
+**Section**:
+One part of a Place you can Go straight to, such as the Keys tab of Settings. A Section is never a Place of its own.
+_Avoid_: tab, sub-place, sub-entry
+
 **Sidebar**:
 What is beside every Place: the User Switcher at its top, the Places to Go to, then each Account with its balance. It can be given the keys, and gives them back to where they were. On a touch screen its edge of the screen is its own, open or closed: a swipe from there never goes back a page.
 _Avoid_: nav, menu, drawer
@@ -114,7 +118,7 @@ The Commands to move one step through what the Place shows: the next Entry, the 
 The Command to write down a new Entry: a key, or the plus button on a touch screen.
 
 **Thumb Lock**:
-The left thumb resting still on the screen while another finger moves. It turns the other finger's swipe into a Command, as holding Ctrl turns a key into one: up and down Step through the Places. A swipe without it acts on what is under the finger.
+The left thumb resting still on the screen while another finger moves. It turns the other finger's swipe into a Command, as holding Ctrl turns a key into one: up and down Step through the Places, and sideways moves into and out of Sections. A swipe without it acts on what is under the finger.
 _Avoid_: hold, long press, modifier
 
 **Step**:
@@ -122,7 +126,7 @@ One Place up or down the Place order (Home, Entries, Months, Settings) in a Thum
 _Avoid_: next screen, page
 
 **Place Picker**:
-What shows, at the top of the screen, from the moment a Thumb Lock holds: every Place in order, where the swipe began and the one its Steps have reached both marked. Lifting goes there; coming back to where the swipe began and lifting goes nowhere. Nothing shows under the fingers.
+What shows, at the top of the screen, from the moment a Thumb Lock swipe first moves, with everything behind it dimmed and blurred: every Place in order, where the swipe began and the one its Steps have reached both marked, and a mark on each Place that has Sections. Moving right opens the marked Place's Sections beside it, with the Places drawn back to the top left; moving left goes back to the Places. Opening a Place's Sections again in the same swipe marks the Section last reached there; otherwise the Section you are on, else the first. Lifting goes to what is marked; coming back to where the swipe began and lifting goes nowhere. A Thumb Lock that never moves shows nothing. Nothing shows under the fingers.
 _Avoid_: lift hint, place switcher, wheel, menu, launcher
 
 **Gesture Sounds**:
@@ -130,5 +134,5 @@ The sounds of the Thumb Lock: soft as it locks and arms, a tick at each Step, a 
 _Avoid_: haptics, audio feedback
 
 **Wrong Way**:
-A Thumb Lock swipe sideways: the whole screen shakes, an error sounds if Sounds are on, and the phone buzzes where it can.
+A Thumb Lock swipe sideways where there is nowhere to go: right on a Place with no Sections, or left among the Places. The whole screen shakes, an error sounds if Sounds are on, and the phone buzzes where it can.
 _Avoid_: error, invalid gesture

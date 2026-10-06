@@ -51,5 +51,5 @@ A laptop with a touch screen gets both. `BindingKeys` hides itself without
 ## Motion
 
 Under 200 ms, `cubic-bezier(0.23, 1, 0.32, 1)`, transform and opacity only.
-Nothing that floats (the Key Bar, the Lift Hint) moves what is under it. Feedback
+Nothing that floats (the Key Bar, the Place Picker) moves what is under it. Feedback
 is for multi-finger gestures and keys; a tap needs none.

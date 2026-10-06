@@ -20,8 +20,9 @@ Command works in exactly the same Places from a key or a finger. Key hints
 show only where there is a keyboard, gestures only where there is a touch
 screen, and the user can switch either off in Settings. On a touch screen
 the **Thumb Lock** is the modifier: the left thumb resting still while another
-finger swipes runs Jump (down) or Add (up), named at the top of the screen
-by the **Lift Hint** once the swipe goes far enough; any other way shakes
+finger swipes brings up the **Place Picker** over a dimmed, blurred screen:
+up and down Step through the Places, right opens a Place's Sections or the
+Accounts, left goes back, and lifting Goes; a way that leads nowhere shakes
 the screen. Plain swipes stay plain: one finger scrolls,
 or opens the sidebar from anywhere. `Space e` gives the keys to the sidebar,
 and Escape gives them back to whatever had them.

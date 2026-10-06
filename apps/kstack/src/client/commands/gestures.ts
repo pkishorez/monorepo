@@ -1,8 +1,12 @@
-import type { Way } from '../kit/thumb-lock/index.ts';
 import type { ActionId } from './keys.ts';
+
+/** A way a finger can swipe. */
+export type Way = 'up' | 'down' | 'left' | 'right';
 
 // Every Go is a Thumb Lock Step, or a few, through the Place order.
 const STEP = 'Thumb Lock, Step up or down to it';
+// A Section is a Step to Settings, then right into its Sections.
+const SECTION = 'Thumb Lock, Step to Settings, then right';
 
 /** How each Command is given on a touch screen, where it has a gesture. */
 export const GESTURES: Partial<Readonly<Record<ActionId, string>>> = {
@@ -10,6 +14,9 @@ export const GESTURES: Partial<Readonly<Record<ActionId, string>>> = {
   toEntries: STEP,
   toMonths: STEP,
   toSettings: STEP,
+  toGeneralSettings: SECTION,
+  toKeysSettings: SECTION,
+  toGesturesSettings: SECTION,
   addEntry: 'Tap +',
   toggleSidebar: 'Swipe right',
   'entries.open': 'Tap the row',
@@ -53,6 +60,14 @@ export const GESTURE_GUIDE: ReadonlyArray<GestureGroup> = [
       {
         does: 'Step to the place after',
         motion: { kind: 'thumb', way: 'down' },
+      },
+      {
+        does: 'Into its sections or accounts',
+        motion: { kind: 'thumb', way: 'right' },
+      },
+      {
+        does: 'Back out of them',
+        motion: { kind: 'thumb', way: 'left' },
       },
       { does: 'Add an entry', motion: { kind: 'tap' } },
       { does: 'Open the sidebar', motion: { kind: 'swipe', way: 'right' } },

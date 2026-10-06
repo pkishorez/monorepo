@@ -1,14 +1,10 @@
-import { useLocation } from '@tanstack/react-router';
-import { useRef, useState } from 'react';
-import { keys, quietly } from '../../commands/index.ts';
+import { useLocation, useNavigate, useSearch } from '@tanstack/react-router';
+import { type ActionId, keys, quietly } from '../../commands/index.ts';
 import { useSettings } from '../../state/settings/index.ts';
-import { pick, PlacePicker } from '../../kit/place-picker/index.ts';
+import { useMoney } from '../../state/session/index.ts';
 import { play } from '../../kit/sound/index.ts';
-import { type ThumbFeedback, ThumbLock } from '../../kit/thumb-lock/index.ts';
-import { PLACES, stepsFrom } from './places.ts';
-
-// How far, in px, a Thumb Lock swipe goes to take its first Step.
-const FIRST = 40;
+import { type Choice, ThumbPicker } from '../../kit/thumb-picker/index.ts';
+import { PLACES, type Stop, stopsFrom } from './places.ts';
 
 const buzz = (pattern: number | ReadonlyArray<number>) =>
   navigator.vibrate?.(pattern as number[]);
@@ -25,39 +21,38 @@ const shake = () => {
 };
 
 /**
- * The Thumb Lock of every Place: up and down Step through the Place order,
- * and lifting Goes to the Place reached, through the same Action as its
- * key. The Place Picker shows from the moment the Lock holds; the
- * first Step comes as the swipe arms, so a flick goes to the next or
- * previous Place; past either end it holds there. Sideways is a Wrong
- * Way: the screen shakes. It sounds as it locks, Steps, goes and goes
- * wrong, if the user wants sounds, and buzzes where it can. The Go it gives keeps its
- * own sound and Key Bar to itself: the Place Picker has shown it already.
+ * The Thumb Lock of every Place: the Thumb Picker over the Places, the
+ * Accounts and the Sections of Settings. Lifting on a Place or a Section
+ * Goes there through the same Action as its key; on an Account, to its
+ * Entries, as the Sidebar does. It sounds as it locks, Steps, opens, goes
+ * back, goes and goes wrong, if the user wants sounds, and buzzes where it
+ * can. The Go it gives keeps its own sound and Key Bar to itself: the
+ * picker has shown it already.
  */
 export function Thumb() {
   const settings = useSettings();
   const { actions } = keys.useStatus();
   const run = keys.useRun();
+  const navigate = useNavigate();
+  const money = useMoney();
   const pathname = useLocation({ select: (location) => location.pathname });
-  const { items, start } = stepsFrom(pathname);
-  const [shown, setShown] = useState<number>();
-  // What is shown as the swipe moves, ahead of the next render.
-  const stepped = useRef<number>(undefined);
+  const search = useSearch({ strict: false }) as {
+    tab?: string;
+    account?: string;
+  };
+  const { tree, start } = stopsFrom({
+    pathname,
+    tab: search.tab,
+    account: search.account,
+    accounts: money.accounts,
+  });
   const sounds = settings.sound;
   // A Go whose keys another Surface shadows here still runs for a finger.
-  const goes = (command: string) => {
+  const goes = (command: ActionId) => {
     const state = actions.find((action) => action.id === command)?.state;
     return state === 'active' || state === 'shadowed';
   };
   const going = PLACES.some((place) => goes(place.command));
-
-  const at = (travel: number) =>
-    pick({ count: items.length, start, travel, first: FIRST });
-
-  const show = (next: number | undefined) => {
-    stepped.current = next;
-    setShown(next);
-  };
 
   const wrong = () => {
     if (sounds) play('wrong');
@@ -65,58 +60,35 @@ export function Thumb() {
     shake();
   };
 
-  const feedback = (kind: ThumbFeedback) => {
-    if (kind === 'lock') {
-      if (sounds) play('tick');
-      show(start);
-    }
-    if (kind === 'wrong') {
-      show(undefined);
-      wrong();
-    }
-  };
-
-  const move = (travel: number) => {
-    const before = stepped.current;
-    const next = at(travel);
-    if (next === before) return;
-    if (before !== undefined) {
-      if (sounds) play('tick');
-      buzz(4);
-    }
-    show(next);
-  };
-
-  const lift = (travel: number | undefined) => {
-    show(undefined);
-    if (travel === undefined) return;
-    const index = at(travel);
-    const place = items[index];
-    if (index === start || place === undefined || !('command' in place)) return;
-    if (!goes(place.command)) return wrong();
+  const go = (stop: Stop) => () => {
+    const { command, account } = stop;
+    if (command !== undefined && !goes(command)) return wrong();
     if (sounds) play('success');
-    quietly(() => run(place.command));
+    if (command !== undefined) quietly(() => run(command));
+    else void navigate({ to: '/entries', search: { account } });
   };
+
+  const choiceOf = (stop: Stop): Choice => ({
+    id: stop.id,
+    label: stop.label,
+    icon: stop.icon,
+    onSelect:
+      stop.command !== undefined || stop.account !== undefined
+        ? go(stop)
+        : undefined,
+    children: stop.children?.map(choiceOf),
+  });
 
   return (
-    <>
-      <ThumbLock
-        works={{ up: going, down: going, left: false, right: false }}
-        // Near where it landed the finger has no way yet: the picker holds
-        // on the start, and a Wrong Way has already hidden it.
-        onSwipe={(swipe) => {
-          if (swipe !== undefined) move(swipe.dy);
-          else if (stepped.current !== undefined) move(0);
-        }}
-        onLift={(swipe) => lift(swipe?.dy)}
-        onFeedback={feedback}
-        enabled={settings.gesturesOn}
-      />
-      <PlacePicker
-        items={items}
-        start={items[start]?.id ?? ''}
-        marked={shown === undefined ? undefined : items[shown]?.id}
-      />
-    </>
+    <ThumbPicker
+      tree={tree.map(choiceOf)}
+      start={start}
+      onFeedback={(feedback) => {
+        if (feedback === 'wrong') return wrong();
+        if (sounds) play('tick');
+        if (feedback !== 'lock') buzz(4);
+      }}
+      enabled={settings.gesturesOn && going}
+    />
   );
 }

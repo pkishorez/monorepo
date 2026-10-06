@@ -52,11 +52,15 @@ const ACCOUNT_ICONS: Readonly<Record<Account['kind'], LucideIcon>> = {
   savings: PiggyBank,
 };
 
+/** The icon of an Account's kind. */
+export const accountIcon = (kind: Account['kind'] | undefined): LucideIcon =>
+  (kind && ACCOUNT_ICONS[kind]) || Circle;
+
 /** An Account's icon, by its kind. */
 export function AccountIcon(props: {
   readonly kind: Account['kind'] | undefined;
   readonly className?: string;
 }) {
-  const Icon = (props.kind && ACCOUNT_ICONS[props.kind]) || Circle;
+  const Icon = accountIcon(props.kind);
   return <Icon className={props.className} aria-hidden="true" />;
 }

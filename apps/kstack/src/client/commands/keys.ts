@@ -31,6 +31,9 @@ export const definition = {
     toEntries: { keys: [sequence('g e')], description: 'Go to entries' },
     toMonths: { keys: [sequence('g m')], description: 'Go to months' },
     toSettings: { keys: [sequence('g s')], description: 'Go to settings' },
+    toGeneralSettings: { keys: [], description: 'Go to general settings' },
+    toKeysSettings: { keys: [], description: 'Go to keys settings' },
+    toGesturesSettings: { keys: [], description: 'Go to gestures settings' },
     toggleSidebar: {
       keys: [shortcut('[')],
       description: 'Show or hide the sidebar',
