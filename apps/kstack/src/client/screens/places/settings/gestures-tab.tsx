@@ -59,11 +59,11 @@ export function GesturesTab() {
           <h2 className="font-medium">The Thumb Lock</h2>
           <p className="text-pretty text-muted-foreground">
             Rest your left thumb still on the screen, then swipe up or down with
-            another finger to Step through Home, Entries, Months and Settings. A
-            flick goes one Place; keep going and the top of the screen lists
-            them all, for letting go on the one you want. Come back to where you
-            began and it goes nowhere. Past either end, or sideways, the screen
-            shakes.
+            another finger to Step through the Places listed at the top. Swipe
+            right to open a Place's sections or your accounts, and left to come
+            back. Let go of the finger to go to the one marked; lift your thumb
+            first to go nowhere. Sideways where there is nothing to open, the
+            list shakes.
           </p>
         </div>
       </section>

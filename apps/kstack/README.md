@@ -23,7 +23,7 @@ the **Thumb Lock** is the modifier: the left thumb resting still while another
 finger swipes brings up the **Place Picker** over a dimmed, blurred screen:
 up and down Step through the Places, right opens a Place's Sections or the
 Accounts, left goes back, and lifting Goes; a way that leads nowhere shakes
-the screen. Plain swipes stay plain: one finger scrolls,
+the picker. Plain swipes stay plain: one finger scrolls,
 or opens the sidebar from anywhere. `Space e` gives the keys to the sidebar,
 and Escape gives them back to whatever had them.
 
@@ -81,7 +81,7 @@ useCommand('entries.remove', () => removeEntry(marked), {
 ```
 
 - A Thumb Lock swipe toward an Action with no enabled Handler is a Wrong
-  Way: the screen shakes.
+  Way: the picker shakes.
 - Global Actions such as `next` are answered by whichever Place is shown, so
   `j` means the next Entry on Entries and the next Month on a Month.
 
