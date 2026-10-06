@@ -1022,3 +1022,68 @@ reload, then put back. No regressions seen.
   build would drop it.
 - The earlier `||||||| be46cd20` merge markers in this file (after Phase 2b
   and 2a) were left as they are.
+
+## Phase 3 check
+
+3b and 3c merged, then driven end to end on the iPhone 17 Pro Simulator
+(Expo Go 57.0.9, Metro 8081), mostly with real touches (`idb ui tap`,
+`idb ui swipe`, `idb ui text`). Screens: `ledger/expo/docs/screens/phase-3-*.png`.
+Whole-repo `pnpm lint`, `pnpm test` and `pnpm build` pass.
+
+**Passed:** the JS Splash; Sign out everyone, then sign in by name ("Kai
+Check", typed) to the welcome and Start empty; two Entries added through
+the Add button and Add sheet (out/Food today, in/Salary yesterday); Entries,
+an Entry, Next, back with it marked; Months and a Month; the Accounts sheet
+from the Sidebar's "Add an account"; the Thumb Lock (injector): a Step, Steps
+to Settings and into its Sections, Go, the thumb lifted first calling it off,
+into the Accounts and Go to an Account's Entries; a Wrong Way raised the
+picker's shake count (read from the fiber); the Sidebar's edge swipe (idb);
+the User Switcher, Add User (Grace, sample money), Switch User back; a row
+swiped open on Delete and tapped, and a full idb swipe deleting with the
+Undo toast and Undo bringing it back (marked); Settings General (Light and
+Dark, Sounds, Haptics) and Gestures; Sign Out of each User down to the
+signed-out card. The root `<Slot />` and the frame's `GestureLayer` around
+the header and Place showed no stale Places or lost taps.
+
+**Fixed** (expo-toolkit, changeset `expo-toolkit-phase-3-check`)
+
+- `Dialog` had no keyboard avoidance: the Local Sign-In's Name field and
+  Continue sat under the keyboard. A keyboard-high spacer under the panel
+  (as `Sheet`'s) now lifts it.
+- `SwipeRow` could never delete by swiping: `Swipe` armed a full swipe at
+  1.6 panels of the _rubber-banded_ row, which for an 80-point tile meant
+  about 464 points of drag, wider than the phone. It now arms on the
+  finger's drag (128 points; web's line is 112).
+
+**Seen, not fixed**
+
+- Right after launch Home drew one frame with the Entry as "No category"
+  and no Budgets: `useMoney().ready` was true before the categories'
+  rows arrived.
+- The Entry's Category pills list every Category, out and in; an income's
+  Category is off screen to the right, not scrolled into view.
+- Expo Go's floating tools button sits on the toast's Undo; a real tap
+  there opened the dev menu. A development build has no such button.
+- A fresh idb tap was sometimes lost (the first on "Start empty"); the
+  second worked. Not reproduced since.
+- An idb swipe of 350 points in 0.3 s did nothing (Pan likely never
+  activated in time); 0.6 s worked.
+
+**Unproven**
+
+- The Wrong Way shake on screen: screenshots are too slow for 320 ms and
+  `simctl io recordVideo` still says "Host recording is already in
+  progress".
+- The two-finger Thumb Lock through Gesture Handler (the injector skips
+  it) and `claim` stopping a Place's scroll.
+- Sounds and haptics felt or heard.
+
+**Driving notes**
+
+- Every `touch.mjs` run opens and closes an inspector connection, and
+  Expo Go crashed twice in Hermes' debugger (`runUntilValidPauseLocation`)
+  inside a timer soon after. One connection held for a whole sequence
+  (a local runner doing `thumb`, `more`, `lift`, `shot` in turn) did not
+  crash; `touch.mjs` could take several commands per run.
+- A Thumb Lock Step is about 30 points of finger, counted from the Lock,
+  so `thumb 0,40` then `more 0,40` twice lands four Steps down.
