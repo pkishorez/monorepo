@@ -36,7 +36,9 @@ export function Home() {
   const active = keys.useSurface().surface === 'home';
   useCommand('jump', () => router.navigate('/entries'), { enabled: active });
   useCommand('home.open', () => router.navigate(`/months/${month}`));
-  if (money.ready && money.accounts.length === 0) return <Welcome />;
+  // Nothing until the copy is read: no frame of `$0.00`, no Welcome flash.
+  if (!money.ready) return null;
+  if (money.accounts.length === 0) return <Welcome />;
   return <Glance money={money} month={month} />;
 }
 

@@ -12,8 +12,9 @@ import { nativeDevice } from './native-device.js';
 export const authExpo = (config: AuthExpoConfig) =>
   Layer.sync(Auth, () => makeAuth(config, nativeDevice()));
 
-/** Opens the Auth Worker's Home Page in the system browser, which shares
- * the sign-in sheet's cookies: where a User manages the Google accounts
- * signed in there. */
+/** Opens the Auth Worker's Home Page in the system sign-in sheet, signed in
+ * as its sign-ins left it (Safari's cookies are not the sheet's on iOS):
+ * where a User manages the Google accounts signed in there. iOS asks first,
+ * as for a sign-in. */
 export const manageAccounts = (authWorkerUrl: string): Promise<void> =>
   nativeDevice().open(authWorkerUrl);

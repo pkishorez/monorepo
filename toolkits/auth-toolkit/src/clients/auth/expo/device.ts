@@ -1,5 +1,5 @@
-/** What the phone gives the expo target: secret storage, the system sign-in
- * sheet, and the system browser. `native-device.ts` builds it from Expo's
+/** What the phone gives the expo target: secret storage and the system
+ * sign-in sheet. `native-device.ts` builds it from Expo's
  * modules; tests hand in fakes. */
 export interface Device {
   readonly secrets: {
@@ -10,7 +10,8 @@ export interface Device {
   /** Runs one authorization in the system sign-in sheet, with PKCE and a
    * checked `state`, and says how it came back. */
   readonly authorize: (request: AuthorizeRequest) => Promise<Authorized>;
-  /** Opens a page in the system browser, which shares the sheet's cookies. */
+  /** Opens a page in the system sign-in sheet, with the cookies of the
+   * sign-ins before it. */
   readonly open: (url: string) => Promise<void>;
 }
 

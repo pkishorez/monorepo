@@ -19,26 +19,43 @@ const formatOf = (currency: string, compact: boolean) => {
   return format;
 };
 
-// Hermes' Intl has no compact notation: it ignores `notation` and prints
-// `$1,600.0`. Where so, compact money is written out by hand.
-let compactWorks: boolean | undefined;
+// Compact money is rounded here, once, in whole cents: to a tenth of its
+// scale, half away from zero. Left to the engine, a tie like 144.45 (stored
+// as 144.4499…) became `$144.5` in Chrome and `$144.4` on Hermes. A scale
+// that rounds up to a thousand moves to the next: `$999.96` is `$1K`.
 const SCALES = [
-  { at: 1e9, suffix: 'B' },
-  { at: 1e6, suffix: 'M' },
+  { at: 1, suffix: '' },
   { at: 1e3, suffix: 'K' },
+  { at: 1e6, suffix: 'M' },
+  { at: 1e9, suffix: 'B' },
 ] as const;
 
-const handCompact = (value: number, currency: string) => {
-  const scale = SCALES.find((each) => Math.abs(value) >= each.at);
-  const short = scale ? value / scale.at : value;
+const compactParts = (cents: number) => {
+  const size = Math.abs(cents);
+  let scale: (typeof SCALES)[number] = SCALES[0];
+  let tenths = 0;
+  for (scale of SCALES) {
+    // A tenth of the scale is `scale.at * 10` cents.
+    tenths = Math.round(size / (scale.at * 10));
+    if (tenths < 10_000) break;
+  }
+  return { tenths: cents < 0 ? -tenths : tenths, scale };
+};
+
+// Hermes' Intl has no compact notation: it ignores `notation` and prints
+// `$1,600.0`. Where so, the suffix is written by hand.
+let compactWorks: boolean | undefined;
+
+const handCompact = (cents: number, currency: string) => {
+  const { tenths, scale } = compactParts(cents);
   const text = new Intl.NumberFormat(undefined, {
     style: 'currency',
     currency,
     currencyDisplay: 'narrowSymbol',
     minimumFractionDigits: 0,
     maximumFractionDigits: 1,
-  }).format(short);
-  return scale ? `${text}${scale.suffix}` : text;
+  }).format(tenths / 10);
+  return `${text}${scale.suffix}`;
 };
 
 /** Cents as money: `$4.50`; compact, `$1.2K`. */
@@ -47,12 +64,12 @@ export const money = (
   currency: string,
   options: { readonly compact?: boolean } = {},
 ) => {
-  const compact = options.compact === true;
-  if (compact) {
-    compactWorks ??= !formatOf('USD', true).format(1500).includes('500');
-    if (!compactWorks) return handCompact(cents / 100, currency);
-  }
-  return formatOf(currency, compact).format(cents / 100);
+  if (options.compact !== true)
+    return formatOf(currency, false).format(cents / 100);
+  compactWorks ??= !formatOf('USD', true).format(1500).includes('500');
+  if (!compactWorks) return handCompact(cents, currency);
+  const { tenths, scale } = compactParts(cents);
+  return formatOf(currency, true).format((tenths * scale.at) / 10);
 };
 
 /** Cents with their sign: in is plus, out is minus. */
