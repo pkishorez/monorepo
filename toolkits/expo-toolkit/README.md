@@ -64,12 +64,13 @@ The app's `global.css`, named as Uniwind's `cssEntryFile` in `metro.config.js`:
 
 ### `./input`
 
-| Export           | What it does                                                                                                             |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `GestureSurface` | Tracks every finger on its children through one Gesture Handler manual gesture and feeds use-gesture's core.             |
-| `GestureZone`    | A Gesture Zone inside a surface: its listener gets first claim on a swipe that starts there, before the zones around it. |
-| `NativeScroll`   | A ScrollView in a zone of its own that keeps the swipes it can still scroll and leaves the rest to the zones around it.  |
-| `useGesture`     | Hears the nearest surface's touches with a core listener, and returns `claim` to take the touch from the views.          |
+| Export              | What it does                                                                                                             |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `GestureSurface`    | Tracks every finger on its children through one Gesture Handler manual gesture and feeds use-gesture's core.             |
+| `GestureZone`       | A Gesture Zone inside a surface: its listener gets first claim on a swipe that starts there, before the zones around it. |
+| `NativeScroll`      | A ScrollView in a zone of its own that keeps the swipes it can still scroll and leaves the rest to the zones around it.  |
+| `useGesture`        | Hears the nearest surface's touches with a core listener, and returns `claim` to take the touch from the views.          |
+| `useWorkletGesture` | Hears the surface's touches on the UI thread, in the frame a finger moves, with a core listener a worklet makes there.   |
 
 ### `./components/*`
 
@@ -112,7 +113,7 @@ The app's `global.css`, named as Uniwind's `cssEntryFile` in `metro.config.js`:
 | `sidebar`: `Sidebar`                       | What the Sidebar shows: a header, a scrolling body, a foot.                                                           |
 | `sidebar`: `SidebarSwipe`                  | Inside a surface, a swipe right of one finger from anywhere opens it under the finger, unless a zone inside wants it. |
 | `pages`: `Pages`                           | Pages side by side in a zone of their own, turned by a one-finger sideways swipe that follows the finger.             |
-| `thumb-picker`: `ThumbPicker`              | A Thumb Lock that picks from a tree of choices: Steps, Sections, Wrong Way shake.                                     |
+| `thumb-picker`: `ThumbPicker`              | A Thumb Lock that picks from a tree of choices on the UI thread: Steps, Sections, Wrong Way shake.                    |
 | `local-sign-in`: `LocalSignIn`             | Asks who to sign in as when sign-in is local: a preset, or an email and name.                                         |
 | `sheet`: `Sheet`                           | A sheet from the bottom for a short form, kept above the keyboard.                                                    |
 | `swipe-row`: `SwipeRow`                    | A row swiped left to delete: arms past a line, slides away, or springs home.                                          |

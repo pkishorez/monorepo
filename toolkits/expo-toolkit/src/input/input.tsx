@@ -9,6 +9,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
 } from 'react';
 import {
   ScrollView,
@@ -23,18 +24,23 @@ import {
   type GestureTouchEvent,
 } from 'react-native-gesture-handler';
 import { makeMutable } from 'react-native-reanimated';
-import { scheduleOnRN } from 'react-native-worklets';
+import { scheduleOnRN, scheduleOnUI } from 'react-native-worklets';
 import { exposeDevTouches } from './dev-touches';
 import { createFeed } from './feed';
 import { nativeScroll, type ScrollPlace } from './native-scroll';
+import { dropRunner, feedOn, runnerOn } from './ui-thread';
 import { createZones, type Point, type Zone } from './zones';
 
 type ManualGesture = ReturnType<typeof Gesture.Manual>;
 
 type Surface = {
+  /** Its provider on the UI thread, by this id (ui-thread.ts). */
+  readonly id: number;
   readonly provider: GestureProvider<Zone, Point>;
   readonly zones: ReturnType<typeof createZones>;
   readonly claim: () => void;
+  /** `claim` on the UI thread, where it takes effect in the same event. */
+  readonly claimOnUI: () => void;
   /** Its manual gesture, which each zone's own runs beside. */
   readonly gesture: ManualGesture;
 };
@@ -47,6 +53,9 @@ const SurfaceContext = createContext<Surface | undefined>(undefined);
 const ZoneContext = createContext<Zone | undefined>(undefined);
 
 const clock = () => performance.now();
+
+// Each surface's id, for its provider on the UI thread.
+let surfaces = 0;
 
 // The fingers that changed, as plain data to hand from the UI thread to JS.
 const changed = (event: GestureTouchEvent) => {
@@ -65,7 +74,9 @@ const changed = (event: GestureTouchEvent) => {
  * tracked by id through one Gesture Handler manual gesture and fed to
  * use-gesture's platform-free core on the JS thread. It is the outermost
  * Gesture Zone; GestureZones inside it nest, and the core gives a touch to
- * the innermost zone that wants it. Taps, presses and scrolls inside work
+ * the innermost zone that wants it. The same fingers also reach a provider
+ * on the UI thread, in the event Gesture Handler reports them, for the
+ * listeners of `useWorkletGesture`. Taps, presses and scrolls inside work
  * as before; a listener of `useGesture` takes the touch from them only when
  * it claims it. With `devName`, in development only, scripts can touch it
  * by hand through `globalThis.__touches[devName]`.
@@ -75,6 +86,7 @@ export function GestureSurface(props: {
   readonly devName?: string;
 }) {
   const surface = useMemo((): Surface => {
+    const id = ++surfaces;
     const zones = createZones();
     const provider = createGestureProvider(zones.tree);
     provider.addZone(zones.root);
@@ -82,10 +94,16 @@ export function GestureSurface(props: {
     // has told where it landed, as their gestures hear it in no fixed order.
     const feed = createFeed(provider.sink, clock, (run) => setTimeout(run, 0));
     const forget = () => feed.after(zones.forget);
-    // Whether the touch under way is claimed. JS sets it; the UI thread,
+    // Whether the touch under way is claimed. JS sets it, and the UI thread,
     // where Gesture Handler's state manager lives, activates at the next
-    // touch event, which cancels the views and gestures under the fingers.
+    // touch event, which cancels the views and gestures under the fingers;
+    // a UI-thread listener sets it in the event itself, which activates at
+    // once.
     const claimed = makeMutable(false);
+    const claimOnUI = () => {
+      'worklet';
+      claimed.value = true;
+    };
     const gesture = Gesture.Manual()
       .shouldCancelWhenOutside(false)
       .onTouchesDown((event, state) => {
@@ -93,16 +111,19 @@ export function GestureSurface(props: {
         if (event.numberOfTouches === event.changedTouches.length) {
           claimed.value = false;
         }
+        feedOn(id, 'down', event, performance.now());
         scheduleOnRN(feed.down, changed(event));
         if (claimed.value) state.activate();
       })
       .onTouchesMove((event, state) => {
         'worklet';
+        feedOn(id, 'move', event, performance.now());
         scheduleOnRN(feed.move, changed(event));
         if (claimed.value) state.activate();
       })
       .onTouchesUp((event, state) => {
         'worklet';
+        feedOn(id, 'up', event, performance.now());
         scheduleOnRN(feed.up, changed(event));
         if (event.numberOfTouches === 0) {
           claimed.value = false;
@@ -113,24 +134,48 @@ export function GestureSurface(props: {
       .onTouchesCancelled((_event, state) => {
         'worklet';
         claimed.value = false;
+        runnerOn(id).sink.cancelAll(performance.now());
         scheduleOnRN(feed.cancelled);
         scheduleOnRN(forget);
         state.fail();
       });
     return {
+      id,
       provider,
       zones,
       gesture,
       claim: () => {
         claimed.value = true;
       },
+      claimOnUI,
     };
   }, []);
+
+  useEffect(() => {
+    const { id } = surface;
+    return () => {
+      scheduleOnUI(() => {
+        'worklet';
+        dropRunner(id);
+      });
+    };
+  }, [surface]);
 
   const { devName } = props;
   useEffect(() => {
     if (!__DEV__ || devName === undefined) return;
-    return exposeDevTouches(devName, surface.provider.sink, clock);
+    const { id } = surface;
+    return exposeDevTouches(
+      devName,
+      surface.provider.sink,
+      clock,
+      (kind, touch) =>
+        scheduleOnUI(() => {
+          'worklet';
+          if (kind === 'cancel') runnerOn(id).sink.cancelAll(performance.now());
+          else feedOn(id, kind, { changedTouches: [touch] }, performance.now());
+        }),
+    );
   }, [devName, surface]);
 
   return (
@@ -313,4 +358,42 @@ export function useGesture(listener: GestureListener<unknown>): {
     [surface, listener],
   );
   return { claim: surface.claim };
+}
+
+let workletGestures = 0;
+
+/**
+ * Hears every touch of the nearest GestureSurface on the UI thread, in the
+ * event Gesture Handler reports it, so what it moves shows in the same
+ * frame as the finger. `make` is a worklet that makes a use-gesture core
+ * listener there, handed `claim`, a worklet that takes the touch under way
+ * from Gesture Handler's other gestures and the views inside at once; it is
+ * read on mount only, so close over shared values for what changes, and
+ * hand anything for the JS thread over with `scheduleOnRN`, never waiting
+ * for it. Its provider has only the surface's zone, so its listener watches
+ * and claims; it does not take part in which zone takes a touch.
+ */
+export function useWorkletGesture(
+  make: (claim: () => void) => GestureListener<null>,
+): void {
+  const surface = useContext(SurfaceContext);
+  if (surface === undefined) {
+    throw new Error('useWorkletGesture must be inside a GestureSurface');
+  }
+  const first = useRef(make);
+  useEffect(() => {
+    const key = ++workletGestures;
+    const { id, claimOnUI } = surface;
+    const made = first.current;
+    scheduleOnUI(() => {
+      'worklet';
+      runnerOn(id).add(key, made(claimOnUI));
+    });
+    return () => {
+      scheduleOnUI(() => {
+        'worklet';
+        runnerOn(id).remove(key);
+      });
+    };
+  }, [surface]);
 }

@@ -1,10 +1,13 @@
 import { thumbLock, TreeWalk } from '@kstackz/use-gesture';
-import { useMemo, useRef, useState } from 'react';
-import { Dimensions } from 'react-native';
-import { useGesture } from '../../input';
+import { useEffect, useMemo, useRef } from 'react';
+import { AccessibilityInfo, useWindowDimensions } from 'react-native';
+import { useSharedValue } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
+import { useWorkletGesture } from '../../input';
 import type { Choice } from './choice';
 import { Menu } from './menu';
-import { createPicking } from './picking';
+import { createPicking, type Ground } from './picking';
+import { HIDDEN, shapeOf, type View, viewOf } from './view';
 
 export type { Choice } from './choice';
 
@@ -35,42 +38,120 @@ type Props = {
  * follow. Once the Lock holds, the touch is its own: nothing under the
  * fingers scrolls or presses. Draw it last inside the surface, so it covers
  * what the surface holds.
+ *
+ * The Lock and the walk run on the UI thread, and the menu, drawn up front
+ * for the tree, moves from shared values there, so a Step shows in the
+ * frame the finger makes it, however busy the JS thread is. Only what is
+ * told, and what is chosen, crosses to the JS thread, and nothing waits for
+ * it. Keep `tree` the same object while it means the same choices.
  */
 export function ThumbPicker(props: Props) {
-  const [walk, setWalk] = useState<TreeWalk.Walk>();
+  const { tree, start, reveal, step } = props;
+  const lists = useMemo(() => TreeWalk.lists(tree, start), [tree, start]);
+  // What the UI thread walks: the tree's shape, where it began, distances.
+  const shape = useMemo(() => shapeOf(tree), [tree]);
+  const ground = useSharedValue<Ground>(groundOf(shape, start, reveal, step));
+  useEffect(() => {
+    ground.value = groundOf(shape, start, reveal, step);
+  }, [ground, shape, start, reveal, step]);
+
+  const enabled = useSharedValue(props.enabled !== false);
+  useEffect(() => {
+    enabled.value = props.enabled !== false;
+  }, [enabled, props.enabled]);
+  const { width: screen } = useWindowDimensions();
+  const width = useSharedValue(screen);
+  useEffect(() => {
+    width.value = screen;
+  }, [width, screen]);
+  const reading = useScreenReader();
+
+  const view = useSharedValue<View>(HIDDEN);
   // How many Wrong Ways the menu has shaken for.
-  const [shakes, setShakes] = useState(0);
+  const shakes = useSharedValue(0);
+
+  // What the UI thread hands back: read through the latest props, so a
+  // change of tree or feedback needs no new listener.
   const latest = useRef(props);
   latest.current = props;
-  const claim = useRef<() => void>(() => {});
+  const told = useMemo(
+    () => ({
+      feedback: (feedback: 'lock' | TreeWalk.Event) =>
+        latest.current.onFeedback?.(feedback),
+      choose: (path: ReadonlyArray<number>) =>
+        TreeWalk.choiceAt(latest.current.tree, path)?.onSelect?.(),
+      announce: (path: ReadonlyArray<number>) => {
+        const marked = TreeWalk.choiceAt(latest.current.tree, path);
+        if (marked) AccessibilityInfo.announceForAccessibility(marked.label);
+      },
+    }),
+    [],
+  );
 
-  const listener = useMemo(() => {
-    const picking = createPicking(() => latest.current, {
-      show: setWalk,
-      feedback: (feedback) => latest.current.onFeedback?.(feedback),
-      shake: () => setShakes((count) => count + 1),
+  useWorkletGesture((claim) => {
+    'worklet';
+    const { feedback, choose, announce } = told;
+    const picking = createPicking(() => ground.value, {
+      show: (walk) => {
+        const before = view.value;
+        const { tree: now, start: from } = ground.value;
+        view.value = viewOf(walk, now, from, before);
+        // A screen reader hears the marked choice as it changes.
+        if (reading.value && walk?.shown) {
+          const last = view.value.open[view.value.open.length - 1];
+          const was = before.open[before.open.length - 1];
+          if (last?.id !== was?.id || last?.marked !== was?.marked) {
+            scheduleOnRN(announce, walk.path);
+          }
+        }
+      },
+      feedback: (event) => scheduleOnRN(feedback, event),
+      shake: () => {
+        shakes.value += 1;
+      },
+      choose: (path) => scheduleOnRN(choose, path),
     });
-    return thumbLock({
-      enabled: () => latest.current.enabled !== false,
-      width: () => Dimensions.get('window').width,
+    return thumbLock<null>({
+      enabled: () => enabled.value,
+      width: () => width.value,
       onLock: () => {
-        claim.current();
+        claim();
         picking.lock();
       },
       onMove: picking.move,
       onEnd: picking.end,
     });
-  }, []);
-  claim.current = useGesture(listener).claim;
+  });
 
-  return (
-    <Menu
-      shakes={shakes}
-      columns={
-        walk === undefined || !walk.shown
-          ? undefined
-          : TreeWalk.columns(walk, props.tree, props.start)
-      }
-    />
-  );
+  return <Menu lists={lists} view={view} shakes={shakes} />;
 }
+
+const groundOf = (
+  tree: Ground['tree'],
+  start: ReadonlyArray<string>,
+  reveal: number | undefined,
+  step: number | undefined,
+): Ground => ({
+  tree,
+  start,
+  reveal: reveal ?? TreeWalk.DISTANCES.reveal,
+  step: step ?? TreeWalk.DISTANCES.step,
+});
+
+// Whether a screen reader is on, for the UI thread to read.
+const useScreenReader = () => {
+  const reading = useSharedValue(false);
+  useEffect(() => {
+    void AccessibilityInfo.isScreenReaderEnabled().then((on) => {
+      reading.value = on;
+    });
+    const change = AccessibilityInfo.addEventListener(
+      'screenReaderChanged',
+      (on: boolean) => {
+        reading.value = on;
+      },
+    );
+    return () => change.remove();
+  }, [reading]);
+  return reading;
+};

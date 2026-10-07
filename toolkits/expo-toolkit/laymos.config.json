@@ -22,10 +22,10 @@
     },
     "input": {
       "paths": ["src/input"],
-      "description": "Touch input: a GestureSurface tracks every finger by id through one Gesture Handler manual gesture and feeds them to @kstackz/use-gesture's platform-free core; GestureZones nest inside it, so the innermost zone that wants a swipe takes it; a NativeScroll keeps the swipes it can scroll; useGesture hears the surface with a core listener and may claim the touch. In development a script can touch a surface by hand. Knows nothing of what a gesture means.",
+      "description": "Touch input: a GestureSurface tracks every finger by id through one Gesture Handler manual gesture and feeds them to @kstackz/use-gesture's platform-free core; GestureZones nest inside it, so the innermost zone that wants a swipe takes it; a NativeScroll keeps the swipes it can scroll; useGesture hears the surface with a core listener and may claim the touch; useWorkletGesture hears it on the UI thread, in the frame a finger moves, through a core provider of its own there. In development a script can touch a surface by hand. Knows nothing of what a gesture means.",
       "moduleGraphs": {
         "input": {
-          "description": "input.tsx is the surface, the zones, the Native Scroll and the hook; zones is the Zone Tree, from where fingers land in each zone; feed turns Gesture Handler touch events into core samples; native-scroll is a scroll view's listener; dev-touches lets a script hand in samples in development.",
+          "description": "input.tsx is the surface, the zones, the Native Scroll and the hook; zones is the Zone Tree, from where fingers land in each zone; feed turns Gesture Handler touch events into core samples; ui-thread is each surface's core provider on the UI thread, fed straight from Gesture Handler's callbacks; native-scroll is a scroll view's listener; dev-touches lets a script hand in samples in development.",
           "path": "src/input",
           "modules": {
             "index.ts": {
@@ -35,6 +35,7 @@
             "zones.ts": {},
             "feed.ts": {},
             "native-scroll.ts": {},
+            "ui-thread.ts": {},
             "dev-touches.ts": {}
           },
           "rules": {
@@ -43,6 +44,7 @@
               "zones.ts",
               "feed.ts",
               "native-scroll.ts",
+              "ui-thread.ts",
               "dev-touches.ts"
             ],
             "feed.ts": ["zones.ts"],
@@ -254,7 +256,7 @@
       },
       "moduleGraphs": {
         "thumb-picker": {
-          "description": "thumb-picker.tsx binds use-gesture's Thumb Lock to the surface and runs a picking; picking walks the tree with no UI; menu draws the scrim, the lists and the shake; list draws one list's rows; motion holds the springs and reduced motion; choice is the tree's shape.",
+          "description": "thumb-picker.tsx runs use-gesture's Thumb Lock and a picking on the UI thread through the surface and writes what the menu shows; picking walks the tree with no UI; view is what the menu shows, as data the UI thread writes; menu draws the scrim, every list up front and the shake, moved by that view; list draws one list's rows, plain and marked; motion holds the springs and reduced motion; choice is the tree's shape.",
           "path": "src/patterns/thumb-picker",
           "modules": {
             "index.ts": {
@@ -262,6 +264,7 @@
             },
             "thumb-picker.tsx": {},
             "picking.ts": {},
+            "view.ts": {},
             "menu.tsx": {},
             "list.tsx": {},
             "motion.ts": {},
@@ -269,10 +272,16 @@
           },
           "rules": {
             "index.ts": ["thumb-picker.tsx"],
-            "thumb-picker.tsx": ["choice.ts", "menu.tsx", "picking.ts"],
-            "picking.ts": ["choice.ts"],
-            "menu.tsx": ["choice.ts", "list.tsx", "motion.ts"],
-            "list.tsx": ["choice.ts", "motion.ts"]
+            "thumb-picker.tsx": [
+              "choice.ts",
+              "menu.tsx",
+              "picking.ts",
+              "view.ts"
+            ],
+            "picking.ts": ["view.ts"],
+            "view.ts": ["choice.ts"],
+            "menu.tsx": ["choice.ts", "list.tsx", "motion.ts", "view.ts"],
+            "list.tsx": ["choice.ts"]
           }
         },
         "sidebar": {
