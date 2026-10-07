@@ -6,45 +6,20 @@ import { named } from './sign-in/named/index.js';
  * each brings what its place needs: `cookie` (a browser, better-auth) in
  * `@kstackz/auth-toolkit/client/web`, `oauth` (a phone, Expo) in
  * `@kstackz/auth-toolkit/client/expo`, `deviceCode` (a CLI, Node) in
- * `@kstackz/auth-toolkit/client/cli`.
+ * `@kstackz/auth-toolkit/client/cli`. Running sign-in on a device, the Gate
+ * and each Account's Session, is the Platform Toolkit's.
  */
 export const signIn = { named };
 
 export {
-  type App,
-  type AppConfig,
-  createApp,
-  type DeviceBackend,
-  keepSyncs,
-  type ApiClient,
-  type SessionContext,
-  type StdSync,
-} from './app/index.js';
-export {
-  Backend,
-  backendNamed,
   SignIn,
   Unreachable,
   type Account,
+  type Listed,
   type LoginError,
   type SignInOptions,
   type User,
 } from './account/index.js';
-export {
-  createGate,
-  gateReact,
-  type Gate,
-  type GateConfig,
-  type GateNotice,
-  type GateReact,
-  type GateView,
-} from './gate/index.js';
-export {
-  memoryPlatform,
-  type Platform,
-  type TableSource,
-  type TabMessage,
-} from './platform/index.js';
 export {
   namedAccountsTable,
   namedChooser,

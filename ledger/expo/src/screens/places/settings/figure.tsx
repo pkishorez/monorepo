@@ -1,4 +1,4 @@
-import type { Motion, Way } from '@ledger/core/app/commands';
+import type { Motion, Way } from '@ledger/core/commands';
 import { cn } from '@kstackz/expo-platform/theme';
 import { useEffect } from 'react';
 import { Pressable, View } from 'react-native';

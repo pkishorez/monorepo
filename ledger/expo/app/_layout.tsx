@@ -4,7 +4,7 @@ import { useTheme, useThemeFonts } from '@kstackz/expo-platform/theme';
 import { DefaultTheme, Slot, ThemeProvider } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { restoreTheme } from '../src/ledger';
+import { restoreTheme, Root } from '../src/ledger';
 import { Shell } from '../src/screens/shell';
 
 restoreTheme();
@@ -30,9 +30,11 @@ export default function Layout() {
       <PanelUIProvider>
         <ThemeProvider value={navigation}>
           <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
-          <Shell>
-            <Slot />
-          </Shell>
+          <Root>
+            <Shell>
+              <Slot />
+            </Shell>
+          </Root>
         </ThemeProvider>
       </PanelUIProvider>
     </GestureHandlerRootView>

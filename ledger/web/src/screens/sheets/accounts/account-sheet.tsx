@@ -8,10 +8,10 @@ import {
 } from '@kstackz/web-platform/components/dialog';
 import { Input } from '@kstackz/web-platform/components/input';
 import { useState } from 'react';
-import { keys, useCommand } from '@ledger/core/app/commands';
-import { useMoney, useWrites } from '@ledger/core/app/session';
+import { keys, useCommand } from '@ledger/core/commands';
+import { useMoney, useWrites } from '@ledger/core/session';
 import { useGate } from '../../../app.ts';
-import { ACCOUNT_KINDS } from '@ledger/core/app/places';
+import { ACCOUNT_KINDS } from '@ledger/core/places';
 import type { Account } from '@ledger/core/model';
 import { AccountIcon, Choice } from '../../parts/index.ts';
 

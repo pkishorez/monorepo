@@ -1,5 +1,5 @@
 import { createFileRoute, Outlet, useParams } from '@tanstack/react-router';
-import { validateEntriesSearch } from '@ledger/core/app/places';
+import { validateEntriesSearch } from '@ledger/core/places';
 import { Entries } from '../../../screens/places/entries/index.ts';
 
 // The list and the open Entry stay one page, so the list keeps its place.

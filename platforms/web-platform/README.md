@@ -1,39 +1,52 @@
 # @kstackz/web-platform
 
-The one Toolkit for web apps: theme, input, components, forms, Recipes, the optional PWA, and the opinionated client and server setup on TanStack Start.
+The Web Platform: a web app from one config, as a PWA on TanStack Start with its Theme, its APIs on a cloud or a device Backend, several Accounts with one Session each, the screens before sign-in, and the server; plus the components, input, forms and Recipes to build screens with.
 
 ## Big picture
 
-Every kstack web app used to wire the same things by hand: the root document, the Theme, the Frame and its Sidebar, sign-in, the `/rpc` server and, for some, the PWA. This Package holds all of it, so a new app writes only its API, its Backend, what its stores hold, and its screens ([ADR 0004](../../docs/adr/0004-an-app-is-api-backend-and-stores.md)). It replaces `@kstackz/ui-toolkit` and `@kstackz/pwa-toolkit`; why they merged is in the root [ADR 0003](../../docs/adr/0003-web-platform-and-the-gate.md).
+Every kstack web app used to wire the same things by hand: the root document, the Theme, the PWA, sign-in and its screens, the browser as a Host, and the server for its APIs. This Package holds all of it, so a new app writes only its APIs, its Backend, its Session, its Cache and its screens ([ADR 0004](../../docs/adr/0004-an-app-is-api-backend-and-stores.md)). It replaces `@kstackz/web-toolkit`, `@kstackz/ui-toolkit` and `@kstackz/pwa-toolkit`.
 
-It is laid out like expo-platform, one layer per job and one subpath per layer, bottom to top: `theme`, `feedback`, `input`, `components`, `form`, `recipes`, `client`, then `pwa`; `server` stands beside them. A Recipe here and one in expo-platform with the same name are the same interaction on two platforms. `client` and `server` are the opinionated way in and assume TanStack Start.
+The root door is `createApp`. It hands one config to [`@kstackz/platform-toolkit`](../../toolkits/platform-toolkit)'s `createApp` with `webHost` (IndexedDB, the sign-in service's cookies, the window's network and tabs) and gives back the app with its root route, the Theme, `SignedIn` with the screens before an Account is open (the Gate Screens and Account Lost recipes), and the named sign-in dialog for the device Backend. Every app is a PWA: `createApp` always adds the PWA's Root Plugin. The `server` door's `createServer` serves each `http` API on its cloud Backend and checks every call with the sign-in service. Why the Platforms may break while the Toolkits keep what persists is [ADR 0006](../../docs/adr/0006-platforms-may-break-toolkits-keep-what-persists.md).
 
-The PWA is opt-in. It sits above `client` and plugs into the root document as a Root Plugin, so `client` never imports it, and an app that leaves it out ships no service worker, manifest or Update Prompt. Sign-in runs on auth-toolkit's `createApp`, and this Package re-exports nothing from auth-, rpc- or std-toolkit. The browser as an app's Platform is not here yet: it is rebuilt on the new doors in the next phase ([ADR 0005](../../docs/adr/0005-three-toolkits-three-doors.md)), and until then an app builds its own, as `ledger/web/src/platform.ts` does.
+Underneath, it is laid out like expo-platform, one layer per job and one subpath per layer, bottom to top: `theme`, `feedback`, `input`, `components`, `form`, `recipes`, `client`, then `pwa`; `server` stands beside them. A Recipe here and one in expo-platform with the same name are the same interaction on two platforms. These stay exported for screens and for the unusual app; [ADR 0003](../../docs/adr/0003-web-toolkit-and-the-gate.md) is the earlier design.
 
 It ships built `dist/` (from `vp pack`), unlike expo-platform, which Metro compiles from source. Terms are in [CONTEXT.md](./CONTEXT.md); the PWA's decisions are in [docs/adr/](./docs/adr/).
 
 ## Install
 
 ```sh
-pnpm add @kstackz/web-platform react react-dom @kstackz/use-gesture
+pnpm add @kstackz/web-platform @kstackz/platform-toolkit @kstackz/auth-toolkit @kstackz/rpc-toolkit @kstackz/std-toolkit react react-dom @kstackz/use-gesture
 pnpm add -D @tailwindcss/vite
 ```
 
 An app that renders on the server adds `@kstackz/web-platform` to `ssr.noExternal` in its Vite config, as Ledger, `apps/docs` and `apps/alchemy-console` do. Its stylesheet imports `@kstackz/web-platform/theme/global.css`, which also points Tailwind at the Package's own classes.
 
+- `@kstackz/platform-toolkit`: `createApp` runs on its `createApp`, the Gate and the Session; the root door re-exports its `Api`, `defineSession` and `SessionClosed`.
+- `@kstackz/auth-toolkit`: `webHost` signs in with its `cookie`, and `createServer` checks calls with its `authz.cloud`.
+- `@kstackz/rpc-toolkit`: `createServer` answers each API with its `Rpc.http.server`.
+- `@kstackz/std-toolkit`: `webHost` keeps tables and Std Sync in its IndexedDB adapters.
 - `react`, `react-dom`: every component, Recipe and the root document render with React 19.
 - `@kstackz/use-gesture`: the platform-free gesture core that `./input`'s web gestures and the Thumb Picker run on.
 - `@kstackz/use-keys` (optional): the Binding and Shortcut types `./recipes/key-bindings` shows.
 - `@tanstack/react-router` (optional): `./client`'s `webRoot` is a root route.
 - `@tanstack/react-start` (optional): `./client/server` reads the Theme cookie with it, and `./server` hands pages to its server entry.
-- `effect` (optional): the PWA subpaths, `./server`, and the diff and source viewers are built on it.
+- `effect` (optional): the root door, the PWA subpaths, `./server`, and the diff and source viewers are built on it.
 - `vite` (optional): needed by `./pwa/vite`.
 - `laymos` (optional): the file diff and change types the diff, git-changes and source-explorer viewers read.
 - `use-effect-ts` (optional): runs `./components/viewers/source-explorer`'s loaders inside React.
 
 ## Exports
 
-Import individual subpaths. There is no root barrel.
+### `@kstackz/web-platform`
+
+| Export          | What it does                                                                                                                                               |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `createApp`     | A web app from one config: its root route, Theme and PWA, its APIs, device Backend and Cache, and with `auth` its Accounts and the screens before sign-in. |
+| `webHost`       | The browser as an app's Host: IndexedDB, the sign-in service's cookies, the window's network and visibility, and its other tabs.                           |
+| `Api.http`      | Declares an API reached over HTTP, from platform-toolkit.                                                                                                  |
+| `Api.websocket` | Declares an API reached over a WebSocket, from platform-toolkit.                                                                                           |
+| `defineSession` | Writes an app's Session once over its APIs, from platform-toolkit.                                                                                         |
+| `SessionClosed` | Error a run rejects with when its Session closed first, from platform-toolkit.                                                                             |
 
 ### `@kstackz/web-platform/theme`
 
@@ -292,6 +305,18 @@ Owned shadcn copies on Base UI, one subpath per file, such as `@kstackz/web-plat
 | ------------- | ---------------------------------------------------------------------------------------------- |
 | `LocalSignIn` | Asks who to sign in as on the device Backend, with one-tap presets and an email and name form. |
 
+### `@kstackz/web-platform/recipes/account-lost`
+
+| Export        | What it does                                                                                                           |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `AccountLost` | Holds the app on an Account Lost until the User signs in to it again or opens another Account; it cannot be dismissed. |
+
+### `@kstackz/web-platform/recipes/gate-screens`
+
+| Export        | What it does                                                                                                                                   |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GateScreens` | Every screen before an Account is open, in one card: checking, opening, signing out, signed out with the way to the other Backend, unopenable. |
+
 ### `@kstackz/web-platform/recipes/account-switcher`
 
 | Export            | What it does                                                                                       |
@@ -386,31 +411,67 @@ Owned shadcn copies on Base UI, one subpath per file, such as `@kstackz/web-plat
 
 ### `@kstackz/web-platform/server`
 
-| Export              | What it does                                                                                                                       |
-| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `webServer`         | One fetch handler: `/rpc` goes to the app's API, everything else to TanStack Start; a Cloudflare Worker's default export as it is. |
-| `isDeployedStage`   | Whether an alchemy stage reaches the world: `prod` or a pull request's `prN`.                                                      |
-| `assertStageIsSafe` | Refuses a deployed stage unless `ALLOW_DEPLOY=true`.                                                                               |
-| `domainFor`         | Where a stage is served: the domain for `prod`, `prN-<domain>` for a pull request, nowhere for anyone's own stage.                 |
-| `devConfigFor`      | A local stage's dev server on the `PORT` portless gives it; throws when there is none.                                             |
+| Export              | What it does                                                                                                                                                                           |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `createServer`      | A web app's server from its APIs and its cloud Backend: each `http` API at its path, each call checked with the sign-in service when the app has auth, everything else TanStack Start. |
+| `webServer`         | One fetch handler: `/rpc` goes to the app's API, everything else to TanStack Start; a Cloudflare Worker's default export as it is.                                                     |
+| `isDeployedStage`   | Whether an alchemy stage reaches the world: `prod` or a pull request's `prN`.                                                                                                          |
+| `assertStageIsSafe` | Refuses a deployed stage unless `ALLOW_DEPLOY=true`.                                                                                                                                   |
+| `domainFor`         | Where a stage is served: the domain for `prod`, `prN-<domain>` for a pull request, nowhere for anyone's own stage.                                                                     |
+| `devConfigFor`      | A local stage's dev server on the `PORT` portless gives it; throws when there is none.                                                                                                 |
 
 ## Usage
 
-### A TanStack Start app that is also a PWA
+### A web app from one config
 
-The root route comes from `webRoot`; adding `pwaRoot()` to its plugins and `pwa()` to the Vite plugins makes the app a PWA. From Ledger's `src/routes/__root.tsx` and `vite.config.ts`.
+`app.ts` makes the app once; the root route and the Worker come from it. From Ledger's `src/app.ts`, `src/routes/__root.tsx` and `src/worker.ts`.
 
 ```tsx
-// src/routes/__root.tsx
-export const Route = createRootRoute(
-  webRoot({
-    title: 'Ledger',
-    stylesheet: appCss, // import appCss from '../styles.css?url'
-    theme: appTheme, // createTheme({ cookieDomain })
-    plugins: [pwaRoot({ installTitle: 'Install Ledger' })],
-  }),
-);
+// src/app.ts
+import { createApp } from '@kstackz/web-platform';
+export const app = createApp({
+  name: 'ledger',
+  title: 'Ledger',
+  description: 'Write down what you spend and earn, and see where it goes.',
+  mark: createElement(LedgerMark),
+  apis, // { ledger: Api.http(LedgerApi, { path: '/rpc' }) }
+  device, // every API's handlers on the device's Storage
+  cache: ledgerCache,
+  auth: {
+    url: AUTH_URL,
+    session: ledgerSession, // defineSession(apis, ...)
+    presets: [{ email: 'ada@example.com', name: 'Ada Lovelace' }],
+  },
+  theme: { cookieDomain },
+  pwa: { installTitle: 'Install Ledger' },
+});
+export const { SignedIn, useAccounts, useGate, theme: appTheme } = app;
 
+// src/routes/__root.tsx
+export const Route = createRootRoute(app.root({ stylesheet: appCss }));
+
+// src/worker.ts
+import { createServer } from '@kstackz/web-platform/server';
+export default createServer({
+  apis,
+  backend: (env: WorkerEnv) => ({
+    ledger: ledgerBackend.pipe(Layer.provide(tableCloud(env.DB))),
+  }),
+  auth: { url: AUTH_URL, resource: LEDGER_RESOURCE },
+}) satisfies ExportedHandler<WorkerEnv>;
+```
+
+- `app.root` is the root route: the document in the Theme, the PWA's head and prompts, and the named sign-in dialog when there is a device Backend.
+- `SignedIn` renders its children while an Account is open, and otherwise the Gate Screens or Account Lost. Everything inside remounts on an Account Switch.
+- The Host is made the first time anything asks, so `app.ts` loads on the server too. The device Backend's code loads the first time someone chooses it; `?backend=device` in the address starts on it.
+- `createServer` serves each `http` API at its path and everything else from TanStack Start. Point `tanstackStart({ server: { entry } })` at this file.
+- With `auth`, each call is checked by auth-toolkit's `authz.cloud` for a bearer token or the sign-in cookie, and refreshed cookies go back on the answer. `resource` lets a phone's Access Token in too.
+
+### Building the PWA
+
+`createApp` adds the PWA to the root route; `pwa()` in the Vite plugins builds its worker and manifest. From Ledger's `vite.config.ts`.
+
+```ts
 // vite.config.ts
 ssr: { noExternal: ['@kstackz/web-platform'] },
 plugins: [
@@ -435,37 +496,9 @@ plugins: [
 ],
 ```
 
-- Without `pwaRoot()` and `pwa()` the same root route serves a plain web app: no service worker, manifest or Update Prompt.
 - `pwa()` must come after `tanstackStart()`, because the worker builds in a post `buildApp` hook that runs after prerendering; the wrong order throws at config time. When `/_shell` or `/offline` is missing from the build, the build warns and prints the exact Start options.
 - The app writes its own `/offline` route; the worker redirects there as `/offline?from=<page>`, so "Try again" should only go back to a same-origin `from`.
 - The build writes `sw.js`, `manifest.webmanifest`, `_shell.html`, `offline.html` and a `_headers` block with `Cache-Control: no-cache` for the worker and the manifest. The worker entry is the app's `src/sw.ts` if it has one, or a built-in one.
 - In `vite dev` the worker is off unless `pwa({ dev: true })`. `pwa({ enabled: false })` builds the Kill Switch.
 - The `app` preset (the default) answers any route offline from the App Shell; `content` saves visited pages and sends unvisited ones to the Offline Fallback. Paths under `neverCache` (default `/api/auth/`), non-GET requests and `navigation.denylist` never reach the caches.
 - While an update waits, the App Shell of the active build answers navigations, so every page stays on one Build ID until the user accepts ([ADR 0006](./docs/adr/0006-pending-update-pins-navigations-to-the-active-build.md)).
-
-### The Worker entry
-
-One fetch handler serves the app's pages and its `/rpc` API: the Backend on the cloud versions of its services, answered by rpc-toolkit's `Rpc.http.server` with auth-toolkit's guard. From Ledger's `src/worker.ts`.
-
-```ts
-// src/worker.ts
-export default webServer<WorkerEnv>({
-  rpc: (request, env) =>
-    Rpc.http.server(
-      LedgerApi,
-      ledgerBackend.pipe(
-        Layer.provide([
-          tableCloud(env.DB), // the ledger table in D1
-          authz.cloud({ authWorkerUrl: AUTH_URL, resource: LEDGER_RESOURCE }),
-        ]),
-      ),
-      { wrap: authz.cookies }, // refreshed sign-in cookies go back on the answer
-    )(request),
-}) satisfies ExportedHandler<WorkerEnv>;
-```
-
-- `/rpc` and `/rpc/` go to `rpc`; every other path goes to TanStack Start's server entry. Point `tanstackStart({ server: { entry } })` at this file.
-- `rpc` is any `(request, env) => Promise<Response>`; `Rpc.http.server` answers only POST (405 otherwise) and speaks NDJSON, the way `Rpc.http.client` calls it.
-- The services Layer is built fresh for each request and lives as long as its response, including a streamed one, so whatever a request opens ends with it.
-- The caller is resolved by auth-toolkit from a bearer token or the sign-in cookie; here `authz.cloud` checks both against the sign-in service.
-- It uses plain `Request` and `Response`, so it runs on Cloudflare as anywhere that calls `fetch(request, env)`.

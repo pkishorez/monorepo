@@ -3,8 +3,8 @@ import { Button } from '@kstackz/web-platform/components/button';
 import { Inbox, Pencil, X } from '@kstackz/web-platform/components/lucide';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
-import { keys, useCommand } from '@ledger/core/app/commands';
-import { useMoney, useWrites } from '@ledger/core/app/session';
+import { keys, useCommand } from '@ledger/core/commands';
+import { useMoney, useWrites } from '@ledger/core/session';
 import { byDay, dayName, type Entry, signed } from '@ledger/core/model';
 import { useOpenAccount } from '../../sheets/accounts/index.ts';
 import {
@@ -14,7 +14,7 @@ import {
   narrowing,
   shownBy,
   useLookup,
-} from '@ledger/core/app/places';
+} from '@ledger/core/places';
 import { Amount, EntryRow, scrollMarked } from '../../parts/index.ts';
 import { SwipeRow } from '@kstackz/web-platform/recipes/swipe-row';
 import { useSettings } from '../../../app.ts';

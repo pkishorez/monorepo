@@ -255,6 +255,9 @@
         },
         "src/recipes/pages": {
           "exposed": true
+        },
+        "src/recipes/gate-screens": {
+          "exposed": true
         }
       },
       "moduleGraphs": {
@@ -306,17 +309,39 @@
           }
         }
       }
+    },
+    "app": {
+      "paths": ["src/app"],
+      "description": "The Expo Platform's door: createApp turns one config into a native app, the phone as its Host, the Gate's screens and the named sign-in dialog, on the Platform Toolkit.",
+      "moduleGraphs": {
+        "app": {
+          "description": "index.ts is the door; app.tsx assembles the app over host.ts.",
+          "path": "src/app",
+          "modules": {
+            "index.ts": {
+              "exposed": true
+            },
+            "app.tsx": {},
+            "host.ts": {}
+          },
+          "rules": {
+            "index.ts": ["app.tsx", "host.ts"],
+            "app.tsx": ["host.ts"]
+          }
+        }
+      }
     }
   },
   "layerGraphs": {
     "expo-platform": {
-      "description": "Recipes stand on components, input and feedback; components stand on theme, and on input for a row that scrolls sideways; theme, feedback and input stand alone.",
+      "description": "The app door stands on the recipes; recipes stand on components, input and feedback; components stand on theme, and on input for a row that scrolls sideways; theme, feedback and input stand alone.",
       "rules": {
         "recipes": ["components", "input", "feedback"],
         "components": ["theme", "input"],
         "input": [],
         "feedback": [],
-        "theme": []
+        "theme": [],
+        "app": ["recipes"]
       }
     }
   }

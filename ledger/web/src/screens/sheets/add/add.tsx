@@ -7,9 +7,9 @@ import {
 import { Input } from '@kstackz/web-platform/components/input';
 import { useState } from 'react';
 import { BindingKeys } from '@kstackz/web-platform/recipes/key-bindings';
-import { keys, useCommand } from '@ledger/core/app/commands';
-import { useMoney, useWrites } from '@ledger/core/app/session';
-import { firstAccount, quickDays } from '@ledger/core/app/places';
+import { keys, useCommand } from '@ledger/core/commands';
+import { useMoney, useWrites } from '@ledger/core/session';
+import { firstAccount, quickDays } from '@ledger/core/places';
 import { centsOf, money as format, today, type Way } from '@ledger/core/model';
 import { AccountIcon, CategoryIcon, Choice } from '../../parts/index.ts';
 

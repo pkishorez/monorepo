@@ -10,8 +10,8 @@ import {
 import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 import { BindingKeys } from '@kstackz/web-platform/recipes/key-bindings';
-import { keys, useCommand } from '@ledger/core/app/commands';
-import { useMoney, useWrites } from '@ledger/core/app/session';
+import { keys, useCommand } from '@ledger/core/commands';
+import { useMoney, useWrites } from '@ledger/core/session';
 import { centsOf, dayName, type Entry, today } from '@ledger/core/model';
 import {
   AccountIcon,
@@ -19,11 +19,7 @@ import {
   CategoryIcon,
   Choice,
 } from '../../parts/index.ts';
-import {
-  type EntriesSearch,
-  entryAt,
-  narrowing,
-} from '@ledger/core/app/places';
+import { type EntriesSearch, entryAt, narrowing } from '@ledger/core/places';
 
 /**
  * One Entry, open: every part of it changes where it stands, and saves as

@@ -5,7 +5,7 @@ import { Choice } from '@kstackz/expo-platform/components/choice';
 import { Dialog } from '@kstackz/expo-platform/components/dialog';
 import { Switch } from '@kstackz/expo-platform/components/switch';
 import { Text } from '@kstackz/expo-platform/components/text';
-import { useMoney, useUser, useWrites } from '@ledger/core/app/session';
+import { useMoney, useUser, useWrites } from '@ledger/core/session';
 import { CURRENCIES } from '@ledger/core/model';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { useState } from 'react';

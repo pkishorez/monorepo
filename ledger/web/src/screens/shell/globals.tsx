@@ -1,6 +1,6 @@
 import { useAppShell } from '@kstackz/web-platform/recipes/frame';
 import { useNavigate } from '@tanstack/react-router';
-import { keys, useCommand } from '@ledger/core/app/commands';
+import { keys, useCommand } from '@ledger/core/commands';
 import { appTheme, useGate } from '../../app.ts';
 
 /**

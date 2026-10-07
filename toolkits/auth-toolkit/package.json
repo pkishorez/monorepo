@@ -84,11 +84,9 @@
     "@tanstack/react-query": "catalog:",
     "@tanstack/react-router": "catalog:",
     "@tanstack/react-start": "catalog:",
-    "@xstate/effect": "catalog:",
     "better-auth": "catalog:",
     "drizzle-orm": "catalog:",
     "use-sync-external-store": "catalog:",
-    "xstate": "catalog:",
     "zustand": "catalog:"
   },
   "peerDependencies": {

@@ -1,0 +1,74 @@
+{
+  "$schema": "../../devtools/laymos/schema.json",
+  "sourceRoots": ["src"],
+  "ignoredPaths": [],
+  "layers": {
+    "door": {
+      "paths": ["src/index.ts"],
+      "description": "The one door: createApp, the APIs, the Session, the Host a Platform gives, and the Gate for the unusual app.",
+      "modules": {
+        "src/index.ts": {
+          "exposed": true
+        }
+      }
+    },
+    "app": {
+      "paths": ["src/app"],
+      "description": "createApp: an app's APIs on the cloud or the device Backend, its cache, and, with auth, the Gate and one Session per active Account, given to React through SignedIn.",
+      "modules": {
+        "src/app": {
+          "exposed": true
+        }
+      }
+    },
+    "gate": {
+      "paths": ["src/gate"],
+      "description": "The Gate: sign-in on one device for one app, as one XState machine on a Backend. Open First, Account Lost, the Account Switch across tabs, and each Session's status.",
+      "modules": {
+        "src/gate": {
+          "exposed": true
+        }
+      }
+    },
+    "session": {
+      "paths": ["src/session"],
+      "description": "One Account's Session: defineSession, opening it over every API signed as the Account with a Std Sync named for the user, its status, and closing it.",
+      "modules": {
+        "src/session": {
+          "exposed": true
+        }
+      }
+    },
+    "apis": {
+      "paths": ["src/apis"],
+      "description": "An app's named APIs: a group and its Transport, the client of each, and how a call reaches it on the cloud or in this process.",
+      "modules": {
+        "src/apis": {
+          "exposed": true
+        }
+      }
+    },
+    "host": {
+      "paths": ["src/host"],
+      "description": "What a Platform gives about where an app runs: its Storage, cloud address and Sign-in, lifecycle and tabs; the Backends; and a Host in memory for tests.",
+      "modules": {
+        "src/host": {
+          "exposed": true
+        }
+      }
+    }
+  },
+  "layerGraphs": {
+    "platform-toolkit": {
+      "description": "Top-down: the door over createApp; createApp runs the Gate and opens Sessions over the APIs; everything stands on the Host.",
+      "rules": {
+        "door": ["app", "gate", "session", "apis", "host"],
+        "app": ["gate", "session", "apis", "host"],
+        "gate": ["session", "host"],
+        "session": ["apis"],
+        "apis": [],
+        "host": []
+      }
+    }
+  }
+}

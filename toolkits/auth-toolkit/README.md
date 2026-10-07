@@ -17,11 +17,12 @@ sides import: `Authz`, built on rpc-toolkit's `Rpc.middleware` (and
 `AuthzHttp` on `HttpApi.middleware`). `server` is its half on a Backend:
 `authz.layer` checks every guarded call with a Resolver Service whose
 `device` version reads a Name Token and whose `cloud` version asks the Auth
-Worker. `client` is the app's half: `createApp` takes a Platform and the
-app's Api, runs sign-in with the Gate, and hands each active Account's
-Session a signed `rpc` client and a `sync` named for the user. The Sign-in
-mechanisms (`signIn.named`, `cookie`, `oauth`, `deviceCode`) sit
-underneath for the unusual app.
+Worker. `client` is the app's half on the device Backend: `SignIn`, the
+Service every Sign-in mechanism provides, and `signIn.named`, which signs in
+by name with a Name Token. Running sign-in on a device (the Gate, each
+Account's Session, `createApp`) is
+[`@kstackz/platform-toolkit`](../platform-toolkit)'s
+([ADR 0006](../../docs/adr/0006-platforms-may-break-toolkits-keep-what-persists.md)).
 
 `server/cloud`, `client/web`, `client/expo` and `client/cli` are doors of
 their own because they bring better-auth's server code, better-auth's
@@ -45,9 +46,9 @@ pnpm add @kstackz/auth-toolkit
 Peer dependencies, all optional; install the ones your doors need:
 
 - `effect`: `guard`, `server`, `client` and `client/cli` are Effect Layers and Services.
-- `@kstackz/rpc-toolkit`: the guard is its Middleware, and `createApp` calls the Api with its `http` and `inProcess` Transports.
-- `@kstackz/std-toolkit`: `createApp` keeps a user's Std Sync and the Gate's memory in its Sync and Table adapters.
-- `react`: the Auth Worker's own pages are React, and so are the `SignedIn`, `SignedOut` and hooks `createApp` returns.
+- `@kstackz/rpc-toolkit`: the guard is its Middleware.
+- `@kstackz/std-toolkit`: `signIn.named` keeps Named Accounts in its Table adapters.
+- `react`: the Auth Worker's own pages are React.
 - `better-sqlite3`: `@kstackz/auth-toolkit/worker/memory` runs SQLite in-process for tests.
 - `alchemy`: `@kstackz/auth-toolkit/worker/alchemy` declares the D1 resource in `alchemy.run.ts`.
 - `expo-auth-session`: `@kstackz/auth-toolkit/client/expo` runs the authorization in the system sign-in sheet, with PKCE and a checked `state`.
@@ -114,22 +115,19 @@ Peer dependencies, all optional; install the ones your doors need:
 
 ### `@kstackz/auth-toolkit/client`
 
-| Export               | What it does                                                                                   |
-| -------------------- | ---------------------------------------------------------------------------------------------- |
-| `createApp`          | An app on a Platform and an Api: the Gate, one Session per active Account, and its React side. |
-| `signIn.named`       | Sign-in by name on the device Backend, each Account holding a Name Token.                      |
-| `SignIn`             | The Service every Sign-in mechanism provides: list, sign in, switch, sign out.                 |
-| `Unreachable`        | Error when the Auth Worker could not be reached or refused.                                    |
-| `memoryPlatform`     | A Platform kept in memory, for tests.                                                          |
-| `createGate`         | The Gate on its own, underneath `createApp`.                                                   |
-| `gateReact`          | A Gate's `SignedIn`, `SignedOut` and hooks.                                                    |
-| `Backend`            | The Schema of the two Backends, `cloud` and `device`.                                          |
-| `backendNamed`       | The Backend a stored or launched name means, including the former `remote` and `local`.        |
-| `nameToken`          | Makes and reads a Name Token.                                                                  |
-| `namedUser`          | The Named Account an email names.                                                              |
-| `namedChooser`       | A `choose` for `signIn.named` that a dialog answers.                                           |
-| `namedAccountsTable` | The StdTable Named Accounts are kept in.                                                       |
-| `keepSyncs`          | Deletes every user's Std Sync on the device but the ones still signed in.                      |
+| Export               | What it does                                                                   |
+| -------------------- | ------------------------------------------------------------------------------ |
+| `signIn.named`       | Sign-in by name on the device Backend, each Account holding a Name Token.      |
+| `SignIn`             | The Service every Sign-in mechanism provides: list, sign in, switch, sign out. |
+| `Unreachable`        | Error when the Auth Worker could not be reached or refused.                    |
+| `nameToken`          | Makes and reads a Name Token.                                                  |
+| `namedUser`          | The Named Account an email names.                                              |
+| `namedChooser`       | A `choose` for `signIn.named` that a dialog answers.                           |
+| `namedAccountsTable` | The StdTable Named Accounts are kept in.                                       |
+
+The Gate, `createApp`, `memoryHost` (formerly `memoryPlatform`), `Backend`,
+`backendNamed` and `keepSyncs` are in
+[`@kstackz/platform-toolkit`](../platform-toolkit).
 
 ### `@kstackz/auth-toolkit/client/web`
 
@@ -209,8 +207,8 @@ export const authWorker = await Cloudflare.Worker('auth-worker', {
 ### Sign in to it
 
 The contract guards its calls; the cloud Backend serves them over HTTP with
-the cloud Resolver; the client is one `createApp` on a Platform. Lifted from
-`src/client/app/tests/app.test.ts` and `stories/effect-rpc`.
+the cloud Resolver; a Sign-in is a Layer of `SignIn`. Lifted from
+`stories/effect-rpc` and `src/client/sign-in/named/tests/named.test.ts`.
 
 ```ts
 // api.ts, shared by both sides
@@ -233,25 +231,34 @@ const rpc = Rpc.http.server(
   { wrap: authz.cookies },
 );
 
-// app.ts, the client
-import { createApp, signIn } from '@kstackz/auth-toolkit/client';
-export const app = createApp({
-  platform: () => myPlatform, // storage, cloud.signIn: cookie(...) from client/web, lifecycle
-  api: Api,
-  // The device Backend, loaded the first time someone chooses it.
-  device: async () =>
-    Handlers.pipe(Layer.merge(authz.layer), Layer.provide(authz.device)),
-  session: ({ account, rpc, sync }) =>
-    Effect.succeed({ user: account.user, whoAmI: () => rpc.WhoAmI() }),
+// The device Backend: the same handlers, on the device Resolver.
+const device = Handlers.pipe(
+  Layer.merge(authz.layer),
+  Layer.provide(authz.device),
+);
+
+// The client: a Sign-in per Backend, each a Layer of SignIn.
+import { SignIn, signIn } from '@kstackz/auth-toolkit/client';
+import { cookie } from '@kstackz/auth-toolkit/client/web';
+const cloudSignIn = cookie({ authWorkerUrl: 'https://auth.example.com' });
+const deviceSignIn = signIn.named({
+  choose: Effect.succeed({ email: 'ada@demo' }),
 });
+const accounts = await Effect.runPromise(
+  Effect.gen(function* () {
+    const accounts = yield* SignIn;
+    yield* accounts.signIn();
+    return yield* accounts.list; // each with its user, token and active
+  }).pipe(Effect.provide(deviceSignIn)),
+);
 ```
 
 - `Authz.guard()` alone requires a caller; `Authz.guard(Authz.policy(invariant, reason))` also authorizes. The nearest declaration wins between an RPC and its group.
 - No caller fails `Authz.Unauthenticated`, a refused policy `Authz.Forbidden`, an unreachable Auth Worker `Authz.Unavailable`. Tests replace only `Authz.Resolver`.
 - `authz.cloud` gets `resource` to accept Access Tokens too, which makes the Backend a Resource Server (phone apps and MCP clients call it so).
-- `createApp` calls the Api at `platform.cloud.url + '/rpc'` on the cloud Backend, never sending the cookie, and in-process on the device Backend, where Users sign in by name. Each Session's `rpc` is signed with its Account's token, waiting for it while the Account opened before the Backend answered.
-- A Session's `sync` is named for the user; on the cloud Backend it is kept on the Platform and deleted once the user signs out, on the device Backend it lives in memory.
-- On a phone, `cloud.signIn` is `oauth({ authWorkerUrl, clientId, redirectUri, resource })` from `@kstackz/auth-toolkit/client/expo`.
+- A Named Account's token is a Name Token, which `authz.device` reads and no one verifies. Named Accounts are kept in `namedAccountsTable`, in memory unless `storage` is given.
+- On a phone, the cloud Sign-in is `oauth({ authWorkerUrl, clientId, redirectUri, resource })` from `@kstackz/auth-toolkit/client/expo`.
+- An app does not run these itself: the Web and Expo Platforms give them to [`@kstackz/platform-toolkit`](../platform-toolkit)'s Gate, which signs every API call with the active Account's token.
 
 A CLI signs in with `deviceCode({ authWorkerUrl, app, version })` from
 `@kstackz/auth-toolkit/client/cli`: `login` prints a code and URL, opens

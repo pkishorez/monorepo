@@ -1,5 +1,5 @@
 import { toast } from '@kstackz/expo-platform/components/toast';
-import { useWrites } from '@ledger/core/app/session';
+import { useWrites } from '@ledger/core/session';
 import type { Entry } from '@ledger/core/model';
 
 /**

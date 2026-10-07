@@ -4,7 +4,7 @@ import {
   GESTURE_GUIDE,
   type GestureGroup,
   said,
-} from '@ledger/core/app/commands';
+} from '@ledger/core/commands';
 import { useSettings } from '../../../app.ts';
 import { GestureFigure } from './figure.tsx';
 import { Row } from './rows.tsx';

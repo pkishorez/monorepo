@@ -4,9 +4,9 @@ import {
   type Choice,
   ThumbPicker,
 } from '@kstackz/expo-platform/recipes/thumb-picker';
-import { type ActionId, keys, quietly } from '@ledger/core/app/commands';
-import { PLACES, type Stop, stopsFrom } from '@ledger/core/app/places';
-import { useMoney } from '@ledger/core/app/session';
+import { type ActionId, keys, quietly } from '@ledger/core/commands';
+import { PLACES, type Stop, stopsFrom } from '@ledger/core/places';
+import { useMoney } from '@ledger/core/session';
 import { useGlobalSearchParams, usePathname, useRouter } from 'expo-router';
 import { type ReactNode, useMemo, useRef } from 'react';
 import { useFeel, useSettings } from '../../ledger';

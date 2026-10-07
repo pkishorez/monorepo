@@ -13,7 +13,7 @@
     },
     "worker": {
       "paths": ["src/worker.ts", "src/tests"],
-      "description": "The Worker: /rpc is core's Backend on its cloud services, the D1 database and the sign-in service; everything else is the app",
+      "description": "The Worker: the Web Platform's server, answering core's APIs on their cloud services, the D1 database and the sign-in service; everything else is the app",
       "modules": {
         "src/worker.ts": {
           "exposed": true
@@ -76,18 +76,9 @@
     },
     "app": {
       "paths": ["src/app.ts"],
-      "description": "Ledger in the browser, made once from core on the browser's Platform, with the theme: what every screen uses for sign-in, the session and Settings",
+      "description": "Ledger in the browser, made once from core's APIs, device Backend, Session and cache by the Web Platform's createApp: what every screen uses for sign-in, the Session and Settings, and the root route",
       "modules": {
         "src/app.ts": {
-          "exposed": true
-        }
-      }
-    },
-    "platform": {
-      "paths": ["src/platform.ts"],
-      "description": "The browser as Ledger's Platform for auth-toolkit's createApp: tables and Std Sync in IndexedDB, cookie sign-in at the sign-in service, the API at this origin, the window's network and visibility, and other tabs over a BroadcastChannel",
-      "modules": {
-        "src/platform.ts": {
           "exposed": true
         }
       }
@@ -100,19 +91,28 @@
           "exposed": true
         }
       }
+    },
+    "mark": {
+      "paths": ["src/mark.tsx"],
+      "description": "Ledger's mark: three bars, the last one rising",
+      "modules": {
+        "src/mark.tsx": {
+          "exposed": true
+        }
+      }
     }
   },
   "layerGraphs": {
     "ledger-web": {
-      "description": "Read top-down: the routes open the screens, which use Ledger from app.ts, made on the browser's Platform; the Worker runs core's Backend on its cloud services, beside the infra. Everything shared with the Expo app is in @ledger/core",
+      "description": "Read top-down: the routes open the screens, which use Ledger from app.ts, made by the Web Platform; both draw Ledger's mark. The Worker runs core's Backend on its cloud services, beside the infra. Everything shared with the Expo app is in @ledger/core",
       "rules": {
         "routes": ["screens", "app"],
         "worker": ["infra", "stage"],
         "infra": [],
-        "screens": ["app"],
-        "app": ["platform", "stage"],
-        "platform": [],
-        "stage": []
+        "screens": ["app", "mark"],
+        "app": ["mark", "stage"],
+        "stage": [],
+        "mark": []
       }
     }
   }
