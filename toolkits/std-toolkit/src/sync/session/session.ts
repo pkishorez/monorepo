@@ -1,5 +1,5 @@
 import { Cause, Duration, Effect, Stream } from 'effect';
-import type { Leadership } from '../platform/contract/index.js';
+import type { Leadership } from '../store/contract/index.js';
 import {
   settledCursor,
   type StrategyYield,

@@ -1,5 +1,5 @@
 import { createLedger } from '@ledger/core/app';
-import { webPlatform } from '@kstackz/web-toolkit/client';
+import { webPlatform } from './platform.ts';
 import { createTheme } from '@kstackz/web-toolkit/theme';
 import { AUTH_URL } from './stage.ts';
 

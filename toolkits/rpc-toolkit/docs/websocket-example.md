@@ -1,4 +1,4 @@
-# Cannotation over hibernating WebSocket RPC
+# Middleware over the websocket Transport
 
 Keep the contract, server implementation, and browser implementation in separate
 files. The application supplies its token verifier; this example does not treat
@@ -7,28 +7,29 @@ client-supplied identity or roles as trusted authorization.
 ```ts
 // contract.ts — imported by the server and browser
 import { Schema } from 'effect';
-import { Rpc, RpcGroup } from 'effect/rpc';
-import { Cannotation } from '@kstackz/rpc-toolkit/rpc/cannotation';
+import { Rpc as EffectRpc, RpcGroup } from 'effect/rpc';
+import { Rpc } from '@kstackz/rpc-toolkit/rpc';
 
 export class Forbidden extends Schema.Error<Forbidden>('example/Forbidden')({
   _tag: Schema.tag('Forbidden'),
 }) {}
 
-export const Access = Cannotation.make<boolean>()('example/Access', {
+export const Access = Rpc.middleware<boolean>()('example/Access', {
   error: Forbidden,
   client: true,
 });
 
 export const Counter = Access.with(true)(
-  RpcGroup.make(Rpc.make('watch', { success: Schema.Number, stream: true })),
+  RpcGroup.make(
+    EffectRpc.make('watch', { success: Schema.Number, stream: true }),
+  ),
 );
 ```
 
 ```ts
 // server.ts — server only
 import { Effect, Layer, Option, Schema, Stream } from 'effect';
-import { InvocationKind } from '@kstackz/rpc-toolkit/rpc/invocation';
-import { StreamCheckpoint } from '@kstackz/rpc-toolkit/rpc/cloudflare/hibernating-rpc';
+import { Rpc } from '@kstackz/rpc-toolkit/rpc';
 import { Access, Counter, Forbidden } from './contract.js';
 
 export const makeHandlers = (options: {
@@ -40,7 +41,7 @@ export const makeHandlers = (options: {
       Effect.gen(function* () {
         // Revalidate on both fresh calls and replay. Do not cache permissions here.
         yield* options.authorize(headers.authorization);
-        if ((yield* InvocationKind) === 'fresh') {
+        if ((yield* Rpc.websocket.InvocationKind) === 'fresh') {
           yield* options.checkRateLimit(headers.authorization);
         }
       }),
@@ -49,7 +50,7 @@ export const makeHandlers = (options: {
       watch: () =>
         Stream.unwrap(
           Effect.gen(function* () {
-            const checkpoint = yield* StreamCheckpoint(Schema.Number);
+            const checkpoint = yield* Rpc.websocket.checkpoint(Schema.Number);
             let cursor = Option.getOrElse(
               yield* checkpoint.get().pipe(Effect.orDie),
               () => 0,
@@ -74,7 +75,7 @@ With Alchemy, declare the Worker and its Durable Object together. Here,
 ```ts
 // counter-worker.ts — default export required by Alchemy
 import { Effect } from 'effect';
-import { DurableRpcWorker } from '@kstackz/rpc-toolkit/rpc/cloudflare/alchemy/durable-rpc-worker';
+import { DurableRpcWorker } from '@kstackz/rpc-toolkit/alchemy';
 import { Counter } from './contract.js';
 import { makeHandlers } from './server.js';
 import { authorization } from './authorization.js';
@@ -94,8 +95,8 @@ export default class CounterWorker extends DurableRpcWorker<CounterWorker>()(
 ```
 
 `DurableRpcWorker` creates the forwarding Worker and Durable Object, and wires
-the socket callbacks. JSON serialization is its default, matching the client
-below. If your authorization implementation reads Effect `Config`, also supply
+the socket callbacks. The server and client both speak JSON, so there is no
+serialization to match. If your authorization implementation reads Effect `Config`, also supply
 an `init` Effect that reads those settings so Alchemy discovers their bindings;
 see the existing [bank Worker](../../../apps/docs/src/infra/bank/sqlite-do.ts)
 for that pattern.
@@ -129,24 +130,19 @@ Without Alchemy, build the runtime directly instead:
 
 ```ts
 // durable-server.ts — host composition without Alchemy
-import { Effect } from 'effect';
-import { RpcSerialization } from 'effect/rpc';
-import {
-  fromDurableObjectState,
-  makeHibernatingWebSocketRpc,
-} from '@kstackz/rpc-toolkit/rpc/cloudflare/hibernating-rpc';
+import { Rpc } from '@kstackz/rpc-toolkit/rpc';
 import { Counter } from './contract.js';
 import { makeHandlers } from './server.js';
 
 export const makeServer = (
-  state: Parameters<typeof fromDurableObjectState>[0],
+  state: Parameters<typeof Rpc.websocket.fromDurableObjectState>[0],
   authorization: Parameters<typeof makeHandlers>[0],
 ) =>
-  makeHibernatingWebSocketRpc({
-    ...fromDurableObjectState(state),
-    group: Counter,
-    layer: makeHandlers(authorization),
-  }).pipe(Effect.provide(RpcSerialization.layerJson));
+  Rpc.websocket.server(
+    Counter,
+    makeHandlers(authorization),
+    Rpc.websocket.fromDurableObjectState(state),
+  );
 ```
 
 The host wires `accept`, `message`, and `close` to its fetch, WebSocket message,
@@ -156,11 +152,8 @@ and WebSocket close callbacks, running them through its Effect integration.
 // client.ts — browser only
 import { Effect, Layer, Stream } from 'effect';
 import { Headers } from 'effect/http';
-import { RpcClient, RpcSerialization } from 'effect/rpc';
-import {
-  keepSubscribed,
-  layerWebSocketProtocol,
-} from '@kstackz/rpc-toolkit/rpc/websocket-client';
+import { RpcClient } from 'effect/rpc';
+import { Rpc } from '@kstackz/rpc-toolkit/rpc';
 import { Access, Counter } from './contract.js';
 
 export const watchCounter = (
@@ -170,17 +163,14 @@ export const watchCounter = (
 ) =>
   Effect.gen(function* () {
     const client = yield* RpcClient.make(Counter);
-    yield* keepSubscribed(() => client.watch()).pipe(
-      Stream.runForEach((value) => Effect.sync(() => onValue(value))),
-    );
+    yield* Rpc.websocket
+      .keepSubscribed(() => client.watch())
+      .pipe(Stream.runForEach((value) => Effect.sync(() => onValue(value))));
   }).pipe(
     Effect.provide(
       Layer.merge(
-        layerWebSocketProtocol({
-          url,
-          serialization: RpcSerialization.layerJson,
-        }),
-        Access.clientLayer(({ request, next }) =>
+        Rpc.websocket.client(Counter, { url }),
+        Access.client(({ request, next }) =>
           next({
             ...request,
             headers: Headers.fromInput({ authorization: getToken() }),

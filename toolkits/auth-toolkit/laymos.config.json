@@ -3,33 +3,33 @@
   "sourceRoots": ["src"],
   "storiesPath": "stories",
   "ignoredPaths": [
-    "src/auth-worker/database/sqlite/migration/migrations",
-    "src/auth-worker/app/routeTree.gen.ts",
-    "src/auth-worker/app/types.d.ts",
-    "src/auth-worker/ui/screens/consent-screen.fixture.tsx",
-    "src/auth-worker/ui/screens/device-screen.fixture.tsx",
-    "src/auth-worker/ui/screens/fixtures",
-    "src/auth-worker/ui/screens/home-screen.fixture.tsx",
-    "src/auth-worker/ui/screens/login-screen.fixture.tsx",
-    "src/auth-worker/ui/screens/not-found-screen.fixture.tsx"
+    "src/worker/database/sqlite/migration/migrations",
+    "src/worker/app/routeTree.gen.ts",
+    "src/worker/app/types.d.ts",
+    "src/worker/ui/screens/consent-screen.fixture.tsx",
+    "src/worker/ui/screens/device-screen.fixture.tsx",
+    "src/worker/ui/screens/fixtures",
+    "src/worker/ui/screens/home-screen.fixture.tsx",
+    "src/worker/ui/screens/login-screen.fixture.tsx",
+    "src/worker/ui/screens/not-found-screen.fixture.tsx"
   ],
   "layers": {
-    "auth-worker-contract": {
-      "paths": ["src/auth-worker-contract"],
-      "description": "The Auth Worker Contract: what every program may rely on without running the Auth Worker (API base path, issuer, JWKS URL, what an Access Token says, the User, and the PagesContext the Worker hands its pages). Plain TypeScript, no dependencies.",
+    "contract": {
+      "paths": ["src/contract"],
+      "description": "The Auth Worker Contract: what every program may rely on without running the Auth Worker (API base path, issuer, JWKS URL, what an Access Token says, the User, the Name Token, and the PagesContext the Worker hands its pages). Plain TypeScript, no dependencies.",
       "modules": {
-        "src/auth-worker-contract": {
+        "src/contract": {
           "exposed": true
         }
       }
     },
     "database": {
-      "paths": ["src/auth-worker/database"],
+      "paths": ["src/worker/database"],
       "description": "Primary Database providers the consumer hands to the Auth Worker. A future non-SQLite dialect would be a second module graph here.",
       "moduleGraphs": {
         "sqlite": {
           "description": "D1 runtime database, D1 deployment resource, and memory database are independent doors built on separate private schema and migration modules.",
-          "path": "src/auth-worker/database/sqlite",
+          "path": "src/worker/database/sqlite",
           "modules": {
             "schema": {},
             "migration": {},
@@ -52,55 +52,55 @@
       }
     },
     "primitives": {
-      "paths": ["src/auth-worker/ui/components", "src/auth-worker/ui/lib"],
+      "paths": ["src/worker/ui/components", "src/worker/ui/lib"],
       "description": "The pages' own copies of the shadcn primitives and the class-name helper the screens are built from",
       "modules": {
-        "src/auth-worker/ui/components/alert-dialog.tsx": {
+        "src/worker/ui/components/alert-dialog.tsx": {
           "exposed": true
         },
-        "src/auth-worker/ui/components/avatar.tsx": {
+        "src/worker/ui/components/avatar.tsx": {
           "exposed": true
         },
-        "src/auth-worker/ui/components/badge.tsx": {
+        "src/worker/ui/components/badge.tsx": {
           "exposed": true
         },
-        "src/auth-worker/ui/components/button.tsx": {
+        "src/worker/ui/components/button.tsx": {
           "shared": true,
           "exposed": true
         },
-        "src/auth-worker/ui/components/dialog.tsx": {
+        "src/worker/ui/components/dialog.tsx": {
           "exposed": true
         },
-        "src/auth-worker/ui/components/dropdown-menu.tsx": {
+        "src/worker/ui/components/dropdown-menu.tsx": {
           "exposed": true
         },
-        "src/auth-worker/ui/components/google-button.tsx": {
+        "src/worker/ui/components/google-button.tsx": {
           "exposed": true
         },
-        "src/auth-worker/ui/components/input.tsx": {
+        "src/worker/ui/components/input.tsx": {
           "exposed": true
         },
-        "src/auth-worker/ui/components/label.tsx": {
+        "src/worker/ui/components/label.tsx": {
           "exposed": true
         },
-        "src/auth-worker/ui/components/sonner.tsx": {
+        "src/worker/ui/components/sonner.tsx": {
           "exposed": true
         },
-        "src/auth-worker/ui/components/spinner.tsx": {
+        "src/worker/ui/components/spinner.tsx": {
           "exposed": true
         },
-        "src/auth-worker/ui/lib/utils.ts": {
+        "src/worker/ui/lib/utils.ts": {
           "exposed": true
         }
       }
     },
     "theme": {
-      "paths": ["src/auth-worker/ui/theme"],
+      "paths": ["src/worker/ui/theme"],
       "description": "The pages' light and dark theme: one cookie the server reads before the first paint and the browser keeps in step",
       "moduleGraphs": {
         "theme": {
           "description": "createTheme is the browser's door; tanstack-start reads the theme cookie on the server.",
-          "path": "src/auth-worker/ui/theme",
+          "path": "src/worker/ui/theme",
           "modules": {
             "index.ts": {
               "exposed": true
@@ -133,12 +133,12 @@
       }
     },
     "screens": {
-      "paths": ["src/auth-worker/ui/screens"],
+      "paths": ["src/worker/ui/screens"],
       "description": "The Auth Worker's screens as pure views: state in, actions out",
       "moduleGraphs": {
         "auth-screens": {
           "description": "The Auth Worker's four screens (Home Page, Login Screen, Consent Screen, Device Screen) as pure views: state in, actions out, one frame, one loader, and one account switcher for the browser's Signed-in Accounts",
-          "path": "src/auth-worker/ui/screens",
+          "path": "src/worker/ui/screens",
           "modules": {
             "auth-screens": {
               "exposed": true
@@ -174,12 +174,12 @@
       }
     },
     "pages": {
-      "paths": ["src/auth-worker/pages"],
+      "paths": ["src/worker/pages"],
       "description": "What the Auth Worker's pages show: connects the Worker's data to the auth screens and owns no markup of its own.",
       "moduleGraphs": {
         "pages": {
           "description": "Four page doors (Home Page, Login Screen, Consent Screen, Device Screen) over one same-origin Better Auth API, the User's Sessions and Grants, the browser's Signed-in Accounts, and one rule for which screen a visitor may see.",
-          "path": "src/auth-worker/pages",
+          "path": "src/worker/pages",
           "modules": {
             "home": {
               "exposed": true
@@ -215,217 +215,171 @@
       }
     },
     "app": {
-      "paths": ["src/auth-worker/app"],
+      "paths": ["src/worker/app"],
       "description": "The pages app: a TanStack Start site whose routes render the pages, built by Vite and embedded into the worker door by scripts/bundle-app.mts",
       "modules": {
-        "src/auth-worker/app/server.ts": {
+        "src/worker/app/server.ts": {
           "exposed": true
         },
-        "src/auth-worker/app/router.tsx": {},
-        "src/auth-worker/app/routes/__root.tsx": {
+        "src/worker/app/router.tsx": {},
+        "src/worker/app/routes/__root.tsx": {
           "exposed": true
         },
-        "src/auth-worker/app/routes/page.tsx": {
+        "src/worker/app/routes/page.tsx": {
           "exposed": true
         },
-        "src/auth-worker/app/routes/login.tsx": {
+        "src/worker/app/routes/login.tsx": {
           "exposed": true
         },
-        "src/auth-worker/app/routes/consent.tsx": {
+        "src/worker/app/routes/consent.tsx": {
           "exposed": true
         },
-        "src/auth-worker/app/routes/device.tsx": {
+        "src/worker/app/routes/device.tsx": {
           "exposed": true
         },
-        "src/auth-worker/app/routes/error.tsx": {
+        "src/worker/app/routes/error.tsx": {
           "exposed": true
         }
       }
     },
     "worker": {
-      "paths": ["src/auth-worker/worker"],
-      "description": "createAuthWorker(config) assembles Better Auth over a consumer-provided Primary Database (Cookie Cache, Google, Admin, Device Login, optional Signed-in Accounts, Dash, Authorization Server Role, User Admission Policy, origins and cookies) and serves the pages app the built door embeds",
+      "paths": ["src/worker/worker"],
+      "description": "createAuthWorker(config) assembles Better Auth over a consumer-provided Primary Database (Cookie Cache, Google, Admin, Device Login, optional Signed-in Accounts, Dash, Authorization Server Role, User Admission Policy, origins and cookies), serves the pages app the built door embeds, and hands on the D1 provider",
       "modules": {
-        "src/auth-worker/worker": {
+        "src/worker/worker": {
           "exposed": true
         }
       }
     },
-    "vanilla": {
-      "paths": ["src/server/vanilla"],
-      "description": "Consumer Backend doors with no framework: Server-Side Verification of a Session, local verification of an Access Token, and the MCP Server door, all speaking one Principal",
-      "modules": {
-        "src/server/vanilla/principal": {
-          "shared": true,
-          "exposed": true
-        },
-        "src/server/vanilla/session": {
-          "exposed": true
-        },
-        "src/server/vanilla/access-token": {
-          "exposed": true
-        },
-        "src/server/vanilla/mcp": {
-          "exposed": true
-        }
-      }
-    },
-    "effect": {
-      "paths": ["src/server/effect"],
-      "description": "The vanilla doors lifted into Effect: one Current Auth that resolves a request to a Principal (its live Resolver, which asks the Auth Worker through better-auth, kept apart so a device-only backend never bundles it), and an Auth Cannotation per Sibling (RPC, HTTP API), each split into a browser-safe Declaration and its Server Implementation",
-      "modules": {
-        "src/server/effect/current-auth": {
-          "shared": true
-        },
-        "src/server/effect/resolver-live": {
-          "exposed": true
-        }
-      },
+    "guard": {
+      "paths": ["src/guard"],
+      "description": "The guard both sides of an API import: Authz (Effect RPC) and AuthzHttp (Effect HttpApi), built on rpc-toolkit's Middleware, with who called (Current), the Resolver Service, the policies and the three failures.",
       "moduleGraphs": {
-        "rpc": {
-          "description": "The RPC Auth Cannotation: a private Cannotation, the Declaration contract code imports, and the Server Implementation that verifies each call and relays refreshed cookies.",
-          "path": "src/server/effect/rpc",
-          "modules": {
-            "cannotation": {},
-            "declaration": {
-              "exposed": true
-            },
-            "server": {
-              "exposed": true
-            }
-          },
-          "rules": {
-            "declaration": ["cannotation"],
-            "server": ["cannotation", "declaration"]
-          }
-        },
-        "http-api": {
-          "description": "The HTTP API Auth Cannotation: a private Cannotation, the Declaration contract code imports, and the Server Implementation that verifies each request.",
-          "path": "src/server/effect/http-api",
-          "modules": {
-            "cannotation": {},
-            "declaration": {
-              "exposed": true
-            },
-            "server": {
-              "exposed": true
-            }
-          },
-          "rules": {
-            "declaration": ["cannotation"],
-            "server": ["cannotation", "declaration"]
-          }
-        }
-      }
-    },
-    "accounts": {
-      "paths": ["src/clients/auth"],
-      "description": "A First-Party app's Signed-in Accounts as one Effect service, Auth, with one target per platform: live against the Auth Worker in a browser, local with Local Accounts kept in a StdTable, and expo, where each User signs in as the app's OAuth client and keeps their own tokens on the phone; plus fetch signed as one account",
-      "moduleGraphs": {
-        "accounts": {
-          "description": "The Auth service and its targets. The platform-free door (index.ts) gathers the service, local and signed; live (better-auth's browser client) and expo are doors of their own, so a phone bundles none of the browser's code and the browser none of Expo's.",
-          "path": "src/clients/auth",
+        "guard": {
+          "description": "index.ts is the door; guard.ts assembles Authz and AuthzHttp from the two Middleware declarations (middleware.ts, also the server half's handle) and what they share (current.ts, principal.ts).",
+          "path": "src/guard",
           "modules": {
             "index.ts": {
               "exposed": true
             },
-            "expo": {
+            "guard.ts": {},
+            "middleware.ts": {
               "exposed": true
             },
-            "live": {
-              "exposed": true
-            },
-            "service": {},
-            "local": {},
-            "signed": {}
+            "current.ts": {},
+            "principal.ts": {}
           },
           "rules": {
-            "index.ts": ["service", "local", "signed"],
-            "expo": ["service"],
-            "live": ["service"],
-            "local": ["service"]
+            "index.ts": ["guard.ts", "current.ts", "principal.ts"],
+            "guard.ts": ["current.ts", "middleware.ts"],
+            "middleware.ts": ["current.ts"],
+            "current.ts": ["principal.ts"]
           }
         }
       }
     },
-    "client-app": {
-      "paths": ["src/clients/app"],
-      "description": "An app on the toolkits: createApp opens and closes the app's backend store and session store with the Gate, on the platform web-toolkit or expo-toolkit gives (AppPlatform), and deletes a signed-out user's copy (copyName)",
-      "modules": {
-        "src/clients/app": {
-          "exposed": true
-        }
-      }
-    },
-    "gate": {
-      "paths": ["src/clients/gate"],
-      "description": "The Gate: runs sign-in on one device for any app on any platform. It keeps the app on a Backend, holds the Backend Lifetime and the Active Account's Session Lifetime, opens a known account first and confirms it behind, remembers the Signed-in Accounts in a table of its own, stops at an Account Lost, and leaves Gate Notices. No platform code: the platform is handed in. react is its React side, the same on every platform.",
+    "server": {
+      "paths": ["src/server"],
+      "description": "The guard's server half for a Backend: authz.layer and authz.http check guarded calls with a Resolver Service whose device version (authz.device) reads a Name Token and whose cloud version (authz.cloud, its own door so a device never bundles better-auth) asks the sign-in service; plus the plain-TypeScript corners (verifyRequest, verifyAccessToken, the MCP Server door).",
       "moduleGraphs": {
-        "gate": {
-          "description": "gate.ts runs one Backend at a time and the machine on it, with the platform handed in; domain is the machine, the check and the services it asks; memory is the table the Gate remembers in; platform is what a platform hands in; react is SignedIn, SignedOut and the hooks.",
-          "path": "src/clients/gate",
+        "server": {
+          "description": "index.ts and cloud are the two doors; server.ts assembles authz from the authz parts; cloud adds the cloud Resolver and re-exports the plain corners it is built on.",
+          "path": "src/server",
           "modules": {
             "index.ts": {
               "exposed": true
             },
-            "react": {
+            "server.ts": {},
+            "authz": {},
+            "cloud": {
               "exposed": true
             },
-            "gate.ts": {},
-            "platform.ts": {},
-            "memory.ts": {},
-            "domain": {}
+            "plain/session": {},
+            "plain/access-token": {},
+            "plain/mcp": {}
           },
           "rules": {
-            "index.ts": ["gate.ts", "platform.ts", "memory.ts", "domain"],
-            "react": ["gate.ts", "domain"],
-            "gate.ts": ["domain", "platform.ts", "memory.ts"],
-            "platform.ts": ["domain", "memory.ts"],
-            "memory.ts": ["domain"]
+            "index.ts": ["server.ts"],
+            "server.ts": ["authz"],
+            "cloud": [
+              "server.ts",
+              "authz",
+              "plain/session",
+              "plain/access-token",
+              "plain/mcp"
+            ]
           }
         }
       }
     },
-    "cli": {
-      "paths": ["src/clients/cli"],
-      "description": "Effect-only: a First-Party CLI's Device Login, its Session Store, and the Session on every RPC call",
-      "modules": {
-        "src/clients/cli": {
-          "exposed": true
+    "client": {
+      "paths": ["src/client"],
+      "description": "An app's client: createApp on a Platform, the Gate that runs sign-in on one device and opens one Session per active Account, and the Sign-in mechanisms (cookie, named, and oauth and deviceCode behind doors of their own because they bring Expo and Node).",
+      "moduleGraphs": {
+        "client": {
+          "description": "index.ts is the door and client.ts its story; account holds the words (Account, Backend, the SignIn Service); each sign-in is a member; platform is what a Platform gives; gate runs sign-in; app opens Sessions over the Api.",
+          "path": "src/client",
+          "modules": {
+            "index.ts": {
+              "exposed": true
+            },
+            "client.ts": {},
+            "account": {},
+            "sign-in/cookie": {
+              "exposed": true
+            },
+            "sign-in/named": {},
+            "sign-in/oauth": {
+              "exposed": true
+            },
+            "sign-in/device-code": {
+              "exposed": true
+            },
+            "platform": {},
+            "gate": {},
+            "app": {}
+          },
+          "rules": {
+            "index.ts": ["client.ts"],
+            "client.ts": [
+              "app",
+              "account",
+              "gate",
+              "platform",
+              "sign-in/named"
+            ],
+            "app": ["account", "gate", "platform", "sign-in/named"],
+            "gate": ["account", "platform", "sign-in/named"],
+            "platform": ["account", "sign-in/named"],
+            "sign-in/cookie": ["account"],
+            "sign-in/named": ["account"],
+            "sign-in/oauth": ["account"]
+          }
         }
       }
     }
   },
   "layerGraphs": {
     "auth-worker": {
-      "description": "The Auth Worker and everything it serves. The worker reads the contract; the pages app renders the pages, and the pages show the screens; the Primary Database is handed to the worker by the consumer. The worker and the app meet at build time, never through an import.",
+      "description": "The Auth Worker and everything it serves. The worker reads the contract and hands on the D1 provider; the pages app renders the pages, and the pages show the screens. The worker and the app meet at build time, never through an import.",
       "rules": {
-        "auth-worker-contract": [],
+        "contract": [],
         "database": [],
         "primitives": [],
         "theme": [],
         "screens": ["primitives", "theme"],
-        "pages": ["auth-worker-contract", "screens"],
+        "pages": ["contract", "screens"],
         "app": ["pages", "theme"],
-        "worker": ["auth-worker-contract"]
+        "worker": ["contract", "database"]
       }
     },
-    "consumer-backend": {
-      "description": "A Consumer Backend asking the Auth Worker who is calling: verify with no framework, then optionally lift the result into Effect.",
+    "sign-in": {
+      "description": "Signing in to the Auth Worker: the guard both sides import, its server half on a Backend, and the client that signs in and calls the Api. Each reads only the contract and the guard.",
       "rules": {
-        "auth-worker-contract": [],
-        "vanilla": ["auth-worker-contract"],
-        "effect": ["vanilla"]
-      }
-    },
-    "clients": {
-      "description": "First-Party programs holding a Session: the browser's Auth and the CLI, each reading only the contract.",
-      "rules": {
-        "auth-worker-contract": [],
-        "accounts": ["auth-worker-contract"],
-        "cli": ["auth-worker-contract"],
-        "gate": ["accounts"],
-        "client-app": ["gate", "accounts"]
+        "contract": [],
+        "guard": ["contract"],
+        "server": ["guard"],
+        "client": ["guard"]
       }
     }
   }

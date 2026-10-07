@@ -1,1 +1,1 @@
-export { layerInProcessProtocol } from './in-process.js';
+export { client } from './in-process.ts';

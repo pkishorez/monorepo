@@ -1,12 +1,11 @@
-import { Effect } from 'effect';
-import { syncName } from '@kstackz/auth-toolkit/app';
-import type { OpenAccount } from '@kstackz/auth-toolkit/gate';
+import { Effect, type Scope } from 'effect';
+import type { RpcGroup } from 'effect/rpc';
+import type { SessionContext } from '@kstackz/auth-toolkit/client';
 import type { Entity } from '@kstackz/std-toolkit/core';
 import type { AnyEntityESchema } from '@kstackz/std-toolkit/eschema';
-import { createStdSync, inOrder, strategy } from '@kstackz/std-toolkit/sync';
+import { inOrder, strategy } from '@kstackz/std-toolkit/sync';
+import type { LedgerApi } from '../../api/index.ts';
 import { Account, Category, Entry, Preferences } from '../../model/index.ts';
-import { BackendLink } from '../link/index.ts';
-import { makeRpcRuntime, Rpc } from './rpc.ts';
 import type { Session } from './types.ts';
 
 // How often a Session asks for what other devices changed.
@@ -14,19 +13,12 @@ const POLL = '10 seconds';
 
 type Kind = 'Accounts' | 'Categories' | 'Entries' | 'Preferences';
 
-type Link = BackendLink['Service'];
+type Context = SessionContext<RpcGroup.Rpcs<typeof LedgerApi>>;
 
-/** One user's money on this device: a Std Sync named for them, kept in step
- * with the Backend `link` reaches, each call signed with their token. */
-const makeSession = (link: Link, account: OpenAccount) => {
+/** One user's money on this device: their Std Sync, kept in step with the
+ * Backend `rpc` reaches, each call signed with their token. */
+const makeSession = ({ account, rpc, sync }: Context): Session => {
   const { user } = account;
-  const runtime = makeRpcRuntime(link.api, account.waitForToken);
-  const sync = createStdSync({
-    // Named for the user, so what it keeps is deleted once they sign out.
-    name: syncName(user.id),
-    runtime,
-    platform: link.syncPlatform,
-  });
 
   // Each kind reads every change after the newest it has, and writes one
   // value at a time; the server answers with what it stored.
@@ -34,13 +26,12 @@ const makeSession = (link: Link, account: OpenAccount) => {
     type Value = S['Type'];
     // The kind's own RPCs by name: `Entries.Put`. Their types meet here.
     const call = <A>(name: string, payload: object) =>
-      Effect.gen(function* () {
-        const rpc = (yield* Rpc) as unknown as Record<
+      (
+        rpc as unknown as Record<
           string,
           (payload: object) => Effect.Effect<A, unknown>
-        >;
-        return yield* rpc[`${kind}.${name}`]!(payload);
-      });
+        >
+      )[`${kind}.${name}`]!(payload);
     const id = (value: Value) =>
       (value as Record<string, string>)[schema.idField]!;
     // Each row's writes reach the Backend in the order they were made.
@@ -72,20 +63,12 @@ const makeSession = (link: Link, account: OpenAccount) => {
     });
   };
 
-  // A command cut off by the Session ending never answers, rather than
-  // failing under whoever opens next.
-  const command = <A>(
-    run: (rpc: Rpc['Service']) => Effect.Effect<A, unknown>,
-  ) =>
-    account.whileOpen(
-      runtime.runPromise(
-        Effect.gen(function* () {
-          return yield* run(yield* Rpc);
-        }),
-      ),
-    );
+  // A command cut off by the Session ending never answers (createApp's
+  // `rpc` sees to it), rather than failing under whoever opens next.
+  const command = <A>(run: (api: typeof rpc) => Effect.Effect<A, unknown>) =>
+    Effect.runPromise(run(rpc));
 
-  const session: Session & { readonly dispose: () => Promise<void> } = {
+  return {
     user,
     userId: user.id,
     accounts: collectionOf('Accounts', Account),
@@ -100,29 +83,13 @@ const makeSession = (link: Link, account: OpenAccount) => {
       command((rpc) => rpc['Ledger.Sample']({ entries })),
     /** Deletes every Account, Category and Entry. */
     clear: () => command((rpc) => rpc['Ledger.Clear']({})),
-    dispose: async () => {
-      await sync.dispose();
-      await runtime.dispose();
-    },
   };
-  return session;
 };
 
-/**
- * Opens `account`'s session over `link` for as long as its scope lasts:
- * the user's Std Sync, kept in step with the Backend, closed with the scope
- * after the writes on their way have landed.
- */
-export const openSession = (link: Link, account: OpenAccount) =>
-  Effect.acquireRelease(
-    Effect.sync(() => makeSession(link, account)),
-    (session) => Effect.promise(() => session.dispose()),
-  ).pipe(Effect.map((session): Session => session));
-
-/** The Session: what one signed-in user gets, over the link to the Backend
- * Ledger runs on. `createApp` opens it when they become active and closes it
- * when they stop being active. */
-export const ledgerSession = (account: OpenAccount) =>
-  Effect.gen(function* () {
-    return yield* openSession(yield* BackendLink, account);
-  });
+/** The Session: what one signed-in user gets, over the Backend Ledger runs
+ * on. `createApp` opens it when they become active and closes it, with
+ * their Std Sync, when they stop being active. */
+export const ledgerSession = (
+  context: Context,
+): Effect.Effect<Session, never, Scope.Scope> =>
+  Effect.sync(() => makeSession(context));

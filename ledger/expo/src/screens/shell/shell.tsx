@@ -68,7 +68,7 @@ const PRESETS = [
 
 // Asks who signs in to the device Backend, the first User or an Add User.
 function LocalSignInDialog() {
-  const { asking, answer } = useGate().localSignIn;
+  const { asking, answer } = useGate().namedSignIn;
   return (
     <LocalSignIn
       open={asking}

@@ -1,7 +1,7 @@
 import { Effect, Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
 import { Story } from 'laymos/story';
-import { Authz } from '@kstackz/auth-toolkit/rpc';
+import { Authz } from '@kstackz/auth-toolkit/guard';
 import { authLayer, resolvedAuth, runRpc } from '../support.js';
 
 const administratorOnly = Authz.policy(

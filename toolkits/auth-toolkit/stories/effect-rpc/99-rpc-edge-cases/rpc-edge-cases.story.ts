@@ -2,8 +2,8 @@ import { Effect, Ref, Schema } from 'effect';
 import { HttpServerRequest, HttpServerResponse } from 'effect/http';
 import { Rpc, RpcGroup, RpcSerialization, RpcServer } from 'effect/rpc';
 import { Story } from 'laymos/story';
-import { Authz } from '@kstackz/auth-toolkit/rpc';
-import { authzCookies } from '@kstackz/auth-toolkit/server/rpc';
+import { Authz } from '@kstackz/auth-toolkit/guard';
+import { authz } from '@kstackz/auth-toolkit/server';
 import { authLayer, resolvedAuth, runRpc } from '../support.js';
 
 const GetSettings = Rpc.make('GetSettings', {
@@ -68,7 +68,7 @@ const makeBatchRequest = () =>
 
 const WrappedRpcApp = Effect.gen(function* () {
   const rpcApp = yield* RpcServer.toHttpEffect(BatchApi);
-  return yield* authzCookies(rpcApp);
+  return yield* authz.cookies(rpcApp);
 });
 
 const UnwrappedRpcApp = RpcServer.toHttpEffect(BatchApi).pipe(Effect.flatten);
@@ -97,7 +97,7 @@ export const rpcEdgeCases = Story.make({
   questions: [
     Story.question('Is no session different from a broken verifier?', {
       answer:
-        'Yes. A missing session rejects the call as `Unauthenticated`; an unavailable Auth Worker rejects it as `Authz.VerificationUnavailable`, so callers never mistake an outage for bad credentials.',
+        'Yes. A missing session rejects the call as `Unauthenticated`; an unavailable Auth Worker rejects it as `Authz.Unavailable`, so callers never mistake an outage for bad credentials.',
       proof: Story.trace(
         Effect.gen(function* () {
           const missingSession = yield* Effect.flip(
@@ -122,8 +122,8 @@ export const rpcEdgeCases = Story.make({
             missingSession instanceof Authz.Unauthenticated,
           );
           yield* Story.assert(
-            'a broken verifier is Authz.VerificationUnavailable',
-            unavailableWorker instanceof Authz.VerificationUnavailable,
+            'a broken verifier is Authz.Unavailable',
+            unavailableWorker instanceof Authz.Unavailable,
           );
           return {
             missingSession: missingSession._tag,
@@ -178,7 +178,7 @@ export const rpcEdgeCases = Story.make({
     }),
     Story.question('When are refreshed cookies relayed?', {
       answer:
-        'Only when the request/response app uses `authzCookies`, and one cookie per name. Streaming and WebSocket transports cannot add headers after RPC execution.',
+        'Only when the request/response app uses `authz.cookies`, and one cookie per name. Streaming and WebSocket transports cannot add headers after RPC execution.',
       proof: Story.trace(
         Effect.gen(function* () {
           const TestAuth = authLayer(() =>

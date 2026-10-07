@@ -6,11 +6,7 @@ import {
   strategy,
   type SyncEvent,
 } from '@kstackz/std-toolkit/sync';
-import {
-  browser,
-  deleteStdSync,
-  listStdSyncs,
-} from '@kstackz/std-toolkit/sync/platform/browser';
+import { Sync } from '@kstackz/std-toolkit/sync/idb';
 import { fresh } from '../../env.js';
 import { Task } from '../../01-one-task-one-table/01-defining-the-shape-of-a-task/defining-the-shape-of-a-task.story.js';
 import {
@@ -59,20 +55,20 @@ const withBroadcastChannel = <A>(channel: unknown, build: () => A): A => {
 // Every reader a tab opened on the server, in order, as `tab:after`, where `after` is the newest task it already had (`start` for none).
 const readers: string[] = [];
 
-// One tab on the real platform: its app, a Task collection read through the pushed changes from chapter 28, and a screen on the `work` board. Every event sync reports lands in `events`.
+// One tab on the real store: its app, a Task collection read through the pushed changes from chapter 28, and a screen on the `work` board. Every event sync reports lands in `events`.
 const openTab = (label: string, name: string) =>
   Effect.gen(function* () {
     const events: SyncEvent['_tag'][] = [];
     const app = createStdSync({
       name,
-      platform: browser(),
+      store: Sync.idb(),
       runtime: yield* pushingRuntime,
       options: { gcTime: 1 },
       onEvent: (event) => Effect.sync(() => void events.push(event._tag)),
     });
     const tasks = app.collection(Task, {
       sync: {
-        partitions: {
+        windows: {
           boardId: (boardId) =>
             strategy.oldToNew({
               subscribe: ({ after }) =>
@@ -103,21 +99,21 @@ const openTab = (label: string, name: string) =>
 export const puttingItOnARealPage = Story.make({
   title: 'Putting it on a real page',
   description:
-    'The whole board on the ready-made browser platform: what it bundles, how to watch what sync is doing, two real tabs handing the reading over, and what logging out clears.',
+    'The whole board on the ready-made IndexedDB store: what it bundles, how to watch what sync is doing, two real tabs handing the reading over, and what logging out clears.',
   spine: true,
   sourceUrl: import.meta.url,
   questions: [
-    Story.question('What does the real-browser platform bundle?', {
+    Story.question('What does the IndexedDB store bundle?', {
       answer:
-        "Everything the chapters stood in for: `browser()` keeps the copy in IndexedDB (a database per app, named `std-sync:` and the app's name), lets tabs take turns reading with Web Locks, and rings the doorbell over `BroadcastChannel`. Each piece can be turned off (`leadership: false`, `doorbell: false`), and a piece the browser lacks falls back to none instead of failing. The app is then one call, with the same collections as before.",
+        "Everything the chapters stood in for: `Sync.idb()` keeps the copy in IndexedDB (a database per app, named `std-sync:` and the app's name), lets tabs take turns reading with Web Locks, and rings the doorbell over `BroadcastChannel`. Each piece can be turned off (`leadership: false`, `doorbell: false`), and a piece the browser lacks falls back to none instead of failing. The app is then one call, with the same collections as before.",
       proof: onBoard(
         Story.flow(
           Effect.gen(function* () {
             yield* task.insert(plan);
-            // The platform, the same with its sharing turned off, and the same in a browser without `BroadcastChannel`.
-            const real = browser();
-            const bare = browser({ leadership: false, doorbell: false });
-            const older = withBroadcastChannel(undefined, () => browser());
+            // The store, the same with its sharing turned off, and the same in a browser without `BroadcastChannel`.
+            const real = Sync.idb();
+            const bare = Sync.idb({ leadership: false, doorbell: false });
+            const older = withBroadcastChannel(undefined, () => Sync.idb());
             const bundled = {
               leadership: real.leadership !== bare.leadership,
               doorbell: real.doorbell !== bare.doorbell,
@@ -129,13 +125,13 @@ export const puttingItOnARealPage = Story.make({
             // The whole app on it.
             const app = createStdSync({
               name: 'board-on-a-page',
-              platform: real,
+              store: real,
               runtime: yield* browserRuntime,
               options: { gcTime: 1 },
             });
             const tasks = app.collection(Task, {
               sync: {
-                partitions: {
+                windows: {
                   boardId: (boardId) =>
                     strategy.oldToNew({
                       fetch: ({ after }) => changesOn(boardId, after),
@@ -160,7 +156,7 @@ export const puttingItOnARealPage = Story.make({
               ({ taskId, title }) => `${taskId}:${title}`,
             );
             // The browser now holds a database for this app.
-            const stored = yield* Effect.promise(() => listStdSyncs());
+            const stored = yield* Effect.promise(() => Sync.idb.list());
             yield* Story.assert(
               'leadership and the doorbell came bundled, and only the missing one fell back to none',
               bundled.leadership &&
@@ -179,7 +175,7 @@ export const puttingItOnARealPage = Story.make({
             );
             yield* Effect.promise(() => screen.cleanup());
             yield* Effect.promise(() => app.dispose());
-            yield* Effect.promise(() => deleteStdSync(app.name));
+            yield* Effect.promise(() => Sync.idb.remove(app.name));
             return { bundled, inOlderBrowser, shown, stored };
           }),
         ),
@@ -187,7 +183,7 @@ export const puttingItOnARealPage = Story.make({
     }),
     Story.question('How do I watch what sync is doing?', {
       answer:
-        'Give the app an `onEvent`. It is called with every notable thing sync fails at or runs into, as a tagged value: `SessionFailed` when a read of the server fails (it is tried again anyway), `OutdatedApplication` when the server sends data newer than this code understands, and `PlatformClosed` when the stored copy was deleted from elsewhere. Without it, events go to the Effect logger.',
+        'Give the app an `onEvent`. It is called with every notable thing sync fails at or runs into, as a tagged value: `SessionFailed` when a read of the server fails (it is tried again anyway), `OutdatedApplication` when the server sends data newer than this code understands, and `StoreClosed` when the stored copy was deleted from elsewhere. Without it, events go to the Effect logger.',
       proof: onBoard(
         Story.flow(
           Effect.gen(function* () {
@@ -196,7 +192,7 @@ export const puttingItOnARealPage = Story.make({
             const events: SyncEvent[] = [];
             const app = createStdSync({
               name: 'board-events',
-              platform: browser(),
+              store: Sync.idb(),
               runtime: yield* browserRuntime,
               options: { gcTime: 1 },
               onEvent: (event) => Effect.sync(() => void events.push(event)),
@@ -205,7 +201,7 @@ export const puttingItOnARealPage = Story.make({
             let reads = 0;
             const tasks = app.collection(Task, {
               sync: {
-                partitions: {
+                windows: {
                   boardId: (boardId) =>
                     strategy.oldToNew({
                       fetch: ({ after }) =>
@@ -249,7 +245,7 @@ export const puttingItOnARealPage = Story.make({
             yield* Story.assert('and the retry showed the board', shown);
             yield* Effect.promise(() => screen.cleanup());
             yield* Effect.promise(() => app.dispose());
-            yield* Effect.promise(() => deleteStdSync(app.name));
+            yield* Effect.promise(() => Sync.idb.remove(app.name));
             return { seen };
           }),
         ),
@@ -289,7 +285,7 @@ export const puttingItOnARealPage = Story.make({
                 handedOver && readers[1] === 'second:t2' && kept,
               );
               yield* second.close;
-              yield* Effect.promise(() => deleteStdSync('board-tabs'));
+              yield* Effect.promise(() => Sync.idb.remove('board-tabs'));
               return { beforeClosing, afterClosing: [...readers] };
             }),
           ),
@@ -298,7 +294,7 @@ export const puttingItOnARealPage = Story.make({
     ),
     Story.question('Someone logs out. What is cleared?', {
       answer:
-        "Nothing, until the app says so: disposing an app stops its sync and keeps its copy, ready for next time. Logging out is `await app.dispose()` and then `await deleteStdSync(app.name)`, which deletes that app's IndexedDB database. Any other tab still running the same app is told first; it stops and reports `PlatformClosed`. `listStdSyncs()` shows which apps have a copy in this browser.",
+        "Nothing, until the app says so: disposing an app stops its sync and keeps its copy, ready for next time. Logging out is `await app.dispose()` and then `await Sync.idb.remove(app.name)`, which deletes that app's IndexedDB database. Any other tab still running the same app is told first; it stops and reports `StoreClosed`. `Sync.idb.list()` shows which apps have a copy in this browser.",
       proof: onPushingBoard(
         Story.flow(
           Effect.gen(function* () {
@@ -308,7 +304,7 @@ export const puttingItOnARealPage = Story.make({
             yield* until(
               () => here.screen.size === 1 && there.screen.size === 1,
             );
-            const namesOf = Effect.promise(() => listStdSyncs()).pipe(
+            const namesOf = Effect.promise(() => Sync.idb.list()).pipe(
               Effect.map((stored) => stored.map(({ name }) => name)),
             );
             const before = yield* namesOf;
@@ -316,10 +312,10 @@ export const puttingItOnARealPage = Story.make({
             yield* Effect.promise(async () => {
               await here.screen.cleanup();
               await here.app.dispose();
-              await deleteStdSync(here.app.name);
+              await Sync.idb.remove(here.app.name);
             });
             const told = yield* until(() =>
-              there.events.includes('PlatformClosed'),
+              there.events.includes('StoreClosed'),
             );
             const after = yield* namesOf;
             yield* Story.assert(
@@ -329,7 +325,7 @@ export const puttingItOnARealPage = Story.make({
             );
             yield* Story.assert(
               'the other tab was told and stopped',
-              told && there.events.join() === 'PlatformClosed',
+              told && there.events.join() === 'StoreClosed',
             );
             yield* there.close;
             return { before, after, there: there.events };

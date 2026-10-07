@@ -1,5 +1,7 @@
 # RPC owns its runtime and deployment integrations
 
+> Names changed in [ADR 0005](../../../../docs/adr/0005-three-toolkits-three-doors.md): Cannotation is now Middleware (`Rpc.middleware`, `HttpApi.middleware`, `clientLayer` is `client`), and the package has three doors, `rpc`, `http-api` and `alchemy`.
+
 RPC Toolkit owns the WebSocket client at `rpc/websocket-client`, the Alchemy-independent Cloudflare runtime at `rpc/cloudflare/hibernating-rpc`, and deployment composition at `rpc/cloudflare/alchemy/rpc-worker` and `rpc/cloudflare/alchemy/durable-rpc-worker`. These are explicit package subpaths: deployment modules depend on runtime capabilities, while Cannotation and browser imports remain independent of Cloudflare and Alchemy; Alchemy is an optional peer dependency. RPC and HTTP remain independent siblings under ADR 0002, and Cannotation continues to compose through native Effect middleware.
 
 Retire the private Effect Cloudflare and Alchemy Toolkit packages in one migration after updating their workspace consumers, without compatibility exports. DynamoDB resource provisioning moves to STD Toolkit's `db/dynamodb/alchemy`; provider-wide packages were rejected because they separate integrations from the capabilities they serve.

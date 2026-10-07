@@ -25,8 +25,8 @@
     "src/sync/domain/collection-item/__tests__",
     "src/sync/domain/identity/__tests__",
     "src/sync/paced/__tests__",
-    "src/sync/platform/browser/__tests__",
-    "src/sync/platform/expo/__tests__",
+    "src/sync/store/idb/__tests__",
+    "src/sync/store/sqlite/__tests__",
     "src/sync/session/__tests__",
     "src/sync/strategy/__tests__"
   ],
@@ -466,7 +466,7 @@
     },
     "sync.std-sync": {
       "paths": ["src/sync/index.ts", "src/sync/std-sync"],
-      "description": "Std Sync — the instance: a named group of Collections on one Platform",
+      "description": "Std Sync — the instance: a named group of Collections kept in one Sync Store",
       "modules": {
         "src/sync/index.ts": {
           "exposed": true
@@ -479,7 +479,7 @@
     },
     "sync.collection": {
       "paths": ["src/sync/collection"],
-      "description": "Collection — one TanStack DB Collection: its Sync Replica, saved Sync State, Partitions, Sessions, and writes",
+      "description": "Collection — one TanStack DB Collection: its Sync Replica, saved Sync State, Windows, Sessions, and writes",
       "modules": {
         "src/sync/collection": {
           "exposed": true
@@ -513,18 +513,18 @@
         }
       }
     },
-    "sync.platform": {
-      "paths": ["src/sync/platform"],
-      "description": "Platform — the environment a Std Sync runs in: the contract and the Memory, browser, and Expo presets",
+    "sync.store": {
+      "paths": ["src/sync/store"],
+      "description": "Store — where a Std Sync is kept: the Sync Store contract and the Memory, IndexedDB, and SQLite Sync adapters",
       "moduleGraphs": {
-        "platform": {
-          "description": "The contract and its machinery; each preset assembles a Sync Store, Leadership, and Doorbell.",
-          "path": "src/sync/platform",
+        "store": {
+          "description": "The contract and its machinery; each Sync adapter assembles a table, Leadership, and Doorbell.",
+          "path": "src/sync/store",
           "modules": {
             "contract": {
               "exposed": true
             },
-            "sync-store": {
+            "store-runtime": {
               "exposed": true
             },
             "effect-runner": {
@@ -533,18 +533,18 @@
             "memory": {
               "exposed": true
             },
-            "browser": {
+            "idb": {
               "exposed": true
             },
-            "expo": {
+            "sqlite": {
               "exposed": true
             }
           },
           "rules": {
-            "sync-store": ["contract"],
+            "store-runtime": ["contract"],
             "memory": ["contract"],
-            "browser": ["contract"],
-            "expo": ["contract"]
+            "idb": ["contract"],
+            "sqlite": ["contract"]
           }
         }
       }
@@ -716,13 +716,13 @@
       }
     },
     "sync": {
-      "description": "Sync read top-down as its story: the Std Sync holds Collections; a Collection runs a Session per scope; a Session runs a Strategy under Leadership; the Platform is the environment; the domain is the words",
+      "description": "Sync read top-down as its story: the Std Sync holds Collections; a Collection runs a Session per scope; a Session runs a Strategy under Leadership; the Sync Store is where it is kept; the domain is the words",
       "rules": {
         "sync.std-sync": ["sync.collection", "memory.public"],
         "sync.collection": ["sync.session"],
-        "sync.session": ["sync.strategy", "sync.platform"],
+        "sync.session": ["sync.strategy", "sync.store"],
         "sync.strategy": ["core.public", "eschema.public"],
-        "sync.platform": [
+        "sync.store": [
           "idb.public",
           "sqlite.public",
           "sqlite.drivers",

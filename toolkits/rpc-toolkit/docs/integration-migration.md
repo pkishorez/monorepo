@@ -1,5 +1,7 @@
 # RPC integration consolidation
 
+> Names changed in [ADR 0005](../../../docs/adr/0005-three-toolkits-three-doors.md): Cannotation is now Middleware (`Rpc.middleware`, `HttpApi.middleware`, `clientLayer` is `client`), and the package has three doors, `rpc`, `http-api` and `alchemy`.
+
 Agreed design from the grill-with-docs session, implemented by the package migration. The checklist below records its scope and verification requirements.
 
 ## Public structure

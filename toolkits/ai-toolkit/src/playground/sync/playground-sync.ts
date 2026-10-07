@@ -4,8 +4,8 @@ import type { Entity } from '@kstackz/std-toolkit/core';
 import {
   createStdSync,
   strategy,
-  type StdSyncPlatform,
   type SyncedCollection,
+  type SyncStore,
 } from '@kstackz/std-toolkit/sync';
 import type { Message, Thread } from '../../runtime/table/index.js';
 import { MessageSchema, ThreadSchema } from '../../runtime/table/index.js';
@@ -23,7 +23,7 @@ export interface PlaygroundSyncOptions {
   readonly api: AiPlaygroundApi;
   readonly keepSubscribed: KeepSubscribed;
   readonly name: string;
-  readonly platform?: StdSyncPlatform;
+  readonly store?: SyncStore;
 }
 
 export interface PlaygroundSync {
@@ -36,11 +36,11 @@ export const makePlaygroundSync = ({
   api,
   keepSubscribed,
   name,
-  platform,
+  store,
 }: PlaygroundSyncOptions): PlaygroundSync => {
   const std = createStdSync({
     name,
-    ...(platform === undefined ? {} : { platform }),
+    ...(store === undefined ? {} : { store }),
   });
   // The server replays everything after the cursor, then streams live.
   const liveOldToNew = <T extends object>(
@@ -62,7 +62,7 @@ export const makePlaygroundSync = ({
 
   const messages = std.collection(MessageSchema, {
     sync: {
-      partitions: {
+      windows: {
         threadId: (threadId) =>
           liveOldToNew<Message>((cursor) =>
             api.subscribeMessages({ threadId, '>': cursor }),

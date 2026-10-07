@@ -13,7 +13,7 @@ import { execSync } from 'node:child_process';
 import { Effect, Layer } from 'effect';
 import { FetchHttpClient } from 'effect/http';
 import { RpcClient, RpcSerialization } from 'effect/rpc';
-import { Authz } from '@kstackz/auth-toolkit/rpc';
+import { Authz } from '@kstackz/auth-toolkit/guard';
 import { LedgerApi } from '@ledger/core/api';
 
 const AUTH_URL = process.env.AUTH_URL ?? 'https://auth.kishore.computer';

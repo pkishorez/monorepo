@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@kstackz/auth-toolkit": "workspace:*",
+    "@kstackz/rpc-toolkit": "workspace:*",
     "@kstackz/std-toolkit": "workspace:*",
     "@kstackz/use-gesture": "workspace:*",
     "@kstackz/use-keys": "workspace:*",

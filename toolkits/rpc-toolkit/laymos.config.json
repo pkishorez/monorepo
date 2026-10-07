@@ -4,70 +4,43 @@
   "ignoredPaths": ["src/integration-tests"],
   "layers": {
     "rpc": {
-      "paths": ["src/rpc/cannotation"],
-      "description": "RPC Cannotation declarations and native middleware implementation factories.",
-      "modules": {
-        "src/rpc/cannotation": {
-          "exposed": true
+      "paths": ["src/rpc"],
+      "description": "Rpc: Middleware for Effect RPC and the three Transports (http, websocket, inProcess), each a client and server pair with the protocol fixed. Never imports Alchemy, and Cloudflare only as types.",
+      "moduleGraphs": {
+        "rpc": {
+          "description": "rpc.ts gathers Middleware and the three Transports into the Rpc namespace; each Transport stands alone.",
+          "path": "src/rpc",
+          "modules": {
+            "index.ts": {
+              "exposed": true
+            },
+            "rpc.ts": {},
+            "middleware": {},
+            "http": {},
+            "websocket": {},
+            "in-process": {}
+          },
+          "rules": {
+            "index.ts": ["rpc.ts"],
+            "rpc.ts": ["middleware", "http", "websocket", "in-process"]
+          }
         }
       }
     },
-    "http": {
-      "paths": ["src/http"],
-      "description": "The HTTP Sibling — everything that talks Effect HttpApi. Same shape as rpc; shares vocabulary, not code.",
+    "http-api": {
+      "paths": ["src/http-api"],
+      "description": "HttpApi: the same Middleware for Effect HttpApi, with security schemes. Shares vocabulary with rpc, not code.",
       "modules": {
-        "src/http/cannotation": {
-          "exposed": true
-        }
-      }
-    },
-    "invocation": {
-      "paths": ["src/rpc/invocation"],
-      "description": "Server-controlled invocation kind, independent of transport and deployment.",
-      "modules": {
-        "src/rpc/invocation": {
-          "exposed": true
-        }
-      }
-    },
-    "in-process": {
-      "paths": ["src/rpc/in-process"],
-      "description": "RPC connection to handlers in the same process, with no transport.",
-      "modules": {
-        "src/rpc/in-process": {
-          "exposed": true
-        }
-      }
-    },
-    "websocket-client": {
-      "paths": ["src/rpc/websocket-client"],
-      "description": "RPC socket transport and subscription lifecycle.",
-      "modules": {
-        "src/rpc/websocket-client": {
-          "exposed": true
-        }
-      }
-    },
-    "hibernating-rpc": {
-      "paths": ["src/rpc/cloudflare/hibernating-rpc"],
-      "description": "Cloudflare hibernation runtime using platform ports.",
-      "modules": {
-        "src/rpc/cloudflare/hibernating-rpc": {
+        "src/http-api": {
           "exposed": true
         }
       }
     },
     "alchemy": {
-      "paths": [
-        "src/rpc/cloudflare/alchemy/rpc-worker",
-        "src/rpc/cloudflare/alchemy/durable-rpc-worker"
-      ],
-      "description": "Alchemy resource composition over RPC runtimes.",
+      "paths": ["src/alchemy"],
+      "description": "Alchemy deploy declarations: a Worker and Durable Object serving an Api over Rpc.websocket.server.",
       "modules": {
-        "src/rpc/cloudflare/alchemy/rpc-worker": {
-          "exposed": true
-        },
-        "src/rpc/cloudflare/alchemy/durable-rpc-worker": {
+        "src/alchemy": {
           "exposed": true
         }
       }
@@ -75,15 +48,11 @@
   },
   "layerGraphs": {
     "rpc-toolkit": {
-      "description": "Independent RPC and HTTP declarations; Cloudflare runtime depends on invocation context and Alchemy composition depends on runtime.",
+      "description": "rpc and http-api stand alone; alchemy deploys rpc's websocket server.",
       "rules": {
         "rpc": [],
-        "http": [],
-        "invocation": [],
-        "in-process": [],
-        "websocket-client": [],
-        "hibernating-rpc": ["invocation"],
-        "alchemy": ["hibernating-rpc"]
+        "http-api": [],
+        "alchemy": ["rpc"]
       }
     }
   }

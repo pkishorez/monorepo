@@ -4,7 +4,7 @@ import { Rpc, RpcClient, RpcGroup, RpcMiddleware } from 'effect/rpc';
 import type { RpcClientError } from 'effect/rpc/RpcClientError';
 import { describe, expect, it } from 'vitest';
 
-import { layerInProcessProtocol } from './index.js';
+import { client as inProcessClient } from './index.ts';
 
 class CurrentUser extends Context.Service<CurrentUser, string>()(
   'test/CurrentUser',
@@ -67,16 +67,14 @@ const run = <A, E>(
       Effect.scoped,
       Effect.provide(
         Layer.merge(
-          layerInProcessProtocol(Api).pipe(
-            Layer.provide(Layer.merge(Handlers, AuthLive)),
-          ),
+          inProcessClient(Api, Layer.merge(Handlers, AuthLive)),
           AuthClient(user),
         ),
       ),
     ),
   );
 
-describe('layerInProcessProtocol', () => {
+describe('Rpc.inProcess.client', () => {
   it('reaches the handler', async () => {
     expect(await run((client) => client.Get({ id: 'a' }))).toBe('found a');
   });

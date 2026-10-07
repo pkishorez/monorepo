@@ -8,32 +8,16 @@
     "moduleResolution": "nodenext",
     "jsx": "react-jsx",
     "paths": {
-      "@kstackz/auth-toolkit/server/session": [
-        "./src/server/vanilla/session/index.ts"
+      "@kstackz/auth-toolkit/guard": ["./src/guard/index.ts"],
+      "@kstackz/auth-toolkit/server": ["./src/server/index.ts"],
+      "@kstackz/auth-toolkit/server/cloud": ["./src/server/cloud/index.ts"],
+      "@kstackz/auth-toolkit/client": ["./src/client/index.ts"],
+      "@kstackz/auth-toolkit/client/expo": [
+        "./src/client/sign-in/oauth/index.ts"
       ],
-      "@kstackz/auth-toolkit/server/access-token": [
-        "./src/server/vanilla/access-token/index.ts"
-      ],
-      "@kstackz/auth-toolkit/server/mcp": ["./src/server/vanilla/mcp/index.ts"],
-      "@kstackz/auth-toolkit/server/rpc": [
-        "./src/server/effect/rpc/server/index.ts"
-      ],
-      "@kstackz/auth-toolkit/server/http-api": [
-        "./src/server/effect/http-api/server/index.ts"
-      ],
-      "@kstackz/auth-toolkit/rpc": [
-        "./src/server/effect/rpc/declaration/index.ts"
-      ],
-      "@kstackz/auth-toolkit/http-api": [
-        "./src/server/effect/http-api/declaration/index.ts"
-      ],
-      "@kstackz/auth-toolkit/clients/auth": ["./src/clients/auth/index.ts"],
-      "@kstackz/auth-toolkit/clients/auth/expo": [
-        "./src/clients/auth/expo/index.ts"
-      ],
-      "@kstackz/auth-toolkit/clients/cli": ["./src/clients/cli/index.ts"],
-      "@kstackz/auth-toolkit/gate": ["./src/clients/gate/index.ts"],
-      "@kstackz/auth-toolkit/gate/react": ["./src/clients/gate/react/index.ts"]
+      "@kstackz/auth-toolkit/client/cli": [
+        "./src/client/sign-in/device-code/index.ts"
+      ]
     },
     "rootDir": ".",
     "strict": true,
@@ -45,8 +29,8 @@
   "include": ["src/**/*", "stories/**/*"],
   "exclude": [
     "node_modules",
-    "src/auth-worker/app",
-    "src/auth-worker/pages",
-    "src/auth-worker/ui"
+    "src/worker/app",
+    "src/worker/pages",
+    "src/worker/ui"
   ]
 }

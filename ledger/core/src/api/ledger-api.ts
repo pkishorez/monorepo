@@ -1,6 +1,6 @@
 import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
-import { Authz } from '@kstackz/auth-toolkit/rpc';
+import { Authz } from '@kstackz/auth-toolkit/guard';
 import type { AnyEntityESchema } from '@kstackz/std-toolkit/eschema';
 import { Account, Category, Entry, Preferences } from '../model/index.ts';
 

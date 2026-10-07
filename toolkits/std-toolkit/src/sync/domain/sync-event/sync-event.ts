@@ -4,7 +4,7 @@ export type SyncEvent =
   | {
       _tag: 'SessionFailed';
       collection: string;
-      partitionKey: string;
+      windowKey: string;
       strategy: string;
       cause: unknown;
     }
@@ -14,7 +14,7 @@ export type SyncEvent =
       version: string;
       latestVersion: string;
     }
-  | { _tag: 'PlatformClosed'; sync: string };
+  | { _tag: 'StoreClosed'; sync: string };
 
 export type SyncReporter<R = never> = (
   event: SyncEvent,

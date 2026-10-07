@@ -6,7 +6,7 @@ import {
 import { Effect } from 'effect';
 import { Story } from 'laymos/story';
 import { createStdSync, strategy } from '@kstackz/std-toolkit/sync';
-import { fresh, platform } from '../../env.js';
+import { fresh, store } from '../../env.js';
 import { Task } from '../../01-one-task-one-table/01-defining-the-shape-of-a-task/defining-the-shape-of-a-task.story.js';
 import {
   table,
@@ -42,13 +42,13 @@ const openBoard = Effect.gen(function* () {
   const runtime = yield* browserRuntime;
   const app = createStdSync({
     name: 'board-paired',
-    platform: platform(),
+    store: store(),
     runtime,
     options: { gcTime: 1 },
   });
   const tasks = app.collection(Task, {
     sync: {
-      partitions: {
+      windows: {
         boardId: (boardId) =>
           strategy.oldToNew({
             fetch: ({ after }) => changesOn(boardId, after),
@@ -59,7 +59,7 @@ const openBoard = Effect.gen(function* () {
   });
   const boards = app.collection(Board, {
     sync: {
-      partitions: {
+      windows: {
         boardId: (boardId) =>
           strategy.oldToNew({
             fetch: ({ after }) =>

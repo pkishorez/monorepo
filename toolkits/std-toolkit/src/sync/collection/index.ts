@@ -1,5 +1,5 @@
 export {
   buildCollection,
   type CollectionConfig,
-  type PartitionMap,
+  type WindowMap,
 } from './collection.js';

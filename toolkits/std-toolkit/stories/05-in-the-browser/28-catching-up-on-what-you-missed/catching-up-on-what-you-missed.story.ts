@@ -8,7 +8,7 @@ import {
 } from '@kstackz/std-toolkit/core';
 import type { StdTableService } from '@kstackz/std-toolkit/db';
 import { createStdSync, strategy } from '@kstackz/std-toolkit/sync';
-import { fresh, platform } from '../../env.js';
+import { fresh, store } from '../../env.js';
 import { Task } from '../../01-one-task-one-table/01-defining-the-shape-of-a-task/defining-the-shape-of-a-task.story.js';
 import {
   table,
@@ -37,7 +37,7 @@ export const browserRuntime = Effect.map(
 const openApp = Effect.map(browserRuntime, (runtime) =>
   createStdSync({
     name: 'board-caught-up',
-    platform: platform(),
+    store: store(),
     runtime,
     options: { gcTime: 1 },
   }),
@@ -119,7 +119,7 @@ export const catchingUpOnWhatYouMissed = Story.make({
               // Read forward from the start, two changes per page.
               const tasks = app.collection(Task, {
                 sync: {
-                  partitions: {
+                  windows: {
                     boardId: (boardId) =>
                       strategy.oldToNew({
                         fetch: ({ after }) =>
@@ -175,7 +175,7 @@ export const catchingUpOnWhatYouMissed = Story.make({
             // Page backwards from the newest change, two per page; then listen.
             const tasks = app.collection(Task, {
               sync: {
-                partitions: {
+                windows: {
                   boardId: (boardId) =>
                     strategy.newToOld({
                       fetchOlder: ({ before }) =>
@@ -227,7 +227,7 @@ export const catchingUpOnWhatYouMissed = Story.make({
             // Page backwards from the newest change and forwards from the top, then listen.
             const tasks = app.collection(Task, {
               sync: {
-                partitions: {
+                windows: {
                   boardId: (boardId) =>
                     strategy.newToOld({
                       fetchOlder: ({ before }) =>

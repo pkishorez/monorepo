@@ -105,7 +105,7 @@ See [src/db/sqlite/README.md](src/db/sqlite/README.md). It also covers the drive
 
 ### `@kstackz/std-toolkit/sync`
 
-See [src/sync/README.md](src/sync/README.md). It also covers `./sync/paced`, `./sync/platform/browser`, and `./sync/platform/expo`.
+See [src/sync/README.md](src/sync/README.md). It also covers `./sync/paced` and the Sync adapters `./sync/idb`, `./sync/sqlite`, and `./sync/memory`.
 
 ## Usage
 
@@ -151,7 +151,7 @@ const changesOn = (boardId: string, cursor: { meta: { _u: string } } | null) =>
 const app = createStdSync({ name: 'board' });
 const tasks = app.collection(Task, {
   sync: {
-    partitions: {
+    windows: {
       boardId: (boardId) =>
         strategy.oldToNew({
           fetch: ({ after }) => changesOn(boardId, after),
@@ -165,7 +165,7 @@ const tasks = app.collection(Task, {
     ),
 });
 
-// 5. A live query for the `work` board starts the sync for that partition.
+// 5. A live query for the `work` board starts the sync for that window.
 const screen = createLiveQueryCollection({
   query: (q) =>
     q.from({ task: tasks }).where(({ task }) => eq(task.boardId, 'work')),
@@ -176,8 +176,8 @@ const screen = createLiveQueryCollection({
 - `EntityESchema.make(...).build()` produces a schema that encodes with a `_v` stamp and decodes any past version to the latest shape.
 - `table.entity(Task).primary({ pk: ['boardId'] })` maps key paths of the value to the table's key attributes; the sort key is always the id field. A key path may reach into nested objects and union branches (`owner.teamId`) and must end at a string or number.
 - `Memory.make(table).layer` satisfies the `StdTableService<'board'>` requirement of every `task.*` call. Any other adapter's layer does the same.
-- `createStdSync` keeps its local copy in memory by default. In a real page pass `platform: browser()` from `@kstackz/std-toolkit/sync/platform/browser` to keep it in IndexedDB and let one tab read for all.
-- A partition's strategy starts when a TanStack query filters on `boardId`. `after` is exclusive: return entities strictly after it.
+- `createStdSync` keeps its local copy in memory by default. In a real page pass `store: Sync.idb()` from `@kstackz/std-toolkit/sync/idb` to keep it in IndexedDB and let one tab read for all.
+- A window's strategy starts when a TanStack query filters on `boardId`. `after` is exclusive: return entities strictly after it.
 - `onInsert` writes through to the same table, so the next poll confirms the optimistic row.
 
 ### Deploy a table and refuse a breaking change

@@ -10,12 +10,12 @@ import {
   Stream,
 } from 'effect';
 import type * as Cloudflare from 'alchemy/Cloudflare';
-import { verifyRequest } from '@kstackz/auth-toolkit/server/session';
+import { verifyRequest } from '@kstackz/auth-toolkit/server/cloud';
 import {
   isTrustedOrigin,
   validateTrustedOrigins,
 } from '@kstackz/auth-toolkit/worker';
-import type { ConnectionSlot } from '@kstackz/rpc-toolkit/rpc/cloudflare/hibernating-rpc';
+import type { Rpc } from '@kstackz/rpc-toolkit/rpc';
 import { HttpServerRequest, HttpServerResponse } from 'effect/http';
 import {
   ConnectionMetadata,
@@ -74,7 +74,7 @@ export const durableSignalingConnection = (
     readonly trustedOrigins: RequestValue<ReadonlyArray<string>>;
   },
   state: Cloudflare.DurableObjectState['Service'],
-): ConnectionSlot<DurableConnection> => ({
+): Rpc.ConnectionSlot<DurableConnection> => ({
   tag: ConnectionContext,
   schema: DurableConnectionSchema,
   initial: (serverRequest) =>

@@ -1,9 +1,9 @@
 import { Effect, Layer } from 'effect';
 import { RpcClient } from 'effect/rpc';
-import { localToken, localUser } from '@kstackz/auth-toolkit/clients/auth';
-import { Authz } from '@kstackz/auth-toolkit/rpc';
-import { resolverLocal } from '@kstackz/auth-toolkit/server/rpc';
-import { layerInProcessProtocol } from '@kstackz/rpc-toolkit/rpc/in-process';
+import { nameToken, namedUser } from '@kstackz/auth-toolkit/client';
+import { Authz } from '@kstackz/auth-toolkit/guard';
+import { authz } from '@kstackz/auth-toolkit/server';
+import { Rpc } from '@kstackz/rpc-toolkit/rpc';
 import { Memory } from '@kstackz/std-toolkit/db/memory';
 import { describe, expect, it } from 'vitest';
 import { LedgerApi } from '../../api/index.ts';
@@ -11,20 +11,19 @@ import { ledgerTable } from '../services/table/index.ts';
 import { ledgerBackend } from '../backend.ts';
 
 // The Backend as the device Backend runs it: in this process, for whoever a
-// Local Token names. Only the table is in memory here, one for every client.
+// Name Token names. Only the table is in memory here, one for every client.
 const connection = Effect.map(
   Layer.build(Memory.make(ledgerTable).layer),
   (table) =>
-    layerInProcessProtocol(LedgerApi).pipe(
-      Layer.provide(
-        ledgerBackend.pipe(
-          Layer.provide([Layer.succeedContext(table), resolverLocal]),
-        ),
+    Rpc.inProcess.client(
+      LedgerApi,
+      ledgerBackend.pipe(
+        Layer.provide([Layer.succeedContext(table), authz.device]),
       ),
     ),
 );
 
-const tokenOf = (email: string) => localToken.make(localUser({ email }));
+const tokenOf = (email: string) => nameToken.make(namedUser({ email }));
 
 // A client signed as `token`, as a Session's is, living as long as the scope.
 const clientAs = (

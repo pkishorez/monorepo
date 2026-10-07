@@ -1,5 +1,5 @@
 import { Effect } from 'effect';
-import { Authz } from '@kstackz/auth-toolkit/rpc';
+import { Authz } from '@kstackz/auth-toolkit/guard';
 import type { Entity } from '@kstackz/std-toolkit/core';
 import {
   type Account,
@@ -22,7 +22,7 @@ const failed = (code: LedgerError['code']) => () => new LedgerError({ code });
 
 /** Runs `run` for the signed-in user, its storage failures as LedgerErrors. */
 const asUser = <A, E, R>(run: (userId: string) => Effect.Effect<A, E, R>) =>
-  Effect.flatMap(Authz.CurrentAuth, ({ user }) => run(user.id)).pipe(
+  Effect.flatMap(Authz.Current, ({ user }) => run(user.id)).pipe(
     Effect.mapError((error) =>
       error instanceof LedgerError ? error : failed('storage-error')(),
     ),

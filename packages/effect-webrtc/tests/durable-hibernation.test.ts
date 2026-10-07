@@ -1,10 +1,6 @@
 import { Effect } from 'effect';
 import { HttpServerResponse } from 'effect/http';
-import { RpcSerialization } from 'effect/rpc';
-import {
-  makeHibernatingWebSocketRpc,
-  type HibernatingSocket,
-} from '@kstackz/rpc-toolkit/rpc/cloudflare/hibernating-rpc';
+import { Rpc } from '@kstackz/rpc-toolkit/rpc';
 import { afterEach, expect, it, vi } from 'vitest';
 import { DurableSignalingRpcs } from '../src/signaling/durable/rpc/index.js';
 import {
@@ -15,11 +11,11 @@ import {
 function socket(seed: unknown) {
   let attachment = structuredClone(seed);
   const sent: string[] = [];
-  const port: HibernatingSocket = {
+  const port: Rpc.HibernatingSocket = {
     ws: {
       send: (data: string) => sent.push(data),
       close: () => undefined,
-    } as unknown as HibernatingSocket['ws'],
+    } as unknown as Rpc.HibernatingSocket['ws'],
     close: () => Effect.void,
     serializeAttachment: (value) => {
       attachment = structuredClone(value);
@@ -44,9 +40,7 @@ it('replays the peer subscription after a hibernation wake', async () => {
     Effect.runPromise(
       Effect.gen(function* () {
         const layer = yield* durableSignalingHandlers;
-        return yield* makeHibernatingWebSocketRpc({
-          group: DurableSignalingRpcs,
-          layer,
+        return yield* Rpc.websocket.server(DurableSignalingRpcs, layer, {
           state: {
             getWebSockets: () => Effect.succeed([target.port]),
             setWebSocketAutoResponse: () => Effect.void,
@@ -58,7 +52,7 @@ it('replays the peer subscription after a hibernation wake', async () => {
             {} as never,
           ),
         });
-      }).pipe(Effect.provide(RpcSerialization.layerJson)),
+      }),
     );
 
   const first = socket({ clientId: 1, handlers: [], connection });

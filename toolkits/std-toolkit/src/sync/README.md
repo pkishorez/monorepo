@@ -4,11 +4,11 @@ Effect-based synchronization of TanStack DB Collections from an authoritative ba
 
 ## Big picture
 
-A Std Sync is a named group of Collections on one Platform. Each Collection reads the backend through Sync Strategies: a global one that runs while the Collection is mounted, one per Partition that runs while a query filters on its key path, or both. Only global is eager, only partitions is on-demand, and both is progressive; there is no mode setting. Every path converges through one Sync Replica by entity id and `_u`, and the TanStack DB Collection shows it. Collection rows and Mutation Callbacks hold values (a `Date`); the store holds the encoded form (its ISO string).
+A Std Sync is a named group of Collections kept in one Sync Store. Each Collection reads the backend through Sync Strategies: a global one that runs while the Collection is mounted, one per Window that runs while a query filters on its key path, or both. Only global is eager, only windows is on-demand, and both is progressive; there is no mode setting. Every path converges through one Sync Replica by entity id and `_u`, and the TanStack DB Collection shows it. Collection rows and Mutation Callbacks hold values (a `Date`); the store holds the encoded form (its ISO string).
 
-A strategy yields Entities with its next Sync State, and a Session stores each yield in one write, so a reload resumes where it stopped. Each Session holds its own lock, so one tab reads each scope while others wait to take over; the reader rings a Doorbell and the other tabs re-read the shared store. The Platform decides where the store lives and whether locks and the Doorbell exist: `memory()` by default, `browser()` for IndexedDB, Web Locks, and BroadcastChannel, `expo({ database })` for an expo-sqlite database in a native app, where one process reads for all. The main entry touches no browser global, so it also runs in Node and React Native.
+A strategy yields Entities with its next Sync State, and a Session stores each yield in one write, so a reload resumes where it stopped. Each Session holds its own lock, so one tab reads each scope while others wait to take over; the reader rings a Doorbell and the other tabs re-read the shared store. A Sync adapter chooses where the store lives, named like the Table adapters: `Sync.memory()` by default, `Sync.idb()` for IndexedDB shared by a browser's tabs (with Web Locks and BroadcastChannel), and `Sync.sqlite({ database })` for an expo-sqlite database in a native app, where one process reads for all. Whether the place is shared, and so needs locks and a Doorbell, is the adapter's business. The main entry touches no browser global, so it also runs in Node and React Native.
 
-Vocabulary is in [CONTEXT.md](CONTEXT.md). Rules for cursors, the Settle Window, Partitions, tabs, and logout are in [docs/sync-guide.md](../../docs/sync-guide.md). Decisions are in [docs/adr/](docs/adr/).
+Vocabulary is in [CONTEXT.md](CONTEXT.md). Rules for cursors, the Settle Window, Windows, tabs, and logout are in [docs/sync-guide.md](../../docs/sync-guide.md). Decisions are in [docs/adr/](docs/adr/).
 
 ## Install
 
@@ -25,8 +25,8 @@ See the [top README](../../README.md). This subpath needs the optional peers `@t
 | `strategy.oldToNew` | Strategy that reads from the oldest change forward, by pulling, by subscription, or both.                                            |
 | `strategy.newToOld` | Strategy that reads the newest page first, fills in older pages, and keeps the top fresh.                                            |
 | `strategy.make`     | Builds a custom strategy from a state schema, an initial state, and a `run` Stream.                                                  |
-| `memory`            | The default Platform: ephemeral storage, no Leadership, no Doorbell.                                                                 |
-| `syncStore`         | The StdTable definition the Sync Store persists through, for building a custom Platform.                                             |
+| `Sync.memory`       | The default Sync adapter: ephemeral storage, no Leadership, no Doorbell.                                                             |
+| `syncStore`         | The StdTable definition a Sync Store keeps its data in, for building a custom Sync adapter.                                          |
 
 ### `@kstackz/std-toolkit/sync/paced`
 
@@ -36,38 +36,44 @@ See the [top README](../../README.md). This subpath needs the optional peers `@t
 | `coalesceStrategy` | Constructs one coalesce pacer directly.                                                              |
 | `buildPacedUpdate` | Builds a paced update function from a pacer, an optimistic apply callback, and a commit.             |
 
-### `@kstackz/std-toolkit/sync/platform/browser`
+### `@kstackz/std-toolkit/sync/idb`
 
-| Export          | What it does                                                                             |
-| --------------- | ---------------------------------------------------------------------------------------- |
-| `browser`       | Platform with an IndexedDB store, Web Locks Leadership, and a BroadcastChannel Doorbell. |
-| `listStdSyncs`  | Lists every Std Sync stored in this browser.                                             |
-| `deleteStdSync` | Deletes a Std Sync's stored data, stopping a live instance of it first.                  |
+| Export            | What it does                                                                                     |
+| ----------------- | ------------------------------------------------------------------------------------------------ |
+| `Sync.idb`        | Sync adapter for IndexedDB, shared by a browser's tabs through Web Locks and a BroadcastChannel. |
+| `Sync.idb.list`   | Lists every Std Sync stored in this browser.                                                     |
+| `Sync.idb.remove` | Deletes a Std Sync's stored data, stopping a live instance of it first.                          |
 
-### `@kstackz/std-toolkit/sync/platform/expo`
+### `@kstackz/std-toolkit/sync/sqlite`
 
-| Export          | What it does                                                                                   |
-| --------------- | ---------------------------------------------------------------------------------------------- |
-| `expo`          | Platform with a table per Std Sync in an open expo-sqlite database, no Leadership or Doorbell. |
-| `listStdSyncs`  | Lists every Std Sync stored in that database.                                                  |
-| `deleteStdSync` | Drops a Std Sync's table; dispose a live instance of it first, since nothing tells it to stop. |
+| Export               | What it does                                                                                   |
+| -------------------- | ---------------------------------------------------------------------------------------------- |
+| `Sync.sqlite`        | Sync adapter keeping a table per Std Sync in an open expo-sqlite database; nothing is shared.  |
+| `Sync.sqlite.list`   | Lists every Std Sync stored in that database.                                                  |
+| `Sync.sqlite.remove` | Drops a Std Sync's table; dispose a live instance of it first, since nothing tells it to stop. |
+
+### `@kstackz/std-toolkit/sync/memory`
+
+| Export        | What it does                                                                                  |
+| ------------- | --------------------------------------------------------------------------------------------- |
+| `Sync.memory` | The same Sync adapter `@kstackz/std-toolkit/sync` exports, on its own door like its siblings. |
 
 ## Usage
 
 ### Load only the board you are looking at
 
-A partition keyed on `boardId` starts when a TanStack query filters on that field. The schema comes first so the strategies' callbacks are typed. Lifted from story 27.
+A window keyed on `boardId` starts when a TanStack query filters on that field. The schema comes first so the strategies' callbacks are typed. Lifted from story 27.
 
 ```ts
 import { createLiveQueryCollection, eq } from '@tanstack/react-db';
 import { createStdSync, strategy } from '@kstackz/std-toolkit/sync';
-import { browser } from '@kstackz/std-toolkit/sync/platform/browser';
+import { Sync } from '@kstackz/std-toolkit/sync/idb';
 
-const app = createStdSync({ name: 'board', platform: browser() });
+const app = createStdSync({ name: 'board', store: Sync.idb() });
 
 const tasks = app.collection(Task, {
   sync: {
-    partitions: {
+    windows: {
       boardId: (boardId) =>
         strategy.oldToNew({
           fetch: ({ after }) => api.changesOn(boardId, after),
@@ -87,9 +93,9 @@ const screen = createLiveQueryCollection({
 });
 ```
 
-- A partition key path, such as `boardId` or `board.id`, reads a string, number, or boolean in every value; the parameter type is inferred.
+- A window key path, such as `boardId` or `board.id`, reads a string, number, or boolean in every value; the parameter type is inferred.
 - `fetch` returns entities strictly after `after`, which is `null` on the first call. Without `pollEvery` the strategy catches up once and stops.
-- Add `global: strategy.oldToNew({ ... })` next to `partitions` to also load everything in the background.
+- Add `global: strategy.oldToNew({ ... })` next to `windows` to also load everything in the background.
 - The Mutation Callbacks return what the backend stored, so the replica converges without waiting for the next poll. A failure rolls the optimistic change back.
 
 ### Stay live over a subscription
@@ -111,31 +117,30 @@ const threads = app.collection(ThreadSchema, {
 
 ### Keep a native app's local copies in expo-sqlite
 
-One database file holds every Std Sync of the app, a table each, and signing a User out deletes their copy. Shaped after the Expo Platform's test.
+One database file holds every Std Sync of the app, a table each, and signing a User out deletes their copy. Shaped after the `Sync.sqlite` test.
 
 ```ts
 import { openDatabaseAsync } from 'expo-sqlite';
 import { createStdSync } from '@kstackz/std-toolkit/sync';
-import {
-  deleteStdSync,
-  expo,
-  listStdSyncs,
-} from '@kstackz/std-toolkit/sync/platform/expo';
+import { Sync } from '@kstackz/std-toolkit/sync/sqlite';
 
 const database = await openDatabaseAsync('std-sync.db');
 
-const app = createStdSync({ name: 'alice', platform: expo({ database }) });
+const app = createStdSync({
+  name: 'alice',
+  store: Sync.sqlite({ database }),
+});
 const todos = app.collection(Todo, {
   sync: { global: strategy.oldToNew({ fetch }) },
 });
 
 // On Sign Out:
 await app.dispose();
-await deleteStdSync(database, 'alice');
-await listStdSyncs(database); // no longer lists alice
+await Sync.sqlite.remove(database, 'alice');
+await Sync.sqlite.list(database); // no longer lists alice
 ```
 
 - Each Std Sync gets a table named `std-sync:<name>`, created when the Std Sync first opens its store.
 - A phone runs one process, so every Session reads on its own: no Leadership and no Doorbell.
 - Dispose a Std Sync before deleting it. Without a Doorbell, a live instance is not told its table is gone.
-- `dispose` first waits for writes still on their way to the Backend, up to `drain` (default 5 seconds), then stops everything; a write that has not landed by then is stopped with the rest. Pass `createStdSync({ name, platform, drain: '1 second' })` to change it.
+- `dispose` first waits for writes still on their way to the Backend, up to `drain` (default 5 seconds), then stops everything; a write that has not landed by then is stopped with the rest. Pass `createStdSync({ name, store, drain: '1 second' })` to change it.

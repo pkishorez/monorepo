@@ -6,8 +6,8 @@ import { syncStore } from '../domain/stored-entity/index.js';
 import type {
   Doorbell,
   Leadership,
-  StdSyncPlatform,
-} from '../platform/contract/index.js';
+  SyncStore,
+} from '../store/contract/index.js';
 
 export type Todo = { id: string; listId: string; title: string };
 
@@ -92,10 +92,10 @@ export const sharedDoorbell = (): Doorbell => {
 };
 
 /** A durable store, Leadership, and Doorbell shared like tabs of one browser. */
-export const sharedPlatform = (): StdSyncPlatform => {
-  const store = Memory.make(syncStore).layer;
+export const sharedStore = (): SyncStore => {
+  const table = Memory.make(syncStore).layer;
   return {
-    store: () => store,
+    table: () => table,
     leadership: sharedLeadership(),
     doorbell: sharedDoorbell(),
   };

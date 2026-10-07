@@ -2,7 +2,7 @@ import { Effect } from 'effect';
 import { useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useComponentLifecycle, useRunEffect } from 'use-effect-ts';
-import type { LoginError } from '@kstackz/auth-toolkit/clients/auth';
+import type { LoginError } from '@kstackz/auth-toolkit/client';
 import { Button } from '@kstackz/web-toolkit/components/button';
 import { GoogleButton } from '@kstackz/web-toolkit/components/google-button';
 import {

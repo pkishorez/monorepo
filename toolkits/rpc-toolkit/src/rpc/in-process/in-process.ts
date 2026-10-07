@@ -16,14 +16,14 @@ import type * as RpcSerialization from 'effect/rpc/RpcSerialization';
 const codecFor = Schema.toType as unknown as RpcSerialization.CodecFor;
 
 /**
- * Provides an `RpcClient.Protocol` that serves `group` from its handlers in
- * this process: no transport, no serialization.
+ * Serves `group` from its handlers in this process: no transport, no
+ * serialization.
  *
  * This is the path `RpcTest.makeClient` takes, exposed as a Protocol so that
  * ordinary client code (`RpcClient.make(group)`) runs unchanged. Headers,
  * client middleware, and server middleware apply exactly as over HTTP.
  */
-export const layerInProcessProtocol = <Rpcs extends Rpc.Any>(
+const protocol = <Rpcs extends Rpc.Any>(
   group: RpcGroup.RpcGroup<Rpcs>,
 ): Layer.Layer<
   RpcClient.Protocol,
@@ -99,3 +99,14 @@ export const layerInProcessProtocol = <Rpcs extends Rpc.Any>(
       }),
     ),
   );
+
+/**
+ * Provides the `RpcClient.Protocol` for `group`, answered by `handlers` (the
+ * group's handlers and server middleware) in this process. Build the client
+ * on top with `RpcClient.make(group)`.
+ */
+export const client = <Rpcs extends Rpc.Any, E, R>(
+  group: RpcGroup.RpcGroup<Rpcs>,
+  handlers: Layer.Layer<Rpc.ToHandler<Rpcs> | Rpc.Middleware<Rpcs>, E, R>,
+): Layer.Layer<RpcClient.Protocol, E, R> =>
+  protocol(group).pipe(Layer.provide(handlers));

@@ -3,7 +3,7 @@ import type { AnyEntityESchema } from '../../eschema/index.js';
 import { findOutdatedVersion } from '../../eschema/index.js';
 import { storedSyncStateEntity } from '../domain/stored-entity/index.js';
 import { storageError, type WriteError } from '../domain/sync-error/index.js';
-import type { SyncStore } from '../platform/sync-store/index.js';
+import type { StoreRuntime } from '../store/store-runtime/index.js';
 import type { StateEntitySchema, SyncStrategy } from '../strategy/index.js';
 import type { ExtraOp } from './replica.js';
 
@@ -19,7 +19,7 @@ const invalid = (cause: { readonly message: string }): WriteError => ({
  * strategy's initial state; state from newer code fails as outdated.
  */
 export const makeSyncStateStore = <TState>(args: {
-  store: SyncStore;
+  store: StoreRuntime;
   schema: AnyEntityESchema;
   collection: string;
   strategy: SyncStrategy<any, TState, any>;

@@ -1,3 +1,5 @@
 # RPC and HTTP are Siblings, not one transport-agnostic core
 
+> Names changed in [ADR 0005](../../../../docs/adr/0005-three-toolkits-three-doors.md): Cannotation is now Middleware (`Rpc.middleware`, `HttpApi.middleware`, `clientLayer` is `client`), and the package has three doors, `rpc`, `http-api` and `alchemy`.
+
 `@kstackz/rpc-toolkit/rpc` and `@kstackz/rpc-toolkit/http` each ship their own `Cannotation.make`; a consumer supporting both transports writes one Declaration per transport and shares only the transport-free pieces (value type, provided service, error schemas, underlying resolver). We rejected a single Declaration that builds both middleware services and dispatches on target type: it would force a neutral per-request signature over Effect's native ones (`{ headers, rpc, payload }` vs `{ endpoint, group, request }`), and defining RPC versus HTTP endpoints are different activities anyway — RPC is the default, HTTP exists for OpenAPI. Nearest Wins itself is unchanged from auth-toolkit's ADR 0001.

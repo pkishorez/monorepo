@@ -2,8 +2,8 @@ import { Effect, Ref, Schema } from 'effect';
 import { HttpServerRequest, HttpServerResponse } from 'effect/http';
 import { Rpc, RpcGroup, RpcSerialization, RpcServer } from 'effect/rpc';
 import { Story } from 'laymos/story';
-import { Authz } from '@kstackz/auth-toolkit/rpc';
-import { authzCookies } from '@kstackz/auth-toolkit/server/rpc';
+import { Authz } from '@kstackz/auth-toolkit/guard';
+import { authz } from '@kstackz/auth-toolkit/server';
 import { authLayer, resolvedAuth, runRpc } from '../support.js';
 
 const GetProfile = Rpc.make('GetProfileForBatch', {
@@ -19,9 +19,8 @@ const ListNotifications = Rpc.make('ListNotifications', {
 const Api = Authz.guard()(RpcGroup.make(GetProfile, ListNotifications));
 
 const Handlers = Api.toLayer({
-  GetProfileForBatch: () =>
-    Effect.map(Authz.CurrentAuth, ({ user }) => user.id),
-  ListNotifications: () => Effect.map(Authz.CurrentAuth, ({ user }) => user.id),
+  GetProfileForBatch: () => Effect.map(Authz.Current, ({ user }) => user.id),
+  ListNotifications: () => Effect.map(Authz.Current, ({ user }) => user.id),
 });
 
 const batchRequest = new Request('https://api.example.com/rpc', {
@@ -47,7 +46,7 @@ const batchRequest = new Request('https://api.example.com/rpc', {
 
 const RpcHttpApp = Effect.gen(function* () {
   const rpcApp = yield* RpcServer.toHttpEffect(Api);
-  return yield* authzCookies(rpcApp);
+  return yield* authz.cookies(rpcApp);
 });
 
 export const handlingCallsTogether = Story.make({

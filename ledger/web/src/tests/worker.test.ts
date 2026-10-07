@@ -1,8 +1,8 @@
 import { Effect } from 'effect';
 import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { Authz } from '@kstackz/auth-toolkit/rpc';
-import { authCloud } from '@ledger/core/backend/services/auth/cloud';
+import { Authz } from '@kstackz/auth-toolkit/guard';
+import { authz } from '@kstackz/auth-toolkit/server/cloud';
 import { AUTH_URL, LEDGER_RESOURCE } from '../stage.ts';
 
 const issuer = `${AUTH_URL}/api/auth`;
@@ -34,7 +34,7 @@ const resolve = (bearer: string) =>
       ),
     ).pipe(
       Effect.provide(
-        authCloud({ authUrl: AUTH_URL, resource: LEDGER_RESOURCE }),
+        authz.cloud({ authWorkerUrl: AUTH_URL, resource: LEDGER_RESOURCE }),
       ),
     ),
   );
@@ -57,7 +57,7 @@ describe("the cloud Backend's sign-in check", () => {
     const resolved = await resolve(
       await token({ aud: [LEDGER_RESOURCE, `${issuer}/oauth2/userinfo`] }),
     );
-    expect(resolved?.currentAuth).toEqual({
+    expect(resolved?.current).toEqual({
       kind: 'token',
       user: { id: 'user-ada', email: 'ada@ledger.test', name: 'Ada' },
       client: { id: 'ledger' },

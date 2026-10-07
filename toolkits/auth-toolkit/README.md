@@ -1,50 +1,40 @@
 # @kstackz/auth-toolkit
 
-Curated better-auth building blocks: one shared Auth Worker (Cloudflare D1) with its own pages, server doors for Consumer Backends, and browser, Expo and CLI clients
+One shared sign-in service on Cloudflare, the guard both sides of an Effect API agree on, and the server and client halves that sign in to it
 
 ## Big picture
 
-One Cloudflare Worker, the Auth Worker, owns sign-in, sign-out, and session
-validation over a Primary Database. Every other program asks it "who is
-this?" instead of touching auth state. Which door a program uses follows one
-split: a First-Party program (your web app, your CLI) holds a Session and is
-served by the always-on Identity Role; a Third-Party program (an MCP client)
-holds an Access Token and needs the opt-in Authorization Server Role. Web,
-CLI, and MCP are three stories on that one split, not three systems. A
-First-Party native app is the one exception: it signs in as a First-Party
-Client, a fixed OAuth client with PKCE and no consent, and holds its own
-tokens on the phone ([ADR 0017](./docs/adr/0017-first-party-native-apps-are-fixed-oauth-clients.md)).
+**Run the sign-in service.** One Cloudflare Worker, the Auth Worker, owns
+sign-in, sign-out and every Sign-in over a Primary Database (D1). It serves
+its own login, consent, device and home pages, so there is nothing else to
+deploy. Every other program asks it "who is this?" instead of touching auth
+state. A First-Party program (your web app, your CLI, your phone app) holds a
+Sign-in; a Third-Party program (an MCP client) holds an Access Token and
+needs the opt-in Authorization Server Role. The `worker` doors are this half.
 
-The package builds on `@kstackz/rpc-toolkit` for the `Authz` Cannotation that guards
-Effect RPC and HTTP API endpoints. The login, consent, device, and home pages
-the Worker serves itself are built from the package's own copies of their
-screens in `src/auth-worker/ui`; auth-toolkit never imports
-`@kstackz/web-toolkit` ([ADR 0003](../../docs/adr/0003-web-toolkit-and-the-gate.md)).
-Subpaths are named for the program that imports them: `worker/*` for the Auth
-Worker, `server/*` for a Consumer Backend, `clients/*` for a First-Party
-browser or CLI. `rpc` and `http-api` are declarations both sides share.
-`gate` and `gate/react` run an app's sign-in on one device, on any platform,
-on the cloud or the device Backend. `app` builds an app on the Gate: its
-`createApp` opens the app's Backend Link and Session and closes them
-again, and deletes a signed-out user's copy; the app says only what the stores
-hold ([ADR 0004](../../docs/adr/0004-an-app-is-api-backend-and-stores.md)).
-`webPlatform` from `@kstackz/web-toolkit/client` and `expoPlatform` from
-`@kstackz/expo-toolkit/platform` give it the browser or the phone. Effect is
-optional: `server/session`, `server/access-token`, and `server/mcp` are plain
-TypeScript. The source is laid out the same way, all resting on one Auth
-Worker Contract ([ADR 0013](./docs/adr/0013-one-auth-worker-contract-three-program-graphs.md)).
+**Sign in to it.** Three doors, one per side. `guard` is the contract both
+sides import: `Authz`, built on rpc-toolkit's `Rpc.middleware` (and
+`AuthzHttp` on `HttpApi.middleware`). `server` is its half on a Backend:
+`authz.layer` checks every guarded call with a Resolver Service whose
+`device` version reads a Name Token and whose `cloud` version asks the Auth
+Worker. `client` is the app's half: `createApp` takes a Platform and the
+app's Api, runs sign-in with the Gate, and hands each active Account's
+Session a signed `rpc` client and a `sync` named for the user. The Sign-in
+mechanisms (`signIn.named`, `cookie`, `oauth`, `deviceCode`) sit
+underneath for the unusual app.
 
-Vocabulary lives in [`CONTEXT.md`](./CONTEXT.md). Decisions live in
-[`docs/adr/`](./docs/adr/). Every `createAuthWorker` option, and the
-behaviour every deployment inherits (rate limiting off, Cookie Cache
-revocation lag, admin plugin, bearer handling, cookie relay), is in
-[`docs/auth-worker-configuration.md`](./docs/auth-worker-configuration.md).
-The schema and migration runbook is
-[`docs/migrations.md`](./docs/migrations.md). The Effect integrations have
-their own deep dives in
-[`src/server/effect/rpc/README.md`](./src/server/effect/rpc/README.md) and
-[`src/server/effect/http-api/README.md`](./src/server/effect/http-api/README.md).
-Run `pnpm --filter @kstackz/auth-toolkit stories` for the executable RPC walkthrough.
+`server/cloud`, `client/web`, `client/expo` and `client/cli` are doors of
+their own because they bring better-auth's server code, better-auth's
+browser client, Expo modules and Node, and
+Metro bundles every import it sees: a device Backend on a phone must never
+load the cloud Resolver. Why the toolkits are cut this way is
+[ADR 0005](../../docs/adr/0005-three-toolkits-three-doors.md); the words are
+in [`CONTEXT.md`](./CONTEXT.md) and the package's decisions in
+[`docs/adr/`](./docs/adr/). Every `createAuthWorker` option is in
+[`docs/auth-worker-configuration.md`](./docs/auth-worker-configuration.md),
+the schema runbook in [`docs/migrations.md`](./docs/migrations.md). Run
+`pnpm --filter @kstackz/auth-toolkit stories` for the executable RPC
+walkthrough.
 
 ## Install
 
@@ -52,16 +42,17 @@ Run `pnpm --filter @kstackz/auth-toolkit stories` for the executable RPC walkthr
 pnpm add @kstackz/auth-toolkit
 ```
 
-Peer dependencies, all optional; install the ones your subpaths need:
+Peer dependencies, all optional; install the ones your doors need:
 
-- `effect`: the `rpc`, `server/rpc`, `http-api`, `server/http-api`, `clients/auth`, `gate`, `app`, and `clients/cli` subpaths are Effect Layers and Services.
-- `@kstackz/std-toolkit`: `authLocal` from `@kstackz/auth-toolkit/clients/auth` keeps Local Accounts in a StdTable; `app` keeps them there for the device Backend.
-- `react`: the Auth Worker's own pages are React, and so are `@kstackz/auth-toolkit/gate/react` and `@kstackz/auth-toolkit/app`.
-- `better-sqlite3`: `@kstackz/auth-toolkit/worker/database/memory` runs SQLite in-process for tests.
-- `alchemy`: `@kstackz/auth-toolkit/worker/alchemy/d1` declares the D1 resource in `alchemy.run.ts`.
-- `expo-auth-session`: `@kstackz/auth-toolkit/clients/auth/expo` runs the authorization in the system sign-in sheet, with PKCE and a checked `state`.
-- `expo-secure-store`: `@kstackz/auth-toolkit/clients/auth/expo` keeps each User's tokens in the keychain (Keystore on Android).
-- `expo-web-browser`: `manageAccounts` from `@kstackz/auth-toolkit/clients/auth/expo` opens the Auth Worker's Home Page in the sign-in sheet.
+- `effect`: `guard`, `server`, `client` and `client/cli` are Effect Layers and Services.
+- `@kstackz/rpc-toolkit`: the guard is its Middleware, and `createApp` calls the Api with its `http` and `inProcess` Transports.
+- `@kstackz/std-toolkit`: `createApp` keeps a user's Std Sync and the Gate's memory in its Sync and Table adapters.
+- `react`: the Auth Worker's own pages are React, and so are the `SignedIn`, `SignedOut` and hooks `createApp` returns.
+- `better-sqlite3`: `@kstackz/auth-toolkit/worker/memory` runs SQLite in-process for tests.
+- `alchemy`: `@kstackz/auth-toolkit/worker/alchemy` declares the D1 resource in `alchemy.run.ts`.
+- `expo-auth-session`: `@kstackz/auth-toolkit/client/expo` runs the authorization in the system sign-in sheet, with PKCE and a checked `state`.
+- `expo-secure-store`: `@kstackz/auth-toolkit/client/expo` keeps each User's tokens in the keychain (Keystore on Android).
+- `expo-web-browser`: `manageAccounts` from `@kstackz/auth-toolkit/client/expo` opens the Auth Worker's Home Page in the sign-in sheet.
 
 ## Exports
 
@@ -70,185 +61,115 @@ Peer dependencies, all optional; install the ones your subpaths need:
 | Export                   | What it does                                                                                                       |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------ |
 | `createAuthWorker`       | Assembles the Auth Worker and returns the better-auth instance plus a fetch handler that serves the API and pages. |
+| `d1`                     | Builds the Primary Database Provider from a Cloudflare D1 binding.                                                 |
 | `isTrustedOrigin`        | Tells whether an origin matches any of the given trusted origin patterns.                                          |
 | `validateTrustedOrigins` | Throws when a trusted origin pattern is neither a full origin, a host pattern, nor an app scheme and path.         |
 | `AUTH_PAGES`             | The paths of the login, consent, device, and error pages.                                                          |
 
-### `@kstackz/auth-toolkit/worker/database/d1`
+### `@kstackz/auth-toolkit/worker/memory`
 
-| Export              | What it does                                                       |
-| ------------------- | ------------------------------------------------------------------ |
-| `d1PrimaryDatabase` | Builds the Primary Database Provider from a Cloudflare D1 binding. |
+| Export   | What it does                                                                                 |
+| -------- | -------------------------------------------------------------------------------------------- |
+| `memory` | Builds an in-memory SQLite Primary Database Provider migrated with the shipped `.sql` files. |
 
-### `@kstackz/auth-toolkit/worker/database/memory`
-
-| Export                  | What it does                                                                                 |
-| ----------------------- | -------------------------------------------------------------------------------------------- |
-| `memoryPrimaryDatabase` | Builds an in-memory SQLite Primary Database Provider migrated with the shipped `.sql` files. |
-
-### `@kstackz/auth-toolkit/worker/alchemy/d1`
+### `@kstackz/auth-toolkit/worker/alchemy`
 
 | Export                      | What it does                                                                            |
 | --------------------------- | --------------------------------------------------------------------------------------- |
 | `d1PrimaryDatabaseResource` | Declares the D1 database as an Alchemy resource with the package's migrations attached. |
 
-### `@kstackz/auth-toolkit/server/session`
+### `@kstackz/auth-toolkit/guard`
 
-| Export          | What it does                                                                                                                   |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `verifyRequest` | Forwards a request's cookie or bearer header to the Auth Worker and returns the User, Session, and refreshed cookies, or null. |
+| Export                  | What it does                                                                                         |
+| ----------------------- | ---------------------------------------------------------------------------------------------------- |
+| `Authz.guard`           | Attaches the guard to an Rpc or RpcGroup, with an optional policy; the nearest one wins.             |
+| `Authz.bearer`          | Client half: signs every guarded call with a token, read at each call or waited for.                 |
+| `Authz.policy`          | Builds a policy from an invariant and the reason it fails Forbidden with.                            |
+| `Authz.scope`           | Builds a policy that holds only for an Access Token carrying every listed Scope.                     |
+| `Authz.Current`         | The Service a guarded handler reads who called from.                                                 |
+| `Authz.Resolver`        | The Service that finds out who a request is from; tests replace it.                                  |
+| `Authz.Unauthenticated` | Error for a guarded call nobody signed (401).                                                        |
+| `Authz.Forbidden`       | Error for a call whose policy refused (403).                                                         |
+| `Authz.Unavailable`     | Error when the Auth Worker could not be asked (503).                                                 |
+| `AuthzHttp`             | The same guard for Effect HttpApi: `guard`, `policy`, `scope`, `Current`, `Resolver` and the errors. |
 
-### `@kstackz/auth-toolkit/server/access-token`
+### `@kstackz/auth-toolkit/server`
 
-| Export              | What it does                                                                                                      |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `verifyAccessToken` | Verifies a bearer Access Token for one resource against the Auth Worker's JWKS and returns its identity, or null. |
+| Export          | What it does                                                                                           |
+| --------------- | ------------------------------------------------------------------------------------------------------ |
+| `authz.layer`   | Server half of `Authz`: resolves each guarded RPC's caller, checks its policy, provides it.            |
+| `authz.http`    | Server half of `AuthzHttp` for Effect HttpApi.                                                         |
+| `authz.device`  | The device Resolver: reads the caller from a Name Token, asking no one.                                |
+| `authz.cookies` | Verifies once per batched request and relays refreshed cookies; give it as `Rpc.http.server`'s `wrap`. |
 
-### `@kstackz/auth-toolkit/server/mcp`
+### `@kstackz/auth-toolkit/server/cloud`
 
-| Export                    | What it does                                                                                                                |
-| ------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `createMcpResourceServer` | Wraps a request handler so it accepts only Access Tokens, passes a Token Principal, and serves Protected Resource Metadata. |
+| Export                    | What it does                                                                                                                  |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `authz`                   | Everything `server`'s `authz` has, plus `cloud`.                                                                              |
+| `authz.cloud`             | The cloud Resolver: asks the Auth Worker about a cookie or bearer, and verifies Access Tokens itself given a `resource`.      |
+| `verifyRequest`           | Without Effect: forwards a request's cookie or bearer to the Auth Worker and returns the User, Sign-in and refreshed cookies. |
+| `verifyAccessToken`       | Without Effect: verifies a bearer Access Token against the Auth Worker's JWKS for one Resource Server.                        |
+| `createMcpResourceServer` | Without Effect: an MCP Server's fetch handler that accepts only Access Tokens and publishes its Protected Resource Metadata.  |
 
-### `@kstackz/auth-toolkit/rpc`
+### `@kstackz/auth-toolkit/client`
 
-| Export                          | What it does                                                                                                              |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `Authz`                         | The Auth Cannotation for Effect RPC; safe to import from contracts shared with the browser.                               |
-| `Authz.guard`                   | Attaches an Authentication Requirement, or an Authorization Policy, to an RPC or an RPC group.                            |
-| `Authz.bearer`                  | Client Layer that signs every guarded call with one Session's token, or waits on an Effect for it, over any RPC Protocol. |
-| `Authz.policy`                  | Builds an Authorization Policy from a boolean or Effect invariant and the reason it fails with.                           |
-| `Authz.scope`                   | Builds a policy that passes only a Token Principal carrying every listed Scope.                                           |
-| `Authz.CurrentAuth`             | Service holding the verified Principal while a guarded handler runs.                                                      |
-| `Authz.Resolver`                | Service tag of the Current Auth Resolver; tests replace it, production uses `resolverLive`.                               |
-| `Authz.Unauthenticated`         | Error for a request with no valid credential.                                                                             |
-| `Authz.Forbidden`               | Error for a Principal a policy rejected.                                                                                  |
-| `Authz.VerificationUnavailable` | Error when the Auth Worker could not complete Server-Side Verification.                                                   |
+| Export               | What it does                                                                                   |
+| -------------------- | ---------------------------------------------------------------------------------------------- |
+| `createApp`          | An app on a Platform and an Api: the Gate, one Session per active Account, and its React side. |
+| `signIn.named`       | Sign-in by name on the device Backend, each Account holding a Name Token.                      |
+| `SignIn`             | The Service every Sign-in mechanism provides: list, sign in, switch, sign out.                 |
+| `Unreachable`        | Error when the Auth Worker could not be reached or refused.                                    |
+| `memoryPlatform`     | A Platform kept in memory, for tests.                                                          |
+| `createGate`         | The Gate on its own, underneath `createApp`.                                                   |
+| `gateReact`          | A Gate's `SignedIn`, `SignedOut` and hooks.                                                    |
+| `Backend`            | The Schema of the two Backends, `cloud` and `device`.                                          |
+| `backendNamed`       | The Backend a stored or launched name means, including the former `remote` and `local`.        |
+| `nameToken`          | Makes and reads a Name Token.                                                                  |
+| `namedUser`          | The Named Account an email names.                                                              |
+| `namedChooser`       | A `choose` for `signIn.named` that a dialog answers.                                           |
+| `namedAccountsTable` | The StdTable Named Accounts are kept in.                                                       |
+| `keepSyncs`          | Deletes every user's Std Sync on the device but the ones still signed in.                      |
 
-### `@kstackz/auth-toolkit/server/rpc`
+### `@kstackz/auth-toolkit/client/web`
 
-| Export          | What it does                                                                                            |
-| --------------- | ------------------------------------------------------------------------------------------------------- |
-| `authzLayer`    | Server Implementation of the RPC Auth Cannotation; requires `Authz.Resolver`.                           |
-| `resolverLocal` | Local Current Auth Resolver; reads the User out of a Local Token bearer, asking no one.                 |
-| `authzCookies`  | Wraps an RPC HTTP app to verify once per batched request and relay refreshed cookies onto the response. |
+| Export   | What it does                                                              |
+| -------- | ------------------------------------------------------------------------- |
+| `cookie` | Sign-in in a browser against the Auth Worker, with its cookie and Google. |
 
-### `@kstackz/auth-toolkit/server/resolver-live`
+### `@kstackz/auth-toolkit/client/expo`
 
-| Export         | What it does                                                                                                                                                           |
-| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `resolverLive` | Production Current Auth Resolver; verifies Sessions, and Access Tokens too when given a `resource`. Its own entry, so a backend on a device never bundles better-auth. |
+| Export           | What it does                                                                                    |
+| ---------------- | ----------------------------------------------------------------------------------------------- |
+| `oauth`          | Sign-in on a phone as the app's First-Party OAuth client, each User's tokens in secure storage. |
+| `manageAccounts` | Opens the Auth Worker's Home Page in the system sign-in sheet.                                  |
 
-### `@kstackz/auth-toolkit/http-api`
+### `@kstackz/auth-toolkit/client/cli`
 
-| Export                          | What it does                                                                                     |
-| ------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `Authz`                         | The Auth Cannotation for Effect HTTP API; safe to import from contracts shared with the browser. |
-| `Authz.guard`                   | Attaches an Authentication Requirement, or an Authorization Policy, to an endpoint or a group.   |
-| `Authz.policy`                  | Builds an Authorization Policy from a boolean or Effect invariant and the reason it fails with.  |
-| `Authz.scope`                   | Builds a policy that passes only a Token Principal carrying every listed Scope.                  |
-| `Authz.CurrentAuth`             | Service holding the verified Principal while a guarded handler runs.                             |
-| `Authz.Resolver`                | Service tag of the Current Auth Resolver; tests replace it, production uses `resolverLive`.      |
-| `Authz.Unauthenticated`         | Error for a request with no valid credential; HTTP 401.                                          |
-| `Authz.Forbidden`               | Error for a Principal a policy rejected; HTTP 403.                                               |
-| `Authz.VerificationUnavailable` | Error when the Auth Worker could not complete Server-Side Verification; HTTP 503.                |
-
-### `@kstackz/auth-toolkit/server/http-api`
-
-| Export          | What it does                                                                                                    |
-| --------------- | --------------------------------------------------------------------------------------------------------------- |
-| `authzLayer`    | Server Implementation of the HTTP API Auth Cannotation; requires `Authz.Resolver` and relays refreshed cookies. |
-| `resolverLocal` | Local Current Auth Resolver; the same value `@kstackz/auth-toolkit/server/rpc` exports.                         |
-
-### `@kstackz/auth-toolkit/clients/auth`
-
-| Export               | What it does                                                                                                   |
-| -------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `Auth`               | Service for the browser's Signed-in Accounts: list, sign in, switch, sign out one or all, and the login error. |
-| `Unreachable`        | Error when the Auth Worker could not be reached or refused the call.                                           |
-| `authLocal`          | Layer of `Auth` over Local Accounts, asking a `choose` effect who signs in; in memory unless given storage.    |
-| `localAccountsTable` | The StdTable Local Accounts live in, to realize on an adapter such as IDB or SQLite.                           |
-| `localChooser`       | Builds a `choose` that waits for a dialog to answer it.                                                        |
-| `localToken`         | Makes and reads Local Tokens, to sign a test's calls as any User.                                              |
-| `localUser`          | The Local Account an email names; the same email is always the same User.                                      |
-| `signedFetch`        | Wraps `fetch` to send one account's token as a bearer and never the cookie.                                    |
-| `signedFetchLayer`   | `FetchHttpClient.layer` over `signedFetch`, so every Effect HTTP or RPC client on it is signed.                |
-
-### `@kstackz/auth-toolkit/clients/auth/live`
-
-| Export     | What it does                                                     |
-| ---------- | ---------------------------------------------------------------- |
-| `authLive` | Layer of `Auth` against the Auth Worker, with Google to sign in. |
-
-### `@kstackz/auth-toolkit/clients/auth/expo`
-
-| Export           | What it does                                                                                                                 |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `authExpo`       | Layer of `Auth` on a phone: each User signs in as the app's First-Party Client and keeps their own tokens in secure storage. |
-| `manageAccounts` | Opens the Auth Worker's Home Page in the sign-in sheet, which holds the User's sign-in.                                      |
-
-### `@kstackz/auth-toolkit/gate`
-
-| Export           | What it does                                                                                                                      |
-| ---------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `createGate`     | Makes the Gate for one app from its platform, its `cloud` and `device` Backend Lifetimes, and what its Session Lifetime opens to. |
-| `memoryPlatform` | A Gate platform kept in memory, with no network events and no other tabs, for tests and for places nothing outlives the process.  |
-| `Backend`        | Schema of the two Backends, `cloud` and `device`.                                                                                 |
-| `backendNamed`   | The Backend a name names, read from the former `remote` and `local` too; null for anything else.                                  |
-
-### `@kstackz/auth-toolkit/gate/react`
-
-| Export        | What it does                                                                                                                                                          |
-| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `gateReact`   | Turns a Gate into the components and hooks below; nothing runs until one of them first renders.                                                                       |
-| `SignedIn`    | Renders its children while an account is open, and a fallback otherwise; remounts them on an Account Switch.                                                          |
-| `SignedOut`   | Renders its children only while nobody is signed in.                                                                                                                  |
-| `useGate`     | Works anywhere: `view`, `backend` and `setBackend`, `online`, `notice` and `dismissNotice`, `checkAgain`, `retry`, `signIn`, `signOut`, and `localSignIn`'s question. |
-| `useAccounts` | Only inside `SignedIn`: the `current` account, `all` of them, `add`, `switchTo`, `signOut` and `signOutEveryone`.                                                     |
-| `useSession`  | The open account's Session Lifetime; only inside `SignedIn`.                                                                                                          |
-
-### `@kstackz/auth-toolkit/app`
-
-| Export        | What it does                                                                                                                                                                                                                          |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `createApp`   | Makes an app on the Gate from its platform, its Backend Link to the `cloud` and the `device` Backend, and its Session; returns `gate`, `platform`, `SignedIn`, `SignedOut`, `useGate`, `useSession`, and `useAccounts` with `manage`. |
-| `AppPlatform` | Service of what an app needs of its platform: tables kept by database, Std Sync's platform (`sync`), the cloud Backend's sign-in and address, and the Gate's platform.                                                                |
-| `syncName`    | The name of one user's Std Sync on this device; what a sync named with it keeps is deleted once the user signs out.                                                                                                                   |
-| `keepSyncs`   | Deletes the Std Sync of every user but those given, touching only names `syncName` makes.                                                                                                                                             |
-
-### `@kstackz/auth-toolkit/clients/cli`
-
-| Export                      | What it does                                                                                                            |
-| --------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `CliAuth`                   | Service with `login`, `logout`, `whoami`, and `token` for a First-Party CLI.                                            |
-| `CliAuth.layer`             | Builds `CliAuth` from the Auth Worker URL and the CLI's name and version; needs `HttpClient`, `FileSystem`, and `Path`. |
-| `CliAuth.rpcSession`        | Layer that puts the stored Session on every RPC client call as a bearer.                                                |
-| `SignedOut`                 | Error when there is no stored Session or the Auth Worker no longer knows it.                                            |
-| `DeviceLoginFailed`         | Error when the User denied the code or it expired before approval.                                                      |
-| `AuthWorkerUnreachable`     | Error when the Auth Worker could not be reached at all.                                                                 |
-| `AuthWorkerUnavailable`     | Error when the Auth Worker answered with a 5xx status.                                                                  |
-| `AuthWorkerRejected`        | Error when the Auth Worker answered with a 4xx status.                                                                  |
-| `InvalidAuthWorkerResponse` | Error when the Auth Worker's response did not have the expected shape.                                                  |
+| Export                      | What it does                                                             |
+| --------------------------- | ------------------------------------------------------------------------ |
+| `deviceCode`                | Sign-in for a CLI by Device Login, the token kept between runs.          |
+| `DeviceCode`                | The Service `deviceCode` provides: `login`, `logout`, `token`, `whoami`. |
+| `DeviceCode.rpcSession`     | Signs every RPC call with the kept token.                                |
+| `SignedOut`                 | Error when there is no Sign-in, or a dead one.                           |
+| `DeviceLoginFailed`         | Error when the code was denied or expired.                               |
+| `AuthWorkerUnreachable`     | Error when the Auth Worker could not be reached at all.                  |
+| `AuthWorkerUnavailable`     | Error when the Auth Worker answered with a 5xx status.                   |
+| `AuthWorkerRejected`        | Error when the Auth Worker answered with a 4xx status.                   |
+| `InvalidAuthWorkerResponse` | Error when the Auth Worker's response did not have the expected shape.   |
 
 ## Usage
 
-### Stand up the Auth Worker
+### Run the sign-in service
 
 Your Worker entrypoint calls `createAuthWorker` once and hands every request
-to its `handler`. The same call runs in tests with the in-memory Provider, as
-`src/auth-worker/worker/tests/device-login.test.ts` does.
+to its `handler`; `alchemy.run.ts` declares the D1 database with the
+package's migrations. The same call runs in tests with `memory()`, as
+`src/worker/worker/tests/device-login.test.ts` does.
 
 ```ts
 // src/worker.ts
-import { createAuthWorker } from '@kstackz/auth-toolkit/worker';
-import { d1PrimaryDatabase } from '@kstackz/auth-toolkit/worker/database/d1';
-
-interface Env {
-  DB: D1Database;
-  AUTH_SECRET: string;
-  GOOGLE_CLIENT_ID: string;
-  GOOGLE_CLIENT_SECRET: string;
-}
+import { createAuthWorker, d1 } from '@kstackz/auth-toolkit/worker';
 
 export default {
   fetch(request: Request, env: Env) {
@@ -256,228 +177,92 @@ export default {
       baseURL: 'https://auth.example.com',
       secret: env.AUTH_SECRET,
       branding: { appName: 'Example' },
-      database: d1PrimaryDatabase(env.DB),
+      database: d1(env.DB),
       google: {
         clientId: env.GOOGLE_CLIENT_ID,
         clientSecret: env.GOOGLE_CLIENT_SECRET,
       },
       trustedOrigins: ['https://app.example.com', '*.preview.example.com'],
       cookieDomain: '.example.com',
-      validateUser: ({ user }) => {
-        if (!user.email?.endsWith('@example.com')) {
-          return {
-            error: 'email_not_allowed',
-            errorDescription: 'Use your example.com Google account',
-          };
-        }
-      },
     });
     return handler(request);
   },
 };
-```
 
-```ts
 // alchemy.run.ts
 import * as Cloudflare from 'alchemy/Cloudflare';
-import { d1PrimaryDatabaseResource } from '@kstackz/auth-toolkit/worker/alchemy/d1';
+import { d1PrimaryDatabaseResource } from '@kstackz/auth-toolkit/worker/alchemy';
 
 const db = d1PrimaryDatabaseResource('auth-db');
-
 export const authWorker = await Cloudflare.Worker('auth-worker', {
   entrypoint: 'src/worker.ts',
   bindings: { DB: db },
 });
 ```
 
-- `handler` serves `/api/auth/*`, the pages at `/`, `/login`, `/device`, and `/error`, and their embedded assets. Nothing else to deploy.
-- `trustedOrigins` allows the browser client's Direct Session Check and drives credentialed CORS. `cookieDomain` lets every subdomain read the cookie.
-- `validateUser` is the User Admission Policy. Return nothing to admit; return an error to reject.
-- Swap `database` for `memoryPrimaryDatabase()` in tests. The same migrations run.
+- `handler` serves `/api/auth/*`, the pages at `/`, `/login`, `/consent`, `/device` and `/error`, and their embedded assets.
+- `trustedOrigins` allows the browser's Direct Sign-in Check and drives credentialed CORS; `cookieDomain` lets every subdomain read the cookie.
+- `validateUser` is the User Admission Policy; `multiSession: { maximumAccounts }` caps the Accounts a browser holds (default 5).
+- Add `authorizationServer` only when a Third-Party program or a phone app needs Access Tokens; `firstPartyClients` lists phone apps ([ADR 0017](./docs/adr/0017-first-party-native-apps-are-fixed-oauth-clients.md)).
 - `d1PrimaryDatabaseResource` applies pending migrations on every `alchemy deploy`.
-- Add `authorizationServer` only when a Third-Party program needs Access Tokens. See [`docs/auth-worker-configuration.md`](./docs/auth-worker-configuration.md).
-- A browser can hold several Signed-in Accounts and switch between them from every page. `multiSession: { maximumAccounts }` changes the cap, default 5. See [ADR 0012](./docs/adr/0012-account-switch-is-browser-wide.md) and [ADR 0014](./docs/adr/0014-first-party-apps-may-switch-and-act-as-an-account.md).
 
-### Guard an Effect RPC on a Consumer Backend
+### Sign in to it
 
-The contract attaches `Authz.guard()`; the handler reads `Authz.CurrentAuth`;
-the server provides `authzLayer` with `resolverLive`. Lifted from
-`stories/effect-rpc/01-protecting-your-first-rpc` and
-`apps/alchemy-console/src/server/host/rpc-host`.
+The contract guards its calls; the cloud Backend serves them over HTTP with
+the cloud Resolver; the client is one `createApp` on a Platform. Lifted from
+`src/client/app/tests/app.test.ts` and `stories/effect-rpc`.
 
 ```ts
-// contract.ts, shared with the browser
-import { Effect, Schema } from 'effect';
-import { Rpc, RpcGroup } from 'effect/rpc';
-import { Authz } from '@kstackz/auth-toolkit/rpc';
-
-const GetProfile = Rpc.make('GetProfile', {
-  payload: {},
-  success: Schema.Struct({ userId: Schema.String }),
-}).pipe(Authz.guard());
-
-export const Api = RpcGroup.make(GetProfile);
-
-// handlers.ts
+// api.ts, shared by both sides
+const WhoAmI = Rpc.make('WhoAmI', { success: Schema.String }).pipe(
+  Authz.guard(),
+);
+export const Api = RpcGroup.make(WhoAmI);
 export const Handlers = Api.toLayer({
-  GetProfile: () =>
-    Effect.map(Authz.CurrentAuth, ({ user }) => ({ userId: user.id })),
+  WhoAmI: () => Effect.map(Authz.Current, ({ user }) => user.email),
 });
 
-// server.ts
-import { Layer } from 'effect';
-import { RpcSerialization, RpcServer } from 'effect/rpc';
-import { resolverLive } from '@kstackz/auth-toolkit/server/resolver-live';
-import { authzCookies, authzLayer } from '@kstackz/auth-toolkit/server/rpc';
-
-const dependencies = Layer.mergeAll(
-  Handlers,
-  authzLayer.pipe(
-    Layer.provide(resolverLive({ authWorkerUrl: 'https://auth.example.com' })),
+// worker.ts, the cloud Backend
+import { authz } from '@kstackz/auth-toolkit/server/cloud';
+const rpc = Rpc.http.server(
+  Api,
+  Handlers.pipe(
+    Layer.merge(authz.layer),
+    Layer.provide(authz.cloud({ authWorkerUrl: 'https://auth.example.com' })),
   ),
-  RpcSerialization.layerJson,
+  { wrap: authz.cookies },
 );
 
-const app = Effect.gen(function* () {
-  const rpc = yield* RpcServer.toHttpEffect(Api);
-  return yield* authzCookies(rpc);
-}).pipe(Effect.provide(dependencies));
-```
-
-- `Authz.guard()` alone requires a valid Session. `Authz.guard(Authz.policy(invariant, reason))` also authorizes. Nearest declaration wins between an RPC and its group.
-- `resolverLive` forwards the request's cookie or bearer to the Auth Worker. Give it `resource: 'https://api.example.com'` to also accept Access Tokens locally and make this backend a Resource Server.
-- A CLI's Device Login token is a Session sent as a bearer. It is accepted without `resource`.
-- No credential fails with `Authz.Unauthenticated`; a rejected policy with `Authz.Forbidden`; an unreachable Auth Worker with `Authz.VerificationUnavailable`.
-- `authzCookies` verifies once per batched request and relays refreshed cookies. It needs the non-framing JSON serializer.
-- Tests replace only `Authz.Resolver` with `Layer.succeed(Authz.Resolver, Authz.Resolver.of({ resolve }))`; the Cannotation and policies still run.
-- Without Effect, call `verifyRequest` from `@kstackz/auth-toolkit/server/session` and append each `refreshedCookies` entry as its own `Set-Cookie` header.
-
-### Sign a User in from a First-Party client
-
-Both clients hold a Session and talk only to the Auth Worker. In a browser,
-`Auth` lists the Signed-in Accounts and signs one in with Google; each
-account's token signs that account's own calls through `Authz.bearer`. Lifted from
-`ledger/core/src/app/session`. In a CLI, `CliAuth` plays the browser's part:
-it runs Device Login, keeps the Session, attaches it to every call, and drops
-it on sign-out; lifted from `src/clients/cli/tests/cli.test.ts`.
-
-```ts
-// Browser: this app's origin must be in the Auth Worker's `trustedOrigins`.
-import { Auth } from '@kstackz/auth-toolkit/clients/auth';
-import { authLive } from '@kstackz/auth-toolkit/clients/auth/live';
-import { Authz } from '@kstackz/auth-toolkit/rpc';
-
-const runtime = ManagedRuntime.make(
-  authLive({ authWorkerUrl: 'https://auth.example.com' }),
-);
-
-const open = Effect.gen(function* () {
-  const auth = yield* Auth;
-  const active = (yield* auth.list).find(({ active }) => active);
-  // Nobody signed in: leave for Google and come back here.
-  if (active === undefined) return yield* auth.signIn();
-  return active;
-});
-
-// Each account's calls carry its own token, whichever account is active,
-// over HTTP or any other Protocol.
-const rpcFor = (token: string) =>
-  Layer.mergeAll(
-    RpcClient.layerProtocolHttp({ url: '/rpc' }),
-    Authz.bearer(() => token),
-  ).pipe(Layer.provide([FetchHttpClient.layer, RpcSerialization.layerJson]));
-```
-
-```ts
-// CLI
-import { NodeRuntime, NodeServices } from '@effect/platform-node';
-import { CliAuth } from '@kstackz/auth-toolkit/clients/cli';
-import { Console, Effect, Layer } from 'effect';
-import { FetchHttpClient } from 'effect/http';
-
-const login = Effect.gen(function* () {
-  const auth = yield* CliAuth;
-  const user = yield* auth.login;
-  yield* Console.log(`Signed in as ${user.email}`);
-});
-
-login.pipe(
-  Effect.provide(
-    CliAuth.layer({
-      authWorkerUrl: 'https://auth.example.com',
-      app: 'example',
-      version: '1.0.0',
-    }),
-  ),
-  Effect.provide(Layer.mergeAll(NodeServices.layer, FetchHttpClient.layer)),
-  NodeRuntime.runMain,
-);
-```
-
-```ts
-// Put the Session on every RPC call.
-Layer.mergeAll(
-  Layer.effect(NotesRpc, RpcClient.make(Notes)).pipe(Layer.provide(transport)),
-  CliAuth.rpcSession,
-);
-```
-
-- In the browser, `list` is a Direct Session Check against the Auth Worker, sent with its cookie. `signIn` returns to the current page; a failed sign-in comes back once from `takeLoginError`, which clears it from the URL.
-- `switchTo` makes an account the Active Account for every app on the Shared Cookie Domain; `signOut` ends one account and `signOutAll` every one.
-- To run without Google or the Auth Worker, provide `authLocal({ choose })` in the browser and `resolverLocal` on the backend: a Local Account's token is a Local Token, which `resolverLocal` reads without asking anyone. `localChooser` asks who to sign in as; in an app, web-toolkit's `LocalSignIn` recipe (`@kstackz/web-toolkit/recipes/local-sign-in`) is the dialog that answers it. See [ADR 0016](./docs/adr/0016-auth-runs-locally-at-two-seams-joined-by-a-local-token.md).
-- In the CLI, `login` prints the code and device URL, opens the browser when run in a terminal, polls until the User approves, and stores the Session at `$XDG_STATE_HOME/<app>/auth.json` (default `~/.local/state`) with mode `0600`.
-- `whoami` asks the Auth Worker who the Session belongs to. `token` reads it. `logout` ends the Session at the Auth Worker and deletes the file.
-- Every request names the CLI as `<app>/<version>`, which is how it appears on the Home Page.
-- No Session or a dead one fails with `SignedOut`. A denied or expired code fails `login` with `DeviceLoginFailed`. Auth Worker problems fail with `AuthWorkerUnreachable`, `AuthWorkerUnavailable`, `AuthWorkerRejected`, or `InvalidAuthWorkerResponse`, each with a printable `message`.
-- Nothing to refresh: the token never changes and the Auth Worker slides its expiry on use. Consumer Backends need no opt-in; see [ADR 0010](./docs/adr/0010-device-login-is-a-first-party-session.md).
-
-### Sign a User in on a phone
-
-A native app is a First-Party Client: the Auth Worker lists it with its
-exact redirects and its own Resource Server, and `authExpo` gives the app the
-same `Auth` as the browser. Each User signs in in the system sign-in sheet
-and keeps their own Access and refresh tokens; the app's backend accepts the
-Access Token through `resolverLive` with its `resource`. Lifted from
-`src/clients/auth/expo/tests/expo.test.ts` and Ledger.
-
-```ts
-// The Auth Worker
-createAuthWorker({
-  // ...
-  authorizationServer: {
-    resources: [],
-    firstPartyClients: [
-      {
-        clientId: 'ledger',
-        name: 'Ledger',
-        redirectUris: ['ledger://oauth/callback'],
-        resource: 'https://ledger.example.com/rpc',
-      },
-    ],
-  },
-  // Local stage only: anyone with a `.test` email signs in by naming it.
-  testSignIn: stage === 'local' ? { stage } : undefined,
-});
-
-// The app
-import { authExpo } from '@kstackz/auth-toolkit/clients/auth/expo';
-
-const auth = authExpo({
-  authWorkerUrl: 'https://auth.example.com',
-  clientId: 'ledger',
-  redirectUri: 'ledger://oauth/callback',
-  resource: 'https://ledger.example.com/rpc',
-});
-
-// The app's backend
-resolverLive({
-  authWorkerUrl: 'https://auth.example.com',
-  resource: 'https://ledger.example.com/rpc',
+// app.ts, the client
+import { createApp, signIn } from '@kstackz/auth-toolkit/client';
+export const app = createApp({
+  platform: () => myPlatform, // storage, cloud.signIn: cookie(...) from client/web, lifecycle
+  api: Api,
+  // The device Backend, loaded the first time someone chooses it.
+  device: async () =>
+    Handlers.pipe(Layer.merge(authz.layer), Layer.provide(authz.device)),
+  session: ({ account, rpc, sync }) =>
+    Effect.succeed({ user: account.user, whoAmI: () => rpc.WhoAmI() }),
 });
 ```
 
-- `signIn` opens the authorization with PKCE and `prompt=login` in ASWebAuthenticationSession (Custom Tabs on Android), never a web view; expo-auth-session refuses a redirect whose `state` it did not send, and that comes back once from `takeLoginError`. Closing the sheet signs nobody in.
-- Each User has one secure-storage entry; a roster without tokens names who is signed in and who is active. `switchTo` changes the active User on this phone only.
-- An Access Token lives 15 minutes. `list` refreshes one about to expire, one refresh per User at a time; the refresh token turns over on every use, and a reused one makes the Auth Worker revoke the User's tokens for that client, after which `list` drops the User. Offline, `list` keeps the last token.
-- `signOut` revokes the User's refresh token, then forgets them; an Access Token already handed out works until it expires.
-- The client never sees the Consent Screen, may ask only for its own Resource Server, and no other client may ask for that one.
+- `Authz.guard()` alone requires a caller; `Authz.guard(Authz.policy(invariant, reason))` also authorizes. The nearest declaration wins between an RPC and its group.
+- No caller fails `Authz.Unauthenticated`, a refused policy `Authz.Forbidden`, an unreachable Auth Worker `Authz.Unavailable`. Tests replace only `Authz.Resolver`.
+- `authz.cloud` gets `resource` to accept Access Tokens too, which makes the Backend a Resource Server (phone apps and MCP clients call it so).
+- `createApp` calls the Api at `platform.cloud.url + '/rpc'` on the cloud Backend, never sending the cookie, and in-process on the device Backend, where Users sign in by name. Each Session's `rpc` is signed with its Account's token, waiting for it while the Account opened before the Backend answered.
+- A Session's `sync` is named for the user; on the cloud Backend it is kept on the Platform and deleted once the user signs out, on the device Backend it lives in memory.
+- On a phone, `cloud.signIn` is `oauth({ authWorkerUrl, clientId, redirectUri, resource })` from `@kstackz/auth-toolkit/client/expo`.
+
+A CLI signs in with `deviceCode({ authWorkerUrl, app, version })` from
+`@kstackz/auth-toolkit/client/cli`: `login` prints a code and URL, opens
+the browser, waits for approval, and keeps the token at
+`$XDG_STATE_HOME/<app>/auth.json` (mode `0600`); `DeviceCode.rpcSession`
+signs every RPC call with it, and any Backend accepts it as a Sign-in
+([ADR 0010](./docs/adr/0010-device-login-is-a-first-party-session.md)).
+
+An MCP Server is `createMcpResourceServer({ authWorkerUrl, resource,
+requiredScopes, handler })` from `@kstackz/auth-toolkit/server/cloud`: it
+accepts only Access Tokens for its `resource`, publishes its Protected
+Resource Metadata so MCP clients find the Auth Worker, and hands `handler`
+the Token Principal. The Auth Worker needs `authorizationServer` with the
+resource listed ([ADR 0009](./docs/adr/0009-mcp-clients-register-themselves.md)).

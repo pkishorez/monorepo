@@ -14,7 +14,7 @@ import {
   type UpdatePayload,
 } from '../domain/collection-item/index.js';
 import type { WriteError } from '../domain/sync-error/index.js';
-import type { EffectRunner } from '../platform/effect-runner/index.js';
+import type { EffectRunner } from '../store/effect-runner/index.js';
 
 // Per-item onUpdate / onDelete callbacks of one transaction run this many at a time.
 const MUTATION_CONCURRENCY = 5;

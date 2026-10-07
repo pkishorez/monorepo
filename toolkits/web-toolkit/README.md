@@ -8,7 +8,7 @@ Every kstack web app used to wire the same things by hand: the root document, th
 
 It is laid out like expo-toolkit, one layer per job and one subpath per layer, bottom to top: `theme`, `feedback`, `input`, `components`, `form`, `recipes`, `client`, then `pwa`; `server` stands beside them. A Recipe here and one in expo-toolkit with the same name are the same interaction on two platforms. `client` and `server` are the opinionated way in and assume TanStack Start.
 
-The PWA is opt-in. It sits above `client` and plugs into the root document as a Root Plugin, so `client` never imports it, and an app that leaves it out ships no service worker, manifest or Update Prompt. Sign-in runs on auth-toolkit's `createApp`; this Package gives it the browser as its platform (`webPlatform`), and re-exports nothing from auth-, rpc- or std-toolkit.
+The PWA is opt-in. It sits above `client` and plugs into the root document as a Root Plugin, so `client` never imports it, and an app that leaves it out ships no service worker, manifest or Update Prompt. Sign-in runs on auth-toolkit's `createApp`, and this Package re-exports nothing from auth-, rpc- or std-toolkit. The browser as an app's Platform is not here yet: it is rebuilt on the new doors in the next phase ([ADR 0005](../../docs/adr/0005-three-toolkits-three-doors.md)), and until then an app builds its own, as `ledger/web/src/platform.ts` does.
 
 It ships built `dist/` (from `vp pack`), unlike expo-toolkit, which Metro compiles from source. Terms are in [CONTEXT.md](./CONTEXT.md); the PWA's decisions are in [docs/adr/](./docs/adr/).
 
@@ -24,8 +24,6 @@ An app that renders on the server adds `@kstackz/web-toolkit` to `ssr.noExternal
 - `react`, `react-dom`: every component, Recipe and the root document render with React 19.
 - `@kstackz/use-gesture`: the platform-free gesture core that `./input`'s web gestures and the Thumb Picker run on.
 - `@kstackz/use-keys` (optional): the Binding and Shortcut types `./recipes/key-bindings` shows.
-- `@kstackz/auth-toolkit` (optional): `./client`'s `webPlatform` is an auth-toolkit `AppPlatform` and signs in with its `authLive`; `./server`'s `serveRpc` resolves the caller with it.
-- `@kstackz/std-toolkit` (optional): `webPlatform` keeps tables in IndexedDB and runs Std Sync on its browser platform.
 - `@tanstack/react-router` (optional): `./client`'s `webRoot` is a root route.
 - `@tanstack/react-start` (optional): `./client/server` reads the Theme cookie with it, and `./server` hands pages to its server entry.
 - `effect` (optional): the PWA subpaths, `./server`, and the diff and source viewers are built on it.
@@ -302,10 +300,9 @@ Owned shadcn copies on Base UI, one subpath per file, such as `@kstackz/web-tool
 
 ### `@kstackz/web-toolkit/client`
 
-| Export        | What it does                                                                                                                                                                                                                                         |
-| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `webRoot`     | The root route's options: the document in the Theme set before paint, the device marked, the shared head, a 404, and each Root Plugin's head and provider.                                                                                           |
-| `webPlatform` | The browser as an app's platform for auth-toolkit's `createApp`: tables and Std Sync in IndexedDB, sign-in with `authLive`, the API at this origin, and the Gate's memory in `localStorage` with `?backend=` and other tabs over a BroadcastChannel. |
+| Export    | What it does                                                                                                                                               |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `webRoot` | The root route's options: the document in the Theme set before paint, the device marked, the shared head, a 404, and each Root Plugin's head and provider. |
 
 ### `@kstackz/web-toolkit/client/server`
 
@@ -389,14 +386,13 @@ Owned shadcn copies on Base UI, one subpath per file, such as `@kstackz/web-tool
 
 ### `@kstackz/web-toolkit/server`
 
-| Export              | What it does                                                                                                                                   |
-| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `webServer`         | One fetch handler: `/rpc` goes to the app's API, everything else to TanStack Start; a Cloudflare Worker's default export as it is.             |
-| `serveRpc`          | Answers one `/rpc` POST with an Effect `RpcGroup` over NDJSON, its caller resolved by auth-toolkit, its services built for that request alone. |
-| `isDeployedStage`   | Whether an alchemy stage reaches the world: `prod` or a pull request's `prN`.                                                                  |
-| `assertStageIsSafe` | Refuses a deployed stage unless `ALLOW_DEPLOY=true`.                                                                                           |
-| `domainFor`         | Where a stage is served: the domain for `prod`, `prN-<domain>` for a pull request, nowhere for anyone's own stage.                             |
-| `devConfigFor`      | A local stage's dev server on the `PORT` portless gives it; throws when there is none.                                                         |
+| Export              | What it does                                                                                                                       |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `webServer`         | One fetch handler: `/rpc` goes to the app's API, everything else to TanStack Start; a Cloudflare Worker's default export as it is. |
+| `isDeployedStage`   | Whether an alchemy stage reaches the world: `prod` or a pull request's `prN`.                                                      |
+| `assertStageIsSafe` | Refuses a deployed stage unless `ALLOW_DEPLOY=true`.                                                                               |
+| `domainFor`         | Where a stage is served: the domain for `prod`, `prN-<domain>` for a pull request, nowhere for anyone's own stage.                 |
+| `devConfigFor`      | A local stage's dev server on the `PORT` portless gives it; throws when there is none.                                             |
 
 ## Usage
 
@@ -447,81 +443,29 @@ plugins: [
 - The `app` preset (the default) answers any route offline from the App Shell; `content` saves visited pages and sends unvisited ones to the Offline Fallback. Paths under `neverCache` (default `/api/auth/`), non-GET requests and `navigation.denylist` never reach the caches.
 - While an update waits, the App Shell of the active build answers navigations, so every page stays on one Build ID until the user accepts ([ADR 0006](./docs/adr/0006-pending-update-pins-navigations-to-the-active-build.md)).
 
-### An app on the browser's platform
-
-`webPlatform` hands auth-toolkit's `createApp` the browser; the app gives it its Backend Link to each Backend and its Session, and gets the React side back. Screens then say what shows signed in and what shows instead. Adapted from Ledger's `createLedger` (`ledger/core/src/app/ledger.ts`), `ledger/web/src/app.ts` and its `Shell` (`ledger/web/src/screens/shell/shell.tsx`).
-
-```tsx
-export const { SignedIn, useGate, useSession } = createApp({
-  // the localStorage prefix and the other tabs' channel, and the sign-in service
-  platform: () => webPlatform({ name: 'ledger', authUrl: AUTH_URL }),
-  cloud: cloudLink, // the link to the cloud Backend
-  device: loadDeviceLink, // fetched only by those who choose the device Backend
-  session: ledgerSession, // what one signed-in user gets
-});
-
-export function Shell(props: { readonly children: ReactNode }) {
-  const { asking, answer } = useGate().localSignIn;
-  return (
-    <>
-      <SignedIn
-        fallback={(view) => {
-          switch (view.kind) {
-            case 'checking':
-              return <Opening />;
-            case 'signedOut':
-              return <SignedOut unreachable={view.unreachable} />;
-            case 'signingOut':
-              return <Opening signingOut />;
-            case 'opening':
-              return <Opening name={view.account.user.name} />;
-            case 'unopenable':
-              return <Unopenable name={view.account.user.name} />;
-          }
-        }}
-      >
-        <Open>{props.children}</Open>
-      </SignedIn>
-      <LocalSignIn
-        open={asking}
-        presets={PRESETS}
-        onChoose={answer}
-        onCancel={() => answer(null)}
-      />
-    </>
-  );
-}
-```
-
-- Nothing runs until a screen first asks, and `webPlatform` is passed as a function, so `createApp` can be called at module level, even where the page renders on the server.
-- Everything inside `SignedIn` remounts on an Account Switch, so place it as low as it can go. `useSession` and `useAccounts` throw outside it; `useGate` works anywhere.
-- Open First: an account the device already knows opens at once and is confirmed afterwards; `checking` shows only when the device knows nobody.
-- `?backend=device` or `?backend=cloud` on the address (or the former `local` and `remote`) picks the Backend at launch, and every Account Switch, Sign Out and Backend change reaches the other tabs at once.
-- Recipes such as `LocalSignIn` and `AccountSwitcher` know nothing of sign-in; the app hands them the Gate's state.
-
 ### The Worker entry
 
-One fetch handler serves the app's pages and its `/rpc` API: the Backend on the cloud versions of its services. From Ledger's `src/worker.ts`.
+One fetch handler serves the app's pages and its `/rpc` API: the Backend on the cloud versions of its services, answered by rpc-toolkit's `Rpc.http.server` with auth-toolkit's guard. From Ledger's `src/worker.ts`.
 
 ```ts
 // src/worker.ts
 export default webServer<WorkerEnv>({
   rpc: (request, env) =>
-    serveRpc(
-      request,
+    Rpc.http.server(
       LedgerApi,
       ledgerBackend.pipe(
         Layer.provide([
           tableCloud(env.DB), // the ledger table in D1
-          authCloud({ authUrl: AUTH_URL, resource: LEDGER_RESOURCE }),
+          authz.cloud({ authWorkerUrl: AUTH_URL, resource: LEDGER_RESOURCE }),
         ]),
       ),
-    ),
+      { wrap: authz.cookies }, // refreshed sign-in cookies go back on the answer
+    )(request),
 }) satisfies ExportedHandler<WorkerEnv>;
 ```
 
 - `/rpc` and `/rpc/` go to `rpc`; every other path goes to TanStack Start's server entry. Point `tanstackStart({ server: { entry } })` at this file.
-- `serveRpc` answers only POST (405 otherwise) and speaks NDJSON, the way the client's HTTP connection calls it.
+- `rpc` is any `(request, env) => Promise<Response>`; `Rpc.http.server` answers only POST (405 otherwise) and speaks NDJSON, the way `Rpc.http.client` calls it.
 - The services Layer is built fresh for each request and lives as long as its response, including a streamed one, so whatever a request opens ends with it.
-- The caller is resolved by auth-toolkit from a bearer token or the sign-in cookie; here `authCloud` checks both against the sign-in service.
+- The caller is resolved by auth-toolkit from a bearer token or the sign-in cookie; here `authz.cloud` checks both against the sign-in service.
 - It uses plain `Request` and `Response`, so it runs on Cloudflare as anywhere that calls `fetch(request, env)`.

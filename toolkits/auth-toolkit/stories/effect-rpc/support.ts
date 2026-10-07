@@ -1,8 +1,8 @@
 import type { Session, User } from 'better-auth';
 import { Effect, Layer } from 'effect';
 import { Rpc, RpcClient, RpcGroup, RpcTest } from 'effect/rpc';
-import { Authz } from '@kstackz/auth-toolkit/rpc';
-import { authzLayer } from '@kstackz/auth-toolkit/server/rpc';
+import { Authz } from '@kstackz/auth-toolkit/guard';
+import { authz } from '@kstackz/auth-toolkit/server';
 
 type Resolve = (typeof Authz.Resolver)['Service']['resolve'];
 
@@ -10,7 +10,7 @@ export const resolvedAuth = (
   userId = 'u1',
   refreshedCookies: ReadonlyArray<string> = [],
 ) => ({
-  currentAuth: {
+  current: {
     kind: 'session' as const,
     session: { id: `session-${userId}` } as Session,
     user: { id: userId } as User,
@@ -21,7 +21,7 @@ export const resolvedAuth = (
 export const authLayer = (
   resolve: Resolve = () => Effect.succeed(resolvedAuth()),
 ) =>
-  authzLayer.pipe(
+  authz.layer.pipe(
     Layer.provide(
       Layer.succeed(Authz.Resolver, Authz.Resolver.of({ resolve })),
     ),

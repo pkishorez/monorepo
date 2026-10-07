@@ -22,7 +22,8 @@ const PLATFORM_PACKAGES = [
   /^expo(-[a-z-]+)?(\/|$)/,
   /^@expo\//,
   /^@kstackz\/std-toolkit\/db\/idb$/,
-  /^@kstackz\/std-toolkit\/sync\/platform\/browser$/,
+  /^@kstackz\/std-toolkit\/sync\/(idb|sqlite)$/,
+  /^@kstackz\/auth-toolkit\/client\/expo$/,
 ];
 
 // Globals only a browser has.

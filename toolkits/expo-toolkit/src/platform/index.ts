@@ -1,1 +1,0 @@
-export { expoPlatform } from './platform';
