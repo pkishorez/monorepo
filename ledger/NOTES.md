@@ -1,6 +1,168 @@
 # Ledger on Expo: build notes
 
-> **Coordinator:** Phases 1–4 and all three Phase 5 batches (A, B and C) are merged, and `ledger/docs/parity.md` is reconciled: it carries every batch's row updates and its Counts table is recounted. The Android pass is done (Phase 5: Android, at the end). Phase 6 (review, morning summary) is not done.
+## Morning summary
+
+Ledger runs natively on iOS and Android through Expo SDK 57, on both
+Backends, beside an unchanged web app. Phase 6 (review) is done: fixes are
+below under "Phase 6: review". Parity: 110 of 142 rows the same, 31
+accepted with a reason, 1 left (`ledger/docs/parity.md`).
+
+### What works, by phase
+
+- **0 Workspace:** `ledger/*` in the workspace; one React (19.2.3) and the
+  Expo SDK 57 set in the catalog.
+- **1 Restructure:** `apps/kstack` is `ledger/core` + `ledger/web`; one
+  `LedgerPlatform` seam; web behaves as before.
+- **2 Platform pieces:** use-gesture split (platform-free core + `./web`);
+  std-toolkit `db/sqlite/expo` and `sync/platform/expo`;
+  `@kstackz/expo-toolkit` with laymos layers and owned Panel UI copies.
+- **3 Native on the Local Backend:** every Place, the Add and Accounts
+  sheets, swipe-to-delete with Undo, Sidebar with User Switcher, Switch /
+  Add / Sign Out, Settings (theme, Sounds, Haptics, Backend), the Thumb Lock
+  with its Place Picker, Gesture Sounds and Gesture Haptics.
+- **4 Native on the Remote Backend:** OAuth + PKCE in the system sign-in
+  sheet as Ledger's First-Party Client, tokens in secure storage, copies
+  synced through SQLite; `/rpc` accepts only Ledger-audience Access Tokens;
+  proven end to end with the local Test Sign-In on the iOS Simulator and
+  the Android emulator.
+- **5 Parity:** batches A (gestures and motion), B (shell, back, Key Bar)
+  and C (Places polish, Manage Google accounts in the sheet); Android pass.
+- **6 Review:** code review, over-engineering review and a separation
+  audit; fixes listed in Phase 6.
+
+### What doesn't work, or isn't proven
+
+- **Two-finger Thumb Lock with real fingers** over a scrolling list (idb
+  cannot hold two fingers; proven only with the dev injector and Android
+  kernel touches without a scroll under it).
+- **Sounds and haptics** were wired and timed but never heard or felt.
+- **Real Google** was never used (no account for agents); Add User with a
+  second Google account, and Manage Google accounts with a real session.
+- **A delete stalls the JS thread 2–5 s** in dev mode on the Android
+  emulator; not measured on a release build.
+- **Manage Google accounts** shows iOS's "Wants to Use … to Sign In" alert
+  every time (it opens in the sign-in sheet on purpose).
+- Sign Out while offline keeps the User (it cannot revoke); iOS keeps
+  keychain tokens across an uninstall (see Phase 6, skipped).
+- Expo Go only: no development build has been made, so `ledger://`,
+  the native splash and the app's own name in the alert are untested.
+
+### Try with real Google
+
+Start the services first (both stay on the Mac):
+
+```sh
+cd ~/CAREER/MINE/mine/packages/auth && pnpm dev       # https://auth.kishore.computer
+cd <this worktree>/ledger/web && pnpm dev             # https://ledger-on-expo.kstack.kishore.computer
+```
+
+**iOS (Simulator or Expo Go on the Simulator):**
+
+1. `xcrun simctl boot "iPhone 17 Pro"`, once:
+   `xcrun simctl keychain booted add-root-cert ~/.portless/ca.pem`.
+2. In `ledger/expo`:
+   `EXPO_PUBLIC_LEDGER_URL=https://ledger-on-expo.kstack.kishore.computer pnpm ios`
+   (Expo Go must be at `exp://127.0.0.1:8081`, not the LAN address).
+3. Settings → Backend → Remote → Sign in with Google → Continue → Sign in
+   with Google in the sheet → pick an account → back in Ledger with the
+   money web shows for that account.
+4. Sidebar → your name → Add user → Continue → Google should ask which
+   account → pick a second one. Switch between them; Sign Out one, the
+   other opens.
+5. Settings → Manage Google accounts → alert → the sign-in service's Home
+   Page signed in as you.
+6. Open the sheet and close it without signing in: nothing changes.
+
+**Android (emulator):** one-time host and CA setup in "Phase 5: Android"
+below (writable system, `/system/etc/hosts` → `10.0.2.2`, portless CA into
+the conscrypt APEX after each boot). Then `adb reverse tcp:8081 tcp:8081`,
+the same `EXPO_PUBLIC_LEDGER_URL=… pnpm android`, and steps 3–6 (the sheet
+is a Chrome Custom Tab; Manage should show the account, as Custom Tabs
+share Chrome's cookies). On a real Android phone also: swipe-delete an
+entry and time the Undo toast.
+
+**On a real phone** Expo Go uses the Mac's LAN address, whose
+`exp://192.168.x.y:8081/--/oauth/callback` is not a registered redirect:
+add it to `LEDGER_REDIRECT_URIS` in mine's `packages/auth/alchemy.run.ts`
+for the local stage, or make a development build (`npx expo run:ios`,
+`ledger://oauth/callback`).
+
+### Running the app
+
+| What                  | How                                                                                                                        |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| iOS Simulator         | `xcrun simctl boot "iPhone 17 Pro"`, then `pnpm --filter @ledger/expo ios`                                                 |
+| Metro alone           | `pnpm --filter @ledger/expo start`, then `xcrun simctl launch booted host.exp.Exponent --initialUrl exp://127.0.0.1:8081`  |
+| Android emulator      | `adb reverse tcp:8081 tcp:8081`, then `pnpm --filter @ledger/expo android`                                                 |
+| Local Backend at once | open `exp://127.0.0.1:8081/--/?backend=local`                                                                              |
+| Ledger web address    | `EXPO_PUBLIC_LEDGER_URL` (default `https://kstack.kishore.computer` in dev, `https://kstack.kishore.app` in a release)     |
+| Sign-in service       | `EXPO_PUBLIC_AUTH_URL` (default `https://auth.kishore.computer` / `https://auth.kishore.app`)                              |
+| `/rpc` audience       | `EXPO_PUBLIC_LEDGER_RESOURCE` (default `https://kstack.kishore.computer/rpc` locally)                                      |
+| iOS CA trust          | `xcrun simctl keychain booted add-root-cert ~/.portless/ca.pem` (once per Simulator)                                       |
+| iOS hosts             | nothing: portless writes running hosts into the Mac's `/etc/hosts`, which the Simulator uses                               |
+| Android hosts and CA  | `-writable-system` AVD, `adb root && adb remount`, hosts → `10.0.2.2`; CA bind-mounted after every boot (Phase 5: Android) |
+
+Expo Go's first launch shows its developer-menu introduction; dismiss it
+once by hand.
+
+### Uncommitted changes in `~/CAREER/MINE/mine`
+
+Nothing there was committed, stashed or reset. Its sign-in service runs on
+**this worktree's** auth-toolkit build, linked from mine's workspace file.
+
+- `pnpm-workspace.yaml`: the `@kstackz/auth-toolkit` override links
+  `../monorepo/.claude/worktrees/ledger-on-expo/toolkits/auth-toolkit`
+  (was `../monorepo/toolkits/auth-toolkit`), with a comment to point it back.
+- `pnpm-lock.yaml`: rewritten by `pnpm install` for that link.
+- `packages/auth/alchemy.run.ts`: Worker env `LEDGER_RESOURCE`,
+  `LEDGER_REDIRECT_URIS` (`ledger://oauth/callback`, plus two `exp://` on
+  `local` only), `STAGE`, `TEST_SIGN_IN` (`on` only on `local`). The
+  `localState()` for `alchemy dev` in the same file is your own earlier edit.
+- `packages/auth/src/worker.ts`: `firstPartyClients: [{ clientId: 'ledger', … }]`
+  and `testSignIn: env.TEST_SIGN_IN === 'on' ? { stage: env.STAGE } : undefined`.
+- `apps/cli/src/server/rpc-host/rpc-host.ts`: `resolverLive` from
+  `@kstackz/auth-toolkit/server/resolver-live`.
+- `apps/kishore-app/alchemy.run.ts`: your own edits only, untouched.
+- Its local server (`pnpm dev` in `packages/auth`) was left running.
+
+### Cleanup still owed
+
+- When this branch lands on `main`: point mine's auth-toolkit link back at
+  `../monorepo/toolkits/auth-toolkit`, `pnpm install` there, restart its
+  `pnpm dev`, and commit mine's changes above (they need the new toolkit).
+- The **web-toolkit merge** (ui-toolkit, pwa-toolkit, use-gesture's `./web`,
+  use-keys into `@kstackz/web-toolkit`), copying expo-toolkit's shape.
+- use-keys' own core/`./web` split; web's Thumb Lock onto use-gesture's
+  `thumbLock` (one rule instead of two).
+- Move the Expo set to 57.0.27 (expo, expo-router, expo-sqlite,
+  expo-constants, expo-linking); `npx expo install --check` lists them.
+- A development build: `ledger://`, the native splash, no Expo Go tools
+  button; then Universal Links / App Links before any store release.
+- Phase 6's skipped findings (below) and the open questions per phase.
+- Ada and Grace (`@ledger.test`) have data in the local sign-in service's
+  and Ledger web's local databases; local only.
+
+### Best screenshots (`ledger/expo/docs/screens/`)
+
+- Home, Entries, a Month: [`phase-3b-home-dark.png`](expo/docs/screens/phase-3b-home-dark.png),
+  [`phase-3b-entries.png`](expo/docs/screens/phase-3b-entries.png),
+  [`phase-3b-month.png`](expo/docs/screens/phase-3b-month.png)
+- Thumb Lock: [`phase-3c-step.png`](expo/docs/screens/phase-3c-step.png),
+  [`phase-3c-section.png`](expo/docs/screens/phase-3c-section.png)
+- Sidebar under the finger: [`phase-5a-sidebar-follows.png`](expo/docs/screens/phase-5a-sidebar-follows.png),
+  [`phase-5a-sidebar-open.png`](expo/docs/screens/phase-5a-sidebar-open.png)
+- Swipe to delete: [`phase-5a-row-armed.png`](expo/docs/screens/phase-5a-row-armed.png)
+- Sign-in sheet: [`phase-4-sheet-login.png`](expo/docs/screens/phase-4-sheet-login.png),
+  [`phase-4-two-users.png`](expo/docs/screens/phase-4-two-users.png),
+  [`phase-5c-manage-signed-in.png`](expo/docs/screens/phase-5c-manage-signed-in.png)
+- Sync both ways: [`phase-4-phone-sees-web-entry.png`](expo/docs/screens/phase-4-phone-sees-web-entry.png),
+  [`phase-4-web-sees-phone-entry.png`](expo/docs/screens/phase-4-web-sees-phone-entry.png)
+- Settings: [`phase-5c-settings-general.png`](expo/docs/screens/phase-5c-settings-general.png)
+- Android: [`android-home.png`](expo/docs/screens/android-home.png),
+  [`android-remote-login-custom-tab.png`](expo/docs/screens/android-remote-login-custom-tab.png),
+  [`android-thumb-lock-step.png`](expo/docs/screens/android-thumb-lock-step.png)
+
+---
 
 Running log of the Ledger on Expo build (brief: the untracked `plan.md`;
 spec: `.claude/specs/ledger-on-expo.md`). Each phase adds a section:
@@ -288,7 +450,6 @@ const driver = makeExpoSQLite({ database });
 
 - Run the Expo conformance against the real expo-sqlite on a device once
   `ledger/expo` exists (Phase 3a), e.g. a dev-only screen or Maestro test.
-  ||||||| be46cd20
 
 ## Phase 2a: use-gesture split
 
@@ -407,7 +568,6 @@ a browser smoke test of the Thumb Lock behaved as before.
 - `use-keys` still needs the same core/`./web` split (Phase 1 drawback).
 - ADRs 0002–0015 name the old `src/core`/`src/recognizers` paths; they read
   as history. ADR 0010 is marked partly superseded by 0016.
-  ||||||| be46cd20
 
 ## Phase 2c: Expo foundation
 
@@ -1022,7 +1182,6 @@ reload, then put back. No regressions seen.
 
 - Expo Go's floating tools button shows in every screenshot; a development
   build would drop it.
-- The earlier `
 
 ## Phase 4a: native sign-in
 
@@ -1870,3 +2029,99 @@ DateTime to code that runs on Android until it is fixed.
 **Left running / stopped**: the emulator, Metro and this worktree's Ledger
 web dev server were stopped by their own PIDs; the sign-in service was left
 running. Ada and Grace (`@ledger.test`) used the existing local accounts.
+
+## Phase 6: review
+
+Three passes over `main..ledger-on-expo`: `/code-review` (high, correctness
+and security), `ponytail-review` (over-engineering), and a separation audit
+(imports, entries, peers, laymos, READMEs). Each finding was checked against
+the code before acting. Whole-repo `pnpm install`, `pnpm build`, `pnpm lint`
+and `pnpm test` pass; `laymos lint` passes in every package.
+
+**Fixed** (commit `59fb910d`, docs in the next commit)
+
+- **SQLite "database is locked"** (std-toolkit Expo driver). expo-sqlite's
+  `withExclusiveTransactionAsync` opens a second connection with a plain
+  `BEGIN` and no busy timeout, so a write on the main connection during a
+  guarded write (Std Sync applying a pull while a Session writes) failed
+  instead of waiting. The driver sets `PRAGMA busy_timeout = 5000` on that
+  connection (its `BEGIN` is deferred, so it applies), and Ledger's
+  `storage.ts` sets it on each database. Changeset.
+- **Refresh race could sign a User out** (auth-toolkit `expo/accounts.ts`).
+  The in-flight map was per `authExpo` instance and refreshed the entry it
+  was handed, so a second Auth (after switching Backend) or a `list` that
+  read the entry before another refresh rotated it could spend a used
+  refresh token, and reuse detection then revokes the whole chain. The map
+  is now module-wide (by storage key and User) and each refresh re-reads the
+  stored entry first. New test, failing before the fix. Changeset.
+- **Browser auth client in the native bundle** (separation). Core imports
+  `@kstackz/auth-toolkit/clients/auth`, whose door also exported `authLive`
+  (better-auth's browser client); Metro bundles every import. `authLive`
+  moved to its own entry, `./clients/auth/live` (like `./clients/auth/expo`);
+  `./clients/auth` is platform-free. Ledger web and alchemy-console import
+  the new entry; laymos module graph, README and changeset updated.
+- **Test Sign-In failure invisible** (Login Screen). It navigated on as if
+  signed in; it now returns to the Login Screen with the reason.
+- **auth-toolkit peers:** `react-native` dropped (nothing imports it);
+  README's Install names `expo-web-browser` and says `manageAccounts` opens
+  the sign-in sheet.
+- **Over-engineering:** removed the unused `buzz` (ledger/expo) and
+  `SidebarEdge`'s never-passed `enabled` prop.
+- **Docs:** expo-toolkit's description, README, theme and laymos text say
+  ui-toolkit's tokens, not "Ledger's" (the toolkit is generic); the
+  `toast` export added to its README; `ledger/expo`'s runtime layer
+  description names the array polyfills; std-toolkit's install line names
+  `@kstackz/std-toolkit`; `ledger/expo/README.md` Usage split into iOS,
+  Remote sign-in and Android; stray merge markers removed from this file.
+
+**Skipped, and why**
+
+- **Sign Out offline keeps the User's tokens** (revoke fails, so the entry
+  stays). Deliberate since 4a: forgetting tokens that were never revoked
+  leaves a live refresh token at the service. Better later: forget locally
+  and queue the revoke.
+- **iOS keychain outlives an uninstall**, so a reinstall finds the last
+  Users. Real; the fix is a first-launch marker in SQLite (wiped on
+  uninstall) that clears the keychain roster. Owed before a store release.
+- **Test Sign-In's stage guard trusts the stage the caller passes.** It is
+  what the plan asked for; mine passes alchemy's real `stage` and turns it
+  on only when `isLocal`. A stricter guard (refusing a non-local
+  `baseURL`) would be a cheap extra later.
+- **`deleteStdSync` on native does not stop a live Std Sync** (no
+  Doorbell), so a User dropped by `list` while their Session is open can
+  see one "no such table" error before the Session closes. Known since
+  2b; an in-process Doorbell would fix it.
+- **First-Party client row written without a transaction**: two first
+  requests right after a deploy could race once (a 500, then fine).
+  Rare; left.
+- **`as unknown as AuthorizationClient`** for `signIn.test` on the Login
+  Screen: known 4a hack; a client plugin would type it.
+- **Hermes array polyfills** `toReversed`/`toSpliced`/`with` unused by our
+  code, but Effect's own dist uses `toReversed`/`toSpliced`; kept as cheap
+  insurance.
+- **`reveal`/`step` props** on the native Thumb Picker mirror web's
+  existing ones; kept for parity.
+- **Duplicated Add-sheet draft logic and money sign** between web and
+  expo screens (~30 lines): a `useAddDraft` in core would share it; left
+  for the web-toolkit cleanup. `useToneOf` could move to expo-toolkit.
+- **use-keys' required `react-dom` peer** (unused) gives Expo an unmet-peer
+  warning; pre-existing, fix with use-keys' split.
+- **The Sidebar's hand copy of `Swipe.DEFAULT_COMMIT`** stays: the
+  core's `CommitRule` has optional fields, so using it needs non-null
+  handling in a worklet for no gain.
+- Smaller cuts (sound pool options, haptic kinds, `theme` `'system'`,
+  exported constants): toolkit API, too small to matter.
+
+**Dev-only tooling, and how it stays out of production**
+
+- `ledger/expo/scripts/drive.mjs` and `touch.mjs` are Node scripts run by
+  hand, never imported by the app. They talk to Metro's inspector, which
+  exists only in a development bundle.
+- `touch.mjs`'s sink is `globalThis.__touches`, set by expo-toolkit's
+  `input` only under `if (__DEV__ && devName)`; Metro strips the branch from
+  a release bundle (the ~40-line `dev-touches.ts` module still ships,
+  unused).
+- `ledger/web/scripts/native-sign-in.ts` is a manual check against local
+  services (`check:native-sign-in`), not part of any build.
+- The Test Sign-In exists only on the `local` stage; the Auth Worker
+  refuses to start with it on any other.
