@@ -1,7 +1,1 @@
-export {
-  Sidebar,
-  SidebarEdge,
-  SidebarProvider,
-  useSidebar,
-  useSidebarDrag,
-} from './sidebar';
+export { Sidebar, SidebarProvider, SidebarSwipe, useSidebar } from './sidebar';

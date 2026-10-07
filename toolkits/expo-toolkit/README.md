@@ -6,7 +6,7 @@ UI, theme, haptics and sound for native apps built with Expo: owned Panel UI com
 
 The one Toolkit for native apps built with Expo (the **Expo Toolkit** in the root [`CONTEXT.md`](../../CONTEXT.md)). Ledger's native app (`ledger/expo`) is its first user; it carries Ledger's look to the phone so the web and native apps read as one product.
 
-It is laid out in [Laymos](laymos.config.json) layers, bottom to top: `theme` (Uniwind tokens and Inter), `feedback` (haptics and sound), `input` (touches for `@kstackz/use-gesture`'s core), `components` (Panel UI copies, on `theme`) and `patterns` (whole interactions such as the Thumb Lock's Place Picker, on `components`, `input` and `feedback`). Each layer is a subpath. A later `web-toolkit` (ui-toolkit, pwa-toolkit, use-gesture's web part and use-keys) is meant to copy this shape.
+It is laid out in [Laymos](laymos.config.json) layers, bottom to top: `theme` (Uniwind tokens and Inter), `feedback` (haptics and sound), `input` (touches for `@kstackz/use-gesture`'s core), `components` (Panel UI copies, on `theme`, and on `input` for a row that scrolls sideways) and `patterns` (whole interactions such as the Thumb Lock's Place Picker, on `components`, `input` and `feedback`). Each layer is a subpath. A later `web-toolkit` (ui-toolkit, pwa-toolkit, use-gesture's web part and use-keys) is meant to copy this shape.
 
 The components are copies of [Panel UI](https://panelui.dev) (MIT, see [`src/components/LICENSE-panelui`](src/components/LICENSE-panelui)), made with its CLI and owned here from then on, as ui-toolkit owns its shadcn copies. `pnpm add-panelui <name...>` copies more: it runs `panelui-cli` in a scratch folder, puts the named components in `src/components` and what they pull in under `src/components/parts` (private), and rewrites their imports. `src/components` is left out of `vp check` and `vp fmt` so copies stay close to upstream.
 
@@ -64,10 +64,12 @@ The app's `global.css`, named as Uniwind's `cssEntryFile` in `metro.config.js`:
 
 ### `./input`
 
-| Export           | What it does                                                                                                    |
-| ---------------- | --------------------------------------------------------------------------------------------------------------- |
-| `GestureSurface` | Tracks every finger on its children through one Gesture Handler manual gesture and feeds use-gesture's core.    |
-| `useGesture`     | Hears the nearest surface's touches with a core listener, and returns `claim` to take the touch from the views. |
+| Export           | What it does                                                                                                             |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `GestureSurface` | Tracks every finger on its children through one Gesture Handler manual gesture and feeds use-gesture's core.             |
+| `GestureZone`    | A Gesture Zone inside a surface: its listener gets first claim on a swipe that starts there, before the zones around it. |
+| `NativeScroll`   | A ScrollView in a zone of its own that keeps the swipes it can still scroll and leaves the rest to the zones around it.  |
+| `useGesture`     | Hears the nearest surface's touches with a core listener, and returns `claim` to take the touch from the views.          |
 
 ### `./components/*`
 
@@ -104,18 +106,17 @@ The app's `global.css`, named as Uniwind's `cssEntryFile` in `metro.config.js`:
 
 ### `./patterns/*`
 
-| Export                                     | What it does                                                                                                         |
-| ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
-| `sidebar`: `SidebarProvider`, `useSidebar` | The page with a Sidebar under it that pushes it aside; whether it is open, and the ways to open, shut and toggle it. |
-| `sidebar`: `Sidebar`                       | What the Sidebar shows: a header, a scrolling body, a foot.                                                          |
-| `sidebar`: `SidebarEdge`                   | Inside a surface, a swipe right of one finger from the left edge opens it under the finger.                          |
-| `sidebar`: `useSidebarDrag`                | The Sidebar's open as a drag another swipe can hand on.                                                              |
-| `pages`: `Pages`                           | Pages side by side, turned by a one-finger sideways swipe that follows the finger.                                   |
-| `thumb-picker`: `ThumbPicker`              | A Thumb Lock that picks from a tree of choices: Steps, Sections, Wrong Way shake.                                    |
-| `local-sign-in`: `LocalSignIn`             | Asks who to sign in as when sign-in is local: a preset, or an email and name.                                        |
-| `sheet`: `Sheet`                           | A sheet from the bottom for a short form, kept above the keyboard.                                                   |
-| `swipe-row`: `SwipeRow`                    | A row swiped left to delete: arms past a line, slides away, or springs home.                                         |
-| `key-bar`: `KeyBar`                        | A bar at the foot that shows a message for a moment, replaced in place.                                              |
+| Export                                     | What it does                                                                                                          |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| `sidebar`: `SidebarProvider`, `useSidebar` | The page with a Sidebar under it that pushes it aside; whether it is open, and the ways to open, shut and toggle it.  |
+| `sidebar`: `Sidebar`                       | What the Sidebar shows: a header, a scrolling body, a foot.                                                           |
+| `sidebar`: `SidebarSwipe`                  | Inside a surface, a swipe right of one finger from anywhere opens it under the finger, unless a zone inside wants it. |
+| `pages`: `Pages`                           | Pages side by side in a zone of their own, turned by a one-finger sideways swipe that follows the finger.             |
+| `thumb-picker`: `ThumbPicker`              | A Thumb Lock that picks from a tree of choices: Steps, Sections, Wrong Way shake.                                     |
+| `local-sign-in`: `LocalSignIn`             | Asks who to sign in as when sign-in is local: a preset, or an email and name.                                         |
+| `sheet`: `Sheet`                           | A sheet from the bottom for a short form, kept above the keyboard.                                                    |
+| `swipe-row`: `SwipeRow`                    | A row swiped left to delete: arms past a line, slides away, or springs home.                                          |
+| `key-bar`: `KeyBar`                        | A bar at the foot that shows a message for a moment, replaced in place.                                               |
 
 ## Usage
 
@@ -200,4 +201,5 @@ function Header() {
 ```
 
 - `Sidebar` renders nothing where it is written; it hands what it shows to `SidebarProvider`, which draws it under the page. As it opens the page moves aside, shrinks, rounds and dims, as on the web's phone layout; a tap on the page or a drag left shuts it.
+- Inside a `GestureSurface`, `<SidebarSwipe />` opens it from a one-finger swipe right anywhere, following the finger. A `GestureZone` inside (such as `Pages`) or a `NativeScroll` gets first claim on the swipes it wants; a swipe from the left edge is always the Sidebar's.
 - Overlays render into the nearest portal host; `PanelUIProvider`'s sits above every app provider, so a `PortalScope` inside them keeps their context.

@@ -83,7 +83,7 @@ function rowOf(gesture: Gesture, i: number) {
           {gesture.does}
         </Text>
         <Text muted numberOfLines={1} className="text-xs">
-          {said(gesture.motion, { fromEdge: true })}
+          {said(gesture.motion)}
         </Text>
       </View>
     </View>

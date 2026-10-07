@@ -1,6 +1,5 @@
 import { Tabs } from '@kstackz/expo-toolkit/components/tabs';
 import { Pages } from '@kstackz/expo-toolkit/patterns/pages';
-import { useSidebarDrag } from '@kstackz/expo-toolkit/patterns/sidebar';
 import { usePlace } from '@ledger/core/client/commands';
 import { type SectionId, SETTINGS_SECTIONS } from '@ledger/core/client/places';
 import { View } from 'react-native';
@@ -28,14 +27,14 @@ const EDGE = 24;
  * version, the User's money and who is signed in, in General; the Thumb
  * Lock and the guide to every gesture in Gestures. The tabs stay at the
  * top while a Section scrolls; a swipe sideways turns the Section, as on
- * the web, and on General a swipe right opens the Sidebar.
+ * the web, and on General a swipe right opens the Sidebar, which Pages
+ * leave to the zone around them.
  */
 export function Settings(props: {
   readonly section: SettingsSection;
   readonly onSection: (section: SettingsSection) => void;
 }) {
   usePlace('settings');
-  const sidebar = useSidebarDrag();
   const { onSection } = props;
   return (
     <View className="flex-1">
@@ -61,7 +60,6 @@ export function Settings(props: {
           const section = SECTIONS[page];
           if (section !== undefined) onSection(section);
         }}
-        beforeFirst={sidebar}
         edge={EDGE}
       >
         <Scroll>

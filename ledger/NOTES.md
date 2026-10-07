@@ -2155,3 +2155,81 @@ Remote Backend was fine, and so was development mode. Not minification:
   reaches Home.
 - Console output does not reach Metro's terminal in a production bundle;
   to see it, post it to a local HTTP sink from the app.
+
+## Sidebar from anywhere
+
+The Sidebar opens on native as on the web: one finger swiping right from
+anywhere, following the finger; left (or a tap on the page) shuts it; it
+works with the Thumb Lock switch off, as web's does. Parity's Accepted
+item 4 (edge-only) is gone and the gesture guide says "Swipe right" on both
+(`edge`/`fromEdge` removed from core's `Motion` and `said`).
+
+**How** (use-gesture core's nested zones, brought to native in
+expo-toolkit `./input`):
+
+- `GestureSurface` is the outermost zone; `GestureZone` nests one inside
+  it, with its own Gesture Handler manual gesture that only tells where
+  fingers land in it (`input/zones.ts` is the Zone Tree: the deepest zone
+  that heard a finger land at that point). The core then gives a swipe to
+  the innermost zone that wants its Direction, and the Sidebar's listener,
+  which acts, drops it.
+- `Pages` is a zone that wants only the swipes that turn a page (right past
+  the first, left before the last; its Pan matches). `NativeScroll`
+  (`Choice`'s pills) is a zone that wants the ways it can still scroll, as
+  the web's Native Scroll, and scrolls beside the surface's gesture.
+- `SidebarSwipe` (`patterns/sidebar/swipe.ts`) replaces `SidebarEdge`:
+  wants right with one finger anywhere and claims once its Direction is
+  right; the 24 pt left strip is still captured as the finger lands (beats
+  zones inside, as web's ADR 0015). `useSidebarDrag` and Pages'
+  `beforeFirst` are gone: General's swipe right now reaches the Sidebar
+  through the zones.
+- Swipe rows need no zone: they take only left, which the Sidebar never
+  wants, and fail on right.
+
+**Challenges**
+
+- Gesture Handler on iOS hands a touch to nested manual gestures in no
+  fixed order (seen both ways in logs), so the surface's landing sometimes
+  reached JS before the zone's. The surface's feed now holds a landing (and
+  every event after it, in order) until the next task (`setTimeout 0`);
+  samples keep their arrival time.
+- A horizontal ScrollView at its start, swiped right: its pan began (bounce)
+  and Gesture Handler cancelled the surface, so the Sidebar never moved.
+  `NativeScroll` runs the ScrollView as `Gesture.Native()` simultaneous with
+  the surface's gesture, and turns bounce off by default, so the Sidebar
+  claims and the row stays still. A gate that held the scroll back until the
+  Direction was known was tried first and dropped: not needed once
+  simultaneous.
+
+**Proof** (iPhone 17 Simulator, Metro 8082, real touches through idb;
+`ledger/expo/docs/screens/sidebar-anywhere-*.png`):
+
+- Centre swipe opens the Sidebar under the finger on Home, Entries, an
+  Entry, Months and a Month (`-follows` shots mid-swipe, `-home-open`).
+- A row still swipes left to delete (`-row-delete`, then "Deleted Cold
+  brew"; the Undo tap hit Expo Go's tools button, so it stayed deleted).
+- Settings' Sections still turn: left to Gestures, right back to General
+  with the Sidebar shut (`-sections-turn`); right on General opens it
+  (`-settings-general`); an edge swipe on Gestures opens it too.
+- Pill row: scrolled left, a right swipe scrolls it back with the Sidebar
+  shut (`-pills-scroll`); at its start a right swipe opens the Sidebar and
+  chooses no pill (`-pills-at-start`).
+- A vertical swipe scrolls Entries and the Sidebar stays shut
+  (`-vertical-scroll`).
+- Thumb Lock through `touch.mjs`: the picker shows over Settings
+  (`-thumb-lock`) and lifting Went to Months; the Sidebar stayed shut.
+- Unit tests (`toolkits/expo-toolkit/test/sidebar-swipe.test.ts`): plain
+  touch sequences through the feed into the core with nested zones: centre,
+  edge, short, vertical and left swipes; Pages past the first and on the
+  first; edge over Pages; pills scrolled and at start; pills inside Pages
+  (innermost wins); a Thumb Lock over Pages; a second finger; a zone that
+  tells its landing after the surface.
+
+**Drawbacks**
+
+- A landing reaches the core one task later (about a frame).
+- The pill under the finger shows its pressed tint while a Sidebar swipe
+  starts on it; it is not chosen.
+- `touch.mjs`'s injected touches land in the surface's own zone only (no
+  zone hears them), so they do not exercise zones.
+- Not checked on Android; two real fingers still unproven (idb has one).

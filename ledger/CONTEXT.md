@@ -91,7 +91,7 @@ One part of a Place you can Go straight to, such as the Keys tab of Settings. A 
 _Avoid_: tab, sub-place, sub-entry
 
 **Sidebar**:
-What is beside every Place: the User Switcher at its top, the Places to Go to, then each Account with its balance. It can be given the keys, and gives them back to where they were. On a touch screen its edge of the screen is its own, open or closed: a swipe from there never goes back a page.
+What is beside every Place: the User Switcher at its top, the Places to Go to, then each Account with its balance. It can be given the keys, and gives them back to where they were. On a touch screen, web or phone, one finger swiping right from anywhere opens it under the finger, unless what is under the finger takes that swipe itself (a Section to turn back to, a row of pills that can still scroll); a swipe left shuts it. Its edge of the screen is its own, open or closed: a swipe from there always moves it and never goes back a page.
 _Avoid_: nav, menu, drawer
 
 **Home**:

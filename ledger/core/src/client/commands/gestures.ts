@@ -27,13 +27,11 @@ export const GESTURES: Partial<Readonly<Record<ActionId, string>>> = {
 
 /**
  * How a gesture moves: a Thumb Lock (the left thumb still, another finger
- * swiping), one finger swiping, a sheet dragged, or a tap. A swipe with
- * `edge` starts anywhere on the web and only at the screen's edge on a
- * phone, where the edge is kept for it (the Sidebar's).
+ * swiping), one finger swiping, a sheet dragged, or a tap.
  */
 export type Motion =
   | { readonly kind: 'thumb'; readonly way: Way }
-  | { readonly kind: 'swipe'; readonly way: Way; readonly edge?: true }
+  | { readonly kind: 'swipe'; readonly way: Way }
   | { readonly kind: 'drag'; readonly way: Way }
   | { readonly kind: 'tap' };
 
@@ -74,7 +72,7 @@ export const GESTURE_GUIDE: ReadonlyArray<GestureGroup> = [
       { does: 'Add an entry', motion: { kind: 'tap' } },
       {
         does: 'Open the sidebar',
-        motion: { kind: 'swipe', way: 'right', edge: true },
+        motion: { kind: 'swipe', way: 'right' },
       },
       { does: 'Close the sidebar', motion: { kind: 'swipe', way: 'left' } },
     ],
@@ -114,29 +112,13 @@ export const GESTURE_GUIDE: ReadonlyArray<GestureGroup> = [
   },
 ];
 
-// The edge a swipe starts from, the one it moves away from.
-const FROM: Readonly<Record<Way, string>> = {
-  right: 'left',
-  left: 'right',
-  up: 'bottom',
-  down: 'top',
-};
-
-/**
- * A gesture as it is said: "Thumb Lock, swipe up". With `fromEdge`, a
- * swipe kept for the edge says so: "Swipe right from the left edge".
- */
-export const said = (
-  motion: Motion,
-  options: { readonly fromEdge?: boolean } = {},
-) => {
+/** A gesture as it is said: "Thumb Lock, swipe up". */
+export const said = (motion: Motion) => {
   switch (motion.kind) {
     case 'thumb':
       return `Thumb Lock, swipe ${motion.way}`;
     case 'swipe':
-      return motion.edge && options.fromEdge
-        ? `Swipe ${motion.way} from the ${FROM[motion.way]} edge`
-        : `Swipe ${motion.way}`;
+      return `Swipe ${motion.way}`;
     case 'drag':
       return `Drag the sheet ${motion.way}`;
     case 'tap':
