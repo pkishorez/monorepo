@@ -1,5 +1,5 @@
 ---
-'@kstackz/expo-toolkit': patch
+'@kstackz/expo-platform': patch
 ---
 
 The Sidebar opens from a swipe anywhere, as on the web, over nested Gesture Zones:

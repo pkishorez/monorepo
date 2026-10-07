@@ -1,4 +1,4 @@
-import { KeyBar as Bar } from '@kstackz/expo-toolkit/recipes/key-bar';
+import { KeyBar as Bar } from '@kstackz/expo-platform/recipes/key-bar';
 import { keys, useGiven } from '@ledger/core/app/commands';
 import { useState } from 'react';
 

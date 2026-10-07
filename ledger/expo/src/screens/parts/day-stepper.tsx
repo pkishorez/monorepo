@@ -1,8 +1,8 @@
 import ArrowLeft01Icon from '@hugeicons/core-free-icons/ArrowLeft01Icon';
 import ArrowRight01Icon from '@hugeicons/core-free-icons/ArrowRight01Icon';
-import { Button } from '@kstackz/expo-toolkit/components/button';
-import { Glyph } from '@kstackz/expo-toolkit/components/glyph';
-import { Text } from '@kstackz/expo-toolkit/components/text';
+import { Button } from '@kstackz/expo-platform/components/button';
+import { Glyph } from '@kstackz/expo-platform/components/glyph';
+import { Text } from '@kstackz/expo-platform/components/text';
 import { dayName, shiftDay, today } from '@ledger/core/model';
 import { View } from 'react-native';
 import { useToneOf } from './tone';

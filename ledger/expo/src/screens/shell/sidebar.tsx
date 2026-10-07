@@ -1,7 +1,7 @@
 import PlusSignIcon from '@hugeicons/core-free-icons/PlusSignIcon';
-import { Glyph } from '@kstackz/expo-toolkit/components/glyph';
-import { Text } from '@kstackz/expo-toolkit/components/text';
-import { Sidebar, useSidebar } from '@kstackz/expo-toolkit/recipes/sidebar';
+import { Glyph } from '@kstackz/expo-platform/components/glyph';
+import { Text } from '@kstackz/expo-platform/components/text';
+import { Sidebar, useSidebar } from '@kstackz/expo-platform/recipes/sidebar';
 import { PLACES, type StopIcon as Icon } from '@ledger/core/app/places';
 import { useMoney } from '@ledger/core/app/session';
 import { balances } from '@ledger/core/model';

@@ -1,6 +1,6 @@
 // The platform-free core: no DOM, no React, no Motion. A touch source on any
 // platform feeds a Gesture Provider plain finger samples; the web's own
-// source and React bindings are in @kstackz/web-toolkit's input.
+// source and React bindings are in @kstackz/web-platform's input.
 export { createGestureProvider } from './core/provider/index.ts';
 export type {
   GestureEnd,

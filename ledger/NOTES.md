@@ -26,7 +26,7 @@ accepted with a reason, 1 left (`ledger/docs/parity.md`).
   `LedgerPlatform` seam; web behaves as before.
 - **2 Platform pieces:** use-gesture split (platform-free core + `./web`);
   std-toolkit `db/sqlite/expo` and `sync/platform/expo`;
-  `@kstackz/expo-toolkit` with laymos layers and owned Panel UI copies.
+  `@kstackz/expo-platform` with laymos layers and owned Panel UI copies.
 - **3 Native on the Local Backend:** every Place, the Add and Accounts
   sheets, swipe-to-delete with Undo, Sidebar with User Switcher, Switch /
   Add / Sign Out, Settings (theme, Sounds, Haptics, Backend), the Thumb Lock
@@ -141,7 +141,7 @@ Nothing there was committed, stashed or reset. Its sign-in service runs on
 - When this branch lands on `main`: point mine's auth-toolkit link back at
   `../monorepo/toolkits/auth-toolkit`, `pnpm install` there, restart its
   `pnpm dev`, and commit mine's changes above (they need the new toolkit).
-- ~~The **web-toolkit merge**~~: done (see "Web Toolkit and the Gate"),
+- ~~The **web-platform merge**~~: done (see "Web Toolkit and the Gate"),
   except use-keys, which waits for its own core/`./web` split.
 - use-keys' own core/`./web` split; web's Thumb Lock onto use-gesture's
   `thumbLock` (one rule instead of two).
@@ -470,7 +470,7 @@ ui-toolkit's app shell import from `@kstackz/use-gesture/web`; the Thumb
 Picker's walk moved into the core as `TreeWalk`. Lint, tests and build pass;
 a browser smoke test of the Thumb Lock behaved as before.
 
-**What expo-toolkit builds on** (`packages/use-gesture/src/index.ts`)
+**What expo-platform builds on** (`packages/use-gesture/src/index.ts`)
 
 - `createGestureProvider(zones: ZoneTree<Zone, Target>)` returns
   `{ sink, addZone, addGesture }`. `ZoneTree` is
@@ -573,7 +573,7 @@ a browser smoke test of the Thumb Lock behaved as before.
 
 **Cleanup owed**
 
-- The later web-toolkit merge takes `./web` (with ui-toolkit, pwa-toolkit and
+- The later web-platform merge takes `./web` (with ui-toolkit, pwa-toolkit and
   use-keys); the core stays as `@kstackz/use-gesture` or becomes its own
   gestures package then.
 - `use-keys` still needs the same core/`./web` split (Phase 1 drawback).
@@ -582,7 +582,7 @@ a browser smoke test of the Thumb Lock behaved as before.
 
 ## Phase 2c: Expo foundation
 
-`@kstackz/expo-toolkit` (`toolkits/expo-toolkit`) and `@ledger/expo`
+`@kstackz/expo-platform` (`platforms/expo-platform`) and `@ledger/expo`
 (`ledger/expo`) exist. The app renders one screen in Expo Go on the iPhone 17
 Pro Simulator with the toolkit's theme (Inter, Ledger's colours, light and
 dark), Panel UI components and feedback
@@ -591,7 +591,7 @@ Whole-repo `pnpm lint`, `pnpm test` and `pnpm build` pass.
 
 **What is where**
 
-- The toolkit's layers (laymos, `toolkits/expo-toolkit/laymos.config.json`):
+- The toolkit's layers (laymos, `platforms/expo-platform/laymos.config.json`):
   `theme` → nothing, `feedback` → nothing, `input` → nothing,
   `components` → `theme`, `patterns` → `components`, `input`, `feedback`.
   Subpaths: `./theme`, `./theme.css`, `./feedback`, `./input`,
@@ -611,7 +611,7 @@ Whole-repo `pnpm lint`, `pnpm test` and `pnpm build` pass.
   taken round-robin, audio mode `mixWithOthers` and silent on the mute
   switch. The pool is plain code with a test.
 - `components`: Panel UI copies made with `panelui-cli` 0.6.2 through
-  `pnpm add-panelui <names>` (`toolkits/expo-toolkit/scripts/add-panelui.mjs`):
+  `pnpm add-panelui <names>` (`platforms/expo-platform/scripts/add-panelui.mjs`):
   panel-ui-provider, button, bottom-sheet, card, dialog, drawer,
   empty-state, field, icons, input, item, label, separator, spinner, swipe,
   switch, tabs, text, toast, typography. What they pull in sits in
@@ -699,7 +699,7 @@ EXDevMenuIsOnboardingFinished -bool YES`.
 - Phase 3 fills `input` (Gesture Handler touches into use-gesture's core,
   after 2a) and `patterns`, each pattern as its own module graph, and
   replaces the shell screen.
-- The later web-toolkit should copy this shape: layers per job, subpath per
+- The later web-platform should copy this shape: layers per job, subpath per
   layer, owned copies behind a module graph, private `parts/`.
 
 **Improvements**
@@ -718,7 +718,7 @@ Sign out everyone; the Gestures Section's Thumb Lock switch), Sign Out down to
 the signed-out card. Every route opens by deep link. Screens:
 `ledger/expo/docs/screens/phase-3a-*.png`. Whole-repo `pnpm lint`,
 `pnpm test` and `pnpm build` pass; `laymos lint` passes for `ledger/expo`,
-`ledger/core`, `ledger/web`, expo-toolkit and auth-toolkit.
+`ledger/core`, `ledger/web`, expo-platform and auth-toolkit.
 
 **What is where** (the seams 3b and 3c build on)
 
@@ -739,12 +739,12 @@ the signed-out card. Every route opens by deep link. Screens:
 - **Gestures (3c):** `ledger/expo/src/screens/shell/gestures.tsx`,
   `GestureLayer`, wraps every Place under the header, inside the Session,
   the Commands and the `PortalScope`. The Thumb Lock and Place Picker belong
-  in `toolkits/expo-toolkit/src/patterns/thumb-picker` (and touches in
+  in `platforms/expo-platform/src/patterns/thumb-picker` (and touches in
   `src/input`); Ledger feeds it `stopsFrom` from `@ledger/core/client/places`
   (now shared by both apps, with `sections` to leave Keys out on a phone),
   runs Go through `keys.useRun()`, plays `playCommand` and `buzz(settings.haptics, …)`.
   The Sidebar's edge swipe opens it through `useSidebar()` from
-  `@kstackz/expo-toolkit/patterns/sidebar`.
+  `@kstackz/expo-platform/patterns/sidebar`.
 - **Commands:** `src/screens/shell/commands.tsx` mounts `keys.Provider` with
   `enabled={false}` (no keyboard listener) and every key off;
   `src/screens/shell/globals.tsx` answers Go (`router.navigate`), the theme
@@ -766,7 +766,7 @@ the signed-out card. Every route opens by deep link. Screens:
   `client-commands`, `shared`), with icons named (`StopIcon`) for each app to
   draw. Web maps them to Lucide in `screens/parts/icons.tsx`; behaviour is
   unchanged.
-- **Generic, in expo-toolkit:** `patterns/sidebar` (`SidebarProvider`,
+- **Generic, in expo-platform:** `patterns/sidebar` (`SidebarProvider`,
   `useSidebar`, `Sidebar` over Panel UI's Drawer), `patterns/local-sign-in`
   (the native twin of ui-toolkit's `LocalSignIn`),
   `components/glyph` (any Hugeicons glyph in theme colours) and
@@ -890,7 +890,7 @@ Go Action as web, lifting the thumb first calls it off, coming back to where
 it began goes nowhere, and a Wrong Way shakes the picker. Gesture Sounds and
 Gesture Haptics follow their own settings. A swipe right from the left edge
 opens the Sidebar. Whole-repo `pnpm lint`, `pnpm test` and `pnpm build`
-pass; `laymos lint` passes for use-gesture, expo-toolkit and `ledger/expo`.
+pass; `laymos lint` passes for use-gesture, expo-platform and `ledger/expo`.
 Screens: `ledger/expo/docs/screens/phase-3c-{lock,step,section,wrong-way,sidebar-edge}.png`.
 
 **What is where**
@@ -902,7 +902,7 @@ Screens: `ledger/expo/docs/screens/phase-3c-{lock,step,section,wrong-way,sidebar
   (the finger's dx, dy) and `onEnd(lifted)`. Same rule as web's
   `kit/thumb-picker/lock.ts`, but on the core's immutable Pointers and with
   the screen width handed in. Tested with plain touch sequences.
-- **expo-toolkit `./input`** (module graph `input`): `GestureSurface` runs
+- **expo-platform `./input`** (module graph `input`): `GestureSurface` runs
   one Gesture Handler `Gesture.Manual()` on a shared parent, tracking fingers
   by id (`onTouchesDown/Move/Up/Cancelled`), and feeds a core provider with
   one zone through `feed.ts` (GH touch events → `PointerSample`s on
@@ -912,7 +912,7 @@ Screens: `ledger/expo/docs/screens/phase-3c-{lock,step,section,wrong-way,sidebar
   touches to JS with `scheduleOnRN`; `claim` is a mutable the worklets read
   at the next touch event. `dev-touches.ts`: with `devName`, in `__DEV__`
   only, the sink is at `globalThis.__touches[devName]`.
-- **expo-toolkit `./patterns/thumb-picker`** (module graph `thumb-picker`):
+- **expo-platform `./patterns/thumb-picker`** (module graph `thumb-picker`):
   `ThumbPicker({ tree, start, onFeedback, enabled, reveal, step })`, the
   native twin of web's kit. `picking.ts` is the UI-free walk (Lock → TreeWalk
   begin, moves, choose on lift; tested); `menu.tsx` draws the scrim (expo-blur
@@ -921,7 +921,7 @@ Screens: `ledger/expo/docs/screens/phase-3c-{lock,step,section,wrong-way,sidebar
   highlight, the "where you are" dot and a chevron; `motion.ts` the springs,
   the web's curve, and reduced motion (`useReducedMotion`: no shake, no
   slides).
-- **expo-toolkit `./patterns/sidebar`** (now a module graph): `SidebarEdge`,
+- **expo-platform `./patterns/sidebar`** (now a module graph): `SidebarEdge`,
   with `edge.ts`, a core listener: one finger landing within 24 points of
   the left edge, moving right, opens on lift by Swipe's `DEFAULT_COMMIT`
   (80 points or 500 points/s). Two fingers leave it to the Thumb Lock.
@@ -940,7 +940,7 @@ Screens: `ledger/expo/docs/screens/phase-3c-{lock,step,section,wrong-way,sidebar
 **How gestures were tested, and what each proves**
 
 - Unit tests (vitest, no React Native): `thumb-lock.test.ts` (8 cases on the
-  core provider) and expo-toolkit's `test/thumb-picker.test.ts`, which feeds
+  core provider) and expo-platform's `test/thumb-picker.test.ts`, which feeds
   Gesture-Handler-shaped events through `createFeed` into the core with
   `thumbLock` and `createPicking`: two fingers, the left thumb still and the
   other swiping: Steps and Go, right into a Section, Wrong Way (one shake,
@@ -1018,7 +1018,7 @@ Screens: `ledger/expo/docs/screens/phase-3c-{lock,step,section,wrong-way,sidebar
   is unproven: the Places are 3b's and were placeholders here.
 - The edge swipe opens on lift; the drawer does not follow the finger as
   web's does.
-- expo-blur is a new optional peer of expo-toolkit and a dependency of
+- expo-blur is a new optional peer of expo-platform and a dependency of
   `@ledger/expo` (catalog 57.0.3, SDK 57's pin): lockfile change to merge
   with 3b.
 - The Thumb Lock rule now exists twice: use-gesture's `thumbLock` (native)
@@ -1049,7 +1049,7 @@ Screens: `ledger/expo/docs/screens/phase-3c-{lock,step,section,wrong-way,sidebar
 - Prove the two-finger Thumb Lock with real touches: XCUITest
   (`XCUICoordinate` press-and-hold with a second coordinate's drag) or a
   phone by hand.
-- Move web's lock onto `thumbLock` (see above); later the web-toolkit merge
+- Move web's lock onto `thumbLock` (see above); later the web-platform merge
   takes `./web`.
 - Nested zones in `./input` if a Place needs its own swipes.
 
@@ -1065,7 +1065,7 @@ with figures), the Add sheet, the Accounts sheet (new and rename), rows swiped
 to delete, the floating Add button, and the Sidebar's "Add an account".
 Light and dark. Screens: `ledger/expo/docs/screens/phase-3b-*.png`.
 Whole-repo `pnpm lint`, `pnpm test` and `pnpm build` pass; `laymos lint`
-passes in core, web, expo and expo-toolkit.
+passes in core, web, expo and expo-platform.
 
 **Where things went** (the separation)
 
@@ -1084,13 +1084,13 @@ passes in core, web, expo and expo-toolkit.
   printed `$1,600.0`). The browser still uses Intl's own, so web is unchanged.
 - **Web** now imports all of the above; its own `filter.ts` and `lookup.ts`
   are gone. Behaviour unchanged (smoke-tested below).
-- **`@kstackz/expo-toolkit`**: `components/choice` (pills that scroll
+- **`@kstackz/expo-platform`**: `components/choice` (pills that scroll
   sideways, `bleed` to reach the screen edge), `components/meter` (a thin
   bar with an optional limit mark), `patterns/sheet` (`Sheet`, over Panel
   UI's bottom sheet, grown above the keyboard with Reanimated's
   `useAnimatedKeyboard`), `patterns/swipe-row` (`SwipeRow`, over Panel UI's
   `Swipe` with a destructive Delete tile, full swipe and the arm tick).
-  Changeset `expo-toolkit-places`.
+  Changeset `expo-platform-places`.
 - **The app** (`ledger/expo/src/screens`): Places stay thin. New
   `sheets/add` and `sheets/accounts` modules in the `screens` module graph
   (shell → both sheets; `places/entries` → `sheets/accounts` for Rename).
@@ -1304,7 +1304,7 @@ with `exp://127.0.0.1:8081/--/oauth/callback` and `ledger://oauth/callback`;
   public `./clients/auth` entry is unchanged.
 - Peers pinned exactly to SDK 57 (`expo-auth-session` 57.0.13,
   `expo-secure-store` 57.0.4, `react-native` 0.86.3), as syncpack wants and
-  expo-toolkit does; each SDK bump moves them. expo-web-browser is not a
+  expo-platform does; each SDK bump moves them. expo-web-browser is not a
   peer: the target never imports it (expo-auth-session depends on it).
   `pnpm why -r expo react-native` stays on 57.0.26 / 0.86.3.
 - `accessTokenLifetime` is read only when the Resource Server row is first
@@ -1594,7 +1594,7 @@ Batch B of `ledger/docs/parity.md`: every row it owns is fixed or done.
   added once, so the sheets' and the Sidebar's own listeners, added later as
   they open, are asked first and close them. Home's Jump (to Entries) is
   skipped on purpose: back from Home would otherwise never leave.
-- **The Key Bar.** `expo-toolkit/patterns/key-bar` is now a generic
+- **The Key Bar.** `expo-platform/patterns/key-bar` is now a generic
   `KeyBar`: a message at the foot for 1.4 s, replaced in place, fading out
   in 150 ms (rising 6 points in 180 ms as it shows; fade only under Reduce
   Motion), never taking a touch. `shell/key-bar.tsx` feeds it core's
@@ -1678,7 +1678,7 @@ worktree's own Ledger web dev server. Web smoke-tested with agent-browser
   from the left edge". Only the Sidebar's open swipe has `edge`; native's
   Gestures Section passes `fromEdge`, web does not, so web reads "Swipe
   right" as before. No new export (the commands door is unchanged).
-- expo-toolkit `Meter`: the fill is an `Animated.View` whose width grows
+- expo-platform `Meter`: the fill is an `Animated.View` whose width grows
   from 0 on mount and eases to each new value, 500 ms on
   `Easing.bezier(0.4, 0, 0.2, 1)` (Tailwind's default curve, the web's
   `transition-[width] duration-500`); with reduced motion it is set at once.
@@ -1785,7 +1785,7 @@ into view. Light and dark. Whole-repo `pnpm lint`, `pnpm test` and `pnpm build` 
 
 **Where things went** (the separation)
 
-- **`@kstackz/expo-toolkit/patterns/sidebar`** (module graph, now
+- **`@kstackz/expo-platform/patterns/sidebar`** (module graph, now
   `sidebar.tsx`, `push.tsx`, `motion.ts`, `edge.ts`): `SidebarProvider`
   wraps the page and holds how open the Sidebar is as a Reanimated shared
   value (0 to 1); `push.tsx` draws the page moved aside with the Sidebar
@@ -1824,7 +1824,7 @@ into view. Light and dark. Whole-repo `pnpm lint`, `pnpm test` and `pnpm build` 
   noise voices are not re-rendered. Settings puts the tabs above `Pages`,
   each Section its own `Scroll`. Entries wires `feelSwipe` and retries the
   mark scroll.
-- Changeset `expo-toolkit-gestures-and-motion`; README rows and the Sidebar
+- Changeset `expo-platform-gestures-and-motion`; README rows and the Sidebar
   usage updated.
 
 **How it was driven, and what each proves**
@@ -1949,7 +1949,7 @@ Screens: `ledger/expo/docs/screens/android-*.png`.
   press through, and Expo Router popped its stack to the last Place visited
   (Settings → back → Home → back → Settings). It now calls
   `BackHandler.exitApp()`. 5B's design assumed a press let through leaves.
-- **A toast's countdown starts once it is drawn** (expo-toolkit
+- **A toast's countdown starts once it is drawn** (expo-platform
   `ToastStore.shown`, called as each toast mounts; tests in
   `test/toast-store.test.ts`; changeset). On the emulator a delete held
   the JS thread 2–5 s, longer than the toast's 4 s, which began at
@@ -1980,7 +1980,7 @@ route found; nothing committed)
 Ledger.** A probe on the emulator (removed): `toDate` of a UTC DateTime and
 of `nowUnsafe()` work; any zoned DateTime (`Asia/Kolkata`,
 `America/New_York`, and `formatIsoZoned`) throws `RangeError: Date value out
-of bounds`. Nothing in `ledger/*`, std-toolkit, auth-toolkit or expo-toolkit
+of bounds`. Nothing in `ledger/*`, std-toolkit, auth-toolkit or expo-platform
 uses Effect's `DateTime`, so the app is unaffected. Do not add zoned
 DateTime to code that runs on Android until it is fixed.
 
@@ -2079,7 +2079,7 @@ and `pnpm test` pass; `laymos lint` passes in every package.
   the sign-in sheet.
 - **Over-engineering:** removed the unused `buzz` (ledger/expo) and
   `SidebarEdge`'s never-passed `enabled` prop.
-- **Docs:** expo-toolkit's description, README, theme and laymos text say
+- **Docs:** expo-platform's description, README, theme and laymos text say
   ui-toolkit's tokens, not "Ledger's" (the toolkit is generic); the
   `toast` export added to its README; `ledger/expo`'s runtime layer
   description names the array polyfills; std-toolkit's install line names
@@ -2115,7 +2115,7 @@ and `pnpm test` pass; `laymos lint` passes in every package.
   existing ones; kept for parity.
 - **Duplicated Add-sheet draft logic and money sign** between web and
   expo screens (~30 lines): a `useAddDraft` in core would share it; left
-  for the web-toolkit cleanup. `useToneOf` could move to expo-toolkit.
+  for the web-platform cleanup. `useToneOf` could move to expo-platform.
 - **use-keys' required `react-dom` peer** (unused) gives Expo an unmet-peer
   warning; pre-existing, fix with use-keys' split.
 - **The Sidebar's hand copy of `Swipe.DEFAULT_COMMIT`** stays: the
@@ -2129,7 +2129,7 @@ and `pnpm test` pass; `laymos lint` passes in every package.
 - `ledger/expo/scripts/drive.mjs` and `touch.mjs` are Node scripts run by
   hand, never imported by the app. They talk to Metro's inspector, which
   exists only in a development bundle.
-- `touch.mjs`'s sink is `globalThis.__touches`, set by expo-toolkit's
+- `touch.mjs`'s sink is `globalThis.__touches`, set by expo-platform's
   `input` only under `if (__DEV__ && devName)`; Metro strips the branch from
   a release bundle (the ~40-line `dev-touches.ts` module still ships,
   unused).
@@ -2176,7 +2176,7 @@ item 4 (edge-only) is gone and the gesture guide says "Swipe right" on both
 (`edge`/`fromEdge` removed from core's `Motion` and `said`).
 
 **How** (use-gesture core's nested zones, brought to native in
-expo-toolkit `./input`):
+expo-platform `./input`):
 
 - `GestureSurface` is the outermost zone; `GestureZone` nests one inside
   it, with its own Gesture Handler manual gesture that only tells where
@@ -2229,7 +2229,7 @@ expo-toolkit `./input`):
   (`-vertical-scroll`).
 - Thumb Lock through `touch.mjs`: the picker shows over Settings
   (`-thumb-lock`) and lifting Went to Months; the Sidebar stayed shut.
-- Unit tests (`toolkits/expo-toolkit/test/sidebar-swipe.test.ts`): plain
+- Unit tests (`platforms/expo-platform/test/sidebar-swipe.test.ts`): plain
   touch sequences through the feed into the core with nested zones: centre,
   edge, short, vertical and left swipes; Pages past the first and on the
   first; edge over Pages; pills scrolled and at start; pills inside Pages
@@ -2261,7 +2261,7 @@ JS work in the way (dev mode, a Place drawing, a sync) held the Step back.
   `TreeWalk.choiceAt` finds a choice by path. `core/tests/worklet-safe.test.ts`
   keeps every function of those modules a worklet with no module-level
   state (TypeScript 7 has no JS API, so it reads the sources line by line).
-- **expo-toolkit `./input`**: `ui-thread.ts` gives each `GestureSurface` a
+- **expo-platform `./input`**: `ui-thread.ts` gives each `GestureSurface` a
   core provider on the UI thread (one zone, kept on the UI runtime's
   global by surface id), fed straight from the Gesture Handler callbacks
   before the JS feed. `useWorkletGesture(make)` adds a listener a worklet
@@ -2269,7 +2269,7 @@ JS work in the way (dev mode, a Place drawing, a sync) held the Step back.
   (a Thumb Lock now claims as the second finger lands, not one move
   later). Zone arbitration stays on JS; the Thumb Lock only watches and
   claims, as it did. The dev injector feeds both providers.
-- **expo-toolkit `./patterns/thumb-picker`**: `ThumbPicker` runs
+- **expo-platform `./patterns/thumb-picker`**: `ThumbPicker` runs
   `thumbLock` and `createPicking` (now a worklet) on the UI thread over the
   tree's shape (ids only, `view.ts`) and writes a `View` (shown, open lists
   with their marked rows) to a shared value. The Menu draws every list of
@@ -2319,7 +2319,7 @@ JS work in the way (dev mode, a Place drawing, a sync) held the Step back.
 
 **Proof it still works**
 
-- Unit tests: `toolkits/expo-toolkit/test/thumb-picker-ui.test.ts` drives
+- Unit tests: `platforms/expo-platform/test/thumb-picker-ui.test.ts` drives
   Gesture-Handler-shaped events through the UI-thread provider into the
   Thumb Lock and the picking (claims and locks as the second finger lands,
   Steps and Go, a list opened behind which the top one sits, Wrong Way and
@@ -2372,7 +2372,7 @@ finger on the UI thread, as the Thumb Picker does.
 
 **What changed**
 
-- **expo-toolkit `./feedback`**: `createSounds` and its player pool are
+- **expo-platform `./feedback`**: `createSounds` and its player pool are
   gone, and expo-audio with them (toolkit, app and catalog). `haptic`
   gained `soft` and `rigid`.
 - **Ledger Expo**: `assets/sounds` and `scripts/sounds.mjs` are gone;
@@ -2383,7 +2383,7 @@ finger on the UI thread, as the Thumb Picker does.
   (selection), opens and goes back (soft), meets a Wrong Way (rigid) and
   goes (light); a row arms (rigid) and deletes (light); a swipe opens the
   Sidebar (soft); a swipe turns a page of Settings (selection).
-- **expo-toolkit `SidebarSwipe`**: which zone takes the swipe is still
+- **expo-platform `SidebarSwipe`**: which zone takes the swipe is still
   decided on JS. Once it is the Sidebar's, JS sets a shared `following`
   and catches the page up once; a `useWorkletGesture` listener then writes
   `progress` from each move on the UI thread, and stops for a second
@@ -2431,7 +2431,7 @@ bundle, and on the Remote Backend an Undo could be lost.
 
 **Checked**: core tests (`in-order.test.ts`; `undo.test.ts` undoes 0, 20
 and 200 ms after a delete, read here and from a second session), lint of
-core, web, expo and expo-toolkit; five delete-and-undo runs in the
+core, web, expo and expo-platform; five delete-and-undo runs in the
 Simulator, triggered from the inspector.
 
 **Not proven**: a real swipe and Undo tap, the Remote Backend, release
@@ -2492,12 +2492,12 @@ Android. The SectionList dev rerun was stopped to fix the freeze.
 
 ## Web Toolkit and the Gate
 
-Monorepo [ADR 0003](../docs/adr/0003-web-toolkit-and-the-gate.md); spec in
-`.claude/specs/web-toolkit-and-the-gate.md`.
+Monorepo [ADR 0003](../docs/adr/0003-web-platform-and-the-gate.md); spec in
+`.claude/specs/web-platform-and-the-gate.md`.
 
 **What changed**
 
-- `@kstackz/web-toolkit` replaces ui-toolkit and pwa-toolkit: layers
+- `@kstackz/web-platform` replaces ui-toolkit and pwa-toolkit: layers
   `theme`, `feedback`, `input`, `components`, `form`, `recipes`, `client`,
   `pwa`, `server`, built to `dist/` with `vp pack`. use-gesture's `./web`
   is its `input`. The devtools-only blocks are the private `@devtools/ui`;
@@ -2513,10 +2513,10 @@ Monorepo [ADR 0003](../docs/adr/0003-web-toolkit-and-the-gate.md); spec in
 - Std Sync waits up to 5 s for writes in flight before it stops.
 - Ledger web: the root route is `webRoot` with `pwaRoot`; the Worker is
   `webServer` with `serveRpc`; the kit (device, sounds, Thumb Picker, key
-  bindings, Swipe Row, splash) is web-toolkit's. An Account Lost dialog
+  bindings, Swipe Row, splash) is web-platform's. An Account Lost dialog
   and an Unopenable card are new.
 - Ledger Expo: `recipes` for `patterns`; the Gate's phone platform is
-  expo-toolkit's `./gate`.
+  expo-platform's `./gate`.
 
 **Checked**: every package builds, lints and tests (std-toolkit's DynamoDB
 conformance needs DynamoDB Local, not run here). In a browser on the Local
@@ -2557,7 +2557,7 @@ spec in `.claude/specs/app-api-backend-stores.md`.
   Sync (`syncName`, `keepSyncs`, moved from core's `state/local-copies`).
   The Backend Link is `{ api, syncPlatform }`: how a session calls the API,
   and the platform its Std Sync runs on (`memory()` on the device Backend). `createWebApp` and `createExpoApp` are gone:
-  web-toolkit's `webPlatform` and expo-toolkit's `expoPlatform` (now
+  web-platform's `webPlatform` and expo-platform's `expoPlatform` (now
   `./platform`, with the expo-sqlite tables and Std Sync from Ledger Expo)
   give `createApp` its platform.
 - std-toolkit's `./sync` exports `inOrder`, moved from core.

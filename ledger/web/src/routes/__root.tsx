@@ -1,6 +1,6 @@
 import { createRootRoute } from '@tanstack/react-router';
-import { webRoot } from '@kstackz/web-toolkit/client';
-import { pwaRoot } from '@kstackz/web-toolkit/pwa';
+import { webRoot } from '@kstackz/web-platform/client';
+import { pwaRoot } from '@kstackz/web-platform/pwa';
 import { appTheme } from '../app.ts';
 import appCss from '../styles.css?url';
 

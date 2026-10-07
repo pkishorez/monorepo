@@ -12,8 +12,8 @@ import {
   Network,
   PanelRightOpen,
   SlidersHorizontal,
-} from '@kstackz/web-toolkit/components/lucide';
-import { Button } from '@kstackz/web-toolkit/components/button';
+} from '@kstackz/web-platform/components/lucide';
+import { Button } from '@kstackz/web-platform/components/button';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -24,28 +24,28 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@kstackz/web-toolkit/components/dropdown-menu';
+} from '@kstackz/web-platform/components/dropdown-menu';
 import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
-} from '@kstackz/web-toolkit/components/resizable';
+} from '@kstackz/web-platform/components/resizable';
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
-} from '@kstackz/web-toolkit/components/tabs';
+} from '@kstackz/web-platform/components/tabs';
 import {
   Sheet,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
-} from '@kstackz/web-toolkit/components/sheet';
-import { useIsMobile } from '@kstackz/web-toolkit/components/hooks/use-mobile';
-import { scrollbarStyles } from '@kstackz/web-toolkit/components/scroll-styles';
-import { cn } from '@kstackz/web-toolkit/components/utils';
+} from '@kstackz/web-platform/components/sheet';
+import { useIsMobile } from '@kstackz/web-platform/components/hooks/use-mobile';
+import { scrollbarStyles } from '@kstackz/web-platform/components/scroll-styles';
+import { cn } from '@kstackz/web-platform/components/utils';
 
 import {
   buildPresentationModel,
@@ -94,7 +94,7 @@ import {
   defaultGitOptions,
   uncommittedBaseRef,
   type GitOptions,
-} from '@kstackz/web-toolkit/components/viewers/git-changes';
+} from '@kstackz/web-platform/components/viewers/git-changes';
 import type { ChangeIndex } from '../project-changes';
 import { StoriesDocsSite, type StoryReports } from '../story-inspection';
 

@@ -6,8 +6,8 @@ import {
   Link2Off,
   PackageX,
   RefreshCw,
-} from '@kstackz/web-toolkit/components/lucide';
-import { cn } from '@kstackz/web-toolkit/components/utils';
+} from '@kstackz/web-platform/components/lucide';
+import { cn } from '@kstackz/web-platform/components/utils';
 
 import type { ModuleViolation } from '../../analysis-presentation';
 

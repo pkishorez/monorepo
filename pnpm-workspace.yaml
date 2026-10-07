@@ -4,6 +4,7 @@ packages:
   - devtools/*
   - packages/*
   - toolkits/*
+  - platforms/*
 
 # Hold new releases for 24 hours (in minutes) so compromised versions have time to be reported.
 minimumReleaseAge: 1440
@@ -185,7 +186,7 @@ catalog:
   yaml: 2.9.0
   yoctocolors: 2.2.0
   zustand: 5.0.15
-  # Expo SDK 57 (React Native 0.86) for @ledger/expo and @kstackz/expo-toolkit.
+  # Expo SDK 57 (React Native 0.86) for @ledger/expo and @kstackz/expo-platform.
   # Versions are the exact ones expo@57.0.26's bundledNativeModules.json
   # expects (what `expo install --check` accepts), resolved to the newest
   # release past minimumReleaseAge. expo 57.0.27 (2026-10-06) bumps expo-router,
@@ -221,8 +222,8 @@ catalog:
   react-native-worklets: 0.10.1
   # Tailwind for React Native, which Panel UI's components are styled with.
   uniwind: 1.12.2
-  # Panel UI is copied into the Expo Toolkit as source with its CLI
-  # (toolkits/expo-toolkit/scripts/add-panelui.mjs reads this pin); the copies
+  # Panel UI is copied into the Expo Platform as source with its CLI
+  # (platforms/expo-platform/scripts/add-panelui.mjs reads this pin); the copies
   # need tailwind-variants and the Hugeicons set.
   panelui-cli: 0.6.2
   tailwind-variants: 3.3.1

@@ -1,14 +1,14 @@
-import { Button } from '@kstackz/web-toolkit/components/button';
+import { Button } from '@kstackz/web-platform/components/button';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-} from '@kstackz/web-toolkit/components/dropdown-menu';
+} from '@kstackz/web-platform/components/dropdown-menu';
 import {
   ChevronDown,
   ExternalLink,
-} from '@kstackz/web-toolkit/components/lucide';
+} from '@kstackz/web-platform/components/lucide';
 import { cloudflareAccountUrl, cloudflareTokenUrl } from './token-url.ts';
 
 const validAccount = (value: string) => /^[a-f0-9]{32}$/i.test(value.trim());

@@ -6,7 +6,7 @@ import {
   type TraceRecorder,
 } from '@kstackz/effect-tracer/recorder';
 import { Activation, Flow, FlowTelemetry } from '@kstackz/flow';
-import { Button } from '@kstackz/web-toolkit/components/button';
+import { Button } from '@kstackz/web-platform/components/button';
 import { DevToolsPanel } from './devtools-panel';
 
 type Runtime = ManagedRuntime.ManagedRuntime<never, never>;

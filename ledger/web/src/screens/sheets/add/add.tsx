@@ -1,12 +1,12 @@
-import { Button } from '@kstackz/web-toolkit/components/button';
+import { Button } from '@kstackz/web-platform/components/button';
 import {
   Drawer,
   DrawerContent,
   DrawerTitle,
-} from '@kstackz/web-toolkit/components/drawer';
-import { Input } from '@kstackz/web-toolkit/components/input';
+} from '@kstackz/web-platform/components/drawer';
+import { Input } from '@kstackz/web-platform/components/input';
 import { useState } from 'react';
-import { BindingKeys } from '@kstackz/web-toolkit/recipes/key-bindings';
+import { BindingKeys } from '@kstackz/web-platform/recipes/key-bindings';
 import { keys, useCommand } from '@ledger/core/app/commands';
 import { useMoney, useWrites } from '@ledger/core/app/session';
 import { firstAccount, quickDays } from '@ledger/core/app/places';

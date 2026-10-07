@@ -2,11 +2,11 @@ import ArrowLeft01Icon from '@hugeicons/core-free-icons/ArrowLeft01Icon';
 import ArrowLeft02Icon from '@hugeicons/core-free-icons/ArrowLeft02Icon';
 import ArrowRight01Icon from '@hugeicons/core-free-icons/ArrowRight01Icon';
 import Delete02Icon from '@hugeicons/core-free-icons/Delete02Icon';
-import { Button } from '@kstackz/expo-toolkit/components/button';
-import { Choice } from '@kstackz/expo-toolkit/components/choice';
-import { Glyph } from '@kstackz/expo-toolkit/components/glyph';
-import { Input } from '@kstackz/expo-toolkit/components/input';
-import { Text } from '@kstackz/expo-toolkit/components/text';
+import { Button } from '@kstackz/expo-platform/components/button';
+import { Choice } from '@kstackz/expo-platform/components/choice';
+import { Glyph } from '@kstackz/expo-platform/components/glyph';
+import { Input } from '@kstackz/expo-platform/components/input';
+import { Text } from '@kstackz/expo-platform/components/text';
 import { keys, useCommand, usePlace } from '@ledger/core/app/commands';
 import { useMoney, useWrites } from '@ledger/core/app/session';
 import {

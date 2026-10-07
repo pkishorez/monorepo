@@ -1,5 +1,5 @@
 ---
-'@kstackz/expo-toolkit': patch
+'@kstackz/expo-platform': patch
 ---
 
 Two fixes found driving Ledger on a phone:

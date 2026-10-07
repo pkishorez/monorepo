@@ -7,8 +7,8 @@ import {
 } from 'react';
 import { FocusIcon, MessageSquareTextIcon } from 'lucide-react';
 
-import { Button } from '@kstackz/web-toolkit/components/button';
-import { cn } from '@kstackz/web-toolkit/components/utils';
+import { Button } from '@kstackz/web-platform/components/button';
+import { cn } from '@kstackz/web-platform/components/utils';
 
 import type { OtelEvent, OtelSpan, SpanNode } from '../trace-model';
 import {
@@ -16,7 +16,7 @@ import {
   spanTimelineBounds,
   type TraceGroup,
 } from '../trace-model';
-import { useElementWidth } from '@kstackz/web-toolkit/components/hooks/use-element-width';
+import { useElementWidth } from '@kstackz/web-platform/components/hooks/use-element-width';
 import { GanttHeader as GanttHeaderView } from './gantt-header';
 import { GanttLogRow } from './gantt-log-row';
 import { GanttRow } from './gantt-row';

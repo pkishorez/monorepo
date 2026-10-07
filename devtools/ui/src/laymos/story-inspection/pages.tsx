@@ -10,15 +10,15 @@ import {
 } from 'lucide-react';
 import type { StoryTree } from 'laymos';
 
-import { SourceViewer } from '@kstackz/web-toolkit/components/viewers/source-viewer';
-import { Button } from '@kstackz/web-toolkit/components/button';
+import { SourceViewer } from '@kstackz/web-platform/components/viewers/source-viewer';
+import { Button } from '@kstackz/web-platform/components/button';
 import {
   Dialog,
   DialogContent,
   DialogTitle,
-} from '@kstackz/web-toolkit/components/dialog';
-import { scrollbarStyles } from '@kstackz/web-toolkit/components/scroll-styles';
-import { cn } from '@kstackz/web-toolkit/components/utils';
+} from '@kstackz/web-platform/components/dialog';
+import { scrollbarStyles } from '@kstackz/web-platform/components/scroll-styles';
+import { cn } from '@kstackz/web-platform/components/utils';
 
 import {
   countQuestions,

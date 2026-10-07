@@ -1,4 +1,4 @@
-import { Lock, Network, Share2 } from '@kstackz/web-toolkit/components/lucide';
+import { Lock, Network, Share2 } from '@kstackz/web-platform/components/lucide';
 
 // Exposed is the default on almost every Module, so only exceptions are marked.
 const items = [

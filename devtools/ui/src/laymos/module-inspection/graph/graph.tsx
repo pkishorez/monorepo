@@ -17,13 +17,13 @@ import {
   Lock,
   Network,
   Share2,
-} from '@kstackz/web-toolkit/components/lucide';
-import { cn } from '@kstackz/web-toolkit/components/utils';
+} from '@kstackz/web-platform/components/lucide';
+import { cn } from '@kstackz/web-platform/components/utils';
 
 import {
   ChangeBadge,
   changeSurfaceClass,
-} from '@kstackz/web-toolkit/components/viewers/git-changes';
+} from '@kstackz/web-platform/components/viewers/git-changes';
 import { graphIdentity } from '../../architecture-graph';
 import {
   selectedContainerClass,

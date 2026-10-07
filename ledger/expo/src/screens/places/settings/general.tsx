@@ -1,10 +1,10 @@
 import Moon02Icon from '@hugeicons/core-free-icons/Moon02Icon';
 import Sun03Icon from '@hugeicons/core-free-icons/Sun03Icon';
-import { Button } from '@kstackz/expo-toolkit/components/button';
-import { Choice } from '@kstackz/expo-toolkit/components/choice';
-import { Dialog } from '@kstackz/expo-toolkit/components/dialog';
-import { Switch } from '@kstackz/expo-toolkit/components/switch';
-import { Text } from '@kstackz/expo-toolkit/components/text';
+import { Button } from '@kstackz/expo-platform/components/button';
+import { Choice } from '@kstackz/expo-platform/components/choice';
+import { Dialog } from '@kstackz/expo-platform/components/dialog';
+import { Switch } from '@kstackz/expo-platform/components/switch';
+import { Text } from '@kstackz/expo-platform/components/text';
 import { useMoney, useUser, useWrites } from '@ledger/core/app/session';
 import { CURRENCIES } from '@ledger/core/model';
 import Constants, { ExecutionEnvironment } from 'expo-constants';

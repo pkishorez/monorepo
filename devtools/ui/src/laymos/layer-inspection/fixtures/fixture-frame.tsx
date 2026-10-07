@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-import { cn } from '@kstackz/web-toolkit/components/utils';
+import { cn } from '@kstackz/web-platform/components/utils';
 
 interface FixtureFrameProps {
   readonly children: ReactNode;

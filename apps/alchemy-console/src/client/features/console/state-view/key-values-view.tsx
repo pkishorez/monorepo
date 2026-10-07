@@ -1,21 +1,21 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { JsonViewer } from '@kstackz/web-toolkit/components/viewers/json';
-import { Button } from '@kstackz/web-toolkit/components/button';
+import { JsonViewer } from '@kstackz/web-platform/components/viewers/json';
+import { Button } from '@kstackz/web-platform/components/button';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '@kstackz/web-toolkit/components/dialog';
-import { ScrollArea } from '@kstackz/web-toolkit/components/scroll-area';
+} from '@kstackz/web-platform/components/dialog';
+import { ScrollArea } from '@kstackz/web-platform/components/scroll-area';
 import {
   Braces,
   Check,
   Copy,
   ExternalLink,
-} from '@kstackz/web-toolkit/components/lucide';
+} from '@kstackz/web-platform/components/lucide';
 import {
   clipboardText,
   isHttpUrl,

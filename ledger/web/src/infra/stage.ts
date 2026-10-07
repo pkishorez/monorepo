@@ -1,10 +1,10 @@
-import { domainFor as domainOn } from '@kstackz/web-toolkit/server';
+import { domainFor as domainOn } from '@kstackz/web-platform/server';
 
 export {
   assertStageIsSafe,
   devConfigFor,
   isDeployedStage,
-} from '@kstackz/web-toolkit/server';
+} from '@kstackz/web-platform/server';
 
 /** Where Ledger is served on a stage: kstack.kishore.app, or prN- of it. */
 export const domainFor = (stage: string): string | undefined =>

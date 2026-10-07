@@ -16,6 +16,6 @@ rpc-toolkit, auth-toolkit and std-toolkit are the platform-free first principles
 
 ## Consequences
 
-- web-toolkit and expo-toolkit lose what sat on the old APIs (`webPlatform`, `expoPlatform`, their gate platforms, `serveRpc`) and are rebuilt on the new doors in the next phase, as Platforms.
+- web-platform and expo-platform lose what sat on the old APIs (`webPlatform`, `expoPlatform`, their gate platforms, `serveRpc`) and are rebuilt on the new doors in the next phase, as Platforms.
 - Ledger is made to compile and run on the new doors first, and rethought after.
 - Ledger's `app/link/`, `session/rpc.ts` and `backend/services/auth/` become toolkit code.

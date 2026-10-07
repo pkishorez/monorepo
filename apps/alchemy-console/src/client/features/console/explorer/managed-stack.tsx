@@ -1,4 +1,4 @@
-import { Badge } from '@kstackz/web-toolkit/components/badge';
+import { Badge } from '@kstackz/web-platform/components/badge';
 
 export function ManagedStackBadge({ compact = false }: { compact?: boolean }) {
   return (

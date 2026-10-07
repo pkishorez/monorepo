@@ -21,7 +21,7 @@ import { LaymosShell } from '../../architecture-workspace';
 import {
   defaultGitOptions,
   type GitOptions,
-} from '@kstackz/web-toolkit/components/viewers/git-changes';
+} from '@kstackz/web-platform/components/viewers/git-changes';
 import {
   fixtureChangeIndex,
   loadFixtureFileDiff,

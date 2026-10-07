@@ -1,9 +1,9 @@
-import { Button } from '@kstackz/web-toolkit/components/button';
-import { GoogleButton } from '@kstackz/web-toolkit/components/google-button';
+import { Button } from '@kstackz/web-platform/components/button';
+import { GoogleButton } from '@kstackz/web-platform/components/google-button';
 import {
   CircleAlert,
   LoaderCircle,
-} from '@kstackz/web-toolkit/components/lucide';
+} from '@kstackz/web-platform/components/lucide';
 import { type ReactNode, useEffect, useState } from 'react';
 import { appTheme, useGate } from '../../app.ts';
 import { LedgerMark } from '../parts/index.ts';

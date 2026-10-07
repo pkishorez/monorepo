@@ -179,27 +179,27 @@ Snapshot page from disk in headless Chromium, so nothing listens on a port.
 
 ```sh
 # The branch is checked out; compare it with main.
-devtools snapshot --project toolkits/web-toolkit --base origin/main \
-  --out .snapshots/web-toolkit.png --only-changed
+devtools snapshot --project platforms/web-platform --base origin/main \
+  --out .snapshots/web-platform.png --only-changed
 # {
-#   "project": "toolkits/web-toolkit",
-#   "title": "web-toolkit",
+#   "project": "platforms/web-platform",
+#   "title": "web-platform",
 #   "baseRef": "c08fd1c…",
 #   "modules": 132,
 #   "changedModules": 4,
 #   "drawn": "changed",
 #   "scale": 2,
 #   "images": [
-#     { "theme": "dark", "out": "/…/.snapshots/web-toolkit.png", "width": 512, "height": 806 }
+#     { "theme": "dark", "out": "/…/.snapshots/web-platform.png", "width": 512, "height": 806 }
 #   ]
 # }
 
 # Every Project under this folder that the branch changed, in both themes.
 devtools snapshot --all --base origin/main --only-changed --theme both \
   --out-dir .snapshots
-# [ { "project": "toolkits/web-toolkit", …, "images": [
-#     { "theme": "dark", "out": "/…/.snapshots/toolkits%2Fweb-toolkit-dark.png", … },
-#     { "theme": "light", "out": "/…/.snapshots/toolkits%2Fweb-toolkit-light.png", … } ] } ]
+# [ { "project": "platforms/web-platform", …, "images": [
+#     { "theme": "dark", "out": "/…/.snapshots/platforms%2Fweb-platform-dark.png", … },
+#     { "theme": "light", "out": "/…/.snapshots/platforms%2Fweb-platform-light.png", … } ] } ]
 ```
 
 How it works:

@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react';
 
-import { FolderIcon } from '@kstackz/web-toolkit/components/lucide';
-import { cn } from '@kstackz/web-toolkit/components/utils';
+import { FolderIcon } from '@kstackz/web-platform/components/lucide';
+import { cn } from '@kstackz/web-platform/components/utils';
 
 export type ArchitectureTreeBoundaryState =
   | 'neutral'

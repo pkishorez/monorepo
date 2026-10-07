@@ -6,12 +6,12 @@ The UI only the DevTools show: the trace viewer, Laymos's architecture explorer,
 
 These views used to live in `@kstackz/ui-toolkit`, but no app other than
 DevTools shows them. They moved here when ui-toolkit became
-`@kstackz/web-toolkit`, so web-toolkit carries only what any web app needs
-([ADR 0003](../../docs/adr/0003-web-toolkit-and-the-gate.md)).
+`@kstackz/web-platform`, so web-platform carries only what any web app needs
+([ADR 0003](../../docs/adr/0003-web-platform-and-the-gate.md)).
 
 The package is never published. `@kstackz/devtools` lists it as a
 devDependency and bundles it into its browser UI at build time, so nothing
-installs it. It is built on `@kstackz/web-toolkit` for components and theme,
+installs it. It is built on `@kstackz/web-platform` for components and theme,
 and reads its data shapes from `@kstackz/lotel`, `@kstackz/flow`,
 `@kstackz/effect-tracer` and `laymos`.
 
@@ -52,4 +52,4 @@ pnpm --filter @devtools/ui test
 pnpm --filter @devtools/ui lint
 ```
 
-- `src/cosmos.decorator.tsx` wraps every fixture in web-toolkit's theme.
+- `src/cosmos.decorator.tsx` wraps every fixture in web-platform's theme.

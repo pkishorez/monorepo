@@ -5,26 +5,26 @@ import {
   BookOpen,
   FileQuestion,
   TriangleAlert,
-} from '@kstackz/web-toolkit/components/lucide';
+} from '@kstackz/web-platform/components/lucide';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '@kstackz/web-toolkit/components/dialog';
+} from '@kstackz/web-platform/components/dialog';
 import {
   Empty,
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-} from '@kstackz/web-toolkit/components/empty';
-import { Spinner } from '@kstackz/web-toolkit/components/spinner';
-import { scrollbarStyles } from '@kstackz/web-toolkit/components/scroll-styles';
-import { cn } from '@kstackz/web-toolkit/components/utils';
+} from '@kstackz/web-platform/components/empty';
+import { Spinner } from '@kstackz/web-platform/components/spinner';
+import { scrollbarStyles } from '@kstackz/web-platform/components/scroll-styles';
+import { cn } from '@kstackz/web-platform/components/utils';
 
-import { MarkdownViewer } from '@kstackz/web-toolkit/components/viewers/markdown-viewer';
+import { MarkdownViewer } from '@kstackz/web-platform/components/viewers/markdown-viewer';
 
 export type PackageReadmeDocument =
   | { readonly kind: 'loading' }

@@ -1,5 +1,5 @@
-import { Switch } from '@kstackz/expo-toolkit/components/switch';
-import { Text } from '@kstackz/expo-toolkit/components/text';
+import { Switch } from '@kstackz/expo-platform/components/switch';
+import { Text } from '@kstackz/expo-platform/components/text';
 import {
   type Gesture,
   GESTURE_GUIDE,

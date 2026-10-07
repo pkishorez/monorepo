@@ -1,6 +1,6 @@
 // Fails when src/ uses a colour the theme doesn't give: a Tailwind palette
 // colour (`emerald-500`) or a raw hex, rgb, hsl or oklch value. Every colour
-// is a web-toolkit token (`foreground`, `muted-foreground`, `destructive`…);
+// is a web-platform token (`foreground`, `muted-foreground`, `destructive`…);
 // see DESIGN.md. The one exception is the iOS status bar, which needs plain
 // sRGB in `light-dark()`.
 import { readdirSync, readFileSync } from 'node:fs';
@@ -32,7 +32,7 @@ const found = files('src').flatMap((file) =>
 
 if (found.length > 0) {
   console.error(
-    `Colours the theme doesn't give (use a web-toolkit token):\n${found.join('\n')}`,
+    `Colours the theme doesn't give (use a web-platform token):\n${found.join('\n')}`,
   );
   process.exit(1);
 }

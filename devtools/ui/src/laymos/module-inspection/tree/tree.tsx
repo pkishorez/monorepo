@@ -1,7 +1,7 @@
-import { FileIcon, FolderIcon } from '@kstackz/web-toolkit/components/lucide';
-import { cn } from '@kstackz/web-toolkit/components/utils';
+import { FileIcon, FolderIcon } from '@kstackz/web-platform/components/lucide';
+import { cn } from '@kstackz/web-platform/components/utils';
 
-import { ChangeBadge } from '@kstackz/web-toolkit/components/viewers/git-changes';
+import { ChangeBadge } from '@kstackz/web-platform/components/viewers/git-changes';
 import type {
   ChangeStatus,
   Module,

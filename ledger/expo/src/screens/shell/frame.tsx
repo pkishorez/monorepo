@@ -1,12 +1,12 @@
 import Menu01Icon from '@hugeicons/core-free-icons/Menu01Icon';
 import PlusSignIcon from '@hugeicons/core-free-icons/PlusSignIcon';
 import WifiOff01Icon from '@hugeicons/core-free-icons/WifiOff01Icon';
-import { Glyph } from '@kstackz/expo-toolkit/components/glyph';
-import { Text } from '@kstackz/expo-toolkit/components/text';
+import { Glyph } from '@kstackz/expo-platform/components/glyph';
+import { Text } from '@kstackz/expo-platform/components/text';
 import {
   SidebarProvider,
   useSidebar,
-} from '@kstackz/expo-toolkit/recipes/sidebar';
+} from '@kstackz/expo-platform/recipes/sidebar';
 import { keys } from '@ledger/core/app/commands';
 import { placeTitle } from '@ledger/core/app/places';
 import { usePathname } from 'expo-router';

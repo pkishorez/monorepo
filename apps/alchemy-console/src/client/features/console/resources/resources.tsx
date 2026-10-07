@@ -1,18 +1,18 @@
 import { Effect } from 'effect';
 import { useState } from 'react';
 import type { ComponentType } from 'react';
-import { Button } from '@kstackz/web-toolkit/components/button';
+import { Button } from '@kstackz/web-platform/components/button';
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from '@kstackz/web-toolkit/components/collapsible';
-import { Input } from '@kstackz/web-toolkit/components/input';
+} from '@kstackz/web-platform/components/collapsible';
+import { Input } from '@kstackz/web-platform/components/input';
 import {
   Box,
   ChevronRight,
   Search,
-} from '@kstackz/web-toolkit/components/lucide';
+} from '@kstackz/web-platform/components/lucide';
 import { Rpc } from '../../../connections/rpc/index.ts';
 import {
   EmptyState,

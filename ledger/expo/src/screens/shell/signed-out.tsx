@@ -1,6 +1,6 @@
-import { Button } from '@kstackz/expo-toolkit/components/button';
-import { Spinner } from '@kstackz/expo-toolkit/components/spinner';
-import { Text } from '@kstackz/expo-toolkit/components/text';
+import { Button } from '@kstackz/expo-platform/components/button';
+import { Spinner } from '@kstackz/expo-platform/components/spinner';
+import { Text } from '@kstackz/expo-platform/components/text';
 import { type ReactNode, useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

@@ -2,15 +2,15 @@ import { useMemo, useState } from 'react';
 
 import { ChevronRightIcon, SearchIcon, XIcon } from 'lucide-react';
 
-import { Button } from '@kstackz/web-toolkit/components/button';
+import { Button } from '@kstackz/web-platform/components/button';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from '@kstackz/web-toolkit/components/dialog';
-import { Input } from '@kstackz/web-toolkit/components/input';
-import { cn } from '@kstackz/web-toolkit/components/utils';
+} from '@kstackz/web-platform/components/dialog';
+import { Input } from '@kstackz/web-platform/components/input';
+import { cn } from '@kstackz/web-platform/components/utils';
 
 import {
   detectLogSeverity,

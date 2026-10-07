@@ -1,7 +1,7 @@
 import { ChevronRightIcon, MessageSquareTextIcon } from 'lucide-react';
 import { useState } from 'react';
 
-import { cn } from '@kstackz/web-toolkit/components/utils';
+import { cn } from '@kstackz/web-platform/components/utils';
 
 import {
   detectLogSeverity,

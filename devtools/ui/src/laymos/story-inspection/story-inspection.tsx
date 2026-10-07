@@ -4,7 +4,7 @@ import {
   ChevronRight,
   FileText,
   PanelLeft,
-} from '@kstackz/web-toolkit/components/lucide';
+} from '@kstackz/web-platform/components/lucide';
 import type { PanelImperativeHandle } from 'react-resizable-panels';
 import type { StoryTree } from 'laymos';
 
@@ -12,11 +12,11 @@ import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
-} from '@kstackz/web-toolkit/components/resizable';
-import { Button } from '@kstackz/web-toolkit/components/button';
-import { scrollbarStyles } from '@kstackz/web-toolkit/components/scroll-styles';
-import { cn } from '@kstackz/web-toolkit/components/utils';
-import { useIsMobile } from '@kstackz/web-toolkit/components/hooks/use-mobile';
+} from '@kstackz/web-platform/components/resizable';
+import { Button } from '@kstackz/web-platform/components/button';
+import { scrollbarStyles } from '@kstackz/web-platform/components/scroll-styles';
+import { cn } from '@kstackz/web-platform/components/utils';
+import { useIsMobile } from '@kstackz/web-platform/components/hooks/use-mobile';
 
 import {
   countQuestions,

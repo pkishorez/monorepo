@@ -22,22 +22,22 @@ import {
   transformSpan,
 } from '@devtools/ui/otel-trace-viewer';
 import type { OtelSpan } from '@devtools/ui/otel-trace-viewer/trace-model';
-import { Button } from '@kstackz/web-toolkit/components/button';
+import { Button } from '@kstackz/web-platform/components/button';
 import {
   Dialog,
   DialogContent,
   DialogTitle,
-} from '@kstackz/web-toolkit/components/dialog';
-import { toast } from '@kstackz/web-toolkit/components/sonner';
+} from '@kstackz/web-platform/components/dialog';
+import { toast } from '@kstackz/web-platform/components/sonner';
 import {
   DownloadIcon,
   GitBranchIcon,
   SearchIcon,
   UploadIcon,
   XIcon,
-} from '@kstackz/web-toolkit/components/lucide';
-import { scrollbarStyles } from '@kstackz/web-toolkit/components/scroll-styles';
-import { cn } from '@kstackz/web-toolkit/components/utils';
+} from '@kstackz/web-platform/components/lucide';
+import { scrollbarStyles } from '@kstackz/web-platform/components/scroll-styles';
+import { cn } from '@kstackz/web-platform/components/utils';
 import {
   DevtoolsClient,
   useDevtoolsRuntime,

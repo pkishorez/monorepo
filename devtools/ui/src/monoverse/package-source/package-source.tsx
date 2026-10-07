@@ -1,7 +1,7 @@
 import type { Package } from '../analysis';
 
-import { Layers } from '@kstackz/web-toolkit/components/lucide';
-import { Button } from '@kstackz/web-toolkit/components/button';
+import { Layers } from '@kstackz/web-platform/components/lucide';
+import { Button } from '@kstackz/web-platform/components/button';
 
 import {
   SourceExplorer,
@@ -10,7 +10,7 @@ import {
   type LoadFileDiff,
   type LoadFiles,
   type SourceExplorerTab,
-} from '@kstackz/web-toolkit/components/viewers/source-explorer';
+} from '@kstackz/web-platform/components/viewers/source-explorer';
 import {
   PackageReadmeStack,
   PackageReadmeView,

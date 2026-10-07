@@ -1,15 +1,15 @@
 import { TraceDock } from '@devtools/ui/otel-trace-viewer';
 import type { TraceGroup } from '@devtools/ui/otel-trace-viewer/trace-model';
 import type { TraceView } from '@devtools/ui/otel-trace-viewer/trace-presentation';
-import { Button } from '@kstackz/web-toolkit/components/button';
+import { Button } from '@kstackz/web-platform/components/button';
 import {
   AlertTriangleIcon,
   BookOpenText,
   ChartNoAxesGantt,
   GitBranchIcon,
   XIcon,
-} from '@kstackz/web-toolkit/components/lucide';
-import { cn } from '@kstackz/web-toolkit/components/utils';
+} from '@kstackz/web-platform/components/lucide';
+import { cn } from '@kstackz/web-platform/components/utils';
 import { useLotelStore } from './state';
 
 export function TraceWorkspace({

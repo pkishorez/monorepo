@@ -1,6 +1,6 @@
 ---
 '@kstackz/auth-toolkit': patch
-'@kstackz/web-toolkit': patch
+'@kstackz/web-platform': patch
 '@kstackz/std-toolkit': patch
 '@kstackz/use-gesture': patch
 '@kstackz/use-keys': patch

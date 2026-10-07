@@ -1,6 +1,6 @@
 import ArrowRight01Icon from '@hugeicons/core-free-icons/ArrowRight01Icon';
-import { Glyph } from '@kstackz/expo-toolkit/components/glyph';
-import { Text } from '@kstackz/expo-toolkit/components/text';
+import { Glyph } from '@kstackz/expo-platform/components/glyph';
+import { Text } from '@kstackz/expo-platform/components/text';
 import { Pressable, View } from 'react-native';
 
 /**

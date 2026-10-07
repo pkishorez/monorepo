@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { Button } from '@kstackz/web-toolkit/components/button';
-import { WifiOffIcon } from '@kstackz/web-toolkit/components/lucide';
+import { Button } from '@kstackz/web-platform/components/button';
+import { WifiOffIcon } from '@kstackz/web-platform/components/lucide';
 
 export const Route = createFileRoute('/offline')({
   validateSearch: (search): { from?: string } =>

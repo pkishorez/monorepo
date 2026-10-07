@@ -1,4 +1,4 @@
-import { haptic } from '@kstackz/expo-toolkit/feedback';
+import { haptic } from '@kstackz/expo-platform/feedback';
 import { useCallback } from 'react';
 import { useSettings } from './app';
 

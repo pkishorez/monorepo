@@ -1,6 +1,6 @@
 {
   "name": "@ledger/expo",
-  "description": "Ledger on iOS and Android: an Expo Router app on the Expo Toolkit that talks to @ledger/web's /rpc and never hosts a server.",
+  "description": "Ledger on iOS and Android: an Expo Router app on the Expo Platform that talks to @ledger/web's /rpc and never hosts a server.",
   "private": true,
   "main": "index.ts",
   "scripts": {
@@ -14,7 +14,7 @@
   "dependencies": {
     "@hugeicons/core-free-icons": "catalog:",
     "@kstackz/auth-toolkit": "workspace:*",
-    "@kstackz/expo-toolkit": "workspace:*",
+    "@kstackz/expo-platform": "workspace:*",
     "@kstackz/std-toolkit": "workspace:*",
     "@ledger/core": "workspace:*",
     "@shopify/flash-list": "catalog:",

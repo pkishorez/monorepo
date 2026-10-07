@@ -8,24 +8,24 @@ import {
   FlowSwimlane,
   getFlowSummaryIds,
 } from '../../flow-swimlane/flow-swimlane';
-import { MarkdownViewer } from '@kstackz/web-toolkit/components/viewers/markdown-viewer';
+import { MarkdownViewer } from '@kstackz/web-platform/components/viewers/markdown-viewer';
 import {
   attachCapturedLogs,
   TraceViewer,
 } from '../../otel-trace-viewer/trace-viewer';
-import { SourceViewer } from '@kstackz/web-toolkit/components/viewers/source-viewer';
+import { SourceViewer } from '@kstackz/web-platform/components/viewers/source-viewer';
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from '@kstackz/web-toolkit/components/collapsible';
+} from '@kstackz/web-platform/components/collapsible';
 import {
   Dialog,
   DialogContent,
   DialogTitle,
-} from '@kstackz/web-toolkit/components/dialog';
-import { scrollbarStyles } from '@kstackz/web-toolkit/components/scroll-styles';
-import { cn } from '@kstackz/web-toolkit/components/utils';
+} from '@kstackz/web-platform/components/dialog';
+import { scrollbarStyles } from '@kstackz/web-platform/components/scroll-styles';
+import { cn } from '@kstackz/web-platform/components/utils';
 
 export type QuestionReport = StoryReport['questions'][number];
 type QuestionSection = QuestionReport['sections'][number];

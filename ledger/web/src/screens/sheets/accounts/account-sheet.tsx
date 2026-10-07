@@ -1,12 +1,12 @@
-import { Button } from '@kstackz/web-toolkit/components/button';
+import { Button } from '@kstackz/web-platform/components/button';
 import {
   Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@kstackz/web-toolkit/components/dialog';
-import { Input } from '@kstackz/web-toolkit/components/input';
+} from '@kstackz/web-platform/components/dialog';
+import { Input } from '@kstackz/web-platform/components/input';
 import { useState } from 'react';
 import { keys, useCommand } from '@ledger/core/app/commands';
 import { useMoney, useWrites } from '@ledger/core/app/session';

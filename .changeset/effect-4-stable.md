@@ -4,7 +4,7 @@
 '@kstackz/effect-tracer': patch
 '@kstackz/effect-webrtc': patch
 '@kstackz/flow': patch
-'@kstackz/web-toolkit': patch
+'@kstackz/web-platform': patch
 '@kstackz/rpc-toolkit': patch
 '@kstackz/std-toolkit': patch
 'laymos': patch

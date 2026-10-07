@@ -1,5 +1,5 @@
-import { Search } from '@kstackz/web-toolkit/components/lucide';
-import { cn } from '@kstackz/web-toolkit/components/utils';
+import { Search } from '@kstackz/web-platform/components/lucide';
+import { cn } from '@kstackz/web-platform/components/utils';
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useId, useState } from 'react';
 import {
@@ -8,7 +8,7 @@ import {
   keys,
   useCommand,
 } from '@ledger/core/app/commands';
-import { BindingKeys } from '@kstackz/web-toolkit/recipes/key-bindings';
+import { BindingKeys } from '@kstackz/web-platform/recipes/key-bindings';
 
 type Status = ReturnType<typeof keys.useStatus>;
 

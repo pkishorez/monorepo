@@ -6,11 +6,11 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   useAppShell,
-} from '@kstackz/web-toolkit/recipes/frame';
-import { Plus, Settings } from '@kstackz/web-toolkit/components/lucide';
+} from '@kstackz/web-platform/recipes/frame';
+import { Plus, Settings } from '@kstackz/web-platform/components/lucide';
 import { Link, useLocation, useSearch } from '@tanstack/react-router';
 import { useEffect, useRef } from 'react';
-import { BindingKeys } from '@kstackz/web-toolkit/recipes/key-bindings';
+import { BindingKeys } from '@kstackz/web-platform/recipes/key-bindings';
 import { keys, useCommand } from '@ledger/core/app/commands';
 import { useMoney } from '@ledger/core/app/session';
 import { balances } from '@ledger/core/model';

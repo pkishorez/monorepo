@@ -9,9 +9,9 @@ import {
 } from '@devtools/ui/otel-trace-viewer';
 import type { OtelEvent } from '@devtools/ui/otel-trace-viewer/trace-model';
 import type { TraceView } from '@devtools/ui/otel-trace-viewer/trace-presentation';
-import { SearchIcon } from '@kstackz/web-toolkit/components/lucide';
-import { scrollbarStyles } from '@kstackz/web-toolkit/components/scroll-styles';
-import { cn } from '@kstackz/web-toolkit/components/utils';
+import { SearchIcon } from '@kstackz/web-platform/components/lucide';
+import { scrollbarStyles } from '@kstackz/web-platform/components/scroll-styles';
+import { cn } from '@kstackz/web-platform/components/utils';
 import type {
   LogRecord,
   SpanRecord,

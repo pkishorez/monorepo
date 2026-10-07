@@ -1,6 +1,9 @@
-import { Glyph, type GlyphProps } from '@kstackz/expo-toolkit/components/glyph';
-import { Text } from '@kstackz/expo-toolkit/components/text';
-import { cn } from '@kstackz/expo-toolkit/theme';
+import {
+  Glyph,
+  type GlyphProps,
+} from '@kstackz/expo-platform/components/glyph';
+import { Text } from '@kstackz/expo-platform/components/text';
+import { cn } from '@kstackz/expo-platform/theme';
 import type { ReactNode } from 'react';
 import { Pressable, View } from 'react-native';
 

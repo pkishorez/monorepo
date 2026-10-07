@@ -9,7 +9,7 @@ import { cookie } from '@kstackz/auth-toolkit/client/web';
 import { IDB, type IDBTable } from '@kstackz/std-toolkit/db/idb';
 import { Sync } from '@kstackz/std-toolkit/sync/idb';
 
-// Lifted from web-toolkit's former `webPlatform`, until web-toolkit gives a
+// Lifted from web-platform's former `webPlatform`, until web-platform gives a
 // Platform on the new doors again (ADR 0005).
 
 // `?backend=device` or `?backend=cloud` (or their former names, `local` and

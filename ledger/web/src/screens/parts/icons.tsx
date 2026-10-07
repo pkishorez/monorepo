@@ -23,8 +23,8 @@ import {
   SlidersHorizontal,
   Utensils,
   Wallet,
-} from '@kstackz/web-toolkit/components/lucide';
-import { cn } from '@kstackz/web-toolkit/components/utils';
+} from '@kstackz/web-platform/components/lucide';
+import { cn } from '@kstackz/web-platform/components/utils';
 import type { StopIcon } from '@ledger/core/app/places';
 import type { Account } from '@ledger/core/model';
 

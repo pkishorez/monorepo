@@ -1,4 +1,4 @@
-import { Switch } from '@kstackz/web-toolkit/components/switch';
+import { Switch } from '@kstackz/web-platform/components/switch';
 import {
   type Gesture,
   GESTURE_GUIDE,

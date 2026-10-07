@@ -2,9 +2,9 @@
 @source './**/*.ts';
 @source './**/*.tsx';
 
-@import '@kstackz/web-toolkit/theme/global.css';
-@import '@kstackz/web-toolkit/theme/typography.css';
-@import '@kstackz/web-toolkit/theme/font-inter.css';
+@import '@kstackz/web-platform/theme/global.css';
+@import '@kstackz/web-platform/theme/typography.css';
+@import '@kstackz/web-platform/theme/font-inter.css';
 
 ::view-transition-old(root),
 ::view-transition-new(root) {

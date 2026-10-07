@@ -1,4 +1,4 @@
-import { toast } from '@kstackz/expo-toolkit/components/toast';
+import { toast } from '@kstackz/expo-platform/components/toast';
 import { useWrites } from '@ledger/core/app/session';
 import type { Entry } from '@ledger/core/model';
 

@@ -1,7 +1,7 @@
-import { cn } from '@kstackz/web-toolkit/components/utils';
+import { cn } from '@kstackz/web-platform/components/utils';
 
 import type { OtelEvent } from '../trace-model';
-import { JsonTree } from '@kstackz/web-toolkit/components/viewers/json';
+import { JsonTree } from '@kstackz/web-platform/components/viewers/json';
 
 const EPOCH_MS_THRESHOLD = 946684800000;
 

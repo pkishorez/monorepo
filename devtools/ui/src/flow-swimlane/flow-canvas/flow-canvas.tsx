@@ -3,7 +3,7 @@ import {
   AnimatePresence,
   LayoutGroup,
   motion,
-} from '@kstackz/web-toolkit/components/motion';
+} from '@kstackz/web-platform/components/motion';
 import {
   flowCanvasTopPadding,
   flowRowGap,

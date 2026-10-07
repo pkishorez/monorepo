@@ -1,4 +1,4 @@
-import { cn } from '@kstackz/web-toolkit/components/utils';
+import { cn } from '@kstackz/web-platform/components/utils';
 
 import type { OtelStatus } from '../trace-model';
 import {

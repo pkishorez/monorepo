@@ -1,6 +1,6 @@
 import '../global.css';
-import { PanelUIProvider } from '@kstackz/expo-toolkit/components/panel-ui-provider';
-import { useTheme, useThemeFonts } from '@kstackz/expo-toolkit/theme';
+import { PanelUIProvider } from '@kstackz/expo-platform/components/panel-ui-provider';
+import { useTheme, useThemeFonts } from '@kstackz/expo-platform/theme';
 import { DefaultTheme, Slot, ThemeProvider } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';

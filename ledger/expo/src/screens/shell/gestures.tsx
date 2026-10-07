@@ -1,9 +1,9 @@
-import { GestureSurface } from '@kstackz/expo-toolkit/input';
-import { SidebarSwipe } from '@kstackz/expo-toolkit/recipes/sidebar';
+import { GestureSurface } from '@kstackz/expo-platform/input';
+import { SidebarSwipe } from '@kstackz/expo-platform/recipes/sidebar';
 import {
   type Choice,
   ThumbPicker,
-} from '@kstackz/expo-toolkit/recipes/thumb-picker';
+} from '@kstackz/expo-platform/recipes/thumb-picker';
 import { type ActionId, keys, quietly } from '@ledger/core/app/commands';
 import { PLACES, type Stop, stopsFrom } from '@ledger/core/app/places';
 import { useMoney } from '@ledger/core/app/session';

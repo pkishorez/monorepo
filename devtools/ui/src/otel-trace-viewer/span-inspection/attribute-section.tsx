@@ -2,9 +2,9 @@ import { useMemo, useState } from 'react';
 
 import { ChevronRightIcon } from 'lucide-react';
 
-import { cn } from '@kstackz/web-toolkit/components/utils';
+import { cn } from '@kstackz/web-platform/components/utils';
 
-import { JsonTree } from '@kstackz/web-toolkit/components/viewers/json';
+import { JsonTree } from '@kstackz/web-platform/components/viewers/json';
 
 /**
  * Attribute keys carrying these prefixes describe the emitting

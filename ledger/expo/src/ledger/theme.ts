@@ -1,5 +1,5 @@
 import Storage from 'expo-sqlite/kv-store';
-import { setTheme, useTheme } from '@kstackz/expo-toolkit/theme';
+import { setTheme, useTheme } from '@kstackz/expo-platform/theme';
 
 // The theme the User chose on this phone; dark until then, as on the web.
 const KEY = 'ledger.theme';

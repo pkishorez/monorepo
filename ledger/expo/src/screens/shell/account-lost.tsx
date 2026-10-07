@@ -1,5 +1,5 @@
 import type { Account } from '@kstackz/auth-toolkit/client';
-import { AccountLost as Dialog } from '@kstackz/expo-toolkit/recipes/account-lost';
+import { AccountLost as Dialog } from '@kstackz/expo-platform/recipes/account-lost';
 import { useGate } from '../../ledger';
 
 /** The Account Lost recipe, answered by the Gate. */

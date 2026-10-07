@@ -5,7 +5,7 @@ An app built on the kstack toolkits is laid out in the words a reader already ha
 - The Backend is one Layer of handlers that does not know where it runs. Each **service** it needs (a table, the token Resolver, later AI) has a `cloud` and a `device` version, imported from the service's own module. Which one is given decides where the Backend runs: on the Cloudflare Worker (**cloud**), or in the app itself (**device**). These replace "Remote Backend" and "Local Backend".
 - The client keeps three things, each made where its scope starts and ended with it: the **Backend Link**, per Backend (how a session calls the API, and the platform its Std Sync runs on); the **Session**, per signed-in user (an RPC runtime signed as them, and a Std Sync named by their id, with its collections, read with TanStack DB as they are); and the **Cache**, per device (Settings), which belongs to no user.
 - auth-toolkit's `createApp` decides only _when_: it opens the Backend Link when a Backend starts and the Session when a user becomes active, closes each on a switch, a sign-out or a change of Backend, and deletes a signed-out user's Std Sync. _What_ they hold is the app's plain code.
-- web-toolkit and expo-toolkit each give a ready-made platform (`webPlatform`, `expoPlatform`): where tables are kept, the platform Std Sync runs on, cloud sign-in, and the device's memory, network and other tabs. An app no longer defines a platform.
+- web-platform and expo-platform each give a ready-made platform (`webPlatform`, `expoPlatform`): where tables are kept, the platform Std Sync runs on, cloud sign-in, and the device's memory, network and other tabs. An app no longer defines a platform.
 
 ## Considered Options
 
