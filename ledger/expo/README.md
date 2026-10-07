@@ -21,6 +21,7 @@ xcrun simctl boot "iPhone 17 Pro"   # once; "already booted" is fine
 pnpm --filter @ledger/expo ios      # Metro, then Expo Go at exp://127.0.0.1:8081
 ```
 
+- `pnpm --filter @ledger/expo dev` stops whatever holds port 8081 (`METRO_PORT`) and starts a fresh Metro; extra arguments go to `expo start` (`--ios`, `--tunnel`).
 - `pnpm --filter @ledger/expo start` starts Metro alone; open it with `xcrun simctl launch booted host.exp.Exponent --initialUrl exp://127.0.0.1:8081`, or scan the QR code with Expo Go on a phone.
 - `exp://127.0.0.1:8081/--/?backend=local` starts on the Local Backend; `/--/<route>` opens a Place, such as `/--/settings?tab=gestures`.
 - `pnpm --filter @ledger/expo lint` type-checks and runs `laymos lint`.
