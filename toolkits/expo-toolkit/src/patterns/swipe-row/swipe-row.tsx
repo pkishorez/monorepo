@@ -1,5 +1,5 @@
 import Delete02Icon from '@hugeicons/core-free-icons/Delete02Icon';
-import { type ReactNode, useMemo, useRef } from 'react';
+import { type ReactNode, useLayoutEffect, useMemo, useRef } from 'react';
 import { type LayoutChangeEvent, StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -48,6 +48,12 @@ export function SwipeRow(props: {
   readonly onArm?: () => void;
   /** Runs as the row, let go past the line, starts to slide away. */
   readonly onCommit?: () => void;
+  /**
+   * Which item the row shows. A list that recycles its rows, such as
+   * FlashList, hands a row another item instead of making a new row: the
+   * row then comes home at once, so one slid away does not stay away.
+   */
+  readonly item?: string;
   /** What the action says. Default `Delete`. */
   readonly label?: string;
   /** Extra classes for the row, such as its rounding. */
@@ -59,6 +65,11 @@ export function SwipeRow(props: {
   const x = useSharedValue(0);
   const width = useSharedValue(400);
   const armed = useSharedValue(false);
+  // Before the row is drawn with its new item.
+  useLayoutEffect(() => {
+    x.value = 0;
+    armed.value = false;
+  }, [props.item, x, armed]);
   // What the UI thread tells, read through the latest props: the gesture is
   // made once, not again each time the row's callbacks are new functions.
   const latest = useRef(props);

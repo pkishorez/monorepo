@@ -193,6 +193,7 @@ catalog:
   # whole set together once those clear the hold.
   '@expo/metro-runtime': 57.0.16
   '@react-native-masked-view/masked-view': 0.3.2
+  '@shopify/flash-list': 2.0.2
   babel-preset-expo: 57.0.13
   expo: 57.0.26
   expo-blur: 57.0.3

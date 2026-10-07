@@ -49,3 +49,43 @@ it.each([0, 20, 200])(
     await Effect.runPromise(Scope.close(scope, { _tag: 'Success' } as never));
   },
 );
+
+it.each([0, 20, 200])(
+  'deleting again %i ms after an Undo deletes it, here and on the Backend',
+  async (wait) => {
+    const link = {
+      connection: localConnection(Memory.make(ledgerTable).layer),
+    };
+    const who = localUser({ email: 'ada@example.com' }) as unknown as User;
+    const open = openSessions(link)(who, localToken.make(who as never));
+    const scope = Effect.runSync(Scope.make());
+    const session = await Effect.runPromise(Scope.provide(open, scope));
+    await session.sample(true);
+    await session.entries.preload();
+    await vi.waitFor(() => expect(session.entries.size).toBeGreaterThan(0), {
+      timeout: 5000,
+    });
+    const [entry] = [...session.entries.values()];
+
+    session.entries.delete(entry!.id);
+    await sleep(20);
+    session.entries.insert(entry!);
+    await sleep(wait);
+    session.entries.delete(entry!.id);
+    await sleep(300);
+
+    const there = await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const other = yield* open;
+          yield* Effect.promise(() => other.entries.preload());
+          yield* Effect.sleep('300 millis');
+          return other.entries.has(entry!.id);
+        }),
+      ),
+    );
+    expect(session.entries.has(entry!.id)).toBe(false);
+    expect(there).toBe(false);
+    await Effect.runPromise(Scope.close(scope, { _tag: 'Success' } as never));
+  },
+);

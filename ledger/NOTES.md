@@ -2426,3 +2426,55 @@ Simulator, triggered from the inspector.
 **Not proven**: a real swipe and Undo tap, the Remote Backend, release
 numbers. While measuring, three sample Entries (Rent, Espresso, Farmers
 market) were deleted and re-added with new ids.
+
+## Entries on FlashList
+
+Entries moved from SectionList to FlashList 2.0.2, the version Expo SDK 57
+pins. It is plain JavaScript on the New Architecture, so it runs in Expo
+Go. It also ends the freeze with 1,000 Entries: that was SectionList, not
+the data.
+
+**How it was measured** (iPhone 17 Pro Simulator, Expo Go, Local Backend;
+harness never committed). A dev-only module in Entries, started by an
+`EXPO_PUBLIC_BENCH` label baked into the bundle (no inspector, which
+crashes Hermes when polled), POSTed results to a local HTTP sink. Each run:
+Months → Entries six times (navigate to first frame), eight deletes and
+Undos of the fourth Entry (call to the first frame without it, or with
+it), and a 2 s animated scroll down and back (gaps between JS frames). Then
+910 more Entries, a minute to settle, the same again, and they are removed.
+
+| median (p90), ms       | SectionList prod | FlashList prod | FlashList dev |
+| ---------------------- | ---------------- | -------------- | ------------- |
+| 90: open Entries       | 1,306 (1,439)    | 107 (164)      | 365 (383)     |
+| 90: delete to frame    | 164 (219)        | 63 (80)        | 88 (196)      |
+| 90: Undo to frame      | 156 (335)        | 41 (67)        | 82 (150)      |
+| 90: longest scroll gap | 48               | 221            | 330           |
+| 1,000: open Entries    | 36 s–109 s, 3/6  | 275 (412)      | 507 (622)     |
+| 1,000: delete to frame | 13,009 (27,085)  | 121 (165)      | 228 (269)     |
+
+SectionList dev, an earlier run with 139 Entries: open 4.3 s, delete
+690 ms. With 1,000 Entries SectionList kept the JS thread busy for minutes
+(three of six opens took 36–109 s); FlashList stayed under half a second.
+
+**What changed**
+
+- `entries.tsx`: one flat list of day headings and Entries
+  (`getItemType` by kind); the mark scrolls with `scrollToIndex`, which
+  reaches rows not drawn yet, so the old guess-and-retry is gone. The side
+  padding is on each line, not the content.
+- Pinned day: FlashList 2.0.2's `stickyHeaderIndices` pinned the wrong
+  day (it picks from rows not yet measured, and 2.3.3 is the same), so
+  `usePinnedDay` draws the heading of the first line on screen
+  (`onViewableItemsChanged`) over the list once it has scrolled.
+- `SwipeRow` takes `item`: a recycled row handed another Entry comes home
+  at once, so a row slid away to delete does not stay away on the next.
+- Core: a test that deleting again 0, 20 and 200 ms after an Undo deletes
+  it, here and on the Backend.
+
+**Trade-off**: FlashList renders while it scrolls, so its longest JS gap
+in a fast scroll was 221 ms against SectionList's 48 ms; the scroll itself
+is native and stayed smooth in the Simulator, but a blank flash on a slow
+phone is possible.
+
+**Not proven**: a real swipe-to-delete on a recycled row, a real phone,
+Android. The SectionList dev rerun was stopped to fix the freeze.

@@ -5,6 +5,7 @@ import { Button } from '@kstackz/expo-toolkit/components/button';
 import { Glyph } from '@kstackz/expo-toolkit/components/glyph';
 import { Text } from '@kstackz/expo-toolkit/components/text';
 import { SwipeRow } from '@kstackz/expo-toolkit/patterns/swipe-row';
+import { cn } from '@kstackz/expo-toolkit/theme';
 import { keys, useCommand, usePlace } from '@ledger/core/client/commands';
 import { useMoney, useWrites } from '@ledger/core/client/session';
 import {
@@ -24,15 +25,18 @@ import {
   signed,
 } from '@ledger/core/shared/ledger';
 import { useRouter } from 'expo-router';
-import { memo, useCallback, useEffect, useRef, useState } from 'react';
-import { SectionList, View } from 'react-native';
+import { FlashList, type FlashListRef } from '@shopify/flash-list';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { View } from 'react-native';
 import { useFeel } from '../../../ledger';
 import { useOpenAccount } from '../../sheets/accounts';
 import { Amount, EntryRow } from '../../parts';
 import { useRemoveEntry } from './remove';
 
-// About how tall a row is, in points, to jump toward a row not drawn yet.
-const ROW = 56;
+// One line of the list: a day's heading, or one of its Entries.
+type Line =
+  | { readonly kind: 'day'; readonly day: string; readonly cents: number }
+  | { readonly kind: 'entry'; readonly entry: Entry };
 
 /**
  * Entries, a Place: the Entries a search shows, by day, newest first. A tap
@@ -51,46 +55,38 @@ export function Entries(props: { readonly search: EntriesSearch }) {
   const shown = shownBy(money.entries, search);
   const [marked, setMarked] = useState(search.at);
   const removed = useRef<Entry>(undefined);
-  const list = useRef<SectionList<Entry>>(null);
+  const list = useRef<FlashListRef<Line>>(null);
   const openAccount = useOpenAccount();
   const currency = money.currency;
-  const days = byDay(shown);
-  const sections = days.map(([day, data]) => ({ day, data }));
+  // Every day's heading followed by its Entries.
+  const lines = useMemo(() => {
+    const lines: Array<Line> = [];
+    for (const [day, data] of byDay(shown)) {
+      lines.push({
+        kind: 'day',
+        day,
+        cents: data.reduce(
+          (sum, entry) => sum + signed(entry.cents, entry.way),
+          0,
+        ),
+      });
+      for (const entry of data) lines.push({ kind: 'entry', entry });
+    }
+    return lines;
+  }, [shown]);
 
-  // Comes back with the Entry Jump left marked, and keeps the mark in view.
+  // Comes back with the Entry Jump left marked, and keeps the mark in view,
+  // drawn or not.
   useEffect(() => setMarked(search.at), [search.at]);
   const scrollToMark = () => {
-    const section = days.findIndex(([, each]) =>
-      each.some((entry) => entry.id === marked),
+    const index = lines.findIndex(
+      (line) => line.kind === 'entry' && line.entry.id === marked,
     );
-    const item = days[section]?.[1].findIndex((entry) => entry.id === marked);
-    if (section < 0 || item === undefined) return;
-    list.current?.scrollToLocation({
-      sectionIndex: section,
-      itemIndex: item,
-      viewPosition: 0.4,
-    });
+    if (index < 0) return;
+    void list.current?.scrollToIndex({ index, viewPosition: 0.4 });
   };
   // Only a new mark scrolls; the list changing under it does not.
   useEffect(scrollToMark, [marked]);
-  // A row not laid out yet cannot be scrolled to: jump toward it by the
-  // rows' height (a guess until some are measured), then try again once the
-  // rows around it are drawn, a few times at most.
-  const tries = useRef({ mark: marked, count: 0 });
-  const missed = (info: {
-    readonly averageItemLength: number;
-    readonly index: number;
-  }) => {
-    if (tries.current.mark !== marked)
-      tries.current = { mark: marked, count: 0 };
-    if (tries.current.count >= 5) return;
-    tries.current.count += 1;
-    const row = info.averageItemLength > 0 ? info.averageItemLength : ROW;
-    list.current
-      ?.getScrollResponder()
-      ?.scrollTo({ y: row * info.index, animated: false });
-    setTimeout(scrollToMark, 100);
-  };
 
   const at = shown.findIndex((entry) => entry.id === marked);
   const mark = (index: number) =>
@@ -122,16 +118,19 @@ export function Entries(props: { readonly search: EntriesSearch }) {
     commit: () => latest.current.feel('delete'),
   }).current;
   const renderItem = useCallback(
-    ({ item: entry }: { readonly item: Entry }) => (
-      <Row
-        entry={entry}
-        category={lookup.category.get(entry.categoryId)}
-        account={lookup.account.get(entry.accountId)}
-        currency={currency}
-        marked={entry.id === marked}
-        acts={acts}
-      />
-    ),
+    ({ item: line }: { readonly item: Line }) =>
+      line.kind === 'day' ? (
+        <DayHeader day={line.day} cents={line.cents} currency={currency} />
+      ) : (
+        <Row
+          entry={line.entry}
+          category={lookup.category.get(line.entry.categoryId)}
+          account={lookup.account.get(line.entry.accountId)}
+          currency={currency}
+          marked={line.entry.id === marked}
+          acts={acts}
+        />
+      ),
     [lookup, currency, marked, acts],
   );
 
@@ -155,95 +154,146 @@ export function Entries(props: { readonly search: EntriesSearch }) {
     },
     { enabled: active && at >= 0 },
   );
-  useCommand(
-    'entries.undo',
-    () => {
-      const entry = removed.current;
-      if (entry === undefined) return;
-      removed.current = undefined;
-      restoreEntry(entry);
-      setMarked(entry.id);
-    },
-    { enabled: active },
-  );
+  const undo = () => {
+    const entry = removed.current;
+    if (entry === undefined) return;
+    removed.current = undefined;
+    restoreEntry(entry);
+    setMarked(entry.id);
+  };
+  useCommand('entries.undo', undo, { enabled: active });
 
+  // The day at the top, pinned there once the list has scrolled.
+  const pinned = usePinnedDay(lines);
   const narrowed = narrowedTo(money, search);
   return (
-    <SectionList
-      ref={list}
-      sections={sections}
-      keyExtractor={(entry) => entry.id}
-      stickySectionHeadersEnabled
-      contentContainerClassName="px-2 pb-28"
-      onScrollToIndexFailed={missed}
-      ListHeaderComponent={
-        narrowed === undefined ? null : (
-          <View className="flex-row items-center justify-between gap-2 px-2 pt-4">
-            <Text
-              weight="medium"
-              numberOfLines={1}
-              className="min-w-0 flex-1 text-sm"
-            >
-              {narrowed}
-            </Text>
-            <View className="flex-row items-center gap-1">
-              {search.account && (
+    <View className="flex-1">
+      <FlashList
+        ref={list}
+        data={lines}
+        keyExtractor={keyOf}
+        getItemType={kindOf}
+        onScroll={pinned.onScroll}
+        scrollEventThrottle={16}
+        onViewableItemsChanged={pinned.onViewableItemsChanged}
+        viewabilityConfig={VIEWABLE}
+        contentContainerStyle={{ paddingBottom: 112 }}
+        ListHeaderComponent={
+          narrowed === undefined ? null : (
+            <View className="flex-row items-center justify-between gap-2 px-4 pt-4">
+              <Text
+                weight="medium"
+                numberOfLines={1}
+                className="min-w-0 flex-1 text-sm"
+              >
+                {narrowed}
+              </Text>
+              <View className="flex-row items-center gap-1">
+                {search.account && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    labelClassName="text-muted-foreground"
+                    startContent={<Glyph icon={PencilEdit01Icon} size={14} />}
+                    onPress={() => openAccount(search.account)}
+                  >
+                    Rename
+                  </Button>
+                )}
                 <Button
                   size="sm"
                   variant="ghost"
                   labelClassName="text-muted-foreground"
-                  startContent={<Glyph icon={PencilEdit01Icon} size={14} />}
-                  onPress={() => openAccount(search.account)}
+                  endContent={<Glyph icon={Cancel01Icon} size={14} />}
+                  onPress={() => router.navigate('/entries')}
                 >
-                  Rename
+                  Everything
                 </Button>
-              )}
-              <Button
-                size="sm"
-                variant="ghost"
-                labelClassName="text-muted-foreground"
-                endContent={<Glyph icon={Cancel01Icon} size={14} />}
-                onPress={() => router.navigate('/entries')}
-              >
-                Everything
-              </Button>
+              </View>
             </View>
-          </View>
-        )
-      }
-      ListEmptyComponent={
-        money.ready ? (
-          <View className="items-center gap-3 px-6 py-20">
-            <Glyph icon={InboxIcon} size={32} />
-            <Text muted className="text-sm">
-              No entries here yet.
-            </Text>
-          </View>
-        ) : null
-      }
-      renderSectionHeader={({ section }) => (
-        <DayHeader
-          day={section.day}
-          cents={section.data.reduce(
-            (sum, entry) => sum + signed(entry.cents, entry.way),
-            0,
-          )}
-          currency={currency}
-        />
+          )
+        }
+        ListEmptyComponent={
+          money.ready ? (
+            <View className="items-center gap-3 px-8 py-20">
+              <Glyph icon={InboxIcon} size={32} />
+              <Text muted className="text-sm">
+                No entries here yet.
+              </Text>
+            </View>
+          ) : null
+        }
+        renderItem={renderItem}
+      />
+      {pinned.day && (
+        <View pointerEvents="none" className="absolute inset-x-0 top-0">
+          <DayHeader
+            day={pinned.day.day}
+            cents={pinned.day.cents}
+            currency={currency}
+            pinned
+          />
+        </View>
       )}
-      renderItem={renderItem}
-    />
+    </View>
   );
 }
+
+// A line counts as on screen with any of it showing.
+const VIEWABLE = { itemVisiblePercentThreshold: 1 };
+
+/**
+ * The day whose lines are at the top of the list, kept pinned over it once
+ * it has scrolled: FlashList's own sticky headers (2.0.2) pin a heading
+ * from rows not yet measured, so pick the wrong day.
+ */
+const usePinnedDay = (lines: ReadonlyArray<Line>) => {
+  const [first, setFirst] = useState(0);
+  const [scrolled, setScrolled] = useState(false);
+  const onScroll = useCallback(
+    (event: { nativeEvent: { contentOffset: { y: number } } }) =>
+      setScrolled(event.nativeEvent.contentOffset.y > 0),
+    [],
+  );
+  const onViewableItemsChanged = useCallback(
+    (info: { viewableItems: ReadonlyArray<{ index: number | null }> }) => {
+      const indexes = info.viewableItems
+        .map((item) => item.index)
+        .filter((index): index is number => index !== null);
+      if (indexes.length > 0) setFirst(Math.min(...indexes));
+    },
+    [],
+  );
+  let day: Extract<Line, { kind: 'day' }> | undefined;
+  for (let at = Math.min(first, lines.length - 1); at >= 0; at--) {
+    const line = lines[at];
+    if (line?.kind === 'day') {
+      day = line;
+      break;
+    }
+  }
+  return { day: scrolled ? day : undefined, onScroll, onViewableItemsChanged };
+};
+
+const keyOf = (line: Line) =>
+  line.kind === 'day' ? `day-${line.day}` : line.entry.id;
+const kindOf = (line: Line) => line.kind;
 
 // A day's heading, with what moved that day; drawn again only when it changes.
 const DayHeader = memo(function DayHeader(props: {
   readonly day: string;
   readonly cents: number;
   readonly currency: string;
+  /** Pinned at the top of the list, with no gap above it. */
+  readonly pinned?: boolean;
 }) {
   return (
-    <View className="mt-4 flex-row items-center justify-between bg-background px-3 py-1.5">
+    <View
+      className={cn(
+        'flex-row items-center justify-between bg-background px-5 py-1.5',
+        !props.pinned && 'mt-4',
+      )}
+    >
       <Text muted className="text-xs">
         {dayName(props.day)}
       </Text>
@@ -275,6 +325,8 @@ const Row = memo(function Row(props: {
   const { entry, acts } = props;
   return (
     <SwipeRow
+      item={entry.id}
+      className="mx-2"
       onArm={acts.arm}
       onCommit={acts.commit}
       onDelete={() => acts.remove(entry)}

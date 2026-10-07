@@ -17,6 +17,7 @@
     "@kstackz/expo-toolkit": "workspace:*",
     "@kstackz/std-toolkit": "workspace:*",
     "@ledger/core": "workspace:*",
+    "@shopify/flash-list": "catalog:",
     "effect": "catalog:",
     "expo": "catalog:",
     "expo-auth-session": "catalog:",
