@@ -22,7 +22,10 @@ import ShoppingBag01Icon from '@hugeicons/core-free-icons/ShoppingBag01Icon';
 import SlidersHorizontalIcon from '@hugeicons/core-free-icons/SlidersHorizontalIcon';
 import TouchInteraction01Icon from '@hugeicons/core-free-icons/TouchInteraction01Icon';
 import Wallet01Icon from '@hugeicons/core-free-icons/Wallet01Icon';
-import { Glyph, type GlyphProps } from '@kstackz/expo-toolkit/components/glyph';
+import {
+  Glyph,
+  type GlyphProps,
+} from '@kstackz/expo-platform/components/glyph';
 import type { StopIcon as Name } from '@ledger/core/app/places';
 import type { Account } from '@ledger/core/model';
 

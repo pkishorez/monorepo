@@ -71,7 +71,7 @@
   },
   "layerGraphs": {
     "ledger-expo": {
-      "description": "Read top-down: entry readies the runtime and routes to the screens; the screens stand on Ledger from src/ledger, made on the phone's Platform. Everything shared with the web app is in @ledger/core; generic native UI, gestures and feedback are in @kstackz/expo-toolkit",
+      "description": "Read top-down: entry readies the runtime and routes to the screens; the screens stand on Ledger from src/ledger, made on the phone's Platform. Everything shared with the web app is in @ledger/core; generic native UI, gestures and feedback are in @kstackz/expo-platform",
       "rules": {
         "entry": ["runtime", "screens"],
         "screens": ["ledger"],

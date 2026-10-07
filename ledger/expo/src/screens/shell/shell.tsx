@@ -1,5 +1,5 @@
-import { PortalScope } from '@kstackz/expo-toolkit/components/portal-scope';
-import { LocalSignIn } from '@kstackz/expo-toolkit/recipes/local-sign-in';
+import { PortalScope } from '@kstackz/expo-platform/components/portal-scope';
+import { LocalSignIn } from '@kstackz/expo-platform/recipes/local-sign-in';
 import { SessionProvider } from '@ledger/core/app/session';
 import type { ReactNode } from 'react';
 import { SignedIn, useGate, useOpenSession } from '../../ledger';

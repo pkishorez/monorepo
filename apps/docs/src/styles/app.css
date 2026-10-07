@@ -1,10 +1,10 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
-@import '@kstackz/web-toolkit/theme/sources.css';
-@import '@kstackz/web-toolkit/theme/font-inter.css';
-@import '@kstackz/web-toolkit/theme/theme.css';
-@import '@kstackz/web-toolkit/theme/shiki.css';
+@import '@kstackz/web-platform/theme/sources.css';
+@import '@kstackz/web-platform/theme/font-inter.css';
+@import '@kstackz/web-platform/theme/theme.css';
+@import '@kstackz/web-platform/theme/shiki.css';
 @import 'fumadocs-ui/css/neutral.css';
 @import 'fumadocs-ui/css/preset.css';
 

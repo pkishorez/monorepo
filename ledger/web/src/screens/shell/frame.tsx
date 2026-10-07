@@ -1,11 +1,11 @@
-import { AppShell, useSidebarWidth } from '@kstackz/web-toolkit/recipes/frame';
-import { Button } from '@kstackz/web-toolkit/components/button';
-import { Toaster } from '@kstackz/web-toolkit/components/sonner';
-import { Plus, WifiOff } from '@kstackz/web-toolkit/components/lucide';
-import { GestureProvider, GestureZone } from '@kstackz/web-toolkit/input';
+import { AppShell, useSidebarWidth } from '@kstackz/web-platform/recipes/frame';
+import { Button } from '@kstackz/web-platform/components/button';
+import { Toaster } from '@kstackz/web-platform/components/sonner';
+import { Plus, WifiOff } from '@kstackz/web-platform/components/lucide';
+import { GestureProvider, GestureZone } from '@kstackz/web-platform/input';
 import { useLocation } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
-import { BindingKeys } from '@kstackz/web-toolkit/recipes/key-bindings';
+import { BindingKeys } from '@kstackz/web-platform/recipes/key-bindings';
 import { keys } from '@ledger/core/app/commands';
 import { appTheme, useGate } from '../../app.ts';
 import { placeTitle } from '@ledger/core/app/places';

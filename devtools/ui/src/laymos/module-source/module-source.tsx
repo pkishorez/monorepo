@@ -7,22 +7,22 @@ import type {
 } from 'laymos';
 import { useComponentLifecycle } from 'use-effect-ts';
 
-import { MarkdownViewer } from '@kstackz/web-toolkit/components/viewers/markdown-viewer';
+import { MarkdownViewer } from '@kstackz/web-platform/components/viewers/markdown-viewer';
 import {
   SourceExplorer,
   type ChangedPaths,
   type DocumentationSlot,
   type LoadFileDiff,
-} from '@kstackz/web-toolkit/components/viewers/source-explorer';
-import { scrollbarStyles } from '@kstackz/web-toolkit/components/scroll-styles';
-import { cn } from '@kstackz/web-toolkit/components/utils';
+} from '@kstackz/web-platform/components/viewers/source-explorer';
+import { scrollbarStyles } from '@kstackz/web-platform/components/scroll-styles';
+import { cn } from '@kstackz/web-platform/components/utils';
 
 import type { Module } from '../analysis-presentation';
 
 export type {
   ChangedPaths,
   LoadFileDiff,
-} from '@kstackz/web-toolkit/components/viewers/source-explorer';
+} from '@kstackz/web-platform/components/viewers/source-explorer';
 
 export type LoadSourceFiles = (
   pathPrefixes: readonly string[],

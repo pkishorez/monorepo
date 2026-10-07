@@ -1,5 +1,5 @@
 ---
-'@kstackz/expo-toolkit': patch
+'@kstackz/expo-platform': patch
 ---
 
 Gestures and motion that match the web on a phone:

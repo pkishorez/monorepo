@@ -1,6 +1,6 @@
-import { toast } from '@kstackz/web-toolkit/components/sonner';
-import { Button } from '@kstackz/web-toolkit/components/button';
-import { Inbox, Pencil, X } from '@kstackz/web-toolkit/components/lucide';
+import { toast } from '@kstackz/web-platform/components/sonner';
+import { Button } from '@kstackz/web-platform/components/button';
+import { Inbox, Pencil, X } from '@kstackz/web-platform/components/lucide';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 import { keys, useCommand } from '@ledger/core/app/commands';
@@ -16,7 +16,7 @@ import {
   useLookup,
 } from '@ledger/core/app/places';
 import { Amount, EntryRow, scrollMarked } from '../../parts/index.ts';
-import { SwipeRow } from '@kstackz/web-toolkit/recipes/swipe-row';
+import { SwipeRow } from '@kstackz/web-platform/recipes/swipe-row';
 import { useSettings } from '../../../app.ts';
 
 /**

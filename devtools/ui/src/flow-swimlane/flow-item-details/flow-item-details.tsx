@@ -1,9 +1,9 @@
 import { ScanSearch, XIcon } from 'lucide-react';
 import type { ProjectionWarningKind } from '@kstackz/flow';
 
-import { Button } from '@kstackz/web-toolkit/components/button';
-import { cn } from '@kstackz/web-toolkit/components/utils';
-import { JsonTree } from '@kstackz/web-toolkit/components/viewers/json';
+import { Button } from '@kstackz/web-platform/components/button';
+import { cn } from '@kstackz/web-platform/components/utils';
+import { JsonTree } from '@kstackz/web-platform/components/viewers/json';
 import type { RecordedFlow } from '../flow-presentation';
 
 type RecordedFlowItem = RecordedFlow['items'][number];

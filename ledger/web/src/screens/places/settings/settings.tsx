@@ -7,29 +7,29 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from '@kstackz/web-toolkit/components/alert-dialog';
-import { Button } from '@kstackz/web-toolkit/components/button';
+} from '@kstackz/web-platform/components/alert-dialog';
+import { Button } from '@kstackz/web-platform/components/button';
 import {
   NativeSelect,
   NativeSelectOption,
-} from '@kstackz/web-toolkit/components/native-select';
-import { Switch } from '@kstackz/web-toolkit/components/switch';
+} from '@kstackz/web-platform/components/native-select';
+import { Switch } from '@kstackz/web-platform/components/switch';
 import {
   Tabs,
   TabsList,
   TabsTrigger,
-} from '@kstackz/web-toolkit/components/tabs';
+} from '@kstackz/web-platform/components/tabs';
 import {
   ExternalLink,
   Moon,
   Sun,
-} from '@kstackz/web-toolkit/components/lucide';
-import { cn } from '@kstackz/web-toolkit/components/utils';
+} from '@kstackz/web-platform/components/lucide';
+import { cn } from '@kstackz/web-platform/components/utils';
 import {
   GestureZone,
   type SwipeRelease,
   useSwipe,
-} from '@kstackz/web-toolkit/input';
+} from '@kstackz/web-platform/input';
 import {
   animate,
   motion,

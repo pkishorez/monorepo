@@ -2,15 +2,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { ArrowUpIcon, SearchIcon } from 'lucide-react';
 
-import { Button } from '@kstackz/web-toolkit/components/button';
-import { Kbd } from '@kstackz/web-toolkit/components/kbd';
+import { Button } from '@kstackz/web-platform/components/button';
+import { Kbd } from '@kstackz/web-platform/components/kbd';
 
 import {
   BAR_COL_INSET,
   BAR_MIN_WIDTH_PX,
   GanttHeader,
 } from '../waterfall-view';
-import { useElementWidth } from '@kstackz/web-toolkit/components/hooks/use-element-width';
+import { useElementWidth } from '@kstackz/web-platform/components/hooks/use-element-width';
 import type { TraceGroup } from '../trace-model';
 import {
   type TraceColumn,

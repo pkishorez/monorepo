@@ -1,10 +1,10 @@
 # @ledger/expo
 
-Ledger on iOS and Android: an Expo Router app on the Expo Toolkit that talks to @ledger/web's /rpc and never hosts a server.
+Ledger on iOS and Android: an Expo Router app on the Expo Platform that talks to @ledger/web's /rpc and never hosts a server.
 
 ## Big picture
 
-The native shell of Ledger (glossary: [`../CONTEXT.md`](../CONTEXT.md)). Everything below the screens comes from `@ledger/core`, made once in `src/ledger/app.ts` on its own Platform, `src/ledger/platform.ts` (expo-sqlite, secure storage, expo-network, AppState) with this build's cloud addresses; the look, components, Sidebar and haptics come from `@kstackz/expo-toolkit`. It targets Expo SDK 57 and runs in Expo Go until a custom native module or the `ledger://` scheme needs a development build. Build notes: [`../NOTES.md`](../NOTES.md).
+The native shell of Ledger (glossary: [`../CONTEXT.md`](../CONTEXT.md)). Everything below the screens comes from `@ledger/core`, made once in `src/ledger/app.ts` on its own Platform, `src/ledger/platform.ts` (expo-sqlite, secure storage, expo-network, AppState) with this build's cloud addresses; the look, components, Sidebar and haptics come from `@kstackz/expo-platform`. It targets Expo SDK 57 and runs in Expo Go until a custom native module or the `ledger://` scheme needs a development build. Build notes: [`../NOTES.md`](../NOTES.md).
 
 The app is thin, laid out in [Laymos](laymos.config.json) layers: `entry` (`index.ts` readies Hermes, then one thin route per Place in `app/`), `screens` (`src/screens`: the shell, each Place, shared parts), `ledger` (`src/ledger`: Ledger from core, the remembered theme, the haptics of gestures) and `runtime`. Place screens live in `src/screens/places/<place>`; gestures mount in `src/screens/shell/gestures.tsx`.
 

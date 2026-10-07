@@ -1,7 +1,7 @@
 # TODO
 
-- [ ] Make the web-toolkit PWA Worker RPC test less timing-sensitive.
-      `toolkits/web-toolkit/src/pwa/rpc/client/tests/client.test.ts`, "treats a page
+- [ ] Make the web-platform PWA Worker RPC test less timing-sensitive.
+      `platforms/web-platform/src/pwa/rpc/client/tests/client.test.ts`, "treats a page
       that clients.get no longer finds as disconnected", waits a fixed
       `Effect.sleep('100 millis')` before asserting `ticksInterrupted` is 1. Under
       full-suite load (`pnpm test`) the tick sometimes has not been interrupted

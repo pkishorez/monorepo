@@ -1,6 +1,6 @@
 import { createLedger } from '@ledger/core/app';
 import { webPlatform } from './platform.ts';
-import { createTheme } from '@kstackz/web-toolkit/theme';
+import { createTheme } from '@kstackz/web-platform/theme';
 import { AUTH_URL } from './stage.ts';
 
 // The theme cookie is shared by every app under the same domain.

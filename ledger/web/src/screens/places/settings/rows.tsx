@@ -1,4 +1,4 @@
-import { Button } from '@kstackz/web-toolkit/components/button';
+import { Button } from '@kstackz/web-platform/components/button';
 import type { ReactNode } from 'react';
 
 /** A part of Settings under its heading. */

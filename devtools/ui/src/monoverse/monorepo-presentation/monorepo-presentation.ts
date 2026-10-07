@@ -1,6 +1,6 @@
 import type { ChangeStatus } from 'laymos';
 
-import { rollUpChanges } from '@kstackz/web-toolkit/components/viewers/git-changes';
+import { rollUpChanges } from '@kstackz/web-platform/components/viewers/git-changes';
 import type {
   DependencyKind,
   MonorepoAnalysis,

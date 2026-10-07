@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Effect } from 'effect';
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import { scrollbarStyles } from '@kstackz/web-toolkit/components/scroll-styles';
+import { scrollbarStyles } from '@kstackz/web-platform/components/scroll-styles';
 import {
   Monoverse as MonorepoExplorer,
   type Package,

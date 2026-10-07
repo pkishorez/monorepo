@@ -22,7 +22,7 @@ import { SQLite, type SQLiteDriver } from '@kstackz/std-toolkit/db/sqlite';
 import { makeExpoSQLite } from '@kstackz/std-toolkit/db/sqlite/expo';
 import { Sync } from '@kstackz/std-toolkit/sync/sqlite';
 
-// Lifted from expo-toolkit's former `expoPlatform`, until expo-toolkit gives
+// Lifted from expo-platform's former `expoPlatform`, until expo-platform gives
 // a Platform on the new doors again (ADR 0005).
 
 // One SQLite file per database, as the web keeps one IndexedDB database

@@ -1,4 +1,4 @@
-import { cn } from '@kstackz/expo-toolkit/theme';
+import { cn } from '@kstackz/expo-platform/theme';
 import type { ReactNode } from 'react';
 import { ScrollView } from 'react-native';
 

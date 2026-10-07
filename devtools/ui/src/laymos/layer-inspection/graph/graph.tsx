@@ -12,7 +12,7 @@ import {
 } from '@xyflow/react';
 import { useMemo } from 'react';
 
-import { cn } from '@kstackz/web-toolkit/components/utils';
+import { cn } from '@kstackz/web-platform/components/utils';
 
 import type {
   Layer,

@@ -14,17 +14,17 @@ import {
   type ComponentProps,
 } from 'react';
 
-import { Button } from '@kstackz/web-toolkit/components/button';
+import { Button } from '@kstackz/web-platform/components/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@kstackz/web-toolkit/components/dropdown-menu';
-import { scrollbarStyles } from '@kstackz/web-toolkit/components/scroll-styles';
-import { cn } from '@kstackz/web-toolkit/components/utils';
+} from '@kstackz/web-platform/components/dropdown-menu';
+import { scrollbarStyles } from '@kstackz/web-platform/components/scroll-styles';
+import { cn } from '@kstackz/web-platform/components/utils';
 
-import { JsonTree as JsonTreeView } from '@kstackz/web-toolkit/components/viewers/json';
+import { JsonTree as JsonTreeView } from '@kstackz/web-platform/components/viewers/json';
 import {
   attachCapturedLogs as attachLogsFromCapture,
   attachLogs as attachTraceLogs,

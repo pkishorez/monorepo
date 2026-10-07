@@ -1,6 +1,6 @@
 import defaultMdxComponents from 'fumadocs-ui/mdx';
 import type { MDXComponents } from 'mdx/types';
-import { Button } from '@kstackz/web-toolkit/components/button';
+import { Button } from '@kstackz/web-platform/components/button';
 import { StatusBadge } from './status-badge';
 import { ESchemaPlayground } from './eschema-playground';
 

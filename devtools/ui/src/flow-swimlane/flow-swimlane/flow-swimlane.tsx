@@ -9,7 +9,7 @@ import {
   type KeyboardEvent,
 } from 'react';
 
-import { scrollbarStyles } from '@kstackz/web-toolkit/components/scroll-styles';
+import { scrollbarStyles } from '@kstackz/web-platform/components/scroll-styles';
 import { FlowCanvas } from '../flow-canvas';
 import { FlowHeader } from '../flow-header';
 import { FlowItemDetails as FlowItemDetailsView } from '../flow-item-details';

@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { useIsFetching } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import { scrollbarStyles } from '@kstackz/web-toolkit/components/scroll-styles';
+import { scrollbarStyles } from '@kstackz/web-platform/components/scroll-styles';
 import { LaymosProjectWorkspace } from '../project-workspace/index.js';
 import {
   MissingProjectState,

@@ -1,5 +1,5 @@
-import { Text } from '@kstackz/expo-toolkit/components/text';
-import { cn } from '@kstackz/expo-toolkit/theme';
+import { Text } from '@kstackz/expo-platform/components/text';
+import { cn } from '@kstackz/expo-platform/theme';
 import type { Account, Category, Entry } from '@ledger/core/model';
 import { Pressable, View } from 'react-native';
 import { Amount } from './amount';

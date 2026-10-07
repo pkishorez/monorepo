@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { Button } from '@kstackz/web-toolkit/components/button';
+import { Button } from '@kstackz/web-platform/components/button';
 import {
   ChevronsUpDownIcon,
   FolderIcon,
   RotateCwIcon,
-} from '@kstackz/web-toolkit/components/lucide';
-import { cn } from '@kstackz/web-toolkit/components/utils';
+} from '@kstackz/web-platform/components/lucide';
+import { cn } from '@kstackz/web-platform/components/utils';
 import type { RegistryTool } from '../../rpc/index.js';
 import { ProjectPickerDialog } from './project-picker.js';
 import {

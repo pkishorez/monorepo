@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button } from '@kstackz/web-toolkit/components/button';
+import { Button } from '@kstackz/web-platform/components/button';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -10,9 +10,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from '@kstackz/web-toolkit/components/alert-dialog';
-import { Trash2Icon } from '@kstackz/web-toolkit/components/lucide';
-import { toast } from '@kstackz/web-toolkit/components/sonner';
+} from '@kstackz/web-platform/components/alert-dialog';
+import { Trash2Icon } from '@kstackz/web-platform/components/lucide';
+import { toast } from '@kstackz/web-platform/components/sonner';
 
 /** Flow toolbar actions. */
 export function Header({ onClear }: { onClear: () => Promise<number> }) {

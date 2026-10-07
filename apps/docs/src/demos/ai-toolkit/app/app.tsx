@@ -16,8 +16,8 @@ import {
   TerminalSquare,
 } from 'lucide-react';
 import { Link } from '@tanstack/react-router';
-import { Button } from '@kstackz/web-toolkit/components/button';
-import { Textarea } from '@kstackz/web-toolkit/components/textarea';
+import { Button } from '@kstackz/web-platform/components/button';
+import { Textarea } from '@kstackz/web-platform/components/textarea';
 import { CLAUDE_MODELS, CODEX_MODELS } from '@kstackz/ai-toolkit/rpc';
 import type { Thread } from '@kstackz/ai-toolkit/table';
 import { aiPlayground, type AiPlaygroundClient } from '../client/index.js';

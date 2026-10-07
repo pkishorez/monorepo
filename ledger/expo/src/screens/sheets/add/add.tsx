@@ -1,8 +1,8 @@
-import { Button } from '@kstackz/expo-toolkit/components/button';
-import { Choice } from '@kstackz/expo-toolkit/components/choice';
-import { Input } from '@kstackz/expo-toolkit/components/input';
-import { Text } from '@kstackz/expo-toolkit/components/text';
-import { Sheet } from '@kstackz/expo-toolkit/recipes/sheet';
+import { Button } from '@kstackz/expo-platform/components/button';
+import { Choice } from '@kstackz/expo-platform/components/choice';
+import { Input } from '@kstackz/expo-platform/components/input';
+import { Text } from '@kstackz/expo-platform/components/text';
+import { Sheet } from '@kstackz/expo-platform/recipes/sheet';
 import { keys, useCommand } from '@ledger/core/app/commands';
 import { useMoney, useWrites } from '@ledger/core/app/session';
 import { firstAccount, quickDays } from '@ledger/core/app/places';

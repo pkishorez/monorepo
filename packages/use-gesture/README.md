@@ -1,6 +1,6 @@
 # @kstackz/use-gesture
 
-Touch gestures: a platform-free core that reads every finger of a touch from any touch source. Its web side is in @kstackz/web-toolkit's input, its native side in @kstackz/expo-toolkit's.
+Touch gestures: a platform-free core that reads every finger of a touch from any touch source. Its web side is in @kstackz/web-platform's input, its native side in @kstackz/expo-platform's.
 
 ## Big picture
 
@@ -17,14 +17,14 @@ nest; the core decides which zones hear a Gesture and which one takes it,
 reads its Direction, and holds the rules a Swipe is judged by and the Tree
 Walk a picker moves through.
 
-The platforms build on it. `@kstackz/web-toolkit/input` is the browser's
+The platforms build on it. `@kstackz/web-platform/input` is the browser's
 touch source and React bindings: a `GestureProvider`, `GestureZone`s that are
 DOM elements, `useGesture` with every finger as Motion values, the `useSwipe`
 Recognizer, and the `useSidebar` and `usePullToRefresh` Patterns.
-`@kstackz/expo-toolkit/input` feeds the core Gesture Handler's touches on a
+`@kstackz/expo-platform/input` feeds the core Gesture Handler's touches on a
 phone. The web side started as ui-toolkit's gestures block and lived here as
-`./web` until web-toolkit took it
-([ADR 0003](../../docs/adr/0003-web-toolkit-and-the-gate.md)).
+`./web` until web-platform took it
+([ADR 0003](../../docs/adr/0003-web-platform-and-the-gate.md)).
 
 The language is in [CONTEXT.md](./CONTEXT.md), and the decisions that shaped
 it are in [docs/adr/](./docs/adr/). They are numbered from 0002 because 0001
@@ -112,7 +112,7 @@ provider.sink.up({ id: 1, x: 40, y: 2, t: 90, target: screen });
 - The source calls `down`, `move` and `up`, and `cancelAll(t)` when the
   platform takes the touch. Times are on the source's own clock.
 - With no `undecided` moves, the Direction is read once a finger has gone
-  `SLOP` px; web-toolkit's browser source reads it from touch events instead.
+  `SLOP` px; web-platform's browser source reads it from touch events instead.
 - Each change is a new, immutable Pointer: `move` hands the finger that
   moved. A platform that animates, such as the web with Motion, mirrors
   them into its own values.

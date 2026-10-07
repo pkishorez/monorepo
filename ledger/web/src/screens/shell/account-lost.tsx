@@ -1,5 +1,5 @@
 import type { Account } from '@kstackz/auth-toolkit/client';
-import { AccountLost as Dialog } from '@kstackz/web-toolkit/recipes/account-lost';
+import { AccountLost as Dialog } from '@kstackz/web-platform/recipes/account-lost';
 import { useGate } from '../../app.ts';
 
 /** The Account Lost recipe, answered by the Gate. */

@@ -6,10 +6,10 @@ import {
   setCommandSounds,
   type Surface,
 } from '@ledger/core/app/commands';
-import { LocalSignIn } from '@kstackz/web-toolkit/recipes/local-sign-in';
+import { LocalSignIn } from '@kstackz/web-platform/recipes/local-sign-in';
 import { SignedIn, useGate, useOpenSession, useSettings } from '../../app.ts';
 import { SessionProvider } from '@ledger/core/app/session';
-import { play } from '@kstackz/web-toolkit/feedback';
+import { play } from '@kstackz/web-platform/feedback';
 import { Frame } from './frame.tsx';
 import { AccountLost } from './account-lost.tsx';
 import { Opening, SignedOut, Unopenable } from './signed-out.tsx';

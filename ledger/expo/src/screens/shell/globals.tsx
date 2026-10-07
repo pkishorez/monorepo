@@ -1,4 +1,4 @@
-import { useSidebar } from '@kstackz/expo-toolkit/recipes/sidebar';
+import { useSidebar } from '@kstackz/expo-platform/recipes/sidebar';
 import { keys, useCommand } from '@ledger/core/app/commands';
 import { usePathname, useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';

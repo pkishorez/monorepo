@@ -2,8 +2,8 @@ import type {
   OtelSpan,
   TraceGroup,
 } from '@devtools/ui/otel-trace-viewer/trace-model';
-import { AlertTriangleIcon } from '@kstackz/web-toolkit/components/lucide';
-import { cn } from '@kstackz/web-toolkit/components/utils';
+import { AlertTriangleIcon } from '@kstackz/web-platform/components/lucide';
+import { cn } from '@kstackz/web-platform/components/utils';
 import { formatRelativeTime, groupTracesBy } from './filtering';
 
 export function TraceFeed({

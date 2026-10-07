@@ -1,4 +1,4 @@
-import { Text } from '@kstackz/expo-toolkit/components/text';
+import { Text } from '@kstackz/expo-platform/components/text';
 import { hideAsync, preventAutoHideAsync } from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';

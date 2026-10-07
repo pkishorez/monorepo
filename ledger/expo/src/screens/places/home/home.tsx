@@ -1,7 +1,7 @@
-import { Button } from '@kstackz/expo-toolkit/components/button';
-import { Meter } from '@kstackz/expo-toolkit/components/meter';
-import { Text } from '@kstackz/expo-toolkit/components/text';
-import { cn } from '@kstackz/expo-toolkit/theme';
+import { Button } from '@kstackz/expo-platform/components/button';
+import { Meter } from '@kstackz/expo-platform/components/meter';
+import { Text } from '@kstackz/expo-platform/components/text';
+import { cn } from '@kstackz/expo-platform/theme';
 import { keys, useCommand, usePlace } from '@ledger/core/app/commands';
 import {
   type Money,

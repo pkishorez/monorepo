@@ -1,4 +1,4 @@
-import { cn } from '@kstackz/web-toolkit/components/utils';
+import { cn } from '@kstackz/web-platform/components/utils';
 import { motion, useInView, useReducedMotion } from 'motion/react';
 import { useRef, useState } from 'react';
 import type { Motion, Way } from '@ledger/core/app/commands';

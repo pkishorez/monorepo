@@ -20,7 +20,7 @@
     "@kstackz/flow": "workspace:*",
     "@kstackz/rpc-toolkit": "workspace:*",
     "@kstackz/std-toolkit": "workspace:*",
-    "@kstackz/web-toolkit": "workspace:*",
+    "@kstackz/web-platform": "workspace:*",
     "@tanstack/react-db": "catalog:",
     "@tanstack/react-router": "catalog:",
     "@tanstack/react-router-devtools": "catalog:",

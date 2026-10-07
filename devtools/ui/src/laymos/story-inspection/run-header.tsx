@@ -1,8 +1,8 @@
-import { Loader2 } from '@kstackz/web-toolkit/components/lucide';
+import { Loader2 } from '@kstackz/web-platform/components/lucide';
 import type { StoryTree } from 'laymos';
 
-import { Button } from '@kstackz/web-toolkit/components/button';
-import { cn } from '@kstackz/web-toolkit/components/utils';
+import { Button } from '@kstackz/web-platform/components/button';
+import { cn } from '@kstackz/web-platform/components/utils';
 
 import { runSummary, type StoryReports } from './model';
 

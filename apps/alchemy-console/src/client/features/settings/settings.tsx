@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { Button } from '@kstackz/web-toolkit/components/button';
+import { Button } from '@kstackz/web-platform/components/button';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-} from '@kstackz/web-toolkit/components/dropdown-menu';
+} from '@kstackz/web-platform/components/dropdown-menu';
 import {
   Cloud,
   EllipsisVertical,
@@ -14,7 +14,7 @@ import {
   Pencil,
   Plus,
   Trash2,
-} from '@kstackz/web-toolkit/components/lucide';
+} from '@kstackz/web-platform/components/lucide';
 import { QueryError, ListSkeleton } from '../query-feedback/index.ts';
 import {
   CredentialDialog,

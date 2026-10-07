@@ -5,7 +5,7 @@
   "layers": {
     "routes": {
       "paths": ["src/routes", "src/router.tsx"],
-      "description": "Where the browser starts: the router, the root document from web-toolkit, made a PWA, the offline page, and one thin route for each Place. The router reaches the routes through the generated route tree, so nothing imports them",
+      "description": "Where the browser starts: the router, the root document from web-platform, made a PWA, the offline page, and one thin route for each Place. The router reaches the routes through the generated route tree, so nothing imports them",
       "modules": {
         "src/router.tsx": {},
         "src/routes": {}

@@ -4,7 +4,7 @@ import { tableCloud } from '@ledger/core/backend/services/table/cloud';
 import { Layer } from 'effect';
 import { authz } from '@kstackz/auth-toolkit/server/cloud';
 import { Rpc } from '@kstackz/rpc-toolkit/rpc';
-import { webServer } from '@kstackz/web-toolkit/server';
+import { webServer } from '@kstackz/web-platform/server';
 import type { WorkerEnv } from './infra/index.ts';
 import { AUTH_URL, LEDGER_RESOURCE } from './stage.ts';
 

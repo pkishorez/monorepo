@@ -1,5 +1,5 @@
-@import '@kstackz/web-toolkit/theme/global.css';
-@import '@kstackz/web-toolkit/theme/font-inter.css';
+@import '@kstackz/web-platform/theme/global.css';
+@import '@kstackz/web-platform/theme/font-inter.css';
 
 @source './';
 
@@ -9,7 +9,7 @@
 
 /*
  * What the user switched off in Settings, over what the device can be
- * driven by (web-toolkit's `keyboard:` and `touch:`): `keys:` and
+ * driven by (web-platform's `keyboard:` and `touch:`): `keys:` and
  * `gestures:` for the hints of each that is on.
  */
 @custom-variant keys (&:where([data-keyboard]:not([data-keys-off]) *));

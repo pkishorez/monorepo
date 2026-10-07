@@ -16,13 +16,13 @@ import {
 import { useMemo } from 'react';
 import type { DependencyKind, Package } from '../analysis';
 
-import { Layers, TriangleAlert } from '@kstackz/web-toolkit/components/lucide';
-import { cn } from '@kstackz/web-toolkit/components/utils';
+import { Layers, TriangleAlert } from '@kstackz/web-platform/components/lucide';
+import { cn } from '@kstackz/web-platform/components/utils';
 
 import {
   ChangeBadge,
   changeSurfaceClass,
-} from '@kstackz/web-toolkit/components/viewers/git-changes';
+} from '@kstackz/web-platform/components/viewers/git-changes';
 
 import {
   edgeEmphasis,

@@ -1,5 +1,5 @@
-import { Button } from '@kstackz/web-toolkit/components/button';
-import { Switch } from '@kstackz/web-toolkit/components/switch';
+import { Button } from '@kstackz/web-platform/components/button';
+import { Switch } from '@kstackz/web-platform/components/switch';
 import { type Shortcut, useKeys } from '@kstackz/use-keys';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -12,7 +12,7 @@ import {
 import {
   BindingKeys,
   recorded,
-} from '@kstackz/web-toolkit/recipes/key-bindings';
+} from '@kstackz/web-platform/recipes/key-bindings';
 import { useSettings } from '../../../app.ts';
 import { Row } from './rows.tsx';
 

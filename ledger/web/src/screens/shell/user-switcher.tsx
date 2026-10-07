@@ -2,7 +2,7 @@ import {
   Avatar,
   AvatarFallback,
   AvatarImage,
-} from '@kstackz/web-toolkit/components/avatar';
+} from '@kstackz/web-platform/components/avatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,14 +11,14 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@kstackz/web-toolkit/components/dropdown-menu';
-import { toast } from '@kstackz/web-toolkit/components/sonner';
+} from '@kstackz/web-platform/components/dropdown-menu';
+import { toast } from '@kstackz/web-platform/components/sonner';
 import {
   Check,
   ChevronsUpDown,
   LogOut,
   UserPlus,
-} from '@kstackz/web-toolkit/components/lucide';
+} from '@kstackz/web-platform/components/lucide';
 import { useAccounts, useGate } from '../../app.ts';
 import { type User, useUser } from '@ledger/core/app/session';
 import { LedgerMark } from '../parts/index.ts';

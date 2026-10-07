@@ -15,14 +15,14 @@
       "@kstackz/devtools",
       "@kstackz/effect-tracer",
       "@kstackz/effect-webrtc",
-      "@kstackz/expo-toolkit",
+      "@kstackz/expo-platform",
       "@kstackz/flow",
       "@kstackz/lotel",
       "@kstackz/rpc-toolkit",
       "@kstackz/std-toolkit",
       "@kstackz/use-gesture",
       "@kstackz/use-keys",
-      "@kstackz/web-toolkit",
+      "@kstackz/web-platform",
       "laymos"
     ]
   ],

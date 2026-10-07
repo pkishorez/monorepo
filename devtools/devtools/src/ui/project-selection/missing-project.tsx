@@ -4,7 +4,7 @@ import {
   EmptyDescription,
   EmptyHeader,
   EmptyTitle,
-} from '@kstackz/web-toolkit/components/empty';
+} from '@kstackz/web-platform/components/empty';
 import type { WorktreeResolution } from '../../rpc/index.js';
 import { currentWorktree } from './registry.js';
 import { WorktreeSwitcher, worktreeLabel } from './worktree-switcher.js';

@@ -1,4 +1,4 @@
-import { createTheme } from '@kstackz/web-toolkit/theme';
+import { createTheme } from '@kstackz/web-platform/theme';
 import type { ReactNode } from 'react';
 import './cosmos.css';
 

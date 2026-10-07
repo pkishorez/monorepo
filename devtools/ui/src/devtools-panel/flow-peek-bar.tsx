@@ -1,7 +1,7 @@
 import { ChevronUp, X } from 'lucide-react';
 import type { Projection } from '@kstackz/flow';
-import { Button } from '@kstackz/web-toolkit/components/button';
-import { cn } from '@kstackz/web-toolkit/components/utils';
+import { Button } from '@kstackz/web-platform/components/button';
+import { cn } from '@kstackz/web-platform/components/utils';
 
 type RecordedFlowItem = Projection['items'][number];
 

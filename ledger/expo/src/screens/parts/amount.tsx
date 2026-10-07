@@ -1,4 +1,4 @@
-import { Text } from '@kstackz/expo-toolkit/components/text';
+import { Text } from '@kstackz/expo-platform/components/text';
 import { money, type Way } from '@ledger/core/model';
 
 /**

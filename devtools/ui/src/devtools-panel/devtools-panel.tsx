@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { X } from 'lucide-react';
 import type { TraceRecorder } from '@kstackz/effect-tracer/recorder';
-import { Button } from '@kstackz/web-toolkit/components/button';
-import { cn } from '@kstackz/web-toolkit/components/utils';
+import { Button } from '@kstackz/web-platform/components/button';
+import { cn } from '@kstackz/web-platform/components/utils';
 import {
   attachCapturedLogs,
   TraceViewer,

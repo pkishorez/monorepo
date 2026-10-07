@@ -1,4 +1,4 @@
-import { cn } from '@kstackz/web-toolkit/components/utils';
+import { cn } from '@kstackz/web-platform/components/utils';
 import type { Account, Category, Entry } from '@ledger/core/model';
 import { Amount } from './amount.tsx';
 import { CategoryIcon } from './icons.tsx';

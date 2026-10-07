@@ -16,7 +16,7 @@ export default defineConfig({
     },
   },
   ssr: {
-    noExternal: ['@kstackz/web-toolkit'],
+    noExternal: ['@kstackz/web-platform'],
     resolve: {
       mainFields: ['browser', 'module', 'jsnext:main', 'jsnext'],
     },

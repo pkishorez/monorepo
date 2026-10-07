@@ -18,7 +18,7 @@
     "noUnusedParameters": true,
     "allowImportingTsExtensions": true,
     "noEmit": true,
-    // web-toolkit resolves its own copy of vite (a TypeScript 6 peer set);
+    // web-platform resolves its own copy of vite (a TypeScript 6 peer set);
     // one copy keeps Plugin types comparable.
     "paths": {
       "vite": ["./node_modules/vite"]

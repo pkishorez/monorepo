@@ -8,101 +8,139 @@ state, merged. Definitions only; no implementation detail.
 _Being redefined from scratch._
 
 **Story**:
-A named, executable narrative of one behavior of the Project's code — a leaf
-of the Story tree. A Story carries a one-line description shown inline in
-listings, an optional Story page, a Story spine flag, and an executable program
-whose run captures Story artifacts and Story assertions.
+One claim about the Project's code, living in one file of its own: given a
+Preparation, when an Action is performed, a Verification holds. A Story has
+a title, a Venue, optionally the Critical mark, and the three phases as
+executable programs. A run of a Story yields one Story report: a verdict
+plus Evidence a reader can judge for themselves. There is one kind of Story;
+what varies is how real its Preparation is, its Venue, and what its
+Verification reads.
+_Avoid_: test, spec, scenario, question
 
-**Story question**:
-One question-and-answer unit of a Story: a reader-facing question, its prose
-answer, and a proof. A Story holds an ordered list of these.
+**Self-contained**:
+The rule every Story file obeys: a reader opens the file and sees everything
+that makes the claim true. A Story imports only what the Project ships and
+the Story utilities; nothing it needs is hidden in a shared helper.
+_Avoid_: support file, fixture file, helpers
 
-**Proof**:
-The executable program attached to one Story question. Running it records
-Story sections and Story assertions, and those assertions decide the
-question's verdict.
+**Preparation**:
+The first phase of a Story: the state the Story starts from, built only from
+Layers the Project ships. A Preparation may assert, and its outcome is
+reported on its own, so a Verification is never read against a state that
+was not reached.
+_Avoid_: setup, fixture, mock, given
 
-**Story Group**:
-A documentation node of the Story tree. It carries a title and one-line
-description shown inline in listings plus a mandatory Story page, and holds
-either subgroups or Stories — never both. Groups have no verdict of their
-own; any rollup is derived from descendant Story reports.
+**Action**:
+The second phase of a Story: what is done to the prepared state. In the
+Browser Venue it is the named steps a user takes on the page.
+_Avoid_: when, interaction
 
-**Story page**:
-The markdown file narrating a Story or a Story Group, resolved by position
-rather than declared: a Story's page is the `.md` sibling of its Story file, and
-a Story Group's page is named after the group's own title, in the folder its
-descendant Stories share. Two Story Groups may span one folder — a Learn and a
-Reference trunk over the same Stories — so the title, not a fixed file name, is
-what keeps their pages apart. A Story Group without a page is a lint violation;
-a Story without one is carried by its description and its Story questions.
+**Verification**:
+The third phase of a Story: the Story assertions that decide the verdict. A
+Verification reads values the phases returned or measurements taken from the
+Evidence; a performance claim is a Verification with a budget, not a
+different kind of Story.
+_Avoid_: then, expectation, check
 
-**Story spine**:
-The line a reader follows to learn the Project without reading everything: the
-Stories flagged as core flow. Every other Story is depth, kept in the Story tree
-and collapsed under its Story Group until the reader asks for it. The flag says
-what a Story is for, never whether it runs — a Stories run covers spine and
-depth alike.
+**Venue**:
+Where a Story runs, which decides what Evidence its run can capture. Process:
+in the runner's own process, yielding values and a trace. Browser: the real
+app in a real browser, adding video and screenshots.
+_Avoid_: tier, unit, integration, e2e, environment
+
+**Device**:
+In the Browser Venue, one browser with its own storage, shaped as a desktop
+or a phone. Two Devices share nothing, so they stand for two users or two
+machines. A Story opens as many as its claim needs.
+_Avoid_: context, profile, browser instance
+
+**Tab**:
+One open page on a Device. Tabs on the same Device share storage, so two Tabs
+stand for a user with the app open twice. Every Tab has its own Recording on
+the Story's one clock, so all of a Story's Recordings line up in time.
+_Avoid_: page, window
+
+**Recording**:
+What a Tab's screen did during a Story run, kept raw: every frame the screen
+produced, each with the moment it appeared, untrimmed. The Stories canvas
+plays Recordings back at their own timestamps, side by side when a Story has
+several Tabs, with Steps, fingers, and sounds drawn over them at playback.
+_Avoid_: video, screencast, capture
+
+**Step**:
+One named move of an Action in the Browser Venue, performed on one Tab: open,
+click, type, scroll, or a Gesture. A Step is recorded with its name, its Tab,
+and the moment it happened, so the Stories canvas can mark it on the video.
+Steps are performed the way a person would see them: the pointer travels,
+scrolling glides, and nothing jumps.
+_Avoid_: command, interaction, event
+
+**Gesture**:
+A Step made with one or more fingers on a phone Device: tap, press, swipe,
+drag, pinch, rotate. Each finger moves along its own path over time, the way
+a hand does, and each is drawn in the video while it is down.
+_Avoid_: touch event, multi-touch, pointer sequence
+
+**Evidence**:
+What a Story run captured that a reader can inspect: the value each phase
+returned, a trace of what the code did, and in the Browser Venue one
+Recording per Tab. The verdict says it passed; the Evidence shows what
+happened.
+_Avoid_: artifact, recording, proof, section
+
+**Critical**:
+The one mark a Story can carry: a failure here is dangerous, so the Story is
+shown apart and its failure is reported before everything else. It changes
+how a Story is shown and reported, never what it is.
+_Avoid_: priority, tag, marker, severity
+
+**Cluster**:
+The folder a Story file sits in beneath the Stories path. Clusters nest, and
+the path of folders is the only organisation Stories have; there is no
+group object, page, or ordering beyond the folder tree.
+_Avoid_: group, chapter, act, suite
 
 **Story tree**:
-A Project's whole documentation-plus-Stories hierarchy, rooted at the Story
-Group the Stories path's entry point exposes. Loading it is metadata-only: no
-Story executes. Sibling titles must be unique.
+The folder tree beneath the Stories path, Clusters holding Stories. Loading
+it is metadata-only: no Story executes.
 
 **Story id**:
-A Story's identity within the Story tree: the titles on the path from the
-root to the Story. Story reports attach to the tree by Story id.
-
-**Story artifact**:
-A trace or a flow (a flow being a collection of traces) captured during a
-Story run through the Story utilities. Every artifact anchors its own Story
-section.
-
-**Story section**:
-One described step of a Story run: a trace, a flow, or a generic execution,
-together with the Story assertions that verify it. Sections are ordered and
-give a Story report its structure; every Story assertion belongs to exactly
-one section.
+A Story's path from the Stories path to its file. It is what a Story report
+attaches to and what a run is scoped by.
 
 **Story assertion**:
 A mandatory description paired with a boolean condition, declared inside a
-Story's program and recorded when the run reaches it, attaching to the most
-recent Story section. Assertion outcomes decide the Story's verdict: passed
-when all held, failed when any was false, errored when the program died
-before finishing.
+Story's phases and recorded when the run reaches it. Outcomes decide the
+verdict: unprepared when a Preparation assertion was false or the Preparation
+died, failed when a Verification assertion was false, errored when a phase
+died, passed otherwise.
 
 **Story context**:
 The service the Story runner injects into every Story run. It receives every
-captured Story artifact and Story assertion outcome and yields the Story
-report. Story utilities are the only way Stories talk to it.
+captured Evidence and Story assertion outcome and yields the Story report.
+Story utilities are the only way Stories talk to it.
 
 **Story report**:
-The structured record of one Story run, attached to the Story tree by Story
-id: the verdict plus the ordered Story sections the run recorded.
+The record of one Story run, attached to the Story tree by Story id: the
+verdict per phase plus the Evidence the run captured. A Story has one report
+at a time; a rerun replaces it.
 
 **Stories path**:
-A configured project-relative folder holding all Story files and their single
-entry point that exposes the Project's Story tree. It is implicitly an
-Ignored path: package-level Stories are exempt from architectural enforcement.
+A configured project-relative folder holding all Story files. It is
+implicitly an Ignored path: Stories are exempt from architectural
+enforcement.
 
-**Support file**:
-A file named `support.ts` beneath the Stories path, holding the harness a
-Story's proofs import: fixtures, layers, and helpers that would otherwise be
-retyped in every Story file. A Story resolves the nearest one at or above its
-own folder, so a Story Group shares one; a Story with none carries no support.
-It is read as part of the Story tree and shown beside the Story's setup, so a
-reader can see the code its proofs stand on.
-
-**Stories view**:
-The Stories tab beside the Layers <> Modules view. It renders the Story tree
-as navigable documentation the moment it loads, and attaches Story reports to
-their Stories as a Stories run streams them in.
+**Stories canvas**:
+The view of a Project's Stories: Clusters laid out as groups of cards a
+reader can move, open, and run, singly, by Cluster, or all at once. Critical
+Stories are shown apart. Opening a Story shows its file and its whole Story
+report in one place.
+_Avoid_: Stories view, sidebar, list
 
 **Stories run**:
-Executing Stories sequentially, depth-first, yielding one Story report per
-Story as it completes. A run covers the whole Story tree or one scoped
-subtree — a Story Group or a single Story. Rerunning replaces exactly the
-Story reports the run covers.
+Executing the Stories in a scope, the whole tree, one Cluster, or one Story,
+yielding one Story report per Story as it completes and replacing the report
+each covered Story had before.
 
 **Project**:
 The analysis universe anchored by one Config. All configured paths are
@@ -541,13 +579,11 @@ otherwise unchanged. A Module whose only change is a deleted file reads as
 unchanged, because a Change set does not carry deletions.
 
 **Story change status**:
-A Story's derived standing in a Change set, resolved through the file backing
-it: added when its Story file is added, modified when its Story file or the
-Support file its proofs import is modified, and otherwise unchanged. A support
-change is recorded as such, so a reader can tell a Story's own edit from an
-edit beneath it. Resolution is per file, so Stories sharing one file share one
-status. A Story Group is added when every descendant Story is added and
-modified when any descendant Story changed.
+A Story's derived standing in a Change set: added when its Story file is
+added, modified when its Story file is modified, and otherwise unchanged.
+A Story is one file, so nothing beneath it can change without the file
+changing. A Cluster is added when every Story in it is added and modified
+when any Story in it changed.
 
 **Diff hunk**:
 One contiguous changed region of a modified path between a Base ref and the

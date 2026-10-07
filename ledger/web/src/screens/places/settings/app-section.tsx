@@ -1,4 +1,4 @@
-import { Button } from '@kstackz/web-toolkit/components/button';
+import { Button } from '@kstackz/web-platform/components/button';
 import {
   Dialog,
   DialogContent,
@@ -6,14 +6,14 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@kstackz/web-toolkit/components/dialog';
+} from '@kstackz/web-platform/components/dialog';
 import {
   IosSteps,
   isIosSafari,
   useDisplayMode,
   useInstall,
-} from '@kstackz/web-toolkit/pwa/extras';
-import { usePwa } from '@kstackz/web-toolkit/pwa';
+} from '@kstackz/web-platform/pwa/extras';
+import { usePwa } from '@kstackz/web-platform/pwa';
 import { useEffect, useState } from 'react';
 import { Row, Section } from './rows.tsx';
 

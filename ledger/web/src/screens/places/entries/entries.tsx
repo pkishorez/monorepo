@@ -1,5 +1,5 @@
-import { MousePointerClick } from '@kstackz/web-toolkit/components/lucide';
-import { cn } from '@kstackz/web-toolkit/components/utils';
+import { MousePointerClick } from '@kstackz/web-platform/components/lucide';
+import { cn } from '@kstackz/web-platform/components/utils';
 import { usePlace } from '@ledger/core/app/commands';
 import type { EntriesSearch } from '@ledger/core/app/places';
 import { useWide } from '../../parts/index.ts';

@@ -1,5 +1,5 @@
 import type { ComponentType, ReactNode } from 'react';
-import { Button } from '@kstackz/web-toolkit/components/button';
+import { Button } from '@kstackz/web-platform/components/button';
 
 export function QueryError({
   message,

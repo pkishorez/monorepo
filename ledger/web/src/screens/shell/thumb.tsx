@@ -2,11 +2,11 @@ import { useLocation, useNavigate, useSearch } from '@tanstack/react-router';
 import { type ActionId, keys, quietly } from '@ledger/core/app/commands';
 import { useSettings } from '../../app.ts';
 import { useMoney } from '@ledger/core/app/session';
-import { play } from '@kstackz/web-toolkit/feedback';
+import { play } from '@kstackz/web-platform/feedback';
 import {
   type Choice,
   ThumbPicker,
-} from '@kstackz/web-toolkit/recipes/thumb-picker';
+} from '@kstackz/web-platform/recipes/thumb-picker';
 import { PLACES, type Stop, stopsFrom } from '@ledger/core/app/places';
 import { stopIcon } from '../parts/index.ts';
 

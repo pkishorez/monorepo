@@ -4,7 +4,7 @@ Grayscale, quiet, and the same on every device. Read before changing a screen.
 
 ## Colour
 
-Only web-toolkit tokens. `pnpm lint:colors` fails on a Tailwind palette colour
+Only web-platform tokens. `pnpm lint:colors` fails on a Tailwind palette colour
 (`emerald-500`) or a raw hex, rgb, hsl or oklch value.
 
 | Token                             | Where                                                                  |
@@ -23,7 +23,7 @@ apart by icon and name, never by hue.
 ## Focus
 
 One ring: `focus-ring` (styles.css), 2px of `ring` drawn inside the element,
-so a scrolling parent never clips its top or bottom. web-toolkit controls keep
+so a scrolling parent never clips its top or bottom. web-platform controls keep
 their own ring. Never `outline: none` without a replacement.
 
 ## Layout
@@ -36,7 +36,7 @@ Add sheet, dialogs, the palette. Whether the sidebar docks is the App Shell's.
 
 ## Keyboard or touch
 
-Decided by the device, never the width (web-toolkit's `input`):
+Decided by the device, never the width (web-platform's `input`):
 
 | Variant     | True when                                  | Shows                          |
 | ----------- | ------------------------------------------ | ------------------------------ |

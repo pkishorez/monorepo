@@ -1,6 +1,6 @@
-import { createTheme } from '@kstackz/web-toolkit/theme';
+import { createTheme } from '@kstackz/web-platform/theme';
 
-// The dark theme, as plain sRGB for images. The background is web-toolkit's
+// The dark theme, as plain sRGB for images. The background is web-platform's
 // own; the two text colours are its dark `--foreground` (oklch 0.985 0 0)
 // and `--muted-foreground` (oklch 0.708 0 0), which it gives only as CSS.
 export const INK = createTheme().manifest('dark').background_color;

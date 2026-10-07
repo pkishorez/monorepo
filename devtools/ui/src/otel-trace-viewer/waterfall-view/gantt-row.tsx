@@ -1,4 +1,4 @@
-import { cn } from '@kstackz/web-toolkit/components/utils';
+import { cn } from '@kstackz/web-platform/components/utils';
 
 import { STATUS_BG } from '../trace-presentation';
 import { LOG_DOT_CLASS } from '../trace-presentation';

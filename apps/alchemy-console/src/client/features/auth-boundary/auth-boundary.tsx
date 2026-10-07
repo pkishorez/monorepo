@@ -3,12 +3,12 @@ import { useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useComponentLifecycle, useRunEffect } from 'use-effect-ts';
 import type { LoginError } from '@kstackz/auth-toolkit/client';
-import { Button } from '@kstackz/web-toolkit/components/button';
-import { GoogleButton } from '@kstackz/web-toolkit/components/google-button';
+import { Button } from '@kstackz/web-platform/components/button';
+import { GoogleButton } from '@kstackz/web-platform/components/google-button';
 import {
   CircleAlert,
   LoaderCircle,
-} from '@kstackz/web-toolkit/components/lucide';
+} from '@kstackz/web-platform/components/lucide';
 import { LogoMark } from '../brand/index.ts';
 import { accounts } from '../../connections/auth/index.ts';
 import { appTheme, ThemeToggle } from './theme-toggle.tsx';

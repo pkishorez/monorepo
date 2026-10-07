@@ -12,9 +12,9 @@ import {
   PackageIcon,
   PanelRightOpen,
   TriangleAlert,
-} from '@kstackz/web-toolkit/components/lucide';
-import { Badge } from '@kstackz/web-toolkit/components/badge';
-import { Button } from '@kstackz/web-toolkit/components/button';
+} from '@kstackz/web-platform/components/lucide';
+import { Badge } from '@kstackz/web-platform/components/badge';
+import { Button } from '@kstackz/web-platform/components/button';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -22,30 +22,30 @@ import {
   DropdownMenuGroup,
   DropdownMenuLabel,
   DropdownMenuTrigger,
-} from '@kstackz/web-toolkit/components/dropdown-menu';
+} from '@kstackz/web-platform/components/dropdown-menu';
 import {
   Empty,
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-} from '@kstackz/web-toolkit/components/empty';
+} from '@kstackz/web-platform/components/empty';
 import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
-} from '@kstackz/web-toolkit/components/resizable';
+} from '@kstackz/web-platform/components/resizable';
 import {
   Sheet,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
-} from '@kstackz/web-toolkit/components/sheet';
-import { Spinner } from '@kstackz/web-toolkit/components/spinner';
-import { useIsMobile } from '@kstackz/web-toolkit/components/hooks/use-mobile';
-import { scrollbarStyles } from '@kstackz/web-toolkit/components/scroll-styles';
-import { cn } from '@kstackz/web-toolkit/components/utils';
+} from '@kstackz/web-platform/components/sheet';
+import { Spinner } from '@kstackz/web-platform/components/spinner';
+import { useIsMobile } from '@kstackz/web-platform/components/hooks/use-mobile';
+import { scrollbarStyles } from '@kstackz/web-platform/components/scroll-styles';
+import { cn } from '@kstackz/web-platform/components/utils';
 
 import {
   ChangesMenu,
@@ -53,11 +53,11 @@ import {
   defaultGitOptions,
   uncommittedBaseRef,
   type GitOptions,
-} from '@kstackz/web-toolkit/components/viewers/git-changes';
+} from '@kstackz/web-platform/components/viewers/git-changes';
 import type {
   LoadFileDiff,
   LoadFiles,
-} from '@kstackz/web-toolkit/components/viewers/source-explorer';
+} from '@kstackz/web-platform/components/viewers/source-explorer';
 import { LaymosDrilldown } from '../laymos-drilldown';
 import { MonorepoCanvas, type ConnectionVisibility } from '../monorepo-canvas';
 import {

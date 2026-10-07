@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import type { ArchitectureAnalysis, ChangeSet } from 'laymos';
 
-import { cn } from '@kstackz/web-toolkit/components/utils';
+import { cn } from '@kstackz/web-platform/components/utils';
 
 import {
   buildPresentationModel,

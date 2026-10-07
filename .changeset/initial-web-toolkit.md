@@ -1,5 +1,5 @@
 ---
-'@kstackz/web-toolkit': patch
+'@kstackz/web-platform': patch
 ---
 
 Initial release under the `@kstackz` scope.

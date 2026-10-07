@@ -5,11 +5,11 @@ import {
   Layers,
   PackageIcon,
   TriangleAlert,
-} from '@kstackz/web-toolkit/components/lucide';
-import { Button } from '@kstackz/web-toolkit/components/button';
-import { cn } from '@kstackz/web-toolkit/components/utils';
+} from '@kstackz/web-platform/components/lucide';
+import { Button } from '@kstackz/web-platform/components/button';
+import { cn } from '@kstackz/web-platform/components/utils';
 
-import { ChangeBadge } from '@kstackz/web-toolkit/components/viewers/git-changes';
+import { ChangeBadge } from '@kstackz/web-platform/components/viewers/git-changes';
 
 import {
   groupPackages,

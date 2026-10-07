@@ -23,7 +23,7 @@
     "@kstackz/flow": "workspace:*",
     "@kstackz/lotel": "workspace:*",
     "@kstackz/std-toolkit": "workspace:*",
-    "@kstackz/web-toolkit": "workspace:*",
+    "@kstackz/web-platform": "workspace:*",
     "@xyflow/react": "catalog:",
     "effect": "catalog:",
     "laymos": "workspace:*",

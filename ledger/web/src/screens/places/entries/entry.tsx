@@ -1,15 +1,15 @@
-import { Button } from '@kstackz/web-toolkit/components/button';
-import { toast } from '@kstackz/web-toolkit/components/sonner';
-import { Textarea } from '@kstackz/web-toolkit/components/textarea';
+import { Button } from '@kstackz/web-platform/components/button';
+import { toast } from '@kstackz/web-platform/components/sonner';
+import { Textarea } from '@kstackz/web-platform/components/textarea';
 import {
   ArrowLeft,
   ChevronLeft,
   ChevronRight,
   Trash2,
-} from '@kstackz/web-toolkit/components/lucide';
+} from '@kstackz/web-platform/components/lucide';
 import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
-import { BindingKeys } from '@kstackz/web-toolkit/recipes/key-bindings';
+import { BindingKeys } from '@kstackz/web-platform/recipes/key-bindings';
 import { keys, useCommand } from '@ledger/core/app/commands';
 import { useMoney, useWrites } from '@ledger/core/app/session';
 import { centsOf, dayName, type Entry, today } from '@ledger/core/model';

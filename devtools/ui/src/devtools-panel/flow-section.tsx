@@ -6,20 +6,20 @@ import {
   type ComponentProps,
 } from 'react';
 import type { Projection } from '@kstackz/flow';
-import { Button } from '@kstackz/web-toolkit/components/button';
+import { Button } from '@kstackz/web-platform/components/button';
 import {
   Dialog,
   DialogContent,
   DialogTitle,
-} from '@kstackz/web-toolkit/components/dialog';
+} from '@kstackz/web-platform/components/dialog';
 import {
   Sheet,
   SheetContent,
   SheetTitle,
-} from '@kstackz/web-toolkit/components/sheet';
-import { useIsMobile } from '@kstackz/web-toolkit/components/hooks/use-mobile';
-import { scrollbarStyles } from '@kstackz/web-toolkit/components/scroll-styles';
-import { cn } from '@kstackz/web-toolkit/components/utils';
+} from '@kstackz/web-platform/components/sheet';
+import { useIsMobile } from '@kstackz/web-platform/components/hooks/use-mobile';
+import { scrollbarStyles } from '@kstackz/web-platform/components/scroll-styles';
+import { cn } from '@kstackz/web-platform/components/utils';
 import { FlowItemDetails, FlowSwimlane } from '../flow-swimlane/flow-swimlane';
 import { TraceViewer } from '../otel-trace-viewer/trace-viewer';
 import { FlowPeekBar } from './flow-peek-bar';
