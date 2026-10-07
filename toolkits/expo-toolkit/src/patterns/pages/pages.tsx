@@ -10,6 +10,8 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
+import { GestureZone } from '../../input';
+import { turns } from './turns';
 
 // A short drag or a light flick turns the page, as on the web: 60 points,
 // or 300 points a second.
@@ -18,26 +20,17 @@ const TURN = { distance: 60, velocity: 300 } as const;
 const SPRING = { duration: 150, dampingRatio: 1 } as const;
 
 /**
- * A drag a swipe hands on: how far right the finger has gone, in points,
- * and, as it lifts, how far and how fast (points a second). Both run on the
- * UI thread, so they must be worklets.
- */
-type Drag = {
-  readonly move: (offset: number) => void;
-  readonly end: (offset: number, velocity: number) => void;
-};
-
-/**
  * Pages side by side, `page` in view and the others out of reach of touch
  * and screen readers. One finger swiping sideways drags them under it and,
  * let go far or fast enough, settles on the next page or the one before,
- * carrying the finger's speed; otherwise they spring back. A swipe mostly
- * up or down is left to the page's own scroll, and a second finger (a Thumb
- * Lock) to the others. On the first page a swipe right is handed to
- * `beforeFirst`, such as a Sidebar's open, if there is one. A strip `edge`
- * points wide along the left edge is left alone, for an edge swipe. A page
- * chosen another way (a tab) slides into view; with reduced motion every
- * move is a jump.
+ * carrying the finger's speed; otherwise they spring back. They are a
+ * Gesture Zone of their own, inside a GestureSurface, and take only a swipe
+ * that turns a page: on the first page a swipe right, and on the last a
+ * swipe left, go to the zones around them, such as a Sidebar's. A swipe
+ * mostly up or down is left to the page's own scroll, and a second finger
+ * (a Thumb Lock) to the others. A strip `edge` points wide along the left
+ * edge is left alone, for an edge swipe. A page chosen another way (a tab)
+ * slides into view; with reduced motion every move is a jump.
  *
  * ```tsx
  * <Pages page={at} onPage={setAt}>
@@ -49,13 +42,12 @@ type Drag = {
 export function Pages(props: {
   readonly page: number;
   readonly onPage: (page: number) => void;
-  readonly beforeFirst?: Drag;
   readonly edge?: number;
   readonly children: ReactNode;
 }) {
   const pages = Children.toArray(props.children);
   const last = pages.length - 1;
-  const { page, onPage, beforeFirst } = props;
+  const { page, onPage } = props;
   const still = useReducedMotion();
   const [width, setWidth] = useState(0);
   // Which page is in view, in pages: 1.5 is halfway from the second to the third.
@@ -64,7 +56,8 @@ export function Pages(props: {
   // not animated a second time when `page` catches up.
   const target = useSharedValue(page);
   const from = useSharedValue(page);
-  const handing = useSharedValue(false);
+  const listener = useMemo(() => turns(), []);
+  listener.at(page, last);
 
   useEffect(() => {
     if (target.value === page) return;
@@ -82,38 +75,31 @@ export function Pages(props: {
         ? withTiming(to, { duration: 0 })
         : withSpring(to, { ...SPRING, velocity });
     };
-    return Gesture.Pan()
-      .maxPointers(1)
-      .activeOffsetX([-12, 12])
-      .failOffsetY([-12, 12])
+    // Only the ways a page turns: the Pan agrees with the zone's listener.
+    const pan = Gesture.Pan().maxPointers(1).failOffsetY([-12, 12]);
+    const sideways =
+      page > 0 && page < last
+        ? pan.activeOffsetX([-12, 12])
+        : page < last
+          ? pan.activeOffsetX(-12).failOffsetX(12)
+          : pan.activeOffsetX(12).failOffsetX(-12);
+    return sideways
       .hitSlop({ left: -(props.edge ?? 0) })
-      .enabled(width > 0)
+      .enabled(width > 0 && last > 0)
       .onStart(() => {
         'worklet';
         cancelAnimation(at);
         from.value = at.value;
-        handing.value = false;
       })
       .onUpdate((event) => {
         'worklet';
         const next = from.value - event.translationX / width;
-        if (beforeFirst !== undefined && (handing.value || next < 0)) {
-          handing.value = true;
-          at.value = 0;
-          beforeFirst.move(Math.max(0, event.translationX));
-          return;
-        }
-        // Past either end the pages give a little, rubber-banded.
+        // Back past either end the pages give a little, rubber-banded.
         at.value =
           next < 0 ? next / 3 : next > last ? last + (next - last) / 3 : next;
       })
       .onEnd((event) => {
         'worklet';
-        if (handing.value) {
-          handing.value = false;
-          beforeFirst?.end(Math.max(0, event.translationX), event.velocityX);
-          return;
-        }
         // Positive toward later pages.
         const moved = -event.translationX;
         const speed = -event.velocityX;
@@ -128,18 +114,7 @@ export function Pages(props: {
         settle(to, speed / width);
         if (to !== base) scheduleOnRN(onPage, to);
       });
-  }, [
-    width,
-    last,
-    still,
-    beforeFirst,
-    onPage,
-    props.edge,
-    at,
-    from,
-    handing,
-    target,
-  ]);
+  }, [width, page, last, still, onPage, props.edge, at, from, target]);
 
   const track = useAnimatedStyle(() => ({
     transform: [{ translateX: -at.value * width }],
@@ -149,30 +124,32 @@ export function Pages(props: {
     setWidth(event.nativeEvent.layout.width);
 
   return (
-    <GestureDetector gesture={gesture}>
-      <View collapsable={false} onLayout={measure} style={styles.frame}>
-        <Animated.View
-          style={[styles.track, { width: width * pages.length }, track]}
-        >
-          {pages.map((each, index) => {
-            const away = index !== page;
-            return (
-              <View
-                key={index}
-                pointerEvents={away ? 'none' : 'auto'}
-                accessibilityElementsHidden={away}
-                importantForAccessibility={
-                  away ? 'no-hide-descendants' : 'auto'
-                }
-                style={{ width }}
-              >
-                {each}
-              </View>
-            );
-          })}
-        </Animated.View>
-      </View>
-    </GestureDetector>
+    <GestureZone listener={listener.listener} style={styles.frame}>
+      <GestureDetector gesture={gesture}>
+        <View collapsable={false} onLayout={measure} style={styles.frame}>
+          <Animated.View
+            style={[styles.track, { width: width * pages.length }, track]}
+          >
+            {pages.map((each, index) => {
+              const away = index !== page;
+              return (
+                <View
+                  key={index}
+                  pointerEvents={away ? 'none' : 'auto'}
+                  accessibilityElementsHidden={away}
+                  importantForAccessibility={
+                    away ? 'no-hide-descendants' : 'auto'
+                  }
+                  style={{ width }}
+                >
+                  {each}
+                </View>
+              );
+            })}
+          </Animated.View>
+        </View>
+      </GestureDetector>
+    </GestureZone>
   );
 }
 

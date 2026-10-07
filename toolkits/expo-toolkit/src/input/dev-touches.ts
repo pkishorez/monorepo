@@ -1,4 +1,5 @@
 import type { PointerSink } from '@kstackz/use-gesture';
+import type { Point } from './zones';
 
 /** Touches a script hands in by hand: a finger id and where it is. */
 type DevTouches = {
@@ -17,13 +18,12 @@ const host = globalThis as typeof globalThis & { __touches?: Registry };
  * script talking to the app through Metro's inspector can touch the screen
  * with any number of fingers, which the Simulator's own tools cannot: a
  * thumb held still while another finger swipes. Its samples go into the
- * same core as real touches. Returns the removal. A release build never
+ * same core as real touches, landing in the surface's own zone. Returns the removal. A release build never
  * calls it: the caller guards it with `__DEV__`, which Metro strips.
  */
-export const exposeDevTouches = <Target>(
+export const exposeDevTouches = (
   name: string,
-  sink: PointerSink<Target>,
-  target: Target,
+  sink: PointerSink<Point>,
   clock: () => number,
 ) => {
   const at = (id: number, x: number, y: number) => ({
@@ -31,7 +31,7 @@ export const exposeDevTouches = <Target>(
     x,
     y,
     t: clock(),
-    target,
+    target: { x, y },
   });
   const registry = (host.__touches ??= {});
   registry[name] = {

@@ -1,7 +1,8 @@
 /**
  * Choice: one of a few things, as a row of pills that scrolls sideways when
  * it does not fit — kinds, categories, days. The chosen one is the only one
- * filled. The native twin of the web's pill row; the toolkit's own, not a
+ * filled. A swipe right at its start is not its own, so it reaches what is
+ * around it, such as a Sidebar. The native twin of the web's pill row; the toolkit's own, not a
  * Panel UI copy.
  *
  * ```tsx
@@ -10,8 +11,9 @@
  * ```
  */
 import type { ReactNode } from 'react';
-import { Pressable, ScrollView } from 'react-native';
+import { Pressable } from 'react-native';
 import { useCSSVariable } from 'uniwind';
+import { NativeScroll } from '../input';
 import { cn } from '../theme';
 import { IconColorProvider } from './icons';
 import { Text } from './text';
@@ -43,7 +45,7 @@ export function Choice<T extends string>(props: ChoiceProps<T>) {
   const on = useCSSVariable('--color-primary-foreground');
   const off = useCSSVariable('--color-foreground');
   return (
-    <ScrollView
+    <NativeScroll
       horizontal
       showsHorizontalScrollIndicator={false}
       accessibilityRole="radiogroup"
@@ -90,6 +92,6 @@ export function Choice<T extends string>(props: ChoiceProps<T>) {
           </Pressable>
         );
       })}
-    </ScrollView>
+    </NativeScroll>
   );
 }

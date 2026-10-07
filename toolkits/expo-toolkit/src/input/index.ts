@@ -1,1 +1,1 @@
-export { GestureSurface, useGesture } from './input';
+export { GestureSurface, GestureZone, NativeScroll, useGesture } from './input';

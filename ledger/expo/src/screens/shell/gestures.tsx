@@ -1,5 +1,5 @@
 import { GestureSurface } from '@kstackz/expo-toolkit/input';
-import { SidebarEdge } from '@kstackz/expo-toolkit/patterns/sidebar';
+import { SidebarSwipe } from '@kstackz/expo-toolkit/patterns/sidebar';
 import {
   type Choice,
   ThumbPicker,
@@ -14,8 +14,10 @@ import { StopIcon } from '../parts';
 
 /**
  * Where Ledger's gestures are heard: the header and the Place, with the
- * Thumb Lock over them and the Sidebar's edge beside them. The edge swipe
- * works with the Thumb Lock switched off too, as the switch's hint says.
+ * Thumb Lock over them and the Sidebar's swipe from anywhere, which the
+ * Place's own zones (Settings' Sections, rows of pills) get first claim
+ * before. The Sidebar's swipe works with the Thumb Lock switched off too,
+ * as the switch's hint says, and as on the web.
  * In development a script can touch it by hand as
  * `globalThis.__touches.ledger` (scripts/touch.mjs).
  */
@@ -23,7 +25,7 @@ export function GestureLayer(props: { readonly children: ReactNode }) {
   return (
     <GestureSurface devName="ledger">
       {props.children}
-      <SidebarEdge />
+      <SidebarSwipe />
       <Thumb />
     </GestureSurface>
   );

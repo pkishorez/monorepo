@@ -51,7 +51,7 @@ What feeds a Gesture Provider its fingers on one platform: as each lands, moves 
 _Avoid_: input (the web's source is one), driver, adapter
 
 **Zone Tree**:
-How a platform's Gesture Zones nest, as a Gesture Provider sees them: the innermost zone around what a finger landed on, the zone around each zone, and which are Trapped. The web reads it from the DOM.
+How a platform's Gesture Zones nest, as a Gesture Provider sees them: the innermost zone around what a finger landed on, the zone around each zone, and which are Trapped. The web reads it from the DOM; a phone from the zones that heard the finger land, the deepest of them.
 _Avoid_: hierarchy, view tree (a phone's own), DOM
 
 ### Recognizers

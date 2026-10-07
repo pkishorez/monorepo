@@ -14,10 +14,9 @@ import {
   useReducedMotion,
   useSharedValue,
 } from 'react-native-reanimated';
-import { scheduleOnRN } from 'react-native-worklets';
 import { useGesture } from '../../input';
-import { edgeSwipe } from './edge';
-import { along, opens, type Progress, settle, widthOn } from './motion';
+import { along, type Progress, settle, widthOn } from './motion';
+import { sidebarSwipe } from './swipe';
 import { type Panel, Push } from './push';
 
 type SidebarState = {
@@ -33,8 +32,6 @@ type Motion = {
   readonly width: number;
   readonly still: boolean;
   readonly settle: (open: boolean, velocity: number) => void;
-  /** Records open or shut once the motion is already on its way there. */
-  readonly opened: (open: boolean) => void;
   readonly show: (panel: Panel | undefined) => void;
 };
 
@@ -46,7 +43,7 @@ const MotionContext = createContext<Motion | undefined>(undefined);
  * the page, which moves aside, shrinks, rounds and dims as the Sidebar under
  * it opens, springing from wherever a finger left it. Holds whether it is
  * open, for the Sidebar and anything that opens or shuts it: a menu button,
- * a Command, an edge swipe. Open, Android's back button shuts it.
+ * a Command, a swipe. Open, Android's back button shuts it.
  */
 export function SidebarProvider(props: { readonly children: ReactNode }) {
   const [open, setOpenNow] = useState(false);
@@ -73,7 +70,7 @@ export function SidebarProvider(props: { readonly children: ReactNode }) {
     [open, move],
   );
   const motion = useMemo(
-    () => ({ progress, width, still, settle: move, opened: setOpenNow, show }),
+    () => ({ progress, width, still, settle: move, show }),
     [progress, width, still, move],
   );
 
@@ -137,38 +134,15 @@ export function Sidebar(props: {
 }
 
 /**
- * The Sidebar's open as a drag another swipe hands on, such as a swipe
- * right on the first of some Pages: `move` opens it under the finger, `end`
- * springs it open or back shut as the finger lifts, by the edge swipe's
- * rule. Both are worklets, for a gesture on the UI thread.
+ * The Sidebar's swipe, inside a GestureSurface: a swipe right of one finger
+ * from anywhere opens it under the finger and, let go, springs open or back
+ * shut, as on the web. A zone inside that wants a swipe right keeps it,
+ * such as Pages past their first or a row of pills scrolled from its start;
+ * a swipe from the left edge is always the Sidebar's, and never scrolls. A
+ * swipe left, or of two fingers, such as a Thumb Lock, is left to the
+ * others; open, a drag left shuts it.
  */
-export function useSidebarDrag() {
-  const { progress, width, still, opened } = useMotion();
-  return useMemo(
-    () => ({
-      move: (offset: number) => {
-        'worklet';
-        progress.value = along(offset, width);
-      },
-      end: (offset: number, velocity: number) => {
-        'worklet';
-        const open = opens(offset, velocity);
-        settle(progress, open ? 1 : 0, velocity / width, still);
-        if (open) scheduleOnRN(opened, true);
-      },
-    }),
-    [progress, width, still, opened],
-  );
-}
-
-/**
- * The Sidebar's edge, inside a GestureSurface: a swipe right of one finger
- * from the left edge of the screen opens it under the finger and, let go,
- * springs open or back shut. The edge is its own, so a swipe there never
- * scrolls or goes back a page; a touch of two fingers, such as a Thumb Lock,
- * is left to the others.
- */
-export function SidebarEdge() {
+export function SidebarSwipe() {
   const sidebar = useSidebar();
   const motion = useMotion();
   const latest = useRef({ sidebar, motion });
@@ -176,7 +150,7 @@ export function SidebarEdge() {
   const claim = useRef<() => void>(() => {});
   const listener = useMemo(
     () =>
-      edgeSwipe({
+      sidebarSwipe({
         enabled: () => !latest.current.sidebar.open,
         onMove: (offset) => {
           const { progress, width } = latest.current.motion;
