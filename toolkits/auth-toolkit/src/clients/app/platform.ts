@@ -36,8 +36,8 @@ export class AppPlatform extends Context.Service<
       readonly url: string;
       readonly manageAccounts: () => Promise<void>;
     };
-    /** What the Gate needs: the device's memory, when it is online and in
-     * view, and its other tabs. */
-    readonly gate: GatePlatform;
+    /** What the Gate needs besides a table: when the device is online and
+     * in view, and its other tabs. */
+    readonly gate: Omit<GatePlatform, 'table'>;
   }
 >()('@kstackz/auth-toolkit/AppPlatform') {}

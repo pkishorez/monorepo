@@ -15,6 +15,7 @@ import {
   type GateView,
   type OpenAccount,
 } from './domain/index.js';
+import { gateMemory } from './memory.js';
 import type { GatePlatform } from './platform.js';
 
 /** What an app gives the Gate. `B` is what lives in the Backend Lifetime;
@@ -56,13 +57,13 @@ type Running = {
 
 const CHECKING = { kind: 'checking' } as const;
 
-const BACKEND_KEY = 'gate:backend';
-const lastKey = (backend: string) => `gate:${backend}:last`;
-// Where the account last open was kept before the Backends were renamed.
-const FORMER_NAME: Record<Backend, string> = {
-  cloud: 'remote',
-  device: 'local',
-};
+// Only what the Gate remembers of a User, whatever else the Backend sent.
+const userOf = ({ id, name, email, image }: GateUser): GateUser => ({
+  id,
+  name,
+  email,
+  image,
+});
 
 const viewOf = <S>(snapshot: Snapshot): GateView<S> => {
   const { context } = snapshot;
@@ -71,6 +72,12 @@ const viewOf = <S>(snapshot: Snapshot): GateView<S> => {
     return { kind: 'signedOut', unreachable: context.unreachable };
   if (snapshot.matches('unopenable') && context.account !== null)
     return { kind: 'unopenable', account: context.account };
+  if (snapshot.matches('accountLost') && context.lost !== null)
+    return {
+      kind: 'accountLost',
+      account: { user: context.lost, token: null, active: false },
+      accounts: context.accounts,
+    };
   if (!snapshot.matches('open') || context.account === null) return CHECKING;
   if (context.session === null)
     return { kind: 'opening', account: context.account };
@@ -96,6 +103,14 @@ const stop = async (current: Running) => {
 export const createGate = <S, B>(config: GateConfig<S, B>) => {
   let made: GatePlatform | undefined;
   const platform = () => (made ??= config.platform());
+  const memory = () => gateMemory(platform().table);
+  const remember = (
+    change: Parameters<ReturnType<typeof memory>['update']>[0],
+  ) => Effect.runPromise(memory().update(change));
+
+  // Accounts this device signed out itself, in this tab or another: their
+  // going is no Account Lost.
+  const quiet = new Set<string>();
 
   // Asks who signs in on the device Backend; the Local Sign-In answers.
   const chooser = localChooser();
@@ -127,29 +142,33 @@ export const createGate = <S, B>(config: GateConfig<S, B>) => {
       backend === 'device'
         ? await config.device(chooser.choose)
         : config.cloud();
-    const memory = platform().memory;
-    const key = lastKey(backend);
-
     const device = Layer.effect(
       Device,
       Effect.gen(function* () {
         const services = yield* Effect.context<B>();
         return Device.of({
-          lastUser: Effect.promise(async () => {
-            const stored =
-              (await memory.get(key)) ??
-              (await memory.get(lastKey(FORMER_NAME[backend])));
-            if (stored === null) return null;
-            try {
-              return JSON.parse(stored) as GateUser;
-            } catch {
-              return null;
-            }
-          }),
-          setLastUser: (user) =>
-            Effect.promise(() =>
-              memory.set(key, user === null ? null : JSON.stringify(user)),
-            ),
+          remembered: memory().read.pipe(
+            Effect.map((all) => ({
+              accounts: all[backend].accounts.map(({ user, active }) => ({
+                user,
+                token: null,
+                active,
+              })),
+              lost: all[backend].lost,
+            })),
+          ),
+          remember: ({ accounts, lost }) =>
+            memory().update((all) => ({
+              ...all,
+              [backend]: {
+                accounts: accounts.map(({ user, active }) => ({
+                  user: userOf(user),
+                  active,
+                })),
+                lost: lost === null ? null : userOf(lost),
+              },
+            })),
+          signedOutHere: (userId) => Effect.sync(() => quiet.delete(userId)),
           keep: (userIds) =>
             config.keep === undefined
               ? Effect.void
@@ -241,10 +260,6 @@ export const createGate = <S, B>(config: GateConfig<S, B>) => {
   const notify = () => listeners.forEach((listener) => listener());
 
   const notices: GateNotice[] = [];
-  // Accounts this device signed out itself, in this tab or another: their
-  // going is no Account Lost.
-  const quiet = new Set<string>();
-  let lastLost: unknown = null;
 
   const push = (notice: GateNotice) => {
     notices.push(notice);
@@ -255,12 +270,6 @@ export const createGate = <S, B>(config: GateConfig<S, B>) => {
     const { context } = snapshot;
     for (const account of context.accounts)
       if (account.token !== null) setToken(account.user.id, account.token);
-    if (context.lost !== null && context.lost !== lastLost) {
-      lastLost = context.lost;
-      const { user } = context.lost;
-      if (quiet.has(user.id)) quiet.delete(user.id);
-      else push({ kind: 'accountLost', user });
-    }
     view = viewOf<S>(snapshot);
   };
 
@@ -312,15 +321,14 @@ export const createGate = <S, B>(config: GateConfig<S, B>) => {
   const report = (failed: unknown) =>
     Effect.runFork(Effect.logError('The Gate could not go on', failed));
 
-  const chosenBackend = async (): Promise<Backend> => {
-    return backendNamed(await platform().memory.get(BACKEND_KEY)) ?? 'cloud';
-  };
+  const chosenBackend = async (): Promise<Backend> =>
+    backendNamed((await Effect.runPromise(memory().read)).backend) ?? 'cloud';
 
   // A Backend the launch asked for is chosen as if by hand.
   const settledBackend = async (): Promise<Backend> => {
     const asked = platform().lifecycle.launchBackend();
     if (asked === null) return chosenBackend();
-    await platform().memory.set(BACKEND_KEY, asked);
+    await remember((all) => ({ ...all, backend: asked }));
     return asked;
   };
 
@@ -386,13 +394,14 @@ export const createGate = <S, B>(config: GateConfig<S, B>) => {
     /** Chooses `backend` and runs on it at once. Each Backend keeps its own
      * Signed-in Accounts. */
     setBackend: async (backend: Backend) => {
-      await platform().memory.set(BACKEND_KEY, backend);
+      await remember((all) => ({ ...all, backend }));
       await runOn(backend);
       platform().tabs?.announce({ quiet: [] });
     },
 
     /** An Account Switch: the account opens at once from what the device
-     * keeps; the Backend hears of it behind. */
+     * keeps; the Backend hears of it behind. From an Account Lost, the lost
+     * account's Copy is deleted. */
     switchTo: (userId: string) => send({ type: 'SWITCH', userId }),
 
     /** Signs one more account in, who becomes the Active Account. On the
@@ -415,8 +424,14 @@ export const createGate = <S, B>(config: GateConfig<S, B>) => {
     },
 
     /** Signs the Active Account out of this device; whoever is left opens.
+     * From an Account Lost, forgets the lost account and deletes its Copy.
      * False, and nothing happens, when the Backend can't be reached. */
     signOut: (): boolean => {
+      // Forgetting a lost account needs no Backend.
+      if (view.kind === 'accountLost') {
+        send({ type: 'SIGN_OUT' });
+        return true;
+      }
       if (!canSignOut()) return false;
       send({ type: 'SIGN_OUT' });
       return true;

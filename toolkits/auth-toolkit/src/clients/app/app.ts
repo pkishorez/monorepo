@@ -1,6 +1,6 @@
 import { Context, Effect, Layer, type Scope } from 'effect';
 import { authLocal, localAccountsTable } from '../auth/index.js';
-import { createGate, type OpenAccount } from '../gate/index.js';
+import { createGate, gateTable, type OpenAccount } from '../gate/index.js';
 import { gateReact } from '../gate/react/index.js';
 import { AppPlatform } from './platform.js';
 import { keepSyncs } from './syncs.js';
@@ -50,7 +50,11 @@ export const createApp = <S, B>(config: AppConfig<S, B>) => {
   const onPlatform = () => Layer.succeed(AppPlatform, platform());
 
   const gate = createGate<S, B | AppPlatform | Keeper>({
-    platform: () => platform().gate,
+    // What the Gate remembers is kept in its own database.
+    platform: () => ({
+      ...platform().gate,
+      table: platform().table(gateTable, 'gate'),
+    }),
     cloud: () =>
       Layer.mergeAll(
         platform().cloud.auth,

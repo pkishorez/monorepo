@@ -12,9 +12,8 @@ import { makeStorage } from './storage';
  * expo-sqlite file of its database's name, Std Sync in `copies.db`, cloud
  * sign-in as the app's First-Party Client (`clientId`) in the system
  * sign-in sheet with each user's tokens in secure storage,
- * the cloud API at `apiUrl`, and the Gate's memory in secure storage under
- * `name`, with the network from expo-network and the foreground from
- * AppState. Made on first use: pass it as a function.
+ * the cloud API at `apiUrl`, and the network from expo-network and the
+ * foreground from AppState. Made on first use: pass it as a function.
  */
 export const expoPlatform = (options: {
   readonly name: string;
@@ -41,5 +40,5 @@ export const expoPlatform = (options: {
     url: options.apiUrl,
     manageAccounts: () => manageAccounts(options.authUrl),
   },
-  gate: expoGatePlatform(options.name),
+  gate: expoGatePlatform(),
 });

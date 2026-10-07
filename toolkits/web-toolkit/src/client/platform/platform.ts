@@ -11,9 +11,9 @@ import { webGatePlatform } from './gate.ts';
 /**
  * A web app's platform, for auth-toolkit's `createApp`: each table in the
  * IndexedDB database it names, Std Sync in IndexedDB shared by every tab,
- * cloud sign-in through the sign-in service at `authUrl` and its cookies, the cloud API at this origin, and the Gate's
- * memory in `localStorage` under `name`, with the device's network,
- * visibility and other tabs. Made in the browser only: pass it as a
+ * cloud sign-in through the sign-in service at `authUrl` and its cookies,
+ * the cloud API at this origin, and the device's network, visibility and
+ * other tabs under `name`. Made in the browser only: pass it as a
  * function.
  */
 export const webPlatform = (options: {

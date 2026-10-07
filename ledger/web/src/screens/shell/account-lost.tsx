@@ -1,3 +1,4 @@
+import type { Account } from '@kstackz/auth-toolkit/gate';
 import {
   AlertDialog,
   AlertDialogContent,
@@ -10,28 +11,43 @@ import { Button } from '@kstackz/web-toolkit/components/button';
 import { useGate } from '../../app.ts';
 
 /**
- * Says, once, that a User was signed out somewhere else: their money left
- * this device, and whoever else is signed in opened instead.
+ * Says a User was signed out somewhere else, and stays until they sign in
+ * again, keeping their money on this device, or another User opens,
+ * deleting it.
  */
-export function AccountLost() {
-  const { notice, dismissNotice: dismiss } = useGate();
-  const lost = notice?.kind === 'accountLost' ? notice.user : null;
+export function AccountLost(props: {
+  readonly account: Account;
+  readonly accounts: ReadonlyArray<Account>;
+}) {
+  const { signIn, switchTo, signOut } = useGate();
+  const { name } = props.account.user;
   return (
-    <AlertDialog
-      open={lost !== null}
-      onOpenChange={(open) => !open && dismiss()}
-    >
+    <AlertDialog open>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>{lost?.name} was signed out</AlertDialogTitle>
+          <AlertDialogTitle>{name} was signed out</AlertDialogTitle>
           <AlertDialogDescription>
-            {lost?.name} signed out somewhere else, or their sign-in ran out, so
-            their money left this device. It is still in their account; sign
-            them in again to see it here.
+            {name} signed out somewhere else, or their sign-in ran out. Sign
+            them in again to keep their money on this device, or switch to
+            someone else and it leaves this device.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <Button onClick={dismiss}>OK</Button>
+          {props.accounts.map(({ user }) => (
+            <Button
+              key={user.id}
+              variant="outline"
+              onClick={() => switchTo(user.id)}
+            >
+              Switch to {user.name}
+            </Button>
+          ))}
+          {props.accounts.length === 0 && (
+            <Button variant="outline" onClick={() => void signOut()}>
+              Sign out
+            </Button>
+          )}
+          <Button onClick={() => void signIn()}>Sign in again</Button>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

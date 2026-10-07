@@ -1,4 +1,5 @@
 export { createGate, type Gate, type GateConfig } from './gate.js';
+export { gateTable, type GateTable } from './memory.js';
 export {
   memoryPlatform,
   type GatePlatform,

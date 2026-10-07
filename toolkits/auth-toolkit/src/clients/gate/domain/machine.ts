@@ -2,7 +2,7 @@ import { Effect, Schema, Stream } from 'effect';
 import { fromEffect, fromEffectEventStream, setupEffect } from '@xstate/effect';
 import { Auth } from '../../auth/index.js';
 import { type Checked, check } from './check.js';
-import { Device, Sessions, Switching } from './services.js';
+import { Device, type Remembered, Sessions, Switching } from './services.js';
 import type { Account, GateUser } from './types.js';
 
 /** Everything the Gate knows about who is signed in, and the open Session
@@ -23,8 +23,9 @@ export type GateContext = {
   readonly fresh: boolean;
   /** How many times in a row `account` failed to open. */
   readonly failures: number;
-  /** The account last found signed out, a new value each time. */
-  readonly lost: { readonly user: GateUser } | null;
+  /** The account found lost, until the User signs in to it again or opens
+   * another. */
+  readonly lost: GateUser | null;
 };
 
 // The context holds a live Session Lifetime, so it is typed, not parsed.
@@ -66,11 +67,12 @@ const session = fromEffectEventStream(({ input }: { input: Account }) =>
 
 const remembered = fromEffect(() =>
   Effect.gen(function* () {
-    return yield* (yield* Device).lastUser;
+    return yield* (yield* Device).remembered;
   }),
 );
 
-const checking = fromEffect(check);
+// Asks who is signed in, nobody being open.
+const checking = fromEffect(() => check(null));
 
 type Verify = {
   readonly account: Account;
@@ -89,7 +91,18 @@ const verifying = fromEffect(({ input }: { input: Verify }) =>
       yield* switching.switchTo(input.account.token);
       yield* switching.announce();
     }
-    return yield* check;
+    return yield* check(input.account.user);
+  }),
+);
+
+// Forgets the lost account, so the check after it deletes its Copy, and
+// tells the other tabs it is no Account Lost there.
+const forgetting = fromEffect(({ input }: { input: GateUser }) =>
+  Effect.gen(function* () {
+    const device = yield* Device;
+    const remembered = yield* device.remembered;
+    yield* device.remember({ ...remembered, lost: null });
+    yield* (yield* Switching).announce([input.id]);
   }),
 );
 
@@ -112,21 +125,10 @@ const signingOut = fromEffect(({ input }: { input: SignOut }) =>
 // How often an open account is confirmed, besides when asked.
 const RECHECK = 60_000;
 
-const listed = (checked: Checked) =>
-  checked.chosen === null || checked.chosen.token !== null;
-
-const lostOf = (checked: Checked, current: Account | null) =>
-  current !== null &&
-  listed(checked) &&
-  !checked.accounts.some(({ user }) => user.id === current.user.id)
-    ? { user: current.user }
-    : null;
-
 /** What a check means for the machine, from wherever it ran. */
 const settle = (checked: Checked, context: GateContext) => {
   const current = context.account;
-  const lost = lostOf(checked, current) ?? context.lost;
-  const { accounts, chosen } = checked;
+  const { accounts, chosen, lost } = checked;
   const base = {
     ...context,
     accounts,
@@ -136,6 +138,12 @@ const settle = (checked: Checked, context: GateContext) => {
     failures: 0,
     lost,
   };
+  if (lost !== null) {
+    return {
+      target: '#gate.accountLost',
+      context: { ...base, account: null, fresh: false },
+    };
+  }
   if (chosen === null) {
     return {
       target: '#gate.signedOut',
@@ -207,7 +215,14 @@ const initialContext = (): GateContext => ({
  */
 export const gateMachine = setupEffect({
   schemas: { context: GateContextSchema, events },
-  actors: { session, remembered, checking, verifying, signingOut },
+  actors: {
+    session,
+    remembered,
+    checking,
+    verifying,
+    signingOut,
+    forgetting,
+  },
 }).createMachine({
   id: 'gate',
   context: initialContext,
@@ -217,13 +232,16 @@ export const gateMachine = setupEffect({
       invoke: {
         src: 'remembered',
         onDone: ({ context, event }) => {
-          const user = event.output as GateUser | null;
-          if (user === null) return { target: 'checking' };
-          const account = { user, token: null, active: true };
-          return {
-            target: 'open',
-            context: { ...context, accounts: [account], account },
-          };
+          const { accounts, lost } = event.output as Remembered;
+          if (lost !== null)
+            return {
+              target: 'accountLost',
+              context: { ...context, accounts, lost },
+            };
+          const account =
+            accounts.find(({ active }) => active) ?? accounts[0] ?? null;
+          if (account === null) return { target: 'checking' };
+          return { target: 'open', context: { ...context, accounts, account } };
         },
         onError: { target: 'checking' },
       },
@@ -260,6 +278,60 @@ export const gateMachine = setupEffect({
           context: { ...context, account: null },
         }),
         onError: { target: 'checking' },
+      },
+    },
+    accountLost: {
+      initial: 'verifying',
+      on: {
+        SWITCH: ({ context, event }) => {
+          const to = context.accounts.find(
+            ({ user }) => user.id === event.userId,
+          );
+          if (to === undefined) return;
+          return {
+            target: 'forgetting',
+            context: { ...context, account: to, pending: true, fresh: false },
+          };
+        },
+        // Nobody is left to switch to: forget the lost account.
+        SIGN_OUT: ({ context }) => ({
+          target: 'forgetting',
+          context: { ...context, account: null },
+        }),
+      },
+      states: {
+        idle: { on: { CHECK: { target: 'verifying' } } },
+        // Whether the User signed in to the lost account again, or someone
+        // new signed in.
+        verifying: {
+          invoke: {
+            src: 'checking',
+            onDone: ({ context, event }) => {
+              const checked = event.output as Checked;
+              if (checked.lost !== null)
+                return {
+                  target: 'idle',
+                  context: { ...context, accounts: checked.accounts },
+                };
+              return settle(checked, context) ?? { target: 'idle' };
+            },
+            onError: { target: 'idle' },
+          },
+        },
+      },
+    },
+    forgetting: {
+      invoke: {
+        src: 'forgetting',
+        input: ({ context }) => context.lost as GateUser,
+        onDone: ({ context }) => ({
+          target: context.account === null ? 'checking' : 'open',
+          context: { ...context, lost: null },
+        }),
+        onError: ({ context }) => ({
+          target: context.account === null ? 'checking' : 'open',
+          context: { ...context, lost: null },
+        }),
       },
     },
     unopenable: {
@@ -322,9 +394,9 @@ export const gateMachine = setupEffect({
                 }),
                 onDone: ({ context, event }) => {
                   const checked = event.output as Checked | null;
-                  // Just checked, or only the remembered account came back
-                  // because the Backend was not reached: nothing new.
-                  if (checked === null || !listed(checked))
+                  // Just checked, or the Backend was not reached: nothing
+                  // new.
+                  if (checked === null || !checked.answered)
                     return {
                       target: 'idle',
                       context: { ...context, fresh: false },

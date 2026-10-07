@@ -61,9 +61,18 @@ export type GateView<S> =
       readonly account: Account;
       readonly accounts: ReadonlyArray<Account>;
     }
-  | { readonly kind: 'unopenable'; readonly account: Account };
+  | { readonly kind: 'unopenable'; readonly account: Account }
+  /** The account that was open is signed out on another device or app. The
+   * User signs in to it again, keeping its Copy, or opens another account,
+   * deleting it; `accounts` are those still signed in. */
+  | {
+      readonly kind: 'accountLost';
+      readonly account: Account;
+      readonly accounts: ReadonlyArray<Account>;
+    };
 
 /** A message the Gate leaves for the app once. */
-export type GateNotice =
-  | { readonly kind: 'accountLost'; readonly user: GateUser }
-  | { readonly kind: 'loginError'; readonly error: LoginError };
+export type GateNotice = {
+  readonly kind: 'loginError';
+  readonly error: LoginError;
+};
