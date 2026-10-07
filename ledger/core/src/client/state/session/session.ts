@@ -14,6 +14,7 @@ import {
 } from '../../../shared/ledger/index.ts';
 import type { Session, User } from '../../domain/session/index.ts';
 import { copyName } from '../local-copies/index.ts';
+import { makeInOrder } from './in-order.ts';
 import {
   type Connection,
   type Credential,
@@ -59,6 +60,8 @@ const makeSession = (link: SessionLink, user: User, token: string | null) => {
       });
     const id = (value: Value) =>
       (value as Record<string, string>)[schema.idField]!;
+    // Each row's writes reach the Backend in the order they were made.
+    const inOrder = makeInOrder();
     return sync.collection(schema, {
       sync: {
         global: strategy.oldToNew({
@@ -70,11 +73,19 @@ const makeSession = (link: SessionLink, user: User, token: string | null) => {
         }),
       },
       onInsert: (items) =>
-        Effect.forEach(items, (value) => call<Entity<Value>>('Put', { value })),
+        Effect.forEach(items, (value) =>
+          inOrder(id(value), call<Entity<Value>>('Put', { value })),
+        ),
       onUpdate: ({ current, updates }) =>
-        call<Entity<Value>>('Put', { value: { ...current, ...updates } }),
+        inOrder(
+          id(current),
+          call<Entity<Value>>('Put', { value: { ...current, ...updates } }),
+        ),
       onDelete: ({ current }) =>
-        call<Entity<Value>>('Delete', { id: id(current) }),
+        inOrder(
+          id(current),
+          call<Entity<Value>>('Delete', { id: id(current) }),
+        ),
     });
   };
 

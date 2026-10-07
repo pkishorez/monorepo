@@ -15,9 +15,16 @@ import {
   shownBy,
   useLookup,
 } from '@ledger/core/client/views';
-import { byDay, dayName, type Entry, signed } from '@ledger/core/shared/ledger';
+import {
+  type Account,
+  byDay,
+  type Category,
+  dayName,
+  type Entry,
+  signed,
+} from '@ledger/core/shared/ledger';
 import { useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { SectionList, View } from 'react-native';
 import { useFeel } from '../../../ledger';
 import { useOpenAccount } from '../../sheets/accounts';
@@ -100,6 +107,33 @@ export function Entries(props: { readonly search: EntriesSearch }) {
     setMarked(markAfterRemoving(shown, entry, marked));
     forget(entry);
   };
+
+  // What a row does, made once and read through the latest render, so a
+  // row is drawn again only when its own Entry or mark changes.
+  const latest = useRef({ remove, open, setMarked, feel });
+  latest.current = { remove, open, setMarked, feel };
+  const acts = useRef<RowActs>({
+    remove: (entry) => latest.current.remove(entry),
+    open: (id) => {
+      latest.current.setMarked(id);
+      latest.current.open(id);
+    },
+    arm: () => latest.current.feel('arm'),
+    commit: () => latest.current.feel('delete'),
+  }).current;
+  const renderItem = useCallback(
+    ({ item: entry }: { readonly item: Entry }) => (
+      <Row
+        entry={entry}
+        category={lookup.category.get(entry.categoryId)}
+        account={lookup.account.get(entry.accountId)}
+        currency={currency}
+        marked={entry.id === marked}
+        acts={acts}
+      />
+    ),
+    [lookup, currency, marked, acts],
+  );
 
   const active = surface === 'entries';
   useCommand('next', () => mark(at + 1), {
@@ -188,39 +222,71 @@ export function Entries(props: { readonly search: EntriesSearch }) {
         ) : null
       }
       renderSectionHeader={({ section }) => (
-        <View className="mt-4 flex-row items-center justify-between bg-background px-3 py-1.5">
-          <Text muted className="text-xs">
-            {dayName(section.day)}
-          </Text>
-          <Amount
-            cents={section.data.reduce(
-              (sum, entry) => sum + signed(entry.cents, entry.way),
-              0,
-            )}
-            currency={currency}
-            className="text-xs text-muted-foreground"
-          />
-        </View>
+        <DayHeader
+          day={section.day}
+          cents={section.data.reduce(
+            (sum, entry) => sum + signed(entry.cents, entry.way),
+            0,
+          )}
+          currency={currency}
+        />
       )}
-      renderItem={({ item: entry }) => (
-        <SwipeRow
-          onArm={() => feel('arm')}
-          onCommit={() => feel('delete')}
-          onDelete={() => remove(entry)}
-        >
-          <EntryRow
-            entry={entry}
-            category={lookup.category.get(entry.categoryId)}
-            account={lookup.account.get(entry.accountId)}
-            currency={currency}
-            marked={entry.id === marked}
-            onPress={() => {
-              setMarked(entry.id);
-              open(entry.id);
-            }}
-          />
-        </SwipeRow>
-      )}
+      renderItem={renderItem}
     />
   );
 }
+
+// A day's heading, with what moved that day; drawn again only when it changes.
+const DayHeader = memo(function DayHeader(props: {
+  readonly day: string;
+  readonly cents: number;
+  readonly currency: string;
+}) {
+  return (
+    <View className="mt-4 flex-row items-center justify-between bg-background px-3 py-1.5">
+      <Text muted className="text-xs">
+        {dayName(props.day)}
+      </Text>
+      <Amount
+        cents={props.cents}
+        currency={props.currency}
+        className="text-xs text-muted-foreground"
+      />
+    </View>
+  );
+});
+
+type RowActs = {
+  readonly remove: (entry: Entry) => void;
+  readonly open: (id: string) => void;
+  readonly arm: () => void;
+  readonly commit: () => void;
+};
+
+// One Entry, swiped left to delete; drawn again only when its props change.
+const Row = memo(function Row(props: {
+  readonly entry: Entry;
+  readonly category: Category | undefined;
+  readonly account: Account | undefined;
+  readonly currency: string;
+  readonly marked: boolean;
+  readonly acts: RowActs;
+}) {
+  const { entry, acts } = props;
+  return (
+    <SwipeRow
+      onArm={acts.arm}
+      onCommit={acts.commit}
+      onDelete={() => acts.remove(entry)}
+    >
+      <EntryRow
+        entry={entry}
+        category={props.category}
+        account={props.account}
+        currency={props.currency}
+        marked={props.marked}
+        onPress={() => acts.open(entry.id)}
+      />
+    </SwipeRow>
+  );
+});
