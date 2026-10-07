@@ -1,6 +1,6 @@
 # Ledger on Expo: build notes
 
-> **Coordinator:** Phases 1–4 and all three Phase 5 batches (A, B and C) are merged, and `ledger/docs/parity.md` is reconciled: it carries every batch's row updates and its Counts table is recounted. The Android pass and Phase 6 (review, morning summary) are not done.
+> **Coordinator:** Phases 1–4 and all three Phase 5 batches (A, B and C) are merged, and `ledger/docs/parity.md` is reconciled: it carries every batch's row updates and its Counts table is recounted. The Android pass is done (Phase 5: Android, at the end). Phase 6 (review, morning summary) is not done.
 
 Running log of the Ledger on Expo build (brief: the untracked `plan.md`;
 spec: `.claude/specs/ledger-on-expo.md`). Each phase adds a section:
@@ -1730,3 +1730,143 @@ into view. Light and dark. Whole-repo `pnpm lint`, `pnpm test` and `pnpm build` 
 **Cleanup owed**
 
 - Recount the parity Counts table once batches A, B and C land.
+
+## Phase 5: Android
+
+The Simulator check repeated on Android: a Pixel 3a emulator (Android 14,
+API 34, arm64, Google APIs image), Expo Go 57.0.9, Metro on 8081 through
+`adb reverse tcp:8081 tcp:8081`, Expo Go opened with
+`adb shell am start -a android.intent.action.VIEW -d exp://127.0.0.1:8081 host.exp.exponent`.
+Local Backend as Ada with sample money, then the Remote Backend against the
+running sign-in service and this worktree's Ledger web dev server. Every
+step was a real touch (`adb shell input tap/swipe`, the kernel touchscreen
+through `sendevent` for a finger held mid-swipe), except one link noted
+below. Whole-repo `pnpm lint`, `pnpm test` and `pnpm build` pass (the build
+failed once on a docs prerender fetch timeout and passed on rerun).
+Screens: `ledger/expo/docs/screens/android-*.png`.
+
+**Passed**
+
+- Local sign-in, Home, Entries, a Month, the Add sheet, the Sidebar,
+  Settings General and Gestures, the Thumb Lock's Step and Section (an
+  earlier run, two fingers held through the kernel touchscreen), back from an Entry (Entries, the Entry
+  marked) and from a Month (Months), signed out.
+- Swipe-to-delete with Undo: the row arms, slides away, "Deleted Espresso"
+  shows at the top with Undo; Undo brings it back, marked and scrolled to
+  (`android-delete-toast.png`, `android-undo-restored.png`). Only after the
+  toast fix below.
+- Accounts sheet: the Sidebar's + opens it, it rises above the keyboard,
+  "Travel fund" (Bank) is added and listed with its balance.
+- Sidebar edge swipe follows the finger (`android-sidebar-edge-mid.png`)
+  and opens; Settings' sideways swipe turns the Section under the finger
+  (`android-settings-swipe-mid.png`); a right swipe on General opens the
+  Sidebar.
+- Add User (Grace, by name) and Switch User back to Ada.
+- Hardware back: closes the Sidebar first (opened by tap or edge swipe),
+  closes the Add sheet (the first press hides the keyboard), Entries,
+  Months and Settings go Home, Home leaves the app (after the fix below).
+- **Remote sign-in through Custom Tabs**: Settings → Backend → Remote → Sign
+  in with Google → Chrome's first-run screen ("Use without an account",
+  once per emulator) → the Auth Worker's Login Screen in a Custom Tab with a
+  trusted lock → Test sign-in → Ada → back in Ledger with Ada's server-side
+  money (`android-remote-home-ada.png`) as `ada@ledger.test`; Sign Out to
+  the signed-out card. The redirect `exp://127.0.0.1:8081/--/oauth/callback`
+  needed nothing new.
+
+**Fixes**
+
+- **Back on Home leaves** (`shell/globals.tsx`, ledger/expo). Home let the
+  press through, and Expo Router popped its stack to the last Place visited
+  (Settings → back → Home → back → Settings). It now calls
+  `BackHandler.exitApp()`. 5B's design assumed a press let through leaves.
+- **A toast's countdown starts once it is drawn** (expo-toolkit
+  `ToastStore.shown`, called as each toast mounts; tests in
+  `test/toast-store.test.ts`; changeset). On the emulator a delete held
+  the JS thread 2–5 s, longer than the toast's 4 s, which began at
+  `toast.show()`: the delete toast was hidden before it was ever drawn, so
+  Undo could not be reached.
+
+**Reaching the Mac's `*.kishore.computer` from the emulator** (the smallest
+route found; nothing committed)
+
+- Hosts: the AVD runs with `-writable-system`; after `adb root` and
+  `adb remount` (once per AVD), `/system/etc/hosts` maps
+  `auth.kishore.computer`, `kstack.kishore.computer`,
+  `ledger-on-expo.kstack.kishore.computer` to `10.0.2.2` (the Mac's
+  loopback, where portless listens on 443). It stays across reboots.
+- CA: portless's `~/.portless/ca.pem` as a system CA. Android 14 reads CAs
+  from the conscrypt APEX, so a script copies the APEX store to a tmpfs over
+  `/system/etc/security/cacerts`, adds the CA as `82115e91.0` (its
+  `openssl x509 -subject_hash_old`), and bind-mounts it over
+  `/apex/com.android.conscrypt/cacerts` in zygote and every app's mount
+  namespace. Lost on reboot; rerun after each boot, before opening Expo Go.
+  Both the app's `fetch` and Chrome's Custom Tab trusted it.
+- No `EXPO_PUBLIC_*` override was needed beyond 4b's
+  `EXPO_PUBLIC_LEDGER_URL=https://ledger-on-expo.kstack.kishore.computer`.
+  Overriding to `10.0.2.2` would not work: the certificates and the Auth
+  Worker's issuer and audience name `*.kishore.computer`.
+
+**Effect `DateTime.toDate` on Hermes Android (#8689): it bites, but not
+Ledger.** A probe on the emulator (removed): `toDate` of a UTC DateTime and
+of `nowUnsafe()` work; any zoned DateTime (`Asia/Kolkata`,
+`America/New_York`, and `formatIsoZoned`) throws `RangeError: Date value out
+of bounds`. Nothing in `ledger/*`, std-toolkit, auth-toolkit or expo-toolkit
+uses Effect's `DateTime`, so the app is unaffected. Do not add zoned
+DateTime to code that runs on Android until it is fixed.
+
+**Challenges**
+
+- Expo Go on Android does not answer `Runtime.evaluate` over Metro's
+  inspector (`-32601`), so `drive.mjs` and `touch.mjs` cannot drive it; real
+  touches (`input`, `sendevent`) did instead. Their new `DEVICE` variable is right for a development build;
+  unproven here.
+- `uiautomator dump` fails while anything animates, and the toast lived
+  inside that window; Undo was hit by tapping its left edge every half
+  second. Expo Go's floating gear covers the right half of Undo, as on iOS.
+- The AVD's 1.5 GB of RAM swapped (Expo Go ~800 MB in dev); with
+  `-memory 4096` it was usable. `-gpu host` once ran at seconds per frame;
+  a cold restart fixed it.
+- `am start` right after `am force-stop` sometimes did nothing; a second
+  `am start` opened Expo Go.
+- The Test sign-in link is 16 px tall at the very foot of the Custom Tab;
+  real taps there did nothing, so it was clicked through Chrome's DevTools
+  (`adb forward tcp:9333 localabstract:chrome_devtools_remote`). Ada was
+  then picked by a real tap.
+- Once, after a held `sendevent` swipe, a vertical swipe on Entries opened
+  the Sidebar and back then went Home behind it. Not reproduced with
+  ordinary touches or with further `sendevent` swipes; probably a stale
+  injected pointer.
+
+**Drawbacks and open questions**
+
+- **A delete stalls the JS thread 2–5 s** in dev mode on the emulator (the
+  swipe tile sits there, then the row goes). Not measured outside dev:
+  `expo start --no-dev --minify` in Expo Go never loads the lazily imported
+  Local Backend chunk (stuck on "Checking who is signed in…"). Measure on a
+  release build on a real Android phone; if it holds, look at the live
+  queries re-running on every write.
+- Entries' first frame after opening it draws only the first few rows
+  (FlatList batches); once, a row was drawn over its day's header after a
+  deletion, until the next scroll.
+- After the Accounts sheet's Add, Android's keyboard stays about a second
+  after the sheet has gone.
+
+**Not proven**
+
+- The two-finger Thumb Lock over a scrolling list with real fingers (kernel
+  touches hold two slots, but the scroll-claim case was not run).
+- Sounds and haptics (no ears or hands on the emulator).
+- Real Google, Add User on Remote, Manage Google accounts in a Custom Tab.
+
+**For the user to try on a real Android phone**
+
+1. Release or development build (`npx expo run:android`), Local Backend:
+   swipe-delete an entry, time the toast, tap Undo.
+2. Remote with real Google: sign in, Add User (Google should ask which
+   account), Switch, Sign Out; Settings → Manage Google accounts should show
+   the account signed in (Custom Tabs share Chrome's cookies).
+3. Back on Home after visiting a few Places leaves the app.
+
+**Left running / stopped**: the emulator, Metro and this worktree's Ledger
+web dev server were stopped by their own PIDs; the sign-in service was left
+running. Ada and Grace (`@ledger.test`) used the existing local accounts.
