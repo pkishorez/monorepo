@@ -1,6 +1,6 @@
 {
   "name": "@ledger/web",
-  "description": "Ledger on the web, published at kstack.kishore.app: the TanStack Start pages, the Worker serving the Remote Backend's /rpc, the infra, the PWA and the web platform Layer, deployed in one go.",
+  "description": "Ledger on the web, published at kstack.kishore.app: the TanStack Start pages, the Worker serving the cloud Backend's /rpc, the infra and the PWA, deployed in one go.",
   "private": true,
   "type": "module",
   "sideEffects": false,
@@ -17,19 +17,18 @@
     "check:native-sign-in": "node --use-system-ca scripts/native-sign-in.ts"
   },
   "dependencies": {
-    "effect": "catalog:",
     "@kstackz/auth-toolkit": "workspace:*",
-    "@kstackz/pwa-toolkit": "workspace:*",
     "@kstackz/std-toolkit": "workspace:*",
-    "@kstackz/ui-toolkit": "workspace:*",
     "@kstackz/use-gesture": "workspace:*",
     "@kstackz/use-keys": "workspace:*",
+    "@kstackz/web-toolkit": "workspace:*",
     "@ledger/core": "workspace:*",
+    "@tanstack/react-router": "catalog:",
+    "@tanstack/react-start": "catalog:",
+    "effect": "catalog:",
     "motion": "catalog:",
     "react": "catalog:",
-    "react-dom": "catalog:",
-    "@tanstack/react-router": "catalog:",
-    "@tanstack/react-start": "catalog:"
+    "react-dom": "catalog:"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "catalog:",

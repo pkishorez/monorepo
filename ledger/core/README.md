@@ -1,34 +1,50 @@
 # @ledger/core
 
-Everything Ledger's web and Expo apps share: the words of money, the Backend's domain and the Local Backend, the client's domain, state, Backends and Gate, and the Commands. Platform-free; each app hands it one platform Layer.
+Everything Ledger's web and Expo apps share: the API, the model, the Backend (handlers on services, each with a cloud and a device version), and the app: its link to the Backend, each user's Session, its cache, Commands and Places. Platform-free; each app hands it a platform from web-toolkit or expo-toolkit.
 
 ## Big picture
 
 Ledger runs in a browser ([`@ledger/web`](../web)) and natively on a phone
-(`@ledger/expo`). Everything below their screens lives here once, so the two
-apps cannot drift: the same Backends, Users, Settings, app machine and
-Commands. The words are in [`../CONTEXT.md`](../CONTEXT.md), the decisions in
-[`../docs/adr/`](../docs/adr/); the split itself is ADR 0010.
+([`@ledger/expo`](../expo)). Everything below their screens lives here once,
+so the two apps cannot drift: the same Backend, Users, Settings and Commands.
+The words are in [`../CONTEXT.md`](../CONTEXT.md), the decisions in
+[`../docs/adr/`](../docs/adr/); the split into core, web and Expo is ADR 0010,
+and the layout below is the root
+[ADR 0004](../../docs/adr/0004-an-app-is-api-backend-and-stores.md).
+
+`src/` reads as an app on the kstack toolkits does: `api/` (the Ledger API),
+`model/` (the words of money), `backend/` and `app/`. The Backend
+(`backend/backend.ts`) is the API's handlers (`backend/handlers/`) on the
+services they need, the ledger table and who a token names, each with a
+`cloud` and a `device` version in `backend/services/<name>/`. Which versions
+are given decides where it runs: web's Worker gives the cloud ones, and the
+app gives itself the device ones to run the device Backend in the page or on
+the phone. `app/` is what the screens use: `app/ledger.ts` hands
+auth-toolkit's `createApp` the Backend Link (`app/link`: how a session
+calls the Backend's API and the platform its Std Sync runs on, per Backend)
+and the Session (`app/session`: one user's money through Std Sync and
+TanStack DB, per signed-in user), and opens the cache (`app/cache/settings`: this device's
+Settings, which belong to no user). The Commands (`app/commands`) and the
+Places with what each shows (`app/places`) sit beside them.
 
 Core imports nothing from `react-dom`, `react-native`, `window`, `document` or
-`indexedDB`. What differs by platform is one Effect service,
-`LedgerPlatform` (`src/client/platform`): where tables and copies are kept,
-how a User signs in to the Remote Backend and where it is, the last User, and
-when the app is online or in view. Each app provides it as one Layer and hands
-it to `createLedger`, which gives the screens everything else. The
-TypeScript config has no DOM or Node library, and
-`tests/platform-free.test.ts` fails on any platform import or browser global,
-so the seam cannot be skipped.
-
-`src/` reads top-down as in `laymos.config.json`: the Gate over each
-Backend's client half, built from the platform and the client's state and
-domain; the Local Backend's server half over the Backend's domain; the words
-of money at the bottom; the Commands, with the Place order that names them, on their own; and what each Place shows, worked out once over the open Session's money. The Remote Backend's
-server half is not here: web hosts it, and the Expo app points at it.
+`indexedDB`. What differs by platform is one auth-toolkit `AppPlatform`, which
+each app gets ready-made from web-toolkit's `webPlatform` or expo-toolkit's
+`expoPlatform` and hands to `createLedger`. The TypeScript config has no DOM
+or Node library, and `tests/platform-free.test.ts` fails on any platform
+import or browser global, so the seam cannot be skipped. Layers and their
+rules are in `laymos.config.json`.
 
 ## Exports
 
-### `@ledger/core/shared/ledger`
+### `@ledger/core/api`
+
+| Export        | What it does                                         |
+| ------------- | ---------------------------------------------------- |
+| `LedgerApi`   | The RPC group both Backends answer and clients call. |
+| `LedgerError` | Why the Backend refused a call.                      |
+
+### `@ledger/core/model`
 
 | Export                                                                                      | What it does                                                    |
 | ------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
@@ -39,58 +55,72 @@ server half is not here: web hosts it, and the Expo app points at it.
 | `balances`, `byDay`, `monthsOf`, `newestFirst`, `summarize`                                 | The sums over Entries: balances, days, Months and their totals. |
 | `sample`                                                                                    | The sample Accounts, Categories and Entries for a new User.     |
 
-### `@ledger/core/shared/ledger-api`
+### `@ledger/core/backend`
 
-| Export        | What it does                                         |
-| ------------- | ---------------------------------------------------- |
-| `LedgerApi`   | The RPC group both Backends answer and clients call. |
-| `LedgerError` | Why the Backend refused a call.                      |
+| Export          | What it does                                                                                                                                  |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ledgerBackend` | The Backend wherever it runs: the Ledger API's handlers, each call checked for the User who signed it; needs the ledger table and a Resolver. |
 
-### `@ledger/core/server/storage`
+### `@ledger/core/backend/services/table`
 
 | Export                                             | What it does                                                   |
 | -------------------------------------------------- | -------------------------------------------------------------- |
 | `ledgerTable`                                      | The one table every User's money is kept in, a partition each. |
 | `accounts`, `categories`, `entries`, `preferences` | Each kind of money on that table.                              |
 
-### `@ledger/core/server/backend`
+### `@ledger/core/backend/services/table/cloud`
 
-| Export          | What it does                                                     |
-| --------------- | ---------------------------------------------------------------- |
-| `ledgerBackend` | The Ledger API's handlers, given a table adapter and a Resolver. |
+| Export       | What it does                                                          |
+| ------------ | --------------------------------------------------------------------- |
+| `tableCloud` | The ledger table in the Worker's D1 database, from its `env` binding. |
 
-### `@ledger/core/client/platform`
+### `@ledger/core/backend/services/table/device`
 
-| Export           | What it does                                                   |
-| ---------------- | -------------------------------------------------------------- |
-| `LedgerPlatform` | The service each app provides, as one Layer, for what differs. |
+| Export        | What it does                                                                                                                                    |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tableDevice` | The ledger table on this device, kept where the `AppPlatform` keeps tables (database `local-backend`, so what it held before the rename stays). |
 
-### `@ledger/core/client/settings`
+### `@ledger/core/backend/services/auth/cloud`
 
-| Export                                           | What it does                                       |
-| ------------------------------------------------ | -------------------------------------------------- |
-| `Backend`                                        | The Schema of the two Backends, Remote and Local.  |
-| `Settings`                                       | The Schema of this device's Settings.              |
-| `defaultSettings`                                | The Settings of a device that changed none.        |
-| `settingsTable`, `settingsEntity`, `SETTINGS_ID` | The table Settings are kept in, and their one row. |
+| Export      | What it does                                                                                                                    |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `authCloud` | Who a call is from in the cloud: a Session token or an Access Token for Ledger's resource, checked against the sign-in service. |
 
-### `@ledger/core/client/session`
+### `@ledger/core/backend/services/auth/device`
 
-| Export            | What it does                                              |
-| ----------------- | --------------------------------------------------------- |
-| `SessionProvider` | Gives the open Session to everything inside it.           |
-| `useSession`      | The open Session.                                         |
-| `useUser`         | The User whose Session is open.                           |
-| `useMoney`        | Every Account, Category and Entry of the open User, live. |
-| `useWrites`       | The writes a User makes, each shown at once.              |
+| Export       | What it does                                                      |
+| ------------ | ----------------------------------------------------------------- |
+| `authDevice` | Who a call is from on this device: whoever its Local Token names. |
 
-### `@ledger/core/client/gate`
+### `@ledger/core/app`
 
-| Export         | What it does                                                                   |
-| -------------- | ------------------------------------------------------------------------------ |
-| `createLedger` | Ledger's client on one platform Layer: its state, Users, Backend and Settings. |
+| Export         | What it does                                                                                                                              |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `createLedger` | Ledger on one platform: auth-toolkit's `createApp` with Ledger's Backend Link and Session, plus `useSettings` for this device's Settings. |
 
-### `@ledger/core/client/commands`
+### `@ledger/core/app/session`
+
+| Export            | What it does                                                                      |
+| ----------------- | --------------------------------------------------------------------------------- |
+| `ledgerSession`   | The Session for `createApp`: one signed-in User's Session, over the Backend Link. |
+| `openSession`     | Opens one User's Session over a Backend Link for as long as its scope lasts.      |
+| `SessionProvider` | Gives the open Session to everything inside it.                                   |
+| `useSession`      | The open Session.                                                                 |
+| `useUser`         | The User whose Session is open.                                                   |
+| `useMoney`        | Every Account, Category and Entry of the open User, live.                         |
+| `useWrites`       | The writes a User makes, each shown at once.                                      |
+
+### `@ledger/core/app/settings`
+
+| Export                                           | What it does                                                         |
+| ------------------------------------------------ | -------------------------------------------------------------------- |
+| `Settings`                                       | The Schema of this device's Settings.                                |
+| `defaultSettings`                                | The Settings of a device that changed none.                          |
+| `settingsTable`, `settingsEntity`, `SETTINGS_ID` | The table Settings are kept in, and their one row.                   |
+| `openSettings`                                   | Opens this device's Settings on a table: live, and changed in place. |
+| `useSettings`                                    | This device's Settings in React, live.                               |
+
+### `@ledger/core/app/commands`
 
 | Export                                                        | What it does                                            |
 | ------------------------------------------------------------- | ------------------------------------------------------- |
@@ -102,50 +132,70 @@ server half is not here: web hosts it, and the Expo app points at it.
 | `said`                                                        | A gesture in words, as the Gestures Section says it.    |
 | `bindingsOf`, `written`, `bindingOf`, `keysOff`, `ACTION_IDS` | The User's own keys, stored and read back.              |
 
-### `@ledger/core/client/places`
+### `@ledger/core/app/places`
 
-| Export              | What it does                                                                             |
-| ------------------- | ---------------------------------------------------------------------------------------- |
-| `PLACES`            | Every Place in the Place order, with its address and the Command that Goes there.        |
-| `SETTINGS_SECTIONS` | The Sections of Settings in order, each with its Command.                                |
-| `stopsFrom`         | What a Thumb Lock picks from where you are, and where it starts; icons named, not drawn. |
-| `placeTitle`        | What the header calls the Place at an address.                                           |
-
-### `@ledger/core/client/views`
-
-| Export                                                        | What it does                                                               |
-| ------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| `glance`                                                      | Home's Month: what is left, in against out, Budgets fullest first, latest. |
-| `monthsView`, `monthView`                                     | The Months with the biggest of any; one Month, its days and its turns.     |
-| `validateEntriesSearch`, `shownBy`, `narrowedTo`, `narrowing` | Which Entries an Entries search shows, and the narrowing in words.         |
-| `entryAt`, `markAfterRemoving`                                | An open Entry's place and neighbours; where the mark goes after a delete.  |
-| `firstAccount`, `quickDays`, `ACCOUNT_KINDS`                  | What a new Entry or Account starts from.                                   |
-| `useLookup`                                                   | The User's Accounts and Categories by id.                                  |
+| Export                                                        | What it does                                                                             |
+| ------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `PLACES`                                                      | Every Place in the Place order, with its address and the Command that Goes there.        |
+| `SETTINGS_SECTIONS`                                           | The Sections of Settings in order, each with its Command.                                |
+| `stopsFrom`                                                   | What a Thumb Lock picks from where you are, and where it starts; icons named, not drawn. |
+| `placeTitle`                                                  | What the header calls the Place at an address.                                           |
+| `glance`                                                      | Home's Month: what is left, in against out, Budgets fullest first, latest.               |
+| `monthsView`, `monthView`                                     | The Months with the biggest of any; one Month, its days and its turns.                   |
+| `validateEntriesSearch`, `shownBy`, `narrowedTo`, `narrowing` | Which Entries an Entries search shows, and the narrowing in words.                       |
+| `entryAt`, `markAfterRemoving`                                | An open Entry's place and neighbours; where the mark goes after a delete.                |
+| `firstAccount`, `quickDays`, `ACCOUNT_KINDS`                  | What a new Entry or Account starts from.                                                 |
+| `useLookup`                                                   | The User's Accounts and Categories by id.                                                |
 
 ## Usage
 
 ### Run Ledger on a platform
 
-An app provides `LedgerPlatform` as one Layer and makes its client once; its
-screens use what comes back.
+An app makes Ledger once on its platform; its screens use what comes back.
 
 ```ts
-// ledger/web/src/client/app/app.ts
-import { createLedger } from '@ledger/core/client/gate';
-import { webPlatform } from '../platform/index.ts';
+// ledger/web/src/app.ts
+import { createLedger } from '@ledger/core/app';
+import { webPlatform } from '@kstackz/web-toolkit/client';
+import { AUTH_URL } from './stage.ts';
 
-export const { useApp, useSettings, addUser, switchUser, signOut } =
-  createLedger(webPlatform);
+export const { SignedIn, useAccounts, useGate, useSession, useSettings } =
+  createLedger(() => webPlatform({ name: 'ledger', authUrl: AUTH_URL }));
 ```
 
-- Nothing runs until a screen first calls `useApp`, so the module can load
-  where the platform is not there yet, as on a web server.
-- `webPlatform` (`ledger/web/src/client/platform`) is the reference: IndexedDB,
-  `localStorage`, the Auth Worker's cookies and window events.
+- Nothing runs until a screen first renders `SignedIn` or calls a hook, and
+  the platform is passed as a function, so the module can load where the
+  platform is not there yet, as on a web server.
+- The Expo app does the same with `expoPlatform` from
+  `@kstackz/expo-toolkit/platform` (`ledger/expo/src/ledger/app.ts`).
+- The device Backend's code is loaded the first time someone chooses it: a
+  chunk of its own on the web; on a phone Metro picks
+  `app/link/load-device.native.ts`, which has it in the bundle.
+
+### Serve the cloud Backend
+
+The Worker gives the Backend the cloud versions of its services.
+
+```ts
+// ledger/web/src/worker.ts
+serveRpc(
+  request,
+  LedgerApi,
+  ledgerBackend.pipe(
+    Layer.provide([
+      tableCloud(env.DB),
+      authCloud({ authUrl: AUTH_URL, resource: LEDGER_RESOURCE }),
+    ]),
+  ),
+);
+```
+
+- The device Backend is the same `ledgerBackend` on `tableDevice` and
+  `authDevice`, run in-process by the device's Backend Link.
 
 ### Check
 
 ```bash
-pnpm --filter @ledger/core test   # domain, the app machine, the Ledger API, platform-free
+pnpm --filter @ledger/core test   # the model, the Backend, Settings, sessions, Commands, Places, platform-free
 pnpm --filter @ledger/core lint   # tsc without DOM or Node, and laymos lint
 ```

@@ -1,12 +1,12 @@
 import { GestureSurface } from '@kstackz/expo-toolkit/input';
-import { SidebarSwipe } from '@kstackz/expo-toolkit/patterns/sidebar';
+import { SidebarSwipe } from '@kstackz/expo-toolkit/recipes/sidebar';
 import {
   type Choice,
   ThumbPicker,
-} from '@kstackz/expo-toolkit/patterns/thumb-picker';
-import { type ActionId, keys, quietly } from '@ledger/core/client/commands';
-import { PLACES, type Stop, stopsFrom } from '@ledger/core/client/places';
-import { useMoney } from '@ledger/core/client/session';
+} from '@kstackz/expo-toolkit/recipes/thumb-picker';
+import { type ActionId, keys, quietly } from '@ledger/core/app/commands';
+import { PLACES, type Stop, stopsFrom } from '@ledger/core/app/places';
+import { useMoney } from '@ledger/core/app/session';
 import { useGlobalSearchParams, usePathname, useRouter } from 'expo-router';
 import { type ReactNode, useMemo, useRef } from 'react';
 import { useFeel, useSettings } from '../../ledger';
@@ -51,7 +51,7 @@ const SECTIONS = ['general', 'gestures'] as const;
  * the picker draws its menu again only then.
  */
 function Thumb() {
-  const settings = useSettings();
+  const [settings] = useSettings();
   const { actions } = keys.useStatus();
   const run = keys.useRun();
   const router = useRouter();

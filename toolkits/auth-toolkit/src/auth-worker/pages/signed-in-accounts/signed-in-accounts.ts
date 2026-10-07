@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { AccountsView } from '@kstackz/ui-toolkit/components/blocks/auth';
+import type { AccountsView } from '../../ui/screens/auth-screens';
 
 import {
   navigate,

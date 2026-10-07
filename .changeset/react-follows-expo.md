@@ -1,8 +1,7 @@
 ---
 '@kstackz/auth-toolkit': patch
-'@kstackz/pwa-toolkit': patch
+'@kstackz/web-toolkit': patch
 '@kstackz/std-toolkit': patch
-'@kstackz/ui-toolkit': patch
 '@kstackz/use-gesture': patch
 '@kstackz/use-keys': patch
 'use-effect-ts': patch

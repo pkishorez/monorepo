@@ -1,45 +1,41 @@
 {
   "$schema": "../../devtools/laymos/schema.json",
   "sourceRoots": ["src"],
-  "ignoredPaths": [
-    "src/entry/web/routeTree.gen.ts",
-    "src/entry/web/styles.css"
-  ],
+  "ignoredPaths": ["src/routeTree.gen.ts", "src/styles.css"],
   "layers": {
-    "entry-web": {
-      "paths": ["src/entry/web"],
-      "description": "Where the browser starts: the router, the document with its Splash for iOS, the offline page, and one thin route for each Place. The router reaches the routes through the generated route tree, so nothing imports them",
+    "routes": {
+      "paths": ["src/routes", "src/router.tsx"],
+      "description": "Where the browser starts: the router, the root document from web-toolkit, made a PWA, the offline page, and one thin route for each Place. The router reaches the routes through the generated route tree, so nothing imports them",
       "modules": {
-        "src/entry/web/router.tsx": {},
-        "src/entry/web/routes": {},
-        "src/entry/web/splash": {
-          "shared": true
-        }
+        "src/router.tsx": {},
+        "src/routes": {}
       }
     },
-    "entry-worker": {
-      "paths": ["src/entry/worker"],
-      "description": "Where the Worker starts: /rpc goes to the Remote Backend, everything else to the app",
+    "worker": {
+      "paths": ["src/worker.ts", "src/tests"],
+      "description": "The Worker: /rpc is core's Backend on its cloud services, the D1 database and the sign-in service; everything else is the app",
       "modules": {
-        "src/entry/worker/server.ts": {}
-      }
-    },
-    "entry-infra": {
-      "paths": ["src/entry/infra"],
-      "description": "Deployable resources, composed by alchemy.run.ts: the D1 database, core's ledger table on it, and the Worker",
-      "modules": {
-        "src/entry/infra": {
+        "src/worker.ts": {
           "exposed": true
         }
       }
     },
-    "client-screens": {
-      "paths": ["src/client/screens"],
+    "infra": {
+      "paths": ["src/infra"],
+      "description": "Deployable resources, composed by alchemy.run.ts: the D1 database, core's ledger table on it, and the Worker",
+      "modules": {
+        "src/infra": {
+          "exposed": true
+        }
+      }
+    },
+    "screens": {
+      "paths": ["src/screens"],
       "description": "What the user sees in a browser: the shell around every Place, each Place, the sheets over them, and the parts they share",
       "moduleGraphs": {
         "screens": {
           "description": "The shell holds every sheet; each Place is its own module the routes open; all of them draw with the shared parts, and Entries opens the Account sheet too",
-          "path": "src/client/screens",
+          "path": "src/screens",
           "modules": {
             "shell": {
               "exposed": true
@@ -78,47 +74,20 @@
         }
       }
     },
-    "client-app": {
-      "paths": ["src/client/app"],
-      "description": "Ledger's client from core, made once on the web platform Layer, with the theme: what every screen uses for Ledger's state, Settings, Users and Backend",
+    "app": {
+      "paths": ["src/app.ts"],
+      "description": "Ledger in the browser, made once from core on web-toolkit's platform, with the theme: what every screen uses for sign-in, the session and Settings",
       "modules": {
-        "src/client/app": {
+        "src/app.ts": {
           "exposed": true
         }
       }
     },
-    "client-platform": {
-      "paths": ["src/client/platform"],
-      "description": "The web platform Layer core asks for: tables and Remote copies in IndexedDB, the last User in localStorage, Google sign-in through the Auth Worker's cookies, the Ledger API at this origin, and the window's network and visibility events",
+    "stage": {
+      "paths": ["src/stage.ts"],
+      "description": "Where this stage's sign-in service is, and the audience the cloud Backend checks",
       "modules": {
-        "src/client/platform": {
-          "exposed": true
-        }
-      }
-    },
-    "client-kit": {
-      "paths": ["src/client/kit"],
-      "description": "What Ledger needed that no package has yet: sounds made on demand, the Thumb Picker, what the device can be driven by, and how keys read and are recorded on this platform. Each knows nothing of Ledger",
-      "modules": {
-        "src/client/kit/sound": {
-          "exposed": true
-        },
-        "src/client/kit/thumb-picker": {
-          "exposed": true
-        },
-        "src/client/kit/input": {
-          "exposed": true
-        },
-        "src/client/kit/keyboard": {
-          "exposed": true
-        }
-      }
-    },
-    "server-remote": {
-      "paths": ["src/server/backends/remote"],
-      "description": "The Remote Backend's server half: core's Backend on D1, checked by the Auth Worker, answering /rpc over HTTP",
-      "modules": {
-        "src/server/backends/remote": {
+        "src/stage.ts": {
           "exposed": true
         }
       }
@@ -126,16 +95,14 @@
   },
   "layerGraphs": {
     "ledger-web": {
-      "description": "Read top-down: entry starts the browser and the Worker; the screens over Ledger's client from core, made on the web platform Layer, and the web kit; the Worker over the Remote Backend's server half and the infra. Everything shared with the Expo app is in @ledger/core",
+      "description": "Read top-down: the routes open the screens, which use Ledger from app.ts, made on web-toolkit's platform; the Worker runs core's Backend on its cloud services, beside the infra. Everything shared with the Expo app is in @ledger/core",
       "rules": {
-        "entry-web": ["client-screens"],
-        "entry-worker": ["entry-infra", "server-remote"],
-        "entry-infra": [],
-        "client-screens": ["client-app", "client-kit"],
-        "client-app": ["client-platform"],
-        "client-platform": [],
-        "client-kit": [],
-        "server-remote": []
+        "routes": ["screens", "app"],
+        "worker": ["infra", "stage"],
+        "infra": [],
+        "screens": ["app"],
+        "app": ["stage"],
+        "stage": []
       }
     }
   }

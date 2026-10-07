@@ -6,15 +6,15 @@ import { Text } from '@kstackz/expo-toolkit/components/text';
 import {
   SidebarProvider,
   useSidebar,
-} from '@kstackz/expo-toolkit/patterns/sidebar';
-import { keys } from '@ledger/core/client/commands';
-import { placeTitle } from '@ledger/core/client/places';
+} from '@kstackz/expo-toolkit/recipes/sidebar';
+import { keys } from '@ledger/core/app/commands';
+import { placeTitle } from '@ledger/core/app/places';
 import { usePathname } from 'expo-router';
 import type { ReactNode } from 'react';
 import { Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCSSVariable } from 'uniwind';
-import { useOnline } from '../../ledger';
+import { useGate } from '../../ledger';
 import { AccountSheet } from '../sheets/accounts';
 import { AddSheet } from '../sheets/add';
 import { GestureLayer } from './gestures';
@@ -50,7 +50,7 @@ export function Frame(props: { readonly children: ReactNode }) {
 // The one button, at the thumb: Add.
 function AddButton() {
   const run = keys.useRun();
-  const online = useOnline();
+  const { online } = useGate();
   const insets = useSafeAreaInsets();
   return (
     <Pressable
@@ -81,7 +81,7 @@ function AddGlyph() {
 function Header() {
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
-  const online = useOnline();
+  const { online } = useGate();
   const run = keys.useRun();
   const { open } = useSidebar();
   return (

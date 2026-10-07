@@ -16,11 +16,20 @@ Client, a fixed OAuth client with PKCE and no consent, and holds its own
 tokens on the phone ([ADR 0017](./docs/adr/0017-first-party-native-apps-are-fixed-oauth-clients.md)).
 
 The package builds on `@kstackz/rpc-toolkit` for the `Authz` Cannotation that guards
-Effect RPC and HTTP API endpoints, and on `@kstackz/ui-toolkit` for the prebuilt
-login, consent, device, and home pages the Worker serves itself. Subpaths
-are named for the program that imports them: `worker/*` for the Auth Worker,
-`server/*` for a Consumer Backend, `clients/*` for a First-Party browser or
-CLI. `rpc` and `http-api` are declarations both sides share. Effect is
+Effect RPC and HTTP API endpoints. The login, consent, device, and home pages
+the Worker serves itself are built from the package's own copies of their
+screens in `src/auth-worker/ui`; auth-toolkit never imports
+`@kstackz/web-toolkit` ([ADR 0003](../../docs/adr/0003-web-toolkit-and-the-gate.md)).
+Subpaths are named for the program that imports them: `worker/*` for the Auth
+Worker, `server/*` for a Consumer Backend, `clients/*` for a First-Party
+browser or CLI. `rpc` and `http-api` are declarations both sides share.
+`gate` and `gate/react` run an app's sign-in on one device, on any platform,
+on the cloud or the device Backend. `app` builds an app on the Gate: its
+`createApp` opens the app's Backend Link and Session and closes them
+again, and deletes a signed-out user's copy; the app says only what the stores
+hold ([ADR 0004](../../docs/adr/0004-an-app-is-api-backend-and-stores.md)).
+`webPlatform` from `@kstackz/web-toolkit/client` and `expoPlatform` from
+`@kstackz/expo-toolkit/platform` give it the browser or the phone. Effect is
 optional: `server/session`, `server/access-token`, and `server/mcp` are plain
 TypeScript. The source is laid out the same way, all resting on one Auth
 Worker Contract ([ADR 0013](./docs/adr/0013-one-auth-worker-contract-three-program-graphs.md)).
@@ -45,9 +54,9 @@ pnpm add @kstackz/auth-toolkit
 
 Peer dependencies, all optional; install the ones your subpaths need:
 
-- `effect`: the `rpc`, `server/rpc`, `http-api`, `server/http-api`, `clients/auth`, and `clients/cli` subpaths are Effect Layers and Services.
-- `@kstackz/std-toolkit`: `authLocal` from `@kstackz/auth-toolkit/clients/auth` keeps Local Accounts in a StdTable.
-- `react`: the Auth Worker's own pages are React.
+- `effect`: the `rpc`, `server/rpc`, `http-api`, `server/http-api`, `clients/auth`, `gate`, `app`, and `clients/cli` subpaths are Effect Layers and Services.
+- `@kstackz/std-toolkit`: `authLocal` from `@kstackz/auth-toolkit/clients/auth` keeps Local Accounts in a StdTable; `app` keeps them there for the device Backend.
+- `react`: the Auth Worker's own pages are React, and so are `@kstackz/auth-toolkit/gate/react` and `@kstackz/auth-toolkit/app`.
 - `better-sqlite3`: `@kstackz/auth-toolkit/worker/database/memory` runs SQLite in-process for tests.
 - `alchemy`: `@kstackz/auth-toolkit/worker/alchemy/d1` declares the D1 resource in `alchemy.run.ts`.
 - `expo-auth-session`: `@kstackz/auth-toolkit/clients/auth/expo` runs the authorization in the system sign-in sheet, with PKCE and a checked `state`.
@@ -103,18 +112,18 @@ Peer dependencies, all optional; install the ones your subpaths need:
 
 ### `@kstackz/auth-toolkit/rpc`
 
-| Export                          | What it does                                                                                    |
-| ------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `Authz`                         | The Auth Cannotation for Effect RPC; safe to import from contracts shared with the browser.     |
-| `Authz.guard`                   | Attaches an Authentication Requirement, or an Authorization Policy, to an RPC or an RPC group.  |
-| `Authz.bearer`                  | Client Layer that signs every guarded call with one Session's token, over any RPC Protocol.     |
-| `Authz.policy`                  | Builds an Authorization Policy from a boolean or Effect invariant and the reason it fails with. |
-| `Authz.scope`                   | Builds a policy that passes only a Token Principal carrying every listed Scope.                 |
-| `Authz.CurrentAuth`             | Service holding the verified Principal while a guarded handler runs.                            |
-| `Authz.Resolver`                | Service tag of the Current Auth Resolver; tests replace it, production uses `resolverLive`.     |
-| `Authz.Unauthenticated`         | Error for a request with no valid credential.                                                   |
-| `Authz.Forbidden`               | Error for a Principal a policy rejected.                                                        |
-| `Authz.VerificationUnavailable` | Error when the Auth Worker could not complete Server-Side Verification.                         |
+| Export                          | What it does                                                                                                              |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `Authz`                         | The Auth Cannotation for Effect RPC; safe to import from contracts shared with the browser.                               |
+| `Authz.guard`                   | Attaches an Authentication Requirement, or an Authorization Policy, to an RPC or an RPC group.                            |
+| `Authz.bearer`                  | Client Layer that signs every guarded call with one Session's token, or waits on an Effect for it, over any RPC Protocol. |
+| `Authz.policy`                  | Builds an Authorization Policy from a boolean or Effect invariant and the reason it fails with.                           |
+| `Authz.scope`                   | Builds a policy that passes only a Token Principal carrying every listed Scope.                                           |
+| `Authz.CurrentAuth`             | Service holding the verified Principal while a guarded handler runs.                                                      |
+| `Authz.Resolver`                | Service tag of the Current Auth Resolver; tests replace it, production uses `resolverLive`.                               |
+| `Authz.Unauthenticated`         | Error for a request with no valid credential.                                                                             |
+| `Authz.Forbidden`               | Error for a Principal a policy rejected.                                                                                  |
+| `Authz.VerificationUnavailable` | Error when the Auth Worker could not complete Server-Side Verification.                                                   |
 
 ### `@kstackz/auth-toolkit/server/rpc`
 
@@ -177,6 +186,35 @@ Peer dependencies, all optional; install the ones your subpaths need:
 | ---------------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | `authExpo`       | Layer of `Auth` on a phone: each User signs in as the app's First-Party Client and keeps their own tokens in secure storage. |
 | `manageAccounts` | Opens the Auth Worker's Home Page in the sign-in sheet, which holds the User's sign-in.                                      |
+
+### `@kstackz/auth-toolkit/gate`
+
+| Export           | What it does                                                                                                                      |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `createGate`     | Makes the Gate for one app from its platform, its `cloud` and `device` Backend Lifetimes, and what its Session Lifetime opens to. |
+| `memoryPlatform` | A Gate platform kept in memory, with no network events and no other tabs, for tests and for places nothing outlives the process.  |
+| `Backend`        | Schema of the two Backends, `cloud` and `device`.                                                                                 |
+| `backendNamed`   | The Backend a name names, read from the former `remote` and `local` too; null for anything else.                                  |
+
+### `@kstackz/auth-toolkit/gate/react`
+
+| Export        | What it does                                                                                                                                                          |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `gateReact`   | Turns a Gate into the components and hooks below; nothing runs until one of them first renders.                                                                       |
+| `SignedIn`    | Renders its children while an account is open, and a fallback otherwise; remounts them on an Account Switch.                                                          |
+| `SignedOut`   | Renders its children only while nobody is signed in.                                                                                                                  |
+| `useGate`     | Works anywhere: `view`, `backend` and `setBackend`, `online`, `notice` and `dismissNotice`, `checkAgain`, `retry`, `signIn`, `signOut`, and `localSignIn`'s question. |
+| `useAccounts` | Only inside `SignedIn`: the `current` account, `all` of them, `add`, `switchTo`, `signOut` and `signOutEveryone`.                                                     |
+| `useSession`  | The open account's Session Lifetime; only inside `SignedIn`.                                                                                                          |
+
+### `@kstackz/auth-toolkit/app`
+
+| Export        | What it does                                                                                                                                                                                                                          |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `createApp`   | Makes an app on the Gate from its platform, its Backend Link to the `cloud` and the `device` Backend, and its Session; returns `gate`, `platform`, `SignedIn`, `SignedOut`, `useGate`, `useSession`, and `useAccounts` with `manage`. |
+| `AppPlatform` | Service of what an app needs of its platform: tables kept by database, Std Sync's platform (`sync`), the cloud Backend's sign-in and address, and the Gate's platform.                                                                |
+| `syncName`    | The name of one user's Std Sync on this device; what a sync named with it keeps is deleted once the user signs out.                                                                                                                   |
+| `keepSyncs`   | Deletes the Std Sync of every user but those given, touching only names `syncName` makes.                                                                                                                                             |
 
 ### `@kstackz/auth-toolkit/clients/cli`
 
@@ -319,7 +357,7 @@ const app = Effect.gen(function* () {
 Both clients hold a Session and talk only to the Auth Worker. In a browser,
 `Auth` lists the Signed-in Accounts and signs one in with Google; each
 account's token signs that account's own calls through `Authz.bearer`. Lifted from
-`ledger/core/src/client/state`. In a CLI, `CliAuth` plays the browser's part:
+`ledger/core/src/app/session`. In a CLI, `CliAuth` plays the browser's part:
 it runs Device Login, keeps the Session, attaches it to every call, and drops
 it on sign-out; lifted from `src/clients/cli/tests/cli.test.ts`.
 
@@ -386,7 +424,7 @@ Layer.mergeAll(
 
 - In the browser, `list` is a Direct Session Check against the Auth Worker, sent with its cookie. `signIn` returns to the current page; a failed sign-in comes back once from `takeLoginError`, which clears it from the URL.
 - `switchTo` makes an account the Active Account for every app on the Shared Cookie Domain; `signOut` ends one account and `signOutAll` every one.
-- To run without Google or the Auth Worker, provide `authLocal({ choose })` in the browser and `resolverLocal` on the backend: a Local Account's token is a Local Token, which `resolverLocal` reads without asking anyone. `localChooser` and ui-toolkit's `LocalSignIn` dialog ask who to sign in as. See [ADR 0016](./docs/adr/0016-auth-runs-locally-at-two-seams-joined-by-a-local-token.md).
+- To run without Google or the Auth Worker, provide `authLocal({ choose })` in the browser and `resolverLocal` on the backend: a Local Account's token is a Local Token, which `resolverLocal` reads without asking anyone. `localChooser` asks who to sign in as; in an app, web-toolkit's `LocalSignIn` recipe (`@kstackz/web-toolkit/recipes/local-sign-in`) is the dialog that answers it. See [ADR 0016](./docs/adr/0016-auth-runs-locally-at-two-seams-joined-by-a-local-token.md).
 - In the CLI, `login` prints the code and device URL, opens the browser when run in a terminal, polls until the User approves, and stores the Session at `$XDG_STATE_HOME/<app>/auth.json` (default `~/.local/state`) with mode `0600`.
 - `whoami` asks the Auth Worker who the Session belongs to. `token` reads it. `logout` ends the Session at the Auth Worker and deletes the file.
 - Every request names the CLI as `<app>/<version>`, which is how it appears on the Home Page.

@@ -1,8 +1,8 @@
 import tailwindcss from '@tailwindcss/vite';
 import { tanstackStart } from '@tanstack/react-start/plugin/vite';
 import react from '@vitejs/plugin-react';
-import { pwa } from '@kstackz/pwa-toolkit/vite';
-import { createTheme } from '@kstackz/ui-toolkit/components/blocks/theme';
+import { pwa } from '@kstackz/web-toolkit/pwa/vite';
+import { createTheme } from '@kstackz/web-toolkit/theme';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
@@ -14,7 +14,7 @@ export default defineConfig({
     rolldownOptions: { external: ['cloudflare:workers'] },
   },
   ssr: {
-    noExternal: ['@kstackz/ui-toolkit'],
+    noExternal: ['@kstackz/web-toolkit'],
     resolve: {
       mainFields: ['browser', 'module', 'jsnext:main', 'jsnext'],
     },
@@ -22,9 +22,9 @@ export default defineConfig({
   plugins: [
     tailwindcss(),
     tanstackStart({
-      // The browser starts in src/entry/web, the Worker in src/entry/worker.
-      srcDirectory: 'src/entry/web',
-      server: { entry: '../worker/server.ts' },
+      // The router and routes are in src; the Worker starts in src/worker.ts.
+      srcDirectory: 'src',
+      server: { entry: './worker.ts' },
       // App Shell and Offline Fallback, both precached by pwa().
       spa: { enabled: true, prerender: { outputPath: '/_shell' } },
       pages: [

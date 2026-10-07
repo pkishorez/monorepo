@@ -23,7 +23,8 @@ _Avoid_: Source of Truth, server truth.
 
 **Std Sync**:
 One named Sync instance: a group of Collections sharing one Platform.
-Disposing it stops everything and keeps its stored data.
+Disposing it first gives writes on their way to the Backend a few seconds to
+land, then stops everything and keeps its stored data.
 
 **Std Sync Name**:
 The stable normalized name that identifies a Std Sync and names its stored

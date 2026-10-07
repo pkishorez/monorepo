@@ -14,33 +14,30 @@ import {
   type Journal,
   type Projection,
 } from '@kstackz/flow';
-import {
-  FlowItemDetails,
-  FlowSwimlane,
-} from '@kstackz/ui-toolkit/components/blocks/flow-swimlane';
+import { FlowItemDetails, FlowSwimlane } from '@devtools/ui/flow-swimlane';
 import {
   attachLogs,
   TraceViewer,
   transformLog,
   transformSpan,
-} from '@kstackz/ui-toolkit/components/blocks/otel-trace-viewer';
-import type { OtelSpan } from '@kstackz/ui-toolkit/components/blocks/otel-trace-viewer/trace-model';
-import { Button } from '@kstackz/ui-toolkit/components/ui/button';
+} from '@devtools/ui/otel-trace-viewer';
+import type { OtelSpan } from '@devtools/ui/otel-trace-viewer/trace-model';
+import { Button } from '@kstackz/web-toolkit/components/button';
 import {
   Dialog,
   DialogContent,
   DialogTitle,
-} from '@kstackz/ui-toolkit/components/ui/dialog';
-import { toast } from '@kstackz/ui-toolkit/components/ui/sonner';
+} from '@kstackz/web-toolkit/components/dialog';
+import { toast } from '@kstackz/web-toolkit/components/sonner';
 import {
   DownloadIcon,
   GitBranchIcon,
   SearchIcon,
   UploadIcon,
   XIcon,
-} from '@kstackz/ui-toolkit/lucide';
-import { scrollbarStyles } from '@kstackz/ui-toolkit/lib/scrollStyles';
-import { cn } from '@kstackz/ui-toolkit/lib/utils';
+} from '@kstackz/web-toolkit/components/lucide';
+import { scrollbarStyles } from '@kstackz/web-toolkit/components/scroll-styles';
+import { cn } from '@kstackz/web-toolkit/components/utils';
 import {
   DevtoolsClient,
   useDevtoolsRuntime,

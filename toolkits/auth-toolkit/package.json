@@ -83,6 +83,18 @@
       "types": "./dist/clients/auth/expo/index.d.ts",
       "default": "./dist/clients/auth/expo/index.js"
     },
+    "./gate": {
+      "types": "./dist/clients/gate/index.d.ts",
+      "default": "./dist/clients/gate/index.js"
+    },
+    "./gate/react": {
+      "types": "./dist/clients/gate/react/index.d.ts",
+      "default": "./dist/clients/gate/react/index.js"
+    },
+    "./app": {
+      "types": "./dist/clients/app/index.d.ts",
+      "default": "./dist/clients/app/index.js"
+    },
     "./clients/cli": {
       "types": "./dist/clients/cli/index.d.ts",
       "default": "./dist/clients/cli/index.js"
@@ -103,13 +115,15 @@
     "@better-auth/infra": "catalog:",
     "@better-auth/mcp": "catalog:",
     "@better-auth/oauth-provider": "catalog:",
+    "@cloudflare/workers-types": "catalog:",
     "@tanstack/react-query": "catalog:",
     "@tanstack/react-router": "catalog:",
     "@tanstack/react-start": "catalog:",
-    "@cloudflare/workers-types": "catalog:",
+    "@xstate/effect": "catalog:",
     "better-auth": "catalog:",
     "drizzle-orm": "catalog:",
     "use-sync-external-store": "catalog:",
+    "xstate": "catalog:",
     "zustand": "catalog:"
   },
   "peerDependencies": {
@@ -153,10 +167,12 @@
     }
   },
   "devDependencies": {
+    "@base-ui/react": "catalog:",
     "@effect/platform-node": "catalog:",
+    "@fontsource-variable/inter": "catalog:",
+    "@fontsource-variable/jetbrains-mono": "catalog:",
     "@kstackz/rpc-toolkit": "workspace:*",
     "@kstackz/std-toolkit": "workspace:*",
-    "@kstackz/ui-toolkit": "workspace:*",
     "@tailwindcss/vite": "catalog:",
     "@tsconfig/node22": "catalog:",
     "@types/better-sqlite3": "catalog:",
@@ -168,6 +184,9 @@
     "alchemy": "catalog:",
     "auth": "catalog:",
     "better-sqlite3": "catalog:",
+    "class-variance-authority": "catalog:",
+    "clsx": "catalog:",
+    "cn": "catalog:",
     "drizzle-kit": "catalog:",
     "effect": "catalog:",
     "expo": "catalog:",
@@ -176,9 +195,16 @@
     "expo-web-browser": "catalog:",
     "jose": "catalog:",
     "laymos": "workspace:*",
+    "lucide-react": "catalog:",
+    "motion": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
     "react-native": "catalog:",
+    "shadcn": "catalog:",
+    "sonner": "catalog:",
+    "tailwind-merge": "catalog:",
+    "tailwindcss": "catalog:",
+    "tw-animate-css": "catalog:",
     "typescript": "catalog:typescript6",
     "vite": "catalog:",
     "vitest": "catalog:"

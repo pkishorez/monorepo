@@ -18,14 +18,15 @@ See the [top README](../../README.md). This subpath needs the optional peers `@t
 
 ### `@kstackz/std-toolkit/sync`
 
-| Export              | What it does                                                                              |
-| ------------------- | ----------------------------------------------------------------------------------------- |
-| `createStdSync`     | Creates a named Std Sync exposing `name`, `collection`, and `dispose`.                    |
-| `strategy.oldToNew` | Strategy that reads from the oldest change forward, by pulling, by subscription, or both. |
-| `strategy.newToOld` | Strategy that reads the newest page first, fills in older pages, and keeps the top fresh. |
-| `strategy.make`     | Builds a custom strategy from a state schema, an initial state, and a `run` Stream.       |
-| `memory`            | The default Platform: ephemeral storage, no Leadership, no Doorbell.                      |
-| `syncStore`         | The StdTable definition the Sync Store persists through, for building a custom Platform.  |
+| Export              | What it does                                                                                                                         |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `createStdSync`     | Creates a named Std Sync exposing `name`, `collection`, and `dispose`; `drain` bounds how long `dispose` waits for writes in flight. |
+| `inOrder`           | Runs each key's writes to the Backend one after another, in the order they were made; different keys' writes run side by side.       |
+| `strategy.oldToNew` | Strategy that reads from the oldest change forward, by pulling, by subscription, or both.                                            |
+| `strategy.newToOld` | Strategy that reads the newest page first, fills in older pages, and keeps the top fresh.                                            |
+| `strategy.make`     | Builds a custom strategy from a state schema, an initial state, and a `run` Stream.                                                  |
+| `memory`            | The default Platform: ephemeral storage, no Leadership, no Doorbell.                                                                 |
+| `syncStore`         | The StdTable definition the Sync Store persists through, for building a custom Platform.                                             |
 
 ### `@kstackz/std-toolkit/sync/paced`
 
@@ -137,3 +138,4 @@ await listStdSyncs(database); // no longer lists alice
 - Each Std Sync gets a table named `std-sync:<name>`, created when the Std Sync first opens its store.
 - A phone runs one process, so every Session reads on its own: no Leadership and no Doorbell.
 - Dispose a Std Sync before deleting it. Without a Doorbell, a live instance is not told its table is gone.
+- `dispose` first waits for writes still on their way to the Backend, up to `drain` (default 5 seconds), then stops everything; a write that has not landed by then is stopped with the rest. Pass `createStdSync({ name, platform, drain: '1 second' })` to change it.

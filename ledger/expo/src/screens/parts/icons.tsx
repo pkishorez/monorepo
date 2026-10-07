@@ -23,8 +23,8 @@ import SlidersHorizontalIcon from '@hugeicons/core-free-icons/SlidersHorizontalI
 import TouchInteraction01Icon from '@hugeicons/core-free-icons/TouchInteraction01Icon';
 import Wallet01Icon from '@hugeicons/core-free-icons/Wallet01Icon';
 import { Glyph, type GlyphProps } from '@kstackz/expo-toolkit/components/glyph';
-import type { StopIcon as Name } from '@ledger/core/client/places';
-import type { Account } from '@ledger/core/shared/ledger';
+import type { StopIcon as Name } from '@ledger/core/app/places';
+import type { Account } from '@ledger/core/model';
 
 type Icon = GlyphProps['icon'];
 type Look = Omit<GlyphProps, 'icon'>;

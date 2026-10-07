@@ -1,14 +1,14 @@
 import { Button } from '@kstackz/expo-toolkit/components/button';
 import { Choice } from '@kstackz/expo-toolkit/components/choice';
 import { Input } from '@kstackz/expo-toolkit/components/input';
-import { Sheet } from '@kstackz/expo-toolkit/patterns/sheet';
-import { keys, useCommand } from '@ledger/core/client/commands';
-import { useMoney, useWrites } from '@ledger/core/client/session';
-import { ACCOUNT_KINDS } from '@ledger/core/client/views';
-import type { Account } from '@ledger/core/shared/ledger';
+import { Sheet } from '@kstackz/expo-toolkit/recipes/sheet';
+import { keys, useCommand } from '@ledger/core/app/commands';
+import { useMoney, useWrites } from '@ledger/core/app/session';
+import { ACCOUNT_KINDS } from '@ledger/core/app/places';
+import type { Account } from '@ledger/core/model';
 import { useState } from 'react';
 import { View } from 'react-native';
-import { useOnline } from '../../../ledger';
+import { useGate } from '../../../ledger';
 import { AccountIcon } from '../../parts';
 
 // The Account the sheet opens for; none for a new one.
@@ -56,7 +56,7 @@ function Form(props: {
   readonly onDone: () => void;
 }) {
   const money = useMoney();
-  const online = useOnline();
+  const { online } = useGate();
   const { addAccount, renameAccount } = useWrites();
   const account = money.accounts.find((each) => each.id === props.id);
   const [name, setName] = useState(account?.name ?? '');

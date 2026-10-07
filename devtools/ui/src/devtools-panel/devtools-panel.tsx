@@ -1,0 +1,151 @@
+import { useEffect, useMemo, useState } from 'react';
+import { X } from 'lucide-react';
+import type { TraceRecorder } from '@kstackz/effect-tracer/recorder';
+import { Button } from '@kstackz/web-toolkit/components/button';
+import { cn } from '@kstackz/web-toolkit/components/utils';
+import {
+  attachCapturedLogs,
+  TraceViewer,
+} from '../otel-trace-viewer/trace-viewer';
+import { FlowSection } from './flow-section';
+import { useFlowProjections, type PanelRuntime } from './use-flow-projections';
+import { useRecorderSnapshot } from './use-recorder-snapshot';
+
+type Filter = 'traces' | 'flows';
+
+const FILTERS: { readonly value: Filter; readonly label: string }[] = [
+  { value: 'traces', label: 'Traces' },
+  { value: 'flows', label: 'Flows' },
+];
+
+export interface DevToolsPanelProps {
+  /** Whether the panel is shown. Kept mounted while `false`, so selection and scroll survive a close. */
+  readonly open: boolean;
+  /** Called when the developer dismisses the panel, via its close button or Escape. */
+  readonly onClose: () => void;
+  /**
+   * The app's Runtime. The panel asks it for its Flow Telemetry and follows
+   * whatever that is: a memory sink directly, a remote sink through the Flow
+   * Store it forwards to.
+   */
+  readonly runtime: PanelRuntime;
+  /** The Recorder whose Traces to show. Its `layer` should already be provided into the Runtime. */
+  readonly recorder?: TraceRecorder | undefined;
+  /**
+   * Which tab is active when both Traces and Flows are recorded. Ignored
+   * when only one kind is present - that one shows with no tab bar at all.
+   *
+   * @default 'traces'
+   */
+  readonly defaultFilter?: Filter;
+  /** Which kinds the panel offers at all. Defaults to both. */
+  readonly filters?: readonly Filter[];
+  readonly className?: string;
+}
+
+/**
+ * Shows the Traces a `TraceRecorder` captured and the Flows the Runtime
+ * records, live. Fully
+ * controlled: the host decides when it is open and how it gets closed, so it
+ * can wire its own trigger without colliding with one this panel would own.
+ *
+ * With more than one Trace or Flow recorded, `TraceViewer` and `FlowSection`
+ * each show their own list first - a tab per Trace, a chip per Flow - so the
+ * developer picks which one to inspect. When only Traces or only Flows have
+ * been recorded, that one shows directly with no tab bar to switch away from.
+ */
+export function DevToolsPanel({
+  open,
+  onClose,
+  runtime,
+  recorder,
+  defaultFilter = 'traces',
+  filters = ['traces', 'flows'],
+  className,
+}: DevToolsPanelProps) {
+  const [filter, setFilter] = useState<Filter>(defaultFilter);
+  const { spans, logs } = useRecorderSnapshot(recorder);
+  const { flows, source } = useFlowProjections(runtime);
+  const otelSpans = useMemo(
+    () => attachCapturedLogs(spans, logs),
+    [spans, logs],
+  );
+
+  useEffect(() => {
+    if (!open) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', closeOnEscape);
+    return () => document.removeEventListener('keydown', closeOnEscape);
+  }, [open, onClose]);
+
+  const hasTraces = filters.includes('traces') && spans.length > 0;
+  const hasFlows = filters.includes('flows') && flows.length > 0;
+  const showTabs = hasTraces && hasFlows;
+  const activeFilter: Filter = !filters.includes('traces')
+    ? 'flows'
+    : !filters.includes('flows')
+      ? 'traces'
+      : !hasFlows
+        ? 'traces'
+        : !hasTraces
+          ? 'flows'
+          : filter;
+
+  return (
+    <div
+      inert={!open}
+      className={cn(
+        'fixed inset-3 z-40 flex flex-col overflow-hidden rounded-lg border bg-background shadow-2xl',
+        !open && 'invisible',
+        className,
+      )}
+    >
+      <div className="flex shrink-0 items-center justify-between border-b px-2 py-1.5">
+        <div className="flex gap-1">
+          {showTabs &&
+            FILTERS.map(({ value, label }) => (
+              <Button
+                key={value}
+                variant={activeFilter === value ? 'secondary' : 'ghost'}
+                size="sm"
+                onClick={() => setFilter(value)}
+              >
+                {label}
+              </Button>
+            ))}
+        </div>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={onClose}
+          aria-label="Close DevTools panel"
+        >
+          <X />
+        </Button>
+      </div>
+      <div className="flex min-h-0 flex-1 flex-col">
+        {activeFilter === 'traces' ? (
+          <TraceViewer
+            spans={otelSpans}
+            className="min-h-0 flex-1"
+            emptyMessage="No traces recorded yet."
+          />
+        ) : (
+          <FlowSection
+            flows={flows}
+            spans={otelSpans}
+            active={open}
+            className="min-h-0 flex-1"
+            emptyMessage={
+              source === 'none'
+                ? 'No Flow Telemetry is provided to this Runtime.'
+                : 'No flows recorded yet.'
+            }
+          />
+        )}
+      </div>
+    </div>
+  );
+}

@@ -2,16 +2,11 @@ import { Button } from '@kstackz/expo-toolkit/components/button';
 import { Choice } from '@kstackz/expo-toolkit/components/choice';
 import { Input } from '@kstackz/expo-toolkit/components/input';
 import { Text } from '@kstackz/expo-toolkit/components/text';
-import { Sheet } from '@kstackz/expo-toolkit/patterns/sheet';
-import { keys, useCommand } from '@ledger/core/client/commands';
-import { useMoney, useWrites } from '@ledger/core/client/session';
-import { firstAccount, quickDays } from '@ledger/core/client/views';
-import {
-  centsOf,
-  money as format,
-  today,
-  type Way,
-} from '@ledger/core/shared/ledger';
+import { Sheet } from '@kstackz/expo-toolkit/recipes/sheet';
+import { keys, useCommand } from '@ledger/core/app/commands';
+import { useMoney, useWrites } from '@ledger/core/app/session';
+import { firstAccount, quickDays } from '@ledger/core/app/places';
+import { centsOf, money as format, today, type Way } from '@ledger/core/model';
 import { useState } from 'react';
 import { TextInput, View } from 'react-native';
 import { useCSSVariable } from 'uniwind';

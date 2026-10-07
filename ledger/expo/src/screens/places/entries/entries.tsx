@@ -4,10 +4,10 @@ import PencilEdit01Icon from '@hugeicons/core-free-icons/PencilEdit01Icon';
 import { Button } from '@kstackz/expo-toolkit/components/button';
 import { Glyph } from '@kstackz/expo-toolkit/components/glyph';
 import { Text } from '@kstackz/expo-toolkit/components/text';
-import { SwipeRow } from '@kstackz/expo-toolkit/patterns/swipe-row';
+import { SwipeRow } from '@kstackz/expo-toolkit/recipes/swipe-row';
 import { cn } from '@kstackz/expo-toolkit/theme';
-import { keys, useCommand, usePlace } from '@ledger/core/client/commands';
-import { useMoney, useWrites } from '@ledger/core/client/session';
+import { keys, useCommand, usePlace } from '@ledger/core/app/commands';
+import { useMoney, useWrites } from '@ledger/core/app/session';
 import {
   type EntriesSearch,
   markAfterRemoving,
@@ -15,7 +15,7 @@ import {
   narrowing,
   shownBy,
   useLookup,
-} from '@ledger/core/client/views';
+} from '@ledger/core/app/places';
 import {
   type Account,
   byDay,
@@ -23,7 +23,7 @@ import {
   dayName,
   type Entry,
   signed,
-} from '@ledger/core/shared/ledger';
+} from '@ledger/core/model';
 import { useRouter } from 'expo-router';
 import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';

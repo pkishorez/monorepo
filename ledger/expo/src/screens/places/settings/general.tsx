@@ -5,20 +5,15 @@ import { Choice } from '@kstackz/expo-toolkit/components/choice';
 import { Dialog } from '@kstackz/expo-toolkit/components/dialog';
 import { Switch } from '@kstackz/expo-toolkit/components/switch';
 import { Text } from '@kstackz/expo-toolkit/components/text';
-import { useMoney, useUser, useWrites } from '@ledger/core/client/session';
-import { CURRENCIES } from '@ledger/core/shared/ledger';
+import { useMoney, useUser, useWrites } from '@ledger/core/app/session';
+import { CURRENCIES } from '@ledger/core/model';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { useState } from 'react';
 import { View } from 'react-native';
 import {
-  manageAccounts,
-  setBackend,
-  signOutEveryone,
-  useApp,
+  useAccounts,
   useAppTheme,
-  useBackend,
-  useChangeSettings,
-  useOnline,
+  useGate,
   useSettings,
 } from '../../../ledger';
 import { Flip, Group, Row } from './rows';
@@ -40,8 +35,7 @@ export function General() {
 
 function LookAndFeel() {
   const { theme, setTheme } = useAppTheme();
-  const settings = useSettings();
-  const change = useChangeSettings();
+  const [settings, change] = useSettings();
   return (
     <Group title="Look and feel">
       <Row label="Theme">
@@ -96,8 +90,7 @@ function App() {
 function Data() {
   const money = useMoney();
   const { sample, clear, setCurrency } = useWrites();
-  const online = useOnline();
-  const backend = useBackend();
+  const { online, backend } = useGate();
   const [sure, setSure] = useState(false);
   const [busy, setBusy] = useState(false);
   const act = async (work: () => Promise<unknown>) => {
@@ -113,7 +106,7 @@ function Data() {
     <Group title="Your money">
       <Text muted className="pb-1 text-sm">
         {money.entries.length} entries in {money.accounts.length} accounts,
-        {backend === 'local'
+        {backend === 'device'
           ? ' kept on this phone only.'
           : ' kept on this phone and in your account.'}
       </Text>
@@ -157,33 +150,30 @@ function Data() {
 }
 
 function Users() {
-  const backend = useBackend();
   const user = useUser();
+  const { backend, setBackend } = useGate();
+  const { manage } = useAccounts();
   return (
     <Group title="Users">
       <Row
         label="Backend"
-        hint="Remote keeps your money for every device, with Google to sign in. Local keeps it on this phone, with anyone to sign in as. Each keeps its own users."
+        hint="Cloud keeps your money for every device, with Google to sign in. Device keeps it on this phone only, with anyone to sign in as. Each keeps its own users."
       >
         <Flip
-          value={backend ?? 'remote'}
+          value={backend ?? 'cloud'}
           onChange={(next) => void setBackend(next)}
           options={[
-            { value: 'remote', label: 'Remote' },
-            { value: 'local', label: 'Local' },
+            { value: 'cloud', label: 'Cloud' },
+            { value: 'device', label: 'Device' },
           ]}
         />
       </Row>
-      {backend === 'remote' && (
+      {backend === 'cloud' && (
         <Row
           label="Manage Google accounts"
           hint={`Where ${user.email} is signed in, and the apps it lets in, at the sign-in service.`}
         >
-          <Button
-            variant="outline"
-            size="sm"
-            onPress={() => void manageAccounts()}
-          >
+          <Button variant="outline" size="sm" onPress={() => void manage()}>
             Manage
           </Button>
         </Row>
@@ -199,10 +189,10 @@ function Users() {
 }
 
 function SignOutEveryone() {
-  const app = useApp();
-  const online = useOnline();
+  const { online } = useGate();
   const [open, setOpen] = useState(false);
-  const count = app.kind === 'open' ? app.signedIn.length : 0;
+  const { all, signOutEveryone } = useAccounts();
+  const count = all.length;
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <Dialog.Trigger>

@@ -1,9 +1,9 @@
-import { useSidebar } from '@kstackz/expo-toolkit/patterns/sidebar';
-import { keys, useCommand } from '@ledger/core/client/commands';
+import { useSidebar } from '@kstackz/expo-toolkit/recipes/sidebar';
+import { keys, useCommand } from '@ledger/core/app/commands';
 import { usePathname, useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { BackHandler } from 'react-native';
-import { useAppTheme, useOnline } from '../../ledger';
+import { useAppTheme, useGate } from '../../ledger';
 
 /**
  * The Global Commands every Place shares and none answers on its own: Go,
@@ -15,7 +15,7 @@ export function Globals() {
   const { toggleTheme } = useAppTheme();
   const { toggle } = useSidebar();
   const { openSurface } = keys.useSurface();
-  const online = useOnline();
+  const { online } = useGate();
   const settings = (section?: 'gestures') =>
     router.navigate({
       pathname: '/settings',

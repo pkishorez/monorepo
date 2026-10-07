@@ -1,21 +1,20 @@
 {
   "name": "@ledger/core",
-  "description": "Everything Ledger's web and Expo apps share: the words of money, the Backend's domain and the Local Backend, the client's domain, state, Backends and Gate, and the Commands. Platform-free; each app hands it one platform Layer.",
+  "description": "Everything Ledger's web and Expo apps share: the API, the model, the Backend (handlers on services, each with a cloud and a device version), and the app: its link to the Backend, each user's Session, its cache, Commands and Places. Platform-free; each app hands it a platform from web-toolkit or expo-toolkit.",
   "private": true,
   "type": "module",
   "sideEffects": false,
   "exports": {
-    "./shared/ledger": "./src/shared/ledger/index.ts",
-    "./shared/ledger-api": "./src/shared/ledger-api/index.ts",
-    "./server/storage": "./src/server/domain/storage/index.ts",
-    "./server/backend": "./src/server/domain/backend/index.ts",
-    "./client/platform": "./src/client/platform/index.ts",
-    "./client/settings": "./src/client/domain/settings/index.ts",
-    "./client/session": "./src/client/state/session/index.ts",
-    "./client/gate": "./src/client/gate/index.ts",
-    "./client/commands": "./src/client/commands/index.ts",
-    "./client/places": "./src/client/places/index.ts",
-    "./client/views": "./src/client/views/index.ts"
+    "./api": "./src/api/index.ts",
+    "./model": "./src/model/index.ts",
+    "./backend": "./src/backend/backend.ts",
+    "./backend/services/table": "./src/backend/services/table/index.ts",
+    "./backend/services/*": "./src/backend/services/*.ts",
+    "./app": "./src/app/ledger.ts",
+    "./app/session": "./src/app/session/index.ts",
+    "./app/settings": "./src/app/cache/settings/index.ts",
+    "./app/commands": "./src/app/commands/index.ts",
+    "./app/places": "./src/app/places/index.ts"
   },
   "scripts": {
     "lint": "tsc --noEmit && tsc --noEmit -p tests && pnpm lint:laymos",

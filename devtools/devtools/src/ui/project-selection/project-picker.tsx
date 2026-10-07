@@ -1,26 +1,26 @@
 import type { FormEvent, KeyboardEvent } from 'react';
 import { useState } from 'react';
-import { Button } from '@kstackz/ui-toolkit/components/ui/button';
+import { Button } from '@kstackz/web-toolkit/components/button';
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from '@kstackz/ui-toolkit/components/ui/collapsible';
+} from '@kstackz/web-toolkit/components/collapsible';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '@kstackz/ui-toolkit/components/ui/dialog';
+} from '@kstackz/web-toolkit/components/dialog';
 import {
   Empty,
   EmptyDescription,
   EmptyHeader,
   EmptyTitle,
-} from '@kstackz/ui-toolkit/components/ui/empty';
-import { Input } from '@kstackz/ui-toolkit/components/ui/input';
-import { Label } from '@kstackz/ui-toolkit/components/ui/label';
+} from '@kstackz/web-toolkit/components/empty';
+import { Input } from '@kstackz/web-toolkit/components/input';
+import { Label } from '@kstackz/web-toolkit/components/label';
 import {
   CheckIcon,
   ChevronDownIcon,
@@ -31,8 +31,8 @@ import {
   PlusIcon,
   Trash2Icon,
   XIcon,
-} from '@kstackz/ui-toolkit/lucide';
-import { cn } from '@kstackz/ui-toolkit/utils';
+} from '@kstackz/web-toolkit/components/lucide';
+import { cn } from '@kstackz/web-toolkit/components/utils';
 import type { ProjectEntry, RegistryTool, Worktree } from '../../rpc/index.js';
 import { basename, useProjectRegistry } from './registry.js';
 import { shortenHome, worktreeLabel } from './worktree-switcher.js';

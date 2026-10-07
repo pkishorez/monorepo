@@ -1,5 +1,7 @@
 # Publish the kstack umbrella under `@kstackz`, with no re-export package
 
+ui-toolkit and pwa-toolkit later merged into `@kstackz/web-toolkit` ([ADR 0003](0003-web-toolkit-and-the-gate.md)).
+
 kstack is the umbrella name for this repo's stack. The `@kstack` npm org belongs to someone else, so the packages publish under `@kstackz`. Toolkits keep the `-toolkit` suffix (`@kstackz/std-toolkit`, `@kstackz/ui-toolkit`, `@kstackz/ai-toolkit`, `@kstackz/pwa-toolkit`, `@kstackz/rpc-toolkit`, `@kstackz/auth-toolkit`, `@kstackz/expo-toolkit`) so they stand apart from the other kstack packages (`@kstackz/flow`, `@kstackz/lotel`, `@kstackz/effect-tracer`, `@kstackz/devtools`, `@kstackz/effect-webrtc`). Stand-alone tools that are useful without kstack (`laymos`, `use-effect-ts`) keep their own unscoped names.
 
 ## Considered Options

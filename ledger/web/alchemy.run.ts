@@ -2,7 +2,7 @@ import { AlchemyContext, localState, Stack } from 'alchemy';
 import * as Cloudflare from 'alchemy/Cloudflare';
 import { Effect, Layer } from 'effect';
 import { providers as stdToolkitProviders } from '@kstackz/std-toolkit/alchemy';
-import { Website } from './src/entry/infra/index.ts';
+import { Website } from './src/infra/index.ts';
 
 export default Stack(
   'Kstack',

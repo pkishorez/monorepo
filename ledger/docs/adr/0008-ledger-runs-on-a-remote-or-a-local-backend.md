@@ -1,6 +1,6 @@
 # Ledger runs on a Remote or a Local Backend
 
-Status: accepted
+Status: accepted; the Remote and Local Backends are now the cloud and device Backends, and the paths below moved (the monorepo's [ADR 0004](../../../docs/adr/0004-an-app-is-api-backend-and-stores.md)).
 
 Ledger must run without Google, the Auth Worker, or a deployed Worker: for
 someone trying it, for a browser test, and for an agent. It runs on one of two

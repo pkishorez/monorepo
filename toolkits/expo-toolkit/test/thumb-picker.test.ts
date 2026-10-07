@@ -1,7 +1,7 @@
 import { thumbLock, TreeWalk } from '@kstackz/use-gesture';
 import { describe, expect, it } from 'vitest';
-import type { Choice } from '../src/patterns/thumb-picker/choice';
-import { createPicking } from '../src/patterns/thumb-picker/picking';
+import type { Choice } from '../src/recipes/thumb-picker/choice';
+import { createPicking } from '../src/recipes/thumb-picker/picking';
 import { phone } from './phone';
 
 // A phone 400 points wide.

@@ -3,7 +3,7 @@ import {
   LoginScreen,
   type Branding,
   type LocalSignInChoice,
-} from '@kstackz/ui-toolkit/components/blocks/auth';
+} from '../../ui/screens/auth-screens';
 import { useMemo, useState } from 'react';
 
 import {

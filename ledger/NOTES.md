@@ -1,5 +1,16 @@
 # Ledger on Expo: build notes
 
+Each phase below names things as they were when it was written. Since the
+root [ADR 0004](../docs/adr/0004-an-app-is-api-backend-and-stores.md) (last
+section): the Remote and Local Backends are the cloud and device Backends;
+`LedgerPlatform`, web's `client/platform` and Expo's `src/platform` are gone,
+each app taking `webPlatform` or `expoPlatform`; and core is `api/` (was
+`shared/ledger-api`), `model/` (was `shared/ledger`), `backend/` (was
+`server/`) and `app/` (was `client/`, with `client/views` now in
+`app/places`). Web's `src/client/screens` is `src/screens`, and its
+`src/entry/*` and `src/server` are `src/routes`, `src/worker.ts` and
+`src/infra`.
+
 ## Morning summary
 
 Ledger runs natively on iOS and Android through Expo SDK 57, on both
@@ -89,18 +100,18 @@ for the local stage, or make a development build (`npx expo run:ios`,
 
 ### Running the app
 
-| What                  | How                                                                                                                        |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| iOS Simulator         | `xcrun simctl boot "iPhone 17 Pro"`, then `pnpm --filter @ledger/expo ios`                                                 |
-| Metro alone           | `pnpm --filter @ledger/expo start`, then `xcrun simctl launch booted host.exp.Exponent --initialUrl exp://127.0.0.1:8081`  |
-| Android emulator      | `adb reverse tcp:8081 tcp:8081`, then `pnpm --filter @ledger/expo android`                                                 |
-| Local Backend at once | open `exp://127.0.0.1:8081/--/?backend=local`                                                                              |
-| Ledger web address    | `EXPO_PUBLIC_LEDGER_URL` (default `https://kstack.kishore.computer` in dev, `https://kstack.kishore.app` in a release)     |
-| Sign-in service       | `EXPO_PUBLIC_AUTH_URL` (default `https://auth.kishore.computer` / `https://auth.kishore.app`)                              |
-| `/rpc` audience       | `EXPO_PUBLIC_LEDGER_RESOURCE` (default `https://kstack.kishore.computer/rpc` locally)                                      |
-| iOS CA trust          | `xcrun simctl keychain booted add-root-cert ~/.portless/ca.pem` (once per Simulator)                                       |
-| iOS hosts             | nothing: portless writes running hosts into the Mac's `/etc/hosts`, which the Simulator uses                               |
-| Android hosts and CA  | `-writable-system` AVD, `adb root && adb remount`, hosts → `10.0.2.2`; CA bind-mounted after every boot (Phase 5: Android) |
+| What                   | How                                                                                                                        |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| iOS Simulator          | `xcrun simctl boot "iPhone 17 Pro"`, then `pnpm --filter @ledger/expo ios`                                                 |
+| Metro alone            | `pnpm --filter @ledger/expo start`, then `xcrun simctl launch booted host.exp.Exponent --initialUrl exp://127.0.0.1:8081`  |
+| Android emulator       | `adb reverse tcp:8081 tcp:8081`, then `pnpm --filter @ledger/expo android`                                                 |
+| Device Backend at once | open `exp://127.0.0.1:8081/--/?backend=device`                                                                             |
+| Ledger web address     | `EXPO_PUBLIC_LEDGER_URL` (default `https://kstack.kishore.computer` in dev, `https://kstack.kishore.app` in a release)     |
+| Sign-in service        | `EXPO_PUBLIC_AUTH_URL` (default `https://auth.kishore.computer` / `https://auth.kishore.app`)                              |
+| `/rpc` audience        | `EXPO_PUBLIC_LEDGER_RESOURCE` (default `https://kstack.kishore.computer/rpc` locally)                                      |
+| iOS CA trust           | `xcrun simctl keychain booted add-root-cert ~/.portless/ca.pem` (once per Simulator)                                       |
+| iOS hosts              | nothing: portless writes running hosts into the Mac's `/etc/hosts`, which the Simulator uses                               |
+| Android hosts and CA   | `-writable-system` AVD, `adb root && adb remount`, hosts → `10.0.2.2`; CA bind-mounted after every boot (Phase 5: Android) |
 
 Expo Go's first launch shows its developer-menu introduction; dismiss it
 once by hand.
@@ -130,8 +141,8 @@ Nothing there was committed, stashed or reset. Its sign-in service runs on
 - When this branch lands on `main`: point mine's auth-toolkit link back at
   `../monorepo/toolkits/auth-toolkit`, `pnpm install` there, restart its
   `pnpm dev`, and commit mine's changes above (they need the new toolkit).
-- The **web-toolkit merge** (ui-toolkit, pwa-toolkit, use-gesture's `./web`,
-  use-keys into `@kstackz/web-toolkit`), copying expo-toolkit's shape.
+- ~~The **web-toolkit merge**~~: done (see "Web Toolkit and the Gate"),
+  except use-keys, which waits for its own core/`./web` split.
 - use-keys' own core/`./web` split; web's Thumb Lock onto use-gesture's
   `thumbLock` (one rule instead of two).
 - Move the Expo set to 57.0.27 (expo, expo-router, expo-sqlite,
@@ -260,10 +271,10 @@ browser smoke test behaved as before.
     `launchBackend()` (web: `?backend=` in the address; Expo can return null
     or read a deep link).
 - An app makes its client once: `createLedger(platformLayer)` from
-  `@ledger/core/client/gate`. It returns `useApp`, `useBackend`, `setBackend`,
-  `switchUser`, `checkAgain`, `addUser`, `takeLoginError`, `signOut`,
-  `signOutEveryone`, `useLocalSignIn`, `useSettings`, `useChangeSettings` and
-  `useOnline`. Web does it in `ledger/web/src/client/app/app.ts` with
+  `@ledger/core/client/gate`. It returns `gate` (the Gate itself, outside
+  React), `SignedIn`, `SignedOut`, `useGate`, `useSession`, `useAccounts`
+  (auth-toolkit's, plus `manage` for the Google accounts page) and
+  `useSettings` (`[settings, change]`). Web does it in `ledger/web/src/client/app/app.ts` with
   `webPlatform` from `ledger/web/src/client/platform/platform.ts`, the
   reference implementation for Expo's.
 - The platform Layer is built once, on first use, and handed to each
@@ -2478,3 +2489,84 @@ phone is possible.
 
 **Not proven**: a real swipe-to-delete on a recycled row, a real phone,
 Android. The SectionList dev rerun was stopped to fix the freeze.
+
+## Web Toolkit and the Gate
+
+Monorepo [ADR 0003](../docs/adr/0003-web-toolkit-and-the-gate.md); spec in
+`.claude/specs/web-toolkit-and-the-gate.md`.
+
+**What changed**
+
+- `@kstackz/web-toolkit` replaces ui-toolkit and pwa-toolkit: layers
+  `theme`, `feedback`, `input`, `components`, `form`, `recipes`, `client`,
+  `pwa`, `server`, built to `dist/` with `vp pack`. use-gesture's `./web`
+  is its `input`. The devtools-only blocks are the private `@devtools/ui`;
+  the sign-in service's screens are owned copies in auth-toolkit.
+- The Gate moved from core into auth-toolkit (`./gate`, `./gate/react`):
+  Open First (an Account Switch shows the new User's money at once; the
+  cookie switch and check run behind), Account Lost as a Gate Notice,
+  Sign Out refused while the Remote Backend is out of reach, an
+  `unopenable` view after two failed opens, every tab told at once over a
+  BroadcastChannel, and calls cut off by a switch that never answer
+  rather than fail. Core's `createLedger` is the Gate with Ledger's
+  Backends and Session; Settings no longer keeps the Backend (v5).
+- Std Sync waits up to 5 s for writes in flight before it stops.
+- Ledger web: the root route is `webRoot` with `pwaRoot`; the Worker is
+  `webServer` with `serveRpc`; the kit (device, sounds, Thumb Picker, key
+  bindings, Swipe Row, splash) is web-toolkit's. An Account Lost dialog
+  and an Unopenable card are new.
+- Ledger Expo: `recipes` for `patterns`; the Gate's phone platform is
+  expo-toolkit's `./gate`.
+
+**Checked**: every package builds, lints and tests (std-toolkit's DynamoDB
+conformance needs DynamoDB Local, not run here). In a browser on the Local
+Backend: sign in, Add User, Switch User (money on screen at once), reload
+opens the last User at once, a switch in one tab shows in the other, Sign
+Out opens the other User with no Account Lost dialog.
+
+**Not proven**: Ledger Expo on a device or Simulator; the Remote Backend
+and an Account Lost against the real sign-in service; a deploy.
+
+**Deviations from the spec**
+
+- The Gate's React side is auth-toolkit's `./gate/react`, shared by both
+  platforms, not a copy in each toolkit; `createWebApp` and `createExpoApp`
+  wrap it.
+- use-keys stays its own package until its core/`./web` split.
+- The Key Bar and User Switcher stay in Ledger web: they read Ledger's
+  Commands and Session. Update and Install Prompts stay in `pwa`, since
+  they read the PWA's state.
+- `webRoot` reads the Theme from the page in the browser and renders dark
+  on the server unless the app passes `loadTheme`: TanStack Start does not
+  compile a server function inside a package in dev.
+
+## An app is its API, its Backend and its stores
+
+Monorepo [ADR 0004](../docs/adr/0004-an-app-is-api-backend-and-stores.md);
+spec in `.claude/specs/app-api-backend-stores.md`.
+
+**What changed**
+
+- The Backends are `cloud` and `device` (Settings say Cloud and Device; the
+  signed-out card's link is "Use this device"). A stored or launched
+  `remote` or `local` is read as `cloud` or `device`, and the device
+  Backend's table stays in the `local-backend` database, so nothing is lost.
+- auth-toolkit's `./app`: `AppPlatform` and `createApp`, which opens an
+  app's Backend Link per Backend and its Session per signed-in user, signs
+  users in to the device Backend itself, and deletes a signed-out user's Std
+  Sync (`syncName`, `keepSyncs`, moved from core's `state/local-copies`).
+  The Backend Link is `{ api, syncPlatform }`: how a session calls the API,
+  and the platform its Std Sync runs on (`memory()` on the device Backend). `createWebApp` and `createExpoApp` are gone:
+  web-toolkit's `webPlatform` and expo-toolkit's `expoPlatform` (now
+  `./platform`, with the expo-sqlite tables and Std Sync from Ledger Expo)
+  give `createApp` its platform.
+- std-toolkit's `./sync` exports `inOrder`, moved from core.
+- Core: `api/`, `model/`, `backend/` (`backend.ts`, `handlers/`,
+  `services/{table,auth}/{cloud,device}`) and `app/` (`ledger.ts`,
+  `link/`, `session/`, `cache/settings`, `commands/`, `places/`).
+  `createLedger(() => platform)` is `createApp` with Ledger's link and Session, plus
+  `useSettings`.
+- Web: `src/app.ts`, `stage.ts`, `router.tsx`, `routes/`, `screens/`,
+  `worker.ts` (core's Backend on `tableCloud` and `authCloud`), `infra/`,
+  `styles.css`. Expo: `src/ledger/app.ts` makes Ledger on `expoPlatform`
+  with the stage's addresses; `src/platform` is gone.

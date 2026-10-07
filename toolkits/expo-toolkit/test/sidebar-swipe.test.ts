@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { createFeed } from '../src/input/feed';
 import { nativeScroll } from '../src/input/native-scroll';
 import { createZones } from '../src/input/zones';
-import { turns } from '../src/patterns/pages/turns';
-import { sidebarSwipe } from '../src/patterns/sidebar/swipe';
+import { turns } from '../src/recipes/pages/turns';
+import { sidebarSwipe } from '../src/recipes/sidebar/swipe';
 import { phone } from './phone';
 
 const CENTRE = { x: 200, y: 400 };

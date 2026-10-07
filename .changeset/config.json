@@ -18,12 +18,11 @@
       "@kstackz/expo-toolkit",
       "@kstackz/flow",
       "@kstackz/lotel",
-      "@kstackz/pwa-toolkit",
       "@kstackz/rpc-toolkit",
       "@kstackz/std-toolkit",
-      "@kstackz/ui-toolkit",
       "@kstackz/use-gesture",
       "@kstackz/use-keys",
+      "@kstackz/web-toolkit",
       "laymos"
     ]
   ],

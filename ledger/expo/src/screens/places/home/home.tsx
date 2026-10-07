@@ -2,19 +2,19 @@ import { Button } from '@kstackz/expo-toolkit/components/button';
 import { Meter } from '@kstackz/expo-toolkit/components/meter';
 import { Text } from '@kstackz/expo-toolkit/components/text';
 import { cn } from '@kstackz/expo-toolkit/theme';
-import { keys, useCommand, usePlace } from '@ledger/core/client/commands';
+import { keys, useCommand, usePlace } from '@ledger/core/app/commands';
 import {
   type Money,
   useMoney,
   useUser,
   useWrites,
-} from '@ledger/core/client/session';
-import { glance, useLookup } from '@ledger/core/client/views';
-import { monthName, monthOf, today } from '@ledger/core/shared/ledger';
+} from '@ledger/core/app/session';
+import { glance, useLookup } from '@ledger/core/app/places';
+import { monthName, monthOf, today } from '@ledger/core/model';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
-import { useOnline } from '../../../ledger';
+import { useGate } from '../../../ledger';
 import {
   Amount,
   CategoryIcon,
@@ -204,7 +204,7 @@ function Bar(props: {
 function Welcome() {
   const user = useUser();
   const { sample } = useWrites();
-  const online = useOnline();
+  const { online } = useGate();
   const [busy, setBusy] = useState(false);
   const start = async (entries: boolean) => {
     setBusy(true);

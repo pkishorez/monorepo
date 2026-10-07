@@ -1,6 +1,6 @@
-import { createTheme } from '@kstackz/ui-toolkit/components/blocks/theme';
-import { Button } from '@kstackz/ui-toolkit/components/ui/button';
-import { Moon, Sun } from '@kstackz/ui-toolkit/lucide';
+import { createTheme } from '@kstackz/web-toolkit/theme';
+import { Button } from '@kstackz/web-toolkit/components/button';
+import { Moon, Sun } from '@kstackz/web-toolkit/components/lucide';
 
 const cookieDomain =
   typeof location === 'undefined'

@@ -3,7 +3,7 @@ import {
   type Collection,
   type NonSingleResult,
 } from '@tanstack/react-db';
-import { Effect, Exit, Scope, Stream } from 'effect';
+import { Duration, Effect, Exit, Scope, Stream } from 'effect';
 import type { AnyEntityESchema } from '../../eschema/index.js';
 import { buildCollection, type CollectionConfig } from '../collection/index.js';
 import type {
@@ -35,10 +35,16 @@ export type StdSyncConfig<R = never> = {
   onEvent?: SyncReporter<R>;
   /** TanStack DB options every Collection starts from. */
   options?: StdCollectionOptions<object>;
+  /** How long disposing waits for writes still on their way to the
+   * Backend. Default: 5 seconds. */
+  drain?: Duration.Input;
 };
 
 // A collection nobody watches is garbage-collected after this long.
 const DEFAULT_GC_TIME = 10_000;
+
+// How long disposing waits for writes in flight, unless configured.
+const DEFAULT_DRAIN = Duration.seconds(5);
 
 const makeStdSync = <R>(config: StdSyncConfig<R>) => {
   const name = stdSyncName(config.name);
@@ -49,10 +55,16 @@ const makeStdSync = <R>(config: StdSyncConfig<R>) => {
   const store = makeSyncStore(platform.store(name));
   const names = new Set<CollectionName>();
   const cleanups = new Set<() => Promise<void>>();
+  const writes = new Set<Promise<void>>();
+  const drain = Duration.toMillis(
+    Duration.fromInputUnsafe(config.drain ?? DEFAULT_DRAIN),
+  );
   let disposed: Promise<void> | null = null;
+  // Set once writes in flight have drained; until then they may still land.
+  let stopped = false;
 
   const assertActive = (): void => {
-    if (disposed) throw new Error(`[sync] "${name}" is disposed`);
+    if (stopped) throw new Error(`[sync] "${name}" is disposed`);
   };
 
   const trackCleanup = (cleanup: () => Promise<void>) => {
@@ -65,8 +77,31 @@ const makeStdSync = <R>(config: StdSyncConfig<R>) => {
     return tracked;
   };
 
+  const trackWrite = (write: Promise<void>): Promise<void> => {
+    writes.add(write);
+    const settled = () => void writes.delete(write);
+    write.then(settled, settled);
+    return write;
+  };
+
+  // Writes in flight get until `drain` to reach the Backend; whatever has
+  // not by then is stopped with everything else.
+  const drainWrites = async () => {
+    if (writes.size === 0) return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    await Promise.race([
+      Promise.allSettled(writes),
+      new Promise<void>((resolve) => {
+        timer = setTimeout(resolve, drain);
+      }),
+    ]);
+    clearTimeout(timer);
+  };
+
   const dispose = (): Promise<void> => {
     disposed ??= (async () => {
+      await drainWrites();
+      stopped = true;
       const results = await Promise.allSettled(
         [...cleanups].map((cleanup) => cleanup()),
       );
@@ -105,7 +140,7 @@ const makeStdSync = <R>(config: StdSyncConfig<R>) => {
     schema: S,
     collectionConfig: CollectionConfig<S, R> = {},
   ): SyncedCollection<S['Type']> => {
-    assertActive();
+    if (disposed) throw new Error(`[sync] "${name}" is disposed`);
     const qualified = collectionName(name, schema.name);
     if (names.has(qualified))
       throw new Error(`[sync] collection "${qualified}" is already registered`);
@@ -120,6 +155,7 @@ const makeStdSync = <R>(config: StdSyncConfig<R>) => {
       report,
       assertActive,
       trackCleanup,
+      trackWrite,
     });
     return createCollection({
       gcTime: DEFAULT_GC_TIME,

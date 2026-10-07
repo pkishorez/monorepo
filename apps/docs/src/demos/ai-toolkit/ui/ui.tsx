@@ -7,7 +7,7 @@ import {
   type ReactNode,
 } from 'react';
 import { Check, ChevronRight, X } from 'lucide-react';
-import { Button } from '@kstackz/ui-toolkit/components/ui/button';
+import { Button } from '@kstackz/web-toolkit/components/button';
 import type { Message, Thread } from '@kstackz/ai-toolkit/table';
 import {
   CLAUDE_PARTS,

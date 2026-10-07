@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Effect } from 'effect';
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import { scrollbarStyles } from '@kstackz/ui-toolkit/lib/scrollStyles';
+import { scrollbarStyles } from '@kstackz/web-toolkit/components/scroll-styles';
 import {
   Monoverse as MonorepoExplorer,
   type Package,
   type PackageReadmeDocument,
   type PackageReadmeDocuments,
-} from '@kstackz/ui-toolkit/components/blocks/monoverse';
+} from '@devtools/ui/monoverse';
 import {
   DevtoolsClient,
   useDevtoolsRuntime,

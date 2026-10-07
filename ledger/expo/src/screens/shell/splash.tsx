@@ -3,7 +3,7 @@ import { hideAsync, preventAutoHideAsync } from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import Animated, { FadeOut } from 'react-native-reanimated';
-import { useApp } from '../../ledger';
+import { useGate } from '../../ledger';
 import { LedgerMark } from '../parts';
 
 // The system's splash (the mark on Ledger's dark) stays until this one is
@@ -16,7 +16,7 @@ void preventAutoHideAsync().catch(() => {});
  * launch until Ledger knows who is signed in, then fades away, once.
  */
 export function Splash() {
-  const app = useApp();
+  const app = useGate().view;
   const [shown, setShown] = useState(true);
   useEffect(() => void hideAsync().catch(() => {}), []);
   useEffect(() => {

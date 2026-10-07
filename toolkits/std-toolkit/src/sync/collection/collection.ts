@@ -74,6 +74,7 @@ export const buildCollection = <S extends AnyEntityESchema, R>(args: {
   report: SyncReporter<R>;
   assertActive: () => void;
   trackCleanup: (cleanup: () => Promise<void>) => () => Promise<void>;
+  trackWrite: (write: Promise<void>) => Promise<void>;
 }): BuiltCollection<S> => {
   type TItem = S['Type'];
   const { schema, config, name, store, platform, runner } = args;
@@ -210,6 +211,7 @@ export const buildCollection = <S extends AnyEntityESchema, R>(args: {
         ),
       ),
     runner,
+    trackWrite: args.trackWrite,
   });
 
   const global = config.sync?.global;

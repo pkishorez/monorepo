@@ -1,6 +1,6 @@
 import { toast } from '@kstackz/expo-toolkit/components/toast';
-import { useWrites } from '@ledger/core/client/session';
-import type { Entry } from '@ledger/core/shared/ledger';
+import { useWrites } from '@ledger/core/app/session';
+import type { Entry } from '@ledger/core/model';
 
 /**
  * Deletes an Entry at once, with a toast to bring it back, as on the web.

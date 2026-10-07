@@ -1,4 +1,4 @@
-import type { SignedInAccount } from '@kstackz/ui-toolkit/components/blocks/auth';
+import type { SignedInAccount } from '../../ui/screens/auth-screens';
 
 import type { UserRecord } from '../auth-api/index.js';
 

@@ -30,6 +30,9 @@ const resolveFactory = (configuration: IDBDatabaseConfig) => {
   return factory;
 };
 
+// How long an upgrade waits on the connections it is blocked by.
+const BLOCKED_FOR = 3000;
+
 const openDatabase = (
   factory: IDBFactory,
   name: string,
@@ -47,8 +50,14 @@ const openDatabase = (
     const request =
       version === undefined ? factory.open(name) : factory.open(name, version);
     request.onerror = () => fail(request.error);
+    // Blocked is often only for a moment: a connection still opening at the
+    // old version closes once it sees the version change. Only one that
+    // stays open (another tab that never lets go) fails the open.
     request.onblocked = () =>
-      fail(new Error(`IndexedDB database "${name}" is blocked`));
+      setTimeout(
+        () => fail(new Error(`IndexedDB database "${name}" is blocked`)),
+        BLOCKED_FOR,
+      );
     request.onupgradeneeded = () => {
       const transaction = request.transaction;
       if (transaction === null)

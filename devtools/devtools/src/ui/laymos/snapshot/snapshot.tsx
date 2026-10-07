@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { ArchitectureSnapshot } from '@kstackz/ui-toolkit/components/blocks/laymos';
+import { ArchitectureSnapshot } from '@devtools/ui/laymos';
 import {
   decodeRequest,
   type SnapshotRequest,

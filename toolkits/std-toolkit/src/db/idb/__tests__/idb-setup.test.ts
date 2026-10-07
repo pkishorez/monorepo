@@ -261,6 +261,54 @@ describe('IndexedDB setup', () => {
     external.close();
   });
 
+  it('runs an operation again when a version change closes its connection', async () => {
+    const databaseName = `closed-${crypto.randomUUID()}`;
+    const database = IDB.database({ databaseName });
+    const people = StdTable.make('people').primary('pk', 'sk').build();
+    await Effect.runPromise(setup(people, database));
+    // The connection an operation took, closed under it by another tab's
+    // version change; the next open is a fresh one.
+    const closed = await database.open();
+    const external = await openDatabase(
+      indexedDB,
+      databaseName,
+      closed.version + 1,
+    );
+    external.close();
+    let taken = false;
+    const contract = makeTableContract(
+      {
+        ...database,
+        open: () => {
+          if (taken) return database.open();
+          taken = true;
+          return Promise.resolve(closed);
+        },
+      },
+      people,
+      'people',
+    );
+    const reopened = await openDatabase(indexedDB, databaseName);
+    reopened.close();
+
+    expect(
+      await Effect.runPromise(contract.getItem({ pk: 'a', sk: 'b' })),
+    ).toBeNull();
+  });
+
+  it('waits out a connection that blocks an upgrade for a moment', async () => {
+    const databaseName = `blocked-${crypto.randomUUID()}`;
+    const database = IDB.database({ databaseName });
+    await Effect.runPromise(database.setup('records', []));
+    // Another connection at the old version, closed a moment later rather
+    // than when the version changes.
+    const other = await openDatabase(indexedDB, databaseName);
+    setTimeout(() => other.close(), 50);
+
+    await Effect.runPromise(database.setup('orders', []));
+    expect([...(await database.open()).objectStoreNames]).toContain('orders');
+  });
+
   it('rechecks topology when two tabs race different upgrades', async () => {
     const databaseName = `race-${crypto.randomUUID()}`;
     const firstTab = IDB.database({
