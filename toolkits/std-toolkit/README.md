@@ -13,7 +13,7 @@ Each subpath owns its vocabulary in a `CONTEXT.md`: [core](src/core/CONTEXT.md),
 ## Install
 
 ```sh
-npm install std-toolkit effect
+pnpm add @kstackz/std-toolkit effect
 ```
 
 Node 24 or later. Peer dependencies:

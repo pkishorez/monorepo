@@ -52,7 +52,7 @@ Peer dependencies, all optional; install the ones your subpaths need:
 - `alchemy`: `@kstackz/auth-toolkit/worker/alchemy/d1` declares the D1 resource in `alchemy.run.ts`.
 - `expo-auth-session`: `@kstackz/auth-toolkit/clients/auth/expo` runs the authorization in the system sign-in sheet, with PKCE and a checked `state`.
 - `expo-secure-store`: `@kstackz/auth-toolkit/clients/auth/expo` keeps each User's tokens in the keychain (Keystore on Android).
-- `react-native`: `manageAccounts` opens the system browser.
+- `expo-web-browser`: `manageAccounts` from `@kstackz/auth-toolkit/clients/auth/expo` opens the Auth Worker's Home Page in the sign-in sheet.
 
 ## Exports
 
@@ -157,7 +157,6 @@ Peer dependencies, all optional; install the ones your subpaths need:
 | -------------------- | -------------------------------------------------------------------------------------------------------------- |
 | `Auth`               | Service for the browser's Signed-in Accounts: list, sign in, switch, sign out one or all, and the login error. |
 | `Unreachable`        | Error when the Auth Worker could not be reached or refused the call.                                           |
-| `authLive`           | Layer of `Auth` against the Auth Worker, with Google to sign in.                                               |
 | `authLocal`          | Layer of `Auth` over Local Accounts, asking a `choose` effect who signs in; in memory unless given storage.    |
 | `localAccountsTable` | The StdTable Local Accounts live in, to realize on an adapter such as IDB or SQLite.                           |
 | `localChooser`       | Builds a `choose` that waits for a dialog to answer it.                                                        |
@@ -166,12 +165,18 @@ Peer dependencies, all optional; install the ones your subpaths need:
 | `signedFetch`        | Wraps `fetch` to send one account's token as a bearer and never the cookie.                                    |
 | `signedFetchLayer`   | `FetchHttpClient.layer` over `signedFetch`, so every Effect HTTP or RPC client on it is signed.                |
 
+### `@kstackz/auth-toolkit/clients/auth/live`
+
+| Export     | What it does                                                     |
+| ---------- | ---------------------------------------------------------------- |
+| `authLive` | Layer of `Auth` against the Auth Worker, with Google to sign in. |
+
 ### `@kstackz/auth-toolkit/clients/auth/expo`
 
 | Export           | What it does                                                                                                                 |
 | ---------------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | `authExpo`       | Layer of `Auth` on a phone: each User signs in as the app's First-Party Client and keeps their own tokens in secure storage. |
-| `manageAccounts` | Opens the Auth Worker's Home Page in the system browser, which shares the sign-in sheet's cookies.                           |
+| `manageAccounts` | Opens the Auth Worker's Home Page in the sign-in sheet, which holds the User's sign-in.                                      |
 
 ### `@kstackz/auth-toolkit/clients/cli`
 
@@ -320,7 +325,8 @@ it on sign-out; lifted from `src/clients/cli/tests/cli.test.ts`.
 
 ```ts
 // Browser: this app's origin must be in the Auth Worker's `trustedOrigins`.
-import { Auth, authLive } from '@kstackz/auth-toolkit/clients/auth';
+import { Auth } from '@kstackz/auth-toolkit/clients/auth';
+import { authLive } from '@kstackz/auth-toolkit/clients/auth/live';
 import { Authz } from '@kstackz/auth-toolkit/rpc';
 
 const runtime = ManagedRuntime.make(

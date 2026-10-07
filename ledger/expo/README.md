@@ -12,9 +12,37 @@ Today it runs on the Local Backend: Splash, sign-in by name, every Place (Home, 
 
 ## Usage
 
+### Run it on the iOS Simulator
+
+Boot a Simulator, then start Metro and Expo Go on it. On the Local Backend nothing else is needed.
+
 ```sh
 xcrun simctl boot "iPhone 17 Pro"   # once; "already booted" is fine
-pnpm --filter @ledger/expo ios      # expo start --ios: Metro, then Expo Go on the Simulator
+pnpm --filter @ledger/expo ios      # Metro, then Expo Go at exp://127.0.0.1:8081
 ```
 
-`pnpm --filter @ledger/expo start` starts Metro alone; open `exp://127.0.0.1:8081` on the Simulator with `xcrun simctl openurl booted exp://127.0.0.1:8081`, or scan the QR code with Expo Go on a phone. A link with `?backend=local` (`exp://127.0.0.1:8081/--/?backend=local`) starts on the Local Backend, and `/--/<route>` opens a Place, such as `/--/settings?tab=gestures`. The Remote Backend's addresses default to the Mac's local servers in development (`https://kstack.kishore.computer`, `https://auth.kishore.computer`) and to `kishore.app` in a release build; override them with `EXPO_PUBLIC_LEDGER_URL` (Ledger web's origin, such as a worktree's `https://<branch>.kstack.kishore.computer`), `EXPO_PUBLIC_AUTH_URL` (the sign-in service) and `EXPO_PUBLIC_LEDGER_RESOURCE` (the audience `/rpc` checks; `https://kstack.kishore.computer/rpc` locally). In Expo Go the sign-in redirect is `exp://127.0.0.1:8081/--/oauth/callback`, so open the app at `exp://127.0.0.1:8081` (not the LAN address) for the sign-in service to accept it. The iOS Simulator must trust portless's local CA once: `xcrun simctl keychain booted add-root-cert ~/.portless/ca.pem`. `pnpm --filter @ledger/expo lint` type-checks and runs `laymos lint`. Agents tap through the app with `node scripts/drive.mjs tap "<label or text>"` (Metro's inspector calls the element's `onPress`; `type "<label>" "<text>"` fills a field; `METRO_PORT` picks another Metro) and see it with `xcrun simctl io booted screenshot`.
+- `pnpm --filter @ledger/expo start` starts Metro alone; open it with `xcrun simctl launch booted host.exp.Exponent --initialUrl exp://127.0.0.1:8081`, or scan the QR code with Expo Go on a phone.
+- `exp://127.0.0.1:8081/--/?backend=local` starts on the Local Backend; `/--/<route>` opens a Place, such as `/--/settings?tab=gestures`.
+- `pnpm --filter @ledger/expo lint` type-checks and runs `laymos lint`.
+
+### Sign in on the Remote Backend
+
+The app points at the Mac's local servers in development and at `kishore.app` in a release build. Start the sign-in service (`pnpm dev` in the `mine` repo's `packages/auth`, `https://auth.kishore.computer`) and Ledger web (`pnpm dev` in `ledger/web`), trust portless's CA once, and open Expo Go at `127.0.0.1` (not the LAN address), whose `exp://127.0.0.1:8081/--/oauth/callback` is the redirect the sign-in service accepts.
+
+```sh
+xcrun simctl keychain booted add-root-cert ~/.portless/ca.pem
+EXPO_PUBLIC_LEDGER_URL=https://<branch>.kstack.kishore.computer pnpm --filter @ledger/expo ios
+```
+
+- `EXPO_PUBLIC_LEDGER_URL` is Ledger web's origin, `EXPO_PUBLIC_AUTH_URL` the sign-in service, `EXPO_PUBLIC_LEDGER_RESOURCE` the audience `/rpc` checks (`https://kstack.kishore.computer/rpc` locally).
+- On the `local` stage the sign-in sheet's Login Screen offers "Test sign-in (local only)" (Ada, Grace `@ledger.test`) besides Google.
+
+### Run it on the Android emulator
+
+```sh
+adb reverse tcp:8081 tcp:8081
+pnpm --filter @ledger/expo android   # or: adb shell am start -a android.intent.action.VIEW -d exp://127.0.0.1:8081 host.exp.exponent
+```
+
+- For the Remote Backend the emulator must resolve `*.kishore.computer` to the Mac (`10.0.2.2` in a writable `/system/etc/hosts`) and trust portless's CA; the steps are in [`../NOTES.md`](../NOTES.md) (Phase 5: Android).
+- Agents drive the iOS app with `node scripts/drive.mjs tap "<label or text>"` (calls the element's `onPress` through Metro's inspector) and inject a Thumb Lock with `node scripts/touch.mjs`; both work only in a development bundle (`__DEV__`), never in a release.

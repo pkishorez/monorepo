@@ -1,6 +1,6 @@
 # @kstackz/expo-toolkit
 
-UI, theme, haptics and sound for native apps built with Expo: owned Panel UI components on Uniwind, styled with Ledger's tokens.
+UI, theme, haptics and sound for native apps built with Expo: owned Panel UI components on Uniwind, styled with ui-toolkit's tokens.
 
 ## Big picture
 
@@ -51,9 +51,9 @@ The app's `global.css`, named as Uniwind's `cssEntryFile` in `metro.config.js`:
 
 ### `./theme.css`
 
-| Export      | What it does                                                                                     |
-| ----------- | ------------------------------------------------------------------------------------------------ |
-| `theme.css` | Ledger's colour, radius and font tokens in light and dark, and the `@source` for the components. |
+| Export      | What it does                                                                                         |
+| ----------- | ---------------------------------------------------------------------------------------------------- |
+| `theme.css` | ui-toolkit's colour, radius and font tokens in light and dark, and the `@source` for the components. |
 
 ### `./feedback`
 
@@ -71,34 +71,34 @@ The app's `global.css`, named as Uniwind's `cssEntryFile` in `metro.config.js`:
 
 ### `./components/*`
 
-| Export                                                | What it does                                                                |
-| ----------------------------------------------------- | --------------------------------------------------------------------------- |
-| `panel-ui-provider`: `PanelUIProvider`                | The root: gesture root, page background, portal host and toasts.            |
-| `button`: `Button`                                    | Pressable action with variants, sizes, loading state and icon slots.        |
-| `button`: `ButtonGroupProvider`, `useButtonGroup`     | Several buttons drawn as one control.                                       |
-| `bottom-sheet`: `BottomSheet`                         | Draggable sheet anchored to the bottom of the screen.                       |
-| `bottom-sheet`: `bottomSheetDetentHeight`             | The height a detent resolves to.                                            |
-| `card`: `Card`                                        | Content surface with header, body and footer.                               |
-| `choice`: `Choice`                                    | One of a few things as a row of pills that scrolls sideways.                |
-| `dialog`: `Dialog`                                    | Modal dialog with a backdrop and footer actions.                            |
-| `drawer`: `Drawer`                                    | A panel from an edge of the screen that covers the app until dismissed.     |
-| `empty-state`: `EmptyState`                           | Placeholder for a list or screen with no content.                           |
-| `field`: `Field`, `useFieldLabelledBy`                | Layout and validation state a form control composes into.                   |
-| `glyph`: `Glyph`                                      | Any Hugeicons drawing the app imports, coloured from context or the theme.  |
-| `icons`: `IconColorProvider`, `useIconColor`, `*Icon` | The Hugeicons set Panel UI uses, tinted from context.                       |
-| `input`: `Input`                                      | Text field with label, description and error message.                       |
-| `item`: `Item`                                        | Row of media, text and actions, for lists and settings.                     |
-| `label`: `Label`                                      | Form label with required, invalid and disabled states.                      |
-| `meter`: `Meter`                                      | A thin bar of how full something is, with an optional limit mark.           |
-| `portal-scope`: `PortalScope`                         | A portal host inside the app's providers, so overlays keep their context.   |
-| `separator`: `Separator`                              | Horizontal or vertical rule, optionally labelled.                           |
-| `spinner`: `Spinner`                                  | Indeterminate loading indicator.                                            |
-| `swipe`: `Swipe`, `useSwipeGroup`                     | A row that slides aside to reveal its actions (swipe to delete).            |
-| `switch`: `Switch`                                    | Animated on/off toggle.                                                     |
-| `tabs`: `Tabs`                                        | Segmented, underline or pill tabs with an animated indicator.               |
-| `text`: `Text`, `textChildren`                        | Themed text with size, weight and muted; wraps bare strings among children. |
-| `toast`: `Toast`, `ToastViewport`, `useToast`         | Transient notification queue with swipe to dismiss.                         |
-| `typography`: `Typography`                            | Semantic text presets: headings, paragraphs, code, lists.                   |
+| Export                                                 | What it does                                                                |
+| ------------------------------------------------------ | --------------------------------------------------------------------------- |
+| `panel-ui-provider`: `PanelUIProvider`                 | The root: gesture root, page background, portal host and toasts.            |
+| `button`: `Button`                                     | Pressable action with variants, sizes, loading state and icon slots.        |
+| `button`: `ButtonGroupProvider`, `useButtonGroup`      | Several buttons drawn as one control.                                       |
+| `bottom-sheet`: `BottomSheet`                          | Draggable sheet anchored to the bottom of the screen.                       |
+| `bottom-sheet`: `bottomSheetDetentHeight`              | The height a detent resolves to.                                            |
+| `card`: `Card`                                         | Content surface with header, body and footer.                               |
+| `choice`: `Choice`                                     | One of a few things as a row of pills that scrolls sideways.                |
+| `dialog`: `Dialog`                                     | Modal dialog with a backdrop and footer actions.                            |
+| `drawer`: `Drawer`                                     | A panel from an edge of the screen that covers the app until dismissed.     |
+| `empty-state`: `EmptyState`                            | Placeholder for a list or screen with no content.                           |
+| `field`: `Field`, `useFieldLabelledBy`                 | Layout and validation state a form control composes into.                   |
+| `glyph`: `Glyph`                                       | Any Hugeicons drawing the app imports, coloured from context or the theme.  |
+| `icons`: `IconColorProvider`, `useIconColor`, `*Icon`  | The Hugeicons set Panel UI uses, tinted from context.                       |
+| `input`: `Input`                                       | Text field with label, description and error message.                       |
+| `item`: `Item`                                         | Row of media, text and actions, for lists and settings.                     |
+| `label`: `Label`                                       | Form label with required, invalid and disabled states.                      |
+| `meter`: `Meter`                                       | A thin bar of how full something is, with an optional limit mark.           |
+| `portal-scope`: `PortalScope`                          | A portal host inside the app's providers, so overlays keep their context.   |
+| `separator`: `Separator`                               | Horizontal or vertical rule, optionally labelled.                           |
+| `spinner`: `Spinner`                                   | Indeterminate loading indicator.                                            |
+| `swipe`: `Swipe`, `useSwipeGroup`                      | A row that slides aside to reveal its actions (swipe to delete).            |
+| `switch`: `Switch`                                     | Animated on/off toggle.                                                     |
+| `tabs`: `Tabs`                                         | Segmented, underline or pill tabs with an animated indicator.               |
+| `text`: `Text`, `textChildren`                         | Themed text with size, weight and muted; wraps bare strings among children. |
+| `toast`: `Toast`, `ToastViewport`, `useToast`, `toast` | Transient notification queue with swipe to dismiss.                         |
+| `typography`: `Typography`                             | Semantic text presets: headings, paragraphs, code, lists.                   |
 
 `./components/parts/*` is private and not exported.
 
