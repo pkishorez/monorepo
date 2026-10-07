@@ -11,4 +11,4 @@ std-toolkit: disposing a Std Sync first gives writes on their way to the Backend
 
 use-gesture: the web bindings moved to `@kstackz/web-toolkit/input`; this package is the platform-free core.
 
-expo-toolkit: `./patterns/*` is now `./recipes/*`, and `./platform`'s `expoPlatform` gives `createApp` the phone as its platform: expo-sqlite tables and Std Sync, `authExpo`, and secure storage.
+expo-toolkit: `./patterns/*` is now `./recipes/*`, and `./platform`'s `expoPlatform` gives `createApp` the phone as its platform: expo-sqlite tables and Std Sync, and `authExpo`; it no longer depends on `expo-secure-store`. The `AccountLost` recipe is the dialog for the Gate's `accountLost` view, as web-toolkit's is on the web.
