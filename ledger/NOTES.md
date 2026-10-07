@@ -2233,3 +2233,122 @@ expo-toolkit `./input`):
 - `touch.mjs`'s injected touches land in the surface's own zone only (no
   zone hears them), so they do not exercise zones.
 - Not checked on Android; two real fingers still unproven (idb has one).
+
+## Thumb Picker performance
+
+The Thumb Picker now answers the finger on the UI thread. Before, every
+move crossed to JS (`scheduleOnRN`), the Thumb Lock and the Tree Walk ran
+there, and each Step was a `setWalk`: React drew the Menu and every row
+(SVG icons) again, committed, and only then did the highlight spring. Any
+JS work in the way (dev mode, a Place drawing, a sync) held the Step back.
+
+**What changed**
+
+- **use-gesture core**: the provider, the Direction functions, `thumbLock`
+  and the Tree Walk are worklets (a `'worklet'` directive, a plain string
+  on the web). `TreeWalk.lists` names every list a walk can open;
+  `TreeWalk.choiceAt` finds a choice by path. `core/tests/worklet-safe.test.ts`
+  keeps every function of those modules a worklet with no module-level
+  state (TypeScript 7 has no JS API, so it reads the sources line by line).
+- **expo-toolkit `./input`**: `ui-thread.ts` gives each `GestureSurface` a
+  core provider on the UI thread (one zone, kept on the UI runtime's
+  global by surface id), fed straight from the Gesture Handler callbacks
+  before the JS feed. `useWorkletGesture(make)` adds a listener a worklet
+  makes there, handed a `claim` worklet that activates in the same event
+  (a Thumb Lock now claims as the second finger lands, not one move
+  later). Zone arbitration stays on JS; the Thumb Lock only watches and
+  claims, as it did. The dev injector feeds both providers.
+- **expo-toolkit `./patterns/thumb-picker`**: `ThumbPicker` runs
+  `thumbLock` and `createPicking` (now a worklet) on the UI thread over the
+  tree's shape (ids only, `view.ts`) and writes a `View` (shown, open lists
+  with their marked rows) to a shared value. The Menu draws every list of
+  the tree up front, once per tree (memo), each row drawn plain and marked;
+  the highlight, the marked row, the lists' places and slides, the scrim
+  and menu fade, and the shake all move from shared values in
+  `useAnimatedReaction`s. A list jumps into place while the menu was hidden
+  (judged from the reaction's previous View, since several Views may land
+  in one frame). JS hears only the feedback (sound, haptic), the chosen
+  path on lift and, with a screen reader on, the marked choice to
+  announce, all fire-and-forget. The blur is iOS only; Android dims.
+- **Ledger `Thumb`**: the tree is memoised on the route, the tab, the
+  Account and the Accounts' ids, names and kinds; Go reads the latest
+  actions through a ref. Money and settings changes no longer redraw it.
+
+**How it was measured** (iPhone Air Simulator on the Mac, Expo Go, Metro
+8083, Local Backend, Ada with sample money; harness never committed)
+
+- Touches were injected on the UI thread through the same handlers the
+  Gesture Handler callbacks call: a `requestAnimationFrame` loop on the UI
+  runtime plays one event a frame (thumb down at 40,700, finger at
+  300,400, 120 pt down at 3 pt a frame, back up, thumb lifts first: four
+  Steps each way, no Go). Twelve rounds: six idle, six with JS busy 40 ms
+  of every 100 ms (a stand-in for syncs and Place renders).
+- **Step**: `performance.now()` on the UI thread from the move that made a
+  Step to the first frame the highlight's animated style runs with it.
+  **Show**: from the move that reveals the menu to its first drawn frame.
+  Reports went from the app to a local HTTP sink (console does not reach
+  Metro in production). Render counts are calls of the Menu, List and Row
+  bodies per round.
+
+| Step / show latency, ms      | before: median · p90 · max | after: median · p90 · max |
+| ---------------------------- | -------------------------- | ------------------------- |
+| production, idle, Step       | 16.7 · 23.4 · 83.6         | 16.9 · 17.8 · 20.4        |
+| production, JS busy, Step    | 16.8 · 50.1 · 83.4         | 16.8 · 16.8 · 17.3        |
+| production, show (idle/busy) | 33.2 / 36.1 median         | 0.5 / 0.2 median          |
+| development, idle, Step      | 33.3 · 50.2 · 1307         | 16.8 · 17.4 · 18.2        |
+| development, JS busy, Step   | 16.7 · 100 · 1361          | 16.8 · 17.3 · 17.4        |
+| development, show            | 53.5 median, 118 max       | 0.3 median, 0.6 max       |
+| React renders per swipe      | Menu ~11, List ~9          | none                      |
+
+- One frame (16.7 ms) is the floor for a Step: a spring's first value
+  lands on the frame after it starts. The show is now in the same frame.
+- Blur A/B (production, blur off): UI-thread frames longer than 20 ms per
+  round were 0.5 / 0.3 (idle / busy) against 0.7 / 0.5 with it, within
+  noise, so the iOS blur stays. Its GPU cost was not measured.
+
+**Proof it still works**
+
+- Unit tests: `toolkits/expo-toolkit/test/thumb-picker-ui.test.ts` drives
+  Gesture-Handler-shaped events through the UI-thread provider into the
+  Thumb Lock and the picking (claims and locks as the second finger lands,
+  Steps and Go, a list opened behind which the top one sits, Wrong Way and
+  thumb first, one finger left alone); tree-walk tests for `lists` and
+  `choiceAt`. Whole-repo `pnpm lint`, `pnpm test`, `pnpm build` pass.
+- Simulator, development, `touch.mjs`: the picker shows and Steps (Months
+  marked, the dot on Home); Settings opens its Sections and lifting Went to
+  `/settings?tab=gestures`.
+- Simulator, production, a scripted run through the same UI-thread
+  injection with screenshots and a screen recording: Sections open and
+  lifting Goes to Gestures; a new Lock shows only the top list; a Wrong
+  Way shakes the menu (its edge 112 → 109 → 116 → 109 → 114 pt over the
+  recorded frames, back at rest); lifting the thumb first called it off
+  and stayed on Settings.
+- Web (agent-browser, iPhone 14, Local Backend, synthetic touch
+  PointerEvents): two Steps went to `/months`, thumb first stayed,
+  Settings → right → Keys went to `/settings?tab=keys`, a Wrong Way ran its
+  animation.
+
+**Challenges**
+
+- Metro started with `CI=1` does not watch files, so a running Metro
+  served old code after edits; each measurement restarted it with
+  `--clear`.
+- `touch.mjs` evaluations crashed Expo Go in Hermes' debugger
+  (`Debugger::runUntilValidPauseLocation` in a timer callback, SIGSEGV), on
+  the second or third evaluation in a session, as Phase 3c saw with async
+  evaluations. It is the inspector, not app code (production runs of the
+  same flows never crashed), but it limits `touch.mjs` to one or two
+  commands per launch.
+- A first version kept an `instant` flag in the View; with lock, reveal
+  and a Step in one frame the reactions saw only the last View and a stale
+  opened list sprang out visibly on the next Lock. Fixed by judging from
+  the reaction's previous value.
+
+**Not proven**
+
+- Real two-finger touches (idb has one finger); the numbers are from
+  UI-thread injection, which skips Gesture Handler's own delivery.
+- A real phone, and Android: a slower CPU should widen the before/after
+  gap, unmeasured.
+- Sounds and haptics still run on JS, so a busy JS thread can delay the
+  tick, not the highlight.
