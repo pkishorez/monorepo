@@ -140,11 +140,13 @@ export type PointerSink<Target> = {
  * the other zones then drop it; those that only watch keep it. Every later
  * finger joins it, unless it lands in another provider's zone. Whether the
  * last finger's release clicks what is under it is the platform's call,
- * unless a listener prevents it.
+ * unless a listener prevents it. It is a worklet: made on a phone's UI
+ * thread, it runs there whole.
  */
 export const createGestureProvider = <Zone, Target>(
   tree: ZoneTree<Zone, Target>,
 ) => {
+  'worklet';
   type Listener = GestureListener<Target>;
   type Taking = { readonly zone: Zone; readonly listener: Listener };
 

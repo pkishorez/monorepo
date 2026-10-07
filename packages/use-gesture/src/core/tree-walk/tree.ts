@@ -9,8 +9,10 @@ export type Choice<C> = {
 };
 
 /** Whether a choice has choices inside it. */
-export const opens = <C extends Choice<C>>(choice: C | undefined) =>
-  (choice?.children?.length ?? 0) > 0;
+export const opens = <C extends Choice<C>>(choice: C | undefined) => {
+  'worklet';
+  return (choice?.children?.length ?? 0) > 0;
+};
 
 /**
  * The lists a path of indices goes through: the tree, then the children
@@ -20,6 +22,7 @@ export const listsAlong = <C extends Choice<C>>(
   tree: ReadonlyArray<C>,
   path: ReadonlyArray<number>,
 ): ReadonlyArray<ReadonlyArray<C>> => {
+  'worklet';
   const lists = [tree];
   for (const index of path.slice(0, -1)) {
     const list = lists[lists.length - 1] ?? [];
@@ -32,4 +35,19 @@ export const listsAlong = <C extends Choice<C>>(
 export const idsAlong = <C extends Choice<C>>(
   tree: ReadonlyArray<C>,
   path: ReadonlyArray<number>,
-) => listsAlong(tree, path).map((list, depth) => list[path[depth] ?? -1]?.id);
+) => {
+  'worklet';
+  return listsAlong(tree, path).map(
+    (list, depth) => list[path[depth] ?? -1]?.id,
+  );
+};
+
+/** The choice a path of indices ends on, if there is one. */
+export const choiceAt = <C extends Choice<C>>(
+  tree: ReadonlyArray<C>,
+  path: ReadonlyArray<number>,
+): C | undefined => {
+  'worklet';
+  const lists = listsAlong(tree, path);
+  return lists[lists.length - 1]?.[path[path.length - 1] ?? -1];
+};
