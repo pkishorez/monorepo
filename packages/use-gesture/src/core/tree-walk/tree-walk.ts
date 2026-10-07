@@ -1,12 +1,13 @@
 import type { Direction } from '../direction/index.ts';
-import { type Choice, idsAlong, listsAlong, opens } from './tree.ts';
+import { type Choice, choiceAt, idsAlong, listsAlong, opens } from './tree.ts';
 
 export type { Choice } from './tree.ts';
 
 // A Tree Walk is how a picker such as a Thumb Picker moves through a tree
 // of choices as one finger goes: Steps up and down a list, opening a choice
 // to the right, going back to the left. It knows nothing of how the finger
-// is read or how the choices are drawn.
+// is read or how the choices are drawn. Every function is a worklet, so a
+// phone can walk on its UI thread, in the frame the finger moves.
 
 /**
  * How far, in px, the finger goes: to show the walk, and for each move, a
@@ -43,18 +44,21 @@ export type Event = 'step' | 'open' | 'back' | 'wrong';
 export const begin = <C extends Choice<C>>(
   tree: ReadonlyArray<C>,
   start: ReadonlyArray<string>,
-): Walk => ({
-  path: [
-    Math.max(
-      0,
-      tree.findIndex((choice) => choice.id === start[0]),
-    ),
-  ],
-  anchor: { x: 0, y: 0 },
-  memory: new Map(),
-  wrong: undefined,
-  shown: false,
-});
+): Walk => {
+  'worklet';
+  return {
+    path: [
+      Math.max(
+        0,
+        tree.findIndex((choice) => choice.id === start[0]),
+      ),
+    ],
+    anchor: { x: 0, y: 0 },
+    memory: new Map(),
+    wrong: undefined,
+    shown: false,
+  };
+};
 
 // Which child a list opens on: the one marked when it was last left in
 // this swipe, else the one on the way to where the swipe began, else the
@@ -65,6 +69,7 @@ const openingOf = <C extends Choice<C>>(
   start: ReadonlyArray<string>,
   children: ReadonlyArray<C>,
 ) => {
+  'worklet';
   const ids = idsAlong(tree, walk.path);
   const remembered = walk.memory.get(ids.join('/'));
   if (remembered !== undefined) return remembered;
@@ -81,6 +86,7 @@ const stepped = <C extends Choice<C>>(
   start: ReadonlyArray<string>,
   way: Way,
 ): Pick<Walk, 'path' | 'memory'> | undefined => {
+  'worklet';
   const { path, memory } = walk;
   const lists = listsAlong(tree, path);
   const depth = path.length - 1;
@@ -127,6 +133,7 @@ export const move = <C extends Choice<C>>(
   finger: Point,
   { reveal, step }: Distances = DISTANCES,
 ): { readonly walk: Walk; readonly events: ReadonlyArray<Event> } => {
+  'worklet';
   let next =
     walk.shown || Math.hypot(finger.x, finger.y) < reveal
       ? walk
@@ -171,10 +178,10 @@ export const chosen = <C extends Choice<C>>(
   tree: ReadonlyArray<C>,
   start: ReadonlyArray<string>,
 ): C | undefined => {
+  'worklet';
   const ids = idsAlong(tree, walk.path);
   if (ids.every((id, depth) => id === start[depth])) return undefined;
-  const lists = listsAlong(tree, walk.path);
-  return lists[lists.length - 1]?.[walk.path[walk.path.length - 1] ?? -1];
+  return choiceAt(tree, walk.path);
 };
 
 /** One list the walk has opened, what is marked in it, and where you are. */
@@ -197,6 +204,7 @@ export const columns = <C extends Choice<C>>(
   tree: ReadonlyArray<C>,
   start: ReadonlyArray<string>,
 ): ReadonlyArray<Column<C>> => {
+  'worklet';
   const { path } = walk;
   const ids = idsAlong(tree, path);
   return listsAlong(tree, path).map((choices, depth) => {
@@ -209,4 +217,34 @@ export const columns = <C extends Choice<C>>(
       here: onStart && here >= 0 ? here : undefined,
     };
   });
+};
+
+/** A list a walk can open: its id, as a Column's, its choices, and where you are. */
+export type List<C> = Omit<Column<C>, 'marked'>;
+
+/**
+ * Every list a walk through `tree` can open, each before the lists inside
+ * it, with the same ids and `here` as `columns` gives them: what a picker
+ * draws up front, so a walk only moves what is already drawn.
+ */
+export const lists = <C extends Choice<C>>(
+  tree: ReadonlyArray<C>,
+  start: ReadonlyArray<string>,
+): ReadonlyArray<List<C>> => {
+  'worklet';
+  const all: Array<List<C>> = [];
+  const visit = (choices: ReadonlyArray<C>, ids: ReadonlyArray<string>) => {
+    const onStart = ids.every((id, at) => id === start[at]);
+    const here = choices.findIndex((choice) => choice.id === start[ids.length]);
+    all.push({
+      id: ids.join('/'),
+      choices,
+      here: onStart && here >= 0 ? here : undefined,
+    });
+    for (const choice of choices) {
+      if (opens(choice)) visit(choice.children ?? [], [...ids, choice.id]);
+    }
+  };
+  visit(tree, []);
+  return all;
 };

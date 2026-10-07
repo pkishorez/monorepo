@@ -69,8 +69,14 @@ Every peer is optional: the core needs none of them.
 | `TreeWalk.move`         | The walk after the finger moves: Steps, opening a choice, going back, or a Wrong Way.                               |
 | `TreeWalk.chosen`       | The choice letting go chooses, unless it is where the swipe began.                                                  |
 | `TreeWalk.columns`      | Each list the walk has opened, with what is marked in it: what a picker shows.                                      |
+| `TreeWalk.lists`        | Every list a walk can open, with the ids `columns` gives them: what a picker draws up front.                        |
+| `TreeWalk.choiceAt`     | The choice a path of indices ends on.                                                                               |
 | `TreeWalk.opens`        | Whether a choice has choices inside it.                                                                             |
 | `TreeWalk.DISTANCES`    | How far the finger goes to show the walk and for each move: 14px and 30px.                                          |
+
+The provider, the Direction functions, `thumbLock` and the Tree Walk are
+worklets (each starts with the `'worklet'` directive, a plain string
+elsewhere), so a phone can run them on Reanimated's UI thread.
 
 ### `@kstackz/use-gesture/web`
 

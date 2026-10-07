@@ -55,6 +55,7 @@ export type Pointers<Target> = ReadonlyMap<number, Pointer<Target>>;
  * Pointer that changed, or none when the sample was not the Gesture's.
  */
 export const createPointers = <Target>() => {
+  'worklet';
   let pointers: Pointers<Target> = new Map();
   // The first landing's time, on the source's own clock.
   let zero = 0;

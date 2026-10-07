@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   begin,
+  choiceAt,
   chosen,
   columns,
   DISTANCES,
   type Event,
+  lists,
   move,
 } from '../index.ts';
 
@@ -249,5 +251,46 @@ describe('the columns a Tree Walk shows', () => {
       ['entries'],
     );
     expect(columns(other, TREE, ['entries'])[1]?.here).toBeUndefined();
+  });
+});
+
+describe('every list a Tree Walk can open', () => {
+  it('lists each before the lists inside it, with the ids columns give', () => {
+    expect(
+      lists(TREE, ['settings', 'keys']).map((list) => ({
+        ...list,
+        choices: list.choices.map((choice) => choice.id),
+      })),
+    ).toEqual([
+      { id: '', choices: ['home', 'entries', 'settings', 'about'], here: 2 },
+      { id: 'settings', choices: ['general', 'keys', 'gestures'], here: 1 },
+    ]);
+  });
+
+  it('marks where the swipe began only on the way to it', () => {
+    expect(lists(TREE, ['entries']).map((list) => list.here)).toEqual([
+      1,
+      undefined,
+    ]);
+  });
+
+  it('agrees with the columns of a walk that opened them', () => {
+    const { walk } = walkThrough(
+      [
+        [0, STEP],
+        [STEP, STEP],
+      ],
+      ['entries'],
+    );
+    const ids = lists(TREE, ['entries']).map((list) => list.id);
+    for (const column of columns(walk, TREE, ['entries'])) {
+      expect(ids).toContain(column.id);
+    }
+  });
+
+  it('finds the choice a path ends on', () => {
+    expect(choiceAt(TREE, [2, 2])?.id).toBe('gestures');
+    expect(choiceAt(TREE, [1])?.id).toBe('entries');
+    expect(choiceAt(TREE, [9])).toBeUndefined();
   });
 });
