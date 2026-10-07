@@ -16,7 +16,7 @@ and keyboard-or-touch rules every screen follows are in
 [`DESIGN.md`](DESIGN.md). What the app had to invent that a package could one
 day own is listed in [`NOTES.md`](NOTES.md).
 
-Every Command lives once in core's `src/app/commands/keys.ts`, as a
+Every Command lives once in core's `src/commands/keys.ts`, as a
 `@kstackz/use-keys` Action with its keys and its Surface. Gestures from
 `@kstackz/use-gesture` run the same Actions through `keys.useRun()`, so a
 Command works in exactly the same Places from a key or a finger. Key hints
@@ -31,31 +31,36 @@ or opens the sidebar from anywhere. `Space e` gives the keys to the sidebar,
 and Escape gives them back to whatever had them.
 
 `src/` reads top-down: `routes/` (with `router.tsx`) starts the browser,
-one thin route per Place; `screens/` holds the shell, each Place, the sheets
-and the parts they share; `app.ts` makes Ledger once from core on
-the browser's Platform (`platform.ts`), with the theme; `worker.ts` is the Worker; and
-`infra/` deploys it. `stage.ts` says where this stage's sign-in service is.
-Layers and their rules are in `laymos.config.json`; the layout is the root
+one thin route per Place, and `routes/__root.tsx` is
+`createRootRoute(app.root({ stylesheet }))`; `screens/` holds the shell, each
+Place, the sheets and the parts they share; `app.ts` makes Ledger once with
+the Web Platform's `createApp`, from core's `apis`, `device`, `ledgerSession`
+and `ledgerCache`; `mark.tsx` is `LedgerMark`, shown above the name before
+sign-in; `worker.ts` is the Worker, from the Web Platform's `createServer`;
+and `infra/` deploys it. `stage.ts` says where this stage's sign-in service
+is. The Shell is `SignedIn` around the keys and the Frame; until an Account
+is open, the Web Platform shows its own screens before sign-in. Layers and
+their rules are in `laymos.config.json`; the layout is the root
 [ADR 0004](../../docs/adr/0004-an-app-is-api-backend-and-stores.md).
 
 Ledger runs on one of two Backends, as Settings choose: the cloud Backend,
 where money is a std-toolkit `StdTable` in D1 served at `/rpc` and Users sign
 in with Google at `auth.kishore.app`, or the device Backend, where the same
 handlers answer in the page from IndexedDB and anyone signs in by name. Only
-the services differ: `worker.ts` gives core's Backend `tableCloud` and
-`authz.cloud`, and core runs it in the page on `tableDevice` and `authz.device`.
-auth-toolkit's `createApp` (through core's `createLedger`) keeps the Backend
-and opens each User's Session as they become
-active, without a reload when the Backend changes. What only a browser has
-(IndexedDB, `localStorage`, the Auth Worker's cookies, window events,
-`?backend=` in the address) reaches core only through `platform.ts`. A
-Session holds the User's money through Std Sync and TanStack DB, so every
-write shows at once, each call signed with that User's own token. On the
-cloud Backend Std Sync keeps it in IndexedDB, so Ledger opens offline, and
-the syncs of Users no longer signed in are deleted. The device's Settings, its
-cache, are a `StdTable` in IndexedDB alone, read the same way. The decisions
-behind gestures, signing, the two Backends and the split into core, web and
-Expo are in [`../docs/adr/`](../docs/adr/).
+the services differ: `worker.ts` gives core's Backend `tableCloud` (and
+`createServer` gives it `authz.cloud`), and the app runs it in the page on
+`tableDevice` and `authz.device`. The Platform Toolkit's Gate, under the Web
+Platform's `createApp`, keeps the Backend and opens each User's Session as
+they become active, without a reload when the Backend changes. What only a
+browser has (IndexedDB, the sign-in service's cookies, window events,
+`?backend=` in the address) is the Web Platform's Host, which Ledger never
+meets. A Session holds the User's money through Std Sync and TanStack DB, so
+every write shows at once, each call signed with that User's own token. On
+the cloud Backend Std Sync keeps it in IndexedDB, so Ledger opens offline,
+and the syncs of Users no longer signed in are deleted. The device's Settings,
+its Cache, are a `StdTable` in IndexedDB alone, read the same way. The
+decisions behind gestures, signing, the two Backends and the split into
+core, web and Expo are in [`../docs/adr/`](../docs/adr/).
 
 ## Usage
 
@@ -77,13 +82,13 @@ pnpm --filter @ledger/web brand   # regenerate public/icons and splash (node:zli
 
 ### Add a Command
 
-Give the Action its keys in core's `src/app/commands/keys.ts`, its gesture
-in core's `src/app/commands/gestures.ts` if it has one, and its Handler in the Place that
+Give the Action its keys in core's `src/commands/keys.ts`, its gesture
+in core's `src/commands/gestures.ts` if it has one, and its Handler in the Place that
 answers it, with `useCommand`. The Handler runs from its keys, the palette,
 and its gesture alike, and each time it sounds and shows in the Key Bar.
 
 ```ts
-// ledger/core/src/app/commands/keys.ts, inside the entries Surface
+// ledger/core/src/commands/keys.ts, inside the entries Surface
 remove: { keys: [sequence('d d')], description: 'Delete the entry' },
 
 // src/screens/places/entries/list.tsx

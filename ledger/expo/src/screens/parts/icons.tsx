@@ -26,7 +26,7 @@ import {
   Glyph,
   type GlyphProps,
 } from '@kstackz/expo-platform/components/glyph';
-import type { StopIcon as Name } from '@ledger/core/app/places';
+import type { StopIcon as Name } from '@ledger/core/places';
 import type { Account } from '@ledger/core/model';
 
 type Icon = GlyphProps['icon'];

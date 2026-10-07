@@ -314,10 +314,10 @@
     },
     "client": {
       "paths": ["src/client"],
-      "description": "An app's client: createApp on a Platform, the Gate that runs sign-in on one device and opens one Session per active Account, and the Sign-in mechanisms (cookie, named, and oauth and deviceCode behind doors of their own because they bring Expo and Node).",
+      "description": "An app's client side of signing in: the words (Account, the SignIn Service) and the Sign-in mechanisms (cookie, named, and oauth and deviceCode behind doors of their own because they bring Expo and Node). Running sign-in on a device is the Platform Toolkit's.",
       "moduleGraphs": {
         "client": {
-          "description": "index.ts is the door and client.ts its story; account holds the words (Account, Backend, the SignIn Service); each sign-in is a member; platform is what a Platform gives; gate runs sign-in; app opens Sessions over the Api.",
+          "description": "index.ts is the door and client.ts its story; account holds the words (Account, the SignIn Service); each sign-in is a member.",
           "path": "src/client",
           "modules": {
             "index.ts": {
@@ -334,23 +334,11 @@
             },
             "sign-in/device-code": {
               "exposed": true
-            },
-            "platform": {},
-            "gate": {},
-            "app": {}
+            }
           },
           "rules": {
             "index.ts": ["client.ts"],
-            "client.ts": [
-              "app",
-              "account",
-              "gate",
-              "platform",
-              "sign-in/named"
-            ],
-            "app": ["account", "gate", "platform", "sign-in/named"],
-            "gate": ["account", "platform", "sign-in/named"],
-            "platform": ["account", "sign-in/named"],
+            "client.ts": ["account", "sign-in/named"],
             "sign-in/cookie": ["account"],
             "sign-in/named": ["account"],
             "sign-in/oauth": ["account"]

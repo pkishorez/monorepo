@@ -1,7 +1,7 @@
 import { MousePointerClick } from '@kstackz/web-platform/components/lucide';
 import { cn } from '@kstackz/web-platform/components/utils';
-import { usePlace } from '@ledger/core/app/commands';
-import type { EntriesSearch } from '@ledger/core/app/places';
+import { usePlace } from '@ledger/core/commands';
+import type { EntriesSearch } from '@ledger/core/places';
 import { useWide } from '../../parts/index.ts';
 import { EntryPane } from './entry.tsx';
 import { EntriesList } from './list.tsx';

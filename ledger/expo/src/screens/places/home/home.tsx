@@ -2,14 +2,9 @@ import { Button } from '@kstackz/expo-platform/components/button';
 import { Meter } from '@kstackz/expo-platform/components/meter';
 import { Text } from '@kstackz/expo-platform/components/text';
 import { cn } from '@kstackz/expo-platform/theme';
-import { keys, useCommand, usePlace } from '@ledger/core/app/commands';
-import {
-  type Money,
-  useMoney,
-  useUser,
-  useWrites,
-} from '@ledger/core/app/session';
-import { glance, useLookup } from '@ledger/core/app/places';
+import { keys, useCommand, usePlace } from '@ledger/core/commands';
+import { type Money, useMoney, useUser, useWrites } from '@ledger/core/session';
+import { glance, useLookup } from '@ledger/core/places';
 import { monthName, monthOf, today } from '@ledger/core/model';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';

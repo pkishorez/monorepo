@@ -2,7 +2,7 @@
   "name": "@kstackz/expo-platform",
   "version": "0.0.0",
   "private": false,
-  "description": "UI, theme and haptics for native apps built with Expo: owned Panel UI components on Uniwind, styled with web-platform's tokens.",
+  "description": "The Expo Platform: a native app from one config, its APIs on a cloud or a device Backend, several Accounts with one Session each and the screens before sign-in; plus owned Panel UI components on Uniwind, styled with web-platform's tokens, gestures, haptics and Recipes.",
   "keywords": [
     "expo",
     "react-native",
@@ -23,6 +23,7 @@
     "src/"
   ],
   "exports": {
+    ".": "./src/app/index.ts",
     "./theme": "./src/theme/index.ts",
     "./theme.css": "./src/theme/theme.css",
     "./feedback": "./src/feedback/index.ts",
@@ -48,9 +49,16 @@
     "tailwind-variants": "catalog:"
   },
   "peerDependencies": {
+    "@kstackz/auth-toolkit": "workspace:*",
+    "@kstackz/platform-toolkit": "workspace:*",
+    "@kstackz/std-toolkit": "workspace:*",
+    "effect": "^4.0.0",
     "expo-blur": "57.0.3",
     "expo-font": "57.0.4",
     "expo-haptics": "57.0.3",
+    "expo-linking": "57.0.11",
+    "expo-network": "57.0.2",
+    "expo-sqlite": "57.0.3",
     "react": "19.2.3",
     "react-native": "0.86.3",
     "react-native-gesture-handler": "2.32.0",
@@ -85,11 +93,18 @@
     }
   },
   "devDependencies": {
+    "@kstackz/auth-toolkit": "workspace:*",
+    "@kstackz/platform-toolkit": "workspace:*",
+    "@kstackz/std-toolkit": "workspace:*",
     "@types/react": "catalog:",
+    "effect": "catalog:",
     "expo": "catalog:",
     "expo-blur": "catalog:",
     "expo-font": "catalog:",
     "expo-haptics": "catalog:",
+    "expo-linking": "catalog:",
+    "expo-network": "catalog:",
+    "expo-sqlite": "catalog:",
     "laymos": "workspace:*",
     "panelui-cli": "catalog:",
     "react": "catalog:",

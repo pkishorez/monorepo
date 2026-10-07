@@ -3,56 +3,56 @@
   "sourceRoots": ["src"],
   "ignoredPaths": [],
   "layers": {
-    "app": {
-      "paths": ["src/app/ledger.ts"],
-      "description": "Ledger on one Platform: createLedger hands auth-toolkit's createApp the Ledger API, the device Backend and the Session, and opens this device's Settings",
+    "apis": {
+      "paths": ["src/apis.ts"],
+      "description": "Ledger's APIs, by name, each with its Transport: what both apps hand their Platform",
       "modules": {
-        "src/app/ledger.ts": {
+        "src/apis.ts": {
           "exposed": true
         }
       }
     },
-    "app-session": {
-      "paths": ["src/app/session"],
-      "description": "What one signed-in user gets: a collection for each kind of their money and the Backend's commands, on the signed rpc client and the Std Sync createApp hands it",
+    "session": {
+      "paths": ["src/session"],
+      "description": "What one signed-in user gets: a collection for each kind of their money and the Backend's commands, on the signed APIs and the Std Sync the Platform hands it, and the hooks screens read it with",
       "modules": {
-        "src/app/session": {
+        "src/session": {
           "exposed": true
         }
       }
     },
-    "app-device": {
-      "paths": ["src/app/device"],
-      "description": "The device Backend: the Backend on the device's own table and the Name Token resolver, loaded as a chunk of its own on the web and bundled on a phone",
-      "modules": {
-        "src/app/device": {
-          "exposed": true
-        }
-      }
-    },
-    "app-cache": {
-      "paths": ["src/app/cache"],
+    "cache": {
+      "paths": ["src/cache"],
       "description": "What only this device has, belonging to no user: its Settings and their table",
       "modules": {
-        "src/app/cache/settings": {
+        "src/cache/settings": {
           "exposed": true
         }
       }
     },
-    "app-places": {
-      "paths": ["src/app/places"],
+    "places": {
+      "paths": ["src/places"],
       "description": "The Place order both apps follow, every Place with its address and Go Command, the stops a Thumb Lock picks, and what each Place shows, worked out once over the open session's money",
       "modules": {
-        "src/app/places": {
+        "src/places": {
           "exposed": true
         }
       }
     },
-    "app-commands": {
-      "paths": ["src/app/commands"],
+    "commands": {
+      "paths": ["src/commands"],
       "description": "The vocabulary: every Command with its keys, the gesture that gives it on a touch screen, the guide to every gesture, and the sound and Key Bar of each as it is given",
       "modules": {
-        "src/app/commands": {
+        "src/commands": {
+          "exposed": true
+        }
+      }
+    },
+    "backend-device": {
+      "paths": ["src/backend/device"],
+      "description": "The device Backend: every API's handlers on the device's own table and the Name Token resolver, loaded as a chunk of its own on the web and bundled on a phone",
+      "modules": {
+        "src/backend/device": {
           "exposed": true
         }
       }
@@ -123,14 +123,14 @@
   },
   "layerGraphs": {
     "ledger-core": {
-      "description": "Read top-down: the app on each user's Session, the device Backend, and the cache; the Backend answers the API in the words of the model. Commands stand alone; the Place order names them.",
+      "description": "Read top-down: the Session over the named APIs, the device Backend, and the cache; the Backend answers the API in the words of the model. Commands stand alone; the Place order names them.",
       "rules": {
-        "app": ["app-session", "app-device", "app-cache", "api"],
-        "app-session": ["api", "model"],
-        "app-device": ["backend", "backend-services"],
-        "app-cache": [],
-        "app-places": ["app-commands", "app-session", "model"],
-        "app-commands": [],
+        "apis": ["api"],
+        "session": ["apis", "api", "model"],
+        "backend-device": ["backend", "backend-services"],
+        "cache": [],
+        "places": ["commands", "session", "model"],
+        "commands": [],
         "backend": ["backend-handlers"],
         "backend-handlers": ["backend-services", "api", "model"],
         "backend-services": ["model"],

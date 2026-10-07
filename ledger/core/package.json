@@ -1,20 +1,21 @@
 {
   "name": "@ledger/core",
-  "description": "Everything Ledger's web and Expo apps share: the API, the model, the Backend (handlers on services, each with a cloud and a device version), and the app: its device Backend, each user's Session, its cache, Commands and Places. Platform-free; each app hands it its own Platform.",
+  "description": "Everything Ledger's web and Expo apps share: the API and the named APIs, the model, the Backend (handlers on services, each with a cloud and a device version, and the device Backend), each user's Session, the device's cache, Commands and Places. Platform-free; each app hands these to its Platform's createApp.",
   "private": true,
   "type": "module",
   "sideEffects": false,
   "exports": {
     "./api": "./src/api/index.ts",
+    "./apis": "./src/apis.ts",
     "./model": "./src/model/index.ts",
     "./backend": "./src/backend/backend.ts",
+    "./backend/device": "./src/backend/device/index.ts",
     "./backend/services/table": "./src/backend/services/table/index.ts",
     "./backend/services/*": "./src/backend/services/*.ts",
-    "./app": "./src/app/ledger.ts",
-    "./app/session": "./src/app/session/index.ts",
-    "./app/settings": "./src/app/cache/settings/index.ts",
-    "./app/commands": "./src/app/commands/index.ts",
-    "./app/places": "./src/app/places/index.ts"
+    "./session": "./src/session/index.ts",
+    "./cache": "./src/cache/settings/index.ts",
+    "./commands": "./src/commands/index.ts",
+    "./places": "./src/places/index.ts"
   },
   "scripts": {
     "lint": "tsc --noEmit && tsc --noEmit -p tests && pnpm lint:laymos",
@@ -23,14 +24,13 @@
   },
   "dependencies": {
     "@kstackz/auth-toolkit": "workspace:*",
+    "@kstackz/platform-toolkit": "workspace:*",
     "@kstackz/rpc-toolkit": "workspace:*",
     "@kstackz/std-toolkit": "workspace:*",
     "@kstackz/use-keys": "workspace:*",
     "@tanstack/react-db": "catalog:",
-    "@xstate/effect": "catalog:",
     "effect": "catalog:",
-    "react": "catalog:",
-    "xstate": "catalog:"
+    "react": "catalog:"
   },
   "devDependencies": {
     "@types/node": "catalog:",

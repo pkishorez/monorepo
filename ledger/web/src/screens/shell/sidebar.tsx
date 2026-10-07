@@ -11,11 +11,11 @@ import { Plus, Settings } from '@kstackz/web-platform/components/lucide';
 import { Link, useLocation, useSearch } from '@tanstack/react-router';
 import { useEffect, useRef } from 'react';
 import { BindingKeys } from '@kstackz/web-platform/recipes/key-bindings';
-import { keys, useCommand } from '@ledger/core/app/commands';
-import { useMoney } from '@ledger/core/app/session';
+import { keys, useCommand } from '@ledger/core/commands';
+import { useMoney } from '@ledger/core/session';
 import { balances } from '@ledger/core/model';
 import { useOpenAccount } from '../sheets/accounts/index.ts';
-import { PLACES } from '@ledger/core/app/places';
+import { PLACES } from '@ledger/core/places';
 import { AccountIcon, Amount, focusPage, stopIcon } from '../parts/index.ts';
 
 // Every Place but Settings, which sits at the foot of the Sidebar.

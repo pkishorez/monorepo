@@ -1,0 +1,64 @@
+{
+  "name": "@kstackz/platform-toolkit",
+  "version": "0.0.0",
+  "private": false,
+  "description": "Running an app on any platform: its named APIs on a cloud or a device Backend, several Accounts signed in on one device with one Session each, and its cache. The Web and Expo Platforms are built on it.",
+  "keywords": [
+    "effect",
+    "rpc",
+    "multi-account",
+    "offline"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pkishorez/monorepo",
+    "directory": "toolkits/platform-toolkit"
+  },
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "files": [
+    "README.md",
+    "LICENSE",
+    "dist/"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "rm -rf ./dist && tsc -p tsconfig.build.json",
+    "fmt": "vp fmt",
+    "lint": "vp check && pnpm lint:tsc && laymos lint",
+    "lint:tsc": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@xstate/effect": "catalog:",
+    "xstate": "catalog:"
+  },
+  "devDependencies": {
+    "@kstackz/auth-toolkit": "workspace:*",
+    "@kstackz/rpc-toolkit": "workspace:*",
+    "@kstackz/std-toolkit": "workspace:*",
+    "@tsconfig/node22": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@typescript/native": "catalog:",
+    "effect": "catalog:",
+    "laymos": "workspace:*",
+    "react": "catalog:",
+    "typescript": "catalog:typescript6",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  },
+  "peerDependencies": {
+    "@kstackz/auth-toolkit": "workspace:*",
+    "@kstackz/rpc-toolkit": "workspace:*",
+    "@kstackz/std-toolkit": "workspace:*",
+    "effect": "^4.0.0",
+    "react": "19.2.3"
+  }
+}

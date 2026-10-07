@@ -2,9 +2,9 @@ import { CalendarRange } from '@kstackz/web-platform/components/lucide';
 import { cn } from '@kstackz/web-platform/components/utils';
 import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
-import { keys, useCommand, usePlace } from '@ledger/core/app/commands';
-import { monthsView } from '@ledger/core/app/places';
-import { useMoney } from '@ledger/core/app/session';
+import { keys, useCommand, usePlace } from '@ledger/core/commands';
+import { monthsView } from '@ledger/core/places';
+import { useMoney } from '@ledger/core/session';
 import { monthName } from '@ledger/core/model';
 import { Amount, scrollMarked } from '../../parts/index.ts';
 

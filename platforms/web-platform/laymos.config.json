@@ -390,7 +390,7 @@
     },
     "recipes": {
       "paths": ["src/recipes"],
-      "description": "Whole interactions, ready to use, the same on the web as their twins in expo-platform: the Frame with its Sidebar, the Thumb Picker, the Swipe Row, the keys of a Binding, the Local Sign-In, the Account Switcher. parts are what recipes share and never expose. A recipe knows nothing of sign-in.",
+      "description": "Whole interactions, ready to use, the same on the web as their twins in expo-platform: the Frame with its Sidebar, the Thumb Picker, the Swipe Row, the keys of a Binding, the Local Sign-In, the Account Switcher, the screens before an Account is open. parts are what recipes share and never expose. A recipe knows nothing of sign-in.",
       "modules": {
         "src/recipes/account-switcher": {
           "exposed": true
@@ -414,6 +414,9 @@
           "exposed": true
         },
         "src/recipes/key-bindings": {
+          "exposed": true
+        },
+        "src/recipes/gate-screens": {
           "exposed": true
         }
       }
@@ -619,17 +622,40 @@
       "description": "A web app's server: one fetch handler for its pages and its /rpc API, which the app answers itself, and the stages alchemy deploys it to. Plain Request and Response, so it runs on Cloudflare as anywhere.",
       "moduleGraphs": {
         "server": {
-          "description": "index.ts is the door; worker routes /rpc and pages; stage names where each stage deploys.",
+          "description": "index.ts is the door; serve answers each API on the cloud Backend over worker, which routes the rest to the pages; stage names where each stage deploys.",
           "path": "src/server",
           "modules": {
             "index.ts": {
               "exposed": true
             },
             "worker": {},
-            "stage": {}
+            "stage": {},
+            "serve": {}
           },
           "rules": {
-            "index.ts": ["worker", "stage"]
+            "index.ts": ["serve", "worker", "stage"],
+            "serve": ["worker"]
+          }
+        }
+      }
+    },
+    "app": {
+      "paths": ["src/app"],
+      "description": "The Web Platform's door: createApp turns one config into a web app, the browser as its Host, the Theme, the PWA, the Gate's screens and the named sign-in dialog, on the Platform Toolkit.",
+      "moduleGraphs": {
+        "app": {
+          "description": "index.ts is the door; app.tsx assembles the app over host.ts.",
+          "path": "src/app",
+          "modules": {
+            "index.ts": {
+              "exposed": true
+            },
+            "app.tsx": {},
+            "host.ts": {}
+          },
+          "rules": {
+            "index.ts": ["app.tsx", "host.ts"],
+            "app.tsx": ["host.ts"]
           }
         }
       }
@@ -637,7 +663,7 @@
   },
   "layerGraphs": {
     "web-platform": {
-      "description": "Bottom to top: the Theme, feedback and input; components; forms and recipes on components; the client on them; the PWA plugs into the client; the server stands alone.",
+      "description": "Bottom to top: the Theme, feedback and input; components; forms and recipes on components; the client on them; the PWA plugs into the client; the app door over the client, the PWA and the recipes; the server stands alone.",
       "rules": {
         "theme": [],
         "input-gesture-zones": [],
@@ -692,7 +718,8 @@
         "pwa-splash": [],
         "pwa-root": ["pwa-react", "pwa-extras", "pwa-splash", "client"],
         "pwa": ["pwa-react", "pwa-root", "pwa-splash"],
-        "server": []
+        "server": [],
+        "app": ["client", "pwa", "recipes", "theme"]
       }
     }
   },

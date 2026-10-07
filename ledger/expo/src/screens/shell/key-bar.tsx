@@ -1,5 +1,5 @@
 import { KeyBar as Bar } from '@kstackz/expo-platform/recipes/key-bar';
-import { keys, useGiven } from '@ledger/core/app/commands';
+import { keys, useGiven } from '@ledger/core/commands';
 import { useState } from 'react';
 
 // Above the Add button, as the web raises it on a touch screen.

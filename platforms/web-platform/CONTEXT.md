@@ -1,6 +1,6 @@
 # Web Platform
 
-The one Toolkit for web apps: their look, input, components, Recipes, the optional PWA, and the opinionated way in on TanStack Start.
+The Platform for web apps: one config made into a PWA on TanStack Start, with its Theme, its APIs, its Accounts and the screens before sign-in, and the look, input, components and Recipes to build its screens. The words for Accounts, Sessions and Backends are the [Platform Toolkit's](../../toolkits/platform-toolkit/CONTEXT.md).
 
 ## Language
 
@@ -21,8 +21,12 @@ _Avoid_: app shell (the PWA's App Shell is what boots offline), layout, chrome
 ### Client
 
 **Root Plugin**:
-Something the root document takes in without knowing it: head tags for every page, and a provider around every page. The PWA plugs in this way, so an app that leaves it out ships none of it.
+Something the root document takes in without knowing it: head tags for every page, and a provider around every page. The PWA and the named sign-in dialog plug in this way; `createApp` gives both to every app.
 _Avoid_: extension, middleware, addon
+
+**Gate Screens**:
+What an app shows in place of what needs an Account until one is open: checking, opening, signing out, signed out with the way to the other Backend, and an Account that would not open. `SignedIn` shows them unless the app gives its own.
+_Avoid_: login page, splash, auth screens (the sign-in service's own pages)
 
 ### PWA
 

@@ -25,7 +25,7 @@ import {
   Wallet,
 } from '@kstackz/web-platform/components/lucide';
 import { cn } from '@kstackz/web-platform/components/utils';
-import type { StopIcon } from '@ledger/core/app/places';
+import type { StopIcon } from '@ledger/core/places';
 import type { Account } from '@ledger/core/model';
 
 const CATEGORY_ICONS: Readonly<Record<string, LucideIcon>> = {

@@ -24,28 +24,6 @@ export type Listed = Account & {
   readonly active: boolean;
 };
 
-/** Where an app's Backend runs, and its Users sign in: in the cloud, or on
- * this device, in the app itself. */
-export const Backend = Schema.Literals(['cloud', 'device']);
-export type Backend = typeof Backend.Type;
-
-// What the Backends were called before, as a device may still keep them.
-const FORMER: Readonly<Record<string, Backend>> = {
-  remote: 'cloud',
-  local: 'device',
-};
-
-/** The Backend `name` names, by its name or its former one (`remote`,
- * `local`); null for anything else. */
-export const backendNamed = (
-  name: string | null | undefined,
-): Backend | null =>
-  name === 'cloud' || name === 'device'
-    ? name
-    : name == null
-      ? null
-      : (FORMER[name] ?? null);
-
 /** Why a sign-in came back without signing anyone in. */
 export interface LoginError {
   readonly code: string;

@@ -1,9 +1,4 @@
-import {
-  bindingsOf,
-  keys,
-  keysOff,
-  type Surface,
-} from '@ledger/core/app/commands';
+import { bindingsOf, keys, keysOff, type Surface } from '@ledger/core/commands';
 import { type ReactNode, useState } from 'react';
 
 // A phone has no keyboard: every Command is given by a tap or a gesture.

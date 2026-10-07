@@ -7,7 +7,7 @@ import {
   GESTURES,
   keys,
   useCommand,
-} from '@ledger/core/app/commands';
+} from '@ledger/core/commands';
 import { BindingKeys } from '@kstackz/web-platform/recipes/key-bindings';
 
 type Status = ReturnType<typeof keys.useStatus>;

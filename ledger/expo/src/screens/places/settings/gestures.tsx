@@ -5,7 +5,7 @@ import {
   GESTURE_GUIDE,
   type GestureGroup,
   said,
-} from '@ledger/core/app/commands';
+} from '@ledger/core/commands';
 import { View } from 'react-native';
 import { useSettings } from '../../../ledger';
 import { GestureFigure } from './figure';

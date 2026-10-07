@@ -3,14 +3,9 @@ import { ArrowRight } from '@kstackz/web-platform/components/lucide';
 import { cn } from '@kstackz/web-platform/components/utils';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
-import { keys, useCommand, usePlace } from '@ledger/core/app/commands';
-import { glance, useLookup } from '@ledger/core/app/places';
-import {
-  type Money,
-  useMoney,
-  useUser,
-  useWrites,
-} from '@ledger/core/app/session';
+import { keys, useCommand, usePlace } from '@ledger/core/commands';
+import { glance, useLookup } from '@ledger/core/places';
+import { type Money, useMoney, useUser, useWrites } from '@ledger/core/session';
 import { useGate } from '../../../app.ts';
 import { monthName, monthOf, today } from '@ledger/core/model';
 import {

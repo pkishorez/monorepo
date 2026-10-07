@@ -5,7 +5,7 @@ import UserAdd01Icon from '@hugeicons/core-free-icons/UserAdd01Icon';
 import { Glyph } from '@kstackz/expo-platform/components/glyph';
 import { Text } from '@kstackz/expo-platform/components/text';
 import { toast } from '@kstackz/expo-platform/components/toast';
-import { type User, useUser } from '@ledger/core/app/session';
+import { type User, useUser } from '@ledger/core/session';
 import { type ReactNode, useEffect, useState } from 'react';
 import { Image, Pressable, View } from 'react-native';
 import { useAccounts, useGate } from '../../ledger';

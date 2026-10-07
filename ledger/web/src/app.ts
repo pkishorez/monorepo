@@ -1,6 +1,10 @@
-import { createLedger } from '@ledger/core/app';
-import { webPlatform } from './platform.ts';
-import { createTheme } from '@kstackz/web-platform/theme';
+import { createElement } from 'react';
+import { createApp } from '@kstackz/web-platform';
+import { apis } from '@ledger/core/apis';
+import { device } from '@ledger/core/backend/device';
+import { ledgerCache, useDeviceSettings } from '@ledger/core/cache';
+import { ledgerSession } from '@ledger/core/session';
+import { LedgerMark } from './mark.tsx';
 import { AUTH_URL } from './stage.ts';
 
 // The theme cookie is shared by every app under the same domain.
@@ -13,14 +17,31 @@ const cookieDomain =
         ? 'kishore.computer'
         : undefined;
 
-export const appTheme = createTheme({ cookieDomain });
+/** Ledger in the browser: the one every screen uses. Everything it runs on
+ * is core's, handed to the Web Platform. */
+export const app = createApp({
+  name: 'ledger',
+  title: 'Ledger',
+  description:
+    'Write down what you spend and earn, and see where it goes. Keys on a desktop, a thumb on a phone.',
+  mark: createElement(LedgerMark),
+  apis,
+  device,
+  cache: ledgerCache,
+  auth: {
+    url: AUTH_URL,
+    session: ledgerSession,
+    // Who to try the device Backend as, in one tap.
+    presets: [
+      { email: 'ada@example.com', name: 'Ada Lovelace' },
+      { email: 'grace@example.com', name: 'Grace Hopper' },
+    ],
+  },
+  theme: { cookieDomain },
+  pwa: { installTitle: 'Install Ledger' },
+});
 
-/** Ledger in the browser: the one every screen uses. */
-export const {
-  SignedIn,
-  useAccounts,
-  useGate,
-  // The open user's session; core's own `useSession` reads it inside.
-  useSession: useOpenSession,
-  useSettings,
-} = createLedger(() => webPlatform({ name: 'ledger', authUrl: AUTH_URL }));
+export const { SignedIn, useAccounts, useGate, theme: appTheme } = app;
+
+/** This device's Settings, live, and changing some of them. */
+export const useSettings = () => useDeviceSettings(app.cache());

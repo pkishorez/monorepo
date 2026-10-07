@@ -6,8 +6,8 @@ import { Glyph } from '@kstackz/expo-platform/components/glyph';
 import { Text } from '@kstackz/expo-platform/components/text';
 import { SwipeRow } from '@kstackz/expo-platform/recipes/swipe-row';
 import { cn } from '@kstackz/expo-platform/theme';
-import { keys, useCommand, usePlace } from '@ledger/core/app/commands';
-import { useMoney, useWrites } from '@ledger/core/app/session';
+import { keys, useCommand, usePlace } from '@ledger/core/commands';
+import { useMoney, useWrites } from '@ledger/core/session';
 import {
   type EntriesSearch,
   markAfterRemoving,
@@ -15,7 +15,7 @@ import {
   narrowing,
   shownBy,
   useLookup,
-} from '@ledger/core/app/places';
+} from '@ledger/core/places';
 import {
   type Account,
   byDay,

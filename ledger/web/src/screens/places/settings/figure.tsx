@@ -1,7 +1,7 @@
 import { cn } from '@kstackz/web-platform/components/utils';
 import { motion, useInView, useReducedMotion } from 'motion/react';
 import { useRef, useState } from 'react';
-import type { Motion, Way } from '@ledger/core/app/commands';
+import type { Motion, Way } from '@ledger/core/commands';
 
 // How far, in px, the finger travels in a figure.
 const TRAVEL = 14;

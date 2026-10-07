@@ -8,7 +8,7 @@ import {
   keys,
   useCommand,
   written,
-} from '@ledger/core/app/commands';
+} from '@ledger/core/commands';
 import {
   BindingKeys,
   recorded,

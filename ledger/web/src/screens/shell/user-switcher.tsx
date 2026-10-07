@@ -20,7 +20,7 @@ import {
   UserPlus,
 } from '@kstackz/web-platform/components/lucide';
 import { useAccounts, useGate } from '../../app.ts';
-import { type User, useUser } from '@ledger/core/app/session';
+import { type User, useUser } from '@ledger/core/session';
 import { LedgerMark } from '../parts/index.ts';
 
 function UserAvatar(props: { readonly user: User }) {

@@ -1,5 +1,5 @@
 import { useSidebar } from '@kstackz/expo-platform/recipes/sidebar';
-import { keys, useCommand } from '@ledger/core/app/commands';
+import { keys, useCommand } from '@ledger/core/commands';
 import { usePathname, useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { BackHandler } from 'react-native';

@@ -7,8 +7,8 @@ import {
   SidebarProvider,
   useSidebar,
 } from '@kstackz/expo-platform/recipes/sidebar';
-import { keys } from '@ledger/core/app/commands';
-import { placeTitle } from '@ledger/core/app/places';
+import { keys } from '@ledger/core/commands';
+import { placeTitle } from '@ledger/core/places';
 import { usePathname } from 'expo-router';
 import type { ReactNode } from 'react';
 import { Pressable, View } from 'react-native';

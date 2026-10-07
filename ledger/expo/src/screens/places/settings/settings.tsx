@@ -1,7 +1,7 @@
 import { Tabs } from '@kstackz/expo-platform/components/tabs';
 import { Pages } from '@kstackz/expo-platform/recipes/pages';
-import { usePlace } from '@ledger/core/app/commands';
-import { type SectionId, SETTINGS_SECTIONS } from '@ledger/core/app/places';
+import { usePlace } from '@ledger/core/commands';
+import { type SectionId, SETTINGS_SECTIONS } from '@ledger/core/places';
 import { View } from 'react-native';
 import { useFeel } from '../../../ledger';
 import { Scroll } from '../../parts';

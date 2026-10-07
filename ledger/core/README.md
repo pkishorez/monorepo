@@ -1,6 +1,6 @@
 # @ledger/core
 
-Everything Ledger's web and Expo apps share: the API, the model, the Backend (handlers on services, each with a cloud and a device version), and the app: its device Backend, each user's Session, its cache, Commands and Places. Platform-free; each app hands it its own Platform.
+Everything Ledger's web and Expo apps share: the API and the named APIs, the model, the Backend (handlers on services, each with a cloud and a device version, and the device Backend), each user's Session, the device's cache, Commands and Places. Platform-free; each app hands these to its Platform's createApp.
 
 ## Big picture
 
@@ -12,29 +12,30 @@ The words are in [`../CONTEXT.md`](../CONTEXT.md), the decisions in
 and the layout below is the root
 [ADR 0004](../../docs/adr/0004-an-app-is-api-backend-and-stores.md).
 
-`src/` reads as an app on the kstack toolkits does: `api/` (the Ledger API),
-`model/` (the words of money), `backend/` and `app/`. The Backend
+`src/` reads as an app on the kstack Platforms does: `api/` (the Ledger API),
+`apis.ts` (Ledger's named APIs: `ledger`, over HTTP at `/rpc`), `model/` (the
+words of money), `backend/`, `session/` and `cache/`. The Backend
 (`backend/backend.ts`) is the API's handlers (`backend/handlers/`) on the
-services they need, the ledger table (with a `cloud` and a `device`
-version in `backend/services/table/`) and who a token names (auth-toolkit's
-`authz.cloud` and `authz.device`). Which versions
-are given decides where it runs: web's Worker gives the cloud ones, and the
-app gives itself the device ones to run the device Backend in the page or on
-the phone. `app/` is what the screens use: `app/ledger.ts` hands
-auth-toolkit's `createApp` the Ledger API, the device Backend (`app/device`:
-the Backend on the device's own table, loaded only by those who choose it)
-and the Session (`app/session`: one user's money through Std Sync and
-TanStack DB, per signed-in user), and opens the cache (`app/cache/settings`: this device's
-Settings, which belong to no user). The Commands (`app/commands`) and the
-Places with what each shows (`app/places`) sit beside them.
+services they need, the ledger table (with a `cloud` and a `device` version
+in `backend/services/table/`) and who a token names (auth-toolkit's
+`authz.cloud` and `authz.device`). Which versions are given decides where it
+runs: web's Worker gives the cloud ones, and `backend/device` gives the device
+ones, so `device` runs the device Backend in the page or on the phone.
+`session/` is `ledgerSession`, one user's money through Std Sync and TanStack
+DB, written with platform-toolkit's `defineSession`, and the hooks screens
+read it with. `cache/` is this device's Settings, which belong to no user. The
+Commands (`commands/`) and the Places with what each shows (`places/`) sit
+beside them.
 
+Core makes no app. Each app hands `apis`, `device`, `ledgerSession` and
+`ledgerCache` to its Platform's `createApp`: the Web Platform's in
+`ledger/web/src/app.ts`, the Expo Platform's in `ledger/expo/src/ledger/app.ts`.
 Core imports nothing from `react-dom`, `react-native`, `window`, `document` or
-`indexedDB`. What differs by platform is one auth-toolkit `Platform`, which
-each app builds for now (`ledger/web/src/platform.ts`,
-`ledger/expo/src/ledger/platform.ts`) and hands to `createLedger`. The TypeScript config has no DOM
-or Node library, and `tests/platform-free.test.ts` fails on any platform
-import or browser global, so the seam cannot be skipped. Layers and their
-rules are in `laymos.config.json`.
+`indexedDB`; what differs by platform is the Host each Platform gives. The
+TypeScript config has no DOM or Node library, and
+`tests/platform-free.test.ts` fails on any platform import or browser global,
+so the seam cannot be skipped. Layers and their rules are in
+`laymos.config.json`.
 
 ## Exports
 
@@ -44,6 +45,12 @@ rules are in `laymos.config.json`.
 | ------------- | ---------------------------------------------------- |
 | `LedgerApi`   | The RPC group both Backends answer and clients call. |
 | `LedgerError` | Why the Backend refused a call.                      |
+
+### `@ledger/core/apis`
+
+| Export | What it does                                                       |
+| ------ | ------------------------------------------------------------------ |
+| `apis` | Ledger's named APIs: `ledger`, the Ledger API over HTTP at `/rpc`. |
 
 ### `@ledger/core/model`
 
@@ -62,6 +69,12 @@ rules are in `laymos.config.json`.
 | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ledgerBackend` | The Backend wherever it runs: the Ledger API's handlers, each call checked for the User who signed it; needs the ledger table and a Resolver. |
 
+### `@ledger/core/backend/device`
+
+| Export   | What it does                                                                                                                  |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `device` | The device Backend for `createApp`: every API's handlers on the device's own table, loaded the first time someone chooses it. |
+
 ### `@ledger/core/backend/services/table`
 
 | Export                                             | What it does                                                   |
@@ -77,38 +90,33 @@ rules are in `laymos.config.json`.
 
 ### `@ledger/core/backend/services/table/device`
 
-| Export        | What it does                                                                                                                                 |
-| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `tableDevice` | The ledger table on this device, kept where the `Platform` keeps tables (database `local-backend`, so what it held before the rename stays). |
+| Export        | What it does                                                                                                                     |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `tableDevice` | The ledger table on this device, kept in the Host's Storage (database `local-backend`, so what it held before the rename stays). |
 
-### `@ledger/core/app`
+### `@ledger/core/session`
 
-| Export         | What it does                                                                                                                                           |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `createLedger` | Ledger on one Platform: auth-toolkit's `createApp` with the Ledger API, its device Backend and Session, plus `useSettings` for this device's Settings. |
+| Export          | What it does                                                                                   |
+| --------------- | ---------------------------------------------------------------------------------------------- |
+| `ledgerSession` | The Session for `createApp`: one signed-in User's money, on the `apis` and `sync` it is given. |
+| `useSession`    | The open Session.                                                                              |
+| `useUser`       | The User whose Session is open.                                                                |
+| `useMoney`      | Every Account, Category and Entry of the open User, live.                                      |
+| `useWrites`     | The writes a User makes, each shown at once.                                                   |
 
-### `@ledger/core/app/session`
+### `@ledger/core/cache`
 
-| Export            | What it does                                                                                  |
-| ----------------- | --------------------------------------------------------------------------------------------- |
-| `ledgerSession`   | The Session for `createApp`: one signed-in User's money, on the `rpc` and `sync` it hands it. |
-| `SessionProvider` | Gives the open Session to everything inside it.                                               |
-| `useSession`      | The open Session.                                                                             |
-| `useUser`         | The User whose Session is open.                                                               |
-| `useMoney`        | Every Account, Category and Entry of the open User, live.                                     |
-| `useWrites`       | The writes a User makes, each shown at once.                                                  |
+| Export                                           | What it does                                                                 |
+| ------------------------------------------------ | ---------------------------------------------------------------------------- |
+| `ledgerCache`                                    | The Cache for `createApp`: this device's Settings, in its `device` database. |
+| `Settings`                                       | The Schema of this device's Settings.                                        |
+| `defaultSettings`                                | The Settings of a device that changed none.                                  |
+| `settingsTable`, `settingsEntity`, `SETTINGS_ID` | The table Settings are kept in, and their one row.                           |
+| `openSettings`                                   | Opens this device's Settings on a table: live, and changed in place.         |
+| `useSettings`                                    | Opened Settings in React, live.                                              |
+| `useDeviceSettings`                              | Opened Settings in React, live, with the way to change them.                 |
 
-### `@ledger/core/app/settings`
-
-| Export                                           | What it does                                                         |
-| ------------------------------------------------ | -------------------------------------------------------------------- |
-| `Settings`                                       | The Schema of this device's Settings.                                |
-| `defaultSettings`                                | The Settings of a device that changed none.                          |
-| `settingsTable`, `settingsEntity`, `SETTINGS_ID` | The table Settings are kept in, and their one row.                   |
-| `openSettings`                                   | Opens this device's Settings on a table: live, and changed in place. |
-| `useSettings`                                    | This device's Settings in React, live.                               |
-
-### `@ledger/core/app/commands`
+### `@ledger/core/commands`
 
 | Export                                                        | What it does                                            |
 | ------------------------------------------------------------- | ------------------------------------------------------- |
@@ -120,7 +128,7 @@ rules are in `laymos.config.json`.
 | `said`                                                        | A gesture in words, as the Gestures Section says it.    |
 | `bindingsOf`, `written`, `bindingOf`, `keysOff`, `ACTION_IDS` | The User's own keys, stored and read back.              |
 
-### `@ledger/core/app/places`
+### `@ledger/core/places`
 
 | Export                                                        | What it does                                                                             |
 | ------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
@@ -137,28 +145,34 @@ rules are in `laymos.config.json`.
 
 ## Usage
 
-### Run Ledger on a platform
+### Run Ledger on a Platform
 
-An app makes Ledger once on its platform; its screens use what comes back.
+An app hands core's parts to its Platform's `createApp` once; its screens use
+what comes back and core's hooks.
 
 ```ts
 // ledger/web/src/app.ts
-import { createLedger } from '@ledger/core/app';
-import { webPlatform } from './platform.ts';
-import { AUTH_URL } from './stage.ts';
+import { createApp } from '@kstackz/web-platform';
+import { apis } from '@ledger/core/apis';
+import { device } from '@ledger/core/backend/device';
+import { ledgerCache, useDeviceSettings } from '@ledger/core/cache';
+import { ledgerSession } from '@ledger/core/session';
 
-export const { SignedIn, useAccounts, useGate, useSession, useSettings } =
-  createLedger(() => webPlatform({ name: 'ledger', authUrl: AUTH_URL }));
+export const app = createApp({
+  name: 'ledger',
+  title: 'Ledger',
+  apis,
+  device,
+  cache: ledgerCache,
+  auth: { url: AUTH_URL, session: ledgerSession },
+});
+export const useSettings = () => useDeviceSettings(app.cache());
 ```
 
-- Nothing runs until a screen first renders `SignedIn` or calls a hook, and
-  the platform is passed as a function, so the module can load where the
-  platform is not there yet, as on a web server.
-- The Expo app does the same with its own `expoPlatform`
-  (`ledger/expo/src/ledger/platform.ts`).
-- The device Backend's code is loaded the first time someone chooses it: a
-  chunk of its own on the web; on a phone Metro picks
-  `app/device/load-device.native.ts`, which has it in the bundle.
+- Nothing runs until a screen first renders `SignedIn` or calls a hook, so the module can load where the Host is not there yet, as on a web server.
+- The Expo app does the same with the Expo Platform's `createApp` (`ledger/expo/src/ledger/app.ts`).
+- The device Backend's code is loaded the first time someone chooses it: a chunk of its own on the web; on a phone Metro picks `backend/device/load-device.native.ts`, which has it in the bundle.
+- Under `SignedIn`, screens read the money with `useMoney` and write it with `useWrites`, from `@ledger/core/session`.
 
 ### Serve the cloud Backend
 
@@ -166,20 +180,16 @@ The Worker gives the Backend the cloud versions of its services.
 
 ```ts
 // ledger/web/src/worker.ts
-Rpc.http.server(
-  LedgerApi,
-  ledgerBackend.pipe(
-    Layer.provide([
-      tableCloud(env.DB),
-      authz.cloud({ authWorkerUrl: AUTH_URL, resource: LEDGER_RESOURCE }),
-    ]),
-  ),
-  { wrap: authz.cookies },
-)(request);
+export default createServer({
+  apis,
+  backend: (env: WorkerEnv) => ({
+    ledger: ledgerBackend.pipe(Layer.provide(tableCloud(env.DB))),
+  }),
+  auth: { url: AUTH_URL, resource: LEDGER_RESOURCE },
+}) satisfies ExportedHandler<WorkerEnv>;
 ```
 
-- The device Backend is the same `ledgerBackend` on `tableDevice` and
-  auth-toolkit's `authz.device`, run in-process by `createApp`.
+- The Web Platform's `createServer` gives each call auth-toolkit's `authz.cloud`. The device Backend is the same `ledgerBackend` on `tableDevice` and `authz.device`, run in-process by the app.
 
 ### Check
 

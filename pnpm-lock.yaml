@@ -998,6 +998,9 @@ importers:
       '@kstackz/auth-toolkit':
         specifier: workspace:*
         version: link:../../toolkits/auth-toolkit
+      '@kstackz/platform-toolkit':
+        specifier: workspace:*
+        version: link:../../toolkits/platform-toolkit
       '@kstackz/rpc-toolkit':
         specifier: workspace:*
         version: link:../../toolkits/rpc-toolkit
@@ -1010,18 +1013,12 @@ importers:
       '@tanstack/react-db':
         specifier: 'catalog:'
         version: 0.4.1(react@19.2.3)(typescript@7.0.2)
-      '@xstate/effect':
-        specifier: 'catalog:'
-        version: 0.1.0-alpha.6(effect@4.0.0)(xstate@6.0.0-alpha.64)
       effect:
         specifier: 'catalog:'
         version: 4.0.0
       react:
         specifier: 'catalog:'
         version: 19.2.3
-      xstate:
-        specifier: 'catalog:'
-        version: 6.0.0-alpha.64
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -1053,6 +1050,12 @@ importers:
       '@kstackz/expo-platform':
         specifier: workspace:*
         version: link:../../platforms/expo-platform
+      '@kstackz/platform-toolkit':
+        specifier: workspace:*
+        version: link:../../toolkits/platform-toolkit
+      '@kstackz/rpc-toolkit':
+        specifier: workspace:*
+        version: link:../../toolkits/rpc-toolkit
       '@kstackz/std-toolkit':
         specifier: workspace:*
         version: link:../../toolkits/std-toolkit
@@ -1156,6 +1159,9 @@ importers:
       '@kstackz/auth-toolkit':
         specifier: workspace:*
         version: link:../../toolkits/auth-toolkit
+      '@kstackz/platform-toolkit':
+        specifier: workspace:*
+        version: link:../../toolkits/platform-toolkit
       '@kstackz/rpc-toolkit':
         specifier: workspace:*
         version: link:../../toolkits/rpc-toolkit
@@ -1382,9 +1388,21 @@ importers:
         specifier: 'catalog:'
         version: 3.3.1(tailwind-merge@3.6.0)(tailwindcss@4.3.3)
     devDependencies:
+      '@kstackz/auth-toolkit':
+        specifier: workspace:*
+        version: link:../../toolkits/auth-toolkit
+      '@kstackz/platform-toolkit':
+        specifier: workspace:*
+        version: link:../../toolkits/platform-toolkit
+      '@kstackz/std-toolkit':
+        specifier: workspace:*
+        version: link:../../toolkits/std-toolkit
       '@types/react':
         specifier: 'catalog:'
         version: 19.2.18
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.0
       expo:
         specifier: 'catalog:'
         version: 57.0.26(@babel/core@7.29.7(supports-color@10.2.2))(@expo/dom-webview@57.0.1)(@expo/metro-runtime@57.0.16)(expo-router@57.0.24)(react-dom@19.2.3(react@19.2.3))(react-native-worklets@0.10.1(@babel/core@7.29.7(supports-color@10.2.2))(@react-native/metro-config@0.86.3(@babel/core@7.29.7(supports-color@10.2.2))(supports-color@10.2.2))(react-native@0.86.3(@babel/core@7.29.7(supports-color@10.2.2))(@react-native/metro-config@0.86.3(@babel/core@7.29.7(supports-color@10.2.2))(supports-color@10.2.2))(@types/react@19.2.18)(react@19.2.3)(supports-color@10.2.2))(react@19.2.3)(supports-color@10.2.2))(react-native@0.86.3(@babel/core@7.29.7(supports-color@10.2.2))(@react-native/metro-config@0.86.3(@babel/core@7.29.7(supports-color@10.2.2))(supports-color@10.2.2))(@types/react@19.2.18)(react@19.2.3)(supports-color@10.2.2))(react@19.2.3)(supports-color@10.2.2)(typescript@7.0.2)
@@ -1397,6 +1415,15 @@ importers:
       expo-haptics:
         specifier: 'catalog:'
         version: 57.0.3(expo@57.0.26)
+      expo-linking:
+        specifier: 'catalog:'
+        version: 57.0.11(expo@57.0.26)(react-native@0.86.3(@babel/core@7.29.7(supports-color@10.2.2))(@react-native/metro-config@0.86.3(@babel/core@7.29.7(supports-color@10.2.2))(supports-color@10.2.2))(@types/react@19.2.18)(react@19.2.3)(supports-color@10.2.2))(react@19.2.3)(supports-color@10.2.2)
+      expo-network:
+        specifier: 'catalog:'
+        version: 57.0.2(expo@57.0.26)(react@19.2.3)
+      expo-sqlite:
+        specifier: 'catalog:'
+        version: 57.0.3(expo@57.0.26)(react-native@0.86.3(@babel/core@7.29.7(supports-color@10.2.2))(@react-native/metro-config@0.86.3(@babel/core@7.29.7(supports-color@10.2.2))(supports-color@10.2.2))(@types/react@19.2.18)(react@19.2.3)(supports-color@10.2.2))(react@19.2.3)
       laymos:
         specifier: workspace:*
         version: link:../../devtools/laymos
@@ -1542,6 +1569,18 @@ importers:
         specifier: 'catalog:'
         version: 5.0.15(@types/react@19.2.18)(immer@11.1.8)(react@19.2.3)(use-sync-external-store@1.6.0(react@19.2.3))
     devDependencies:
+      '@kstackz/auth-toolkit':
+        specifier: workspace:*
+        version: link:../../toolkits/auth-toolkit
+      '@kstackz/platform-toolkit':
+        specifier: workspace:*
+        version: link:../../toolkits/platform-toolkit
+      '@kstackz/rpc-toolkit':
+        specifier: workspace:*
+        version: link:../../toolkits/rpc-toolkit
+      '@kstackz/std-toolkit':
+        specifier: workspace:*
+        version: link:../../toolkits/std-toolkit
       '@kstackz/use-gesture':
         specifier: workspace:*
         version: link:../../packages/use-gesture
@@ -1672,9 +1711,6 @@ importers:
       '@tanstack/react-start':
         specifier: 'catalog:'
         version: 1.168.49(@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.4.1)(@typescript/typescript6@6.0.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.0))(crossws@0.4.9(srvx@0.11.20))(esbuild@0.28.2)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(rolldown@1.2.7)(supports-color@10.2.2)
-      '@xstate/effect':
-        specifier: 'catalog:'
-        version: 0.1.0-alpha.6(effect@4.0.0)(xstate@6.0.0-alpha.64)
       better-auth:
         specifier: 'catalog:'
         version: 1.7.2(0fefa604e644eefefc0cb944c31b6555)
@@ -1684,9 +1720,6 @@ importers:
       use-sync-external-store:
         specifier: 'catalog:'
         version: 1.6.0(react@19.2.3)
-      xstate:
-        specifier: 'catalog:'
-        version: 6.0.0-alpha.64
       zustand:
         specifier: 'catalog:'
         version: 5.0.15(@types/react@19.2.18)(immer@11.1.8)(react@19.2.3)(use-sync-external-store@1.6.0(react@19.2.3))
@@ -1805,6 +1838,55 @@ importers:
       tw-animate-css:
         specifier: 'catalog:'
         version: 1.4.0
+      typescript:
+        specifier: catalog:typescript6
+        version: '@typescript/typescript6@6.0.2'
+      vite:
+        specifier: npm:@voidzero-dev/vite-plus-core@1.0.0
+        version: '@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.4.1)(@typescript/typescript6@6.0.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.0)'
+      vitest:
+        specifier: 5.0.1
+        version: 5.0.1(@opentelemetry/api@1.9.1)(@types/node@26.4.1)(@vitest/browser-preview@5.0.1)(@vitest/ui@5.0.1)(@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.4.1)(@typescript/typescript6@6.0.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.0))(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.14.6(@types/node@26.4.1)(@typescript/typescript6@6.0.2))
+
+  toolkits/platform-toolkit:
+    dependencies:
+      '@xstate/effect':
+        specifier: 'catalog:'
+        version: 0.1.0-alpha.6(effect@4.0.0)(xstate@6.0.0-alpha.64)
+      xstate:
+        specifier: 'catalog:'
+        version: 6.0.0-alpha.64
+    devDependencies:
+      '@kstackz/auth-toolkit':
+        specifier: workspace:*
+        version: link:../auth-toolkit
+      '@kstackz/rpc-toolkit':
+        specifier: workspace:*
+        version: link:../rpc-toolkit
+      '@kstackz/std-toolkit':
+        specifier: workspace:*
+        version: link:../std-toolkit
+      '@tsconfig/node22':
+        specifier: 'catalog:'
+        version: 22.0.6
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.4.1
+      '@types/react':
+        specifier: 'catalog:'
+        version: 19.2.18
+      '@typescript/native':
+        specifier: 'catalog:'
+        version: typescript@7.0.2
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.0
+      laymos:
+        specifier: workspace:*
+        version: link:../../devtools/laymos
+      react:
+        specifier: 'catalog:'
+        version: 19.2.3
       typescript:
         specifier: catalog:typescript6
         version: '@typescript/typescript6@6.0.2'

@@ -40,8 +40,8 @@ import {
 } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
 import { appTheme, useAccounts, useGate, useSettings } from '../../../app.ts';
-import { usePlace } from '@ledger/core/app/commands';
-import { useMoney, useUser, useWrites } from '@ledger/core/app/session';
+import { usePlace } from '@ledger/core/commands';
+import { useMoney, useUser, useWrites } from '@ledger/core/session';
 import { CURRENCIES } from '@ledger/core/model';
 import { AppSection } from './app-section.tsx';
 import { GesturesTab } from './gestures-tab.tsx';

@@ -2,7 +2,7 @@ import type { Binding } from '@kstackz/use-keys';
 import { AnimatePresence, motion } from 'motion/react';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { BindingKeys } from '@kstackz/web-platform/recipes/key-bindings';
-import { keys, useGiven } from '@ledger/core/app/commands';
+import { keys, useGiven } from '@ledger/core/commands';
 
 // How long, in ms, a Command given stays shown, and a broken Sequence.
 const GIVEN = 1400;

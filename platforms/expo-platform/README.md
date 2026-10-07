@@ -1,12 +1,14 @@
 # @kstackz/expo-platform
 
-UI, theme and haptics for native apps built with Expo: owned Panel UI components on Uniwind, styled with web-platform's tokens.
+The Expo Platform: a native app from one config, its APIs on a cloud or a device Backend, several Accounts with one Session each and the screens before sign-in; plus owned Panel UI components on Uniwind, styled with web-platform's tokens, gestures, haptics and Recipes.
 
 ## Big picture
 
-The one Toolkit for native apps built with Expo (the **Expo Platform** in the root [`CONTEXT.md`](../../CONTEXT.md)). Ledger's native app (`ledger/expo`) is its first user; it carries Ledger's look to the phone so the web and native apps read as one product.
+The Platform for native apps built with Expo (the **Expo Platform** in the root [`CONTEXT.md`](../../CONTEXT.md)). Ledger's native app (`ledger/expo`) is its first user; it carries Ledger's look to the phone so the web and native apps read as one product. It replaces `@kstackz/expo-toolkit`.
 
-It is laid out in [Laymos](laymos.config.json) layers, bottom to top: `theme` (Uniwind tokens and Inter), `feedback` (haptics), `input` (touches for `@kstackz/use-gesture`'s core), `components` (Panel UI copies, on `theme`, and on `input` for a row that scrolls sideways) and `recipes` (whole interactions such as the Thumb Lock's Place Picker, on `components`, `input` and `feedback`). Each layer is a subpath. The phone as an app's Platform for auth-toolkit's `createApp` is not here yet: it is rebuilt on the new doors in the next phase ([ADR 0005](../../docs/adr/0005-three-toolkits-three-doors.md)), and until then an app builds its own. `@kstackz/web-platform` has the same shape for the web ([ADR 0003](../../docs/adr/0003-web-platform-and-the-gate.md)).
+The root door is `createApp`. It hands one config to [`@kstackz/platform-toolkit`](../../toolkits/platform-toolkit)'s `createApp` with `expoHost` (expo-sqlite for tables and Std Sync, sign-in as the app's First-Party OAuth client in the system sign-in sheet, expo-network and AppState) and gives back `Root`, which goes around the whole app and asks who signs in to the device Backend, and `SignedIn`, which shows the screens before an Account is open (the Gate Screens and Account Lost recipes). It is the same app the Web Platform's `createApp` gives, on a phone. Why the Platforms may break while the Toolkits keep what persists is [ADR 0006](../../docs/adr/0006-platforms-may-break-toolkits-keep-what-persists.md).
+
+Underneath, it is laid out in [Laymos](laymos.config.json) layers, bottom to top: `theme` (Uniwind tokens and Inter), `feedback` (haptics), `input` (touches for `@kstackz/use-gesture`'s core), `components` (Panel UI copies, on `theme`, and on `input` for a row that scrolls sideways) and `recipes` (whole interactions such as the Thumb Lock's Place Picker, on `components`, `input` and `feedback`). Each layer is a subpath. `@kstackz/web-platform` has the same shape for the web.
 
 The components are copies of [Panel UI](https://panelui.dev) (MIT, see [`src/components/LICENSE-panelui`](src/components/LICENSE-panelui)), made with its CLI and owned here from then on, as web-platform owns its shadcn copies. `pnpm add-panelui <name...>` copies more: it runs `panelui-cli` in a scratch folder, puts the named components in `src/components` and what they pull in under `src/components/parts` (private), and rewrites their imports. `src/components` is left out of `vp check` and `vp fmt` so copies stay close to upstream.
 
@@ -20,6 +22,13 @@ pnpm add @kstackz/expo-platform
 
 Peer dependencies, at Expo SDK 57's versions:
 
+- `@kstackz/platform-toolkit`: `createApp` runs on its `createApp`, the Gate and the Session; the root door re-exports its `Api`, `defineSession` and `SessionClosed`.
+- `@kstackz/auth-toolkit`: `expoHost` signs in with its `oauth` and `manageAccounts` from `client/expo`, which need `expo-auth-session`, `expo-secure-store` and `expo-web-browser`.
+- `@kstackz/std-toolkit`: `expoHost` keeps tables and Std Sync in its SQLite adapters.
+- `effect`: the Host's Storage and Sign-in are Effect Layers.
+- `expo-sqlite`: each table and every Std Sync is a SQLite file on the phone.
+- `expo-linking`: the OAuth redirect address, and `?backend=` in the launch link.
+- `expo-network`: whether the phone is online.
 - `react`, `react-native`: the app's React and React Native.
 - `uniwind`, `tailwindcss`: every class name resolves through Uniwind's Tailwind 4 pass over the theme.
 - `expo-font`: `useThemeFonts` loads Inter with it.
@@ -39,6 +48,17 @@ The app's `global.css`, named as Uniwind's `cssEntryFile` in `metro.config.js`:
 ```
 
 ## Exports
+
+### `.`
+
+| Export          | What it does                                                                                                                          |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `createApp`     | A native app from one config: its APIs, device Backend and Cache, and with `auth` its Accounts; returns `Root`, `SignedIn` and hooks. |
+| `expoHost`      | A phone as an app's Host: SQLite tables and Std Sync, OAuth sign-in in the system sheet, the network and the foreground.              |
+| `Api.http`      | Declares an API reached over HTTP, from platform-toolkit.                                                                             |
+| `Api.websocket` | Declares an API reached over a WebSocket, from platform-toolkit.                                                                      |
+| `defineSession` | Writes an app's Session once over its APIs, from platform-toolkit.                                                                    |
+| `SessionClosed` | Error a run rejects with when its Session closed first, from platform-toolkit.                                                        |
 
 ### `./theme`
 
@@ -117,48 +137,66 @@ The app's `global.css`, named as Uniwind's `cssEntryFile` in `metro.config.js`:
 | `sheet`: `Sheet`                           | A sheet from the bottom for a short form, kept above the keyboard.                                                    |
 | `swipe-row`: `SwipeRow`                    | A row swiped left to delete: arms past a line, slides away, or springs home.                                          |
 | `key-bar`: `KeyBar`                        | A bar at the foot that shows a message for a moment, replaced in place.                                               |
+| `gate-screens`: `GateScreens`              | Every screen before an Account is open, in one card: checking, opening, signing out, signed out, unopenable.          |
+| `account-lost`: `AccountLost`              | Holds the app on an Account Lost until the User signs in to it again or opens another Account.                        |
 
 ## Usage
 
-### A themed screen with feedback
+### A native app from one config
 
-The root layout waits for the fonts and mounts the provider; a screen uses the components and plays a haptic on a tap. Lifted from the first `ledger/expo` shell.
+`app.ts` makes the app once; the root layout wraps everything in `Root`, and the Shell puts what needs an Account under `SignedIn`. From `ledger/expo`'s `src/ledger/app.ts`, `app/_layout.tsx` and `src/screens/shell/shell.tsx`.
 
 ```tsx
-import { PanelUIProvider } from '@kstackz/expo-platform/components/panel-ui-provider';
-import { Button } from '@kstackz/expo-platform/components/button';
-import { Text } from '@kstackz/expo-platform/components/text';
-import { haptic } from '@kstackz/expo-platform/feedback';
-import { useThemeFonts } from '@kstackz/expo-platform/theme';
-import { Slot } from 'expo-router';
+// src/ledger/app.ts
+import { createApp } from '@kstackz/expo-platform';
+export const app = createApp({
+  name: 'ledger',
+  title: 'Ledger',
+  description: 'Write down what you spend and earn, and see where it goes.',
+  mark: createElement(LedgerMark),
+  apiUrl, // where the cloud Backend's APIs answer: a phone has no origin
+  apis,
+  device,
+  cache: ledgerCache,
+  auth: { url: authUrl, clientId: 'ledger', resource, session: ledgerSession },
+});
+export const { Root, SignedIn, useAccounts, useGate } = app;
 
-export function Layout() {
+// app/_layout.tsx
+export default function Layout() {
   if (!useThemeFonts()) return null;
   return (
-    <PanelUIProvider>
-      <Slot />
-    </PanelUIProvider>
+    <GestureHandlerRootView className="flex-1">
+      <PanelUIProvider>
+        <Root>
+          <Shell>
+            <Slot />
+          </Shell>
+        </Root>
+      </PanelUIProvider>
+    </GestureHandlerRootView>
   );
 }
 
-export function Home() {
+// src/screens/shell/shell.tsx
+export function Shell(props: { readonly children: ReactNode }) {
   return (
-    <>
-      <Text size="3xl" weight="bold">
-        Ledger
-      </Text>
-      <Button onPress={() => haptic('light')}>Tap</Button>
-    </>
+    <SignedIn>
+      <PortalScope>
+        <Frame>{props.children}</Frame>
+      </PortalScope>
+    </SignedIn>
   );
 }
 ```
 
-- `theme.css` sets `font-normal` … `font-bold` to Inter faces; `useThemeFonts` registers them under those names.
-- `haptic` never throws: a device without haptics feels nothing.
+- On the cloud Backend a User signs in through the system sign-in sheet as the app's First-Party Client (`clientId`), with tokens in secure storage; each call carries an Access Token for `resource`.
+- `Root` shows the named sign-in sheet when someone adds an Account on the device Backend. `exp://.../--/?backend=device` starts on it.
+- `SignedIn` renders its children while an Account is open, and otherwise the Gate Screens or Account Lost. Everything inside remounts on an Account Switch.
 
 ### A Sidebar beside a signed-in app
 
-`SidebarProvider` wraps the page and draws the Sidebar under it, inside the app's own providers, so its rows can read the signed-in User. Lifted from `ledger/expo/src/screens/shell`.
+`SidebarProvider` wraps the page and draws the Sidebar under it, inside `SignedIn`, so its rows can read the signed-in User. Lifted from `ledger/expo/src/screens/shell`.
 
 ```tsx
 import { PortalScope } from '@kstackz/expo-platform/components/portal-scope';
@@ -168,9 +206,9 @@ import {
   useSidebar,
 } from '@kstackz/expo-platform/recipes/sidebar';
 
-function Frame(props: { children: ReactNode }) {
+function Shell(props: { children: ReactNode }) {
   return (
-    <SessionProvider session={session}>
+    <SignedIn>
       <PortalScope>
         <SidebarProvider>
           <Header />
@@ -180,7 +218,7 @@ function Frame(props: { children: ReactNode }) {
           </Sidebar>
         </SidebarProvider>
       </PortalScope>
-    </SessionProvider>
+    </SignedIn>
   );
 }
 

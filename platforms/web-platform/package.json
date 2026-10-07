@@ -2,7 +2,7 @@
   "name": "@kstackz/web-platform",
   "version": "0.0.0",
   "private": false,
-  "description": "The one Toolkit for web apps: theme, input, components, forms, Recipes, the optional PWA, and the opinionated client and server setup on TanStack Start.",
+  "description": "The Web Platform: a web app from one config, as a PWA on TanStack Start with its Theme, its APIs on a cloud or a device Backend, several Accounts with one Session each, the screens before sign-in, and the server; plus the components, input, forms and Recipes to build screens with.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -29,6 +29,10 @@
     "#hooks/*": "./src/components/hooks/*.ts"
   },
   "exports": {
+    ".": {
+      "types": "./dist/app/index.d.ts",
+      "default": "./dist/app/index.js"
+    },
     "./theme": {
       "types": "./dist/theme/index.d.ts",
       "default": "./dist/theme/index.js"
@@ -171,6 +175,10 @@
     "zustand": "catalog:"
   },
   "devDependencies": {
+    "@kstackz/auth-toolkit": "workspace:*",
+    "@kstackz/platform-toolkit": "workspace:*",
+    "@kstackz/rpc-toolkit": "workspace:*",
+    "@kstackz/std-toolkit": "workspace:*",
     "@kstackz/use-gesture": "workspace:*",
     "@kstackz/use-keys": "workspace:*",
     "@tailwindcss/vite": "catalog:",
@@ -194,6 +202,10 @@
     "vitest": "catalog:"
   },
   "peerDependencies": {
+    "@kstackz/auth-toolkit": "workspace:*",
+    "@kstackz/platform-toolkit": "workspace:*",
+    "@kstackz/rpc-toolkit": "workspace:*",
+    "@kstackz/std-toolkit": "workspace:*",
     "@kstackz/use-gesture": "workspace:*",
     "@kstackz/use-keys": "workspace:*",
     "@tanstack/react-router": "1.170.32",
