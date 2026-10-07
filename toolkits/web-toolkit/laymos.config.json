@@ -398,6 +398,9 @@
         "src/recipes/frame": {
           "exposed": true
         },
+        "src/recipes/account-lost": {
+          "exposed": true
+        },
         "src/recipes/local-sign-in": {
           "exposed": true
         },
