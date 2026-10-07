@@ -1,4 +1,4 @@
-import { thumbLock } from '@kstackz/use-gesture';
+import { thumbLock, TreeWalk } from '@kstackz/use-gesture';
 import { describe, expect, it } from 'vitest';
 import type { Choice } from '../src/patterns/thumb-picker/choice';
 import { createPicking } from '../src/patterns/thumb-picker/picking';
@@ -28,11 +28,13 @@ const picker = (start: ReadonlyArray<string>) => {
   const heard: Array<string> = [];
   const shown: Array<string | undefined> = [];
   let shakes = 0;
-  const ground = { tree: tree(chose), start };
+  const choices = tree(chose);
+  const ground = { tree: choices, start, ...TreeWalk.DISTANCES };
   const picking = createPicking(() => ground, {
     show: (walk) => shown.push(walk?.path.join('/')),
     feedback: (feedback) => heard.push(feedback),
     shake: () => shakes++,
+    choose: (path) => TreeWalk.choiceAt(choices, path)?.onSelect?.(),
   });
   const listener = thumbLock<unknown>({
     enabled: () => true,

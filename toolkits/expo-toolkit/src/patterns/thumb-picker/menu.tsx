@@ -1,9 +1,10 @@
 import type { TreeWalk } from '@kstackz/use-gesture';
 import { BlurView } from 'expo-blur';
-import { useEffect } from 'react';
-import { AccessibilityInfo, Platform, StyleSheet, View } from 'react-native';
+import { memo } from 'react';
+import { Platform, StyleSheet, View } from 'react-native';
 import Animated, {
-  type EntryExitAnimationFunction,
+  type SharedValue,
+  useAnimatedReaction,
   useAnimatedStyle,
   useSharedValue,
   withSequence,
@@ -12,204 +13,164 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Choice } from './choice';
-import { List } from './list';
+import { List, ROW } from './list';
 import { BEHIND, type Moves, SHAKE, useMoves, WIDTH } from './motion';
+import { placeIn, type View as Shown } from './view';
 
-type Column = TreeWalk.Column<Choice>;
+type Props = {
+  /** Every list the walk can open, each before the lists inside it. */
+  readonly lists: ReadonlyArray<TreeWalk.List<Choice>>;
+  readonly view: SharedValue<Shown>;
+  /** Counts up once for each Wrong Way. */
+  readonly shakes: SharedValue<number>;
+};
 
 /**
  * Where letting go will take you, at the top centre of the screen and
- * never under the fingers, over everything else dimmed and blurred: the
- * open list in the middle, and each list it was opened from drawn back to
- * the top left, smaller and fainter. It zooms in as it shows; an opened
- * list slides in from the right and slides back out as the swipe goes
- * back. Each time `shakes` counts up, the menu shakes once. None of it
+ * never under the fingers, over everything else dimmed and, on iOS,
+ * blurred: the open list in the middle, and each list it was opened from
+ * drawn back to the top left, smaller and fainter. It zooms in as it shows;
+ * an opened list slides in from the right and slides back out as the swipe
+ * goes back. Each time `shakes` counts up, the menu shakes once. None of it
  * moves for those who ask for less motion. It never takes a touch.
+ *
+ * Every list is drawn up front, hidden, and drawn again only when the
+ * lists change: `view`, written on the UI thread, moves all of it there.
  */
-export function Menu(props: {
-  readonly columns: ReadonlyArray<Column> | undefined;
-  readonly shakes: number;
-}) {
+export const Menu = memo(function Menu(props: Props) {
+  const { view, shakes } = props;
   const moves = useMoves();
   const insets = useSafeAreaInsets();
+
+  const seen = useSharedValue(0);
+  const scale = useSharedValue(1);
+  useAnimatedReaction(
+    () => view.value.shown,
+    (shown, was) => {
+      if (shown === was || was === null) return;
+      const timing = { duration: moves.fade, easing: moves.ease };
+      if (shown) scale.value = 0.94;
+      scale.value = withTiming(shown ? 1 : 0.97, timing);
+      seen.value = withTiming(shown ? 1 : 0, timing);
+    },
+  );
   const shake = useSharedValue(0);
-  useEffect(() => {
-    if (props.shakes === 0 || moves.still) return;
-    const each = SHAKE.duration / SHAKE.at.length;
-    shake.value = withSequence(
-      ...SHAKE.at.map((x) => withTiming(x, { duration: each })),
-    );
-  }, [props.shakes, moves.still, shake]);
+  useAnimatedReaction(
+    () => shakes.value,
+    (count, was) => {
+      if (was === null || count === was || moves.still) return;
+      const each = SHAKE.duration / SHAKE.at.length;
+      shake.value = withSequence(
+        ...SHAKE.at.map((x) => withTiming(x, { duration: each })),
+      );
+    },
+  );
+
+  const scrim = useAnimatedStyle(() => ({ opacity: seen.value }));
+  const menu = useAnimatedStyle(() => ({
+    opacity: seen.value,
+    transform: [{ scale: scale.value }],
+  }));
   const shaking = useAnimatedStyle(() => ({
     transform: [{ translateX: shake.value }],
   }));
 
-  const columns = props.columns;
-  const last = (columns?.length ?? 0) - 1;
-  const open = columns?.[last];
-  const marked = open?.choices[open.marked]?.label;
-  // Android reads the polite live region below as it changes; iOS has no
-  // live regions, so the marked choice is announced, as web's aria-live.
-  useEffect(() => {
-    if (Platform.OS === 'ios' && marked !== undefined) {
-      AccessibilityInfo.announceForAccessibility(marked);
-    }
-  }, [marked]);
-  // Always mounted, so the scrim and the menu can fade out as they go.
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-      {columns !== undefined && (
-        <Animated.View
-          entering={zoomIn(moves)}
-          exiting={zoomOut(moves)}
-          style={StyleSheet.absoluteFill}
-        >
+      <Animated.View style={[StyleSheet.absoluteFill, scrim]}>
+        {Platform.OS === 'ios' && (
           <BlurView intensity={12} style={StyleSheet.absoluteFill} />
-          <View className="absolute inset-0 bg-black/40" />
-        </Animated.View>
-      )}
-      {columns !== undefined && (
-        <Animated.View
-          accessibilityLiveRegion="polite"
-          entering={zoomIn(moves, 0.94)}
-          exiting={zoomOut(moves, 0.97)}
-          style={{
+        )}
+        <View className="absolute inset-0 bg-black/40" />
+      </Animated.View>
+      <Animated.View
+        style={[
+          {
             position: 'absolute',
             top: insets.top + 96,
             left: '50%',
             transformOrigin: 'top',
-          }}
-        >
-          <Animated.View style={shaking}>
-            {columns.map((column, depth) => (
-              <ColumnView
-                key={column.id}
-                column={column}
-                back={last - depth}
-                opened={depth > 0}
-                moves={moves}
-              />
-            ))}
-          </Animated.View>
+          },
+          menu,
+        ]}
+      >
+        <Animated.View style={shaking}>
+          {props.lists.map((list) => (
+            <Column
+              key={list.id}
+              list={list}
+              view={view}
+              moves={moves}
+              root={list.id === ''}
+            />
+          ))}
         </Animated.View>
-      )}
+      </Animated.View>
     </View>
   );
-}
+});
 
-// One list, `back` lists behind the open one.
-function ColumnView(props: {
-  readonly column: Column;
-  readonly back: number;
-  readonly opened: boolean;
+// One list: in front while it is the open one, drawn back to the top left
+// for each open list in front of it, and slid out to the right while it is
+// not open. The top list is never slid out; the menu fades with it.
+function Column(props: {
+  readonly list: TreeWalk.List<Choice>;
+  readonly view: SharedValue<Shown>;
   readonly moves: Moves;
+  readonly root: boolean;
 }) {
-  const { back, moves } = props;
-  const place = useSharedValue(back);
-  useEffect(() => {
-    place.value = moves.still ? back : withSpring(back, moves.slide);
-  }, [back, moves, place]);
-  const behind = useAnimatedStyle(() => ({
-    opacity: 1 - Math.min(place.value, 1) * 0.5,
+  const { list, view, moves, root } = props;
+  // How many open lists sit in front of it.
+  const place = useSharedValue(0);
+  // 0 while open, 1 slid out.
+  const out = useSharedValue(root ? 0 : 1);
+  const marked = useSharedValue(0);
+  const top = useSharedValue(0);
+  useAnimatedReaction(
+    () => view.value,
+    (now, was) => {
+      const at = placeIn(now, list.id);
+      // While the menu was hidden, everything jumps into place; the UI
+      // thread may have written several Views since this last ran.
+      const jump = was?.shown !== true || moves.still;
+      const spring = (to: number, how: Moves['row']) =>
+        jump ? to : withSpring(to, how);
+      if (at === undefined) {
+        if (!root) out.value = spring(1, moves.slide);
+        return;
+      }
+      if (at.marked !== marked.value || jump) {
+        top.value = spring(at.marked * ROW, moves.row);
+      }
+      marked.value = at.marked;
+      place.value = spring(at.back, moves.slide);
+      out.value = spring(0, moves.slide);
+    },
+  );
+  const style = useAnimatedStyle(() => ({
+    opacity:
+      (1 - Math.min(place.value, 1) * 0.5) * (1 - Math.min(out.value, 1)),
     transform: [
-      { translateX: place.value * BEHIND.x },
+      { translateX: place.value * BEHIND.x + out.value * 56 },
       { translateY: place.value * BEHIND.y },
-      { scale: 1 - place.value * 0.1 },
+      { scale: (1 - place.value * 0.1) * (1 - out.value * 0.04) },
     ],
   }));
   return (
-    <Animated.View
-      entering={props.opened ? slideIn(moves) : undefined}
-      exiting={slideOut(moves)}
-      style={{
-        position: 'absolute',
-        top: 0,
-        left: -WIDTH / 2,
-        width: WIDTH,
-        zIndex: 10 - back,
-      }}
+    <View
+      style={{ position: 'absolute', top: 0, left: -WIDTH / 2, width: WIDTH }}
     >
       <Animated.View
         className="rounded-2xl border border-border bg-popover shadow-lg"
-        style={[{ transformOrigin: 'top left' }, behind]}
+        style={[{ transformOrigin: 'top left' }, style]}
       >
         <List
-          choices={props.column.choices}
-          marked={props.column.marked}
-          here={props.column.here}
-          moves={moves}
+          choices={list.choices}
+          here={list.here}
+          marked={marked}
+          top={top}
         />
       </Animated.View>
-    </Animated.View>
+    </View>
   );
 }
-
-// Shows from `scale` and clear; at once for less motion.
-const zoomIn =
-  (moves: Moves, scale = 1): EntryExitAnimationFunction =>
-  () => {
-    'worklet';
-    const timing = { duration: moves.fade, easing: moves.ease };
-    return {
-      initialValues: { opacity: 0, transform: [{ scale }] },
-      animations: {
-        opacity: withTiming(1, timing),
-        transform: [{ scale: withTiming(1, timing) }],
-      },
-    };
-  };
-
-const zoomOut =
-  (moves: Moves, scale = 1): EntryExitAnimationFunction =>
-  () => {
-    'worklet';
-    const timing = { duration: moves.fade, easing: moves.ease };
-    return {
-      initialValues: { opacity: 1, transform: [{ scale: 1 }] },
-      animations: {
-        opacity: withTiming(0, timing),
-        transform: [{ scale: withTiming(scale, timing) }],
-      },
-    };
-  };
-
-// An opened list slides in from the right, and back out to it.
-const slideIn =
-  (moves: Moves): EntryExitAnimationFunction =>
-  () => {
-    'worklet';
-    const spring = moves.still ? { duration: 0 } : moves.slide;
-    return {
-      initialValues: {
-        opacity: 0,
-        transform: [{ translateX: 56 }, { scale: 0.96 }],
-      },
-      animations: {
-        opacity: withTiming(1, { duration: moves.fade }),
-        transform: [
-          { translateX: withSpring(0, spring) },
-          { scale: withSpring(1, spring) },
-        ],
-      },
-    };
-  };
-
-const slideOut =
-  (moves: Moves): EntryExitAnimationFunction =>
-  () => {
-    'worklet';
-    const spring = moves.still ? { duration: 0 } : moves.slide;
-    return {
-      initialValues: {
-        opacity: 1,
-        transform: [{ translateX: 0 }, { scale: 1 }],
-      },
-      animations: {
-        opacity: withTiming(0, { duration: moves.fade }),
-        transform: [
-          { translateX: withSpring(56, spring) },
-          { scale: withSpring(0.96, spring) },
-        ],
-      },
-    };
-  };
