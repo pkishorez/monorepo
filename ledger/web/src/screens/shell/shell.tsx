@@ -35,13 +35,16 @@ export function Shell(props: { readonly children: ReactNode }) {
               return <Opening name={view.account.user.name} />;
             case 'unopenable':
               return <Unopenable name={view.account.user.name} />;
+            case 'accountLost':
+              return (
+                <AccountLost account={view.account} accounts={view.accounts} />
+              );
           }
         }}
       >
         <Open>{props.children}</Open>
       </SignedIn>
       <LocalSignInDialog />
-      <AccountLost />
     </>
   );
 }

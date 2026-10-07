@@ -1,4 +1,6 @@
+import { Memory } from '@kstackz/std-toolkit/db/memory';
 import type { Backend } from './domain/index.js';
+import { type GateTable, gateTable } from './memory.js';
 
 /** What one tab tells the device's other tabs: look again. `quiet` are
  * accounts it signed out itself, so they are not reported lost there. */
@@ -6,12 +8,9 @@ export type TabMessage = { readonly quiet: ReadonlyArray<string> };
 
 /** Everything the Gate needs from the platform it runs on. */
 export interface GatePlatform {
-  /** Small values the Gate keeps on this device: the chosen Backend and the
-   * account last open on each. */
-  readonly memory: {
-    readonly get: (key: string) => Promise<string | null>;
-    readonly set: (key: string, value: string | null) => Promise<void>;
-  };
+  /** Where the Gate keeps what it remembers on this device: the Backend
+   * chosen, and each Backend's Remembered Accounts. */
+  readonly table: GateTable;
   /** When the app is online and in view. */
   readonly lifecycle: {
     readonly online: () => boolean;
@@ -34,21 +33,12 @@ export interface GatePlatform {
  * tests, and for running the Gate where nothing outlives the process. */
 export const memoryPlatform = (
   options: { readonly online?: () => boolean } = {},
-): GatePlatform => {
-  const values = new Map<string, string>();
-  return {
-    memory: {
-      get: async (key) => values.get(key) ?? null,
-      set: async (key, value) => {
-        if (value === null) values.delete(key);
-        else values.set(key, value);
-      },
-    },
-    lifecycle: {
-      online: options.online ?? (() => true),
-      onOnlineChange: () => () => {},
-      onForeground: () => () => {},
-      launchBackend: () => null,
-    },
-  };
-};
+): GatePlatform => ({
+  table: Memory.make(gateTable).layer,
+  lifecycle: {
+    online: options.online ?? (() => true),
+    onOnlineChange: () => () => {},
+    onForeground: () => () => {},
+    launchBackend: () => null,
+  },
+});

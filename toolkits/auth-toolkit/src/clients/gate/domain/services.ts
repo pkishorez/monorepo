@@ -1,13 +1,22 @@
 import { Context, type Effect, type Scope } from 'effect';
 import type { Account, GateUser } from './types.js';
 
+/** What the device remembers about one Backend: its Remembered Accounts,
+ * with no tokens, and the account found lost, if one is. */
+export type Remembered = {
+  readonly accounts: ReadonlyArray<Account>;
+  readonly lost: GateUser | null;
+};
+
 /** What this device keeps for one Backend. */
 export class Device extends Context.Service<
   Device,
   {
-    /** The account last open on this device, to Open First. */
-    readonly lastUser: Effect.Effect<GateUser | null>;
-    readonly setLastUser: (user: GateUser | null) => Effect.Effect<void>;
+    readonly remembered: Effect.Effect<Remembered>;
+    readonly remember: (remembered: Remembered) => Effect.Effect<void>;
+    /** Whether this device signed `userId` out itself, in this tab or
+     * another; asking forgets it. */
+    readonly signedOutHere: (userId: string) => Effect.Effect<boolean>;
     /** Keeps what the device holds for these accounts and deletes the
      * rest. */
     readonly keep: (userIds: ReadonlyArray<string>) => Effect.Effect<void>;

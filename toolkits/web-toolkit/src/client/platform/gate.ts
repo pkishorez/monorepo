@@ -34,20 +34,13 @@ const onForeground = (shown: () => void) => {
 };
 
 /**
- * The Gate in a browser: what it remembers in `localStorage`, the window's
- * own network and visibility events, and every other tab of this origin
- * over one BroadcastChannel. Made in the browser only.
+ * The Gate in a browser, but for its table: the window's own network and
+ * visibility events, and every other tab of this origin over one
+ * BroadcastChannel. Made in the browser only.
  */
-export const webGatePlatform = (name: string): GatePlatform => {
+export const webGatePlatform = (name: string): Omit<GatePlatform, 'table'> => {
   const channel = new BroadcastChannel(`${name}:gate`);
   return {
-    memory: {
-      get: async (key) => localStorage.getItem(`${name}:${key}`),
-      set: async (key, value) =>
-        value === null
-          ? localStorage.removeItem(`${name}:${key}`)
-          : localStorage.setItem(`${name}:${key}`, value),
-    },
     lifecycle: {
       online: () => navigator.onLine,
       onOnlineChange,

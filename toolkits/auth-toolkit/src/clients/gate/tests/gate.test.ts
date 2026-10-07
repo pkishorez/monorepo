@@ -3,10 +3,12 @@ import { describe, expect, it, vi } from 'vitest';
 import { Auth, Unreachable } from '../../auth/index.js';
 import {
   createGate,
+  type GatePlatform,
   type GateUser,
   type GateView,
   memoryPlatform,
 } from '../index.js';
+import { gateMemory } from '../memory.js';
 
 const user = (id: string): GateUser => ({
   id,
@@ -27,7 +29,10 @@ type Opened = {
 /** A sign-in service and a device whose state a test moves by hand. */
 const world = (options: {
   signedIn: Array<{ user: GateUser; active?: boolean }>;
-  remembered?: GateUser;
+  /** The Remembered Accounts, the first one active. */
+  remembered?: ReadonlyArray<GateUser>;
+  /** The device the Gate runs on, to launch again on the same one. */
+  platform?: GatePlatform;
   failOpen?: (id: string) => boolean;
 }) => {
   const state = {
@@ -76,12 +81,24 @@ const world = (options: {
     }),
     takeLoginError: Effect.succeed(null),
   });
-  const platform = memoryPlatform({ online: () => state.online });
-  if (options.remembered !== undefined)
-    void platform.memory.set(
-      'gate:cloud:last',
-      JSON.stringify(options.remembered),
-    );
+  const platform =
+    options.platform ?? memoryPlatform({ online: () => state.online });
+  const remembered = options.remembered;
+  const written =
+    remembered === undefined
+      ? Promise.resolve()
+      : Effect.runPromise(
+          gateMemory(platform.table).update((all) => ({
+            ...all,
+            cloud: {
+              accounts: remembered.map((user, at) => ({
+                user,
+                active: at === 0,
+              })),
+              lost: null,
+            },
+          })),
+        );
   const gate = createGate<Opened, never>({
     platform: () => platform,
     cloud: () => auth,
@@ -106,13 +123,20 @@ const world = (options: {
         state.kept.push([...ids]);
       }),
   });
-  // Something asks, so the Gate starts.
-  gate.subscribe(() => {});
+  // Something asks, so the Gate starts, on what the device remembers.
+  void written.then(() => gate.subscribe(() => {}));
   const until = (seen: (view: GateView<Opened>) => boolean) =>
     vi.waitFor(() => expect(seen(gate.view())).toBe(true));
   const openOn = (id: string) =>
     until((view) => view.kind === 'open' && view.session.id === id);
-  return { state, gate, until, openOn };
+  const lostWith = (id: string, others: ReadonlyArray<string>) =>
+    until(
+      (view) =>
+        view.kind === 'accountLost' &&
+        view.account.user.id === id &&
+        view.accounts.map(({ user }) => user.id).join() === others.join(),
+    );
+  return { state, gate, platform, until, openOn, lostWith };
 };
 
 describe('the Gate', () => {
@@ -128,7 +152,7 @@ describe('the Gate', () => {
   it('opens the account it remembers first, before the Backend answers', async () => {
     const { state, gate, openOn } = world({
       signedIn: [{ user: ada, active: true }],
-      remembered: ada,
+      remembered: [ada],
     });
     state.reachable = false;
     await openOn('ada');
@@ -146,7 +170,7 @@ describe('the Gate', () => {
   it('holds calls opened before the Backend answers until the token comes', async () => {
     const { state, gate, openOn } = world({
       signedIn: [{ user: ada, active: true }],
-      remembered: ada,
+      remembered: [ada],
     });
     state.reachable = false;
     await openOn('ada');
@@ -215,18 +239,110 @@ describe('the Gate', () => {
     await openOn('zoe');
   });
 
-  it('reports an Account Lost once, and opens whoever is left', async () => {
+  it('shows every Remembered Account before the Backend answers', async () => {
+    const { state, gate, openOn } = world({
+      signedIn: [{ user: ada, active: true }],
+      remembered: [ada, mary],
+    });
+    state.reachable = false;
+    await openOn('ada');
+    const accounts = () => {
+      const view = gate.view();
+      return view.kind === 'open'
+        ? view.accounts.map(({ user }) => user.id)
+        : [];
+    };
+    expect(accounts()).toEqual(['ada', 'mary']);
+    // The Backend's answer replaces them whole.
+    state.reachable = true;
+    gate.checkAgain();
+    await vi.waitFor(() => expect(accounts()).toEqual(['ada']));
+  });
+
+  it('follows an Account Switch made elsewhere, with no Account Lost', async () => {
     const { state, gate, openOn } = world({
       signedIn: [{ user: ada, active: true }, { user: mary }],
     });
     await openOn('ada');
-    // Ada is signed out elsewhere.
-    state.signedIn = [{ user: mary, active: true }];
+    state.signedIn = [{ user: ada }, { user: mary, active: true }];
     gate.checkAgain();
     await openOn('mary');
-    expect(gate.takeNotice()).toEqual({ kind: 'accountLost', user: ada });
-    expect(gate.takeNotice()).toBeNull();
-    expect(state.kept.at(-1)).toEqual(['mary']);
+  });
+
+  it('stops at an Account Lost, keeping the Copy, until the User acts', async () => {
+    const { state, gate, lostWith, openOn } = world({
+      signedIn: [{ user: ada, active: true }, { user: mary }],
+    });
+    await openOn('ada');
+    // Ada is signed out elsewhere.
+    state.signedIn = [{ user: mary }];
+    gate.checkAgain();
+    await lostWith('ada', ['mary']);
+    expect(state.log).toContain('close ada');
+    expect(state.kept.at(-1)).toEqual(['mary', 'ada']);
+    expect(gate.notice()).toBeNull();
+    // Switching to Mary deletes Ada's Copy.
+    gate.switchTo('mary');
+    await openOn('mary');
+    await vi.waitFor(() => expect(state.kept.at(-1)).toEqual(['mary']));
+  });
+
+  it('shows the Account Lost again on the next launch, even offline', async () => {
+    const first = world({
+      signedIn: [{ user: ada, active: true }, { user: mary }],
+    });
+    await first.openOn('ada');
+    first.state.signedIn = [{ user: mary }];
+    first.gate.checkAgain();
+    await first.lostWith('ada', ['mary']);
+
+    const again = world({ signedIn: [], platform: first.platform });
+    again.state.reachable = false;
+    await again.lostWith('ada', ['mary']);
+  });
+
+  it('opens the lost account again, with its Copy, once it signs in again', async () => {
+    const { state, gate, lostWith, openOn } = world({
+      signedIn: [{ user: ada, active: true }, { user: mary }],
+    });
+    await openOn('ada');
+    state.signedIn = [{ user: mary }];
+    gate.checkAgain();
+    await lostWith('ada', ['mary']);
+    state.signedIn = [{ user: mary }, { user: ada, active: true }];
+    gate.checkAgain();
+    await openOn('ada');
+    expect(state.kept.at(-1)).toEqual(['mary', 'ada']);
+  });
+
+  it('forgets the lost account when someone new signs in', async () => {
+    const zoe = user('zoe');
+    const { state, gate, lostWith, openOn } = world({
+      signedIn: [{ user: ada, active: true }, { user: mary }],
+    });
+    await openOn('ada');
+    state.signedIn = [{ user: mary }];
+    gate.checkAgain();
+    await lostWith('ada', ['mary']);
+    state.signedIn = [{ user: mary }, { user: zoe, active: true }];
+    gate.checkAgain();
+    await openOn('zoe');
+    expect(state.kept.at(-1)).toEqual(['mary', 'zoe']);
+  });
+
+  it('signs out of a lost account with nobody left, offline too', async () => {
+    const { state, gate, lostWith, until } = world({
+      signedIn: [{ user: ada, active: true }],
+    });
+    await until((view) => view.kind === 'open');
+    state.signedIn = [];
+    gate.checkAgain();
+    await lostWith('ada', []);
+    state.online = false;
+    expect(gate.signOut()).toBe(true);
+    state.online = true;
+    await until((view) => view.kind === 'signedOut');
+    expect(state.kept.at(-1)).toEqual([]);
   });
 
   it('reports no Account Lost for a sign-out of its own', async () => {
@@ -237,7 +353,6 @@ describe('the Gate', () => {
     expect(gate.signOut()).toBe(true);
     await openOn('mary');
     expect(state.log).toContain('sign out ada-token');
-    expect(gate.takeNotice()).toBeNull();
   });
 
   it('refuses to sign out while the cloud Backend is out of reach', async () => {

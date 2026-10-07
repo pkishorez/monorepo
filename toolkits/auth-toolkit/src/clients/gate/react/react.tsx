@@ -86,8 +86,10 @@ export const gateReact = <S,>(gate: Gate<S>) => {
     retry: gate.retry,
     /** Signs an account in, the first or one more. */
     signIn: gate.addAccount,
-    /** Signs the Active Account out; false when the Backend can't be
-     * reached. */
+    /** An Account Switch, as from an Account Lost, where nobody is open. */
+    switchTo: gate.switchTo,
+    /** Signs the Active Account out, or forgets a lost one; false when the
+     * Backend can't be reached. */
     signOut: gate.signOut,
     /** Whether the device Backend is asking who signs in, and the answer: a
      * choice, or null to sign nobody in. */
