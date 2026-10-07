@@ -13,7 +13,7 @@
     },
     "feedback": {
       "paths": ["src/feedback"],
-      "description": "What a gesture feels and sounds like: haptics through expo-haptics, short sounds through a preloaded expo-audio player pool.",
+      "description": "What a gesture feels like: haptics through expo-haptics.",
       "modules": {
         "src/feedback": {
           "exposed": true

@@ -52,7 +52,7 @@
     },
     "client-ledger": {
       "paths": ["src/ledger"],
-      "description": "Ledger's client from core, made once on the phone's platform Layer, with the theme remembered on this phone and the sounds and haptics of Commands: what every screen uses for Ledger's state, Settings, Users and Backend",
+      "description": "Ledger's client from core, made once on the phone's platform Layer, with the theme remembered on this phone and the haptics of gestures: what every screen uses for Ledger's state, Settings, Users and Backend",
       "modules": {
         "src/ledger": {
           "exposed": true

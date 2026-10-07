@@ -19,7 +19,6 @@
     "@ledger/core": "workspace:*",
     "effect": "catalog:",
     "expo": "catalog:",
-    "expo-audio": "catalog:",
     "expo-auth-session": "catalog:",
     "expo-blur": "catalog:",
     "expo-constants": "catalog:",

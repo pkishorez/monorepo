@@ -195,7 +195,6 @@ catalog:
   '@react-native-masked-view/masked-view': 0.3.2
   babel-preset-expo: 57.0.13
   expo: 57.0.26
-  expo-audio: 57.0.5
   expo-blur: 57.0.3
   expo-auth-session: 57.0.13
   expo-constants: 57.0.20

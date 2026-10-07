@@ -24,7 +24,7 @@ import {
 import { Flip, Group, Row } from './rows';
 
 /**
- * Settings' General Section: how Ledger looks, sounds and feels on this
+ * Settings' General Section: how Ledger looks and feels on this
  * phone, the app's version, the User's money, and who is signed in.
  */
 export function General() {
@@ -55,18 +55,8 @@ function LookAndFeel() {
         />
       </Row>
       <Row
-        label="Sounds"
-        hint="Quiet sounds as commands run, from a tap or a gesture."
-      >
-        <Switch
-          value={settings.sound}
-          onValueChange={(sound) => change({ sound })}
-          label="Sounds"
-        />
-      </Row>
-      <Row
         label="Haptics"
-        hint="A light buzz as the Thumb Lock locks, steps and goes."
+        hint="A light tap as a gesture moves you: each step of the Thumb Lock, the Sidebar, a page, a row swiped to delete."
       >
         <Switch
           value={settings.haptics}
