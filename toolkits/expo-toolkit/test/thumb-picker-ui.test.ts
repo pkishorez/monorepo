@@ -1,14 +1,14 @@
 import { thumbLock, TreeWalk } from '@kstackz/use-gesture';
 import { describe, expect, it } from 'vitest';
 import { dropRunner, feedOn, runnerOn } from '../src/input/ui-thread';
-import { createPicking } from '../src/patterns/thumb-picker/picking';
+import { createPicking } from '../src/recipes/thumb-picker/picking';
 import {
   HIDDEN,
   placeIn,
   shapeOf,
   type View,
   viewOf,
-} from '../src/patterns/thumb-picker/view';
+} from '../src/recipes/thumb-picker/view';
 
 // The Thumb Picker as a phone runs it on its UI thread: Gesture Handler's
 // touch events straight into the surface's UI-thread provider, the Thumb

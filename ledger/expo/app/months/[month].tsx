@@ -1,4 +1,4 @@
-import { isMonthKey } from '@ledger/core/shared/ledger';
+import { isMonthKey } from '@ledger/core/model';
 import { Redirect, useLocalSearchParams } from 'expo-router';
 import { Month } from '../../src/screens/places/months';
 

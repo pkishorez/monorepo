@@ -6,13 +6,13 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@kstackz/ui-toolkit/components/ui/dropdown-menu';
+} from '@kstackz/web-toolkit/components/dropdown-menu';
 import {
   CheckIcon,
   ChevronsUpDownIcon,
   GitBranchIcon,
-} from '@kstackz/ui-toolkit/lucide';
-import { cn } from '@kstackz/ui-toolkit/lib/utils';
+} from '@kstackz/web-toolkit/components/lucide';
+import { cn } from '@kstackz/web-toolkit/components/utils';
 import type { Worktree, WorktreeResolution } from '../../rpc/index.js';
 import { currentWorktree } from './registry.js';
 

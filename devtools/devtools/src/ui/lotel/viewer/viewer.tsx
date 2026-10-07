@@ -6,12 +6,12 @@ import {
   groupByTrace,
   transformLog,
   transformSpan,
-} from '@kstackz/ui-toolkit/components/blocks/otel-trace-viewer';
-import type { OtelEvent } from '@kstackz/ui-toolkit/components/blocks/otel-trace-viewer/trace-model';
-import type { TraceView } from '@kstackz/ui-toolkit/components/blocks/otel-trace-viewer/trace-presentation';
-import { SearchIcon } from '@kstackz/ui-toolkit/lucide';
-import { scrollbarStyles } from '@kstackz/ui-toolkit/lib/scrollStyles';
-import { cn } from '@kstackz/ui-toolkit/lib/utils';
+} from '@devtools/ui/otel-trace-viewer';
+import type { OtelEvent } from '@devtools/ui/otel-trace-viewer/trace-model';
+import type { TraceView } from '@devtools/ui/otel-trace-viewer/trace-presentation';
+import { SearchIcon } from '@kstackz/web-toolkit/components/lucide';
+import { scrollbarStyles } from '@kstackz/web-toolkit/components/scroll-styles';
+import { cn } from '@kstackz/web-toolkit/components/utils';
 import type {
   LogRecord,
   SpanRecord,

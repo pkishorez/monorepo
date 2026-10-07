@@ -7,7 +7,7 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-} from '@kstackz/ui-toolkit/components/ui/dropdown-menu';
+} from '@kstackz/web-toolkit/components/dropdown-menu';
 import {
   Check,
   ChevronsUpDown,
@@ -15,7 +15,7 @@ import {
   KeyRound,
   Plus,
   Settings2,
-} from '@kstackz/ui-toolkit/lucide';
+} from '@kstackz/web-toolkit/components/lucide';
 import { StoreDialog } from './store-dialog.tsx';
 import type { storeView } from '../../../../shared/contracts/stores/index.ts';
 import { describeCredential, useCredentials } from '../../credentials/index.ts';

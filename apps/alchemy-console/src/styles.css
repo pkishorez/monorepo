@@ -1,5 +1,5 @@
-@import '@kstackz/ui-toolkit/styles/global.css';
-@import '@kstackz/ui-toolkit/styles/font-inter.css';
+@import '@kstackz/web-toolkit/theme/global.css';
+@import '@kstackz/web-toolkit/theme/font-inter.css';
 
 /* Tailwind v4 app configuration; toolkit classes register their own sources. */
 @source './';

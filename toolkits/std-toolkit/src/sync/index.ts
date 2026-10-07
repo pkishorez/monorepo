@@ -1,5 +1,6 @@
 export {
   createStdSync,
+  inOrder,
   type StdSyncConfig,
   type SyncedCollection,
 } from './std-sync/index.js';

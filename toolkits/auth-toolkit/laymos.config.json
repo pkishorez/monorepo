@@ -5,7 +5,13 @@
   "ignoredPaths": [
     "src/auth-worker/database/sqlite/migration/migrations",
     "src/auth-worker/app/routeTree.gen.ts",
-    "src/auth-worker/app/types.d.ts"
+    "src/auth-worker/app/types.d.ts",
+    "src/auth-worker/ui/screens/consent-screen.fixture.tsx",
+    "src/auth-worker/ui/screens/device-screen.fixture.tsx",
+    "src/auth-worker/ui/screens/fixtures",
+    "src/auth-worker/ui/screens/home-screen.fixture.tsx",
+    "src/auth-worker/ui/screens/login-screen.fixture.tsx",
+    "src/auth-worker/ui/screens/not-found-screen.fixture.tsx"
   ],
   "layers": {
     "auth-worker-contract": {
@@ -45,9 +51,131 @@
         }
       }
     },
+    "primitives": {
+      "paths": ["src/auth-worker/ui/components", "src/auth-worker/ui/lib"],
+      "description": "The pages' own copies of the shadcn primitives and the class-name helper the screens are built from",
+      "modules": {
+        "src/auth-worker/ui/components/alert-dialog.tsx": {
+          "exposed": true
+        },
+        "src/auth-worker/ui/components/avatar.tsx": {
+          "exposed": true
+        },
+        "src/auth-worker/ui/components/badge.tsx": {
+          "exposed": true
+        },
+        "src/auth-worker/ui/components/button.tsx": {
+          "shared": true,
+          "exposed": true
+        },
+        "src/auth-worker/ui/components/dialog.tsx": {
+          "exposed": true
+        },
+        "src/auth-worker/ui/components/dropdown-menu.tsx": {
+          "exposed": true
+        },
+        "src/auth-worker/ui/components/google-button.tsx": {
+          "exposed": true
+        },
+        "src/auth-worker/ui/components/input.tsx": {
+          "exposed": true
+        },
+        "src/auth-worker/ui/components/label.tsx": {
+          "exposed": true
+        },
+        "src/auth-worker/ui/components/sonner.tsx": {
+          "exposed": true
+        },
+        "src/auth-worker/ui/components/spinner.tsx": {
+          "exposed": true
+        },
+        "src/auth-worker/ui/lib/utils.ts": {
+          "exposed": true
+        }
+      }
+    },
+    "theme": {
+      "paths": ["src/auth-worker/ui/theme"],
+      "description": "The pages' light and dark theme: one cookie the server reads before the first paint and the browser keeps in step",
+      "moduleGraphs": {
+        "theme": {
+          "description": "createTheme is the browser's door; tanstack-start reads the theme cookie on the server.",
+          "path": "src/auth-worker/ui/theme",
+          "modules": {
+            "index.ts": {
+              "exposed": true
+            },
+            "tanstack-start.ts": {
+              "exposed": true
+            },
+            "theme.ts": {},
+            "store.ts": {},
+            "cookie.ts": {},
+            "document.ts": {},
+            "status-bar.ts": {},
+            "model.ts": {}
+          },
+          "rules": {
+            "index.ts": ["theme.ts"],
+            "tanstack-start.ts": ["cookie.ts", "model.ts"],
+            "theme.ts": [
+              "document.ts",
+              "model.ts",
+              "status-bar.ts",
+              "store.ts"
+            ],
+            "store.ts": ["cookie.ts", "document.ts", "model.ts"],
+            "cookie.ts": ["model.ts"],
+            "document.ts": ["model.ts"],
+            "status-bar.ts": ["model.ts"]
+          }
+        }
+      }
+    },
+    "screens": {
+      "paths": ["src/auth-worker/ui/screens"],
+      "description": "The Auth Worker's screens as pure views: state in, actions out",
+      "moduleGraphs": {
+        "auth-screens": {
+          "description": "The Auth Worker's four screens (Home Page, Login Screen, Consent Screen, Device Screen) as pure views: state in, actions out, one frame, one loader, and one account switcher for the browser's Signed-in Accounts",
+          "path": "src/auth-worker/ui/screens",
+          "modules": {
+            "auth-screens": {
+              "exposed": true
+            },
+            "screen-frame": {},
+            "action-button": {},
+            "disclosure-list": {},
+            "session-list": {},
+            "grant-list": {},
+            "scope-list": {},
+            "account-switcher": {},
+            "email-privacy": {},
+            "local-sign-in": {}
+          },
+          "rules": {
+            "auth-screens": [
+              "screen-frame",
+              "email-privacy",
+              "account-switcher",
+              "action-button",
+              "session-list",
+              "grant-list",
+              "scope-list",
+              "local-sign-in"
+            ],
+            "session-list": ["action-button", "disclosure-list"],
+            "grant-list": ["action-button", "disclosure-list", "scope-list"],
+            "screen-frame": ["email-privacy", "account-switcher"],
+            "account-switcher": ["email-privacy"],
+            "local-sign-in": ["email-privacy"]
+          }
+        }
+      }
+    },
     "pages": {
       "paths": ["src/auth-worker/pages"],
-      "description": "What the Auth Worker's pages show: connects the Worker's data to the ui-toolkit auth screens and owns no markup of its own.",
+      "description": "What the Auth Worker's pages show: connects the Worker's data to the auth screens and owns no markup of its own.",
       "moduleGraphs": {
         "pages": {
           "description": "Four page doors (Home Page, Login Screen, Consent Screen, Device Screen) over one same-origin Better Auth API, the User's Sessions and Grants, the browser's Signed-in Accounts, and one rule for which screen a visitor may see.",
@@ -220,6 +348,42 @@
         }
       }
     },
+    "client-app": {
+      "paths": ["src/clients/app"],
+      "description": "An app on the toolkits: createApp opens and closes the app's backend store and session store with the Gate, on the platform web-toolkit or expo-toolkit gives (AppPlatform), and deletes a signed-out user's copy (copyName)",
+      "modules": {
+        "src/clients/app": {
+          "exposed": true
+        }
+      }
+    },
+    "gate": {
+      "paths": ["src/clients/gate"],
+      "description": "The Gate: runs sign-in on one device for any app on any platform. It keeps the app on a Backend, holds the Backend Lifetime and the Active Account's Session Lifetime, opens a known account first and confirms it behind, and leaves Gate Notices. No platform code: the platform is handed in. react is its React side, the same on every platform.",
+      "moduleGraphs": {
+        "gate": {
+          "description": "gate.ts runs one Backend at a time and the machine on it, with the platform handed in; domain is the machine, the check and the services it asks; platform is what a platform hands in; react is SignedIn, SignedOut and the hooks.",
+          "path": "src/clients/gate",
+          "modules": {
+            "index.ts": {
+              "exposed": true
+            },
+            "react": {
+              "exposed": true
+            },
+            "gate.ts": {},
+            "platform.ts": {},
+            "domain": {}
+          },
+          "rules": {
+            "index.ts": ["gate.ts", "platform.ts", "domain"],
+            "react": ["gate.ts", "domain"],
+            "gate.ts": ["domain", "platform.ts"],
+            "platform.ts": ["domain"]
+          }
+        }
+      }
+    },
     "cli": {
       "paths": ["src/clients/cli"],
       "description": "Effect-only: a First-Party CLI's Device Login, its Session Store, and the Session on every RPC call",
@@ -232,12 +396,15 @@
   },
   "layerGraphs": {
     "auth-worker": {
-      "description": "The Auth Worker and everything it serves. The worker reads the contract; the pages app renders the pages; the Primary Database is handed to the worker by the consumer. The worker and the app meet at build time, never through an import.",
+      "description": "The Auth Worker and everything it serves. The worker reads the contract; the pages app renders the pages, and the pages show the screens; the Primary Database is handed to the worker by the consumer. The worker and the app meet at build time, never through an import.",
       "rules": {
         "auth-worker-contract": [],
         "database": [],
-        "pages": ["auth-worker-contract"],
-        "app": ["pages"],
+        "primitives": [],
+        "theme": [],
+        "screens": ["primitives", "theme"],
+        "pages": ["auth-worker-contract", "screens"],
+        "app": ["pages", "theme"],
         "worker": ["auth-worker-contract"]
       }
     },
@@ -254,7 +421,9 @@
       "rules": {
         "auth-worker-contract": [],
         "accounts": ["auth-worker-contract"],
-        "cli": ["auth-worker-contract"]
+        "cli": ["auth-worker-contract"],
+        "gate": ["accounts"],
+        "client-app": ["gate", "accounts"]
       }
     }
   }

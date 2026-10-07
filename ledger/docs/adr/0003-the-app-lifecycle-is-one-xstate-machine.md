@@ -1,6 +1,8 @@
 # The app's lifecycle is one XState machine on v6 alpha
 
-Status: accepted
+Status: accepted; the machine moved to auth-toolkit's Gate (the monorepo's [ADR 0003](../../../docs/adr/0003-web-toolkit-and-the-gate.md)), still one XState machine, now opening a known account first and confirming it behind.
+
+Names and paths below predate the monorepo's [ADR 0004](../../../docs/adr/0004-an-app-is-api-backend-and-stores.md), which renamed the Backends cloud and device and moved `src/client` to `src/app`.
 
 Ledger's lifecycle (checking who is signed in, signed out, a Session opening,
 open, and Switch User) is one XState machine run as an Effect actor through

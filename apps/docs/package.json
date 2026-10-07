@@ -15,10 +15,12 @@
   "dependencies": {
     "@fontsource-variable/inter": "catalog:",
     "@fontsource-variable/jetbrains-mono": "catalog:",
+    "@kstackz/ai-toolkit": "workspace:*",
     "@kstackz/effect-tracer": "workspace:*",
     "@kstackz/flow": "workspace:*",
-    "@kstackz/ai-toolkit": "workspace:*",
-    "@kstackz/ui-toolkit": "workspace:*",
+    "@kstackz/rpc-toolkit": "workspace:*",
+    "@kstackz/std-toolkit": "workspace:*",
+    "@kstackz/web-toolkit": "workspace:*",
     "@tanstack/react-db": "catalog:",
     "@tanstack/react-router": "catalog:",
     "@tanstack/react-router-devtools": "catalog:",
@@ -29,9 +31,7 @@
     "fumadocs-ui": "catalog:",
     "lucide-react": "catalog:",
     "react": "catalog:",
-    "react-dom": "catalog:",
-    "@kstackz/std-toolkit": "workspace:*",
-    "@kstackz/rpc-toolkit": "workspace:*"
+    "react-dom": "catalog:"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "catalog:",

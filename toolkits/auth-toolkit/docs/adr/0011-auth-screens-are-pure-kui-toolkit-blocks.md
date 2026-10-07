@@ -4,7 +4,7 @@ Date: 2026-09-19
 
 ## Status
 
-Accepted
+Superseded by the monorepo's [ADR 0003](../../../../docs/adr/0003-web-toolkit-and-the-gate.md): ui-toolkit is gone, and auth-toolkit never imports web-toolkit, so the screens are owned copies in `src/auth-worker/ui`. That auth-toolkit only wires data to them still holds.
 
 ## Context
 

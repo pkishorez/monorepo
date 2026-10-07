@@ -1,5 +1,5 @@
 import { Text } from '@kstackz/expo-toolkit/components/text';
-import { money, type Way } from '@ledger/core/shared/ledger';
+import { money, type Way } from '@ledger/core/model';
 
 /**
  * Money as it is read: in with a plus, out with a minus, a balance as it

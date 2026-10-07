@@ -11,7 +11,7 @@
         "app": {}
       }
     },
-    "client-screens": {
+    "screens": {
       "paths": ["src/screens"],
       "description": "What the user sees on a phone: the shell around every Place (Splash, signed-out card, header, Sidebar with the User Switcher, Local Sign-In, the Commands, and the layer gestures mount in), each Place, the Add and Accounts sheets, and the parts they share",
       "moduleGraphs": {
@@ -50,20 +50,11 @@
         }
       }
     },
-    "client-ledger": {
+    "ledger": {
       "paths": ["src/ledger"],
-      "description": "Ledger's client from core, made once on the phone's platform Layer, with the theme remembered on this phone and the haptics of gestures: what every screen uses for Ledger's state, Settings, Users and Backend",
+      "description": "Ledger on the phone, made once from core on expo-toolkit's platform with this build's cloud addresses, with the theme and how Ledger feels: what every screen uses",
       "modules": {
         "src/ledger": {
-          "exposed": true
-        }
-      }
-    },
-    "client-platform": {
-      "paths": ["src/platform"],
-      "description": "The phone's platform Layer core asks for: tables and Remote copies in expo-sqlite, the last User in secure storage, the network from expo-network and the foreground from AppState, and the Remote Backend: where its /rpc answers and each User's sign-in through the system sign-in sheet, with their tokens in secure storage",
-      "modules": {
-        "src/platform": {
           "exposed": true
         }
       }
@@ -80,12 +71,11 @@
   },
   "layerGraphs": {
     "ledger-expo": {
-      "description": "Read top-down: entry readies the runtime and routes to the screens; the screens stand on Ledger's client from core, made on the phone's platform Layer. Everything shared with the web app is in @ledger/core; generic native UI, gestures and feedback are in @kstackz/expo-toolkit",
+      "description": "Read top-down: entry readies the runtime and routes to the screens; the screens stand on Ledger from src/ledger, made on expo-toolkit's platform. Everything shared with the web app is in @ledger/core; generic native UI, gestures, feedback and the platform are in @kstackz/expo-toolkit",
       "rules": {
-        "entry": ["runtime", "client-screens"],
-        "client-screens": ["client-ledger"],
-        "client-ledger": ["client-platform"],
-        "client-platform": [],
+        "entry": ["runtime", "screens"],
+        "screens": ["ledger"],
+        "ledger": [],
         "runtime": []
       }
     }

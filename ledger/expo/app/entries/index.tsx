@@ -1,4 +1,4 @@
-import { validateEntriesSearch } from '@ledger/core/client/views';
+import { validateEntriesSearch } from '@ledger/core/app/places';
 import { useLocalSearchParams } from 'expo-router';
 import { Entries } from '../../src/screens/places/entries';
 

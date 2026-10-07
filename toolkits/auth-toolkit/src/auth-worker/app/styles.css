@@ -1,5 +1,5 @@
-@import '@kstackz/ui-toolkit/styles/global.css';
-@import '@kstackz/ui-toolkit/styles/font-inter.css';
+@import '../ui/css/global.css';
+@import '../ui/css/font-inter.css';
 
 @source './';
 @source '../ui';

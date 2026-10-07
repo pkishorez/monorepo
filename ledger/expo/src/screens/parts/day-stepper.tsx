@@ -3,7 +3,7 @@ import ArrowRight01Icon from '@hugeicons/core-free-icons/ArrowRight01Icon';
 import { Button } from '@kstackz/expo-toolkit/components/button';
 import { Glyph } from '@kstackz/expo-toolkit/components/glyph';
 import { Text } from '@kstackz/expo-toolkit/components/text';
-import { dayName, shiftDay, today } from '@ledger/core/shared/ledger';
+import { dayName, shiftDay, today } from '@ledger/core/model';
 import { View } from 'react-native';
 import { useToneOf } from './tone';
 

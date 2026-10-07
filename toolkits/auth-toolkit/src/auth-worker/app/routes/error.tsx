@@ -1,5 +1,5 @@
 import { createFileRoute, getRouteApi } from '@tanstack/react-router';
-import { ErrorScreen } from '@kstackz/ui-toolkit/components/blocks/auth';
+import { ErrorScreen } from '../../ui/screens/auth-screens';
 
 const root = getRouteApi('__root__');
 

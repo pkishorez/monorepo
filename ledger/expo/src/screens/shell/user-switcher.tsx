@@ -5,17 +5,10 @@ import UserAdd01Icon from '@hugeicons/core-free-icons/UserAdd01Icon';
 import { Glyph } from '@kstackz/expo-toolkit/components/glyph';
 import { Text } from '@kstackz/expo-toolkit/components/text';
 import { toast } from '@kstackz/expo-toolkit/components/toast';
-import { type User, useUser } from '@ledger/core/client/session';
-import { type ReactNode, useState } from 'react';
+import { type User, useUser } from '@ledger/core/app/session';
+import { type ReactNode, useEffect, useState } from 'react';
 import { Image, Pressable, View } from 'react-native';
-import {
-  addUser,
-  signOut,
-  switchUser,
-  takeLoginError,
-  useApp,
-  useOnline,
-} from '../../ledger';
+import { useAccounts, useGate } from '../../ledger';
 import { LedgerMark } from '../parts';
 
 function UserAvatar(props: { readonly user: User }) {
@@ -57,17 +50,6 @@ function Choice(props: {
 const failed = (label: string) =>
   toast.show({ variant: 'destructive', label, placement: 'top' });
 
-// Add User, then why it came back without one, unless the sheet was closed.
-const add = () =>
-  addUser()
-    .then(takeLoginError)
-    .then((taken) => {
-      if (taken !== null) {
-        failed(taken.description ?? 'Adding a user didn’t finish. Try again.');
-      }
-    })
-    .catch(() => failed('Couldn’t start adding a user. Try again.'));
-
 /**
  * Ledger and whose Session is open, atop the Sidebar. A tap lists every
  * User signed in on this phone, to Switch User, Add User, or Sign Out the
@@ -75,12 +57,20 @@ const add = () =>
  */
 export function UserSwitcher(props: { readonly onDone: () => void }) {
   const user = useUser();
-  const app = useApp();
-  const online = useOnline();
+  const { current: account, all, add, switchTo, signOut } = useAccounts();
+  const { online, notice, dismissNotice } = useGate();
   const [open, setOpen] = useState(false);
-  const signedIn = app.kind === 'open' ? app.signedIn : [];
-  // Remembered offline, the open User has no token to sign out with yet.
-  const reached = online && app.kind === 'open' && app.user.token !== null;
+  // Why an Add User came back without one, unless the sheet was closed.
+  useEffect(() => {
+    if (notice?.kind !== 'loginError') return;
+    failed(
+      notice.error.description ?? 'Adding a user didn’t finish. Try again.',
+    );
+    dismissNotice();
+  }, [notice, dismissNotice]);
+  // Opened before the Backend answered, the open User has no token to sign
+  // out with yet; and only the Backend can sign anyone out.
+  const reached = online && account.token !== null;
   const done = (run: () => unknown) => () => {
     setOpen(false);
     props.onDone();
@@ -111,11 +101,11 @@ export function UserSwitcher(props: { readonly onDone: () => void }) {
           <Text muted className="px-2 pt-1 pb-0.5 text-xs">
             Signed in on this phone
           </Text>
-          {signedIn.map(({ user: other }) => (
+          {all.map(({ user: other }) => (
             <Choice
               key={other.id}
               label={`Switch to ${other.name}`}
-              onPress={done(() => switchUser(other.id))}
+              onPress={done(() => switchTo(other.id))}
             >
               <UserAvatar user={other} />
               <View className="flex-1">
@@ -132,7 +122,15 @@ export function UserSwitcher(props: { readonly onDone: () => void }) {
             </Choice>
           ))}
           <View className="my-1 h-px bg-border" />
-          <Choice label="Add user" disabled={!online} onPress={done(add)}>
+          <Choice
+            label="Add user"
+            disabled={!online}
+            onPress={done(() =>
+              add().catch(() =>
+                failed('Couldn’t start adding a user. Try again.'),
+              ),
+            )}
+          >
             <Glyph icon={UserAdd01Icon} size={18} />
             <Text className="text-sm">Add user</Text>
           </Choice>

@@ -41,7 +41,7 @@ const HAPTICS = {
  * Haptics setting is on. Phones make no sounds; Commands are silent here.
  */
 export const useFeel = () => {
-  const { haptics } = useSettings();
+  const [{ haptics }] = useSettings();
   return useCallback(
     (moment: Moment) => {
       if (haptics) haptic(HAPTICS[moment]);

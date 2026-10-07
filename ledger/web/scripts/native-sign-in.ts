@@ -14,7 +14,7 @@ import { Effect, Layer } from 'effect';
 import { FetchHttpClient } from 'effect/http';
 import { RpcClient, RpcSerialization } from 'effect/rpc';
 import { Authz } from '@kstackz/auth-toolkit/rpc';
-import { LedgerApi } from '@ledger/core/shared/ledger-api';
+import { LedgerApi } from '@ledger/core/api';
 
 const AUTH_URL = process.env.AUTH_URL ?? 'https://auth.kishore.computer';
 const RESOURCE = 'https://kstack.kishore.computer/rpc';

@@ -4,10 +4,7 @@ import {
   useQueryClient,
   type QueryClient,
 } from '@tanstack/react-query';
-import type {
-  GrantView,
-  SessionView,
-} from '@kstackz/ui-toolkit/components/blocks/auth';
+import type { GrantView, SessionView } from '../../ui/screens/auth-screens';
 
 import {
   AuthorizationClientError,

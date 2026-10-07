@@ -4,10 +4,13 @@ import {
   PanelLeftCloseIcon,
   PanelLeftOpenIcon,
   SearchIcon,
-} from '@kstackz/ui-toolkit/lucide';
-import { AnimatePresence, motion } from '@kstackz/ui-toolkit/motion';
-import { cn } from '@kstackz/ui-toolkit/lib/utils';
-import { scrollbarStyles } from '@kstackz/ui-toolkit/lib/scrollStyles';
+} from '@kstackz/web-toolkit/components/lucide';
+import {
+  AnimatePresence,
+  motion,
+} from '@kstackz/web-toolkit/components/motion';
+import { cn } from '@kstackz/web-toolkit/components/utils';
+import { scrollbarStyles } from '@kstackz/web-toolkit/components/scroll-styles';
 import {
   formatRelativeTime,
   formatServiceName,

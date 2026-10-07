@@ -1,5 +1,7 @@
 # A platform-free core, and the web on top of it
 
+Later, `./web` moved into `@kstackz/web-toolkit`'s input (the monorepo's [ADR 0003](../../../../docs/adr/0003-web-toolkit-and-the-gate.md)); the core stays here.
+
 Ledger is getting a native app on Expo, and its gestures should behave the same there: the same zones hearing a Gesture, the same Direction read once, the same Swipe rules, the same Thumb Picker walk. The package was written for the browser through and through: the tracker was typed on DOM `Element`, found zones with `closest`, and gave every finger Motion values. So it splits in two. The package root is now a core with no DOM, no React and no Motion: `createGestureProvider` takes a Zone Tree (how a platform's zones nest) and gives a `sink` that a Touch Source feeds plain finger samples, `{ id, x, y, t, target }`; listeners hear immutable Pointers, with a `move` as each finger moves. The Swipe's rules and the Tree Walk Ledger's Thumb Picker moved through live there too. Everything the browser needs — pointer and touch events, `touch-action`, `closest`, Native Scroll, Motion values, the React provider, zones and hooks, the Recognizers and Patterns — is `./web`, built on the core's public door the way the Expo Toolkit will be.
 
 ## Considered Options

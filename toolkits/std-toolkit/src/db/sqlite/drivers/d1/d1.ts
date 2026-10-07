@@ -10,7 +10,7 @@ interface D1Result {
   readonly results: Record<string, unknown>[];
 }
 
-interface D1Statement<Self> {
+export interface D1Statement<Self> {
   readonly bind: (...values: (null | string | number | Uint8Array)[]) => Self;
   readonly all: () => Promise<D1Result>;
 }

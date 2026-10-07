@@ -1,16 +1,10 @@
 import { Button } from '@kstackz/expo-toolkit/components/button';
 import { Spinner } from '@kstackz/expo-toolkit/components/spinner';
 import { Text } from '@kstackz/expo-toolkit/components/text';
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import {
-  addUser,
-  checkAgain,
-  setBackend,
-  takeLoginError,
-  useBackend,
-} from '../../ledger';
+import { useGate } from '../../ledger';
 import { LedgerMark } from '../parts';
 
 /** While Ledger asks who is signed in, opens a User's money, or signs out. */
@@ -42,12 +36,12 @@ export function Opening(props: {
  * Backend offers its own sign-in, and the way to the other Backend.
  */
 export function SignedOut(props: { readonly unreachable: boolean }) {
-  const backend = useBackend();
-  if (backend === 'local') {
+  const { backend, checkAgain, signIn } = useGate();
+  if (backend === 'device') {
     return (
       <Card>
-        <Button onPress={() => void addUser()}>Sign in</Button>
-        <OtherBackend to="remote" />
+        <Button onPress={() => void signIn()}>Sign in</Button>
+        <OtherBackend to="cloud" />
       </Card>
     );
   }
@@ -65,7 +59,7 @@ export function SignedOut(props: { readonly unreachable: boolean }) {
       ) : (
         <GoogleSignIn />
       )}
-      <OtherBackend to="local" />
+      <OtherBackend to="device" />
     </Card>
   );
 }
@@ -75,15 +69,17 @@ export function SignedOut(props: { readonly unreachable: boolean }) {
 function GoogleSignIn() {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string>();
+  const { notice, dismissNotice, signIn } = useGate();
+  useEffect(() => {
+    if (notice?.kind !== 'loginError') return;
+    setError(notice.error.description ?? 'Sign in didn’t finish. Try again.');
+    dismissNotice();
+  }, [notice, dismissNotice]);
   const start = async () => {
     setPending(true);
     setError(undefined);
     try {
-      await addUser();
-      const taken = await takeLoginError();
-      if (taken !== null) {
-        setError(taken.description ?? 'Sign in didn’t finish. Try again.');
-      }
+      await signIn();
     } catch {
       setError('The sign-in service didn’t answer. Try again.');
     } finally {
@@ -104,12 +100,29 @@ function GoogleSignIn() {
   );
 }
 
+/** A User whose money would not open on this phone, twice running. */
+export function Unopenable(props: { readonly name: string }) {
+  const { retry, signOut } = useGate();
+  return (
+    <Card>
+      <Text className="text-sm text-destructive" accessibilityRole="alert">
+        Couldn’t open {props.name}’s money on this phone.
+      </Text>
+      <Button onPress={retry}>Try again</Button>
+      <Button variant="outline" onPress={() => void signOut()}>
+        {`Sign out ${props.name}`}
+      </Button>
+    </Card>
+  );
+}
+
 // The way from one Backend to the other.
-function OtherBackend(props: { readonly to: 'local' | 'remote' }) {
+function OtherBackend(props: { readonly to: 'device' | 'cloud' }) {
+  const { setBackend } = useGate();
   return (
     <View className="gap-1">
       <Text muted className="text-sm">
-        {props.to === 'local'
+        {props.to === 'device'
           ? 'Or try Ledger on this phone, without an account.'
           : 'Or sign in with Google, to keep your money on every device.'}
       </Text>
@@ -119,7 +132,7 @@ function OtherBackend(props: { readonly to: 'local' | 'remote' }) {
         labelClassName="text-primary underline"
         onPress={() => void setBackend(props.to)}
       >
-        {props.to === 'local' ? 'Use the Local Backend' : 'Use Google'}
+        {props.to === 'device' ? 'Use this device' : 'Use Google'}
       </Button>
     </View>
   );

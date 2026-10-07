@@ -3,7 +3,7 @@ import { join, relative } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 // Core runs in a browser and on a phone alike: whatever only one platform
-// has comes in through the platform Layer each app hands it, never straight.
+// has comes in through the platform each app hands it, never straight.
 
 const ROOT = join(import.meta.dirname, '..');
 const SRC = join(ROOT, 'src');

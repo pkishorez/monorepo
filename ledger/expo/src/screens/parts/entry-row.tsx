@@ -1,6 +1,6 @@
 import { Text } from '@kstackz/expo-toolkit/components/text';
 import { cn } from '@kstackz/expo-toolkit/theme';
-import type { Account, Category, Entry } from '@ledger/core/shared/ledger';
+import type { Account, Category, Entry } from '@ledger/core/model';
 import { Pressable, View } from 'react-native';
 import { Amount } from './amount';
 import { CategoryIcon } from './icons';

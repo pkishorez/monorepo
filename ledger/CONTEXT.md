@@ -29,20 +29,20 @@ _Avoid_: period, analytics, report
 ### Users
 
 **User**:
-One person signed in to a Backend: with Google on the Remote Backend, by name on the Local Backend. Several Users can be signed in on one device at once; each has their own money, and none sees another's.
+One person signed in to a Backend: with Google on the cloud Backend, by name on the device Backend. Several Users can be signed in on one device at once; each has their own money, and none sees another's.
 _Avoid_: account (an Account is where money sits), profile, login
 
 **Backend**:
-What keeps every User's money and knows who they are: the Remote Backend, unless Settings chose the Local Backend. Each has its own Users; changing Backend signs no one out of either.
+What keeps every User's money and knows who they are: the cloud Backend, unless Settings chose the device Backend. Each has its own Users; changing Backend signs no one out of either. Both run the same handlers; only the Services they are given differ.
 _Avoid_: mode, server, environment, demo
 
-**Remote Backend**:
-The Backend somewhere else, where a User signs in with Google and their money is kept for every device. Ledger starts on it.
-_Avoid_: cloud backend, real backend, production
+**Cloud Backend**:
+The Backend on the Cloudflare Worker, where a User signs in with Google and their money is kept for every device. Ledger starts on it. Settings call it Cloud. Formerly the Remote Backend.
+_Avoid_: Remote Backend, real backend, production
 
-**Local Backend**:
-The Backend on this device, where a User signs in by choosing any name and their money never leaves the device. It is chosen to try Ledger out, and is how an agent drives it.
-_Avoid_: demo, mock backend, browser backend, sandbox, offline mode
+**Device Backend**:
+The Backend in the app on this device, where a User signs in by choosing any name and their money never leaves the device. It is chosen to try Ledger out ("Use this device" when signed out), and is how an agent drives it. Settings call it Device. Formerly the Local Backend.
+_Avoid_: Local Backend, demo, mock backend, browser backend, sandbox, offline mode
 
 **Session**:
 One User signed in on this device. Several can be at once, one of them the Active Session.
@@ -61,7 +61,7 @@ What lists every User signed in on this device, to Switch User, Add User, or Sig
 _Avoid_: account menu, profile menu
 
 **Add User**:
-Signing in one more User straight from the User Switcher: Google asks which of its accounts, or the Local Backend asks for a name, and Ledger comes back to the same Place with that User's Session active. Choosing a User already signed in on this device only switches to them.
+Signing in one more User straight from the User Switcher: Google asks which of its accounts, or the device Backend asks for a name, and Ledger comes back to the same Place with that User's Session active. Choosing a User already signed in on this device only switches to them.
 _Avoid_: add account, login, sign up
 
 **Sign Out**:
@@ -83,7 +83,7 @@ One screen you go to: Home, Entries, an Entry, a Month, or Settings. Add is a sh
 _Avoid_: page, route, view
 
 **Settings**:
-How Ledger looks, sounds and is driven on this device, the same for every User of it: the theme, the Sounds and Haptics, the Keys and Gestures switches with every Command’s key. Also the Place to change them, along with the currency of the User's money and the way to Manage Google Accounts.
+How Ledger looks, sounds and is driven on this device, the same for every User of it: the theme, the Sounds and Haptics, the Keys and Gestures switches with every Command’s key. Also the Place to change them, along with the currency of the User's money and the way to Manage Google Accounts, and the Backend. Settings are the device's Cache: kept on this device alone and belonging to no User.
 _Avoid_: preferences, options
 
 **Section**:

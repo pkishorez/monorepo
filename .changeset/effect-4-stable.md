@@ -4,10 +4,9 @@
 '@kstackz/effect-tracer': patch
 '@kstackz/effect-webrtc': patch
 '@kstackz/flow': patch
-'@kstackz/pwa-toolkit': patch
+'@kstackz/web-toolkit': patch
 '@kstackz/rpc-toolkit': patch
 '@kstackz/std-toolkit': patch
-'@kstackz/ui-toolkit': patch
 'laymos': patch
 'use-effect-ts': patch
 ---

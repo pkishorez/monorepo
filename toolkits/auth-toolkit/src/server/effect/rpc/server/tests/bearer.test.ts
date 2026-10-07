@@ -18,7 +18,7 @@ const Handlers = Api.toLayer({
   WhoAmI: () => Effect.map(Authz.CurrentAuth, ({ user }) => user.email),
 });
 
-const call = (token: () => string | null) =>
+const call = (token: (() => string | null) | Effect.Effect<string>) =>
   Effect.runPromise(
     Effect.gen(function* () {
       const client = yield* RpcTest.makeClient(Api);
@@ -43,6 +43,13 @@ describe('Authz.bearer', () => {
     expect(await call(read)).toMatchObject({ success: 'ada@example.com' });
     token = localToken.make(localUser({ email: 'grace@example.com' }));
     expect(await call(read)).toMatchObject({ success: 'grace@example.com' });
+  });
+
+  it('waits for a token given as an Effect', async () => {
+    const later = Promise.withResolvers<string>();
+    const result = call(Effect.promise(() => later.promise));
+    later.resolve(localToken.make(localUser({ email: 'ada@example.com' })));
+    expect(await result).toMatchObject({ success: 'ada@example.com' });
   });
 
   it('sends nothing while there is no token', async () => {

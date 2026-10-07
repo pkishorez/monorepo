@@ -19,7 +19,9 @@ The server hosts four Tools. Lotel stores and shows OpenTelemetry data using
 [@kstackz/flow](../flow/README.md) and draws them as swim lanes. Laymos and
 Monoverse analyze one project or one pnpm monorepo through
 [laymos](../laymos/README.md). Applications send telemetry with
-[@kstackz/effect-tracer](../effect-tracer/README.md).
+[@kstackz/effect-tracer](../effect-tracer/README.md). The Tools' views come
+from the private [@devtools/ui](../ui/README.md), which is a devDependency
+bundled into the browser UI at build time, so it is never installed.
 
 Terms are defined in [CONTEXT.md](./CONTEXT.md) and, for Monoverse,
 [docs/monoverse.md](./docs/monoverse.md). Decisions are in
@@ -177,27 +179,27 @@ Snapshot page from disk in headless Chromium, so nothing listens on a port.
 
 ```sh
 # The branch is checked out; compare it with main.
-devtools snapshot --project toolkits/ui-toolkit --base origin/main \
-  --out .snapshots/ui-toolkit.png --only-changed
+devtools snapshot --project toolkits/web-toolkit --base origin/main \
+  --out .snapshots/web-toolkit.png --only-changed
 # {
-#   "project": "toolkits/ui-toolkit",
-#   "title": "ui-toolkit",
+#   "project": "toolkits/web-toolkit",
+#   "title": "web-toolkit",
 #   "baseRef": "c08fd1c…",
 #   "modules": 132,
 #   "changedModules": 4,
 #   "drawn": "changed",
 #   "scale": 2,
 #   "images": [
-#     { "theme": "dark", "out": "/…/.snapshots/ui-toolkit.png", "width": 512, "height": 806 }
+#     { "theme": "dark", "out": "/…/.snapshots/web-toolkit.png", "width": 512, "height": 806 }
 #   ]
 # }
 
 # Every Project under this folder that the branch changed, in both themes.
 devtools snapshot --all --base origin/main --only-changed --theme both \
   --out-dir .snapshots
-# [ { "project": "toolkits/ui-toolkit", …, "images": [
-#     { "theme": "dark", "out": "/…/.snapshots/toolkits%2Fui-toolkit-dark.png", … },
-#     { "theme": "light", "out": "/…/.snapshots/toolkits%2Fui-toolkit-light.png", … } ] } ]
+# [ { "project": "toolkits/web-toolkit", …, "images": [
+#     { "theme": "dark", "out": "/…/.snapshots/toolkits%2Fweb-toolkit-dark.png", … },
+#     { "theme": "light", "out": "/…/.snapshots/toolkits%2Fweb-toolkit-light.png", … } ] } ]
 ```
 
 How it works:

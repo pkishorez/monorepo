@@ -1,5 +1,5 @@
 import { mkdir, rm, writeFile } from 'node:fs/promises';
-import { splashScreens } from '../../src/entry/web/splash/index.ts';
+import { splashScreens } from '@kstackz/web-toolkit/pwa/splash';
 import { faviconSvg, iconSvg } from './icon.ts';
 import { png } from './png.ts';
 import { splashSvg } from './splash.ts';

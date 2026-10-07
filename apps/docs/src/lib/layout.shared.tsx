@@ -1,6 +1,6 @@
 import type { BaseLayoutProps } from 'fumadocs-ui/layouts/shared';
-import { createTheme } from '@kstackz/ui-toolkit/components/blocks/theme';
-import { Button } from '@kstackz/ui-toolkit/components/ui/button';
+import { createTheme } from '@kstackz/web-toolkit/theme';
+import { Button } from '@kstackz/web-toolkit/components/button';
 import { FlaskConical, Moon, Newspaper, Sun } from 'lucide-react';
 import { appName } from './shared';
 

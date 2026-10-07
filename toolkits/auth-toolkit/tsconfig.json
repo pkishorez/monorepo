@@ -31,7 +31,9 @@
       "@kstackz/auth-toolkit/clients/auth/expo": [
         "./src/clients/auth/expo/index.ts"
       ],
-      "@kstackz/auth-toolkit/clients/cli": ["./src/clients/cli/index.ts"]
+      "@kstackz/auth-toolkit/clients/cli": ["./src/clients/cli/index.ts"],
+      "@kstackz/auth-toolkit/gate": ["./src/clients/gate/index.ts"],
+      "@kstackz/auth-toolkit/gate/react": ["./src/clients/gate/react/index.ts"]
     },
     "rootDir": ".",
     "strict": true,
@@ -41,5 +43,10 @@
     "skipLibCheck": true
   },
   "include": ["src/**/*", "stories/**/*"],
-  "exclude": ["node_modules", "src/auth-worker/app", "src/auth-worker/pages"]
+  "exclude": [
+    "node_modules",
+    "src/auth-worker/app",
+    "src/auth-worker/pages",
+    "src/auth-worker/ui"
+  ]
 }

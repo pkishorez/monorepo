@@ -7,18 +7,14 @@ import { Choice } from '@kstackz/expo-toolkit/components/choice';
 import { Glyph } from '@kstackz/expo-toolkit/components/glyph';
 import { Input } from '@kstackz/expo-toolkit/components/input';
 import { Text } from '@kstackz/expo-toolkit/components/text';
-import { keys, useCommand, usePlace } from '@ledger/core/client/commands';
-import { useMoney, useWrites } from '@ledger/core/client/session';
+import { keys, useCommand, usePlace } from '@ledger/core/app/commands';
+import { useMoney, useWrites } from '@ledger/core/app/session';
 import {
   type EntriesSearch,
   entryAt,
   narrowing,
-} from '@ledger/core/client/views';
-import {
-  centsOf,
-  dayName,
-  type Entry as EntryRow,
-} from '@ledger/core/shared/ledger';
+} from '@ledger/core/app/places';
+import { centsOf, dayName, type Entry as EntryRow } from '@ledger/core/model';
 import { useRouter } from 'expo-router';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { TextInput, View } from 'react-native';

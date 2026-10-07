@@ -215,3 +215,63 @@ _Avoid_: allowed origin, CORS origin
 **Shared Cookie Domain**:
 The parent domain (e.g. `.example.com`) the Auth Worker's session cookie is scoped to, so any subdomain's Direct Session Check can read it. Configurable per deployment.
 _Avoid_: cookie domain (kept for the config field name; this term is for the concept in prose)
+
+**Gate**:
+What runs an app's sign-in on one device: which Backend it is on, which Signed-in Accounts there are, and which is the Active Account. Every screen asks it whether someone is signed in; nothing starts until one first asks.
+_Avoid_: auth gate (it is more than a check), app machine, session manager
+
+**Backend**:
+Where an app's API answers and its Users sign in: the cloud Backend or the device Backend. Each has its own Signed-in Accounts; changing Backend signs no one out of either. The same handlers run on both; only the Services they are given differ.
+_Avoid_: server, environment, mode
+
+**Cloud Backend**:
+The Backend run on a Cloudflare Worker, where Users sign in through the Auth Worker and their data is kept for every device. Formerly the Remote Backend; a stored or launched `remote` is read as `cloud`.
+_Avoid_: Remote Backend, real backend, production
+
+**Device Backend**:
+The Backend run in the app itself, where Users sign in as Local Accounts and their data never leaves the device. Formerly the Local Backend; a stored or launched `local` is read as `device`.
+_Avoid_: Local Backend, demo, mock backend, offline mode
+
+**Service**:
+One thing a Backend's handlers need, such as a table or the Current Auth Resolver, with a cloud and a device version. Which versions are given decides where the Backend runs.
+_Avoid_: adapter, edge, provider
+
+**Backend Link**:
+What an app keeps for as long as it runs on one Backend: how its sessions call the Backend's API, and the platform their Std Sync runs on. What its Backend Lifetime holds: `createApp` opens it when a Backend starts and closes it on a change of Backend.
+_Avoid_: backend store, connection
+
+**Session**:
+What one signed-in user gets, such as an RPC runtime signed as them and a Std Sync named for them: what the Session Lifetime holds. `createApp` opens it when they become the Active Account and closes it on an Account Switch or a sign-out.
+_Avoid_: session store, user store
+
+**User's Sync**:
+The Std Sync of one user's data on the device, so it opens at once and offline, named for the user by `syncName`. On the cloud Backend it is deleted once the user is no longer signed in.
+_Avoid_: copy, cache (Cache is what only the device has), replica
+
+**Cache**:
+What only this device has and belongs to no user, such as an app's Settings. Neither the Backend nor a User's Sync holds it.
+_Avoid_: local storage, preferences store
+
+**Backend Lifetime**:
+Everything an app keeps for as long as it stays on one Backend, whoever is signed in. Changing Backend ends it, and everything in it.
+_Avoid_: backend scope (Scope is an OAuth permission here), global state
+
+**Session Lifetime**:
+Everything an app keeps for the Active Account alone, such as the connection carrying its token and its synced data. An Account Switch or a sign-out ends it, and every call still in flight with it.
+_Avoid_: session scope, user context
+
+**Open First**:
+The Gate's rule for an account it already knows: on an Account Switch, or at launch with an Active Account remembered, its Session Lifetime opens at once from what the device keeps, and the Backend confirms it afterwards. Only a device that knows nobody waits for the Backend.
+_Avoid_: optimistic switch, eager open
+
+**Remembered Accounts**:
+The Signed-in Accounts on one Backend as of the Gate's last check, kept by the device so the Gate can show them and Open First before the Backend answers. Every answer from the Backend replaces them whole; they never hold an account the Backend did not name.
+_Avoid_: account cache (Cache is what belongs to no user), multi-session, device sessions
+
+**Account Lost**:
+The Gate finding that the Active Account is no longer signed in, because it expired or was signed out on another device or app. The User must sign in to it again, keeping its User's Sync, or switch to another account, deleting it. Signing out on this device is never an Account Lost.
+_Avoid_: kicked out, session expired, forced logout
+
+**Gate Notice**:
+A message the Gate leaves for the app once, such as a sign-in that came back without signing anyone in. An Account Lost is not one: it holds the app until the User acts. The app shows it however it likes, and then it is gone.
+_Avoid_: event, alert, login error (one kind of Gate Notice)

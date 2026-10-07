@@ -3,137 +3,125 @@
   "sourceRoots": ["src"],
   "ignoredPaths": [],
   "layers": {
-    "client-gate": {
-      "paths": ["src/client/gate"],
-      "description": "Where the client starts, made once per app over its platform Layer: reads the Backend Settings chose, runs the app machine on that Backend's services, runs it again on the other Backend when the User changes it, in memory, and gives the screens Ledger's state, Settings and whether it is online",
+    "app": {
+      "paths": ["src/app/ledger.ts"],
+      "description": "Ledger on one platform: createLedger hands auth-toolkit's createApp the backend and session stores, and opens this device's Settings",
       "modules": {
-        "src/client/gate": {
+        "src/app/ledger.ts": {
           "exposed": true
         }
       }
     },
-    "client-backends": {
-      "paths": ["src/client/backends"],
-      "description": "Each Backend's client half, one Layer of the services the app machine needs, built from the platform's: who is signed in, how a Session reaches the Backend, and where its copy lives",
+    "app-session": {
+      "paths": ["src/app/session"],
+      "description": "What one signed-in user gets: an RPC runtime signed as them and a Std Sync named for them, with a collection for each kind of their money, over the link to the Backend",
       "modules": {
-        "src/client/backends/remote": {
-          "exposed": true
-        },
-        "src/client/backends/local": {
+        "src/app/session": {
           "exposed": true
         }
       }
     },
-    "client-platform": {
-      "paths": ["src/client/platform"],
-      "description": "The seam: the one service each app hands core as a Layer, for what differs by platform. Where tables and copies are kept, how a User signs in to the Remote Backend and where it is, the last User, and when the app is online or in view. Holds no implementation",
+    "app-link": {
+      "paths": ["src/app/link"],
+      "description": "The Backend Link: what the client keeps per Backend. How a session calls the API (HTTP to the cloud, or the Backend in-process on the device) and the platform its Std Sync runs on",
       "modules": {
-        "src/client/platform": {
+        "src/app/link": {
           "exposed": true
         }
       }
     },
-    "client-state": {
-      "paths": ["src/client/state"],
-      "description": "How the client keeps what its domain promises, over storage it is handed: a Session over the connection and copy it is given, this device's Settings over a table, and the copies of every signed-in User",
+    "app-cache": {
+      "paths": ["src/app/cache"],
+      "description": "What only this device has, belonging to no user: its Settings and their table",
+      "modules": {
+        "src/app/cache/settings": {
+          "exposed": true
+        }
+      }
+    },
+    "app-places": {
+      "paths": ["src/app/places"],
+      "description": "The Place order both apps follow, every Place with its address and Go Command, the stops a Thumb Lock picks, and what each Place shows, worked out once over the open session's money",
+      "modules": {
+        "src/app/places": {
+          "exposed": true
+        }
+      }
+    },
+    "app-commands": {
+      "paths": ["src/app/commands"],
+      "description": "The vocabulary: every Command with its keys, the gesture that gives it on a touch screen, the guide to every gesture, and the sound and Key Bar of each as it is given",
+      "modules": {
+        "src/app/commands": {
+          "exposed": true
+        }
+      }
+    },
+    "backend": {
+      "paths": ["src/backend/backend.ts", "src/backend/tests"],
+      "description": "The Backend, wherever it runs: the Ledger API's handlers on the services they need, each service with a cloud and a device version, imported from its own module",
+      "modules": {
+        "src/backend/backend.ts": {
+          "exposed": true
+        }
+      }
+    },
+    "backend-handlers": {
+      "paths": ["src/backend/handlers"],
+      "description": "Your logic: what each Ledger API call does, for the user who signed it, on the ledger table",
+      "modules": {
+        "src/backend/handlers": {
+          "exposed": true
+        }
+      }
+    },
+    "backend-services": {
+      "paths": ["src/backend/services"],
+      "description": "What the handlers stand on, one folder per service: its definition, and a cloud and a device version, each imported from its own file so a Worker loads only the cloud one and the app only the device one",
       "moduleGraphs": {
-        "app-state": {
-          "description": "A Session keeps one User's copy; the device's Settings and the copies stand alone",
-          "path": "src/client/state",
+        "services": {
+          "description": "Each version stands on its service's definition",
+          "path": "src/backend/services",
           "modules": {
-            "session": {
+            "table/index.ts": {
               "exposed": true
             },
-            "settings": {
+            "table/table.ts": {},
+            "table/cloud.ts": {
               "exposed": true
             },
-            "local-copies": {
+            "table/device.ts": {
+              "exposed": true
+            },
+            "auth/cloud.ts": {
+              "exposed": true
+            },
+            "auth/device.ts": {
               "exposed": true
             }
           },
           "rules": {
-            "session": ["local-copies"]
+            "table/index.ts": ["table/table.ts"],
+            "table/cloud.ts": ["table/table.ts"],
+            "table/device.ts": ["table/table.ts"]
           }
         }
       }
     },
-    "client-domain": {
-      "paths": ["src/client/domain"],
-      "description": "What the client means, with no I/O: the device's Settings and their table, what an Active Session offers, and the app machine that opens it, over services each Backend provides",
+    "api": {
+      "paths": ["src/api"],
+      "description": "The Ledger API both sides speak",
       "modules": {
-        "src/client/domain/settings": {
-          "exposed": true
-        },
-        "src/client/domain/session": {
-          "shared": true,
-          "exposed": true
-        },
-        "src/client/domain/machine": {
+        "src/api": {
           "exposed": true
         }
       }
     },
-    "client-views": {
-      "paths": ["src/client/views"],
-      "description": "What each Place shows, worked out once for both apps: Home's glance, the Months and a Month, which Entries a search shows and the one beside an open Entry, and what a new Entry or Account starts from. Pure, over the open Session's money",
+    "model": {
+      "paths": ["src/model"],
+      "description": "The words of money, Accounts, Categories, Entries and the currency, with the sums over them",
       "modules": {
-        "src/client/views": {
-          "exposed": true
-        }
-      }
-    },
-    "client-places": {
-      "paths": ["src/client/places"],
-      "description": "The Place order both apps follow: every Place with its address and Go Command, the Sections of Settings, the title of each Place, and the stops a Thumb Lock picks from where you are. Icons are named, for each app to draw",
-      "modules": {
-        "src/client/places": {
-          "exposed": true
-        }
-      }
-    },
-    "client-commands": {
-      "paths": ["src/client/commands"],
-      "description": "The vocabulary: every Command with its keys, the gesture that gives it on a touch screen, the guide to every gesture, and the sound and Key Bar of each as it is given, played however the app plays sounds",
-      "modules": {
-        "src/client/commands": {
-          "exposed": true
-        }
-      }
-    },
-    "server-local": {
-      "paths": ["src/server/backends/local"],
-      "description": "The Local Backend's server half: the Backend on a table the app hands in, trusting Local Tokens, as an in-process connection. The only server module the client reaches",
-      "modules": {
-        "src/server/backends/local": {
-          "exposed": true
-        }
-      }
-    },
-    "server-domain": {
-      "paths": ["src/server/domain"],
-      "description": "The Backend wherever it runs: the ledger table, the Ledger API's handlers, and the one Layer that checks each call's User. It needs a table adapter and a Resolver, and nothing of any host",
-      "modules": {
-        "src/server/domain/storage": {
-          "shared": true,
-          "exposed": true
-        },
-        "src/server/domain/ledger": {
-          "shared": true
-        },
-        "src/server/domain/backend": {
-          "exposed": true
-        }
-      }
-    },
-    "shared": {
-      "paths": ["src/shared"],
-      "description": "The words of money, Accounts, Categories, Entries and the currency, with the sums over them and the Ledger API both sides speak",
-      "modules": {
-        "src/shared/ledger": {
-          "shared": true,
-          "exposed": true
-        },
-        "src/shared/ledger-api": {
+        "src/model": {
           "exposed": true
         }
       }
@@ -141,19 +129,19 @@
   },
   "layerGraphs": {
     "ledger-core": {
-      "description": "Read top-down: the Gate runs one Backend's services, built from the platform Layer, over the client's state and domain; the Local Backend's server half over the Backend's domain; what both sides speak at the bottom. The Commands stand alone; the Place order names them. The client reaches the server only through the Local Backend, and the platform only through the seam",
+      "description": "Read top-down: the app on each user's Session, the link to the Backend, and the cache; the device link runs the Backend in-process; the Backend answers the API in the words of the model. Commands stand alone; the Place order names them.",
       "rules": {
-        "client-gate": ["client-backends"],
-        "client-backends": ["client-platform", "client-state", "server-local"],
-        "client-platform": ["client-domain"],
-        "client-state": ["client-domain"],
-        "client-domain": ["shared"],
-        "client-views": ["client-state", "shared"],
-        "client-places": ["client-commands", "shared"],
-        "client-commands": [],
-        "server-local": ["server-domain"],
-        "server-domain": ["shared"],
-        "shared": []
+        "app": ["app-session", "app-link", "app-cache"],
+        "app-session": ["app-link", "api", "model"],
+        "app-link": ["backend", "backend-services", "api"],
+        "app-cache": [],
+        "app-places": ["app-commands", "app-session", "model"],
+        "app-commands": [],
+        "backend": ["backend-handlers"],
+        "backend-handlers": ["backend-services", "api", "model"],
+        "backend-services": ["model"],
+        "api": ["model"],
+        "model": []
       }
     }
   }

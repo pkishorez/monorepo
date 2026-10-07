@@ -11,18 +11,18 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
-} from '@kstackz/ui-toolkit/components/blocks/app-shell';
+} from '@kstackz/web-toolkit/recipes/frame';
 import {
   Collapsible,
   CollapsibleContent,
-} from '@kstackz/ui-toolkit/components/ui/collapsible';
+} from '@kstackz/web-toolkit/components/collapsible';
 import {
   ChevronRight,
   ChevronsDownUp,
   ChevronsUpDown,
   Layers,
   Search,
-} from '@kstackz/ui-toolkit/lucide';
+} from '@kstackz/web-toolkit/components/lucide';
 import { Rpc } from '../../../connections/rpc/index.ts';
 import { useRpcQuery, rpcQueryKeys } from '../queries/index.ts';
 import type { NavigationLink } from '../state-view/index.ts';

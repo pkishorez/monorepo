@@ -37,78 +37,9 @@
     },
     "entry": {
       "paths": ["src/index.ts"],
-      "description": "Entry \u2014 the package root, the platform-free core's one door: what a touch source on any platform builds on, the web's included.",
+      "description": "Entry: the package root, the platform-free core's one door: what a touch source on any platform builds on.",
       "modules": {
         "src/index.ts": {
-          "exposed": true
-        }
-      }
-    },
-    "web-zones": {
-      "paths": ["src/web/zones"],
-      "description": "Web zones \u2014 the browser as the touch source: a GestureProvider feeds the core every touch and pen pointer on the page and holds the browser back on each zone, leaving Native Scrolls their touches; GestureZones are DOM elements; useGesture hands each enabled listener every finger as motion values. It never says what a Gesture means.",
-      "moduleGraphs": {
-        "zones": {
-          "description": "touch-input listens to the page, holds the browser back on each zone and says how zones nest in the DOM; zone runs the core's provider over it and puts it together for React with motion values. Whether a release clicks is the browser's call unless a listener prevents it",
-          "path": "src/web/zones",
-          "modules": {
-            "index.ts": {
-              "exposed": true
-            },
-            "zone": {},
-            "touch-input": {}
-          },
-          "rules": {
-            "index.ts": ["zone"],
-            "zone": ["touch-input"]
-          }
-        }
-      }
-    },
-    "web-recognizers": {
-      "paths": ["src/web/recognizers"],
-      "description": "Web recognizers \u2014 one generic meaning read from a Gesture, such as a Swipe: Possible, then Tracking with live motion values for feedback, then a Commit or a Cancel, decided by the core's rules. They never know about each other.",
-      "moduleGraphs": {
-        "recognizers": {
-          "description": "Each Recognizer reads Pointers from useGesture on its own.",
-          "path": "src/web/recognizers",
-          "modules": {
-            "index.ts": {
-              "exposed": true
-            },
-            "swipe": {}
-          },
-          "rules": {
-            "index.ts": ["swipe"]
-          }
-        }
-      }
-    },
-    "web-patterns": {
-      "paths": ["src/web/patterns"],
-      "description": "Web patterns \u2014 purpose-built touch behaviours an app uses as they are, built from Recognizers, giving exactly the motion values their UI needs and settling themselves.",
-      "moduleGraphs": {
-        "patterns": {
-          "description": "Each Pattern stands alone on the Recognizers.",
-          "path": "src/web/patterns",
-          "modules": {
-            "index.ts": {
-              "exposed": true
-            },
-            "sidebar": {},
-            "pull-to-refresh": {}
-          },
-          "rules": {
-            "index.ts": ["sidebar", "pull-to-refresh"]
-          }
-        }
-      }
-    },
-    "web-entry": {
-      "paths": ["src/web/index.ts"],
-      "description": "Web entry \u2014 `./web`: the provider, zone and useGesture, the Recognizers and the Patterns, for apps in a browser.",
-      "modules": {
-        "src/web/index.ts": {
           "exposed": true
         }
       }
@@ -116,14 +47,10 @@
   },
   "layerGraphs": {
     "use-gesture": {
-      "description": "Read bottom-up: the platform-free core and its door; the web builds on that door the way any other platform would, and nothing below `./web` ever imports it.",
+      "description": "Read bottom-up: the platform-free core and its door, which every platform's touch source builds on.",
       "rules": {
         "core": [],
-        "entry": ["core"],
-        "web-zones": ["entry"],
-        "web-recognizers": ["web-zones"],
-        "web-patterns": ["web-recognizers"],
-        "web-entry": ["web-zones", "web-recognizers", "web-patterns"]
+        "entry": ["core"]
       }
     }
   }

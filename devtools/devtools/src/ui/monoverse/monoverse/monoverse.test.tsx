@@ -8,7 +8,7 @@ import type {
   LoadMonorepoAnalysis,
   MonorepoAnalysis,
   MonoverseProps,
-} from '@kstackz/ui-toolkit/components/blocks/monoverse';
+} from '@devtools/ui/monoverse';
 import { Monoverse } from './monoverse.js';
 
 const state = vi.hoisted(() => ({
@@ -157,47 +157,42 @@ vi.mock('../../project-selection/index.js', () => ({
 vi.mock('../../laymos/project-workspace/index.js', () => ({
   LaymosProjectWorkspace: () => null,
 }));
-vi.mock(
-  '@kstackz/ui-toolkit/components/blocks/monoverse',
-  async (importOriginal) => {
-    const actual =
-      await importOriginal<
-        typeof import('@kstackz/ui-toolkit/components/blocks/monoverse')
-      >();
-    const FakeMonoverse = ({
-      loadAnalysis,
-      reloadNonce,
-    }: {
-      loadAnalysis: LoadMonorepoAnalysis;
-      reloadNonce: number;
-    }) => {
-      const [loaded, setLoaded] = useState(false);
-      useEffect(() => {
-        Effect.runSync(
-          loadAnalysis().pipe(
-            Effect.match({
-              onSuccess: () => setLoaded(true),
-              onFailure: () => setLoaded(false),
-            }),
-          ),
-        );
-      }, [reloadNonce]);
-      return <div>{loaded ? 'Workspace loaded' : 'Loading'}</div>;
-    };
-    return {
-      ...actual,
-      Monoverse: (props: MonoverseProps) =>
-        state.realBlock ? (
-          <actual.Monoverse {...props} />
-        ) : (
-          <FakeMonoverse
-            loadAnalysis={props.loadAnalysis}
-            reloadNonce={props.reloadNonce ?? 0}
-          />
+vi.mock('@devtools/ui/monoverse', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@devtools/ui/monoverse')>();
+  const FakeMonoverse = ({
+    loadAnalysis,
+    reloadNonce,
+  }: {
+    loadAnalysis: LoadMonorepoAnalysis;
+    reloadNonce: number;
+  }) => {
+    const [loaded, setLoaded] = useState(false);
+    useEffect(() => {
+      Effect.runSync(
+        loadAnalysis().pipe(
+          Effect.match({
+            onSuccess: () => setLoaded(true),
+            onFailure: () => setLoaded(false),
+          }),
         ),
-    };
-  },
-);
+      );
+    }, [reloadNonce]);
+    return <div>{loaded ? 'Workspace loaded' : 'Loading'}</div>;
+  };
+  return {
+    ...actual,
+    Monoverse: (props: MonoverseProps) =>
+      state.realBlock ? (
+        <actual.Monoverse {...props} />
+      ) : (
+        <FakeMonoverse
+          loadAnalysis={props.loadAnalysis}
+          reloadNonce={props.reloadNonce ?? 0}
+        />
+      ),
+  };
+});
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 

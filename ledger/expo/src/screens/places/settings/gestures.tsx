@@ -5,9 +5,9 @@ import {
   GESTURE_GUIDE,
   type GestureGroup,
   said,
-} from '@ledger/core/client/commands';
+} from '@ledger/core/app/commands';
 import { View } from 'react-native';
-import { useChangeSettings, useSettings } from '../../../ledger';
+import { useSettings } from '../../../ledger';
 import { GestureFigure } from './figure';
 import { Group, Row } from './rows';
 
@@ -17,8 +17,7 @@ import { Group, Row } from './rows';
  * can't be changed, only learned.
  */
 export function Gestures() {
-  const settings = useSettings();
-  const change = useChangeSettings();
+  const [settings, change] = useSettings();
   return (
     <View className="gap-10">
       <Group title="Thumb Lock">

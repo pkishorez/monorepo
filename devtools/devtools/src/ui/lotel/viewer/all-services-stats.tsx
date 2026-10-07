@@ -1,5 +1,5 @@
-import { AlertTriangleIcon } from '@kstackz/ui-toolkit/lucide';
-import { cn } from '@kstackz/ui-toolkit/lib/utils';
+import { AlertTriangleIcon } from '@kstackz/web-toolkit/components/lucide';
+import { cn } from '@kstackz/web-toolkit/components/utils';
 import {
   formatRelativeTime,
   formatServiceName,

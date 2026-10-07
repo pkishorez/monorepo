@@ -1,10 +1,10 @@
 import PlusSignIcon from '@hugeicons/core-free-icons/PlusSignIcon';
 import { Glyph } from '@kstackz/expo-toolkit/components/glyph';
 import { Text } from '@kstackz/expo-toolkit/components/text';
-import { Sidebar, useSidebar } from '@kstackz/expo-toolkit/patterns/sidebar';
-import { PLACES, type StopIcon as Icon } from '@ledger/core/client/places';
-import { useMoney } from '@ledger/core/client/session';
-import { balances } from '@ledger/core/shared/ledger';
+import { Sidebar, useSidebar } from '@kstackz/expo-toolkit/recipes/sidebar';
+import { PLACES, type StopIcon as Icon } from '@ledger/core/app/places';
+import { useMoney } from '@ledger/core/app/session';
+import { balances } from '@ledger/core/model';
 import {
   type Href,
   useGlobalSearchParams,

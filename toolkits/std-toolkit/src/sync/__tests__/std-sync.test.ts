@@ -134,6 +134,45 @@ describe('a Std Sync Collection', () => {
     expect(todos.get('y')).toBeUndefined();
   });
 
+  it('waits for a write in flight before it stops', async () => {
+    const std = createStdSync({ name: 'drain' });
+    const answer = Promise.withResolvers<void>();
+    const stored: string[] = [];
+    const todos = std.collection(Todo, {
+      onInsert: (items) =>
+        Effect.promise(() => answer.promise).pipe(
+          Effect.map(() => {
+            stored.push(...items.map((item) => item.id));
+            return items.map((item) => todo(item.id, 1));
+          }),
+        ),
+    });
+    await todos.preload();
+    const write = todos.insert({ id: 'x', listId: 'a', title: 'x' });
+
+    let stopped = false;
+    const disposing = std.dispose().then(() => {
+      stopped = true;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(stopped).toBe(false);
+
+    answer.resolve();
+    await write.isPersisted.promise;
+    await disposing;
+    expect(stored).toEqual(['x']);
+  });
+
+  it('stops after its drain even when a write never answers', async () => {
+    const std = createStdSync({ name: 'drain-bound', drain: '30 millis' });
+    const todos = std.collection(Todo, {
+      onInsert: () => Effect.never,
+    });
+    await todos.preload();
+    todos.insert({ id: 'x', listId: 'a', title: 'x' });
+    await std.dispose();
+  });
+
   it('shows rich values and stores their encoded form', async () => {
     const Task = EntityESchema.make('Task', 'id', {
       dueAt: Schema.DateFromString,

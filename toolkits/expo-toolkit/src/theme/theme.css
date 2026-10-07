@@ -1,7 +1,7 @@
 /*
- * The Expo Toolkit's design tokens: ui-toolkit's colours, for React Native.
+ * The Expo Toolkit's design tokens: web-toolkit's colours, for React Native.
  *
- * The values are ui-toolkit's (`toolkits/ui-toolkit/src/styles/theme.css`,
+ * The values are web-toolkit's (`toolkits/web-toolkit/src/theme/css/theme.css`,
  * shadcn's neutral scale), converted from oklch to hex: native evaluates no
  * oklch() or color-mix(). Token names are Panel UI's, since the components
  * in `../components` are written against them; the ones the web theme has no
