@@ -2001,7 +2001,8 @@ DateTime to code that runs on Android until it is fixed.
 - **A delete stalls the JS thread 2–5 s** in dev mode on the emulator (the
   swipe tile sits there, then the row goes). Not measured outside dev:
   `expo start --no-dev --minify` in Expo Go never loads the lazily imported
-  Local Backend chunk (stuck on "Checking who is signed in…"). Measure on a
+  Local Backend chunk (stuck on "Checking who is signed in…"; fixed since,
+  see "Production mode"). Measure on a
   release build on a real Android phone; if it holds, look at the live
   queries re-running on every write.
 - Entries' first frame after opening it draws only the first few rows
@@ -2125,3 +2126,32 @@ and `pnpm test` pass; `laymos lint` passes in every package.
   services (`check:native-sign-in`), not part of any build.
 - The Test Sign-In exists only on the `local` stage; the Auth Worker
   refuses to start with it on any other.
+
+## Production mode
+
+`METRO_PORT=8083 pnpm --filter @ledger/expo dev --no-dev --minify` (Expo
+Go on the iOS Simulator) never left the Splash on the Local Backend; the
+Remote Backend was fine, and so was development mode. Not minification:
+`--no-dev` alone did the same.
+
+- **Cause:** the Gate loaded the Local Backend with `import()`. Metro
+  serves that as a lazy chunk, and Expo's `buildUrlForBundle` can find a
+  chunk only through its development server; in a production bundle it
+  throws "Unable to determine the production URL where additional
+  JavaScript chunks are hosted…". The Gate dropped the rejection
+  (`void settledBackend().then(runOn)`), so Ledger stayed "checking" with
+  no log, and the failed change also blocked every later one in its queue.
+- **Fix (`@ledger/core` gate):** `local-backend.ts` keeps the `import()`
+  (the web still splits the Local Backend into its own chunk);
+  `local-backend.native.ts`, which Metro picks on a phone, imports it
+  statically, since a phone ships all of its code anyway. A failed Backend
+  change no longer blocks the next one, and one nobody awaits is logged
+  (`Effect.logError`).
+- **Proven** on "iPhone Air", Metro 8083: production mode reaches Home;
+  Sign Out, Sign in as Grace with sample money, the Sidebar and Entries
+  work through real idb taps. `touch.mjs` and `drive.mjs` cannot run in
+  production (Metro lists no inspector target there), so the Thumb Lock
+  was checked in development mode: Home → Months. Development mode still
+  reaches Home.
+- Console output does not reach Metro's terminal in a production bundle;
+  to see it, post it to a local HTTP sink from the app.

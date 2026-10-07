@@ -21,6 +21,8 @@ import {
   settingsTable,
 } from '../domain/settings/index.ts';
 import { remoteBackend } from '../backends/remote/index.ts';
+// No extension: Metro picks `local-backend.native.ts` on a phone.
+import { loadLocalBackend } from './local-backend';
 import { LedgerPlatform } from '../platform/index.ts';
 import {
   type DeviceSettings,
@@ -103,9 +105,7 @@ export const createLedger = (platform: Layer.Layer<LedgerPlatform>) => {
   // The Local Backend's code runs only for those who choose it.
   const layerOf = async (backend: Backend): Promise<Layer.Layer<Services>> =>
     (backend === 'local'
-      ? (await import('../backends/local/index.ts')).localBackend(
-          chooser.choose,
-        )
+      ? (await loadLocalBackend())(chooser.choose)
       : remoteBackend
     ).pipe(Layer.provide(Layer.succeed(LedgerPlatform, services())));
 
@@ -134,7 +134,7 @@ export const createLedger = (platform: Layer.Layer<LedgerPlatform>) => {
 
   /** Runs Ledger on `backend`, closing whatever ran before. */
   const runOn = (backend: Backend) => {
-    queue = queue.then(async () => {
+    const change = queue.then(async () => {
       if (running?.backend === backend) return;
       const previous = running;
       running = null;
@@ -146,8 +146,15 @@ export const createLedger = (platform: Layer.Layer<LedgerPlatform>) => {
       view = viewOf(next.actor.getSnapshot());
       notify();
     });
-    return queue;
+    // A change that failed must not stop the ones after it.
+    queue = change.catch(() => {});
+    return change;
   };
+
+  // Nobody awaits a change the app makes by itself, so its failure is
+  // logged rather than lost.
+  const report = (failed: unknown) =>
+    Effect.runFork(Effect.logError('Ledger could not change Backend', failed));
 
   // A Backend the launch asked for is chosen as Settings would choose it.
   const settledBackend = async (): Promise<Backend> => {
@@ -170,18 +177,19 @@ export const createLedger = (platform: Layer.Layer<LedgerPlatform>) => {
     if (booted) return;
     booted = true;
     const { lifecycle } = services();
-    void settledBackend().then(runOn);
+    settledBackend().then(runOn).catch(report);
     lifecycle.onOnlineChange(() => {
       if (lifecycle.online()) checkAgain();
     });
     lifecycle.onForeground(() => {
-      void settings()
+      settings()
         .read()
         .then(({ backend }) =>
           running === null || running.backend === backend
             ? checkAgain()
             : runOn(backend),
-        );
+        )
+        .catch(report);
     });
   };
 
