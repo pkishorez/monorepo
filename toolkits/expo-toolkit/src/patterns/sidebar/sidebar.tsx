@@ -9,12 +9,8 @@ import {
   useState,
 } from 'react';
 import { BackHandler, useWindowDimensions } from 'react-native';
-import {
-  cancelAnimation,
-  useReducedMotion,
-  useSharedValue,
-} from 'react-native-reanimated';
-import { useGesture } from '../../input';
+import { useReducedMotion, useSharedValue } from 'react-native-reanimated';
+import { useGesture, useWorkletGesture } from '../../input';
 import { along, type Progress, settle, widthOn } from './motion';
 import { sidebarSwipe } from './swipe';
 import { type Panel, Push } from './push';
@@ -136,36 +132,75 @@ export function Sidebar(props: {
 /**
  * The Sidebar's swipe, inside a GestureSurface: a swipe right of one finger
  * from anywhere opens it under the finger and, let go, springs open or back
- * shut, as on the web. A zone inside that wants a swipe right keeps it,
- * such as Pages past their first or a row of pills scrolled from its start;
- * a swipe from the left edge is always the Sidebar's, and never scrolls. A
- * swipe left, or of two fingers, such as a Thumb Lock, is left to the
- * others; open, a drag left shuts it.
+ * shut, as on the web; `onSwiped` hears which, as it lets go. A zone inside
+ * that wants a swipe right keeps it, such as Pages past their first or a
+ * row of pills scrolled from its start; a swipe from the left edge is
+ * always the Sidebar's, and never scrolls. A swipe left, or of two fingers,
+ * such as a Thumb Lock, is left to the others; open, a drag left shuts it.
+ *
+ * Which zone takes the swipe is decided on the JS thread; once it is the
+ * Sidebar's, the page follows the finger on the UI thread, in the frame it
+ * moves, however busy the JS thread is.
  */
-export function SidebarSwipe() {
+export function SidebarSwipe(props: {
+  readonly onSwiped?: (open: boolean) => void;
+}) {
   const sidebar = useSidebar();
   const motion = useMotion();
-  const latest = useRef({ sidebar, motion });
-  latest.current = { sidebar, motion };
+  const latest = useRef({ sidebar, motion, props });
+  latest.current = { sidebar, motion, props };
+  // Whether the page follows the finger: set on JS once the swipe is the
+  // Sidebar's, read on the UI thread at each move.
+  const following = useSharedValue(false);
+  const width = useSharedValue(motion.width);
+  useEffect(() => {
+    width.value = motion.width;
+  }, [width, motion.width]);
+  const { progress } = motion;
+
   const claim = useRef<() => void>(() => {});
   const listener = useMemo(
     () =>
       sidebarSwipe({
         enabled: () => !latest.current.sidebar.open,
         onMove: (offset) => {
-          const { progress, width } = latest.current.motion;
-          cancelAnimation(progress);
-          progress.value = along(offset, width);
+          if (following.value) return;
+          // Caught up here once; the UI thread follows from the next move.
+          following.value = true;
+          progress.value = along(offset, latest.current.motion.width);
         },
         onEnd: (open, speed) => {
+          following.value = false;
           const { settle: to, width } = latest.current.motion;
           to(open, speed / width);
+          latest.current.props.onSwiped?.(open);
         },
         claim: () => claim.current(),
         clock: () => performance.now(),
       }),
-    [],
+    [following, progress],
   );
   claim.current = useGesture(listener).claim;
+
+  useWorkletGesture(() => {
+    'worklet';
+    // Two fingers are never the Sidebar's: it stops following until the
+    // touch is over, as the JS listener ends the swipe.
+    let lone = true;
+    return {
+      enabled: () => true,
+      start: () => {
+        lone = true;
+      },
+      pointer: (_pointer, pointers) => {
+        if (pointers.size > 1) lone = false;
+      },
+      move: (pointer) => {
+        if (!lone || !following.value) return;
+        progress.value = along(Math.max(0, pointer.dx), width.value);
+      },
+      end: () => {},
+    };
+  });
   return null;
 }

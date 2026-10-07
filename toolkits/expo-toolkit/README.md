@@ -1,12 +1,12 @@
 # @kstackz/expo-toolkit
 
-UI, theme, haptics and sound for native apps built with Expo: owned Panel UI components on Uniwind, styled with ui-toolkit's tokens.
+UI, theme and haptics for native apps built with Expo: owned Panel UI components on Uniwind, styled with ui-toolkit's tokens.
 
 ## Big picture
 
 The one Toolkit for native apps built with Expo (the **Expo Toolkit** in the root [`CONTEXT.md`](../../CONTEXT.md)). Ledger's native app (`ledger/expo`) is its first user; it carries Ledger's look to the phone so the web and native apps read as one product.
 
-It is laid out in [Laymos](laymos.config.json) layers, bottom to top: `theme` (Uniwind tokens and Inter), `feedback` (haptics and sound), `input` (touches for `@kstackz/use-gesture`'s core), `components` (Panel UI copies, on `theme`, and on `input` for a row that scrolls sideways) and `patterns` (whole interactions such as the Thumb Lock's Place Picker, on `components`, `input` and `feedback`). Each layer is a subpath. A later `web-toolkit` (ui-toolkit, pwa-toolkit, use-gesture's web part and use-keys) is meant to copy this shape.
+It is laid out in [Laymos](laymos.config.json) layers, bottom to top: `theme` (Uniwind tokens and Inter), `feedback` (haptics), `input` (touches for `@kstackz/use-gesture`'s core), `components` (Panel UI copies, on `theme`, and on `input` for a row that scrolls sideways) and `patterns` (whole interactions such as the Thumb Lock's Place Picker, on `components`, `input` and `feedback`). Each layer is a subpath. A later `web-toolkit` (ui-toolkit, pwa-toolkit, use-gesture's web part and use-keys) is meant to copy this shape.
 
 The components are copies of [Panel UI](https://panelui.dev) (MIT, see [`src/components/LICENSE-panelui`](src/components/LICENSE-panelui)), made with its CLI and owned here from then on, as ui-toolkit owns its shadcn copies. `pnpm add-panelui <name...>` copies more: it runs `panelui-cli` in a scratch folder, puts the named components in `src/components` and what they pull in under `src/components/parts` (private), and rewrites their imports. `src/components` is left out of `vp check` and `vp fmt` so copies stay close to upstream.
 
@@ -24,7 +24,7 @@ Peer dependencies, at Expo SDK 57's versions:
 - `uniwind`, `tailwindcss`: every class name resolves through Uniwind's Tailwind 4 pass over the theme.
 - `expo-font`: `useThemeFonts` loads Inter with it.
 - `react-native-reanimated`, `react-native-worklets`, `react-native-gesture-handler`, `react-native-safe-area-context`, `react-native-svg` (optional): needed by `./components/*`.
-- `expo-haptics`, `expo-audio` (optional): needed by `./feedback`.
+- `expo-haptics` (optional): needed by `./feedback`.
 - `react-native-gesture-handler`, `react-native-reanimated`, `react-native-worklets` (optional): needed by `./input`, which also depends on `@kstackz/use-gesture`'s core.
 - `expo-blur` (optional): the Thumb Picker blurs what is behind it.
 
@@ -57,10 +57,9 @@ The app's `global.css`, named as Uniwind's `cssEntryFile` in `metro.config.js`:
 
 ### `./feedback`
 
-| Export         | What it does                                                                                          |
-| -------------- | ----------------------------------------------------------------------------------------------------- |
-| `haptic`       | Plays one haptic: `selection`, `light`, `medium`, `heavy`, `success`, `warning` or `error`.           |
-| `createSounds` | Loads short sounds into a pool of players each, so `play(name)` starts at once; `release` frees them. |
+| Export   | What it does                                                                                                               |
+| -------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `haptic` | Plays one haptic: `selection`, `soft`, `light`, `rigid`, `medium`, `heavy`, `success`, `warning` or `error`, never throws. |
 
 ### `./input`
 
@@ -123,17 +122,15 @@ The app's `global.css`, named as Uniwind's `cssEntryFile` in `metro.config.js`:
 
 ### A themed screen with feedback
 
-The root layout waits for the fonts and mounts the provider; a screen uses the components and plays a haptic and a sound on a tap. Lifted from the first `ledger/expo` shell.
+The root layout waits for the fonts and mounts the provider; a screen uses the components and plays a haptic on a tap. Lifted from the first `ledger/expo` shell.
 
 ```tsx
 import { PanelUIProvider } from '@kstackz/expo-toolkit/components/panel-ui-provider';
 import { Button } from '@kstackz/expo-toolkit/components/button';
 import { Text } from '@kstackz/expo-toolkit/components/text';
-import { createSounds, haptic } from '@kstackz/expo-toolkit/feedback';
+import { haptic } from '@kstackz/expo-toolkit/feedback';
 import { useThemeFonts } from '@kstackz/expo-toolkit/theme';
 import { Slot } from 'expo-router';
-
-const sounds = createSounds({ tick: require('../assets/sounds/tick.wav') });
 
 export function Layout() {
   if (!useThemeFonts()) return null;
@@ -150,21 +147,13 @@ export function Home() {
       <Text size="3xl" weight="bold">
         Ledger
       </Text>
-      <Button
-        onPress={() => {
-          haptic('light');
-          sounds.play('tick');
-        }}
-      >
-        Tap
-      </Button>
+      <Button onPress={() => haptic('light')}>Tap</Button>
     </>
   );
 }
 ```
 
 - `theme.css` sets `font-normal` … `font-bold` to Inter faces; `useThemeFonts` registers them under those names.
-- `createSounds` loads three players per sound up front and takes them in turn, so a quick repeat overlaps instead of waiting; sounds mix with other apps and stay quiet on silent.
 - `haptic` never throws: a device without haptics feels nothing.
 
 ### A Sidebar beside a signed-in app
@@ -202,5 +191,5 @@ function Header() {
 ```
 
 - `Sidebar` renders nothing where it is written; it hands what it shows to `SidebarProvider`, which draws it under the page. As it opens the page moves aside, shrinks, rounds and dims, as on the web's phone layout; a tap on the page or a drag left shuts it.
-- Inside a `GestureSurface`, `<SidebarSwipe />` opens it from a one-finger swipe right anywhere, following the finger. A `GestureZone` inside (such as `Pages`) or a `NativeScroll` gets first claim on the swipes it wants; a swipe from the left edge is always the Sidebar's.
+- Inside a `GestureSurface`, `<SidebarSwipe />` opens it from a one-finger swipe right anywhere, following the finger on the UI thread; `onSwiped` hears whether it let go open. A `GestureZone` inside (such as `Pages`) or a `NativeScroll` gets first claim on the swipes it wants; a swipe from the left edge is always the Sidebar's.
 - Overlays render into the nearest portal host; `PanelUIProvider`'s sits above every app provider, so a `PortalScope` inside them keeps their context.

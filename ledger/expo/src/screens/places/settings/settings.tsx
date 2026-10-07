@@ -3,6 +3,7 @@ import { Pages } from '@kstackz/expo-toolkit/patterns/pages';
 import { usePlace } from '@ledger/core/client/commands';
 import { type SectionId, SETTINGS_SECTIONS } from '@ledger/core/client/places';
 import { View } from 'react-native';
+import { useFeel } from '../../../ledger';
 import { Scroll } from '../../parts';
 import { General } from './general';
 import { Gestures } from './gestures';
@@ -23,7 +24,7 @@ const LABELS = Object.fromEntries(
 const EDGE = 24;
 
 /**
- * Settings, a Place: how Ledger looks, sounds and feels on this phone, its
+ * Settings, a Place: how Ledger looks and feels on this phone, its
  * version, the User's money and who is signed in, in General; the Thumb
  * Lock and the guide to every gesture in Gestures. The tabs stay at the
  * top while a Section scrolls; a swipe sideways turns the Section, as on
@@ -36,6 +37,7 @@ export function Settings(props: {
 }) {
   usePlace('settings');
   const { onSection } = props;
+  const feel = useFeel();
   return (
     <View className="flex-1">
       <View className="bg-background px-4 pt-3">
@@ -58,7 +60,9 @@ export function Settings(props: {
         page={SECTIONS.indexOf(props.section)}
         onPage={(page) => {
           const section = SECTIONS[page];
-          if (section !== undefined) onSection(section);
+          if (section === undefined) return;
+          feel('page');
+          onSection(section);
         }}
         edge={EDGE}
       >

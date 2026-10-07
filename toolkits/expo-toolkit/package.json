@@ -2,7 +2,7 @@
   "name": "@kstackz/expo-toolkit",
   "version": "0.0.0",
   "private": false,
-  "description": "UI, theme, haptics and sound for native apps built with Expo: owned Panel UI components on Uniwind, styled with ui-toolkit's tokens.",
+  "description": "UI, theme and haptics for native apps built with Expo: owned Panel UI components on Uniwind, styled with ui-toolkit's tokens.",
   "keywords": [
     "expo",
     "react-native",
@@ -48,7 +48,6 @@
     "tailwind-variants": "catalog:"
   },
   "peerDependencies": {
-    "expo-audio": "57.0.5",
     "expo-blur": "57.0.3",
     "expo-font": "57.0.4",
     "expo-haptics": "57.0.3",
@@ -63,9 +62,6 @@
     "uniwind": "1.12.2"
   },
   "peerDependenciesMeta": {
-    "expo-audio": {
-      "optional": true
-    },
     "expo-blur": {
       "optional": true
     },
@@ -91,7 +87,6 @@
   "devDependencies": {
     "@types/react": "catalog:",
     "expo": "catalog:",
-    "expo-audio": "catalog:",
     "expo-blur": "catalog:",
     "expo-font": "catalog:",
     "expo-haptics": "catalog:",

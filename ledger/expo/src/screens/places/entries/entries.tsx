@@ -19,7 +19,7 @@ import { byDay, dayName, type Entry, signed } from '@ledger/core/shared/ledger';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { SectionList, View } from 'react-native';
-import { feelSwipe, useSettings } from '../../../ledger';
+import { useFeel } from '../../../ledger';
 import { useOpenAccount } from '../../sheets/accounts';
 import { Amount, EntryRow } from '../../parts';
 import { useRemoveEntry } from './remove';
@@ -39,7 +39,7 @@ export function Entries(props: { readonly search: EntriesSearch }) {
   const { restoreEntry } = useWrites();
   const lookup = useLookup(money);
   const router = useRouter();
-  const settings = useSettings();
+  const feel = useFeel();
   const { surface } = keys.useSurface();
   const shown = shownBy(money.entries, search);
   const [marked, setMarked] = useState(search.at);
@@ -204,8 +204,8 @@ export function Entries(props: { readonly search: EntriesSearch }) {
       )}
       renderItem={({ item: entry }) => (
         <SwipeRow
-          onArm={() => feelSwipe('arm', settings)}
-          onCommit={() => feelSwipe('delete', settings)}
+          onArm={() => feel('arm')}
+          onCommit={() => feel('delete')}
           onDelete={() => remove(entry)}
         >
           <EntryRow

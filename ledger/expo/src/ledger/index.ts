@@ -14,5 +14,5 @@ export {
   useOnline,
   useSettings,
 } from './app';
-export { feelGesture, feelSwipe, playCommand } from './feedback';
+export { type Moment, useFeel } from './feedback';
 export { restoreTheme, useAppTheme } from './theme';

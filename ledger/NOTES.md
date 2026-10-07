@@ -2352,3 +2352,44 @@ JS work in the way (dev mode, a Place drawing, a sync) held the Step back.
   gap, unmeasured.
 - Sounds and haptics still run on JS, so a busy JS thread can delay the
   tick, not the highlight.
+
+## Haptics, not sounds, and the Sidebar on the UI thread
+
+Sounds made no sense on a phone, so the Expo app has none for now; light
+haptics mark each gesture instead. The Sidebar's swipe now follows the
+finger on the UI thread, as the Thumb Picker does.
+
+**What changed**
+
+- **expo-toolkit `./feedback`**: `createSounds` and its player pool are
+  gone, and expo-audio with them (toolkit, app and catalog). `haptic`
+  gained `soft` and `rigid`.
+- **Ledger Expo**: `assets/sounds` and `scripts/sounds.mjs` are gone;
+  Commands no longer call `setCommandSounds`, so they are silent (core's
+  hook stays for the web). Settings drops the Sounds switch; the
+  `sound` setting stays in core for the web. `useFeel()` plays one haptic
+  per moment while Haptics is on: the Thumb Lock locks (soft), Steps
+  (selection), opens and goes back (soft), meets a Wrong Way (rigid) and
+  goes (light); a row arms (rigid) and deletes (light); a swipe opens the
+  Sidebar (soft); a swipe turns a page of Settings (selection).
+- **expo-toolkit `SidebarSwipe`**: which zone takes the swipe is still
+  decided on JS. Once it is the Sidebar's, JS sets a shared `following`
+  and catches the page up once; a `useWorkletGesture` listener then writes
+  `progress` from each move on the UI thread, and stops for a second
+  finger. `onSwiped(open)` hears the release.
+
+**How it was checked** (iPhone 17 Pro Simulator, Expo Go, dev bundle)
+
+- Toolkit and app lint (tsc, Laymos) and the toolkit's tests pass.
+- A paced one-finger swipe injected through `__touches.ledger` (down, 12
+  moves of 12 pt 16 ms apart, held): mid-swipe the page sat 144 pt right,
+  under the finger, though JS wrote `progress` once; on lift it sprang
+  open. `touch.mjs swipe` sends every move in one evaluation and opened
+  nothing with the old code either, so it cannot test the Sidebar.
+- The Thumb Lock still Steps and Goes.
+
+**Not proven**
+
+- How the haptics feel: the Simulator has none. They still go through JS
+  (expo-haptics has no UI-thread call in Expo Go), so a busy JS thread can
+  delay a tap, not the highlight or the page.
