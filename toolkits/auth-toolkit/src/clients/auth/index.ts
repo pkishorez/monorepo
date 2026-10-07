@@ -5,7 +5,6 @@ export {
   type SignedInAccount,
   type SignInOptions,
 } from './service/index.js';
-export { authLive } from './live/index.js';
 export {
   authLocal,
   localAccountsTable,

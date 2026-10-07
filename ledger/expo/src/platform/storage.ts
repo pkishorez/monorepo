@@ -18,6 +18,9 @@ import type { DeviceDatabase, TableSource } from '@ledger/core/client/platform';
 const open = (name: string): SQLiteDatabase => {
   const database = openDatabaseSync(`${name}.db`);
   database.execSync('PRAGMA journal_mode = WAL');
+  // Guarded writes run on a second connection (std-toolkit's Expo driver);
+  // a write here waits for its lock instead of failing "database is locked".
+  database.execSync('PRAGMA busy_timeout = 5000');
   return database;
 };
 

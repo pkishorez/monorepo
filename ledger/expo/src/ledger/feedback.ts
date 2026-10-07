@@ -17,11 +17,6 @@ const sounds = createSounds({
 /** Plays a Command's sound. */
 export const playCommand = (sound: CommandSound) => sounds.play(sound);
 
-/** What a gesture feels like: a haptic, if the Haptics setting is on. */
-export const buzz = (on: boolean, kind: Parameters<typeof haptic>[0]) => {
-  if (on) haptic(kind);
-};
-
 /** A moment of the Thumb Lock: it locks, it Steps (or opens or goes back), it goes. */
 export type GestureMoment = 'lock' | 'step' | 'go';
 

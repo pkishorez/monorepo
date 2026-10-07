@@ -61,7 +61,22 @@ export function LoginPage({
 
   const signInForTest = async (choice: LocalSignInChoice) => {
     setTesting(false);
-    const { data } = await client.signIn.test(choice);
+    const { data, error } = await client.signIn
+      .test(choice)
+      .catch((cause: unknown) => ({
+        data: null,
+        error: { message: String(cause) },
+      }));
+    if (error) {
+      // Back to the Login Screen, which shows the reason.
+      const here = new URL(window.location.href);
+      here.searchParams.set(
+        'error_description',
+        error.message ?? 'Test sign-in failed',
+      );
+      navigate(here.href);
+      return;
+    }
     navigate(
       data?.url ??
         new URL(returnDestination(window.location.search), window.location.href)

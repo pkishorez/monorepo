@@ -4,7 +4,7 @@
   "layers": {
     "theme": {
       "paths": ["src/theme"],
-      "description": "Ledger's design tokens for Uniwind (theme.css), the Inter faces, the light/dark switch and cn(). Knows nothing above it.",
+      "description": "ui-toolkit's design tokens for Uniwind (theme.css), the Inter faces, the light/dark switch and cn(). Knows nothing above it.",
       "modules": {
         "src/theme": {
           "exposed": true

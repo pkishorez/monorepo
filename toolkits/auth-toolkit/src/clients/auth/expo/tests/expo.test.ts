@@ -115,9 +115,18 @@ const setUp = () => {
   );
   const run = <A, E>(effect: Effect.Effect<A, E, Auth>) =>
     Effect.runPromise(Effect.provideService(effect, Auth, auth));
+  // A second Auth on the same phone, as after switching Backend.
+  const again = makeAuth(
+    { ...ledger, authWorkerUrl },
+    phone.device,
+    environment,
+  );
+  const runAgain = <A, E>(effect: Effect.Effect<A, E, Auth>) =>
+    Effect.runPromise(Effect.provideService(effect, Auth, again));
   return {
     ...phone,
     run,
+    runAgain,
     requests,
     handler,
     later: (ms: number) => void (now += ms),
@@ -188,6 +197,19 @@ describe('authExpo', () => {
     later(15 * 60_000);
     requests.length = 0;
     const [a, b] = await Promise.all([run(list), run(list)]);
+    expect(
+      requests.filter((path) => path.endsWith('/oauth2/token')),
+    ).toHaveLength(1);
+    expect(a[0]!.token).toBe(b[0]!.token);
+  });
+
+  it('never spends a refresh token another Auth on the phone already rotated', async () => {
+    const { run, runAgain, later, requests } = setUp();
+    await run(signIn);
+    later(15 * 60_000);
+    requests.length = 0;
+    const [a, b] = await Promise.all([run(list), runAgain(list)]);
+    await runAgain(list);
     expect(
       requests.filter((path) => path.endsWith('/oauth2/token')),
     ).toHaveLength(1);

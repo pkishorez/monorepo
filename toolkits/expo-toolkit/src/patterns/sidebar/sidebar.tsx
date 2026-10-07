@@ -168,16 +168,16 @@ export function useSidebarDrag() {
  * scrolls or goes back a page; a touch of two fingers, such as a Thumb Lock,
  * is left to the others.
  */
-export function SidebarEdge(props: { readonly enabled?: boolean }) {
+export function SidebarEdge() {
   const sidebar = useSidebar();
   const motion = useMotion();
-  const latest = useRef({ sidebar, motion, enabled: props.enabled !== false });
-  latest.current = { sidebar, motion, enabled: props.enabled !== false };
+  const latest = useRef({ sidebar, motion });
+  latest.current = { sidebar, motion };
   const claim = useRef<() => void>(() => {});
   const listener = useMemo(
     () =>
       edgeSwipe({
-        enabled: () => latest.current.enabled && !latest.current.sidebar.open,
+        enabled: () => !latest.current.sidebar.open,
         onMove: (offset) => {
           const { progress, width } = latest.current.motion;
           cancelAnimation(progress);
