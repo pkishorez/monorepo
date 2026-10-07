@@ -47,7 +47,11 @@ function useBackButton() {
   const run = keys.useRun();
   const back = useRef<() => boolean>(() => false);
   back.current = () => {
-    if (pathname === '/') return false;
+    // Leave from Home, not back down the router's stack of Places visited.
+    if (pathname === '/') {
+      BackHandler.exitApp();
+      return true;
+    }
     if (!run('jump')) router.navigate('/');
     return true;
   };

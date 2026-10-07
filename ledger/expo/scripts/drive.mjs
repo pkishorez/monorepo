@@ -1,5 +1,7 @@
 // Drives the running app for agents, with Metro on :8081 (or METRO_PORT) and the app open on
-// the Simulator, through Metro's inspector (CDP Runtime.evaluate):
+// the Simulator, through Metro's inspector (CDP Runtime.evaluate). With
+// several devices on one Metro, DEVICE picks the one whose inspector title
+// has that text (default `iPhone`; the Android emulator's says `sdk_gphone`):
 //   node scripts/drive.mjs tap "<accessibilityLabel or text>"
 //   node scripts/drive.mjs type "<accessibilityLabel>" "<text>"
 //   node scripts/drive.mjs call "<accessibilityLabel or text>" <handler>
@@ -11,7 +13,8 @@
 const [, , command, arg, more] = process.argv;
 const port = process.env.METRO_PORT ?? '8081';
 const list = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
-const target = list.find((page) => page.title.includes('iPhone')) ?? list[0];
+const device = process.env.DEVICE ?? 'iPhone';
+const target = list.find((page) => page.title.includes(device)) ?? list[0];
 const ws = new WebSocket(target.webSocketDebuggerUrl, {
   headers: { Origin: `http://127.0.0.1:${port}` },
 });
