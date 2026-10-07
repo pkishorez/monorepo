@@ -1,17 +1,18 @@
 import { Effect, Fiber, Layer, Schema, Stream } from 'effect';
 import { Headers } from 'effect/http';
-import { Rpc, RpcGroup, RpcTest } from 'effect/rpc';
+import { Rpc as EffectRpc, RpcGroup, RpcTest } from 'effect/rpc';
 import { expect, it, vi } from 'vitest';
-import { Cannotation } from '../rpc/cannotation/index.js';
-import { InvocationKind } from '../rpc/invocation/index.js';
-import { makeRpcConnection } from '../rpc/websocket-client/websocket-client.js';
+import { Rpc } from '../rpc/index.ts';
+import { makeRpcConnection } from '../rpc/websocket/client/connection.ts';
 
-it('runs client Cannotation again with current credentials when a subscription restarts', async () => {
-  const Credentials = Cannotation.make<boolean>()('reconnect/Credentials', {
+it('runs client Middleware again with current credentials when a subscription restarts', async () => {
+  const Credentials = Rpc.middleware<boolean>()('reconnect/Credentials', {
     client: true,
   });
   const Group = Credentials.with(true)(
-    RpcGroup.make(Rpc.make('watch', { success: Schema.Number, stream: true })),
+    RpcGroup.make(
+      EffectRpc.make('watch', { success: Schema.Number, stream: true }),
+    ),
   );
   let token = 'first-token';
   const calls: Array<{ token: string | undefined; kind: string }> = [];
@@ -23,11 +24,11 @@ it('runs client Cannotation again with current credentials when a subscription r
       Effect.gen(function* () {
         calls.push({
           token: headers.authorization,
-          kind: yield* InvocationKind,
+          kind: yield* Rpc.websocket.InvocationKind,
         });
       }),
     ),
-    Credentials.clientLayer(({ request, next }) =>
+    Credentials.client(({ request, next }) =>
       next({
         ...request,
         headers: Headers.fromInput({ authorization: token }),

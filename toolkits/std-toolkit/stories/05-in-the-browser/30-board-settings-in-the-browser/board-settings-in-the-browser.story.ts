@@ -4,7 +4,7 @@ import { Story } from 'laymos/story';
 import type { StdTableService } from '@kstackz/std-toolkit/db';
 import { EntityESchema } from '@kstackz/std-toolkit/eschema';
 import { createStdSync, strategy } from '@kstackz/std-toolkit/sync';
-import { fresh, platform } from '../../env.js';
+import { fresh, store } from '../../env.js';
 import { table } from '../../02-more-ways-in/10-finding-one-persons-tasks-across-every-board/finding-one-persons-tasks-across-every-board.story.js';
 import {
   browserRuntime,
@@ -33,7 +33,7 @@ const onBoard = fresh('memory', table);
 const openApp = Effect.map(browserRuntime, (runtime) =>
   createStdSync({
     name: 'board-settings',
-    platform: platform(),
+    store: store(),
     runtime,
     options: { gcTime: 1 },
   }),
@@ -146,7 +146,11 @@ export const boardSettingsInTheBrowser = Story.make({
             });
             // Straight away the screen shows it, not yet confirmed.
             const atOnce = screen.toArray.map(
-              ({ theme, perPage, $synced }) => ({ theme, perPage, $synced }),
+              ({ theme, perPage, $synced }) => ({
+                theme,
+                perPage,
+                $synced,
+              }),
             );
             // Wait for the server to confirm it.
             yield* Effect.promise(() => write.isPersisted.promise);

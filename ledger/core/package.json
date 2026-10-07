@@ -1,6 +1,6 @@
 {
   "name": "@ledger/core",
-  "description": "Everything Ledger's web and Expo apps share: the API, the model, the Backend (handlers on services, each with a cloud and a device version), and the app: its link to the Backend, each user's Session, its cache, Commands and Places. Platform-free; each app hands it a platform from web-toolkit or expo-toolkit.",
+  "description": "Everything Ledger's web and Expo apps share: the API, the model, the Backend (handlers on services, each with a cloud and a device version), and the app: its device Backend, each user's Session, its cache, Commands and Places. Platform-free; each app hands it its own Platform.",
   "private": true,
   "type": "module",
   "sideEffects": false,

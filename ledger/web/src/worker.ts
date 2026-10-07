@@ -1,9 +1,10 @@
 import { LedgerApi } from '@ledger/core/api';
 import { ledgerBackend } from '@ledger/core/backend';
-import { authCloud } from '@ledger/core/backend/services/auth/cloud';
 import { tableCloud } from '@ledger/core/backend/services/table/cloud';
 import { Layer } from 'effect';
-import { serveRpc, webServer } from '@kstackz/web-toolkit/server';
+import { authz } from '@kstackz/auth-toolkit/server/cloud';
+import { Rpc } from '@kstackz/rpc-toolkit/rpc';
+import { webServer } from '@kstackz/web-toolkit/server';
 import type { WorkerEnv } from './infra/index.ts';
 import { AUTH_URL, LEDGER_RESOURCE } from './stage.ts';
 
@@ -11,14 +12,15 @@ import { AUTH_URL, LEDGER_RESOURCE } from './stage.ts';
  * database and the sign-in service; everything else is the app. */
 export default webServer<WorkerEnv>({
   rpc: (request, env) =>
-    serveRpc(
-      request,
+    Rpc.http.server(
       LedgerApi,
       ledgerBackend.pipe(
         Layer.provide([
           tableCloud(env.DB),
-          authCloud({ authUrl: AUTH_URL, resource: LEDGER_RESOURCE }),
+          authz.cloud({ authWorkerUrl: AUTH_URL, resource: LEDGER_RESOURCE }),
         ]),
       ),
-    ),
+      // The sign-in cookies refreshed while checking go back on the answer.
+      { wrap: authz.cookies },
+    )(request),
 }) satisfies ExportedHandler<WorkerEnv>;

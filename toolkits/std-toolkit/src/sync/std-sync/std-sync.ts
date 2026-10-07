@@ -16,21 +16,18 @@ import {
   type CollectionName,
 } from '../domain/identity/index.js';
 import type { SyncReporter } from '../domain/sync-event/index.js';
-import {
-  closedTopic,
-  type StdSyncPlatform,
-} from '../platform/contract/index.js';
+import { closedTopic, type SyncStore } from '../store/contract/index.js';
 import {
   makeEffectRunner,
   type EffectRuntime,
-} from '../platform/effect-runner/index.js';
-import { memory } from '../platform/memory/index.js';
-import { makeSyncStore } from '../platform/sync-store/index.js';
+} from '../store/effect-runner/index.js';
+import { Sync } from '../store/memory/index.js';
+import { makeStoreRuntime } from '../store/store-runtime/index.js';
 
 export type StdSyncConfig<R = never> = {
   name: string;
-  /** Default: `memory()`. */
-  platform?: StdSyncPlatform;
+  /** Where the Std Sync is kept. Default: `Sync.memory()`. */
+  store?: SyncStore;
   runtime?: EffectRuntime<R>;
   onEvent?: SyncReporter<R>;
   /** TanStack DB options every Collection starts from. */
@@ -48,11 +45,11 @@ const DEFAULT_DRAIN = Duration.seconds(5);
 
 const makeStdSync = <R>(config: StdSyncConfig<R>) => {
   const name = stdSyncName(config.name);
-  const platform = config.platform ?? memory();
+  const kept = config.store ?? Sync.memory();
   const runner = makeEffectRunner(config.runtime);
   const report: SyncReporter<R> =
     config.onEvent ?? ((event) => Effect.logError(event));
-  const store = makeSyncStore(platform.store(name));
+  const store = makeStoreRuntime(kept.table(name));
   const names = new Set<CollectionName>();
   const cleanups = new Set<() => Promise<void>>();
   const writes = new Set<Promise<void>>();
@@ -119,13 +116,13 @@ const makeStdSync = <R>(config: StdSyncConfig<R>) => {
   const listening = runner.runSync(Scope.make());
   runner.runSync(
     Effect.forkIn(
-      platform.doorbell
+      kept.doorbell
         .listen(closedTopic(name))
         .pipe(
           Stream.take(1),
           Stream.runDrain,
           Effect.andThen(
-            runner.provide(report({ _tag: 'PlatformClosed', sync: name })),
+            runner.provide(report({ _tag: 'StoreClosed', sync: name })),
           ),
           Effect.andThen(Effect.sync(() => void dispose())),
         ),
@@ -150,7 +147,7 @@ const makeStdSync = <R>(config: StdSyncConfig<R>) => {
       config: collectionConfig,
       name: qualified,
       store,
-      platform,
+      shared: kept,
       runner,
       report,
       assertActive,

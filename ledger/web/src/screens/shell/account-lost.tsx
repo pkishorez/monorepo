@@ -1,4 +1,4 @@
-import type { Account } from '@kstackz/auth-toolkit/gate';
+import type { Account } from '@kstackz/auth-toolkit/client';
 import { AccountLost as Dialog } from '@kstackz/web-toolkit/recipes/account-lost';
 import { useGate } from '../../app.ts';
 

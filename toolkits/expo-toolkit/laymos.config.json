@@ -306,15 +306,6 @@
           }
         }
       }
-    },
-    "platform": {
-      "paths": ["src/platform"],
-      "description": "The phone as an app's platform, for auth-toolkit's createApp: tables and copies in expo-sqlite, cloud sign-in in the system sheet, and the Gate's memory in secure storage, with the network, the foreground and a launch link's ?backend=. Knows nothing of what the app shows.",
-      "modules": {
-        "src/platform": {
-          "exposed": true
-        }
-      }
     }
   },
   "layerGraphs": {
@@ -325,8 +316,7 @@
         "components": ["theme", "input"],
         "input": [],
         "feedback": [],
-        "theme": [],
-        "platform": []
+        "theme": []
       }
     }
   }

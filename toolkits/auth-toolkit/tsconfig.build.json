@@ -10,8 +10,8 @@
   "include": ["src/**/*"],
   "exclude": [
     "src/**/tests/**",
-    "src/auth-worker/app",
-    "src/auth-worker/pages",
-    "src/auth-worker/ui"
+    "src/worker/app",
+    "src/worker/pages",
+    "src/worker/ui"
   ]
 }

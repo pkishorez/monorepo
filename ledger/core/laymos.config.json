@@ -5,7 +5,7 @@
   "layers": {
     "app": {
       "paths": ["src/app/ledger.ts"],
-      "description": "Ledger on one platform: createLedger hands auth-toolkit's createApp the backend and session stores, and opens this device's Settings",
+      "description": "Ledger on one Platform: createLedger hands auth-toolkit's createApp the Ledger API, the device Backend and the Session, and opens this device's Settings",
       "modules": {
         "src/app/ledger.ts": {
           "exposed": true
@@ -14,18 +14,18 @@
     },
     "app-session": {
       "paths": ["src/app/session"],
-      "description": "What one signed-in user gets: an RPC runtime signed as them and a Std Sync named for them, with a collection for each kind of their money, over the link to the Backend",
+      "description": "What one signed-in user gets: a collection for each kind of their money and the Backend's commands, on the signed rpc client and the Std Sync createApp hands it",
       "modules": {
         "src/app/session": {
           "exposed": true
         }
       }
     },
-    "app-link": {
-      "paths": ["src/app/link"],
-      "description": "The Backend Link: what the client keeps per Backend. How a session calls the API (HTTP to the cloud, or the Backend in-process on the device) and the platform its Std Sync runs on",
+    "app-device": {
+      "paths": ["src/app/device"],
+      "description": "The device Backend: the Backend on the device's own table and the Name Token resolver, loaded as a chunk of its own on the web and bundled on a phone",
       "modules": {
-        "src/app/link": {
+        "src/app/device": {
           "exposed": true
         }
       }
@@ -92,12 +92,6 @@
             },
             "table/device.ts": {
               "exposed": true
-            },
-            "auth/cloud.ts": {
-              "exposed": true
-            },
-            "auth/device.ts": {
-              "exposed": true
             }
           },
           "rules": {
@@ -129,11 +123,11 @@
   },
   "layerGraphs": {
     "ledger-core": {
-      "description": "Read top-down: the app on each user's Session, the link to the Backend, and the cache; the device link runs the Backend in-process; the Backend answers the API in the words of the model. Commands stand alone; the Place order names them.",
+      "description": "Read top-down: the app on each user's Session, the device Backend, and the cache; the Backend answers the API in the words of the model. Commands stand alone; the Place order names them.",
       "rules": {
-        "app": ["app-session", "app-link", "app-cache"],
-        "app-session": ["app-link", "api", "model"],
-        "app-link": ["backend", "backend-services", "api"],
+        "app": ["app-session", "app-device", "app-cache", "api"],
+        "app-session": ["api", "model"],
+        "app-device": ["backend", "backend-services"],
         "app-cache": [],
         "app-places": ["app-commands", "app-session", "model"],
         "app-commands": [],

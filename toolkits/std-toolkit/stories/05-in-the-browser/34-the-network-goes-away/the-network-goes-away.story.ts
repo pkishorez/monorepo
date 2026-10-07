@@ -6,7 +6,7 @@ import {
   strategy,
   type SyncEvent,
 } from '@kstackz/std-toolkit/sync';
-import { fresh, platform } from '../../env.js';
+import { fresh, store } from '../../env.js';
 import { Task } from '../../01-one-task-one-table/01-defining-the-shape-of-a-task/defining-the-shape-of-a-task.story.js';
 import {
   table,
@@ -63,14 +63,14 @@ const openPage = (databaseName: string) =>
     const events: SyncEvent[] = [];
     const app = createStdSync({
       name: 'board-offline',
-      platform: platform({ store: 'idb', databaseName }),
+      store: store({ kind: 'idb', databaseName }),
       runtime: yield* browserRuntime,
       options: { gcTime: 1 },
       onEvent: (event) => Effect.sync(() => void events.push(event)),
     });
     const tasks = app.collection(Task, {
       sync: {
-        partitions: {
+        windows: {
           boardId: (boardId) =>
             strategy.oldToNew({
               fetch: ({ after }) =>
@@ -129,7 +129,7 @@ export const theNetworkGoesAway = Story.make({
       'The page opens with no network. What does the board show?',
       {
         answer:
-          'What it showed last time. The collection fills the screen from the browser\'s own copy before it asks the server anything, so the board is there even though that first read fails. The copy has to be durable for this: IndexedDB in a real browser, a fake one here (`platform({ store: "idb", databaseName })`); a copy in memory is gone when the page closes.',
+          'What it showed last time. The collection fills the screen from the browser\'s own copy before it asks the server anything, so the board is there even though that first read fails. The copy has to be durable for this: IndexedDB in a real browser, a fake one here (`store({ kind: "idb", databaseName })`); a copy in memory is gone when the page closes.',
         proof: onBoard(
           Story.flow(
             Effect.gen(function* () {

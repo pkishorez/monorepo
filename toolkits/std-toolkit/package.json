@@ -7,20 +7,26 @@
     "dynamodb",
     "effect",
     "expo",
-    "indexeddb",
     "in-memory",
+    "indexeddb",
     "schema",
     "single table design",
     "sqlite",
     "sync",
     "tanstack"
   ],
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/pkishorez/monorepo",
     "directory": "toolkits/std-toolkit"
   },
-  "license": "MIT",
+  "files": [
+    "dist",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
   "type": "module",
   "exports": {
     "./db": {
@@ -95,25 +101,23 @@
       "types": "./dist/sync/paced/index.d.ts",
       "default": "./dist/sync/paced/index.js"
     },
-    "./sync/platform/browser": {
-      "types": "./dist/sync/platform/browser/index.d.ts",
-      "default": "./dist/sync/platform/browser/index.js"
+    "./sync/idb": {
+      "types": "./dist/sync/store/idb/index.d.ts",
+      "default": "./dist/sync/store/idb/index.js"
     },
-    "./sync/platform/expo": {
-      "types": "./dist/sync/platform/expo/index.d.ts",
-      "default": "./dist/sync/platform/expo/index.js"
+    "./sync/memory": {
+      "types": "./dist/sync/store/memory/index.d.ts",
+      "default": "./dist/sync/store/memory/index.js"
+    },
+    "./sync/sqlite": {
+      "types": "./dist/sync/store/sqlite/index.d.ts",
+      "default": "./dist/sync/store/sqlite/index.js"
     },
     "./alchemy": {
       "types": "./dist/alchemy/index.d.ts",
       "default": "./dist/alchemy/index.js"
     }
   },
-  "files": [
-    "dist",
-    "src",
-    "README.md",
-    "LICENSE"
-  ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "build:watch": "tsc -p tsconfig.build.json --watch",
@@ -160,9 +164,9 @@
   },
   "peerDependencies": {
     "@tanstack/react-db": "0.4.1",
+    "alchemy": "2.0.0-beta.80",
     "effect": "^4.0.0",
     "react": "19.2.3",
-    "alchemy": "2.0.0-beta.80",
     "vitest": "^5.0.0"
   },
   "peerDependenciesMeta": {

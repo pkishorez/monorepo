@@ -1,5 +1,5 @@
 import { Context, Effect, Layer, Scope } from 'effect';
-import { RpcClient, RpcSerialization } from 'effect/rpc';
+import { RpcClient } from 'effect/rpc';
 import {
   CODEX_MODELS,
   CLAUDE_MODELS,
@@ -15,10 +15,7 @@ import {
   type AiPlaygroundApi,
   type PlaygroundSync,
 } from '@kstackz/ai-toolkit/playground';
-import {
-  layerWebSocketProtocol,
-  RpcConnection,
-} from '@kstackz/rpc-toolkit/rpc/websocket-client';
+import { Rpc } from '@kstackz/rpc-toolkit/rpc';
 
 const SERVER_URL = 'wss://ai-toolkit.kishore.computer/rpc';
 
@@ -121,12 +118,9 @@ const makeClient = (
 
 const boot = Effect.gen(function* () {
   const context = yield* Layer.build(
-    layerWebSocketProtocol({
-      url: SERVER_URL,
-      serialization: RpcSerialization.layerJson,
-    }),
+    Rpc.websocket.client(AiPlaygroundServerRpc, { url: SERVER_URL }),
   );
-  const connection = Context.get(context, RpcConnection);
+  const connection = Context.get(context, Rpc.websocket.connection);
   const protocol = Layer.succeed(
     RpcClient.Protocol,
     Context.get(context, RpcClient.Protocol),

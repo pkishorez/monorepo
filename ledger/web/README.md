@@ -33,7 +33,7 @@ and Escape gives them back to whatever had them.
 `src/` reads top-down: `routes/` (with `router.tsx`) starts the browser,
 one thin route per Place; `screens/` holds the shell, each Place, the sheets
 and the parts they share; `app.ts` makes Ledger once from core on
-web-toolkit's `webPlatform`, with the theme; `worker.ts` is the Worker; and
+the browser's Platform (`platform.ts`), with the theme; `worker.ts` is the Worker; and
 `infra/` deploys it. `stage.ts` says where this stage's sign-in service is.
 Layers and their rules are in `laymos.config.json`; the layout is the root
 [ADR 0004](../../docs/adr/0004-an-app-is-api-backend-and-stores.md).
@@ -43,12 +43,12 @@ where money is a std-toolkit `StdTable` in D1 served at `/rpc` and Users sign
 in with Google at `auth.kishore.app`, or the device Backend, where the same
 handlers answer in the page from IndexedDB and anyone signs in by name. Only
 the services differ: `worker.ts` gives core's Backend `tableCloud` and
-`authCloud`, and core runs it in the page on `tableDevice` and `authDevice`.
-auth-toolkit's `createApp` (through core's `createLedger`) keeps the Backend,
-opens its Backend Link, and opens each User's Session as they become
+`authz.cloud`, and core runs it in the page on `tableDevice` and `authz.device`.
+auth-toolkit's `createApp` (through core's `createLedger`) keeps the Backend
+and opens each User's Session as they become
 active, without a reload when the Backend changes. What only a browser has
 (IndexedDB, `localStorage`, the Auth Worker's cookies, window events,
-`?backend=` in the address) reaches core only through `webPlatform`. A
+`?backend=` in the address) reaches core only through `platform.ts`. A
 Session holds the User's money through Std Sync and TanStack DB, so every
 write shows at once, each call signed with that User's own token. On the
 cloud Backend Std Sync keeps it in IndexedDB, so Ledger opens offline, and

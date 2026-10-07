@@ -3,7 +3,7 @@ import { Effect } from 'effect';
 import { Story } from 'laymos/story';
 import type { StdTableService } from '@kstackz/std-toolkit/db';
 import { createStdSync, strategy } from '@kstackz/std-toolkit/sync';
-import { fresh, platform } from '../../env.js';
+import { fresh, store } from '../../env.js';
 import { Task } from '../../01-one-task-one-table/01-defining-the-shape-of-a-task/defining-the-shape-of-a-task.story.js';
 import {
   table,
@@ -34,7 +34,7 @@ const home = { ...work, taskId: 'h1', boardId: 'home', title: 'Buy milk' };
 const openApp = Effect.map(browserRuntime, (runtime) =>
   createStdSync({
     name: 'board-mounted',
-    platform: platform(),
+    store: store(),
     runtime,
     options: { gcTime: 1 },
   }),
@@ -61,7 +61,7 @@ export const loadingOnlyTheBoardYoureLookingAt = Story.make({
   questions: [
     Story.question('Mounting the `work` board: does it load `home` too?', {
       answer:
-        "No. `sync.partitions` names a field, `boardId`, and gives one reading recipe per value of it; a screen that asks for `boardId = 'work'` starts the recipe for `work` and nothing else. A partition is one such slice of the collection with its own reading, started and stopped by the screens that ask for it.",
+        "No. `sync.windows` names a field, `boardId`, and gives one reading recipe per value of it; a screen that asks for `boardId = 'work'` starts the recipe for `work` and nothing else. A window is one such slice of the collection with its own reading, started and stopped by the screens that ask for it.",
       proof: onBoard(
         Story.flow(
           Effect.gen(function* () {
@@ -72,7 +72,7 @@ export const loadingOnlyTheBoardYoureLookingAt = Story.make({
             const app = yield* openApp;
             // The collection: one reading recipe per board.
             const tasks = app.collection(Task, {
-              sync: { partitions: { boardId: readingBoard } },
+              sync: { windows: { boardId: readingBoard } },
             });
             // A screen for the `work` board only.
             const screen = createLiveQueryCollection({
@@ -106,7 +106,7 @@ export const loadingOnlyTheBoardYoureLookingAt = Story.make({
     }),
     Story.question('And while nothing is mounted?', {
       answer:
-        'The reading stops: with no screen asking for `work`, its partition is put away and the server is not asked again. The server keeps taking writes meanwhile, and the next screen to ask for `work` starts the reading again and picks up what was missed.',
+        'The reading stops: with no screen asking for `work`, its window is put away and the server is not asked again. The server keeps taking writes meanwhile, and the next screen to ask for `work` starts the reading again and picks up what was missed.',
       proof: onBoard(
         Story.flow(
           Effect.gen(function* () {
@@ -114,7 +114,7 @@ export const loadingOnlyTheBoardYoureLookingAt = Story.make({
             asked.length = 0;
             const app = yield* openApp;
             const tasks = app.collection(Task, {
-              sync: { partitions: { boardId: readingBoard } },
+              sync: { windows: { boardId: readingBoard } },
             });
             const showWork = () =>
               createLiveQueryCollection({
@@ -161,7 +161,7 @@ export const loadingOnlyTheBoardYoureLookingAt = Story.make({
     }),
     Story.question('Two boards mounted together?', {
       answer:
-        'Two partitions, each read on its own: each screen shows its own board, and the server is asked about both. They share one collection and one browser copy, so a task is never loaded twice.',
+        'Two windows, each read on its own: each screen shows its own board, and the server is asked about both. They share one collection and one browser copy, so a task is never loaded twice.',
       proof: onBoard(
         Story.flow(
           Effect.gen(function* () {
@@ -170,7 +170,7 @@ export const loadingOnlyTheBoardYoureLookingAt = Story.make({
             asked.length = 0;
             const app = yield* openApp;
             const tasks = app.collection(Task, {
-              sync: { partitions: { boardId: readingBoard } },
+              sync: { windows: { boardId: readingBoard } },
             });
             // One screen per board.
             const workScreen = createLiveQueryCollection({

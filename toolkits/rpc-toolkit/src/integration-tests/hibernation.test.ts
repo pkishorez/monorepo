@@ -1,23 +1,19 @@
 import { Context, Effect, Layer, Option, Schema, Stream } from 'effect';
 import { HttpServerResponse } from 'effect/http';
-import { Rpc, RpcGroup, RpcSerialization } from 'effect/rpc';
+import { Rpc as EffectRpc, RpcGroup } from 'effect/rpc';
 import { afterEach, expect, expectTypeOf, it, vi } from 'vitest';
-import { Cannotation } from '../rpc/cannotation/index.js';
-import { InvocationKind } from '../rpc/invocation/index.js';
-import {
-  makeHibernatingWebSocketRpc,
-  StreamCheckpoint,
-  type HibernatingSocket,
-} from '../rpc/cloudflare/hibernating-rpc/index.js';
+import { Rpc } from '../rpc/index.ts';
 
 class Forbidden extends Schema.Error<Forbidden>('replay/Forbidden')({
   _tag: Schema.tag('Forbidden'),
 }) {}
-const Access = Cannotation.make<boolean>()('replay/Access', {
+const Access = Rpc.middleware<boolean>()('replay/Access', {
   error: Forbidden,
 });
 const Group = Access.with(true)(
-  RpcGroup.make(Rpc.make('watch', { success: Schema.Number, stream: true })),
+  RpcGroup.make(
+    EffectRpc.make('watch', { success: Schema.Number, stream: true }),
+  ),
 );
 const Identity = Context.Reference<string>('replay/Identity', {
   defaultValue: () => 'anonymous',
@@ -27,8 +23,8 @@ function socket(seed: unknown = null) {
   let attachment = structuredClone(seed);
   const sent: string[] = [];
   const ws = { send: (data: string) => sent.push(data), close: () => {} };
-  const port: HibernatingSocket = {
-    ws: ws as unknown as HibernatingSocket['ws'],
+  const port: Rpc.HibernatingSocket = {
+    ws: ws as unknown as Rpc.HibernatingSocket['ws'],
     close: () => Effect.void,
     serializeAttachment: (value) => {
       attachment = structuredClone(value);
@@ -48,13 +44,13 @@ it('replays every in-flight stream without requiring a checkpoint', async () => 
   vi.stubGlobal('WebSocketRequestResponsePair', class {});
   let starts = 0;
   const Plain = RpcGroup.make(
-    Rpc.make('watch', { success: Schema.Number, stream: true }),
+    EffectRpc.make('watch', { success: Schema.Number, stream: true }),
   );
   const boot = (target: ReturnType<typeof socket>) =>
     Effect.runPromise(
-      makeHibernatingWebSocketRpc({
-        group: Plain,
-        layer: Plain.toLayer({
+      Rpc.websocket.server(
+        Plain,
+        Plain.toLayer({
           watch: () =>
             Stream.unwrap(
               Effect.sync(() => {
@@ -63,13 +59,15 @@ it('replays every in-flight stream without requiring a checkpoint', async () => 
               }),
             ),
         }),
-        state: {
-          getWebSockets: () => Effect.succeed([target.port]),
-          setWebSocketAutoResponse: () => Effect.void,
+        {
+          state: {
+            getWebSockets: () => Effect.succeed([target.port]),
+            setWebSocketAutoResponse: () => Effect.void,
+          },
+          upgrade: () =>
+            Effect.succeed([HttpServerResponse.empty(), target.port] as const),
         },
-        upgrade: () =>
-          Effect.succeed([HttpServerResponse.empty(), target.port] as const),
-      }).pipe(Effect.provide(RpcSerialization.layerJson)),
+      ),
     );
 
   const first = socket();
@@ -102,7 +100,7 @@ it('restores a stream before processing the close event that woke the object', a
   vi.stubGlobal('WebSocketRequestResponsePair', class {});
   const events: string[] = [];
   const Plain = RpcGroup.make(
-    Rpc.make('watch', { success: Schema.Number, stream: true }),
+    EffectRpc.make('watch', { success: Schema.Number, stream: true }),
   );
   const resumed = socket({
     clientId: 1,
@@ -119,9 +117,9 @@ it('restores a stream before processing the close event that woke the object', a
     ],
   });
   const server = await Effect.runPromise(
-    makeHibernatingWebSocketRpc({
-      group: Plain,
-      layer: Plain.toLayer({
+    Rpc.websocket.server(
+      Plain,
+      Plain.toLayer({
         watch: () =>
           Stream.unwrap(
             Effect.sync(() => {
@@ -132,13 +130,15 @@ it('restores a stream before processing the close event that woke the object', a
             }),
           ),
       }),
-      state: {
-        getWebSockets: () => Effect.succeed([resumed.port]),
-        setWebSocketAutoResponse: () => Effect.void,
+      {
+        state: {
+          getWebSockets: () => Effect.succeed([resumed.port]),
+          setWebSocketAutoResponse: () => Effect.void,
+        },
+        upgrade: () =>
+          Effect.succeed([HttpServerResponse.empty(), resumed.port] as const),
       },
-      upgrade: () =>
-        Effect.succeed([HttpServerResponse.empty(), resumed.port] as const),
-    }).pipe(Effect.provide(RpcSerialization.layerJson)),
+    ),
   );
 
   await Effect.runPromise(server.close(resumed.port, 1000, 'closed'));
@@ -157,7 +157,7 @@ it('rechecks authorization on replay, preserves checkpoints, and never trusts a 
   const cursors: number[] = [];
   const middleware = Access.layer(({ headers }) =>
     Effect.gen(function* () {
-      const kind = yield* InvocationKind;
+      const kind = yield* Rpc.websocket.InvocationKind;
       calls.push({
         kind,
         identity: yield* Identity,
@@ -171,7 +171,9 @@ it('rechecks authorization on replay, preserves checkpoints, and never trusts a 
     watch: () =>
       Stream.unwrap(
         Effect.gen(function* () {
-          const checkpoint = yield* StreamCheckpoint(Schema.NumberFromString);
+          const checkpoint = yield* Rpc.websocket.checkpoint(
+            Schema.NumberFromString,
+          );
           expectTypeOf(checkpoint.put).parameter(0).toEqualTypeOf<number>();
           const cursor = Option.getOrElse(
             yield* checkpoint.get().pipe(Effect.orDie),
@@ -185,9 +187,7 @@ it('rechecks authorization on replay, preserves checkpoints, and never trusts a 
   });
   const boot = (s: ReturnType<typeof socket>) =>
     Effect.runPromise(
-      makeHibernatingWebSocketRpc({
-        group: Group,
-        layer: Layer.merge(handlers, middleware),
+      Rpc.websocket.server(Group, Layer.merge(handlers, middleware), {
         state: {
           getWebSockets: () => Effect.succeed([s.port]),
           setWebSocketAutoResponse: () => Effect.void,
@@ -195,7 +195,7 @@ it('rechecks authorization on replay, preserves checkpoints, and never trusts a 
         upgrade: () =>
           Effect.succeed([HttpServerResponse.empty(), s.port] as const),
         connection: { tag: Identity, initial: () => Effect.succeed('user-1') },
-      }).pipe(Effect.provide(RpcSerialization.layerJson)),
+      }),
     );
   const first = socket({ clientId: 1, handlers: [], connection: 'user-1' });
   const firstServer = await boot(first);
@@ -249,31 +249,33 @@ it('removes a cancelled request so another activation cannot replay it', async (
   let starts = 0;
   const s = socket();
   const Plain = RpcGroup.make(
-    Rpc.make('watch', { success: Schema.Number, stream: true }),
+    EffectRpc.make('watch', { success: Schema.Number, stream: true }),
   );
   const boot = (target: ReturnType<typeof socket>) =>
     Effect.runPromise(
-      makeHibernatingWebSocketRpc({
-        group: Plain,
-        layer: Plain.toLayer({
+      Rpc.websocket.server(
+        Plain,
+        Plain.toLayer({
           watch: () =>
             Stream.unwrap(
               Effect.gen(function* () {
                 starts++;
-                yield* (yield* StreamCheckpoint(Schema.Number))
+                yield* (yield* Rpc.websocket.checkpoint(Schema.Number))
                   .put(starts)
                   .pipe(Effect.orDie);
                 return Stream.never;
               }),
             ),
         }),
-        state: {
-          getWebSockets: () => Effect.succeed([target.port]),
-          setWebSocketAutoResponse: () => Effect.void,
+        {
+          state: {
+            getWebSockets: () => Effect.succeed([target.port]),
+            setWebSocketAutoResponse: () => Effect.void,
+          },
+          upgrade: () =>
+            Effect.succeed([HttpServerResponse.empty(), target.port] as const),
         },
-        upgrade: () =>
-          Effect.succeed([HttpServerResponse.empty(), target.port] as const),
-      }).pipe(Effect.provide(RpcSerialization.layerJson)),
+      ),
     );
   const server = await boot(s);
   await Effect.runPromise(

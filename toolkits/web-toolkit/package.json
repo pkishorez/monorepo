@@ -171,8 +171,6 @@
     "zustand": "catalog:"
   },
   "devDependencies": {
-    "@kstackz/auth-toolkit": "workspace:*",
-    "@kstackz/std-toolkit": "workspace:*",
     "@kstackz/use-gesture": "workspace:*",
     "@kstackz/use-keys": "workspace:*",
     "@tailwindcss/vite": "catalog:",
@@ -196,8 +194,6 @@
     "vitest": "catalog:"
   },
   "peerDependencies": {
-    "@kstackz/auth-toolkit": "workspace:*",
-    "@kstackz/std-toolkit": "workspace:*",
     "@kstackz/use-gesture": "workspace:*",
     "@kstackz/use-keys": "workspace:*",
     "@tanstack/react-router": "1.170.32",
@@ -210,12 +206,6 @@
     "vite": "^8.0.0"
   },
   "peerDependenciesMeta": {
-    "@kstackz/auth-toolkit": {
-      "optional": true
-    },
-    "@kstackz/std-toolkit": {
-      "optional": true
-    },
     "@kstackz/use-keys": {
       "optional": true
     },

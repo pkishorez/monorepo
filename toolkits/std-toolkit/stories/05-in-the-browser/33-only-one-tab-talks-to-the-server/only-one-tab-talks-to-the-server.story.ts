@@ -4,9 +4,9 @@ import { Story } from 'laymos/story';
 import {
   createStdSync,
   strategy,
-  type StdSyncPlatform,
+  type SyncStore,
 } from '@kstackz/std-toolkit/sync';
-import { browserTabs, platform } from '../../env.js';
+import { browserTabs, store } from '../../env.js';
 import { Task } from '../../01-one-task-one-table/01-defining-the-shape-of-a-task/defining-the-shape-of-a-task.story.js';
 import { task } from '../../02-more-ways-in/10-finding-one-persons-tasks-across-every-board/finding-one-persons-tasks-across-every-board.story.js';
 import { until } from '../25-showing-the-board-in-the-browser/showing-the-board-in-the-browser.story.js';
@@ -30,22 +30,22 @@ const plan = {
 // Every reader a tab opened on the server, in order, as `tab:board:after`, where `after` is the newest task it already had (`start` for none).
 const readers: string[] = [];
 
-// One tab on a platform of the question's choosing: a Task collection read through the pushed changes from chapter 28, and a screen on each board it is given (`work` unless said otherwise).
+// One tab on a store of the question's choosing: a Task collection read through the pushed changes from chapter 28, and a screen on each board it is given (`work` unless said otherwise).
 const openTab = (
   label: string,
-  tabPlatform: StdSyncPlatform,
+  tabStore: SyncStore,
   boards: readonly string[] = ['work'],
 ) =>
   Effect.gen(function* () {
     const app = createStdSync({
       name: 'board-one-reader',
-      platform: tabPlatform,
+      store: tabStore,
       runtime: yield* browserRuntime,
       options: { gcTime: 1 },
     });
     const tasks = app.collection(Task, {
       sync: {
-        partitions: {
+        windows: {
           boardId: (boardId) =>
             strategy.oldToNew({
               subscribe: ({ after }) =>
@@ -95,15 +95,15 @@ export const onlyOneTabTalksToTheServer = Story.make({
       'Is leadership automatic, and do ten tabs share one reader?',
       {
         answer:
-          'It is not automatic: tabs that share nothing each read the server on their own. Tabs of one browser share leadership (a lock per reading job: the tab holding it reads, the others wait their turn), so ten tabs open one reader. That tab saves what it reads in the shared store and rings the doorbell, and the other nine show it from there. `browserTabs()` gives every tab the same store, lock and doorbell; `platform()` gives a tab its own.',
+          'It is not automatic: tabs that share nothing each read the server on their own. Tabs of one browser share leadership (a lock per reading job: the tab holding it reads, the others wait their turn), so ten tabs open one reader. That tab saves what it reads in the shared store and rings the doorbell, and the other nine show it from there. `browserTabs()` gives every tab the same store, lock and doorbell; `store()` gives a tab its own.',
         proof: onBoard(
           Story.flow(
             Effect.gen(function* () {
               // Two tabs that share nothing: both read.
               readers.length = 0;
               const alone = [
-                yield* openTab('a', platform()),
-                yield* openTab('b', platform()),
+                yield* openTab('a', store()),
+                yield* openTab('b', store()),
               ];
               yield* until(() => readers.length === 2);
               const withoutSharing = [...readers];

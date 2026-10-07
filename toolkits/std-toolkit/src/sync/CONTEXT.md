@@ -22,7 +22,7 @@ or staler, but they never replace its authority.
 _Avoid_: Source of Truth, server truth.
 
 **Std Sync**:
-One named Sync instance: a group of Collections sharing one Platform.
+One named Sync instance: a group of Collections kept in one Sync Store.
 Disposing it first gives writes on their way to the Backend a few seconds to
 land, then stops everything and keeps its stored data.
 
@@ -66,9 +66,19 @@ Sync Store. It is a convergent local copy, never the authority.
 _Avoid_: Source of Truth, cache.
 
 **Sync Store**:
-The storage holding a Std Sync's Sync Replicas and Sync State in encoded form.
-The Platform provides it.
+Where a Std Sync is kept: the storage holding its Sync Replicas and Sync State
+in encoded form, with the Leadership and Doorbell that place needs when other
+participants share it. A Sync adapter builds one.
 _Avoid_: Sync Persistence Table, offline cache.
+
+**Sync adapter**:
+What builds a Sync Store for one kind of place, named like the [[db]] Table
+adapters: `Sync.memory` (the default: ephemeral, nothing shared), `Sync.idb`
+(IndexedDB shared by a browser's tabs, so Web Locks Leadership and a
+BroadcastChannel Doorbell), `Sync.sqlite` (an expo-sqlite database in one
+process, so neither). Whether a place is shared is a fact about the storage,
+so the adapter decides it, not the application.
+_Avoid_: sync platform, preset, environment detection, browser sniffing.
 
 **Sync State**:
 A Sync Strategy's saved progress, used to resume reading the Backend. Only its
@@ -101,24 +111,25 @@ schema, and a run that yields Entities with the next Sync State. It pulls with
 exactly one; built-in and application strategies have the same shape.
 _Avoid_: Sync Source, source builder, Subscription, strategy run.
 
-**Partition**:
-A ref-counted Sync lifecycle window for one keyed subset: the values whose
-[[db]] **key path** reads one string, number, or boolean. It is unrelated to a
-database partition. Leaving a Partition stops its Sync; its Entities stay in
-the Sync Replica.
+**Window**:
+A ref-counted Sync lifecycle for one keyed subset: the values whose [[db]]
+**key path** reads one string, number, or boolean. A query that filters on the
+key path opens the Window; when the last such query leaves, its Sync stops and
+its Entities stay in the Sync Replica.
+_Avoid_: Partition (a [[db]] word for a physical slice of a table).
 
 **Global Sync**:
 The Sync Strategy that covers a whole keyed Collection. It runs while the
 Collection is mounted.
 _Avoid_: Total sync, full sync.
 
-**Partition Sync**:
-The Sync Strategy that covers one active Partition of a keyed Collection. It
-starts when the Partition becomes active and stops when it becomes inactive.
-_Avoid_: Priority sync, partitioned sync.
+**Window Sync**:
+The Sync Strategy that covers one open Window of a keyed Collection. It starts
+when the Window opens and stops when it closes.
+_Avoid_: Partition Sync, priority sync, partitioned sync.
 
 **Eager**, **On-demand**, **Progressive**:
-The names for a Collection configured with only Global Sync, only Partition
+The names for a Collection configured with only Global Sync, only Window
 Sync, or both. They follow from configuration and are never configured.
 _Avoid_: sync mode, Hybrid Sync.
 
@@ -132,14 +143,14 @@ _Avoid_: Cadence Repair, cadence sync, lookback.
 
 **Session**:
 One leader-held run of a Sync Strategy over one scope: Global Sync or one
-Partition. It stores each yield in one write and, when the run fails, reruns it
+Window. It stores each yield in one write and, when the run fails, reruns it
 from saved Sync State after a growing delay.
 _Avoid_: Worker, Supervisor, Strategy Session, strategy run.
 
 **Leadership**:
 Exclusive permission for one participant to run one Session while equivalent
 participants wait to take over. Every Session has its own, so different tabs
-may lead different Partitions.
+may lead different Windows.
 _Avoid_: primary tab, query lock, fetch mutex.
 
 **Doorbell**:
@@ -149,17 +160,11 @@ Entities.
 _Avoid_: Peer Sync, Peer Message, Change Notice (a [[core]] in-process write
 notification).
 
-**Platform**:
-The environment a Std Sync runs in: its Sync Store, Leadership, and Doorbell,
-chosen together. The default Memory Platform has ephemeral storage, no
-Leadership, and no Doorbell.
-_Avoid_: store option, environment detection, browser sniffing.
-
 ### Reporting
 
 **Sync Event**:
 A structured operational fact Sync reports: a failed Session run, an Outdated
-Application, or a Platform closed from elsewhere.
+Application, or a Sync Store deleted from elsewhere (`StoreClosed`).
 
 **Sync Story**:
 An executable user journey that explains Sync through named simulation

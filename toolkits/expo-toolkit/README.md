@@ -6,7 +6,7 @@ UI, theme and haptics for native apps built with Expo: owned Panel UI components
 
 The one Toolkit for native apps built with Expo (the **Expo Toolkit** in the root [`CONTEXT.md`](../../CONTEXT.md)). Ledger's native app (`ledger/expo`) is its first user; it carries Ledger's look to the phone so the web and native apps read as one product.
 
-It is laid out in [Laymos](laymos.config.json) layers, bottom to top: `theme` (Uniwind tokens and Inter), `feedback` (haptics), `input` (touches for `@kstackz/use-gesture`'s core), `components` (Panel UI copies, on `theme`, and on `input` for a row that scrolls sideways), `recipes` (whole interactions such as the Thumb Lock's Place Picker, on `components`, `input` and `feedback`) and, on its own, `platform` (the phone as an app's platform for auth-toolkit's `createApp`; [ADR 0004](../../docs/adr/0004-an-app-is-api-backend-and-stores.md)). Each layer is a subpath. `@kstackz/web-toolkit` has the same shape for the web ([ADR 0003](../../docs/adr/0003-web-toolkit-and-the-gate.md)).
+It is laid out in [Laymos](laymos.config.json) layers, bottom to top: `theme` (Uniwind tokens and Inter), `feedback` (haptics), `input` (touches for `@kstackz/use-gesture`'s core), `components` (Panel UI copies, on `theme`, and on `input` for a row that scrolls sideways) and `recipes` (whole interactions such as the Thumb Lock's Place Picker, on `components`, `input` and `feedback`). Each layer is a subpath. The phone as an app's Platform for auth-toolkit's `createApp` is not here yet: it is rebuilt on the new doors in the next phase ([ADR 0005](../../docs/adr/0005-three-toolkits-three-doors.md)), and until then an app builds its own. `@kstackz/web-toolkit` has the same shape for the web ([ADR 0003](../../docs/adr/0003-web-toolkit-and-the-gate.md)).
 
 The components are copies of [Panel UI](https://panelui.dev) (MIT, see [`src/components/LICENSE-panelui`](src/components/LICENSE-panelui)), made with its CLI and owned here from then on, as web-toolkit owns its shadcn copies. `pnpm add-panelui <name...>` copies more: it runs `panelui-cli` in a scratch folder, puts the named components in `src/components` and what they pull in under `src/components/parts` (private), and rewrites their imports. `src/components` is left out of `vp check` and `vp fmt` so copies stay close to upstream.
 
@@ -27,7 +27,6 @@ Peer dependencies, at Expo SDK 57's versions:
 - `expo-haptics` (optional): needed by `./feedback`.
 - `react-native-gesture-handler`, `react-native-reanimated`, `react-native-worklets` (optional): needed by `./input`, which also depends on `@kstackz/use-gesture`'s core.
 - `expo-blur` (optional): the Thumb Picker blurs what is behind it.
-- `@kstackz/auth-toolkit`, `@kstackz/std-toolkit`, `effect`, `expo-sqlite`, `expo-secure-store`, `expo-network`, `expo-linking` (optional): needed by `./platform`, which keeps tables and users' copies in expo-sqlite, signs users in with auth-toolkit's `authExpo`, remembers what the Gate must in secure storage, hears the network come and go, and reads `?backend=` from the link that opened the app.
 
 Components also reach `@expo/ui`, `expo-blur` and `react-native-keyboard-controller` when installed (the `native` prop, blurred scrims, keyboard avoidance) and skip them otherwise.
 
@@ -104,12 +103,6 @@ The app's `global.css`, named as Uniwind's `cssEntryFile` in `metro.config.js`:
 | `typography`: `Typography`                             | Semantic text presets: headings, paragraphs, code, lists.                   |
 
 `./components/parts/*` is private and not exported.
-
-### `./platform`
-
-| Export         | What it does                                                                                                                                                                                                                                                                                          |
-| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `expoPlatform` | The phone as an app's platform for auth-toolkit's `createApp`: tables and users' copies in expo-sqlite, sign-in as the app's First-Party Client with `authExpo`, the cloud API at `apiUrl`, and the Gate's memory in secure storage with the network, the foreground and a launch link's `?backend=`. |
 
 ### `./recipes/*`
 

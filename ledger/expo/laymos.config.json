@@ -52,7 +52,7 @@
     },
     "ledger": {
       "paths": ["src/ledger"],
-      "description": "Ledger on the phone, made once from core on expo-toolkit's platform with this build's cloud addresses, with the theme and how Ledger feels: what every screen uses",
+      "description": "Ledger on the phone, made once from core on the phone's Platform (platform.ts: expo-sqlite, OAuth sign-in, AppState and expo-network) with this build's cloud addresses, with the theme and how Ledger feels: what every screen uses",
       "modules": {
         "src/ledger": {
           "exposed": true
@@ -71,7 +71,7 @@
   },
   "layerGraphs": {
     "ledger-expo": {
-      "description": "Read top-down: entry readies the runtime and routes to the screens; the screens stand on Ledger from src/ledger, made on expo-toolkit's platform. Everything shared with the web app is in @ledger/core; generic native UI, gestures, feedback and the platform are in @kstackz/expo-toolkit",
+      "description": "Read top-down: entry readies the runtime and routes to the screens; the screens stand on Ledger from src/ledger, made on the phone's Platform. Everything shared with the web app is in @ledger/core; generic native UI, gestures and feedback are in @kstackz/expo-toolkit",
       "rules": {
         "entry": ["runtime", "screens"],
         "screens": ["ledger"],

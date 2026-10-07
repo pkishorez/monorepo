@@ -4,10 +4,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Entity } from '../../core/index.js';
 import { EntityESchema } from '../../eschema/index.js';
 import { storedReplicaEntity } from '../domain/stored-entity/index.js';
-import { makeSyncStore } from '../platform/sync-store/index.js';
+import { makeStoreRuntime } from '../store/store-runtime/index.js';
 import type { SyncEvent } from '../domain/sync-event/index.js';
 import { createStdSync, strategy } from '../index.js';
-import { backend, sharedPlatform, Todo, todo } from './support.js';
+import { backend, sharedStore, Todo, todo } from './support.js';
 
 const open: Array<{ dispose: () => Promise<void> }> = [];
 const track = <T extends { dispose: () => Promise<void> }>(std: T) => {
@@ -36,9 +36,9 @@ describe('a Std Sync Collection', () => {
   });
 
   it('opens from its local copy after a reload and resumes from its cursor', async () => {
-    const platform = sharedPlatform();
+    const store = sharedStore();
     const server = backend([todo('a', 1), todo('b', 2)]);
-    const first = createStdSync({ name: 'reload', platform });
+    const first = createStdSync({ name: 'reload', store });
     const before = first.collection(Todo, {
       sync: { global: strategy.oldToNew({ fetch: server.fetch }) },
     });
@@ -49,7 +49,7 @@ describe('a Std Sync Collection', () => {
     server.add(todo('c', 3));
     const afters: Array<string | null> = [];
     const gate = Promise.withResolvers<void>();
-    const second = track(createStdSync({ name: 'reload', platform }));
+    const second = track(createStdSync({ name: 'reload', store }));
     const after = second.collection(Todo, {
       sync: {
         global: strategy.oldToNew({
@@ -71,16 +71,16 @@ describe('a Std Sync Collection', () => {
     expect(afters[0]).toBe('b');
   });
 
-  it('runs a Partition Sync while a query filters on its key path', async () => {
+  it('runs a Window Sync while a query filters on its key path', async () => {
     const server = backend([
       todo('a1', 1, { listId: 'a' }),
       todo('b1', 2, { listId: 'b' }),
     ]);
     const started: string[] = [];
-    const std = track(createStdSync({ name: 'partitions' }));
+    const std = track(createStdSync({ name: 'windows' }));
     const todos = std.collection(Todo, {
       sync: {
-        partitions: {
+        windows: {
           listId: (listId) => {
             started.push(listId);
             return strategy.oldToNew({
@@ -182,8 +182,8 @@ describe('a Std Sync Collection', () => {
       value: { id: 't', dueAt: due },
       meta: { _e: 'Task', _v: 'v1', _u: '1', _d: false },
     };
-    const platform = sharedPlatform();
-    const first = createStdSync({ name: 'dates', platform });
+    const store = sharedStore();
+    const first = createStdSync({ name: 'dates', store });
     const tasks = first.collection(Task, {
       sync: {
         global: strategy.oldToNew({
@@ -195,7 +195,7 @@ describe('a Std Sync Collection', () => {
     await vi.waitFor(() => expect(tasks.get('t')?.dueAt).toEqual(due));
     await first.dispose();
 
-    const second = track(createStdSync({ name: 'dates', platform }));
+    const second = track(createStdSync({ name: 'dates', store }));
     const reloaded = second.collection(Task);
     await reloaded.preload();
     expect(reloaded.get('t')?.dueAt).toEqual(due);
@@ -242,13 +242,13 @@ describe('a Std Sync Collection', () => {
   });
 });
 
-describe('two tabs sharing a platform', () => {
+describe('two tabs sharing a Sync Store', () => {
   it('only the leader reads the Backend; the other tab hears the Doorbell', async () => {
-    const platform = sharedPlatform();
+    const store = sharedStore();
     const server = backend([todo('a', 1)]);
     const reads = { one: 0, two: 0 };
     const tab = (name: 'one' | 'two') => {
-      const std = track(createStdSync({ name: 'tabs', platform }));
+      const std = track(createStdSync({ name: 'tabs', store }));
       return std.collection(Todo, {
         sync: {
           global: strategy.oldToNew({
@@ -276,8 +276,8 @@ describe('two tabs sharing a platform', () => {
 
 describe('reading the shared Sync Replica', () => {
   it('buffers a Doorbell rung after the initial page was read', async () => {
-    const platform = sharedPlatform();
-    const writer = track(createStdSync({ name: 'hydrating', platform }));
+    const store = sharedStore();
+    const writer = track(createStdSync({ name: 'hydrating', store }));
     const writes = writer.collection(Todo, {
       onInsert: (items) =>
         Effect.succeed(items.map((item) => todo(item.id, 1))),
@@ -297,7 +297,7 @@ describe('reading the shared Sync Replica', () => {
         ),
       ),
     );
-    const follower = track(createStdSync({ name: 'hydrating', platform }));
+    const follower = track(createStdSync({ name: 'hydrating', store }));
     const rows = follower.collection(Todo);
     const ready = rows.preload();
     try {
@@ -314,13 +314,13 @@ describe('reading the shared Sync Replica', () => {
   it.each(['hydration', 'doorbell'] as const)(
     'reports Outdated Application once during %s',
     async (phase) => {
-      const platform = sharedPlatform();
-      const local = track(makeSyncStore(platform.store('local-version')));
+      const store = sharedStore();
+      const local = track(makeStoreRuntime(store.table('local-version')));
       const reported: SyncEvent[] = [];
       const std = track(
         createStdSync({
           name: 'local-version',
-          platform,
+          store,
           onEvent: (event) => Effect.sync(() => void reported.push(event)),
         }),
       );
@@ -342,7 +342,7 @@ describe('reading the shared Sync Replica', () => {
       if (phase === 'hydration') await writeNewer();
       await rows.preload();
       if (phase === 'doorbell') await writeNewer();
-      await Effect.runPromise(platform.doorbell.ring('local-version.todo'));
+      await Effect.runPromise(store.doorbell.ring('local-version.todo'));
       await vi.waitFor(() =>
         expect(reported).toEqual([
           {
@@ -353,7 +353,7 @@ describe('reading the shared Sync Replica', () => {
           },
         ]),
       );
-      await Effect.runPromise(platform.doorbell.ring('local-version.todo'));
+      await Effect.runPromise(store.doorbell.ring('local-version.todo'));
       await new Promise((resolve) => setTimeout(resolve, 20));
       expect(reported).toHaveLength(1);
       expect(rows.size).toBe(0);

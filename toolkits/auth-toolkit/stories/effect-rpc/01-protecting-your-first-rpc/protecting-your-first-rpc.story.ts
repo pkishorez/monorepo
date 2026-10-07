@@ -1,7 +1,7 @@
 import { Effect, Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
 import { Story } from 'laymos/story';
-import { Authz } from '@kstackz/auth-toolkit/rpc';
+import { Authz } from '@kstackz/auth-toolkit/guard';
 import { authLayer, runRpc } from '../support.js';
 
 const GetProfile = Rpc.make('GetProfile', {
@@ -12,7 +12,7 @@ const GetProfile = Rpc.make('GetProfile', {
 const Api = RpcGroup.make(GetProfile);
 const Handlers = Api.toLayer({
   GetProfile: () =>
-    Effect.map(Authz.CurrentAuth, ({ user }) => ({ userId: user.id })),
+    Effect.map(Authz.Current, ({ user }) => ({ userId: user.id })),
 });
 
 export const protectingYourFirstRpc = Story.make({
@@ -24,7 +24,7 @@ export const protectingYourFirstRpc = Story.make({
   questions: [
     Story.question('How does a handler read the authenticated user?', {
       answer:
-        'Attach `Authz.guard()` to the RPC. Its Server Implementation verifies the session first, then makes the User and Session available as `CurrentAuth` while the handler runs.',
+        'Attach `Authz.guard()` to the RPC. Its Server Implementation verifies the session first, then makes the User and Session available as `Authz.Current` while the handler runs.',
       proof: Story.trace(
         runRpc(Api, Handlers, (client) =>
           client.GetProfile({}, { headers: { cookie: 'session=valid' } }),

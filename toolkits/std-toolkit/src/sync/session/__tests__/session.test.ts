@@ -1,7 +1,7 @@
 import { Duration, Effect, Fiber, Stream } from 'effect';
 import { describe, expect, it } from 'vitest';
 import { sharedLeadership, todo, type Todo } from '../../__tests__/support.js';
-import { noLeadership } from '../../platform/contract/index.js';
+import { noLeadership } from '../../store/contract/index.js';
 import { strategy, type SyncStrategy } from '../../strategy/index.js';
 import { runSession, type SessionConfig } from '../index.js';
 

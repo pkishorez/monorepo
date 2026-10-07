@@ -3,7 +3,7 @@ import { Effect, Schedule } from 'effect';
 import { Story } from 'laymos/story';
 import type { Entity } from '@kstackz/std-toolkit/core';
 import type { StdTableService } from '@kstackz/std-toolkit/db';
-import { createStdSync, memory, strategy } from '@kstackz/std-toolkit/sync';
+import { createStdSync, strategy, Sync } from '@kstackz/std-toolkit/sync';
 import { fresh } from '../../env.js';
 import { Task } from '../../01-one-task-one-table/01-defining-the-shape-of-a-task/defining-the-shape-of-a-task.story.js';
 import {
@@ -101,17 +101,17 @@ export const showingTheBoardInTheBrowser = Story.make({
         proof: onBoard(
           Story.flow(
             Effect.gen(function* () {
-              // The app: a name every tab of this page shares, the platform, and the runtime it runs in. The platform is what the browser needs from the place it runs in: somewhere to keep its own copy of the board, and a way for tabs to share the work. `memory()` keeps the copy in memory and shares nothing; it is also what you get if you leave `platform` out.
+              // The app: a name every tab of this page shares, the store, and the runtime it runs in. The store is where the browser keeps its own copy of the board, and with it the way tabs share the work. `Sync.memory()` keeps the copy in memory and shares nothing; it is also what you get if you leave `store` out.
               const app = createStdSync({
                 name: 'board-shown',
-                platform: memory(),
+                store: Sync.memory(),
                 runtime: yield* browserRuntime,
                 options: { gcTime: 1 },
               });
               // The collection: Task, read one board at a time, by asking the server for anything newer than what it has, every 20 milliseconds.
               const tasks = app.collection(Task, {
                 sync: {
-                  partitions: {
+                  windows: {
                     boardId: (boardId) =>
                       strategy.oldToNew({
                         fetch: ({ after }) => changesOn(boardId, after),
@@ -159,13 +159,13 @@ export const showingTheBoardInTheBrowser = Story.make({
               // The same app, collection and screen as before.
               const app = createStdSync({
                 name: 'board-shown',
-                platform: memory(),
+                store: Sync.memory(),
                 runtime: yield* browserRuntime,
                 options: { gcTime: 1 },
               });
               const tasks = app.collection(Task, {
                 sync: {
-                  partitions: {
+                  windows: {
                     boardId: (boardId) =>
                       strategy.oldToNew({
                         fetch: ({ after }) => changesOn(boardId, after),

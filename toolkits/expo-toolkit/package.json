@@ -27,7 +27,6 @@
     "./theme.css": "./src/theme/theme.css",
     "./feedback": "./src/feedback/index.ts",
     "./input": "./src/input/index.ts",
-    "./platform": "./src/platform/index.ts",
     "./components/parts/*": null,
     "./components/*": "./src/components/*.tsx",
     "./recipes/*": "./src/recipes/*/index.ts"
@@ -49,15 +48,9 @@
     "tailwind-variants": "catalog:"
   },
   "peerDependencies": {
-    "@kstackz/auth-toolkit": "workspace:*",
-    "@kstackz/std-toolkit": "workspace:*",
-    "effect": "^4.0.0",
     "expo-blur": "57.0.3",
     "expo-font": "57.0.4",
     "expo-haptics": "57.0.3",
-    "expo-linking": "57.0.11",
-    "expo-network": "57.0.2",
-    "expo-sqlite": "57.0.3",
     "react": "19.2.3",
     "react-native": "0.86.3",
     "react-native-gesture-handler": "2.32.0",
@@ -69,28 +62,10 @@
     "uniwind": "1.12.2"
   },
   "peerDependenciesMeta": {
-    "@kstackz/auth-toolkit": {
-      "optional": true
-    },
-    "@kstackz/std-toolkit": {
-      "optional": true
-    },
-    "effect": {
-      "optional": true
-    },
     "expo-blur": {
       "optional": true
     },
     "expo-haptics": {
-      "optional": true
-    },
-    "expo-linking": {
-      "optional": true
-    },
-    "expo-network": {
-      "optional": true
-    },
-    "expo-sqlite": {
       "optional": true
     },
     "react-native-gesture-handler": {
@@ -110,17 +85,11 @@
     }
   },
   "devDependencies": {
-    "@kstackz/auth-toolkit": "workspace:*",
-    "@kstackz/std-toolkit": "workspace:*",
     "@types/react": "catalog:",
-    "effect": "catalog:",
     "expo": "catalog:",
     "expo-blur": "catalog:",
     "expo-font": "catalog:",
     "expo-haptics": "catalog:",
-    "expo-linking": "catalog:",
-    "expo-network": "catalog:",
-    "expo-sqlite": "catalog:",
     "laymos": "workspace:*",
     "panelui-cli": "catalog:",
     "react": "catalog:",

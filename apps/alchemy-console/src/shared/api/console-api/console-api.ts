@@ -1,4 +1,4 @@
-import { Authz } from '@kstackz/auth-toolkit/rpc';
+import { Authz } from '@kstackz/auth-toolkit/guard';
 import { Credentials } from '../../rpc/credentials/index.ts';
 import { Stores } from '../../rpc/stores/index.ts';
 import { Explorer } from '../../rpc/explorer/index.ts';

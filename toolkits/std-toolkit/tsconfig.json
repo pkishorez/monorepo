@@ -16,18 +16,10 @@
       ],
       "@kstackz/std-toolkit/studio-rpc": ["./src/studio-rpc/index.ts"],
       "@kstackz/std-toolkit/sync": ["./src/sync/index.ts"],
-      "@kstackz/std-toolkit/sync/paced": [
-        "./src/sync/collection/pacing/index.ts"
-      ],
-      "@kstackz/std-toolkit/sync/platform/browser": [
-        "./src/sync/platform/browser/index.ts"
-      ],
-      "@kstackz/std-toolkit/sync/leadership/in-memory": [
-        "./src/sync/platform/leadership/in-memory/index.ts"
-      ],
-      "@kstackz/std-toolkit/sync/leadership/web-locks": [
-        "./src/sync/platform/browser/web-locks/index.ts"
-      ],
+      "@kstackz/std-toolkit/sync/paced": ["./src/sync/paced/index.ts"],
+      "@kstackz/std-toolkit/sync/idb": ["./src/sync/store/idb/index.ts"],
+      "@kstackz/std-toolkit/sync/memory": ["./src/sync/store/memory/index.ts"],
+      "@kstackz/std-toolkit/sync/sqlite": ["./src/sync/store/sqlite/index.ts"],
       "@kstackz/std-toolkit/db": ["./src/db/index.ts"],
       "@kstackz/std-toolkit/db/dynamodb": ["./src/db/dynamodb/index.ts"],
       "@kstackz/std-toolkit/db/idb": ["./src/db/idb/index.ts"],

@@ -1,7 +1,7 @@
 import { Effect } from 'effect';
 import { createContext, useContext, useState } from 'react';
 import type { ReactNode } from 'react';
-import type { SignedInAccount } from '@kstackz/auth-toolkit/clients/auth';
+import type { Account } from '@kstackz/auth-toolkit/client';
 import {
   QueryClient,
   QueryClientProvider,
@@ -14,7 +14,7 @@ type Session = {
   pending: boolean;
   error: boolean;
   /** The Active Account; null when signed out. */
-  account: SignedInAccount | null;
+  account: Account | null;
   /** Reads the session again, keeping the current one on screen meanwhile. */
   refresh: () => Promise<void>;
 };

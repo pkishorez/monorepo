@@ -1,7 +1,7 @@
 import { Effect, Layer, Schema } from 'effect';
 import { RpcTest } from 'effect/rpc';
-import { Authz } from '@kstackz/auth-toolkit/rpc';
-import { authzLayer } from '@kstackz/auth-toolkit/server/rpc';
+import { Authz } from '@kstackz/auth-toolkit/guard';
+import { authz } from '@kstackz/auth-toolkit/server';
 import { Memory } from '@kstackz/std-toolkit/db/memory';
 import { describe, expect, it } from 'vitest';
 import { LedgerApi } from '../../../api/index.ts';
@@ -12,12 +12,12 @@ import { LedgerHandlers } from '../index.ts';
 const as = (user: string) =>
   Layer.mergeAll(
     LedgerHandlers,
-    authzLayer.pipe(
+    authz.layer.pipe(
       Layer.provide(
         Layer.succeed(Authz.Resolver, {
           resolve: () =>
             Effect.succeed({
-              currentAuth: {
+              current: {
                 kind: 'session',
                 user: { id: user, email: `${user}@x`, name: user },
                 session: { id: user },

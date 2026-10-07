@@ -11,7 +11,7 @@ import {
   type StoredReplicaValue,
 } from '../domain/stored-entity/index.js';
 import { storageError, type WriteError } from '../domain/sync-error/index.js';
-import type { SyncStore } from '../platform/sync-store/index.js';
+import type { StoreRuntime } from '../store/store-runtime/index.js';
 import {
   HYDRATION_PAGE_SIZE,
   REPLICA_READ_CONCURRENCY,
@@ -68,7 +68,7 @@ const nextSequence = (position: string | null): string =>
 // Every stored row gets the next local sequence number, so a reader can ask
 // for everything written after the position it last read.
 export const makeSyncReplica = <S extends AnyEntityESchema>(args: {
-  store: SyncStore;
+  store: StoreRuntime;
   schema: S;
   collection: string;
 }): SyncReplica<S['Type']> => {

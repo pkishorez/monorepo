@@ -5,9 +5,9 @@ import type { Entity } from '@kstackz/std-toolkit/core';
 import {
   createStdSync,
   strategy,
-  type StdSyncPlatform,
+  type SyncStore,
 } from '@kstackz/std-toolkit/sync';
-import { browserTabs, fresh, platform } from '../../env.js';
+import { browserTabs, fresh, store } from '../../env.js';
 import { Task } from '../../01-one-task-one-table/01-defining-the-shape-of-a-task/defining-the-shape-of-a-task.story.js';
 import {
   table,
@@ -37,16 +37,16 @@ const review = { ...plan, taskId: 't2', title: 'Review it' };
 // Every time a tab asked the server for the board, as `tab:after`, where `after` is the newest task the tab already had (`start` for none).
 const reads: string[] = [];
 
-// One browser tab: its own app on the platform it is given, a Task collection that can read and write, and a screen on the `work` board. `keepReading` asks the server every 100 milliseconds instead of catching up once.
+// One browser tab: its own app on the store it is given, a Task collection that can read and write, and a screen on the `work` board. `keepReading` asks the server every 100 milliseconds instead of catching up once.
 const openTab = (
   label: string,
-  tabPlatform: StdSyncPlatform,
+  tabStore: SyncStore,
   options: { readonly keepReading?: boolean } = {},
 ) =>
   Effect.gen(function* () {
     const app = createStdSync({
       name: 'board-two-tabs',
-      platform: tabPlatform,
+      store: tabStore,
       runtime: yield* browserRuntime,
       options: { gcTime: 1 },
     });
@@ -59,7 +59,7 @@ const openTab = (
         });
     const tasks = app.collection(Task, {
       sync: {
-        partitions: {
+        windows: {
           boardId: (boardId) =>
             options.keepReading
               ? strategy.oldToNew({
@@ -110,7 +110,7 @@ export const openingASecondTab = Story.make({
       'A second tab opens. What does it show, and where did it come from?',
       {
         answer:
-          "The same tasks, straight from the browser's own copy. Tabs of one browser share one store (IndexedDB in a real browser; `browserTabs()` from `env.ts` builds one in memory here), so the first tab's reading is already there when the second tab opens. The second tab only asks the server for what is newer than the newest task it already has. A tab with a store of its own (`platform()`) has nothing to start from and reads the whole board again.",
+          "The same tasks, straight from the browser's own copy. Tabs of one browser share one store (IndexedDB in a real browser; `browserTabs()` from `env.ts` builds one in memory here), so the first tab's reading is already there when the second tab opens. The second tab only asks the server for what is newer than the newest task it already has. A tab with a store of its own (`store()`) has nothing to start from and reads the whole board again.",
         proof: onBoard(
           Story.flow(
             Effect.gen(function* () {
@@ -124,7 +124,7 @@ export const openingASecondTab = Story.make({
               const second = yield* openTab('second', browser.tab());
               const atOnce = second.shows();
               // And a tab with a store of its own, for comparison.
-              const alone = yield* openTab('alone', platform());
+              const alone = yield* openTab('alone', store());
               yield* until(() => alone.screen.size === 1);
               yield* Effect.sleep('30 millis');
               const shown = { first: first.shows(), second: atOnce };
@@ -223,10 +223,10 @@ export const openingASecondTab = Story.make({
             Effect.gen(function* () {
               yield* task.insert(plan);
               // Two tabs that share nothing, each asking the server every 100 milliseconds.
-              const first = yield* openTab('first', platform(), {
+              const first = yield* openTab('first', store(), {
                 keepReading: true,
               });
-              const second = yield* openTab('second', platform(), {
+              const second = yield* openTab('second', store(), {
                 keepReading: true,
               });
               yield* until(

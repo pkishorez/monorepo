@@ -1,4 +1,4 @@
-import { expoPlatform } from '@kstackz/expo-toolkit/platform';
+import { expoPlatform } from './platform';
 import { createLedger } from '@ledger/core/app';
 
 // The cloud Backend for each kind of build: the Mac's local servers while

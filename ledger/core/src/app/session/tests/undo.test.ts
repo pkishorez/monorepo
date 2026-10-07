@@ -1,43 +1,59 @@
-import { Effect, Layer, Scope } from 'effect';
-import { localToken, localUser } from '@kstackz/auth-toolkit/clients/auth';
+import { Effect, Layer, ManagedRuntime, Scope } from 'effect';
+import { RpcClient } from 'effect/rpc';
+import { nameToken, namedUser } from '@kstackz/auth-toolkit/client';
+import { Authz } from '@kstackz/auth-toolkit/guard';
+import { authz } from '@kstackz/auth-toolkit/server';
+import { Rpc } from '@kstackz/rpc-toolkit/rpc';
 import { Memory } from '@kstackz/std-toolkit/db/memory';
-import { memory } from '@kstackz/std-toolkit/sync';
+import { createStdSync, Sync } from '@kstackz/std-toolkit/sync';
 import { expect, it, vi } from 'vitest';
-import { layerInProcessProtocol } from '@kstackz/rpc-toolkit/rpc/in-process';
 import { LedgerApi } from '../../../api/index.ts';
 import { ledgerBackend } from '../../../backend/backend.ts';
-import { authDevice } from '../../../backend/services/auth/device.ts';
 import { ledgerTable } from '../../../backend/services/table/index.ts';
-import { openSession, type User } from '../index.ts';
+import { ledgerSession } from '../index.ts';
 
 // The Backend in this process, as the device Backend runs it, on a table in
 // memory.
 const localConnection = () =>
-  layerInProcessProtocol(LedgerApi).pipe(
-    Layer.provide(
-      ledgerBackend.pipe(
-        Layer.provide([Memory.make(ledgerTable).layer, authDevice]),
-      ),
+  Rpc.inProcess.client(
+    LedgerApi,
+    ledgerBackend.pipe(
+      Layer.provide([Memory.make(ledgerTable).layer, authz.device]),
     ),
   );
+
+// Ada's Session over `protocol`, as createApp opens it: the Api signed with
+// her Name Token and a Std Sync in memory, both closed with the scope.
+const sessionOver = (protocol: ReturnType<typeof localConnection>) =>
+  Effect.gen(function* () {
+    const user = { ...namedUser({ email: 'ada@example.com' }), image: null };
+    const token = nameToken.make(user);
+    const context = yield* Layer.build(
+      Layer.mergeAll(
+        protocol,
+        Authz.bearer(() => token),
+      ),
+    );
+    const rpc = yield* RpcClient.make(LedgerApi).pipe(
+      Effect.provideContext(context),
+    );
+    const runtime = ManagedRuntime.make(Layer.empty);
+    yield* Effect.addFinalizer(() => Effect.promise(() => runtime.dispose()));
+    const sync = createStdSync<never>({
+      name: `ledger-${user.id}`,
+      runtime,
+      store: Sync.memory(),
+    });
+    yield* Effect.addFinalizer(() => Effect.promise(() => sync.dispose()));
+    return yield* ledgerSession({ account: { user, token }, rpc, sync });
+  });
 
 const sleep = (ms: number) => Effect.runPromise(Effect.sleep(ms));
 
 it.each([0, 20, 200])(
   'an Undo %i ms after a delete brings the Entry back, here and on the Backend',
   async (wait) => {
-    const link = {
-      api: localConnection(),
-      syncPlatform: memory(),
-    };
-    const who = localUser({ email: 'ada@example.com' }) as unknown as User;
-    const token = localToken.make(who as never);
-    const open = openSession(link, {
-      user: who,
-      token: () => token,
-      waitForToken: Effect.succeed(token),
-      whileOpen: (promise) => promise,
-    });
+    const open = sessionOver(localConnection());
     const scope = Effect.runSync(Scope.make());
     const session = await Effect.runPromise(Scope.provide(open, scope));
     await session.sample(true);
@@ -74,18 +90,7 @@ it.each([0, 20, 200])(
 it.each([0, 20, 200])(
   'deleting again %i ms after an Undo deletes it, here and on the Backend',
   async (wait) => {
-    const link = {
-      api: localConnection(),
-      syncPlatform: memory(),
-    };
-    const who = localUser({ email: 'ada@example.com' }) as unknown as User;
-    const token = localToken.make(who as never);
-    const open = openSession(link, {
-      user: who,
-      token: () => token,
-      waitForToken: Effect.succeed(token),
-      whileOpen: (promise) => promise,
-    });
+    const open = sessionOver(localConnection());
     const scope = Effect.runSync(Scope.make());
     const session = await Effect.runPromise(Scope.provide(open, scope));
     await session.sample(true);

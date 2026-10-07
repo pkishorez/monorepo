@@ -10,15 +10,14 @@
 //     with a sequential Ulid ('000…001', '000…002', …) so ids are predictable,
 //     and tears the database down afterwards even if the program fails.
 //     DynamoDB reaches DYNAMODB_LOCAL_ENDPOINT (default http://localhost:8090).
-//   platform(options?)
-//     An in-process StdSyncPlatform for Act V, private to one tab: an
-//     in-memory sync store (or a fake-IndexedDB one with `store: 'idb'`; two
-//     calls sharing a `databaseName` share one durable store), and no
-//     Leadership or Doorbell.
+//   store(options?)
+//     An in-process SyncStore for Act V, private to one tab: an in-memory
+//     table (or a fake-IndexedDB one with `kind: 'idb'`; two calls sharing a
+//     `databaseName` share one durable table), and no Leadership or Doorbell.
 //   browserTabs(options?)
-//     A browser in one process: every `tab()` it returns shares one sync store,
+//     A browser in one process: every `tab()` it returns shares one table,
 //     one Leadership (one lock per key), and one Doorbell, like tabs of one
-//     browser. `store: 'idb'` makes the shared store fake-IndexedDB.
+//     browser. `kind: 'idb'` makes the shared table fake-IndexedDB.
 
 import 'fake-indexeddb/auto';
 import { Cause, Effect, Match, Queue, Semaphore, Stream } from 'effect';
@@ -34,7 +33,7 @@ import {
   syncStore,
   type Doorbell,
   type Leadership,
-  type StdSyncPlatform,
+  type SyncStore,
 } from '@kstackz/std-toolkit/sync';
 
 export type AdapterName = 'memory' | 'sqlite' | 'idb' | 'dynamodb';
@@ -159,26 +158,26 @@ const idbStoreLayer = (databaseName: string) => {
   }).layer;
 };
 
-export const platform = (options?: {
-  readonly store?: 'memory' | 'idb';
+export const store = (options?: {
+  readonly kind?: 'memory' | 'idb';
   readonly databaseName?: string;
-}): StdSyncPlatform => {
-  const store =
-    options?.store === 'idb'
+}): SyncStore => {
+  const table =
+    options?.kind === 'idb'
       ? idbStoreLayer(options.databaseName ?? uniqueName('std-sync'))
       : Memory.make(syncStore).layer;
   return {
-    store: () => store,
+    table: () => table,
     leadership: { run: (_key, effect) => effect },
     doorbell: { ring: () => Effect.void, listen: () => Stream.never },
   };
 };
 
 export const browserTabs = (options?: {
-  readonly store?: 'memory' | 'idb';
-}): { readonly tab: () => StdSyncPlatform } => {
-  const store =
-    options?.store === 'idb'
+  readonly kind?: 'memory' | 'idb';
+}): { readonly tab: () => SyncStore } => {
+  const table =
+    options?.kind === 'idb'
       ? idbStoreLayer(uniqueName('std-sync'))
       : Memory.make(syncStore).layer;
   const locks = new Map<string, Semaphore.Semaphore>();
@@ -208,5 +207,5 @@ export const browserTabs = (options?: {
         ),
       ),
   };
-  return { tab: () => ({ store: () => store, leadership, doorbell }) };
+  return { tab: () => ({ table: () => table, leadership, doorbell }) };
 };

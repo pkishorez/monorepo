@@ -3,7 +3,7 @@ import { Effect } from 'effect';
 import { Story } from 'laymos/story';
 import type { StdTableService } from '@kstackz/std-toolkit/db';
 import { createStdSync, strategy } from '@kstackz/std-toolkit/sync';
-import { fresh, platform } from '../../env.js';
+import { fresh, store } from '../../env.js';
 import { Task } from '../../01-one-task-one-table/01-defining-the-shape-of-a-task/defining-the-shape-of-a-task.story.js';
 import {
   table,
@@ -29,11 +29,11 @@ const draft = {
   notes: '',
 } as const;
 
-// A fresh app for each question, as chapter 25 built it, on the ready-made platform from `env.ts`.
+// A fresh app for each question, as chapter 25 built it, on the stand-in store from `env.ts`.
 const openApp = Effect.map(browserRuntime, (runtime) =>
   createStdSync({
     name: 'board-edited',
-    platform: platform(),
+    store: store(),
     runtime,
     options: { gcTime: 1 },
   }),
@@ -41,7 +41,7 @@ const openApp = Effect.map(browserRuntime, (runtime) =>
 
 // How the collection reads the server: one board at a time, asking for anything new every 20 milliseconds, exactly as in chapter 25.
 const readingBoards = {
-  partitions: {
+  windows: {
     boardId: (boardId: string) =>
       strategy.oldToNew<typeof Task.Type, StdTableService<'board'>>({
         fetch: ({ after }) => changesOn(boardId, after),
