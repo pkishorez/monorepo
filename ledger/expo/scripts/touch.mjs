@@ -10,11 +10,14 @@
 //   node scripts/touch.mjs lift              the finger lifts, then the thumb
 //   node scripts/touch.mjs drop              the thumb lifts first: called off
 //   node scripts/touch.mjs swipe 8,400 140,0 one finger from a point, by a leg
+// METRO_PORT and DEVICE pick Metro and the device, as in drive.mjs.
 const [, , command, ...args] = process.argv;
-const list = await (await fetch('http://127.0.0.1:8081/json/list')).json();
-const target = list.find((page) => page.title.includes('iPhone')) ?? list[0];
+const port = process.env.METRO_PORT ?? '8081';
+const device = process.env.DEVICE ?? 'iPhone';
+const list = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
+const target = list.find((page) => page.title.includes(device)) ?? list[0];
 const ws = new WebSocket(target.webSocketDebuggerUrl, {
-  headers: { Origin: 'http://127.0.0.1:8081' },
+  headers: { Origin: `http://127.0.0.1:${port}` },
 });
 await new Promise((resolve) => ws.addEventListener('open', resolve));
 
