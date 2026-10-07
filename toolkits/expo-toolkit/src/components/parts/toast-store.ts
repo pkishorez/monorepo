@@ -46,6 +46,8 @@ let counter = 0;
 
 interface ToastTimer {
   remaining: number;
+  /** Whether the toast has been drawn; its countdown starts only then. */
+  shown: boolean;
   startedAt?: number;
   timeout?: ReturnType<typeof setTimeout>;
 }
@@ -75,13 +77,21 @@ export class ToastStore {
     this.emit();
 
     const duration = resolved.duration ?? DEFAULT_DURATION;
-    if (duration > 0) {
-      const timer = { remaining: duration };
-      this.timers.set(id, timer);
-      if (!this.timersPaused) this.startTimer(id, timer);
-    }
+    if (duration > 0) this.timers.set(id, { remaining: duration, shown: false });
 
     return id;
+  };
+
+  /**
+   * Starts a toast's countdown once the viewport has drawn it, not when it
+   * was asked for: on a busy JS thread (a slow Android phone) the time
+   * between can outlast the whole duration, and the toast would go unseen.
+   */
+  shown = (id: string) => {
+    const timer = this.timers.get(id);
+    if (timer === undefined || timer.shown) return;
+    timer.shown = true;
+    if (!this.timersPaused) this.startTimer(id, timer);
   };
 
   hide = (id: string) => {
@@ -124,7 +134,9 @@ export class ToastStore {
   resumeTimers = () => {
     if (!this.timersPaused) return;
     this.timersPaused = false;
-    this.timers.forEach((timer, id) => this.startTimer(id, timer));
+    this.timers.forEach((timer, id) => {
+      if (timer.shown) this.startTimer(id, timer);
+    });
   };
 
   private startTimer(id: string, timer: ToastTimer) {

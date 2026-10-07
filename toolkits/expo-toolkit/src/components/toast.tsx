@@ -352,6 +352,9 @@ function ToastSlot({
     [heights, item.id]
   );
 
+  // Its countdown starts now that it is drawn.
+  useEffect(() => toastStore.shown(item.id), [item.id]);
+
   /** +1 when a downward drag dismisses (bottom), -1 when an upward one does. */
   const dismissSign = placement === 'top' ? -1 : 1;
 
