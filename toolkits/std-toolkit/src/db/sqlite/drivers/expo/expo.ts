@@ -26,8 +26,16 @@ export interface ExpoSQLiteDatabase extends ExpoSQLiteQueries {
   ): Promise<void>;
 }
 
+/** How long a write waits for another connection's write lock, in ms. */
+const BUSY_TIMEOUT_MS = 5_000;
+
 export interface ExpoSQLiteConfig {
-  /** An open expo-sqlite database. The caller owns it and closes it. */
+  /**
+   * An open expo-sqlite database. The caller owns it and closes it, and
+   * should set `PRAGMA busy_timeout` on it: guarded writes take a second
+   * connection, and without a timeout a write on the first one fails with
+   * "database is locked" instead of waiting.
+   */
   readonly database: ExpoSQLiteDatabase;
 }
 
@@ -60,9 +68,15 @@ export const makeExpoSQLite = (
     transaction: (statements) =>
       Effect.tryPromise({
         // expo-sqlite rolls back when the task rejects. The exclusive variant
-        // runs on its own connection, so no other query interleaves.
+        // runs on its own connection, so no other query interleaves inside
+        // it; that connection waits for the other's write lock rather than
+        // failing (its BEGIN is deferred, so the pragma comes first).
         try: () =>
           database.withExclusiveTransactionAsync(async (transaction) => {
+            await transaction.runAsync(
+              `PRAGMA busy_timeout = ${BUSY_TIMEOUT_MS}`,
+              [],
+            );
             for (const [index, statement] of statements.entries()) {
               const result = await transaction.runAsync(
                 statement.sql,

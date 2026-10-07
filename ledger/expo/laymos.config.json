@@ -70,7 +70,7 @@
     },
     "runtime": {
       "paths": ["src/runtime"],
-      "description": "What Hermes lacks that core expects of a runtime, put in place before anything else loads: crypto.randomUUID and getRandomValues",
+      "description": "What Hermes lacks that core expects of a runtime, put in place before anything else loads: crypto.randomUUID and getRandomValues, and the ES2023 change-array-by-copy methods",
       "modules": {
         "src/runtime/hermes.ts": {
           "exposed": true

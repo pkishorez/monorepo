@@ -1,5 +1,6 @@
 import { Effect } from 'effect';
-import { Auth, authLive } from '@kstackz/auth-toolkit/clients/auth';
+import { Auth } from '@kstackz/auth-toolkit/clients/auth';
+import { authLive } from '@kstackz/auth-toolkit/clients/auth/live';
 
 // Built once so every caller shares one Auth Worker client.
 export const accounts = Effect.runSync(

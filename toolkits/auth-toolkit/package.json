@@ -75,6 +75,10 @@
       "types": "./dist/clients/auth/index.d.ts",
       "default": "./dist/clients/auth/index.js"
     },
+    "./clients/auth/live": {
+      "types": "./dist/clients/auth/live/index.d.ts",
+      "default": "./dist/clients/auth/live/index.js"
+    },
     "./clients/auth/expo": {
       "types": "./dist/clients/auth/expo/index.d.ts",
       "default": "./dist/clients/auth/expo/index.js"
@@ -117,8 +121,7 @@
     "expo-auth-session": "57.0.13",
     "expo-secure-store": "57.0.4",
     "expo-web-browser": "57.0.3",
-    "react": "19.2.3",
-    "react-native": "0.86.3"
+    "react": "19.2.3"
   },
   "peerDependenciesMeta": {
     "@kstackz/rpc-toolkit": {
@@ -146,9 +149,6 @@
       "optional": true
     },
     "react": {
-      "optional": true
-    },
-    "react-native": {
       "optional": true
     }
   },

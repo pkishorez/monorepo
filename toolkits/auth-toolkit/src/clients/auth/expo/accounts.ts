@@ -32,6 +32,10 @@ const SCOPES = ['openid', 'profile', 'email', 'offline_access'];
 /** Refresh an Access Token this long before it expires. */
 const REFRESH_MARGIN_MS = 60_000;
 
+/** Each User's refresh in flight, by storage key and User, shared by every
+ * Auth built on this device so two never spend the same refresh token. */
+const refreshing = new Map<string, Promise<Entry | null>>();
+
 const unreachable = (cause: unknown) =>
   new Unreachable({
     reason: cause instanceof Error ? cause.message : String(cause),
@@ -66,31 +70,35 @@ export const makeAuth = (
   },
 ) => {
   const oauth = tokenEndpoint({ ...config, ...environment });
-  const users = keychain(device.secrets, config.storageKey ?? 'auth');
+  const storageKey = config.storageKey ?? 'auth';
+  const users = keychain(device.secrets, storageKey);
   let loginError: LoginError | null = null;
 
   // A refresh token works once, and using a spent one revokes the User's
-  // whole chain, so a User's refreshes never overlap.
-  const refreshing = new Map<string, Promise<Entry | null>>();
+  // whole chain, so a User's refreshes never overlap, and each starts from
+  // what is stored now, not from an entry read before another refresh.
   const refresh = (entry: Entry) => {
-    const running = refreshing.get(entry.user.id);
+    const key = `${storageKey}:${entry.user.id}`;
+    const running = refreshing.get(key);
     if (running) return running;
     const next = (async (): Promise<Entry | null> => {
+      const stored = await users.entry(entry.user.id);
+      if (stored === null) return null;
+      if (stored.expiresAt - environment.now() > REFRESH_MARGIN_MS)
+        return stored;
       try {
-        const tokens = await oauth.refresh(entry.refreshToken);
-        const fresh = { ...entry, ...tokens };
+        const tokens = await oauth.refresh(stored.refreshToken);
+        const fresh = { ...stored, ...tokens };
         await users.update(fresh);
         return fresh;
       } catch (error) {
-        if (!(error instanceof OAuthRefused)) return entry;
+        if (!(error instanceof OAuthRefused)) return stored;
         // Revoked, expired, or reused elsewhere: this User is signed out.
-        await users.remove(entry.user.id);
+        await users.remove(stored.user.id);
         return null;
-      } finally {
-        refreshing.delete(entry.user.id);
       }
-    })();
-    refreshing.set(entry.user.id, next);
+    })().finally(() => refreshing.delete(key));
+    refreshing.set(key, next);
     return next;
   };
 

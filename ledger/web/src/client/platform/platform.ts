@@ -1,5 +1,5 @@
 import { Effect, Layer } from 'effect';
-import { authLive } from '@kstackz/auth-toolkit/clients/auth';
+import { authLive } from '@kstackz/auth-toolkit/clients/auth/live';
 import { IDB, type IDBTable } from '@kstackz/std-toolkit/db/idb';
 import {
   browser,

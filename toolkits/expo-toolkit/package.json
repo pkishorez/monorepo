@@ -2,7 +2,7 @@
   "name": "@kstackz/expo-toolkit",
   "version": "0.0.0",
   "private": false,
-  "description": "UI, theme, haptics and sound for native apps built with Expo: owned Panel UI components on Uniwind, styled with Ledger's tokens.",
+  "description": "UI, theme, haptics and sound for native apps built with Expo: owned Panel UI components on Uniwind, styled with ui-toolkit's tokens.",
   "keywords": [
     "expo",
     "react-native",
