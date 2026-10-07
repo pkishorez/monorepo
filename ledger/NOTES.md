@@ -2393,3 +2393,36 @@ finger on the UI thread, as the Thumb Picker does.
 - How the haptics feel: the Simulator has none. They still go through JS
   (expo-haptics has no UI-thread call in Expo Go), so a busy JS thread can
   delay a tap, not the highlight or the page.
+
+## Delete and Undo
+
+Deleting an Entry took about 430 ms to show (Undo about 360 ms) in a dev
+bundle, and on the Remote Backend an Undo could be lost.
+
+**Causes and fixes**
+
+- **Every change redrew every row.** `useMoney` rebuilt every Account,
+  Category and Entry on any write, and `renderItem` and the row callbacks
+  were new each render, so all ~90 SwipeRows rebuilt their gestures.
+  `useMoney` now builds each kind on its own and keeps a row's object
+  while its values are unchanged (the web gains this too); `SwipeRow`
+  makes its gesture once and reads callbacks through a ref; Entries
+  memoises rows and day headers with stable callbacks. A delete or undo
+  now draws in about 100 ms, with 0 rows redrawn; what is left is the list
+  itself (FlashList or tighter windowing would be the next step).
+- **Writes of one row could overtake each other.** Each Put and Delete was
+  its own request, so an Undo's Put could reach a Remote Backend before
+  the Delete it undoes, and the Delete then won. `session/in-order.ts`
+  sends each row's writes one after another; different rows still go side
+  by side. Neither TanStack DB (re-inserting a key whose delete is
+  pending) nor the server's `put` (it restores a soft-deleted row) was at
+  fault.
+
+**Checked**: core tests (`in-order.test.ts`; `undo.test.ts` undoes 0, 20
+and 200 ms after a delete, read here and from a second session), lint of
+core, web, expo and expo-toolkit; five delete-and-undo runs in the
+Simulator, triggered from the inspector.
+
+**Not proven**: a real swipe and Undo tap, the Remote Backend, release
+numbers. While measuring, three sample Entries (Rent, Espresso, Farmers
+market) were deleted and re-added with new ids.

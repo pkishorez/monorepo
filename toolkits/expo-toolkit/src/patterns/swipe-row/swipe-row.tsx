@@ -1,5 +1,5 @@
 import Delete02Icon from '@hugeicons/core-free-icons/Delete02Icon';
-import { type ReactNode, useMemo } from 'react';
+import { type ReactNode, useMemo, useRef } from 'react';
 import { type LayoutChangeEvent, StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -28,7 +28,7 @@ const POP = { duration: 300, dampingRatio: 0.55 } as const;
 /**
  * A row one finger swipes left to delete, as on the web: Delete shows
  * behind it as it goes; past the line it arms, the tile deepening and its
- * label popping, and `onArm` hears it (for a sound and a buzz); let go
+ * label popping, and `onArm` hears it (for a buzz); let go
  * there, `onCommit` hears it, the row slides away and `onDelete` runs.
  * Short of the line, or
  * back from it, the row springs home. A screen reader gets Delete as the
@@ -54,12 +54,23 @@ export function SwipeRow(props: {
   readonly className?: string;
   readonly children: ReactNode;
 }) {
-  const { onDelete, onArm, onCommit } = props;
   const label = props.label ?? 'Delete';
   const still = useReducedMotion();
   const x = useSharedValue(0);
   const width = useSharedValue(400);
   const armed = useSharedValue(false);
+  // What the UI thread tells, read through the latest props: the gesture is
+  // made once, not again each time the row's callbacks are new functions.
+  const latest = useRef(props);
+  latest.current = props;
+  const told = useMemo(
+    () => ({
+      arm: () => latest.current.onArm?.(),
+      commit: () => latest.current.onCommit?.(),
+      delete: () => latest.current.onDelete(),
+    }),
+    [],
+  );
 
   const gesture = useMemo(
     () =>
@@ -73,7 +84,7 @@ export function SwipeRow(props: {
           const now = -x.value >= DELETE_AT;
           if (now === armed.value) return;
           armed.value = now;
-          if (now && onArm !== undefined) scheduleOnRN(onArm);
+          if (now) scheduleOnRN(told.arm);
         })
         .onEnd((_event, success) => {
           'worklet';
@@ -83,10 +94,10 @@ export function SwipeRow(props: {
             x.value = still ? 0 : withSpring(0, HOME);
             return;
           }
-          if (onCommit !== undefined) scheduleOnRN(onCommit);
+          scheduleOnRN(told.commit);
           const gone = () => {
             'worklet';
-            scheduleOnRN(onDelete);
+            scheduleOnRN(told.delete);
           };
           if (still) {
             x.value = -width.value;
@@ -105,7 +116,7 @@ export function SwipeRow(props: {
           armed.value = false;
           x.value = still ? 0 : withSpring(0, HOME);
         }),
-    [onArm, onCommit, onDelete, still, x, width, armed],
+    [told, still, x, width, armed],
   );
 
   const row = useAnimatedStyle(() => ({
@@ -133,7 +144,7 @@ export function SwipeRow(props: {
     <View
       accessibilityActions={[{ name: 'delete', label }]}
       onAccessibilityAction={(event) => {
-        if (event.nativeEvent.actionName === 'delete') onDelete();
+        if (event.nativeEvent.actionName === 'delete') props.onDelete();
       }}
       onLayout={measure}
       className={cn('relative overflow-hidden rounded-lg', props.className)}
