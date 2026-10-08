@@ -89,6 +89,33 @@ describe.each(stores)('with the $name Stream Store', ({ make }) => {
     expect(resumed.closed).toEqual([]);
   });
 
+  it('serves a socket handed back in a fresh wrapper, as each workerd callback does', async () => {
+    vi.stubGlobal('WebSocketRequestResponsePair', class {});
+    const { store } = make();
+    let starts = 0;
+    const boot = booter(
+      store,
+      Plain,
+      Plain.toLayer({
+        watch: () =>
+          Stream.unwrap(
+            Effect.sync(() => {
+              starts++;
+              return Stream.never;
+            }),
+          ),
+      }),
+    );
+    const first = socket();
+    const server = await boot([], first);
+    await accept(server);
+    // The same WebSocket, wrapped anew.
+    const again = { ...first, port: { ...first.port } };
+    await send(server, again, watch('0'));
+    await vi.waitFor(() => expect(starts).toBe(1));
+    expect(first.closed).toEqual([]);
+  });
+
   it('restores a stream before processing the close event that woke the object', async () => {
     vi.stubGlobal('WebSocketRequestResponsePair', class {});
     const { store } = make();
