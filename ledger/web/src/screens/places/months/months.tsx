@@ -3,8 +3,7 @@ import { cn } from '@kstackz/web-platform/components/utils';
 import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 import { keys, useCommand, usePlace } from '@ledger/core/commands';
-import { monthsView } from '@ledger/core/places';
-import { useMoney } from '@ledger/core/session';
+import { useCurrency, useMonths } from '@ledger/core/queries';
 import { monthName } from '@ledger/core/model';
 import { Amount, scrollMarked } from '../../parts/index.ts';
 
@@ -14,13 +13,12 @@ import { Amount, scrollMarked } from '../../parts/index.ts';
  */
 export function Months(props: { readonly at: string | undefined }) {
   usePlace('months');
-  const money = useMoney();
   const navigate = useNavigate();
   const { surface } = keys.useSurface();
-  const { months, most } = monthsView(money);
+  const { ready, months, most } = useMonths();
   const [marked, setMarked] = useState(props.at ?? months[0]?.month);
   const list = useRef<HTMLUListElement>(null);
-  const currency = money.currency;
+  const currency = useCurrency();
   useEffect(() => {
     if (marked === undefined && months[0]) setMarked(months[0].month);
   }, [marked, months]);
@@ -42,7 +40,7 @@ export function Months(props: { readonly at: string | undefined }) {
     enabled: active && marked !== undefined,
   });
 
-  if (money.ready && months.length === 0) {
+  if (ready && months.length === 0) {
     return (
       <div className="flex flex-col items-center gap-3 px-6 py-24 text-center text-muted-foreground">
         <CalendarRange className="size-8" aria-hidden="true" />
@@ -56,7 +54,7 @@ export function Months(props: { readonly at: string | undefined }) {
       className="mx-auto max-w-2xl space-y-2 px-4 py-6 pb-28 @md:px-8 @md:py-10"
     >
       {months.map((month) => {
-        const left = month.in - month.out;
+        const { left } = month;
         return (
           <li key={month.month}>
             <button

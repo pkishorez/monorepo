@@ -4,7 +4,8 @@ import { Input } from '@kstackz/expo-platform/components/input';
 import { Text } from '@kstackz/expo-platform/components/text';
 import { Sheet } from '@kstackz/expo-platform/recipes/sheet';
 import { keys, useCommand } from '@ledger/core/commands';
-import { useMoney, useWrites } from '@ledger/core/session';
+import { useMutations } from '@ledger/core/mutations';
+import { useAccounts, useCategories, useCurrency } from '@ledger/core/queries';
 import { firstAccount, quickDays } from '@ledger/core/places';
 import { centsOf, money as format, today, type Way } from '@ledger/core/model';
 import { useState } from 'react';
@@ -37,18 +38,16 @@ export function AddSheet() {
 }
 
 function Form(props: { readonly open: boolean; readonly onDone: () => void }) {
-  const money = useMoney();
-  const { addEntry } = useWrites();
-  const currency = money.currency;
+  const { accounts } = useAccounts();
+  const { addEntry } = useMutations();
+  const currency = useCurrency();
   const [way, setWay] = useState<Way>('out');
   const [typed, setTyped] = useState('');
   const [memo, setMemo] = useState('');
   const [day, setDay] = useState(today());
-  const fits = money.categories.filter((category) => category.way === way);
+  const { categories: fits } = useCategories(way);
   const [categoryId, setCategoryId] = useState<string>();
-  const [accountId, setAccountId] = useState(() =>
-    firstAccount(money.accounts),
-  );
+  const [accountId, setAccountId] = useState(() => firstAccount(accounts));
   const category = fits.find((each) => each.id === categoryId) ?? fits[0];
   const cents = centsOf(typed);
   const ready = cents > 0 && category !== undefined && accountId !== '';
@@ -127,7 +126,7 @@ function Form(props: { readonly open: boolean; readonly onDone: () => void }) {
         label="Account"
         value={accountId}
         onChange={setAccountId}
-        options={money.accounts.map((account) => ({
+        options={accounts.map((account) => ({
           value: account.id,
           label: account.name,
           icon: <AccountIcon kind={account.kind} size={14} />,

@@ -1,5 +1,5 @@
 import { toast } from '@kstackz/expo-platform/components/toast';
-import { useWrites } from '@ledger/core/session';
+import { useMutations } from '@ledger/core/mutations';
 import type { Entry } from '@ledger/core/model';
 
 /**
@@ -7,7 +7,7 @@ import type { Entry } from '@ledger/core/model';
  * `onRestore` hears it come back, to mark it again.
  */
 export const useRemoveEntry = (onRestore?: (entry: Entry) => void) => {
-  const { removeEntry, restoreEntry } = useWrites();
+  const { removeEntry, restoreEntry } = useMutations();
   return (entry: Entry) => {
     removeEntry(entry.id);
     toast.show({

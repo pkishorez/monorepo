@@ -3,8 +3,9 @@ import { Meter } from '@kstackz/expo-platform/components/meter';
 import { Text } from '@kstackz/expo-platform/components/text';
 import { cn } from '@kstackz/expo-platform/theme';
 import { keys, useCommand, usePlace } from '@ledger/core/commands';
-import { type Money, useMoney, useUser, useWrites } from '@ledger/core/session';
-import { glance, useLookup } from '@ledger/core/places';
+import { useUser } from '@ledger/core/session';
+import { useMutations } from '@ledger/core/mutations';
+import { useCurrency, useHome } from '@ledger/core/queries';
 import { monthName, monthOf, today } from '@ledger/core/model';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -25,24 +26,26 @@ import {
  */
 export function Home() {
   usePlace('home');
-  const money = useMoney();
   const router = useRouter();
   const month = monthOf(today());
   const active = keys.useSurface().surface === 'home';
   useCommand('jump', () => router.navigate('/entries'), { enabled: active });
   useCommand('home.open', () => router.navigate(`/months/${month}`));
+  const home = useHome(month);
   // Nothing until the copy is read: no frame of `$0.00`, no Welcome flash.
-  if (!money.ready) return null;
-  if (money.accounts.length === 0) return <Welcome />;
-  return <Glance money={money} month={month} />;
+  if (!home.ready) return null;
+  if (!home.hasAccounts) return <Welcome />;
+  return <Glance home={home} month={month} />;
 }
 
-function Glance(props: { readonly money: Money; readonly month: string }) {
-  const { money, month } = props;
-  const lookup = useLookup(money);
+function Glance(props: {
+  readonly home: ReturnType<typeof useHome>;
+  readonly month: string;
+}) {
+  const { home, month } = props;
   const router = useRouter();
-  const currency = money.currency;
-  const { summary, left, budgets, recent, most } = glance(money, month);
+  const currency = useCurrency();
+  const { summary, left, budgets, recent, most, lookup } = home;
 
   return (
     <Scroll className="gap-10">
@@ -198,7 +201,7 @@ function Bar(props: {
 // A new User: start from the sample, or from empty Accounts and Categories.
 function Welcome() {
   const user = useUser();
-  const { sample } = useWrites();
+  const { sample } = useMutations();
   const { online } = useGate();
   const [busy, setBusy] = useState(false);
   const start = async (entries: boolean) => {

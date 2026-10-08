@@ -7,8 +7,7 @@ import {
 import { cn } from '@kstackz/web-platform/components/utils';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { keys, useCommand, usePlace } from '@ledger/core/commands';
-import { monthView } from '@ledger/core/places';
-import { useMoney } from '@ledger/core/session';
+import { useCurrency, useMonth } from '@ledger/core/queries';
 import { monthName } from '@ledger/core/model';
 import { Amount, CategoryIcon } from '../../parts/index.ts';
 
@@ -20,11 +19,10 @@ import { Amount, CategoryIcon } from '../../parts/index.ts';
 export function Month(props: { readonly month: string }) {
   usePlace('months.month');
   const { month } = props;
-  const money = useMoney();
   const navigate = useNavigate();
-  const currency = money.currency;
+  const currency = useCurrency();
   const { summary, left, later, earlier, hasLater, hasEarlier, days, peak } =
-    monthView(money, month);
+    useMonth(month);
   const turn = (to: string) =>
     void navigate({
       to: '/months/$month',

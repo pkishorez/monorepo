@@ -9,7 +9,8 @@ import {
 import { Input } from '@kstackz/web-platform/components/input';
 import { useState } from 'react';
 import { keys, useCommand } from '@ledger/core/commands';
-import { useMoney, useWrites } from '@ledger/core/session';
+import { useMutations } from '@ledger/core/mutations';
+import { useLookup } from '@ledger/core/queries';
 import { useGate } from '../../../app.ts';
 import { ACCOUNT_KINDS } from '@ledger/core/places';
 import type { Account } from '@ledger/core/model';
@@ -56,10 +57,10 @@ function Form(props: {
   readonly id: string | undefined;
   readonly onDone: () => void;
 }) {
-  const money = useMoney();
+  const { account: accounts } = useLookup();
   const { online } = useGate();
-  const { addAccount, renameAccount } = useWrites();
-  const account = money.accounts.find((each) => each.id === props.id);
+  const { addAccount, renameAccount } = useMutations();
+  const account = props.id === undefined ? undefined : accounts.get(props.id);
   const [name, setName] = useState(account?.name ?? '');
   const [kind, setKind] = useState<Account['kind']>(account?.kind ?? 'bank');
   const ready = name.trim() !== '' && online;

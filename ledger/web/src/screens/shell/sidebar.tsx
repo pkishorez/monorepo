@@ -12,8 +12,7 @@ import { Link, useLocation, useSearch } from '@tanstack/react-router';
 import { useEffect, useRef } from 'react';
 import { BindingKeys } from '@kstackz/web-platform/recipes/key-bindings';
 import { keys, useCommand } from '@ledger/core/commands';
-import { useMoney } from '@ledger/core/session';
-import { balances } from '@ledger/core/model';
+import { useAccounts, useBalances, useCurrency } from '@ledger/core/queries';
 import { useOpenAccount } from '../sheets/accounts/index.ts';
 import { PLACES } from '@ledger/core/places';
 import { AccountIcon, Amount, focusPage, stopIcon } from '../parts/index.ts';
@@ -35,11 +34,11 @@ const useKeyOf = () => {
 export function SidebarContent() {
   const pathname = useLocation({ select: (location) => location.pathname });
   const search = useSearch({ strict: false }) as { account?: string };
-  const money = useMoney();
+  const { ready, accounts } = useAccounts();
+  const { ready: counted, balances } = useBalances();
+  const currency = useCurrency();
   const keyOf = useKeyOf();
   const openAccount = useOpenAccount();
-  const balance = balances(money.accounts, money.entries);
-  const currency = money.currency;
   const here = (to: string) =>
     to === '/' ? pathname === '/' : pathname.startsWith(to);
   useSidebarKeys();
@@ -71,7 +70,7 @@ export function SidebarContent() {
           </SidebarMenu>
         </SidebarGroupContent>
       </SidebarGroup>
-      {money.ready && (
+      {ready && counted && (
         <SidebarGroup>
           <SidebarGroupLabel className="justify-between pr-0">
             Accounts
@@ -86,7 +85,7 @@ export function SidebarContent() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {money.accounts.length === 0 && (
+              {accounts.length === 0 && (
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     data-sidebar-item=""
@@ -98,7 +97,7 @@ export function SidebarContent() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               )}
-              {money.accounts.map((account) => (
+              {accounts.map((account) => (
                 <SidebarMenuItem key={account.id}>
                   <SidebarMenuButton
                     data-sidebar-item=""
@@ -110,7 +109,7 @@ export function SidebarContent() {
                     <AccountIcon kind={account.kind} />
                     <span className="flex-1 truncate">{account.name}</span>
                     <Amount
-                      cents={balance.get(account.id) ?? 0}
+                      cents={balances.get(account.id) ?? 0}
                       currency={currency}
                       className="text-xs text-muted-foreground"
                     />

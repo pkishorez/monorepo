@@ -8,9 +8,20 @@ import { Glyph } from '@kstackz/expo-platform/components/glyph';
 import { Input } from '@kstackz/expo-platform/components/input';
 import { Text } from '@kstackz/expo-platform/components/text';
 import { keys, useCommand, usePlace } from '@ledger/core/commands';
-import { useMoney, useWrites } from '@ledger/core/session';
-import { type EntriesSearch, entryAt, narrowing } from '@ledger/core/places';
-import { centsOf, dayName, type Entry as EntryRow } from '@ledger/core/model';
+import { useMutations } from '@ledger/core/mutations';
+import {
+  useAccounts,
+  useCategories,
+  useCurrency,
+  useEntryAt,
+} from '@ledger/core/queries';
+import { type EntriesSearch, narrowing } from '@ledger/core/places';
+import {
+  type Category,
+  centsOf,
+  dayName,
+  type Entry as EntryRow,
+} from '@ledger/core/model';
 import { useRouter } from 'expo-router';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { TextInput, View } from 'react-native';
@@ -35,12 +46,10 @@ export function Entry(props: {
   readonly search: EntriesSearch;
 }) {
   usePlace('entries.entry');
-  const money = useMoney();
   const router = useRouter();
   const forget = useRemoveEntry();
   const { surface } = keys.useSurface();
-  const { entry, position, next, previous } = entryAt(
-    money.entries,
+  const { ready, entry, position, next, previous, lookup } = useEntryAt(
     props.search,
     props.entryId,
   );
@@ -79,7 +88,7 @@ export function Entry(props: {
   if (entry === undefined) {
     return (
       <View className="flex-1 items-center justify-center p-10">
-        {money.ready && (
+        {ready && (
           <Text muted className="text-sm">
             This entry is gone.
           </Text>
@@ -91,6 +100,7 @@ export function Entry(props: {
     <Editor
       key={entry.id}
       entry={entry}
+      category={lookup.category.get(entry.categoryId)}
       active={active}
       position={position}
       onBack={back}
@@ -103,6 +113,7 @@ export function Entry(props: {
 
 function Editor(props: {
   readonly entry: EntryRow;
+  readonly category: Category | undefined;
   readonly active: boolean;
   readonly position: string | undefined;
   readonly onBack: () => void;
@@ -110,18 +121,16 @@ function Editor(props: {
   readonly onPrevious: (() => void) | undefined;
   readonly onRemove: () => void;
 }) {
-  const { entry } = props;
-  const money = useMoney();
-  const { updateEntry } = useWrites();
-  const currency = money.currency;
+  const { entry, category } = props;
+  const { accounts } = useAccounts();
+  const { categories } = useCategories();
+  const { updateEntry } = useMutations();
+  const currency = useCurrency();
   const toneOf = useToneOf();
   const [memo, setMemo] = useState(entry.memo);
   const [typed, setTyped] = useState((entry.cents / 100).toFixed(2));
   const memoField = useRef<TextInput>(null);
   const foreground = useCSSVariable('--color-foreground');
-  const category = money.categories.find(
-    (each) => each.id === entry.categoryId,
-  );
   const save = (changes: Partial<EntryRow>) => updateEntry(entry.id, changes);
 
   // Another device changed it: show theirs unless the memo is being typed in.
@@ -238,7 +247,7 @@ function Editor(props: {
           label="Category"
           value={entry.categoryId}
           onChange={(categoryId) => save({ categoryId })}
-          options={money.categories.map((each) => ({
+          options={categories.map((each) => ({
             value: each.id,
             label: each.name,
             icon: <CategoryIcon icon={each.icon} size={14} />,
@@ -251,7 +260,7 @@ function Editor(props: {
           label="Account"
           value={entry.accountId}
           onChange={(accountId) => save({ accountId })}
-          options={money.accounts.map((account) => ({
+          options={accounts.map((account) => ({
             value: account.id,
             label: account.name,
             icon: <AccountIcon kind={account.kind} size={14} />,

@@ -3,7 +3,8 @@ import { Choice } from '@kstackz/expo-platform/components/choice';
 import { Input } from '@kstackz/expo-platform/components/input';
 import { Sheet } from '@kstackz/expo-platform/recipes/sheet';
 import { keys, useCommand } from '@ledger/core/commands';
-import { useMoney, useWrites } from '@ledger/core/session';
+import { useMutations } from '@ledger/core/mutations';
+import { useLookup } from '@ledger/core/queries';
 import { ACCOUNT_KINDS } from '@ledger/core/places';
 import type { Account } from '@ledger/core/model';
 import { useState } from 'react';
@@ -55,10 +56,11 @@ function Form(props: {
   readonly id: string | undefined;
   readonly onDone: () => void;
 }) {
-  const money = useMoney();
+  const lookup = useLookup();
   const { online } = useGate();
-  const { addAccount, renameAccount } = useWrites();
-  const account = money.accounts.find((each) => each.id === props.id);
+  const { addAccount, renameAccount } = useMutations();
+  const account =
+    props.id === undefined ? undefined : lookup.account.get(props.id);
   const [name, setName] = useState(account?.name ?? '');
   const [kind, setKind] = useState<Account['kind']>(account?.kind ?? 'bank');
   const ready = name.trim() !== '' && online;

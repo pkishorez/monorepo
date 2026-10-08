@@ -41,7 +41,9 @@ import {
 import { useEffect, useRef, useState } from 'react';
 import { appTheme, useAccounts, useGate, useSettings } from '../../../app.ts';
 import { usePlace } from '@ledger/core/commands';
-import { useMoney, useUser, useWrites } from '@ledger/core/session';
+import { useUser } from '@ledger/core/session';
+import { useMutations } from '@ledger/core/mutations';
+import { useCounts, useCurrency } from '@ledger/core/queries';
 import { CURRENCIES } from '@ledger/core/model';
 import { AppSection } from './app-section.tsx';
 import { GesturesTab } from './gestures-tab.tsx';
@@ -255,8 +257,9 @@ function Appearance() {
 }
 
 function Data() {
-  const money = useMoney();
-  const { sample, clear, setCurrency } = useWrites();
+  const counts = useCounts();
+  const currency = useCurrency();
+  const { sample, clear, setCurrency } = useMutations();
   const { online, backend } = useGate();
   const [sure, setSure] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -272,7 +275,7 @@ function Data() {
   return (
     <Section title="Your money">
       <p className="text-sm text-muted-foreground">
-        {money.entries.length} entries in {money.accounts.length} accounts,
+        {counts.entries} entries in {counts.accounts} accounts,
         {backend === 'device'
           ? ' kept on this device only.'
           : ' kept on this device and in your account.'}
@@ -280,7 +283,7 @@ function Data() {
       <div className="divide-y">
         <Row label="Currency">
           <NativeSelect
-            value={money.currency}
+            value={currency}
             onChange={(event) => setCurrency(event.target.value)}
             aria-label="Currency"
           >
@@ -293,7 +296,7 @@ function Data() {
         </Row>
       </div>
       <div className="flex flex-wrap gap-2">
-        {money.accounts.length === 0 && (
+        {counts.accounts === 0 && (
           <Button
             variant="outline"
             disabled={!online || busy}
@@ -302,7 +305,7 @@ function Data() {
             Load sample money
           </Button>
         )}
-        {money.accounts.length > 0 && (
+        {counts.accounts > 0 && (
           <Button
             variant={sure ? 'destructive' : 'outline'}
             disabled={!online || busy}

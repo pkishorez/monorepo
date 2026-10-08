@@ -23,9 +23,27 @@
     },
     "session": {
       "paths": ["src/session"],
-      "description": "What one signed-in user gets: a collection for each kind of their money and the Backend's commands, on the signed APIs and the Std Sync the Platform hands it, and the hooks screens read it with",
+      "description": "What one signed-in user gets: a collection for each kind of their money and the Backend's commands, on the signed APIs and the Std Sync the Platform hands it",
       "modules": {
         "src/session": {
+          "exposed": true
+        }
+      }
+    },
+    "queries": {
+      "paths": ["src/queries"],
+      "description": "Queries: every way a screen reads money, each a live query that updates as the money does, so screens only show what they are given",
+      "modules": {
+        "src/queries": {
+          "exposed": true
+        }
+      }
+    },
+    "mutations": {
+      "paths": ["src/mutations"],
+      "description": "Mutations: every way a screen changes money, each shown at once and rolled back if the Backend refuses it",
+      "modules": {
+        "src/mutations": {
           "exposed": true
         }
       }
@@ -157,14 +175,16 @@
         "session": ["apis", "api", "model", "constants"],
         "backend-device": ["backend", "backend-services"],
         "cache": [],
-        "places": ["commands", "session", "model"],
+        "places": ["commands", "model"],
         "commands": [],
         "backend": ["backend-handlers"],
         "backend-handlers": ["backend-services", "api", "model"],
         "backend-services": ["model"],
         "api": ["model"],
         "model": [],
-        "constants": []
+        "constants": [],
+        "queries": ["session", "places", "model"],
+        "mutations": ["session", "model"]
       }
     }
   }

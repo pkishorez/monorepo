@@ -11,7 +11,14 @@ import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 import { BindingKeys } from '@kstackz/web-platform/recipes/key-bindings';
 import { keys, useCommand } from '@ledger/core/commands';
-import { useMoney, useWrites } from '@ledger/core/session';
+import { useMutations } from '@ledger/core/mutations';
+import {
+  useAccounts,
+  useCategories,
+  useCurrency,
+  useEntryAt,
+  useLookup,
+} from '@ledger/core/queries';
 import { centsOf, dayName, type Entry, today } from '@ledger/core/model';
 import {
   AccountIcon,
@@ -19,7 +26,7 @@ import {
   CategoryIcon,
   Choice,
 } from '../../parts/index.ts';
-import { type EntriesSearch, entryAt, narrowing } from '@ledger/core/places';
+import { type EntriesSearch, narrowing } from '@ledger/core/places';
 
 /**
  * One Entry, open: every part of it changes where it stands, and saves as
@@ -31,12 +38,10 @@ export function EntryPane(props: {
   readonly search: EntriesSearch;
   readonly wide: boolean;
 }) {
-  const money = useMoney();
   const navigate = useNavigate();
   const { surface, setSurface } = keys.useSurface();
-  const { removeEntry, restoreEntry } = useWrites();
-  const { entry, position, next, previous } = entryAt(
-    money.entries,
+  const { removeEntry, restoreEntry } = useMutations();
+  const { ready, entry, position, next, previous } = useEntryAt(
     props.search,
     props.id,
   );
@@ -83,7 +88,7 @@ export function EntryPane(props: {
   if (entry === undefined) {
     return (
       <div className="grid h-full place-items-center p-10 text-sm text-muted-foreground">
-        {money.ready ? 'This entry is gone.' : null}
+        {ready ? 'This entry is gone.' : null}
       </div>
     );
   }
@@ -113,16 +118,16 @@ function Editor(props: {
   readonly showBack: boolean;
 }) {
   const { entry } = props;
-  const money = useMoney();
-  const { updateEntry } = useWrites();
+  const { accounts } = useAccounts();
+  const { categories } = useCategories();
+  const lookup = useLookup();
+  const { updateEntry } = useMutations();
   const { actions } = keys.useStatus();
-  const currency = money.currency;
+  const currency = useCurrency();
   const [memo, setMemo] = useState(entry.memo);
   const [typed, setTyped] = useState((entry.cents / 100).toFixed(2));
   const memoField = useRef<HTMLTextAreaElement>(null);
-  const category = money.categories.find(
-    (each) => each.id === entry.categoryId,
-  );
+  const category = lookup.category.get(entry.categoryId);
   const save = (changes: Partial<Entry>) => updateEntry(entry.id, changes);
 
   // Another device changed it: show theirs unless this field is being typed in.
@@ -244,7 +249,7 @@ function Editor(props: {
           label="Category"
           value={entry.categoryId}
           onChange={(categoryId) => save({ categoryId })}
-          options={money.categories.map((each) => ({
+          options={categories.map((each) => ({
             value: each.id,
             label: each.name,
             icon: <CategoryIcon icon={each.icon} className="text-current" />,
@@ -256,7 +261,7 @@ function Editor(props: {
           label="Account"
           value={entry.accountId}
           onChange={(accountId) => save({ accountId })}
-          options={money.accounts.map((account) => ({
+          options={accounts.map((account) => ({
             value: account.id,
             label: account.name,
             icon: <AccountIcon kind={account.kind} />,
