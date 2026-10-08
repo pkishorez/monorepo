@@ -9,3 +9,5 @@ A live socket whose saved record is missing (or whose attachment cannot be read)
 `Rpc.websocket.checkpoint` no longer dies outside a WebSocket-server stream: on in-process or http Transports it remembers nothing, so the same streaming handler runs everywhere.
 
 `Rpc.websocket.client`'s `url` may be an Effect, run again before every connect, so a reconnect can carry what changed since, such as a fresh token.
+
+A socket is recognised by its WebSocket, not by the wrapper a host hands each callback, so a host that wraps it afresh each time (as a Durable Object class does) no longer has every message closed as resume lost.

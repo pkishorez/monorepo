@@ -140,6 +140,8 @@ const serve = Effect.fnUntraced(function* <
       : Option.some(stored as A);
   };
 
+  // A socket is its WebSocket: a host may hand each callback a fresh
+  // wrapper around the same one, so wrappers are never compared.
   const register = (
     socket: HibernatingSocket,
     clientId: number,
@@ -275,7 +277,10 @@ const serve = Effect.fnUntraced(function* <
           saved,
           ([socket, streams]) => {
             const clientId = clientIds.get(socket.ws);
-            if (clientId === undefined || sockets.get(clientId) !== socket)
+            if (
+              clientId === undefined ||
+              sockets.get(clientId)?.ws !== socket.ws
+            )
               return Effect.void;
             return Effect.forEach(
               streams,
@@ -332,7 +337,7 @@ const serve = Effect.fnUntraced(function* <
       Effect.promise(async () => {
         await restored;
         const clientId = clientIds.get(socket.ws);
-        if (clientId === undefined || sockets.get(clientId) !== socket) {
+        if (clientId === undefined || sockets.get(clientId)?.ws !== socket.ws) {
           await runtime.runPromise(resumeLost(socket));
           return;
         }
@@ -358,7 +363,7 @@ const serve = Effect.fnUntraced(function* <
       Effect.gen(function* () {
         yield* Effect.promise(() => restored);
         const clientId = clientIds.get(socket.ws);
-        if (clientId !== undefined && sockets.get(clientId) === socket) {
+        if (clientId !== undefined && sockets.get(clientId)?.ws === socket.ws) {
           unregister(clientId);
           yield* store.forget(socket, clientId);
           yield* Queue.offer(disconnects, clientId);
