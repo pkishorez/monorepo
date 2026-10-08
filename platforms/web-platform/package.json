@@ -175,6 +175,7 @@
     "zustand": "catalog:"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "catalog:",
     "@kstackz/auth-toolkit": "workspace:*",
     "@kstackz/platform-toolkit": "workspace:*",
     "@kstackz/rpc-toolkit": "workspace:*",

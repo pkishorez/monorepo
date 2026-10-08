@@ -1,6 +1,6 @@
 {
   "name": "@ledger/expo",
-  "description": "Ledger on iOS and Android: an Expo Router app on the Expo Platform that talks to @ledger/web's /rpc and never hosts a server.",
+  "description": "Ledger on iOS and Android: an Expo Router app on the Expo Platform that talks to @ledger/web's Ledger API and never hosts a server.",
   "private": true,
   "main": "index.ts",
   "scripts": {

@@ -1,5 +1,5 @@
 import { Effect, Fiber, Layer, Schema, Stream } from 'effect';
-import { Headers, HttpServerResponse } from 'effect/http';
+import { Headers, HttpServerRequest, HttpServerResponse } from 'effect/http';
 import { Rpc as EffectRpc, RpcClient, RpcGroup } from 'effect/rpc';
 import { expect, it, vi } from 'vitest';
 import { Rpc } from '../rpc/index.ts';
@@ -60,6 +60,7 @@ it('connects the socket client to the hibernating server and refreshes Middlewar
     readyState = 1;
     attachment: unknown = null;
     readonly port: Rpc.HibernatingSocket;
+    readonly accepted: Promise<unknown>;
     constructor() {
       super();
       sockets.push(this);
@@ -75,14 +76,27 @@ it('connects the socket client to the hibernating server and refreshes Middlewar
         },
         deserializeAttachment: <T>() => this.attachment as T | null,
       };
+      // The Durable Object's fetch: upgrade and write the socket's record.
+      this.accepted = Effect.runPromise(
+        server.accept.pipe(
+          Effect.provideService(
+            HttpServerRequest.HttpServerRequest,
+            HttpServerRequest.fromWeb(new Request('https://test/rpc')),
+          ),
+        ),
+      );
     }
     send(data: string | Uint8Array) {
-      void Effect.runPromise(
-        server.message(
-          this.port,
-          typeof data === 'string' ? data : new TextDecoder().decode(data),
-        ),
-      ).catch((error) => errors.push(error));
+      void this.accepted
+        .then(() =>
+          Effect.runPromise(
+            server.message(
+              this.port,
+              typeof data === 'string' ? data : new TextDecoder().decode(data),
+            ),
+          ),
+        )
+        .catch((error) => errors.push(error));
     }
     close(code = 1000) {
       if (this.readyState === 3) return;

@@ -5,7 +5,7 @@
   "layers": {
     "rpc": {
       "paths": ["src/rpc"],
-      "description": "Rpc: Middleware for Effect RPC and the three Transports (http, websocket, inProcess), each a client and server pair with the protocol fixed. Never imports Alchemy, and Cloudflare only as types.",
+      "description": "Rpc: Middleware for Effect RPC and the three Transports (http, websocket, inProcess), each a client and server pair with the protocol fixed. Never imports Alchemy, and Cloudflare only as types; the websocket server's SQLite Stream Store builds on std-toolkit.",
       "moduleGraphs": {
         "rpc": {
           "description": "rpc.ts gathers Middleware and the three Transports into the Rpc namespace; each Transport stands alone.",

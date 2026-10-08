@@ -15,10 +15,12 @@ import {
   type Backend,
   backendNamed,
   type Host,
+  keptBroadcasters,
   type Storage,
   type TableSource,
 } from '@kstackz/platform-toolkit';
 import { manageAccounts, oauth } from '@kstackz/auth-toolkit/client/expo';
+import { defaultBroadcaster } from '@kstackz/std-toolkit/core';
 import { SQLite, type SQLiteDriver } from '@kstackz/std-toolkit/db/sqlite';
 import { makeExpoSQLite } from '@kstackz/std-toolkit/db/sqlite/expo';
 import { Sync } from '@kstackz/std-toolkit/sync/sqlite';
@@ -92,6 +94,8 @@ const makeStorage = (): Storage => {
 
   return {
     table,
+    // One process writes to each database, so it is heard in memory.
+    broadcaster: keptBroadcasters(() => defaultBroadcaster),
     sync: {
       ...Sync.sqlite({ database: copies }),
       list: () => Sync.sqlite.list(copies),

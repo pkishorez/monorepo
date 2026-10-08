@@ -12,6 +12,7 @@ export { StdToolkitError } from './error.js';
 export {
   Broadcaster,
   defaultBroadcaster,
+  sharedBroadcaster,
   type ChangeNotice,
 } from './broadcaster/index.js';
 

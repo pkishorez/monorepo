@@ -62,9 +62,10 @@ type NotOpen<S> = Exclude<GateView<S>, { kind: 'open' }>;
 class Link extends Context.Service<
   Link,
   {
-    readonly protocols: Readonly<
-      Record<string, Layer.Layer<RpcClient.Protocol>>
-    >;
+    /** Each API's protocol for an Account whose token `token` gives. */
+    readonly protocols: (
+      token: Effect.Effect<string>,
+    ) => Readonly<Record<string, Layer.Layer<RpcClient.Protocol>>>;
     readonly store: SyncStore;
     readonly keep: (userIds: ReadonlyArray<string>) => Effect.Effect<void>;
   }
@@ -83,9 +84,12 @@ const makeCore = <A extends Apis, C>(
   const loadDevice = () =>
     (loaded ??= Promise.resolve(config.device!(host().storage)));
 
-  const cloudProtocols = () =>
+  const cloudProtocols = (token: Effect.Effect<string> | null = null) =>
     Object.fromEntries(
-      names.map((name) => [name, cloudProtocol(apis[name]!, host().cloud.url)]),
+      names.map((name) => [
+        name,
+        cloudProtocol(apis[name]!, host().cloud.url, token),
+      ]),
     );
   const deviceProtocols = async () => {
     const handlers = await loadDevice();
@@ -213,7 +217,7 @@ const authApp = <A extends Apis, S, C>(
       return Layer.mergeAll(
         cloudSignIn,
         Layer.sync(Link, () => ({
-          protocols: core.cloudProtocols(),
+          protocols: (token) => core.cloudProtocols(token),
           store: host().storage.sync,
           keep: (userIds) =>
             Effect.tryPromise(() =>
@@ -226,27 +230,29 @@ const authApp = <A extends Apis, S, C>(
       ) as Layer.Layer<SignIn | Link>;
     },
     ...(core.hasDevice && {
-      device: async (choose) =>
-        Layer.mergeAll(
+      device: async (choose) => {
+        const protocols = await core.deviceProtocols();
+        return Layer.mergeAll(
           signIn.named({
             choose,
             storage: host().storage.table(namedAccountsTable, 'device'),
           }),
           Layer.succeed(Link, {
-            protocols: await core.deviceProtocols(),
+            protocols: () => protocols,
             // The device Backend keeps everything already: a Session's Std
             // Sync lives in memory, and there is nothing to delete.
             store: Sync.memory(),
             keep: () => Effect.void,
           }),
-        ),
+        );
+      },
     }),
     session: (account, token, status) =>
       Effect.gen(function* () {
         const { protocols, store } = yield* Link;
         return yield* openSession({
           apis,
-          protocols: protocols as never,
+          protocols: protocols(token) as never,
           store,
           account,
           token,

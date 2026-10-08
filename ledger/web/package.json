@@ -1,6 +1,6 @@
 {
   "name": "@ledger/web",
-  "description": "Ledger on the web, published at kstack.kishore.app: the TanStack Start pages, the Worker serving the cloud Backend's /rpc, the infra and the PWA, deployed in one go.",
+  "description": "Ledger on the web, published at kstack.kishore.app: the TanStack Start pages, the Worker serving the cloud Backend's Ledger API, the infra and the PWA, deployed in one go.",
   "private": true,
   "type": "module",
   "sideEffects": false,

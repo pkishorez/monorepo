@@ -1,6 +1,6 @@
 # @ledger/expo
 
-Ledger on iOS and Android: an Expo Router app on the Expo Platform that talks to @ledger/web's /rpc and never hosts a server.
+Ledger on iOS and Android: an Expo Router app on the Expo Platform that talks to @ledger/web's Ledger API and never hosts a server.
 
 ## Big picture
 
@@ -8,7 +8,7 @@ The native shell of Ledger (glossary: [`../CONTEXT.md`](../CONTEXT.md)). Everyth
 
 The app is thin, laid out in [Laymos](laymos.config.json) layers: `entry` (`index.ts` readies Hermes, then one thin route per Place in `app/`), `screens` (`src/screens`: the shell, each Place, shared parts), `ledger` (`src/ledger`: Ledger from core, `LedgerMark` in `mark.tsx`, the remembered theme, the haptics of gestures) and `runtime`. Place screens live in `src/screens/places/<place>`; gestures mount in `src/screens/shell/gestures.tsx`.
 
-It runs on the device Backend: Splash, sign-in by name, every Place (Home, Entries and an Entry, Months and a Month, Settings with General and Gestures), the Add and Accounts sheets, rows swiped to delete, the Sidebar with the User Switcher and balances and its edge swipe, and the Thumb Lock with its Place Picker. Gestures answer with light haptics; the phone makes no sounds. What each Place shows is worked out in `@ledger/core/places`, shared with the web. On the cloud Backend each User signs in through the system sign-in sheet as Ledger's First-Party OAuth client (Ledger ADR 0009, auth-toolkit's `client/expo`, through `expoHost`), keeps their tokens in secure storage and their copy in SQLite, and syncs with `@ledger/web`'s `/rpc`; Switch User, Add User, Sign Out and Manage Google accounts work as on the web. Screens: [`docs/screens/`](docs/screens/).
+It runs on the device Backend: Splash, sign-in by name, every Place (Home, Entries and an Entry, Months and a Month, Settings with General and Gestures), the Add and Accounts sheets, rows swiped to delete, the Sidebar with the User Switcher and balances and its edge swipe, and the Thumb Lock with its Place Picker. Gestures answer with light haptics; the phone makes no sounds. What each Place shows is worked out in `@ledger/core/places`, shared with the web. On the cloud Backend each User signs in through the system sign-in sheet as Ledger's First-Party OAuth client (Ledger ADR 0009, auth-toolkit's `client/expo`, through `expoHost`), keeps their tokens in secure storage and their copy in SQLite, and syncs with `@ledger/web`'s Ledger API (a WebSocket at `/live` in the realtime Sync Mode, HTTP at `/rpc` in the polling one); Switch User, Add User, Sign Out and Manage Google accounts work as on the web. Screens: [`docs/screens/`](docs/screens/).
 
 ## Usage
 
@@ -35,7 +35,7 @@ xcrun simctl keychain booted add-root-cert ~/.portless/ca.pem
 EXPO_PUBLIC_LEDGER_URL=https://<branch>.kstack.kishore.computer pnpm --filter @ledger/expo ios
 ```
 
-- `EXPO_PUBLIC_LEDGER_URL` is Ledger web's origin, `EXPO_PUBLIC_AUTH_URL` the sign-in service, `EXPO_PUBLIC_LEDGER_RESOURCE` the audience `/rpc` checks (`https://kstack.kishore.computer/rpc` locally).
+- `EXPO_PUBLIC_LEDGER_URL` is Ledger web's origin, `EXPO_PUBLIC_AUTH_URL` the sign-in service, `EXPO_PUBLIC_LEDGER_RESOURCE` the audience Ledger web checks Access Tokens for (`https://kstack.kishore.computer/rpc` locally).
 - On the `local` stage the sign-in sheet's Login Screen offers "Test sign-in (local only)" (Ada, Grace `@ledger.test`) besides Google.
 
 ### Run it on the Android emulator

@@ -1,6 +1,6 @@
 # @ledger/web
 
-Ledger on the web, published at kstack.kishore.app: the TanStack Start pages, the Worker serving the cloud Backend's /rpc, the infra and the PWA, deployed in one go.
+Ledger on the web, published at kstack.kishore.app: the TanStack Start pages, the Worker serving the cloud Backend's Ledger API, the infra and the PWA, deployed in one go.
 
 ## Big picture
 
@@ -36,20 +36,27 @@ one thin route per Place, and `routes/__root.tsx` is
 Place, the sheets and the parts they share; `app.ts` makes Ledger once with
 the Web Platform's `createApp`, from core's `apis`, `device`, `ledgerSession`
 and `ledgerCache`; `mark.tsx` is `LedgerMark`, shown above the name before
-sign-in; `worker.ts` is the Worker, from the Web Platform's `createServer`;
-and `infra/` deploys it. `stage.ts` says where this stage's sign-in service
+sign-in; `worker.ts` is the Worker: the Web Platform's `createServer` as its
+default export, and `LedgerObject`, each User's Durable Object, made with its
+`liveObject`; and `infra/` deploys them, binding D1 as `DB` and the Durable
+Object as `LedgerObject`. `stage.ts` says where this stage's sign-in service
 is. The Shell is `SignedIn` around the keys and the Frame; until an Account
 is open, the Web Platform shows its own screens before sign-in. Layers and
 their rules are in `laymos.config.json`; the layout is the root
 [ADR 0004](../../docs/adr/0004-an-app-is-api-backend-and-stores.md).
 
 Ledger runs on one of two Backends, as Settings choose: the cloud Backend,
-where money is a std-toolkit `StdTable` in D1 served at `/rpc` and Users sign
-in with Google at `auth.kishore.app`, or the device Backend, where the same
-handlers answer in the page from IndexedDB and anyone signs in by name. Only
-the services differ: `worker.ts` gives core's Backend `tableCloud` (and
-`createServer` gives it `authz.cloud`), and the app runs it in the page on
-`tableDevice` and `authz.device`. The Platform Toolkit's Gate, under the Web
+where Users sign in with Google at `auth.kishore.app`, or the device Backend,
+where the same handlers answer in the page from IndexedDB and anyone signs in
+by name. On the cloud Backend core's Sync Mode decides where money is kept. In
+`realtime`, the default, each User's money is in their own Durable Object,
+reached over a WebSocket at `/live` that pushes every change to each of their
+devices. In `polling` it is a std-toolkit `StdTable` in the shared D1
+database, served over HTTP at `/rpc` and asked for every few seconds. Only the
+services differ: `worker.ts` gives core's Backend `tableDurableObject` or
+`tableCloud` (with `authz.cloud` checking every call), and the app runs it in
+the page on `tableDevice`, `broadcasterDevice` and `authz.device`. The
+Platform Toolkit's Gate, under the Web
 Platform's `createApp`, keeps the Backend and opens each User's Session as
 they become active, without a reload when the Backend changes. What only a
 browser has (IndexedDB, the sign-in service's cookies, window events,
@@ -66,12 +73,15 @@ core, web and Expo are in [`../docs/adr/`](../docs/adr/).
 
 ### Run locally
 
-`pnpm dev` starts Alchemy dev, with a local D1, through Portless at
+`pnpm dev` starts Alchemy dev, with a local D1 and Durable Objects, through Portless at
 `https://kstack.kishore.computer` (with the worktree prefix in a Git worktree;
 use the URL printed at startup). Sign in with Google through the local Auth
 Worker at `https://auth.kishore.computer`, which must be running too, or open
 the app with `?backend=device` to use the device Backend, which needs neither:
-that is how an agent or a browser test drives Ledger.
+that is how an agent or a browser test drives Ledger. The cloud Backend's
+`/live` checks the token in the socket's address with that same Auth Worker
+before opening, so without it every connect is refused (`503` when the
+sign-in service can't be asked, `401` with no token).
 
 ```bash
 pnpm --filter @ledger/web test    # the Worker's check of Access Tokens; core has its own

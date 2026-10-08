@@ -1569,6 +1569,9 @@ importers:
         specifier: 'catalog:'
         version: 5.0.15(@types/react@19.2.18)(immer@11.1.8)(react@19.2.3)(use-sync-external-store@1.6.0(react@19.2.3))
     devDependencies:
+      '@cloudflare/workers-types':
+        specifier: 'catalog:'
+        version: 5.20260904.1
       '@kstackz/auth-toolkit':
         specifier: workspace:*
         version: link:../../toolkits/auth-toolkit
@@ -1906,6 +1909,9 @@ importers:
       '@effect/platform-node':
         specifier: 'catalog:'
         version: 4.0.0(effect@4.0.0)(redis@6.2.1(@opentelemetry/api@1.9.1))
+      '@kstackz/std-toolkit':
+        specifier: workspace:*
+        version: link:../std-toolkit
       '@tsconfig/node22':
         specifier: 'catalog:'
         version: 22.0.6

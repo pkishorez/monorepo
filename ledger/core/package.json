@@ -7,6 +7,7 @@
   "exports": {
     "./api": "./src/api/index.ts",
     "./apis": "./src/apis.ts",
+    "./constants": "./src/constants.ts",
     "./model": "./src/model/index.ts",
     "./backend": "./src/backend/backend.ts",
     "./backend/device": "./src/backend/device/index.ts",

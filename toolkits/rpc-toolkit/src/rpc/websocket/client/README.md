@@ -91,6 +91,18 @@ module-level `ManagedRuntime` is safe to construct during SSR — nothing touche
 A relative URL with no `globalThis.location` (SSR, a Worker) throws a descriptive error
 rather than producing a broken URL. Pass an absolute URL there.
 
+### A URL that changes between connects
+
+Pass an Effect instead of a string and it runs again before every connect,
+so a reconnect carries what changed since, such as a fresh token (a browser
+cannot set headers on a WebSocket):
+
+```ts
+Rpc.websocket.client(ChatRpcs, {
+  url: Effect.map(currentToken, (token) => `/rpc/chat?access_token=${token}`),
+});
+```
+
 ---
 
 ## Connection status

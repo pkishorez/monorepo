@@ -6,7 +6,7 @@ The Web Platform: a web app from one config, as a PWA on TanStack Start with its
 
 Every kstack web app used to wire the same things by hand: the root document, the Theme, the PWA, sign-in and its screens, the browser as a Host, and the server for its APIs. This Package holds all of it, so a new app writes only its APIs, its Backend, its Session, its Cache and its screens ([ADR 0004](../../docs/adr/0004-an-app-is-api-backend-and-stores.md)). It replaces `@kstackz/web-toolkit`, `@kstackz/ui-toolkit` and `@kstackz/pwa-toolkit`.
 
-The root door is `createApp`. It hands one config to [`@kstackz/platform-toolkit`](../../toolkits/platform-toolkit)'s `createApp` with `webHost` (IndexedDB, the sign-in service's cookies, the window's network and tabs) and gives back the app with its root route, the Theme, `SignedIn` with the screens before an Account is open (the Gate Screens and Account Lost recipes), and the named sign-in dialog for the device Backend. Every app is a PWA: `createApp` always adds the PWA's Root Plugin. The `server` door's `createServer` serves each `http` API on its cloud Backend and checks every call with the sign-in service. Why the Platforms may break while the Toolkits keep what persists is [ADR 0006](../../docs/adr/0006-platforms-may-break-toolkits-keep-what-persists.md).
+The root door is `createApp`. It hands one config to [`@kstackz/platform-toolkit`](../../toolkits/platform-toolkit)'s `createApp` with `webHost` (IndexedDB with a Broadcaster per database every tab hears, the sign-in service's cookies, the window's network and tabs) and gives back the app with its root route, the Theme, `SignedIn` with the screens before an Account is open (the Gate Screens and Account Lost recipes), and the named sign-in dialog for the device Backend. Every app is a PWA: `createApp` always adds the PWA's Root Plugin. The `server` door's `createServer` serves each `http` API on its cloud Backend and each `websocket` API in the caller's own Live Object (a Durable Object made with `liveObject`, one per user), and checks every call with the sign-in service. Why the Platforms may break while the Toolkits keep what persists is [ADR 0006](../../docs/adr/0006-platforms-may-break-toolkits-keep-what-persists.md).
 
 Underneath, it is laid out like expo-platform, one layer per job and one subpath per layer, bottom to top: `theme`, `feedback`, `input`, `components`, `form`, `recipes`, `client`, then `pwa`; `server` stands beside them. A Recipe here and one in expo-platform with the same name are the same interaction on two platforms. These stay exported for screens and for the unusual app; [ADR 0003](../../docs/adr/0003-web-toolkit-and-the-gate.md) is the earlier design.
 
@@ -23,7 +23,7 @@ An app that renders on the server adds `@kstackz/web-platform` to `ssr.noExterna
 
 - `@kstackz/platform-toolkit`: `createApp` runs on its `createApp`, the Gate and the Session; the root door re-exports its `Api`, `defineSession` and `SessionClosed`.
 - `@kstackz/auth-toolkit`: `webHost` signs in with its `cookie`, and `createServer` checks calls with its `authz.cloud`.
-- `@kstackz/rpc-toolkit`: `createServer` answers each API with its `Rpc.http.server`.
+- `@kstackz/rpc-toolkit`: `createServer` answers each `http` API with its `Rpc.http.server`, and `liveObject` each `websocket` one with its `Rpc.websocket.server`.
 - `@kstackz/std-toolkit`: `webHost` keeps tables and Std Sync in its IndexedDB adapters.
 - `react`, `react-dom`: every component, Recipe and the root document render with React 19.
 - `@kstackz/use-gesture`: the platform-free gesture core that `./input`'s web gestures and the Thumb Picker run on.
@@ -411,14 +411,15 @@ Owned shadcn copies on Base UI, one subpath per file, such as `@kstackz/web-plat
 
 ### `@kstackz/web-platform/server`
 
-| Export              | What it does                                                                                                                                                                           |
-| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `createServer`      | A web app's server from its APIs and its cloud Backend: each `http` API at its path, each call checked with the sign-in service when the app has auth, everything else TanStack Start. |
-| `webServer`         | One fetch handler: `/rpc` goes to the app's API, everything else to TanStack Start; a Cloudflare Worker's default export as it is.                                                     |
-| `isDeployedStage`   | Whether an alchemy stage reaches the world: `prod` or a pull request's `prN`.                                                                                                          |
-| `assertStageIsSafe` | Refuses a deployed stage unless `ALLOW_DEPLOY=true`.                                                                                                                                   |
-| `domainFor`         | Where a stage is served: the domain for `prod`, `prN-<domain>` for a pull request, nowhere for anyone's own stage.                                                                     |
-| `devConfigFor`      | A local stage's dev server on the `PORT` portless gives it; throws when there is none.                                                                                                 |
+| Export              | What it does                                                                                                                                                                                                                                                                               |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `createServer`      | A web app's server from its APIs and its cloud Backend: each `http` API at its path, each `websocket` API's socket handed to the Live Object named for whoever its `access_token` names, each call checked with the sign-in service when the app has auth, everything else TanStack Start. |
+| `liveObject`        | A Durable Object class serving one `websocket` API, one object per user with its own storage, each call still checked; `streams` sets where open streams are kept while it sleeps.                                                                                                         |
+| `webServer`         | One fetch handler: `/rpc` goes to the app's API, everything else to TanStack Start; a Cloudflare Worker's default export as it is.                                                                                                                                                         |
+| `isDeployedStage`   | Whether an alchemy stage reaches the world: `prod` or a pull request's `prN`.                                                                                                                                                                                                              |
+| `assertStageIsSafe` | Refuses a deployed stage unless `ALLOW_DEPLOY=true`.                                                                                                                                                                                                                                       |
+| `domainFor`         | Where a stage is served: the domain for `prod`, `prN-<domain>` for a pull request, nowhere for anyone's own stage.                                                                                                                                                                         |
+| `devConfigFor`      | A local stage's dev server on the `PORT` portless gives it; throws when there is none.                                                                                                                                                                                                     |
 
 ## Usage
 
@@ -434,7 +435,7 @@ export const app = createApp({
   title: 'Ledger',
   description: 'Write down what you spend and earn, and see where it goes.',
   mark: createElement(LedgerMark),
-  apis, // { ledger: Api.http(LedgerApi, { path: '/rpc' }) }
+  apis, // { ledger: Api.websocket(LedgerApi, { path: '/live' }) }
   device, // every API's handlers on the device's Storage
   cache: ledgerCache,
   auth: {
@@ -457,6 +458,7 @@ export default createServer({
   backend: (env: WorkerEnv) => ({
     ledger: ledgerBackend.pipe(Layer.provide(tableCloud(env.DB))),
   }),
+  live: (env: WorkerEnv) => ({ ledger: env.LedgerObject }), // a liveObject
   auth: { url: AUTH_URL, resource: LEDGER_RESOURCE },
 }) satisfies ExportedHandler<WorkerEnv>;
 ```
@@ -465,6 +467,7 @@ export default createServer({
 - `SignedIn` renders its children while an Account is open, and otherwise the Gate Screens or Account Lost. Everything inside remounts on an Account Switch.
 - The Host is made the first time anything asks, so `app.ts` loads on the server too. The device Backend's code loads the first time someone chooses it; `?backend=device` in the address starts on it.
 - `createServer` serves each `http` API at its path and everything else from TanStack Start. Point `tanstackStart({ server: { entry } })` at this file.
+- A `websocket` API is served by `live` instead of `backend`: each `(env) => ({ [api]: namespace })` names a Durable Object binding, and a socket opens at `getByName(userId)` once its `access_token` checks out (401 without one, 503 when the sign-in service can't be asked). Ledger's `LedgerObject`, made with `liveObject`, is the example.
 - With `auth`, each call is checked by auth-toolkit's `authz.cloud` for a bearer token or the sign-in cookie, and refreshed cookies go back on the answer. `resource` lets a phone's Access Token in too.
 
 ### Building the PWA

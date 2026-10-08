@@ -54,12 +54,15 @@ export const keepSubscribed = <A, E, R>(
  *
  * The URL is relative (resolved against `location`, `http(s)` swapped for
  * `ws(s)`) or absolute, and is resolved lazily at layer build time, which
- * keeps a module-level `ManagedRuntime` safe to construct during SSR.
+ * keeps a module-level `ManagedRuntime` safe to construct during SSR. Given
+ * as an Effect, it is run before every connect instead.
  */
 export const client = <Rpcs extends Rpc.Any>(
   _group: RpcGroup.RpcGroup<Rpcs>,
   options: {
-    readonly url: string;
+    /** Where to connect. An Effect is run again before every connect, so a
+     * reconnect can carry what has changed since, such as a fresh token. */
+    readonly url: string | Effect.Effect<string>;
     /** Default `true` — ride out drops instead of failing the client. */
     readonly retryTransientErrors?: boolean | undefined;
   },
@@ -73,9 +76,11 @@ export const client = <Rpcs extends Rpc.Any>(
       }).pipe(
         Layer.provide(
           Layer.mergeAll(
-            Socket.layerWebSocket(resolveUrl(options.url)).pipe(
-              Layer.provide(Socket.layerWebSocketConstructorGlobal),
-            ),
+            Socket.layerWebSocket(
+              typeof options.url === 'string'
+                ? resolveUrl(options.url)
+                : Effect.map(options.url, resolveUrl),
+            ).pipe(Layer.provide(Socket.layerWebSocketConstructorGlobal)),
             RpcSerialization.layerJson,
           ),
         ),

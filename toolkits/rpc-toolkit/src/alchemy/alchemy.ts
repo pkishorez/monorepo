@@ -35,6 +35,14 @@ export interface DurableRpcWorkerOptions<
     | ((
         state: Cloudflare.DurableObjectState['Service'],
       ) => Rpc.ConnectionSlot<A>);
+  /**
+   * Where each socket's record and open streams are kept, e.g.
+   * `(state) => Rpc.websocket.streams.sqlite({ storage: state.raw.storage })`.
+   * @default the socket attachment (`Rpc.websocket.streams.attachment()`)
+   */
+  readonly streams?:
+    | Rpc.StreamStore
+    | ((state: Cloudflare.DurableObjectState['Service']) => Rpc.StreamStore);
   /** @default true — the worker's URL is how clients reach the RPC socket. */
   readonly workersDev?: boolean;
   readonly domain?: string;
@@ -104,6 +112,10 @@ export const DurableRpcWorker =
           typeof options.connection === 'function'
             ? options.connection(state)
             : options.connection;
+        const streams =
+          typeof options.streams === 'function'
+            ? options.streams(state)
+            : options.streams;
 
         return Effect.gen(function* () {
           const layer = yield* handlers;
@@ -111,6 +123,7 @@ export const DurableRpcWorker =
             state,
             upgrade: Cloudflare.upgrade,
             connection,
+            streams,
           });
 
           return {

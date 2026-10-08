@@ -1,4 +1,4 @@
-import { Layer } from 'effect';
+import { Effect, Layer } from 'effect';
 import type {
   Rpc as EffectRpc,
   RpcClient,
@@ -73,21 +73,30 @@ export const resolve = (path: string, base: string) =>
     ? path
     : `${base.replace(/\/$/, '')}/${path.replace(/^\//, '')}`;
 
+// `url` with the token `token` gives as its `access_token`.
+const signedUrl = (url: string, token: Effect.Effect<string>) =>
+  Effect.map(token, (current) => {
+    const signed = new URL(url);
+    signed.searchParams.set('access_token', current);
+    return signed.href;
+  });
+
 /** How a call reaches one API on the cloud Backend. A call carries its
  * Account's token and never a cookie, which names whoever is active in the
- * browser. */
+ * browser. A WebSocket also opens with the token `token` gives at each
+ * connect, in its address, as a browser sets no headers on one: that is how
+ * the cloud knows whose it is before any call. */
 export const cloudProtocol = (
   { group, transport, path }: Apis[string],
   base: string,
+  token: Effect.Effect<string> | null = null,
 ): Layer.Layer<RpcClient.Protocol> => {
   const url = resolve(path, base);
   return transport === 'http'
     ? Rpc.http.client(group, { url, credentials: 'omit' })
-    : (Rpc.websocket.client(group, { url }) as Layer.Layer<
-        RpcClient.Protocol,
-        never,
-        never
-      >);
+    : (Rpc.websocket.client(group, {
+        url: token === null ? url : signedUrl(url, token),
+      }) as Layer.Layer<RpcClient.Protocol, never, never>);
 };
 
 /** How a call reaches one API's handlers in this process. */

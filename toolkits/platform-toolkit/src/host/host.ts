@@ -1,5 +1,9 @@
-import { Effect, type Layer, Schema } from 'effect';
+import { Effect, Layer, Schema, Scope } from 'effect';
 import { type SignIn, signIn } from '@kstackz/auth-toolkit/client';
+import {
+  type Broadcaster,
+  defaultBroadcaster,
+} from '@kstackz/std-toolkit/core';
 import type { StdTableService, TableDefinition } from '@kstackz/std-toolkit/db';
 import { Memory } from '@kstackz/std-toolkit/db/memory';
 import { Sync, type SyncStore } from '@kstackz/std-toolkit/sync';
@@ -44,6 +48,10 @@ export interface Storage {
     table: TableSource<Name>,
     database: string,
   ) => Layer.Layer<StdTableService<Name>>;
+  /** What hears every write to one of this device's databases, by name:
+   * everyone writing to it here, such as every tab on one IndexedDB
+   * database, so a handler's change reaches every subscription. */
+  readonly broadcaster: (database: string) => Layer.Layer<Broadcaster>;
   /** The Sync adapter here, where what a Std Sync keeps outlives the app so
    * it opens offline, and every Std Sync kept on this device, by name. */
   readonly sync: SyncStore & {
@@ -51,6 +59,29 @@ export interface Storage {
     readonly remove: (name: string) => Promise<void>;
   };
 }
+
+/**
+ * One Broadcaster per database for as long as the app runs, made by `make`
+ * the first time a database is asked for and then given as it is, so every
+ * runtime that writes to the database shares it.
+ */
+export const keptBroadcasters = (
+  make: (database: string) => Layer.Layer<Broadcaster>,
+): Storage['broadcaster'] => {
+  const kept = new Map<string, Layer.Layer<Broadcaster>>();
+  return (database) => {
+    let layer = kept.get(database);
+    if (layer === undefined) {
+      layer = Layer.succeedContext(
+        Effect.runSync(
+          Layer.buildWithScope(make(database), Scope.makeUnsafe()),
+        ),
+      );
+      kept.set(database, layer);
+    }
+    return layer;
+  };
+};
 
 /**
  * Everything the Platform Toolkit needs of where an app runs, as a Platform
@@ -116,6 +147,7 @@ export const memoryHost = (
   return {
     storage: {
       table,
+      broadcaster: keptBroadcasters(() => defaultBroadcaster),
       // Nothing outlives the process, so there is nothing to list.
       sync: { ...Sync.memory(), list: async () => [], remove: async () => {} },
     },

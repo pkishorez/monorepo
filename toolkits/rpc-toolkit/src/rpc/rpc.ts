@@ -34,4 +34,8 @@ export type {
   ConnectionSlot,
   ConnectionStatus,
   HibernatingSocket,
+  SavedSocket,
+  SavedStream,
+  StreamRequest,
+  StreamStore,
 } from './websocket/index.ts';
