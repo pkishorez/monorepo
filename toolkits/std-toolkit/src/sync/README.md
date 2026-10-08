@@ -23,7 +23,7 @@ See the [top README](../../README.md). This subpath needs the optional peers `@t
 | `createStdSync`     | Creates a named Std Sync exposing `name`, `collection`, and `dispose`; `drain` bounds how long `dispose` waits for writes in flight. |
 | `inOrder`           | Runs each key's writes to the Backend one after another, in the order they were made; different keys' writes run side by side.       |
 | `strategy.oldToNew` | Strategy that reads from the oldest change forward, by pulling, by subscription, or both.                                            |
-| `strategy.newToOld` | Strategy that reads the newest page first, fills in older pages, and keeps the top fresh.                                            |
+| `strategy.newToOld` | Strategy that reads the newest page first on every open, fills the hole a reload left and then older pages, and keeps the top fresh. |
 | `strategy.make`     | Builds a custom strategy from a state schema, an initial state, and a `run` Stream.                                                  |
 | `Sync.memory`       | The default Sync adapter: ephemeral storage, no Leadership, no Doorbell.                                                             |
 | `syncStore`         | The StdTable definition a Sync Store keeps its data in, for building a custom Sync adapter.                                          |

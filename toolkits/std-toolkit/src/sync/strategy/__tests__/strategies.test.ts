@@ -148,4 +148,45 @@ describe('newToOld', () => {
       ['t1', 't7'],
     ]);
   });
+  it('shows the newest page first after a reload, then closes the hole below it', async () => {
+    const server = backend(rows());
+    const saved = {
+      slices: [{ low: todo('t1', 1), high: todo('t2', 2) }],
+      reachedOldest: true,
+    };
+    server.add(todo('t6', 6), todo('t7', 7));
+    const yields = await run(
+      strategy.newToOld({ fetch: server.fetch, fetchOlder: server.fetchOlder }),
+      { state: saved },
+    );
+    // Today's records before the stretch missed while away.
+    expect(ids(yields[0]!.entities)).toEqual(['t7', 't6']);
+    expect(
+      yields[0]!.state.slices.map((s) => [s.low.value.id, s.high.value.id]),
+    ).toEqual([
+      ['t1', 't2'],
+      ['t6', 't7'],
+    ]);
+    expect(yields.flatMap((y) => ids(y.entities))).toEqual(
+      expect.arrayContaining(['t3', 't4', 't5']),
+    );
+    expect(
+      yields.at(-1)!.state.slices.map((s) => [s.low.value.id, s.high.value.id]),
+    ).toEqual([['t1', 't7']]);
+  });
+
+  it('reads nothing more on a reload when nothing changed', async () => {
+    const server = backend(rows());
+    const saved = {
+      slices: [{ low: todo('t1', 1), high: todo('t5', 5) }],
+      reachedOldest: true,
+    };
+    const yields = await run(
+      strategy.newToOld({ fetch: server.fetch, fetchOlder: server.fetchOlder }),
+      { state: saved },
+    );
+    expect(
+      yields.at(-1)!.state.slices.map((s) => [s.low.value.id, s.high.value.id]),
+    ).toEqual([['t1', 't5']]);
+  });
 });

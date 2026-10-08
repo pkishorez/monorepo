@@ -27,10 +27,11 @@ export type NewToOldOptions<TItem, R> = ForwardOptions<TItem, R> & {
 type State<TItem> = NewToOldState<TItem>;
 
 /**
- * Shows the newest Entities first, then fills in older ones in the background
- * while reading forward keeps the top fresh. After a reload it also fills the
- * gap between the last saved top and now. Its state is the stretches read so
- * far; they merge into one as the gaps close.
+ * Shows the newest Entities first on every open, then fills in older ones in
+ * the background while reading forward keeps the top fresh. After a reload
+ * the newest page is a stretch of its own above the saved ones, and the
+ * backward walk fills the hole between them before going further down. Its
+ * state is the stretches read so far; they merge into one as the gaps close.
  */
 export const newToOld = <TItem, R = never>(
   options: NewToOldOptions<TItem, R>,
@@ -61,17 +62,22 @@ export const newToOld = <TItem, R = never>(
             });
           const top = (current: State<TItem>) => current.slices.at(-1);
 
-          if (state.slices.length === 0 && !state.reachedOldest) {
+          // The newest page first, on every open: a first open shows it at
+          // once, and a reload shows what changed while away before the
+          // stretch it missed. Above the saved top it is a slice of its own;
+          // the backward walk closes the hole between them.
+          if (!(state.slices.length === 0 && state.reachedOldest)) {
             const page = yield* options.fetchOlder({ before: null });
-            yield* page.length === 0
-              ? commit([], (s) => ({ ...s, reachedOldest: true }))
-              : commit(page, (s) => ({
-                  ...s,
-                  slices: cover(s.slices, {
-                    low: oldestOf(page),
-                    high: newestOf(page),
-                  }),
-                }));
+            if (page.length > 0)
+              yield* commit(page, (s) => ({
+                ...s,
+                slices: cover(s.slices, {
+                  low: oldestOf(page),
+                  high: newestOf(page),
+                }),
+              }));
+            else if (state.slices.length === 0)
+              yield* commit([], (s) => ({ ...s, reachedOldest: true }));
           }
 
           // Walks down from the top slice until it meets the one below,
