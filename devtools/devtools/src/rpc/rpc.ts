@@ -12,7 +12,11 @@ import {
   ModuleSourceFileSchema,
   ModuleSourceSnapshotSchema,
 } from 'laymos/architecture-analysis-schema';
-import { StoryReportSchema, StoryTreeSchema } from 'laymos/story/schema';
+import {
+  ProofReportSchema,
+  ProofRunEventSchema,
+  StoryTreeSchema,
+} from 'laymos/story/schema';
 import { ProjectRegistryRpc } from './project-registry.js';
 
 export class InvalidProjectPath extends Schema.TaggedError<InvalidProjectPath>(
@@ -81,10 +85,7 @@ export class StoriesUnavailableError extends Schema.TaggedError<StoriesUnavailab
   reason: Schema.Literals([
     'no-stories-path',
     'load',
-    'invalid-root',
-    'duplicate-title',
-    'duplicate-question',
-    'snippet-extraction',
+    'invalid-proof',
     'unknown-scope',
     'invalid-timeout',
   ]),
@@ -170,12 +171,17 @@ export const DevtoolsToolRpc = RpcGroup.make(
     success: StoryTreeSchema,
     error: LaymosStoriesError,
   }),
+  Rpc.make('GetLaymosStoryReports', {
+    payload: { projectPath: Schema.String },
+    success: Schema.Array(ProofReportSchema),
+    error: LaymosStoriesError,
+  }),
   Rpc.make('RunLaymosStories', {
     payload: {
       projectPath: Schema.String,
       scope: Schema.optional(Schema.String),
     },
-    success: StoryReportSchema,
+    success: ProofRunEventSchema,
     error: LaymosStoriesError,
     stream: true,
   }),

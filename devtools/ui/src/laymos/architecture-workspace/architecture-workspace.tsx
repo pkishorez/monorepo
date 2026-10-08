@@ -1,11 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import type {
-  ArchitectureAnalysis,
-  Branch,
-  ChangeSet,
-  StoryTree,
-} from 'laymos';
+import type { ArchitectureAnalysis, Branch, ChangeSet } from 'laymos';
 
 import {
   ChevronDown,
@@ -96,7 +91,7 @@ import {
   type GitOptions,
 } from '@kstackz/web-platform/components/viewers/git-changes';
 import type { ChangeIndex } from '../project-changes';
-import { StoriesDocsSite, type StoryReports } from '../story-inspection';
+import { StoriesCanvas, type StoriesCanvasProps } from '../stories-canvas';
 
 const allGraphsId = 'all';
 const layersModulesTabId = 'layers-modules';
@@ -127,12 +122,7 @@ interface LayersModulesProps {
   readonly className?: string;
 }
 
-interface StoriesTabProps {
-  readonly tree: StoryTree;
-  readonly reports?: StoryReports;
-  readonly running?: boolean;
-  readonly onRun?: (scope?: string) => void;
-}
+type StoriesTabProps = Omit<StoriesCanvasProps, 'className'>;
 
 export function LaymosExperience({
   analysis,
@@ -255,11 +245,7 @@ export function LaymosShell({
           value={storiesTabId}
           className="flex min-h-0 flex-1 flex-col"
         >
-          <StoriesDocsSite
-            {...stories}
-            changedPaths={changes?.files}
-            className="min-h-0 flex-1"
-          />
+          <StoriesCanvas {...stories} className="min-h-0 flex-1" />
         </TabsContent>
       )}
     </Tabs>

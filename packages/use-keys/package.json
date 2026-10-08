@@ -40,6 +40,7 @@
     "build": "rm -rf ./dist && tsc -p tsconfig.build.json",
     "fmt": "vp fmt",
     "lint": "vp check && tsc --noEmit && laymos lint",
+    "stories": "laymos stories",
     "test": "vitest run"
   },
   "peerDependencies": {
@@ -49,6 +50,7 @@
   "devDependencies": {
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
+    "effect": "catalog:",
     "laymos": "workspace:*",
     "react": "catalog:",
     "react-dom": "catalog:",

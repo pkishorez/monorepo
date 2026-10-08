@@ -1,1 +1,0 @@
-The `assignee` field, which could be `null`, is being replaced by `owner`, which always holds a name. The step between the two versions will run on every old row: the ones with a name, the ones with `null`, and the ones somebody saved with a blank string. This story shows a step that gives all three of them somewhere to go.

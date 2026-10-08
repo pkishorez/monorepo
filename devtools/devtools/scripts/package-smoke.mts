@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { request } from 'node:http';
 import { createServer } from 'node:net';
 import path from 'node:path';
@@ -37,6 +37,8 @@ try {
       '/monoverse': 'Monoverse Tool.',
       '/laymos': 'Laymos Tool.',
       '/rpc': 'Typed RPC endpoint.',
+      '/story-evidence':
+        'One Evidence file of a Proof run: ?project=<abs path>&proof=<Proof id>&file=<relative file>.',
       '/v1/traces': 'OTLP/HTTP Trace ingestion.',
       '/v1/logs': 'OTLP/HTTP Log Record ingestion.',
     },
@@ -70,6 +72,13 @@ try {
   }
 
   assert.equal((await fetch(`${origin}/rpc/not-found`)).status, 404);
+  const evidence = path.join(testRoot, '.laymos', 'stories', 'a');
+  await mkdir(evidence, { recursive: true });
+  await writeFile(path.join(evidence, 'report.json'), '{}');
+  const evidenceUrl = (file: string) =>
+    `${origin}/story-evidence?project=${encodeURIComponent(testRoot)}&proof=a&file=${encodeURIComponent(file)}`;
+  assert.equal((await fetch(evidenceUrl('report.json'))).status, 200);
+  assert.equal((await fetch(evidenceUrl('../../../../x'))).status, 404);
   assert.equal(
     (
       await fetch(`${origin}/health`, {

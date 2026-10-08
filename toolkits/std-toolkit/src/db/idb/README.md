@@ -24,7 +24,7 @@ See the [top README](../../../README.md).
 
 ### Run a program on IndexedDB
 
-Lifted from story 24.
+The program is the same one any adapter runs; only the layer changes.
 
 ```ts
 import { Effect } from 'effect';

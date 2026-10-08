@@ -30,7 +30,7 @@ See the [top README](../../README.md).
 
 ### Deterministic ids in tests
 
-Adapters stamp `_u` with `nextUlid`. Providing a different generator through `Ulid` makes every write predictable. Lifted from `stories/env.ts`.
+Adapters stamp `_u` with `nextUlid`. Providing a different generator through `Ulid` makes every write predictable.
 
 ```ts
 import { Effect } from 'effect';

@@ -67,6 +67,7 @@ export default defineConfig({
     proxy: {
       '/health': backendProxy(),
       '/rpc': backendProxy(),
+      '/story-evidence': backendProxy(),
       '/v1': backendProxy(),
     },
   },

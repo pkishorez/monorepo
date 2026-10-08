@@ -44,6 +44,6 @@
     "skipLibCheck": true,
     "allowImportingTsExtensions": true
   },
-  "include": ["src/**/*", "stories/**/*"],
+  "include": ["src/**/*"],
   "exclude": ["node_modules"]
 }

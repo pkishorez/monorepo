@@ -1,6 +1,7 @@
 {
   "$schema": "../../devtools/laymos/schema.json",
   "sourceRoots": ["src"],
+  "storiesPath": "stories",
   "layers": {
     "core": {
       "paths": ["src/core"],

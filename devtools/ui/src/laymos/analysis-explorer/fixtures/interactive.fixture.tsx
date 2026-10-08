@@ -13,10 +13,11 @@ import {
 } from '../../module-inspection/fixtures/complex-fixture-data';
 import { loadFixtureSourceFiles } from '../../module-inspection/fixtures/fixture-data';
 import {
-  storyReports,
+  fixtureEvidenceUrl,
+  proofReports,
   storyTree,
-} from '../../story-inspection/fixtures/fixture-data';
-import { useSimulatedRun } from '../../story-inspection/fixtures/simulated-run';
+} from '../../stories-canvas/fixtures/fixture-data';
+import { useSimulatedRun } from '../../stories-canvas/fixtures/simulated-run';
 import { LaymosShell } from '../../architecture-workspace';
 import {
   defaultGitOptions,
@@ -33,7 +34,7 @@ const changedModules = withChangeStatus(complexModules);
 const changedLayers = withLayerChangeStatus(complexLayers, changedModules);
 
 function Interactive() {
-  const run = useSimulatedRun(storyTree, storyReports);
+  const run = useSimulatedRun(storyTree, proofReports, proofReports);
   const [gitOptions, setGitOptions] = useState<GitOptions>(defaultGitOptions);
   return (
     <LaymosShell
@@ -56,6 +57,7 @@ function Interactive() {
         reports: run.reports,
         running: run.running,
         onRun: run.onRun,
+        evidenceUrl: fixtureEvidenceUrl,
       }}
     />
   );

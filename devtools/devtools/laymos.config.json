@@ -129,6 +129,7 @@
         "src/server/get-laymos-module-source",
         "src/server/get-laymos-source-files",
         "src/server/get-laymos-stories",
+        "src/server/get-laymos-story-reports",
         "src/server/get-package-files",
         "src/server/get-package-readme",
         "src/server/run-laymos-stories",
@@ -160,6 +161,9 @@
           "shared": true
         },
         "src/server/get-laymos-stories": {
+          "shared": true
+        },
+        "src/server/get-laymos-story-reports": {
           "shared": true
         },
         "src/server/get-package-files": {

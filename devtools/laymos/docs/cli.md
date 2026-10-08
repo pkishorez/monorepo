@@ -11,7 +11,7 @@ laymos [--config <path>] inspect project [--json]
 laymos [--config <path>] inspect layer <layer-name> [--json]
 laymos [--config <path>] inspect file <file-path> [--recursive] [--json]
 laymos [--config <path>] inspect module <module-path> [--json]
-laymos [--config <path>] stories [--concurrency <n>]
+laymos [--config <path>] stories [scope] [--concurrency <n>]
 laymos skills [<name>] [--install <dir>] [--format json|text]
 ```
 
@@ -19,8 +19,8 @@ laymos skills [<name>] [--install <dir>] [--format json|text]
 
 | Code | Meaning                                                                        |
 | ---- | ------------------------------------------------------------------------------ |
-| `0`  | No violations, or every Story passed.                                          |
-| `1`  | Violations found, a Story did not pass, or the inspected Module is in a cycle. |
+| `0`  | No violations, or every Proof passed.                                          |
+| `1`  | Violations found, a Proof did not pass, or the inspected Module is in a cycle. |
 | `2`  | Invalid configuration or an analysis failure.                                  |
 
 ## lint
@@ -28,8 +28,12 @@ laymos skills [<name>] [--install <dir>] [--format json|text]
 `lint` runs every check. `lint layers` checks Layer coverage (every file has a
 Layer), that each Layer has at least one Module, and cross-Layer dependency
 rules. `lint modules` checks Module coverage, entry points, dependencies,
-public boundaries, unused Shared Modules, and cycles. `lint` also reports Story
-Groups without a Story page when `storiesPath` is set.
+public boundaries, unused Shared Modules, and cycles. When `storiesPath` is
+set, `lint` also reports every Telling issue (a Story folder without a
+`story.md`, a Telling without a `#` title or a pitch, a link to a Story or
+Proof that does not exist, a sub-Story its parent never links) and every
+Proof that is not Self-contained: a Proof file with a relative import (`./`,
+`../`). Each is a violation. Proof files are not imported to find them.
 
 ## inspect
 
@@ -50,10 +54,22 @@ Add `--json` to any `inspect` command for stable tool output.
 
 ## stories
 
-`stories` loads the Story tree from `storiesPath`, runs every Story with the
-given concurrency (default 16), prints each verdict, and exits `1` if any Story
-did not pass. Each Story gets `storyTimeout` from the config unless it sets its
-own.
+`stories` loads the Story tree from `storiesPath` and runs the Proofs in
+`scope`: a Story id such as `my-app/sync` runs that Story's Proofs and
+everything beneath it, a Proof id such as `my-app/sync/two-tabs` runs one
+Proof, and no scope runs everything. The top Story's id is the Project's
+folder name. Process Proofs run `--concurrency` at a time (default 16, alias
+`-c`); browser Proofs share one Chromium and run two at a time.
+
+It prints the Story tree by title, each Story with its Telling issues (`⚠`)
+and one line per Proof: `✓` passed, `✗` failed, `!` errored, `○` unprepared,
+with Critical Proofs marked and, when they did not pass, listed first. False
+assertions and errors are shown under their Proof, then a summary with the
+Telling issue count. It exits `1` if any Proof did not pass.
+
+A process Proof gets `storyTimeout` from the config (default 10 seconds) and a
+browser Proof 90 seconds, unless the Proof sets its own. Each run replaces
+`.laymos/stories/<proof id>/` with the new Evidence.
 
 ## skills
 

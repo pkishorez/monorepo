@@ -1,0 +1,16 @@
+{
+  "sourceRoots": ["src"],
+  "storiesPath": "stories",
+  "storyTimeout": "2 seconds",
+  "layers": {
+    "app": {
+      "paths": ["src"],
+      "modules": {
+        "src/app.ts": {
+          "exposed": true
+        }
+      }
+    }
+  },
+  "layerGraphs": {}
+}

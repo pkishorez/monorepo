@@ -181,12 +181,12 @@ const IgnoredPathsSchema = Schema.Array(Schema.String).annotate({
 
 const storiesPathField = Schema.optional(Schema.String).annotate({
   description:
-    'Canonical project-relative folder holding every Story file and the index.ts entry point exposing the Story Collection. Implicitly an Ignored path.',
+    'Canonical project-relative folder holding the Story tree: it and every folder beneath it is a Story, told by its story.md, with its Proofs (*.proof.ts or *.proof.tsx) directly inside. Implicitly an Ignored path.',
 });
 
 const storyTimeoutField = Schema.optional(Schema.String).annotate({
   description:
-    'How long one Story may run before it is failed as timed out, as an Effect Duration string (e.g. "10 seconds"). Defaults to 10 seconds; a Story may override it with its own timeout.',
+    'How long one process Proof may run before it errors as timed out, as an Effect Duration string (e.g. "10 seconds"). Defaults to 10 seconds. Browser Proofs default to 90 seconds; a Proof may override either with its own timeout.',
 });
 
 const layersDescription =

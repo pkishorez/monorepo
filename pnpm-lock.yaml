@@ -860,9 +860,6 @@ importers:
       '@kstackz/effect-tracer':
         specifier: workspace:*
         version: link:../effect-tracer
-      '@kstackz/flow':
-        specifier: workspace:*
-        version: link:../flow
       oxc-parser:
         specifier: 'catalog:'
         version: 0.148.0
@@ -872,6 +869,9 @@ importers:
       tsx:
         specifier: 'catalog:'
         version: 4.23.13
+      vite:
+        specifier: npm:@voidzero-dev/vite-plus-core@1.0.0
+        version: '@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.4.1)(@typescript/typescript6@6.0.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.0)'
       yoctocolors:
         specifier: 'catalog:'
         version: 2.2.0
@@ -885,12 +885,12 @@ importers:
       effect:
         specifier: 'catalog:'
         version: 4.0.0
+      playwright-core:
+        specifier: 'catalog:'
+        version: 1.63.0
       typescript:
         specifier: catalog:typescript6
         version: '@typescript/typescript6@6.0.2'
-      vite:
-        specifier: npm:@voidzero-dev/vite-plus-core@1.0.0
-        version: '@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.4.1)(@typescript/typescript6@6.0.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.0)'
       vitest:
         specifier: 5.0.1
         version: 5.0.1(@opentelemetry/api@1.9.1)(@types/node@26.4.1)(@vitest/browser-preview@5.0.1)(@vitest/ui@5.0.1)(@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.4.1)(@typescript/typescript6@6.0.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.0))(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.14.6(@types/node@26.4.1)(@typescript/typescript6@6.0.2))
@@ -934,6 +934,12 @@ importers:
       '@kstackz/std-toolkit':
         specifier: workspace:*
         version: link:../../toolkits/std-toolkit
+      '@kstackz/use-gesture':
+        specifier: workspace:*
+        version: link:../../packages/use-gesture
+      '@kstackz/use-keys':
+        specifier: workspace:*
+        version: link:../../packages/use-keys
       '@kstackz/web-platform':
         specifier: workspace:*
         version: link:../../platforms/web-platform
@@ -949,15 +955,24 @@ importers:
       lucide-react:
         specifier: 'catalog:'
         version: 1.41.0(react@19.2.3)
+      motion:
+        specifier: 'catalog:'
+        version: 13.2.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       react:
         specifier: 'catalog:'
         version: 19.2.3
       react-dom:
         specifier: 'catalog:'
         version: 19.2.3(react@19.2.3)
+      react-markdown:
+        specifier: 'catalog:'
+        version: 10.1.0(@types/react@19.2.18)(react@19.2.3)(supports-color@10.2.2)
       react-resizable-panels:
         specifier: 'catalog:'
         version: 4.12.3(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      remark-gfm:
+        specifier: 'catalog:'
+        version: 4.0.1(supports-color@10.2.2)
       use-effect-ts:
         specifier: workspace:*
         version: link:../../packages/use-effect-ts
@@ -1315,6 +1330,9 @@ importers:
       '@types/react-dom':
         specifier: 'catalog:'
         version: 19.2.7(@types/react@19.2.18)
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.0
       laymos:
         specifier: workspace:*
         version: link:../../devtools/laymos
@@ -1345,6 +1363,9 @@ importers:
       '@types/react-dom':
         specifier: 'catalog:'
         version: 19.2.7(@types/react@19.2.18)
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.0
       laymos:
         specifier: workspace:*
         version: link:../../devtools/laymos
@@ -1991,6 +2012,9 @@ importers:
       '@types/react':
         specifier: 'catalog:'
         version: 19.2.18
+      '@types/react-dom':
+        specifier: 'catalog:'
+        version: 19.2.7(@types/react@19.2.18)
       alchemy:
         specifier: 'catalog:'
         version: 2.0.0-beta.80(@effect/platform-node@4.0.0(effect@4.0.0)(redis@6.2.1(@opentelemetry/api@1.9.1)))(@effect/vitest@4.0.0(effect@4.0.0)(vitest@5.0.1))(@types/node@26.4.1)(@types/react@19.2.18)(@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.4.1)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(typescript@7.0.2)(yaml@2.9.0))(effect@4.0.0)(hono@4.12.18)(mongodb@6.21.0(socks@2.8.9))(pg@8.23.0)(react-devtools-core@6.1.5)(typescript@7.0.2)(ws@8.22.0)
@@ -2012,6 +2036,9 @@ importers:
       react:
         specifier: 'catalog:'
         version: 19.2.3
+      react-dom:
+        specifier: 'catalog:'
+        version: 19.2.3(react@19.2.3)
       typescript:
         specifier: 'catalog:'
         version: 7.0.2

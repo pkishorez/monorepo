@@ -1,7 +1,6 @@
 {
   "$schema": "../../devtools/laymos/schema.json",
   "sourceRoots": ["src"],
-  "storiesPath": "stories",
   "ignoredPaths": [
     "src/worker/database/sqlite/migration/migrations",
     "src/worker/app/routeTree.gen.ts",

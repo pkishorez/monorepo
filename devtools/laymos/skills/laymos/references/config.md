@@ -56,8 +56,10 @@ The `$schema` key gives editors autocomplete and validation. Trust it over prose
 
 - `sourceRoots` — the files and folders Laymos analyzes.
 - `ignoredPaths` — files and folders removed from analysis.
-- `storiesPath` — an optional folder containing the executable Story tree; it
-  is implicitly ignored by architecture analysis.
+- `storiesPath` — an optional folder holding the Story tree: it and every
+  folder beneath it is a Story told by its `story.md`, with Self-contained
+  Proofs (`*.proof.ts(x)`) directly inside; it is implicitly ignored by
+  architecture analysis.
 - `layers` — each id maps to literal project-relative `paths`, plus an optional
   `description`, and owns the modules declared within it. Layers partition every
   supported file under `sourceRoots` and may not overlap.

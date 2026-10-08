@@ -35,7 +35,7 @@ Every built schema exposes `name`, `latestVersion`, `schema`, `getDescriptor`, t
 
 ### Add a field to rows that already exist
 
-Adding `priority` is one `evolve` step. The migration fills it in for every stored `v1` row on read. Lifted from story 17.
+Adding `priority` is one `evolve` step. The migration fills it in for every stored `v1` row on read. Lifted from [old-value-gets-the-new-field.story.ts](../../stories/evolving-schema/old-value-gets-the-new-field.story.ts).
 
 ```ts
 import { Effect, Schema } from 'effect';
@@ -80,7 +80,7 @@ const written = await Effect.runPromise(Schema.encodeEffect(stored)(task));
 
 ### Try a new field before committing to a version
 
-There is no trial mechanism: append the next `evolve` step and edit it freely until it is approved by a snapshot. Develop against the Memory adapter, on the server and in the browser alike, so a dropped step leaves no rows behind; a durable database keeps rows stamped with the trial version, and code that no longer has that version cannot read them. Lifted from story 19.
+There is no trial mechanism: append the next `evolve` step and edit it freely until it is approved by a snapshot. Develop against the Memory adapter, on the server and in the browser alike, so a dropped step leaves no rows behind; a durable database keeps rows stamped with the trial version, and code that no longer has that version cannot read them. The risk is shown in [dropping-a-draft-version-strands-its-rows.story.ts](../../stories/evolving-schema/dropping-a-draft-version-strands-its-rows.story.ts).
 
 ```ts
 const TaskTryingDueDate = EntityESchema.make('Task', 'taskId', {
@@ -99,7 +99,7 @@ const TaskTryingDueDate = EntityESchema.make('Task', 'taskId', {
 
 ### Version a value that is not an object
 
-A theme was free text and becomes one of two words. There is no object to hold `_v`, so `ValueESchema` stores the value in an envelope. Lifted from story 20.
+A theme was free text and becomes one of two words. There is no object to hold `_v`, so `ValueESchema` stores the value in an envelope. Lifted from [a-value-schema-migrates-inside-its-envelope.story.ts](../../stories/evolving-schema/a-value-schema-migrates-inside-its-envelope.story.ts).
 
 ```ts
 import { Effect, Schema } from 'effect';

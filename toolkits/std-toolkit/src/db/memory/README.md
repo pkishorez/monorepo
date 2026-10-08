@@ -22,7 +22,7 @@ See the [top README](../../../README.md).
 
 ### Run a program in memory
 
-Lifted from story 02.
+A Memory table needs no setup and no config: make it, provide its layer, and the program runs. Every Story in [stories/](../../../stories/) starts this way.
 
 ```ts
 import { Effect, Stream } from 'effect';

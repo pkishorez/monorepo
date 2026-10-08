@@ -5,6 +5,7 @@ import { getLaymosDocumentation } from './get-laymos-documentation/index.js';
 import { getLaymosModuleSource } from './get-laymos-module-source/index.js';
 import { getLaymosSourceFiles } from './get-laymos-source-files/index.js';
 import { getLaymosStories } from './get-laymos-stories/index.js';
+import { getLaymosStoryReports } from './get-laymos-story-reports/index.js';
 import { getPackageFiles } from './get-package-files/index.js';
 import { getPackageReadme } from './get-package-readme/index.js';
 import {
@@ -24,6 +25,8 @@ export const DevtoolsHandlersLive = DevtoolsToolRpc.toLayer({
   GetLaymosSourceFiles: ({ projectPath, pathPrefixes }) =>
     getLaymosSourceFiles(projectPath, pathPrefixes),
   GetLaymosStories: ({ projectPath }) => getLaymosStories(projectPath),
+  GetLaymosStoryReports: ({ projectPath }) =>
+    getLaymosStoryReports(projectPath),
   RunLaymosStories: ({ projectPath, scope }) =>
     runLaymosStories(projectPath, scope),
 });

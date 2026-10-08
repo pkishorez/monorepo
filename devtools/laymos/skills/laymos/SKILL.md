@@ -36,7 +36,25 @@ combining modules, declaring a module graph, or designing orchestration.
 Laymos is a CLI tool. It reads `laymos.config.json`.
 
 It lints declared dependency rules, inspects layers and modules, and runs the
-project's executable Stories.
+Proofs in the project's Stories.
+
+## What is a Story?
+
+A Story is one idea about the project, told to its Reader in plain English.
+Each folder beneath `storiesPath` is a Story; its `story.md` is the Telling: a
+`#` title, a one-sentence pitch, then a short body that links every sub-Story
+by id where it explains how that part fits. The top Story's id is the
+project's folder name; a sub-Story adds its folder path (`my-app/sync`).
+
+A Proof is one claim backing the Story it sits in: a `*.proof.ts(x)` file that
+default-exports `Proof.make` or `Proof.browser` from `laymos/story`. Its id is
+the Story id plus the file name (`my-app/sync/two-tabs`). It imports only what
+the project ships, `effect`, and `laymos/story`; never a relative path.
+
+Before writing a Telling or a Proof title, read
+[Writing Stories](https://github.com/pkishorez/monorepo/blob/main/devtools/laymos/docs/writing-stories.md).
+`laymos lint` reports a missing or incomplete Telling, a link to nothing, and
+a sub-Story its parent never links.
 
 The config is the source of architectural truth. Source code is evidence.
 When the two disagree, the config states the intent and the lint reports the gap.
@@ -112,12 +130,12 @@ Write a layer description as the job it owns. Write a module job as one sentence
 | What is in this layer, and what may it reach?                    | `laymos inspect layer <layer-name>`             |
 | What visibility, shape, surface, and deps does this module have? | `laymos inspect module <module-path>`           |
 | Which layer and module owns this file, and what does it import?  | `laymos inspect file <file-path> [--recursive]` |
-| Do the executable Stories pass?                                  | `laymos stories [--concurrency <n>]`            |
+| Do the Proofs in a Story, or one Proof, pass?                    | `laymos stories [scope] [--concurrency <n>]`    |
 
 Every command takes `--config <path>`. It defaults to `./laymos.config.json`.
 Add `--json` to any `inspect` command and parse the result. Without it, read the tree.
 Exit `0` is clean. Exit `1` means violations, an inspection cycle, or non-passing
-Stories. Exit `2` means a broken config or an operational failure.
+Proofs. Exit `2` means a broken config or an operational failure.
 
 Use the project's package runner when `laymos` is not on `PATH`.
 

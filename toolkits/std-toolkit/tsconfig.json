@@ -3,6 +3,7 @@
   "compilerOptions": {
     "types": ["node"],
     "lib": ["ESNext", "DOM"],
+    "jsx": "react-jsx",
     "target": "ESNext",
     "module": "nodenext",
     "moduleResolution": "nodenext",

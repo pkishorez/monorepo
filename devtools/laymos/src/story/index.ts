@@ -1,10 +1,14 @@
-// Story files use these to author Stories; each question's `run` provides
-// StoryContext to its proof.
-export { isStory, isStoryGroup, Story, StoryContext } from './story.js';
+// Proof files author Proofs with these; the runner reads them through `run`.
+export { isProof, Proof, ProofContext } from './proof.js';
+export type { Phase, PhaseOutcome, ProofHost } from './proof.js';
+export { Gesture } from './gesture.js';
+export type { FingerPoint, SwipeDirection } from './gesture.js';
 export type {
-  ProofOutcome,
-  ProofReporter,
-  StoryGroup,
-  StoryNode,
-  StoryQuestion,
-} from './story.js';
+  Browser,
+  BrowserHost,
+  Device,
+  DeviceHost,
+  StepRequest,
+  Tab,
+  TabHost,
+} from './browser.js';

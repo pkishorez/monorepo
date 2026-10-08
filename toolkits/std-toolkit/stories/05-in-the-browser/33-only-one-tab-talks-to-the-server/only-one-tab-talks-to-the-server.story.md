@@ -1,1 +1,0 @@
-Someone has the board open in ten tabs. Ten copies each reading the server is ten times the traffic for one person. This chapter lets the tabs agree on one reader, hands the job over when that tab closes, and shares out the reading when tabs look at different boards.

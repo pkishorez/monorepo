@@ -1,2 +1,2 @@
-// The lint command uses these to report Story Groups missing their page.
-export { countGroupsWithoutPage, renderStoriesReport } from './report.js';
+// The lint command uses these to report Proofs that are not Self-contained and Stories that tell themselves badly.
+export { renderSelfContainedReport, renderTellingReport } from './report.js';

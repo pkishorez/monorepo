@@ -1,7 +1,6 @@
 {
   "$schema": "../../devtools/laymos/schema.json",
   "sourceRoots": ["src"],
-  "storiesPath": "stories",
   "layers": {
     "peer-identity": {
       "paths": ["src/peer-identity"],

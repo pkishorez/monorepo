@@ -47,42 +47,42 @@ subpath is source TypeScript and needs `effect` in the consuming project.
 The RPC contract the server fulfils and the browser and Client Commands call.
 It merges the Lotel, Flow, Laymos, git, Monoverse, and Project registry groups.
 
-| Export                             | What it does                                                                       |
-| ---------------------------------- | ---------------------------------------------------------------------------------- |
-| `DevtoolsRpc`                      | The full RPC group served at `/rpc`.                                               |
-| `DevtoolsToolRpc`                  | The Laymos procedures: analyze, module source, source files, docs, stories.        |
-| `GitRpc`                           | Branches, changes, file diffs, and known files for any folder in a git repository. |
-| `MonoverseRpc`                     | The `AnalyzeMonorepo`, `GetPackageReadme`, and `GetPackageFiles` procedures.       |
-| `ProjectRegistryRpc`               | List, add, update, remove registered Projects and resolve their Worktrees.         |
-| `InvalidProjectPath`               | Error for a relative, missing, or non-directory project path.                      |
-| `ConfigReadError`                  | Error when `laymos.config.json` could not be read.                                 |
-| `ConfigParseError`                 | Error when the config is not valid JSON.                                           |
-| `ConfigSchemaError`                | Error when the config does not match the schema.                                   |
-| `ConfigValidationError`            | Error carrying the config's validation issues.                                     |
-| `SourceAnalysisError`              | Error when the source tree could not be analyzed.                                  |
-| `ModuleSourceNotFoundError`        | Error for an unknown Configured Module.                                            |
-| `ModuleSourceReadError`            | Error when a Module's file could not be read.                                      |
-| `SourceFileReadError`              | Error when a requested source file could not be read.                              |
-| `DocumentationScopeNotFoundError`  | Error for a documentation scope the config does not declare.                       |
-| `DocumentationReadError`           | Error when a docs markdown file could not be read.                                 |
-| `StoriesUnavailableError`          | Error when the Story tree could not be loaded, with the reason.                    |
-| `InvalidFolderPath`                | Error for a relative, missing, or non-directory folder given to a git procedure.   |
-| `GitUnavailableError`              | Error when the folder is not in a repository or git failed.                        |
-| `InvalidMonorepoPathError`         | Error for a relative, missing, or non-directory monorepo path.                     |
-| `NotPnpmWorkspaceError`            | Error when the folder has no `pnpm-workspace.yaml`.                                |
-| `MonorepoReadFailure`              | Error when workspace or manifest files could not be read or parsed.                |
-| `PackageReadmeNotFoundError`       | Error when the requested markdown file does not exist in the Package.              |
-| `PackageReadmeOutsidePackageError` | Error when the relative path escapes the Package folder.                           |
-| `PackageReadmeReadError`           | Error when the markdown file could not be read.                                    |
-| `PackageFileReadError`             | Error when one of a Package's files could not be read.                             |
-| `ProjectRegistryError`             | Error for a missing entry, an invalid path, or a store failure.                    |
-| `RegistryToolSchema`               | `monoverse` or `laymos`: which Tool a registry entry belongs to.                   |
-| `ProjectEntrySchema`               | One registered Project with its Worktree resolution.                               |
-| `ProjectEntryEntitySchema`         | The stored form of a registry entry.                                               |
-| `WorktreeSchema`                   | One git Worktree of a repository.                                                  |
-| `WorktreeResolutionSchema`         | Every Worktree of the Project's repository and which one it is in.                 |
-| `FlowEntryEntitySchema`            | How the Flow Store keeps one Entry, keyed by id and indexed by Flow id.            |
-| `FlowEntryListSchema`              | A page of stored Flow Entries.                                                     |
+| Export                             | What it does                                                                                                      |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `DevtoolsRpc`                      | The full RPC group served at `/rpc`.                                                                              |
+| `DevtoolsToolRpc`                  | The Laymos procedures: analyze, module source, source files, docs, Story tree, saved Proof reports, Stories runs. |
+| `GitRpc`                           | Branches, changes, file diffs, and known files for any folder in a git repository.                                |
+| `MonoverseRpc`                     | The `AnalyzeMonorepo`, `GetPackageReadme`, and `GetPackageFiles` procedures.                                      |
+| `ProjectRegistryRpc`               | List, add, update, remove registered Projects and resolve their Worktrees.                                        |
+| `InvalidProjectPath`               | Error for a relative, missing, or non-directory project path.                                                     |
+| `ConfigReadError`                  | Error when `laymos.config.json` could not be read.                                                                |
+| `ConfigParseError`                 | Error when the config is not valid JSON.                                                                          |
+| `ConfigSchemaError`                | Error when the config does not match the schema.                                                                  |
+| `ConfigValidationError`            | Error carrying the config's validation issues.                                                                    |
+| `SourceAnalysisError`              | Error when the source tree could not be analyzed.                                                                 |
+| `ModuleSourceNotFoundError`        | Error for an unknown Configured Module.                                                                           |
+| `ModuleSourceReadError`            | Error when a Module's file could not be read.                                                                     |
+| `SourceFileReadError`              | Error when a requested source file could not be read.                                                             |
+| `DocumentationScopeNotFoundError`  | Error for a documentation scope the config does not declare.                                                      |
+| `DocumentationReadError`           | Error when a docs markdown file could not be read.                                                                |
+| `StoriesUnavailableError`          | Error when Stories could not be loaded or scoped, with the reason.                                                |
+| `InvalidFolderPath`                | Error for a relative, missing, or non-directory folder given to a git procedure.                                  |
+| `GitUnavailableError`              | Error when the folder is not in a repository or git failed.                                                       |
+| `InvalidMonorepoPathError`         | Error for a relative, missing, or non-directory monorepo path.                                                    |
+| `NotPnpmWorkspaceError`            | Error when the folder has no `pnpm-workspace.yaml`.                                                               |
+| `MonorepoReadFailure`              | Error when workspace or manifest files could not be read or parsed.                                               |
+| `PackageReadmeNotFoundError`       | Error when the requested markdown file does not exist in the Package.                                             |
+| `PackageReadmeOutsidePackageError` | Error when the relative path escapes the Package folder.                                                          |
+| `PackageReadmeReadError`           | Error when the markdown file could not be read.                                                                   |
+| `PackageFileReadError`             | Error when one of a Package's files could not be read.                                                            |
+| `ProjectRegistryError`             | Error for a missing entry, an invalid path, or a store failure.                                                   |
+| `RegistryToolSchema`               | `monoverse` or `laymos`: which Tool a registry entry belongs to.                                                  |
+| `ProjectEntrySchema`               | One registered Project with its Worktree resolution.                                                              |
+| `ProjectEntryEntitySchema`         | The stored form of a registry entry.                                                                              |
+| `WorktreeSchema`                   | One git Worktree of a repository.                                                                                 |
+| `WorktreeResolutionSchema`         | Every Worktree of the Project's repository and which one it is in.                                                |
+| `FlowEntryEntitySchema`            | How the Flow Store keeps one Entry, keyed by id and indexed by Flow id.                                           |
+| `FlowEntryListSchema`              | A page of stored Flow Entries.                                                                                    |
 
 ### CLI
 
@@ -142,7 +142,9 @@ await server.dispose();
 How it works:
 
 - The server listens on loopback only and serves `/`, `/lotel`, `/flow`,
-  `/laymos`, `/monoverse`, `/rpc`, `/health`, `/v1/traces`, and `/v1/logs`.
+  `/laymos`, `/monoverse`, `/rpc`, `/health`, `/story-evidence`, `/v1/traces`, and
+  `/v1/logs`. `/story-evidence?project=&proof=&file=` serves one file from a
+  Proof's `.laymos/stories/<proof id>/` Evidence folder and nothing outside it.
 - `makeDevTelemetryLayer` posts OTLP/HTTP JSON to `/v1/traces` and `/v1/logs`.
 - `FlowTelemetry.layer` posts Flow Entries to `/rpc`; Entries recorded inside
   a span carry its trace id, so the Flow view links to the trace.

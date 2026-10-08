@@ -1,14 +1,14 @@
 import * as colors from 'yoctocolors';
 
-import type { StoryVerdict } from '../../story/schema/index.js';
+import type { ProofVerdict } from '../../story/schema/index.js';
 import { countVerdict, emptyTally, renderTally } from './report.js';
 
-export interface StoryProgress {
-  readonly record: (verdict: StoryVerdict) => void;
+export interface ProofProgress {
+  readonly record: (verdict: ProofVerdict) => void;
   readonly stop: () => void;
 }
 
-export function startProgress(total: number): StoryProgress {
+export function startProgress(total: number): ProofProgress {
   const line = liveLine();
   if (line === null) return silentProgress;
   let tally = emptyTally;
@@ -36,7 +36,7 @@ export function startProgress(total: number): StoryProgress {
 const spinner = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'] as const;
 const frameMillis = 80;
 
-const silentProgress: StoryProgress = { record: () => {}, stop: () => {} };
+const silentProgress: ProofProgress = { record: () => {}, stop: () => {} };
 
 interface LiveLine {
   readonly write: (text: string) => void;

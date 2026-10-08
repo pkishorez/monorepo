@@ -207,6 +207,9 @@ function Canvas({
       aria-label="Package rank stack"
     >
       <ReactFlow<GraphNode>
+        // Space is never a pan key here: React Flow would take it from the
+        // whole window, Stories canvas included, even while this graph is hidden.
+        panActivationKeyCode={null}
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
