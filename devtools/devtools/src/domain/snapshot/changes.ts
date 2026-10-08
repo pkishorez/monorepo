@@ -6,15 +6,25 @@ export function committedOnly(changes: ChangeSet): ChangeSet {
   return { ...changes, files: changes.files.filter((file) => file.committed) };
 }
 
-// The Modules a Change set touches, by the analysis's own file membership.
+// Every Module of the tree; Wrappers are not counted.
+export function countModules(analysis: ArchitectureAnalysis): number {
+  return analysis.tree.nodes.filter((node) => node.kind === 'module').length;
+}
+
+// The Modules a Change set touches, by the tree's own file ownership. A file
+// a Wrapper owns touches no Module.
 export function countChangedModules(
   analysis: ArchitectureAnalysis,
   changes: ChangeSet,
 ): number {
+  const kinds = new Map(
+    analysis.tree.nodes.map((node) => [node.path, node.kind] as const),
+  );
   const touched = new Set<string>();
   for (const { path } of changes.files) {
-    const owner = analysis.moduleAnalysis.membership.get(path);
-    if (owner !== undefined) touched.add(owner);
+    const owner = analysis.tree.owners[path];
+    if (owner !== undefined && kinds.get(owner) === 'module')
+      touched.add(owner);
   }
   return touched.size;
 }

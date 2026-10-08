@@ -20,11 +20,15 @@ export interface GitOptions {
   // Off hides the change overlay entirely, whatever git reports.
   readonly showChanges: boolean;
   readonly includeUnchanged: boolean;
+  // Owners the change deleted, shown where they stood; offered only where a
+  // caller can show them.
+  readonly includeDeleted: boolean;
 }
 
 export const defaultGitOptions: GitOptions = {
   showChanges: true,
   includeUnchanged: true,
+  includeDeleted: true,
 };
 
 // The Base ref 'HEAD' means the working tree's uncommitted changes; any other
@@ -35,11 +39,13 @@ export const uncommittedBaseRef = 'HEAD';
 const changeLabels: Readonly<Record<ChangeStatus, string>> = {
   added: 'New',
   modified: 'Modified',
+  deleted: 'Deleted',
 };
 
 const changeShortLabels: Readonly<Record<ChangeStatus, string>> = {
   added: 'new',
   modified: 'mod',
+  deleted: 'del',
 };
 
 export function changeSurfaceClass(status: ChangeStatus | undefined): string {
@@ -48,6 +54,8 @@ export function changeSurfaceClass(status: ChangeStatus | undefined): string {
       return 'border-green-500 ring-1 ring-green-500/40';
     case 'modified':
       return 'border-amber-500 ring-1 ring-amber-500/40';
+    case 'deleted':
+      return 'border-red-500 ring-1 ring-red-500/40';
     default:
       return '';
   }
@@ -69,7 +77,9 @@ export function ChangeBadge({
         'shrink-0 rounded-sm border px-1 py-px text-[9px] font-semibold uppercase tracking-wider',
         status === 'added'
           ? 'border-green-500/60 text-green-600 dark:text-green-400'
-          : 'border-amber-500/60 text-amber-600 dark:text-amber-400',
+          : status === 'deleted'
+            ? 'border-red-500/60 text-red-600 dark:text-red-400'
+            : 'border-amber-500/60 text-amber-600 dark:text-amber-400',
         className,
       )}
     >
@@ -136,6 +146,7 @@ export function ChangesMenu({
   branches,
   hasChanges,
   ownerLabel,
+  offerDeleted = false,
   onOptionsChange,
   onBaseRefChange,
 }: {
@@ -144,6 +155,8 @@ export function ChangesMenu({
   readonly branches: readonly Branch[];
   readonly hasChanges: boolean;
   readonly ownerLabel: string;
+  /** Offer Include deleted, for a caller that shows deleted owners. */
+  readonly offerDeleted?: boolean;
   readonly onOptionsChange: (options: GitOptions) => void;
   readonly onBaseRefChange?: (baseRef: string) => void;
 }) {
@@ -167,7 +180,7 @@ export function ChangesMenu({
       <DropdownMenuTrigger
         aria-label="Git comparison options"
         title="Git comparison options"
-        className="flex size-10 items-center justify-center gap-2 rounded-md border border-border/60 bg-background text-sm text-foreground outline-none transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring/40 md:h-8 md:w-auto md:max-w-56 md:justify-between md:px-2.5"
+        className="flex size-9 items-center justify-center gap-2 rounded-md border border-border/60 bg-background text-sm text-foreground outline-none transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring/40 md:h-8 md:w-auto md:max-w-56 md:justify-between md:px-2.5"
       >
         <GitBranch className="size-3.5 shrink-0 text-muted-foreground" />
         <span className="hidden truncate md:inline">{summary}</span>
@@ -198,6 +211,18 @@ export function ChangesMenu({
           >
             Include unchanged {ownerLabel}
           </DropdownMenuCheckboxItem>
+          {offerDeleted && (
+            <DropdownMenuCheckboxItem
+              className="min-h-11 md:min-h-8"
+              checked={options.includeDeleted}
+              disabled={!options.showChanges}
+              onCheckedChange={(includeDeleted) =>
+                onOptionsChange({ ...options, includeDeleted })
+              }
+            >
+              Include deleted {ownerLabel}
+            </DropdownMenuCheckboxItem>
+          )}
         </DropdownMenuGroup>
         {options.showChanges && onBaseRefChange !== undefined && (
           <>

@@ -142,6 +142,8 @@ export function FileTree({
         <button
           type="button"
           disabled={isEmptyFolder}
+          // Lets a caller find a row by its path, to bring it into view.
+          data-path={node.path}
           aria-expanded={isFolder && !isEmptyFolder ? isExpanded : undefined}
           style={{ paddingInlineStart: `${depth * 1 + 0.25}rem` }}
           onClick={() => {

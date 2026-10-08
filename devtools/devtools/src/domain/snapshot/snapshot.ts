@@ -1,7 +1,7 @@
 import { Schema } from 'effect';
 import type { ArchitectureAnalysis, ChangeSet } from 'laymos';
 
-import { committedOnly, countChangedModules } from './changes.js';
+import { committedOnly, countChangedModules, countModules } from './changes.js';
 import { SnapshotRequestJson, type SnapshotRequest } from './schema.js';
 
 export { snapshotThemes, type SnapshotRequest } from './schema.js';
@@ -34,7 +34,7 @@ export function planSnapshot(
         : 'changed';
   return {
     changes,
-    modules: analysis.moduleAnalysis.modules.length,
+    modules: countModules(analysis),
     changedModules,
     drawn,
   };

@@ -3,15 +3,21 @@ import type { ArchitectureAnalysis, ChangeSet } from 'laymos';
 
 import { planSnapshot } from '../index.js';
 
-// planSnapshot reads only Module membership and the Module count.
+// planSnapshot reads only the tree's nodes and file owners.
 const analysis = {
-  moduleAnalysis: {
-    modules: [{}, {}, {}],
-    membership: new Map([
-      ['src/a/index.ts', 'src/a'],
-      ['src/a/a.ts', 'src/a'],
-      ['src/b.ts', 'src/b.ts'],
-    ]),
+  tree: {
+    root: '.',
+    nodes: [
+      { path: '.', kind: 'wrapper' },
+      { path: 'src/a', kind: 'module' },
+      { path: 'src/b.ts', kind: 'module' },
+      { path: 'src/c', kind: 'module' },
+    ],
+    owners: {
+      'src/a/index.ts': 'src/a',
+      'src/a/a.ts': 'src/a',
+      'src/b.ts': 'src/b.ts',
+    },
   },
 } as unknown as ArchitectureAnalysis;
 

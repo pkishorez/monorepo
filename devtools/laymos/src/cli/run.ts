@@ -1,9 +1,9 @@
 import { Effect } from 'effect';
 import { Command, Flag } from 'effect/cli';
 
-import { makeInspectCommand } from './inspect/index.js';
-import { makeLintCommand } from './lint/index.js';
-import { makeStoriesCommand } from './stories/index.js';
+import { makeInspectCommand } from './inspect/inspect.js';
+import { makeLintCommand } from './lint/lint.js';
+import { makeStoriesCommand } from './stories/stories.js';
 import { skillsCommand } from './skills.js';
 
 const rootCommand = Command.make('laymos', {}, () => Effect.void).pipe(

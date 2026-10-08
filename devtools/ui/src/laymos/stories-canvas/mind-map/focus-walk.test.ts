@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { StoryNode } from 'laymos/story/schema';
 
-import { walkFocus, type Walk } from './focus-walk';
+import { walkFocus as walk, type Walk } from '../../canvas-space';
+import type { MindMap } from './mind-map-layout';
 import { layoutMindMap } from './mind-map-layout';
 
 const story = (id: string, stories: readonly StoryNode[] = []): StoryNode => ({
@@ -21,6 +22,9 @@ const tree = story('top', [
   story('top/b'),
   story('top/c'),
 ]);
+
+const walkFocus = (map: MindMap, key: string, step: Walk) =>
+  walk(map, key, step, (card) => card.story.stories[0]?.id);
 
 const mapOf = (...open: string[]) =>
   layoutMindMap(tree, new Set(open), () => ({ width: 100, height: 50 }));

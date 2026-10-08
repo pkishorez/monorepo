@@ -1,305 +1,191 @@
-import { useMemo } from 'react';
-import type { ArchitectureAnalysis, Branch, ChangeSet } from 'laymos';
-
-import { LaymosExperience } from '../architecture-workspace';
-import type { StoriesCanvasProps } from '../stories-canvas';
-import {
-  buildPresentationModel,
-  layersReferencedByRules,
-  type LayerInteraction,
-} from '../analysis-presentation';
-import { layerIdsByBoundaryPath } from '../architecture-tree';
-import {
-  LayerDetails as LayerDetailsView,
-  LayerGraph as LayerGraphView,
-  LayerScopeTree as LayerScopeTreeView,
-  LayerViolationsList as LayerViolationsListView,
-} from '../layer-inspection';
-import {
-  ModuleGraph as ModuleGraphView,
-  ModuleLegend,
-  ModuleTree as ModuleTreeView,
-  ModuleViolationsList as ModuleViolationsListView,
-} from '../module-inspection';
+import { useMemo, useState } from 'react';
+import type { Effect } from 'effect';
 import type {
-  LoadDocumentation,
-  LoadFileDiff,
-  LoadSourceFiles,
-} from '../module-source';
+  ArchitectureAnalysis,
+  Branch,
+  ChangeSet,
+  FileContent,
+  FileList as FileListData,
+} from 'laymos';
 
-interface AnalysisProps {
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@kstackz/web-platform/components/tabs';
+import { cn } from '@kstackz/web-platform/components/utils';
+import {
+  ChangesMenu,
+  defaultGitOptions,
+  uncommittedBaseRef,
+  type GitOptions,
+} from '@kstackz/web-platform/components/viewers/git-changes';
+import type { LoadFileDiff } from '@kstackz/web-platform/components/viewers/source-explorer';
+
+import { FileList } from '../file-list';
+import { usePreference } from '../preferences';
+import { Laymo } from '../laymo';
+import { indexChanges } from '../project-changes';
+import { StoriesCanvas, type StoriesCanvasProps } from '../stories-canvas';
+
+export type { LoadFileDiff };
+
+export interface LaymosProps {
   readonly analysis: ArchitectureAnalysis;
-  readonly className?: string;
-}
-
-interface LaymosProps extends AnalysisProps {
-  readonly loadSourceFiles: LoadSourceFiles;
+  readonly loadFileList: (
+    modulePath: string,
+  ) => Effect.Effect<FileListData, unknown>;
+  readonly loadFileContent: (
+    path: string,
+  ) => Effect.Effect<FileContent, unknown>;
   readonly changes?: ChangeSet;
   readonly loadFileDiff?: LoadFileDiff;
-  readonly loadDocumentation?: LoadDocumentation;
   readonly branches?: readonly Branch[];
   readonly baseRef?: string;
   readonly onBaseRefChange?: (baseRef: string) => void;
   readonly gitAvailable?: boolean;
   readonly stories?: Omit<StoriesCanvasProps, 'className'>;
+  readonly className?: string;
 }
 
-interface LayerGraphProps extends AnalysisProps, LayerInteraction {
-  readonly layerGraphId?: string;
-  readonly activeViolationPairId?: string;
-  readonly onClearFocus?: () => void;
-  readonly onLayerGraphOpen?: (graphId: string) => void;
-  readonly ariaLabel?: string;
-}
+const laymoTabId = 'laymo';
+const storiesTabId = 'stories';
 
+/**
+ * The door to Laymos: the Laymo of a Project and, when given, its Stories,
+ * each a tab, with the Base ref picker above when git is there. A right-click
+ * on a card, or on its row in the Module outline, opens its File list over
+ * the Laymo.
+ */
 export function Laymos({
   analysis,
-  loadSourceFiles,
+  loadFileList,
+  loadFileContent,
   changes,
   loadFileDiff,
-  loadDocumentation,
-  branches,
-  baseRef,
+  branches = [],
+  baseRef = uncommittedBaseRef,
   onBaseRefChange,
-  gitAvailable,
+  // Whether git exists for this Project at all, apart from whether a Change
+  // set has been fetched yet: a caller that lets the reader pick a Base ref
+  // before any Change set exists must say so, or the picker never opens.
+  gitAvailable = changes !== undefined ||
+    branches.length > 0 ||
+    onBaseRefChange !== undefined,
   stories,
   className,
 }: LaymosProps) {
-  return (
-    <LaymosExperience
-      analysis={analysis}
-      loadSourceFiles={loadSourceFiles}
-      changes={changes}
-      loadFileDiff={loadFileDiff}
-      loadDocumentation={loadDocumentation}
-      branches={branches}
-      baseRef={baseRef}
-      onBaseRefChange={onBaseRefChange}
-      gitAvailable={gitAvailable}
-      stories={stories}
-      className={className}
-    />
+  const [activeTab, setActiveTab] = useState(laymoTabId);
+  // Whether changes show, and with them unchanged and deleted Modules, are
+  // preferences; the Base ref compared against is not.
+  const [gitOptions, setGitOptions] = usePreference<GitOptions>(
+    'git-options',
+    defaultGitOptions,
   );
-}
+  const [filesFor, setFilesFor] = useState<string>();
+  const shownChanges =
+    changes !== undefined && gitOptions.showChanges ? changes : undefined;
+  const hasChanges = useMemo(
+    () =>
+      shownChanges !== undefined &&
+      indexChanges(analysis, shownChanges).modules.size > 0,
+    [analysis, shownChanges],
+  );
+  const modulePaths = useMemo(
+    () =>
+      analysis.tree.nodes
+        .filter(({ kind, shape }) => kind === 'module' && shape === 'folder')
+        .map(({ path }) => path),
+    [analysis.tree.nodes],
+  );
+  const changedPaths = useMemo(
+    () =>
+      shownChanges === undefined
+        ? undefined
+        : new Map(shownChanges.files.map(({ path, status }) => [path, status])),
+    [shownChanges],
+  );
 
-export function LayerGraph({
-  analysis,
-  layerGraphId,
-  activeViolationPairId,
-  ...interaction
-}: LayerGraphProps) {
-  const model = useModel(analysis);
-  const selected = model.layerGraphs.find(({ id }) => id === layerGraphId);
-  const rules = selected?.rules ?? model.rules;
   return (
-    <LayerGraphView
-      {...interaction}
-      layers={model.layers}
-      rules={rules}
-      layerGraphs={model.layerGraphs}
-      activeLayerGraphId={selected?.id}
-      activeViolationPair={model.layerViolationPairs.find(
-        ({ id }) => id === activeViolationPairId,
+    <Tabs
+      value={activeTab}
+      onValueChange={setActiveTab}
+      className={cn(
+        'flex min-h-0 flex-col gap-0 overflow-hidden bg-background md:rounded-xl md:border md:border-border md:shadow-sm',
+        className,
       )}
-    />
-  );
-}
-
-interface LayerDetailsProps extends AnalysisProps {
-  readonly layerId?: string;
-}
-
-export function LayerDetails({
-  analysis,
-  layerId,
-  className,
-}: LayerDetailsProps) {
-  const model = useModel(analysis);
-  return (
-    <LayerDetailsView
-      className={className}
-      layer={model.layers.find(({ id }) => id === layerId)}
-    />
-  );
-}
-
-interface LayerScopeTreeProps
-  extends
-    AnalysisProps,
-    Pick<LayerInteraction, 'activeLayerId' | 'onLayerActivate'> {
-  readonly layerGraphId?: string;
-  readonly ariaLabel?: string;
-}
-
-export function LayerScopeTree({
-  analysis,
-  layerGraphId,
-  ...interaction
-}: LayerScopeTreeProps) {
-  const model = useModel(analysis);
-  const selected = model.layerGraphs.find(({ id }) => id === layerGraphId);
-  const layers =
-    selected === undefined
-      ? model.layers
-      : layersReferencedByRules(model.layers, selected.rules);
-  return <LayerScopeTreeView {...interaction} layers={layers} />;
-}
-
-interface LayerViolationsListProps extends AnalysisProps {
-  readonly layerGraphId?: string;
-  readonly activeViolationPairId?: string;
-  readonly onActiveViolationPairChange?: (id: string | undefined) => void;
-}
-
-export function LayerViolationsList({
-  analysis,
-  layerGraphId,
-  activeViolationPairId,
-  onActiveViolationPairChange,
-  className,
-}: LayerViolationsListProps) {
-  const model = useModel(analysis);
-  const selected = model.layerGraphs.find(({ id }) => id === layerGraphId);
-  const visibleLayerIds = new Set(
-    (selected === undefined
-      ? model.layers
-      : layersReferencedByRules(model.layers, selected.rules)
-    ).map(({ id }) => id),
-  );
-  return (
-    <LayerViolationsListView
-      className={className}
-      violationPairs={model.layerViolationPairs.filter(
-        ({ fromLayerId, toLayerId }) =>
-          visibleLayerIds.has(fromLayerId) && visibleLayerIds.has(toLayerId),
+    >
+      <div className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-border px-2 max-sm:h-10 sm:px-5">
+        <TabsList variant="line" className="h-12 max-sm:h-10">
+          <TabsTrigger
+            value={laymoTabId}
+            className="font-mono text-xs lowercase"
+          >
+            Laymo
+          </TabsTrigger>
+          {stories !== undefined && (
+            <TabsTrigger
+              value={storiesTabId}
+              className="font-mono text-xs lowercase"
+            >
+              Stories
+            </TabsTrigger>
+          )}
+        </TabsList>
+        {gitAvailable && activeTab === laymoTabId && (
+          <ChangesMenu
+            options={gitOptions}
+            baseRef={baseRef}
+            branches={branches}
+            hasChanges={hasChanges}
+            ownerLabel="Modules"
+            offerDeleted
+            onOptionsChange={setGitOptions}
+            onBaseRefChange={onBaseRefChange}
+          />
+        )}
+      </div>
+      <TabsContent value={laymoTabId} className="flex min-h-0 flex-1 flex-col">
+        <Laymo
+          analysis={analysis}
+          changes={shownChanges}
+          onlyChanged={
+            shownChanges !== undefined && !gitOptions.includeUnchanged
+          }
+          showDeleted={gitOptions.includeDeleted}
+          onOpenFiles={setFilesFor}
+          panel={
+            filesFor === undefined
+              ? undefined
+              : {
+                  label: `File list of ${filesFor}`,
+                  content: (
+                    <FileList
+                      key={filesFor}
+                      modulePath={filesFor}
+                      loadFileList={loadFileList}
+                      loadFileContent={loadFileContent}
+                      loadFileDiff={loadFileDiff}
+                      changedPaths={changedPaths}
+                      modules={modulePaths}
+                      onClose={() => setFilesFor(undefined)}
+                    />
+                  ),
+                  onClose: () => setFilesFor(undefined),
+                }
+          }
+          className="min-h-0 flex-1"
+        />
+      </TabsContent>
+      {stories !== undefined && (
+        <TabsContent
+          value={storiesTabId}
+          className="flex min-h-0 flex-1 flex-col"
+        >
+          <StoriesCanvas {...stories} className="min-h-0 flex-1" />
+        </TabsContent>
       )}
-      coverageViolations={
-        selected === undefined ? model.layerCoverageViolations : []
-      }
-      activeViolationGroupId={activeViolationPairId}
-      onActiveViolationGroupChange={onActiveViolationPairChange}
-    />
+    </Tabs>
   );
-}
-
-interface ModuleGraphProps extends AnalysisProps {
-  readonly focusedLayerId?: string;
-  readonly showLayerConnections?: boolean;
-  readonly activeModuleId?: string;
-  readonly activeViolationId?: string;
-  readonly onModuleActivate?: (moduleId: string) => void;
-  readonly onModuleOpen?: (moduleId: string) => void;
-  readonly onModuleGraphOpen?: (graphId: string) => void;
-  readonly onLayerActivate?: (layerId: string) => void;
-  readonly onClearFocus?: () => void;
-}
-
-export function ModuleGraph({
-  analysis,
-  focusedLayerId,
-  showLayerConnections = true,
-  activeModuleId,
-  activeViolationId,
-  onModuleActivate,
-  onModuleOpen,
-  onModuleGraphOpen,
-  onLayerActivate,
-  onClearFocus,
-  className,
-}: ModuleGraphProps) {
-  const model = useModel(analysis);
-  return (
-    <ModuleGraphView
-      className={className}
-      layers={model.layers}
-      rules={model.rules}
-      layerGraphs={model.layerGraphs}
-      modules={model.modules}
-      dependencies={model.moduleDependencies}
-      focusedLayerId={focusedLayerId}
-      showLayerConnections={showLayerConnections}
-      activeModuleId={activeModuleId}
-      activeViolation={model.moduleViolations.find(
-        ({ id }) => id === activeViolationId,
-      )}
-      onModuleActivate={onModuleActivate}
-      onModuleOpen={onModuleOpen}
-      onModuleGraphOpen={onModuleGraphOpen}
-      onLayerActivate={onLayerActivate}
-      onClearFocus={onClearFocus}
-    />
-  );
-}
-
-interface ModuleTreeProps extends AnalysisProps {
-  readonly activeLayerId?: string;
-  readonly activeModuleId?: string;
-  readonly highlightedModuleIds?: ReadonlySet<string>;
-  readonly activeViolationId?: string;
-  readonly onLayerActivate?: (layerId: string) => void;
-  readonly onModuleActivate?: (moduleId: string) => void;
-  readonly onModuleOpen?: (moduleId: string) => void;
-}
-
-export function ModuleTree({
-  analysis,
-  activeLayerId,
-  activeModuleId,
-  highlightedModuleIds,
-  activeViolationId,
-  onLayerActivate,
-  onModuleActivate,
-  onModuleOpen,
-  className,
-}: ModuleTreeProps) {
-  const model = useModel(analysis);
-  return (
-    <ModuleTreeView
-      className={className}
-      modules={model.modules}
-      layerIdsByPath={layerIdsByBoundaryPath(model.layers)}
-      activeLayerId={activeLayerId}
-      activeModuleId={activeModuleId}
-      highlightedModuleIds={highlightedModuleIds}
-      activeViolation={model.moduleViolations.find(
-        ({ id }) => id === activeViolationId,
-      )}
-      onLayerActivate={onLayerActivate}
-      onModuleActivate={onModuleActivate}
-      onModuleOpen={onModuleOpen}
-    />
-  );
-}
-
-interface ModuleViolationsListProps extends AnalysisProps {
-  readonly activeViolationId?: string;
-  readonly onActiveViolationChange?: (id: string | undefined) => void;
-}
-
-export function ModuleViolationsList({
-  analysis,
-  activeViolationId,
-  onActiveViolationChange,
-  className,
-}: ModuleViolationsListProps) {
-  const model = useModel(analysis);
-  return (
-    <ModuleViolationsListView
-      className={className}
-      violations={model.moduleViolations}
-      activeViolationId={activeViolationId}
-      onActiveViolationChange={onActiveViolationChange}
-    />
-  );
-}
-
-export { ModuleLegend };
-export type {
-  LoadDocumentation,
-  LoadFileDiff,
-  LoadSourceFiles,
-} from '../module-source';
-
-function useModel(analysis: ArchitectureAnalysis) {
-  return useMemo(() => buildPresentationModel(analysis), [analysis]);
 }

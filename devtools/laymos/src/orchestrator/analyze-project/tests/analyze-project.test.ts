@@ -9,52 +9,127 @@ import { analyzeProject } from '../index.js';
 function fixture(name: string): string {
   return fileURLToPath(
     new URL(
-      `../../../tests/fixtures/${name}/laymos.config.json`,
+      `../../../tests/fixtures/tree/${name}/laymos.config.json`,
       import.meta.url,
     ),
   );
 }
 
 describe('analyzeProject', () => {
-  test('returns a complete Architecture Analysis', async () => {
-    const analysis = await analyzeProject(fixture('modules/valid')).pipe(
+  test('reads the Module tree out of the files', async () => {
+    const analysis = await analyzeProject(fixture('shop')).pipe(
       Effect.runPromise,
     );
 
-    expect(analysis.config.sourceRoots).toEqual(['src']);
-    expect(analysis.layerAnalysis.membership.size).toBeGreaterThan(0);
-    expect(analysis.moduleAnalysis.modules.length).toBe(2);
+    expect(
+      analysis.tree.nodes.map(({ path, kind, shape }) => [path, kind, shape]),
+    ).toEqual([
+      ['.', 'wrapper', 'folder'],
+      ['scripts', 'wrapper', 'folder'],
+      ['src', 'module', 'folder'],
+      ['src/app', 'module', 'folder'],
+      ['src/core', 'wrapper', 'folder'],
+      ['src/core/ids.ts', 'module', 'file'],
+      ['src/domain', 'wrapper', 'folder'],
+      ['src/domain/orders', 'module', 'folder'],
+      ['src/infra', 'module', 'folder'],
+    ]);
+    expect(analysis.tree.owners['src/domain/orders/order.ts']).toBe(
+      'src/domain/orders',
+    );
+    expect(analysis.tree.owners['src/domain/pricing.ts']).toBe('src');
+    expect(analysis.tree.owners['scripts/seed.ts']).toBe('scripts');
+    expect(
+      analysis.tree.owners['src/domain/orders/generated.ts'],
+    ).toBeUndefined();
   });
 
-  test('surfaces Module violations from a dirty project', async () => {
-    const analysis = await analyzeProject(
-      fixture('modules/internal-import'),
-    ).pipe(Effect.runPromise);
+  test('gives every import between nodes its verdict', async () => {
+    const analysis = await analyzeProject(fixture('shop')).pipe(
+      Effect.runPromise,
+    );
 
-    expect(analysis.moduleAnalysis.violations).toEqual([
-      {
-        kind: 'boundary',
-        fromFile: 'src/feature/index.ts',
-        fromModule: 'src/feature',
-        toFile: 'src/shared/internal.ts',
-        toModule: 'src/shared',
-      },
-      { kind: 'unused-shared', module: 'src/shared' },
+    expect(
+      analysis.imports.map(({ fromFile, toFile, verdict }) => [
+        fromFile,
+        toFile,
+        verdict,
+      ]),
+    ).toEqual([
+      [
+        'src/app/index.ts',
+        'src/domain/orders/index.ts',
+        { kind: 'rule', rule: { from: 'src/app', to: 'src/domain' } },
+      ],
+      [
+        'src/app/index.ts',
+        'src/domain/orders/internal.ts',
+        { kind: 'violation', reason: 'not-index', remedy: 'none' },
+      ],
+      [
+        'src/app/index.ts',
+        'src/infra/index.ts',
+        { kind: 'violation', reason: 'no-rule', remedy: 'rule' },
+      ],
+      [
+        'src/domain/orders/order.ts',
+        'src/core/ids.ts',
+        { kind: 'rule', rule: { from: 'src/domain', to: 'src/core' } },
+      ],
+      ['src/index.ts', 'src/app/index.ts', { kind: 'nested' }],
+      [
+        'src/infra/index.ts',
+        'src/index.ts',
+        {
+          kind: 'exception',
+          exception: {
+            from: 'src/infra',
+            to: 'src',
+            because:
+              'infra boots the app through its door until the composition root moves out',
+          },
+        },
+      ],
     ]);
   });
 
-  test('surfaces unassigned files from a dirty project', async () => {
-    const analysis = await analyzeProject(
-      fixture('layers/unassigned-file'),
-    ).pipe(Effect.runPromise);
+  test('reports what no Module owns and what nobody uses', async () => {
+    const analysis = await analyzeProject(fixture('shop')).pipe(
+      Effect.runPromise,
+    );
 
-    expect(analysis.layerAnalysis.unassignedFiles).toEqual([
-      'src/shared/log.ts',
+    expect(analysis.findings).toEqual([
+      { kind: 'wrapper-coverage', file: 'scripts/seed.ts' },
+      { kind: 'unused-rule', rule: { from: 'src/app', to: 'src/core' } },
+      { kind: 'unused-rule', rule: { from: 'src/infra', to: 'src/core' } },
     ]);
   });
 
-  test('round-trips maps and sets through its runtime schema', async () => {
-    const analysis = await analyzeProject(fixture('modules/valid')).pipe(
+  test('says an import against a Rule can only be an Exception', async () => {
+    const analysis = await analyzeProject(fixture('against-rule')).pipe(
+      Effect.runPromise,
+    );
+
+    expect(analysis.imports.map(({ verdict }) => verdict)).toEqual([
+      { kind: 'rule', rule: { from: 'src/a', to: 'src/b' } },
+      { kind: 'violation', reason: 'against-rule', remedy: 'exception' },
+    ]);
+  });
+
+  test('rejects a Config whose Rules loop', async () => {
+    const error = await analyzeProject(fixture('loop')).pipe(
+      Effect.flip,
+      Effect.runPromise,
+    );
+
+    expect(error._tag).toBe('ConfigError');
+    expect(error).toMatchObject({
+      issues: [{ kind: 'loop', message: 'Rule loop: src/a -> src/b -> src/a' }],
+    });
+  });
+
+  test('round-trips through its runtime schema', async () => {
+    const analysis = await analyzeProject(fixture('shop')).pipe(
       Effect.runPromise,
     );
     const codec = Schema.toCodecJson(ArchitectureAnalysisSchema);
@@ -63,10 +138,6 @@ describe('analyzeProject', () => {
       JSON.parse(JSON.stringify(encoded)),
     );
 
-    expect(decoded.layerAnalysis.membership).toBeInstanceOf(Map);
-    expect(decoded.moduleAnalysis.entryPoints).toBeInstanceOf(Set);
-    expect(decoded.layerAnalysis.membership).toEqual(
-      analysis.layerAnalysis.membership,
-    );
+    expect(decoded).toEqual(analysis);
   });
 });

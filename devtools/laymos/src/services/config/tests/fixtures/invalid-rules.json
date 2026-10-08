@@ -1,0 +1,13 @@
+{
+  "sourceRoots": ["src"],
+  "rules": {
+    "src/app": ["*"],
+    "src/app/screens": ["src/app"],
+    "src": ["src/app"]
+  },
+  "exceptions": [
+    { "from": "src/a", "to": "src/a", "because": "x" },
+    { "from": "src/a", "to": "src/b", "because": "x" },
+    { "from": "src/a", "to": "src/b", "because": "y" }
+  ]
+}

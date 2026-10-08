@@ -6,42 +6,39 @@ import {
   useRef,
   useState,
 } from 'react';
-import {
-  AnimatePresence,
-  motion,
-  useReducedMotion,
-  type MotionStyle,
-  useTransform,
-} from 'motion/react';
+import { AnimatePresence, useReducedMotion } from 'motion/react';
 import type { ProofReport, StoryNode, StoryTree } from 'laymos/story/schema';
 
-import {
-  Minus,
-  Play,
-  Plus,
-  ShieldAlert,
-} from '@kstackz/web-platform/components/lucide';
+import { Play, ShieldAlert } from '@kstackz/web-platform/components/lucide';
 import { Button } from '@kstackz/web-platform/components/button';
 import { cn } from '@kstackz/web-platform/components/utils';
 
+import {
+  aimCamera,
+  CardFrame,
+  HintLine,
+  SidePanel,
+  SpaceViewport,
+  useCardMotion,
+  useSpace,
+  walkFocus,
+  ZoomControls,
+  type Aim,
+  type Placement,
+  type Size,
+  type Walk,
+} from '../canvas-space';
 import { CanvasContext, type CanvasState } from './canvas-context';
 import { StoryCard, storyCardWidth } from './cards/story-card';
 import { countBadge } from './cards/run-motion';
 import { TallyLine } from './cards/tally';
-import { CardFrame } from './mind-map/card-frame';
-import { walkFocus, type Walk } from './mind-map/focus-walk';
 import {
   familyRect,
   layoutMindMap,
   type MindMap,
   type PlacedCard,
-  type Size,
 } from './mind-map/mind-map-layout';
-import { useCardMotion, type Placement } from './mind-map/use-card-motion';
-import { ProofPanel } from './proof-panel';
-import { zoneAttribute } from './space/pointer-source';
-import { aimCamera, type Aim } from './space/camera';
-import { useSpace } from './space/use-space';
+import { ProofPanel } from './proof-panel/proof-panel';
 import {
   enterDoes,
   keepsKeys,
@@ -449,7 +446,12 @@ function Canvas({
     const map = placed.current;
     const card = map?.byKey.get(focusKey);
     if (map === undefined || card === undefined) return;
-    const step = walkFocus(map, focusKey, action);
+    const step = walkFocus(
+      map,
+      focusKey,
+      action,
+      (card) => card.story.stories[0]?.id,
+    );
     if (step === undefined) return;
     if (step.kind === 'toggle') {
       activate(card, step.focus);
@@ -569,13 +571,6 @@ function Canvas({
   ).length;
   const opened =
     shownProof === undefined ? undefined : findProof(tree, shownProof);
-  // Below full zoom, the focus outline grows so it stays as thick on screen.
-  const unzoom = useTransform(space.zoom, (zoom) => Math.max(1, 1 / zoom));
-  const zoomLabel = useTransform(
-    space.zoom,
-    (zoom) => `${Math.round(zoom * 100)}%`,
-  );
-
   return (
     <div
       ref={rootRef}
@@ -585,219 +580,142 @@ function Canvas({
       )}
     >
       <CanvasContext.Provider value={canvasState}>
-        <div
-          ref={space.viewportRef}
+        <SpaceViewport
+          space={space}
           inert={opened !== undefined}
-          // The space's keys reach its Actions before anything else on the
-          // page can take them; it holds no text entry.
-          data-keys="enabled"
-          {...{ [zoneAttribute]: 'surface' }}
-          role="tree"
-          aria-label={`Stories of ${tree.title}`}
-          className="relative min-w-0 flex-1 cursor-grab touch-none select-none overflow-clip overscroll-none active:cursor-grabbing"
-          style={{
-            backgroundImage:
-              'radial-gradient(circle at 1px 1px, color-mix(in oklab, var(--border) 90%, transparent) 1px, transparent 0)',
-            backgroundSize: '22px 22px',
-          }}
-        >
-          <motion.div
-            className="absolute left-0 top-0 h-0 w-0"
-            style={{
-              x: space.x,
-              y: space.y,
-              scale: space.zoom,
-              originX: 0,
-              originY: 0,
-              ...({ '--unzoom': unzoom } as MotionStyle),
-            }}
-          >
-            <AnimatePresence>
-              {structure.cards.map((card) => {
-                const values = cards.valuesOf(card.key);
-                const parentValues =
-                  card.parentKey === null
-                    ? undefined
-                    : cards.valuesOf(card.parentKey);
-                const story = card.story;
-                const isOpen = open.has(story.id);
-                return (
-                  <CardFrame
-                    key={card.key}
-                    cardKey={card.key}
-                    label={story.title}
-                    values={values}
-                    parentValues={parentValues}
-                    zIndex={100 - card.depth}
-                    expanded={isOpen}
-                    focused={focusKey === card.key}
-                    dimmed={
-                      criticalOnly &&
-                      !proofsBeneath(story).some((proof) => proof.critical)
-                    }
-                    surface={
-                      tallyOf(story, reports, running, waiting).criticalFailing
-                        ? 'ring-destructive/45'
-                        : 'ring-border'
-                    }
-                    onMeasure={onMeasure}
-                    onElement={onElement}
-                    onActivate={() => activate(card)}
-                    onFocus={() => setFocusKey(card.key)}
-                  >
-                    <StoryCard
-                      story={story}
-                      open={isOpen}
-                      width={card.width}
-                      top={card.parentKey === null}
-                      unfolded={!folded.has(story.id)}
-                      tabbable={isOpen && focusKey === card.key}
-                      onFold={() => fold(card)}
-                    />
-                  </CardFrame>
-                );
-              })}
-            </AnimatePresence>
-          </motion.div>
-
-          <div className="pointer-events-none absolute inset-x-3 top-3 z-10 flex items-start justify-between gap-3">
-            <div className="pointer-events-auto flex h-8 items-center gap-3 rounded-lg bg-background/90 px-3 shadow-xs ring-1 ring-border backdrop-blur-sm">
-              <span className="text-xs font-medium">
-                {rootTally.total} {rootTally.total === 1 ? 'Proof' : 'Proofs'}
-              </span>
-              <TallyLine tally={rootTally} />
-            </div>
-            <div className="pointer-events-auto flex items-center gap-2">
-              {criticalCount > 0 && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  aria-pressed={criticalOnly}
-                  onClick={() => setCriticalOnly(!criticalOnly)}
-                  className={cn(
-                    'bg-background/90 backdrop-blur-sm',
-                    criticalOnly &&
-                      'border-foreground bg-foreground text-background hover:bg-foreground/90 hover:text-background dark:bg-foreground dark:hover:bg-foreground/90',
-                  )}
-                >
-                  <ShieldAlert className="size-3.5" />
-                  Critical
-                  <span className="tabular-nums opacity-70">
-                    {criticalCount}
+          label={`Stories of ${tree.title}`}
+          overlay={
+            <>
+              <div className="pointer-events-none absolute inset-x-3 top-3 z-10 flex items-start justify-between gap-3">
+                <div className="pointer-events-auto flex h-8 items-center gap-3 rounded-lg bg-background/90 px-3 shadow-xs ring-1 ring-border backdrop-blur-sm">
+                  <span className="text-xs font-medium">
+                    {rootTally.total}{' '}
+                    {rootTally.total === 1 ? 'Proof' : 'Proofs'}
                   </span>
-                </Button>
-              )}
-              <div className="flex h-8 items-center rounded-md bg-background/90 shadow-xs ring-1 ring-border backdrop-blur-sm">
-                <button
-                  type="button"
-                  aria-label="Zoom out"
-                  onClick={() => space.zoomBy(1 / 1.25)}
-                  className="flex h-full w-8 items-center justify-center rounded-l-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                >
-                  <Minus className="size-3.5" />
-                </button>
-                <motion.span className="w-11 text-center font-mono text-[11px] tabular-nums text-muted-foreground">
-                  {zoomLabel}
-                </motion.span>
-                <button
-                  type="button"
-                  aria-label="Zoom in"
-                  onClick={() => space.zoomBy(1.25)}
-                  className="flex h-full w-8 items-center justify-center rounded-r-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                >
-                  <Plus className="size-3.5" />
-                </button>
-              </div>
-              <Button
-                size="sm"
-                onClick={() => runScope()}
-                disabled={run?.active === true}
-                className="disabled:opacity-100"
-              >
-                <Play className="size-3.5" />
-                {run?.active === true ? (
-                  <>
-                    Running
-                    <span
+                  <TallyLine tally={rootTally} />
+                </div>
+                <div className="pointer-events-auto flex items-center gap-2">
+                  {criticalCount > 0 && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      aria-pressed={criticalOnly}
+                      onClick={() => setCriticalOnly(!criticalOnly)}
                       className={cn(
-                        countBadge,
-                        'bg-primary-foreground/18 text-primary-foreground',
+                        'bg-background/90 backdrop-blur-sm',
+                        criticalOnly &&
+                          'border-foreground bg-foreground text-background hover:bg-foreground/90 hover:text-background dark:bg-foreground dark:hover:bg-foreground/90',
                       )}
                     >
-                      {rootProgress.done} / {rootProgress.total}
-                    </span>
-                  </>
-                ) : (
-                  'Run all'
-                )}
-              </Button>
-            </div>
-          </div>
-          <p className="pointer-events-none absolute bottom-3 left-3 z-10 max-sm:hidden rounded-md bg-background/85 px-2 py-1 text-[11px] text-muted-foreground backdrop-blur-sm">
-            {[
-              'Drag or scroll to move',
-              'pinch or ⌘ scroll to zoom',
-              ...hints,
-            ].join(' · ')}
-          </p>
-        </div>
+                      <ShieldAlert className="size-3.5" />
+                      Critical
+                      <span className="tabular-nums opacity-70">
+                        {criticalCount}
+                      </span>
+                    </Button>
+                  )}
+                  <ZoomControls space={space} />
+                  <Button
+                    size="sm"
+                    onClick={() => runScope()}
+                    disabled={run?.active === true}
+                    className="disabled:opacity-100"
+                  >
+                    <Play className="size-3.5" />
+                    {run?.active === true ? (
+                      <>
+                        Running
+                        <span
+                          className={cn(
+                            countBadge,
+                            'bg-primary-foreground/18 text-primary-foreground',
+                          )}
+                        >
+                          {rootProgress.done} / {rootProgress.total}
+                        </span>
+                      </>
+                    ) : (
+                      'Run all'
+                    )}
+                  </Button>
+                </div>
+              </div>
+              <HintLine hints={hints} />
+            </>
+          }
+        >
+          <AnimatePresence>
+            {structure.cards.map((card) => {
+              const values = cards.valuesOf(card.key);
+              const parentValues =
+                card.parentKey === null
+                  ? undefined
+                  : cards.valuesOf(card.parentKey);
+              const story = card.story;
+              const isOpen = open.has(story.id);
+              return (
+                <CardFrame
+                  key={card.key}
+                  cardKey={card.key}
+                  label={story.title}
+                  values={values}
+                  parentValues={parentValues}
+                  zIndex={100 - card.depth}
+                  expanded={isOpen}
+                  focused={focusKey === card.key}
+                  dimmed={
+                    criticalOnly &&
+                    !proofsBeneath(story).some((proof) => proof.critical)
+                  }
+                  surface={
+                    tallyOf(story, reports, running, waiting).criticalFailing
+                      ? 'ring-destructive/45'
+                      : 'ring-border'
+                  }
+                  onMeasure={onMeasure}
+                  onElement={onElement}
+                  onActivate={() => activate(card)}
+                  onFocus={() => setFocusKey(card.key)}
+                >
+                  <StoryCard
+                    story={story}
+                    open={isOpen}
+                    width={card.width}
+                    top={card.parentKey === null}
+                    unfolded={!folded.has(story.id)}
+                    tabbable={isOpen && focusKey === card.key}
+                    onFold={() => fold(card)}
+                  />
+                </CardFrame>
+              );
+            })}
+          </AnimatePresence>
+        </SpaceViewport>
 
-        <AnimatePresence>
+        <SidePanel
+          open={opened !== undefined}
+          label={opened?.proof.title ?? ''}
+          panelRef={panelRef}
+          reducedMotion={reducedMotion}
+          onClose={closePanel}
+        >
           {opened !== undefined && (
-            <motion.div
-              key="proof-backdrop"
-              aria-hidden
-              onClick={closePanel}
-              className="absolute inset-0 z-20 bg-background/45 backdrop-blur-[3px]"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{
-                opacity: 0,
-                transition: {
-                  duration: reducedMotion ? 0 : 0.18,
-                  ease: 'easeIn',
-                },
+            <ProofPanel
+              key={opened.proof.id}
+              proof={opened.proof}
+              path={opened.path}
+              report={latestReports[opened.proof.id]}
+              state={proofState(opened.proof.id, reports, running, waiting)}
+              onRun={() => runScope(opened.proof.id)}
+              onClose={closePanel}
+              onStory={(id) => {
+                closePanel();
+                showStory(id);
               }}
-              transition={{ duration: 0.26, ease: [0.23, 1, 0.32, 1] }}
+              evidenceUrl={evidenceUrl}
             />
           )}
-          {opened !== undefined && (
-            <motion.aside
-              ref={panelRef}
-              key="proof-panel"
-              tabIndex={-1}
-              aria-label={opened.proof.title}
-              className="absolute inset-y-0 right-0 z-30 flex outline-none w-[min(1120px,calc(100%-112px))] max-sm:w-full border-l border-border bg-background shadow-[-24px_0_48px_-24px_rgb(0_0_0/0.18)]"
-              initial={reducedMotion ? { opacity: 0 } : { x: 40, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={
-                reducedMotion
-                  ? { opacity: 0, transition: { duration: 0 } }
-                  : {
-                      x: 40,
-                      opacity: 0,
-                      transition: { duration: 0.18, ease: 'easeIn' },
-                    }
-              }
-              transition={{ duration: 0.26, ease: [0.23, 1, 0.32, 1] }}
-            >
-              <ProofPanel
-                key={opened.proof.id}
-                proof={opened.proof}
-                path={opened.path}
-                report={latestReports[opened.proof.id]}
-                state={proofState(opened.proof.id, reports, running, waiting)}
-                onRun={() => runScope(opened.proof.id)}
-                onClose={closePanel}
-                onStory={(id) => {
-                  closePanel();
-                  showStory(id);
-                }}
-                evidenceUrl={evidenceUrl}
-              />
-            </motion.aside>
-          )}
-        </AnimatePresence>
+        </SidePanel>
       </CanvasContext.Provider>
     </div>
   );

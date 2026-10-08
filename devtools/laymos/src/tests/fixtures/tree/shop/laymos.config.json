@@ -1,0 +1,16 @@
+{
+  "sourceRoots": ["src", "scripts"],
+  "ignoredPaths": ["src/domain/orders/generated.ts"],
+  "fileModules": ["src/core/ids.ts"],
+  "rules": {
+    "src/app": ["src/domain"],
+    "*": ["src/core"]
+  },
+  "exceptions": [
+    {
+      "from": "src/infra",
+      "to": "src",
+      "because": "infra boots the app through its door until the composition root moves out"
+    }
+  ]
+}

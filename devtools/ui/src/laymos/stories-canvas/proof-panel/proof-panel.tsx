@@ -12,7 +12,10 @@ import {
   TraceViewer,
 } from '../../../otel-trace-viewer/trace-viewer';
 import { CriticalBadge, StateLabel, VenueLabel } from '../badges';
-import { RecordingsPlayer, useRecordingsPlayback } from '../recordings-player';
+import {
+  RecordingsPlayer,
+  useRecordingsPlayback,
+} from '../recordings-player/recordings-player';
 import { formatDuration } from '../state-style';
 import type { ProofState } from '../story-scope';
 import { ErrorBlock, PhaseSection } from './phase-section';

@@ -1,223 +1,78 @@
 {
   "$schema": "../laymos/schema.json",
   "sourceRoots": ["src"],
-  "ignoredPaths": [],
-  "layers": {
-    "entry": {
-      "paths": ["src/browser.tsx", "src/snapshot.tsx", "src/server/main.ts"],
-      "description": "Starts the browser application, the Snapshot page, and the local DevTools process with its subcommands",
-      "modules": {
-        "src/browser.tsx": {},
-        "src/snapshot.tsx": {},
-        "src/server/main.ts": {}
-      }
-    },
-    "cli": {
-      "paths": ["src/cli"],
-      "description": "Runs the devtools subcommands: Client Commands that read Traces and Flows back, the shipped skills, and Snapshots",
-      "modules": {
-        "src/cli/traces": {
-          "exposed": true
-        },
-        "src/cli/flows": {
-          "exposed": true
-        },
-        "src/cli/snapshot": {
-          "exposed": true
-        },
-        "src/cli/skills.ts": {
-          "exposed": true
-        },
-        "src/cli/client-command": {
-          "shared": true
-        },
-        "src/cli/text-format.ts": {
-          "shared": true
-        }
-      }
-    },
-    "browser-application": {
-      "paths": ["src/browser-app"],
-      "description": "Composes the DevTools home and Tool routes",
-      "modules": {
-        "src/browser-app": {
-          "exposed": true
-        }
-      }
-    },
-    "tool-interface": {
-      "paths": ["src/ui"],
-      "description": "Owns the complete browser interaction for each Tool",
-      "modules": {
-        "src/ui/laymos/laymos": {
-          "exposed": true
-        },
-        "src/ui/laymos/project-workspace": {
-          "shared": true
-        },
-        "src/ui/git-changes": {
-          "shared": true
-        },
-        "src/ui/laymos/snapshot": {
-          "exposed": true
-        },
-        "src/ui/project-selection": {
-          "shared": true
-        },
-        "src/ui/monoverse/monoverse": {
-          "exposed": true
-        }
-      },
-      "moduleGraphs": {
-        "lotel": {
-          "description": "Synchronizes and presents Traces and Log Records",
-          "path": "src/ui/lotel",
-          "modules": {
-            "lotel": {
-              "exposed": true
-            },
-            "collections.ts": {},
-            "viewer": {}
-          },
-          "rules": {
-            "lotel": ["collections.ts", "viewer"],
-            "viewer": ["collections.ts"]
-          }
-        },
-        "flow": {
-          "description": "Synchronizes Flow Entries and presents Journals as swim lanes",
-          "path": "src/ui/flow",
-          "modules": {
-            "flow": {
-              "exposed": true
-            },
-            "collections.ts": {},
-            "viewer": {}
-          },
-          "rules": {
-            "flow": ["collections.ts", "viewer"],
-            "viewer": ["collections.ts"]
-          }
-        }
-      }
-    },
-    "browser-client": {
-      "paths": ["src/client"],
-      "description": "Connects browser Tools to same-origin DevTools RPC",
-      "modules": {
-        "src/client/devtools-rpc": {
-          "exposed": true
-        }
-      }
-    },
-    "server-host": {
-      "paths": ["src/server/local-devtools-server"],
-      "description": "Hosts the browser application, RPC, health, and OTLP on loopback",
-      "modules": {
-        "src/server/local-devtools-server": {
-          "exposed": true
-        }
-      }
-    },
-    "server-handlers": {
-      "paths": [
-        "src/server/handlers.ts",
-        "src/server/analyze-laymos-project",
-        "src/server/analyze-monorepo",
-        "src/server/git-changes",
-        "src/server/get-laymos-documentation",
-        "src/server/get-laymos-module-source",
-        "src/server/get-laymos-source-files",
-        "src/server/get-laymos-stories",
-        "src/server/get-laymos-story-reports",
-        "src/server/get-package-files",
-        "src/server/get-package-readme",
-        "src/server/run-laymos-stories",
-        "src/server/flow-store",
-        "src/server/project-registry",
-        "src/server/resolve-worktrees"
-      ],
-      "description": "Fulfils the Laymos, Monoverse, git, Flow, and Project registry RPC contracts with local Project and Monorepo behavior, the Flow Store, and the Project registry",
-      "modules": {
-        "src/server/handlers.ts": {
-          "exposed": true
-        },
-        "src/server/analyze-laymos-project": {
-          "shared": true
-        },
-        "src/server/analyze-monorepo": {
-          "shared": true
-        },
-        "src/server/git-changes": {
-          "shared": true
-        },
-        "src/server/get-laymos-documentation": {
-          "shared": true
-        },
-        "src/server/get-laymos-module-source": {
-          "shared": true
-        },
-        "src/server/get-laymos-source-files": {
-          "shared": true
-        },
-        "src/server/get-laymos-stories": {
-          "shared": true
-        },
-        "src/server/get-laymos-story-reports": {
-          "shared": true
-        },
-        "src/server/get-package-files": {
-          "shared": true
-        },
-        "src/server/get-package-readme": {
-          "shared": true
-        },
-        "src/server/run-laymos-stories": {
-          "shared": true
-        },
-        "src/server/flow-store": {
-          "exposed": true
-        },
-        "src/server/project-registry": {
-          "exposed": true
-        },
-        "src/server/resolve-worktrees": {
-          "shared": true
-        }
-      }
-    },
-    "rpc-contract": {
-      "paths": ["src/rpc"],
-      "description": "Defines the typed contract shared by the browser and local server",
-      "modules": {
-        "src/rpc": {
-          "exposed": true
-        }
-      }
-    },
-    "domain": {
-      "paths": ["src/domain"],
-      "description": "Decides what a Snapshot draws and defines the request the command hands the Snapshot page",
-      "modules": {
-        "src/domain/snapshot": {
-          "exposed": true
-        }
-      }
-    }
-  },
-  "layerGraphs": {
-    "devtools": {
-      "rules": {
-        "entry": ["browser-application", "server-host", "cli"],
-        "cli": ["domain", "rpc-contract"],
-        "browser-application": ["tool-interface", "browser-client"],
-        "tool-interface": ["browser-client", "rpc-contract", "domain"],
-        "browser-client": ["rpc-contract"],
-        "server-host": ["server-handlers", "rpc-contract"],
-        "server-handlers": ["rpc-contract"],
-        "rpc-contract": [],
-        "domain": []
-      }
-    }
+  "fileModules": [
+    "src/browser.tsx",
+    "src/snapshot.tsx",
+    "src/server/main.ts",
+    "src/server/handlers.ts",
+    "src/cli/skills.ts",
+    "src/cli/text-format.ts",
+    "src/ui/flow/collections.ts",
+    "src/ui/lotel/collections.ts"
+  ],
+  "rules": {
+    "src/browser.tsx": ["src/browser-app"],
+    "src/snapshot.tsx": ["src/browser-app"],
+    "src/server/main.ts": [
+      "src/server/local-devtools-server",
+      "src/cli/traces",
+      "src/cli/flows",
+      "src/cli/snapshot",
+      "src/cli/skills.ts"
+    ],
+    "src/cli/client-command": ["src/rpc"],
+    "src/cli/snapshot": ["src/domain/snapshot"],
+    "src/browser-app": [
+      "src/client/devtools-rpc",
+      "src/ui/laymos/laymos",
+      "src/ui/laymos/snapshot",
+      "src/ui/monoverse/monoverse",
+      "src/ui/lotel/lotel",
+      "src/ui/flow/flow"
+    ],
+    "src/ui": ["src/client", "src/rpc", "src/domain"],
+    "src/ui/laymos/laymos": ["src/ui/laymos/project-workspace"],
+    "src/ui/monoverse": [
+      "src/ui/laymos/project-workspace",
+      "src/ui/git-changes",
+      "src/ui/project-selection"
+    ],
+    "src/ui/lotel/lotel": [
+      "src/ui/lotel/viewer",
+      "src/ui/lotel/collections.ts"
+    ],
+    "src/ui/lotel/viewer": ["src/ui/lotel/collections.ts"],
+    "src/ui/flow/flow": ["src/ui/flow/viewer", "src/ui/flow/collections.ts"],
+    "src/ui/flow/viewer": ["src/ui/flow/collections.ts"],
+    "src/client": ["src/rpc"],
+    "src/server": ["src/rpc"],
+    "src/server/local-devtools-server": [
+      "src/server/handlers.ts",
+      "src/server/flow-store",
+      "src/server/project-registry"
+    ],
+    "src/server/handlers.ts": [
+      "src/server/analyze-laymos-project",
+      "src/server/analyze-monorepo",
+      "src/server/get-laymos-files",
+      "src/server/get-laymos-stories",
+      "src/server/get-laymos-story-reports",
+      "src/server/get-package-files",
+      "src/server/get-package-readme",
+      "src/server/git-changes",
+      "src/server/run-laymos-stories"
+    ],
+    "src/server/project-registry": ["src/server/resolve-worktrees"],
+    "src/server/analyze-monorepo/monorepo": [
+      "src/server/analyze-monorepo/package",
+      "src/server/analyze-monorepo/package-graph"
+    ],
+    "src/server/analyze-monorepo/package": [
+      "src/server/analyze-monorepo/package-graph"
+    ],
+    "src/cli/traces": ["src/cli/client-command", "src/cli/text-format.ts"],
+    "src/cli/flows": ["src/cli/client-command", "src/cli/text-format.ts"],
+    "src/ui/laymos": ["src/ui/git-changes", "src/ui/project-selection"]
   }
 }

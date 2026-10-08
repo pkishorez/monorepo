@@ -106,7 +106,7 @@ describe('getStoryTree', () => {
     const error = await getStoryTree(
       fileURLToPath(
         new URL(
-          '../../../tests/fixtures/layers/no-modules/laymos.config.json',
+          '../../../tests/fixtures/tree/shop/laymos.config.json',
           import.meta.url,
         ),
       ),

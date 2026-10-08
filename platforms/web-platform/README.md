@@ -158,9 +158,10 @@ Owned shadcn copies on Base UI, one subpath per file, such as `@kstackz/web-plat
 
 ### `@kstackz/web-platform/components/viewers/diff-viewer`
 
-| Export       | What it does                                    |
-| ------------ | ----------------------------------------------- |
-| `DiffViewer` | Shows one file's diff, side by side or unified. |
+| Export               | What it does                                                                                   |
+| -------------------- | ---------------------------------------------------------------------------------------------- |
+| `DiffViewer`         | Shows one file's diff, side by side or unified; its options can be held by the caller to keep. |
+| `defaultDiffOptions` | The options a diff opens with: split, unwrapped, both sides, folded.                           |
 
 ### `@kstackz/web-platform/components/viewers/file-tree`
 

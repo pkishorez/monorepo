@@ -1,19 +1,17 @@
 import { Console, Effect } from 'effect';
 import { Command } from 'effect/cli';
 
+import { violationsOf } from '../../domain/architecture-analysis/index.js';
 import { analyzeProject } from '../../orchestrator/analyze-project/index.js';
 import {
   findSelfContainedViolations,
   findTellingIssues,
 } from '../../orchestrator/run-stories/index.js';
-import { makeLayersCommand } from './layers/index.js';
-import { renderLayerReport } from './layers/report.js';
-import { makeModulesCommand } from './modules/index.js';
-import { renderModuleReport } from './modules/report.js';
+import { renderLintReport } from './report.js';
 import {
   renderSelfContainedReport,
   renderTellingReport,
-} from './stories/index.js';
+} from './stories/report.js';
 
 export function makeLintCommand<R>(
   configPath: Effect.Effect<string, never, R>,
@@ -21,26 +19,24 @@ export function makeLintCommand<R>(
   return Command.make('lint', {}, () =>
     configPath.pipe(Effect.flatMap(runLint)),
   ).pipe(
-    Command.withDescription('Check every configured architectural rule.'),
-    Command.withSubcommands([
-      makeLayersCommand(configPath),
-      makeModulesCommand(configPath),
-    ]),
+    Command.withDescription(
+      'Check every import against the Rules and Exceptions, and every Story.',
+    ),
   );
 }
 
 function runLint(configPath: string) {
   return Effect.gen(function* () {
-    const result = yield* analyzeProject(configPath);
-    yield* Console.log(renderLayerReport(result.layerAnalysis));
-    yield* Console.log(renderModuleReport(result.moduleAnalysis));
-    const storyViolations = yield* lintStories(configPath);
+    const analysis = yield* analyzeProject(configPath);
+    yield* Console.log(renderLintReport(analysis));
+    const storyIssues = yield* lintStories(configPath);
+    const coverage = analysis.findings.filter(
+      ({ kind }) => kind === 'wrapper-coverage',
+    );
     if (
-      result.layerAnalysis.unassignedFiles.length > 0 ||
-      result.layerAnalysis.forbiddenImports.length > 0 ||
-      result.layerAnalysis.layersWithoutModules.length > 0 ||
-      result.moduleAnalysis.violations.length > 0 ||
-      storyViolations > 0
+      violationsOf(analysis).length > 0 ||
+      coverage.length > 0 ||
+      storyIssues > 0
     ) {
       process.exitCode = 1;
     }

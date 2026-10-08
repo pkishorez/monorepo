@@ -1,52 +1,47 @@
 // Node consumers use this high-level capability to produce Architecture Analysis.
 export { analyzeProject } from './orchestrator/analyze-project/index.js';
-// Node consumers use this high-level capability to inspect one Configured Module.
+// Node consumers use this to list a Module's files and read one of them.
 export {
-  loadModuleSource,
-  ModuleSourceNotFound,
-  ModuleSourceReadError,
-} from './orchestrator/load-module-source/index.js';
-// Node consumers use this high-level capability to read documentation at any scope.
-export {
-  loadDocumentation,
-  DocumentationReadError,
-  DocumentationScopeNotFound,
-} from './orchestrator/load-documentation/index.js';
-// Node consumers use this high-level capability to read arbitrary source files by path.
-export {
+  FileNotFound,
+  FileReadError,
+  loadFileContent,
+  loadFileList,
   loadFolderFiles,
-  loadSourceFiles,
-  SourceFileReadError,
-} from './orchestrator/load-source-files/index.js';
+} from './orchestrator/load-files/index.js';
 // RPC transports use this browser-safe runtime contract for Architecture Analysis.
-export { ArchitectureAnalysisSchema } from './architecture-analysis-schema/index.js';
-// Renderers name the complete renderer-neutral analysis they consume.
-export type { ArchitectureAnalysis } from './architecture-analysis-schema/index.js';
-export { ModuleSourceSnapshotSchema } from './architecture-analysis-schema/index.js';
-export type {
-  ModuleSourceFile,
-  ModuleSourceSnapshot,
-} from './architecture-analysis-schema/index.js';
 export {
-  DocumentationScopeSchema,
-  DocumentationSchema,
+  ArchitectureAnalysisSchema,
+  FileContentSchema,
+  FileListSchema,
+  FolderFileSchema,
 } from './architecture-analysis-schema/index.js';
+// Renderers name the complete renderer-neutral analysis they consume.
 export type {
-  Documentation,
-  DocumentationScope,
+  ArchitectureAnalysis,
+  Config,
+  ConfigException,
+  FileContent,
+  FileList,
+  FileListEntry,
+  Finding,
+  FolderFile,
+  ImportVerdict,
+  ModuleImport,
+  ModuleTree,
+  Rule,
+  TreeNode,
+  ViolationReason,
+  ViolationRemedy,
 } from './architecture-analysis-schema/index.js';
 export {
   InspectionTargetNotFound,
-  ModuleInspectionCycle,
   inspectFile,
-  inspectLayer,
   inspectModule,
   inspectProject,
 } from './orchestrator/inspect/index.js';
 export type {
   FileInspection,
   FileInspectionOptions,
-  LayerInspection,
   ModuleInspection,
   ProjectInspection,
 } from './orchestrator/inspect/index.js';

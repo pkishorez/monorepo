@@ -6,7 +6,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from '../blocks.tsx';
+} from './blocks.tsx';
 
 /** A place to go: its name, icon, whether it's here, and the link to it. */
 export interface NavItem {

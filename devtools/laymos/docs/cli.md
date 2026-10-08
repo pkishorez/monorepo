@@ -5,50 +5,48 @@ and project-relative paths resolve from the config file's directory.
 
 ```sh
 laymos [--config <path>] lint
-laymos [--config <path>] lint layers
-laymos [--config <path>] lint modules
 laymos [--config <path>] inspect project [--json]
-laymos [--config <path>] inspect layer <layer-name> [--json]
+laymos [--config <path>] inspect module <path> [--json]
 laymos [--config <path>] inspect file <file-path> [--recursive] [--json]
-laymos [--config <path>] inspect module <module-path> [--json]
 laymos [--config <path>] stories [scope] [--concurrency <n>]
 laymos skills [<name>] [--install <dir>] [--format json|text]
 ```
 
 ## Exit codes
 
-| Code | Meaning                                                                        |
-| ---- | ------------------------------------------------------------------------------ |
-| `0`  | No violations, or every Proof passed.                                          |
-| `1`  | Violations found, a Proof did not pass, or the inspected Module is in a cycle. |
-| `2`  | Invalid configuration or an analysis failure.                                  |
+| Code | Meaning                                       |
+| ---- | --------------------------------------------- |
+| `0`  | No violations, or every Proof passed.         |
+| `1`  | Violations found, or a Proof did not pass.    |
+| `2`  | Invalid configuration or an analysis failure. |
 
 ## lint
 
-`lint` runs every check. `lint layers` checks Layer coverage (every file has a
-Layer), that each Layer has at least one Module, and cross-Layer dependency
-rules. `lint modules` checks Module coverage, entry points, dependencies,
-public boundaries, unused Shared Modules, and cycles. When `storiesPath` is
-set, `lint` also reports every Telling issue (a Story folder without a
-`story.md`, a Telling without a `#` title or a pitch, a link to a Story or
-Proof that does not exist, a sub-Story its parent never links) and every
-Proof that is not Self-contained: a Proof file with a relative import (`./`,
-`../`). Each is a violation. Proof files are not imported to find them.
+`lint` classifies every import between two Modules: a Module's own file
+reaching a nested Index, covered by a Rule, covered by an Exception, or a
+Violation. It prints each Violation with its two files and the key that could
+hold it (a Rule, an Exception with a Reason, or neither when the import
+reaches a file that is no Index), the files no Module owns, and the Rules and
+Exceptions no import uses. When `storiesPath` is set, it also reports every
+Telling issue (a Story folder without a `story.md`, a Telling without a `#`
+title or a pitch, a link to a Story or Proof that does not exist, a sub-Story
+its parent never links) and every Proof that is not Self-contained: a Proof
+file with a relative import (`./`, `../`). Each is a violation. Proof files are
+not imported to find them.
 
 ## inspect
 
-`inspect project` summarizes the whole architecture. `inspect layer` takes an
-exact Layer name and reports its paths, allowed Layer links, Modules, Shared
-count, and violations. `inspect module` takes an exact Configured Module path
-and prints its configured visibility, source shape, observed kind, public entry
-points, and dependency tree. If the Module is part of a dependency cycle,
-inspection stops and points to `lint modules`.
+`inspect project` prints the Module tree (Modules green, File Modules cyan,
+Wrappers dim), then every Rule and Exception. `inspect module` takes a Module
+or Wrapper path and prints its shape, Index, nested Modules, its Reach (what
+it may import, by which Rule or Exception), and its dependents and
+dependencies as a path tree.
 
-`inspect file` takes an exact included source file and prints its Layer,
-Configured Module, public-boundary role, and dependencies as a colored path
-tree. Direct dependencies are yellow; with `--recursive`, transitive ones are
-gray. The inspected target is green. Files with missing Layer or Module
-membership are still inspectable and show a coverage warning.
+`inspect file` takes an analyzed source file and prints the Module owning it,
+its role (Index or own file), and its dependencies as a colored path tree.
+Direct dependencies are yellow; with `--recursive`, transitive ones are gray.
+The inspected target is green. A file no Module owns is still inspectable and
+shows a warning.
 
 Add `--json` to any `inspect` command for stable tool output.
 

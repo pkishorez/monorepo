@@ -15,7 +15,7 @@
   },
   "scripts": {
     "dev": "cosmos",
-    "lint": "tsc --noEmit",
+    "lint": "tsc --noEmit && laymos lint",
     "test": "vitest run"
   },
   "dependencies": {

@@ -1,63 +1,19 @@
 import { Schema } from 'effect';
 
-import {
-  LayerAnalysisSchema,
-  type ForbiddenImport,
-  type LayerAnalysis,
-  type LayerDefinition,
-} from './layer-analysis-schema.js';
-import {
-  ModuleAnalysisSchema,
-  type AnalyzedModule,
-  type AnalyzedModuleGraph,
-  type ModuleAnalysis,
-  type ModuleDefinition,
-  type ModuleDependency,
-  type ModuleGraphDefinition,
-  type ModuleShape,
-  type ModuleViolation,
-  type ObservedModuleKind,
-} from './module-analysis-schema.js';
-import {
-  ConfigValidationIssueSchema,
-  ProjectConfigInputSchema,
-  ProjectConfigSchema,
-  type Config,
-  type ConfigValidationIssue,
-  type ModuleConfig,
-  type ModuleGraphConfig,
-} from './project-config-schema.js';
+import { FindingSchema, ModuleImportSchema } from './import-schema.js';
+import { ModuleTreeSchema } from './module-tree-schema.js';
+import { ProjectConfigSchema } from './project-config-schema.js';
 
+/**
+ * The merged picture of one Project: the Module tree read from disk, the
+ * Rules and Exceptions the Config declares, every import between nodes
+ * classified against them, and the findings that are not imports.
+ */
 export const ArchitectureAnalysisSchema = Schema.Struct({
   config: ProjectConfigSchema,
-  layerAnalysis: LayerAnalysisSchema,
-  moduleAnalysis: ModuleAnalysisSchema,
+  tree: ModuleTreeSchema,
+  imports: Schema.Array(ModuleImportSchema),
+  findings: Schema.Array(FindingSchema),
 });
 
 export type ArchitectureAnalysis = typeof ArchitectureAnalysisSchema.Type;
-
-export {
-  ConfigValidationIssueSchema,
-  LayerAnalysisSchema,
-  ModuleAnalysisSchema,
-  ProjectConfigInputSchema,
-  ProjectConfigSchema,
-};
-export type {
-  AnalyzedModule,
-  AnalyzedModuleGraph,
-  Config,
-  ConfigValidationIssue,
-  ForbiddenImport,
-  LayerAnalysis,
-  LayerDefinition,
-  ModuleAnalysis,
-  ModuleConfig,
-  ModuleDefinition,
-  ModuleDependency,
-  ModuleGraphConfig,
-  ModuleGraphDefinition,
-  ModuleShape,
-  ModuleViolation,
-  ObservedModuleKind,
-};

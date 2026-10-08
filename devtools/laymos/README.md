@@ -4,12 +4,15 @@ Enforces architectural dependency rules and explores source dependencies.
 
 ## Big picture
 
-A project's architecture usually lives in people's heads. laymos moves it into
-a plain `laymos.config.json`: Layers group source paths, Modules draw disjoint
-boundaries inside a Layer, and LayerGraphs say which Layers may depend on
-which. `laymos lint` compares that intent with the real import graph and
-reports every gap. `laymos inspect` answers the reverse question: given a
-file or Module, what does it depend on and who is allowed to reach it.
+A project's architecture usually lives in people's heads. laymos reads most
+of it from the folder tree and asks for the rest in a plain
+`laymos.config.json`: a folder with an `index.ts` is a Module, any other
+folder is a Wrapper for what is inside, Rules say which Module or Wrapper may
+import which, and Exceptions name the few imports no Rule could hold, each
+with its Reason. `laymos lint` classifies every import against that and
+reports every gap, saying which key would close it. `laymos inspect` answers
+the reverse question: given a file or Module, what does it depend on and who
+is allowed to reach it.
 
 The same config can point at a folder of Stories that teach the Project to its
 Reader. Each folder is a Story told by its `story.md`, from the top Story's
@@ -29,7 +32,8 @@ subpaths, and plays Recordings back on the Stories canvas. Stories capture
 traces with [@kstackz/effect-tracer](../effect-tracer/README.md).
 
 Terms are defined in [CONTEXT.md](./CONTEXT.md). Decisions are in
-[docs/adr/](./docs/adr/); the Story model is
+[docs/adr/](./docs/adr/); the tree of Modules, Rules and Exceptions is
+[ADR-0019](./docs/adr/0019-architecture-is-one-tree-of-modules.md), the Story model is
 [ADR-0018](./docs/adr/0018-stories-are-a-tree-of-tellings.md), and a Proof is
 [ADR-0017](./docs/adr/0017-a-story-is-one-self-contained-claim.md). The config reference is in
 [docs/config.md](./docs/config.md) and the CLI reference in
@@ -58,21 +62,16 @@ Node-only. Reads the config, walks the source tree, and runs git.
 
 | Export                                                                                                                             | What it does                                                                                                               |
 | ---------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `analyzeProject`                                                                                                                   | Reads a config path and returns the full Architecture Analysis: config, Layer and Module analysis.                         |
-| `inspectProject`                                                                                                                   | Summarizes the whole Project for the `inspect project` view.                                                               |
-| `inspectLayer`                                                                                                                     | Reports one Layer's paths, allowed links, Modules, and violations.                                                         |
-| `inspectFile`                                                                                                                      | Reports one file's Layer, Module, boundary role, and dependencies, optionally recursive.                                   |
-| `inspectModule`                                                                                                                    | Reports one Configured Module's visibility, shape, entry points, and dependency tree.                                      |
-| `InspectionTargetNotFound`                                                                                                         | Error when the inspected file, Layer, or Module does not exist.                                                            |
-| `ModuleInspectionCycle`                                                                                                            | Error when the inspected Module sits in a dependency cycle.                                                                |
-| `loadModuleSource`                                                                                                                 | Returns the paths and contents of every source file assigned to one Configured Module.                                     |
-| `ModuleSourceNotFound`                                                                                                             | Error when the requested Module is not configured.                                                                         |
-| `ModuleSourceReadError`                                                                                                            | Error when one of the Module's files could not be read.                                                                    |
-| `loadSourceFiles`                                                                                                                  | Returns the contents of included source files under the given path prefixes.                                               |
-| `SourceFileReadError`                                                                                                              | Error when one of those files could not be read.                                                                           |
-| `loadDocumentation`                                                                                                                | Reads the markdown declared by `docsPath` for a Layer, LayerGraph, Module, or Module Graph scope.                          |
-| `DocumentationScopeNotFound`                                                                                                       | Error when the scope names something the config does not declare.                                                          |
-| `DocumentationReadError`                                                                                                           | Error when the markdown file could not be read.                                                                            |
+| `analyzeProject`                                                                                                                   | Reads a config path and returns the full Architecture Analysis: config, Module tree, every import's verdict, and findings. |
+| `inspectProject`                                                                                                                   | The same Architecture Analysis, for the `inspect project` view.                                                            |
+| `inspectModule`                                                                                                                    | Reports one Module or Wrapper: its node, Reach, dependents, dependencies, and the imports it is a side of.                 |
+| `inspectFile`                                                                                                                      | Reports one file's owning Module, role, and dependencies, optionally recursive.                                            |
+| `InspectionTargetNotFound`                                                                                                         | Error when the inspected file or path does not exist.                                                                      |
+| `loadFileList`                                                                                                                     | Lists every git-tracked file beneath a Module or Wrapper, each marked analyzed or not.                                     |
+| `loadFileContent`                                                                                                                  | Reads one file of the Project; binary files come back empty and marked.                                                    |
+| `loadFolderFiles`                                                                                                                  | Reads every git-tracked file beneath the given paths of any folder.                                                        |
+| `FileNotFound`                                                                                                                     | Error when the path names no Module, Wrapper, or file inside the Project.                                                  |
+| `FileReadError`                                                                                                                    | Error when a file could not be read.                                                                                       |
 | `getStoryTree`                                                                                                                     | Loads the Story tree from `storiesPath`: each folder's Telling, its Proofs, and Telling issues, without running any Proof. |
 | `findTellingIssues`                                                                                                                | Lists every Telling issue in the tree without importing any Proof file.                                                    |
 | `planStories`                                                                                                                      | Loads the tree and scopes it to a Story or Proof id, then returns the total, the scoped tree, and a Stream of run events.  |
@@ -80,15 +79,13 @@ Node-only. Reads the config, walks the source tree, and runs git.
 | `loadStoryReports`                                                                                                                 | Reads every saved `report.json` whose Proof is still in the tree.                                                          |
 | `StoriesError`                                                                                                                     | Error for a missing `storiesPath`, an unloadable or invalid Proof file, an unknown scope, or a bad timeout.                |
 | `loadBranches`                                                                                                                     | Lists the git branches of the project's repository.                                                                        |
-| `loadChangeSet`                                                                                                                    | Lists paths added or modified against a base ref, default `HEAD`.                                                          |
+| `loadChangeSet`                                                                                                                    | Lists paths added, modified or deleted against a base ref, default `HEAD`.                                                 |
 | `loadFileDiff`                                                                                                                     | Returns the hunks of one file against a base ref.                                                                          |
 | `GitError`                                                                                                                         | Error when the folder is not a repository, the ref is unknown, or git failed.                                              |
 | `ConfigError`                                                                                                                      | Error when the config could not be read, parsed, decoded, or validated.                                                    |
 | `CruiseError`                                                                                                                      | Error when the source tree could not be walked or parsed.                                                                  |
 | `ArchitectureAnalysisSchema`                                                                                                       | Re-export from `laymos/architecture-analysis-schema`.                                                                      |
-| `ModuleSourceSnapshotSchema`                                                                                                       | Re-export from `laymos/architecture-analysis-schema`.                                                                      |
-| `DocumentationScopeSchema`                                                                                                         | Re-export from `laymos/architecture-analysis-schema`.                                                                      |
-| `DocumentationSchema`                                                                                                              | Re-export from `laymos/architecture-analysis-schema`.                                                                      |
+| `FileListSchema`, `FileContentSchema`, `FolderFileSchema`                                                                          | Re-exports from `laymos/architecture-analysis-schema`.                                                                     |
 | `ProofReportSchema`                                                                                                                | Re-export from `laymos/story/schema`.                                                                                      |
 | `ProofRunEventSchema`                                                                                                              | Re-export from `laymos/story/schema`.                                                                                      |
 | `StoryTreeSchema`                                                                                                                  | Re-export from `laymos/story/schema`.                                                                                      |
@@ -98,18 +95,21 @@ Node-only. Reads the config, walks the source tree, and runs git.
 
 Browser-safe. Schemas only; no file system access.
 
-| Export                        | What it does                                                                                       |
-| ----------------------------- | -------------------------------------------------------------------------------------------------- |
-| `ArchitectureAnalysisSchema`  | The wire contract for an Architecture Analysis; its Maps and Sets encode to JSON.                  |
-| `LayerAnalysisSchema`         | Layer membership, unassigned files, forbidden imports, and Layers without Modules.                 |
-| `ModuleAnalysisSchema`        | Analyzed Modules, Module Graphs, dependencies, and Module violations.                              |
-| `ProjectConfigSchema`         | The decoded config with every key present.                                                         |
-| `ProjectConfigInputSchema`    | The authoring config, where optional keys fall back to defaults.                                   |
-| `ConfigValidationIssueSchema` | One validation problem with its kind and message.                                                  |
-| `ModuleSourceFileSchema`      | One source file path with its contents.                                                            |
-| `ModuleSourceSnapshotSchema`  | The files of one Configured Module.                                                                |
-| `DocumentationScopeSchema`    | Which entity a documentation request targets: `module`, `module-graph`, `layer`, or `layer-graph`. |
-| `DocumentationSchema`         | The resolved markdown for one scope, or its absence.                                               |
+| Export                        | What it does                                                                               |
+| ----------------------------- | ------------------------------------------------------------------------------------------ |
+| `ArchitectureAnalysisSchema`  | The wire contract for an Architecture Analysis: config, Module tree, imports, findings.    |
+| `ModuleTreeSchema`            | The tree read from disk: every node's kind, shape, Index, own files, parent, and children. |
+| `TreeNodeSchema`              | One Module or Wrapper.                                                                     |
+| `ModuleImportSchema`          | One import between two nodes with its verdict: nested, rule, exception, or violation.      |
+| `FindingSchema`               | A file no Module owns, or a Rule or Exception nothing uses.                                |
+| `RuleSchema`                  | One concrete Rule, `from` and `to`.                                                        |
+| `ExceptionSchema`             | One Exception with its Reason.                                                             |
+| `ProjectConfigSchema`         | The decoded config with every key present.                                                 |
+| `ProjectConfigInputSchema`    | The authoring config, where optional keys fall back to defaults.                           |
+| `ConfigValidationIssueSchema` | One validation problem with its kind and message.                                          |
+| `FileListSchema`              | The files beneath one Module or Wrapper, each marked analyzed or not.                      |
+| `FileContentSchema`           | One file's path and contents.                                                              |
+| `FolderFileSchema`            | One file of a folder read by `loadFolderFiles`.                                            |
 
 ### `laymos/change-set-schema`
 
@@ -181,17 +181,14 @@ Browser-safe.
 
 ### CLI
 
-| Command                                             | What it does                                                            |
-| --------------------------------------------------- | ----------------------------------------------------------------------- |
-| `laymos lint`                                       | Checks every rule, every Telling, and that Proofs are Self-contained.   |
-| `laymos lint layers`                                | Checks Layer coverage and cross-Layer rules.                            |
-| `laymos lint modules`                               | Checks Module coverage, boundaries, dependencies, and cycles.           |
-| `laymos inspect project [--json]`                   | Summarizes the whole architecture.                                      |
-| `laymos inspect layer <name> [--json]`              | Shows one Layer and its Modules.                                        |
-| `laymos inspect file <path> [--recursive] [--json]` | Shows a file's Layer, Module, and dependency tree.                      |
-| `laymos inspect module <path> [--json]`             | Shows a Configured Module's identity and dependencies.                  |
-| `laymos stories [scope] [--concurrency <n>]`        | Runs the Proofs in a scope and prints the Story tree with each verdict. |
-| `laymos skills [<name>] [--install <dir>]`          | Lists, prints, or installs the shipped agent skills.                    |
+| Command                                             | What it does                                                                                    |
+| --------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `laymos lint`                                       | Classifies every import, reports Violations, unowned files, unused Rules, Tellings, and Proofs. |
+| `laymos inspect project [--json]`                   | Prints the Module tree, Rules, and Exceptions.                                                  |
+| `laymos inspect file <path> [--recursive] [--json]` | Shows a file's Module, role, and dependency tree.                                               |
+| `laymos inspect module <path> [--json]`             | Shows a Module or Wrapper, its Reach, and both dependency directions.                           |
+| `laymos stories [scope] [--concurrency <n>]`        | Runs the Proofs in a scope and prints the Story tree with each verdict.                         |
+| `laymos skills [<name>] [--install <dir>]`          | Lists, prints, or installs the shipped agent skills.                                            |
 
 Details and exit codes are in [docs/cli.md](./docs/cli.md).
 
@@ -211,8 +208,8 @@ const analysis = await analyzeProject('./laymos.config.json').pipe(
 );
 
 analysis.config.sourceRoots; // ['src']
-analysis.layerAnalysis.unassignedFiles; // files with no Layer
-analysis.moduleAnalysis.violations; // e.g. { kind: 'boundary', fromFile, toFile, ... }
+analysis.tree.nodes; // every Module and Wrapper
+analysis.imports.filter(({ verdict }) => verdict.kind === 'violation');
 
 // Send it over the wire: Maps and Sets encode to plain JSON.
 const codec = Schema.toCodecJson(ArchitectureAnalysisSchema);
@@ -222,7 +219,7 @@ const json = Schema.encodeSync(codec)(analysis);
 How it works:
 
 - `analyzeProject` loads and validates the config, walks `sourceRoots` with
-  oxc, and runs Layer and Module analysis.
+  oxc, reads the Module tree, and gives every import its verdict.
 - Failures are typed: `ConfigError` for the config, `CruiseError` for the
   source walk.
 - `ArchitectureAnalysisSchema` is the same contract the browser decodes.
