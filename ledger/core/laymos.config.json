@@ -12,6 +12,15 @@
         }
       }
     },
+    "constants": {
+      "paths": ["src/constants.ts"],
+      "description": "How Ledger is built: its Sync Mode, read alike by the app and the Worker",
+      "modules": {
+        "src/constants.ts": {
+          "exposed": true
+        }
+      }
+    },
     "session": {
       "paths": ["src/session"],
       "description": "What one signed-in user gets: a collection for each kind of their money and the Backend's commands, on the signed APIs and the Std Sync the Platform hands it, and the hooks screens read it with",
@@ -92,12 +101,31 @@
             },
             "table/device.ts": {
               "exposed": true
+            },
+            "broadcaster/index.ts": {
+              "exposed": true
+            },
+            "broadcaster/device.ts": {
+              "exposed": true
+            },
+            "broadcaster/durable-object.ts": {
+              "exposed": true
+            },
+            "table/durable-object.ts": {
+              "exposed": true
             }
           },
           "rules": {
             "table/index.ts": ["table/table.ts"],
             "table/cloud.ts": ["table/table.ts"],
-            "table/device.ts": ["table/table.ts"]
+            "table/device.ts": ["table/table.ts"],
+            "broadcaster/index.ts": [
+              "broadcaster/device.ts",
+              "broadcaster/durable-object.ts"
+            ],
+            "broadcaster/device.ts": [],
+            "broadcaster/durable-object.ts": [],
+            "table/durable-object.ts": ["table/table.ts"]
           }
         }
       }
@@ -125,8 +153,8 @@
     "ledger-core": {
       "description": "Read top-down: the Session over the named APIs, the device Backend, and the cache; the Backend answers the API in the words of the model. Commands stand alone; the Place order names them.",
       "rules": {
-        "apis": ["api"],
-        "session": ["apis", "api", "model"],
+        "apis": ["api", "constants"],
+        "session": ["apis", "api", "model", "constants"],
         "backend-device": ["backend", "backend-services"],
         "cache": [],
         "places": ["commands", "session", "model"],
@@ -135,7 +163,8 @@
         "backend-handlers": ["backend-services", "api", "model"],
         "backend-services": ["model"],
         "api": ["model"],
-        "model": []
+        "model": [],
+        "constants": []
       }
     }
   }

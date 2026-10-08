@@ -48,10 +48,10 @@ describe('the Backend in-process', () => {
         const backend = yield* connection;
         const ada = yield* clientAs(backend, tokenOf('ada@example.com'));
         const grace = yield* clientAs(backend, tokenOf('grace@example.com'));
-        yield* ada['Ledger.Sample']({ entries: false });
+        yield* ada.LedgerSample({ entries: false });
         return [
-          yield* ada['Accounts.Changes']({ after: null }),
-          yield* grace['Accounts.Changes']({ after: null }),
+          yield* ada.AccountChanges({ after: null }),
+          yield* grace.AccountChanges({ after: null }),
         ];
       }).pipe(Effect.scoped),
     );
@@ -63,9 +63,7 @@ describe('the Backend in-process', () => {
     const result = await Effect.runPromise(
       Effect.gen(function* () {
         const nobody = yield* clientAs(yield* connection, null);
-        return yield* Effect.result(
-          nobody['Accounts.Changes']({ after: null }),
-        );
+        return yield* Effect.result(nobody.AccountChanges({ after: null }));
       }).pipe(Effect.scoped),
     );
     expect(result).toMatchObject({ failure: { _tag: 'Unauthenticated' } });

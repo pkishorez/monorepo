@@ -24,24 +24,36 @@ export interface StreamCheckpointService {
 }
 
 export const makeStreamCheckpoint = (options: {
-  readonly get: () => Option.Option<unknown>;
-  readonly put: (value: unknown) => void;
-  readonly clear: () => void;
+  readonly get: Effect.Effect<Option.Option<unknown>>;
+  readonly put: (value: unknown) => Effect.Effect<void>;
+  readonly clear: Effect.Effect<void>;
 }): StreamCheckpointService => ({
-  get: <S extends Schema.Top = typeof Schema.Unknown>(schema?: S) => {
-    const value = options.get();
-    if (Option.isNone(value)) return Effect.succeed(Option.none());
-    return Schema.decodeUnknownEffect(schema ?? Schema.Unknown)(
-      value.value,
-    ).pipe(Effect.map(Option.some));
-  },
+  get: <S extends Schema.Top = typeof Schema.Unknown>(schema?: S) =>
+    Effect.flatMap(options.get, (value) =>
+      Option.isNone(value)
+        ? Effect.succeed(Option.none())
+        : Schema.decodeUnknownEffect(schema ?? Schema.Unknown)(
+            value.value,
+          ).pipe(Effect.map(Option.some)),
+    ),
   put: <S extends Schema.Top = typeof Schema.Unknown>(
     value: S['Type'],
     schema?: S,
   ) =>
     Schema.encodeUnknownEffect(schema ?? Schema.Unknown)(value).pipe(
-      Effect.tap((encoded) => Effect.sync(() => options.put(encoded))),
+      Effect.tap(options.put),
       Effect.asVoid,
     ),
-  clear: Effect.sync(options.clear),
+  clear: options.clear,
 });
+
+/**
+ * Outside a WebSocket-server stream nothing survives, so there is nothing to
+ * resume from: reads find nothing and writes are dropped.
+ */
+export const forgetfulCheckpoint: StreamCheckpointService =
+  makeStreamCheckpoint({
+    get: Effect.succeedNone,
+    put: () => Effect.void,
+    clear: Effect.void,
+  });

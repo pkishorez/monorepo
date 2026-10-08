@@ -40,6 +40,10 @@ _Avoid_: mock, local server, test client, In-Process Connection (the former name
 Restarting an active streaming call after its server wakes, using the saved request and checkpoint while the client's connection remains open.
 _Avoid_: reconnect, fiber resume
 
+**Stream Store**:
+Where the websocket server keeps what must survive hibernation: each socket's record (its client id and connection value) and each open stream's request and checkpoint. The default keeps it all in the socket attachment; the SQLite one keeps rows in the Durable Object's own SQLite. A live socket whose record is missing is closed so the client resubscribes.
+_Avoid_: attachment (one Stream Store, not the concept), session store, checkpoint store
+
 **Subscription Restart**:
 A fresh subscription initiated by the client after its connection is re-established. It is distinct from Hibernation Replay on an existing connection.
 _Avoid_: hibernation replay

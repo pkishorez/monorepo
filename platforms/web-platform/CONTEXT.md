@@ -24,6 +24,10 @@ _Avoid_: app shell (the PWA's App Shell is what boots offline), layout, chrome
 Something the root document takes in without knowing it: head tags for every page, and a provider around every page. The PWA and the named sign-in dialog plug in this way; `createApp` gives both to every app.
 _Avoid_: extension, middleware, addon
 
+**Live Object**:
+A Durable Object that serves one of an app's WebSocket APIs to one user: their store, and where every one of their sockets connects, so a change one device makes is pushed to the others as it is made. It sleeps between messages and resumes its open streams when it wakes. Every call on it is still checked.
+_Avoid_: room, channel, actor
+
 **Gate Screens**:
 What an app shows in place of what needs an Account until one is open: checking, opening, signing out, signed out with the way to the other Backend, and an Account that would not open. `SignedIn` shows them unless the app gives its own.
 _Avoid_: login page, splash, auth screens (the sign-in service's own pages)

@@ -76,6 +76,20 @@ _Avoid_: sign out, add account
 What shows while Ledger starts on a phone, before any Place: the Ledger mark and name, and at the foot, powered by kstack.
 _Avoid_: launch screen, loading screen
 
+### Data
+
+**Sync Mode**:
+How a User's money reaches every device: Realtime (the default), where each change is pushed the moment it is made and the cloud Backend keeps each User's money in a store of their own; or Polling, where each device asks for changes every few seconds and the cloud Backend keeps every User's money in one shared store. Chosen when Ledger is built, not in Settings; the Device Backend follows it too.
+_Avoid_: backend, store choice, live mode
+
+**Queries**:
+Every way a screen reads money: the Accounts, an Account's balance, the Entries of a Month, and so on. Screens only show what Queries give them.
+_Avoid_: selectors, hooks, reads
+
+**Mutations**:
+Every way a screen changes money, each shown at once and undone if the Backend refuses it.
+_Avoid_: writes, actions, commands (a Command is something a User invokes)
+
 ### Places
 
 **Place**:

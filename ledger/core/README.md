@@ -13,17 +13,26 @@ and the layout below is the root
 [ADR 0004](../../docs/adr/0004-an-app-is-api-backend-and-stores.md).
 
 `src/` reads as an app on the kstack Platforms does: `api/` (the Ledger API),
-`apis.ts` (Ledger's named APIs: `ledger`, over HTTP at `/rpc`), `model/` (the
+`apis.ts` (Ledger's named APIs), `constants.ts` (the Sync Mode), `model/` (the
 words of money), `backend/`, `session/` and `cache/`. The Backend
 (`backend/backend.ts`) is the API's handlers (`backend/handlers/`) on the
-services they need, the ledger table (with a `cloud` and a `device` version
-in `backend/services/table/`) and who a token names (auth-toolkit's
+services they need: the ledger table (`backend/services/table/`, in D1, in a
+User's own Durable Object, or on the device), a Broadcaster that hears each
+write (`backend/services/broadcaster/`), and who a token names (auth-toolkit's
 `authz.cloud` and `authz.device`). Which versions are given decides where it
 runs: web's Worker gives the cloud ones, and `backend/device` gives the device
 ones, so `device` runs the device Backend in the page or on the phone.
 `session/` is `ledgerSession`, one user's money through Std Sync and TanStack
 DB, written with platform-toolkit's `defineSession`, and the hooks screens
-read it with. `cache/` is this device's Settings, which belong to no user. The
+read it with.
+
+The Sync Mode (`syncMode` in `constants.ts`, chosen when Ledger is built)
+decides how money reaches every device. In `realtime`, the default, the
+Ledger API is a WebSocket at `/live` to each User's own Durable Object, and
+every collection reads its newest page first and then subscribes to its
+`Watch` stream. In `polling` it is HTTP at `/rpc` to the shared D1 database,
+and every collection reads newest first and asks for changes every 10
+seconds. The device Backend follows the same mode. `cache/` is this device's Settings, which belong to no user. The
 Commands (`commands/`) and the Places with what each shows (`places/`) sit
 beside them.
 
@@ -41,16 +50,22 @@ so the seam cannot be skipped. Layers and their rules are in
 
 ### `@ledger/core/api`
 
-| Export        | What it does                                         |
-| ------------- | ---------------------------------------------------- |
-| `LedgerApi`   | The RPC group both Backends answer and clients call. |
-| `LedgerError` | Why the Backend refused a call.                      |
+| Export        | What it does                                                                                                                                                                                                                                   |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `LedgerApi`   | The RPC group both Backends answer and clients call: for each of Account, Category, Entry and Preferences its `Changes`, `Older`, `Watch` (a stream), `Put` and `Delete` (Preferences has no `Delete`), plus `LedgerSample` and `LedgerClear`. |
+| `LedgerError` | Why the Backend refused a call.                                                                                                                                                                                                                |
 
 ### `@ledger/core/apis`
 
-| Export | What it does                                                       |
-| ------ | ------------------------------------------------------------------ |
-| `apis` | Ledger's named APIs: `ledger`, the Ledger API over HTTP at `/rpc`. |
+| Export | What it does                                                                                                                                    |
+| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apis` | Ledger's named APIs: `ledger`, the Ledger API over a WebSocket at `/live` in the realtime Sync Mode, or over HTTP at `/rpc` in the polling one. |
+
+### `@ledger/core/constants`
+
+| Export     | What it does                                                                                                  |
+| ---------- | ------------------------------------------------------------------------------------------------------------- |
+| `syncMode` | The Sync Mode Ledger is built in, `realtime` (the default) or `polling`; the app and the Worker both read it. |
 
 ### `@ledger/core/model`
 
@@ -65,9 +80,9 @@ so the seam cannot be skipped. Layers and their rules are in
 
 ### `@ledger/core/backend`
 
-| Export          | What it does                                                                                                                                  |
-| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ledgerBackend` | The Backend wherever it runs: the Ledger API's handlers, each call checked for the User who signed it; needs the ledger table and a Resolver. |
+| Export          | What it does                                                                                                                                                 |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `ledgerBackend` | The Backend wherever it runs: the Ledger API's handlers, each call checked for the User who signed it; needs the ledger table, a Broadcaster and a Resolver. |
 
 ### `@ledger/core/backend/device`
 
@@ -88,11 +103,29 @@ so the seam cannot be skipped. Layers and their rules are in
 | ------------ | --------------------------------------------------------------------- |
 | `tableCloud` | The ledger table in the Worker's D1 database, from its `env` binding. |
 
+### `@ledger/core/backend/services/table/durable-object`
+
+| Export               | What it does                                                                                                 |
+| -------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `tableDurableObject` | The ledger table in one User's Durable Object, on its own SQLite storage, set up each time the object wakes. |
+
 ### `@ledger/core/backend/services/table/device`
 
 | Export        | What it does                                                                                                                     |
 | ------------- | -------------------------------------------------------------------------------------------------------------------------------- |
 | `tableDevice` | The ledger table on this device, kept in the Host's Storage (database `local-backend`, so what it held before the rename stays). |
+
+### `@ledger/core/backend/services/broadcaster/device`
+
+| Export              | What it does                                                                                                                    |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `broadcasterDevice` | What hears every write to the ledger table on this device: the Host's Broadcaster for `local-backend`, so on the web every tab. |
+
+### `@ledger/core/backend/services/broadcaster/durable-object`
+
+| Export                     | What it does                                                                                                       |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `broadcasterDurableObject` | What hears every write in a User's Durable Object: the object itself, which each of their sockets is connected to. |
 
 ### `@ledger/core/session`
 
@@ -176,20 +209,36 @@ export const useSettings = () => useDeviceSettings(app.cache());
 
 ### Serve the cloud Backend
 
-The Worker gives the Backend the cloud versions of its services.
+The Worker gives the Backend the cloud versions of its services: D1 for the
+polling Sync Mode, and a Durable Object per User for the realtime one.
 
 ```ts
 // ledger/web/src/worker.ts
+const auth = { url: AUTH_URL, resource: LEDGER_RESOURCE };
+
+export const LedgerObject = liveObject({
+  api: apis.ledger,
+  backend: (_env: WorkerEnv, storage) =>
+    ledgerBackend.pipe(
+      Layer.provide([tableDurableObject(storage), broadcasterDurableObject]),
+    ),
+  auth,
+  streams: (state) => Rpc.websocket.streams.sqlite({ storage: state.storage }),
+});
+
 export default createServer({
   apis,
   backend: (env: WorkerEnv) => ({
     ledger: ledgerBackend.pipe(Layer.provide(tableCloud(env.DB))),
   }),
-  auth: { url: AUTH_URL, resource: LEDGER_RESOURCE },
+  live: (env: WorkerEnv) => ({ ledger: env.LedgerObject }),
+  auth,
 }) satisfies ExportedHandler<WorkerEnv>;
 ```
 
-- The Web Platform's `createServer` gives each call auth-toolkit's `authz.cloud`. The device Backend is the same `ledgerBackend` on `tableDevice` and `authz.device`, run in-process by the app.
+- `createServer` serves whichever transport `apis.ledger` has: HTTP at `/rpc` through `backend`, or a WebSocket at `/live` handed to the caller's own `LedgerObject` through `live`.
+- `LedgerObject` runs the same `ledgerBackend` on the object's own SQLite and keeps open `Watch` streams there while it sleeps. Each call is still checked with auth-toolkit's `authz.cloud`.
+- The device Backend is the same `ledgerBackend` on `tableDevice`, `broadcasterDevice` and `authz.device`, run in-process by the app.
 
 ### Check
 

@@ -3,9 +3,11 @@ import {
   type Backend,
   backendNamed,
   type Host,
+  keptBroadcasters,
   type TableSource,
 } from '@kstackz/platform-toolkit';
 import { cookie } from '@kstackz/auth-toolkit/client/web';
+import { sharedBroadcaster } from '@kstackz/std-toolkit/core';
 import { IDB, type IDBTable } from '@kstackz/std-toolkit/db/idb';
 import { Sync } from '@kstackz/std-toolkit/sync/idb';
 
@@ -39,7 +41,7 @@ const onForeground = (shown: () => void) => {
 
 /**
  * The browser as an app's Host: each table in the IndexedDB database it
- * names, Std Sync in IndexedDB shared by every tab, the cloud APIs at this
+ * names, heard by every tab, Std Sync in IndexedDB shared by every tab, the cloud APIs at this
  * origin, sign-in through the sign-in service at `authUrl` and its cookies
  * when the app has auth, and the window's network, visibility and other
  * tabs under `name`. Made in the browser only.
@@ -66,6 +68,9 @@ export const webHost = (options: {
   return {
     storage: {
       table,
+      // Every tab writes to the same IndexedDB database, so each hears the
+      // others' writes.
+      broadcaster: keptBroadcasters(sharedBroadcaster),
       sync: {
         ...Sync.idb(),
         list: () => Sync.idb.list(),

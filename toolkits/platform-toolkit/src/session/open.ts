@@ -6,12 +6,14 @@ import {
   Exit,
   Layer,
   ManagedRuntime,
+  Option,
   type Scope,
   Stream,
 } from 'effect';
 import { type RpcClient, RpcClient as Client } from 'effect/rpc';
 import type { Account } from '@kstackz/auth-toolkit/client';
 import { Authz } from '@kstackz/auth-toolkit/guard';
+import { Rpc } from '@kstackz/rpc-toolkit/rpc';
 import {
   createStdSync,
   type EffectRuntime,
@@ -49,6 +51,26 @@ interface ClientOf {
 
 type AnyCall = (...args: ReadonlyArray<unknown>) => unknown;
 
+// One API's client, and its WebSocket connection if it has one.
+interface Made {
+  readonly client: object;
+  readonly connection: Option.Option<Rpc.websocket.connection['Service']>;
+}
+
+// Done once a connection that was up goes down: a stream on it is stranded
+// then, as nothing it was sent survives the server's side of the socket.
+const droppedOn = (connection: Made['connection']) =>
+  Option.match(connection, {
+    onNone: () => Effect.never,
+    onSome: ({ connectionStatus }) =>
+      connectionStatus.pipe(
+        Stream.dropWhile((status) => status !== 'connected'),
+        Stream.filter((status) => status !== 'connected'),
+        Stream.runHead,
+        Effect.asVoid,
+      ),
+  });
+
 /**
  * Opens one Account's Session: a runtime holding every API's client, each
  * over its own protocol and signed with `token`, the user's Std Sync on
@@ -77,16 +99,20 @@ export const openSession = <A extends Apis, S>(options: {
     const keys = new Map(
       names.map((name) => [
         name,
-        Context.Service<ClientOf, unknown>(
+        Context.Service<ClientOf, Made>(
           `@kstackz/platform-toolkit/ApiClient/${name}`,
         ),
       ]),
     );
     const bearer = Authz.bearer(options.token);
     const layers = names.map((name) =>
-      Layer.effect(keys.get(name)!, Client.make(apis[name]!.group)).pipe(
-        Layer.provide([options.protocols[name]!, bearer]),
-      ),
+      Layer.effect(
+        keys.get(name)!,
+        Effect.all({
+          client: Client.make(apis[name]!.group),
+          connection: Effect.serviceOption(Rpc.websocket.connection),
+        }),
+      ).pipe(Layer.provide([options.protocols[name]!, bearer])),
     );
     const runtime = ManagedRuntime.make(
       (layers.length === 0
@@ -115,7 +141,9 @@ export const openSession = <A extends Apis, S>(options: {
         call,
         Effect.andThen(Deferred.await(closed), Effect.interrupt),
       );
-    const signed = (client: object) =>
+    // A stream ends when the Session closes, and when its socket drops, so
+    // whoever reads it opens it again from where they have got to.
+    const signed = ({ client, connection }: Made) =>
       Object.fromEntries(
         Object.entries(client).map(([tag, call]) => [
           tag,
@@ -126,13 +154,19 @@ export const openSession = <A extends Apis, S>(options: {
                 return Effect.isEffect(made)
                   ? cut(made)
                   : Stream.isStream(made)
-                    ? Stream.interruptWhen(made, Deferred.await(closed))
+                    ? Stream.interruptWhen(
+                        made,
+                        Effect.raceFirst(
+                          Deferred.await(closed),
+                          droppedOn(connection),
+                        ),
+                      )
                     : made;
               },
         ]),
       );
     const clients = Object.fromEntries(
-      names.map((name, index) => [name, signed(raw[index] as object)]),
+      names.map((name, index) => [name, signed(raw[index] as Made)]),
     ) as ApiClients<A>;
 
     const sync = makeSync(syncName(account.user.id), runtime, options.store);

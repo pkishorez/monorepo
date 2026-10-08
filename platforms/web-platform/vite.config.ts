@@ -28,7 +28,10 @@ export default defineConfig({
     dts: { sourcemap: true },
     sourcemap: true,
     publint: false,
-    deps: { neverBundle: [/^virtual:/, /^node:/] },
+    // Cloudflare's types stay an import, never copied into ours.
+    deps: {
+      neverBundle: [/^virtual:/, /^node:/, /^@cloudflare\/workers-types/],
+    },
   },
   test: {
     alias: {

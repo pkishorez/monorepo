@@ -8,6 +8,8 @@
 // Needs the sign-in service (`pnpm dev` in ~/CAREER/MINE/mine/packages/auth)
 // and Ledger web (`pnpm dev` here). LEDGER_URL defaults to this worktree's
 // portless address; REDIRECT_URI to Expo Go's on the Simulator.
+// The /rpc call needs Ledger built in the polling Sync Mode; in the realtime
+// one the Ledger API is a WebSocket at /live.
 import { createHash, randomUUID } from 'node:crypto';
 import { execSync } from 'node:child_process';
 import { Effect, Layer } from 'effect';
@@ -118,7 +120,7 @@ const callLedger = (token: string | null) =>
   Effect.runPromise(
     Effect.gen(function* () {
       const client = yield* RpcClient.make(LedgerApi);
-      return yield* client['Accounts.Changes']({ after: null });
+      return yield* client.AccountChanges({ after: null });
     }).pipe(
       Effect.scoped,
       Effect.provide(

@@ -619,10 +619,10 @@
     },
     "server": {
       "paths": ["src/server"],
-      "description": "A web app's server: one fetch handler for its pages and its /rpc API, which the app answers itself, and the stages alchemy deploys it to. Plain Request and Response, so it runs on Cloudflare as anywhere.",
+      "description": "A web app's server: one fetch handler for its pages and its APIs, which the app answers itself, each WebSocket API in the caller's own Live Object, and the stages alchemy deploys it to. Plain Request and Response, so it runs on Cloudflare as anywhere.",
       "moduleGraphs": {
         "server": {
-          "description": "index.ts is the door; serve answers each API on the cloud Backend over worker, which routes the rest to the pages; stage names where each stage deploys.",
+          "description": "index.ts is the door; serve answers each API on the cloud Backend over worker, which routes the rest to the pages, and sends each WebSocket to its Live Object; stage names where each stage deploys.",
           "path": "src/server",
           "modules": {
             "index.ts": {
@@ -630,11 +630,12 @@
             },
             "worker": {},
             "stage": {},
-            "serve": {}
+            "serve": {},
+            "live": {}
           },
           "rules": {
-            "index.ts": ["serve", "worker", "stage"],
-            "serve": ["worker"]
+            "index.ts": ["serve", "worker", "stage", "live"],
+            "serve": ["worker", "live"]
           }
         }
       }

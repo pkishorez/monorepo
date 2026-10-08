@@ -18,18 +18,13 @@ import {
   type RpcGroup,
 } from 'effect/rpc';
 import {
+  forgetfulCheckpoint,
   makeStreamCheckpoint,
   type StreamCheckpointService,
 } from './checkpoint.ts';
 import { fromDurableObjectState as fromState } from './durable-object-state.ts';
-import {
-  ConnectionAttachment,
-  decodeConnectionAttachment,
-  findHandler,
-  PersistedHandler,
-  putHandler,
-  removeHandler,
-} from './attachment.ts';
+import * as streams from './stream-store/index.ts';
+import type { SavedStream, StreamStore } from './stream-store/index.ts';
 import type {
   HibernatingSocket,
   HibernationState,
@@ -78,6 +73,9 @@ const nextClientId = (used: ReadonlySet<number>): number => {
   return candidate;
 };
 
+/** Close code for a socket whose saved record is gone; the client reconnects and resubscribes. */
+export const RESUME_LOST = 4000;
+
 const serve = Effect.fnUntraced(function* <
   Rpcs extends Rpc.Any,
   E,
@@ -95,11 +93,14 @@ const serve = Effect.fnUntraced(function* <
     never
   >;
   readonly connection?: ConnectionSlot<A> | undefined;
+  readonly streams?: StreamStore | undefined;
 }) {
   const { state, upgrade, group, layer, connection } = options;
+  const store = options.streams ?? streams.attachment();
   const serialization = yield* RpcSerialization.RpcSerialization;
   const sockets = new Map<number, HibernatingSocket>();
   const clientIds = new WeakMap<cf.WebSocket, number>();
+  const connections = new Map<number, Option.Option<A>>();
   const parsers = new WeakMap<cf.WebSocket, RpcSerialization.Parser>();
 
   const decodeConnection = connection?.schema
@@ -131,56 +132,47 @@ const serve = Effect.fnUntraced(function* <
     yield* state.setWebSocketAutoResponse();
   }
 
-  const saveAttachment = (
-    socket: HibernatingSocket,
-    attachment: ConnectionAttachment,
-  ) => {
-    socket.serializeAttachment(attachment);
-    sockets.set(attachment.clientId, socket);
-    clientIds.set(socket.ws, attachment.clientId);
-    return attachment;
-  };
-
-  const readAttachment = (socket: HibernatingSocket) => {
-    const knownClientId = clientIds.get(socket.ws);
-    const decoded = decodeConnectionAttachment(
-      socket.deserializeAttachment<unknown>(),
-      knownClientId ?? nextClientId(new Set(sockets.keys())),
-    );
-    return saveAttachment(
-      socket,
-      knownClientId === undefined || decoded.clientId === knownClientId
-        ? decoded
-        : new ConnectionAttachment({ ...decoded, clientId: knownClientId }),
-    );
-  };
-
   /** The stored connection value, or `None` — in which case the tag's default applies. */
-  const connectionValue = (
-    attachment: ConnectionAttachment,
-  ): Option.Option<A> => {
-    const stored = attachment.connection;
+  const connectionValue = (stored: unknown): Option.Option<A> => {
     if (stored === undefined) return Option.none();
     return decodeConnection
       ? decodeConnection(stored)
       : Option.some(stored as A);
   };
 
+  const register = (
+    socket: HibernatingSocket,
+    clientId: number,
+    stored: unknown,
+  ) => {
+    sockets.set(clientId, socket);
+    clientIds.set(socket.ws, clientId);
+    connections.set(clientId, connectionValue(stored));
+  };
+
+  const unregister = (clientId: number) => {
+    sockets.delete(clientId);
+    connections.delete(clientId);
+  };
+
+  /** A live socket with no record cannot resume: close it so the client resubscribes. */
+  const resumeLost = (socket: HibernatingSocket) =>
+    socket.close(RESUME_LOST, 'resume lost');
+
+  // Boot: every live socket must still have its record; the rest are closed.
+  const saved: Array<readonly [HibernatingSocket, ReadonlyArray<SavedStream>]> =
+    [];
   for (const socket of yield* state.getWebSockets()) {
-    const decoded = decodeConnectionAttachment(
-      socket.deserializeAttachment<unknown>(),
-      nextClientId(new Set(sockets.keys())),
-    );
-    saveAttachment(
-      socket,
-      sockets.has(decoded.clientId)
-        ? new ConnectionAttachment({
-            ...decoded,
-            clientId: nextClientId(new Set(sockets.keys())),
-          })
-        : decoded,
-    );
+    const record = yield* store.load(socket);
+    if (Option.isNone(record) || sockets.has(record.value.clientId)) {
+      yield* resumeLost(socket);
+      continue;
+    }
+    register(socket, record.value.clientId, record.value.connection);
+    saved.push([socket, record.value.streams]);
   }
+  // Catches closes that were never delivered, e.g. during a deploy.
+  yield* store.reconcile(new Set(sockets.keys()));
 
   const disconnects = yield* Queue.unbounded<number>();
   const ready = yield* Deferred.make<void>();
@@ -191,71 +183,51 @@ const serve = Effect.fnUntraced(function* <
 
   const dispatch = (
     socket: HibernatingSocket,
+    clientId: number,
     request: RpcMessage.FromClientEncoded,
     kind: 'fresh' | 'replay' = 'fresh',
-  ) => {
-    const attachment = readAttachment(socket);
-    const rpc =
-      request._tag === 'Request' ? group.requests.get(request.tag) : undefined;
+  ) =>
+    Effect.gen(function* () {
+      const rpc =
+        request._tag === 'Request'
+          ? group.requests.get(request.tag)
+          : undefined;
 
-    // The RPC server decodes the envelope in place, so it gets a copy and
-    // `request` stays encoded for the attachment and later replays.
-    let effect = Effect.provideService(
-      receive(attachment.clientId, { ...request }),
-      InvocationKind,
-      kind,
-    );
+      // The RPC server decodes the envelope in place, so it gets a copy and
+      // `request` stays encoded for the store and later replays.
+      let effect = Effect.provideService(
+        receive(clientId, { ...request }),
+        InvocationKind,
+        kind,
+      );
 
-    if (connection !== undefined) {
-      const value = connectionValue(attachment);
-      if (Option.isSome(value)) {
+      const value = connections.get(clientId);
+      if (connection !== undefined && value && Option.isSome(value)) {
         effect = Effect.provideService(effect, connection.tag, value.value);
       }
-    }
 
-    if (
-      request._tag !== 'Request' ||
-      !Rpc.isRpc(rpc) ||
-      !RpcSchema.isStreamSchema(rpc.successSchema)
-    ) {
-      return effect;
-    }
+      if (
+        request._tag !== 'Request' ||
+        !Rpc.isRpc(rpc) ||
+        !RpcSchema.isStreamSchema(rpc.successSchema)
+      ) {
+        return yield* effect;
+      }
 
-    if (Option.isNone(findHandler(attachment, request.id))) {
-      saveAttachment(
-        socket,
-        putHandler(attachment, new PersistedHandler({ request })),
+      yield* store.start(socket, clientId, request);
+
+      return yield* Effect.provideService(
+        effect,
+        CheckpointStorage,
+        makeStreamCheckpoint({
+          get: store.getCheckpoint(socket, clientId, request.id),
+          put: (checkpoint) =>
+            store.putCheckpoint(socket, clientId, request.id, checkpoint),
+          // Today a cleared checkpoint also means "do not replay this stream".
+          clear: store.end(socket, clientId, request.id),
+        }),
       );
-    }
-
-    return Effect.provideService(
-      effect,
-      CheckpointStorage,
-      makeStreamCheckpoint({
-        get: () =>
-          Option.flatMap(
-            findHandler(readAttachment(socket), request.id),
-            (handler) =>
-              Object.hasOwn(handler, 'state')
-                ? Option.some(handler.state)
-                : Option.none(),
-          ),
-        put: (state) =>
-          saveAttachment(
-            socket,
-            putHandler(
-              readAttachment(socket),
-              new PersistedHandler({ request, state }),
-            ),
-          ),
-        clear: () =>
-          saveAttachment(
-            socket,
-            removeHandler(readAttachment(socket), request.id),
-          ),
-      }),
-    );
-  };
+    });
 
   const protocol: RpcServer.Protocol['Service'] = {
     run: (handler) =>
@@ -267,21 +239,19 @@ const serve = Effect.fnUntraced(function* <
       ),
     disconnects,
     send: (clientId, response) =>
-      Effect.sync(() => {
+      Effect.gen(function* () {
         const socket = sockets.get(clientId);
-        if (socket && response._tag === 'Exit') {
-          saveAttachment(
-            socket,
-            removeHandler(readAttachment(socket), response.requestId),
-          );
+        if (!socket) return;
+        if (response._tag === 'Exit') {
+          yield* store.end(socket, clientId, response.requestId);
         }
-        const encoded = socket && parserFor(socket).encode(response);
-        if (socket && encoded !== undefined) socket.ws.send(encoded);
+        const encoded = parserFor(socket).encode(response);
+        if (encoded !== undefined) socket.ws.send(encoded);
       }),
     end: (clientId) =>
       Effect.sync(() => {
         const socket = sockets.get(clientId);
-        sockets.delete(clientId);
+        unregister(clientId);
         socket?.ws.close(1000, 'RPC session ended');
       }),
     clientIds: Effect.sync(() => new Set(sockets.keys())),
@@ -301,16 +271,26 @@ const serve = Effect.fnUntraced(function* <
   const restored = runtime.runPromise(
     Deferred.await(ready).pipe(
       Effect.andThen(
-        Effect.forEach(sockets, ([, socket]) => {
-          const { handlers } = readAttachment(socket);
-          return Effect.forEach(
-            handlers,
-            ({ request }) => dispatch(socket, request, 'replay'),
-            {
-              discard: true,
-            },
-          );
-        }),
+        Effect.forEach(
+          saved,
+          ([socket, streams]) => {
+            const clientId = clientIds.get(socket.ws);
+            if (clientId === undefined || sockets.get(clientId) !== socket)
+              return Effect.void;
+            return Effect.forEach(
+              streams,
+              ({ request }) =>
+                dispatch(
+                  socket,
+                  clientId,
+                  request as RpcMessage.FromClientEncoded,
+                  'replay',
+                ),
+              { discard: true },
+            );
+          },
+          { discard: true },
+        ),
       ),
     ),
   );
@@ -337,13 +317,11 @@ const serve = Effect.fnUntraced(function* <
               );
 
       const [response, socket] = yield* upgrade();
-      const attachment = readAttachment(socket);
-      saveAttachment(
-        socket,
-        encoded === undefined
-          ? attachment
-          : new ConnectionAttachment({ ...attachment, connection: encoded }),
-      );
+      const clientId = nextClientId(new Set(sockets.keys()));
+      // The record is written before the 101 goes back, so it exists before
+      // any message from this socket is processed.
+      yield* store.connect(socket, clientId, encoded);
+      register(socket, clientId, encoded);
       return response;
     }).pipe(
       Effect.catch((rejection: HttpServerResponse.HttpServerResponse) =>
@@ -353,7 +331,11 @@ const serve = Effect.fnUntraced(function* <
     message: (socket: HibernatingSocket, data: string | ArrayBuffer) =>
       Effect.promise(async () => {
         await restored;
-        let attachment = readAttachment(socket);
+        const clientId = clientIds.get(socket.ws);
+        if (clientId === undefined || sockets.get(clientId) !== socket) {
+          await runtime.runPromise(resumeLost(socket));
+          return;
+        }
         const bytes = typeof data === 'string' ? data : new Uint8Array(data);
         const messages = parserFor(socket).decode(bytes);
 
@@ -362,11 +344,11 @@ const serve = Effect.fnUntraced(function* <
             messages,
             (message) => {
               const request = message as RpcMessage.FromClientEncoded;
-              if (request._tag === 'Interrupt') {
-                attachment = removeHandler(attachment, request.requestId);
-                saveAttachment(socket, attachment);
-              }
-              return dispatch(socket, request);
+              return request._tag === 'Interrupt'
+                ? store
+                    .end(socket, clientId, request.requestId)
+                    .pipe(Effect.andThen(dispatch(socket, clientId, request)))
+                : dispatch(socket, clientId, request);
             },
             { discard: true },
           ),
@@ -375,33 +357,30 @@ const serve = Effect.fnUntraced(function* <
     close: (socket: HibernatingSocket, code: number, reason: string) =>
       Effect.gen(function* () {
         yield* Effect.promise(() => restored);
-        const attachment = readAttachment(socket);
-        sockets.delete(attachment.clientId);
-        yield* Queue.offer(disconnects, attachment.clientId);
+        const clientId = clientIds.get(socket.ws);
+        if (clientId !== undefined && sockets.get(clientId) === socket) {
+          unregister(clientId);
+          yield* store.forget(socket, clientId);
+          yield* Queue.offer(disconnects, clientId);
+        }
         yield* socket.close(code, reason);
       }),
   };
 });
 
-const unavailable = Effect.die(
-  'StreamCheckpoint is only available inside streaming RPC handlers',
-);
-
 const CheckpointStorage = Context.Reference<StreamCheckpointService>(
   // Retain the established service identity across the package migration.
   '@pkishorez/effect-cloudflare/StreamCheckpoint',
-  {
-    defaultValue: () => ({
-      get: () => unavailable,
-      put: () => unavailable,
-      clear: unavailable,
-    }),
-  },
+  // Outside a WebSocket-server stream (in-process, http) nothing hibernates,
+  // so the checkpoint simply remembers nothing.
+  { defaultValue: () => forgetfulCheckpoint },
 );
 
 /**
  * Inside a streaming handler: this stream's checkpoint, bound to one schema
- * for both reads and writes, which survives hibernation.
+ * for both reads and writes, which survives hibernation. Outside a
+ * WebSocket-server stream it remembers nothing: `get` finds `None` and
+ * `put`/`clear` do nothing.
  */
 export const checkpoint = <S extends Schema.Top>(schema: S) =>
   Effect.map(CheckpointStorage, (storage) => ({
@@ -424,7 +403,8 @@ export const fromDurableObjectState = (state: cf.DurableObjectState) =>
  * `accept` (fetch), `message` and `close` callbacks.
  *
  * On wake, every saved streaming call is replayed through server middleware
- * with {@link InvocationKind} set to `replay`.
+ * with {@link InvocationKind} set to `replay`. `streams` chooses where that
+ * state lives (default: the socket attachment, `streams.attachment()`).
  */
 export const server = <Rpcs extends Rpc.Any, E, R = never, A = never>(
   group: RpcGroup.RpcGroup<Rpcs>,
@@ -437,12 +417,25 @@ export const server = <Rpcs extends Rpc.Any, E, R = never, A = never>(
     readonly state: HibernationState<R>;
     readonly upgrade: Upgrade<R>;
     readonly connection?: ConnectionSlot<A> | undefined;
+    /** Where each socket's record and open streams are kept. @default streams.attachment() */
+    readonly streams?: StreamStore | undefined;
   },
 ) =>
   serve<Rpcs, E, R, A>({ ...options, group, layer: handlers }).pipe(
     Effect.provide(RpcSerialization.layerJson),
   );
 
+/**
+ * Stream Stores for the server's `streams` option: `attachment()` (the
+ * default) or `sqlite({ storage })` on the Durable Object's own SQLite.
+ */
+export * as streams from './stream-store/index.ts';
+export type {
+  SavedSocket,
+  SavedStream,
+  StreamRequest,
+  StreamStore,
+} from './stream-store/index.ts';
 export type {
   HibernatingSocket,
   HibernationState,

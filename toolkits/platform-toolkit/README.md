@@ -42,20 +42,21 @@ Peer dependencies:
 
 ### `@kstackz/platform-toolkit`
 
-| Export          | What it does                                                                                                         |
-| --------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `createApp`     | An app from a Host, its APIs, a device Backend, auth with its Session, and a Cache: the Gate, its React side, hooks. |
-| `Api.http`      | Declares an API reached over HTTP at a path or full URL.                                                             |
-| `Api.websocket` | Declares an API reached over a WebSocket at a path or full URL.                                                      |
-| `defineSession` | Writes an app's Session once over its APIs, with its Service and hooks.                                              |
-| `SessionClosed` | Error a run rejects with when its Session closed first.                                                              |
-| `createGate`    | The Gate on its own, underneath `createApp`.                                                                         |
-| `gateReact`     | A Gate's `SignedIn`, `SignedOut` and hooks.                                                                          |
-| `memoryHost`    | A Host kept in memory, with no network events and no other tabs, for tests.                                          |
-| `Backend`       | The Schema of the two Backends, `cloud` and `device`.                                                                |
-| `backendNamed`  | The Backend a stored or launched name means, including the former `remote` and `local`.                              |
-| `syncName`      | The name of one user's Std Sync on the device.                                                                       |
-| `keepSyncs`     | Deletes every user's Std Sync on the device but the ones still signed in.                                            |
+| Export             | What it does                                                                                                         |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| `createApp`        | An app from a Host, its APIs, a device Backend, auth with its Session, and a Cache: the Gate, its React side, hooks. |
+| `Api.http`         | Declares an API reached over HTTP at a path or full URL.                                                             |
+| `Api.websocket`    | Declares an API reached over a WebSocket at a path or full URL.                                                      |
+| `defineSession`    | Writes an app's Session once over its APIs, with its Service and hooks.                                              |
+| `SessionClosed`    | Error a run rejects with when its Session closed first.                                                              |
+| `createGate`       | The Gate on its own, underneath `createApp`.                                                                         |
+| `gateReact`        | A Gate's `SignedIn`, `SignedOut` and hooks.                                                                          |
+| `memoryHost`       | A Host kept in memory, with no network events and no other tabs, for tests.                                          |
+| `keptBroadcasters` | A Storage's `broadcaster`: one Broadcaster per database, made once and shared by every runtime writing to it.        |
+| `Backend`          | The Schema of the two Backends, `cloud` and `device`.                                                                |
+| `backendNamed`     | The Backend a stored or launched name means, including the former `remote` and `local`.                              |
+| `syncName`         | The name of one user's Std Sync on the device.                                                                       |
+| `keepSyncs`        | Deletes every user's Std Sync on the device but the ones still signed in.                                            |
 
 ## Usage
 
@@ -112,7 +113,9 @@ await expect(slow).rejects.toBeInstanceOf(SessionClosed);
 ```
 
 - `host` is a function, so nothing runs until a screen or test first asks. A Platform gives its own Host; `memoryHost` is for tests.
-- On the cloud Backend each API is called at its path against the Host's cloud address, with the Account's token and never a cookie. On the device Backend it is called in this process, and Users sign in by name.
+- On the cloud Backend each API is called at its path against the Host's cloud address, with the Account's token and never a cookie. A WebSocket API opens with the token as `access_token` in its address, read again at each connect. On the device Backend it is called in this process, and Users sign in by name.
+- A stream from a WebSocket API ends when its socket drops, not only when the Session closes, so Std Sync opens it again from its own cursor.
+- A Host's Storage gives a table and a Broadcaster per database (`storage.broadcaster`), so a device handler's write reaches every subscription on that database; `keptBroadcasters` builds that from any Broadcaster Layer.
 - A Session's `sync` is named for the user by `syncName`. On the cloud Backend it is kept in the Host's Storage, and `keepSyncs` deletes it once the user is no longer signed in.
 - Under `SignedIn`, screens read the Session with `useSession`, run Effects with `useRun`, and see the Session Status with `useStatus`. `useApi` calls an API as the open Account, or as nobody outside `SignedIn`.
 

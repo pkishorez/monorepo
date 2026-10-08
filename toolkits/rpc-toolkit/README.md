@@ -8,38 +8,42 @@ Effect RPC and Effect HttpApi give you middleware, but every app re-invents the 
 
 The other thing every app re-invents is how a client reaches its server. `Rpc` has three Transports, each a client and server pair with the protocol fixed so the two always agree: `http` (POST, NDJSON, batched, on anything that speaks `Request` and `Response`), `websocket` (a Cloudflare Durable Object that hibernates without breaking streams, and a client that restarts subscriptions after a reconnect) and `inProcess` (the handlers in the same process, no wire). Client code is `RpcClient.make(group)` on every Transport, so moving between them changes one layer.
 
-The `alchemy` door deploys the websocket server as one Worker plus one Durable Object. The `rpc` and `http-api` doors never import Alchemy, and Cloudflare only as types.
+The `alchemy` door deploys the websocket server as one Worker plus one Durable Object. The websocket server can keep its Stream Store on the Durable Object's own SQLite through [`@kstackz/std-toolkit`](../std-toolkit/README.md), for sockets whose open streams outgrow the attachment. The `rpc` and `http-api` doors never import Alchemy, and Cloudflare only as types.
 
 Vocabulary is in [CONTEXT.md](CONTEXT.md) and the decisions behind the shape are in [docs/adr/](docs/adr/) and the repo's [ADR 0005](../../docs/adr/0005-three-toolkits-three-doors.md). A full contract, server, worker and browser example is in [docs/websocket-example.md](docs/websocket-example.md). Long-form guides to the websocket Transport are its module READMEs: [server](src/rpc/websocket/server/README.md) and [client](src/rpc/websocket/client/README.md).
 
 ## Install
 
 ```sh
-pnpm add @kstackz/rpc-toolkit effect
+pnpm add @kstackz/rpc-toolkit @kstackz/std-toolkit effect
 ```
 
 - `effect` (peer, required): every door builds on `effect/rpc` or `effect/http-api`.
 - `alchemy` (peer, optional): needed only by the `alchemy` door, which wraps Alchemy's Cloudflare resources.
+- `@kstackz/std-toolkit` (peer, required): `Rpc.websocket.streams.sqlite` keeps stream state in a StdTable on the Durable Object's SQLite.
 
 ## Exports
 
 ### `@kstackz/rpc-toolkit/rpc`
 
-| Export                                 | What it does                                                                                                                                 |
-| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Rpc`                                  | Namespace holding Middleware and the three Transports for Effect RPC.                                                                        |
-| `Rpc.middleware`                       | Declares a Middleware for `Rpc` and `RpcGroup` targets; the result carries `with`, `get`, `layer`, `client`, `middleware` and `value`.       |
-| `Rpc.http.client`                      | Layer that provides an `RpcClient.Protocol` over HTTP POST and NDJSON with `fetch`, optionally with `credentials` and extra headers.         |
-| `Rpc.http.server`                      | Turns a group and its handlers into a `(request: Request) => Promise<Response>` that answers the http client, building handlers per request. |
-| `Rpc.websocket.client`                 | Layer that provides an `RpcClient.Protocol` over a WebSocket speaking JSON, plus the `RpcConnection` that tracks it.                         |
-| `Rpc.websocket.connection`             | The `RpcConnection` service: the connection's status, `keepSubscribed`, and the hooks the transport drives.                                  |
-| `Rpc.websocket.status`                 | Stream of `connecting`, `connected` or `reconnecting`, deduplicated and primed with the current value.                                       |
-| `Rpc.websocket.keepSubscribed`         | Re-runs a subscription stream after every reconnect until the consumer interrupts it.                                                        |
-| `Rpc.websocket.server`                 | Serves a group over a Durable Object's hibernatable WebSockets, returning its `accept`, `message` and `close` callbacks.                     |
-| `Rpc.websocket.checkpoint`             | Inside a streaming handler, gives `get`, `put` and `clear` for a small cursor that survives hibernation.                                     |
-| `Rpc.websocket.fromDurableObjectState` | Builds the server's `state` and `upgrade` from a raw workerd `DurableObjectState` when Alchemy is not in use.                                |
-| `Rpc.websocket.InvocationKind`         | Context reference the server sets to `fresh` or `replay`; middleware reads it to skip admission on Hibernation Replay.                       |
-| `Rpc.inProcess.client`                 | Layer that provides an `RpcClient.Protocol` answered by a group's handlers in the same process, with no transport and no serialization.      |
+| Export                                 | What it does                                                                                                                                                                 |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Rpc`                                  | Namespace holding Middleware and the three Transports for Effect RPC.                                                                                                        |
+| `Rpc.middleware`                       | Declares a Middleware for `Rpc` and `RpcGroup` targets; the result carries `with`, `get`, `layer`, `client`, `middleware` and `value`.                                       |
+| `Rpc.http.client`                      | Layer that provides an `RpcClient.Protocol` over HTTP POST and NDJSON with `fetch`, optionally with `credentials` and extra headers.                                         |
+| `Rpc.http.server`                      | Turns a group and its handlers into a `(request: Request) => Promise<Response>` that answers the http client, building handlers per request.                                 |
+| `Rpc.websocket.client`                 | Layer that provides an `RpcClient.Protocol` over a WebSocket speaking JSON, plus the `RpcConnection` that tracks it; a `url` given as an Effect is run before every connect. |
+| `Rpc.websocket.connection`             | The `RpcConnection` service: the connection's status, `keepSubscribed`, and the hooks the transport drives.                                                                  |
+| `Rpc.websocket.status`                 | Stream of `connecting`, `connected` or `reconnecting`, deduplicated and primed with the current value.                                                                       |
+| `Rpc.websocket.keepSubscribed`         | Re-runs a subscription stream after every reconnect until the consumer interrupts it.                                                                                        |
+| `Rpc.websocket.server`                 | Serves a group over a Durable Object's hibernatable WebSockets, returning its `accept`, `message` and `close` callbacks.                                                     |
+| `Rpc.websocket.checkpoint`             | Inside a streaming handler, gives `get`, `put` and `clear` for a small cursor that survives hibernation; on other Transports it remembers nothing.                           |
+| `Rpc.websocket.streams.attachment`     | The default Stream Store: each socket's record and open streams live in its attachment (about 2 KB per socket).                                                              |
+| `Rpc.websocket.streams.sqlite`         | A Stream Store on a Durable Object's SQLite: the attachment keeps only the client id, records and streams are rows it creates itself.                                        |
+| `Rpc.websocket.RESUME_LOST`            | Close code (4000) the server sends a live socket whose record is missing, so the client reconnects and resubscribes.                                                         |
+| `Rpc.websocket.fromDurableObjectState` | Builds the server's `state` and `upgrade` from a raw workerd `DurableObjectState` when Alchemy is not in use.                                                                |
+| `Rpc.websocket.InvocationKind`         | Context reference the server sets to `fresh` or `replay`; middleware reads it to skip admission on Hibernation Replay.                                                       |
+| `Rpc.inProcess.client`                 | Layer that provides an `RpcClient.Protocol` answered by a group's handlers in the same process, with no transport and no serialization.                                      |
 
 ### `@kstackz/rpc-toolkit/http-api`
 
@@ -50,10 +54,10 @@ pnpm add @kstackz/rpc-toolkit effect
 
 ### `@kstackz/rpc-toolkit/alchemy`
 
-| Export             | What it does                                                                                                            |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------------- |
-| `RpcWorker`        | Alchemy's `Cloudflare.RpcWorker`, for Effect RPC over a Worker service binding.                                         |
-| `DurableRpcWorker` | Declares an Alchemy Worker plus a single Durable Object that serves a group with `Rpc.websocket.server` behind one URL. |
+| Export             | What it does                                                                                                                                                            |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `RpcWorker`        | Alchemy's `Cloudflare.RpcWorker`, for Effect RPC over a Worker service binding.                                                                                         |
+| `DurableRpcWorker` | Declares an Alchemy Worker plus a single Durable Object that serves a group with `Rpc.websocket.server` behind one URL, optionally with its own `streams` Stream Store. |
 
 ## Usage
 
@@ -207,6 +211,6 @@ const watch = Effect.gen(function* () {
 ```
 
 - Streaming handlers are re-run on wake, not resumed. Read the checkpoint first and keep the pre-stream section idempotent.
-- Attachments hold about 2 KB per socket, shared by the connection value and every in-flight stream. Store cursors, not payloads.
+- By default attachments hold about 2 KB per socket, shared by the connection value and every in-flight stream. Store cursors, not payloads, or pass `streams: (state) => Rpc.websocket.streams.sqlite({ storage: state.raw.storage })` to keep them in the Durable Object's SQLite.
 - Hibernation Replay happens on the existing connection and is invisible to the client; only a dropped socket triggers `keepSubscribed`, which is a Fresh Call and runs client middleware again.
 - Use `Layer.provideMerge` when your own code also needs `Rpc.websocket.connection`; plain `Layer.provide` hides it.

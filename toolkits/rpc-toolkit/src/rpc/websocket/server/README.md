@@ -7,6 +7,9 @@ Rpc.websocket.server; // serve an Api over hibernatable sockets
 Rpc.websocket.checkpoint; // "where was I?" inside a streaming handler
 Rpc.websocket.InvocationKind; // fresh or replay
 Rpc.websocket.fromDurableObjectState; // the ports, without alchemy
+Rpc.websocket.streams.attachment; // default home for stream state
+Rpc.websocket.streams.sqlite; // stream state in the Durable Object's SQLite
+Rpc.websocket.RESUME_LOST; // close code 4000: "resubscribe, nothing was kept"
 ```
 
 An Effect `RpcServer` that runs over **hibernatable** Durable Object WebSockets, so your
@@ -65,9 +68,12 @@ socket map — is internal and never surfaces.
 
 1. Every streaming handler is **re-run from the top** when the object wakes. If it has
    resumable progress, read its checkpoint first and continue from it.
-2. Sticky notes are **tiny** — Cloudflare gives ~2 KB per socket, shared by the connection
-   value _and_ every in-flight stream on that socket. Store a cursor, never a payload.
-3. `Rpc.websocket.checkpoint` exists **only inside streaming RPC handlers**. Anywhere else it dies.
+2. Sticky notes are **small**. In the socket attachment (the default) Cloudflare gives ~2 KB
+   per socket, shared by the connection value _and_ every in-flight stream on that socket.
+   Store a cursor, never a payload — or move them to SQLite (see _Where stream state lives_).
+3. `Rpc.websocket.checkpoint` only remembers inside a WebSocket-server stream. Anywhere else
+   (in-process, http, a non-streaming handler) it simply remembers nothing: `get` finds
+   `None` and `put`/`clear` do nothing, so the same handler runs on every Transport.
 
 ---
 
@@ -230,7 +236,8 @@ Prefer a specific schema when the value's shape may change between deploys — s
 ### Explicitly finishing
 
 Completed streams are cleaned up automatically when the handler exits. Call `clear` only
-when the stream stays open but has nothing more to resume from:
+when the stream stays open but has nothing more to resume from; a cleared stream is not
+replayed on the next wake:
 
 ```ts
 Effect.gen(function* () {
@@ -351,26 +358,80 @@ package **does not provide the tag at all**, so your `Context.Reference`'s own
 
 ---
 
+## Where stream state lives
+
+The sticky notes live in a **Stream Store**, chosen with the server's `streams` option.
+
+| store                                       | where                                                                            | limit            |
+| ------------------------------------------- | -------------------------------------------------------------------------------- | ---------------- |
+| `Rpc.websocket.streams.attachment()`        | the socket attachment (default; nothing to configure)                            | ~2 KB per socket |
+| `Rpc.websocket.streams.sqlite({ storage })` | rows in the Durable Object's own SQLite; the attachment keeps only the client id | the DO's storage |
+
+A few streams carrying a JWT in their headers already overflow 2 KB. Then use SQLite:
+
+```ts
+import { Rpc } from '@kstackz/rpc-toolkit/rpc';
+
+// raw workerd, inside the Durable Object class
+const rpc =
+  yield *
+  Rpc.websocket.server(Api, handlers, {
+    ...Rpc.websocket.fromDurableObjectState(ctx),
+    streams: Rpc.websocket.streams.sqlite({ storage: ctx.storage }),
+  });
+
+// DurableRpcWorker
+DurableRpcWorker<Self>()(
+  'Api',
+  {
+    main: import.meta.filename,
+    schema: Api,
+    streams: (state) =>
+      Rpc.websocket.streams.sqlite({ storage: state.raw.storage }),
+  },
+  handlers,
+);
+```
+
+- It is built on `@kstackz/std-toolkit` (a peer) and needs a SQLite-backed Durable Object class.
+- It creates its table (`rpc_stream_store`, or `tableName`) on first use with std-toolkit's
+  `SQLite.setup`, which is idempotent; no migration step.
+- Each socket's record and each open stream (request with headers, plus checkpoint) is a row,
+  partitioned by client id. Checkpoints must be JSON values.
+- Rows are hard-deleted, never soft-deleted: a stream's row when it ends (exit, interrupt, or
+  `clear`), a socket's rows when it closes, and on every boot the rows of any socket that is
+  no longer live (a close that never arrived, e.g. during a deploy). No timers.
+
+Either store follows one rule: **a live socket without a record is closed** with
+`Rpc.websocket.RESUME_LOST` (4000, `resume lost`). Its streams are not replayed; the client
+reconnects and resubscribes from its own cursor. The record is written in `accept`, before
+the 101 goes back, so a new socket always has one. For the attachment store, an attachment
+that cannot be decoded counts as missing.
+
+---
+
 ## What happens behind the scenes
 
-| moment                       | what the package does                                                                                                                                 |
-| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `accept`                     | runs `initial`, then `Cloudflare.upgrade()` (which calls `state.acceptWebSocket`), assigns a client id, writes the attachment                         |
-| every boot                   | `state.getWebSockets()` and rebuilds its socket map from attachments — identical code on a cold start and after a wake, and it can't tell which it is |
-| a stream request arrives     | persists the request message in the attachment and provides the checkpoint scoped to it                                                               |
-| a non-stream request arrives | nothing persisted — it completes within one wake                                                                                                      |
-| wake-up                      | replays every persisted request, with `InvocationKind` set to `replay`, before processing the message that woke it                                    |
-| stream completes             | drops the persisted request; nothing left to replay                                                                                                   |
-| idle                         | ping/pong is registered as a Cloudflare **auto-response**, answered at the edge without waking the object                                             |
+| moment                       | what the package does                                                                                                                                                      |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `accept`                     | runs `initial`, then `Cloudflare.upgrade()` (which calls `state.acceptWebSocket`), assigns a client id, writes the socket's record to the Stream Store                     |
+| every boot                   | `state.getWebSockets()`, loads each socket's record, closes those without one, and has the store forget sockets that are gone — same code on a cold start and after a wake |
+| a stream request arrives     | persists the request message in the Stream Store and provides the checkpoint scoped to it                                                                                  |
+| a non-stream request arrives | nothing persisted — it completes within one wake                                                                                                                           |
+| wake-up                      | replays every persisted request, with `InvocationKind` set to `replay`, before processing the message that woke it                                                         |
+| stream completes             | drops the persisted request; nothing left to replay                                                                                                                        |
+| socket closes                | the Stream Store forgets the socket and every stream on it                                                                                                                 |
+| idle                         | ping/pong is registered as a Cloudflare **auto-response**, answered at the edge without waking the object                                                                  |
 
 ---
 
 ## Limitations
 
-**~2 KB of state per socket, total.** Cloudflare caps `serializeAttachment`. That budget is
-shared by the connection value and the persisted request + checkpoint of _every_ in-flight
-stream on the socket. Exceeding it fails at write time — mid-stream, not at deploy time.
-Store cursors, not data. Verify the current cap in Cloudflare's docs.
+**~2 KB of state per socket with the default store.** Cloudflare caps `serializeAttachment`.
+With `streams.attachment()` that budget is shared by the connection value and the persisted
+request (headers included, so bearer tokens count) + checkpoint of _every_ in-flight stream
+on the socket. Exceeding it fails at write time — mid-stream, not at deploy time. Store
+cursors, not data, or use `streams.sqlite`. Verify the current cap in Cloudflare's docs.
 
 **Streaming handlers must be replay-safe.** They are re-run, not resumed. A handler with
 side effects at the top (writing a row, sending an email, incrementing something) will
@@ -418,6 +479,7 @@ Rpc.websocket.server<Rpcs, E, R, A>(
       initial: (request: HttpServerRequest) => Effect<A, HttpServerResponse>
       schema?: Schema.Codec<A, unknown>
     }
+    streams?: StreamStore // default: Rpc.websocket.streams.attachment()
   },
 ): Effect<{
   accept: Effect<HttpServerResponse>
@@ -437,4 +499,16 @@ Rpc.websocket.fromDurableObjectState(state: DurableObjectState): {
   state: HibernationState
   upgrade: Upgrade
 }
+
+Rpc.websocket.RESUME_LOST: 4000
+
+Rpc.websocket.streams.attachment(): StreamStore
+Rpc.websocket.streams.sqlite(options: {
+  storage: DurableObjectStorage // ctx.storage, or alchemy's state.raw.storage
+  tableName?: string            // default "rpc_stream_store"
+}): StreamStore
 ```
+
+`StreamStore` is the port both stores implement — `connect`, `load`, `start`,
+`getCheckpoint`, `putCheckpoint`, `end`, `forget`, `reconcile` — so another backend can be
+plugged in.

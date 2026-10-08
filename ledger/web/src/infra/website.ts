@@ -32,7 +32,13 @@ export const Website = Cloudflare.Website.Vite(
     });
 
     return {
-      env: { DB: Database },
+      env: {
+        // The shared store, in the polling Sync Mode.
+        DB: Database,
+        // Each User's own store, in the realtime one: the Worker exports the
+        // class, `LedgerObject`.
+        LedgerObject: Cloudflare.DurableObject('LedgerObject'),
+      },
       // The Worker deploys after the table it reads.
       tag: Output.map(table.snapshot, () => 'ledger'),
       compatibility: { date: '2025-07-04', flags: ['nodejs_compat'] },
