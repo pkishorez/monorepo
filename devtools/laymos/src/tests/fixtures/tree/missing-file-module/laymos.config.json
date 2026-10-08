@@ -1,0 +1,4 @@
+{
+  "sourceRoots": ["src"],
+  "fileModules": ["src/ghost.ts"]
+}

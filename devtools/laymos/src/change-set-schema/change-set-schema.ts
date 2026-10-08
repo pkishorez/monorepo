@@ -1,6 +1,10 @@
 import { Schema } from 'effect';
 
-export const ChangeStatusSchema = Schema.Literals(['added', 'modified']);
+export const ChangeStatusSchema = Schema.Literals([
+  'added',
+  'modified',
+  'deleted',
+]);
 
 export type ChangeStatus = typeof ChangeStatusSchema.Type;
 
@@ -23,7 +27,7 @@ export const ChangeSetSchema = Schema.Struct({
 }).annotate({
   title: 'Change Set',
   description:
-    "The added and modified paths between a Base ref and the working tree, relative to the folder it was measured in: a Laymos Project's Config folder or a Monorepo root. It decorates an analysis and never alters what that analysis covers.",
+    "The added, modified and deleted paths between a Base ref and the working tree, relative to the folder it was measured in: a Laymos Project's Config folder or a Monorepo root. It decorates an analysis and never alters what that analysis covers.",
 });
 
 export type ChangeSet = typeof ChangeSetSchema.Type;

@@ -1,7 +1,8 @@
 # Module design
 
-Read this when choosing boundaries, splitting or combining modules, declaring a
-module graph, or designing orchestration. Concepts stay short; scenarios decide.
+Read this when choosing boundaries, splitting or combining modules, opening a
+module into nested modules, or designing orchestration. Concepts stay short;
+scenarios decide.
 
 ## Module boundary
 
@@ -39,7 +40,7 @@ No. Group its independent concerns behind named internal capabilities.
 
 ## Readable execution story
 
-An exposed module's `<name>.ts` fulfils its promise through named collaborators.
+A module's `<name>.ts` fulfils its promise through named collaborators.
 A reader follows one branch at a time while holding two or three concepts.
 
 **The orchestrator handles more than three concepts at once. What now?**
@@ -72,33 +73,34 @@ Re-cut the responsibilities or split one into lower and higher parts.
 Only when the new parts pass the promise, change, and independent-door tests.
 
 **Several files serve one private responsibility. What now?**
-Make a nested deep module; configure a graph only when its dependencies matter.
+Make a nested folder without an index: part of the inside. Give it an index
+only when its dependency direction matters, which makes it a Nested Module.
 
-## Module Graph
+## Nested Modules
 
-A Module Graph makes the responsibility and dependency story of one large
-capability explicit. It normally has one exposed facade and private members.
+A Module that holds Modules is their Wrapper. Its own files may use every
+nested Index for free; the nested Modules are islands to each other until the
+Config writes Rules among them.
 
-**When does a module become a Module Graph?**
-When two or more internal capabilities stand alone and their dependency direction matters.
+**When does a folder inside a module get an index file?**
+When it stands alone as a capability and its dependency direction matters.
 
-**What must connect to the facade?**
-Every private member must lie on a path from at least one exposed member.
+**What must connect to the parent's own files?**
+Every Nested Module should be used by its parent or by a sibling under a Rule;
+one nothing uses is dead.
 
-**May a graph expose several members?**
-Only for independently consumed doors hiding the same decision, such as providers.
+**Does a Nested Module need `index.ts`?**
+Yes. That is what makes it a Module; siblings and outsiders use its Index.
 
-**A member is disconnected. What now?**
-Make it a separate module or graph, unless its independent door explains the exception.
-
-**Does a private member need `index.ts`?**
-Yes. Graph peers use its door; `exposed` only controls access from other layers.
-
-**Should graph rules mirror runtime calls?**
+**Should Rules among siblings mirror runtime calls?**
 No. Rules express correctness dependencies, not execution chronology.
 
 **When should A depend on B?**
 When B simplifies A, B stands without A, and A needs B to fulfil its promise.
+
+**A sibling wants something from the parent. What now?**
+It is a user of the parent, not a part of it. Move it out, or write an
+Exception with a Reason and plan the move.
 
 ## Orchestrator
 
@@ -140,22 +142,23 @@ Create a named transition in one interaction model.
 **A primary action crosses several policy owners. What now?**
 Reduce it to door, coordinator, and one focused capability path.
 
-## Layer composition
+## Strata
 
-A layer groups modules with the same dependency rights, not necessarily one
-capability. Responsibility broadens upward as modules compose lower promises.
+Laymos declares no layers. Inside any Wrapper, siblings rank below the
+siblings that import them, and that rank is the stratification. The direction
+is the part that never changes: stable code at the bottom, volatile on top.
 
-**Must a layer expose one facade?**
-No. It may expose several independent capabilities; a Module Graph defaults to one.
+**Must a Wrapper have one facade?**
+No. It may hold several independent capabilities; a Module has one Index.
 
-**What should the outermost module expose?**
+**What should the outermost Module expose?**
 The smallest useful interface for the system's external consumer.
 
-**What must a higher module add?**
+**What must a higher Module add?**
 A broader capability through workflow policy, never a pass-through re-export.
 
 **What is at the bottom?**
-Leaf capabilities depend on nothing; Laymos reports this observed shape as Terminal.
+Leaf capabilities depend on nothing; nothing inside them needs a Rule.
 
 ## Foundations
 

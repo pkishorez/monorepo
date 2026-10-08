@@ -18,7 +18,7 @@ export {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
-} from './blocks.tsx';
+} from './sidebar/index.ts';
 
 /**
  * An app's whole screen: an optional sidebar, an optional header, and the

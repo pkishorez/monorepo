@@ -27,16 +27,19 @@ function fixture(name: string): string {
 
 describe('loadProject', () => {
   test('threads sourceRoots and ignoredPaths to the Cruiser', async () => {
-    const { fileGraph } = await run(fixture('layers/ignored-file')).pipe(
+    const { fileGraph } = await run(fixture('tree/shop')).pipe(
       Effect.runPromise,
     );
 
-    expect([...fileGraph.keys()]).toContain('src/app/main.ts');
-    expect([...fileGraph.keys()]).not.toContain('src/generated/client.ts');
+    expect([...fileGraph.keys()]).toContain('src/app/index.ts');
+    expect([...fileGraph.keys()]).toContain('scripts/seed.ts');
+    expect([...fileGraph.keys()]).not.toContain(
+      'src/domain/orders/generated.ts',
+    );
   });
 
-  test('surfaces validateLoadedConfig issues as a Config validation ConfigError', async () => {
-    const error = await run(fixture('modules/missing-module')).pipe(
+  test('surfaces a File Module the universe lacks as a Config validation ConfigError', async () => {
+    const error = await run(fixture('tree/missing-file-module')).pipe(
       Effect.flip,
       Effect.runPromise,
     );
@@ -46,8 +49,8 @@ describe('loadProject', () => {
       reason: 'validation',
       issues: [
         {
-          kind: 'module',
-          message: 'Module src/ghost does not exist in the analysis universe',
+          kind: 'path',
+          message: 'File Module is no analyzed source file: src/ghost.ts',
         },
       ],
     });

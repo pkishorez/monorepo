@@ -4,17 +4,31 @@ import type { ArchitectureAnalysis, ChangeSet } from 'laymos';
 import { indexChanges } from './project-changes';
 
 function analysis(
-  moduleMembership: readonly (readonly [string, string])[],
-  layerMembership: readonly (readonly [string, string])[],
+  nodes: readonly { path: string; parent?: string; files: string[] }[],
 ): ArchitectureAnalysis {
   return {
-    layerAnalysis: { membership: new Map(layerMembership) },
-    moduleAnalysis: { membership: new Map(moduleMembership) },
+    config: { sourceRoots: ['.'], ignoredPaths: ['src/ignored'] },
+    tree: {
+      root: '.',
+      nodes: nodes.map((node) => ({
+        path: node.path,
+        kind: 'module',
+        shape: 'folder',
+        ownFiles: node.files,
+        parent: node.parent,
+        children: nodes
+          .filter((child) => child.parent === node.path)
+          .map((child) => child.path),
+      })),
+      owners: Object.fromEntries(
+        nodes.flatMap((node) => node.files.map((file) => [file, node.path])),
+      ),
+    },
   } as unknown as ArchitectureAnalysis;
 }
 
 function changeSet(
-  files: readonly (readonly [string, 'added' | 'modified'])[],
+  files: readonly (readonly [string, 'added' | 'modified' | 'deleted'])[],
 ): ChangeSet {
   return {
     baseRef: 'HEAD',
@@ -27,24 +41,18 @@ function changeSet(
   };
 }
 
-const membership = [
-  ['src/a/one.ts', 'src/a'],
-  ['src/a/two.ts', 'src/a'],
-  ['src/b/one.ts', 'src/b'],
-  ['src/c/one.ts', 'src/c'],
-] as const;
-
-const layers = [
-  ['src/a/one.ts', 'core'],
-  ['src/a/two.ts', 'core'],
-  ['src/b/one.ts', 'edge'],
-  ['src/c/one.ts', 'edge'],
-] as const;
+const tree = analysis([
+  { path: '.', files: [] },
+  { path: 'src', parent: '.', files: ['src/index.ts'] },
+  { path: 'src/a', parent: 'src', files: ['src/a/one.ts', 'src/a/two.ts'] },
+  { path: 'src/b', parent: 'src', files: ['src/b/one.ts'] },
+  { path: 'src/c', parent: 'src', files: ['src/c/one.ts'] },
+]);
 
 describe('indexChanges', () => {
   test('marks a Module added when every file it owns is added', () => {
     const actual = indexChanges(
-      analysis(membership, layers),
+      tree,
       changeSet([
         ['src/a/one.ts', 'added'],
         ['src/a/two.ts', 'added'],
@@ -55,17 +63,14 @@ describe('indexChanges', () => {
   });
 
   test('marks a Module modified when only some of its files are added', () => {
-    const actual = indexChanges(
-      analysis(membership, layers),
-      changeSet([['src/a/one.ts', 'added']]),
-    );
+    const actual = indexChanges(tree, changeSet([['src/a/one.ts', 'added']]));
 
     expect(actual.modules.get('src/a')).toBe('modified');
   });
 
   test('marks a Module modified when a file it owns is modified', () => {
     const actual = indexChanges(
-      analysis(membership, layers),
+      tree,
       changeSet([['src/b/one.ts', 'modified']]),
     );
 
@@ -74,33 +79,60 @@ describe('indexChanges', () => {
 
   test('leaves untouched Modules out of the index', () => {
     const actual = indexChanges(
-      analysis(membership, layers),
+      tree,
       changeSet([['src/a/one.ts', 'modified']]),
     );
 
     expect(actual.modules.has('src/c')).toBe(false);
   });
 
-  test('rolls the same rule up to Layers', () => {
+  test('rolls a change up through every node above its owner', () => {
     const actual = indexChanges(
-      analysis(membership, layers),
-      changeSet([
-        ['src/b/one.ts', 'added'],
-        ['src/c/one.ts', 'added'],
-      ]),
+      tree,
+      changeSet([['src/b/one.ts', 'modified']]),
     );
 
-    expect(actual.layers.get('edge')).toBe('added');
-    expect(actual.layers.has('core')).toBe(false);
+    expect(actual.modules.get('src')).toBe('modified');
+    expect(actual.modules.get('.')).toBe('modified');
+  });
+
+  test('a node whose whole subtree is new reads as added', () => {
+    const actual = indexChanges(
+      analysis([
+        { path: '.', files: [] },
+        { path: 'lib', parent: '.', files: [] },
+        { path: 'lib/x', parent: 'lib', files: ['lib/x/index.ts'] },
+      ]),
+      changeSet([['lib/x/index.ts', 'added']]),
+    );
+
+    expect(actual.modules.get('lib')).toBe('added');
+    expect(actual.modules.get('.')).toBe('added');
   });
 
   test('ignores changed paths that belong to no Module', () => {
-    const actual = indexChanges(
-      analysis(membership, layers),
-      changeSet([['README.md', 'modified']]),
-    );
+    const actual = indexChanges(tree, changeSet([['README.md', 'modified']]));
 
     expect(actual.modules.size).toBe(0);
     expect(actual.files.get('README.md')).toBe('modified');
+  });
+
+  test('marks the node holding a deleted file modified, and a deleted Module deleted', () => {
+    const index = indexChanges(
+      analysis([
+        { path: '.', files: [] },
+        { path: 'src', parent: '.', files: ['src/index.ts'] },
+      ]),
+      changeSet([
+        ['src/old.ts', 'deleted'],
+        ['src/gone/index.ts', 'deleted'],
+        ['src/gone/inner/index.ts', 'deleted'],
+        ['src/ignored/fixture/index.ts', 'deleted'],
+      ]),
+    );
+    expect(index.modules.get('src')).toBe('modified');
+    expect(index.modules.get('.')).toBe('modified');
+    expect(index.deletedModules).toEqual(['src/gone', 'src/gone/inner']);
+    expect(index.modules.get('src/gone')).toBe('deleted');
   });
 });

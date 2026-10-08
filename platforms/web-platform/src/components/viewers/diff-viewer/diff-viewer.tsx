@@ -11,6 +11,7 @@ import {
   ChevronsLeftRight,
   ChevronsUpDown,
   Columns2,
+  Ellipsis,
   PanelLeft,
   PanelRight,
   Rows3,
@@ -20,6 +21,13 @@ import type { FileDiff } from 'laymos';
 
 import { SourceViewer } from '../source-viewer';
 import { Button } from '#components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from '#components/ui/dropdown-menu';
+import { useIsMobile } from '#hooks/use-mobile';
 import { Switch } from '#components/ui/switch';
 import { scrollbarStyles } from '#lib/scrollStyles';
 import { cn } from '#lib/utils';
@@ -36,7 +44,26 @@ import { clearRowHeights, equalizeRowHeights, syncScroll } from './sync-rows';
 
 export type DiffLayout = 'split' | 'unified';
 
-type PaneMode = 'both' | 'before' | 'after';
+export type PaneMode = 'both' | 'before' | 'after';
+
+/**
+ * How a diff is read: split or unified, wrapped or not, which sides show,
+ * and whether every folded region opens. A caller that keeps these hands
+ * them in with `onOptionsChange`, so they hold from one file to the next.
+ */
+export interface DiffOptions {
+  readonly layout: DiffLayout;
+  readonly wrap: boolean;
+  readonly panes: PaneMode;
+  readonly expandAll: boolean;
+}
+
+export const defaultDiffOptions: DiffOptions = {
+  layout: 'split',
+  wrap: false,
+  panes: 'both',
+  expandAll: false,
+};
 
 const paneModes: Readonly<
   Record<
@@ -72,7 +99,16 @@ const paneModes: Readonly<
 export interface DiffViewerProps {
   readonly diff: FileDiff;
   readonly defaultLayout?: DiffLayout;
+  /** Controlled options; without them the viewer keeps its own. */
+  readonly options?: DiffOptions;
+  readonly onOptionsChange?: (options: DiffOptions) => void;
   readonly fallbackContent?: string;
+  /**
+   * Grow to the diff's full height and leave scrolling up and down to the
+   * parent, which may then hold things that stick beside it. The toolbar
+   * sticks to the top.
+   */
+  readonly autoHeight?: boolean;
   readonly className?: string;
 }
 
@@ -86,15 +122,36 @@ interface ViewChunk {
 export function DiffViewer({
   diff,
   defaultLayout = 'split',
+  options: controlled,
+  onOptionsChange,
   fallbackContent,
+  autoHeight = false,
   className,
 }: DiffViewerProps) {
-  const [layout, setLayout] = useState<DiffLayout>(defaultLayout);
-  const [wrap, setWrap] = useState(false);
-  const [panes, setPanes] = useState<PaneMode>('both');
+  const [own, setOwn] = useState<DiffOptions>({
+    ...defaultDiffOptions,
+    layout: defaultLayout,
+  });
+  const options = controlled ?? own;
+  const setOptions = (next: Partial<DiffOptions>) => {
+    const merged = { ...options, ...next };
+    if (controlled === undefined) setOwn(merged);
+    onOptionsChange?.(merged);
+  };
+  // A phone reads one column, wrapped by default: Unified always, and its
+  // own Wrap that leaves the kept option alone.
+  const phone = useIsMobile();
+  const [phoneWrap, setPhoneWrap] = useState(true);
+  const layout: DiffLayout = phone ? 'unified' : options.layout;
+  const wrap = phone ? phoneWrap : options.wrap;
+  const { panes } = options;
+  const setLayout = (next: DiffLayout) => setOptions({ layout: next });
+  const setWrap = (next: boolean) =>
+    phone ? setPhoneWrap(next) : setOptions({ wrap: next });
+  const setPanes = (next: PaneMode) => setOptions({ panes: next });
   // Keyed by layout: split and unified fold different sequences, so an index
   // expanded in one must not silently expand a different region in the other.
-  const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
+  const [opened, setExpanded] = useState<ReadonlySet<string>>(new Set());
   const leftRef = useRef<HTMLDivElement>(null);
   const rightRef = useRef<HTMLDivElement>(null);
   const scrollLock = useRef(false);
@@ -119,6 +176,12 @@ export function DiffViewer({
         chunk.collapsible ? [`${layout}-${index}`] : [],
       ),
     [activeChunks, layout],
+  );
+  // Expand all holds as an option, for every file; a region opened by hand
+  // stays open for this file only.
+  const expanded = useMemo(
+    () => (options.expandAll ? new Set(collapsibleKeys) : opened),
+    [options.expandAll, collapsibleKeys, opened],
   );
   const allExpanded = collapsibleKeys.every((key) => expanded.has(key));
   const expandAllDisabled = collapsibleKeys.length === 0;
@@ -186,6 +249,7 @@ export function DiffViewer({
         filePath={diff.path}
         content={fallbackContent}
         wrap={wrap}
+        autoHeight={autoHeight}
         className={className}
       />
     );
@@ -195,64 +259,115 @@ export function DiffViewer({
     setExpanded((current) => new Set(current).add(key));
 
   return (
-    <div className={cn('flex min-h-0 flex-col', className)}>
-      <header className="flex shrink-0 items-center gap-3 border-b border-border px-3 py-2">
-        <Button
-          type="button"
-          variant="outline"
-          size="icon-sm"
-          disabled={layout === 'unified'}
-          aria-label={paneModes[panes].hint}
-          title={paneModes[panes].hint}
-          onClick={() => setPanes(paneModes[panes].next)}
-        >
-          {paneModes[panes].icon}
-        </Button>
-        <span className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground">
-          {diff.path}
-        </span>
-        <span className="flex shrink-0 items-center gap-2 font-mono text-[11px]">
-          <span className="text-green-600 dark:text-green-400">{`+${counts.added}`}</span>
-          <span className="text-rose-600 dark:text-rose-400">{`-${counts.removed}`}</span>
-        </span>
-        <label
+    <div className={cn('flex flex-col', !autoHeight && 'min-h-0', className)}>
+      {phone ? (
+        // The file is named above it on a phone: here only what changed.
+        <header
           className={cn(
-            'flex shrink-0 items-center gap-2 text-xs font-medium text-muted-foreground',
-            expandAllDisabled ? 'opacity-50' : 'cursor-pointer',
+            'flex shrink-0 items-center gap-2 border-b border-border py-0.5 ps-3 pe-1.5',
+            autoHeight && 'sticky top-0 z-10 bg-background',
           )}
         >
-          <ChevronsUpDown className="size-3.5" />
-          Expand all
-          <Switch
-            size="sm"
-            disabled={expandAllDisabled}
-            checked={allExpanded && !expandAllDisabled}
-            onCheckedChange={(checked) =>
-              setExpanded(checked ? new Set(collapsibleKeys) : new Set())
-            }
-          />
-        </label>
-        <label className="flex shrink-0 cursor-pointer items-center gap-2 text-xs font-medium text-muted-foreground">
-          <WrapText className="size-3.5" />
-          Wrap
-          <Switch size="sm" checked={wrap} onCheckedChange={setWrap} />
-        </label>
-        <label className="flex shrink-0 cursor-pointer items-center gap-2 text-xs font-medium text-muted-foreground">
-          <Rows3 className="size-3.5" />
-          Unified
-          <Switch
-            size="sm"
-            checked={layout === 'unified'}
-            onCheckedChange={(checked) =>
-              setLayout(checked ? 'unified' : 'split')
-            }
-          />
-        </label>
-      </header>
+          <span className="flex min-w-0 flex-1 items-center gap-2 font-mono text-[11px]">
+            <span className="text-green-600 dark:text-green-400">{`+${counts.added}`}</span>
+            <span className="text-rose-600 dark:text-rose-400">{`-${counts.removed}`}</span>
+          </span>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              aria-label="Diff options"
+              className="flex size-9 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-muted hover:text-foreground"
+            >
+              <Ellipsis className="size-4" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuCheckboxItem
+                className="min-h-11"
+                disabled={expandAllDisabled}
+                checked={allExpanded && !expandAllDisabled}
+                onCheckedChange={(checked) => {
+                  setExpanded(new Set());
+                  setOptions({ expandAll: checked });
+                }}
+              >
+                Expand all
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                className="min-h-11"
+                checked={wrap}
+                onCheckedChange={setWrap}
+              >
+                Wrap lines
+              </DropdownMenuCheckboxItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </header>
+      ) : (
+        <header
+          className={cn(
+            'flex shrink-0 items-center gap-3 border-b border-border px-3 py-2',
+            autoHeight && 'sticky top-0 z-10 bg-background',
+          )}
+        >
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-sm"
+            disabled={layout === 'unified'}
+            aria-label={paneModes[panes].hint}
+            title={paneModes[panes].hint}
+            onClick={() => setPanes(paneModes[panes].next)}
+          >
+            {paneModes[panes].icon}
+          </Button>
+          <span className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground">
+            {diff.path}
+          </span>
+          <span className="flex shrink-0 items-center gap-2 font-mono text-[11px]">
+            <span className="text-green-600 dark:text-green-400">{`+${counts.added}`}</span>
+            <span className="text-rose-600 dark:text-rose-400">{`-${counts.removed}`}</span>
+          </span>
+          <label
+            className={cn(
+              'flex shrink-0 items-center gap-2 text-xs font-medium text-muted-foreground',
+              expandAllDisabled ? 'opacity-50' : 'cursor-pointer',
+            )}
+          >
+            <ChevronsUpDown className="size-3.5" />
+            Expand all
+            <Switch
+              size="sm"
+              disabled={expandAllDisabled}
+              checked={allExpanded && !expandAllDisabled}
+              onCheckedChange={(checked) => {
+                setExpanded(new Set());
+                setOptions({ expandAll: checked });
+              }}
+            />
+          </label>
+          <label className="flex shrink-0 cursor-pointer items-center gap-2 text-xs font-medium text-muted-foreground">
+            <WrapText className="size-3.5" />
+            Wrap
+            <Switch size="sm" checked={wrap} onCheckedChange={setWrap} />
+          </label>
+          <label className="flex shrink-0 cursor-pointer items-center gap-2 text-xs font-medium text-muted-foreground">
+            <Rows3 className="size-3.5" />
+            Unified
+            <Switch
+              size="sm"
+              checked={layout === 'unified'}
+              onCheckedChange={(checked) =>
+                setLayout(checked ? 'unified' : 'split')
+              }
+            />
+          </label>
+        </header>
+      )}
       {layout === 'unified' ? (
         <div
           className={cn(
-            'min-h-0 flex-1 overflow-auto bg-background',
+            autoHeight
+              ? 'overflow-x-auto bg-background'
+              : 'min-h-0 flex-1 overflow-auto bg-background',
             scrollbarStyles,
           )}
         >
@@ -279,13 +394,20 @@ export function DiffViewer({
           </div>
         </div>
       ) : (
-        <div className="flex min-h-0 flex-1 bg-background">
+        <div
+          className={cn('flex bg-background', !autoHeight && 'min-h-0 flex-1')}
+        >
           {panes === 'after' ? (
             <CollapsedPane label="Before" onExpand={() => setPanes('both')} />
           ) : panes === 'before' ? (
             // One side alone is the whole file, not a diff with its padding
             // stripped out.
-            <WholeFile filePath={diff.path} side={beforeFile} wrap={wrap} />
+            <WholeFile
+              filePath={diff.path}
+              side={beforeFile}
+              wrap={wrap}
+              grow={autoHeight}
+            />
           ) : (
             <Pane
               paneRef={leftRef}
@@ -295,13 +417,19 @@ export function DiffViewer({
               wrap={wrap}
               expanded={expanded}
               onExpand={expand}
+              grow={autoHeight}
               className="w-1/2 shrink-0"
             />
           )}
           {panes === 'before' ? (
             <CollapsedPane label="After" onExpand={() => setPanes('both')} />
           ) : panes === 'after' ? (
-            <WholeFile filePath={diff.path} side={afterFile} wrap={wrap} />
+            <WholeFile
+              filePath={diff.path}
+              side={afterFile}
+              wrap={wrap}
+              grow={autoHeight}
+            />
           ) : (
             <Pane
               paneRef={rightRef}
@@ -311,6 +439,7 @@ export function DiffViewer({
               wrap={wrap}
               expanded={expanded}
               onExpand={expand}
+              grow={autoHeight}
               className="w-1/2 shrink-0 border-s border-border"
             />
           )}
@@ -330,6 +459,7 @@ function Pane({
   wrap,
   expanded,
   onExpand,
+  grow,
   className,
 }: {
   readonly paneRef: Ref<HTMLDivElement>;
@@ -339,6 +469,8 @@ function Pane({
   readonly wrap: boolean;
   readonly expanded: ReadonlySet<string>;
   readonly onExpand: (key: string) => void;
+  /** Full height, scrolling only sideways. */
+  readonly grow: boolean;
   readonly className?: string;
 }) {
   return (
@@ -347,7 +479,9 @@ function Pane({
       // Own the background: content shorter than the pane would otherwise let
       // the parent's colour show through below the last line.
       className={cn(
-        'h-full overflow-auto bg-background',
+        grow
+          ? 'overflow-x-auto bg-background'
+          : 'h-full overflow-auto bg-background',
         scrollbarStyles,
         className,
       )}
@@ -384,15 +518,19 @@ function WholeFile({
   filePath,
   side,
   wrap,
+  grow,
 }: {
   readonly filePath: string;
   readonly side: SideContent;
   readonly wrap: boolean;
+  /** Full height, scrolling only sideways. */
+  readonly grow: boolean;
 }) {
   return (
     <div
       className={cn(
-        'min-w-0 flex-1 overflow-auto bg-background',
+        'min-w-0 flex-1 bg-background',
+        grow ? 'overflow-x-auto' : 'overflow-auto',
         scrollbarStyles,
       )}
     >

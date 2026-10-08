@@ -2,11 +2,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 import { Effect } from 'effect';
-import {
-  GitError,
-  loadFolderFiles,
-  SourceFileReadError as LaymosSourceFileReadError,
-} from 'laymos';
+import { FileReadError, GitError, loadFolderFiles } from 'laymos';
 
 import { GitUnavailableError, PackageFileReadError } from '../../rpc/index.js';
 
@@ -18,7 +14,7 @@ import { GitUnavailableError, PackageFileReadError } from '../../rpc/index.js';
 export function getPackageFiles(monorepoRoot: string, packagePath: string) {
   return loadFolderFiles(expandHome(monorepoRoot), [packagePath]).pipe(
     Effect.mapError((cause) =>
-      cause instanceof LaymosSourceFileReadError
+      cause instanceof FileReadError
         ? new PackageFileReadError({
             path: cause.filePath,
             message: 'Could not read the file.',

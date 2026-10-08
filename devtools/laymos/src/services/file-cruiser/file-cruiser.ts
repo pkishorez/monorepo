@@ -2,7 +2,7 @@ import { Context, Effect, Layer } from 'effect';
 
 import type { FileGraph } from '../../domain/file-graph/index.js';
 import type { CruiseError } from './errors.js';
-import { buildFileGraph } from './oxc/index.js';
+import { buildFileGraph } from './oxc/oxc.js';
 
 export class Cruiser extends Context.Service<
   Cruiser,

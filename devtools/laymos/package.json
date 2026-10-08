@@ -57,7 +57,7 @@
     "build:watch": "tsc -p tsconfig.build.json --watch",
     "dev": "tsx src/cli/cli.ts",
     "fmt": "vp fmt",
-    "lint": "vp check && tsc",
+    "lint": "vp check && tsc && tsx src/cli/cli.ts lint",
     "schema": "vitest run src/services/config/tests/config.test.ts -u",
     "test": "vitest run"
   },

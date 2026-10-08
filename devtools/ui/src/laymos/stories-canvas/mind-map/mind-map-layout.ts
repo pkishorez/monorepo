@@ -1,34 +1,26 @@
 import type { StoryNode } from 'laymos/story/schema';
 
-export interface Size {
-  readonly width: number;
-  readonly height: number;
-}
+import {
+  cardMapOf,
+  unionRect,
+  type CardMap,
+  type PlacedCard as PlacedCardBase,
+  type Rect,
+  type Size,
+} from '../../canvas-space';
 
-export interface Point {
-  readonly x: number;
-  readonly y: number;
-}
-
-export interface Rect extends Point, Size {}
+export { unionRect };
+export type { Point, Rect, Size } from '../../canvas-space';
 
 /** One Story card in the space, keyed by its Story id. */
-export interface PlacedCard extends Rect {
-  readonly key: string;
+export interface PlacedCard extends PlacedCardBase {
   readonly story: StoryNode;
-  readonly parentKey: string | null;
   readonly depth: number;
   /** Keys of the sub-Story cards shown to its right, in Telling order. */
   readonly children: readonly string[];
 }
 
-export interface MindMap {
-  /** Every visible card, parents before their children. */
-  readonly cards: readonly PlacedCard[];
-  readonly byKey: ReadonlyMap<string, PlacedCard>;
-  /** The smallest rectangle around every card; empty at the origin when none. */
-  readonly bounds: Rect;
-}
+export type MindMap = CardMap<PlacedCard>;
 
 export interface Spacing {
   /** Between a card's right edge and its children's left edges. */
@@ -140,7 +132,7 @@ export function layoutMindMap(
     }
   };
   place(grow(tree, open, sizeOf, spacing, maxWidth), 0, 0, null, 0);
-  return mapOf(cards);
+  return cardMapOf(cards);
 }
 
 /** The box around a card and the sub-Story cards it shows. */
@@ -150,21 +142,4 @@ export function familyRect(map: MindMap, key: string): Rect | undefined {
   return unionRect(
     [card.key, ...card.children].flatMap((child) => map.byKey.get(child) ?? []),
   );
-}
-
-export function unionRect(rects: readonly Rect[]): Rect {
-  if (rects.length === 0) return { x: 0, y: 0, width: 0, height: 0 };
-  const left = Math.min(...rects.map((rect) => rect.x));
-  const top = Math.min(...rects.map((rect) => rect.y));
-  const right = Math.max(...rects.map((rect) => rect.x + rect.width));
-  const bottom = Math.max(...rects.map((rect) => rect.y + rect.height));
-  return { x: left, y: top, width: right - left, height: bottom - top };
-}
-
-function mapOf(cards: readonly PlacedCard[]): MindMap {
-  return {
-    cards,
-    byKey: new Map(cards.map((card) => [card.key, card])),
-    bounds: unionRect(cards),
-  };
 }

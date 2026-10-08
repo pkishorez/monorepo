@@ -49,8 +49,8 @@ emphasized and everything else is de-emphasized yet stays interactive. Hover
 previews a focus; click makes it durable. Transitive reach is not emphasized.
 
 **Changed Package**:
-A Package with at least one added or modified tracked file beneath its folder
-in the Monorepo's Change set, measured against one Base ref with the same
+A Package with at least one added, modified or deleted tracked file beneath
+its folder in the Monorepo's Change set, measured against one Base ref with the same
 meaning as in Laymos. Files outside every Package belong to none and are not
 shown. One Base ref applies to the whole Monoverse view, and Embedded Laymos
 opens measured against it.
@@ -58,7 +58,7 @@ opens measured against it.
 **Package change status**:
 A Package's derived standing in the Change set, by the same rule as a Laymos
 Module change status: added when every file beneath it is added, modified when
-any file beneath it is added or modified, and otherwise unchanged.
+any file beneath it is added, modified or deleted, and otherwise unchanged.
 _Avoid_: new package (for a Package that merely has a new manifest)
 
 **Affected Package**:

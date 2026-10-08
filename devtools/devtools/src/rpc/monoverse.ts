@@ -1,7 +1,7 @@
 import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
 
-import { ModuleSourceFileSchema } from 'laymos/architecture-analysis-schema';
+import { FolderFileSchema } from 'laymos/architecture-analysis-schema';
 
 import { GitUnavailableError } from './git.js';
 import { MonorepoAnalysisSchema } from './monorepo-schema.js';
@@ -75,7 +75,7 @@ export const GetPackageFilesError = Schema.Union([
 ]);
 
 export const PackageFilesSchema = Schema.Struct({
-  files: Schema.Array(ModuleSourceFileSchema),
+  files: Schema.Array(FolderFileSchema),
 }).annotate({
   title: 'Package files',
   description:

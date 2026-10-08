@@ -5,13 +5,10 @@ export {
   ConfigValidationError,
   DevtoolsRpc,
   DevtoolsToolRpc,
-  DocumentationReadError,
-  DocumentationScopeNotFoundError,
+  FileNotFoundError,
+  FileReadError,
   InvalidProjectPath,
-  ModuleSourceNotFoundError,
-  ModuleSourceReadError,
   SourceAnalysisError,
-  SourceFileReadError,
   StoriesUnavailableError,
 } from './rpc.js';
 export { GitRpc, GitUnavailableError, InvalidFolderPath } from './git.js';

@@ -2,170 +2,40 @@
   "$schema": "./schema.json",
   "sourceRoots": ["src"],
   "ignoredPaths": ["src/tests"],
-  "layers": {
-    "public-api": {
-      "paths": ["src/index.ts"],
-      "modules": {
-        "src/index.ts": {}
-      }
-    },
-    "contract": {
-      "paths": ["src/architecture-analysis-schema", "src/change-set-schema"],
-      "modules": {
-        "src/architecture-analysis-schema": {
-          "exposed": true
-        },
-        "src/change-set-schema": {
-          "exposed": true
-        }
-      }
-    },
-    "cli": {
-      "paths": ["src/cli"],
-      "modules": {
-        "src/cli": {}
-      }
-    },
-    "orchestrator": {
-      "paths": ["src/orchestrator"],
-      "moduleGraphs": {
-        "project-orchestration": {
-          "description": "Loads a project once and derives every view of it.",
-          "path": "src/orchestrator",
-          "modules": {
-            "load-project": {},
-            "analyze-project": {
-              "exposed": true
-            },
-            "inspect": {
-              "exposed": true
-            },
-            "load-module-source": {
-              "exposed": true
-            },
-            "load-documentation": {
-              "exposed": true
-            },
-            "load-source-files": {
-              "exposed": true
-            },
-            "load-changes": {
-              "exposed": true
-            },
-            "run-stories": {
-              "exposed": true
-            }
-          },
-          "rules": {
-            "analyze-project": ["load-project"],
-            "inspect": ["analyze-project", "load-project"],
-            "load-module-source": ["load-project"],
-            "load-documentation": ["load-project"],
-            "load-source-files": ["load-project"]
-          }
-        }
-      }
-    },
-    "domain": {
-      "paths": ["src/domain"],
-      "modules": {
-        "src/domain/file-graph": {
-          "shared": true,
-          "exposed": true
-        },
-        "src/domain/project-config": {
-          "shared": true,
-          "exposed": true
-        }
-      },
-      "moduleGraphs": {
-        "architecture-analysis": {
-          "description": "Derives the complete Layer and Module analysis of one project.",
-          "path": "src/domain/architecture-analysis",
-          "modules": {
-            "index.ts": {
-              "exposed": true
-            },
-            "architecture-analysis.ts": {},
-            "layer-rules.ts": {},
-            "layers": {},
-            "modules": {
-              "exposed": true
-            }
-          },
-          "rules": {
-            "index.ts": ["architecture-analysis.ts"],
-            "architecture-analysis.ts": ["layer-rules.ts", "layers", "modules"],
-            "modules": ["layers"]
-          }
-        }
-      }
-    },
-    "services": {
-      "paths": ["src/services"],
-      "modules": {
-        "src/services/config": {
-          "exposed": true
-        },
-        "src/services/file-cruiser": {
-          "exposed": true
-        },
-        "src/services/git": {
-          "exposed": true
-        }
-      }
-    },
-    "story": {
-      "paths": ["src/story"],
-      "moduleGraphs": {
-        "stories": {
-          "description": "Defines Proofs, builds the Story tree, and holds the contract their runs report.",
-          "path": "src/story",
-          "modules": {
-            "index.ts": {
-              "exposed": true
-            },
-            "schema": {
-              "exposed": true
-            },
-            "story-tree": {
-              "exposed": true
-            },
-            "proof.ts": {},
-            "browser.ts": {},
-            "gesture.ts": {}
-          },
-          "rules": {
-            "index.ts": ["proof.ts", "browser.ts", "gesture.ts"],
-            "proof.ts": ["browser.ts", "schema"],
-            "browser.ts": ["gesture.ts", "schema"],
-            "story-tree": ["schema"]
-          }
-        }
-      }
-    },
-    "skills-command": {
-      "paths": ["src/skills-command"],
-      "description": "Builds the skills subcommand shared by laymos and @kstackz/devtools",
-      "modules": {
-        "src/skills-command": {
-          "exposed": true
-        }
-      }
-    }
-  },
-  "layerGraphs": {
-    "architecture": {
-      "rules": {
-        "public-api": ["orchestrator", "contract", "story"],
-        "contract": [],
-        "cli": ["orchestrator", "story", "skills-command"],
-        "orchestrator": ["services", "contract", "story"],
-        "domain": ["contract"],
-        "services": ["domain", "contract"],
-        "story": [],
-        "skills-command": []
-      }
-    }
+  "rules": {
+    "src/cli": [
+      "src/orchestrator",
+      "src/story",
+      "src/skills-command",
+      "src/services/config",
+      "src/services/file-cruiser",
+      "src/domain/architecture-analysis",
+      "src/architecture-analysis-schema"
+    ],
+    "src/orchestrator": [
+      "src/services",
+      "src/domain",
+      "src/architecture-analysis-schema",
+      "src/change-set-schema",
+      "src/story"
+    ],
+    "src/orchestrator/analyze-project": ["src/orchestrator/load-project"],
+    "src/orchestrator/inspect": [
+      "src/orchestrator/analyze-project",
+      "src/orchestrator/load-project"
+    ],
+    "src/orchestrator/load-files": ["src/orchestrator/load-project"],
+    "src/domain": ["src/architecture-analysis-schema"],
+    "src/domain/architecture-analysis": [
+      "src/domain/file-graph",
+      "src/domain/import-law",
+      "src/domain/module-tree"
+    ],
+    "src/domain/import-law": [
+      "src/domain/module-tree",
+      "src/domain/project-config"
+    ],
+    "src/services": ["src/domain", "src/change-set-schema"],
+    "src/story/story-tree": ["src/story/schema"]
   }
 }

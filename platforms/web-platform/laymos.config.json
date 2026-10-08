@@ -2,728 +2,219 @@
   "$schema": "../../devtools/laymos/schema.json",
   "sourceRoots": ["src"],
   "storiesPath": "stories",
-  "layers": {
-    "theme": {
-      "paths": ["src/theme"],
-      "description": "The Theme: design tokens and CSS, the light/dark choice kept in a cookie, the script that sets it before paint, and the Status Bar Surface. Knows nothing above it.",
-      "modules": {
-        "src/theme": {
-          "exposed": true
-        }
-      }
-    },
-    "feedback": {
-      "paths": ["src/feedback"],
-      "description": "What an action sounds like: short tones the browser makes as they play, the web's twin of expo-platform's haptics.",
-      "modules": {
-        "src/feedback": {
-          "exposed": true
-        }
-      }
-    },
-    "input-device": {
-      "paths": ["src/input/device"],
-      "description": "What the device can be driven by, keyboard or touch or both: marked on <html> before the first paint, and live as useDevice.",
-      "modules": {
-        "src/input/device": {
-          "exposed": true
-        }
-      }
-    },
-    "input-gesture-zones": {
-      "paths": ["src/input/gesture/zones"],
-      "description": "Web zones — the browser as the touch source: a GestureProvider feeds the core every touch and pen pointer on the page and holds the browser back on each zone, leaving Native Scrolls their touches; GestureZones are DOM elements; useGesture hands each enabled listener every finger as motion values. It never says what a Gesture means.",
-      "moduleGraphs": {
-        "zones": {
-          "description": "touch-input listens to the page, holds the browser back on each zone and says how zones nest in the DOM; zone runs the core's provider over it and puts it together for React with motion values. Whether a release clicks is the browser's call unless a listener prevents it",
-          "path": "src/input/gesture/zones",
-          "modules": {
-            "index.ts": {
-              "exposed": true
-            },
-            "zone": {},
-            "touch-input": {}
-          },
-          "rules": {
-            "index.ts": ["zone"],
-            "zone": ["touch-input"]
-          }
-        }
-      }
-    },
-    "input-gesture-recognizers": {
-      "paths": ["src/input/gesture/recognizers"],
-      "description": "Web recognizers — one generic meaning read from a Gesture, such as a Swipe: Possible, then Tracking with live motion values for feedback, then a Commit or a Cancel, decided by the core's rules. They never know about each other.",
-      "moduleGraphs": {
-        "recognizers": {
-          "description": "Each Recognizer reads Pointers from useGesture on its own.",
-          "path": "src/input/gesture/recognizers",
-          "modules": {
-            "index.ts": {
-              "exposed": true
-            },
-            "swipe": {}
-          },
-          "rules": {
-            "index.ts": ["swipe"]
-          }
-        }
-      }
-    },
-    "input-gesture-patterns": {
-      "paths": ["src/input/gesture/patterns"],
-      "description": "Web patterns — purpose-built touch behaviours an app uses as they are, built from Recognizers, giving exactly the motion values their UI needs and settling themselves.",
-      "moduleGraphs": {
-        "patterns": {
-          "description": "Each Pattern stands alone on the Recognizers.",
-          "path": "src/input/gesture/patterns",
-          "modules": {
-            "index.ts": {
-              "exposed": true
-            },
-            "sidebar": {},
-            "pull-to-refresh": {}
-          },
-          "rules": {
-            "index.ts": ["sidebar", "pull-to-refresh"]
-          }
-        }
-      }
-    },
-    "input-gesture-entry": {
-      "paths": ["src/input/gesture/index.ts"],
-      "description": "Gestures' door: the provider, zone and useGesture, the Recognizers and the Patterns, for apps in a browser.",
-      "modules": {
-        "src/input/gesture/index.ts": {
-          "exposed": true
-        }
-      }
-    },
-    "input": {
-      "paths": ["src/input/index.ts"],
-      "description": "How a person drives the app: the device and gestures, behind one door, the package's ./input.",
-      "modules": {
-        "src/input/index.ts": {
-          "exposed": true
-        }
-      }
-    },
-    "components-lib": {
-      "paths": ["src/components/lib"],
-      "description": "Utilities the components share: cn, the icons, motion, scroll styles, and the shadow DOM host.",
-      "modules": {
-        "src/components/lib/lucide.ts": {
-          "exposed": true
-        },
-        "src/components/lib/motion.ts": {
-          "exposed": true
-        },
-        "src/components/lib/scrollStyles.ts": {
-          "exposed": true
-        },
-        "src/components/lib/shadow-dom.tsx": {
-          "exposed": true
-        },
-        "src/components/lib/utils.ts": {
-          "shared": true,
-          "exposed": true
-        }
-      }
-    },
-    "components-hooks": {
-      "paths": ["src/components/hooks"],
-      "description": "React hooks the components share.",
-      "modules": {
-        "src/components/hooks/use-element-width.ts": {
-          "exposed": true
-        },
-        "src/components/hooks/use-mobile.ts": {
-          "exposed": true
-        },
-        "src/components/hooks/use-scroll.ts": {
-          "exposed": true
-        }
-      }
-    },
-    "components-ui": {
-      "paths": ["src/components/ui"],
-      "description": "Owned shadcn copies on Base UI: the package's ./components/* subpaths.",
-      "modules": {
-        "src/components/ui/accordion.tsx": {
-          "exposed": true
-        },
-        "src/components/ui/alert-dialog.tsx": {
-          "exposed": true
-        },
-        "src/components/ui/alert.tsx": {
-          "exposed": true
-        },
-        "src/components/ui/aspect-ratio.tsx": {
-          "exposed": true
-        },
-        "src/components/ui/attachment.tsx": {
-          "exposed": true
-        },
-        "src/components/ui/avatar.tsx": {
-          "exposed": true
-        },
-        "src/components/ui/badge.tsx": {
-          "exposed": true
-        },
-        "src/components/ui/breadcrumb.tsx": {
-          "exposed": true
-        },
-        "src/components/ui/bubble.tsx": {
-          "exposed": true
-        },
-        "src/components/ui/button-group.tsx": {
-          "exposed": true
-        },
-        "src/components/ui/button.tsx": {
-          "shared": true,
-          "exposed": true
-        },
-        "src/components/ui/calendar.tsx": {
-          "exposed": true
-        },
-        "src/components/ui/card.tsx": {
-          "exposed": true
-        },
-        "src/components/ui/carousel.tsx": {
-          "exposed": true
-        },
-        "src/components/ui/chart.tsx": {
-          "exposed": true
-        },
-        "src/components/ui/checkbox.tsx": {
-          "exposed": true
-        },
-        "src/components/ui/collapsible.tsx": {
-          "exposed": true
-        },
-        "src/components/ui/combobox.tsx": {
-          "exposed": true
-        },
-        "src/components/ui/command.tsx": {
-          "exposed": true
-        },
-        "src/components/ui/context-menu.tsx": {
-          "exposed": true
-        },
-        "src/components/ui/dialog.tsx": {
-          "shared": true,
-          "exposed": true
-        },
-        "src/components/ui/direction.tsx": {
-          "exposed": true
-        },
-        "src/components/ui/drawer.tsx": {
-          "exposed": true
-        },
-        "src/components/ui/dropdown-menu.tsx": {
-          "shared": true,
-          "exposed": true
-        },
-        "src/components/ui/empty.tsx": {
-          "exposed": true
-        },
-        "src/components/ui/field.tsx": {
-          "exposed": true
-        },
-        "src/components/ui/file-tree.tsx": {
-          "exposed": true
-        },
-        "src/components/ui/google-button.tsx": {
-          "exposed": true
-        },
-        "src/components/ui/hover-card.tsx": {
-          "exposed": true
-        },
-        "src/components/ui/input-group.tsx": {
-          "shared": true,
-          "exposed": true
-        },
-        "src/components/ui/input-otp.tsx": {
-          "exposed": true
-        },
-        "src/components/ui/input.tsx": {
-          "shared": true,
-          "exposed": true
-        },
-        "src/components/ui/item.tsx": {
-          "exposed": true
-        },
-        "src/components/ui/kbd.tsx": {
-          "exposed": true
-        },
-        "src/components/ui/label.tsx": {
-          "shared": true,
-          "exposed": true
-        },
-        "src/components/ui/marker.tsx": {
-          "exposed": true
-        },
-        "src/components/ui/menubar.tsx": {
-          "exposed": true
-        },
-        "src/components/ui/message-scroller.tsx": {
-          "exposed": true
-        },
-        "src/components/ui/message.tsx": {
-          "exposed": true
-        },
-        "src/components/ui/native-select.tsx": {
-          "exposed": true
-        },
-        "src/components/ui/navigation-menu.tsx": {
-          "exposed": true
-        },
-        "src/components/ui/pagination.tsx": {
-          "exposed": true
-        },
-        "src/components/ui/popover.tsx": {
-          "exposed": true
-        },
-        "src/components/ui/progress.tsx": {
-          "exposed": true
-        },
-        "src/components/ui/questionnaire.tsx": {
-          "exposed": true
-        },
-        "src/components/ui/radio-group.tsx": {
-          "exposed": true
-        },
-        "src/components/ui/resizable.tsx": {
-          "exposed": true
-        },
-        "src/components/ui/scroll-area.tsx": {
-          "shared": true,
-          "exposed": true
-        },
-        "src/components/ui/select.tsx": {
-          "exposed": true
-        },
-        "src/components/ui/separator.tsx": {
-          "shared": true,
-          "exposed": true
-        },
-        "src/components/ui/sheet.tsx": {
-          "exposed": true
-        },
-        "src/components/ui/skeleton.tsx": {
-          "exposed": true
-        },
-        "src/components/ui/slider.tsx": {
-          "exposed": true
-        },
-        "src/components/ui/sonner.tsx": {
-          "exposed": true
-        },
-        "src/components/ui/spinner.tsx": {
-          "exposed": true
-        },
-        "src/components/ui/switch.tsx": {
-          "exposed": true
-        },
-        "src/components/ui/table.tsx": {
-          "exposed": true
-        },
-        "src/components/ui/tabs.tsx": {
-          "exposed": true
-        },
-        "src/components/ui/textarea.tsx": {
-          "shared": true,
-          "exposed": true
-        },
-        "src/components/ui/toast.tsx": {
-          "exposed": true
-        },
-        "src/components/ui/toggle-group.tsx": {
-          "exposed": true
-        },
-        "src/components/ui/toggle.tsx": {
-          "shared": true,
-          "exposed": true
-        },
-        "src/components/ui/tooltip.tsx": {
-          "exposed": true
-        }
-      }
-    },
-    "components-viewers": {
-      "paths": ["src/components/viewers"],
-      "description": "General viewers built from the primitives: JSON, Markdown, diffs, source, file trees and git changes.",
-      "modules": {
-        "src/components/viewers/diff-viewer": {
-          "shared": true,
-          "exposed": true
-        },
-        "src/components/viewers/file-tree": {
-          "shared": true,
-          "exposed": true
-        },
-        "src/components/viewers/git-changes": {
-          "exposed": true
-        },
-        "src/components/viewers/json": {
-          "exposed": true
-        },
-        "src/components/viewers/markdown-viewer": {
-          "exposed": true
-        },
-        "src/components/viewers/source-explorer": {
-          "exposed": true
-        },
-        "src/components/viewers/source-viewer": {
-          "shared": true,
-          "exposed": true
-        }
-      }
-    },
-    "form": {
-      "paths": ["src/form"],
-      "description": "Forms on TanStack Form: the form hook, its context, and fields bound to the components.",
-      "modules": {
-        "src/form": {
-          "exposed": true
-        }
-      }
-    },
-    "recipes": {
-      "paths": ["src/recipes"],
-      "description": "Whole interactions, ready to use, the same on the web as their twins in expo-platform: the Frame with its Sidebar, the Thumb Picker, the Swipe Row, the keys of a Binding, the Local Sign-In, the Account Switcher, the screens before an Account is open. parts are what recipes share and never expose. A recipe knows nothing of sign-in.",
-      "modules": {
-        "src/recipes/account-switcher": {
-          "exposed": true
-        },
-        "src/recipes/frame": {
-          "exposed": true
-        },
-        "src/recipes/account-lost": {
-          "exposed": true
-        },
-        "src/recipes/local-sign-in": {
-          "exposed": true
-        },
-        "src/recipes/parts/email-privacy": {
-          "shared": true
-        },
-        "src/recipes/thumb-picker": {
-          "exposed": true
-        },
-        "src/recipes/swipe-row": {
-          "exposed": true
-        },
-        "src/recipes/key-bindings": {
-          "exposed": true
-        },
-        "src/recipes/gate-screens": {
-          "exposed": true
-        }
-      }
-    },
-    "client": {
-      "paths": ["src/client"],
-      "description": "The opinionated way in on TanStack Start: the root document with its plugins, and the Theme read on the server.",
-      "moduleGraphs": {
-        "client": {
-          "description": "index.ts is the door; server.ts the server-only door; root is the root document and its plugins; theme reads the Theme's cookie on the server.",
-          "path": "src/client",
-          "modules": {
-            "index.ts": {
-              "exposed": true
-            },
-            "root": {},
-            "theme": {},
-            "server.ts": {
-              "exposed": true
-            }
-          },
-          "rules": {
-            "index.ts": ["root", "theme"],
-            "root": [],
-            "server.ts": ["theme"]
-          }
-        }
-      }
-    },
-    "pwa-shared": {
-      "paths": ["src/pwa/shared"],
-      "description": "PWA: The words of the problem: Build ID, cache names, manifest, Strategy rules, config, commands. Pure; no I/O.",
-      "modules": {
-        "src/pwa/shared/build": {
-          "shared": true,
-          "exposed": true
-        },
-        "src/pwa/shared/manifest": {
-          "shared": true,
-          "exposed": true
-        },
-        "src/pwa/shared/strategy": {
-          "shared": true,
-          "exposed": true
-        },
-        "src/pwa/shared/config": {
-          "exposed": true
-        },
-        "src/pwa/shared/commands": {
-          "exposed": true
-        },
-        "src/pwa/shared/worker-host": {
-          "exposed": true
-        }
-      }
-    },
-    "pwa-browser": {
-      "paths": ["src/pwa/browser"],
-      "description": "PWA: Browser helpers every in-page layer builds on: scoped DOM listeners and SubscriptionRef as React state.",
-      "modules": {
-        "src/pwa/browser/dom-events.ts": {
-          "exposed": true
-        },
-        "src/pwa/browser/subscription-ref.ts": {
-          "exposed": true
-        }
-      }
-    },
-    "pwa-vite": {
-      "paths": ["src/pwa/vite"],
-      "description": "PWA: The pwa() Vite plugin: manifest, Precache list, Build ID, worker build, headers.",
-      "moduleGraphs": {
-        "vite": {
-          "description": "pwa() wires three Vite plugins: build runs the production pipeline, client-module serves the Build ID it leaves to pages, dev serves the dev worker; build and dev share Precache selection and the worker bundle.",
-          "path": "src/pwa/vite",
-          "modules": {
-            "index.ts": {
-              "exposed": true
-            },
-            "vite.ts": {},
-            "build": {},
-            "client-module": {},
-            "dev": {},
-            "precache": {},
-            "worker-bundle": {}
-          },
-          "rules": {
-            "index.ts": ["vite.ts"],
-            "vite.ts": ["build", "client-module", "dev"],
-            "build": ["precache", "worker-bundle"],
-            "client-module": ["build"],
-            "dev": ["worker-bundle"]
-          }
-        }
-      }
-    },
-    "pwa-worker": {
-      "paths": ["src/pwa/worker"],
-      "description": "PWA: Service worker runtime: lifecycle, Precache, requests (pages and Strategies), commands, messages.",
-      "modules": {
-        "src/pwa/worker": {
-          "exposed": true
-        }
-      }
-    },
-    "pwa-client": {
-      "paths": ["src/pwa/client"],
-      "description": "PWA: Client-side Effect service for the core: registration, the one status stream, the activate command, Runtime Cache clearing.",
-      "modules": {
-        "src/pwa/client": {
-          "exposed": true
-        }
-      }
-    },
-    "pwa-react": {
-      "paths": ["src/pwa/react"],
-      "description": "PWA: React bindings over the client service, pwaHead(), and the ready-made Update Prompt.",
-      "modules": {
-        "src/pwa/react": {
-          "exposed": true
-        }
-      }
-    },
-    "pwa-extras": {
-      "paths": ["src/pwa/extras"],
-      "description": "PWA: Optional page features the core never needs: Install Prompt, online state, display mode, storage persistence. Each holds its service, hook and UI.",
-      "moduleGraphs": {
-        "extras": {
-          "description": "Standalone extras behind one door; each builds its own page-wide service on first use.",
-          "path": "src/pwa/extras",
-          "modules": {
-            "index.ts": {
-              "exposed": true
-            },
-            "install": {},
-            "online": {},
-            "display-mode": {},
-            "storage": {},
-            "lazy-service": {}
-          },
-          "rules": {
-            "index.ts": ["install", "online", "display-mode", "storage"],
-            "install": ["display-mode", "lazy-service"],
-            "online": ["lazy-service"],
-            "display-mode": ["lazy-service"],
-            "storage": ["lazy-service"]
-          }
-        }
-      }
-    },
-    "pwa-rpc": {
-      "paths": ["src/pwa/rpc"],
-      "description": "PWA: Worker RPC: Effect RPC between the Worker Server and each Tab Client.",
-      "moduleGraphs": {
-        "rpc": {
-          "description": "Worker Server and RPC client sharing one Build ID handshake.",
-          "path": "src/pwa/rpc",
-          "modules": {
-            "worker": {
-              "exposed": true
-            },
-            "client": {
-              "exposed": true
-            },
-            "handshake": {}
-          },
-          "rules": {
-            "worker": ["handshake"],
-            "client": ["handshake"]
-          }
-        }
-      }
-    },
-    "pwa-splash": {
-      "paths": ["src/pwa/splash"],
-      "description": "PWA: the iOS startup images, one per screen iOS matches, and the head tags that name them.",
-      "modules": {
-        "src/pwa/splash": {
-          "exposed": true
-        }
-      }
-    },
-    "pwa-root": {
-      "paths": ["src/pwa/root"],
-      "description": "PWA: the plugin for the root document that makes an app a PWA: head tags, the provider, the Update and Install Prompts.",
-      "modules": {
-        "src/pwa/root": {
-          "exposed": true
-        }
-      }
-    },
-    "pwa": {
-      "paths": ["src/pwa/index.ts"],
-      "description": "PWA: the page's door, the package's ./pwa.",
-      "modules": {
-        "src/pwa/index.ts": {
-          "exposed": true
-        }
-      }
-    },
-    "server": {
-      "paths": ["src/server"],
-      "description": "A web app's server: one fetch handler for its pages and its APIs, which the app answers itself, each WebSocket API in the caller's own Live Object, and the stages alchemy deploys it to. Plain Request and Response, so it runs on Cloudflare as anywhere.",
-      "moduleGraphs": {
-        "server": {
-          "description": "index.ts is the door; serve answers each API on the cloud Backend over worker, which routes the rest to the pages, and sends each WebSocket to its Live Object; stage names where each stage deploys.",
-          "path": "src/server",
-          "modules": {
-            "index.ts": {
-              "exposed": true
-            },
-            "worker": {},
-            "stage": {},
-            "serve": {},
-            "live": {}
-          },
-          "rules": {
-            "index.ts": ["serve", "worker", "stage", "live"],
-            "serve": ["worker", "live"]
-          }
-        }
-      }
-    },
-    "app": {
-      "paths": ["src/app"],
-      "description": "The Web Platform's door: createApp turns one config into a web app, the browser as its Host, the Theme, the PWA, the Gate's screens and the named sign-in dialog, on the Platform Toolkit.",
-      "moduleGraphs": {
-        "app": {
-          "description": "index.ts is the door; app.tsx assembles the app over host.ts.",
-          "path": "src/app",
-          "modules": {
-            "index.ts": {
-              "exposed": true
-            },
-            "app.tsx": {},
-            "host.ts": {}
-          },
-          "rules": {
-            "index.ts": ["app.tsx", "host.ts"],
-            "app.tsx": ["host.ts"]
-          }
-        }
-      }
-    }
-  },
-  "layerGraphs": {
-    "web-platform": {
-      "description": "Bottom to top: the Theme, feedback and input; components; forms and recipes on components; the client on them; the PWA plugs into the client; the app door over the client, the PWA and the recipes; the server stands alone.",
-      "rules": {
-        "theme": [],
-        "input-gesture-zones": [],
-        "input-gesture-recognizers": ["input-gesture-zones"],
-        "input-gesture-patterns": ["input-gesture-recognizers"],
-        "input-gesture-entry": [
-          "input-gesture-zones",
-          "input-gesture-recognizers",
-          "input-gesture-patterns"
-        ],
-        "components-lib": [],
-        "components-hooks": [],
-        "components-ui": ["components-hooks", "components-lib"],
-        "components-viewers": [
-          "components-ui",
-          "components-hooks",
-          "components-lib"
-        ],
-        "form": [
-          "components-ui",
-          "components-hooks",
-          "components-lib",
-          "components-viewers"
-        ],
-        "recipes": [
-          "components-hooks",
-          "components-lib",
-          "components-ui",
-          "components-viewers",
-          "feedback",
-          "input",
-          "theme"
-        ],
-        "client": [
-          "theme",
-          "recipes",
-          "input",
-          "components-ui",
-          "components-lib"
-        ],
-        "pwa-shared": [],
-        "pwa-browser": [],
-        "pwa-vite": ["pwa-shared"],
-        "pwa-worker": ["pwa-shared"],
-        "pwa-client": ["pwa-shared", "pwa-browser"],
-        "pwa-react": ["pwa-client", "components-ui", "components-lib"],
-        "pwa-extras": ["pwa-browser", "components-ui", "components-lib"],
-        "pwa-rpc": ["pwa-shared"],
-        "feedback": [],
-        "input-device": [],
-        "input": ["input-device", "input-gesture-entry"],
-        "pwa-splash": [],
-        "pwa-root": ["pwa-react", "pwa-extras", "pwa-splash", "client"],
-        "pwa": ["pwa-react", "pwa-root", "pwa-splash"],
-        "server": [],
-        "app": ["client", "pwa", "recipes", "theme"]
-      }
-    }
-  },
-  "ignoredPaths": ["src/cosmos.decorator.tsx", "src/pwa/vite/tests/fixture"]
+  "ignoredPaths": ["src/cosmos.decorator.tsx", "src/pwa/vite/tests/fixture"],
+  "fileModules": [
+    "src/app/app.tsx",
+    "src/app/host.ts",
+    "src/client/server.ts",
+    "src/components/hooks/use-element-width.ts",
+    "src/components/hooks/use-mobile.ts",
+    "src/components/hooks/use-scroll.ts",
+    "src/components/lib/lucide.ts",
+    "src/components/lib/motion.ts",
+    "src/components/lib/scrollStyles.ts",
+    "src/components/lib/shadow-dom.tsx",
+    "src/components/lib/utils.ts",
+    "src/components/ui/accordion.tsx",
+    "src/components/ui/alert-dialog.tsx",
+    "src/components/ui/alert.tsx",
+    "src/components/ui/aspect-ratio.tsx",
+    "src/components/ui/attachment.tsx",
+    "src/components/ui/avatar.tsx",
+    "src/components/ui/badge.tsx",
+    "src/components/ui/breadcrumb.tsx",
+    "src/components/ui/bubble.tsx",
+    "src/components/ui/button-group.tsx",
+    "src/components/ui/button.tsx",
+    "src/components/ui/calendar.tsx",
+    "src/components/ui/card.tsx",
+    "src/components/ui/carousel.tsx",
+    "src/components/ui/chart.tsx",
+    "src/components/ui/checkbox.tsx",
+    "src/components/ui/collapsible.tsx",
+    "src/components/ui/combobox.tsx",
+    "src/components/ui/command.tsx",
+    "src/components/ui/context-menu.tsx",
+    "src/components/ui/dialog.tsx",
+    "src/components/ui/direction.tsx",
+    "src/components/ui/drawer.tsx",
+    "src/components/ui/dropdown-menu.tsx",
+    "src/components/ui/empty.tsx",
+    "src/components/ui/field.tsx",
+    "src/components/ui/file-tree.tsx",
+    "src/components/ui/google-button.tsx",
+    "src/components/ui/hover-card.tsx",
+    "src/components/ui/input-group.tsx",
+    "src/components/ui/input-otp.tsx",
+    "src/components/ui/input.tsx",
+    "src/components/ui/item.tsx",
+    "src/components/ui/kbd.tsx",
+    "src/components/ui/label.tsx",
+    "src/components/ui/marker.tsx",
+    "src/components/ui/menubar.tsx",
+    "src/components/ui/message-scroller.tsx",
+    "src/components/ui/message.tsx",
+    "src/components/ui/native-select.tsx",
+    "src/components/ui/navigation-menu.tsx",
+    "src/components/ui/pagination.tsx",
+    "src/components/ui/popover.tsx",
+    "src/components/ui/progress.tsx",
+    "src/components/ui/questionnaire.tsx",
+    "src/components/ui/radio-group.tsx",
+    "src/components/ui/resizable.tsx",
+    "src/components/ui/scroll-area.tsx",
+    "src/components/ui/select.tsx",
+    "src/components/ui/separator.tsx",
+    "src/components/ui/sheet.tsx",
+    "src/components/ui/skeleton.tsx",
+    "src/components/ui/slider.tsx",
+    "src/components/ui/sonner.tsx",
+    "src/components/ui/spinner.tsx",
+    "src/components/ui/switch.tsx",
+    "src/components/ui/table.tsx",
+    "src/components/ui/tabs.tsx",
+    "src/components/ui/textarea.tsx",
+    "src/components/ui/toast.tsx",
+    "src/components/ui/toggle-group.tsx",
+    "src/components/ui/toggle.tsx",
+    "src/components/ui/tooltip.tsx",
+    "src/pwa/browser/dom-events.ts",
+    "src/pwa/browser/subscription-ref.ts",
+    "src/pwa/vite/vite.ts"
+  ],
+  "rules": {
+    "src/app": ["src/client", "src/pwa", "src/recipes", "src/theme"],
+    "src/app/app.tsx": ["src/app/host.ts"],
+    "src/client": ["src/components/ui", "src/input", "src/theme"],
+    "src/client/server.ts": ["src/client/theme"],
+    "src/components/lib/scrollStyles.ts": ["src/components/lib/utils.ts"],
+    "src/components/ui": ["src/components/lib"],
+    "src/components/ui/alert-dialog.tsx": ["src/components/ui/button.tsx"],
+    "src/components/ui/attachment.tsx": ["src/components/ui/button.tsx"],
+    "src/components/ui/button-group.tsx": ["src/components/ui/separator.tsx"],
+    "src/components/ui/calendar.tsx": ["src/components/ui/button.tsx"],
+    "src/components/ui/carousel.tsx": ["src/components/ui/button.tsx"],
+    "src/components/ui/combobox.tsx": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/input-group.tsx"
+    ],
+    "src/components/ui/command.tsx": [
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input-group.tsx"
+    ],
+    "src/components/ui/dialog.tsx": ["src/components/ui/button.tsx"],
+    "src/components/ui/field.tsx": [
+      "src/components/ui/label.tsx",
+      "src/components/ui/separator.tsx"
+    ],
+    "src/components/ui/file-tree.tsx": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/scroll-area.tsx"
+    ],
+    "src/components/ui/input-group.tsx": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/textarea.tsx"
+    ],
+    "src/components/ui/item.tsx": ["src/components/ui/separator.tsx"],
+    "src/components/ui/menubar.tsx": ["src/components/ui/dropdown-menu.tsx"],
+    "src/components/ui/message-scroller.tsx": ["src/components/ui/button.tsx"],
+    "src/components/ui/pagination.tsx": ["src/components/ui/button.tsx"],
+    "src/components/ui/questionnaire.tsx": ["src/components/ui/button.tsx"],
+    "src/components/ui/sheet.tsx": ["src/components/ui/button.tsx"],
+    "src/components/ui/toast.tsx": ["src/components/ui/button.tsx"],
+    "src/components/ui/toggle-group.tsx": ["src/components/ui/toggle.tsx"],
+    "src/components/viewers": [
+      "src/components/hooks",
+      "src/components/lib",
+      "src/components/ui"
+    ],
+    "src/components/viewers/diff-viewer": [
+      "src/components/viewers/source-viewer"
+    ],
+    "src/components/viewers/markdown-viewer": [
+      "src/components/viewers/source-viewer"
+    ],
+    "src/components/viewers/source-explorer": [
+      "src/components/viewers/diff-viewer",
+      "src/components/viewers/file-tree",
+      "src/components/viewers/source-viewer"
+    ],
+    "src/form": ["src/components/lib", "src/components/ui"],
+    "src/input/gesture/patterns": ["src/input/gesture/recognizers"],
+    "src/input/gesture/patterns/sidebar": ["src/input/gesture/zones"],
+    "src/input/gesture/recognizers": ["src/input/gesture/zones"],
+    "src/input/gesture/zones/zone": ["src/input/gesture/zones/touch-input"],
+    "src/pwa/client": ["src/pwa/browser", "src/pwa/shared"],
+    "src/pwa/client/status": ["src/pwa/client/commands"],
+    "src/pwa/extras": [
+      "src/components/lib",
+      "src/components/ui",
+      "src/pwa/browser"
+    ],
+    "src/pwa/extras/display-mode": ["src/pwa/extras/lazy-service"],
+    "src/pwa/extras/install": [
+      "src/pwa/extras/display-mode",
+      "src/pwa/extras/lazy-service"
+    ],
+    "src/pwa/extras/online": ["src/pwa/extras/lazy-service"],
+    "src/pwa/extras/storage": ["src/pwa/extras/lazy-service"],
+    "src/pwa/react": [
+      "src/components/ui",
+      "src/pwa/browser/subscription-ref.ts",
+      "src/pwa/client",
+      "src/pwa/shared/build",
+      "src/pwa/shared/config"
+    ],
+    "src/pwa/root": [
+      "src/client",
+      "src/pwa/extras",
+      "src/pwa/react",
+      "src/pwa/splash"
+    ],
+    "src/pwa/rpc": ["src/pwa/shared"],
+    "src/pwa/rpc/client": ["src/pwa/rpc/handshake"],
+    "src/pwa/rpc/worker": ["src/pwa/rpc/handshake"],
+    "src/pwa/shared/config": [
+      "src/pwa/shared/build",
+      "src/pwa/shared/manifest",
+      "src/pwa/shared/strategy"
+    ],
+    "src/pwa/shared/worker-host": ["src/pwa/shared/build"],
+    "src/pwa/vite": ["src/pwa/shared"],
+    "src/pwa/vite/build": [
+      "src/pwa/vite/precache",
+      "src/pwa/vite/worker-bundle"
+    ],
+    "src/pwa/vite/client-module": ["src/pwa/vite/build"],
+    "src/pwa/vite/dev": ["src/pwa/vite/worker-bundle"],
+    "src/pwa/vite/vite.ts": [
+      "src/pwa/vite/build",
+      "src/pwa/vite/client-module",
+      "src/pwa/vite/dev"
+    ],
+    "src/pwa/worker": ["src/pwa/shared"],
+    "src/pwa/worker/commands": ["src/pwa/worker/global-scope"],
+    "src/pwa/worker/lifecycle": [
+      "src/pwa/worker/global-scope",
+      "src/pwa/worker/precache"
+    ],
+    "src/pwa/worker/precache": ["src/pwa/worker/global-scope"],
+    "src/pwa/worker/requests": [
+      "src/pwa/worker/global-scope",
+      "src/pwa/worker/precache"
+    ],
+    "src/pwa/worker/requests/pages": ["src/pwa/worker/requests/strategies"],
+    "src/recipes": [
+      "src/components/hooks",
+      "src/components/lib",
+      "src/components/ui",
+      "src/feedback",
+      "src/input"
+    ],
+    "src/recipes/account-switcher": ["src/recipes/parts/email-privacy"],
+    "src/recipes/frame/sidebar": ["src/recipes/frame/frame"],
+    "src/recipes/local-sign-in": ["src/recipes/parts/email-privacy"],
+    "src/server/serve": ["src/server/live", "src/server/worker"]
+  }
 }

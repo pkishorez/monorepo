@@ -1,165 +1,9 @@
 import { Effect, Schema } from 'effect';
 
-const moduleAnnotations = {
-  title: 'Module',
-  description:
-    'A Configured Module keyed by its canonical source file or directory — project-relative when declared in a Layer, Module Graph-relative when declared in a Module Graph. Both flags default to false, so a Module is importable by nobody until it says otherwise.',
-};
-
-const SharedSchema = Schema.Boolean.annotate({
-  description:
-    'Whether peers in the same Layer may import this Module. Illegal inside a Module Graph, where Rules govern peer access.',
-});
-
-const ExposedSchema = Schema.Boolean.annotate({
-  description: 'Whether other Layers may import this Module.',
-});
-
-const ModuleSchema = Schema.Struct({
-  shared: SharedSchema,
-  exposed: ExposedSchema,
-}).annotate(moduleAnnotations);
-
-const ModuleInputSchema = Schema.Struct({
-  shared: SharedSchema.pipe(
-    Schema.withDecodingDefaultKey(Effect.succeed(false)),
-  ),
-  exposed: ExposedSchema.pipe(
-    Schema.withDecodingDefaultKey(Effect.succeed(false)),
-  ),
-}).annotate(moduleAnnotations);
-
-const moduleGraphAnnotations = {
-  title: 'Module Graph',
-  description:
-    'A named, bounded set of Modules inside one Layer describing one capability too large for a single Module. Unlike a LayerGraph it is a disjoint unit: its Rules are never unioned with another Graph’s, are not transitive, and are checked for cycles on their own.',
-};
-
-const graphDescriptionField = Schema.optional(Schema.String).annotate({
-  description: 'Human-readable summary of this Module Graph.',
-});
-
-const graphPathField = Schema.String.annotate({
-  description:
-    'Canonical project-relative directory rooting this Module Graph. Every member lives below it and every file below it must belong to a member.',
-});
-
-const docsPathField = Schema.optional(Schema.String).annotate({
-  description:
-    'Canonical project-relative path to a markdown file documenting this entity. Read-only: Laymos never writes to it.',
-});
-
-const graphModulesDescription =
-  'Every member of this Module Graph, keyed relative to its path. At least two members, at least one exposed, and no member may be Shared.';
-
-const graphRulesDescription =
-  'Maps a member key to the member keys it may directly depend on. Rules are default-deny and, unlike LayerGraph Rules, are NOT transitive: only declared edges are permitted. They must be acyclic within this Module Graph.';
-
-const GraphRulesSchema = Schema.Record(
-  Schema.String,
-  Schema.Array(Schema.String),
-).annotate({ description: graphRulesDescription });
-
-const ModuleGraphSchema = Schema.Struct({
-  description: graphDescriptionField,
-  path: graphPathField,
-  docsPath: docsPathField,
-  modules: Schema.Record(Schema.String, ModuleSchema)
-    .annotate({ description: graphModulesDescription })
-    .pipe(Schema.check(Schema.isMinProperties(2))),
-  rules: GraphRulesSchema,
-}).annotate(moduleGraphAnnotations);
-
-const ModuleGraphInputSchema = Schema.Struct({
-  description: graphDescriptionField,
-  path: graphPathField,
-  docsPath: docsPathField,
-  modules: Schema.Record(Schema.String, ModuleInputSchema)
-    .annotate({ description: graphModulesDescription })
-    .pipe(Schema.check(Schema.isMinProperties(2))),
-  rules: GraphRulesSchema.pipe(
-    Schema.withDecodingDefaultKey(
-      Effect.succeed<Readonly<Record<string, readonly string[]>>>({}),
-    ),
-  ),
-}).annotate(moduleGraphAnnotations);
-
-const layerAnnotations = {
-  title: 'Layer',
-  description:
-    'A named, configured group of project-relative paths, owning the Modules and Module Graphs declared within it.',
-};
-
-const layerPathsField = Schema.Array(Schema.String)
-  .annotate({
-    description:
-      'Canonical project-relative paths belonging to this Layer. No declared Layer scopes may overlap, within one Layer or across Layers.',
-  })
-  .pipe(Schema.check(Schema.isMinLength(1)));
-
-const layerDescriptionField = Schema.optional(Schema.String).annotate({
-  description: 'Human-readable summary of this Layer.',
-});
-
-const layerModulesDescription =
-  'Every free-form Configured Module in this Layer, keyed by canonical project-relative source file or directory.';
-
-const layerModuleGraphsDescription =
-  'Every Module Graph in this Layer, keyed by id.';
-
-const LayerSchema = Schema.Struct({
-  paths: layerPathsField,
-  description: layerDescriptionField,
-  docsPath: docsPathField,
-  modules: Schema.Record(Schema.String, ModuleSchema).annotate({
-    description: layerModulesDescription,
-  }),
-  moduleGraphs: Schema.Record(Schema.String, ModuleGraphSchema).annotate({
-    description: layerModuleGraphsDescription,
-  }),
-}).annotate(layerAnnotations);
-
-const LayerInputSchema = Schema.Struct({
-  paths: layerPathsField,
-  description: layerDescriptionField,
-  docsPath: docsPathField,
-  modules: Schema.Record(Schema.String, ModuleInputSchema)
-    .annotate({ description: layerModulesDescription })
-    .pipe(
-      Schema.withDecodingDefaultKey(
-        Effect.succeed<Readonly<Record<string, typeof ModuleSchema.Type>>>({}),
-      ),
-    ),
-  moduleGraphs: Schema.Record(Schema.String, ModuleGraphInputSchema)
-    .annotate({ description: layerModuleGraphsDescription })
-    .pipe(
-      Schema.withDecodingDefaultKey(
-        Effect.succeed<Readonly<Record<string, typeof ModuleGraphSchema.Type>>>(
-          {},
-        ),
-      ),
-    ),
-}).annotate(layerAnnotations);
-
-const LayerGraphSchema = Schema.Struct({
-  description: Schema.optional(Schema.String).annotate({
-    description: 'Human-readable summary of this LayerGraph.',
-  }),
-  docsPath: docsPathField,
-  rules: Schema.Record(Schema.String, Schema.Array(Schema.String)).annotate({
-    description:
-      'Maps a Layer id to the Layer ids it may directly depend on. Rules are default-deny and transitive: a dependency between two Layers with no declared path between them, direct or transitive, is a violation. A Layer with no outgoing rule is a valid, intentional leaf.',
-  }),
-}).annotate({
-  title: 'LayerGraph',
-  description:
-    'A named set of Rules representing one responsibility (e.g. core architecture, test boundaries). This is an organizational grouping, not an enforcement boundary — enforcement unions every Rule declared across every LayerGraph in the project.',
-});
-
 const projectConfigAnnotations = {
   title: 'Laymos Config',
   description:
-    "Declares a project's Layers, their Modules and Module Graphs, and its LayerGraphs.",
+    'Where the source is, which single files are Modules, which paths are ignored, which Rules hold, and which Exceptions exist with a Reason. Folder Modules are never listed: a folder with an index file is a Module.',
 };
 
 const schemaField = Schema.optional(Schema.String).annotate({
@@ -170,18 +14,18 @@ const schemaField = Schema.optional(Schema.String).annotate({
 const sourceRootsField = Schema.Array(Schema.String)
   .annotate({
     description:
-      'Canonical project-relative files or folders that define the complete static analysis universe.',
+      'Project-relative files or folders that define the analysis universe. Git-ignored files are never part of it.',
   })
   .pipe(Schema.check(Schema.isMinLength(1)));
 
 const IgnoredPathsSchema = Schema.Array(Schema.String).annotate({
   description:
-    'Canonical project-relative files or folders explicitly excluded from the analysis universe.',
+    'Project-relative files or folders removed from the analysis universe, each with its whole subtree. The one way to keep a folder with an index file from being a Module.',
 });
 
 const storiesPathField = Schema.optional(Schema.String).annotate({
   description:
-    'Canonical project-relative folder holding the Story tree: it and every folder beneath it is a Story, told by its story.md, with its Proofs (*.proof.ts or *.proof.tsx) directly inside. Implicitly an Ignored path.',
+    'Project-relative folder holding the Story tree: it and every folder beneath it is a Story, told by its story.md, with its Proofs (*.proof.ts or *.proof.tsx) directly inside. Implicitly an Ignored path.',
 });
 
 const storyTimeoutField = Schema.optional(Schema.String).annotate({
@@ -189,15 +33,37 @@ const storyTimeoutField = Schema.optional(Schema.String).annotate({
     'How long one process Proof may run before it errors as timed out, as an Effect Duration string (e.g. "10 seconds"). Defaults to 10 seconds. Browser Proofs default to 90 seconds; a Proof may override either with its own timeout.',
 });
 
-const layersDescription =
-  'Every Layer in the project, keyed by id, each owning its Modules and Module Graphs.';
+const FileModulesSchema = Schema.Array(Schema.String).annotate({
+  description:
+    'Project-relative source files that are Modules of their own. The one kind of Module that must be declared, because a file carries no index to say so.',
+});
 
-const layerGraphsField = Schema.Record(
+const RulesSchema = Schema.Record(
   Schema.String,
-  LayerGraphSchema,
+  Schema.Array(Schema.String),
 ).annotate({
   description:
-    'Every LayerGraph in the project, keyed by id. An empty set denies every cross-Layer dependency.',
+    'One-way permissions. Each key is a project-relative Wrapper or Module path, or "*" for every sibling of a target; each value lists the Wrapper or Module paths it may import. Every Module inside the key may import the Index of every Module inside each target. Rules do not chain.',
+});
+
+export const ExceptionSchema = Schema.Struct({
+  from: Schema.String.annotate({
+    description: 'Project-relative Wrapper or Module path doing the importing.',
+  }),
+  to: Schema.String.annotate({
+    description: 'Project-relative Wrapper or Module path being imported.',
+  }),
+  because: Schema.String.pipe(Schema.check(Schema.isMinLength(1))).annotate({
+    description: 'The Reason this Exception exists. Mandatory.',
+  }),
+}).annotate({
+  title: 'Exception',
+  description:
+    'One import no Rule could hold, allowed on purpose: a child importing an ancestor, or an import against a Rule that would make a Rule loop.',
+});
+
+const ExceptionsSchema = Schema.Array(ExceptionSchema).annotate({
+  description: 'Every Exception, each with its Reason.',
 });
 
 /**
@@ -211,10 +77,9 @@ export const ProjectConfigSchema = Schema.Struct({
   ignoredPaths: IgnoredPathsSchema,
   storiesPath: storiesPathField,
   storyTimeout: storyTimeoutField,
-  layers: Schema.Record(Schema.String, LayerSchema)
-    .annotate({ description: layersDescription })
-    .pipe(Schema.check(Schema.isMinProperties(1))),
-  layerGraphs: layerGraphsField,
+  fileModules: FileModulesSchema,
+  rules: RulesSchema,
+  exceptions: ExceptionsSchema,
 }).annotate(projectConfigAnnotations);
 
 /**
@@ -230,27 +95,27 @@ export const ProjectConfigInputSchema = Schema.Struct({
   ),
   storiesPath: storiesPathField,
   storyTimeout: storyTimeoutField,
-  layers: Schema.Record(Schema.String, LayerInputSchema)
-    .annotate({ description: layersDescription })
-    .pipe(Schema.check(Schema.isMinProperties(1))),
-  layerGraphs: layerGraphsField,
+  fileModules: FileModulesSchema.pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed<readonly string[]>([])),
+  ),
+  rules: RulesSchema.pipe(
+    Schema.withDecodingDefaultKey(
+      Effect.succeed<Readonly<Record<string, readonly string[]>>>({}),
+    ),
+  ),
+  exceptions: ExceptionsSchema.pipe(
+    Schema.withDecodingDefaultKey(
+      Effect.succeed<readonly (typeof ExceptionSchema.Type)[]>([]),
+    ),
+  ),
 }).annotate(projectConfigAnnotations);
 
 export type Config = typeof ProjectConfigSchema.Type;
 
-export type ModuleConfig = typeof ModuleSchema.Type;
-
-export type ModuleGraphConfig = typeof ModuleGraphSchema.Type;
+export type ConfigException = typeof ExceptionSchema.Type;
 
 export const ConfigValidationIssueSchema = Schema.Struct({
-  kind: Schema.Literals([
-    'path',
-    'overlap',
-    'reference',
-    'cycle',
-    'module',
-    'module-graph',
-  ]),
+  kind: Schema.Literals(['path', 'rule', 'loop', 'exception']),
   message: Schema.String,
 }).annotate({
   title: 'Config Validation Issue',

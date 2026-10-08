@@ -20,7 +20,7 @@ its own subpath:
 
 - `otel-trace-viewer` (and `otel-trace-viewer/*` for its trace model and
   presentation): the Lotel Tool's trace list, waterfall and span inspection.
-- `laymos`: the Laymos Tool's architecture explorer.
+- `laymos`: the Laymos Tool's Laymo (the architecture as a space of cards), its Stories canvas and the File list.
 - `monoverse`: the Monoverse Tool's map of a pnpm monorepo.
 - `flow-swimlane`: the Flow Tool's swim lanes of Journal Entries.
 - `devtools-panel`: `DevToolsPanel`, a panel that shows the Traces and Flows

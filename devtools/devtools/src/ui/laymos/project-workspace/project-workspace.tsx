@@ -122,31 +122,25 @@ export function LaymosProjectWorkspace({
       branches={git.branches}
       baseRef={git.baseRef}
       onBaseRefChange={git.setBaseRef}
-      loadSourceFiles={(pathPrefixes) =>
+      loadFileList={(modulePath) =>
         provideRuntime(
           runtime,
           Effect.gen(function* () {
             const client = yield* DevtoolsClient;
-            return yield* client.GetLaymosSourceFiles({
-              projectPath,
-              pathPrefixes,
-            });
+            return yield* client.GetLaymosFileList({ projectPath, modulePath });
+          }),
+        )
+      }
+      loadFileContent={(path) =>
+        provideRuntime(
+          runtime,
+          Effect.gen(function* () {
+            const client = yield* DevtoolsClient;
+            return yield* client.GetLaymosFile({ projectPath, path });
           }),
         )
       }
       loadFileDiff={git.loadFileDiff}
-      loadDocumentation={(scope) =>
-        provideRuntime(
-          runtime,
-          Effect.gen(function* () {
-            const client = yield* DevtoolsClient;
-            return yield* client.GetLaymosDocumentation({
-              projectPath,
-              scope,
-            });
-          }),
-        )
-      }
       stories={
         storiesQuery.data
           ? {
@@ -193,15 +187,9 @@ function useStoryRun(
           }));
         }),
       ),
-      Effect.catchCause((cause) =>
-        Cause.hasInterruptsOnly(cause) || generationRef.current !== generation
-          ? Effect.void
-          : Effect.sync(() =>
-              toast.error('Could not load Story reports', {
-                description: messageOf(Cause.squash(cause)),
-              }),
-            ),
-      ),
+      // Saved reports only spare a rerun: without them the Stories simply
+      // show as not yet run, so a failure to read them says nothing.
+      Effect.catchCause(() => Effect.void),
     ),
   );
 
