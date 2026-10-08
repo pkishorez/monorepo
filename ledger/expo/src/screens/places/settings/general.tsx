@@ -5,7 +5,9 @@ import { Choice } from '@kstackz/expo-platform/components/choice';
 import { Dialog } from '@kstackz/expo-platform/components/dialog';
 import { Switch } from '@kstackz/expo-platform/components/switch';
 import { Text } from '@kstackz/expo-platform/components/text';
-import { useMoney, useUser, useWrites } from '@ledger/core/session';
+import { useUser } from '@ledger/core/session';
+import { useMutations } from '@ledger/core/mutations';
+import { useCounts, useCurrency } from '@ledger/core/queries';
 import { CURRENCIES } from '@ledger/core/model';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { useState } from 'react';
@@ -88,8 +90,9 @@ function App() {
 }
 
 function Data() {
-  const money = useMoney();
-  const { sample, clear, setCurrency } = useWrites();
+  const counts = useCounts();
+  const currency = useCurrency();
+  const { sample, clear, setCurrency } = useMutations();
   const { online, backend } = useGate();
   const [sure, setSure] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -105,7 +108,7 @@ function Data() {
   return (
     <Group title="Your money">
       <Text muted className="pb-1 text-sm">
-        {money.entries.length} entries in {money.accounts.length} accounts,
+        {counts.entries} entries in {counts.accounts} accounts,
         {backend === 'device'
           ? ' kept on this phone only.'
           : ' kept on this phone and in your account.'}
@@ -115,16 +118,16 @@ function Data() {
         <Choice
           bleed={16}
           label="Currency"
-          value={money.currency}
+          value={currency}
           onChange={setCurrency}
-          options={CURRENCIES.map((currency) => ({
-            value: currency,
-            label: currency,
+          options={CURRENCIES.map((each) => ({
+            value: each,
+            label: each,
           }))}
         />
       </View>
       <View className="flex-row flex-wrap gap-2 pt-3">
-        {money.accounts.length === 0 && (
+        {counts.accounts === 0 && (
           <Button
             variant="outline"
             size="sm"
@@ -134,7 +137,7 @@ function Data() {
             Load sample money
           </Button>
         )}
-        {money.accounts.length > 0 && (
+        {counts.accounts > 0 && (
           <Button
             variant={sure ? 'destructive' : 'outline'}
             size="sm"

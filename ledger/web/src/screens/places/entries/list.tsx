@@ -4,16 +4,14 @@ import { Inbox, Pencil, X } from '@kstackz/web-platform/components/lucide';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 import { keys, useCommand } from '@ledger/core/commands';
-import { useMoney, useWrites } from '@ledger/core/session';
-import { byDay, dayName, type Entry, signed } from '@ledger/core/model';
+import { useMutations } from '@ledger/core/mutations';
+import { useCurrency, useEntries } from '@ledger/core/queries';
+import { dayName, type Entry } from '@ledger/core/model';
 import { useOpenAccount } from '../../sheets/accounts/index.ts';
 import {
   type EntriesSearch,
   markAfterRemoving,
-  narrowedTo,
   narrowing,
-  shownBy,
-  useLookup,
 } from '@ledger/core/places';
 import { Amount, EntryRow, scrollMarked } from '../../parts/index.ts';
 import { SwipeRow } from '@kstackz/web-platform/recipes/swipe-row';
@@ -30,17 +28,15 @@ export function EntriesList(props: {
   readonly wide: boolean;
 }) {
   const { search, open, wide } = props;
-  const money = useMoney();
-  const lookup = useLookup(money);
+  const { ready, shown, days, narrowed, lookup } = useEntries(search);
   const navigate = useNavigate();
   const { surface, setSurface } = keys.useSurface();
-  const { removeEntry, restoreEntry } = useWrites();
-  const shown = shownBy(money.entries, search);
+  const { removeEntry, restoreEntry } = useMutations();
   const [marked, setMarked] = useState(search.at ?? open ?? shown[0]?.id);
   const removed = useRef<Entry>(undefined);
   const openAccount = useOpenAccount();
   const list = useRef<HTMLDivElement>(null);
-  const currency = money.currency;
+  const currency = useCurrency();
   const sounds = useSettings()[0].sound;
 
   // The mark follows the open Entry, and the first one once there are any.
@@ -125,7 +121,6 @@ export function EntriesList(props: {
     { enabled: active },
   );
 
-  const narrowed = narrowedTo(money, search);
   return (
     <div ref={list} className="px-2 pb-28">
       {narrowed && (
@@ -156,17 +151,13 @@ export function EntriesList(props: {
           </span>
         </div>
       )}
-      {money.ready && shown.length === 0 && (
+      {ready && shown.length === 0 && (
         <div className="flex flex-col items-center gap-3 px-6 py-20 text-center text-muted-foreground">
           <Inbox className="size-8" aria-hidden="true" />
           <p className="text-sm">No entries here yet.</p>
         </div>
       )}
-      {byDay(shown).map(([day, entries]) => {
-        const net = entries.reduce(
-          (sum, entry) => sum + signed(entry.cents, entry.way),
-          0,
-        );
+      {days.map(({ day, entries, net }) => {
         return (
           <section key={day} className="pt-4">
             <h3 className="sticky top-0 z-[1] flex items-center justify-between bg-background px-3 py-1.5 text-xs text-muted-foreground">

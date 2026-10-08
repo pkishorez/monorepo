@@ -1,7 +1,7 @@
 import { useLocation, useNavigate, useSearch } from '@tanstack/react-router';
 import { type ActionId, keys, quietly } from '@ledger/core/commands';
 import { useSettings } from '../../app.ts';
-import { useMoney } from '@ledger/core/session';
+import { useAccounts } from '@ledger/core/queries';
 import { play } from '@kstackz/web-platform/feedback';
 import {
   type Choice,
@@ -27,7 +27,7 @@ export function Thumb() {
   const { actions } = keys.useStatus();
   const run = keys.useRun();
   const navigate = useNavigate();
-  const money = useMoney();
+  const { accounts } = useAccounts();
   const pathname = useLocation({ select: (location) => location.pathname });
   const search = useSearch({ strict: false }) as {
     tab?: string;
@@ -37,7 +37,7 @@ export function Thumb() {
     pathname,
     tab: search.tab,
     account: search.account,
-    accounts: money.accounts,
+    accounts,
   });
   const sounds = settings.sound;
   // A Go whose keys another Surface shadows here still runs for a finger.

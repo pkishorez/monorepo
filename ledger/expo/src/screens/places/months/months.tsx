@@ -4,8 +4,7 @@ import { Meter } from '@kstackz/expo-platform/components/meter';
 import { Text } from '@kstackz/expo-platform/components/text';
 import { cn } from '@kstackz/expo-platform/theme';
 import { keys, useCommand, usePlace } from '@ledger/core/commands';
-import { useMoney } from '@ledger/core/session';
-import { monthsView } from '@ledger/core/places';
+import { useCurrency, useMonths } from '@ledger/core/queries';
 import { monthName } from '@ledger/core/model';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -69,12 +68,11 @@ function useMarkInView(marked: string | undefined) {
  */
 export function Months(props: { readonly at: string | undefined }) {
   usePlace('months');
-  const money = useMoney();
   const router = useRouter();
   const { surface } = keys.useSurface();
-  const { months, most } = monthsView(money);
+  const { ready, months, most } = useMonths();
   const [marked, setMarked] = useState(props.at);
-  const currency = money.currency;
+  const currency = useCurrency();
   useEffect(() => setMarked(props.at), [props.at]);
   const inView = useMarkInView(marked);
 
@@ -91,7 +89,7 @@ export function Months(props: { readonly at: string | undefined }) {
     enabled: active && marked !== undefined,
   });
 
-  if (money.ready && months.length === 0) {
+  if (ready && months.length === 0) {
     return (
       <View className="items-center gap-3 px-6 py-24">
         <Glyph icon={Calendar03Icon} size={32} />
@@ -111,7 +109,7 @@ export function Months(props: { readonly at: string | undefined }) {
       contentContainerClassName="gap-2 px-4 pt-5 pb-28"
     >
       {months.map((month) => {
-        const left = month.in - month.out;
+        const { left } = month;
         return (
           <Pressable
             key={month.month}

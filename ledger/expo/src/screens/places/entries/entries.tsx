@@ -7,22 +7,18 @@ import { Text } from '@kstackz/expo-platform/components/text';
 import { SwipeRow } from '@kstackz/expo-platform/recipes/swipe-row';
 import { cn } from '@kstackz/expo-platform/theme';
 import { keys, useCommand, usePlace } from '@ledger/core/commands';
-import { useMoney, useWrites } from '@ledger/core/session';
+import { useMutations } from '@ledger/core/mutations';
+import { useCurrency, useEntries } from '@ledger/core/queries';
 import {
   type EntriesSearch,
   markAfterRemoving,
-  narrowedTo,
   narrowing,
-  shownBy,
-  useLookup,
 } from '@ledger/core/places';
 import {
   type Account,
-  byDay,
   type Category,
   dayName,
   type Entry,
-  signed,
 } from '@ledger/core/model';
 import { useRouter } from 'expo-router';
 import { FlashList, type FlashListRef } from '@shopify/flash-list';
@@ -46,34 +42,25 @@ type Line =
 export function Entries(props: { readonly search: EntriesSearch }) {
   usePlace('entries');
   const { search } = props;
-  const money = useMoney();
-  const { restoreEntry } = useWrites();
-  const lookup = useLookup(money);
+  const { ready, shown, days, narrowed, lookup } = useEntries(search);
+  const { restoreEntry } = useMutations();
   const router = useRouter();
   const feel = useFeel();
   const { surface } = keys.useSurface();
-  const shown = shownBy(money.entries, search);
   const [marked, setMarked] = useState(search.at);
   const removed = useRef<Entry>(undefined);
   const list = useRef<FlashListRef<Line>>(null);
   const openAccount = useOpenAccount();
-  const currency = money.currency;
+  const currency = useCurrency();
   // Every day's heading followed by its Entries.
   const lines = useMemo(() => {
     const lines: Array<Line> = [];
-    for (const [day, data] of byDay(shown)) {
-      lines.push({
-        kind: 'day',
-        day,
-        cents: data.reduce(
-          (sum, entry) => sum + signed(entry.cents, entry.way),
-          0,
-        ),
-      });
-      for (const entry of data) lines.push({ kind: 'entry', entry });
+    for (const { day, entries, net } of days) {
+      lines.push({ kind: 'day', day, cents: net });
+      for (const entry of entries) lines.push({ kind: 'entry', entry });
     }
     return lines;
-  }, [shown]);
+  }, [days]);
 
   // Comes back with the Entry Jump left marked, and keeps the mark in view,
   // drawn or not.
@@ -165,7 +152,6 @@ export function Entries(props: { readonly search: EntriesSearch }) {
 
   // The day at the top, pinned there once the list has scrolled.
   const pinned = usePinnedDay(lines);
-  const narrowed = narrowedTo(money, search);
   return (
     <View className="flex-1">
       <FlashList
@@ -214,7 +200,7 @@ export function Entries(props: { readonly search: EntriesSearch }) {
           )
         }
         ListEmptyComponent={
-          money.ready ? (
+          ready ? (
             <View className="items-center gap-3 px-8 py-20">
               <Glyph icon={InboxIcon} size={32} />
               <Text muted className="text-sm">

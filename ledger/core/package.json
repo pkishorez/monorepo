@@ -14,6 +14,8 @@
     "./backend/services/table": "./src/backend/services/table/index.ts",
     "./backend/services/*": "./src/backend/services/*.ts",
     "./session": "./src/session/index.ts",
+    "./queries": "./src/queries/index.ts",
+    "./mutations": "./src/mutations/index.ts",
     "./cache": "./src/cache/settings/index.ts",
     "./commands": "./src/commands/index.ts",
     "./places": "./src/places/index.ts"

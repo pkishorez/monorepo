@@ -6,7 +6,8 @@ import {
 } from '@kstackz/expo-platform/recipes/thumb-picker';
 import { type ActionId, keys, quietly } from '@ledger/core/commands';
 import { PLACES, type Stop, stopsFrom } from '@ledger/core/places';
-import { useMoney } from '@ledger/core/session';
+import type { Account } from '@ledger/core/model';
+import { useAccounts } from '@ledger/core/queries';
 import { useGlobalSearchParams, usePathname, useRouter } from 'expo-router';
 import { type ReactNode, useMemo, useRef } from 'react';
 import { useFeel, useSettings } from '../../ledger';
@@ -55,7 +56,7 @@ function Thumb() {
   const { actions } = keys.useStatus();
   const run = keys.useRun();
   const router = useRouter();
-  const money = useMoney();
+  const { accounts } = useAccounts();
   const pathname = usePathname();
   const search = useGlobalSearchParams<{ tab?: string; account?: string }>();
   const feel = useFeel();
@@ -76,7 +77,7 @@ function Thumb() {
     else router.navigate({ pathname: '/entries', params: { account } });
   };
 
-  const named = useNamed(money.accounts);
+  const named = useNamed(accounts);
   const { tab, account } = search;
   const { tree, start } = useMemo(() => {
     const stops = stopsFrom({
@@ -115,10 +116,7 @@ function Thumb() {
   );
 }
 
-type Named = Pick<
-  ReturnType<typeof useMoney>['accounts'][number],
-  'id' | 'name' | 'kind'
->;
+type Named = Pick<Account, 'id' | 'name' | 'kind'>;
 
 // The Accounts as the picker names them: a new array only when an id, a
 // name or a kind changes, however often their money does.

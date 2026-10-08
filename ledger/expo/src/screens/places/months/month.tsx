@@ -6,8 +6,7 @@ import { Meter } from '@kstackz/expo-platform/components/meter';
 import { Text } from '@kstackz/expo-platform/components/text';
 import { cn } from '@kstackz/expo-platform/theme';
 import { keys, useCommand, usePlace } from '@ledger/core/commands';
-import { useMoney } from '@ledger/core/session';
-import { monthView } from '@ledger/core/places';
+import { useCurrency, useMonth } from '@ledger/core/queries';
 import { type MonthKey, monthName } from '@ledger/core/model';
 import { useRouter } from 'expo-router';
 import { Pressable, View } from 'react-native';
@@ -22,12 +21,11 @@ import { Amount, CategoryIcon, Heading, Scroll, useToneOf } from '../../parts';
 export function Month(props: { readonly month: MonthKey }) {
   usePlace('months.month');
   const { month } = props;
-  const money = useMoney();
   const router = useRouter();
-  const currency = money.currency;
+  const currency = useCurrency();
   const toneOf = useToneOf();
   const { summary, left, later, earlier, hasLater, hasEarlier, days, peak } =
-    monthView(money, month);
+    useMonth(month);
   const turn = (to: string) => router.replace(`/months/${to}`);
   const back = () =>
     router.navigate({ pathname: '/months', params: { at: month } });

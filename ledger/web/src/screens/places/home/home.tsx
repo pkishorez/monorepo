@@ -4,8 +4,9 @@ import { cn } from '@kstackz/web-platform/components/utils';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { keys, useCommand, usePlace } from '@ledger/core/commands';
-import { glance, useLookup } from '@ledger/core/places';
-import { type Money, useMoney, useUser, useWrites } from '@ledger/core/session';
+import { useUser } from '@ledger/core/session';
+import { useMutations } from '@ledger/core/mutations';
+import { useCurrency, useHome } from '@ledger/core/queries';
 import { useGate } from '../../../app.ts';
 import { monthName, monthOf, today } from '@ledger/core/model';
 import {
@@ -21,9 +22,9 @@ import {
  */
 export function Home() {
   usePlace('home');
-  const money = useMoney();
   const navigate = useNavigate();
   const month = monthOf(today());
+  const home = useHome(month);
   const active = keys.useSurface().surface === 'home';
   useCommand('jump', () => void navigate({ to: '/entries' }), {
     enabled: active,
@@ -32,16 +33,18 @@ export function Home() {
     'home.open',
     () => void navigate({ to: '/months/$month', params: { month } }),
   );
-  if (money.ready && money.accounts.length === 0) return <Welcome />;
-  return <Glance money={money} month={month} />;
+  if (home.ready && !home.hasAccounts) return <Welcome />;
+  return <Glance home={home} month={month} />;
 }
 
-function Glance(props: { readonly money: Money; readonly month: string }) {
-  const { money, month } = props;
-  const lookup = useLookup(money);
+function Glance(props: {
+  readonly home: ReturnType<typeof useHome>;
+  readonly month: string;
+}) {
+  const { month } = props;
+  const { summary, left, budgets, recent, most, lookup } = props.home;
   const navigate = useNavigate();
-  const currency = money.currency;
-  const { summary, left, budgets, recent, most } = glance(money, month);
+  const currency = useCurrency();
 
   return (
     <div className="mx-auto max-w-3xl space-y-10 px-4 py-6 pb-28 @md:px-8 @md:py-10">
@@ -204,7 +207,7 @@ function Bar(props: {
 // A new user: start from the sample, or from empty Accounts and Categories.
 function Welcome() {
   const user = useUser();
-  const { sample } = useWrites();
+  const { sample } = useMutations();
   const { online } = useGate();
   const [busy, setBusy] = useState(false);
   const start = async (entries: boolean) => {

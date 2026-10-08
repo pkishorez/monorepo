@@ -14,7 +14,7 @@ and the layout below is the root
 
 `src/` reads as an app on the kstack Platforms does: `api/` (the Ledger API),
 `apis.ts` (Ledger's named APIs), `constants.ts` (the Sync Mode), `model/` (the
-words of money), `backend/`, `session/` and `cache/`. The Backend
+words of money), `backend/`, `session/`, `queries/`, `mutations/` and `cache/`. The Backend
 (`backend/backend.ts`) is the API's handlers (`backend/handlers/`) on the
 services they need: the ledger table (`backend/services/table/`, in D1, in a
 User's own Durable Object, or on the device), a Broadcaster that hears each
@@ -23,8 +23,10 @@ write (`backend/services/broadcaster/`), and who a token names (auth-toolkit's
 runs: web's Worker gives the cloud ones, and `backend/device` gives the device
 ones, so `device` runs the device Backend in the page or on the phone.
 `session/` is `ledgerSession`, one user's money through Std Sync and TanStack
-DB, written with platform-toolkit's `defineSession`, and the hooks screens
-read it with.
+DB, written with platform-toolkit's `defineSession`. Screens never touch it:
+they read money through `queries/` (live queries that update as the money
+does) and change it through `mutations/`, so they only show what they are
+given.
 
 The Sync Mode (`syncMode` in `constants.ts`, chosen when Ledger is built)
 decides how money reaches every device. In `realtime`, the default, the
@@ -134,8 +136,27 @@ so the seam cannot be skipped. Layers and their rules are in
 | `ledgerSession` | The Session for `createApp`: one signed-in User's money, on the `apis` and `sync` it is given. |
 | `useSession`    | The open Session.                                                                              |
 | `useUser`       | The User whose Session is open.                                                                |
-| `useMoney`      | Every Account, Category and Entry of the open User, live.                                      |
-| `useWrites`     | The writes a User makes, each shown at once.                                                   |
+
+### `@ledger/core/queries`
+
+| Export          | What it does                                                                           |
+| --------------- | -------------------------------------------------------------------------------------- |
+| `useAccounts`   | The User's Accounts, in the order money moves through them.                            |
+| `useBalances`   | Each Account's balance, summed by a live query as Entries change.                      |
+| `useCategories` | The User's Categories, money out first; only one way's if asked.                       |
+| `useCurrency`   | The currency the User counts in.                                                       |
+| `useLookup`     | The User's Accounts and Categories by id.                                              |
+| `useHome`       | Home's Month: what is left, in against out, Budgets fullest first, the latest Entries. |
+| `useMonths`     | The Months, newest first, with the most that came in or went out in one.               |
+| `useMonth`      | One Month: its summary, its days, and whether it can turn to the Months either side.   |
+| `useEntries`    | The Entries a search shows, newest first and by day, and the narrowing in words.       |
+| `useEntryAt`    | One Entry among those a search shows, where it stands, and the ones beside it.         |
+
+### `@ledger/core/mutations`
+
+| Export         | What it does                                                                |
+| -------------- | --------------------------------------------------------------------------- |
+| `useMutations` | Every way a screen changes money, each shown at once and undone if refused. |
 
 ### `@ledger/core/cache`
 
@@ -163,18 +184,15 @@ so the seam cannot be skipped. Layers and their rules are in
 
 ### `@ledger/core/places`
 
-| Export                                                        | What it does                                                                             |
-| ------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `PLACES`                                                      | Every Place in the Place order, with its address and the Command that Goes there.        |
-| `SETTINGS_SECTIONS`                                           | The Sections of Settings in order, each with its Command.                                |
-| `stopsFrom`                                                   | What a Thumb Lock picks from where you are, and where it starts; icons named, not drawn. |
-| `placeTitle`                                                  | What the header calls the Place at an address.                                           |
-| `glance`                                                      | Home's Month: what is left, in against out, Budgets fullest first, latest.               |
-| `monthsView`, `monthView`                                     | The Months with the biggest of any; one Month, its days and its turns.                   |
-| `validateEntriesSearch`, `shownBy`, `narrowedTo`, `narrowing` | Which Entries an Entries search shows, and the narrowing in words.                       |
-| `entryAt`, `markAfterRemoving`                                | An open Entry's place and neighbours; where the mark goes after a delete.                |
-| `firstAccount`, `quickDays`, `ACCOUNT_KINDS`                  | What a new Entry or Account starts from.                                                 |
-| `useLookup`                                                   | The User's Accounts and Categories by id.                                                |
+| Export                                       | What it does                                                                             |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `PLACES`                                     | Every Place in the Place order, with its address and the Command that Goes there.        |
+| `SETTINGS_SECTIONS`                          | The Sections of Settings in order, each with its Command.                                |
+| `stopsFrom`                                  | What a Thumb Lock picks from where you are, and where it starts; icons named, not drawn. |
+| `placeTitle`                                 | What the header calls the Place at an address.                                           |
+| `validateEntriesSearch`, `narrowing`         | An Entries address's search, and it without its mark.                                    |
+| `markAfterRemoving`                          | Where the mark goes after a delete.                                                      |
+| `firstAccount`, `quickDays`, `ACCOUNT_KINDS` | What a new Entry or Account starts from.                                                 |
 
 ## Usage
 
@@ -205,7 +223,7 @@ export const useSettings = () => useDeviceSettings(app.cache());
 - Nothing runs until a screen first renders `SignedIn` or calls a hook, so the module can load where the Host is not there yet, as on a web server.
 - The Expo app does the same with the Expo Platform's `createApp` (`ledger/expo/src/ledger/app.ts`).
 - The device Backend's code is loaded the first time someone chooses it: a chunk of its own on the web; on a phone Metro picks `backend/device/load-device.native.ts`, which has it in the bundle.
-- Under `SignedIn`, screens read the money with `useMoney` and write it with `useWrites`, from `@ledger/core/session`.
+- Under `SignedIn`, screens read the money with Queries (`@ledger/core/queries`) and change it with `useMutations` (`@ledger/core/mutations`).
 
 ### Serve the cloud Backend
 

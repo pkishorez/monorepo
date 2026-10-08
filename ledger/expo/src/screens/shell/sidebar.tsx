@@ -3,8 +3,7 @@ import { Glyph } from '@kstackz/expo-platform/components/glyph';
 import { Text } from '@kstackz/expo-platform/components/text';
 import { Sidebar, useSidebar } from '@kstackz/expo-platform/recipes/sidebar';
 import { PLACES, type StopIcon as Icon } from '@ledger/core/places';
-import { useMoney } from '@ledger/core/session';
-import { balances } from '@ledger/core/model';
+import { useAccounts, useBalances, useCurrency } from '@ledger/core/queries';
 import {
   type Href,
   useGlobalSearchParams,
@@ -63,8 +62,9 @@ export function LedgerSidebar() {
   const router = useRouter();
   const pathname = usePathname();
   const { account } = useGlobalSearchParams<{ account?: string }>();
-  const money = useMoney();
-  const balance = balances(money.accounts, money.entries);
+  const { ready, accounts } = useAccounts();
+  const { balances } = useBalances();
+  const currency = useCurrency();
   const here = (to: string) =>
     (to === '/' ? pathname === '/' : pathname.startsWith(to)) &&
     account === undefined;
@@ -105,7 +105,7 @@ export function LedgerSidebar() {
           />
         ))}
       </View>
-      {money.ready && (
+      {ready && (
         <View className="mt-5 gap-0.5">
           <View className="flex-row items-center justify-between pl-3">
             <Text muted className="text-xs">
@@ -120,7 +120,7 @@ export function LedgerSidebar() {
               <Glyph icon={PlusSignIcon} size={16} />
             </Pressable>
           </View>
-          {money.accounts.length === 0 && (
+          {accounts.length === 0 && (
             <Pressable
               accessibilityRole="button"
               onPress={addAccount}
@@ -132,7 +132,7 @@ export function LedgerSidebar() {
               </Text>
             </Pressable>
           )}
-          {money.accounts.map((each) => (
+          {accounts.map((each) => (
             <Row
               key={each.id}
               label={each.name}
@@ -143,8 +143,8 @@ export function LedgerSidebar() {
               }
               end={
                 <Amount
-                  cents={balance.get(each.id) ?? 0}
-                  currency={money.currency}
+                  cents={balances.get(each.id) ?? 0}
+                  currency={currency}
                   className="text-xs text-muted-foreground"
                 />
               }
