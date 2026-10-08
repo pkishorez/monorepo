@@ -62,7 +62,7 @@ See the [top README](../../README.md). This subpath needs the optional peers `@t
 
 ### Load only the board you are looking at
 
-A window keyed on `boardId` starts when a TanStack query filters on that field. The schema comes first so the strategies' callbacks are typed. Lifted from story 27.
+A window keyed on `boardId` starts when a TanStack query filters on that field. The schema comes first so the strategies' callbacks are typed.
 
 ```ts
 import { createLiveQueryCollection, eq } from '@tanstack/react-db';

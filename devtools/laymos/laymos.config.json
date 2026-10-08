@@ -119,7 +119,7 @@
       "paths": ["src/story"],
       "moduleGraphs": {
         "stories": {
-          "description": "Defines Stories and the contract their runs report.",
+          "description": "Defines Proofs, builds the Story tree, and holds the contract their runs report.",
           "path": "src/story",
           "modules": {
             "index.ts": {
@@ -128,11 +128,18 @@
             "schema": {
               "exposed": true
             },
-            "story.ts": {}
+            "story-tree": {
+              "exposed": true
+            },
+            "proof.ts": {},
+            "browser.ts": {},
+            "gesture.ts": {}
           },
           "rules": {
-            "index.ts": ["story.ts"],
-            "story.ts": ["schema"]
+            "index.ts": ["proof.ts", "browser.ts", "gesture.ts"],
+            "proof.ts": ["browser.ts", "schema"],
+            "browser.ts": ["gesture.ts", "schema"],
+            "story-tree": ["schema"]
           }
         }
       }

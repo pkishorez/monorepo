@@ -147,6 +147,9 @@ function ModuleGraphCanvas(props: ModuleGraphProps) {
       aria-label="Module architecture"
     >
       <ReactFlow<ModuleGraphNode>
+        // Space is never a pan key here: React Flow would take it from the
+        // whole window, Stories canvas included, even while this graph is hidden.
+        panActivationKeyCode={null}
         nodes={[...layout.nodes]}
         edges={[...layout.edges]}
         nodeTypes={nodeTypes}

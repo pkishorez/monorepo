@@ -108,7 +108,7 @@ const transactFailed = (
   });
 };
 
-/** An op refusing before submission, as one outcome per op at its position. */
+/** An op refusing before submission: nothing was submitted, so no other op's condition was checked. */
 const refusedAt = (
   ops: readonly AnyTransactOp<string>[],
   index: number,
@@ -119,12 +119,7 @@ const refusedAt = (
   return new DatabaseError({
     reason: new TransactFailed({
       operations: ops.map((op, position) => ({
-        status:
-          position < index
-            ? ('passed' as const)
-            : position === index
-              ? status
-              : ('not-evaluated' as const),
+        status: position === index ? status : ('not-evaluated' as const),
         ...(position === index ? { detail: reason._tag } : {}),
         op,
       })),

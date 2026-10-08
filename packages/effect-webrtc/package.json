@@ -80,7 +80,6 @@
     "fmt": "vp fmt",
     "lint": "vp check && pnpm lint:tsc && laymos lint",
     "lint:tsc": "tsc --noEmit",
-    "stories": "laymos stories",
     "test": "vitest run"
   },
   "peerDependencies": {

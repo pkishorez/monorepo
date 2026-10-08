@@ -138,7 +138,8 @@
     "fmt": "vp fmt",
     "lint": "vp check && tsc --noEmit && pnpm lint:laymos",
     "lint:laymos": "laymos lint",
-    "test": "vitest run"
+    "test": "vitest run",
+    "stories": "laymos stories"
   },
   "dependencies": {
     "@base-ui/react": "catalog:",

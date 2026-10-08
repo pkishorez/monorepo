@@ -808,6 +808,30 @@ export const runConformanceSuite = (
             yield* item.get({ itemId: 'third', category: 'a' }),
           ).toBeNull();
 
+          const refusedEarly = yield* conformanceTable
+            .transact([
+              yield* item.unchangedOp(first),
+              yield* item.unchangedOp(second),
+              yield* item.getAndUpdateOp(
+                { itemId: 'absent', category: 'a' },
+                { value: 1 },
+              ),
+            ])
+            .pipe(Effect.result);
+          expect(refusedEarly).toMatchObject({
+            _tag: 'Failure',
+            failure: {
+              reason: {
+                _tag: 'TransactFailed',
+                operations: [
+                  { status: 'not-evaluated' },
+                  { status: 'not-evaluated' },
+                  { status: 'missing', detail: 'NoItemToUpdate' },
+                ],
+              },
+            },
+          });
+
           const refreshed = required(
             yield* item.get({ itemId: 'second', category: 'a' }),
           );

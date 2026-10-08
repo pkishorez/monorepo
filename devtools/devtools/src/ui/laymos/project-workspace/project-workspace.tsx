@@ -1,6 +1,12 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { Cause, Effect, Stream } from 'effect';
-import type { StoryReport } from 'laymos';
+import type { ProofReport } from 'laymos/story/schema';
 import { useRunEffect } from 'use-effect-ts';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -34,7 +40,7 @@ function provideRuntime<A, E>(
  * The full Laymos view of one Project: analysis, changes against a Base ref,
  * Stories, and source. The Laymos Tool renders it for its selected Project;
  * Monoverse renders it as Embedded Laymos over its canvas. `reloadNonce`
- * changing refetches everything and drops Story reports. A host that shares
+ * changing refetches everything, saved Story reports included. A host that shares
  * its Base ref, as Monoverse does, passes it in.
  */
 export function LaymosProjectWorkspace({
@@ -54,7 +60,7 @@ export function LaymosProjectWorkspace({
   renderAnalysisError?: (error: unknown) => ReactNode | null;
 }) {
   const runtime = useDevtoolsRuntime();
-  const storyRun = useStoryRun(runtime, projectPath);
+  const storyRun = useStoryRun(runtime, projectPath, reloadNonce);
   const query = useQuery({
     queryKey: ['devtools-analysis', 'laymos', projectPath],
     retry: false,
@@ -89,7 +95,6 @@ export function LaymosProjectWorkspace({
     seenReloadNonce.current = reloadNonce;
     void query.refetch();
     void storiesQuery.refetch();
-    storyRun.reset();
   }, [reloadNonce]);
 
   if (query.error) {
@@ -149,6 +154,7 @@ export function LaymosProjectWorkspace({
               reports: storyRun.reports,
               running: storyRun.running,
               onRun: storyRun.run,
+              evidenceUrl: storyRun.evidenceUrl,
             }
           : undefined
       }
@@ -157,83 +163,131 @@ export function LaymosProjectWorkspace({
   );
 }
 
-type StoryReports = Readonly<Record<string, StoryReport>>;
+type ProofReports = Readonly<Record<string, ProofReport>>;
 
-function useStoryRun(runtime: DevtoolsRuntime, projectPath: string) {
-  const [reports, setReports] = useState<StoryReports>();
-  const [running, setRunning] = useState(false);
+/**
+ * Story reports for one Project: the saved ones on mount and reload, then
+ * each run's reports as they finish, a rerun replacing a Story's report.
+ */
+function useStoryRun(
+  runtime: DevtoolsRuntime,
+  projectPath: string,
+  reloadNonce: number,
+) {
+  const [reports, setReports] = useState<ProofReports>({});
+  const [running, setRunning] = useState<ReadonlySet<string>>(new Set());
   const generationRef = useRef(0);
+
+  const loadReports = useRunEffect((path: string, generation: number) =>
+    Effect.gen(function* () {
+      const client = yield* DevtoolsClient;
+      return yield* client.GetLaymosStoryReports({ projectPath: path });
+    }).pipe(
+      (effect) => provideRuntime(runtime, effect),
+      Effect.tap((saved) =>
+        Effect.sync(() => {
+          if (generationRef.current !== generation) return;
+          setReports((current) => ({
+            ...Object.fromEntries(saved.map((report) => [report.id, report])),
+            ...current,
+          }));
+        }),
+      ),
+      Effect.catchCause((cause) =>
+        Cause.hasInterruptsOnly(cause) || generationRef.current !== generation
+          ? Effect.void
+          : Effect.sync(() =>
+              toast.error('Could not load Story reports', {
+                description: messageOf(Cause.squash(cause)),
+              }),
+            ),
+      ),
+    ),
+  );
 
   useEffect(() => {
     generationRef.current += 1;
-    setReports(undefined);
-    setRunning(false);
-  }, [projectPath, runtime]);
+    setReports({});
+    setRunning(new Set());
+    void loadReports(projectPath, generationRef.current);
+  }, [projectPath, runtime, reloadNonce]);
+
+  const settle = (id: string) =>
+    setRunning((current) => {
+      if (!current.has(id)) return current;
+      const next = new Set(current);
+      next.delete(id);
+      return next;
+    });
 
   const runStories = useRunEffect(
-    (path: string, generation: number, scope?: string) =>
-      Effect.tryPromise({
-        try: (signal) =>
-          runtime.runPromise(
-            Effect.gen(function* () {
-              const client = yield* DevtoolsClient;
-              yield* client.RunLaymosStories({ projectPath: path, scope }).pipe(
-                Stream.runForEach((report) =>
-                  Effect.sync(() => {
-                    if (generationRef.current !== generation) return;
-                    setReports((current) => ({
-                      ...current,
-                      [report.id]: report,
-                    }));
-                  }),
-                ),
-              );
+    (
+      path: string,
+      generation: number,
+      scope: string | undefined,
+      ended: () => void,
+    ) => {
+      const started = new Set<string>();
+      return Effect.gen(function* () {
+        const client = yield* DevtoolsClient;
+        yield* client.RunLaymosStories({ projectPath: path, scope }).pipe(
+          Stream.runForEach((event) =>
+            Effect.sync(() => {
+              if (generationRef.current !== generation) return;
+              if (event._tag === 'Started') {
+                started.add(event.id);
+                setRunning((current) => new Set(current).add(event.id));
+                return;
+              }
+              started.delete(event.report.id);
+              setReports((current) => ({
+                ...current,
+                [event.report.id]: event.report,
+              }));
+              settle(event.report.id);
             }),
-            { signal },
           ),
-        catch: (error) => error,
+        );
       }).pipe(
+        (effect) => provideRuntime(runtime, effect),
         Effect.catchCause((cause) =>
           Cause.hasInterruptsOnly(cause) || generationRef.current !== generation
             ? Effect.void
             : Effect.sync(() =>
-                toast.error('Could not run Laymos stories', {
+                toast.error('Could not run Laymos Stories', {
                   description: messageOf(Cause.squash(cause)),
                 }),
               ),
         ),
         Effect.ensuring(
           Effect.sync(() => {
-            if (generationRef.current === generation) setRunning(false);
+            if (generationRef.current === generation) started.forEach(settle);
+            ended();
           }),
         ),
-      ),
+      );
+    },
   );
 
-  const run = (scope?: string) => {
-    if (running) return;
-    const generation = generationRef.current + 1;
-    generationRef.current = generation;
-    setReports((current) =>
-      scope === undefined
-        ? {}
-        : Object.fromEntries(
-            Object.entries(current ?? {}).filter(
-              ([id]) => id !== scope && !id.startsWith(`${scope}/`),
-            ),
-          ),
-    );
-    setRunning(true);
-    void runStories(projectPath, generation, scope);
-  };
+  /** Settles when the run ends, finished, failed or interrupted. */
+  const run = (scope?: string) =>
+    new Promise<void>((resolve) => {
+      void runStories(projectPath, generationRef.current, scope, resolve);
+    });
 
-  const reset = () => {
-    generationRef.current += 1;
-    setReports(undefined);
-    setRunning(false);
-  };
+  const evidenceUrl = useCallback(
+    (proofId: string, file: string) => {
+      const query = new URLSearchParams({
+        project: projectPath,
+        proof: proofId,
+        file,
+      });
+      return `${globalThis.location.origin}/story-evidence?${query}`;
+    },
+    [projectPath],
+  );
 
-  return { reports, running, run, reset };
+  return { reports, running, run, evidenceUrl };
 }
 
 function AnalysisMessage({

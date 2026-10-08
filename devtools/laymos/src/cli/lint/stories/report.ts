@@ -1,32 +1,42 @@
 import * as colors from 'yoctocolors';
 
-import type { StoryTree, StoryTreeGroup } from '../../../story/schema/index.js';
+import type {
+  SelfContainedViolation,
+  StoryTellingIssue,
+} from '../../../orchestrator/run-stories/index.js';
 
-export function renderStoriesReport(tree: StoryTree): string {
-  const missing = groupsWithoutPage(tree, []);
-  if (missing.length === 0) {
-    return colors.green('✓ Every Story Group has a page');
+export function renderSelfContainedReport(
+  violations: readonly SelfContainedViolation[],
+): string {
+  if (violations.length === 0) {
+    return colors.green('✓ Every Proof is Self-contained');
   }
   return [
-    colors.red('Story Groups without a page'),
+    colors.red('Proofs with relative imports'),
     '',
-    ...missing.map((id) => `  ${colors.yellow('✕')} ${id}`),
+    ...violations.map(
+      ({ id, specifier }) =>
+        `  ${colors.yellow('✕')} ${id} ${colors.dim('imports')} ${specifier}`,
+    ),
     '',
-    `${missing.length} ${missing.length === 1 ? 'group' : 'groups'}`,
+    `${violations.length} ${violations.length === 1 ? 'import' : 'imports'}`,
   ].join('\n');
 }
 
-export function countGroupsWithoutPage(tree: StoryTree): number {
-  return groupsWithoutPage(tree, []).length;
-}
-
-function groupsWithoutPage(
-  group: StoryTreeGroup,
-  path: readonly string[],
-): readonly string[] {
-  const id = [...path, group.title];
+export function renderTellingReport(
+  issues: readonly StoryTellingIssue[],
+): string {
+  if (issues.length === 0) {
+    return colors.green('✓ Every Story tells itself');
+  }
   return [
-    ...(group.page === null ? [id.join('/')] : []),
-    ...group.groups.flatMap((child) => groupsWithoutPage(child, id)),
-  ];
+    colors.red('Telling issues'),
+    '',
+    ...issues.map(
+      ({ story, issue }) =>
+        `  ${colors.yellow('✕')} ${story} ${colors.dim(issue.kind)} ${issue.message}`,
+    ),
+    '',
+    `${issues.length} ${issues.length === 1 ? 'issue' : 'issues'}`,
+  ].join('\n');
 }

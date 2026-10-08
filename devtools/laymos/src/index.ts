@@ -54,16 +54,34 @@ export type {
 export { ConfigError } from './services/config/index.js';
 // Analysis callers distinguish source cruising failures.
 export { CruiseError } from './services/file-cruiser/index.js';
-// Node consumers use this high-level capability to load and run the Story tree.
+// Node consumers use this high-level capability to load, run, and read back Stories.
 export {
+  findTellingIssues,
   getStoryTree,
+  loadStoryReports,
   planStories,
   runStories,
   StoriesError,
 } from './orchestrator/run-stories/index.js';
-// RPC transports use this browser-safe runtime contract for Story reports.
-export { StoryReportSchema, StoryTreeSchema } from './story/schema/index.js';
-export type { StoryReport, StoryTree } from './story/schema/index.js';
+export type {
+  RunStoriesOptions,
+  StoriesRun,
+  StoryTellingIssue,
+} from './orchestrator/run-stories/index.js';
+// RPC transports use this browser-safe runtime contract for Stories.
+export {
+  ProofReportSchema,
+  ProofRunEventSchema,
+  StoryTreeSchema,
+} from './story/schema/index.js';
+export type {
+  ProofLeaf,
+  ProofReport,
+  ProofRunEvent,
+  StoryNode,
+  StoryTree,
+  TellingIssue,
+} from './story/schema/index.js';
 // Node consumers use this high-level capability to report what a Base ref changed.
 export {
   loadBranches,

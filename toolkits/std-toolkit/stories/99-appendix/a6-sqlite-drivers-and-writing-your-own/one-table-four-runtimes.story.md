@@ -1,1 +1,0 @@
-The board runs on Node today, but a Cloudflare Durable Object and a Bun script both want the same table, and each runtime brings SQLite in its own way. This story runs one program over three of the four drivers that ship with the adapter and checks that they answer alike.

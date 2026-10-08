@@ -32,13 +32,15 @@
     "build": "rm -rf ./dist && tsc -p tsconfig.build.json",
     "fmt": "vp fmt",
     "lint": "vp check && tsc --noEmit && tsc --noEmit -p tsconfig.core.json && laymos lint",
-    "test": "vitest run"
+    "test": "vitest run",
+    "stories": "laymos stories"
   },
   "peerDependencies": {},
   "peerDependenciesMeta": {},
   "devDependencies": {
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
+    "effect": "catalog:",
     "laymos": "workspace:*",
     "motion": "catalog:",
     "react": "catalog:",

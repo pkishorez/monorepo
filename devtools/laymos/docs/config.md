@@ -64,15 +64,15 @@ All paths are project-relative and resolved from the config file's directory.
 
 ## Top-level keys
 
-| Key            | Required | Meaning                                                                                                                           |
-| -------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `$schema`      | no       | JSON Schema URL for editors.                                                                                                      |
-| `sourceRoots`  | yes      | Files or folders that make up the analysis universe. At least one.                                                                |
-| `ignoredPaths` | no       | Files or folders removed from analysis. Defaults to `[]`.                                                                         |
-| `storiesPath`  | no       | Folder holding the Story files and the `index.ts` that default-exports the root Story Group. Implicitly ignored by analysis.      |
-| `storyTimeout` | no       | How long one Story may run, as an Effect Duration string such as `"10 seconds"`. Defaults to 10 seconds. A Story may override it. |
-| `layers`       | yes      | Every Layer keyed by id. At least one.                                                                                            |
-| `layerGraphs`  | yes      | Every LayerGraph keyed by id. An empty object denies every cross-Layer dependency.                                                |
+| Key            | Required | Meaning                                                                                                                                                                               |
+| -------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `$schema`      | no       | JSON Schema URL for editors.                                                                                                                                                          |
+| `sourceRoots`  | yes      | Files or folders that make up the analysis universe. At least one.                                                                                                                    |
+| `ignoredPaths` | no       | Files or folders removed from analysis. Defaults to `[]`.                                                                                                                             |
+| `storiesPath`  | no       | Folder holding the Story tree: it and each folder beneath it is a Story told by its `story.md`, with its Proofs (`*.proof.ts`, `*.proof.tsx`) inside. Implicitly ignored by analysis. |
+| `storyTimeout` | no       | How long one process Proof may run, as an Effect Duration string such as `"10 seconds"`. Defaults to 10 seconds; browser Proofs default to 90 seconds. A Proof may override it.       |
+| `layers`       | yes      | Every Layer keyed by id. At least one.                                                                                                                                                |
+| `layerGraphs`  | yes      | Every LayerGraph keyed by id. An empty object denies every cross-Layer dependency.                                                                                                    |
 
 ## Layers
 
@@ -146,10 +146,17 @@ with another graph's rules.
 
 ## Stories
 
-When `storiesPath` is set, `<storiesPath>/index.ts` must default-export a Story
-Group built with `Story.group` from `laymos/story`. Each `.story.ts` file
-exports Stories built with `Story.make`. A Story's page is the `.md` sibling of
-its file; a Story Group's page is a `.md` named after the group's title in the
-folder its Stories share. `laymos lint` reports Story Groups without a page,
-and `laymos stories` runs every Story. See
-[ADR-0008](./adr/0008-stories-execute-user-code.md).
+When `storiesPath` is set, that folder and every folder beneath it is a Story.
+Its `story.md` is the Telling: a `#` title, a pitch paragraph, then a body that
+links each sub-Story by id where it explains how that part fits. The top
+Story's id is the Project's folder name; a sub-Story's id adds its folder path.
+Every `*.proof.ts` and `*.proof.tsx` file directly in a folder default-exports
+one Proof built with `Proof.make` or `Proof.browser` from `laymos/story`; its
+id is the Story id plus the file name without the suffix. A Proof file imports
+only what the Project ships, `effect`, and `laymos/story`; `laymos lint`
+reports any relative import and every Telling issue. `laymos stories` runs the
+Proofs and writes Evidence to `.laymos/stories/<proof id>/`, which belongs in
+`.gitignore`. See [writing-stories.md](./writing-stories.md),
+[ADR-0008](./adr/0008-stories-execute-user-code.md),
+[ADR-0017](./adr/0017-a-story-is-one-self-contained-claim.md), and
+[ADR-0018](./adr/0018-stories-are-a-tree-of-tellings.md).

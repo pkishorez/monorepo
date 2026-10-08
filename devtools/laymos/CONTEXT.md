@@ -8,42 +8,69 @@ state, merged. Definitions only; no implementation detail.
 _Being redefined from scratch._
 
 **Story**:
-One claim about the Project's code, living in one file of its own: given a
-Preparation, when an Action is performed, a Verification holds. A Story has
+One idea about the Project, told to its Reader in plain, conversational
+English: what they get, why it matters to them, and which parts make it up.
+Each part is a Story of its own, so Stories form a tree that teaches the
+Project from its pitch down to its edge cases. A Story is proved by the
+Proofs that sit directly in it; at the top of the tree they prove the parts
+work together end to end, deeper down they prove one part's own claims. A
+Story is a folder beneath the Stories path; its Telling sits in that folder,
+its sub-Stories are the folders inside.
+_Avoid_: chapter, cluster, group, section, page, docs
+
+**Telling**:
+What a Story says, written as markdown in its folder: a title, a one-line
+pitch, and the rest of the explanation. The Telling always speaks from the
+Reader's side: what they want to do and what the Project does for them, never
+how it is built. A Telling names each of its sub-Stories where it explains how
+that part fits, and the order it names them is the order they are shown; a
+sub-Story the Telling never names is an error.
+_Avoid_: description, docs, README, summary
+
+**Reader**:
+The person a Story speaks to: whoever uses the idea that Story is about. The
+Reader shifts down the tree: the top Story of a toolkit speaks to someone
+choosing whether to use the toolkit, a Story about one part speaks to someone
+using that part.
+_Avoid_: audience, user, persona
+
+**Proof**:
+One claim backing the Story it sits in, living in one file of its own: given a
+Preparation, when an Action is performed, a Verification holds. A Proof has
 a title, a Venue, optionally the Critical mark, and the three phases as
-executable programs. A run of a Story yields one Story report: a verdict
-plus Evidence a reader can judge for themselves. There is one kind of Story;
+executable programs. A run of a Proof yields one Proof report: a verdict
+plus Evidence a reader can judge for themselves. There is one kind of Proof;
 what varies is how real its Preparation is, its Venue, and what its
 Verification reads.
 _Avoid_: test, spec, scenario, question
 
 **Self-contained**:
-The rule every Story file obeys: a reader opens the file and sees everything
-that makes the claim true. A Story imports only what the Project ships and
-the Story utilities; nothing it needs is hidden in a shared helper.
+The rule every Proof file obeys: a reader opens the file and sees everything
+that makes the claim true. A Proof imports only what the Project ships and
+the Proof utilities; nothing it needs is hidden in a shared helper.
 _Avoid_: support file, fixture file, helpers
 
 **Preparation**:
-The first phase of a Story: the state the Story starts from, built only from
+The first phase of a Proof: the state the Proof starts from, built only from
 Layers the Project ships. A Preparation may assert, and its outcome is
 reported on its own, so a Verification is never read against a state that
 was not reached.
 _Avoid_: setup, fixture, mock, given
 
 **Action**:
-The second phase of a Story: what is done to the prepared state. In the
+The second phase of a Proof: what is done to the prepared state. In the
 Browser Venue it is the named steps a user takes on the page.
 _Avoid_: when, interaction
 
 **Verification**:
-The third phase of a Story: the Story assertions that decide the verdict. A
+The third phase of a Proof: the Proof assertions that decide the verdict. A
 Verification reads values the phases returned or measurements taken from the
 Evidence; a performance claim is a Verification with a budget, not a
-different kind of Story.
+different kind of Proof.
 _Avoid_: then, expectation, check
 
 **Venue**:
-Where a Story runs, which decides what Evidence its run can capture. Process:
+Where a Proof runs, which decides what Evidence its run can capture. Process:
 in the runner's own process, yielding values and a trace. Browser: the real
 app in a real browser, adding video and screenshots.
 _Avoid_: tier, unit, integration, e2e, environment
@@ -51,25 +78,25 @@ _Avoid_: tier, unit, integration, e2e, environment
 **Device**:
 In the Browser Venue, one browser with its own storage, shaped as a desktop
 or a phone. Two Devices share nothing, so they stand for two users or two
-machines. A Story opens as many as its claim needs.
+machines. A Proof opens as many as its claim needs.
 _Avoid_: context, profile, browser instance
 
 **Tab**:
 One open page on a Device. Tabs on the same Device share storage, so two Tabs
 stand for a user with the app open twice. Every Tab has its own Recording on
-the Story's one clock, so all of a Story's Recordings line up in time.
+the Proof's one clock, so all of a Proof's Recordings line up in time.
 _Avoid_: page, window
 
 **Recording**:
-What a Tab's screen did during a Story run, kept raw: every frame the screen
+What a Tab's screen did during a Proof run, kept raw: every frame the screen
 produced, each with the moment it appeared, untrimmed. The Stories canvas
-plays Recordings back at their own timestamps, side by side when a Story has
+plays Recordings back at their own timestamps, side by side when a Proof has
 several Tabs, with Steps, fingers, and sounds drawn over them at playback.
 _Avoid_: video, screencast, capture
 
 **Step**:
 One named move of an Action in the Browser Venue, performed on one Tab: open,
-click, type, scroll, or a Gesture. A Step is recorded with its name, its Tab,
+click, type, scroll, close, or a Gesture. A Step is recorded with its name, its Tab,
 and the moment it happened, so the Stories canvas can mark it on the video.
 Steps are performed the way a person would see them: the pointer travels,
 scrolling glides, and nothing jumps.
@@ -82,65 +109,68 @@ a hand does, and each is drawn in the video while it is down.
 _Avoid_: touch event, multi-touch, pointer sequence
 
 **Evidence**:
-What a Story run captured that a reader can inspect: the value each phase
+What a Proof run captured that a reader can inspect: the value each phase
 returned, a trace of what the code did, and in the Browser Venue one
 Recording per Tab. The verdict says it passed; the Evidence shows what
 happened.
-_Avoid_: artifact, recording, proof, section
+_Avoid_: artifact, recording, section
 
 **Critical**:
-The one mark a Story can carry: a failure here is dangerous, so the Story is
+The one mark a Proof can carry: a failure here is dangerous, so the Proof is
 shown apart and its failure is reported before everything else. It changes
-how a Story is shown and reported, never what it is.
+how a Proof is shown and reported, never what it is.
 _Avoid_: priority, tag, marker, severity
 
-**Cluster**:
-The folder a Story file sits in beneath the Stories path. Clusters nest, and
-the path of folders is the only organisation Stories have; there is no
-group object, page, or ordering beyond the folder tree.
-_Avoid_: group, chapter, act, suite
-
 **Story tree**:
-The folder tree beneath the Stories path, Clusters holding Stories. Loading
-it is metadata-only: no Story executes.
+The Stories of a Project, from its top Story down, each with its Telling,
+its Proofs, and its sub-Stories. Loading it is metadata-only: no Proof
+executes.
 
 **Story id**:
-A Story's path from the Stories path to its file. It is what a Story report
-attaches to and what a run is scoped by.
+A Story's place in the Story tree, written as the names from the top Story
+down: `std-toolkit/evolving-schema/migrations`. A Telling refers to another
+Story by its Story id, and a reference to a Story that does not exist is
+shown as broken where it appears.
 
-**Story assertion**:
+**Proof id**:
+The Story id of the Story a Proof sits in plus the Proof's own name. It is
+what a Proof report attaches to and what a run is scoped by.
+
+**Proof assertion**:
 A mandatory description paired with a boolean condition, declared inside a
-Story's phases and recorded when the run reaches it. Outcomes decide the
+Proof's phases and recorded when the run reaches it. Outcomes decide the
 verdict: unprepared when a Preparation assertion was false or the Preparation
 died, failed when a Verification assertion was false, errored when a phase
 died, passed otherwise.
 
-**Story context**:
-The service the Story runner injects into every Story run. It receives every
-captured Evidence and Story assertion outcome and yields the Story report.
-Story utilities are the only way Stories talk to it.
+**Proof context**:
+The service the Proof runner injects into every Proof run. It receives every
+captured Evidence and Proof assertion outcome and yields the Proof report.
+Proof utilities are the only way Proofs talk to it.
 
-**Story report**:
-The record of one Story run, attached to the Story tree by Story id: the
-verdict per phase plus the Evidence the run captured. A Story has one report
+**Proof report**:
+The record of one Proof run, attached to the Story tree by Proof id: the
+verdict per phase plus the Evidence the run captured. A Proof has one report
 at a time; a rerun replaces it.
 
 **Stories path**:
-A configured project-relative folder holding all Story files. It is
-implicitly an Ignored path: Stories are exempt from architectural
+A configured project-relative folder holding the Story tree. It is
+implicitly an Ignored path: Proofs are exempt from architectural
 enforcement.
 
 **Stories canvas**:
-The view of a Project's Stories: Clusters laid out as groups of cards a
-reader can move, open, and run, singly, by Cluster, or all at once. Critical
-Stories are shown apart. Opening a Story shows its file and its whole Story
-report in one place.
-_Avoid_: Stories view, sidebar, list
+The view of a Project's Story tree, read like documentation: the top Story
+first, and opening a Story reveals its Telling in place with its sub-Stories
+beside it. A Story's Proofs are listed inside it, under its Telling, like
+footnotes. Proofs run singly, by Story, or all at once. Opening a Proof
+shows its file and its whole Proof report in one place.
+_Avoid_: Proofs view, sidebar, list
 
 **Stories run**:
-Executing the Stories in a scope, the whole tree, one Cluster, or one Story,
-yielding one Story report per Story as it completes and replacing the report
-each covered Story had before.
+Executing the Proofs in a scope, the whole tree, one Story and everything
+beneath it, or one Proof,
+yielding one Proof report per Proof as it completes and replacing the report
+each covered Proof had before.
 
 **Project**:
 The analysis universe anchored by one Config. All configured paths are
@@ -579,11 +609,10 @@ otherwise unchanged. A Module whose only change is a deleted file reads as
 unchanged, because a Change set does not carry deletions.
 
 **Story change status**:
-A Story's derived standing in a Change set: added when its Story file is
-added, modified when its Story file is modified, and otherwise unchanged.
-A Story is one file, so nothing beneath it can change without the file
-changing. A Cluster is added when every Story in it is added and modified
-when any Story in it changed.
+A Proof's derived standing in a Change set: added when its file is added,
+modified when its file is modified, and otherwise unchanged. A Story is added
+when its Telling and everything beneath it are added, and modified when its
+Telling or anything beneath it changed.
 
 **Diff hunk**:
 One contiguous changed region of a modified path between a Base ref and the

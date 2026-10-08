@@ -33,9 +33,7 @@ load the cloud Resolver. Why the toolkits are cut this way is
 in [`CONTEXT.md`](./CONTEXT.md) and the package's decisions in
 [`docs/adr/`](./docs/adr/). Every `createAuthWorker` option is in
 [`docs/auth-worker-configuration.md`](./docs/auth-worker-configuration.md),
-the schema runbook in [`docs/migrations.md`](./docs/migrations.md). Run
-`pnpm --filter @kstackz/auth-toolkit stories` for the executable RPC
-walkthrough.
+the schema runbook in [`docs/migrations.md`](./docs/migrations.md).
 
 ## Install
 
@@ -208,7 +206,7 @@ export const authWorker = await Cloudflare.Worker('auth-worker', {
 
 The contract guards its calls; the cloud Backend serves them over HTTP with
 the cloud Resolver; a Sign-in is a Layer of `SignIn`. Lifted from
-`stories/effect-rpc` and `src/client/sign-in/named/tests/named.test.ts`.
+`src/client/sign-in/named/tests/named.test.ts`.
 
 ```ts
 // api.ts, shared by both sides

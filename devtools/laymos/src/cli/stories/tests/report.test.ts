@@ -1,103 +1,134 @@
+import { stripVTControlCharacters } from 'node:util';
+
 import { describe, expect, test } from 'vitest';
 
-import type { StoryReport } from '../../../story/schema/index.js';
-import { renderStoryReports, renderSummary, tallyReports } from '../report.js';
+import type {
+  ProofLeaf,
+  ProofReport,
+  ProofVerdict,
+  StoryNode,
+} from '../../../story/schema/index.js';
+import { renderStoryRun, renderSummary } from '../report.js';
 
-const ansiEscapeCodes = new RegExp(`${String.fromCharCode(27)}\\[\\d+m`, 'g');
-
-function plain(rendered: string): string {
-  return rendered.replace(ansiEscapeCodes, '');
+function leaf(id: string, critical = false): ProofLeaf {
+  const name = id.slice(id.lastIndexOf('/') + 1);
+  return {
+    id,
+    name,
+    title: `Proof ${name}`,
+    description: null,
+    venue: 'process',
+    critical,
+    source: { path: `stories/${name}.proof.ts`, content: '' },
+  };
 }
 
-const passing: StoryReport = {
-  id: 'basic/verdicts/passing story',
-  verdict: 'passed',
-  questions: [
-    {
-      slug: 'what-is-the-answer',
-      verdict: 'passed',
-      assertions: [{ description: 'the answer is 42', passed: true }],
-      sections: [],
-    },
-  ],
-};
+function report(
+  id: string,
+  verdict: ProofVerdict,
+  failing: string[] = [],
+): ProofReport {
+  return {
+    id,
+    verdict,
+    startedAt: 0,
+    duration: 12,
+    phases: [
+      {
+        phase: 'verify',
+        status: failing.length === 0 ? 'passed' : 'failed',
+        startedAt: 0,
+        endedAt: 12,
+        assertions: failing.map((description) => ({
+          description,
+          passed: false,
+        })),
+      },
+    ],
+    trace: null,
+    steps: [],
+    recordings: [],
+  };
+}
 
-const failing: StoryReport = {
-  id: 'basic/verdicts/failing story',
-  verdict: 'failed',
-  questions: [
+const tree: StoryNode = {
+  id: 'std',
+  name: 'std',
+  path: '',
+  title: 'Std',
+  pitch: 'Keep your data.',
+  body: '',
+  proofs: [leaf('std/schema')],
+  issues: [],
+  stories: [
     {
-      slug: 'what-happens-when-it-does-not-hold',
-      verdict: 'failed',
-      assertions: [
-        { description: 'holds', passed: true },
-        { description: 'does not hold', passed: false },
+      id: 'std/sync',
+      name: 'sync',
+      path: 'sync',
+      title: 'Sync',
+      pitch: '',
+      body: '',
+      stories: [],
+      proofs: [leaf('std/sync/two-tabs', true), leaf('std/sync/offline')],
+      issues: [
+        {
+          kind: 'incomplete-telling',
+          target: null,
+          message: 'The Telling needs a pitch paragraph.',
+        },
       ],
-      sections: [],
     },
   ],
 };
 
-const erroring: StoryReport = {
-  id: 'basic/erroring story',
-  verdict: 'errored',
-  questions: [
-    {
-      slug: 'what-happens-when-the-proof-dies',
-      verdict: 'errored',
-      error: 'Error: boom\n  at proof',
-      assertions: [],
-      sections: [],
-    },
-  ],
-};
+describe('renderStoryRun', () => {
+  test('prints the Story tree by title with a mark per verdict and every Telling issue', () => {
+    const rendered = stripVTControlCharacters(
+      renderStoryRun(tree, [
+        report('std/sync/two-tabs', 'passed'),
+        report('std/sync/offline', 'unprepared'),
+        report('std/schema', 'failed', ['the field was added']),
+      ]),
+    );
 
-describe('renderStoryReports', () => {
-  test('indents each Story by its place in the Story tree', () => {
-    expect(plain(renderStoryReports([passing, erroring]))).toBe(
+    expect(rendered).toBe(
       [
-        '    ✓ passing story — passed (1 question)',
-        '      ✓ what-is-the-answer',
-        '        ✓ the answer is 42',
-        '  ! erroring story — errored (1 question)',
-        '    ! what-happens-when-the-proof-dies',
-        '      Error: boom',
-        '        at proof',
+        'Std std',
+        '  ✗ Proof schema 12ms std/schema',
+        '      ✗ verify: the field was added',
+        '  Sync std/sync',
+        '    ⚠ The Telling needs a pitch paragraph.',
+        '    ✓ Proof two-tabs critical 12ms std/sync/two-tabs',
+        '    ○ Proof offline 12ms std/sync/offline',
       ].join('\n'),
     );
   });
 
-  test('marks the assertion that did not hold', () => {
-    expect(plain(renderStoryReports([failing]))).toContain(
-      '        ✗ does not hold',
+  test('puts Critical Proofs that did not pass first', () => {
+    const rendered = stripVTControlCharacters(
+      renderStoryRun(tree, [
+        report('std/sync/two-tabs', 'errored'),
+        report('std/sync/offline', 'passed'),
+        report('std/schema', 'passed'),
+      ]),
     );
-  });
 
-  test('indents the error under its Question', () => {
-    expect(plain(renderStoryReports([erroring]))).toContain(
-      '      Error: boom\n        at proof',
-    );
+    expect(rendered.split('\n').slice(0, 2)).toEqual([
+      'Critical Proofs that did not pass',
+      '  ! Proof two-tabs critical 12ms std/sync/two-tabs',
+    ]);
   });
 });
 
 describe('renderSummary', () => {
-  test('counts every verdict against the planned total', () => {
-    expect(plain(renderSummary([passing, failing, erroring], 4))).toBe(
-      '✗ 3/4 stories · 1 passed · 1 failed · 1 errored',
-    );
-  });
-
-  test('reports a clean run once every Story passed', () => {
-    expect(plain(renderSummary([passing], 1))).toBe('✓ 1/1 story · 1 passed');
-  });
-});
-
-describe('tallyReports', () => {
-  test('counts one Story per verdict', () => {
-    expect(tallyReports([passing, failing, erroring, failing])).toEqual({
-      passed: 1,
-      failed: 2,
-      errored: 1,
-    });
+  test('counts each verdict and the Telling issues', () => {
+    expect(
+      stripVTControlCharacters(
+        renderSummary([report('a', 'passed'), report('b', 'unprepared')], 2),
+      ),
+    ).toBe('✗ 2/2 Proofs · 1 passed · 1 unprepared');
+    expect(
+      stripVTControlCharacters(renderSummary([report('a', 'passed')], 1, 2)),
+    ).toBe('✓ 1/1 Proof · 1 passed · 2 Telling issues');
   });
 });

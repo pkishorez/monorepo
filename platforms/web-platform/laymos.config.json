@@ -1,6 +1,7 @@
 {
   "$schema": "../../devtools/laymos/schema.json",
   "sourceRoots": ["src"],
+  "storiesPath": "stories",
   "layers": {
     "theme": {
       "paths": ["src/theme"],
@@ -31,7 +32,7 @@
     },
     "input-gesture-zones": {
       "paths": ["src/input/gesture/zones"],
-      "description": "Web zones \u2014 the browser as the touch source: a GestureProvider feeds the core every touch and pen pointer on the page and holds the browser back on each zone, leaving Native Scrolls their touches; GestureZones are DOM elements; useGesture hands each enabled listener every finger as motion values. It never says what a Gesture means.",
+      "description": "Web zones — the browser as the touch source: a GestureProvider feeds the core every touch and pen pointer on the page and holds the browser back on each zone, leaving Native Scrolls their touches; GestureZones are DOM elements; useGesture hands each enabled listener every finger as motion values. It never says what a Gesture means.",
       "moduleGraphs": {
         "zones": {
           "description": "touch-input listens to the page, holds the browser back on each zone and says how zones nest in the DOM; zone runs the core's provider over it and puts it together for React with motion values. Whether a release clicks is the browser's call unless a listener prevents it",
@@ -52,7 +53,7 @@
     },
     "input-gesture-recognizers": {
       "paths": ["src/input/gesture/recognizers"],
-      "description": "Web recognizers \u2014 one generic meaning read from a Gesture, such as a Swipe: Possible, then Tracking with live motion values for feedback, then a Commit or a Cancel, decided by the core's rules. They never know about each other.",
+      "description": "Web recognizers — one generic meaning read from a Gesture, such as a Swipe: Possible, then Tracking with live motion values for feedback, then a Commit or a Cancel, decided by the core's rules. They never know about each other.",
       "moduleGraphs": {
         "recognizers": {
           "description": "Each Recognizer reads Pointers from useGesture on its own.",
@@ -71,7 +72,7 @@
     },
     "input-gesture-patterns": {
       "paths": ["src/input/gesture/patterns"],
-      "description": "Web patterns \u2014 purpose-built touch behaviours an app uses as they are, built from Recognizers, giving exactly the motion values their UI needs and settling themselves.",
+      "description": "Web patterns — purpose-built touch behaviours an app uses as they are, built from Recognizers, giving exactly the motion values their UI needs and settling themselves.",
       "moduleGraphs": {
         "patterns": {
           "description": "Each Pattern stands alone on the Recognizers.",

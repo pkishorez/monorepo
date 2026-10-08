@@ -1,13 +1,8 @@
 import { useMemo } from 'react';
-import type {
-  ArchitectureAnalysis,
-  Branch,
-  ChangeSet,
-  StoryReport,
-  StoryTree,
-} from 'laymos';
+import type { ArchitectureAnalysis, Branch, ChangeSet } from 'laymos';
 
 import { LaymosExperience } from '../architecture-workspace';
+import type { StoriesCanvasProps } from '../stories-canvas';
 import {
   buildPresentationModel,
   layersReferencedByRules,
@@ -46,12 +41,7 @@ interface LaymosProps extends AnalysisProps {
   readonly baseRef?: string;
   readonly onBaseRefChange?: (baseRef: string) => void;
   readonly gitAvailable?: boolean;
-  readonly stories?: {
-    readonly tree: StoryTree;
-    readonly reports?: Readonly<Record<string, StoryReport>>;
-    readonly running?: boolean;
-    readonly onRun?: (scope?: string) => void;
-  };
+  readonly stories?: Omit<StoriesCanvasProps, 'className'>;
 }
 
 interface LayerGraphProps extends AnalysisProps, LayerInteraction {

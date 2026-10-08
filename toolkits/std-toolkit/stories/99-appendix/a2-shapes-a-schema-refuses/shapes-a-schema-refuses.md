@@ -1,1 +1,0 @@
-A shape is strict on purpose: it has no optional fields, it treats a row with no version stamp as the first version, and it checks every row against the version it claims before a single migration step runs. These stories show each rule from the reading side, with the row that passes and the row that does not.

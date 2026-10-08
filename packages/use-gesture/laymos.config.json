@@ -1,10 +1,11 @@
 {
   "$schema": "../../devtools/laymos/schema.json",
   "sourceRoots": ["src"],
+  "storiesPath": "stories",
   "layers": {
     "core": {
       "paths": ["src/core"],
-      "description": "Core \u2014 platform-free: a Gesture Provider that any touch source feeds plain finger samples, finding its zones through a Zone Tree it is handed; the Direction a touch first moves; what a Swipe decides; the Tree Walk a picker moves through as a finger goes; and the Thumb Lock, a still left thumb beside a moving finger. No DOM, no React, no Motion: a browser and a phone both build on it. The provider, the Direction, the Tree Walk and the Thumb Lock are worklets, so a phone can run them on its UI thread.",
+      "description": "Core — platform-free: a Gesture Provider that any touch source feeds plain finger samples, finding its zones through a Zone Tree it is handed; the Direction a touch first moves; what a Swipe decides; the Tree Walk a picker moves through as a finger goes; and the Thumb Lock, a still left thumb beside a moving finger. No DOM, no React, no Motion: a browser and a phone both build on it. The provider, the Direction, the Tree Walk and the Thumb Lock are worklets, so a phone can run them on its UI thread.",
       "moduleGraphs": {
         "core": {
           "description": "provider runs the one Gesture under way and reads its Direction; swipe judges a Swipe by Direction; tree-walk reads a finger's moves as Directions through a tree; thumb-lock is a provider listener that reads a still left thumb beside a moving finger. Each stands on direction, and thumb-lock on provider too.",

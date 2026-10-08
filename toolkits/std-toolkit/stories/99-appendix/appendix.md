@@ -1,1 +1,0 @@
-This is the part you do not read in order. It collects the rules a table or a schema will refuse to bend, the limits you meet only in unusual shapes, and the habits that keep migrations safe. It also covers the features that belong to one database only, and explains how the chapters themselves run.

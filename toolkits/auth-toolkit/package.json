@@ -71,7 +71,6 @@
     "fmt": "vp fmt",
     "lint": "vp check && pnpm lint:tsc && laymos lint",
     "lint:tsc": "tsc --noEmit && tsc -p tsconfig.app.json --noEmit",
-    "stories": "laymos stories",
     "test": "vitest run"
   },
   "dependencies": {

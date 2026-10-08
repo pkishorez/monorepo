@@ -1,1 +1,0 @@
-Everything works in this process. Now it has to work on a real page, in a real browser, with real tabs and IndexedDB. This chapter swaps the stand-ins for the ready-made IndexedDB store, watches what sync reports, lets two tabs hand the reading over when one closes, and clears the browser's copy when someone logs out.
