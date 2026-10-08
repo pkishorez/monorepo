@@ -94,7 +94,7 @@ jobs:
 
       # Build the app's workspace dependencies; Alchemy builds the app itself.
       - name: Build workspace dependencies
-        run: pnpm --filter 'kstack^...' run build
+        run: pnpm --filter '@ledger/web^...' run build
 
       - name: Bootstrap Alchemy state store
         run: pnpm -C ledger/web exec alchemy provider cloudflare bootstrap
