@@ -2,114 +2,98 @@ import type { ArchitectureAnalysis } from 'laymos';
 
 import { cn } from '@kstackz/web-platform/components/utils';
 
-export interface Findings {
-  readonly violations: readonly {
-    readonly path: string;
-    readonly file: string;
-  }[];
-  readonly unowned: readonly { readonly path: string; readonly file: string }[];
-  readonly unusedRules: readonly {
-    readonly path: string;
-    readonly label: string;
-  }[];
-  readonly unusedExceptions: readonly {
-    readonly path: string;
-    readonly label: string;
-  }[];
-}
-
-/** What the strip counts, each with the path of the first card involved. */
-export function findingsOf(analysis: ArchitectureAnalysis): Findings {
-  return {
-    violations: analysis.imports
-      .filter(({ verdict }) => verdict.kind === 'violation')
-      .map(({ fromModule, fromFile }) => ({
-        path: fromModule,
-        file: fromFile,
-      })),
-    unowned: analysis.findings.flatMap((finding) =>
-      finding.kind === 'wrapper-coverage'
-        ? [
-            {
-              path: analysis.tree.owners[finding.file] ?? finding.file,
-              file: finding.file,
-            },
-          ]
-        : [],
-    ),
-    unusedRules: analysis.findings.flatMap((finding) =>
-      finding.kind === 'unused-rule'
-        ? [
-            {
-              path: finding.rule.from,
-              label: `${finding.rule.from} → ${finding.rule.to}`,
-            },
-          ]
-        : [],
-    ),
-    unusedExceptions: analysis.findings.flatMap((finding) =>
-      finding.kind === 'unused-exception'
-        ? [
-            {
-              path: finding.exception.from,
-              label: `${finding.exception.from} → ${finding.exception.to}`,
-            },
-          ]
-        : [],
-    ),
-  };
-}
-
 /**
- * The counts at the bottom of the space: Violations, files no Module owns,
- * unused Rules and Exceptions. Each count takes the reader to the first
- * card involved.
+ * One count the strip shows: how many of a finding there are, its name in
+ * the singular, the plural and a phone's few letters, whether it is an
+ * alarm, the path of the first card involved, and the title listing them.
  */
-export function FindingsStrip({
-  findings,
-  onReveal,
-}: {
-  readonly findings: Findings;
-  readonly onReveal: (path: string) => void;
-}) {
-  const counts = [
+export interface FindingCount {
+  readonly count: number;
+  readonly one: string;
+  readonly many: string;
+  readonly short: string;
+  readonly alarm: boolean;
+  readonly first: string | undefined;
+  readonly title: string;
+}
+
+/** What the strip counts for a Project, each with the path of the first card involved. */
+export function findingsOf(
+  analysis: ArchitectureAnalysis,
+): readonly FindingCount[] {
+  const violations = analysis.imports.filter(
+    ({ verdict }) => verdict.kind === 'violation',
+  );
+  const unowned = analysis.findings.flatMap((finding) =>
+    finding.kind === 'wrapper-coverage'
+      ? [
+          {
+            path: analysis.tree.owners[finding.file] ?? finding.file,
+            file: finding.file,
+          },
+        ]
+      : [],
+  );
+  const unusedRules = analysis.findings.flatMap((finding) =>
+    finding.kind === 'unused-rule' ? [finding.rule] : [],
+  );
+  const unusedExceptions = analysis.findings.flatMap((finding) =>
+    finding.kind === 'unused-exception' ? [finding.exception] : [],
+  );
+  const label = ({ from, to }: { from: string; to: string }) =>
+    `${from} → ${to}`;
+  return [
     {
-      count: findings.violations.length,
+      count: violations.length,
       one: 'Violation',
       many: 'Violations',
       short: 'violations',
       alarm: true,
-      first: findings.violations[0]?.path,
-      title: findings.violations.map(({ file }) => file).join('\n'),
+      first: violations[0]?.fromModule,
+      title: violations.map(({ fromFile }) => fromFile).join('\n'),
     },
     {
-      count: findings.unowned.length,
+      count: unowned.length,
       one: 'file no Module owns',
       many: 'files no Module owns',
       short: 'unowned',
       alarm: true,
-      first: findings.unowned[0]?.path,
-      title: findings.unowned.map(({ file }) => file).join('\n'),
+      first: unowned[0]?.path,
+      title: unowned.map(({ file }) => file).join('\n'),
     },
     {
-      count: findings.unusedRules.length,
+      count: unusedRules.length,
       one: 'unused Rule',
       many: 'unused Rules',
       short: 'unused Rules',
       alarm: false,
-      first: findings.unusedRules[0]?.path,
-      title: findings.unusedRules.map(({ label }) => label).join('\n'),
+      first: unusedRules[0]?.from,
+      title: unusedRules.map(label).join('\n'),
     },
     {
-      count: findings.unusedExceptions.length,
+      count: unusedExceptions.length,
       one: 'unused Exception',
       many: 'unused Exceptions',
       short: 'unused Exceptions',
       alarm: false,
-      first: findings.unusedExceptions[0]?.path,
-      title: findings.unusedExceptions.map(({ label }) => label).join('\n'),
+      first: unusedExceptions[0]?.from,
+      title: unusedExceptions.map(label).join('\n'),
     },
   ];
+}
+
+/**
+ * The counts at the bottom of the space: for a Project, Violations, files
+ * no Module owns, unused Rules and Exceptions. Each count takes the reader
+ * to the first card involved.
+ */
+export function FindingsStrip({
+  counts,
+  onReveal,
+}: {
+  readonly counts: readonly FindingCount[];
+  readonly onReveal: (path: string) => void;
+}) {
   // On a phone only the counts that say something show, briefly.
   const anything = counts.some(({ count }) => count > 0);
   return (

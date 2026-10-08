@@ -40,6 +40,46 @@ describe('analyzeMonorepo', () => {
     expect(analysis.violations).toEqual([]);
   });
 
+  test('gives the Stories badge to a Laymos Config naming a Stories path', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'monoverse-stories-'));
+    try {
+      await writeFile(
+        join(root, 'pnpm-workspace.yaml'),
+        'packages:\n  - packages/*\n',
+      );
+      for (const [name, config] of [
+        ['told', '{"sourceRoots":["src"],"storiesPath":"stories"}'],
+        ['plain', '{"sourceRoots":["src"]}'],
+        ['bare', undefined],
+      ] as const) {
+        await mkdir(join(root, 'packages', name), { recursive: true });
+        await writeFile(
+          join(root, 'packages', name, 'package.json'),
+          `{"name":"${name}"}`,
+        );
+        if (config !== undefined)
+          await writeFile(
+            join(root, 'packages', name, 'laymos.config.json'),
+            config,
+          );
+      }
+      const analysis = await Effect.runPromise(analyzeMonorepo(root));
+      expect(
+        analysis.packages.map(({ name, hasLaymos, hasStories }) => ({
+          name,
+          hasLaymos,
+          hasStories,
+        })),
+      ).toEqual([
+        { name: 'bare', hasLaymos: false, hasStories: false },
+        { name: 'plain', hasLaymos: true, hasStories: false },
+        { name: 'told', hasLaymos: true, hasStories: true },
+      ]);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   test('rejects a relative path', async () => {
     const error = await Effect.runPromise(
       analyzeMonorepo('relative/path').pipe(Effect.flip),

@@ -1,16 +1,16 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { Effect } from 'effect';
-import type { Branch, ChangeSet } from 'laymos';
+import type { Branch, ChangeSet, FileContent } from 'laymos';
 import type { DependencyKind, MonorepoAnalysis, Package } from '../analysis';
 import { useComponentLifecycle } from 'use-effect-ts';
 
 import {
+  BookOpen,
   Boxes,
   ChevronDown,
-  Eye,
+  Layers,
   Network,
   PackageIcon,
-  PanelRightOpen,
   TriangleAlert,
 } from '@kstackz/web-platform/components/lucide';
 import { Badge } from '@kstackz/web-platform/components/badge';
@@ -30,47 +30,25 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from '@kstackz/web-platform/components/empty';
-import {
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
-} from '@kstackz/web-platform/components/resizable';
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from '@kstackz/web-platform/components/sheet';
 import { Spinner } from '@kstackz/web-platform/components/spinner';
-import { useIsMobile } from '@kstackz/web-platform/components/hooks/use-mobile';
-import { scrollbarStyles } from '@kstackz/web-platform/components/scroll-styles';
 import { cn } from '@kstackz/web-platform/components/utils';
-
 import {
   ChangesMenu,
-  changedPathsUnder,
   defaultGitOptions,
   uncommittedBaseRef,
   type GitOptions,
 } from '@kstackz/web-platform/components/viewers/git-changes';
-import type {
-  LoadFileDiff,
-  LoadFiles,
-} from '@kstackz/web-platform/components/viewers/source-explorer';
+import type { LoadFileDiff } from '@kstackz/web-platform/components/viewers/source-explorer';
+
+import { FileList } from '../../laymos/file-list';
+import { Laymo } from '../../laymos/laymo';
 import { LaymosDrilldown } from '../laymos-drilldown';
-import { MonorepoCanvas, type ConnectionVisibility } from '../monorepo-canvas';
 import {
-  buildMonorepoView,
   dependencyKindLabels,
   dependencyKinds,
-  packageChangeStatuses,
-  resolvePackageFocus,
-} from '../monorepo-presentation';
-import { PackageDetails } from '../package-details';
-import type { PackageReadmeDocuments } from '../package-readme';
-import { PackageSource, type PackageSourceView } from '../package-source';
-import { PackageTree } from '../package-tree';
+  packageCards,
+  type MonoverseLayout,
+} from '../package-cards';
 
 export type MonoverseLoadError = {
   readonly _tag: string;
@@ -97,26 +75,15 @@ export type MonoverseProps = {
   // Refetch when it changes.
   reloadNonce?: number;
   renderLaymos: RenderLaymos;
-  // Controlled Package focus (name); uncontrolled when omitted.
-  selectedPackage?: string | null;
-  onSelectedPackageChange?: (name: string | null) => void;
   // Controlled: which Package is open in Embedded Laymos.
   openPackage?: string | null;
   onOpenPackageChange?: (name: string | null) => void;
-  // Controlled: the Package README stack (relative paths, bottom first) open
-  // over the canvas for the selected Package.
-  readmeStack?: readonly string[];
-  onReadmeStackChange?: (stack: readonly string[]) => void;
-  // Selects the Package and opens its README in one step. Defaults to doing
-  // both through the two callbacks above.
-  onOpenReadme?: (name: string) => void;
-  // The host loads each stacked file; a missing entry shows as loading.
-  readmeDocuments?: PackageReadmeDocuments;
-  // The Package files of one Package, listed beside its README.
-  loadPackageFiles: (pkg: Package) => ReturnType<LoadFiles>;
-  // The Monorepo's Change set against `baseRef`, with every path git knows so
-  // a Package change status can tell added from modified. Leaving `changes`
-  // out hides the git menu, as when the Monorepo is not a git repository.
+  // Reads one file of the Monorepo by its Monorepo-relative path.
+  loadFile: (path: string) => Effect.Effect<FileContent, unknown>;
+  // The Monorepo's Change set against `baseRef`, with every path git knows:
+  // the Package files are listed from them, and a Package change status
+  // tells added from modified by them. Leaving `changes` out hides the git
+  // menu, as when the Monorepo is not a git repository.
   changes?: ChangeSet;
   knownFiles?: readonly string[];
   branches?: readonly Branch[];
@@ -126,31 +93,33 @@ export type MonoverseProps = {
   className?: string;
 };
 
-const packageReadmePath = 'README.md';
-const noDocuments: PackageReadmeDocuments = {};
-const noReadmeStack: readonly string[] = [];
 const noFiles: readonly string[] = [];
 const noBranches: readonly Branch[] = [];
+const hints = [
+  'click to select',
+  '› opens in place',
+  'double-click opens in Laymos',
+  'right-click for files',
+];
 
 type LoadState =
   | { readonly kind: 'loading' }
   | { readonly kind: 'failure'; readonly error: MonoverseLoadError }
   | { readonly kind: 'success'; readonly analysis: MonorepoAnalysis };
 
+/**
+ * Monoverse: one Monorepo drawn with the Laymo, Package groups as boxes
+ * holding their Packages or every Package ranked together. A right-click
+ * lists a Package's files; a double-click opens it in Embedded Laymos.
+ */
 export function Monoverse({
   monorepoPath,
   loadAnalysis,
   reloadNonce = 0,
   renderLaymos,
-  selectedPackage: controlledSelected,
-  onSelectedPackageChange,
   openPackage: controlledOpen,
   onOpenPackageChange,
-  readmeStack: controlledReadmeStack,
-  onReadmeStackChange,
-  onOpenReadme,
-  readmeDocuments = noDocuments,
-  loadPackageFiles,
+  loadFile,
   changes,
   knownFiles = noFiles,
   branches = noBranches,
@@ -160,37 +129,17 @@ export function Monoverse({
   className,
 }: MonoverseProps) {
   const [gitOptions, setGitOptions] = useState<GitOptions>(defaultGitOptions);
-  // How the Package dialog was left, so it reopens the same way after
-  // Embedded Laymos closes. Kept per Package; another Package starts fresh.
-  const [sourceView, setSourceView] = useState<
-    PackageSourceView & { readonly pkg: string }
-  >();
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
   const [retry, setRetry] = useState(0);
+  const [layout, setLayout] = useState<MonoverseLayout>('folders');
   const [activeKinds, setActiveKinds] = useState<ReadonlySet<DependencyKind>>(
     () => new Set(dependencyKinds),
   );
-  // Connections are noisy at rest, so by default a Package has to be hovered
-  // or selected before its connections are drawn.
-  const [connectionVisibility, setConnectionVisibility] =
-    useState<ConnectionVisibility>('on-focus');
-  const [hoveredPackage, setHoveredPackage] = useState<string | null>(null);
-  const isMobile = useIsMobile();
-  const [inspectorOpen, setInspectorOpen] = useState(false);
-  const [selected, setSelected] = useControllable(
-    controlledSelected,
-    onSelectedPackageChange,
-    null,
-  );
+  const [filesFor, setFilesFor] = useState<string>();
   const [open, setOpen] = useControllable(
     controlledOpen,
     onOpenPackageChange,
     null,
-  );
-  const [readmeStack, setReadmeStack] = useControllable(
-    controlledReadmeStack,
-    onReadmeStackChange,
-    noReadmeStack,
   );
 
   useComponentLifecycle(
@@ -204,32 +153,54 @@ export function Monoverse({
   );
 
   const analysis = state.kind === 'success' ? state.analysis : undefined;
-  const changedFiles = useMemo(
-    () =>
-      new Map(
-        gitOptions.showChanges && changes !== undefined
-          ? changes.files.map(({ path, status }) => [path, status] as const)
-          : [],
-      ),
-    [changes, gitOptions.showChanges],
-  );
-  const changeStatuses = useMemo(
+  const shownChanges = gitOptions.showChanges ? changes : undefined;
+  const cards = useMemo(
     () =>
       analysis === undefined
         ? undefined
-        : packageChangeStatuses(analysis.packages, changedFiles, knownFiles),
-    [analysis, changedFiles, knownFiles],
-  );
-  const view = useMemo(
-    () =>
-      analysis === undefined || changeStatuses === undefined
-        ? undefined
-        : buildMonorepoView(analysis, activeKinds, {
-            statuses: changeStatuses,
-            includeUnchanged:
-              !gitOptions.showChanges || gitOptions.includeUnchanged,
+        : packageCards({
+            analysis,
+            layout,
+            activeKinds,
+            changes: shownChanges,
+            knownFiles,
+            showDeleted: gitOptions.includeDeleted,
           }),
-    [analysis, activeKinds, changeStatuses, gitOptions],
+    [analysis, layout, activeKinds, shownChanges, knownFiles, gitOptions],
+  );
+  const changedPaths = useMemo(
+    () =>
+      shownChanges === undefined
+        ? undefined
+        : new Map(shownChanges.files.map(({ path, status }) => [path, status])),
+    [shownChanges],
+  );
+
+  // A folder's files are what git knows beneath it, its README first; the
+  // Monorepo's own folder holds every file.
+  const loadFileList = useCallback(
+    (folder: string) =>
+      Effect.sync(() => {
+        const files =
+          folder === '.'
+            ? knownFiles
+            : knownFiles.filter((path) => path.startsWith(`${folder}/`));
+        const readme = folder === '.' ? 'README.md' : `${folder}/README.md`;
+        return {
+          modulePath: folder,
+          ...(files.includes(readme) ? { index: readme } : {}),
+          files: files.map((path) => ({ path, analyzed: true })),
+        };
+      }),
+    [knownFiles],
+  );
+
+  const badgesOf = useCallback(
+    (path: string) => {
+      const pkg = cards?.packages.get(path);
+      return pkg === undefined ? null : <PackageBadges pkg={pkg} />;
+    },
+    [cards],
   );
 
   const frame = cn(
@@ -281,7 +252,7 @@ export function Monoverse({
     );
   }
 
-  if (analysis === undefined || view === undefined)
+  if (analysis === undefined || cards === undefined)
     return <div className={frame} />;
 
   if (analysis.packages.length === 0) {
@@ -303,179 +274,89 @@ export function Monoverse({
     );
   }
 
-  const byName = new Map(analysis.packages.map((pkg) => [pkg.name, pkg]));
-  const selectedPackage =
-    selected !== null && byName.has(selected) ? selected : null;
-  const selectedPkg =
-    selectedPackage === null ? undefined : byName.get(selectedPackage);
-  const openPkg = open === null ? undefined : byName.get(open);
+  const openPkg =
+    open === null
+      ? undefined
+      : analysis.packages.find((pkg) => pkg.name === open);
   const embedded = openPkg?.hasLaymos ? openPkg : undefined;
-  const focus = resolvePackageFocus({
-    selectedPackage,
-    hoveredPackage,
-    edges: view.edges,
-  });
-  const openLaymos = (name: string) => {
-    if (byName.get(name)?.hasLaymos) setOpen(name);
+  // A Package with a Laymos Config opens in Laymos; any other shows its files.
+  const openCard = (path: string) => {
+    if (!cards.packages.has(path)) return;
+    const pkg = cards.packages.get(path);
+    if (pkg?.hasLaymos) setOpen(pkg.name);
+    else setFilesFor(path);
   };
-  const openReadme = (name: string) => {
-    if (!byName.has(name)) return;
-    if (onOpenReadme !== undefined) {
-      onOpenReadme(name);
-      return;
-    }
-    setSelected(name);
-    setReadmeStack([packageReadmePath]);
-  };
-
-  const canvas = (
-    <MonorepoCanvas
-      className="size-full"
-      packages={view.packages}
-      view={view}
-      selectedPackage={selectedPackage}
-      hoveredPackage={hoveredPackage}
-      connectionVisibility={connectionVisibility}
-      onHoverChange={setHoveredPackage}
-      onSelect={setSelected}
-      onOpenLaymos={openLaymos}
-      onOpenReadme={openReadme}
-      onInspect={isMobile ? () => setInspectorOpen(true) : undefined}
-    />
-  );
-  const treeView = (
-    <PackageTree
-      packages={view.packages}
-      decorations={view.decorations}
-      focus={focus}
-      selectedPackage={selectedPackage}
-      onSelect={setSelected}
-      onHoverChange={setHoveredPackage}
-      onOpenLaymos={openLaymos}
-    />
-  );
-  const detailsView =
-    selectedPkg === undefined ? (
-      <p className="text-xs text-muted-foreground">
-        Select a Package to see its dependencies, dependents, and any Package
-        cycle it belongs to.
-      </p>
-    ) : (
-      <PackageDetails
-        analysis={analysis}
-        pkg={selectedPkg}
-        onSelect={setSelected}
-        onOpenLaymos={openLaymos}
-        onOpenReadme={openReadme}
-      />
-    );
+  const changedCount =
+    cards.changeIndex === undefined
+      ? 0
+      : [...cards.packages.keys()].filter((path) =>
+          cards.changeIndex!.modules.has(path),
+        ).length;
 
   return (
     <div className={frame}>
       <MonoverseHeader
         analysis={analysis}
+        layout={layout}
+        onLayoutChange={setLayout}
         activeKinds={activeKinds}
         onActiveKindsChange={setActiveKinds}
-        connectionVisibility={connectionVisibility}
-        onConnectionVisibilityChange={setConnectionVisibility}
         changesMenu={
           changes === undefined ? undefined : (
             <ChangesMenu
               options={gitOptions}
               baseRef={baseRef}
               branches={branches}
-              hasChanges={(changeStatuses?.size ?? 0) > 0}
-              ownerLabel="packages"
+              hasChanges={changedCount > 0}
+              ownerLabel="Packages"
+              offerDeleted
               onOptionsChange={setGitOptions}
               onBaseRefChange={onBaseRefChange}
             />
           )
         }
       />
-      {isMobile ? (
-        <section className="flex min-h-0 flex-1 flex-col">
-          <div className="flex min-h-11 items-center gap-2 border-b border-border px-3">
-            <p className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
-              {selectedPkg === undefined
-                ? 'Tap a Package to focus it. Double-tap for details.'
-                : selectedPkg.name}
-            </p>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              className="size-10 shrink-0"
-              aria-label="Open Package details"
-              onClick={() => setInspectorOpen(true)}
-            >
-              <PanelRightOpen className="size-4" />
-            </Button>
-          </div>
-          <div className="min-h-0 flex-1">{canvas}</div>
-          <Sheet open={inspectorOpen} onOpenChange={setInspectorOpen}>
-            <SheetContent
-              side="bottom"
-              className="max-h-[78dvh] gap-0 overflow-hidden rounded-t-2xl pb-[env(safe-area-inset-bottom)] md:hidden"
-            >
-              <SheetHeader className="border-b border-border pb-3 pe-14">
-                <SheetTitle>
-                  {selectedPkg === undefined ? 'Packages' : 'Package details'}
-                </SheetTitle>
-                <SheetDescription>
-                  Select a Package to focus it on the canvas. Open Laymos from
-                  the selected Package.
-                </SheetDescription>
-              </SheetHeader>
-              <div
-                className={cn('min-h-0 overflow-y-auto p-4', scrollbarStyles)}
-              >
-                {selectedPkg !== undefined ? (
-                  <div className="mb-6 border-b border-border pb-4">
-                    {detailsView}
-                  </div>
-                ) : null}
-                {treeView}
-              </div>
-            </SheetContent>
-          </Sheet>
-        </section>
-      ) : (
-        <ResizablePanelGroup
-          orientation="horizontal"
-          className="min-h-0 flex-1"
-        >
-          <ResizablePanel defaultSize="75%" minSize="50%">
-            {canvas}
-          </ResizablePanel>
-          <ResizableHandle withHandle />
-          <ResizablePanel defaultSize="25%" minSize="20%" maxSize="50%">
-            <aside className="size-full min-w-0">
-              <ResizablePanelGroup orientation="vertical" className="min-h-0">
-                <ResizablePanel defaultSize="55%" minSize="20%">
-                  <section
-                    className={cn(
-                      'size-full overflow-y-auto p-3',
-                      scrollbarStyles,
-                    )}
-                  >
-                    {treeView}
-                  </section>
-                </ResizablePanel>
-                <ResizableHandle withHandle />
-                <ResizablePanel defaultSize="45%" minSize="20%">
-                  <section
-                    className={cn(
-                      'size-full overflow-y-auto p-3',
-                      scrollbarStyles,
-                    )}
-                  >
-                    {detailsView}
-                  </section>
-                </ResizablePanel>
-              </ResizablePanelGroup>
-            </aside>
-          </ResizablePanel>
-        </ResizablePanelGroup>
-      )}
+      <Laymo
+        // Each layout is its own picture, opened afresh.
+        key={layout}
+        analysis={cards.analysis}
+        changeIndex={cards.changeIndex}
+        onlyChanged={
+          cards.changeIndex !== undefined && !gitOptions.includeUnchanged
+        }
+        findings={cards.findings}
+        showRules={false}
+        cardsNoun="Packages"
+        projectName={analysis.name}
+        initiallyOpen={cards.groups}
+        badgesOf={badgesOf}
+        fitNames
+        hints={hints}
+        onOpen={openCard}
+        onOpenFiles={setFilesFor}
+        panel={
+          filesFor === undefined
+            ? undefined
+            : {
+                label: `Files of ${filesFor === '.' ? analysis.name : filesFor}`,
+                content: (
+                  <FileList
+                    key={filesFor}
+                    modulePath={filesFor}
+                    loadFileList={loadFileList}
+                    loadFileContent={loadFile}
+                    loadFileDiff={loadFileDiff}
+                    changedPaths={changedPaths}
+                    modules={[...cards.packages.keys()]}
+                    title={filesFor === '.' ? analysis.name : undefined}
+                    onClose={() => setFilesFor(undefined)}
+                  />
+                ),
+                onClose: () => setFilesFor(undefined),
+              }
+        }
+        className="min-h-0 flex-1"
+      />
       <LaymosDrilldown
         monorepoName={analysis.name}
         pkg={embedded}
@@ -488,43 +369,46 @@ export function Monoverse({
           })
         }
       />
-      {selectedPkg !== undefined && readmeStack.length > 0 && !embedded && (
-        <PackageSource
-          pkg={selectedPkg}
-          readmeStack={readmeStack}
-          documents={readmeDocuments}
-          onReadmeStackChange={setReadmeStack}
-          loadFiles={() => loadPackageFiles(selectedPkg)}
-          loadFileDiff={loadFileDiff}
-          changedPaths={changedPathsUnder(changedFiles, selectedPkg.path)}
-          view={sourceView?.pkg === selectedPkg.name ? sourceView : undefined}
-          onViewChange={(view) =>
-            setSourceView({ ...view, pkg: selectedPkg.name })
-          }
-          onOpenLaymos={() => openLaymos(selectedPkg.name)}
-          onClose={() => setReadmeStack(noReadmeStack)}
-        />
-      )}
     </div>
   );
 }
 
+/** The Laymos badge, and the Stories badge beside it when there are Stories. */
+function PackageBadges({ pkg }: { readonly pkg: Package }) {
+  if (!pkg.hasLaymos) return null;
+  return (
+    <span className="flex shrink-0 items-center gap-1">
+      <span role="img" aria-label="Has a Laymos Config" title="Laymos">
+        <Layers aria-hidden className="size-3 text-primary" />
+      </span>
+      {pkg.hasStories && (
+        <span role="img" aria-label="Has Stories" title="Stories">
+          <BookOpen aria-hidden className="size-3 text-primary" />
+        </span>
+      )}
+    </span>
+  );
+}
+
+const layoutLabels: Readonly<Record<MonoverseLayout, string>> = {
+  folders: 'Folders',
+  ranks: 'Ranks',
+};
+
 export function MonoverseHeader({
   analysis,
+  layout,
+  onLayoutChange,
   activeKinds,
   onActiveKindsChange,
-  connectionVisibility,
-  onConnectionVisibilityChange,
   changesMenu,
   className,
 }: {
   readonly analysis: MonorepoAnalysis;
+  readonly layout: MonoverseLayout;
+  readonly onLayoutChange: (layout: MonoverseLayout) => void;
   readonly activeKinds: ReadonlySet<DependencyKind>;
   readonly onActiveKindsChange: (kinds: ReadonlySet<DependencyKind>) => void;
-  readonly connectionVisibility: ConnectionVisibility;
-  readonly onConnectionVisibilityChange: (
-    visibility: ConnectionVisibility,
-  ) => void;
   // The git menu, when the host has a Change set to show.
   readonly changesMenu?: ReactNode;
   readonly className?: string;
@@ -547,46 +431,31 @@ export function MonoverseHeader({
         {analysis.packages.length}{' '}
         {analysis.packages.length === 1 ? 'Package' : 'Packages'}
       </Badge>
-      {analysis.violations.length > 0 && (
-        <Badge variant="destructive" className="tabular-nums">
-          <TriangleAlert />
-          {analysis.violations.length}{' '}
-          {analysis.violations.length === 1 ? 'cycle' : 'cycles'}
-        </Badge>
-      )}
       <div className="ms-auto flex items-center gap-2">
+        <div
+          role="radiogroup"
+          aria-label="Layout"
+          className="flex h-8 items-center rounded-md border border-border/60 p-0.5 font-mono text-xs"
+        >
+          {(['folders', 'ranks'] as const).map((option) => (
+            <button
+              key={option}
+              type="button"
+              role="radio"
+              aria-checked={layout === option}
+              onClick={() => onLayoutChange(option)}
+              className={cn(
+                'h-full rounded-[5px] px-2.5 lowercase transition-colors',
+                layout === option
+                  ? 'bg-muted text-foreground'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              {layoutLabels[option]}
+            </button>
+          ))}
+        </div>
         {changesMenu}
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            aria-label="View"
-            title="How connections are drawn"
-            className="flex h-8 items-center gap-2 rounded-md border border-border/60 bg-background px-2.5 font-mono text-xs text-foreground outline-none transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring/40"
-          >
-            <Eye className="size-3.5 shrink-0 text-muted-foreground" />
-            <span className="hidden truncate lowercase md:inline">
-              {connectionVisibility === 'on-focus'
-                ? 'Connections on focus'
-                : 'Connections always'}
-            </span>
-            <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56 font-mono">
-            <DropdownMenuGroup>
-              <DropdownMenuLabel className="text-[10px] lowercase">
-                View
-              </DropdownMenuLabel>
-              <DropdownMenuCheckboxItem
-                className="text-xs lowercase"
-                checked={connectionVisibility === 'on-focus'}
-                onCheckedChange={(checked) =>
-                  onConnectionVisibilityChange(checked ? 'on-focus' : 'always')
-                }
-              >
-                Only show on package focus
-              </DropdownMenuCheckboxItem>
-            </DropdownMenuGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
         <DropdownMenu>
           <DropdownMenuTrigger
             aria-label="Connections"
@@ -660,7 +529,3 @@ export type {
   PackageCycleViolation,
   PackageDependency,
 } from '../analysis';
-export type {
-  PackageReadmeDocument,
-  PackageReadmeDocuments,
-} from '../package-readme';

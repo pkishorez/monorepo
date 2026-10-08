@@ -37,16 +37,28 @@ _Avoid_: workspace dependency, internal link
 Every Package of a Monorepo and every Package dependency between them, across
 all Dependency kinds. The single source every Monoverse view is drawn from.
 
+**Monoverse layout**:
+How the Package graph is arranged on the canvas, one of two, switched without
+leaving the view. **Folders** (the default) draws each Package group as a box
+holding its Packages, ranked inside it by the Package dependencies between
+them. **Ranks** drops the boxes and ranks every Package in one Package rank
+stack. A layout changes drawing only, never which Packages or dependencies
+exist.
+_Avoid_: levels, mode, view
+
 **Package rank stack**:
-The vertical arrangement of the Package graph: a Package sits below every
-Package that depends on it, so the top rank holds the Packages nothing depends
-on. Ranks are derived from the Package dependencies currently shown, so hiding a
-Dependency kind reshapes the stack.
+The vertical arrangement of Packages that share one box (a Package group in
+the Folders layout, the whole Monorepo in Ranks): a Package sits below every
+Package beside it that depends on it. Ranks are derived from the Package
+dependencies currently shown, so hiding a Dependency kind reshapes the stack.
 
 **Package focus**:
-The selection of one Package: its direct dependencies and dependents are
-emphasized and everything else is de-emphasized yet stays interactive. Hover
-previews a focus; click makes it durable. Transitive reach is not emphasized.
+The selection of one Package or Package group: what it depends on and what
+depends on it are emphasized and everything else is de-emphasized yet stays
+interactive. Hover previews a focus; click makes it durable. Transitive reach
+is not emphasized. At rest a line joins two Packages in one box, or two
+boxes; a dependency between Packages in different boxes is drawn Package to
+Package only while one of them is focused.
 
 **Changed Package**:
 A Package with at least one added, modified or deleted tracked file beneath
@@ -58,8 +70,16 @@ opens measured against it.
 **Package change status**:
 A Package's derived standing in the Change set, by the same rule as a Laymos
 Module change status: added when every file beneath it is added, modified when
-any file beneath it is added, modified or deleted, and otherwise unchanged.
+any file beneath it is added, modified or deleted, deleted when it is a
+Deleted Package, and otherwise unchanged.
 _Avoid_: new package (for a Package that merely has a new manifest)
+
+**Deleted Package**:
+A Package the Change set took away: its `package.json` is deleted and its
+folder is no Package any more. Shown faded where it stood, in its Package
+group, with no dependencies, because the manifest that named them is gone;
+its deleted files can still be read as diffs.
+_Avoid_: removed package, missing package
 
 **Affected Package**:
 A Package that is not itself changed but depends, directly or transitively, on
@@ -68,8 +88,9 @@ a Changed Package. Drawn as a lighter variant of the changed marker.
 **Package group**:
 The Monorepo folder a Package sits in, named by the workspace glob that matched
 it (apps, toolkits, devtools, packages). A filing convention, not architecture:
-it decorates a Package and never positions it.
-_Avoid_: Layer, lane, kind
+it never decides what may depend on what. In the Folders layout it is the box
+its Packages are drawn in.
+_Avoid_: Layer, lane, kind, Wrapper
 
 **Dependency kind**:
 Which manifest field declares one Package's dependency on another: runtime
@@ -88,29 +109,35 @@ The marker on a Package that carries a `laymos.config.json` and can therefore
 be opened in Laymos. Presence only: it says nothing about whether that
 Project's architecture is healthy.
 
-**Embedded Laymos**:
-The full Laymos view of one Package's Project, opened over the Monoverse
-canvas without leaving it, with the Project fixed and a crumb back to the
-Monorepo in place of the project picker. It opens from the Package on the
-canvas or from the Package's dialog, and closing it returns to exactly where it
-was opened: the canvas as it was left, and the dialog on the same tab and
-file. It never adds the Project to the Laymos Tool's own
-list.
+**Stories badge**:
+The marker on a Package whose Laymos Config declares a Stories path, so its
+Embedded Laymos has Stories to read. Presence only, like the Laymos badge, and
+never shown without it.
 
-**Package README**:
-The `README.md` at a Package's folder root, opened over the canvas by
-right-clicking the Package; links to other markdown files inside the same
-Package open on top of it, one dialog per file.
-_Avoid_: docs, documentation panel
+**Embedded Laymos**:
+The full Laymos view of one Package's Project, opened by double-clicking the
+Package, over the Monoverse canvas without leaving it, with the Project fixed
+and a crumb back to the Monorepo in place of the project picker. Closing it
+returns to the canvas exactly as it was left. It never adds the Project to the
+Laymos Tool's own list.
 
 **Package files**:
-The files git knows beneath a Package's folder (tracked, plus untracked ones
-not ignored), browsable beside the Package README, with each changed file
-marked and viewable as its diff against the Base ref. The Monoverse
-counterpart of a Laymos Module's source files.
-_Avoid_: code changes tab, source
+Every file git knows beneath a Package's folder, opened beside the canvas by
+right-clicking the Package, as the Laymos File list is for a Module: one plain
+tree, the README shown first, each changed file marked and readable as its
+diff against the Base ref. There is no separate README or documentation view.
+_Avoid_: Package README, code changes tab, source, documentation panel
 
-**Package tree**:
-The side list of a Monorepo's Packages grouped under their Package groups,
-mirroring the Laymos architecture tree. Selecting there and selecting on the
-canvas are one selection.
+**Monorepo files**:
+Every file git knows in the whole Monorepo, opened by right-clicking the
+Monorepo's own card or the empty canvas: the same File list as Package files,
+the root README first and opened down to each Package, so a change in any
+Package, or outside every Package, can be read and stepped through in one
+place.
+_Avoid_: project files, repo tree
+
+**Package outline**:
+The Monorepo's Package groups and Packages as one collapsible tree beside the
+canvas, stopping at Packages, with a dot per Package change status. Selecting
+there and selecting on the canvas are one selection.
+_Avoid_: Package tree, package list

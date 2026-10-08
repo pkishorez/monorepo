@@ -4,8 +4,7 @@ import { analyzeMonorepo } from './analyze-monorepo/index.js';
 import { getLaymosFile, getLaymosFileList } from './get-laymos-files/index.js';
 import { getLaymosStories } from './get-laymos-stories/index.js';
 import { getLaymosStoryReports } from './get-laymos-story-reports/index.js';
-import { getPackageFiles } from './get-package-files/index.js';
-import { getPackageReadme } from './get-package-readme/index.js';
+import { getMonorepoFile } from './get-monorepo-file/index.js';
 import {
   getBranches,
   getChanges,
@@ -28,10 +27,8 @@ export const DevtoolsHandlersLive = DevtoolsToolRpc.toLayer({
 
 export const MonoverseHandlersLive = MonoverseRpc.toLayer({
   AnalyzeMonorepo: ({ monorepoPath }) => analyzeMonorepo(monorepoPath),
-  GetPackageReadme: ({ monorepoRoot, packagePath, relativePath }) =>
-    getPackageReadme(monorepoRoot, packagePath, relativePath),
-  GetPackageFiles: ({ monorepoRoot, packagePath }) =>
-    getPackageFiles(monorepoRoot, packagePath),
+  GetMonorepoFile: ({ monorepoRoot, path }) =>
+    getMonorepoFile(monorepoRoot, path),
 });
 
 export const GitHandlersLive = GitRpc.toLayer({

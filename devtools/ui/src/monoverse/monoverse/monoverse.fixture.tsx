@@ -3,11 +3,7 @@ import { Effect } from 'effect';
 import type { ChangeSet, FileDiff } from 'laymos';
 import type { MonorepoAnalysis, Package } from '../analysis';
 
-import {
-  Monoverse,
-  type PackageReadmeDocuments,
-  type RenderLaymos,
-} from './monoverse';
+import { Monoverse, type RenderLaymos } from './monoverse';
 
 function pkg(
   name: string,
@@ -22,6 +18,7 @@ function pkg(
     version: '0.1.0',
     private: group !== 'packages',
     hasLaymos: false,
+    hasStories: false,
     dependencies,
     ...extra,
   };
@@ -49,6 +46,7 @@ const analysis: MonorepoAnalysis = {
     ),
     pkg('laymos', 'devtools', [{ name: 'std-toolkit', kinds: ['dev'] }], {
       hasLaymos: true,
+      hasStories: true,
     }),
     pkg('monoverse', 'devtools', [{ name: 'laymos', kinds: ['dev'] }], {
       hasLaymos: true,
@@ -92,26 +90,6 @@ const renderLaymos: RenderLaymos = ({ projectPath, pkg: target }) => (
   </div>
 );
 
-const readmeDocuments: PackageReadmeDocuments = {
-  'README.md': {
-    kind: 'ready',
-    markdown: [
-      '# Package README',
-      '',
-      'Right-click any Package to open this. Relative markdown links stack:',
-      '[eschema](src/eschema/README.md), [core](src/core/README.md).',
-      '',
-      'Other links open elsewhere: [source](src/index.ts),',
-      '[the web](https://example.com).',
-    ].join('\n'),
-  },
-  'src/eschema/README.md': {
-    kind: 'ready',
-    markdown: '# eschema\n\nSibling: [core](../core/README.md).',
-  },
-  'src/core/README.md': { kind: 'missing' },
-};
-
 function packageFiles(pkg: Package) {
   return [
     {
@@ -122,12 +100,26 @@ function packageFiles(pkg: Package) {
       path: `${pkg.path}/src/index.ts`,
       content: `export const name = '${pkg.name}';\nexport const ready = true;\n`,
     },
+    {
+      path: `${pkg.path}/README.md`,
+      content: `# ${pkg.name}\n\nRight-click a Package to read its files, README first.\n`,
+    },
     { path: `${pkg.path}/logo.png`, content: '', binary: true },
   ];
 }
 
-const loadPackageFiles = (pkg: Package) =>
-  Effect.succeed({ files: packageFiles(pkg) });
+const allFiles = new Map(
+  analysis.packages.flatMap((pkg) =>
+    packageFiles(pkg).map((file) => [file.path, file] as const),
+  ),
+);
+
+const loadFile = (path: string) => {
+  const file = allFiles.get(path);
+  return file === undefined
+    ? Effect.fail({ _tag: 'MonorepoFileNotFoundError', path })
+    : Effect.succeed(file);
+};
 
 const knownFiles = analysis.packages.flatMap((pkg) =>
   packageFiles(pkg).map(({ path }) => path),
@@ -149,6 +141,13 @@ const changes: ChangeSet = {
       status: 'added' as const,
       committed: false,
       uncommitted: true,
+    })),
+    // A Package the change took away.
+    ...['package.json', 'src/index.ts'].map((file) => ({
+      path: `toolkits/legacy-toolkit/${file}`,
+      status: 'deleted' as const,
+      committed: true,
+      uncommitted: false,
     })),
   ],
 };
@@ -191,8 +190,7 @@ function WithChanges() {
       monorepoPath="/repo"
       loadAnalysis={() => Effect.succeed(analysis)}
       renderLaymos={renderLaymos}
-      readmeDocuments={readmeDocuments}
-      loadPackageFiles={loadPackageFiles}
+      loadFile={loadFile}
       changes={{ ...changes, baseRef }}
       knownFiles={knownFiles}
       branches={[
@@ -220,8 +218,8 @@ export default {
         monorepoPath="/repo"
         loadAnalysis={() => Effect.succeed(analysis)}
         renderLaymos={renderLaymos}
-        readmeDocuments={readmeDocuments}
-        loadPackageFiles={loadPackageFiles}
+        loadFile={loadFile}
+        knownFiles={knownFiles}
       />
     </Frame>
   ),
@@ -239,7 +237,7 @@ export default {
           Effect.succeed(analysis).pipe(Effect.delay('2 seconds'))
         }
         renderLaymos={renderLaymos}
-        loadPackageFiles={loadPackageFiles}
+        loadFile={loadFile}
       />
     </Frame>
   ),
@@ -256,7 +254,7 @@ export default {
           })
         }
         renderLaymos={renderLaymos}
-        loadPackageFiles={loadPackageFiles}
+        loadFile={loadFile}
       />
     </Frame>
   ),
@@ -269,7 +267,7 @@ export default {
           Effect.succeed({ ...analysis, packages: [], violations: [] })
         }
         renderLaymos={renderLaymos}
-        loadPackageFiles={loadPackageFiles}
+        loadFile={loadFile}
       />
     </Frame>
   ),

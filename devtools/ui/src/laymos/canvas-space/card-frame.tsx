@@ -26,6 +26,7 @@ export function CardFrame({
   onActivate,
   onFocus,
   onContextMenu,
+  onDoubleClick,
   onHover,
   children,
 }: {
@@ -43,6 +44,7 @@ export function CardFrame({
   readonly onActivate: () => void;
   readonly onFocus: () => void;
   readonly onContextMenu?: (() => void) | undefined;
+  readonly onDoubleClick?: (() => void) | undefined;
   readonly onHover?: ((hovering: boolean) => void) | undefined;
   readonly children: ReactNode;
 }) {
@@ -94,6 +96,7 @@ export function CardFrame({
         aria-expanded={expanded}
         tabIndex={focused ? 0 : -1}
         onClick={onActivate}
+        onDoubleClick={onDoubleClick}
         onFocus={onFocus}
         onContextMenu={
           onContextMenu === undefined

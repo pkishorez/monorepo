@@ -12,6 +12,7 @@ export type PackageManifest = {
   readonly version?: string;
   readonly private: boolean;
   readonly hasLaymos: boolean;
+  readonly hasStories: boolean;
   readonly declared: Readonly<Record<DependencyKind, readonly string[]>>;
 };
 
@@ -44,6 +45,7 @@ export function buildPackageGraph(
       ...(manifest.version === undefined ? {} : { version: manifest.version }),
       private: manifest.private,
       hasLaymos: manifest.hasLaymos,
+      hasStories: manifest.hasStories,
       dependencies: internalDependencies(manifest, names),
     }));
   return { packages, violations: findCycles(packages) };

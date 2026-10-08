@@ -57,6 +57,7 @@ const analysis: MonorepoAnalysis = {
       group: 'packages',
       private: false,
       hasLaymos: true,
+      hasStories: true,
       dependencies: [],
     },
     {
@@ -65,16 +66,18 @@ const analysis: MonorepoAnalysis = {
       group: 'packages',
       private: false,
       hasLaymos: false,
+      hasStories: false,
       dependencies: [],
     },
   ],
   violations: [],
 };
 
-const markdownFiles: Record<string, string> = {
-  'packages/core/README.md':
-    '# Core\n\nSee the [eschema notes](src/eschema/README.md).',
-  'packages/core/src/eschema/README.md': '# eschema\n\nNested notes.',
+const monorepoFiles: Record<string, string> = {
+  'README.md': '# The whole repo',
+  'packages/core/README.md': '# Core\n\nWhat the core holds.',
+  'packages/core/src/index.ts': 'export const core = 1;\n',
+  'packages/bare/package.json': '{"name":"bare"}',
 };
 
 vi.mock('@tanstack/react-router', () => ({
@@ -87,20 +90,13 @@ vi.mock('@tanstack/react-router', () => ({
 vi.mock('../../../client/devtools-rpc/index.js', () => {
   const DevtoolsClient = Context.Service<{
     AnalyzeMonorepo: () => Effect.Effect<MonorepoAnalysis, { _tag: string }>;
-    GetPackageReadme: (input: {
+    GetMonorepoFile: (input: {
       monorepoRoot: string;
-      packagePath: string;
-      relativePath?: string;
+      path: string;
     }) => Effect.Effect<
-      { path: string; markdown: string },
-      { _tag: string; message?: string }
+      { path: string; content: string },
+      { _tag: string; path: string }
     >;
-    GetPackageFiles: (input: {
-      monorepoRoot: string;
-      packagePath: string;
-    }) => Effect.Effect<{
-      files: { path: string; content: string; binary?: boolean }[];
-    }>;
   }>('test/DevtoolsClient');
   const context = Context.make(DevtoolsClient, {
     AnalyzeMonorepo: () => {
@@ -109,22 +105,12 @@ vi.mock('../../../client/devtools-rpc/index.js', () => {
         ? Effect.succeed(analysis)
         : Effect.fail({ _tag: 'NotPnpmWorkspaceError' });
     },
-    GetPackageReadme: ({ packagePath, relativePath = 'README.md' }) => {
-      const markdown = markdownFiles[`${packagePath}/${relativePath}`];
-      return markdown === undefined
-        ? Effect.fail({ _tag: 'PackageReadmeNotFoundError' })
-        : Effect.succeed({ path: relativePath, markdown });
+    GetMonorepoFile: ({ path }) => {
+      const content = monorepoFiles[path];
+      return content === undefined
+        ? Effect.fail({ _tag: 'MonorepoFileNotFoundError', path })
+        : Effect.succeed({ path, content });
     },
-    GetPackageFiles: ({ packagePath }) =>
-      Effect.succeed({
-        files: [
-          {
-            path: `${packagePath}/src/index.ts`,
-            content: 'export const core = 1;\n',
-          },
-          { path: `${packagePath}/logo.png`, content: '', binary: true },
-        ],
-      }),
   });
   return {
     DevtoolsClient,
@@ -137,11 +123,7 @@ vi.mock('../../git-changes/index.js', () => ({
     setBaseRef: () => {},
     changes: state.changes,
     branches: [],
-    knownFiles: [
-      'packages/core/src/index.ts',
-      'packages/core/logo.png',
-      'packages/bare/package.json',
-    ],
+    knownFiles: Object.keys(monorepoFiles),
     loadFileDiff: () => Effect.never,
   }),
 }));
@@ -207,6 +189,12 @@ Object.assign(globalThis, {
     m22 = 1;
   },
 });
+// jsdom lays nothing out, so it cannot scroll.
+Element.prototype.scrollIntoView = () => {};
+Element.prototype.scrollTo = () => {};
+Object.assign(globalThis, {
+  CSS: { escape: (value: string) => value.replace(/["\\]/g, '\\$&') },
+});
 window.matchMedia = () =>
   ({
     matches: false,
@@ -238,18 +226,16 @@ async function waitFor(check: () => boolean) {
   throw new Error('Condition not met in time.');
 }
 
-function dialogs() {
-  return document.querySelectorAll('[data-slot="dialog-content"]');
+function card(path: string) {
+  return document.querySelector<HTMLElement>(
+    `[role="button"][aria-label="${path}"]`,
+  );
 }
 
-async function rightClick(packageName: string) {
-  await waitFor(
-    () => document.querySelector(`[data-id="${packageName}"]`) !== null,
-  );
+async function onCard(path: string, type: 'contextmenu' | 'dblclick') {
+  await waitFor(() => card(path) !== null);
   await act(async () => {
-    document
-      .querySelector(`[data-id="${packageName}"]`)!
-      .dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+    card(path)!.dispatchEvent(new MouseEvent(type, { bubbles: true }));
   });
 }
 
@@ -272,65 +258,77 @@ test('reload recovers after a missing workspace is restored', async () => {
   expect(state.calls).toBe(3);
 });
 
-test('right-click opens the Package README and relative links stack dialogs', async () => {
-  state.realBlock = true;
-  state.available = true;
-  router.set({ monorepo: '/repo' });
-  await act(async () => root.render(<Monoverse />));
-
-  await rightClick('core');
-  expect(router.get()).toMatchObject({
-    package: 'core',
-    readme: ['README.md'],
-  });
-  await waitFor(
-    () => document.body.textContent?.includes('eschema notes') ?? false,
-  );
-  expect(dialogs()).toHaveLength(1);
-  expect(
-    document.querySelector('[data-slot="dialog-content"] h1')?.textContent,
-  ).toBe('Core');
-  expect(tab('documentation')?.getAttribute('aria-selected')).toBe('true');
-
-  await act(async () => {
-    document
-      .querySelector<HTMLAnchorElement>('a[href="src/eschema/README.md"]')!
-      .click();
-  });
-  expect(router.get()).toMatchObject({
-    readme: ['README.md', 'src/eschema/README.md'],
-  });
-  await waitFor(
-    () => document.body.textContent?.includes('Nested notes') ?? false,
-  );
-  expect(dialogs()).toHaveLength(2);
-
-  const closeButtons = document.querySelectorAll<HTMLButtonElement>(
-    '[data-slot="dialog-close"]',
-  );
-  await act(async () => {
-    closeButtons[closeButtons.length - 1]!.click();
-  });
-  expect(router.get()).toMatchObject({ readme: ['README.md'] });
-  await waitFor(() => dialogs().length === 1);
-  expect(document.body.textContent).toContain('eschema notes');
-  expect(document.body.textContent).not.toContain('Nested notes');
-});
-
-test('a Package without README opens on its files', async () => {
+test("right-click lists a Package's files, its README first", async () => {
   state.realBlock = true;
   state.available = true;
   state.changes = undefined;
   router.set({ monorepo: '/repo' });
   await act(async () => root.render(<Monoverse />));
 
-  await rightClick('bare');
-  await waitFor(() => tab('files')?.getAttribute('aria-selected') === 'true');
-  expect(dialogs()).toHaveLength(1);
-  expect(tab('documentation')?.hasAttribute('data-disabled')).toBe(true);
+  await onCard('packages/core', 'contextmenu');
+  await waitFor(
+    () => document.body.textContent?.includes('What the core holds.') ?? false,
+  );
+  expect(document.body.textContent).toContain('index.ts');
 });
 
-test('changed Packages are marked and their changed files open first', async () => {
+test('right-click on the empty canvas lists every file of the Monorepo', async () => {
+  state.realBlock = true;
+  state.available = true;
+  state.changes = undefined;
+  router.set({ monorepo: '/repo' });
+  await act(async () => root.render(<Monoverse />));
+
+  await waitFor(() => card('packages/core') !== null);
+  const ground = document.querySelector<HTMLElement>(
+    '[role="tree"][aria-label="Laymo of repo"]',
+  )!;
+  await act(async () => {
+    ground.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+  });
+  await waitFor(
+    () => document.body.textContent?.includes('The whole repo') ?? false,
+  );
+  expect(document.body.textContent).toContain('4 files');
+});
+
+test('double-click opens a Package in Laymos, or a Package without one on its files', async () => {
+  state.realBlock = true;
+  state.available = true;
+  state.changes = undefined;
+  router.set({ monorepo: '/repo' });
+  await act(async () => root.render(<Monoverse />));
+
+  await onCard('packages/bare', 'dblclick');
+  expect(router.get().laymos).toBeUndefined();
+  await waitFor(
+    () => document.body.textContent?.includes('package.json') ?? false,
+  );
+
+  await onCard('packages/core', 'dblclick');
+  expect(router.get()).toMatchObject({ laymos: 'core' });
+});
+
+test('a Package carries the Laymos badge, and the Stories badge when it has Stories', async () => {
+  state.realBlock = true;
+  state.available = true;
+  state.changes = undefined;
+  router.set({ monorepo: '/repo' });
+  await act(async () => root.render(<Monoverse />));
+
+  await waitFor(() => card('packages/core') !== null);
+  const badges = (path: string) =>
+    [...card(path)!.querySelectorAll('[role="img"]')].map((badge) =>
+      badge.getAttribute('aria-label'),
+    );
+  expect(badges('packages/core')).toEqual([
+    'Has a Laymos Config',
+    'Has Stories',
+  ]);
+  expect(badges('packages/bare')).toEqual([]);
+});
+
+test('a changed Package is marked in the outline', async () => {
   state.realBlock = true;
   state.available = true;
   state.changes = {
@@ -347,64 +345,11 @@ test('changed Packages are marked and their changed files open first', async () 
   router.set({ monorepo: '/repo' });
   await act(async () => root.render(<Monoverse />));
 
-  await waitFor(
-    () =>
-      document.querySelector('[data-id="core"] [title="Modified"]') !== null,
-  );
-  expect(document.querySelector('[data-id="bare"] [title="Modified"]')).toBe(
-    null,
-  );
-
-  await rightClick('core');
-  await act(async () => tab('files')!.click());
-  await waitFor(() => document.body.textContent?.includes('logo.png') ?? false);
-  expect(document.body.textContent).toContain('Loading diff…');
+  const marked = () =>
+    [...document.querySelectorAll('[role="treeitem"]')]
+      .filter((row) => row.querySelector('[aria-label="modified"]') !== null)
+      .map((row) => row.textContent);
+  await waitFor(() => marked().length > 0);
+  expect(marked()).toEqual(['packages', 'core']);
   state.changes = undefined;
 });
-
-test('Open in Laymos hides the dialog and closing Laymos restores it as left', async () => {
-  state.realBlock = true;
-  state.available = true;
-  state.changes = undefined;
-  router.set({ monorepo: '/repo' });
-  await act(async () => root.render(<Monoverse />));
-
-  await rightClick('core');
-  await waitFor(() => tab('files') !== undefined);
-  await act(async () => tab('files')!.click());
-  await waitFor(() => tab('files')?.getAttribute('aria-selected') === 'true');
-
-  await act(async () => button('Open in Laymos')!.click());
-  expect(router.get()).toMatchObject({
-    laymos: 'core',
-    readme: ['README.md'],
-  });
-  await waitFor(() => dialogs().length === 0);
-
-  await act(async () => router.set({ ...router.get(), laymos: undefined }));
-  await waitFor(() => dialogs().length === 1);
-  expect(tab('files')?.getAttribute('aria-selected')).toBe('true');
-});
-
-test('Open in Laymos is not offered without a Laymos badge', async () => {
-  state.realBlock = true;
-  state.available = true;
-  router.set({ monorepo: '/repo' });
-  await act(async () => root.render(<Monoverse />));
-
-  await rightClick('bare');
-  await waitFor(() => tab('files') !== undefined);
-  expect(button('Open in Laymos')).toBeUndefined();
-});
-
-function button(label: string) {
-  return [...document.querySelectorAll<HTMLButtonElement>('button')].find(
-    (element) => element.textContent?.trim() === label,
-  );
-}
-
-function tab(name: 'documentation' | 'files') {
-  return [...document.querySelectorAll<HTMLButtonElement>('[role="tab"]')].find(
-    (element) => element.textContent?.toLowerCase() === name,
-  );
-}

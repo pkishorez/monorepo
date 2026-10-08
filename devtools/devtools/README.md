@@ -52,7 +52,7 @@ It merges the Lotel, Flow, Laymos, git, Monoverse, and Project registry groups.
 | `DevtoolsRpc`                      | The full RPC group served at `/rpc`.                                                                           |
 | `DevtoolsToolRpc`                  | The Laymos procedures: analyze, a Module's File list, one file, Story tree, saved Proof reports, Stories runs. |
 | `GitRpc`                           | Branches, changes, file diffs, and known files for any folder in a git repository.                             |
-| `MonoverseRpc`                     | The `AnalyzeMonorepo`, `GetPackageReadme`, and `GetPackageFiles` procedures.                                   |
+| `MonoverseRpc`                     | The `AnalyzeMonorepo` and `GetMonorepoFile` procedures.                                                        |
 | `ProjectRegistryRpc`               | List, add, update, remove registered Projects and resolve their Worktrees.                                     |
 | `InvalidProjectPath`               | Error for a relative, missing, or non-directory project path.                                                  |
 | `ConfigReadError`                  | Error when `laymos.config.json` could not be read.                                                             |

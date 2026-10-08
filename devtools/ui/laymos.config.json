@@ -40,18 +40,15 @@
       "src/otel-trace-viewer/trace-viewer"
     ],
     "src/monoverse/monoverse": [
-      "src/monoverse/monorepo-canvas",
-      "src/monoverse/monorepo-presentation",
+      "src/monoverse/package-cards",
       "src/monoverse/laymos-drilldown",
-      "src/monoverse/package-details",
-      "src/monoverse/package-readme",
-      "src/monoverse/package-source",
-      "src/monoverse/package-tree"
+      "src/laymos/laymo",
+      "src/laymos/file-list"
     ],
-    "src/monoverse/monorepo-canvas": ["src/monoverse/monorepo-presentation"],
-    "src/monoverse/package-details": ["src/monoverse/monorepo-presentation"],
-    "src/monoverse/package-tree": ["src/monoverse/monorepo-presentation"],
-    "src/monoverse/package-source": ["src/monoverse/package-readme"],
+    "src/monoverse/package-cards": [
+      "src/laymos/laymo",
+      "src/laymos/project-changes"
+    ],
     "src/otel-trace-viewer/trace-viewer": [
       "src/otel-trace-viewer/trace-dock",
       "src/otel-trace-viewer/trace-list",

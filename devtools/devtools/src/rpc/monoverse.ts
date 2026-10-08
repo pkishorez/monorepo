@@ -1,9 +1,8 @@
 import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
 
-import { FolderFileSchema } from 'laymos/architecture-analysis-schema';
+import { FileContentSchema } from 'laymos/architecture-analysis-schema';
 
-import { GitUnavailableError } from './git.js';
 import { MonorepoAnalysisSchema } from './monorepo-schema.js';
 
 export class InvalidMonorepoPathError extends Schema.TaggedError<InvalidMonorepoPathError>(
@@ -36,51 +35,23 @@ export const AnalyzeMonorepoError = Schema.Union([
   MonorepoReadFailure,
 ]);
 
-export class PackageReadmeNotFoundError extends Schema.TaggedError<PackageReadmeNotFoundError>(
-  'PackageReadmeNotFoundError',
-)('PackageReadmeNotFoundError', { path: Schema.String }) {}
+export class MonorepoFileNotFoundError extends Schema.TaggedError<MonorepoFileNotFoundError>(
+  'MonorepoFileNotFoundError',
+)('MonorepoFileNotFoundError', { path: Schema.String }) {}
 
-export class PackageReadmeOutsidePackageError extends Schema.TaggedError<PackageReadmeOutsidePackageError>(
-  'PackageReadmeOutsidePackageError',
-)('PackageReadmeOutsidePackageError', { relativePath: Schema.String }) {}
+export class MonorepoFileOutsideError extends Schema.TaggedError<MonorepoFileOutsideError>(
+  'MonorepoFileOutsideError',
+)('MonorepoFileOutsideError', { path: Schema.String }) {}
 
-export class PackageReadmeReadError extends Schema.TaggedError<PackageReadmeReadError>(
-  'PackageReadmeReadError',
-)('PackageReadmeReadError', { path: Schema.String, message: Schema.String }) {}
+export class MonorepoFileReadError extends Schema.TaggedError<MonorepoFileReadError>(
+  'MonorepoFileReadError',
+)('MonorepoFileReadError', { path: Schema.String, message: Schema.String }) {}
 
-export const GetPackageReadmeError = Schema.Union([
-  PackageReadmeNotFoundError,
-  PackageReadmeOutsidePackageError,
-  PackageReadmeReadError,
+export const GetMonorepoFileError = Schema.Union([
+  MonorepoFileNotFoundError,
+  MonorepoFileOutsideError,
+  MonorepoFileReadError,
 ]);
-
-export const PackageReadmeSchema = Schema.Struct({
-  path: Schema.String,
-  markdown: Schema.String,
-}).annotate({
-  title: 'Package README',
-  description:
-    'One markdown file inside a Package. `path` is relative to the Package folder.',
-});
-
-export type PackageReadme = typeof PackageReadmeSchema.Type;
-
-export class PackageFileReadError extends Schema.TaggedError<PackageFileReadError>(
-  'PackageFileReadError',
-)('PackageFileReadError', { path: Schema.String, message: Schema.String }) {}
-
-export const GetPackageFilesError = Schema.Union([
-  GitUnavailableError,
-  PackageFileReadError,
-]);
-
-export const PackageFilesSchema = Schema.Struct({
-  files: Schema.Array(FolderFileSchema),
-}).annotate({
-  title: 'Package files',
-  description:
-    'The files git knows beneath one Package folder. Each `path` is relative to the Monorepo root, like the paths of its Change set.',
-});
 
 /** The contract DevTools merges into its RPC for the Monoverse Tool. */
 export const MonoverseRpc = RpcGroup.make(
@@ -89,18 +60,9 @@ export const MonoverseRpc = RpcGroup.make(
     success: MonorepoAnalysisSchema,
     error: AnalyzeMonorepoError,
   }),
-  Rpc.make('GetPackageReadme', {
-    payload: {
-      monorepoRoot: Schema.String,
-      packagePath: Schema.String,
-      relativePath: Schema.optional(Schema.String),
-    },
-    success: PackageReadmeSchema,
-    error: GetPackageReadmeError,
-  }),
-  Rpc.make('GetPackageFiles', {
-    payload: { monorepoRoot: Schema.String, packagePath: Schema.String },
-    success: PackageFilesSchema,
-    error: GetPackageFilesError,
+  Rpc.make('GetMonorepoFile', {
+    payload: { monorepoRoot: Schema.String, path: Schema.String },
+    success: FileContentSchema,
+    error: GetMonorepoFileError,
   }),
 );

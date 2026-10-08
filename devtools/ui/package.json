@@ -26,7 +26,6 @@
     "@kstackz/use-gesture": "workspace:*",
     "@kstackz/use-keys": "workspace:*",
     "@kstackz/web-platform": "workspace:*",
-    "@xyflow/react": "catalog:",
     "effect": "catalog:",
     "laymos": "workspace:*",
     "lucide-react": "catalog:",

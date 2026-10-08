@@ -943,9 +943,6 @@ importers:
       '@kstackz/web-platform':
         specifier: workspace:*
         version: link:../../platforms/web-platform
-      '@xyflow/react':
-        specifier: 'catalog:'
-        version: 12.11.6(@types/react-dom@19.2.7(@types/react@19.2.18))(@types/react@19.2.18)(immer@11.1.8)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       effect:
         specifier: 'catalog:'
         version: 4.0.0

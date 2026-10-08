@@ -58,8 +58,7 @@
       "src/server/get-laymos-files",
       "src/server/get-laymos-stories",
       "src/server/get-laymos-story-reports",
-      "src/server/get-package-files",
-      "src/server/get-package-readme",
+      "src/server/get-monorepo-file",
       "src/server/git-changes",
       "src/server/run-laymos-stories"
     ],
