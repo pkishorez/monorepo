@@ -52,7 +52,7 @@ jobs:
         run: pnpm install --frozen-lockfile --filter @ledger/web...
 
       - name: Build
-        run: pnpm --filter 'kstack^...' run build
+        run: pnpm --filter '@ledger/web^...' run build
 
       - name: Look for the stage
         id: lookup
