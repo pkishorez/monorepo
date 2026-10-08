@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { ChangeStatus } from 'laymos';
 
 import {
@@ -161,7 +162,8 @@ const statusText: Readonly<Record<ChangeStatus, string>> = {
  * What a card says: its name and what it is. A card that holds others leads
  * with its own button to open and close it in place; pressing the rest of
  * the card only selects it. Inside a Wrapper, a lock marks a card only its
- * neighbours import, and a tag one imported from outside: exposed.
+ * neighbours import, and a tag one imported from outside: exposed. A card
+ * that fits its name grows past the usual width rather than cut it short.
  */
 export function LaymoCard({
   card,
@@ -170,6 +172,9 @@ export function LaymoCard({
   status,
   exposure,
   wrapper,
+  name: topName,
+  badges,
+  fitName = false,
   onToggle,
 }: {
   readonly card: LaymoNode;
@@ -180,6 +185,12 @@ export function LaymoCard({
   readonly exposure?: Exposure | undefined;
   /** The card it sits in, named in the lock's title. */
   readonly wrapper?: string | undefined;
+  /** What the top card is called, in place of the Project. */
+  readonly name?: string | undefined;
+  /** Markers after the name, such as what the card can be opened in. */
+  readonly badges?: ReactNode;
+  /** Grow to show the whole name; otherwise the name is cut to the width. */
+  readonly fitName?: boolean;
   /** Absent for a card that cannot close: it shows no toggle. */
   readonly onToggle?: (() => void) | undefined;
 }) {
@@ -187,9 +198,7 @@ export function LaymoCard({
   const Icon = lookIcons[look];
   const opens = !top && card.children.length > 0 && onToggle !== undefined;
   const name = top
-    ? card.node.path === '.'
-      ? 'Project'
-      : card.node.path
+    ? (topName ?? (card.node.path === '.' ? 'Project' : card.node.path))
     : card.title;
   return (
     <div
@@ -199,7 +208,10 @@ export function LaymoCard({
           ? 'text-[11px] font-medium uppercase tracking-wider text-muted-foreground'
           : 'font-medium',
       )}
-      style={{ width: laymoCardWidth, height: laymoCardHeight }}
+      style={{
+        ...(fitName ? { minWidth: laymoCardWidth } : { width: laymoCardWidth }),
+        height: laymoCardHeight,
+      }}
     >
       {opens ? (
         <button
@@ -237,12 +249,14 @@ export function LaymoCard({
       )}
       <span
         className={cn(
-          'min-w-0 flex-1 truncate',
+          'min-w-0 flex-1',
+          fitName ? 'whitespace-nowrap' : 'truncate',
           !top && status !== undefined && statusText[status],
         )}
       >
         {name}
       </span>
+      {badges}
       {exposure !== undefined && (
         <span
           role="img"

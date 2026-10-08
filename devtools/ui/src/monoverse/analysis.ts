@@ -12,6 +12,7 @@ export type Package = {
   readonly version?: string;
   readonly private: boolean;
   readonly hasLaymos: boolean;
+  readonly hasStories: boolean;
   readonly dependencies: readonly PackageDependency[];
 };
 

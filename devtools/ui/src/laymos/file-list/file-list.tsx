@@ -65,6 +65,8 @@ export interface FileListProps {
    * the tree opens down to them and no further; otherwise it opens whole.
    */
   readonly modules?: readonly string[] | undefined;
+  /** What the heading calls the listed folder; its path when absent. */
+  readonly title?: string | undefined;
   readonly onClose: () => void;
   readonly className?: string | undefined;
 }
@@ -160,6 +162,7 @@ export function FileList({
   changedPaths,
   loadFileDiff,
   modules = [],
+  title,
   onClose,
   className,
 }: FileListProps) {
@@ -396,7 +399,7 @@ export function FileList({
               reading && 'max-sm:hidden',
             )}
           >
-            {modulePath}
+            {title ?? modulePath}
           </h2>
           {list.kind === 'ready' && (
             <p className="mt-1.5 text-xs text-muted-foreground max-sm:hidden">

@@ -27,11 +27,12 @@ export const PackageSchema = Schema.Struct({
   version: Schema.optional(Schema.String),
   private: Schema.Boolean,
   hasLaymos: Schema.Boolean,
+  hasStories: Schema.Boolean,
   dependencies: Schema.Array(PackageDependencySchema),
 }).annotate({
   title: 'Package',
   description:
-    'One node of a Monorepo: a folder matched by the workspace globs that holds a package.json. `path` is relative to the Monorepo root; `group` is the first path segment. `hasLaymos` is the Laymos badge.',
+    'One node of a Monorepo: a folder matched by the workspace globs that holds a package.json. `path` is relative to the Monorepo root; `group` is the first path segment. `hasLaymos` is the Laymos badge; `hasStories` is the Stories badge, set when that Laymos Config declares a Stories path.',
 });
 
 export type Package = typeof PackageSchema.Type;

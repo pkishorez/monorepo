@@ -32,11 +32,9 @@ export {
   MonorepoReadFailure,
   MonoverseRpc,
   NotPnpmWorkspaceError,
-  PackageFileReadError,
-  PackageReadmeNotFoundError,
-  PackageReadmeOutsidePackageError,
-  PackageReadmeReadError,
-  type PackageReadme,
+  MonorepoFileNotFoundError,
+  MonorepoFileOutsideError,
+  MonorepoFileReadError,
 } from './monoverse.js';
 export type {
   DependencyKind,

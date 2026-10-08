@@ -31,7 +31,7 @@ import {
   type Placement,
   type Size,
 } from '../canvas-space';
-import { indexChanges } from '../project-changes';
+import { indexChanges, type ChangeIndex } from '../project-changes';
 import {
   LaymoCard,
   laymoCardHeight,
@@ -47,7 +47,7 @@ import {
   type EdgeTone,
 } from './edges/edge-layer';
 import { laymoLayers } from './layers';
-import { FindingsStrip, findingsOf } from './findings-strip';
+import { FindingsStrip, findingsOf, type FindingCount } from './findings-strip';
 import {
   endsOf,
   laymoLines,
@@ -91,8 +91,38 @@ export interface LaymoProps {
   readonly onOpenFiles: (path: string) => void;
   /** A panel shown over the dimmed space, as the File list is. */
   readonly panel?: LaymoPanel | undefined;
+  /** A double-click on a card or an outline row: open what `path` is. */
+  readonly onOpen?: ((path: string) => void) | undefined;
+  /**
+   * For a picture whose cards are not Modules, such as a Monorepo's
+   * Packages: the change standings by card path, taking the place of
+   * reading `changes` against the Module tree.
+   */
+  readonly changeIndex?: ChangeIndex | undefined;
+  /** The counts at the bottom; a Project's findings when absent. */
+  readonly findings?: readonly FindingCount[] | undefined;
+  /** Whether the Rule list stands under the outline. */
+  readonly showRules?: boolean | undefined;
+  /** What the cards are, plural: the side panel's title. */
+  readonly cardsNoun?: string | undefined;
+  /** What the top card is called, in place of the Project. */
+  readonly projectName?: string | undefined;
+  /** Markers after a card's name, by the card's path. */
+  readonly badgesOf?: ((path: string) => ReactNode) | undefined;
+  /** The cards open from the start, beside the Project card. */
+  readonly initiallyOpen?: readonly string[] | undefined;
+  /** Grow cards to show whole names rather than cut them to one width. */
+  readonly fitNames?: boolean | undefined;
+  /** What the hint line says pointing and clicking do. */
+  readonly hints?: readonly string[] | undefined;
   readonly className?: string | undefined;
 }
+
+const defaultHints = [
+  'click to select',
+  '› opens in place',
+  'right-click for files',
+];
 
 /**
  * The Laymo: a Project's architecture as a space of cards, with the Module
@@ -144,13 +174,24 @@ function Canvas({
   showDeleted = true,
   onOpenFiles,
   panel,
+  onOpen,
+  changeIndex: givenChangeIndex,
+  findings: givenFindings,
+  showRules = true,
+  cardsNoun = 'Modules',
+  projectName,
+  badgesOf,
+  initiallyOpen,
+  fitNames = false,
+  hints = defaultHints,
   className,
 }: LaymoProps) {
   const reducedMotion = useReducedMotion() ?? false;
   const changeIndex = useMemo(
     () =>
-      changes === undefined ? undefined : indexChanges(fullAnalysis, changes),
-    [fullAnalysis, changes],
+      givenChangeIndex ??
+      (changes === undefined ? undefined : indexChanges(fullAnalysis, changes)),
+    [givenChangeIndex, fullAnalysis, changes],
   );
   // With changes shown, the Modules they deleted stand where they were; with
   // only the changed asked for, the untouched cards leave the picture, and
@@ -184,7 +225,12 @@ function Canvas({
   const loneKey =
     tree.root.children.length === 1 ? tree.root.children[0]!.key : undefined;
   const [open, setOpen] = useState<ReadonlySet<string>>(
-    () => new Set(loneKey === undefined ? [rootKey] : [rootKey, loneKey]),
+    () =>
+      new Set([
+        rootKey,
+        ...(loneKey === undefined ? [] : [loneKey]),
+        ...(initiallyOpen ?? []).filter((key) => tree.byKey.has(key)),
+      ]),
   );
   useEffect(() => {
     if (loneKey !== undefined && !open.has(loneKey))
@@ -215,7 +261,10 @@ function Canvas({
     (node: LaymoNode) => changeIndex?.modules.get(topPathOf(node)),
     [changeIndex],
   );
-  const findings = useMemo(() => findingsOf(fullAnalysis), [fullAnalysis]);
+  const findings = useMemo(
+    () => givenFindings ?? findingsOf(fullAnalysis),
+    [givenFindings, fullAnalysis],
+  );
   const entries = useMemo(() => ruleEntriesOf(fullAnalysis), [fullAnalysis]);
   // Inside a Wrapper the outside imports, whether it imports each card.
   const exposure = useMemo(() => {
@@ -262,11 +311,14 @@ function Canvas({
   >(undefined);
 
   const sizeOf = useCallback(
-    (node: LaymoNode): Size => ({
-      width: laymoCardWidth,
-      height: sizes.current.get(node.key)?.height ?? laymoCardHeight,
-    }),
-    [],
+    (node: LaymoNode): Size => {
+      const measured = sizes.current.get(node.key);
+      return {
+        width: fitNames ? (measured?.width ?? laymoCardWidth) : laymoCardWidth,
+        height: measured?.height ?? laymoCardHeight,
+      };
+    },
+    [fitNames],
   );
 
   const lay = useCallback(
@@ -543,8 +595,10 @@ function Canvas({
       <SpaceViewport
         space={space}
         inert={panelOpen}
-        label={`Laymo of ${tree.root.node.path === '.' ? 'the Project' : tree.root.node.path}`}
+        label={`Laymo of ${projectName ?? (tree.root.node.path === '.' ? 'the Project' : tree.root.node.path)}`}
         onGroundClick={() => setSelection(undefined)}
+        // The ground stands for the whole Project, as its top card does.
+        onGroundContextMenu={() => openFiles(tree.root)}
         overlay={
           <>
             <div className="pointer-events-none absolute right-3 top-3 z-10 flex items-center gap-2">
@@ -553,8 +607,8 @@ function Canvas({
                 {!sideOpen && (
                   <button
                     type="button"
-                    aria-label="Show the Module outline and Rules"
-                    title="Show the Module outline and Rules"
+                    aria-label={`Show the ${cardsNoun} outline`}
+                    title={`Show the ${cardsNoun} outline`}
                     onClick={() => setSideOpen(true)}
                     className="flex size-8 items-center justify-center rounded-md bg-background/90 text-muted-foreground shadow-xs ring-1 ring-border backdrop-blur-sm transition-colors hover:bg-muted hover:text-foreground"
                   >
@@ -584,15 +638,11 @@ function Canvas({
               ) : (
                 <HintLine
                   moves={['Drag to move', 'scroll or pinch to zoom']}
-                  hints={[
-                    'click to select',
-                    '› opens in place',
-                    'right-click for files',
-                  ]}
+                  hints={hints}
                   className="min-w-0 flex-1"
                 />
               )}
-              <FindingsStrip findings={findings} onReveal={select} />
+              <FindingsStrip counts={findings} onReveal={select} />
             </div>
           </>
         }
@@ -669,6 +719,11 @@ function Canvas({
                 onActivate={() => press(card.key, 'laymo')}
                 onFocus={() => {}}
                 onContextMenu={() => openFiles(node)}
+                onDoubleClick={
+                  onOpen === undefined || top
+                    ? undefined
+                    : () => onOpen(topPathOf(node))
+                }
                 onHover={(hovering) => {
                   if (!top && !lone) point(card.key, hovering);
                 }}
@@ -680,6 +735,9 @@ function Canvas({
                   status={status}
                   exposure={exposure.get(card.key)}
                   wrapper={parent?.node.path}
+                  name={top ? projectName : undefined}
+                  badges={top ? undefined : badgesOf?.(topPathOf(node))}
+                  fitName={fitNames}
                   onToggle={lone ? undefined : () => toggle(card.key)}
                 />
               </CardFrame>
@@ -691,16 +749,16 @@ function Canvas({
       {sideOpen && (
         <aside
           inert={panelOpen}
-          aria-label="Module outline and Rules"
+          aria-label={`${cardsNoun} outline`}
           className="flex w-72 shrink-0 flex-col border-l border-border bg-background max-sm:hidden"
         >
           <div className="flex h-10 shrink-0 items-center justify-between gap-2 border-b border-border ps-3 pe-1.5">
             <h3 className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-              Modules
+              {cardsNoun}
             </h3>
             <button
               type="button"
-              aria-label="Hide the Module outline and Rules"
+              aria-label={`Hide the ${cardsNoun} outline`}
               title="Hide"
               onClick={() => setSideOpen(false)}
               className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
@@ -708,7 +766,12 @@ function Canvas({
               <PanelRightClose className="size-4" />
             </button>
           </div>
-          <div className="min-h-0 flex-[3] overflow-auto">
+          <div
+            className={cn(
+              'min-h-0 overflow-auto',
+              showRules ? 'flex-[3]' : 'flex-1',
+            )}
+          >
             <ModuleOutline
               tree={tree}
               selectedKey={selectedKey}
@@ -716,16 +779,31 @@ function Canvas({
               changeStatusOf={changeStatusOf}
               onPress={(key) => press(key, 'outline')}
               onOpenFiles={openFiles}
+              onOpen={
+                onOpen === undefined
+                  ? undefined
+                  : (card) => onOpen(topPathOf(card))
+              }
+              badgesOf={
+                badgesOf === undefined
+                  ? undefined
+                  : (card) => badgesOf(topPathOf(card))
+              }
+              label={`${cardsNoun} outline`}
             />
           </div>
-          <div className="min-h-0 flex-[2] overflow-auto border-t border-border">
-            <RuleList
-              entries={entries}
-              selectedId={selection?.kind === 'rule' ? selection.id : undefined}
-              litIds={selectedKey === undefined ? undefined : lines.ruleIds}
-              onChoose={choose}
-            />
-          </div>
+          {showRules && (
+            <div className="min-h-0 flex-[2] overflow-auto border-t border-border">
+              <RuleList
+                entries={entries}
+                selectedId={
+                  selection?.kind === 'rule' ? selection.id : undefined
+                }
+                litIds={selectedKey === undefined ? undefined : lines.ruleIds}
+                onChoose={choose}
+              />
+            </div>
+          )}
         </aside>
       )}
 

@@ -47,15 +47,20 @@ export function readPackageManifest(
     if (!isRecord(json) || typeof json.name !== 'string' || json.name === '') {
       return undefined;
     }
-    const hasLaymos = yield* fileSystem
-      .exists(join(monorepoRoot, packagePath, 'laymos.config.json'))
-      .pipe(Effect.orElseSucceed(() => false));
+    // Absent or unreadable, a Laymos Config means no Laymos badge; one that
+    // names a Stories path earns the Stories badge too.
+    const laymosConfig = yield* fileSystem
+      .readFileString(join(monorepoRoot, packagePath, 'laymos.config.json'))
+      .pipe(Effect.orElseSucceed(() => undefined));
+    const hasLaymos = laymosConfig !== undefined;
+    const hasStories = hasLaymos && declaresStories(laymosConfig);
     return {
       name: json.name,
       path: packagePath,
       ...(typeof json.version === 'string' ? { version: json.version } : {}),
       private: json.private === true,
       hasLaymos,
+      hasStories,
       declared: {
         runtime: namesOf(json, 'runtime'),
         dev: namesOf(json, 'dev'),
@@ -68,6 +73,15 @@ export function readPackageManifest(
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function declaresStories(config: string): boolean {
+  try {
+    const json = JSON.parse(config) as unknown;
+    return isRecord(json) && typeof json.storiesPath === 'string';
+  } catch {
+    return false;
+  }
 }
 
 function namesOf(

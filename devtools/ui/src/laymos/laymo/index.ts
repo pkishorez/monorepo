@@ -1,4 +1,5 @@
 export { Laymo } from './laymo';
+export type { FindingCount } from './findings-strip';
 export type { LaymoPanel, LaymoProps } from './laymo';
 export {
   LaymoCard,

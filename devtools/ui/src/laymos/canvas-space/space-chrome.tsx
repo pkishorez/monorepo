@@ -25,6 +25,7 @@ export function SpaceViewport({
   role = 'tree',
   overlay,
   onGroundClick,
+  onGroundContextMenu,
   children,
 }: {
   readonly space: Space;
@@ -34,6 +35,8 @@ export function SpaceViewport({
   readonly overlay?: ReactNode;
   /** A click on the empty ground, not on a card or anything over it. */
   readonly onGroundClick?: (() => void) | undefined;
+  /** A right-click on the empty ground. */
+  readonly onGroundContextMenu?: (() => void) | undefined;
   readonly children: ReactNode;
 }) {
   // Below full zoom, the focus outline grows so it stays as thick on screen.
@@ -53,6 +56,15 @@ export function SpaceViewport({
           ? undefined
           : (event) => {
               if (event.target === event.currentTarget) onGroundClick();
+            }
+      }
+      onContextMenu={
+        onGroundContextMenu === undefined
+          ? undefined
+          : (event) => {
+              if (event.target !== event.currentTarget) return;
+              event.preventDefault();
+              onGroundContextMenu();
             }
       }
       className="relative min-w-0 flex-1 cursor-grab touch-none select-none overflow-clip overscroll-none active:cursor-grabbing"

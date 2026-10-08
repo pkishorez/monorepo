@@ -12,7 +12,7 @@ import { pathTo, type LaymoNode, type LaymoTree } from '../laymo-tree';
  * Modules. A row is pressed like its card; right-click lists its files. The
  * selected row is revealed and scrolled to, and the rows a selection lights
  * are tinted. A dot says what changed: green added, yellow modified, red
- * deleted.
+ * deleted. A double-click opens the row as its card does.
  */
 export function ModuleOutline({
   tree,
@@ -21,6 +21,9 @@ export function ModuleOutline({
   changeStatusOf,
   onPress,
   onOpenFiles,
+  onOpen,
+  badgesOf,
+  label = 'Module outline',
 }: {
   readonly tree: LaymoTree;
   readonly selectedKey: string | undefined;
@@ -28,6 +31,9 @@ export function ModuleOutline({
   readonly changeStatusOf: (card: LaymoNode) => ChangeStatus | undefined;
   readonly onPress: (key: string) => void;
   readonly onOpenFiles: (card: LaymoNode) => void;
+  readonly onOpen?: ((card: LaymoNode) => void) | undefined;
+  readonly badgesOf?: ((card: LaymoNode) => ReactNode) | undefined;
+  readonly label?: string;
 }) {
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(
     () => new Set(tree.root.children.map((card) => card.key)),
@@ -74,6 +80,7 @@ export function ModuleOutline({
           aria-selected={selected}
           aria-expanded={holds ? isOpen : undefined}
           onClick={() => onPress(card.key)}
+          onDoubleClick={onOpen === undefined ? undefined : () => onOpen(card)}
           onContextMenu={(event) => {
             event.preventDefault();
             onOpenFiles(card);
@@ -110,7 +117,10 @@ export function ModuleOutline({
             aria-hidden
             className="size-3.5 shrink-0 text-muted-foreground"
           />
-          <span className="min-w-0 flex-1 truncate">{card.title}</span>
+          <span className="min-w-0 flex-1 truncate" title={card.title}>
+            {card.title}
+          </span>
+          {badgesOf?.(card)}
           {status !== undefined && (
             <span
               aria-label={status}
@@ -136,11 +146,7 @@ export function ModuleOutline({
   };
 
   return (
-    <ul
-      role="tree"
-      aria-label="Module outline"
-      className="flex flex-col gap-px p-1.5"
-    >
+    <ul role="tree" aria-label={label} className="flex flex-col gap-px p-1.5">
       {tree.root.children.map((card) => row(card, 0))}
     </ul>
   );
