@@ -3,6 +3,37 @@
 Foldkit's examples, ported to Effect Oak to see what fits. Each demo has its
 own `notes.md`. This page has one row per demo and the blockers they found.
 
+## Summary
+
+35 Foldkit examples: 21 work, 12 are partial, 2 are skipped (ssr and ssg),
+none is blocked. Every partial demo runs; "partial" means a blocker forced
+a visible compromise. Nothing broke the build, the Shell or Time Travel.
+
+Library blockers, by how many demos hit them (details below):
+
+| Rank | Blocker                                                                                                                                                              | Demos  |
+| ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| 1    | 5. Testing: no typed way to run one Update or draw one View                                                                                                          | 33     |
+| 2    | 4. Testing: Commands are anonymous Effects                                                                                                                           | 27     |
+| 3    | 13. A parent cannot pass data to a Child (or read it)                                                                                                                | 12     |
+| 4    | 10. Lifetimes and Children belong to exactly one State                                                                                                               | 11     |
+| 5    | 3. Children (and the root) cannot be given input on creation                                                                                                         | 9      |
+| 6    | 6. Testing: no way to emit a Lifetime's Message                                                                                                                      | 8      |
+| 6    | 15. No routing                                                                                                                                                       | 8      |
+| 8    | 14. A parent cannot send its Child a Message                                                                                                                         | 6      |
+| 9    | 1. No list of Children                                                                                                                                               | 5      |
+| 10   | 11. Each State is drawn by its own keyed component                                                                                                                   | 4      |
+| 11   | 7. No way to stop one Command                                                                                                                                        | 3      |
+| 11   | 12. A Lifetime cannot follow the Model                                                                                                                               | 3      |
+| 13   | 9. A State cannot Provide a resource that an Effect builds                                                                                                           | 2      |
+| 13   | 20. Runs only in the browser: no SSR, SSG or hydration                                                                                                               | 2      |
+| 15   | 2, 8, 16, 17, 18, 19, 21 (crash handling, slow-work hook, `useFrameValue`, Transitions as data, View Transition hook, running outside React, generic Node factories) | 1 each |
+
+Outside testing, the parent ↔ Child gap (13 and 14) and the one-State rule
+(10, with 11) shape the most code: they are why steps, pages and component
+open/closed flags end up as Model data, and why Children report every change
+up through Requests.
+
 ## Wiring a demo
 
 - Code lives in `<slug>/`, a deep module. `index.ts` exports the Node and its View (and the Layer, if the app needs Services).
@@ -15,42 +46,43 @@ own `notes.md`. This page has one row per demo and the blockers they found.
 
 ## Demos
 
-| Demo                                                      | Group                  | Status  | Note                                                                                            |
-| --------------------------------------------------------- | ---------------------- | ------- | ----------------------------------------------------------------------------------------------- |
-| [counter](counter/notes.md)                               | Basics                 | works   | One Node, three Messages.                                                                       |
-| [counters](counters/notes.md)                             | Basics                 | partial | Rows are Foldkit-style Submodels in the parent's Model; they cannot be child Nodes.             |
-| [stopwatch](stopwatch/notes.md)                           | Basics                 | works   | Two States and no ticks: the View draws the running time at each Frame.                         |
-| [crash-view](crash-view/notes.md)                         | Basics                 | partial | No crash hook: the View catches the throw itself, and the crash is outside the Log.             |
-| [todo](todo/notes.md)                                     | Basics                 | partial | Loading Lifetime, Composer child Node with a Request, saving Commands; rows are not Nodes.      |
-| [weather](weather/notes.md)                               | Commands and Lifetimes | works   | States for Idle, Loading, Loaded, Failed; real Open-Meteo API through a Forecast Service.       |
-| [interrupting-commands](interrupting-commands/notes.md)   | Commands and Lifetimes | partial | Cancel all is `replaceCommands`; cancelling one needs a demo Service that keys work by id.      |
-| [slow-warnings](slow-warnings/notes.md)                   | Commands and Lifetimes | partial | No slow hook: the View times Update, View and patch work itself. Subscription phase skipped.    |
-| [managed-resource-layer](managed-resource-layer/notes.md) | Commands and Lifetimes | works   | A Lifetime holds the engine's Layer for as long as On lasts; a host Service keeps the engine.   |
-| [form](form/notes.md)                                     | Commands and Lifetimes | works   | Three field Nodes from one factory report up by Request; latest email check wins by replacing.  |
-| [websocket-chat](websocket-chat/notes.md)                 | Commands and Lifetimes | works   | Real echo socket held open by Online's Lifetime; Composer child sends through a Service.        |
-| [road](game/notes.md) (code `game/`)                      | Graphics               | works   | Effect Oak's own demo, moved to `/demos/effect-oak/road`.                                       |
-| [canvas-art](canvas-art/notes.md)                         | Graphics               | works   | No ticks: each ball's place is a formula of the box's clock, drawn at each Frame.               |
-| [snake](snake/notes.md)                                   | Graphics               | works   | Ticks, as a chain of Commands: a Lifetime cannot speed up with the score.                       |
-| [generative-art](generative-art/notes.md)                 | Graphics               | partial | Particles stepped in the View between Messages; the sliders cannot be Child Nodes.              |
-| [pixel-art](pixel-art/notes.md)                           | Graphics               | partial | Tools and Export are Children; the resize picker cannot be one: no data from parent to Child.   |
-| [api-cache](api-cache/notes.md)                           | Data                   | works   | Each tab a Child with its cache as AsyncData; Stats ask the Tabs Service before refetching.     |
-| [api-cache-query](api-cache-query/notes.md)               | Data                   | partial | Queries are Nodes; the app can only tell them what to load through a mailbox Service.           |
-| [query-sync](query-sync/notes.md)                         | Data                   | works   | No router: the URL is a Service each Node listens to; Time Travel does not move the URL.        |
-| [charting](charting/notes.md)                             | Data                   | works   | Live npm and GitHub data drawn as SVG from the Model, so no chart sync Commands.                |
-| [map](map/notes.md)                                       | Data                   | works   | OSM tiles; the camera and flights are Model data drawn at every Frame.                          |
-| [shopping-cart](shopping-cart/notes.md)                   | Apps                   | partial | Pages are States; leaving one destroys its Child, and products cannot show cart quantities.     |
-| [kanban](kanban/notes.md)                                 | Apps                   | works   | Drag is a State whose Lifetime follows the pointer; add-card forms are one Node per column.     |
-| [auth](auth/notes.md)                                     | Apps                   | works   | Signed-out and signed-in sites are Children of their States; pages are States, no URLs.         |
-| [state-machine](state-machine/notes.md)                   | Apps                   | partial | The checkout is one Node's States; Transitions are not data, so no chart or analysis.           |
-| [routing](routing/notes.md)                               | Routing and host       | works   | Pages are root States heard from a Location Service; Time Travel does not move the URL.         |
-| [route-transitions](route-transitions/notes.md)           | Routing and host       | works   | Entry is a Child's Lifetime, staying and leaving are Update; the Studio reports every edit up.  |
-| [view-transitions](view-transitions/notes.md)             | Routing and host       | partial | The View wraps its Send in startViewTransition + flushSync; back and forward cannot animate.    |
-| [personal-blog](personal-blog/notes.md)                   | Routing and host       | works   | Tiny markdown formatter; pages are Model data so the Counter Child survives navigation.         |
-| [embedding](embedding/notes.md)                           | Routing and host       | works   | Hand-built `embed` into a plain DOM page, ports as a Service; one mount at a time.              |
-| [web-components](web-components/notes.md)                 | Routing and host       | works   | Two hand-made custom elements; React 19 binds properties and events, nothing was missing.       |
-| [ssr](ssr/notes.md)                                       | Routing and host       | skipped | Not built: Effect Oak runs only in the browser. Listed here only, not in `DEMOS`.               |
-| [ssg](ssg/notes.md)                                       | Routing and host       | skipped | Not built, for the same reasons as ssr. Listed here only, not in `DEMOS`.                       |
-| [job-application](job-application/notes.md)               | Large apps             | works   | Five step Children kept for the whole app; each reports its answers up so the root can preview. |
+| Demo                                                      | Group                  | Status  | Note                                                                                             |
+| --------------------------------------------------------- | ---------------------- | ------- | ------------------------------------------------------------------------------------------------ |
+| [counter](counter/notes.md)                               | Basics                 | works   | One Node, three Messages.                                                                        |
+| [counters](counters/notes.md)                             | Basics                 | partial | Rows are Foldkit-style Submodels in the parent's Model; they cannot be child Nodes.              |
+| [stopwatch](stopwatch/notes.md)                           | Basics                 | works   | Two States and no ticks: the View draws the running time at each Frame.                          |
+| [crash-view](crash-view/notes.md)                         | Basics                 | partial | No crash hook: the View catches the throw itself, and the crash is outside the Log.              |
+| [todo](todo/notes.md)                                     | Basics                 | partial | Loading Lifetime, Composer child Node with a Request, saving Commands; rows are not Nodes.       |
+| [weather](weather/notes.md)                               | Commands and Lifetimes | works   | States for Idle, Loading, Loaded, Failed; real Open-Meteo API through a Forecast Service.        |
+| [interrupting-commands](interrupting-commands/notes.md)   | Commands and Lifetimes | partial | Cancel all is `replaceCommands`; cancelling one needs a demo Service that keys work by id.       |
+| [slow-warnings](slow-warnings/notes.md)                   | Commands and Lifetimes | partial | No slow hook: the View times Update, View and patch work itself. Subscription phase skipped.     |
+| [managed-resource-layer](managed-resource-layer/notes.md) | Commands and Lifetimes | works   | A Lifetime holds the engine's Layer for as long as On lasts; a host Service keeps the engine.    |
+| [form](form/notes.md)                                     | Commands and Lifetimes | works   | Three field Nodes from one factory report up by Request; latest email check wins by replacing.   |
+| [websocket-chat](websocket-chat/notes.md)                 | Commands and Lifetimes | works   | Real echo socket held open by Online's Lifetime; Composer child sends through a Service.         |
+| [road](game/notes.md) (code `game/`)                      | Graphics               | works   | Effect Oak's own demo, moved to `/demos/effect-oak/road`.                                        |
+| [canvas-art](canvas-art/notes.md)                         | Graphics               | works   | No ticks: each ball's place is a formula of the box's clock, drawn at each Frame.                |
+| [snake](snake/notes.md)                                   | Graphics               | works   | Ticks, as a chain of Commands: a Lifetime cannot speed up with the score.                        |
+| [generative-art](generative-art/notes.md)                 | Graphics               | partial | Particles stepped in the View between Messages; the sliders cannot be Child Nodes.               |
+| [pixel-art](pixel-art/notes.md)                           | Graphics               | partial | Tools and Export are Children; the resize picker cannot be one: no data from parent to Child.    |
+| [api-cache](api-cache/notes.md)                           | Data                   | works   | Each tab a Child with its cache as AsyncData; Stats ask the Tabs Service before refetching.      |
+| [api-cache-query](api-cache-query/notes.md)               | Data                   | partial | Queries are Nodes; the app can only tell them what to load through a mailbox Service.            |
+| [query-sync](query-sync/notes.md)                         | Data                   | works   | No router: the URL is a Service each Node listens to; Time Travel does not move the URL.         |
+| [charting](charting/notes.md)                             | Data                   | works   | Live npm and GitHub data drawn as SVG from the Model, so no chart sync Commands.                 |
+| [map](map/notes.md)                                       | Data                   | works   | OSM tiles; the camera and flights are Model data drawn at every Frame.                           |
+| [shopping-cart](shopping-cart/notes.md)                   | Apps                   | partial | Pages are States; leaving one destroys its Child, and products cannot show cart quantities.      |
+| [kanban](kanban/notes.md)                                 | Apps                   | works   | Drag is a State whose Lifetime follows the pointer; add-card forms are one Node per column.      |
+| [auth](auth/notes.md)                                     | Apps                   | works   | Signed-out and signed-in sites are Children of their States; pages are States, no URLs.          |
+| [state-machine](state-machine/notes.md)                   | Apps                   | partial | The checkout is one Node's States; Transitions are not data, so no chart or analysis.            |
+| [routing](routing/notes.md)                               | Routing and host       | works   | Pages are root States heard from a Location Service; Time Travel does not move the URL.          |
+| [route-transitions](route-transitions/notes.md)           | Routing and host       | works   | Entry is a Child's Lifetime, staying and leaving are Update; the Studio reports every edit up.   |
+| [view-transitions](view-transitions/notes.md)             | Routing and host       | partial | The View wraps its Send in startViewTransition + flushSync; back and forward cannot animate.     |
+| [personal-blog](personal-blog/notes.md)                   | Routing and host       | works   | Tiny markdown formatter; pages are Model data so the Counter Child survives navigation.          |
+| [embedding](embedding/notes.md)                           | Routing and host       | works   | Hand-built `embed` into a plain DOM page, ports as a Service; one mount at a time.               |
+| [web-components](web-components/notes.md)                 | Routing and host       | works   | Two hand-made custom elements; React 19 binds properties and events, nothing was missing.        |
+| [ssr](ssr/notes.md)                                       | Routing and host       | skipped | Not built: Effect Oak runs only in the browser. Listed here only, not in `DEMOS`.                |
+| [ssg](ssg/notes.md)                                       | Routing and host       | skipped | Not built, for the same reasons as ssr. Listed here only, not in `DEMOS`.                        |
+| [job-application](job-application/notes.md)               | Large apps             | works   | Five step Children kept for the whole app; each reports its answers up so the root can preview.  |
+| [ui-showcase](ui-showcase/notes.md)                       | Large apps             | partial | Nine component factories, each a Node; all uncontrolled: parents hear picks but cannot set them. |
 
 ## Library blockers
 
@@ -60,7 +92,8 @@ own `notes.md`. This page has one row per demo and the blockers they found.
    [todo](todo/notes.md),
    [interrupting-commands](interrupting-commands/notes.md) and
    [job-application](job-application/notes.md) (positions and skills are
-   data in their step).
+   data in their step) and [ui-showcase](ui-showcase/notes.md) (toasts are
+   data in the root).
 2. **No crash handling.** An Update that throws throws out of `send`. It is not
    logged, the Runtime carries on, and there is no crash view or report hook.
    Hit by [crash-view](crash-view/notes.md).
@@ -76,6 +109,8 @@ own `notes.md`. This page has one row per demo and the blockers they found.
    from a Service, [ssr](ssr/notes.md) and [ssg](ssg/notes.md) need
    `init(flags)` to hydrate, and [job-application](job-application/notes.md)
    reads Foldkit's `today` flag in the View.
+   [ui-showcase](ui-showcase/notes.md) bakes a listbox's starting value
+   into its factory.
 4. **Testing: Commands are anonymous Effects.** A test cannot check which
    Command an Update asked for, or answer it with a chosen Message, the way
    Foldkit's `Command.expectHas` and `Command.resolve` do. Named Commands
@@ -101,7 +136,8 @@ own `notes.md`. This page has one row per demo and the blockers they found.
    Update's return, with the outcome as a Message) would fix it. Hit by
    [interrupting-commands](interrupting-commands/notes.md) and
    [job-application](job-application/notes.md) (replacing the email check
-   also stops a pending report).
+   also stops a pending report) and [ui-showcase](ui-showcase/notes.md) (a
+   dismissed toast's expiry keeps running).
 8. **No slow-work hook.** Nothing reports how long an Update or a View took,
    like Foldkit's `slow` callback. `onSlow` on `Runtime.start` and `toReact`,
    or a `tookMs` on each Log entry, would be the API. Hit by
@@ -131,13 +167,17 @@ own `notes.md`. This page has one row per demo and the blockers they found.
     [personal-blog](personal-blog/notes.md) (pages had to be Model data, not
     States, so the Counter Child survives navigation) and
     [job-application](job-application/notes.md) (the current step is Model
-    data, so no step's answers are lost on moving).
+    data, so no step's answers are lost on moving) and
+    [ui-showcase](ui-showcase/notes.md) (pages are Model data so every
+    component keeps its choice).
 11. **Each State is drawn by its own keyed component**, so DOM that should
     survive a Transition is remounted: an input loses focus. Letting a Node
     with States be drawn by one function would be the API. Hit by
     [form](form/notes.md) (field status moved out of States),
     [weather](weather/notes.md) and [auth](auth/notes.md) (login inputs
-    drawn again on Submitting).
+    drawn again on Submitting) and [ui-showcase](ui-showcase/notes.md)
+    (every component's open/closed is a boolean, since remounting the
+    trigger loses the focus it should return to).
 
 12. **A Lifetime cannot follow the Model.** It starts once, with the Model
     as it was on entering the State; Foldkit's Subscriptions restart when
@@ -173,6 +213,9 @@ own `notes.md`. This page has one row per demo and the blockers they found.
     nav, preview, review and submit need every step's answers, so each step
     reports its whole Part on every change, a second Schema per step
     (`parts.ts`) and a `Reported` Message after every edit.
+    [ui-showcase](ui-showcase/notes.md) shows it for reusable components:
+    options, panels and labels are fixed in each component's factory, and
+    no component can be controlled by its parent.
 
 14. **A parent cannot send its Child a Message.** Update can only change its
     own Node, so a parent that decides (a tab is shown, load this post) has
@@ -184,7 +227,9 @@ own `notes.md`. This page has one row per demo and the blockers they found.
     [api-cache-query](api-cache-query/notes.md) (a mailbox Service in the
     Layer), [charting](charting/notes.md), [map](map/notes.md) and
     [job-application](job-application/notes.md) (Submit reveals every step's
-    errors through a Reveals Service each step's Lifetime hears).
+    errors through a Reveals Service each step's Lifetime hears) and
+    [ui-showcase](ui-showcase/notes.md) (no parent can open a dialog or
+    clear a combobox, so every Dialog draws its own trigger).
 15. **No routing.** Pages work as a root's States, heard from a Location
     Service in the Layer ([routing](routing/notes.md) has the full list).
     What a router needs from Effect Oak:
@@ -256,8 +301,22 @@ own `notes.md`. This page has one row per demo and the blockers they found.
     Schemas into the HTML, and `Runtime.start(node, { from })` resuming from
     it so `hydrateRoot` finds the same DOM. Hit by [ssr](ssr/notes.md) and
     [ssg](ssg/notes.md), both skipped.
+21. **A Node factory cannot be generic over a Child.** The `Node` type is
+    not exported, so a factory cannot say "any Node that needs only these
+    Services", and `make`'s check that a Child fits cannot be proven for a
+    type parameter. A dialog taking any nested Node does not compile; the
+    showcase has a second, concrete `makeNestedDialog`. An exported
+    `Node.Needing<Services>` type that `children` accepts as fitting would
+    be the API. Hit by [ui-showcase](ui-showcase/notes.md).
 
 ## Other findings
+
+- **The Shell's Space shortcut took Space from the apps.** It switched Live
+  and Replay on Space anywhere but text fields, so Space on a listbox option
+  or a switch paused the app (and the paused View is `inert`, dropping
+  focus). Since the ui-showcase batch the Shell skips a Space the app
+  already handled (`event.defaultPrevented`); a focused plain button still
+  loses Space to it.
 
 - **Interrupting a Stream of a SubscriptionRef's changes is logged as a
   failure.** In effect 4.0.0 such a Stream ends in a `Done` failure when its
@@ -268,5 +327,5 @@ own `notes.md`. This page has one row per demo and the blockers they found.
   is built on `Stream.callback` instead, which interrupts cleanly. The
   Runtime could treat `Done` from an interrupted Lifetime as an interrupt.
 
-Nothing went badly wrong in the Basics, the Commands and Lifetimes, the Graphics, the Data, the Apps, the Routing and host or the Large apps batch.
+Nothing went badly wrong in any batch.
 The build, the Shell and Time Travel all behaved in every demo.

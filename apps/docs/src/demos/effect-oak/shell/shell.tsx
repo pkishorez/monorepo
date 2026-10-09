@@ -93,11 +93,14 @@ export const Shell = ({
   );
 };
 
-/** Space anywhere switches Live and Replay, unless the user is typing. */
+/**
+ * Space anywhere switches Live and Replay, unless the user is typing or the
+ * app already used the key (a menu or listbox choosing with Space).
+ */
 const useSpace = (toggle: () => void) => {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== ' ' || event.repeat) return;
+      if (event.key !== ' ' || event.repeat || event.defaultPrevented) return;
       const target = event.target as HTMLElement;
       if (
         target.isContentEditable ||
