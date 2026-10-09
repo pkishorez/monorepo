@@ -58,6 +58,7 @@ import {
   type RuleEntry,
 } from './laymo-edges';
 import { layoutLaymo, type LaymoMap } from './laymo-layout';
+import { computeRanks } from './rank-layout';
 import {
   buildLaymoTree,
   cardHolding,
@@ -109,6 +110,11 @@ export interface LaymoProps {
   readonly projectName?: string | undefined;
   /** Markers after a card's name, by the card's path. */
   readonly badgesOf?: ((path: string) => ReactNode) | undefined;
+  /**
+   * Group the outline's top level under the rank each card holds on the
+   * canvas, top rank first, for a picture whose top level is one stack.
+   */
+  readonly outlineByRank?: boolean | undefined;
   /** The cards open from the start, beside the Project card. */
   readonly initiallyOpen?: readonly string[] | undefined;
   /** Grow cards to show whole names rather than cut them to one width. */
@@ -182,6 +188,7 @@ function Canvas({
   projectName,
   badgesOf,
   initiallyOpen,
+  outlineByRank = false,
   fitNames = false,
   hints = defaultHints,
   className,
@@ -576,6 +583,30 @@ function Canvas({
       }));
     return lines.edges.map((edge) => ({ edge, tone: toneOf(edge) }));
   }, [lines, restLines, lit, chosen]);
+  // How each card the focus reaches relates to it, in its lines' colors.
+  const relations = useMemo(() => {
+    const byKey = new Map<string, 'uses' | 'used-by'>();
+    for (const { edge, tone } of drawn) {
+      if (tone === 'uses') byKey.set(edge.to, 'uses');
+      else if (tone === 'used-by' && !byKey.has(edge.from))
+        byKey.set(edge.from, 'used-by');
+    }
+    return byKey;
+  }, [drawn]);
+  // The outline's top level by canvas rank, when asked.
+  const rankSections = useMemo(() => {
+    if (!outlineByRank) return undefined;
+    const keys = tree.root.children.map((card) => card.key);
+    const ranks = computeRanks(keys, edgesOf(tree.root));
+    const byRank = new Map<number, string[]>();
+    for (const key of keys) {
+      const rank = ranks.get(key) ?? 0;
+      (byRank.get(rank) ?? byRank.set(rank, []).get(rank)!).push(key);
+    }
+    return [...byRank]
+      .sort(([a], [b]) => a - b)
+      .map(([rank, members]) => ({ label: `Rank ${rank + 1}`, keys: members }));
+  }, [outlineByRank, tree, edgesOf]);
   // The cards holding a lit card stay clear: they are where it lives.
   const holdingLit = useMemo(() => {
     const holding = new Set<string>();
@@ -682,6 +713,7 @@ function Canvas({
               card.parentKey === null
                 ? undefined
                 : tree.byKey.get(card.parentKey);
+            const relation = focused ? undefined : relations.get(card.key);
             return (
               <CardFrame
                 key={card.key}
@@ -691,7 +723,9 @@ function Canvas({
                 parentValues={undefined}
                 zIndex={laymoLayers.card(card.depth)}
                 expanded={card.open}
-                focused={false}
+                // The durable selection wears the accent outline, which
+                // stays as thick on screen at any zoom.
+                focused={selected}
                 dimmed={dimming && !isLit && !soft && !holdingLit.has(card.key)}
                 surface={cn(
                   lookSurface({
@@ -710,7 +744,24 @@ function Canvas({
                     !focused &&
                     status === undefined &&
                     card.key !== focusKey &&
+                    relation === undefined &&
                     'ring-1 ring-foreground/40',
+                  // What the focus uses, and what uses it, ring in the
+                  // colors of their lines; a changed card keeps its own
+                  // outline and takes only the halo. Each has a dark twin,
+                  // or the surface's own dark ring and shadow win.
+                  relation === 'uses' &&
+                    cn(
+                      'shadow-[0_0_0_5px_color-mix(in_oklab,var(--laymo-uses)_22%,transparent)] dark:shadow-[0_0_0_5px_color-mix(in_oklab,var(--laymo-uses)_26%,transparent)]',
+                      status === undefined &&
+                        'ring-2 ring-(color:--laymo-uses) dark:ring-(color:--laymo-uses)',
+                    ),
+                  relation === 'used-by' &&
+                    cn(
+                      'shadow-[0_0_0_5px_color-mix(in_oklab,var(--laymo-used-by)_22%,transparent)] dark:shadow-[0_0_0_5px_color-mix(in_oklab,var(--laymo-used-by)_26%,transparent)]',
+                      status === undefined &&
+                        'ring-2 ring-(color:--laymo-used-by) dark:ring-(color:--laymo-used-by)',
+                    ),
                   soft && 'opacity-60',
                   (top || lone) && 'cursor-default hover:shadow-none',
                 )}
@@ -790,6 +841,7 @@ function Canvas({
                   : (card) => badgesOf(topPathOf(card))
               }
               label={`${cardsNoun} outline`}
+              sections={rankSections}
             />
           </div>
           {showRules && (
