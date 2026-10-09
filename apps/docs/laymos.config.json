@@ -31,6 +31,33 @@
     ],
     "src/demos/effect-oak/map/places": ["src/demos/effect-oak/map/world"],
     "src/demos/effect-oak/map/finder": ["src/demos/effect-oak/map/world"],
-    "src/demos/effect-oak/map/viewport": ["src/demos/effect-oak/map/world"]
+    "src/demos/effect-oak/map/viewport": ["src/demos/effect-oak/map/world"],
+    "src/demos/effect-oak/shopping-cart/products": [
+      "src/demos/effect-oak/shopping-cart/basket",
+      "src/demos/effect-oak/shopping-cart/shop-server"
+    ],
+    "src/demos/effect-oak/shopping-cart/checkout": [
+      "src/demos/effect-oak/shopping-cart/basket",
+      "src/demos/effect-oak/shopping-cart/shop-server"
+    ],
+    "src/demos/effect-oak/shopping-cart/cart-page": [
+      "src/demos/effect-oak/shopping-cart/basket"
+    ],
+    "src/demos/effect-oak/shopping-cart/shop-server": [
+      "src/demos/effect-oak/shopping-cart/basket"
+    ],
+    "src/demos/effect-oak/kanban/board-store": [
+      "src/demos/effect-oak/kanban/columns"
+    ],
+    "src/demos/effect-oak/auth/logged-out": [
+      "src/demos/effect-oak/auth/auth-server",
+      "src/demos/effect-oak/auth/session"
+    ],
+    "src/demos/effect-oak/auth/logged-in": [
+      "src/demos/effect-oak/auth/session"
+    ],
+    "src/demos/effect-oak/auth/auth-server": [
+      "src/demos/effect-oak/auth/session"
+    ]
   }
 }
