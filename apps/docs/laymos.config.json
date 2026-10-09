@@ -58,6 +58,22 @@
     ],
     "src/demos/effect-oak/auth/auth-server": [
       "src/demos/effect-oak/auth/session"
+    ],
+    "src/demos/effect-oak/routing": ["src/demos/effect-oak/location"],
+    "src/demos/effect-oak/route-transitions": ["src/demos/effect-oak/location"],
+    "src/demos/effect-oak/view-transitions": ["src/demos/effect-oak/location"],
+    "src/demos/effect-oak/personal-blog": ["src/demos/effect-oak/location"],
+    "src/demos/effect-oak/routing/people": [
+      "src/demos/effect-oak/routing/route"
+    ],
+    "src/demos/effect-oak/routing/files": [
+      "src/demos/effect-oak/routing/route"
+    ],
+    "src/demos/effect-oak/embedding/widget": [
+      "src/demos/effect-oak/embedding/port"
+    ],
+    "src/demos/effect-oak/web-components/fields": [
+      "src/demos/effect-oak/web-components/elements"
     ]
   }
 }
