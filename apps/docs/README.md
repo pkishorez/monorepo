@@ -16,8 +16,8 @@ It also hosts the interactive demos under `/demos`, with their code in
 - `@kstackz/ai-toolkit`: a chat playground over `@kstackz/ai-toolkit/rpc`, `@kstackz/ai-toolkit/table`
   and `@kstackz/ai-toolkit/client`.
 
-The UI uses `@kstackz/web-platform`, tracing uses `@kstackz/effect-tracer` and
-`@kstackz/flow`, and `@kstackz/rpc-toolkit` and `@kstackz/std-toolkit` sit underneath. The
+The UI uses `@kstackz/web-platform`, tracing uses `@kstackz/effect-tracer`,
+and `@kstackz/rpc-toolkit` and `@kstackz/std-toolkit` sit underneath. The
 infrastructure is declared with Alchemy in `alchemy.run.ts` and `src/infra`.
 
 ## Usage

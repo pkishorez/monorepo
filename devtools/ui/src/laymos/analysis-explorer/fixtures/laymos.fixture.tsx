@@ -15,7 +15,6 @@ import {
 } from '../../stories-canvas/fixtures/fixture-data';
 import { useSimulatedRun } from '../../stories-canvas/fixtures/simulated-run';
 import { Laymos } from '../analysis-explorer';
-import { ArchitectureSnapshot } from '../architecture-snapshot';
 
 function Door() {
   const run = useSimulatedRun(storyTree, proofReports, proofReports);
@@ -46,25 +45,4 @@ function Door() {
 
 export default {
   Laymos: <Door />,
-  Snapshot: (
-    <main className="p-6">
-      <ArchitectureSnapshot
-        analysis={studioAnalysis}
-        changes={studioChanges}
-        includeUnchanged
-        title="studio"
-        baseLabel="main"
-      />
-    </main>
-  ),
-  'Snapshot of the changes': (
-    <main className="p-6">
-      <ArchitectureSnapshot
-        analysis={studioAnalysis}
-        changes={studioChanges}
-        title="studio"
-        maxWidth={700}
-      />
-    </main>
-  ),
 };

@@ -1,4 +1,3 @@
-import { Activation } from '@kstackz/flow';
 import {
   Deferred,
   Duration,
@@ -13,9 +12,10 @@ import {
 import * as Scope from 'effect/Scope';
 import type { Rpc, RpcClient, RpcGroup } from 'effect/rpc';
 import {
+  AttemptOutcome,
   continueConnectionAttempt,
   startConnectionAttempt,
-} from '../flow-tracing/index.js';
+} from '../tracing/index.js';
 import type {
   ConnectionAttemptId,
   NegotiationEnvelope,
@@ -43,7 +43,7 @@ import {
   type SessionTransition,
 } from './session-state.js';
 
-type ConnectionAttemptFlow = Effect.Success<
+type ConnectionAttempt = Effect.Success<
   ReturnType<typeof startConnectionAttempt>
 >;
 
@@ -211,7 +211,7 @@ interface InternalSession {
   contract?: RpcGroup.RpcGroup<Rpc.Any>;
   transport: Effect.Success<ReturnType<typeof makeRpcTransport>> | undefined;
   connection?: RtcConnection;
-  attempt?: ConnectionAttemptFlow;
+  attempt?: ConnectionAttempt;
   boundSession: PeerSession | undefined;
   connected: boolean;
   connecting: boolean;
@@ -232,9 +232,9 @@ const errorAttributes = (error: unknown) =>
     ? { operation: error.operation, error: String(error.cause) }
     : { error: String(error) };
 
-/** Records a failed negotiation step in its Flow before the failure spreads. */
+/** Records a failed negotiation step on its attempt span before the failure spreads. */
 const traced = <A, E, R>(
-  attempt: ConnectionAttemptFlow,
+  attempt: ConnectionAttempt,
   step: string,
   effect: Effect.Effect<A, E, R>,
 ) =>
@@ -248,7 +248,7 @@ const traced = <A, E, R>(
   );
 
 const diagnosticNote = (
-  attempt: ConnectionAttemptFlow,
+  attempt: ConnectionAttempt,
   diagnostic: RtcDiagnostic,
 ) => {
   switch (diagnostic._tag) {
@@ -282,7 +282,7 @@ const diagnosticNote = (
 
 const watchDiagnostics = (
   events: PubSub.PubSub<SessionEvent>,
-  attempt: ConnectionAttemptFlow,
+  attempt: ConnectionAttempt,
   connection: RtcConnection,
 ) =>
   Stream.runForEach(connection.diagnostics ?? Stream.empty, (diagnostic) =>
@@ -452,7 +452,7 @@ const makeInternal: (
   const sendIce = Effect.fn('WebRtc.sendIce')(function* (
     record: InternalSession,
     connection: RtcConnection,
-    attempt: ConnectionAttemptFlow,
+    attempt: ConnectionAttempt,
     ready: Effect.Effect<void> = Effect.void,
   ) {
     yield* Stream.runForEach(connection.localIceCandidates, (candidate) =>
@@ -473,7 +473,7 @@ const makeInternal: (
   const bind = Effect.fn('WebRtc.bindRpc')(function* (
     record: InternalSession,
     channel: RtcDataChannel,
-    attempt: ConnectionAttemptFlow,
+    attempt: ConnectionAttempt,
   ) {
     const transport = yield* makeRpcTransport(
       {
@@ -542,7 +542,7 @@ const makeInternal: (
 
   function watchConnection(
     record: InternalSession,
-    attempt: ConnectionAttemptFlow,
+    attempt: ConnectionAttempt,
     connection: RtcConnection,
   ) {
     return Stream.runForEach(connection.state, (rtcState) =>
@@ -582,11 +582,11 @@ const makeInternal: (
             const report =
               connection.report === undefined ? {} : yield* connection.report;
             yield* attempt.end(
-              Activation.failed('RTC connection failed'),
+              AttemptOutcome.failed('RTC connection failed'),
               report,
             );
           } else {
-            yield* attempt.end(Activation.completed());
+            yield* attempt.end(AttemptOutcome.completed());
           }
           if (record.intent && record.state._tag !== 'Reconnecting') {
             yield* move(record, {
@@ -735,7 +735,7 @@ const makeInternal: (
         return;
       }
       superseded = record.connection;
-      yield* record.attempt.end(Activation.interrupted('Glare resolved'));
+      yield* record.attempt.end(AttemptOutcome.interrupted('Glare resolved'));
       yield* emit(record, {
         _tag: 'AttemptSuperseded',
         attemptId: record.attempt.connectionAttemptId,
@@ -780,8 +780,7 @@ const makeInternal: (
           incoming.message._tag === 'Offer' ? incoming.message.description : '',
         ),
       );
-      const answer = yield* attempt.reply(
-        incoming,
+      const answer = yield* attempt.send(
         NegotiationMessage.make({
           _tag: 'Answer',
           description: answerDescription,
@@ -891,7 +890,7 @@ const makeInternal: (
       case 'Close':
         record.intent = false;
         yield* emit(record, { _tag: 'SessionClosed', reason: 'remote' });
-        yield* attempt.end(Activation.completed());
+        yield* attempt.end(AttemptOutcome.completed());
         if (record.connection !== undefined) {
           yield* record.connection.close;
         }
@@ -998,7 +997,7 @@ const makeInternal: (
           NegotiationMessage.make({ _tag: 'Close' }),
         );
         yield* send(record, close).pipe(Effect.ignore);
-        yield* record.attempt.end(Activation.completed());
+        yield* record.attempt.end(AttemptOutcome.completed());
       }
       if (record.connection !== undefined) {
         yield* record.connection.close;

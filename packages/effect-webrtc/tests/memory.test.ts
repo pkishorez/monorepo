@@ -8,7 +8,7 @@ import {
 import { layer as memorySignaling } from '../src/signaling/memory/index.js';
 import { WebRtcPlatform } from '../src/platform/platform.js';
 import { layer as memoryPlatform } from '../src/platform/memory/index.js';
-import { startConnectionAttempt } from '../src/flow-tracing/index.js';
+import { startConnectionAttempt } from '../src/tracing/index.js';
 
 describe('contract adapters', () => {
   it('routes typed negotiation messages through memory signaling', async () => {
@@ -43,13 +43,10 @@ describe('contract adapters', () => {
         message: { _tag: 'Offer', description: 'test-offer' },
         connectionAttemptId: expect.any(String),
         peerSessionId: expect.any(String),
-        flow: expect.objectContaining({
-          flowId: expect.any(String),
-          message: expect.objectContaining({
-            from: 'peer:alice',
-            to: 'peer:bob',
-          }),
-        }),
+        trace: {
+          traceId: expect.any(String),
+          spanId: expect.any(String),
+        },
       }),
     });
   });

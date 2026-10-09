@@ -1,7 +1,7 @@
 import { Effect } from 'effect';
 import { generateSecretKey, verifyEvent } from 'nostr-tools/pure';
 import { describe, expect, it } from 'vitest';
-import { startConnectionAttempt } from '../src/flow-tracing/index.js';
+import { startConnectionAttempt } from '../src/tracing/index.js';
 import { NegotiationMessage } from '../src/negotiation/index.js';
 import { PeerId } from '../src/peer-identity/index.js';
 import { kind, makeEvent, readEvent } from '../src/signaling/nostr/event.js';

@@ -9,7 +9,6 @@ import { NodeHttpServer, NodeServices } from '@effect/platform-node';
 import { LotelOtlpHttpLive, LotelRpcLive } from '@kstackz/lotel';
 import { sqliteTelemetryStoreLayer } from '@kstackz/lotel/sqlite';
 import { DevtoolsRpc } from '../../rpc/index.js';
-import { FlowRpcLive, sqliteFlowStoreLayer } from '../flow-store/index.js';
 import {
   DevtoolsHandlersLive,
   GitHandlersLive,
@@ -55,10 +54,9 @@ export function makeLocalDevtoolsServer(options: Options) {
           makeRequestAccessLive({ port: options.port, canonicalOrigin }),
         ),
       ).pipe(
-        // Lotel, Flow, and the Project registry keep separate tables in the
-        // one DevTools database.
+        // Lotel and the Project registry keep separate tables in the one
+        // DevTools database.
         Layer.provide(sqliteTelemetryStoreLayer({ path: options.db })),
-        Layer.provide(sqliteFlowStoreLayer({ path: options.db })),
         Layer.provide(sqliteProjectRegistryLayer({ path: options.db })),
         Layer.provide(
           NodeHttpServer.layer(createServer, {
@@ -84,7 +82,6 @@ function makeRpcRouteLive() {
         GitHandlersLive,
         MonoverseHandlersLive,
         LotelRpcLive,
-        FlowRpcLive,
         ProjectRegistryRpcLive,
       ),
     ),

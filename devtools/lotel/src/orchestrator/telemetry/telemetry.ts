@@ -37,16 +37,7 @@ const saveSpans = (
     span: object;
     context: object;
   }>,
-) =>
-  Effect.flatMap(TelemetryStore, (store) =>
-    store.saveSpans(
-      records.map((record) => ({
-        ...record,
-        flowId: null,
-        participantName: null,
-      })),
-    ),
-  );
+) => Effect.flatMap(TelemetryStore, (store) => store.saveSpans(records));
 
 const insertLogs = (
   records: ReadonlyArray<{
@@ -62,8 +53,6 @@ const insertLogs = (
       Effect.map(nextUlid, (id) => ({
         ...record,
         id,
-        flowId: null,
-        participantName: null,
       })),
     );
     return yield* store.insertLogs(identified);

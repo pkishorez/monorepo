@@ -7,7 +7,7 @@ import {
 import { buildTelemetryCollections } from '../collections.js';
 import { Viewer } from '../viewer/index.js';
 
-/** The Lotel Tool: a live Trace, Log Record, and Flow inspector. */
+/** The Lotel Tool: a live Trace and Log Record inspector. */
 export function Lotel() {
   const runtime = useDevtoolsRuntime();
   const [resetKey, setResetKey] = useState(0);

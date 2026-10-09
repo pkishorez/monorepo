@@ -1,6 +1,5 @@
 import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
-import { FlowRpc } from '@kstackz/flow/rpc';
 import { LotelRpc } from '@kstackz/lotel/rpc';
 import { GitRpc } from './git.js';
 import { MonoverseRpc } from './monoverse.js';
@@ -138,8 +137,7 @@ export const DevtoolsToolRpc = RpcGroup.make(
   }),
 );
 
-export const DevtoolsRpc = LotelRpc.merge(FlowRpc)
-  .merge(DevtoolsToolRpc)
+export const DevtoolsRpc = LotelRpc.merge(DevtoolsToolRpc)
   .merge(GitRpc)
   .merge(MonoverseRpc)
   .merge(ProjectRegistryRpc);

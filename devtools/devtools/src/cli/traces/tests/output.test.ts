@@ -16,8 +16,6 @@ const details = {
       value: {
         traceId: 'trace-1',
         spanId: 'child',
-        flowId: null,
-        participantName: null,
         span: {
           name: 'db.query',
           parentSpanId: 'root',
@@ -33,8 +31,6 @@ const details = {
       value: {
         traceId: 'trace-1',
         spanId: 'root',
-        flowId: 'flow-9',
-        participantName: 'api',
         span: {
           name: 'POST /checkout',
           startTimeUnixNano: ms(1_000),
@@ -42,7 +38,6 @@ const details = {
           status: { code: 1 },
           attributes: [
             { key: 'narrative', value: { stringValue: 'Handle a checkout' } },
-            { key: 'flow.id', value: { stringValue: 'flow-9' } },
           ],
         },
         context: service('api'),
@@ -97,8 +92,7 @@ describe('trace output', () => {
       parentSpanId: null,
       narrative: 'Handle a checkout',
       status: 'ok',
-      flowId: 'flow-9',
-      attributes: { narrative: 'Handle a checkout', 'flow.id': 'flow-9' },
+      attributes: { narrative: 'Handle a checkout' },
       logs: [
         { severity: 'INFO', body: 'Loaded cart', attributes: { items: 3 } },
       ],

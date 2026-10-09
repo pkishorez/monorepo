@@ -52,8 +52,8 @@ export function Header({ onClear }: { onClear: () => Promise<number> }) {
           <AlertDialogHeader>
             <AlertDialogTitle>Clear all telemetry?</AlertDialogTitle>
             <AlertDialogDescription>
-              This deletes every trace, log, and flow from the DevTools server
-              and resets the local view.
+              This deletes every trace and log from the DevTools server and
+              resets the local view.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

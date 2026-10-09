@@ -1,7 +1,7 @@
 import { Effect, Fiber, Option, Stream } from 'effect';
 import { generateSecretKey } from 'nostr-tools/pure';
 import { describe, expect, it, vi } from 'vitest';
-import { startConnectionAttempt } from '../src/flow-tracing/index.js';
+import { startConnectionAttempt } from '../src/tracing/index.js';
 import { NegotiationMessage } from '../src/negotiation/index.js';
 import { PeerId } from '../src/peer-identity/index.js';
 import { Signaling } from '../src/signaling/signaling.js';

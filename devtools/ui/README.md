@@ -1,6 +1,6 @@
 # @devtools/ui
 
-The UI only the DevTools show: the trace viewer, Laymos's architecture explorer, the monorepo map, the flow swimlane and the DevTools panel. Private: @kstackz/devtools bundles it.
+The UI only the DevTools show: the trace viewer, Laymos's architecture explorer and the monorepo map. Private: @kstackz/devtools bundles it.
 
 ## Big picture
 
@@ -12,8 +12,8 @@ DevTools shows them. They moved here when ui-toolkit became
 The package is never published. `@kstackz/devtools` lists it as a
 devDependency and bundles it into its browser UI at build time, so nothing
 installs it. It is built on `@kstackz/web-platform` for components and theme,
-and reads its data shapes from `@kstackz/lotel`, `@kstackz/flow`,
-`@kstackz/effect-tracer` and `laymos`.
+and reads its data shapes from `@kstackz/lotel`, `@kstackz/effect-tracer`
+and `laymos`.
 
 The package ships TypeScript source. Each folder in `src/` is one view, with
 its own subpath:
@@ -22,9 +22,6 @@ its own subpath:
   presentation): the Lotel Tool's trace list, waterfall and span inspection.
 - `laymos`: the Laymos Tool's Laymo (the architecture as a space of cards), its Stories canvas and the File list.
 - `monoverse`: the Monoverse Tool's map of a pnpm monorepo.
-- `flow-swimlane`: the Flow Tool's swim lanes of Journal Entries.
-- `devtools-panel`: `DevToolsPanel`, a panel that shows the Traces and Flows
-  an app recorded, live.
 
 ## Usage
 

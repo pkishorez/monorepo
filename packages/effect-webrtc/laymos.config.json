@@ -8,24 +8,23 @@
   ],
   "rules": {
     "src/effect-webrtc": [
-      "src/flow-tracing",
       "src/negotiation",
       "src/peer-identity",
       "src/platform",
       "src/rpc",
-      "src/signaling"
+      "src/signaling",
+      "src/tracing"
     ],
-    "src/flow-tracing": ["src/negotiation", "src/peer-identity"],
     "src/platform": ["src/negotiation"],
     "src/platform/browser": ["src/platform/browser-compatible.ts"],
     "src/platform/browser-compatible.ts": ["src/platform/platform.ts"],
     "src/platform/memory": ["src/platform/platform.ts"],
     "src/platform/werift": ["src/platform/browser-compatible.ts"],
     "src/rpc": [
-      "src/flow-tracing",
       "src/negotiation",
       "src/peer-identity",
-      "src/platform"
+      "src/platform",
+      "src/tracing"
     ],
     "src/signaling": ["src/negotiation", "src/peer-identity"],
     "src/signaling/durable": ["src/signaling/signaling.ts"],
@@ -35,6 +34,7 @@
     ],
     "src/signaling/durable/worker": ["src/signaling/durable/rpc"],
     "src/signaling/memory": ["src/signaling/signaling.ts"],
-    "src/signaling/nostr": ["src/signaling/signaling.ts"]
+    "src/signaling/nostr": ["src/signaling/signaling.ts"],
+    "src/tracing": ["src/negotiation", "src/peer-identity"]
   }
 }

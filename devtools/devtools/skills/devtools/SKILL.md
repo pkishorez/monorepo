@@ -1,6 +1,6 @@
 ---
 name: devtools
-description: Read local OpenTelemetry Traces and Flows from a running DevTools Server through the `devtools` Client Commands. Use after running an instrumented app, script, or test locally to see what actually happened, find the Trace or Flow an action produced, or explain a failure from recorded spans and logs.
+description: Read local OpenTelemetry Traces from a running DevTools Server through the `devtools` Client Commands. Use after running an instrumented app, script, or test locally to see what actually happened, find the Trace an action produced, or explain a failure from recorded spans and logs.
 ---
 
 # DevTools telemetry
@@ -29,10 +29,7 @@ reachable through `devtools`. Use `laymos` directly for that.
    narrative: spans in start order, nested by parent, with their Log Records
    interleaved in time. Use `--format json` (the default) when you need to
    filter with `jq` or inspect attributes.
-6. If a span carries a `flowId`, the work crosses Participants. Pivot with
-   `devtools get-flow <flow-id> --format text` to see the Journal projected as a
-   chronological list of Entries, with its Activations and Warnings.
-7. If nothing shows up after a retry, the app is probably not exporting to
+6. If nothing shows up after a retry, the app is probably not exporting to
    the DevTools URL. Check its telemetry layer's endpoint before looking
    further.
 
@@ -42,18 +39,15 @@ Telemetry commands accept `--url <base-url>` and `--format json|text`
 (JSON by default). `devtools skills` lists as text by default and accepts
 `--format json`.
 
-| Command                                                       | Purpose                                                                                                                                  |
-| ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `devtools [--port N] [--db PATH] [--open]`                    | Run the DevTools Server.                                                                                                                 |
-| `devtools list-traces [--limit N]`                            | Recent Trace Summaries, newest first. Default 20.                                                                                        |
-| `devtools get-trace <trace-id>`                               | One Trace: flat span list with `parentSpanId`, each span's logs, and trace-level logs that name no span.                                 |
-| `devtools list-flows [--limit N]`                             | Recent Flows, newest first. Default 20.                                                                                                  |
-| `devtools get-flow <flow-id>`                                 | One Flow Projection: `items` in recorded order, `activations`, `waits`, `warnings`.                                                      |
-| `devtools skills`                                             | List the skills shipped with the package.                                                                                                |
-| `devtools skills devtools [--install DIR]`                    | Print this skill, or write it to `DIR/devtools/SKILL.md`.                                                                                |
-| `devtools snapshot [--project DIR] [--base REF] [--out FILE]` | Draw the Project's changed Modules to a PNG with headless Chromium; no server needed. `--all --out-dir DIR` draws every changed Project. |
+| Command                                    | Purpose                                                                                                  |
+| ------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| `devtools [--port N] [--db PATH] [--open]` | Run the DevTools Server.                                                                                 |
+| `devtools list-traces [--limit N]`         | Recent Trace Summaries, newest first. Default 20.                                                        |
+| `devtools get-trace <trace-id>`            | One Trace: flat span list with `parentSpanId`, each span's logs, and trace-level logs that name no span. |
+| `devtools skills`                          | List the skills shipped with the package.                                                                |
+| `devtools skills devtools [--install DIR]` | Print this skill, or write it to `DIR/devtools/SKILL.md`.                                                |
 
-Exit status is nonzero and the reason goes to stderr when a Trace or Flow is
+Exit status is nonzero and the reason goes to stderr when a Trace is
 missing or no server answers.
 
 ## Finding the server
@@ -77,21 +71,11 @@ aligned.
 - `spans[]` sorted by start time. Each has `spanId`, `parentSpanId` (null for
   a root), `name`, `narrative`, `serviceName`, `startTime`, `endTime`,
   `durationMs`, `status` (`ok`, `error`, `unset`, or `running` while
-  provisional), `statusMessage`, `flowId`, `participantName`, `attributes`,
-  and `logs[]`.
+  provisional), `statusMessage`, `attributes`, and `logs[]`.
 - `logs[]` for Log Records in the Trace that do not identify a span.
 
 `narrative` is the span's stated intent, written when it started. The outcome
 is in `status`, `statusMessage`, and the logs, never in the narrative.
-
-`get-flow` returns the Flow Projection: `id`, `ordering` (`recorded` or
-`clock`), `latestTimestamp` (epoch ms), `status` (`active`, `failed`, `quiet`,
-or `closed`), `participants[]`, `items[]` (the Journal's Entries, kinds
-`event`, `message`, `activation-start`, `activation-end`, `wait`, `resume`,
-`check`, `close`), `activations[]`, `waits[]`, and `warnings[]`.
-
-`list-flows` returns one row per Flow: `flowId`, `status`, `participants[]`,
-`entries`, and `latestTime`.
 
 ## Installing this skill
 

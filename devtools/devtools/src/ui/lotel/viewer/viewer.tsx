@@ -122,7 +122,7 @@ export function Viewer({
   );
   const detailOpen = selectedTrace !== null;
 
-  // A Flow Entry's Trace Link arrives as `?trace=…&span=…`; honour the span once.
+  // A link to one span arrives as `?trace=…&span=…`; honour the span once.
   useEffect(() => {
     if (requestedSpanId === null || selectedTrace === null) return;
     setDockSettings({ ...dockSettings, selectedSpanId: requestedSpanId });
@@ -133,29 +133,12 @@ export function Viewer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requestedSpanId, selectedTrace?.traceId]);
 
-  const traceFlowIds = useMemo(() => {
-    const result = new Map<string, string>();
-    for (const span of spans) {
-      const flowId = span.attributes['flow.id'];
-      if (typeof flowId === 'string' && !result.has(span.traceId)) {
-        result.set(span.traceId, flowId);
-      }
-    }
-    return result;
-  }, [spans]);
-
   const selectTrace = useCallback(
     (traceId?: string) => {
       void navigate({
         to: '/lotel',
         search: { trace: traceId, span: undefined },
       });
-    },
-    [navigate],
-  );
-  const openFlow = useCallback(
-    (flowId: string) => {
-      void navigate({ to: '/flow', search: { flow: flowId } });
     },
     [navigate],
   );
@@ -245,7 +228,6 @@ export function Viewer({
               hasMore={
                 filteredTraces.length - traceBuffer.pending.size > traceCount
               }
-              traceFlowIds={traceFlowIds}
               onRevealNew={() => traceBuffer.reveal()}
               onShowMore={() => setTraceCount((count) => count + PAGE_SIZE)}
               onSelectTrace={(trace) => selectTrace(trace.traceId)}
@@ -276,12 +258,10 @@ export function Viewer({
           {selectedTrace ? (
             <TraceWorkspace
               trace={selectedTrace}
-              flowId={traceFlowIds.get(selectedTrace.traceId)}
               view={traceView}
               onViewChange={setTraceView}
               settings={dockSettings}
               onSettingsChange={setDockSettings}
-              onOpenFlow={openFlow}
               onClose={() => selectTrace()}
             />
           ) : (
