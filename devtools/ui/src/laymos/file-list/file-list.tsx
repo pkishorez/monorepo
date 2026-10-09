@@ -510,8 +510,12 @@ export function FileList({
                   setChosen(path);
                   setReading(true);
                 }}
+                // A changed file reads in its color; a folder shows its
+                // change on its icon alone, so the two stay apart.
                 classNameForPath={(path) => {
-                  const status = statusOf(path);
+                  const status = analyzed.has(path)
+                    ? statusOf(path)
+                    : undefined;
                   return status === undefined ? undefined : statusText[status];
                 }}
                 iconClassNameForPath={(path) => {
@@ -739,8 +743,9 @@ function ChangedFilesBar({
               onChoose(path);
               setListing(false);
             }}
+            // As in the File list: a file in its color, a folder by its icon.
             classNameForPath={(path) => {
-              const status = statusOf(path);
+              const status = order.includes(path) ? statusOf(path) : undefined;
               return status === undefined ? undefined : statusText[status];
             }}
             iconClassNameForPath={(path) => {
