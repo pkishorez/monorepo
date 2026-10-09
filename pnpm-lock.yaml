@@ -574,6 +574,88 @@ importers:
         specifier: npm:@voidzero-dev/vite-plus-core@1.0.0
         version: '@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.4.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(typescript@7.0.2)(yaml@2.9.0)'
 
+  apps/ledger:
+    dependencies:
+      '@kstackz/auth-toolkit':
+        specifier: workspace:*
+        version: link:../../toolkits/auth-toolkit
+      '@kstackz/rpc-toolkit':
+        specifier: workspace:*
+        version: link:../../toolkits/rpc-toolkit
+      '@kstackz/std-toolkit':
+        specifier: workspace:*
+        version: link:../../toolkits/std-toolkit
+      '@kstackz/use-gesture':
+        specifier: workspace:*
+        version: link:../../packages/use-gesture
+      '@kstackz/use-keys':
+        specifier: workspace:*
+        version: link:../../packages/use-keys
+      '@kstackz/web-platform':
+        specifier: workspace:*
+        version: link:../../platforms/web-platform
+      '@tanstack/react-db':
+        specifier: 'catalog:'
+        version: 0.4.1(react@19.2.8)(typescript@7.0.2)
+      '@tanstack/react-router':
+        specifier: 'catalog:'
+        version: 1.170.32(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@tanstack/react-start':
+        specifier: 'catalog:'
+        version: 1.168.49(@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.4.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(typescript@7.0.2)(yaml@2.9.0))(crossws@0.4.9(srvx@0.11.20))(esbuild@0.28.2)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(rolldown@1.2.7)
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.0
+      motion:
+        specifier: 'catalog:'
+        version: 13.2.0(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      react:
+        specifier: 'catalog:'
+        version: 19.2.8
+      react-dom:
+        specifier: 'catalog:'
+        version: 19.2.8(react@19.2.8)
+    devDependencies:
+      '@cloudflare/workers-types':
+        specifier: 'catalog:'
+        version: 5.20260904.1
+      '@tailwindcss/vite':
+        specifier: 'catalog:'
+        version: 4.3.3(@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.4.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(typescript@7.0.2)(yaml@2.9.0))
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.4.1
+      '@types/react':
+        specifier: 'catalog:'
+        version: 19.2.18
+      '@types/react-dom':
+        specifier: 'catalog:'
+        version: 19.2.7(@types/react@19.2.18)
+      '@vitejs/plugin-react':
+        specifier: 'catalog:'
+        version: 6.1.1(@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.4.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(typescript@7.0.2)(yaml@2.9.0))
+      alchemy:
+        specifier: 'catalog:'
+        version: 2.0.0-beta.80(@effect/platform-node@4.0.0(effect@4.0.0)(redis@6.2.1(@opentelemetry/api@1.9.1)))(@effect/vitest@4.0.0(effect@4.0.0)(vitest@5.0.1))(@types/node@26.4.1)(@types/react@19.2.18)(@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.4.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(typescript@7.0.2)(yaml@2.9.0))(effect@4.0.0)(hono@4.12.18)(mongodb@6.21.0(socks@2.8.9))(pg@8.23.0)(typescript@7.0.2)(ws@8.22.0)
+      laymos:
+        specifier: workspace:*
+        version: link:../../devtools/laymos
+      sharp:
+        specifier: 'catalog:'
+        version: 0.35.4(@types/node@26.4.1)
+      tailwindcss:
+        specifier: 'catalog:'
+        version: 4.3.3
+      typescript:
+        specifier: 'catalog:'
+        version: 7.0.2
+      vite:
+        specifier: npm:@voidzero-dev/vite-plus-core@1.0.0
+        version: '@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.4.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(typescript@7.0.2)(yaml@2.9.0)'
+      vitest:
+        specifier: 5.0.1
+        version: 5.0.1(@opentelemetry/api@1.9.1)(@types/node@26.4.1)(@vitest/browser-preview@5.0.1)(@vitest/ui@5.0.1)(@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.4.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(typescript@7.0.2)(yaml@2.9.0))(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.14.6(@types/node@26.4.1)(typescript@7.0.2))
+
   devtools/devtools:
     dependencies:
       '@effect/platform-node':
@@ -869,137 +951,6 @@ importers:
       react-cosmos-plugin-vite:
         specifier: 'catalog:'
         version: 7.4.0(@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.4.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(typescript@7.0.2)(yaml@2.9.0))(react-cosmos@7.4.1(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(supports-color@10.2.2))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      typescript:
-        specifier: 'catalog:'
-        version: 7.0.2
-      vite:
-        specifier: npm:@voidzero-dev/vite-plus-core@1.0.0
-        version: '@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.4.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(typescript@7.0.2)(yaml@2.9.0)'
-      vitest:
-        specifier: 5.0.1
-        version: 5.0.1(@opentelemetry/api@1.9.1)(@types/node@26.4.1)(@vitest/browser-preview@5.0.1)(@vitest/ui@5.0.1)(@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.4.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(typescript@7.0.2)(yaml@2.9.0))(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.14.6(@types/node@26.4.1)(typescript@7.0.2))
-
-  ledger/core:
-    dependencies:
-      '@kstackz/auth-toolkit':
-        specifier: workspace:*
-        version: link:../../toolkits/auth-toolkit
-      '@kstackz/rpc-toolkit':
-        specifier: workspace:*
-        version: link:../../toolkits/rpc-toolkit
-      '@kstackz/std-toolkit':
-        specifier: workspace:*
-        version: link:../../toolkits/std-toolkit
-      '@kstackz/use-keys':
-        specifier: workspace:*
-        version: link:../../packages/use-keys
-      '@kstackz/web-platform':
-        specifier: workspace:*
-        version: link:../../platforms/web-platform
-      '@tanstack/react-db':
-        specifier: 'catalog:'
-        version: 0.4.1(react@19.2.8)(typescript@7.0.2)
-      effect:
-        specifier: 'catalog:'
-        version: 4.0.0
-      react:
-        specifier: 'catalog:'
-        version: 19.2.8
-    devDependencies:
-      '@types/node':
-        specifier: 'catalog:'
-        version: 26.4.1
-      '@types/react':
-        specifier: 'catalog:'
-        version: 19.2.18
-      laymos:
-        specifier: workspace:*
-        version: link:../../devtools/laymos
-      typescript:
-        specifier: 'catalog:'
-        version: 7.0.2
-      vite:
-        specifier: npm:@voidzero-dev/vite-plus-core@1.0.0
-        version: '@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.4.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(typescript@7.0.2)(yaml@2.9.0)'
-      vitest:
-        specifier: 5.0.1
-        version: 5.0.1(@opentelemetry/api@1.9.1)(@types/node@26.4.1)(@vitest/browser-preview@5.0.1)(@vitest/ui@5.0.1)(@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.4.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(typescript@7.0.2)(yaml@2.9.0))(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.14.6(@types/node@26.4.1)(typescript@7.0.2))
-
-  ledger/web:
-    dependencies:
-      '@kstackz/auth-toolkit':
-        specifier: workspace:*
-        version: link:../../toolkits/auth-toolkit
-      '@kstackz/rpc-toolkit':
-        specifier: workspace:*
-        version: link:../../toolkits/rpc-toolkit
-      '@kstackz/std-toolkit':
-        specifier: workspace:*
-        version: link:../../toolkits/std-toolkit
-      '@kstackz/use-gesture':
-        specifier: workspace:*
-        version: link:../../packages/use-gesture
-      '@kstackz/use-keys':
-        specifier: workspace:*
-        version: link:../../packages/use-keys
-      '@kstackz/web-platform':
-        specifier: workspace:*
-        version: link:../../platforms/web-platform
-      '@ledger/core':
-        specifier: workspace:*
-        version: link:../core
-      '@tanstack/react-router':
-        specifier: 'catalog:'
-        version: 1.170.32(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      '@tanstack/react-start':
-        specifier: 'catalog:'
-        version: 1.168.49(@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.4.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(typescript@7.0.2)(yaml@2.9.0))(crossws@0.4.9(srvx@0.11.20))(esbuild@0.28.2)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(rolldown@1.2.7)
-      effect:
-        specifier: 'catalog:'
-        version: 4.0.0
-      motion:
-        specifier: 'catalog:'
-        version: 13.2.0(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      react:
-        specifier: 'catalog:'
-        version: 19.2.8
-      react-dom:
-        specifier: 'catalog:'
-        version: 19.2.8(react@19.2.8)
-    devDependencies:
-      '@cloudflare/workers-types':
-        specifier: 'catalog:'
-        version: 5.20260904.1
-      '@tailwindcss/vite':
-        specifier: 'catalog:'
-        version: 4.3.3(@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.4.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(typescript@7.0.2)(yaml@2.9.0))
-      '@types/node':
-        specifier: 'catalog:'
-        version: 26.4.1
-      '@types/react':
-        specifier: 'catalog:'
-        version: 19.2.18
-      '@types/react-dom':
-        specifier: 'catalog:'
-        version: 19.2.7(@types/react@19.2.18)
-      '@vitejs/plugin-react':
-        specifier: 'catalog:'
-        version: 6.1.1(@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.4.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(typescript@7.0.2)(yaml@2.9.0))
-      alchemy:
-        specifier: 'catalog:'
-        version: 2.0.0-beta.80(@effect/platform-node@4.0.0(effect@4.0.0)(redis@6.2.1(@opentelemetry/api@1.9.1)))(@effect/vitest@4.0.0(effect@4.0.0)(vitest@5.0.1))(@types/node@26.4.1)(@types/react@19.2.18)(@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.4.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(typescript@7.0.2)(yaml@2.9.0))(effect@4.0.0)(hono@4.12.18)(mongodb@6.21.0(socks@2.8.9))(pg@8.23.0)(typescript@7.0.2)(ws@8.22.0)
-      jose:
-        specifier: 'catalog:'
-        version: 6.2.12
-      laymos:
-        specifier: workspace:*
-        version: link:../../devtools/laymos
-      sharp:
-        specifier: 'catalog:'
-        version: 0.35.4(@types/node@26.4.1)
-      tailwindcss:
-        specifier: 'catalog:'
-        version: 4.3.3
       typescript:
         specifier: 'catalog:'
         version: 7.0.2

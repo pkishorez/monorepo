@@ -5,7 +5,7 @@
     {
       "label": "Unversioned workspace roots",
       "dependencyTypes": ["local"],
-      "packages": ["public-monorepo", "docs", "@ledger/core", "@ledger/web"],
+      "packages": ["public-monorepo", "docs", "ledger"],
       "isIgnored": true
     },
     {
@@ -22,7 +22,6 @@
         "@kstackz/use-keys",
         "@kstackz/rpc-toolkit",
         "@kstackz/std-toolkit",
-        "@ledger/core",
         "use-effect-ts",
         "@kstackz/web-platform",
         "@devtools/ui"
@@ -80,7 +79,6 @@
         "@kstackz/use-keys",
         "@kstackz/rpc-toolkit",
         "@kstackz/std-toolkit",
-        "@ledger/core",
         "use-effect-ts",
         "@kstackz/web-platform",
         "@devtools/ui"

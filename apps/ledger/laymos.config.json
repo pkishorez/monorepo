@@ -1,0 +1,87 @@
+{
+  "$schema": "../../devtools/laymos/schema.json",
+  "sourceRoots": ["src"],
+  "ignoredPaths": ["src/routeTree.gen.ts", "src/styles.css"],
+  "fileModules": [
+    "src/apis.ts",
+    "src/app.ts",
+    "src/backend/backend.ts",
+    "src/backend/services/broadcaster/device.ts",
+    "src/backend/services/broadcaster/durable-object.ts",
+    "src/backend/services/table/cloud.ts",
+    "src/backend/services/table/device.ts",
+    "src/backend/services/table/durable-object.ts",
+    "src/backend/services/table/table.ts",
+    "src/constants.ts",
+    "src/mark.tsx",
+    "src/router.tsx",
+    "src/routes/__root.tsx",
+    "src/routes/offline.tsx",
+    "src/stage.ts",
+    "src/worker.ts"
+  ],
+  "rules": {
+    "src/routes": ["src/app.ts", "src/model", "src/places", "src/screens"],
+    "src/worker.ts": [
+      "src/apis.ts",
+      "src/backend/backend.ts",
+      "src/backend/services/broadcaster/durable-object.ts",
+      "src/backend/services/table/cloud.ts",
+      "src/backend/services/table/durable-object.ts",
+      "src/infra",
+      "src/stage.ts"
+    ],
+    "src/screens": [
+      "src/app.ts",
+      "src/commands",
+      "src/mark.tsx",
+      "src/model",
+      "src/mutations",
+      "src/places",
+      "src/queries",
+      "src/session"
+    ],
+    "src/app.ts": [
+      "src/apis.ts",
+      "src/backend/device",
+      "src/cache",
+      "src/mark.tsx",
+      "src/session",
+      "src/stage.ts"
+    ],
+    "src/screens/shell": [
+      "src/screens/parts",
+      "src/screens/sheets/add",
+      "src/screens/sheets/accounts",
+      "src/screens/sheets/palette"
+    ],
+    "src/screens/places/home": ["src/screens/parts"],
+    "src/screens/places/entries": [
+      "src/screens/parts",
+      "src/screens/sheets/accounts"
+    ],
+    "src/screens/places/months": ["src/screens/parts"],
+    "src/screens/sheets/add": ["src/screens/parts"],
+    "src/screens/sheets/accounts": ["src/screens/parts"],
+    "src/apis.ts": ["src/api", "src/constants.ts"],
+    "src/session": ["src/apis.ts", "src/model", "src/constants.ts"],
+    "src/queries": ["src/session", "src/places", "src/model"],
+    "src/mutations": ["src/session", "src/model"],
+    "src/places": ["src/commands", "src/model"],
+    "src/backend/device": [
+      "src/backend/backend.ts",
+      "src/backend/services/broadcaster/device.ts",
+      "src/backend/services/table/device.ts"
+    ],
+    "src/backend/backend.ts": ["src/backend/handlers"],
+    "src/backend/handlers": [
+      "src/backend/services/table",
+      "src/api",
+      "src/model"
+    ],
+    "*": ["src/backend/services/table/table.ts"],
+    "src/backend/services/table/table.ts": ["src/model"],
+    "src/api": ["src/model"],
+    "src/infra": ["src/backend/services/table"]
+  }
+}
