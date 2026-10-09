@@ -39,6 +39,7 @@ import { Route as DemosEffectOakSnakeRouteImport } from './routes/demos/effect-o
 import { Route as DemosEffectOakStateMachineRouteImport } from './routes/demos/effect-oak/state-machine'
 import { Route as DemosEffectOakStopwatchRouteImport } from './routes/demos/effect-oak/stopwatch'
 import { Route as DemosEffectOakTodoRouteImport } from './routes/demos/effect-oak/todo'
+import { Route as DemosEffectOakUiShowcaseRouteImport } from './routes/demos/effect-oak/ui-showcase'
 import { Route as DemosEffectOakViewTransitionsRouteImport } from './routes/demos/effect-oak/view-transitions'
 import { Route as DemosEffectOakWeatherRouteImport } from './routes/demos/effect-oak/weather'
 import { Route as DemosEffectOakWebComponentsRouteImport } from './routes/demos/effect-oak/web-components'
@@ -204,6 +205,12 @@ const DemosEffectOakTodoRoute = DemosEffectOakTodoRouteImport.update({
   path: '/demos/effect-oak/todo',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DemosEffectOakUiShowcaseRoute =
+  DemosEffectOakUiShowcaseRouteImport.update({
+    id: '/demos/effect-oak/ui-showcase',
+    path: '/demos/effect-oak/ui-showcase',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const DemosEffectOakViewTransitionsRoute =
   DemosEffectOakViewTransitionsRouteImport.update({
     id: '/demos/effect-oak/view-transitions',
@@ -258,6 +265,7 @@ export interface FileRoutesByFullPath {
   '/demos/effect-oak/state-machine': typeof DemosEffectOakStateMachineRoute
   '/demos/effect-oak/stopwatch': typeof DemosEffectOakStopwatchRoute
   '/demos/effect-oak/todo': typeof DemosEffectOakTodoRoute
+  '/demos/effect-oak/ui-showcase': typeof DemosEffectOakUiShowcaseRoute
   '/demos/effect-oak/view-transitions': typeof DemosEffectOakViewTransitionsRoute
   '/demos/effect-oak/weather': typeof DemosEffectOakWeatherRoute
   '/demos/effect-oak/web-components': typeof DemosEffectOakWebComponentsRoute
@@ -294,6 +302,7 @@ export interface FileRoutesByTo {
   '/demos/effect-oak/state-machine': typeof DemosEffectOakStateMachineRoute
   '/demos/effect-oak/stopwatch': typeof DemosEffectOakStopwatchRoute
   '/demos/effect-oak/todo': typeof DemosEffectOakTodoRoute
+  '/demos/effect-oak/ui-showcase': typeof DemosEffectOakUiShowcaseRoute
   '/demos/effect-oak/view-transitions': typeof DemosEffectOakViewTransitionsRoute
   '/demos/effect-oak/weather': typeof DemosEffectOakWeatherRoute
   '/demos/effect-oak/web-components': typeof DemosEffectOakWebComponentsRoute
@@ -331,6 +340,7 @@ export interface FileRoutesById {
   '/demos/effect-oak/state-machine': typeof DemosEffectOakStateMachineRoute
   '/demos/effect-oak/stopwatch': typeof DemosEffectOakStopwatchRoute
   '/demos/effect-oak/todo': typeof DemosEffectOakTodoRoute
+  '/demos/effect-oak/ui-showcase': typeof DemosEffectOakUiShowcaseRoute
   '/demos/effect-oak/view-transitions': typeof DemosEffectOakViewTransitionsRoute
   '/demos/effect-oak/weather': typeof DemosEffectOakWeatherRoute
   '/demos/effect-oak/web-components': typeof DemosEffectOakWebComponentsRoute
@@ -369,6 +379,7 @@ export interface FileRouteTypes {
     | '/demos/effect-oak/state-machine'
     | '/demos/effect-oak/stopwatch'
     | '/demos/effect-oak/todo'
+    | '/demos/effect-oak/ui-showcase'
     | '/demos/effect-oak/view-transitions'
     | '/demos/effect-oak/weather'
     | '/demos/effect-oak/web-components'
@@ -405,6 +416,7 @@ export interface FileRouteTypes {
     | '/demos/effect-oak/state-machine'
     | '/demos/effect-oak/stopwatch'
     | '/demos/effect-oak/todo'
+    | '/demos/effect-oak/ui-showcase'
     | '/demos/effect-oak/view-transitions'
     | '/demos/effect-oak/weather'
     | '/demos/effect-oak/web-components'
@@ -441,6 +453,7 @@ export interface FileRouteTypes {
     | '/demos/effect-oak/state-machine'
     | '/demos/effect-oak/stopwatch'
     | '/demos/effect-oak/todo'
+    | '/demos/effect-oak/ui-showcase'
     | '/demos/effect-oak/view-transitions'
     | '/demos/effect-oak/weather'
     | '/demos/effect-oak/web-components'
@@ -478,6 +491,7 @@ export interface RootRouteChildren {
   DemosEffectOakStateMachineRoute: typeof DemosEffectOakStateMachineRoute
   DemosEffectOakStopwatchRoute: typeof DemosEffectOakStopwatchRoute
   DemosEffectOakTodoRoute: typeof DemosEffectOakTodoRoute
+  DemosEffectOakUiShowcaseRoute: typeof DemosEffectOakUiShowcaseRoute
   DemosEffectOakViewTransitionsRoute: typeof DemosEffectOakViewTransitionsRoute
   DemosEffectOakWeatherRoute: typeof DemosEffectOakWeatherRoute
   DemosEffectOakWebComponentsRoute: typeof DemosEffectOakWebComponentsRoute
@@ -697,6 +711,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DemosEffectOakTodoRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/demos/effect-oak/ui-showcase': {
+      id: '/demos/effect-oak/ui-showcase'
+      path: '/demos/effect-oak/ui-showcase'
+      fullPath: '/demos/effect-oak/ui-showcase'
+      preLoaderRoute: typeof DemosEffectOakUiShowcaseRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/demos/effect-oak/view-transitions': {
       id: '/demos/effect-oak/view-transitions'
       path: '/demos/effect-oak/view-transitions'
@@ -760,6 +781,7 @@ const rootRouteChildren: RootRouteChildren = {
   DemosEffectOakStateMachineRoute: DemosEffectOakStateMachineRoute,
   DemosEffectOakStopwatchRoute: DemosEffectOakStopwatchRoute,
   DemosEffectOakTodoRoute: DemosEffectOakTodoRoute,
+  DemosEffectOakUiShowcaseRoute: DemosEffectOakUiShowcaseRoute,
   DemosEffectOakViewTransitionsRoute: DemosEffectOakViewTransitionsRoute,
   DemosEffectOakWeatherRoute: DemosEffectOakWeatherRoute,
   DemosEffectOakWebComponentsRoute: DemosEffectOakWebComponentsRoute,

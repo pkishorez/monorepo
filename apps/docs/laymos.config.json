@@ -102,6 +102,29 @@
     ],
     "src/demos/effect-oak/job-application/review": [
       "src/demos/effect-oak/job-application/application"
+    ],
+    "src/demos/effect-oak/ui-showcase/dialog": [
+      "src/demos/effect-oak/ui-showcase/focus",
+      "src/demos/effect-oak/ui-showcase/picks"
+    ],
+    "src/demos/effect-oak/ui-showcase/menu": [
+      "src/demos/effect-oak/ui-showcase/focus",
+      "src/demos/effect-oak/ui-showcase/picks"
+    ],
+    "src/demos/effect-oak/ui-showcase/tabs": [
+      "src/demos/effect-oak/ui-showcase/focus",
+      "src/demos/effect-oak/ui-showcase/picks"
+    ],
+    "src/demos/effect-oak/ui-showcase/listbox": [
+      "src/demos/effect-oak/ui-showcase/focus",
+      "src/demos/effect-oak/ui-showcase/picks"
+    ],
+    "src/demos/effect-oak/ui-showcase/combobox": [
+      "src/demos/effect-oak/ui-showcase/focus",
+      "src/demos/effect-oak/ui-showcase/picks"
+    ],
+    "src/demos/effect-oak/ui-showcase/switch": [
+      "src/demos/effect-oak/ui-showcase/picks"
     ]
   }
 }

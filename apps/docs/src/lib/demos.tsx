@@ -219,6 +219,12 @@ export const DEMOS = [
     group: 'Large apps',
     summary: 'A five-step form with entry lists and a live resume preview',
   },
+  {
+    to: '/demos/effect-oak/ui-showcase',
+    name: 'UI showcase',
+    group: 'Large apps',
+    summary: 'Dialogs, menus, tabs, listboxes and more, each a Node',
+  },
 ] as const satisfies ReadonlyArray<{
   readonly to: string;
   readonly name: string;
