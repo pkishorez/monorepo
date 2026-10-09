@@ -6,11 +6,7 @@ import {
   useDevtoolsRuntime,
   type DevtoolsRuntime,
 } from '../../client/devtools-rpc/index.js';
-import type {
-  ProjectEntry,
-  RegistryTool,
-  WorktreeResolution,
-} from '../../rpc/index.js';
+import type { ProjectEntry, WorktreeResolution } from '../../rpc/index.js';
 
 type Client = Effect.Success<typeof DevtoolsClient>;
 
@@ -21,26 +17,25 @@ function call<A, E>(
   return runtime.runPromise(Effect.flatMap(DevtoolsClient, use));
 }
 
-export const registryKey = (tool: RegistryTool) =>
-  ['devtools-project-registry', tool] as const;
+export const registryKey = ['devtools-project-registry'] as const;
 export const worktreesKey = (path: string) =>
   ['devtools-worktrees', path] as const;
 
-/** The registered Projects of one Tool, each with its Worktrees. */
-export function useProjectRegistry(tool: RegistryTool) {
+/** Every Monorepo and Single Package added to Monoverse, each with its Worktrees. */
+export function useProjectRegistry() {
   const runtime = useDevtoolsRuntime();
   const queryClient = useQueryClient();
   const query = useQuery({
-    queryKey: registryKey(tool),
+    queryKey: registryKey,
     retry: false,
-    queryFn: () => call(runtime, (client) => client.ListProjects({ tool })),
+    queryFn: () => call(runtime, (client) => client.ListProjects()),
   });
   const invalidate = () =>
-    queryClient.invalidateQueries({ queryKey: registryKey(tool) });
+    queryClient.invalidateQueries({ queryKey: registryKey });
 
   const add = useMutation({
     mutationFn: (input: { path: string; label: string | null }) =>
-      call(runtime, (client) => client.AddProject({ tool, ...input })),
+      call(runtime, (client) => client.AddProject(input)),
     onSuccess: invalidate,
   });
   const update = useMutation({
@@ -98,28 +93,25 @@ export function basename(path: string) {
 }
 
 type ReloadState = {
-  nonce: Record<RegistryTool, number>;
-  bump: (tool: RegistryTool) => void;
+  nonce: number;
+  bump: () => void;
 };
 
 // In-memory only: the header and the body are separate components, and a
 // reload request has to reach both. Nothing here survives a page load.
 const useReloadStore = create<ReloadState>((set) => ({
-  nonce: { monoverse: 0, laymos: 0 },
-  bump: (tool) =>
-    set((state) => ({
-      nonce: { ...state.nonce, [tool]: state.nonce[tool] + 1 },
-    })),
+  nonce: 0,
+  bump: () => set((state) => ({ nonce: state.nonce + 1 })),
 }));
 
-/** One reload signal per Tool; requesting it also refreshes the registry and Worktrees. */
-export function useReload(tool: RegistryTool) {
+/** The reload signal; requesting it also refreshes the registry and Worktrees. */
+export function useReload() {
   const queryClient = useQueryClient();
-  const nonce = useReloadStore((state) => state.nonce[tool]);
+  const nonce = useReloadStore((state) => state.nonce);
   const bump = useReloadStore((state) => state.bump);
   const request = () => {
-    bump(tool);
-    void queryClient.invalidateQueries({ queryKey: registryKey(tool) });
+    bump();
+    void queryClient.invalidateQueries({ queryKey: registryKey });
     void queryClient.invalidateQueries({ queryKey: ['devtools-worktrees'] });
   };
   return { nonce, request };

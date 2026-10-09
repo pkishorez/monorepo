@@ -33,6 +33,7 @@ async function withMonorepo<T>(
 describe('analyzeMonorepo', () => {
   test('describes every Package the workspace globs match', async () => {
     const analysis = await Effect.runPromise(analyzeMonorepo(fixture('basic')));
+    expect(analysis.kind).toBe('monorepo');
     expect(analysis.name).toBe('basic-monorepo');
     expect(analysis.packages.map((pkg) => pkg.name)).toEqual([
       'core',
@@ -105,16 +106,17 @@ describe('analyzeMonorepo', () => {
     expect(error._tag).toBe('InvalidMonorepoPath');
   });
 
-  test('rejects a folder with neither pnpm-workspace.yaml nor workspaces', async () => {
-    const error = await Effect.runPromise(
-      analyzeMonorepo(fixture('basic/apps/web')).pipe(Effect.flip),
-    );
-    expect(error).toMatchObject({
-      _tag: 'MonorepoReadError',
-      reason: 'not-a-monorepo',
-      path: fixture('basic/apps/web'),
-    });
-  });
+  test('rejects a folder with no package.json', () =>
+    withMonorepo({ 'README.md': '# Notes' }, async (root) => {
+      const error = await Effect.runPromise(
+        analyzeMonorepo(root).pipe(Effect.flip),
+      );
+      expect(error).toMatchObject({
+        _tag: 'MonorepoReadError',
+        reason: 'no-package-json',
+        path: root,
+      });
+    }));
 
   test('names pnpm as the Package Manager of a pnpm Monorepo', async () => {
     const analysis = await Effect.runPromise(analyzeMonorepo(fixture('basic')));
@@ -233,6 +235,63 @@ describe('the workspaces field', () => {
         reason: 'workspace-parse',
         path: join(root, 'package.json'),
       });
+    }));
+});
+
+describe('a Single Package', () => {
+  test('is a package.json that lists no workspace globs, its own one Package', () =>
+    withMonorepo(
+      {
+        'package.json':
+          '{"name":"solo","version":"1.2.0","dependencies":{"effect":"*"}}',
+        'bun.lock': '',
+        'src/index.ts': 'export {};\n',
+        'packages/inner/package.json': '{"name":"inner"}',
+      },
+      async (root) => {
+        const analysis = await Effect.runPromise(analyzeMonorepo(root));
+        expect(analysis).toMatchObject({
+          kind: 'single-package',
+          name: 'solo',
+          path: root,
+          packageManager: 'bun',
+          violations: [],
+        });
+        expect(analysis.packages).toEqual([
+          {
+            name: 'solo',
+            path: '.',
+            group: '.',
+            version: '1.2.0',
+            private: false,
+            hasLaymos: false,
+            hasStories: false,
+            dependencies: [],
+          },
+        ]);
+      },
+    ));
+
+  test('carries the Laymos and Stories badges of its laymos.config.json', () =>
+    withMonorepo(
+      {
+        'package.json': '{"name":"solo"}',
+        'laymos.config.json': '{"sourceRoots":["src"],"storiesPath":"stories"}',
+      },
+      async (root) => {
+        const analysis = await Effect.runPromise(analyzeMonorepo(root));
+        expect(analysis.packages).toMatchObject([
+          { name: 'solo', path: '.', hasLaymos: true, hasStories: true },
+        ]);
+      },
+    ));
+
+  test('is named by its folder when its package.json names nothing', () =>
+    withMonorepo({ 'package.json': '{"private":true}' }, async (root) => {
+      const analysis = await Effect.runPromise(analyzeMonorepo(root));
+      const folder = root.split('/').pop();
+      expect(analysis.name).toBe(folder);
+      expect(analysis.packages.map((pkg) => pkg.name)).toEqual([folder]);
     }));
 });
 

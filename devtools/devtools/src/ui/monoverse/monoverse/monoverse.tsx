@@ -49,8 +49,8 @@ function useMonoverseSearch() {
 }
 
 /**
- * The Monoverse Tool. The Monorepo and the Package open in Embedded Laymos
- * live in the URL (`monorepo`, `laymos`). Switching Worktree rewrites
+ * The Monoverse Tool. The Monorepo or Single Package, and the Package open in
+ * Embedded Laymos, live in the URL (`monorepo`, `laymos`). Switching Worktree rewrites
  * `monorepo` to the Worktree sibling; nothing is remembered outside the URL.
  * A bare `/monoverse` shows the Project picker.
  */
@@ -59,7 +59,7 @@ export function Monoverse() {
   const search = useMonoverseSearch();
   const navigate = useNavigate();
   const monorepoPath = search.monorepo ?? null;
-  const reload = useReload('monoverse');
+  const reload = useReload();
   const worktrees = useWorktrees(monorepoPath);
 
   const selectMonorepo = useCallback(
@@ -84,11 +84,7 @@ export function Monoverse() {
     return (
       <div className={`h-full overflow-auto ${scrollbarStyles}`}>
         <div className="mx-auto max-w-2xl space-y-6 p-4 sm:p-8">
-          <ProjectPicker
-            tool="monoverse"
-            currentPath={null}
-            onSelect={selectMonorepo}
-          />
+          <ProjectPicker currentPath={null} onSelect={selectMonorepo} />
         </div>
       </div>
     );
@@ -99,7 +95,6 @@ export function Monoverse() {
   if (isMissingInWorktree(worktrees.data)) {
     return (
       <MissingProjectState
-        noun="monorepo"
         path={monorepoPath}
         resolution={worktrees.data}
         onSelect={selectMonorepo}
@@ -138,9 +133,9 @@ function MonorepoView({
   const worktrees = useWorktrees(monorepoPath);
   // One Base ref for the whole view; Embedded Laymos is measured against it.
   const git = useGitChanges(monorepoPath, { reloadNonce, knownFiles: true });
-  // A Worktree may hold the folder but not the file listing its workspace
-  // globs: from the developer's view the Monorepo is not there either.
-  const [notMonorepoAt, setNotMonorepoAt] = useState<number | null>(null);
+  // A Worktree may hold the folder but not its package.json: from the
+  // developer's view the folder is not there either.
+  const [noPackageJsonAt, setNoPackageJsonAt] = useState<number | null>(null);
 
   const loadAnalysis = useCallback(
     () =>
@@ -150,11 +145,11 @@ function MonorepoView({
           const client = yield* DevtoolsClient;
           return yield* client.AnalyzeMonorepo({ monorepoPath });
         }).pipe(
-          Effect.tap(() => Effect.sync(() => setNotMonorepoAt(null))),
+          Effect.tap(() => Effect.sync(() => setNoPackageJsonAt(null))),
           Effect.tapError((error) =>
             Effect.sync(() =>
-              setNotMonorepoAt(
-                error._tag === 'NotAMonorepoError' ? reloadNonce : null,
+              setNoPackageJsonAt(
+                error._tag === 'NoPackageJsonError' ? reloadNonce : null,
               ),
             ),
           ),
@@ -184,10 +179,9 @@ function MonorepoView({
     [runtime, monorepoPath],
   );
 
-  if (notMonorepoAt === reloadNonce && worktrees.data) {
+  if (noPackageJsonAt === reloadNonce && worktrees.data) {
     return (
       <MissingProjectState
-        noun="monorepo"
         path={monorepoPath}
         resolution={worktrees.data}
         onSelect={onSelectMonorepo}
@@ -233,7 +227,6 @@ export function MonoverseHeader() {
   const navigate = useNavigate();
   return (
     <ProjectSelectionHeader
-      tool="monoverse"
       path={search.monorepo ?? null}
       onSelect={(path) =>
         void navigate({

@@ -9,7 +9,7 @@ import {
 import {
   InvalidMonorepoPathError,
   MonorepoReadFailure,
-  NotAMonorepoError,
+  NoPackageJsonError,
 } from '../../rpc/index.js';
 
 /** Fulfils `AnalyzeMonorepo`: expands `~`, runs the engine, maps its errors. */
@@ -32,8 +32,8 @@ function toRpcError(error: AnalyzeMonorepoError) {
         path: error.path,
       });
     case 'MonorepoReadError':
-      if (error.reason === 'not-a-monorepo') {
-        return new NotAMonorepoError({ path: error.path });
+      if (error.reason === 'no-package-json') {
+        return new NoPackageJsonError({ path: error.path });
       }
       return new MonorepoReadFailure({
         reason: error.reason,

@@ -6,7 +6,6 @@ import {
   RotateCwIcon,
 } from '@kstackz/web-platform/components/lucide';
 import { cn } from '@kstackz/web-platform/components/utils';
-import type { RegistryTool } from '../../rpc/index.js';
 import { ProjectPickerDialog } from './project-picker.js';
 import {
   basename,
@@ -18,35 +17,25 @@ import {
 } from './registry.js';
 import { WorktreeSwitcher } from './worktree-switcher.js';
 
-export { ProjectPicker, ProjectPickerDialog } from './project-picker.js';
+export { ProjectPicker } from './project-picker.js';
 export { MissingProjectState } from './missing-project.js';
-export { WorktreeSwitcher } from './worktree-switcher.js';
-export { useReload, useWorktrees, currentWorktree } from './registry.js';
-
-const NOUN: Record<RegistryTool, string> = {
-  monoverse: 'monorepo',
-  laymos: 'project',
-};
+export { useReload, useWorktrees } from './registry.js';
 
 /**
- * The header for a Project-scoped Tool: the project switcher that opens the
- * picker, the Worktree switcher for the current path, and the reload button.
- * `path` is whatever the URL says; `onSelect` writes a new path back to it.
+ * The header for Monoverse: the switcher that opens the picker, the Worktree
+ * switcher for the current path, and the reload button. `path` is whatever
+ * the URL says; `onSelect` writes a new path back to it.
  */
 export function ProjectSelectionHeader({
-  tool,
   path,
   onSelect,
-  reloading = false,
 }: {
-  tool: RegistryTool;
   path: string | null;
   onSelect: (path: string) => void;
-  reloading?: boolean;
 }) {
-  const registry = useProjectRegistry(tool);
+  const registry = useProjectRegistry();
   const worktrees = useWorktrees(path);
-  const reload = useReload(tool);
+  const reload = useReload();
   const [dialogOpen, setDialogOpen] = useState(false);
 
   const entry = findEntryForPath(registry.query.data, path);
@@ -66,7 +55,7 @@ export function ProjectSelectionHeader({
       >
         <FolderIcon className="size-3.5 shrink-0 text-muted-foreground" />
         <span className="min-w-0 flex-1 truncate text-left">
-          {label ?? `Select a ${NOUN[tool]}`}
+          {label ?? 'Select a folder'}
         </span>
         <ChevronsUpDownIcon className="size-3.5 shrink-0 text-muted-foreground" />
       </button>
@@ -83,19 +72,13 @@ export function ProjectSelectionHeader({
           size="icon-sm"
           className="size-10 shrink-0 text-muted-foreground hover:text-foreground md:size-8"
           onClick={reload.request}
-          disabled={reloading}
-          aria-label={
-            reloading ? `Reloading ${NOUN[tool]}` : `Reload ${NOUN[tool]}`
-          }
-          title={reloading ? 'Reloading…' : 'Reload'}
+          aria-label="Reload"
+          title="Reload"
         >
-          <RotateCwIcon
-            className={cn('size-3.5', reloading && 'animate-spin')}
-          />
+          <RotateCwIcon className="size-3.5" />
         </Button>
       ) : null}
       <ProjectPickerDialog
-        tool={tool}
         currentPath={path}
         open={dialogOpen}
         onOpenChange={setDialogOpen}

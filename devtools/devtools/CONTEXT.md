@@ -11,8 +11,8 @@ The umbrella through which developers access all local development tools.
 _Avoid_: Tool suite, admin panel.
 
 **Tool**:
-A self-contained developer capability presented through DevTools. Lotel,
-Laymos, and Monoverse are Tools.
+A self-contained developer capability presented through DevTools. Lotel and
+Monoverse are Tools; Laymos is not one, though Monoverse shows it.
 
 **Tool Scope**:
 Whether a Tool works with repository-wide information or information from one
@@ -20,7 +20,8 @@ Project.
 _Avoid_: Project scope when the Tool is repository-wide.
 
 **Project**:
-A source folder selected for analysis by a Project-scoped Tool.
+A source folder opened for analysis: a Monorepo or Single Package selected in
+Monoverse, or a folder holding a Laymos Config opened in Laymos.
 _Avoid_: Workspace when referring to one selected source folder.
 
 **Worktree**:
@@ -36,20 +37,21 @@ stays identified by its own folder.
 _Avoid_: Worktree variant, alternate project, mirror.
 
 **Project registry**:
-The list of Projects a developer has registered with DevTools, kept by the
-DevTools server and shared by every browser on the machine. Each entry belongs
-to one Tool and names one folder; the Worktree currently being analysed is not
-part of the entry.
+The Monorepos and Single Packages a developer has added to Monoverse, kept by
+the DevTools server and shared by every browser on the machine. Each entry
+names one folder; the Worktree currently being analysed is not part of the
+entry.
 _Avoid_: Saved projects, recent projects, project list.
 
 **Laymos**:
-The DevTools Tool and domain for describing and analyzing the architecture of a
-Project.
-_Avoid_: Architecture Tool.
+The domain for describing and analyzing the architecture of a Project. DevTools
+reaches it only through Monoverse, as Embedded Laymos; outside DevTools it has
+its own CLI.
+_Avoid_: Architecture Tool, Laymos Tool.
 
 **Monoverse**:
-The DevTools Tool and domain for understanding one monorepo as a whole:
-its packages, their dependencies, and their changes. See the
+The DevTools Tool and domain for understanding one Monorepo or Single Package
+as a whole: its packages, their dependencies, and their changes. See the
 [Monoverse context](./docs/monoverse.md).
 _Avoid_: Monorepo Tool, Workspace Tool.
 

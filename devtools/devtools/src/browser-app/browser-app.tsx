@@ -17,7 +17,6 @@ import {
 } from '@kstackz/web-platform/components/lucide';
 import { DevtoolsRpcProvider } from '../client/devtools-rpc/index.js';
 import { Lotel } from '../ui/lotel/lotel/index.js';
-import { Laymos, LaymosHeader } from '../ui/laymos/laymos/index.js';
 import { Monoverse, MonoverseHeader } from '../ui/monoverse/monoverse/index.js';
 
 type Theme = 'dark' | 'light';
@@ -37,7 +36,6 @@ function Shell() {
   const [theme, setTheme] = useState<Theme>(readTheme);
 
   const matchRoute = useMatchRoute();
-  const onLaymos = matchRoute({ to: '/laymos' }) !== false;
   const onMonoverse = matchRoute({ to: '/monoverse' }) !== false;
   const onLotel = matchRoute({ to: '/lotel' }) !== false;
 
@@ -56,21 +54,15 @@ function Shell() {
           <nav className="ml-6 flex items-center gap-1">
             <ToolLink to="/lotel">Lotel</ToolLink>
             <ToolLink to="/monoverse">Monoverse</ToolLink>
-            <ToolLink to="/laymos">Laymos</ToolLink>
           </nav>
         </div>
         <div className="flex items-center justify-center">
-          {onLaymos ? <LaymosHeader /> : null}
           {onMonoverse ? <MonoverseHeader /> : null}
         </div>
         <ThemeButton theme={theme} onToggle={() => setTheme(toggleTheme)} />
       </header>
       <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border/50 px-2 md:hidden">
-        {onLaymos ? (
-          <div className="flex min-w-0 flex-1 items-center">
-            <LaymosHeader />
-          </div>
-        ) : onMonoverse ? (
+        {onMonoverse ? (
           <div className="flex min-w-0 flex-1 items-center">
             <MonoverseHeader />
           </div>
@@ -93,11 +85,10 @@ function Shell() {
       </main>
       <nav
         aria-label="Tools"
-        className="grid shrink-0 grid-cols-3 border-t border-border/60 bg-background px-2 pb-[max(env(safe-area-inset-bottom),0.25rem)] md:hidden"
+        className="grid shrink-0 grid-cols-2 border-t border-border/60 bg-background px-2 pb-[max(env(safe-area-inset-bottom),0.25rem)] md:hidden"
       >
         <MobileToolLink to="/lotel">Lotel</MobileToolLink>
         <MobileToolLink to="/monoverse">Monoverse</MobileToolLink>
-        <MobileToolLink to="/laymos">Laymos</MobileToolLink>
       </nav>
       <Toaster />
     </div>
@@ -139,7 +130,7 @@ function ToolLink({
   to,
   children,
 }: {
-  to: '/lotel' | '/monoverse' | '/laymos';
+  to: '/lotel' | '/monoverse';
   children: string;
 }) {
   return (
@@ -156,7 +147,7 @@ function MobileToolLink({
   to,
   children,
 }: {
-  to: '/lotel' | '/monoverse' | '/laymos';
+  to: '/lotel' | '/monoverse';
   children: string;
 }) {
   return (
@@ -186,12 +177,7 @@ function Home() {
           <ToolRow
             to="/monoverse"
             title="Monoverse"
-            description="Packages, their dependencies, and changes across one monorepo."
-          />
-          <ToolRow
-            to="/laymos"
-            title="Laymos"
-            description="Layers, Modules, source, changes, and Stories for a Project."
+            description="Packages, their dependencies, and changes across a monorepo or a single package, with Laymos for each."
           />
         </nav>
         <p className="mt-10 font-mono text-[11px] text-muted-foreground/60">
@@ -207,7 +193,7 @@ function ToolRow({
   title,
   description,
 }: {
-  to: '/lotel' | '/monoverse' | '/laymos';
+  to: '/lotel' | '/monoverse';
   title: string;
   description: string;
 }) {
@@ -258,7 +244,9 @@ const indexRoute = createRoute({
 const lotelRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/lotel',
-  validateSearch: (search: Record<string, unknown>) => ({
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { trace?: string | undefined; span?: string | undefined } => ({
     trace: typeof search.trace === 'string' ? search.trace : undefined,
     span: typeof search.span === 'string' ? search.span : undefined,
   }),
@@ -267,24 +255,18 @@ const lotelRoute = createRoute({
 const monoverseRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/monoverse',
-  validateSearch: (search: Record<string, unknown>) => ({
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { monorepo?: string | undefined; laymos?: string | undefined } => ({
     monorepo: typeof search.monorepo === 'string' ? search.monorepo : undefined,
     laymos: typeof search.laymos === 'string' ? search.laymos : undefined,
   }),
   component: Monoverse,
 });
-const laymosRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/laymos',
-  validateSearch: (search: Record<string, unknown>): { project?: string } =>
-    typeof search.project === 'string' ? { project: search.project } : {},
-  component: Laymos,
-});
 const routeTree = rootRoute.addChildren([
   indexRoute,
   lotelRoute,
   monoverseRoute,
-  laymosRoute,
 ]);
 const router = createRouter({ routeTree });
 

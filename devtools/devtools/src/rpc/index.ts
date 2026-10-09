@@ -13,16 +13,12 @@ export {
 } from './rpc.js';
 export { GitRpc, GitUnavailableError, InvalidFolderPath } from './git.js';
 export {
-  ProjectEntryEntitySchema,
   ProjectEntrySchema,
   ProjectRegistryError,
   ProjectRegistryRpc,
-  RegistryToolSchema,
   WorktreeResolutionSchema,
   WorktreeSchema,
   type ProjectEntry,
-  type ProjectEntryRecord,
-  type RegistryTool,
   type Worktree,
   type WorktreeResolution,
 } from './project-registry.js';
@@ -30,7 +26,7 @@ export {
   InvalidMonorepoPathError,
   MonorepoReadFailure,
   MonoverseRpc,
-  NotAMonorepoError,
+  NoPackageJsonError,
   MonorepoFileNotFoundError,
   MonorepoFileOutsideError,
   MonorepoFileReadError,

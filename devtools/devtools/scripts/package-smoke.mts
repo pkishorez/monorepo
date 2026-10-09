@@ -34,7 +34,6 @@ try {
       '/': 'DevTools browser application.',
       '/lotel': 'Lotel Tool.',
       '/monoverse': 'Monoverse Tool.',
-      '/laymos': 'Laymos Tool.',
       '/rpc': 'Typed RPC endpoint.',
       '/story-evidence':
         'One Evidence file of a Proof run: ?project=<abs path>&proof=<Proof id>&file=<relative file>.',
@@ -43,7 +42,7 @@ try {
     },
   });
 
-  for (const route of ['/', '/lotel', '/monoverse', '/laymos', '/not-found']) {
+  for (const route of ['/', '/lotel', '/monoverse', '/not-found']) {
     const response = await fetch(`${origin}${route}`, {
       headers: { accept: 'text/html' },
     });

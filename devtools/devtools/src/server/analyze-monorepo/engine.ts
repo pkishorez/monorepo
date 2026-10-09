@@ -19,8 +19,9 @@ export type AnalyzeMonorepoError =
   | ManifestError;
 
 /**
- * Given an absolute Monorepo root, returns its Monorepo analysis: its
- * Package Manager, every Package, their dependencies on each other by name, and any cycles.
+ * Given an absolute folder, returns its analysis as a Monorepo or a Single
+ * Package: its Package Manager, every Package, their dependencies on each
+ * other by name, and any cycles. A Single Package has one Package, its root.
  */
 export function analyzeMonorepo(
   monorepoPath: string,
@@ -51,6 +52,7 @@ export function analyzeMonorepo(
     const packageManager = yield* detectPackageManager(root);
     const graph = buildPackageGraph(monorepo.manifests);
     return {
+      kind: monorepo.kind,
       name: monorepo.name,
       path: root,
       packageManager,

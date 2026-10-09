@@ -1,10 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Cause, Effect, Stream } from 'effect';
 import type { ProofReport } from 'laymos/story/schema';
 import { useRunEffect } from 'use-effect-ts';
@@ -38,10 +32,9 @@ function provideRuntime<A, E>(
 
 /**
  * The full Laymos view of one Project: analysis, changes against a Base ref,
- * Stories, and source. The Laymos Tool renders it for its selected Project;
- * Monoverse renders it as Embedded Laymos over its canvas. `reloadNonce`
- * changing refetches everything, saved Story reports included. A host that shares
- * its Base ref, as Monoverse does, passes it in.
+ * Stories, and source. Monoverse renders it as Embedded Laymos over its
+ * canvas. `reloadNonce` changing refetches everything, saved Story reports
+ * included. A host that shares its Base ref, as Monoverse does, passes it in.
  */
 export function LaymosProjectWorkspace({
   projectPath,
@@ -49,15 +42,12 @@ export function LaymosProjectWorkspace({
   baseRef: hostBaseRef,
   onBaseRefChange,
   className,
-  renderAnalysisError,
 }: {
   projectPath: string;
   reloadNonce?: number;
   baseRef?: string;
   onBaseRefChange?: (baseRef: string) => void;
   className?: string;
-  /** Replaces the default analysis error view; return null to keep it. */
-  renderAnalysisError?: (error: unknown) => ReactNode | null;
 }) {
   const runtime = useDevtoolsRuntime();
   const storyRun = useStoryRun(runtime, projectPath, reloadNonce);
@@ -98,8 +88,6 @@ export function LaymosProjectWorkspace({
   }, [reloadNonce]);
 
   if (query.error) {
-    const custom = renderAnalysisError?.(query.error);
-    if (custom) return <>{custom}</>;
     return (
       <AnalysisMessage
         title="Could not analyze project"

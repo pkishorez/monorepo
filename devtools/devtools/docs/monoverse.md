@@ -1,35 +1,44 @@
 # CONTEXT — monoverse
 
-Glossary for Monoverse: the bird's-eye view of one monorepo, its Packages
-and the dependencies between them, for discovery rather than enforcement.
+Glossary for Monoverse: the bird's-eye view of one Monorepo or Single
+Package, its Packages and the dependencies between them, for discovery rather
+than enforcement.
 Definitions only; no implementation detail.
 
 ## Language
 
 **Monoverse**:
-The DevTools Tool and domain for understanding one Monorepo as a whole: which
-Packages it holds, how they depend on each other, and which of them changed.
-It observes and never enforces; the only finding it reports is a Package cycle.
+The DevTools Tool, and the collection of Monorepos and Single Packages a
+developer has added to it, each understood as a whole: which Packages it
+holds, how they depend on each other, and which of them changed. It observes
+and never enforces; the only finding it reports is a Package cycle.
 _Avoid_: Monorepo Tool, Workspace view, Laymos for the monorepo
 
 **Monorepo**:
 A folder whose Packages are listed by its `pnpm-workspace.yaml` or by the
-`workspaces` field of its `package.json`. It is the unit a user adds to
-Monoverse and the universe every Package belongs to. A folder that lists them
-in neither place is not a Monorepo, and neither is a monorepo nested inside
-another.
+`workspaces` field of its `package.json`. It is one of the two things a user
+adds to Monoverse and the universe every one of its Packages belongs to. A
+folder that lists them in neither place is not a Monorepo, and neither is a
+monorepo nested inside another.
 _Avoid_: Workspace, repo, root project
 
+**Single Package**:
+A folder with a `package.json` that lists no workspace packages. It is the
+other thing a user adds to Monoverse, and it is its own one Package.
+_Avoid_: standalone package, single-package repo, project
+
 **Package Manager**:
-The tool a Monorepo is managed with: pnpm, npm, yarn, or bun. It has no
-bearing on which Packages exist or how they depend on each other.
+The tool a Monorepo or Single Package is managed with: pnpm, npm, yarn, or
+bun. It has no bearing on which Packages exist or how they depend on each
+other.
 _Avoid_: Workspace tool, client
 
 **Package**:
-One node of a Monorepo: a folder matched by the Monorepo's workspace globs that
-holds a `package.json`. Apps, libraries, toolkits, and devtools are all
+One node of a Monorepo or Single Package; in a Monorepo, a folder matched by
+its workspace globs that holds a `package.json`. Apps, libraries, toolkits, and devtools are all
 Packages; nothing distinguishes them but their Package group and their place in
-the Package graph. The Monorepo root's own manifest is not a Package.
+the Package graph. The Monorepo root's own manifest is not a Package; a Single
+Package's root is its one Package.
 _Avoid_: Workspace, member, app, project
 
 **Package dependency**:
@@ -124,8 +133,8 @@ never shown without it.
 The full Laymos view of one Package's Project, opened by double-clicking the
 Package, over the Monoverse canvas without leaving it, with the Project fixed
 and a crumb back to the Monorepo in place of the project picker. Closing it
-returns to the canvas exactly as it was left. It never adds the Project to the
-Laymos Tool's own list.
+returns to the canvas exactly as it was left. It is the only way DevTools
+shows Laymos.
 
 **Package files**:
 Every file git knows beneath a Package's folder, opened beside the canvas by

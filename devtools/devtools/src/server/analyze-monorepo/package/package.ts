@@ -15,11 +15,13 @@ const fields: Readonly<Record<DependencyKind, string>> = {
 
 /**
  * Reads one `package.json` and keeps what Monoverse needs from it. A manifest
- * that is missing or has no name yields nothing.
+ * that is missing yields nothing, and so does one with no name unless
+ * `fallbackName` names it.
  */
 export function readPackageManifest(
   monorepoRoot: string,
   packagePath: string,
+  fallbackName?: string,
 ): Effect.Effect<
   PackageManifest | undefined,
   ManifestError,
@@ -44,9 +46,12 @@ export function readPackageManifest(
       catch: (cause) =>
         new ManifestError({ reason: 'parse', path: manifestPath, cause }),
     });
-    if (!isRecord(json) || typeof json.name !== 'string' || json.name === '') {
-      return undefined;
-    }
+    if (!isRecord(json)) return undefined;
+    const name =
+      typeof json.name === 'string' && json.name !== ''
+        ? json.name
+        : fallbackName;
+    if (name === undefined) return undefined;
     // Absent or unreadable, a Laymos Config means no Laymos badge; one that
     // names a Stories path earns the Stories badge too.
     const laymosConfig = yield* fileSystem
@@ -55,7 +60,7 @@ export function readPackageManifest(
     const hasLaymos = laymosConfig !== undefined;
     const hasStories = hasLaymos && declaresStories(laymosConfig);
     return {
-      name: json.name,
+      name,
       path: packagePath,
       ...(typeof json.version === 'string' ? { version: json.version } : {}),
       private: json.private === true,

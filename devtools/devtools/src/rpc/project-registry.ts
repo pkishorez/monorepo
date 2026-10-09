@@ -1,28 +1,5 @@
 import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
-import { EntityESchema } from '@kstackz/std-toolkit/eschema';
-
-/** The Tool a Project registry entry belongs to. */
-export const RegistryToolSchema = Schema.Literals(['monoverse', 'laymos']);
-export type RegistryTool = typeof RegistryToolSchema.Type;
-
-/**
- * How the Project registry keeps one entry: one Tool, one absolute folder, an
- * optional label, and when it was added. The Worktree in use is never stored;
- * it lives in the browser address.
- */
-export const ProjectEntryEntitySchema = EntityESchema.make(
-  'ProjectEntry',
-  'id',
-  {
-    tool: RegistryToolSchema,
-    path: Schema.String,
-    label: Schema.NullOr(Schema.String),
-    addedAt: Schema.Number,
-  },
-).build();
-
-export type ProjectEntryRecord = typeof ProjectEntryEntitySchema.Type;
 
 /** One git checkout of a repository. */
 export const WorktreeSchema = Schema.Struct({
@@ -52,9 +29,14 @@ export const WorktreeResolutionSchema = Schema.Struct({
 });
 export type WorktreeResolution = typeof WorktreeResolutionSchema.Type;
 
+/**
+ * One Monorepo or Single Package added to Monoverse: one absolute folder, an
+ * optional label, and when it was added, with the Worktrees of its
+ * repository. The Worktree in use is never stored; it lives in the browser
+ * address.
+ */
 export const ProjectEntrySchema = Schema.Struct({
   id: Schema.String,
-  tool: RegistryToolSchema,
   path: Schema.String,
   label: Schema.NullOr(Schema.String),
   addedAt: Schema.Number,
@@ -72,13 +54,11 @@ export class ProjectRegistryError extends Schema.TaggedError<ProjectRegistryErro
 
 export const ProjectRegistryRpc = RpcGroup.make(
   Rpc.make('ListProjects', {
-    payload: { tool: RegistryToolSchema },
     success: Schema.Array(ProjectEntrySchema),
     error: ProjectRegistryError,
   }),
   Rpc.make('AddProject', {
     payload: {
-      tool: RegistryToolSchema,
       path: Schema.String,
       label: Schema.NullOr(Schema.String),
     },

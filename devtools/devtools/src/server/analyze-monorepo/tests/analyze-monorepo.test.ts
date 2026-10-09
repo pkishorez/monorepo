@@ -20,16 +20,29 @@ describe('analyzeMonorepo', () => {
     });
   });
 
-  test('reports a folder that lists no workspace globs as not a Monorepo', async () => {
-    const error = await analyzeMonorepo(process.cwd()).pipe(
-      Effect.flip,
+  test('reports a folder with no package.json', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'monoverse-rpc-'));
+    try {
+      const error = await analyzeMonorepo(root).pipe(
+        Effect.flip,
+        Effect.runPromise,
+      );
+
+      expect(error).toMatchObject({ _tag: 'NoPackageJsonError', path: root });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  test('returns a Single Package for a package that lists no workspace globs', async () => {
+    const analysis = await analyzeMonorepo(process.cwd()).pipe(
       Effect.runPromise,
     );
 
-    expect(error).toMatchObject({
-      _tag: 'NotAMonorepoError',
-      path: resolve(process.cwd()),
-    });
+    expect(analysis.kind).toBe('single-package');
+    expect(analysis.packages).toMatchObject([
+      { name: '@kstackz/devtools', path: '.', hasLaymos: true },
+    ]);
   });
 
   test('names the file whose workspace globs could not be read', async () => {
@@ -57,6 +70,7 @@ describe('analyzeMonorepo', () => {
       resolve(process.cwd(), '../..'),
     ).pipe(Effect.runPromise);
 
+    expect(analysis.kind).toBe('monorepo');
     expect(analysis.packageManager).toBe('pnpm');
     expect(analysis.packages.length).toBeGreaterThan(0);
     expect(

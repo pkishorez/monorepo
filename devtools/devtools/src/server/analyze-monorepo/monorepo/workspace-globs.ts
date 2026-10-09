@@ -6,16 +6,21 @@ import { parse } from 'yaml';
 import { MonorepoReadError } from './errors.js';
 
 /**
- * The workspace globs of the Monorepo at `root`. `pnpm-workspace.yaml` lists
+ * The workspace globs of the folder at `root`. `pnpm-workspace.yaml` lists
  * them under `packages:`, and wins when present. Otherwise the root
  * `package.json` lists them under `workspaces`, either as an array (npm, yarn,
  * bun) or as `{ packages: [...] }` (yarn; `nohoist` and other keys ignored).
- * A root with neither is not a Monorepo; a file present but not in one of
- * these shapes is a parse failure.
+ * A `package.json` with no `workspaces` field lists none: `undefined`, a
+ * Single Package. A folder with neither file fails as `no-package-json`; a
+ * file present but not in one of these shapes is a parse failure.
  */
 export function readWorkspaceGlobs(
   root: string,
-): Effect.Effect<readonly string[], MonorepoReadError, FileSystem.FileSystem> {
+): Effect.Effect<
+  readonly string[] | undefined,
+  MonorepoReadError,
+  FileSystem.FileSystem
+> {
   return Effect.gen(function* () {
     const pnpmPath = join(root, 'pnpm-workspace.yaml');
     const pnpmText = yield* readIfPresent(pnpmPath);
@@ -28,13 +33,13 @@ export function readWorkspaceGlobs(
 
     const manifestPath = join(root, 'package.json');
     const manifestText = yield* readIfPresent(manifestPath);
-    if (manifestText === undefined) return yield* notAMonorepo(root);
+    if (manifestText === undefined) return yield* noPackageJson(root);
     const manifest = yield* Effect.try({
       try: () => JSON.parse(manifestText) as unknown,
       catch: (cause) => parseError(manifestPath, cause),
     });
     if (!isRecord(manifest)) return yield* parseError(manifestPath);
-    if (!('workspaces' in manifest)) return yield* notAMonorepo(root);
+    if (!('workspaces' in manifest)) return undefined;
     const globs = workspacesGlobs(manifest.workspaces);
     if (globs === undefined) return yield* parseError(manifestPath);
     return globs;
@@ -76,8 +81,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function notAMonorepo(root: string): MonorepoReadError {
-  return new MonorepoReadError({ reason: 'not-a-monorepo', path: root });
+function noPackageJson(root: string): MonorepoReadError {
+  return new MonorepoReadError({ reason: 'no-package-json', path: root });
 }
 
 function parseError(path: string, cause?: unknown): MonorepoReadError {
