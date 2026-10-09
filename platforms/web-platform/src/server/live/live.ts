@@ -2,7 +2,7 @@ import type * as cf from '@cloudflare/workers-types';
 import { Effect, Layer } from 'effect';
 import { HttpServerRequest, HttpServerResponse } from 'effect/http';
 import type { Rpc as EffectRpc } from 'effect/rpc';
-import type { Api } from '@kstackz/platform-toolkit';
+import type { Api } from '../../define/index.ts';
 import { authz } from '@kstackz/auth-toolkit/server/cloud';
 import { Authz } from '@kstackz/auth-toolkit/guard';
 import { Rpc } from '@kstackz/rpc-toolkit/rpc';

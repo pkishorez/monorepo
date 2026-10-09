@@ -1,4 +1,4 @@
-import { Api } from '@kstackz/platform-toolkit';
+import { Api } from '@kstackz/web-platform/define';
 import { LedgerApi } from './api/index.ts';
 import { syncMode } from './constants.ts';
 

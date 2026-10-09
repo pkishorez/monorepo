@@ -1,7 +1,7 @@
 import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
 import { describe, expect, it, vi } from 'vitest';
-import { Api } from '@kstackz/platform-toolkit';
+import { Api } from '../../../define/index.ts';
 import { createServer, type LiveNamespace } from '../serve.ts';
 
 vi.mock('@tanstack/react-start/server-entry', () => ({

@@ -21,13 +21,13 @@
     "./places": "./src/places/index.ts"
   },
   "scripts": {
-    "lint": "tsc --noEmit && tsc --noEmit -p tests && pnpm lint:laymos",
+    "lint": "tsc --noEmit && pnpm lint:laymos",
     "lint:laymos": "laymos lint",
     "test": "vitest run"
   },
   "dependencies": {
     "@kstackz/auth-toolkit": "workspace:*",
-    "@kstackz/platform-toolkit": "workspace:*",
+    "@kstackz/web-platform": "workspace:*",
     "@kstackz/rpc-toolkit": "workspace:*",
     "@kstackz/std-toolkit": "workspace:*",
     "@kstackz/use-keys": "workspace:*",

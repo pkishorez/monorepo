@@ -1,5 +1,8 @@
 import { Effect, type Stream } from 'effect';
-import { defineSession, type SessionContext } from '@kstackz/platform-toolkit';
+import {
+  defineSession,
+  type SessionContext,
+} from '@kstackz/web-platform/define';
 import type { Entity } from '@kstackz/std-toolkit/core';
 import type { AnyEntityESchema } from '@kstackz/std-toolkit/eschema';
 import { inOrder, strategy } from '@kstackz/std-toolkit/sync';

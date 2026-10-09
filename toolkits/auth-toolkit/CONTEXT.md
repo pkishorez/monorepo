@@ -212,4 +212,4 @@ _Avoid_: allowed origin, CORS origin
 The parent domain (e.g. `.example.com`) the Auth Worker's session cookie is scoped to, so any subdomain's Direct Sign-in Check can read it. Configurable per deployment.
 _Avoid_: cookie domain (kept for the config field name; this term is for the concept in prose)
 
-The Gate, the Backends, each Account's Session and the device's Cache are the Platform Toolkit's words: see [its glossary](../platform-toolkit/CONTEXT.md).
+The Gate, the Backends, each Account's Session and the device's Cache are the Web Platform's words: see [its glossary](../../platforms/web-platform/CONTEXT.md).

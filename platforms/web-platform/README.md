@@ -1,12 +1,12 @@
 # @kstackz/web-platform
 
-The Web Platform: a web app from one config, as a PWA on TanStack Start with its Theme, its APIs on a cloud or a device Backend, several Accounts with one Session each, the screens before sign-in, and the server; plus the components, input, forms and Recipes to build screens with.
+The way to build a kstack app: one config made into a PWA on TanStack Start with its Theme, its APIs on a cloud or a device Backend, several Accounts with one Session each, the screens before sign-in, and the server; plus the components, input, forms and Recipes to build screens with.
 
 ## Big picture
 
 Every kstack web app used to wire the same things by hand: the root document, the Theme, the PWA, sign-in and its screens, the browser as a Host, and the server for its APIs. This Package holds all of it, so a new app writes only its APIs, its Backend, its Session, its Cache and its screens ([ADR 0004](../../docs/adr/0004-an-app-is-api-backend-and-stores.md)). It replaces `@kstackz/web-toolkit`, `@kstackz/ui-toolkit` and `@kstackz/pwa-toolkit`.
 
-The root door is `createApp`. It hands one config to [`@kstackz/platform-toolkit`](../../toolkits/platform-toolkit)'s `createApp` with `webHost` (IndexedDB with a Broadcaster per database every tab hears, the sign-in service's cookies, the window's network and tabs) and gives back the app with its root route, the Theme, `SignedIn` with the screens before an Account is open (the Gate Screens and Account Lost recipes), and the named sign-in dialog for the device Backend. Every app is a PWA: `createApp` always adds the PWA's Root Plugin. The `server` door's `createServer` serves each `http` API on its cloud Backend and each `websocket` API in the caller's own Live Object (a Durable Object made with `liveObject`, one per user), and checks every call with the sign-in service. Why the Platforms may break while the Toolkits keep what persists is [ADR 0006](../../docs/adr/0006-platforms-may-break-toolkits-keep-what-persists.md).
+The root door is `createApp`. It runs the app on the browser (IndexedDB with a Broadcaster per database every tab hears, the sign-in service's cookies, the window's network and tabs) and gives back the app with its root route, the Theme, `SignedIn` with the screens before an Account is open (the Gate Screens and Account Lost recipes), and the named sign-in dialog for the device Backend. Every app is a PWA: `createApp` always adds the PWA's Root Plugin. The `server` door's `createServer` serves each `http` API on its cloud Backend and each `websocket` API in the caller's own Live Object (a Durable Object made with `liveObject`, one per user), and checks every call with the sign-in service. Underneath `createApp` is the Gate: it keeps the app on one Backend, remembers the Accounts there, opens the active Account's Session at once (Open First) and confirms it behind, and holds the app on an Account Lost until the User acts. Each Session is written once with `defineSession`; closing it interrupts every call still in flight, so nothing of one Account reaches another's screen. Why the Web Platform may break while the Toolkits keep what persists is [ADR 0006](../../docs/adr/0006-platforms-may-break-toolkits-keep-what-persists.md).
 
 Underneath, it is laid out one layer per job and one subpath per layer, bottom to top: `theme`, `feedback`, `input`, `components`, `form`, `recipes`, `client`, then `pwa`; `server` stands beside them. These stay exported for screens and for the unusual app; [ADR 0003](../../docs/adr/0003-web-toolkit-and-the-gate.md) is the earlier design.
 
@@ -15,16 +15,15 @@ It ships built `dist/` (from `vp pack`). Terms are in [CONTEXT.md](./CONTEXT.md)
 ## Install
 
 ```sh
-pnpm add @kstackz/web-platform @kstackz/platform-toolkit @kstackz/auth-toolkit @kstackz/rpc-toolkit @kstackz/std-toolkit react react-dom @kstackz/use-gesture
+pnpm add @kstackz/web-platform @kstackz/auth-toolkit @kstackz/rpc-toolkit @kstackz/std-toolkit react react-dom @kstackz/use-gesture
 pnpm add -D @tailwindcss/vite
 ```
 
 An app that renders on the server adds `@kstackz/web-platform` to `ssr.noExternal` in its Vite config, as Ledger, `apps/docs` and `apps/alchemy-console` do. Its stylesheet imports `@kstackz/web-platform/theme/global.css`, which also points Tailwind at the Package's own classes.
 
-- `@kstackz/platform-toolkit`: `createApp` runs on its `createApp`, the Gate and the Session; the root door re-exports its `Api`, `defineSession` and `SessionClosed`.
-- `@kstackz/auth-toolkit`: `webHost` signs in with its `cookie`, and `createServer` checks calls with its `authz.cloud`.
-- `@kstackz/rpc-toolkit`: `createServer` answers each `http` API with its `Rpc.http.server`, and `liveObject` each `websocket` one with its `Rpc.websocket.server`.
-- `@kstackz/std-toolkit`: `webHost` keeps tables and Std Sync in its IndexedDB adapters.
+- `@kstackz/auth-toolkit`: Accounts sign in with its `cookie` and, on the device Backend, `signIn.named`; `createServer` checks calls with its `authz.cloud`.
+- `@kstackz/rpc-toolkit`: each API is called with its `http`, `websocket` and `inProcess` Transports; `createServer` answers each `http` API with its `Rpc.http.server`, and `liveObject` each `websocket` one with its `Rpc.websocket.server`.
+- `@kstackz/std-toolkit`: the Gate's memory, Named Accounts, the Cache and each user's Std Sync are kept in its IndexedDB adapters.
 - `react`, `react-dom`: every component, Recipe and the root document render with React 19.
 - `@kstackz/use-gesture`: the platform-free gesture core that `./input`'s web gestures and the Thumb Picker run on.
 - `@kstackz/use-keys` (optional): the Binding and Shortcut types `./recipes/key-bindings` shows.
@@ -39,14 +38,22 @@ An app that renders on the server adds `@kstackz/web-platform` to `ssr.noExterna
 
 ### `@kstackz/web-platform`
 
-| Export          | What it does                                                                                                                                               |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `createApp`     | A web app from one config: its root route, Theme and PWA, its APIs, device Backend and Cache, and with `auth` its Accounts and the screens before sign-in. |
-| `webHost`       | The browser as an app's Host: IndexedDB, the sign-in service's cookies, the window's network and visibility, and its other tabs.                           |
-| `Api.http`      | Declares an API reached over HTTP, from platform-toolkit.                                                                                                  |
-| `Api.websocket` | Declares an API reached over a WebSocket, from platform-toolkit.                                                                                           |
-| `defineSession` | Writes an app's Session once over its APIs, from platform-toolkit.                                                                                         |
-| `SessionClosed` | Error a run rejects with when its Session closed first, from platform-toolkit.                                                                             |
+| Export      | What it does                                                                                                                                               |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `createApp` | A web app from one config: its root route, Theme and PWA, its APIs, device Backend and Cache, and with `auth` its Accounts and the screens before sign-in. |
+
+### `@kstackz/web-platform/define`
+
+What an app writes before `createApp`. It loads nothing of the browser app, so a Worker and tests import it.
+
+| Export          | What it does                                                              |
+| --------------- | ------------------------------------------------------------------------- |
+| `Api.http`      | Declares an API reached over HTTP at a path or full URL.                  |
+| `Api.websocket` | Declares an API reached over a WebSocket at a path or full URL.           |
+| `defineSession` | Writes an app's Session once over its APIs, with its Service and hooks.   |
+| `SessionClosed` | Error a run rejects with when its Session closed first.                   |
+| `syncName`      | The name of one user's Std Sync on the device.                            |
+| `keepSyncs`     | Deletes every user's Std Sync on the device but the ones still signed in. |
 
 ### `@kstackz/web-platform/theme`
 
@@ -436,7 +443,7 @@ export const app = createApp({
   title: 'Ledger',
   description: 'Write down what you spend and earn, and see where it goes.',
   mark: createElement(LedgerMark),
-  apis, // { ledger: Api.websocket(LedgerApi, { path: '/live' }) }
+  apis, // { ledger: Api.websocket(LedgerApi, { path: '/live' }) }, from ./define
   device, // every API's handlers on the device's Storage
   cache: ledgerCache,
   auth: {
@@ -469,7 +476,7 @@ export default createServer({
 - The Host is made the first time anything asks, so `app.ts` loads on the server too. The device Backend's code loads the first time someone chooses it; `?backend=device` in the address starts on it.
 - `createServer` serves each `http` API at its path and everything else from TanStack Start. Point `tanstackStart({ server: { entry } })` at this file.
 - A `websocket` API is served by `live` instead of `backend`: each `(env) => ({ [api]: namespace })` names a Durable Object binding, and a socket opens at `getByName(userId)` once its `access_token` checks out (401 without one, 503 when the sign-in service can't be asked). Ledger's `LedgerObject`, made with `liveObject`, is the example.
-- With `auth`, each call is checked by auth-toolkit's `authz.cloud` for a bearer token or the sign-in cookie, and refreshed cookies go back on the answer. `resource` lets a phone's Access Token in too.
+- With `auth`, each call is checked by auth-toolkit's `authz.cloud` for a bearer token or the sign-in cookie, and refreshed cookies go back on the answer. `resource` lets in Access Tokens for that Resource Server too, such as an MCP client's.
 
 ### Building the PWA
 

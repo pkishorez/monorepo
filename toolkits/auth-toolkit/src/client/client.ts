@@ -6,7 +6,7 @@ import { named } from './sign-in/named/index.js';
  * each brings what its place needs: `cookie` (a browser, better-auth) in
  * `@kstackz/auth-toolkit/client/web`, `deviceCode` (a CLI, Node) in
  * `@kstackz/auth-toolkit/client/cli`. Running sign-in on a device, the Gate
- * and each Account's Session, is the Platform Toolkit's.
+ * and each Account's Session, is the Web Platform's.
  */
 export const signIn = { named };
 
