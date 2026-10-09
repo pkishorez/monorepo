@@ -213,6 +213,12 @@ export const DEMOS = [
     group: 'Routing and host',
     summary: 'Two hand-made custom elements whose events become Messages',
   },
+  {
+    to: '/demos/effect-oak/job-application',
+    name: 'Job application',
+    group: 'Large apps',
+    summary: 'A five-step form with entry lists and a live resume preview',
+  },
 ] as const satisfies ReadonlyArray<{
   readonly to: string;
   readonly name: string;
