@@ -12,362 +12,157 @@
     "src/worker/ui/screens/login-screen.fixture.tsx",
     "src/worker/ui/screens/not-found-screen.fixture.tsx"
   ],
-  "layers": {
-    "contract": {
-      "paths": ["src/contract"],
-      "description": "The Auth Worker Contract: what every program may rely on without running the Auth Worker (API base path, issuer, JWKS URL, what an Access Token says, the User, the Name Token, and the PagesContext the Worker hands its pages). Plain TypeScript, no dependencies.",
-      "modules": {
-        "src/contract": {
-          "exposed": true
-        }
-      }
-    },
-    "database": {
-      "paths": ["src/worker/database"],
-      "description": "Primary Database providers the consumer hands to the Auth Worker. A future non-SQLite dialect would be a second module graph here.",
-      "moduleGraphs": {
-        "sqlite": {
-          "description": "D1 runtime database, D1 deployment resource, and memory database are independent doors built on separate private schema and migration modules.",
-          "path": "src/worker/database/sqlite",
-          "modules": {
-            "schema": {},
-            "migration": {},
-            "d1/database": {
-              "exposed": true
-            },
-            "d1/resource": {
-              "exposed": true
-            },
-            "memory": {
-              "exposed": true
-            }
-          },
-          "rules": {
-            "d1/database": ["schema"],
-            "d1/resource": ["migration"],
-            "memory": ["schema", "migration"]
-          }
-        }
-      }
-    },
-    "primitives": {
-      "paths": ["src/worker/ui/components", "src/worker/ui/lib"],
-      "description": "The pages' own copies of the shadcn primitives and the class-name helper the screens are built from",
-      "modules": {
-        "src/worker/ui/components/alert-dialog.tsx": {
-          "exposed": true
-        },
-        "src/worker/ui/components/avatar.tsx": {
-          "exposed": true
-        },
-        "src/worker/ui/components/badge.tsx": {
-          "exposed": true
-        },
-        "src/worker/ui/components/button.tsx": {
-          "shared": true,
-          "exposed": true
-        },
-        "src/worker/ui/components/dialog.tsx": {
-          "exposed": true
-        },
-        "src/worker/ui/components/dropdown-menu.tsx": {
-          "exposed": true
-        },
-        "src/worker/ui/components/google-button.tsx": {
-          "exposed": true
-        },
-        "src/worker/ui/components/input.tsx": {
-          "exposed": true
-        },
-        "src/worker/ui/components/label.tsx": {
-          "exposed": true
-        },
-        "src/worker/ui/components/sonner.tsx": {
-          "exposed": true
-        },
-        "src/worker/ui/components/spinner.tsx": {
-          "exposed": true
-        },
-        "src/worker/ui/lib/utils.ts": {
-          "exposed": true
-        }
-      }
-    },
-    "theme": {
-      "paths": ["src/worker/ui/theme"],
-      "description": "The pages' light and dark theme: one cookie the server reads before the first paint and the browser keeps in step",
-      "moduleGraphs": {
-        "theme": {
-          "description": "createTheme is the browser's door; tanstack-start reads the theme cookie on the server.",
-          "path": "src/worker/ui/theme",
-          "modules": {
-            "index.ts": {
-              "exposed": true
-            },
-            "tanstack-start.ts": {
-              "exposed": true
-            },
-            "theme.ts": {},
-            "store.ts": {},
-            "cookie.ts": {},
-            "document.ts": {},
-            "status-bar.ts": {},
-            "model.ts": {}
-          },
-          "rules": {
-            "index.ts": ["theme.ts"],
-            "tanstack-start.ts": ["cookie.ts", "model.ts"],
-            "theme.ts": [
-              "document.ts",
-              "model.ts",
-              "status-bar.ts",
-              "store.ts"
-            ],
-            "store.ts": ["cookie.ts", "document.ts", "model.ts"],
-            "cookie.ts": ["model.ts"],
-            "document.ts": ["model.ts"],
-            "status-bar.ts": ["model.ts"]
-          }
-        }
-      }
-    },
-    "screens": {
-      "paths": ["src/worker/ui/screens"],
-      "description": "The Auth Worker's screens as pure views: state in, actions out",
-      "moduleGraphs": {
-        "auth-screens": {
-          "description": "The Auth Worker's four screens (Home Page, Login Screen, Consent Screen, Device Screen) as pure views: state in, actions out, one frame, one loader, and one account switcher for the browser's Signed-in Accounts",
-          "path": "src/worker/ui/screens",
-          "modules": {
-            "auth-screens": {
-              "exposed": true
-            },
-            "screen-frame": {},
-            "action-button": {},
-            "disclosure-list": {},
-            "session-list": {},
-            "grant-list": {},
-            "scope-list": {},
-            "account-switcher": {},
-            "email-privacy": {},
-            "local-sign-in": {}
-          },
-          "rules": {
-            "auth-screens": [
-              "screen-frame",
-              "email-privacy",
-              "account-switcher",
-              "action-button",
-              "session-list",
-              "grant-list",
-              "scope-list",
-              "local-sign-in"
-            ],
-            "session-list": ["action-button", "disclosure-list"],
-            "grant-list": ["action-button", "disclosure-list", "scope-list"],
-            "screen-frame": ["email-privacy", "account-switcher"],
-            "account-switcher": ["email-privacy"],
-            "local-sign-in": ["email-privacy"]
-          }
-        }
-      }
-    },
-    "pages": {
-      "paths": ["src/worker/pages"],
-      "description": "What the Auth Worker's pages show: connects the Worker's data to the auth screens and owns no markup of its own.",
-      "moduleGraphs": {
-        "pages": {
-          "description": "Four page doors (Home Page, Login Screen, Consent Screen, Device Screen) over one same-origin Better Auth API, the User's Sessions and Grants, the browser's Signed-in Accounts, and one rule for which screen a visitor may see.",
-          "path": "src/worker/pages",
-          "modules": {
-            "home": {
-              "exposed": true
-            },
-            "login": {
-              "exposed": true
-            },
-            "consent": {
-              "exposed": true
-            },
-            "device": {
-              "exposed": true
-            },
-            "auth-api": {},
-            "user-access": {},
-            "screen-routing": {},
-            "signed-in-accounts": {}
-          },
-          "rules": {
-            "home": [
-              "auth-api",
-              "user-access",
-              "screen-routing",
-              "signed-in-accounts"
-            ],
-            "login": ["auth-api", "screen-routing", "signed-in-accounts"],
-            "consent": ["auth-api", "screen-routing", "signed-in-accounts"],
-            "device": ["auth-api", "screen-routing", "signed-in-accounts"],
-            "user-access": ["auth-api"],
-            "signed-in-accounts": ["auth-api", "screen-routing"]
-          }
-        }
-      }
-    },
-    "app": {
-      "paths": ["src/worker/app"],
-      "description": "The pages app: a TanStack Start site whose routes render the pages, built by Vite and embedded into the worker door by scripts/bundle-app.mts",
-      "modules": {
-        "src/worker/app/server.ts": {
-          "exposed": true
-        },
-        "src/worker/app/router.tsx": {},
-        "src/worker/app/routes/__root.tsx": {
-          "exposed": true
-        },
-        "src/worker/app/routes/page.tsx": {
-          "exposed": true
-        },
-        "src/worker/app/routes/login.tsx": {
-          "exposed": true
-        },
-        "src/worker/app/routes/consent.tsx": {
-          "exposed": true
-        },
-        "src/worker/app/routes/device.tsx": {
-          "exposed": true
-        },
-        "src/worker/app/routes/error.tsx": {
-          "exposed": true
-        }
-      }
-    },
-    "worker": {
-      "paths": ["src/worker/worker"],
-      "description": "createAuthWorker(config) assembles Better Auth over a consumer-provided Primary Database (Cookie Cache, Google, Admin, Device Login, optional Signed-in Accounts, Dash, Authorization Server Role, User Admission Policy, origins and cookies), serves the pages app the built door embeds, and hands on the D1 provider",
-      "modules": {
-        "src/worker/worker": {
-          "exposed": true
-        }
-      }
-    },
-    "guard": {
-      "paths": ["src/guard"],
-      "description": "The guard both sides of an API import: Authz (Effect RPC) and AuthzHttp (Effect HttpApi), built on rpc-toolkit's Middleware, with who called (Current), the Resolver Service, the policies and the three failures.",
-      "moduleGraphs": {
-        "guard": {
-          "description": "index.ts is the door; guard.ts assembles Authz and AuthzHttp from the two Middleware declarations (middleware.ts, also the server half's handle) and what they share (current.ts, principal.ts).",
-          "path": "src/guard",
-          "modules": {
-            "index.ts": {
-              "exposed": true
-            },
-            "guard.ts": {},
-            "middleware.ts": {
-              "exposed": true
-            },
-            "current.ts": {},
-            "principal.ts": {}
-          },
-          "rules": {
-            "index.ts": ["guard.ts", "current.ts", "principal.ts"],
-            "guard.ts": ["current.ts", "middleware.ts"],
-            "middleware.ts": ["current.ts"],
-            "current.ts": ["principal.ts"]
-          }
-        }
-      }
-    },
-    "server": {
-      "paths": ["src/server"],
-      "description": "The guard's server half for a Backend: authz.layer and authz.http check guarded calls with a Resolver Service whose device version (authz.device) reads a Name Token and whose cloud version (authz.cloud, its own door so a device never bundles better-auth) asks the sign-in service; plus the plain-TypeScript corners (verifyRequest, verifyAccessToken, the MCP Server door).",
-      "moduleGraphs": {
-        "server": {
-          "description": "index.ts and cloud are the two doors; server.ts assembles authz from the authz parts; cloud adds the cloud Resolver and re-exports the plain corners it is built on.",
-          "path": "src/server",
-          "modules": {
-            "index.ts": {
-              "exposed": true
-            },
-            "server.ts": {},
-            "authz": {},
-            "cloud": {
-              "exposed": true
-            },
-            "plain/session": {},
-            "plain/access-token": {},
-            "plain/mcp": {}
-          },
-          "rules": {
-            "index.ts": ["server.ts"],
-            "server.ts": ["authz"],
-            "cloud": [
-              "server.ts",
-              "authz",
-              "plain/session",
-              "plain/access-token",
-              "plain/mcp"
-            ]
-          }
-        }
-      }
-    },
-    "client": {
-      "paths": ["src/client"],
-      "description": "An app's client side of signing in: the words (Account, the SignIn Service) and the Sign-in mechanisms (cookie, named, and oauth and deviceCode behind doors of their own because they bring Expo and Node). Running sign-in on a device is the Platform Toolkit's.",
-      "moduleGraphs": {
-        "client": {
-          "description": "index.ts is the door and client.ts its story; account holds the words (Account, the SignIn Service); each sign-in is a member.",
-          "path": "src/client",
-          "modules": {
-            "index.ts": {
-              "exposed": true
-            },
-            "client.ts": {},
-            "account": {},
-            "sign-in/cookie": {
-              "exposed": true
-            },
-            "sign-in/named": {},
-            "sign-in/oauth": {
-              "exposed": true
-            },
-            "sign-in/device-code": {
-              "exposed": true
-            }
-          },
-          "rules": {
-            "index.ts": ["client.ts"],
-            "client.ts": ["account", "sign-in/named"],
-            "sign-in/cookie": ["account"],
-            "sign-in/named": ["account"],
-            "sign-in/oauth": ["account"]
-          }
-        }
-      }
-    }
-  },
-  "layerGraphs": {
-    "auth-worker": {
-      "description": "The Auth Worker and everything it serves. The worker reads the contract and hands on the D1 provider; the pages app renders the pages, and the pages show the screens. The worker and the app meet at build time, never through an import.",
-      "rules": {
-        "contract": [],
-        "database": [],
-        "primitives": [],
-        "theme": [],
-        "screens": ["primitives", "theme"],
-        "pages": ["contract", "screens"],
-        "app": ["pages", "theme"],
-        "worker": ["contract", "database"]
-      }
-    },
-    "sign-in": {
-      "description": "Signing in to the Auth Worker: the guard both sides import, its server half on a Backend, and the client that signs in and calls the Api. Each reads only the contract and the guard.",
-      "rules": {
-        "contract": [],
-        "guard": ["contract"],
-        "server": ["guard"],
-        "client": ["guard"]
-      }
-    }
+  "fileModules": [
+    "src/client/client.ts",
+    "src/guard/current.ts",
+    "src/guard/middleware.ts",
+    "src/guard/principal.ts",
+    "src/server/server.ts",
+    "src/worker/app/router.tsx",
+    "src/worker/app/routes/__root.tsx",
+    "src/worker/app/routes/consent.tsx",
+    "src/worker/app/routes/device.tsx",
+    "src/worker/app/routes/error.tsx",
+    "src/worker/app/routes/login.tsx",
+    "src/worker/app/routes/page.tsx",
+    "src/worker/app/server.ts",
+    "src/worker/ui/components/alert-dialog.tsx",
+    "src/worker/ui/components/avatar.tsx",
+    "src/worker/ui/components/badge.tsx",
+    "src/worker/ui/components/button.tsx",
+    "src/worker/ui/components/dialog.tsx",
+    "src/worker/ui/components/dropdown-menu.tsx",
+    "src/worker/ui/components/google-button.tsx",
+    "src/worker/ui/components/input.tsx",
+    "src/worker/ui/components/label.tsx",
+    "src/worker/ui/components/sonner.tsx",
+    "src/worker/ui/components/spinner.tsx",
+    "src/worker/ui/lib/utils.ts",
+    "src/worker/ui/theme/cookie.ts",
+    "src/worker/ui/theme/document.ts",
+    "src/worker/ui/theme/model.ts",
+    "src/worker/ui/theme/status-bar.ts",
+    "src/worker/ui/theme/store.ts",
+    "src/worker/ui/theme/tanstack-start.ts",
+    "src/worker/ui/theme/theme.ts"
+  ],
+  "rules": {
+    "src/client": ["src/contract"],
+    "src/client/client.ts": ["src/client/account", "src/client/sign-in/named"],
+    "src/client/sign-in/cookie": ["src/client/account"],
+    "src/client/sign-in/named": ["src/client/account"],
+    "src/client/sign-in/oauth": ["src/client/account"],
+    "src/guard/principal.ts": ["src/contract"],
+    "src/guard/current.ts": ["src/guard/principal.ts"],
+    "src/guard/middleware.ts": ["src/guard/current.ts"],
+    "src/server": ["src/contract", "src/guard"],
+    "src/server/server.ts": ["src/server/authz"],
+    "src/server/cloud": [
+      "src/server/server.ts",
+      "src/server/authz",
+      "src/server/plain"
+    ],
+    "src/worker/database/sqlite/d1/database": [
+      "src/worker/database/sqlite/schema"
+    ],
+    "src/worker/database/sqlite/d1/resource": [
+      "src/worker/database/sqlite/migration"
+    ],
+    "src/worker/database/sqlite/memory": [
+      "src/worker/database/sqlite/schema",
+      "src/worker/database/sqlite/migration"
+    ],
+    "src/worker/ui/components/alert-dialog.tsx": [
+      "src/worker/ui/components/button.tsx"
+    ],
+    "src/worker/ui/components/dialog.tsx": [
+      "src/worker/ui/components/button.tsx"
+    ],
+    "src/worker/ui/theme/tanstack-start.ts": [
+      "src/worker/ui/theme/cookie.ts",
+      "src/worker/ui/theme/model.ts"
+    ],
+    "src/worker/ui/theme/theme.ts": [
+      "src/worker/ui/theme/document.ts",
+      "src/worker/ui/theme/model.ts",
+      "src/worker/ui/theme/status-bar.ts",
+      "src/worker/ui/theme/store.ts"
+    ],
+    "src/worker/ui/theme/store.ts": [
+      "src/worker/ui/theme/cookie.ts",
+      "src/worker/ui/theme/document.ts",
+      "src/worker/ui/theme/model.ts"
+    ],
+    "src/worker/ui/theme/cookie.ts": ["src/worker/ui/theme/model.ts"],
+    "src/worker/ui/theme/document.ts": ["src/worker/ui/theme/model.ts"],
+    "src/worker/ui/theme/status-bar.ts": ["src/worker/ui/theme/model.ts"],
+    "src/worker/ui/screens": [
+      "src/worker/ui/components",
+      "src/worker/ui/lib",
+      "src/worker/ui/theme"
+    ],
+    "src/worker/ui/screens/auth-screens": [
+      "src/worker/ui/screens/screen-frame",
+      "src/worker/ui/screens/email-privacy",
+      "src/worker/ui/screens/account-switcher",
+      "src/worker/ui/screens/action-button",
+      "src/worker/ui/screens/session-list",
+      "src/worker/ui/screens/grant-list",
+      "src/worker/ui/screens/scope-list",
+      "src/worker/ui/screens/local-sign-in"
+    ],
+    "src/worker/ui/screens/session-list": [
+      "src/worker/ui/screens/action-button",
+      "src/worker/ui/screens/disclosure-list"
+    ],
+    "src/worker/ui/screens/grant-list": [
+      "src/worker/ui/screens/action-button",
+      "src/worker/ui/screens/disclosure-list",
+      "src/worker/ui/screens/scope-list"
+    ],
+    "src/worker/ui/screens/screen-frame": [
+      "src/worker/ui/screens/email-privacy",
+      "src/worker/ui/screens/account-switcher"
+    ],
+    "src/worker/ui/screens/account-switcher": [
+      "src/worker/ui/screens/email-privacy"
+    ],
+    "src/worker/ui/screens/local-sign-in": [
+      "src/worker/ui/screens/email-privacy"
+    ],
+    "src/worker/pages": ["src/worker/ui/screens/auth-screens"],
+    "src/worker/pages/home": [
+      "src/worker/pages/auth-api",
+      "src/worker/pages/user-access",
+      "src/worker/pages/screen-routing",
+      "src/worker/pages/signed-in-accounts"
+    ],
+    "src/worker/pages/login": [
+      "src/worker/pages/auth-api",
+      "src/worker/pages/screen-routing",
+      "src/worker/pages/signed-in-accounts"
+    ],
+    "src/worker/pages/consent": [
+      "src/worker/pages/auth-api",
+      "src/worker/pages/screen-routing",
+      "src/worker/pages/signed-in-accounts"
+    ],
+    "src/worker/pages/device": [
+      "src/worker/pages/auth-api",
+      "src/worker/pages/screen-routing",
+      "src/worker/pages/signed-in-accounts"
+    ],
+    "src/worker/pages/user-access": ["src/worker/pages/auth-api"],
+    "src/worker/pages/signed-in-accounts": [
+      "src/worker/pages/auth-api",
+      "src/worker/pages/screen-routing"
+    ],
+    "src/worker/app": ["src/worker/pages", "src/worker/ui/theme"],
+    "src/worker/worker": [
+      "src/contract",
+      "src/worker/database/sqlite/d1/database"
+    ],
+    "src/worker/app/routes/error.tsx": ["src/worker/ui/screens/auth-screens"],
+    "src/worker/app/server.ts": ["src/contract"]
   }
 }
