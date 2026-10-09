@@ -183,5 +183,6 @@ useFrame((at) => {
 - Update gets each Message's Time as `at`. The Runtime stamps it when the Message is sent, from Effect's `Clock`, so Replay sees the same Time.
 - `useFrame` calls back live at every animation frame, and during Time Travel at every move of the timeline. React renders only when a Message changes the Model.
 - No animation frame is requested while no View uses `useFrame`.
+- Commands and Lifetimes sleep in the app's Time, so `pause()` stops their timers too. An Update returning `replaceCommands: true` stops its Node's Commands still running first: the demo replans its crash this way every time you steer.
 - Each State is drawn by its own component, so a State's draw can use hooks.
 - `toReact` does not compile until the Layer covers every Service the tree still needs.

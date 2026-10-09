@@ -6,8 +6,9 @@ Live demos of the monorepo's packages, published at docs.kishore.app.
 
 A plain TanStack Start app. The home page lists the demos, and each demo opens
 on its own page under `/demos`, with its code in `src/demos`. Today there is
-one: `effect-oak`, a two-lane road built as an Effect Oak Node and drawn as SVG
-at every frame. Effect Oak demos run in one shell (`src/demos/effect-oak/shell`):
+one: `effect-oak`, Road: a two-lane driving game built as an Effect Oak Node
+and drawn as SVG at every frame. Dodge oncoming cars with ← → or a tap on
+either half; a crash ends the run and leaves it in Replay. Effect Oak demos run in one shell (`src/demos/effect-oak/shell`):
 the app alone in the middle, Live or in Replay (Space switches; Replay stops
 Time and shows a scrubber), and its Messages on a timeline on demand.
 
