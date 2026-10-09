@@ -6,8 +6,8 @@ A collection of open-source TypeScript projects focused on Effect, monorepo
 architecture, local developer tooling, data modeling and sync, and React.
 
 The packages are developed together in a pnpm workspace and share the same
-build, lint, test, formatting, and release infrastructure. Package documentation
-is available at [docs.kishore.app](https://docs.kishore.app).
+build, lint, test, formatting, and release infrastructure. Live demos of the
+packages are at [docs.kishore.app](https://docs.kishore.app).
 
 ## What's included
 
@@ -15,7 +15,7 @@ is available at [docs.kishore.app](https://docs.kishore.app).
 
 | Workspace                                        | Purpose                                                                                                                           |
 | ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
-| [`apps/docs`](./apps/docs)                       | Documentation site for the public packages, built with Fumadocs and TanStack Start and deployed to Cloudflare Workers.            |
+| [`apps/docs`](./apps/docs)                       | Live demos of the public packages, a plain TanStack Start app deployed to Cloudflare Workers.                                     |
 | [`apps/alchemy-console`](./apps/alchemy-console) | Web console for browsing Alchemy state stores and deleting stacks, stages and resources with user-owned provider credentials.     |
 | [`apps/ledger`](./apps/ledger)                   | Ledger on the web: a money tracker that is the blueprint for every kstack app, run by keys on desktop and by gestures on a phone. |
 

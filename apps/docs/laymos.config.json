@@ -6,32 +6,12 @@
     "src/router.tsx",
     "src/start.ts",
     "src/server.ts",
-    "src/components/mdx.tsx",
-    "src/components/home-header.tsx",
     "src/components/not-found.tsx",
-    "src/components/status-badge.tsx",
-    "src/components/eschema-playground.tsx",
-    "src/lib/source.ts",
-    "src/lib/blog.ts",
-    "src/lib/blog-data.ts",
-    "src/lib/shared.ts",
-    "src/lib/layout.shared.tsx"
+    "src/lib/theme.tsx"
   ],
   "rules": {
     "src/router.tsx": ["src/components"],
-    "src/routes": ["src/components", "src/lib", "src/demos/ai-toolkit/app"],
-    "src/components": ["src/lib"],
-    "src/components/mdx.tsx": [
-      "src/components/status-badge.tsx",
-      "src/components/eschema-playground.tsx"
-    ],
-    "src/components/not-found.tsx": ["src/components/home-header.tsx"],
-    "src/lib/source.ts": ["src/lib/shared.ts"],
-    "src/lib/layout.shared.tsx": ["src/lib/shared.ts"],
-    "src/lib/blog-data.ts": ["src/lib/blog.ts"],
-    "src/demos/ai-toolkit/app": [
-      "src/demos/ai-toolkit/client",
-      "src/demos/ai-toolkit/ui"
-    ]
+    "src/routes": ["src/lib", "src/demos/effect-oak"],
+    "src/demos/effect-oak/auth": ["src/demos/effect-oak/services"]
   }
 }

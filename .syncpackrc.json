@@ -12,6 +12,7 @@
       "label": "Internal dependencies use workspace:* everywhere",
       "dependencies": [
         "@kstackz/ai-toolkit",
+        "effect-oak",
         "@kstackz/auth-toolkit",
         "@kstackz/devtools",
         "@kstackz/effect-tracer",
@@ -69,6 +70,7 @@
       "label": "Internal workspace protocols are enforced by version groups",
       "dependencies": [
         "@kstackz/ai-toolkit",
+        "effect-oak",
         "@kstackz/auth-toolkit",
         "@kstackz/devtools",
         "@kstackz/effect-tracer",
