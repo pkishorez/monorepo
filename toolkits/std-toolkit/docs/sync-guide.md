@@ -122,11 +122,6 @@ place is shared, and so needs the lock and the Doorbell, is its business.
   named `std-sync:<name>` (override with `databaseName`), Web Locks, and
   BroadcastChannel. Each piece is on by default and falls back to none where
   the browser lacks it; pass `leadership: false` to let every tab read.
-- `Sync.sqlite({ database, tableName })`: a table named `std-sync:<name>` (override
-  with `tableName`) in an expo-sqlite database the app opened, no locks, no
-  Doorbell: a native app is one process. `Sync.sqlite.list(database)` and
-  `Sync.sqlite.remove(database, name)` find and drop those tables; dispose a live
-  Std Sync before deleting it, since nothing rings it closed.
 
 The `SyncStore` type is public, so a custom one (a test harness, Node) is a
 plain object; build its store with any adapter over `syncStore`.

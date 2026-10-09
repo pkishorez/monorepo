@@ -1,6 +1,6 @@
 # @kstackz/use-gesture
 
-Touch gestures: a platform-free core that reads every finger of a touch from any touch source. Its web side is in @kstackz/web-platform's input, its native side in @kstackz/expo-platform's.
+Touch gestures: a platform-free core that reads every finger of a touch from any touch source. Its web side is in @kstackz/web-platform's input.
 
 ## Big picture
 
@@ -20,9 +20,7 @@ Walk a picker moves through.
 The platforms build on it. `@kstackz/web-platform/input` is the browser's
 touch source and React bindings: a `GestureProvider`, `GestureZone`s that are
 DOM elements, `useGesture` with every finger as Motion values, the `useSwipe`
-Recognizer, and the `useSidebar` and `usePullToRefresh` Patterns.
-`@kstackz/expo-platform/input` feeds the core Gesture Handler's touches on a
-phone. The web side started as ui-toolkit's gestures block and lived here as
+Recognizer, and the `useSidebar` and `usePullToRefresh` Patterns. The web side started as ui-toolkit's gestures block and lived here as
 `./web` until web-platform took it
 ([ADR 0003](../../docs/adr/0003-web-platform-and-the-gate.md)).
 
@@ -67,17 +65,13 @@ No peer dependencies: the core uses no DOM, no React and no Motion.
 | `TreeWalk.opens`        | Whether a choice has choices inside it.                                                                             |
 | `TreeWalk.DISTANCES`    | How far the finger goes to show the walk and for each move: 14px and 30px.                                          |
 
-The provider, the Direction functions, `thumbLock` and the Tree Walk are
-worklets (each starts with the `'worklet'` directive, a plain string
-elsewhere), so a phone can run them on Reanimated's UI thread.
-
 ## Usage
 
 ### Feed the core from another touch source
 
-A platform other than the browser hands the core its own fingers. Here a
-plain tree stands in for a phone's views; on Expo, Gesture Handler's
-touches arrive the same way, with a view as each finger's `target`.
+A touch source other than the browser hands the core its own fingers. Here
+a plain tree stands in for its views, with a view as each finger's
+`target`.
 
 ```ts
 import { createGestureProvider, type ZoneTree } from '@kstackz/use-gesture';

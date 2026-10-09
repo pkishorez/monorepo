@@ -8,7 +8,7 @@ One shared sign-in service on Cloudflare, the guard both sides of an Effect API 
 sign-in, sign-out and every Sign-in over a Primary Database (D1). It serves
 its own login, consent, device and home pages, so there is nothing else to
 deploy. Every other program asks it "who is this?" instead of touching auth
-state. A First-Party program (your web app, your CLI, your phone app) holds a
+state. A First-Party program (your web app, your CLI) holds a
 Sign-in; a Third-Party program (an MCP client) holds an Access Token and
 needs the opt-in Authorization Server Role. The `worker` doors are this half.
 
@@ -24,11 +24,9 @@ Account's Session, `createApp`) is
 [`@kstackz/platform-toolkit`](../platform-toolkit)'s
 ([ADR 0006](../../docs/adr/0006-platforms-may-break-toolkits-keep-what-persists.md)).
 
-`server/cloud`, `client/web`, `client/expo` and `client/cli` are doors of
-their own because they bring better-auth's server code, better-auth's
-browser client, Expo modules and Node, and
-Metro bundles every import it sees: a device Backend on a phone must never
-load the cloud Resolver. Why the toolkits are cut this way is
+`server/cloud`, `client/web` and `client/cli` are doors of their own because
+they bring better-auth's server code, better-auth's browser client and Node,
+and a device Backend in the browser must never load the cloud Resolver. Why the toolkits are cut this way is
 [ADR 0005](../../docs/adr/0005-three-toolkits-three-doors.md); the words are
 in [`CONTEXT.md`](./CONTEXT.md) and the package's decisions in
 [`docs/adr/`](./docs/adr/). Every `createAuthWorker` option is in
@@ -49,9 +47,6 @@ Peer dependencies, all optional; install the ones your doors need:
 - `react`: the Auth Worker's own pages are React.
 - `better-sqlite3`: `@kstackz/auth-toolkit/worker/memory` runs SQLite in-process for tests.
 - `alchemy`: `@kstackz/auth-toolkit/worker/alchemy` declares the D1 resource in `alchemy.run.ts`.
-- `expo-auth-session`: `@kstackz/auth-toolkit/client/expo` runs the authorization in the system sign-in sheet, with PKCE and a checked `state`.
-- `expo-secure-store`: `@kstackz/auth-toolkit/client/expo` keeps each User's tokens in the keychain (Keystore on Android).
-- `expo-web-browser`: `manageAccounts` from `@kstackz/auth-toolkit/client/expo` opens the Auth Worker's Home Page in the sign-in sheet.
 
 ## Exports
 
@@ -133,13 +128,6 @@ The Gate, `createApp`, `memoryHost` (formerly `memoryPlatform`), `Backend`,
 | -------- | ------------------------------------------------------------------------- |
 | `cookie` | Sign-in in a browser against the Auth Worker, with its cookie and Google. |
 
-### `@kstackz/auth-toolkit/client/expo`
-
-| Export           | What it does                                                                                    |
-| ---------------- | ----------------------------------------------------------------------------------------------- |
-| `oauth`          | Sign-in on a phone as the app's First-Party OAuth client, each User's tokens in secure storage. |
-| `manageAccounts` | Opens the Auth Worker's Home Page in the system sign-in sheet.                                  |
-
 ### `@kstackz/auth-toolkit/client/cli`
 
 | Export                      | What it does                                                             |
@@ -199,7 +187,7 @@ export const authWorker = await Cloudflare.Worker('auth-worker', {
 - `handler` serves `/api/auth/*`, the pages at `/`, `/login`, `/consent`, `/device` and `/error`, and their embedded assets.
 - `trustedOrigins` allows the browser's Direct Sign-in Check and drives credentialed CORS; `cookieDomain` lets every subdomain read the cookie.
 - `validateUser` is the User Admission Policy; `multiSession: { maximumAccounts }` caps the Accounts a browser holds (default 5).
-- Add `authorizationServer` only when a Third-Party program or a phone app needs Access Tokens; `firstPartyClients` lists phone apps ([ADR 0017](./docs/adr/0017-first-party-native-apps-are-fixed-oauth-clients.md)).
+- Add `authorizationServer` only when a Third-Party program needs Access Tokens.
 - `d1PrimaryDatabaseResource` applies pending migrations on every `alchemy deploy`.
 
 ### Sign in to it
@@ -253,10 +241,9 @@ const accounts = await Effect.runPromise(
 
 - `Authz.guard()` alone requires a caller; `Authz.guard(Authz.policy(invariant, reason))` also authorizes. The nearest declaration wins between an RPC and its group.
 - No caller fails `Authz.Unauthenticated`, a refused policy `Authz.Forbidden`, an unreachable Auth Worker `Authz.Unavailable`. Tests replace only `Authz.Resolver`.
-- `authz.cloud` gets `resource` to accept Access Tokens too, which makes the Backend a Resource Server (phone apps and MCP clients call it so).
+- `authz.cloud` gets `resource` to accept Access Tokens too, which makes the Backend a Resource Server (MCP clients call it so).
 - A Named Account's token is a Name Token, which `authz.device` reads and no one verifies. Named Accounts are kept in `namedAccountsTable`, in memory unless `storage` is given.
-- On a phone, the cloud Sign-in is `oauth({ authWorkerUrl, clientId, redirectUri, resource })` from `@kstackz/auth-toolkit/client/expo`.
-- An app does not run these itself: the Web and Expo Platforms give them to [`@kstackz/platform-toolkit`](../platform-toolkit)'s Gate, which signs every API call with the active Account's token.
+- An app does not run these itself: the Web Platform gives them to [`@kstackz/platform-toolkit`](../platform-toolkit)'s Gate, which signs every API call with the active Account's token.
 
 A CLI signs in with `deviceCode({ authWorkerUrl, app, version })` from
 `@kstackz/auth-toolkit/client/cli`: `login` prints a code and URL, opens

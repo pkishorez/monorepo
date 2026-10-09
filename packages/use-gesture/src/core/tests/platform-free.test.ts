@@ -1,8 +1,8 @@
 /// <reference types="vite/client" />
 import { describe, expect, it } from 'vitest';
 
-// The core runs wherever a touch source can feed it: a browser, a phone. It
-// imports no package at all, so no react-dom, React Native or Motion can
+// The core runs wherever a touch source can feed it. It
+// imports no package at all, so no react-dom or Motion can
 // creep in, and it touches no global only a browser has. Laymos keeps it
 // from importing `./web`; `tsconfig.core.json` compiles it with no DOM.
 

@@ -1,1 +1,0 @@
-export { Pages } from './pages';

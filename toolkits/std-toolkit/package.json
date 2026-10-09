@@ -6,7 +6,6 @@
   "keywords": [
     "dynamodb",
     "effect",
-    "expo",
     "in-memory",
     "indexeddb",
     "schema",
@@ -65,10 +64,6 @@
       "types": "./dist/db/sqlite/drivers/durable-object/index.d.ts",
       "default": "./dist/db/sqlite/drivers/durable-object/index.js"
     },
-    "./db/sqlite/expo": {
-      "types": "./dist/db/sqlite/drivers/expo/index.d.ts",
-      "default": "./dist/db/sqlite/drivers/expo/index.js"
-    },
     "./db/sqlite/node": {
       "types": "./dist/db/sqlite/drivers/node/index.d.ts",
       "default": "./dist/db/sqlite/drivers/node/index.js"
@@ -108,10 +103,6 @@
     "./sync/memory": {
       "types": "./dist/sync/store/memory/index.d.ts",
       "default": "./dist/sync/store/memory/index.js"
-    },
-    "./sync/sqlite": {
-      "types": "./dist/sync/store/sqlite/index.d.ts",
-      "default": "./dist/sync/store/sqlite/index.js"
     },
     "./alchemy": {
       "types": "./dist/alchemy/index.d.ts",
@@ -168,7 +159,7 @@
     "@tanstack/react-db": "0.4.1",
     "alchemy": "2.0.0-beta.80",
     "effect": "^4.0.0",
-    "react": "19.2.3",
+    "react": "19.2.8",
     "vitest": "^5.0.0"
   },
   "peerDependenciesMeta": {

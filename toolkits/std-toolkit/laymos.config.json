@@ -26,7 +26,6 @@
     "src/sync/domain/identity/__tests__",
     "src/sync/paced/__tests__",
     "src/sync/store/idb/__tests__",
-    "src/sync/store/sqlite/__tests__",
     "src/sync/session/__tests__",
     "src/sync/strategy/__tests__"
   ],
@@ -162,11 +161,6 @@
       "src/sync/store/contract"
     ],
     "src/sync/store/memory": ["src/db/memory", "src/sync/store/contract"],
-    "src/sync/store/sqlite": [
-      "src/db/sqlite",
-      "src/sync/domain/identity",
-      "src/sync/store/contract"
-    ],
     "src/sync/store/store-runtime": ["src/db", "src/sync/store/contract"],
     "src/sync/session": ["src/sync/store/contract", "src/sync/strategy"],
     "src/sync/collection": [

@@ -5,13 +5,7 @@
     {
       "label": "Unversioned workspace roots",
       "dependencyTypes": ["local"],
-      "packages": [
-        "public-monorepo",
-        "docs",
-        "@ledger/core",
-        "@ledger/expo",
-        "@ledger/web"
-      ],
+      "packages": ["public-monorepo", "docs", "@ledger/core", "@ledger/web"],
       "isIgnored": true
     },
     {
@@ -22,7 +16,6 @@
         "@kstackz/devtools",
         "@kstackz/effect-tracer",
         "@kstackz/effect-webrtc",
-        "@kstackz/expo-platform",
         "laymos",
         "@kstackz/lotel",
         "@kstackz/use-gesture",
@@ -82,7 +75,6 @@
         "@kstackz/devtools",
         "@kstackz/effect-tracer",
         "@kstackz/effect-webrtc",
-        "@kstackz/expo-platform",
         "laymos",
         "@kstackz/lotel",
         "@kstackz/use-gesture",

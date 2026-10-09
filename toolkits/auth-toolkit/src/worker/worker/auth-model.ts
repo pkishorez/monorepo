@@ -13,11 +13,6 @@ import {
 } from '@better-auth/oauth-provider';
 import { AUTH_PAGES, accessTokenUserClaims } from '../../contract/index.js';
 import { workerClientMetadataFetch } from './client-metadata-fetch.js';
-import {
-  firstPartyClientDiscovery,
-  firstPartyResources,
-  type FirstPartyClient,
-} from './first-party-clients.js';
 import { grantRevocation } from './plugins/index.js';
 
 interface AuthModelConfig {
@@ -62,10 +57,6 @@ export interface AuthorizationServerConfig {
   scopes?: ReadonlyArray<ScopeDefinition>;
   /** @default 'manual' */
   clientRegistration?: ClientRegistration | undefined;
-  /** First-Party apps that sign in as OAuth clients, such as a native app.
-   * Each brings its own Resource Server, which no other client may get
-   * Access Tokens for. */
-  firstPartyClients?: ReadonlyArray<FirstPartyClient> | undefined;
 }
 
 const allowsDynamicRegistration = (registration: ClientRegistration) =>
@@ -109,8 +100,6 @@ export const authorizationServerOptions = (
   config: AuthorizationServerConfig,
 ): Pick<BetterAuthOptions, 'plugins' | 'disabledPaths'> => {
   const registration = config.clientRegistration ?? 'manual';
-  const firstParty = config.firstPartyClients ?? [];
-  const resources = [...config.resources, ...firstPartyResources(firstParty)];
   return {
     plugins: [
       jwt({ disableSettingJwtHeader: true }),
@@ -118,14 +107,12 @@ export const authorizationServerOptions = (
         loginPage: AUTH_PAGES.login,
         consentPage: AUTH_PAGES.consent,
         // The schema generator's mock adapter has no tables to seed.
-        ...(resources.length > 0 ? { resources } : {}),
         ...(config.resources.length > 0
-          ? { clientRegistrationDefaultResources: config.resources }
+          ? {
+              resources: config.resources,
+              clientRegistrationDefaultResources: config.resources,
+            }
           : {}),
-        extensions:
-          firstParty.length > 0
-            ? [{ clientDiscovery: firstPartyClientDiscovery(firstParty) }]
-            : [],
         scopes: [
           ...DEFAULT_OAUTH_SCOPES,
           ...(config.scopes ?? []).map((scope) => scope.name),

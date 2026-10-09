@@ -35,13 +35,11 @@ const STILL = 14;
  * one whose first finger landed on the right, it leaves alone, so the page
  * still scrolls. The other finger lifting first ends it lifted; the thumb
  * lifting first, or the touch being taken, calls it off. The thumb may stay
- * down for another Lock. It is a worklet, as is the provider, so a phone can
- * run both on its UI thread and answer a finger in the frame it moves.
+ * down for another Lock.
  */
 export const thumbLock = <Target>(
   options: ThumbLockOptions,
 ): GestureListener<Target> => {
-  'worklet';
   let thumb: number | undefined;
   let mover: number | undefined;
   // Nothing is taken until the Lock holds; then every Direction is.

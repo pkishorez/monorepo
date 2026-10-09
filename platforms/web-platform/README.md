@@ -8,9 +8,9 @@ Every kstack web app used to wire the same things by hand: the root document, th
 
 The root door is `createApp`. It hands one config to [`@kstackz/platform-toolkit`](../../toolkits/platform-toolkit)'s `createApp` with `webHost` (IndexedDB with a Broadcaster per database every tab hears, the sign-in service's cookies, the window's network and tabs) and gives back the app with its root route, the Theme, `SignedIn` with the screens before an Account is open (the Gate Screens and Account Lost recipes), and the named sign-in dialog for the device Backend. Every app is a PWA: `createApp` always adds the PWA's Root Plugin. The `server` door's `createServer` serves each `http` API on its cloud Backend and each `websocket` API in the caller's own Live Object (a Durable Object made with `liveObject`, one per user), and checks every call with the sign-in service. Why the Platforms may break while the Toolkits keep what persists is [ADR 0006](../../docs/adr/0006-platforms-may-break-toolkits-keep-what-persists.md).
 
-Underneath, it is laid out like expo-platform, one layer per job and one subpath per layer, bottom to top: `theme`, `feedback`, `input`, `components`, `form`, `recipes`, `client`, then `pwa`; `server` stands beside them. A Recipe here and one in expo-platform with the same name are the same interaction on two platforms. These stay exported for screens and for the unusual app; [ADR 0003](../../docs/adr/0003-web-toolkit-and-the-gate.md) is the earlier design.
+Underneath, it is laid out one layer per job and one subpath per layer, bottom to top: `theme`, `feedback`, `input`, `components`, `form`, `recipes`, `client`, then `pwa`; `server` stands beside them. These stay exported for screens and for the unusual app; [ADR 0003](../../docs/adr/0003-web-toolkit-and-the-gate.md) is the earlier design.
 
-It ships built `dist/` (from `vp pack`), unlike expo-platform, which Metro compiles from source. Terms are in [CONTEXT.md](./CONTEXT.md); the PWA's decisions are in [docs/adr/](./docs/adr/).
+It ships built `dist/` (from `vp pack`). Terms are in [CONTEXT.md](./CONTEXT.md); the PWA's decisions are in [docs/adr/](./docs/adr/).
 
 ## Install
 

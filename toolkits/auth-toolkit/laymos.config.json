@@ -51,7 +51,6 @@
     "src/client/client.ts": ["src/client/account", "src/client/sign-in/named"],
     "src/client/sign-in/cookie": ["src/client/account"],
     "src/client/sign-in/named": ["src/client/account"],
-    "src/client/sign-in/oauth": ["src/client/account"],
     "src/guard/principal.ts": ["src/contract"],
     "src/guard/current.ts": ["src/guard/principal.ts"],
     "src/guard/middleware.ts": ["src/guard/current.ts"],

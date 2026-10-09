@@ -12,7 +12,6 @@ export const SLOP = 10;
 
 /** The Direction of a movement by dx, dy; none before it has moved. */
 export const directionOf = (dx: number, dy: number): Direction | undefined => {
-  'worklet';
   if (dx === 0 && dy === 0) return undefined;
   if (Math.abs(dy) >= Math.abs(dx)) return dy < 0 ? 'up' : 'down';
   return dx < 0 ? 'left' : 'right';
@@ -23,7 +22,6 @@ export const wants = (
   wanted: Directions | undefined,
   direction: Direction | undefined,
 ) => {
-  'worklet';
   return (
     direction !== undefined &&
     (wanted === 'all' || (wanted?.includes(direction) ?? false))
