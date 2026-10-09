@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { ArrowUpRight } from 'lucide-react';
-import { DEMOS } from '@/lib/demos';
+import { demosByGroup } from '@/lib/demos';
 import { ThemeToggle } from '@/lib/theme';
 
 const focusRing =
@@ -52,21 +52,28 @@ function Home() {
           </nav>
         </header>
 
-        {DEMOS.map((demo) => (
-          <Link
-            key={demo.to}
-            to={demo.to}
-            className={`group flex items-baseline gap-3 py-3.5 ${focusRing}`}
-          >
-            <span className="text-sm font-medium transition-colors group-hover:text-primary">
-              {demo.name}
-            </span>
-            <span className="h-px flex-1 bg-border/60" aria-hidden="true" />
-            <span className="hidden text-xs text-muted-foreground sm:inline">
-              {demo.summary}
-            </span>
-            <ArrowUpRight className="size-3.5 shrink-0 rotate-45 text-muted-foreground/50 transition-[color,transform] group-hover:translate-x-0.5 group-hover:text-primary" />
-          </Link>
+        {demosByGroup().map(({ group, demos }) => (
+          <section key={group} className="mb-10 last:mb-0">
+            <h2 className="mb-1 text-xs font-medium text-muted-foreground">
+              {group}
+            </h2>
+            {demos.map((demo) => (
+              <Link
+                key={demo.to}
+                to={demo.to}
+                className={`group flex items-baseline gap-3 py-3.5 ${focusRing}`}
+              >
+                <span className="text-sm font-medium transition-colors group-hover:text-primary">
+                  {demo.name}
+                </span>
+                <span className="h-px flex-1 bg-border/60" aria-hidden="true" />
+                <span className="hidden text-xs text-muted-foreground sm:inline">
+                  {demo.summary}
+                </span>
+                <ArrowUpRight className="size-3.5 shrink-0 rotate-45 text-muted-foreground/50 transition-[color,transform] group-hover:translate-x-0.5 group-hover:text-primary" />
+              </Link>
+            ))}
+          </section>
         ))}
       </div>
     </main>
