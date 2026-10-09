@@ -12,6 +12,8 @@
   ],
   "rules": {
     "src/router.tsx": ["src/components"],
-    "src/routes": ["src/lib", "src/demos/effect-oak"]
+    "src/routes": ["src/lib", "src/demos/effect-oak"],
+    "src/demos/effect-oak/canvas-art": ["src/demos/effect-oak/frame-canvas"],
+    "src/demos/effect-oak/generative-art": ["src/demos/effect-oak/frame-canvas"]
   }
 }
