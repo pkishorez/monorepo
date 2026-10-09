@@ -97,6 +97,30 @@ export const DEMOS = [
     group: 'Graphics',
     summary: 'A Node drawn as SVG at every Frame, with time travel',
   },
+  {
+    to: '/demos/effect-oak/canvas-art',
+    name: 'Canvas art',
+    group: 'Graphics',
+    summary: 'Bouncing balls on a canvas, placed at every Frame',
+  },
+  {
+    to: '/demos/effect-oak/snake',
+    name: 'Snake',
+    group: 'Graphics',
+    summary: 'The classic game, one tick per step',
+  },
+  {
+    to: '/demos/effect-oak/generative-art',
+    name: 'Generative art',
+    group: 'Graphics',
+    summary: 'Particles in a flow field, stepped on at every Frame',
+  },
+  {
+    to: '/demos/effect-oak/pixel-art',
+    name: 'Pixel art',
+    group: 'Graphics',
+    summary: 'A pixel editor with undo, mirrors and PNG export',
+  },
 ] as const satisfies ReadonlyArray<{
   readonly to: string;
   readonly name: string;

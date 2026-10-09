@@ -7,6 +7,7 @@ own `notes.md`. This page has one row per demo and the blockers they found.
 
 - Code lives in `<slug>/`, a deep module. `index.ts` exports the Node and its View (and the Layer, if the app needs Services).
 - The route `src/routes/demos/effect-oak/<slug>.tsx` makes the app with `toReact(Node, View, layer)` and shows it in `Shell` with `<DemoMenu />`. `head: ({ match }) => demoHead(match.fullPath)` takes the title and description from the demo's entry.
+- `frame-canvas/` is a 2D canvas painted at every Frame, shared by canvas-art and generative-art (one Rule per demo that uses it, in `laymos.config.json`).
 - Each demo has an entry in `DEMOS` in `src/lib/demos.tsx` with its `group`. The home page and the menu group demos by it.
 
 ## Demos
@@ -25,6 +26,10 @@ own `notes.md`. This page has one row per demo and the blockers they found.
 | [form](form/notes.md)                                     | Commands and Lifetimes | works   | Three field Nodes from one factory report up by Request; latest email check wins by replacing. |
 | [websocket-chat](websocket-chat/notes.md)                 | Commands and Lifetimes | works   | Real echo socket held open by Online's Lifetime; Composer child sends through a Service.       |
 | [road](game/notes.md) (code `game/`)                      | Graphics               | works   | Effect Oak's own demo, moved to `/demos/effect-oak/road`.                                      |
+| [canvas-art](canvas-art/notes.md)                         | Graphics               | works   | No ticks: each ball's place is a formula of the box's clock, drawn at each Frame.              |
+| [snake](snake/notes.md)                                   | Graphics               | works   | Ticks, as a chain of Commands: a Lifetime cannot speed up with the score.                      |
+| [generative-art](generative-art/notes.md)                 | Graphics               | partial | Particles stepped in the View between Messages; the sliders cannot be Child Nodes.             |
+| [pixel-art](pixel-art/notes.md)                           | Graphics               | partial | Tools and Export are Children; the resize picker cannot be one: no data from parent to Child.  |
 
 ## Library blockers
 
@@ -44,14 +49,17 @@ own `notes.md`. This page has one row per demo and the blockers they found.
    Foldkit's `Command.expectHas` and `Command.resolve` do. Named Commands
    would fix it. Hit by [todo](todo/notes.md), [road](game/notes.md),
    [weather](weather/notes.md), [interrupting-commands](interrupting-commands/notes.md),
-   [form](form/notes.md) and [websocket-chat](websocket-chat/notes.md).
+   [form](form/notes.md), [websocket-chat](websocket-chat/notes.md),
+   [canvas-art](canvas-art/notes.md), [snake](snake/notes.md),
+   [generative-art](generative-art/notes.md) and [pixel-art](pixel-art/notes.md).
 5. **Testing: no typed way to run one Update, or draw a View from a given
    Model, State and Time.** Foldkit's `story` and `scene` need both. Hit by
    every demo ([counter](counter/notes.md) lists what is needed).
 6. **Testing: no way to emit a Lifetime's Message in a unit test**, like
    Foldkit's `Subscription.emit` or `ManagedResource.acquire`. Hit by
-   [todo](todo/notes.md), [managed-resource-layer](managed-resource-layer/notes.md)
-   and [websocket-chat](websocket-chat/notes.md).
+   [todo](todo/notes.md), [managed-resource-layer](managed-resource-layer/notes.md),
+   [websocket-chat](websocket-chat/notes.md) and
+   [generative-art](generative-art/notes.md).
 7. **No way to stop one Command.** `replaceCommands` stops all of a Node's
    Commands; nothing stops one by key. Keyed Commands
    (`Command.keyed('upload-3', effect)` and `interrupt: ['upload-3']` in
@@ -75,13 +83,27 @@ own `notes.md`. This page has one row per demo and the blockers they found.
     set of States (`'Booting | Ready'`, or `'*'`), kept while moving inside
     the set, would be the API. Hit by
     [managed-resource-layer](managed-resource-layer/notes.md),
-    [websocket-chat](websocket-chat/notes.md), [weather](weather/notes.md)
-    and [form](form/notes.md).
+    [websocket-chat](websocket-chat/notes.md), [weather](weather/notes.md),
+    [form](form/notes.md) and [generative-art](generative-art/notes.md)
+    (sliders wanted in both Running and Paused).
 11. **Each State is drawn by its own keyed component**, so DOM that should
     survive a Transition is remounted: an input loses focus. Letting a Node
     with States be drawn by one function would be the API. Hit by
     [form](form/notes.md) (field status moved out of States) and
     [weather](weather/notes.md).
 
-Nothing went badly wrong in the Basics or the Commands and Lifetimes batch.
+12. **A Lifetime cannot follow the Model.** It starts once, with the Model
+    as it was on entering the State; Foldkit's Subscriptions restart when
+    `modelToDependencies` changes. A Lifetime keyed on a projection
+    (`{ key: ({ model }) => …, run: … }`, restarted when the key changes)
+    would be the API. Hit by [snake](snake/notes.md) (its clock speeds up
+    with the score, so each tick is a Command planning the next).
+13. **A parent cannot pass data to a Child.** A Child's Update and View see
+    only its own Model; Services reach only its Commands and Lifetimes.
+    Foldkit gives a Submodel's view `viewInputs`. A View input
+    (`<ResizeView node={children.resize} input={{ size }} />`, typed by the
+    Child's View, replay-safe because it comes from the parent's State) would
+    be the API. Hit by [pixel-art](pixel-art/notes.md) (no Resize Child).
+
+Nothing went badly wrong in the Basics, the Commands and Lifetimes or the Graphics batch.
 The build, the Shell and Time Travel all behaved in every demo.
