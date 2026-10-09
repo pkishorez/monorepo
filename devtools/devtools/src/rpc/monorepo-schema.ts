@@ -47,15 +47,28 @@ export const PackageCycleViolationSchema = Schema.Struct({
 
 export type PackageCycleViolation = typeof PackageCycleViolationSchema.Type;
 
+export const PackageManagerSchema = Schema.Literals([
+  'pnpm',
+  'npm',
+  'yarn',
+  'bun',
+]).annotate({
+  title: 'Package Manager',
+  description: 'The tool a Monorepo is managed with.',
+});
+
+export type PackageManager = typeof PackageManagerSchema.Type;
+
 export const MonorepoAnalysisSchema = Schema.Struct({
   name: Schema.String,
   path: Schema.String,
+  packageManager: PackageManagerSchema,
   packages: Schema.Array(PackageSchema),
   violations: Schema.Array(PackageCycleViolationSchema),
 }).annotate({
   title: 'Monorepo Analysis',
   description:
-    'The complete renderer-neutral description of one Monorepo: its Packages, their dependencies on each other, and the Package cycles found among them.',
+    'The complete renderer-neutral description of one Monorepo: its Package Manager, its Packages, their dependencies on each other, and the Package cycles found among them.',
 });
 
 export type MonorepoAnalysis = typeof MonorepoAnalysisSchema.Type;

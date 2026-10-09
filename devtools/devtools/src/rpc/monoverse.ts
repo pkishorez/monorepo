@@ -12,9 +12,10 @@ export class InvalidMonorepoPathError extends Schema.TaggedError<InvalidMonorepo
   path: Schema.String,
 }) {}
 
-export class NotPnpmWorkspaceError extends Schema.TaggedError<NotPnpmWorkspaceError>(
-  'NotPnpmWorkspaceError',
-)('NotPnpmWorkspaceError', { path: Schema.String }) {}
+/** The folder has neither `pnpm-workspace.yaml` nor a `workspaces` field in its `package.json`. */
+export class NotAMonorepoError extends Schema.TaggedError<NotAMonorepoError>(
+  'NotAMonorepoError',
+)('NotAMonorepoError', { path: Schema.String }) {}
 
 export class MonorepoReadFailure extends Schema.TaggedError<MonorepoReadFailure>(
   'MonorepoReadFailure',
@@ -31,7 +32,7 @@ export class MonorepoReadFailure extends Schema.TaggedError<MonorepoReadFailure>
 
 export const AnalyzeMonorepoError = Schema.Union([
   InvalidMonorepoPathError,
-  NotPnpmWorkspaceError,
+  NotAMonorepoError,
   MonorepoReadFailure,
 ]);
 

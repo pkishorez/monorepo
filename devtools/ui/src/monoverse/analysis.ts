@@ -20,9 +20,13 @@ export type PackageCycleViolation = {
   readonly packages: readonly string[];
 };
 
+// The tool a Monorepo is managed with.
+export type PackageManager = 'pnpm' | 'npm' | 'yarn' | 'bun';
+
 export type MonorepoAnalysis = {
   readonly name: string;
   readonly path: string;
+  readonly packageManager: PackageManager;
   readonly packages: readonly Package[];
   readonly violations: readonly PackageCycleViolation[];
 };

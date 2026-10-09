@@ -48,7 +48,7 @@ const COPY: Record<RegistryTool, Copy> = {
   monoverse: {
     noun: 'monorepo',
     placeholder: '/Users/you/repo',
-    hint: 'Point DevTools at a pnpm workspace root by its absolute filesystem path.',
+    hint: 'Point DevTools at a monorepo root by its absolute filesystem path.',
   },
   laymos: {
     noun: 'project',

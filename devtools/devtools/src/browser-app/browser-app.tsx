@@ -186,7 +186,7 @@ function Home() {
           <ToolRow
             to="/monoverse"
             title="Monoverse"
-            description="Packages, their dependencies, and changes across one pnpm monorepo."
+            description="Packages, their dependencies, and changes across one monorepo."
           />
           <ToolRow
             to="/laymos"

@@ -30,7 +30,7 @@ export {
   InvalidMonorepoPathError,
   MonorepoReadFailure,
   MonoverseRpc,
-  NotPnpmWorkspaceError,
+  NotAMonorepoError,
   MonorepoFileNotFoundError,
   MonorepoFileOutsideError,
   MonorepoFileReadError,
@@ -41,4 +41,5 @@ export type {
   Package,
   PackageCycleViolation,
   PackageDependency,
+  PackageManager,
 } from './monorepo-schema.js';

@@ -13,7 +13,7 @@ reads Traces back from a running server as JSON or text, so a shell or a
 coding agent can query telemetry without a browser.
 
 The server hosts three Tools. Lotel stores and shows OpenTelemetry data using
-[@kstackz/lotel](../lotel/README.md). Laymos and Monoverse analyze one project or one pnpm monorepo through
+[@kstackz/lotel](../lotel/README.md). Laymos and Monoverse analyze one project or one monorepo through
 [laymos](../laymos/README.md). Applications send telemetry with
 [@kstackz/effect-tracer](../effect-tracer/README.md). The Tools' views come
 from the private [@devtools/ui](../ui/README.md), which is a devDependency
@@ -60,7 +60,7 @@ It merges the Lotel, Laymos, git, Monoverse, and Project registry groups.
 | `InvalidFolderPath`                | Error for a relative, missing, or non-directory folder given to a git procedure.                               |
 | `GitUnavailableError`              | Error when the folder is not in a repository or git failed.                                                    |
 | `InvalidMonorepoPathError`         | Error for a relative, missing, or non-directory monorepo path.                                                 |
-| `NotPnpmWorkspaceError`            | Error when the folder has no `pnpm-workspace.yaml`.                                                            |
+| `NotAMonorepoError`                | Error when the folder has neither `pnpm-workspace.yaml` nor a `workspaces` field in its `package.json`.        |
 | `MonorepoReadFailure`              | Error when workspace or manifest files could not be read or parsed.                                            |
 | `PackageReadmeNotFoundError`       | Error when the requested markdown file does not exist in the Package.                                          |
 | `PackageReadmeOutsidePackageError` | Error when the relative path escapes the Package folder.                                                       |

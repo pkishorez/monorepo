@@ -21,7 +21,7 @@ its own subpath:
 - `otel-trace-viewer` (and `otel-trace-viewer/*` for its trace model and
   presentation): the Lotel Tool's trace list, waterfall and span inspection.
 - `laymos`: the Laymos Tool's Laymo (the architecture as a space of cards), its Stories canvas and the File list.
-- `monoverse`: the Monoverse Tool's map of a pnpm monorepo.
+- `monoverse`: the Monoverse Tool's map of a monorepo.
 
 ## Usage
 
