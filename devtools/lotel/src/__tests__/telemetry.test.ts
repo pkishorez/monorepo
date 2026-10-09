@@ -54,8 +54,8 @@ describe('lotel', () => {
     expect(result.listed.items).toHaveLength(101);
   });
 
-  it('migrates telemetry records written before Flow fields existed', async () => {
-    const [span, log] = await run(
+  it('reads records written with and before the removed Flow fields', async () => {
+    const [span, log, flowSpan] = await run(
       Effect.all([
         Schema.decodeUnknownEffect(SpanEntitySchema.schema)({
           _v: 'v1',
@@ -72,11 +72,25 @@ describe('lotel', () => {
           log: {},
           context: {},
         }),
+        Schema.decodeUnknownEffect(SpanEntitySchema.schema)({
+          _v: 'v2',
+          traceId: 'flow-trace',
+          spanId: 'flow-span',
+          flowId: 'flow-1',
+          participantName: 'api',
+          span: {},
+          context: {},
+        }),
       ]),
     );
 
-    expect(span).toMatchObject({ flowId: null, participantName: null });
-    expect(log).toMatchObject({ flowId: null, participantName: null });
+    expect(span).toMatchObject({ traceId: 'legacy-trace' });
+    expect(log).toMatchObject({ id: 'legacy-log' });
+    expect(flowSpan).toMatchObject({ spanId: 'flow-span' });
+    for (const record of [span, log, flowSpan]) {
+      expect(record).not.toHaveProperty('flowId');
+      expect(record).not.toHaveProperty('participantName');
+    }
   });
 
   it('lists an updated span after the previous update cursor', async () => {

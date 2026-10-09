@@ -17,7 +17,6 @@
     "@fontsource-variable/jetbrains-mono": "catalog:",
     "@kstackz/ai-toolkit": "workspace:*",
     "@kstackz/effect-tracer": "workspace:*",
-    "@kstackz/flow": "workspace:*",
     "@kstackz/rpc-toolkit": "workspace:*",
     "@kstackz/std-toolkit": "workspace:*",
     "@kstackz/web-platform": "workspace:*",

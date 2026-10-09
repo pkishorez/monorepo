@@ -6,9 +6,7 @@ import envPaths from 'env-paths';
 import { Config, Effect, References } from 'effect';
 import { Command, Flag } from 'effect/cli';
 import { NodeRuntime, NodeServices } from '@effect/platform-node';
-import { getFlowCommand, listFlowsCommand } from '../cli/flows/index.js';
 import { skillsCommand } from '../cli/skills.js';
-import { snapshotCommand } from '../cli/snapshot/index.js';
 import { getTraceCommand, listTracesCommand } from '../cli/traces/index.js';
 import { makeLocalDevtoolsServer } from './local-devtools-server/index.js';
 
@@ -40,7 +38,7 @@ const port = Flag.Int('port').pipe(
 
 const db = Flag.String('db').pipe(
   Flag.withDescription(
-    'Path to the DevTools database (traces, logs, and flows)',
+    'Path to the DevTools database (traces, logs, and Projects)',
   ),
   Flag.withFallbackConfig(Config.String('DEVTOOLS_DB')),
   Flag.withDefault(DEFAULT_DB_PATH),
@@ -78,14 +76,7 @@ const command = Command.make(
   Command.withDescription(
     'Run the DevTools Server: UI, RPC, and OTLP ingestion on loopback',
   ),
-  Command.withSubcommands([
-    listTracesCommand,
-    getTraceCommand,
-    listFlowsCommand,
-    getFlowCommand,
-    skillsCommand,
-    snapshotCommand,
-  ]),
+  Command.withSubcommands([listTracesCommand, getTraceCommand, skillsCommand]),
 );
 
 command.pipe(

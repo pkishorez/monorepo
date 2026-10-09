@@ -104,18 +104,12 @@ For a long-lived runtime such as a browser demo, provide `recorder.layer`
 once instead of wrapping each Effect.
 
 ```ts
-import { Layer, ManagedRuntime } from 'effect';
+import { ManagedRuntime } from 'effect';
 import { makeTraceRecorder } from '@kstackz/effect-tracer/recorder';
-import { FlowTelemetry } from '@kstackz/flow';
 
 const recorder = makeTraceRecorder();
 
-const runtime = ManagedRuntime.make(
-  Layer.mergeAll(
-    recorder.layer,
-    FlowTelemetry.layerMemory({ origin: 'browser' }),
-  ),
-);
+const runtime = ManagedRuntime.make(recorder.layer);
 
 // Later, from a panel:
 recorder.snapshot().spans;

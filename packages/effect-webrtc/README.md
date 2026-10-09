@@ -8,7 +8,7 @@ WebRTC gives two endpoints a direct data channel, but the application still has 
 
 Two Services are pluggable. `Signaling` carries negotiation messages between Peers and comes in memory, Nostr, and Durable (authenticated Cloudflare Durable Object) flavours. `WebRtcPlatform` supplies the host WebRTC implementation and comes in memory, browser, and werift (Node) flavours. Tests and stories run entirely in memory with no networking.
 
-RPC uses `effect/rpc` directly over the data channel. Connection attempts and RPC invocations are traced as Flows from `@kstackz/flow`, so a Flow viewer shows one swim lane per Peer. The Durable Signaling Provider authenticates with `@kstackz/auth-toolkit` and deploys with `@kstackz/rpc-toolkit`'s Alchemy Durable RPC worker.
+RPC uses `effect/rpc` directly over the data channel. Connection attempts and RPC invocations are traced as separate Effect spans labelled with both Peers, so any OpenTelemetry exporter (for example `@kstackz/effect-tracer`) shows them. The Durable Signaling Provider authenticates with `@kstackz/auth-toolkit` and deploys with `@kstackz/rpc-toolkit`'s Alchemy Durable RPC worker.
 
 Vocabulary lives in [CONTEXT.md](./CONTEXT.md). Design decisions live in [docs/adr/](./docs/adr/). The demos in `apps/docs/src/demos/effect-webrtc` and `apps/docs/src/demos/durable-webrtc` show a browser Peer chatting with a Node Peer and with other Peers of the same user.
 
@@ -42,7 +42,7 @@ Peer dependencies:
 | `Signaling`           | Service tag for a Signaling Provider that opens one scoped connection per local Peer.              |
 | `PeerId`              | The same Peer Identifier Schema as the root export.                                                |
 | `NegotiationMessage`  | Schema union of the offer, answer, ICE candidate, and close messages exchanged during negotiation. |
-| `NegotiationEnvelope` | Schema wrapping a `NegotiationMessage` with its session and attempt identifiers and Flow carrier.  |
+| `NegotiationEnvelope` | Schema wrapping a `NegotiationMessage` with its session and attempt identifiers and trace context. |
 | `PeerIdInUse`         | Error when a provider already has a connection open for that Peer Identifier.                      |
 | `PeerUnavailable`     | Error when a message is addressed to a Peer the provider cannot reach.                             |
 | `SignalingError`      | Error for a failed open, receive, or send on the signaling connection.                             |
@@ -121,7 +121,7 @@ Peer dependencies:
 
 | Export | What it does                                                                                                          |
 | ------ | --------------------------------------------------------------------------------------------------------------------- |
-| `make` | Opens the RPC Transport over one RTC Data Channel, with heartbeats, close handshake, and per-invocation Flow tracing. |
+| `make` | Opens the RPC Transport over one RTC Data Channel, with heartbeats, close handshake, and one span per RPC invocation. |
 
 ## Usage
 

@@ -1,5 +1,13 @@
-import { FlowTelemetry, projectJournal } from '@kstackz/flow';
-import { Deferred, Effect, Fiber, Option, Queue, Schema, Stream } from 'effect';
+import {
+  Deferred,
+  Effect,
+  Exit,
+  Fiber,
+  Option,
+  Queue,
+  Schema,
+  Stream,
+} from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
 import { describe, expect, it } from 'vitest';
 import {
@@ -9,6 +17,7 @@ import {
 import { PeerId } from '../src/peer-identity/index.js';
 import type { RtcDataChannel } from '../src/platform/platform.js';
 import { make } from '../src/rpc/index.js';
+import { recordSpans } from './record-spans.js';
 
 const makeChannelPair = Effect.gen(function* () {
   const leftInbox = yield* Queue.unbounded<Uint8Array>();
@@ -28,7 +37,7 @@ const makeChannelPair = Effect.gen(function* () {
 });
 
 describe('WebRTC RPC Transport', () => {
-  it('round-trips RPC and records a redacted two-Peer Flow', async () => {
+  it('round-trips RPC and labels redacted client and server spans with both Peers', async () => {
     const Echo = Rpc.make('Echo', {
       payload: { value: Schema.String },
       success: Schema.String,
@@ -37,7 +46,7 @@ describe('WebRTC RPC Transport', () => {
     const handlers = Api.toLayer({
       Echo: ({ value }) => Effect.succeed(`response:${value}`),
     });
-    const sink = FlowTelemetry.makeMemory();
+    const { spans, tracer } = recordSpans();
     const result = await Effect.runPromise(
       Effect.scoped(
         Effect.gen(function* () {
@@ -72,29 +81,45 @@ describe('WebRTC RPC Transport', () => {
             { concurrency: 'unbounded' },
           );
         }),
-      ).pipe(Effect.provideService(FlowTelemetry, sink)),
+      ).pipe(Effect.withTracer(tracer)),
     );
 
     expect(result).toEqual([
       'response:private-request',
       'response:second-private-request',
     ]);
-    const flows = sink.journals().map(projectJournal);
-    expect(flows).toHaveLength(2);
-    for (const flow of flows) {
-      expect(
-        new Set(flow.items.map(({ participantName }) => participantName)),
-      ).toEqual(new Set(['peer:alice', 'peer:bob']));
-      expect(flow.items[0]?.attributes).toMatchObject({
-        connectionAttemptId: 'connection-1',
+    const clientSpans = spans.filter(
+      ({ name }) => name === 'WebRtc.RpcClient.Echo',
+    );
+    const serverSpans = spans.filter(
+      ({ name }) => name === 'WebRtc.RpcServer.Echo',
+    );
+    expect(clientSpans).toHaveLength(2);
+    expect(serverSpans).toHaveLength(2);
+    for (const span of clientSpans) {
+      expect(Object.fromEntries(span.attributes)).toMatchObject({
+        'webrtc.peer.local_id': 'alice',
+        'webrtc.peer.remote_id': 'bob',
+        'webrtc.peer_session.id': 'session-1',
+        'webrtc.connection_attempt.id': 'connection-1',
       });
-      expect(flow.warnings).toEqual([]);
+      expect(serverSpans.some(({ traceId }) => traceId === span.traceId)).toBe(
+        true,
+      );
     }
-    expect(JSON.stringify(flows)).not.toContain('private-request');
-    expect(JSON.stringify(flows)).not.toContain('response:private-request');
+    for (const span of serverSpans) {
+      expect(span.attributes.get('webrtc.peer.local_id')).toBe('bob');
+    }
+    const recorded = JSON.stringify(
+      [...clientSpans, ...serverSpans].map((span) => [
+        Object.fromEntries(span.attributes),
+        span.events,
+      ]),
+    );
+    expect(recorded).not.toContain('private-request');
   });
 
-  it('records RPC cancellation without tracing stream chunks', async () => {
+  it('ends both RPC spans as interrupted when the caller cancels', async () => {
     const Watch = Rpc.make('Watch', {
       success: Schema.Number,
       stream: true,
@@ -107,7 +132,7 @@ describe('WebRTC RPC Transport', () => {
           Deferred.succeed(started, undefined).pipe(Effect.as(Stream.never)),
         ),
     });
-    const sink = FlowTelemetry.makeMemory();
+    const { spans, tracer } = recordSpans();
 
     await Effect.runPromise(
       Effect.scoped(
@@ -141,18 +166,19 @@ describe('WebRTC RPC Transport', () => {
           yield* Deferred.await(started);
           yield* Fiber.interrupt(fiber);
         }),
-      ).pipe(Effect.provideService(FlowTelemetry, sink)),
+      ).pipe(Effect.withTracer(tracer)),
     );
 
-    const [journal] = sink.journals();
-    const flow = journal === undefined ? undefined : projectJournal(journal);
-    expect(flow?.items.filter(({ kind }) => kind === 'message')).toHaveLength(
-      2,
-    );
-    expect(flow?.activations.map(({ outcome }) => outcome)).toEqual([
-      'interrupted',
-      'interrupted',
+    const rpcSpans = spans.filter(({ name }) => name.endsWith('.Watch'));
+    expect(rpcSpans.map(({ name }) => name).sort()).toEqual([
+      'WebRtc.RpcClient.Watch',
+      'WebRtc.RpcServer.Watch',
     ]);
+    for (const span of rpcSpans) {
+      expect(
+        span.status._tag === 'Ended' && Exit.hasInterrupts(span.status.exit),
+      ).toBe(true);
+    }
   });
 
   it('exchanges heartbeats and acknowledges a graceful close', async () => {

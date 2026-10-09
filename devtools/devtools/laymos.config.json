@@ -3,35 +3,27 @@
   "sourceRoots": ["src"],
   "fileModules": [
     "src/browser.tsx",
-    "src/snapshot.tsx",
     "src/server/main.ts",
     "src/server/handlers.ts",
     "src/cli/skills.ts",
     "src/cli/text-format.ts",
-    "src/ui/flow/collections.ts",
     "src/ui/lotel/collections.ts"
   ],
   "rules": {
     "src/browser.tsx": ["src/browser-app"],
-    "src/snapshot.tsx": ["src/browser-app"],
     "src/server/main.ts": [
       "src/server/local-devtools-server",
       "src/cli/traces",
-      "src/cli/flows",
-      "src/cli/snapshot",
       "src/cli/skills.ts"
     ],
     "src/cli/client-command": ["src/rpc"],
-    "src/cli/snapshot": ["src/domain/snapshot"],
     "src/browser-app": [
       "src/client/devtools-rpc",
       "src/ui/laymos/laymos",
-      "src/ui/laymos/snapshot",
       "src/ui/monoverse/monoverse",
-      "src/ui/lotel/lotel",
-      "src/ui/flow/flow"
+      "src/ui/lotel/lotel"
     ],
-    "src/ui": ["src/client", "src/rpc", "src/domain"],
+    "src/ui": ["src/client", "src/rpc"],
     "src/ui/laymos/laymos": ["src/ui/laymos/project-workspace"],
     "src/ui/monoverse": [
       "src/ui/laymos/project-workspace",
@@ -43,13 +35,10 @@
       "src/ui/lotel/collections.ts"
     ],
     "src/ui/lotel/viewer": ["src/ui/lotel/collections.ts"],
-    "src/ui/flow/flow": ["src/ui/flow/viewer", "src/ui/flow/collections.ts"],
-    "src/ui/flow/viewer": ["src/ui/flow/collections.ts"],
     "src/client": ["src/rpc"],
     "src/server": ["src/rpc"],
     "src/server/local-devtools-server": [
       "src/server/handlers.ts",
-      "src/server/flow-store",
       "src/server/project-registry"
     ],
     "src/server/handlers.ts": [
@@ -71,7 +60,6 @@
       "src/server/analyze-monorepo/package-graph"
     ],
     "src/cli/traces": ["src/cli/client-command", "src/cli/text-format.ts"],
-    "src/cli/flows": ["src/cli/client-command", "src/cli/text-format.ts"],
     "src/ui/laymos": ["src/ui/git-changes", "src/ui/project-selection"]
   }
 }

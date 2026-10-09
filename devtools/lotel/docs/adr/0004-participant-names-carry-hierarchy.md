@@ -1,6 +1,6 @@
 # Participant names carry hierarchy
 
-**Status:** superseded by [flow ADR-0001](../../../flow/docs/adr/0001-journal-entries-are-their-own-records.md); the rule lives on in the Flow context's Participant Name and Participant Group terms
+**Status:** superseded by flow ADR-0001, "Journal Entries are their own records" (Flow has since been removed); the rule lives on in the Flow context's Participant Name and Participant Group terms
 
 Participant Names are slash-separated paths, and every shared prefix forms a
 Participant Group. We derive this hierarchy from the existing name rather than

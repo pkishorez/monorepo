@@ -11,13 +11,8 @@ The umbrella through which developers access all local development tools.
 _Avoid_: Tool suite, admin panel.
 
 **Tool**:
-A self-contained developer capability presented through DevTools. Lotel, Flow,
+A self-contained developer capability presented through DevTools. Lotel,
 Laymos, and Monoverse are Tools.
-
-**Tool family**:
-The purpose a Tool serves: Lotel and Flow are telemetry Tools; Laymos and
-Monoverse are project-understanding Tools. Tools in one family link to each
-other; families do not share domains.
 
 **Tool Scope**:
 Whether a Tool works with repository-wide information or information from one
@@ -63,15 +58,6 @@ The DevTools Tool and domain for receiving and inspecting local OpenTelemetry
 data. See the [Lotel context](../lotel/CONTEXT.md).
 _Avoid_: Telemetry Tool, OTel Tool.
 
-**Flow**:
-The DevTools Tool for receiving Flow Entries and inspecting Journals as swim
-lanes. See the [Flow context](../flow/CONTEXT.md).
-_Avoid_: Flows tab, Swim lane Tool.
-
-**Flow Store**:
-The DevTools persistence of Flow Entries. It shares the one DevTools database
-with Lotel's Telemetry Store but keeps its own table.
-
 **DevTools URL**:
 The canonical `127.0.0.1` loopback address through which a developer or
 instrumented application accesses one running DevTools instance.
@@ -93,21 +79,9 @@ _Avoid_: Dev server, daemon.
 
 **Client Command**:
 A `devtools` subcommand that serves nothing itself and reads Lotel telemetry
-from a DevTools Server. Client Commands cover Traces and Flows only; Laymos is
-reached through its own CLI.
+from a DevTools Server. Client Commands cover Traces only; Laymos is reached
+through its own CLI.
 _Avoid_: CLI command, query command.
-
-**Snapshot**:
-A still picture of one Project's Architecture Analysis with its Change set
-marked, drawn by the bundled Snapshot page in a headless browser and written
-as PNG by `devtools snapshot`. No DevTools Server is involved; the command
-hands the page a Snapshot Request and the page reports when it has settled.
-_Avoid_: Screenshot of DevTools, export.
-
-**Snapshot Request**:
-What one Snapshot draws: the Architecture Analysis, the Change set, the theme,
-and the largest size the picture may take. It is the only input the Snapshot
-page has.
 
 **Trace Summary**:
 One row describing a Trace as a whole: its identity, root operation, service,

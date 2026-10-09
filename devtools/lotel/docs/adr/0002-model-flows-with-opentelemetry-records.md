@@ -1,6 +1,6 @@
 # Model Flows with OpenTelemetry records
 
-**Status:** superseded by [flow ADR-0001](../../../flow/docs/adr/0001-journal-entries-are-their-own-records.md); Flows are no longer OpenTelemetry records and no longer live in lotel
+**Status:** superseded by flow ADR-0001, "Journal Entries are their own records" (Flow has since been removed); Flows are no longer OpenTelemetry records and no longer live in lotel
 
 A Flow is application-defined correlation across Participants and can include
 work from any number of independent Traces. Activities are recorded as Span

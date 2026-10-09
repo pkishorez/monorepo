@@ -1,6 +1,7 @@
 # Snapshots render the bundled page in a headless browser, without a server
 
-**Status:** accepted
+**Status:** superseded: `devtools snapshot` and the Snapshot page have been
+removed.
 
 `devtools snapshot` draws a Project's changed Modules to a PNG by opening the
 bundled Snapshot page in headless Chromium through `playwright-core`. The page

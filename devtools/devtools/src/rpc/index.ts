@@ -26,7 +26,6 @@ export {
   type Worktree,
   type WorktreeResolution,
 } from './project-registry.js';
-export { FlowEntryEntitySchema, type FlowEntryRecord } from './flow-entry.js';
 export {
   InvalidMonorepoPathError,
   MonorepoReadFailure,

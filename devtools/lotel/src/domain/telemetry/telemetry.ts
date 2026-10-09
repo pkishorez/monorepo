@@ -52,8 +52,6 @@ export const spanRecordsFromRequest = (request: ExportTraceServiceRequest) => {
         records.push({
           traceId,
           spanId,
-          flowId: null,
-          participantName: null,
           span,
           context: {
             ...(resourceSpans.resource && { resource: resourceSpans.resource }),

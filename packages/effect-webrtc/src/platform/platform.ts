@@ -23,7 +23,7 @@ export interface RtcConfiguration {
   }>;
 }
 
-/** Host-reported ICE progress that a Connection Attempt Flow records. */
+/** Host-reported ICE progress that a Connection Attempt span records. */
 export type RtcDiagnostic =
   | { readonly _tag: 'IceConnectionState'; readonly state: string }
   | { readonly _tag: 'IceGatheringState'; readonly state: string }

@@ -3,8 +3,6 @@
   "sourceRoots": ["src"],
   "ignoredPaths": [
     "src/cosmos.decorator.tsx",
-    "src/devtools-panel/devtools-panel.fixture.tsx",
-    "src/flow-swimlane/flow-swimlane.fixture.tsx",
     "src/monoverse/monoverse/monoverse.fixture.tsx",
     "src/otel-trace-viewer/otel-trace-viewer.fixture.tsx",
     "src/laymos/analysis-explorer/fixtures",
@@ -14,16 +12,6 @@
   ],
   "fileModules": ["src/monoverse/analysis.ts"],
   "rules": {
-    "src/devtools-panel": [
-      "src/flow-swimlane/flow-swimlane",
-      "src/otel-trace-viewer/trace-viewer"
-    ],
-    "src/flow-swimlane/flow-swimlane": [
-      "src/flow-swimlane/flow-canvas",
-      "src/flow-swimlane/flow-header",
-      "src/flow-swimlane/flow-item-details"
-    ],
-    "src/flow-swimlane/examples": ["src/flow-swimlane/flow-swimlane"],
     "src/laymos/analysis-explorer": [
       "src/laymos/laymo",
       "src/laymos/stories-canvas",
@@ -76,10 +64,6 @@
     ],
     "src/laymos/canvas-space": ["src/laymos/preferences"],
     "src/laymos/file-list": ["src/laymos/preferences"],
-    "*": [
-      "src/flow-swimlane/flow-presentation",
-      "src/monoverse/analysis.ts",
-      "src/otel-trace-viewer/trace-model"
-    ]
+    "*": ["src/monoverse/analysis.ts", "src/otel-trace-viewer/trace-model"]
   }
 }

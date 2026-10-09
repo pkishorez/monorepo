@@ -16,7 +16,6 @@ import {
   SunIcon,
 } from '@kstackz/web-platform/components/lucide';
 import { DevtoolsRpcProvider } from '../client/devtools-rpc/index.js';
-import { Flow } from '../ui/flow/flow/index.js';
 import { Lotel } from '../ui/lotel/lotel/index.js';
 import { Laymos, LaymosHeader } from '../ui/laymos/laymos/index.js';
 import { Monoverse, MonoverseHeader } from '../ui/monoverse/monoverse/index.js';
@@ -41,7 +40,6 @@ function Shell() {
   const onLaymos = matchRoute({ to: '/laymos' }) !== false;
   const onMonoverse = matchRoute({ to: '/monoverse' }) !== false;
   const onLotel = matchRoute({ to: '/lotel' }) !== false;
-  const onFlow = matchRoute({ to: '/flow' }) !== false;
 
   useEffect(() => applyTheme(theme), [theme]);
 
@@ -57,7 +55,6 @@ function Shell() {
           </Link>
           <nav className="ml-6 flex items-center gap-1">
             <ToolLink to="/lotel">Lotel</ToolLink>
-            <ToolLink to="/flow">Flow</ToolLink>
             <ToolLink to="/monoverse">Monoverse</ToolLink>
             <ToolLink to="/laymos">Laymos</ToolLink>
           </nav>
@@ -82,7 +79,7 @@ function Shell() {
             to="/"
             className="flex h-11 min-w-0 flex-1 items-center px-2 text-sm font-medium tracking-tight"
           >
-            {onLotel ? 'Lotel' : onFlow ? 'Flow' : 'DevTools'}
+            {onLotel ? 'Lotel' : 'DevTools'}
           </Link>
         )}
         <ThemeButton
@@ -96,10 +93,9 @@ function Shell() {
       </main>
       <nav
         aria-label="Tools"
-        className="grid shrink-0 grid-cols-4 border-t border-border/60 bg-background px-2 pb-[max(env(safe-area-inset-bottom),0.25rem)] md:hidden"
+        className="grid shrink-0 grid-cols-3 border-t border-border/60 bg-background px-2 pb-[max(env(safe-area-inset-bottom),0.25rem)] md:hidden"
       >
         <MobileToolLink to="/lotel">Lotel</MobileToolLink>
-        <MobileToolLink to="/flow">Flow</MobileToolLink>
         <MobileToolLink to="/monoverse">Monoverse</MobileToolLink>
         <MobileToolLink to="/laymos">Laymos</MobileToolLink>
       </nav>
@@ -143,7 +139,7 @@ function ToolLink({
   to,
   children,
 }: {
-  to: '/lotel' | '/flow' | '/monoverse' | '/laymos';
+  to: '/lotel' | '/monoverse' | '/laymos';
   children: string;
 }) {
   return (
@@ -160,7 +156,7 @@ function MobileToolLink({
   to,
   children,
 }: {
-  to: '/lotel' | '/flow' | '/monoverse' | '/laymos';
+  to: '/lotel' | '/monoverse' | '/laymos';
   children: string;
 }) {
   return (
@@ -188,11 +184,6 @@ function Home() {
             description="Traces and Logs from local OpenTelemetry data."
           />
           <ToolRow
-            to="/flow"
-            title="Flow"
-            description="Journals of what happened across Participants, as swim lanes."
-          />
-          <ToolRow
             to="/monoverse"
             title="Monoverse"
             description="Packages, their dependencies, and changes across one pnpm monorepo."
@@ -216,7 +207,7 @@ function ToolRow({
   title,
   description,
 }: {
-  to: '/lotel' | '/flow' | '/monoverse' | '/laymos';
+  to: '/lotel' | '/monoverse' | '/laymos';
   title: string;
   description: string;
 }) {
@@ -273,14 +264,6 @@ const lotelRoute = createRoute({
   }),
   component: Lotel,
 });
-const flowRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/flow',
-  validateSearch: (search: Record<string, unknown>) => ({
-    flow: typeof search.flow === 'string' ? search.flow : undefined,
-  }),
-  component: Flow,
-});
 const monoverseRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/monoverse',
@@ -300,7 +283,6 @@ const laymosRoute = createRoute({
 const routeTree = rootRoute.addChildren([
   indexRoute,
   lotelRoute,
-  flowRoute,
   monoverseRoute,
   laymosRoute,
 ]);

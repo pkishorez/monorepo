@@ -100,17 +100,13 @@ _Avoid_: RPC Session, RPC connection
 The local handle to the other participant in a Peer Session, through which its declared RPC Contract can be invoked.
 _Avoid_: client, connection
 
-**Connection Attempt Flow**:
-A bounded two-Participant account of one offerer's attempt to establish and use an RTC Connection. The offerer creates its Flow Identifier, the answerer continues it, and transient disconnection remains in it while the same RTC Connection can recover.
-_Avoid_: peer session flow, SDP identifier
+**Connection Attempt Trace**:
+The trace of one offerer's attempt to establish and use an RTC Connection. The offerer starts it, the answerer joins it, and transient disconnection remains in it while the same RTC Connection can recover.
+_Avoid_: peer session trace, SDP identifier
 
-**RPC Invocation Flow**:
-A bounded two-Participant account of one RPC invocation, linked to the Peer Session and Connection Attempt that carried it.
-_Avoid_: connection flow, RPC span
-
-**Participant**:
-One stable Peer's swim lane in a Flow. Signaling providers, RTC Connections, data channels, and RPC roles are mechanisms rather than Participants.
-_Avoid_: connection participant, client lane, server lane
+**RPC Invocation Trace**:
+The trace of one RPC invocation across both Peers, labelled with the Peer Session and Connection Attempt that carried it.
+_Avoid_: connection trace
 
 **RPC Provider**:
 A Peer capability that implements an RPC Contract for remote Peers to invoke. It does not imply a permanent WebRTC negotiation role.

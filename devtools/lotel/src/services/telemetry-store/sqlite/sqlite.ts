@@ -103,10 +103,8 @@ export const makeSqliteTelemetryStore = (path: string) =>
 
     return {
       saveSpans: (records) =>
-        Effect.forEach(records, (input) => {
-          // Flow fields remain in the stored shape for older rows; new rows never set them.
-          const record = { ...input, flowId: null, participantName: null };
-          return provideSqlite(
+        Effect.forEach(records, (record) =>
+          provideSqlite(
             spans.get({ traceId: record.traceId, spanId: record.spanId }).pipe(
               Effect.flatMap((existing) =>
                 existing
@@ -120,14 +118,12 @@ export const makeSqliteTelemetryStore = (path: string) =>
               Effect.as(true),
               Effect.catch(() => Effect.succeed(false)),
             ),
-          );
-        }).pipe(Effect.map(countResults)),
+          ),
+        ).pipe(Effect.map(countResults)),
 
       insertLogs: (records) =>
         Effect.forEach(records, (input) =>
-          provideSqlite(
-            logs.insert({ ...input, flowId: null, participantName: null }),
-          ).pipe(
+          provideSqlite(logs.insert(input)).pipe(
             Effect.as(true),
             Effect.catch(() => Effect.succeed(false)),
           ),
