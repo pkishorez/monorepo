@@ -8,6 +8,7 @@ own `notes.md`. This page has one row per demo and the blockers they found.
 - Code lives in `<slug>/`, a deep module. `index.ts` exports the Node and its View (and the Layer, if the app needs Services).
 - The route `src/routes/demos/effect-oak/<slug>.tsx` makes the app with `toReact(Node, View, layer)` and shows it in `Shell` with `<DemoMenu />`. `head: ({ match }) => demoHead(match.fullPath)` takes the title and description from the demo's entry.
 - `frame-canvas/` is a 2D canvas painted at every Frame, shared by canvas-art and generative-art (one Rule per demo that uses it, in `laymos.config.json`).
+- `async-data/` is fetched data as Model data (Foldkit's AsyncData) with its loading and error panels, shared by api-cache, api-cache-query and charting. `blog-server/` is the fake blog API both API cache demos ask through a Service.
 - Each demo has an entry in `DEMOS` in `src/lib/demos.tsx` with its `group`. The home page and the menu group demos by it.
 
 ## Demos
@@ -30,6 +31,11 @@ own `notes.md`. This page has one row per demo and the blockers they found.
 | [snake](snake/notes.md)                                   | Graphics               | works   | Ticks, as a chain of Commands: a Lifetime cannot speed up with the score.                      |
 | [generative-art](generative-art/notes.md)                 | Graphics               | partial | Particles stepped in the View between Messages; the sliders cannot be Child Nodes.             |
 | [pixel-art](pixel-art/notes.md)                           | Graphics               | partial | Tools and Export are Children; the resize picker cannot be one: no data from parent to Child.  |
+| [api-cache](api-cache/notes.md)                           | Data                   | works   | Each tab a Child with its cache as AsyncData; Stats ask the Tabs Service before refetching.    |
+| [api-cache-query](api-cache-query/notes.md)               | Data                   | partial | Queries are Nodes; the app can only tell them what to load through a mailbox Service.          |
+| [query-sync](query-sync/notes.md)                         | Data                   | works   | No router: the URL is a Service each Node listens to; Time Travel does not move the URL.       |
+| [charting](charting/notes.md)                             | Data                   | works   | Live npm and GitHub data drawn as SVG from the Model, so no chart sync Commands.               |
+| [map](map/notes.md)                                       | Data                   | works   | OSM tiles; the camera and flights are Model data drawn at every Frame.                         |
 
 ## Library blockers
 
@@ -51,7 +57,8 @@ own `notes.md`. This page has one row per demo and the blockers they found.
    [weather](weather/notes.md), [interrupting-commands](interrupting-commands/notes.md),
    [form](form/notes.md), [websocket-chat](websocket-chat/notes.md),
    [canvas-art](canvas-art/notes.md), [snake](snake/notes.md),
-   [generative-art](generative-art/notes.md) and [pixel-art](pixel-art/notes.md).
+   [generative-art](generative-art/notes.md), [pixel-art](pixel-art/notes.md)
+   and every Data demo.
 5. **Testing: no typed way to run one Update, or draw a View from a given
    Model, State and Time.** Foldkit's `story` and `scene` need both. Hit by
    every demo ([counter](counter/notes.md) lists what is needed).
@@ -97,13 +104,43 @@ own `notes.md`. This page has one row per demo and the blockers they found.
     `modelToDependencies` changes. A Lifetime keyed on a projection
     (`{ key: ({ model }) => …, run: … }`, restarted when the key changes)
     would be the API. Hit by [snake](snake/notes.md) (its clock speeds up
-    with the score, so each tick is a Command planning the next).
+    with the score, so each tick is a Command planning the next),
+    [api-cache](api-cache/notes.md) and
+    [api-cache-query](api-cache-query/notes.md) (the stats timer ticks while
+    its tab is hidden). A Lifetime also keeps the Services it started with,
+    while a Command sees the latest ones.
 13. **A parent cannot pass data to a Child.** A Child's Update and View see
     only its own Model; Services reach only its Commands and Lifetimes.
     Foldkit gives a Submodel's view `viewInputs`. A View input
     (`<ResizeView node={children.resize} input={{ size }} />`, typed by the
     Child's View, replay-safe because it comes from the parent's State) would
-    be the API. Hit by [pixel-art](pixel-art/notes.md) (no Resize Child).
+    be the API. Hit by [pixel-art](pixel-art/notes.md) (no Resize Child),
+    [api-cache-query](api-cache-query/notes.md) (no Cached badge),
+    [query-sync](query-sync/notes.md) (each control listens to the URL
+    itself) and [map](map/notes.md) (the list cannot show the map's
+    selection).
 
-Nothing went badly wrong in the Basics, the Commands and Lifetimes or the Graphics batch.
+14. **A parent cannot send its Child a Message.** Update can only change its
+    own Node, so a parent that decides (a tab is shown, load this post) has
+    no way to tell the Child that acts. Foldkit folds a Submodel's update into
+    the parent's. `tell: [[children.stats, { _tag: 'Revalidate' }]]` in
+    Update's return, or a `Node.tell(child, message)` Command, would be the
+    API; the told Message is logged like any other, so Replay is unchanged.
+    Hit by [api-cache](api-cache/notes.md) (Stats asks a Service instead),
+    [api-cache-query](api-cache-query/notes.md) (a mailbox Service in the
+    Layer), [charting](charting/notes.md) and [map](map/notes.md).
+15. **No routing.** `init` cannot take the URL, the Runtime sends no URL
+    change Message and has no navigation Commands, and Time Travel does not
+    move the address bar. A `Url` Service with a Lifetime per Node works for
+    one page; `Runtime.start(node, { url })` and a `routing: { onUrlChange }`
+    option on `toReact`, or an adapter to the host's router, would be the
+    API. Hit by [query-sync](query-sync/notes.md).
+16. **`useFrame` cannot drive a render.** Its callback also runs after every
+    render, so setting state in it loops forever when the value depends on
+    the Time. DOM that changes shape at each Frame (map tiles) has to put the
+    state change off to the next animation frame. A
+    `useFrameValue((at) => value, equals)` hook would be the API. Hit by
+    [map](map/notes.md).
+
+Nothing went badly wrong in the Basics, the Commands and Lifetimes, the Graphics or the Data batch.
 The build, the Shell and Time Travel all behaved in every demo.
