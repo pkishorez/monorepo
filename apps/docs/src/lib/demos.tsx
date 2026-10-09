@@ -175,6 +175,44 @@ export const DEMOS = [
     group: 'Apps',
     summary: 'A multi-step checkout written as one Node’s States',
   },
+  {
+    to: '/demos/effect-oak/routing',
+    name: 'Routing',
+    group: 'Routing and host',
+    summary: 'Pages as States, with the path kept after the # in the URL',
+  },
+  {
+    to: '/demos/effect-oak/route-transitions',
+    name: 'Route transitions',
+    group: 'Routing and host',
+    summary: 'Work started on entering a page and on leaving one',
+  },
+  {
+    to: '/demos/effect-oak/view-transitions',
+    name: 'View transitions',
+    group: 'Routing and host',
+    summary:
+      'Artworks that grow into their page with the browser’s View Transitions',
+  },
+  {
+    to: '/demos/effect-oak/personal-blog',
+    name: 'Personal blog',
+    group: 'Routing and host',
+    summary:
+      'Posts written in a markdown subset, with a live counter inside one',
+  },
+  {
+    to: '/demos/effect-oak/embedding',
+    name: 'Embedding',
+    group: 'Routing and host',
+    summary: 'A widget mounted into a plain DOM page that talks to it',
+  },
+  {
+    to: '/demos/effect-oak/web-components',
+    name: 'Web components',
+    group: 'Routing and host',
+    summary: 'Two hand-made custom elements whose events become Messages',
+  },
 ] as const satisfies ReadonlyArray<{
   readonly to: string;
   readonly name: string;
