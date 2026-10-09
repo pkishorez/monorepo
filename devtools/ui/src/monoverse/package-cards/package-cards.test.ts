@@ -25,6 +25,7 @@ function pkg(
 }
 
 const analysis: MonorepoAnalysis = {
+  kind: 'monorepo',
   name: 'repo',
   path: '/repo',
   packageManager: 'pnpm',
@@ -183,6 +184,52 @@ describe('packageCards', () => {
       showDeleted: false,
     });
     expect(hidden.packages.has('toolkits/old')).toBe(false);
+  });
+});
+
+describe('a Single Package', () => {
+  const single: MonorepoAnalysis = {
+    kind: 'single-package',
+    name: '@kstack/solo',
+    path: '/work/solo',
+    packageManager: 'npm',
+    packages: [
+      {
+        name: '@kstack/solo',
+        path: '.',
+        group: '.',
+        private: false,
+        hasLaymos: true,
+        hasStories: false,
+        dependencies: [],
+      },
+    ],
+    violations: [],
+  };
+
+  test('draws its one Package as a card named by its folder, holding every file', () => {
+    const cards = packageCards({
+      analysis: single,
+      layout: 'folders',
+      activeKinds: all,
+      changes: {
+        baseRef: 'HEAD',
+        files: [
+          change('src/index.ts', 'modified'),
+          change('fixtures/package.json', 'deleted'),
+        ],
+      },
+      knownFiles: ['package.json', 'src/index.ts'],
+      showDeleted: true,
+    });
+    const node = (path: string) =>
+      cards.analysis.tree.nodes.find((candidate) => candidate.path === path);
+    expect(node('.')?.children).toEqual(['solo']);
+    expect(node('solo')).toMatchObject({ kind: 'module', parent: '.' });
+    expect(cards.packages.get('solo')).toBe(single.packages[0]);
+    expect(cards.folderOf('solo')).toBe('.');
+    expect(cards.deleted).toEqual([]);
+    expect(cards.changeIndex!.modules.get('solo')).toBe('modified');
   });
 });
 

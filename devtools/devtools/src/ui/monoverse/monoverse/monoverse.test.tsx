@@ -16,6 +16,7 @@ const state = vi.hoisted(() => ({
   available: false,
   calls: 0,
   realBlock: false,
+  single: false,
   changes: undefined as
     | undefined
     | {
@@ -48,6 +49,7 @@ const router = vi.hoisted(() => {
 });
 
 const analysis: MonorepoAnalysis = {
+  kind: 'monorepo',
   name: 'repo',
   path: '/repo',
   packageManager: 'pnpm',
@@ -67,6 +69,25 @@ const analysis: MonorepoAnalysis = {
       group: 'packages',
       private: false,
       hasLaymos: false,
+      hasStories: false,
+      dependencies: [],
+    },
+  ],
+  violations: [],
+};
+
+const singlePackage: MonorepoAnalysis = {
+  kind: 'single-package',
+  name: 'laymos',
+  path: '/repo/laymos',
+  packageManager: 'npm',
+  packages: [
+    {
+      name: 'laymos',
+      path: '.',
+      group: '.',
+      private: false,
+      hasLaymos: true,
       hasStories: false,
       dependencies: [],
     },
@@ -103,8 +124,8 @@ vi.mock('../../../client/devtools-rpc/index.js', () => {
     AnalyzeMonorepo: () => {
       state.calls++;
       return state.available
-        ? Effect.succeed(analysis)
-        : Effect.fail({ _tag: 'NotAMonorepoError' });
+        ? Effect.succeed(state.single ? singlePackage : analysis)
+        : Effect.fail({ _tag: 'NoPackageJsonError' });
     },
     GetMonorepoFile: ({ path }) => {
       const content = monorepoFiles[path];
@@ -353,4 +374,31 @@ test('a changed Package is marked in the outline', async () => {
   await waitFor(() => marked().length > 0);
   expect(marked()).toEqual(['packages', 'core']);
   state.changes = undefined;
+});
+
+test('a Single Package says so in the header and opens its one card in Laymos', async () => {
+  state.realBlock = true;
+  state.available = true;
+  state.single = true;
+  state.changes = undefined;
+  router.set({ monorepo: '/repo/laymos' });
+  await act(async () => root.render(<Monoverse />));
+
+  // The one card stands alone in the picture, so it reads as open.
+  const lone = () =>
+    document.querySelector<HTMLElement>(
+      '[role="button"][aria-label="laymos, open"]',
+    );
+  await waitFor(() => lone() !== null);
+  const header = document.querySelector('header')!;
+  expect(header.textContent).toContain('laymos');
+  expect(header.textContent).toContain('Single package');
+  expect(header.textContent).toContain('npm');
+  expect(header.textContent).not.toContain('1 Package');
+
+  await act(async () => {
+    lone()!.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+  });
+  expect(router.get()).toMatchObject({ laymos: 'laymos' });
+  state.single = false;
 });

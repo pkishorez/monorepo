@@ -9,6 +9,7 @@ import { MonorepoReadError } from './errors.js';
 import { readWorkspaceGlobs } from './workspace-globs.js';
 
 export type LoadedMonorepo = {
+  readonly kind: 'monorepo' | 'single-package';
   readonly name: string;
   readonly manifests: readonly PackageManifest[];
 };
@@ -17,7 +18,10 @@ export type LoadedMonorepo = {
  * Reads one Monorepo: its workspace globs, from `pnpm-workspace.yaml` or the
  * root `package.json` `workspaces` field, negations included, and the
  * manifest of every folder they match. The root's own manifest is not a
- * Package; its name, or the folder name, names the Monorepo.
+ * Package; its name, or the folder name, names the Monorepo. A root
+ * `package.json` that lists no workspace globs is a Single Package: its own
+ * manifest is its one Package, at path `.`, named by the folder when it
+ * names nothing.
  */
 export function loadMonorepo(
   root: string,
@@ -28,6 +32,15 @@ export function loadMonorepo(
 > {
   return Effect.gen(function* () {
     const patterns = yield* readWorkspaceGlobs(root);
+    const name = yield* monorepoName(root);
+    if (patterns === undefined) {
+      const manifest = yield* readPackageManifest(root, '.', name);
+      return {
+        kind: 'single-package',
+        name,
+        manifests: manifest === undefined ? [] : [manifest],
+      } as const;
+    }
     const folders = yield* Effect.tryPromise({
       try: () => expandPatterns(root, patterns),
       catch: (cause) =>
@@ -36,8 +49,8 @@ export function loadMonorepo(
     const manifests = yield* Effect.forEach(folders, (folder) =>
       readPackageManifest(root, folder),
     );
-    const name = yield* monorepoName(root);
     return {
+      kind: 'monorepo',
       name,
       manifests: manifests.filter(
         (manifest): manifest is PackageManifest => manifest !== undefined,

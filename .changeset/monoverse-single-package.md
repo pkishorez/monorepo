@@ -1,0 +1,5 @@
+---
+'@kstackz/devtools': patch
+---
+
+Monoverse opens a single package as well as a monorepo: a folder whose `package.json` lists no workspace packages is a Single Package, drawn as one card for its root, which opens in Laymos when it has a `laymos.config.json`. `AnalyzeMonorepo` returns `kind` (`monorepo` or `single-package`), and a Single Package's one Package has path `.`. `NotAMonorepoError` from `@kstackz/devtools/rpc` is renamed `NoPackageJsonError`, raised only for a folder with no `package.json`. DevTools now reaches Laymos only through Monoverse, as Embedded Laymos: the Laymos Tool and its `/laymos` route are removed, the Project registry has no Tool any more (`RegistryToolSchema` and `ProjectEntryEntitySchema` leave `@kstackz/devtools/rpc`, and `ListProjects` and `AddProject` take no `tool`), and Laymos entries saved before are no longer listed. The project picker lists each added folder once, with Add in its own dialog and a Manage dialog per entry for its worktrees, editing it, and removing it after a confirmation. A folder missing from the current checkout shows a notice with an Edit button instead of a worktree switcher.

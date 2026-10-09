@@ -26,7 +26,6 @@ export function makeBrowserApplicationLive({
       '/': 'DevTools browser application.',
       '/lotel': 'Lotel Tool.',
       '/monoverse': 'Monoverse Tool.',
-      '/laymos': 'Laymos Tool.',
       '/rpc': 'Typed RPC endpoint.',
       '/story-evidence':
         'One Evidence file of a Proof run: ?project=<abs path>&proof=<Proof id>&file=<relative file>.',
@@ -39,7 +38,6 @@ export function makeBrowserApplicationLive({
     HttpRouter.add('GET', '/', indexResponse),
     HttpRouter.add('GET', '/lotel', indexResponse),
     HttpRouter.add('GET', '/monoverse', indexResponse),
-    HttpRouter.add('GET', '/laymos', indexResponse),
     HttpRouter.add('GET', '/health', health),
   );
   const assets = HttpStaticServer.layer({

@@ -25,6 +25,7 @@ function pkg(
 }
 
 const analysis: MonorepoAnalysis = {
+  kind: 'monorepo',
   name: 'public-monorepo',
   path: '/repo',
   packageManager: 'pnpm',
@@ -205,6 +206,26 @@ function WithChanges() {
   );
 }
 
+const singlePackage: MonorepoAnalysis = {
+  kind: 'single-package',
+  name: 'laymos',
+  path: '/repo/laymos',
+  packageManager: 'npm',
+  packages: [
+    {
+      name: 'laymos',
+      path: '.',
+      group: '.',
+      version: '0.1.0',
+      private: false,
+      hasLaymos: true,
+      hasStories: true,
+      dependencies: [],
+    },
+  ],
+  violations: [],
+};
+
 function Frame({ children }: { readonly children: React.ReactNode }) {
   return (
     <div className="flex h-screen flex-col bg-muted/20 p-6">{children}</div>
@@ -249,12 +270,22 @@ export default {
         monorepoPath="/not-a-monorepo"
         loadAnalysis={() =>
           Effect.fail({
-            _tag: 'NotAMonorepoError',
+            _tag: 'NoPackageJsonError',
             path: '/not-a-monorepo',
-            reason:
-              'No pnpm-workspace.yaml or package.json workspaces at this root',
+            reason: 'No package.json at this folder',
           })
         }
+        renderLaymos={renderLaymos}
+        loadFile={loadFile}
+      />
+    </Frame>
+  ),
+  'single package': (
+    <Frame>
+      <Monoverse
+        className="flex-1"
+        monorepoPath="/repo/laymos"
+        loadAnalysis={() => Effect.succeed(singlePackage)}
         renderLaymos={renderLaymos}
         loadFile={loadFile}
       />

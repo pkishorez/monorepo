@@ -24,6 +24,8 @@ export type PackageCycleViolation = {
 export type PackageManager = 'pnpm' | 'npm' | 'yarn' | 'bun';
 
 export type MonorepoAnalysis = {
+  // A Single Package has exactly one Package: its root, at path `.`.
+  readonly kind: 'monorepo' | 'single-package';
   readonly name: string;
   readonly path: string;
   readonly packageManager: PackageManager;

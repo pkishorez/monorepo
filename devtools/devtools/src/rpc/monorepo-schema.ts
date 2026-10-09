@@ -32,7 +32,7 @@ export const PackageSchema = Schema.Struct({
 }).annotate({
   title: 'Package',
   description:
-    'One node of a Monorepo: a folder matched by the workspace globs that holds a package.json. `path` is relative to the Monorepo root; `group` is the first path segment. `hasLaymos` is the Laymos badge; `hasStories` is the Stories badge, set when that Laymos Config declares a Stories path.',
+    'One node of a Monorepo: a folder matched by the workspace globs that holds a package.json, or the root of a Single Package. `path` is relative to the root (`.` for a Single Package); `group` is the first path segment. `hasLaymos` is the Laymos badge; `hasStories` is the Stories badge, set when that Laymos Config declares a Stories path.',
 });
 
 export type Package = typeof PackageSchema.Type;
@@ -60,6 +60,7 @@ export const PackageManagerSchema = Schema.Literals([
 export type PackageManager = typeof PackageManagerSchema.Type;
 
 export const MonorepoAnalysisSchema = Schema.Struct({
+  kind: Schema.Literals(['monorepo', 'single-package']),
   name: Schema.String,
   path: Schema.String,
   packageManager: PackageManagerSchema,
@@ -68,7 +69,7 @@ export const MonorepoAnalysisSchema = Schema.Struct({
 }).annotate({
   title: 'Monorepo Analysis',
   description:
-    'The complete renderer-neutral description of one Monorepo: its Package Manager, its Packages, their dependencies on each other, and the Package cycles found among them.',
+    'The complete renderer-neutral description of one Monorepo or Single Package: which of the two it is, its Package Manager, its Packages, their dependencies on each other, and the Package cycles found among them. A Single Package has exactly one Package, its root.',
 });
 
 export type MonorepoAnalysis = typeof MonorepoAnalysisSchema.Type;

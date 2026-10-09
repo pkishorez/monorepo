@@ -1,11 +1,8 @@
-// Selecting a Project and one of its Worktrees; shared by Monoverse and Laymos.
+// Selecting a Monoverse entry and one of its Worktrees, and managing the entries.
 export {
   MissingProjectState,
   ProjectPicker,
-  ProjectPickerDialog,
   ProjectSelectionHeader,
-  WorktreeSwitcher,
-  currentWorktree,
   isMissingInWorktree,
   useReload,
   useWorktrees,

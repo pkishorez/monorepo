@@ -12,9 +12,10 @@ endpoint, and OTLP/HTTP ingestion. Every subcommand is a Client Command that
 reads Traces back from a running server as JSON or text, so a shell or a
 coding agent can query telemetry without a browser.
 
-The server hosts three Tools. Lotel stores and shows OpenTelemetry data using
-[@kstackz/lotel](../lotel/README.md). Laymos and Monoverse analyze one project or one monorepo through
-[laymos](../laymos/README.md). Applications send telemetry with
+The server hosts two Tools. Lotel stores and shows OpenTelemetry data using
+[@kstackz/lotel](../lotel/README.md). Monoverse maps a monorepo or a single
+package and opens a Package's architecture in place as Embedded Laymos,
+through [laymos](../laymos/README.md). Applications send telemetry with
 [@kstackz/effect-tracer](../effect-tracer/README.md). The Tools' views come
 from the private [@devtools/ui](../ui/README.md), which is a devDependency
 bundled into the browser UI at build time, so it is never installed.
@@ -47,7 +48,7 @@ It merges the Lotel, Laymos, git, Monoverse, and Project registry groups.
 | `DevtoolsToolRpc`                  | The Laymos procedures: analyze, a Module's File list, one file, Story tree, saved Proof reports, Stories runs. |
 | `GitRpc`                           | Branches, changes, file diffs, and known files for any folder in a git repository.                             |
 | `MonoverseRpc`                     | The `AnalyzeMonorepo` and `GetMonorepoFile` procedures.                                                        |
-| `ProjectRegistryRpc`               | List, add, update, remove registered Projects and resolve their Worktrees.                                     |
+| `ProjectRegistryRpc`               | List, add, update, remove the folders added to Monoverse and resolve their Worktrees.                          |
 | `InvalidProjectPath`               | Error for a relative, missing, or non-directory project path.                                                  |
 | `ConfigReadError`                  | Error when `laymos.config.json` could not be read.                                                             |
 | `ConfigParseError`                 | Error when the config is not valid JSON.                                                                       |
@@ -60,16 +61,14 @@ It merges the Lotel, Laymos, git, Monoverse, and Project registry groups.
 | `InvalidFolderPath`                | Error for a relative, missing, or non-directory folder given to a git procedure.                               |
 | `GitUnavailableError`              | Error when the folder is not in a repository or git failed.                                                    |
 | `InvalidMonorepoPathError`         | Error for a relative, missing, or non-directory monorepo path.                                                 |
-| `NotAMonorepoError`                | Error when the folder has neither `pnpm-workspace.yaml` nor a `workspaces` field in its `package.json`.        |
+| `NoPackageJsonError`               | Error when the folder has no `package.json`, so it is not a monorepo or a single package.                      |
 | `MonorepoReadFailure`              | Error when workspace or manifest files could not be read or parsed.                                            |
 | `PackageReadmeNotFoundError`       | Error when the requested markdown file does not exist in the Package.                                          |
 | `PackageReadmeOutsidePackageError` | Error when the relative path escapes the Package folder.                                                       |
 | `PackageReadmeReadError`           | Error when the markdown file could not be read.                                                                |
 | `PackageFileReadError`             | Error when one of a Package's files could not be read.                                                         |
 | `ProjectRegistryError`             | Error for a missing entry, an invalid path, or a store failure.                                                |
-| `RegistryToolSchema`               | `monoverse` or `laymos`: which Tool a registry entry belongs to.                                               |
-| `ProjectEntrySchema`               | One registered Project with its Worktree resolution.                                                           |
-| `ProjectEntryEntitySchema`         | The stored form of a registry entry.                                                                           |
+| `ProjectEntrySchema`               | One monorepo or single package added to Monoverse, with its Worktree resolution.                               |
 | `WorktreeSchema`                   | One git Worktree of a repository.                                                                              |
 | `WorktreeResolutionSchema`         | Every Worktree of the Project's repository and which one it is in.                                             |
 
@@ -121,7 +120,7 @@ await server.dispose();
 
 How it works:
 
-- The server listens on loopback only and serves `/`, `/lotel`, `/laymos`,
+- The server listens on loopback only and serves `/`, `/lotel`,
   `/monoverse`, `/rpc`, `/health`, `/story-evidence`, `/v1/traces`, and
   `/v1/logs`. `/story-evidence?project=&proof=&file=` serves one file from a
   Proof's `.laymos/stories/<proof id>/` Evidence folder and nothing outside it.

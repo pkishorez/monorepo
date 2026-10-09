@@ -234,7 +234,7 @@ export function Monoverse({
             <EmptyMedia variant="icon">
               <TriangleAlert />
             </EmptyMedia>
-            <EmptyTitle>Could not read this Monorepo</EmptyTitle>
+            <EmptyTitle>Could not read this folder</EmptyTitle>
             <EmptyDescription>{failureMessage(state.error)}</EmptyDescription>
             <Button
               size="sm"
@@ -284,7 +284,7 @@ export function Monoverse({
     if (!cards.packages.has(path)) return;
     const pkg = cards.packages.get(path);
     if (pkg?.hasLaymos) setOpen(pkg.name);
-    else setFilesFor(path);
+    else setFilesFor(cards.folderOf(path));
   };
   const changedCount =
     cards.changeIndex === undefined
@@ -334,7 +334,7 @@ export function Monoverse({
         fitNames
         hints={hints}
         onOpen={openCard}
-        onOpenFiles={setFilesFor}
+        onOpenFiles={(path) => setFilesFor(cards.folderOf(path))}
         panel={
           filesFor === undefined
             ? undefined
@@ -348,7 +348,7 @@ export function Monoverse({
                     loadFileContent={loadFile}
                     loadFileDiff={loadFileDiff}
                     changedPaths={changedPaths}
-                    modules={[...cards.packages.keys()]}
+                    modules={[...cards.packages.keys()].map(cards.folderOf)}
                     title={filesFor === '.' ? analysis.name : undefined}
                     onClose={() => setFilesFor(undefined)}
                   />
@@ -364,7 +364,8 @@ export function Monoverse({
         onExit={() => setOpen(null)}
         renderContent={(pkg) =>
           renderLaymos({
-            projectPath: `${monorepoPath}/${pkg.path}`,
+            projectPath:
+              pkg.path === '.' ? monorepoPath : `${monorepoPath}/${pkg.path}`,
             pkg,
             onExit: () => setOpen(null),
           })
@@ -428,6 +429,15 @@ export function MonoverseHeader({
       <h2 className="min-w-0 truncate text-sm font-semibold">
         {analysis.name}
       </h2>
+      {analysis.kind === 'single-package' ? (
+        <Badge
+          variant="secondary"
+          title="A folder with a package.json that lists no workspace packages"
+          className="shrink-0"
+        >
+          Single package
+        </Badge>
+      ) : null}
       <Badge
         variant="outline"
         title="Package Manager"
@@ -435,10 +445,15 @@ export function MonoverseHeader({
       >
         {analysis.packageManager}
       </Badge>
-      <Badge variant="secondary" className="hidden tabular-nums sm:inline-flex">
-        {analysis.packages.length}{' '}
-        {analysis.packages.length === 1 ? 'Package' : 'Packages'}
-      </Badge>
+      {analysis.kind === 'monorepo' ? (
+        <Badge
+          variant="secondary"
+          className="hidden tabular-nums sm:inline-flex"
+        >
+          {analysis.packages.length}{' '}
+          {analysis.packages.length === 1 ? 'Package' : 'Packages'}
+        </Badge>
+      ) : null}
       <div className="ms-auto flex items-center gap-2">
         <div
           role="radiogroup"

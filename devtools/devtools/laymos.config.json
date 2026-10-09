@@ -19,12 +19,10 @@
     "src/cli/client-command": ["src/rpc"],
     "src/browser-app": [
       "src/client/devtools-rpc",
-      "src/ui/laymos/laymos",
       "src/ui/monoverse/monoverse",
       "src/ui/lotel/lotel"
     ],
     "src/ui": ["src/client", "src/rpc"],
-    "src/ui/laymos/laymos": ["src/ui/laymos/project-workspace"],
     "src/ui/monoverse": [
       "src/ui/laymos/project-workspace",
       "src/ui/git-changes",
@@ -60,6 +58,6 @@
       "src/server/analyze-monorepo/package-graph"
     ],
     "src/cli/traces": ["src/cli/client-command", "src/cli/text-format.ts"],
-    "src/ui/laymos": ["src/ui/git-changes", "src/ui/project-selection"]
+    "src/ui/laymos": ["src/ui/git-changes"]
   }
 }

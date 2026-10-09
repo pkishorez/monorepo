@@ -41,8 +41,10 @@ export interface PackageCards {
   readonly analysis: ArchitectureAnalysis;
   /** Each card's Package change status by path, Package groups rolled up. */
   readonly changeIndex: ChangeIndex | undefined;
-  /** Every Package drawn, by path; a Deleted Package has no manifest left. */
+  /** Every Package drawn, by card path; a Deleted Package has no manifest left. */
   readonly packages: ReadonlyMap<string, Package | undefined>;
+  /** The folder a card stands for, relative to the root, `.` for the root. */
+  readonly folderOf: (cardPath: string) => string;
   /** The paths of the Deleted Packages drawn. */
   readonly deleted: readonly string[];
   readonly findings: readonly FindingCount[];
@@ -235,8 +237,62 @@ function treeOf(
   };
 }
 
+/**
+ * The card a Single Package's one Package stands in. Its folder is the root,
+ * `.`, which is the card holding the whole picture, so its own card takes
+ * the root folder's name.
+ */
+function rootCardOf(analysis: MonorepoAnalysis): string | undefined {
+  if (analysis.kind !== 'single-package') return undefined;
+  return analysis.path.split('/').filter(Boolean).pop() ?? analysis.name;
+}
+
 /** Draws a Monorepo with the Laymo: see {@link PackageCards}. */
-export function packageCards({
+export function packageCards(input: PackageCardsInput): PackageCards {
+  const rootCard = rootCardOf(input.analysis);
+  if (rootCard === undefined) return monorepoCards(input);
+  const cards = monorepoCards({
+    ...input,
+    analysis: {
+      ...input.analysis,
+      packages: input.analysis.packages.map((pkg) =>
+        pkg.path === '.' ? { ...pkg, path: rootCard } : pkg,
+      ),
+    },
+    changes: undefined,
+  });
+  // Every file belongs to the one Package, and it lists no workspace globs
+  // a deleted manifest could have been matched by.
+  const changeIndex =
+    input.changes === undefined
+      ? undefined
+      : packageChangeIndex(
+          ['.'],
+          [],
+          [],
+          input.changes,
+          input.knownFiles ?? [],
+        );
+  return {
+    ...cards,
+    packages: new Map(input.analysis.packages.map((pkg) => [rootCard, pkg])),
+    changeIndex:
+      changeIndex === undefined
+        ? undefined
+        : {
+            ...changeIndex,
+            modules: new Map(
+              [...changeIndex.modules].map(([path, status]) => [
+                path === '.' ? rootCard : path,
+                status,
+              ]),
+            ),
+          },
+    folderOf: (cardPath) => (cardPath === rootCard ? '.' : cardPath),
+  };
+}
+
+function monorepoCards({
   analysis,
   layout,
   activeKinds,
@@ -301,6 +357,7 @@ export function packageCards({
     },
     changeIndex,
     packages,
+    folderOf: (cardPath) => cardPath,
     deleted,
     groups,
     findings: [
