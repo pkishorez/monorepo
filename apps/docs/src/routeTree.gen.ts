@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as DemosEffectOakIndexRouteImport } from './routes/demos/effect-oak/index'
 import { Route as DemosEffectOakApiCacheRouteImport } from './routes/demos/effect-oak/api-cache'
 import { Route as DemosEffectOakApiCacheQueryRouteImport } from './routes/demos/effect-oak/api-cache-query'
+import { Route as DemosEffectOakAuthRouteImport } from './routes/demos/effect-oak/auth'
 import { Route as DemosEffectOakCanvasArtRouteImport } from './routes/demos/effect-oak/canvas-art'
 import { Route as DemosEffectOakChartingRouteImport } from './routes/demos/effect-oak/charting'
 import { Route as DemosEffectOakCounterRouteImport } from './routes/demos/effect-oak/counter'
@@ -21,13 +22,16 @@ import { Route as DemosEffectOakCrashViewRouteImport } from './routes/demos/effe
 import { Route as DemosEffectOakFormRouteImport } from './routes/demos/effect-oak/form'
 import { Route as DemosEffectOakGenerativeArtRouteImport } from './routes/demos/effect-oak/generative-art'
 import { Route as DemosEffectOakInterruptingCommandsRouteImport } from './routes/demos/effect-oak/interrupting-commands'
+import { Route as DemosEffectOakKanbanRouteImport } from './routes/demos/effect-oak/kanban'
 import { Route as DemosEffectOakManagedResourceLayerRouteImport } from './routes/demos/effect-oak/managed-resource-layer'
 import { Route as DemosEffectOakMapRouteImport } from './routes/demos/effect-oak/map'
 import { Route as DemosEffectOakPixelArtRouteImport } from './routes/demos/effect-oak/pixel-art'
 import { Route as DemosEffectOakQuerySyncRouteImport } from './routes/demos/effect-oak/query-sync'
 import { Route as DemosEffectOakRoadRouteImport } from './routes/demos/effect-oak/road'
+import { Route as DemosEffectOakShoppingCartRouteImport } from './routes/demos/effect-oak/shopping-cart'
 import { Route as DemosEffectOakSlowWarningsRouteImport } from './routes/demos/effect-oak/slow-warnings'
 import { Route as DemosEffectOakSnakeRouteImport } from './routes/demos/effect-oak/snake'
+import { Route as DemosEffectOakStateMachineRouteImport } from './routes/demos/effect-oak/state-machine'
 import { Route as DemosEffectOakStopwatchRouteImport } from './routes/demos/effect-oak/stopwatch'
 import { Route as DemosEffectOakTodoRouteImport } from './routes/demos/effect-oak/todo'
 import { Route as DemosEffectOakWeatherRouteImport } from './routes/demos/effect-oak/weather'
@@ -54,6 +58,11 @@ const DemosEffectOakApiCacheQueryRoute =
     path: '/demos/effect-oak/api-cache-query',
     getParentRoute: () => rootRouteImport,
   } as any)
+const DemosEffectOakAuthRoute = DemosEffectOakAuthRouteImport.update({
+  id: '/demos/effect-oak/auth',
+  path: '/demos/effect-oak/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DemosEffectOakCanvasArtRoute = DemosEffectOakCanvasArtRouteImport.update({
   id: '/demos/effect-oak/canvas-art',
   path: '/demos/effect-oak/canvas-art',
@@ -96,6 +105,11 @@ const DemosEffectOakInterruptingCommandsRoute =
     path: '/demos/effect-oak/interrupting-commands',
     getParentRoute: () => rootRouteImport,
   } as any)
+const DemosEffectOakKanbanRoute = DemosEffectOakKanbanRouteImport.update({
+  id: '/demos/effect-oak/kanban',
+  path: '/demos/effect-oak/kanban',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DemosEffectOakManagedResourceLayerRoute =
   DemosEffectOakManagedResourceLayerRouteImport.update({
     id: '/demos/effect-oak/managed-resource-layer',
@@ -122,6 +136,12 @@ const DemosEffectOakRoadRoute = DemosEffectOakRoadRouteImport.update({
   path: '/demos/effect-oak/road',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DemosEffectOakShoppingCartRoute =
+  DemosEffectOakShoppingCartRouteImport.update({
+    id: '/demos/effect-oak/shopping-cart',
+    path: '/demos/effect-oak/shopping-cart',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const DemosEffectOakSlowWarningsRoute =
   DemosEffectOakSlowWarningsRouteImport.update({
     id: '/demos/effect-oak/slow-warnings',
@@ -133,6 +153,12 @@ const DemosEffectOakSnakeRoute = DemosEffectOakSnakeRouteImport.update({
   path: '/demos/effect-oak/snake',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DemosEffectOakStateMachineRoute =
+  DemosEffectOakStateMachineRouteImport.update({
+    id: '/demos/effect-oak/state-machine',
+    path: '/demos/effect-oak/state-machine',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const DemosEffectOakStopwatchRoute = DemosEffectOakStopwatchRouteImport.update({
   id: '/demos/effect-oak/stopwatch',
   path: '/demos/effect-oak/stopwatch',
@@ -159,6 +185,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/demos/effect-oak/api-cache': typeof DemosEffectOakApiCacheRoute
   '/demos/effect-oak/api-cache-query': typeof DemosEffectOakApiCacheQueryRoute
+  '/demos/effect-oak/auth': typeof DemosEffectOakAuthRoute
   '/demos/effect-oak/canvas-art': typeof DemosEffectOakCanvasArtRoute
   '/demos/effect-oak/charting': typeof DemosEffectOakChartingRoute
   '/demos/effect-oak/counter': typeof DemosEffectOakCounterRoute
@@ -167,13 +194,16 @@ export interface FileRoutesByFullPath {
   '/demos/effect-oak/form': typeof DemosEffectOakFormRoute
   '/demos/effect-oak/generative-art': typeof DemosEffectOakGenerativeArtRoute
   '/demos/effect-oak/interrupting-commands': typeof DemosEffectOakInterruptingCommandsRoute
+  '/demos/effect-oak/kanban': typeof DemosEffectOakKanbanRoute
   '/demos/effect-oak/managed-resource-layer': typeof DemosEffectOakManagedResourceLayerRoute
   '/demos/effect-oak/map': typeof DemosEffectOakMapRoute
   '/demos/effect-oak/pixel-art': typeof DemosEffectOakPixelArtRoute
   '/demos/effect-oak/query-sync': typeof DemosEffectOakQuerySyncRoute
   '/demos/effect-oak/road': typeof DemosEffectOakRoadRoute
+  '/demos/effect-oak/shopping-cart': typeof DemosEffectOakShoppingCartRoute
   '/demos/effect-oak/slow-warnings': typeof DemosEffectOakSlowWarningsRoute
   '/demos/effect-oak/snake': typeof DemosEffectOakSnakeRoute
+  '/demos/effect-oak/state-machine': typeof DemosEffectOakStateMachineRoute
   '/demos/effect-oak/stopwatch': typeof DemosEffectOakStopwatchRoute
   '/demos/effect-oak/todo': typeof DemosEffectOakTodoRoute
   '/demos/effect-oak/weather': typeof DemosEffectOakWeatherRoute
@@ -184,6 +214,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/demos/effect-oak/api-cache': typeof DemosEffectOakApiCacheRoute
   '/demos/effect-oak/api-cache-query': typeof DemosEffectOakApiCacheQueryRoute
+  '/demos/effect-oak/auth': typeof DemosEffectOakAuthRoute
   '/demos/effect-oak/canvas-art': typeof DemosEffectOakCanvasArtRoute
   '/demos/effect-oak/charting': typeof DemosEffectOakChartingRoute
   '/demos/effect-oak/counter': typeof DemosEffectOakCounterRoute
@@ -192,13 +223,16 @@ export interface FileRoutesByTo {
   '/demos/effect-oak/form': typeof DemosEffectOakFormRoute
   '/demos/effect-oak/generative-art': typeof DemosEffectOakGenerativeArtRoute
   '/demos/effect-oak/interrupting-commands': typeof DemosEffectOakInterruptingCommandsRoute
+  '/demos/effect-oak/kanban': typeof DemosEffectOakKanbanRoute
   '/demos/effect-oak/managed-resource-layer': typeof DemosEffectOakManagedResourceLayerRoute
   '/demos/effect-oak/map': typeof DemosEffectOakMapRoute
   '/demos/effect-oak/pixel-art': typeof DemosEffectOakPixelArtRoute
   '/demos/effect-oak/query-sync': typeof DemosEffectOakQuerySyncRoute
   '/demos/effect-oak/road': typeof DemosEffectOakRoadRoute
+  '/demos/effect-oak/shopping-cart': typeof DemosEffectOakShoppingCartRoute
   '/demos/effect-oak/slow-warnings': typeof DemosEffectOakSlowWarningsRoute
   '/demos/effect-oak/snake': typeof DemosEffectOakSnakeRoute
+  '/demos/effect-oak/state-machine': typeof DemosEffectOakStateMachineRoute
   '/demos/effect-oak/stopwatch': typeof DemosEffectOakStopwatchRoute
   '/demos/effect-oak/todo': typeof DemosEffectOakTodoRoute
   '/demos/effect-oak/weather': typeof DemosEffectOakWeatherRoute
@@ -210,6 +244,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/demos/effect-oak/api-cache': typeof DemosEffectOakApiCacheRoute
   '/demos/effect-oak/api-cache-query': typeof DemosEffectOakApiCacheQueryRoute
+  '/demos/effect-oak/auth': typeof DemosEffectOakAuthRoute
   '/demos/effect-oak/canvas-art': typeof DemosEffectOakCanvasArtRoute
   '/demos/effect-oak/charting': typeof DemosEffectOakChartingRoute
   '/demos/effect-oak/counter': typeof DemosEffectOakCounterRoute
@@ -218,13 +253,16 @@ export interface FileRoutesById {
   '/demos/effect-oak/form': typeof DemosEffectOakFormRoute
   '/demos/effect-oak/generative-art': typeof DemosEffectOakGenerativeArtRoute
   '/demos/effect-oak/interrupting-commands': typeof DemosEffectOakInterruptingCommandsRoute
+  '/demos/effect-oak/kanban': typeof DemosEffectOakKanbanRoute
   '/demos/effect-oak/managed-resource-layer': typeof DemosEffectOakManagedResourceLayerRoute
   '/demos/effect-oak/map': typeof DemosEffectOakMapRoute
   '/demos/effect-oak/pixel-art': typeof DemosEffectOakPixelArtRoute
   '/demos/effect-oak/query-sync': typeof DemosEffectOakQuerySyncRoute
   '/demos/effect-oak/road': typeof DemosEffectOakRoadRoute
+  '/demos/effect-oak/shopping-cart': typeof DemosEffectOakShoppingCartRoute
   '/demos/effect-oak/slow-warnings': typeof DemosEffectOakSlowWarningsRoute
   '/demos/effect-oak/snake': typeof DemosEffectOakSnakeRoute
+  '/demos/effect-oak/state-machine': typeof DemosEffectOakStateMachineRoute
   '/demos/effect-oak/stopwatch': typeof DemosEffectOakStopwatchRoute
   '/demos/effect-oak/todo': typeof DemosEffectOakTodoRoute
   '/demos/effect-oak/weather': typeof DemosEffectOakWeatherRoute
@@ -237,6 +275,7 @@ export interface FileRouteTypes {
     | '/'
     | '/demos/effect-oak/api-cache'
     | '/demos/effect-oak/api-cache-query'
+    | '/demos/effect-oak/auth'
     | '/demos/effect-oak/canvas-art'
     | '/demos/effect-oak/charting'
     | '/demos/effect-oak/counter'
@@ -245,13 +284,16 @@ export interface FileRouteTypes {
     | '/demos/effect-oak/form'
     | '/demos/effect-oak/generative-art'
     | '/demos/effect-oak/interrupting-commands'
+    | '/demos/effect-oak/kanban'
     | '/demos/effect-oak/managed-resource-layer'
     | '/demos/effect-oak/map'
     | '/demos/effect-oak/pixel-art'
     | '/demos/effect-oak/query-sync'
     | '/demos/effect-oak/road'
+    | '/demos/effect-oak/shopping-cart'
     | '/demos/effect-oak/slow-warnings'
     | '/demos/effect-oak/snake'
+    | '/demos/effect-oak/state-machine'
     | '/demos/effect-oak/stopwatch'
     | '/demos/effect-oak/todo'
     | '/demos/effect-oak/weather'
@@ -262,6 +304,7 @@ export interface FileRouteTypes {
     | '/'
     | '/demos/effect-oak/api-cache'
     | '/demos/effect-oak/api-cache-query'
+    | '/demos/effect-oak/auth'
     | '/demos/effect-oak/canvas-art'
     | '/demos/effect-oak/charting'
     | '/demos/effect-oak/counter'
@@ -270,13 +313,16 @@ export interface FileRouteTypes {
     | '/demos/effect-oak/form'
     | '/demos/effect-oak/generative-art'
     | '/demos/effect-oak/interrupting-commands'
+    | '/demos/effect-oak/kanban'
     | '/demos/effect-oak/managed-resource-layer'
     | '/demos/effect-oak/map'
     | '/demos/effect-oak/pixel-art'
     | '/demos/effect-oak/query-sync'
     | '/demos/effect-oak/road'
+    | '/demos/effect-oak/shopping-cart'
     | '/demos/effect-oak/slow-warnings'
     | '/demos/effect-oak/snake'
+    | '/demos/effect-oak/state-machine'
     | '/demos/effect-oak/stopwatch'
     | '/demos/effect-oak/todo'
     | '/demos/effect-oak/weather'
@@ -287,6 +333,7 @@ export interface FileRouteTypes {
     | '/'
     | '/demos/effect-oak/api-cache'
     | '/demos/effect-oak/api-cache-query'
+    | '/demos/effect-oak/auth'
     | '/demos/effect-oak/canvas-art'
     | '/demos/effect-oak/charting'
     | '/demos/effect-oak/counter'
@@ -295,13 +342,16 @@ export interface FileRouteTypes {
     | '/demos/effect-oak/form'
     | '/demos/effect-oak/generative-art'
     | '/demos/effect-oak/interrupting-commands'
+    | '/demos/effect-oak/kanban'
     | '/demos/effect-oak/managed-resource-layer'
     | '/demos/effect-oak/map'
     | '/demos/effect-oak/pixel-art'
     | '/demos/effect-oak/query-sync'
     | '/demos/effect-oak/road'
+    | '/demos/effect-oak/shopping-cart'
     | '/demos/effect-oak/slow-warnings'
     | '/demos/effect-oak/snake'
+    | '/demos/effect-oak/state-machine'
     | '/demos/effect-oak/stopwatch'
     | '/demos/effect-oak/todo'
     | '/demos/effect-oak/weather'
@@ -313,6 +363,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DemosEffectOakApiCacheRoute: typeof DemosEffectOakApiCacheRoute
   DemosEffectOakApiCacheQueryRoute: typeof DemosEffectOakApiCacheQueryRoute
+  DemosEffectOakAuthRoute: typeof DemosEffectOakAuthRoute
   DemosEffectOakCanvasArtRoute: typeof DemosEffectOakCanvasArtRoute
   DemosEffectOakChartingRoute: typeof DemosEffectOakChartingRoute
   DemosEffectOakCounterRoute: typeof DemosEffectOakCounterRoute
@@ -321,13 +372,16 @@ export interface RootRouteChildren {
   DemosEffectOakFormRoute: typeof DemosEffectOakFormRoute
   DemosEffectOakGenerativeArtRoute: typeof DemosEffectOakGenerativeArtRoute
   DemosEffectOakInterruptingCommandsRoute: typeof DemosEffectOakInterruptingCommandsRoute
+  DemosEffectOakKanbanRoute: typeof DemosEffectOakKanbanRoute
   DemosEffectOakManagedResourceLayerRoute: typeof DemosEffectOakManagedResourceLayerRoute
   DemosEffectOakMapRoute: typeof DemosEffectOakMapRoute
   DemosEffectOakPixelArtRoute: typeof DemosEffectOakPixelArtRoute
   DemosEffectOakQuerySyncRoute: typeof DemosEffectOakQuerySyncRoute
   DemosEffectOakRoadRoute: typeof DemosEffectOakRoadRoute
+  DemosEffectOakShoppingCartRoute: typeof DemosEffectOakShoppingCartRoute
   DemosEffectOakSlowWarningsRoute: typeof DemosEffectOakSlowWarningsRoute
   DemosEffectOakSnakeRoute: typeof DemosEffectOakSnakeRoute
+  DemosEffectOakStateMachineRoute: typeof DemosEffectOakStateMachineRoute
   DemosEffectOakStopwatchRoute: typeof DemosEffectOakStopwatchRoute
   DemosEffectOakTodoRoute: typeof DemosEffectOakTodoRoute
   DemosEffectOakWeatherRoute: typeof DemosEffectOakWeatherRoute
@@ -363,6 +417,13 @@ declare module '@tanstack/react-router' {
       path: '/demos/effect-oak/api-cache-query'
       fullPath: '/demos/effect-oak/api-cache-query'
       preLoaderRoute: typeof DemosEffectOakApiCacheQueryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/demos/effect-oak/auth': {
+      id: '/demos/effect-oak/auth'
+      path: '/demos/effect-oak/auth'
+      fullPath: '/demos/effect-oak/auth'
+      preLoaderRoute: typeof DemosEffectOakAuthRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/demos/effect-oak/canvas-art': {
@@ -421,6 +482,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DemosEffectOakInterruptingCommandsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/demos/effect-oak/kanban': {
+      id: '/demos/effect-oak/kanban'
+      path: '/demos/effect-oak/kanban'
+      fullPath: '/demos/effect-oak/kanban'
+      preLoaderRoute: typeof DemosEffectOakKanbanRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/demos/effect-oak/managed-resource-layer': {
       id: '/demos/effect-oak/managed-resource-layer'
       path: '/demos/effect-oak/managed-resource-layer'
@@ -456,6 +524,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DemosEffectOakRoadRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/demos/effect-oak/shopping-cart': {
+      id: '/demos/effect-oak/shopping-cart'
+      path: '/demos/effect-oak/shopping-cart'
+      fullPath: '/demos/effect-oak/shopping-cart'
+      preLoaderRoute: typeof DemosEffectOakShoppingCartRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/demos/effect-oak/slow-warnings': {
       id: '/demos/effect-oak/slow-warnings'
       path: '/demos/effect-oak/slow-warnings'
@@ -468,6 +543,13 @@ declare module '@tanstack/react-router' {
       path: '/demos/effect-oak/snake'
       fullPath: '/demos/effect-oak/snake'
       preLoaderRoute: typeof DemosEffectOakSnakeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/demos/effect-oak/state-machine': {
+      id: '/demos/effect-oak/state-machine'
+      path: '/demos/effect-oak/state-machine'
+      fullPath: '/demos/effect-oak/state-machine'
+      preLoaderRoute: typeof DemosEffectOakStateMachineRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/demos/effect-oak/stopwatch': {
@@ -505,6 +587,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DemosEffectOakApiCacheRoute: DemosEffectOakApiCacheRoute,
   DemosEffectOakApiCacheQueryRoute: DemosEffectOakApiCacheQueryRoute,
+  DemosEffectOakAuthRoute: DemosEffectOakAuthRoute,
   DemosEffectOakCanvasArtRoute: DemosEffectOakCanvasArtRoute,
   DemosEffectOakChartingRoute: DemosEffectOakChartingRoute,
   DemosEffectOakCounterRoute: DemosEffectOakCounterRoute,
@@ -514,14 +597,17 @@ const rootRouteChildren: RootRouteChildren = {
   DemosEffectOakGenerativeArtRoute: DemosEffectOakGenerativeArtRoute,
   DemosEffectOakInterruptingCommandsRoute:
     DemosEffectOakInterruptingCommandsRoute,
+  DemosEffectOakKanbanRoute: DemosEffectOakKanbanRoute,
   DemosEffectOakManagedResourceLayerRoute:
     DemosEffectOakManagedResourceLayerRoute,
   DemosEffectOakMapRoute: DemosEffectOakMapRoute,
   DemosEffectOakPixelArtRoute: DemosEffectOakPixelArtRoute,
   DemosEffectOakQuerySyncRoute: DemosEffectOakQuerySyncRoute,
   DemosEffectOakRoadRoute: DemosEffectOakRoadRoute,
+  DemosEffectOakShoppingCartRoute: DemosEffectOakShoppingCartRoute,
   DemosEffectOakSlowWarningsRoute: DemosEffectOakSlowWarningsRoute,
   DemosEffectOakSnakeRoute: DemosEffectOakSnakeRoute,
+  DemosEffectOakStateMachineRoute: DemosEffectOakStateMachineRoute,
   DemosEffectOakStopwatchRoute: DemosEffectOakStopwatchRoute,
   DemosEffectOakTodoRoute: DemosEffectOakTodoRoute,
   DemosEffectOakWeatherRoute: DemosEffectOakWeatherRoute,

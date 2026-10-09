@@ -36,6 +36,10 @@ own `notes.md`. This page has one row per demo and the blockers they found.
 | [query-sync](query-sync/notes.md)                         | Data                   | works   | No router: the URL is a Service each Node listens to; Time Travel does not move the URL.       |
 | [charting](charting/notes.md)                             | Data                   | works   | Live npm and GitHub data drawn as SVG from the Model, so no chart sync Commands.               |
 | [map](map/notes.md)                                       | Data                   | works   | OSM tiles; the camera and flights are Model data drawn at every Frame.                         |
+| [shopping-cart](shopping-cart/notes.md)                   | Apps                   | partial | Pages are States; leaving one destroys its Child, and products cannot show cart quantities.    |
+| [kanban](kanban/notes.md)                                 | Apps                   | works   | Drag is a State whose Lifetime follows the pointer; add-card forms are one Node per column.    |
+| [auth](auth/notes.md)                                     | Apps                   | works   | Signed-out and signed-in sites are Children of their States; pages are States, no URLs.        |
+| [state-machine](state-machine/notes.md)                   | Apps                   | partial | The checkout is one Node's States; Transitions are not data, so no chart or analysis.          |
 
 ## Library blockers
 
@@ -49,7 +53,10 @@ own `notes.md`. This page has one row per demo and the blockers they found.
    Hit by [crash-view](crash-view/notes.md).
 3. **Children cannot be given input when they are created.** `init` takes
    nothing, so a Child made on entering a State cannot start from that State's
-   data. Hit by [todo](todo/notes.md) (no Editor Child).
+   data. Hit by [todo](todo/notes.md) (no Editor Child),
+   [kanban](kanban/notes.md) (the column id baked in by a factory) and
+   [auth](auth/notes.md) (the signed-in pages start in `Opening` to read the
+   session from a Service).
 4. **Testing: Commands are anonymous Effects.** A test cannot check which
    Command an Update asked for, or answer it with a chosen Message, the way
    Foldkit's `Command.expectHas` and `Command.resolve` do. Named Commands
@@ -58,15 +65,16 @@ own `notes.md`. This page has one row per demo and the blockers they found.
    [form](form/notes.md), [websocket-chat](websocket-chat/notes.md),
    [canvas-art](canvas-art/notes.md), [snake](snake/notes.md),
    [generative-art](generative-art/notes.md), [pixel-art](pixel-art/notes.md)
-   and every Data demo.
+   and every Data and Apps demo.
 5. **Testing: no typed way to run one Update, or draw a View from a given
    Model, State and Time.** Foldkit's `story` and `scene` need both. Hit by
    every demo ([counter](counter/notes.md) lists what is needed).
 6. **Testing: no way to emit a Lifetime's Message in a unit test**, like
    Foldkit's `Subscription.emit` or `ManagedResource.acquire`. Hit by
    [todo](todo/notes.md), [managed-resource-layer](managed-resource-layer/notes.md),
-   [websocket-chat](websocket-chat/notes.md) and
-   [generative-art](generative-art/notes.md).
+   [websocket-chat](websocket-chat/notes.md),
+   [generative-art](generative-art/notes.md), [kanban](kanban/notes.md),
+   [auth](auth/notes.md) and [shopping-cart](shopping-cart/notes.md).
 7. **No way to stop one Command.** `replaceCommands` stops all of a Node's
    Commands; nothing stops one by key. Keyed Commands
    (`Command.keyed('upload-3', effect)` and `interrupt: ['upload-3']` in
@@ -91,13 +99,17 @@ own `notes.md`. This page has one row per demo and the blockers they found.
     the set, would be the API. Hit by
     [managed-resource-layer](managed-resource-layer/notes.md),
     [websocket-chat](websocket-chat/notes.md), [weather](weather/notes.md),
-    [form](form/notes.md) and [generative-art](generative-art/notes.md)
-    (sliders wanted in both Running and Paused).
+    [form](form/notes.md), [generative-art](generative-art/notes.md)
+    (sliders wanted in both Running and Paused), [kanban](kanban/notes.md)
+    (add-card forms lost when a drag starts) and
+    [shopping-cart](shopping-cart/notes.md) (a page's Child, its search and
+    its fetched catalog are lost on every page change).
 11. **Each State is drawn by its own keyed component**, so DOM that should
     survive a Transition is remounted: an input loses focus. Letting a Node
     with States be drawn by one function would be the API. Hit by
-    [form](form/notes.md) (field status moved out of States) and
-    [weather](weather/notes.md).
+    [form](form/notes.md) (field status moved out of States),
+    [weather](weather/notes.md) and [auth](auth/notes.md) (login inputs
+    drawn again on Submitting).
 
 12. **A Lifetime cannot follow the Model.** It starts once, with the Model
     as it was on entering the State; Foldkit's Subscriptions restart when
@@ -118,7 +130,10 @@ own `notes.md`. This page has one row per demo and the blockers they found.
     [api-cache-query](api-cache-query/notes.md) (no Cached badge),
     [query-sync](query-sync/notes.md) (each control listens to the URL
     itself) and [map](map/notes.md) (the list cannot show the map's
-    selection).
+    selection), [shopping-cart](shopping-cart/notes.md) (products cannot
+    show their cart quantity), [auth](auth/notes.md) and
+    [state-machine](state-machine/notes.md) (the edition picker stays in the
+    parent).
 
 14. **A parent cannot send its Child a Message.** Update can only change its
     own Node, so a parent that decides (a tab is shown, load this post) has
@@ -134,7 +149,9 @@ own `notes.md`. This page has one row per demo and the blockers they found.
     move the address bar. A `Url` Service with a Lifetime per Node works for
     one page; `Runtime.start(node, { url })` and a `routing: { onUrlChange }`
     option on `toReact`, or an adapter to the host's router, would be the
-    API. Hit by [query-sync](query-sync/notes.md).
+    API. Hit by [query-sync](query-sync/notes.md),
+    [shopping-cart](shopping-cart/notes.md) and [auth](auth/notes.md): pages
+    as States work, but nothing can link to one.
 16. **`useFrame` cannot drive a render.** Its callback also runs after every
     render, so setting state in it loops forever when the value depends on
     the Time. DOM that changes shape at each Frame (map tiles) has to put the
@@ -142,5 +159,13 @@ own `notes.md`. This page has one row per demo and the blockers they found.
     `useFrameValue((at) => value, equals)` hook would be the API. Hit by
     [map](map/notes.md).
 
-Nothing went badly wrong in the Basics, the Commands and Lifetimes, the Graphics or the Data batch.
+17. **Transitions are not data.** A Transition is whatever Update returns
+    (ADR 0002), so nothing can list a Node's possible Transitions without
+    running it. Foldkit's `Machine` finds dead transitions and unreachable
+    States and prints a Mermaid chart. An optional declaration in `make`
+    (`transitions: { Cart: ['Shipping', 'Payment', 'Cancelled'] }`), with each
+    State's rules typed to return only those tags, would be the API. Hit by
+    [state-machine](state-machine/notes.md).
+
+Nothing went badly wrong in the Basics, the Commands and Lifetimes, the Graphics, the Data or the Apps batch.
 The build, the Shell and Time Travel all behaved in every demo.

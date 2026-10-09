@@ -151,6 +151,30 @@ export const DEMOS = [
     group: 'Data',
     summary: 'A tile map whose camera is a Node, with markers and fly-to',
   },
+  {
+    to: '/demos/effect-oak/shopping-cart',
+    name: 'Shopping cart',
+    group: 'Apps',
+    summary: 'Products, cart and checkout as States of one shop Node',
+  },
+  {
+    to: '/demos/effect-oak/kanban',
+    name: 'Kanban',
+    group: 'Apps',
+    summary: 'A board whose cards you drag between columns',
+  },
+  {
+    to: '/demos/effect-oak/auth',
+    name: 'Auth',
+    group: 'Apps',
+    summary: 'Signed-out and signed-in sites, each a Child of its State',
+  },
+  {
+    to: '/demos/effect-oak/state-machine',
+    name: 'State machine',
+    group: 'Apps',
+    summary: 'A multi-step checkout written as one Node’s States',
+  },
 ] as const satisfies ReadonlyArray<{
   readonly to: string;
   readonly name: string;
