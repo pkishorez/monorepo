@@ -14,10 +14,10 @@ Lifetime runs. Leaving a State destroys all of it at once.
 A Node Requires Services from above. Each Child must find every Service it
 needs in its parent's Requires, or among what the parent Provides in that
 State; TypeScript points at the Child that does not fit. The root's Requires
-must be covered by the app's Layer. Views only draw and Send: no hooks, no
-effects, no state. Every Message goes into a Log, and replaying it through
-init and Update alone draws the app at any point while the live app keeps
-running.
+must be covered by the app's Layer. Views draw and Send; whatever moves
+between Messages they draw at each Frame, from the Model, State and Time.
+Every Message goes into a Log with its Time, and replaying it through init and
+Update alone draws the app at any Time while the live app keeps running.
 
 Read the language in [CONTEXT.md](./CONTEXT.md) and the decisions in
 [docs/adr/](./docs/adr/). A live demo is at `/demos/effect-oak` in the docs app.
@@ -36,24 +36,24 @@ pnpm add effect-oak effect react
 
 ### `effect-oak`
 
-| Export          | What it does                                                                                       |
-| --------------- | -------------------------------------------------------------------------------------------------- |
-| `Node.make`     | Defines a Node: Requires, Schemas, Provides and Children. `.build` adds what runs it.              |
-| `Runtime.start` | Starts a Node as the root of a running app, inside a Scope, and returns its live root and its Log. |
-| `Replay.make`   | Rebuilds a Node's tree after any number of its Messages, running only init and Update.             |
+| Export          | What it does                                                                                                 |
+| --------------- | ------------------------------------------------------------------------------------------------------------ |
+| `Node.make`     | Defines a Node: Requires, Schemas, Provides and Children. `.build` adds what runs it.                        |
+| `Runtime.start` | Starts a Node as the root of a running app, inside a Scope, and returns its live root, its Time and its Log. |
+| `Replay.make`   | Rebuilds a Node's tree at any Time from its Messages, running only init and Update.                          |
 
 ### `effect-oak/react`
 
-| Export      | What it does                                                                                                                                                                    |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `View.make` | Defines how one Node is drawn, as a React component that takes the live Node to draw.                                                                                           |
-| `toReact`   | Turns a root Node, its View and a Layer into one React component that runs the whole app; `useLog` reads its Log; `useTimeTravel` has its Messages and shows any point of them. |
+| Export      | What it does                                                                                                                                                                                                     |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `View.make` | Defines how one Node is drawn, as a React component that takes the live Node to draw.                                                                                                                            |
+| `toReact`   | Turns a root Node, its View and a Layer into one React component that runs the whole app; `useRoot` reads its live root; `useLog` reads its Log; `useTimeTravel` has its Messages and shows the app at any Time. |
 
 ## Usage
 
 ### A gate whose States decide what exists
 
-The root of the docs demo signs a user in. While `Anonymous` it Provides
+This root signs a user in. While `Anonymous` it Provides
 `SignIn` and has a `login` Child; while `Authenticated` it Provides `Session`
 and has `api` and `expiry` Children.
 
@@ -142,5 +142,46 @@ const DemoApp = toReact(Auth, AuthView, ServerLive);
 
 - A View is written per State, and each one sees only the Children of its State.
 - Each View re-renders only when its own Instance's Model or State changes.
-- `DemoApp.useLog()` returns every Message with what came of it and when. `DemoApp.useTimeTravel()` returns `{ messages, at, travel }`: only the Messages, and where the Views are. `travel(0)` draws the app right after init, `travel(42)` after 42 Messages, `travel(null)` live again. The app keeps running meanwhile, and the past cannot send.
+- `DemoApp.useLog()` returns every Message with what came of it and its Time. `DemoApp.useTimeTravel()` returns `{ messages, at, paused, now, travel, pause, resume }`: the Messages with their Times, and the Time the Views show. `pause()` stops the app's Time, `travel(1500)` then draws it as it was 1.5 s after it started, and `resume()` carries on live from where it stopped. The past cannot send.
+
+### Motion between Messages
+
+The docs demo is a road: dividers scroll and the car slides between lanes,
+yet a minute of driving is a handful of Messages. Update records what is
+happening and since when, using the Message's Time. The View works out where
+things are at every Frame and moves them through refs, without rendering.
+
+```tsx
+// Update: the car heads for a lane from where it is now.
+Steered: ({ toward }, { model: { config }, state, at }) => {
+  const to = Math.min(config.lanes - 1, Math.max(0, state.lane.to + (toward === 'left' ? -1 : 1)));
+  if (to === state.lane.to) return {};
+  return { state: { ...state, lane: { from: laneAt(state.lane, config, at), to, at } } };
+},
+
+// View: where things are at a Frame, in road units.
+Playing: ({ model: { config }, state, useFrame }) => (
+  <Scene
+    config={config}
+    useFrame={useFrame}
+    where={(at) => ({
+      driven: ((at - state.startedAt) / 1000) * config.speed,
+      lane: laneAt(state.lane, config, at),
+    })}
+  />
+),
+
+// Scene: turn that into SVG through refs, with no render.
+useFrame((at) => {
+  const { driven, lane } = where(at);
+  const { x, y } = carAt(config, lane);
+  dividers.current?.setAttribute('transform', `translate(0 ${dividerShift(config, driven)})`);
+  car.current?.setAttribute('transform', `translate(${x} ${y})`);
+});
+```
+
+- Update gets each Message's Time as `at`. The Runtime stamps it when the Message is sent, from Effect's `Clock`, so Replay sees the same Time.
+- `useFrame` calls back live at every animation frame, and during Time Travel at every move of the timeline. React renders only when a Message changes the Model.
+- No animation frame is requested while no View uses `useFrame`.
+- Each State is drawn by its own component, so a State's draw can use hooks.
 - `toReact` does not compile until the Layer covers every Service the tree still needs.

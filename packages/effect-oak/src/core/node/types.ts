@@ -28,14 +28,19 @@ type Scope<Model, State> = {
   readonly state: State;
 };
 
+/** What Update also sees: the Message's Time, in milliseconds since the Runtime started. */
+type UpdateScope<Model, State> = Scope<Model, State> & { readonly at: number };
+
 type Rules<Model, State, Msg extends Tagged, R extends Requires, Next> = {
   readonly [K in Msg['_tag']]?: (
     message: Only<Msg, K>,
-    scope: Scope<Model, State>,
+    scope: UpdateScope<Model, State>,
   ) => {
     readonly model?: Model;
     readonly state?: Next;
     readonly commands?: Commands<Msg, R>;
+    /** Stop this Node's Commands still running before these start: the latest plan wins. */
+    readonly replaceCommands?: boolean;
   };
 };
 

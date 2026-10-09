@@ -1,5 +1,6 @@
 import { Context, Effect, Layer, Schema, Stream } from 'effect';
 import type { Scope } from 'effect';
+import { TestClock } from 'effect/testing';
 import { describe, expect, it } from 'vitest';
 import { Node, Replay, Runtime } from '../index.ts';
 
@@ -20,15 +21,17 @@ class Session extends Context.Service<
 
 const Login = Node.make('Login', {
   requires: { signIn: SignIn },
-  model: Schema.Struct({ name: Schema.String }),
+  model: Schema.Struct({ name: Schema.String, typedAt: Schema.Number }),
   message: Schema.TaggedUnion({
     Typed: { name: Schema.String },
     Submitted: {},
   }),
 }).build({
-  init: () => ({ model: { name: '' } }),
+  init: () => ({ model: { name: '', typedAt: 0 } }),
   update: {
-    Typed: (message) => ({ model: { name: message.name } }),
+    Typed: (message, { at }) => ({
+      model: { name: message.name, typedAt: at },
+    }),
     Submitted: (_, { model }) => ({
       commands: [
         Effect.gen(function* () {
@@ -109,6 +112,21 @@ const Auth = Node.make('Auth', {
   },
 });
 
+/** A Command that rings after a second; waiting again starts the second over. */
+const Timer = Node.make('Timer', {
+  message: Schema.TaggedUnion({ Wait: {}, Rang: {} }),
+}).build({
+  update: {
+    Wait: () => ({
+      commands: [
+        Effect.sleep('1 second').pipe(Effect.as({ _tag: 'Rang' as const })),
+      ],
+      replaceCommands: true,
+    }),
+    Rang: () => ({}),
+  },
+});
+
 const ServerLive = Layer.succeed(Server, {
   checkSession: Effect.succeed(undefined),
 });
@@ -180,40 +198,134 @@ describe('a tree of Nodes', () => {
     ));
 });
 
+describe('Time', () => {
+  it('stamps each Message with when it was sent, and hands it to Update', () =>
+    Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const { root, sent, now } = yield* started;
+          yield* Effect.yieldNow;
+          yield* TestClock.adjust('250 millis');
+          const login = inState(root.current(), 'Anonymous').children.login;
+          login.current().send({ _tag: 'Typed', name: 'ada' });
+
+          expect(now()).toBe(250);
+          expect(sent().map((s) => s.at)).toEqual([0, 250]);
+          expect(login.current().model.typedAt).toBe(250);
+        }),
+      ).pipe(Effect.provide(TestClock.layer())),
+    ));
+});
+
+describe('Pause', () => {
+  it('stops Time until resumed, then carries on from where it stopped', () =>
+    Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const { root, sent, now, pause, resume } = yield* started;
+          yield* Effect.yieldNow;
+          yield* TestClock.adjust('100 millis');
+          pause();
+          yield* TestClock.adjust('5 seconds');
+          expect(now()).toBe(100);
+          root.current().send({ _tag: 'LoggedOut' });
+          resume();
+          yield* TestClock.adjust('50 millis');
+
+          expect(now()).toBe(150);
+          expect(sent().at(-1)?.at).toBe(100);
+        }),
+      ).pipe(Effect.provide(TestClock.layer())),
+    ));
+
+  it('stops the timers of Commands and Lifetimes too', () =>
+    Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const { root, log, pause, resume } = yield* Runtime.start(Timer);
+          root.current().send({ _tag: 'Wait' });
+          yield* TestClock.adjust('600 millis');
+          pause();
+          yield* TestClock.adjust('5 seconds');
+          expect(log().map((e) => e.message._tag)).toEqual(['Wait']);
+          resume();
+          yield* TestClock.adjust('399 millis');
+          expect(log().length).toBe(1);
+          yield* TestClock.adjust('1 millis');
+          expect(log().map((e) => [e.message._tag, e.at])).toEqual([
+            ['Wait', 0],
+            ['Rang', 1000],
+          ]);
+        }),
+      ).pipe(Effect.provide(TestClock.layer())),
+    ));
+});
+
+describe('Commands', () => {
+  it('an Update can replace the Commands still running', () =>
+    Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const { root, log } = yield* Runtime.start(Timer);
+          root.current().send({ _tag: 'Wait' });
+          yield* TestClock.adjust('600 millis');
+          root.current().send({ _tag: 'Wait' });
+          yield* TestClock.adjust('1 second');
+          expect(log().map((e) => [e.message._tag, e.at])).toEqual([
+            ['Wait', 0],
+            ['Wait', 600],
+            ['Rang', 1600],
+          ]);
+        }),
+      ).pipe(Effect.provide(TestClock.layer())),
+    ));
+});
+
 describe('Replay', () => {
-  it('rebuilds the tree at any point of the Log from init and Update alone', () =>
+  it('rebuilds the tree at any Time from init and Update alone', () =>
     Effect.runPromise(
       Effect.scoped(
         Effect.gen(function* () {
           const { root, log, sent } = yield* started;
+          const later = TestClock.adjust('10 millis');
           yield* Effect.yieldNow;
           const login = inState(root.current(), 'Anonymous').children.login;
+          yield* later;
           login.current().send({ _tag: 'Typed', name: 'ada' });
+          yield* later;
           login.current().send({ _tag: 'Submitted' });
           yield* Effect.yieldNow;
           const todos = inState(root.current(), 'Authenticated').children.todos;
+          yield* later;
           todos.current().send({ _tag: 'Added', text: 'one' });
+          yield* later;
           todos.current().send({ _tag: 'Quit' });
           yield* Effect.yieldNow;
           expect(log().length).toBe(7);
+          expect(sent().map((s) => s.at)).toEqual([0, 10, 20, 20, 30, 40, 40]);
 
           const replay = Replay.make(Auth, sent);
-          expect(replay.seek(0).current().state._tag).toBe('Checking');
+          expect(replay.seek(-1).current().state._tag).toBe('Checking');
 
-          const at2 = inState(replay.seek(2).current(), 'Anonymous');
-          expect(at2.children.login.current().model.name).toBe('ada');
+          const at0 = inState(replay.seek(0).current(), 'Anonymous');
+          expect(at0.children.login.current().model.name).toBe('');
 
-          const at5 = inState(replay.seek(5).current(), 'Authenticated');
-          expect(at5.children.todos.current().model.items).toEqual(['one']);
-          at5.children.todos.current().send({ _tag: 'Added', text: 'ignored' });
-          expect(at5.children.todos.current().model.items).toEqual(['one']);
+          const at15 = inState(replay.seek(15).current(), 'Anonymous');
+          expect(at15.children.login.current().model.name).toBe('ada');
 
-          expect(replay.seek(7).current().state._tag).toBe('Anonymous');
-          const back = inState(replay.seek(4).current(), 'Authenticated');
+          const at30 = inState(replay.seek(30).current(), 'Authenticated');
+          expect(at30.children.todos.current().model.items).toEqual(['one']);
+          at30.children.todos
+            .current()
+            .send({ _tag: 'Added', text: 'ignored' });
+          expect(at30.children.todos.current().model.items).toEqual(['one']);
+
+          expect(replay.seek(40).current().state._tag).toBe('Anonymous');
+          const back = inState(replay.seek(20).current(), 'Authenticated');
           expect(back.children.todos.current().model.items).toEqual([]);
           expect(root.current().state._tag).toBe('Anonymous');
         }),
-      ),
+      ).pipe(Effect.provide(TestClock.layer())),
     ));
 
   it('drops a Message for an Instance that is gone, even with a new one at its Path', () =>
@@ -230,7 +342,7 @@ describe('Replay', () => {
           expect(log().at(-1)?.outcome).toBe('dropped');
 
           const replayed = inState(
-            Replay.make(Auth, sent).seek(sent().length).current(),
+            Replay.make(Auth, sent).seek(Infinity).current(),
             'Authenticated',
           );
           expect(replayed.state.user).toBe('bob');

@@ -6,8 +6,10 @@ Live demos of the monorepo's packages, published at docs.kishore.app.
 
 A plain TanStack Start app. The home page lists the demos, and each demo opens
 on its own page under `/demos`, with its code in `src/demos`. Today there is
-one: `effect-oak`, an auth gate and a todo list built as one tree of Effect Oak
-Nodes, with its Message Log beside it.
+one: `effect-oak`, a two-lane road built as an Effect Oak Node and drawn as SVG
+at every frame. Effect Oak demos run in one shell (`src/demos/effect-oak/shell`):
+the app alone in the middle, Live or in Replay (Space switches; Replay stops
+Time and shows a scrubber), and its Messages on a timeline on demand.
 
 The UI uses `@kstackz/web-platform`. A Cloudflare Worker serves the site, and
 the infrastructure is declared with Alchemy in `alchemy.run.ts` and
@@ -16,7 +18,7 @@ the infrastructure is declared with Alchemy in `alchemy.run.ts` and
 ### Add a demo
 
 Put its code in `src/demos/<name>`, add a route at
-`src/routes/demos/<name>.tsx`, list it in `demos` in `src/routes/index.tsx`,
+`src/routes/demos/<name>.tsx`, list it in `DEMOS` in `src/lib/demos.tsx` (the home page and every demo's menu read it),
 and allow the route to import it in `laymos.config.json`.
 
 ## Usage

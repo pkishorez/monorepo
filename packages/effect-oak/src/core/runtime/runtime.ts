@@ -1,17 +1,21 @@
-import { Context, Effect, Stream } from 'effect';
+import { Clock, Context, Effect, Stream } from 'effect';
 import type { Fiber, Scope } from 'effect';
 import type { AnyNode, Definition, Tagged, Types } from '../node/index.ts';
 import { destroy, handle, plant } from '../tree/index.ts';
 import type { Entry, Handle, Hooks, Instance, Sent } from '../tree/index.ts';
 import { fork } from './effects.ts';
+import { makeTime } from './time.ts';
 
 /*
  * The live app: the tree, plus everything that touches the outside world.
  *
- * 1. Start      the root is created with the Services of the app's Layer.
- * 2. Messages   wait in a queue and are handled one at a time. Each one is
- *               kept twice: as Sent, all Replay needs, and as a Log entry,
- *               with what came of it and when.
+ * 1. Start      the root is created with the Services of the app's Layer,
+ *               and Time starts at 0 on Effect's monotonic Clock. Pausing
+ *               stops Time, and every timer in it; resuming carries on from
+ *               where it stopped.
+ * 2. Messages   are stamped with their Time when sent, wait in a queue and
+ *               are handled one at a time. Each one is kept twice: as Sent,
+ *               all Replay needs, and as a Log entry, with what came of it.
  * 3. Hooks      as the tree changes, Services are Provided, Lifetimes start and
  *               stop, and Commands run.
  */
@@ -22,9 +26,15 @@ export type Needs<N> = Types<N>['open'];
 /** A started tree: its root, and every Message so far. */
 export interface Running<N> {
   readonly root: Handle<N>;
+  /** The Time now, in milliseconds since the Runtime started, not counting paused time. */
+  readonly now: () => number;
+  /** Stop the Time: `now` stays where it is until `resume`. */
+  readonly pause: () => void;
+  /** Start the Time again from where it stopped. */
+  readonly resume: () => void;
   /** Every Message with what came of it and when. */
   readonly log: () => ReadonlyArray<Entry>;
-  /** Every Message and the Instance it was sent to, in order: what Replay plays. */
+  /** Every Message, the Instance it was sent to and its Time, in order: what Replay plays. */
   readonly sent: () => ReadonlyArray<Sent>;
   /** Called whenever a Message is handled. */
   readonly subscribe: (listener: () => void) => () => void;
@@ -40,13 +50,20 @@ const start = <N extends AnyNode>(
   node: N,
 ): Effect.Effect<Running<N>, never, Needs<N> | Scope.Scope> =>
   Effect.gen(function* () {
-    const layer = (yield* Effect.context<Needs<N>>()) as Context.Context<never>;
+    const time = makeTime(yield* Clock.Clock);
+    const { now } = time;
+    // Commands and Lifetimes sleep in the app's Time, so they pause with it.
+    const layer = Context.add(
+      (yield* Effect.context<Needs<N>>()) as Context.Context<never>,
+      Clock.Clock,
+      time.clock,
+    ) as Context.Context<never>;
 
     let sent: ReadonlyArray<Sent> = [];
     let log: ReadonlyArray<Entry> = [];
     const listeners = new Set<() => void>();
-    const queue = makeQueue((entry) => {
-      sent = [...sent, { id: entry.id, message: entry.message }];
+    const queue = makeQueue(now, (entry) => {
+      sent = [...sent, { id: entry.id, message: entry.message, at: entry.at }];
       log = [...log, entry];
       for (const listener of listeners) listener();
     });
@@ -57,6 +74,9 @@ const start = <N extends AnyNode>(
 
     return {
       root: root as unknown as Handle<N>,
+      now,
+      pause: time.pause,
+      resume: time.resume,
       log: () => log,
       sent: () => sent,
       subscribe: (listener) => {
@@ -74,10 +94,11 @@ export const Runtime = { start };
 /**
  * Messages are handled one at a time, in the order they were sent. A Message
  * sent while another is being handled (a Lifetime starting on entry, say)
- * waits its turn, so every Update sees a settled tree.
+ * waits its turn, so every Update sees a settled tree. Its Time is when it was
+ * sent, so Times only ever grow along the queue.
  */
-const makeQueue = (record: (entry: Entry) => void) => {
-  const waiting: Array<readonly [Instance, Tagged]> = [];
+const makeQueue = (now: () => number, record: (entry: Entry) => void) => {
+  const waiting: Array<readonly [Instance, Tagged, number]> = [];
   let busy = false;
 
   const drain = () => {
@@ -85,13 +106,13 @@ const makeQueue = (record: (entry: Entry) => void) => {
     busy = true;
     try {
       for (let next = waiting.shift(); next; next = waiting.shift()) {
-        const [instance, message] = next;
+        const [instance, message, at] = next;
         record({
           id: instance.id,
           path: instance.path,
           message,
-          ...handle(instance, message),
-          time: Date.now(),
+          at,
+          ...handle(instance, message, at),
         });
       }
     } finally {
@@ -101,7 +122,7 @@ const makeQueue = (record: (entry: Entry) => void) => {
 
   return {
     send: (instance: Instance, message: Tagged) => {
-      waiting.push([instance, message]);
+      waiting.push([instance, message, now()]);
       drain();
     },
     /** Run `f` without handling Messages, then handle what it sent. */
@@ -188,8 +209,13 @@ const liveHooks = (
   };
 
   /** Run each Command; a Message it ends with goes back to its Instance. */
-  const commands = (instance: Instance, effects: ReadonlyArray<unknown>) => {
+  const commands = (
+    instance: Instance,
+    effects: ReadonlyArray<unknown>,
+    replace?: boolean,
+  ) => {
     const work = workOf(instance);
+    if (replace) stop(work);
     for (const command of effects as ReadonlyArray<
       Effect.Effect<unknown, never, any>
     >) {
@@ -208,11 +234,11 @@ const liveHooks = (
   };
 
   /** Stop whatever Commands are still running. */
-  const destroyed = (instance: Instance) => {
-    const work = workOf(instance);
+  const stop = (work: Work) => {
     for (const fiber of work.commands) fiber.interruptUnsafe();
     work.commands.clear();
   };
+  const destroyed = (instance: Instance) => stop(workOf(instance));
 
   return { send, entered, leaving, changed, commands, destroyed };
 };
