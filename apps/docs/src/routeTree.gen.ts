@@ -14,9 +14,15 @@ import { Route as DemosEffectOakIndexRouteImport } from './routes/demos/effect-o
 import { Route as DemosEffectOakCounterRouteImport } from './routes/demos/effect-oak/counter'
 import { Route as DemosEffectOakCountersRouteImport } from './routes/demos/effect-oak/counters'
 import { Route as DemosEffectOakCrashViewRouteImport } from './routes/demos/effect-oak/crash-view'
+import { Route as DemosEffectOakFormRouteImport } from './routes/demos/effect-oak/form'
+import { Route as DemosEffectOakInterruptingCommandsRouteImport } from './routes/demos/effect-oak/interrupting-commands'
+import { Route as DemosEffectOakManagedResourceLayerRouteImport } from './routes/demos/effect-oak/managed-resource-layer'
 import { Route as DemosEffectOakRoadRouteImport } from './routes/demos/effect-oak/road'
+import { Route as DemosEffectOakSlowWarningsRouteImport } from './routes/demos/effect-oak/slow-warnings'
 import { Route as DemosEffectOakStopwatchRouteImport } from './routes/demos/effect-oak/stopwatch'
 import { Route as DemosEffectOakTodoRouteImport } from './routes/demos/effect-oak/todo'
+import { Route as DemosEffectOakWeatherRouteImport } from './routes/demos/effect-oak/weather'
+import { Route as DemosEffectOakWebsocketChatRouteImport } from './routes/demos/effect-oak/websocket-chat'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -43,11 +49,34 @@ const DemosEffectOakCrashViewRoute = DemosEffectOakCrashViewRouteImport.update({
   path: '/demos/effect-oak/crash-view',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DemosEffectOakFormRoute = DemosEffectOakFormRouteImport.update({
+  id: '/demos/effect-oak/form',
+  path: '/demos/effect-oak/form',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DemosEffectOakInterruptingCommandsRoute =
+  DemosEffectOakInterruptingCommandsRouteImport.update({
+    id: '/demos/effect-oak/interrupting-commands',
+    path: '/demos/effect-oak/interrupting-commands',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const DemosEffectOakManagedResourceLayerRoute =
+  DemosEffectOakManagedResourceLayerRouteImport.update({
+    id: '/demos/effect-oak/managed-resource-layer',
+    path: '/demos/effect-oak/managed-resource-layer',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const DemosEffectOakRoadRoute = DemosEffectOakRoadRouteImport.update({
   id: '/demos/effect-oak/road',
   path: '/demos/effect-oak/road',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DemosEffectOakSlowWarningsRoute =
+  DemosEffectOakSlowWarningsRouteImport.update({
+    id: '/demos/effect-oak/slow-warnings',
+    path: '/demos/effect-oak/slow-warnings',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const DemosEffectOakStopwatchRoute = DemosEffectOakStopwatchRouteImport.update({
   id: '/demos/effect-oak/stopwatch',
   path: '/demos/effect-oak/stopwatch',
@@ -58,15 +87,32 @@ const DemosEffectOakTodoRoute = DemosEffectOakTodoRouteImport.update({
   path: '/demos/effect-oak/todo',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DemosEffectOakWeatherRoute = DemosEffectOakWeatherRouteImport.update({
+  id: '/demos/effect-oak/weather',
+  path: '/demos/effect-oak/weather',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DemosEffectOakWebsocketChatRoute =
+  DemosEffectOakWebsocketChatRouteImport.update({
+    id: '/demos/effect-oak/websocket-chat',
+    path: '/demos/effect-oak/websocket-chat',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/demos/effect-oak/counter': typeof DemosEffectOakCounterRoute
   '/demos/effect-oak/counters': typeof DemosEffectOakCountersRoute
   '/demos/effect-oak/crash-view': typeof DemosEffectOakCrashViewRoute
+  '/demos/effect-oak/form': typeof DemosEffectOakFormRoute
+  '/demos/effect-oak/interrupting-commands': typeof DemosEffectOakInterruptingCommandsRoute
+  '/demos/effect-oak/managed-resource-layer': typeof DemosEffectOakManagedResourceLayerRoute
   '/demos/effect-oak/road': typeof DemosEffectOakRoadRoute
+  '/demos/effect-oak/slow-warnings': typeof DemosEffectOakSlowWarningsRoute
   '/demos/effect-oak/stopwatch': typeof DemosEffectOakStopwatchRoute
   '/demos/effect-oak/todo': typeof DemosEffectOakTodoRoute
+  '/demos/effect-oak/weather': typeof DemosEffectOakWeatherRoute
+  '/demos/effect-oak/websocket-chat': typeof DemosEffectOakWebsocketChatRoute
   '/demos/effect-oak/': typeof DemosEffectOakIndexRoute
 }
 export interface FileRoutesByTo {
@@ -74,9 +120,15 @@ export interface FileRoutesByTo {
   '/demos/effect-oak/counter': typeof DemosEffectOakCounterRoute
   '/demos/effect-oak/counters': typeof DemosEffectOakCountersRoute
   '/demos/effect-oak/crash-view': typeof DemosEffectOakCrashViewRoute
+  '/demos/effect-oak/form': typeof DemosEffectOakFormRoute
+  '/demos/effect-oak/interrupting-commands': typeof DemosEffectOakInterruptingCommandsRoute
+  '/demos/effect-oak/managed-resource-layer': typeof DemosEffectOakManagedResourceLayerRoute
   '/demos/effect-oak/road': typeof DemosEffectOakRoadRoute
+  '/demos/effect-oak/slow-warnings': typeof DemosEffectOakSlowWarningsRoute
   '/demos/effect-oak/stopwatch': typeof DemosEffectOakStopwatchRoute
   '/demos/effect-oak/todo': typeof DemosEffectOakTodoRoute
+  '/demos/effect-oak/weather': typeof DemosEffectOakWeatherRoute
+  '/demos/effect-oak/websocket-chat': typeof DemosEffectOakWebsocketChatRoute
   '/demos/effect-oak': typeof DemosEffectOakIndexRoute
 }
 export interface FileRoutesById {
@@ -85,9 +137,15 @@ export interface FileRoutesById {
   '/demos/effect-oak/counter': typeof DemosEffectOakCounterRoute
   '/demos/effect-oak/counters': typeof DemosEffectOakCountersRoute
   '/demos/effect-oak/crash-view': typeof DemosEffectOakCrashViewRoute
+  '/demos/effect-oak/form': typeof DemosEffectOakFormRoute
+  '/demos/effect-oak/interrupting-commands': typeof DemosEffectOakInterruptingCommandsRoute
+  '/demos/effect-oak/managed-resource-layer': typeof DemosEffectOakManagedResourceLayerRoute
   '/demos/effect-oak/road': typeof DemosEffectOakRoadRoute
+  '/demos/effect-oak/slow-warnings': typeof DemosEffectOakSlowWarningsRoute
   '/demos/effect-oak/stopwatch': typeof DemosEffectOakStopwatchRoute
   '/demos/effect-oak/todo': typeof DemosEffectOakTodoRoute
+  '/demos/effect-oak/weather': typeof DemosEffectOakWeatherRoute
+  '/demos/effect-oak/websocket-chat': typeof DemosEffectOakWebsocketChatRoute
   '/demos/effect-oak/': typeof DemosEffectOakIndexRoute
 }
 export interface FileRouteTypes {
@@ -97,9 +155,15 @@ export interface FileRouteTypes {
     | '/demos/effect-oak/counter'
     | '/demos/effect-oak/counters'
     | '/demos/effect-oak/crash-view'
+    | '/demos/effect-oak/form'
+    | '/demos/effect-oak/interrupting-commands'
+    | '/demos/effect-oak/managed-resource-layer'
     | '/demos/effect-oak/road'
+    | '/demos/effect-oak/slow-warnings'
     | '/demos/effect-oak/stopwatch'
     | '/demos/effect-oak/todo'
+    | '/demos/effect-oak/weather'
+    | '/demos/effect-oak/websocket-chat'
     | '/demos/effect-oak/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -107,9 +171,15 @@ export interface FileRouteTypes {
     | '/demos/effect-oak/counter'
     | '/demos/effect-oak/counters'
     | '/demos/effect-oak/crash-view'
+    | '/demos/effect-oak/form'
+    | '/demos/effect-oak/interrupting-commands'
+    | '/demos/effect-oak/managed-resource-layer'
     | '/demos/effect-oak/road'
+    | '/demos/effect-oak/slow-warnings'
     | '/demos/effect-oak/stopwatch'
     | '/demos/effect-oak/todo'
+    | '/demos/effect-oak/weather'
+    | '/demos/effect-oak/websocket-chat'
     | '/demos/effect-oak'
   id:
     | '__root__'
@@ -117,9 +187,15 @@ export interface FileRouteTypes {
     | '/demos/effect-oak/counter'
     | '/demos/effect-oak/counters'
     | '/demos/effect-oak/crash-view'
+    | '/demos/effect-oak/form'
+    | '/demos/effect-oak/interrupting-commands'
+    | '/demos/effect-oak/managed-resource-layer'
     | '/demos/effect-oak/road'
+    | '/demos/effect-oak/slow-warnings'
     | '/demos/effect-oak/stopwatch'
     | '/demos/effect-oak/todo'
+    | '/demos/effect-oak/weather'
+    | '/demos/effect-oak/websocket-chat'
     | '/demos/effect-oak/'
   fileRoutesById: FileRoutesById
 }
@@ -128,9 +204,15 @@ export interface RootRouteChildren {
   DemosEffectOakCounterRoute: typeof DemosEffectOakCounterRoute
   DemosEffectOakCountersRoute: typeof DemosEffectOakCountersRoute
   DemosEffectOakCrashViewRoute: typeof DemosEffectOakCrashViewRoute
+  DemosEffectOakFormRoute: typeof DemosEffectOakFormRoute
+  DemosEffectOakInterruptingCommandsRoute: typeof DemosEffectOakInterruptingCommandsRoute
+  DemosEffectOakManagedResourceLayerRoute: typeof DemosEffectOakManagedResourceLayerRoute
   DemosEffectOakRoadRoute: typeof DemosEffectOakRoadRoute
+  DemosEffectOakSlowWarningsRoute: typeof DemosEffectOakSlowWarningsRoute
   DemosEffectOakStopwatchRoute: typeof DemosEffectOakStopwatchRoute
   DemosEffectOakTodoRoute: typeof DemosEffectOakTodoRoute
+  DemosEffectOakWeatherRoute: typeof DemosEffectOakWeatherRoute
+  DemosEffectOakWebsocketChatRoute: typeof DemosEffectOakWebsocketChatRoute
   DemosEffectOakIndexRoute: typeof DemosEffectOakIndexRoute
 }
 
@@ -171,11 +253,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DemosEffectOakCrashViewRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/demos/effect-oak/form': {
+      id: '/demos/effect-oak/form'
+      path: '/demos/effect-oak/form'
+      fullPath: '/demos/effect-oak/form'
+      preLoaderRoute: typeof DemosEffectOakFormRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/demos/effect-oak/interrupting-commands': {
+      id: '/demos/effect-oak/interrupting-commands'
+      path: '/demos/effect-oak/interrupting-commands'
+      fullPath: '/demos/effect-oak/interrupting-commands'
+      preLoaderRoute: typeof DemosEffectOakInterruptingCommandsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/demos/effect-oak/managed-resource-layer': {
+      id: '/demos/effect-oak/managed-resource-layer'
+      path: '/demos/effect-oak/managed-resource-layer'
+      fullPath: '/demos/effect-oak/managed-resource-layer'
+      preLoaderRoute: typeof DemosEffectOakManagedResourceLayerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/demos/effect-oak/road': {
       id: '/demos/effect-oak/road'
       path: '/demos/effect-oak/road'
       fullPath: '/demos/effect-oak/road'
       preLoaderRoute: typeof DemosEffectOakRoadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/demos/effect-oak/slow-warnings': {
+      id: '/demos/effect-oak/slow-warnings'
+      path: '/demos/effect-oak/slow-warnings'
+      fullPath: '/demos/effect-oak/slow-warnings'
+      preLoaderRoute: typeof DemosEffectOakSlowWarningsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/demos/effect-oak/stopwatch': {
@@ -192,6 +302,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DemosEffectOakTodoRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/demos/effect-oak/weather': {
+      id: '/demos/effect-oak/weather'
+      path: '/demos/effect-oak/weather'
+      fullPath: '/demos/effect-oak/weather'
+      preLoaderRoute: typeof DemosEffectOakWeatherRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/demos/effect-oak/websocket-chat': {
+      id: '/demos/effect-oak/websocket-chat'
+      path: '/demos/effect-oak/websocket-chat'
+      fullPath: '/demos/effect-oak/websocket-chat'
+      preLoaderRoute: typeof DemosEffectOakWebsocketChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -200,9 +324,17 @@ const rootRouteChildren: RootRouteChildren = {
   DemosEffectOakCounterRoute: DemosEffectOakCounterRoute,
   DemosEffectOakCountersRoute: DemosEffectOakCountersRoute,
   DemosEffectOakCrashViewRoute: DemosEffectOakCrashViewRoute,
+  DemosEffectOakFormRoute: DemosEffectOakFormRoute,
+  DemosEffectOakInterruptingCommandsRoute:
+    DemosEffectOakInterruptingCommandsRoute,
+  DemosEffectOakManagedResourceLayerRoute:
+    DemosEffectOakManagedResourceLayerRoute,
   DemosEffectOakRoadRoute: DemosEffectOakRoadRoute,
+  DemosEffectOakSlowWarningsRoute: DemosEffectOakSlowWarningsRoute,
   DemosEffectOakStopwatchRoute: DemosEffectOakStopwatchRoute,
   DemosEffectOakTodoRoute: DemosEffectOakTodoRoute,
+  DemosEffectOakWeatherRoute: DemosEffectOakWeatherRoute,
+  DemosEffectOakWebsocketChatRoute: DemosEffectOakWebsocketChatRoute,
   DemosEffectOakIndexRoute: DemosEffectOakIndexRoute,
 }
 export const routeTree = rootRouteImport
