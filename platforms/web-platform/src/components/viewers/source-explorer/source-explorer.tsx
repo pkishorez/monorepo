@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Effect } from 'effect';
-import type { ChangeStatus, FileDiff, ModuleSourceFile } from 'laymos';
+import type { ChangeStatus, FileDiff } from 'laymos';
 import { useComponentLifecycle } from 'use-effect-ts';
 
 import { DiffViewer } from '../diff-viewer';
@@ -36,7 +36,12 @@ import { buildSnapshotTree } from './snapshot-tree';
 
 // One file the Files tab lists. `unanalyzed` files are shown muted; a
 // `binary` file carries no content.
-export type SourceFile = ModuleSourceFile;
+export type SourceFile = {
+  readonly path: string;
+  readonly content: string;
+  readonly binary?: boolean;
+  readonly unanalyzed?: boolean;
+};
 
 export type LoadFiles = () => Effect.Effect<
   { readonly files: readonly SourceFile[] },
