@@ -1,21 +1,9 @@
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { HomeLayout } from 'fumadocs-ui/layouts/home';
-import { appName } from '@/lib/shared';
-import { gitConfig } from '@/lib/shared';
-import { baseOptions } from '@/lib/layout.shared';
-import { HomeHeader } from '@/components/home-header';
-import { StatusBadge } from '@/components/status-badge';
-import { ExternalLink, GitFork } from 'lucide-react';
+import { ArrowUpRight } from 'lucide-react';
+import { ThemeToggle } from '@/lib/theme';
 
-const packages = [
-  {
-    name: 'std-toolkit',
-    description:
-      'Single-table design toolkit. A single table is all you need for a sync engine.',
-    slug: 'std-toolkit',
-    status: 'alpha',
-  },
-] as const;
+const focusRing =
+  'rounded-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none';
 
 export const Route = createFileRoute('/')({
   component: Home,
@@ -23,70 +11,60 @@ export const Route = createFileRoute('/')({
 
 function Home() {
   return (
-    <HomeLayout
-      {...baseOptions()}
-      searchToggle={{ enabled: false }}
-      slots={{ header: HomeHeader }}
-    >
-      <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col justify-center gap-12 px-6 py-16">
-        <section className="space-y-1">
+    <main className="mx-auto flex min-h-dvh w-full max-w-xl items-center px-6 py-16">
+      <ThemeToggle />
+      <div className="w-full">
+        <header className="mb-12">
           <div className="flex items-center gap-3">
             <img
               src="/favicon.svg"
               alt=""
-              width={36}
-              height={36}
-              className="size-9 rounded-lg"
+              width={32}
+              height={32}
+              className="size-8 rounded-lg"
             />
-            <h1 className="text-4xl font-semibold tracking-tight">{appName}</h1>
+            <h1 className="text-3xl font-medium tracking-tight">
+              monorepo<span className="text-primary">.</span>
+            </h1>
           </div>
-          <p className="text-lg text-muted-foreground">
-            Everything I build, in one monorepo.
+          <p className="mt-2 text-sm text-muted-foreground">
+            Everything I build, in one place.
           </p>
-        </section>
-
-        <section className="flex flex-col gap-2">
-          {packages.map((pkg) => (
-            <Link
-              key={pkg.name}
-              to="/docs/$"
-              params={{ _splat: pkg.slug }}
-              className="group -mx-3 block rounded-md px-3 py-2 transition-colors hover:bg-muted/50"
+          <nav
+            aria-label="Links"
+            className="mt-5 flex items-center gap-5 text-sm text-muted-foreground"
+          >
+            <a
+              href="https://github.com/pkishorez/monorepo"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`transition-colors hover:text-primary ${focusRing}`}
             >
-              <span className="inline-flex items-center gap-2">
-                <span className="underline decoration-muted-foreground/40 underline-offset-4 transition-colors group-hover:decoration-foreground">
-                  {pkg.name}
-                </span>
-                <StatusBadge status={pkg.status} />
-              </span>
-              <p className="mt-1 text-sm text-muted-foreground transition-colors group-hover:text-foreground/70">
-                {pkg.description}
-              </p>
-            </Link>
-          ))}
-        </section>
+              GitHub
+            </a>
+            <a
+              href="https://kishore.app"
+              className={`transition-colors hover:text-primary ${focusRing}`}
+            >
+              kishore.app
+            </a>
+          </nav>
+        </header>
 
-        <section className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t pt-5 text-sm text-muted-foreground">
-          <a
-            href={`https://github.com/${gitConfig.user}/${gitConfig.repo}`}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1.5 transition-colors hover:text-primary"
-          >
-            <GitFork className="size-3.5" />
-            GitHub
-          </a>
-          <a
-            href="https://kishore.app/"
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1.5 transition-colors hover:text-primary"
-          >
-            <ExternalLink className="size-3.5" />
-            About Me
-          </a>
-        </section>
-      </main>
-    </HomeLayout>
+        <Link
+          to="/demos/effect-oak"
+          className={`group flex items-baseline gap-3 py-3.5 ${focusRing}`}
+        >
+          <span className="text-sm font-medium transition-colors group-hover:text-primary">
+            Effect Oak
+          </span>
+          <span className="h-px flex-1 bg-border/60" aria-hidden="true" />
+          <span className="hidden text-xs text-muted-foreground sm:inline">
+            One tree of state machines, drawn by React
+          </span>
+          <ArrowUpRight className="size-3.5 shrink-0 rotate-45 text-muted-foreground/50 transition-[color,transform] group-hover:translate-x-0.5 group-hover:text-primary" />
+        </Link>
+      </div>
+    </main>
   );
 }

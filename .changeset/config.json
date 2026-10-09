@@ -11,6 +11,7 @@
   "fixed": [
     [
       "@kstackz/ai-toolkit",
+      "effect-oak",
       "@kstackz/auth-toolkit",
       "@kstackz/devtools",
       "@kstackz/effect-tracer",
