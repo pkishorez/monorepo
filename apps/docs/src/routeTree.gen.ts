@@ -10,43 +10,128 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as DemosEffectOakRouteImport } from './routes/demos/effect-oak'
+import { Route as DemosEffectOakIndexRouteImport } from './routes/demos/effect-oak/index'
+import { Route as DemosEffectOakCounterRouteImport } from './routes/demos/effect-oak/counter'
+import { Route as DemosEffectOakCountersRouteImport } from './routes/demos/effect-oak/counters'
+import { Route as DemosEffectOakCrashViewRouteImport } from './routes/demos/effect-oak/crash-view'
+import { Route as DemosEffectOakRoadRouteImport } from './routes/demos/effect-oak/road'
+import { Route as DemosEffectOakStopwatchRouteImport } from './routes/demos/effect-oak/stopwatch'
+import { Route as DemosEffectOakTodoRouteImport } from './routes/demos/effect-oak/todo'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DemosEffectOakRoute = DemosEffectOakRouteImport.update({
-  id: '/demos/effect-oak',
-  path: '/demos/effect-oak',
+const DemosEffectOakIndexRoute = DemosEffectOakIndexRouteImport.update({
+  id: '/demos/effect-oak/',
+  path: '/demos/effect-oak/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DemosEffectOakCounterRoute = DemosEffectOakCounterRouteImport.update({
+  id: '/demos/effect-oak/counter',
+  path: '/demos/effect-oak/counter',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DemosEffectOakCountersRoute = DemosEffectOakCountersRouteImport.update({
+  id: '/demos/effect-oak/counters',
+  path: '/demos/effect-oak/counters',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DemosEffectOakCrashViewRoute = DemosEffectOakCrashViewRouteImport.update({
+  id: '/demos/effect-oak/crash-view',
+  path: '/demos/effect-oak/crash-view',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DemosEffectOakRoadRoute = DemosEffectOakRoadRouteImport.update({
+  id: '/demos/effect-oak/road',
+  path: '/demos/effect-oak/road',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DemosEffectOakStopwatchRoute = DemosEffectOakStopwatchRouteImport.update({
+  id: '/demos/effect-oak/stopwatch',
+  path: '/demos/effect-oak/stopwatch',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DemosEffectOakTodoRoute = DemosEffectOakTodoRouteImport.update({
+  id: '/demos/effect-oak/todo',
+  path: '/demos/effect-oak/todo',
   getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/demos/effect-oak': typeof DemosEffectOakRoute
+  '/demos/effect-oak/counter': typeof DemosEffectOakCounterRoute
+  '/demos/effect-oak/counters': typeof DemosEffectOakCountersRoute
+  '/demos/effect-oak/crash-view': typeof DemosEffectOakCrashViewRoute
+  '/demos/effect-oak/road': typeof DemosEffectOakRoadRoute
+  '/demos/effect-oak/stopwatch': typeof DemosEffectOakStopwatchRoute
+  '/demos/effect-oak/todo': typeof DemosEffectOakTodoRoute
+  '/demos/effect-oak/': typeof DemosEffectOakIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/demos/effect-oak': typeof DemosEffectOakRoute
+  '/demos/effect-oak/counter': typeof DemosEffectOakCounterRoute
+  '/demos/effect-oak/counters': typeof DemosEffectOakCountersRoute
+  '/demos/effect-oak/crash-view': typeof DemosEffectOakCrashViewRoute
+  '/demos/effect-oak/road': typeof DemosEffectOakRoadRoute
+  '/demos/effect-oak/stopwatch': typeof DemosEffectOakStopwatchRoute
+  '/demos/effect-oak/todo': typeof DemosEffectOakTodoRoute
+  '/demos/effect-oak': typeof DemosEffectOakIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/demos/effect-oak': typeof DemosEffectOakRoute
+  '/demos/effect-oak/counter': typeof DemosEffectOakCounterRoute
+  '/demos/effect-oak/counters': typeof DemosEffectOakCountersRoute
+  '/demos/effect-oak/crash-view': typeof DemosEffectOakCrashViewRoute
+  '/demos/effect-oak/road': typeof DemosEffectOakRoadRoute
+  '/demos/effect-oak/stopwatch': typeof DemosEffectOakStopwatchRoute
+  '/demos/effect-oak/todo': typeof DemosEffectOakTodoRoute
+  '/demos/effect-oak/': typeof DemosEffectOakIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/demos/effect-oak'
+  fullPaths:
+    | '/'
+    | '/demos/effect-oak/counter'
+    | '/demos/effect-oak/counters'
+    | '/demos/effect-oak/crash-view'
+    | '/demos/effect-oak/road'
+    | '/demos/effect-oak/stopwatch'
+    | '/demos/effect-oak/todo'
+    | '/demos/effect-oak/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/demos/effect-oak'
-  id: '__root__' | '/' | '/demos/effect-oak'
+  to:
+    | '/'
+    | '/demos/effect-oak/counter'
+    | '/demos/effect-oak/counters'
+    | '/demos/effect-oak/crash-view'
+    | '/demos/effect-oak/road'
+    | '/demos/effect-oak/stopwatch'
+    | '/demos/effect-oak/todo'
+    | '/demos/effect-oak'
+  id:
+    | '__root__'
+    | '/'
+    | '/demos/effect-oak/counter'
+    | '/demos/effect-oak/counters'
+    | '/demos/effect-oak/crash-view'
+    | '/demos/effect-oak/road'
+    | '/demos/effect-oak/stopwatch'
+    | '/demos/effect-oak/todo'
+    | '/demos/effect-oak/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  DemosEffectOakRoute: typeof DemosEffectOakRoute
+  DemosEffectOakCounterRoute: typeof DemosEffectOakCounterRoute
+  DemosEffectOakCountersRoute: typeof DemosEffectOakCountersRoute
+  DemosEffectOakCrashViewRoute: typeof DemosEffectOakCrashViewRoute
+  DemosEffectOakRoadRoute: typeof DemosEffectOakRoadRoute
+  DemosEffectOakStopwatchRoute: typeof DemosEffectOakStopwatchRoute
+  DemosEffectOakTodoRoute: typeof DemosEffectOakTodoRoute
+  DemosEffectOakIndexRoute: typeof DemosEffectOakIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -58,11 +143,53 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/demos/effect-oak': {
-      id: '/demos/effect-oak'
+    '/demos/effect-oak/': {
+      id: '/demos/effect-oak/'
       path: '/demos/effect-oak'
-      fullPath: '/demos/effect-oak'
-      preLoaderRoute: typeof DemosEffectOakRouteImport
+      fullPath: '/demos/effect-oak/'
+      preLoaderRoute: typeof DemosEffectOakIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/demos/effect-oak/counter': {
+      id: '/demos/effect-oak/counter'
+      path: '/demos/effect-oak/counter'
+      fullPath: '/demos/effect-oak/counter'
+      preLoaderRoute: typeof DemosEffectOakCounterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/demos/effect-oak/counters': {
+      id: '/demos/effect-oak/counters'
+      path: '/demos/effect-oak/counters'
+      fullPath: '/demos/effect-oak/counters'
+      preLoaderRoute: typeof DemosEffectOakCountersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/demos/effect-oak/crash-view': {
+      id: '/demos/effect-oak/crash-view'
+      path: '/demos/effect-oak/crash-view'
+      fullPath: '/demos/effect-oak/crash-view'
+      preLoaderRoute: typeof DemosEffectOakCrashViewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/demos/effect-oak/road': {
+      id: '/demos/effect-oak/road'
+      path: '/demos/effect-oak/road'
+      fullPath: '/demos/effect-oak/road'
+      preLoaderRoute: typeof DemosEffectOakRoadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/demos/effect-oak/stopwatch': {
+      id: '/demos/effect-oak/stopwatch'
+      path: '/demos/effect-oak/stopwatch'
+      fullPath: '/demos/effect-oak/stopwatch'
+      preLoaderRoute: typeof DemosEffectOakStopwatchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/demos/effect-oak/todo': {
+      id: '/demos/effect-oak/todo'
+      path: '/demos/effect-oak/todo'
+      fullPath: '/demos/effect-oak/todo'
+      preLoaderRoute: typeof DemosEffectOakTodoRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -70,7 +197,13 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  DemosEffectOakRoute: DemosEffectOakRoute,
+  DemosEffectOakCounterRoute: DemosEffectOakCounterRoute,
+  DemosEffectOakCountersRoute: DemosEffectOakCountersRoute,
+  DemosEffectOakCrashViewRoute: DemosEffectOakCrashViewRoute,
+  DemosEffectOakRoadRoute: DemosEffectOakRoadRoute,
+  DemosEffectOakStopwatchRoute: DemosEffectOakStopwatchRoute,
+  DemosEffectOakTodoRoute: DemosEffectOakTodoRoute,
+  DemosEffectOakIndexRoute: DemosEffectOakIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
