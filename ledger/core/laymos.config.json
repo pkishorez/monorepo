@@ -2,190 +2,36 @@
   "$schema": "../../devtools/laymos/schema.json",
   "sourceRoots": ["src"],
   "ignoredPaths": [],
-  "layers": {
-    "apis": {
-      "paths": ["src/apis.ts"],
-      "description": "Ledger's APIs, by name, each with its Transport: what both apps hand their Platform",
-      "modules": {
-        "src/apis.ts": {
-          "exposed": true
-        }
-      }
-    },
-    "constants": {
-      "paths": ["src/constants.ts"],
-      "description": "How Ledger is built: its Sync Mode, read alike by the app and the Worker",
-      "modules": {
-        "src/constants.ts": {
-          "exposed": true
-        }
-      }
-    },
-    "session": {
-      "paths": ["src/session"],
-      "description": "What one signed-in user gets: a collection for each kind of their money and the Backend's commands, on the signed APIs and the Std Sync the Platform hands it",
-      "modules": {
-        "src/session": {
-          "exposed": true
-        }
-      }
-    },
-    "queries": {
-      "paths": ["src/queries"],
-      "description": "Queries: every way a screen reads money, each a live query that updates as the money does, so screens only show what they are given",
-      "modules": {
-        "src/queries": {
-          "exposed": true
-        }
-      }
-    },
-    "mutations": {
-      "paths": ["src/mutations"],
-      "description": "Mutations: every way a screen changes money, each shown at once and rolled back if the Backend refuses it",
-      "modules": {
-        "src/mutations": {
-          "exposed": true
-        }
-      }
-    },
-    "cache": {
-      "paths": ["src/cache"],
-      "description": "What only this device has, belonging to no user: its Settings and their table",
-      "modules": {
-        "src/cache/settings": {
-          "exposed": true
-        }
-      }
-    },
-    "places": {
-      "paths": ["src/places"],
-      "description": "The Place order both apps follow, every Place with its address and Go Command, the stops a Thumb Lock picks, and what each Place shows, worked out once over the open session's money",
-      "modules": {
-        "src/places": {
-          "exposed": true
-        }
-      }
-    },
-    "commands": {
-      "paths": ["src/commands"],
-      "description": "The vocabulary: every Command with its keys, the gesture that gives it on a touch screen, the guide to every gesture, and the sound and Key Bar of each as it is given",
-      "modules": {
-        "src/commands": {
-          "exposed": true
-        }
-      }
-    },
-    "backend-device": {
-      "paths": ["src/backend/device"],
-      "description": "The device Backend: every API's handlers on the device's own table and the Name Token resolver, loaded as a chunk of its own on the web and bundled on a phone",
-      "modules": {
-        "src/backend/device": {
-          "exposed": true
-        }
-      }
-    },
-    "backend": {
-      "paths": ["src/backend/backend.ts", "src/backend/tests"],
-      "description": "The Backend, wherever it runs: the Ledger API's handlers on the services they need, each service with a cloud and a device version, imported from its own module",
-      "modules": {
-        "src/backend/backend.ts": {
-          "exposed": true
-        }
-      }
-    },
-    "backend-handlers": {
-      "paths": ["src/backend/handlers"],
-      "description": "Your logic: what each Ledger API call does, for the user who signed it, on the ledger table",
-      "modules": {
-        "src/backend/handlers": {
-          "exposed": true
-        }
-      }
-    },
-    "backend-services": {
-      "paths": ["src/backend/services"],
-      "description": "What the handlers stand on, one folder per service: its definition, and a cloud and a device version, each imported from its own file so a Worker loads only the cloud one and the app only the device one",
-      "moduleGraphs": {
-        "services": {
-          "description": "Each version stands on its service's definition",
-          "path": "src/backend/services",
-          "modules": {
-            "table/index.ts": {
-              "exposed": true
-            },
-            "table/table.ts": {},
-            "table/cloud.ts": {
-              "exposed": true
-            },
-            "table/device.ts": {
-              "exposed": true
-            },
-            "broadcaster/index.ts": {
-              "exposed": true
-            },
-            "broadcaster/device.ts": {
-              "exposed": true
-            },
-            "broadcaster/durable-object.ts": {
-              "exposed": true
-            },
-            "table/durable-object.ts": {
-              "exposed": true
-            }
-          },
-          "rules": {
-            "table/index.ts": ["table/table.ts"],
-            "table/cloud.ts": ["table/table.ts"],
-            "table/device.ts": ["table/table.ts"],
-            "broadcaster/index.ts": [
-              "broadcaster/device.ts",
-              "broadcaster/durable-object.ts"
-            ],
-            "broadcaster/device.ts": [],
-            "broadcaster/durable-object.ts": [],
-            "table/durable-object.ts": ["table/table.ts"]
-          }
-        }
-      }
-    },
-    "api": {
-      "paths": ["src/api"],
-      "description": "The Ledger API both sides speak",
-      "modules": {
-        "src/api": {
-          "exposed": true
-        }
-      }
-    },
-    "model": {
-      "paths": ["src/model"],
-      "description": "The words of money, Accounts, Categories, Entries and the currency, with the sums over them",
-      "modules": {
-        "src/model": {
-          "exposed": true
-        }
-      }
-    }
-  },
-  "layerGraphs": {
-    "ledger-core": {
-      "description": "Read top-down: the Session over the named APIs, the device Backend, and the cache; the Backend answers the API in the words of the model. Commands stand alone; the Place order names them.",
-      "rules": {
-        "apis": ["api", "constants"],
-        "session": ["apis", "api", "model", "constants"],
-        "backend-device": ["backend", "backend-services"],
-        "cache": [],
-        "places": ["commands", "model"],
-        "commands": [],
-        "backend": ["backend-handlers"],
-        "backend-handlers": ["backend-services", "api", "model"],
-        "backend-services": ["model"],
-        "api": ["model"],
-        "model": [],
-        "constants": [],
-        "queries": ["session", "places", "model"],
-        "mutations": ["session", "model"]
-      }
-    }
+  "fileModules": [
+    "src/apis.ts",
+    "src/constants.ts",
+    "src/backend/backend.ts",
+    "src/backend/services/table/table.ts",
+    "src/backend/services/table/cloud.ts",
+    "src/backend/services/table/device.ts",
+    "src/backend/services/table/durable-object.ts",
+    "src/backend/services/broadcaster/device.ts",
+    "src/backend/services/broadcaster/durable-object.ts"
+  ],
+  "rules": {
+    "src/apis.ts": ["src/api", "src/constants.ts"],
+    "src/session": ["src/apis.ts", "src/model", "src/constants.ts"],
+    "src/queries": ["src/session", "src/places", "src/model"],
+    "src/mutations": ["src/session", "src/model"],
+    "src/places": ["src/commands", "src/model"],
+    "src/backend/device": [
+      "src/backend/backend.ts",
+      "src/backend/services/broadcaster/device.ts",
+      "src/backend/services/table/device.ts"
+    ],
+    "src/backend/backend.ts": ["src/backend/handlers"],
+    "src/backend/handlers": [
+      "src/backend/services/table",
+      "src/api",
+      "src/model"
+    ],
+    "*": ["src/backend/services/table/table.ts"],
+    "src/backend/services/table/table.ts": ["src/model"],
+    "src/api": ["src/model"]
   }
 }

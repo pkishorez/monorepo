@@ -2,58 +2,11 @@
   "$schema": "../../devtools/laymos/schema.json",
   "sourceRoots": ["src"],
   "ignoredPaths": ["src/integration-tests"],
-  "layers": {
-    "rpc": {
-      "paths": ["src/rpc"],
-      "description": "Rpc: Middleware for Effect RPC and the three Transports (http, websocket, inProcess), each a client and server pair with the protocol fixed. Never imports Alchemy, and Cloudflare only as types; the websocket server's SQLite Stream Store builds on std-toolkit.",
-      "moduleGraphs": {
-        "rpc": {
-          "description": "rpc.ts gathers Middleware and the three Transports into the Rpc namespace; each Transport stands alone.",
-          "path": "src/rpc",
-          "modules": {
-            "index.ts": {
-              "exposed": true
-            },
-            "rpc.ts": {},
-            "middleware": {},
-            "http": {},
-            "websocket": {},
-            "in-process": {}
-          },
-          "rules": {
-            "index.ts": ["rpc.ts"],
-            "rpc.ts": ["middleware", "http", "websocket", "in-process"]
-          }
-        }
-      }
-    },
-    "http-api": {
-      "paths": ["src/http-api"],
-      "description": "HttpApi: the same Middleware for Effect HttpApi, with security schemes. Shares vocabulary with rpc, not code.",
-      "modules": {
-        "src/http-api": {
-          "exposed": true
-        }
-      }
-    },
-    "alchemy": {
-      "paths": ["src/alchemy"],
-      "description": "Alchemy deploy declarations: a Worker and Durable Object serving an Api over Rpc.websocket.server.",
-      "modules": {
-        "src/alchemy": {
-          "exposed": true
-        }
-      }
-    }
-  },
-  "layerGraphs": {
-    "rpc-toolkit": {
-      "description": "rpc and http-api stand alone; alchemy deploys rpc's websocket server.",
-      "rules": {
-        "rpc": [],
-        "http-api": [],
-        "alchemy": ["rpc"]
-      }
-    }
+  "fileModules": ["src/rpc/websocket/server/durable-object-state.ts"],
+  "rules": {
+    "src/alchemy": ["src/rpc"],
+    "src/rpc/websocket/server/stream-store": [
+      "src/rpc/websocket/server/durable-object-state.ts"
+    ]
   }
 }

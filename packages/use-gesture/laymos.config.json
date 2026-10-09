@@ -2,57 +2,12 @@
   "$schema": "../../devtools/laymos/schema.json",
   "sourceRoots": ["src"],
   "storiesPath": "stories",
-  "layers": {
-    "core": {
-      "paths": ["src/core"],
-      "description": "Core — platform-free: a Gesture Provider that any touch source feeds plain finger samples, finding its zones through a Zone Tree it is handed; the Direction a touch first moves; what a Swipe decides; the Tree Walk a picker moves through as a finger goes; and the Thumb Lock, a still left thumb beside a moving finger. No DOM, no React, no Motion: a browser and a phone both build on it. The provider, the Direction, the Tree Walk and the Thumb Lock are worklets, so a phone can run them on its UI thread.",
-      "moduleGraphs": {
-        "core": {
-          "description": "provider runs the one Gesture under way and reads its Direction; swipe judges a Swipe by Direction; tree-walk reads a finger's moves as Directions through a tree; thumb-lock is a provider listener that reads a still left thumb beside a moving finger. Each stands on direction, and thumb-lock on provider too.",
-          "path": "src/core",
-          "modules": {
-            "direction": {
-              "exposed": true
-            },
-            "provider": {
-              "exposed": true
-            },
-            "swipe": {
-              "exposed": true
-            },
-            "tree-walk": {
-              "exposed": true
-            },
-            "thumb-lock": {
-              "exposed": true
-            }
-          },
-          "rules": {
-            "provider": ["direction"],
-            "swipe": ["direction"],
-            "tree-walk": ["direction"],
-            "thumb-lock": ["provider", "direction"]
-          }
-        }
-      }
-    },
-    "entry": {
-      "paths": ["src/index.ts"],
-      "description": "Entry: the package root, the platform-free core's one door: what a touch source on any platform builds on.",
-      "modules": {
-        "src/index.ts": {
-          "exposed": true
-        }
-      }
-    }
-  },
-  "layerGraphs": {
-    "use-gesture": {
-      "description": "Read bottom-up: the platform-free core and its door, which every platform's touch source builds on.",
-      "rules": {
-        "core": [],
-        "entry": ["core"]
-      }
-    }
+  "fileModules": ["src/index.ts"],
+  "rules": {
+    "src/core/provider": ["src/core/direction"],
+    "src/core/swipe": ["src/core/direction"],
+    "src/core/thumb-lock": ["src/core/direction", "src/core/provider"],
+    "src/core/tree-walk": ["src/core/direction"],
+    "src/index.ts": ["src/core"]
   }
 }
