@@ -1,6 +1,6 @@
 # One version for all kstack packages
 
-Status: amended by [ADR 0006](0006-platforms-may-break-toolkits-keep-what-persists.md): platform-toolkit and the Web and Expo Platforms keep their own versions.
+Status: amended by [ADR 0006](0006-platforms-may-break-toolkits-keep-what-persists.md) and [ADR 0007](0007-web-is-the-only-platform.md): the Web Platform keeps its own version.
 
 Every `@kstackz/*` package and `laymos` sit in one changeset `fixed` group, so they always release together under one version number, the way Effect versions its packages. Users follow one rule: keep all kstack packages on the same version. `use-effect-ts` depends on nothing in the repo and keeps its own version.
 
