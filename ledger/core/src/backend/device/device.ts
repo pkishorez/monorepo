@@ -1,5 +1,5 @@
 import { Layer } from 'effect';
-import type { Storage } from '@kstackz/platform-toolkit';
+import type { Storage } from '@kstackz/web-platform/define';
 import { authz } from '@kstackz/auth-toolkit/server';
 import { ledgerBackend } from '../backend.ts';
 import { broadcasterDevice } from '../services/broadcaster/device.ts';

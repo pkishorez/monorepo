@@ -1,4 +1,4 @@
-import type { Storage } from '@kstackz/platform-toolkit';
+import type { Storage } from '@kstackz/web-platform/define';
 import { ledgerTable } from './table.ts';
 
 /** The ledger table on this device, in a database of its own (named

@@ -7,12 +7,4 @@ export {
   type WebAuthApp,
   type WebPublicApp,
 } from './app.tsx';
-export { webHost } from './host.ts';
-export {
-  Api,
-  defineSession,
-  SessionClosed,
-  type SessionContext,
-  type SessionStatus,
-  type Storage,
-} from '@kstackz/platform-toolkit';
+export type { GateNotice, GateView } from './gate/index.ts';

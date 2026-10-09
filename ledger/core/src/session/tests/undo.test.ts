@@ -1,5 +1,5 @@
 import { Effect, Layer, ManagedRuntime, Scope, SubscriptionRef } from 'effect';
-import type { SessionStatus } from '@kstackz/platform-toolkit';
+import type { SessionStatus } from '@kstackz/web-platform/define';
 import { RpcClient } from 'effect/rpc';
 import { nameToken, namedUser } from '@kstackz/auth-toolkit/client';
 import { Authz } from '@kstackz/auth-toolkit/guard';

@@ -21,7 +21,7 @@ Worker. `client` is the app's half on the device Backend: `SignIn`, the
 Service every Sign-in mechanism provides, and `signIn.named`, which signs in
 by name with a Name Token. Running sign-in on a device (the Gate, each
 Account's Session, `createApp`) is
-[`@kstackz/platform-toolkit`](../platform-toolkit)'s
+[`@kstackz/web-platform`](../../platforms/web-platform)'s
 ([ADR 0006](../../docs/adr/0006-platforms-may-break-toolkits-keep-what-persists.md)).
 
 `server/cloud`, `client/web` and `client/cli` are doors of their own because
@@ -118,9 +118,8 @@ Peer dependencies, all optional; install the ones your doors need:
 | `namedChooser`       | A `choose` for `signIn.named` that a dialog answers.                           |
 | `namedAccountsTable` | The StdTable Named Accounts are kept in.                                       |
 
-The Gate, `createApp`, `memoryHost` (formerly `memoryPlatform`), `Backend`,
-`backendNamed` and `keepSyncs` are in
-[`@kstackz/platform-toolkit`](../platform-toolkit).
+The Gate, `createApp`, `Backend` and `keepSyncs` are in
+[`@kstackz/web-platform`](../../platforms/web-platform).
 
 ### `@kstackz/auth-toolkit/client/web`
 
@@ -243,7 +242,7 @@ const accounts = await Effect.runPromise(
 - No caller fails `Authz.Unauthenticated`, a refused policy `Authz.Forbidden`, an unreachable Auth Worker `Authz.Unavailable`. Tests replace only `Authz.Resolver`.
 - `authz.cloud` gets `resource` to accept Access Tokens too, which makes the Backend a Resource Server (MCP clients call it so).
 - A Named Account's token is a Name Token, which `authz.device` reads and no one verifies. Named Accounts are kept in `namedAccountsTable`, in memory unless `storage` is given.
-- An app does not run these itself: the Web Platform gives them to [`@kstackz/platform-toolkit`](../platform-toolkit)'s Gate, which signs every API call with the active Account's token.
+- An app does not run these itself: the [Web Platform](../../platforms/web-platform)'s Gate runs them and signs every API call with the active Account's token.
 
 A CLI signs in with `deviceCode({ authWorkerUrl, app, version })` from
 `@kstackz/auth-toolkit/client/cli`: `login` prints a code and URL, opens

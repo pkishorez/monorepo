@@ -5,7 +5,7 @@
   "ignoredPaths": ["src/cosmos.decorator.tsx", "src/pwa/vite/tests/fixture"],
   "fileModules": [
     "src/app/app.tsx",
-    "src/app/host.ts",
+    "src/app/web-host.ts",
     "src/client/server.ts",
     "src/components/hooks/use-element-width.ts",
     "src/components/hooks/use-mobile.ts",
@@ -84,7 +84,24 @@
   ],
   "rules": {
     "src/app": ["src/client", "src/pwa", "src/recipes", "src/theme"],
-    "src/app/app.tsx": ["src/app/host.ts"],
+    "src/app/app.tsx": [
+      "src/app/web-host.ts",
+      "src/app/assemble",
+      "src/app/apis",
+      "src/app/gate",
+      "src/app/session",
+      "src/app/host"
+    ],
+    "src/app/web-host.ts": ["src/app/host"],
+    "src/define": ["src/app/apis", "src/app/host", "src/app/session"],
+    "src/app/assemble": [
+      "src/app/gate",
+      "src/app/session",
+      "src/app/apis",
+      "src/app/host"
+    ],
+    "src/app/gate": ["src/app/session", "src/app/host"],
+    "src/app/session": ["src/app/apis"],
     "src/client": ["src/components/ui", "src/input", "src/theme"],
     "src/client/server.ts": ["src/client/theme"],
     "src/components/lib/scrollStyles.ts": ["src/components/lib/utils.ts"],
@@ -215,6 +232,7 @@
     "src/recipes/account-switcher": ["src/recipes/parts/email-privacy"],
     "src/recipes/frame/sidebar": ["src/recipes/frame/frame"],
     "src/recipes/local-sign-in": ["src/recipes/parts/email-privacy"],
+    "src/server": ["src/define"],
     "src/server/serve": ["src/server/live", "src/server/worker"]
   }
 }

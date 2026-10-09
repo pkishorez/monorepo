@@ -1,13 +1,12 @@
+import { type Apis, type DeviceBackends } from './apis/index.ts';
 import {
-  type Apis,
   type AuthApp,
-  createApp as createPlatformApp,
-  type DeviceBackends,
-  type GateView,
+  createApp as assemble,
   type PublicApp,
-  type SessionDef,
-  type Storage,
-} from '@kstackz/platform-toolkit';
+} from './assemble/index.ts';
+import { type GateView } from './gate/index.ts';
+import { type SessionDef } from './session/index.ts';
+import { type Storage } from './host/index.ts';
 import type { ReactNode } from 'react';
 import {
   type RootPlugin,
@@ -22,7 +21,7 @@ import {
   type LocalSignInChoice,
 } from '../recipes/local-sign-in/index.ts';
 import { createTheme } from '../theme/index.ts';
-import { webHost } from './host.ts';
+import { webHost } from './web-host.ts';
 
 /** Signing in, for an app that has Accounts. */
 export interface WebAuth<A extends Apis, S> {
@@ -120,12 +119,12 @@ export function createApp<A extends Apis, S, C>(
       webRoot({ title: config.title, theme, plugins, ...options });
 
   if (config.auth === undefined) {
-    const app = createPlatformApp(parts as never) as unknown as PublicApp<A, C>;
+    const app = assemble(parts as never) as unknown as PublicApp<A, C>;
     return { ...app, theme, root: rootOf([pwa]) };
   }
 
   const { auth } = config;
-  const app = createPlatformApp({
+  const app = assemble({
     ...(parts as object),
     host,
     auth: auth.session === undefined ? {} : { session: auth.session },

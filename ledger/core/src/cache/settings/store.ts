@@ -1,6 +1,6 @@
 import { Effect, type Layer, ManagedRuntime } from 'effect';
 import type { StdTableService } from '@kstackz/std-toolkit/db';
-import type { Storage } from '@kstackz/platform-toolkit';
+import type { Storage } from '@kstackz/web-platform/define';
 import { createStdSync, strategy } from '@kstackz/std-toolkit/sync';
 import {
   defaultSettings,

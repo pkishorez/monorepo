@@ -1,5 +1,5 @@
 import { Layer } from 'effect';
-import type { Apis, RpcsOf } from '@kstackz/platform-toolkit';
+import type { Apis, RpcsOf } from '../../define/index.ts';
 import type { Rpc as EffectRpc } from 'effect/rpc';
 import { authz } from '@kstackz/auth-toolkit/server/cloud';
 import { Rpc } from '@kstackz/rpc-toolkit/rpc';
