@@ -50,6 +50,7 @@ const router = vi.hoisted(() => {
 const analysis: MonorepoAnalysis = {
   name: 'repo',
   path: '/repo',
+  packageManager: 'pnpm',
   packages: [
     {
       name: 'core',
@@ -103,7 +104,7 @@ vi.mock('../../../client/devtools-rpc/index.js', () => {
       state.calls++;
       return state.available
         ? Effect.succeed(analysis)
-        : Effect.fail({ _tag: 'NotPnpmWorkspaceError' });
+        : Effect.fail({ _tag: 'NotAMonorepoError' });
     },
     GetMonorepoFile: ({ path }) => {
       const content = monorepoFiles[path];

@@ -27,6 +27,7 @@ function pkg(
 const analysis: MonorepoAnalysis = {
   name: 'public-monorepo',
   path: '/repo',
+  packageManager: 'pnpm',
   packages: [
     pkg('docs', 'apps', [
       { name: 'kui-toolkit', kinds: ['runtime'] },
@@ -248,9 +249,10 @@ export default {
         monorepoPath="/not-a-monorepo"
         loadAnalysis={() =>
           Effect.fail({
-            _tag: 'NotAMonorepo',
+            _tag: 'NotAMonorepoError',
             path: '/not-a-monorepo',
-            reason: 'No pnpm-workspace.yaml at this root',
+            reason:
+              'No pnpm-workspace.yaml or package.json workspaces at this root',
           })
         }
         renderLaymos={renderLaymos}

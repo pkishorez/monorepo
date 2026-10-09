@@ -138,9 +138,9 @@ function MonorepoView({
   const worktrees = useWorktrees(monorepoPath);
   // One Base ref for the whole view; Embedded Laymos is measured against it.
   const git = useGitChanges(monorepoPath, { reloadNonce, knownFiles: true });
-  // A Worktree may hold the folder but not the workspace file: from the
-  // developer's view the Monorepo is not there either.
-  const [notWorkspaceAt, setNotWorkspaceAt] = useState<number | null>(null);
+  // A Worktree may hold the folder but not the file listing its workspace
+  // globs: from the developer's view the Monorepo is not there either.
+  const [notMonorepoAt, setNotMonorepoAt] = useState<number | null>(null);
 
   const loadAnalysis = useCallback(
     () =>
@@ -150,11 +150,11 @@ function MonorepoView({
           const client = yield* DevtoolsClient;
           return yield* client.AnalyzeMonorepo({ monorepoPath });
         }).pipe(
-          Effect.tap(() => Effect.sync(() => setNotWorkspaceAt(null))),
+          Effect.tap(() => Effect.sync(() => setNotMonorepoAt(null))),
           Effect.tapError((error) =>
             Effect.sync(() =>
-              setNotWorkspaceAt(
-                error._tag === 'NotPnpmWorkspaceError' ? reloadNonce : null,
+              setNotMonorepoAt(
+                error._tag === 'NotAMonorepoError' ? reloadNonce : null,
               ),
             ),
           ),
@@ -184,7 +184,7 @@ function MonorepoView({
     [runtime, monorepoPath],
   );
 
-  if (notWorkspaceAt === reloadNonce && worktrees.data) {
+  if (notMonorepoAt === reloadNonce && worktrees.data) {
     return (
       <MissingProjectState
         noun="monorepo"

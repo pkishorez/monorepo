@@ -2,11 +2,11 @@ import { glob } from 'node:fs/promises';
 import { basename, join, matchesGlob, relative, sep } from 'node:path';
 
 import { Effect, FileSystem } from 'effect';
-import { parse } from 'yaml';
 
 import type { PackageManifest } from '../package-graph/index.js';
 import { ManifestError, readPackageManifest } from '../package/index.js';
 import { MonorepoReadError } from './errors.js';
+import { readWorkspaceGlobs } from './workspace-globs.js';
 
 export type LoadedMonorepo = {
   readonly name: string;
@@ -14,7 +14,8 @@ export type LoadedMonorepo = {
 };
 
 /**
- * Reads one pnpm Monorepo: its workspace globs, negations included, and the
+ * Reads one Monorepo: its workspace globs, from `pnpm-workspace.yaml` or the
+ * root `package.json` `workspaces` field, negations included, and the
  * manifest of every folder they match. The root's own manifest is not a
  * Package; its name, or the folder name, names the Monorepo.
  */
@@ -26,27 +27,7 @@ export function loadMonorepo(
   FileSystem.FileSystem
 > {
   return Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const workspacePath = join(root, 'pnpm-workspace.yaml');
-    const text = yield* fileSystem.readFileString(workspacePath).pipe(
-      Effect.mapError(
-        (cause) =>
-          new MonorepoReadError({
-            reason: 'not-a-workspace',
-            path: workspacePath,
-            cause,
-          }),
-      ),
-    );
-    const patterns = yield* Effect.try({
-      try: () => workspacePatterns(parse(text) as unknown),
-      catch: (cause) =>
-        new MonorepoReadError({
-          reason: 'workspace-parse',
-          path: workspacePath,
-          cause,
-        }),
-    });
+    const patterns = yield* readWorkspaceGlobs(root);
     const folders = yield* Effect.tryPromise({
       try: () => expandPatterns(root, patterns),
       catch: (cause) =>
@@ -63,13 +44,6 @@ export function loadMonorepo(
       ),
     };
   });
-}
-
-function workspacePatterns(document: unknown): readonly string[] {
-  if (typeof document !== 'object' || document === null) return [];
-  const packages = (document as { packages?: unknown }).packages;
-  if (!Array.isArray(packages)) return [];
-  return packages.filter((entry): entry is string => typeof entry === 'string');
 }
 
 async function expandPatterns(

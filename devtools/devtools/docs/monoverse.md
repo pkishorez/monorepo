@@ -1,6 +1,6 @@
 # CONTEXT — monoverse
 
-Glossary for Monoverse: the bird's-eye view of one pnpm monorepo, its Packages
+Glossary for Monoverse: the bird's-eye view of one monorepo, its Packages
 and the dependencies between them, for discovery rather than enforcement.
 Definitions only; no implementation detail.
 
@@ -13,11 +13,17 @@ It observes and never enforces; the only finding it reports is a Package cycle.
 _Avoid_: Monorepo Tool, Workspace view, Laymos for the monorepo
 
 **Monorepo**:
-One pnpm workspace root, identified by its `pnpm-workspace.yaml`. It is the
-unit a user adds to Monoverse and the universe every Package belongs to. A root
-without that file is not a Monorepo; nested and non-pnpm monorepos are not
-Monorepos.
+A folder whose Packages are listed by its `pnpm-workspace.yaml` or by the
+`workspaces` field of its `package.json`. It is the unit a user adds to
+Monoverse and the universe every Package belongs to. A folder that lists them
+in neither place is not a Monorepo, and neither is a monorepo nested inside
+another.
 _Avoid_: Workspace, repo, root project
+
+**Package Manager**:
+The tool a Monorepo is managed with: pnpm, npm, yarn, or bun. It has no
+bearing on which Packages exist or how they depend on each other.
+_Avoid_: Workspace tool, client
 
 **Package**:
 One node of a Monorepo: a folder matched by the Monorepo's workspace globs that

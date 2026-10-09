@@ -27,6 +27,7 @@ function pkg(
 const analysis: MonorepoAnalysis = {
   name: 'repo',
   path: '/repo',
+  packageManager: 'pnpm',
   packages: [
     pkg('web', 'apps', [{ name: '@kstack/ui', kinds: ['runtime'] }]),
     pkg('ui', 'toolkits', [{ name: '@kstack/std', kinds: ['dev'] }]),

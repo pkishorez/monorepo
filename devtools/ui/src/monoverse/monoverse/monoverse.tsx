@@ -428,6 +428,13 @@ export function MonoverseHeader({
       <h2 className="min-w-0 truncate text-sm font-semibold">
         {analysis.name}
       </h2>
+      <Badge
+        variant="outline"
+        title="Package Manager"
+        className="hidden font-mono text-muted-foreground sm:inline-flex"
+      >
+        {analysis.packageManager}
+      </Badge>
       <Badge variant="secondary" className="hidden tabular-nums sm:inline-flex">
         {analysis.packages.length}{' '}
         {analysis.packages.length === 1 ? 'Package' : 'Packages'}
