@@ -20,7 +20,6 @@
       "@kstackz/std-toolkit/sync/paced": ["./src/sync/paced/index.ts"],
       "@kstackz/std-toolkit/sync/idb": ["./src/sync/store/idb/index.ts"],
       "@kstackz/std-toolkit/sync/memory": ["./src/sync/store/memory/index.ts"],
-      "@kstackz/std-toolkit/sync/sqlite": ["./src/sync/store/sqlite/index.ts"],
       "@kstackz/std-toolkit/db": ["./src/db/index.ts"],
       "@kstackz/std-toolkit/db/dynamodb": ["./src/db/dynamodb/index.ts"],
       "@kstackz/std-toolkit/db/idb": ["./src/db/idb/index.ts"],

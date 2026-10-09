@@ -6,8 +6,7 @@ export type { Choice } from './tree.ts';
 // A Tree Walk is how a picker such as a Thumb Picker moves through a tree
 // of choices as one finger goes: Steps up and down a list, opening a choice
 // to the right, going back to the left. It knows nothing of how the finger
-// is read or how the choices are drawn. Every function is a worklet, so a
-// phone can walk on its UI thread, in the frame the finger moves.
+// is read or how the choices are drawn.
 
 /**
  * How far, in px, the finger goes: to show the walk, and for each move, a
@@ -45,7 +44,6 @@ export const begin = <C extends Choice<C>>(
   tree: ReadonlyArray<C>,
   start: ReadonlyArray<string>,
 ): Walk => {
-  'worklet';
   return {
     path: [
       Math.max(
@@ -69,7 +67,6 @@ const openingOf = <C extends Choice<C>>(
   start: ReadonlyArray<string>,
   children: ReadonlyArray<C>,
 ) => {
-  'worklet';
   const ids = idsAlong(tree, walk.path);
   const remembered = walk.memory.get(ids.join('/'));
   if (remembered !== undefined) return remembered;
@@ -86,7 +83,6 @@ const stepped = <C extends Choice<C>>(
   start: ReadonlyArray<string>,
   way: Way,
 ): Pick<Walk, 'path' | 'memory'> | undefined => {
-  'worklet';
   const { path, memory } = walk;
   const lists = listsAlong(tree, path);
   const depth = path.length - 1;
@@ -133,7 +129,6 @@ export const move = <C extends Choice<C>>(
   finger: Point,
   { reveal, step }: Distances = DISTANCES,
 ): { readonly walk: Walk; readonly events: ReadonlyArray<Event> } => {
-  'worklet';
   let next =
     walk.shown || Math.hypot(finger.x, finger.y) < reveal
       ? walk
@@ -178,7 +173,6 @@ export const chosen = <C extends Choice<C>>(
   tree: ReadonlyArray<C>,
   start: ReadonlyArray<string>,
 ): C | undefined => {
-  'worklet';
   const ids = idsAlong(tree, walk.path);
   if (ids.every((id, depth) => id === start[depth])) return undefined;
   return choiceAt(tree, walk.path);
@@ -204,7 +198,6 @@ export const columns = <C extends Choice<C>>(
   tree: ReadonlyArray<C>,
   start: ReadonlyArray<string>,
 ): ReadonlyArray<Column<C>> => {
-  'worklet';
   const { path } = walk;
   const ids = idsAlong(tree, path);
   return listsAlong(tree, path).map((choices, depth) => {
@@ -231,7 +224,6 @@ export const lists = <C extends Choice<C>>(
   tree: ReadonlyArray<C>,
   start: ReadonlyArray<string>,
 ): ReadonlyArray<List<C>> => {
-  'worklet';
   const all: Array<List<C>> = [];
   const visit = (choices: ReadonlyArray<C>, ids: ReadonlyArray<string>) => {
     const onStart = ids.every((id, at) => id === start[at]);

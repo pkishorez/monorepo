@@ -13,8 +13,7 @@
     "lint:laymos": "laymos lint",
     "deploy:prod": "ALLOW_DEPLOY=true alchemy deploy --stage prod",
     "brand": "node scripts/brand.ts",
-    "test": "vitest run",
-    "check:native-sign-in": "node --use-system-ca scripts/native-sign-in.ts"
+    "test": "vitest run"
   },
   "dependencies": {
     "@kstackz/auth-toolkit": "workspace:*",

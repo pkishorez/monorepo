@@ -7,8 +7,7 @@ description: Add touch gestures on the web with @kstackz/web-platform/input, bui
 
 The web side of this package lives in `@kstackz/web-platform/input`: a
 `GestureProvider`, `GestureZone`s that nest, and three layers of hooks that
-read the Gestures their nearest zone hears. (On a phone,
-`@kstackz/expo-platform/input` plays the same part.)
+read the Gestures their nearest zone hears.
 Reach for the highest one that fits:
 
 1. **Patterns** — `useSidebar`, `usePullToRefresh`: one UI behaviour, done.

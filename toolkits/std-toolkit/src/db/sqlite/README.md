@@ -1,6 +1,6 @@
 # @kstackz/std-toolkit/db/sqlite
 
-SQLite adapter that realizes a StdTable over a driver for Node, Bun, better-sqlite3, Cloudflare D1, Durable Objects, or Expo.
+SQLite adapter that realizes a StdTable over a driver for Node, Bun, better-sqlite3, Cloudflare D1, or Durable Objects.
 
 ## Big picture
 
@@ -8,7 +8,7 @@ One adapter, several runtimes. `SQLite.make` takes a `SQLiteDriver` and returns 
 
 ## Install
 
-See the [top README](../../../README.md). Install the driver's own dependency where needed (`better-sqlite3` for that driver; Node's `node:sqlite` and Bun's `bun:sqlite` are built in). The Expo driver takes a database the app opened with `expo-sqlite` and imports nothing from it, so std-toolkit declares no dependency on it.
+See the [top README](../../../README.md). Install the driver's own dependency where needed (`better-sqlite3` for that driver; Node's `node:sqlite` and Bun's `bun:sqlite` are built in).
 
 ## Exports
 
@@ -48,12 +48,6 @@ See the [top README](../../../README.md). Install the driver's own dependency wh
 | Export                    | What it does                                      |
 | ------------------------- | ------------------------------------------------- |
 | `makeDurableObjectSQLite` | Driver over a Durable Object's `storage.sql` API. |
-
-### `@kstackz/std-toolkit/db/sqlite/expo`
-
-| Export           | What it does                                                                              |
-| ---------------- | ----------------------------------------------------------------------------------------- |
-| `makeExpoSQLite` | Driver over an open expo-sqlite database; guarded writes share one exclusive transaction. |
 
 ## Usage
 

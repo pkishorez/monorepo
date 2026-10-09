@@ -12,9 +12,6 @@
       "@kstackz/auth-toolkit/server": ["./src/server/index.ts"],
       "@kstackz/auth-toolkit/server/cloud": ["./src/server/cloud/index.ts"],
       "@kstackz/auth-toolkit/client": ["./src/client/index.ts"],
-      "@kstackz/auth-toolkit/client/expo": [
-        "./src/client/sign-in/oauth/index.ts"
-      ],
       "@kstackz/auth-toolkit/client/cli": [
         "./src/client/sign-in/device-code/index.ts"
       ]

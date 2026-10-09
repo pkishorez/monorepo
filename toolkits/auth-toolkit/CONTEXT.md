@@ -13,12 +13,8 @@ What every program talking to the Auth Worker may rely on without running it: wh
 _Avoid_: shared, common, types
 
 **First-Party**:
-A program the deployment owns, in which the User signs in to the product itself: a web app, a CLI, or a native app. A web app or a CLI is served by the Identity Role alone; its credential is a Sign-in and there is nothing to register or consent to. A native app is a First-Party Client.
+A program the deployment owns, in which the User signs in to the product itself: a web app or a CLI. Served by the Identity Role alone; its credential is a Sign-in and there is nothing to register or consent to.
 _Avoid_: internal app, our client
-
-**First-Party Client**:
-A First-Party native app that signs Users in as an OAuth client, because it can neither share the browser's cookie nor ask for a code on another screen. The deployment lists it, with its exact redirects and its own Resource Server; it never sees the Consent Screen, and each User signed in to it holds their own Access Token and refresh token on the device. Not a Client Application: nobody registers it and nobody consents.
-_Avoid_: native client, mobile client, trusted client
 
 **Third-Party**:
 A program the deployment does not own that wants to act as the User against a Resource Server, such as an MCP client. Served by the Authorization Server Role; it is a Client Application, the User consents to Scopes, and its credential is an Access Token. The First-Party/Third-Party split, not web/CLI/MCP, decides which role and which credential apply.
@@ -85,7 +81,7 @@ The Auth Worker's opt-in job: letting a Third-Party Client Application obtain an
 _Avoid_: OAuth provider (collides with Provider), authorization mode
 
 **Client Application**:
-A Third-Party program that holds an Access Token to act for a User: an MCP client or an approved third-party web app. A First-Party CLI is not one; it holds a Sign-in through Device Login. Nor is a First-Party Client, though it holds Access Tokens too. Whether it registered itself or was approved by hand does not change what it is.
+A Third-Party program that holds an Access Token to act for a User: an MCP client or an approved third-party web app. A First-Party CLI is not one; it holds a Sign-in through Device Login. Whether it registered itself or was approved by hand does not change what it is.
 _Avoid_: client (reserved for a First-Party program's side: the browser, the CLI), Provider, third party (some Client Applications are first-party)
 
 **Grant**:

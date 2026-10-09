@@ -56,10 +56,6 @@
       "types": "./dist/client/sign-in/cookie/index.d.ts",
       "default": "./dist/client/sign-in/cookie/index.js"
     },
-    "./client/expo": {
-      "types": "./dist/client/sign-in/oauth/index.d.ts",
-      "default": "./dist/client/sign-in/oauth/index.js"
-    },
     "./client/cli": {
       "types": "./dist/client/sign-in/device-code/index.d.ts",
       "default": "./dist/client/sign-in/device-code/index.js"
@@ -94,10 +90,7 @@
     "alchemy": "2.0.0-beta.80",
     "better-sqlite3": "13.0.3",
     "effect": "^4.0.0",
-    "expo-auth-session": "57.0.13",
-    "expo-secure-store": "57.0.4",
-    "expo-web-browser": "57.0.3",
-    "react": "19.2.3"
+    "react": "19.2.8"
   },
   "peerDependenciesMeta": {
     "@kstackz/rpc-toolkit": {
@@ -113,15 +106,6 @@
       "optional": true
     },
     "effect": {
-      "optional": true
-    },
-    "expo-auth-session": {
-      "optional": true
-    },
-    "expo-secure-store": {
-      "optional": true
-    },
-    "expo-web-browser": {
       "optional": true
     },
     "react": {
@@ -151,17 +135,12 @@
     "cn": "catalog:",
     "drizzle-kit": "catalog:",
     "effect": "catalog:",
-    "expo": "catalog:",
-    "expo-auth-session": "catalog:",
-    "expo-secure-store": "catalog:",
-    "expo-web-browser": "catalog:",
     "jose": "catalog:",
     "laymos": "workspace:*",
     "lucide-react": "catalog:",
     "motion": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "react-native": "catalog:",
     "shadcn": "catalog:",
     "sonner": "catalog:",
     "tailwind-merge": "catalog:",

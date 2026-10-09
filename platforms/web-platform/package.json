@@ -214,8 +214,8 @@
     "@tanstack/react-start": "1.168.49",
     "effect": "^4.0.0",
     "laymos": "workspace:*",
-    "react": "19.2.3",
-    "react-dom": "19.2.3",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
     "use-effect-ts": "workspace:*",
     "vite": "^8.0.0"
   },

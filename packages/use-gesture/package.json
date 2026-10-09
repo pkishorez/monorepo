@@ -2,7 +2,7 @@
   "name": "@kstackz/use-gesture",
   "version": "0.0.0",
   "private": false,
-  "description": "Touch gestures: a platform-free core that reads every finger of a touch from any touch source. Its web side is in @kstackz/web-platform's input, its native side in @kstackz/expo-platform's.",
+  "description": "Touch gestures: a platform-free core that reads every finger of a touch from any touch source. Its web side is in @kstackz/web-platform's input.",
   "keywords": [
     "react",
     "gestures",

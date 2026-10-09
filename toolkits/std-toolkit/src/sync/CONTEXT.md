@@ -75,8 +75,7 @@ _Avoid_: Sync Persistence Table, offline cache.
 What builds a Sync Store for one kind of place, named like the [[db]] Table
 adapters: `Sync.memory` (the default: ephemeral, nothing shared), `Sync.idb`
 (IndexedDB shared by a browser's tabs, so Web Locks Leadership and a
-BroadcastChannel Doorbell), `Sync.sqlite` (an expo-sqlite database in one
-process, so neither). Whether a place is shared is a fact about the storage,
+BroadcastChannel Doorbell). Whether a place is shared is a fact about the storage,
 so the adapter decides it, not the application.
 _Avoid_: sync platform, preset, environment detection, browser sniffing.
 
