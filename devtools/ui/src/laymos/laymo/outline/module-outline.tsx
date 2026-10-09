@@ -24,6 +24,7 @@ export function ModuleOutline({
   onOpen,
   badgesOf,
   label = 'Module outline',
+  sections,
 }: {
   readonly tree: LaymoTree;
   readonly selectedKey: string | undefined;
@@ -34,6 +35,10 @@ export function ModuleOutline({
   readonly onOpen?: ((card: LaymoNode) => void) | undefined;
   readonly badgesOf?: ((card: LaymoNode) => ReactNode) | undefined;
   readonly label?: string;
+  /** Headed groups for the top level, in order; the top level as one list when absent. */
+  readonly sections?:
+    | readonly { readonly label: string; readonly keys: readonly string[] }[]
+    | undefined;
 }) {
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(
     () => new Set(tree.root.children.map((card) => card.key)),
@@ -147,7 +152,24 @@ export function ModuleOutline({
 
   return (
     <ul role="tree" aria-label={label} className="flex flex-col gap-px p-1.5">
-      {tree.root.children.map((card) => row(card, 0))}
+      {sections === undefined
+        ? tree.root.children.map((card) => row(card, 0))
+        : sections.map((section) => (
+            <li key={section.label} role="none">
+              <p className="flex items-baseline gap-1.5 px-1.5 pb-0.5 pt-2.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground first:pt-1">
+                {section.label}
+                <span className="tabular-nums text-muted-foreground/60">
+                  {section.keys.length}
+                </span>
+              </p>
+              <ul role="group">
+                {section.keys.flatMap((key) => {
+                  const card = tree.byKey.get(key);
+                  return card === undefined ? [] : [row(card, 0)];
+                })}
+              </ul>
+            </li>
+          ))}
     </ul>
   );
 }

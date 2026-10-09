@@ -329,6 +329,7 @@ export function Monoverse({
         cardsNoun="Packages"
         projectName={analysis.name}
         initiallyOpen={cards.groups}
+        outlineByRank={layout === 'ranks'}
         badgesOf={badgesOf}
         fitNames
         hints={hints}
