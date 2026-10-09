@@ -23,6 +23,7 @@ import { Route as DemosEffectOakEmbeddingRouteImport } from './routes/demos/effe
 import { Route as DemosEffectOakFormRouteImport } from './routes/demos/effect-oak/form'
 import { Route as DemosEffectOakGenerativeArtRouteImport } from './routes/demos/effect-oak/generative-art'
 import { Route as DemosEffectOakInterruptingCommandsRouteImport } from './routes/demos/effect-oak/interrupting-commands'
+import { Route as DemosEffectOakJobApplicationRouteImport } from './routes/demos/effect-oak/job-application'
 import { Route as DemosEffectOakKanbanRouteImport } from './routes/demos/effect-oak/kanban'
 import { Route as DemosEffectOakManagedResourceLayerRouteImport } from './routes/demos/effect-oak/managed-resource-layer'
 import { Route as DemosEffectOakMapRouteImport } from './routes/demos/effect-oak/map'
@@ -114,6 +115,12 @@ const DemosEffectOakInterruptingCommandsRoute =
   DemosEffectOakInterruptingCommandsRouteImport.update({
     id: '/demos/effect-oak/interrupting-commands',
     path: '/demos/effect-oak/interrupting-commands',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const DemosEffectOakJobApplicationRoute =
+  DemosEffectOakJobApplicationRouteImport.update({
+    id: '/demos/effect-oak/job-application',
+    path: '/demos/effect-oak/job-application',
     getParentRoute: () => rootRouteImport,
   } as any)
 const DemosEffectOakKanbanRoute = DemosEffectOakKanbanRouteImport.update({
@@ -235,6 +242,7 @@ export interface FileRoutesByFullPath {
   '/demos/effect-oak/form': typeof DemosEffectOakFormRoute
   '/demos/effect-oak/generative-art': typeof DemosEffectOakGenerativeArtRoute
   '/demos/effect-oak/interrupting-commands': typeof DemosEffectOakInterruptingCommandsRoute
+  '/demos/effect-oak/job-application': typeof DemosEffectOakJobApplicationRoute
   '/demos/effect-oak/kanban': typeof DemosEffectOakKanbanRoute
   '/demos/effect-oak/managed-resource-layer': typeof DemosEffectOakManagedResourceLayerRoute
   '/demos/effect-oak/map': typeof DemosEffectOakMapRoute
@@ -270,6 +278,7 @@ export interface FileRoutesByTo {
   '/demos/effect-oak/form': typeof DemosEffectOakFormRoute
   '/demos/effect-oak/generative-art': typeof DemosEffectOakGenerativeArtRoute
   '/demos/effect-oak/interrupting-commands': typeof DemosEffectOakInterruptingCommandsRoute
+  '/demos/effect-oak/job-application': typeof DemosEffectOakJobApplicationRoute
   '/demos/effect-oak/kanban': typeof DemosEffectOakKanbanRoute
   '/demos/effect-oak/managed-resource-layer': typeof DemosEffectOakManagedResourceLayerRoute
   '/demos/effect-oak/map': typeof DemosEffectOakMapRoute
@@ -306,6 +315,7 @@ export interface FileRoutesById {
   '/demos/effect-oak/form': typeof DemosEffectOakFormRoute
   '/demos/effect-oak/generative-art': typeof DemosEffectOakGenerativeArtRoute
   '/demos/effect-oak/interrupting-commands': typeof DemosEffectOakInterruptingCommandsRoute
+  '/demos/effect-oak/job-application': typeof DemosEffectOakJobApplicationRoute
   '/demos/effect-oak/kanban': typeof DemosEffectOakKanbanRoute
   '/demos/effect-oak/managed-resource-layer': typeof DemosEffectOakManagedResourceLayerRoute
   '/demos/effect-oak/map': typeof DemosEffectOakMapRoute
@@ -343,6 +353,7 @@ export interface FileRouteTypes {
     | '/demos/effect-oak/form'
     | '/demos/effect-oak/generative-art'
     | '/demos/effect-oak/interrupting-commands'
+    | '/demos/effect-oak/job-application'
     | '/demos/effect-oak/kanban'
     | '/demos/effect-oak/managed-resource-layer'
     | '/demos/effect-oak/map'
@@ -378,6 +389,7 @@ export interface FileRouteTypes {
     | '/demos/effect-oak/form'
     | '/demos/effect-oak/generative-art'
     | '/demos/effect-oak/interrupting-commands'
+    | '/demos/effect-oak/job-application'
     | '/demos/effect-oak/kanban'
     | '/demos/effect-oak/managed-resource-layer'
     | '/demos/effect-oak/map'
@@ -413,6 +425,7 @@ export interface FileRouteTypes {
     | '/demos/effect-oak/form'
     | '/demos/effect-oak/generative-art'
     | '/demos/effect-oak/interrupting-commands'
+    | '/demos/effect-oak/job-application'
     | '/demos/effect-oak/kanban'
     | '/demos/effect-oak/managed-resource-layer'
     | '/demos/effect-oak/map'
@@ -449,6 +462,7 @@ export interface RootRouteChildren {
   DemosEffectOakFormRoute: typeof DemosEffectOakFormRoute
   DemosEffectOakGenerativeArtRoute: typeof DemosEffectOakGenerativeArtRoute
   DemosEffectOakInterruptingCommandsRoute: typeof DemosEffectOakInterruptingCommandsRoute
+  DemosEffectOakJobApplicationRoute: typeof DemosEffectOakJobApplicationRoute
   DemosEffectOakKanbanRoute: typeof DemosEffectOakKanbanRoute
   DemosEffectOakManagedResourceLayerRoute: typeof DemosEffectOakManagedResourceLayerRoute
   DemosEffectOakMapRoute: typeof DemosEffectOakMapRoute
@@ -569,6 +583,13 @@ declare module '@tanstack/react-router' {
       path: '/demos/effect-oak/interrupting-commands'
       fullPath: '/demos/effect-oak/interrupting-commands'
       preLoaderRoute: typeof DemosEffectOakInterruptingCommandsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/demos/effect-oak/job-application': {
+      id: '/demos/effect-oak/job-application'
+      path: '/demos/effect-oak/job-application'
+      fullPath: '/demos/effect-oak/job-application'
+      preLoaderRoute: typeof DemosEffectOakJobApplicationRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/demos/effect-oak/kanban': {
@@ -722,6 +743,7 @@ const rootRouteChildren: RootRouteChildren = {
   DemosEffectOakGenerativeArtRoute: DemosEffectOakGenerativeArtRoute,
   DemosEffectOakInterruptingCommandsRoute:
     DemosEffectOakInterruptingCommandsRoute,
+  DemosEffectOakJobApplicationRoute: DemosEffectOakJobApplicationRoute,
   DemosEffectOakKanbanRoute: DemosEffectOakKanbanRoute,
   DemosEffectOakManagedResourceLayerRoute:
     DemosEffectOakManagedResourceLayerRoute,

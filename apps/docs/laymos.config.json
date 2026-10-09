@@ -74,6 +74,34 @@
     ],
     "src/demos/effect-oak/web-components/fields": [
       "src/demos/effect-oak/web-components/elements"
+    ],
+    "src/demos/effect-oak/job-application/personal-info": [
+      "src/demos/effect-oak/job-application/application",
+      "src/demos/effect-oak/job-application/fields"
+    ],
+    "src/demos/effect-oak/job-application/work-history": [
+      "src/demos/effect-oak/job-application/application",
+      "src/demos/effect-oak/job-application/fields"
+    ],
+    "src/demos/effect-oak/job-application/skills": [
+      "src/demos/effect-oak/job-application/application",
+      "src/demos/effect-oak/job-application/fields"
+    ],
+    "src/demos/effect-oak/job-application/cover-letter": [
+      "src/demos/effect-oak/job-application/application",
+      "src/demos/effect-oak/job-application/fields"
+    ],
+    "src/demos/effect-oak/job-application/attachments": [
+      "src/demos/effect-oak/job-application/application"
+    ],
+    "src/demos/effect-oak/job-application/step-nav": [
+      "src/demos/effect-oak/job-application/application"
+    ],
+    "src/demos/effect-oak/job-application/preview": [
+      "src/demos/effect-oak/job-application/application"
+    ],
+    "src/demos/effect-oak/job-application/review": [
+      "src/demos/effect-oak/job-application/application"
     ]
   }
 }
