@@ -14,6 +14,23 @@
     "src/router.tsx": ["src/components"],
     "src/routes": ["src/lib", "src/demos/effect-oak"],
     "src/demos/effect-oak/canvas-art": ["src/demos/effect-oak/frame-canvas"],
-    "src/demos/effect-oak/generative-art": ["src/demos/effect-oak/frame-canvas"]
+    "src/demos/effect-oak/generative-art": [
+      "src/demos/effect-oak/frame-canvas"
+    ],
+    "src/demos/effect-oak/api-cache": [
+      "src/demos/effect-oak/async-data",
+      "src/demos/effect-oak/blog-server"
+    ],
+    "src/demos/effect-oak/api-cache-query": [
+      "src/demos/effect-oak/async-data",
+      "src/demos/effect-oak/blog-server"
+    ],
+    "src/demos/effect-oak/charting": ["src/demos/effect-oak/async-data"],
+    "src/demos/effect-oak/query-sync/param": [
+      "src/demos/effect-oak/query-sync/url"
+    ],
+    "src/demos/effect-oak/map/places": ["src/demos/effect-oak/map/world"],
+    "src/demos/effect-oak/map/finder": ["src/demos/effect-oak/map/world"],
+    "src/demos/effect-oak/map/viewport": ["src/demos/effect-oak/map/world"]
   }
 }

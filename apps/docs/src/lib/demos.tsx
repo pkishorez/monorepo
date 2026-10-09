@@ -121,6 +121,36 @@ export const DEMOS = [
     group: 'Graphics',
     summary: 'A pixel editor with undo, mirrors and PNG export',
   },
+  {
+    to: '/demos/effect-oak/api-cache',
+    name: 'API cache',
+    group: 'Data',
+    summary: 'Cached posts and live stats, kept as data in the Model',
+  },
+  {
+    to: '/demos/effect-oak/api-cache-query',
+    name: 'API cache query',
+    group: 'Data',
+    summary: 'The same cache with each query as its own Node',
+  },
+  {
+    to: '/demos/effect-oak/query-sync',
+    name: 'Query sync',
+    group: 'Data',
+    summary: 'A dinosaur table whose filters live in the URL',
+  },
+  {
+    to: '/demos/effect-oak/charting',
+    name: 'Charting',
+    group: 'Data',
+    summary: 'npm and GitHub numbers for Foldkit, drawn as SVG charts',
+  },
+  {
+    to: '/demos/effect-oak/map',
+    name: 'Map',
+    group: 'Data',
+    summary: 'A tile map whose camera is a Node, with markers and fly-to',
+  },
 ] as const satisfies ReadonlyArray<{
   readonly to: string;
   readonly name: string;
