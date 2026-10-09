@@ -6,8 +6,10 @@ Date: 2026-10-07
 
 ## Status
 
-Accepted. Narrows ADR 0010: First-Party programs still hold Sessions, except
-native apps.
+Superseded by the monorepo's [ADR 0007](../../../../docs/adr/0007-web-is-the-only-platform.md):
+there are no native apps, so `firstPartyClients`, app-scheme origins and
+`client/expo` are gone. It narrowed ADR 0010: First-Party programs still hold
+Sessions, except native apps.
 
 ## Context
 

@@ -9,24 +9,12 @@ The umbrella name for the packages in this repo that make up one stack, publishe
 _Avoid_: brand, kstackz (as a name), pkishorez packages
 
 **Toolkit**:
-A kstack package covering one area of an app (data, AI, RPC, auth, running an app), named `@kstackz/<area>-toolkit`. rpc-, auth- and std-toolkit are the platform-free first principles the rest build on. A Toolkit never knows which platform it runs on.
-_Avoid_: kai-toolkit, kui-toolkit, unscoped toolkit names, web-toolkit and expo-toolkit (those are now Platforms)
-
-**Platform Toolkit**:
-The Toolkit for running an app on any platform, `@kstackz/platform-toolkit`: the Gate, the Session, the two Backends and what an app configures, with nothing of the web or of Expo in it. The area Toolkits are its parts; the Platforms are its only direct users.
-_Avoid_: app toolkit, gate toolkit, core
-
-**Platform** (package):
-An opinionated way of building an app on one kind of device with the Platform Toolkit: the Web Platform or the Expo Platform. A Platform decides what every app of its kind gets without asking; an author who wants none of it uses the Toolkits directly.
-_Avoid_: platform toolkit (that is the shared one), framework, starter
+A kstack package covering one area of an app (data, AI, RPC, auth), named `@kstackz/<area>-toolkit`. rpc-, auth- and std-toolkit are the first principles the Web Platform builds on. A Toolkit never knows whether it runs in a browser, a Worker or Node.
+_Avoid_: kai-toolkit, kui-toolkit, unscoped toolkit names, web-toolkit (now the Web Platform), platform-toolkit (folded into the Web Platform)
 
 **Web Platform**:
-The Platform for web apps, `@kstackz/web-platform`: a PWA on TanStack Start, with the Theme, a Session per Account and the Account Switcher when auth is configured, the opinionated server, and the UI, input, Recipes, gestures and keys to build screens. Replaces the Web Toolkit.
-_Avoid_: web-toolkit (the former name), ui-toolkit, pwa-toolkit, frontend
-
-**Expo Platform**:
-The Platform for native apps built with Expo, `@kstackz/expo-platform`: the same Session and Account Switcher as the Web Platform, with OAuth sign-in, SQLite, haptics, and what only a phone has. Consistent with the Web Platform in what a user experiences, not identical in code. Replaces the Expo Toolkit.
-_Avoid_: expo-toolkit (the former name), native platform, mobile platform
+The one way to build a kstack app, `@kstackz/web-platform`: a PWA on TanStack Start, with its APIs, the two Backends, the Gate and a Session per Account when auth is configured, the Theme, the opinionated server, and the UI, input, Recipes, gestures and keys to build screens. The web is the only platform; a native app, if one comes, wraps this one. It decides what every app gets without asking; an author who wants none of it uses the Toolkits directly. Replaces the Web Toolkit and the Platform Toolkit.
+_Avoid_: platform (as a kind of package: there is one), web-toolkit, platform-toolkit, ui-toolkit, pwa-toolkit, frontend, framework, starter
 
 **Door**:
 One subpath of a Toolkit, named for the side that imports it, such as auth-toolkit's `worker`, `guard`, `server` and `client`. What a door exports is assembled from parts that stay exported underneath for the unusual app.
@@ -45,7 +33,7 @@ auth-toolkit's Middleware, `Authz`: which calls need a signed-in user, which pol
 _Avoid_: Auth Cannotation, authz middleware
 
 **Sign-in**:
-How an Account proves who it is, named by mechanism: `cookie` (a browser against the sign-in service), `oauth` (a phone as the app's fixed OAuth client), `named` (by name, on the device Backend) or `deviceCode` (a CLI).
+How an Account proves who it is, named by mechanism: `cookie` (a browser against the sign-in service), `named` (by name, on the device Backend) or `deviceCode` (a CLI).
 _Avoid_: auth live, auth expo, auth local, login method
 
 **Account**:
@@ -57,7 +45,7 @@ An Account on the device Backend, signed in by choosing any name; the same name 
 _Avoid_: Local Account, Local Token, local sign-in, test user
 
 **Recipe**:
-One whole interaction a Platform ships ready to use, such as the Sidebar, the Thumb Picker or Local Sign-In. A Recipe in the Web Platform and one in the Expo Platform with the same name are the same interaction on two platforms.
+One whole interaction the Web Platform ships ready to use, such as the Sidebar, the Thumb Picker or Local Sign-In.
 _Avoid_: pattern, block, widget
 
 **Backend**:
@@ -69,11 +57,11 @@ One thing a Backend needs, such as a table or who signed a call, with a `cloud` 
 _Avoid_: adapter, edge, resolver (as a separate idea)
 
 **Session**:
-What an app keeps for one Account while it is active, written once as a function of the Session Context and made a service by the Platform. Opened when the Account becomes active and closed when it stops being active; closing interrupts every call still in flight, so everything under `SignedIn` starts afresh on a switch. Only an app with auth has one.
+What an app keeps for one Account while it is active, written once as a function of the Session Context and made a service by the Web Platform. Opened when the Account becomes active and closed when it stops being active; closing interrupts every call still in flight, so everything under `SignedIn` starts afresh on a switch. Only an app with auth has one.
 _Avoid_: session store, user store, Backend Link, Session Lifetime, better-auth's session (that is a Sign-in)
 
 **Session Context**:
-What the Platform Toolkit gives a Session to be built from: the app's APIs signed as the Account, the user's Std Sync, the Account, and the Session Status. Typed by the app's APIs.
+What the Web Platform gives a Session to be built from: the app's APIs signed as the Account, the user's Std Sync, the Account, and the Session Status. Typed by the app's APIs.
 _Avoid_: session input, session deps
 
 **Session Status**:
@@ -81,7 +69,7 @@ Whether the open Account has been confirmed by its Sign-in since the Session ope
 _Avoid_: auth state, loading, confirmed (the word for the Account, not the status)
 
 **API**:
-One of an app's named ways to call a Backend: a group and the Transport it is reached by, such as `ledger: Rpc.http(LedgerApi, { path: '/rpc' })`. A path is resolved by the Platform against the cloud address; a full URL is left alone. Every API is signed by the one auth; which calls need it is the Guard's business.
+One of an app's named ways to call a Backend: a group and the Transport it is reached by, such as `ledger: Rpc.http(LedgerApi, { path: '/rpc' })`. A path is resolved against the cloud address; a full URL is left alone. Every API is signed by the one auth; which calls need it is the Guard's business.
 _Avoid_: endpoint, service, client
 
 **Open First**:
@@ -97,15 +85,15 @@ What only this device has and belongs to no user, such as an app's Settings.
 _Avoid_: a user's Std Sync (that is the user's data, which lives on the Backend)
 
 **Host**:
-Everything the Platform Toolkit needs of where an app runs, as a Platform gives it: its Storage, its cloud Sign-in and address, its lifecycle (online, foreground, launch), and its other tabs if it has any. An app never meets it. Formerly the Platform interface.
-_Avoid_: Platform (now the package kind), environment, LedgerPlatform, GatePlatform
+Everything the Web Platform needs of where an app runs: its Storage, its cloud Sign-in and address, its lifecycle (online, foreground, launch), and its other tabs. The browser gives it; tests give one in memory. An app never meets it. Formerly the Platform interface.
+_Avoid_: platform, environment, LedgerPlatform, GatePlatform
 
 **Storage**:
-Where a Host keeps things: a Std Table adapter and a Sync adapter for the same place, such as IndexedDB in a browser or SQLite on a phone.
+Where a Host keeps things: a Std Table adapter and a Sync adapter for the same place, such as IndexedDB in a browser or memory in a test.
 _Avoid_: persistence, database (that is one named place inside Storage)
 
 **Sync adapter**:
-Where a Std Sync is kept: `Sync.idb`, `Sync.sqlite` or `Sync.memory`. Whether that place is shared by other tabs, and so needs leadership and a doorbell, is the adapter's business.
+Where a Std Sync is kept: `Sync.idb` or `Sync.memory`. Whether that place is shared by other tabs, and so needs leadership and a doorbell, is the adapter's business.
 _Avoid_: sync platform, StdSyncPlatform, browser platform
 
 **Stand-alone tool**:

@@ -1,6 +1,6 @@
 # Native Ledger signs in as an OAuth client
 
-Status: accepted
+Status: superseded by the monorepo's [ADR 0007](../../../../docs/adr/0007-web-is-the-only-platform.md): there is no native Ledger.
 
 Ledger on a phone signs Users in to the Remote Backend as a public OAuth
 client of the shared sign-in service, with the authorization code flow and

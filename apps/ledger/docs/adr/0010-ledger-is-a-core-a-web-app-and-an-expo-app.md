@@ -1,6 +1,6 @@
 # Ledger is a core, a web app, and an Expo app
 
-Status: accepted; the platform Layer each app built is now the Host its Platform gives, and each app calls its Platform's `createApp` with core's APIs, device Backend, Session and cache (the monorepo's [ADR 0006](../../../docs/adr/0006-platforms-may-break-toolkits-keep-what-persists.md)).
+Status: superseded by the monorepo's [ADR 0007](../../../../docs/adr/0007-web-is-the-only-platform.md): the Expo app is gone, and core and web are one app again in `apps/ledger`.
 
 Ledger runs natively on iOS and Android as well as in the browser. It moves
 out of `apps/kstack` into a top-level `ledger/` folder of three private
