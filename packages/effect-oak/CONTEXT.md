@@ -61,13 +61,13 @@ Drawing the app as a Replay at any Time from 0 (right after init) to now: every 
 _Avoid_: undo, rewind, snapshot history
 
 **Pause**:
-Stopping the app's Time so Time Travel can look at the past without the app moving on. While Paused, Views of the past are shown and nothing can be sent from them; resuming carries Time on from where it stopped.
+Stopping the app's Time so Time Travel can look at the past without the app moving on. While Paused, Views of the past are shown and nothing can be sent from them, and the timers of Commands and Lifetimes wait too; resuming carries Time on from where it stopped.
 _Avoid_: freeze, suspend
 
 ### Effects
 
 **Command**:
-One piece of work an Update asks for: an Effect that runs once and may end with one Message. It gets the Node's Services from Effect (`yield* Session`). Owned by its Node; destroying the Node interrupts it.
+One piece of work an Update asks for: an Effect that runs once and may end with one Message. It gets the Node's Services from Effect (`yield* Session`). Owned by its Node; destroying the Node interrupts it, and an Update can replace its Node's running Commands with new ones (the latest plan wins). Its timers run in the app's Time.
 _Avoid_: effect, side effect, task
 
 **Lifetime**:
