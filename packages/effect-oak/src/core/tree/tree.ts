@@ -13,7 +13,8 @@ import type {
  *
  * 1. Create   an Instance runs init and enters its State.
  * 2. Enter    a State creates its Children; leaving one destroys them.
- * 3. Handle   a Message goes through Update; a new State is a Transition.
+ * 3. Handle   a Message and its Time go through Update; a new State is a
+ *             Transition.
  * 4. Destroy  an Instance leaves its State and is gone.
  */
 
@@ -45,17 +46,18 @@ export interface Handle<N> {
 /** One line of the Log: which Instance got which Message, and what came of it. */
 export type Entry = Sent & {
   readonly path: string;
-  /** When it was handled, in milliseconds since the epoch. */
-  readonly time: number;
 } & Outcome;
 
 /**
- * A Message and the Instance it was sent to: all Replay needs. Instances are
- * numbered in the order they were created, which replaying repeats exactly.
+ * A Message, the Instance it was sent to and its Time: all Replay needs.
+ * Instances are numbered in the order they were created, which replaying
+ * repeats exactly.
  */
 export type Sent = {
   readonly id: number;
   readonly message: Tagged;
+  /** When it was sent, in milliseconds since the Runtime started. */
+  readonly at: number;
 };
 
 /** What handling one Message did. */
@@ -109,10 +111,11 @@ export interface Hooks {
   readonly leaving?: (instance: Instance) => void;
   /** The Instance stayed in its State with new data. */
   readonly changed?: (instance: Instance) => void;
-  /** init or Update returned Commands. */
+  /** init or Update returned Commands; `replace` stops the ones still running first. */
   readonly commands?: (
     instance: Instance,
     commands: ReadonlyArray<unknown>,
+    replace?: boolean,
   ) => void;
   /** The Instance is gone. */
   readonly destroyed?: (instance: Instance) => void;
@@ -185,7 +188,11 @@ const leave = (instance: Instance): void => {
 
 // 3. Handle a Message -------------------------------------------------------------
 
-export const handle = (instance: Instance, message: Tagged): Outcome => {
+export const handle = (
+  instance: Instance,
+  message: Tagged,
+  at: number,
+): Outcome => {
   const from = instance.state._tag;
   if (!instance.alive) return { outcome: 'dropped', from, to: from };
 
@@ -193,10 +200,18 @@ export const handle = (instance: Instance, message: Tagged): Outcome => {
   const rule = update[from]?.[message._tag] ?? update['*']?.[message._tag];
   if (!rule) return { outcome: 'ignored', from, to: from };
 
-  const next = rule(message, { model: instance.model, state: instance.state });
+  const next = rule(message, {
+    model: instance.model,
+    state: instance.state,
+    at,
+  });
   apply(instance, next.model ?? instance.model, next.state ?? instance.state);
-  if (next.commands?.length)
-    instance.tree.hooks.commands?.(instance, next.commands);
+  if (next.commands?.length || next.replaceCommands)
+    instance.tree.hooks.commands?.(
+      instance,
+      next.commands ?? [],
+      next.replaceCommands,
+    );
   return { outcome: 'handled', from, to: instance.state._tag };
 };
 

@@ -7,11 +7,11 @@
     "src/start.ts",
     "src/server.ts",
     "src/components/not-found.tsx",
-    "src/lib/theme.tsx"
+    "src/lib/theme.tsx",
+    "src/lib/demos.tsx"
   ],
   "rules": {
     "src/router.tsx": ["src/components"],
-    "src/routes": ["src/lib", "src/demos/effect-oak"],
-    "src/demos/effect-oak/auth": ["src/demos/effect-oak/services"]
+    "src/routes": ["src/lib", "src/demos/effect-oak"]
   }
 }

@@ -40,21 +40,29 @@ _Avoid_: re-entry, navigation
 A fact that happened, addressed to one Node: a click, a timer tick, a Command's result. The only way a Model or State changes.
 _Avoid_: event (XState's word; Effect Oak uses Elm's names), action
 
+**Time**:
+When a Message arrived, in milliseconds since the Runtime started, not counting time spent Paused. Stamped by the Runtime and kept with the Message. Update reads it, so a Replay gets the same answer as the live app. The one clock the app, its Log and its timeline share.
+_Avoid_: timestamp, now, clock (on its own)
+
 **Update**:
-The pure rule that takes the current Model, State and a Message and returns the next Model and State plus any Commands. It never sees Services, so Replay can run it with nothing else. Written per State; a Message with no rule in the current State is ignored.
+The pure rule that takes the current Model, State, a Message and its Time and returns the next Model and State plus any Commands. It never sees Services, so Replay can run it with nothing else. Written per State; a Message with no rule in the current State is ignored.
 _Avoid_: reducer, handler
 
 **Log**:
-Every Message in the order it arrived, with the Instance and Path it went to, when it was handled, and what came of it: handled, ignored, or dropped because its Instance was gone. For reading; Replay needs only the Messages.
+Every Message in the order it arrived, with the Instance and Path it went to, its Time, and what came of it: handled, ignored, or dropped because its Instance was gone. For reading; Replay needs only the Messages.
 _Avoid_: history, journal, event store
 
 **Replay**:
-Rebuilding the tree from its Messages alone: init, then each Message through Update, handed to the Instance with its number. A Message for an Instance that is gone is dropped, as it was live. No Services, Lifetimes or Commands run, and sends are dropped.
+Rebuilding the tree from its Messages alone: init, then each Message with its Time through Update, handed to the Instance with its number. A Message for an Instance that is gone is dropped, as it was live. No Services, Lifetimes or Commands run, and sends are dropped.
 _Avoid_: rehydrate, restore
 
 **Time Travel**:
-Drawing the app as a Replay after any number of its Messages, from 0 (right after init) to all of them, while the live app keeps running underneath.
+Drawing the app as a Replay at any Time from 0 (right after init) to now: every Message up to that Time is played, and the app is drawn at that Time. The live app keeps running underneath.
 _Avoid_: undo, rewind, snapshot history
+
+**Pause**:
+Stopping the app's Time so Time Travel can look at the past without the app moving on. While Paused, Views of the past are shown and nothing can be sent from them; resuming carries Time on from where it stopped.
+_Avoid_: freeze, suspend
 
 ### Effects
 
@@ -87,8 +95,12 @@ _Avoid_: output, bubble, callback, event
 ### Drawing
 
 **View**:
-How one Node is drawn: a React component that reads the Model, State and current Children of one Instance, and can only Send. It never sees Services, so it draws a Replay exactly like the live app. Kept apart from the Node, so the same Node can be drawn more than one way or not at all.
+How one Node is drawn: a React component that reads the Model, State and current Children of one Instance, and can only Send. It never sees Services, so it draws a Replay exactly like the live app. Kept apart from the Node, so the same Node can be drawn more than one way or not at all. Anything that moves between Messages is worked out here, at each Frame, from the Model, State and Time: the Model says what is happening, the View decides how that looks.
 _Avoid_: render, template, component (on its own)
+
+**Frame**:
+One moment a View is drawn at, given as a Time: every animation frame while live, every move of the timeline during Time Travel. React renders only when a Message changes the Instance; a Frame moves what is already drawn. Nothing about a Frame is stored.
+_Avoid_: tick, render
 
 **Send**:
 Hand a Message to a Node. The only thing a View can do besides drawing.
