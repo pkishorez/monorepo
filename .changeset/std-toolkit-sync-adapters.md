@@ -1,5 +1,5 @@
 ---
-'@kstackz/std-toolkit': minor
+'@kstackz/std-toolkit': patch
 '@kstackz/ai-toolkit': patch
 ---
 
