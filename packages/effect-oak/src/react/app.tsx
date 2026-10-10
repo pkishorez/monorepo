@@ -1,17 +1,10 @@
+// oxlint-disable-next-line no-restricted-imports -- the app's one mount effect: counting mounts starts and stops the Runtime, which lives outside React.
 import { useEffect, useSyncExternalStore } from 'react';
+import { motionValue } from 'motion/react';
+import type { MotionValue } from 'motion/react';
 import { Effect, Exit, Layer, Scope } from 'effect';
 import { Replay, Runtime } from '../core/index.ts';
-import type {
-  AnyNode,
-  Entry,
-  Handle,
-  Needs,
-  Running,
-  Sent,
-  Snapshot,
-} from '../core/index.ts';
-import { FramesContext } from './frames.ts';
-import type { Frames } from './frames.ts';
+import type { AnyNode, Entry, Handle, Needs, Running } from '../core/index.ts';
 import type { ViewOf } from './view.tsx';
 
 type Unmet<N, Provided> = [Exclude<Needs<N>, Provided>] extends [never]
@@ -19,41 +12,31 @@ type Unmet<N, Provided> = [Exclude<Needs<N>, Provided>] extends [never]
   : [unmet: { readonly missingServices: Exclude<Needs<N>, Provided> }];
 
 const NO_LOG: ReadonlyArray<Entry> = [];
-const NONE: ReadonlyArray<Sent> = [];
 
-/** Where the app's Views are: live, or replayed at some Time. */
-export interface TimeTravel {
-  /** Every Message, the Instance it was sent to and its Time, in order. */
-  readonly messages: ReadonlyArray<Sent>;
-  /** The Time the Views show, in milliseconds since the app started; `null` is live. */
-  readonly at: number | null;
-  /** Whether the app's Time is stopped. */
-  readonly paused: boolean;
-  /** The live Time now; it stands still while paused. */
-  readonly now: () => number;
-  /** Show the app as it was at Time `at`, or live again with `null`. */
-  readonly travel: (at: number | null) => void;
-  /** Stop the app's Time and show it as it is now, ready to travel. */
-  readonly pause: () => void;
-  /** Start the app's Time again from where it stopped, and show it live. */
-  readonly resume: () => void;
+/** The running app, for code outside the tree: a timeline, a devtool. */
+export interface AppRuntime {
+  /** Every Message with the Instance and Path it went to, its Time, and what came of it. */
+  readonly log: ReadonlyArray<Entry>;
+  /** The Step the Views show: 0 is right after init, N right after Message N; `null` is live. */
+  readonly shown: number | null;
+  /** Show the app at a Step, or live again with `null`. */
+  readonly show: (step: number | null) => void;
+  /** The Time the Views are drawn at. */
+  readonly frame: MotionValue<number>;
 }
 
 /**
- * The whole app as one React component: builds the Layer, starts the tree when
- * mounted, and stops everything when unmounted. Does not compile until the
- * Layer covers every Service the tree still needs.
+ * The whole app as one React component. Does not compile until the Layer
+ * covers every Service the tree still needs.
  *
- * `App.useRoot()` reads the live root's Model and State from anywhere on the
- * page, whatever the Views show. `App.useLog()` reads the mounted app's Log:
- * every Message with what came of it and when. `App.useTimeTravel()` has only
- * the Messages, and moves the Views to any Time. Pausing stops the app's Time
- * so the past can be looked at without the app moving on; Views of the past
- * cannot send.
+ * There is one Runtime per `toReact`, however many times the component is
+ * mounted: the first mount builds the Layer and starts it, the last unmount
+ * stops everything, and every mount draws the same tree.
  *
- * Views that draw Frames get one per animation frame while live, and one per
- * move of the timeline while in the past. No animation frame is requested
- * while no View draws Frames.
+ * Every View gets `frame`, the Time the app is drawn at. Live, it follows the
+ * Runtime's Time at every animation frame; at a Step it stands still at that
+ * Message's Time. `App.useRuntime()` reads the Log and chooses the Step shown,
+ * from anywhere on the page. Views of the past cannot Send.
  */
 export const toReact = <N extends AnyNode, Provided>(
   node: N,
@@ -62,13 +45,13 @@ export const toReact = <N extends AnyNode, Provided>(
   ..._unmet: Unmet<N, Provided>
 ) => {
   const RootView = view;
+  const frame = motionValue(0);
 
-  // The mounted app, kept outside React so the hooks can read it from anywhere.
+  // The running app, kept outside React so every mount and hook reads the same one.
   let running: Running<N> | undefined;
   let replay: Replay<N> | undefined;
-  let at: number | null = null;
-  let paused = false;
-  let shown: Handle<N> | undefined;
+  let shown: number | null = null;
+  let tree: Handle<N> | undefined;
 
   const listeners = new Set<() => void>();
   const changed = () => {
@@ -79,111 +62,79 @@ export const toReact = <N extends AnyNode, Provided>(
     return () => listeners.delete(listener);
   };
 
-  // Frames: one animation-frame loop for every View that draws them.
-  const drawers = new Set<(at: number) => void>();
+  // The Frame follows the Runtime's Time, one animation frame at a time, only while live.
   let loop: number | undefined;
-  const frameAt = () => at ?? running?.now() ?? 0;
-  const drawAll = () => {
-    const time = frameAt();
-    for (const draw of drawers) draw(time);
-  };
   const tick = () => {
-    drawAll();
+    if (running) frame.set(running.now());
     loop = requestAnimationFrame(tick);
   };
-  /** Loop only while live, started, and someone draws Frames. */
   const pace = () => {
-    const wanted = at === null && running !== undefined && drawers.size > 0;
+    const wanted = shown === null && running !== undefined;
     if (wanted && loop === undefined) loop = requestAnimationFrame(tick);
     if (!wanted && loop !== undefined) {
       cancelAnimationFrame(loop);
       loop = undefined;
     }
   };
-  const frames: Frames = {
-    now: frameAt,
-    subscribe: (draw) => {
-      drawers.add(draw);
-      pace();
-      return () => {
-        drawers.delete(draw);
-        pace();
-      };
-    },
-  };
 
-  const now = () => running?.now() ?? 0;
-
-  const travel = (to: number | null) => {
+  const show = (step: number | null) => {
     if (!running) return;
-    at = to === null ? null : Math.min(running.now(), Math.max(0, to));
-    if (at === null) {
-      shown = running.root;
+    if (step === null) {
+      shown = null;
+      tree = running.root;
+      frame.set(running.now());
     } else {
+      const sent = running.sent();
+      shown = Math.min(sent.length, Math.max(0, Math.round(step)));
       replay ??= Replay.make(node, running.sent);
-      shown = replay.seek(at);
-      drawAll();
+      tree = replay.seek(shown);
+      frame.set(shown === 0 ? 0 : sent[shown - 1]!.at);
     }
     pace();
     changed();
   };
 
-  const pause = () => {
-    if (!running || paused) return;
-    running.pause();
-    paused = true;
-    travel(running.now());
-  };
-
-  const resume = () => {
-    if (!running || !paused) return;
-    running.resume();
-    paused = false;
-    travel(null);
-  };
-
-  const App = () => {
-    const root = useSyncExternalStore(subscribe, () => shown);
-    useEffect(() => {
+  // Mounts share the Runtime: the first starts it, the last stops it.
+  let mounts = 0;
+  let stop = () => {};
+  const mount = () => {
+    if (mounts++ === 0) {
       let unsubscribe = () => {};
-      const stop = host(node, layer, (started) => {
+      const stopHost = host(node, layer, (started) => {
         running = started;
-        shown = started.root;
+        tree = started.root;
+        frame.set(0);
         unsubscribe = started.subscribe(changed);
         pace();
         changed();
       });
-      return () => {
-        stop();
+      stop = () => {
+        stopHost();
         unsubscribe();
-        running = replay = shown = undefined;
-        at = null;
-        paused = false;
+        running = replay = tree = undefined;
+        shown = null;
         pace();
         changed();
       };
-    }, []);
-    return root ? (
-      <FramesContext value={frames}>
-        <RootView node={root} />
-      </FramesContext>
-    ) : null;
+    }
+    return () => {
+      if (--mounts === 0) stop();
+    };
+  };
+
+  const App = () => {
+    const root = useSyncExternalStore(subscribe, () => tree);
+    useEffect(mount, []);
+    return root ? <RootView node={root} frame={frame} /> : null;
   };
 
   return Object.assign(App, {
     displayName: node.name,
-    useRoot: (): Snapshot<N> | undefined =>
-      useSyncExternalStore(subscribe, () => running?.root.current()),
-    useLog: (): ReadonlyArray<Entry> =>
-      useSyncExternalStore(subscribe, () => running?.log() ?? NO_LOG),
-    useTimeTravel: (): TimeTravel => ({
-      messages: useSyncExternalStore(subscribe, () => running?.sent() ?? NONE),
-      at: useSyncExternalStore(subscribe, () => at),
-      paused: useSyncExternalStore(subscribe, () => paused),
-      now,
-      travel,
-      pause,
-      resume,
+    useRuntime: (): AppRuntime => ({
+      log: useSyncExternalStore(subscribe, () => running?.log() ?? NO_LOG),
+      shown: useSyncExternalStore(subscribe, () => shown),
+      show,
+      frame,
     }),
   });
 };

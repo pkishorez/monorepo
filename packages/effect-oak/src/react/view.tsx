@@ -1,8 +1,7 @@
 import { memo, useSyncExternalStore } from 'react';
 import type { FunctionComponent, ReactNode } from 'react';
+import type { MotionValue } from 'motion/react';
 import type { AnyNode, Handle, Snapshot } from '../core/index.ts';
-import { useFrame } from './frames.ts';
-import type { UseFrame } from './frames.ts';
 
 type StateTag<N> = Snapshot<N>['state']['_tag'];
 
@@ -11,8 +10,12 @@ type InState<N, T> = Extract<
   { readonly state: { readonly _tag: T } }
 >;
 
-/** What a draw function gets besides the Instance: a way to move things at every Frame. */
-type Drawing = { readonly useFrame: UseFrame };
+/**
+ * What a draw function gets besides the Instance: the Frame, the Time the
+ * app is drawn at. Turn it into motion with `useTransform`, or listen to it
+ * with `useMotionValueEvent`; reading it never renders.
+ */
+type Drawing = { readonly frame: MotionValue<number> };
 
 /** A Node without States is drawn by one function; a Node with States by one function per State. */
 type Draw<N> = [StateTag<N>] extends ['Single']
@@ -23,15 +26,19 @@ type Draw<N> = [StateTag<N>] extends ['Single']
       ) => ReactNode;
     };
 
-/** A View: a React component drawing one Instance of its Node. */
-export type ViewOf<N> = (props: { readonly node: Handle<N> }) => ReactNode;
+/** A View: a React component drawing one Instance of its Node at the app's Frame. */
+export type ViewOf<N> = (props: {
+  readonly node: Handle<N>;
+  readonly frame: MotionValue<number>;
+}) => ReactNode;
 
 type Props = Snapshot<AnyNode> & Drawing;
 
 /**
  * How one Node is drawn. The result re-renders only when its own Instance
- * changes, never because a parent View re-rendered: its only prop is the
- * Instance, which stays the same object for the Instance's whole life.
+ * changes, never because a parent View re-rendered: its props are the
+ * Instance, which stays the same object for the Instance's whole life, and
+ * the app's one Frame. A parent View hands its `frame` to its Children's.
  *
  * Each State is drawn by its own component, keyed by the State: a Transition
  * unmounts the old drawing and mounts the new one, so each State's draw can
@@ -53,14 +60,14 @@ const make = <N extends AnyNode>(node: N, draw: Draw<N>): ViewOf<N> => {
           ]),
         );
 
-  const View = memo<{ readonly node: Handle<N> }>(({ node: instance }) => {
+  const View = memo<Parameters<ViewOf<N>>[0]>(({ node: instance, frame }) => {
     const snapshot = useSyncExternalStore(
       instance.subscribe,
       instance.current,
     ) as Snapshot<AnyNode>;
     const tag = snapshot.state._tag;
     const State = states[tag]!;
-    return <State key={tag} {...snapshot} useFrame={useFrame} />;
+    return <State key={tag} {...snapshot} frame={frame} />;
   });
   View.displayName = `${node.name}View`;
   return View as ViewOf<N>;

@@ -21,6 +21,7 @@
     "effect": "catalog:",
     "effect-oak": "workspace:*",
     "lucide-react": "catalog:",
+    "motion": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:"
   },

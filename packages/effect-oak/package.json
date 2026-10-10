@@ -39,12 +39,14 @@
   },
   "peerDependencies": {
     "effect": "^4.0.0",
+    "motion": "13.2.0",
     "react": "19.2.8"
   },
   "devDependencies": {
     "@types/react": "catalog:",
     "effect": "catalog:",
     "laymos": "workspace:*",
+    "motion": "catalog:",
     "react": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",

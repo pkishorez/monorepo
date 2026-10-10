@@ -3,7 +3,7 @@ import { destroy, handle, plant } from '../tree/index.ts';
 import type { Handle, Instance, Sent } from '../tree/index.ts';
 
 /*
- * The tree as it was at any Time, rebuilt from the Messages alone: init and
+ * The tree as it was at any Step, rebuilt from the Messages alone: init and
  * Update run, nothing else does. No Services, no Lifetimes, no Commands, and
  * every send is dropped.
  *
@@ -11,14 +11,14 @@ import type { Handle, Instance, Sent } from '../tree/index.ts';
  *             as they are created, in the same order as they were live.
  * 2. Play     each Message with its Time: hand it to the Instance with its
  *             number. One that is gone drops it, as it did live.
- * 3. Seek     to a Time plays every Message sent by then. Forward plays only
- *             the new ones; back plants again.
+ * 3. Seek     to Step N plays Messages 1..N. Forward plays only the new
+ *             ones; back plants again.
  */
 
-/** A tree that can be moved to any Time of a list of Messages. */
+/** A tree that can be moved to any Step of a list of Messages. */
 export interface Replay<N> {
-  /** The root as it was at Time `at`: every Message sent by then handled. 0 is right after init. */
-  readonly seek: (at: number) => Handle<N>;
+  /** The root at Step `step`: 0 is right after init, N right after the Nth Message. */
+  readonly seek: (step: number) => Handle<N>;
 }
 
 const make = <N extends AnyNode>(
@@ -49,11 +49,10 @@ const make = <N extends AnyNode>(
   };
 
   // 3. Seek
-  const seek = (at: number): Handle<N> => {
+  const seek = (step: number): Handle<N> => {
     const messages = sent();
-    const past = played > 0 && messages[played - 1]!.at > at;
-    const tree = !root || past ? replant() : root;
-    for (; played < messages.length && messages[played]!.at <= at; played++) {
+    const tree = !root || step < played ? replant() : root;
+    for (; played < Math.min(step, messages.length); played++) {
       play(messages[played]!);
     }
     return tree as unknown as Handle<N>;
