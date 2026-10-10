@@ -6,10 +6,12 @@ import { Effect, Exit, Fiber, Layer, Scope } from 'effect';
 import { Runtime } from '../core/index.ts';
 import type {
   AnyActor,
+  Definition,
   Entry,
   Needs,
   Running,
   RuntimeState,
+  Snapshot,
 } from '../core/index.ts';
 import { makeDrawn } from './drawn.ts';
 import { DrawnContext, FrameContext } from './view.tsx';
@@ -35,10 +37,10 @@ export interface AppRuntime {
   readonly head: number | null;
   /** Whether the Runtime is running. */
   readonly running: boolean;
-  /** The entry the Views show, or `null` for live. */
-  readonly shown: number | null;
-  /** Show the app right after an entry, on any Branch, or live again with `null`. */
-  readonly show: (entry: number | null) => void;
+  /** The entry the Views show, `'init'` for right after init, or `null` for live. */
+  readonly shown: number | 'init' | null;
+  /** Show the app right after init or an entry, on any Branch, or live again with `null`. */
+  readonly show: (entry: number | 'init' | null) => void;
   /** Close every Command, Lifetime and Capability. The Snapshot and the Log stay, and the Frame stands still. */
   readonly stop: () => void;
   /**
@@ -46,8 +48,14 @@ export interface AppRuntime {
    * it; with no entry, resume from the Head.
    */
   readonly start: (from?: number | null) => void;
+  /** Forget the whole Log, every Branch, and go live from init. */
+  readonly clear: () => void;
   /** The entries that follow an entry (`null`: right after init), to draw the tree. */
   readonly children: (entry: number | null) => ReadonlyArray<Entry>;
+  /** The Snapshot right after an entry, on any Branch (`null`: right after init), to take the app apart. */
+  readonly snapshotAt: (entry: number | null) => Snapshot | undefined;
+  /** The root Actor's definition: every State and Child the app can have. */
+  readonly definition: Definition;
   /** The Time the Views are drawn at. */
   readonly frame: MotionValue<number>;
 }
@@ -102,7 +110,13 @@ export const toReact = <A extends AnyActor, Provided>(
   const sync = () => {
     if (!runtime) return;
     const { shown, running, entries } = runtime.state();
-    frame.set(shown === null ? runtime.now() : entries[shown]!.at);
+    frame.set(
+      shown === null
+        ? runtime.now()
+        : shown === 'init'
+          ? 0
+          : entries[shown]!.at,
+    );
     const wanted = shown === null && running;
     if (wanted && loop === undefined) loop = requestAnimationFrame(tick);
     if (!wanted && loop !== undefined) {
@@ -135,11 +149,13 @@ export const toReact = <A extends AnyActor, Provided>(
   const control = (effect: Effect.Effect<void> | undefined) => {
     if (effect) Effect.runFork(effect);
   };
-  const show = (entry: number | null) => control(runtime?.show(entry));
+  const show = (entry: number | 'init' | null) => control(runtime?.show(entry));
   const stop = () => control(runtime?.stop());
   const start = (from?: number | null) => control(runtime?.start(from));
+  const clear = () => control(runtime?.clear());
   const children = (entry: number | null) =>
     runtime?.children(entry) ?? NO_ENTRIES;
+  const snapshotAt = (entry: number | null) => runtime?.snapshotAt(entry);
 
   const App = () => {
     const ready = useSyncExternalStore(subscribe, () => runtime !== undefined);
@@ -165,7 +181,10 @@ export const toReact = <A extends AnyActor, Provided>(
         show,
         stop,
         start,
+        clear,
         children,
+        snapshotAt,
+        definition: actor.definition,
         frame,
       };
     },

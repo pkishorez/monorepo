@@ -1,7 +1,7 @@
 import { Clock, Context, Deferred, Effect, Exit, Fiber, Scope } from 'effect';
 import type { AnyActor, Tagged, Types } from '../actor/index.ts';
 import { handle, init } from '../snapshot/index.ts';
-import type { Envelope, Snapshot } from '../snapshot/index.ts';
+import type { Envelope, Snapshot, Source } from '../snapshot/index.ts';
 import { Log } from '../log/index.ts';
 import type { Entry, RuntimeState } from '../log/index.ts';
 import { Replay } from '../replay/index.ts';
@@ -28,7 +28,11 @@ import type { Works } from './work.ts';
  *              nothing can Send.
  * 4. Start     from any entry Replays the Branch to it and goes live there:
  *              new Messages grow a new Branch. With no entry, it resumes.
- * 5. Show      the Snapshot right after any entry, on any Branch, or live.
+ * 5. Show      the Snapshot right after init or any entry, on any Branch,
+ *              or live.
+ * 6. Read      the Snapshot right after any entry, played from the one before
+ *              it and remembered, for code that takes the app apart.
+ * 7. Clear     forgets every entry on every Branch and goes live from init.
  *
  * Stop, start and show are Effects; a new one interrupts the one still running.
  */
@@ -49,11 +53,14 @@ export interface Running<A> {
   readonly snapshot: () => Snapshot;
   /** What to draw: the live Snapshot, or the one right after the entry shown. */
   readonly drawn: () => Snapshot;
-  /** Hand a Message to an Instance. Dropped while stopped. */
+  /** Hand a Message to an Instance, from its View unless said otherwise. Dropped while stopped. */
   readonly send: (
     instance: string,
     message: Tagged & { readonly [field: string]: unknown },
+    source?: Source,
   ) => void;
+  /** The Snapshot right after an entry, on any Branch; `null` for right after init. */
+  readonly snapshotAt: (entry: number | null) => Snapshot;
   /** The Time now, in milliseconds. It stands still while stopped. */
   readonly now: () => number;
   /** The whole Log, as one value. */
@@ -64,8 +71,8 @@ export interface Running<A> {
   readonly log: () => ReadonlyArray<Entry>;
   /** The entries that follow an entry; `null` for right after init. */
   readonly children: (of: number | null) => ReadonlyArray<Entry>;
-  /** Show the Snapshot right after an entry, on any Branch, or live with `null`. */
-  readonly show: (entry: number | null) => Effect.Effect<void>;
+  /** Show the Snapshot right after init or an entry, on any Branch, or live with `null`. */
+  readonly show: (entry: number | 'init' | null) => Effect.Effect<void>;
   /** Close every Lifetime, Command and Capability. The Snapshot and the Log stay. */
   readonly stop: () => Effect.Effect<void>;
   /**
@@ -73,6 +80,8 @@ export interface Running<A> {
    * it; with no entry, resume from the Head. Stops first if running.
    */
   readonly start: (from?: number | null) => Effect.Effect<void>;
+  /** Forget the whole Log, every Branch, and go live from init. */
+  readonly clear: () => Effect.Effect<void>;
   /** The root Actor's type, for Views. */
   readonly actor?: A;
 }
@@ -96,8 +105,8 @@ const start = <A extends AnyActor>(
 
     const root = actor.definition;
     const { every = 100 } = options;
-    const log = Log.make(options.saved);
-    const replay = Replay.make(root, options.input, options);
+    let log = Log.make(options.saved);
+    let replay = Replay.make(root, options.input, options);
     const listeners = new Set<() => void>();
     const notify = () => {
       for (const listener of listeners) listener();
@@ -105,6 +114,7 @@ const start = <A extends AnyActor>(
 
     let snapshot: Snapshot = init(root, options.input);
     let drawn = snapshot;
+    const played = new Map<number | null, Snapshot>([[null, snapshot]]);
     let live: Scope.Closeable | undefined;
     let works: Works | undefined;
     let depth = 0;
@@ -181,10 +191,12 @@ const start = <A extends AnyActor>(
       });
 
     // 5. Show
-    const show = (entry: number | null) =>
+    const show = (entry: number | 'init' | null) =>
       Effect.gen(function* () {
         if (entry === null) {
           drawn = snapshot;
+        } else if (entry === 'init') {
+          drawn = yield* replay.seek([]);
         } else {
           if (!log.get().entries[entry])
             return yield* Effect.die(
@@ -195,6 +207,38 @@ const start = <A extends AnyActor>(
         log.set({ shown: entry });
         notify();
       });
+
+    // 6. Read
+    const snapshotAt = (entry: number | null) => {
+      const { entries } = log.get();
+      const path: Array<Entry> = [];
+      let at = entry;
+      while (!played.has(at)) {
+        const next: Entry = entries[at!]!;
+        path.push(next);
+        at = next.parent;
+      }
+      let found = played.get(at)!;
+      for (const next of path.reverse()) {
+        if (next.outcome === 'handled')
+          found = handle(root, found, next).snapshot;
+        played.set(next.id, found);
+      }
+      return found;
+    };
+
+    // 7. Clear
+    const clear = Effect.gen(function* () {
+      if (closed) return;
+      yield* halt;
+      log = Log.make();
+      replay = Replay.make(root, options.input, options);
+      const first = init(root, options.input);
+      played.clear();
+      played.set(null, first);
+      replay.save(null, first);
+      goLive(first, 0, null);
+    });
 
     /** A new stop, start or show interrupts the one still running. */
     let current: Fiber.Fiber<void> | undefined;
@@ -223,18 +267,21 @@ const start = <A extends AnyActor>(
     return {
       snapshot: () => snapshot,
       drawn: () => drawn,
-      send: mailbox.send,
+      send: (instance, message, source = { kind: 'view', instance }) =>
+        mailbox.send(instance, message, source),
+      snapshotAt,
       now: time.now,
-      state: log.get,
+      state: () => log.get(),
       subscribe: (listener) => {
         listeners.add(listener);
         return () => listeners.delete(listener);
       },
       log: () => log.branch(log.get().head),
-      children: log.children,
+      children: (of) => log.children(of),
       show: (entry) => latest(show(entry)),
       stop: () => latest(halt),
       start: (from) => latest(startFrom(from)),
+      clear: () => latest(clear),
     };
   });
 

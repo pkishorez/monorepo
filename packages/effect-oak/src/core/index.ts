@@ -4,6 +4,7 @@ export type {
   AnyActor,
   Data,
   Defined,
+  Definition,
   Many,
   Only,
   Self,
@@ -16,6 +17,7 @@ export type {
   Handled,
   Instance,
   Snapshot,
+  Source,
 } from './snapshot/index.ts';
 export type { Entry, RuntimeState } from './log/index.ts';
 export { Replay } from './replay/index.ts';
