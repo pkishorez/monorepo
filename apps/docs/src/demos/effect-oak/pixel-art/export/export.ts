@@ -1,23 +1,23 @@
 import { Context, Effect, Schema } from 'effect';
-import { Node } from 'effect-oak';
+import { Actor } from 'effect-oak';
 
 /*
- * The Export button as a Node: Idle, Exporting, or Failed with the error
- * shown in a dialog. Exporting reads the picture from the Printable Service
+ * The Export button as an Actor: Idle, Exporting, or Failed with the error
+ * shown in a dialog. Exporting reads the picture from the Printable Capability
  * in a Command, draws it on a canvas four times larger and downloads it.
  */
 
 /** The picture as it is now, ready to print: rows of colors. */
 export class Printable extends Context.Service<
   Printable,
-  { readonly colors: ReadonlyArray<ReadonlyArray<string>> }
+  { readonly colors: Effect.Effect<ReadonlyArray<ReadonlyArray<string>>> }
 >()('docs/pixel-art/Printable') {}
 
 const SIZE_PX = 512;
 const SCALE = 4;
 
 const exportPng = Effect.gen(function* () {
-  const { colors } = yield* Printable;
+  const colors = yield* (yield* Printable).colors;
   const size = colors.length;
   const cell = Math.max(1, Math.floor(SIZE_PX / size)) * SCALE;
   const canvas = document.createElement('canvas');
@@ -41,7 +41,7 @@ const exportPng = Effect.gen(function* () {
   return { _tag: 'SucceededExport' as const };
 });
 
-export const Export = Node.make('Export', {
+export const Export = Actor.make('Export', {
   requires: { printable: Printable },
   state: Schema.TaggedUnion({
     Idle: {},
@@ -60,7 +60,7 @@ export const Export = Node.make('Export', {
     Idle: {
       ClickedExport: () => ({
         state: { _tag: 'Exporting' },
-        commands: [exportPng],
+        command: exportPng,
       }),
     },
     Exporting: {

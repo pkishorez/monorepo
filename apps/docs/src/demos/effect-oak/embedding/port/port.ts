@@ -6,7 +6,7 @@ import { Context, Effect, Layer, Queue, Stream } from 'effect';
  *
  * The host's side is plain functions: set the flags before mounting, push a
  * step in, listen for counts coming out. The widget's side is the Host
- * Service in its Layer: a Lifetime reads the flags and hears the steps, a
+ * Capability in its Layer: a Lifetime reads the flags and hears the steps, a
  * Command reports each count.
  *
  * `toReact` takes its Layer once, when the app is made, so the wire has to

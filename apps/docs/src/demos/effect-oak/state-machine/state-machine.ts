@@ -1,9 +1,9 @@
-import { Context, Effect, Schema } from 'effect';
-import { Node } from 'effect-oak';
+import { Effect, Layer, Schema } from 'effect';
+import { Actor } from 'effect-oak';
 import { Discount, discountFor, PromoCode, Promos } from './promo/index.js';
 
 /*
- * A book checkout as one Node's States:
+ * A book checkout as one Actor's States:
  *
  *   Cart → (Shipping, for a hardcover) → Payment → Review → Placing → Confirmed
  *
@@ -48,7 +48,7 @@ const payment = (paymentSelected: boolean) => ({
   paymentSelected,
 });
 
-export const Checkout = Node.make('Checkout', {
+export const Checkout = Actor.make('Checkout', {
   model: Schema.Struct({ shipping: Schema.Boolean }),
   state: Schema.TaggedUnion({
     Cart: {},
@@ -80,9 +80,9 @@ export const Checkout = Node.make('Checkout', {
 }).build({
   init: () => ({ model: { shipping: true }, state: { _tag: 'Cart' } }),
   provides: {
-    Review: ({ send }) =>
-      Context.make(Promos, {
-        submit: (code) => send({ _tag: 'SubmittedPromo', code }),
+    Review: (self) =>
+      Layer.succeed(Promos, {
+        submit: (code) => self.send({ _tag: 'SubmittedPromo', code }),
       }),
   },
   update: {
@@ -143,7 +143,7 @@ export const Checkout = Node.make('Checkout', {
                     ? state.promo.discount
                     : null,
               },
-              commands: [placeOrder(model.shipping)],
+              command: placeOrder(model.shipping),
             },
       ClickedBack: (_, { state }) => ({
         state: payment(state.paymentSelected),

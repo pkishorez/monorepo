@@ -1,15 +1,11 @@
 import { createFileRoute } from '@tanstack/react-router';
+import { Layer } from 'effect';
 import { toReact } from 'effect-oak/react';
-import {
-  Uploads,
-  UploadsView,
-  UploaderLive,
-} from '@/demos/effect-oak/interrupting-commands';
+import { Uploads, UploadsView } from '@/demos/effect-oak/interrupting-commands';
 import { Shell } from '@/demos/effect-oak/shell';
 import { DemoMenu, demoHead } from '@/lib/demos';
 
-/** The Layer gives the app its Uploader, which can stop one upload by id. */
-const App = toReact(Uploads, UploadsView, UploaderLive);
+const App = toReact(Uploads, UploadsView, Layer.empty);
 
 export const Route = createFileRoute('/demos/effect-oak/interrupting-commands')(
   {

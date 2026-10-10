@@ -1,7 +1,7 @@
 # Managed resource layer
 
-Status: works, with the engine held by a Service, since a State cannot
-Provide a resource that an Effect builds.
+Status: works, with the engine held by a Capability, since a State could not
+Provide a resource that an Effect builds when it was written (now it can).
 
 ## What was ported
 
@@ -16,8 +16,8 @@ EnginePanel (root)            requires EngineHost (from the Layer)
   └─ calculator: Calculator   requires Engine; Model { computeCount, result }
                               ClickedCompute → Command: Engine.square → CompletedCompute | SkippedCompute
   Failed { reason }
-engine-host/   EngineHost Service: builds engineLayer in the Lifetime's scope and keeps the engine
-calculator/    Calculator Node and its View, and the Engine Service it requires
+engine-host/   EngineHost Capability: builds engineLayer in the Lifetime's scope and keeps the engine
+calculator/    Calculator Actor and its View, and the Engine Capability it requires
 ```
 
 Leaving On interrupts its Lifetime, which closes the scope the engine's
@@ -38,8 +38,10 @@ Layer was built in: its finalizer logs `Tore down engine-…`, as in Foldkit.
 
 ## Blockers
 
-- **A State cannot Provide a Service that an Effect builds.** `provides` is a
-  plain function of the Model and State, so the engine cannot be Provided by
+- **Resolved: a State cannot Provide a Capability that an Effect builds.**
+  `provides` is now a Layer per State, built once on entering it and torn
+  down on leaving it; the demo has not been moved onto it. Before: `provides` was a
+  plain function of the Model and State, so the engine could not be Provided by
   On directly. EngineHost keeps it instead, and On Provides an `Engine`
   whose `square` reads the host, failing with `NotRunning` when there is none
   (Foldkit's `ResourceNotAvailable`). An API could be a scoped `provides`:
@@ -49,7 +51,8 @@ Layer was built in: its finalizer logs `Tore down engine-…`, as in Foldkit.
 - **A Lifetime belongs to exactly one State**, so a resource that spans
   Booting and Ready forces them into one State with a flag. A Lifetime keyed
   by several States (`lifetime: { 'Booting | Ready': … }`), kept while moving
-  between them, would let them stay apart.
+  between them, would let them stay apart. (A `'*'` Lifetime now lasts the
+  whole Instance, but a set of States still cannot share one.)
 
 ## Testing
 

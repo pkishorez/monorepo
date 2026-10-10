@@ -1,10 +1,10 @@
 import { Context, Effect, Schema } from 'effect';
-import { Node } from 'effect-oak';
+import { Actor } from 'effect-oak';
 import { View } from 'effect-oak/react';
 import { Button } from '@kstackz/web-platform/components/button';
 
 /*
- * The chart's three radio groups as a Node: which chart, which package, which
+ * The chart's three radio groups as an Actor: which chart, which package, which
  * period. Every choice is reported up through the Choices Request; the app
  * keeps a copy to draw the chart with, since a parent cannot read its Child.
  */
@@ -25,10 +25,10 @@ export const FIRST_CHOICE: Choice = {
 /** Whoever takes the chart's choices: the app. */
 export class Choices extends Context.Service<
   Choices,
-  { readonly chose: (choice: Choice) => void }
+  { readonly chose: (choice: Choice) => Effect.Effect<void> }
 >()('docs/charting/Choices') {}
 
-export const Controls = Node.make('Controls', {
+export const Controls = Actor.make('Controls', {
   requires: { choices: Choices },
   model: Choice,
   message: Schema.TaggedUnion({ Chose: { choice: Choice } }),
@@ -37,11 +37,9 @@ export const Controls = Node.make('Controls', {
   update: {
     Chose: ({ choice }) => ({
       model: choice,
-      commands: [
-        Effect.gen(function* () {
-          (yield* Choices).chose(choice);
-        }),
-      ],
+      command: Effect.gen(function* () {
+        yield* (yield* Choices).chose(choice);
+      }),
     }),
   },
 });

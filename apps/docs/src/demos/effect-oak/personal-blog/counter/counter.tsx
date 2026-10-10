@@ -1,10 +1,10 @@
 import { Schema } from 'effect';
-import { Node } from 'effect-oak';
+import { Actor } from 'effect-oak';
 import { View } from 'effect-oak/react';
 
 /* The live island in a post: a count you step up and down. */
 
-export const Counter = Node.make('Counter', {
+export const Counter = Actor.make('Counter', {
   model: Schema.Struct({ count: Schema.Number }),
   message: Schema.TaggedUnion({ ClickedDecrement: {}, ClickedIncrement: {} }),
 }).build({

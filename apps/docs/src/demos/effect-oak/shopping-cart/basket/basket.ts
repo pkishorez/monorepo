@@ -1,8 +1,8 @@
-import { Context, Schema } from 'effect';
+import { Context, Effect, Schema } from 'effect';
 
 /*
  * The cart as data: its Schemas and what each change does to it. And Basket,
- * the Service the shop gives its pages so they can add to the cart, read it
+ * the Capability the shop gives its pages so they can add to the cart, read it
  * and empty it without knowing where it is kept.
  */
 
@@ -22,9 +22,9 @@ export type Cart = typeof Cart.Type;
 export class Basket extends Context.Service<
   Basket,
   {
-    readonly cart: Cart;
-    readonly add: (item: Item) => void;
-    readonly clear: () => void;
+    readonly cart: Effect.Effect<Cart>;
+    readonly add: (item: Item) => Effect.Effect<void>;
+    readonly clear: () => Effect.Effect<void>;
   }
 >()('docs/shopping-cart/Basket') {}
 

@@ -8,11 +8,11 @@ Foldkit's `canvas-art`: click the canvas to launch a ball of random size,
 color, speed and heading; balls bounce off the walls; Pause/Play and Clear.
 
 ```
-Box (one Node)                 Model { balls: [{ x, y, vx, vy, radius, color, launched }], nextId }
+Box (one Actor)                Model { balls: [{ x, y, vx, vy, radius, color, launched }], nextId }
   Running { before, since }    ClickedTogglePlay → Paused { clock }
   Paused { clock }             ClickedTogglePlay → Running
   either                       ClickedCanvas → Command (Random) → CompletedGenerateBall
-board/         the canvas, painted at each Frame from where each ball is; not a Node
+board/         the canvas, painted at each Frame from where each ball is; not an Actor
 ../frame-canvas/   a 2D canvas painted at every Frame, shared with generative-art
 ```
 
@@ -37,8 +37,8 @@ into the box (`bounce.ts`). The View works it out at each Frame (ADR 0005).
 
 ## Blockers
 
-None. One Node is the right size: the balls are data, and there is nothing
-else to own. (They could not be Child Nodes anyway: blocker 1.)
+None. One Actor is the right size: the balls are data, and there is nothing
+else to own. (Keyed Children, `Actor.many`, could hold them now, but they are data.)
 
 ## Testing
 
@@ -51,7 +51,7 @@ What Effect Oak would need:
 
 - Named Commands to check and resolve `GenerateBall` (roll-up blocker 4).
 - Nothing to step frames: motion is `ballAt(ball, clock)`, a plain function a
-  test can call at any clock reading. A typed `Node.step` (blocker 5) covers
+  test can call at any clock reading. A typed `Actor.step` (blocker 5) covers
   the rest.
 - Drawing the View at a given Time (blocker 5), to check what the canvas
   shows. A canvas has no DOM to query, so the test would read pixels or

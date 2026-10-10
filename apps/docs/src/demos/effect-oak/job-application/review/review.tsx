@@ -12,7 +12,7 @@ import type { Sheet, Step } from '../application/index.js';
 /*
  * The last step: everything answered, read from the application's Sheet,
  * and the Submit button. It has nothing of its own to keep, so it is a
- * drawing in the application's View, not a Node.
+ * drawing in the application's View, not an Actor.
  */
 
 type Submission = 'NotSubmitted' | 'Submitting' | 'Submitted';

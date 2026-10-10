@@ -1,5 +1,5 @@
-import { Context, Effect, Schema, Stream } from 'effect';
-import { Node } from 'effect-oak';
+import { Effect, Layer, Schema } from 'effect';
+import { Actor } from 'effect-oak';
 import { AuthServer } from './auth-server/index.js';
 import { LoggedInPages } from './logged-in/index.js';
 import { LoggedOutPages } from './logged-out/index.js';
@@ -34,7 +34,7 @@ const clear = Effect.gen(function* () {
   ),
 );
 
-export const Auth = Node.make('Auth', {
+export const Auth = Actor.make('Auth', {
   requires: { server: AuthServer },
   state: Schema.TaggedUnion({
     Checking: {},
@@ -58,24 +58,29 @@ export const Auth = Node.make('Auth', {
 }).build({
   init: () => ({ state: { _tag: 'Checking' } }),
   lifetime: {
-    Checking: () =>
-      Stream.fromEffect(
-        Effect.gen(function* () {
-          const session = yield* (yield* AuthServer).loadSession;
-          return { _tag: 'CheckedSession' as const, session };
-        }),
-      ),
+    Checking: (self) =>
+      Effect.gen(function* () {
+        const session = yield* (yield* AuthServer).loadSession;
+        yield* self.send({ _tag: 'CheckedSession', session });
+      }),
   },
   provides: {
-    LoggedOut: ({ send }) =>
-      Context.make(SignIn, {
-        complete: (session) => send({ _tag: 'SucceededLogin', session }),
+    LoggedOut: (self) =>
+      Layer.succeed(SignIn, {
+        complete: (session) => self.send({ _tag: 'SucceededLogin', session }),
       }),
-    LoggedIn: ({ state, send }) =>
-      Context.make(SignedIn, {
-        session: state.session,
-        logOut: () => send({ _tag: 'RequestedLogout' }),
-      }),
+    // The session only changes by leaving LoggedIn, so it can be read once.
+    LoggedIn: (self) =>
+      Layer.effect(
+        SignedIn,
+        Effect.gen(function* () {
+          const { state } = yield* self.get;
+          return {
+            session: state.session,
+            logOut: () => self.send({ _tag: 'RequestedLogout' }),
+          };
+        }),
+      ),
   },
   update: {
     Checking: {
@@ -86,13 +91,13 @@ export const Auth = Node.make('Auth', {
     LoggedOut: {
       SucceededLogin: ({ session }) => ({
         state: { _tag: 'LoggedIn', session },
-        commands: [save(session)],
+        command: save(session),
       }),
     },
     LoggedIn: {
       RequestedLogout: () => ({
         state: { _tag: 'LoggedOut' },
-        commands: [clear],
+        command: clear,
       }),
     },
     '*': {

@@ -14,7 +14,7 @@ Arcade (root)                  Model { highScore }; Provides Scores
                                Requires Scores
      NotStarted                PressedStart → Playing + tick
      Playing                   Ticked → step, + next tick (+ apple Command if eaten)
-                               PressedPause → Paused (replaceCommands: no tick)
+                               PressedPause → Paused (cancel: 'tick')
      Paused                    PressedPause → Playing + tick
      GameOver                  entered with a Command: Scores.finished(points) (a Request)
      any                       PressedRestart → NotStarted, fresh snake, apple Command
@@ -28,12 +28,12 @@ round/board.tsx  the grid; round/keys.ts the keys as Messages
   step, eats on a step and dies on a step, so there is no motion between
   Messages to draw at a Frame: the tick is the game. Each `Ticked` asks for the
   next one as `Effect.sleep(interval)` on Effect's Clock, shorter as the score
-  grows (150 ms down to 80). Pausing replaces it with nothing; resuming asks
-  again. Foldkit uses a Subscription that restarts when the interval changes;
+  grows (150 ms down to 80), under the key `tick`. Pausing cancels that key;
+  resuming asks again. Foldkit uses a Subscription that restarts when the interval changes;
   a Lifetime cannot do that (blocker below).
 - **Enter starts, P pauses**, not Space: the Shell uses Space for
   Live/Replay. Buttons do the same for touch.
-- The high score is kept by a parent `Arcade` Node that outlives the rounds,
+- The high score is kept by a parent `Arcade` Actor that outlives the rounds,
   told through the `Scores` Request. Foldkit keeps it in the one Model.
 - Keys are a View hook (`useKeys`), as in Road, not a Subscription. Keys are
   sent as typed Messages (`Turned { direction }`), not `PressedKey { key }`.
@@ -42,8 +42,8 @@ round/board.tsx  the grid; round/keys.ts the keys as Messages
 
 ## Blockers
 
-- **A Lifetime cannot follow the Model.** It starts once, with the Model as it
-  was on entering the State. Foldkit's Subscriptions restart when
+- **A Lifetime does not restart when the Model changes.** It starts once on
+  entering the State; it could watch `self.changes` itself. Foldkit's Subscriptions restart when
   `modelToDependencies` changes, so its clock speeds up with the score. Here
   each tick is a Command planning the next one, which works but puts the
   clock into Update. An API could key a Lifetime on a projection:
@@ -62,7 +62,7 @@ What Effect Oak would need:
 - Named Commands (roll-up blocker 4): to check that a step asked for the next
   tick with the right interval, and for an apple, and to resolve the apple
   with a chosen cell.
-- A typed `Node.step` (blocker 5). The domain (`round/body.ts`) is plain
+- A typed `Actor.step` (blocker 5). The domain (`round/body.ts`) is plain
   functions and could be tested today.
 - Testing a Request: that GameOver calls `Scores.finished(points)`, with a
   fake Scores. `Runtime.start` with a stub Layer can do this today.

@@ -10,7 +10,7 @@ import { makeQuery } from './query/index.js';
 /** Whoever opens posts: the app. */
 export class Reader extends Context.Service<
   Reader,
-  { readonly open: (postId: string) => void }
+  { readonly open: (postId: string) => Effect.Effect<void> }
 >()('docs/api-cache-query/Reader') {}
 
 export const PostsQuery = makeQuery({
@@ -23,7 +23,7 @@ export const PostsQuery = makeQuery({
     }),
   choose: (postId) =>
     Effect.gen(function* () {
-      (yield* Reader).open(postId);
+      yield* (yield* Reader).open(postId);
     }),
 });
 

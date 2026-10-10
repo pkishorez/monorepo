@@ -17,7 +17,7 @@ export const ApiCacheQueryView = View.make(
         <header className="flex flex-col gap-1">
           <h1 className="text-2xl font-semibold">API cache, with Queries</h1>
           <p className="text-muted-foreground">
-            Each fetch is a Query Node that keeps its own data. The app decides
+            Each fetch is a Query Actor that keeps its own data. The app decides
             when each one loads or refreshes.
           </p>
         </header>

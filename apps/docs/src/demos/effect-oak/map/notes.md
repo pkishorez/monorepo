@@ -1,7 +1,7 @@
 # Map
 
 Status: works. OpenStreetMap tiles as plain images instead of maplibre-gl;
-the camera is a Node's Model.
+the camera is an Actor's Model.
 
 ## What was ported
 
@@ -14,7 +14,7 @@ pan and zoom.
 WorldMap (root)        Model { camera, flight, selectedId, user }; Provides Flights (a Request)
                        Panned | Zoomed stop any flight; Landed is a Command sleeping the flight's length
 ├─ places: Places      Model { query, chosenId }; ClickedLocation → Flights.toPlace
-└─ finder: Finder      Idle | Locating | Failed { reason }; Geolocation Service → Flights.toUser
+└─ finder: Finder      Idle | Locating | Failed { reason }; Geolocation Capability → Flights.toUser
 world/     camera math (Web Mercator, the flight path), the places, Flights
 viewport/  tiles, markers and popup for the camera at each Frame; drag and wheel
 ```
@@ -34,8 +34,8 @@ A drag mid-flight starts from where the camera is at that Time.
 - **The list's highlight is its own.** Places remembers what it asked for;
   clicking a marker selects it on the map but not in the list (roll-up 13).
 - No body scroll lock or focus Command: the panel shows "Finding you…"
-  inline with Cancel, and Cancel stops the lookup by replacing the Finder's
-  Commands. No map bounds Message, nothing reads it.
+  inline with Cancel, and Cancel stops the lookup by cancelling the Finder's
+  `locate` Command. No map bounds Message, nothing reads it.
 - Tiles are OpenStreetMap's, with its attribution; there is no tile cache
   beyond the browser's.
 

@@ -13,7 +13,7 @@ import type { Rule } from './rules.js';
  * Foldkit's NotValidated. Whether it is valid is worked out from its Rules,
  * never stored, so there is nothing to keep in sync.
  *
- * Fields are data inside a step's Model, not Nodes: a step has too many to
+ * Fields are data inside a step's Model, not Actors: a step has too many to
  * make each a Child, and the entries that hold them are a list (blocker 1).
  */
 

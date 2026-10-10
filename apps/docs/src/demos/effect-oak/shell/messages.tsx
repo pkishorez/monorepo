@@ -199,7 +199,7 @@ const Row = ({
               {entry.message._tag}
             </span>
             <span className="truncate font-mono text-xs text-muted-foreground">
-              {entry.path}
+              {entry.instance}
             </span>
           </span>
           {transition && (

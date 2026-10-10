@@ -7,11 +7,11 @@ Status: works
 Foldkit's `counter`: a number with −, Reset and +.
 
 ```
-Counter          one Node, one State; Model { count }
+Counter          one Actor, one State; Model { count }
 ```
 
-Three Messages, each a plain Update. No Commands, Lifetimes or Services.
-It is one Node because the app is one piece.
+Three Messages, each a plain Update. No Commands, Lifetimes or Capabilities.
+It is one Actor because the app is one piece.
 
 ## Deviations
 
@@ -31,6 +31,6 @@ Foldkit tests it two ways:
 
 To test it the same way, Effect Oak would need:
 
-- A typed way to run one Update without the Runtime, like `Node.step(Counter, { model, state }, message, at)` returning `{ model, state, commands }`. Today `Counter.definition.update` can be reached, but it is untyped and keyed by State (`Single` here).
+- A typed way to run one Update without the Runtime, like `Actor.step(Counter, { model, state }, message, at)` returning `{ model, state, command }`. Today `Counter.definition.update` can be reached, but it is untyped and keyed by State (`Single` here).
 - A way to draw a View from a given Model and State, like `View.render(CounterView, { model, state })` or `Handle.of(Counter, snapshot)`, so React Testing Library can click it with `send` going through Update. Today a View takes a live Handle, which only `Runtime.start` or `Replay` make. The docs app also has no jsdom or Testing Library.
 - `Runtime.start(Counter)` with `TestClock` already works for an end-to-end test (see `packages/effect-oak/src/core/tests`).

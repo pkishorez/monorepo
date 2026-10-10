@@ -7,7 +7,7 @@ import { CrashPanel } from './crash-panel.js';
 /*
  * Effect Oak has no crash hook: an Update that throws throws out of `send`,
  * into whoever called it. So this View catches it and keeps the error in
- * React state, outside the Node and the Log. See ./notes.md.
+ * React state, outside the Actor and the Log. See ./notes.md.
  */
 export const CrashDemoView = View.make(CrashDemo, ({ send }) => {
   const [crash, setCrash] = useState<Error | null>(null);

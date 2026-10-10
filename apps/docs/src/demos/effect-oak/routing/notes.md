@@ -32,10 +32,10 @@ People (Child of People)  Model { input, history, results: Loading | Loaded }
   Lifetime: the URL's ?q= → HeardSearch → Command: lookup → FoundPeople
   SubmittedSearch, ClickedLink → Command: Location.push(…)
 
-../location/   Location Service (hash path, push, replace, back and forward),
+../location/   Location Capability (hash path, push, replace, back and forward),
                heardUrl, pushUrl, Link: shared by the four routing demos
 route/         the routes as a Schema, routeFrom(path), paths for links
-people/        the People Node, its data, and the Person page drawing
+people/        the People Actor, its data, and the Person page drawing
 files/         the file tree and its two pages, drawn from State
 pages.tsx      the frame (nav and an address bar), Home, Nested, NotFound
 ```
@@ -69,7 +69,7 @@ address bar take the same road. One navigation is two Messages
   - **init cannot take the URL.** The root starts in `Opening` and the first
     path arrives as a Message at Time 0; Replay at Time 0 draws nothing.
     Reading `window.location` in init would not be honest: Replay runs init
-    again, with whatever the address is by then. `Runtime.start(node, { url })`
+    again, with whatever the address is by then. `Runtime.start(actor, { url })`
     with `init({ url })`, the URL kept with the Log so Replay gets the same
     one, is the fix.
   - **The same Lifetime in every State.** A Lifetime belongs to one State, so
@@ -77,7 +77,7 @@ address bar take the same road. One navigation is two Messages
     must also be told the path it was entered with, or it would hear the
     current path again on entry and send a duplicate `ChangedUrl`.
   - **URL changes and link clicks are not Runtime Messages.** Each app writes
-    a Location Service, a Lifetime and a link component. A
+    a Location Capability, a Lifetime and a link component. A
     `routing: { onUrlChange, onUrlRequest }` option on `toReact`, sending
     Messages to the root, and `pushUrl`/`replaceUrl`/`back` Commands from the
     library, would replace all three.
@@ -111,7 +111,7 @@ What Effect Oak would need:
   and `searchOn`, including that every `paths.*` parses back to its route.
 - Named Commands (blocker 4) to see `ClickedLink` ask for a push of a given
   path, and `HeardSearch` for a lookup.
-- A typed `Node.step` (blocker 5) to run `ChangedUrl` from a State, and to
+- A typed `Actor.step` (blocker 5) to run `ChangedUrl` from a State, and to
   draw a route's View from a State for the scenes.
 - Emitting a Lifetime's Message by hand (blocker 6) for `ChangedUrl` and
   `HeardSearch`; today a stub Location Layer under `Runtime.start` can script

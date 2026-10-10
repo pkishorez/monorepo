@@ -3,13 +3,13 @@ import { Context, Effect, Layer, Queue, Stream } from 'effect';
 export { Link } from './link.js';
 
 /*
- * The demo's own address, as a Service: Effect Oak has no router, and the
+ * The demo's own address, as a Capability: Effect Oak has no router, and the
  * docs app's router owns the page's path. So each routing demo keeps its
  * route after the `#` (`/demos/effect-oak/routing#/people/3`), which the
  * docs router never reads.
  *
  * `push` adds a history entry, `replace` does not, and the back and forward
- * buttons are heard. A Node hears the address with a Lifetime made by
+ * buttons are heard. An Actor hears the address with a Lifetime made by
  * `heardUrl`, and asks to move with a Command calling `push`.
  */
 
@@ -84,11 +84,11 @@ export const HashLocation = Layer.effect(
 
 /**
  * A Lifetime's Stream of `ChangedUrl` Messages. With `seen`, the path the
- * Node already shows, it sends each later path that differs from the last
+ * Actor already shows, it sends each later path that differs from the last
  * one sent; with `null` it starts with the path now.
  *
  * A Lifetime starts once, with the Model it entered its State with, so the
- * Node passes the path it was entered with and the Stream remembers the rest.
+ * Actor passes the path it was entered with and the Stream remembers the rest.
  */
 export const heardUrl = (seen: string | null) =>
   Stream.unwrap(

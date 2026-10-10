@@ -1,5 +1,5 @@
 import { Context, Effect, Layer, Schema } from 'effect';
-import { Node } from 'effect-oak';
+import { Actor } from 'effect-oak';
 import { View } from 'effect-oak/react';
 import { LocateFixed } from 'lucide-react';
 import {
@@ -12,9 +12,9 @@ import { Flights } from '../world/index.js';
 
 /*
  * "Find me": Idle → Locating → Idle, or Failed with the reason. Locating asks
- * the browser where the user is through the Geolocation Service; on success
+ * the browser where the user is through the Geolocation Capability; on success
  * it asks the map to fly there through Flights. Dismissing while Locating
- * stops the lookup by replacing the Node's Commands with none.
+ * stops the lookup by cancelling its keyed Command.
  */
 
 const TIMEOUT_MS = 10_000;
@@ -55,10 +55,10 @@ const locate = Effect.gen(function* () {
 
 const flyHome = (lng: number, lat: number) =>
   Effect.gen(function* () {
-    (yield* Flights).toUser({ lng, lat });
+    yield* (yield* Flights).toUser({ lng, lat });
   });
 
-export const Finder = Node.make('Finder', {
+export const Finder = Actor.make('Finder', {
   requires: { flights: Flights, geolocation: Geolocation },
   state: Schema.TaggedUnion({
     Idle: {},
@@ -77,17 +77,17 @@ export const Finder = Node.make('Finder', {
     Idle: {
       ClickedFindMe: () => ({
         state: { _tag: 'Locating' },
-        commands: [locate],
+        command: { key: 'locate', run: locate },
       }),
     },
     Locating: {
       DismissedGeolocate: () => ({
         state: { _tag: 'Idle' },
-        replaceCommands: true,
+        cancel: 'locate',
       }),
       SucceededGeolocate: ({ lng, lat }) => ({
         state: { _tag: 'Idle' },
-        commands: [flyHome(lng, lat)],
+        command: flyHome(lng, lat),
       }),
       FailedGeolocate: ({ reason }) => ({
         state: { _tag: 'Failed', reason },
@@ -96,7 +96,7 @@ export const Finder = Node.make('Finder', {
     Failed: {
       ClickedFindMe: () => ({
         state: { _tag: 'Locating' },
-        commands: [locate],
+        command: { key: 'locate', run: locate },
       }),
       DismissedGeolocate: () => ({ state: { _tag: 'Idle' } }),
     },

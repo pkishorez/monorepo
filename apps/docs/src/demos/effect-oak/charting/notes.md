@@ -11,9 +11,10 @@ clicked.
 
 ```
 Charting (root)        Model { telemetry as AsyncData, choice, selectedDatumId }
-                       Provides Choices (a Request); fetch → Command asking Telemetry
+                       Provides Choices (a Request); first fetch in the Lifetime,
+                       refetch → Command asking Telemetry
 └─ controls: Controls  Model { mode, packageId, period }; every choice → Choices.chose
-telemetry/  Telemetry Service and its Layer over npm and GitHub; weeks
+telemetry/  Telemetry Capability and its Layer over npm and GitHub; weeks
 chart/      the chart for a choice: a line or bars per week, a dependency graph
 ```
 
@@ -60,4 +61,4 @@ What Effect Oak would need:
 - Nothing for the chart: it has no Mount or sync Command. Drawing a View from
   a given Model (roll-up 5) would test it like a scene.
 - `telemetry/weeks.ts` and the chart's series are plain functions and can be
-  tested today; the Telemetry Service can be stubbed in a Layer.
+  tested today; the Telemetry Capability can be stubbed in a Layer.

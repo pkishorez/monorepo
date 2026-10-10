@@ -3,8 +3,8 @@ import { X } from 'lucide-react';
 import { cn } from '@kstackz/web-platform/components/utils';
 
 /*
- * Toasts are data in the showcase's Model, not Nodes: they are a list that
- * grows and shrinks, and a Node cannot have one Child per row (blocker 1).
+ * Toasts are data in the showcase's Model, not Actors: they are a list that
+ * grows and shrinks, and an Actor cannot have one Child per row (blocker 1).
  * Foldkit's Toast is the same, a list inside one Submodel.
  *
  * Each toast that is not sticky expires after a Command's wait in the app's

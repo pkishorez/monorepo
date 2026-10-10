@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
-import type { Snapshot } from 'effect-oak';
 import { View } from 'effect-oak/react';
+import type { ViewProps } from 'effect-oak/react';
 import { Button } from '@kstackz/web-platform/components/button';
 import { Kbd } from '@kstackz/web-platform/components/kbd';
 import { Board } from './board.js';
@@ -18,8 +18,8 @@ const Field = ({
   status,
   action,
 }: {
-  readonly model: Snapshot<typeof Round>['model'];
-  readonly send: Snapshot<typeof Round>['send'];
+  readonly model: ViewProps<typeof Round>['model'];
+  readonly send: ViewProps<typeof Round>['send'];
   readonly status: ReactNode;
   readonly action: ReactNode;
 }) => {

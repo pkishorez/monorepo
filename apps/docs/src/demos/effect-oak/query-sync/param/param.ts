@@ -1,15 +1,15 @@
 import { Effect, Schema, Stream } from 'effect';
-import { Node } from 'effect-oak';
+import { Actor } from 'effect-oak';
 import { Url } from '../url/index.js';
 
 /*
- * One query parameter as a Node: the control that edits it (a search box, a
+ * One query parameter as an Actor: the control that edits it (a search box, a
  * filter) keeps a mirror of it in its Model. Its Lifetime listens to the URL,
  * so the value arrives from the address bar at start and after every change;
  * an edit is written to the URL by a Command and comes back the same way.
  *
  * The URL is the one source of truth, as in Foldkit. The mirror exists
- * because the app's Model cannot be read by its Children: each Node that
+ * because the app's Model cannot be read by its Children: each Actor that
  * draws a parameter listens to the URL itself.
  */
 
@@ -24,7 +24,7 @@ export const makeParam = (options: {
       yield* (yield* Url).replace({ [options.name]: value });
     });
 
-  return Node.make(`Param(${options.name})`, {
+  return Actor.make(`Param(${options.name})`, {
     requires: { url: Url },
     model: Schema.Struct({ value: Schema.String }),
     message: Schema.TaggedUnion({
@@ -33,7 +33,7 @@ export const makeParam = (options: {
     }),
   }).build({
     init: () => ({ model: { value: '' } }),
-    lifetime: () =>
+    lifetime: (self) =>
       Stream.unwrap(
         Effect.gen(function* () {
           return (yield* Url).query;
@@ -43,11 +43,11 @@ export const makeParam = (options: {
           parse(new URLSearchParams(query).get(options.name) ?? ''),
         ),
         Stream.changes,
-        Stream.map((value) => ({ _tag: 'HeardUrl' as const, value })),
+        Stream.runForEach((value) => self.send({ _tag: 'HeardUrl', value })),
       ),
     update: {
       HeardUrl: ({ value }) => ({ model: { value } }),
-      Edited: ({ value }) => ({ model: { value }, commands: [write(value)] }),
+      Edited: ({ value }) => ({ model: { value }, command: write(value) }),
     },
   });
 };

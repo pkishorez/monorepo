@@ -1,5 +1,5 @@
 import { Schema } from 'effect';
-import { Node } from 'effect-oak';
+import { Actor } from 'effect-oak';
 import { Answers, heardReveal, report, Reveals } from '../application/index.js';
 import {
   blank,
@@ -47,22 +47,20 @@ type Model = typeof Model.Type;
 
 const changed = (model: Model) => ({
   model,
-  commands: [
-    report({
-      _tag: 'Skills',
-      hasErrors: model.entries.some(
-        (entry) => errorOf(NAME_RULES, entry.name) !== null,
-      ),
-      complete:
-        model.entries.length > 0 &&
-        model.entries.every((entry) => passes(NAME_RULES, entry.name)),
-      entries: model.entries.map((entry) => ({
-        id: entry.id,
-        name: entry.name.value,
-        proficiency: entry.proficiency,
-      })),
-    }),
-  ],
+  command: report({
+    _tag: 'Skills',
+    hasErrors: model.entries.some(
+      (entry) => errorOf(NAME_RULES, entry.name) !== null,
+    ),
+    complete:
+      model.entries.length > 0 &&
+      model.entries.every((entry) => passes(NAME_RULES, entry.name)),
+    entries: model.entries.map((entry) => ({
+      id: entry.id,
+      name: entry.name.value,
+      proficiency: entry.proficiency,
+    })),
+  }),
 });
 
 const edit = (model: Model, id: number, change: (entry: Skill) => Skill) =>
@@ -73,7 +71,7 @@ const edit = (model: Model, id: number, change: (entry: Skill) => Skill) =>
     ),
   });
 
-export const Skills = Node.make('Skills', {
+export const Skills = Actor.make('Skills', {
   requires: { answers: Answers, reveals: Reveals },
   model: Model,
   message: Schema.TaggedUnion({
@@ -85,7 +83,7 @@ export const Skills = Node.make('Skills', {
   }),
 }).build({
   init: () => ({ model: { entries: [blankSkill(0)], nextId: 1 } }),
-  lifetime: () => heardReveal,
+  lifetime: heardReveal,
   update: {
     ClickedAdd: (_, { model }) =>
       changed({

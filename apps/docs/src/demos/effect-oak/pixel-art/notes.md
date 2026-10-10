@@ -1,6 +1,6 @@
 # Pixel art
 
-Status: partial. Tools and Export are Child Nodes; the grid-size picker and its
+Status: partial. Tools and Export are Child Actors; the grid-size picker and its
 confirmation could not be one (blocker below).
 
 ## What was ported
@@ -15,14 +15,14 @@ picture saved to localStorage.
 PixelArt (root)                requires PictureStore (from the Layer)
   Loading                      Lifetime: PictureStore.load → Loaded { saved }
   Ready { grid, size, undo, redo, theme, color, tool, mirror, drawing, hovered, pendingSize }
-                               Provides Brush (a Request) and Printable (the picture as colors)
+                               Provides Brush (a Request) and Printable (reads the picture as colors)
                                finished changes → Command: PictureStore.save → SucceededSave | FailedSave
   ├─ tools: Tools              Model { tool, mirror }; every change → Command: Brush.changed (a Request)
   └─ export: Export            Idle → Exporting → Idle | Failed { error }
                                ClickedExport → Command reads Printable, draws a PNG, downloads it
-easel/   the grid, swatches, history thumbnails, the resize dialog, keys; not Nodes
+easel/   the grid, swatches, history thumbnails, the resize dialog, keys; not Actors
 grid.ts  the picture as data: paint, fill, mirror, history
-store.ts PictureStore Service and its localStorage Layer
+store.ts PictureStore Capability and its localStorage Layer
 ```
 
 ## Deviations
@@ -33,13 +33,14 @@ store.ts PictureStore Service and its localStorage Layer
   saved, as in Foldkit) and tells the editor through the `Brush` Request; the
   editor keeps a copy to paint with. One change is two Messages.
 - **Export is a Child** with its own States and error dialog. It reads the
-  picture from the `Printable` Service in its Command, so the editor does not
-  hand it the grid.
+  picture from the `Printable` Capability in its Command, so the editor does not
+  hand it the grid. `colors` is an Effect over the editor's current State,
+  since the Capability is built once on entering Ready.
 - The grid-size picker, the resize confirmation, the palette and the history
   are drawn by the editor's View, from its State.
 - `@foldkit/ui` Dialog, Listbox and RadioGroup are web-platform AlertDialog,
   NativeSelect and Buttons with radio roles. `KeyValueStore` is a small
-  `PictureStore` Service, as in todo.
+  `PictureStore` Capability, as in todo.
 - Keys and the pointer release are View hooks, not Subscriptions.
 - A stroke ends on `pointerup` anywhere; hover is a Message per cell entered
   (Foldkit does the same), used to outline the cells a stroke would paint.
@@ -47,7 +48,7 @@ store.ts PictureStore Service and its localStorage Layer
 ## Blockers
 
 - **A parent cannot pass data to a Child.** A Child's Update and View see only
-  its own Model; Services reach only its Commands and Lifetimes. A `Resize`
+  its own Model; Capabilities reach only its Commands and Lifetimes. A `Resize`
   Child (the size picker and its confirmation) needs the current size to
   draw the picker and whether the picture is empty to decide whether to ask.
   It could only read them in a Command and send itself a copy, so resizing
@@ -71,7 +72,7 @@ What Effect Oak would need:
 
 - Named Commands (roll-up blocker 4) for `save` and the export, and to check
   that a stroke saves once, on release.
-- A typed `Node.step` (blocker 5). `grid.ts` is plain functions and can be
+- A typed `Actor.step` (blocker 5). `grid.ts` is plain functions and can be
   tested today.
 - Testing the Requests: Tools with a fake `Brush`, Export with a fake
   `Printable`. `Runtime.start` with a stub Layer can do both today.

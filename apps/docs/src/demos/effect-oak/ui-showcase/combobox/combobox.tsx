@@ -1,5 +1,5 @@
 import { Schema } from 'effect';
-import { Node } from 'effect-oak';
+import { Actor } from 'effect-oak';
 import { View } from 'effect-oak/react';
 import { Check } from 'lucide-react';
 import { Input } from '@kstackz/web-platform/components/input';
@@ -8,7 +8,7 @@ import { stepActive } from '../focus/index.js';
 import { Picks, reportPick } from '../picks/index.js';
 
 /*
- * A combobox as a Node: what is typed, the options it matches, the active
+ * A combobox as an Actor: what is typed, the options it matches, the active
  * one, and the selected value.
  *
  * Focus never leaves the input, so unlike the menu and listbox it needs no
@@ -39,7 +39,7 @@ const make = (config: Options) => {
       option.toLowerCase().includes(query.trim().toLowerCase()),
     );
 
-  const Combobox = Node.make(`Combobox(${config.id})`, {
+  const Combobox = Actor.make(`Combobox(${config.id})`, {
     requires: { picks: Picks },
     model: Schema.Struct({
       open: Schema.Boolean,
@@ -103,7 +103,7 @@ const make = (config: Options) => {
   function choose(model: Model, option: string) {
     return {
       model: { open: false, active: null, query: option, selected: option },
-      commands: [reportPick(config.id, option)],
+      command: reportPick(config.id, option),
     };
   }
 

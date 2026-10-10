@@ -1,5 +1,5 @@
 import { Schema } from 'effect';
-import { Node } from 'effect-oak';
+import { Actor } from 'effect-oak';
 import { burnCpu, PATCH_ROW_COUNT, UPDATE_WORK_MS } from './burn.js';
 import { SlowWarningReport } from './phases.js';
 
@@ -17,7 +17,7 @@ const MAX_WARNING_COUNT = 8;
 
 const Workload = Schema.Literals(['Idle', 'Update', 'View', 'Patch']);
 
-export const SlowLab = Node.make('SlowLab', {
+export const SlowLab = Actor.make('SlowLab', {
   model: Schema.Struct({
     activeWorkload: Workload,
     /** Counts every run, so the View knows a new one has started. */

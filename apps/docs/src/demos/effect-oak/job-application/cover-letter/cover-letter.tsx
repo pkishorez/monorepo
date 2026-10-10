@@ -1,5 +1,5 @@
 import { Schema } from 'effect';
-import { Node } from 'effect-oak';
+import { Actor } from 'effect-oak';
 import { View } from 'effect-oak/react';
 import { Answers, report } from '../application/index.js';
 import { TextArea } from '../fields/index.js';
@@ -13,7 +13,7 @@ import { TextArea } from '../fields/index.js';
 const MAX_LENGTH = 2000;
 const WARNING_CHARS = 200;
 
-export const CoverLetter = Node.make('CoverLetter', {
+export const CoverLetter = Actor.make('CoverLetter', {
   requires: { answers: Answers },
   model: Schema.Struct({ content: Schema.String }),
   message: Schema.TaggedUnion({ Edited: { content: Schema.String } }),
@@ -22,14 +22,12 @@ export const CoverLetter = Node.make('CoverLetter', {
   update: {
     Edited: ({ content }) => ({
       model: { content },
-      commands: [
-        report({
-          _tag: 'CoverLetter',
-          hasErrors: false,
-          complete: true,
-          content,
-        }),
-      ],
+      command: report({
+        _tag: 'CoverLetter',
+        hasErrors: false,
+        complete: true,
+        content,
+      }),
     }),
   },
 });

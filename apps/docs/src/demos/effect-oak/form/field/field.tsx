@@ -1,5 +1,5 @@
 import { Context, Effect, Schema } from 'effect';
-import { Node } from 'effect-oak';
+import { Actor } from 'effect-oak';
 import { View } from 'effect-oak/react';
 import { Input } from '@kstackz/web-platform/components/input';
 import { Label } from '@kstackz/web-platform/components/label';
@@ -8,16 +8,16 @@ import { firstError } from './rules.js';
 import type { Rule } from './rules.js';
 
 /*
- * One form field as a Node: its value, and whether it is NotValidated,
+ * One form field as an Actor: its value, and whether it is NotValidated,
  * Validating, Valid or Invalid.
  *
  * Typing runs the field's Rules at once. If they pass and the field has an
- * async check, it goes to Validating and runs the check as a Command that
- * replaces any check still running, so only the latest value's answer comes
+ * async check, it goes to Validating and runs the check as a Command under
+ * the `check` key, which replaces any check still running, so only the latest value's answer comes
  * back. Every change is reported to whoever Provides Fields: a Request, so
  * the form gets each field's value and validity without reading its Children.
  *
- * The status is Model data, not the Node's States: a View draws each State
+ * The status is Model data, not the Actor's States: a View draws each State
  * with its own component, so every Transition would remount the input and
  * take the focus away while typing.
  */
@@ -29,7 +29,7 @@ export class Fields extends Context.Service<
     readonly report: (
       key: string,
       field: { readonly value: string; readonly valid: boolean },
-    ) => void;
+    ) => Effect.Effect<void>;
   }
 >()('docs/form/Fields') {}
 
@@ -49,10 +49,10 @@ export { rules } from './rules.js';
 export const makeField = (options: Options) => {
   const report = (value: string, valid: boolean) =>
     Effect.gen(function* () {
-      (yield* Fields).report(options.key, { value, valid });
+      yield* (yield* Fields).report(options.key, { value, valid });
     });
 
-  const Field = Node.make(`Field(${options.key})`, {
+  const Field = Actor.make(`Field(${options.key})`, {
     requires: { fields: Fields },
     model: Schema.Struct({
       value: Schema.String,
@@ -79,25 +79,24 @@ export const makeField = (options: Options) => {
         if (error !== null)
           return {
             model: { value, status: { _tag: 'Invalid', error } },
-            commands: [report(value, false)],
-            replaceCommands: true,
+            command: report(value, false),
+            cancel: 'check',
           };
         if (!check)
           return {
             model: { value, status: { _tag: 'Valid' } },
-            commands: [report(value, true)],
+            command: report(value, true),
           };
         return {
           model: { value, status: { _tag: 'Validating' } },
-          commands: [
-            report(value, false),
-            Effect.map(check(value), (error) => ({
-              _tag: 'CompletedCheck' as const,
-              value,
-              error,
-            })),
-          ],
-          replaceCommands: true,
+          command: {
+            key: 'check',
+            run: Effect.gen(function* () {
+              yield* report(value, false);
+              const error = yield* check(value);
+              return { _tag: 'CompletedCheck' as const, value, error };
+            }),
+          },
         };
       },
       CompletedCheck: ({ value, error }, { model }) =>
@@ -111,7 +110,7 @@ export const makeField = (options: Options) => {
                     ? { _tag: 'Valid' }
                     : { _tag: 'Invalid', error },
               },
-              commands: [report(value, error === null)],
+              command: report(value, error === null),
             },
     },
   });

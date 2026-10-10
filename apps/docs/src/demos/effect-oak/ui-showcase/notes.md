@@ -1,6 +1,6 @@
 # UI showcase
 
-Status: partial. Nine kinds of component, each a reusable Node factory with
+Status: partial. Nine kinds of component, each a reusable Actor factory with
 its own View, all working with mouse and keyboard, and Time Travel replays
 every one. Partial because every component is uncontrolled: a parent can
 hear what was picked but cannot open, set or clear a component (blockers 13
@@ -14,8 +14,8 @@ component, about 60 component instances, each a Submodel nested in one big
 instance.
 
 The question for this batch: what does a stateful UI component look like
-as an Effect Oak Node? The answer here is a **factory**: `makeMenu(options)`
-returns `{ Menu, MenuView }`, one Node and its View. The options fix
+as an Effect Oak Actor? The answer here is a **factory**: `makeMenu(options)`
+returns `{ Menu, MenuView }`, one Actor and its View. The options fix
 everything a parent would pass as props elsewhere (ids, labels, options,
 panels), because a parent cannot hand a Child anything at run time.
 
@@ -77,13 +77,13 @@ Skipped:
   kanban and job-application.
 - **Animation:** enter and leave phases; the Disclosure animates with CSS.
 - **VirtualList:** scroll position and measured row heights are DOM state
-  outside the Nodes, nothing about Nodes to learn.
+  outside the Actors, nothing about Actors to learn.
 - **Routing:** pages are Model data, not URLs (blocker 15 has the details).
 
 ## How reusable components fit
 
-- **A component is a factory, not a Node.** Options are fixed when the
-  factory runs, so each use is its own Node definition, named
+- **A component is a factory, not an Actor.** Options are fixed when the
+  factory runs, so each use is its own Actor definition, named
   `Menu(menu)`. That is fine for a showcase, and it is how form and kanban
   already did it, but it means nothing can change a component's options at
   run time: the Tabs' panels, the listbox's options and the dialog's text
@@ -130,8 +130,9 @@ Skipped:
   panel traps Tab itself. A React portal would work in a View (Views are
   React), but would draw over the Shell during Replay too.
 - **Timers belong to the component.** The Tooltip's hover delay and the
-  Menu's typeahead reset are Commands replaced by the next Message
-  (`replaceCommands`), so they are interrupted with the component.
+  Menu's typeahead reset are keyed Commands (`command: { key, run }`): the
+  next one under the same key replaces it, and the tooltip's `Left` cancels
+  it (`cancel: 'wait'`). They belong to the Instance, so they stop with it.
 
 ## Deviations
 
@@ -150,16 +151,16 @@ Skipped:
 
 ## Blockers
 
-- **21 (new): a Node factory cannot be generic over a Child.** The first
-  `makeDialog(options, inner?)` took the nested dialog's Node as a type
-  parameter. It does not compile: the `Node` type is not exported, so the
-  inner Node cannot be constrained to "needs only Picks", and `make`'s
+- **21 (new): an Actor factory cannot be generic over a Child.** The first
+  `makeDialog(options, inner?)` took the nested dialog's Actor as a type
+  parameter. It does not compile: the `Actor` type is not exported, so the
+  inner Actor cannot be constrained to "needs only Picks", and `make`'s
   check that a Child fits (`Fits`) cannot be proven for a type parameter.
   The fix here is a second factory, `makeNestedDialog`, which makes its
   inner dialog itself, so every type is concrete. A reusable container
-  (a dialog with any body, a tab panel holding any Node) needs an exported
-  `Node.Needing<Picks>` type (a Node whose Requires are covered by these
-  Services) that `children` accepts without re-checking.
+  (a dialog with any body, a tab panel holding any Actor) needs an exported
+  `Actor.Needing<Picks>` type (an Actor whose Requires are covered by these
+  Capabilities) that `children` accepts without re-checking.
 - **14, no parent → Child Messages.** No component can be opened, set or
   cleared from outside, so each draws its own trigger.
 - **13, no data from parent to Child.** Options, panels and labels are fixed
@@ -170,8 +171,9 @@ Skipped:
   factory option.
 - **10, Children belong to one State.** Pages are Model data, so components
   keep their choices across pages.
-- **1, no list of Children.** Toasts are data in the root.
-- **7, no way to stop one Command.** A dismissed toast's expiry still runs.
+- **1, no list of Children.** (now possible with `Actor.many` and `invoke`; this demo still keeps the list as data) Toasts are data in the root.
+- **7, no way to stop one Command.** Keyed Commands can now be cancelled,
+  but a dismissed toast's expiry is still left to run and be ignored.
 
 ## Testing
 
@@ -218,7 +220,7 @@ What Effect Oak would need to test the same:
 - **Nesting fits, but less than it could.** The nested dialog is a Child of
   the outer one, Requires nothing new, and Escape stops at the inner panel.
   But since open is Model data (blocker 11), the inner dialog lives as long
-  as the outer Node, not as long as the outer dialog is open. With an
+  as the outer Actor, not as long as the outer dialog is open. With an
   `Open` State holding the inner dialog as its Child, closing the outer one
   would destroy the inner one for free; here the inner overlay covering
   the outer one is what keeps them in step.

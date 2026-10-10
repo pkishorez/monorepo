@@ -1,5 +1,5 @@
-import { Effect, Schema, Stream } from 'effect';
-import { Node } from 'effect-oak';
+import { Effect, Schema } from 'effect';
+import { Actor } from 'effect-oak';
 import { View } from 'effect-oak/react';
 import { Link, Location, pushUrl } from '../../location/index.js';
 import { PAINTINGS, paintingPath } from './paintings.js';
@@ -21,7 +21,7 @@ import { PAINTINGS, paintingPath } from './paintings.js';
 
 const CATALOG_MS = 600;
 
-export const Catalog = Node.make('Catalog', {
+export const Catalog = Actor.make('Catalog', {
   requires: { location: Location },
   state: Schema.TaggedUnion({ Loading: {}, Ready: {} }),
   message: Schema.TaggedUnion({
@@ -31,17 +31,15 @@ export const Catalog = Node.make('Catalog', {
 }).build({
   init: () => ({ state: { _tag: 'Loading' } }),
   lifetime: {
-    Loading: () =>
-      Stream.fromEffect(
-        Effect.sleep(CATALOG_MS).pipe(
-          Effect.as({ _tag: 'LoadedCatalog' as const }),
-        ),
+    Loading: (self) =>
+      Effect.sleep(CATALOG_MS).pipe(
+        Effect.andThen(self.send({ _tag: 'LoadedCatalog' })),
       ),
   },
   update: {
     Loading: { LoadedCatalog: () => ({ state: { _tag: 'Ready' } }) },
     Ready: {
-      ClickedLink: ({ path }) => ({ commands: [pushUrl(path)] }),
+      ClickedLink: ({ path }) => ({ command: pushUrl(path) }),
     },
   },
 });

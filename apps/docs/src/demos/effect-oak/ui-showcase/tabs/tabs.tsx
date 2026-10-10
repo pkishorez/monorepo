@@ -1,5 +1,5 @@
-import { Schema } from 'effect';
-import { Node } from 'effect-oak';
+import { Effect, Schema } from 'effect';
+import { Actor } from 'effect-oak';
 import { View } from 'effect-oak/react';
 import type { ReactNode } from 'react';
 import { cn } from '@kstackz/web-platform/components/utils';
@@ -7,12 +7,12 @@ import { focusId, stepActive } from '../focus/index.js';
 import { Picks, reportPick } from '../picks/index.js';
 
 /*
- * Tabs as a Node: which tab is selected. Only that tab is in the Tab order
+ * Tabs as an Actor: which tab is selected. Only that tab is in the Tab order
  * (a roving tabindex). Arrow keys along the tabs, Home and End select the
  * next tab and move focus to it with a Command; a click selects without
  * one, since the click already focused it. Each selection is reported up.
  *
- * The panels are the factory's, fixed when the Node is made: a parent
+ * The panels are the factory's, fixed when the Actor is made: a parent
  * cannot hand a Child anything to draw (blocker 13).
  */
 
@@ -39,10 +39,10 @@ const make = (options: Options) => {
 
   const select = (index: number) => ({
     model: { selected: index },
-    commands: [reportPick(options.id, tabs[index]!.name)],
+    command: reportPick(options.id, tabs[index]!.name),
   });
 
-  const Tabs = Node.make(`Tabs(${options.id})`, {
+  const Tabs = Actor.make(`Tabs(${options.id})`, {
     requires: { picks: Picks },
     model: Schema.Struct({ selected: Schema.Number }),
     message: Schema.TaggedUnion({
@@ -60,7 +60,10 @@ const make = (options: Options) => {
         const next = select(index);
         return {
           ...next,
-          commands: [...next.commands, focusId(ids.tab(index))],
+          command: Effect.all([next.command, focusId(ids.tab(index))], {
+            concurrency: 'unbounded',
+            discard: true,
+          }),
         };
       },
     },

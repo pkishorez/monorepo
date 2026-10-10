@@ -22,7 +22,7 @@ Shop (root)                       Model { cart }; requires ShopServer (from the 
        Placing                    Command: reads Basket.cart, ShopServer.placeOrder,
                                   Basket.clear() (a Request) → SucceededPlaceOrder
        Placed { orderId }
-basket/       Item and Cart Schemas, cart changes, the Basket Service
+basket/       Item and Cart Schemas, cart changes, the Basket Capability
 shop-server/  ShopServer: fake catalog and order desk, slow on purpose
 cart-page/    CartPage, a drawing
 ```
@@ -42,15 +42,16 @@ what did not:
   or a Model-level page with every Child alive at once, as api-cache does.
 - **No URLs** (blocker 15): no deep link to /cart, no NotFound page, and the
   search is not in the query string.
-- Basket is the same Service in two States, so `provides` builds it twice
-  through one helper.
+- Basket is the same Capability in two States, so `provides` builds it from
+  one helper. It is built once on entering the State, so `Basket.cart` is an
+  Effect that reads the cart when asked.
 
 ## Deviations
 
 - Products and orders come from `ShopServer`, a fake backend with a delay.
   Foldkit's products are a constant and placing an order only sets a flag.
-- The Checkout Command reads the cart from Basket when it runs (a Command
-  sees the latest Services) instead of the page being handed the cart.
+- The Checkout Command reads the cart from Basket when it runs
+  (`yield* basket.cart`) instead of the page being handed the cart.
 - An empty cart is refused by the fake server, so Checkout shows an error
   rather than an empty state.
 
@@ -74,7 +75,7 @@ count, an empty cart, a cart with items and its total, and the checkout.
 
 What Effect Oak would need:
 
-- A typed `Node.step` (blocker 5): the cart rules (`RequestedAdd` twice gives
+- A typed `Actor.step` (blocker 5): the cart rules (`RequestedAdd` twice gives
   quantity two) are pure and need nothing else.
 - Drawing the Shop's View from a given Model and State (blocker 5) for the
   scenes; the Cart page is a plain component and can be rendered with React

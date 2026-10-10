@@ -1,8 +1,8 @@
 import { Context, Effect, Schema } from 'effect';
-import { Node } from 'effect-oak';
+import { Actor } from 'effect-oak';
 
 /*
- * The tool panel as a Node: which tool is in hand, and which mirrors are on.
+ * The tool panel as an Actor: which tool is in hand, and which mirrors are on.
  * It tells whoever Provides Brush every time either changes, a Request, so
  * the picture paints with the right tool without reading its Children.
  */
@@ -21,7 +21,7 @@ export type Mirror = typeof Mirror.Type;
 /** Whoever paints: the picture. */
 export class Brush extends Context.Service<
   Brush,
-  { readonly changed: (tool: Tool, mirror: Mirror) => void }
+  { readonly changed: (tool: Tool, mirror: Mirror) => Effect.Effect<void> }
 >()('docs/pixel-art/Brush') {}
 
 const FLIP: Readonly<
@@ -46,14 +46,12 @@ type Model = { readonly tool: Tool; readonly mirror: Mirror };
 /** Keep the new tools, and tell the Brush. */
 const changed = (model: Model) => ({
   model,
-  commands: [
-    Effect.gen(function* () {
-      (yield* Brush).changed(model.tool, model.mirror);
-    }),
-  ],
+  command: Effect.gen(function* () {
+    yield* (yield* Brush).changed(model.tool, model.mirror);
+  }),
 });
 
-export const Tools = Node.make('Tools', {
+export const Tools = Actor.make('Tools', {
   requires: { brush: Brush },
   model: Schema.Struct({ tool: Tool, mirror: Mirror }),
   message: Schema.TaggedUnion({

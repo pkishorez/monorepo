@@ -1,5 +1,5 @@
 import { Schema } from 'effect';
-import { Node } from 'effect-oak';
+import { Actor } from 'effect-oak';
 import { View } from 'effect-oak/react';
 import { Button } from '@kstackz/web-platform/components/button';
 import { AuthServer } from '../auth-server/index.js';
@@ -7,13 +7,13 @@ import { SignIn } from '../session/index.js';
 import { LoginForm, LoginFormView } from './login-form/index.js';
 
 /*
- * The signed-out site: its pages are this Node's States, with no router.
+ * The signed-out site: its pages are this Actor's States, with no router.
  * Login has the form as its Child, so leaving the page throws the form away.
- * The form's Services (AuthServer, SignIn) pass through, so this Node
+ * The form's Capabilities (AuthServer, SignIn) pass through, so this Actor
  * Requires them too.
  */
 
-export const LoggedOutPages = Node.make('LoggedOutPages', {
+export const LoggedOutPages = Actor.make('LoggedOutPages', {
   requires: { server: AuthServer, signIn: SignIn },
   state: Schema.TaggedUnion({ Home: {}, Login: {} }),
   message: Schema.TaggedUnion({ ClickedHome: {}, ClickedLogin: {} }),

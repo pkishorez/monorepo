@@ -13,7 +13,7 @@ export const WorldMapView = View.make(
         <header>
           <h1 className="text-lg font-semibold">Map</h1>
           <p className="text-sm text-muted-foreground">
-            The camera is a Node's Model; flights are drawn at every Frame.
+            The camera is an Actor's Model; flights are drawn at every Frame.
           </p>
         </header>
         <FinderView node={children.finder} />

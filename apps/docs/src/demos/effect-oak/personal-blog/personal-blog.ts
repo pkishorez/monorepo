@@ -1,5 +1,5 @@
-import { Schema } from 'effect';
-import { Node } from 'effect-oak';
+import { Schema, Stream } from 'effect';
+import { Actor } from 'effect-oak';
 import { Location, heardUrl, pushUrl, readPath } from '../location/index.js';
 import { Counter } from './counter/index.js';
 
@@ -31,7 +31,7 @@ export const pageFrom = (path: string): Page => {
   return { _tag: 'NotFound', path };
 };
 
-export const PersonalBlog = Node.make('PersonalBlog', {
+export const PersonalBlog = Actor.make('PersonalBlog', {
   requires: { location: Location },
   model: Schema.Struct({ path: Schema.String }),
   message: Schema.TaggedUnion({
@@ -41,10 +41,10 @@ export const PersonalBlog = Node.make('PersonalBlog', {
   children: { counter: Counter },
 }).build({
   init: () => ({ model: { path: '' } }),
-  lifetime: () => heardUrl(null),
+  lifetime: (self) => heardUrl(null).pipe(Stream.runForEach(self.send)),
   update: {
     ChangedUrl: ({ path }) => ({ model: { path } }),
-    ClickedLink: ({ path }) => ({ commands: [pushUrl(path)] }),
+    ClickedLink: ({ path }) => ({ command: pushUrl(path) }),
   },
 });
 

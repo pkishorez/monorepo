@@ -1,5 +1,5 @@
 import { Effect, Schema } from 'effect';
-import { Node } from 'effect-oak';
+import { Actor } from 'effect-oak';
 import { View } from 'effect-oak/react';
 import { Button } from '@kstackz/web-platform/components/button';
 import { Input } from '@kstackz/web-platform/components/input';
@@ -26,14 +26,14 @@ const problem = (email: string, password: string) =>
 const logIn = (email: string, password: string) =>
   Effect.gen(function* () {
     const session = yield* (yield* AuthServer).login(email, password);
-    (yield* SignIn).complete(session);
+    yield* (yield* SignIn).complete(session);
   }).pipe(
     Effect.catch((error) =>
       Effect.succeed({ _tag: 'FailedLogin' as const, error }),
     ),
   );
 
-export const LoginForm = Node.make('LoginForm', {
+export const LoginForm = Actor.make('LoginForm', {
   requires: { server: AuthServer, signIn: SignIn },
   model: Schema.Struct({ email: Schema.String, password: Schema.String }),
   state: Schema.TaggedUnion({
@@ -65,7 +65,7 @@ export const LoginForm = Node.make('LoginForm', {
           ? { state: { _tag: 'Editing', error } }
           : {
               state: { _tag: 'Submitting' },
-              commands: [logIn(model.email, model.password)],
+              command: logIn(model.email, model.password),
             };
       },
     },

@@ -1,5 +1,5 @@
 import { Schema } from 'effect';
-import { Node } from 'effect-oak';
+import { Actor } from 'effect-oak';
 import { CounterMessage, step } from './counter/index.js';
 
 /*
@@ -9,7 +9,7 @@ import { CounterMessage, step } from './counter/index.js';
 
 const Row = Schema.Struct({ id: Schema.String, count: Schema.Number });
 
-export const Counters = Node.make('Counters', {
+export const Counters = Actor.make('Counters', {
   model: Schema.Struct({ rows: Schema.Array(Row), nextRowId: Schema.Number }),
   message: Schema.TaggedUnion({
     ClickedAddRow: {},

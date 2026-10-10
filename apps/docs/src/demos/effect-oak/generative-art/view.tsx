@@ -1,5 +1,5 @@
 import { View } from 'effect-oak/react';
-import type { Snapshot } from 'effect-oak';
+import type { ViewProps } from 'effect-oak/react';
 import type { MotionValue } from 'motion/react';
 import { Button } from '@kstackz/web-platform/components/button';
 import { Slider } from '@kstackz/web-platform/components/slider';
@@ -17,7 +17,7 @@ import { Sky } from './sky/index.js';
  * that stands still, so the Sky carries nothing on.
  */
 
-type Props = Snapshot<typeof Prism> & { readonly frame: MotionValue<number> };
+type Props = ViewProps<typeof Prism> & { readonly frame: MotionValue<number> };
 
 const Setting = ({
   label,

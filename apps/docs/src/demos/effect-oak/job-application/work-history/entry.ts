@@ -10,8 +10,8 @@ import {
 
 /*
  * One position, as data in the Work History Model: Foldkit's entry
- * Submodel without its own Messages. Entries cannot be Child Nodes, because
- * a Node's Children are a fixed record (blocker 1), so the step handles
+ * Submodel without its own Messages. Entries cannot be Child Actors, because
+ * an Actor's Children are a fixed record (blocker 1), so the step handles
  * every entry's Messages itself, by id.
  */
 

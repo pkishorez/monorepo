@@ -3,7 +3,7 @@ import { describe } from './conditions.js';
 import { currentWeather, firstPlace } from './open-meteo.js';
 
 /*
- * Where the weather comes from: one Service with one lookup, and its Layer
+ * Where the weather comes from: one Capability with one lookup, and its Layer
  * over Open-Meteo, a public API that needs no key. A lookup fails with the
  * sentence the app shows.
  */

@@ -13,11 +13,11 @@ Weather (root)                     requires Forecast (from the Layer); Model { z
   Loading { zipCode }              Command: Forecast.lookup → SucceededFetchWeather | FailedFetchWeather
   Loaded { weather }
   Failed { error }
-forecast/  Forecast Service and OpenMeteoLive: plain fetch + Schema decode
-report/    Report, a drawing of one place's weather; not a Node
+forecast/  Forecast Capability and OpenMeteoLive: plain fetch + Schema decode
+report/    Report, a drawing of one place's weather; not an Actor
 ```
 
-Foldkit's `AsyncData` (Idle, Loading, Success, Failure) became the Node's
+Foldkit's `AsyncData` (Idle, Loading, Success, Failure) became the Actor's
 States. A submit while Loading has no rule in that State, so it is ignored,
 where Foldkit checks `isPending` in Update.
 
@@ -25,9 +25,9 @@ where Foldkit checks `isPending` in Update.
 
 - **Network: the real Open-Meteo API**, as Foldkit uses. It needs no key.
   `effect/http`'s HttpClient is replaced by `fetch` inside a `Forecast`
-  Service, aborted if the Command is interrupted. The Service fails with the
+  Capability, aborted if the Command is interrupted. The Capability fails with the
   sentence the app shows.
-- One Node. The zip code field lives in the root's Model because it must
+- One Actor. The zip code field lives in the root's Model because it must
   survive every Transition; a `Search` Child would not (see Blockers).
 - web-platform Input, Button, Card, Alert and Spinner instead of `@foldkit/ui`.
 
@@ -58,6 +58,6 @@ What Effect Oak would need:
 
 - **Named Commands** to check that submitting asked for `FetchWeather` with
   this zip code and to answer it with a chosen Message (roll-up blocker 4).
-- A typed `Node.step` and a way to draw a View from a given State (blocker 5).
-- The Service test works today: `lookup` can run against a stub `fetch`, or
+- A typed `Actor.step` and a way to draw a View from a given State (blocker 5).
+- The Capability test works today: `lookup` can run against a stub `fetch`, or
   the whole app with `Runtime.start` and a fake `Forecast` Layer.

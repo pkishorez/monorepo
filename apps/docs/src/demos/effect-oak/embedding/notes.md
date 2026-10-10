@@ -19,7 +19,7 @@ embedding.tsx
              root in the host's element, the handle), and the host page as
              the app the Shell runs
 port/        the wire: the host's side (setFlags, sendStep, onCount) and the
-             widget's Host Service in the Layer
+             widget's Host Capability in the Layer
 widget/
   Widget     requires Host; Model { count, step }
     Waiting  Lifetime: Host.flags → GotFlags
@@ -60,7 +60,7 @@ stays on the live value, since the host is outside the app.
   - its one Runtime is kept in the `toReact` closure: every mount shows the
     same app, so two hosts cannot each have their own;
   - only a View can Send to the root, so a non-React host cannot. Ports had
-    to be a Service.
+    to be a Capability.
 
   A `mount(element, { layer, flags })` on the app, returning
   `{ send, subscribe, dispose, useRuntime }` per mount, and typed
@@ -80,7 +80,7 @@ and that a new step applies from the next tick. A scene draws the widget.
 What Effect Oak would need:
 
 - Named Commands (blocker 4) to see "report count 11".
-- A typed `Node.step` (blocker 5) from `Running` with a given Model.
+- A typed `Actor.step` (blocker 5) from `Running` with a given Model.
 - Emitting a Lifetime's Message by hand (blocker 6) for `Ticked`,
   `ChangedStep` and `GotFlags`. Today a test can start the Widget under
   `Runtime.start` with a stub Host Layer and drive the wire, which also tests

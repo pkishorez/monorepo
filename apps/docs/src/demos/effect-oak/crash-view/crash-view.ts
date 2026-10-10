@@ -1,8 +1,8 @@
 import { Schema } from 'effect';
-import { Node } from 'effect-oak';
+import { Actor } from 'effect-oak';
 
-/** A Node whose Update throws on its one Message, to see what a crash does. */
-export const CrashDemo = Node.make('CrashDemo', {
+/** An Actor whose Update throws on its one Message, to see what a crash does. */
+export const CrashDemo = Actor.make('CrashDemo', {
   message: Schema.TaggedUnion({ ClickedCrash: {} }),
 }).build({
   update: {

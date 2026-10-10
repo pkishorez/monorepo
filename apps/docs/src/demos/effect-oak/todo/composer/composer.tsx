@@ -1,5 +1,5 @@
 import { Context, Effect, Schema } from 'effect';
-import { Node } from 'effect-oak';
+import { Actor } from 'effect-oak';
 import { View } from 'effect-oak/react';
 import { Button } from '@kstackz/web-platform/components/button';
 import { Input } from '@kstackz/web-platform/components/input';
@@ -13,10 +13,10 @@ import { Input } from '@kstackz/web-platform/components/input';
 /** Whoever takes new todos from a Composer. */
 export class Composing extends Context.Service<
   Composing,
-  { readonly add: (text: string) => void }
+  { readonly add: (text: string) => Effect.Effect<void> }
 >()('docs/todo/Composing') {}
 
-export const Composer = Node.make('Composer', {
+export const Composer = Actor.make('Composer', {
   requires: { composing: Composing },
   model: Schema.Struct({ text: Schema.String }),
   message: Schema.TaggedUnion({
@@ -32,11 +32,9 @@ export const Composer = Node.make('Composer', {
       if (text === '') return {};
       return {
         model: { text: '' },
-        commands: [
-          Effect.gen(function* () {
-            (yield* Composing).add(text);
-          }),
-        ],
+        command: Effect.gen(function* () {
+          yield* (yield* Composing).add(text);
+        }),
       };
     },
   },

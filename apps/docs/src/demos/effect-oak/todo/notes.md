@@ -1,7 +1,7 @@
 # Todo
 
 Status: partial. Everything works and persists, but the todo rows are not
-Nodes.
+Actors.
 
 ## What was ported
 
@@ -14,10 +14,10 @@ Todos (root)                       requires TodoStore (from the Layer)
   Ready { todos, filter, editing } Provides Composing
   └─ composer: Composer            Model { text }; Submitted → Command → Composing.add(text)
                                    (a Request: it reaches Todos as RequestedAdd)
-item/    TodoItem, a drawing of one row (view or edit); not a Node
+item/    TodoItem, a drawing of one row (view or edit); not an Actor
 footer/  Footer, counts, filters and list actions; a drawing
 list.ts  Schemas and pure list changes
-store.ts TodoStore Service and its localStorage Layer
+store.ts TodoStore Capability and its localStorage Layer
 ```
 
 Adding a todo goes: `Submitted` (composer) → Command calls `Composing.add` →
@@ -29,29 +29,29 @@ Adding a todo goes: `Submitted` (composer) → Command calls `Composing.add` →
 
 - **Flags became a Loading State.** Foldkit reads localStorage before `init`
   through `flags`. Here the root starts in `Loading`, and its Lifetime reads the
-  `TodoStore` Service and sends `Loaded { todos }`. The saved todos arrive as a
+  `TodoStore` Capability and sends `Loaded { todos }`. The saved todos arrive as a
   Message, at Time 0, so Replay shows them without touching localStorage.
-- **The new-todo field is a child Node** (`Composer`) that hands new todos up
+- **The new-todo field is a child Actor** (`Composer`) that hands new todos up
   through a Request. In Foldkit it is part of the one Model. The field clears
   on submit, not after the id is generated.
 - `KeyValueStore` from `@effect/platform-browser` is replaced by a small
-  `TodoStore` Service over `localStorage`. The docs app does not depend on the
+  `TodoStore` Capability over `localStorage`. The docs app does not depend on the
   platform package.
 - Rows and footer use web-platform Checkbox, Input and Button. Escape cancels an
   edit.
 
 ## Blockers
 
-- **No list of Children** (same as [../counters/notes.md](../counters/notes.md)).
-  Each todo would naturally be a `TodoItem` Node with States `Viewing` and
+- **No list of Children** (now possible with `Actor.many` and `invoke`; this demo still keeps the list as data) (same as [../counters/notes.md](../counters/notes.md)).
+  Each todo would naturally be a `TodoItem` Actor with States `Viewing` and
   `Editing { text }`: its own edit text, and a Request to the list for
   toggle, rename and delete. With fixed Children it cannot be, so `editing`
   lives in the root's `Ready` State as Foldkit has it, and rows are plain
   React drawings sending the root's Messages.
-- **Children cannot be given input when they are created.** `init` takes
+- **Children cannot be given input when they are created.** (now possible: a Child's `init` takes its Input; this demo is unchanged) `init` takes
   nothing. A single `Editor` Child, created on entering an `Editing` State,
   would need the todo's text to start from. It could only get it by reading a
-  Service in a Lifetime and sending itself a Message. That costs an extra
+  Capability in a Lifetime and sending itself a Message. That costs an extra
   Message per edit, so editing stayed in the root. An API could be
   `children: { Editing: { editor: Editor.with((state) => ({ text: state.text })) } }`,
   with `init: (input) => …`. The input would be computed in Update's pure
@@ -74,7 +74,7 @@ What Effect Oak would need:
   `Command.make('SaveTodos', { todos }, (args) => effect)` would carry a name
   and arguments that Update tests can compare, while the Runtime still runs the
   Effect.
-- A typed `Node.step` that returns those Commands (see
+- A typed `Actor.step` that returns those Commands (see
   [../counter/notes.md](../counter/notes.md)).
 - **Lifetimes as data in tests**: a way to emit a Lifetime's Message, the way
   Foldkit has `Subscription.emit`. Today `Runtime.start` with a test

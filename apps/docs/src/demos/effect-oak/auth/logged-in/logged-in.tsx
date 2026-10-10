@@ -1,5 +1,5 @@
-import { Effect, Schema, Stream } from 'effect';
-import { Node } from 'effect-oak';
+import { Effect, Schema } from 'effect';
+import { Actor } from 'effect-oak';
 import { View } from 'effect-oak/react';
 import { Button } from '@kstackz/web-platform/components/button';
 import { Session, SignedIn } from '../session/index.js';
@@ -13,7 +13,7 @@ import { Session, SignedIn } from '../session/index.js';
  * session: one extra Message per sign-in, to copy data the parent already has.
  */
 
-export const LoggedInPages = Node.make('LoggedInPages', {
+export const LoggedInPages = Actor.make('LoggedInPages', {
   requires: { signedIn: SignedIn },
   state: Schema.TaggedUnion({
     Opening: {},
@@ -29,13 +29,11 @@ export const LoggedInPages = Node.make('LoggedInPages', {
 }).build({
   init: () => ({ state: { _tag: 'Opening' } }),
   lifetime: {
-    Opening: () =>
-      Stream.fromEffect(
-        Effect.gen(function* () {
-          const { session } = yield* SignedIn;
-          return { _tag: 'Opened' as const, session };
-        }),
-      ),
+    Opening: (self) =>
+      Effect.gen(function* () {
+        const { session } = yield* SignedIn;
+        yield* self.send({ _tag: 'Opened', session });
+      }),
   },
   update: {
     Opening: {
@@ -45,20 +43,20 @@ export const LoggedInPages = Node.make('LoggedInPages', {
       ClickedSettings: (_, { state }) => ({
         state: { _tag: 'Settings', session: state.session },
       }),
-      ClickedLogout: () => ({ commands: [logOut] }),
+      ClickedLogout: () => ({ command: logOut }),
     },
     Settings: {
       ClickedDashboard: (_, { state }) => ({
         state: { _tag: 'Dashboard', session: state.session },
       }),
-      ClickedLogout: () => ({ commands: [logOut] }),
+      ClickedLogout: () => ({ command: logOut }),
     },
   },
 });
 
 /** Ask the app to sign out: a Request. */
 const logOut = Effect.gen(function* () {
-  (yield* SignedIn).logOut();
+  yield* (yield* SignedIn).logOut();
 });
 
 type Send = (

@@ -25,7 +25,7 @@ Catalog                      Loading → Ready (Lifetime: 600 ms)
 Studio                       Model { text }
   Edited → Command: Drafts.edited(text)   (a Request: root's EditedDraft)
 gallery/          paintings, Catalog, the Painting page
-studio/           Studio and the Drafts Service it reports to
+studio/           Studio and the Drafts Capability it reports to
 transition-log/   the log's Schema, `record`, and its drawing
 ```
 
@@ -63,7 +63,7 @@ handler. In Effect Oak each kind of change has its own home:
 
 - **No routing** (blocker 15): the same per-State Lifetime, `Opening`, and
   Time Travel not moving the address bar, as in routing.
-- **Children cannot be given input when they are created** (blocker 3): the
+- **Children cannot be given input when they are created** (now possible: a Child's `init` takes its Input; this demo is unchanged) (blocker 3): the
   Studio editor cannot start from the root's draft.
 - **A parent cannot read its Child's Model.** Work on leaving a State that
   needs a Child's data (save the draft) needs the Child to report every
@@ -81,7 +81,7 @@ the Studio asks for `SaveDraft` only if the draft is not empty.
 
 What Effect Oak would need:
 
-- Named Commands (blocker 4) and a typed `Node.step` (blocker 5) for every
+- Named Commands (blocker 4) and a typed `Actor.step` (blocker 5) for every
   ChangedUrl case above; `record` is a plain function and testable today.
 - "Re-entering does not load twice" is no longer a rule to test: it is the
   Catalog Child being created and destroyed. Testing it means running the

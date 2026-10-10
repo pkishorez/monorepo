@@ -1,6 +1,6 @@
 /*
  * The order summary beside every step: the book, its price, any discount,
- * tax and the total. A drawing of the checkout's data, not a Node.
+ * tax and the total. A drawing of the checkout's data, not an Actor.
  */
 
 const PHYSICAL_PRICE = 52;

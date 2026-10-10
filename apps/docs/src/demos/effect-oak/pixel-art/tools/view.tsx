@@ -1,7 +1,7 @@
 // oxlint-disable-next-line no-restricted-imports -- tool keys anywhere on the page are a window listener, kept in the View so a View of the past sends nothing.
 import { useEffect } from 'react';
-import type { Snapshot } from 'effect-oak';
 import { View } from 'effect-oak/react';
+import type { ViewProps } from 'effect-oak/react';
 import { Button } from '@kstackz/web-platform/components/button';
 import { Kbd } from '@kstackz/web-platform/components/kbd';
 import { Tools } from './tools.js';
@@ -14,7 +14,7 @@ const TOOLS: ReadonlyArray<{ readonly tool: Tool; readonly key: string }> = [
 ];
 
 /** B, F and E pick a tool, as in Foldkit. */
-const useToolKeys = (send: Snapshot<typeof Tools>['send']) => {
+const useToolKeys = (send: ViewProps<typeof Tools>['send']) => {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (

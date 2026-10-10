@@ -1,5 +1,5 @@
 import { Context, Effect, Schema } from 'effect';
-import { Node } from 'effect-oak';
+import { Actor } from 'effect-oak';
 import { View } from 'effect-oak/react';
 import { Button } from '@kstackz/web-platform/components/button';
 import { Input } from '@kstackz/web-platform/components/input';
@@ -28,10 +28,10 @@ export const discountFor = (code: string): Discount | null =>
 /** Whoever takes submitted promo codes: the checkout, while in Review. */
 export class Promos extends Context.Service<
   Promos,
-  { readonly submit: (code: string) => void }
+  { readonly submit: (code: string) => Effect.Effect<void> }
 >()('docs/state-machine/Promos') {}
 
-export const PromoCode = Node.make('PromoCode', {
+export const PromoCode = Actor.make('PromoCode', {
   requires: { promos: Promos },
   model: Schema.Struct({ input: Schema.String }),
   message: Schema.TaggedUnion({
@@ -46,11 +46,9 @@ export const PromoCode = Node.make('PromoCode', {
       model.input.trim() === ''
         ? {}
         : {
-            commands: [
-              Effect.gen(function* () {
-                (yield* Promos).submit(model.input);
-              }),
-            ],
+            command: Effect.gen(function* () {
+              yield* (yield* Promos).submit(model.input);
+            }),
           },
   },
 });

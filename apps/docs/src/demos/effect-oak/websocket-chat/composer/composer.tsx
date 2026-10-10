@@ -1,5 +1,5 @@
 import { Context, Effect, Schema } from 'effect';
-import { Node } from 'effect-oak';
+import { Actor } from 'effect-oak';
 import { View } from 'effect-oak/react';
 import { Button } from '@kstackz/web-platform/components/button';
 import { Input } from '@kstackz/web-platform/components/input';
@@ -10,13 +10,13 @@ import { Input } from '@kstackz/web-platform/components/input';
  * worked, the chat does.
  */
 
-/** A chat that is online, as the Nodes inside it see it. */
+/** A chat that is online, as the Actors inside it see it. */
 export class Conversation extends Context.Service<
   Conversation,
   { readonly send: (text: string) => Effect.Effect<void> }
 >()('docs/websocket-chat/Conversation') {}
 
-export const Composer = Node.make('Composer', {
+export const Composer = Actor.make('Composer', {
   requires: { conversation: Conversation },
   model: Schema.Struct({ text: Schema.String }),
   message: Schema.TaggedUnion({
@@ -32,11 +32,9 @@ export const Composer = Node.make('Composer', {
       if (text === '') return {};
       return {
         model: { text: '' },
-        commands: [
-          Effect.gen(function* () {
-            yield* (yield* Conversation).send(text);
-          }),
-        ],
+        command: Effect.gen(function* () {
+          yield* (yield* Conversation).send(text);
+        }),
       };
     },
   },

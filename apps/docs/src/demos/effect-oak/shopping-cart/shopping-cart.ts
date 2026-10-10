@@ -1,5 +1,6 @@
-import { Context, Schema } from 'effect';
-import { Node } from 'effect-oak';
+import { Effect, Layer, Schema } from 'effect';
+import { Actor } from 'effect-oak';
+import type { Self } from 'effect-oak';
 import {
   addItem,
   Basket,
@@ -20,12 +21,26 @@ import { ShopServer } from './shop-server/index.js';
  * of the Model and sends the shop's own Messages.
  *
  * On the pages with Children the shop Provides Basket: the cart as it is,
- * and Requests to add to it and to empty it.
+ * read when asked, and Requests to add to it and to empty it.
  */
 
 const Page = Schema.Literals(['Products', 'Cart', 'Checkout']);
 
-export const Shop = Node.make('Shop', {
+const basket = (
+  self: Self<
+    { readonly cart: Cart },
+    unknown,
+    | { readonly _tag: 'RequestedAdd'; readonly item: Item }
+    | { readonly _tag: 'RequestedClear' }
+  >,
+) =>
+  Layer.succeed(Basket, {
+    cart: self.get.pipe(Effect.map(({ model }) => model.cart)),
+    add: (item) => self.send({ _tag: 'RequestedAdd', item }),
+    clear: () => self.send({ _tag: 'RequestedClear' }),
+  });
+
+export const Shop = Actor.make('Shop', {
   requires: { shop: ShopServer },
   model: Schema.Struct({ cart: Cart }),
   state: Schema.TaggedUnion({ Products: {}, Cart: {}, Checkout: {} }),
@@ -46,8 +61,8 @@ export const Shop = Node.make('Shop', {
 }).build({
   init: () => ({ model: { cart: [] }, state: { _tag: 'Products' } }),
   provides: {
-    Products: ({ model, send }) => basket(model.cart, send),
-    Checkout: ({ model, send }) => basket(model.cart, send),
+    Products: basket,
+    Checkout: basket,
   },
   update: {
     '*': {
@@ -71,19 +86,5 @@ export const Shop = Node.make('Shop', {
     },
   },
 });
-
-const basket = (
-  cart: Cart,
-  send: (
-    message:
-      | { readonly _tag: 'RequestedAdd'; readonly item: Item }
-      | { readonly _tag: 'RequestedClear' },
-  ) => void,
-) =>
-  Context.make(Basket, {
-    cart,
-    add: (item) => send({ _tag: 'RequestedAdd', item }),
-    clear: () => send({ _tag: 'RequestedClear' }),
-  });
 
 export { ShopServerLive } from './shop-server/index.js';

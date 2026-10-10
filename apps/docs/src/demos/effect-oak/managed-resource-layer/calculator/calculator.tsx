@@ -1,5 +1,5 @@
 import { Context, Effect, Schema } from 'effect';
-import { Node } from 'effect-oak';
+import { Actor } from 'effect-oak';
 import { View } from 'effect-oak/react';
 import { Button } from '@kstackz/web-platform/components/button';
 
@@ -9,13 +9,13 @@ import { Button } from '@kstackz/web-platform/components/button';
  * engine is on, and stopping the engine interrupts a square in flight.
  */
 
-/** A running engine, as the Nodes below the one that started it see it. */
+/** A running engine, as the Actors below the one that started it see it. */
 export class Engine extends Context.Service<
   Engine,
   { readonly square: (value: number) => Effect.Effect<number, 'NotRunning'> }
 >()('docs/managed-resource-layer/Engine') {}
 
-export const Calculator = Node.make('Calculator', {
+export const Calculator = Actor.make('Calculator', {
   requires: { engine: Engine },
   model: Schema.Struct({
     computeCount: Schema.Number,
@@ -33,14 +33,12 @@ export const Calculator = Node.make('Calculator', {
       const value = model.computeCount + 1;
       return {
         model: { ...model, computeCount: value },
-        commands: [
-          Effect.gen(function* () {
-            const result = yield* (yield* Engine).square(value);
-            return { _tag: 'CompletedCompute' as const, result };
-          }).pipe(
-            Effect.orElseSucceed(() => ({ _tag: 'SkippedCompute' as const })),
-          ),
-        ],
+        command: Effect.gen(function* () {
+          const result = yield* (yield* Engine).square(value);
+          return { _tag: 'CompletedCompute' as const, result };
+        }).pipe(
+          Effect.orElseSucceed(() => ({ _tag: 'SkippedCompute' as const })),
+        ),
       };
     },
     CompletedCompute: ({ result }, { model }) => ({

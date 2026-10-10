@@ -10,7 +10,7 @@ Foldkit's `slow-warnings` lab: buttons that make one part of handling a
 Message slow on purpose, and a list of the warnings that came of it.
 
 ```
-SlowLab (root)    one Node; Model { activeWorkload, run, warnings, patchRows, patchRun }
+SlowLab (root)    one Actor; Model { activeWorkload, run, warnings, patchRows, patchRun }
                   ClickedRunUpdateWork burns 10 ms of CPU inside Update
                   RecordedSlowWarning { report } is sent by the View
 timing.tsx        timedSend (times Update around send) and Timed (times a draw
@@ -22,8 +22,8 @@ phases.ts         phases, thresholds and the report Schema
 burn.ts           burnCpu and the workload sizes
 ```
 
-It is one Node: the warnings are recorded from the root's View, and a parent
-cannot hand a Message to a Child, so a separate warnings Node could not be
+It is one Actor: the warnings are recorded from the root's View, and a parent
+cannot hand a Message to a Child, so a separate warnings Actor could not be
 told about them.
 
 ## Deviations
@@ -59,6 +59,6 @@ the formatted line), its stories check that each `ClickedRun…` sets the
 workload and that `RecordedSlowWarning` stores the warning and goes back to
 Idle, and its scenes click "Run patch work" and count rows.
 
-What Effect Oak would need: the typed `Node.step` and View drawing of
+What Effect Oak would need: the typed `Actor.step` and View drawing of
 roll-up blocker 5. The timing itself would need the hook above to be
 testable without a real clock.

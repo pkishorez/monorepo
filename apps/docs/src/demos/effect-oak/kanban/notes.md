@@ -19,10 +19,10 @@ Board (root)                            Model { columns }; requires BoardStore (
   Dragging { cardId, columnId, index }  Lifetime: follow(cardId), pointer and Escape
                                         → Hovered | Dropped | Cancelled
 columns/      Columns Schema, the default board, moveCard, appendCard
-board-store/  BoardStore Service and its localStorage Layer
+board-store/  BoardStore Capability and its localStorage Layer
 drag/         follow(cardId): the drag as a Stream; data attributes for the View
 card/         CardTile, a drawing
-add-card/     makeAddCard(columnId): the AddCard Node and View, the Adding Service
+add-card/     makeAddCard(columnId): the AddCard Actor and View, the Adding Capability
 ```
 
 Pressing a card sends `PickedUp` and the Board goes `Dragging`. Its Lifetime
@@ -51,8 +51,8 @@ sends `Dropped`: the columns change, a Command saves them, and the Board is
 
 ## Blockers
 
-- **No list of Children** (blocker 1). The columns are data, but each needs
-  an add-card Node. With fixed Children the board can only have one per known
+- **No list of Children** (now possible with `Actor.many` and `invoke`; this demo still keeps the list as data) (blocker 1). The columns are data, but each needs
+  an add-card Actor. With fixed Children the board can only have one per known
   column id, made by a factory (`makeAddCard('todo')`) that bakes the id in
   because a Child cannot be given it (blocker 3). A saved board with other
   columns would have no add-card forms.
@@ -73,7 +73,7 @@ add-card form.
 
 What Effect Oak would need:
 
-- A typed `Node.step` (blocker 5). The drag is plain Messages here
+- A typed `Actor.step` (blocker 5). The drag is plain Messages here
   (`PickedUp`, `Hovered`, `Dropped`), so a story needs no pointer at all.
 - Named Commands (blocker 4) to check `SaveBoard` was asked for with the new
   columns and to answer `GenerateCardId`.
@@ -87,5 +87,5 @@ What Effect Oak would need:
 - Replay draws a drag in progress, card held mid-air, because `Dragging`
   and its target are State.
 - The Lifetime reads the DOM the View drew (data attributes). That ties the
-  Node to its View; a hit-test Service given by the View would be cleaner
-  but Views cannot provide Services.
+  Actor to its View; a hit-test Capability given by the View would be cleaner
+  but Views cannot provide Capabilities.

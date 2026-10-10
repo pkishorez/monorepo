@@ -1,5 +1,5 @@
-import { Context, Effect, Schema } from 'effect';
-import { Node } from 'effect-oak';
+import { Effect, Layer, Schema } from 'effect';
+import { Actor } from 'effect-oak';
 import {
   Answers,
   blankSheet,
@@ -20,7 +20,7 @@ import { WorkHistory } from './work-history/index.js';
 /*
  * A job application in six steps, with a live preview of the resume.
  *
- * Each step that keeps answers is a Child Node, and all five exist for the
+ * Each step that keeps answers is a Child Actor, and all five exist for the
  * whole app: the current step is Model data, and the View draws only its
  * Child. Making the steps States would destroy a step's Child, and
  * everything typed in it, on every move to another step (blocker 10).
@@ -32,7 +32,7 @@ import { WorkHistory } from './work-history/index.js';
  *
  * Submit reveals every step's errors. That is a Message to each step, which
  * a parent cannot send (blocker 14): the Command posts to the Reveals
- * Service, and each step's Lifetime hears it.
+ * Capability, and each step's Lifetime hears it.
  */
 
 const SUBMIT_MS = 1500;
@@ -41,7 +41,7 @@ const submitApplication = Effect.sleep(SUBMIT_MS).pipe(
   Effect.as({ _tag: 'SucceededSubmit' as const }),
 );
 
-export const JobApplication = Node.make('JobApplication', {
+export const JobApplication = Actor.make('JobApplication', {
   requires: { reveals: Reveals },
   model: Schema.Struct({
     step: Step,
@@ -74,9 +74,9 @@ export const JobApplication = Node.make('JobApplication', {
       submission: 'NotSubmitted',
     },
   }),
-  provides: ({ send }) =>
-    Context.make(Answers, {
-      report: (part) => send({ _tag: 'Reported', part }),
+  provides: (self) =>
+    Layer.succeed(Answers, {
+      report: (part) => self.send({ _tag: 'Reported', part }),
     }),
   update: {
     Reported: ({ part }, { model }) => ({
@@ -98,7 +98,13 @@ export const JobApplication = Node.make('JobApplication', {
           submitAttempted: true,
           submission: ready ? 'Submitting' : 'NotSubmitted',
         },
-        commands: ready ? [revealAll, submitApplication] : [revealAll],
+        command: ready
+          ? (self) =>
+              Effect.all(
+                [revealAll, submitApplication.pipe(Effect.flatMap(self.send))],
+                { concurrency: 'unbounded', discard: true },
+              )
+          : revealAll,
       };
     },
     SucceededSubmit: (_, { model }) => ({

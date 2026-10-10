@@ -1,5 +1,5 @@
 import { Schema } from 'effect';
-import { Node } from 'effect-oak';
+import { Actor } from 'effect-oak';
 
 /*
  * A stopwatch, as two States. Stopped keeps the time so far; Running keeps
@@ -8,7 +8,7 @@ import { Node } from 'effect-oak';
  * View works the running time out at each Frame.
  */
 
-export const Stopwatch = Node.make('Stopwatch', {
+export const Stopwatch = Actor.make('Stopwatch', {
   state: Schema.TaggedUnion({
     Stopped: { elapsed: Schema.Number },
     Running: { before: Schema.Number, since: Schema.Number },

@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react';
-import type { Snapshot } from 'effect-oak';
-import { View } from 'effect-oak/react';
+import { View, type ViewProps } from 'effect-oak/react';
 import { Button } from '@kstackz/web-platform/components/button';
 import { Checkbox } from '@kstackz/web-platform/components/checkbox';
 import { Label } from '@kstackz/web-platform/components/label';
@@ -12,7 +11,7 @@ import { PromoCodeView } from './promo/index.js';
 import { Checkout, isReviewReady } from './state-machine.js';
 import { editionName, editionPrice, OrderSummary } from './summary/index.js';
 
-type Send = Snapshot<typeof Checkout>['send'];
+type Send = ViewProps<typeof Checkout>['send'];
 
 const STEPS = ['Cart', 'Shipping', 'Payment', 'Review'] as const;
 

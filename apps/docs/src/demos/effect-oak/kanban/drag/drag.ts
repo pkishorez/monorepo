@@ -1,7 +1,7 @@
 import { Effect, Queue, Stream } from 'effect';
 
 /*
- * Pointer drag and drop with plain DOM events, as a Lifetime's Stream.
+ * Pointer drag and drop with plain DOM events, as a Stream a Lifetime runs.
  *
  * While a card is held, the page's pointer moves are hit-tested against the
  * columns and cards the View marks with data attributes. Only a change of

@@ -1,5 +1,5 @@
 import { Context, Effect, Schema } from 'effect';
-import { Node } from 'effect-oak';
+import { Actor } from 'effect-oak';
 import { View } from 'effect-oak/react';
 import { Textarea } from '@kstackz/web-platform/components/textarea';
 
@@ -15,10 +15,10 @@ import { Textarea } from '@kstackz/web-platform/components/textarea';
 /** Provided by the root while in the Studio: where edits are reported. */
 export class Drafts extends Context.Service<
   Drafts,
-  { readonly edited: (text: string) => void }
+  { readonly edited: (text: string) => Effect.Effect<void> }
 >()('docs/route-transitions/Drafts') {}
 
-export const Studio = Node.make('Studio', {
+export const Studio = Actor.make('Studio', {
   requires: { drafts: Drafts },
   model: Schema.Struct({ text: Schema.String }),
   message: Schema.TaggedUnion({ Edited: { text: Schema.String } }),
@@ -27,11 +27,9 @@ export const Studio = Node.make('Studio', {
   update: {
     Edited: ({ text }) => ({
       model: { text },
-      commands: [
-        Effect.gen(function* () {
-          (yield* Drafts).edited(text);
-        }),
-      ],
+      command: Effect.gen(function* () {
+        yield* (yield* Drafts).edited(text);
+      }),
     }),
   },
 });

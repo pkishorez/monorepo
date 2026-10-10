@@ -1,5 +1,5 @@
-import { Context, Schema } from 'effect';
-import { Node } from 'effect-oak';
+import { Layer, Schema } from 'effect';
+import { Actor } from 'effect-oak';
 import {
   ANNOUNCED,
   combobox,
@@ -21,7 +21,7 @@ import { Picks } from './picks/index.js';
 import { expireLater, SAMPLES, Toast, Variant } from './toasts/index.js';
 
 /*
- * A showcase of stateful UI components, each one a Node with its own View.
+ * A showcase of stateful UI components, each one an Actor with its own View.
  *
  * Every component is a Child of the showcase for the whole app; the page
  * on show is Model data and the View draws only that page's Children. Each
@@ -31,7 +31,7 @@ import { expireLater, SAMPLES, Toast, Variant } from './toasts/index.js';
  * also become toasts, which live here as a list in the Model.
  */
 
-export const UiShowcase = Node.make('UiShowcase', {
+export const UiShowcase = Actor.make('UiShowcase', {
   model: Schema.Struct({
     page: Page,
     heard: Schema.Record(Schema.String, Schema.String),
@@ -66,9 +66,9 @@ export const UiShowcase = Node.make('UiShowcase', {
   init: () => ({
     model: { page: 'Dialog', heard: {}, toasts: [], nextToastId: 0 },
   }),
-  provides: ({ send }) =>
-    Context.make(Picks, {
-      report: (source, value) => send({ _tag: 'Picked', source, value }),
+  provides: (self) =>
+    Layer.succeed(Picks, {
+      report: (source, value) => self.send({ _tag: 'Picked', source, value }),
     }),
   update: {
     ChosePage: ({ page }, { model }) => ({ model: { ...model, page } }),
@@ -110,7 +110,7 @@ function show(model: Model, toast: Omit<typeof Toast.Type, 'id'>) {
       toasts: [...model.toasts, { id, ...toast }],
       nextToastId: id + 1,
     },
-    commands: toast.sticky ? [] : [expireLater(id)],
+    command: toast.sticky ? undefined : expireLater(id),
   };
 }
 
