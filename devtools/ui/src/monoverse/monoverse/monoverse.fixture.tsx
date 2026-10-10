@@ -1,0 +1,307 @@
+import { useState } from 'react';
+import { Effect } from 'effect';
+import type { ChangeSet, FileDiff } from 'laymos';
+import type { MonorepoAnalysis, Package } from '../analysis';
+
+import { Monoverse, type RenderLaymos } from './monoverse';
+
+function pkg(
+  name: string,
+  group: string,
+  dependencies: Package['dependencies'] = [],
+  extra: Partial<Package> = {},
+): Package {
+  return {
+    name,
+    path: `${group}/${name}`,
+    group,
+    version: '0.1.0',
+    private: group !== 'packages',
+    hasLaymos: false,
+    hasStories: false,
+    dependencies,
+    ...extra,
+  };
+}
+
+const analysis: MonorepoAnalysis = {
+  kind: 'monorepo',
+  name: 'public-monorepo',
+  path: '/repo',
+  packageManager: 'pnpm',
+  packages: [
+    pkg('docs', 'apps', [
+      { name: 'kui-toolkit', kinds: ['runtime'] },
+      { name: 'std-toolkit', kinds: ['runtime'] },
+      { name: 'laymos', kinds: ['dev'] },
+    ]),
+    pkg(
+      'devtools',
+      'devtools',
+      [
+        { name: 'kui-toolkit', kinds: ['runtime'] },
+        { name: 'laymos', kinds: ['runtime'] },
+        { name: 'monoverse', kinds: ['runtime'] },
+        { name: 'rpc-toolkit', kinds: ['runtime'] },
+      ],
+      { hasLaymos: true },
+    ),
+    pkg('laymos', 'devtools', [{ name: 'std-toolkit', kinds: ['dev'] }], {
+      hasLaymos: true,
+      hasStories: true,
+    }),
+    pkg('monoverse', 'devtools', [{ name: 'laymos', kinds: ['dev'] }], {
+      hasLaymos: true,
+    }),
+    pkg(
+      'kui-toolkit',
+      'toolkits',
+      [
+        { name: 'laymos', kinds: ['peer', 'dev'] },
+        { name: 'monoverse', kinds: ['peer', 'dev'] },
+        { name: 'std-toolkit', kinds: ['peer', 'dev'] },
+        { name: 'use-effect-ts', kinds: ['peer', 'dev'] },
+      ],
+      { hasLaymos: true },
+    ),
+    pkg(
+      'std-toolkit',
+      'toolkits',
+      [{ name: 'use-effect-ts', kinds: ['optional'] }],
+      { hasLaymos: true },
+    ),
+    pkg('rpc-toolkit', 'toolkits', [
+      { name: 'std-toolkit', kinds: ['runtime'] },
+      { name: 'auth-toolkit', kinds: ['dev'] },
+    ]),
+    pkg('auth-toolkit', 'toolkits', [
+      { name: 'rpc-toolkit', kinds: ['runtime'] },
+    ]),
+    pkg('use-effect-ts', 'packages'),
+    pkg('scratch', 'packages'),
+  ],
+  violations: [{ packages: ['auth-toolkit', 'rpc-toolkit'] }],
+};
+
+const renderLaymos: RenderLaymos = ({ projectPath, pkg: target }) => (
+  <div className="grid flex-1 place-items-center p-8 text-center">
+    <div className="space-y-1">
+      <p className="text-sm font-semibold">Embedded Laymos for {target.name}</p>
+      <p className="font-mono text-xs text-muted-foreground">{projectPath}</p>
+    </div>
+  </div>
+);
+
+function packageFiles(pkg: Package) {
+  return [
+    {
+      path: `${pkg.path}/package.json`,
+      content: JSON.stringify({ name: pkg.name, version: '0.1.0' }, null, 2),
+    },
+    {
+      path: `${pkg.path}/src/index.ts`,
+      content: `export const name = '${pkg.name}';\nexport const ready = true;\n`,
+    },
+    {
+      path: `${pkg.path}/README.md`,
+      content: `# ${pkg.name}\n\nRight-click a Package to read its files, README first.\n`,
+    },
+    { path: `${pkg.path}/logo.png`, content: '', binary: true },
+  ];
+}
+
+const allFiles = new Map(
+  analysis.packages.flatMap((pkg) =>
+    packageFiles(pkg).map((file) => [file.path, file] as const),
+  ),
+);
+
+const loadFile = (path: string) => {
+  const file = allFiles.get(path);
+  return file === undefined
+    ? Effect.fail({ _tag: 'MonorepoFileNotFoundError', path })
+    : Effect.succeed(file);
+};
+
+const knownFiles = analysis.packages.flatMap((pkg) =>
+  packageFiles(pkg).map(({ path }) => path),
+);
+
+const [changedPackage, newPackage] = analysis.packages;
+
+const changes: ChangeSet = {
+  baseRef: 'HEAD',
+  files: [
+    {
+      path: `${changedPackage!.path}/src/index.ts`,
+      status: 'modified',
+      committed: false,
+      uncommitted: true,
+    },
+    ...packageFiles(newPackage!).map(({ path }) => ({
+      path,
+      status: 'added' as const,
+      committed: false,
+      uncommitted: true,
+    })),
+    // A Package the change took away.
+    ...['package.json', 'src/index.ts'].map((file) => ({
+      path: `toolkits/legacy-toolkit/${file}`,
+      status: 'deleted' as const,
+      committed: true,
+      uncommitted: false,
+    })),
+  ],
+};
+
+const loadFileDiff = (path: string) =>
+  Effect.succeed<FileDiff>({
+    path,
+    hunks: [
+      {
+        header: '@@ -1,2 +1,2 @@',
+        oldStart: 1,
+        newStart: 1,
+        lines: [
+          {
+            kind: 'context',
+            content: `export const name = '${changedPackage!.name}';`,
+            oldNumber: 1,
+            newNumber: 1,
+          },
+          {
+            kind: 'removed',
+            content: 'export const ready = false;',
+            oldNumber: 2,
+          },
+          {
+            kind: 'added',
+            content: 'export const ready = true;',
+            newNumber: 2,
+          },
+        ],
+      },
+    ],
+  });
+
+function WithChanges() {
+  const [baseRef, setBaseRef] = useState('HEAD');
+  return (
+    <Monoverse
+      className="flex-1"
+      monorepoPath="/repo"
+      loadAnalysis={() => Effect.succeed(analysis)}
+      renderLaymos={renderLaymos}
+      loadFile={loadFile}
+      changes={{ ...changes, baseRef }}
+      knownFiles={knownFiles}
+      branches={[
+        { name: 'main', remote: false, current: false },
+        { name: 'feature', remote: false, current: true },
+      ]}
+      baseRef={baseRef}
+      onBaseRefChange={setBaseRef}
+      loadFileDiff={loadFileDiff}
+    />
+  );
+}
+
+const singlePackage: MonorepoAnalysis = {
+  kind: 'single-package',
+  name: 'laymos',
+  path: '/repo/laymos',
+  packageManager: 'npm',
+  packages: [
+    {
+      name: 'laymos',
+      path: '.',
+      group: '.',
+      version: '0.1.0',
+      private: false,
+      hasLaymos: true,
+      hasStories: true,
+      dependencies: [],
+    },
+  ],
+  violations: [],
+};
+
+function Frame({ children }: { readonly children: React.ReactNode }) {
+  return (
+    <div className="flex h-screen flex-col bg-muted/20 p-6">{children}</div>
+  );
+}
+
+export default {
+  monorepo: (
+    <Frame>
+      <Monoverse
+        className="flex-1"
+        monorepoPath="/repo"
+        loadAnalysis={() => Effect.succeed(analysis)}
+        renderLaymos={renderLaymos}
+        loadFile={loadFile}
+        knownFiles={knownFiles}
+      />
+    </Frame>
+  ),
+  'git changes': (
+    <Frame>
+      <WithChanges />
+    </Frame>
+  ),
+  'slow load': (
+    <Frame>
+      <Monoverse
+        className="flex-1"
+        monorepoPath="/repo"
+        loadAnalysis={() =>
+          Effect.succeed(analysis).pipe(Effect.delay('2 seconds'))
+        }
+        renderLaymos={renderLaymos}
+        loadFile={loadFile}
+      />
+    </Frame>
+  ),
+  'load failure': (
+    <Frame>
+      <Monoverse
+        className="flex-1"
+        monorepoPath="/not-a-monorepo"
+        loadAnalysis={() =>
+          Effect.fail({
+            _tag: 'NoPackageJsonError',
+            path: '/not-a-monorepo',
+            reason: 'No package.json at this folder',
+          })
+        }
+        renderLaymos={renderLaymos}
+        loadFile={loadFile}
+      />
+    </Frame>
+  ),
+  'single package': (
+    <Frame>
+      <Monoverse
+        className="flex-1"
+        monorepoPath="/repo/laymos"
+        loadAnalysis={() => Effect.succeed(singlePackage)}
+        renderLaymos={renderLaymos}
+        loadFile={loadFile}
+      />
+    </Frame>
+  ),
+  'no packages': (
+    <Frame>
+      <Monoverse
+        className="flex-1"
+        monorepoPath="/repo"
+        loadAnalysis={() =>
+          Effect.succeed({ ...analysis, packages: [], violations: [] })
+        }
+        renderLaymos={renderLaymos}
+        loadFile={loadFile}
+      />
+    </Frame>
+  ),
+};

@@ -7,8 +7,6 @@ type StoredSpan = {
   readonly value: {
     readonly traceId: string;
     readonly spanId: string;
-    readonly flowId: string | null;
-    readonly participantName: string | null;
     readonly span: {
       readonly parentSpanId?: string;
       readonly name?: string;
@@ -81,8 +79,6 @@ export type SimpleSpan = {
   readonly durationMs: number | null;
   readonly status: SpanStatus;
   readonly statusMessage: string | null;
-  readonly flowId: string | null;
-  readonly participantName: string | null;
   readonly attributes: Record<string, unknown>;
   readonly logs: ReadonlyArray<SimpleLog>;
   readonly startMs: number | null;
@@ -215,8 +211,6 @@ const simplifySpan = (
     durationMs: startMs !== null && endMs !== null ? endMs - startMs : null,
     status: spanStatus(span),
     statusMessage: span.status?.message ?? null,
-    flowId: record.value.flowId,
-    participantName: record.value.participantName,
     attributes,
     logs,
     startMs,

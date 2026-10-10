@@ -1,9 +1,10 @@
 export {
   createStdSync,
+  inOrder,
   type StdSyncConfig,
   type SyncedCollection,
 } from './std-sync/index.js';
-export type { CollectionConfig, PartitionMap } from './collection/index.js';
+export type { CollectionConfig, WindowMap } from './collection/index.js';
 export {
   strategy,
   type ForwardOptions,
@@ -18,11 +19,11 @@ export {
 export type {
   Doorbell,
   Leadership,
-  StdSyncPlatform,
-  SyncStoreLayer,
-} from './platform/contract/index.js';
-export { memory } from './platform/memory/index.js';
-export type { EffectRuntime } from './platform/effect-runner/index.js';
+  SyncStore,
+  SyncTableLayer,
+} from './store/contract/index.js';
+export { Sync } from './store/memory/index.js';
+export type { EffectRuntime } from './store/effect-runner/index.js';
 export { syncStore } from './domain/stored-entity/index.js';
 export type {
   CollectionItem,

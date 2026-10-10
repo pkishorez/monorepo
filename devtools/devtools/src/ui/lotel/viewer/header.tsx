@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button } from '@kstackz/ui-toolkit/components/ui/button';
+import { Button } from '@kstackz/web-platform/components/button';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -10,9 +10,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from '@kstackz/ui-toolkit/components/ui/alert-dialog';
-import { Trash2Icon } from '@kstackz/ui-toolkit/lucide';
-import { toast } from '@kstackz/ui-toolkit/components/ui/sonner';
+} from '@kstackz/web-platform/components/alert-dialog';
+import { Trash2Icon } from '@kstackz/web-platform/components/lucide';
+import { toast } from '@kstackz/web-platform/components/sonner';
 
 /** Telemetry toolbar actions. The DevTools URL is owned by the route shell. */
 export function Header({ onClear }: { onClear: () => Promise<number> }) {
@@ -52,8 +52,8 @@ export function Header({ onClear }: { onClear: () => Promise<number> }) {
           <AlertDialogHeader>
             <AlertDialogTitle>Clear all telemetry?</AlertDialogTitle>
             <AlertDialogDescription>
-              This deletes every trace, log, and flow from the DevTools server
-              and resets the local view.
+              This deletes every trace and log from the DevTools server and
+              resets the local view.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

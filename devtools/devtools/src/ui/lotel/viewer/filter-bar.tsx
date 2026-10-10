@@ -7,8 +7,8 @@ import {
   LayersIcon,
   PlusIcon,
   XIcon,
-} from '@kstackz/ui-toolkit/lucide';
-import { Button } from '@kstackz/ui-toolkit/components/ui/button';
+} from '@kstackz/web-platform/components/lucide';
+import { Button } from '@kstackz/web-platform/components/button';
 import {
   Command,
   CommandEmpty,
@@ -16,14 +16,14 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from '@kstackz/ui-toolkit/components/ui/command';
+} from '@kstackz/web-platform/components/command';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@kstackz/ui-toolkit/components/ui/popover';
-import { serviceColor } from '@kstackz/ui-toolkit/components/blocks/otel-trace-viewer';
-import { cn } from '@kstackz/ui-toolkit/lib/utils';
+} from '@kstackz/web-platform/components/popover';
+import { serviceColor } from '@devtools/ui/otel-trace-viewer';
+import { cn } from '@kstackz/web-platform/components/utils';
 import {
   formatServiceName,
   GROUP_BY_TRACE_NAME,

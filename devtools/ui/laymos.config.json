@@ -1,0 +1,69 @@
+{
+  "$schema": "../laymos/schema.json",
+  "sourceRoots": ["src"],
+  "ignoredPaths": [
+    "src/cosmos.decorator.tsx",
+    "src/monoverse/monoverse/monoverse.fixture.tsx",
+    "src/otel-trace-viewer/otel-trace-viewer.fixture.tsx",
+    "src/laymos/analysis-explorer/fixtures",
+    "src/laymos/file-list/fixtures",
+    "src/laymos/laymo/fixtures",
+    "src/laymos/stories-canvas/fixtures"
+  ],
+  "fileModules": ["src/monoverse/analysis.ts"],
+  "rules": {
+    "src/laymos/analysis-explorer": [
+      "src/laymos/laymo",
+      "src/laymos/stories-canvas",
+      "src/laymos/file-list",
+      "src/laymos/project-changes",
+      "src/laymos/preferences"
+    ],
+    "src/laymos/laymo": [
+      "src/laymos/canvas-space",
+      "src/laymos/project-changes"
+    ],
+    "src/laymos/stories-canvas": [
+      "src/laymos/canvas-space",
+      "src/otel-trace-viewer/trace-viewer"
+    ],
+    "src/monoverse/monoverse": [
+      "src/monoverse/package-cards",
+      "src/monoverse/laymos-drilldown",
+      "src/laymos/laymo",
+      "src/laymos/file-list"
+    ],
+    "src/monoverse/package-cards": [
+      "src/laymos/laymo",
+      "src/laymos/project-changes"
+    ],
+    "src/otel-trace-viewer/trace-viewer": [
+      "src/otel-trace-viewer/trace-dock",
+      "src/otel-trace-viewer/trace-list",
+      "src/otel-trace-viewer/trace-normalization",
+      "src/otel-trace-viewer/trace-presentation"
+    ],
+    "src/otel-trace-viewer/trace-dock": [
+      "src/otel-trace-viewer/narrative-view",
+      "src/otel-trace-viewer/span-inspection",
+      "src/otel-trace-viewer/waterfall-view",
+      "src/otel-trace-viewer/trace-presentation"
+    ],
+    "src/otel-trace-viewer/trace-list": [
+      "src/otel-trace-viewer/waterfall-view",
+      "src/otel-trace-viewer/trace-presentation"
+    ],
+    "src/otel-trace-viewer/narrative-view": [
+      "src/otel-trace-viewer/trace-presentation"
+    ],
+    "src/otel-trace-viewer/span-inspection": [
+      "src/otel-trace-viewer/trace-presentation"
+    ],
+    "src/otel-trace-viewer/waterfall-view": [
+      "src/otel-trace-viewer/trace-presentation"
+    ],
+    "src/laymos/canvas-space": ["src/laymos/preferences"],
+    "src/laymos/file-list": ["src/laymos/preferences"],
+    "*": ["src/monoverse/analysis.ts", "src/otel-trace-viewer/trace-model"]
+  }
+}

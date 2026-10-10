@@ -1,80 +1,93 @@
 import { Schema } from 'effect';
 
-export const StorySourceSchema = Schema.Struct({
+export const ProofSourceSchema = Schema.Struct({
   path: Schema.String,
   content: Schema.String,
 }).annotate({
-  title: 'Story Source',
-  description:
-    'The full text of a project file backing a Story: the file the Story was authored in, or the support file its proofs import.',
+  title: 'Proof Source',
+  description: 'The full text of the one file a Proof lives in.',
 });
 
-export const StoryPageSchema = Schema.Struct({
-  path: Schema.String,
-  content: Schema.String,
-}).annotate({
-  title: 'Story Page',
-  description:
-    "The markdown page narrating a Story or a Story Group: a Story's sibling `.md` file, or a Story Group's `index.md`. Null when the author wrote none.",
-});
+export const VenueSchema = Schema.Literals(['process', 'browser']);
 
-export const QuestionLeafSchema = Schema.Struct({
-  slug: Schema.String,
-  question: Schema.String,
-  answer: Schema.String,
-  snippet: Schema.String,
-}).annotate({
-  title: 'Question Leaf',
-  description:
-    'One Question of a Story: the question, its one-sentence answer, and the literal source of the proof effect extracted from the Story file.',
-});
-
-export const StoryLeafSchema = Schema.Struct({
+export const ProofLeafSchema = Schema.Struct({
+  /** Its Story's id plus the file name without `.proof.ts(x)`. */
   id: Schema.String,
+  /** The file name without `.proof.ts(x)`. */
+  name: Schema.String,
   title: Schema.String,
-  description: Schema.String,
-  spine: Schema.Boolean,
-  page: Schema.NullOr(StoryPageSchema),
-  setup: Schema.NullOr(Schema.String),
-  questions: Schema.Array(QuestionLeafSchema),
-  source: StorySourceSchema,
-  support: Schema.NullOr(StorySourceSchema),
+  description: Schema.NullOr(Schema.String),
+  venue: VenueSchema,
+  critical: Schema.Boolean,
+  source: ProofSourceSchema,
 }).annotate({
-  title: 'Story Leaf',
-  description:
-    'One Story in the Story tree: its derived id, its one-line description, whether it sits on the spine, its markdown page, the shared setup snippet, its Questions in authored order, and the support file its proofs import. Never carries results.',
+  title: 'Proof Leaf',
+  description: 'One Proof in the Story tree. Never carries results.',
 });
 
-export interface StoryTreeGroup {
+export const TellingIssueSchema = Schema.Struct({
+  kind: Schema.Literals([
+    /** The folder has no `story.md`. */
+    'missing-telling',
+    /** The Telling has no `#` title or no pitch paragraph. */
+    'incomplete-telling',
+    /** A link names a Story or Proof id that does not exist. */
+    'broken-link',
+    /** A sub-Story the Telling never links. */
+    'unnamed-part',
+  ]),
+  /** The id the issue is about: the broken link's target or the unnamed sub-Story. */
+  target: Schema.NullOr(Schema.String),
+  message: Schema.String,
+}).annotate({
+  title: 'Telling Issue',
+  description: 'Something wrong with how a Story tells itself.',
+});
+
+export interface StoryNode {
+  /** The names from the top Story down: `std-toolkit/evolving-schema`. The top Story's id is the Project's folder name. */
+  readonly id: string;
+  /** The last segment of the id. */
+  readonly name: string;
+  /** The folder beneath the Stories path; empty for the top Story. */
+  readonly path: string;
+  /** The Telling's `#` heading; the folder name when missing. */
   readonly title: string;
-  readonly description: string;
-  readonly page: typeof StoryPageSchema.Type | null;
-  readonly groups: readonly StoryTreeGroup[];
-  readonly stories: readonly (typeof StoryLeafSchema.Type)[];
+  /** The Telling's first paragraph; empty when missing. */
+  readonly pitch: string;
+  /** The Telling's markdown after the pitch, links left as written. */
+  readonly body: string;
+  /** Sub-Stories in the order the Telling first links them; unlinked ones last, by name. */
+  readonly stories: readonly StoryNode[];
+  /** Proofs in the order the Telling first links them; unlinked ones last, by name. */
+  readonly proofs: readonly (typeof ProofLeafSchema.Type)[];
+  readonly issues: readonly (typeof TellingIssueSchema.Type)[];
 }
 
-export const StoryTreeGroupSchema: Schema.Codec<StoryTreeGroup> = Schema.Struct(
-  {
-    title: Schema.String,
-    description: Schema.String,
-    page: Schema.NullOr(StoryPageSchema),
-    groups: Schema.Array(Schema.suspend(() => StoryTreeGroupSchema)),
-    stories: Schema.Array(StoryLeafSchema),
-  },
-).annotate({
-  title: 'Story Group',
+export const StoryNodeSchema: Schema.Codec<StoryNode> = Schema.Struct({
+  id: Schema.String,
+  name: Schema.String,
+  path: Schema.String,
+  title: Schema.String,
+  pitch: Schema.String,
+  body: Schema.String,
+  stories: Schema.Array(Schema.suspend(() => StoryNodeSchema)),
+  proofs: Schema.Array(ProofLeafSchema),
+  issues: Schema.Array(TellingIssueSchema),
+}).annotate({
+  title: 'Story',
   description:
-    'One node of the Story tree: a title, a one-line description, its markdown page, over any mix of subgroups and Story leaves.',
-}) as unknown as Schema.Codec<StoryTreeGroup>;
+    'One idea told to its Reader: a Telling, the Proofs that back it, and its sub-Stories.',
+}) as unknown as Schema.Codec<StoryNode>;
 
-export const StoryTreeSchema = StoryTreeGroupSchema.annotate({
+export const StoryTreeSchema = StoryNodeSchema.annotate({
   title: 'Story Tree',
   description:
-    "A Project's whole Story hierarchy, rooted at the barrel's default export. Metadata only; no Story executes to produce it.",
+    "A Project's Stories from its top Story down. Metadata only; no Proof executes to produce it.",
 });
 
-export type QuestionLeaf = typeof QuestionLeafSchema.Type;
-export type StoryLeaf = typeof StoryLeafSchema.Type;
-export type StorySource = typeof StorySourceSchema.Type;
-export type StoryPage = typeof StoryPageSchema.Type;
-export type StoryTree = StoryTreeGroup;
+export type ProofLeaf = typeof ProofLeafSchema.Type;
+export type ProofSource = typeof ProofSourceSchema.Type;
+export type TellingIssue = typeof TellingIssueSchema.Type;
+export type Venue = typeof VenueSchema.Type;
+export type StoryTree = StoryNode;

@@ -1,9 +1,9 @@
 import type {
   OtelSpan,
   TraceGroup,
-} from '@kstackz/ui-toolkit/components/blocks/otel-trace-viewer/trace-model';
-import { AlertTriangleIcon } from '@kstackz/ui-toolkit/lucide';
-import { cn } from '@kstackz/ui-toolkit/lib/utils';
+} from '@devtools/ui/otel-trace-viewer/trace-model';
+import { AlertTriangleIcon } from '@kstackz/web-platform/components/lucide';
+import { cn } from '@kstackz/web-platform/components/utils';
 import { formatRelativeTime, groupTracesBy } from './filtering';
 
 export function TraceFeed({
@@ -14,7 +14,6 @@ export function TraceFeed({
   expandedGroups,
   newCount,
   hasMore,
-  traceFlowIds,
   onRevealNew,
   onShowMore,
   onSelectTrace,
@@ -27,7 +26,6 @@ export function TraceFeed({
   expandedGroups: Record<string, boolean>;
   newCount: number;
   hasMore: boolean;
-  traceFlowIds: Map<string, string>;
   onRevealNew: () => void;
   onShowMore: () => void;
   onSelectTrace: (trace: TraceGroup) => void;
@@ -56,7 +54,6 @@ export function TraceFeed({
                   key={trace.traceId}
                   trace={trace}
                   selected={trace.traceId === selectedTraceId}
-                  flowId={traceFlowIds.get(trace.traceId)}
                   onSelect={() => onSelectTrace(trace)}
                 />
               ))}
@@ -68,7 +65,6 @@ export function TraceFeed({
           key={trace.traceId}
           trace={trace}
           selected={trace.traceId === selectedTraceId}
-          flowId={traceFlowIds.get(trace.traceId)}
           onSelect={() => onSelectTrace(trace)}
         />
       ));
@@ -87,12 +83,10 @@ export function TraceFeed({
 function TraceFeedRow({
   trace,
   selected,
-  flowId,
   onSelect,
 }: {
   trace: TraceGroup;
   selected: boolean;
-  flowId?: string;
   onSelect: () => void;
 }) {
   return (
@@ -130,14 +124,6 @@ function TraceFeedRow({
           {formatDuration(trace.duration)}
         </span>
       </div>
-      {flowId && (
-        <span
-          title={`This trace is part of Flow ${flowId}`}
-          className="ml-4 max-w-full self-start truncate rounded border border-border/60 bg-muted/30 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground"
-        >
-          Flow · {flowId}
-        </span>
-      )}
     </button>
   );
 }

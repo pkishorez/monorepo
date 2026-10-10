@@ -24,7 +24,7 @@ describe('analyzeLaymosProject', () => {
     ).pipe(Effect.runPromise);
 
     expect(analysis.config.sourceRoots).toEqual(['src']);
-    expect(analysis.layerAnalysis.membership.size).toBeGreaterThan(0);
-    expect(analysis.moduleAnalysis.modules.length).toBeGreaterThan(0);
+    expect(analysis.tree.nodes.length).toBeGreaterThan(0);
+    expect(Object.keys(analysis.tree.owners).length).toBeGreaterThan(0);
   });
 });

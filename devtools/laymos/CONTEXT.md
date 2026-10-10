@@ -1,515 +1,375 @@
 # CONTEXT — laymos
 
-Glossary for laymos: layers, modules, and tests — declared intent and actual
-state, merged. Definitions only; no implementation detail.
+Glossary for laymos: Modules, Rules, Exceptions and Stories — declared intent
+and actual state, merged. Definitions only; no implementation detail.
 
 ## Language
 
-_Being redefined from scratch._
-
 **Story**:
-A named, executable narrative of one behavior of the Project's code — a leaf
-of the Story tree. A Story carries a one-line description shown inline in
-listings, an optional Story page, a Story spine flag, and an executable program
-whose run captures Story artifacts and Story assertions.
+One idea about the Project, told to its Reader in plain, conversational
+English: what they get, why it matters to them, and which parts make it up.
+Each part is a Story of its own, so Stories form a tree that teaches the
+Project from its pitch down to its edge cases. A Story is proved by the
+Proofs that sit directly in it; at the top of the tree they prove the parts
+work together end to end, deeper down they prove one part's own claims. A
+Story is a folder beneath the Stories path; its Telling sits in that folder,
+its sub-Stories are the folders inside.
+_Avoid_: chapter, cluster, group, section, page, docs
 
-**Story question**:
-One question-and-answer unit of a Story: a reader-facing question, its prose
-answer, and a proof. A Story holds an ordered list of these.
+**Telling**:
+What a Story says, written as markdown in its folder: a title, a one-line
+pitch, and the rest of the explanation. The Telling always speaks from the
+Reader's side: what they want to do and what the Project does for them, never
+how it is built. A Telling names each of its sub-Stories where it explains how
+that part fits, and the order it names them is the order they are shown; a
+sub-Story the Telling never names is an error.
+_Avoid_: description, docs, README, summary
+
+**Reader**:
+The person a Story speaks to: whoever uses the idea that Story is about. The
+Reader shifts down the tree: the top Story of a toolkit speaks to someone
+choosing whether to use the toolkit, a Story about one part speaks to someone
+using that part.
+_Avoid_: audience, user, persona
 
 **Proof**:
-The executable program attached to one Story question. Running it records
-Story sections and Story assertions, and those assertions decide the
-question's verdict.
+One claim backing the Story it sits in, living in one file of its own: given a
+Preparation, when an Action is performed, a Verification holds. A Proof has
+a title, a Venue, optionally the Critical mark, and the three phases as
+executable programs. A run of a Proof yields one Proof report: a verdict
+plus Evidence a reader can judge for themselves. There is one kind of Proof;
+what varies is how real its Preparation is, its Venue, and what its
+Verification reads.
+_Avoid_: test, spec, scenario, question
 
-**Story Group**:
-A documentation node of the Story tree. It carries a title and one-line
-description shown inline in listings plus a mandatory Story page, and holds
-either subgroups or Stories — never both. Groups have no verdict of their
-own; any rollup is derived from descendant Story reports.
+**Self-contained**:
+The rule every Proof file obeys: a reader opens the file and sees everything
+that makes the claim true. A Proof imports only what the Project ships and
+the Proof utilities; nothing it needs is hidden in a shared helper.
+_Avoid_: support file, fixture file, helpers
 
-**Story page**:
-The markdown file narrating a Story or a Story Group, resolved by position
-rather than declared: a Story's page is the `.md` sibling of its Story file, and
-a Story Group's page is named after the group's own title, in the folder its
-descendant Stories share. Two Story Groups may span one folder — a Learn and a
-Reference trunk over the same Stories — so the title, not a fixed file name, is
-what keeps their pages apart. A Story Group without a page is a lint violation;
-a Story without one is carried by its description and its Story questions.
+**Preparation**:
+The first phase of a Proof: the state the Proof starts from, built only from
+Modules the Project ships. A Preparation may assert, and its outcome is
+reported on its own, so a Verification is never read against a state that
+was not reached.
+_Avoid_: setup, fixture, mock, given
 
-**Story spine**:
-The line a reader follows to learn the Project without reading everything: the
-Stories flagged as core flow. Every other Story is depth, kept in the Story tree
-and collapsed under its Story Group until the reader asks for it. The flag says
-what a Story is for, never whether it runs — a Stories run covers spine and
-depth alike.
+**Action**:
+The second phase of a Proof: what is done to the prepared state. In the
+Browser Venue it is the named steps a user takes on the page.
+_Avoid_: when, interaction
+
+**Verification**:
+The third phase of a Proof: the Proof assertions that decide the verdict. A
+Verification reads values the phases returned or measurements taken from the
+Evidence; a performance claim is a Verification with a budget, not a
+different kind of Proof.
+_Avoid_: then, expectation, check
+
+**Venue**:
+Where a Proof runs, which decides what Evidence its run can capture. Process:
+in the runner's own process, yielding values and a trace. Browser: the real
+app in a real browser, adding video and screenshots.
+_Avoid_: tier, unit, integration, e2e, environment
+
+**Device**:
+In the Browser Venue, one browser with its own storage, shaped as a desktop
+or a phone. Two Devices share nothing, so they stand for two users or two
+machines. A Proof opens as many as its claim needs.
+_Avoid_: context, profile, browser instance
+
+**Tab**:
+One open page on a Device. Tabs on the same Device share storage, so two Tabs
+stand for a user with the app open twice. Every Tab has its own Recording on
+the Proof's one clock, so all of a Proof's Recordings line up in time.
+_Avoid_: page, window
+
+**Recording**:
+What a Tab's screen did during a Proof run, kept raw: every frame the screen
+produced, each with the moment it appeared, untrimmed. The Stories canvas
+plays Recordings back at their own timestamps, side by side when a Proof has
+several Tabs, with Steps, fingers, and sounds drawn over them at playback.
+_Avoid_: video, screencast, capture
+
+**Step**:
+One named move of an Action in the Browser Venue, performed on one Tab: open,
+click, type, scroll, close, or a Gesture. A Step is recorded with its name, its Tab,
+and the moment it happened, so the Stories canvas can mark it on the video.
+Steps are performed the way a person would see them: the pointer travels,
+scrolling glides, and nothing jumps.
+_Avoid_: command, interaction, event
+
+**Gesture**:
+A Step made with one or more fingers on a phone Device: tap, press, swipe,
+drag, pinch, rotate. Each finger moves along its own path over time, the way
+a hand does, and each is drawn in the video while it is down.
+_Avoid_: touch event, multi-touch, pointer sequence
+
+**Evidence**:
+What a Proof run captured that a reader can inspect: the value each phase
+returned, a trace of what the code did, and in the Browser Venue one
+Recording per Tab. The verdict says it passed; the Evidence shows what
+happened.
+_Avoid_: artifact, recording, section
+
+**Critical**:
+The one mark a Proof can carry: a failure here is dangerous, so the Proof is
+shown apart and its failure is reported before everything else. It changes
+how a Proof is shown and reported, never what it is.
+_Avoid_: priority, tag, marker, severity
 
 **Story tree**:
-A Project's whole documentation-plus-Stories hierarchy, rooted at the Story
-Group the Stories path's entry point exposes. Loading it is metadata-only: no
-Story executes. Sibling titles must be unique.
+The Stories of a Project, from its top Story down, each with its Telling,
+its Proofs, and its sub-Stories. Loading it is metadata-only: no Proof
+executes.
 
 **Story id**:
-A Story's identity within the Story tree: the titles on the path from the
-root to the Story. Story reports attach to the tree by Story id.
+A Story's place in the Story tree, written as the names from the top Story
+down: `std-toolkit/evolving-schema/migrations`. A Telling refers to another
+Story by its Story id, and a reference to a Story that does not exist is
+shown as broken where it appears.
 
-**Story artifact**:
-A trace or a flow (a flow being a collection of traces) captured during a
-Story run through the Story utilities. Every artifact anchors its own Story
-section.
+**Proof id**:
+The Story id of the Story a Proof sits in plus the Proof's own name. It is
+what a Proof report attaches to and what a run is scoped by.
 
-**Story section**:
-One described step of a Story run: a trace, a flow, or a generic execution,
-together with the Story assertions that verify it. Sections are ordered and
-give a Story report its structure; every Story assertion belongs to exactly
-one section.
-
-**Story assertion**:
+**Proof assertion**:
 A mandatory description paired with a boolean condition, declared inside a
-Story's program and recorded when the run reaches it, attaching to the most
-recent Story section. Assertion outcomes decide the Story's verdict: passed
-when all held, failed when any was false, errored when the program died
-before finishing.
+Proof's phases and recorded when the run reaches it. Outcomes decide the
+verdict: unprepared when a Preparation assertion was false or the Preparation
+died, failed when a Verification assertion was false, errored when a phase
+died, passed otherwise.
 
-**Story context**:
-The service the Story runner injects into every Story run. It receives every
-captured Story artifact and Story assertion outcome and yields the Story
-report. Story utilities are the only way Stories talk to it.
+**Proof context**:
+The service the Proof runner injects into every Proof run. It receives every
+captured Evidence and Proof assertion outcome and yields the Proof report.
+Proof utilities are the only way Proofs talk to it.
 
-**Story report**:
-The structured record of one Story run, attached to the Story tree by Story
-id: the verdict plus the ordered Story sections the run recorded.
+**Proof report**:
+The record of one Proof run, attached to the Story tree by Proof id: the
+verdict per phase plus the Evidence the run captured. A Proof has one report
+at a time; a rerun replaces it.
 
 **Stories path**:
-A configured project-relative folder holding all Story files and their single
-entry point that exposes the Project's Story tree. It is implicitly an
-Ignored path: package-level Stories are exempt from architectural enforcement.
+A configured project-relative folder holding the Story tree. It is
+implicitly an Ignored path: Proofs are exempt from architectural
+enforcement.
 
-**Support file**:
-A file named `support.ts` beneath the Stories path, holding the harness a
-Story's proofs import: fixtures, layers, and helpers that would otherwise be
-retyped in every Story file. A Story resolves the nearest one at or above its
-own folder, so a Story Group shares one; a Story with none carries no support.
-It is read as part of the Story tree and shown beside the Story's setup, so a
-reader can see the code its proofs stand on.
-
-**Stories view**:
-The Stories tab beside the Layers <> Modules view. It renders the Story tree
-as navigable documentation the moment it loads, and attaches Story reports to
-their Stories as a Stories run streams them in.
+**Stories canvas**:
+The view of a Project's Story tree, read like documentation: the top Story
+first, and opening a Story reveals its Telling in place with its sub-Stories
+beside it. A Story's Proofs are listed inside it, under its Telling, like
+footnotes. Proofs run singly, by Story, or all at once. Opening a Proof
+shows its file and its whole Proof report in one place.
+_Avoid_: Proofs view, sidebar, list
 
 **Stories run**:
-Executing Stories sequentially, depth-first, yielding one Story report per
-Story as it completes. A run covers the whole Story tree or one scoped
-subtree — a Story Group or a single Story. Rerunning replaces exactly the
-Story reports the run covers.
+Executing the Proofs in a scope, the whole tree, one Story and everything
+beneath it, or one Proof,
+yielding one Proof report per Proof as it completes and replacing the report
+each covered Proof had before.
 
 **Project**:
 The analysis universe anchored by one Config. All configured paths are
 relative to the folder that contains that Config.
 
 **Config**:
-The declared Source roots, Ignored paths, optional Stories path, Layers,
-Configured Modules, Module Graphs, and LayerGraphs for one Project.
-
-**Target architecture**:
-The intended dependency and encapsulation policy that a Config enforces.
-Observed imports are evidence to inspect, not permissions to preserve.
-
-**Config validation issue**:
-An invalid or contradictory declaration in a Config that prevents an
-Architecture Analysis. Unlike a Layer or Module violation, it is not a finding
-about supported source files.
+The declared Source roots, Ignored paths, optional Stories path, File
+Modules, Rules and Exceptions for one Project. Folder Modules are never
+listed; they are read from disk. The Config states intent; source code is
+evidence.
 
 **Source root**:
-A configured canonical project-relative file or folder that defines the
-complete static analysis universe. Only supported source files beneath source
-roots that are not explicitly ignored participate in rules or coverage; Git
-state has no bearing on membership.
+A configured project-relative file or folder that defines the analysis
+universe. Files beneath Source roots, minus Ignored paths, are what Rules and
+Exceptions are checked against. Git-ignored files are never part of it.
 
 **Ignored path**:
-A configured literal, canonical project-relative file or folder explicitly
-excluded from the analysis universe. A folder includes its entire subtree.
-Ignoring is the intentional way to exempt supported files beneath a Source
-root from Layer and Module membership and architectural enforcement.
+A configured file or folder removed from the analysis universe, with its
+whole subtree. Ignoring is the one way to keep a folder with an `index.ts`
+from being a Module, and to say a loose file beside Modules is no Module.
+An ignored file still shows in the File list, dimmed.
 
 **Unanalyzed file**:
-A file git knows beneath a Laymos scope that lies outside the analysis
-universe: an unsupported file, or one beneath an Ignored path. It is shown
-beside analyzed files for context but never owned by a Layer or Module, so its
-changes never alter a Module change status.
-_Avoid_: untracked file (git's word for a file not yet added)
-
-**Layer**:
-A dependency-policy cohort: source with one architectural role and therefore
-one set of cross-Layer dependency permissions. Layers partition the analysis
-universe; folder names, team ownership, and visualization alone do not define
-one.
-
-**Layer scope**:
-A configured canonical project-relative file or folder assigned to a Layer. A
-folder scope includes its supported descendant files, and a Layer may have one
-or more non-overlapping scopes.
-_Avoid_: Layer folder, Layer file tree
+A file git knows beneath a Source root that lies outside the analysis
+universe: unsupported, or beneath an Ignored path. Shown dimmed in the File
+list, never owned by a Module.
+_Avoid_: untracked file (git's word), git-ignored file (never shown at all)
 
 **Module**:
-An encapsulation boundary around one coherent capability and the design
-decisions it hides. Its stable door says what callers can do; its interior
-changes together without making callers learn how the promise is fulfilled.
+One unit of the architecture: a folder with an `index.ts`, read from disk, or
+a single file declared as a File Module. Inside a Module its own files are
+free among themselves, and tests inside it are inside it. To everything
+outside, a Module is an island whose only importable file is its Index. A
+folder with an `index.ts` that should not be a Module is an Ignored path.
+_Avoid_: layer, module graph, package, deep module (that is a quality a
+Module has, not a kind), configured module, directory module, declared module
 
-**Deep Module**:
-A Module that absorbs substantially more complexity than its door exposes. A
-narrow door is insufficient when the interior remains tangled or unreadable.
-
-**Module execution story**:
-The top-to-bottom account in a Directory Module's `<name>.ts` that fulfils its
-door by coordinating a few named collaborators. Each collaborator is another
-zoom level, so understanding one branch never requires sibling internals.
-
-**Module focus budget**:
-The default limit of two or three concepts a reader must hold at one orchestration
-level. A coordinator exceeding the budget groups related work behind a named
-internal capability rather than presenting every detail at once.
-
-**Orchestrator**:
-A relative Module role that fulfils a broader capability by coordinating lower
-capabilities. It owns the workflow's sequencing, failure, and state policy while
-delegating the work each lower Module promises; it is not a configured kind or
-a mandatory Layer.
-
-**Module independence**:
-The intended relationship between Configured Modules in one Layer: each owns
-its responsibility without depending on its peers. An exceptional common
-capability that cannot belong to one peer may become a Shared Module. Peers
-that genuinely form one capability with an interior become a Module Graph,
-where their connections are declared as Module Graph Rules instead.
-
-**Directory Module**:
-A Module backed by a directory. It has a minimal root `index.ts` when it is
-Shared, exposed, or a Module Graph member. A free-form Directory Module
-importable by nobody needs no door and follows its host's file convention.
+**Index**:
+A folder Module's `index.ts`: the one file of that Module anyone outside may
+import. It only exports; the Module's own files do the importing. An Index
+says nothing about the Modules nested below it, which have their own.
+_Avoid_: door (the monorepo's word for a Toolkit subpath), entry point,
+barrel, public entry, facade, seal
 
 **File Module**:
-A Module backed by one supported source file. Its file is its public entry point
-when it is Shared or exposed, and is host-owned otherwise. It cannot own
-companion files; a File Module with private companion files is promoted to a
-Directory Module. A File Module at a Module Graph's root is how that Graph
-offers a single facade alongside its other doors.
+A single file declared in the Config as a Module of its own. The one kind of
+Module that must be declared, because a file carries no `index.ts` to say so.
+_Avoid_: file-level module, leaf file
 
-**Configured Module**:
-A Module explicitly declared, either free-form in its Layer or as a member of one
-Module Graph, that forms one disjoint membership and dependency boundary within
-a Layer. It is declared in exactly one of those two places. Every included file
-belongs to one Configured Module. Its path must identify an included supported
-source file or a directory that contains included supported source files.
+**Own files**:
+The files of a folder Module that are not inside a Nested Module. They may
+import each other, and the Index of any Module nested below them at any
+depth, for free.
 
-**Module visibility**:
-A Configured Module's declared access rule, expressed as two independent
-booleans: `shared`, meaning peers in the same Layer may import it, and
-`exposed`, meaning other Layers may import it. Both default to false, so a
-Module is importable by nobody until it says otherwise. They mean the same
-thing wherever a Module is declared.
-_Avoid_: Module kind, Normal Module, Entry Module
+**Nested Module**:
+A Module that lives inside another Module. It is an island to its siblings
+and to the outside: only the Own files of the Modules above it may import its
+Index for free. A Rule may name it from anywhere, as narrowly as it likes.
+_Avoid_: sub-module, child module, member, inside
 
-**Module shape**:
-The source form backing a Module: File or Directory.
+**Wrapper**:
+A folder that holds Modules and is named in Rules for all of them at once. A
+folder with no `index.ts` is a plain Wrapper: it has no face, nobody imports
+it, and it should have no files of its own. A Module that holds Nested
+Modules is also the Wrapper of those Modules.
+_Avoid_: layer, group, namespace, structural folder, scope
 
 **Exposed Module**:
-A Module available through its public entry point to permitted consumers in
-other Layers. Its peers in the same Layer remain independent from it unless it
-is also Shared.
+A Module inside a Wrapper that something outside that Wrapper imports. What
+it exposes is read from the code, never declared.
+_Avoid_: public module, shared module, port
 
-**Module public entry point**:
-The smallest stable contract through which a Module exposes itself to other
-Configured Modules: a File Module's own file, or a Directory Module's root
-`index.ts`. Shared and exposed Modules have one; every Module Graph member also
-has one so permitted peers use its door without making it externally exposed.
+**Internal Module**:
+A Module inside a Wrapper that nothing outside that Wrapper imports: only its
+neighbours in the Wrapper use it. The healthy default.
+_Avoid_: private module, hidden module
 
-**Intentional root**:
-A host-started Module, such as a CLI or framework entry, that may depend on
-other Modules but is imported by none. It is neither Shared nor exposed, and is
-not declared: a Module with no importers is treated as intentional when its
-Layer has no inbound Rules in the permission union, because that is where hosts
-enter, and is reported as a Dead Module anywhere else.
-_Avoid_: Entry Module, Unexposed Module
+**Wrapper coverage finding**:
+A plain Wrapper that holds loose files. Each such file must become a file
+Module, the Wrapper must become a Module by gaining an Index, or the file must
+be an Ignored path.
+_Avoid_: layer coverage violation, unassigned file
 
-**Observed Module kind**:
-A Module's position in the observed dependency graph: Regular, Root, Terminal,
-or Isolated. It describes imports found in source, not the configured Module
-kind.
+**Rule**:
+A declared, one-way permission between two project-relative paths, each a
+Wrapper or a Module at any depth: every Module inside _from_ may import the
+Index of every Module inside _to_. Rules are the architecture. By default no
+Module imports any other, so a sibling import with no Rule is a violation. A
+Rule is as narrow as the need: `src/studio-rpc -> src/db/std-table/definition`
+grants one nested Module and nothing else of `db`; `src/sync -> src/db`
+grants all of it. Rules do not chain. A Rule says _may_, never _should_;
+which Modules use it is read from the code.
+_Avoid_: layer rule, module graph rule, dependency, edge, permission,
+guideline, business rule, exception
 
-**Regular Module**:
-A Module with both dependencies and dependents.
+**Shared Rule**:
+A Rule whose _from_ is every sibling of _to_, written `*`. The one place a
+Module is granted to all its peers at once.
+_Avoid_: shared module, shared flag
 
-**Root Module**:
-A Module with dependencies and no dependents.
-_Avoid_: Module root, root entry point
+**Rule loop**:
+A set of Rules that, followed together with folder nesting, lets a Module
+reach itself. A Config error, not a violation.
+_Avoid_: cycle (used for observed imports), circular dependency
 
-**Terminal Module**:
-A Module with dependents and no dependencies.
+**Exception**:
+One declared import that no Rule could ever hold, allowed on purpose, with a
+Reason. Only two things are Exceptions: a child importing its parent or any
+ancestor, and an import against an existing Rule that would make a Rule loop.
+Anything else that is wanted is a Rule. An Exception is outside the loop check
+and drawn apart from Rules, with its Reason beside it. One without a Reason
+is invalid.
+_Avoid_: override, allowlist, waiver, exemption, granular rule
 
-**Isolated Module**:
-A Module with no dependencies or dependents.
+**Reason**:
+The sentence an Exception carries saying why it exists. Mandatory.
+_Avoid_: comment, note, justification
 
-**Module Graph**:
-A named, bounded set of Configured Modules inside one Layer, rooted at a
-directory, whose connections are declared as Module Graph Rules. It describes
-one capability too large for a single Module. Normally one facade is exposed
-and every private member lies on its dependency story; several doors are an
-exception for independently consumed variants of the same capability. A Module
-Graph is not itself a Module, owns no files directly, and cannot contain another
-Module Graph.
-_Avoid_: treating a Module Graph as a view of a LayerGraph. Unlike a LayerGraph
-it is a disjoint unit whose Rules are never unioned with any other Graph's, are
-not transitive, and are checked for cycles on their own.
+**Violation**:
+One observed import that is not inside a Module, not a parent importing a
+child's Index, not covered by a Rule, and not covered by an Exception. There
+is one kind; the report names the two files and says whether a Rule could
+hold it or only an Exception.
+_Avoid_: layer dependency violation, module boundary violation, module
+dependency violation, module cycle violation, dead module, missing entry point
 
-**Module Graph member**:
-A Configured Module declared inside a Module Graph, at a path below the Graph's
-root and keyed relative to it. A member may be exposed but never Shared, since
-sharing is Layer-wide and would let a peer bypass the Graph's Rules; a
-capability that must be shared is declared free-form in the Layer instead. A
-Module Graph declares at least two members and at least one exposed member.
-
-**Module Graph Rule**:
-A direct, declared permission between two members of one Module Graph: member X
-may depend on member Y. Rules are the only means of connection inside a Graph.
-They are not transitive, so a permitted chain grants nothing beyond its declared
-edges, and the Rules of one Graph must be acyclic.
-
-**Module Graph import law**:
-What a member may depend on: members of its own Module Graph where a Rule
-permits, free-form Shared Modules in its Layer, and exposed Modules in Layers it
-may reach. Never a member of another Module Graph in the same Layer.
-
-**Module internal dependency**:
-An import within one Configured Module. It may target any internal file without
-using a public entry point.
-
-**External Module dependency**:
-An import between Configured Modules. It requires dependency permission and an
-exposed Module public entry point.
+**Reach**:
+Everything a Module may import, by Rule and Exception, inherited from every
+Wrapper above it. Reach is what a Rule grants; use is what the code shows.
+_Avoid_: permission union, transitive reach, visibility
 
 **Architecture Analysis**:
-The complete renderer-neutral description of one Project's declared Layer and
-Module architecture and the facts found in its supported source files. CLI
-reports and visualizations are separate views of this analysis.
-_Avoid_: Architecture Snapshot
+The merged picture of one Project: the Module tree the Config declares, the
+Rules and Exceptions on it, and every observed import classified against
+them.
 
-**Module analysis**:
-The part of an Architecture Analysis that combines the declared Configured
-Module architecture with facts derived from supported source files, including
-Module visibility, shape, observed kind, Module Graph membership, public entry
-points, dependencies, and Module violations.
+**Module rank**:
+Where a Module stands among its siblings in the picture, below the siblings
+that import it. Derived from Rules where the Wrapper has them and from
+observed imports where it has none, never declared.
+_Avoid_: layer, stratum, level, depth
 
-**Layers <> Modules view**:
-The single unified view of one Project's declared and observed architecture:
-Modules rendered within their Layers. There is no separate Layers-only or
-Modules-only screen and no navigation between granularities — only View
-settings.
-_Avoid_: Layers screen, Modules screen
+**Laymo**:
+The picture of a Project's architecture, shown beside Stories: an explorable
+space of cards, one per Module or Wrapper. The Project is one card holding
+its children; a card opens in place to show what is nested in it and
+collapses back; a Wrapper chain with one child shows as one card named by the
+whole path. A card carries only its name, and inside a Wrapper whether it is
+an Exposed or an Internal Module. Lines are the imports the code makes, never
+the Rules; a Violation is red. Lines join siblings, so no line crosses a
+card's border; a selected card shows instead only what crosses its border,
+one line from its own frame to each card it uses or is used by.
+_Avoid_: layers <> modules view, graph view, architecture view, module
+canvas, architecture explorer
 
-**View settings**:
-What the Layers <> Modules view draws, chosen together rather than one control
-each: whether Modules are shown at all, whether Layer connections are drawn,
-whether Module connections are drawn, and LayerGraph isolation. They change
-drawing only, never the Config, the Rules, the Violations, or coverage. A
-setting whose subject is not selected yet stays available and simply has no
-effect; nothing is disabled for lack of a selection.
+**Module outline**:
+The Project's Wrappers and Modules as one collapsible tree beside the Laymo,
+stopping at Modules: no files. Selecting in either selects in both.
+_Avoid_: file tree, file list (that is a Module's files), navigator
 
-**Connection visibility**:
-A View setting, held separately for Layer connections and Module connections,
-that decides whether connections are drawn while nothing is selected. Turning
-one off is a request for less standing detail, not for less information: the
-connections of whatever the user selects are still drawn, so a selection always
-answers what it depends on.
+**Rule list**:
+Every Rule and Exception of the Config, listed beside the Laymo under the
+Module outline. Choosing one shows it on the Laymo.
+_Avoid_: rules panel, legend
 
-**Host LayerGraph**:
-The single LayerGraph a Layer belongs to and the only place that Layer is drawn,
-derived from the Config rather than declared. It is the LayerGraph that declares the most Rules from that Layer.
-A Layer no LayerGraph declares Rules from — a leaf — is hosted by the
-LayerGraph declaring the most Rules into it. Ties break on declaration order,
-so every Layer has exactly one Host LayerGraph and is drawn in one place. A
-LayerGraph that hosts no Layer draws no lane and cannot be selected; its Rules
-are still enforced and still drawn between the Layers they name.
-_Avoid_: saying a Layer is shared between LayerGraphs, spanning it across them,
-or standing a placeholder for it in a lane that only reaches it; a Rule points
-at the one real Layer wherever that Layer is drawn.
-
-**LayerGraph selection**:
-A focus on one LayerGraph within the Layers <> Modules view. The Layers the
-selected LayerGraph hosts _and_ the Layers it reaches are emphasized, so its
-dependencies stay legible in the lanes that host them; every other Layer and
-its Modules are de-emphasized yet remain visible and fully interactive. Only the selected LayerGraph's Rules are drawn or used for
-highlighting. LayerGraphs reference Layers, never other LayerGraphs.
-
-**LayerGraph isolation**:
-An opt-in setting on a LayerGraph selection that hides everything the selected
-LayerGraph does not depend on. Every other LayerGraph keeps only the Layers the
-selection reaches, and a LayerGraph it reaches nothing in disappears, so the
-remaining lanes sit next to each other and the distance between a LayerGraph
-and its dependencies collapses. Nothing an isolated view still draws is
-de-emphasized, and the Layers the selection reaches are marked as its
-dependencies. _Avoid_: treating isolation as a filter on the Config or on enforcement; it
-hides drawing, never Rules, Violations, or coverage.
-
-**Layer rank stack**:
-The vertical arrangement of a Layer's contents in the Layers <> Modules view: a
-Configured Module or a Module Graph sits below everything that depends on it.
-The stack is derived from observed imports that the Config permits — a Module
-dependency violation moves nothing, because it would draw an illegal
-arrangement as though it were intended. Depth is therefore a fact about the
-Layer and cannot be compressed; width is free, so a rank wraps onto more lines
-until the Layer is as near to square as its ranks allow. A Layer whose Modules
-import nothing from each other is one rank, wrapped.
-The imports the stack is derived from are drawn, because position alone cannot
-say whether a box sits lower through a dependency or through a wrapped rank.
-_Avoid_: calling the stack a Rule, a permission, or a Module Graph; free-form
-Modules declare nothing about each other inside a Layer.
-
-**Module source explorer**:
-A view of the included supported source files assigned to one Configured
-Module, through which a user can navigate and read that Module's source.
-_Avoid_: Module dialog, Module view
-
-**Module source snapshot**:
-The paths and textual contents of the included supported source files assigned
-to one Configured Module at the time they are requested.
-_Avoid_: Module file tree
-
-**Module Graph coverage violation**:
-An included supported file below a Module Graph's root that belongs to no
-member. Everything under the root must be claimed, so the only files legal
-beside the member directories are those of a declared root File Module.
-
-**Dead Module violation**:
-A Module that nothing may import and nothing does: a member named in no Module
-Graph Rule and not exposed, or a free-form Module that is neither Shared nor
-exposed, has no importers, and is not an Intentional root.
-
-**Module coverage violation**:
-An included supported file that belongs to a Layer but no Module. The file must
-either be assigned to a Module or excluded from the analysis universe through
-an Ignored path. Its Layer dependencies remain enforceable, but Module-level
-dependency checks involving it are deferred until it has Module membership.
-
-**Missing Module Entry Point**:
-An expected public entry point that is absent: the root `index.ts` of a
-Directory Module that is Shared or exposed. A Module that is neither
-intentionally has no Module public entry point.
-_Avoid_: Module entry-point violation, module with no entry point
-
-**Module cycle violation**:
-A dependency cycle containing two or more configured Modules. Cycles wholly
-inside one Module are not Module violations. Only otherwise permitted
-cross-Module dependencies participate; LayerGraph acyclicity prevents such a
-cycle from crossing Layers, and each Module Graph's Rules are checked for cycles
-on their own rather than unioned with any other Graph's.
-
-**Module dependency violation**:
-A direct dependency whose target's visibility does not permit the source:
-same-Layer dependencies require a Shared target, cross-Layer dependencies
-require an exposed target and Layer permission, and a target that is neither
-permits none. Between members of one Module Graph a declared Rule is required
-instead; a dependency into another Module Graph's member in the same Layer is
-never permitted. Cross-Layer access follows exposure and Layer permission.
-This violation takes precedence over checking the target's public boundary.
-
-**Module boundary violation**:
-An otherwise permitted dependency from one Module to an internal file of
-another Module rather than an eligible public entry point. Layer and Module
-permission failures take precedence over this violation.
-
-**Shared Module**:
-An exceptional Layer-wide capability extracted when otherwise independent
-Modules genuinely need common functionality that none of them should own. Every
-other Module in the same Layer may depend on it, including Module Graph members,
-which makes it the only common ground two Module Graphs may share. It is always
-free-form and never a Module Graph member. Sharing has no effect on cross-Layer
-permission, which remains governed by Layer Rules and the `exposed` flag. A
-Shared Module with no same-Layer dependents is a Module violation, and one whose
-dependents are all peers in its own Layer is a Module Graph waiting to be
-declared.
-
-**LayerGraph**:
-A named, configured set of Rules representing one responsibility (e.g. core
-architecture, test boundaries) — an organizational and visual grouping, not an
-enforcement boundary. A LayerGraph may reference any subset of the project's
-Layers; a Layer absent from a given LayerGraph simply has no rules declared
-under that responsibility. A LayerGraph _hosts_ the Layers it declares Rules
-from and _reaches_ the Layers it names only as Rule targets; reaching is not
-hosting, and a Layer belongs to exactly one Host LayerGraph. Enforcement never scopes to a single LayerGraph:
-the permission set actually enforced is the union of every Rule declared
-across every LayerGraph in the project. All layer operations use this union,
-not an individual LayerGraph. The union must be acyclic; a cycle makes the
-configuration invalid even when its edges come from different LayerGraphs.
-Having no LayerGraphs or Rules is valid and produces an empty permission
-union, denying every cross-Layer dependency.
-
-**Rule** (within a LayerGraph):
-A direct, declared permission: Layer X may depend on Layer Y. Rules are
-default-deny — a dependency between two Layers with no declared path between
-them (direct or transitive, across the union of all LayerGraphs) is a
-violation. Permission is transitive: if X may depend on Y and Y may depend on
-Z, X may also depend on Z, without X → Z being declared explicitly. A Layer
-with no outgoing rule is a valid, intentional leaf, not a configuration gap.
-The union of all Rules forms a directed acyclic hierarchy: lower Layers may
-depend on reachable Layers below them, while unrelated Layers may not depend
-on one another.
-
-**Layer analysis**:
-The part of an Architecture Analysis that combines the declared Layer
-architecture with facts derived from supported source files, including file
-counts and Layer violations.
-
-**Layer dependency violation**:
-A direct file import that crosses Layers without a direct or transitively
-reachable Rule permitting that Layer dependency. Violations identify only the
-concrete direct import to change, not its downstream transitive consequences.
-
-**Layer violation pair**:
-An ordered source Layer and target Layer associated with one or more Layer
-dependency violations. It groups the concrete forbidden imports between those
-Layers for presentation.
-_Avoid_: Layer group
-
-**Layer coverage violation**:
-A supported file in the analysis universe that belongs to no Layer. Because it
-has no Layer identity, its imports produce no Layer dependency violations;
-dependency enforcement begins once the file is assigned.
-
-**Layer without Modules violation**:
-A declared Layer that contains no Configured Modules. Every Layer must contain
-at least one Module boundary.
+**File list**:
+Every git-tracked file of a Module's folder, shown as one plain tree with
+nothing hidden: source, README, docs, tests and ignored files alike, ignored
+ones dimmed. Git-ignored files are not in it. Opening a file shows it. There
+is no separate documentation view.
+_Avoid_: module source explorer, documentation, docsPath, source snapshot
 
 **FileGraph**:
 The raw file-dependency graph produced by cruising a project: for every
 supported file in the analysis universe, the set of included source files it
-directly imports. This is the single source of truth all dependency
-inspections are computed from — it is never presented to a user directly.
+directly imports. The single source of truth every dependency inspection is
+computed from; never presented to a user directly.
 
 **Inspection**:
-A focused view of one exact included supported source file or Configured
-Module, combining its architectural identity with its observed dependencies.
-Folders that are not Configured Modules are not inspection targets.
-_Avoid_: Dependency query
+A focused view of one included source file or one Module, combining its place
+in the Module tree with its observed imports. Wrappers and undeclared folders
+are not inspection targets.
+_Avoid_: dependency query
 
 **Inspection target**:
-The exact included supported source file or Configured Module an Inspection
-describes. A Configured Module is identified by its canonical configured path.
+The exact included source file or Module an Inspection describes. A Module is
+identified by its project-relative path.
 
 **Direct file dependency**:
-In a file Inspection, an included supported source file imported directly by
-the target file — one hop.
+In a file Inspection, an included source file imported directly by the target
+file: one hop.
 
 **Recursive file dependency**:
-In a file Inspection, an included supported source file reached transitively
-through another dependency — two or more hops from the target file.
+In a file Inspection, an included source file reached through another
+dependency: two or more hops.
 
 **Module dependent** (in an Inspection):
-A Configured Module that directly depends on the inspected Configured Module.
+A Module whose files directly import the inspected Module's Index.
 
 **Module dependency** (in an Inspection):
-A Configured Module that the inspected Configured Module directly depends on.
+A Module whose Index the inspected Module's files directly import.
 
 **Base ref**:
 The git revision a Change set is measured against. `HEAD` yields the Project's
@@ -517,17 +377,17 @@ uncommitted changes; a branch resolves to its merge-base with the working tree
 so unrelated commits on that branch are not attributed to the current work.
 
 **Change set**:
-The added and modified paths between a Base ref and the working tree, resolved
-relative to the Config's folder. Deletions and renames are outside it by
-choice: a rename reads as an addition, and a path that only disappeared leaves
-no trace. It decorates an Architecture Analysis and never alters the analysis
+The added, modified and deleted paths between a Base ref and the working tree,
+resolved relative to the Config's folder. Renames are outside it by choice: a
+rename reads as an addition and a deletion. A path added since the Base ref
+and deleted again leaves no trace. It decorates an Architecture Analysis and never alters the analysis
 universe — Source roots and Ignored paths still decide membership, exactly as
 when no Change set is present. It is unfiltered: it carries every changed path
 beneath the Config's folder, and each consumer selects the paths it cares
 about.
 
 **Change status**:
-One path's standing in a Change set: added or modified.
+One path's standing in a Change set: added, modified or deleted.
 
 **Change origin**:
 Where one path's change lives: committed between the Base ref and `HEAD`,
@@ -535,19 +395,17 @@ uncommitted in the working tree, or both when a path carries each. It lets a
 reader hide uncommitted work without recomputing the Change set.
 
 **Module change status**:
-A Configured Module's derived standing in a Change set: added when every file
-it owns is added, modified when any file it owns is added or modified, and
-otherwise unchanged. A Module whose only change is a deleted file reads as
-unchanged, because a Change set does not carry deletions.
+A Module's derived standing in a Change set: added when every file it owns is
+added, deleted when its Index was deleted and its folder is no Module any
+more, modified when any file it owns or once owned changed, and otherwise
+unchanged. A Wrapper whose every child was deleted reads deleted too. A deleted Module is shown where it stood, so a reader sees what
+the change took away.
 
 **Story change status**:
-A Story's derived standing in a Change set, resolved through the file backing
-it: added when its Story file is added, modified when its Story file or the
-Support file its proofs import is modified, and otherwise unchanged. A support
-change is recorded as such, so a reader can tell a Story's own edit from an
-edit beneath it. Resolution is per file, so Stories sharing one file share one
-status. A Story Group is added when every descendant Story is added and
-modified when any descendant Story changed.
+A Proof's derived standing in a Change set: added when its file is added,
+modified when its file is modified, and otherwise unchanged. A Story is added
+when its Telling and everything beneath it are added, and modified when its
+Telling or anything beneath it changed.
 
 **Diff hunk**:
 One contiguous changed region of a modified path between a Base ref and the

@@ -18,7 +18,7 @@ export default defineConfig({
       include: ['alchemy-console/deletion-engine', 'alchemy-console/providers'],
       force: true,
     } as SsrDepOptimizationConfig,
-    noExternal: ['@kstackz/ui-toolkit'],
+    noExternal: ['@kstackz/web-platform'],
     resolve: { mainFields: ['browser', 'module', 'jsnext:main', 'jsnext'] },
   },
   server: {

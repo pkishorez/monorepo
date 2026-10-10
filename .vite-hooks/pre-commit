@@ -8,3 +8,7 @@ pnpm -r --if-present lint:tsc
 if git diff --cached --name-only | grep -qE '(^|/)package\.json$|^pnpm-workspace\.yaml$'; then
   syncpack lint
 fi
+
+# Architecture is checked per Laymos Project, every Project a staged file
+# sits in, whether or not its package's lint script runs Laymos.
+node .github/scripts/laymos-lint.mjs --staged

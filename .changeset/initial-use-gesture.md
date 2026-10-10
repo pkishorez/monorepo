@@ -1,6 +1,6 @@
 ---
 '@kstackz/use-gesture': patch
-'@kstackz/ui-toolkit': patch
+'@kstackz/web-platform': patch
 ---
 
 Introducing `@kstackz/use-gesture`: touch gestures for React, with every finger of a touch as motion values, in nested zones that own touch.

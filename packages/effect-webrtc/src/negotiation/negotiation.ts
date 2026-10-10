@@ -1,18 +1,12 @@
 import { Schema } from 'effect';
 
-export const FlowMessageTokenSchema = Schema.Struct({
-  id: Schema.String,
-  from: Schema.String,
-  to: Schema.String,
+/** The offerer's trace context, so the answerer's spans join the same trace. */
+export const TraceCarrierSchema = Schema.Struct({
+  traceId: Schema.String,
+  spanId: Schema.String,
 });
 
-export const FlowCarrierSchema = Schema.Struct({
-  flowId: Schema.String,
-  message: FlowMessageTokenSchema,
-  parentFlowId: Schema.optional(Schema.String),
-});
-
-export type FlowCarrier = typeof FlowCarrierSchema.Type;
+export type TraceCarrier = typeof TraceCarrierSchema.Type;
 
 export const PeerSessionId = Schema.String.pipe(
   Schema.brand('@kstackz/effect-webrtc/PeerSessionId'),
@@ -63,11 +57,11 @@ export const NegotiationMessage = Schema.Union([
 
 export type NegotiationMessage = typeof NegotiationMessage.Type;
 
-/** The addressed payload that lets the answering Peer continue the offerer's Flow. */
+/** The addressed payload that lets the answering Peer continue the offerer's trace. */
 export const NegotiationEnvelope = Schema.Struct({
   peerSessionId: PeerSessionId,
   connectionAttemptId: ConnectionAttemptId,
-  flow: FlowCarrierSchema,
+  trace: TraceCarrierSchema,
   message: NegotiationMessage,
 });
 

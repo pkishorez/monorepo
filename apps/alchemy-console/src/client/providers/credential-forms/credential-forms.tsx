@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
-import { Input } from '@kstackz/ui-toolkit/components/ui/input';
-import { CircleAlert } from '@kstackz/ui-toolkit/lucide';
+import { Input } from '@kstackz/web-platform/components/input';
+import { CircleAlert } from '@kstackz/web-platform/components/lucide';
 import { cloudflare } from '../cloudflare/index.ts';
 import { aws } from '../aws/index.ts';
 

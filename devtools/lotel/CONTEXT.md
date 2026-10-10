@@ -1,8 +1,7 @@
 # Lotel — Context
 
 Lotel is the DevTools Tool and domain for receiving and inspecting local
-OpenTelemetry Span Records and Log Records. Flows are a separate Tool with
-their own [context](../flow/CONTEXT.md).
+OpenTelemetry Span Records and Log Records.
 
 ## Language
 

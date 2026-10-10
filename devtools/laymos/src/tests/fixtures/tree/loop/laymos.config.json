@@ -1,0 +1,4 @@
+{
+  "sourceRoots": ["src"],
+  "rules": { "src/a": ["src/b"], "src/b": ["src/a"] }
+}

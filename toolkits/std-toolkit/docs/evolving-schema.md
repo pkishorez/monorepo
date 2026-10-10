@@ -237,5 +237,7 @@ The two ways past a refusal are both honest about the data:
 
 The guard is only as durable as the Alchemy state store behind the stack.
 
-Every edge case above is proven in the runnable stories under
-`stories/03-changing-the-shape/`.
+Every edge case above is a runnable Story under
+[`stories/evolving-schema/`](../stories/evolving-schema/),
+[`stories/migrations/`](../stories/migrations/), and
+[`stories/snapshot/`](../stories/snapshot/).

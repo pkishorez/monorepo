@@ -1,8 +1,8 @@
 import { Effect, Layer, Schema } from 'effect';
 import { RpcTest } from 'effect/rpc';
 import { FetchHttpClient } from 'effect/http';
-import { Authz } from '@kstackz/auth-toolkit/rpc';
-import { authzLayer } from '@kstackz/auth-toolkit/server/rpc';
+import { Authz } from '@kstackz/auth-toolkit/guard';
+import { authz } from '@kstackz/auth-toolkit/server';
 import { SQLite } from '@kstackz/std-toolkit/db/sqlite';
 import { makeNodeSQLite } from '@kstackz/std-toolkit/db/sqlite/node';
 import { expect, it } from 'vite-plus/test';
@@ -73,7 +73,7 @@ const resolver = Layer.succeed(Authz.Resolver, {
       if (!id || id === 'invalid') return null;
       const now = new Date();
       return {
-        currentAuth: {
+        current: {
           kind: 'session' as const,
           user: {
             id,
@@ -114,7 +114,7 @@ const run = <A, E>(
     }).pipe(
       Effect.scoped,
       Effect.provide(ConsoleHandlers.pipe(Layer.provide(table.layer))),
-      Effect.provide(authzLayer.pipe(Layer.provide(resolver))),
+      Effect.provide(authz.layer.pipe(Layer.provide(resolver))),
       Effect.provide(FetchHttpClient.layer),
       Effect.provideService(FetchHttpClient.Fetch, fetch),
       Effect.provideService(FetchHttpClient.RequestInit, {
@@ -469,7 +469,7 @@ it('persists raw secrets at schema v1 and removes the actual rows on delete', as
     }).pipe(
       Effect.scoped,
       Effect.provide(ConsoleHandlers.pipe(Layer.provide(table.layer))),
-      Effect.provide(authzLayer.pipe(Layer.provide(resolver))),
+      Effect.provide(authz.layer.pipe(Layer.provide(resolver))),
       Effect.provide(FetchHttpClient.layer),
       Effect.provideService(FetchHttpClient.Fetch, providerFetch),
       Effect.provideService(FetchHttpClient.RequestInit, {

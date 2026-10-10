@@ -3,6 +3,7 @@ packages:
   - devtools/*
   - packages/*
   - toolkits/*
+  - platforms/*
 
 # Hold new releases for 24 hours (in minutes) so compromised versions have time to be reported.
 minimumReleaseAge: 1440
@@ -116,7 +117,6 @@ catalog:
   '@uiw/react-json-view': 2.0.0-alpha.43
   '@vitejs/plugin-react': 6.1.1
   '@xstate/effect': 0.1.0-alpha.6
-  '@xyflow/react': 12.11.6
   alchemy: 2.0.0-beta.80
   auth: 1.7.2
   aws4fetch: 1.0.20

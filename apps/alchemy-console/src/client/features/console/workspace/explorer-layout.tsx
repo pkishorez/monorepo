@@ -1,10 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { ComponentType, ReactNode } from 'react';
-import {
-  AppShell,
-  useAppShell,
-} from '@kstackz/ui-toolkit/components/blocks/app-shell';
-import { ChevronRight } from '@kstackz/ui-toolkit/lucide';
+import { AppShell, useAppShell } from '@kstackz/web-platform/recipes/frame';
+import { ChevronRight } from '@kstackz/web-platform/components/lucide';
 import { Logo, LogoMark } from '../../brand/index.ts';
 import { StateTree, StateOverview } from '../explorer/index.ts';
 import { ResourceBrowser } from '../resources/index.ts';

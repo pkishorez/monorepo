@@ -44,6 +44,9 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      - name: Laymos
+        run: node .github/scripts/laymos-lint.mjs
+
       - name: Wait for DynamoDB Local
         run: timeout 30s bash -c 'until curl --silent --output /dev/null http://localhost:8090; do sleep 1; done'
 
@@ -54,6 +57,3 @@ jobs:
 
       - name: Worker integration test
         run: pnpm --filter alchemy-console test:worker
-
-      - name: Stories
-        run: pnpm stories

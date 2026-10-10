@@ -2,89 +2,11 @@
   "$schema": "../../devtools/laymos/schema.json",
   "sourceRoots": ["src"],
   "ignoredPaths": ["src/integration-tests"],
-  "layers": {
-    "rpc": {
-      "paths": ["src/rpc/cannotation"],
-      "description": "RPC Cannotation declarations and native middleware implementation factories.",
-      "modules": {
-        "src/rpc/cannotation": {
-          "exposed": true
-        }
-      }
-    },
-    "http": {
-      "paths": ["src/http"],
-      "description": "The HTTP Sibling — everything that talks Effect HttpApi. Same shape as rpc; shares vocabulary, not code.",
-      "modules": {
-        "src/http/cannotation": {
-          "exposed": true
-        }
-      }
-    },
-    "invocation": {
-      "paths": ["src/rpc/invocation"],
-      "description": "Server-controlled invocation kind, independent of transport and deployment.",
-      "modules": {
-        "src/rpc/invocation": {
-          "exposed": true
-        }
-      }
-    },
-    "in-process": {
-      "paths": ["src/rpc/in-process"],
-      "description": "RPC connection to handlers in the same process, with no transport.",
-      "modules": {
-        "src/rpc/in-process": {
-          "exposed": true
-        }
-      }
-    },
-    "websocket-client": {
-      "paths": ["src/rpc/websocket-client"],
-      "description": "RPC socket transport and subscription lifecycle.",
-      "modules": {
-        "src/rpc/websocket-client": {
-          "exposed": true
-        }
-      }
-    },
-    "hibernating-rpc": {
-      "paths": ["src/rpc/cloudflare/hibernating-rpc"],
-      "description": "Cloudflare hibernation runtime using platform ports.",
-      "modules": {
-        "src/rpc/cloudflare/hibernating-rpc": {
-          "exposed": true
-        }
-      }
-    },
-    "alchemy": {
-      "paths": [
-        "src/rpc/cloudflare/alchemy/rpc-worker",
-        "src/rpc/cloudflare/alchemy/durable-rpc-worker"
-      ],
-      "description": "Alchemy resource composition over RPC runtimes.",
-      "modules": {
-        "src/rpc/cloudflare/alchemy/rpc-worker": {
-          "exposed": true
-        },
-        "src/rpc/cloudflare/alchemy/durable-rpc-worker": {
-          "exposed": true
-        }
-      }
-    }
-  },
-  "layerGraphs": {
-    "rpc-toolkit": {
-      "description": "Independent RPC and HTTP declarations; Cloudflare runtime depends on invocation context and Alchemy composition depends on runtime.",
-      "rules": {
-        "rpc": [],
-        "http": [],
-        "invocation": [],
-        "in-process": [],
-        "websocket-client": [],
-        "hibernating-rpc": ["invocation"],
-        "alchemy": ["hibernating-rpc"]
-      }
-    }
+  "fileModules": ["src/rpc/websocket/server/durable-object-state.ts"],
+  "rules": {
+    "src/alchemy": ["src/rpc"],
+    "src/rpc/websocket/server/stream-store": [
+      "src/rpc/websocket/server/durable-object-state.ts"
+    ]
   }
 }

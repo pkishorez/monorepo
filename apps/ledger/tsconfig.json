@@ -1,0 +1,27 @@
+{
+  "include": ["**/*.ts", "**/*.tsx"],
+  "exclude": ["node_modules", "dist"],
+  "compilerOptions": {
+    "strict": true,
+    "jsx": "react-jsx",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["DOM", "DOM.Iterable", "ESNext", "WebWorker"],
+    "types": ["vite/client", "node", "@cloudflare/workers-types"],
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "target": "ES2022",
+    "forceConsistentCasingInFileNames": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    // web-platform resolves its own copy of vite (a TypeScript 6 peer set);
+    // one copy keeps Plugin types comparable.
+    "paths": {
+      "vite": ["./node_modules/vite"]
+    }
+  }
+}

@@ -9,13 +9,14 @@ export type { Config } from './project-config.js';
 export type { ConfigValidationIssue } from './project-config.js';
 // Config readers use this decoder so the domain schema remains authoritative.
 export { decodeProjectConfig } from './project-config.js';
-// Config readers use this to reject contradictory architecture declarations.
+// Config readers use this to reject declarations no file list is needed for.
 export { validateConfig } from './project-config.js';
-// Project loaders validate configured Module paths against supported source files.
-export { validateLoadedConfig } from './project-config.js';
 // The package schema command publishes the domain-owned Config contract.
 export { projectConfigJsonSchema } from './project-config.js';
-// Analysis resolves the nested Layer declaration into flat Modules and Graphs.
-export { resolveConfig } from './project-config.js';
-// Analysis consumers name the resolved shape when threading it through.
-export type { ResolvedConfig } from './project-config.js';
+// Path containment is the one relation every Rule and Exception is read by.
+export {
+  contains,
+  isCanonicalPath,
+  overlaps,
+  sharedRuleSource,
+} from './project-config.js';

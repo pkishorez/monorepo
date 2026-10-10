@@ -1,12 +1,10 @@
 import { DevtoolsToolRpc, GitRpc, MonoverseRpc } from '../rpc/index.js';
 import { analyzeLaymosProject } from './analyze-laymos-project/index.js';
 import { analyzeMonorepo } from './analyze-monorepo/index.js';
-import { getLaymosDocumentation } from './get-laymos-documentation/index.js';
-import { getLaymosModuleSource } from './get-laymos-module-source/index.js';
-import { getLaymosSourceFiles } from './get-laymos-source-files/index.js';
+import { getLaymosFile, getLaymosFileList } from './get-laymos-files/index.js';
 import { getLaymosStories } from './get-laymos-stories/index.js';
-import { getPackageFiles } from './get-package-files/index.js';
-import { getPackageReadme } from './get-package-readme/index.js';
+import { getLaymosStoryReports } from './get-laymos-story-reports/index.js';
+import { getMonorepoFile } from './get-monorepo-file/index.js';
 import {
   getBranches,
   getChanges,
@@ -17,23 +15,20 @@ import { runLaymosStories } from './run-laymos-stories/index.js';
 
 export const DevtoolsHandlersLive = DevtoolsToolRpc.toLayer({
   AnalyzeLaymosProject: ({ projectPath }) => analyzeLaymosProject(projectPath),
-  GetLaymosModuleSource: ({ projectPath, modulePath }) =>
-    getLaymosModuleSource(projectPath, modulePath),
-  GetLaymosDocumentation: ({ projectPath, scope }) =>
-    getLaymosDocumentation(projectPath, scope),
-  GetLaymosSourceFiles: ({ projectPath, pathPrefixes }) =>
-    getLaymosSourceFiles(projectPath, pathPrefixes),
+  GetLaymosFileList: ({ projectPath, modulePath }) =>
+    getLaymosFileList(projectPath, modulePath),
+  GetLaymosFile: ({ projectPath, path }) => getLaymosFile(projectPath, path),
   GetLaymosStories: ({ projectPath }) => getLaymosStories(projectPath),
+  GetLaymosStoryReports: ({ projectPath }) =>
+    getLaymosStoryReports(projectPath),
   RunLaymosStories: ({ projectPath, scope }) =>
     runLaymosStories(projectPath, scope),
 });
 
 export const MonoverseHandlersLive = MonoverseRpc.toLayer({
   AnalyzeMonorepo: ({ monorepoPath }) => analyzeMonorepo(monorepoPath),
-  GetPackageReadme: ({ monorepoRoot, packagePath, relativePath }) =>
-    getPackageReadme(monorepoRoot, packagePath, relativePath),
-  GetPackageFiles: ({ monorepoRoot, packagePath }) =>
-    getPackageFiles(monorepoRoot, packagePath),
+  GetMonorepoFile: ({ monorepoRoot, path }) =>
+    getMonorepoFile(monorepoRoot, path),
 });
 
 export const GitHandlersLive = GitRpc.toLayer({

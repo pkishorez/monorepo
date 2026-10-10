@@ -1,0 +1,16 @@
+{
+  "$schema": "../../devtools/laymos/schema.json",
+  "sourceRoots": ["src"],
+  "rules": {
+    "src/core/snapshot": ["src/core/actor"],
+    "src/core/log": ["src/core/snapshot"],
+    "src/core/replay": ["src/core/actor", "src/core/snapshot", "src/core/log"],
+    "src/core/runtime": [
+      "src/core/actor",
+      "src/core/snapshot",
+      "src/core/log",
+      "src/core/replay"
+    ],
+    "src/react": ["src/core"]
+  }
+}

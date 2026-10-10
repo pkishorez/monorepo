@@ -4,18 +4,20 @@ import { homedir } from 'node:os';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { Context, Data, Effect, Layer } from 'effect';
 import type { Entity } from '@kstackz/std-toolkit/core';
-import { StdTable } from '@kstackz/std-toolkit/db';
 import { SQLite, type SQLiteDriver } from '@kstackz/std-toolkit/db/sqlite';
 import { makeNodeSQLite } from '@kstackz/std-toolkit/db/sqlite/node';
 import {
-  ProjectEntryEntitySchema,
   ProjectRegistryError,
   ProjectRegistryRpc,
   type ProjectEntry,
-  type ProjectEntryRecord,
-  type RegistryTool,
 } from '../../rpc/index.js';
 import { resolveWorktrees } from '../resolve-worktrees/index.js';
+import {
+  entries,
+  table,
+  tableName,
+  type ProjectEntryEntitySchema,
+} from './stored-entries.js';
 
 export class ProjectRegistryStoreError extends Data.TaggedError(
   'ProjectRegistryStoreError',
@@ -24,12 +26,12 @@ export class ProjectRegistryStoreError extends Data.TaggedError(
   cause: string;
 }> {}
 
-type Entry = Entity<ProjectEntryRecord>['value'];
+type StoredEntry = Entity<typeof ProjectEntryEntitySchema.Type>;
+type Entry = Omit<StoredEntry['value'], 'tool'>;
 
 export interface ProjectRegistryShape {
-  list(tool: RegistryTool): Effect.Effect<Entry[], ProjectRegistryStoreError>;
+  list(): Effect.Effect<Entry[], ProjectRegistryStoreError>;
   add(input: {
-    tool: RegistryTool;
     path: string;
     label: string | null;
   }): Effect.Effect<Entry, ProjectRegistryStoreError>;
@@ -40,22 +42,21 @@ export interface ProjectRegistryShape {
   remove(id: string): Effect.Effect<boolean, ProjectRegistryStoreError>;
 }
 
-/** The Project registry: every Project a developer registered, per Tool. */
+/** The Project registry: every Monorepo and Single Package added to Monoverse. */
 export class ProjectRegistry extends Context.Service<
   ProjectRegistry,
   ProjectRegistryShape
 >()('devtools/ProjectRegistry') {}
 
-const table = StdTable.make('project-registry')
-  .primary('pk', 'sk')
-  .gsi('tool', 'toolPk', 'toolSk')
-  .build();
+// Every entry is written, and listed, under this partition of the store.
+const tool = 'monoverse';
 
-const entries = table
-  .entity(ProjectEntryEntitySchema)
-  .primary()
-  .index('tool', 'byTool', { pk: ['tool'] })
-  .build();
+const withoutTool = ({
+  id,
+  path,
+  label,
+  addedAt,
+}: StoredEntry['value']): Entry => ({ id, path, label, addedAt });
 
 const storeError = (operation: string, cause: unknown) =>
   new ProjectRegistryStoreError({ operation, cause: String(cause) });
@@ -79,30 +80,26 @@ export const makeSqliteProjectRegistry = (options: {
         }),
         (driver) => Effect.sync(() => driver.close?.()),
       ));
-    const configured = SQLite.make(table, {
-      database,
-      tableName: 'project_registry_data',
-    });
+    const configured = SQLite.make(table, { database, tableName });
     const provideSqlite = <A, E>(
       effect: Effect.Effect<A, E, Layer.Success<typeof configured.layer>>,
     ) => Effect.provide(effect, configured.layer);
 
-    yield* SQLite.setup(table, {
-      database,
-      tableName: 'project_registry_data',
-    }).pipe(Effect.mapError((cause) => storeError('setup', cause)));
+    yield* SQLite.setup(table, { database, tableName }).pipe(
+      Effect.mapError((cause) => storeError('setup', cause)),
+    );
 
-    const listAll = (tool: RegistryTool) =>
+    const listAll = () =>
       Effect.gen(function* () {
         const items: Entry[] = [];
-        let after: Entity<ProjectEntryRecord> | undefined;
+        let after: StoredEntry | undefined;
         for (;;) {
           const page = yield* entries.query(
             'byTool',
             { pk: { tool }, '>': null },
             after === undefined ? undefined : { after },
           );
-          items.push(...page.items.map((item) => item.value));
+          items.push(...page.items.map((item) => withoutTool(item.value)));
           const last = page.items.at(-1);
           if (!page.hasMore || last === undefined) break;
           after = last;
@@ -111,11 +108,11 @@ export const makeSqliteProjectRegistry = (options: {
       });
 
     const shape: ProjectRegistryShape = {
-      list: (tool) =>
-        provideSqlite(listAll(tool)).pipe(
+      list: () =>
+        provideSqlite(listAll()).pipe(
           Effect.mapError((cause) => storeError('list', cause)),
         ),
-      add: ({ tool, path, label }) =>
+      add: ({ path, label }) =>
         provideSqlite(
           entries.insert({
             id: randomUUID(),
@@ -125,7 +122,7 @@ export const makeSqliteProjectRegistry = (options: {
             addedAt: Date.now(),
           }),
         ).pipe(
-          Effect.map((item) => item.value),
+          Effect.map((item) => withoutTool(item.value)),
           Effect.mapError((cause) => storeError('add', cause)),
         ),
       update: (id, patch) =>
@@ -134,7 +131,7 @@ export const makeSqliteProjectRegistry = (options: {
             const existing = yield* entries.get({ id });
             if (existing === null) return null;
             const updated = yield* entries.getAndUpdate({ id }, patch);
-            return updated.value;
+            return withoutTool(updated.value);
           }),
         ).pipe(Effect.mapError((cause) => storeError('update', cause))),
       remove: (id) =>
@@ -197,19 +194,19 @@ const decorate = (entry: Entry): Effect.Effect<ProjectEntry> =>
 
 /** Fulfils the Project registry RPC contract with the registry and the Worktree resolver. */
 export const ProjectRegistryRpcLive = ProjectRegistryRpc.toLayer({
-  ListProjects: ({ tool }) =>
-    Effect.flatMap(ProjectRegistry, (registry) => registry.list(tool)).pipe(
+  ListProjects: () =>
+    Effect.flatMap(ProjectRegistry, (registry) => registry.list()).pipe(
       Effect.flatMap((items) =>
         Effect.forEach(items, decorate, { concurrency: 4 }),
       ),
       Effect.mapError(toRpcError),
     ),
-  AddProject: ({ tool, path, label }) =>
+  AddProject: ({ path, label }) =>
     Effect.gen(function* () {
       const registry = yield* ProjectRegistry;
       const normalized = yield* normalizePath(path);
       const entry = yield* registry
-        .add({ tool, path: normalized, label: emptyToNull(label) })
+        .add({ path: normalized, label: emptyToNull(label) })
         .pipe(Effect.mapError(toRpcError));
       return yield* decorate(entry);
     }),

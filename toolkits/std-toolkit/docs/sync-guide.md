@@ -7,13 +7,13 @@ in [src/sync/docs/adr/](../src/sync/docs/adr/).
 
 ## Instance options
 
-`createStdSync({ name, platform, runtime, onEvent, options })`.
+`createStdSync({ name, store, runtime, onEvent, options })`.
 
 - `name` is normalized and names the stored data. Every tab reading the same
   backend dataset uses the same name. A renamed Std Sync starts from empty
   storage; the old data stays until you delete it.
-- `platform` is where the store lives and whether tabs share it. Absent, it is
-  `memory()`.
+- `store` is the Sync Store: where the data lives and whether tabs share it.
+  Absent, it is `Sync.memory()`.
 - `runtime` is a `ManagedRuntime` (or any object with `runSync`, `runPromise`,
   and `contextEffect`). Sync runs your fetches, subscriptions, and Mutation
   Callbacks through it, and a service missing from it is a type error.
@@ -24,20 +24,20 @@ in [src/sync/docs/adr/](../src/sync/docs/adr/).
 comes first so TypeScript knows the row type before it reads the strategies.
 `await app.dispose()` stops everything and keeps the stored data.
 
-## Global, partitions, and the three modes
+## Global, windows, and the three modes
 
-`sync: { global, partitions }`. Global runs while the Collection is mounted.
-A partition factory runs while a TanStack query has an `eq` filter on its key
+`sync: { global, windows }`. Global runs while the Collection is mounted.
+A window factory runs while a TanStack query has an `eq` filter on its key
 path (such as `task.board.id`); its parameter is inferred from the value at
 that path. A key path must read a string, number, or boolean in every value.
 
 | Configured | Mode        | Behaviour                                        |
 | ---------- | ----------- | ------------------------------------------------ |
 | global     | Eager       | Everything loads once the Collection mounts.     |
-| partitions | On-demand   | Only what a query looks at loads.                |
+| windows    | On-demand   | Only what a query looks at loads.                |
 | both       | Progressive | What a query looks at loads first, the rest too. |
 
-When the last query on a Partition leaves, its strategy stops; its rows stay
+When the last query on a Window leaves, its strategy stops; its rows stay
 in the Sync Replica, so a board you opened before still works offline.
 
 ## The cursor rule
@@ -102,28 +102,29 @@ decodes, starts over from `initial`.
 
 ## Tabs
 
-Each Session (the global strategy, or one Partition's) holds its own lock,
+Each Session (the global strategy, or one Window's) holds its own lock,
 named after its Collection and scope. One tab runs it; the others wait and
 take over from saved state when it goes away. Different tabs may lead
-different Partitions. The leader stores what it reads in the shared store and
+different Windows. The leader stores what it reads in the shared store and
 rings the Doorbell; every tab listens and re-reads what changed. Confirmed
-writes ring it too. With `memory()` nothing is shared, so every tab reads on
+writes ring it too. With `Sync.memory()` nothing is shared, so every tab reads on
 its own.
 
-## Platforms
+## Sync adapters
 
-A Platform is three pieces: `store(syncName)` returns the Sync Store layer,
+A Sync Store is three pieces: `table(syncName)` returns the table layer,
 `leadership.run(key, effect)` runs an effect while holding a lock, and
-`doorbell` rings and listens on topics.
+`doorbell` rings and listens on topics. A Sync adapter builds one; whether the
+place is shared, and so needs the lock and the Doorbell, is its business.
 
-- `memory()`: a fresh in-memory store, no locks, no Doorbell.
-- `browser({ databaseName, leadership, doorbell })`: an IndexedDB database
+- `Sync.memory()`: a fresh in-memory store, no locks, no Doorbell.
+- `Sync.idb({ databaseName, leadership, doorbell })`: an IndexedDB database
   named `std-sync:<name>` (override with `databaseName`), Web Locks, and
   BroadcastChannel. Each piece is on by default and falls back to none where
   the browser lacks it; pass `leadership: false` to let every tab read.
 
-The type is public, so a custom Platform (a test harness, React Native, Node)
-is a plain object; build its store with any adapter over `syncStore`.
+The `SyncStore` type is public, so a custom one (a test harness, Node) is a
+plain object; build its store with any adapter over `syncStore`.
 
 ## Offline and reloads
 
@@ -139,17 +140,17 @@ is a plain object; build its store with any adapter over `syncStore`.
 
 ## Stored data and logout
 
-Nothing is deleted automatically. In the browser, `listStdSyncs()` lists every
-Std Sync stored under the default name, and `deleteStdSync(name)` deletes one.
-A live Std Sync of that name, in this tab or another, reports `PlatformClosed`
+Nothing is deleted automatically. In the browser, `Sync.idb.list()` lists every
+Std Sync stored under the default name, and `Sync.idb.remove(name)` deletes one.
+A live Std Sync of that name, in this tab or another, reports `StoreClosed`
 and stops first.
 
-| Use case                                   | What to do                                                                     |
-| ------------------------------------------ | ------------------------------------------------------------------------------ |
-| Public data                                | One long-lived Std Sync.                                                       |
-| Per-user data                              | Put the user id in the name; on logout `dispose()` then `deleteStdSync(name)`. |
-| Switching accounts, each available offline | One Std Sync per user; `dispose()` on switch, delete on sign-out.              |
-| Shared or sensitive device                 | `memory()`, so nothing touches disk.                                           |
+| Use case                                   | What to do                                                                       |
+| ------------------------------------------ | -------------------------------------------------------------------------------- |
+| Public data                                | One long-lived Std Sync.                                                         |
+| Per-user data                              | Put the user id in the name; on logout `dispose()` then `Sync.idb.remove(name)`. |
+| Switching accounts, each available offline | One Std Sync per user; `dispose()` on switch, delete on sign-out.                |
+| Shared or sensitive device                 | `Sync.memory()`, so nothing touches disk.                                        |
 
 The user id belongs in the name even when logout deletes the data: if logout
 never runs, the next user still cannot see the previous user's rows.
@@ -158,4 +159,4 @@ never runs, the next user still cannot see the previous user's rows.
 
 - `SessionFailed`: a strategy run failed and will run again.
 - `OutdatedApplication`: an Entity came from newer code; reload to read it.
-- `PlatformClosed`: this Std Sync's stored data was deleted; it stopped.
+- `StoreClosed`: this Std Sync's stored data was deleted; it stopped.

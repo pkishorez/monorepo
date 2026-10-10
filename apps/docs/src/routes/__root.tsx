@@ -5,11 +5,9 @@ import {
   Scripts,
 } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
-import { getTheme } from '@kstackz/ui-toolkit/components/blocks/theme/tanstack-start';
+import { getTheme } from '@kstackz/web-platform/client/server';
 import appCss from '@/styles/app.css?url';
-import { appName } from '@/lib/shared';
-import { appTheme } from '@/lib/layout.shared';
-import { RootProvider } from 'fumadocs-ui/provider/tanstack';
+import { appTheme } from '@/lib/theme';
 
 const getCurrentTheme = createServerFn({ method: 'GET' }).handler(() =>
   getTheme(),
@@ -27,7 +25,7 @@ export const Route = createRootRoute({
         content: 'width=device-width, initial-scale=1',
       },
       {
-        title: appName,
+        title: 'monorepo',
       },
     ],
     links: [
@@ -60,17 +58,7 @@ function RootComponent() {
         <HeadContent />
       </head>
       <body className="flex min-h-svh flex-col">
-        <RootProvider
-          theme={{ enabled: false }}
-          search={{
-            options: {
-              type: 'static',
-              api: '/api/search',
-            },
-          }}
-        >
-          <Outlet />
-        </RootProvider>
+        <Outlet />
         <Scripts />
       </body>
     </html>

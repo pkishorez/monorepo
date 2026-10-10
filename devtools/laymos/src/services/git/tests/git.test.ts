@@ -90,17 +90,22 @@ describe('Git change set', () => {
     });
   });
 
-  test('omits deleted files entirely', async () => {
+  test('reads a deleted file as deleted', async () => {
     await withRepo(async ({ dir }) => {
       await rm(join(dir, 'gone.ts'));
 
       const actual = await changeSet(dir);
 
-      expect(actual.files.map(({ path }) => path)).not.toContain('gone.ts');
+      expect(actual.files).toContainEqual({
+        path: 'gone.ts',
+        status: 'deleted',
+        committed: false,
+        uncommitted: true,
+      });
     });
   });
 
-  test('reads a rename as an addition, never a rename', async () => {
+  test('reads a rename as an addition and a deletion, never a rename', async () => {
     await withRepo(async ({ dir, git }) => {
       git('mv', 'kept.ts', 'renamed.ts');
 
@@ -112,7 +117,12 @@ describe('Git change set', () => {
         committed: false,
         uncommitted: true,
       });
-      expect(actual.files.map(({ path }) => path)).not.toContain('kept.ts');
+      expect(actual.files).toContainEqual({
+        path: 'kept.ts',
+        status: 'deleted',
+        committed: false,
+        uncommitted: true,
+      });
     });
   });
 

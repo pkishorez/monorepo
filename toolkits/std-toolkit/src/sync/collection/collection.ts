@@ -14,31 +14,31 @@ import {
   type StdCollectionOptions,
 } from '../domain/collection-item/index.js';
 import {
-  GLOBAL_PARTITION_KEY,
+  GLOBAL_WINDOW_KEY,
   type CollectionName,
-  type PartitionKey,
-  type PartitionValue,
+  type WindowKey,
+  type WindowValue,
 } from '../domain/identity/index.js';
 import type { WriteError } from '../domain/sync-error/index.js';
 import type { SyncReporter } from '../domain/sync-event/index.js';
-import type { StdSyncPlatform } from '../platform/contract/index.js';
-import type { EffectRunner } from '../platform/effect-runner/index.js';
-import type { SyncStore } from '../platform/sync-store/index.js';
+import type { SyncStore } from '../store/contract/index.js';
+import type { EffectRunner } from '../store/effect-runner/index.js';
+import type { StoreRuntime } from '../store/store-runtime/index.js';
 import { runSession } from '../session/index.js';
 import type { SyncStrategy } from '../strategy/index.js';
 import { makeMutations, type MutationCallbacks } from './mutations.js';
-import { makePartitions } from './partitions.js';
+import { makeWindows } from './windows.js';
 import { makeCollectionProjector } from './projection.js';
 import { makeSyncReplica, type ExtraOp } from './replica.js';
 import { makeSyncStateStore } from './sync-state.js';
 
 /**
- * One Sync Strategy per Partition key path: each path reads a string, number,
- * or boolean in every value, and its factory receives the Partition's value.
+ * One Sync Strategy per Window key path: each path reads a string, number,
+ * or boolean in every value, and its factory receives the Window's value.
  */
-export type PartitionMap<S extends AnyEntityESchema, R = never> = {
-  [P in TotalKeyPath<S['Type'], PartitionValue>]?: (
-    value: KeyPathValue<S['Type'], P, PartitionValue>,
+export type WindowMap<S extends AnyEntityESchema, R = never> = {
+  [P in TotalKeyPath<S['Type'], WindowValue>]?: (
+    value: KeyPathValue<S['Type'], P, WindowValue>,
   ) => SyncStrategy<S['Type'], any, R>;
 };
 
@@ -50,7 +50,7 @@ export type CollectionConfig<
     /** Runs while the Collection is mounted. */
     global?: SyncStrategy<S['Type'], any, R>;
     /** Each runs while a query filters on its key path. */
-    partitions?: PartitionMap<S, R>;
+    windows?: WindowMap<S, R>;
   };
   /** How long the Backend may take to make a write readable. Default: off. */
   settleWindow?: Duration.Input;
@@ -68,23 +68,24 @@ export const buildCollection = <S extends AnyEntityESchema, R>(args: {
   schema: S;
   config: CollectionConfig<S, R>;
   name: CollectionName;
-  store: SyncStore;
-  platform: StdSyncPlatform;
+  store: StoreRuntime;
+  shared: Pick<SyncStore, 'leadership' | 'doorbell'>;
   runner: EffectRunner<R>;
   report: SyncReporter<R>;
   assertActive: () => void;
   trackCleanup: (cleanup: () => Promise<void>) => () => Promise<void>;
+  trackWrite: (write: Promise<void>) => Promise<void>;
 }): BuiltCollection<S> => {
   type TItem = S['Type'];
-  const { schema, config, name, store, platform, runner } = args;
+  const { schema, config, name, store, shared, runner } = args;
   const report = (event: Parameters<SyncReporter<R>>[0]) =>
     runner.provide(args.report(event));
   const settleWindow = Duration.fromInputUnsafe(config.settleWindow ?? 0);
-  const partitionFactories = (config.sync?.partitions ?? {}) as Record<
+  const windowFactories = (config.sync?.windows ?? {}) as Record<
     string,
-    (value: PartitionValue) => SyncStrategy<TItem, any, R>
+    (value: WindowValue) => SyncStrategy<TItem, any, R>
   >;
-  const partitions = makePartitions(Object.keys(partitionFactories));
+  const windows = makeWindows(Object.keys(windowFactories));
   const replica = makeSyncReplica({ store, schema, collection: name });
 
   // Once any path meets an Entity newer than this code knows, the Collection
@@ -137,7 +138,7 @@ export const buildCollection = <S extends AnyEntityESchema, R>(args: {
     return writing.withPermit(replica.apply(entities, extra)).pipe(
       Effect.tap(() => advance()),
       Effect.tap((accepted) =>
-        accepted.length > 0 ? platform.doorbell.ring(name) : Effect.void,
+        accepted.length > 0 ? shared.doorbell.ring(name) : Effect.void,
       ),
       Effect.asVoid,
     );
@@ -149,10 +150,10 @@ export const buildCollection = <S extends AnyEntityESchema, R>(args: {
   };
 
   let mountScope: Scope.Closeable | null = null;
-  const sessions = new Map<PartitionKey, Scope.Closeable>();
+  const sessions = new Map<WindowKey, Scope.Closeable>();
 
   const startSession = (
-    key: PartitionKey,
+    key: WindowKey,
     strategy: SyncStrategy<TItem, any, R>,
   ) => {
     if (mountScope === null || outdatedReported || sessions.has(key)) return;
@@ -168,7 +169,7 @@ export const buildCollection = <S extends AnyEntityESchema, R>(args: {
       Effect.forkIn(
         runSession({
           key: `${name}/${key}`,
-          leadership: platform.leadership,
+          leadership: shared.leadership,
           strategy,
           settleWindow,
           load: state.load(key),
@@ -179,7 +180,7 @@ export const buildCollection = <S extends AnyEntityESchema, R>(args: {
             report({
               _tag: 'SessionFailed',
               collection: name,
-              partitionKey: key,
+              windowKey: key,
               strategy: strategy.name,
               cause,
             }),
@@ -189,7 +190,7 @@ export const buildCollection = <S extends AnyEntityESchema, R>(args: {
     );
   };
 
-  const stopSession = (key: PartitionKey) => {
+  const stopSession = (key: WindowKey) => {
     const scope = sessions.get(key);
     if (scope === undefined) return;
     sessions.delete(key);
@@ -210,6 +211,7 @@ export const buildCollection = <S extends AnyEntityESchema, R>(args: {
         ),
       ),
     runner,
+    trackWrite: args.trackWrite,
   });
 
   const global = config.sync?.global;
@@ -219,7 +221,7 @@ export const buildCollection = <S extends AnyEntityESchema, R>(args: {
     schema: makeCollectionItemSchema(schema),
     getKey: (item) => String((item as Record<string, unknown>)[schema.idField]),
     rowUpdateMode: 'full',
-    ...(Object.keys(partitionFactories).length > 0 && {
+    ...(Object.keys(windowFactories).length > 0 && {
       syncMode: 'on-demand' as const,
     }),
     sync: {
@@ -234,7 +236,7 @@ export const buildCollection = <S extends AnyEntityESchema, R>(args: {
           Effect.forkIn(
             Effect.gen(function* () {
               const changes = yield* Stream.toPull(
-                platform.doorbell.listen(name),
+                shared.doorbell.listen(name),
               ).pipe(Scope.provide(scope));
               // Callback streams install their listeners in a child fiber.
               // Let it start before hydration; its queue buffers any rings.
@@ -254,7 +256,7 @@ export const buildCollection = <S extends AnyEntityESchema, R>(args: {
                 );
               yield* read(true);
               callbacks.markReady();
-              if (global) startSession(GLOBAL_PARTITION_KEY, global);
+              if (global) startSession(GLOBAL_WINDOW_KEY, global);
               yield* Stream.fromPull(Effect.succeed(changes)).pipe(
                 Stream.runForEach(() =>
                   outdatedReported ? Effect.void : read(),
@@ -266,23 +268,23 @@ export const buildCollection = <S extends AnyEntityESchema, R>(args: {
         );
 
         const loadSubset = (options: LoadSubsetOptions): true => {
-          const loaded = partitions.load(options);
+          const loaded = windows.load(options);
           if (loaded?.activated) {
-            const { path, value, key } = loaded.partition;
-            startSession(key, partitionFactories[path]!(value));
+            const { path, value, key } = loaded.window;
+            startSession(key, windowFactories[path]!(value));
           }
           return true;
         };
 
         const unloadSubset = (options: LoadSubsetOptions): void => {
-          const unloaded = partitions.unload(options);
-          if (unloaded?.deactivated) stopSession(unloaded.partition.key);
+          const unloaded = windows.unload(options);
+          if (unloaded?.deactivated) stopSession(unloaded.window.key);
         };
 
         const cleanup = async (): Promise<void> => {
           mountScope = null;
           sessions.clear();
-          partitions.clear();
+          windows.clear();
           projector = null;
           await runner.runPromise(Scope.close(scope, Exit.void));
         };

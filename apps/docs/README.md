@@ -1,56 +1,57 @@
 # docs
 
-Documentation site for the monorepo, with live demos of its workspace packages, published at docs.kishore.app.
+Live demos of the monorepo's packages, published at docs.kishore.app.
 
 ## Big picture
 
-The site is built with Fumadocs on TanStack Start. Docs pages come from MDX in
-`content/docs` (today: `@kstackz/std-toolkit`) and a blog from `content/blog`. The build
-prerenders every route to static HTML. A Cloudflare Worker serves the output,
-plus a few `/api` routes for search and page source. It lives
-at [docs.kishore.app](https://docs.kishore.app).
+A plain TanStack Start app. The home page lists the demos, and each demo opens
+on its own page under `/demos`, with its code in `src/demos`. Today there is
+one: `effect-oak`, Road: a two-lane driving game built as an Effect Oak Node
+and drawn as SVG at every frame. Dodge oncoming cars with ← → or a tap on
+either half; a crash ends the run and leaves it in Replay. Effect Oak demos run in one shell (`src/demos/effect-oak/shell`):
+the app alone in the middle, Live or in Replay (Space switches; Replay stops
+Time and shows a scrubber), and its Messages on a timeline on demand.
 
-It also hosts the interactive demos under `/demos`, with their code in
-`src/demos`. Each demo exercises a workspace package end to end:
+The UI uses `@kstackz/web-platform`. A Cloudflare Worker serves the site, and
+the infrastructure is declared with Alchemy in `alchemy.run.ts` and
+`src/infra`.
 
-- `@kstackz/ai-toolkit`: a chat playground over `@kstackz/ai-toolkit/rpc`, `@kstackz/ai-toolkit/table`
-  and `@kstackz/ai-toolkit/client`.
+### Add a demo
 
-The UI uses `@kstackz/ui-toolkit`, tracing uses `@kstackz/effect-tracer` and
-`@kstackz/flow`, and `@kstackz/rpc-toolkit` and `@kstackz/std-toolkit` sit underneath. The
-infrastructure is declared with Alchemy in `alchemy.run.ts` and `src/infra`.
+Put its code in `src/demos/<name>`, add a route at
+`src/routes/demos/<name>.tsx`, list it in `DEMOS` in `src/lib/demos.tsx` (the home page and every demo's menu read it),
+and allow the route to import it in `laymos.config.json`.
 
 ## Usage
 
 ### Run locally
 
-`pnpm dev` starts the Alchemy dev server through Portless. Production
+`pnpm dev` starts the plain Vite dev server through Portless: no Cloudflare
+account, credentials or Alchemy state are involved, because the Worker uses no
+Cloudflare bindings. Alchemy is only for deploys. Production
 `docs.kishore.app` maps to local `https://docs.kishore.computer`.
 `portless.json` supplies the name `docs.kishore`, using the shared Portless
 proxy configuration. In a Git worktree, Portless adds the worktree prefix to
 the hostname. Use the URL printed at startup. Portless must configure local
-hostname resolution and trust its local TLS CA. Portless assigns `PORT`;
-running `alchemy dev` directly fails without it.
+hostname resolution and trust its local TLS CA, and it passes the port to
+Vite.
 
 ```bash
 pnpm --filter docs dev     # dev server
-pnpm --filter docs lint    # fumadocs-mdx + tsc --noEmit + laymos lint
+pnpm --filter docs lint    # tsc --noEmit + laymos lint
 ```
 
 ### Build
 
-The build prerenders every route to static HTML.
-
 ```bash
-pnpm --filter docs build   # build + prerender -> apps/docs/.output/public
+pnpm --filter docs build   # build -> apps/docs/dist
 ```
 
 ### Deploy
 
 Deploys go through Alchemy (`alchemy.run.ts`). Deployed stages (`prod`,
 `demo`, `pr<N>`) refuse to reconcile unless `ALLOW_DEPLOY=true`, so a stray
-local `alchemy deploy` cannot touch them. Directory-style `index.html` output
-means deep links like `/docs/std-toolkit/eschema` resolve directly.
+local `alchemy deploy` cannot touch them.
 
 Normal path: `.github/workflows/deploy-docs.yml`. Pushes to `main` deploy
 `prod` at `docs.kishore.app`. Pull requests deploy `pr<N>` previews at
@@ -75,5 +76,4 @@ First-time setup, once per Cloudflare account:
    the `kishore.app` zone already exists in the account. No dashboard steps.
 4. Verify in a browser once DNS and TLS propagate (usually under a minute):
    - `https://docs.kishore.app/` (landing page)
-   - `https://docs.kishore.app/docs/std-toolkit` (std-toolkit overview)
-   - `https://docs.kishore.app/docs/std-toolkit/eschema` (deep link)
+   - `https://docs.kishore.app/demos/effect-oak` (a demo)

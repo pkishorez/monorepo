@@ -31,15 +31,12 @@
     "build": "vp pack && vp build",
     "build:watch": "vp pack --watch",
     "dev": "vp run -F '@kstackz/devtools^...' build && portless run --force tsx scripts/dev.mts",
-    "snapshot:dev": "tsx scripts/snapshot.mts",
-    "flow:demo": "tsx scripts/test.ts",
     "lint": "vp check && tsc --noEmit && tsc -p tsconfig.ui.json --noEmit && laymos lint",
     "test": "vitest run && tsx scripts/package-smoke.mts"
   },
   "dependencies": {
     "@effect/platform-node": "catalog:",
     "@effect/platform-node-shared": "catalog:",
-    "@kstackz/flow": "workspace:*",
     "@kstackz/lotel": "workspace:*",
     "effect": "catalog:",
     "env-paths": "catalog:",
@@ -49,19 +46,18 @@
     "yaml": "catalog:"
   },
   "devDependencies": {
-    "@kstackz/ui-toolkit": "workspace:*",
+    "@devtools/ui": "workspace:*",
     "@kstackz/effect-tracer": "workspace:*",
-    "playwright-core": "catalog:",
+    "@kstackz/web-platform": "workspace:*",
     "@tailwindcss/vite": "catalog:",
     "@tanstack/react-db": "catalog:",
     "@tanstack/react-query": "catalog:",
     "@tanstack/react-router": "catalog:",
-    "@typescript/native": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
+    "@typescript/native": "catalog:",
     "@vitejs/plugin-react": "catalog:",
-    "@xyflow/react": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
     "react-resizable-panels": "catalog:",
@@ -71,14 +67,6 @@
     "vite": "catalog:",
     "vitest": "catalog:",
     "zustand": "catalog:"
-  },
-  "peerDependencies": {
-    "playwright-core": "1.63.0"
-  },
-  "peerDependenciesMeta": {
-    "playwright-core": {
-      "optional": true
-    }
   },
   "publishConfig": {
     "access": "public"

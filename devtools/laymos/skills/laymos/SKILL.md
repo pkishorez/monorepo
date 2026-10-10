@@ -1,6 +1,6 @@
 ---
 name: laymos
-description: Laymos architecture rules — the layer stack, module visibility, module graphs, naming, config, and CLI. Use when planning or changing a project's architecture, when reading laymos.config.json or laymos output, or when another skill needs the Laymos model.
+description: Laymos architecture rules — one tree of Modules and Wrappers, Rules and Exceptions, naming, config, and CLI. Use when planning or changing a project's architecture, when reading laymos.config.json or laymos output, or when another skill needs the Laymos model.
 ---
 
 # Laymos
@@ -16,115 +16,147 @@ The bottom knows nothing about the top. So the bottom stays small, testable,
 and reusable, and features churn in the top where churn is cheap.
 This is stratified design, from _Grokking Simplicity_ by Eric Normand.
 
-One common stack, bottom to top:
-
-- **domain** — the words of the problem. Types, schemas, pure functions. No I/O.
-- **clients** — the outside world, wrapped. Third-party APIs, the database, the filesystem.
-- **services** — one responsibility each, built on domain and clients.
-- **orchestrator** — puts services and clients together to get the real work done.
-- **entry** — where the host starts. A CLI, a route, a worker.
-
-That stack is a mental model, not a rule. Layers come from the application you
-are building, and you name them for the jobs your project actually has.
-The direction is the part that never changes.
+Laymos does not ask you to declare the strata. It reads the folder tree,
+you write the few Rules that say who may import whom, and the strata are what
+the picture shows: inside any folder, a Module sits below the siblings that
+import it.
 
 Read `references/design.md` before choosing module boundaries, splitting or
-combining modules, declaring a module graph, or designing orchestration.
+combining modules, or designing orchestration.
 
 ## What is Laymos?
 
 Laymos is a CLI tool. It reads `laymos.config.json`.
 
-It lints declared dependency rules, inspects layers and modules, and runs the
-project's executable Stories.
+It classifies every import against the Rules and Exceptions, inspects the
+Module tree, and runs the Proofs in the project's Stories.
 
-The config is the source of architectural truth. Source code is evidence.
-When the two disagree, the config states the intent and the lint reports the gap.
+The config states intent. Source code is evidence. When the two disagree,
+`laymos lint` reports the gap and says which key could close it.
 
-## What is a layer?
+## What is a Module?
 
-A layer is a group of files with one architectural job.
+A folder with an index file (`index.ts`, `index.tsx`, …), or a single file
+listed under `fileModules`. Nothing else is declared: Laymos reads the tree
+from disk beneath `sourceRoots`, minus `ignoredPaths`.
 
-A layer owns dependency rights. `a -> b` reads "a may depend on b".
-Rights are transitive: if `a -> b` and `b -> c`, then `a` may depend on `c`.
-Anything not permitted is a violation. The rule graph must be acyclic.
+- Its **Index** is the one file of the Module anyone outside may import. It
+  only exports; the Module's own files do the importing.
+- Inside a Module, everything is free. Its **own files** (the files not inside
+  a nested Module) import each other, and the Index of any Module nested
+  below them, with nothing written.
+- A Module holding Modules is their Wrapper too. Those are **Nested
+  Modules**: islands like any other, reachable from outside only by Rule.
+- A folder that should not be a Module should not have an index file, or
+  should be an ignored path.
 
-Every analyzed supported file belongs to exactly one layer. Layers may not overlap.
-A layer with no outgoing rule is a valid leaf.
+A Module's Index is a thin door over a wide interior — read the `deep-module`
+skill for its shape.
 
-Create a layer when a job needs its own dependency direction.
-Folders, teams, and display groups are not layers.
-A one-module layer is fine when that module needs distinct rights.
+## What is a Wrapper?
 
-## What is a module?
+A folder without an index file. It is a name for everything inside it: a
+Rule may point at it to mean every Module beneath it. Nobody imports a
+Wrapper, and it should hold no files of its own; a file in a plain Wrapper
+is a coverage finding (`laymos lint` says so).
 
-A module is a source boundary inside one layer. It owns one capability and the
-design decisions that capability hides behind a small, stable door.
+## What is a Rule?
 
-A module is a file or a directory. That is its _shape_.
-A module declares two booleans, `shared` and `exposed`, both defaulting to
-false. They control layer-wide and cross-layer access; module graph rules grant
-access between members separately. Read `references/visibility.md` when deciding.
+By default no Module imports any other. A Rule is a one-way permission
+between two paths, each a Wrapper or a Module at any depth:
 
-A directory module needs a root `index.ts` when it is shared, exposed, or a
-module graph member. That index is a thin door over a wide interior — read the
-`deep-module` skill for its shape. When a file module needs an entry point, its
-own file is that entry point.
+```json
+"rules": {
+  "src/app":        ["src/domain", "src/infra"],
+  "src/studio-rpc": ["src/db/std-table/definition"],
+  "*":              ["src/core"]
+}
+```
 
-Two modules never overlap. Every analyzed file in a layer belongs to one module.
+Every Module inside the source may import the Index of every Module inside
+the target. Rules do not chain. Write them as narrow as the need: a Rule to a
+nested Module grants that Module alone; a Rule to a Wrapper grants everything
+in it. `*` as a source means every sibling of the target (a Shared Rule).
+Rules cannot loop, and a Rule from inside a path to the path itself is
+rejected.
 
-## What is a module graph?
+A Rule says _may_, never _should_. Which Modules use it is read from the
+code; the Laymo shows it.
 
-A named, bounded set of modules inside one layer, rooted at a directory, whose
-connections are declared as rules. It describes one capability too large for a
-single module: normally one facade is exposed and the other members stay private.
+## What is an Exception?
 
-Unlike a layer graph it is a disjoint unit — its rules are never unioned with
-another graph's, are **not** transitive, and are checked for cycles on their own.
-Module graphs do not nest. Read `references/graphs.md` before declaring one.
+One import no Rule could hold, allowed on purpose with a Reason:
 
-A layer holds free-form modules, module graphs, or both. A layer groups by
-architectural role; a graph describes how modules work together.
+```json
+"exceptions": [
+  { "from": "src/eschema/tutorial", "to": "src/eschema",
+    "because": "the tutorial uses eschema; it moves out with the docs site" }
+]
+```
+
+Only two things are Exceptions: a child importing its parent or an ancestor,
+and an import against a Rule that would make a loop. Anything else you want
+is a Rule, and Laymos rejects an Exception a Rule could hold. Prefer moving
+the code to adding an Exception; a child that imports its parent is a user of
+the parent, not a part of it.
+
+## What is a Story?
+
+A Story is one idea about the project, told to its Reader in plain English.
+Each folder beneath `storiesPath` is a Story; its `story.md` is the Telling: a
+`#` title, a one-sentence pitch, then a short body that links every sub-Story
+by id where it explains how that part fits. The top Story's id is the
+project's folder name; a sub-Story adds its folder path (`my-app/sync`).
+
+A Proof is one claim backing the Story it sits in: a `*.proof.ts(x)` file that
+default-exports `Proof.make` or `Proof.browser` from `laymos/story`. Its id is
+the Story id plus the file name (`my-app/sync/two-tabs`). It imports only what
+the project ships, `effect`, and `laymos/story`; never a relative path.
+
+Before writing a Telling or a Proof title, read
+[Writing Stories](https://github.com/pkishorez/monorepo/blob/main/devtools/laymos/docs/writing-stories.md).
+`laymos lint` reports a missing or incomplete Telling, a link to nothing, and
+a sub-Story its parent never links.
 
 ## How do I name things?
 
 Use the project's own words. The `domain-modeling` skill owns those words;
 read it when a term is missing or contested.
 
-- Layer ids and folders are lowercase kebab-case.
-- Name a layer for its dependency job, not its folder.
-- Name a module with a concrete noun: `file-graph`, `project-config`.
+- Folders are lowercase kebab-case.
+- Name a Module with a concrete noun: `file-graph`, `project-config`.
 - Name work that runs with verb-noun: `load-project`.
 - `utils`, `helpers`, `common`, `misc`, `lib`, `impl` name nothing.
   Use the capability they hide.
-- A module's identity is its full configured path. The short name is a label.
-
-Write a layer description as the job it owns. Write a module job as one sentence.
+- A Module's identity is its project-relative path. The short name is a label.
 
 ## Which command answers which question?
 
-| Question                                                         | Command                                         |
-| ---------------------------------------------------------------- | ----------------------------------------------- |
-| Does the project obey its rules?                                 | `laymos lint`                                   |
-| Are layer coverage and links correct?                            | `laymos lint layers`                            |
-| Are module boundaries and entry points correct?                  | `laymos lint modules`                           |
-| What is the whole architecture?                                  | `laymos inspect project`                        |
-| What is in this layer, and what may it reach?                    | `laymos inspect layer <layer-name>`             |
-| What visibility, shape, surface, and deps does this module have? | `laymos inspect module <module-path>`           |
-| Which layer and module owns this file, and what does it import?  | `laymos inspect file <file-path> [--recursive]` |
-| Do the executable Stories pass?                                  | `laymos stories [--concurrency <n>]`            |
+| Question                                              | Command                                         |
+| ----------------------------------------------------- | ----------------------------------------------- |
+| Does every import obey the Rules?                     | `laymos lint`                                   |
+| What is the whole tree, and which Rules hold?         | `laymos inspect project`                        |
+| What may this Module import, and who imports it?      | `laymos inspect module <path>`                  |
+| Which Module owns this file, and what does it import? | `laymos inspect file <file-path> [--recursive]` |
+| Do the Proofs in a Story, or one Proof, pass?         | `laymos stories [scope] [--concurrency <n>]`    |
 
 Every command takes `--config <path>`. It defaults to `./laymos.config.json`.
-Add `--json` to any `inspect` command and parse the result. Without it, read the tree.
-Exit `0` is clean. Exit `1` means violations, an inspection cycle, or non-passing
-Stories. Exit `2` means a broken config or an operational failure.
+Add `--json` to any `inspect` command and parse the result. Without it, read
+the tree. Exit `0` is clean. Exit `1` means violations or non-passing Proofs.
+Exit `2` means a broken config or an operational failure.
 
 Use the project's package runner when `laymos` is not on `PATH`.
 
-## What do the inspect fields mean?
+## What does a lint finding mean?
 
-- `shared` and `exposed` are the configured intent.
-- `graph` names the module graph a member belongs to.
-- `shape` is file or directory.
-- `observedKind` is the module's current position in the import graph.
-- Imports show current use. They do not decide the target design.
+- **no Rule covers it** — declare a Rule, at the lowest folder that contains
+  both sides, as narrow as the need.
+- **a Rule would make a loop** — the direction is wrong somewhere. Re-cut, or
+  declare an Exception with a Reason.
+- **a child importing its parent** — move the child out, or declare an
+  Exception with a Reason.
+- **reaches a file that is no Index** — import the Module through its index
+  file, and export what was needed from there.
+- **no Module owns this file** — give its folder an index file, list it under
+  `fileModules`, or ignore it.
+- **declared but unused** — a Rule or Exception nothing uses. Delete it.

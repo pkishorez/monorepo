@@ -1,4 +1,3 @@
-import { Activation } from '@kstackz/flow';
 import {
   Clock,
   Data,
@@ -19,19 +18,13 @@ import {
   RpcServer,
 } from 'effect/rpc';
 import type { Rpc, RpcGroup, RpcMessage } from 'effect/rpc';
-import {
-  continueRpcInvocation,
-  startRpcInvocation,
-} from '../flow-tracing/index.js';
+import { rpcSpanOptions } from '../tracing/index.js';
 import type {
   ConnectionAttemptId,
   PeerSessionId,
 } from '../negotiation/index.js';
 import type { PeerId } from '../peer-identity/index.js';
 import type { RtcDataChannel } from '../platform/platform.js';
-
-type OutgoingRpcFlow = Effect.Success<ReturnType<typeof startRpcInvocation>>;
-type IncomingRpcFlow = Effect.Success<ReturnType<typeof continueRpcInvocation>>;
 
 export class RpcTransportError extends Data.TaggedError('RpcTransportError')<{
   readonly operation: 'open' | 'consume' | 'serve';
@@ -96,13 +89,6 @@ const frame = (
   return output;
 };
 
-const outcomeOf = (exit: RpcMessage.ExitEncoded<unknown, unknown>) => {
-  if (exit._tag === 'Success') return Activation.completed();
-  return exit.cause.every(({ _tag }) => _tag === 'Interrupt')
-    ? Activation.interrupted('RPC interrupted')
-    : Activation.failed('RPC failed');
-};
-
 const toClientError = (cause: unknown) =>
   new RpcClientError.RpcClientError({
     reason: new RpcClientError.RpcClientDefect({
@@ -113,7 +99,6 @@ const toClientError = (cause: unknown) =>
 
 const makeProtocols = Effect.fn('RpcTransport.makeProtocols')(function* (
   channel: RtcDataChannel,
-  peer: RpcPeerContext,
   options: RpcTransportOptions = {
     heartbeatInterval: '5 seconds',
     heartbeatTimeout: '10 seconds',
@@ -129,8 +114,6 @@ const makeProtocols = Effect.fn('RpcTransport.makeProtocols')(function* (
     number,
     (message: RpcMessage.FromServerEncoded) => Effect.Effect<void>
   >();
-  const outgoingFlows = new Map<string | number, OutgoingRpcFlow>();
-  const incomingFlows = new Map<string | number, IncomingRpcFlow>();
   const events = yield* PubSub.unbounded<RpcTransportEvent>();
   const closeAck = yield* Deferred.make<void>();
   let awaitingHeartbeatSince: number | undefined;
@@ -140,17 +123,6 @@ const makeProtocols = Effect.fn('RpcTransport.makeProtocols')(function* (
         message: RpcMessage.FromClientEncoded,
       ) => Effect.Effect<void>)
     | undefined;
-
-  yield* Effect.addFinalizer(() =>
-    Effect.gen(function* () {
-      yield* Effect.forEach(outgoingFlows.values(), ({ end }) =>
-        end(Activation.interrupted('RTC data channel closed')),
-      );
-      yield* Effect.forEach(incomingFlows.values(), ({ reply }) =>
-        reply(Activation.interrupted('RTC data channel closed')),
-      );
-    }),
-  );
 
   const sendControl = (message: number) =>
     channel.send(new Uint8Array([controlDestination, message]));
@@ -193,27 +165,7 @@ const makeProtocols = Effect.fn('RpcTransport.makeProtocols')(function* (
       ),
     send: (clientId, request) =>
       Effect.gen(function* () {
-        let outgoing = request;
-        if (request._tag === 'Request') {
-          const tracing = yield* startRpcInvocation({
-            ...peer,
-            rpcTag: request.tag,
-          });
-          outgoingFlows.set(request.id, tracing);
-          outgoing = {
-            ...request,
-            headers: [...request.headers, ...tracing.headers] as Array<
-              [string, string]
-            >,
-          };
-        } else if (request._tag === 'Interrupt') {
-          const tracing = outgoingFlows.get(request.requestId);
-          if (tracing !== undefined) {
-            outgoingFlows.delete(request.requestId);
-            yield* tracing.end(Activation.interrupted('RPC interrupted'));
-          }
-        }
-        const encoded = encodeClient.encode(outgoing);
+        const encoded = encodeClient.encode(request);
         if (encoded !== undefined) {
           yield* channel.send(frame(clientDestination, encoded));
         }
@@ -242,13 +194,6 @@ const makeProtocols = Effect.fn('RpcTransport.makeProtocols')(function* (
       ),
     send: (_, response) =>
       Effect.gen(function* () {
-        if (response._tag === 'Exit') {
-          const tracing = incomingFlows.get(response.requestId);
-          if (tracing !== undefined) {
-            incomingFlows.delete(response.requestId);
-            yield* tracing.reply(outcomeOf(response.exit));
-          }
-        }
         const encoded = encodeServer.encode(response);
         if (encoded !== undefined) {
           yield* channel.send(frame(serverDestination, encoded));
@@ -283,22 +228,6 @@ const makeProtocols = Effect.fn('RpcTransport.makeProtocols')(function* (
           payload,
         ) as ReadonlyArray<RpcMessage.FromClientEncoded>;
         for (const message of messages) {
-          if (message._tag === 'Request') {
-            const tracing = yield* continueRpcInvocation({
-              ...peer,
-              rpcTag: message.tag,
-              headers: message.headers,
-            }).pipe(Effect.option);
-            if (Option.isSome(tracing)) {
-              incomingFlows.set(message.id, tracing.value);
-            }
-          } else if (message._tag === 'Interrupt') {
-            const tracing = incomingFlows.get(message.requestId);
-            if (tracing !== undefined) {
-              incomingFlows.delete(message.requestId);
-              yield* tracing.reply(Activation.interrupted('RPC interrupted'));
-            }
-          }
           if (serverHandler !== undefined) yield* serverHandler(0, message);
         }
       } else if (destination === serverDestination) {
@@ -306,13 +235,6 @@ const makeProtocols = Effect.fn('RpcTransport.makeProtocols')(function* (
           payload,
         ) as ReadonlyArray<RpcMessage.FromServerEncoded>;
         for (const message of messages) {
-          if (message._tag === 'Exit') {
-            const tracing = outgoingFlows.get(message.requestId);
-            if (tracing !== undefined) {
-              outgoingFlows.delete(message.requestId);
-              yield* tracing.end(outcomeOf(message.exit));
-            }
-          }
           for (const handler of clientHandlers.values())
             yield* handler(message);
         }
@@ -340,16 +262,17 @@ export const make = (
   channel: RtcDataChannel,
   options?: RpcTransportOptions,
 ): Effect.Effect<RpcTransport, RpcTransportError, Scope> =>
-  makeProtocols(channel, peer, options).pipe(
+  makeProtocols(channel, options).pipe(
     Effect.provide(RpcSerialization.layerJson),
     Effect.map(({ clientProtocol, closeRemote, events, serverProtocol }) => {
       const consume = <Remote extends Rpc.Any>(
         remote: RpcGroup.RpcGroup<Remote>,
       ) =>
         Effect.gen(function* () {
-          const client = yield* RpcClient.make(remote).pipe(
-            Effect.provideService(RpcClient.Protocol, clientProtocol),
-          );
+          const client = yield* RpcClient.make(
+            remote,
+            rpcSpanOptions(peer, 'client'),
+          ).pipe(Effect.provideService(RpcClient.Protocol, clientProtocol));
           return { client } satisfies RpcBinding<Remote>;
         }).pipe(
           Effect.provide(RpcSerialization.layerJson),
@@ -363,7 +286,7 @@ export const make = (
         handlers: Layer.Layer<Rpc.ToHandler<Local>, E, R>,
       ) =>
         Effect.gen(function* () {
-          yield* RpcServer.make(local).pipe(
+          yield* RpcServer.make(local, rpcSpanOptions(peer, 'server')).pipe(
             Effect.provideService(RpcServer.Protocol, serverProtocol),
             Effect.provide(handlers),
             Effect.forkScoped({ startImmediately: true }),

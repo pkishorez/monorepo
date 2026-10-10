@@ -2,122 +2,129 @@
   "$schema": "../../devtools/laymos/schema.json",
   "sourceRoots": ["src"],
   "ignoredPaths": ["src/routeTree.gen.ts", "src/styles", "src/types.d.ts"],
-  "layers": {
-    "entry": {
-      "paths": ["src/router.tsx", "src/start.ts", "src/server.ts"],
-      "description": "Host entries \u2014 TanStack Start server, router, worker forwarding",
-      "modules": {
-        "src/router.tsx": {},
-        "src/start.ts": {},
-        "src/server.ts": {}
-      }
-    },
-    "routes": {
-      "paths": ["src/routes"],
-      "description": "Route surface \u2014 pages and API handlers",
-      "modules": {
-        "src/routes": {}
-      }
-    },
-    "infra": {
-      "paths": ["src/infra"],
-      "description": "Deployable resources \u2014 each worker defined separately, composed by alchemy.run.ts",
-      "modules": {
-        "src/infra": {}
-      }
-    },
-    "components": {
-      "paths": ["src/components"],
-      "description": "Presentation shared across routes",
-      "modules": {
-        "src/components/mdx.tsx": {
-          "exposed": true
-        },
-        "src/components/home-header.tsx": {
-          "shared": true,
-          "exposed": true
-        },
-        "src/components/not-found.tsx": {
-          "exposed": true
-        },
-        "src/components/status-badge.tsx": {
-          "shared": true,
-          "exposed": true
-        },
-        "src/components/eschema-playground.tsx": {
-          "shared": true,
-          "exposed": true
-        }
-      }
-    },
-    "lib": {
-      "paths": ["src/lib"],
-      "description": "Content sources and shared layout data",
-      "modules": {
-        "src/lib/source.ts": {
-          "exposed": true
-        },
-        "src/lib/blog.ts": {
-          "shared": true,
-          "exposed": true
-        },
-        "src/lib/blog-data.ts": {
-          "exposed": true
-        },
-        "src/lib/shared.ts": {
-          "shared": true,
-          "exposed": true
-        },
-        "src/lib/layout.shared.tsx": {
-          "exposed": true
-        }
-      }
-    },
-    "ai-playground-app": {
-      "paths": ["src/demos/ai-toolkit/app"],
-      "description": "AI playground screen joining live records to the presentation layer.",
-      "modules": {
-        "src/demos/ai-toolkit/app": {
-          "exposed": true
-        }
-      }
-    },
-    "ai-playground-client": {
-      "paths": ["src/demos/ai-toolkit/client"],
-      "description": "Fixed remote WebSocket connection and playground actions.",
-      "modules": {
-        "src/demos/ai-toolkit/client": {
-          "exposed": true
-        }
-      }
-    },
-    "ai-playground-ui": {
-      "paths": ["src/demos/ai-toolkit/ui"],
-      "description": "Typed renderers for every persisted AI message part.",
-      "modules": {
-        "src/demos/ai-toolkit/ui": {
-          "exposed": true
-        }
-      }
-    }
-  },
-  "layerGraphs": {
-    "docs-site": {
-      "description": "Docs app: entries over routes over components over lib",
-      "rules": {
-        "entry": ["components"],
-        "routes": ["components", "lib", "ai-playground-app"],
-        "infra": [],
-        "components": ["lib"]
-      }
-    },
-    "ai-playground": {
-      "description": "Docs AI playground: app over the remote client and typed UI.",
-      "rules": {
-        "ai-playground-app": ["ai-playground-client", "ai-playground-ui"],
-        "ai-playground-client": [],
-        "ai-playground-ui": []
-      }
-    }
+  "fileModules": [
+    "src/router.tsx",
+    "src/start.ts",
+    "src/server.ts",
+    "src/components/not-found.tsx",
+    "src/lib/theme.tsx",
+    "src/lib/demos.tsx"
+  ],
+  "rules": {
+    "src/router.tsx": ["src/components"],
+    "src/routes": ["src/lib", "src/demos/effect-oak"],
+    "src/demos/effect-oak/canvas-art": ["src/demos/effect-oak/frame-canvas"],
+    "src/demos/effect-oak/generative-art": [
+      "src/demos/effect-oak/frame-canvas"
+    ],
+    "src/demos/effect-oak/api-cache": [
+      "src/demos/effect-oak/async-data",
+      "src/demos/effect-oak/blog-server"
+    ],
+    "src/demos/effect-oak/api-cache-query": [
+      "src/demos/effect-oak/async-data",
+      "src/demos/effect-oak/blog-server"
+    ],
+    "src/demos/effect-oak/charting": ["src/demos/effect-oak/async-data"],
+    "src/demos/effect-oak/query-sync/param": [
+      "src/demos/effect-oak/query-sync/url"
+    ],
+    "src/demos/effect-oak/map/places": ["src/demos/effect-oak/map/world"],
+    "src/demos/effect-oak/map/finder": ["src/demos/effect-oak/map/world"],
+    "src/demos/effect-oak/map/viewport": ["src/demos/effect-oak/map/world"],
+    "src/demos/effect-oak/shopping-cart/products": [
+      "src/demos/effect-oak/shopping-cart/basket",
+      "src/demos/effect-oak/shopping-cart/shop-server"
+    ],
+    "src/demos/effect-oak/shopping-cart/checkout": [
+      "src/demos/effect-oak/shopping-cart/basket",
+      "src/demos/effect-oak/shopping-cart/shop-server"
+    ],
+    "src/demos/effect-oak/shopping-cart/cart-page": [
+      "src/demos/effect-oak/shopping-cart/basket"
+    ],
+    "src/demos/effect-oak/shopping-cart/shop-server": [
+      "src/demos/effect-oak/shopping-cart/basket"
+    ],
+    "src/demos/effect-oak/kanban/board-store": [
+      "src/demos/effect-oak/kanban/columns"
+    ],
+    "src/demos/effect-oak/auth/logged-out": [
+      "src/demos/effect-oak/auth/auth-server",
+      "src/demos/effect-oak/auth/session"
+    ],
+    "src/demos/effect-oak/auth/logged-in": [
+      "src/demos/effect-oak/auth/session"
+    ],
+    "src/demos/effect-oak/auth/auth-server": [
+      "src/demos/effect-oak/auth/session"
+    ],
+    "src/demos/effect-oak/routing": ["src/demos/effect-oak/location"],
+    "src/demos/effect-oak/route-transitions": ["src/demos/effect-oak/location"],
+    "src/demos/effect-oak/view-transitions": ["src/demos/effect-oak/location"],
+    "src/demos/effect-oak/personal-blog": ["src/demos/effect-oak/location"],
+    "src/demos/effect-oak/routing/people": [
+      "src/demos/effect-oak/routing/route"
+    ],
+    "src/demos/effect-oak/routing/files": [
+      "src/demos/effect-oak/routing/route"
+    ],
+    "src/demos/effect-oak/embedding/widget": [
+      "src/demos/effect-oak/embedding/port"
+    ],
+    "src/demos/effect-oak/web-components/fields": [
+      "src/demos/effect-oak/web-components/elements"
+    ],
+    "src/demos/effect-oak/job-application/personal-info": [
+      "src/demos/effect-oak/job-application/application",
+      "src/demos/effect-oak/job-application/fields"
+    ],
+    "src/demos/effect-oak/job-application/work-history": [
+      "src/demos/effect-oak/job-application/application",
+      "src/demos/effect-oak/job-application/fields"
+    ],
+    "src/demos/effect-oak/job-application/skills": [
+      "src/demos/effect-oak/job-application/application",
+      "src/demos/effect-oak/job-application/fields"
+    ],
+    "src/demos/effect-oak/job-application/cover-letter": [
+      "src/demos/effect-oak/job-application/application",
+      "src/demos/effect-oak/job-application/fields"
+    ],
+    "src/demos/effect-oak/job-application/attachments": [
+      "src/demos/effect-oak/job-application/application"
+    ],
+    "src/demos/effect-oak/job-application/step-nav": [
+      "src/demos/effect-oak/job-application/application"
+    ],
+    "src/demos/effect-oak/job-application/preview": [
+      "src/demos/effect-oak/job-application/application"
+    ],
+    "src/demos/effect-oak/job-application/review": [
+      "src/demos/effect-oak/job-application/application"
+    ],
+    "src/demos/effect-oak/ui-showcase/dialog": [
+      "src/demos/effect-oak/ui-showcase/focus",
+      "src/demos/effect-oak/ui-showcase/picks"
+    ],
+    "src/demos/effect-oak/ui-showcase/menu": [
+      "src/demos/effect-oak/ui-showcase/focus",
+      "src/demos/effect-oak/ui-showcase/picks"
+    ],
+    "src/demos/effect-oak/ui-showcase/tabs": [
+      "src/demos/effect-oak/ui-showcase/focus",
+      "src/demos/effect-oak/ui-showcase/picks"
+    ],
+    "src/demos/effect-oak/ui-showcase/listbox": [
+      "src/demos/effect-oak/ui-showcase/focus",
+      "src/demos/effect-oak/ui-showcase/picks"
+    ],
+    "src/demos/effect-oak/ui-showcase/combobox": [
+      "src/demos/effect-oak/ui-showcase/focus",
+      "src/demos/effect-oak/ui-showcase/picks"
+    ],
+    "src/demos/effect-oak/ui-showcase/switch": [
+      "src/demos/effect-oak/ui-showcase/picks"
+    ]
   }
 }

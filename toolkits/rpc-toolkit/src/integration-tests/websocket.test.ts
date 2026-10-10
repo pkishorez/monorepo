@@ -1,24 +1,16 @@
 import { Effect, Fiber, Layer, Schema, Stream } from 'effect';
-import { Headers, HttpServerResponse } from 'effect/http';
-import { Rpc, RpcClient, RpcGroup, RpcSerialization } from 'effect/rpc';
+import { Headers, HttpServerRequest, HttpServerResponse } from 'effect/http';
+import { Rpc as EffectRpc, RpcClient, RpcGroup } from 'effect/rpc';
 import { expect, it, vi } from 'vitest';
-import { Cannotation } from '../rpc/cannotation/index.js';
-import { InvocationKind } from '../rpc/invocation/index.js';
-import {
-  layerWebSocketProtocol,
-  keepSubscribed,
-} from '../rpc/websocket-client/index.js';
-import {
-  makeHibernatingWebSocketRpc,
-  StreamCheckpoint,
-  type HibernatingSocket,
-} from '../rpc/cloudflare/hibernating-rpc/index.js';
+import { Rpc } from '../rpc/index.ts';
 
-it('connects the socket client to the hibernating server and refreshes Cannotation credentials on reconnect', async () => {
+it('connects the socket client to the hibernating server and refreshes Middleware credentials on reconnect', async () => {
   vi.stubGlobal('WebSocketRequestResponsePair', class {});
-  const Access = Cannotation.make<boolean>()('wire/Access', { client: true });
+  const Access = Rpc.middleware<boolean>()('wire/Access', { client: true });
   const Group = Access.with(true)(
-    RpcGroup.make(Rpc.make('watch', { success: Schema.Number, stream: true })),
+    RpcGroup.make(
+      EffectRpc.make('watch', { success: Schema.Number, stream: true }),
+    ),
   );
   let token = 'first';
   let starts = 0;
@@ -26,14 +18,14 @@ it('connects the socket client to the hibernating server and refreshes Cannotati
   const sockets: TestWebSocket[] = [];
   const errors: unknown[] = [];
   const server = await Effect.runPromise(
-    makeHibernatingWebSocketRpc({
-      group: Group,
-      layer: Layer.merge(
+    Rpc.websocket.server(
+      Group,
+      Layer.merge(
         Access.layer(({ headers }) =>
           Effect.gen(function* () {
             calls.push({
               token: headers.authorization,
-              kind: yield* InvocationKind,
+              kind: yield* Rpc.websocket.InvocationKind,
             });
           }),
         ),
@@ -41,29 +33,34 @@ it('connects the socket client to the hibernating server and refreshes Cannotati
           watch: () =>
             Stream.unwrap(
               Effect.gen(function* () {
-                const checkpoint = yield* StreamCheckpoint(Schema.Number);
+                const checkpoint = yield* Rpc.websocket.checkpoint(
+                  Schema.Number,
+                );
                 yield* checkpoint.put(++starts).pipe(Effect.orDie);
                 return Stream.make(starts).pipe(Stream.concat(Stream.never));
               }),
             ),
         }),
       ),
-      state: {
-        getWebSockets: () => Effect.succeed([]),
-        setWebSocketAutoResponse: () => Effect.void,
+      {
+        state: {
+          getWebSockets: () => Effect.succeed([]),
+          setWebSocketAutoResponse: () => Effect.void,
+        },
+        upgrade: () =>
+          Effect.succeed([
+            HttpServerResponse.empty(),
+            sockets.at(-1)!.port,
+          ] as const),
       },
-      upgrade: () =>
-        Effect.succeed([
-          HttpServerResponse.empty(),
-          sockets.at(-1)!.port,
-        ] as const),
-    }).pipe(Effect.provide(RpcSerialization.layerJson)),
+    ),
   );
 
   class TestWebSocket extends EventTarget {
     readyState = 1;
     attachment: unknown = null;
-    readonly port: HibernatingSocket;
+    readonly port: Rpc.HibernatingSocket;
+    readonly accepted: Promise<unknown>;
     constructor() {
       super();
       sockets.push(this);
@@ -72,21 +69,34 @@ it('connects the socket client to the hibernating server and refreshes Cannotati
           send: (data: string) =>
             this.dispatchEvent(new MessageEvent('message', { data })),
           close: () => this.close(),
-        } as unknown as HibernatingSocket['ws'],
+        } as unknown as Rpc.HibernatingSocket['ws'],
         close: () => Effect.sync(() => this.close()),
         serializeAttachment: (value) => {
           this.attachment = structuredClone(value);
         },
         deserializeAttachment: <T>() => this.attachment as T | null,
       };
+      // The Durable Object's fetch: upgrade and write the socket's record.
+      this.accepted = Effect.runPromise(
+        server.accept.pipe(
+          Effect.provideService(
+            HttpServerRequest.HttpServerRequest,
+            HttpServerRequest.fromWeb(new Request('https://test/rpc')),
+          ),
+        ),
+      );
     }
     send(data: string | Uint8Array) {
-      void Effect.runPromise(
-        server.message(
-          this.port,
-          typeof data === 'string' ? data : new TextDecoder().decode(data),
-        ),
-      ).catch((error) => errors.push(error));
+      void this.accepted
+        .then(() =>
+          Effect.runPromise(
+            server.message(
+              this.port,
+              typeof data === 'string' ? data : new TextDecoder().decode(data),
+            ),
+          ),
+        )
+        .catch((error) => errors.push(error));
     }
     close(code = 1000) {
       if (this.readyState === 3) return;
@@ -104,21 +114,20 @@ it('connects the socket client to the hibernating server and refreshes Cannotati
   const fiber = Effect.runFork(
     Effect.gen(function* () {
       const client = yield* RpcClient.make(Group);
-      yield* keepSubscribed(() => client.watch()).pipe(
-        Stream.runForEach((value) =>
-          Effect.sync(() => {
-            values.push(value);
-          }),
-        ),
-      );
+      yield* Rpc.websocket
+        .keepSubscribed(() => client.watch())
+        .pipe(
+          Stream.runForEach((value) =>
+            Effect.sync(() => {
+              values.push(value);
+            }),
+          ),
+        );
     }).pipe(
       Effect.provide(
         Layer.merge(
-          layerWebSocketProtocol({
-            url: 'ws://test/rpc',
-            serialization: RpcSerialization.layerJson,
-          }),
-          Access.clientLayer(({ request, next }) =>
+          Rpc.websocket.client(Group, { url: 'ws://test/rpc' }),
+          Access.client(({ request, next }) =>
             next({
               ...request,
               headers: Headers.fromInput({ authorization: token }),

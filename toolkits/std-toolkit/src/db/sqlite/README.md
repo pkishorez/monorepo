@@ -53,7 +53,7 @@ See the [top README](../../../README.md). Install the driver's own dependency wh
 
 ### Run a program on SQLite in Node
 
-Lifted from story 24.
+The same program on Memory and SQLite is compared in [the-same-program-runs-on-sqlite.story.ts](../../../stories/std-table/the-same-program-runs-on-sqlite.story.ts).
 
 ```ts
 import { Effect } from 'effect';

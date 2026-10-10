@@ -1,13 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Effect } from 'effect';
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import { scrollbarStyles } from '@kstackz/ui-toolkit/lib/scrollStyles';
-import {
-  Monoverse as MonorepoExplorer,
-  type Package,
-  type PackageReadmeDocument,
-  type PackageReadmeDocuments,
-} from '@kstackz/ui-toolkit/components/blocks/monoverse';
+import { scrollbarStyles } from '@kstackz/web-platform/components/scroll-styles';
+import { Monoverse as MonorepoExplorer } from '@devtools/ui/monoverse';
 import {
   DevtoolsClient,
   useDevtoolsRuntime,
@@ -37,13 +32,8 @@ function provideRuntime<A, E>(
 
 type SearchPatch = Partial<{
   monorepo: string | undefined;
-  package: string | undefined;
   laymos: string | undefined;
-  readme: readonly string[] | undefined;
 }>;
-
-const packageReadmePath = 'README.md';
-const noReadmeStack: readonly string[] = [];
 
 // The shell keeps this Tool's header mounted while a navigation to another
 // Tool is pending, so the route may not be the active match for one render.
@@ -53,17 +43,14 @@ function useMonoverseSearch() {
   return (
     search ?? {
       monorepo: undefined,
-      package: undefined,
       laymos: undefined,
-      readme: undefined,
     }
   );
 }
 
 /**
- * The Monoverse Tool. The Monorepo, the selected Package, the Package open
- * in Embedded Laymos, and the Package README stack all live in the URL
- * (`monorepo`, `package`, `laymos`, `readme`). Switching Worktree rewrites
+ * The Monoverse Tool. The Monorepo or Single Package, and the Package open in
+ * Embedded Laymos, live in the URL (`monorepo`, `laymos`). Switching Worktree rewrites
  * `monorepo` to the Worktree sibling; nothing is remembered outside the URL.
  * A bare `/monoverse` shows the Project picker.
  */
@@ -72,19 +59,14 @@ export function Monoverse() {
   const search = useMonoverseSearch();
   const navigate = useNavigate();
   const monorepoPath = search.monorepo ?? null;
-  const reload = useReload('monoverse');
+  const reload = useReload();
   const worktrees = useWorktrees(monorepoPath);
 
   const selectMonorepo = useCallback(
     (path: string) =>
       void navigate({
         to: '/monoverse',
-        search: {
-          monorepo: path,
-          package: undefined,
-          laymos: undefined,
-          readme: undefined,
-        },
+        search: { monorepo: path, laymos: undefined },
       }),
     [navigate],
   );
@@ -102,11 +84,7 @@ export function Monoverse() {
     return (
       <div className={`h-full overflow-auto ${scrollbarStyles}`}>
         <div className="mx-auto max-w-2xl space-y-6 p-4 sm:p-8">
-          <ProjectPicker
-            tool="monoverse"
-            currentPath={null}
-            onSelect={selectMonorepo}
-          />
+          <ProjectPicker currentPath={null} onSelect={selectMonorepo} />
         </div>
       </div>
     );
@@ -117,7 +95,6 @@ export function Monoverse() {
   if (isMissingInWorktree(worktrees.data)) {
     return (
       <MissingProjectState
-        noun="monorepo"
         path={monorepoPath}
         resolution={worktrees.data}
         onSelect={selectMonorepo}
@@ -156,19 +133,9 @@ function MonorepoView({
   const worktrees = useWorktrees(monorepoPath);
   // One Base ref for the whole view; Embedded Laymos is measured against it.
   const git = useGitChanges(monorepoPath, { reloadNonce, knownFiles: true });
-  // A Worktree may hold the folder but not the workspace file: from the
-  // developer's view the Monorepo is not there either.
-  const [notWorkspaceAt, setNotWorkspaceAt] = useState<number | null>(null);
-  // The route needs Package paths to read READMEs; the block owns the rest.
-  const [packages, setPackages] = useState<readonly Package[]>([]);
-  const readmeStack = search.readme ?? noReadmeStack;
-  const readmeDocuments = usePackageReadmes(
-    runtime,
-    monorepoPath,
-    packages.find((pkg) => pkg.name === search.package)?.path ?? null,
-    readmeStack,
-    reloadNonce,
-  );
+  // A Worktree may hold the folder but not its package.json: from the
+  // developer's view the folder is not there either.
+  const [noPackageJsonAt, setNoPackageJsonAt] = useState<number | null>(null);
 
   const loadAnalysis = useCallback(
     () =>
@@ -178,16 +145,11 @@ function MonorepoView({
           const client = yield* DevtoolsClient;
           return yield* client.AnalyzeMonorepo({ monorepoPath });
         }).pipe(
-          Effect.tap((analysis) =>
-            Effect.sync(() => {
-              setNotWorkspaceAt(null);
-              setPackages(analysis.packages);
-            }),
-          ),
+          Effect.tap(() => Effect.sync(() => setNoPackageJsonAt(null))),
           Effect.tapError((error) =>
             Effect.sync(() =>
-              setNotWorkspaceAt(
-                error._tag === 'NotPnpmWorkspaceError' ? reloadNonce : null,
+              setNoPackageJsonAt(
+                error._tag === 'NoPackageJsonError' ? reloadNonce : null,
               ),
             ),
           ),
@@ -202,25 +164,24 @@ function MonorepoView({
     [runtime, monorepoPath, reloadNonce],
   );
 
-  const loadPackageFiles = useCallback(
-    (pkg: Package) =>
+  const loadFile = useCallback(
+    (path: string) =>
       provideRuntime(
         runtime,
         Effect.gen(function* () {
           const client = yield* DevtoolsClient;
-          return yield* client.GetPackageFiles({
+          return yield* client.GetMonorepoFile({
             monorepoRoot: monorepoPath,
-            packagePath: pkg.path,
+            path,
           });
         }),
       ),
     [runtime, monorepoPath],
   );
 
-  if (notWorkspaceAt === reloadNonce && worktrees.data) {
+  if (noPackageJsonAt === reloadNonce && worktrees.data) {
     return (
       <MissingProjectState
-        noun="monorepo"
         path={monorepoPath}
         resolution={worktrees.data}
         onSelect={onSelectMonorepo}
@@ -243,23 +204,11 @@ function MonorepoView({
               onBaseRefChange={git.setBaseRef}
             />
           )}
-          selectedPackage={search.package ?? null}
-          onSelectedPackageChange={(name) =>
-            setSearch({ package: name ?? undefined })
-          }
           openPackage={search.laymos ?? null}
           onOpenPackageChange={(name) =>
             setSearch({ laymos: name ?? undefined })
           }
-          readmeStack={readmeStack}
-          onReadmeStackChange={(stack) =>
-            setSearch({ readme: stack.length === 0 ? undefined : stack })
-          }
-          onOpenReadme={(name) =>
-            setSearch({ package: name, readme: [packageReadmePath] })
-          }
-          readmeDocuments={readmeDocuments}
-          loadPackageFiles={loadPackageFiles}
+          loadFile={loadFile}
           changes={git.changes}
           knownFiles={git.knownFiles}
           branches={git.branches}
@@ -273,81 +222,16 @@ function MonorepoView({
   );
 }
 
-// Loads every markdown file in the README stack of the selected Package once
-// per Package and Monorepo reload. Results are keyed by that scope, so a stale
-// response can never land in a newer scope.
-function usePackageReadmes(
-  runtime: DevtoolsRuntime,
-  monorepoRoot: string,
-  packagePath: string | null,
-  stack: readonly string[],
-  reloadNonce: number,
-): PackageReadmeDocuments {
-  const scope = `${packagePath ?? ''}\n${reloadNonce}\n`;
-  const [loaded, setLoaded] = useState<PackageReadmeDocuments>({});
-  const requested = useRef(new Set<string>());
-
-  useEffect(() => {
-    if (packagePath === null) return;
-    for (const relativePath of stack) {
-      const key = scope + relativePath;
-      if (requested.current.has(key)) continue;
-      requested.current.add(key);
-      void Effect.runPromise(
-        provideRuntime(
-          runtime,
-          Effect.gen(function* () {
-            const client = yield* DevtoolsClient;
-            return yield* client.GetPackageReadme({
-              monorepoRoot,
-              packagePath,
-              relativePath,
-            });
-          }).pipe(
-            Effect.match({
-              onSuccess: (readme): PackageReadmeDocument => ({
-                kind: 'ready',
-                markdown: readme.markdown,
-              }),
-              onFailure: (error): PackageReadmeDocument =>
-                error._tag === 'PackageReadmeNotFoundError'
-                  ? { kind: 'missing' }
-                  : { kind: 'failure', message: error.message || error._tag },
-            }),
-          ),
-        ),
-      ).then((document) => setLoaded((all) => ({ ...all, [key]: document })));
-    }
-  }, [runtime, monorepoRoot, packagePath, stack, scope]);
-
-  return useMemo(
-    () =>
-      Object.fromEntries(
-        stack.flatMap((path) => {
-          const document = loaded[scope + path];
-          return document === undefined ? [] : [[path, document]];
-        }),
-      ),
-    [loaded, scope, stack],
-  );
-}
-
 export function MonoverseHeader() {
   const search = useMonoverseSearch();
   const navigate = useNavigate();
   return (
     <ProjectSelectionHeader
-      tool="monoverse"
       path={search.monorepo ?? null}
       onSelect={(path) =>
         void navigate({
           to: '/monoverse',
-          search: {
-            monorepo: path,
-            package: undefined,
-            laymos: undefined,
-            readme: undefined,
-          },
+          search: { monorepo: path, laymos: undefined },
         })
       }
     />

@@ -1,0 +1,7 @@
+---
+'@kstackz/web-platform': patch
+---
+
+Initial release under the `@kstackz` scope, with its own version (ADR 0006).
+
+The Web Platform, the one way to build a kstack app: a web app from one config. `createApp` takes the app's `name`, `title`, `apis`, `device` Backend, `cache`, `auth` (the sign-in service's `url`, the `session`, and `presets` for the device Backend), `theme` and `pwa`, and gives `root` for `createRootRoute`, `SignedIn` with the screens before sign-in drawn for you, and hooks. Underneath is the Gate (several Accounts on one device, Open First, Account Lost) and one Session per active Account with every API signed as them, interrupted when it closes (a run rejects with `SessionClosed`). The `define` door holds what an app writes before `createApp` (`Api.http`, `Api.websocket`, `defineSession`, `syncName`, `keepSyncs`) and loads nothing of the browser app, so a Worker can import it. Every app is a PWA in its Theme. The `server` door's `createServer` serves each `http` API at its path on the cloud services the app gives, checked by the sign-in service. Underneath are the parts to build screens with: sound feedback, touch and keyboard input, shadcn components and viewers, a form hook, and Recipes (the Frame, Thumb Picker, Swipe Row, Local Sign-In, Account Switcher, Account Lost, Gate Screens). It replaces `@kstackz/ui-toolkit`, `@kstackz/pwa-toolkit` and `@kstackz/web-toolkit`, and `@kstackz/platform-toolkit`, which were never released.

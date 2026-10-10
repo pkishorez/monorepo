@@ -9,18 +9,17 @@ export function renderFileInspection(inspection: FileInspection): string {
     : `${colors.green('■')} active   ${colors.yellow('■')} direct dependency`;
   const output = [
     `File:   ${inspection.path}`,
-    `Layer:  ${inspection.layer ?? 'unassigned'}`,
-    `Module: ${inspection.module ?? 'unassigned'}`,
+    `Module: ${inspection.role === 'uncovered' ? 'none' : inspection.owner}`,
     `Role:   ${renderRole(inspection.role)}`,
     '',
     legend,
     '',
     renderPathTree(inspection.path, inspection.dependencies),
   ];
-  if (inspection.hasCoverageViolation) {
+  if (inspection.role === 'uncovered') {
     output.push(
       '',
-      colors.yellow('Warning: this file has architecture coverage violations.'),
+      colors.yellow('Warning: no Module owns this file.'),
       'Run `laymos lint` for details.',
     );
   }
@@ -28,6 +27,12 @@ export function renderFileInspection(inspection: FileInspection): string {
 }
 
 function renderRole(role: FileInspection['role']): string {
-  if (role === 'public-entry-point') return 'public entry point';
-  return role ?? 'unassigned';
+  switch (role) {
+    case 'index':
+      return 'Index';
+    case 'own':
+      return 'own file';
+    case 'uncovered':
+      return 'in a Wrapper, owned by no Module';
+  }
 }

@@ -6,18 +6,18 @@ A collection of open-source TypeScript projects focused on Effect, monorepo
 architecture, local developer tooling, data modeling and sync, and React.
 
 The packages are developed together in a pnpm workspace and share the same
-build, lint, test, formatting, and release infrastructure. Package documentation
-is available at [docs.kishore.app](https://docs.kishore.app).
+build, lint, test, formatting, and release infrastructure. Live demos of the
+packages are at [docs.kishore.app](https://docs.kishore.app).
 
 ## What's included
 
 ### Applications
 
-| Workspace                                        | Purpose                                                                                                                       |
-| ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
-| [`apps/docs`](./apps/docs)                       | Documentation site for the public packages, built with Fumadocs and TanStack Start and deployed to Cloudflare Workers.        |
-| [`apps/alchemy-console`](./apps/alchemy-console) | Web console for browsing Alchemy state stores and deleting stacks, stages and resources with user-owned provider credentials. |
-| [`apps/kstack`](./apps/kstack)                   | Ledger: a money tracker that is the blueprint for every kstack app, run by keys on desktop and by gestures on a phone.        |
+| Workspace                                        | Purpose                                                                                                                           |
+| ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| [`apps/docs`](./apps/docs)                       | Live demos of the public packages, a plain TanStack Start app deployed to Cloudflare Workers.                                     |
+| [`apps/alchemy-console`](./apps/alchemy-console) | Web console for browsing Alchemy state stores and deleting stacks, stages and resources with user-owned provider credentials.     |
+| [`apps/ledger`](./apps/ledger)                   | Ledger on the web: a money tracker that is the blueprint for every kstack app, run by keys on desktop and by gestures on a phone. |
 
 ## kstack packages
 
@@ -27,27 +27,25 @@ version. See [docs/adr/0002-one-version-for-the-kstack-packages.md](./docs/adr/0
 
 ### Toolkits
 
-| Workspace                                            | Package                                                                          | Purpose                                                                                                   |
-| ---------------------------------------------------- | -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| [`toolkits/std-toolkit`](./toolkits/std-toolkit)     | [`@kstackz/std-toolkit`](https://www.npmjs.com/package/@kstackz/std-toolkit)     | Single-table data modeling, schema evolution, database adapters, and sync.                                |
-| [`toolkits/ui-toolkit`](./toolkits/ui-toolkit)       | [`@kstackz/ui-toolkit`](https://www.npmjs.com/package/@kstackz/ui-toolkit)       | Shared React components, forms, styles, hooks, and visualization blocks.                                  |
-| [`toolkits/ai-toolkit`](./toolkits/ai-toolkit)       | [`@kstackz/ai-toolkit`](https://www.npmjs.com/package/@kstackz/ai-toolkit)       | Runs Claude Code and Codex turns on a server and stores them in a StdTable.                               |
-| [`toolkits/pwa-toolkit`](./toolkits/pwa-toolkit)     | [`@kstackz/pwa-toolkit`](https://www.npmjs.com/package/@kstackz/pwa-toolkit)     | Service worker, precache, update and install tools that turn a TanStack Start app into a PWA.             |
-| [`toolkits/rpc-toolkit`](./toolkits/rpc-toolkit)     | [`@kstackz/rpc-toolkit`](https://www.npmjs.com/package/@kstackz/rpc-toolkit)     | RPC and HTTP Cannotations, WebSocket clients, and Cloudflare runtime and Alchemy deployment integrations. |
-| [`toolkits/auth-toolkit`](./toolkits/auth-toolkit)   | [`@kstackz/auth-toolkit`](https://www.npmjs.com/package/@kstackz/auth-toolkit)   | Shared authentication worker, sessions, and authorization integrations.                                   |
-| [`packages/effect-webrtc`](./packages/effect-webrtc) | [`@kstackz/effect-webrtc`](https://www.npmjs.com/package/@kstackz/effect-webrtc) | Effect-native peer sessions and RPC over WebRTC data channels.                                            |
-| [`packages/use-gesture`](./packages/use-gesture)     | [`@kstackz/use-gesture`](https://www.npmjs.com/package/@kstackz/use-gesture)     | Touch gestures for React: every finger of a touch as motion values, in nested zones that own touch.       |
-| [`packages/use-keys`](./packages/use-keys)           | [`@kstackz/use-keys`](https://www.npmjs.com/package/@kstackz/use-keys)           | Keyboard shortcuts for React: every key the page hears, and the Shortcuts and Sequences built on it.      |
+| Workspace                                            | Package                                                                          | Purpose                                                                                                                                                                                                                                                                                   |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`toolkits/std-toolkit`](./toolkits/std-toolkit)     | [`@kstackz/std-toolkit`](https://www.npmjs.com/package/@kstackz/std-toolkit)     | Single-table data modeling, schema evolution, database adapters, and sync.                                                                                                                                                                                                                |
+| [`platforms/web-platform`](./platforms/web-platform) | [`@kstackz/web-platform`](https://www.npmjs.com/package/@kstackz/web-platform)   | The Web Platform: a web app from one config, as a PWA on TanStack Start with its Theme, its APIs on a cloud or a device Backend, several Accounts with one Session each, the screens before sign-in, and the server; plus the components, input, forms and Recipes to build screens with. |
+| [`toolkits/ai-toolkit`](./toolkits/ai-toolkit)       | [`@kstackz/ai-toolkit`](https://www.npmjs.com/package/@kstackz/ai-toolkit)       | Runs Claude Code and Codex turns on a server and stores them in a StdTable.                                                                                                                                                                                                               |
+| [`toolkits/rpc-toolkit`](./toolkits/rpc-toolkit)     | [`@kstackz/rpc-toolkit`](https://www.npmjs.com/package/@kstackz/rpc-toolkit)     | Effect RPC and HttpApi with Middleware, three Transports with a fixed protocol, and Cloudflare deploys.                                                                                                                                                                                   |
+| [`toolkits/auth-toolkit`](./toolkits/auth-toolkit)   | [`@kstackz/auth-toolkit`](https://www.npmjs.com/package/@kstackz/auth-toolkit)   | Shared authentication worker, sessions, and authorization integrations.                                                                                                                                                                                                                   |
+| [`packages/effect-webrtc`](./packages/effect-webrtc) | [`@kstackz/effect-webrtc`](https://www.npmjs.com/package/@kstackz/effect-webrtc) | Effect-native peer sessions and RPC over WebRTC data channels.                                                                                                                                                                                                                            |
+| [`packages/use-gesture`](./packages/use-gesture)     | [`@kstackz/use-gesture`](https://www.npmjs.com/package/@kstackz/use-gesture)     | Touch gestures: a platform-free core that reads every finger of a touch from any touch source. Its web side is in @kstackz/web-platform's input, its native side in @kstackz/expo-platform's.                                                                                             |
+| [`packages/use-keys`](./packages/use-keys)           | [`@kstackz/use-keys`](https://www.npmjs.com/package/@kstackz/use-keys)           | Keyboard shortcuts for React: every key the page hears, and the Shortcuts and Sequences built on it.                                                                                                                                                                                      |
 
 ### Developer tools
 
-| Workspace                                            | Package                                                                          | Purpose                                                                                                             |
-| ---------------------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| [`devtools/devtools`](./devtools/devtools)           | [`@kstackz/devtools`](https://www.npmjs.com/package/@kstackz/devtools)           | Local DevTools server for traces, logs, flows, and architecture, plus Client Commands for reading traces and flows. |
-| [`devtools/lotel`](./devtools/lotel)                 | [`@kstackz/lotel`](https://www.npmjs.com/package/@kstackz/lotel)                 | Local OpenTelemetry library for ingesting, storing, and querying traces and logs during development.                |
-| [`devtools/flow`](./devtools/flow)                   | [`@kstackz/flow`](https://www.npmjs.com/package/@kstackz/flow)                   | Flow journals for Effect programs, drawn by DevTools as swim lanes.                                                 |
-| [`devtools/effect-tracer`](./devtools/effect-tracer) | [`@kstackz/effect-tracer`](https://www.npmjs.com/package/@kstackz/effect-tracer) | In-process recording and OTLP export for Effect traces and logs.                                                    |
-| [`devtools/laymos`](./devtools/laymos)               | [`laymos`](https://www.npmjs.com/package/laymos)                                 | Declares and enforces TypeScript architecture as layers.                                                            |
+| Workspace                                            | Package                                                                          | Purpose                                                                                              |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| [`devtools/devtools`](./devtools/devtools)           | [`@kstackz/devtools`](https://www.npmjs.com/package/@kstackz/devtools)           | Local DevTools server for traces, logs, and architecture, plus Client Commands for reading traces.   |
+| [`devtools/lotel`](./devtools/lotel)                 | [`@kstackz/lotel`](https://www.npmjs.com/package/@kstackz/lotel)                 | Local OpenTelemetry library for ingesting, storing, and querying traces and logs during development. |
+| [`devtools/effect-tracer`](./devtools/effect-tracer) | [`@kstackz/effect-tracer`](https://www.npmjs.com/package/@kstackz/effect-tracer) | In-process recording and OTLP export for Effect traces and logs.                                     |
+| [`devtools/laymos`](./devtools/laymos)               | [`laymos`](https://www.npmjs.com/package/laymos)                                 | Declares and enforces TypeScript architecture as layers.                                             |
 
 ## Stand-alone packages
 

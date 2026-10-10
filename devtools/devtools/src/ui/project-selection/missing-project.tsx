@@ -1,51 +1,68 @@
+import { useState } from 'react';
+import { Button } from '@kstackz/web-platform/components/button';
 import {
   Empty,
   EmptyContent,
   EmptyDescription,
   EmptyHeader,
   EmptyTitle,
-} from '@kstackz/ui-toolkit/components/ui/empty';
+} from '@kstackz/web-platform/components/empty';
+import { PencilIcon } from '@kstackz/web-platform/components/lucide';
 import type { WorktreeResolution } from '../../rpc/index.js';
-import { currentWorktree } from './registry.js';
-import { WorktreeSwitcher, worktreeLabel } from './worktree-switcher.js';
+import { ManageEntryDialog } from './manage-entry.js';
+import { basename, findEntryForPath, useProjectRegistry } from './registry.js';
 
 /**
- * Shown in place of the analysis when the selected Worktree does not contain
- * the Project. The switcher is repeated here so the fix is one click away.
+ * Shown in place of the analysis when the current checkout does not hold the
+ * folder. Edit opens the entry's Manage dialog, where its path can be fixed
+ * or another Worktree opened.
  */
 export function MissingProjectState({
-  noun,
   path,
   resolution,
   onSelect,
 }: {
-  noun: string;
   path: string;
   resolution: WorktreeResolution | null | undefined;
-  onSelect: (siblingPath: string) => void;
+  onSelect: (path: string) => void;
 }) {
-  const current = currentWorktree(resolution);
+  const registry = useProjectRegistry();
+  const entry = findEntryForPath(registry.query.data, path);
+  const [editing, setEditing] = useState(false);
+  const folder = resolution?.repositoryPath || basename(path);
+
   return (
     <div className="flex h-full items-center justify-center p-8">
       <Empty>
         <EmptyHeader>
-          <EmptyTitle>
-            {current
-              ? `The ${worktreeLabel(current)} worktree does not contain this ${noun}`
-              : `This ${noun} is not available here`}
-          </EmptyTitle>
+          <EmptyTitle>This checkout doesn't contain {folder}.</EmptyTitle>
           <EmptyDescription className="font-mono text-xs break-all">
             {path}
           </EmptyDescription>
           <EmptyDescription>
-            Switch to a worktree that has it, or fix the path in the project
-            list.
+            Edit the entry to point at the right folder.
           </EmptyDescription>
         </EmptyHeader>
-        <EmptyContent>
-          <WorktreeSwitcher resolution={resolution} onSelect={onSelect} />
-        </EmptyContent>
+        {entry ? (
+          <EmptyContent>
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11 sm:min-h-0"
+              onClick={() => setEditing(true)}
+            >
+              <PencilIcon className="size-4" />
+              Edit
+            </Button>
+          </EmptyContent>
+        ) : null}
       </Empty>
+      <ManageEntryDialog
+        entry={editing ? entry : null}
+        currentPath={path}
+        onClose={() => setEditing(false)}
+        onSelect={onSelect}
+      />
     </div>
   );
 }

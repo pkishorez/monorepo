@@ -25,10 +25,10 @@ export function makeBrowserApplicationLive({
     endpoints: {
       '/': 'DevTools browser application.',
       '/lotel': 'Lotel Tool.',
-      '/flow': 'Flow Tool.',
       '/monoverse': 'Monoverse Tool.',
-      '/laymos': 'Laymos Tool.',
       '/rpc': 'Typed RPC endpoint.',
+      '/story-evidence':
+        'One Evidence file of a Proof run: ?project=<abs path>&proof=<Proof id>&file=<relative file>.',
       '/v1/traces': 'OTLP/HTTP Trace ingestion.',
       '/v1/logs': 'OTLP/HTTP Log Record ingestion.',
     },
@@ -37,9 +37,7 @@ export function makeBrowserApplicationLive({
   const exactRoutes = Layer.mergeAll(
     HttpRouter.add('GET', '/', indexResponse),
     HttpRouter.add('GET', '/lotel', indexResponse),
-    HttpRouter.add('GET', '/flow', indexResponse),
     HttpRouter.add('GET', '/monoverse', indexResponse),
-    HttpRouter.add('GET', '/laymos', indexResponse),
     HttpRouter.add('GET', '/health', health),
   );
   const assets = HttpStaticServer.layer({
@@ -52,7 +50,13 @@ export function makeBrowserApplicationLive({
     '/*',
     HttpServerRequest.HttpServerRequest.use((request) => {
       const pathname = request.url.split('?', 1)[0] ?? '/';
-      const reserved = ['/rpc', '/v1', '/health', '/assets'].some(
+      const reserved = [
+        '/rpc',
+        '/v1',
+        '/health',
+        '/assets',
+        '/story-evidence',
+      ].some(
         (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
       );
       const acceptsHtml =

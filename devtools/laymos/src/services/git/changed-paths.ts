@@ -88,9 +88,20 @@ function record(
   origin: 'committed' | 'uncommitted',
 ): void {
   const current = changed.get(path);
+  // Added since the Base ref, then deleted: it never touched the Base ref.
+  if (current?.status === 'added' && status === 'deleted') {
+    changed.delete(path);
+    return;
+  }
   changed.set(path, {
     status:
-      current?.status === 'added' || status === 'added' ? 'added' : status,
+      current?.status === 'deleted' && status === 'added'
+        ? 'modified'
+        : current?.status === 'added' || status === 'added'
+          ? 'added'
+          : current?.status === 'deleted' || status === 'deleted'
+            ? 'deleted'
+            : status,
     committed: (current?.committed ?? false) || origin === 'committed',
     uncommitted: (current?.uncommitted ?? false) || origin === 'uncommitted',
   });
@@ -194,6 +205,8 @@ function trackedStatus(code: string): ChangeStatus | undefined {
     case 'T':
     case 'U':
       return 'modified';
+    case 'D':
+      return 'deleted';
     default:
       return undefined;
   }

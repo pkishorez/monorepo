@@ -3,7 +3,7 @@ import {
   type Collection,
   type NonSingleResult,
 } from '@tanstack/react-db';
-import { Effect, Exit, Scope, Stream } from 'effect';
+import { Duration, Effect, Exit, Scope, Stream } from 'effect';
 import type { AnyEntityESchema } from '../../eschema/index.js';
 import { buildCollection, type CollectionConfig } from '../collection/index.js';
 import type {
@@ -16,43 +16,52 @@ import {
   type CollectionName,
 } from '../domain/identity/index.js';
 import type { SyncReporter } from '../domain/sync-event/index.js';
-import {
-  closedTopic,
-  type StdSyncPlatform,
-} from '../platform/contract/index.js';
+import { closedTopic, type SyncStore } from '../store/contract/index.js';
 import {
   makeEffectRunner,
   type EffectRuntime,
-} from '../platform/effect-runner/index.js';
-import { memory } from '../platform/memory/index.js';
-import { makeSyncStore } from '../platform/sync-store/index.js';
+} from '../store/effect-runner/index.js';
+import { Sync } from '../store/memory/index.js';
+import { makeStoreRuntime } from '../store/store-runtime/index.js';
 
 export type StdSyncConfig<R = never> = {
   name: string;
-  /** Default: `memory()`. */
-  platform?: StdSyncPlatform;
+  /** Where the Std Sync is kept. Default: `Sync.memory()`. */
+  store?: SyncStore;
   runtime?: EffectRuntime<R>;
   onEvent?: SyncReporter<R>;
   /** TanStack DB options every Collection starts from. */
   options?: StdCollectionOptions<object>;
+  /** How long disposing waits for writes still on their way to the
+   * Backend. Default: 5 seconds. */
+  drain?: Duration.Input;
 };
 
 // A collection nobody watches is garbage-collected after this long.
 const DEFAULT_GC_TIME = 10_000;
 
+// How long disposing waits for writes in flight, unless configured.
+const DEFAULT_DRAIN = Duration.seconds(5);
+
 const makeStdSync = <R>(config: StdSyncConfig<R>) => {
   const name = stdSyncName(config.name);
-  const platform = config.platform ?? memory();
+  const kept = config.store ?? Sync.memory();
   const runner = makeEffectRunner(config.runtime);
   const report: SyncReporter<R> =
     config.onEvent ?? ((event) => Effect.logError(event));
-  const store = makeSyncStore(platform.store(name));
+  const store = makeStoreRuntime(kept.table(name));
   const names = new Set<CollectionName>();
   const cleanups = new Set<() => Promise<void>>();
+  const writes = new Set<Promise<void>>();
+  const drain = Duration.toMillis(
+    Duration.fromInputUnsafe(config.drain ?? DEFAULT_DRAIN),
+  );
   let disposed: Promise<void> | null = null;
+  // Set once writes in flight have drained; until then they may still land.
+  let stopped = false;
 
   const assertActive = (): void => {
-    if (disposed) throw new Error(`[sync] "${name}" is disposed`);
+    if (stopped) throw new Error(`[sync] "${name}" is disposed`);
   };
 
   const trackCleanup = (cleanup: () => Promise<void>) => {
@@ -65,8 +74,31 @@ const makeStdSync = <R>(config: StdSyncConfig<R>) => {
     return tracked;
   };
 
+  const trackWrite = (write: Promise<void>): Promise<void> => {
+    writes.add(write);
+    const settled = () => void writes.delete(write);
+    write.then(settled, settled);
+    return write;
+  };
+
+  // Writes in flight get until `drain` to reach the Backend; whatever has
+  // not by then is stopped with everything else.
+  const drainWrites = async () => {
+    if (writes.size === 0) return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    await Promise.race([
+      Promise.allSettled(writes),
+      new Promise<void>((resolve) => {
+        timer = setTimeout(resolve, drain);
+      }),
+    ]);
+    clearTimeout(timer);
+  };
+
   const dispose = (): Promise<void> => {
     disposed ??= (async () => {
+      await drainWrites();
+      stopped = true;
       const results = await Promise.allSettled(
         [...cleanups].map((cleanup) => cleanup()),
       );
@@ -84,13 +116,13 @@ const makeStdSync = <R>(config: StdSyncConfig<R>) => {
   const listening = runner.runSync(Scope.make());
   runner.runSync(
     Effect.forkIn(
-      platform.doorbell
+      kept.doorbell
         .listen(closedTopic(name))
         .pipe(
           Stream.take(1),
           Stream.runDrain,
           Effect.andThen(
-            runner.provide(report({ _tag: 'PlatformClosed', sync: name })),
+            runner.provide(report({ _tag: 'StoreClosed', sync: name })),
           ),
           Effect.andThen(Effect.sync(() => void dispose())),
         ),
@@ -105,7 +137,7 @@ const makeStdSync = <R>(config: StdSyncConfig<R>) => {
     schema: S,
     collectionConfig: CollectionConfig<S, R> = {},
   ): SyncedCollection<S['Type']> => {
-    assertActive();
+    if (disposed) throw new Error(`[sync] "${name}" is disposed`);
     const qualified = collectionName(name, schema.name);
     if (names.has(qualified))
       throw new Error(`[sync] collection "${qualified}" is already registered`);
@@ -115,11 +147,12 @@ const makeStdSync = <R>(config: StdSyncConfig<R>) => {
       config: collectionConfig,
       name: qualified,
       store,
-      platform,
+      shared: kept,
       runner,
       report,
       assertActive,
       trackCleanup,
+      trackWrite,
     });
     return createCollection({
       gcTime: DEFAULT_GC_TIME,

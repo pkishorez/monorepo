@@ -13,7 +13,6 @@
   },
   "include": [
     "src/cli/**/*",
-    "src/domain/**/*",
     "src/rpc/**/*",
     "src/server/**/*",
     "scripts/**/*",

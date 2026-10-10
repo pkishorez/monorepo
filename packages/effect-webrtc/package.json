@@ -80,12 +80,10 @@
     "fmt": "vp fmt",
     "lint": "vp check && pnpm lint:tsc && laymos lint",
     "lint:tsc": "tsc --noEmit",
-    "stories": "laymos stories",
     "test": "vitest run"
   },
   "peerDependencies": {
     "@kstackz/auth-toolkit": "workspace:*",
-    "@kstackz/flow": "workspace:*",
     "@kstackz/rpc-toolkit": "workspace:*",
     "alchemy": "2.0.0-beta.80",
     "effect": "^4.0.0"
@@ -108,7 +106,6 @@
   },
   "devDependencies": {
     "@kstackz/auth-toolkit": "workspace:*",
-    "@kstackz/flow": "workspace:*",
     "@kstackz/rpc-toolkit": "workspace:*",
     "@tsconfig/node22": "catalog:",
     "@typescript/native": "catalog:",

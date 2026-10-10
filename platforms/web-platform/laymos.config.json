@@ -1,0 +1,257 @@
+{
+  "$schema": "../../devtools/laymos/schema.json",
+  "sourceRoots": ["src"],
+  "storiesPath": "stories",
+  "ignoredPaths": ["src/cosmos.decorator.tsx", "src/pwa/vite/tests/fixture"],
+  "fileModules": [
+    "src/app/app.tsx",
+    "src/app/web-host.ts",
+    "src/client/server.ts",
+    "src/components/hooks/use-element-width.ts",
+    "src/components/hooks/use-mobile.ts",
+    "src/components/hooks/use-scroll.ts",
+    "src/components/lib/lucide.ts",
+    "src/components/lib/motion.ts",
+    "src/components/lib/scrollStyles.ts",
+    "src/components/lib/shadow-dom.tsx",
+    "src/components/lib/utils.ts",
+    "src/components/ui/accordion.tsx",
+    "src/components/ui/alert-dialog.tsx",
+    "src/components/ui/alert.tsx",
+    "src/components/ui/aspect-ratio.tsx",
+    "src/components/ui/attachment.tsx",
+    "src/components/ui/avatar.tsx",
+    "src/components/ui/badge.tsx",
+    "src/components/ui/breadcrumb.tsx",
+    "src/components/ui/bubble.tsx",
+    "src/components/ui/button-group.tsx",
+    "src/components/ui/button.tsx",
+    "src/components/ui/calendar.tsx",
+    "src/components/ui/card.tsx",
+    "src/components/ui/carousel.tsx",
+    "src/components/ui/chart.tsx",
+    "src/components/ui/checkbox.tsx",
+    "src/components/ui/collapsible.tsx",
+    "src/components/ui/combobox.tsx",
+    "src/components/ui/command.tsx",
+    "src/components/ui/context-menu.tsx",
+    "src/components/ui/dialog.tsx",
+    "src/components/ui/direction.tsx",
+    "src/components/ui/drawer.tsx",
+    "src/components/ui/dropdown-menu.tsx",
+    "src/components/ui/empty.tsx",
+    "src/components/ui/field.tsx",
+    "src/components/ui/file-tree.tsx",
+    "src/components/ui/google-button.tsx",
+    "src/components/ui/hover-card.tsx",
+    "src/components/ui/input-group.tsx",
+    "src/components/ui/input-otp.tsx",
+    "src/components/ui/input.tsx",
+    "src/components/ui/item.tsx",
+    "src/components/ui/kbd.tsx",
+    "src/components/ui/label.tsx",
+    "src/components/ui/marker.tsx",
+    "src/components/ui/menubar.tsx",
+    "src/components/ui/message-scroller.tsx",
+    "src/components/ui/message.tsx",
+    "src/components/ui/native-select.tsx",
+    "src/components/ui/navigation-menu.tsx",
+    "src/components/ui/pagination.tsx",
+    "src/components/ui/popover.tsx",
+    "src/components/ui/progress.tsx",
+    "src/components/ui/questionnaire.tsx",
+    "src/components/ui/radio-group.tsx",
+    "src/components/ui/resizable.tsx",
+    "src/components/ui/scroll-area.tsx",
+    "src/components/ui/select.tsx",
+    "src/components/ui/separator.tsx",
+    "src/components/ui/sheet.tsx",
+    "src/components/ui/skeleton.tsx",
+    "src/components/ui/slider.tsx",
+    "src/components/ui/sonner.tsx",
+    "src/components/ui/spinner.tsx",
+    "src/components/ui/switch.tsx",
+    "src/components/ui/table.tsx",
+    "src/components/ui/tabs.tsx",
+    "src/components/ui/textarea.tsx",
+    "src/components/ui/toast.tsx",
+    "src/components/ui/toggle-group.tsx",
+    "src/components/ui/toggle.tsx",
+    "src/components/ui/tooltip.tsx",
+    "src/pwa/browser/dom-events.ts",
+    "src/pwa/browser/subscription-ref.ts",
+    "src/pwa/vite/vite.ts"
+  ],
+  "rules": {
+    "src/app": ["src/client", "src/pwa", "src/recipes", "src/theme"],
+    "src/app/app.tsx": [
+      "src/app/web-host.ts",
+      "src/app/assemble",
+      "src/app/apis",
+      "src/app/gate",
+      "src/app/session",
+      "src/app/host"
+    ],
+    "src/app/web-host.ts": ["src/app/host"],
+    "src/define": ["src/app/apis", "src/app/host", "src/app/session"],
+    "src/app/assemble": [
+      "src/app/gate",
+      "src/app/session",
+      "src/app/apis",
+      "src/app/host"
+    ],
+    "src/app/gate": ["src/app/session", "src/app/host"],
+    "src/app/session": ["src/app/apis"],
+    "src/client": ["src/components/ui", "src/input", "src/theme"],
+    "src/client/server.ts": ["src/client/theme"],
+    "src/components/lib/scrollStyles.ts": ["src/components/lib/utils.ts"],
+    "src/components/ui": ["src/components/lib"],
+    "src/components/ui/alert-dialog.tsx": ["src/components/ui/button.tsx"],
+    "src/components/ui/attachment.tsx": ["src/components/ui/button.tsx"],
+    "src/components/ui/button-group.tsx": ["src/components/ui/separator.tsx"],
+    "src/components/ui/calendar.tsx": ["src/components/ui/button.tsx"],
+    "src/components/ui/carousel.tsx": ["src/components/ui/button.tsx"],
+    "src/components/ui/combobox.tsx": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/input-group.tsx"
+    ],
+    "src/components/ui/command.tsx": [
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input-group.tsx"
+    ],
+    "src/components/ui/dialog.tsx": ["src/components/ui/button.tsx"],
+    "src/components/ui/field.tsx": [
+      "src/components/ui/label.tsx",
+      "src/components/ui/separator.tsx"
+    ],
+    "src/components/ui/file-tree.tsx": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/scroll-area.tsx"
+    ],
+    "src/components/ui/input-group.tsx": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/textarea.tsx"
+    ],
+    "src/components/ui/item.tsx": ["src/components/ui/separator.tsx"],
+    "src/components/ui/menubar.tsx": ["src/components/ui/dropdown-menu.tsx"],
+    "src/components/ui/message-scroller.tsx": ["src/components/ui/button.tsx"],
+    "src/components/ui/pagination.tsx": ["src/components/ui/button.tsx"],
+    "src/components/ui/questionnaire.tsx": ["src/components/ui/button.tsx"],
+    "src/components/ui/sheet.tsx": ["src/components/ui/button.tsx"],
+    "src/components/ui/toast.tsx": ["src/components/ui/button.tsx"],
+    "src/components/ui/toggle-group.tsx": ["src/components/ui/toggle.tsx"],
+    "src/components/viewers": [
+      "src/components/hooks",
+      "src/components/lib",
+      "src/components/ui"
+    ],
+    "src/components/viewers/diff-viewer": [
+      "src/components/viewers/source-viewer"
+    ],
+    "src/components/viewers/markdown-viewer": [
+      "src/components/viewers/source-viewer"
+    ],
+    "src/components/viewers/source-explorer": [
+      "src/components/viewers/diff-viewer",
+      "src/components/viewers/file-tree",
+      "src/components/viewers/source-viewer"
+    ],
+    "src/form": ["src/components/lib", "src/components/ui"],
+    "src/input/gesture/patterns": ["src/input/gesture/recognizers"],
+    "src/input/gesture/patterns/sidebar": ["src/input/gesture/zones"],
+    "src/input/gesture/recognizers": ["src/input/gesture/zones"],
+    "src/input/gesture/zones/zone": ["src/input/gesture/zones/touch-input"],
+    "src/pwa/client": ["src/pwa/browser", "src/pwa/shared"],
+    "src/pwa/client/status": ["src/pwa/client/commands"],
+    "src/pwa/extras": [
+      "src/components/lib",
+      "src/components/ui",
+      "src/pwa/browser"
+    ],
+    "src/pwa/extras/display-mode": ["src/pwa/extras/lazy-service"],
+    "src/pwa/extras/install": [
+      "src/pwa/extras/display-mode",
+      "src/pwa/extras/lazy-service"
+    ],
+    "src/pwa/extras/online": ["src/pwa/extras/lazy-service"],
+    "src/pwa/extras/storage": ["src/pwa/extras/lazy-service"],
+    "src/pwa/react": [
+      "src/components/ui",
+      "src/pwa/browser/subscription-ref.ts",
+      "src/pwa/client",
+      "src/pwa/shared/build",
+      "src/pwa/shared/config"
+    ],
+    "src/pwa/root": [
+      "src/client",
+      "src/pwa/extras",
+      "src/pwa/react",
+      "src/pwa/splash"
+    ],
+    "src/pwa/rpc": ["src/pwa/shared"],
+    "src/pwa/rpc/client": ["src/pwa/rpc/handshake"],
+    "src/pwa/rpc/worker": ["src/pwa/rpc/handshake"],
+    "src/pwa/shared/config": [
+      "src/pwa/shared/build",
+      "src/pwa/shared/manifest",
+      "src/pwa/shared/strategy"
+    ],
+    "src/pwa/shared/worker-host": ["src/pwa/shared/build"],
+    "src/pwa/vite": ["src/pwa/shared"],
+    "src/pwa/vite/build": [
+      "src/pwa/vite/precache",
+      "src/pwa/vite/worker-bundle"
+    ],
+    "src/pwa/vite/client-module": ["src/pwa/vite/build"],
+    "src/pwa/vite/dev": ["src/pwa/vite/worker-bundle"],
+    "src/pwa/vite/vite.ts": [
+      "src/pwa/vite/build",
+      "src/pwa/vite/client-module",
+      "src/pwa/vite/dev"
+    ],
+    "src/pwa/worker": ["src/pwa/shared"],
+    "src/pwa/worker/commands": ["src/pwa/worker/global-scope"],
+    "src/pwa/worker/lifecycle": [
+      "src/pwa/worker/global-scope",
+      "src/pwa/worker/precache"
+    ],
+    "src/pwa/worker/precache": ["src/pwa/worker/global-scope"],
+    "src/pwa/worker/requests": [
+      "src/pwa/worker/global-scope",
+      "src/pwa/worker/precache"
+    ],
+    "src/pwa/worker/requests/pages": ["src/pwa/worker/requests/strategies"],
+    "src/recipes": [
+      "src/components/hooks",
+      "src/components/lib",
+      "src/components/ui",
+      "src/feedback",
+      "src/input"
+    ],
+    "src/recipes/account-switcher": ["src/recipes/parts/email-privacy"],
+    "src/recipes/effect-oak-devtools": ["src/components/viewers"],
+    "src/recipes/effect-oak-devtools/inspection": [
+      "src/recipes/effect-oak-devtools/step"
+    ],
+    "src/recipes/effect-oak-devtools/details": [
+      "src/recipes/effect-oak-devtools/inspection",
+      "src/recipes/effect-oak-devtools/segmented",
+      "src/recipes/effect-oak-devtools/step"
+    ],
+    "src/recipes/effect-oak-devtools/timeline": [
+      "src/recipes/effect-oak-devtools/details",
+      "src/recipes/effect-oak-devtools/inspection",
+      "src/recipes/effect-oak-devtools/step"
+    ],
+    "src/recipes/effect-oak-devtools/inspector": [
+      "src/recipes/effect-oak-devtools/details",
+      "src/recipes/effect-oak-devtools/inspection",
+      "src/recipes/effect-oak-devtools/step"
+    ],
+    "src/recipes/frame/sidebar": ["src/recipes/frame/frame"],
+    "src/recipes/local-sign-in": ["src/recipes/parts/email-privacy"],
+    "src/server": ["src/define"],
+    "src/server/serve": ["src/server/live", "src/server/worker"]
+  }
+}

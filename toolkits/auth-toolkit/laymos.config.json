@@ -1,237 +1,167 @@
 {
   "$schema": "../../devtools/laymos/schema.json",
   "sourceRoots": ["src"],
-  "storiesPath": "stories",
   "ignoredPaths": [
-    "src/auth-worker/database/sqlite/migration/migrations",
-    "src/auth-worker/app/routeTree.gen.ts",
-    "src/auth-worker/app/types.d.ts"
+    "src/worker/database/sqlite/migration/migrations",
+    "src/worker/app/routeTree.gen.ts",
+    "src/worker/app/types.d.ts",
+    "src/worker/ui/screens/consent-screen.fixture.tsx",
+    "src/worker/ui/screens/device-screen.fixture.tsx",
+    "src/worker/ui/screens/fixtures",
+    "src/worker/ui/screens/home-screen.fixture.tsx",
+    "src/worker/ui/screens/login-screen.fixture.tsx",
+    "src/worker/ui/screens/not-found-screen.fixture.tsx"
   ],
-  "layers": {
-    "auth-worker-contract": {
-      "paths": ["src/auth-worker-contract"],
-      "description": "The Auth Worker Contract: what every program may rely on without running the Auth Worker (API base path, issuer, JWKS URL, what an Access Token says, the User, and the PagesContext the Worker hands its pages). Plain TypeScript, no dependencies.",
-      "modules": {
-        "src/auth-worker-contract": {
-          "exposed": true
-        }
-      }
-    },
-    "database": {
-      "paths": ["src/auth-worker/database"],
-      "description": "Primary Database providers the consumer hands to the Auth Worker. A future non-SQLite dialect would be a second module graph here.",
-      "moduleGraphs": {
-        "sqlite": {
-          "description": "D1 runtime database, D1 deployment resource, and memory database are independent doors built on separate private schema and migration modules.",
-          "path": "src/auth-worker/database/sqlite",
-          "modules": {
-            "schema": {},
-            "migration": {},
-            "d1/database": {
-              "exposed": true
-            },
-            "d1/resource": {
-              "exposed": true
-            },
-            "memory": {
-              "exposed": true
-            }
-          },
-          "rules": {
-            "d1/database": ["schema"],
-            "d1/resource": ["migration"],
-            "memory": ["schema", "migration"]
-          }
-        }
-      }
-    },
-    "pages": {
-      "paths": ["src/auth-worker/pages"],
-      "description": "What the Auth Worker's pages show: connects the Worker's data to the ui-toolkit auth screens and owns no markup of its own.",
-      "moduleGraphs": {
-        "pages": {
-          "description": "Four page doors (Home Page, Login Screen, Consent Screen, Device Screen) over one same-origin Better Auth API, the User's Sessions and Grants, the browser's Signed-in Accounts, and one rule for which screen a visitor may see.",
-          "path": "src/auth-worker/pages",
-          "modules": {
-            "home": {
-              "exposed": true
-            },
-            "login": {
-              "exposed": true
-            },
-            "consent": {
-              "exposed": true
-            },
-            "device": {
-              "exposed": true
-            },
-            "auth-api": {},
-            "user-access": {},
-            "screen-routing": {},
-            "signed-in-accounts": {}
-          },
-          "rules": {
-            "home": [
-              "auth-api",
-              "user-access",
-              "screen-routing",
-              "signed-in-accounts"
-            ],
-            "login": ["auth-api", "screen-routing", "signed-in-accounts"],
-            "consent": ["auth-api", "screen-routing", "signed-in-accounts"],
-            "device": ["auth-api", "screen-routing", "signed-in-accounts"],
-            "user-access": ["auth-api"],
-            "signed-in-accounts": ["auth-api", "screen-routing"]
-          }
-        }
-      }
-    },
-    "app": {
-      "paths": ["src/auth-worker/app"],
-      "description": "The pages app: a TanStack Start site whose routes render the pages, built by Vite and embedded into the worker door by scripts/bundle-app.mts",
-      "modules": {
-        "src/auth-worker/app/server.ts": {
-          "exposed": true
-        },
-        "src/auth-worker/app/router.tsx": {},
-        "src/auth-worker/app/routes/__root.tsx": {
-          "exposed": true
-        },
-        "src/auth-worker/app/routes/page.tsx": {
-          "exposed": true
-        },
-        "src/auth-worker/app/routes/login.tsx": {
-          "exposed": true
-        },
-        "src/auth-worker/app/routes/consent.tsx": {
-          "exposed": true
-        },
-        "src/auth-worker/app/routes/device.tsx": {
-          "exposed": true
-        },
-        "src/auth-worker/app/routes/error.tsx": {
-          "exposed": true
-        }
-      }
-    },
-    "worker": {
-      "paths": ["src/auth-worker/worker"],
-      "description": "createAuthWorker(config) assembles Better Auth over a consumer-provided Primary Database (Cookie Cache, Google, Admin, Device Login, optional Signed-in Accounts, Dash, Authorization Server Role, User Admission Policy, origins and cookies) and serves the pages app the built door embeds",
-      "modules": {
-        "src/auth-worker/worker": {
-          "exposed": true
-        }
-      }
-    },
-    "vanilla": {
-      "paths": ["src/server/vanilla"],
-      "description": "Consumer Backend doors with no framework: Server-Side Verification of a Session, local verification of an Access Token, and the MCP Server door, all speaking one Principal",
-      "modules": {
-        "src/server/vanilla/principal": {
-          "shared": true,
-          "exposed": true
-        },
-        "src/server/vanilla/session": {
-          "exposed": true
-        },
-        "src/server/vanilla/access-token": {
-          "exposed": true
-        },
-        "src/server/vanilla/mcp": {
-          "exposed": true
-        }
-      }
-    },
-    "effect": {
-      "paths": ["src/server/effect"],
-      "description": "The vanilla doors lifted into Effect: one Current Auth that resolves a request to a Principal, and an Auth Cannotation per Sibling (RPC, HTTP API), each split into a browser-safe Declaration and its Server Implementation",
-      "modules": {
-        "src/server/effect/current-auth": {
-          "shared": true
-        }
-      },
-      "moduleGraphs": {
-        "rpc": {
-          "description": "The RPC Auth Cannotation: a private Cannotation, the Declaration contract code imports, and the Server Implementation that verifies each call and relays refreshed cookies.",
-          "path": "src/server/effect/rpc",
-          "modules": {
-            "cannotation": {},
-            "declaration": {
-              "exposed": true
-            },
-            "server": {
-              "exposed": true
-            }
-          },
-          "rules": {
-            "declaration": ["cannotation"],
-            "server": ["cannotation", "declaration"]
-          }
-        },
-        "http-api": {
-          "description": "The HTTP API Auth Cannotation: a private Cannotation, the Declaration contract code imports, and the Server Implementation that verifies each request.",
-          "path": "src/server/effect/http-api",
-          "modules": {
-            "cannotation": {},
-            "declaration": {
-              "exposed": true
-            },
-            "server": {
-              "exposed": true
-            }
-          },
-          "rules": {
-            "declaration": ["cannotation"],
-            "server": ["cannotation", "declaration"]
-          }
-        }
-      }
-    },
-    "accounts": {
-      "paths": ["src/clients/auth"],
-      "description": "A First-Party web app's Signed-in Accounts as one Effect service, Auth: live against the Auth Worker, or local with Local Accounts kept in a StdTable; plus fetch signed as one Session",
-      "modules": {
-        "src/clients/auth": {
-          "exposed": true
-        }
-      }
-    },
-    "cli": {
-      "paths": ["src/clients/cli"],
-      "description": "Effect-only: a First-Party CLI's Device Login, its Session Store, and the Session on every RPC call",
-      "modules": {
-        "src/clients/cli": {
-          "exposed": true
-        }
-      }
-    }
-  },
-  "layerGraphs": {
-    "auth-worker": {
-      "description": "The Auth Worker and everything it serves. The worker reads the contract; the pages app renders the pages; the Primary Database is handed to the worker by the consumer. The worker and the app meet at build time, never through an import.",
-      "rules": {
-        "auth-worker-contract": [],
-        "database": [],
-        "pages": ["auth-worker-contract"],
-        "app": ["pages"],
-        "worker": ["auth-worker-contract"]
-      }
-    },
-    "consumer-backend": {
-      "description": "A Consumer Backend asking the Auth Worker who is calling: verify with no framework, then optionally lift the result into Effect.",
-      "rules": {
-        "auth-worker-contract": [],
-        "vanilla": ["auth-worker-contract"],
-        "effect": ["vanilla"]
-      }
-    },
-    "clients": {
-      "description": "First-Party programs holding a Session: the browser's Auth and the CLI, each reading only the contract.",
-      "rules": {
-        "auth-worker-contract": [],
-        "accounts": ["auth-worker-contract"],
-        "cli": ["auth-worker-contract"]
-      }
-    }
+  "fileModules": [
+    "src/client/client.ts",
+    "src/guard/current.ts",
+    "src/guard/middleware.ts",
+    "src/guard/principal.ts",
+    "src/server/server.ts",
+    "src/worker/app/router.tsx",
+    "src/worker/app/routes/__root.tsx",
+    "src/worker/app/routes/consent.tsx",
+    "src/worker/app/routes/device.tsx",
+    "src/worker/app/routes/error.tsx",
+    "src/worker/app/routes/login.tsx",
+    "src/worker/app/routes/page.tsx",
+    "src/worker/app/server.ts",
+    "src/worker/ui/components/alert-dialog.tsx",
+    "src/worker/ui/components/avatar.tsx",
+    "src/worker/ui/components/badge.tsx",
+    "src/worker/ui/components/button.tsx",
+    "src/worker/ui/components/dialog.tsx",
+    "src/worker/ui/components/dropdown-menu.tsx",
+    "src/worker/ui/components/google-button.tsx",
+    "src/worker/ui/components/input.tsx",
+    "src/worker/ui/components/label.tsx",
+    "src/worker/ui/components/sonner.tsx",
+    "src/worker/ui/components/spinner.tsx",
+    "src/worker/ui/lib/utils.ts",
+    "src/worker/ui/theme/cookie.ts",
+    "src/worker/ui/theme/document.ts",
+    "src/worker/ui/theme/model.ts",
+    "src/worker/ui/theme/status-bar.ts",
+    "src/worker/ui/theme/store.ts",
+    "src/worker/ui/theme/tanstack-start.ts",
+    "src/worker/ui/theme/theme.ts"
+  ],
+  "rules": {
+    "src/client": ["src/contract"],
+    "src/client/client.ts": ["src/client/account", "src/client/sign-in/named"],
+    "src/client/sign-in/cookie": ["src/client/account"],
+    "src/client/sign-in/named": ["src/client/account"],
+    "src/guard/principal.ts": ["src/contract"],
+    "src/guard/current.ts": ["src/guard/principal.ts"],
+    "src/guard/middleware.ts": ["src/guard/current.ts"],
+    "src/server": ["src/contract", "src/guard"],
+    "src/server/server.ts": ["src/server/authz"],
+    "src/server/cloud": [
+      "src/server/server.ts",
+      "src/server/authz",
+      "src/server/plain"
+    ],
+    "src/worker/database/sqlite/d1/database": [
+      "src/worker/database/sqlite/schema"
+    ],
+    "src/worker/database/sqlite/d1/resource": [
+      "src/worker/database/sqlite/migration"
+    ],
+    "src/worker/database/sqlite/memory": [
+      "src/worker/database/sqlite/schema",
+      "src/worker/database/sqlite/migration"
+    ],
+    "src/worker/ui/components/alert-dialog.tsx": [
+      "src/worker/ui/components/button.tsx"
+    ],
+    "src/worker/ui/components/dialog.tsx": [
+      "src/worker/ui/components/button.tsx"
+    ],
+    "src/worker/ui/theme/tanstack-start.ts": [
+      "src/worker/ui/theme/cookie.ts",
+      "src/worker/ui/theme/model.ts"
+    ],
+    "src/worker/ui/theme/theme.ts": [
+      "src/worker/ui/theme/document.ts",
+      "src/worker/ui/theme/model.ts",
+      "src/worker/ui/theme/status-bar.ts",
+      "src/worker/ui/theme/store.ts"
+    ],
+    "src/worker/ui/theme/store.ts": [
+      "src/worker/ui/theme/cookie.ts",
+      "src/worker/ui/theme/document.ts",
+      "src/worker/ui/theme/model.ts"
+    ],
+    "src/worker/ui/theme/cookie.ts": ["src/worker/ui/theme/model.ts"],
+    "src/worker/ui/theme/document.ts": ["src/worker/ui/theme/model.ts"],
+    "src/worker/ui/theme/status-bar.ts": ["src/worker/ui/theme/model.ts"],
+    "src/worker/ui/screens": [
+      "src/worker/ui/components",
+      "src/worker/ui/lib",
+      "src/worker/ui/theme"
+    ],
+    "src/worker/ui/screens/auth-screens": [
+      "src/worker/ui/screens/screen-frame",
+      "src/worker/ui/screens/email-privacy",
+      "src/worker/ui/screens/account-switcher",
+      "src/worker/ui/screens/action-button",
+      "src/worker/ui/screens/session-list",
+      "src/worker/ui/screens/grant-list",
+      "src/worker/ui/screens/scope-list",
+      "src/worker/ui/screens/local-sign-in"
+    ],
+    "src/worker/ui/screens/session-list": [
+      "src/worker/ui/screens/action-button",
+      "src/worker/ui/screens/disclosure-list"
+    ],
+    "src/worker/ui/screens/grant-list": [
+      "src/worker/ui/screens/action-button",
+      "src/worker/ui/screens/disclosure-list",
+      "src/worker/ui/screens/scope-list"
+    ],
+    "src/worker/ui/screens/screen-frame": [
+      "src/worker/ui/screens/email-privacy",
+      "src/worker/ui/screens/account-switcher"
+    ],
+    "src/worker/ui/screens/account-switcher": [
+      "src/worker/ui/screens/email-privacy"
+    ],
+    "src/worker/ui/screens/local-sign-in": [
+      "src/worker/ui/screens/email-privacy"
+    ],
+    "src/worker/pages": ["src/worker/ui/screens/auth-screens"],
+    "src/worker/pages/home": [
+      "src/worker/pages/auth-api",
+      "src/worker/pages/user-access",
+      "src/worker/pages/screen-routing",
+      "src/worker/pages/signed-in-accounts"
+    ],
+    "src/worker/pages/login": [
+      "src/worker/pages/auth-api",
+      "src/worker/pages/screen-routing",
+      "src/worker/pages/signed-in-accounts"
+    ],
+    "src/worker/pages/consent": [
+      "src/worker/pages/auth-api",
+      "src/worker/pages/screen-routing",
+      "src/worker/pages/signed-in-accounts"
+    ],
+    "src/worker/pages/device": [
+      "src/worker/pages/auth-api",
+      "src/worker/pages/screen-routing",
+      "src/worker/pages/signed-in-accounts"
+    ],
+    "src/worker/pages/user-access": ["src/worker/pages/auth-api"],
+    "src/worker/pages/signed-in-accounts": [
+      "src/worker/pages/auth-api",
+      "src/worker/pages/screen-routing"
+    ],
+    "src/worker/app": ["src/worker/pages", "src/worker/ui/theme"],
+    "src/worker/worker": [
+      "src/contract",
+      "src/worker/database/sqlite/d1/database"
+    ],
+    "src/worker/app/routes/error.tsx": ["src/worker/ui/screens/auth-screens"],
+    "src/worker/app/server.ts": ["src/contract"]
   }
 }

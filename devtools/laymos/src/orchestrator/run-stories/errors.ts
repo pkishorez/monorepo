@@ -4,10 +4,7 @@ export class StoriesError extends Data.TaggedError('StoriesError')<{
   readonly reason:
     | 'no-stories-path'
     | 'load'
-    | 'invalid-root'
-    | 'duplicate-title'
-    | 'duplicate-question'
-    | 'snippet-extraction'
+    | 'invalid-proof'
     | 'unknown-scope'
     | 'invalid-timeout';
   readonly path: string;

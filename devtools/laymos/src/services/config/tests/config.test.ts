@@ -10,15 +10,6 @@ function fixture(name: string): string {
   return fileURLToPath(new URL(`./fixtures/${name}`, import.meta.url));
 }
 
-function layerScenario(name: string): string {
-  return fileURLToPath(
-    new URL(
-      `../../../tests/fixtures/layers/${name}/laymos.config.json`,
-      import.meta.url,
-    ),
-  );
-}
-
 function readFixture(name: string) {
   return Effect.gen(function* () {
     const config = yield* ConfigService;
@@ -42,47 +33,20 @@ function readFixtureError(name: string) {
   );
 }
 
-function readScenario(name: string) {
-  return Effect.gen(function* () {
-    const config = yield* ConfigService;
-    return yield* config.read(layerScenario(name));
-  }).pipe(
-    Effect.provide(ConfigServiceLive),
-    Effect.provide(NodeServices.layer),
-    Effect.runPromise,
-  );
-}
-
-function readScenarioError(name: string) {
-  return Effect.gen(function* () {
-    const config = yield* ConfigService;
-    return yield* config.read(layerScenario(name));
-  }).pipe(
-    Effect.provide(ConfigServiceLive),
-    Effect.provide(NodeServices.layer),
-    Effect.flip,
-    Effect.runPromise,
-  );
-}
-
 describe('ConfigService', () => {
-  test('reads and decodes a valid config', async () => {
+  test('reads and decodes a valid config, filling the defaults', async () => {
     const config = await readFixture('valid.json');
 
     expect(config.sourceRoots).toEqual(['src']);
     expect(config.ignoredPaths).toEqual([]);
-    expect(config.layers.app).toEqual({
-      paths: ['src/app'],
-      description: 'Application',
-      modules: { 'src/app': { shared: false, exposed: true } },
-      moduleGraphs: {},
+    expect(config.fileModules).toEqual(['src/core/ids.ts']);
+    expect(config.rules).toEqual({
+      'src/app': ['src/domain'],
+      '*': ['src/core'],
     });
-    expect(config.layers.domain?.modules).toEqual({
-      'src/domain': { shared: false, exposed: true },
-    });
-    expect(config.layerGraphs.architecture?.rules).toEqual({
-      app: ['domain'],
-    });
+    expect(config.exceptions).toEqual([
+      { from: 'src/infra', to: 'src', because: 'boots the app' },
+    ]);
   });
 
   test('fails with reason "read" for a missing file', async () => {
@@ -97,64 +61,55 @@ describe('ConfigService', () => {
     expect(error.reason).toBe('parse');
   });
 
-  test('fails with reason "schema" when layers is empty', async () => {
+  test('fails with reason "schema" when sourceRoots is empty', async () => {
     const error = await readFixtureError('invalid-schema.json');
 
     expect(error.reason).toBe('schema');
   });
 
-  test('allows an empty LayerGraph set', async () => {
-    const config = await readScenario('forbidden-sibling-import');
-
-    expect(config.layerGraphs).toEqual({});
-  });
-
-  test('collects every invalid canonical path', async () => {
-    const error = await readScenarioError('invalid-paths');
+  test('collects every path that is not canonical', async () => {
+    const error = await readFixtureError('invalid-paths.json');
 
     expect(error.reason).toBe('validation');
-    expect(error.issues.map((issue) => issue.kind)).toEqual([
-      'path',
-      'path',
-      'path',
-      'path',
-      'path',
-      'path',
-      'path',
-    ]);
+    expect(error.issues.map((issue) => issue.kind)).toEqual(
+      Array.from({ length: 6 }, () => 'path'),
+    );
     expect(error.issues.map((issue) => issue.message)).toEqual(
       expect.arrayContaining([
-        'layers.app.docsPath must be a canonical project-relative path: "../../app.md"',
-        'layers.app.moduleGraphs.feature.docsPath must be a canonical project-relative path: "/feature.md"',
-        'layerGraphs.architecture.docsPath must be a canonical project-relative path: "docs/../architecture.md"',
+        'sourceRoots[0] must be a canonical project-relative path: "src/"',
+        'fileModules[0] must be a canonical project-relative path: "../ids.ts"',
+        'rules must be a canonical project-relative path: "/app"',
+        'exceptions[0].to must be a canonical project-relative path: "src/.."',
       ]),
     );
   });
 
-  test('finds overlaps within and across Layers', async () => {
-    const error = await readScenarioError('overlapping-scopes');
-
-    expect(
-      error.issues.filter((issue) => issue.kind === 'overlap'),
-    ).toHaveLength(2);
-  });
-
-  test('collects unknown Layer references', async () => {
-    const error = await readScenarioError('unknown-layer-reference');
-
-    expect(error.issues.map((issue) => issue.message)).toEqual([
-      'LayerGraph architecture references unknown Layer ghost',
-      'LayerGraph architecture references unknown Layer missing',
-    ]);
-  });
-
-  test('rejects a cycle formed across LayerGraphs', async () => {
-    const error = await readScenarioError('cross-graph-cycle');
+  test('rejects Rules the tree could never hold and doubled Exceptions', async () => {
+    const error = await readFixtureError('invalid-rules.json');
 
     expect(error.issues).toEqual([
       {
-        kind: 'cycle',
-        message: 'Layer rule cycle includes: app, domain',
+        kind: 'rule',
+        message: 'Rule src/app -> *: "*" may only name a Rule\'s source',
+      },
+      {
+        kind: 'rule',
+        message:
+          'Rule src/app/screens -> src/app: a Module never imports an ancestor; only an Exception with a Reason may',
+      },
+      {
+        kind: 'rule',
+        message:
+          "Rule src -> src/app: a Module's own files already import every Module nested below it",
+      },
+      {
+        kind: 'exception',
+        message:
+          'Exception src/a -> src/a: a Module is always free to import itself',
+      },
+      {
+        kind: 'exception',
+        message: 'Exception src/a -> src/b is declared twice',
       },
     ]);
   });
@@ -164,9 +119,7 @@ describe('ConfigService.jsonSchema', () => {
   test('describes the config shape', () => {
     const schema = ConfigService.jsonSchema();
 
-    expect(schema.required).toEqual(
-      expect.arrayContaining(['sourceRoots', 'layers', 'layerGraphs']),
-    );
+    expect(schema.required).toEqual(['sourceRoots']);
   });
 
   test('matches the published schema snapshot', async () => {

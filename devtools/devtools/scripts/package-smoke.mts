@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { request } from 'node:http';
 import { createServer } from 'node:net';
 import path from 'node:path';
@@ -33,23 +33,16 @@ try {
     endpoints: {
       '/': 'DevTools browser application.',
       '/lotel': 'Lotel Tool.',
-      '/flow': 'Flow Tool.',
       '/monoverse': 'Monoverse Tool.',
-      '/laymos': 'Laymos Tool.',
       '/rpc': 'Typed RPC endpoint.',
+      '/story-evidence':
+        'One Evidence file of a Proof run: ?project=<abs path>&proof=<Proof id>&file=<relative file>.',
       '/v1/traces': 'OTLP/HTTP Trace ingestion.',
       '/v1/logs': 'OTLP/HTTP Log Record ingestion.',
     },
   });
 
-  for (const route of [
-    '/',
-    '/lotel',
-    '/flow',
-    '/monoverse',
-    '/laymos',
-    '/not-found',
-  ]) {
+  for (const route of ['/', '/lotel', '/monoverse', '/not-found']) {
     const response = await fetch(`${origin}${route}`, {
       headers: { accept: 'text/html' },
     });
@@ -70,6 +63,13 @@ try {
   }
 
   assert.equal((await fetch(`${origin}/rpc/not-found`)).status, 404);
+  const evidence = path.join(testRoot, '.laymos', 'stories', 'a');
+  await mkdir(evidence, { recursive: true });
+  await writeFile(path.join(evidence, 'report.json'), '{}');
+  const evidenceUrl = (file: string) =>
+    `${origin}/story-evidence?project=${encodeURIComponent(testRoot)}&proof=a&file=${encodeURIComponent(file)}`;
+  assert.equal((await fetch(evidenceUrl('report.json'))).status, 200);
+  assert.equal((await fetch(evidenceUrl('../../../../x'))).status, 404);
   assert.equal(
     (
       await fetch(`${origin}/health`, {
@@ -118,8 +118,6 @@ try {
   const traces = await runClient(['list-traces', '--url', origin]);
   assert.deepEqual(JSON.parse(traces), { items: [] });
 
-  await smokeSnapshot();
-
   console.log('packaged DevTools server smoke test passed');
 } finally {
   server.kill('SIGTERM');
@@ -134,35 +132,6 @@ try {
     }),
   ]);
   await rm(testRoot, { recursive: true, force: true });
-}
-
-// Draws this package against HEAD. A machine without any Chromium skips the
-// capture with a note instead of failing, since the browser is not ours.
-async function smokeSnapshot() {
-  const out = path.join(testRoot, 'snapshot.png');
-  const args = ['snapshot', '--project', '.', '--base', 'HEAD', '--out', out];
-  const result = await runClientResult(args);
-  if (result.code !== 0) {
-    if (/No Chromium could be started/.test(result.stderr)) {
-      console.log('snapshot smoke skipped: no Chromium on this machine');
-      return;
-    }
-    throw new Error(`devtools ${args.join(' ')} failed: ${result.stderr}`);
-  }
-  const summary = JSON.parse(result.stdout) as {
-    scale: number;
-    drawn: string;
-    images: Array<{ width: number; height: number }>;
-  };
-  // A dirty working tree draws the changed Modules; a clean one draws all.
-  assert.ok(summary.drawn === 'all' || summary.drawn === 'changed');
-  const [image] = summary.images;
-  assert.ok(image !== undefined);
-  assert.ok(image.width >= 480 && image.height >= 240);
-  const png = await readFile(out);
-  assert.equal(png.subarray(0, 8).toString('hex'), '89504e470d0a1a0a');
-  assert.equal(png.readUInt32BE(16), image.width * summary.scale);
-  assert.equal(png.readUInt32BE(20), image.height * summary.scale);
 }
 
 async function runClient(args: string[]): Promise<string> {

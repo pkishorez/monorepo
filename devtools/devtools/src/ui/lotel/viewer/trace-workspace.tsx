@@ -1,34 +1,29 @@
-import { TraceDock } from '@kstackz/ui-toolkit/components/blocks/otel-trace-viewer';
-import type { TraceGroup } from '@kstackz/ui-toolkit/components/blocks/otel-trace-viewer/trace-model';
-import type { TraceView } from '@kstackz/ui-toolkit/components/blocks/otel-trace-viewer/trace-presentation';
-import { Button } from '@kstackz/ui-toolkit/components/ui/button';
+import { TraceDock } from '@devtools/ui/otel-trace-viewer';
+import type { TraceGroup } from '@devtools/ui/otel-trace-viewer/trace-model';
+import type { TraceView } from '@devtools/ui/otel-trace-viewer/trace-presentation';
+import { Button } from '@kstackz/web-platform/components/button';
 import {
   AlertTriangleIcon,
   BookOpenText,
   ChartNoAxesGantt,
-  GitBranchIcon,
   XIcon,
-} from '@kstackz/ui-toolkit/lucide';
-import { cn } from '@kstackz/ui-toolkit/lib/utils';
+} from '@kstackz/web-platform/components/lucide';
+import { cn } from '@kstackz/web-platform/components/utils';
 import { useLotelStore } from './state';
 
 export function TraceWorkspace({
   trace,
-  flowId,
   view,
   onViewChange,
   settings,
   onSettingsChange,
-  onOpenFlow,
   onClose,
 }: {
   trace: TraceGroup;
-  flowId?: string;
   view: TraceView;
   onViewChange: (view: TraceView) => void;
   settings: ReturnType<typeof useLotelStore.getState>['dock'];
   onSettingsChange: ReturnType<typeof useLotelStore.getState>['setDock'];
-  onOpenFlow?: (flowId: string) => void;
   onClose: () => void;
 }) {
   return (
@@ -50,15 +45,6 @@ export function TraceWorkspace({
           {trace.spanCount} span{trace.spanCount === 1 ? '' : 's'} ·{' '}
           {formatDuration(trace.duration)}
         </span>
-        {flowId && onOpenFlow && (
-          <Button
-            variant="outline"
-            size="xs"
-            onClick={() => onOpenFlow(flowId)}
-          >
-            <GitBranchIcon className="size-3.5" /> Open Flow
-          </Button>
-        )}
         <div className="flex rounded-md border border-border/70 bg-muted/30 p-0.5">
           <IconToggle
             active={view === 'waterfall'}

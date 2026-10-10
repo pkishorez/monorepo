@@ -1,0 +1,32 @@
+@import '@kstackz/web-platform/theme/global.css';
+@import '@kstackz/web-platform/theme/font-inter.css';
+
+@source './';
+
+@theme {
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+}
+
+/*
+ * What the user switched off in Settings, over what the device can be
+ * driven by (web-platform's `keyboard:` and `touch:`): `keys:` and
+ * `gestures:` for the hints of each that is on.
+ */
+@custom-variant keys (&:where([data-keyboard]:not([data-keys-off]) *));
+@custom-variant gestures (&:where([data-touch]:not([data-gestures-off]) *));
+
+@layer base {
+  html,
+  body {
+    /* The page scrolls inside the shell; the document never rubber-bands. */
+    overscroll-behavior: none;
+  }
+  body {
+    @apply min-h-svh bg-background font-sans text-foreground antialiased;
+    font-synthesis: none;
+  }
+  a,
+  button {
+    touch-action: manipulation;
+  }
+}

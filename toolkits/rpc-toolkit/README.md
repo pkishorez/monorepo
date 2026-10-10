@@ -1,278 +1,216 @@
 # @kstackz/rpc-toolkit
 
-Effect RPC and HttpApi Cannotations, WebSocket clients, and Cloudflare runtime and deployment integrations
+Effect RPC and HttpApi with Middleware both sides agree on, three Transports with a fixed protocol, and Cloudflare deploy declarations
 
 ## Big picture
 
-Effect RPC and Effect HttpApi give you middleware, but every app re-invents the same layer on top: a declaration on an endpoint that says how it may be called, a server half that checks it, a client half that attaches credentials. rpc-toolkit names that layer a Cannotation and ships it once for each transport. The declaration lives in shared contract code; the implementations stay on their own side of the wire.
+Effect RPC and Effect HttpApi give you middleware, but every app re-invents the same layer on top: a declaration on an endpoint that says how it may be called, a server half that checks it, a client half that rewrites the outgoing request. rpc-toolkit ships that once as Middleware (`Rpc.middleware`, `HttpApi.middleware`). The declaration lives in shared contract code; the two halves stay on their own side of the wire. Who may call what is auth-toolkit's Guard, built on `Rpc.middleware`; use [`@kstackz/auth-toolkit`](../auth-toolkit/README.md) for sign-in and authorization.
 
-The same pressure shows up at runtime. Streaming RPC over Cloudflare Durable Objects only pays off with hibernation, and hibernation breaks streams unless the server checkpoints them and the client restarts them after a reconnect. The `rpc/cloudflare` and `rpc/websocket-client` subpaths are the two halves of that fix, and the `alchemy` subpaths deploy them as one unit. Cannotation and browser entry points never import Cloudflare or Alchemy.
+The other thing every app re-invents is how a client reaches its server. `Rpc` has three Transports, each a client and server pair with the protocol fixed so the two always agree: `http` (POST, NDJSON, batched, on anything that speaks `Request` and `Response`), `websocket` (a Cloudflare Durable Object that hibernates without breaking streams, and a client that restarts subscriptions after a reconnect) and `inProcess` (the handlers in the same process, no wire). Client code is `RpcClient.make(group)` on every Transport, so moving between them changes one layer.
 
-Vocabulary is in [CONTEXT.md](CONTEXT.md) and the decisions behind the shape are in [docs/adr/](docs/adr/). A full contract, server, worker, and browser example is in [docs/websocket-example.md](docs/websocket-example.md); the package layout and migration checklist are in [docs/integration-migration.md](docs/integration-migration.md). Long-form guides for the two runtime subpaths are their module READMEs: [hibernating-rpc](src/rpc/cloudflare/hibernating-rpc/README.md) and [websocket-client](src/rpc/websocket-client/README.md).
+The `alchemy` door deploys the websocket server as one Worker plus one Durable Object. The websocket server can keep its Stream Store on the Durable Object's own SQLite through [`@kstackz/std-toolkit`](../std-toolkit/README.md), for sockets whose open streams outgrow the attachment. The `rpc` and `http-api` doors never import Alchemy, and Cloudflare only as types.
+
+Vocabulary is in [CONTEXT.md](CONTEXT.md) and the decisions behind the shape are in [docs/adr/](docs/adr/) and the repo's [ADR 0005](../../docs/adr/0005-three-toolkits-three-doors.md). A full contract, server, worker and browser example is in [docs/websocket-example.md](docs/websocket-example.md). Long-form guides to the websocket Transport are its module READMEs: [server](src/rpc/websocket/server/README.md) and [client](src/rpc/websocket/client/README.md).
 
 ## Install
 
 ```sh
-pnpm add @kstackz/rpc-toolkit effect
+pnpm add @kstackz/rpc-toolkit @kstackz/std-toolkit effect
 ```
 
-- `effect` (peer, required): every subpath builds on `effect/rpc` or `effect/http-api`.
-- `alchemy` (peer, optional): needed only by `rpc/cloudflare/alchemy/*`, which wraps Alchemy's Cloudflare resources.
+- `effect` (peer, required): every door builds on `effect/rpc` or `effect/http-api`.
+- `alchemy` (peer, optional): needed only by the `alchemy` door, which wraps Alchemy's Cloudflare resources.
+- `@kstackz/std-toolkit` (peer, required): `Rpc.websocket.streams.sqlite` keeps stream state in a StdTable on the Durable Object's SQLite.
 
 ## Exports
 
-### `@kstackz/rpc-toolkit/rpc/cannotation`
+### `@kstackz/rpc-toolkit/rpc`
 
-| Export             | What it does                                                                                                                                |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Cannotation`      | Namespace holding the RPC flavour of Cannotation.                                                                                           |
-| `Cannotation.make` | Builds a Declaration for `Rpc` and `RpcGroup` targets; the result carries `with`, `get`, `layer`, `clientLayer`, `middleware`, and `value`. |
+| Export                                 | What it does                                                                                                                                                                 |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Rpc`                                  | Namespace holding Middleware and the three Transports for Effect RPC.                                                                                                        |
+| `Rpc.middleware`                       | Declares a Middleware for `Rpc` and `RpcGroup` targets; the result carries `with`, `get`, `layer`, `client`, `middleware` and `value`.                                       |
+| `Rpc.http.client`                      | Layer that provides an `RpcClient.Protocol` over HTTP POST and NDJSON with `fetch`, optionally with `credentials` and extra headers.                                         |
+| `Rpc.http.server`                      | Turns a group and its handlers into a `(request: Request) => Promise<Response>` that answers the http client, building handlers per request.                                 |
+| `Rpc.websocket.client`                 | Layer that provides an `RpcClient.Protocol` over a WebSocket speaking JSON, plus the `RpcConnection` that tracks it; a `url` given as an Effect is run before every connect. |
+| `Rpc.websocket.connection`             | The `RpcConnection` service: the connection's status, `keepSubscribed`, and the hooks the transport drives.                                                                  |
+| `Rpc.websocket.status`                 | Stream of `connecting`, `connected` or `reconnecting`, deduplicated and primed with the current value.                                                                       |
+| `Rpc.websocket.keepSubscribed`         | Re-runs a subscription stream after every reconnect until the consumer interrupts it.                                                                                        |
+| `Rpc.websocket.server`                 | Serves a group over a Durable Object's hibernatable WebSockets, returning its `accept`, `message` and `close` callbacks.                                                     |
+| `Rpc.websocket.checkpoint`             | Inside a streaming handler, gives `get`, `put` and `clear` for a small cursor that survives hibernation; on other Transports it remembers nothing.                           |
+| `Rpc.websocket.streams.attachment`     | The default Stream Store: each socket's record and open streams live in its attachment (about 2 KB per socket).                                                              |
+| `Rpc.websocket.streams.sqlite`         | A Stream Store on a Durable Object's SQLite: the attachment keeps only the client id, records and streams are rows it creates itself.                                        |
+| `Rpc.websocket.RESUME_LOST`            | Close code (4000) the server sends a live socket whose record is missing, so the client reconnects and resubscribes.                                                         |
+| `Rpc.websocket.fromDurableObjectState` | Builds the server's `state` and `upgrade` from a raw workerd `DurableObjectState` when Alchemy is not in use.                                                                |
+| `Rpc.websocket.InvocationKind`         | Context reference the server sets to `fresh` or `replay`; middleware reads it to skip admission on Hibernation Replay.                                                       |
+| `Rpc.inProcess.client`                 | Layer that provides an `RpcClient.Protocol` answered by a group's handlers in the same process, with no transport and no serialization.                                      |
 
-### `@kstackz/rpc-toolkit/http/cannotation`
+### `@kstackz/rpc-toolkit/http-api`
 
-| Export             | What it does                                                                                                                                                                |
-| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Cannotation`      | Namespace holding the HttpApi flavour of Cannotation.                                                                                                                       |
-| `Cannotation.make` | Same shape as the RPC flavour over `HttpApiEndpoint` and `HttpApiGroup`, plus a `security` option that feeds OpenAPI and hands the credential to the server implementation. |
+| Export               | What it does                                                                                                                                                       |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `HttpApi`            | Namespace holding Middleware for Effect HttpApi.                                                                                                                   |
+| `HttpApi.middleware` | Same shape as `Rpc.middleware` over `HttpApiEndpoint` and `HttpApiGroup`, plus a `security` option that feeds OpenAPI and hands the credential to the server half. |
 
-### `@kstackz/rpc-toolkit/rpc/invocation`
+### `@kstackz/rpc-toolkit/alchemy`
 
-| Export           | What it does                                                                                                             |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `InvocationKind` | Context reference set by the server to `fresh` or `replay`; middleware reads it to skip admission on Hibernation Replay. |
-
-### `@kstackz/rpc-toolkit/rpc/in-process`
-
-| Export                   | What it does                                                                                                                        |
-| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `layerInProcessProtocol` | Layer that provides an `RpcClient.Protocol` calling a group's handlers in the same process, with no transport and no serialization. |
-
-### `@kstackz/rpc-toolkit/rpc/websocket-client`
-
-Long-form guide: [src/rpc/websocket-client/README.md](src/rpc/websocket-client/README.md).
-
-| Export                   | What it does                                                                                                        |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------- |
-| `layerWebSocketProtocol` | Layer that provides an `RpcClient.Protocol` over a WebSocket, plus `RpcConnection` and `RpcClient.ConnectionHooks`. |
-| `resolveWebSocketUrl`    | Turns a relative or `http(s)` URL into the `ws(s)` URL the browser should open.                                     |
-| `RpcConnection`          | Service exposing `connectionStatus`, `keepSubscribed`, and the raw connection hooks.                                |
-| `connectionStatus`       | Stream of `connecting`, `connected`, or `reconnecting`, deduplicated and primed with the current value.             |
-| `keepSubscribed`         | Re-runs a subscription stream after every reconnect until the consumer interrupts it.                               |
-
-### `@kstackz/rpc-toolkit/rpc/cloudflare/hibernating-rpc`
-
-Long-form guide: [src/rpc/cloudflare/hibernating-rpc/README.md](src/rpc/cloudflare/hibernating-rpc/README.md).
-
-| Export                        | What it does                                                                                                         |
-| ----------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `makeHibernatingWebSocketRpc` | Builds `accept`, `message`, and `close` callbacks that serve an `RpcGroup` over hibernatable Durable Object sockets. |
-| `StreamCheckpoint`            | Inside a streaming handler, gives `get`, `put`, and `clear` for a small cursor that survives hibernation.            |
-| `fromDurableObjectState`      | Builds the `state` and `upgrade` ports from a raw workerd `DurableObjectState` when Alchemy is not in use.           |
-
-### `@kstackz/rpc-toolkit/rpc/cloudflare/alchemy/rpc-worker`
-
-| Export      | What it does                                                                                |
-| ----------- | ------------------------------------------------------------------------------------------- |
-| `RpcWorker` | Re-export of Alchemy's `Cloudflare.RpcWorker` for Effect RPC over a Worker service binding. |
-
-### `@kstackz/rpc-toolkit/rpc/cloudflare/alchemy/durable-rpc-worker`
-
-| Export             | What it does                                                                                                                  |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
-| `DurableRpcWorker` | Declares an Alchemy Worker plus a single Durable Object that serves an `RpcGroup` over hibernating WebSockets behind one URL. |
+| Export             | What it does                                                                                                                                                            |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `RpcWorker`        | Alchemy's `Cloudflare.RpcWorker`, for Effect RPC over a Worker service binding.                                                                                         |
+| `DurableRpcWorker` | Declares an Alchemy Worker plus a single Durable Object that serves a group with `Rpc.websocket.server` behind one URL, optionally with its own `streams` Stream Store. |
 
 ## Usage
 
-### Declare who may call an RPC
+### Limit how often an endpoint may be called
 
-The contract declares a `Role` Cannotation and attaches it to a group and to one endpoint. The server layer verifies headers and provides `CurrentUser`; the client layer adds the headers. Lifted from `src/rpc/cannotation/cannotation.test.ts`.
+The contract declares a `RateLimit` Middleware with a value: the group allows 100 calls, `Search` only 2. The server half counts Fresh Calls per endpoint and fails past the nearest limit. `Rpc.inProcess.client` serves it in the same process. Lifted from `src/integration-tests/rate-limit.test.ts`.
 
 ```ts
-import { Context, Effect, Layer, Option, Schema } from 'effect';
-import { Headers } from 'effect/http';
-import { Rpc, RpcGroup } from 'effect/rpc';
-import { Cannotation } from '@kstackz/rpc-toolkit/rpc/cannotation';
+import { Effect, Layer, Option, Schema } from 'effect';
+import { Rpc as EffectRpc, RpcClient, RpcGroup } from 'effect/rpc';
+import { Rpc } from '@kstackz/rpc-toolkit/rpc';
 
-class CurrentUser extends Context.Service<
-  CurrentUser,
-  { readonly id: string; readonly role: string }
->()('app/CurrentUser') {}
-
-class Forbidden extends Schema.Error<Forbidden>('app/Forbidden')({
-  _tag: Schema.tag('Forbidden'),
-  reason: Schema.String,
+// contract.ts: imported by client and server
+class TooManyCalls extends Schema.Error<TooManyCalls>('app/TooManyCalls')({
+  _tag: Schema.tag('TooManyCalls'),
 }) {}
+const RateLimit = Rpc.middleware<number>()('app/RateLimit', {
+  error: TooManyCalls,
+});
+const Search = EffectRpc.make('Search', { success: Schema.String }).pipe(
+  RateLimit.with(2),
+);
+const List = EffectRpc.make('List', { success: Schema.String });
+const Api = RateLimit.with(100)(RpcGroup.make(Search, List));
 
-type Role = 'admin' | 'user';
-const Role = Cannotation.make<Role>()('app/Role', {
-  provides: CurrentUser,
-  error: Forbidden,
-  client: true,
+// server.ts
+const RateLimitLive = RateLimit.layer(
+  Effect.sync(() => {
+    const calls = new Map<string, number>();
+    return ({ rpc, value }) =>
+      Effect.gen(function* () {
+        if ((yield* Rpc.websocket.InvocationKind) === 'replay') return;
+        const count = (calls.get(rpc._tag) ?? 0) + 1;
+        calls.set(rpc._tag, count);
+        if (count > Option.getOrElse(value, () => Infinity)) {
+          return yield* new TooManyCalls();
+        }
+      });
+  }),
+);
+
+const Handlers = Api.toLayer({
+  Search: () => Effect.succeed('found'),
+  List: () => Effect.succeed('listed'),
 });
 
-const WhoAmI = Rpc.make('WhoAmI', { success: Schema.String });
-const Ban = Rpc.make('Ban', { success: Schema.String }).pipe(
-  Role.with('admin'),
-);
-const Users = Role.with('user')(RpcGroup.make(WhoAmI, Ban));
-
-// server
-const RoleLive = Role.layer(({ value, headers }) =>
-  Effect.gen(function* () {
-    const role = headers['x-role'] ?? 'user';
-    if (Option.isSome(value) && value.value === 'admin' && role !== 'admin') {
-      return yield* new Forbidden({ reason: 'admin only' });
-    }
-    return { id: headers['x-user'] ?? 'anon', role };
-  }),
-);
-
-// client
-const RoleClient = Role.clientLayer(({ request, next }) =>
-  next({
-    ...request,
-    headers: Headers.fromInput({ 'x-user': 'u1', 'x-role': 'user' }),
-  }),
-);
-```
-
-- `Role.get(Users.requests.get('Ban'))` is `admin`; `WhoAmI` inherits `user`. Nearest Wins, no merging.
-- `layer` receives the resolved value and the native middleware options; what it returns is provided as `CurrentUser` to handlers.
-- A Cannotation that `requires` a service must be attached before the one that `provides` it. The later attachment wraps the earlier one.
-- `client: true` makes the client layer mandatory when building an `RpcClient`.
-
-### Serve a stream that survives hibernation
-
-The server rechecks authorization on every call, charges admission only on fresh calls, and checkpoints the stream cursor. `DurableRpcWorker` deploys it as one Worker plus one Durable Object. Trimmed from [docs/websocket-example.md](docs/websocket-example.md).
-
-```ts
-// server.ts
-import { Effect, Layer, Option, Schema, Stream } from 'effect';
-import { StreamCheckpoint } from '@kstackz/rpc-toolkit/rpc/cloudflare/hibernating-rpc';
-import { InvocationKind } from '@kstackz/rpc-toolkit/rpc/invocation';
-import { Access, Counter } from './contract.js';
-
-export const makeHandlers = (auth: {
-  authorize: (token?: string) => Effect.Effect<void, Forbidden>;
-  checkRateLimit: (token?: string) => Effect.Effect<void, Forbidden>;
-}) =>
-  Layer.merge(
-    Access.layer(({ headers }) =>
-      Effect.gen(function* () {
-        yield* auth.authorize(headers.authorization);
-        if ((yield* InvocationKind) === 'fresh') {
-          yield* auth.checkRateLimit(headers.authorization);
-        }
-      }),
-    ),
-    Counter.toLayer({
-      watch: () =>
-        Stream.unwrap(
-          Effect.gen(function* () {
-            const checkpoint = yield* StreamCheckpoint(Schema.Number);
-            let cursor = Option.getOrElse(
-              yield* checkpoint.get().pipe(Effect.orDie),
-              () => 0,
-            );
-            return Stream.repeatEffect(
-              Effect.gen(function* () {
-                yield* Effect.sleep('1 second');
-                yield* checkpoint.put(++cursor).pipe(Effect.orDie);
-                return cursor;
-              }),
-            );
-          }),
-        ),
-    }),
-  );
-
-// counter-worker.ts
-export default class CounterWorker extends DurableRpcWorker<CounterWorker>()(
-  'CounterWorker',
-  { main: import.meta.filename, schema: Counter },
-  Effect.sync(() => makeHandlers(authorization)),
-) {}
-```
-
-- On wake, every persisted streaming request is replayed through server middleware with `InvocationKind` set to `replay`. Authorization must check current permission each time; Connection Identity alone is not current authorization.
-- Replay reuses the original request headers. It does not fetch fresh client credentials.
-- Streaming handlers are re-run, not resumed. Read the checkpoint first and keep the pre-stream section idempotent.
-- Attachments hold about 2 KB per socket, shared by the connection value and every in-flight stream. Store cursors, not payloads.
-- Continuous revocation during an uninterrupted stream stays application policy; the toolkit only rechecks at fresh calls and replays.
-
-### Call a group's handlers in the same process
-
-`layerInProcessProtocol` connects `RpcClient.make(group)` to the group's handlers without a server: a page that runs its backend locally, a React Native process, or a test. Client code does not change when the transport later becomes HTTP or a WebSocket. Lifted from `src/rpc/in-process/in-process.test.ts`.
-
-```ts
-import { Effect, Layer } from 'effect';
-import { RpcClient } from 'effect/rpc';
-import { layerInProcessProtocol } from '@kstackz/rpc-toolkit/rpc/in-process';
-
+// a client of the same process
 const program = Effect.gen(function* () {
-  const client = yield* RpcClient.make(Api);
-  return yield* client.WhoAmI();
+  const api = yield* RpcClient.make(Api);
+  return yield* api.Search();
 }).pipe(
   Effect.scoped,
   Effect.provide(
-    Layer.merge(
-      layerInProcessProtocol(Api).pipe(
-        Layer.provide(Layer.merge(Handlers, AuthLive)),
-      ),
-      AuthClient,
-    ),
+    Rpc.inProcess.client(Api, Layer.merge(Handlers, RateLimitLive)),
   ),
 );
 ```
 
-- The protocol needs the group's handlers and server middleware; the client still needs any client middleware the group requires.
-- Headers from client middleware and `RpcClient.withHeaders` reach server middleware unchanged, and handler errors arrive typed.
-- Nothing is serialized. Values are checked against the type side of their schemas, so a handler that returns the wrong shape still fails.
+- `Rpc.middleware<V>()` is curried so the value type is given while the rest (`provides`, `requires`, `error`, `client`) is inferred.
+- Nearest Wins: `RateLimit.get(Api.requests.get('Search'))` is `2`, `List` inherits `100`; values are never merged.
+- `layer` receives the resolved value and the native middleware options; what it returns is provided as `provides` to handlers. A Middleware that `requires` a service must be attached before the one that `provides` it.
+- `client: true` in the options makes the client half (`RateLimit.client(...)`) mandatory when building an `RpcClient`.
+- A call restored by Hibernation Replay has `InvocationKind` `replay` and is not counted again.
 
-### Keep a browser subscription alive across reconnects
+### Serve an Api over HTTP and call it
 
-`layerWebSocketProtocol` wires the transport; `keepSubscribed` restarts the stream whenever a new connection is established. Trimmed from [docs/websocket-example.md](docs/websocket-example.md).
+`Rpc.http.server` answers one `Request` with a `Response`, so it runs on a Worker, Bun, Node or a test. `Rpc.http.client` calls it. Lifted from `src/rpc/http/http.test.ts`.
 
 ```ts
-import { Effect, Layer, Stream } from 'effect';
-import { Headers } from 'effect/http';
-import { RpcClient, RpcSerialization } from 'effect/rpc';
-import {
-  keepSubscribed,
-  layerWebSocketProtocol,
-} from '@kstackz/rpc-toolkit/rpc/websocket-client';
-import { Access, Counter } from './contract.js';
+import { Context, Effect, Layer, Stream } from 'effect';
+import { RpcClient } from 'effect/rpc';
+import { Rpc } from '@kstackz/rpc-toolkit/rpc';
 
-export const watchCounter = (
-  url: string,
-  getToken: () => string,
-  onValue: (value: number) => void,
-) =>
-  Effect.gen(function* () {
-    const client = yield* RpcClient.make(Counter);
-    yield* keepSubscribed(() => client.watch()).pipe(
-      Stream.runForEach((value) => Effect.sync(() => onValue(value))),
-    );
-  }).pipe(
-    Effect.provide(
-      Layer.merge(
-        layerWebSocketProtocol({
-          url,
-          serialization: RpcSerialization.layerJson,
-        }),
-        Access.clientLayer(({ request, next }) =>
-          next({
-            ...request,
-            headers: Headers.fromInput({ authorization: getToken() }),
-          }),
-        ),
-      ),
-    ),
-    Effect.scoped,
-  );
+class Greeting extends Context.Service<Greeting, string>()('app/Greeting') {}
+
+// server: (request: Request) => Promise<Response>
+export const answer = Rpc.http.server(Api, Handlers, {
+  services: (request) =>
+    Layer.succeed(Greeting, request.headers.get('x-greeting')!),
+});
+
+// client
+const program = Effect.gen(function* () {
+  const api = yield* RpcClient.make(Api);
+  const hello = yield* api.Hello({ name: 'Ada' });
+  const counted = yield* Stream.runCollect(api.Count({ to: 3 }));
+  return { hello, counted };
+}).pipe(
+  Effect.scoped,
+  Effect.provide(
+    Rpc.http.client(Api, {
+      url: 'https://api.example.com/rpc',
+      credentials: 'omit',
+      headers: { 'x-greeting': 'Hi' },
+    }),
+  ),
+);
 ```
 
-- A subscription restarted after reconnect is a Fresh Call: client middleware runs again, so `getToken` is called again, and the server charges admission again.
-- Hibernation Replay happens on the existing connection and is invisible to the client; only a dropped socket triggers `keepSubscribed`.
-- Errors propagate. Interrupting the consumer stops the restart loop for good.
-- Use `Layer.provideMerge` when your own code also needs `RpcConnection`; plain `Layer.provide` hides it.
+- Only a POST is answered; anything else is a 405 with `Allow: POST`.
+- `handlers` and `services(request)` are built fresh for each request and live as long as its response, which a streamed body outlives.
+- `wrap: (app) => app` wraps how every request is answered, such as auth-toolkit's cookie handling; rpc-toolkit itself knows nothing of sign-in.
+- The client gives the `RpcClient.Protocol` only; `RpcClient.make(group)` on top is the same on every Transport.
+
+### Keep a stream alive across hibernation and reconnects
+
+The server checkpoints its cursor so a replay after waking continues where it was; the client restarts the subscription after a dropped socket. `DurableRpcWorker` deploys the server as one Worker plus one Durable Object. Trimmed from [docs/websocket-example.md](docs/websocket-example.md).
+
+```ts
+// counter-worker.ts
+import { Effect, Option, Schema, Stream } from 'effect';
+import { DurableRpcWorker } from '@kstackz/rpc-toolkit/alchemy';
+import { Rpc } from '@kstackz/rpc-toolkit/rpc';
+
+const Handlers = Counter.toLayer({
+  watch: () =>
+    Stream.unwrap(
+      Effect.gen(function* () {
+        const checkpoint = yield* Rpc.websocket.checkpoint(Schema.Number);
+        let cursor = Option.getOrElse(
+          yield* checkpoint.get().pipe(Effect.orDie),
+          () => 0,
+        );
+        return Stream.repeatEffect(
+          Effect.gen(function* () {
+            yield* Effect.sleep('1 second');
+            yield* checkpoint.put(++cursor).pipe(Effect.orDie);
+            return cursor;
+          }),
+        );
+      }),
+    ),
+});
+
+export default class CounterWorker extends DurableRpcWorker<CounterWorker>()(
+  'CounterWorker',
+  { main: import.meta.filename, schema: Counter },
+  Effect.succeed(Handlers),
+) {}
+
+// client.ts
+const watch = Effect.gen(function* () {
+  const client = yield* RpcClient.make(Counter);
+  yield* Rpc.websocket
+    .keepSubscribed(() => client.watch())
+    .pipe(Stream.runForEach((value) => Effect.sync(() => render(value))));
+}).pipe(
+  Effect.provide(Rpc.websocket.client(Counter, { url: workerUrl })),
+  Effect.scoped,
+);
+```
+
+- Streaming handlers are re-run on wake, not resumed. Read the checkpoint first and keep the pre-stream section idempotent.
+- By default attachments hold about 2 KB per socket, shared by the connection value and every in-flight stream. Store cursors, not payloads, or pass `streams: (state) => Rpc.websocket.streams.sqlite({ storage: state.raw.storage })` to keep them in the Durable Object's SQLite.
+- Hibernation Replay happens on the existing connection and is invisible to the client; only a dropped socket triggers `keepSubscribed`, which is a Fresh Call and runs client middleware again.
+- Use `Layer.provideMerge` when your own code also needs `Rpc.websocket.connection`; plain `Layer.provide` hides it.

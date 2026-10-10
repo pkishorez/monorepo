@@ -15,7 +15,7 @@
     },
     "sourceRoots": {
       "type": "array",
-      "description": "Canonical project-relative files or folders that define the complete static analysis universe.",
+      "description": "Project-relative files or folders that define the analysis universe. Git-ignored files are never part of it.",
       "minItems": 1,
       "items": {
         "type": "string"
@@ -23,7 +23,7 @@
     },
     "ignoredPaths": {
       "type": "array",
-      "description": "Canonical project-relative files or folders explicitly excluded from the analysis universe.",
+      "description": "Project-relative files or folders removed from the analysis universe, each with its whole subtree. The one way to keep a folder with an index file from being a Module.",
       "items": {
         "type": "string"
       }
@@ -37,7 +37,7 @@
           "type": "null"
         }
       ],
-      "description": "Canonical project-relative folder holding every Story file and the index.ts entry point exposing the Story Collection. Implicitly an Ignored path."
+      "description": "Project-relative folder holding the Story tree: it and every folder beneath it is a Story, told by its story.md, with its Proofs (*.proof.ts or *.proof.tsx) directly inside. Implicitly an Ignored path."
     },
     "storyTimeout": {
       "anyOf": [
@@ -48,201 +48,60 @@
           "type": "null"
         }
       ],
-      "description": "How long one Story may run before it is failed as timed out, as an Effect Duration string (e.g. \"10 seconds\"). Defaults to 10 seconds; a Story may override it with its own timeout."
+      "description": "How long one process Proof may run before it errors as timed out, as an Effect Duration string (e.g. \"10 seconds\"). Defaults to 10 seconds. Browser Proofs default to 90 seconds; a Proof may override either with its own timeout."
     },
-    "layers": {
+    "fileModules": {
+      "type": "array",
+      "description": "Project-relative source files that are Modules of their own. The one kind of Module that must be declared, because a file carries no index to say so.",
+      "items": {
+        "type": "string"
+      }
+    },
+    "rules": {
       "type": "object",
       "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "description": "One-way permissions. Each key is a project-relative Wrapper or Module path, or \"*\" for every sibling of a target; each value lists the Wrapper or Module paths it may import. Every Module inside the key may import the Index of every Module inside each target. Rules do not chain."
+    },
+    "exceptions": {
+      "type": "array",
+      "description": "Every Exception, each with its Reason.",
+      "items": {
         "type": "object",
         "properties": {
-          "paths": {
-            "type": "array",
-            "description": "Canonical project-relative paths belonging to this Layer. No declared Layer scopes may overlap, within one Layer or across Layers.",
-            "minItems": 1,
-            "items": {
-              "type": "string"
-            }
+          "from": {
+            "type": "string",
+            "description": "Project-relative Wrapper or Module path doing the importing."
           },
-          "description": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Human-readable summary of this Layer."
+          "to": {
+            "type": "string",
+            "description": "Project-relative Wrapper or Module path being imported."
           },
-          "docsPath": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Canonical project-relative path to a markdown file documenting this entity. Read-only: Laymos never writes to it."
-          },
-          "modules": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "object",
-              "properties": {
-                "shared": {
-                  "type": "boolean",
-                  "description": "Whether peers in the same Layer may import this Module. Illegal inside a Module Graph, where Rules govern peer access."
-                },
-                "exposed": {
-                  "type": "boolean",
-                  "description": "Whether other Layers may import this Module."
-                }
-              },
-              "additionalProperties": false,
-              "title": "Module",
-              "description": "A Configured Module keyed by its canonical source file or directory — project-relative when declared in a Layer, Module Graph-relative when declared in a Module Graph. Both flags default to false, so a Module is importable by nobody until it says otherwise."
-            },
-            "description": "Every free-form Configured Module in this Layer, keyed by canonical project-relative source file or directory."
-          },
-          "moduleGraphs": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "object",
-              "properties": {
-                "description": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ],
-                  "description": "Human-readable summary of this Module Graph."
-                },
-                "path": {
-                  "type": "string",
-                  "description": "Canonical project-relative directory rooting this Module Graph. Every member lives below it and every file below it must belong to a member."
-                },
-                "docsPath": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ],
-                  "description": "Canonical project-relative path to a markdown file documenting this entity. Read-only: Laymos never writes to it."
-                },
-                "modules": {
-                  "type": "object",
-                  "additionalProperties": {
-                    "type": "object",
-                    "properties": {
-                      "shared": {
-                        "type": "boolean",
-                        "description": "Whether peers in the same Layer may import this Module. Illegal inside a Module Graph, where Rules govern peer access."
-                      },
-                      "exposed": {
-                        "type": "boolean",
-                        "description": "Whether other Layers may import this Module."
-                      }
-                    },
-                    "additionalProperties": false,
-                    "title": "Module",
-                    "description": "A Configured Module keyed by its canonical source file or directory — project-relative when declared in a Layer, Module Graph-relative when declared in a Module Graph. Both flags default to false, so a Module is importable by nobody until it says otherwise."
-                  },
-                  "description": "Every member of this Module Graph, keyed relative to its path. At least two members, at least one exposed, and no member may be Shared.",
-                  "minProperties": 2
-                },
-                "rules": {
-                  "type": "object",
-                  "additionalProperties": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    }
-                  },
-                  "description": "Maps a member key to the member keys it may directly depend on. Rules are default-deny and, unlike LayerGraph Rules, are NOT transitive: only declared edges are permitted. They must be acyclic within this Module Graph."
-                }
-              },
-              "required": [
-                "path",
-                "modules"
-              ],
-              "additionalProperties": false,
-              "title": "Module Graph",
-              "description": "A named, bounded set of Modules inside one Layer describing one capability too large for a single Module. Unlike a LayerGraph it is a disjoint unit: its Rules are never unioned with another Graph’s, are not transitive, and are checked for cycles on their own."
-            },
-            "description": "Every Module Graph in this Layer, keyed by id."
+          "because": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The Reason this Exception exists. Mandatory."
           }
         },
         "required": [
-          "paths"
+          "from",
+          "to",
+          "because"
         ],
         "additionalProperties": false,
-        "title": "Layer",
-        "description": "A named, configured group of project-relative paths, owning the Modules and Module Graphs declared within it."
-      },
-      "description": "Every Layer in the project, keyed by id, each owning its Modules and Module Graphs.",
-      "minProperties": 1
-    },
-    "layerGraphs": {
-      "type": "object",
-      "additionalProperties": {
-        "type": "object",
-        "properties": {
-          "description": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Human-readable summary of this LayerGraph."
-          },
-          "docsPath": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Canonical project-relative path to a markdown file documenting this entity. Read-only: Laymos never writes to it."
-          },
-          "rules": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            "description": "Maps a Layer id to the Layer ids it may directly depend on. Rules are default-deny and transitive: a dependency between two Layers with no declared path between them, direct or transitive, is a violation. A Layer with no outgoing rule is a valid, intentional leaf."
-          }
-        },
-        "required": [
-          "rules"
-        ],
-        "additionalProperties": false,
-        "title": "LayerGraph",
-        "description": "A named set of Rules representing one responsibility (e.g. core architecture, test boundaries). This is an organizational grouping, not an enforcement boundary — enforcement unions every Rule declared across every LayerGraph in the project."
-      },
-      "description": "Every LayerGraph in the project, keyed by id. An empty set denies every cross-Layer dependency."
+        "title": "Exception",
+        "description": "One import no Rule could hold, allowed on purpose: a child importing an ancestor, or an import against a Rule that would make a Rule loop."
+      }
     }
   },
   "required": [
-    "sourceRoots",
-    "layers",
-    "layerGraphs"
+    "sourceRoots"
   ],
   "additionalProperties": false,
   "title": "Laymos Config",
-  "description": "Declares a project's Layers, their Modules and Module Graphs, and its LayerGraphs."
+  "description": "Where the source is, which single files are Modules, which paths are ignored, which Rules hold, and which Exceptions exist with a Reason. Folder Modules are never listed: a folder with an index file is a Module."
 }

@@ -1,0 +1,6 @@
+{
+  "sourceRoots": ["src/"],
+  "fileModules": ["../ids.ts"],
+  "rules": { "/app": ["src/./domain"] },
+  "exceptions": [{ "from": "src\\infra", "to": "src/..", "because": "x" }]
+}

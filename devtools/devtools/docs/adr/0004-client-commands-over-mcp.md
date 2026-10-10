@@ -2,6 +2,9 @@
 
 **Status:** accepted
 
+> Note: the Flow Tool has since been removed, so Client Commands now cover
+> Traces only and the Flow parts below no longer apply.
+
 Coding agents reach Lotel telemetry through subcommands of the same `devtools`
 binary that runs the server. A Client Command connects to a running DevTools
 Server over the existing Effect RPC contract and prints JSON or text. A shipped

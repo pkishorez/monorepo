@@ -1,5 +1,5 @@
 ---
-status: partly superseded by ADR-0012 (how two Recognizers are kept apart)
+status: partly superseded by ADR-0012 (how two Recognizers are kept apart) and ADR-0016 (where the layers live, and the entry points)
 ---
 
 # Recognizers and Patterns layer above useGesture

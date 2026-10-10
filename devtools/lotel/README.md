@@ -12,9 +12,7 @@ behind a service interface. It runs no server of its own.
 
 [@kstackz/devtools](../devtools/README.md) hosts these layers inside its DevTools Server
 and adds the browser UI. [@kstackz/effect-tracer](../effect-tracer/README.md)
-is the sending side. Flows are a separate Tool in
-[@kstackz/flow](../flow/README.md); lotel's records carry a Flow id and
-Participant name so the two can link.
+is the sending side.
 
 Terms are defined in [CONTEXT.md](./CONTEXT.md). Decisions are in
 [docs/adr/](./docs/adr/).

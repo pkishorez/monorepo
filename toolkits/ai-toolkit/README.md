@@ -191,25 +191,21 @@ The docs demo connects over WebSocket, syncs `threads` and `messages` into live 
 
 ```ts
 import { Context, Effect, Layer, Scope } from 'effect';
-import { RpcClient, RpcSerialization } from 'effect/rpc';
+import { RpcClient } from 'effect/rpc';
 import { toUiConversation } from '@kstackz/ai-toolkit/client';
 import {
   AiPlaygroundServerRpc,
   makePlaygroundSync,
 } from '@kstackz/ai-toolkit/playground';
-import {
-  layerWebSocketProtocol,
-  RpcConnection,
-} from '@kstackz/rpc-toolkit/rpc/websocket-client';
+import { Rpc } from '@kstackz/rpc-toolkit/rpc';
 
 const boot = Effect.gen(function* () {
   const context = yield* Layer.build(
-    layerWebSocketProtocol({
+    Rpc.websocket.client(AiPlaygroundServerRpc, {
       url: 'ws://127.0.0.1:3001/rpc',
-      serialization: RpcSerialization.layerJson,
     }),
   );
-  const connection = Context.get(context, RpcConnection);
+  const connection = Context.get(context, Rpc.websocket.connection);
   const api = yield* RpcClient.make(AiPlaygroundServerRpc).pipe(
     Effect.provide(
       Layer.succeed(
@@ -246,6 +242,6 @@ const conversation = toUiConversation(rows);
 ```
 
 - `subscribeThreads` and `subscribeMessages` page from a cursor, so a reconnect resumes where the collection left off.
-- `keepSubscribed` from rpc-toolkit restarts each subscription after the socket reconnects.
+- `keepSubscribed` from rpc-toolkit's websocket Transport restarts each subscription after the socket reconnects.
 - `toUiConversation` joins streamed text split across rows and pairs questions with their Resolutions; `sync.messages` rows must be ordered by `createdAt` first.
 - `sync.dispose()` tears the collections down.

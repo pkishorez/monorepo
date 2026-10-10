@@ -1,33 +1,27 @@
 import { Effect } from 'effect';
+import { SQLite } from '@kstackz/std-toolkit/db/sqlite';
+import { makeNodeSQLite } from '@kstackz/std-toolkit/db/sqlite/node';
 import { describe, expect, test } from 'vitest';
 
 import { makeSqliteProjectRegistry } from '../index.js';
+import { entries, table, tableName } from '../stored-entries.js';
 
 describe('ProjectRegistry', () => {
-  test('adds, lists, updates, and removes entries per Tool', async () => {
+  test('adds, lists, updates, and removes entries', async () => {
     await Effect.runPromise(
       Effect.scoped(
         Effect.gen(function* () {
           const registry = yield* makeSqliteProjectRegistry({
             path: ':memory:',
           });
-          const a = yield* registry.add({
-            tool: 'laymos',
-            path: '/tmp/a',
-            label: null,
-          });
-          yield* registry.add({
-            tool: 'monoverse',
-            path: '/tmp/b',
-            label: 'B',
-          });
+          const a = yield* registry.add({ path: '/tmp/a', label: null });
+          yield* registry.add({ path: '/tmp/b', label: 'B' });
 
-          expect((yield* registry.list('laymos')).map((e) => e.path)).toEqual([
+          expect((yield* registry.list()).map((e) => e.path)).toEqual([
             '/tmp/a',
+            '/tmp/b',
           ]);
-          expect(
-            (yield* registry.list('monoverse')).map((e) => e.label),
-          ).toEqual(['B']);
+          expect(a).not.toHaveProperty('tool');
 
           const updated = yield* registry.update(a.id, {
             path: '/tmp/a2',
@@ -40,7 +34,38 @@ describe('ProjectRegistry', () => {
 
           expect(yield* registry.remove(a.id)).toBe(true);
           expect(yield* registry.remove(a.id)).toBe(false);
-          expect(yield* registry.list('laymos')).toEqual([]);
+          expect((yield* registry.list()).map((e) => e.label)).toEqual(['B']);
+        }),
+      ),
+    );
+  });
+
+  test('never lists an entry kept for the retired Laymos Tool', async () => {
+    const database = makeNodeSQLite({ path: ':memory:' });
+    await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          yield* SQLite.setup(table, { database, tableName });
+          yield* entries
+            .insert({
+              id: 'old',
+              tool: 'laymos',
+              path: '/tmp/old',
+              label: null,
+              addedAt: 1,
+            })
+            .pipe(
+              Effect.provide(SQLite.make(table, { database, tableName }).layer),
+            );
+
+          const registry = yield* makeSqliteProjectRegistry({
+            path: ':memory:',
+            driver: database,
+          });
+          yield* registry.add({ path: '/tmp/new', label: null });
+          expect((yield* registry.list()).map((e) => e.path)).toEqual([
+            '/tmp/new',
+          ]);
         }),
       ),
     );

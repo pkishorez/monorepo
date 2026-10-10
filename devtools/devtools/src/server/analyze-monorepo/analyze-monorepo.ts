@@ -1,5 +1,5 @@
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 
 import { Effect } from 'effect';
 import {
@@ -9,7 +9,7 @@ import {
 import {
   InvalidMonorepoPathError,
   MonorepoReadFailure,
-  NotPnpmWorkspaceError,
+  NoPackageJsonError,
 } from '../../rpc/index.js';
 
 /** Fulfils `AnalyzeMonorepo`: expands `~`, runs the engine, maps its errors. */
@@ -32,15 +32,15 @@ function toRpcError(error: AnalyzeMonorepoError) {
         path: error.path,
       });
     case 'MonorepoReadError':
-      if (error.reason === 'not-a-workspace') {
-        return new NotPnpmWorkspaceError({ path: error.path });
+      if (error.reason === 'no-package-json') {
+        return new NoPackageJsonError({ path: error.path });
       }
       return new MonorepoReadFailure({
         reason: error.reason,
         path: error.path,
         message:
           error.reason === 'workspace-parse'
-            ? 'Could not parse pnpm-workspace.yaml.'
+            ? `Could not read the workspace globs from ${basename(error.path)}.`
             : 'Could not match the workspace globs.',
       });
     case 'ManifestError':

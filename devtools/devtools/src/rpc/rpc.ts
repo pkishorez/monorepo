@@ -1,18 +1,19 @@
 import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
-import { FlowRpc } from '@kstackz/flow/rpc';
 import { LotelRpc } from '@kstackz/lotel/rpc';
 import { GitRpc } from './git.js';
 import { MonoverseRpc } from './monoverse.js';
 import {
   ArchitectureAnalysisSchema,
   ConfigValidationIssueSchema,
-  DocumentationScopeSchema,
-  DocumentationSchema,
-  ModuleSourceFileSchema,
-  ModuleSourceSnapshotSchema,
+  FileContentSchema,
+  FileListSchema,
 } from 'laymos/architecture-analysis-schema';
-import { StoryReportSchema, StoryTreeSchema } from 'laymos/story/schema';
+import {
+  ProofReportSchema,
+  ProofRunEventSchema,
+  StoryTreeSchema,
+} from 'laymos/story/schema';
 import { ProjectRegistryRpc } from './project-registry.js';
 
 export class InvalidProjectPath extends Schema.TaggedError<InvalidProjectPath>(
@@ -46,32 +47,14 @@ export class SourceAnalysisError extends Schema.TaggedError<SourceAnalysisError>
   baseDir: Schema.optional(Schema.String),
 }) {}
 
-export class ModuleSourceNotFoundError extends Schema.TaggedError<ModuleSourceNotFoundError>(
-  'ModuleSourceNotFoundError',
-)('ModuleSourceNotFoundError', { modulePath: Schema.String }) {}
+export class FileNotFoundError extends Schema.TaggedError<FileNotFoundError>(
+  'FileNotFoundError',
+)('FileNotFoundError', { path: Schema.String }) {}
 
-export class ModuleSourceReadError extends Schema.TaggedError<ModuleSourceReadError>(
-  'ModuleSourceReadError',
-)('ModuleSourceReadError', {
+export class FileReadError extends Schema.TaggedError<FileReadError>(
+  'FileReadError',
+)('FileReadError', {
   filePath: Schema.String,
-  message: Schema.String,
-}) {}
-
-export class SourceFileReadError extends Schema.TaggedError<SourceFileReadError>(
-  'SourceFileReadError',
-)('SourceFileReadError', {
-  filePath: Schema.String,
-  message: Schema.String,
-}) {}
-
-export class DocumentationScopeNotFoundError extends Schema.TaggedError<DocumentationScopeNotFoundError>(
-  'DocumentationScopeNotFoundError',
-)('DocumentationScopeNotFoundError', { scope: DocumentationScopeSchema }) {}
-
-export class DocumentationReadError extends Schema.TaggedError<DocumentationReadError>(
-  'DocumentationReadError',
-)('DocumentationReadError', {
-  path: Schema.String,
   message: Schema.String,
 }) {}
 
@@ -81,10 +64,7 @@ export class StoriesUnavailableError extends Schema.TaggedError<StoriesUnavailab
   reason: Schema.Literals([
     'no-stories-path',
     'load',
-    'invalid-root',
-    'duplicate-title',
-    'duplicate-question',
-    'snippet-extraction',
+    'invalid-proof',
     'unknown-scope',
     'invalid-timeout',
   ]),
@@ -109,36 +89,15 @@ const LaymosStoriesError = Schema.Union([
   StoriesUnavailableError,
 ]);
 
-const GetLaymosModuleSourceError = Schema.Union([
+const GetLaymosFilesError = Schema.Union([
   InvalidProjectPath,
   ConfigReadError,
   ConfigParseError,
   ConfigSchemaError,
   ConfigValidationError,
   SourceAnalysisError,
-  ModuleSourceNotFoundError,
-  ModuleSourceReadError,
-]);
-
-const GetLaymosSourceFilesError = Schema.Union([
-  InvalidProjectPath,
-  ConfigReadError,
-  ConfigParseError,
-  ConfigSchemaError,
-  ConfigValidationError,
-  SourceAnalysisError,
-  SourceFileReadError,
-]);
-
-const GetLaymosDocumentationError = Schema.Union([
-  InvalidProjectPath,
-  ConfigReadError,
-  ConfigParseError,
-  ConfigSchemaError,
-  ConfigValidationError,
-  SourceAnalysisError,
-  DocumentationScopeNotFoundError,
-  DocumentationReadError,
+  FileNotFoundError,
+  FileReadError,
 ]);
 
 export const DevtoolsToolRpc = RpcGroup.make(
@@ -147,27 +106,24 @@ export const DevtoolsToolRpc = RpcGroup.make(
     success: ArchitectureAnalysisSchema,
     error: AnalyzeLaymosProjectError,
   }),
-  Rpc.make('GetLaymosModuleSource', {
+  Rpc.make('GetLaymosFileList', {
     payload: { projectPath: Schema.String, modulePath: Schema.String },
-    success: ModuleSourceSnapshotSchema,
-    error: GetLaymosModuleSourceError,
+    success: FileListSchema,
+    error: GetLaymosFilesError,
   }),
-  Rpc.make('GetLaymosSourceFiles', {
-    payload: {
-      projectPath: Schema.String,
-      pathPrefixes: Schema.Array(Schema.String),
-    },
-    success: Schema.Struct({ files: Schema.Array(ModuleSourceFileSchema) }),
-    error: GetLaymosSourceFilesError,
-  }),
-  Rpc.make('GetLaymosDocumentation', {
-    payload: { projectPath: Schema.String, scope: DocumentationScopeSchema },
-    success: DocumentationSchema,
-    error: GetLaymosDocumentationError,
+  Rpc.make('GetLaymosFile', {
+    payload: { projectPath: Schema.String, path: Schema.String },
+    success: FileContentSchema,
+    error: GetLaymosFilesError,
   }),
   Rpc.make('GetLaymosStories', {
     payload: { projectPath: Schema.String },
     success: StoryTreeSchema,
+    error: LaymosStoriesError,
+  }),
+  Rpc.make('GetLaymosStoryReports', {
+    payload: { projectPath: Schema.String },
+    success: Schema.Array(ProofReportSchema),
     error: LaymosStoriesError,
   }),
   Rpc.make('RunLaymosStories', {
@@ -175,14 +131,13 @@ export const DevtoolsToolRpc = RpcGroup.make(
       projectPath: Schema.String,
       scope: Schema.optional(Schema.String),
     },
-    success: StoryReportSchema,
+    success: ProofRunEventSchema,
     error: LaymosStoriesError,
     stream: true,
   }),
 );
 
-export const DevtoolsRpc = LotelRpc.merge(FlowRpc)
-  .merge(DevtoolsToolRpc)
+export const DevtoolsRpc = LotelRpc.merge(DevtoolsToolRpc)
   .merge(GitRpc)
   .merge(MonoverseRpc)
   .merge(ProjectRegistryRpc);

@@ -5,27 +5,27 @@
     {
       "label": "Unversioned workspace roots",
       "dependencyTypes": ["local"],
-      "packages": ["public-monorepo", "docs", "kstack"],
+      "packages": ["public-monorepo", "docs", "ledger"],
       "isIgnored": true
     },
     {
       "label": "Internal dependencies use workspace:* everywhere",
       "dependencies": [
         "@kstackz/ai-toolkit",
+        "effect-oak",
         "@kstackz/auth-toolkit",
         "@kstackz/devtools",
         "@kstackz/effect-tracer",
         "@kstackz/effect-webrtc",
-        "@kstackz/flow",
         "laymos",
         "@kstackz/lotel",
-        "@kstackz/ui-toolkit",
         "@kstackz/use-gesture",
         "@kstackz/use-keys",
-        "@kstackz/pwa-toolkit",
         "@kstackz/rpc-toolkit",
         "@kstackz/std-toolkit",
-        "use-effect-ts"
+        "use-effect-ts",
+        "@kstackz/web-platform",
+        "@devtools/ui"
       ],
       "dependencyTypes": ["prod", "dev", "peer"],
       "pinVersion": "workspace:*"
@@ -70,20 +70,20 @@
       "label": "Internal workspace protocols are enforced by version groups",
       "dependencies": [
         "@kstackz/ai-toolkit",
+        "effect-oak",
         "@kstackz/auth-toolkit",
         "@kstackz/devtools",
         "@kstackz/effect-tracer",
         "@kstackz/effect-webrtc",
-        "@kstackz/flow",
         "laymos",
         "@kstackz/lotel",
-        "@kstackz/ui-toolkit",
         "@kstackz/use-gesture",
         "@kstackz/use-keys",
-        "@kstackz/pwa-toolkit",
         "@kstackz/rpc-toolkit",
         "@kstackz/std-toolkit",
-        "use-effect-ts"
+        "use-effect-ts",
+        "@kstackz/web-platform",
+        "@devtools/ui"
       ],
       "dependencyTypes": ["prod", "dev", "peer"],
       "isIgnored": true

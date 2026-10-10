@@ -20,6 +20,7 @@ See the [top README](../../README.md).
 | `SingleEntityMetaSchema` | Effect Schema for singleton Entity metadata, without the deletion and observation fields.    |
 | `Broadcaster`            | Effect Service that receives batches of confirmed Entities and exposes them as a Stream.     |
 | `defaultBroadcaster`     | In-process PubSub-backed Layer for `Broadcaster`.                                            |
+| `sharedBroadcaster`      | Layer for `Broadcaster` shared by every tab of this origin under one name.                   |
 | `Ulid`                   | Effect Reference holding the monotonic ULID generator; override it in tests for stable ids.  |
 | `nextUlid`               | Effect that yields the next ULID from `Ulid`.                                                |
 | `uTime`                  | Extracts the millisecond time from a `_u` value, whether ULID or ISO-8601; `null` otherwise. |
@@ -29,7 +30,7 @@ See the [top README](../../README.md).
 
 ### Deterministic ids in tests
 
-Adapters stamp `_u` with `nextUlid`. Providing a different generator through `Ulid` makes every write predictable. Lifted from `stories/env.ts`.
+Adapters stamp `_u` with `nextUlid`. Providing a different generator through `Ulid` makes every write predictable.
 
 ```ts
 import { Effect } from 'effect';

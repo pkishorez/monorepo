@@ -1,0 +1,11 @@
+{
+  // The core compiled on its own, with no DOM and no Node: a global that
+  // only one platform has does not exist here, so using one fails lint.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ESNext"],
+    "types": []
+  },
+  "include": ["src/index.ts", "src/core/**/*"],
+  "exclude": ["src/**/tests/**"]
+}

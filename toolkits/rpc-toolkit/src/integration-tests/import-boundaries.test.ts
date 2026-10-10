@@ -17,8 +17,13 @@ function externalImports(entry: string, seen = new Set<string>()): Set<string> {
   );
   const result = new Set<string>();
   const visit = (node: ts.Node) => {
-    const specifier =
-      ts.isImportDeclaration(node) || ts.isExportDeclaration(node)
+    // A type-only import is gone at runtime, so it never reaches a bundle.
+    const typeOnly =
+      (ts.isImportDeclaration(node) && node.importClause?.isTypeOnly) ||
+      (ts.isExportDeclaration(node) && node.isTypeOnly);
+    const specifier = typeOnly
+      ? undefined
+      : ts.isImportDeclaration(node) || ts.isExportDeclaration(node)
         ? node.moduleSpecifier
         : ts.isCallExpression(node) &&
             node.expression.kind === ts.SyntaxKind.ImportKeyword
@@ -40,29 +45,13 @@ function externalImports(entry: string, seen = new Set<string>()): Set<string> {
   return result;
 }
 
-it('keeps browser and contract imports independent of Cloudflare and Alchemy', () => {
-  for (const entry of [
-    'rpc/cannotation',
-    'http/cannotation',
-    'rpc/invocation',
-    'rpc/in-process',
-    'rpc/websocket-client',
-  ]) {
+it('keeps the rpc and http-api doors free of Cloudflare and Alchemy at runtime', () => {
+  for (const entry of ['rpc', 'http-api']) {
     const imports = externalImports(`rpc-toolkit/src/${entry}/index.ts`);
     expect(
       [...imports].filter((name) => /^(alchemy|@cloudflare)(\/|$)/.test(name)),
     ).toEqual([]);
   }
-});
-
-it('keeps the hibernating runtime independent of Alchemy', () => {
-  expect(
-    [
-      ...externalImports(
-        'rpc-toolkit/src/rpc/cloudflare/hibernating-rpc/index.ts',
-      ),
-    ].filter((name) => /^alchemy(\/|$)/.test(name)),
-  ).toEqual([]);
 });
 
 it('keeps the ordinary DynamoDB entry point independent of Alchemy', () => {

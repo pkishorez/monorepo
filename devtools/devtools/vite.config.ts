@@ -26,7 +26,6 @@ export default defineConfig({
     rollupOptions: {
       input: {
         index: fileURLToPath(new URL('./index.html', import.meta.url)),
-        snapshot: fileURLToPath(new URL('./snapshot.html', import.meta.url)),
       },
     },
   },
@@ -47,15 +46,15 @@ export default defineConfig({
     // them up front stops a first JSON or CSS file from failing while Vite
     // re-optimizes mid-session.
     include: [
-      '@kstackz/ui-toolkit > @shikijs/langs/css',
-      '@kstackz/ui-toolkit > @shikijs/langs/html',
-      '@kstackz/ui-toolkit > @shikijs/langs/javascript',
-      '@kstackz/ui-toolkit > @shikijs/langs/json',
-      '@kstackz/ui-toolkit > @shikijs/langs/jsx',
-      '@kstackz/ui-toolkit > @shikijs/langs/markdown',
-      '@kstackz/ui-toolkit > @shikijs/langs/tsx',
-      '@kstackz/ui-toolkit > @shikijs/langs/typescript',
-      '@kstackz/ui-toolkit > @shikijs/langs/yaml',
+      '@kstackz/web-platform > @shikijs/langs/css',
+      '@kstackz/web-platform > @shikijs/langs/html',
+      '@kstackz/web-platform > @shikijs/langs/javascript',
+      '@kstackz/web-platform > @shikijs/langs/json',
+      '@kstackz/web-platform > @shikijs/langs/jsx',
+      '@kstackz/web-platform > @shikijs/langs/markdown',
+      '@kstackz/web-platform > @shikijs/langs/tsx',
+      '@kstackz/web-platform > @shikijs/langs/typescript',
+      '@kstackz/web-platform > @shikijs/langs/yaml',
     ],
   },
   server: {
@@ -67,6 +66,7 @@ export default defineConfig({
     proxy: {
       '/health': backendProxy(),
       '/rpc': backendProxy(),
+      '/story-evidence': backendProxy(),
       '/v1': backendProxy(),
     },
   },

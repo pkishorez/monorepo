@@ -9,7 +9,6 @@ import { NodeHttpServer, NodeServices } from '@effect/platform-node';
 import { LotelOtlpHttpLive, LotelRpcLive } from '@kstackz/lotel';
 import { sqliteTelemetryStoreLayer } from '@kstackz/lotel/sqlite';
 import { DevtoolsRpc } from '../../rpc/index.js';
-import { FlowRpcLive, sqliteFlowStoreLayer } from '../flow-store/index.js';
 import {
   DevtoolsHandlersLive,
   GitHandlersLive,
@@ -21,6 +20,7 @@ import {
 } from '../project-registry/index.js';
 import { makeBrowserApplicationLive } from './browser-application.js';
 import { makeRequestAccessLive } from './request-access.js';
+import { StoryEvidenceLive } from './story-evidence.js';
 
 const HOST = '127.0.0.1';
 // This module is bundled into dist/server/main.mjs; the UI is its sibling.
@@ -50,13 +50,13 @@ export function makeLocalDevtoolsServer(options: Options) {
           makeRpcRouteLive(),
           LotelOtlpHttpLive,
           makeBrowserApplicationLive({ uiRoot, version: options.version }),
+          StoryEvidenceLive,
           makeRequestAccessLive({ port: options.port, canonicalOrigin }),
         ),
       ).pipe(
-        // Lotel, Flow, and the Project registry keep separate tables in the
-        // one DevTools database.
+        // Lotel and the Project registry keep separate tables in the one
+        // DevTools database.
         Layer.provide(sqliteTelemetryStoreLayer({ path: options.db })),
-        Layer.provide(sqliteFlowStoreLayer({ path: options.db })),
         Layer.provide(sqliteProjectRegistryLayer({ path: options.db })),
         Layer.provide(
           NodeHttpServer.layer(createServer, {
@@ -82,7 +82,6 @@ function makeRpcRouteLive() {
         GitHandlersLive,
         MonoverseHandlersLive,
         LotelRpcLive,
-        FlowRpcLive,
         ProjectRegistryRpcLive,
       ),
     ),

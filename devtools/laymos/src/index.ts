@@ -1,52 +1,47 @@
 // Node consumers use this high-level capability to produce Architecture Analysis.
 export { analyzeProject } from './orchestrator/analyze-project/index.js';
-// Node consumers use this high-level capability to inspect one Configured Module.
+// Node consumers use this to list a Module's files and read one of them.
 export {
-  loadModuleSource,
-  ModuleSourceNotFound,
-  ModuleSourceReadError,
-} from './orchestrator/load-module-source/index.js';
-// Node consumers use this high-level capability to read documentation at any scope.
-export {
-  loadDocumentation,
-  DocumentationReadError,
-  DocumentationScopeNotFound,
-} from './orchestrator/load-documentation/index.js';
-// Node consumers use this high-level capability to read arbitrary source files by path.
-export {
+  FileNotFound,
+  FileReadError,
+  loadFileContent,
+  loadFileList,
   loadFolderFiles,
-  loadSourceFiles,
-  SourceFileReadError,
-} from './orchestrator/load-source-files/index.js';
+} from './orchestrator/load-files/index.js';
 // RPC transports use this browser-safe runtime contract for Architecture Analysis.
-export { ArchitectureAnalysisSchema } from './architecture-analysis-schema/index.js';
-// Renderers name the complete renderer-neutral analysis they consume.
-export type { ArchitectureAnalysis } from './architecture-analysis-schema/index.js';
-export { ModuleSourceSnapshotSchema } from './architecture-analysis-schema/index.js';
-export type {
-  ModuleSourceFile,
-  ModuleSourceSnapshot,
-} from './architecture-analysis-schema/index.js';
 export {
-  DocumentationScopeSchema,
-  DocumentationSchema,
+  ArchitectureAnalysisSchema,
+  FileContentSchema,
+  FileListSchema,
+  FolderFileSchema,
 } from './architecture-analysis-schema/index.js';
+// Renderers name the complete renderer-neutral analysis they consume.
 export type {
-  Documentation,
-  DocumentationScope,
+  ArchitectureAnalysis,
+  Config,
+  ConfigException,
+  FileContent,
+  FileList,
+  FileListEntry,
+  Finding,
+  FolderFile,
+  ImportVerdict,
+  ModuleImport,
+  ModuleTree,
+  Rule,
+  TreeNode,
+  ViolationReason,
+  ViolationRemedy,
 } from './architecture-analysis-schema/index.js';
 export {
   InspectionTargetNotFound,
-  ModuleInspectionCycle,
   inspectFile,
-  inspectLayer,
   inspectModule,
   inspectProject,
 } from './orchestrator/inspect/index.js';
 export type {
   FileInspection,
   FileInspectionOptions,
-  LayerInspection,
   ModuleInspection,
   ProjectInspection,
 } from './orchestrator/inspect/index.js';
@@ -54,16 +49,34 @@ export type {
 export { ConfigError } from './services/config/index.js';
 // Analysis callers distinguish source cruising failures.
 export { CruiseError } from './services/file-cruiser/index.js';
-// Node consumers use this high-level capability to load and run the Story tree.
+// Node consumers use this high-level capability to load, run, and read back Stories.
 export {
+  findTellingIssues,
   getStoryTree,
+  loadStoryReports,
   planStories,
   runStories,
   StoriesError,
 } from './orchestrator/run-stories/index.js';
-// RPC transports use this browser-safe runtime contract for Story reports.
-export { StoryReportSchema, StoryTreeSchema } from './story/schema/index.js';
-export type { StoryReport, StoryTree } from './story/schema/index.js';
+export type {
+  RunStoriesOptions,
+  StoriesRun,
+  StoryTellingIssue,
+} from './orchestrator/run-stories/index.js';
+// RPC transports use this browser-safe runtime contract for Stories.
+export {
+  ProofReportSchema,
+  ProofRunEventSchema,
+  StoryTreeSchema,
+} from './story/schema/index.js';
+export type {
+  ProofLeaf,
+  ProofReport,
+  ProofRunEvent,
+  StoryNode,
+  StoryTree,
+  TellingIssue,
+} from './story/schema/index.js';
 // Node consumers use this high-level capability to report what a Base ref changed.
 export {
   loadBranches,

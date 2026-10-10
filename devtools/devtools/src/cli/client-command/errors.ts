@@ -3,8 +3,6 @@ import type { RpcClientError } from 'effect/rpc';
 
 export type ClientError =
   | { readonly _tag: 'TraceNotFound'; readonly traceId: string }
-  | { readonly _tag: 'FlowNotFound'; readonly flowId: string }
-  | { readonly _tag: 'FlowRpcError'; readonly message: string }
   | { readonly _tag: 'LotelRpcError'; readonly message: string }
   | RpcClientError.RpcClientError;
 
@@ -13,9 +11,6 @@ function describeClientError(error: ClientError, baseUrl: string) {
   switch (error._tag) {
     case 'TraceNotFound':
       return `Trace not found: ${error.traceId}`;
-    case 'FlowNotFound':
-      return `Flow not found: ${error.flowId}`;
-    case 'FlowRpcError':
     case 'LotelRpcError':
       return error.message;
     case 'RpcClientError':

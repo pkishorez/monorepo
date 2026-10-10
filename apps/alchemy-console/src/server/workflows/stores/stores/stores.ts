@@ -1,5 +1,5 @@
 import { Effect, Stream } from 'effect';
-import { Authz } from '@kstackz/auth-toolkit/rpc';
+import { Authz } from '@kstackz/auth-toolkit/guard';
 import { StoreError } from '../../../../shared/contracts/stores/index.ts';
 import {
   BrowseError,
@@ -22,7 +22,7 @@ import * as deletion from '../deletion/index.ts';
 const manage = <A, E extends Parameters<typeof management.errorOf>[0], R>(
   run: (userId: string) => Effect.Effect<A, E, R>,
 ) =>
-  Effect.flatMap(Authz.CurrentAuth, ({ user }) => run(user.id)).pipe(
+  Effect.flatMap(Authz.Current, ({ user }) => run(user.id)).pipe(
     Effect.mapError(management.errorOf),
     Effect.tapError((error) =>
       Effect.logError('Store operation failed', {
@@ -49,7 +49,7 @@ const browse = <A, R>(
   }) => Effect.Effect<A, BrowseError, R>,
 ) =>
   Effect.gen(function* () {
-    const { user } = yield* Authz.CurrentAuth;
+    const { user } = yield* Authz.Current;
     const store = yield* loadStore(user.id, input.storeId).pipe(
       Effect.mapError(() => new BrowseError({ code: 'storage-error' })),
     );
@@ -90,7 +90,7 @@ export const getResourceState = (input: typeof resourceTarget.Type) =>
 
 export const deleteStack = (input: typeof stackTarget.Type) =>
   Effect.gen(function* () {
-    const { user } = yield* Authz.CurrentAuth;
+    const { user } = yield* Authz.Current;
     const store = yield* loadStore(user.id, input.storeId).pipe(
       Effect.mapError(() => new StoreError({ code: 'storage-error' })),
     );
@@ -151,7 +151,7 @@ const deletionRequest = (
 ) =>
   Effect.gen(function* () {
     yield* deletion.authorize(input, intent);
-    const { user } = yield* Authz.CurrentAuth;
+    const { user } = yield* Authz.Current;
     const access = yield* loadDeletionAccess(user.id, input.storeId).pipe(
       Effect.mapError(
         () =>

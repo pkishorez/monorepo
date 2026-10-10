@@ -1,11 +1,12 @@
 import { Effect } from 'effect';
-import { Auth, authLive } from '@kstackz/auth-toolkit/clients/auth';
+import { SignIn } from '@kstackz/auth-toolkit/client';
+import { cookie } from '@kstackz/auth-toolkit/client/web';
 
 // Built once so every caller shares one Auth Worker client.
 export const accounts = Effect.runSync(
-  Auth.useSync((accounts) => accounts).pipe(
+  SignIn.useSync((accounts) => accounts).pipe(
     Effect.provide(
-      authLive({
+      cookie({
         authWorkerUrl: import.meta.env.DEV
           ? 'https://auth.kishore.computer'
           : 'https://auth.kishore.app',

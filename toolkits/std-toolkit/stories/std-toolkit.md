@@ -1,1 +1,0 @@
-One story, read top to bottom: a task board built step by step. Five acts take it from a single task in a single table to a full board running in the browser, and an appendix collects the edge cases and habits that did not fit the spine. Every page proves what it claims by running the code it shows.

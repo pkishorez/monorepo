@@ -57,7 +57,7 @@
     "build:watch": "tsc -p tsconfig.build.json --watch",
     "dev": "tsx src/cli/cli.ts",
     "fmt": "vp fmt",
-    "lint": "vp check && tsc",
+    "lint": "vp check && tsc && tsx src/cli/cli.ts lint",
     "schema": "vitest run src/services/config/tests/config.test.ts -u",
     "test": "vitest run"
   },
@@ -65,7 +65,6 @@
     "@effect/platform-node": "catalog:",
     "@effect/platform-node-shared": "catalog:",
     "@kstackz/effect-tracer": "workspace:*",
-    "@kstackz/flow": "workspace:*",
     "oxc-parser": "catalog:",
     "oxc-resolver": "catalog:",
     "tsx": "catalog:",
@@ -75,13 +74,24 @@
     "@types/node": "catalog:",
     "@typescript/native": "catalog:",
     "effect": "catalog:",
+    "playwright-core": "catalog:",
     "tsx": "catalog:",
     "typescript": "catalog:typescript6",
     "vite": "catalog:",
     "vitest": "catalog:"
   },
   "peerDependencies": {
-    "effect": "^4.0.0"
+    "effect": "^4.0.0",
+    "playwright-core": "1.63.0",
+    "vite": "^8.0.0"
+  },
+  "peerDependenciesMeta": {
+    "playwright-core": {
+      "optional": true
+    },
+    "vite": {
+      "optional": true
+    }
   },
   "publishConfig": {
     "access": "public"

@@ -4,6 +4,7 @@ import type { ModuleInspection } from '../../../orchestrator/inspect/index.js';
 import { renderPathTree, type PathTreeEntry } from '../path-tree.js';
 
 export function renderModuleInspection(inspection: ModuleInspection): string {
+  const { node, reach } = inspection;
   const entries: PathTreeEntry[] = [
     ...inspection.dependents.map((path) => ({
       path,
@@ -15,30 +16,30 @@ export function renderModuleInspection(inspection: ModuleInspection): string {
     })),
   ];
   const output = [
-    `Module:   ${inspection.module.path}`,
-    `Layer:    ${inspection.module.layer}`,
-    `Graph:    ${inspection.module.graph ?? 'none'}`,
-    `Shared:   ${inspection.module.shared}`,
-    `Exposed:  ${inspection.module.exposed}`,
-    `Shape:    ${inspection.module.shape}`,
-    `Observed: ${inspection.module.observedKind}`,
-    ...(inspection.graphRules === undefined
-      ? []
-      : [`May import: ${inspection.graphRules.join(', ') || 'none'}`]),
-    'Public entry points:',
-    ...(inspection.publicEntryPoints.length === 0
-      ? ['  none']
-      : inspection.publicEntryPoints.map((path) => `  ${path}`)),
+    `${node.kind === 'module' ? 'Module: ' : 'Wrapper:'} ${node.path}`,
+    `Shape:   ${node.shape}`,
+    `Index:   ${node.index ?? 'none'}`,
+    `Nested:  ${node.children.length === 0 ? 'none' : node.children.join(', ')}`,
+    'May import:',
+    ...(reach.rules.length === 0
+      ? ['  nothing by Rule']
+      : reach.rules.map(
+          ({ from, to }) => `  ${to}  ${colors.dim(`by ${from} → ${to}`)}`,
+        )),
+    ...reach.exceptions.map(
+      ({ from, to, because }) =>
+        `  ${to}  ${colors.dim(`by exception ${from} → ${to}: ${because}`)}`,
+    ),
     '',
     `${colors.green('■')} active   ${colors.cyan('■')} dependents   ${colors.yellow('■')} dependencies`,
     '',
-    renderPathTree(inspection.module.path, entries),
+    renderPathTree(node.path, entries),
   ];
   if (inspection.hasViolations) {
     output.push(
       '',
-      colors.yellow('Warning: this Module has architecture violations.'),
-      'Run `laymos lint modules` for details.',
+      colors.yellow('Warning: this Module has violations.'),
+      'Run `laymos lint` for details.',
     );
   }
   return output.join('\n');

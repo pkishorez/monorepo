@@ -1,0 +1,56 @@
+{
+  "name": "effect-oak",
+  "version": "0.0.0",
+  "private": false,
+  "description": "An app as one tree of Actors outside React: each Actor a small state machine driven by Messages, one immutable Snapshot for the whole app, Effect running the work, and React only drawing it.",
+  "keywords": [
+    "effect",
+    "react",
+    "elm",
+    "state-machine",
+    "actor"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pkishorez/monorepo",
+    "directory": "packages/effect-oak"
+  },
+  "type": "module",
+  "files": [
+    "README.md",
+    "LICENSE",
+    "dist/"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/core/index.d.ts",
+      "default": "./dist/core/index.js"
+    },
+    "./react": {
+      "types": "./dist/react/index.d.ts",
+      "default": "./dist/react/index.js"
+    }
+  },
+  "scripts": {
+    "build": "rm -rf ./dist && tsc -p tsconfig.build.json",
+    "fmt": "vp fmt",
+    "lint": "vp check && tsc --noEmit && laymos lint",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "effect": "^4.0.0",
+    "motion": "13.2.0",
+    "react": "19.2.8"
+  },
+  "devDependencies": {
+    "@types/react": "catalog:",
+    "effect": "catalog:",
+    "laymos": "workspace:*",
+    "motion": "catalog:",
+    "react": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}

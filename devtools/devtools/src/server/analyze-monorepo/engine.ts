@@ -10,6 +10,7 @@ import {
   type ManifestError,
   type MonorepoReadError,
 } from './monorepo/index.js';
+import { detectPackageManager } from './package-manager/index.js';
 import { InvalidMonorepoPath } from './errors.js';
 
 export type AnalyzeMonorepoError =
@@ -18,8 +19,9 @@ export type AnalyzeMonorepoError =
   | ManifestError;
 
 /**
- * Given an absolute Monorepo root, returns its Monorepo analysis: every
- * Package, their dependencies on each other by name, and any cycles.
+ * Given an absolute folder, returns its analysis as a Monorepo or a Single
+ * Package: its Package Manager, every Package, their dependencies on each
+ * other by name, and any cycles. A Single Package has one Package, its root.
  */
 export function analyzeMonorepo(
   monorepoPath: string,
@@ -47,10 +49,13 @@ export function analyzeMonorepo(
       });
     }
     const monorepo = yield* loadMonorepo(root);
+    const packageManager = yield* detectPackageManager(root);
     const graph = buildPackageGraph(monorepo.manifests);
     return {
+      kind: monorepo.kind,
       name: monorepo.name,
       path: root,
+      packageManager,
       packages: graph.packages,
       violations: graph.violations,
     };

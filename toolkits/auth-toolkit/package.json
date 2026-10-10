@@ -2,7 +2,7 @@
   "name": "@kstackz/auth-toolkit",
   "version": "0.0.0",
   "private": false,
-  "description": "Curated better-auth building blocks: one shared Auth Worker (Cloudflare D1) with its own pages, server doors for Consumer Backends, and browser and CLI clients",
+  "description": "One shared sign-in service on Cloudflare, the guard both sides of an Effect API agree on, and the server and client halves that sign in to it",
   "keywords": [
     "better-auth",
     "auth",
@@ -17,6 +17,7 @@
   },
   "license": "MIT",
   "type": "module",
+  "sideEffects": false,
   "files": [
     "README.md",
     "LICENSE",
@@ -24,65 +25,48 @@
   ],
   "exports": {
     "./worker": {
-      "types": "./dist/auth-worker/worker/index.d.ts",
-      "default": "./dist/auth-worker/app/worker.js"
+      "types": "./dist/worker/worker/index.d.ts",
+      "default": "./dist/worker/app/worker.js"
     },
-    "./worker/database/d1": {
-      "types": "./dist/auth-worker/database/sqlite/d1/database/index.d.ts",
-      "default": "./dist/auth-worker/database/sqlite/d1/database/index.js"
+    "./worker/memory": {
+      "types": "./dist/worker/database/sqlite/memory/index.d.ts",
+      "default": "./dist/worker/database/sqlite/memory/index.js"
     },
-    "./worker/database/memory": {
-      "types": "./dist/auth-worker/database/sqlite/memory/index.d.ts",
-      "default": "./dist/auth-worker/database/sqlite/memory/index.js"
+    "./worker/alchemy": {
+      "types": "./dist/worker/database/sqlite/d1/resource/index.d.ts",
+      "default": "./dist/worker/database/sqlite/d1/resource/index.js"
     },
-    "./worker/alchemy/d1": {
-      "types": "./dist/auth-worker/database/sqlite/d1/resource/index.d.ts",
-      "default": "./dist/auth-worker/database/sqlite/d1/resource/index.js"
+    "./guard": {
+      "types": "./dist/guard/index.d.ts",
+      "default": "./dist/guard/index.js"
     },
-    "./server/session": {
-      "types": "./dist/server/vanilla/session/index.d.ts",
-      "default": "./dist/server/vanilla/session/index.js"
+    "./server": {
+      "types": "./dist/server/index.d.ts",
+      "default": "./dist/server/index.js"
     },
-    "./server/access-token": {
-      "types": "./dist/server/vanilla/access-token/index.d.ts",
-      "default": "./dist/server/vanilla/access-token/index.js"
+    "./server/cloud": {
+      "types": "./dist/server/cloud/index.d.ts",
+      "default": "./dist/server/cloud/index.js"
     },
-    "./server/mcp": {
-      "types": "./dist/server/vanilla/mcp/index.d.ts",
-      "default": "./dist/server/vanilla/mcp/index.js"
+    "./client": {
+      "types": "./dist/client/index.d.ts",
+      "default": "./dist/client/index.js"
     },
-    "./server/rpc": {
-      "types": "./dist/server/effect/rpc/server/index.d.ts",
-      "default": "./dist/server/effect/rpc/server/index.js"
+    "./client/web": {
+      "types": "./dist/client/sign-in/cookie/index.d.ts",
+      "default": "./dist/client/sign-in/cookie/index.js"
     },
-    "./server/http-api": {
-      "types": "./dist/server/effect/http-api/server/index.d.ts",
-      "default": "./dist/server/effect/http-api/server/index.js"
-    },
-    "./rpc": {
-      "types": "./dist/server/effect/rpc/declaration/index.d.ts",
-      "default": "./dist/server/effect/rpc/declaration/index.js"
-    },
-    "./http-api": {
-      "types": "./dist/server/effect/http-api/declaration/index.d.ts",
-      "default": "./dist/server/effect/http-api/declaration/index.js"
-    },
-    "./clients/auth": {
-      "types": "./dist/clients/auth/index.d.ts",
-      "default": "./dist/clients/auth/index.js"
-    },
-    "./clients/cli": {
-      "types": "./dist/clients/cli/index.d.ts",
-      "default": "./dist/clients/cli/index.js"
+    "./client/cli": {
+      "types": "./dist/client/sign-in/device-code/index.d.ts",
+      "default": "./dist/client/sign-in/device-code/index.js"
     }
   },
   "scripts": {
-    "build": "rm -rf ./dist && vp build --config vite.app.config.ts && node scripts/bundle-app.mts && tsc -p tsconfig.build.json && cp -R src/auth-worker/database/sqlite/migration/migrations dist/auth-worker/database/sqlite/migration/",
-    "db:generate": "auth generate --config ./auth.generate.ts --output ./src/auth-worker/database/sqlite/schema/schema.generated.ts -y && pnpm fmt && drizzle-kit generate",
+    "build": "rm -rf ./dist && vp build --config vite.app.config.ts && node scripts/bundle-app.mts && tsc -p tsconfig.build.json && cp -R src/worker/database/sqlite/migration/migrations dist/worker/database/sqlite/migration/",
+    "db:generate": "auth generate --config ./auth.generate.ts --output ./src/worker/database/sqlite/schema/schema.generated.ts -y && pnpm fmt && drizzle-kit generate",
     "fmt": "vp fmt",
     "lint": "vp check && pnpm lint:tsc && laymos lint",
     "lint:tsc": "tsc --noEmit && tsc -p tsconfig.app.json --noEmit",
-    "stories": "laymos stories",
     "test": "vitest run"
   },
   "dependencies": {
@@ -91,10 +75,10 @@
     "@better-auth/infra": "catalog:",
     "@better-auth/mcp": "catalog:",
     "@better-auth/oauth-provider": "catalog:",
+    "@cloudflare/workers-types": "catalog:",
     "@tanstack/react-query": "catalog:",
     "@tanstack/react-router": "catalog:",
     "@tanstack/react-start": "catalog:",
-    "@cloudflare/workers-types": "catalog:",
     "better-auth": "catalog:",
     "drizzle-orm": "catalog:",
     "use-sync-external-store": "catalog:",
@@ -129,10 +113,12 @@
     }
   },
   "devDependencies": {
+    "@base-ui/react": "catalog:",
     "@effect/platform-node": "catalog:",
+    "@fontsource-variable/inter": "catalog:",
+    "@fontsource-variable/jetbrains-mono": "catalog:",
     "@kstackz/rpc-toolkit": "workspace:*",
     "@kstackz/std-toolkit": "workspace:*",
-    "@kstackz/ui-toolkit": "workspace:*",
     "@tailwindcss/vite": "catalog:",
     "@tsconfig/node22": "catalog:",
     "@types/better-sqlite3": "catalog:",
@@ -144,12 +130,22 @@
     "alchemy": "catalog:",
     "auth": "catalog:",
     "better-sqlite3": "catalog:",
+    "class-variance-authority": "catalog:",
+    "clsx": "catalog:",
+    "cn": "catalog:",
     "drizzle-kit": "catalog:",
     "effect": "catalog:",
     "jose": "catalog:",
     "laymos": "workspace:*",
+    "lucide-react": "catalog:",
+    "motion": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
+    "shadcn": "catalog:",
+    "sonner": "catalog:",
+    "tailwind-merge": "catalog:",
+    "tailwindcss": "catalog:",
+    "tw-animate-css": "catalog:",
     "typescript": "catalog:typescript6",
     "vite": "catalog:",
     "vitest": "catalog:"

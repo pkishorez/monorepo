@@ -1,1 +1,0 @@
-An edit screen sends back only the fields that changed, and that partial needs a version stamp before it goes anywhere near storage. This story shows the small helper that adds the stamp, and makes clear how little else it does.

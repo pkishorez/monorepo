@@ -5,21 +5,20 @@ Commands for reading it back
 
 ## Big picture
 
-Local development produces traces, logs, and Flow Journals, and a project's
-architecture lives in a `laymos.config.json`. DevTools gives all of that one
-place. `devtools` starts a loopback server that bundles the browser UI, a
-typed RPC endpoint, and OTLP/HTTP ingestion. `devtools snapshot` draws a
-Project's changed Modules to a PNG in a headless browser without any server,
-so a review or a CI job can show what a change did to the architecture. Every
-other subcommand is a Client Command that reads Traces and Flows back from a running server as JSON
-or text, so a shell or a coding agent can query telemetry without a browser.
+Local development produces traces and logs, and a project's architecture
+lives in a `laymos.config.json`. DevTools gives all of that one place.
+`devtools` starts a loopback server that bundles the browser UI, a typed RPC
+endpoint, and OTLP/HTTP ingestion. Every subcommand is a Client Command that
+reads Traces back from a running server as JSON or text, so a shell or a
+coding agent can query telemetry without a browser.
 
-The server hosts four Tools. Lotel stores and shows OpenTelemetry data using
-[@kstackz/lotel](../lotel/README.md). Flow stores Journal Entries from
-[@kstackz/flow](../flow/README.md) and draws them as swim lanes. Laymos and
-Monoverse analyze one project or one pnpm monorepo through
-[laymos](../laymos/README.md). Applications send telemetry with
-[@kstackz/effect-tracer](../effect-tracer/README.md).
+The server hosts two Tools. Lotel stores and shows OpenTelemetry data using
+[@kstackz/lotel](../lotel/README.md). Monoverse maps a monorepo or a single
+package and opens a Package's architecture in place as Embedded Laymos,
+through [laymos](../laymos/README.md). Applications send telemetry with
+[@kstackz/effect-tracer](../effect-tracer/README.md). The Tools' views come
+from the private [@devtools/ui](../ui/README.md), which is a devDependency
+bundled into the browser UI at build time, so it is never installed.
 
 Terms are defined in [CONTEXT.md](./CONTEXT.md) and, for Monoverse,
 [docs/monoverse.md](./docs/monoverse.md). Decisions are in
@@ -34,65 +33,53 @@ npm i -g @kstackz/devtools
 
 Or run it without installing: `npx @kstackz/devtools`.
 
-The optional peer `playwright-core` is needed only by `devtools snapshot`,
-which drives a headless Chromium through it. The `@kstackz/devtools/rpc`
-subpath is source TypeScript and needs `effect` in the consuming project.
+It has no peer dependencies. The `@kstackz/devtools/rpc` subpath is source TypeScript and needs `effect` in the consuming project.
 
 ## Exports
 
 ### `@kstackz/devtools/rpc`
 
 The RPC contract the server fulfils and the browser and Client Commands call.
-It merges the Lotel, Flow, Laymos, git, Monoverse, and Project registry groups.
+It merges the Lotel, Laymos, git, Monoverse, and Project registry groups.
 
-| Export                             | What it does                                                                       |
-| ---------------------------------- | ---------------------------------------------------------------------------------- |
-| `DevtoolsRpc`                      | The full RPC group served at `/rpc`.                                               |
-| `DevtoolsToolRpc`                  | The Laymos procedures: analyze, module source, source files, docs, stories.        |
-| `GitRpc`                           | Branches, changes, file diffs, and known files for any folder in a git repository. |
-| `MonoverseRpc`                     | The `AnalyzeMonorepo`, `GetPackageReadme`, and `GetPackageFiles` procedures.       |
-| `ProjectRegistryRpc`               | List, add, update, remove registered Projects and resolve their Worktrees.         |
-| `InvalidProjectPath`               | Error for a relative, missing, or non-directory project path.                      |
-| `ConfigReadError`                  | Error when `laymos.config.json` could not be read.                                 |
-| `ConfigParseError`                 | Error when the config is not valid JSON.                                           |
-| `ConfigSchemaError`                | Error when the config does not match the schema.                                   |
-| `ConfigValidationError`            | Error carrying the config's validation issues.                                     |
-| `SourceAnalysisError`              | Error when the source tree could not be analyzed.                                  |
-| `ModuleSourceNotFoundError`        | Error for an unknown Configured Module.                                            |
-| `ModuleSourceReadError`            | Error when a Module's file could not be read.                                      |
-| `SourceFileReadError`              | Error when a requested source file could not be read.                              |
-| `DocumentationScopeNotFoundError`  | Error for a documentation scope the config does not declare.                       |
-| `DocumentationReadError`           | Error when a docs markdown file could not be read.                                 |
-| `StoriesUnavailableError`          | Error when the Story tree could not be loaded, with the reason.                    |
-| `InvalidFolderPath`                | Error for a relative, missing, or non-directory folder given to a git procedure.   |
-| `GitUnavailableError`              | Error when the folder is not in a repository or git failed.                        |
-| `InvalidMonorepoPathError`         | Error for a relative, missing, or non-directory monorepo path.                     |
-| `NotPnpmWorkspaceError`            | Error when the folder has no `pnpm-workspace.yaml`.                                |
-| `MonorepoReadFailure`              | Error when workspace or manifest files could not be read or parsed.                |
-| `PackageReadmeNotFoundError`       | Error when the requested markdown file does not exist in the Package.              |
-| `PackageReadmeOutsidePackageError` | Error when the relative path escapes the Package folder.                           |
-| `PackageReadmeReadError`           | Error when the markdown file could not be read.                                    |
-| `PackageFileReadError`             | Error when one of a Package's files could not be read.                             |
-| `ProjectRegistryError`             | Error for a missing entry, an invalid path, or a store failure.                    |
-| `RegistryToolSchema`               | `monoverse` or `laymos`: which Tool a registry entry belongs to.                   |
-| `ProjectEntrySchema`               | One registered Project with its Worktree resolution.                               |
-| `ProjectEntryEntitySchema`         | The stored form of a registry entry.                                               |
-| `WorktreeSchema`                   | One git Worktree of a repository.                                                  |
-| `WorktreeResolutionSchema`         | Every Worktree of the Project's repository and which one it is in.                 |
-| `FlowEntryEntitySchema`            | How the Flow Store keeps one Entry, keyed by id and indexed by Flow id.            |
-| `FlowEntryListSchema`              | A page of stored Flow Entries.                                                     |
+| Export                             | What it does                                                                                                   |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `DevtoolsRpc`                      | The full RPC group served at `/rpc`.                                                                           |
+| `DevtoolsToolRpc`                  | The Laymos procedures: analyze, a Module's File list, one file, Story tree, saved Proof reports, Stories runs. |
+| `GitRpc`                           | Branches, changes, file diffs, and known files for any folder in a git repository.                             |
+| `MonoverseRpc`                     | The `AnalyzeMonorepo` and `GetMonorepoFile` procedures.                                                        |
+| `ProjectRegistryRpc`               | List, add, update, remove the folders added to Monoverse and resolve their Worktrees.                          |
+| `InvalidProjectPath`               | Error for a relative, missing, or non-directory project path.                                                  |
+| `ConfigReadError`                  | Error when `laymos.config.json` could not be read.                                                             |
+| `ConfigParseError`                 | Error when the config is not valid JSON.                                                                       |
+| `ConfigSchemaError`                | Error when the config does not match the schema.                                                               |
+| `ConfigValidationError`            | Error carrying the config's validation issues.                                                                 |
+| `SourceAnalysisError`              | Error when the source tree could not be analyzed.                                                              |
+| `FileNotFoundError`                | Error for a Module or file path the Project does not hold.                                                     |
+| `FileReadError`                    | Error when a Project file could not be read.                                                                   |
+| `StoriesUnavailableError`          | Error when Stories could not be loaded or scoped, with the reason.                                             |
+| `InvalidFolderPath`                | Error for a relative, missing, or non-directory folder given to a git procedure.                               |
+| `GitUnavailableError`              | Error when the folder is not in a repository or git failed.                                                    |
+| `InvalidMonorepoPathError`         | Error for a relative, missing, or non-directory monorepo path.                                                 |
+| `NoPackageJsonError`               | Error when the folder has no `package.json`, so it is not a monorepo or a single package.                      |
+| `MonorepoReadFailure`              | Error when workspace or manifest files could not be read or parsed.                                            |
+| `PackageReadmeNotFoundError`       | Error when the requested markdown file does not exist in the Package.                                          |
+| `PackageReadmeOutsidePackageError` | Error when the relative path escapes the Package folder.                                                       |
+| `PackageReadmeReadError`           | Error when the markdown file could not be read.                                                                |
+| `PackageFileReadError`             | Error when one of a Package's files could not be read.                                                         |
+| `ProjectRegistryError`             | Error for a missing entry, an invalid path, or a store failure.                                                |
+| `ProjectEntrySchema`               | One monorepo or single package added to Monoverse, with its Worktree resolution.                               |
+| `WorktreeSchema`                   | One git Worktree of a repository.                                                                              |
+| `WorktreeResolutionSchema`         | Every Worktree of the Project's repository and which one it is in.                                             |
 
 ### CLI
 
-| Command                                          | What it does                                                                                                       |
-| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
-| `devtools [--port] [--db] [--open]`              | Runs the DevTools Server: UI, RPC, and OTLP ingestion on `127.0.0.1:14400`.                                        |
-| `devtools list-traces [--limit 20]`              | Lists recent Trace Summaries, newest first.                                                                        |
-| `devtools get-trace <trace-id>`                  | Returns one Trace: spans in start order with their Log Records.                                                    |
-| `devtools list-flows [--limit 20]`               | Lists recent Flows, newest first.                                                                                  |
-| `devtools get-flow <flow-id>`                    | Returns one Flow Projection in recorded order.                                                                     |
-| `devtools skills [<name>] [--install <dir>]`     | Lists, prints, or installs the shipped agent skill.                                                                |
-| `devtools snapshot [--project] [--base] [--out]` | Draws a Project's changed Modules to a PNG with headless Chromium, no server. `--all` draws every changed Project. |
+| Command                                      | What it does                                                                |
+| -------------------------------------------- | --------------------------------------------------------------------------- |
+| `devtools [--port] [--db] [--open]`          | Runs the DevTools Server: UI, RPC, and OTLP ingestion on `127.0.0.1:14400`. |
+| `devtools list-traces [--limit 20]`          | Lists recent Trace Summaries, newest first.                                 |
+| `devtools get-trace <trace-id>`              | Returns one Trace: spans in start order with their Log Records.             |
+| `devtools skills [<name>] [--install <dir>]` | Lists, prints, or installs the shipped agent skill.                         |
 
 Client Commands take `--url` and `--format json|text`. The server URL comes
 from `--url`, then `DEVTOOLS_URL`, then `DEVTOOLS_PORT` on `127.0.0.1`, then
@@ -103,8 +90,8 @@ when the flags are absent.
 
 ### Start the server and send telemetry to it
 
-Run the server, then point an application's telemetry layer at it. Traces,
-logs, and Flow Entries from every process land in one SQLite file.
+Run the server, then point an application's telemetry layer at it. Traces
+and logs from every process land in one SQLite file.
 
 ```sh
 devtools --open
@@ -112,22 +99,16 @@ devtools --open
 ```
 
 ```ts
-import { Effect, Layer, ManagedRuntime } from 'effect';
+import { Effect, ManagedRuntime } from 'effect';
 import { makeDevTelemetryLayer } from '@kstackz/effect-tracer/telemetry/dev-telemetry';
-import { FlowTelemetry } from '@kstackz/flow';
 
-const endpoint = 'http://127.0.0.1:14400';
-
-// One runtime per process; each names itself so lanes stay apart.
-const runtimeFor = (origin: string) =>
-  ManagedRuntime.make(
-    Layer.merge(
-      FlowTelemetry.layer({ endpoint, origin }),
-      makeDevTelemetryLayer({ endpoint, serviceName: origin }),
-    ),
-  );
-
-const server = runtimeFor('server:api-1');
+// One runtime per process; each names its own service.
+const server = ManagedRuntime.make(
+  makeDevTelemetryLayer({
+    endpoint: 'http://127.0.0.1:14400',
+    serviceName: 'server:api-1',
+  }),
+);
 
 await server.runPromise(
   Effect.log('order accepted').pipe(Effect.withSpan('handle-order')),
@@ -139,23 +120,20 @@ await server.dispose();
 
 How it works:
 
-- The server listens on loopback only and serves `/`, `/lotel`, `/flow`,
-  `/laymos`, `/monoverse`, `/rpc`, `/health`, `/v1/traces`, and `/v1/logs`.
+- The server listens on loopback only and serves `/`, `/lotel`,
+  `/monoverse`, `/rpc`, `/health`, `/story-evidence`, `/v1/traces`, and
+  `/v1/logs`. `/story-evidence?project=&proof=&file=` serves one file from a
+  Proof's `.laymos/stories/<proof id>/` Evidence folder and nothing outside it.
 - `makeDevTelemetryLayer` posts OTLP/HTTP JSON to `/v1/traces` and `/v1/logs`.
-- `FlowTelemetry.layer` posts Flow Entries to `/rpc`; Entries recorded inside
-  a span carry its trace id, so the Flow view links to the trace.
 
 ### Read telemetry back from a shell
 
 Client Commands query the running server. JSON is the default so output can be
-piped; `--format text` renders a Trace as its Narrative and a Flow as one
-line per Entry.
+piped; `--format text` renders a Trace as its Narrative.
 
 ```sh
 devtools list-traces --limit 5
 devtools get-trace 4bf92f3577b34da6a3ce929d0e0e4736 --format text
-devtools list-flows
-devtools get-flow order:42 --format text
 
 # Install the agent skill so a coding agent knows these commands.
 devtools skills devtools --install .claude/skills
@@ -165,62 +143,6 @@ How it works:
 
 - Each command opens an Effect RPC client over NDJSON against `DevtoolsRpc`
   at `<url>/rpc`.
-- A missing Trace or Flow, or an unreachable server, is written to stderr
+- A missing Trace, or an unreachable server, is written to stderr
   with a nonzero exit.
 - Laymos is not covered by Client Commands; use the `laymos` CLI.
-
-### Draw the changed architecture to a PNG
-
-`devtools snapshot` analyzes one Project, marks what changed since a Base ref,
-and draws only the changed Modules and their Layers. It opens the bundled
-Snapshot page from disk in headless Chromium, so nothing listens on a port.
-
-```sh
-# The branch is checked out; compare it with main.
-devtools snapshot --project toolkits/ui-toolkit --base origin/main \
-  --out .snapshots/ui-toolkit.png --only-changed
-# {
-#   "project": "toolkits/ui-toolkit",
-#   "title": "ui-toolkit",
-#   "baseRef": "c08fd1c…",
-#   "modules": 132,
-#   "changedModules": 4,
-#   "drawn": "changed",
-#   "scale": 2,
-#   "images": [
-#     { "theme": "dark", "out": "/…/.snapshots/ui-toolkit.png", "width": 512, "height": 806 }
-#   ]
-# }
-
-# Every Project under this folder that the branch changed, in both themes.
-devtools snapshot --all --base origin/main --only-changed --theme both \
-  --out-dir .snapshots
-# [ { "project": "toolkits/ui-toolkit", …, "images": [
-#     { "theme": "dark", "out": "/…/.snapshots/toolkits%2Fui-toolkit-dark.png", … },
-#     { "theme": "light", "out": "/…/.snapshots/toolkits%2Fui-toolkit-light.png", … } ] } ]
-```
-
-How it works:
-
-- `analyzeProject` and `loadChangeSet` from laymos run in-process. Only
-  commits since the merge-base of `--base` (default `main`) and `HEAD` are
-  marked; uncommitted work is left out, so fetch the base first.
-- The page measures the drawing once, then redraws it at the size the content
-  needs, capped at `--max-width` by `--max-height` (1600 CSS pixels each) and
-  captured at `--scale` device pixels per CSS pixel (2).
-- `--only-changed` writes nothing when no Module changed; otherwise a Project
-  with no changed Module is drawn in full. `--include-unchanged` always draws
-  every Module. The drawing is dark like DevTools; `--theme light` or
-  `DEVTOOLS_THEME=light` draws it light, and `--theme both` writes a `-dark`
-  and a `-light` file.
-- `--all` finds every `laymos.config.json` under the current folder, skipping
-  `fixtures/` and git-ignored folders, keeps the Projects the commits touched,
-  and writes one PNG per Project into `--out-dir` (default `.snapshots`),
-  named after its folder. It cannot be combined with `--project`, `--out`, or
-  `--title`. The pictures share one browser, and a Project that fails is
-  reported with an `error` while the rest are still drawn; the exit code is
-  then 1.
-- Chromium comes from Playwright's own install when present, else the system
-  Chrome, Chromium, or Edge; `--browser` or `DEVTOOLS_BROWSER` names an
-  executable directly. GitHub's Ubuntu runners ship Chrome, so CI installs
-  nothing.

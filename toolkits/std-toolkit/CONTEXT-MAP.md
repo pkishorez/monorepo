@@ -1,6 +1,6 @@
 # Context Map
 
-std-toolkit is a cluster of bounded contexts. Each context owns its own ubiquitous language in a local `CONTEXT.md`. The same word may carry a different meaning in two contexts (e.g. **partition**) — that is intentional; each definition is scoped to its own context.
+std-toolkit is a cluster of bounded contexts. Each context owns its own ubiquitous language in a local `CONTEXT.md`. The same word may carry a different meaning in two contexts — that is intentional; each definition is scoped to its own context.
 
 ## Contexts
 
@@ -12,7 +12,7 @@ std-toolkit is a cluster of bounded contexts. Each context owns its own ubiquito
   - [db/sqlite](./src/db/sqlite/CONTEXT.md) — SQLite adapter specifics.
   - [db/idb](./src/db/idb/CONTEXT.md) — in-browser IndexedDB adapter specifics.
   - [db/memory](./src/db/memory/CONTEXT.md) — ephemeral, runtime-independent Memory adapter specifics.
-- [sync](./src/sync/CONTEXT.md) — the sync engine, its TanStack DB integration, Sync Strategies, and Platforms.
+- [sync](./src/sync/CONTEXT.md) — the sync engine, its TanStack DB integration, Sync Strategies, and Sync adapters.
 
 ## Relationships
 
@@ -24,8 +24,8 @@ std-toolkit is a cluster of bounded contexts. Each context owns its own ubiquito
 - **alchemy → db, snapshot**: `@kstackz/std-toolkit/alchemy` is the only place snapshot meets a deploy. Each target makes a table exist, and its **snapshot guard** keeps the accepted table snapshot in Alchemy state and refuses a deploy that is not upgradable. Nothing depends on alchemy.
 - **db (dynamodb ↔ sqlite ↔ idb ↔ memory)**: a **Shared Kernel**. The single-table topology — **partition key**, **sort key**, **item collection**, `IndexDefinition`, **Table** — is defined once in [db](./src/db/CONTEXT.md); sqlite, idb, and memory mirror dynamodb's topology and each child context records only its divergences.
 - **sync → core**: accepts [[core]] **Entities**, ignores an Entity from a newer version as an **Outdated Application**, exposes their latest values in Collections and to Mutation Callbacks, and interprets `_u` for convergence and the Settle Window.
-- **sync → db**: realizes its **Sync Store** through a compatible database adapter; the Platform chooses which (Memory or IndexedDB), changing durability, not Sync behavior.
+- **sync → db**: realizes its **Sync Store** through a compatible database adapter; the Sync adapter chooses which (Memory, IndexedDB, or SQLite), changing durability, not Sync behavior.
 
 ## Term collisions (same word, different context)
 
-- **Partition** — in [db](./src/db/CONTEXT.md) it is a physical single-table slice (an **item collection** sharing one **partition key**). In [sync](./src/sync/CONTEXT.md) it is a sync-lifecycle window (a refcounted `loadSubset` boundary). Unrelated concepts; each is correct inside its own context.
+- **Partition** is a [db](./src/db/CONTEXT.md) word only: a physical single-table slice (an **item collection** sharing one **partition key**). Sync's lazily loaded subset is a **Window** in [sync](./src/sync/CONTEXT.md).

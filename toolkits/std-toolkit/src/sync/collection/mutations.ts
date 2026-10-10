@@ -14,7 +14,7 @@ import {
   type UpdatePayload,
 } from '../domain/collection-item/index.js';
 import type { WriteError } from '../domain/sync-error/index.js';
-import type { EffectRunner } from '../platform/effect-runner/index.js';
+import type { EffectRunner } from '../store/effect-runner/index.js';
 
 // Per-item onUpdate / onDelete callbacks of one transaction run this many at a time.
 const MUTATION_CONCURRENCY = 5;
@@ -44,11 +44,14 @@ export const makeMutations = <S extends AnyEntityESchema, R>(
       entities: ReadonlyArray<Entity<S['Type']>>,
     ) => Effect.Effect<void, WriteError>;
     runner: EffectRunner<R>;
+    /** Holds each write until it settles, so disposing can wait for it. */
+    trackWrite: (write: Promise<void>) => Promise<void>;
   },
 ) => {
   type TItem = S['Type'];
   type Item = CollectionItem<TItem>;
-  const { schema, onInsert, onUpdate, onDelete, confirm, runner } = args;
+  const { schema, onInsert, onUpdate, onDelete, confirm, runner, trackWrite } =
+    args;
   const valueOf = (item: Item): TItem => stripMeta<TItem>(item);
 
   // TanStack DB keeps a direct insert/update/delete optimistic until a synced
@@ -59,9 +62,11 @@ export const makeMutations = <S extends AnyEntityESchema, R>(
   const run = (
     confirmed: Effect.Effect<ReadonlyArray<Entity<TItem>>, unknown, R>,
   ): Promise<void> =>
-    runner.runPromise(
-      Effect.flatMap(confirmed, (entities) =>
-        Effect.yieldNow.pipe(Effect.andThen(confirm(entities))),
+    trackWrite(
+      runner.runPromise(
+        Effect.flatMap(confirmed, (entities) =>
+          Effect.yieldNow.pipe(Effect.andThen(confirm(entities))),
+        ),
       ),
     );
 

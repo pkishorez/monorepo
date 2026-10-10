@@ -1,9 +1,10 @@
+@source '../../ui/src';
 @source './**/*.ts';
 @source './**/*.tsx';
 
-@import '@kstackz/ui-toolkit/styles/global.css';
-@import '@kstackz/ui-toolkit/styles/typography.css';
-@import '@kstackz/ui-toolkit/styles/font-inter.css';
+@import '@kstackz/web-platform/theme/global.css';
+@import '@kstackz/web-platform/theme/typography.css';
+@import '@kstackz/web-platform/theme/font-inter.css';
 
 ::view-transition-old(root),
 ::view-transition-new(root) {

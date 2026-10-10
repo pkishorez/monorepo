@@ -1,0 +1,49 @@
+{
+  "name": "@devtools/ui",
+  "version": "0.0.0",
+  "description": "The UI only the DevTools show: the trace viewer, Laymos's architecture explorer and the monorepo map. Private: @kstackz/devtools bundles it.",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./otel-trace-viewer": "./src/otel-trace-viewer/trace-viewer/index.ts",
+    "./otel-trace-viewer/*": "./src/otel-trace-viewer/*/index.ts",
+    "./laymos": "./src/laymos/analysis-explorer/index.ts",
+    "./monoverse": "./src/monoverse/monoverse/index.ts"
+  },
+  "scripts": {
+    "dev": "cosmos",
+    "lint": "tsc --noEmit && laymos lint",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@kstackz/effect-tracer": "workspace:*",
+    "@kstackz/lotel": "workspace:*",
+    "@kstackz/std-toolkit": "workspace:*",
+    "@kstackz/use-gesture": "workspace:*",
+    "@kstackz/use-keys": "workspace:*",
+    "@kstackz/web-platform": "workspace:*",
+    "effect": "catalog:",
+    "laymos": "workspace:*",
+    "lucide-react": "catalog:",
+    "motion": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "react-markdown": "catalog:",
+    "react-resizable-panels": "catalog:",
+    "remark-gfm": "catalog:",
+    "use-effect-ts": "workspace:*"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "react-cosmos": "catalog:",
+    "react-cosmos-plugin-vite": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}
