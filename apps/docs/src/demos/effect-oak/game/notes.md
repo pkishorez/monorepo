@@ -9,8 +9,10 @@ to `/demos/effect-oak/road` (the old `/demos/effect-oak` redirects here).
 Game        Welcome → Playing ⇄ Paused, then Crashed
   Playing   Lifetime sends CarSpawned; each Update plans Collided as a
             Command (replaceCommands: the latest plan wins)
-  Paused    PressedPause (P or the Pause button) drops the crash plan;
-            pressing it again moves every Time in the road on by the pause
+  Paused    PressedPause (P or the Pause button) drops the crash plan and
+            keeps how long was left until the next car; pressing it again
+            moves every Time in the road on by the pause, and that car comes
+            after exactly what was left
 scene/      the SVG road, moved at each Frame by motion values; not a Node
 ```
 

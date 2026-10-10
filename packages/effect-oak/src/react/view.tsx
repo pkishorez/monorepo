@@ -1,5 +1,6 @@
-import { memo, useSyncExternalStore } from 'react';
+import { createContext, memo, use, useSyncExternalStore } from 'react';
 import type { FunctionComponent, ReactNode } from 'react';
+import { motionValue } from 'motion/react';
 import type { MotionValue } from 'motion/react';
 import type { AnyNode, Handle, Snapshot } from '../core/index.ts';
 
@@ -17,6 +18,12 @@ type InState<N, T> = Extract<
  */
 type Drawing = { readonly frame: MotionValue<number> };
 
+/**
+ * The app's one Frame, provided by `toReact`. Outside a running app it
+ * stands still at 0.
+ */
+export const FrameContext = createContext<MotionValue<number>>(motionValue(0));
+
 /** A Node without States is drawn by one function; a Node with States by one function per State. */
 type Draw<N> = [StateTag<N>] extends ['Single']
   ? (props: Snapshot<N> & Drawing) => ReactNode
@@ -27,18 +34,15 @@ type Draw<N> = [StateTag<N>] extends ['Single']
     };
 
 /** A View: a React component drawing one Instance of its Node at the app's Frame. */
-export type ViewOf<N> = (props: {
-  readonly node: Handle<N>;
-  readonly frame: MotionValue<number>;
-}) => ReactNode;
+export type ViewOf<N> = (props: { readonly node: Handle<N> }) => ReactNode;
 
 type Props = Snapshot<AnyNode> & Drawing;
 
 /**
  * How one Node is drawn. The result re-renders only when its own Instance
  * changes, never because a parent View re-rendered: its props are the
- * Instance, which stays the same object for the Instance's whole life, and
- * the app's one Frame. A parent View hands its `frame` to its Children's.
+ * Instance, which stays the same object for the Instance's whole life. Each
+ * View reads the app's one Frame from context and hands it to its draw.
  *
  * Each State is drawn by its own component, keyed by the State: a Transition
  * unmounts the old drawing and mounts the new one, so each State's draw can
@@ -60,7 +64,8 @@ const make = <N extends AnyNode>(node: N, draw: Draw<N>): ViewOf<N> => {
           ]),
         );
 
-  const View = memo<Parameters<ViewOf<N>>[0]>(({ node: instance, frame }) => {
+  const View = memo<Parameters<ViewOf<N>>[0]>(({ node: instance }) => {
+    const frame = use(FrameContext);
     const snapshot = useSyncExternalStore(
       instance.subscribe,
       instance.current,

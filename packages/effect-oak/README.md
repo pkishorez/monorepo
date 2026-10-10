@@ -129,14 +129,12 @@ export const Auth = Node.make('Auth', {
 ```tsx
 export const AuthView = View.make(Auth, {
   Checking: () => <Spinner />,
-  Anonymous: ({ children, frame }) => (
-    <LoginView node={children.login} frame={frame} />
-  ),
-  Authenticated: ({ state, children, frame }) => (
+  Anonymous: ({ children }) => <LoginView node={children.login} />,
+  Authenticated: ({ state, children }) => (
     <>
       <p>Signed in as {state.user}</p>
-      <ExpiryView node={children.expiry} frame={frame} />
-      <ApiView node={children.api} frame={frame} />
+      <ExpiryView node={children.expiry} />
+      <ApiView node={children.api} />
     </>
   ),
 });
@@ -145,7 +143,7 @@ const DemoApp = toReact(Auth, AuthView, ServerLive);
 ```
 
 - A View is written per State, and each one sees only the Children of its State.
-- Each View re-renders only when its own Instance's Model or State changes. A View hands `frame` on to its Children's Views.
+- Each View re-renders only when its own Instance's Model or State changes. A View takes only `node`; its draw also gets `frame`, which `toReact` provides through context.
 - `DemoApp.useRuntime()` returns `{ log, shown, show, frame }` from anywhere on the page: every Message with what came of it and its Time, the Step shown (`null` is live), and the Frame. `show(3)` draws the app right after its third Message, at that Message's Time; `show(null)` goes back to live. The live app keeps running meanwhile, and the past cannot Send.
 - Every mount of `DemoApp` shows the same Runtime. The first mount starts it and the last unmount stops it.
 
@@ -182,7 +180,7 @@ return (
 ```
 
 - Update gets each Message's Time as `at`. The Runtime stamps it when the Message is sent, from Effect's `Clock`, and Replay gives Update the same `at`.
-- `frame` is one `MotionValue<number>` for the whole app. Live, it follows the Runtime's Time at every animation frame; at a Step it stands still at that Message's Time. React renders only when a Message changes the Model, and `useTransform` recomputes during that render, so a new Model never shows at an old position.
+- `frame` is one `MotionValue<number>` for the whole app, and every View's draw gets it. Outside a running app it stands still at 0. Live, it follows the Runtime's Time at every animation frame; at a Step it stands still at that Message's Time. React renders only when a Message changes the Model, and `useTransform` recomputes during that render, so a new Model never shows at an old position.
 - A canvas listens instead: `useMotionValueEvent(frame, 'change', (at) => draw(at))`, plus one draw at `frame.get()` when it mounts.
 - There is no Pause. An app that must stand still, like a game, pauses itself with its own Messages; the road keeps a Paused State.
 - Commands and Lifetimes sleep on Effect's Clock. An Update returning `replaceCommands: true` stops its Node's Commands still running first: the demo replans its crash this way every time you steer.

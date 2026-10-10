@@ -22,7 +22,7 @@ import { WorkHistoryView } from './work-history/index.js';
 
 export const JobApplicationView = View.make(
   JobApplication,
-  ({ model, children, frame, send }) => {
+  ({ model, children, send }) => {
     const attention = needingAttention(model);
     const { step } = model;
     return (
@@ -48,22 +48,17 @@ export const JobApplicationView = View.make(
               <h2 className="mb-6 text-lg font-semibold">{stepLabel[step]}</h2>
               <div className="min-h-[400px]">
                 {step === 'PersonalInfo' && (
-                  <PersonalInfoView
-                    node={children.personalInfo}
-                    frame={frame}
-                  />
+                  <PersonalInfoView node={children.personalInfo} />
                 )}
                 {step === 'WorkHistory' && (
-                  <WorkHistoryView node={children.workHistory} frame={frame} />
+                  <WorkHistoryView node={children.workHistory} />
                 )}
-                {step === 'Skills' && (
-                  <SkillsView node={children.skills} frame={frame} />
-                )}
+                {step === 'Skills' && <SkillsView node={children.skills} />}
                 {step === 'CoverLetter' && (
-                  <CoverLetterView node={children.coverLetter} frame={frame} />
+                  <CoverLetterView node={children.coverLetter} />
                 )}
                 {step === 'Attachments' && (
-                  <AttachmentsView node={children.attachments} frame={frame} />
+                  <AttachmentsView node={children.attachments} />
                 )}
                 {step === 'Review' && (
                   <Review

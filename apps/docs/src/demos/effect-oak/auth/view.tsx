@@ -10,14 +10,14 @@ export const AuthView = View.make(Auth, {
       <Spinner />
     </div>
   ),
-  LoggedOut: ({ children, frame }) => (
+  LoggedOut: ({ children }) => (
     <div className="size-full overflow-y-auto">
-      <LoggedOutView node={children.pages} frame={frame} />
+      <LoggedOutView node={children.pages} />
     </div>
   ),
-  LoggedIn: ({ children, frame }) => (
+  LoggedIn: ({ children }) => (
     <div className="size-full overflow-y-auto">
-      <LoggedInView node={children.pages} frame={frame} />
+      <LoggedInView node={children.pages} />
     </div>
   ),
 });

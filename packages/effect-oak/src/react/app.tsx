@@ -5,6 +5,7 @@ import type { MotionValue } from 'motion/react';
 import { Effect, Exit, Layer, Scope } from 'effect';
 import { Replay, Runtime } from '../core/index.ts';
 import type { AnyNode, Entry, Handle, Needs, Running } from '../core/index.ts';
+import { FrameContext } from './view.tsx';
 import type { ViewOf } from './view.tsx';
 
 type Unmet<N, Provided> = [Exclude<Needs<N>, Provided>] extends [never]
@@ -33,7 +34,7 @@ export interface AppRuntime {
  * mounted: the first mount builds the Layer and starts it, the last unmount
  * stops everything, and every mount draws the same tree.
  *
- * Every View gets `frame`, the Time the app is drawn at. Live, it follows the
+ * Every View's draw gets `frame`, the Time the app is drawn at, from context. Live, it follows the
  * Runtime's Time at every animation frame; at a Step it stands still at that
  * Message's Time. `App.useRuntime()` reads the Log and chooses the Step shown,
  * from anywhere on the page. Views of the past cannot Send.
@@ -125,7 +126,11 @@ export const toReact = <N extends AnyNode, Provided>(
   const App = () => {
     const root = useSyncExternalStore(subscribe, () => tree);
     useEffect(mount, []);
-    return root ? <RootView node={root} frame={frame} /> : null;
+    return root ? (
+      <FrameContext value={frame}>
+        <RootView node={root} />
+      </FrameContext>
+    ) : null;
   };
 
   return Object.assign(App, {
