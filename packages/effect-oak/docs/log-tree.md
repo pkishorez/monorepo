@@ -1,27 +1,24 @@
 # Design: the Log is a tree, and the Runtime can stop and start from any entry
 
-Status: agreed, not built. The decision is [ADR 0007](adr/0007-the-log-is-a-tree-the-runtime-runs-in-memory.md). Terms are in [CONTEXT.md](../CONTEXT.md): Log, Head, Branch, Step.
+Status: agreed. The decision is [ADR 0007](adr/0007-the-log-is-a-tree-the-runtime-runs-in-memory.md). Terms are in [CONTEXT.md](../CONTEXT.md): Log, Head, Branch, Step.
 
 ## The model
 
-The Runtime runs in memory; the store remembers.
-
 The Log is a tree of entries, one per Message, each pointing to its parent, like git commits. The Head is the entry the next Message goes after. Starting from an earlier entry moves the Head there, and new Messages grow a new Branch beside the old one, which stays in the Log.
 
-There are three moments:
+The Log is one value in memory, owned by the Runtime. It is the only source of truth for the Runtime, Replay, `useRuntime()` and any timeline:
 
-1. **Boot.** Read the Head from the store, walk `parent` links from the Head back to the first entry, and Replay those Messages to rebuild the tree. Then go live: every Instance enters its current State, so Lifetimes start. With the in-memory store (the default) the store is empty, so boot is just `init`.
-2. **Running.** Each Message is ordered by the in-memory queue, and Update runs right away. Then one entry `{ parent: Head, ... }` is written to the store, and the Head moves to it. Writes go out in order, in the background; the app never waits for them.
-3. **Showing the past.** Replay walks the current Branch's entries, which the Runtime holds in memory: it read them at boot and adds every new one. Showing an entry on another Branch reads that Branch's path from the store first.
+1. **Running.** Each Message is ordered by the in-memory queue, and Update runs right away. Then one entry `{ parent: Head, ... }` is pushed onto the Log, and the Head moves to it.
+2. **Showing the past.** Replay walks the Branch to the entry shown, from the same value, on any Branch.
 
 ## Stopping and starting
 
 - **`stop()`** interrupts every Command and Lifetime at once. The tree, the Log and the Head stay as they are, and the Frame stands still. Nothing can Send.
-- **`start(from?)`** Replays the path to `from` (the Head if not given), goes live from that tree, and moves the Head to `from`. Lifetimes start again. Commands that were running when the Runtime stopped are gone: their Messages never arrive. `init` runs inside the Replay, so its Commands do not run again either.
+- **`start(from?)`** Replays the path to `from` (the Head if not given), goes live from that tree with its Instance numbers kept, and moves the Head to `from`. Every Instance enters its current State, so Lifetimes start again. Commands that were running when the Runtime stopped are gone: their Messages never arrive. `init` runs inside the Replay, so its Commands do not run again either. `start(null)` starts from right after init.
 - **Starting while running** stops first, then starts.
 - **`start()` with no entry** is a resume: the same Branch carries on.
-- **Time** on a new Branch carries on from `from`'s Time (0 right after init). Time spent stopped is not counted. Update sees the same `at` it would have seen had the app never stopped.
-- **Mounts.** The first mount of the app boots and starts the Runtime; the last unmount stops it. In between, `stop()` and `start()` are the app's to call. A Runtime stopped by hand stays stopped while mounts come and go, until the count drops to zero and rises again.
+- **Time** on a new Branch carries on from `from`'s Time (0 right after init). A resume carries on from the Time it stopped at. Time spent stopped is not counted.
+- **Mounts.** The first mount of the app starts the Runtime; the last unmount stops it. In between, `stop()` and `start()` are the app's to call. A Runtime stopped by hand stays stopped while mounts come and go, until the count drops to zero and rises again; then it starts from the Head.
 
 Two rules follow, and the README states them:
 
@@ -30,55 +27,66 @@ Two rules follow, and the README states them:
 
 ## Storage
 
-The Log lives in a std-toolkit `StdTable` that effect-oak defines and exports as `Log.table`. It is given to the Runtime in its own Layer, separate from the app's Layer of Services:
+The Log is a plain value, held in a plain store `{ get(): RuntimeState, subscribe(listener): () => void }`. React reads it with `useSyncExternalStore`.
 
 ```ts
-toReact(Shop, ShopView, appLayer); // in memory
-toReact(Shop, ShopView, appLayer, {
-  log: IDB.make(Log.table, { database: IDB.database({ databaseName: 'shop' }) })
-    .layer,
-}); // kept across reloads
+interface RuntimeState {
+  readonly entries: ReadonlyArray<Entry>; // append-only; an entry's id is its position
+  readonly head: number | null; // null = right after init
+  readonly running: boolean;
+  readonly shown: number | null; // null = live
+}
+
+interface Entry {
+  readonly parent: number | null;
+  readonly message: Tagged;
+  readonly at: number;
+  readonly instance: number;
+  readonly path: string;
+  readonly outcome: 'handled' | 'ignored' | 'dropped';
+  readonly from: string;
+  readonly to: string;
+}
 ```
 
-Without `log`, the Runtime uses `Memory.make(Log.table).layer`.
+- Adding a Message is a push: `entries` is one append-only array the states share, never copied per Message.
+- Every change makes a new `RuntimeState` object, so `useSyncExternalStore` sees it, and no reader sees a torn state.
+- A Branch is the path from an entry back to init through `parent`, computed at most once per change.
+- The children of each entry are indexed as entries are pushed, to draw the tree.
 
-Two entities:
-
-| Entity  | Key                                                   | Fields                                                                                                                                                |
-| ------- | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Entry` | `pk`: app (the root Node's name); `id`: sortable ULID | `parent`: entry id, or `null` right after init; `message`; `at`; `instance`; `path`; `outcome` (handled, ignored, dropped); `from`; `to` (State tags) |
-| `Head`  | `pk`: app; one item                                   | `entry`: entry id, or `null` right after init                                                                                                         |
-
-`Entry` has an index on `parent`, so the children of any entry can be listed to draw the tree.
-
-Messages are stored through their Node's Message Schema. If any entry on the Head's Branch does not decode with the current code, boot starts a fresh tree from `init`, leaves the old one in the store, and warns.
+Persistence comes later, as saving and loading this value.
 
 ## `App.useRuntime()`
 
-| Member                    | What it is                                                           |
-| ------------------------- | -------------------------------------------------------------------- |
-| `log`                     | The current Branch's entries, from the first to the Head             |
-| `head`                    | The Head's entry id, or `null` right after init                      |
-| `running`                 | Whether the Runtime is running                                       |
-| `shown`                   | The entry shown, or `null` for live                                  |
-| `show(entry \| null)`     | Show the app right after an entry, on any Branch, or go live         |
-| `stop()`                  | Stop the Runtime                                                     |
-| `start(entry?)`           | Start from an entry, or resume from the Head                         |
-| `children(entry \| null)` | An Effect listing the entries that follow an entry, to draw the tree |
-| `frame`                   | The app's Frame                                                      |
+| Member                    | What it is                                                          |
+| ------------------------- | ------------------------------------------------------------------- |
+| `log`                     | The current Branch's entries, from the first to the Head, with ids  |
+| `head`                    | The Head's entry id, or `null` right after init                     |
+| `running`                 | Whether the Runtime is running                                      |
+| `shown`                   | The entry shown, or `null` for live                                 |
+| `show(entry \| null)`     | Show the app right after an entry, on any Branch, or go live        |
+| `stop()`                  | Stop the Runtime                                                    |
+| `start(entry?)`           | Start from an entry (`null`: right after init), or resume the Head  |
+| `children(entry \| null)` | The entries that follow an entry (`null`: init), to draw the tree   |
+| `frame`                   | The app's Frame: still while stopped, moving while live and running |
 
 ## What changes in the code
 
-- **Tree:** planting a tree can start from a Replayed tree, keeping its Instance numbers, and enter every current State instead of running `init`.
-- **Runtime:** `start` takes the path to `from` and the Time to carry on from, and Time is that Time plus time since start. Recording an entry appends to the in-memory Branch and writes to the store in order.
-- **Replay:** seeks to an entry on a path of entries instead of to a step number.
-- **React:** `toReact` takes the optional `log` Layer. `useRuntime` gains `head`, `running`, `stop`, `start` and `children`. Mount counting calls boot and stop.
-- **Dependencies:** `@kstackz/std-toolkit` (for `/db`, `/db/memory` and `/eschema`).
+- **Log:** a new module owning `Entry`, `RuntimeState` and the store: push an entry (moving the Head), move the Head, set running and shown, the Branch to an entry, and an entry's children.
+- **Tree:** a Replayed tree can go live: every current State is entered with the live Hooks, `init` does not run, and Instance numbers carry on from the Replayed tree.
+- **Runtime:** writes entries to the Log, and implements `stop` and `start(from)`, using Replay to rebuild the tree. Time is `from`'s Time plus time since start.
+- **Replay:** seeks to the last entry of a Branch instead of to a step number.
+- **React:** `useRuntime` gains `head`, `running`, `stop`, `start` and `children`. Mount counting starts and stops.
+
+## Considered Options
+
+- **The store as the queue (write first, then Update from its subscription)**: rejected. Every Message would wait for a write (keystrokes would lag), the outcome would need a second write, and order would follow write completion.
+- **The Log in a std-toolkit table, given to the Runtime in its own Layer, with decode checks at boot**: rejected for now. Persistence is not needed yet, and it brought a dependency, async writes, and a second copy of the truth to keep in step with memory. It comes later as saving and loading the one value.
+- **A `SubscriptionRef` for the state**: rejected. React needs `{ get, subscribe }` for `useSyncExternalStore`, and the Runtime changes it synchronously.
 
 ## Left for later
 
-- Waiting for each write, for apps that must never lose a Message.
-- Several tabs sharing one stored Log.
+- Persistence: saving and loading the `RuntimeState` value, across reloads.
+- Several tabs sharing one Log.
 - Re-running Commands that were running at the fork.
-- Migrating stored Messages with std-toolkit's `evolve` instead of starting fresh.
 - Snapshots, so starting from a deep entry doesn't Replay from the start.

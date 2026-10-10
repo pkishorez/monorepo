@@ -49,7 +49,7 @@ The pure rule that takes the current Model, State, a Message and its Time and re
 _Avoid_: reducer, handler
 
 **Log**:
-A tree of entries, one per Message, each pointing to the entry before it: the Message, the Instance and Path it went to, its Time, and what came of it: handled, ignored, or dropped because its Instance was gone. Kept in a store the app chooses, in memory unless told otherwise. Replay needs only the Messages on the way to an entry.
+A tree of entries, one per Message, each pointing to the entry before it: the Message, the Instance and Path it went to, its Time, and what came of it: handled, ignored, or dropped because its Instance was gone. Replay needs only the Messages on the way to an entry.
 _Avoid_: history, journal, event store
 
 **Head**:
