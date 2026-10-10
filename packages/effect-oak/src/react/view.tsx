@@ -2,12 +2,38 @@ import { createContext, memo, use, useSyncExternalStore } from 'react';
 import type { FunctionComponent, ReactNode } from 'react';
 import { motionValue } from 'motion/react';
 import type { MotionValue } from 'motion/react';
-import type { AnyNode, Handle, Snapshot } from '../core/index.ts';
+import type { AnyActor, Many, Only, Tagged, Types } from '../core/index.ts';
 
-type StateTag<N> = Snapshot<N>['state']['_tag'];
+/** One Instance in the tree, to draw: only its ID, so it never changes. */
+export interface Handle<A> {
+  readonly id: string;
+  readonly actor?: A;
+}
 
-type InState<N, T> = Extract<
-  Snapshot<N>,
+type HandleOf<S> =
+  S extends Many<infer A> ? ReadonlyArray<Handle<A>> : Handle<S>;
+
+type KidsIn<A, T> = T extends keyof Types<A>['children']
+  ? Types<A>['children'][T]
+  : {};
+
+/** What a View is handed for one Instance, narrowed by its current State. */
+export type ViewProps<A> = {
+  [T in Types<A>['state']['_tag']]: {
+    readonly id: string;
+    readonly model: Types<A>['model'];
+    readonly state: Only<Types<A>['state'], T>;
+    readonly children: {
+      readonly [K in keyof KidsIn<A, T>]: HandleOf<KidsIn<A, T>[K]>;
+    };
+    readonly send: (message: Types<A>['message']) => void;
+  };
+}[Types<A>['state']['_tag']];
+
+type StateTag<A> = ViewProps<A>['state']['_tag'];
+
+type InState<A, T> = Extract<
+  ViewProps<A>,
   { readonly state: { readonly _tag: T } }
 >;
 
@@ -24,34 +50,42 @@ type Drawing = { readonly frame: MotionValue<number> };
  */
 export const FrameContext = createContext<MotionValue<number>>(motionValue(0));
 
-/** A Node without States is drawn by one function; a Node with States by one function per State. */
-type Draw<N> = [StateTag<N>] extends ['Single']
-  ? (props: Snapshot<N> & Drawing) => ReactNode
+/** What Views read the app through, provided by `toReact`. */
+export interface Drawn {
+  readonly subscribe: (listener: () => void) => () => void;
+  /** The props of the Instance with this ID as drawn now, the same object while they do not change. */
+  readonly props: (id: string) => ViewProps<AnyActor> | undefined;
+}
+
+export const DrawnContext = createContext<Drawn | undefined>(undefined);
+
+/** An Actor without States is drawn by one function; an Actor with States by one function per State. */
+type Draw<A> = [StateTag<A>] extends ['Single']
+  ? (props: ViewProps<A> & Drawing) => ReactNode
   : {
-      readonly [T in StateTag<N>]: (
-        props: InState<N, T> & Drawing,
+      readonly [T in StateTag<A>]: (
+        props: InState<A, T> & Drawing,
       ) => ReactNode;
     };
 
-/** A View: a React component drawing one Instance of its Node at the app's Frame. */
-export type ViewOf<N> = (props: { readonly node: Handle<N> }) => ReactNode;
+/** A View: a React component drawing one Instance of its Actor at the app's Frame. */
+export type ViewOf<A> = (props: { readonly node: Handle<A> }) => ReactNode;
 
-type Props = Snapshot<AnyNode> & Drawing;
+type Props = ViewProps<AnyActor> & Drawing;
 
 /**
- * How one Node is drawn. The result re-renders only when its own Instance
- * changes, never because a parent View re-rendered: its props are the
- * Instance, which stays the same object for the Instance's whole life. Each
- * View reads the app's one Frame from context and hands it to its draw.
+ * How one Actor is drawn. The result re-renders only when its own Instance's
+ * Model, State or set of Children changes, never because a parent View or a
+ * descendant did: its props are a Handle, which never changes.
  *
  * Each State is drawn by its own component, keyed by the State: a Transition
  * unmounts the old drawing and mounts the new one, so each State's draw can
  * keep its own hooks.
  */
-const make = <N extends AnyNode>(node: N, draw: Draw<N>): ViewOf<N> => {
+const make = <A extends AnyActor>(actor: A, draw: Draw<A>): ViewOf<A> => {
   const drawOf = (tag: string, f: (props: Props) => ReactNode) => {
     const State: FunctionComponent<Props> = (props) => f(props);
-    State.displayName = `${node.name}.${tag}`;
+    State.displayName = `${actor.name}.${tag}`;
     return State;
   };
   const states: Readonly<Record<string, FunctionComponent<Props>>> =
@@ -64,18 +98,23 @@ const make = <N extends AnyNode>(node: N, draw: Draw<N>): ViewOf<N> => {
           ]),
         );
 
-  const View = memo<Parameters<ViewOf<N>>[0]>(({ node: instance }) => {
+  const View = memo<Parameters<ViewOf<A>>[0]>(({ node }) => {
     const frame = use(FrameContext);
-    const snapshot = useSyncExternalStore(
-      instance.subscribe,
-      instance.current,
-    ) as Snapshot<AnyNode>;
-    const tag = snapshot.state._tag;
+    const drawn = use(DrawnContext);
+    if (!drawn)
+      throw new Error(
+        `[effect-oak] ${actor.name}View is drawn outside its app`,
+      );
+    const props = useSyncExternalStore(drawn.subscribe, () =>
+      drawn.props(node.id),
+    );
+    if (!props) return null;
+    const tag = (props.state as Tagged)._tag;
     const State = states[tag]!;
-    return <State key={tag} {...snapshot} frame={frame} />;
+    return <State key={tag} {...props} frame={frame} />;
   });
-  View.displayName = `${node.name}View`;
-  return View as ViewOf<N>;
+  View.displayName = `${actor.name}View`;
+  return View as ViewOf<A>;
 };
 
 export const View = { make };
