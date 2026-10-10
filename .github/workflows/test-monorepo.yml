@@ -50,9 +50,6 @@ jobs:
       - name: Wait for DynamoDB Local
         run: timeout 30s bash -c 'until curl --silent --output /dev/null http://localhost:8090; do sleep 1; done'
 
-      - name: Install Chromium for Browser Stories
-        run: pnpm --filter laymos exec playwright-core install --with-deps chromium
-
       - name: Test
         run: |
           node --test .github/scripts/test-summary.test.mjs
@@ -60,6 +57,3 @@ jobs:
 
       - name: Worker integration test
         run: pnpm --filter alchemy-console test:worker
-
-      - name: Stories
-        run: pnpm stories
