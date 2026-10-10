@@ -3,12 +3,15 @@
   "description": "Narrated explainer videos on any topic, built on a Foundation discovered through prototype Rounds.",
   "version": "0.0.0",
   "dependencies": {
+    "@kstackz/web-platform": "workspace:*",
     "@remotion/media-utils": "catalog:",
     "@remotion/player": "catalog:",
-    "@kstackz/web-platform": "workspace:*",
+    "@shikijs/langs": "catalog:",
+    "@shikijs/themes": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "remotion": "catalog:"
+    "remotion": "catalog:",
+    "shiki": "catalog:"
   },
   "devDependencies": {
     "@remotion/bundler": "catalog:",
@@ -37,7 +40,8 @@
     "fmt": "vp fmt",
     "lint": "vp check && pnpm lint:tsc && pnpm lint:laymos",
     "lint:laymos": "laymos lint",
-    "lint:tsc": "tsc --noEmit"
+    "lint:tsc": "tsc --noEmit",
+    "sound": "node scripts/sound.ts"
   },
   "type": "module"
 }

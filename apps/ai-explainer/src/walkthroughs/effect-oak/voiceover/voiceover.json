@@ -1,0 +1,121 @@
+[
+  {
+    "id": "actor-model",
+    "text": "Effect Oak starts with an Actor. An Actor holds a Model: here, a rocket's fuel. It accepts Messages: Fuel and Drain. And an update turns a Model and a Message into the next Model.",
+    "speaker": "am_michael",
+    "speed": 1.2,
+    "seconds": 11.825
+  },
+  {
+    "id": "actor-view",
+    "text": "To draw it, write a View. It's plain React: it takes the Model, and sends Messages when you click.",
+    "speaker": "am_michael",
+    "speed": 1.2,
+    "seconds": 6.05
+  },
+  {
+    "id": "states-accept",
+    "text": "A rocket can't refuel in the air, or land on the pad. So an Actor can have States, and each State decides which Messages it accepts.",
+    "speaker": "am_michael",
+    "speed": 1.2,
+    "seconds": 8.6
+  },
+  {
+    "id": "states-lifetime",
+    "text": "A State can also run work while it lasts. In flight, a Lifetime burns fuel. Land, and it stops on its own. Run dry, and the rocket is Lost.",
+    "speaker": "am_michael",
+    "speed": 1.2,
+    "seconds": 9.475
+  },
+  {
+    "id": "many-list",
+    "text": "One rocket is never enough. The Launch Site keeps a list of rockets in its Model, and Actor.many turns each one into its own live Actor.",
+    "speaker": "am_michael",
+    "speed": 1.2,
+    "seconds": 8.75
+  },
+  {
+    "id": "many-children",
+    "text": "States decide Children too. Only a rocket in flight has boosters. They fire, separate, and they're gone.",
+    "speaker": "am_michael",
+    "speed": 1.2,
+    "seconds": 6.775
+  },
+  {
+    "id": "capabilities-requires",
+    "text": "Rockets shouldn't own the weather. The Launch Site Provides Weather, and each Rocket Requires it. Leave it out, and it won't compile.",
+    "speaker": "am_michael",
+    "speed": 1.2,
+    "seconds": 7.425
+  },
+  {
+    "id": "capabilities-command",
+    "text": "Checking the sky is a Command: an Effect the update asks for, using any service it Requires. Storm? The launch is scrubbed.",
+    "speaker": "am_michael",
+    "speed": 1.2,
+    "seconds": 7.9
+  },
+  {
+    "id": "motion",
+    "text": "And it's just React, so Motion glides the rocket from the pad to the sky.",
+    "speaker": "am_michael",
+    "speed": 1.2,
+    "seconds": 4.825
+  },
+  {
+    "id": "time-log",
+    "text": "Every click was a Message, and every Message is in the Log. Launch with too little fuel, and the rocket is Lost.",
+    "speaker": "am_michael",
+    "speed": 1.2,
+    "seconds": 6.975
+  },
+  {
+    "id": "time-branch",
+    "text": "Step back, and it floats back to the pad, animations and all. Branch off from before the launch, fuel up, and try again. Both histories, side by side.",
+    "speaker": "am_michael",
+    "speed": 1.2,
+    "seconds": 9.75
+  },
+  {
+    "id": "deeper-lifetimes",
+    "text": "Lifetimes come in two kinds: one for the whole Instance, one for a single State. Both are optional.",
+    "speaker": "am_michael",
+    "speed": 1.2,
+    "seconds": 6.625
+  },
+  {
+    "id": "deeper-commands",
+    "text": "Commands are keyed. Launch twice, and the countdown restarts. Abort cancels it mid-count.",
+    "speaker": "am_michael",
+    "speed": 1.2,
+    "seconds": 6.025
+  },
+  {
+    "id": "deeper-rendering",
+    "text": "Updates are surgical: only the View whose Actor changed renders again.",
+    "speaker": "am_michael",
+    "speed": 1.2,
+    "seconds": 4.875
+  },
+  {
+    "id": "deeper-replay",
+    "text": "The Messages alone rebuild the whole app. Replay runs no side effects. Once it's done, Lifetimes start again for whatever is live.",
+    "speaker": "am_michael",
+    "speed": 1.2,
+    "seconds": 8.725
+  },
+  {
+    "id": "deeper-inspector",
+    "text": "And the Inspector maps it all: every Actor, every State, how many Instances each has, and what every Message changed.",
+    "speaker": "am_michael",
+    "speed": 1.2,
+    "seconds": 7.6
+  },
+  {
+    "id": "close",
+    "text": "Effect Oak.",
+    "speaker": "am_michael",
+    "speed": 1.2,
+    "seconds": 1.475
+  }
+]

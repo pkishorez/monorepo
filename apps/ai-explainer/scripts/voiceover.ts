@@ -1,7 +1,8 @@
-// Usage: pnpm voiceover <explainer>
-// Speaks each line of src/explainers/<explainer>/script.ts with the Foundation
-// voice and writes compressed audio plus a typed voiceover.ts beside it.
-// Lines whose text and voice are unchanged are kept as they are.
+// Usage: pnpm voiceover <name>
+// Speaks each line of the script.ts of the Explainer or Walkthrough <name>
+// with the Foundation voice and writes levelled, compressed audio plus a
+// typed voiceover.ts beside it. Lines whose text and voice are unchanged are
+// kept as they are.
 import { execFileSync } from 'node:child_process';
 import {
   existsSync,
@@ -11,8 +12,8 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { KokoroTTS } from 'kokoro-js';
 import { voice } from '../src/foundation/voice/index.ts';
+import { speak } from './speak.ts';
 
 type Line = {
   id: string;
@@ -23,9 +24,12 @@ type Line = {
 };
 
 const name = process.argv[2];
-if (!name) throw new Error('Usage: pnpm voiceover <explainer>');
+if (!name) throw new Error('Usage: pnpm voiceover <name>');
 
-const folder = resolve('src/explainers', name);
+const folder = ['src/explainers', 'src/walkthroughs']
+  .map((parent) => resolve(parent, name))
+  .find((candidate) => existsSync(join(candidate, 'script.ts')));
+if (!folder) throw new Error(`No Explainer or Walkthrough "${name}"`);
 const audioFolder = join(folder, 'voiceover');
 const manifestPath = join(audioFolder, 'voiceover.json');
 const { script } = (await import(join(folder, 'script.ts'))) as {
@@ -37,7 +41,6 @@ const previous: Line[] = existsSync(manifestPath)
   ? JSON.parse(readFileSync(manifestPath, 'utf8'))
   : [];
 
-let tts: KokoroTTS | undefined;
 const lines: Line[] = [];
 for (const { id, say } of script) {
   const kept = previous.find(
@@ -52,22 +55,32 @@ for (const { id, say } of script) {
     lines.push(kept);
     continue;
   }
-  tts ??= await KokoroTTS.from_pretrained(voice.model, {
-    dtype: 'q8',
-    device: 'cpu',
-  });
-  const audio = await tts.generate(say, {
-    voice: voice.speaker as never,
-    speed: voice.speed,
-  });
   const wav = join(audioFolder, `${id}.wav`);
-  await audio.save(wav);
+  await speak(say, wav);
+  const seconds = Number(
+    Number(
+      execFileSync('ffprobe', [
+        '-v',
+        'error',
+        '-show_entries',
+        'format=duration',
+        '-of',
+        'csv=p=0',
+        wav,
+      ]),
+    ).toFixed(3),
+  );
+  // Every line is levelled to the same loudness, so the mix under it holds.
   execFileSync('ffmpeg', [
     '-y',
     '-loglevel',
     'error',
     '-i',
     wav,
+    '-af',
+    'loudnorm=I=-18:TP=-2:LRA=11',
+    '-ar',
+    '24000',
     '-ac',
     '1',
     '-b:a',
@@ -75,7 +88,6 @@ for (const { id, say } of script) {
     join(audioFolder, `${id}.mp3`),
   ]);
   rmSync(wav);
-  const seconds = Number((audio.audio.length / audio.sampling_rate).toFixed(3));
   lines.push({
     id,
     text: say,
