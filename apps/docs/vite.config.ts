@@ -6,8 +6,8 @@ import tailwindcss from '@tailwindcss/vite';
 export default defineConfig({
   server: {
     port: 3000,
-    // Accept the Host headers the portless proxy forwards during dev.
-    allowedHosts: ['.docs.kishore.computer'],
+    // Accept the Host headers the portless proxy and its Tailscale share forward during dev.
+    allowedHosts: ['.docs.kishore.computer', '.ts.net'],
   },
   build: {
     rollupOptions: {
