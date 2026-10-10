@@ -1,0 +1,43 @@
+{
+  "name": "ai-explainer",
+  "description": "Narrated explainer videos on any topic, built on a Foundation discovered through prototype Rounds.",
+  "version": "0.0.0",
+  "dependencies": {
+    "@remotion/media-utils": "catalog:",
+    "@remotion/player": "catalog:",
+    "@kstackz/web-platform": "workspace:*",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "remotion": "catalog:"
+  },
+  "devDependencies": {
+    "@remotion/bundler": "catalog:",
+    "@remotion/cli": "catalog:",
+    "@remotion/renderer": "catalog:",
+    "@remotion/tailwind-v4": "catalog:",
+    "@tailwindcss/vite": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "kokoro-js": "catalog:",
+    "laymos": "workspace:*",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vite-plus": "catalog:"
+  },
+  "private": true,
+  "scripts": {
+    "dev": "vp dev",
+    "playground": "node scripts/playground.ts",
+    "studio": "remotion studio src/studio.tsx",
+    "render": "node scripts/render.ts",
+    "voiceover": "node scripts/voiceover.ts",
+    "fmt": "vp fmt",
+    "lint": "vp check && pnpm lint:tsc && pnpm lint:laymos",
+    "lint:laymos": "laymos lint",
+    "lint:tsc": "tsc --noEmit"
+  },
+  "type": "module"
+}
