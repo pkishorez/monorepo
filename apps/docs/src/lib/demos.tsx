@@ -26,6 +26,12 @@ export const GROUPS = [
 /** Every demo, in the order the home page lists them within its group. */
 export const DEMOS = [
   {
+    to: '/demos/effect-oak/rockets',
+    name: 'Rockets',
+    group: 'Basics',
+    summary: 'A walkthrough in seven chapters, from one Actor to Time Travel',
+  },
+  {
     to: '/demos/effect-oak/counter',
     name: 'Counter',
     group: 'Basics',

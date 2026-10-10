@@ -15,13 +15,15 @@ export const Shell = ({
   menu,
 }: {
   readonly app: OakApp;
-  /** Where the demo's name goes: a menu to go home or to another demo. */
+  /** Where the demo's name goes: a menu to go home or to another demo. With none, there is no header. */
   readonly menu: ReactNode;
 }) => (
   <div className="flex h-dvh flex-col bg-background">
-    <header className="flex h-12 shrink-0 items-center border-b px-2 sm:px-3">
-      {menu}
-    </header>
+    {menu && (
+      <header className="flex h-12 shrink-0 items-center border-b px-2 sm:px-3">
+        {menu}
+      </header>
+    )}
     <EffectOakDevtools runtime={App.useRuntime()}>
       <div className="h-full sm:p-6">
         <App />

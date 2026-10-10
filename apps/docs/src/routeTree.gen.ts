@@ -31,6 +31,7 @@ import { Route as DemosEffectOakPersonalBlogRouteImport } from './routes/demos/e
 import { Route as DemosEffectOakPixelArtRouteImport } from './routes/demos/effect-oak/pixel-art'
 import { Route as DemosEffectOakQuerySyncRouteImport } from './routes/demos/effect-oak/query-sync'
 import { Route as DemosEffectOakRoadRouteImport } from './routes/demos/effect-oak/road'
+import { Route as DemosEffectOakRocketsRouteImport } from './routes/demos/effect-oak/rockets'
 import { Route as DemosEffectOakRouteTransitionsRouteImport } from './routes/demos/effect-oak/route-transitions'
 import { Route as DemosEffectOakRoutingRouteImport } from './routes/demos/effect-oak/routing'
 import { Route as DemosEffectOakShoppingCartRouteImport } from './routes/demos/effect-oak/shopping-cart'
@@ -161,6 +162,11 @@ const DemosEffectOakRoadRoute = DemosEffectOakRoadRouteImport.update({
   path: '/demos/effect-oak/road',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DemosEffectOakRocketsRoute = DemosEffectOakRocketsRouteImport.update({
+  id: '/demos/effect-oak/rockets',
+  path: '/demos/effect-oak/rockets',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DemosEffectOakRouteTransitionsRoute =
   DemosEffectOakRouteTransitionsRouteImport.update({
     id: '/demos/effect-oak/route-transitions',
@@ -257,6 +263,7 @@ export interface FileRoutesByFullPath {
   '/demos/effect-oak/pixel-art': typeof DemosEffectOakPixelArtRoute
   '/demos/effect-oak/query-sync': typeof DemosEffectOakQuerySyncRoute
   '/demos/effect-oak/road': typeof DemosEffectOakRoadRoute
+  '/demos/effect-oak/rockets': typeof DemosEffectOakRocketsRoute
   '/demos/effect-oak/route-transitions': typeof DemosEffectOakRouteTransitionsRoute
   '/demos/effect-oak/routing': typeof DemosEffectOakRoutingRoute
   '/demos/effect-oak/shopping-cart': typeof DemosEffectOakShoppingCartRoute
@@ -294,6 +301,7 @@ export interface FileRoutesByTo {
   '/demos/effect-oak/pixel-art': typeof DemosEffectOakPixelArtRoute
   '/demos/effect-oak/query-sync': typeof DemosEffectOakQuerySyncRoute
   '/demos/effect-oak/road': typeof DemosEffectOakRoadRoute
+  '/demos/effect-oak/rockets': typeof DemosEffectOakRocketsRoute
   '/demos/effect-oak/route-transitions': typeof DemosEffectOakRouteTransitionsRoute
   '/demos/effect-oak/routing': typeof DemosEffectOakRoutingRoute
   '/demos/effect-oak/shopping-cart': typeof DemosEffectOakShoppingCartRoute
@@ -332,6 +340,7 @@ export interface FileRoutesById {
   '/demos/effect-oak/pixel-art': typeof DemosEffectOakPixelArtRoute
   '/demos/effect-oak/query-sync': typeof DemosEffectOakQuerySyncRoute
   '/demos/effect-oak/road': typeof DemosEffectOakRoadRoute
+  '/demos/effect-oak/rockets': typeof DemosEffectOakRocketsRoute
   '/demos/effect-oak/route-transitions': typeof DemosEffectOakRouteTransitionsRoute
   '/demos/effect-oak/routing': typeof DemosEffectOakRoutingRoute
   '/demos/effect-oak/shopping-cart': typeof DemosEffectOakShoppingCartRoute
@@ -371,6 +380,7 @@ export interface FileRouteTypes {
     | '/demos/effect-oak/pixel-art'
     | '/demos/effect-oak/query-sync'
     | '/demos/effect-oak/road'
+    | '/demos/effect-oak/rockets'
     | '/demos/effect-oak/route-transitions'
     | '/demos/effect-oak/routing'
     | '/demos/effect-oak/shopping-cart'
@@ -408,6 +418,7 @@ export interface FileRouteTypes {
     | '/demos/effect-oak/pixel-art'
     | '/demos/effect-oak/query-sync'
     | '/demos/effect-oak/road'
+    | '/demos/effect-oak/rockets'
     | '/demos/effect-oak/route-transitions'
     | '/demos/effect-oak/routing'
     | '/demos/effect-oak/shopping-cart'
@@ -445,6 +456,7 @@ export interface FileRouteTypes {
     | '/demos/effect-oak/pixel-art'
     | '/demos/effect-oak/query-sync'
     | '/demos/effect-oak/road'
+    | '/demos/effect-oak/rockets'
     | '/demos/effect-oak/route-transitions'
     | '/demos/effect-oak/routing'
     | '/demos/effect-oak/shopping-cart'
@@ -483,6 +495,7 @@ export interface RootRouteChildren {
   DemosEffectOakPixelArtRoute: typeof DemosEffectOakPixelArtRoute
   DemosEffectOakQuerySyncRoute: typeof DemosEffectOakQuerySyncRoute
   DemosEffectOakRoadRoute: typeof DemosEffectOakRoadRoute
+  DemosEffectOakRocketsRoute: typeof DemosEffectOakRocketsRoute
   DemosEffectOakRouteTransitionsRoute: typeof DemosEffectOakRouteTransitionsRoute
   DemosEffectOakRoutingRoute: typeof DemosEffectOakRoutingRoute
   DemosEffectOakShoppingCartRoute: typeof DemosEffectOakShoppingCartRoute
@@ -655,6 +668,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DemosEffectOakRoadRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/demos/effect-oak/rockets': {
+      id: '/demos/effect-oak/rockets'
+      path: '/demos/effect-oak/rockets'
+      fullPath: '/demos/effect-oak/rockets'
+      preLoaderRoute: typeof DemosEffectOakRocketsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/demos/effect-oak/route-transitions': {
       id: '/demos/effect-oak/route-transitions'
       path: '/demos/effect-oak/route-transitions'
@@ -773,6 +793,7 @@ const rootRouteChildren: RootRouteChildren = {
   DemosEffectOakPixelArtRoute: DemosEffectOakPixelArtRoute,
   DemosEffectOakQuerySyncRoute: DemosEffectOakQuerySyncRoute,
   DemosEffectOakRoadRoute: DemosEffectOakRoadRoute,
+  DemosEffectOakRocketsRoute: DemosEffectOakRocketsRoute,
   DemosEffectOakRouteTransitionsRoute: DemosEffectOakRouteTransitionsRoute,
   DemosEffectOakRoutingRoute: DemosEffectOakRoutingRoute,
   DemosEffectOakShoppingCartRoute: DemosEffectOakShoppingCartRoute,
