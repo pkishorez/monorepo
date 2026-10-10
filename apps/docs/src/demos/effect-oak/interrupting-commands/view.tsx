@@ -4,7 +4,7 @@ import { Uploads } from './interrupting-commands.js';
 import { UploadRow } from './upload-row/index.js';
 import { MILLISECONDS_PER_MEGABYTE } from './uploads.js';
 
-export const UploadsView = View.make(Uploads, ({ model, send, useFrame }) => {
+export const UploadsView = View.make(Uploads, ({ model, send, frame }) => {
   const anyRunning = model.uploads.some((u) => u.status === 'Uploading');
   return (
     <div className="size-full overflow-y-auto p-6">
@@ -33,7 +33,7 @@ export const UploadsView = View.make(Uploads, ({ model, send, useFrame }) => {
                 key={upload.id}
                 upload={upload}
                 msPerMegabyte={MILLISECONDS_PER_MEGABYTE}
-                useFrame={useFrame}
+                frame={frame}
                 onCancel={() =>
                   send({ _tag: 'ClickedCancelUpload', uploadId: upload.id })
                 }

@@ -1,5 +1,5 @@
 import { View } from 'effect-oak/react';
-import type { UseFrame } from 'effect-oak/react';
+import type { MotionValue } from 'motion/react';
 import { Button } from '@kstackz/web-platform/components/button';
 import { Board } from './board/index.js';
 import { ballAt, Box, clockAt, HEIGHT, WIDTH } from './canvas-art.js';
@@ -15,13 +15,13 @@ const Scene = ({
   balls,
   running,
   clock,
-  useFrame,
+  frame,
   send,
 }: {
   readonly balls: ReadonlyArray<Ball>;
   readonly running: boolean;
   readonly clock: (at: number) => number;
-  readonly useFrame: UseFrame;
+  readonly frame: MotionValue<number>;
   readonly send: (
     message:
       | {
@@ -41,7 +41,7 @@ const Scene = ({
       <Board
         width={WIDTH}
         height={HEIGHT}
-        useFrame={useFrame}
+        frame={frame}
         ballsAt={(at) => balls.map((ball) => ballAt(ball, clock(at)))}
         onPress={({ x, y }) => send({ _tag: 'ClickedCanvas', x, y })}
       />
@@ -70,21 +70,21 @@ const Scene = ({
 );
 
 export const BoxView = View.make(Box, {
-  Running: ({ model, state, send, useFrame }) => (
+  Running: ({ model, state, send, frame }) => (
     <Scene
       balls={model.balls}
       running
       clock={(at) => clockAt(state, at)}
-      useFrame={useFrame}
+      frame={frame}
       send={send}
     />
   ),
-  Paused: ({ model, state, send, useFrame }) => (
+  Paused: ({ model, state, send, frame }) => (
     <Scene
       balls={model.balls}
       running={false}
       clock={() => state.clock}
-      useFrame={useFrame}
+      frame={frame}
       send={send}
     />
   ),

@@ -42,7 +42,7 @@ export const EnginePanelView = View.make(EnginePanel, {
       </Button>
     </Panel>
   ),
-  On: ({ state, children, send }) => (
+  On: ({ state, children, frame, send }) => (
     <Panel
       status={
         state.engineId === null
@@ -57,7 +57,9 @@ export const EnginePanelView = View.make(EnginePanel, {
       >
         Stop engine
       </Button>
-      {state.engineId !== null && <CalculatorView node={children.calculator} />}
+      {state.engineId !== null && (
+        <CalculatorView node={children.calculator} frame={frame} />
+      )}
     </Panel>
   ),
   Failed: ({ state, send }) => (

@@ -201,7 +201,7 @@ export const CheckoutView = View.make(Checkout, {
       </Toggle>
     </Step>
   ),
-  Review: ({ model, state, children, send }) => (
+  Review: ({ model, state, children, frame, send }) => (
     <Step
       current={3}
       shipping={model.shipping}
@@ -241,7 +241,7 @@ export const CheckoutView = View.make(Checkout, {
         I accept the terms of sale
       </Toggle>
       <div className="flex flex-col gap-1">
-        <PromoCodeView node={children.promo} />
+        <PromoCodeView node={children.promo} frame={frame} />
         {state.promo._tag === 'AppliedPromo' && (
           <p className="text-sm text-emerald-600">
             {state.promo.discount.code}: {state.promo.discount.percentOff}% off

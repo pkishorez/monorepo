@@ -1,6 +1,6 @@
-import { useRef } from 'react';
+import { useTransform } from 'motion/react';
+import type { MotionValue } from 'motion/react';
 import type { ReactNode } from 'react';
-import type { UseFrame } from 'effect-oak/react';
 import type { RoadShape } from './geometry.js';
 import { Car } from './car.js';
 import { carAt, dividerShift, roadWidth } from './geometry.js';
@@ -31,46 +31,29 @@ type Where = {
 const POOL = 8;
 
 /**
- * The road seen from above, as SVG. React draws it once; at each Frame it asks
- * `where` things are and moves them through refs. `children` are laid over it.
+ * The road seen from above, as SVG. React draws it once per Model; at each
+ * Frame `where` says where things are, and motion values move them with no
+ * render. `children` are laid over it.
  *
  * On a wide screen the whole road shows, as tall as there is room for. On a
  * narrow one it fills the width, and the far end of the road is cut off.
  */
 export const Scene = ({
   road,
-  useFrame,
+  frame,
   where,
   children,
 }: {
   readonly road: RoadShape;
-  readonly useFrame: UseFrame;
+  readonly frame: MotionValue<number>;
   readonly where: (at: number) => Where;
   readonly children?: ReactNode;
 }) => {
-  const dividers = useRef<SVGGElement>(null);
-  const yours = useRef<SVGGElement>(null);
-  const oncoming = useRef<Array<SVGGElement | null>>([]);
-  const stopwatch = useRef<HTMLSpanElement>(null);
-
-  useFrame((at) => {
-    const { driving, driven, lane, cars } = where(at);
-    const you = carAt(road, lane);
-    dividers.current?.setAttribute(
-      'transform',
-      `translate(0 ${dividerShift(road, driven)})`,
-    );
-    yours.current?.setAttribute('transform', `translate(${you.x} ${you.y})`);
-    oncoming.current.forEach((element, index) => {
-      const car = cars[index];
-      if (!element) return;
-      element.setAttribute('visibility', car ? 'visible' : 'hidden');
-      if (!car) return;
-      const { x } = carAt(road, car.lane);
-      element.setAttribute('transform', `translate(${x} ${you.y - car.ahead})`);
-    });
-    if (stopwatch.current) stopwatch.current.textContent = lapTime(driving);
-  });
+  const now = useTransform(frame, where);
+  const shift = useTransform(now, ({ driven }) => dividerShift(road, driven));
+  const yourX = useTransform(now, ({ lane }) => carAt(road, lane).x);
+  const yourY = carAt(road, 0).y;
+  const time = useTransform(now, ({ driving }) => lapTime(driving));
 
   return (
     <div
@@ -84,26 +67,50 @@ export const Scene = ({
         role="img"
         aria-label="A road seen from above"
       >
-        <Road road={road} dividers={dividers} />
+        <Road road={road} shift={shift} />
         {Array.from({ length: POOL }, (_, index) => (
-          <Car
+          <Oncoming
             key={index}
             road={road}
-            tone="oncoming"
-            ref={(element) => {
-              oncoming.current[index] = element;
-            }}
+            now={now}
+            index={index}
+            yourY={yourY}
           />
         ))}
-        <Car road={road} tone="yours" ref={yours} />
+        <Car road={road} tone="yours" x={yourX} y={yourY} />
       </svg>
-      <Stopwatch ref={stopwatch} />
+      <Stopwatch time={time} />
       {children}
     </div>
   );
 };
 
+/** One car of the pool: the `index`th oncoming car, hidden while there is none. */
+const Oncoming = ({
+  road,
+  now,
+  index,
+  yourY,
+}: {
+  readonly road: RoadShape;
+  readonly now: MotionValue<Where>;
+  readonly index: number;
+  readonly yourY: number;
+}) => {
+  const car = useTransform(now, ({ cars }) => cars[index]);
+  return (
+    <Car
+      road={road}
+      tone="oncoming"
+      x={useTransform(car, (c) => (c ? carAt(road, c.lane).x : 0))}
+      y={useTransform(car, (c) => (c ? yourY - c.ahead : 0))}
+      visibility={useTransform(car, (c) => (c ? 'visible' : 'hidden'))}
+    />
+  );
+};
+
 export { CrashBanner } from './crash-banner.js';
+export { PausedOverlay } from './paused-overlay.js';
 export { StartOverlay } from './start-overlay.js';
-export { useSteering } from './steering.js';
+export { useKeys, useSteering } from './steering.js';
 export { lapTime };

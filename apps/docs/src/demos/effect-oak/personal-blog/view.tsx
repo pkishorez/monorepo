@@ -96,7 +96,7 @@ const NotFound = ({
 
 export const PersonalBlogView = View.make(
   PersonalBlog,
-  ({ model, children, send }) => {
+  ({ model, children, frame, send }) => {
     const page = pageFrom(model.path);
     const go = (path: string) => send({ _tag: 'ClickedLink', path });
     /* Every `::Counter` in any post draws the one Counter Child. */
@@ -106,7 +106,7 @@ export const PersonalBlogView = View.make(
           <span className="text-sm text-muted-foreground">
             {attributes.label ?? 'Counter'}
           </span>
-          <CounterView node={children.counter} />
+          <CounterView node={children.counter} frame={frame} />
         </div>
       ),
       Note: (_: unknown, inner: ReactNode) => (

@@ -8,10 +8,7 @@ import { DemoMenu, demoHead } from '@/lib/demos';
 /** The whole app: one Node, no Services, one React component. */
 const App = toReact(Game, GameView, Layer.empty);
 
-const Road = () => {
-  const over = App.useRoot()?.state._tag === 'Crashed';
-  return <Shell app={App} menu={<DemoMenu />} over={over} />;
-};
+const Road = () => <Shell app={App} menu={<DemoMenu />} />;
 
 export const Route = createFileRoute('/demos/effect-oak/road')({
   component: Road,

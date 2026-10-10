@@ -49,7 +49,7 @@ const PeriodView = pickerView(PeriodParam, 'Periods', PERIODS);
 
 export const QuerySyncView = View.make(
   QuerySync,
-  ({ model, children, send }) => (
+  ({ model, children, frame, send }) => (
     <div className="size-full overflow-y-auto p-6">
       <div className="mx-auto flex max-w-4xl flex-col gap-6">
         <header className="flex flex-col gap-1">
@@ -60,9 +60,9 @@ export const QuerySyncView = View.make(
           </p>
         </header>
         <div className="flex flex-wrap gap-3">
-          <SearchView node={children.search} />
-          <DietView node={children.diet} />
-          <PeriodView node={children.period} />
+          <SearchView node={children.search} frame={frame} />
+          <DietView node={children.diet} frame={frame} />
+          <PeriodView node={children.period} frame={frame} />
         </div>
         <Table
           browse={model.browse}

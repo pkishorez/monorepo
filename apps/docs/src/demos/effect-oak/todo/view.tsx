@@ -13,14 +13,14 @@ const EMPTY = {
 
 export const TodosView = View.make(Todos, {
   Loading: () => null,
-  Ready: ({ state, children, send }) => {
+  Ready: ({ state, children, frame, send }) => {
     const { todos, filter, editing } = state;
     const completed = todos.filter((todo) => todo.completed).length;
     const visible = shown(todos, filter);
     return (
       <div className="size-full overflow-y-auto p-6">
         <div className="mx-auto flex max-w-md flex-col gap-6">
-          <ComposerView node={children.composer} />
+          <ComposerView node={children.composer} frame={frame} />
           {visible.length === 0 ? (
             <p className="py-6 text-center text-sm text-muted-foreground">
               {EMPTY[filter]}

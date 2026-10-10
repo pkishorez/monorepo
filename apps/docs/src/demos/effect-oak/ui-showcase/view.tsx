@@ -29,7 +29,7 @@ import { UiShowcase } from './ui-showcase.js';
 
 export const UiShowcaseView = View.make(
   UiShowcase,
-  ({ model, children, send }) => {
+  ({ model, children, frame, send }) => {
     const { page } = model;
     return (
       <div className="relative flex size-full">
@@ -67,13 +67,13 @@ export const UiShowcaseView = View.make(
                   title="Basic"
                   hint="Tab stays inside; Escape, Close or the backdrop dismiss it."
                 >
-                  <dialog.DialogView node={children.dialog} />
+                  <dialog.DialogView node={children.dialog} frame={frame} />
                 </Section>
                 <Section
                   title="Nested"
                   hint="The delete dialog is a Child of the settings dialog."
                 >
-                  <settings.DialogView node={children.settings} />
+                  <settings.DialogView node={children.settings} frame={frame} />
                 </Section>
               </>
             )}
@@ -82,29 +82,38 @@ export const UiShowcaseView = View.make(
                 title="Basic"
                 hint="Arrow keys, Home and End move; type a letter to jump; Enter chooses."
               >
-                <menu.MenuView node={children.menu} />
+                <menu.MenuView node={children.menu} frame={frame} />
               </Section>
             )}
             {page === 'Tabs' && (
               <>
                 <Section title="Horizontal" hint="Arrow Left and Right select.">
-                  <tabsHorizontal.TabsView node={children.tabsHorizontal} />
+                  <tabsHorizontal.TabsView
+                    node={children.tabsHorizontal}
+                    frame={frame}
+                  />
                 </Section>
                 <Section title="Vertical" hint="Arrow Up and Down select.">
-                  <tabsVertical.TabsView node={children.tabsVertical} />
+                  <tabsVertical.TabsView
+                    node={children.tabsVertical}
+                    frame={frame}
+                  />
                 </Section>
               </>
             )}
             {page === 'Listbox' && (
               <>
                 <Section title="Single" hint="Choosing closes the list.">
-                  <listbox.ListboxView node={children.listbox} />
+                  <listbox.ListboxView node={children.listbox} frame={frame} />
                 </Section>
                 <Section
                   title="Multiple"
                   hint="Choosing toggles; the list stays open."
                 >
-                  <listboxMulti.ListboxView node={children.listboxMulti} />
+                  <listboxMulti.ListboxView
+                    node={children.listboxMulti}
+                    frame={frame}
+                  />
                 </Section>
               </>
             )}
@@ -113,13 +122,16 @@ export const UiShowcaseView = View.make(
                 title="Basic"
                 hint="Type to filter, arrows to move, Enter to choose, Escape to undo."
               >
-                <combobox.ComboboxView node={children.combobox} />
+                <combobox.ComboboxView node={children.combobox} frame={frame} />
               </Section>
             )}
             {page === 'Disclosure' && (
               <>
                 <Section title="Basic" hint="The panel animates its height.">
-                  <disclosure.DisclosureView node={children.disclosure} />
+                  <disclosure.DisclosureView
+                    node={children.disclosure}
+                    frame={frame}
+                  />
                 </Section>
                 <Section
                   title="Collapsed preview"
@@ -127,13 +139,17 @@ export const UiShowcaseView = View.make(
                 >
                   <disclosurePreview.DisclosureView
                     node={children.disclosurePreview}
+                    frame={frame}
                   />
                 </Section>
               </>
             )}
             {page === 'Switch' && (
               <Section title="Basic" hint="Controlled by its Node's Model.">
-                <notifications.SwitchView node={children.notifications} />
+                <notifications.SwitchView
+                  node={children.notifications}
+                  frame={frame}
+                />
               </Section>
             )}
             {page === 'Tooltip' && (
@@ -142,10 +158,13 @@ export const UiShowcaseView = View.make(
                   title="With a delay"
                   hint="Hover for half a second, or Tab to it."
                 >
-                  <tooltip.TooltipView node={children.tooltip} />
+                  <tooltip.TooltipView node={children.tooltip} frame={frame} />
                 </Section>
                 <Section title="No delay" hint="Shows as soon as you hover.">
-                  <tooltipNoDelay.TooltipView node={children.tooltipNoDelay} />
+                  <tooltipNoDelay.TooltipView
+                    node={children.tooltipNoDelay}
+                    frame={frame}
+                  />
                 </Section>
               </>
             )}

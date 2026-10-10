@@ -13,9 +13,9 @@ Stopwatch        one Node
   either                         Reset → Stopped { elapsed: 0 }   ('*' rule)
 ```
 
-The View draws the time at each Frame with `useFrame`. While Running it is
-`before + (at - since)`. While Stopped it is `elapsed`. `face.tsx` writes it into
-a ref without a React render.
+The View draws the time at each Frame from `frame`. While Running it is
+`before + (at - since)`. While Stopped it is `elapsed`. `face.tsx` turns it
+into text with `useTransform` on a `motion.p`, without a React render.
 
 ## Deviations
 
@@ -27,8 +27,8 @@ a ref without a React render.
   ADR 0005 in action.
 - Running and stopped are States instead of an `isRunning` flag, so Stop is
   only handled while Running and Start only while Stopped.
-- Time Travel to any moment of a run shows the time at that moment, which the
-  tick version can only do at 10 ms steps.
+- Time Travel steps by Message: each Step shows the time at that Message's
+  Time. The tick version has a Step every 10 ms; here a run has two.
 
 ## Blockers
 
@@ -47,4 +47,4 @@ There are no Commands or Lifetimes here, so the Update tests only need a typed
 Then "Start at 1000, Stop at 5320 → Stopped { elapsed: 4320 }" is one call.
 To test what the View shows, Effect Oak would also need to draw a View at a
 given Time: `View.render(StopwatchView, snapshot, { at: 5320 })`, with
-`useFrame` called once at that Time. Today Frames come only from `toReact`.
+`frame` standing at that Time. Today the Frame comes only from `toReact`.

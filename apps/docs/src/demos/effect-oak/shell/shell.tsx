@@ -1,7 +1,7 @@
+// oxlint-disable-next-line no-restricted-imports -- Space anywhere on the page is a window listener, which only an effect can add and remove.
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import type { ComponentType, ReactNode } from 'react';
-import type { Entry } from 'effect-oak';
-import type { TimeTravel } from 'effect-oak/react';
+import type { AppRuntime } from 'effect-oak/react';
 import {
   Sheet,
   SheetContent,
@@ -12,53 +12,59 @@ import { Scrubber } from './scrubber.js';
 import { TopBar } from './top-bar.js';
 
 /** An app made with `toReact`: what the shell runs and inspects. */
-type OakApp = ComponentType & {
-  readonly useLog: () => ReadonlyArray<Entry>;
-  readonly useTimeTravel: () => TimeTravel;
-};
+type OakApp = ComponentType & { readonly useRuntime: () => AppRuntime };
 
 /*
  * The frame every Effect Oak demo runs in. The app fills the middle, Live or
- * in Replay. Replay stops its Time so the timeline below can move through it;
- * Live carries on from where it stopped. Space switches between them. Once
- * the app is over there is nothing live left to go back to: it stays in
- * Replay. The Messages open beside it, or from the bottom on a phone.
+ * in Replay at a Step. The live app keeps running while a Step is shown, and
+ * the past cannot be used: it is `inert`. Space switches between Live and the
+ * Step shown last. The Messages open beside it, or from the bottom on a phone.
  */
 export const Shell = ({
   app: App,
   menu,
-  over = false,
 }: {
   readonly app: OakApp;
   /** Where the demo's name goes: a menu to go home or to another demo. */
   readonly menu: ReactNode;
-  /** The app has ended: only Replay is left. */
-  readonly over?: boolean;
 }) => {
   const [run, setRun] = useState(0);
   const [inspecting, setInspecting] = useState(false);
+  const [last, setLast] = useState<number | null>(null);
   const narrow = useNarrow();
-  const time = App.useTimeTravel();
-  const log = App.useLog();
+  const runtime = App.useRuntime();
+  const { log, shown } = runtime;
 
-  useEffect(() => {
-    if (over) time.pause();
-  }, [over, time.pause]);
-  useSpace(over ? () => {} : time.paused ? time.resume : time.pause);
+  /** Show a Step, remembering it for Space and Replay. */
+  const show = (step: number) => {
+    setLast(step);
+    runtime.show(step);
+  };
+  const replay = () =>
+    show(last === null ? log.length : Math.min(last, log.length));
+  const live = () => runtime.show(null);
+  useSpace(shown === null ? replay : live);
 
   const messages = (
-    <Messages log={log} time={time} onClose={() => setInspecting(false)} />
+    <Messages
+      log={log}
+      shown={shown}
+      onShow={show}
+      onClose={() => setInspecting(false)}
+    />
   );
 
   return (
     <div className="flex h-dvh flex-col bg-background">
       <TopBar
         menu={menu}
-        replaying={time.paused}
-        over={over}
-        onLive={time.resume}
-        onReplay={time.pause}
-        onRestart={() => setRun((n) => n + 1)}
+        replaying={shown !== null}
+        onLive={live}
+        onReplay={replay}
+        onRestart={() => {
+          setLast(null);
+          setRun((n) => n + 1);
+        }}
         messages={log.length}
         inspecting={inspecting}
         onInspect={() => setInspecting((open) => !open)}
@@ -66,12 +72,18 @@ export const Shell = ({
       <div className="flex min-h-0 flex-1">
         <main className="flex min-w-0 flex-1 flex-col">
           <div
-            inert={time.paused}
+            inert={shown !== null}
             className="min-h-0 flex-1 overflow-hidden sm:p-6"
           >
             <App key={run} />
           </div>
-          <Scrubber time={time} />
+          <Scrubber
+            steps={log.length}
+            shown={shown}
+            timeOf={(step) => (step === 0 ? 0 : (log[step - 1]?.at ?? 0))}
+            frame={runtime.frame}
+            onShow={show}
+          />
         </main>
         {inspecting && !narrow && (
           <aside className="flex w-80 shrink-0 flex-col border-l">

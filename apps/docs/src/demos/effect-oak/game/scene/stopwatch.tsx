@@ -1,11 +1,11 @@
-import type { Ref } from 'react';
+import { motion } from 'motion/react';
+import type { MotionValue } from 'motion/react';
 
-/** How long the car has been driving, top right; the Scene writes it at each Frame. */
-export const Stopwatch = ({ ref }: { readonly ref: Ref<HTMLSpanElement> }) => (
-  <span
-    ref={ref}
-    className="absolute top-3 right-5 font-mono text-xs text-neutral-400 tabular-nums"
-  />
+/** How long the car has been driving, top right, at each Frame. */
+export const Stopwatch = ({ time }: { readonly time: MotionValue<string> }) => (
+  <motion.span className="absolute top-3 right-5 font-mono text-xs text-neutral-400 tabular-nums">
+    {time}
+  </motion.span>
 );
 
 /** Milliseconds as `m:ss.t`, the way a lap time reads. */

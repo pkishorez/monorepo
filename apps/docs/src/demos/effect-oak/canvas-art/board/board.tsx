@@ -1,4 +1,4 @@
-import type { UseFrame } from 'effect-oak/react';
+import type { MotionValue } from 'motion/react';
 import { FrameCanvas } from '../../frame-canvas/index.js';
 
 /** One ball as drawn: where it is, how big, what color. */
@@ -13,20 +13,20 @@ type Drawn = {
 export const Board = ({
   width,
   height,
-  useFrame,
+  frame,
   ballsAt,
   onPress,
 }: {
   readonly width: number;
   readonly height: number;
-  readonly useFrame: UseFrame;
+  readonly frame: MotionValue<number>;
   readonly ballsAt: (at: number) => ReadonlyArray<Drawn>;
   readonly onPress: (point: { readonly x: number; readonly y: number }) => void;
 }) => (
   <FrameCanvas
     width={width}
     height={height}
-    useFrame={useFrame}
+    frame={frame}
     label="Balls bouncing in a box"
     className="w-full max-w-[600px] cursor-crosshair rounded-lg shadow-2xl"
     onPress={onPress}

@@ -25,9 +25,11 @@ uploads.ts   Schemas, fake files and list changes
   `replaceCommands: true`, which stops every running upload at once, and marks
   them Cancelled in the same Update. No `CompletedCancelUploadFile` follows.
 - **A progress bar.** Each upload keeps the Time it started, and the row
-  draws how far it has got at each Frame, so it moves in Time Travel too.
+  draws how far it has got at each Frame (`useTransform(frame, …)` on a
+  `motion.div`), so each Step in Replay shows it at that Message's Time.
   Foldkit pulses instead.
-- Uploads sleep in the app's Time: pausing the Shell stops them.
+- Uploads sleep on Effect's Clock. Replay does not stop them: the live app
+  keeps uploading while a past Step is shown.
 
 ## Blockers
 

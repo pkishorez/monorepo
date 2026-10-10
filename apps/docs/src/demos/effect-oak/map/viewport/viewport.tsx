@@ -1,14 +1,17 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useLayoutEffect, useReducer, useRef, useState } from 'react';
+import { useMotionValueEvent } from 'motion/react';
+import type { MotionValue } from 'motion/react';
 import { MapPin, Minus, Plus, X } from 'lucide-react';
 import { Button } from '@kstackz/web-platform/components/button';
 import { LOCATIONS, project } from '../world/index.js';
 import { Tiles } from './tiles.js';
 
 /*
- * The map on screen: tiles, markers and a popup, drawn for the camera at each
- * Frame. While the camera is still nothing re-renders; during a flight the
- * tiles change every Frame, so the camera at the Frame is kept in local
- * state, which only ever copies what the Model says at that Time.
+ * The map on screen: tiles, markers and a popup, drawn for the camera at the
+ * Frame. The tiles change which images exist as the camera moves, so this
+ * one renders: the camera is worked out during render from the Frame, and a
+ * Frame that moves the camera (only during a flight) asks for a render. While
+ * the camera is still, nothing re-renders.
  *
  * Dragging and the wheel are reported as Messages, a drag as one Message per
  * pointer move. The box's size and the pointer's last spot are DOM details
@@ -28,7 +31,7 @@ const same = (a: Camera, b: Camera) =>
 
 export const Viewport = ({
   cameraAt,
-  useFrame,
+  frame,
   selectedId,
   user,
   onPan,
@@ -37,7 +40,7 @@ export const Viewport = ({
   onDismiss,
 }: {
   readonly cameraAt: (at: number) => Camera;
-  readonly useFrame: (draw: (at: number) => void) => void;
+  readonly frame: MotionValue<number>;
   readonly selectedId: string | null;
   readonly user: { readonly lng: number; readonly lat: number } | null;
   readonly onPan: (dx: number, dy: number) => void;
@@ -47,32 +50,15 @@ export const Viewport = ({
 }) => {
   const box = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
-  const [camera, setCamera] = useState(() => cameraAt(0));
+  const camera = cameraAt(frame.get());
+  const [, redraw] = useReducer((n: number) => n + 1, 0);
+  useMotionValueEvent(frame, 'change', (at) => {
+    const before = frame.getPrevious();
+    if (before === undefined || !same(cameraAt(before), cameraAt(at))) redraw();
+  });
   const pointer = useRef<{ x: number; y: number } | null>(null);
   const onZoomRef = useRef(onZoom);
   onZoomRef.current = onZoom;
-
-  // useFrame also draws after every render, so setting state in it directly
-  // would render forever mid-flight: the render is put off to the next
-  // animation frame instead.
-  const latest = useRef(camera);
-  const scheduled = useRef(0);
-  useFrame((at) => {
-    latest.current = cameraAt(at);
-    if (scheduled.current) return;
-    scheduled.current = requestAnimationFrame(() => {
-      scheduled.current = 0;
-      const next = latest.current;
-      setCamera((current) => (same(current, next) ? current : next));
-    });
-  });
-  useLayoutEffect(
-    () => () => {
-      cancelAnimationFrame(scheduled.current);
-      scheduled.current = 0;
-    },
-    [],
-  );
 
   useLayoutEffect(() => {
     const element = box.current;

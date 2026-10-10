@@ -49,9 +49,9 @@ const Page = ({
 };
 
 export const ShopView = View.make(Shop, {
-  Products: ({ model, children, send }) => (
+  Products: ({ model, children, frame, send }) => (
     <Page page="Products" cart={model.cart} send={send}>
-      <ProductsView node={children.products} />
+      <ProductsView node={children.products} frame={frame} />
     </Page>
   ),
   Cart: ({ model, send }) => (
@@ -67,12 +67,12 @@ export const ShopView = View.make(Shop, {
       />
     </Page>
   ),
-  Checkout: ({ model, children, send }) => (
+  Checkout: ({ model, children, frame, send }) => (
     <Page page="Checkout" cart={model.cart} send={send}>
       <p className="text-sm text-muted-foreground">
         {totalItems(model.cart)} items · {money(totalPrice(model.cart))}
       </p>
-      <CheckoutView node={children.checkout} />
+      <CheckoutView node={children.checkout} frame={frame} />
     </Page>
   ),
 });

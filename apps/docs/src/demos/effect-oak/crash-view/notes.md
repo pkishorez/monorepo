@@ -55,7 +55,7 @@ const App = toReact(Node, View, layer, {
 
 Inside the Runtime, a thrown Update would become a Log entry with outcome
 `'crashed'` and the error. The Runtime would stop its queue, Commands and
-Lifetimes, and `useRoot`/`useLog` would expose that it crashed. Replay could
+Lifetimes, and `useRuntime` would expose that it crashed. Replay could
 then stop at that Message, so Time Travel shows the app as it was just before.
 
 ## Testing

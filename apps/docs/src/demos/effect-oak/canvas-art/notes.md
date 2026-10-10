@@ -25,8 +25,9 @@ into the box (`bounce.ts`). The View works it out at each Frame (ADR 0005).
 
 - **No `TickedFrame`.** Foldkit sends a Message every animation frame and
   Update moves every ball. Here Update never moves anything; the View does,
-  at each Frame. The Log has only clicks, and Time Travel is exact at any
-  millisecond.
+  at each Frame, painting the canvas from `useMotionValueEvent(frame, …)`.
+  The Log has only clicks, and each Step of Time Travel shows the balls at
+  that Message's Time.
 - Running and Paused are States, not an `isRunning` flag. Clicking while
   Paused still launches a ball, which waits until Play, as in Foldkit.
 - A bounce is a perfect reflection. Foldkit clamps the ball to the wall and

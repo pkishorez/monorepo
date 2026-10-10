@@ -6,7 +6,7 @@ export const StartOverlay = ({ onStart }: { readonly onStart: () => void }) => (
   <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-background/70 text-center">
     <h2 className="text-lg font-semibold tracking-tight">Road</h2>
     <p className="text-sm text-muted-foreground">
-      Steer with <Kbd>←</Kbd> <Kbd>→</Kbd>
+      Steer with <Kbd>←</Kbd> <Kbd>→</Kbd>, pause with <Kbd>P</Kbd>
     </p>
     <Button autoFocus onClick={onStart}>
       Start

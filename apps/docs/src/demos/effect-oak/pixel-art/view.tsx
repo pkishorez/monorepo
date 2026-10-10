@@ -26,7 +26,7 @@ export const PixelArtView = View.make(PixelArt, {
     </div>
   ),
 
-  Ready: ({ state, children, send }) => {
+  Ready: ({ state, children, frame, send }) => {
     const colors = colorsOf(state.theme);
     useUndoKeys(
       () => send({ _tag: 'ClickedUndo' }),
@@ -68,11 +68,11 @@ export const PixelArtView = View.make(PixelArt, {
           >
             Clear
           </Button>
-          <ExportView node={children.export} />
+          <ExportView node={children.export} frame={frame} />
         </div>
         <div className="flex flex-wrap items-start justify-center gap-6">
           <div className="flex w-40 flex-col gap-4">
-            <ToolsView node={children.tools} />
+            <ToolsView node={children.tools} frame={frame} />
             <div className="flex flex-col gap-1">
               <p className="text-xs text-muted-foreground">Grid size</p>
               <div

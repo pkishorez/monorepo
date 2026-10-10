@@ -11,7 +11,7 @@ import { StatsView } from './stats-view.js';
 
 export const ApiCacheQueryView = View.make(
   ApiCacheQuery,
-  ({ model, children, send }) => (
+  ({ model, children, frame, send }) => (
     <div className="size-full overflow-y-auto p-6">
       <div className="mx-auto flex max-w-2xl flex-col gap-6">
         <header className="flex flex-col gap-1">
@@ -34,9 +34,9 @@ export const ApiCacheQueryView = View.make(
           </TabsList>
         </Tabs>
         {model.tab === 'Stats' ? (
-          <StatsView node={children.stats} />
+          <StatsView node={children.stats} frame={frame} />
         ) : model.openPostId === null ? (
-          <PostListView node={children.posts} />
+          <PostListView node={children.posts} frame={frame} />
         ) : (
           <section className="flex flex-col gap-4">
             <Button
@@ -47,7 +47,7 @@ export const ApiCacheQueryView = View.make(
             >
               ← Back to posts
             </Button>
-            <PostDetailView node={children.post} />
+            <PostDetailView node={children.post} frame={frame} />
           </section>
         )}
       </div>

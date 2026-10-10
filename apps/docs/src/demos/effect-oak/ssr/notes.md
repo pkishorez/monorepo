@@ -37,9 +37,9 @@ cases.
    the Log so Replay starts from the same ones.
 2. **Drawing a View from an init Model, with no Runtime**: build the tree
    with init alone (Replay already does this: `Replay.make(node, () => []).seek(0)`
-   is the tree at Time 0, with no Services) and render the root View to a
+   is the tree at step 0, with no Services) and render the root View to a
    string with React's `renderToString`. Views never see Services (ADR
-   0004), so this already holds for them; `useFrame` would draw at Time 0.
+   0004), so this already holds for them; `frame` would stand at Time 0.
 3. **A serializable tree**: Models and States are Schemas, so the server can
    encode the whole tree (each Instance's Model and State, by Path) and the
    flags into the HTML.

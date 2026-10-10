@@ -1,10 +1,12 @@
 import { useRef } from 'react';
 import type { PointerEvent } from 'react';
-import type { UseFrame } from 'effect-oak/react';
+import { useMotionValueEvent } from 'motion/react';
+import type { MotionValue } from 'motion/react';
 
 /*
- * A 2D canvas drawn at every Frame. React mounts it once; `draw` paints the
- * whole picture at a Frame's Time, through the context, with no render.
+ * A 2D canvas drawn at every Frame. `draw` paints the whole picture at a
+ * Frame's Time, through the context: once on every render (a new Model) at
+ * the Frame as it stands, then at every change of the Frame, with no render.
  * Pointer events come back in the canvas's own units, whatever size it is
  * shown at.
  */
@@ -27,7 +29,7 @@ const pointOf = (
 export const FrameCanvas = ({
   width,
   height,
-  useFrame,
+  frame,
   draw,
   label,
   className,
@@ -38,7 +40,7 @@ export const FrameCanvas = ({
   /** The picture's size, in its own units. */
   readonly width: number;
   readonly height: number;
-  readonly useFrame: UseFrame;
+  readonly frame: MotionValue<number>;
   /** Paint the picture as it is at Time `at`. */
   readonly draw: (context: CanvasRenderingContext2D, at: number) => void;
   /** What the picture shows, for screen readers. */
@@ -50,7 +52,7 @@ export const FrameCanvas = ({
 }) => {
   const canvas = useRef<HTMLCanvasElement>(null);
 
-  useFrame((at) => {
+  const paint = (at: number) => {
     const element = canvas.current;
     const context = element?.getContext('2d');
     if (!element || !context) return;
@@ -61,11 +63,17 @@ export const FrameCanvas = ({
     }
     context.setTransform(scale, 0, 0, scale, 0, 0);
     draw(context, at);
-  });
+  };
+  useMotionValueEvent(frame, 'change', paint);
 
   return (
     <canvas
-      ref={canvas}
+      ref={(element) => {
+        canvas.current = element;
+        // A new callback each render, so React calls it after every commit:
+        // the picture is painted for the new Model before the browser shows it.
+        paint(frame.get());
+      }}
       role="img"
       aria-label={label}
       className={className}

@@ -2,7 +2,7 @@ import { Effect, Random, Schedule, Schema, Stream } from 'effect';
 import { Node } from 'effect-oak';
 
 /*
- * The game, as data: Welcome → Playing → Crashed.
+ * The game, as data: Welcome → Playing ⇄ Paused, then Crashed.
  *
  * The Model says what is happening, in road units and milliseconds of the
  * app's Time: when you set off, which lane you are heading for and since
@@ -13,6 +13,10 @@ import { Node } from 'effect-oak';
  * the road works out when you would hit one if nothing else happened, and
  * asks for a Collided Message at that Time. Steering out of the way replaces
  * that plan; Collided arriving means the plan held, and the game is over.
+ *
+ * Pausing is the game's own: Paused keeps the road and when it stopped, and
+ * drops the crash plan. Resuming moves every Time in the road on by the pause,
+ * so the road picks up exactly where it stood, and plans again.
  */
 
 const Config = Schema.Struct({
@@ -144,6 +148,14 @@ const crashAt = (config: Config, road: Road, from: number): number | null => {
 
 // The Node ----------------------------------------------------------------------
 
+/** The road with every Time in it moved on by `by` milliseconds. */
+const later = <R extends Road>(road: R, by: number): R => ({
+  ...road,
+  startedAt: road.startedAt + by,
+  lane: { ...road.lane, at: road.lane.at + by },
+  cars: road.cars.map((car) => ({ ...car, at: car.at + by })),
+});
+
 /** The road changed at Time `at`: forget cars long gone, and plan the crash, if any. */
 const drive = (
   config: Config,
@@ -180,6 +192,7 @@ export const Game = Node.make('Game', {
       /** When you will crash unless something changes. */
       crashAt: Schema.NullOr(Schema.Number),
     },
+    Paused: { ...Road, spawned: Schema.Number, pausedAt: Schema.Number },
     Crashed: { ...Road, crashedAt: Schema.Number },
   }),
   message: Schema.TaggedUnion({
@@ -187,12 +200,18 @@ export const Game = Node.make('Game', {
     Steered: { toward: Schema.Literals(['left', 'right']) },
     CarSpawned: { lane: Schema.Number },
     Collided: {},
+    PressedPause: {},
   }),
 }).build({
   init: () => ({ model: { config: DEFAULTS }, state: { _tag: 'Welcome' } }),
   lifetime: {
-    Playing: ({ model: { config } }) =>
-      Stream.fromEffectDrain(Effect.sleep(config.traffic.warmUp)).pipe(
+    // Back from a pause, the next car comes after the usual gap, not the warm-up.
+    Playing: ({ model: { config }, state }) =>
+      Stream.fromEffectDrain(
+        Effect.sleep(
+          state.spawned === 0 ? config.traffic.warmUp : config.traffic.every,
+        ),
+      ).pipe(
         Stream.concat(
           Stream.fromEffectSchedule(
             Random.nextIntBetween(0, config.lanes, { halfOpen: true }),
@@ -243,6 +262,18 @@ export const Game = Node.make('Game', {
           },
           at,
         ),
+      PressedPause: (_, { state, at }) => ({
+        state: {
+          _tag: 'Paused',
+          startedAt: state.startedAt,
+          lane: state.lane,
+          cars: state.cars,
+          spawned: state.spawned,
+          pausedAt: at,
+        },
+        commands: [],
+        replaceCommands: true,
+      }),
       Collided: (_, { state, at }) => ({
         state: {
           _tag: 'Crashed',
@@ -252,6 +283,22 @@ export const Game = Node.make('Game', {
           crashedAt: state.crashAt ?? at,
         },
       }),
+    },
+    Paused: {
+      PressedPause: (_, { model: { config }, state, at }) =>
+        drive(
+          config,
+          later(
+            {
+              startedAt: state.startedAt,
+              lane: state.lane,
+              cars: state.cars,
+              spawned: state.spawned,
+            },
+            at - state.pausedAt,
+          ),
+          at,
+        ),
     },
   },
 });

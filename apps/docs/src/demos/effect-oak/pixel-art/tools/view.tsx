@@ -1,3 +1,4 @@
+// oxlint-disable-next-line no-restricted-imports -- tool keys anywhere on the page are a window listener, kept in the View so a View of the past sends nothing.
 import { useEffect } from 'react';
 import type { Snapshot } from 'effect-oak';
 import { View } from 'effect-oak/react';
