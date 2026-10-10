@@ -254,6 +254,38 @@ export const demoHead = (path: string) => {
   };
 };
 
+/** Every demo, by group, as menu items that open it; `current` is checked. */
+const DemoItems = ({ current }: { readonly current?: string }) =>
+  demosByGroup().map(({ group, demos }, index) => (
+    <Fragment key={group}>
+      {index > 0 && <DropdownMenuSeparator />}
+      <DropdownMenuGroup>
+        <DropdownMenuLabel>{group}</DropdownMenuLabel>
+        {demos.map((demo) => (
+          <DropdownMenuItem key={demo.to} render={<Link to={demo.to} />}>
+            <span className="flex-1">{demo.name}</span>
+            {demo.to === current && <Check />}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuGroup>
+    </Fragment>
+  ));
+
+/** A Demos button opening every demo, for the home page. */
+export const DemosDropdown = () => (
+  <DropdownMenu>
+    <DropdownMenuTrigger
+      render={<Button size="sm" variant="outline" className="gap-1.5" />}
+    >
+      Demos
+      <ChevronsUpDown className="text-muted-foreground" />
+    </DropdownMenuTrigger>
+    <DropdownMenuContent align="end" className="w-56">
+      <DemoItems />
+    </DropdownMenuContent>
+  </DropdownMenu>
+);
+
 /** The current demo's name, opening a menu to go home or to another demo. */
 export const DemoMenu = () => {
   const current = useLocation({ select: (location) => location.pathname });
@@ -266,27 +298,12 @@ export const DemoMenu = () => {
         {name}
         <ChevronsUpDown className="text-muted-foreground" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="start"
-        className="max-h-[70dvh] w-56 overflow-y-auto"
-      >
+      <DropdownMenuContent align="start" className="w-56">
         <DropdownMenuItem render={<Link to="/" />}>
-          <ArrowLeft /> All demos
+          <ArrowLeft /> Home
         </DropdownMenuItem>
-        {demosByGroup().map(({ group, demos }) => (
-          <Fragment key={group}>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuLabel>{group}</DropdownMenuLabel>
-              {demos.map((demo) => (
-                <DropdownMenuItem key={demo.to} render={<Link to={demo.to} />}>
-                  <span className="flex-1">{demo.name}</span>
-                  {demo.to === current && <Check />}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuGroup>
-          </Fragment>
-        ))}
+        <DropdownMenuSeparator />
+        <DemoItems current={current} />
       </DropdownMenuContent>
     </DropdownMenu>
   );
