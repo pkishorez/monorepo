@@ -2,7 +2,7 @@
 import { useEffect, useSyncExternalStore } from 'react';
 import { motionValue } from 'motion/react';
 import type { MotionValue } from 'motion/react';
-import { Effect, Exit, Layer, Scope } from 'effect';
+import { Effect, Exit, Fiber, Layer, Scope } from 'effect';
 import { Runtime } from '../core/index.ts';
 import type {
   AnyActor,
@@ -184,8 +184,7 @@ const host = <A extends AnyActor>(
   onStarted: (running: Running<A>) => void,
 ): (() => void) => {
   const scope = Scope.makeUnsafe();
-  let stopped = false;
-  void Effect.runPromise(
+  const starting = Effect.runFork(
     Layer.build(layer).pipe(
       Effect.flatMap((context) =>
         Runtime.start(actor, saved ? { saved } : {}).pipe(
@@ -194,11 +193,17 @@ const host = <A extends AnyActor>(
       ),
       Scope.provide(scope),
     ),
-  ).then((running) => {
-    if (!stopped) onStarted(running);
+  );
+  starting.addObserver((exit) => {
+    if (Exit.isSuccess(exit)) onStarted(exit.value);
   });
+  // A start still under way is interrupted first, so nothing is built into a
+  // closed Scope (React StrictMode unmounts right after the first mount).
   return () => {
-    stopped = true;
-    void Effect.runPromise(Scope.close(scope, Exit.void));
+    void Effect.runPromise(
+      Fiber.interrupt(starting).pipe(
+        Effect.andThen(Scope.close(scope, Exit.void)),
+      ),
+    );
   };
 };

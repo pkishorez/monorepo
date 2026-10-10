@@ -5,6 +5,7 @@ import {
   Effect,
   Exit,
   Layer,
+  Pull,
   Scope,
   SubscriptionRef,
 } from 'effect';
@@ -68,7 +69,7 @@ export const makeWorks = (
   ) => {
     const fiber = run(Effect.forkIn(effect, scope));
     fiber.addObserver((exit) => {
-      if (Exit.isFailure(exit) && !Cause.hasInterruptsOnly(exit.cause))
+      if (Exit.isFailure(exit) && !stopped(exit.cause))
         console.error(
           `[effect-oak] ${path} failed:\n${Cause.pretty(exit.cause)}`,
         );
@@ -264,6 +265,13 @@ export const makeWorks = (
       works.get(instance.id)?.state,
   };
 };
+
+/**
+ * Being stopped. In effect 4.0.0 an interrupted Stream of a SubscriptionRef's
+ * changes ends in `Done` instead of an interrupt.
+ */
+const stopped = (cause: Cause.Cause<unknown>) =>
+  Cause.hasInterruptsOnly(cause) || Pull.isDoneCause(cause);
 
 const keyed = (
   planned: unknown,

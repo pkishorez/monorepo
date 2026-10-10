@@ -27,7 +27,7 @@ Two rules follow, and the README states them:
 
 ## Storage
 
-The Log is a plain value, held in a plain store `{ get(): RuntimeState, subscribe(listener): () => void }`. React reads it with `useSyncExternalStore`.
+The Log is a plain value. The Runtime tells its subscribers when it changes, once its mailbox is empty, and React reads it with `useSyncExternalStore`. Since [ADR 0009](adr/0009-the-snapshot-is-the-truth.md), `start`, `stop` and `show` are Effects, Replay starts from Snapshots kept along the Log, and a fork rebuilds Instances with the same IDs.
 
 ```ts
 interface RuntimeState {
@@ -37,12 +37,10 @@ interface RuntimeState {
   readonly shown: number | null; // null = live
 }
 
-interface Entry {
+interface Entry extends Envelope {
+  // Envelope: { instance: string (the Instance ID), message: Tagged, at: number }
+  readonly id: number;
   readonly parent: number | null;
-  readonly message: Tagged;
-  readonly at: number;
-  readonly instance: number;
-  readonly path: string;
   readonly outcome: 'handled' | 'ignored' | 'dropped';
   readonly from: string;
   readonly to: string;
@@ -89,4 +87,3 @@ Persistence comes later, as saving and loading this value.
 - Persistence: saving and loading the `RuntimeState` value, across reloads.
 - Several tabs sharing one Log.
 - Re-running Commands that were running at the fork.
-- Snapshots, so starting from a deep entry doesn't Replay from the start.
