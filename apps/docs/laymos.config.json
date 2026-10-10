@@ -125,6 +125,29 @@
     ],
     "src/demos/effect-oak/ui-showcase/switch": [
       "src/demos/effect-oak/ui-showcase/picks"
+    ],
+    "src/demos/effect-oak/rockets": ["src/demos/effect-oak/shell"],
+    "src/demos/effect-oak/rockets/actor": ["src/demos/effect-oak/rockets/look"],
+    "src/demos/effect-oak/rockets/states": [
+      "src/demos/effect-oak/rockets/look"
+    ],
+    "src/demos/effect-oak/rockets/more-actors": [
+      "src/demos/effect-oak/rockets/look"
+    ],
+    "src/demos/effect-oak/rockets/capabilities": [
+      "src/demos/effect-oak/rockets/look",
+      "src/demos/effect-oak/rockets/more-actors"
+    ],
+    "src/demos/effect-oak/rockets/motion": [
+      "src/demos/effect-oak/rockets/look",
+      "src/demos/effect-oak/rockets/capabilities",
+      "src/demos/effect-oak/rockets/more-actors"
+    ],
+    "src/demos/effect-oak/rockets/commands": [
+      "src/demos/effect-oak/rockets/look",
+      "src/demos/effect-oak/rockets/capabilities",
+      "src/demos/effect-oak/rockets/more-actors",
+      "src/demos/effect-oak/rockets/motion"
     ]
   }
 }
