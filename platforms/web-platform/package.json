@@ -198,6 +198,7 @@
     "@typescript/native": "catalog:",
     "@vitejs/plugin-react": "catalog:",
     "effect": "catalog:",
+    "effect-oak": "workspace:*",
     "laymos": "workspace:*",
     "react": "catalog:",
     "react-cosmos": "catalog:",
@@ -217,6 +218,7 @@
     "@tanstack/react-router": "1.170.32",
     "@tanstack/react-start": "1.168.49",
     "effect": "^4.0.0",
+    "effect-oak": "workspace:*",
     "laymos": "workspace:*",
     "react": "19.2.8",
     "react-dom": "19.2.8",
@@ -234,6 +236,9 @@
       "optional": true
     },
     "effect": {
+      "optional": true
+    },
+    "effect-oak": {
       "optional": true
     },
     "laymos": {

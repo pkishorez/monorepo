@@ -9,3 +9,11 @@ it('renders string values with foreground contrast', () => {
 
   expect(markup).toContain('--w-rjv-type-string-color:var(--foreground)');
 });
+
+it('colors values by kind in the syntax tone', () => {
+  const markup = renderToStaticMarkup(
+    <JsonTree value={{ count: 1 }} tone="syntax" />,
+  );
+
+  expect(markup).toContain('--w-rjv-type-int-color:var(--chart-8)');
+});
