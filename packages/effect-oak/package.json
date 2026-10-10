@@ -2,12 +2,13 @@
   "name": "effect-oak",
   "version": "0.0.0",
   "private": false,
-  "description": "An app as one tree of Nodes outside React: each Node a small state machine driven by Messages, Effect running the work, and React only drawing it.",
+  "description": "An app as one tree of Actors outside React: each Actor a small state machine driven by Messages, one immutable Snapshot for the whole app, Effect running the work, and React only drawing it.",
   "keywords": [
     "effect",
     "react",
     "elm",
-    "state-machine"
+    "state-machine",
+    "actor"
   ],
   "license": "MIT",
   "repository": {

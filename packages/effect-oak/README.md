@@ -1,29 +1,32 @@
 # effect-oak
 
-An app as one tree of Nodes outside React: each Node a small state machine driven by Messages, Effect running the work, and React only drawing it.
+An app as one tree of Actors outside React: each Actor a small state machine driven by Messages, one immutable Snapshot for the whole app, Effect running the work, and React only drawing it.
 
 ## Big picture
 
 Effect Oak is the Elm architecture, as [Foldkit](https://github.com/foldkit/foldkit)
-builds it on Effect, but drawn by React. All app state lives in one tree of
-Nodes outside React, and only a Node's Update changes it. A Node's States
-are a Schema union, so every Node is a small state machine: the State decides
-which Children exist, which Services the Node Provides to them, and which
-Lifetime runs. Leaving a State destroys all of it at once.
+builds it on Effect, organized as a tree of Actors and drawn by React. Each
+Actor is a state machine and an actor at once: Messages are the only way it
+changes, and its State decides which Children it Invokes, which Capabilities
+it Provides to them and which Lifetime runs. Leaving a State stops all of it.
+Keyed Children follow the Model: a list of items can be a list of Actors.
 
-A Node Requires Services from above. Each Child must find every Service it
-needs in its parent's Requires, or among what the parent Provides in that
-State; TypeScript points at the Child that does not fit. The root's Requires
-must be covered by the app's Layer. Views draw and Send; whatever moves
-between Messages they draw from the Frame, a motion value holding the Time.
+The whole app is one immutable Snapshot, and handling a Message is a pure
+function from one Snapshot to the next. There is one mailbox, and a Message is
+handled before `send` returns. Around that pure core, everything that touches
+the outside world is Effect: each Instance's work lives in nested Scopes, and
+only the work where a Message landed is stopped or started. An Actor Requires
+Capabilities from above; TypeScript points at any Child placed where they are
+not Provided.
+
 Every Message goes into the Log with its Time. The Log is a tree, like git
-commits: replaying a path through init and Update alone draws the app right
-after any Message on any Branch, while the live app keeps running. The Runtime
-can stop, and start again from any entry, growing a new Branch beside the old.
+commits: Replay folds any path through `handle` to draw the app right after
+any Message on any Branch, while the live app keeps running. The Runtime can
+stop, and start again from any entry, growing a new Branch.
 
-Read the language in [CONTEXT.md](./CONTEXT.md) and the decisions in
+Read the language in [CONTEXT.md](./CONTEXT.md), the decisions in
 [docs/adr/](./docs/adr/), and how the Log works in
-[docs/log-tree.md](./docs/log-tree.md). A live demo is at `/demos/effect-oak` in the docs app.
+[docs/log-tree.md](./docs/log-tree.md). Live demos are at `/demos/effect-oak` in the docs app.
 
 ## Install
 
@@ -31,8 +34,8 @@ Read the language in [CONTEXT.md](./CONTEXT.md) and the decisions in
 pnpm add effect-oak effect react motion
 ```
 
-- `effect`: Schemas describe Models, States and Messages; Commands, Lifetimes and
-  Services are Effect values.
+- `effect`: Schemas describe Inputs, Models, States and Messages; Lifetimes, Commands and
+  Capabilities are Effect values and Layers.
 - `react`: `effect-oak/react` draws the tree with React components.
 - `motion`: the Frame every View gets is a Framer Motion `MotionValue`.
 
@@ -40,91 +43,126 @@ pnpm add effect-oak effect react motion
 
 ### `effect-oak`
 
-| Export          | What it does                                                                                                                              |
-| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `Node.make`     | Defines a Node: Requires, Schemas, Provides and Children. `.build` adds what runs it.                                                     |
-| `Runtime.start` | Starts a Node as the root of a running app, inside a Scope, and returns its live root, its Time, its Log, and `stop`, `start` and `show`. |
-| `Replay.make`   | Rebuilds a Node's tree right after the last entry of a Branch, running only init and Update.                                              |
+| Export          | What it does                                                                                                            |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `Actor.make`    | Defines an Actor: Requires, Input, Schemas, Provides and Children. `.build` adds what runs it.                          |
+| `Actor.many`    | Declares a keyed Child slot: one Instance of an Actor per key the parent Invokes.                                       |
+| `Runtime.start` | Starts an Actor as the root of a running app, inside a Scope, with its Snapshot, Log, Time and `stop`, `start`, `show`. |
+| `Replay.make`   | Rebuilds the Snapshot right after any Log entry from the Messages alone, yielding as it goes.                           |
+| `init`          | The Snapshot right after init: the root and every Child its State Invokes.                                              |
+| `handle`        | Applies one Envelope to a Snapshot and gives the next one, purely.                                                      |
+| `instanceAt`    | Finds the Instance with an ID in a Snapshot.                                                                            |
+| `isMany`        | Tells a keyed Child slot from a fixed one in an Instance's Children.                                                    |
 
 ### `effect-oak/react`
 
-| Export      | What it does                                                                                                                                                                                 |
-| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `View.make` | Defines how one Node is drawn, as a React component that takes the live Node to draw and the Frame.                                                                                          |
-| `toReact`   | Turns a root Node, its View and a Layer into one React component that runs the whole app, one Runtime for every mount; `useRuntime` reads its Log, shows any entry, and stops and starts it. |
+| Export      | What it does                                                                                                                                                                                  |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `View.make` | Defines how one Actor is drawn, one function per State, as a React component that takes a Handle to the Instance.                                                                             |
+| `toReact`   | Turns a root Actor, its View and a Layer into one React component that runs the whole app, one Runtime for every mount; `useRuntime` reads its Log, shows any entry, and stops and starts it. |
 
 ## Usage
 
 ### A gate whose States decide what exists
 
-This root signs a user in. While `Anonymous` it Provides
-`SignIn` and has a `login` Child; while `Authenticated` it Provides `Session`
-and has `api` and `expiry` Children.
+This root signs a user in. While `Anonymous` it Provides `SignIn` and Invokes
+`login`; while `Authenticated` it Provides `Session` and Invokes `todos`.
 
 ```ts
-export const Auth = Node.make('Auth', {
+export const Auth = Actor.make('Auth', {
   requires: { server: Server },
   state: Schema.TaggedUnion({
     Checking: {},
     Anonymous: {},
-    Authenticated: { user: Schema.String, token: Schema.String },
+    Authenticated: { user: Schema.String },
   }),
   message: Schema.TaggedUnion({
-    CheckedSession: { session: Schema.NullOr(Credentials) },
-    LoggedIn: { user: Schema.String, token: Schema.String },
+    CheckedSession: { user: Schema.optional(Schema.String) },
+    LoggedIn: { user: Schema.String },
     LoggedOut: {},
   }),
   provides: { Anonymous: [SignIn], Authenticated: [Session] },
-  children: {
-    Anonymous: { login: Login },
-    Authenticated: { api: Api, expiry: Expiry },
-  },
+  children: { Anonymous: { login: Login }, Authenticated: { todos: Todos } },
 }).build({
   init: () => ({ state: { _tag: 'Checking' } }),
   lifetime: {
-    Checking: () =>
-      Stream.fromEffect(
-        Effect.gen(function* () {
-          return yield* (yield* Server).checkSession;
-        }),
-      ).pipe(
-        Stream.map((session) => ({ _tag: 'CheckedSession' as const, session })),
-      ),
+    Checking: (self) =>
+      Effect.gen(function* () {
+        const user = yield* (yield* Server).checkSession;
+        yield* self.send({ _tag: 'CheckedSession', user });
+      }),
   },
   update: {
     Checking: {
-      CheckedSession: ({ session }) => ({
-        state: session
-          ? { _tag: 'Authenticated', ...session }
-          : { _tag: 'Anonymous' },
+      CheckedSession: ({ user }) => ({
+        state: user ? { _tag: 'Authenticated', user } : { _tag: 'Anonymous' },
       }),
     },
     Anonymous: {
-      LoggedIn: ({ user, token }) => ({
-        state: { _tag: 'Authenticated', user, token },
-      }),
+      LoggedIn: ({ user }) => ({ state: { _tag: 'Authenticated', user } }),
     },
     Authenticated: { LoggedOut: () => ({ state: { _tag: 'Anonymous' } }) },
   },
   provides: {
-    Anonymous: ({ send }) =>
-      Context.make(SignIn, {
-        complete: (credentials) => send({ _tag: 'LoggedIn', ...credentials }),
+    Anonymous: (self) =>
+      Layer.succeed(SignIn, {
+        complete: (user) => self.send({ _tag: 'LoggedIn', user }),
       }),
-    Authenticated: ({ state, send }) =>
-      Context.make(Session, {
-        user: state.user,
-        token: state.token,
-        logOut: () => send({ _tag: 'LoggedOut' }),
+    Authenticated: (self) =>
+      Layer.succeed(Session, {
+        user: self.get.pipe(Effect.map(({ state }) => state.user)),
+        logOut: self.send({ _tag: 'LoggedOut' }),
       }),
   },
 });
 ```
 
-- `make` is the statechart: it fixes every type and the shape of the tree. `build` is checked against it, so it must build every Service `provides` declares.
-- An Update that returns a different `_tag` is a Transition: the old State's Children and Lifetime stop, the new State's start.
-- A Child that Requires `Session` can only live under `Authenticated`; anywhere else, its line in `children` does not compile.
-- Update and init never see Services. Commands and Lifetimes get them from Effect (`yield* Server`), and only `provides` reads them directly.
+- `make` is the statechart: it fixes every type and the shape of the tree. `build` is checked against it, so it must build every Capability `provides` declares.
+- An Update that returns a different `_tag` is a Transition: the old State's Children, Lifetime and Capabilities stop, the new State's start.
+- A Lifetime is a scoped Effect given `self`: `send` to its own Instance, and `get` and `changes` for its current data. `'*'` runs for as long as the Instance exists.
+- Provides is a Layer built once each time the State is entered. A Capability that reads the Model reads it through `self`, so it never goes stale.
+- Update and init never see Capabilities. Lifetimes and Commands get them from Effect (`yield* Server`).
+
+### A list of Actors, and Commands under a key
+
+```ts
+const List = Actor.make('List', {
+  model: Schema.Struct({
+    ids: Schema.Array(Schema.String),
+    next: Schema.Number,
+  }),
+  message: Schema.TaggedUnion({
+    Added: {},
+    Removed: { id: Schema.String },
+    Saved: {},
+  }),
+  children: { rows: Actor.many(Row) },
+}).build({
+  init: () => ({ model: { ids: [], next: 0 } }),
+  invoke: ({ model }) => ({
+    rows: model.ids.map((id) => ({ key: id, input: { text: `#${id}` } })),
+  }),
+  update: {
+    Added: (_, { model }) => ({
+      model: { ids: [...model.ids, `${model.next}`], next: model.next + 1 },
+      command: {
+        key: 'save',
+        run: Effect.sleep('1 second').pipe(
+          Effect.as({ _tag: 'Saved' as const }),
+        ),
+      },
+    }),
+    Removed: ({ id }, { model }) => ({
+      model: { ...model, ids: model.ids.filter((kept) => kept !== id) },
+    }),
+    Saved: () => ({}),
+  },
+});
+```
+
+- `invoke` says which keys exist and the Input each new Child starts from. After every Update, a new key Invokes a Row, a key gone stops it, and a key kept keeps its Instance. From then on the Row owns its data.
+- Instance IDs are deterministic: `List/rows[0]#1` is the first `rows` keyed `0`. A key Invoked again gets `#2`, so a Message meant for the old Instance is dropped.
+- A Command is owned by its Instance. Under a `key`, a new Command replaces the one still running, and `cancel: 'save'` interrupts it. A Command can be `(self) => Effect` and Send any number of Messages, such as one per chunk of a stream.
 
 ### Drawing it with React
 
@@ -135,8 +173,7 @@ export const AuthView = View.make(Auth, {
   Authenticated: ({ state, children }) => (
     <>
       <p>Signed in as {state.user}</p>
-      <ExpiryView node={children.expiry} />
-      <ApiView node={children.api} />
+      <TodosView node={children.todos} />
     </>
   ),
 });
@@ -144,51 +181,9 @@ export const AuthView = View.make(Auth, {
 const DemoApp = toReact(Auth, AuthView, ServerLive);
 ```
 
-- A View is written per State, and each one sees only the Children of its State.
-- Each View re-renders only when its own Instance's Model or State changes. A View takes only `node`; its draw also gets `frame`, which `toReact` provides through context.
-- `DemoApp.useRuntime()` returns `{ log, head, running, shown, show, stop, start, children, frame }` from anywhere on the page. `log` is the current Branch, each entry with its id, its Time and what came of it; `children(id)` lists the entries after one, to draw the tree.
-- `show(id)` draws the app right after that entry, on any Branch, at its Time; `show(null)` goes back to live. The live app keeps running meanwhile, and the past cannot Send.
-- `stop()` interrupts every Command and Lifetime; the Frame stands still and nothing can Send. `start()` resumes. `start(id)` Replays the path to that entry and goes live from there, growing a new Branch; `start(null)` starts from right after init. Time carries on from the entry's Time.
-- Work that must survive a stop belongs in a Lifetime: Commands running at a stop are lost, and init's Commands never run again. A first fetch is a Lifetime.
-- The outside world is not rewound: starting from an old entry rebuilds the app, not the server, the socket or localStorage.
-- Every mount of `DemoApp` shows the same Runtime. The first mount starts it and the last unmount stops it; a Runtime stopped by hand stays stopped until the mounts drop to zero and rise again.
-
-### Motion between Messages
-
-The docs demo is a road: dividers scroll and the car slides between lanes,
-yet a minute of driving is a handful of Messages. Update records what is
-happening and since when, using the Message's Time. The View turns the Frame
-into positions with `useTransform`, so nothing renders between Messages.
-
-```tsx
-// Update: the car heads for a lane from where it is now.
-Steered: ({ toward }, { model: { config }, state, at }) => {
-  const to = Math.min(config.lanes - 1, Math.max(0, state.lane.to + (toward === 'left' ? -1 : 1)));
-  if (to === state.lane.to) return {};
-  return { state: { ...state, lane: { from: laneAt(state.lane, config, at), to, at } } };
-},
-
-// View: where things are at a Frame, in road units.
-Playing: ({ model: { config }, state, frame }) => (
-  <Scene road={config} frame={frame} where={(at) => whereAt(config, state, at)} />
-),
-
-// Scene: motion values follow the Frame, with no render.
-const now = useTransform(frame, where);
-const shift = useTransform(now, ({ driven }) => dividerShift(road, driven));
-const x = useTransform(now, ({ lane }) => carAt(road, lane).x);
-return (
-  <svg viewBox={viewBox}>
-    <motion.g style={{ y: shift }}>{dividers}</motion.g>
-    <motion.g style={{ x, y: carY }}>{car}</motion.g>
-  </svg>
-);
-```
-
-- Update gets each Message's Time as `at`. The Runtime stamps it when the Message is sent, from Effect's `Clock`, and Replay gives Update the same `at`.
-- `frame` is one `MotionValue<number>` for the whole app, and every View's draw gets it. Outside a running app it stands still at 0. Live, it follows the Runtime's Time at every animation frame; at a Step it stands still at that Message's Time. React renders only when a Message changes the Model, and `useTransform` recomputes during that render, so a new Model never shows at an old position.
-- A canvas listens instead: `useMotionValueEvent(frame, 'change', (at) => draw(at))`, plus one draw at `frame.get()` when it mounts.
-- There is no Pause. An app that must stand still, like a game, pauses itself with its own Messages; the road keeps a Paused State.
-- Commands and Lifetimes sleep on Effect's Clock. An Update returning `replaceCommands: true` stops its Node's Commands still running first: the demo replans its crash this way every time you steer.
-- Each State is drawn by its own component, so a State's draw can use hooks.
-- `toReact` does not compile until the Layer covers every Service the tree still needs.
+- A View is written per State, and gets `model`, `state`, `children` (Handles; arrays for keyed Children), `send` and `frame`. It never sees Capabilities, so it draws a Replay exactly like the live app.
+- A View re-renders only when its own Instance's Model, State or set of Children changes. Many Messages handled in a row make one render.
+- `DemoApp.useRuntime()` returns `{ log, head, running, shown, show, stop, start, children, frame }` from anywhere on the page. `show(id)` draws the app right after that entry, on any Branch; `stop()` closes every Lifetime, Command and Capability; `start(id)` Replays to that entry and grows a new Branch from it, and `start()` resumes.
+- Work that must survive a stop belongs in a Lifetime: Commands running at a stop are lost. The outside world is not rewound.
+- Whatever moves between Messages is drawn from `frame`, a `MotionValue<number>` holding the Time, with `useTransform`; nothing renders between Messages.
+- `toReact` does not compile until the Layer covers every Capability the tree still needs.
