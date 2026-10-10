@@ -33,6 +33,19 @@ const baseJsonViewStyle = {
   '--w-rjv-type-nan-color': 'var(--destructive)',
 } as React.CSSProperties;
 
+// Code-like colors, for reading data structure at a glance: keys muted, each
+// kind of value its own hue.
+const syntaxJsonViewStyle = {
+  '--w-rjv-quotes-string-color': 'var(--positive)',
+  '--w-rjv-type-string-color': 'var(--positive)',
+  '--w-rjv-type-int-color': 'var(--chart-8)',
+  '--w-rjv-type-float-color': 'var(--chart-8)',
+  '--w-rjv-type-bigint-color': 'var(--chart-8)',
+  '--w-rjv-type-boolean-color': 'var(--chart-9)',
+  '--w-rjv-type-date-color': 'var(--chart-7)',
+  '--w-rjv-type-url-color': 'var(--chart-7)',
+} as React.CSSProperties;
+
 function normalizeJsonStrings(value: unknown): unknown {
   if (value === null || value === undefined) return value;
   if (typeof value === 'string') {
@@ -64,16 +77,20 @@ interface JsonTreeProps {
   value: object;
   collapsed?: number | boolean;
   size?: 'compact' | 'roomy';
+  /** `plain` keeps values in the text color; `syntax` colors them by kind. */
+  tone?: 'plain' | 'syntax';
 }
 
 export function JsonTree({
   value,
   collapsed = 2,
   size = 'compact',
+  tone = 'plain',
 }: JsonTreeProps) {
   const normalized = normalizeJsonStrings(value) as object;
   const style = {
     ...baseJsonViewStyle,
+    ...(tone === 'syntax' ? syntaxJsonViewStyle : {}),
     fontSize: size === 'roomy' ? JSON_FONT_SIZE_ROOMY : JSON_FONT_SIZE,
   } as React.CSSProperties;
   return (

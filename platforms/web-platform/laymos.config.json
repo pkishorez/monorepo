@@ -230,6 +230,25 @@
       "src/input"
     ],
     "src/recipes/account-switcher": ["src/recipes/parts/email-privacy"],
+    "src/recipes/effect-oak-devtools": ["src/components/viewers"],
+    "src/recipes/effect-oak-devtools/inspection": [
+      "src/recipes/effect-oak-devtools/step"
+    ],
+    "src/recipes/effect-oak-devtools/details": [
+      "src/recipes/effect-oak-devtools/inspection",
+      "src/recipes/effect-oak-devtools/segmented",
+      "src/recipes/effect-oak-devtools/step"
+    ],
+    "src/recipes/effect-oak-devtools/timeline": [
+      "src/recipes/effect-oak-devtools/details",
+      "src/recipes/effect-oak-devtools/inspection",
+      "src/recipes/effect-oak-devtools/step"
+    ],
+    "src/recipes/effect-oak-devtools/inspector": [
+      "src/recipes/effect-oak-devtools/details",
+      "src/recipes/effect-oak-devtools/inspection",
+      "src/recipes/effect-oak-devtools/step"
+    ],
     "src/recipes/frame/sidebar": ["src/recipes/frame/frame"],
     "src/recipes/local-sign-in": ["src/recipes/parts/email-privacy"],
     "src/server": ["src/define"],

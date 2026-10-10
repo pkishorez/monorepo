@@ -1236,6 +1236,9 @@ importers:
       effect:
         specifier: 'catalog:'
         version: 4.0.0
+      effect-oak:
+        specifier: workspace:*
+        version: link:../../packages/effect-oak
       laymos:
         specifier: workspace:*
         version: link:../../devtools/laymos
