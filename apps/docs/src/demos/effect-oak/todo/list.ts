@@ -2,7 +2,7 @@ import { Schema } from 'effect';
 
 /*
  * The todo list as data: its Schemas, and what each change does to it.
- * Nothing here knows the Node; todo.ts decides when each change happens.
+ * Nothing here knows the Actor; todo.ts decides when each change happens.
  */
 
 export const Todo = Schema.Struct({

@@ -24,7 +24,7 @@ fields/     the text field, the two color fields (picker, hex, swatches),
             and the preview
 ```
 
-One Node: the preview needs the text and both colors, and a parent can
+One Actor: the preview needs the text and both colors, and a parent can
 neither read its Children's Models nor hand them data (blocker 13), so a
 Child per color field would only mirror the root.
 
@@ -59,7 +59,7 @@ move: a long drag is many Log entries, like any input.
 
 ## Blockers
 
-None of its own. One View could not be split into Child Nodes (blocker 13),
+None of its own. One View could not be split into Child Actors (blocker 13),
 as above.
 
 ## Testing
@@ -71,7 +71,7 @@ right Message.
 
 What Effect Oak would need:
 
-- A typed `Node.step` (blocker 5) for the three rules.
+- A typed `Actor.step` (blocker 5) for the three rules.
 - Drawing the View from a Model (blocker 5) and dispatching a
   `color-changed` CustomEvent on the element, checking the Message Sent. With
   a DOM test environment, rendering `<WebComponentsView node={…} />` against

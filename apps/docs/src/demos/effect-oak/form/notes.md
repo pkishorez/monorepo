@@ -16,18 +16,19 @@ Waitlist (root)            Model { name, email, message: { value, valid }, submi
 ├─ name: Field(name)       Model { value, status }; Typed → Rules → Fields.report (a Request)
 ├─ email: Field(email)     … plus an async check, replacing any check still running
 └─ message: Field(message)
-field/   makeField: a Field Node and its View from Rules and an optional check
+field/   makeField: a Field Actor and its View from Rules and an optional check
 ```
 
-Every Field is made by one factory, so the three fields are three Nodes with
+Every Field is made by one factory, so the three fields are three Actors with
 the same behavior. A field reports `{ value, valid }` to the form through the
 `Fields` Request whenever it changes; the form keeps only that.
 
 ## Deviations
 
-- **The latest email check wins by `replaceCommands`.** Foldkit lets every
-  `ValidateEmail` finish and drops answers for an old value. Here each
-  keystroke replaces the check still running, so a stale answer never
+- **The latest email check wins by a keyed Command.** Foldkit lets every
+  `ValidateEmail` finish and drops answers for an old value. Here the check
+  runs under the `check` key, so each keystroke replaces the check still
+  running, so a stale answer never
   arrives. The value guard is kept anyway.
 - **Field status is in the Model, not States.** A View draws each State with
   its own component, so with NotValidated, Validating, Valid and Invalid as
@@ -37,7 +38,7 @@ the same behavior. A field reports `{ value, valid }` to the form through the
   them and everything typed.
 - `foldkit/fieldValidation` is replaced by a few Rules in `field/rules.ts`.
 - The fake waitlist and submit are plain Effects in the Commands, as in
-  Foldkit; no Service.
+  Foldkit; no Capability.
 - Every keystroke is two Messages: `Typed` in the field and `ReportedField`
   in the form.
 
@@ -45,7 +46,7 @@ the same behavior. A field reports `{ value, valid }` to the form through the
 
 - **Each State is drawn by its own keyed component**, so DOM that should
   survive a Transition (a focused input) is remounted. An API could let a
-  Node with States be drawn by one function, `View.make(Field, (props) => …)`,
+  Actor with States be drawn by one function, `View.make(Field, (props) => …)`,
   narrowing on `props.state._tag` inside.
 - **Children belong to one State** (also hit by [weather](../weather/notes.md)),
   so the form cannot use States for its submission.

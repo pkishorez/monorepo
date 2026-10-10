@@ -1,5 +1,5 @@
-import { Schema } from 'effect';
-import { Node } from 'effect-oak';
+import { Effect, Schema } from 'effect';
+import { Actor } from 'effect-oak';
 import { View } from 'effect-oak/react';
 import { focusFirstIn, focusId } from '../focus/index.js';
 import { Picks, reportPick } from '../picks/index.js';
@@ -8,7 +8,7 @@ import { idsOf } from './options.js';
 import type { Options } from './options.js';
 
 /*
- * A modal dialog as a Node: open or closed, plus the button that opens it.
+ * A modal dialog as an Actor: open or closed, plus the button that opens it.
  *
  * Open is Model data, not a State. Each State is drawn by its own keyed
  * component (blocker 11), so a Closed → Open Transition would remount the
@@ -22,9 +22,9 @@ import type { Options } from './options.js';
  * reporting.
  *
  * A nested dialog is a Child of the outer one, drawn inside its panel. It
- * lives as long as the outer Node, not only while it is open, since open
+ * lives as long as the outer Actor, not only while it is open, since open
  * is Model data. It needs its own factory:
- * one generic over the inner Node does not compile (see notes, blocker 21).
+ * one generic over the inner Actor does not compile (see notes, blocker 21).
  */
 
 const shape = {
@@ -44,14 +44,14 @@ const behavior = (options: Options) => {
     update: {
       ClickedTrigger: () => ({
         model: { open: true },
-        commands: [focusFirstIn(ids.panel)],
+        command: focusFirstIn(ids.panel),
       }),
       Dismissed: (
         _: unknown,
         { model }: { readonly model: { readonly open: boolean } },
       ) =>
         model.open
-          ? { model: { open: false }, commands: [focusId(ids.trigger)] }
+          ? { model: { open: false }, command: focusId(ids.trigger) }
           : {},
       ChoseAction: (
         { value }: { readonly value: string },
@@ -60,7 +60,13 @@ const behavior = (options: Options) => {
         model.open
           ? {
               model: { open: false },
-              commands: [reportPick(options.id, value), focusId(ids.trigger)],
+              command: Effect.all(
+                [reportPick(options.id, value), focusId(ids.trigger)],
+                {
+                  concurrency: 'unbounded',
+                  discard: true,
+                },
+              ),
             }
           : {},
     },
@@ -69,7 +75,7 @@ const behavior = (options: Options) => {
 
 /** A dialog with an action or two. */
 export const makeDialog = (options: Options) => {
-  const Dialog = Node.make(`Dialog(${options.id})`, shape).build(
+  const Dialog = Actor.make(`Dialog(${options.id})`, shape).build(
     behavior(options),
   );
 
@@ -90,7 +96,7 @@ export const makeDialog = (options: Options) => {
 export const makeNestedDialog = (options: Options, inner: Options) => {
   const { Dialog: Inner, DialogView: InnerView } = makeDialog(inner);
 
-  const Dialog = Node.make(`Dialog(${options.id})`, {
+  const Dialog = Actor.make(`Dialog(${options.id})`, {
     ...shape,
     children: { inner: Inner },
   }).build(behavior(options));

@@ -1,5 +1,5 @@
 import { Effect, Schema } from 'effect';
-import { Node } from 'effect-oak';
+import { Actor } from 'effect-oak';
 import { AsyncData } from '../../async-data/index.js';
 import { Blog, Post, PostDetail, Served } from '../../blog-server/index.js';
 
@@ -33,10 +33,10 @@ type Model = typeof Model.Type;
 /** Refetch the list, keeping it on screen, unless a fetch is running. */
 const refetchList = (_: unknown, { model }: { readonly model: Model }) => {
   const list = AsyncData.revalidateOrLoad(model.list);
-  return list ? { model: { ...model, list }, commands: [fetchList] } : {};
+  return list ? { model: { ...model, list }, command: fetchList } : {};
 };
 
-export const Posts = Node.make('Posts', {
+export const Posts = Actor.make('Posts', {
   requires: { blog: Blog },
   model: Model,
   state: Schema.TaggedUnion({
@@ -59,8 +59,10 @@ export const Posts = Node.make('Posts', {
   init: () => ({
     model: { list: AsyncData.loading, details: {} },
     state: { _tag: 'Browsing' },
-    commands: [fetchList],
   }),
+  lifetime: {
+    '*': (self) => Effect.flatMap(fetchList, self.send),
+  },
   update: {
     Browsing: {
       ClickedPost: ({ postId }, { model }) => {
@@ -75,7 +77,7 @@ export const Posts = Node.make('Posts', {
                 ...model,
                 details: { ...model.details, [postId]: entry },
               },
-              commands: [fetchPost(postId)],
+              command: fetchPost(postId),
             }
           : { state };
       },
@@ -87,7 +89,7 @@ export const Posts = Node.make('Posts', {
           ...model,
           details: { ...model.details, [postId]: AsyncData.loading },
         },
-        commands: [fetchPost(postId)],
+        command: fetchPost(postId),
       }),
     },
     '*': {

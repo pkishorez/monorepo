@@ -48,7 +48,7 @@ Drawing is one function from text to elements. Islands are drawn by the caller:
 
 ## Proof that it is alive
 
-This counter is a Child Node of the blog, drawn between two paragraphs:
+This counter is a Child Actor of the blog, drawn between two paragraphs:
 
 ::Counter{label="Clicks while reading this post"}
 

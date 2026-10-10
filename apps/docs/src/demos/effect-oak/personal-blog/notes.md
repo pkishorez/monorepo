@@ -69,7 +69,7 @@ draws a post and checks the island is there.
 What Effect Oak would need:
 
 - `pageFrom` and `parse` are plain functions and testable today.
-- A typed `Node.step` (blocker 5) for the blog's and the Counter's rules.
+- A typed `Actor.step` (blocker 5) for the blog's and the Counter's rules.
   "The count survives navigating" is a fact about the tree (the Counter Child
   is not recreated), so it needs either a step that reports Children, or
   `Runtime.start` with a stub Location sending paths.

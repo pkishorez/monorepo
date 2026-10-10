@@ -1,8 +1,8 @@
 import { Schema } from 'effect';
-import { Node } from 'effect-oak';
+import { Actor } from 'effect-oak';
 
-/** A number you can step up, step down and reset. One Node, one State. */
-export const Counter = Node.make('Counter', {
+/** A number you can step up, step down and reset. One Actor, one State. */
+export const Counter = Actor.make('Counter', {
   model: Schema.Struct({ count: Schema.Number }),
   message: Schema.TaggedUnion({
     ClickedDecrement: {},

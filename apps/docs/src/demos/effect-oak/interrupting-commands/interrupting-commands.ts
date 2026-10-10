@@ -1,6 +1,5 @@
 import { Duration, Effect, Schema } from 'effect';
-import { Node } from 'effect-oak';
-import { Uploader } from './uploader/index.js';
+import { Actor } from 'effect-oak';
 import {
   cancelAll,
   fakeFile,
@@ -12,30 +11,26 @@ import {
 /*
  * Fake file uploads that can be cancelled one at a time, or all at once.
  *
- * Each upload is a Command that sleeps for its size. Cancelling one asks the
- * Uploader Service to stop that upload's work, and its answer comes back as
- * a Message, as in Foldkit: Interrupted, or NotFound if it had already
- * finished. Cancelling all is Effect Oak's own `replaceCommands`: an Update
- * with no Commands that replaces every running one.
+ * Each upload is a Command that sleeps for its size, started under its own
+ * key. Cancelling one cancels that key; cancelling all cancels the key of
+ * every upload still running. Either way the Update marks them Cancelled at
+ * once: an upload that already finished is not Uploading, so there is
+ * nothing to cancel.
  */
 
-const uploadFile = (uploadId: number, sizeMegabytes: number) =>
-  Effect.gen(function* () {
-    yield* (yield* Uploader).run(
-      uploadId,
-      Effect.sleep(Duration.millis(sizeMegabytes * MILLISECONDS_PER_MEGABYTE)),
-    );
-    return { _tag: 'SucceededUploadFile' as const, uploadId };
-  });
+const uploadKey = (uploadId: number) => `upload-${uploadId}`;
 
-const cancelUploadFile = (uploadId: number) =>
-  Effect.gen(function* () {
-    const outcome = yield* (yield* Uploader).cancel(uploadId);
-    return { _tag: 'CompletedCancelUploadFile' as const, uploadId, outcome };
-  });
+const uploadFile = (uploadId: number, sizeMegabytes: number) => ({
+  key: uploadKey(uploadId),
+  run: Effect.sleep(
+    Duration.millis(sizeMegabytes * MILLISECONDS_PER_MEGABYTE),
+  ).pipe(Effect.as({ _tag: 'SucceededUploadFile' as const, uploadId })),
+});
 
-export const Uploads = Node.make('Uploads', {
-  requires: { uploader: Uploader },
+const isUploading = (uploads: UploadList, uploadId: number) =>
+  uploads.some((each) => each.id === uploadId && each.status === 'Uploading');
+
+export const Uploads = Actor.make('Uploads', {
   model: Schema.Struct({ nextId: Schema.Number, uploads: UploadList }),
   message: Schema.TaggedUnion({
     ClickedStartUpload: {},
@@ -43,10 +38,6 @@ export const Uploads = Node.make('Uploads', {
     ClickedCancelAllUploads: {},
     ClickedRestartUpload: { uploadId: Schema.Number },
     SucceededUploadFile: { uploadId: Schema.Number },
-    CompletedCancelUploadFile: {
-      uploadId: Schema.Number,
-      outcome: Schema.Literals(['Interrupted', 'NotFound']),
-    },
   }),
 }).build({
   init: () => ({ model: { nextId: 0, uploads: [] } }),
@@ -65,16 +56,24 @@ export const Uploads = Node.make('Uploads', {
           nextId: model.nextId + 1,
           uploads: [...model.uploads, upload],
         },
-        commands: [uploadFile(upload.id, upload.sizeMegabytes)],
+        command: uploadFile(upload.id, upload.sizeMegabytes),
       };
     },
-    ClickedCancelUpload: ({ uploadId }) => ({
-      commands: [cancelUploadFile(uploadId)],
-    }),
+    ClickedCancelUpload: ({ uploadId }, { model }) =>
+      isUploading(model.uploads, uploadId)
+        ? {
+            model: {
+              ...model,
+              uploads: setStatus(model.uploads, uploadId, 'Cancelled'),
+            },
+            cancel: uploadKey(uploadId),
+          }
+        : {},
     ClickedCancelAllUploads: (_, { model }) => ({
       model: { ...model, uploads: cancelAll(model.uploads) },
-      commands: [],
-      replaceCommands: true,
+      cancel: model.uploads
+        .filter((upload) => upload.status === 'Uploading')
+        .map((upload) => uploadKey(upload.id)),
     }),
     ClickedRestartUpload: ({ uploadId }, { model, at }) => {
       const upload = model.uploads.find(
@@ -86,22 +85,11 @@ export const Uploads = Node.make('Uploads', {
           ...model,
           uploads: setStatus(model.uploads, uploadId, 'Uploading', at),
         },
-        commands: [uploadFile(uploadId, upload.sizeMegabytes)],
+        command: uploadFile(uploadId, upload.sizeMegabytes),
       };
     },
     SucceededUploadFile: ({ uploadId }, { model }) => ({
       model: { ...model, uploads: setStatus(model.uploads, uploadId, 'Done') },
     }),
-    CompletedCancelUploadFile: ({ uploadId, outcome }, { model }) =>
-      outcome === 'Interrupted'
-        ? {
-            model: {
-              ...model,
-              uploads: setStatus(model.uploads, uploadId, 'Cancelled'),
-            },
-          }
-        : {},
   },
 });
-
-export { UploaderLive } from './uploader/index.js';

@@ -15,12 +15,12 @@ attention, a review page, a live resume preview beside the form, and a
 
 ### Plan
 
-The question was what should be a Node. Foldkit keeps one Model holding
+The question was what should be an Actor. Foldkit keeps one Model holding
 every step's Submodel, and the root reads all of them for its nav, preview,
 review and submit. In Effect Oak a parent cannot read its Children's Models,
 so the plan was to:
 
-- Make each step that keeps answers a Child Node: it owns its fields,
+- Make each step that keeps answers a Child Actor: it owns its fields,
   validation and Commands.
 - Keep all five Children for the whole app. The current step is Model data,
   and the View draws only that step's Child. Steps as root States would
@@ -29,11 +29,11 @@ so the plan was to:
 - Have each step report its whole answers (a Part) up through a Request on
   every change. The root keeps the latest Part of each step in a Sheet and
   draws the nav, preview and review from it (blocker 13).
-- Send Submit's "show every error" down through a Layer Service that each
+- Send Submit's "show every error" down through a Layer Capability that each
   step's Lifetime listens to (blocker 14).
 - Keep entries (positions, skills) as data in their step's Model, not as
-  Nodes (blocker 1).
-- Make Review, the preview and the step nav drawings, not Nodes: they keep
+  Actors (blocker 1).
+- Make Review, the preview and the step nav drawings, not Actors: they keep
   nothing of their own.
 
 ### Tree
@@ -44,7 +44,7 @@ JobApplication (root)       Model { step, sheet, submitAttempted, submission }
                             Reported{part} → sheet[part._tag] = part
                             ClickedSubmit → revealAll (+ submit Command if complete)
 ├─ personalInfo: PersonalInfo   fields as Model data; EditedEmail → Rules, then a
-│                               check Command (replaceCommands); Lifetime: heardReveal
+│                               check Command (keyed); Lifetime: heardReveal
 ├─ workHistory: WorkHistory     entries: Entry[] (data, by id), nextId; Lifetime: heardReveal
 ├─ skills: Skills               entries: Skill[] (data, by id), nextId; Lifetime: heardReveal
 ├─ coverLetter: CoverLetter     content
@@ -93,7 +93,7 @@ replaced before it runs (see blocker 7 below).
   a field is valid is worked out from its Rules; `shown` says whether its
   errors are drawn yet (typed in, or revealed by Submit). The email adds
   `emailCheck: Unchecked | Checking | Free | Taken`.
-- **The latest email check wins by `replaceCommands`**, as in the form demo,
+- **The latest email check wins by its Command key** (`checkEmail`)
   instead of Foldkit's `emailValidationId`. The value guard is kept.
 - **Submit always succeeds**, as Foldkit's does; its unused SubmitError
   state is dropped.
@@ -122,24 +122,23 @@ All are known; none is new.
   helper and the `Reported` Message.
 
 - **14, no parent → Child Messages.** Submit must reveal every step's
-  errors. `Reveals` is a mailbox Service in the Layer (about 40 lines): the
+  errors. `Reveals` is a mailbox Capability in the Layer (about 40 lines): the
   root's Command posts, and three steps carry `requires: { reveals }`,
-  `lifetime: () => heardReveal` and a `RevealedErrors` Message only to hear
+  `lifetime: heardReveal` and a `RevealedErrors` Message only to hear
   it. `tell: [[children.workHistory, { _tag: 'RevealedErrors' }], …]` would
   replace all of it.
 - **10, Children belong to one State.** Steps cannot be the root's States;
   the current step is a Model field and the View picks the Child to draw.
   It works and reads well, but nothing in the tree says that only one step
   is on screen.
-- **1, no list of Children.** Positions and skills are data in their step,
+- **1, no list of Children.** (now possible with `Actor.many` and `invoke`; this demo still keeps the list as data) Positions and skills are data in their step,
   handled by id (`edit(model, id, change)`), Foldkit-Submodel style. Each
-  entry would be a natural Node.
+  entry would be a natural Actor.
 - **3, no init input.** Minor here: `today` is read in the View, and entry
   ids come from a counter.
-- **7, no way to stop one Command.** Every email keystroke replaces the
-  step's Commands to drop the stale check. That also stops a `report`
-  Command that has not run yet, which is harmless only because every report
-  carries the whole step.
+- **7, no way to stop one Command** is gone: every email keystroke starts
+  its report and check under the `checkEmail` key, which replaces only the
+  stale check.
 
 ## Ergonomics at this size
 
@@ -149,25 +148,25 @@ and almost all the extra code goes into blockers 13 and 14.
 
 - **Size.** About 2,000 lines in 33 files, against about 4,450 in Foldkit's
   source (tests excluded), with Education cut and no UI library. Effect
-  Oak's per-Node shape is not where the lines go.
+  Oak's per-Actor shape is not where the lines go.
 - **Wiring Children is free.** Foldkit's root has eight `Update.foldChild`
   blocks, eight `Got*Message` wrappers, and an `h.submodel` per step in the
   View: about 150 lines that only route Messages. Here a Child is one line
   in `children` and one `<StepView node={children.step} />`. A step's
   Messages go to the step; the root's Update never sees them.
-- **Boilerplate per Node** is small and the same every time:
-  `Node.make(name, { requires, model, message })`, then `.build({ init,
+- **Boilerplate per Actor** is small and the same every time:
+  `Actor.make(name, { requires, model, message })`, then `.build({ init,
 update })`, about 15 lines before any logic. The repeated parts are:
   - the `changed` helper (one per step, five in all, each building that
     step's Part);
-  - `requires: { answers: Answers, reveals: Reveals }`, `lifetime: () =>
+  - `requires: { answers: Answers, reveals: Reveals }`, `lifetime:
 heardReveal` and `RevealedErrors: {}` in three steps.
 
-  All of it comes from blockers 13 and 14, not from the Node shape.
+  All of it comes from blockers 13 and 14, not from the Actor shape.
 
-- **The Node tree stays readable.** It is flat: a root and five Children,
-  each about 50 to 170 lines of Node plus a View. Each step reads on its
-  own, with its Requires saying exactly what it talks to. The two Services
+- **The Actor tree stays readable.** It is flat: a root and five Children,
+  each about 50 to 170 lines of Actor plus a View. Each step reads on its
+  own, with its Requires saying exactly what it talks to. The two Capabilities
   in `application/` are the only cross-cutting piece, and they hold the
   whole parent ↔ Child protocol in one file.
 - **Types held up.** Each Child's Requires is checked against what the root
@@ -210,7 +209,7 @@ What Effect Oak would need to test it the same way:
   check and Submit for the submit, and to resolve them with a chosen
   Message.
 - **One Update on a given Model** (blocker 5). Most of Foldkit's stories
-  would port directly to the step Nodes, since their Updates are pure.
+  would port directly to the step Actors, since their Updates are pure.
 - **A Request seen as a Command** (blocker 4): "typing reports the Part" is
   a `report` Command today, an anonymous Effect.
 - **Emitting a Lifetime's Message** (blocker 6), to send `RevealedErrors`.

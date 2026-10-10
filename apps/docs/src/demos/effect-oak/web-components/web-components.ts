@@ -1,16 +1,16 @@
 import { Schema } from 'effect';
-import { Node } from 'effect-oak';
+import { Actor } from 'effect-oak';
 
 /*
  * A pattern designer built on two custom elements: a color picker whose
  * events become Messages, and a badge drawn from the Model.
  *
- * One Node: the preview needs the text and both colors, and a parent can
+ * One Actor: the preview needs the text and both colors, and a parent can
  * neither read its Children's Models nor hand them data, so each color
- * field as its own Node would only mirror the root's Model.
+ * field as its own Actor would only mirror the root's Model.
  */
 
-export const WebComponents = Node.make('WebComponents', {
+export const WebComponents = Actor.make('WebComponents', {
   model: Schema.Struct({
     content: Schema.String,
     fill: Schema.String,

@@ -7,7 +7,7 @@ Status: works
 Foldkit's `stopwatch`: a `MM:SS.cc` time with Start, Stop and Reset.
 
 ```
-Stopwatch        one Node
+Stopwatch        one Actor
   Stopped { elapsed }            Start → Running
   Running { before, since }      Stop  → Stopped { elapsed: before + (at - since) }
   either                         Reset → Stopped { elapsed: 0 }   ('*' rule)
@@ -43,7 +43,7 @@ Its scenes emit a tick with `Subscription.emit(Ticked())` and check that the
 text reads `00:04.32`.
 
 There are no Commands or Lifetimes here, so the Update tests only need a typed
-`Node.step` that takes `at` (see [../counter/notes.md](../counter/notes.md)).
+`Actor.step` that takes `at` (see [../counter/notes.md](../counter/notes.md)).
 Then "Start at 1000, Stop at 5320 → Stopped { elapsed: 4320 }" is one call.
 To test what the View shows, Effect Oak would also need to draw a View at a
 given Time: `View.render(StopwatchView, snapshot, { at: 5320 })`, with

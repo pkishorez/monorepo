@@ -2,10 +2,10 @@ import { Context, Effect, Layer, Stream } from 'effect';
 import { ComputeEngine, engineLayer, type Engine } from './compute-engine.js';
 
 /*
- * Holds the one running Compute Engine. A State cannot Provide a Service that
- * an Effect builds (Effect Oak's `provides` is a plain function of the Model
- * and State), so the engine lives here instead, like Foldkit's
- * ManagedResource:
+ * Holds the one running Compute Engine, like Foldkit's ManagedResource. It was
+ * written when a State could not Provide a Capability that an Effect builds;
+ * `provides` is now a Layer built on entering the State, but the demo keeps
+ * the engine here:
  *
  * - `boot` builds the engine's Layer in the Stream's own scope, keeps the
  *   engine while the Stream runs, and says its id. Run it as a Lifetime:

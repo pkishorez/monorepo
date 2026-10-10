@@ -9,11 +9,11 @@ import { Context, Effect } from 'effect';
 /** Whoever takes reports from components: the showcase. */
 export class Picks extends Context.Service<
   Picks,
-  { readonly report: (source: string, value: string) => void }
+  { readonly report: (source: string, value: string) => Effect.Effect<void> }
 >()('docs/ui-showcase/Picks') {}
 
 /** A Command reporting `value` under `source` to whoever Provides Picks. */
 export const reportPick = (source: string, value: string) =>
   Effect.gen(function* () {
-    (yield* Picks).report(source, value);
+    yield* (yield* Picks).report(source, value);
   });

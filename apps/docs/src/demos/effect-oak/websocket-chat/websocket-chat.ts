@@ -1,5 +1,5 @@
-import { Clock, Context, Effect, Schema, Stream } from 'effect';
-import { Node } from 'effect-oak';
+import { Clock, Effect, Layer, Schema, Stream } from 'effect';
+import { Actor } from 'effect-oak';
 import { ChatServer } from './chat-server/index.js';
 import { Composer, Conversation } from './composer/index.js';
 
@@ -23,7 +23,7 @@ const ChatMessage = Schema.Struct({
 /** Wall-clock time, for the time shown under each message. */
 const wallClock = Clock.currentTimeMillis;
 
-export const Chat = Node.make('Chat', {
+export const Chat = Actor.make('Chat', {
   requires: { server: ChatServer },
   state: Schema.TaggedUnion({
     Disconnected: {},
@@ -44,7 +44,7 @@ export const Chat = Node.make('Chat', {
 }).build({
   init: () => ({ state: { _tag: 'Disconnected' } }),
   lifetime: {
-    Online: () =>
+    Online: (self) =>
       Stream.unwrap(
         Effect.gen(function* () {
           return (yield* ChatServer).connect;
@@ -71,21 +71,29 @@ export const Chat = Node.make('Chat', {
             }
           }),
         ),
+        Stream.runForEach(self.send),
       ),
   },
   provides: {
-    Online: ({ services, send }) =>
-      Context.make(Conversation, {
-        send: (text) =>
-          services.server.send(text).pipe(
-            Effect.andThen(wallClock),
-            Effect.match({
-              onSuccess: (sentAt) =>
-                send({ _tag: 'SucceededSendMessage', text, sentAt }),
-              onFailure: (error) => send({ _tag: 'FailedSendMessage', error }),
-            }),
-          ),
-      }),
+    Online: (self) =>
+      Layer.effect(
+        Conversation,
+        Effect.gen(function* () {
+          const server = yield* ChatServer;
+          return {
+            send: (text) =>
+              server.send(text).pipe(
+                Effect.andThen(wallClock),
+                Effect.matchEffect({
+                  onSuccess: (sentAt) =>
+                    self.send({ _tag: 'SucceededSendMessage', text, sentAt }),
+                  onFailure: (error) =>
+                    self.send({ _tag: 'FailedSendMessage', error }),
+                }),
+              ),
+          };
+        }),
+      ),
   },
   update: {
     Disconnected: {

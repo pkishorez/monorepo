@@ -1,5 +1,5 @@
-import { Effect, Schema, Stream } from 'effect';
-import { Node } from 'effect-oak';
+import { Effect, Schema } from 'effect';
+import { Actor } from 'effect-oak';
 import { View } from 'effect-oak/react';
 import { Button } from '@kstackz/web-platform/components/button';
 import { Input } from '@kstackz/web-platform/components/input';
@@ -18,7 +18,7 @@ import { ShopServer } from '../shop-server/index.js';
  * the shop's nav.
  */
 
-export const Products = Node.make('Products', {
+export const Products = Actor.make('Products', {
   requires: { shop: ShopServer, basket: Basket },
   state: Schema.TaggedUnion({
     Loading: {},
@@ -32,13 +32,11 @@ export const Products = Node.make('Products', {
 }).build({
   init: () => ({ state: { _tag: 'Loading' } }),
   lifetime: {
-    Loading: () =>
-      Stream.fromEffect(
-        Effect.gen(function* () {
-          const products = yield* (yield* ShopServer).products;
-          return { _tag: 'Loaded' as const, products };
-        }),
-      ),
+    Loading: (self) =>
+      Effect.gen(function* () {
+        const products = yield* (yield* ShopServer).products;
+        yield* self.send({ _tag: 'Loaded', products });
+      }),
   },
   update: {
     Loading: {
@@ -51,11 +49,9 @@ export const Products = Node.make('Products', {
         state: { ...state, search: value },
       }),
       ClickedAddToCart: ({ item }) => ({
-        commands: [
-          Effect.gen(function* () {
-            (yield* Basket).add(item);
-          }),
-        ],
+        command: Effect.gen(function* () {
+          yield* (yield* Basket).add(item);
+        }),
       }),
     },
   },

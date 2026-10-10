@@ -1,12 +1,12 @@
 import { Schema } from 'effect';
-import { Node } from 'effect-oak';
+import { Actor } from 'effect-oak';
 import { View } from 'effect-oak/react';
 import { ChevronDown } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { cn } from '@kstackz/web-platform/components/utils';
 
 /*
- * A disclosure as a Node: open or closed, and nothing else. It reports
+ * A disclosure as an Actor: open or closed, and nothing else. It reports
  * nothing up; whether it is open matters only to itself.
  *
  * The panel stays drawn while closed, `inert` and folded to no height, so
@@ -25,7 +25,7 @@ type Options = {
 const make = (options: Options) => {
   const panel = `${options.id}-panel`;
 
-  const Disclosure = Node.make(`Disclosure(${options.id})`, {
+  const Disclosure = Actor.make(`Disclosure(${options.id})`, {
     model: Schema.Struct({ open: Schema.Boolean }),
     message: Schema.TaggedUnion({ Toggled: {} }),
   }).build({

@@ -132,7 +132,7 @@ export const UiShowcaseView = View.make(
               </>
             )}
             {page === 'Switch' && (
-              <Section title="Basic" hint="Controlled by its Node's Model.">
+              <Section title="Basic" hint="Controlled by its Actor's Model.">
                 <notifications.SwitchView node={children.notifications} />
               </Section>
             )}

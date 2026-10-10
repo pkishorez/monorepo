@@ -14,8 +14,8 @@ Chat (root)                        requires ChatServer (from the Layer)
                                    Provides Conversation
   └─ composer: Composer            requires Conversation; Model { text }; SubmittedMessage → Command → Conversation.send
   Error { error }
-chat-server/  ChatServer Service over a WebSocket: connect (a Stream) and send
-composer/     Composer Node and its View, and the Conversation Service it requires
+chat-server/  ChatServer Capability over a WebSocket: connect (a Stream) and send
+composer/     Composer Actor and its View, and the Conversation Capability it requires
 transcript/   Transcript, a drawing of the messages
 ```
 
@@ -42,8 +42,8 @@ disconnect.
 - **A State cannot Provide a resource that an Effect builds** (same as
   [managed-resource-layer](../managed-resource-layer/notes.md)). The open
   socket is kept inside `ChatServer`, whose `send` writes to it, like
-  Foldkit's ManagedResource. A scoped `provides` per State would let Online
-  Provide the socket itself.
+  Foldkit's ManagedResource. `provides` is now a Layer built per State, so
+  Online could Provide the socket itself; this demo has not moved to that.
 - **A Lifetime belongs to exactly one State**, which merged Connecting and
   Connected (same as managed-resource-layer).
 

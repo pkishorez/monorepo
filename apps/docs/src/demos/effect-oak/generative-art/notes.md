@@ -1,7 +1,7 @@
 # Generative art
 
 Status: partial. The particles are stepped in the View between Messages, with
-no ticks; the sliders are not Nodes (blockers below).
+no ticks; the sliders are not Actors (blockers below).
 
 ## What was ported
 
@@ -10,13 +10,13 @@ by a drifting Perlin flow field, a swirl around the pointer, a burst of 22 on
 click, Pause/Play, Reset, and Turbulence and Noise scale sliders.
 
 ```
-Prism (one Node)               Model { particles, nextId, flowStrength, noiseScale, pointer }
+Prism (one Actor)              Model { particles, nextId, flowStrength, noiseScale, pointer }
   Running { before, since }    Lifetime: every 500 ms, 4 random seeds → CompletedGenerateAmbient
   Paused { clock }
   any                          every Update first settles the particles to `at`
                                PressedCanvas → Command (Random) → CompletedGenerateBurst
 flow/    the physics: noise, the field, `advance` (step a particle on) and `settle`
-sky/     the canvas: carries particles on to each Frame and paints them; not a Node
+sky/     the canvas: carries particles on to each Frame and paints them; not an Actor
 seeds.ts random new particles, for Commands and the Lifetime
 ```
 
@@ -55,12 +55,12 @@ Step back in Time Travel), starts again from the Model.
 
 ## Blockers
 
-- **The sliders cannot be Child Nodes.** A slider Node (its value, reported up
+- **The sliders cannot be Child Actors.** A slider Actor (its value, reported up
   by Request like the form's fields) would have to live in both Running and
   Paused, and Children belong to one State (roll-up blocker 10). It would be
   created anew at every Pause, and could not start from the current value
   (blocker 3). Putting Running/Paused into the Model instead would lose the
-  Lifetime, which belongs to a State. So the Node is one, and the sliders are
+  Lifetime, which belongs to a State. So the Actor is one, and the sliders are
   plain controls sending its Messages.
 
 ## Testing
@@ -74,7 +74,7 @@ What Effect Oak would need:
 
 - Named Commands to resolve the burst (roll-up blocker 4), and emitting the
   ambient Lifetime's Message by hand (blocker 6).
-- A typed `Node.step` (blocker 5). `flow/` is plain functions: "a particle
+- A typed `Actor.step` (blocker 5). `flow/` is plain functions: "a particle
   stepped to 1000 then to 2000 is where it is stepped straight to 2000" can be
   tested today.
 

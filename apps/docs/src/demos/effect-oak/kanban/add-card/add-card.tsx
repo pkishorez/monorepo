@@ -1,5 +1,5 @@
 import { Context, Effect, Schema } from 'effect';
-import { Node } from 'effect-oak';
+import { Actor } from 'effect-oak';
 import { View } from 'effect-oak/react';
 import { Button } from '@kstackz/web-platform/components/button';
 import { Input } from '@kstackz/web-platform/components/input';
@@ -7,18 +7,18 @@ import { Input } from '@kstackz/web-platform/components/input';
 /*
  * The "+ Add card" control at the foot of one column: Closed, or Open with
  * the title being typed. Submitting hands the title to whoever Provides
- * Adding, a Request, and closes. One Node per column, made by a factory
+ * Adding, a Request, and closes. One Actor per column, made by a factory
  * that bakes the column's id in, since a Child cannot be given it.
  */
 
 /** Whoever takes new cards: the board. */
 export class Adding extends Context.Service<
   Adding,
-  { readonly add: (columnId: string, title: string) => void }
+  { readonly add: (columnId: string, title: string) => Effect.Effect<void> }
 >()('docs/kanban/Adding') {}
 
 export const makeAddCard = (columnId: string) => {
-  const AddCard = Node.make(`AddCard(${columnId})`, {
+  const AddCard = Actor.make(`AddCard(${columnId})`, {
     requires: { adding: Adding },
     state: Schema.TaggedUnion({
       Closed: {},
@@ -45,11 +45,9 @@ export const makeAddCard = (columnId: string) => {
           if (title === '') return {};
           return {
             state: { _tag: 'Closed' },
-            commands: [
-              Effect.gen(function* () {
-                (yield* Adding).add(columnId, title);
-              }),
-            ],
+            command: Effect.gen(function* () {
+              yield* (yield* Adding).add(columnId, title);
+            }),
           };
         },
         Cancelled: () => ({ state: { _tag: 'Closed' } }),

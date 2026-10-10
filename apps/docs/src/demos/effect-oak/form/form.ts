@@ -1,9 +1,9 @@
-import { Context, Effect, Random, Schema } from 'effect';
-import { Node } from 'effect-oak';
+import { Effect, Layer, Random, Schema } from 'effect';
+import { Actor } from 'effect-oak';
 import { Fields, makeField, rules } from './field/index.js';
 
 /*
- * A waitlist form: three field Nodes and the submission.
+ * A waitlist form: three field Actors and the submission.
  *
  * Each field validates itself and reports its value and validity through
  * the Fields Request, so the form keeps only what it needs to submit. The
@@ -62,7 +62,7 @@ const submitForm = (name: string) =>
       : { _tag: 'FailedSubmitForm' as const };
   });
 
-export const Waitlist = Node.make('Waitlist', {
+export const Waitlist = Actor.make('Waitlist', {
   model: Schema.Struct({
     name: Entry,
     email: Entry,
@@ -95,12 +95,12 @@ export const Waitlist = Node.make('Waitlist', {
       submission: { _tag: 'NotSubmitted' },
     },
   }),
-  provides: ({ send }) =>
-    Context.make(Fields, {
-      report: (key, { value, valid }) => {
-        if (key === 'name' || key === 'email' || key === 'message')
-          send({ _tag: 'ReportedField', key, value, valid });
-      },
+  provides: (self) =>
+    Layer.succeed(Fields, {
+      report: (key, { value, valid }) =>
+        key === 'name' || key === 'email' || key === 'message'
+          ? self.send({ _tag: 'ReportedField', key, value, valid })
+          : Effect.void,
     }),
   update: {
     ReportedField: ({ key, value, valid }, { model }) => ({
@@ -111,7 +111,7 @@ export const Waitlist = Node.make('Waitlist', {
         ? {}
         : {
             model: { ...model, submission: { _tag: 'Submitting' } },
-            commands: [submitForm(model.name.value)],
+            command: submitForm(model.name.value),
           },
     SucceededSubmitForm: ({ name }, { model }) => ({
       model: {

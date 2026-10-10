@@ -1,5 +1,5 @@
-import { Context, Effect, Schema } from 'effect';
-import { Node } from 'effect-oak';
+import { Effect, Layer, Schema, Stream } from 'effect';
+import { Actor, type Self } from 'effect-oak';
 import { Location, heardUrl, pushUrl, readPath } from '../location/index.js';
 import { Catalog, hangs } from './gallery/index.js';
 import { Drafts, Studio } from './studio/index.js';
@@ -64,10 +64,21 @@ const loadPainting = (paintingId: number) =>
 const saveDraft = (text: string) =>
   Effect.sleep(SAVE_MS).pipe(Effect.as({ _tag: 'SavedDraft' as const, text }));
 
-const listen = ({ model }: { readonly model: { readonly path: string } }) =>
-  heardUrl(model.path === '' ? null : model.path);
+const listen = (
+  self: Self<
+    { readonly path: string },
+    unknown,
+    { readonly _tag: 'ChangedUrl'; readonly path: string }
+  >,
+) =>
+  Effect.gen(function* () {
+    const { model } = yield* self.get;
+    yield* heardUrl(model.path === '' ? null : model.path).pipe(
+      Stream.runForEach(self.send),
+    );
+  });
 
-export const RouteTransitions = Node.make('RouteTransitions', {
+export const RouteTransitions = Actor.make('RouteTransitions', {
   requires: { location: Location },
   model: Schema.Struct({
     path: Schema.String,
@@ -103,9 +114,9 @@ export const RouteTransitions = Node.make('RouteTransitions', {
     NotFound: listen,
   },
   provides: {
-    Studio: ({ send }) =>
-      Context.make(Drafts, {
-        edited: (text) => send({ _tag: 'EditedDraft', text }),
+    Studio: (self) =>
+      Layer.succeed(Drafts, {
+        edited: (text) => self.send({ _tag: 'EditedDraft', text }),
       }),
   },
   update: {
@@ -146,10 +157,16 @@ export const RouteTransitions = Node.make('RouteTransitions', {
             ),
           },
           state: samePainting ? state : next,
-          commands: [...loads, ...saves],
+          command: (self) =>
+            Effect.all(
+              [...loads, ...saves].map((effect) =>
+                Effect.flatMap(effect, self.send),
+              ),
+              { concurrency: 'unbounded', discard: true },
+            ),
         };
       },
-      ClickedLink: ({ path }) => ({ commands: [pushUrl(path)] }),
+      ClickedLink: ({ path }) => ({ command: pushUrl(path) }),
       SavedDraft: ({ text }, { model }) => ({
         model: { ...model, saved: text },
       }),

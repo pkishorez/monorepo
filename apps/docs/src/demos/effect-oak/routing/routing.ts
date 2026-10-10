@@ -1,12 +1,12 @@
-import { Schema } from 'effect';
-import { Node } from 'effect-oak';
+import { Effect, Schema, Stream } from 'effect';
+import { Actor } from 'effect-oak';
 import { Location, heardUrl, pushUrl } from '../location/index.js';
 import { People } from './people/index.js';
 import { RouteState, routeFrom } from './route/index.js';
 
 /*
  * Routing without a router: each route is a State of the root, and the URL
- * is a Location Service in the app's Layer.
+ * is a Location Capability in the app's Layer.
  *
  * The URL comes first, as in Foldkit. A click Sends `ClickedLink`, whose
  * Command pushes the path; the Location hears it, and the State's Lifetime
@@ -18,10 +18,21 @@ import { RouteState, routeFrom } from './route/index.js';
  * State: each starts listening on entry, from the path it was entered with.
  */
 
-const listen = ({ model }: { readonly model: { readonly path: string } }) =>
-  heardUrl(model.path === '' ? null : model.path);
+const listen = (self: {
+  readonly get: Effect.Effect<{ readonly model: { readonly path: string } }>;
+  readonly send: (message: {
+    readonly _tag: 'ChangedUrl';
+    readonly path: string;
+  }) => Effect.Effect<void>;
+}) =>
+  Effect.gen(function* () {
+    const { model } = yield* self.get;
+    yield* heardUrl(model.path === '' ? null : model.path).pipe(
+      Stream.runForEach(self.send),
+    );
+  });
 
-export const Routing = Node.make('Routing', {
+export const Routing = Actor.make('Routing', {
   requires: { location: Location },
   /** The path the current State came from, drawn in the demo's address bar. */
   model: Schema.Struct({ path: Schema.String }),
@@ -46,7 +57,7 @@ export const Routing = Node.make('Routing', {
   update: {
     '*': {
       ChangedUrl: ({ path }) => ({ model: { path }, state: routeFrom(path) }),
-      ClickedLink: ({ path }) => ({ commands: [pushUrl(path)] }),
+      ClickedLink: ({ path }) => ({ command: pushUrl(path) }),
     },
   },
 });

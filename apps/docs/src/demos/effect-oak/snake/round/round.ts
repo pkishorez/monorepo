@@ -1,5 +1,5 @@
 import { Context, Effect, Random, Schema } from 'effect';
-import { Node } from 'effect-oak';
+import { Actor } from 'effect-oak';
 import {
   bitesItself,
   Body,
@@ -18,8 +18,8 @@ import {
  * One round of snake: NotStarted → Playing ⇄ Paused → GameOver.
  *
  * The snake moves one cell per Tick: a game of discrete steps, so it ticks.
- * Each Tick asks for the next one as a Command, sleeping in the app's Time,
- * sooner as the score grows. Pausing replaces that Command with none;
+ * Each Tick asks for the next one as a Command under the `tick` key, sleeping
+ * in the app's Time, sooner as the score grows. Pausing cancels that key;
  * resuming asks again. A new apple's place is random, so it comes back from
  * a Command as a Message. When the snake bites itself the round tells the
  * Scores Request how it did.
@@ -28,7 +28,7 @@ import {
 /** Whoever keeps the high score: the arcade. */
 export class Scores extends Context.Service<
   Scores,
-  { readonly finished: (points: number) => void }
+  { readonly finished: (points: number) => Effect.Effect<void> }
 >()('docs/snake/Scores') {}
 
 const POINTS_PER_APPLE = 10;
@@ -37,8 +37,12 @@ const HEAD = { x: 10, y: 10 };
 /** Milliseconds between steps: 150, down to 80 as the score grows. */
 const interval = (points: number) => Math.max(80, 150 - points);
 
-const tick = (points: number) =>
-  Effect.sleep(interval(points)).pipe(Effect.as({ _tag: 'Ticked' as const }));
+const tick = (points: number) => ({
+  key: 'tick',
+  run: Effect.sleep(interval(points)).pipe(
+    Effect.as({ _tag: 'Ticked' as const }),
+  ),
+});
 
 /** A random free cell for the apple. */
 const placeApple = (body: Body) =>
@@ -55,7 +59,7 @@ const placeApple = (body: Body) =>
 
 const report = (points: number) =>
   Effect.gen(function* () {
-    (yield* Scores).finished(points);
+    yield* (yield* Scores).finished(points);
   });
 
 const fresh = () => {
@@ -69,11 +73,10 @@ const fresh = () => {
       points: 0,
     },
     state: { _tag: 'NotStarted' as const },
-    commands: [placeApple(snake)],
   };
 };
 
-export const Round = Node.make('Round', {
+export const Round = Actor.make('Round', {
   requires: { scores: Scores },
   model: Schema.Struct({
     snake: Body,
@@ -98,11 +101,18 @@ export const Round = Node.make('Round', {
   }),
 }).build({
   init: fresh,
+  lifetime: {
+    '*': (self) =>
+      Effect.gen(function* () {
+        const { model } = yield* self.get;
+        yield* self.send(yield* placeApple(model.snake));
+      }),
+  },
   update: {
     NotStarted: {
       PressedStart: (_, { model }) => ({
         state: { _tag: 'Playing' },
-        commands: [tick(model.points)],
+        command: tick(model.points),
       }),
     },
     Playing: {
@@ -111,8 +121,7 @@ export const Round = Node.make('Round', {
       }),
       PressedPause: () => ({
         state: { _tag: 'Paused' },
-        commands: [],
-        replaceCommands: true,
+        cancel: 'tick',
       }),
       Ticked: (_, { model }) => {
         const direction = isOpposite(model.direction, model.nextDirection)
@@ -123,23 +132,39 @@ export const Round = Node.make('Round', {
         if (bitesItself(snake))
           return {
             state: { _tag: 'GameOver' },
-            commands: [report(model.points)],
+            command: report(model.points),
           };
         const points = eats ? model.points + POINTS_PER_APPLE : model.points;
         return {
           model: { ...model, snake, direction, points },
-          commands: eats ? [tick(points), placeApple(snake)] : [tick(points)],
+          command: eats
+            ? {
+                key: 'tick',
+                run: (self) =>
+                  Effect.gen(function* () {
+                    yield* self.send(yield* placeApple(snake));
+                    return yield* tick(points).run;
+                  }),
+              }
+            : tick(points),
         };
       },
     },
     Paused: {
       PressedPause: (_, { model }) => ({
         state: { _tag: 'Playing' },
-        commands: [tick(model.points)],
+        command: tick(model.points),
       }),
     },
     '*': {
-      PressedRestart: () => ({ ...fresh(), replaceCommands: true }),
+      PressedRestart: () => {
+        const next = fresh();
+        return {
+          ...next,
+          command: { key: 'apple', run: placeApple(next.model.snake) },
+          cancel: 'tick',
+        };
+      },
       CompletedGenerateApplePosition: ({ position }, { model }) => ({
         model: { ...model, apple: position },
       }),

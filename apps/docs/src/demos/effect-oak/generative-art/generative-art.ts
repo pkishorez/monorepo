@@ -1,5 +1,5 @@
 import { Effect, Schedule, Schema, Stream } from 'effect';
-import { Node } from 'effect-oak';
+import { Actor } from 'effect-oak';
 import { born, Particle, Seed, settle } from './flow/index.js';
 import { ambientSeeds, burstSeeds } from './seeds.js';
 
@@ -62,7 +62,7 @@ const add = (model: Model, seeds: ReadonlyArray<Seed>, clock: number) => ({
   nextId: model.nextId + seeds.length,
 });
 
-export const Prism = Node.make('Prism', {
+export const Prism = Actor.make('Prism', {
   model: Schema.Struct({
     particles: Schema.Array(Particle),
     nextId: Schema.Number,
@@ -94,15 +94,13 @@ export const Prism = Node.make('Prism', {
       pointer: null,
     },
     state: { _tag: 'Running', before: 0, since: 0 },
-    commands: [
-      Effect.map(ambientSeeds(FIRST), (seeds) => ({
-        _tag: 'CompletedGenerateAmbient' as const,
-        seeds,
-      })),
-    ],
   }),
   lifetime: {
-    Running: () =>
+    '*': (self) =>
+      Effect.flatMap(ambientSeeds(FIRST), (seeds) =>
+        self.send({ _tag: 'CompletedGenerateAmbient', seeds }),
+      ),
+    Running: (self) =>
       Stream.fromEffectSchedule(
         ambientSeeds(AMBIENT.count),
         Schedule.spaced(AMBIENT.every),
@@ -111,6 +109,7 @@ export const Prism = Node.make('Prism', {
           _tag: 'CompletedGenerateAmbient' as const,
           seeds,
         })),
+        Stream.runForEach(self.send),
       ),
   },
   update: {
@@ -137,12 +136,10 @@ export const Prism = Node.make('Prism', {
       PressedCanvas: ({ x, y }, { state, at }) => {
         const hue = ((clockAt(state, at) / 1000) * BURST_HUE_DRIFT) % 360;
         return {
-          commands: [
-            Effect.map(burstSeeds(x, y, hue), (seeds) => ({
-              _tag: 'CompletedGenerateBurst' as const,
-              seeds,
-            })),
-          ],
+          command: Effect.map(burstSeeds(x, y, hue), (seeds) => ({
+            _tag: 'CompletedGenerateBurst' as const,
+            seeds,
+          })),
         };
       },
       MovedPointer: ({ x, y }, { model, state, at }) => ({

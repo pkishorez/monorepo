@@ -1,10 +1,10 @@
 import { Effect, Schema } from 'effect';
-import { Node } from 'effect-oak';
+import { Actor } from 'effect-oak';
 import { View } from 'effect-oak/react';
 import { Info } from 'lucide-react';
 
 /*
- * A tooltip as a Node: hidden, or shown. Hovering waits `delayMs` before
+ * A tooltip as an Actor: hidden, or shown. Hovering waits `delayMs` before
  * showing, as a Command; leaving replaces it, so a pointer that passes over
  * the trigger shows nothing. The wait runs in the app's Time: pausing the
  * timeline mid-wait holds the tooltip back too. Focus shows it at once, and
@@ -20,9 +20,9 @@ type Options = {
 
 const make = (options: Options) => {
   const tip = `${options.id}-tip`;
-  const hidden = { model: { shown: false }, replaceCommands: true } as const;
+  const hidden = { model: { shown: false }, cancel: 'wait' } as const;
 
-  const Tooltip = Node.make(`Tooltip(${options.id})`, {
+  const Tooltip = Actor.make(`Tooltip(${options.id})`, {
     model: Schema.Struct({ shown: Schema.Boolean }),
     message: Schema.TaggedUnion({
       PointerEntered: {},
@@ -39,12 +39,12 @@ const make = (options: Options) => {
           : options.delayMs === 0
             ? { model: { shown: true } }
             : {
-                commands: [
-                  Effect.sleep(options.delayMs).pipe(
+                command: {
+                  key: 'wait',
+                  run: Effect.sleep(options.delayMs).pipe(
                     Effect.as({ _tag: 'Waited' as const }),
                   ),
-                ],
-                replaceCommands: true,
+                },
               },
       Waited: () => ({ model: { shown: true } }),
       Focused: () => ({ model: { shown: true } }),

@@ -1,5 +1,5 @@
 import { Effect, Schema, Stream } from 'effect';
-import { Node } from 'effect-oak';
+import { Actor } from 'effect-oak';
 import { BrowseSchema, browseFrom, oneOf, printSorting } from './browse.js';
 import { makeParam } from './param/index.js';
 import { DIETS, PERIODS, nextSorting } from './table/index.js';
@@ -8,7 +8,7 @@ import { Url } from './url/index.js';
 /*
  * A dinosaur table whose filters, search and sorting live in the URL.
  *
- * There is no router: the URL is a Service, and every Node that draws part of
+ * There is no router: the URL is a Capability, and every Actor that draws part of
  * it listens to it with a Lifetime. The app reads all of it to draw the
  * table and writes the sorting when a header is clicked; the search box and
  * the two filters are Param Children, each mirroring and writing its own
@@ -21,7 +21,7 @@ export const SearchParam = makeParam({ name: 'search' });
 export const DietParam = makeParam({ name: 'diet', parse: oneOf(DIETS) });
 export const PeriodParam = makeParam({ name: 'period', parse: oneOf(PERIODS) });
 
-export const QuerySync = Node.make('QuerySync', {
+export const QuerySync = Actor.make('QuerySync', {
   requires: { url: Url },
   model: Schema.Struct({ browse: BrowseSchema }),
   message: Schema.TaggedUnion({
@@ -31,22 +31,22 @@ export const QuerySync = Node.make('QuerySync', {
   children: { search: SearchParam, diet: DietParam, period: PeriodParam },
 }).build({
   init: () => ({ model: { browse: browseFrom('') } }),
-  lifetime: () =>
+  lifetime: (self) =>
     Stream.unwrap(
       Effect.gen(function* () {
         return (yield* Url).query;
       }),
-    ).pipe(Stream.map((query) => ({ _tag: 'ChangedUrl' as const, query }))),
+    ).pipe(
+      Stream.runForEach((query) => self.send({ _tag: 'ChangedUrl', query })),
+    ),
   update: {
     ChangedUrl: ({ query }) => ({ model: { browse: browseFrom(query) } }),
     ClickedColumnHeader: ({ column }, { model }) => {
       const sorting = printSorting(nextSorting(model.browse.sorting, column));
       return {
-        commands: [
-          Effect.gen(function* () {
-            yield* (yield* Url).replace({ sorting });
-          }),
-        ],
+        command: Effect.gen(function* () {
+          yield* (yield* Url).replace({ sorting });
+        }),
       };
     },
   },

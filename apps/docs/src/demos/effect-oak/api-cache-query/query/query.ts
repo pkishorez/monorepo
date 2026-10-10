@@ -1,13 +1,13 @@
 import { Effect, Schema, Stream } from 'effect';
 import type { Context } from 'effect';
-import { Node } from 'effect-oak';
+import { Actor } from 'effect-oak';
 import { AsyncData } from '../../async-data/index.js';
 import { Order, Orders } from './orders.js';
 
 type Order = typeof Order.Type;
 
 /*
- * Foldkit's Query.define as a Node factory: one fetch, and everything it ever
+ * Foldkit's Query.define as an Actor factory: one fetch, and everything it ever
  * fetched, by key, as AsyncData. A Query with no arguments uses the key ''.
  *
  * The parent decides when to load, through Orders. The Query's own View may
@@ -69,7 +69,7 @@ export const makeQuery = <
     return entry
       ? {
           model: { ...model, entries: { ...model.entries, [key]: entry } },
-          commands: [fetch(key)],
+          command: fetch(key),
         }
       : {};
   };
@@ -80,7 +80,7 @@ export const makeQuery = <
     Revalidate: AsyncData.revalidate,
   } as const;
 
-  return Node.make(`Query(${options.name})`, {
+  return Actor.make(`Query(${options.name})`, {
     requires: { orders: Orders, ...options.requires },
     model: Model as unknown as Schema.Schema<Model>,
     message: Schema.TaggedUnion({
@@ -95,16 +95,16 @@ export const makeQuery = <
     }),
   }).build({
     init: () => ({ model: { entries: {}, focus: '' } }),
-    // TypeScript cannot see that Orders is among `{ orders } & R`'s Services
-    // while R is generic, so the Lifetime's needs are cast away here.
-    lifetime: () =>
-      Stream.unwrap(
-        Effect.gen(function* () {
-          return (yield* Orders).heard(options.name);
-        }),
-      ).pipe(
-        Stream.map((order) => ({ _tag: 'Ordered' as const, order })),
-      ) as Stream.Stream<{ readonly _tag: 'Ordered'; readonly order: Order }>,
+    // TypeScript cannot see that Orders is among `{ orders } & R`'s
+    // Capabilities while R is generic, so the Lifetime's needs are cast away here.
+    lifetime: (self) =>
+      Effect.gen(function* () {
+        yield* (yield* Orders)
+          .heard(options.name)
+          .pipe(
+            Stream.runForEach((order) => self.send({ _tag: 'Ordered', order })),
+          );
+      }) as Effect.Effect<void>,
     update: {
       Ordered: ({ order: { _tag, key } }, { model }) =>
         step({ ...model, focus: key }, key, ORDERS[_tag]),
@@ -113,7 +113,7 @@ export const makeQuery = <
       ClickedRefresh: ({ key }, { model }) =>
         step(model, key, AsyncData.revalidateOrLoad),
       Chose: ({ value }) =>
-        options.choose ? { commands: [options.choose(value)] } : {},
+        options.choose ? { command: options.choose(value) } : {},
       Settled: ({ key, result }, { model }) => ({
         model: {
           ...model,

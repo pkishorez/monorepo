@@ -1,5 +1,5 @@
 import { Schema } from 'effect';
-import { Node } from 'effect-oak';
+import { Actor } from 'effect-oak';
 import { Answers, FileInfo, report } from '../application/index.js';
 
 /*
@@ -17,17 +17,15 @@ type Model = typeof Model.Type;
 
 const changed = (model: Model) => ({
   model,
-  commands: [
-    report({
-      _tag: 'Attachments',
-      hasErrors: false,
-      complete: true,
-      ...model,
-    }),
-  ],
+  command: report({
+    _tag: 'Attachments',
+    hasErrors: false,
+    complete: true,
+    ...model,
+  }),
 });
 
-export const Attachments = Node.make('Attachments', {
+export const Attachments = Actor.make('Attachments', {
   requires: { answers: Answers },
   model: Model,
   message: Schema.TaggedUnion({

@@ -1,5 +1,5 @@
-import { Schema } from 'effect';
-import { Node } from 'effect-oak';
+import { Effect, Schema } from 'effect';
+import { Actor } from 'effect-oak';
 import { View } from 'effect-oak/react';
 import { Check, ChevronsUpDown } from 'lucide-react';
 import { cn } from '@kstackz/web-platform/components/utils';
@@ -7,7 +7,7 @@ import { focusId, leftFor, stepActive } from '../focus/index.js';
 import { Picks, reportPick } from '../picks/index.js';
 
 /*
- * A select-only listbox as a Node: open or closed, the active option, and
+ * A select-only listbox as an Actor: open or closed, the active option, and
  * what is selected. It is uncontrolled: the selection lives here, starts
  * from the factory's `initial` (a Child's init takes no input, blocker 3),
  * and every change is reported up. Nothing above can clear or set it
@@ -35,7 +35,7 @@ const make = (config: Options) => {
   };
   const closed = { open: false, active: null };
 
-  const Listbox = Node.make(`Listbox(${config.id})`, {
+  const Listbox = Actor.make(`Listbox(${config.id})`, {
     requires: { picks: Picks },
     model: Schema.Struct({
       open: Schema.Boolean,
@@ -63,7 +63,7 @@ const make = (config: Options) => {
         if (key === 'Escape')
           return {
             model: { ...model, ...closed },
-            commands: [focusId(ids.button)],
+            command: focusId(ids.button),
           };
         if (key === 'Tab') return { model: { ...model, ...closed } };
         if ((key === 'Enter' || key === ' ') && model.active !== null)
@@ -89,7 +89,7 @@ const make = (config: Options) => {
     const first = options.indexOf(model.selected[0] ?? '');
     return {
       model: { ...model, open: true, active: Math.max(0, first) },
-      commands: [focusId(ids.list)],
+      command: focusId(ids.list),
     };
   }
 
@@ -98,7 +98,13 @@ const make = (config: Options) => {
     if (!config.multiple)
       return {
         model: { ...model, ...closed, selected: [option] },
-        commands: [reportPick(config.id, option), focusId(ids.button)],
+        command: Effect.all(
+          [reportPick(config.id, option), focusId(ids.button)],
+          {
+            concurrency: 'unbounded',
+            discard: true,
+          },
+        ),
       };
     const selected = model.selected.includes(option)
       ? model.selected.filter((value) => value !== option)
@@ -107,7 +113,7 @@ const make = (config: Options) => {
         );
     return {
       model: { ...model, active: index, selected },
-      commands: [reportPick(config.id, selected.join(', ') || '(none)')],
+      command: reportPick(config.id, selected.join(', ') || '(none)'),
     };
   }
 

@@ -1,5 +1,5 @@
-import { Context, Effect, Schema, Stream } from 'effect';
-import { Node } from 'effect-oak';
+import { Effect, Layer, Schema } from 'effect';
+import { Actor } from 'effect-oak';
 import { Export, Printable } from './export/index.js';
 import {
   DEFAULT_SIZE,
@@ -60,7 +60,7 @@ const save = (ready: Ready) =>
 /** Keep the new Ready, and save it. */
 const saved = (ready: Ready) => ({
   state: { ...ready, _tag: 'Ready' as const },
-  commands: [save(ready)],
+  command: save(ready),
 });
 
 /** A new picture: the old one goes on the undo stack, and redo is forgotten. */
@@ -104,7 +104,7 @@ const opened = (saved: Saved | null): Ready => ({
   pendingSize: null,
 });
 
-export const PixelArt = Node.make('PixelArt', {
+export const PixelArt = Actor.make('PixelArt', {
   requires: { store: PictureStore },
   state: Schema.TaggedUnion({ Loading: {}, Ready }),
   message: Schema.TaggedUnion({
@@ -132,29 +132,32 @@ export const PixelArt = Node.make('PixelArt', {
 }).build({
   init: () => ({ state: { _tag: 'Loading' } }),
   lifetime: {
-    Loading: () =>
-      Stream.fromEffect(
-        Effect.gen(function* () {
-          const saved = yield* (yield* PictureStore).load;
-          return { _tag: 'Loaded' as const, saved };
-        }),
-      ),
+    Loading: (self) =>
+      Effect.gen(function* () {
+        const saved = yield* (yield* PictureStore).load;
+        yield* self.send({ _tag: 'Loaded', saved });
+      }),
   },
   provides: {
-    Ready: ({ state, send }) => {
-      const colors = colorsOf(state.theme);
-      return Context.make(Brush, {
-        changed: (tool, mirror) => send({ _tag: 'ChangedBrush', tool, mirror }),
-      }).pipe(
-        Context.add(Printable, {
-          colors: state.grid.map((row) =>
-            row.map((cell) =>
-              cell === null ? EMPTY : (colors[cell] ?? EMPTY),
-            ),
+    Ready: (self) =>
+      Layer.mergeAll(
+        Layer.succeed(Brush, {
+          changed: (tool, mirror) =>
+            self.send({ _tag: 'ChangedBrush', tool, mirror }),
+        }),
+        Layer.succeed(Printable, {
+          colors: self.get.pipe(
+            Effect.map(({ state }) => {
+              const colors = colorsOf(state.theme);
+              return state.grid.map((row) =>
+                row.map((cell) =>
+                  cell === null ? EMPTY : (colors[cell] ?? EMPTY),
+                ),
+              );
+            }),
           ),
         }),
-      );
-    },
+      ),
   },
   update: {
     Loading: {

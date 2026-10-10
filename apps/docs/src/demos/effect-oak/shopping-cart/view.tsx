@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
-import type { Snapshot } from 'effect-oak';
 import { View } from 'effect-oak/react';
+import type { ViewProps } from 'effect-oak/react';
 import { Button } from '@kstackz/web-platform/components/button';
 import { money, totalItems, totalPrice } from './basket/index.js';
 import type { Cart } from './basket/index.js';
@@ -9,7 +9,7 @@ import { CheckoutView } from './checkout/index.js';
 import { ProductsView } from './products/index.js';
 import { Shop } from './shopping-cart.js';
 
-type Send = Snapshot<typeof Shop>['send'];
+type Send = ViewProps<typeof Shop>['send'];
 
 const PAGES = ['Products', 'Cart', 'Checkout'] as const;
 

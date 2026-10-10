@@ -1,5 +1,5 @@
 import { Effect, Schema } from 'effect';
-import { Node } from 'effect-oak';
+import { Actor } from 'effect-oak';
 import { Answers, heardReveal, report, Reveals } from '../application/index.js';
 import {
   blank,
@@ -15,8 +15,9 @@ import {
  * The first step: name, email, phone, pronouns, portfolio and start date.
  *
  * The email is checked twice: its Rules at once, and then, if they pass,
- * against a fake list of taken emails after 600 ms. Each keystroke replaces
- * the check still running, so only the latest value's answer comes back.
+ * against a fake list of taken emails after 600 ms. Each keystroke starts
+ * its check under the same Command key, which replaces the check still
+ * running, so only the latest value's answer comes back.
  *
  * Every Update ends in `changed`, which reports the whole step to the
  * application. That one helper is what keeps the copy up there current.
@@ -85,20 +86,17 @@ const complete = (model: Model) =>
 
 const changed = (model: Model) => ({
   model,
-  commands: [
-    report({
-      _tag: 'PersonalInfo',
-      hasErrors: hasErrors(model),
-      complete: complete(model),
-      name: `${model.firstName.value} ${model.lastName.value}`.trim(),
-      email: model.email.value,
-      phone: model.phone.value,
-      pronouns:
-        model.pronoun === 'Other' ? model.customPronouns : model.pronoun,
-      portfolioUrl: model.portfolioUrl.value,
-      availableDate: model.availableDate,
-    }),
-  ],
+  command: report({
+    _tag: 'PersonalInfo',
+    hasErrors: hasErrors(model),
+    complete: complete(model),
+    name: `${model.firstName.value} ${model.lastName.value}`.trim(),
+    email: model.email.value,
+    phone: model.phone.value,
+    pronouns: model.pronoun === 'Other' ? model.customPronouns : model.pronoun,
+    portfolioUrl: model.portfolioUrl.value,
+    availableDate: model.availableDate,
+  }),
 });
 
 const checkEmail = (value: string) =>
@@ -110,7 +108,7 @@ const checkEmail = (value: string) =>
     }),
   );
 
-export const PersonalInfo = Node.make('PersonalInfo', {
+export const PersonalInfo = Actor.make('PersonalInfo', {
   requires: { answers: Answers, reveals: Reveals },
   model: Model,
   message: Schema.TaggedUnion({
@@ -136,7 +134,7 @@ export const PersonalInfo = Node.make('PersonalInfo', {
       availableDate: '',
     },
   }),
-  lifetime: () => heardReveal,
+  lifetime: heardReveal,
   update: {
     Edited: ({ field, value }, { model }) =>
       changed({ ...model, [field]: typed(value) }),
@@ -150,10 +148,19 @@ export const PersonalInfo = Node.make('PersonalInfo', {
       });
       return {
         ...next,
-        commands: rulesPass
-          ? [...next.commands, checkEmail(value)]
-          : next.commands,
-        replaceCommands: true,
+        command: {
+          key: 'checkEmail',
+          run: rulesPass
+            ? (self) =>
+                Effect.all(
+                  [
+                    next.command,
+                    checkEmail(value).pipe(Effect.flatMap(self.send)),
+                  ],
+                  { concurrency: 'unbounded', discard: true },
+                )
+            : next.command,
+        },
       };
     },
     CheckedEmail: ({ value, taken }, { model }) =>

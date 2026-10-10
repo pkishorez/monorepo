@@ -10,8 +10,8 @@ import { makeTooltip } from './tooltip/index.js';
 /*
  * Every component on show, each made once by its factory. A factory call
  * fixes what a parent would pass as props elsewhere: ids, labels, options,
- * panels. Each result is one Node and its View; the showcase makes each
- * Node a Child.
+ * panels. Each result is one Actor and its View; the showcase makes each
+ * Actor a Child.
  */
 
 const CITIES = [
@@ -132,7 +132,7 @@ export const disclosurePreview = makeDisclosure({
   id: 'disclosure-preview',
   title: 'Collapsed preview',
   preview: true,
-  body: 'This panel folds to its first lines instead of hiding. Opening it is one Message, and the height animates with CSS, so Time Travel shows it open or closed at once. The button below the text is part of the same Node; its label follows the Model. Nothing is reported up: whether a disclosure is open matters only to itself.',
+  body: 'This panel folds to its first lines instead of hiding. Opening it is one Message, and the height animates with CSS, so Time Travel shows it open or closed at once. The button below the text is part of the same Actor; its label follows the Model. Nothing is reported up: whether a disclosure is open matters only to itself.',
 });
 
 export const notifications = makeSwitch({

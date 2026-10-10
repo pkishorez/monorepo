@@ -1,5 +1,5 @@
-import { Context, Effect, Random, Schema, Stream } from 'effect';
-import { Node } from 'effect-oak';
+import { Effect, Layer, Random, Schema, Stream } from 'effect';
+import { Actor } from 'effect-oak';
 import { Adding, makeAddCard } from './add-card/index.js';
 import { BoardStore } from './board-store/index.js';
 import { appendCard, Columns, moveCard, placeOf } from './columns/index.js';
@@ -35,7 +35,7 @@ const save = (columns: Columns) =>
 
 const IDLE = { _tag: 'Idle' } as const;
 
-export const Board = Node.make('Board', {
+export const Board = Actor.make('Board', {
   requires: { store: BoardStore },
   model: Schema.Struct({ columns: Columns }),
   state: Schema.TaggedUnion({
@@ -73,20 +73,22 @@ export const Board = Node.make('Board', {
 }).build({
   init: () => ({ model: { columns: [] }, state: { _tag: 'Loading' } }),
   lifetime: {
-    Loading: () =>
-      Stream.fromEffect(
-        Effect.gen(function* () {
-          const columns = yield* (yield* BoardStore).load;
-          return { _tag: 'Loaded' as const, columns };
-        }),
-      ),
-    Dragging: ({ state }) => follow(state.cardId),
+    Loading: (self) =>
+      Effect.gen(function* () {
+        const columns = yield* (yield* BoardStore).load;
+        yield* self.send({ _tag: 'Loaded', columns });
+      }),
+    Dragging: (self) =>
+      Effect.gen(function* () {
+        const { state } = yield* self.get;
+        yield* follow(state.cardId).pipe(Stream.runForEach(self.send));
+      }),
   },
   provides: {
-    Idle: ({ send }) =>
-      Context.make(Adding, {
+    Idle: (self) =>
+      Layer.succeed(Adding, {
         add: (columnId, title) =>
-          send({ _tag: 'RequestedAdd', columnId, title }),
+          self.send({ _tag: 'RequestedAdd', columnId, title }),
       }),
   },
   update: {
@@ -95,17 +97,15 @@ export const Board = Node.make('Board', {
     },
     Idle: {
       RequestedAdd: ({ columnId, title }) => ({
-        commands: [
-          Effect.gen(function* () {
-            const id = yield* Random.nextIntBetween(0, Number.MAX_SAFE_INTEGER);
-            return {
-              _tag: 'CompletedGenerateCardId' as const,
-              cardId: `card-${id.toString(36)}`,
-              columnId,
-              title,
-            };
-          }),
-        ],
+        command: Effect.gen(function* () {
+          const id = yield* Random.nextIntBetween(0, Number.MAX_SAFE_INTEGER);
+          return {
+            _tag: 'CompletedGenerateCardId' as const,
+            cardId: `card-${id.toString(36)}`,
+            columnId,
+            title,
+          };
+        }),
       }),
       PickedUp: ({ cardId }, { model }) => {
         const place = placeOf(model.columns, cardId);
@@ -123,7 +123,7 @@ export const Board = Node.make('Board', {
           state.columnId,
           state.index,
         );
-        return { model: { columns }, state: IDLE, commands: [save(columns)] };
+        return { model: { columns }, state: IDLE, command: save(columns) };
       },
       Cancelled: () => ({ state: IDLE }),
     },
@@ -134,7 +134,7 @@ export const Board = Node.make('Board', {
           title,
           description: '',
         });
-        return { model: { columns }, commands: [save(columns)] };
+        return { model: { columns }, command: save(columns) };
       },
       SucceededSaveBoard: () => ({}),
       FailedSaveBoard: () => ({}),

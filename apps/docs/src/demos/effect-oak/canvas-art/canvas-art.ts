@@ -1,5 +1,5 @@
 import { Effect, Random, Schema } from 'effect';
-import { Node } from 'effect-oak';
+import { Actor } from 'effect-oak';
 import { bounce } from './bounce.js';
 
 /*
@@ -64,7 +64,7 @@ const generateBall = (x: number, y: number) =>
     };
   });
 
-export const Box = Node.make('Box', {
+export const Box = Actor.make('Box', {
   model: Schema.Struct({ balls: Schema.Array(Ball), nextId: Schema.Number }),
   state: Schema.TaggedUnion({
     Running: { before: Schema.Number, since: Schema.Number },
@@ -93,7 +93,7 @@ export const Box = Node.make('Box', {
       }),
     },
     '*': {
-      ClickedCanvas: ({ x, y }) => ({ commands: [generateBall(x, y)] }),
+      ClickedCanvas: ({ x, y }) => ({ command: generateBall(x, y) }),
       CompletedGenerateBall: (launch, { model, state, at }) => ({
         model: {
           balls: [

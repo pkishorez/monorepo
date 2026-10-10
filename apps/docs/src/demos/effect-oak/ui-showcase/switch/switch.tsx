@@ -1,11 +1,11 @@
 import { Schema } from 'effect';
-import { Node } from 'effect-oak';
+import { Actor } from 'effect-oak';
 import { View } from 'effect-oak/react';
 import { Switch as KitSwitch } from '@kstackz/web-platform/components/switch';
 import { Picks, reportPick } from '../picks/index.js';
 
 /*
- * A switch as a Node: on or off, reported up on every toggle. The kit's
+ * A switch as an Actor: on or off, reported up on every toggle. The kit's
  * Switch only draws it: it is controlled by the Model, so its own state
  * never holds anything the Log does not.
  */
@@ -13,7 +13,7 @@ import { Picks, reportPick } from '../picks/index.js';
 type Options = { readonly id: string; readonly label: string };
 
 const make = (options: Options) => {
-  const Switch = Node.make(`Switch(${options.id})`, {
+  const Switch = Actor.make(`Switch(${options.id})`, {
     requires: { picks: Picks },
     model: Schema.Struct({ on: Schema.Boolean }),
     message: Schema.TaggedUnion({ Toggled: { on: Schema.Boolean } }),
@@ -22,7 +22,7 @@ const make = (options: Options) => {
     update: {
       Toggled: ({ on }) => ({
         model: { on },
-        commands: [reportPick(options.id, on ? 'on' : 'off')],
+        command: reportPick(options.id, on ? 'on' : 'off'),
       }),
     },
   });

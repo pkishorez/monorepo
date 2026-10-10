@@ -1,5 +1,5 @@
-import { Schema } from 'effect';
-import { Node } from 'effect-oak';
+import { Effect, Schema, Stream } from 'effect';
+import { Actor } from 'effect-oak';
 import { Location, heardUrl, pushUrl, readPath } from '../location/index.js';
 
 /*
@@ -31,10 +31,21 @@ export const routeFrom = (path: string): Route => {
   return { _tag: 'NotFound', path };
 };
 
-const listen = ({ model }: { readonly model: { readonly path: string } }) =>
-  heardUrl(model.path === '' ? null : model.path);
+const listen = (self: {
+  readonly get: Effect.Effect<{ readonly model: { readonly path: string } }>;
+  readonly send: (message: {
+    readonly _tag: 'ChangedUrl';
+    readonly path: string;
+  }) => Effect.Effect<void>;
+}) =>
+  Effect.gen(function* () {
+    const { model } = yield* self.get;
+    yield* heardUrl(model.path === '' ? null : model.path).pipe(
+      Stream.runForEach(self.send),
+    );
+  });
 
-export const ViewTransitions = Node.make('ViewTransitions', {
+export const ViewTransitions = Actor.make('ViewTransitions', {
   requires: { location: Location },
   model: Schema.Struct({ path: Schema.String, filter: Schema.String }),
   state: Route,
@@ -65,7 +76,7 @@ export const ViewTransitions = Node.make('ViewTransitions', {
       ClickedLink: ({ path }, { model }) => ({
         model: { ...model, path },
         state: routeFrom(path),
-        commands: [pushUrl(path)],
+        command: pushUrl(path),
       }),
     },
   },

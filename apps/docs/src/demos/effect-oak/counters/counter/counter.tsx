@@ -3,8 +3,8 @@ import { Button } from '@kstackz/web-platform/components/button';
 
 /*
  * One counter, as Foldkit's Submodel: a Message Schema, a pure step and a
- * drawing. It is not a Node, because a Node's Children are fixed per State
- * and cannot be a list that grows and shrinks (see ../notes.md). The parent
+ * drawing. It is not an Actor: it was written when an Actor's Children were
+ * fixed per State and could not be a list (see ../notes.md). The parent
  * keeps each count in its Model and wraps these Messages with the row's id.
  */
 

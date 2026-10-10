@@ -1,5 +1,5 @@
-import { Context, Schema } from 'effect';
-import { Node } from 'effect-oak';
+import { Layer, Schema } from 'effect';
+import { Actor } from 'effect-oak';
 import { Round, Scores } from './round/index.js';
 
 /*
@@ -10,16 +10,16 @@ import { Round, Scores } from './round/index.js';
  * Scores Request when it ends.
  */
 
-export const Arcade = Node.make('Arcade', {
+export const Arcade = Actor.make('Arcade', {
   model: Schema.Struct({ highScore: Schema.Number }),
   message: Schema.TaggedUnion({ FinishedRound: { points: Schema.Number } }),
   provides: [Scores],
   children: { round: Round },
 }).build({
   init: () => ({ model: { highScore: 0 } }),
-  provides: ({ send }) =>
-    Context.make(Scores, {
-      finished: (points) => send({ _tag: 'FinishedRound', points }),
+  provides: (self) =>
+    Layer.succeed(Scores, {
+      finished: (points) => self.send({ _tag: 'FinishedRound', points }),
     }),
   update: {
     FinishedRound: ({ points }, { model }) =>

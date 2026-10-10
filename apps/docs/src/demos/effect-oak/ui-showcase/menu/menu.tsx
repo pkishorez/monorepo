@@ -1,5 +1,5 @@
 import { Effect, Schema } from 'effect';
-import { Node } from 'effect-oak';
+import { Actor } from 'effect-oak';
 import { View } from 'effect-oak/react';
 import { ChevronDown } from 'lucide-react';
 import { Button } from '@kstackz/web-platform/components/button';
@@ -8,7 +8,7 @@ import { focusId, leftFor, stepActive } from '../focus/index.js';
 import { Picks, reportPick } from '../picks/index.js';
 
 /*
- * A dropdown menu of actions as a Node: open or closed, which item is
+ * A dropdown menu of actions as an Actor: open or closed, which item is
  * active, and what has been typed to jump to an item.
  *
  * The keyboard is all Update: Arrow keys, Home and End move the active item,
@@ -40,7 +40,7 @@ const make = (options: Options) => {
   };
   const { items } = options;
 
-  const Menu = Node.make(`Menu(${options.id})`, {
+  const Menu = Actor.make(`Menu(${options.id})`, {
     requires: { picks: Picks },
     model: Schema.Struct({
       open: Schema.Boolean,
@@ -64,7 +64,7 @@ const make = (options: Options) => {
           ? { model: { ...model, open: false, active: null } }
           : {
               model: { open: true, active: null, typed: '' },
-              commands: [focusId(ids.items)],
+              command: focusId(ids.items),
             },
       PressedButtonKey: ({ key }) => {
         const active =
@@ -77,14 +77,14 @@ const make = (options: Options) => {
           ? {}
           : {
               model: { open: true, active, typed: '' },
-              commands: [focusId(ids.items)],
+              command: focusId(ids.items),
             };
       },
       PressedItemsKey: ({ key }, { model }) => {
         if (key === 'Escape')
           return {
             model: { ...model, open: false, active: null },
-            commands: [focusId(ids.button)],
+            command: focusId(ids.button),
           };
         if (key === 'Tab')
           return { model: { ...model, open: false, active: null } };
@@ -99,12 +99,12 @@ const make = (options: Options) => {
         );
         return {
           model: { ...model, typed, active: found < 0 ? model.active : found },
-          commands: [
-            Effect.sleep(CLEAR_TYPED_MS).pipe(
+          command: {
+            key: 'clearTyped',
+            run: Effect.sleep(CLEAR_TYPED_MS).pipe(
               Effect.as({ _tag: 'ClearedTyped' as const }),
             ),
-          ],
-          replaceCommands: true,
+          },
         };
       },
       HoveredItem: ({ index }, { model }) =>
@@ -119,7 +119,10 @@ const make = (options: Options) => {
   function choose(index: number) {
     return {
       model: { open: false, active: null, typed: '' },
-      commands: [reportPick(options.id, items[index]!), focusId(ids.button)],
+      command: Effect.all(
+        [reportPick(options.id, items[index]!), focusId(ids.button)],
+        { concurrency: 'unbounded', discard: true },
+      ),
     };
   }
 

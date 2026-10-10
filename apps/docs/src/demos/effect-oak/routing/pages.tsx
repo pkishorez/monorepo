@@ -58,7 +58,7 @@ export const HomePage = ({ onNavigate }: { readonly onNavigate: Navigate }) => (
   <section className="flex flex-col gap-4">
     <h1 className="text-3xl font-semibold">Welcome Home</h1>
     <p className="text-muted-foreground">
-      Each page is a State of the root Node, and the path lives after the{' '}
+      Each page is a State of the root Actor, and the path lives after the{' '}
       <code>#</code> in the address bar. Use the links, the browser’s back and
       forward buttons, or edit the address by hand.
     </p>

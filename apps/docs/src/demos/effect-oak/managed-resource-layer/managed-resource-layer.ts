@@ -1,5 +1,5 @@
-import { Context, Effect, Schema, Stream } from 'effect';
-import { Node } from 'effect-oak';
+import { Effect, Layer, Schema, Stream } from 'effect';
+import { Actor } from 'effect-oak';
 import { Calculator, Engine } from './calculator/index.js';
 import { EngineHost } from './engine-host/index.js';
 
@@ -14,7 +14,7 @@ import { EngineHost } from './engine-host/index.js';
  * Calculator Child, which squares numbers on it.
  */
 
-export const EnginePanel = Node.make('EnginePanel', {
+export const EnginePanel = Actor.make('EnginePanel', {
   requires: { host: EngineHost },
   state: Schema.TaggedUnion({
     Off: {},
@@ -32,7 +32,7 @@ export const EnginePanel = Node.make('EnginePanel', {
 }).build({
   init: () => ({ state: { _tag: 'Off' } }),
   lifetime: {
-    On: () =>
+    On: (self) =>
       Stream.unwrap(
         Effect.gen(function* () {
           return (yield* EngineHost).boot;
@@ -45,14 +45,21 @@ export const EnginePanel = Node.make('EnginePanel', {
         Stream.catch((reason) =>
           Stream.make({ _tag: 'FailedStartEngine' as const, reason }),
         ),
+        Stream.runForEach(self.send),
       ),
   },
   provides: {
-    On: ({ services }) =>
-      Context.make(Engine, {
-        square: (value) =>
-          Effect.map(services.host.current, (engine) => engine.square(value)),
-      }),
+    On: () =>
+      Layer.effect(
+        Engine,
+        Effect.gen(function* () {
+          const host = yield* EngineHost;
+          return {
+            square: (value) =>
+              Effect.map(host.current, (engine) => engine.square(value)),
+          };
+        }),
+      ),
   },
   update: {
     Off: {

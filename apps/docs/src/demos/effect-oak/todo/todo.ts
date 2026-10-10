@@ -1,5 +1,5 @@
-import { Clock, Context, Effect, Random, Schema, Stream } from 'effect';
-import { Node } from 'effect-oak';
+import { Clock, Effect, Layer, Random, Schema } from 'effect';
+import { Actor } from 'effect-oak';
 import { Composer, Composing } from './composer/index.js';
 import {
   clearCompleted,
@@ -44,12 +44,12 @@ const save = (todos: TodoList) =>
 /** The list changed: keep it, and save it. */
 const changed = (state: Ready, todos: TodoList) => ({
   state: { ...state, todos },
-  commands: [save(todos)],
+  command: save(todos),
 });
 
 const NOT_EDITING = { _tag: 'NotEditing' } as const;
 
-export const Todos = Node.make('Todos', {
+export const Todos = Actor.make('Todos', {
   requires: { store: TodoStore },
   state: Schema.TaggedUnion({ Loading: {}, Ready }),
   message: Schema.TaggedUnion({
@@ -77,18 +77,16 @@ export const Todos = Node.make('Todos', {
 }).build({
   init: () => ({ state: { _tag: 'Loading' } }),
   lifetime: {
-    Loading: () =>
-      Stream.fromEffect(
-        Effect.gen(function* () {
-          const todos = yield* (yield* TodoStore).load;
-          return { _tag: 'Loaded' as const, todos };
-        }),
-      ),
+    Loading: (self) =>
+      Effect.gen(function* () {
+        const todos = yield* (yield* TodoStore).load;
+        yield* self.send({ _tag: 'Loaded', todos });
+      }),
   },
   provides: {
-    Ready: ({ send }) =>
-      Context.make(Composing, {
-        add: (text) => send({ _tag: 'RequestedAdd', text }),
+    Ready: (self) =>
+      Layer.succeed(Composing, {
+        add: (text) => self.send({ _tag: 'RequestedAdd', text }),
       }),
   },
   update: {
@@ -99,18 +97,16 @@ export const Todos = Node.make('Todos', {
     },
     Ready: {
       RequestedAdd: ({ text }) => ({
-        commands: [
-          Effect.gen(function* () {
-            const id = yield* Random.nextIntBetween(0, Number.MAX_SAFE_INTEGER);
-            const createdAt = yield* Clock.currentTimeMillis;
-            return {
-              _tag: 'CompletedGenerateTodo' as const,
-              id: id.toString(36),
-              text,
-              createdAt,
-            };
-          }),
-        ],
+        command: Effect.gen(function* () {
+          const id = yield* Random.nextIntBetween(0, Number.MAX_SAFE_INTEGER);
+          const createdAt = yield* Clock.currentTimeMillis;
+          return {
+            _tag: 'CompletedGenerateTodo' as const,
+            id: id.toString(36),
+            text,
+            createdAt,
+          };
+        }),
       }),
       CompletedGenerateTodo: (todo, { state }) =>
         changed(state, [

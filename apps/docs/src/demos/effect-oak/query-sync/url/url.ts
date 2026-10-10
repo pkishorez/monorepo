@@ -1,7 +1,7 @@
 import { Context, Effect, Layer, Stream, SubscriptionRef } from 'effect';
 
 /*
- * The page's query string as a Service: Effect Oak has no router, so the URL
+ * The page's query string as a Capability: Effect Oak has no router, so the URL
  * is outside the tree like any other resource. `query` gives the query string
  * now and at every change; `replace` sets some parameters and drops empty
  * ones, without a new history entry, as Foldkit's `replaceUrl` does. The

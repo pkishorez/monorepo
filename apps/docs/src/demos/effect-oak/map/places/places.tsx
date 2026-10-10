@@ -1,5 +1,5 @@
 import { Effect, Schema } from 'effect';
-import { Node } from 'effect-oak';
+import { Actor } from 'effect-oak';
 import { View } from 'effect-oak/react';
 import { Input } from '@kstackz/web-platform/components/input';
 import { Flights, LOCATIONS } from '../world/index.js';
@@ -12,10 +12,10 @@ import { Flights, LOCATIONS } from '../world/index.js';
 
 const flyTo = (locationId: string) =>
   Effect.gen(function* () {
-    (yield* Flights).toPlace(locationId);
+    yield* (yield* Flights).toPlace(locationId);
   });
 
-export const Places = Node.make('Places', {
+export const Places = Actor.make('Places', {
   requires: { flights: Flights },
   model: Schema.Struct({
     query: Schema.String,
@@ -33,7 +33,7 @@ export const Places = Node.make('Places', {
     }),
     ClickedLocation: ({ locationId }, { model }) => ({
       model: { ...model, chosenId: locationId },
-      commands: [flyTo(locationId)],
+      command: flyTo(locationId),
     }),
   },
 });

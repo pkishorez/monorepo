@@ -1,5 +1,5 @@
 import { Effect, Schema } from 'effect';
-import { Node } from 'effect-oak';
+import { Actor } from 'effect-oak';
 import { View } from 'effect-oak/react';
 import { Button } from '@kstackz/web-platform/components/button';
 import { Label } from '@kstackz/web-platform/components/label';
@@ -10,7 +10,7 @@ import { ShopServer } from '../shop-server/index.js';
 /*
  * The checkout page: delivery instructions, then Placing while the
  * ShopServer takes the order, then Placed. The Command reads the cart from
- * Basket when it runs (a Command sees the latest Services), sends it with
+ * Basket when it runs (Basket reads the cart as it is then), sends it with
  * the instructions, and asks the shop to empty the cart: a Request.
  */
 
@@ -18,10 +18,10 @@ const placeOrder = (instructions: string) =>
   Effect.gen(function* () {
     const basket = yield* Basket;
     const orderId = yield* (yield* ShopServer).placeOrder(
-      basket.cart,
+      yield* basket.cart,
       instructions,
     );
-    basket.clear();
+    yield* basket.clear();
     return { _tag: 'SucceededPlaceOrder' as const, orderId };
   }).pipe(
     Effect.catch((error) =>
@@ -29,7 +29,7 @@ const placeOrder = (instructions: string) =>
     ),
   );
 
-export const Checkout = Node.make('Checkout', {
+export const Checkout = Actor.make('Checkout', {
   requires: { shop: ShopServer, basket: Basket },
   model: Schema.Struct({ instructions: Schema.String }),
   state: Schema.TaggedUnion({
@@ -53,7 +53,7 @@ export const Checkout = Node.make('Checkout', {
       ChangedInstructions: ({ value }) => ({ model: { instructions: value } }),
       ClickedPlaceOrder: (_, { model }) => ({
         state: { _tag: 'Placing' },
-        commands: [placeOrder(model.instructions)],
+        command: placeOrder(model.instructions),
       }),
     },
     Placing: {

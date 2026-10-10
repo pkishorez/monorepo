@@ -1,5 +1,5 @@
-import { Context, Effect, Schema } from 'effect';
-import { Node } from 'effect-oak';
+import { Effect, Layer, Schema } from 'effect';
+import { Actor } from 'effect-oak';
 import { Finder, Geolocation } from './finder/index.js';
 import { Places } from './places/index.js';
 import {
@@ -14,7 +14,7 @@ import {
 } from './world/index.js';
 
 /*
- * A map whose camera is a Node's Model. Foldkit keeps the camera inside
+ * A map whose camera is an Actor's Model. Foldkit keeps the camera inside
  * maplibre and hears about it after each move; here the Model says where the
  * map looks, and a flight is data: from, to, and since when. The View works
  * out the camera at every Frame, so flights replay and scrub like the road.
@@ -57,10 +57,10 @@ const stopped = (
     camera: change(cameraAt(model.camera, model.flight, at)),
     flight: null,
   },
-  replaceCommands: model.flight !== null,
+  cancel: 'land',
 });
 
-export const WorldMap = Node.make('WorldMap', {
+export const WorldMap = Actor.make('WorldMap', {
   requires: { geolocation: Geolocation },
   model: Model,
   message: Schema.TaggedUnion({
@@ -83,12 +83,12 @@ export const WorldMap = Node.make('WorldMap', {
       user: null,
     },
   }),
-  provides: ({ send }) =>
-    Context.make(Flights, {
+  provides: (self) =>
+    Layer.succeed(Flights, {
       toPlace: (locationId) =>
-        send({ _tag: 'RequestedFlightToPlace', locationId }),
+        self.send({ _tag: 'RequestedFlightToPlace', locationId }),
       toUser: ({ lng, lat }) =>
-        send({ _tag: 'RequestedFlightToUser', lng, lat }),
+        self.send({ _tag: 'RequestedFlightToUser', lng, lat }),
     }),
   update: {
     Panned: ({ dx, dy }, { model, at }) =>
@@ -110,8 +110,7 @@ export const WorldMap = Node.make('WorldMap', {
       const to = { lng: place.lng, lat: place.lat, zoom: PLACE_ZOOM };
       return {
         model: { ...model, ...flyTo(model, at, to), selectedId: locationId },
-        commands: [land],
-        replaceCommands: true,
+        command: { key: 'land', run: land },
       };
     },
     RequestedFlightToUser: ({ lng, lat }, { model, at }) => ({
@@ -120,8 +119,7 @@ export const WorldMap = Node.make('WorldMap', {
         ...flyTo(model, at, { lng, lat, zoom: USER_ZOOM }),
         user: { lng, lat },
       },
-      commands: [land],
-      replaceCommands: true,
+      command: { key: 'land', run: land },
     }),
     Landed: (_, { model }) =>
       model.flight

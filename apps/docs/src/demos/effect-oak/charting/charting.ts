@@ -1,5 +1,5 @@
-import { Context, Effect, Schema } from 'effect';
-import { Node } from 'effect-oak';
+import { Effect, Layer, Schema } from 'effect';
+import { Actor } from 'effect-oak';
 import { AsyncData } from '../async-data/index.js';
 import { Choice, Choices, Controls, FIRST_CHOICE } from './controls/index.js';
 import { Telemetry, TelemetryData } from './telemetry/index.js';
@@ -27,11 +27,11 @@ type Model = typeof Model.Type;
 const refetch = (_: unknown, { model }: { readonly model: Model }) => {
   const telemetry = AsyncData.revalidateOrLoad(model.telemetry);
   return telemetry
-    ? { model: { ...model, telemetry }, commands: [fetchTelemetry] }
+    ? { model: { ...model, telemetry }, command: fetchTelemetry }
     : {};
 };
 
-export const Charting = Node.make('Charting', {
+export const Charting = Actor.make('Charting', {
   requires: { telemetry: Telemetry },
   model: Model,
   message: Schema.TaggedUnion({
@@ -50,11 +50,12 @@ export const Charting = Node.make('Charting', {
       choice: FIRST_CHOICE,
       selectedDatumId: null,
     },
-    commands: [fetchTelemetry],
   }),
-  provides: ({ send }) =>
-    Context.make(Choices, {
-      chose: (choice) => send({ _tag: 'ReportedChoice', choice }),
+  lifetime: (self) =>
+    Effect.flatMap(fetchTelemetry, (message) => self.send(message)),
+  provides: (self) =>
+    Layer.succeed(Choices, {
+      chose: (choice) => self.send({ _tag: 'ReportedChoice', choice }),
     }),
   update: {
     ClickedRefresh: refetch,

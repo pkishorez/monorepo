@@ -18,7 +18,7 @@ ApiCache (root)        Model { tab }; Provides Tabs { shown }
 └─ stats: Stats        Model { stats } as AsyncData; requires Tabs
                        Lifetime ticks every 5 s → Command reads Tabs → SawStatsShown → refetch
 ../async-data/         AsyncData as a Schema plus loadIfMissing, revalidate, settle… (shared)
-../blog-server/        Blog Service and its fake in-browser Layer, 700 ms per answer (shared)
+../blog-server/        Blog Capability and its fake in-browser Layer, 700 ms per answer (shared)
 ```
 
 ## Deviations
@@ -30,24 +30,23 @@ ApiCache (root)        Model { tab }; Provides Tabs { shown }
   The tab is the root's data and the root cannot tell its Stats Child
   anything (blocker 14), so Stats starts loading by itself.
 - **The 5-second refetch ticks while the tab is hidden.** Each tick is a
-  `TickedRevalidateStats` in the Log; a Command then reads the Tabs Service
+  `TickedRevalidateStats` in the Log; a Command then reads the Tabs Capability
   and answers `SawStatsShown` only if Stats is shown. Foldkit's Subscription
   is switched on and off by `activeTab === 'Stats' && hasData`.
 - Foldkit's `@foldkit/ui` Tabs are web-platform Tabs; AsyncData is a small
   shared module with Foldkit's helpers, plus a `Stale` case for a refresh that
   failed over cached data.
-- The fake server is a Service in the app's Layer, so its flaky counter is
+- The fake server is a Capability in the app's Layer, so its flaky counter is
   per app, and its `servedAt` is wall-clock time.
 
 ## Blockers
 
 - **A parent cannot send its Child a Message** (new, roll-up 14). The root
   holds the tab and cannot say "you are shown now" to Stats. Stats asks
-  instead: a Command reads the Tabs Service, which sees the latest
-  projection. A Lifetime could not ask: it keeps the Services it started with
-  (see below).
-- **A Lifetime cannot follow the Model** (roll-up 12): the refetch timer
-  cannot stop while the tab is hidden.
+  instead: a Command reads the Tabs Capability, an Effect that reads the
+  root's current tab.
+- **A Lifetime cannot follow a parent's Model** (roll-up 12): the refetch
+  timer cannot stop while the tab is hidden.
 
 ## Testing
 
@@ -69,10 +68,9 @@ What Effect Oak would need:
 
 ## Also surprising
 
-- **A Lifetime sees Services as they were when it started; a Command sees
-  them as they are now.** The Runtime gives a Lifetime the Context of its
-  State's start, while each Command is given the latest one. Stats' timer
-  therefore checks the tab in a Command, never in its Lifetime.
+- **A Provided Capability is built once per State**, not on every Model
+  change, so Tabs exposes `shown` as an Effect that reads the root's current
+  Model rather than a plain value.
 - A Command's `Clock` is the app's Time, so `Clock.currentTimeMillis` would
   give "ms since start". Foldkit stamps `fetchedAt` from the Clock; here the
   server stamps wall-clock time.

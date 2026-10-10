@@ -1,7 +1,7 @@
 # Crash view
 
 Status: partial. The crash panel shows, but the View catches the crash itself,
-outside the Node and the Log.
+outside the Actor and the Log.
 
 ## What was ported
 
@@ -9,7 +9,7 @@ Foldkit's `crash-view`: a Crash button whose Update throws, and a custom crash
 view with the error message and a Reload button.
 
 ```
-CrashDemo        one Node, one Message (ClickedCrash), Update throws
+CrashDemo        one Actor, one Message (ClickedCrash), Update throws
 ```
 
 ## What happens in Effect Oak
@@ -45,7 +45,7 @@ Update, a View or a Command throws, logs the crash, calls `crash.report` with
 What an API could look like:
 
 ```ts
-const App = toReact(Node, View, layer, {
+const App = toReact(Actor, View, layer, {
   crash: {
     view: ({ error, message, path }) => <CrashPanel error={error} />,
     report: ({ error, message, path, model, state }) => …,
@@ -66,6 +66,6 @@ button exists. The crash view itself is not tested.
 
 The throw can be tested in Effect Oak today by calling
 `CrashDemo.definition.update.Single.ClickedCrash`, which is untyped. A typed
-`Node.step` (see [../counter/notes.md](../counter/notes.md)) would make it one
+`Actor.step` (see [../counter/notes.md](../counter/notes.md)) would make it one
 line. Testing the crash view needs the crash hook above, plus a way to draw an
 app in a test.

@@ -1,5 +1,5 @@
 import { Effect, Random, Schedule, Schema, Stream } from 'effect';
-import { Node } from 'effect-oak';
+import { Actor } from 'effect-oak';
 
 /*
  * The game, as data: Welcome → Playing ⇄ Paused, then Crashed.
@@ -147,7 +147,7 @@ const crashAt = (config: Config, road: Road, from: number): number | null => {
   return null;
 };
 
-// The Node ----------------------------------------------------------------------
+// The Actor ---------------------------------------------------------------------
 
 /** The road with every Time in it moved on by `by` milliseconds. */
 const later = <R extends Road>(road: R, by: number): R => ({
@@ -173,19 +173,21 @@ const drive = (config: Config, road: Road & Traffic, at: number) => {
   const crash = crashAt(config, next, at);
   return {
     state: { _tag: 'Playing' as const, ...next, crashAt: crash },
-    commands:
-      crash === null
-        ? []
-        : [
-            Effect.sleep(crash - at).pipe(
+    // Under one key, so the latest plan replaces the one before it.
+    ...(crash === null
+      ? { cancel: 'crash' }
+      : {
+          command: {
+            key: 'crash',
+            run: Effect.sleep(crash - at).pipe(
               Effect.as({ _tag: 'Collided' as const }),
             ),
-          ],
-    replaceCommands: true,
+          },
+        }),
   };
 };
 
-export const Game = Node.make('Game', {
+export const Game = Actor.make('Game', {
   model: Schema.Struct({ config: Config }),
   state: Schema.TaggedUnion({
     Welcome: {},
@@ -220,16 +222,23 @@ export const Game = Node.make('Game', {
   init: () => ({ model: { config: DEFAULTS }, state: { _tag: 'Welcome' } }),
   lifetime: {
     // The first car comes after the warm-up, or, back from a pause, after what was left.
-    Playing: ({ model: { config }, state }) =>
-      Stream.fromEffectDrain(Effect.sleep(state.nextCarIn)).pipe(
-        Stream.concat(
-          Stream.fromEffectSchedule(
-            Random.nextIntBetween(0, config.lanes, { halfOpen: true }),
-            Schedule.spaced(config.traffic.every),
+    Playing: (self) =>
+      Effect.gen(function* () {
+        const {
+          model: { config },
+          state,
+        } = yield* self.get;
+        yield* Stream.fromEffectDrain(Effect.sleep(state.nextCarIn)).pipe(
+          Stream.concat(
+            Stream.fromEffectSchedule(
+              Random.nextIntBetween(0, config.lanes, { halfOpen: true }),
+              Schedule.spaced(config.traffic.every),
+            ),
           ),
-        ),
-        Stream.map((lane) => ({ _tag: 'CarSpawned' as const, lane })),
-      ),
+          Stream.map((lane) => ({ _tag: 'CarSpawned' as const, lane })),
+          Stream.runForEach(self.send),
+        );
+      }),
   },
   update: {
     Welcome: {
@@ -285,8 +294,7 @@ export const Game = Node.make('Game', {
           pausedAt: at,
           nextCarIn: Math.max(0, state.nextCarAt - at),
         },
-        commands: [],
-        replaceCommands: true,
+        cancel: 'crash',
       }),
       Collided: (_, { state, at }) => ({
         state: {

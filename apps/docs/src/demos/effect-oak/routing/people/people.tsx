@@ -1,5 +1,5 @@
 import { Effect, Schema, Stream } from 'effect';
-import { Node } from 'effect-oak';
+import { Actor } from 'effect-oak';
 import { View } from 'effect-oak/react';
 import { Button } from '@kstackz/web-platform/components/button';
 import { Input } from '@kstackz/web-platform/components/input';
@@ -16,7 +16,7 @@ import { Person, findPerson, remember, search } from './staff.js';
  * nothing), so it listens to the URL itself: the search arrives as
  * `HeardSearch` right after it is created, and again whenever the query
  * changes while the page stays. Submitting pushes a new URL, and so does a
- * click on a person: the URL is a Service any Node can move, and the root
+ * click on a person: the URL is a Capability any Actor can move, and the root
  * hears it like any other change.
  */
 
@@ -28,7 +28,7 @@ const Results = Schema.TaggedUnion({
 });
 type Results = typeof Results.Type;
 
-export const People = Node.make('People', {
+export const People = Actor.make('People', {
   requires: { location: Location },
   model: Schema.Struct({
     input: Schema.String,
@@ -46,12 +46,13 @@ export const People = Node.make('People', {
   init: () => ({
     model: { input: '', history: [], results: { _tag: 'Loading' } },
   }),
-  lifetime: () =>
+  lifetime: (self) =>
     heardUrl(null).pipe(
       Stream.map(({ path }) => searchOn(path)),
       Stream.filter((text): text is string => text !== null),
       Stream.changes,
       Stream.map((text) => ({ _tag: 'HeardSearch' as const, text })),
+      Stream.runForEach(self.send),
     ),
   update: {
     HeardSearch: ({ text }, { model }) => ({
@@ -60,16 +61,15 @@ export const People = Node.make('People', {
         history: remember(model.history, text),
         results: { _tag: 'Loading' },
       },
-      commands: [lookUp(text)],
-      replaceCommands: true,
+      command: { key: 'lookUp', run: lookUp(text) },
     }),
     EditedInput: ({ value }, { model }) => ({
       model: { ...model, input: value },
     }),
     SubmittedSearch: (_, { model }) => ({
-      commands: [pushUrl(paths.people(model.input.trim()))],
+      command: pushUrl(paths.people(model.input.trim())),
     }),
-    ClickedLink: ({ path }) => ({ commands: [pushUrl(path)] }),
+    ClickedLink: ({ path }) => ({ command: pushUrl(path) }),
     FoundPeople: ({ query, people }, { model }) => ({
       model: { ...model, results: { _tag: 'Loaded', query, people } },
     }),

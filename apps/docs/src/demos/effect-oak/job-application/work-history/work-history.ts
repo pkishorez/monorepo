@@ -1,5 +1,5 @@
 import { Schema } from 'effect';
-import { Node } from 'effect-oak';
+import { Actor } from 'effect-oak';
 import { Answers, heardReveal, report, Reveals } from '../application/index.js';
 import { typed } from '../fields/index.js';
 import {
@@ -26,14 +26,12 @@ type Model = typeof Model.Type;
 
 const changed = (model: Model) => ({
   model,
-  commands: [
-    report({
-      _tag: 'WorkHistory',
-      hasErrors: model.entries.some(hasErrors),
-      complete: model.entries.length > 0 && model.entries.every(isComplete),
-      entries: model.entries.map(summary),
-    }),
-  ],
+  command: report({
+    _tag: 'WorkHistory',
+    hasErrors: model.entries.some(hasErrors),
+    complete: model.entries.length > 0 && model.entries.every(isComplete),
+    entries: model.entries.map(summary),
+  }),
 });
 
 /** Change the entry with this id. */
@@ -45,7 +43,7 @@ const edit = (model: Model, id: number, change: (entry: Entry) => Entry) =>
     ),
   });
 
-export const WorkHistory = Node.make('WorkHistory', {
+export const WorkHistory = Actor.make('WorkHistory', {
   requires: { answers: Answers, reveals: Reveals },
   model: Model,
   message: Schema.TaggedUnion({
@@ -66,7 +64,7 @@ export const WorkHistory = Node.make('WorkHistory', {
   }),
 }).build({
   init: () => ({ model: { entries: [blankEntry(0)], nextId: 1 } }),
-  lifetime: () => heardReveal,
+  lifetime: heardReveal,
   update: {
     ClickedAdd: (_, { model }) =>
       changed({
