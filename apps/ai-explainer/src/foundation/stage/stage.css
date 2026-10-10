@@ -1,0 +1,10 @@
+@import '@kstackz/web-platform/theme/global.css';
+@import '@kstackz/web-platform/theme/font-inter.css';
+@source '../../';
+
+.explainer-stage *,
+.explainer-stage *::before,
+.explainer-stage *::after {
+  animation: none !important;
+  transition: none !important;
+}
