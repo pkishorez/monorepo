@@ -217,39 +217,14 @@ describe('Time', () => {
     ));
 });
 
-describe('Pause', () => {
-  it('stops Time until resumed, then carries on from where it stopped', () =>
+describe('Commands', () => {
+  it("sleep on Effect's Clock, and end with a Message stamped when it arrives", () =>
     Effect.runPromise(
       Effect.scoped(
         Effect.gen(function* () {
-          const { root, sent, now, pause, resume } = yield* started;
-          yield* Effect.yieldNow;
-          yield* TestClock.adjust('100 millis');
-          pause();
-          yield* TestClock.adjust('5 seconds');
-          expect(now()).toBe(100);
-          root.current().send({ _tag: 'LoggedOut' });
-          resume();
-          yield* TestClock.adjust('50 millis');
-
-          expect(now()).toBe(150);
-          expect(sent().at(-1)?.at).toBe(100);
-        }),
-      ).pipe(Effect.provide(TestClock.layer())),
-    ));
-
-  it('stops the timers of Commands and Lifetimes too', () =>
-    Effect.runPromise(
-      Effect.scoped(
-        Effect.gen(function* () {
-          const { root, log, pause, resume } = yield* Runtime.start(Timer);
+          const { root, log } = yield* Runtime.start(Timer);
           root.current().send({ _tag: 'Wait' });
-          yield* TestClock.adjust('600 millis');
-          pause();
-          yield* TestClock.adjust('5 seconds');
-          expect(log().map((e) => e.message._tag)).toEqual(['Wait']);
-          resume();
-          yield* TestClock.adjust('399 millis');
+          yield* TestClock.adjust('999 millis');
           expect(log().length).toBe(1);
           yield* TestClock.adjust('1 millis');
           expect(log().map((e) => [e.message._tag, e.at])).toEqual([
@@ -259,9 +234,7 @@ describe('Pause', () => {
         }),
       ).pipe(Effect.provide(TestClock.layer())),
     ));
-});
 
-describe('Commands', () => {
   it('an Update can replace the Commands still running', () =>
     Effect.runPromise(
       Effect.scoped(
@@ -282,7 +255,7 @@ describe('Commands', () => {
 });
 
 describe('Replay', () => {
-  it('rebuilds the tree at any Time from init and Update alone', () =>
+  it('rebuilds the tree at any Step from init and Update alone', () =>
     Effect.runPromise(
       Effect.scoped(
         Effect.gen(function* () {
@@ -305,23 +278,27 @@ describe('Replay', () => {
           expect(sent().map((s) => s.at)).toEqual([0, 10, 20, 20, 30, 40, 40]);
 
           const replay = Replay.make(Auth, sent);
-          expect(replay.seek(-1).current().state._tag).toBe('Checking');
+          expect(replay.seek(0).current().state._tag).toBe('Checking');
 
-          const at0 = inState(replay.seek(0).current(), 'Anonymous');
-          expect(at0.children.login.current().model.name).toBe('');
+          const step1 = inState(replay.seek(1).current(), 'Anonymous');
+          expect(step1.children.login.current().model.name).toBe('');
 
-          const at15 = inState(replay.seek(15).current(), 'Anonymous');
-          expect(at15.children.login.current().model.name).toBe('ada');
+          const step2 = inState(replay.seek(2).current(), 'Anonymous');
+          expect(step2.children.login.current().model.name).toBe('ada');
 
-          const at30 = inState(replay.seek(30).current(), 'Authenticated');
-          expect(at30.children.todos.current().model.items).toEqual(['one']);
-          at30.children.todos
+          // Messages 3 and 4 share Time 20, and each is its own Step.
+          expect(replay.seek(3).current().state._tag).toBe('Anonymous');
+          expect(replay.seek(4).current().state._tag).toBe('Authenticated');
+
+          const step5 = inState(replay.seek(5).current(), 'Authenticated');
+          expect(step5.children.todos.current().model.items).toEqual(['one']);
+          step5.children.todos
             .current()
             .send({ _tag: 'Added', text: 'ignored' });
-          expect(at30.children.todos.current().model.items).toEqual(['one']);
+          expect(step5.children.todos.current().model.items).toEqual(['one']);
 
-          expect(replay.seek(40).current().state._tag).toBe('Anonymous');
-          const back = inState(replay.seek(20).current(), 'Authenticated');
+          expect(replay.seek(7).current().state._tag).toBe('Anonymous');
+          const back = inState(replay.seek(4).current(), 'Authenticated');
           expect(back.children.todos.current().model.items).toEqual([]);
           expect(root.current().state._tag).toBe('Anonymous');
         }),

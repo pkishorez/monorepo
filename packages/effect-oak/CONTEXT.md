@@ -41,7 +41,7 @@ A fact that happened, addressed to one Node: a click, a timer tick, a Command's 
 _Avoid_: event (XState's word; Effect Oak uses Elm's names), action
 
 **Time**:
-When a Message arrived, in milliseconds since the Runtime started, not counting time spent Paused. Stamped by the Runtime and kept with the Message. Update reads it, so a Replay gets the same answer as the live app. The one clock the app, its Log and its timeline share.
+When a Message arrived, in milliseconds since the Runtime started. Stamped by the Runtime and kept with the Message. Update reads it, so a Replay gets the same answer as the live app. The one clock the app, its Log and its Frame share.
 _Avoid_: timestamp, now, clock (on its own)
 
 **Update**:
@@ -56,18 +56,18 @@ _Avoid_: history, journal, event store
 Rebuilding the tree from its Messages alone: init, then each Message with its Time through Update, handed to the Instance with its number. A Message for an Instance that is gone is dropped, as it was live. No Services, Lifetimes or Commands run, and sends are dropped.
 _Avoid_: rehydrate, restore
 
-**Time Travel**:
-Drawing the app as a Replay at any Time from 0 (right after init) to now: every Message up to that Time is played, and the app is drawn at that Time. The live app keeps running underneath.
-_Avoid_: undo, rewind, snapshot history
+**Step**:
+One point Time Travel can show: step 0 is right after init, step N is right after the Nth Message. Nothing between two Messages is a Step.
+_Avoid_: index, tick, position
 
-**Pause**:
-Stopping the app's Time so Time Travel can look at the past without the app moving on. While Paused, Views of the past are shown and nothing can be sent from them, and the timers of Commands and Lifetimes wait too; resuming carries Time on from where it stopped.
-_Avoid_: freeze, suspend
+**Time Travel**:
+Drawing the app as a Replay at a Step: every Message up to it is played, and the app is drawn at that Message's Time. The live app keeps running underneath, and nothing can be sent from the past.
+_Avoid_: undo, rewind, snapshot history, pause
 
 ### Effects
 
 **Command**:
-One piece of work an Update asks for: an Effect that runs once and may end with one Message. It gets the Node's Services from Effect (`yield* Session`). Owned by its Node; destroying the Node interrupts it, and an Update can replace its Node's running Commands with new ones (the latest plan wins). Its timers run in the app's Time.
+One piece of work an Update asks for: an Effect that runs once and may end with one Message. It gets the Node's Services from Effect (`yield* Session`). Owned by its Node; destroying the Node interrupts it, and an Update can replace its Node's running Commands with new ones (the latest plan wins).
 _Avoid_: effect, side effect, task
 
 **Lifetime**:
@@ -99,7 +99,7 @@ How one Node is drawn: a React component that reads the Model, State and current
 _Avoid_: render, template, component (on its own)
 
 **Frame**:
-One moment a View is drawn at, given as a Time: every animation frame while live, every move of the timeline during Time Travel. React renders only when a Message changes the Instance; a Frame moves what is already drawn. Nothing about a Frame is stored.
+The Time the Views are drawn at, one value for the whole app that every View is given: it moves at every animation frame while live, and stands still at the Step's Time during Time Travel. React renders only when a Message changes the Instance; the Frame moves what is already drawn. Nothing about it is stored.
 _Avoid_: tick, render
 
 **Send**:
@@ -107,5 +107,5 @@ Hand a Message to a Node. The only thing a View can do besides drawing.
 _Avoid_: dispatch, emit, trigger
 
 **Runtime**:
-The live app: the tree of Instances, plus the Services, Lifetimes and Commands that connect it to the outside world, and the Log.
+The live app: the tree of Instances, plus the Services, Lifetimes and Commands that connect it to the outside world, and the Log. One per app, however many times the app is drawn; it starts when the app is first drawn and stops when the last drawing goes. Only code outside the tree, like a timeline, sees it: it reads the Log and chooses the Step shown.
 _Avoid_: store, engine, interpreter

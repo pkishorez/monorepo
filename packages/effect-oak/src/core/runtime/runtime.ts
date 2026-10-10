@@ -4,15 +4,13 @@ import type { AnyNode, Definition, Tagged, Types } from '../node/index.ts';
 import { destroy, handle, plant } from '../tree/index.ts';
 import type { Entry, Handle, Hooks, Instance, Sent } from '../tree/index.ts';
 import { fork } from './effects.ts';
-import { makeTime } from './time.ts';
 
 /*
  * The live app: the tree, plus everything that touches the outside world.
  *
  * 1. Start      the root is created with the Services of the app's Layer,
- *               and Time starts at 0 on Effect's monotonic Clock. Pausing
- *               stops Time, and every timer in it; resuming carries on from
- *               where it stopped.
+ *               and Time starts at 0 on Effect's monotonic Clock. Commands
+ *               and Lifetimes use that same Clock.
  * 2. Messages   are stamped with their Time when sent, wait in a queue and
  *               are handled one at a time. Each one is kept twice: as Sent,
  *               all Replay needs, and as a Log entry, with what came of it.
@@ -26,12 +24,8 @@ export type Needs<N> = Types<N>['open'];
 /** A started tree: its root, and every Message so far. */
 export interface Running<N> {
   readonly root: Handle<N>;
-  /** The Time now, in milliseconds since the Runtime started, not counting paused time. */
+  /** The Time now, in milliseconds since the Runtime started. */
   readonly now: () => number;
-  /** Stop the Time: `now` stays where it is until `resume`. */
-  readonly pause: () => void;
-  /** Start the Time again from where it stopped. */
-  readonly resume: () => void;
   /** Every Message with what came of it and when. */
   readonly log: () => ReadonlyArray<Entry>;
   /** Every Message, the Instance it was sent to and its Time, in order: what Replay plays. */
@@ -50,13 +44,15 @@ const start = <N extends AnyNode>(
   node: N,
 ): Effect.Effect<Running<N>, never, Needs<N> | Scope.Scope> =>
   Effect.gen(function* () {
-    const time = makeTime(yield* Clock.Clock);
-    const { now } = time;
-    // Commands and Lifetimes sleep in the app's Time, so they pause with it.
+    const clock = yield* Clock.Clock;
+    const origin = clock.monotonicTimeNanosUnsafe();
+    const now = () =>
+      Number(clock.monotonicTimeNanosUnsafe() - origin) / 1_000_000;
+    // Commands and Lifetimes run on the Clock the Runtime was started with.
     const layer = Context.add(
       (yield* Effect.context<Needs<N>>()) as Context.Context<never>,
       Clock.Clock,
-      time.clock,
+      clock,
     ) as Context.Context<never>;
 
     let sent: ReadonlyArray<Sent> = [];
@@ -75,8 +71,6 @@ const start = <N extends AnyNode>(
     return {
       root: root as unknown as Handle<N>,
       now,
-      pause: time.pause,
-      resume: time.resume,
       log: () => log,
       sent: () => sent,
       subscribe: (listener) => {
