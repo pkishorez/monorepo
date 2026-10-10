@@ -3,7 +3,7 @@
 export const script = [
   {
     id: 'actor-model',
-    say: "Effect Oak starts with an Actor. An Actor holds a Model: here, a rocket's fuel. It accepts Messages: Fuel and Drain. And an update turns a Model and a Message into the next Model.",
+    say: "Effect Oak starts with an Actor. An Actor holds a Model: here, a rocket's fuel. It accepts Messages: Fuel and Drain. And an Update turns a Model and a Message into the next Model.",
   },
   {
     id: 'actor-view',
@@ -19,7 +19,7 @@ export const script = [
   },
   {
     id: 'many-list',
-    say: 'One rocket is never enough. The Launch Site keeps a list of rockets in its Model, and Actor.many turns each one into its own live Actor.',
+    say: 'One rocket is never enough. The Launch Site keeps a list of rockets in its Model, and Actor.many turns each one into its own Instance.',
   },
   {
     id: 'many-children',
@@ -31,7 +31,7 @@ export const script = [
   },
   {
     id: 'capabilities-command',
-    say: 'Checking the sky is a Command: an Effect the update asks for, using any service it Requires. Storm? The launch is scrubbed.',
+    say: 'Checking the sky is a Command: an Effect the Update asks for, using any Capability it Requires. Storm? The launch is scrubbed.',
   },
   {
     id: 'motion',
@@ -43,7 +43,7 @@ export const script = [
   },
   {
     id: 'time-branch',
-    say: 'Step back, and it floats back to the pad, animations and all. Branch off from before the launch, fuel up, and try again. Both histories, side by side.',
+    say: 'Step back, and it floats back to the pad, animations and all. Branch off from before the launch, fuel up, and try again. Both Branches, side by side.',
   },
   {
     id: 'deeper-lifetimes',
@@ -51,15 +51,15 @@ export const script = [
   },
   {
     id: 'deeper-commands',
-    say: 'Commands are keyed. Launch twice, and the countdown restarts. Abort cancels it mid-count.',
+    say: 'A Command can have a key. Launch twice, and the countdown restarts. Abort cancels it mid-count.',
   },
   {
     id: 'deeper-rendering',
-    say: 'Updates are surgical: only the View whose Actor changed renders again.',
+    say: 'Updates are surgical: only the View whose Instance changed renders again.',
   },
   {
     id: 'deeper-replay',
-    say: "The Messages alone rebuild the whole app. Replay runs no side effects. Once it's done, Lifetimes start again for whatever is live.",
+    say: 'The Messages alone rebuild the whole app. Replay runs no Commands or Lifetimes. Start again from any Step, and Lifetimes start for whatever is live.',
   },
   {
     id: 'deeper-inspector',

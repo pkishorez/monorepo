@@ -49,9 +49,9 @@ export const Picker = ({
         <SelectGroup>
           <SelectLabel>Walkthrough</SelectLabel>
           {CHAPTERS.map(
-            ({ title, ...chapter }, index) =>
+            (chapter, index) =>
               !('deeper' in chapter) && (
-                <SelectItem key={title} value={String(index + 1)}>
+                <SelectItem key={chapter.title} value={String(index + 1)}>
                   {label(index + 1)}
                 </SelectItem>
               ),
@@ -61,9 +61,9 @@ export const Picker = ({
         <SelectGroup>
           <SelectLabel>Going deeper</SelectLabel>
           {CHAPTERS.map(
-            ({ title, ...chapter }, index) =>
+            (chapter, index) =>
               'deeper' in chapter && (
-                <SelectItem key={title} value={String(index + 1)}>
+                <SelectItem key={chapter.title} value={String(index + 1)}>
                   {label(index + 1)}
                 </SelectItem>
               ),

@@ -25,6 +25,7 @@
     "@vitejs/plugin-react": "catalog:",
     "kokoro-js": "catalog:",
     "laymos": "workspace:*",
+    "playwright-core": "catalog:",
     "tailwindcss": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
@@ -41,7 +42,8 @@
     "lint": "vp check && pnpm lint:tsc && pnpm lint:laymos",
     "lint:laymos": "laymos lint",
     "lint:tsc": "tsc --noEmit",
-    "sound": "node scripts/sound.ts"
+    "sound": "node scripts/sound.ts",
+    "record": "node scripts/record.ts"
   },
   "type": "module"
 }

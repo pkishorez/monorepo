@@ -8,7 +8,7 @@ import { useClip } from './clip.ts';
 // A recorded clip of a live app, framed as a card. It plays from frame `from`
 // and must be done by frame `until`: a clip longer than that window plays up
 // to twice as fast to fit. Before and after it holds its first and last
-// frame. Every recorded click gets a soft click sound.
+// frame. Every recorded click it plays gets a soft click sound.
 export function Footage({
   look,
   clip: id,
@@ -25,13 +25,11 @@ export function Footage({
   width?: number;
 }) {
   const { src, clip } = useClip(look, id);
-  const window = Math.max(1, until - from);
-  const rate = clip
-    ? Math.min(2, Math.max(1, clip.seconds / (window / fps)))
-    : 1;
+  const span = Math.max(1, until - from);
+  const rate = clip ? Math.min(2, Math.max(1, clip.seconds / (span / fps))) : 1;
   const length = clip
-    ? Math.min(window, Math.floor((clip.seconds / rate) * fps) - 1)
-    : window;
+    ? Math.min(span, Math.floor((clip.seconds / rate) * fps) - 1)
+    : span;
   const held = Math.min(Math.max(frame, from), from + length);
   return (
     <Frame width={width}>
@@ -47,13 +45,12 @@ export function Footage({
               />
             </Sequence>
           </Freeze>
-          {clip.clicks.map((seconds) => (
-            <Sound
-              key={seconds}
-              name="click"
-              at={from + (seconds / rate) * fps}
-            />
-          ))}
+          {clip.clicks
+            .map((seconds) => (seconds / rate) * fps)
+            .filter((at) => at <= length)
+            .map((at) => (
+              <Sound key={at} name="click" at={from + at} />
+            ))}
         </>
       ) : (
         <Placeholder look={look} id={id} progress={(held - from) / length} />

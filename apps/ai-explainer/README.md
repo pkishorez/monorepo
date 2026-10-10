@@ -4,7 +4,7 @@ Narrated explainer videos on any topic, built on a Foundation discovered through
 
 ## Big picture
 
-Every Explainer is built from one shared Foundation: look, voice, motion,
+Every Explainer is built from one shared Foundation: visuals, voice, motion,
 sound and Scenes. Improve the Foundation once and every later Explainer
 uses it.
 
@@ -16,7 +16,7 @@ structure: [docs/explainer.md](./docs/explainer.md). Terms:
 
 ### Change the Foundation
 
-Add, improve or remove any part: animation, music, voice, look, a Scene.
+Add, improve or remove any part: animation, music, voice, visuals, a Scene.
 
 1. Run `/foundation` in Claude Code and say what you want to change.
 2. Answer Claude's questions.
@@ -40,7 +40,8 @@ future Explainers too.
 ### Render a Walkthrough
 
 A Walkthrough builds up a live app chapter by chapter. Each one renders in
-three Styles, `<name>-blueprint`, `<name>-paper` and `<name>-bold`:
+three Styles, `<name>-blueprint`, `<name>-paper` and `<name>-bold`. The
+`look` prop picks which Look of the demo the recordings show:
 
 ```sh
 pnpm voiceover effect-oak            # after changing its script

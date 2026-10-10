@@ -1,18 +1,20 @@
 import type { CSSProperties } from 'react';
 import { Easing } from 'remotion';
 import { glide } from '../canvas/index.ts';
+import type { Theme } from '../code/index.ts';
 
 export type StyleName = 'blueprint' | 'paper' | 'bold';
 
 // One way of drawing a Walkthrough. A Style changes colour, type and how the
-// camera moves, never what is shown or when: every Style shares one timing.
+// camera moves, never what is shown or when it starts: every Style shares one
+// timing.
 export type Style = {
   name: StyleName;
   // Theme variables painted on the stage: the board, its dots, cards, text.
   vars: CSSProperties;
   font: { label: string; body: string; mono: string };
   // A Shiki theme for code cards; its background is replaced by the card's.
-  code: 'github-light' | 'vitesse-dark' | 'one-dark-pro';
+  code: Theme;
   // Camera moves take `seconds` times as long and push in `punch` times as
   // far, along `easing`.
   pace: { seconds: number; punch: number; easing: (t: number) => number };

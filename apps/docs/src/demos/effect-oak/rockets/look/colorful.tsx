@@ -1,7 +1,7 @@
 import { createContext, use } from 'react';
 import { cn } from '@kstackz/web-platform/components/utils';
 import { useCompact, useSky } from './context.js';
-import type { Kit, Phase } from './kit.js';
+import { firing, type Kit } from './kit.js';
 import { Rig } from './rig.js';
 import { BOOSTER, SHIP } from './shapes.js';
 
@@ -30,8 +30,6 @@ const SKIES = [
 const SkyColor = createContext(SKIES[0]!);
 const skyOf = (name: string) =>
   SKIES[(Number(name.replace(/\D/g, '')) - 1) % SKIES.length] ?? SKIES[0]!;
-
-const firing = (phase: Phase) => phase === 'flight' || phase === 'countdown';
 
 const Rain = () => (
   <svg aria-hidden className="absolute inset-0 size-full">
@@ -223,13 +221,12 @@ export const colorful: Kit = {
     </div>
   ),
 
-  Button: ({ onClick, children, tone, pressed, disabled }) => (
+  Button: ({ onClick, children, tone, pressed }) => (
     <button
       type="button"
       aria-pressed={pressed}
-      disabled={disabled}
       onClick={onClick}
-      className="h-11 rounded-full border-[3px] px-4 text-base font-black transition-[translate] duration-100 ease-out active:translate-y-0.5 disabled:opacity-40"
+      className="h-11 rounded-full border-[3px] px-4 text-base font-black transition-[translate] duration-100 ease-out active:translate-y-0.5"
       style={{
         borderColor: INK,
         background:

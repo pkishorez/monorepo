@@ -100,9 +100,10 @@ export function Lifetimes({
   ];
   const whole = ease(frame, enter + 0.25 * fps, 1.4, glide);
   const one = ease(frame, state, 0.9, glide);
-  const track = 1150 - 2 * 48;
+  const padding = 48;
+  const track = plateWidth - 2 * padding;
   return (
-    <Surface className="flex flex-col gap-9 p-12 text-[26px]">
+    <Surface className="flex flex-col gap-9 text-[26px]" style={{ padding }}>
       <div className="flex">
         {states.map(({ name, share }, i) => (
           <div
@@ -247,10 +248,10 @@ export function Rendering({
   );
 }
 
-const log = ['Built', 'Fuel', 'Fuel', 'Launch', 'Cleared', 'Burned', 'Burned'];
+const log = ['Fuel', 'Fuel', 'Launch', 'Cleared', 'Burned', 'Burned'];
 
-// The Log's Messages fold into the app again; effects are skipped while
-// Replaying, and Lifetimes start once it is done.
+// The Log's Messages fold into the app again; Commands are skipped while
+// Replaying, and Lifetimes start for whatever is live once it is done.
 export function Replay({
   frame,
   enter,
@@ -268,7 +269,7 @@ export function Replay({
   const skipped = ease(frame, skip, 0.5);
   const started = ease(frame, live, 0.5);
   return (
-    <div className="flex w-[1150px] items-center gap-12">
+    <div className="flex items-center gap-12" style={{ width: plateWidth }}>
       <Surface className="flex w-[420px] flex-col gap-2 p-7 text-[24px]">
         <div
           className="mb-2 text-[20px] tracking-[0.14em] uppercase"
@@ -296,7 +297,9 @@ export function Replay({
         <Surface className="flex flex-col gap-4 p-7 text-[26px]">
           <div className="flex items-center justify-between">
             <span className="font-medium">Rocket R-1</span>
-            <Mono muted>{cursor >= log.length ? 'InFlight' : 'OnPad'}</Mono>
+            <Mono muted>
+              {cursor > log.indexOf('Cleared') ? 'InFlight' : 'OnPad'}
+            </Mono>
           </div>
           <div
             className="flex items-center justify-between"

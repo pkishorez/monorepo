@@ -4,6 +4,10 @@ import type { Transition } from 'motion/react';
 /** Where a rocket is in its story, as the Views tell a Look. */
 export type Phase = 'pad' | 'countdown' | 'flight' | 'landed' | 'lost';
 
+/** Whether a rocket's engine burns: in flight and through the countdown. */
+export const firing = (phase: Phase) =>
+  phase === 'flight' || phase === 'countdown';
+
 export type Sky = 'clear' | 'storm';
 
 export interface StageProps {
@@ -60,7 +64,6 @@ export interface ButtonProps {
   readonly tone?: 'go' | 'stop';
   /** For a switch, like the storm. */
   readonly pressed?: boolean;
-  readonly disabled?: boolean;
 }
 
 /** A Look: how every part of a rocket app is drawn. The Views say what, the Look says how. */

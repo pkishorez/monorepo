@@ -464,6 +464,9 @@ importers:
       laymos:
         specifier: workspace:*
         version: link:../../devtools/laymos
+      playwright-core:
+        specifier: 'catalog:'
+        version: 1.63.0
       tailwindcss:
         specifier: 'catalog:'
         version: 4.3.3
