@@ -29,7 +29,7 @@ export const DEMOS = [
     to: '/demos/effect-oak/rockets',
     name: 'Rockets',
     group: 'Basics',
-    summary: 'A walkthrough in seven chapters, from one Actor to Time Travel',
+    summary: 'A walkthrough in seven chapters, from one Actor to Commands',
   },
   {
     to: '/demos/effect-oak/counter',

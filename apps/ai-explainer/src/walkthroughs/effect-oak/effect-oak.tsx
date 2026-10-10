@@ -102,7 +102,7 @@ function path(cue: Cue): Move[] {
 
     { ...overview(at.many, cue('many-list', undefined, -1)), seconds: 1.3 },
     onCode(at.many, c('many-list', 'The Launch Site')),
-    onClip(at.many, c('many-children', 'They fire')),
+    onClip(at.many, c('many-children', 'Only a rocket')),
 
     {
       ...overview(at.capabilities, cue('capabilities-requires', undefined, -1)),
@@ -122,7 +122,7 @@ function path(cue: Cue): Move[] {
       scale: 1.12,
     },
     {
-      at: c('time-branch', 'Both histories'),
+      at: c('time-branch', 'Both Branches'),
       x: at.time.x,
       y: at.time.y + 50,
       scale: 0.86,
@@ -173,11 +173,10 @@ const pauses = {
 function Drawing({ frame, cue, look }: DrawingProps) {
   const style = useStyle();
   const start = (id: string) => cue(id, undefined, -1);
-  const s = sources;
   const steps = (code: string, ...stops: [number, string, string?][]) =>
-    stops.map(([when, start, within]) => ({
+    stops.map(([when, first, within]) => ({
       at: when - lead * fps,
-      lines: blockOf(code, start, within),
+      lines: blockOf(code, first, within),
     }));
 
   const chain: [Point, Point, number][] = [
@@ -219,21 +218,21 @@ function Drawing({ frame, cue, look }: DrawingProps) {
           {
             at: 0,
             title: 'actor/rocket.ts',
-            code: s.actorRocket,
+            code: sources.actorRocket,
             steps: steps(
-              s.actorRocket,
+              sources.actorRocket,
               [cue('actor-model', 'An Actor holds'), 'model:'],
               [cue('actor-model', 'It accepts'), 'message:'],
-              [cue('actor-model', 'And an update'), 'update:'],
+              [cue('actor-model', 'And an Update'), 'update:'],
             ),
           },
           {
             at: cue('actor-view', undefined, -lead),
             title: 'actor/view.tsx',
-            code: s.actorView,
+            code: sources.actorView,
             lang: 'tsx',
             steps: steps(
-              s.actorView,
+              sources.actorView,
               [cue('actor-view', 'it takes'), 'gauge='],
               [cue('actor-view', 'sends'), '<Button onClick'],
             ),
@@ -259,9 +258,9 @@ function Drawing({ frame, cue, look }: DrawingProps) {
           {
             at: start('states-accept'),
             title: 'states/rocket.ts',
-            code: s.statesRocket,
+            code: sources.statesRocket,
             steps: steps(
-              s.statesRocket,
+              sources.statesRocket,
               [cue('states-accept', 'So an Actor'), 'state:'],
               [cue('states-accept', 'each State'), 'OnPad: {', 'update:'],
               [
@@ -299,9 +298,9 @@ function Drawing({ frame, cue, look }: DrawingProps) {
           {
             at: start('many-list'),
             title: 'more-actors/launch-site.ts',
-            code: s.moreActorsLaunchSite,
+            code: sources.moreActorsLaunchSite,
             steps: steps(
-              s.moreActorsLaunchSite,
+              sources.moreActorsLaunchSite,
               [cue('many-list', 'keeps a list'), 'model:'],
               [cue('many-list', 'and Actor.many'), 'children:'],
             ),
@@ -309,9 +308,9 @@ function Drawing({ frame, cue, look }: DrawingProps) {
           {
             at: cue('many-children', undefined, -lead),
             title: 'more-actors/rocket.ts',
-            code: s.moreActorsRocket,
+            code: sources.moreActorsRocket,
             steps: steps(
-              s.moreActorsRocket,
+              sources.moreActorsRocket,
               [cue('many-children', 'States decide'), 'children:'],
               [cue('many-children', 'Only a rocket'), 'invoke:'],
             ),
@@ -337,8 +336,8 @@ function Drawing({ frame, cue, look }: DrawingProps) {
           {
             at: start('capabilities-requires'),
             title: 'capabilities/launch-site.ts',
-            code: s.capabilitiesLaunchSite,
-            steps: steps(s.capabilitiesLaunchSite, [
+            code: sources.capabilitiesLaunchSite,
+            steps: steps(sources.capabilitiesLaunchSite, [
               cue('capabilities-requires', 'Provides'),
               'provides: (self)',
             ]),
@@ -346,8 +345,8 @@ function Drawing({ frame, cue, look }: DrawingProps) {
           {
             at: cue('capabilities-requires', 'and each Rocket', -lead),
             title: 'capabilities/rocket.ts',
-            code: s.capabilitiesRocket,
-            steps: steps(s.capabilitiesRocket, [
+            code: sources.capabilitiesRocket,
+            steps: steps(sources.capabilitiesRocket, [
               cue('capabilities-requires', 'and each Rocket'),
               'requires:',
             ]),
@@ -370,8 +369,8 @@ function Drawing({ frame, cue, look }: DrawingProps) {
           {
             at: cue('capabilities-command', undefined, -lead),
             title: 'capabilities/rocket.ts',
-            code: s.capabilitiesRocket,
-            steps: steps(s.capabilitiesRocket, [
+            code: sources.capabilitiesRocket,
+            steps: steps(sources.capabilitiesRocket, [
               cue('capabilities-command'),
               'Launch: (_',
             ]),
@@ -397,10 +396,10 @@ function Drawing({ frame, cue, look }: DrawingProps) {
           {
             at: start('motion'),
             title: 'motion/view.tsx',
-            code: s.motionView,
+            code: sources.motionView,
             lang: 'tsx',
             steps: steps(
-              s.motionView,
+              sources.motionView,
               [cue('motion'), 'layoutId={id}'],
               [cue('motion', 'Motion glides'), 'layoutId={id}', 'InFlight:'],
             ),
@@ -462,12 +461,12 @@ function Drawing({ frame, cue, look }: DrawingProps) {
         <div className="flex flex-col gap-8">
           <CodeCard
             title="commands/rocket.ts"
-            code={s.commandsRocket}
+            code={sources.commandsRocket}
             frame={frame}
             rows={9}
             width={plateWidth}
             steps={steps(
-              s.commandsRocket,
+              sources.commandsRocket,
               [cue('deeper-commands'), "key: 'countdown'"],
               [
                 cue('deeper-commands', 'Launch twice'),

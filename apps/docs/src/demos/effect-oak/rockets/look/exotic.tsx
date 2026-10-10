@@ -10,7 +10,7 @@ import {
 import type { MotionValue } from 'motion/react';
 import { cn } from '@kstackz/web-platform/components/utils';
 import { useCompact, useSky } from './context.js';
-import type { Kit, Phase } from './kit.js';
+import { firing, type Kit } from './kit.js';
 import { Rig } from './rig.js';
 import { BOOSTER, SHIP } from './shapes.js';
 
@@ -108,8 +108,6 @@ const Stars = ({
     }}
   />
 );
-
-const firing = (phase: Phase) => phase === 'flight' || phase === 'countdown';
 
 /** The exhaust: a hot core over a soft glow, flickering. */
 const Plume = ({
@@ -379,14 +377,13 @@ export const exotic: Kit = {
     </div>
   ),
 
-  Button: ({ onClick, children, tone, pressed, disabled }) => (
+  Button: ({ onClick, children, tone, pressed }) => (
     <button
       type="button"
       aria-pressed={pressed}
-      disabled={disabled}
       onClick={onClick}
       className={cn(
-        'h-8 rounded-full border px-3.5 text-[13px] font-medium transition-[background-color,border-color,scale] duration-150 ease-out active:scale-[0.96] disabled:opacity-35',
+        'h-8 rounded-full border px-3.5 text-[13px] font-medium transition-[background-color,border-color,scale] duration-150 ease-out active:scale-[0.96]',
         tone === 'go'
           ? 'border-transparent text-[oklch(0.2_0.03_60)]'
           : tone === 'stop'

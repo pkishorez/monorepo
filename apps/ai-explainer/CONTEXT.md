@@ -38,6 +38,17 @@ code, the app running and its devtools, and adds one idea to the last. Unlike
 an Explainer it follows the app's chapters, not the Explainer Format.
 _Avoid_: Showcase, demo video
 
+**Style**:
+How a Walkthrough is painted: blueprint, paper or bold. A Style changes
+colour, type and camera feel, never what is shown or when; each Style is its
+own video.
+_Avoid_: Theme, skin, variant
+
+**Look**:
+Which of the demo app's Looks a Walkthrough's recordings show, such as plain,
+colorful or exotic. The same Walkthrough renders with any Look.
+_Avoid_: Theme, skin, flavour
+
 ### Deciding together
 
 **Round**:

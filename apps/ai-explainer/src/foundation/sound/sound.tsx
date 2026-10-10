@@ -40,12 +40,16 @@ export function Sound({
   );
 }
 
+const seam = (t: number) =>
+  Math.sin((Math.max(0, Math.min(1, t)) * Math.PI) / 2);
+
 // The bed rests about 24 dB under narration and rises a little in the
 // silences between lines.
 const level = { under: 0.2, open: 0.42 };
 
 // The music bed for a video of `durationInFrames`, ducking whenever `speaking`
-// says the narrator is (0 to 1). Repeats of the loop crossfade.
+// says the narrator is (0 to 1). Repeats of the loop crossfade at equal
+// power, so the seam neither dips nor swells.
 export function Music({
   durationInFrames,
   speaking,
@@ -70,12 +74,9 @@ export function Music({
           volume={(local) => {
             const frame = from + local;
             const fadeIn =
-              i === 0
-                ? Math.min(1, local / (2 * fps))
-                : Math.min(1, local / overlap);
+              i === 0 ? Math.min(1, local / (2 * fps)) : seam(local / overlap);
             const fadeOut = Math.min(
-              1,
-              (loop + overlap - local) / overlap,
+              seam((loop + overlap - local) / overlap),
               (durationInFrames - frame) / (2.5 * fps),
             );
             return (

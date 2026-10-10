@@ -1,2 +1,2 @@
 export { CodeCard, type CodeStep, type Problem } from './code-card.tsx';
-export { blockOf } from './highlight.ts';
+export { blockOf, type Theme } from './highlight.ts';

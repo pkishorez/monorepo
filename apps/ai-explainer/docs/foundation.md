@@ -3,14 +3,14 @@
 What every Explainer and Walkthrough shares. Each part is either decided by a Pick or still
 open. An open part runs on the default listed and is decided by a Round.
 
-| Part   | Now                                                                    | Decided by         |
-| ------ | ---------------------------------------------------------------------- | ------------------ |
-| Look   | web-platform's light theme, Inter, on a dotted board                   | 01-look-and-motion |
-| Voice  | Kokoro `am_michael` (Michael), speed 1.2                               | 02-voice           |
-| Motion | One canvas: the camera travels between regions of a board              | 01-look-and-motion |
-| Sound  | Explainers: narration only. Walkthroughs: a music bed and soft effects | open               |
-| Scenes | none: Explainers draw their own content on the canvas                  | open               |
-| Styles | Walkthroughs only: blueprint, paper or bold, one per render            | open (Effect Oak)  |
+| Part    | Now                                                                    | Decided by         |
+| ------- | ---------------------------------------------------------------------- | ------------------ |
+| Visuals | web-platform's light theme, Inter, on a dotted board                   | 01-look-and-motion |
+| Voice   | Kokoro `am_michael` (Michael), speed 1.2                               | 02-voice           |
+| Motion  | One canvas: the camera travels between regions of a board              | 01-look-and-motion |
+| Sound   | Explainers: narration only. Walkthroughs: a music bed and soft effects | open               |
+| Scenes  | none: Explainers draw their own content on the canvas                  | open               |
+| Styles  | Walkthroughs only: blueprint, paper or bold, one per render            | open (Effect Oak)  |
 
 ## Rules that always hold
 
@@ -21,7 +21,7 @@ open. An open part runs on the default listed and is decided by a Round.
 - A Foundation change may break old Explainers. Keep them compiling; do not
   repair how they look or sound (ADR 0003).
 
-## Look
+## Visuals
 
 - web-platform's light theme and real kui components, so Explainers look like
   the interfaces they sit next to.
@@ -64,6 +64,8 @@ open. An open part runs on the default listed and is decided by a Round.
 - Effects are soft and few: a whoosh on each camera move (louder for longer
   moves), a click on every recorded click, a swell that peaks on a moment, a
   chime on the end card.
+- `pnpm render` normalises the finished mix to -14 LUFS, true peaks under
+  -1.5 dBTP, the level social players expect.
 
 ## Walkthroughs
 
@@ -79,15 +81,15 @@ A Walkthrough (`defineWalkthrough`) is one canvas like an Explainer's, plus:
   drawn with a red squiggle;
 - burned-in captions from the script, at most two lines;
 - title and section cards, the music bed and effects;
-- three Styles, each its own composition (`<id>-<style>`); the recordings'
-  Look is a prop.
+- three Styles, each its own composition (`<id>-<style>`), and a `look` prop
+  that picks which Look's recordings it shows.
 
 Silence is part of a Walkthrough's timing: `pauses` give seconds before a
 line, so the app gets time to run between lines.
 
 ## Where each part lives
 
-- `src/foundation/stage`: the look every frame is painted on.
+- `src/foundation/stage`: the page every frame is painted on.
 - `src/foundation/canvas`: the board, the camera and the timing of motion.
 - `src/foundation/voice`: the narration voice.
 - `src/foundation/explainer`: turns a script's voiceover and Scenes, or one

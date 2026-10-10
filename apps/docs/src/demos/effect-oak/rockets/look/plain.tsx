@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react';
 import { cn } from '@kstackz/web-platform/components/utils';
 import { useCompact, useSky } from './context.js';
-import type { Kit, Phase } from './kit.js';
+import { firing, type Kit } from './kit.js';
 import { Rig } from './rig.js';
 import { BOOSTER, SHIP } from './shapes.js';
 
@@ -17,8 +17,6 @@ const PAPER = {
   '--muted': 'oklch(0.48 0 0)',
   '--rule': 'oklch(0.85 0 0)',
 } as CSSProperties;
-
-const firing = (phase: Phase) => phase === 'flight' || phase === 'countdown';
 
 /** Rain as short slanted strokes, for a sky with a storm in it. */
 const Rain = () => (
@@ -194,14 +192,13 @@ export const plain: Kit = {
     </div>
   ),
 
-  Button: ({ onClick, children, tone, pressed, disabled }) => (
+  Button: ({ onClick, children, tone, pressed }) => (
     <button
       type="button"
       aria-pressed={pressed}
-      disabled={disabled}
       onClick={onClick}
       className={cn(
-        'h-8 border border-(--ink) px-3 text-sm transition-colors duration-150 ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ink) disabled:opacity-35',
+        'h-8 border border-(--ink) px-3 text-sm transition-colors duration-150 ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--ink)',
         tone === 'go' || pressed
           ? 'bg-(--ink) text-(--paper)'
           : 'bg-(--paper) text-(--ink) hover:bg-[oklch(0.94_0_0)]',

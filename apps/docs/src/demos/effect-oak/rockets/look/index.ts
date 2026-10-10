@@ -12,4 +12,3 @@ export {
   Toolbar,
 } from './look.js';
 export type { LookName } from './look.js';
-export type { Phase } from './kit.js';
