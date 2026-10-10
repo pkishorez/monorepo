@@ -207,12 +207,45 @@ describe('a tree of Actors', () => {
           'Auth LoggedOut handled Authenticated→Anonymous',
           'Auth/todos#1 Added dropped →',
         ]);
+        // A Request's Source is the Command that made it, in another Instance.
+        expect(
+          app.log().map((e) => `${e.source.kind} ${e.source.instance}`),
+        ).toEqual([
+          'lifetime Auth',
+          'view Auth/login#1',
+          'view Auth/login#1',
+          'command Auth/login#1',
+          'view Auth/todos#1',
+          'view Auth/todos#1',
+          'command Auth/todos#1',
+          'view Auth/todos#1',
+        ]);
+        // Any entry's Snapshot, played again, is the one the app had live.
+        expect(app.snapshotAt(app.state().head)).toEqual(app.snapshot());
+        expect(app.snapshotAt(null).state._tag).toBe('Checking');
         // Invoked again, login gets a new ID.
         expect(Object.values(app.snapshot().children)).toMatchObject([
           { id: 'Auth/login#2' },
         ]);
+
+        // Clear forgets every Branch and goes live from init.
+        yield* app.clear();
+        yield* settle;
+        expect(app.state().entries.map((e) => e.message._tag)).toEqual([
+          'CheckedSession',
+        ]);
+        expect(app.snapshot().state._tag).toBe('Anonymous');
       }),
     ));
+
+  it('names every State an Actor can be in', () => {
+    expect(Auth.definition.states).toEqual([
+      'Checking',
+      'Anonymous',
+      'Authenticated',
+    ]);
+    expect(Login.definition.states).toEqual(['Single']);
+  });
 
   it('ignores a Message the current State has no rule for', () =>
     run(

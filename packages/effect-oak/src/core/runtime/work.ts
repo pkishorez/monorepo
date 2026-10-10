@@ -12,7 +12,12 @@ import {
 import type { Fiber } from 'effect';
 import type { Data, Definition, Self, Tagged } from '../actor/index.ts';
 import { isMany } from '../snapshot/index.ts';
-import type { Instance } from '../snapshot/index.ts';
+import type { Instance, Source } from '../snapshot/index.ts';
+
+/** The work running now, which `self.send` stamps as the Message's Source. */
+const Sending = Context.Reference<Source | undefined>('effect-oak/Sending', {
+  defaultValue: () => undefined,
+});
 
 /*
  * The work of every live Instance, in nested Scopes: the live app's Scope
@@ -56,7 +61,7 @@ export type Works = ReturnType<typeof makeWorks>;
  */
 export const makeWorks = (
   services: Context.Context<never>,
-  send: (instance: string, message: Tagged) => void,
+  send: (instance: string, message: Tagged, source: Source) => void,
 ) => {
   const works = new Map<string, Work>();
   const run = Effect.runSyncWith(services);
@@ -77,15 +82,20 @@ export const makeWorks = (
     return fiber;
   };
 
-  /** Run work with the Capabilities from above once they exist, and a Scope. */
+  /**
+   * Run work with the Capabilities from above once they exist, a Scope, and
+   * the Source of what it Sends.
+   */
   const withAbove = (
     above: Deferred.Deferred<Context.Context<never>>,
     scope: Scope.Scope,
+    source: Source,
     effect: Effect.Effect<unknown, never, any>,
   ) =>
     Deferred.await(above).pipe(
       Effect.flatMap((capabilities) =>
         effect.pipe(
+          Effect.provideService(Sending, source),
           Effect.provideService(Scope.Scope, scope),
           Effect.provideContext(capabilities),
         ),
@@ -107,7 +117,17 @@ export const makeWorks = (
     );
     const self: Work['self'] = {
       id: instance.id,
-      send: (message) => Effect.sync(() => send(instance.id, message)),
+      // A Request runs in another Instance's work, which is its Source.
+      send: (message) =>
+        Effect.flatMap(Effect.service(Sending), (source) =>
+          Effect.sync(() =>
+            send(
+              instance.id,
+              message,
+              source ?? { kind: 'lifetime', instance: instance.id },
+            ),
+          ),
+        ),
       get: SubscriptionRef.get(data),
       changes: SubscriptionRef.changes(data),
     };
@@ -123,7 +143,11 @@ export const makeWorks = (
     works.set(instance.id, work);
     const always = definition.lifetime['*'];
     if (always)
-      fork(scope, instance.id, withAbove(work.above, scope, always(self)));
+      fork(
+        scope,
+        instance.id,
+        withAbove(work.above, scope, lifetimeOf(instance), always(self)),
+      );
     enter(work, instance);
   };
 
@@ -159,7 +183,7 @@ export const makeWorks = (
       fork(
         scope,
         instance.id,
-        withAbove(work.above, scope, lifetime(work.self)),
+        withAbove(work.above, scope, lifetimeOf(instance), lifetime(work.self)),
       );
 
     const slots = definition.children[tag] ?? {};
@@ -212,7 +236,12 @@ export const makeWorks = (
     const fiber = fork(
       work.scope,
       instance.id,
-      withAbove(work.above, work.scope, effect),
+      withAbove(
+        work.above,
+        work.scope,
+        { kind: 'command', instance: instance.id },
+        effect,
+      ),
     );
     if (key === undefined) return;
     work.commands.get(key)?.interruptUnsafe();
@@ -272,6 +301,11 @@ export const makeWorks = (
  */
 const stopped = (cause: Cause.Cause<unknown>) =>
   Cause.hasInterruptsOnly(cause) || Pull.isDoneCause(cause);
+
+const lifetimeOf = (instance: Instance): Source => ({
+  kind: 'lifetime',
+  instance: instance.id,
+});
 
 const keyed = (
   planned: unknown,

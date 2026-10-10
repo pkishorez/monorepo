@@ -29,10 +29,20 @@ export interface Instance {
 /** The whole app: its root Instance. */
 export type Snapshot = Instance;
 
-/** A Message, the Instance it is for, and its Time. */
+/**
+ * Who Sent a Message: a View, a Command or a Lifetime, and the Instance it
+ * belongs to. Only a Request comes from another Instance than its target.
+ */
+export interface Source {
+  readonly kind: 'view' | 'command' | 'lifetime';
+  readonly instance: string;
+}
+
+/** A Message, the Instance it is for, who Sent it, and its Time. */
 export interface Envelope {
   readonly instance: string;
   readonly message: Tagged;
+  readonly source: Source;
   readonly at: number;
 }
 

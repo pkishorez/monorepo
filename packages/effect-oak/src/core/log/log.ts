@@ -32,8 +32,8 @@ export interface RuntimeState {
   /** The entry the next Message goes after, or `null` right after init. */
   readonly head: number | null;
   readonly running: boolean;
-  /** The entry shown, or `null` for live. */
-  readonly shown: number | null;
+  /** The entry shown, `'init'` for right after init, or `null` for live. */
+  readonly shown: number | 'init' | null;
 }
 
 /** The Log, held as one value that every change replaces. */

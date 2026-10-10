@@ -1,5 +1,5 @@
 import type { Tagged } from '../actor/index.ts';
-import type { Envelope } from '../snapshot/index.ts';
+import type { Envelope, Source } from '../snapshot/index.ts';
 
 /*
  * The one mailbox. A Message is handled before `send` returns, unless another
@@ -32,9 +32,9 @@ export const makeMailbox = (
   };
 
   return {
-    send: (instance: string, message: Tagged) => {
+    send: (instance: string, message: Tagged, source: Source) => {
       if (!open()) return;
-      waiting.push({ instance, message, at: now() });
+      waiting.push({ instance, message, source, at: now() });
       drain();
     },
     /** Run `f` without handling Messages, then handle what it sent. */

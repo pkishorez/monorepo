@@ -306,6 +306,8 @@ export interface SlotDefinition {
 /** The plain definition the engine works from; an Actor without States is keyed by its one State. */
 export interface Definition {
   readonly name: string;
+  /** Every State it can be in, by tag: the ones its State Schema names. */
+  readonly states: ReadonlyArray<string>;
   readonly requires: Requires;
   readonly init: (input: unknown) => {
     readonly model?: unknown;

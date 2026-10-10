@@ -53,8 +53,12 @@ A fact that happened, addressed to one Instance: a click, a timer tick, a Comman
 _Avoid_: event (XState's word; Effect Oak uses Elm's names), action
 
 **Envelope**:
-A Message with the Instance ID it is sent to and its Time: what a Send makes, what Replay plays, and the heart of every Log entry.
+A Message with the Instance ID it is sent to, its Source and its Time: what a Send makes, what Replay plays, and the heart of every Log entry.
 _Avoid_: event, packet
+
+**Source**:
+Who Sent a Message: a View, a Command or a Lifetime, and the Instance it belongs to. The same Instance the Message goes to, except for a Request, which comes from the Instance whose Command made it. Kept with the Envelope.
+_Avoid_: sender, origin, caller
 
 **Time**:
 When a Message arrived, in milliseconds since the Runtime started. Stamped by the Runtime and kept with the Message. Update reads it, so a Replay gets the same answer as the live app. The one clock the app, its Log and its Frame share.
@@ -133,3 +137,21 @@ _Avoid_: dispatch, emit, trigger
 **Runtime**:
 The live app: the Snapshot, plus the Capabilities, Lifetimes and Commands that connect it to the outside world, and the Log. One per app, however many times the app is drawn; it starts when the app is first drawn and stops when the last drawing goes. Only code outside the tree, like a timeline, sees it: it reads the Log and chooses the Step shown.
 _Avoid_: store, engine, interpreter, actor system
+
+### Seeing the app
+
+**Timeline**:
+The whole Log drawn as a graph, newest first: one row per Message on every Branch, each a name and a dot. Each Branch keeps the lane it was born in: the first runs down the middle and every fork gets its own lane to the right, so nothing moves as the Log grows. The Branch in view is lit where it stands. Picking a dot chooses the Step shown everywhere; a dot on another Branch brings that Branch into view.
+_Avoid_: history, message list
+
+**Branch in view**:
+The one Branch the Timeline and the Inspector walk, from init to its latest entry: the Head's, until another is picked. A Step before a split is on every Branch that grows from it, so picking it keeps the Branch in view.
+_Avoid_: selected branch, active branch
+
+**Change**:
+What one Step did to the Snapshot: the Instances it started and stopped, its Transitions, and every field of a Model or State that took a new value, with the value it had before. Init's Change is every Instance starting. An ignored or dropped Message, or one whose Update gave back the same data, has no Change.
+_Avoid_: diff, delta, patch, mutation
+
+**Inspector**:
+One Step taken apart, on a map of the whole app drawn from its Actors: every State each can be in and every Child each State Invokes, dim until an Instance runs there. An Actor without States is drawn without its one State. The Step lights up the Instances that exist and their States, with its Change marked, and any Instance's data. Moves one Step at a time along the Branch in view.
+_Avoid_: devtools (the repo's DevTools is another thing), debugger, panel

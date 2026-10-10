@@ -59,6 +59,7 @@ function make(name: string, shape: any): Defined<any, AnyActor> {
       name,
       definition: {
         name,
+        states: statesOf(shape.state, [children, behavior.update]),
         requires: shape.requires ?? {},
         init: behavior.init ?? (() => ({})),
         update: keyed(behavior.update) as Definition['update'],
@@ -74,6 +75,20 @@ function make(name: string, shape: any): Defined<any, AnyActor> {
     }),
   };
 }
+
+/**
+ * The State tags: a tagged union's cases, else every State something is
+ * defined for. An Actor without States has the one, `Single`.
+ */
+const statesOf = (
+  schema: unknown,
+  byState: ReadonlyArray<unknown>,
+): ReadonlyArray<string> => {
+  if (!schema) return ['Single'];
+  const cases = (schema as { readonly cases?: Record<string, unknown> }).cases;
+  if (cases) return Object.keys(cases);
+  return [...new Set(byState.flatMap((part) => Object.keys(part ?? {})))];
+};
 
 const isMany = (slot: Slot): slot is Many<AnyActor> =>
   '_tag' in slot && slot._tag === 'Many';
