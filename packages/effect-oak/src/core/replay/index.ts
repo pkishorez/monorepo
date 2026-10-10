@@ -1,1 +1,2 @@
-export { Replay, rebuild } from './replay.ts';
+export { Replay } from './replay.ts';
+export type { ReplayOptions } from './replay.ts';

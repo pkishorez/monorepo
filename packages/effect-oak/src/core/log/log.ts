@@ -1,10 +1,9 @@
-import type { Tagged } from '../node/index.ts';
-import { makeStore } from './store.ts';
+import type { Envelope } from '../snapshot/index.ts';
 
 /*
  * The Log: a tree of entries, one per Message, each pointing to its parent.
  * One value in memory, the only source of truth for the Runtime, Replay and
- * timelines.
+ * timelines. The Runtime tells its subscribers when it changes.
  *
  * 1. Append    pushes an entry after the Head and moves the Head to it. The
  *              entries are one append-only array every state shares.
@@ -14,18 +13,12 @@ import { makeStore } from './store.ts';
  *              most once per change; and the children of any entry.
  */
 
-/** One line of the Log: which Instance got which Message, when, and what came of it. */
-export interface Entry {
+/** One line of the Log: an Envelope, and what came of it. */
+export interface Entry extends Envelope {
   /** Its position in the Log. */
   readonly id: number;
   /** The entry before it, or `null` right after init. */
   readonly parent: number | null;
-  readonly message: Tagged;
-  /** When it was sent, in milliseconds of the app's Time. */
-  readonly at: number;
-  /** The number of the Instance it went to, in the order its tree created it. */
-  readonly instance: number;
-  readonly path: string;
   readonly outcome: 'handled' | 'ignored' | 'dropped';
   /** The State tag before and after. */
   readonly from: string;
@@ -43,10 +36,9 @@ export interface RuntimeState {
   readonly shown: number | null;
 }
 
-/** The Log, held in a store. */
+/** The Log, held as one value that every change replaces. */
 export interface Log {
   readonly get: () => RuntimeState;
-  readonly subscribe: (listener: () => void) => () => void;
   /** Push an entry after the Head, and move the Head to it. */
   readonly append: (entry: Omit<Entry, 'id' | 'parent'>) => Entry;
   /** Move the Head, start or stop, or show an entry, in one change. */
@@ -69,7 +61,7 @@ const EMPTY: RuntimeState = {
 /** A Log, empty or carrying on from a state saved before. */
 const make = (saved: RuntimeState = EMPTY): Log => {
   const entries: Array<Entry> = [...saved.entries];
-  const store = makeStore<RuntimeState>({ ...saved, entries });
+  let state: RuntimeState = { ...saved, entries };
   const children = new Map<number | null, Array<Entry>>();
   const index = (entry: Entry) => {
     const siblings = children.get(entry.parent);
@@ -81,21 +73,21 @@ const make = (saved: RuntimeState = EMPTY): Log => {
   let branches = new Map<number | null, ReadonlyArray<Entry>>();
   const change = (next: RuntimeState) => {
     branches = new Map();
-    store.set(next);
+    state = next;
   };
 
   // 1. Append
   const append: Log['append'] = (fields) => {
-    const { head } = store.get();
+    const { head } = state;
     const entry: Entry = { id: entries.length, parent: head, ...fields };
     entries.push(entry);
     index(entry);
-    change({ ...store.get(), head: entry.id });
+    change({ ...state, head: entry.id });
     return entry;
   };
 
   // 2. Set
-  const set: Log['set'] = (fields) => change({ ...store.get(), ...fields });
+  const set: Log['set'] = (fields) => change({ ...state, ...fields });
 
   // 3. Read
   const branch: Log['branch'] = (to) => {
@@ -112,8 +104,7 @@ const make = (saved: RuntimeState = EMPTY): Log => {
   };
 
   return {
-    get: store.get,
-    subscribe: store.subscribe,
+    get: () => state,
     append,
     set,
     branch,

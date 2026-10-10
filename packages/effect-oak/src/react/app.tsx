@@ -5,18 +5,19 @@ import type { MotionValue } from 'motion/react';
 import { Effect, Exit, Layer, Scope } from 'effect';
 import { Runtime } from '../core/index.ts';
 import type {
-  AnyNode,
+  AnyActor,
   Entry,
   Needs,
   Running,
   RuntimeState,
 } from '../core/index.ts';
-import { FrameContext } from './view.tsx';
+import { makeDrawn } from './drawn.ts';
+import { DrawnContext, FrameContext } from './view.tsx';
 import type { ViewOf } from './view.tsx';
 
-type Unmet<N, Provided> = [Exclude<Needs<N>, Provided>] extends [never]
+type Unmet<A, Provided> = [Exclude<Needs<A>, Provided>] extends [never]
   ? []
-  : [unmet: { readonly missingServices: Exclude<Needs<N>, Provided> }];
+  : [unmet: { readonly missingCapabilities: Exclude<Needs<A>, Provided> }];
 
 const EMPTY: RuntimeState = {
   entries: [],
@@ -38,7 +39,7 @@ export interface AppRuntime {
   readonly shown: number | null;
   /** Show the app right after an entry, on any Branch, or live again with `null`. */
   readonly show: (entry: number | null) => void;
-  /** Interrupt every Command and Lifetime. The tree and the Log stay, and the Frame stands still. */
+  /** Close every Command, Lifetime and Capability. The Snapshot and the Log stay, and the Frame stands still. */
   readonly stop: () => void;
   /**
    * Start from an entry (`null`: right after init), growing a new Branch from
@@ -53,7 +54,7 @@ export interface AppRuntime {
 
 /**
  * The whole app as one React component. Does not compile until the Layer
- * covers every Service the tree still needs.
+ * covers every Capability the tree still needs.
  *
  * There is one Runtime per `toReact`, however many times the component is
  * mounted, and every mount draws the same tree. The first mount builds the
@@ -68,18 +69,19 @@ export interface AppRuntime {
  * Runtime, from anywhere on the page. Views of the past or of a stopped app
  * cannot Send.
  */
-export const toReact = <N extends AnyNode, Provided>(
-  node: N,
-  view: ViewOf<N>,
+export const toReact = <A extends AnyActor, Provided>(
+  actor: A,
+  view: ViewOf<A>,
   layer: Layer.Layer<Provided, never, never>,
-  ..._unmet: Unmet<N, Provided>
+  ..._unmet: Unmet<A, Provided>
 ) => {
   const RootView = view;
   const frame = motionValue(0);
+  const root = { id: actor.name };
 
   // The latest Runtime, kept outside React so every mount and hook reads the
   // same one. It stays readable after the last unmount closes it.
-  let runtime: Running<N> | undefined;
+  let runtime: Running<A> | undefined;
 
   const listeners = new Set<() => void>();
   const changed = () => {
@@ -109,13 +111,15 @@ export const toReact = <N extends AnyNode, Provided>(
     }
   };
 
+  const drawn = makeDrawn(() => runtime, subscribe);
+
   // Mounts share the Runtime: the first starts it, the last stops it.
   let mounts = 0;
   let close = () => {};
   let unsubscribe = () => {};
   const mount = () => {
     if (mounts++ === 0) {
-      close = host(node, layer, runtime?.state(), (started) => {
+      close = host(actor, layer, runtime?.state(), (started) => {
         unsubscribe();
         runtime = started;
         unsubscribe = started.subscribe(changed);
@@ -128,24 +132,29 @@ export const toReact = <N extends AnyNode, Provided>(
   };
 
   const read = () => runtime?.state() ?? EMPTY;
-  const show = (entry: number | null) => runtime?.show(entry);
-  const stop = () => runtime?.stop();
-  const start = (from?: number | null) => runtime?.start(from);
+  const control = (effect: Effect.Effect<void> | undefined) => {
+    if (effect) Effect.runFork(effect);
+  };
+  const show = (entry: number | null) => control(runtime?.show(entry));
+  const stop = () => control(runtime?.stop());
+  const start = (from?: number | null) => control(runtime?.start(from));
   const children = (entry: number | null) =>
     runtime?.children(entry) ?? NO_ENTRIES;
 
   const App = () => {
-    const root = useSyncExternalStore(subscribe, () => runtime?.drawn());
+    const ready = useSyncExternalStore(subscribe, () => runtime !== undefined);
     useEffect(mount, []);
-    return root ? (
-      <FrameContext value={frame}>
-        <RootView node={root} />
-      </FrameContext>
+    return ready ? (
+      <DrawnContext value={drawn}>
+        <FrameContext value={frame}>
+          <RootView node={root} />
+        </FrameContext>
+      </DrawnContext>
     ) : null;
   };
 
   return Object.assign(App, {
-    displayName: node.name,
+    displayName: actor.name,
     useRuntime: (): AppRuntime => {
       const { head, running, shown } = useSyncExternalStore(subscribe, read);
       return {
@@ -168,18 +177,18 @@ export const toReact = <N extends AnyNode, Provided>(
  * Log if there is one. Returns a function that closes the Scope: every Command
  * and Lifetime ends, then the Layer.
  */
-const host = <N extends AnyNode>(
-  node: N,
+const host = <A extends AnyActor>(
+  actor: A,
   layer: Layer.Layer<any, never, never>,
   saved: RuntimeState | undefined,
-  onStarted: (running: Running<N>) => void,
+  onStarted: (running: Running<A>) => void,
 ): (() => void) => {
   const scope = Scope.makeUnsafe();
   let stopped = false;
   void Effect.runPromise(
     Layer.build(layer).pipe(
       Effect.flatMap((context) =>
-        Runtime.start(node, saved).pipe(
+        Runtime.start(actor, saved ? { saved } : {}).pipe(
           Effect.provideContext(context as never),
         ),
       ),

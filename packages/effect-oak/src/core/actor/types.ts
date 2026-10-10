@@ -1,16 +1,12 @@
-import type { Context, Effect, Schema, Stream } from 'effect';
+import type { Context, Effect, Layer, Schema, Scope, Stream } from 'effect';
 
 export type Tagged = { readonly _tag: string };
 
-/** The one State of a Node declared without States. */
+/** The one State of an Actor declared without States. */
 export type Single = { readonly _tag: 'Single' };
 
 type AnyKey = Context.Key<any, any>;
 export type Requires = Readonly<Record<string, AnyKey>>;
-
-export type ServicesOf<R extends Requires> = {
-  readonly [K in keyof R]: R[K] extends Context.Key<any, infer S> ? S : never;
-};
 
 type IdsOf<R extends Requires> = {
   [K in keyof R]: R[K] extends Context.Key<infer I, any> ? I : never;
@@ -18,45 +14,65 @@ type IdsOf<R extends Requires> = {
 
 export type Only<U, T> = Extract<U, { readonly _tag: T }>;
 
-type Commands<Msg, R extends Requires> = ReadonlyArray<
-  Effect.Effect<Msg | void, never, IdsOf<R>>
->;
-
-/** What Update and Lifetimes see: data only. Commands and Lifetimes get Services from Effect. */
-type Scope<Model, State> = {
+/** An Instance's data at one moment. */
+export type Data<Model, State> = {
   readonly model: Model;
   readonly state: State;
 };
 
-/** What Update also sees: the Message's Time, in milliseconds since the Runtime started. */
-type UpdateScope<Model, State> = Scope<Model, State> & { readonly at: number };
+/**
+ * What an Instance's own work holds of it: Lifetimes, Commands and Provides.
+ * Sends go only to this Instance; `get` and `changes` are always current.
+ */
+export interface Self<Model, State, Msg> {
+  readonly id: string;
+  readonly send: (message: Msg) => Effect.Effect<void>;
+  readonly get: Effect.Effect<Data<Model, State>>;
+  /** The current data, then each new value after a Message changes it. */
+  readonly changes: Stream.Stream<Data<Model, State>>;
+}
 
-type Rules<Model, State, Msg extends Tagged, R extends Requires, Next> = {
+/** Work that may end with a Message, which is then Sent to its Instance. */
+type Run<Model, State, Msg, R extends Requires> =
+  | Effect.Effect<Msg | void, never, IdsOf<R>>
+  | ((
+      self: Self<Model, State, Msg>,
+    ) => Effect.Effect<Msg | void, never, IdsOf<R> | Scope.Scope>);
+
+/**
+ * One piece of work an Update asks for, owned by its Instance. Started under a
+ * key, it interrupts the Command still running under the same key.
+ */
+export type Command<Model, State, Msg, R extends Requires> =
+  | Run<Model, State, Msg, R>
+  | { readonly key: string; readonly run: Run<Model, State, Msg, R> };
+
+type Rules<Model, State, Msg extends Tagged, R extends Requires, Next, All> = {
   readonly [K in Msg['_tag']]?: (
     message: Only<Msg, K>,
-    scope: UpdateScope<Model, State>,
+    scope: Data<Model, State> & {
+      /** The Message's Time, in milliseconds since the Runtime started. */
+      readonly at: number;
+    },
   ) => {
     readonly model?: Model;
     readonly state?: Next;
-    readonly commands?: Commands<Msg, R>;
-    /** Stop this Node's Commands still running before these start: the latest plan wins. */
-    readonly replaceCommands?: boolean;
+    readonly command?: Command<Model, All, Msg, R>;
+    /** Interrupt the Commands running under these keys, before `command` starts. */
+    readonly cancel?: string | ReadonlyArray<string>;
   };
 };
 
+/** Work for as long as an Instance exists, or is in one State: a scoped Effect. */
 type Lifetime<Model, State, Msg, R extends Requires> = (
-  scope: Scope<Model, State>,
-) => Stream.Stream<Msg, never, IdsOf<R>>;
+  self: Self<Model, State, Msg>,
+) => Effect.Effect<unknown, never, IdsOf<R> | Scope.Scope>;
 
-/** Builds the Services a State Provides: the one place that reads Service values directly. */
+/** Builds what a State Provides, once each time the State is entered. */
 type Provide<Model, State, Msg, R extends Requires, Ids> = (
-  scope: Scope<Model, State> & {
-    readonly services: ServicesOf<R>;
-    readonly send: (message: Msg) => void;
-  },
-) => Context.Context<Ids>;
+  self: Self<Model, State, Msg>,
+) => Layer.Layer<Ids, never, IdsOf<R>>;
 
-/** The Services a Node Provides to the Nodes below it, declared in its shape. */
 type Keys = ReadonlyArray<AnyKey>;
 
 type IdsIn<L> =
@@ -66,7 +82,61 @@ type IdsIn<L> =
       : never
     : never;
 
-export type Children = Readonly<Record<string, AnyNode>>;
+// Children ------------------------------------------------------------------------
+
+/** A keyed Child: one Instance of `actor` per key the parent Invokes. */
+export interface Many<A extends AnyActor> {
+  readonly _tag: 'Many';
+  readonly actor: A;
+}
+
+export type Slot = AnyActor | Many<AnyActor>;
+export type Children = Readonly<Record<string, Slot>>;
+
+export type ActorOf<S> = S extends Many<infer A> ? A : S;
+
+type InputOf<A> = Types<A>['input'];
+
+type Keyed<I> = [I] extends [void]
+  ? { readonly key: string; readonly input?: I }
+  : { readonly key: string; readonly input: I };
+
+type ManyKeys<C> = {
+  [K in keyof C]: C[K] extends Many<any> ? K : never;
+}[keyof C];
+type NeedKeys<C> = {
+  [K in keyof C]: C[K] extends Many<any>
+    ? never
+    : [InputOf<C[K]>] extends [void]
+      ? never
+      : K;
+}[keyof C];
+type FreeKeys<C> = Exclude<keyof C, ManyKeys<C> | NeedKeys<C>>;
+
+/** What a State Invokes: the keys and Input of each keyed Child, and the Input of each fixed one. */
+export type Invocation<C> = {
+  readonly [K in ManyKeys<C>]: ReadonlyArray<Keyed<InputOf<ActorOf<C[K]>>>>;
+} & { readonly [K in NeedKeys<C>]: InputOf<C[K]> } & {
+  readonly [K in FreeKeys<C>]?: InputOf<C[K]>;
+};
+
+type Invoke<Model, State, C> = (data: Data<Model, State>) => Invocation<C>;
+
+type InvokesByState<Model, State extends Tagged, CS> = {
+  readonly [
+    T in keyof CS & State['_tag'] as {} extends Invocation<CS[T]> ? never : T
+  ]: Invoke<Model, Only<State, T>, CS[T]>;
+} & {
+  readonly [
+    T in keyof CS & State['_tag'] as {} extends Invocation<CS[T]> ? T : never
+  ]?: Invoke<Model, Only<State, T>, CS[T]>;
+};
+
+type InvokePart<Part> = {} extends Part
+  ? { readonly invoke?: Part }
+  : { readonly invoke: Part };
+
+// The definition ---------------------------------------------------------------------
 
 type ModelInit<Model> = {} extends Model
   ? { readonly model?: Model }
@@ -76,7 +146,7 @@ type ProvidesByState<State extends Tagged> = {
   readonly [T in State['_tag']]?: Keys;
 };
 
-/** One Provide per State that declares Services, building exactly those Services. */
+/** One Provide per State that declares Capabilities, building exactly those. */
 type ProvidesPart<Model, State extends Tagged, Msg, R extends Requires, Pv> = [
   Pv,
 ] extends [never]
@@ -97,25 +167,28 @@ type ChildrenByState<State extends Tagged> = {
   readonly [T in State['_tag']]?: Children;
 };
 
-/** What every Node's definition has: its Requires and Schemas. */
-type Common<Model, Msg, R extends Requires> = {
-  readonly requires?: R;
-  readonly model?: Schema.Schema<Model>;
-  readonly message?: Schema.Schema<Msg>;
-};
-
-/** A Node declared without a `state` Schema has one State, and every per-State part is written flat. */
+/** An Actor declared without a `state` Schema has one State, and every per-State part is written flat. */
 export type IsSingle<State> = [State] extends [Single] ? true : false;
 
-/** The definition of a Node: every type, what it Provides and its Children are fixed here. */
+/** Children keyed by State, also for an Actor without States. */
+export type ByState<State, C> =
+  IsSingle<State> extends true ? { Single: C } : C;
+
+/** The definition of an Actor: every type, what it Provides and its Children are fixed here. */
 export type Shape<
+  Input,
   Model,
   State extends Tagged,
   Msg,
   R extends Requires,
   Pv,
   C,
-> = Common<Model, Msg, R> & {
+> = {
+  readonly requires?: R;
+  /** What a parent hands this Actor when it Invokes it. */
+  readonly input?: Schema.Schema<Input>;
+  readonly model?: Schema.Schema<Model>;
+  readonly message?: Schema.Schema<Msg>;
   readonly state?: Schema.Schema<State>;
   readonly provides?: Pv;
   readonly children?: C &
@@ -129,7 +202,7 @@ export type Shape<
         });
 };
 
-/** What `provides` may say: a list of Services, or one list per State. */
+/** What `provides` may say: a list of Capabilities, or one list per State. */
 export type ProvidesFor<State extends Tagged> =
   IsSingle<State> extends true ? Keys : ProvidesByState<State>;
 
@@ -137,99 +210,124 @@ export type ProvidesFor<State extends Tagged> =
 export type ChildrenFor<State extends Tagged> =
   IsSingle<State> extends true ? Children : ChildrenByState<State>;
 
-/** How a Node is built: flat without States, keyed by State with them. */
+/** How an Actor is built: flat without States, keyed by State with them. */
 export type Behavior<
+  Input,
   Model,
   State extends Tagged,
   Msg extends Tagged,
   R extends Requires,
   Pv,
+  C,
 > =
   IsSingle<State> extends true
-    ? SingleBehavior<Model, Msg, R, Pv>
-    : StatesBehavior<Model, State, Msg, R, Pv>;
+    ? SingleBehavior<Input, Model, Msg, R, Pv, C>
+    : StatesBehavior<Input, Model, State, Msg, R, Pv, C>;
 
-/** How a Node with States is built: every per-State part is keyed by State. */
+/** How an Actor with States is built: every per-State part is keyed by State. */
 type StatesBehavior<
+  Input,
   Model,
   State extends Tagged,
   Msg extends Tagged,
   R extends Requires,
   Pv,
-> = ProvidesPart<Model, State, Msg, R, Pv> & {
-  readonly init: () => {
-    readonly state: State;
-    readonly commands?: Commands<Msg, R>;
-  } & ModelInit<Model>;
-  readonly update?: {
-    readonly [T in State['_tag']]?: Rules<Model, Only<State, T>, Msg, R, State>;
-  } & { readonly '*'?: Rules<Model, State, Msg, R, State> };
-  readonly lifetime?: {
-    readonly [T in State['_tag']]?: Lifetime<Model, Only<State, T>, Msg, R>;
+  C,
+> = ProvidesPart<Model, State, Msg, R, Pv> &
+  InvokePart<InvokesByState<Model, State, C>> & {
+    /** The first Model and State, from the Input. */
+    readonly init: (
+      input: Input,
+    ) => { readonly state: State } & ModelInit<Model>;
+    readonly update?: {
+      readonly [T in State['_tag']]?: Rules<
+        Model,
+        Only<State, T>,
+        Msg,
+        R,
+        State,
+        State
+      >;
+    } & { readonly '*'?: Rules<Model, State, Msg, R, State, State> };
+    /** `'*'` runs for as long as the Instance exists; each State's, while it lasts. */
+    readonly lifetime?: {
+      readonly [T in State['_tag']]?: Lifetime<Model, Only<State, T>, Msg, R>;
+    } & { readonly '*'?: Lifetime<Model, State, Msg, R> };
   };
-};
 
-/** How a Node without States is built: every per-State part is written flat. */
-type SingleBehavior<Model, Msg extends Tagged, R extends Requires, Pv> = ([
+/** How an Actor without States is built: every per-State part is written flat. */
+type SingleBehavior<
+  Input,
+  Model,
+  Msg extends Tagged,
+  R extends Requires,
   Pv,
-] extends [never]
+  C,
+> = ([Pv] extends [never]
   ? { readonly provides?: never }
-  : {
-      readonly provides: Provide<Model, Single, Msg, R, IdsIn<Pv>>;
-    }) & {
-  readonly init?: () => {
-    readonly commands?: Commands<Msg, R>;
-  } & ModelInit<Model>;
-  readonly update?: Rules<Model, Single, Msg, R, never>;
-  readonly lifetime?: Lifetime<Model, Single, Msg, R>;
-};
+  : { readonly provides: Provide<Model, Single, Msg, R, IdsIn<Pv>> }) &
+  ({} extends Invocation<C>
+    ? { readonly invoke?: Invoke<Model, Single, C> }
+    : { readonly invoke: Invoke<Model, Single, C> }) &
+  ([Input] extends [void]
+    ? {} extends Model
+      ? { readonly init?: (input: Input) => ModelInit<Model> }
+      : { readonly init: (input: Input) => ModelInit<Model> }
+    : { readonly init: (input: Input) => ModelInit<Model> }) & {
+    readonly update?: Rules<Model, Single, Msg, R, never, Single>;
+    readonly lifetime?: Lifetime<Model, Single, Msg, R>;
+  };
 
-type OpenOf<N> = N extends Node<any, any, any, any, any, infer O> ? O : never;
+type OpenOf<A> =
+  A extends Actor<any, any, any, any, any, any, infer O> ? O : never;
 
 /**
- * Each Child must find every Service it needs right where it is placed: in the
- * parent's Requires, or Provided by the parent in that State. A Child that
- * does not is marked with the Services it is missing.
+ * Each Child must find every Capability it needs right where it is placed: in
+ * the parent's Requires, or Provided by the parent in that State. A Child that
+ * does not is marked with the Capabilities it is missing.
  */
 type Fits<C, Has> = {
-  readonly [K in keyof C]: [Exclude<OpenOf<C[K]>, Has>] extends [never]
+  readonly [K in keyof C]: [Exclude<OpenOf<ActorOf<C[K]>>, Has>] extends [never]
     ? unknown
-    : { readonly missingServices: Exclude<OpenOf<C[K]>, Has> };
+    : { readonly missingCapabilities: Exclude<OpenOf<ActorOf<C[K]>>, Has> };
 };
 
-/** Services still needed from above. Children never add to it: they must fit where they are placed. */
+/** Capabilities still needed from above. Children never add to it: they must fit where they are placed. */
 export type Open<R extends Requires> = IdsOf<R>;
 
-type At<M, T extends PropertyKey> = M extends { readonly [K in T]?: infer V }
-  ? V
-  : never;
+// What the engine reads ------------------------------------------------------------
 
-/** The Children a View sees in each State. */
-export type ChildrenOf<Tags extends string, C> = {
-  readonly [T in Tags]: At<C, T> extends Children ? At<C, T> : {};
-};
+/** One Child slot, as the engine sees it. */
+export interface SlotDefinition {
+  readonly definition: Definition;
+  readonly many: boolean;
+}
 
-/** The plain definition the Runtime works from; a Node without States is keyed by its one State. */
+/** The plain definition the engine works from; an Actor without States is keyed by its one State. */
 export interface Definition {
   readonly name: string;
   readonly requires: Requires;
-  readonly init: () => {
+  readonly init: (input: unknown) => {
     readonly model?: unknown;
     readonly state?: Tagged;
-    readonly commands?: ReadonlyArray<Effect.Effect<unknown, never, any>>;
   };
   readonly update: Readonly<
     Record<string, Readonly<Record<string, Function | undefined>> | undefined>
   >;
+  /** Keyed by State, and `'*'` for the whole Instance. */
   readonly lifetime: Readonly<Record<string, Function | undefined>>;
   readonly provides: Readonly<Record<string, Function | undefined>>;
-  readonly children: Readonly<Record<string, Children | undefined>>;
+  readonly children: Readonly<
+    Record<string, Readonly<Record<string, SlotDefinition>> | undefined>
+  >;
+  readonly invoke: Readonly<Record<string, Function | undefined>>;
 }
 
 declare const types: unique symbol;
 
-export interface Node<
+export interface Actor<
   out Name extends string,
+  out Input,
   out Model,
   out State extends Tagged,
   out Msg extends Tagged,
@@ -239,6 +337,7 @@ export interface Node<
   readonly name: Name;
   readonly definition: Definition;
   readonly [types]?: {
+    readonly input: Input;
     readonly model: Model;
     readonly state: State;
     readonly message: Msg;
@@ -247,12 +346,13 @@ export interface Node<
   };
 }
 
-export type AnyNode = Node<string, any, any, any, any, any>;
+export type AnyActor = Actor<string, any, any, any, any, any, any>;
 
-/** Everything a Node's types say, for the Runtime and Views. */
-export type Types<N> =
-  N extends Node<
+/** Everything an Actor's types say, for the Runtime and Views. */
+export type Types<A> =
+  A extends Actor<
     any,
+    infer Input,
     infer Model,
     infer State,
     infer Msg,
@@ -260,9 +360,11 @@ export type Types<N> =
     infer Needs
   >
     ? {
+        input: Input;
         model: Model;
         state: State;
         message: Msg;
+        /** Slots per State tag. */
         children: Kids;
         open: Needs;
       }

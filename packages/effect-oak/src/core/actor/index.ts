@@ -1,3 +1,14 @@
-export { Node } from './node.ts';
-export type { Defined } from './node.ts';
-export type { AnyNode, Definition, Only, Tagged, Types } from './types.ts';
+export { Actor } from './actor.ts';
+export type { Defined } from './actor.ts';
+export type {
+  ActorOf,
+  AnyActor,
+  Data,
+  Definition,
+  Many,
+  Only,
+  Self,
+  SlotDefinition,
+  Tagged,
+  Types,
+} from './types.ts';
