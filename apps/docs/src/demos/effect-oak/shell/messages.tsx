@@ -1,6 +1,6 @@
 import { Fragment } from 'react';
 import type { Ref } from 'react';
-import { X } from 'lucide-react';
+import { GitBranch, X } from 'lucide-react';
 import type { Entry } from 'effect-oak';
 import { Button } from '@kstackz/web-platform/components/button';
 import { seconds } from './seconds.js';
@@ -13,60 +13,86 @@ const inSight = (element: HTMLElement | null) =>
   element?.scrollIntoView({ block: 'nearest' });
 
 /**
- * Every Message on a timeline, oldest first: when it arrived, where it went,
- * and what came of it. Picking one shows the app right after it. In Replay a
- * playhead marks the Step shown, and later Messages recede.
+ * Every Message on the Branch in view, oldest first: when it arrived, where it
+ * went, and what came of it. Picking one shows the app right after it. Where
+ * another Branch splits off, a line lists where it starts; picking one walks
+ * that Branch instead. In Replay a playhead marks the entry shown, and later
+ * Messages recede.
  */
 export const Messages = ({
-  log,
+  branch,
   shown,
+  children,
   onShow,
+  onBranch,
+  onHeadBranch,
   onClose,
 }: {
-  readonly log: ReadonlyArray<Entry>;
+  readonly branch: ReadonlyArray<Entry>;
   readonly shown: number | null;
-  readonly onShow: (step: number) => void;
+  readonly children: (entry: number | null) => ReadonlyArray<Entry>;
+  readonly onShow: (entry: number) => void;
+  /** Walk the Branch through `child`, which follows the entry at `index` (-1: init). */
+  readonly onBranch: (index: number, child: Entry) => void;
+  /** Back to the Head's Branch, when another is in view. */
+  readonly onHeadBranch: (() => void) | undefined;
   readonly onClose: () => void;
 }) => {
-  const reached = shown ?? log.length;
-  const playhead = (
-    <Playhead
-      at={reached === 0 ? 0 : log[reached - 1]!.at}
-      ref={(element) => {
-        inSight(element);
-      }}
-    />
-  );
+  const found = branch.findIndex((entry) => entry.id === shown);
+  const reached = shown === null || found === -1 ? branch.length : found + 1;
+  const splits = (index: number) => {
+    const others = children(index === -1 ? null : branch[index]!.id).filter(
+      (child) => child.id !== branch[index + 1]?.id,
+    );
+    return others.length === 0 ? null : (
+      <Split others={others} onPick={(child) => onBranch(index, child)} />
+    );
+  };
 
   return (
     <>
-      <div className="flex h-12 shrink-0 items-center justify-between border-b pr-2 pl-4">
+      <div className="flex h-12 shrink-0 items-center justify-between gap-2 border-b pr-2 pl-4">
         <h2 className="text-sm font-medium">Messages</h2>
-        <Button
-          size="icon-sm"
-          variant="ghost"
-          aria-label="Close Messages"
-          onClick={onClose}
-        >
-          <X />
-        </Button>
+        <div className="flex items-center gap-1">
+          {onHeadBranch && (
+            <Button size="sm" variant="ghost" onClick={onHeadBranch}>
+              Head&apos;s Branch
+            </Button>
+          )}
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            aria-label="Close Messages"
+            onClick={onClose}
+          >
+            <X />
+          </Button>
+        </div>
       </div>
-      {log.length === 0 ? (
+      {branch.length === 0 ? (
         <p className="p-4 text-sm text-pretty text-muted-foreground">
           No Messages yet. Use the app and each one shows up here, with its
           Time.
         </p>
       ) : (
         <ol className="min-h-0 flex-1 overflow-y-auto py-3">
-          {shown === 0 && playhead}
-          {log.map((entry, index) => (
-            <Fragment key={index}>
+          {splits(-1)}
+          {branch.map((entry, index) => (
+            <Fragment key={entry.id}>
               <Row
                 entry={entry}
                 later={index >= reached}
-                onPick={() => onShow(index + 1)}
+                onPick={() => onShow(entry.id)}
               />
-              {shown !== null && shown === index + 1 && playhead}
+              {shown !== null && reached === index + 1 && (
+                <Playhead
+                  at={entry.at}
+                  ref={(element) => {
+                    inSight(element);
+                  }}
+                />
+              )}
+              {splits(index)}
             </Fragment>
           ))}
           {shown === null && (
@@ -83,7 +109,33 @@ export const Messages = ({
   );
 };
 
-/** The Step shown in Replay, right after its Message, with that Message's Time. */
+/** Where other Branches split off: the first Message of each, to walk it. */
+const Split = ({
+  others,
+  onPick,
+}: {
+  readonly others: ReadonlyArray<Entry>;
+  readonly onPick: (child: Entry) => void;
+}) => (
+  <li className="grid grid-cols-[4.5rem_1rem_1fr] items-center py-0.5">
+    <span />
+    <GitBranch className="mx-auto size-3 text-muted-foreground" aria-hidden />
+    <span className="flex min-w-0 flex-wrap gap-1 pr-2 pl-2">
+      {others.map((child) => (
+        <button
+          key={child.id}
+          type="button"
+          onClick={() => onPick(child)}
+          className="truncate rounded-sm px-1.5 py-0.5 text-xs text-muted-foreground transition-colors duration-150 hover:bg-muted/60 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+        >
+          Branch: {child.message._tag} · {seconds(child.at)}
+        </button>
+      ))}
+    </span>
+  </li>
+);
+
+/** The entry shown in Replay, right after its Message, with that Message's Time. */
 const Playhead = ({
   at,
   ref,
