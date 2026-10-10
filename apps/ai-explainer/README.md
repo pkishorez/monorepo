@@ -36,3 +36,18 @@ Add, improve or remove any part: animation, music, voice, look, a Scene.
 Run `/explainer <name>` on an existing Explainer and say what to change.
 Pick one of three variants as above. Claude asks whether the change applies to
 future Explainers too.
+
+### Render a Walkthrough
+
+A Walkthrough builds up a live app chapter by chapter. Each one renders in
+three Styles, `<name>-blueprint`, `<name>-paper` and `<name>-bold`:
+
+```sh
+pnpm voiceover effect-oak            # after changing its script
+pnpm render effect-oak-paper         # generated/effect-oak-paper.mp4
+pnpm render effect-oak-paper --props='{"look":"plain"}'
+```
+
+Recordings go in `public/recordings/<look>/` (git-ignored). Until a clip is
+recorded, the video shows a labelled placeholder in its place. `pnpm sound`
+rebuilds the music bed and sound effects.

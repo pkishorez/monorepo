@@ -32,6 +32,12 @@ it is kept as a record, and later Foundation changes may leave it broken
 until someone reopens it.
 _Avoid_: Episode, lesson, tutorial, launch video
 
+**Walkthrough**:
+A narrated build-up of a live app, chapter by chapter: each chapter shows the
+code, the app running and its devtools, and adds one idea to the last. Unlike
+an Explainer it follows the app's chapters, not the Explainer Format.
+_Avoid_: Showcase, demo video
+
 ### Deciding together
 
 **Round**:

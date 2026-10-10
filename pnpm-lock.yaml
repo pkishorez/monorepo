@@ -412,6 +412,12 @@ importers:
       '@remotion/player':
         specifier: 'catalog:'
         version: 4.0.529(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@shikijs/langs':
+        specifier: 'catalog:'
+        version: 4.4.3
+      '@shikijs/themes':
+        specifier: 'catalog:'
+        version: 4.4.3
       react:
         specifier: 'catalog:'
         version: 19.2.8
@@ -421,6 +427,9 @@ importers:
       remotion:
         specifier: 'catalog:'
         version: 4.0.529(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      shiki:
+        specifier: 'catalog:'
+        version: 4.4.3
     devDependencies:
       '@remotion/bundler':
         specifier: 'catalog:'
@@ -10988,7 +10997,7 @@ snapshots:
       jose: 6.2.12
       kysely: 0.29.5
       nanostores: 1.5.3
-      zod: 4.4.3
+      zod: 4.5.4
     optionalDependencies:
       '@cloudflare/workers-types': 5.20260904.1
       '@opentelemetry/api': 1.9.1

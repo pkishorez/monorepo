@@ -1,5 +1,7 @@
+export { defineCanvasExplainer, defineExplainer, video } from './explainer.tsx';
 export {
-  defineCanvasExplainer,
-  defineExplainer,
+  timelineOf,
   type Cue,
-} from './explainer.tsx';
+  type Timeline,
+  type Voiceover,
+} from './timeline.ts';

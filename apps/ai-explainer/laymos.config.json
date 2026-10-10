@@ -5,7 +5,7 @@
   "layers": {
     "studio": {
       "paths": ["src/studio.tsx"],
-      "description": "Registers every Explainer with Remotion Studio and the renderer.",
+      "description": "Registers every Explainer and Walkthrough with Remotion Studio and the renderer.",
       "modules": { "src/studio.tsx": {} }
     },
     "playground": {
@@ -18,24 +18,37 @@
       "description": "One module per Explainer; Explainers never reach each other.",
       "modules": { "src/explainers/laymos": { "exposed": true } }
     },
+    "walkthroughs": {
+      "paths": ["src/walkthroughs"],
+      "description": "One module per Walkthrough; Walkthroughs never reach each other.",
+      "modules": { "src/walkthroughs/effect-oak": { "exposed": true } }
+    },
     "foundation": {
       "paths": ["src/foundation"],
-      "description": "What every Explainer shares: look, motion, voice, Scenes and the timing that turns them into video.",
+      "description": "What every Explainer and Walkthrough shares: look, motion, voice, sound, Scenes and the timing that turns them into video.",
       "modules": {
         "src/foundation/canvas": { "exposed": true, "shared": true },
-        "src/foundation/explainer": { "exposed": true },
+        "src/foundation/captions": { "shared": true },
+        "src/foundation/cards": { "exposed": true },
+        "src/foundation/code": { "exposed": true },
+        "src/foundation/explainer": { "exposed": true, "shared": true },
+        "src/foundation/footage": { "exposed": true },
+        "src/foundation/sound": { "exposed": true, "shared": true },
         "src/foundation/stage": { "exposed": true, "shared": true },
-        "src/foundation/voice": { "exposed": true }
+        "src/foundation/style": { "exposed": true, "shared": true },
+        "src/foundation/voice": { "exposed": true },
+        "src/foundation/walkthrough": { "exposed": true }
       }
     }
   },
   "layerGraphs": {
     "video": {
-      "description": "Studio and Playground show Explainers; Explainers are built only from the Foundation.",
+      "description": "Studio and Playground show Explainers and Walkthroughs; both are built only from the Foundation.",
       "rules": {
-        "studio": ["explainers"],
+        "studio": ["explainers", "walkthroughs"],
         "playground": ["explainers", "foundation"],
         "explainers": ["foundation"],
+        "walkthroughs": ["foundation"],
         "foundation": []
       }
     }
