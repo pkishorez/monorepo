@@ -49,15 +49,23 @@ The pure rule that takes the current Model, State, a Message and its Time and re
 _Avoid_: reducer, handler
 
 **Log**:
-Every Message in the order it arrived, with the Instance and Path it went to, its Time, and what came of it: handled, ignored, or dropped because its Instance was gone. For reading; Replay needs only the Messages.
+A tree of entries, one per Message, each pointing to the entry before it: the Message, the Instance and Path it went to, its Time, and what came of it: handled, ignored, or dropped because its Instance was gone. Kept in a store the app chooses, in memory unless told otherwise. Replay needs only the Messages on the way to an entry.
 _Avoid_: history, journal, event store
+
+**Head**:
+The Log entry the Runtime adds the next Message after. Starting the Runtime from an earlier entry moves the Head there.
+_Avoid_: cursor, current, tip
+
+**Branch**:
+The line of entries grown from one start of the Runtime: starting from an earlier entry begins a new Branch beside the old one, which stays in the Log. Time on a new Branch carries on from the entry it starts from.
+_Avoid_: fork (as a noun), timeline, run, session
 
 **Replay**:
 Rebuilding the tree from its Messages alone: init, then each Message with its Time through Update, handed to the Instance with its number. A Message for an Instance that is gone is dropped, as it was live. No Services, Lifetimes or Commands run, and sends are dropped.
 _Avoid_: rehydrate, restore
 
 **Step**:
-One point Time Travel can show: step 0 is right after init, step N is right after the Nth Message. Nothing between two Messages is a Step.
+One point Time Travel can show: the app right after one Log entry, or right after init. Nothing between two Messages is a Step.
 _Avoid_: index, tick, position
 
 **Time Travel**:
