@@ -1,14 +1,19 @@
 import type { ReactNode } from 'react';
-import { ListTree, RotateCcw } from 'lucide-react';
+import { ListTree, Play, RotateCcw, Square } from 'lucide-react';
 import { Button } from '@kstackz/web-platform/components/button';
 import { Kbd } from '@kstackz/web-platform/components/kbd';
 
 /**
- * The demo menu on the left; Restart, Messages and Live | Replay on the right.
- * On a phone the buttons keep their icons and lose their words.
+ * The demo menu on the left; Stop or Start, Restart, Messages and
+ * Live | Replay on the right. Start while an entry is shown starts from it, a
+ * new Branch. On a phone the buttons keep their icons and lose their words.
  */
 export const TopBar = ({
   menu,
+  running,
+  forking,
+  onStop,
+  onStart,
   replaying,
   onLive,
   onReplay,
@@ -18,6 +23,11 @@ export const TopBar = ({
   onInspect,
 }: {
   readonly menu: ReactNode;
+  readonly running: boolean;
+  /** Whether Start would grow a new Branch from the entry shown. */
+  readonly forking: boolean;
+  readonly onStop: () => void;
+  readonly onStart: () => void;
   readonly replaying: boolean;
   readonly onLive: () => void;
   readonly onReplay: () => void;
@@ -28,6 +38,24 @@ export const TopBar = ({
 }) => (
   <header className="flex h-12 shrink-0 items-center gap-1 border-b px-2 sm:px-3">
     <div className="min-w-0 flex-1">{menu}</div>
+    {running && !forking ? (
+      <Button size="sm" variant="ghost" aria-label="Stop" onClick={onStop}>
+        <Square />
+        <span className="max-sm:hidden">Stop</span>
+      </Button>
+    ) : (
+      <Button
+        size="sm"
+        variant="ghost"
+        aria-label={forking ? 'Start from here' : 'Start'}
+        onClick={onStart}
+      >
+        <Play />
+        <span className="max-sm:hidden">
+          {forking ? 'Start from here' : 'Start'}
+        </span>
+      </Button>
+    )}
     <Button size="sm" variant="ghost" aria-label="Restart" onClick={onRestart}>
       <RotateCcw />
       <span className="max-sm:hidden">Restart</span>

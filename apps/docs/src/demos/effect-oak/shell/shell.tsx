@@ -1,6 +1,7 @@
 // oxlint-disable-next-line no-restricted-imports -- Space anywhere on the page is a window listener, which only an effect can add and remove.
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import type { ComponentType, ReactNode } from 'react';
+import type { Entry } from 'effect-oak';
 import type { AppRuntime } from 'effect-oak/react';
 import {
   Sheet,
@@ -16,9 +17,11 @@ type OakApp = ComponentType & { readonly useRuntime: () => AppRuntime };
 
 /*
  * The frame every Effect Oak demo runs in. The app fills the middle, Live or
- * in Replay at a Step. The live app keeps running while a Step is shown, and
- * the past cannot be used: it is `inert`. Space switches between Live and the
- * Step shown last. The Messages open beside it, or from the bottom on a phone.
+ * in Replay at an entry. The live app keeps running while an entry is shown,
+ * and the past cannot be used: it is `inert`, as is a stopped app. Stop ends
+ * every Command and Lifetime; Start resumes, or, while an entry is shown,
+ * grows a new Branch from it. Space switches between Live and the entry shown
+ * last. The Messages open beside it, or from the bottom on a phone.
  */
 export const Shell = ({
   app: App,
@@ -28,28 +31,51 @@ export const Shell = ({
   /** Where the demo's name goes: a menu to go home or to another demo. */
   readonly menu: ReactNode;
 }) => {
-  const [run, setRun] = useState(0);
   const [inspecting, setInspecting] = useState(false);
   const [last, setLast] = useState<number | null>(null);
+  /** Another Branch to walk, picked where it splits off; `null` follows the Head's. */
+  const [walked, setWalked] = useState<ReadonlyArray<Entry> | null>(null);
   const narrow = useNarrow();
   const runtime = App.useRuntime();
-  const { log, shown } = runtime;
+  const { log, shown, running, children } = runtime;
+  const branch = walked ?? log;
 
-  /** Show a Step, remembering it for Space and Replay. */
-  const show = (step: number) => {
-    setLast(step);
-    runtime.show(step);
+  /** Show an entry, remembering it for Space and Replay. */
+  const show = (entry: number) => {
+    setLast(entry);
+    runtime.show(entry);
   };
-  const replay = () =>
-    show(last === null ? log.length : Math.min(last, log.length));
+  const replay = () => {
+    const entry = branch.find(({ id }) => id === last) ?? branch.at(-1);
+    if (entry) show(entry.id);
+  };
   const live = () => runtime.show(null);
   useSpace(shown === null ? replay : live);
 
+  /** Walk the Branch that splits off after `index` at `child`, down to its latest entry. */
+  const walk = (index: number, child: Entry) => {
+    const path = [...branch.slice(0, index + 1), child];
+    for (let next = children(child.id); next.length > 0;) {
+      const latest = next.at(-1)!;
+      path.push(latest);
+      next = children(latest.id);
+    }
+    setWalked(path);
+    show(child.id);
+  };
+  const start = (from?: number | null) => {
+    setWalked(null);
+    runtime.start(from);
+  };
+
   const messages = (
     <Messages
-      log={log}
+      branch={branch}
       shown={shown}
+      children={children}
       onShow={show}
+      onBranch={walk}
+      onHeadBranch={walked ? () => setWalked(null) : undefined}
       onClose={() => setInspecting(false)}
     />
   );
@@ -58,29 +84,32 @@ export const Shell = ({
     <div className="flex h-dvh flex-col bg-background">
       <TopBar
         menu={menu}
+        running={running}
+        forking={shown !== null}
+        onStop={runtime.stop}
+        onStart={() => start(shown ?? undefined)}
         replaying={shown !== null}
         onLive={live}
         onReplay={replay}
         onRestart={() => {
           setLast(null);
-          setRun((n) => n + 1);
+          start(null);
         }}
-        messages={log.length}
+        messages={branch.length}
         inspecting={inspecting}
         onInspect={() => setInspecting((open) => !open)}
       />
       <div className="flex min-h-0 flex-1">
         <main className="flex min-w-0 flex-1 flex-col">
           <div
-            inert={shown !== null}
+            inert={shown !== null || !running}
             className="min-h-0 flex-1 overflow-hidden sm:p-6"
           >
-            <App key={run} />
+            <App />
           </div>
           <Scrubber
-            steps={log.length}
+            branch={branch}
             shown={shown}
-            timeOf={(step) => (step === 0 ? 0 : (log[step - 1]?.at ?? 0))}
             frame={runtime.frame}
             onShow={show}
           />

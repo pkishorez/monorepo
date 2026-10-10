@@ -1,10 +1,2 @@
-export { destroy, handle, plant } from './tree.ts';
-export type {
-  Entry,
-  Handle,
-  Hooks,
-  Instance,
-  Outcome,
-  Sent,
-  Snapshot,
-} from './tree.ts';
+export { destroy, handle, live, plant } from './tree.ts';
+export type { Handle, Hooks, Instance, Outcome, Snapshot } from './tree.ts';

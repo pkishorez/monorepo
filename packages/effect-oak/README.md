@@ -16,12 +16,14 @@ needs in its parent's Requires, or among what the parent Provides in that
 State; TypeScript points at the Child that does not fit. The root's Requires
 must be covered by the app's Layer. Views draw and Send; whatever moves
 between Messages they draw from the Frame, a motion value holding the Time.
-Every Message goes into a Log with its Time, and replaying it through init and
-Update alone draws the app at any Step, right after any Message, while the
-live app keeps running.
+Every Message goes into the Log with its Time. The Log is a tree, like git
+commits: replaying a path through init and Update alone draws the app right
+after any Message on any Branch, while the live app keeps running. The Runtime
+can stop, and start again from any entry, growing a new Branch beside the old.
 
 Read the language in [CONTEXT.md](./CONTEXT.md) and the decisions in
-[docs/adr/](./docs/adr/). A live demo is at `/demos/effect-oak` in the docs app.
+[docs/adr/](./docs/adr/), and how the Log works in
+[docs/log-tree.md](./docs/log-tree.md). A live demo is at `/demos/effect-oak` in the docs app.
 
 ## Install
 
@@ -38,18 +40,18 @@ pnpm add effect-oak effect react motion
 
 ### `effect-oak`
 
-| Export          | What it does                                                                                                 |
-| --------------- | ------------------------------------------------------------------------------------------------------------ |
-| `Node.make`     | Defines a Node: Requires, Schemas, Provides and Children. `.build` adds what runs it.                        |
-| `Runtime.start` | Starts a Node as the root of a running app, inside a Scope, and returns its live root, its Time and its Log. |
-| `Replay.make`   | Rebuilds a Node's tree at any Step from its Messages, running only init and Update.                          |
+| Export          | What it does                                                                                                                              |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `Node.make`     | Defines a Node: Requires, Schemas, Provides and Children. `.build` adds what runs it.                                                     |
+| `Runtime.start` | Starts a Node as the root of a running app, inside a Scope, and returns its live root, its Time, its Log, and `stop`, `start` and `show`. |
+| `Replay.make`   | Rebuilds a Node's tree right after the last entry of a Branch, running only init and Update.                                              |
 
 ### `effect-oak/react`
 
-| Export      | What it does                                                                                                                                                                |
-| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `View.make` | Defines how one Node is drawn, as a React component that takes the live Node to draw and the Frame.                                                                         |
-| `toReact`   | Turns a root Node, its View and a Layer into one React component that runs the whole app, one Runtime for every mount; `useRuntime` reads its Log and shows it at any Step. |
+| Export      | What it does                                                                                                                                                                                 |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `View.make` | Defines how one Node is drawn, as a React component that takes the live Node to draw and the Frame.                                                                                          |
+| `toReact`   | Turns a root Node, its View and a Layer into one React component that runs the whole app, one Runtime for every mount; `useRuntime` reads its Log, shows any entry, and stops and starts it. |
 
 ## Usage
 
@@ -144,8 +146,12 @@ const DemoApp = toReact(Auth, AuthView, ServerLive);
 
 - A View is written per State, and each one sees only the Children of its State.
 - Each View re-renders only when its own Instance's Model or State changes. A View takes only `node`; its draw also gets `frame`, which `toReact` provides through context.
-- `DemoApp.useRuntime()` returns `{ log, shown, show, frame }` from anywhere on the page: every Message with what came of it and its Time, the Step shown (`null` is live), and the Frame. `show(3)` draws the app right after its third Message, at that Message's Time; `show(null)` goes back to live. The live app keeps running meanwhile, and the past cannot Send.
-- Every mount of `DemoApp` shows the same Runtime. The first mount starts it and the last unmount stops it.
+- `DemoApp.useRuntime()` returns `{ log, head, running, shown, show, stop, start, children, frame }` from anywhere on the page. `log` is the current Branch, each entry with its id, its Time and what came of it; `children(id)` lists the entries after one, to draw the tree.
+- `show(id)` draws the app right after that entry, on any Branch, at its Time; `show(null)` goes back to live. The live app keeps running meanwhile, and the past cannot Send.
+- `stop()` interrupts every Command and Lifetime; the Frame stands still and nothing can Send. `start()` resumes. `start(id)` Replays the path to that entry and goes live from there, growing a new Branch; `start(null)` starts from right after init. Time carries on from the entry's Time.
+- Work that must survive a stop belongs in a Lifetime: Commands running at a stop are lost, and init's Commands never run again. A first fetch is a Lifetime.
+- The outside world is not rewound: starting from an old entry rebuilds the app, not the server, the socket or localStorage.
+- Every mount of `DemoApp` shows the same Runtime. The first mount starts it and the last unmount stops it; a Runtime stopped by hand stays stopped until the mounts drop to zero and rise again.
 
 ### Motion between Messages
 

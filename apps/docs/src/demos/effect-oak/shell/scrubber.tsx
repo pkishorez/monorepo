@@ -1,32 +1,36 @@
 import { motion, useTransform } from 'motion/react';
 import type { MotionValue } from 'motion/react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import type { Entry } from 'effect-oak';
 import { Button } from '@kstackz/web-platform/components/button';
 import { Slider } from '@kstackz/web-platform/components/slider';
 import { seconds } from './seconds.js';
 
 /**
- * The Steps of the app, from right after init (0) to its last Message, always
- * at the bottom. Live, it sits at the end; grabbing it or stepping back
- * switches to Replay, and ‹ › move one Message. The Time on the right is the
- * Frame's: running while live, the shown Message's Time in Replay.
+ * The entries of the Branch in view, first to last, always at the bottom.
+ * Live, it sits at the end; grabbing it or stepping back switches to Replay,
+ * and ‹ › move one Message. The Time on the right is the Frame's: running
+ * while live, still while stopped, the shown entry's Time in Replay.
  */
 export const Scrubber = ({
-  steps,
+  branch,
   shown,
-  timeOf,
   frame,
   onShow,
 }: {
-  /** How many Messages there are: the last Step. */
-  readonly steps: number;
+  readonly branch: ReadonlyArray<Entry>;
   readonly shown: number | null;
-  readonly timeOf: (step: number) => number;
   readonly frame: MotionValue<number>;
-  readonly onShow: (step: number) => void;
+  readonly onShow: (entry: number) => void;
 }) => {
-  const step = shown ?? steps;
+  const last = branch.length - 1;
+  const found = branch.findIndex((entry) => entry.id === shown);
+  const index = shown === null || found === -1 ? last : found;
   const time = useTransform(frame, seconds);
+  const showAt = (at: number) => {
+    const entry = branch[Math.min(last, Math.max(0, at))];
+    if (entry) onShow(entry.id);
+  };
 
   return (
     <div className="flex h-14 shrink-0 items-center gap-1 border-t px-2 pb-[env(safe-area-inset-bottom)] sm:gap-2 sm:px-3">
@@ -34,22 +38,22 @@ export const Scrubber = ({
         size="icon-sm"
         variant="ghost"
         aria-label="Previous Message"
-        disabled={step === 0}
-        onClick={() => onShow(step - 1)}
+        disabled={index <= 0}
+        onClick={() => showAt(index - 1)}
       >
         <ChevronLeft />
       </Button>
       <label className="flex flex-1 items-center px-1">
-        <span className="sr-only">Step</span>
+        <span className="sr-only">Message</span>
         <Slider
           min={0}
-          max={Math.max(steps, 1)}
+          max={Math.max(last, 1)}
           step={1}
-          disabled={steps === 0}
-          value={[step]}
-          aria-valuetext={`Message ${step} of ${steps}, ${seconds(timeOf(step))}`}
+          disabled={branch.length === 0}
+          value={[Math.max(index, 0)]}
+          aria-valuetext={`Message ${index + 1} of ${branch.length}, ${seconds(branch[index]?.at ?? 0)}`}
           onValueChange={(value) =>
-            onShow(Array.isArray(value) ? value[0]! : (value as number))
+            showAt(Array.isArray(value) ? value[0]! : (value as number))
           }
         />
       </label>
@@ -57,14 +61,14 @@ export const Scrubber = ({
         size="icon-sm"
         variant="ghost"
         aria-label="Next Message"
-        disabled={shown === null || step >= steps}
-        onClick={() => onShow(step + 1)}
+        disabled={shown === null || index >= last}
+        onClick={() => showAt(index + 1)}
       >
         <ChevronRight />
       </Button>
       <span className="text-right font-mono text-xs whitespace-nowrap text-muted-foreground tabular-nums">
         <span className="max-sm:hidden">
-          {step} / {steps} ·{' '}
+          {index + 1} / {branch.length} ·{' '}
         </span>
         <motion.span>{time}</motion.span>
       </span>

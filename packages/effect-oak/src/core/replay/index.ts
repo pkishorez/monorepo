@@ -1,1 +1,1 @@
-export { Replay } from './replay.ts';
+export { Replay, rebuild } from './replay.ts';

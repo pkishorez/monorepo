@@ -16,6 +16,8 @@ import type {
  * 3. Handle   a Message and its Time go through Update; a new State is a
  *             Transition.
  * 4. Destroy  an Instance leaves its State and is gone.
+ * 5. Go live  a tree grown without Hooks (a Replay) takes the live Hooks and
+ *             enters every current State again, without running init.
  */
 
 // What the outside sees ------------------------------------------------------
@@ -42,23 +44,6 @@ export interface Handle<N> {
   readonly subscribe: (listener: () => void) => () => void;
   readonly current: () => Snapshot<N>;
 }
-
-/** One line of the Log: which Instance got which Message, and what came of it. */
-export type Entry = Sent & {
-  readonly path: string;
-} & Outcome;
-
-/**
- * A Message, the Instance it was sent to and its Time: all Replay needs.
- * Instances are numbered in the order they were created, which replaying
- * repeats exactly.
- */
-export type Sent = {
-  readonly id: number;
-  readonly message: Tagged;
-  /** When it was sent, in milliseconds since the Runtime started. */
-  readonly at: number;
-};
 
 /** What handling one Message did. */
 export type Outcome = {
@@ -94,7 +79,7 @@ export interface Instance {
 
 /** What every Instance of one tree shares. */
 interface Tree {
-  readonly hooks: Hooks;
+  hooks: Hooks;
   /** How many Instances this tree has created so far. */
   created: number;
 }
@@ -133,7 +118,6 @@ const create = (
   tree: Tree,
   parent?: Instance,
 ): Instance => {
-  const { hooks } = tree;
   const init = node.init();
   const listeners = new Set<() => void>();
   const instance: Instance = {
@@ -148,17 +132,17 @@ const create = (
     children: {},
     snapshot: undefined!,
     listeners,
-    send: (message) => hooks.send(instance, message),
+    send: (message) => instance.tree.hooks.send(instance, message),
     subscribe: (listener) => {
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
     current: () => instance.snapshot,
   };
-  hooks.created?.(instance);
+  tree.hooks.created?.(instance);
   enter(instance);
   instance.snapshot = snapshotOf(instance);
-  if (init.commands?.length) hooks.commands?.(instance, init.commands);
+  if (init.commands?.length) tree.hooks.commands?.(instance, init.commands);
   return instance;
 };
 
@@ -244,3 +228,21 @@ const snapshotOf = (instance: Instance): Instance['snapshot'] => ({
   children: instance.children,
   send: instance.send,
 });
+
+// 5. Go live -----------------------------------------------------------------------
+
+/**
+ * Hand a tree to new Hooks, and enter every current State again with them,
+ * parents first: Services are Provided and Lifetimes start. init does not run,
+ * and new Instances are numbered on from the tree's last.
+ */
+export const live = (root: Instance, hooks: Hooks): void => {
+  root.tree.hooks = hooks;
+  const reenter = (instance: Instance) => {
+    if (!instance.alive) return;
+    hooks.created?.(instance);
+    hooks.entered?.(instance);
+    for (const child of Object.values(instance.children)) reenter(child);
+  };
+  reenter(root);
+};
