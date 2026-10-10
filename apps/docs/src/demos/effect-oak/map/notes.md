@@ -20,7 +20,8 @@ viewport/  tiles, markers and popup for the camera at each Frame; drag and wheel
 ```
 
 A flight is data: `{ from, to, at }`. The View works out the camera at each
-Frame from it, as the road does with the car, so a flight scrubs and replays.
+Frame from it, as the road does with the car, so a flight replays, and each
+Step shows the camera at that Message's Time.
 A drag mid-flight starts from where the camera is at that Time.
 
 ## Deviations
@@ -40,14 +41,13 @@ A drag mid-flight starts from where the camera is at that Time.
 
 ## Blockers
 
-- **`useFrame` cannot drive a render** (new, roll-up 16). Moving existing
-  elements through refs works, but the tiles change which images exist as
-  the camera moves. `useFrame`'s callback also runs after every render, so
-  setting state in it renders forever while the camera depends on the Time
-  (it did: "Maximum update depth exceeded"). The Viewport now puts the state
-  change off to the next animation frame. An API such as
-  `const camera = useFrameValue((at) => cameraAt(at), equals)`, re-rendering
-  only when the value changes, would be the fix.
+- **Resolved by ADR 0006: `useFrame` could not drive a render** (roll-up
+  16). The tiles change which images exist as the camera moves, so the
+  Viewport must render during a flight, and `useFrame`'s callback ran after
+  every render ("Maximum update depth exceeded"). Now the Viewport works the
+  camera out from `frame.get()` during render, and `useMotionValueEvent`
+  asks for a render only when a Frame moves the camera. Nothing re-renders
+  while the camera is still.
 - **A parent cannot pass data to a Child** (roll-up 13): the Places highlight.
 
 ## Testing
@@ -69,8 +69,5 @@ What Effect Oak would need:
 
 ## Also surprising
 
-- Pausing mid-flight stops the landing Command too, since Commands sleep in
-  the app's Time; resuming lands on time.
-- Dev's StrictMode runs a layout effect's cleanup and set-up twice: a
-  cancelled animation frame left the Viewport's "scheduled" flag set, and the
-  map froze in Replay until the flag was reset on cleanup.
+- The landing Command sleeps on Effect's Clock: a flight lands live while
+  Replay shows an earlier Step.

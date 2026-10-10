@@ -27,7 +27,7 @@ round/board.tsx  the grid; round/keys.ts the keys as Messages
 - **A fixed tick, as a chain of Commands.** The snake moves a whole cell per
   step, eats on a step and dies on a step, so there is no motion between
   Messages to draw at a Frame: the tick is the game. Each `Ticked` asks for the
-  next one as `Effect.sleep(interval)` in the app's Time, shorter as the score
+  next one as `Effect.sleep(interval)` on Effect's Clock, shorter as the score
   grows (150 ms down to 80). Pausing replaces it with nothing; resuming asks
   again. Foldkit uses a Subscription that restarts when the interval changes;
   a Lifetime cannot do that (blocker below).
@@ -69,7 +69,7 @@ What Effect Oak would need:
 
 ## Also surprising
 
-- About 7 to 12 `Ticked` Messages a second fill the Log. Scrubbing is exact
-  per tick, which is all the game has.
+- About 7 to 12 `Ticked` Messages a second fill the Log. Replay steps per
+  tick, which is all the game has.
 - The game-over path was not reached in the browser check (it needs a snake
   long enough to bite itself); it is covered by the types and the Update.

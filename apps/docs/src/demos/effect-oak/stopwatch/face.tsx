@@ -1,5 +1,5 @@
-import { useRef } from 'react';
-import type { UseFrame } from 'effect-oak/react';
+import { motion, useTransform } from 'motion/react';
+import type { MotionValue } from 'motion/react';
 
 /** Milliseconds as `MM:SS.cc`, the way Foldkit's stopwatch reads. */
 const clock = (ms: number) => {
@@ -7,23 +7,18 @@ const clock = (ms: number) => {
   return `${pad(ms / 60_000)}:${pad((ms % 60_000) / 1000)}.${pad((ms % 1000) / 10)}`;
 };
 
-/** The time on the stopwatch, written at each Frame without a render. */
+/** The time on the stopwatch, at each Frame, without a render. */
 export const Face = ({
-  useFrame,
+  frame,
   elapsed,
 }: {
-  readonly useFrame: UseFrame;
+  readonly frame: MotionValue<number>;
   readonly elapsed: (at: number) => number;
-}) => {
-  const face = useRef<HTMLParagraphElement>(null);
-  useFrame((at) => {
-    if (face.current) face.current.textContent = clock(elapsed(at));
-  });
-  return (
-    <p
-      ref={face}
-      className="font-mono text-6xl font-semibold tabular-nums"
-      aria-live="off"
-    />
-  );
-};
+}) => (
+  <motion.p
+    className="font-mono text-6xl font-semibold tabular-nums"
+    aria-live="off"
+  >
+    {useTransform(frame, (at) => clock(elapsed(at)))}
+  </motion.p>
+);

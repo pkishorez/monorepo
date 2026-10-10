@@ -45,9 +45,9 @@ commit before returning. That works, with one change from the routing demo:
 URL to come back through a Lifetime, as routing does, would change the DOM
 after `update` had already returned.
 
-Time Travel: scrubbing redraws the Views directly, outside any View
+Time Travel: stepping redraws the Views directly, outside any View
 Transition, so the past never animates. That is what you want while
-scrubbing, but it also means Replay cannot show the animation of a Message.
+stepping, but it also means Replay cannot show the animation of a Message.
 The `view-transition-name`s stay on the replayed DOM, harmlessly.
 
 ## Deviations

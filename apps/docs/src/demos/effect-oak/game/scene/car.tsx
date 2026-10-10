@@ -1,4 +1,5 @@
-import type { Ref } from 'react';
+import { motion } from 'motion/react';
+import type { MotionValue } from 'motion/react';
 import type { RoadShape } from './geometry.js';
 
 /** Yours drives up the road in blue; oncoming cars drive down in red. */
@@ -20,22 +21,27 @@ const TONES = {
 } as const;
 
 /**
- * A car seen from above, at the origin; the Scene moves it. Drawn in its own
- * box, `width` by `length`, nose up for yours and nose down for oncoming ones.
+ * A car seen from above, its top-left corner at `x, y`, which the Scene moves
+ * at each Frame. Drawn in its own box, `width` by `length`, nose up for yours
+ * and nose down for oncoming ones.
  */
 export const Car = ({
   road,
   tone,
-  ref,
+  x,
+  y,
+  visibility,
 }: {
   readonly road: RoadShape;
   readonly tone: keyof typeof TONES;
-  readonly ref: Ref<SVGGElement>;
+  readonly x: MotionValue<number>;
+  readonly y: MotionValue<number> | number;
+  readonly visibility?: MotionValue<'visible' | 'hidden'>;
 }) => {
   const { width: w, length: l } = road.car;
   const color = TONES[tone];
   return (
-    <g ref={ref}>
+    <motion.g style={{ x, y, visibility }}>
       <g
         transform={
           tone === 'oncoming' ? `rotate(180 ${w / 2} ${l / 2})` : undefined
@@ -119,6 +125,6 @@ export const Car = ({
           className="fill-red-400"
         />
       </g>
-    </g>
+    </motion.g>
   );
 };

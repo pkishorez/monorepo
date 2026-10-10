@@ -43,10 +43,10 @@ then `ChangedUrl` in the app and `HeardUrl` in the search.
 - **No routing in the Runtime** (new, roll-up 15). What a router needs that
   Effect Oak lacks:
   - `init` cannot take the URL (or any input), so the starting URL is a
-    Message just after Time 0: Replay at Time 0 draws the unfiltered table.
+    Message just after init: Replay at step 0 draws the unfiltered table.
   - No URL change Message or link interception from the Runtime; each app
     writes its own Service and Lifetime.
-  - Time Travel does not move the address bar: scrubbing back draws old
+  - Time Travel does not move the address bar: stepping back draws old
     filters while the URL shows the latest. A router would need the URL to be
     replayed from the Log too.
   - The docs app's TanStack Router owns the URL; writing it behind the

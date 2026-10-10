@@ -73,12 +73,12 @@ export const LoggedOutView = View.make(LoggedOutPages, {
       </section>
     </>
   ),
-  Login: ({ children, send }) => (
+  Login: ({ children, frame, send }) => (
     <>
       <Nav page="Login" send={send} />
       <section className="mx-auto flex max-w-sm flex-col gap-4 p-6">
         <h1 className="text-2xl font-semibold">Sign in</h1>
-        <LoginFormView node={children.form} />
+        <LoginFormView node={children.form} frame={frame} />
       </section>
     </>
   ),

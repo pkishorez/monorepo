@@ -1,5 +1,5 @@
-import { useRef } from 'react';
-import type { UseFrame } from 'effect-oak/react';
+import { motion, useTransform } from 'motion/react';
+import type { MotionValue } from 'motion/react';
 import { Badge } from '@kstackz/web-platform/components/badge';
 import { Button } from '@kstackz/web-platform/components/button';
 
@@ -17,24 +17,23 @@ const BADGE = {
   Cancelled: 'outline',
 } as const;
 
-/** How far an upload has got at a Frame, moved through a ref without a render. */
+/** How far an upload has got at each Frame, without a render. */
 const Progress = ({
-  useFrame,
+  frame,
   startedAt,
   duration,
 }: {
-  readonly useFrame: UseFrame;
+  readonly frame: MotionValue<number>;
   readonly startedAt: number;
   readonly duration: number;
 }) => {
-  const bar = useRef<HTMLDivElement>(null);
-  useFrame((at) => {
-    const done = Math.min(1, Math.max(0, (at - startedAt) / duration));
-    bar.current?.style.setProperty('width', `${done * 100}%`);
-  });
+  const width = useTransform(
+    frame,
+    (at) => `${Math.min(1, Math.max(0, (at - startedAt) / duration)) * 100}%`,
+  );
   return (
     <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-      <div ref={bar} className="h-full bg-primary" />
+      <motion.div style={{ width }} className="h-full bg-primary" />
     </div>
   );
 };
@@ -43,13 +42,13 @@ const Progress = ({
 export const UploadRow = ({
   upload,
   msPerMegabyte,
-  useFrame,
+  frame,
   onCancel,
   onRestart,
 }: {
   readonly upload: Upload;
   readonly msPerMegabyte: number;
-  readonly useFrame: UseFrame;
+  readonly frame: MotionValue<number>;
   readonly onCancel: () => void;
   readonly onRestart: () => void;
 }) => (
@@ -87,7 +86,7 @@ export const UploadRow = ({
     </div>
     {upload.status === 'Uploading' && (
       <Progress
-        useFrame={useFrame}
+        frame={frame}
         startedAt={upload.startedAt}
         duration={upload.sizeMegabytes * msPerMegabyte}
       />

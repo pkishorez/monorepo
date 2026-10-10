@@ -44,7 +44,7 @@ Nothing in Effect Oak was in the way. React 19 does the binding Foldkit's
 Types are a JSX augmentation (`'oak-color-picker': { color, 'oncolor-changed' }`),
 by hand; Foldkit generates typed attributes from Schemas.
 
-Replay sets the properties back to the replayed Model, so scrubbing moves the
+Replay sets the properties back to the replayed Model, so stepping moves the
 picker and redraws the badge. Dragging the picker sends a Message per pointer
 move: a long drag is many Log entries, like any input.
 

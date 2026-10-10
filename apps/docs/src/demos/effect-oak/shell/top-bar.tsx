@@ -10,7 +10,6 @@ import { Kbd } from '@kstackz/web-platform/components/kbd';
 export const TopBar = ({
   menu,
   replaying,
-  over,
   onLive,
   onReplay,
   onRestart,
@@ -20,8 +19,6 @@ export const TopBar = ({
 }: {
   readonly menu: ReactNode;
   readonly replaying: boolean;
-  /** The app has ended, so Live is no longer there to go back to. */
-  readonly over: boolean;
   readonly onLive: () => void;
   readonly onReplay: () => void;
   readonly onRestart: () => void;
@@ -53,7 +50,7 @@ export const TopBar = ({
         aria-label="Mode"
         className="flex rounded-md border p-0.5"
       >
-        <Mode on={!replaying} disabled={over} onClick={onLive}>
+        <Mode on={!replaying} onClick={onLive}>
           Live
         </Mode>
         <Mode on={replaying} onClick={onReplay}>
@@ -67,21 +64,18 @@ export const TopBar = ({
 
 const Mode = ({
   on,
-  disabled,
   onClick,
   children,
 }: {
   readonly on: boolean;
-  readonly disabled?: boolean;
   readonly onClick: () => void;
   readonly children: ReactNode;
 }) => (
   <button
     type="button"
     aria-pressed={on}
-    disabled={disabled}
     onClick={onClick}
-    className="h-7 rounded-[calc(var(--radius-md)-2px)] px-2.5 text-sm text-muted-foreground transition-colors duration-150 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-40 aria-pressed:bg-muted aria-pressed:text-foreground"
+    className="h-7 rounded-[calc(var(--radius-md)-2px)] px-2.5 text-sm text-muted-foreground transition-colors duration-150 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring aria-pressed:bg-muted aria-pressed:text-foreground"
   >
     {children}
   </button>

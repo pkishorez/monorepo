@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import type { UseFrame } from 'effect-oak/react';
+import type { MotionValue } from 'motion/react';
 import { FrameCanvas } from '../../frame-canvas/index.js';
 import {
   fadeAt,
@@ -42,7 +42,7 @@ type Carried = {
 export const Sky = <P extends Particle>({
   width,
   height,
-  useFrame,
+  frame,
   particles,
   pointer,
   pointerRadius,
@@ -53,7 +53,7 @@ export const Sky = <P extends Particle>({
 }: {
   readonly width: number;
   readonly height: number;
-  readonly useFrame: UseFrame;
+  readonly frame: MotionValue<number>;
   readonly particles: ReadonlyArray<P>;
   readonly pointer: Point | null;
   readonly pointerRadius: number;
@@ -82,7 +82,7 @@ export const Sky = <P extends Particle>({
     <FrameCanvas
       width={width}
       height={height}
-      useFrame={useFrame}
+      frame={frame}
       label="Particles drifting through a flow field"
       className="w-full max-w-[960px] cursor-crosshair rounded-2xl border border-white/10"
       onPress={onPress}

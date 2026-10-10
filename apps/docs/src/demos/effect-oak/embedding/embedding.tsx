@@ -1,4 +1,3 @@
-import { useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { toReact } from 'effect-oak/react';
 import { startHost } from './host-page/index.js';
@@ -13,9 +12,10 @@ import { Widget, WidgetView } from './widget/index.js';
  * mounts it into the host's element with its own React root, and returns the
  * handle the host talks through. The host page is plain DOM.
  *
- * The Shell inspects the widget, wherever it is mounted: `toReact`'s Log and
- * Time Travel hooks read the one running app, not the component that drew it.
- * That also means the widget can be mounted only once at a time.
+ * The Shell inspects the widget, wherever it is mounted: `useRuntime` reads
+ * the one Runtime `toReact` made, not the component that drew it. Every mount
+ * of the widget shows that same Runtime; it starts with the first mount and
+ * stops with the last.
  */
 
 const WidgetApp = toReact(Widget, WidgetView, HostLive);
@@ -35,15 +35,15 @@ const embed = (
   };
 };
 
-/** The host page, mounted where the Shell draws its app. */
-const HostFrame = () => {
-  const container = useRef<HTMLDivElement>(null);
-  useEffect(() => startHost(container.current!, embed), []);
-  return <div ref={container} className="size-full overflow-y-auto" />;
-};
+/** Start the host page in its element; React calls the returned function when the element goes. */
+const host = (container: HTMLDivElement) => startHost(container, embed);
 
-/** What the Shell runs: the host page, with the widget's Log and Time Travel. */
+/** The host page, mounted where the Shell draws its app. */
+const HostFrame = () => (
+  <div ref={host} className="size-full overflow-y-auto" />
+);
+
+/** What the Shell runs: the host page, with the widget's Runtime. */
 export const Embedding = Object.assign(HostFrame, {
-  useLog: WidgetApp.useLog,
-  useTimeTravel: WidgetApp.useTimeTravel,
+  useRuntime: WidgetApp.useRuntime,
 });

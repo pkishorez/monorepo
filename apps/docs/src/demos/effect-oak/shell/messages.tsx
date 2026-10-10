@@ -1,44 +1,42 @@
-import { Fragment, useEffect, useRef } from 'react';
+import { Fragment } from 'react';
 import type { Ref } from 'react';
 import { X } from 'lucide-react';
 import type { Entry } from 'effect-oak';
-import type { TimeTravel } from 'effect-oak/react';
 import { Button } from '@kstackz/web-platform/components/button';
 import { seconds } from './seconds.js';
 
 const payloadOf = ({ _tag, ...payload }: { readonly _tag: string }) =>
   Object.keys(payload).length === 0 ? '' : JSON.stringify(payload);
 
+/** Keep an element in sight, each time it is drawn. */
+const inSight = (element: HTMLElement | null) =>
+  element?.scrollIntoView({ block: 'nearest' });
+
 /**
  * Every Message on a timeline, oldest first: when it arrived, where it went,
- * and what came of it. Picking one pauses the app and shows it at that Time.
- * While paused, a playhead marks the Time shown and later Messages recede.
+ * and what came of it. Picking one shows the app right after it. In Replay a
+ * playhead marks the Step shown, and later Messages recede.
  */
 export const Messages = ({
   log,
-  time,
+  shown,
+  onShow,
   onClose,
 }: {
   readonly log: ReadonlyArray<Entry>;
-  readonly time: TimeTravel;
+  readonly shown: number | null;
+  readonly onShow: (step: number) => void;
   readonly onClose: () => void;
 }) => {
-  const shown = time.paused ? time.at : null;
-  const reached =
-    shown === null ? log.length : log.filter((e) => e.at <= shown).length;
-
-  const playhead = useRef<HTMLLIElement>(null);
-  const end = useRef<HTMLLIElement>(null);
-  useEffect(() => {
-    (shown === null ? end : playhead).current?.scrollIntoView({
-      block: 'nearest',
-    });
-  }, [log.length, shown]);
-
-  const pick = (at: number) => {
-    time.pause();
-    time.travel(at);
-  };
+  const reached = shown ?? log.length;
+  const playhead = (
+    <Playhead
+      at={reached === 0 ? 0 : log[reached - 1]!.at}
+      ref={(element) => {
+        inSight(element);
+      }}
+    />
+  );
 
   return (
     <>
@@ -60,29 +58,32 @@ export const Messages = ({
         </p>
       ) : (
         <ol className="min-h-0 flex-1 overflow-y-auto py-3">
+          {shown === 0 && playhead}
           {log.map((entry, index) => (
             <Fragment key={index}>
-              {shown !== null && index === reached && (
-                <Playhead at={shown} ref={playhead} />
-              )}
               <Row
                 entry={entry}
                 later={index >= reached}
-                onPick={() => pick(entry.at)}
+                onPick={() => onShow(index + 1)}
               />
+              {shown !== null && shown === index + 1 && playhead}
             </Fragment>
           ))}
-          {shown !== null && reached === log.length && (
-            <Playhead at={shown} ref={playhead} />
+          {shown === null && (
+            <li
+              ref={(element) => {
+                inSight(element);
+              }}
+              aria-hidden
+            />
           )}
-          <li ref={end} aria-hidden />
         </ol>
       )}
     </>
   );
 };
 
-/** The Time shown while paused, between the Messages before and after it. */
+/** The Step shown in Replay, right after its Message, with that Message's Time. */
 const Playhead = ({
   at,
   ref,

@@ -81,12 +81,12 @@ address bar take the same road. One navigation is two Messages
     `routing: { onUrlChange, onUrlRequest }` option on `toReact`, sending
     Messages to the root, and `pushUrl`/`replaceUrl`/`back` Commands from the
     library, would replace all three.
-  - **Time Travel does not move the address bar.** Scrubbing back draws old
+  - **Time Travel does not move the address bar.** Stepping back draws old
     pages while the browser shows the live URL. The demo draws its own address
     bar from `model.path`, which does replay. A router would need the URL to
     be a projection of the shown tree: `toReact(…, { url: (root) => path })`,
     written with `replaceState` while in Replay and put back on Live, and
-    back and forward ignored while paused (today they change the live app
+    back and forward ignored while in Replay (today they change the live app
     behind the Replay).
   - **Children cannot be given the route** (blockers 3 and 13): People
     listens to the URL itself to get its search, as query-sync's controls do.

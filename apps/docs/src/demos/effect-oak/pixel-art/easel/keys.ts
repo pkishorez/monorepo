@@ -1,3 +1,4 @@
+// oxlint-disable-next-line no-restricted-imports -- keys and a release anywhere on the page are window listeners, kept in the View so a View of the past sends nothing.
 import { useEffect } from 'react';
 
 /** ⌘Z or Ctrl+Z undoes; with Shift, or ⌘Y / Ctrl+Y, redoes. */

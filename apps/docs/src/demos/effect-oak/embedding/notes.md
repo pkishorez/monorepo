@@ -40,9 +40,8 @@ widget/
 - **Dispose**: unmounting the React root stops the Runtime, its Lifetimes and
   Commands.
 
-The Shell runs the host page and reads the widget's Log and Time Travel:
-`toReact`'s hooks read the one running app, wherever its component is
-mounted. Replay works; while it shows the past, the host's "last count"
+The Shell runs the host page and reads the widget through `useRuntime`,
+which reads the one Runtime wherever its component is mounted. Replay works; while it shows the past, the host's "last count"
 stays on the live value, since the host is outside the app.
 
 ## Deviations
@@ -58,13 +57,13 @@ stays on the live value, since the host is outside the app.
   Travel, and:
   - it is made once with a fixed Layer, so flags and ports cannot be given
     per mount. The wire is one module-level object for the page;
-  - its Runtime is kept in the `toReact` closure, so the same app can be
-    mounted only once at a time (a second mount would share and clobber it);
-  - `useRoot().send` is a React hook, so a non-React host cannot Send to the
-    root. Ports had to be a Service.
+  - its one Runtime is kept in the `toReact` closure: every mount shows the
+    same app, so two hosts cannot each have their own;
+  - only a View can Send to the root, so a non-React host cannot. Ports had
+    to be a Service.
 
   A `mount(element, { layer, flags })` on the app, returning
-  `{ send, subscribe, dispose, useLog, useTimeTravel }` per mount, and typed
+  `{ send, subscribe, dispose, useRuntime }` per mount, and typed
   ports declared on the root (`ports: { in: { stepChanged: Schema.Number },
 out: { countChanged: Schema.Number } }`, an in-port arriving as a Message
   and an out-port as a Command) would be the API.

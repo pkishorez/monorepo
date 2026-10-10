@@ -89,7 +89,9 @@ const HomePage = () => (
 export const RouteTransitionsView = View.make(RouteTransitions, {
   Opening: () => null,
   Home: page(() => <HomePage />),
-  Gallery: page(({ children }) => <CatalogView node={children.catalog} />),
+  Gallery: page(({ children, frame }) => (
+    <CatalogView node={children.catalog} frame={frame} />
+  )),
   Painting: page(({ state }, go) => (
     <PaintingPage
       paintingId={state.paintingId}
@@ -97,13 +99,13 @@ export const RouteTransitionsView = View.make(RouteTransitions, {
       onNavigate={go}
     />
   )),
-  Studio: page(({ model, children }) => (
+  Studio: page(({ model, children, frame }) => (
     <section className="flex flex-col gap-4">
       <h1 className="text-3xl font-semibold">Studio</h1>
       <p className="text-muted-foreground">
         Write something, then leave. Leaving this page saves whatever is here.
       </p>
-      <StudioView node={children.studio} />
+      <StudioView node={children.studio} frame={frame} />
       <Saved text={model.saved} />
     </section>
   )),

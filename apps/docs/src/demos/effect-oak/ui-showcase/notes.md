@@ -107,7 +107,7 @@ Skipped:
   Child.
 - **Focus management is Commands,** as in Foldkit: `focusId` and
   `focusFirstIn` wait one animation frame and call `focus()`. Replay drops
-  Commands, so scrubbing never steals focus from the timeline. Writing them
+  Commands, so stepping never steals focus from the timeline. Writing them
   as View effects would have done that. What needs care is where focus is
   NOT moved: a click already focused its target, and the Combobox keeps
   focus in its input and moves `aria-activedescendant` instead.
@@ -125,13 +125,13 @@ Skipped:
 - **Portals are not needed, and the top layer gets in the way.** Popups are
   absolutely positioned in a relative wrapper. Dialogs cover the demo with
   an absolute overlay instead of `showModal()`: the top layer makes the
-  rest of the page inert, and Time Travel draws past Views, so scrubbing to
+  rest of the page inert, and Time Travel draws past Views, so stepping to
   a moment the dialog was open would have locked the Shell's timeline. The
   panel traps Tab itself. A React portal would work in a View (Views are
   React), but would draw over the Shell during Replay too.
 - **Timers belong to the component.** The Tooltip's hover delay and the
   Menu's typeahead reset are Commands replaced by the next Message
-  (`replaceCommands`), so they run in the app's Time and pause with it.
+  (`replaceCommands`), so they are interrupted with the component.
 
 ## Deviations
 
@@ -204,7 +204,7 @@ What Effect Oak would need to test the same:
 
 - **The Shell's Space shortcut took Space from the components.** The Shell
   switches Live and Replay on Space anywhere except text fields, so Space
-  on a listbox option or the Switch paused the app instead, and the paused
+  on a listbox option or the Switch went to Replay instead, and the past
   View is `inert`, which then dropped focus to the body. The Shell now
   skips a Space the app already handled (`event.defaultPrevented`). A
   focused plain button still loses Space to the Shell.

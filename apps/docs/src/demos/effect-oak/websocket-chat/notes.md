@@ -33,8 +33,8 @@ disconnect.
   separate Command and a `TimestampedMessage`. Here the Lifetime and the send
   read the wall clock and put it in `ReceivedMessage` and
   `SucceededSendMessage`, so Replay shows the same times without a Command.
-- The connection timeout sleeps in the app's Time, so pausing the Shell
-  pauses it too.
+- The connection timeout sleeps on Effect's Clock, so it runs on while
+  Replay shows the past.
 - No `ReleasedChatSocket`: a Lifetime cannot send once it is interrupted.
 
 ## Blockers

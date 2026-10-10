@@ -11,23 +11,23 @@ a visible compromise. Nothing broke the build, the Shell or Time Travel.
 
 Library blockers, by how many demos hit them (details below):
 
-| Rank | Blocker                                                                                                                                                              | Demos  |
-| ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| 1    | 5. Testing: no typed way to run one Update or draw one View                                                                                                          | 33     |
-| 2    | 4. Testing: Commands are anonymous Effects                                                                                                                           | 27     |
-| 3    | 13. A parent cannot pass data to a Child (or read it)                                                                                                                | 12     |
-| 4    | 10. Lifetimes and Children belong to exactly one State                                                                                                               | 11     |
-| 5    | 3. Children (and the root) cannot be given input on creation                                                                                                         | 9      |
-| 6    | 6. Testing: no way to emit a Lifetime's Message                                                                                                                      | 8      |
-| 6    | 15. No routing                                                                                                                                                       | 8      |
-| 8    | 14. A parent cannot send its Child a Message                                                                                                                         | 6      |
-| 9    | 1. No list of Children                                                                                                                                               | 5      |
-| 10   | 11. Each State is drawn by its own keyed component                                                                                                                   | 4      |
-| 11   | 7. No way to stop one Command                                                                                                                                        | 3      |
-| 11   | 12. A Lifetime cannot follow the Model                                                                                                                               | 3      |
-| 13   | 9. A State cannot Provide a resource that an Effect builds                                                                                                           | 2      |
-| 13   | 20. Runs only in the browser: no SSR, SSG or hydration                                                                                                               | 2      |
-| 15   | 2, 8, 16, 17, 18, 19, 21 (crash handling, slow-work hook, `useFrameValue`, Transitions as data, View Transition hook, running outside React, generic Node factories) | 1 each |
+| Rank | Blocker                                                                                                                                         | Demos  |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| 1    | 5. Testing: no typed way to run one Update or draw one View                                                                                     | 33     |
+| 2    | 4. Testing: Commands are anonymous Effects                                                                                                      | 27     |
+| 3    | 13. A parent cannot pass data to a Child (or read it)                                                                                           | 12     |
+| 4    | 10. Lifetimes and Children belong to exactly one State                                                                                          | 11     |
+| 5    | 3. Children (and the root) cannot be given input on creation                                                                                    | 9      |
+| 6    | 6. Testing: no way to emit a Lifetime's Message                                                                                                 | 8      |
+| 6    | 15. No routing                                                                                                                                  | 8      |
+| 8    | 14. A parent cannot send its Child a Message                                                                                                    | 6      |
+| 9    | 1. No list of Children                                                                                                                          | 5      |
+| 10   | 11. Each State is drawn by its own keyed component                                                                                              | 4      |
+| 11   | 7. No way to stop one Command                                                                                                                   | 3      |
+| 11   | 12. A Lifetime cannot follow the Model                                                                                                          | 3      |
+| 13   | 9. A State cannot Provide a resource that an Effect builds                                                                                      | 2      |
+| 13   | 20. Runs only in the browser: no SSR, SSG or hydration                                                                                          | 2      |
+| 15   | 2, 8, 17, 18, 19, 21 (crash handling, slow-work hook, Transitions as data, View Transition hook, running outside React, generic Node factories) | 1 each |
 
 Outside testing, the parent ↔ Child gap (13 and 14) and the one-State rule
 (10, with 11) shape the most code: they are why steps, pages and component
@@ -247,7 +247,7 @@ up through Requests.
       the live app behind a Replay. The URL should be a projection of the
       shown tree (`toReact(…, { url: (root) => path })`), written with
       `replaceState` while in Replay and put back on Live, with history
-      events held while paused. The routing demos draw their own address bar
+      events held while in Replay. The routing demos draw their own address bar
       from the Model, which does replay.
     - URL-first navigation (click → push → hear → change State) reaches the
       DOM a Lifetime later, too late for a View Transition
@@ -263,11 +263,13 @@ up through Requests.
     [view-transitions](view-transitions/notes.md),
     [personal-blog](personal-blog/notes.md) and [ssg](ssg/notes.md).
 
-16. **`useFrame` cannot drive a render.** Its callback also runs after every
-    render, so setting state in it loops forever when the value depends on
-    the Time. DOM that changes shape at each Frame (map tiles) has to put the
-    state change off to the next animation frame. A
-    `useFrameValue((at) => value, equals)` hook would be the API. Hit by
+16. **Resolved by ADR 0006: `useFrame` could not drive a render.** Its
+    callback also ran after every render, so setting state in it looped
+    forever when the value depended on the Time; the map put the state change
+    off to the next animation frame. `useFrame` is gone: every View gets
+    `frame`, a Framer Motion value. The map works the camera out from
+    `frame.get()` during render and asks for a render from
+    `useMotionValueEvent` only when the camera moves. Hit by
     [map](map/notes.md).
 
 17. **Transitions are not data.** A Transition is whatever Update returns
@@ -288,11 +290,11 @@ up through Requests.
     skipped during Time Travel, would be the API. Hit by
     [view-transitions](view-transitions/notes.md).
 19. **No way to run an app outside React, or to talk to it from outside.**
-    `toReact` is made once with a fixed Layer, keeps one Runtime in its
-    closure (so it can be mounted once at a time), and `useRoot().send` is a
-    React hook. Flags and ports become a module-level wire and a Service. A
+    `toReact` is made once with a fixed Layer and keeps one Runtime that
+    every mount shares, and only a View can Send to the root. Flags and ports
+    become a module-level wire and a Service. A
     per-mount `mount(element, { layer, flags })` returning
-    `{ send, subscribe, dispose, useLog, useTimeTravel }`, and typed ports on
+    `{ send, subscribe, dispose, useRuntime }`, and typed ports on
     the root, would be the API. Hit by [embedding](embedding/notes.md).
 20. **Runs only in the browser: no SSR, SSG or hydration.** `toReact` starts
     the Runtime after mounting and draws nothing before. It would need
@@ -313,7 +315,7 @@ up through Requests.
 
 - **The Shell's Space shortcut took Space from the apps.** It switched Live
   and Replay on Space anywhere but text fields, so Space on a listbox option
-  or a switch paused the app (and the paused View is `inert`, dropping
+  or a switch went to Replay (and the past View is `inert`, dropping
   focus). Since the ui-showcase batch the Shell skips a Space the app
   already handled (`event.defaultPrevented`); a focused plain button still
   loses Space to it.

@@ -33,8 +33,8 @@ draws exactly what the live app drew.
 
 Stepping from the Model at every Frame would redo the whole way since the last
 Message. The Sky remembers how far it got for each particle and goes on from
-there. A particle it has not seen, or a Frame earlier than it got to (Time
-Travel backwards), starts again from the Model.
+there. A particle it has not seen, or a Frame earlier than it got to (a
+Step back in Time Travel), starts again from the Model.
 
 ## Deviations
 

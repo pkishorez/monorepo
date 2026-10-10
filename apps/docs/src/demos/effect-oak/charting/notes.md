@@ -21,7 +21,7 @@ chart/      the chart for a choice: a line or bars per week, a dependency graph
 
 - **SVG, not echarts** (no new dependencies). There is no chart instance, so
   Foldkit's `MountChart` and `SyncChart` have no counterpart: the View draws
-  the chart from the Model, which also makes it scrub with Time Travel.
+  the chart from the Model, which also makes it step with Time Travel.
   Tooltips are native `<title>`s; the graph is four nodes on a circle, not a
   force layout; no zoom.
 - **Fewer API calls.** Foldkit reads the stargazers (up to 10 pages),
