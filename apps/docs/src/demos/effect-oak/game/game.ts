@@ -14,9 +14,10 @@ import { Node } from 'effect-oak';
  * asks for a Collided Message at that Time. Steering out of the way replaces
  * that plan; Collided arriving means the plan held, and the game is over.
  *
- * Pausing is the game's own: Paused keeps the road and when it stopped, and
- * drops the crash plan. Resuming moves every Time in the road on by the pause,
- * so the road picks up exactly where it stood, and plans again.
+ * Pausing is the game's own: Paused keeps the road, when it stopped and how
+ * long was left until the next car, and drops the crash plan. Resuming moves
+ * every Time in the road on by the pause, so the road picks up exactly where
+ * it stood, and plans again; the next car comes after exactly what was left.
  */
 
 const Config = Schema.Struct({
@@ -156,12 +157,15 @@ const later = <R extends Road>(road: R, by: number): R => ({
   cars: road.cars.map((car) => ({ ...car, at: car.at + by })),
 });
 
+/** How the oncoming cars are coming while you drive. */
+type Traffic = {
+  readonly spawned: number;
+  readonly nextCarIn: number;
+  readonly nextCarAt: number;
+};
+
 /** The road changed at Time `at`: forget cars long gone, and plan the crash, if any. */
-const drive = (
-  config: Config,
-  road: Road & { readonly spawned: number },
-  at: number,
-) => {
+const drive = (config: Config, road: Road & Traffic, at: number) => {
   const cars = road.cars.filter(
     (car) => aheadAt(config, road, car, at) > -config.roadLength,
   );
@@ -189,10 +193,20 @@ export const Game = Node.make('Game', {
       ...Road,
       /** How many cars have appeared, so each gets its own id. */
       spawned: Schema.Number,
+      /** How long after Playing began its first car comes: the warm-up, or what was left at a pause. */
+      nextCarIn: Schema.Number,
+      /** When the next car comes. */
+      nextCarAt: Schema.Number,
       /** When you will crash unless something changes. */
       crashAt: Schema.NullOr(Schema.Number),
     },
-    Paused: { ...Road, spawned: Schema.Number, pausedAt: Schema.Number },
+    Paused: {
+      ...Road,
+      spawned: Schema.Number,
+      pausedAt: Schema.Number,
+      /** How long was left until the next car. */
+      nextCarIn: Schema.Number,
+    },
     Crashed: { ...Road, crashedAt: Schema.Number },
   }),
   message: Schema.TaggedUnion({
@@ -205,13 +219,9 @@ export const Game = Node.make('Game', {
 }).build({
   init: () => ({ model: { config: DEFAULTS }, state: { _tag: 'Welcome' } }),
   lifetime: {
-    // Back from a pause, the next car comes after the usual gap, not the warm-up.
+    // The first car comes after the warm-up, or, back from a pause, after what was left.
     Playing: ({ model: { config }, state }) =>
-      Stream.fromEffectDrain(
-        Effect.sleep(
-          state.spawned === 0 ? config.traffic.warmUp : config.traffic.every,
-        ),
-      ).pipe(
+      Stream.fromEffectDrain(Effect.sleep(state.nextCarIn)).pipe(
         Stream.concat(
           Stream.fromEffectSchedule(
             Random.nextIntBetween(0, config.lanes, { halfOpen: true }),
@@ -223,13 +233,15 @@ export const Game = Node.make('Game', {
   },
   update: {
     Welcome: {
-      Started: (_, { at }) => ({
+      Started: (_, { model: { config }, at }) => ({
         state: {
           _tag: 'Playing',
           startedAt: at,
           lane: { from: 0, to: 0, at },
           cars: [],
           spawned: 0,
+          nextCarIn: config.traffic.warmUp,
+          nextCarAt: at + config.traffic.warmUp,
           crashAt: null,
         },
       }),
@@ -250,6 +262,7 @@ export const Game = Node.make('Game', {
           {
             ...state,
             spawned: state.spawned + 1,
+            nextCarAt: at + config.traffic.every,
             cars: [
               ...state.cars,
               {
@@ -270,6 +283,7 @@ export const Game = Node.make('Game', {
           cars: state.cars,
           spawned: state.spawned,
           pausedAt: at,
+          nextCarIn: Math.max(0, state.nextCarAt - at),
         },
         commands: [],
         replaceCommands: true,
@@ -288,15 +302,19 @@ export const Game = Node.make('Game', {
       PressedPause: (_, { model: { config }, state, at }) =>
         drive(
           config,
-          later(
-            {
-              startedAt: state.startedAt,
-              lane: state.lane,
-              cars: state.cars,
-              spawned: state.spawned,
-            },
-            at - state.pausedAt,
-          ),
+          {
+            ...later(
+              {
+                startedAt: state.startedAt,
+                lane: state.lane,
+                cars: state.cars,
+              },
+              at - state.pausedAt,
+            ),
+            spawned: state.spawned,
+            nextCarIn: state.nextCarIn,
+            nextCarAt: at + state.nextCarIn,
+          },
           at,
         ),
     },

@@ -78,22 +78,17 @@ export const BoardView = View.make(Board, {
       <Spinner />
     </div>
   ),
-  Idle: ({ model, children, frame, send }) => (
+  Idle: ({ model, children, send }) => (
     <BoardLayout
       columns={model.columns}
       pickUp={(cardId) => send({ _tag: 'PickedUp', cardId })}
       footer={(columnId) => {
         if (columnId === 'todo')
-          return <AddCardViews.todo node={children.todo} frame={frame} />;
+          return <AddCardViews.todo node={children.todo} />;
         if (columnId === 'in-progress')
-          return (
-            <AddCardViews.inProgress
-              node={children['in-progress']}
-              frame={frame}
-            />
-          );
+          return <AddCardViews.inProgress node={children['in-progress']} />;
         if (columnId === 'done')
-          return <AddCardViews.done node={children.done} frame={frame} />;
+          return <AddCardViews.done node={children.done} />;
         return null;
       }}
     />

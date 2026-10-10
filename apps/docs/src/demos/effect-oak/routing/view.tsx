@@ -32,9 +32,7 @@ export const RoutingView = View.make(Routing, {
   Opening: () => null,
   Home: page((_, go) => <HomePage onNavigate={go} />),
   Nested: page(() => <NestedPage />),
-  People: page(({ children, frame }) => (
-    <PeopleView node={children.people} frame={frame} />
-  )),
+  People: page(({ children }) => <PeopleView node={children.people} />),
   Person: page(({ state }, go) => (
     <PersonPage personId={state.personId} onNavigate={go} />
   )),

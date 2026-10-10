@@ -61,13 +61,13 @@ export const ChatView = View.make(Chat, {
       }
     />
   ),
-  Online: ({ state, children, frame }) => (
+  Online: ({ state, children }) => (
     <Window
       dot={state.connected ? 'green' : 'amber'}
       status={state.connected ? 'Connected' : 'Connecting…'}
       footer={
         state.connected ? (
-          <ComposerView node={children.composer} frame={frame} />
+          <ComposerView node={children.composer} />
         ) : (
           <p className="text-center text-sm text-muted-foreground">
             Connecting…
