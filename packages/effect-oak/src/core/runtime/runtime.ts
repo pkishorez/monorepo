@@ -1,6 +1,6 @@
 import { Clock, Context, Deferred, Effect, Exit, Fiber, Scope } from 'effect';
 import type { AnyActor, Tagged, Types } from '../actor/index.ts';
-import { handle, init } from '../snapshot/index.ts';
+import { actorAt, handle, init } from '../snapshot/index.ts';
 import type { Envelope, Snapshot, Source } from '../snapshot/index.ts';
 import { Log } from '../log/index.ts';
 import type { Entry, RuntimeState } from '../log/index.ts';
@@ -20,7 +20,9 @@ import type { WorkerStatus, Works } from './work.ts';
  *              Capabilities of the app's Layer. Time starts at 0 on Effect's
  *              monotonic Clock, which Commands and Workers use too. Given a
  *              saved Log, the Runtime Replays to its Head and goes live there.
- * 2. Deliver   each Envelope: `handle` makes the next Snapshot, `reconcile`
+ * 2. Deliver   each Message, checked against its Actor's Schema as it is
+ *              Sent, so a bad one throws in the code that Sent it and never
+ *              reaches the mailbox. `handle` makes the next Snapshot, `reconcile`
  *              stops and starts work where it landed, the Update's Commands
  *              run, and the entry is appended to the Log after the Head.
  * 3. Stop      closes the live Scope: every Worker, Command and Capability
@@ -147,13 +149,20 @@ const start = <A extends AnyActor>(
       deliver,
       notify,
     );
+    const send = (instance: string, message: Tagged, source: Source) => {
+      actorAt(root, snapshot, instance)?.check.message(
+        message,
+        `Message ${JSON.stringify(message._tag)}`,
+      );
+      mailbox.send(instance, message, source);
+    };
 
     /** Hand a Snapshot to fresh work, and carry on from Time `at`. */
     const goLive = (next: Snapshot, at: number, head: number | null) => {
       const scope = Scope.forkUnsafe(outer);
       const capabilities = Deferred.makeUnsafe<Context.Context<never>>();
       Deferred.doneUnsafe(capabilities, Effect.succeed(services));
-      const fresh = makeWorks(services, mailbox.send, time.now);
+      const fresh = makeWorks(services, send, time.now);
       live = scope;
       works = fresh;
       snapshot = drawn = next;
@@ -270,7 +279,7 @@ const start = <A extends AnyActor>(
       snapshot: () => snapshot,
       drawn: () => drawn,
       send: (instance, message, source = { kind: 'view', instance }) =>
-        mailbox.send(instance, message, source),
+        send(instance, message, source),
       snapshotAt,
       now: time.now,
       state: () => log.get(),

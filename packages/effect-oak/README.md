@@ -37,7 +37,8 @@ Read the language in [CONTEXT.md](./CONTEXT.md), the decisions in
 pnpm add effect-oak effect react motion
 ```
 
-- `effect`: Schemas describe Inputs, Models, States and Messages; Workers, Commands and
+- `effect`: Schemas describe Inputs, Models, States and Messages, and every
+  one is checked against its Schema as it is made; Workers, Commands and
   Capabilities are Effect values and Layers.
 - `react`: `effect-oak/react` draws the tree with React components.
 - `motion`: the Frame every View gets is a Framer Motion `MotionValue`.

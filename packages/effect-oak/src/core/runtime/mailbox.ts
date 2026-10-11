@@ -8,7 +8,9 @@ import type { Envelope, Source } from '../snapshot/index.ts';
  * Times only grow along the queue. Subscribers are told once the queue is
  * empty: many Messages make one render, still inside the keypress that sent
  * the first. A Message sent while the mailbox is closed (the Runtime is
- * stopped) is dropped unrecorded.
+ * stopped) is dropped unrecorded. A Message whose Update gives data that
+ * does not match its Schemas changes nothing; the rest of the queue is still
+ * handled, then the `send` that drained it throws.
  */
 export const makeMailbox = (
   now: () => number,
@@ -22,13 +24,19 @@ export const makeMailbox = (
   const drain = () => {
     if (busy) return;
     busy = true;
+    let failed: { readonly error: unknown } | undefined;
     try {
       for (let next = waiting.shift(); next; next = waiting.shift())
-        deliver(next);
+        try {
+          deliver(next);
+        } catch (error) {
+          failed ??= { error };
+        }
     } finally {
       busy = false;
     }
     drained();
+    if (failed) throw failed.error;
   };
 
   return {

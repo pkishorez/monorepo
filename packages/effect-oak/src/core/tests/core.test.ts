@@ -10,7 +10,7 @@ import {
 import type { Scope } from 'effect';
 import { TestClock } from 'effect/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { Actor, Replay, Runtime, instanceAt } from '../index.ts';
+import { Actor, Replay, Runtime, handle, init, instanceAt } from '../index.ts';
 import type { Instance, Running, Types } from '../index.ts';
 
 class Server extends Context.Service<
@@ -275,6 +275,91 @@ describe('a tree of Actors', () => {
       }),
     ));
 
+  it('checks every Message against its Schema, and throws at the Send before anything changes', () =>
+    run(
+      Effect.gen(function* () {
+        const app = yield* started;
+        yield* settle;
+        const before = app.snapshot();
+        const entries = app.log().length;
+        expect(() =>
+          app.send('Auth', { _tag: 'Renamed', user: 42 as never }),
+        ).toThrow(/Auth: Message "Renamed" does not match its Schema/);
+        expect(() => app.send('Auth', { _tag: 'Nope' })).toThrow(
+          /Auth: Message "Nope" does not match its Schema/,
+        );
+        expect(app.snapshot()).toBe(before);
+        expect(app.log()).toHaveLength(entries);
+        app.send('Auth', { _tag: 'LoggedOut' });
+        expect(app.log()).toHaveLength(entries + 1);
+      }),
+    ));
+
+  it('checks every Input, and the Model and State init and each Update give', () => {
+    const Row = Actor.make('Row', {
+      input: Schema.Struct({ text: Schema.String }),
+      model: Schema.Struct({ text: Schema.String }),
+    }).build({ init: ({ text }) => ({ model: { text } }) });
+    const Sheet = Actor.make('Sheet', {
+      model: Schema.Struct({ count: Schema.Number, row: Schema.Unknown }),
+      state: Schema.TaggedUnion({ Open: {}, Shut: {} }),
+      message: Schema.TaggedUnion({
+        Counted: { by: Schema.Number },
+        Shut: {},
+      }),
+    }).build({
+      init: () => ({ model: { count: 0, row: 'a' }, state: { _tag: 'Open' } }),
+      children: { row: Row },
+      invoke: ({ model }) => ({ row: { text: model.row as string } }),
+      on: {
+        Counted: ({ by }, { model }) => ({
+          model: { ...model, count: by > 1 ? (String(by) as never) : by },
+        }),
+        Shut: () => ({ state: { _tag: 'Closed' } as never }),
+      },
+    });
+    const first = init(Sheet.definition);
+    const sent = (message: Types<typeof Sheet>['message']) =>
+      handle(Sheet.definition, first, {
+        instance: 'Sheet',
+        message,
+        source: { kind: 'view', instance: 'Sheet' },
+        at: 0,
+      });
+
+    expect(sent({ _tag: 'Counted', by: 1 }).outcome).toBe('handled');
+    expect(() => sent({ _tag: 'Counted', by: 2 })).toThrow(
+      /Sheet: the Model the Update for "Counted" in Open gave Sheet does not match its Schema\nExpected number\n {2}at \["count"\]/,
+    );
+    expect(() => sent({ _tag: 'Shut' })).toThrow(
+      /Sheet: the State the Update for "Shut" in Open gave Sheet does not match its Schema/,
+    );
+    expect(() => init(Row.definition, { text: 7 })).toThrow(
+      /Row: the Input of Row does not match its Schema/,
+    );
+    const Bad = Actor.make('Bad', {
+      state: Schema.TaggedUnion({ On: {} }),
+    }).build({ init: () => ({ state: { _tag: 'Off' } as never }) });
+    expect(() => init(Bad.definition)).toThrow(
+      /Bad: the State init gave Bad does not match its Schema/,
+    );
+
+    // Live, a bad Update changes nothing and throws at the Send.
+    return run(
+      Effect.gen(function* () {
+        const app = yield* Runtime.start(Sheet);
+        const before = app.snapshot();
+        expect(() => app.send('Sheet', { _tag: 'Counted', by: 2 })).toThrow(
+          /the Model the Update for "Counted"/,
+        );
+        expect(app.snapshot()).toBe(before);
+        expect(app.log()).toHaveLength(0);
+        app.send('Sheet', { _tag: 'Counted', by: 1 });
+        expect(app.log()).toHaveLength(1);
+      }),
+    );
+  });
+
   it('keeps every Instance off the changed path the same object', () =>
     run(
       Effect.gen(function* () {
@@ -471,6 +556,37 @@ describe('Commands', () => {
           instance: 'Timer',
           name: 'ring',
         });
+      }),
+    ));
+
+  it('a Command whose Message does not match its Schema fails, and the Message never lands', () =>
+    timed(
+      Effect.gen(function* () {
+        const failed = vi.spyOn(console, 'error').mockImplementation(() => {});
+        const Liar = Actor.make('Liar', {
+          message: Schema.TaggedUnion({
+            Ask: {},
+            Answered: { n: Schema.Number },
+          }),
+        }).build({
+          on: {
+            Ask: () => ({
+              command: {
+                name: 'answer',
+                run: Effect.succeed({ _tag: 'Answered', n: 'one' } as never),
+              },
+            }),
+            Answered: () => ({}),
+          },
+        });
+        const app = yield* Runtime.start(Liar);
+        app.send('Liar', { _tag: 'Ask' });
+        yield* TestClock.adjust('1 millis');
+        expect(app.log().map((entry) => entry.message._tag)).toEqual(['Ask']);
+        expect(failed.mock.calls.join(' ')).toMatch(
+          /Liar command answer failed[\s\S]*Message "Answered" does not match its Schema/,
+        );
+        failed.mockRestore();
       }),
     ));
 
@@ -1226,5 +1342,54 @@ describe('levels', () => {
         state: { A: { children: { kid: Counter } } },
       }),
     ).toThrow('Child "kid" is written at the top and in A');
+  });
+
+  it('a Message with no rule at any level is warned about once, when built', () => {
+    const logged = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const shape = {
+      state: Schema.TaggedUnion({ A: {}, B: {} }),
+      message: Schema.Union([
+        Schema.TaggedStruct('Went', { to: Schema.String }),
+        Schema.TaggedStruct('Forgot', {}),
+      ]),
+    };
+    const warned = () =>
+      logged.mock.calls.filter((call) =>
+        call.join(' ').includes('Message "Forgot" has no rule'),
+      ).length;
+    Actor.make('Forgetful', shape).build({
+      init: () => ({ state: { _tag: 'A' } }),
+      state: {
+        A: {
+          on: {
+            Went: ({ to }) => ({ state: to ? { _tag: 'B' } : { _tag: 'A' } }),
+          },
+        },
+      },
+    });
+    expect(warned()).toBe(1);
+    Actor.make('Careful', shape).build({
+      init: () => ({ state: { _tag: 'A' } }),
+      on: { Forgot: () => ({}) },
+      state: { B: { on: { Went: () => ({}) } } },
+    });
+    expect(warned()).toBe(1);
+    logged.mockRestore();
+  });
+
+  it('a misspelled Message or State does not compile', () => {
+    const Typo = Actor.make('Typo', {
+      state: Schema.TaggedUnion({ Idle: {}, Loading: {} }),
+      message: Schema.TaggedUnion({ Typed: {} }),
+    });
+    expect(() =>
+      Typo.build({
+        init: () => ({ state: { _tag: 'Idle' } }),
+        // @ts-expect-error: no Message is tagged Typd
+        on: { Typed: () => ({}), Typd: () => ({}) },
+        // @ts-expect-error: no State is tagged Lodaing
+        state: { Lodaing: {} },
+      }),
+    ).not.toThrow();
   });
 });

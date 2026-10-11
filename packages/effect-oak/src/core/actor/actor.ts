@@ -2,6 +2,7 @@ import type {
   Actor as ActorOf,
   AnyActor,
   Behavior,
+  Check,
   Data,
   Definition,
   KidsByState,
@@ -14,7 +15,7 @@ import type {
   Tagged,
   WorkerDefinition,
 } from './types.ts';
-import type { Schema } from 'effect';
+import { Effect, Schema, SchemaAST } from 'effect';
 
 /** An Actor's Schemas, waiting for the behavior that runs it. */
 export interface Defined<
@@ -38,18 +39,23 @@ export interface Defined<
   >;
 }
 
+/** A Schema Effect Oak can read and write without Capabilities and at once. */
+type Codec<T> = Schema.Codec<T, unknown, never, never>;
+
 /**
- * What `make` takes: every type the behavior is checked against, as Schemas,
- * and the Capabilities the Actor's own code may use.
+ * What `make` takes: every type the behavior is checked against, as codecs,
+ * and the Capabilities the Actor's own code may use. Every value is checked
+ * against them too, as it is made: each Input, each Model and State from
+ * init or an Update, and each Message as it is Sent.
  */
 export interface Shape<Input, Model, State, Msg, R extends Requires> {
   /** The Capabilities its own Workers, Commands and Provides use. Nothing else is in reach. */
   readonly requires?: R;
   /** What a parent hands this Actor when it Invokes it. */
-  readonly input?: Schema.Schema<Input>;
-  readonly model?: Schema.Schema<Model>;
-  readonly message?: Schema.Schema<Msg>;
-  readonly state?: Schema.Schema<State>;
+  readonly input?: Codec<Input>;
+  readonly model?: Codec<Model>;
+  readonly message?: Codec<Msg>;
+  readonly state?: Codec<State>;
 }
 
 function make<
@@ -125,11 +131,26 @@ const definitionOf = (
     stateProvides[tag] = block.provides;
     addWorkers(block, tag);
   }
+  // TypeScript cannot see this: a rule that destructures its Message hides
+  // its whole `on` from inference. So it is checked once here, and warned.
+  for (const tag of tagsOf(shape.message))
+    if (!Object.values(update).some((rules) => tag in rules))
+      Effect.runSync(
+        Effect.logWarning(
+          `[effect-oak] ${name}: Message "${tag}" has no rule at the top or in any State, so it is always ignored`,
+        ),
+      );
 
   return {
     name,
     states,
     requires: shape.requires ?? [],
+    check: {
+      input: checkerOf(name)(shape.input),
+      model: checkerOf(name)(shape.model),
+      state: checkerOf(name)(shape.state),
+      message: checkerOf(name)(shape.message),
+    },
     init: behavior.init ?? (() => ({})),
     update,
     workers,
@@ -171,6 +192,38 @@ const statesOf = (
   if (!schema) return ['Single'];
   const cases = (schema as { readonly cases?: Record<string, unknown> }).cases;
   return Object.keys(cases ?? blocks);
+};
+
+/** Throws, naming the Actor and what the value is, unless `schema` describes it. */
+const checkerOf =
+  (name: string) =>
+  (schema: Schema.Top | undefined): Check => {
+    if (!schema) return () => {};
+    const decode = Schema.decodeUnknownSync(Schema.toType(schema));
+    return (value, what) => {
+      try {
+        decode(value);
+      } catch (error) {
+        throw new TypeError(
+          `[effect-oak] ${name}: ${what} does not match its Schema\n${(error as Error).message}`,
+        );
+      }
+    };
+  };
+
+/** The tags a Message Schema names: one per tagged struct in its union. */
+const tagsOf = (schema: Schema.Top | undefined): ReadonlyArray<string> => {
+  if (!schema) return [];
+  const { ast } = schema;
+  return (SchemaAST.isUnion(ast) ? ast.types : [ast]).flatMap((member) =>
+    SchemaAST.isObjects(member)
+      ? member.propertySignatures.flatMap(({ name, type }) =>
+          name === '_tag' && SchemaAST.isLiteral(type)
+            ? [String(type.literal)]
+            : [],
+        )
+      : [],
+  );
 };
 
 const ONE: ReadonlyArray<string> = [''];

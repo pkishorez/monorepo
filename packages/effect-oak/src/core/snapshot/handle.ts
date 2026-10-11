@@ -8,6 +8,9 @@ import type { Envelope, Instance, Snapshot } from './snapshot.ts';
  *
  * 1. Find     the Instance the Envelope is for. One that is gone drops it.
  * 2. Update   runs the rule for its State and the Message. No rule ignores it.
+ *             A new Model or State it gives is checked against the Actor's
+ *             Schemas, and one that does not match throws before anything
+ *             changes.
  * 3. Apply    the new data: a new State is a Transition and Invokes the
  *             State's Children fresh; the same State lets keyed Children
  *             follow the Model.
@@ -61,6 +64,12 @@ export const handle = (
     at,
   });
 
+  const by = `the Update for ${JSON.stringify(message._tag)} in ${from} gave ${id}`;
+  if (next.model !== undefined && next.model !== instance.model)
+    definition.check.model(next.model, `the Model ${by}`);
+  if (next.state !== undefined && next.state !== instance.state)
+    definition.check.state(next.state, `the State ${by}`);
+
   // 3. Apply
   const model = next.model ?? instance.model;
   const state = next.state ?? instance.state;
@@ -96,6 +105,13 @@ type Next = {
   readonly state?: Instance['state'];
   readonly command?: unknown;
 };
+
+/** The Actor of the Instance with ID `id`, if it is in the Snapshot. */
+export const actorAt = (
+  root: Definition,
+  snapshot: Snapshot,
+  id: string,
+): Definition | undefined => find(root, snapshot, id)?.at(-1)?.definition;
 
 /** The Instances from the root down to `id`, with their Actors; none if it is gone. */
 const find = (
