@@ -11,7 +11,7 @@ import { ambientSeeds, burstSeeds } from './seeds.js';
  * the clock's reading through the flow as it was, and drops those that are
  * gone. Only then do the sliders, the pointer or the particles change. The
  * View carries the particles on from there to each Frame. Nothing ticks:
- * while Running, a Lifetime offers a new particle every so often, and the
+ * while Running, a Worker offers a new particle every so often, and the
  * field takes it while it has room.
  */
 
@@ -95,22 +95,27 @@ export const Prism = Actor.make('Prism', {
     },
     state: { _tag: 'Running', before: 0, since: 0 },
   }),
-  lifetime: {
-    '*': (self) =>
-      Effect.flatMap(ambientSeeds(FIRST), (seeds) =>
-        self.send({ _tag: 'CompletedGenerateAmbient', seeds }),
-      ),
-    Running: (self) =>
-      Stream.fromEffectSchedule(
-        ambientSeeds(AMBIENT.count),
-        Schedule.spaced(AMBIENT.every),
-      ).pipe(
-        Stream.map((seeds) => ({
-          _tag: 'CompletedGenerateAmbient' as const,
-          seeds,
-        })),
-        Stream.runForEach(self.send),
-      ),
+  workers: {
+    seed: {
+      run: (self) =>
+        Effect.flatMap(ambientSeeds(FIRST), (seeds) =>
+          self.send({ _tag: 'CompletedGenerateAmbient', seeds }),
+        ),
+    },
+    ambient: {
+      in: 'Running',
+      run: (self) =>
+        Stream.fromEffectSchedule(
+          ambientSeeds(AMBIENT.count),
+          Schedule.spaced(AMBIENT.every),
+        ).pipe(
+          Stream.map((seeds) => ({
+            _tag: 'CompletedGenerateAmbient' as const,
+            seeds,
+          })),
+          Stream.runForEach(self.send),
+        ),
+    },
   },
   update: {
     Running: {
@@ -136,10 +141,13 @@ export const Prism = Actor.make('Prism', {
       PressedCanvas: ({ x, y }, { state, at }) => {
         const hue = ((clockAt(state, at) / 1000) * BURST_HUE_DRIFT) % 360;
         return {
-          command: Effect.map(burstSeeds(x, y, hue), (seeds) => ({
-            _tag: 'CompletedGenerateBurst' as const,
-            seeds,
-          })),
+          command: {
+            name: 'burst',
+            run: Effect.map(burstSeeds(x, y, hue), (seeds) => ({
+              _tag: 'CompletedGenerateBurst' as const,
+              seeds,
+            })),
+          },
         };
       },
       MovedPointer: ({ x, y }, { model, state, at }) => ({

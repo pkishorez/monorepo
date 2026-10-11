@@ -12,7 +12,7 @@ Foldkit's `personal-blog`: a small blog whose posts are markdown, with
 ```
 PersonalBlog (root)    requires Location; one State
   Model { path }       the page is worked out from the path in the View
-  Lifetime: heardUrl(null) → ChangedUrl
+  Worker: heardUrl(null) → ChangedUrl
   ClickedLink → Command: Location.push(path)
   └─ counter: Counter  (Child for the blog's whole life)
 Counter                Model { count }; ClickedIncrement, ClickedDecrement
@@ -54,7 +54,7 @@ the island is a real Child View inside the text.
 
 ## Blockers
 
-- **Lifetimes and Children belong to exactly one State** (blocker 10): the
+- **Children belong to exactly one State** (blocker 10): the
   reason pages are Model data here. A Child kept across a set of States
   (`children: { '*': { counter: Counter } }`) would let pages be States again.
 - **No routing** (blocker 15).

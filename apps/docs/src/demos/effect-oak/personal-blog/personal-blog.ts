@@ -41,7 +41,11 @@ export const PersonalBlog = Actor.make('PersonalBlog', {
   children: { counter: Counter },
 }).build({
   init: () => ({ model: { path: '' } }),
-  lifetime: (self) => heardUrl(null).pipe(Stream.runForEach(self.send)),
+  workers: {
+    listen: {
+      run: (self) => heardUrl(null).pipe(Stream.runForEach(self.send)),
+    },
+  },
   update: {
     ChangedUrl: ({ path }) => ({ model: { path } }),
     ClickedLink: ({ path }) => ({ command: pushUrl(path) }),

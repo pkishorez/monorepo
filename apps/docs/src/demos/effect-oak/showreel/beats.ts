@@ -34,11 +34,11 @@ const viewFirst = view1
   .replace(" onClick={() => send({ _tag: 'Fuel' })}", '');
 const withView = (view: string) => `${rocket1}\n\n${view}`;
 
-// Chapters 2 and 3: the Rocket with States, first without its Lifetimes.
+// Chapters 2 and 3: the Rocket with States, first without its Workers.
 const rocket2 = bare(SOURCES.stateRocket);
-const rocket2Bare = without(rocket2, 'lifetime: {');
-const lifetimes = (() => {
-  const [from, to] = blockOf(rocket2, 'lifetime: {');
+const rocket2Bare = without(rocket2, 'workers: {');
+const workers = (() => {
+  const [from, to] = blockOf(rocket2, 'workers: {');
   const lines = rocket2.split('\n');
   return [
     lines.find((line) => line.startsWith('}).build'))!,
@@ -270,39 +270,39 @@ const LOOKS: Record<string, Look> = {
   lifetime: {
     layout: 'code',
     file: 'rocket.ts',
-    code: lifetimes,
-    focus: linesOf(lifetimes, 'lifetime: {'),
+    code: workers,
+    focus: linesOf(workers, 'workers: {'),
     attend: 'code',
     app: 'state',
   },
   'lifetime-steps': {
     layout: 'code',
     file: 'rocket.ts',
-    code: lifetimes,
-    focus: linesOf(lifetimes, 'Ascending: (self)', "'Steadied'"),
+    code: workers,
+    focus: linesOf(workers, 'ascend: {', "'Steadied'"),
     attend: 'both',
     app: 'state',
   },
   'lifetime-burn': {
     layout: 'code',
     file: 'rocket.ts',
-    code: lifetimes,
-    focus: blockOf(lifetimes, 'Cruising: (self)'),
+    code: workers,
+    focus: blockOf(workers, 'burn: {'),
     attend: 'both',
     app: 'state',
   },
   'lifetime-whole': {
     layout: 'code',
     file: 'rocket.ts',
-    code: lifetimes,
-    focus: blockOf(lifetimes, "'*': () =>"),
+    code: workers,
+    focus: blockOf(workers, 'systems: {'),
     attend: 'code',
     app: 'state',
   },
   'lifetime-end': {
     layout: 'code',
     file: 'rocket.ts',
-    code: lifetimes,
+    code: workers,
     attend: 'both',
     app: 'state',
   },
@@ -367,7 +367,7 @@ const LOOKS: Record<string, Look> = {
     layout: 'code',
     file: 'rocket.ts',
     code: command,
-    focus: linesOf(command, 'const checkTheSky', '});'),
+    focus: linesOf(command, 'const checkTheSky', '};'),
     attend: 'code',
     app: 'capabilities',
   },

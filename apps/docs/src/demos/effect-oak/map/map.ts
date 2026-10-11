@@ -19,16 +19,14 @@ import {
  * map looks, and a flight is data: from, to, and since when. The View works
  * out the camera at every Frame, so flights replay and scrub like the road.
  *
- * Landing is a Command that sleeps for the flight's length. A drag or a zoom
- * mid-flight stops the camera where it is and replaces that Command.
+ * Landing is a Worker keyed by the flight's start Time: it sleeps until the
+ * flight's end, whatever is left of it, then sends Landed. A drag or a zoom mid-flight stops the
+ * camera where it is and clears the flight, so the Worker stops; a new
+ * flight is a new key.
  */
 
 const PLACE_ZOOM = 12;
 const USER_ZOOM = 13;
-
-const land = Effect.sleep(FLIGHT_MS).pipe(
-  Effect.as({ _tag: 'Landed' as const }),
-);
 
 const Position = Schema.Struct({ lng: Schema.Number, lat: Schema.Number });
 
@@ -57,7 +55,6 @@ const stopped = (
     camera: change(cameraAt(model.camera, model.flight, at)),
     flight: null,
   },
-  cancel: 'land',
 });
 
 export const WorldMap = Actor.make('WorldMap', {
@@ -90,6 +87,18 @@ export const WorldMap = Actor.make('WorldMap', {
       toUser: ({ lng, lat }) =>
         self.send({ _tag: 'RequestedFlightToUser', lng, lat }),
     }),
+  workers: {
+    land: {
+      each: ({ model }) => (model.flight ? [String(model.flight.at)] : []),
+      run: (self) =>
+        Effect.gen(function* () {
+          const { model } = yield* self.get;
+          if (!model.flight) return;
+          yield* Effect.sleep(model.flight.at + FLIGHT_MS - (yield* self.now));
+          yield* self.send({ _tag: 'Landed' });
+        }),
+    },
+  },
   update: {
     Panned: ({ dx, dy }, { model, at }) =>
       stopped(model, at, (camera) => panned(camera, dx, dy)),
@@ -110,7 +119,6 @@ export const WorldMap = Actor.make('WorldMap', {
       const to = { lng: place.lng, lat: place.lat, zoom: PLACE_ZOOM };
       return {
         model: { ...model, ...flyTo(model, at, to), selectedId: locationId },
-        command: { key: 'land', run: land },
       };
     },
     RequestedFlightToUser: ({ lng, lat }, { model, at }) => ({
@@ -119,7 +127,6 @@ export const WorldMap = Actor.make('WorldMap', {
         ...flyTo(model, at, { lng, lat, zoom: USER_ZOOM }),
         user: { lng, lat },
       },
-      command: { key: 'land', run: land },
     }),
     Landed: (_, { model }) =>
       model.flight

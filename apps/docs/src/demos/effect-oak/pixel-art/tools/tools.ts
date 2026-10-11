@@ -46,9 +46,12 @@ type Model = { readonly tool: Tool; readonly mirror: Mirror };
 /** Keep the new tools, and tell the Brush. */
 const changed = (model: Model) => ({
   model,
-  command: Effect.gen(function* () {
-    yield* (yield* Brush).changed(model.tool, model.mirror);
-  }),
+  command: {
+    name: 'tell',
+    run: Effect.gen(function* () {
+      yield* (yield* Brush).changed(model.tool, model.mirror);
+    }),
+  },
 });
 
 export const Tools = Actor.make('Tools', {

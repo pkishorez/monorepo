@@ -9,8 +9,8 @@ export { Link } from './link.js';
  * docs router never reads.
  *
  * `push` adds a history entry, `replace` does not, and the back and forward
- * buttons are heard. An Actor hears the address with a Lifetime made by
- * `heardUrl`, and asks to move with a Command calling `push`.
+ * buttons are heard. An Actor hears the address with a Worker made by
+ * `heardUrl`, and asks to move with the `pushUrl` Command.
  */
 
 export class Location extends Context.Service<
@@ -83,12 +83,12 @@ export const HashLocation = Layer.effect(
 );
 
 /**
- * A Lifetime's Stream of `ChangedUrl` Messages. With `seen`, the path the
+ * A Worker's Stream of `ChangedUrl` Messages. With `seen`, the path the
  * Actor already shows, it sends each later path that differs from the last
  * one sent; with `null` it starts with the path now.
  *
- * A Lifetime starts once, with the Model it entered its State with, so the
- * Actor passes the path it was entered with and the Stream remembers the rest.
+ * A Worker starts once, with the Model as it is then, so the Actor passes
+ * the path it already shows and the Stream remembers the rest.
  */
 export const heardUrl = (seen: string | null) =>
   Stream.unwrap(
@@ -110,10 +110,12 @@ export const heardUrl = (seen: string | null) =>
   ).pipe(Stream.map((path) => ({ _tag: 'ChangedUrl' as const, path })));
 
 /** A Command moving the demo to `path`, with a history entry. */
-export const pushUrl = (path: string) =>
-  Effect.gen(function* () {
+export const pushUrl = (path: string) => ({
+  name: 'pushUrl',
+  run: Effect.gen(function* () {
     yield* (yield* Location).push(path);
-  });
+  }),
+});
 
 /** The path and query of a demo path, read like a URL. */
 export const readPath = (path: string) => {

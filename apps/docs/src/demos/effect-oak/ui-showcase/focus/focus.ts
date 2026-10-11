@@ -11,10 +11,12 @@ import type { KeyboardEvent } from 'react';
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])';
 
-const afterDraw = (run: () => void) =>
-  Effect.sync(() => {
+const afterDraw = (run: () => void) => ({
+  name: 'focus',
+  run: Effect.sync(() => {
     requestAnimationFrame(run);
-  });
+  }),
+});
 
 /** Focuses the element with this id. */
 export const focusId = (id: string) =>

@@ -16,7 +16,7 @@ import { TodoStore } from './store.js';
 /*
  * The todo app: Loading → Ready.
  *
- * Loading reads the saved todos in a Lifetime, so they arrive as a Message
+ * Loading reads the saved todos in a Worker, so they arrive as a Message
  * and Replay sees them too. Ready Provides Composing to its Composer Child:
  * a new todo comes back as a Request, gets a random id from a Command, and
  * every change to the list is saved by a Command that reports how it went.
@@ -35,11 +35,13 @@ type Ready = {
 };
 
 /** Save the list, and say how it went. */
-const save = (todos: TodoList) =>
-  Effect.gen(function* () {
+const save = (todos: TodoList) => ({
+  name: 'save',
+  run: Effect.gen(function* () {
     yield* (yield* TodoStore).save(todos);
     return { _tag: 'SucceededSave' as const };
-  }).pipe(Effect.orElseSucceed(() => ({ _tag: 'FailedSave' as const })));
+  }).pipe(Effect.orElseSucceed(() => ({ _tag: 'FailedSave' as const }))),
+});
 
 /** The list changed: keep it, and save it. */
 const changed = (state: Ready, todos: TodoList) => ({
@@ -76,12 +78,15 @@ export const Todos = Actor.make('Todos', {
   children: { Ready: { composer: Composer } },
 }).build({
   init: () => ({ state: { _tag: 'Loading' } }),
-  lifetime: {
-    Loading: (self) =>
-      Effect.gen(function* () {
-        const todos = yield* (yield* TodoStore).load;
-        yield* self.send({ _tag: 'Loaded', todos });
-      }),
+  workers: {
+    load: {
+      in: 'Loading',
+      run: (self) =>
+        Effect.gen(function* () {
+          const todos = yield* (yield* TodoStore).load;
+          yield* self.send({ _tag: 'Loaded', todos });
+        }),
+    },
   },
   provides: {
     Ready: (self) =>
@@ -97,16 +102,19 @@ export const Todos = Actor.make('Todos', {
     },
     Ready: {
       RequestedAdd: ({ text }) => ({
-        command: Effect.gen(function* () {
-          const id = yield* Random.nextIntBetween(0, Number.MAX_SAFE_INTEGER);
-          const createdAt = yield* Clock.currentTimeMillis;
-          return {
-            _tag: 'CompletedGenerateTodo' as const,
-            id: id.toString(36),
-            text,
-            createdAt,
-          };
-        }),
+        command: {
+          name: 'generateTodo',
+          run: Effect.gen(function* () {
+            const id = yield* Random.nextIntBetween(0, Number.MAX_SAFE_INTEGER);
+            const createdAt = yield* Clock.currentTimeMillis;
+            return {
+              _tag: 'CompletedGenerateTodo' as const,
+              id: id.toString(36),
+              text,
+              createdAt,
+            };
+          }),
+        },
       }),
       CompletedGenerateTodo: (todo, { state }) =>
         changed(state, [

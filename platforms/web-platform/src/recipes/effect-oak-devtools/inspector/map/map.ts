@@ -9,22 +9,33 @@ import { unitsOf } from './units.ts';
  * it. Pure.
  *
  * The map comes from the Actors: each Actor leads to every State it can be
- * in, and each State to every Child it Invokes, all the way down. Nothing is
+ * in, each State to every Child it Invokes, all the way down. Nothing is
  * running there by default, so it is drawn dim. The Snapshot lights it up:
- * the Instances that exist and the State each is in. The Step marks what it
+ * the Instances that exist, and the State each is in. The Step marks what it
  * changed: what started or was entered in green, what stopped or was left in
- * red, and an Instance whose data changed. A keyed Child is one node with how
- * many Instances it has, opened on demand to show each.
+ * red, and an Instance whose data changed. A keyed Child is one node with
+ * how many Instances it has, opened on demand to show each.
+ *
+ * Workers stay off the map until asked for. An Actor or State that owns
+ * Workers carries a badge counting the keys expected after the Step, lit
+ * like the rest; opened, its node grows into a card listing each Worker
+ * with one pill per key, green where the Step started it, struck red where
+ * it stopped it.
+ * Whether a key is running, finished or failed is not here: it is live only,
+ * laid over the drawing.
  *
  * The map holds still from Step to Step: its shape comes from the Actors, not
  * the data. Each parent is centred over its Children, and the root sits at
- * x 0 for good, so only opening a keyed Child moves anything, and never the
- * root. Opened keyed Children keep the old order, a stopped one in place and
- * a new one after its older siblings.
+ * x 0 for good, so only opening a keyed Child or an owner's Workers moves
+ * anything, and never the root: its own card grows around its centre.
+ * Opened keyed Children keep the old order, a stopped one in place and a new
+ * one after its older siblings.
  */
 
-export type { ActorNode, ManyNode, StateNode } from './layout.ts';
-export type { Status } from './units.ts';
+export { CARD, pillLabel } from './layout.ts';
+export type { ActorNode, Badge, Card, ManyNode, StateNode } from './layout.ts';
+export type { Status, WorkerUnit } from './units.ts';
+export { opensWorkers, workersId } from './units.ts';
 export { CIRCLE };
 
 export interface AppMap extends Laid {

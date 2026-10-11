@@ -28,28 +28,45 @@ export const Rocket = Actor.make('Rocket', {
   }),
 }).build({
   init: () => ({ model: { fuel: 0 }, state: { _tag: 'OnPad' } }),
-  lifetime: {
-    '*': () =>
-      Effect.gen(function* () {
-        // when the rocket rolls out
-        yield* Effect.logDebug('Rolled out');
-        // while it lives: as many fibers as it needs
-        yield* Effect.forkScoped(Effect.logDebug('Systems check'));
-        // when it is retired
-        yield* Effect.addFinalizer(() => Effect.logDebug('Retired'));
-      }),
-    Ascending: (self) =>
-      self.send({ _tag: 'BoostersSpent' }).pipe(Effect.delay('1.9 seconds')),
-    Separating: (self) =>
-      self.send({ _tag: 'Steadied' }).pipe(Effect.delay('1.4 seconds')),
-    Cruising: (self) =>
-      self
-        .send({ _tag: 'Burned' })
-        .pipe(Effect.delay('700 millis'), Effect.forever),
-    Descending: (self) =>
-      self.send({ _tag: 'TouchedDown' }).pipe(Effect.delay('3.4 seconds')),
-    Returning: (self) =>
-      self.send({ _tag: 'Docked' }).pipe(Effect.delay('2.4 seconds')),
+  workers: {
+    systems: {
+      run: () =>
+        Effect.gen(function* () {
+          // when the rocket rolls out
+          yield* Effect.logDebug('Rolled out');
+          // while it lives: as many fibers as it needs
+          yield* Effect.forkScoped(Effect.logDebug('Systems check'));
+          // when it is retired
+          yield* Effect.addFinalizer(() => Effect.logDebug('Retired'));
+        }),
+    },
+    ascend: {
+      in: 'Ascending',
+      run: (self) =>
+        self.send({ _tag: 'BoostersSpent' }).pipe(Effect.delay('1.9 seconds')),
+    },
+    separate: {
+      in: 'Separating',
+      run: (self) =>
+        self.send({ _tag: 'Steadied' }).pipe(Effect.delay('1.4 seconds')),
+    },
+    burn: {
+      in: 'Cruising',
+      run: (self) =>
+        self
+          .send({ _tag: 'Burned' })
+          .pipe(Effect.delay('700 millis'), Effect.forever),
+    },
+    descend: {
+      in: 'Descending',
+      run: (self) =>
+        self.send({ _tag: 'TouchedDown' }).pipe(Effect.delay('3.4 seconds')),
+    },
+    dock: {
+      in: 'Returning',
+      run: (self) =>
+        self.send({ _tag: 'Docked' }).pipe(Effect.delay('2.4 seconds')),
+    },
   },
   update: {
     OnPad: {

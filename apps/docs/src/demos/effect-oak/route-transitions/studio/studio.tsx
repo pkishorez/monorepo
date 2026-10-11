@@ -27,9 +27,12 @@ export const Studio = Actor.make('Studio', {
   update: {
     Edited: ({ text }) => ({
       model: { text },
-      command: Effect.gen(function* () {
-        yield* (yield* Drafts).edited(text);
-      }),
+      command: {
+        name: 'tell',
+        run: Effect.gen(function* () {
+          yield* (yield* Drafts).edited(text);
+        }),
+      },
     }),
   },
 });

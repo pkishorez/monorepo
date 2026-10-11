@@ -27,8 +27,8 @@ export interface Handled {
     readonly before: Instance;
     readonly after: Instance;
     readonly definition: Definition;
-    readonly command: unknown;
-    readonly cancel: ReadonlyArray<string>;
+    /** The Commands the Update asked for. */
+    readonly commands: ReadonlyArray<unknown>;
   };
 }
 
@@ -81,13 +81,12 @@ export const handle = (
       before: instance,
       after,
       definition,
-      command: next.command,
-      cancel:
-        next.cancel === undefined
+      commands:
+        next.command === undefined
           ? []
-          : typeof next.cancel === 'string'
-            ? [next.cancel]
-            : next.cancel,
+          : Array.isArray(next.command)
+            ? next.command
+            : [next.command],
     },
   };
 };
@@ -96,7 +95,6 @@ type Next = {
   readonly model?: unknown;
   readonly state?: Instance['state'];
   readonly command?: unknown;
-  readonly cancel?: string | ReadonlyArray<string>;
 };
 
 /** The Instances from the root down to `id`, with their Actors; none if it is gone. */

@@ -1,2 +1,18 @@
-export { CIRCLE, mapOf } from './map.ts';
-export type { ActorNode, AppMap, ManyNode, StateNode, Status } from './map.ts';
+export {
+  CARD,
+  CIRCLE,
+  mapOf,
+  opensWorkers,
+  pillLabel,
+  workersId,
+} from './map.ts';
+export type {
+  ActorNode,
+  AppMap,
+  Badge,
+  Card,
+  ManyNode,
+  StateNode,
+  Status,
+  WorkerUnit,
+} from './map.ts';

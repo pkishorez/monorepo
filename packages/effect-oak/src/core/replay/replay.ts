@@ -6,7 +6,7 @@ import type { Entry } from '../log/index.ts';
 
 /*
  * Replay: the Snapshot right after any Log entry, from the Messages alone.
- * Only init and Update run; no Capabilities, Lifetimes or Commands.
+ * Only init and Update run; no Capabilities, Workers or Commands.
  *
  * 1. Start  from the nearest saved Snapshot on the Branch, or from init.
  * 2. Play   each entry after it through `handle`. Entries that were ignored

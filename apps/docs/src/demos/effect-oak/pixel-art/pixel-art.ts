@@ -18,7 +18,7 @@ import { Brush, Mirror, Tool, Tools } from './tools/index.js';
 /*
  * The pixel art editor: Loading → Ready.
  *
- * Loading reads the saved picture in a Lifetime, so it arrives as a Message
+ * Loading reads the saved picture in a Worker, so it arrives as a Message
  * and Replay sees it. Ready keeps the picture, its undo and redo stacks, the
  * palette, and a copy of the tools: the Tools Child owns which tool is in
  * hand and tells the editor through the Brush Request. The Export Child
@@ -46,8 +46,9 @@ const Ready = {
 };
 type Ready = Schema.Struct<typeof Ready>['Type'];
 
-const save = (ready: Ready) =>
-  Effect.gen(function* () {
+const save = (ready: Ready) => ({
+  name: 'save',
+  run: Effect.gen(function* () {
     yield* (yield* PictureStore).save({
       grid: ready.grid,
       size: ready.size,
@@ -55,7 +56,8 @@ const save = (ready: Ready) =>
       color: ready.color,
     });
     return { _tag: 'SucceededSave' as const };
-  }).pipe(Effect.orElseSucceed(() => ({ _tag: 'FailedSave' as const })));
+  }).pipe(Effect.orElseSucceed(() => ({ _tag: 'FailedSave' as const }))),
+});
 
 /** Keep the new Ready, and save it. */
 const saved = (ready: Ready) => ({
@@ -131,12 +133,15 @@ export const PixelArt = Actor.make('PixelArt', {
   children: { Ready: { tools: Tools, export: Export } },
 }).build({
   init: () => ({ state: { _tag: 'Loading' } }),
-  lifetime: {
-    Loading: (self) =>
-      Effect.gen(function* () {
-        const saved = yield* (yield* PictureStore).load;
-        yield* self.send({ _tag: 'Loaded', saved });
-      }),
+  workers: {
+    load: {
+      in: 'Loading',
+      run: (self) =>
+        Effect.gen(function* () {
+          const saved = yield* (yield* PictureStore).load;
+          yield* self.send({ _tag: 'Loaded', saved });
+        }),
+    },
   },
   provides: {
     Ready: (self) =>

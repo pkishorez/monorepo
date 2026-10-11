@@ -16,7 +16,7 @@ ApiCache (root)        Model { tab }; Provides Tabs { shown }
 ├─ posts: Posts        Model { list, details by id } as AsyncData
 │                      Browsing | Reading { postId }; fetches are Commands asking Blog
 └─ stats: Stats        Model { stats } as AsyncData; requires Tabs
-                       Lifetime ticks every 5 s → Command reads Tabs → SawStatsShown → refetch
+                       Worker ticks every 5 s → Command reads Tabs → SawStatsShown → refetch
 ../async-data/         AsyncData as a Schema plus loadIfMissing, revalidate, settle… (shared)
 ../blog-server/        Blog Capability and its fake in-browser Layer, 700 ms per answer (shared)
 ```
@@ -45,8 +45,8 @@ ApiCache (root)        Model { tab }; Provides Tabs { shown }
   holds the tab and cannot say "you are shown now" to Stats. Stats asks
   instead: a Command reads the Tabs Capability, an Effect that reads the
   root's current tab.
-- **A Lifetime cannot follow a parent's Model** (roll-up 12): the refetch
-  timer cannot stop while the tab is hidden.
+- **A Worker's Condition reads its own Model only**, not a parent's (roll-up
+  12): the refetch timer cannot stop while the tab is hidden.
 
 ## Testing
 
@@ -63,7 +63,7 @@ What Effect Oak would need:
   to answer a fetch with a fixture.
 - A typed one-Update step (roll-up 5). The AsyncData helpers and the fake
   server are plain functions and Effects and can be tested today.
-- Emitting a Lifetime's Message (roll-up 6) for the 5-second tick, and a way
+- Emitting a Worker's Message (roll-up 6) for the 5-second tick, and a way
   to give Stats a stub Tabs.
 
 ## Also surprising

@@ -14,8 +14,9 @@ import { ShopServer } from '../shop-server/index.js';
  * the instructions, and asks the shop to empty the cart: a Request.
  */
 
-const placeOrder = (instructions: string) =>
-  Effect.gen(function* () {
+const placeOrder = (instructions: string) => ({
+  name: 'placeOrder',
+  run: Effect.gen(function* () {
     const basket = yield* Basket;
     const orderId = yield* (yield* ShopServer).placeOrder(
       yield* basket.cart,
@@ -27,7 +28,8 @@ const placeOrder = (instructions: string) =>
     Effect.catch((error) =>
       Effect.succeed({ _tag: 'FailedPlaceOrder' as const, error }),
     ),
-  );
+  ),
+});
 
 export const Checkout = Actor.make('Checkout', {
   requires: { shop: ShopServer, basket: Basket },

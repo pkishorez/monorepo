@@ -13,10 +13,10 @@ import { LogEntry, record } from './transition-log/index.js';
  * Each kind of route change maps onto a different part of Effect Oak:
  *
  * - Entering the Gallery creates its Catalog Child, which loads once per
- *   entry in its own Lifetime. Nothing is written for it in Update.
+ *   entry in its own Worker. Nothing is written for it in Update.
  * - Entering a Painting, or moving to another one, is an Update asking for a
  *   load Command. Moving between paintings stays in the Painting State, and
- *   staying never restarts a Lifetime or Child.
+ *   staying never restarts a Worker or Child.
  * - Leaving the Studio is an Update asking for a save Command. There are no
  *   exit actions; Update sees the State it leaves and the one it enters.
  *
@@ -56,13 +56,19 @@ const sideOf = (route: Route) => ({
         : route._tag,
 });
 
-const loadPainting = (paintingId: number) =>
-  Effect.sleep(PAINTING_MS).pipe(
+const loadPainting = (paintingId: number) => ({
+  name: 'loadPainting',
+  run: Effect.sleep(PAINTING_MS).pipe(
     Effect.as({ _tag: 'LoadedPainting' as const, paintingId }),
-  );
+  ),
+});
 
-const saveDraft = (text: string) =>
-  Effect.sleep(SAVE_MS).pipe(Effect.as({ _tag: 'SavedDraft' as const, text }));
+const saveDraft = (text: string) => ({
+  name: 'saveDraft',
+  run: Effect.sleep(SAVE_MS).pipe(
+    Effect.as({ _tag: 'SavedDraft' as const, text }),
+  ),
+});
 
 const listen = (
   self: Self<
@@ -105,14 +111,7 @@ export const RouteTransitions = Actor.make('RouteTransitions', {
     model: { path: '', log: [], draft: '', saved: null },
     state: { _tag: 'Opening' },
   }),
-  lifetime: {
-    Opening: listen,
-    Home: listen,
-    Gallery: listen,
-    Painting: listen,
-    Studio: listen,
-    NotFound: listen,
-  },
+  workers: { listen: { run: listen } },
   provides: {
     Studio: (self) =>
       Layer.succeed(Drafts, {
@@ -157,13 +156,7 @@ export const RouteTransitions = Actor.make('RouteTransitions', {
             ),
           },
           state: samePainting ? state : next,
-          command: (self) =>
-            Effect.all(
-              [...loads, ...saves].map((effect) =>
-                Effect.flatMap(effect, self.send),
-              ),
-              { concurrency: 'unbounded', discard: true },
-            ),
+          command: [...loads, ...saves],
         };
       },
       ClickedLink: ({ path }) => ({ command: pushUrl(path) }),

@@ -64,7 +64,7 @@ export const WorkHistory = Actor.make('WorkHistory', {
   }),
 }).build({
   init: () => ({ model: { entries: [blankEntry(0)], nextId: 1 } }),
-  lifetime: heardReveal,
+  workers: { hearReveal: heardReveal },
   update: {
     ClickedAdd: (_, { model }) =>
       changed({

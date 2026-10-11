@@ -1,7 +1,13 @@
 import type { ReactNode } from 'react';
 import { ArrowRight } from '#lib/lucide';
 import { JsonTree } from '../../../components/viewers/json/index.ts';
-import { KIND_LABEL, payloadOf, seconds, touched } from '../step/index.ts';
+import {
+  KIND_LABEL,
+  payloadOf,
+  seconds,
+  touched,
+  workName,
+} from '../step/index.ts';
 import type { Kind, Row, Step } from '../step/index.ts';
 import { Changes } from './changes.tsx';
 
@@ -10,10 +16,13 @@ export type NameOf = (id: string) => string;
 
 const SOURCE = {
   view: { name: 'View', means: 'From the UI' },
-  command: { name: 'Command', means: 'From work an Update asked for' },
-  lifetime: {
-    name: 'Lifetime',
-    means: 'From work that runs while in a State',
+  command: {
+    name: 'Command',
+    means: 'From an errand an Update asked for, by its name',
+  },
+  worker: {
+    name: 'Worker',
+    means: 'From work that runs while its Condition holds, by its name and key',
   },
 } as const;
 
@@ -78,6 +87,11 @@ export const Happened = ({
               <span className="text-muted-foreground">
                 {SOURCE[entry.source.kind].name}
               </span>
+              {entry.source.name !== undefined && (
+                <span className="font-mono">
+                  {workName(entry.source.name, entry.source.key)}
+                </span>
+              )}
             </Chip>
             <ArrowRight aria-label="to" className="size-3.5 text-primary" />
             <Chip>

@@ -32,14 +32,17 @@ import { WorkHistory } from './work-history/index.js';
  *
  * Submit reveals every step's errors. That is a Message to each step, which
  * a parent cannot send (blocker 14): the Command posts to the Reveals
- * Capability, and each step's Lifetime hears it.
+ * Capability, and each step's Worker hears it.
  */
 
 const SUBMIT_MS = 1500;
 
-const submitApplication = Effect.sleep(SUBMIT_MS).pipe(
-  Effect.as({ _tag: 'SucceededSubmit' as const }),
-);
+const submitApplication = {
+  name: 'submit',
+  run: Effect.sleep(SUBMIT_MS).pipe(
+    Effect.as({ _tag: 'SucceededSubmit' as const }),
+  ),
+};
 
 export const JobApplication = Actor.make('JobApplication', {
   requires: { reveals: Reveals },
@@ -98,13 +101,7 @@ export const JobApplication = Actor.make('JobApplication', {
           submitAttempted: true,
           submission: ready ? 'Submitting' : 'NotSubmitted',
         },
-        command: ready
-          ? (self) =>
-              Effect.all(
-                [revealAll, submitApplication.pipe(Effect.flatMap(self.send))],
-                { concurrency: 'unbounded', discard: true },
-              )
-          : revealAll,
+        command: ready ? [revealAll, submitApplication] : revealAll,
       };
     },
     SucceededSubmit: (_, { model }) => ({

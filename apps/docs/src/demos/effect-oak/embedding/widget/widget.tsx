@@ -10,7 +10,7 @@ import { Host } from '../port/index.js';
  * and hears every new count.
  *
  * `init` cannot take the host's flags, so the widget starts Waiting, and its
- * Lifetime reads them from the Host Capability. Running's Lifetime ticks and
+ * Worker reads them from the Host Capability. Running's Worker ticks and
  * hears the host's step; each new count goes out in a Command.
  */
 
@@ -28,24 +28,32 @@ export const Widget = Actor.make('Widget', {
   }),
 }).build({
   init: () => ({ model: { count: 0, step: 1 }, state: { _tag: 'Waiting' } }),
-  lifetime: {
-    Waiting: (self) =>
-      Effect.gen(function* () {
-        const { initialCount } = yield* (yield* Host).flags;
-        yield* self.send({ _tag: 'GotFlags', initialCount });
-      }),
-    Running: (self) =>
-      Stream.merge(
-        Stream.tick(TICK_MS).pipe(
-          Stream.drop(1),
-          Stream.map(() => ({ _tag: 'Ticked' as const })),
-        ),
-        Stream.unwrap(
-          Effect.gen(function* () {
-            return (yield* Host).steps;
-          }),
-        ).pipe(Stream.map((step) => ({ _tag: 'ChangedStep' as const, step }))),
-      ).pipe(Stream.runForEach(self.send)),
+  workers: {
+    readFlags: {
+      in: 'Waiting',
+      run: (self) =>
+        Effect.gen(function* () {
+          const { initialCount } = yield* (yield* Host).flags;
+          yield* self.send({ _tag: 'GotFlags', initialCount });
+        }),
+    },
+    tick: {
+      in: 'Running',
+      run: (self) =>
+        Stream.merge(
+          Stream.tick(TICK_MS).pipe(
+            Stream.drop(1),
+            Stream.map(() => ({ _tag: 'Ticked' as const })),
+          ),
+          Stream.unwrap(
+            Effect.gen(function* () {
+              return (yield* Host).steps;
+            }),
+          ).pipe(
+            Stream.map((step) => ({ _tag: 'ChangedStep' as const, step })),
+          ),
+        ).pipe(Stream.runForEach(self.send)),
+    },
   },
   update: {
     Waiting: {
@@ -66,9 +74,12 @@ const advance = (model: { readonly count: number; readonly step: number }) => {
   const count = model.count + model.step;
   return {
     model: { ...model, count },
-    command: Effect.gen(function* () {
-      yield* (yield* Host).reportCount(count);
-    }),
+    command: {
+      name: 'reportCount',
+      run: Effect.gen(function* () {
+        yield* (yield* Host).reportCount(count);
+      }),
+    },
   };
 };
 

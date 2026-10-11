@@ -22,22 +22,22 @@ port/        the wire: the host's side (setFlags, sendStep, onCount) and the
              widget's Host Capability in the Layer
 widget/
   Widget     requires Host; Model { count, step }
-    Waiting  Lifetime: Host.flags → GotFlags
-    Running  Lifetime: a 1 s tick → Ticked, merged with Host.steps → ChangedStep
+    Waiting  Worker: Host.flags → GotFlags
+    Running  Worker: a 1 s tick → Ticked, merged with Host.steps → ChangedStep
              Ticked, ClickedAdvance → count + step, Command: Host.reportCount
 ```
 
 ## How the host talks to the widget
 
 - **Flags**: `embed` stores them on the wire before mounting. `init` cannot
-  take them, so the widget starts `Waiting` and its Lifetime reads them
+  take them, so the widget starts `Waiting` and its Worker reads them
   (`GotFlags`), as todo and auth do with their saved data.
 - **In** (Foldkit's inbound port): `sendStep` calls the listeners of the
-  `Host.steps` Stream, which a Lifetime turns into `ChangedStep`. The Stream
+  `Host.steps` Stream, which a Worker turns into `ChangedStep`. The Stream
   starts with the step now, so a step set before mounting is not lost.
 - **Out** (outbound port): each new count is a Command calling
   `Host.reportCount`, which calls the host's listeners.
-- **Dispose**: unmounting the React root stops the Runtime, its Lifetimes and
+- **Dispose**: unmounting the React root stops the Runtime, its Workers and
   Commands.
 
 The Shell runs the host page and reads the widget through `useRuntime`,
@@ -81,7 +81,7 @@ What Effect Oak would need:
 
 - Named Commands (blocker 4) to see "report count 11".
 - A typed `Actor.step` (blocker 5) from `Running` with a given Model.
-- Emitting a Lifetime's Message by hand (blocker 6) for `Ticked`,
+- Emitting a Worker's Message by hand (blocker 6) for `Ticked`,
   `ChangedStep` and `GotFlags`. Today a test can start the Widget under
   `Runtime.start` with a stub Host Layer and drive the wire, which also tests
   the ports.

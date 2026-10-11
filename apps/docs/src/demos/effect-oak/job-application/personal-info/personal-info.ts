@@ -15,9 +15,10 @@ import {
  * The first step: name, email, phone, pronouns, portfolio and start date.
  *
  * The email is checked twice: its Rules at once, and then, if they pass,
- * against a fake list of taken emails after 600 ms. Each keystroke starts
- * its check under the same Command key, which replaces the check still
- * running, so only the latest value's answer comes back.
+ * against a fake list of taken emails after 600 ms. The check is a Worker
+ * keyed by the value while `emailCheck` is Checking: each keystroke is a new
+ * key, so the check still running stops and only the latest value's answer
+ * comes back.
  *
  * Every Update ends in `changed`, which reports the whole step to the
  * application. That one helper is what keeps the copy up there current.
@@ -134,39 +135,28 @@ export const PersonalInfo = Actor.make('PersonalInfo', {
       availableDate: '',
     },
   }),
-  lifetime: heardReveal,
+  workers: {
+    hearReveal: heardReveal,
+    // One check per value being checked: typing again stops the old one.
+    checkEmail: {
+      each: ({ model }) =>
+        model.emailCheck === 'Checking' ? [model.email.value] : [],
+      run: (self, value) => checkEmail(value).pipe(Effect.flatMap(self.send)),
+    },
+  },
   update: {
     Edited: ({ field, value }, { model }) =>
       changed({ ...model, [field]: typed(value) }),
     EditedEmail: ({ value }, { model }) => {
       const email = typed(value);
-      const rulesPass = passes(RULES.email, email);
-      const next = changed({
+      return changed({
         ...model,
         email,
-        emailCheck: rulesPass ? 'Checking' : 'Unchecked',
+        emailCheck: passes(RULES.email, email) ? 'Checking' : 'Unchecked',
       });
-      return {
-        ...next,
-        command: {
-          key: 'checkEmail',
-          run: rulesPass
-            ? (self) =>
-                Effect.all(
-                  [
-                    next.command,
-                    checkEmail(value).pipe(Effect.flatMap(self.send)),
-                  ],
-                  { concurrency: 'unbounded', discard: true },
-                )
-            : next.command,
-        },
-      };
     },
-    CheckedEmail: ({ value, taken }, { model }) =>
-      value !== model.email.value || model.emailCheck !== 'Checking'
-        ? {}
-        : changed({ ...model, emailCheck: taken ? 'Taken' : 'Free' }),
+    CheckedEmail: ({ taken }, { model }) =>
+      changed({ ...model, emailCheck: taken ? 'Taken' : 'Free' }),
     ChosePronoun: ({ pronoun }, { model }) => changed({ ...model, pronoun }),
     EditedCustomPronouns: ({ value }, { model }) =>
       changed({ ...model, customPronouns: value }),

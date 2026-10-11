@@ -21,8 +21,8 @@ export type Data<Model, State> = {
 };
 
 /**
- * What an Instance's own work holds of it: Lifetimes, Commands and Provides.
- * Sends go only to this Instance; `get` and `changes` are always current.
+ * What an Instance's own work holds of it: Workers and Provides. Sends go
+ * only to this Instance; `get` and `changes` are always current.
  */
 export interface Self<Model, State, Msg> {
   readonly id: string;
@@ -30,24 +30,26 @@ export interface Self<Model, State, Msg> {
   readonly get: Effect.Effect<Data<Model, State>>;
   /** The current data, then each new value after a Message changes it. */
   readonly changes: Stream.Stream<Data<Model, State>>;
+  /**
+   * The app's Time now, in milliseconds since the Runtime started: the clock
+   * Messages are stamped with, which stands still while stopped. A Worker
+   * that waits until a Time in the Model sleeps for `that - now`, so it waits
+   * only what is left when it starts again on a resume or a fork.
+   */
+  readonly now: Effect.Effect<number>;
 }
 
-/** Work that may end with a Message, which is then Sent to its Instance. */
-type Run<Model, State, Msg, R extends Requires> =
-  | Effect.Effect<Msg | void, never, IdsOf<R>>
-  | ((
-      self: Self<Model, State, Msg>,
-    ) => Effect.Effect<Msg | void, never, IdsOf<R> | Scope.Scope>);
-
 /**
- * One piece of work an Update asks for, owned by its Instance. Started under a
- * key, it interrupts the Command still running under the same key.
+ * An errand an Update asks for: one named Effect that ends with at most one
+ * Message, Sent to its Instance. Nothing stops it but its Instance stopping;
+ * work that must be stopped, show progress or survive a stop is a Worker.
  */
-export type Command<Model, State, Msg, R extends Requires> =
-  | Run<Model, State, Msg, R>
-  | { readonly key: string; readonly run: Run<Model, State, Msg, R> };
+export interface Command<Msg, R extends Requires> {
+  readonly name: string;
+  readonly run: Effect.Effect<Msg | void, never, IdsOf<R>>;
+}
 
-type Rules<Model, State, Msg extends Tagged, R extends Requires, Next, All> = {
+type Rules<Model, State, Msg extends Tagged, R extends Requires, Next> = {
   readonly [K in Msg['_tag']]?: (
     message: Only<Msg, K>,
     scope: Data<Model, State> & {
@@ -57,16 +59,58 @@ type Rules<Model, State, Msg extends Tagged, R extends Requires, Next, All> = {
   ) => {
     readonly model?: Model;
     readonly state?: Next;
-    readonly command?: Command<Model, All, Msg, R>;
-    /** Interrupt the Commands running under these keys, before `command` starts. */
-    readonly cancel?: string | ReadonlyArray<string>;
+    /** The Commands to run, concurrently. */
+    readonly command?: Command<Msg, R> | ReadonlyArray<Command<Msg, R>>;
   };
 };
 
-/** Work for as long as an Instance exists, or is in one State: a scoped Effect. */
-type Lifetime<Model, State, Msg, R extends Requires> = (
+/** A Worker's Effect: scoped, Sending its Instance, given the key it runs for. */
+type Run<Model, State, Msg, R extends Requires> = (
   self: Self<Model, State, Msg>,
+  key: string,
 ) => Effect.Effect<unknown, never, IdsOf<R> | Scope.Scope>;
+
+/**
+ * Work that runs for exactly as long as its Condition holds, read from the
+ * Instance's own data after every Update: the Instance itself, one State
+ * (`in`), a yes or no (`while`), or a list of keys (`each`), one Worker per
+ * key. When the Condition stops holding, the Worker's Scope closes.
+ */
+export type Worker<Model, State extends Tagged, Msg, R extends Requires> =
+  | {
+      readonly in?: never;
+      readonly while?: never;
+      readonly each?: never;
+      readonly run: Run<Model, State, Msg, R>;
+    }
+  | {
+      readonly [T in State['_tag']]: {
+        readonly in: T;
+        readonly while?: never;
+        readonly each?: never;
+        readonly run: Run<Model, Only<State, T>, Msg, R>;
+      };
+    }[State['_tag']]
+  | {
+      readonly in?: never;
+      readonly while: (data: Data<Model, State>) => boolean;
+      readonly each?: never;
+      readonly run: Run<Model, State, Msg, R>;
+    }
+  | {
+      readonly in?: never;
+      readonly while?: never;
+      readonly each: (data: Data<Model, State>) => ReadonlyArray<string>;
+      readonly run: Run<Model, State, Msg, R>;
+    };
+
+/** Every Worker an Actor can own, by name. */
+export type Workers<
+  Model,
+  State extends Tagged,
+  Msg,
+  R extends Requires,
+> = Readonly<Record<string, Worker<Model, State, Msg, R>>>;
 
 /** Builds what a State Provides, once each time the State is entered. */
 type Provide<Model, State, Msg, R extends Requires, Ids> = (
@@ -245,14 +289,10 @@ type StatesBehavior<
         Only<State, T>,
         Msg,
         R,
-        State,
         State
       >;
-    } & { readonly '*'?: Rules<Model, State, Msg, R, State, State> };
-    /** `'*'` runs for as long as the Instance exists; each State's, while it lasts. */
-    readonly lifetime?: {
-      readonly [T in State['_tag']]?: Lifetime<Model, Only<State, T>, Msg, R>;
-    } & { readonly '*'?: Lifetime<Model, State, Msg, R> };
+    } & { readonly '*'?: Rules<Model, State, Msg, R, State> };
+    readonly workers?: Workers<Model, State, Msg, R>;
   };
 
 /** How an Actor without States is built: every per-State part is written flat. */
@@ -274,8 +314,8 @@ type SingleBehavior<
       ? { readonly init?: (input: Input) => ModelInit<Model> }
       : { readonly init: (input: Input) => ModelInit<Model> }
     : { readonly init: (input: Input) => ModelInit<Model> }) & {
-    readonly update?: Rules<Model, Single, Msg, R, never, Single>;
-    readonly lifetime?: Lifetime<Model, Single, Msg, R>;
+    readonly update?: Rules<Model, Single, Msg, R, never>;
+    readonly workers?: Workers<Model, Single, Msg, R>;
   };
 
 type OpenOf<A> =
@@ -303,6 +343,16 @@ export interface SlotDefinition {
   readonly many: boolean;
 }
 
+/** One Worker, as the engine sees it: which keys its Condition names, and what runs for each. */
+export interface WorkerDefinition {
+  readonly kind: 'instance' | 'state' | 'while' | 'each';
+  /** The State it is owned by, when `kind` is `'state'`. */
+  readonly state?: string;
+  /** The keys the Condition names for this data; `''` for the one Worker of the other kinds. */
+  readonly keys: (data: Data<unknown, Tagged>) => ReadonlyArray<string>;
+  readonly run: Function;
+}
+
 /** The plain definition the engine works from; an Actor without States is keyed by its one State. */
 export interface Definition {
   readonly name: string;
@@ -316,8 +366,7 @@ export interface Definition {
   readonly update: Readonly<
     Record<string, Readonly<Record<string, Function | undefined>> | undefined>
   >;
-  /** Keyed by State, and `'*'` for the whole Instance. */
-  readonly lifetime: Readonly<Record<string, Function | undefined>>;
+  readonly workers: Readonly<Record<string, WorkerDefinition>>;
   readonly provides: Readonly<Record<string, Function | undefined>>;
   readonly children: Readonly<
     Record<string, Readonly<Record<string, SlotDefinition>> | undefined>

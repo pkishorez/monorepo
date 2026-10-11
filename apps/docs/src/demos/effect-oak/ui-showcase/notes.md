@@ -115,7 +115,7 @@ Skipped:
   well as `Closed | Open { active }`, but each State is drawn by its own
   keyed component (blocker 11): a Transition remounts the trigger, the
   focused button disappears, and focus cannot return to it. So all nine use
-  a boolean. States would also give Lifetimes for document listeners
+  a boolean. States would also give Workers for document listeners
   (Escape, clicks outside), but those are done with React handlers in the
   View instead: `onBlur` with `relatedTarget` for clicking outside.
 - **Keyboard handling is all in Update.** The View sends
@@ -129,10 +129,11 @@ Skipped:
   a moment the dialog was open would have locked the Shell's timeline. The
   panel traps Tab itself. A React portal would work in a View (Views are
   React), but would draw over the Shell during Replay too.
-- **Timers belong to the component.** The Tooltip's hover delay and the
-  Menu's typeahead reset are keyed Commands (`command: { key, run }`): the
-  next one under the same key replaces it, and the tooltip's `Left` cancels
-  it (`cancel: 'wait'`). They belong to the Instance, so they stop with it.
+- **Timers belong to the component.** The Tooltip's hover delay is a Worker
+  on a `waiting` flag in its Model: `Left` clears the flag, which stops it.
+  The Menu's typeahead reset is a Worker keyed on the typed letters: each
+  new letter changes the key, so the old timer stops and a new one starts.
+  They belong to the Instance, so they stop with it.
 
 ## Deviations
 
@@ -172,8 +173,9 @@ Skipped:
 - **10, Children belong to one State.** Pages are Model data, so components
   keep their choices across pages.
 - **1, no list of Children.** (now possible with `Actor.many` and `invoke`; this demo still keeps the list as data) Toasts are data in the root.
-- **7, no way to stop one Command.** Keyed Commands can now be cancelled,
-  but a dismissed toast's expiry is still left to run and be ignored.
+- **7, no way to stop one Command.** A Worker keyed on the toast ids would
+  stop with the toast; a dismissed toast's expiry is still a Command, left
+  to run and be ignored.
 
 ## Testing
 

@@ -37,9 +37,9 @@ told about them.
     again in its layout effect, after React has written the DOM.
     Either way the View then sends `RecordedSlowWarning`. Foldkit's thresholds
     are kept (4, 16 and 8 ms).
-- **No subscription-dependencies scenario.** Effect Oak's Lifetimes start
-  from a State, not from dependencies derived from the Model, so there is no
-  such phase to slow down.
+- **No subscription-dependencies scenario.** Effect Oak's Workers follow a
+  State or a Condition read straight from the Model, with no derived
+  dependencies to recompute, so there is no such phase to slow down.
 - Patch work is React mounting rows instead of Foldkit's VDOM patch.
 - During Time Travel the past is drawn again, so View and Update work burn
   CPU again, but the past cannot send, so no new warning is recorded.

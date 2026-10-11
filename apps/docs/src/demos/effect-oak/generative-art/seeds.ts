@@ -3,7 +3,7 @@ import { HEIGHT, WIDTH } from './flow/index.js';
 import type { Seed } from './flow/index.js';
 
 /*
- * New particles, chosen at random. They run in Commands and Lifetimes, so
+ * New particles, chosen at random. They run in Commands and Workers, so
  * what they pick arrives in a Message and Replay sees the same particles.
  */
 

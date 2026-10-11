@@ -12,6 +12,7 @@ import type {
   Running,
   RuntimeState,
   Snapshot,
+  WorkerStatus,
 } from '../core/index.ts';
 import { makeDrawn } from './drawn.ts';
 import { DrawnContext, FrameContext } from './view.tsx';
@@ -28,6 +29,7 @@ const EMPTY: RuntimeState = {
   shown: null,
 };
 const NO_ENTRIES: ReadonlyArray<Entry> = [];
+const NO_WORKERS: ReadonlyArray<WorkerStatus> = [];
 
 /** The running app, for code outside the tree: a timeline, a devtool. */
 export interface AppRuntime {
@@ -41,7 +43,7 @@ export interface AppRuntime {
   readonly shown: number | 'init' | null;
   /** Show the app right after init or an entry, on any Branch, or live again with `null`. */
   readonly show: (entry: number | 'init' | null) => void;
-  /** Close every Command, Lifetime and Capability. The Snapshot and the Log stay, and the Frame stands still. */
+  /** Close every Command, Worker and Capability. The Snapshot and the Log stay, and the Frame stands still. */
   readonly stop: () => void;
   /**
    * Start from an entry (`null`: right after init), growing a new Branch from
@@ -54,8 +56,10 @@ export interface AppRuntime {
   readonly children: (entry: number | null) => ReadonlyArray<Entry>;
   /** The Snapshot right after an entry, on any Branch (`null`: right after init), to take the app apart. */
   readonly snapshotAt: (entry: number | null) => Snapshot | undefined;
-  /** The root Actor's definition: every State and Child the app can have. */
+  /** The root Actor's definition: every State, Child and Worker the app can have. */
   readonly definition: Definition;
+  /** What an Instance's Workers are doing now: live only, never in the Snapshot. Empty while stopped. */
+  readonly workers: (instance: string) => ReadonlyArray<WorkerStatus>;
   /** The Time the Views are drawn at. */
   readonly frame: MotionValue<number>;
 }
@@ -185,6 +189,7 @@ export const toReact = <A extends AnyActor, Provided>(
         children,
         snapshotAt,
         definition: actor.definition,
+        workers: (instance) => runtime?.workers(instance) ?? NO_WORKERS,
         frame,
       };
     },
@@ -194,7 +199,7 @@ export const toReact = <A extends AnyActor, Provided>(
 /**
  * Build the Layer and start the tree under one Scope, carrying on from a saved
  * Log if there is one. Returns a function that closes the Scope: every Command
- * and Lifetime ends, then the Layer.
+ * and Worker ends, then the Layer.
  */
 const host = <A extends AnyActor>(
   actor: A,

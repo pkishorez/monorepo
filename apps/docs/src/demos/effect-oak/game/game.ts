@@ -9,10 +9,12 @@ import { Actor } from 'effect-oak';
  * when, and where each oncoming car was when it appeared. Where everything is
  * at any moment follows from that (`laneAt`, `distanceAfter`, `aheadAt`).
  *
- * While Playing, a Lifetime sends oncoming cars. Every Update that changes
+ * While Playing, a Worker sends oncoming cars. Every Update that changes
  * the road works out when you would hit one if nothing else happened, and
- * asks for a Collided Message at that Time. Steering out of the way replaces
- * that plan; Collided arriving means the plan held, and the game is over.
+ * writes that Time into the State; a Worker keyed by it sleeps until then and
+ * sends Collided. Steering out of the way replaces that plan, so its Worker
+ * stops and another starts; Collided arriving means the plan held, and the
+ * game is over.
  *
  * Pausing is the game's own: Paused keeps the road, when it stopped and how
  * long was left until the next car, and drops the crash plan. Resuming moves
@@ -172,18 +174,11 @@ const drive = (config: Config, road: Road & Traffic, at: number) => {
   const next = { ...road, cars };
   const crash = crashAt(config, next, at);
   return {
-    state: { _tag: 'Playing' as const, ...next, crashAt: crash },
-    // Under one key, so the latest plan replaces the one before it.
-    ...(crash === null
-      ? { cancel: 'crash' }
-      : {
-          command: {
-            key: 'crash',
-            run: Effect.sleep(crash - at).pipe(
-              Effect.as({ _tag: 'Collided' as const }),
-            ),
-          },
-        }),
+    state: {
+      _tag: 'Playing' as const,
+      ...next,
+      crashAt: crash,
+    },
   };
 };
 
@@ -201,6 +196,7 @@ export const Game = Actor.make('Game', {
       nextCarAt: Schema.Number,
       /** When you will crash unless something changes. */
       crashAt: Schema.NullOr(Schema.Number),
+      /** How long the crash Worker sleeps for, from the Update that planned it. */
     },
     Paused: {
       ...Road,
@@ -220,25 +216,42 @@ export const Game = Actor.make('Game', {
   }),
 }).build({
   init: () => ({ model: { config: DEFAULTS }, state: { _tag: 'Welcome' } }),
-  lifetime: {
+  workers: {
     // The first car comes after the warm-up, or, back from a pause, after what was left.
-    Playing: (self) =>
-      Effect.gen(function* () {
-        const {
-          model: { config },
-          state,
-        } = yield* self.get;
-        yield* Stream.fromEffectDrain(Effect.sleep(state.nextCarIn)).pipe(
-          Stream.concat(
-            Stream.fromEffectSchedule(
-              Random.nextIntBetween(0, config.lanes, { halfOpen: true }),
-              Schedule.spaced(config.traffic.every),
+    traffic: {
+      in: 'Playing',
+      run: (self) =>
+        Effect.gen(function* () {
+          const {
+            model: { config },
+            state,
+          } = yield* self.get;
+          yield* Stream.fromEffectDrain(Effect.sleep(state.nextCarIn)).pipe(
+            Stream.concat(
+              Stream.fromEffectSchedule(
+                Random.nextIntBetween(0, config.lanes, { halfOpen: true }),
+                Schedule.spaced(config.traffic.every),
+              ),
             ),
-          ),
-          Stream.map((lane) => ({ _tag: 'CarSpawned' as const, lane })),
-          Stream.runForEach(self.send),
-        );
-      }),
+            Stream.map((lane) => ({ _tag: 'CarSpawned' as const, lane })),
+            Stream.runForEach(self.send),
+          );
+        }),
+    },
+    // Keyed by the planned Time, so a new plan is a new Worker and the old one stops.
+    crash: {
+      each: ({ state }) =>
+        state._tag === 'Playing' && state.crashAt !== null
+          ? [String(state.crashAt)]
+          : [],
+      run: (self) =>
+        Effect.gen(function* () {
+          const { state } = yield* self.get;
+          if (state._tag !== 'Playing' || state.crashAt === null) return;
+          yield* Effect.sleep(state.crashAt - (yield* self.now));
+          yield* self.send({ _tag: 'Collided' });
+        }),
+    },
   },
   update: {
     Welcome: {
@@ -294,7 +307,6 @@ export const Game = Actor.make('Game', {
           pausedAt: at,
           nextCarIn: Math.max(0, state.nextCarAt - at),
         },
-        cancel: 'crash',
       }),
       Collided: (_, { state, at }) => ({
         state: {

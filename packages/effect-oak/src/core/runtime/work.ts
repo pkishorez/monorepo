@@ -10,7 +10,13 @@ import {
   SubscriptionRef,
 } from 'effect';
 import type { Fiber } from 'effect';
-import type { Data, Definition, Self, Tagged } from '../actor/index.ts';
+import type {
+  Data,
+  Definition,
+  Self,
+  Tagged,
+  WorkerDefinition,
+} from '../actor/index.ts';
 import { isMany } from '../snapshot/index.ts';
 import type { Instance, Source } from '../snapshot/index.ts';
 
@@ -23,15 +29,18 @@ const Sending = Context.Reference<Source | undefined>('effect-oak/Sending', {
  * The work of every live Instance, in nested Scopes: the live app's Scope
  * holds the root's, an Instance's holds its State's, and a State's holds its
  * Children's. Closing a Scope stops everything below it, children first.
+ * Workers hang on the Instance's Scope and follow its data: after every
+ * change, each Worker's Condition names the keys that should run.
  *
- * 1. Start   an Instance: its Scope, its `self`, its `'*'` Lifetime, and its
- *            State.
- * 2. Enter   a State: its Scope, the Layer it Provides, its Lifetime, and its
- *            Children. Work waits for the Capabilities from above, so starting
- *            never blocks.
- * 3. Change  tells the Instance's own work its new data.
- * 4. Command runs work an Update asked for, in the Instance's Scope, under a
- *            key if it has one.
+ * 1. Start   an Instance: its Scope, its `self`, its Workers, and its State.
+ * 2. Enter   a State: its Scope, the Layer it Provides, and its Children.
+ *            Work waits for the Capabilities from above, so starting never
+ *            blocks.
+ * 3. Change  tells the Instance's own work its new data, and syncs its
+ *            Workers: a key that appeared starts one, a key that went stops
+ *            one, a key that stayed is left alone.
+ * 4. Command runs an errand an Update asked for, in the Instance's Scope,
+ *            and Sends the Message it ends with.
  * 5. Stop    an Instance, or leave its State: close the Scope.
  */
 
@@ -41,6 +50,21 @@ interface Parent {
   readonly capabilities: Deferred.Deferred<Context.Context<never>>;
 }
 
+/** What a Worker is doing, live. */
+export type WorkerStatus = {
+  readonly name: string;
+  /** The key it runs for; `''` for the one Worker of a kind other than `each`. */
+  readonly key: string;
+  readonly status: 'running' | 'finished' | 'failed';
+};
+
+/** One live Worker. `closing` is set before its finalizers run, so a Send from one dies. */
+interface Live {
+  fiber: Fiber.Fiber<unknown, unknown>;
+  closing: boolean;
+  status: WorkerStatus['status'];
+}
+
 /** One live Instance's work. */
 interface Work {
   readonly definition: Definition;
@@ -48,7 +72,8 @@ interface Work {
   readonly above: Deferred.Deferred<Context.Context<never>>;
   readonly data: SubscriptionRef.SubscriptionRef<Data<unknown, Tagged>>;
   readonly self: Self<unknown, Tagged, Tagged>;
-  readonly commands: Map<string, Fiber.Fiber<unknown, unknown>>;
+  /** By Worker name, then by key. */
+  readonly workers: Map<string, Map<string, Live>>;
   /** The current State's Scope, and what its Children get. */
   state: Parent & { readonly scope: Scope.Closeable };
 }
@@ -57,11 +82,12 @@ export type Works = ReturnType<typeof makeWorks>;
 
 /**
  * The work of one live run of the app. `services` are the Layer's, `send`
- * hands a Message to the mailbox.
+ * hands a Message to the mailbox, `now` is the app's Time.
  */
 export const makeWorks = (
   services: Context.Context<never>,
   send: (instance: string, message: Tagged, source: Source) => void,
+  now: () => number,
 ) => {
   const works = new Map<string, Work>();
   const run = Effect.runSyncWith(services);
@@ -124,12 +150,13 @@ export const makeWorks = (
             send(
               instance.id,
               message,
-              source ?? { kind: 'lifetime', instance: instance.id },
+              source ?? { kind: 'worker', instance: instance.id },
             ),
           ),
         ),
       get: SubscriptionRef.get(data),
       changes: SubscriptionRef.changes(data),
+      now: Effect.sync(now),
     };
     const work: Work = {
       definition,
@@ -137,17 +164,11 @@ export const makeWorks = (
       above: parent.capabilities,
       data,
       self,
-      commands: new Map(),
+      workers: new Map(),
       state: undefined!,
     };
     works.set(instance.id, work);
-    const always = definition.lifetime['*'];
-    if (always)
-      fork(
-        scope,
-        instance.id,
-        withAbove(work.above, scope, lifetimeOf(instance), always(self)),
-      );
+    sync(work, instance);
     enter(work, instance);
   };
 
@@ -178,13 +199,6 @@ export const makeWorks = (
         Effect.flatMap((below) => Deferred.succeed(capabilities, below)),
       ) as Effect.Effect<unknown, never, never>,
     );
-    const lifetime = definition.lifetime[tag];
-    if (lifetime)
-      fork(
-        scope,
-        instance.id,
-        withAbove(work.above, scope, lifetimeOf(instance), lifetime(work.self)),
-      );
 
     const slots = definition.children[tag] ?? {};
     for (const [slot, held] of Object.entries(instance.children)) {
@@ -197,58 +211,124 @@ export const makeWorks = (
   // 3. Change
   const change = (instance: Instance): void => {
     const work = works.get(instance.id);
-    if (work)
-      run(
-        SubscriptionRef.set(work.data, {
-          model: instance.model,
-          state: instance.state,
+    if (!work) return;
+    run(
+      SubscriptionRef.set(work.data, {
+        model: instance.model,
+        state: instance.state,
+      }),
+    );
+    sync(work, instance);
+  };
+
+  /** Start the Workers whose keys appeared, and stop those whose keys went. */
+  const sync = (work: Work, instance: Instance): void => {
+    const data: Data<unknown, Tagged> = {
+      model: instance.model,
+      state: instance.state,
+    };
+    for (const [name, worker] of Object.entries(work.definition.workers)) {
+      const keys = new Set(worker.keys(data));
+      let live = work.workers.get(name);
+      if (!live) work.workers.set(name, (live = new Map()));
+      for (const [key, entry] of live)
+        if (!keys.has(key)) {
+          live.delete(key);
+          entry.closing = true;
+          entry.fiber.interruptUnsafe();
+        }
+      for (const key of keys)
+        if (!live.has(key))
+          live.set(key, launch(work, instance.id, name, worker, key));
+    }
+  };
+
+  /**
+   * One Worker: its own Scope inside its fiber, so that whichever way it ends,
+   * `closing` is set before its finalizers run and a Send from one dies.
+   */
+  const launch = (
+    work: Work,
+    id: string,
+    name: string,
+    worker: WorkerDefinition,
+    key: string,
+  ): Live => {
+    const label = key === '' ? name : `${name}#${key}`;
+    const entry: Live = {
+      fiber: undefined!,
+      closing: false,
+      status: 'running',
+    };
+    const self: Work['self'] = {
+      ...work.self,
+      send: (message) =>
+        Effect.suspend(() =>
+          entry.closing
+            ? Effect.die(
+                new Error(
+                  `[effect-oak] Worker ${label} of ${id} sent a Message after it stopped. Finalizers may not send.`,
+                ),
+              )
+            : work.self.send(message),
+        ),
+    };
+    const source: Source = {
+      kind: 'worker',
+      instance: id,
+      name,
+      ...(key === '' ? {} : { key }),
+    };
+    const scoped = Effect.suspend(() => {
+      const scope = Scope.makeUnsafe();
+      return (worker.run(self, key) as Effect.Effect<unknown, never, any>).pipe(
+        Effect.provideService(Scope.Scope, scope),
+        Effect.onExit((exit) => {
+          entry.closing = true;
+          entry.status =
+            Exit.isFailure(exit) && !stopped(exit.cause)
+              ? 'failed'
+              : 'finished';
+          return Scope.close(scope, exit);
         }),
       );
+    });
+    entry.fiber = fork(
+      work.scope,
+      `${id} worker ${label}`,
+      withAbove(work.above, work.scope, source, scoped),
+    );
+    return entry;
   };
 
   // 4. Command
   const command = (
     instance: Instance,
-    planned: unknown,
-    cancel: ReadonlyArray<string>,
+    planned: ReadonlyArray<unknown>,
   ): void => {
     const work = works.get(instance.id);
     if (!work) return;
-    for (const key of cancel) {
-      work.commands.get(key)?.interruptUnsafe();
-      work.commands.delete(key);
-    }
-    if (planned === undefined) return;
-    const { key, run: task } = keyed(planned);
-    const effect = (
-      (Effect.isEffect(task)
-        ? task
-        : Effect.scoped(
-            (
-              task as (self: Work['self']) => Effect.Effect<unknown, never, any>
-            )(work.self),
-          )) as Effect.Effect<unknown, never, any>
-    ).pipe(
-      Effect.flatMap((result) =>
-        isMessage(result) ? work.self.send(result) : Effect.void,
-      ),
-    );
-    const fiber = fork(
-      work.scope,
-      instance.id,
-      withAbove(
-        work.above,
+    for (const each of planned) {
+      const { name, run: task } = each as {
+        name: string;
+        run: Effect.Effect<unknown, never, any>;
+      };
+      const effect = task.pipe(
+        Effect.flatMap((result) =>
+          isMessage(result) ? work.self.send(result) : Effect.void,
+        ),
+      );
+      fork(
         work.scope,
-        { kind: 'command', instance: instance.id },
-        effect,
-      ),
-    );
-    if (key === undefined) return;
-    work.commands.get(key)?.interruptUnsafe();
-    work.commands.set(key, fiber);
-    fiber.addObserver(() => {
-      if (work.commands.get(key) === fiber) work.commands.delete(key);
-    });
+        `${instance.id} command ${name}`,
+        withAbove(
+          work.above,
+          work.scope,
+          { kind: 'command', instance: instance.id, name },
+          effect,
+        ),
+      );
+    }
   };
 
   // 5. Stop
@@ -259,7 +339,7 @@ export const makeWorks = (
     close(work.scope);
   };
 
-  /** Leave the current State: its Lifetime, Provides and Children stop. */
+  /** Leave the current State: its Provides and Children stop. */
   const leave = (instance: Instance): void => {
     const work = works.get(instance.id);
     if (!work) return;
@@ -268,6 +348,10 @@ export const makeWorks = (
   };
 
   const forget = (instance: Instance) => {
+    const work = works.get(instance.id);
+    if (work)
+      for (const live of work.workers.values())
+        for (const entry of live.values()) entry.closing = true;
     works.delete(instance.id);
     forgetChildren(instance);
   };
@@ -292,6 +376,15 @@ export const makeWorks = (
     /** Where the Children of an Instance's current State hang. */
     parentOf: (instance: Instance): Parent | undefined =>
       works.get(instance.id)?.state,
+    /** What an Instance's Workers are doing, by name and key. */
+    workers: (instance: string): ReadonlyArray<WorkerStatus> => {
+      const work = works.get(instance);
+      if (!work) return [];
+      const all: Array<WorkerStatus> = [];
+      for (const [name, live] of work.workers)
+        for (const [key, { status }] of live) all.push({ name, key, status });
+      return all;
+    },
   };
 };
 
@@ -301,21 +394,6 @@ export const makeWorks = (
  */
 const stopped = (cause: Cause.Cause<unknown>) =>
   Cause.hasInterruptsOnly(cause) || Pull.isDoneCause(cause);
-
-const lifetimeOf = (instance: Instance): Source => ({
-  kind: 'lifetime',
-  instance: instance.id,
-});
-
-const keyed = (
-  planned: unknown,
-): { readonly key: string | undefined; readonly run: unknown } =>
-  !Effect.isEffect(planned) &&
-  typeof planned === 'object' &&
-  planned !== null &&
-  'run' in planned
-    ? (planned as { key: string; run: unknown })
-    : { key: undefined, run: planned };
 
 const isMessage = (value: unknown): value is Tagged =>
   typeof value === 'object' &&

@@ -1,4 +1,4 @@
-import { Effect, Layer, Schema, Stream } from 'effect';
+import { Layer, Schema, Stream } from 'effect';
 import { Actor } from 'effect-oak';
 import { Blog, BlogLive } from '../blog-server/index.js';
 import { PostQuery, PostsQuery, Reader, StatsQuery } from './queries.js';
@@ -32,16 +32,20 @@ export const ApiCacheQuery = Actor.make('ApiCacheQuery', {
     Layer.succeed(Reader, {
       open: (postId) => self.send({ _tag: 'OpenedPost', postId }),
     }),
-  lifetime: (self) =>
-    Effect.gen(function* () {
-      yield* tell('Posts', { _tag: 'LoadIfMissing', key: '' });
-      yield* Stream.tick(STATS_EVERY_MS).pipe(
-        Stream.drop(1),
-        Stream.runForEach(() =>
-          self.send({ _tag: 'TickedStatsRefreshInterval' }),
+  workers: {
+    load: { run: () => tell('Posts', { _tag: 'LoadIfMissing', key: '' }).run },
+    // Ticks only while the Stats tab is shown: the tab is this Model's data.
+    tick: {
+      while: ({ model }) => model.tab === 'Stats',
+      run: (self) =>
+        Stream.tick(STATS_EVERY_MS).pipe(
+          Stream.drop(1),
+          Stream.runForEach(() =>
+            self.send({ _tag: 'TickedStatsRefreshInterval' }),
+          ),
         ),
-      );
-    }),
+    },
+  },
   update: {
     SelectedTab: ({ tab }, { model }) => ({
       model: { ...model, tab },
@@ -57,11 +61,9 @@ export const ApiCacheQuery = Actor.make('ApiCacheQuery', {
     ClickedBackToPosts: (_, { model }) => ({
       model: { ...model, openPostId: null },
     }),
-    // The Lifetime cannot stop while the tab is hidden: it ticks anyway.
-    TickedStatsRefreshInterval: (_, { model }) =>
-      model.tab === 'Stats'
-        ? { command: tell('Stats', { _tag: 'Revalidate', key: '' }) }
-        : {},
+    TickedStatsRefreshInterval: () => ({
+      command: tell('Stats', { _tag: 'Revalidate', key: '' }),
+    }),
   },
 });
 

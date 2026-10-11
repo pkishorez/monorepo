@@ -14,8 +14,8 @@ import { Picks, reportPick } from '../picks/index.js';
  * The keyboard is all Update: Arrow keys, Home and End move the active item,
  * Enter and Space choose it, Escape and Tab close, and letters jump to the
  * first item starting with what was typed. The typed letters are cleared
- * 350 ms later by a Command that each new letter replaces, so only the last
- * one's timer runs, in the app's Time.
+ * 350 ms later by a Worker keyed on them: each new letter changes the key,
+ * which stops the old timer and starts a new one, in the app's Time.
  *
  * Focus moves to the item list on opening and back to the button on closing
  * from the keyboard, as Commands. The active item is
@@ -58,6 +58,15 @@ const make = (options: Options) => {
     }),
   }).build({
     init: () => ({ model: { open: false, active: null, typed: '' } }),
+    workers: {
+      clearTyped: {
+        each: ({ model }) => (model.typed === '' ? [] : [model.typed]),
+        run: (self) =>
+          Effect.sleep(CLEAR_TYPED_MS).pipe(
+            Effect.andThen(self.send({ _tag: 'ClearedTyped' })),
+          ),
+      },
+    },
     update: {
       ClickedButton: (_, { model }) =>
         model.open
@@ -99,12 +108,6 @@ const make = (options: Options) => {
         );
         return {
           model: { ...model, typed, active: found < 0 ? model.active : found },
-          command: {
-            key: 'clearTyped',
-            run: Effect.sleep(CLEAR_TYPED_MS).pipe(
-              Effect.as({ _tag: 'ClearedTyped' as const }),
-            ),
-          },
         };
       },
       HoveredItem: ({ index }, { model }) =>
@@ -119,10 +122,7 @@ const make = (options: Options) => {
   function choose(index: number) {
     return {
       model: { open: false, active: null, typed: '' },
-      command: Effect.all(
-        [reportPick(options.id, items[index]!), focusId(ids.button)],
-        { concurrency: 'unbounded', discard: true },
-      ),
+      command: [reportPick(options.id, items[index]!), focusId(ids.button)],
     };
   }
 

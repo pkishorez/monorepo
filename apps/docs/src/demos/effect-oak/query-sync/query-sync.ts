@@ -9,7 +9,7 @@ import { Url } from './url/index.js';
  * A dinosaur table whose filters, search and sorting live in the URL.
  *
  * There is no router: the URL is a Capability, and every Actor that draws part of
- * it listens to it with a Lifetime. The app reads all of it to draw the
+ * it listens to it with a Worker. The app reads all of it to draw the
  * table and writes the sorting when a header is clicked; the search box and
  * the two filters are Param Children, each mirroring and writing its own
  * parameter. The address bar is the only place they meet.
@@ -31,22 +31,31 @@ export const QuerySync = Actor.make('QuerySync', {
   children: { search: SearchParam, diet: DietParam, period: PeriodParam },
 }).build({
   init: () => ({ model: { browse: browseFrom('') } }),
-  lifetime: (self) =>
-    Stream.unwrap(
-      Effect.gen(function* () {
-        return (yield* Url).query;
-      }),
-    ).pipe(
-      Stream.runForEach((query) => self.send({ _tag: 'ChangedUrl', query })),
-    ),
+  workers: {
+    listen: {
+      run: (self) =>
+        Stream.unwrap(
+          Effect.gen(function* () {
+            return (yield* Url).query;
+          }),
+        ).pipe(
+          Stream.runForEach((query) =>
+            self.send({ _tag: 'ChangedUrl', query }),
+          ),
+        ),
+    },
+  },
   update: {
     ChangedUrl: ({ query }) => ({ model: { browse: browseFrom(query) } }),
     ClickedColumnHeader: ({ column }, { model }) => {
       const sorting = printSorting(nextSorting(model.browse.sorting, column));
       return {
-        command: Effect.gen(function* () {
-          yield* (yield* Url).replace({ sorting });
-        }),
+        command: {
+          name: 'sort',
+          run: Effect.gen(function* () {
+            yield* (yield* Url).replace({ sorting });
+          }),
+        },
       };
     },
   },

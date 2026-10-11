@@ -13,16 +13,21 @@ import { Blog, Post, PostDetail, Served } from '../../blog-server/index.js';
 const PostList = Served(Schema.Array(Post));
 const PostPage = Served(PostDetail);
 
-const fetchList = Effect.gen(function* () {
-  const result = yield* AsyncData.attempt((yield* Blog).posts);
-  return { _tag: 'SettledFetchPosts' as const, result };
-});
+const fetchList = {
+  name: 'fetchList',
+  run: Effect.gen(function* () {
+    const result = yield* AsyncData.attempt((yield* Blog).posts);
+    return { _tag: 'SettledFetchPosts' as const, result };
+  }),
+};
 
-const fetchPost = (postId: string) =>
-  Effect.gen(function* () {
+const fetchPost = (postId: string) => ({
+  name: 'fetchPost',
+  run: Effect.gen(function* () {
     const result = yield* AsyncData.attempt((yield* Blog).post(postId));
     return { _tag: 'SettledFetchPost' as const, postId, result };
-  });
+  }),
+});
 
 const Model = Schema.Struct({
   list: AsyncData.schema(PostList),
@@ -60,8 +65,8 @@ export const Posts = Actor.make('Posts', {
     model: { list: AsyncData.loading, details: {} },
     state: { _tag: 'Browsing' },
   }),
-  lifetime: {
-    '*': (self) => Effect.flatMap(fetchList, self.send),
+  workers: {
+    load: { run: (self) => Effect.flatMap(fetchList.run, self.send) },
   },
   update: {
     Browsing: {

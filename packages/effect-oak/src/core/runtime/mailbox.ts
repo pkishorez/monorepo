@@ -3,7 +3,7 @@ import type { Envelope, Source } from '../snapshot/index.ts';
 
 /*
  * The one mailbox. A Message is handled before `send` returns, unless another
- * is being handled (a Lifetime sending as it starts, say): then it waits its
+ * is being handled (a Worker sending as it starts, say): then it waits its
  * turn, so every Message sees a settled app. Its Time is when it was sent, so
  * Times only grow along the queue. Subscribers are told once the queue is
  * empty: many Messages make one render, still inside the keypress that sent

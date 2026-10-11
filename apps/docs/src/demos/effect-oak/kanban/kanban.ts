@@ -9,8 +9,8 @@ import { follow } from './drag/index.js';
  * A kanban board: Loading → Idle ⇄ Dragging.
  *
  * The columns are the Model, kept in every State. Loading reads the saved
- * board in a Lifetime. Idle has one AddCard Child per column and Provides
- * Adding for them. Dragging is a card being held: its Lifetime follows the
+ * board in a Worker. Idle has one AddCard Child per column and Provides
+ * Adding for them. Dragging is a card being held: its Worker follows the
  * pointer and sends a Message only when the drop target changes, so the View
  * can draw the card where it would land. Every change to the columns is saved
  * by a Command.
@@ -27,11 +27,26 @@ export const AddCardViews = {
   done: done.AddCardView,
 };
 
-const save = (columns: Columns) =>
-  Effect.gen(function* () {
+const save = (columns: Columns) => ({
+  name: 'save',
+  run: Effect.gen(function* () {
     yield* (yield* BoardStore).save(columns);
     return { _tag: 'SucceededSaveBoard' as const };
-  }).pipe(Effect.orElseSucceed(() => ({ _tag: 'FailedSaveBoard' as const })));
+  }).pipe(Effect.orElseSucceed(() => ({ _tag: 'FailedSaveBoard' as const }))),
+});
+
+const generateCardId = (columnId: string, title: string) => ({
+  name: 'generateCardId',
+  run: Effect.gen(function* () {
+    const id = yield* Random.nextIntBetween(0, Number.MAX_SAFE_INTEGER);
+    return {
+      _tag: 'CompletedGenerateCardId' as const,
+      cardId: `card-${id.toString(36)}`,
+      columnId,
+      title,
+    };
+  }),
+});
 
 const IDLE = { _tag: 'Idle' } as const;
 
@@ -72,17 +87,23 @@ export const Board = Actor.make('Board', {
   },
 }).build({
   init: () => ({ model: { columns: [] }, state: { _tag: 'Loading' } }),
-  lifetime: {
-    Loading: (self) =>
-      Effect.gen(function* () {
-        const columns = yield* (yield* BoardStore).load;
-        yield* self.send({ _tag: 'Loaded', columns });
-      }),
-    Dragging: (self) =>
-      Effect.gen(function* () {
-        const { state } = yield* self.get;
-        yield* follow(state.cardId).pipe(Stream.runForEach(self.send));
-      }),
+  workers: {
+    load: {
+      in: 'Loading',
+      run: (self) =>
+        Effect.gen(function* () {
+          const columns = yield* (yield* BoardStore).load;
+          yield* self.send({ _tag: 'Loaded', columns });
+        }),
+    },
+    follow: {
+      in: 'Dragging',
+      run: (self) =>
+        Effect.gen(function* () {
+          const { state } = yield* self.get;
+          yield* follow(state.cardId).pipe(Stream.runForEach(self.send));
+        }),
+    },
   },
   provides: {
     Idle: (self) =>
@@ -97,15 +118,7 @@ export const Board = Actor.make('Board', {
     },
     Idle: {
       RequestedAdd: ({ columnId, title }) => ({
-        command: Effect.gen(function* () {
-          const id = yield* Random.nextIntBetween(0, Number.MAX_SAFE_INTEGER);
-          return {
-            _tag: 'CompletedGenerateCardId' as const,
-            cardId: `card-${id.toString(36)}`,
-            columnId,
-            title,
-          };
-        }),
+        command: generateCardId(columnId, title),
       }),
       PickedUp: ({ cardId }, { model }) => {
         const place = placeOf(model.columns, cardId);

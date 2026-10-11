@@ -3,6 +3,7 @@ export type { Defined } from './actor.ts';
 export type {
   ActorOf,
   AnyActor,
+  Command,
   Data,
   Definition,
   Many,
@@ -11,4 +12,7 @@ export type {
   SlotDefinition,
   Tagged,
   Types,
+  Worker,
+  WorkerDefinition,
+  Workers,
 } from './types.ts';

@@ -12,7 +12,7 @@ signed in, and Sign out clears it.
 
 ```
 Auth (root)                          requires AuthServer (from the Layer)
-  Checking                           Lifetime: AuthServer.loadSession → CheckedSession
+  Checking                           Worker: AuthServer.loadSession → CheckedSession
   LoggedOut                          Provides SignIn
   └─ pages: LoggedOutPages           requires AuthServer, SignIn (passing through)
        Home
@@ -22,7 +22,7 @@ Auth (root)                          requires AuthServer (from the Layer)
             Submitting               Command: AuthServer.login → SignIn.complete (a Request)
   LoggedIn { session }               Provides SignedIn { session, logOut }
   └─ pages: LoggedInPages            requires SignedIn
-       Opening                       Lifetime: reads SignedIn.session → Opened
+       Opening                       Worker: reads SignedIn.session → Opened
        Dashboard { session }
        Settings { session }          Sign out → Command → SignedIn.logOut() (a Request)
 session/      Session schema, SignIn and SignedIn Capabilities
@@ -68,7 +68,7 @@ This is Foldkit's two-level route union (`LoggedOut { route }` and
 - **Children cannot be given input when they are created** (now possible: a Child's `init` takes its Input; this demo is unchanged) (blocker 3) and
   **a parent cannot pass data to a Child** (blocker 13). Both signed-in pages
   draw the session, which Auth already has in its State. LoggedInPages can
-  only get it by starting in `Opening`, whose Lifetime reads the `SignedIn`
+  only get it by starting in `Opening`, whose Worker reads the `SignedIn`
   Capability and sends `Opened { session }`: an extra Message per sign-in to copy
   data the parent holds, and an `Opening` State drawn as nothing.
 - **No routing** (blocker 15).
@@ -94,7 +94,7 @@ What Effect Oak would need:
   same fact is a Request inside a Command (`SignIn.complete`). A test can run
   LoginForm under `Runtime.start` with stub `AuthServer` and `SignIn` Layers
   and record what `complete` got, which is an integration test.
-- Emitting a Lifetime's Message by hand (blocker 6) for `Checking` and
+- Emitting a Worker's Message by hand (blocker 6) for `Checking` and
   `Opening`.
 - A scene across the Request: drawing the whole tree from a Model and State
   (blocker 5), then clicking Sign in and answering the login Command.

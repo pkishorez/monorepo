@@ -15,7 +15,7 @@ import {
 /** The groups demos are listed under, in order. */
 export const GROUPS = [
   'Basics',
-  'Commands and Lifetimes',
+  'Commands and Workers',
   'Graphics',
   'Data',
   'Apps',
@@ -72,37 +72,37 @@ export const DEMOS = [
   {
     to: '/demos/effect-oak/weather',
     name: 'Weather',
-    group: 'Commands and Lifetimes',
+    group: 'Commands and Workers',
     summary: 'Weather for a zip code from a public API, through a Service',
   },
   {
     to: '/demos/effect-oak/interrupting-commands',
     name: 'Interrupting commands',
-    group: 'Commands and Lifetimes',
+    group: 'Commands and Workers',
     summary: 'Fake uploads you can cancel one at a time or all at once',
   },
   {
     to: '/demos/effect-oak/slow-warnings',
     name: 'Slow warnings',
-    group: 'Commands and Lifetimes',
+    group: 'Commands and Workers',
     summary: 'Slow Updates and Views, timed from the outside',
   },
   {
     to: '/demos/effect-oak/managed-resource-layer',
     name: 'Managed resource',
-    group: 'Commands and Lifetimes',
+    group: 'Commands and Workers',
     summary: 'An engine built from a Layer for as long as a State lasts',
   },
   {
     to: '/demos/effect-oak/form',
     name: 'Form',
-    group: 'Commands and Lifetimes',
+    group: 'Commands and Workers',
     summary: 'A waitlist form with field Nodes and an async email check',
   },
   {
     to: '/demos/effect-oak/websocket-chat',
     name: 'WebSocket chat',
-    group: 'Commands and Lifetimes',
+    group: 'Commands and Workers',
     summary: 'A chat with an echo server, held open by a Lifetime',
   },
   {

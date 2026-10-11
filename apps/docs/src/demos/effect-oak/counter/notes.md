@@ -10,7 +10,7 @@ Foldkit's `counter`: a number with −, Reset and +.
 Counter          one Actor, one State; Model { count }
 ```
 
-Three Messages, each a plain Update. No Commands, Lifetimes or Capabilities.
+Three Messages, each a plain Update. No Commands, Workers or Capabilities.
 It is one Actor because the app is one piece.
 
 ## Deviations

@@ -37,9 +37,12 @@ export const Controls = Actor.make('Controls', {
   update: {
     Chose: ({ choice }) => ({
       model: choice,
-      command: Effect.gen(function* () {
-        yield* (yield* Choices).chose(choice);
-      }),
+      command: {
+        name: 'chose',
+        run: Effect.gen(function* () {
+          yield* (yield* Choices).chose(choice);
+        }),
+      },
     }),
   },
 });

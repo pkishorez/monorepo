@@ -7,8 +7,9 @@ to `/demos/effect-oak/road` (the old `/demos/effect-oak` redirects here).
 
 ```
 Game        Welcome → Playing ⇄ Paused, then Crashed
-  Playing   Lifetime sends CarSpawned; each Update plans Collided as a
-            Command under the key `crash`: the latest plan wins
+  Playing   a Worker sends CarSpawned; each Update writes when you would
+            crash into the State, and a Worker keyed by that Time sleeps
+            until then and sends Collided: a new plan stops the old Worker
   Paused    PressedPause (P or the Pause button) drops the crash plan and
             keeps how long was left until the next car; pressing it again
             moves every Time in the road on by the pause, and that car comes

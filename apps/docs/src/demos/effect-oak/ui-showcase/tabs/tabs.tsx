@@ -1,4 +1,4 @@
-import { Effect, Schema } from 'effect';
+import { Schema } from 'effect';
 import { Actor } from 'effect-oak';
 import { View } from 'effect-oak/react';
 import type { ReactNode } from 'react';
@@ -58,13 +58,7 @@ const make = (options: Options) => {
         const index = stepActive(model.selected, key, tabs.length, keys);
         if (index === null || index === model.selected) return {};
         const next = select(index);
-        return {
-          ...next,
-          command: Effect.all([next.command, focusId(ids.tab(index))], {
-            concurrency: 'unbounded',
-            discard: true,
-          }),
-        };
+        return { ...next, command: [next.command, focusId(ids.tab(index))] };
       },
     },
   });

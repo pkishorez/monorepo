@@ -13,8 +13,8 @@ import { Flights } from '../world/index.js';
 /*
  * "Find me": Idle → Locating → Idle, or Failed with the reason. Locating asks
  * the browser where the user is through the Geolocation Capability; on success
- * it asks the map to fly there through Flights. Dismissing while Locating
- * stops the lookup by cancelling its keyed Command.
+ * it asks the map to fly there through Flights. The lookup is Locating's
+ * Worker, so dismissing, which leaves Locating, stops it.
  */
 
 const TIMEOUT_MS = 10_000;
@@ -53,10 +53,12 @@ const locate = Effect.gen(function* () {
   ),
 );
 
-const flyHome = (lng: number, lat: number) =>
-  Effect.gen(function* () {
+const flyHome = (lng: number, lat: number) => ({
+  name: 'flyHome',
+  run: Effect.gen(function* () {
     yield* (yield* Flights).toUser({ lng, lat });
-  });
+  }),
+});
 
 export const Finder = Actor.make('Finder', {
   requires: { flights: Flights, geolocation: Geolocation },
@@ -73,18 +75,18 @@ export const Finder = Actor.make('Finder', {
   }),
 }).build({
   init: () => ({ state: { _tag: 'Idle' } }),
+  workers: {
+    locate: {
+      in: 'Locating',
+      run: (self) => locate.pipe(Effect.flatMap(self.send)),
+    },
+  },
   update: {
     Idle: {
-      ClickedFindMe: () => ({
-        state: { _tag: 'Locating' },
-        command: { key: 'locate', run: locate },
-      }),
+      ClickedFindMe: () => ({ state: { _tag: 'Locating' } }),
     },
     Locating: {
-      DismissedGeolocate: () => ({
-        state: { _tag: 'Idle' },
-        cancel: 'locate',
-      }),
+      DismissedGeolocate: () => ({ state: { _tag: 'Idle' } }),
       SucceededGeolocate: ({ lng, lat }) => ({
         state: { _tag: 'Idle' },
         command: flyHome(lng, lat),
@@ -94,10 +96,7 @@ export const Finder = Actor.make('Finder', {
       }),
     },
     Failed: {
-      ClickedFindMe: () => ({
-        state: { _tag: 'Locating' },
-        command: { key: 'locate', run: locate },
-      }),
+      ClickedFindMe: () => ({ state: { _tag: 'Locating' } }),
       DismissedGeolocate: () => ({ state: { _tag: 'Idle' } }),
     },
   },

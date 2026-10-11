@@ -24,12 +24,12 @@ Routing (root)            requires Location (from the Layer)
   FilesIndex
   Files { path }
   NotFound { path }
-  every State: Lifetime heardUrl(model.path) → ChangedUrl
+  Worker `listen`: heardUrl(model.path) → ChangedUrl
   ClickedLink → Command: Location.push(path)
   ChangedUrl  → state: routeFrom(path)
 
 People (Child of People)  Model { input, history, results: Loading | Loaded }
-  Lifetime: the URL's ?q= → HeardSearch → Command: lookup → FoundPeople
+  Worker: the URL's ?q= → HeardSearch; Worker keyed on the query: lookup → FoundPeople
   SubmittedSearch, ClickedLink → Command: Location.push(…)
 
 ../location/   Location Capability (hash path, push, replace, back and forward),
@@ -41,7 +41,7 @@ pages.tsx      the frame (nav and an address bar), Home, Nested, NotFound
 ```
 
 The URL comes first, as in Foldkit: a click Sends `ClickedLink`, its Command
-pushes the path, the Location hears it and the State's Lifetime sends
+pushes the path, the Location hears it and the `listen` Worker sends
 `ChangedUrl`, which picks the next State. Back, forward and typing in the
 address bar take the same road. One navigation is two Messages
 (`ClickedLink`, `ChangedUrl`); a search is four (`SubmittedSearch`,
@@ -55,7 +55,7 @@ address bar take the same road. One navigation is two Messages
   link on the page as `ClickedLink { request: Internal | External }`; here
   each View says where its links go, and there are no external links.
 - **No G H / G P keyboard shortcuts.** They would be one more Stream merged
-  into the per-State Lifetime.
+  into the `listen` Worker.
 - **Recent searches are lost on leaving People.** Foldkit keeps
   `peoplePage` in the root Model for the app's whole life; here People is a
   Child of the People State and is destroyed with it (blocker 10). Coming
@@ -72,12 +72,12 @@ address bar take the same road. One navigation is two Messages
     again, with whatever the address is by then. `Runtime.start(actor, { url })`
     with `init({ url })`, the URL kept with the Log so Replay gets the same
     one, is the fix.
-  - **The same Lifetime in every State.** A Lifetime belongs to one State, so
-    all eight States start the same URL listener on entry (blocker 10). Each
+  - **One Worker for the Instance** listens across all eight States; it used
+    to be the same Lifetime declared in every State (blocker 10, gone). Each
     must also be told the path it was entered with, or it would hear the
     current path again on entry and send a duplicate `ChangedUrl`.
   - **URL changes and link clicks are not Runtime Messages.** Each app writes
-    a Location Capability, a Lifetime and a link component. A
+    a Location Capability, a Worker and a link component. A
     `routing: { onUrlChange, onUrlRequest }` option on `toReact`, sending
     Messages to the root, and `pushUrl`/`replaceUrl`/`back` Commands from the
     library, would replace all three.
@@ -113,6 +113,6 @@ What Effect Oak would need:
   path, and `HeardSearch` for a lookup.
 - A typed `Actor.step` (blocker 5) to run `ChangedUrl` from a State, and to
   draw a route's View from a State for the scenes.
-- Emitting a Lifetime's Message by hand (blocker 6) for `ChangedUrl` and
+- Emitting a Worker's Message by hand (blocker 6) for `ChangedUrl` and
   `HeardSearch`; today a stub Location Layer under `Runtime.start` can script
   paths, which is an integration test.

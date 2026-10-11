@@ -10,10 +10,12 @@ import { Flights, LOCATIONS } from '../world/index.js';
  * panel remembers what it asked for, since it cannot read the map's Model.
  */
 
-const flyTo = (locationId: string) =>
-  Effect.gen(function* () {
+const flyTo = (locationId: string) => ({
+  name: 'flyTo',
+  run: Effect.gen(function* () {
     yield* (yield* Flights).toPlace(locationId);
-  });
+  }),
+});
 
 export const Places = Actor.make('Places', {
   requires: { flights: Flights },

@@ -1,5 +1,6 @@
 import {
   Context,
+  Duration,
   Effect,
   Layer,
   Schema,
@@ -8,7 +9,7 @@ import {
 } from 'effect';
 import type { Scope } from 'effect';
 import { TestClock } from 'effect/testing';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Actor, Replay, Runtime, instanceAt } from '../index.ts';
 import type { Instance, Running } from '../index.ts';
 
@@ -44,9 +45,12 @@ const Login = Actor.make('Login', {
       model: { name: message.name, typedAt: at },
     }),
     Submitted: (_, { model }) => ({
-      command: Effect.gen(function* () {
-        yield* (yield* SignIn).complete(model.name);
-      }),
+      command: {
+        name: 'signIn',
+        run: Effect.gen(function* () {
+          yield* (yield* SignIn).complete(model.name);
+        }),
+      },
     }),
   },
 });
@@ -62,9 +66,12 @@ const Todos = Actor.make('Todos', {
       model: { items: [...model.items, message.text] },
     }),
     Quit: () => ({
-      command: Effect.gen(function* () {
-        yield* (yield* Session).logOut;
-      }),
+      command: {
+        name: 'logOut',
+        run: Effect.gen(function* () {
+          yield* (yield* Session).logOut;
+        }),
+      },
     }),
   },
 });
@@ -102,12 +109,15 @@ const Auth = Actor.make('Auth', {
       LoggedOut: () => ({ state: { _tag: 'Anonymous' } }),
     },
   },
-  lifetime: {
-    Checking: (self) =>
-      Effect.gen(function* () {
-        const user = yield* (yield* Server).checkSession;
-        yield* self.send({ _tag: 'CheckedSession', user });
-      }),
+  workers: {
+    check: {
+      in: 'Checking',
+      run: (self) =>
+        Effect.gen(function* () {
+          const user = yield* (yield* Server).checkSession;
+          yield* self.send({ _tag: 'CheckedSession', user });
+        }),
+    },
   },
   provides: {
     Anonymous: (self) =>
@@ -209,15 +219,20 @@ describe('a tree of Actors', () => {
         ]);
         // A Request's Source is the Command that made it, in another Instance.
         expect(
-          app.log().map((e) => `${e.source.kind} ${e.source.instance}`),
+          app
+            .log()
+            .map(
+              (e) =>
+                `${e.source.kind} ${e.source.instance}${e.source.name ? ` ${e.source.name}` : ''}`,
+            ),
         ).toEqual([
-          'lifetime Auth',
+          'worker Auth check',
           'view Auth/login#1',
           'view Auth/login#1',
-          'command Auth/login#1',
+          'command Auth/login#1 signIn',
           'view Auth/todos#1',
           'view Auth/todos#1',
-          'command Auth/todos#1',
+          'command Auth/todos#1 logOut',
           'view Auth/todos#1',
         ]);
         // Any entry's Snapshot, played again, is the one the app had live.
@@ -387,31 +402,42 @@ describe('Time', () => {
 /** What work did, seen from outside. */
 const heard: Array<string> = [];
 
-/** Commands: one that rings after a second, keyed; one that streams. */
+/** An errand that rings after a second. */
+const ring = {
+  name: 'ring',
+  run: Effect.sleep('1 second').pipe(Effect.as({ _tag: 'Rang' as const })),
+};
+
+/** Commands that ring, and a Worker that streams while the Model says so. */
 const Timer = Actor.make('Timer', {
-  model: Schema.Struct({ chunks: Schema.Array(Schema.Number) }),
+  model: Schema.Struct({
+    chunks: Schema.Array(Schema.Number),
+    streaming: Schema.Boolean,
+  }),
   message: Schema.TaggedUnion({
     Wait: {},
-    Cancel: {},
+    Both: {},
     Rang: {},
     Stream: {},
     Chunk: { n: Schema.Number },
+    Streamed: {},
   }),
 }).build({
-  init: () => ({ model: { chunks: [] } }),
+  init: () => ({ model: { chunks: [], streaming: false } }),
   update: {
-    Wait: () => ({
-      command: {
-        key: 'ring',
-        run: Effect.sleep('1 second').pipe(
-          Effect.as({ _tag: 'Rang' as const }),
-        ),
-      },
-    }),
-    Cancel: () => ({ cancel: 'ring' }),
+    Wait: () => ({ command: ring }),
+    Both: () => ({ command: [ring, ring] }),
     Rang: () => ({}),
-    Stream: () => ({
-      command: (self) =>
+    Stream: (_, { model }) => ({ model: { ...model, streaming: true } }),
+    Chunk: ({ n }, { model }) => ({
+      model: { ...model, chunks: [...model.chunks, n] },
+    }),
+    Streamed: (_, { model }) => ({ model: { ...model, streaming: false } }),
+  },
+  workers: {
+    stream: {
+      while: ({ model }) => model.streaming,
+      run: (self) =>
         Effect.forEach(
           [1, 2, 3],
           (n) =>
@@ -419,9 +445,8 @@ const Timer = Actor.make('Timer', {
               Effect.andThen(self.send({ _tag: 'Chunk', n })),
             ),
           { discard: true },
-        ),
-    }),
-    Chunk: ({ n }, { model }) => ({ model: { chunks: [...model.chunks, n] } }),
+        ).pipe(Effect.andThen(self.send({ _tag: 'Streamed' }))),
+    },
   },
 });
 
@@ -438,51 +463,30 @@ describe('Commands', () => {
           ['Wait', 0],
           ['Rang', 1000],
         ]);
+        expect(app.log()[1]!.source).toEqual({
+          kind: 'command',
+          instance: 'Timer',
+          name: 'ring',
+        });
       }),
     ));
 
-  it('a Command started under a key replaces the one running under it', () =>
+  it('a list of Commands runs concurrently', () =>
     timed(
       Effect.gen(function* () {
         const app = yield* Runtime.start(Timer);
-        app.send('Timer', { _tag: 'Wait' });
-        yield* TestClock.adjust('600 millis');
-        app.send('Timer', { _tag: 'Wait' });
+        app.send('Timer', { _tag: 'Both' });
         yield* TestClock.adjust('1 second');
         expect(app.log().map((e) => [e.message._tag, e.at])).toEqual([
-          ['Wait', 0],
-          ['Wait', 600],
-          ['Rang', 1600],
+          ['Both', 0],
+          ['Rang', 1000],
+          ['Rang', 1000],
         ]);
-      }),
-    ));
-
-  it('cancel interrupts the Command under a key', () =>
-    timed(
-      Effect.gen(function* () {
-        const app = yield* Runtime.start(Timer);
-        app.send('Timer', { _tag: 'Wait' });
-        app.send('Timer', { _tag: 'Cancel' });
-        yield* TestClock.adjust('2 seconds');
-        expect(app.log().map((e) => e.message._tag)).toEqual([
-          'Wait',
-          'Cancel',
-        ]);
-      }),
-    ));
-
-  it('a Command can Send any number of Messages', () =>
-    timed(
-      Effect.gen(function* () {
-        const app = yield* Runtime.start(Timer);
-        app.send('Timer', { _tag: 'Stream' });
-        yield* TestClock.adjust('30 millis');
-        expect(app.snapshot().model).toEqual({ chunks: [1, 2, 3] });
       }),
     ));
 });
 
-/** A Lifetime for the whole Instance, and one for while it is Running. */
+/** A Worker for the whole Instance, and one for while it is Running. */
 const Metronome = Actor.make('Metronome', {
   state: Schema.TaggedUnion({ Running: {}, Resting: {} }),
   model: Schema.Struct({ beats: Schema.Number }),
@@ -496,33 +500,280 @@ const Metronome = Actor.make('Metronome', {
     },
     '*': {
       Ping: () => ({
-        command: Effect.sleep('1 second').pipe(
-          Effect.tap(() => Effect.sync(() => heard.push('pong'))),
-          Effect.as({ _tag: 'Pong' as const }),
-        ),
+        command: {
+          name: 'pong',
+          run: Effect.sleep('1 second').pipe(
+            Effect.tap(() => Effect.sync(() => heard.push('pong'))),
+            Effect.as({ _tag: 'Pong' as const }),
+          ),
+        },
       }),
       Pong: () => ({}),
     },
   },
-  lifetime: {
-    '*': () =>
-      Effect.addFinalizer(() => Effect.sync(() => heard.push('gone'))).pipe(
-        Effect.andThen(Effect.never),
-      ),
-    Running: (self) =>
-      Effect.addFinalizer(() => Effect.sync(() => heard.push('rested'))).pipe(
-        Effect.andThen(
-          Effect.sleep('100 millis').pipe(
-            Effect.tap(() => Effect.sync(() => heard.push('beat'))),
-            Effect.andThen(self.send({ _tag: 'Beat' })),
-            Effect.forever,
+  workers: {
+    alive: {
+      run: () =>
+        Effect.addFinalizer(() => Effect.sync(() => heard.push('gone'))).pipe(
+          Effect.andThen(Effect.never),
+        ),
+    },
+    beat: {
+      in: 'Running',
+      run: (self) =>
+        Effect.addFinalizer(() => Effect.sync(() => heard.push('rested'))).pipe(
+          Effect.andThen(
+            Effect.sleep('100 millis').pipe(
+              Effect.tap(() => Effect.sync(() => heard.push('beat'))),
+              Effect.andThen(self.send({ _tag: 'Beat' })),
+              Effect.forever,
+            ),
           ),
         ),
-      ),
+    },
   },
 });
 
-describe('Lifetimes', () => {
+/** One Worker per upload still Uploading; each reports progress, then is done. */
+const Uploads = Actor.make('Uploads', {
+  model: Schema.Struct({
+    uploads: Schema.Array(
+      Schema.Struct({
+        id: Schema.String,
+        status: Schema.Literals(['Uploading', 'Done', 'Cancelled']),
+        progress: Schema.Number,
+      }),
+    ),
+  }),
+  message: Schema.TaggedUnion({
+    Started: { id: Schema.String },
+    Progressed: { id: Schema.String, progress: Schema.Number },
+    Finished: { id: Schema.String },
+    Cancelled: { id: Schema.String },
+  }),
+}).build({
+  init: () => ({ model: { uploads: [] } }),
+  update: {
+    Started: ({ id }, { model }) => ({
+      model: {
+        uploads: [...model.uploads, { id, status: 'Uploading', progress: 0 }],
+      },
+    }),
+    Progressed: ({ id, progress }, { model }) => ({
+      model: {
+        uploads: model.uploads.map((u) =>
+          u.id === id ? { ...u, progress } : u,
+        ),
+      },
+    }),
+    Finished: ({ id }, { model }) => ({
+      model: {
+        uploads: model.uploads.map((u) =>
+          u.id === id ? { ...u, status: 'Done' } : u,
+        ),
+      },
+    }),
+    Cancelled: ({ id }, { model }) => ({
+      model: {
+        uploads: model.uploads.map((u) =>
+          u.id === id ? { ...u, status: 'Cancelled' } : u,
+        ),
+      },
+    }),
+  },
+  workers: {
+    upload: {
+      each: ({ model }) =>
+        model.uploads.filter((u) => u.status === 'Uploading').map((u) => u.id),
+      run: (self, id) =>
+        Effect.addFinalizer(() =>
+          Effect.sync(() => heard.push(`closed ${id}`)),
+        ).pipe(
+          Effect.andThen(
+            Effect.forEach(
+              [50, 100],
+              (progress) =>
+                Effect.sleep('10 millis').pipe(
+                  Effect.andThen(
+                    self.send({ _tag: 'Progressed', id, progress }),
+                  ),
+                ),
+              { discard: true },
+            ),
+          ),
+          Effect.andThen(self.send({ _tag: 'Finished', id })),
+        ),
+    },
+  },
+});
+
+/** A Worker that finishes at once, and a finalizer that breaks the rule. */
+const Once = Actor.make('Once', {
+  model: Schema.Struct({ on: Schema.Boolean, runs: Schema.Number }),
+  message: Schema.TaggedUnion({ On: {}, Off: {}, Ran: {}, Late: {} }),
+}).build({
+  init: () => ({ model: { on: false, runs: 0 } }),
+  update: {
+    On: (_, { model }) => ({ model: { ...model, on: true } }),
+    Off: (_, { model }) => ({ model: { ...model, on: false } }),
+    Ran: (_, { model }) => ({ model: { ...model, runs: model.runs + 1 } }),
+    Late: () => ({}),
+  },
+  workers: {
+    once: {
+      while: ({ model }) => model.on,
+      run: (self) =>
+        Effect.addFinalizer(() => self.send({ _tag: 'Late' })).pipe(
+          Effect.andThen(self.send({ _tag: 'Ran' })),
+        ),
+    },
+  },
+});
+
+/** A Worker that waits until a Time in the Model, however often it is started. */
+const Alarm = Actor.make('Alarm', {
+  model: Schema.Struct({ ringAt: Schema.NullOr(Schema.Number) }),
+  message: Schema.TaggedUnion({ Set: {}, Rang: {} }),
+}).build({
+  init: () => ({ model: { ringAt: null } }),
+  update: {
+    Set: (_, { at }) => ({ model: { ringAt: at + 1000 } }),
+    Rang: () => ({ model: { ringAt: null } }),
+  },
+  workers: {
+    ring: {
+      while: ({ model }) => model.ringAt !== null,
+      run: (self) =>
+        Effect.gen(function* () {
+          const { model } = yield* self.get;
+          const left = model.ringAt! - (yield* self.now);
+          yield* Effect.sleep(Duration.millis(left));
+          yield* self.send({ _tag: 'Rang' });
+        }),
+    },
+  },
+});
+
+describe('Workers', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('follow a yes or no in the Model, and are seen live by name', () =>
+    timed(
+      Effect.gen(function* () {
+        const app = yield* Runtime.start(Timer);
+        expect(app.workers('Timer')).toEqual([]);
+        app.send('Timer', { _tag: 'Stream' });
+        expect(app.workers('Timer')).toEqual([
+          { name: 'stream', key: '', status: 'running' },
+        ]);
+        yield* TestClock.adjust('30 millis');
+        expect(app.snapshot().model).toEqual({
+          chunks: [1, 2, 3],
+          streaming: false,
+        });
+        expect(app.workers('Timer')).toEqual([]);
+        expect(app.log()[1]!.source).toEqual({
+          kind: 'worker',
+          instance: 'Timer',
+          name: 'stream',
+        });
+      }),
+    ));
+
+  it('run one per key, and stop when the key goes', () =>
+    timed(
+      Effect.gen(function* () {
+        heard.length = 0;
+        const app = yield* Runtime.start(Uploads);
+        app.send('Uploads', { _tag: 'Started', id: 'a' });
+        app.send('Uploads', { _tag: 'Started', id: 'b' });
+        expect(app.workers('Uploads').map((w) => w.key)).toEqual(['a', 'b']);
+        yield* TestClock.adjust('10 millis');
+        app.send('Uploads', { _tag: 'Cancelled', id: 'a' });
+        yield* settle;
+        expect(heard).toEqual(['closed a']);
+        yield* TestClock.adjust('10 millis');
+        expect(app.snapshot().model).toEqual({
+          uploads: [
+            { id: 'a', status: 'Cancelled', progress: 50 },
+            { id: 'b', status: 'Done', progress: 100 },
+          ],
+        });
+        expect(heard).toEqual(['closed a', 'closed b']);
+        expect(app.workers('Uploads')).toEqual([]);
+        expect(app.log().at(-1)!.source).toEqual({
+          kind: 'worker',
+          instance: 'Uploads',
+          name: 'upload',
+          key: 'b',
+        });
+      }),
+    ));
+
+  it('a finished Worker stays idle until its key goes, and runs again when it is back', () =>
+    run(
+      Effect.gen(function* () {
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+        const app = yield* Runtime.start(Once);
+        app.send('Once', { _tag: 'On' });
+        yield* settle;
+        expect(app.snapshot().model).toEqual({ on: true, runs: 1 });
+        expect(app.workers('Once')).toEqual([
+          { name: 'once', key: '', status: 'finished' },
+        ]);
+        app.send('Once', { _tag: 'Off' });
+        app.send('Once', { _tag: 'On' });
+        yield* settle;
+        expect(app.snapshot().model).toEqual({ on: true, runs: 2 });
+      }),
+    ));
+
+  it('read the Time, so a wait until a Time in the Model survives a stop and a fork', () =>
+    timed(
+      Effect.gen(function* () {
+        const app = yield* Runtime.start(Alarm);
+        app.send('Alarm', { _tag: 'Set' });
+        yield* TestClock.adjust('600 millis');
+        yield* app.stop();
+        // The Clock runs on while stopped; Time does not.
+        yield* TestClock.adjust('5 seconds');
+        yield* app.start();
+        expect(app.now()).toBe(600);
+        yield* TestClock.adjust('399 millis');
+        expect(app.log().map((e) => e.message._tag)).toEqual(['Set']);
+        yield* TestClock.adjust('1 millis');
+        expect(app.log().map((e) => [e.message._tag, e.at])).toEqual([
+          ['Set', 0],
+          ['Rang', 1000],
+        ]);
+        // A fork from the entry that set it waits the whole second again, from its Time.
+        yield* app.start(0);
+        yield* TestClock.adjust('1 second');
+        expect(app.log().map((e) => [e.message._tag, e.at])).toEqual([
+          ['Set', 0],
+          ['Rang', 1000],
+        ]);
+        expect(app.state().entries.length).toBe(3);
+      }),
+    ));
+
+  it('a Send from a finalizer dies loudly and never lands', () =>
+    run(
+      Effect.gen(function* () {
+        const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+        const app = yield* Runtime.start(Once);
+        app.send('Once', { _tag: 'On' });
+        yield* settle;
+        expect(app.log().map((e) => e.message._tag)).toEqual(['On', 'Ran']);
+        expect(error).toHaveBeenCalledTimes(1);
+        expect(error.mock.calls[0]![0]).toMatch(
+          /Worker once of Once sent a Message after it stopped/,
+        );
+      }),
+    ));
+
   it('run while their State lasts, and their Scope closes when it is left', () =>
     timed(
       Effect.gen(function* () {
@@ -654,11 +905,15 @@ describe('the mailbox', () => {
           message: Schema.TaggedUnion({ Ping: {}, Pong: {} }),
         }).build({
           init: () => ({ model: { n: 0 } }),
-          lifetime: (self) =>
-            self.changes.pipe(
-              Stream.filter(({ model }) => model.n === 1),
-              Stream.runForEach(() => self.send({ _tag: 'Pong' })),
-            ),
+          workers: {
+            echo: {
+              run: (self) =>
+                self.changes.pipe(
+                  Stream.filter(({ model }) => model.n === 1),
+                  Stream.runForEach(() => self.send({ _tag: 'Pong' })),
+                ),
+            },
+          },
           update: {
             Ping: (_, { model }) => ({ model: { n: model.n + 1 } }),
             Pong: (_, { model }) => ({ model: { n: model.n + 10 } }),
@@ -695,7 +950,7 @@ describe('the Log as a tree', () => {
       }),
     ));
 
-  it('stop closes every Lifetime and Command, and Time stands still', () =>
+  it('stop closes every Worker and Command, and Time stands still', () =>
     timed(
       Effect.gen(function* () {
         const app = yield* Runtime.start(Metronome);

@@ -45,7 +45,7 @@ cases.
    flags into the HTML.
 4. **Resuming the Runtime from that tree**: `Runtime.start(node, { from })`
    that plants Instances from the decoded tree instead of running init, then
-   starts their Lifetimes, so React's `hydrateRoot` finds the same DOM. Its
+   starts their Workers, so React's `hydrateRoot` finds the same DOM. Its
    Log would start with the flags (or the encoded tree) as Time 0, so Replay
    still works.
 5. **Commands from init on the server**: either not run until the browser

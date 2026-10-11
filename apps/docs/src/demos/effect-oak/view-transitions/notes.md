@@ -18,7 +18,7 @@ never animates.
 ViewTransitions (root)     requires Location
   Model { path, filter }   the filter survives opening and closing artworks
   Opening, Gallery, Artwork { artworkId }, NotFound { path }
-  every State: Lifetime heardUrl(model.path) → ChangedUrl
+  Worker `listen`: heardUrl(model.path) → ChangedUrl
   ClickedLink → next State now, Command: Location.push(path)
 artworks/    the artworks, the grid with its filter, the artwork page
 animate.ts   document.startViewTransition around a Send, with flushSync
@@ -42,7 +42,7 @@ document.startViewTransition({
 synchronously), the Instance tells its View, and `flushSync` makes React
 commit before returning. That works, with one change from the routing demo:
 **the State changes first and the URL follows** in a Command. Waiting for the
-URL to come back through a Lifetime, as routing does, would change the DOM
+URL to come back through a Worker, as routing does, would change the DOM
 after `update` had already returned.
 
 Time Travel: stepping redraws the Views directly, outside any View
@@ -53,7 +53,7 @@ The `view-transition-name`s stay on the replayed DOM, harmlessly.
 ## Deviations
 
 - **Back and forward do not animate.** They arrive as `ChangedUrl` from a
-  Lifetime, and no View is there to wrap them. Foldkit animates every
+  Worker, and no View is there to wrap them. Foldkit animates every
   `ChangedUrl`, because its Runtime asks `viewTransition` on every Message.
 - **The View decides the type before sending**, from the current State and
   the path it is about to send. Foldkit's `viewTransition` decides after
@@ -64,7 +64,7 @@ The `view-transition-name`s stay on the replayed DOM, harmlessly.
 ## Blockers
 
 - **No View Transition hook** (new, roll-up 18). Only Messages Sent from a
-  View, wrapped by hand, can animate; Messages from Lifetimes and Commands
+  View, wrapped by hand, can animate; Messages from Workers and Commands
   (back and forward, a fetch finishing) cannot. A
   `viewTransition: ({ before, after, message }) => false | { types }` option
   on `toReact`, called by the Runtime for each handled Message and wrapping

@@ -27,13 +27,15 @@ const Promo = Schema.TaggedUnion({
 const MaybeDiscount = Schema.NullOr(Discount);
 
 /** Pretend to place the order, in the app's Time. */
-const placeOrder = (shipping: boolean) =>
-  Effect.sleep(PLACE_ORDER_DELAY_MS).pipe(
+const placeOrder = (shipping: boolean) => ({
+  name: 'placeOrder',
+  run: Effect.sleep(PLACE_ORDER_DELAY_MS).pipe(
     Effect.as({
       _tag: 'SucceededPlaceOrder' as const,
       orderId: shipping ? 'SHIP-1001' : 'DIGI-1001',
     }),
-  );
+  ),
+});
 
 const cancellable = {
   ClickedCancel: () => ({ state: { _tag: 'Cancelled' as const } }),

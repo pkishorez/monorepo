@@ -33,12 +33,15 @@ export const Calculator = Actor.make('Calculator', {
       const value = model.computeCount + 1;
       return {
         model: { ...model, computeCount: value },
-        command: Effect.gen(function* () {
-          const result = yield* (yield* Engine).square(value);
-          return { _tag: 'CompletedCompute' as const, result };
-        }).pipe(
-          Effect.orElseSucceed(() => ({ _tag: 'SkippedCompute' as const })),
-        ),
+        command: {
+          name: 'square',
+          run: Effect.gen(function* () {
+            const result = yield* (yield* Engine).square(value);
+            return { _tag: 'CompletedCompute' as const, result };
+          }).pipe(
+            Effect.orElseSucceed(() => ({ _tag: 'SkippedCompute' as const })),
+          ),
+        },
       };
     },
     CompletedCompute: ({ result }, { model }) => ({

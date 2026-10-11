@@ -8,7 +8,9 @@ Effect Oak is the Elm architecture, as [Foldkit](https://github.com/foldkit/fold
 builds it on Effect, organized as a tree of Actors and drawn by React. Each
 Actor is a state machine and an actor at once: Messages are the only way it
 changes, and its State decides which Children it Invokes, which Capabilities
-it Provides to them and which Lifetime runs. Leaving a State stops all of it.
+it Provides to them and which Workers run. Leaving a State stops all of it.
+Any fact in the Model can own a Worker too: an upload runs for as long as its
+row says Uploading.
 Keyed Children follow the Model: a list of items can be a list of Actors.
 
 The whole app is one immutable Snapshot, and handling a Message is a pure
@@ -34,7 +36,7 @@ Read the language in [CONTEXT.md](./CONTEXT.md), the decisions in
 pnpm add effect-oak effect react motion
 ```
 
-- `effect`: Schemas describe Inputs, Models, States and Messages; Lifetimes, Commands and
+- `effect`: Schemas describe Inputs, Models, States and Messages; Workers, Commands and
   Capabilities are Effect values and Layers.
 - `react`: `effect-oak/react` draws the tree with React components.
 - `motion`: the Frame every View gets is a Framer Motion `MotionValue`.
@@ -85,12 +87,15 @@ export const Auth = Actor.make('Auth', {
   children: { Anonymous: { login: Login }, Authenticated: { todos: Todos } },
 }).build({
   init: () => ({ state: { _tag: 'Checking' } }),
-  lifetime: {
-    Checking: (self) =>
-      Effect.gen(function* () {
-        const user = yield* (yield* Server).checkSession;
-        yield* self.send({ _tag: 'CheckedSession', user });
-      }),
+  workers: {
+    check: {
+      in: 'Checking',
+      run: (self) =>
+        Effect.gen(function* () {
+          const user = yield* (yield* Server).checkSession;
+          yield* self.send({ _tag: 'CheckedSession', user });
+        }),
+    },
   },
   update: {
     Checking: {
@@ -118,51 +123,78 @@ export const Auth = Actor.make('Auth', {
 ```
 
 - `make` is the statechart: it fixes every type and the shape of the tree. `build` is checked against it, so it must build every Capability `provides` declares.
-- An Update that returns a different `_tag` is a Transition: the old State's Children, Lifetime and Capabilities stop, the new State's start.
-- A Lifetime is a scoped Effect given `self`: `send` to its own Instance, and `get` and `changes` for its current data. `'*'` runs for as long as the Instance exists.
+- An Update that returns a different `_tag` is a Transition: the old State's Children, Workers and Capabilities stop, the new State's start.
+- A Worker is a named, scoped Effect given `self`: `send` to its own Instance, `get` and `changes` for its current data, and `now` for the app's Time. `in: 'Checking'` runs while that State lasts; a Worker with no condition runs for as long as the Instance exists.
 - Provides is a Layer built once each time the State is entered. A Capability that reads the Model reads it through `self`, so it never goes stale.
-- Update and init never see Capabilities. Lifetimes and Commands get them from Effect (`yield* Server`).
+- Update and init never see Capabilities. Workers and Commands get them from Effect (`yield* Server`).
 
-### A list of Actors, and Commands under a key
+### A list of Actors, a Command, and a Worker per key
 
 ```ts
 const List = Actor.make('List', {
   model: Schema.Struct({
     ids: Schema.Array(Schema.String),
+    uploading: Schema.Array(Schema.String),
     next: Schema.Number,
   }),
   message: Schema.TaggedUnion({
     Added: {},
     Removed: { id: Schema.String },
     Saved: {},
+    Uploaded: { id: Schema.String },
   }),
   children: { rows: Actor.many(Row) },
 }).build({
-  init: () => ({ model: { ids: [], next: 0 } }),
+  init: () => ({ model: { ids: [], uploading: [], next: 0 } }),
   invoke: ({ model }) => ({
     rows: model.ids.map((id) => ({ key: id, input: { text: `#${id}` } })),
   }),
   update: {
-    Added: (_, { model }) => ({
-      model: { ids: [...model.ids, `${model.next}`], next: model.next + 1 },
-      command: {
-        key: 'save',
-        run: Effect.sleep('1 second').pipe(
-          Effect.as({ _tag: 'Saved' as const }),
-        ),
+    Added: (_, { model }) => {
+      const id = `${model.next}`;
+      return {
+        model: {
+          ids: [...model.ids, id],
+          uploading: [...model.uploading, id],
+          next: model.next + 1,
+        },
+        command: {
+          name: 'save',
+          run: Effect.sleep('1 second').pipe(
+            Effect.as({ _tag: 'Saved' as const }),
+          ),
+        },
+      };
+    },
+    Removed: ({ id }, { model }) => ({
+      model: {
+        ...model,
+        ids: model.ids.filter((kept) => kept !== id),
+        uploading: model.uploading.filter((kept) => kept !== id),
       },
     }),
-    Removed: ({ id }, { model }) => ({
-      model: { ...model, ids: model.ids.filter((kept) => kept !== id) },
-    }),
     Saved: () => ({}),
+    Uploaded: ({ id }, { model }) => ({
+      model: { ...model, uploading: model.uploading.filter((k) => k !== id) },
+    }),
+  },
+  workers: {
+    upload: {
+      each: ({ model }) => model.uploading,
+      run: (self, id) =>
+        Effect.sleep('3 seconds').pipe(
+          Effect.andThen(self.send({ _tag: 'Uploaded', id })),
+        ),
+    },
   },
 });
 ```
 
 - `invoke` says which keys exist and the Input each new Child starts from. After every Update, a new key Invokes a Row, a key gone stops it, and a key kept keeps its Instance. From then on the Row owns its data.
 - Instance IDs are deterministic: `List/rows[0]#1` is the first `rows` keyed `0`. A key Invoked again gets `#2`, so a Message meant for the old Instance is dropped.
-- A Command is owned by its Instance. Under a `key`, a new Command replaces the one still running, and `cancel: 'save'` interrupts it. A Command can be `(self) => Effect` and Send any number of Messages, such as one per chunk of a stream.
+- A Command is an errand: one named Effect that ends with at most one Message. Nothing stops it but its Instance stopping, and there is no cancel. An Update may return a list of Commands; they run concurrently.
+- A Worker runs for exactly as long as its condition holds, read from the Model and State after every Update: `in` a State, `while` a test is true, or `each` key a function names, one Worker per key. Removing an id from `uploading` interrupts that upload and runs its finalizers; a finished upload Sends `Uploaded`, whose Update takes its key away. Stopping work is changing the Model.
+- The Worker does the work and the Model keeps the story: every step the user could notice is a Message. A Worker must be able to start from the Model alone, because a resume or a start from an earlier Log entry starts every Worker whose condition holds. A Worker that waits until a Time in the Model sleeps for `that - now`, so it waits only what is left. A finalizer never Sends.
 
 ### Drawing it with React
 
@@ -200,7 +232,7 @@ const DemoApp = toReact(Auth, AuthView, ServerLive);
 - A Child is placed with `<RowView instance={handle} />`. Its draw's second parameter is data from the parent (`selected` above), for drawing only: a function prop is a type error, and what a View does goes through a Message.
 - Spreading `root` on the View's own element hands it the parent's `ref` and `style`, so `motion.create(RowView)` animates it, with no wrapper element, and it stays memoized. A View whose Instance has stopped keeps drawing its last data, so `AnimatePresence` can play its exit.
 - A View re-renders only when its own Instance's Model, State or set of Children changes, or its props do. Many Messages handled in a row make one render.
-- `DemoApp.useRuntime()` returns `{ log, head, running, shown, show, stop, start, children, frame }` from anywhere on the page. `show(id)` draws the app right after that entry, on any Branch; `stop()` closes every Lifetime, Command and Capability; `start(id)` Replays to that entry and grows a new Branch from it, and `start()` resumes.
-- Work that must survive a stop belongs in a Lifetime: Commands running at a stop are lost. The outside world is not rewound.
+- `DemoApp.useRuntime()` returns `{ log, head, running, shown, show, stop, start, children, workers, frame }` from anywhere on the page. `show(id)` draws the app right after that entry, on any Branch; `stop()` closes every Worker, Command and Capability; `start(id)` Replays to that entry and grows a new Branch from it, and `start()` resumes. `workers(id)` says what an Instance's Workers are doing live: running, finished, or failed.
+- Work that must survive a stop belongs in a Worker: Commands running at a stop are lost. The outside world is not rewound.
 - Whatever moves between Messages is drawn from `frame`, a `MotionValue<number>` holding the Time, with `useTransform`; nothing renders between Messages.
 - `toReact` does not compile until the Layer covers every Capability the tree still needs.

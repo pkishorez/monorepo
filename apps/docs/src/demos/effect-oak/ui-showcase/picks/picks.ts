@@ -13,7 +13,9 @@ export class Picks extends Context.Service<
 >()('docs/ui-showcase/Picks') {}
 
 /** A Command reporting `value` under `source` to whoever Provides Picks. */
-export const reportPick = (source: string, value: string) =>
-  Effect.gen(function* () {
+export const reportPick = (source: string, value: string) => ({
+  name: 'report',
+  run: Effect.gen(function* () {
     yield* (yield* Picks).report(source, value);
-  });
+  }),
+});

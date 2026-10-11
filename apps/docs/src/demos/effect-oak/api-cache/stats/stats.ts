@@ -8,7 +8,7 @@ import { Blog, Served, Stats as StatsData } from '../../blog-server/index.js';
  * shown. The old numbers stay on screen while new ones load.
  *
  * Which tab is shown is the parent's data, and a parent cannot tell a Child
- * anything. So Stats asks: its Lifetime ticks every 5 seconds, and each tick
+ * anything. So Stats asks: its Worker ticks every 5 seconds, and each tick
  * is a Command that reads the Tabs Capability its parent Provides, which
  * reads the tab as it is now.
  */
@@ -23,15 +23,21 @@ export class Tabs extends Context.Service<
 
 const ServedStats = Served(StatsData);
 
-const fetchStats = Effect.gen(function* () {
-  const result = yield* AsyncData.attempt((yield* Blog).stats);
-  return { _tag: 'SettledFetchStats' as const, result };
-});
+const fetchStats = {
+  name: 'fetchStats',
+  run: Effect.gen(function* () {
+    const result = yield* AsyncData.attempt((yield* Blog).stats);
+    return { _tag: 'SettledFetchStats' as const, result };
+  }),
+};
 
-const whenShown = Effect.gen(function* () {
-  if ((yield* (yield* Tabs).shown) === 'Stats')
-    return { _tag: 'SawStatsShown' as const };
-});
+const whenShown = {
+  name: 'whenShown',
+  run: Effect.gen(function* () {
+    if ((yield* (yield* Tabs).shown) === 'Stats')
+      return { _tag: 'SawStatsShown' as const };
+  }),
+};
 
 const Model = Schema.Struct({ stats: AsyncData.schema(ServedStats) });
 type Model = typeof Model.Type;
@@ -53,15 +59,21 @@ export const Stats = Actor.make('Stats', {
   }),
 }).build({
   init: () => ({ model: { stats: AsyncData.loading } }),
-  lifetime: (self) =>
-    Effect.gen(function* () {
-      yield* Effect.flatMap(fetchStats, self.send).pipe(Effect.forkScoped);
-      yield* Stream.tick(REFETCH_EVERY_MS).pipe(
-        Stream.drop(1),
-        Stream.map(() => ({ _tag: 'TickedRevalidateStats' as const })),
-        Stream.runForEach(self.send),
-      );
-    }),
+  workers: {
+    tick: {
+      run: (self) =>
+        Effect.gen(function* () {
+          yield* Effect.flatMap(fetchStats.run, self.send).pipe(
+            Effect.forkScoped,
+          );
+          yield* Stream.tick(REFETCH_EVERY_MS).pipe(
+            Stream.drop(1),
+            Stream.map(() => ({ _tag: 'TickedRevalidateStats' as const })),
+            Stream.runForEach(self.send),
+          );
+        }),
+    },
+  },
   update: {
     TickedRevalidateStats: (_, { model }) =>
       AsyncData.revalidate(model.stats) ? { command: whenShown } : {},

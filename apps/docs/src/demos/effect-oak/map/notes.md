@@ -12,7 +12,7 @@ pan and zoom.
 
 ```
 WorldMap (root)        Model { camera, flight, selectedId, user }; Provides Flights (a Request)
-                       Panned | Zoomed stop any flight; Landed is a Command sleeping the flight's length
+                       Panned | Zoomed stop any flight; a Worker keyed by the flight sleeps its length → Landed
 ├─ places: Places      Model { query, chosenId }; ClickedLocation → Flights.toPlace
 └─ finder: Finder      Idle | Locating | Failed { reason }; Geolocation Capability → Flights.toUser
 world/     camera math (Web Mercator, the flight path), the places, Flights
@@ -34,8 +34,8 @@ A drag mid-flight starts from where the camera is at that Time.
 - **The list's highlight is its own.** Places remembers what it asked for;
   clicking a marker selects it on the map but not in the list (roll-up 13).
 - No body scroll lock or focus Command: the panel shows "Finding you…"
-  inline with Cancel, and Cancel stops the lookup by cancelling the Finder's
-  `locate` Command. No map bounds Message, nothing reads it.
+  inline with Cancel, and Cancel leaves Locating, whose Worker is the
+  lookup. No map bounds Message, nothing reads it.
 - Tiles are OpenStreetMap's, with its attribution; there is no tile cache
   beyond the browser's.
 
@@ -60,7 +60,7 @@ rebinds on remount; scenes resolve the Mount.
 
 What Effect Oak would need:
 
-- Named Commands (roll-up 4) for the landing and the geolocation.
+- A way to end the landing and the geolocation Workers by hand (roll-up 6).
 - Nothing for a mount: there is no map instance. `world/camera.ts` is plain
   functions, so flight paths can be tested today, including mid-flight.
 - Finder and Places with stub Flights and Geolocation: `Runtime.start` with a
@@ -69,5 +69,6 @@ What Effect Oak would need:
 
 ## Also surprising
 
-- The landing Command sleeps on Effect's Clock: a flight lands live while
-  Replay shows an earlier Step.
+- The landing Worker sleeps on Effect's Clock: a flight lands live while
+  Replay shows an earlier Step. Started again on a resume or a fork, it
+  reads `self.now` and sleeps only what is left of the flight.

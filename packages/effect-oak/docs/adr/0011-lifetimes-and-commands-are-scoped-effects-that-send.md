@@ -1,3 +1,7 @@
+---
+status: superseded by ADR-0016
+---
+
 # Lifetimes and Commands are scoped Effects that Send; init has no Commands
 
 A Lifetime is a scoped Effect that runs for as long as its Instance exists (`'*'`) or is in one State, can Send its Instance any number of Messages, and reads the Instance's current Model and State at any time. A Command is the same kind of Effect, started by an Update instead of by entering a State: it may Send any number of Messages, and it is owned by its Instance, running until it ends, the Instance stops, or a Command started under the same key replaces it. init only sets the first Model and State; work on start is a Lifetime.

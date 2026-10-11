@@ -8,31 +8,36 @@ import { Session, SignedIn, SignIn } from './session/index.js';
 /*
  * The app gate: Checking → LoggedOut ⇄ LoggedIn { session }.
  *
- * Checking reads a saved session in its Lifetime. LoggedOut Provides SignIn
+ * Checking reads a saved session in its Worker. LoggedOut Provides SignIn
  * and has the signed-out pages as its Child; LoggedIn Provides SignedIn and
  * has the signed-in pages. Leaving either destroys its whole site, so a
  * signed-out page can never be drawn with a session, nor the other way round.
  * Saving and clearing the session are Commands that report how they went.
  */
 
-const save = (session: Session) =>
-  Effect.gen(function* () {
+const save = (session: Session) => ({
+  name: 'save',
+  run: Effect.gen(function* () {
     yield* (yield* AuthServer).saveSession(session);
     return { _tag: 'SucceededSaveSession' as const };
   }).pipe(
     Effect.catch((error) =>
       Effect.succeed({ _tag: 'FailedSaveSession' as const, error }),
     ),
-  );
-
-const clear = Effect.gen(function* () {
-  yield* (yield* AuthServer).clearSession;
-  return { _tag: 'SucceededClearSession' as const };
-}).pipe(
-  Effect.catch((error) =>
-    Effect.succeed({ _tag: 'FailedClearSession' as const, error }),
   ),
-);
+});
+
+const clear = {
+  name: 'clear',
+  run: Effect.gen(function* () {
+    yield* (yield* AuthServer).clearSession;
+    return { _tag: 'SucceededClearSession' as const };
+  }).pipe(
+    Effect.catch((error) =>
+      Effect.succeed({ _tag: 'FailedClearSession' as const, error }),
+    ),
+  ),
+};
 
 export const Auth = Actor.make('Auth', {
   requires: { server: AuthServer },
@@ -57,12 +62,15 @@ export const Auth = Actor.make('Auth', {
   },
 }).build({
   init: () => ({ state: { _tag: 'Checking' } }),
-  lifetime: {
-    Checking: (self) =>
-      Effect.gen(function* () {
-        const session = yield* (yield* AuthServer).loadSession;
-        yield* self.send({ _tag: 'CheckedSession', session });
-      }),
+  workers: {
+    check: {
+      in: 'Checking',
+      run: (self) =>
+        Effect.gen(function* () {
+          const session = yield* (yield* AuthServer).loadSession;
+          yield* self.send({ _tag: 'CheckedSession', session });
+        }),
+    },
   },
   provides: {
     LoggedOut: (self) =>

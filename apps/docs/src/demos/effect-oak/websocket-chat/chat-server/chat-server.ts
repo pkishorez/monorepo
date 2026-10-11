@@ -5,7 +5,7 @@ import { Context, Effect, Layer, Queue, Stream } from 'effect';
  * every message straight back.
  *
  * `connect` opens a socket for as long as the Stream runs and says what
- * happens to it; run it as a Lifetime, and leaving the State closes the
+ * happens to it; run it as a Worker, and leaving the State closes the
  * socket. `send` writes to the socket that is open, if any. Like Foldkit's
  * ManagedResource, the open socket is kept here, not Provided by the State.
  */
