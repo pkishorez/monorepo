@@ -7,9 +7,8 @@ import { Place, Site, useSlot, type Point, type Slot } from './site.js';
 
 /*
  * A rocket in flight: where it is in each State, and how it gets there.
- * Each State's drawing mounts fresh, so where a rocket is lives here, in
- * motion values kept per Instance: every State animates on from wherever
- * the last one left it.
+ * Where a rocket is lives here, in motion values kept per Instance: every
+ * State animates on from wherever the last one left it.
  */
 
 export type Tag =

@@ -17,9 +17,9 @@ export const WaitlistView = View.make(Waitlist, ({ model, children, send }) => (
           send({ _tag: 'ClickedFormSubmit' });
         }}
       >
-        <FieldViews.name node={children.name} />
-        <FieldViews.email node={children.email} />
-        <FieldViews.message node={children.message} />
+        <FieldViews.name instance={children.name} />
+        <FieldViews.email instance={children.email} />
+        <FieldViews.message instance={children.message} />
         <Button type="submit" disabled={!canSubmit(model)}>
           {model.submission._tag === 'Submitting'
             ? 'Joining…'

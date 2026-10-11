@@ -123,7 +123,7 @@ _Avoid_: output, bubble, callback, event
 ### Drawing
 
 **View**:
-How one Actor is drawn: a React component that reads the Model, State and current Children of one Instance, and can only Send. It never sees Capabilities, so it draws a Replay exactly like the live app. Kept apart from the Actor, so the same Actor can be drawn more than one way or not at all. Anything that moves between Messages is worked out here, at each Frame, from the Model, State and Time: the Model says what is happening, the View decides how that looks.
+How one Actor is drawn: a React component that reads the Model, State and current Children of one Instance, and data its parent hands it, and can only Send. One function draws every State, so a Transition keeps the DOM, and an Instance that has stopped is drawn with its last data while it leaves the page. It never sees Capabilities, so it draws a Replay exactly like the live app. Kept apart from the Actor, so the same Actor can be drawn more than one way or not at all. Anything that moves between Messages is worked out here, at each Frame, from the Model, State and Time: the Model says what is happening, the View decides how that looks.
 _Avoid_: render, template, component (on its own)
 
 **Frame**:

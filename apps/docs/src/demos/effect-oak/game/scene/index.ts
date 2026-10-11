@@ -4,6 +4,6 @@ export {
   PausedOverlay,
   Scene,
   StartOverlay,
+  steering,
   useKeys,
-  useSteering,
 } from './scene.js';

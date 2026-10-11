@@ -72,28 +72,33 @@ const BoardLayout = ({
   </div>
 );
 
-export const BoardView = View.make(Board, {
-  Loading: () => (
-    <div className="flex size-full items-center justify-center">
-      <Spinner />
-    </div>
-  ),
-  Idle: ({ model, children, send }) => (
-    <BoardLayout
-      columns={model.columns}
-      pickUp={(cardId) => send({ _tag: 'PickedUp', cardId })}
-      footer={(columnId) => {
-        if (columnId === 'todo')
-          return <AddCardViews.todo node={children.todo} />;
-        if (columnId === 'in-progress')
-          return <AddCardViews.inProgress node={children['in-progress']} />;
-        if (columnId === 'done')
-          return <AddCardViews.done node={children.done} />;
-        return null;
-      }}
-    />
-  ),
-  Dragging: ({ model, state }) => {
+export const BoardView = View.make(
+  Board,
+  ({ _tag, model, state, children, send }) => {
+    if (_tag === 'Loading')
+      return (
+        <div className="flex size-full items-center justify-center">
+          <Spinner />
+        </div>
+      );
+    if (_tag === 'Idle')
+      return (
+        <BoardLayout
+          columns={model.columns}
+          pickUp={(cardId) => send({ _tag: 'PickedUp', cardId })}
+          footer={(columnId) => {
+            if (columnId === 'todo')
+              return <AddCardViews.todo instance={children.todo} />;
+            if (columnId === 'in-progress')
+              return (
+                <AddCardViews.inProgress instance={children['in-progress']} />
+              );
+            if (columnId === 'done')
+              return <AddCardViews.done instance={children.done} />;
+            return null;
+          }}
+        />
+      );
     const card = model.columns
       .flatMap((column) => column.cards)
       .find((each) => each.id === state.cardId);
@@ -106,4 +111,4 @@ export const BoardView = View.make(Board, {
       />
     );
   },
-});
+);

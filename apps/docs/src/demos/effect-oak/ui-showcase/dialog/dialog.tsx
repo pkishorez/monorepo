@@ -109,7 +109,7 @@ export const makeNestedDialog = (options: Options, inner: Options) => {
       onDismiss={() => send({ _tag: 'Dismissed' })}
       onChoose={(value) => send({ _tag: 'ChoseAction', value })}
     >
-      <InnerView node={children.inner} />
+      <InnerView instance={children.inner} />
     </DialogFrame>
   ));
 

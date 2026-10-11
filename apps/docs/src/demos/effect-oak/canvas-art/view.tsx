@@ -69,23 +69,12 @@ const Scene = ({
   </div>
 );
 
-export const BoxView = View.make(Box, {
-  Running: ({ model, state, send, frame }) => (
-    <Scene
-      balls={model.balls}
-      running
-      clock={(at) => clockAt(state, at)}
-      frame={frame}
-      send={send}
-    />
-  ),
-  Paused: ({ model, state, send, frame }) => (
-    <Scene
-      balls={model.balls}
-      running={false}
-      clock={() => state.clock}
-      frame={frame}
-      send={send}
-    />
-  ),
-});
+export const BoxView = View.make(Box, ({ _tag, model, state, send, frame }) => (
+  <Scene
+    balls={model.balls}
+    running={_tag === 'Running'}
+    clock={(at) => (_tag === 'Running' ? clockAt(state, at) : state.clock)}
+    frame={frame}
+    send={send}
+  />
+));

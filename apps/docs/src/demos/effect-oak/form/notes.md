@@ -30,9 +30,11 @@ the same behavior. A field reports `{ value, valid }` to the form through the
   runs under the `check` key, so each keystroke replaces the check still
   running, so a stale answer never
   arrives. The value guard is kept anyway.
-- **Field status is in the Model, not States.** A View draws each State with
+- **Field status is in the Model, not States.** A View drew each State with
   its own component, so with NotValidated, Validating, Valid and Invalid as
   States every Transition would remount the input mid-typing and lose focus.
+  (Now one function draws every State, so States would keep the focus; this
+  demo is unchanged.)
 - **Submission is in the root's Model, not its States.** The fields are
   Children, and Children belong to a State: a Submitting State would destroy
   them and everything typed.
@@ -44,10 +46,9 @@ the same behavior. A field reports `{ value, valid }` to the form through the
 
 ## Blockers
 
-- **Each State is drawn by its own keyed component**, so DOM that should
-  survive a Transition (a focused input) is remounted. An API could let a
-  Actor with States be drawn by one function, `View.make(Field, (props) => …)`,
-  narrowing on `props.state._tag` inside.
+- **Each State is drawn by its own keyed component** (now lifted: a View is
+  one function, narrowing on `_tag`; this demo is unchanged), so DOM that
+  should survive a Transition (a focused input) is remounted.
 - **Children belong to one State** (also hit by [weather](../weather/notes.md)),
   so the form cannot use States for its submission.
 

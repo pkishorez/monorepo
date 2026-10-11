@@ -48,14 +48,11 @@ const Page = ({
   );
 };
 
-export const ShopView = View.make(Shop, {
-  Products: ({ model, children, send }) => (
-    <Page page="Products" cart={model.cart} send={send}>
-      <ProductsView node={children.products} />
-    </Page>
-  ),
-  Cart: ({ model, send }) => (
-    <Page page="Cart" cart={model.cart} send={send}>
+export const ShopView = View.make(Shop, ({ _tag, model, children, send }) => (
+  <Page page={_tag} cart={model.cart} send={send}>
+    {_tag === 'Products' ? (
+      <ProductsView instance={children.products} />
+    ) : _tag === 'Cart' ? (
       <CartPage
         cart={model.cart}
         actions={{
@@ -65,14 +62,13 @@ export const ShopView = View.make(Shop, {
           clear: () => send({ _tag: 'ClickedClear' }),
         }}
       />
-    </Page>
-  ),
-  Checkout: ({ model, children, send }) => (
-    <Page page="Checkout" cart={model.cart} send={send}>
-      <p className="text-sm text-muted-foreground">
-        {totalItems(model.cart)} items · {money(totalPrice(model.cart))}
-      </p>
-      <CheckoutView node={children.checkout} />
-    </Page>
-  ),
-});
+    ) : (
+      <>
+        <p className="text-sm text-muted-foreground">
+          {totalItems(model.cart)} items · {money(totalPrice(model.cart))}
+        </p>
+        <CheckoutView instance={children.checkout} />
+      </>
+    )}
+  </Page>
+));

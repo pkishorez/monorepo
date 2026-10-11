@@ -9,7 +9,7 @@ export const ArcadeView = View.make(Arcade, ({ model, children }) => (
       <p className="text-sm text-muted-foreground tabular-nums">
         High score: {model.highScore}
       </p>
-      <RoundView node={children.round} />
+      <RoundView instance={children.round} />
     </div>
   </div>
 ));

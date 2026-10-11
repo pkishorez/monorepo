@@ -163,7 +163,7 @@ export const toReact = <A extends AnyActor, Provided>(
     return ready ? (
       <DrawnContext value={drawn}>
         <FrameContext value={frame}>
-          <RootView node={root} />
+          <RootView instance={root} />
         </FrameContext>
       </DrawnContext>
     ) : null;

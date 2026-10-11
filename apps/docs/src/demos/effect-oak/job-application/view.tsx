@@ -48,17 +48,17 @@ export const JobApplicationView = View.make(
               <h2 className="mb-6 text-lg font-semibold">{stepLabel[step]}</h2>
               <div className="min-h-[400px]">
                 {step === 'PersonalInfo' && (
-                  <PersonalInfoView node={children.personalInfo} />
+                  <PersonalInfoView instance={children.personalInfo} />
                 )}
                 {step === 'WorkHistory' && (
-                  <WorkHistoryView node={children.workHistory} />
+                  <WorkHistoryView instance={children.workHistory} />
                 )}
-                {step === 'Skills' && <SkillsView node={children.skills} />}
+                {step === 'Skills' && <SkillsView instance={children.skills} />}
                 {step === 'CoverLetter' && (
-                  <CoverLetterView node={children.coverLetter} />
+                  <CoverLetterView instance={children.coverLetter} />
                 )}
                 {step === 'Attachments' && (
-                  <AttachmentsView node={children.attachments} />
+                  <AttachmentsView instance={children.attachments} />
                 )}
                 {step === 'Review' && (
                   <Review

@@ -112,5 +112,5 @@ const Oncoming = ({
 export { CrashBanner } from './crash-banner.js';
 export { PausedOverlay } from './paused-overlay.js';
 export { StartOverlay } from './start-overlay.js';
-export { useKeys, useSteering } from './steering.js';
+export { steering, useKeys } from './steering.js';
 export { lapTime };

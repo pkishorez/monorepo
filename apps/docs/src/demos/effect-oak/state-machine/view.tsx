@@ -117,175 +117,198 @@ const StartOver = ({ send }: { readonly send: Send }) => (
   <Button onClick={() => send({ _tag: 'ClickedStartOver' })}>Start over</Button>
 );
 
-export const CheckoutView = View.make(Checkout, {
-  Cart: ({ model, send }) => (
-    <Step
-      current={0}
-      shipping={model.shipping}
-      title="Choose an edition"
-      actions={
-        <>
-          <Continue
-            send={send}
-            label={
-              model.shipping ? 'Continue to shipping' : 'Continue to payment'
+export const CheckoutView = View.make(
+  Checkout,
+  ({ _tag, model, state, children, send }) => {
+    switch (_tag) {
+      case 'Cart':
+        return (
+          <Step
+            current={0}
+            shipping={model.shipping}
+            title="Choose an edition"
+            actions={
+              <>
+                <Continue
+                  send={send}
+                  label={
+                    model.shipping
+                      ? 'Continue to shipping'
+                      : 'Continue to payment'
+                  }
+                />
+                <Cancel send={send} />
+              </>
             }
-          />
-          <Cancel send={send} />
-        </>
-      }
-    >
-      <RadioGroup
-        value={editionName(model.shipping)}
-        onValueChange={(value) =>
-          send({ _tag: 'SelectedEdition', shipping: value === 'Hardcover' })
-        }
-      >
-        {[true, false].map((shipping) => (
-          <div key={editionName(shipping)} className="flex items-center gap-2">
-            <RadioGroupItem
-              id={`edition-${editionName(shipping)}`}
-              value={editionName(shipping)}
-            />
-            <Label htmlFor={`edition-${editionName(shipping)}`}>
-              {editionName(shipping)} · {editionPrice(shipping)}
-              <span className="text-muted-foreground">
-                {shipping ? ' (ships to you)' : ' (no shipping step)'}
-              </span>
-            </Label>
-          </div>
-        ))}
-      </RadioGroup>
-    </Step>
-  ),
-  Shipping: ({ model, send }) => (
-    <Step
-      current={1}
-      shipping={model.shipping}
-      title="Shipping"
-      actions={
-        <>
-          <Back send={send} />
-          <Continue send={send} />
-          <Cancel send={send} />
-        </>
-      }
-    >
-      <p className="text-sm text-muted-foreground">
-        Shipping to 1 Infinite Loop, Cupertino. Free standard delivery.
-      </p>
-    </Step>
-  ),
-  Payment: ({ model, state, send }) => (
-    <Step
-      current={2}
-      shipping={model.shipping}
-      title="Payment"
-      actions={
-        <>
-          <Back send={send} />
-          <Continue send={send} />
-          <Cancel send={send} />
-        </>
-      }
-    >
-      <Toggle
-        id="payment"
-        checked={state.paymentSelected}
-        onChange={(selected) =>
-          send({ _tag: 'ToggledPaymentMethod', selected })
-        }
-      >
-        Pay with the Visa ending in 4242
-      </Toggle>
-    </Step>
-  ),
-  Review: ({ model, state, children, send }) => (
-    <Step
-      current={3}
-      shipping={model.shipping}
-      discount={
-        state.promo._tag === 'AppliedPromo' ? state.promo.discount : null
-      }
-      title="Review your order"
-      actions={
-        <>
-          <Back send={send} />
-          <Button
-            disabled={!isReviewReady(state)}
-            onClick={() => send({ _tag: 'ClickedPlaceOrder' })}
           >
-            Place order
-          </Button>
-          <Cancel send={send} />
-        </>
-      }
-    >
-      <Toggle
-        id="review-payment"
-        checked={state.paymentSelected}
-        onChange={(selected) =>
-          send({ _tag: 'ToggledPaymentMethod', selected })
-        }
-      >
-        Pay with the Visa ending in 4242
-      </Toggle>
-      <Toggle
-        id="terms"
-        checked={state.termsAccepted}
-        onChange={(accepted) =>
-          send({ _tag: 'ToggledTermsAccepted', accepted })
-        }
-      >
-        I accept the terms of sale
-      </Toggle>
-      <div className="flex flex-col gap-1">
-        <PromoCodeView node={children.promo} />
-        {state.promo._tag === 'AppliedPromo' && (
-          <p className="text-sm text-emerald-600">
-            {state.promo.discount.code}: {state.promo.discount.percentOff}% off
-          </p>
-        )}
-        {state.promo._tag === 'RejectedPromo' && (
-          <p className="text-sm text-destructive">
-            {state.promo.code} is not a valid code
-          </p>
-        )}
-      </div>
-    </Step>
-  ),
-  Placing: ({ model, state }) => (
-    <Step
-      current={-1}
-      shipping={model.shipping}
-      discount={state.discount}
-      title="Placing your order…"
-    />
-  ),
-  Confirmed: ({ model, state, send }) => (
-    <Step
-      current={-1}
-      shipping={model.shipping}
-      discount={state.discount}
-      title="Order confirmed"
-      actions={<StartOver send={send} />}
-    >
-      <p className="text-sm text-muted-foreground">
-        Order {state.orderId}.{' '}
-        {model.shipping
-          ? 'Your hardcover ships tomorrow.'
-          : 'Your e-book is ready to download.'}
-      </p>
-    </Step>
-  ),
-  Cancelled: ({ model, send }) => (
-    <Step
-      current={-1}
-      shipping={model.shipping}
-      title="Checkout cancelled"
-      actions={<StartOver send={send} />}
-    >
-      <p className="text-sm text-muted-foreground">Nothing was charged.</p>
-    </Step>
-  ),
-});
+            <RadioGroup
+              value={editionName(model.shipping)}
+              onValueChange={(value) =>
+                send({
+                  _tag: 'SelectedEdition',
+                  shipping: value === 'Hardcover',
+                })
+              }
+            >
+              {[true, false].map((shipping) => (
+                <div
+                  key={editionName(shipping)}
+                  className="flex items-center gap-2"
+                >
+                  <RadioGroupItem
+                    id={`edition-${editionName(shipping)}`}
+                    value={editionName(shipping)}
+                  />
+                  <Label htmlFor={`edition-${editionName(shipping)}`}>
+                    {editionName(shipping)} · {editionPrice(shipping)}
+                    <span className="text-muted-foreground">
+                      {shipping ? ' (ships to you)' : ' (no shipping step)'}
+                    </span>
+                  </Label>
+                </div>
+              ))}
+            </RadioGroup>
+          </Step>
+        );
+      case 'Shipping':
+        return (
+          <Step
+            current={1}
+            shipping={model.shipping}
+            title="Shipping"
+            actions={
+              <>
+                <Back send={send} />
+                <Continue send={send} />
+                <Cancel send={send} />
+              </>
+            }
+          >
+            <p className="text-sm text-muted-foreground">
+              Shipping to 1 Infinite Loop, Cupertino. Free standard delivery.
+            </p>
+          </Step>
+        );
+      case 'Payment':
+        return (
+          <Step
+            current={2}
+            shipping={model.shipping}
+            title="Payment"
+            actions={
+              <>
+                <Back send={send} />
+                <Continue send={send} />
+                <Cancel send={send} />
+              </>
+            }
+          >
+            <Toggle
+              id="payment"
+              checked={state.paymentSelected}
+              onChange={(selected) =>
+                send({ _tag: 'ToggledPaymentMethod', selected })
+              }
+            >
+              Pay with the Visa ending in 4242
+            </Toggle>
+          </Step>
+        );
+      case 'Review':
+        return (
+          <Step
+            current={3}
+            shipping={model.shipping}
+            discount={
+              state.promo._tag === 'AppliedPromo' ? state.promo.discount : null
+            }
+            title="Review your order"
+            actions={
+              <>
+                <Back send={send} />
+                <Button
+                  disabled={!isReviewReady(state)}
+                  onClick={() => send({ _tag: 'ClickedPlaceOrder' })}
+                >
+                  Place order
+                </Button>
+                <Cancel send={send} />
+              </>
+            }
+          >
+            <Toggle
+              id="review-payment"
+              checked={state.paymentSelected}
+              onChange={(selected) =>
+                send({ _tag: 'ToggledPaymentMethod', selected })
+              }
+            >
+              Pay with the Visa ending in 4242
+            </Toggle>
+            <Toggle
+              id="terms"
+              checked={state.termsAccepted}
+              onChange={(accepted) =>
+                send({ _tag: 'ToggledTermsAccepted', accepted })
+              }
+            >
+              I accept the terms of sale
+            </Toggle>
+            <div className="flex flex-col gap-1">
+              <PromoCodeView instance={children.promo} />
+              {state.promo._tag === 'AppliedPromo' && (
+                <p className="text-sm text-emerald-600">
+                  {state.promo.discount.code}: {state.promo.discount.percentOff}
+                  % off
+                </p>
+              )}
+              {state.promo._tag === 'RejectedPromo' && (
+                <p className="text-sm text-destructive">
+                  {state.promo.code} is not a valid code
+                </p>
+              )}
+            </div>
+          </Step>
+        );
+      case 'Placing':
+        return (
+          <Step
+            current={-1}
+            shipping={model.shipping}
+            discount={state.discount}
+            title="Placing your order…"
+          />
+        );
+      case 'Confirmed':
+        return (
+          <Step
+            current={-1}
+            shipping={model.shipping}
+            discount={state.discount}
+            title="Order confirmed"
+            actions={<StartOver send={send} />}
+          >
+            <p className="text-sm text-muted-foreground">
+              Order {state.orderId}.{' '}
+              {model.shipping
+                ? 'Your hardcover ships tomorrow.'
+                : 'Your e-book is ready to download.'}
+            </p>
+          </Step>
+        );
+      case 'Cancelled':
+        return (
+          <Step
+            current={-1}
+            shipping={model.shipping}
+            title="Checkout cancelled"
+            actions={<StartOver send={send} />}
+          >
+            <p className="text-sm text-muted-foreground">
+              Nothing was charged.
+            </p>
+          </Step>
+        );
+    }
+  },
+);

@@ -60,9 +60,9 @@ export const QuerySyncView = View.make(
           </p>
         </header>
         <div className="flex flex-wrap gap-3">
-          <SearchView node={children.search} />
-          <DietView node={children.diet} />
-          <PeriodView node={children.period} />
+          <SearchView instance={children.search} />
+          <DietView instance={children.diet} />
+          <PeriodView instance={children.period} />
         </div>
         <Table
           browse={model.browse}

@@ -20,26 +20,28 @@ const Dial = ({
   </div>
 );
 
-export const StopwatchView = View.make(Stopwatch, {
-  Stopped: ({ state, send, frame }) => (
-    <Dial frame={frame} elapsed={() => state.elapsed}>
+export const StopwatchView = View.make(
+  Stopwatch,
+  ({ _tag, state, send, frame }) => (
+    <Dial
+      frame={frame}
+      elapsed={
+        _tag === 'Running' ? (at) => elapsedAt(state, at) : () => state.elapsed
+      }
+    >
       <Button variant="outline" onClick={() => send({ _tag: 'ClickedReset' })}>
         Reset
       </Button>
-      <Button onClick={() => send({ _tag: 'ClickedStart' })}>Start</Button>
+      {_tag === 'Running' ? (
+        <Button
+          variant="destructive"
+          onClick={() => send({ _tag: 'ClickedStop' })}
+        >
+          Stop
+        </Button>
+      ) : (
+        <Button onClick={() => send({ _tag: 'ClickedStart' })}>Start</Button>
+      )}
     </Dial>
   ),
-  Running: ({ state, send, frame }) => (
-    <Dial frame={frame} elapsed={(at) => elapsedAt(state, at)}>
-      <Button variant="outline" onClick={() => send({ _tag: 'ClickedReset' })}>
-        Reset
-      </Button>
-      <Button
-        variant="destructive"
-        onClick={() => send({ _tag: 'ClickedStop' })}
-      >
-        Stop
-      </Button>
-    </Dial>
-  ),
-});
+);

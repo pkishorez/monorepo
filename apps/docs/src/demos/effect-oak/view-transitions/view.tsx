@@ -1,5 +1,5 @@
-import type { ReactNode } from 'react';
 import { View } from 'effect-oak/react';
+import type { ViewProps } from 'effect-oak/react';
 import { Link } from '../location/index.js';
 import { animate } from './animate.js';
 import { ArtworkPage, GALLERY_PATH, GalleryPage } from './artworks/index.js';
@@ -36,72 +36,69 @@ const typesFor = (from: string, path: string) => {
   return [];
 };
 
-type Drawn = {
-  readonly state: { readonly _tag: string };
-  readonly send: (message: {
-    readonly _tag: 'ClickedLink';
-    readonly path: string;
-  }) => void;
-};
+type Go = (path: string) => void;
 
-const page =
-  <P extends Drawn>(
-    draw: (props: P, go: (path: string) => void) => ReactNode,
-  ) =>
-  (props: P) => {
-    const go = (path: string) =>
-      animate(typesFor(props.state._tag, path), () =>
-        props.send({ _tag: 'ClickedLink', path }),
+/** The page for the route the root is on. */
+const pageFor = (self: ViewProps<typeof ViewTransitions>, go: Go) => {
+  switch (self._tag) {
+    case 'Opening':
+      return null;
+    case 'Gallery':
+      return (
+        <GalleryPage
+          filter={self.model.filter}
+          onFilter={(filter) => self.send({ _tag: 'EditedFilter', filter })}
+          onNavigate={go}
+        />
       );
-    return (
-      <div className="size-full overflow-y-auto py-10">
-        <style>{STYLE}</style>
-        <header
-          className="mx-auto max-w-5xl px-6 pb-8"
-          style={{ viewTransitionName: 'page-header' }}
-        >
+    case 'Artwork':
+      return <ArtworkPage artworkId={self.state.artworkId} onNavigate={go} />;
+    case 'NotFound':
+      return (
+        <div className="flex flex-col gap-4">
+          <h1 className="text-3xl font-semibold">Page not found</h1>
+          <p className="text-muted-foreground">
+            The path “{self.state.path}” does not exist.
+          </p>
           <Link
             to={GALLERY_PATH}
             onNavigate={go}
-            className="text-2xl font-semibold"
+            className="underline hover:text-foreground"
           >
-            Gradient Gallery
+            ← Back to gallery
           </Link>
-          <p className="mt-1 text-muted-foreground">
-            Click an artwork and watch it grow into its page. Typing in the
-            filter never animates.
-          </p>
-        </header>
-        <main className="mx-auto max-w-5xl px-6">{draw(props, go)}</main>
-      </div>
-    );
-  };
+        </div>
+      );
+  }
+};
 
-export const ViewTransitionsView = View.make(ViewTransitions, {
-  Opening: () => null,
-  Gallery: page(({ model, send }, go) => (
-    <GalleryPage
-      filter={model.filter}
-      onFilter={(filter) => send({ _tag: 'EditedFilter', filter })}
-      onNavigate={go}
-    />
-  )),
-  Artwork: page(({ state }, go) => (
-    <ArtworkPage artworkId={state.artworkId} onNavigate={go} />
-  )),
-  NotFound: page(({ state }, go) => (
-    <div className="flex flex-col gap-4">
-      <h1 className="text-3xl font-semibold">Page not found</h1>
-      <p className="text-muted-foreground">
-        The path “{state.path}” does not exist.
-      </p>
-      <Link
-        to={GALLERY_PATH}
-        onNavigate={go}
-        className="underline hover:text-foreground"
+export const ViewTransitionsView = View.make(ViewTransitions, (self) => {
+  if (self._tag === 'Opening') return null;
+  const go = (path: string) =>
+    animate(typesFor(self._tag, path), () =>
+      self.send({ _tag: 'ClickedLink', path }),
+    );
+  return (
+    // Keyed by route, so each page starts scrolled to the top.
+    <div key={self._tag} className="size-full overflow-y-auto py-10">
+      <style>{STYLE}</style>
+      <header
+        className="mx-auto max-w-5xl px-6 pb-8"
+        style={{ viewTransitionName: 'page-header' }}
       >
-        ← Back to gallery
-      </Link>
+        <Link
+          to={GALLERY_PATH}
+          onNavigate={go}
+          className="text-2xl font-semibold"
+        >
+          Gradient Gallery
+        </Link>
+        <p className="mt-1 text-muted-foreground">
+          Click an artwork and watch it grow into its page. Typing in the filter
+          never animates.
+        </p>
+      </header>
+      <main className="mx-auto max-w-5xl px-6">{pageFor(self, go)}</main>
     </div>
-  )),
+  );
 });

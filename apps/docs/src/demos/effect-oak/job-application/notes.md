@@ -152,7 +152,7 @@ and almost all the extra code goes into blockers 13 and 14.
 - **Wiring Children is free.** Foldkit's root has eight `Update.foldChild`
   blocks, eight `Got*Message` wrappers, and an `h.submodel` per step in the
   View: about 150 lines that only route Messages. Here a Child is one line
-  in `children` and one `<StepView node={children.step} />`. A step's
+  in `children` and one `<StepView instance={children.step} />`. A step's
   Messages go to the step; the root's Update never sees them.
 - **Boilerplate per Actor** is small and the same every time:
   `Actor.make(name, { requires, model, message })`, then `.build({ init,

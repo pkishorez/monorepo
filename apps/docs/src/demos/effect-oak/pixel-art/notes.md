@@ -53,10 +53,11 @@ store.ts PictureStore Capability and its localStorage Layer
   draw the picker and whether the picture is empty to decide whether to ask.
   It could only read them in a Command and send itself a copy, so resizing
   stayed in the root. Foldkit passes such data to a Submodel's view as
-  `viewInputs`. An API could let a parent's View give a Child's View input,
-  `<ResizeView node={children.resize} input={{ size: state.size }} />`, typed
-  by the Child's View. It is safe for Replay: the input comes from the
-  parent's replayed State.
+  `viewInputs`. A parent's View can now hand a Child's View data props,
+  `<ResizeView instance={children.resize} size={state.size} />`, safe for
+  Replay since they come from the parent's replayed State, but the Child's
+  Update still cannot see them, and it is the Update that decides whether
+  to ask.
 - The Tools copy in the editor exists because a parent cannot read its
   Children (by design, as in [form](../form/notes.md)).
 

@@ -74,6 +74,6 @@ What Effect Oak would need:
 - A typed `Actor.step` (blocker 5) for the three rules.
 - Drawing the View from a Model (blocker 5) and dispatching a
   `color-changed` CustomEvent on the element, checking the Message Sent. With
-  a DOM test environment, rendering `<WebComponentsView node={…} />` against
-  a live Instance from `Runtime.start` can do this today.
+  a DOM test environment, rendering `<WebComponentsView instance={…} />`
+  against a live Instance from `Runtime.start` can do this today.
 - `hsv.ts` is plain functions and testable today (round trips of hex).

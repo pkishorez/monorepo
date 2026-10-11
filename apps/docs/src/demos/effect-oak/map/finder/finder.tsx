@@ -103,47 +103,55 @@ export const Finder = Actor.make('Finder', {
   },
 });
 
-export const FinderView = View.make(Finder, {
-  Idle: ({ send }) => (
-    <Button variant="outline" onClick={() => send({ _tag: 'ClickedFindMe' })}>
-      <LocateFixed /> Find me
-    </Button>
-  ),
-  Locating: ({ send }) => (
-    <div className="flex items-center justify-between gap-2 rounded-md border p-2 text-sm">
-      <span className="flex items-center gap-2">
-        <Spinner /> Finding you…
-      </span>
-      <Button
-        size="sm"
-        variant="ghost"
-        onClick={() => send({ _tag: 'DismissedGeolocate' })}
-      >
-        Cancel
-      </Button>
-    </div>
-  ),
-  Failed: ({ state, send }) => (
-    <Alert variant="destructive">
-      <AlertDescription className="flex flex-col gap-2">
-        <span>{state.reason}</span>
-        <span className="flex gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => send({ _tag: 'ClickedFindMe' })}
-          >
-            Try again
-          </Button>
+export const FinderView = View.make(Finder, ({ _tag, state, send }) => {
+  switch (_tag) {
+    case 'Idle':
+      return (
+        <Button
+          variant="outline"
+          onClick={() => send({ _tag: 'ClickedFindMe' })}
+        >
+          <LocateFixed /> Find me
+        </Button>
+      );
+    case 'Locating':
+      return (
+        <div className="flex items-center justify-between gap-2 rounded-md border p-2 text-sm">
+          <span className="flex items-center gap-2">
+            <Spinner /> Finding you…
+          </span>
           <Button
             size="sm"
             variant="ghost"
             onClick={() => send({ _tag: 'DismissedGeolocate' })}
           >
-            Dismiss
+            Cancel
           </Button>
-        </span>
-      </AlertDescription>
-    </Alert>
-  ),
+        </div>
+      );
+    case 'Failed':
+      return (
+        <Alert variant="destructive">
+          <AlertDescription className="flex flex-col gap-2">
+            <span>{state.reason}</span>
+            <span className="flex gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => send({ _tag: 'ClickedFindMe' })}
+              >
+                Try again
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => send({ _tag: 'DismissedGeolocate' })}
+              >
+                Dismiss
+              </Button>
+            </span>
+          </AlertDescription>
+        </Alert>
+      );
+  }
 });

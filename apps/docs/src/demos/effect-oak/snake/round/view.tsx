@@ -8,8 +8,8 @@ import { useKeys } from './keys.js';
 import { Round } from './round.js';
 
 /*
- * A round, per State: the score, what to press next, and the board. Every
- * State listens for the keys, so each draws the same Field around a status.
+ * A round: the score, what to press next, and the board. Every State listens
+ * for the keys, so all draw the same Field around a status.
  */
 
 const Field = ({
@@ -42,25 +42,20 @@ const Field = ({
   );
 };
 
-export const RoundView = View.make(Round, {
-  NotStarted: ({ model, send }) => (
-    <Field
-      model={model}
-      send={send}
-      status="Press Enter to start"
-      action={
-        <Button size="sm" onClick={() => send({ _tag: 'PressedStart' })}>
-          Start
-        </Button>
-      }
-    />
-  ),
-  Playing: ({ model, send }) => (
-    <Field
-      model={model}
-      send={send}
-      status="Playing"
-      action={
+const STATUS = {
+  NotStarted: 'Press Enter to start',
+  Playing: 'Playing',
+  Paused: 'Paused',
+  GameOver: 'Game over',
+};
+
+export const RoundView = View.make(Round, ({ _tag, model, send }) => (
+  <Field
+    model={model}
+    send={send}
+    status={STATUS[_tag]}
+    action={
+      _tag === 'Playing' ? (
         <Button
           size="sm"
           variant="outline"
@@ -68,31 +63,19 @@ export const RoundView = View.make(Round, {
         >
           Pause
         </Button>
-      }
-    />
-  ),
-  Paused: ({ model, send }) => (
-    <Field
-      model={model}
-      send={send}
-      status="Paused"
-      action={
+      ) : _tag === 'Paused' ? (
         <Button size="sm" onClick={() => send({ _tag: 'PressedPause' })}>
           Continue
         </Button>
-      }
-    />
-  ),
-  GameOver: ({ model, send }) => (
-    <Field
-      model={model}
-      send={send}
-      status="Game over"
-      action={
+      ) : _tag === 'GameOver' ? (
         <Button size="sm" onClick={() => send({ _tag: 'PressedRestart' })}>
           Restart
         </Button>
-      }
-    />
-  ),
-});
+      ) : (
+        <Button size="sm" onClick={() => send({ _tag: 'PressedStart' })}>
+          Start
+        </Button>
+      )
+    }
+  />
+));

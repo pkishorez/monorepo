@@ -46,53 +46,58 @@ const Window = ({
   </div>
 );
 
-export const ChatView = View.make(Chat, {
-  Disconnected: ({ send }) => (
-    <Window
-      dot="red"
-      status="Disconnected"
-      footer={
-        <Button
-          className="w-full"
-          onClick={() => send({ _tag: 'ClickedConnect' })}
+export const ChatView = View.make(Chat, ({ _tag, state, children, send }) => {
+  switch (_tag) {
+    case 'Disconnected':
+      return (
+        <Window
+          dot="red"
+          status="Disconnected"
+          footer={
+            <Button
+              className="w-full"
+              onClick={() => send({ _tag: 'ClickedConnect' })}
+            >
+              Connect to chat
+            </Button>
+          }
+        />
+      );
+    case 'Online':
+      return (
+        <Window
+          dot={state.connected ? 'green' : 'amber'}
+          status={state.connected ? 'Connected' : 'Connecting…'}
+          footer={
+            state.connected ? (
+              <ComposerView instance={children.composer} />
+            ) : (
+              <p className="text-center text-sm text-muted-foreground">
+                Connecting…
+              </p>
+            )
+          }
         >
-          Connect to chat
-        </Button>
-      }
-    />
-  ),
-  Online: ({ state, children }) => (
-    <Window
-      dot={state.connected ? 'green' : 'amber'}
-      status={state.connected ? 'Connected' : 'Connecting…'}
-      footer={
-        state.connected ? (
-          <ComposerView node={children.composer} />
-        ) : (
-          <p className="text-center text-sm text-muted-foreground">
-            Connecting…
-          </p>
-        )
-      }
-    >
-      <Transcript messages={state.messages} />
-    </Window>
-  ),
-  Error: ({ state, send }) => (
-    <Window
-      dot="red"
-      status="Error"
-      footer={
-        <div className="flex flex-col gap-3">
-          <Alert variant="destructive">
-            <AlertTitle>Connection error</AlertTitle>
-            <AlertDescription>{state.error}</AlertDescription>
-          </Alert>
-          <Button onClick={() => send({ _tag: 'ClickedConnect' })}>
-            Try again
-          </Button>
-        </div>
-      }
-    />
-  ),
+          <Transcript messages={state.messages} />
+        </Window>
+      );
+    case 'Error':
+      return (
+        <Window
+          dot="red"
+          status="Error"
+          footer={
+            <div className="flex flex-col gap-3">
+              <Alert variant="destructive">
+                <AlertTitle>Connection error</AlertTitle>
+                <AlertDescription>{state.error}</AlertDescription>
+              </Alert>
+              <Button onClick={() => send({ _tag: 'ClickedConnect' })}>
+                Try again
+              </Button>
+            </div>
+          }
+        />
+      );
+  }
 });

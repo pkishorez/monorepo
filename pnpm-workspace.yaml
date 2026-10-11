@@ -148,6 +148,7 @@ catalog:
   fumadocs-ui: 16.15.7
   idb: 8.0.3
   input-otp: 1.5.0
+  jsdom: 29.1.1
   kleur: 4.1.5
   lucide-react: 1.41.0
   esbuild: 0.28.2

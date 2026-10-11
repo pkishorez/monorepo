@@ -21,6 +21,7 @@ export const GROUPS = [
   'Apps',
   'Routing and host',
   'Large apps',
+  'React views',
 ] as const;
 
 /** Every demo, in the order the home page lists them within its group. */
@@ -237,6 +238,24 @@ export const DEMOS = [
     name: 'UI showcase',
     group: 'Large apps',
     summary: 'Dialogs, menus, tabs, listboxes and more, each a Node',
+  },
+  {
+    to: '/demos/effect-oak/react-views/list',
+    name: 'Keyed list renders',
+    group: 'React views',
+    summary: 'Render counts for a fixed Child, keyed Children and a prop',
+  },
+  {
+    to: '/demos/effect-oak/react-views/transitions',
+    name: 'Transitions keep the DOM',
+    group: 'React views',
+    summary: 'One draw function against a remount on every Transition',
+  },
+  {
+    to: '/demos/effect-oak/react-views/motion',
+    name: 'Motion and exits',
+    group: 'React views',
+    summary: 'motion.create on a View, a wrapper, and exits with last data',
   },
 ] as const satisfies ReadonlyArray<{
   readonly to: string;

@@ -1,25 +1,42 @@
-import { createContext, memo, use, useSyncExternalStore } from 'react';
-import type { FunctionComponent, ReactNode } from 'react';
+import { createContext, memo, use, useRef, useSyncExternalStore } from 'react';
+import type { CSSProperties, ReactNode, Ref } from 'react';
 import { motionValue } from 'motion/react';
 import type { MotionValue } from 'motion/react';
-import type { AnyActor, Many, Only, Tagged, Types } from '../core/index.ts';
+import type { AnyActor, Many, Only, Types } from '../core/index.ts';
 
-/** One Instance in the tree, to draw: only its ID, so it never changes. */
+/** One Instance in the tree, to draw: its ID and, for a keyed Child, its key. Never changes. */
 export interface Handle<A> {
   readonly id: string;
+  readonly key?: string;
   readonly actor?: A;
 }
 
 type HandleOf<S> =
-  S extends Many<infer A> ? ReadonlyArray<Handle<A>> : Handle<S>;
+  S extends Many<infer A>
+    ? ReadonlyArray<Handle<A> & { readonly key: string }>
+    : Handle<S>;
 
 type KidsIn<A, T> = T extends keyof Types<A>['children']
   ? Types<A>['children'][T]
   : {};
 
-/** What a View is handed for one Instance, narrowed by its current State. */
+/**
+ * What a parent may hand the root element of a View: the `ref` and `style`
+ * Framer Motion animates through. Typed so it spreads on any element.
+ */
+export interface Root {
+  readonly ref: Ref<never> | undefined;
+  readonly style: CSSProperties | undefined;
+}
+
+/**
+ * What a View draws one Instance from, narrowed by its current State: `_tag`
+ * repeats the State's tag at the top so a `switch` on it narrows `state` and
+ * `children` together.
+ */
 export type ViewProps<A> = {
   [T in Types<A>['state']['_tag']]: {
+    readonly _tag: T;
     readonly id: string;
     readonly model: Types<A>['model'];
     readonly state: Only<Types<A>['state'], T>;
@@ -27,22 +44,15 @@ export type ViewProps<A> = {
       readonly [K in keyof KidsIn<A, T>]: HandleOf<KidsIn<A, T>[K]>;
     };
     readonly send: (message: Types<A>['message']) => void;
+    /**
+     * The Time the app is drawn at. Turn it into motion with `useTransform`,
+     * or listen to it with `useMotionValueEvent`; reading it never renders.
+     */
+    readonly frame: MotionValue<number>;
+    /** Spread on the element the View draws as its root: `<li {...root}>`. */
+    readonly root: Root;
   };
 }[Types<A>['state']['_tag']];
-
-type StateTag<A> = ViewProps<A>['state']['_tag'];
-
-type InState<A, T> = Extract<
-  ViewProps<A>,
-  { readonly state: { readonly _tag: T } }
->;
-
-/**
- * What a draw function gets besides the Instance: the Frame, the Time the
- * app is drawn at. Turn it into motion with `useTransform`, or listen to it
- * with `useMotionValueEvent`; reading it never renders.
- */
-type Drawing = { readonly frame: MotionValue<number> };
 
 /**
  * The app's one Frame, provided by `toReact`. Outside a running app it
@@ -50,71 +60,111 @@ type Drawing = { readonly frame: MotionValue<number> };
  */
 export const FrameContext = createContext<MotionValue<number>>(motionValue(0));
 
+/** The Instance's part of what a View draws from; the Frame and root are added when drawing. */
+export type Drawable = Omit<ViewProps<AnyActor>, 'frame' | 'root'>;
+
 /** What Views read the app through, provided by `toReact`. */
 export interface Drawn {
   readonly subscribe: (listener: () => void) => () => void;
-  /** The props of the Instance with this ID as drawn now, the same object while they do not change. */
-  readonly props: (id: string) => ViewProps<AnyActor> | undefined;
+  /** The Instance with this ID as drawn now, the same object while it does not change. */
+  readonly props: (id: string) => Drawable | undefined;
 }
 
 export const DrawnContext = createContext<Drawn | undefined>(undefined);
 
-/** An Actor without States is drawn by one function; an Actor with States by one function per State. */
-type Draw<A> = [StateTag<A>] extends ['Single']
-  ? (props: ViewProps<A> & Drawing) => ReactNode
-  : {
-      readonly [T in StateTag<A>]: (
-        props: InState<A, T> & Drawing,
-      ) => ReactNode;
-    };
-
-/** A View: a React component drawing one Instance of its Actor at the app's Frame. */
-export type ViewOf<A> = (props: { readonly node: Handle<A> }) => ReactNode;
-
-type Props = ViewProps<AnyActor> & Drawing;
+/** Names a View's component takes for itself, which its own props cannot use. */
+type Reserved = 'instance' | 'key' | 'ref' | 'style';
 
 /**
- * How one Actor is drawn. The result re-renders only when its own Instance's
- * Model, State or set of Children changes, never because a parent View or a
- * descendant did: its props are a Handle, which never changes.
- *
- * Each State is drawn by its own component, keyed by the State: a Transition
- * unmounts the old drawing and mounts the new one, so each State's draw can
- * keep its own hooks.
+ * The props a parent may not hand a View: functions and reserved names. Props
+ * are data only, so what a View does always goes through a Message.
  */
-const make = <A extends AnyActor>(actor: A, draw: Draw<A>): ViewOf<A> => {
-  const drawOf = (tag: string, f: (props: Props) => ReactNode) => {
-    const State: FunctionComponent<Props> = (props) => f(props);
-    State.displayName = `${actor.name}.${tag}`;
-    return State;
-  };
-  const states: Readonly<Record<string, FunctionComponent<Props>>> =
-    typeof draw === 'function'
-      ? { Single: drawOf('Single', draw as never) }
-      : Object.fromEntries(
-          Object.entries(draw).map(([tag, f]) => [
-            tag,
-            drawOf(tag, f as never),
-          ]),
-        );
+type NotData<P> = {
+  [K in keyof P]: K extends Reserved ? K : P[K] extends Function ? K : never;
+}[keyof P];
 
-  const View = memo<Parameters<ViewOf<A>>[0]>(({ node }) => {
-    const frame = use(FrameContext);
-    const drawn = use(DrawnContext);
-    if (!drawn)
-      throw new Error(
-        `[effect-oak] ${actor.name}View is drawn outside its app`,
+type Checked<P> = [NotData<P>] extends [never]
+  ? []
+  : [notData: { readonly propsMustBeData: NotData<P> }];
+
+/** A View: a React component drawing one Instance of its Actor at the app's Frame. */
+export type ViewOf<A, P = {}> = (
+  props: {
+    readonly instance: Handle<A>;
+    readonly ref?: Ref<Element> | undefined;
+    readonly style?: CSSProperties | undefined;
+  } & P,
+) => ReactNode;
+
+/**
+ * How one Actor is drawn: one function from the Instance and the props its
+ * parent hands it. The result re-renders only when its own Instance's Model,
+ * State or set of Children changes, or its props do, never because a
+ * descendant did.
+ *
+ * Once the Instance stops, the View keeps drawing its last data, so an exit
+ * animation still has something to show.
+ *
+ * `style` counts as changed only when its values do: `motion.create` hands
+ * the View a new `style` object on every render, with the same values.
+ */
+const make = <A extends AnyActor, P extends object = {}>(
+  actor: A,
+  draw: (self: ViewProps<A>, props: P) => ReactNode,
+  ..._notData: Checked<P>
+): ViewOf<A, P> => {
+  const View = memo(
+    ({
+      instance,
+      ref,
+      style,
+      ...props
+    }: Parameters<ViewOf<A, P>>[0] & { readonly key?: never }) => {
+      const frame = use(FrameContext);
+      const drawn = use(DrawnContext);
+      if (!drawn)
+        throw new Error(
+          `[effect-oak] ${actor.name}View is drawn outside its app`,
+        );
+      const live = useSyncExternalStore(drawn.subscribe, () =>
+        drawn.props(instance.id),
       );
-    const props = useSyncExternalStore(drawn.subscribe, () =>
-      drawn.props(node.id),
-    );
-    if (!props) return null;
-    const tag = (props.state as Tagged)._tag;
-    const State = states[tag]!;
-    return <State key={tag} {...props} frame={frame} />;
-  });
+      // The last data drawn, for a View still on screen after its Instance
+      // stopped. Written during render on purpose: it only ever holds what
+      // the store gave, so a render React throws away cannot leave it wrong.
+      const last = useRef(live);
+      if (live) last.current = live;
+      const self = live ?? last.current;
+      if (!self) return null;
+      return draw(
+        {
+          ...self,
+          frame,
+          root: { ref: ref as Ref<never>, style },
+        } as ViewProps<A>,
+        props as unknown as P,
+      );
+    },
+    same,
+  );
   View.displayName = `${actor.name}View`;
-  return View as ViewOf<A>;
+  return View as unknown as ViewOf<A, P>;
 };
+
+type Shown = Readonly<Record<string, unknown>>;
+
+/** Props are the same when each is the same value, and `style` when each of its values is. */
+const same = (a: Shown, b: Shown): boolean => {
+  const keys = Object.keys(b);
+  if (keys.length !== Object.keys(a).length) return false;
+  return keys.every(
+    (key) =>
+      Object.is(a[key], b[key]) ||
+      (key === 'style' && sameValues(a[key] as Shown, b[key] as Shown)),
+  );
+};
+
+const sameValues = (a: Shown | undefined, b: Shown | undefined) =>
+  a !== undefined && b !== undefined && same(a, b);
 
 export const View = { make };

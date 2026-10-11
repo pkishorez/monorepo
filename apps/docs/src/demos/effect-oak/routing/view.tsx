@@ -1,46 +1,41 @@
-import type { ReactNode } from 'react';
 import { View } from 'effect-oak/react';
+import type { ViewProps } from 'effect-oak/react';
 import { FilesIndexPage, FilesPage } from './files/index.js';
 import { Frame, HomePage, NestedPage, NotFoundPage } from './pages.js';
 import { PeopleView, PersonPage } from './people/index.js';
 import { Routing } from './routing.js';
 
-type Drawn = {
-  readonly model: { readonly path: string };
-  readonly state: { readonly _tag: string };
-  readonly send: (message: {
-    readonly _tag: 'ClickedLink';
-    readonly path: string;
-  }) => void;
+type Go = (path: string) => void;
+
+/** The page for the route the root is on. */
+const pageFor = (self: ViewProps<typeof Routing>, go: Go) => {
+  switch (self._tag) {
+    case 'Opening':
+      return null;
+    case 'Home':
+      return <HomePage onNavigate={go} />;
+    case 'Nested':
+      return <NestedPage />;
+    case 'People':
+      return <PeopleView instance={self.children.people} />;
+    case 'Person':
+      return <PersonPage personId={self.state.personId} onNavigate={go} />;
+    case 'FilesIndex':
+      return <FilesIndexPage onNavigate={go} />;
+    case 'Files':
+      return <FilesPage path={self.state.path} onNavigate={go} />;
+    case 'NotFound':
+      return <NotFoundPage path={self.state.path} onNavigate={go} />;
+  }
 };
 
 /** One route's page inside the frame, its links Sending `ClickedLink`. */
-const page =
-  <P extends Drawn>(
-    draw: (props: P, go: (path: string) => void) => ReactNode,
-  ) =>
-  (props: P) => {
-    const go = (path: string) => props.send({ _tag: 'ClickedLink', path });
-    return (
-      <Frame route={props.state._tag} path={props.model.path} onNavigate={go}>
-        {draw(props, go)}
-      </Frame>
-    );
-  };
-
-export const RoutingView = View.make(Routing, {
-  Opening: () => null,
-  Home: page((_, go) => <HomePage onNavigate={go} />),
-  Nested: page(() => <NestedPage />),
-  People: page(({ children }) => <PeopleView node={children.people} />),
-  Person: page(({ state }, go) => (
-    <PersonPage personId={state.personId} onNavigate={go} />
-  )),
-  FilesIndex: page((_, go) => <FilesIndexPage onNavigate={go} />),
-  Files: page(({ state }, go) => (
-    <FilesPage path={state.path} onNavigate={go} />
-  )),
-  NotFound: page(({ state }, go) => (
-    <NotFoundPage path={state.path} onNavigate={go} />
-  )),
+export const RoutingView = View.make(Routing, (self) => {
+  if (self._tag === 'Opening') return null;
+  const go = (path: string) => self.send({ _tag: 'ClickedLink', path });
+  return (
+    <Frame route={self._tag} path={self.model.path} onNavigate={go}>
+      {pageFor(self, go)}
+    </Frame>
+  );
 });

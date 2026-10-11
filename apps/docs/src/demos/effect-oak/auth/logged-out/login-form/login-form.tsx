@@ -140,9 +140,14 @@ const Form = ({
   </form>
 );
 
-export const LoginFormView = View.make(LoginForm, {
-  Editing: ({ model, state, send }) => (
-    <Form {...model} error={state.error} send={send} />
+export const LoginFormView = View.make(
+  LoginForm,
+  ({ _tag, model, state, send }) => (
+    <Form
+      {...model}
+      error={_tag === 'Editing' ? state.error : null}
+      submitting={_tag === 'Submitting'}
+      send={send}
+    />
   ),
-  Submitting: ({ model, send }) => <Form {...model} submitting send={send} />,
-});
+);

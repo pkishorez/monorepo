@@ -36,7 +36,7 @@ list, that fetch would have to be the root's.
 
 Every `::Counter` in any post draws the same Counter Child, as in Foldkit
 (one `counter` in the Model, drawn by each island). The prose drawing gets
-`islands: { Counter: () => <CounterView node={children.counter} /> }`, so
+`islands: { Counter: () => <CounterView instance={children.counter} /> }`, so
 the island is a real Child View inside the text.
 
 ## Deviations

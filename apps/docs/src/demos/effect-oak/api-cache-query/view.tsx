@@ -34,9 +34,9 @@ export const ApiCacheQueryView = View.make(
           </TabsList>
         </Tabs>
         {model.tab === 'Stats' ? (
-          <StatsView node={children.stats} />
+          <StatsView instance={children.stats} />
         ) : model.openPostId === null ? (
-          <PostListView node={children.posts} />
+          <PostListView instance={children.posts} />
         ) : (
           <section className="flex flex-col gap-4">
             <Button
@@ -47,7 +47,7 @@ export const ApiCacheQueryView = View.make(
             >
               ← Back to posts
             </Button>
-            <PostDetailView node={children.post} />
+            <PostDetailView instance={children.post} />
           </section>
         )}
       </div>

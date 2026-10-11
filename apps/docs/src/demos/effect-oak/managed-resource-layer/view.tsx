@@ -34,37 +34,50 @@ const Panel = ({
   </div>
 );
 
-export const EnginePanelView = View.make(EnginePanel, {
-  Off: ({ send }) => (
-    <Panel status="Engine is off." tone="text-muted-foreground">
-      <Button onClick={() => send({ _tag: 'ClickedStartEngine' })}>
-        Start engine
-      </Button>
-    </Panel>
-  ),
-  On: ({ state, children, send }) => (
-    <Panel
-      status={
-        state.engineId === null
-          ? 'Booting engine…'
-          : `Engine ready: ${state.engineId}`
-      }
-      tone={state.engineId === null ? 'text-amber-600' : 'text-green-600'}
-    >
-      <Button
-        variant="destructive"
-        onClick={() => send({ _tag: 'ClickedStopEngine' })}
-      >
-        Stop engine
-      </Button>
-      {state.engineId !== null && <CalculatorView node={children.calculator} />}
-    </Panel>
-  ),
-  Failed: ({ state, send }) => (
-    <Panel status={`Engine failed: ${state.reason}`} tone="text-destructive">
-      <Button onClick={() => send({ _tag: 'ClickedStartEngine' })}>
-        Start engine
-      </Button>
-    </Panel>
-  ),
-});
+export const EnginePanelView = View.make(
+  EnginePanel,
+  ({ _tag, state, children, send }) => {
+    switch (_tag) {
+      case 'Off':
+        return (
+          <Panel status="Engine is off." tone="text-muted-foreground">
+            <Button onClick={() => send({ _tag: 'ClickedStartEngine' })}>
+              Start engine
+            </Button>
+          </Panel>
+        );
+      case 'On':
+        return (
+          <Panel
+            status={
+              state.engineId === null
+                ? 'Booting engine…'
+                : `Engine ready: ${state.engineId}`
+            }
+            tone={state.engineId === null ? 'text-amber-600' : 'text-green-600'}
+          >
+            <Button
+              variant="destructive"
+              onClick={() => send({ _tag: 'ClickedStopEngine' })}
+            >
+              Stop engine
+            </Button>
+            {state.engineId !== null && (
+              <CalculatorView instance={children.calculator} />
+            )}
+          </Panel>
+        );
+      case 'Failed':
+        return (
+          <Panel
+            status={`Engine failed: ${state.reason}`}
+            tone="text-destructive"
+          >
+            <Button onClick={() => send({ _tag: 'ClickedStartEngine' })}>
+              Start engine
+            </Button>
+          </Panel>
+        );
+    }
+  },
+);

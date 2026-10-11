@@ -1,6 +1,6 @@
 import { instanceAt, isMany } from '../core/index.ts';
 import type { AnyActor, Instance, Running, Tagged } from '../core/index.ts';
-import type { Drawn, Handle, ViewProps } from './view.tsx';
+import type { Drawable, Drawn, Handle } from './view.tsx';
 
 /*
  * What Views read: the props of any Instance, from the Snapshot drawn now.
@@ -14,14 +14,12 @@ export const makeDrawn = (
 ): Drawn => {
   const handles = new Map<string, Handle<AnyActor>>();
   const sends = new Map<string, (message: Tagged) => void>();
-  const cache = new Map<
-    string,
-    { instance: Instance; props: ViewProps<AnyActor> }
-  >();
+  const cache = new Map<string, { instance: Instance; props: Drawable }>();
 
-  const handleOf = (id: string) => {
+  const handleOf = ({ id, key }: Instance) => {
     let handle = handles.get(id);
-    if (!handle) handles.set(id, (handle = { id }));
+    if (!handle)
+      handles.set(id, (handle = key === undefined ? { id } : { id, key }));
     return handle;
   };
   const sendTo = (id: string) => {
@@ -50,19 +48,23 @@ export const makeDrawn = (
       return hit.props;
     }
     const next = {
+      _tag: instance.state._tag,
       id,
       model: instance.model,
       state: instance.state,
-      children: Object.fromEntries(
-        Object.entries(instance.children).map(([slot, held]) => [
-          slot,
-          isMany(held)
-            ? held.map((kid) => handleOf(kid.id))
-            : handleOf(held.id),
-        ]),
-      ),
+      // The same object while the Children's IDs stay the same, so a memoized
+      // component or a `useMemo` given them sees no change.
+      children:
+        hit && sameIds(hit.instance, instance)
+          ? hit.props.children
+          : Object.fromEntries(
+              Object.entries(instance.children).map(([slot, held]) => [
+                slot,
+                isMany(held) ? held.map(handleOf) : handleOf(held),
+              ]),
+            ),
       send: sendTo(id),
-    } as ViewProps<AnyActor>;
+    } as Drawable;
     cache.set(id, { instance, props: next });
     return next;
   };

@@ -136,6 +136,15 @@
     "src/demos/effect-oak/rockets/capabilities": [
       "src/demos/effect-oak/rockets/draw"
     ],
-    "src/demos/effect-oak/showreel": ["src/demos/effect-oak/rockets"]
+    "src/demos/effect-oak/showreel": ["src/demos/effect-oak/rockets"],
+    "src/demos/effect-oak/react-views/list": [
+      "src/demos/effect-oak/react-views/render-count"
+    ],
+    "src/demos/effect-oak/react-views/transitions": [
+      "src/demos/effect-oak/react-views/render-count"
+    ],
+    "src/demos/effect-oak/react-views/motion": [
+      "src/demos/effect-oak/react-views/render-count"
+    ]
   }
 }

@@ -9,13 +9,14 @@ import {
   PausedOverlay,
   Scene,
   StartOverlay,
+  steering,
   useKeys,
-  useSteering,
 } from './scene/index.js';
 
 /*
- * How the game looks, per State. Each State says where things are at a
- * Frame, in road units; the Scene, in ./scene, decides how that is drawn.
+ * How the game looks. Each State says where things are at a Frame, in road
+ * units, and what lies over the road; the Scene, in ./scene, decides how that
+ * is drawn, and stays put from one State to the next.
  */
 
 /** Where everything is at Time `at`, worked out from the Model alone. */
@@ -39,63 +40,54 @@ const Stage = (props: ComponentProps<'div'>) => (
   />
 );
 
-export const GameView = View.make(Game, {
-  Welcome: ({ model: { config }, send, frame }) => (
-    <Stage>
-      <Scene road={config} frame={frame} where={() => PARKED}>
-        <StartOverlay onStart={() => send({ _tag: 'Started' })} />
-      </Scene>
-    </Stage>
-  ),
-
-  Playing: ({ model: { config }, state, send, frame }) => {
+export const GameView = View.make(
+  Game,
+  ({ _tag, model: { config }, state, send, frame }) => {
     const pause = () => send({ _tag: 'PressedPause' });
-    return (
-      <Stage {...useSteering(send, { p: pause })}>
-        <Scene
-          road={config}
-          frame={frame}
-          where={(at) => whereAt(config, state, at)}
-        >
-          <Button
-            size="sm"
-            variant="secondary"
-            className="absolute top-2 left-3"
-            onPointerDown={(event) => event.stopPropagation()}
-            onClick={pause}
-          >
-            Pause
-          </Button>
-        </Scene>
-      </Stage>
+    const steer = steering(send);
+    useKeys(
+      _tag === 'Playing'
+        ? { ...steer.keys, p: pause }
+        : _tag === 'Paused'
+          ? { p: pause }
+          : {},
     );
-  },
-
-  Paused: ({ model: { config }, state, send, frame }) => {
-    const resume = () => send({ _tag: 'PressedPause' });
-    useKeys({ p: resume });
     return (
-      <Stage>
-        <Scene
-          road={config}
-          frame={frame}
-          where={() => whereAt(config, state, state.pausedAt)}
-        >
-          <PausedOverlay onResume={resume} />
-        </Scene>
-      </Stage>
-    );
-  },
-
-  Crashed: ({ model: { config }, state, frame }) => (
-    <Stage>
-      <Scene
-        road={config}
-        frame={frame}
-        where={() => whereAt(config, state, state.crashedAt)}
+      <Stage
+        onPointerDown={_tag === 'Playing' ? steer.onPointerDown : undefined}
       >
-        <CrashBanner time={lapTime(state.crashedAt - state.startedAt)} />
-      </Scene>
-    </Stage>
-  ),
-});
+        <Scene
+          road={config}
+          frame={frame}
+          where={(at) =>
+            _tag === 'Playing'
+              ? whereAt(config, state, at)
+              : _tag === 'Paused'
+                ? whereAt(config, state, state.pausedAt)
+                : _tag === 'Crashed'
+                  ? whereAt(config, state, state.crashedAt)
+                  : PARKED
+          }
+        >
+          {_tag === 'Welcome' ? (
+            <StartOverlay onStart={() => send({ _tag: 'Started' })} />
+          ) : _tag === 'Playing' ? (
+            <Button
+              size="sm"
+              variant="secondary"
+              className="absolute top-2 left-3"
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={pause}
+            >
+              Pause
+            </Button>
+          ) : _tag === 'Paused' ? (
+            <PausedOverlay onResume={pause} />
+          ) : (
+            <CrashBanner time={lapTime(state.crashedAt - state.startedAt)} />
+          )}
+        </Scene>
+      </Stage>
+    );
+  },
+);

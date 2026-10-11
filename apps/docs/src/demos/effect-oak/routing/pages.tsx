@@ -48,7 +48,8 @@ export const Frame = ({
         #{path}
       </code>
     </nav>
-    <main className="flex-1 overflow-y-auto p-6">
+    {/* Keyed by route, so each page starts scrolled to the top. */}
+    <main key={route} className="flex-1 overflow-y-auto p-6">
       <div className="mx-auto max-w-3xl">{children}</div>
     </main>
   </div>

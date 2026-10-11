@@ -59,16 +59,12 @@ const Intro = () => (
   </>
 );
 
-export const CatalogView = View.make(Catalog, {
-  Loading: () => (
-    <section className="flex flex-col gap-4">
-      <Intro />
+export const CatalogView = View.make(Catalog, ({ _tag, send }) => (
+  <section className="flex flex-col gap-4">
+    <Intro />
+    {_tag === 'Loading' ? (
       <Waiting label="Hanging the paintings…" />
-    </section>
-  ),
-  Ready: ({ send }) => (
-    <section className="flex flex-col gap-4">
-      <Intro />
+    ) : (
       <ul className="grid gap-4 sm:grid-cols-2">
         {PAINTINGS.map((painting) => (
           <li key={painting.id}>
@@ -88,9 +84,9 @@ export const CatalogView = View.make(Catalog, {
           </li>
         ))}
       </ul>
-    </section>
-  ),
-});
+    )}
+  </section>
+));
 
 /** Whether the root should load a painting for this id. */
 export const hangs = (id: number) => PAINTINGS.some((p) => p.id === id);

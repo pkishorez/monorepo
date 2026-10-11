@@ -58,7 +58,7 @@ pnpm add effect-oak effect react motion
 
 | Export      | What it does                                                                                                                                                                                  |
 | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `View.make` | Defines how one Actor is drawn, one function per State, as a React component that takes a Handle to the Instance.                                                                             |
+| `View.make` | Defines how one Actor is drawn, one function for every State, as a React component that takes the Instance and data props from its parent.                                                    |
 | `toReact`   | Turns a root Actor, its View and a Layer into one React component that runs the whole app, one Runtime for every mount; `useRuntime` reads its Log, shows any entry, and stops and starts it. |
 
 ## Usage
@@ -167,22 +167,39 @@ const List = Actor.make('List', {
 ### Drawing it with React
 
 ```tsx
-export const AuthView = View.make(Auth, {
-  Checking: () => <Spinner />,
-  Anonymous: ({ children }) => <LoginView node={children.login} />,
-  Authenticated: ({ state, children }) => (
-    <>
-      <p>Signed in as {state.user}</p>
-      <TodosView node={children.todos} />
-    </>
-  ),
+export const AuthView = View.make(Auth, ({ _tag, state, children }) => {
+  switch (_tag) {
+    case 'Checking':
+      return <Spinner />;
+    case 'Anonymous':
+      return <LoginView instance={children.login} />;
+    case 'Authenticated':
+      return (
+        <>
+          <p>Signed in as {state.user}</p>
+          <TodosView instance={children.todos} />
+        </>
+      );
+  }
 });
+
+const RowView = View.make(
+  Row,
+  ({ model, root }, { selected }: { readonly selected: boolean }) => (
+    <li {...root} data-selected={selected}>
+      {model.text}
+    </li>
+  ),
+);
+const MotionRow = motion.create(RowView);
 
 const DemoApp = toReact(Auth, AuthView, ServerLive);
 ```
 
-- A View is written per State, and gets `model`, `state`, `children` (Handles; arrays for keyed Children), `send` and `frame`. It never sees Capabilities, so it draws a Replay exactly like the live app.
-- A View re-renders only when its own Instance's Model, State or set of Children changes. Many Messages handled in a row make one render.
+- One function draws every State. It gets `_tag`, `model`, `state`, `children` (Handles; arrays for keyed Children, each with its `key`), `send`, `frame` and `root`; a `switch` on `_tag` narrows `state` and `children`. The DOM stays across a Transition. It never sees Capabilities, so it draws a Replay exactly like the live app.
+- A Child is placed with `<RowView instance={handle} />`. Its draw's second parameter is data from the parent (`selected` above), for drawing only: a function prop is a type error, and what a View does goes through a Message.
+- Spreading `root` on the View's own element hands it the parent's `ref` and `style`, so `motion.create(RowView)` animates it, with no wrapper element, and it stays memoized. A View whose Instance has stopped keeps drawing its last data, so `AnimatePresence` can play its exit.
+- A View re-renders only when its own Instance's Model, State or set of Children changes, or its props do. Many Messages handled in a row make one render.
 - `DemoApp.useRuntime()` returns `{ log, head, running, shown, show, stop, start, children, frame }` from anywhere on the page. `show(id)` draws the app right after that entry, on any Branch; `stop()` closes every Lifetime, Command and Capability; `start(id)` Replays to that entry and grows a new Branch from it, and `start()` resumes.
 - Work that must survive a stop belongs in a Lifetime: Commands running at a stop are lost. The outside world is not rewound.
 - Whatever moves between Messages is drawn from `frame`, a `MotionValue<number>` holding the Time, with `useTransform`; nothing renders between Messages.

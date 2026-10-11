@@ -17,14 +17,14 @@ rewritten to use the fix.
 | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------ |
 | 1    | 5. Testing: no typed way to run one Update or draw one View                                                                                      | 33     |
 | 2    | 4. Testing: Commands are anonymous Effects                                                                                                       | 27     |
-| 3    | 13. A parent cannot pass data to a Child (or read it)                                                                                            | 12     |
+| 3    | 13. A parent cannot pass data to a Child (or read it) (View props: resolved)                                                                     | 12     |
 | 4    | 10. Lifetimes and Children belong to exactly one State (Lifetimes: partly resolved)                                                              | 11     |
 | 5    | 3. Children (and the root) cannot be given input on creation (Children: resolved)                                                                | 9      |
 | 6    | 6. Testing: no way to emit a Lifetime's Message                                                                                                  | 8      |
 | 6    | 15. No routing                                                                                                                                   | 8      |
 | 8    | 14. A parent cannot send its Child a Message                                                                                                     | 6      |
 | 9    | 1. No list of Children (resolved)                                                                                                                | 5      |
-| 10   | 11. Each State is drawn by its own keyed component                                                                                               | 4      |
+| 10   | 11. Each State is drawn by its own keyed component (resolved)                                                                                    | 4      |
 | 11   | 7. No way to stop one Command (resolved)                                                                                                         | 3      |
 | 11   | 12. A Lifetime cannot follow the Model (resolved)                                                                                                | 3      |
 | 13   | 9. A State cannot Provide a resource that an Effect builds (resolved)                                                                            | 2      |
@@ -182,7 +182,9 @@ up through Requests.
     data, so no step's answers are lost on moving) and
     [ui-showcase](ui-showcase/notes.md) (pages are Model data so every
     component keeps its choice).
-11. **Each State is drawn by its own keyed component**, so DOM that should
+11. **Resolved: each State is drawn by its own keyed component.** One draw
+    function now draws every State (ADR 0015), so the DOM survives a
+    Transition. Before, DOM that should
     survive a Transition is remounted: an input loses focus. Letting an Actor
     with States be drawn by one function would be the API. Hit by
     [form](form/notes.md) (field status moved out of States),
@@ -204,7 +206,9 @@ up through Requests.
     [api-cache-query](api-cache-query/notes.md) (the stats timer ticks while
     its tab is hidden). A Lifetime also keeps the Capabilities it started with,
     while a Command sees the latest ones.
-13. **A parent cannot pass data to a Child.** A Child's Update and View see
+13. **A parent cannot pass data to a Child.** Resolved for drawing: a View
+    takes data props from its parent as its draw's second parameter (ADR
+    0015). Still open for logic: before that, a Child's Update and View saw
     only its own Model; Capabilities reach only its Commands and Lifetimes.
     Foldkit gives a Submodel's view `viewInputs`. A View input
     (`<ResizeView node={children.resize} input={{ size }} />`, typed by the
