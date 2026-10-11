@@ -1,4 +1,4 @@
-import type { Context, Effect, Layer, Schema, Scope, Stream } from 'effect';
+import type { Context, Effect, Layer, Scope, Stream } from 'effect';
 
 export type Tagged = { readonly _tag: string };
 
@@ -6,11 +6,14 @@ export type Tagged = { readonly _tag: string };
 export type Single = { readonly _tag: 'Single' };
 
 type AnyKey = Context.Key<any, any>;
-export type Requires = Readonly<Record<string, AnyKey>>;
+/** The Capabilities an Actor's own code may use. */
+export type Requires = ReadonlyArray<AnyKey>;
 
-type IdsOf<R extends Requires> = {
-  [K in keyof R]: R[K] extends Context.Key<infer I, any> ? I : never;
-}[keyof R];
+type IdsOf<R extends Requires> = R[number] extends infer K
+  ? K extends Context.Key<infer I, any>
+    ? I
+    : never
+  : never;
 
 export type Only<U, T> = Extract<U, { readonly _tag: T }>;
 
@@ -49,6 +52,7 @@ export interface Command<Msg, R extends Requires> {
   readonly run: Effect.Effect<Msg | void, never, IdsOf<R>>;
 }
 
+/** The Updates of one level, by Message tag. */
 type Rules<Model, State, Msg extends Tagged, R extends Requires, Next> = {
   readonly [K in Msg['_tag']]?: (
     message: Only<Msg, K>,
@@ -72,59 +76,32 @@ type Run<Model, State, Msg, R extends Requires> = (
 
 /**
  * Work that runs for exactly as long as its Condition holds, read from the
- * Instance's own data after every Update: the Instance itself, one State
- * (`in`), a yes or no (`while`), or a list of keys (`each`), one Worker per
- * key. When the Condition stops holding, the Worker's Scope closes.
+ * Instance's own data after every Update. Where it is written is part of the
+ * Condition: at the top it is owned by the Instance, in a State's block by
+ * that State. Inside that, it runs always, `while` a test is true, or once
+ * per key `each` names. When the Condition stops holding, its Scope closes.
  */
-export type Worker<Model, State extends Tagged, Msg, R extends Requires> =
+export type Worker<Model, State, Msg, R extends Requires> =
   | {
-      readonly in?: never;
       readonly while?: never;
       readonly each?: never;
       readonly run: Run<Model, State, Msg, R>;
     }
   | {
-      readonly [T in State['_tag']]: {
-        readonly in: T;
-        readonly while?: never;
-        readonly each?: never;
-        readonly run: Run<Model, Only<State, T>, Msg, R>;
-      };
-    }[State['_tag']]
-  | {
-      readonly in?: never;
       readonly while: (data: Data<Model, State>) => boolean;
       readonly each?: never;
       readonly run: Run<Model, State, Msg, R>;
     }
   | {
-      readonly in?: never;
       readonly while?: never;
       readonly each: (data: Data<Model, State>) => ReadonlyArray<string>;
       readonly run: Run<Model, State, Msg, R>;
     };
 
-/** Every Worker an Actor can own, by name. */
-export type Workers<
-  Model,
-  State extends Tagged,
-  Msg,
-  R extends Requires,
-> = Readonly<Record<string, Worker<Model, State, Msg, R>>>;
-
-/** Builds what a State Provides, once each time the State is entered. */
-type Provide<Model, State, Msg, R extends Requires, Ids> = (
-  self: Self<Model, State, Msg>,
-) => Layer.Layer<Ids, never, IdsOf<R>>;
-
-type Keys = ReadonlyArray<AnyKey>;
-
-type IdsIn<L> =
-  L extends ReadonlyArray<infer K>
-    ? K extends Context.Key<infer I, any>
-      ? I
-      : never
-    : never;
+/** Every Worker of one level, by name. */
+export type Workers<Model, State, Msg, R extends Requires> = Readonly<
+  Record<string, Worker<Model, State, Msg, R>>
+>;
 
 // Children ------------------------------------------------------------------------
 
@@ -157,183 +134,129 @@ type NeedKeys<C> = {
 }[keyof C];
 type FreeKeys<C> = Exclude<keyof C, ManyKeys<C> | NeedKeys<C>>;
 
-/** What a State Invokes: the keys and Input of each keyed Child, and the Input of each fixed one. */
+/** What a level Invokes: the keys and Input of each keyed Child, and the Input of each fixed one. */
 export type Invocation<C> = {
   readonly [K in ManyKeys<C>]: ReadonlyArray<Keyed<InputOf<ActorOf<C[K]>>>>;
 } & { readonly [K in NeedKeys<C>]: InputOf<C[K]> } & {
   readonly [K in FreeKeys<C>]?: InputOf<C[K]>;
 };
 
-type Invoke<Model, State, C> = (data: Data<Model, State>) => Invocation<C>;
+// The behavior ---------------------------------------------------------------------
 
-type InvokesByState<Model, State extends Tagged, CS> = {
-  readonly [
-    T in keyof CS & State['_tag'] as {} extends Invocation<CS[T]> ? never : T
-  ]: Invoke<Model, Only<State, T>, CS[T]>;
-} & {
-  readonly [
-    T in keyof CS & State['_tag'] as {} extends Invocation<CS[T]> ? T : never
-  ]?: Invoke<Model, Only<State, T>, CS[T]>;
-};
+/** The Children a level, as written, Invokes. */
+type KidsOf<L> = L extends { readonly children: infer C } ? C : {};
 
-type InvokePart<Part> = {} extends Part
-  ? { readonly invoke?: Part }
-  : { readonly invoke: Part };
+/** `invoke` is required once a level has a Child that needs keys or Input. */
+type InvokePart<Model, State, C> =
+  {} extends Invocation<C>
+    ? { readonly invoke?: (data: Data<Model, State>) => Invocation<C> }
+    : { readonly invoke: (data: Data<Model, State>) => Invocation<C> };
 
-// The definition ---------------------------------------------------------------------
+/**
+ * One level of an Actor's behavior: the top, for as long as the Instance
+ * lives, or one State's block, for as long as that State lasts. `L` is the
+ * level as written, so `invoke` is checked against the `children` beside it.
+ */
+type Level<Model, State, Msg extends Tagged, R extends Requires, Next, L> = {
+  /** The Capabilities this level gives everything below it, as one Layer. */
+  readonly provides?: (
+    self: Self<Model, State, Msg>,
+  ) => Layer.Layer<any, never, IdsOf<R>>;
+  readonly children?: Children;
+  /** The Updates: per Message, the next Model and State and the Commands. */
+  readonly on?: Rules<Model, State, Msg, R, Next>;
+  readonly workers?: Workers<Model, State, Msg, R>;
+} & InvokePart<Model, State, KidsOf<L>>;
 
 type ModelInit<Model> = {} extends Model
   ? { readonly model?: Model }
   : { readonly model: Model };
 
-type ProvidesByState<State extends Tagged> = {
-  readonly [T in State['_tag']]?: Keys;
-};
+/** The block written for State `T`, if any. */
+type BlockOf<B, T extends PropertyKey> = B extends {
+  readonly state: { readonly [K in T]: infer L };
+}
+  ? L
+  : {};
 
-/** One Provide per State that declares Capabilities, building exactly those. */
-type ProvidesPart<Model, State extends Tagged, Msg, R extends Requires, Pv> = [
-  Pv,
-] extends [never]
-  ? { readonly provides?: {} }
-  : {
-      readonly provides: {
-        readonly [T in keyof Pv & State['_tag']]: Provide<
-          Model,
-          Only<State, T>,
-          Msg,
-          R,
-          IdsIn<Pv[T]>
-        >;
-      };
-    };
-
-type ChildrenByState<State extends Tagged> = {
-  readonly [T in State['_tag']]?: Children;
-};
-
-/** An Actor declared without a `state` Schema has one State, and every per-State part is written flat. */
+/** An Actor declared without a `state` Schema has one State, and no State blocks. */
 export type IsSingle<State> = [State] extends [Single] ? true : false;
 
-/** Children keyed by State, also for an Actor without States. */
-export type ByState<State, C> =
-  IsSingle<State> extends true ? { Single: C } : C;
-
-/** The definition of an Actor: every type, what it Provides and its Children are fixed here. */
-export type Shape<
-  Input,
-  Model,
-  State extends Tagged,
-  Msg,
-  R extends Requires,
-  Pv,
-  C,
-> = {
-  readonly requires?: R;
-  /** What a parent hands this Actor when it Invokes it. */
-  readonly input?: Schema.Schema<Input>;
-  readonly model?: Schema.Schema<Model>;
-  readonly message?: Schema.Schema<Msg>;
-  readonly state?: Schema.Schema<State>;
-  readonly provides?: Pv;
-  readonly children?: C &
-    (IsSingle<State> extends true
-      ? Fits<C, IdsOf<R> | IdsIn<Pv>>
-      : {
-          readonly [T in keyof C]: Fits<
-            C[T],
-            IdsOf<R> | IdsIn<T extends keyof Pv ? Pv[T] : never>
-          >;
-        });
-};
-
-/** What `provides` may say: a list of Capabilities, or one list per State. */
-export type ProvidesFor<State extends Tagged> =
-  IsSingle<State> extends true ? Keys : ProvidesByState<State>;
-
-/** What `children` may say: Children, or Children per State. */
-export type ChildrenFor<State extends Tagged> =
-  IsSingle<State> extends true ? Children : ChildrenByState<State>;
-
-/** How an Actor is built: flat without States, keyed by State with them. */
+/**
+ * How an Actor is built. `B` is the behavior as written: each level's
+ * `invoke` is checked against its own `children`, and what the levels
+ * Provide and Invoke becomes the Actor's type.
+ */
 export type Behavior<
   Input,
   Model,
   State extends Tagged,
   Msg extends Tagged,
   R extends Requires,
-  Pv,
-  C,
+  B,
 > =
   IsSingle<State> extends true
-    ? SingleBehavior<Input, Model, Msg, R, Pv, C>
-    : StatesBehavior<Input, Model, State, Msg, R, Pv, C>;
+    ? Level<Model, Single, Msg, R, never, B> & {
+        readonly state?: never;
+      } & ([Input] extends [void]
+          ? {} extends Model
+            ? { readonly init?: (input: Input) => ModelInit<Model> }
+            : { readonly init: (input: Input) => ModelInit<Model> }
+          : { readonly init: (input: Input) => ModelInit<Model> })
+    : Level<Model, State, Msg, R, State, B> & {
+        /** The first Model and State, from the Input. */
+        readonly init: (
+          input: Input,
+        ) => { readonly state: State } & ModelInit<Model>;
+        /** One block per State, holding only while it lasts. */
+        readonly state?: {
+          readonly [T in State['_tag']]?: Level<
+            Model,
+            Only<State, T>,
+            Msg,
+            R,
+            State,
+            BlockOf<B, T>
+          >;
+        };
+      };
 
-/** How an Actor with States is built: every per-State part is keyed by State. */
-type StatesBehavior<
-  Input,
-  Model,
-  State extends Tagged,
-  Msg extends Tagged,
-  R extends Requires,
-  Pv,
-  C,
-> = ProvidesPart<Model, State, Msg, R, Pv> &
-  InvokePart<InvokesByState<Model, State, C>> & {
-    /** The first Model and State, from the Input. */
-    readonly init: (
-      input: Input,
-    ) => { readonly state: State } & ModelInit<Model>;
-    readonly update?: {
-      readonly [T in State['_tag']]?: Rules<
-        Model,
-        Only<State, T>,
-        Msg,
-        R,
-        State
-      >;
-    } & { readonly '*'?: Rules<Model, State, Msg, R, State> };
-    readonly workers?: Workers<Model, State, Msg, R>;
-  };
+// What the Actor's type says -------------------------------------------------------
 
-/** How an Actor without States is built: every per-State part is written flat. */
-type SingleBehavior<
-  Input,
-  Model,
-  Msg extends Tagged,
-  R extends Requires,
-  Pv,
-  C,
-> = ([Pv] extends [never]
-  ? { readonly provides?: never }
-  : { readonly provides: Provide<Model, Single, Msg, R, IdsIn<Pv>> }) &
-  ({} extends Invocation<C>
-    ? { readonly invoke?: Invoke<Model, Single, C> }
-    : { readonly invoke: Invoke<Model, Single, C> }) &
-  ([Input] extends [void]
-    ? {} extends Model
-      ? { readonly init?: (input: Input) => ModelInit<Model> }
-      : { readonly init: (input: Input) => ModelInit<Model> }
-    : { readonly init: (input: Input) => ModelInit<Model> }) & {
-    readonly update?: Rules<Model, Single, Msg, R, never>;
-    readonly workers?: Workers<Model, Single, Msg, R>;
-  };
+/** The Capabilities a level's `provides` builds. */
+type ProvidedOf<L> = L extends {
+  readonly provides: (...args: any) => Layer.Layer<infer P, any, any>;
+}
+  ? P
+  : never;
 
 type OpenOf<A> =
   A extends Actor<any, any, any, any, any, any, infer O> ? O : never;
 
-/**
- * Each Child must find every Capability it needs right where it is placed: in
- * the parent's Requires, or Provided by the parent in that State. A Child that
- * does not is marked with the Capabilities it is missing.
- */
-type Fits<C, Has> = {
-  readonly [K in keyof C]: [Exclude<OpenOf<ActorOf<C[K]>>, Has>] extends [never]
-    ? unknown
-    : { readonly missingCapabilities: Exclude<OpenOf<ActorOf<C[K]>>, Has> };
-};
+/** What the Children of a level still need from above. */
+type KidsOpen<C> = { [K in keyof C]: OpenOf<ActorOf<C[K]>> }[keyof C];
 
-/** Capabilities still needed from above. Children never add to it: they must fit where they are placed. */
-export type Open<R extends Requires> = IdsOf<R>;
+/**
+ * What an Actor still needs from above: its own Requires, and whatever its
+ * Children need that is not Provided where they are placed. A Child's needs
+ * bubble up until something Provides them; the app's Layer covers the rest.
+ */
+export type OpenOfBehavior<R extends Requires, B> =
+  | IdsOf<R>
+  | Exclude<KidsOpen<KidsOf<B>>, ProvidedOf<B>>
+  | (B extends { readonly state: infer S }
+      ? {
+          [T in keyof S]: Exclude<
+            KidsOpen<KidsOf<S[T]>>,
+            ProvidedOf<B> | ProvidedOf<S[T]>
+          >;
+        }[keyof S]
+      : never);
+
+/** The Children per State tag, top-level ones in every State, for Views. */
+export type KidsByState<State extends Tagged, B> = {
+  readonly [T in State['_tag']]: KidsOf<B> & KidsOf<BlockOf<B, T>>;
+};
 
 // What the engine reads ------------------------------------------------------------
 
@@ -345,8 +268,9 @@ export interface SlotDefinition {
 
 /** One Worker, as the engine sees it: which keys its Condition names, and what runs for each. */
 export interface WorkerDefinition {
+  /** `state` for a Worker that runs always in its State's block. */
   readonly kind: 'instance' | 'state' | 'while' | 'each';
-  /** The State it is owned by, when `kind` is `'state'`. */
+  /** The State whose block it is written in; none for a top-level Worker. */
   readonly state?: string;
   /** The keys the Condition names for this data; `''` for the one Worker of the other kinds. */
   readonly keys: (data: Data<unknown, Tagged>) => ReadonlyArray<string>;
@@ -363,14 +287,22 @@ export interface Definition {
     readonly model?: unknown;
     readonly state?: Tagged;
   };
+  /** The Updates by State tag, and the top-level ones under `'*'`. */
   readonly update: Readonly<
     Record<string, Readonly<Record<string, Function | undefined>> | undefined>
   >;
   readonly workers: Readonly<Record<string, WorkerDefinition>>;
-  readonly provides: Readonly<Record<string, Function | undefined>>;
+  /** The top-level Provide, built once when the Instance starts. */
+  readonly provides: Function | undefined;
+  /** Each State's Provide, built each time it is entered. */
+  readonly stateProvides: Readonly<Record<string, Function | undefined>>;
+  /** The Children of each State: the top-level ones, then the State's own. */
   readonly children: Readonly<
     Record<string, Readonly<Record<string, SlotDefinition>> | undefined>
   >;
+  /** The slots written at the top: they last as long as the Instance. */
+  readonly lasting: ReadonlyArray<string>;
+  /** What each State Invokes, the top-level Invocation included. */
   readonly invoke: Readonly<Record<string, Function | undefined>>;
 }
 

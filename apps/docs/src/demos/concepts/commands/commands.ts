@@ -15,7 +15,7 @@ export const Dice = Actor.make('Dice', {
   }),
 }).build({
   init: () => ({ model: { value: 1, rolling: false } }),
-  update: {
+  on: {
     // A Roll while rolling is handled but changes nothing: no second Command.
     Roll: (_, { model }) =>
       model.rolling

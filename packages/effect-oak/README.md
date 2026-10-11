@@ -17,9 +17,10 @@ The whole app is one immutable Snapshot, and handling a Message is a pure
 function from one Snapshot to the next. There is one mailbox, and a Message is
 handled before `send` returns. Around that pure core, everything that touches
 the outside world is Effect: each Instance's work lives in nested Scopes, and
-only the work where a Message landed is stopped or started. An Actor Requires
-Capabilities from above; TypeScript points at any Child placed where they are
-not Provided.
+only the work where a Message landed is stopped or started. An Actor's own
+code reaches only the Capabilities it Requires. What its Children need bubbles
+up until an ancestor Provides it, and the app does not compile until its Layer
+covers the rest.
 
 Every Message goes into the Log with its Time. The Log is a tree, like git
 commits: Replay folds any path through `handle` to draw the app right after
@@ -47,7 +48,7 @@ pnpm add effect-oak effect react motion
 
 | Export          | What it does                                                                                                            |
 | --------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `Actor.make`    | Defines an Actor: Requires, Input, Schemas, Provides and Children. `.build` adds what runs it.                          |
+| `Actor.make`    | Defines an Actor from its Requires and Schemas. `.build` adds how it behaves, at the top and in one block per State.    |
 | `Actor.many`    | Declares a keyed Child slot: one Instance of an Actor per key the parent Invokes.                                       |
 | `Runtime.start` | Starts an Actor as the root of a running app, inside a Scope, with its Snapshot, Log, Time and `stop`, `start`, `show`. |
 | `Replay.make`   | Rebuilds the Snapshot right after any Log entry from the Messages alone, yielding as it goes.                           |
@@ -72,7 +73,7 @@ This root signs a user in. While `Anonymous` it Provides `SignIn` and Invokes
 
 ```ts
 export const Auth = Actor.make('Auth', {
-  requires: { server: Server },
+  requires: [Server],
   state: Schema.TaggedUnion({
     Checking: {},
     Anonymous: {},
@@ -83,50 +84,54 @@ export const Auth = Actor.make('Auth', {
     LoggedIn: { user: Schema.String },
     LoggedOut: {},
   }),
-  provides: { Anonymous: [SignIn], Authenticated: [Session] },
-  children: { Anonymous: { login: Login }, Authenticated: { todos: Todos } },
 }).build({
   init: () => ({ state: { _tag: 'Checking' } }),
-  workers: {
-    check: {
-      in: 'Checking',
-      run: (self) =>
-        Effect.gen(function* () {
-          const user = yield* (yield* Server).checkSession;
-          yield* self.send({ _tag: 'CheckedSession', user });
-        }),
-    },
-  },
-  update: {
+  state: {
     Checking: {
-      CheckedSession: ({ user }) => ({
-        state: user ? { _tag: 'Authenticated', user } : { _tag: 'Anonymous' },
-      }),
+      workers: {
+        check: {
+          run: (self) =>
+            Effect.gen(function* () {
+              const user = yield* (yield* Server).checkSession;
+              yield* self.send({ _tag: 'CheckedSession', user });
+            }),
+        },
+      },
+      on: {
+        CheckedSession: ({ user }) => ({
+          state: user ? { _tag: 'Authenticated', user } : { _tag: 'Anonymous' },
+        }),
+      },
     },
     Anonymous: {
-      LoggedIn: ({ user }) => ({ state: { _tag: 'Authenticated', user } }),
+      children: { login: Login },
+      provides: (self) =>
+        Layer.succeed(SignIn, {
+          complete: (user) => self.send({ _tag: 'LoggedIn', user }),
+        }),
+      on: {
+        LoggedIn: ({ user }) => ({ state: { _tag: 'Authenticated', user } }),
+      },
     },
-    Authenticated: { LoggedOut: () => ({ state: { _tag: 'Anonymous' } }) },
-  },
-  provides: {
-    Anonymous: (self) =>
-      Layer.succeed(SignIn, {
-        complete: (user) => self.send({ _tag: 'LoggedIn', user }),
-      }),
-    Authenticated: (self) =>
-      Layer.succeed(Session, {
-        user: self.get.pipe(Effect.map(({ state }) => state.user)),
-        logOut: self.send({ _tag: 'LoggedOut' }),
-      }),
+    Authenticated: {
+      children: { todos: Todos },
+      provides: (self) =>
+        Layer.succeed(Session, {
+          user: self.get.pipe(Effect.map(({ state }) => state.user)),
+          logOut: self.send({ _tag: 'LoggedOut' }),
+        }),
+      on: { LoggedOut: () => ({ state: { _tag: 'Anonymous' } }) },
+    },
   },
 });
 ```
 
-- `make` is the statechart: it fixes every type and the shape of the tree. `build` is checked against it, so it must build every Capability `provides` declares.
-- An Update that returns a different `_tag` is a Transition: the old State's Children, Workers and Capabilities stop, the new State's start.
-- A Worker is a named, scoped Effect given `self`: `send` to its own Instance, `get` and `changes` for its current data, and `now` for the app's Time. `in: 'Checking'` runs while that State lasts; a Worker with no condition runs for as long as the Instance exists.
-- Provides is a Layer built once each time the State is entered. A Capability that reads the Model reads it through `self`, so it never goes stale.
-- Update and init never see Capabilities. Workers and Commands get them from Effect (`yield* Server`).
+- `make` takes only the Requires and the Schemas, which fix every type. `build` is checked against them: an Update that returns a State the Schema does not have, or a `state.user` read where there is none, does not compile.
+- `build` has two Levels. What is written at the top holds for as long as the Instance lives; what is written in a State's block holds while that State lasts. Each Level can hold `provides`, `children`, `invoke`, `on` and `workers`.
+- An Update that returns a different `_tag` is a Transition: the old State's Children, Workers and Capabilities stop, the new State's start. A Child written at the top lasts through it.
+- A Worker is a named, scoped Effect given `self`: `send` to its own Instance, `get` and `changes` for its current data, and `now` for the app's Time. Written in the `Checking` block, `check` runs while that State lasts.
+- Provides is one Layer per Level, built each time its Level starts. A Capability that reads the Model reads it through `self`, so it never goes stale. It cancels out what the Children below it need; a need nothing cancels bubbles up to the app's Layer.
+- Requires caps the Actor's own code: a Worker, Command or Provide that reaches for anything else does not compile. Update and init never see Capabilities.
 
 ### A list of Actors, a Command, and a Worker per key
 
@@ -143,13 +148,13 @@ const List = Actor.make('List', {
     Saved: {},
     Uploaded: { id: Schema.String },
   }),
-  children: { rows: Actor.many(Row) },
 }).build({
   init: () => ({ model: { ids: [], uploading: [], next: 0 } }),
+  children: { rows: Actor.many(Row) },
   invoke: ({ model }) => ({
     rows: model.ids.map((id) => ({ key: id, input: { text: `#${id}` } })),
   }),
-  update: {
+  on: {
     Added: (_, { model }) => {
       const id = `${model.next}`;
       return {
@@ -190,10 +195,10 @@ const List = Actor.make('List', {
 });
 ```
 
-- `invoke` says which keys exist and the Input each new Child starts from. After every Update, a new key Invokes a Row, a key gone stops it, and a key kept keeps its Instance. From then on the Row owns its data.
+- `invoke` sits beside the `children` it feeds, and says which keys exist and the Input each new Child starts from. After every Update, a new key Invokes a Row, a key gone stops it, and a key kept keeps its Instance. From then on the Row owns its data.
 - Instance IDs are deterministic: `List/rows[0]#1` is the first `rows` keyed `0`. A key Invoked again gets `#2`, so a Message meant for the old Instance is dropped.
 - A Command is an errand: one named Effect that ends with at most one Message. Nothing stops it but its Instance stopping, and there is no cancel. An Update may return a list of Commands; they run concurrently.
-- A Worker runs for exactly as long as its condition holds, read from the Model and State after every Update: `in` a State, `while` a test is true, or `each` key a function names, one Worker per key. Removing an id from `uploading` interrupts that upload and runs its finalizers; a finished upload Sends `Uploaded`, whose Update takes its key away. Stopping work is changing the Model.
+- A Worker runs for exactly as long as its Condition holds, read from the Model and State after every Update: its Level, and within it always, `while` a test is true, or `each` key a function names, one Worker per key. Removing an id from `uploading` interrupts that upload and runs its finalizers; a finished upload Sends `Uploaded`, whose Update takes its key away. Stopping work is changing the Model.
 - The Worker does the work and the Model keeps the story: every step the user could notice is a Message. A Worker must be able to start from the Model alone, because a resume or a start from an earlier Log entry starts every Worker whose condition holds. A Worker that waits until a Time in the Model sleeps for `that - now`, so it waits only what is left. A finalizer never Sends.
 
 ### Drawing it with React

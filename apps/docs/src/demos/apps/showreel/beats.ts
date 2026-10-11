@@ -36,17 +36,27 @@ const withView = (view: string) => `${rocket1}\n\n${view}`;
 
 // Chapters 2 and 3: the Rocket with States, first without its Workers.
 const rocket2 = bare(SOURCES.stateRocket);
-const rocket2Bare = without(rocket2, 'workers: {');
+/** The code with every block starting at `start` cut out. */
+const withoutAll = (code: string, start: string): string =>
+  code.includes(start) ? withoutAll(without(code, start), start) : code;
+const rocket2Bare = withoutAll(rocket2, 'workers: {');
+/** The build, with every block of Updates folded to one line. */
 const workers = (() => {
-  const [from, to] = blockOf(rocket2, 'workers: {');
   const lines = rocket2.split('\n');
-  return [
-    lines.find((line) => line.startsWith('}).build'))!,
-    "  init: () => ({ model: { fuel: 0 }, state: { _tag: 'OnPad' } }),",
-    ...lines.slice(from - 1, to),
-    '  update: { /* … */ },',
-    '});',
-  ].join('\n');
+  const build = lines.slice(lines.findIndex((l) => l.startsWith('}).build')));
+  const indent = (line: string) => line.length - line.trimStart().length;
+  const folded: Array<string> = [];
+  for (let i = 0; i < build.length; i++) {
+    const line = build[i]!;
+    folded.push(line);
+    if (!line.trimStart().startsWith('on: {')) continue;
+    folded[folded.length - 1] = `${' '.repeat(indent(line))}on: { /* … */ },`;
+    // Skip the rest of the block: every deeper line, and its closing bracket.
+    const start = i;
+    while (i + 1 < build.length && indent(build[i + 1]!) > indent(line)) i++;
+    if (i > start && /^[})]/.test(build[i + 1]?.trimStart() ?? '')) i++;
+  }
+  return folded.join('\n');
 })();
 
 // Chapter 4: the Fleet and its View.
@@ -59,9 +69,8 @@ const capabilities = [
   '',
   bare(SOURCES.capabilitiesFleet).split('\n').slice(0, 1).join('\n'),
   '  // …',
-  '  provides: [Weather, Hangar],',
-  '  children: { rockets: Actor.many(Rocket) },',
   '}).build({',
+  '  children: { rockets: Actor.many(Rocket) },',
   '  provides: (self) =>',
   '    Layer.mergeAll(',
   '      Layer.succeed(Weather, {',
@@ -72,7 +81,7 @@ const capabilities = [
   '});',
   '',
   "export const Rocket = Actor.make('Rocket', {",
-  '  requires: { weather: Weather, hangar: Hangar },',
+  '  requires: [Weather, Hangar],',
   '  // …',
   '});',
 ].join('\n');
@@ -87,12 +96,14 @@ const command = [
   '',
   '// …',
   '    OnPad: {',
-  '      Launch: (_, { model }) =>',
-  '        model.fuel > 0 ? { command: checkTheSky } : {},',
-  "      Cleared: () => ({ state: { _tag: 'Ascending' } }),",
-  '      Scrubbed: (_, { model, at }) => ({',
-  '        model: { ...model, scrubbedAt: at },',
-  '      }),',
+  '      on: {',
+  '        Launch: (_, { model }) =>',
+  '          model.fuel > 0 ? { command: checkTheSky } : {},',
+  "        Cleared: () => ({ state: { _tag: 'Ascending' } }),",
+  '        Scrubbed: (_, { model, at }) => ({',
+  '          model: { ...model, scrubbedAt: at },',
+  '        }),',
+  '      },',
   '    },',
 ].join('\n');
 const hangar = [
@@ -112,7 +123,9 @@ const hangar = [
     .trimEnd(),
   '',
   'Landed: {',
-  '  Dismantle: (_, { model }) => ({ command: dismantle(model.name) }),',
+  '  on: {',
+  '    Dismantle: (_, { model }) => ({ command: dismantle(model.name) }),',
+  '  },',
   '},',
 ].join('\n');
 
@@ -224,7 +237,7 @@ const LOOKS: Record<string, Look> = {
     layout: 'code',
     file: 'rocket.ts',
     code: rocket2Bare,
-    focus: blockOf(rocket2Bare, 'OnPad: {', 'update:'),
+    focus: blockOf(rocket2Bare, 'OnPad: {', '}).build'),
     attend: 'code',
     app: 'state',
   },
@@ -350,7 +363,7 @@ const LOOKS: Record<string, Look> = {
     layout: 'code',
     file: 'weather.ts · fleet.ts · rocket.ts',
     code: capabilities,
-    focus: linesOf(capabilities, 'provides: [Weather', 'requires: {'),
+    focus: linesOf(capabilities, 'provides: (self)', 'requires: ['),
     attend: 'code',
     app: 'capabilities',
   },
@@ -358,7 +371,7 @@ const LOOKS: Record<string, Look> = {
     layout: 'code',
     file: 'weather.ts · fleet.ts · rocket.ts',
     code: capabilities,
-    focus: linesOf(capabilities, 'provides: [Weather', 'children: {'),
+    focus: blockOf(capabilities, 'provides: (self)'),
     attend: 'code',
     app: 'capabilities',
     moment: 'compile-error',

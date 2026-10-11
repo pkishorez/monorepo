@@ -11,13 +11,13 @@ export const Fleet = Actor.make('Fleet', {
     Build: {},
     Dismantle: { name: Schema.String },
   }),
-  children: { rockets: Actor.many(Rocket) },
 }).build({
   init: () => ({ model: { rockets: ['R-1'], next: 2 } }),
+  children: { rockets: Actor.many(Rocket) },
   invoke: ({ model }) => ({
     rockets: model.rockets.map((name) => ({ key: name })),
   }),
-  update: {
+  on: {
     Build: (_, { model }) =>
       model.rockets.length < 20
         ? {

@@ -7,7 +7,8 @@ import type { Instance } from './snapshot.ts';
  * exist. Pure: Instances are created by running init, never by Effects.
  *
  * 1. Create  an Instance runs init from its Input and enters its State.
- * 2. Enter   a State Invokes every Child it has, fresh.
+ * 2. Enter   a State Invokes every Child it writes, fresh; a Child written
+ *            at the top lasts as long as its Instance.
  * 3. Follow  in the same State, keyed Children follow the Model by key: a new
  *            key Invokes a Child, a key gone stops it, a key kept keeps it.
  */
@@ -37,6 +38,11 @@ export const create = (
 };
 
 // 2. Enter
+/**
+ * Enter the Instance's State: every Child the State writes is Invoked fresh.
+ * A Child written at the top lasts through the Transition; the keyed ones
+ * then follow the Model.
+ */
 export const enter = (definition: Definition, instance: Instance): Instance => {
   const slots = definition.children[instance.state._tag];
   if (!slots) return { ...instance, children: {} };
@@ -44,13 +50,25 @@ export const enter = (definition: Definition, instance: Instance): Instance => {
   const invoked: Counters = { ...instance.invoked };
   const children: Record<string, Instance | ReadonlyArray<Instance>> = {};
   for (const [slot, { definition: child, many }] of Object.entries(slots)) {
-    children[slot] = many
-      ? keyedIn(invocation, slot).map(({ key, input }) =>
-          invoke(child, instance.id, slot, key, input, invoked),
-        )
-      : invoke(child, instance.id, slot, undefined, invocation[slot], invoked);
+    const kept = definition.lasting.includes(slot)
+      ? instance.children[slot]
+      : undefined;
+    children[slot] =
+      kept ??
+      (many
+        ? keyedIn(invocation, slot).map(({ key, input }) =>
+            invoke(child, instance.id, slot, key, input, invoked),
+          )
+        : invoke(
+            child,
+            instance.id,
+            slot,
+            undefined,
+            invocation[slot],
+            invoked,
+          ));
   }
-  return { ...instance, children, invoked };
+  return follow(definition, { ...instance, children, invoked });
 };
 
 // 3. Follow

@@ -10,7 +10,7 @@ export const Counter = Actor.make('Counter', {
   message: Schema.TaggedUnion({ Increment: {}, Decrement: {}, Reset: {} }),
 }).build({
   init: () => ({ model: { count: 0 } }),
-  update: {
+  on: {
     Increment: (_, { model }) => ({ model: { count: model.count + 1 } }),
     Decrement: (_, { model }) => ({ model: { count: model.count - 1 } }),
     Reset: () => ({ model: { count: 0 } }),

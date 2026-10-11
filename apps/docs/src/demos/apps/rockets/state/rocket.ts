@@ -40,67 +40,94 @@ export const Rocket = Actor.make('Rocket', {
           yield* Effect.addFinalizer(() => Effect.logDebug('Retired'));
         }),
     },
-    ascend: {
-      in: 'Ascending',
-      run: (self) =>
-        self.send({ _tag: 'BoostersSpent' }).pipe(Effect.delay('1.9 seconds')),
-    },
-    separate: {
-      in: 'Separating',
-      run: (self) =>
-        self.send({ _tag: 'Steadied' }).pipe(Effect.delay('1.4 seconds')),
-    },
-    burn: {
-      in: 'Cruising',
-      run: (self) =>
-        self
-          .send({ _tag: 'Burned' })
-          .pipe(Effect.delay('700 millis'), Effect.forever),
-    },
-    descend: {
-      in: 'Descending',
-      run: (self) =>
-        self.send({ _tag: 'TouchedDown' }).pipe(Effect.delay('3.4 seconds')),
-    },
-    dock: {
-      in: 'Returning',
-      run: (self) =>
-        self.send({ _tag: 'Docked' }).pipe(Effect.delay('2.4 seconds')),
-    },
   },
-  update: {
+  state: {
     OnPad: {
-      Fuel: (_, { model }) => ({
-        model: { fuel: Math.min(model.fuel + 20, 100) },
-      }),
-      Launch: (_, { model }) =>
-        model.fuel > 0 ? { state: { _tag: 'Ascending' } } : {},
+      on: {
+        Fuel: (_, { model }) => ({
+          model: { fuel: Math.min(model.fuel + 20, 100) },
+        }),
+        Launch: (_, { model }) =>
+          model.fuel > 0 ? { state: { _tag: 'Ascending' } } : {},
+      },
     },
-    Ascending: { BoostersSpent: () => ({ state: { _tag: 'Separating' } }) },
-    Separating: { Steadied: () => ({ state: { _tag: 'Cruising' } }) },
+    Ascending: {
+      workers: {
+        ascend: {
+          run: (self) =>
+            self
+              .send({ _tag: 'BoostersSpent' })
+              .pipe(Effect.delay('1.9 seconds')),
+        },
+      },
+      on: { BoostersSpent: () => ({ state: { _tag: 'Separating' } }) },
+    },
+    Separating: {
+      workers: {
+        separate: {
+          run: (self) =>
+            self.send({ _tag: 'Steadied' }).pipe(Effect.delay('1.4 seconds')),
+        },
+      },
+      on: { Steadied: () => ({ state: { _tag: 'Cruising' } }) },
+    },
     Cruising: {
-      Burned: (_, { model }) =>
-        model.fuel > 5
-          ? { model: { fuel: model.fuel - 5 } }
-          : { model: { fuel: 0 }, state: { _tag: 'Lost' } },
-      Land: (_, { model }) => ({
-        state: { _tag: 'Descending', safe: model.fuel >= 30 },
-      }),
+      workers: {
+        burn: {
+          run: (self) =>
+            self
+              .send({ _tag: 'Burned' })
+              .pipe(Effect.delay('700 millis'), Effect.forever),
+        },
+      },
+      on: {
+        Burned: (_, { model }) =>
+          model.fuel > 5
+            ? { model: { fuel: model.fuel - 5 } }
+            : { model: { fuel: 0 }, state: { _tag: 'Lost' } },
+        Land: (_, { model }) => ({
+          state: { _tag: 'Descending', safe: model.fuel >= 30 },
+        }),
+      },
     },
     Descending: {
-      TouchedDown: (_, { state }) => ({
-        state: { _tag: state.safe ? 'Landed' : 'Crashed' },
-      }),
+      workers: {
+        descend: {
+          run: (self) =>
+            self
+              .send({ _tag: 'TouchedDown' })
+              .pipe(Effect.delay('3.4 seconds')),
+        },
+      },
+      on: {
+        TouchedDown: (_, { state }) => ({
+          state: { _tag: state.safe ? 'Landed' : 'Crashed' },
+        }),
+      },
     },
-    Landed: { Return: () => ({ state: { _tag: 'Returning' } }) },
+    Landed: {
+      on: { Return: () => ({ state: { _tag: 'Returning' } }) },
+    },
     Returning: {
-      Docked: () => ({ model: { fuel: 0 }, state: { _tag: 'OnPad' } }),
+      workers: {
+        dock: {
+          run: (self) =>
+            self.send({ _tag: 'Docked' }).pipe(Effect.delay('2.4 seconds')),
+        },
+      },
+      on: {
+        Docked: () => ({ model: { fuel: 0 }, state: { _tag: 'OnPad' } }),
+      },
     },
     Crashed: {
-      Rebuild: () => ({ model: { fuel: 0 }, state: { _tag: 'OnPad' } }),
+      on: {
+        Rebuild: () => ({ model: { fuel: 0 }, state: { _tag: 'OnPad' } }),
+      },
     },
     Lost: {
-      Rebuild: () => ({ model: { fuel: 0 }, state: { _tag: 'OnPad' } }),
+      on: {
+        Rebuild: () => ({ model: { fuel: 0 }, state: { _tag: 'OnPad' } }),
+      },
     },
   },
 });

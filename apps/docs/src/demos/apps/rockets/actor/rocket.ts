@@ -6,7 +6,7 @@ export const Rocket = Actor.make('Rocket', {
   message: Schema.TaggedUnion({ Fuel: {} }),
 }).build({
   init: () => ({ model: { fuel: 0 } }),
-  update: {
+  on: {
     Fuel: (_, { model }) => ({
       model: { fuel: Math.min(model.fuel + 20, 100) },
     }),
