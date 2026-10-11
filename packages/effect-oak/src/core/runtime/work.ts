@@ -10,7 +10,9 @@ import {
   SubscriptionRef,
 } from 'effect';
 import type { Fiber } from 'effect';
+import { RUN } from '../actor/index.ts';
 import type {
+  Command,
   Data,
   Definition,
   Self,
@@ -336,10 +338,7 @@ export const makeWorks = (
     const work = works.get(instance.id);
     if (!work) return;
     for (const each of planned) {
-      const { name, run: task } = each as {
-        name: string;
-        run: Effect.Effect<unknown, never, any>;
-      };
+      const { name, [RUN]: task } = each as Command<unknown, any>;
       const effect = task.pipe(
         Effect.flatMap((result) =>
           isMessage(result) ? work.self.send(result) : Effect.void,

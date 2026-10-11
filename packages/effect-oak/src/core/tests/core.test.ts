@@ -10,7 +10,15 @@ import {
 import type { Scope } from 'effect';
 import { TestClock } from 'effect/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { Actor, Replay, Runtime, handle, init, instanceAt } from '../index.ts';
+import {
+  Actor,
+  Command,
+  Replay,
+  Runtime,
+  handle,
+  init,
+  instanceAt,
+} from '../index.ts';
 import type { Instance, Running, Types } from '../index.ts';
 
 class Server extends Context.Service<
@@ -31,6 +39,14 @@ class Session extends Context.Service<
   }
 >()('test/Session') {}
 
+const signIn = Command.make('signIn', {
+  args: Schema.Struct({ name: Schema.String }),
+  run: ({ name }) =>
+    Effect.gen(function* () {
+      yield* (yield* SignIn).complete(name);
+    }),
+});
+
 const Login = Actor.make('Login', {
   requires: [SignIn],
   model: Schema.Struct({ name: Schema.String, typedAt: Schema.Number }),
@@ -44,15 +60,15 @@ const Login = Actor.make('Login', {
     Typed: (message, { at }) => ({
       model: { name: message.name, typedAt: at },
     }),
-    Submitted: (_, { model }) => ({
-      command: {
-        name: 'signIn',
-        run: Effect.gen(function* () {
-          yield* (yield* SignIn).complete(model.name);
-        }),
-      },
-    }),
+    Submitted: (_, { model }) => ({ command: signIn({ name: model.name }) }),
   },
+});
+
+const logOut = Command.make('logOut', {
+  run: () =>
+    Effect.gen(function* () {
+      yield* (yield* Session).logOut;
+    }),
 });
 
 const Todos = Actor.make('Todos', {
@@ -65,14 +81,7 @@ const Todos = Actor.make('Todos', {
     Added: (message, { model }) => ({
       model: { items: [...model.items, message.text] },
     }),
-    Quit: () => ({
-      command: {
-        name: 'logOut',
-        run: Effect.gen(function* () {
-          yield* (yield* Session).logOut;
-        }),
-      },
-    }),
+    Quit: () => ({ command: logOut() }),
   },
 });
 
@@ -497,10 +506,10 @@ describe('Time', () => {
 const heard: Array<string> = [];
 
 /** An errand that rings after a second. */
-const ring = {
-  name: 'ring',
-  run: Effect.sleep('1 second').pipe(Effect.as({ _tag: 'Rang' as const })),
-};
+const ring = Command.make('ring', {
+  run: () =>
+    Effect.sleep('1 second').pipe(Effect.as({ _tag: 'Rang' as const })),
+});
 
 /** Commands that ring, and a Worker that streams while the Model says so. */
 const Timer = Actor.make('Timer', {
@@ -519,8 +528,8 @@ const Timer = Actor.make('Timer', {
 }).build({
   init: () => ({ model: { chunks: [], streaming: false } }),
   on: {
-    Wait: () => ({ command: ring }),
-    Both: () => ({ command: [ring, ring] }),
+    Wait: () => ({ command: ring() }),
+    Both: () => ({ command: [ring(), ring()] }),
     Rang: () => ({}),
     Stream: (_, { model }) => ({ model: { ...model, streaming: true } }),
     Chunk: ({ n }, { model }) => ({
@@ -577,10 +586,10 @@ describe('Commands', () => {
         }).build({
           on: {
             Ask: () => ({
-              command: {
-                name: 'answer',
-                run: Effect.succeed({ _tag: 'Answered', n: 'one' } as never),
-              },
+              command: Command.make('answer', {
+                run: () =>
+                  Effect.succeed({ _tag: 'Answered', n: 'one' } as never),
+              })(),
             }),
             Answered: () => ({}),
           },
@@ -591,6 +600,43 @@ describe('Commands', () => {
         expect(app.log().map((entry) => entry.message._tag)).toEqual(['Ask']);
         expect(failed.mock.calls.join(' ')).toMatch(
           /Liar command answer failed[\s\S]*Message "Answered" does not match its Schema/,
+        );
+        failed.mockRestore();
+      }),
+    ));
+
+  it('what an Update asks for is data a test compares without running it', () => {
+    const asked = handle(Login.definition, init(Login.definition), {
+      destination: 'Login',
+      message: { _tag: 'Submitted' },
+      source: { kind: 'view', instance: 'Login' },
+      at: 0,
+    }).change!.commands;
+    expect(asked).toEqual([{ name: 'signIn', args: { name: '' } }]);
+  });
+
+  it('a Command whose args do not match their Schema fails when it runs, never in the Update', () =>
+    timed(
+      Effect.gen(function* () {
+        const failed = vi.spyOn(console, 'error').mockImplementation(() => {});
+        const save = Command.make('save', {
+          args: Schema.Struct({ id: Schema.Number }),
+          run: () => Effect.succeed({ _tag: 'Saved' as const }),
+        });
+        const Form = Actor.make('Form', {
+          message: Schema.TaggedUnion({ Save: {}, Saved: {} }),
+        }).build({
+          on: {
+            Save: () => ({ command: save({ id: 'three' } as never) }),
+            Saved: () => ({}),
+          },
+        });
+        const app = yield* Runtime.start(Form);
+        app.send('Form', { _tag: 'Save' });
+        yield* TestClock.adjust('1 millis');
+        expect(app.log().map((entry) => entry.message._tag)).toEqual(['Save']);
+        expect(failed.mock.calls.join(' ')).toMatch(
+          /Form command save failed[\s\S]*Command save: its args do not match their Schema/,
         );
         failed.mockRestore();
       }),
@@ -620,13 +666,13 @@ const Metronome = Actor.make('Metronome', {
   init: () => ({ model: { beats: 0 }, state: { _tag: 'Running' } }),
   on: {
     Ping: () => ({
-      command: {
-        name: 'pong',
-        run: Effect.sleep('1 second').pipe(
-          Effect.tap(() => Effect.sync(() => heard.push('pong'))),
-          Effect.as({ _tag: 'Pong' as const }),
-        ),
-      },
+      command: Command.make('pong', {
+        run: () =>
+          Effect.sleep('1 second').pipe(
+            Effect.tap(() => Effect.sync(() => heard.push('pong'))),
+            Effect.as({ _tag: 'Pong' as const }),
+          ),
+      })(),
     }),
     Pong: () => ({}),
   },

@@ -1,5 +1,5 @@
 import { Effect, Schema } from 'effect';
-import { Actor } from 'effect-oak';
+import { Actor, Command } from 'effect-oak';
 import { Hangar } from './hangar.js';
 import { Weather } from './weather.js';
 
@@ -19,22 +19,23 @@ const Message = Schema.TaggedUnion({
   Dismantle: {},
 });
 
-const checkTheSky = {
-  name: 'checkTheSky',
-  run: Effect.gen(function* () {
-    const sky = yield* (yield* Weather).sky;
-    return sky === 'storm'
-      ? ({ _tag: 'Scrubbed' } as const)
-      : ({ _tag: 'Cleared' } as const);
-  }),
-};
+const checkTheSky = Command.make('checkTheSky', {
+  run: () =>
+    Effect.gen(function* () {
+      const sky = yield* (yield* Weather).sky;
+      return sky === 'storm'
+        ? ({ _tag: 'Scrubbed' } as const)
+        : ({ _tag: 'Cleared' } as const);
+    }),
+});
 
-const dismantle = (name: string) => ({
-  name: 'dismantle',
-  run: Effect.gen(function* () {
-    const hangar = yield* Hangar;
-    yield* hangar.dismantle(name);
-  }),
+const dismantle = Command.make('dismantle', {
+  args: Schema.Struct({ name: Schema.String }),
+  run: ({ name }) =>
+    Effect.gen(function* () {
+      const hangar = yield* Hangar;
+      yield* hangar.dismantle(name);
+    }),
 });
 
 export const Rocket = Actor.make('Rocket', {
@@ -69,7 +70,7 @@ export const Rocket = Actor.make('Rocket', {
           model: { ...model, fuel: Math.min(model.fuel + 20, 100) },
         }),
         Launch: (_, { model }) =>
-          model.fuel > 0 ? { command: checkTheSky } : {},
+          model.fuel > 0 ? { command: checkTheSky() } : {},
         Cleared: () => ({ state: { _tag: 'Ascending' } }),
         Scrubbed: (_, { model, at }) => ({
           model: { ...model, scrubbedAt: at },
@@ -133,7 +134,9 @@ export const Rocket = Actor.make('Rocket', {
     Landed: {
       on: {
         Return: () => ({ state: { _tag: 'Returning' } }),
-        Dismantle: (_, { model }) => ({ command: dismantle(model.name) }),
+        Dismantle: (_, { model }) => ({
+          command: dismantle({ name: model.name }),
+        }),
       },
     },
     Returning: {
@@ -156,7 +159,9 @@ export const Rocket = Actor.make('Rocket', {
           model: { ...model, fuel: 0 },
           state: { _tag: 'OnPad' },
         }),
-        Dismantle: (_, { model }) => ({ command: dismantle(model.name) }),
+        Dismantle: (_, { model }) => ({
+          command: dismantle({ name: model.name }),
+        }),
       },
     },
     Lost: {

@@ -1,8 +1,7 @@
-export { Actor } from './actor/index.ts';
+export { Actor, Command } from './actor/index.ts';
 export type {
   ActorOf,
   AnyActor,
-  Command,
   Data,
   Defined,
   Definition,

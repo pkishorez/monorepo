@@ -107,7 +107,7 @@ _Avoid_: undo, rewind, snapshot history, pause
 ### Work
 
 **Command**:
-An errand an Update asks for: one named Effect that ends with at most one Message, Sent to its Instance. For work with nothing to show while it runs: replace the URL, tell a cache, make a Request. It gets Capabilities from Effect. Nothing stops it but its Instance stopping; work that must be stopped, show progress, or survive a stop is a Worker.
+An errand an Update asks for: made once, outside any Update, as a name, the Schema of its args and an Effect run from those args; an Update asks for it with its args. It ends with at most one Message, Sent to its Instance, and turns its own failures into that Message. Fire and forget: never in the Log, never replayed. For work with nothing to show while it runs: replace the URL, tell a cache, make a Request. It gets Capabilities from Effect. Nothing stops it but its Instance stopping; work that must be stopped, show progress, or survive a stop is a Worker.
 _Avoid_: effect, side effect, task, invoke, cancel (there is none)
 
 **Worker**:

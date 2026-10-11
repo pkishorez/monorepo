@@ -1,13 +1,14 @@
 import { Effect, Layer, Schema } from 'effect';
-import { Actor } from 'effect-oak';
+import { Actor, Command } from 'effect-oak';
 import { Scores } from './scores.js';
 
 /** The Command a Scorer asks for on Score: a Request to the Board through Scores. */
-const report = (name: string) => ({
-  name: 'report',
-  run: Effect.gen(function* () {
-    yield* (yield* Scores).add(name);
-  }),
+const report = Command.make('report', {
+  args: Schema.Struct({ name: Schema.String }),
+  run: ({ name }) =>
+    Effect.gen(function* () {
+      yield* (yield* Scores).add(name);
+    }),
 });
 
 /**
@@ -24,7 +25,7 @@ export const Scorer = Actor.make('Scorer', {
   on: {
     Score: (_, { model }) => ({
       model: { ...model, scored: model.scored + 1 },
-      command: report(model.name),
+      command: report({ name: model.name }),
     }),
   },
 });
