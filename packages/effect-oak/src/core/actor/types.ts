@@ -260,6 +260,9 @@ export type KidsByState<State extends Tagged, B> = {
 
 // What the engine reads ------------------------------------------------------------
 
+/** Throws unless a value matches one of an Actor's Schemas; `what` names it in the error. */
+export type Check = (value: unknown, what: string) => void;
+
 /** One Child slot, as the engine sees it. */
 export interface SlotDefinition {
   readonly definition: Definition;
@@ -283,6 +286,13 @@ export interface Definition {
   /** Every State it can be in, by tag: the ones its State Schema names. */
   readonly states: ReadonlyArray<string>;
   readonly requires: Requires;
+  /** Throw unless a value matches the Actor's Schema for it. */
+  readonly check: {
+    readonly input: Check;
+    readonly model: Check;
+    readonly state: Check;
+    readonly message: Check;
+  };
   readonly init: (input: unknown) => {
     readonly model?: unknown;
     readonly state?: Tagged;

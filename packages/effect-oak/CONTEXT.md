@@ -41,7 +41,7 @@ _Avoid_: store, app state, actor system
 ### Data and change
 
 **Model**:
-The data an Actor keeps in every State. Always serializable, described with Schema.
+The data an Actor keeps in every State. Always serializable, described with Schema. Every new Model, from init or an Update, is checked against its Schema, as is every State and Input; one that does not match changes nothing.
 _Avoid_: shared, store, context, props
 
 **State**:
@@ -53,7 +53,7 @@ An Update that ends in a different State than it started in. Leaving a State sto
 _Avoid_: re-entry, navigation
 
 **Message**:
-A fact that happened, addressed to one Instance: a click, a timer tick, a Command's result. The only way a Model or State changes.
+A fact that happened, addressed to one Instance: a click, a timer tick, a Command's result. The only way a Model or State changes. Every Message Sent is checked against its Actor's Schema first, and one that does not match is refused at the Send and never reaches Update or the Log.
 _Avoid_: event (XState's word; Effect Oak uses Elm's names), action
 
 **Envelope**:
@@ -69,7 +69,7 @@ When a Message arrived, in milliseconds since the Runtime started. Stamped by th
 _Avoid_: timestamp, now, clock (on its own)
 
 **Update**:
-The pure rule that takes the current Model, State, a Message and its Time and returns the next Model and State, and the Commands it asks for. It never sees Capabilities, so Replay can run it with nothing else. Written under `on`, at the top or in a State's block; the State's rule wins over the top one, and a Message with no rule in either is ignored. The only thing that changes the Model, so whatever is running is readable from it.
+The pure rule that takes the current Model, State, a Message and its Time and returns the next Model and State, and the Commands it asks for. It never sees Capabilities, so Replay can run it with nothing else. Written under `on`, at the top or in a State's block; the State's rule wins over the top one, and a Message with no rule in either is ignored. A Message with no rule anywhere, at the top or in any State, is always ignored, and making its Actor warns of it. The only thing that changes the Model, so whatever is running is readable from it.
 _Avoid_: reducer, handler
 
 **Log**:

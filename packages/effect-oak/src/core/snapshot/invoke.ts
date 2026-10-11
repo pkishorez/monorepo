@@ -6,7 +6,9 @@ import type { Instance } from './snapshot.ts';
  * Invoke: the State, and for keyed Children the Model, say which Children
  * exist. Pure: Instances are created by running init, never by Effects.
  *
- * 1. Create  an Instance runs init from its Input and enters its State.
+ * 1. Create  an Instance runs init from its Input and enters its State. The
+ *            Input, and the Model and State init gives, are checked against
+ *            the Actor's Schemas.
  * 2. Enter   a State Invokes every Child it writes, fresh; a Child written
  *            at the top lasts as long as its Instance.
  * 3. Follow  in the same State, keyed Children follow the Model by key: a new
@@ -25,13 +27,18 @@ export const create = (
   key: string | undefined,
   input: unknown,
 ): Instance => {
+  definition.check.input(input, `the Input of ${id}`);
   const init = definition.init(input);
+  const model = init.model ?? {};
+  const state = init.state ?? SINGLE;
+  definition.check.model(model, `the Model init gave ${id}`);
+  definition.check.state(state, `the State init gave ${id}`);
   return enter(definition, {
     id,
     actor: definition.name,
     ...(key === undefined ? {} : { key }),
-    model: init.model ?? {},
-    state: init.state ?? SINGLE,
+    model,
+    state,
     children: {},
     invoked: {},
   });
