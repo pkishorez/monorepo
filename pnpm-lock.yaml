@@ -412,12 +412,6 @@ importers:
       '@remotion/player':
         specifier: 'catalog:'
         version: 4.0.529(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      '@shikijs/langs':
-        specifier: 'catalog:'
-        version: 4.4.3
-      '@shikijs/themes':
-        specifier: 'catalog:'
-        version: 4.4.3
       react:
         specifier: 'catalog:'
         version: 19.2.8
@@ -427,9 +421,6 @@ importers:
       remotion:
         specifier: 'catalog:'
         version: 4.0.529(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      shiki:
-        specifier: 'catalog:'
-        version: 4.4.3
     devDependencies:
       '@remotion/bundler':
         specifier: 'catalog:'
@@ -582,6 +573,12 @@ importers:
       '@kstackz/web-platform':
         specifier: workspace:*
         version: link:../../platforms/web-platform
+      '@shikijs/langs':
+        specifier: 'catalog:'
+        version: 4.4.3
+      '@shikijs/themes':
+        specifier: 'catalog:'
+        version: 4.4.3
       '@tanstack/react-router':
         specifier: 'catalog:'
         version: 1.170.32(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -609,6 +606,9 @@ importers:
       react-dom:
         specifier: 'catalog:'
         version: 19.2.8(react@19.2.8)
+      shiki:
+        specifier: 'catalog:'
+        version: 4.4.3
     devDependencies:
       '@cloudflare/workers-types':
         specifier: 'catalog:'

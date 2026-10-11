@@ -1,6 +1,6 @@
-// Usage: pnpm voiceover <name>
+// Usage: pnpm voiceover <name> [kokoro]
 // Speaks each line of the script.ts of the Explainer or Walkthrough <name>
-// with the Foundation voice and writes levelled, compressed audio plus a
+// with the Foundation voice, or the local Kokoro voice, and writes levelled, compressed audio plus a
 // typed voiceover.ts beside it. Lines whose text and voice are unchanged are
 // kept as they are.
 import { execFileSync } from 'node:child_process';
@@ -12,7 +12,10 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { voice } from '../src/foundation/voice/index.ts';
+import {
+  voice as foundationVoice,
+  voices,
+} from '../src/foundation/voice/index.ts';
 import { speak } from './speak.ts';
 
 type Line = {
@@ -23,8 +26,9 @@ type Line = {
   seconds: number;
 };
 
-const name = process.argv[2];
-if (!name) throw new Error('Usage: pnpm voiceover <name>');
+const [name, engine] = process.argv.slice(2);
+if (!name) throw new Error('Usage: pnpm voiceover <name> [kokoro]');
+const voice = engine === 'kokoro' ? voices.kokoro : foundationVoice;
 
 const folder = ['src/explainers', 'src/walkthroughs']
   .map((parent) => resolve(parent, name))
@@ -56,7 +60,7 @@ for (const { id, say } of script) {
     continue;
   }
   const wav = join(audioFolder, `${id}.wav`);
-  await speak(say, wav);
+  await speak(voice, say, wav);
   const seconds = Number(
     Number(
       execFileSync('ffprobe', [

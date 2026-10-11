@@ -1,121 +1,289 @@
 [
   {
-    "id": "actor-model",
-    "text": "Effect Oak starts with an Actor. An Actor holds a Model: here, a rocket's fuel. It accepts Messages: Fuel and Drain. And an Update turns a Model and a Message into the next Model.",
+    "id": "actor",
+    "text": "Everything in Effect Oak is an Actor. An Actor keeps a Model, accepts Messages, and changes its Model when a Message arrives. That's the whole idea. Let's build one: a rocket.",
     "speaker": "am_michael",
-    "speed": 1.2,
-    "seconds": 11.825
+    "speed": 1.05,
+    "seconds": 12.625
+  },
+  {
+    "id": "actor-model",
+    "text": "A rocket's Model is how much fuel it holds. Just a number, described with Schema.",
+    "speaker": "am_michael",
+    "speed": 1.05,
+    "seconds": 6
+  },
+  {
+    "id": "actor-message",
+    "text": "It accepts one Message: Fuel. A Message is a fact, something that happened: someone fuelled the rocket.",
+    "speaker": "am_michael",
+    "speed": 1.05,
+    "seconds": 7.25
+  },
+  {
+    "id": "actor-build",
+    "text": "Now build it. init gives the initial Model: an empty tank. update says what each Message does: Fuel adds twenty, up to a hundred. Update is pure. It only returns the next Model.",
+    "speaker": "am_michael",
+    "speed": 1.05,
+    "seconds": 13.35
   },
   {
     "id": "actor-view",
-    "text": "To draw it, write a View. It's plain React: it takes the Model, and sends Messages when you click.",
+    "text": "To see the rocket, give it a View. View.make takes the Actor and a plain React component. The component gets the Model, at whatever moment the rocket is in, and draws it.",
     "speaker": "am_michael",
-    "speed": 1.2,
-    "seconds": 6.05
+    "speed": 1.05,
+    "seconds": 11.275
   },
   {
-    "id": "states-accept",
-    "text": "A rocket can't refuel in the air, or land on the pad. So an Actor can have States, and each State decides which Messages it accepts.",
+    "id": "actor-send",
+    "text": "Clicking the rocket sends Fuel. The Update runs, the Model changes, and the View draws the new fuel.",
     "speaker": "am_michael",
-    "speed": 1.2,
-    "seconds": 8.6
+    "speed": 1.05,
+    "seconds": 7.35
   },
   {
-    "id": "states-lifetime",
-    "text": "A State can also run work while it lasts. In flight, a Lifetime burns fuel. Land, and it stops on its own. Run dry, and the rocket is Lost.",
+    "id": "actor-end",
+    "text": "A Model, Messages, an Update, and a View. But a rocket doesn't just sit there. It launches, it flies, it lands, and at each of those moments it behaves differently.",
     "speaker": "am_michael",
-    "speed": 1.2,
-    "seconds": 9.475
+    "speed": 1.05,
+    "seconds": 11.125
   },
   {
-    "id": "many-list",
-    "text": "One rocket is never enough. The Launch Site keeps a list of rockets in its Model, and Actor.many turns each one into its own Instance.",
+    "id": "state",
+    "text": "A rocket on the pad and a rocket in the sky are in different situations. Effect Oak calls them States, and a rocket is always in exactly one.",
     "speaker": "am_michael",
-    "speed": 1.2,
-    "seconds": 8.525
+    "speed": 1.05,
+    "seconds": 10.325
   },
   {
-    "id": "many-children",
-    "text": "States decide Children too. Only a rocket in flight has boosters. They fire, separate, and they're gone.",
+    "id": "state-steps",
+    "text": "Each step of the flight is its own State: lift off, drop the boosters, cruise, come down, land, and roll back to the pad. Small States are easy to draw, and easy to reason about.",
     "speaker": "am_michael",
-    "speed": 1.2,
-    "seconds": 6.775
+    "speed": 1.05,
+    "seconds": 12.625
   },
   {
-    "id": "capabilities-requires",
-    "text": "Rockets shouldn't own the weather. The Launch Site Provides Weather, and each Rocket Requires it. Leave it out, and it won't compile.",
+    "id": "state-update",
+    "text": "Update is now written per State. On the pad, the rocket takes Fuel and Launch. In the air, it takes Land. A Message with no rule in the current State is ignored: you can't fuel a rocket in the sky.",
     "speaker": "am_michael",
-    "speed": 1.2,
-    "seconds": 7.425
+    "speed": 1.05,
+    "seconds": 14.3
+  },
+  {
+    "id": "state-data",
+    "text": "Some data only exists in one State. When you press Land, Update reads the fuel. Enough, and the descent is safe; too little, and it isn't. That answer lives on the Descending State.",
+    "speaker": "am_michael",
+    "speed": 1.05,
+    "seconds": 12.85
+  },
+  {
+    "id": "state-fly",
+    "text": "The View draws each State its own way, and Motion moves the rocket from one to the next. Fuel it up, and launch.",
+    "speaker": "am_michael",
+    "speed": 1.05,
+    "seconds": 7.55
+  },
+  {
+    "id": "state-crash",
+    "text": "Land with too little fuel, and it doesn't end well.",
+    "speaker": "am_michael",
+    "speed": 1.05,
+    "seconds": 3.75
+  },
+  {
+    "id": "state-lost",
+    "text": "Run dry in the air, and the rocket is lost.",
+    "speaker": "am_michael",
+    "speed": 1.05,
+    "seconds": 3.675
+  },
+  {
+    "id": "state-end",
+    "text": "But nobody clicked to drop the boosters, or to burn the fuel. So what moved the rocket along?",
+    "speaker": "am_michael",
+    "speed": 1.05,
+    "seconds": 6.5
+  },
+  {
+    "id": "lifetime",
+    "text": "A Lifetime: an Effect that runs for as long as one State lasts. When the rocket leaves the State, its Lifetime is interrupted. There is nothing to clean up by hand.",
+    "speaker": "am_michael",
+    "speed": 1.05,
+    "seconds": 11.65
+  },
+  {
+    "id": "lifetime-steps",
+    "text": "While Ascending, wait, then tell the rocket its boosters are spent. Separating waits, then sends Steadied. Each step hands over to the next.",
+    "speaker": "am_michael",
+    "speed": 1.05,
+    "seconds": 9.4
+  },
+  {
+    "id": "lifetime-burn",
+    "text": "While Cruising, burn fuel, forever. Forever is safe here: landing leaves the State, and the loop stops on its own.",
+    "speaker": "am_michael",
+    "speed": 1.05,
+    "seconds": 7.975
+  },
+  {
+    "id": "lifetime-whole",
+    "text": "A Lifetime can also span the rocket's whole life. Do something when it starts, run as many fibers as you like while it lives, and add a finaliser for when it stops. It's just a scoped Effect.",
+    "speaker": "am_michael",
+    "speed": 1.05,
+    "seconds": 13.35
+  },
+  {
+    "id": "lifetime-end",
+    "text": "One rocket is a start. A launch site needs a fleet.",
+    "speaker": "am_michael",
+    "speed": 1.05,
+    "seconds": 4.125
+  },
+  {
+    "id": "children",
+    "text": "A Fleet is an Actor too. Its Model is a list of rocket names, and it accepts Build and Dismantle.",
+    "speaker": "am_michael",
+    "speed": 1.05,
+    "seconds": 7.325
+  },
+  {
+    "id": "children-many",
+    "text": "Each name becomes a Rocket of its own: a Child. The Model decides which Children exist. Add a name, and a Rocket starts. Remove it, and it stops, along with every Lifetime it was running.",
+    "speaker": "am_michael",
+    "speed": 1.05,
+    "seconds": 13.675
+  },
+  {
+    "id": "children-view",
+    "text": "The Fleet View lays the rockets out, and draws each one with its own View. Build one, and the others make room. Every rocket gets a launch pad and a landing pad.",
+    "speaker": "am_michael",
+    "speed": 1.05,
+    "seconds": 11.125
+  },
+  {
+    "id": "children-each",
+    "text": "Each Rocket is its own Instance, with its own Model and its own State. Fuel one, launch another: they don't share a thing.",
+    "speaker": "am_michael",
+    "speed": 1.05,
+    "seconds": 8.175
+  },
+  {
+    "id": "children-end",
+    "text": "But dismantling a rocket is the Fleet's job, and a Rocket can't reach its Fleet. Not yet.",
+    "speaker": "am_michael",
+    "speed": 1.05,
+    "seconds": 6.75
+  },
+  {
+    "id": "capabilities",
+    "text": "Some things belong to the whole site, not to one rocket, like the weather. The Fleet Provides Weather to everything below it, and each Rocket Requires it.",
+    "speaker": "am_michael",
+    "speed": 1.05,
+    "seconds": 10.2
+  },
+  {
+    "id": "capabilities-compile",
+    "text": "Forget to Provide it, and the app doesn't compile.",
+    "speaker": "am_michael",
+    "speed": 1.05,
+    "seconds": 3.75
   },
   {
     "id": "capabilities-command",
-    "text": "Checking the sky is a Command: an Effect the Update asks for, using any Capability it Requires. Storm? The launch is scrubbed.",
+    "text": "Update can't look at the sky: it's pure. So Launch asks for a Command, an Effect that reads the weather and sends back Cleared, or Scrubbed.",
     "speaker": "am_michael",
-    "speed": 1.2,
-    "seconds": 8.075
+    "speed": 1.05,
+    "seconds": 9.6
   },
   {
-    "id": "motion",
-    "text": "And it's just React, so Motion glides the rocket from the pad to the sky.",
+    "id": "capabilities-storm",
+    "text": "Bring in a storm, and try to launch. The rocket shakes, and stays on the pad. Clear skies, and it goes.",
     "speaker": "am_michael",
-    "speed": 1.2,
-    "seconds": 4.825
+    "speed": 1.05,
+    "seconds": 7.325
   },
   {
-    "id": "time-log",
-    "text": "Every click was a Message, and every Message is in the Log. Launch with too little fuel, and the rocket is Lost.",
+    "id": "capabilities-hangar",
+    "text": "A Capability is also how a Child talks to its parent. The Fleet Provides a Hangar, and a landed Rocket asks it to dismantle the rocket, without knowing where its Fleet is.",
     "speaker": "am_michael",
-    "speed": 1.2,
-    "seconds": 6.975
+    "speed": 1.05,
+    "seconds": 12.15
+  },
+  {
+    "id": "capabilities-end",
+    "text": "That's the whole app. So how does it get on the page?",
+    "speaker": "am_michael",
+    "speed": 1.05,
+    "seconds": 3.65
+  },
+  {
+    "id": "wiring",
+    "text": "toReact takes an Actor, its View, and a Layer for whatever the root Requires, and gives back a React component. Mount it like any other.",
+    "speaker": "am_michael",
+    "speed": 1.05,
+    "seconds": 9.525
+  },
+  {
+    "id": "wiring-renders",
+    "text": "Behind it, one Runtime runs every Actor, outside React. When a Message changes one Rocket, only that Rocket draws again.",
+    "speaker": "am_michael",
+    "speed": 1.05,
+    "seconds": 9.575
+  },
+  {
+    "id": "wiring-end",
+    "text": "And because every change is a Message, the Runtime remembers every one of them.",
+    "speaker": "am_michael",
+    "speed": 1.05,
+    "seconds": 5.55
+  },
+  {
+    "id": "time",
+    "text": "Every click, every Lifetime tick, every Command result is a Message, and every Message is in the Log.",
+    "speaker": "am_michael",
+    "speed": 1.05,
+    "seconds": 7.6
+  },
+  {
+    "id": "time-step",
+    "text": "Pick any Message, and the app is drawn as it was right after it, animations and all. The rocket floats back down to its pad.",
+    "speaker": "am_michael",
+    "speed": 1.05,
+    "seconds": 8.875
   },
   {
     "id": "time-branch",
-    "text": "Step back, and it floats back to the pad, animations and all. Branch off from before the launch, fuel up, and try again. Both Branches, side by side.",
+    "text": "Start again from that moment, and a new Branch grows beside the old one. Both stay in the Log.",
     "speaker": "am_michael",
-    "speed": 1.2,
-    "seconds": 9.8
+    "speed": 1.05,
+    "seconds": 6.85
   },
   {
-    "id": "deeper-lifetimes",
-    "text": "Lifetimes come in two kinds: one for the whole Instance, one for a single State. Both are optional.",
+    "id": "time-inspector",
+    "text": "The Inspector maps the whole app: every Actor, every State, and what each Message changed.",
     "speaker": "am_michael",
-    "speed": 1.2,
-    "seconds": 6.625
+    "speed": 1.05,
+    "seconds": 6.325
   },
   {
-    "id": "deeper-commands",
-    "text": "A Command can have a key. Launch twice, and the countdown restarts. Abort cancels it mid-count.",
+    "id": "react",
+    "text": "The rocket you've watched all along is a plain React component. Motion reads the State, and moves it.",
     "speaker": "am_michael",
-    "speed": 1.2,
-    "seconds": 6.45
+    "speed": 1.05,
+    "seconds": 7.15
   },
   {
-    "id": "deeper-rendering",
-    "text": "Updates are surgical: only the View whose Instance changed renders again.",
+    "id": "react-all",
+    "text": "Because the View only reads the Model and State, Time Travel draws it just like the live app. Hooks, context, your component library: everything you know from React still applies.",
     "speaker": "am_michael",
-    "speed": 1.2,
-    "seconds": 5
-  },
-  {
-    "id": "deeper-replay",
-    "text": "The Messages alone rebuild the whole app. Replay runs no Commands or Lifetimes. Start again from any Step, and Lifetimes start for whatever is live.",
-    "speaker": "am_michael",
-    "speed": 1.2,
-    "seconds": 9.85
-  },
-  {
-    "id": "deeper-inspector",
-    "text": "And the Inspector maps it all: every Actor, every State, how many Instances each has, and what every Message changed.",
-    "speaker": "am_michael",
-    "speed": 1.2,
-    "seconds": 7.6
+    "speed": 1.05,
+    "seconds": 12.725
   },
   {
     "id": "close",
     "text": "Effect Oak.",
     "speaker": "am_michael",
-    "speed": 1.2,
-    "seconds": 1.475
+    "speed": 1.05,
+    "seconds": 1.65
   }
 ]

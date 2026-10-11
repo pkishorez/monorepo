@@ -50,7 +50,8 @@ up through Requests.
 
 | Demo                                                      | Group                  | Status  | Note                                                                                                            |
 | --------------------------------------------------------- | ---------------------- | ------- | --------------------------------------------------------------------------------------------------------------- |
-| [rockets](rockets/notes.md)                               | Basics                 | works   | Effect Oak's walkthrough: seven chapters from one Actor to Commands, each in three Looks.                       |
+| [rockets](rockets/notes.md)                               | Basics                 | works   | A Rocket, its States and Lifetimes, a Fleet of them, and the Fleet's Capabilities: four apps, one plain look.   |
+| [showreel](showreel/notes.md)                             | Basics                 | works   | The Effect Oak Walkthrough's Storyboard: every beat, playable, and the frame the video records.                 |
 | [counter](counter/notes.md)                               | Basics                 | works   | One Actor, three Messages.                                                                                      |
 | [counters](counters/notes.md)                             | Basics                 | partial | Rows are Foldkit-style Submodels in the parent's Model; kept, though `Actor.many` could make them Children now. |
 | [stopwatch](stopwatch/notes.md)                           | Basics                 | works   | Two States and no ticks: the View draws the running time at each Frame.                                         |

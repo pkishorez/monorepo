@@ -1,55 +1,46 @@
 import type { ReactNode } from 'react';
 import { Shell } from '../shell/index.js';
-import { CHAPTERS } from './chapters.js';
-import type { Chapter } from './chapters.js';
-import { Look } from './look/index.js';
-import type { LookName } from './look/index.js';
-import { Picker } from './picker.js';
+import { APPS, type AppName } from './apps.js';
 
-/** What the page shows, as the URL says it: `?chapter=1..7&look=…&chrome=0`. */
-export type RocketsSearch = {
-  readonly chapter: Chapter;
-  readonly look: LookName;
-  /** `0` leaves only the app and its devtools, for recording. */
-  readonly chrome?: 0;
+export const NAMES = Object.keys(APPS) as ReadonlyArray<AppName>;
+
+const TITLES: Record<AppName, string> = {
+  actor: 'An Actor',
+  state: 'States and Lifetimes',
+  fleet: 'A Fleet',
+  capabilities: 'Capabilities',
 };
 
-/*
- * Rockets, one chapter at a time: the chapter's app in its Look, beside its
- * devtools. Changing the Look redraws the same running app; changing the
- * chapter shows another app, with its own Log.
- */
+/** One of the four Rockets apps, beside its devtools: `?app=actor|state|fleet|capabilities`. */
 export const Rockets = ({
-  search: { chapter, look, chrome },
+  app,
   menu,
-  onChange,
+  onApp,
 }: {
-  readonly search: RocketsSearch;
+  readonly app: AppName;
   readonly menu: ReactNode;
-  readonly onChange: (next: Partial<RocketsSearch>) => void;
+  readonly onApp: (next: AppName) => void;
 }) => (
-  <div
-    data-theme={look === 'exotic' ? 'dark' : undefined}
-    className={look === 'exotic' ? 'dark contents' : 'contents'}
-  >
-    <Look name={look}>
-      <Shell
-        key={chapter}
-        app={CHAPTERS[chapter - 1].App}
-        menu={
-          chrome !== 0 && (
-            <>
-              {menu}
-              <Picker
-                chapter={chapter}
-                look={look}
-                onChapter={(next) => onChange({ chapter: next })}
-                onLook={(next) => onChange({ look: next })}
-              />
-            </>
-          )
-        }
-      />
-    </Look>
-  </div>
+  <Shell
+    key={app}
+    app={APPS[app]}
+    menu={
+      <>
+        {menu}
+        <nav className="ml-auto flex gap-1 text-sm">
+          {NAMES.map((name) => (
+            <button
+              key={name}
+              type="button"
+              aria-pressed={name === app}
+              onClick={() => onApp(name)}
+              className="rounded-md px-2.5 py-1 text-muted-foreground aria-pressed:bg-muted aria-pressed:text-foreground"
+            >
+              {TITLES[name]}
+            </button>
+          ))}
+        </nav>
+      </>
+    }
+  />
 );

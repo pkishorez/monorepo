@@ -1,76 +1,126 @@
 import { Effect, Schema } from 'effect';
 import { Actor } from 'effect-oak';
-import { Booster } from '../more-actors/index.js';
+import { Hangar } from './hangar.js';
 import { Weather } from './weather.js';
 
-/** Launching Requires Weather: a Command checks the sky first. */
+const Message = Schema.TaggedUnion({
+  Fuel: {},
+  Launch: {},
+  Cleared: {},
+  Scrubbed: {},
+  BoostersSpent: {},
+  Steadied: {},
+  Burned: {},
+  Land: {},
+  TouchedDown: {},
+  Return: {},
+  Docked: {},
+  Rebuild: {},
+  Dismantle: {},
+});
+
+const checkTheSky = Effect.gen(function* () {
+  const sky = yield* (yield* Weather).sky;
+  return sky === 'storm'
+    ? ({ _tag: 'Scrubbed' } as const)
+    : ({ _tag: 'Cleared' } as const);
+});
+
+const dismantle = (name: string) =>
+  Effect.gen(function* () {
+    const hangar = yield* Hangar;
+    yield* hangar.dismantle(name);
+  });
+
 export const Rocket = Actor.make('Rocket', {
-  requires: { weather: Weather },
-  model: Schema.Struct({ fuel: Schema.Number, scrubbed: Schema.Boolean }),
+  requires: { weather: Weather, hangar: Hangar },
+  input: Schema.Struct({ name: Schema.String }),
+  model: Schema.Struct({
+    name: Schema.String,
+    fuel: Schema.Number,
+    scrubbedAt: Schema.NullOr(Schema.Number),
+  }),
   state: Schema.TaggedUnion({
     OnPad: {},
-    InFlight: {},
+    Ascending: {},
+    Separating: {},
+    Cruising: {},
+    Descending: { safe: Schema.Boolean },
     Landed: {},
+    Returning: {},
+    Crashed: {},
     Lost: {},
   }),
-  message: Schema.TaggedUnion({
-    Fuel: {},
-    Drain: {},
-    Launch: {},
-    Cleared: {},
-    Scrubbed: {},
-    Burned: {},
-    Land: {},
-    Reset: {},
-  }),
-  children: { InFlight: { boosters: Actor.many(Booster) } },
+  message: Message,
 }).build({
-  init: () => ({
-    model: { fuel: 0, scrubbed: false },
+  init: ({ name }) => ({
+    model: { name, fuel: 0, scrubbedAt: null },
     state: { _tag: 'OnPad' },
   }),
-  invoke: {
-    InFlight: () => ({ boosters: [{ key: 'left' }, { key: 'right' }] }),
-  },
   lifetime: {
-    InFlight: (self) =>
+    Ascending: (self) =>
+      self.send({ _tag: 'BoostersSpent' }).pipe(Effect.delay('1.9 seconds')),
+    Separating: (self) =>
+      self.send({ _tag: 'Steadied' }).pipe(Effect.delay('1.4 seconds')),
+    Cruising: (self) =>
       self
         .send({ _tag: 'Burned' })
-        .pipe(Effect.delay('400 millis'), Effect.forever),
+        .pipe(Effect.delay('700 millis'), Effect.forever),
+    Descending: (self) =>
+      self.send({ _tag: 'TouchedDown' }).pipe(Effect.delay('3.4 seconds')),
+    Returning: (self) =>
+      self.send({ _tag: 'Docked' }).pipe(Effect.delay('2.4 seconds')),
   },
   update: {
     OnPad: {
       Fuel: (_, { model }) => ({
-        model: { ...model, fuel: Math.min(model.fuel + 10, 100) },
-      }),
-      Drain: (_, { model }) => ({
-        model: { ...model, fuel: Math.max(model.fuel - 10, 0) },
+        model: { ...model, fuel: Math.min(model.fuel + 20, 100) },
       }),
       Launch: (_, { model }) =>
-        model.fuel > 0
-          ? {
-              command: Effect.gen(function* () {
-                const sky = yield* (yield* Weather).sky;
-                return sky === 'storm'
-                  ? ({ _tag: 'Scrubbed' } as const)
-                  : ({ _tag: 'Cleared' } as const);
-              }),
-            }
-          : {},
-      Cleared: (_, { model }) => ({
-        model: { ...model, scrubbed: false },
-        state: { _tag: 'InFlight' },
+        model.fuel > 0 ? { command: checkTheSky } : {},
+      Cleared: () => ({ state: { _tag: 'Ascending' } }),
+      Scrubbed: (_, { model, at }) => ({
+        model: { ...model, scrubbedAt: at },
       }),
-      Scrubbed: (_, { model }) => ({ model: { ...model, scrubbed: true } }),
     },
-    InFlight: {
+    Ascending: { BoostersSpent: () => ({ state: { _tag: 'Separating' } }) },
+    Separating: { Steadied: () => ({ state: { _tag: 'Cruising' } }) },
+    Cruising: {
       Burned: (_, { model }) =>
-        model.fuel > 10
-          ? { model: { ...model, fuel: model.fuel - 10 } }
+        model.fuel > 5
+          ? { model: { ...model, fuel: model.fuel - 5 } }
           : { model: { ...model, fuel: 0 }, state: { _tag: 'Lost' } },
-      Land: () => ({ state: { _tag: 'Landed' } }),
+      Land: (_, { model }) => ({
+        state: { _tag: 'Descending', safe: model.fuel >= 30 },
+      }),
     },
-    Landed: { Reset: () => ({ state: { _tag: 'OnPad' } }) },
-    Lost: { Reset: () => ({ state: { _tag: 'OnPad' } }) },
+    Descending: {
+      TouchedDown: (_, { state }) => ({
+        state: { _tag: state.safe ? 'Landed' : 'Crashed' },
+      }),
+    },
+    Landed: {
+      Return: () => ({ state: { _tag: 'Returning' } }),
+      Dismantle: (_, { model }) => ({ command: dismantle(model.name) }),
+    },
+    Returning: {
+      Docked: (_, { model }) => ({
+        model: { ...model, fuel: 0 },
+        state: { _tag: 'OnPad' },
+      }),
+    },
+    Crashed: {
+      Rebuild: (_, { model }) => ({
+        model: { ...model, fuel: 0 },
+        state: { _tag: 'OnPad' },
+      }),
+      Dismantle: (_, { model }) => ({ command: dismantle(model.name) }),
+    },
+    Lost: {
+      Rebuild: (_, { model }) => ({
+        model: { ...model, fuel: 0 },
+        state: { _tag: 'OnPad' },
+      }),
+    },
   },
 });

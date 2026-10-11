@@ -1,12 +1,20 @@
-// Usage: pnpm record [look] [clip]
-// Records the Rockets demo for the Effect Oak Walkthrough: every clip, or one,
-// in every Look, or one. Each clip opens the demo fresh (a new Log), drives it
-// with a visible cursor and writes public/recordings/<look>/<clip>.mp4 with
-// <clip>.json beside it: its length and the moments the cursor clicked, in
-// seconds from the clip's start. The docs dev server must be running
-// (`pnpm --filter docs dev`); ROCKETS_URL points somewhere else.
+// Usage: pnpm record <walkthrough>
+// Plays a Walkthrough's storyboard in the docs app, beat by beat on the
+// voiceover's timing, with a visible cursor doing each beat's take, and
+// records the whole run in one take: public/recordings/<walkthrough>.mp4,
+// with <walkthrough>.json beside it holding its length and the moments the
+// cursor clicked. The docs dev server must be running; DOCS_URL is its
+// address. Run `pnpm voiceover <walkthrough>` first: the voice sets the pace.
+// FROM=<beat> starts the take at that beat, to try a chapter's takes.
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -16,316 +24,190 @@ import {
   type Locator,
   type Page,
 } from 'playwright-core';
+import type { Stage } from '../src/foundation/walkthrough/stage.ts';
+import {
+  timingOf,
+  type Beat,
+  type Take,
+} from '../src/foundation/walkthrough/timing.ts';
 
-const rockets =
-  process.env.ROCKETS_URL ?? 'http://127.0.0.1:4173/demos/effect-oak/rockets';
-const looks = ['plain', 'colorful', 'exotic'] as const;
-type Look = (typeof looks)[number];
+const docs = process.env.DOCS_URL;
+const name = process.argv[2];
+if (!name || !docs)
+  throw new Error(
+    'Usage: DOCS_URL=http://127.0.0.1:<port> pnpm record <walkthrough>',
+  );
 
-const viewport = { width: 1600, height: 900 };
-const scale = 2;
-const output = { width: 2560, height: 1440, fps: 60 };
+const viewport = { width: 1280, height: 720 };
+const scale = 1.5;
+const output = { width: 1920, height: 1080, fps: 60 };
 
 type Point = { x: number; y: number };
 
-// What a clip can do to the demo. Every click glides the cursor to its
-// target first; `rocket` scopes a button to one rocket's card.
-type Stage = {
-  click: (name: string, rocket?: string) => Promise<void>;
-  clicks: (name: string, times: number, rocket?: string) => Promise<void>;
-  quietly: (name: string, times: number, rocket?: string) => Promise<void>;
-  tab: (name: 'Timeline' | 'Inspector') => Promise<void>;
-  press: (key: string, label: string) => Promise<void>;
-  rest: (seconds: number) => Promise<void>;
-  // Rests until `seconds` into the clip, to keep pace with the narration.
-  until: (seconds: number) => Promise<void>;
-  pan: (by: Point) => Promise<void>;
-  park: (name: string, rocket?: string, by?: Point) => Promise<void>;
-  widen: (by: number) => Promise<void>;
-  page: Page;
+const folder = resolve('src/walkthroughs', name);
+const { beats } = (await import(join(folder, 'script.ts'))) as {
+  beats: ReadonlyArray<Beat>;
+};
+const { takes, page: path } = (await import(join(folder, 'takes.ts'))) as {
+  takes: Record<string, Take<Stage>>;
+  page: string;
+};
+const manifest = join(folder, 'voiceover', 'voiceover.json');
+if (!existsSync(manifest))
+  throw new Error(`No voiceover yet: run pnpm voiceover ${name}`);
+const lines = JSON.parse(readFileSync(manifest, 'utf8')) as {
+  id: string;
+  seconds: number;
+}[];
+const all = timingOf(beats, lines, takes);
+const from = process.env.FROM;
+const skipped = from ? all.beats.findIndex((beat) => beat.id === from) : 0;
+if (skipped < 0) throw new Error(`No beat "${from}"`);
+const offset = all.beats[skipped]!.start;
+const timing = {
+  beats: all.beats.slice(skipped).map((beat) => ({
+    ...beat,
+    start: beat.start - offset,
+    end: beat.end - offset,
+  })),
+  seconds: all.seconds - offset,
 };
 
-type Clip = {
-  chapter: number;
-  // Runs before capture starts, so the clip opens on a settled frame.
-  setup?: (stage: Stage) => Promise<void>;
-  story: (stage: Stage) => Promise<void>;
-};
-
-const clips: Record<string, Clip> = {
-  'c1-actor': {
-    chapter: 1,
-    setup: async (s) => {
-      await s.tab('Inspector');
-      await s.park('Fuel', undefined, { x: 150, y: 90 });
-    },
-    story: async (s) => {
-      await s.rest(0.5);
-      await s.clicks('Fuel', 4);
-      await s.click('Drain');
-      await s.rest(1.6);
-    },
-  },
-  'c2-states': {
-    chapter: 2,
-    setup: async (s) => {
-      await s.tab('Inspector');
-      await s.park('Fuel', undefined, { x: 150, y: 90 });
-    },
-    story: async (s) => {
-      await s.until(0.4);
-      await s.clicks('Fuel', 8);
-      await s.until(5.4);
-      await s.click('Launch');
-      await s.until(8.2);
-      await s.click('Land');
-      await s.until(9.5);
-      await s.click('Reset');
-      await s.until(10.8);
-    },
-  },
-  'c2-lost': {
-    chapter: 2,
-    setup: async (s) => {
-      await s.tab('Inspector');
-      await s.park('Fuel', undefined, { x: 110, y: 70 });
-    },
-    story: async (s) => {
-      await s.rest(0.3);
-      await s.click('Fuel');
-      await s.click('Launch');
-      await s.rest(1.5);
-    },
-  },
-  'c3-many': {
-    chapter: 3,
-    setup: async (s) => {
-      await s.tab('Inspector');
-      await s.park('Build', undefined, { x: -160, y: 120 });
-    },
-    story: async (s) => {
-      await s.until(0.3);
-      await s.clicks('Build', 3);
-      await s.until(2.6);
-      await s.clicks('Fuel', 8, 'R-2');
-      await s.until(6.3);
-      await s.click('Launch', 'R-2');
-      await s.until(9.2);
-      await s.click('Land', 'R-2');
-      await s.until(11.2);
-    },
-  },
-  'c4-capabilities': {
-    chapter: 4,
-    setup: async (s) => {
-      await s.quietly('Fuel', 5, 'R-1');
-      await s.tab('Inspector');
-      await s.park('Storm', undefined, { x: -220, y: 140 });
-    },
-    story: async (s) => {
-      await s.until(2.6);
-      await s.click('Storm');
-      await s.click('Launch', 'R-1');
-      await s.until(5.0);
-      await s.click('Storm');
-      await s.click('Launch', 'R-1');
-      await s.until(8.4);
-    },
-  },
-  'c5-motion': {
-    chapter: 5,
-    setup: async (s) => {
-      await s.quietly('Build', 1);
-      await s.quietly('Fuel', 10, 'R-1');
-      await s.quietly('Fuel', 10, 'R-2');
-      await s.park('Launch', 'R-1', { x: 120, y: 90 });
-    },
-    story: async (s) => {
-      await s.rest(0.4);
-      await s.click('Launch', 'R-1');
-      await s.rest(0.5);
-      await s.click('Launch', 'R-2');
-      await s.rest(0.9);
-      await s.click('Land', 'R-1');
-      await s.rest(0.4);
-      await s.click('Land', 'R-2');
-      await s.rest(1.4);
-    },
-  },
-  'c6-timetravel': {
-    chapter: 6,
-    setup: async (s) => {
-      await s.park('Fuel', 'R-1', { x: 160, y: 110 });
-    },
-    story: async (s) => {
-      await s.until(1.6);
-      await s.click('Fuel', 'R-1');
-      await s.until(3.2);
-      await s.click('Launch', 'R-1');
-      for (const at of [7.6, 8.5, 9.4]) {
-        await s.until(at);
-        await s.press('ArrowDown', '↓');
-      }
-      await s.until(11.0);
-      await s.click('Fork here');
-      await s.until(12.3);
-      await s.clicks('Fuel', 5, 'R-1');
-      await s.click('Launch', 'R-1');
-      await s.until(16.2);
-      await s.click('Land', 'R-1');
-      await s.until(18.6);
-    },
-  },
-  'd1-commands': {
-    chapter: 7,
-    setup: async (s) => {
-      await s.quietly('Fuel', 2, 'R-1');
-      await s.tab('Inspector');
-      await s.park('Launch', 'R-1', { x: 140, y: 100 });
-    },
-    story: async (s) => {
-      await s.rest(0.4);
-      await s.click('Launch', 'R-1');
-      await s.rest(1.2);
-      await s.click('Launch', 'R-1');
-      await s.rest(1.1);
-      await s.click('Abort', 'R-1');
-      await s.rest(1.3);
-    },
-  },
-  'd2-inspector': {
-    chapter: 7,
-    setup: async (s) => {
-      await s.widen(200);
-      await s.quietly('Build', 2);
-      await s.quietly('Fuel', 1, 'R-1');
-      await s.quietly('Launch', 1, 'R-1');
-      await s.quietly('Fuel', 8, 'R-2');
-      await s.quietly('Launch', 1, 'R-2');
-      await s.quietly('Fuel', 2, 'R-3');
-      await s.page.waitForTimeout(3600);
-      await s.quietly('Land', 1, 'R-2');
-      await s.tab('Inspector');
-      await s.quietly('Rocket, 3 running', 1);
-      await s.page.waitForTimeout(800);
-      await s.pan({ x: 0, y: -90 });
-      await s.park('Launch', 'R-3', { x: 140, y: 120 });
-    },
-    story: async (s) => {
-      await s.until(0.4);
-      await s.click('Launch', 'R-3');
-      for (const at of [2.6, 3.7, 4.8, 5.9]) {
-        await s.until(at);
-        await s.press('ArrowDown', '↓');
-      }
-      await s.until(8.0);
-    },
-  },
-};
-
-async function record(look: Look, id: string, clip: Clip) {
+async function record() {
   const context = await browser.newContext({
     viewport,
     deviceScaleFactor: scale,
     colorScheme: 'dark',
     reducedMotion: 'no-preference',
   });
+  const url = new URL(path, docs);
+  await context.addCookies([
+    { name: 'kui-theme', value: 'dark', domain: url.hostname, path: '/' },
+  ]);
   context.setDefaultTimeout(10_000);
   await context.addInitScript(cursorScript);
   const page = await context.newPage();
-  await page.goto(`${rockets}?chapter=${clip.chapter}&look=${look}&chrome=0`);
-  await page.getByRole('tablist', { name: 'View' }).waitFor();
+  await page.goto(url.href);
+  await page.waitForFunction(() => window.showreel !== undefined);
   await page.evaluate(() => document.fonts.ready);
-  await page.waitForTimeout(1200);
+  await page.waitForTimeout(1500);
 
   const clicked: number[] = [];
-  const stage = stageOf(page, clicked);
-  await clip.setup?.(stage);
-  await page.waitForTimeout(700);
-
   const cdp = await context.newCDPSession(page);
-  const scratch = mkdtempSync(join(tmpdir(), `record-${id}-`));
+  const scratch = mkdtempSync(join(tmpdir(), `record-${name}-`));
   const capture = await startCapture(cdp, scratch);
-  stage.start();
-  await clip.story(stage);
+  const begun = Date.now() / 1000;
+  const until = async (seconds: number) => {
+    const left = begun + seconds - Date.now() / 1000;
+    if (left > 0) await page.waitForTimeout(left * 1000);
+  };
+
+  const stage = stageOf(page, clicked);
+  for (const beat of timing.beats) {
+    await until(beat.start);
+    const late = Date.now() / 1000 - begun - beat.start;
+    if (late > 0.25) console.warn(`${beat.id} starts ${late.toFixed(2)}s late`);
+    await page.evaluate((id) => window.showreel!.go(id), beat.id);
+    const play = takes[beat.id]?.play;
+    if (play)
+      await play({
+        ...stage,
+        at: (seconds) => until(beat.start + seconds),
+      }).catch(async (error: unknown) => {
+        await page.screenshot({
+          path: resolve('generated', `${name}-failed.png`),
+        });
+        throw error;
+      });
+    console.log(
+      `${beat.id} done at ${(Date.now() / 1000 - begun).toFixed(1)}s`,
+    );
+  }
+  await until(timing.seconds);
   const { frames, stoppedAt } = await capture.stop();
   await context.close();
 
-  const start = frames[0]!.at;
-  const seconds = stoppedAt - start;
-  const folder = resolve('public/recordings', look);
-  mkdirSync(folder, { recursive: true });
-  encode(scratch, frames, stoppedAt, join(folder, `${id}.mp4`));
+  // The video starts when the take began, on the last frame drawn by then.
+  const first = Math.max(
+    0,
+    frames.filter((frame) => frame.at <= begun).length - 1,
+  );
+  const kept = frames
+    .slice(first)
+    .map((frame, i) => (i === 0 ? { ...frame, at: begun } : frame));
+  const out = resolve('public/recordings');
+  mkdirSync(out, { recursive: true });
+  encode(scratch, kept, stoppedAt, join(out, `${name}.mp4`));
   rmSync(scratch, { recursive: true, force: true });
   const round = (value: number) => Math.round(value * 1000) / 1000;
   writeFileSync(
-    join(folder, `${id}.json`),
+    join(out, `${name}.json`),
     `${JSON.stringify(
       {
-        seconds: round(seconds),
-        clicks: clicked.map((at) => round(at - start)),
+        seconds: round(stoppedAt - begun),
+        clicks: clicked.map((at) => round(at - begun)),
       },
       null,
       2,
     )}\n`,
   );
-  const rate = frames.length / seconds;
   console.log(
-    `${look}/${id}: ${seconds.toFixed(1)}s, ${clicked.length} clicks, ${rate.toFixed(0)} fps captured`,
+    `${name}: ${(stoppedAt - begun).toFixed(1)}s, ${clicked.length} clicks, ${(kept.length / (stoppedAt - begun)).toFixed(0)} fps captured`,
   );
 }
 
-function stageOf(page: Page, clicked: number[]): Stage & { start: () => void } {
-  let started = Date.now() / 1000;
-  let cursor: Point = { x: viewport.width / 2, y: viewport.height / 2 };
-  const button = (name: string, rocket?: string) =>
-    (rocket ? page.getByRole('region', { name: rocket }) : page)
-      .getByRole('button', { name, exact: true })
+function stageOf(page: Page, clicked: number[]): Omit<Stage, 'at'> {
+  let cursor: Point = { x: viewport.width * 0.78, y: viewport.height * 0.6 };
+  const button = (name: string | RegExp, within?: string) =>
+    (within ? page.getByLabel(within, { exact: true }) : page)
+      .getByRole('button', { name, exact: typeof name === 'string' })
       .first();
   const glideTo = async (target: Locator) => {
     const to = await centerOf(target);
     await glide(page, cursor, to);
     cursor = to;
   };
-  // Presses where the cursor is, but only if `target` is still there: a
-  // button that changed under the cursor fails the clip instead of
-  // recording a wrong click.
+  // Presses where the cursor is, if `target` is still under it. A target
+  // that moved, like a Timeline row pushed down by a new Message, is glided
+  // to again, up to three times, before the take fails.
   const press = async (target: Locator) => {
-    await page.waitForTimeout(110);
-    const box = await target.boundingBox({ timeout: 300 }).catch(() => null);
-    const inside =
-      box !== null &&
-      cursor.x >= box.x &&
-      cursor.x <= box.x + box.width &&
-      cursor.y >= box.y &&
-      cursor.y <= box.y + box.height;
-    if (!inside) throw new Error(`${String(target)} moved before its click`);
+    for (let attempt = 0; ; attempt++) {
+      await page.waitForTimeout(90);
+      const box = await target.boundingBox({ timeout: 300 }).catch(() => null);
+      const inside =
+        box !== null &&
+        cursor.x >= box.x &&
+        cursor.x <= box.x + box.width &&
+        cursor.y >= box.y &&
+        cursor.y <= box.y + box.height;
+      if (inside) break;
+      if (attempt === 2)
+        throw new Error(`${String(target)} moved before its click`);
+      await glideTo(target);
+    }
     clicked.push(Date.now() / 1000);
     await page.mouse.down();
     await page.waitForTimeout(90);
     await page.mouse.up();
   };
-  const stage: Stage & { start: () => void } = {
-    page,
-    click: async (name, rocket) => {
-      const target = button(name, rocket);
+  return {
+    click: async (name, within) => {
+      const target = button(name, within);
       await glideTo(target);
       await press(target);
-      await page.waitForTimeout(380);
     },
-    clicks: async (name, times, rocket) => {
-      const target = button(name, rocket);
+    clicks: async (name, times, within, gap = 0.15) => {
+      const target = button(name, within);
       await glideTo(target);
       for (let i = 0; i < times; i++) {
+        if (i > 0) await page.waitForTimeout(gap * 1000);
         await press(target);
-        await page.waitForTimeout(i === times - 1 ? 380 : 100);
       }
     },
-    quietly: async (name, times, rocket) => {
-      for (let i = 0; i < times; i++) await button(name, rocket).click();
-    },
     tab: async (name) => {
-      await page.getByRole('tab', { name, exact: true }).click();
+      const target = page.getByRole('tab', { name, exact: true });
+      await glideTo(target);
+      await press(target);
     },
     press: async (key, label) => {
       await page.evaluate(() => {
@@ -335,67 +217,13 @@ function stageOf(page: Page, clicked: number[]): Stage & { start: () => void } {
       await page.evaluate((shown) => window.__recorderKey?.(shown), label);
       await page.keyboard.press(key);
     },
-    rest: (seconds) => page.waitForTimeout(seconds * 1000),
-    until: async (seconds) => {
-      const left = started + seconds - Date.now() / 1000;
-      if (left > 0) await page.waitForTimeout(left * 1000);
-    },
-    start: () => {
-      started = Date.now() / 1000;
-    },
-    park: async (name, rocket, by = { x: 0, y: 0 }) => {
-      const at = await centerOf(button(name, rocket));
-      cursor = {
-        x: Math.min(viewport.width - 40, Math.max(40, at.x + by.x)),
-        y: Math.min(viewport.height - 40, Math.max(40, at.y + by.y)),
-      };
-      await page.mouse.move(cursor.x, cursor.y);
-    },
-    // Drags the Inspector's map by `by` pixels from an empty spot near its
-    // top right.
-    pan: async (by) => {
-      const map = await page
-        .getByRole('button', { name: 'Fit to view' })
-        .boundingBox();
-      if (map === null) throw new Error('The Inspector map is not showing');
-      const from = { x: map.x - 40, y: map.y - 260 };
-      await page.mouse.move(from.x, from.y);
-      await page.mouse.down();
-      await page.mouse.move(from.x + by.x, from.y + by.y, { steps: 12 });
-      await page.mouse.up();
-    },
-    // Drags the devtools wider by `by` pixels and gives its map more room.
-    widen: async (by) => {
-      await drag(
-        page,
-        page.getByRole('separator', { name: 'Resize Devtools' }),
-        {
-          x: -by,
-          y: 0,
-        },
-      );
-      await stage.tab('Inspector');
-      await drag(page, page.locator('[data-slot="resizable-handle"]'), {
-        x: 0,
-        y: 60,
-      });
-    },
   };
-  return stage;
 }
 
 async function centerOf(target: Locator): Promise<Point> {
   const box = await target.boundingBox();
   if (box === null) throw new Error(`${String(target)} is not visible`);
   return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
-}
-
-async function drag(page: Page, handle: Locator, by: Point) {
-  const from = await centerOf(handle);
-  await page.mouse.move(from.x, from.y);
-  await page.mouse.down();
-  await page.mouse.move(from.x + by.x, from.y + by.y, { steps: 12 });
-  await page.mouse.up();
 }
 
 const easeInOutCubic = (t: number) =>
@@ -507,6 +335,7 @@ function encode(folder: string, frames: Frame[], end: number, out: string) {
 declare global {
   interface Window {
     __recorderKey?: (label: string) => void;
+    showreel?: { go: (id: string) => void };
   }
 }
 
@@ -593,18 +422,9 @@ const cursorScript = `(() => {
   };
 })();`;
 
-const [lookArg, clipArg] = process.argv.slice(2);
-const pickedLooks = lookArg ? [lookArg as Look] : looks;
-const pickedClips = clipArg ? [clipArg] : Object.keys(clips);
-for (const look of pickedLooks)
-  if (!looks.includes(look)) throw new Error(`No Look "${look}"`);
-for (const id of pickedClips)
-  if (!clips[id]) throw new Error(`No clip "${id}"`);
-
 const browser = await chromium.launch({ headless: true });
 try {
-  for (const look of pickedLooks)
-    for (const id of pickedClips) await record(look, id, clips[id]!);
+  await record();
 } finally {
   await browser.close();
 }

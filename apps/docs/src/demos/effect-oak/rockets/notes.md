@@ -4,72 +4,45 @@ Status: works
 
 ## What it is
 
-Not a Foldkit port: Effect Oak's own walkthrough, the app the Walkthrough
-video records. Seven chapters, each its own app with its own Log and
-devtools, each adding one idea to the one before. Pick a chapter and a Look
-on the page, or in the URL: `?chapter=1..7&look=plain|colorful|exotic`.
-`&chrome=0` drops the header, leaving the app and the docked devtools, for
-recording.
+Effect Oak's own tutorial app, the one the Walkthrough builds up and
+records. Four apps, each with its own Log, picked with
+`?app=actor|state|fleet|capabilities`:
 
 ```
-actor/         1 An Actor     Rocket, no States; Model { fuel }; Fuel, Drain
-states/        2 States       Rocket: OnPad | InFlight | Landed | Lost
-                              InFlight's Lifetime sends Burned every 400 ms; empty → Lost
-more-actors/   3 More Actors  LaunchSite { rockets, next }, Built; rockets: Actor.many(Rocket)
-                              Booster: Firing → Spent (Lifetime sends Separated after 1.5 s)
-                              Rocket InFlight Invokes boosters: Actor.many(Booster), keys left, right
-capabilities/  4 Capabilities LaunchSite { weather }, ToggledStorm; Provides Weather (Layer from self)
-                              Rocket Requires Weather; Launch → Command → Cleared | Scrubbed
-motion/        5 Motion       the View only: layoutId glide, AnimatePresence, boosters falling
-               6 Time Travel  chapter 5's code, as its own app
-commands/      7 Commands     Launch → Countdown { count }, a Command keyed 'countdown'
-                              Launch again restarts it; Abort cancels it → OnPad
-look/          the three Looks: the parts every View draws with
-chapters.ts    the seven apps (toReact), in order
-rockets.tsx    the page: Look, chapter, Shell
+actor/         An Actor     Rocket { fuel }; Fuel. Click the rocket to fuel it.
+state/         States       Rocket: OnPad → Ascending → Separating → Cruising
+                            → Descending { safe } → Landed → Returning → OnPad,
+                            or Crashed (landed with under 30 fuel) or Lost (ran dry).
+                            Each moving State's Lifetime sends the Message that
+                            ends it; Cruising burns 5 fuel every 0.7 s, and a
+                            rocket docks back on its pad with an empty tank.
+fleet/         Children     Fleet { rockets, next }; Build, Dismantle; Actor.many(Rocket)
+capabilities/  Capabilities The Fleet Provides Weather and Hangar; each Rocket
+                            Requires both. Launch is a Command that checks the sky;
+                            Dismantle is a Command that asks the Hangar.
+draw/          The drawing every View shares: the rocket, the site, the flight.
+apps.ts        the four apps (toReact)
+sources.ts     the Actors' code as text, for the Walkthrough
 ```
 
-Each chapter folder holds its Actors, one per file, and a `view.tsx`. The
-Actor files never import a View or a Look, so the code a chapter shows is the
-whole Actor. A chapter reuses the previous one's Actors where nothing
-changed: Capabilities uses More Actors' Booster, Motion and Time Travel run
-Capabilities' Actors.
+## Drawing
 
-## Looks
+One plain look: the theme's ink on its paper, fuel as the one colour.
 
-Views are written once per chapter, against the parts in `look/` (`Stage`,
-`Toolbar`, `Berths`, `Berth`, `Bay`, `Ship`, `Pod`, `Gauge`, `Button`). Each
-Look draws those parts its own way:
-
-- **plain**: black ink on white paper, the system font, hairline boxes; no shadows, no gradients.
-- **colorful**: flat colour blocks with thick ink outlines, rounded heavy type, one sky colour per berth; no blur, glow, shadow or gradient.
-- **exotic**: a night sky with stars that shift with the pointer, frosted bays, metal rockets with a flickering exhaust plume, rain and lightning in a storm.
-
-Switching the Look redraws the same running app, so the Log survives it. Each
-Look also sets the Motion transition (a calm tween, a light spring, a springy
-spring). `MotionConfig reducedMotion="user"` and a `prefers-reduced-motion`
-block stop the glide, the flicker, the rain and the parallax.
-
-## Motion and Time Travel
-
-Each State is drawn by its own component, so a Transition unmounts the pad
-drawing and mounts the sky one. The rocket keeps `layoutId={id}` (its
-Instance ID) in both, so Motion glides it between them. Time Travel draws the
-same Views from the Step's Snapshot, so stepping back from InFlight to OnPad
-glides the rocket down again. A spent booster falls away as it mounts.
+- `Site` lays the pads out: launch pads on the left, landing pads on the
+  right, five rockets to a row, at most twenty, and zooms to fit, so each
+  new rocket zooms the site out a little.
+- `Flight` draws one rocket and its pads. Every State of the Rocket is drawn
+  by the same component; each mounts fresh, so the rocket's position lives in
+  motion values kept per Instance, and every State animates on from where the
+  last one left it. Drawn on its own, a rocket brings its own site and a
+  strip of its States.
+- Storms rain from the top right; a scrubbed launch shakes the rocket.
 
 ## Deviations from the spec
 
-- Chapter 7's countdown `count` is State data (`Countdown { count }`), not
-  Model: it only exists while counting down.
-- Boosters are `Actor.many(Booster)` keyed `left` and `right`, not two fixed
-  Children, so the Inspector draws them as one Booster stack with its count.
-- Booster separation is drawn when `Spent` mounts, not with `AnimatePresence`:
-  a Booster's States are drawn by components `View.make` keys itself, so
-  there is no place to wrap them. `AnimatePresence` animates rockets
-  appearing (and leaving, when Time Travel steps back past a Built).
-- In the devtools, ArrowDown steps back and ArrowUp steps forward (the
-  Timeline is drawn newest first).
+- A Rocket in the Fleet learns its name as Input, so it can ask the Hangar to
+  dismantle it by name.
 
 ## Blockers
 
