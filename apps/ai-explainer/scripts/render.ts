@@ -1,24 +1,36 @@
 // Usage: pnpm render <composition> [remotion flags]
-// Renders one Explainer, or one Style of a Walkthrough, to
-// generated/<composition>.mp4 (git-ignored). Extra flags go to Remotion, such
-// as --props='{"look":"plain"}' to show another Look's recordings.
+// Renders one Explainer or Walkthrough to generated/<composition>.mp4
+// (git-ignored). Extra flags go to Remotion. A Walkthrough keeps its
+// recording's own 60 fps picture: Remotion mixes only its sound, which is
+// laid under the recording.
 // The finished mix is levelled to about -14.5 LUFS with true peaks under
 // -1 dBTP, the level social video players expect.
 import { execFileSync, spawnSync } from 'node:child_process';
-import { rmSync } from 'node:fs';
+import { existsSync, rmSync } from 'node:fs';
 
 const [name, ...flags] = process.argv.slice(2);
 if (!name) throw new Error('Usage: pnpm render <composition>');
 
 const output = `generated/${name}.mp4`;
-const raw = `generated/${name}.raw.mp4`;
+const recording = `public/recordings/${name}.mp4`;
+const walkthrough = existsSync(recording);
+const raw = `generated/${name}.raw.${walkthrough ? 'wav' : 'mp4'}`;
 const loudness = -14.5;
 // -2 dB of sample peak, oversampled, keeps true peaks under -1 dBTP.
 const ceiling = 0.79;
 
 execFileSync(
   'pnpm',
-  ['exec', 'remotion', 'render', 'src/studio.tsx', name, raw, ...flags],
+  [
+    'exec',
+    'remotion',
+    'render',
+    'src/studio.tsx',
+    name,
+    raw,
+    ...(walkthrough ? ['--codec=wav'] : []),
+    ...flags,
+  ],
   { stdio: 'inherit' },
 );
 
@@ -50,8 +62,9 @@ execFileSync(
     '-y',
     '-loglevel',
     'error',
-    '-i',
-    raw,
+    ...(walkthrough
+      ? ['-i', recording, '-i', raw, '-map', '0:v', '-map', '1:a', '-shortest']
+      : ['-i', raw]),
     '-c:v',
     'copy',
     '-af',

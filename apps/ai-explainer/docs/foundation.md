@@ -3,14 +3,13 @@
 What every Explainer and Walkthrough shares. Each part is either decided by a Pick or still
 open. An open part runs on the default listed and is decided by a Round.
 
-| Part    | Now                                                                    | Decided by         |
-| ------- | ---------------------------------------------------------------------- | ------------------ |
-| Visuals | web-platform's light theme, Inter, on a dotted board                   | 01-look-and-motion |
-| Voice   | Kokoro `am_michael` (Michael), speed 1.2                               | 02-voice           |
-| Motion  | One canvas: the camera travels between regions of a board              | 01-look-and-motion |
-| Sound   | Explainers: narration only. Walkthroughs: a music bed and soft effects | open               |
-| Scenes  | none: Explainers draw their own content on the canvas                  | open               |
-| Styles  | Walkthroughs only: blueprint, paper or bold, one per render            | open (Effect Oak)  |
+| Part    | Now                                                                                   | Decided by                                |
+| ------- | ------------------------------------------------------------------------------------- | ----------------------------------------- |
+| Visuals | web-platform's light theme, Inter, on a dotted board                                  | 01-look-and-motion                        |
+| Voice   | Gemini `Charon`, read as a calm teacher; Kokoro Michael as the fallback               | 02-voice, then the Effect Oak Walkthrough |
+| Motion  | One canvas: the camera travels between regions of a board                             | 01-look-and-motion                        |
+| Sound   | Explainers: narration only. Walkthroughs: music for the opening and the close, clicks | open                                      |
+| Scenes  | none: Explainers draw their own content on the canvas                                 | open                                      |
 
 ## Rules that always hold
 
@@ -46,21 +45,24 @@ open. An open part runs on the default listed and is decided by a Round.
 
 ## Voice
 
-- Kokoro's Michael: an American male voice, deep and steady, like a calm
-  documentary narrator who knows the subject well.
-- Speed 1.2. At 1 the narration dragged; above 1.3 Kokoro starts to clip.
-- Only local Kokoro voices, no cloud voices.
+- Gemini's Charon (`gemini-3.8-flash-tts`), told before every line to read
+  like a calm, friendly teacher walking a developer through code. The key is
+  `GEMINI_API_KEY`, in the environment or in the app's git-ignored `.env`.
+- `pnpm voiceover <name> kokoro` speaks with the local Kokoro Michael
+  instead, at speed 1.05: for when Gemini is out of reach.
 - Every line is levelled to -18 LUFS when it is spoken, so music and effects
   can sit at fixed levels under it.
-- The engine sits behind one file, `scripts/speak.ts`. Changing engines
-  rewrites that file and the settings in `src/foundation/voice`, nothing else.
+- The engines sit behind one file, `scripts/speak.ts`, and their settings in
+  `src/foundation/voice`.
 
 ## Sound
 
 - Every sound is synthesised by `pnpm sound` from ffmpeg formulas: nothing is
   downloaded or licensed. The files are small and committed, like voiceovers.
-- The music bed is a warm 32-second loop of four chords in D. It rests about
-  24 dB under the voice and rises a little in silences.
+- The music bed is a warm 32-second loop of four chords in D. Under an
+  Explainer it rests about 24 dB under the voice and rises a little in
+  silences; a Walkthrough plays it under the opening title, lets it go a
+  second before the first line, and brings it back for the close.
 - Effects are soft and few: a whoosh on each camera move (louder for longer
   moves), a click on every recorded click, a swell that peaks on a moment, a
   chime on the end card.
@@ -69,38 +71,34 @@ open. An open part runs on the default listed and is decided by a Round.
 
 ## Walkthroughs
 
-A Walkthrough (`defineWalkthrough`) is one canvas like an Explainer's, plus:
+A Walkthrough is not drawn in Remotion: its picture is its Storyboard, a page
+in the docs app, recorded live.
 
-- recorded footage of the live app, played from `public/recordings/<look>/<clip>.mp4`
-  (git-ignored, made by a recorder) and timed by the `<clip>.json` beside it,
-  `{ "seconds": number, "clicks": number[] }`. A clip longer than its window
-  plays up to twice as fast. A clip not recorded yet shows a labelled
-  placeholder, so a Walkthrough can be built and timed first;
-- code cards that show real source, coloured by Shiki, with a highlight that
-  travels from block to block as the narrator names them, and a type error
-  drawn with a red squiggle;
-- burned-in captions from the script, at most two lines;
-- title and section cards, the music bed and effects;
-- three Styles, each its own composition (`<id>-<style>`), and a `look` prop
-  that picks which Look's recordings it shows.
-
-Silence is part of a Walkthrough's timing: `pauses` give seconds before a
-line, so the app gets time to run between lines.
+- The Storyboard frame is 1280×720 with no borders: code coloured by Shiki on
+  the left, the running app on the right; for Time Travel the app moves left
+  and its devtools slide in. Each chapter's title rises in the middle, then
+  settles in the corner.
+- `pnpm record <name>` plays the Storyboard beat by beat on the voiceover's
+  timing, does each beat's Take with a visible cursor, and records the whole
+  run at 60 fps into `public/recordings/<name>.mp4` (git-ignored), with
+  `<name>.json` beside it: `{ "seconds": number, "clicks": number[] }`.
+- The timing is shared: a beat lasts its lead, its line and its rest, or its
+  Take's `hold` if that is longer. The first beat of a chapter waits longer,
+  for its title.
+- `pnpm render <name>` mixes only the sound in Remotion (voice, music,
+  clicks, the chime) and lays it under the recording, so the picture keeps
+  its 60 fps.
 
 ## Where each part lives
 
 - `src/foundation/stage`: the page every frame is painted on.
 - `src/foundation/canvas`: the board, the camera and the timing of motion.
-- `src/foundation/voice`: the narration voice.
+- `src/foundation/voice`: the narration voices.
 - `src/foundation/explainer`: turns a script's voiceover and Scenes, or one
   canvas, into video, and holds the timeline every video shares.
-- `src/foundation/walkthrough`: turns a voiceover, a camera path and one
-  canvas into a Walkthrough, one video per Style.
-- `src/foundation/style`: the Styles.
-- `src/foundation/footage`: recorded clips and their placeholders.
-- `src/foundation/code`: code cards.
-- `src/foundation/captions`: burned-in captions.
-- `src/foundation/cards`: title cards and chapter labels.
+- `src/foundation/walkthrough`: a Walkthrough's timing, what its Takes can
+  do, and the video around its recording.
+- `src/foundation/footage`: the recording, or a placeholder until it exists.
 - `src/foundation/sound`: the music bed and effects, made by `pnpm sound`.
 
 When a Pick adds a part (sound, Scenes), it gets its own folder here and its

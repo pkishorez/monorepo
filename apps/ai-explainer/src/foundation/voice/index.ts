@@ -1,1 +1,1 @@
-export { voice } from './voice.ts';
+export { voice, voices, type Voice } from './voice.ts';

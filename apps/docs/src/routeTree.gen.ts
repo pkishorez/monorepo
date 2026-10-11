@@ -35,6 +35,7 @@ import { Route as DemosEffectOakRocketsRouteImport } from './routes/demos/effect
 import { Route as DemosEffectOakRouteTransitionsRouteImport } from './routes/demos/effect-oak/route-transitions'
 import { Route as DemosEffectOakRoutingRouteImport } from './routes/demos/effect-oak/routing'
 import { Route as DemosEffectOakShoppingCartRouteImport } from './routes/demos/effect-oak/shopping-cart'
+import { Route as DemosEffectOakShowreelRouteImport } from './routes/demos/effect-oak/showreel'
 import { Route as DemosEffectOakSlowWarningsRouteImport } from './routes/demos/effect-oak/slow-warnings'
 import { Route as DemosEffectOakSnakeRouteImport } from './routes/demos/effect-oak/snake'
 import { Route as DemosEffectOakStateMachineRouteImport } from './routes/demos/effect-oak/state-machine'
@@ -184,6 +185,11 @@ const DemosEffectOakShoppingCartRoute =
     path: '/demos/effect-oak/shopping-cart',
     getParentRoute: () => rootRouteImport,
   } as any)
+const DemosEffectOakShowreelRoute = DemosEffectOakShowreelRouteImport.update({
+  id: '/demos/effect-oak/showreel',
+  path: '/demos/effect-oak/showreel',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DemosEffectOakSlowWarningsRoute =
   DemosEffectOakSlowWarningsRouteImport.update({
     id: '/demos/effect-oak/slow-warnings',
@@ -267,6 +273,7 @@ export interface FileRoutesByFullPath {
   '/demos/effect-oak/route-transitions': typeof DemosEffectOakRouteTransitionsRoute
   '/demos/effect-oak/routing': typeof DemosEffectOakRoutingRoute
   '/demos/effect-oak/shopping-cart': typeof DemosEffectOakShoppingCartRoute
+  '/demos/effect-oak/showreel': typeof DemosEffectOakShowreelRoute
   '/demos/effect-oak/slow-warnings': typeof DemosEffectOakSlowWarningsRoute
   '/demos/effect-oak/snake': typeof DemosEffectOakSnakeRoute
   '/demos/effect-oak/state-machine': typeof DemosEffectOakStateMachineRoute
@@ -305,6 +312,7 @@ export interface FileRoutesByTo {
   '/demos/effect-oak/route-transitions': typeof DemosEffectOakRouteTransitionsRoute
   '/demos/effect-oak/routing': typeof DemosEffectOakRoutingRoute
   '/demos/effect-oak/shopping-cart': typeof DemosEffectOakShoppingCartRoute
+  '/demos/effect-oak/showreel': typeof DemosEffectOakShowreelRoute
   '/demos/effect-oak/slow-warnings': typeof DemosEffectOakSlowWarningsRoute
   '/demos/effect-oak/snake': typeof DemosEffectOakSnakeRoute
   '/demos/effect-oak/state-machine': typeof DemosEffectOakStateMachineRoute
@@ -344,6 +352,7 @@ export interface FileRoutesById {
   '/demos/effect-oak/route-transitions': typeof DemosEffectOakRouteTransitionsRoute
   '/demos/effect-oak/routing': typeof DemosEffectOakRoutingRoute
   '/demos/effect-oak/shopping-cart': typeof DemosEffectOakShoppingCartRoute
+  '/demos/effect-oak/showreel': typeof DemosEffectOakShowreelRoute
   '/demos/effect-oak/slow-warnings': typeof DemosEffectOakSlowWarningsRoute
   '/demos/effect-oak/snake': typeof DemosEffectOakSnakeRoute
   '/demos/effect-oak/state-machine': typeof DemosEffectOakStateMachineRoute
@@ -384,6 +393,7 @@ export interface FileRouteTypes {
     | '/demos/effect-oak/route-transitions'
     | '/demos/effect-oak/routing'
     | '/demos/effect-oak/shopping-cart'
+    | '/demos/effect-oak/showreel'
     | '/demos/effect-oak/slow-warnings'
     | '/demos/effect-oak/snake'
     | '/demos/effect-oak/state-machine'
@@ -422,6 +432,7 @@ export interface FileRouteTypes {
     | '/demos/effect-oak/route-transitions'
     | '/demos/effect-oak/routing'
     | '/demos/effect-oak/shopping-cart'
+    | '/demos/effect-oak/showreel'
     | '/demos/effect-oak/slow-warnings'
     | '/demos/effect-oak/snake'
     | '/demos/effect-oak/state-machine'
@@ -460,6 +471,7 @@ export interface FileRouteTypes {
     | '/demos/effect-oak/route-transitions'
     | '/demos/effect-oak/routing'
     | '/demos/effect-oak/shopping-cart'
+    | '/demos/effect-oak/showreel'
     | '/demos/effect-oak/slow-warnings'
     | '/demos/effect-oak/snake'
     | '/demos/effect-oak/state-machine'
@@ -499,6 +511,7 @@ export interface RootRouteChildren {
   DemosEffectOakRouteTransitionsRoute: typeof DemosEffectOakRouteTransitionsRoute
   DemosEffectOakRoutingRoute: typeof DemosEffectOakRoutingRoute
   DemosEffectOakShoppingCartRoute: typeof DemosEffectOakShoppingCartRoute
+  DemosEffectOakShowreelRoute: typeof DemosEffectOakShowreelRoute
   DemosEffectOakSlowWarningsRoute: typeof DemosEffectOakSlowWarningsRoute
   DemosEffectOakSnakeRoute: typeof DemosEffectOakSnakeRoute
   DemosEffectOakStateMachineRoute: typeof DemosEffectOakStateMachineRoute
@@ -696,6 +709,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DemosEffectOakShoppingCartRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/demos/effect-oak/showreel': {
+      id: '/demos/effect-oak/showreel'
+      path: '/demos/effect-oak/showreel'
+      fullPath: '/demos/effect-oak/showreel'
+      preLoaderRoute: typeof DemosEffectOakShowreelRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/demos/effect-oak/slow-warnings': {
       id: '/demos/effect-oak/slow-warnings'
       path: '/demos/effect-oak/slow-warnings'
@@ -797,6 +817,7 @@ const rootRouteChildren: RootRouteChildren = {
   DemosEffectOakRouteTransitionsRoute: DemosEffectOakRouteTransitionsRoute,
   DemosEffectOakRoutingRoute: DemosEffectOakRoutingRoute,
   DemosEffectOakShoppingCartRoute: DemosEffectOakShoppingCartRoute,
+  DemosEffectOakShowreelRoute: DemosEffectOakShowreelRoute,
   DemosEffectOakSlowWarningsRoute: DemosEffectOakSlowWarningsRoute,
   DemosEffectOakSnakeRoute: DemosEffectOakSnakeRoute,
   DemosEffectOakStateMachineRoute: DemosEffectOakStateMachineRoute,

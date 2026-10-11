@@ -37,18 +37,18 @@ Run `/explainer <name>` on an existing Explainer and say what to change.
 Pick one of three variants as above. Claude asks whether the change applies to
 future Explainers too.
 
-### Render a Walkthrough
+### Make a Walkthrough
 
-A Walkthrough builds up a live app chapter by chapter. Each one renders in
-three Styles, `<name>-blueprint`, `<name>-paper` and `<name>-bold`. The
-`look` prop picks which Look of the demo the recordings show:
+A Walkthrough builds up a live app chapter by chapter. Its Storyboard lives
+in the docs app (Effect Oak's is at `/demos/effect-oak/showreel`); agree the
+beats there, then, with the docs dev server running:
 
 ```sh
-pnpm voiceover effect-oak            # after changing its script
-pnpm render effect-oak-paper         # generated/effect-oak-paper.mp4
-pnpm render effect-oak-paper --props='{"look":"plain"}'
+pnpm voiceover effect-oak          # Gemini; add `kokoro` for the local voice
+DOCS_URL=http://127.0.0.1:<port> pnpm record effect-oak
+pnpm render effect-oak             # generated/effect-oak.mp4
 ```
 
-Recordings go in `public/recordings/<look>/` (git-ignored). Until a clip is
-recorded, the video shows a labelled placeholder in its place. `pnpm sound`
-rebuilds the music bed and sound effects.
+The voice sets the pace, so record again after a new voiceover. Recordings
+go in `public/recordings/` (git-ignored); until one exists, the video shows a
+placeholder. `pnpm sound` rebuilds the music bed and sound effects.

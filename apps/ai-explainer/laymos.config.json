@@ -6,38 +6,64 @@
     "studio": {
       "paths": ["src/studio.tsx"],
       "description": "Registers every Explainer and Walkthrough with Remotion Studio and the renderer.",
-      "modules": { "src/studio.tsx": {} }
+      "modules": {
+        "src/studio.tsx": {}
+      }
     },
     "playground": {
       "paths": ["src/playground"],
       "description": "Shows each Round's Prototypes side by side and saves the Pick.",
-      "modules": { "src/playground": {} }
+      "modules": {
+        "src/playground": {}
+      }
     },
     "explainers": {
       "paths": ["src/explainers"],
       "description": "One module per Explainer; Explainers never reach each other.",
-      "modules": { "src/explainers/laymos": { "exposed": true } }
+      "modules": {
+        "src/explainers/laymos": {
+          "exposed": true
+        }
+      }
     },
     "walkthroughs": {
       "paths": ["src/walkthroughs"],
       "description": "One module per Walkthrough; Walkthroughs never reach each other.",
-      "modules": { "src/walkthroughs/effect-oak": { "exposed": true } }
+      "modules": {
+        "src/walkthroughs/effect-oak": {
+          "exposed": true
+        }
+      }
     },
     "foundation": {
       "paths": ["src/foundation"],
       "description": "What every Explainer and Walkthrough shares: look, motion, voice, sound, Scenes and the timing that turns them into video.",
       "modules": {
-        "src/foundation/canvas": { "exposed": true, "shared": true },
-        "src/foundation/captions": { "shared": true },
-        "src/foundation/cards": { "exposed": true },
-        "src/foundation/code": { "exposed": true },
-        "src/foundation/explainer": { "exposed": true, "shared": true },
-        "src/foundation/footage": { "exposed": true },
-        "src/foundation/sound": { "exposed": true, "shared": true },
-        "src/foundation/stage": { "exposed": true, "shared": true },
-        "src/foundation/style": { "exposed": true, "shared": true },
-        "src/foundation/voice": { "exposed": true },
-        "src/foundation/walkthrough": { "exposed": true }
+        "src/foundation/canvas": {
+          "exposed": true,
+          "shared": true
+        },
+        "src/foundation/explainer": {
+          "exposed": true,
+          "shared": true
+        },
+        "src/foundation/footage": {
+          "exposed": true
+        },
+        "src/foundation/sound": {
+          "exposed": true,
+          "shared": true
+        },
+        "src/foundation/stage": {
+          "exposed": true,
+          "shared": true
+        },
+        "src/foundation/voice": {
+          "exposed": true
+        },
+        "src/foundation/walkthrough": {
+          "exposed": true
+        }
       }
     }
   },

@@ -33,21 +33,28 @@ until someone reopens it.
 _Avoid_: Episode, lesson, tutorial, launch video
 
 **Walkthrough**:
-A narrated build-up of a live app, chapter by chapter: each chapter shows the
-code, the app running and its devtools, and adds one idea to the last. Unlike
-an Explainer it follows the app's chapters, not the Explainer Format.
+A narrated tutorial that builds up a live app chapter by chapter, slowly
+enough to follow, in one frame: the code on the left and the running app on
+the right, or the app beside its devtools. Each chapter is named after the
+idea it teaches and ends on the question the next one answers. Unlike an
+Explainer it follows the app's chapters, not the Explainer Format.
 _Avoid_: Showcase, demo video
 
-**Style**:
-How a Walkthrough is painted: blueprint, paper or bold. A Style changes
-colour, type and camera feel, never what is shown or when; each Style is its
-own video.
-_Avoid_: Theme, skin, variant
+**Storyboard**:
+A Walkthrough's beats in order, played live in the docs app: the place its
+narration and pictures are agreed before it is recorded.
+_Avoid_: Showreel (the page's name only), script, outline
 
-**Look**:
-Which of the demo app's Looks a Walkthrough's recordings show, such as plain,
-colorful or exotic. The same Walkthrough renders with any Look.
-_Avoid_: Theme, skin, flavour
+**Beat**:
+One line of a Walkthrough's narration with what happens on screen while it
+is said. A beat lasts as long as its line, plus the silence around it, or
+longer when what happens on screen takes longer.
+_Avoid_: Scene (a Foundation building block), shot, step
+
+**Take**:
+How one beat is recorded: how long it holds, and what the cursor does in the
+app, and when.
+_Avoid_: Clip, script
 
 ### Deciding together
 

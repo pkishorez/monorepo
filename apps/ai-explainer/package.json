@@ -6,12 +6,9 @@
     "@kstackz/web-platform": "workspace:*",
     "@remotion/media-utils": "catalog:",
     "@remotion/player": "catalog:",
-    "@shikijs/langs": "catalog:",
-    "@shikijs/themes": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "remotion": "catalog:",
-    "shiki": "catalog:"
+    "remotion": "catalog:"
   },
   "devDependencies": {
     "@remotion/bundler": "catalog:",

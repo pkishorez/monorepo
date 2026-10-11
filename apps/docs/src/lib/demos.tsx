@@ -26,10 +26,17 @@ export const GROUPS = [
 /** Every demo, in the order the home page lists them within its group. */
 export const DEMOS = [
   {
+    to: '/demos/effect-oak/showreel',
+    name: 'Showreel',
+    group: 'Basics',
+    summary: 'The storyboard for the Effect Oak Walkthrough, scene by scene',
+  },
+  {
     to: '/demos/effect-oak/rockets',
     name: 'Rockets',
     group: 'Basics',
-    summary: 'A walkthrough in seven chapters, from one Actor to Commands',
+    summary:
+      'A Rocket, its States and Lifetimes, a Fleet, and its Capabilities',
   },
   {
     to: '/demos/effect-oak/counter',

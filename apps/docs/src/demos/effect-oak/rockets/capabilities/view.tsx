@@ -1,94 +1,122 @@
 import { View } from 'effect-oak/react';
+import type { ViewProps } from 'effect-oak/react';
+import type { MotionValue } from 'motion/react';
+import { AnimatePresence, motion } from 'motion/react';
 import {
-  Bay,
-  Berth,
-  Berths,
-  Button,
-  Gauge,
-  Ship,
-  Stage,
+  Action,
+  Flight,
+  MOST,
+  Pill,
+  Place,
+  Rain,
+  Site,
   Toolbar,
-} from '../look/index.js';
-import { BoosterView } from '../more-actors/index.js';
-import { LaunchSite } from './launch-site.js';
+} from '../draw/index.js';
+import { Fleet } from './fleet.js';
 import { Rocket } from './rocket.js';
 
-export const RocketView = View.make(Rocket, {
-  OnPad: ({ model, send }) => (
-    <Bay
-      phase="pad"
-      status={model.scrubbed ? 'Scrubbed: storm' : 'On pad'}
-      gauge={<Gauge fuel={model.fuel} />}
-      pad={<Ship phase="pad" />}
-    >
-      <Button onClick={() => send({ _tag: 'Fuel' })}>Fuel</Button>
-      <Button onClick={() => send({ _tag: 'Drain' })}>Drain</Button>
-      <Button tone="go" onClick={() => send({ _tag: 'Launch' })}>
-        Launch
-      </Button>
-    </Bay>
-  ),
-  InFlight: ({ model, children, send }) => (
-    <Bay
-      phase="flight"
-      status="In flight"
-      gauge={<Gauge fuel={model.fuel} />}
-      sky={
-        <Ship
-          phase="flight"
-          boosters={children.boosters.map((booster) => (
-            <BoosterView key={booster.id} node={booster} />
-          ))}
-        />
+/** A scrubbed launch says why, for a moment, over the rocket. */
+const Scrubbed = () => (
+  <motion.p
+    className="absolute bottom-full left-1/2 mb-3 -translate-x-1/2 text-xs whitespace-nowrap"
+    initial={{ opacity: 0, y: 4 }}
+    animate={{ opacity: [0, 1, 1, 0], y: 0 }}
+    transition={{ duration: 2.6, times: [0, 0.1, 0.8, 1] }}
+  >
+    Storm overhead
+  </motion.p>
+);
+
+const draw = ({
+  id,
+  model,
+  state,
+  send,
+  frame,
+}: ViewProps<typeof Rocket> & { frame: MotionValue<number> }) => {
+  const scrubbed =
+    model.scrubbedAt !== null && frame.get() - model.scrubbedAt < 600;
+  return (
+    <Flight
+      flies
+      id={id}
+      tag={state._tag}
+      fuel={model.fuel}
+      safe={state._tag !== 'Descending' || state.safe}
+      shake={scrubbed ? model.scrubbedAt : null}
+      note={scrubbed && <Scrubbed key={model.scrubbedAt} />}
+      onFuel={() => send({ _tag: 'Fuel' })}
+      actions={
+        <>
+          {state._tag === 'OnPad' && model.fuel > 0 && (
+            <Action onClick={() => send({ _tag: 'Launch' })}>Launch</Action>
+          )}
+          {state._tag === 'Cruising' && (
+            <Action onClick={() => send({ _tag: 'Land' })}>Land</Action>
+          )}
+          {state._tag === 'Lost' && (
+            <Action onClick={() => send({ _tag: 'Rebuild' })}>Rebuild</Action>
+          )}
+        </>
       }
-    >
-      <Button tone="go" onClick={() => send({ _tag: 'Land' })}>
-        Land
-      </Button>
-    </Bay>
-  ),
-  Landed: ({ model, send }) => (
-    <Bay
-      phase="landed"
-      status="Landed"
-      gauge={<Gauge fuel={model.fuel} />}
-      pad={<Ship phase="landed" />}
-    >
-      <Button onClick={() => send({ _tag: 'Reset' })}>Reset</Button>
-    </Bay>
-  ),
-  Lost: ({ model, send }) => (
-    <Bay
-      phase="lost"
-      status="Lost"
-      gauge={<Gauge fuel={model.fuel} />}
-      sky={<Ship phase="lost" />}
-    >
-      <Button onClick={() => send({ _tag: 'Reset' })}>Reset</Button>
-    </Bay>
-  ),
+      landed={
+        <>
+          {state._tag === 'Landed' && (
+            <Action onClick={() => send({ _tag: 'Return' })}>Return</Action>
+          )}
+          {state._tag === 'Crashed' && (
+            <Action onClick={() => send({ _tag: 'Rebuild' })}>Rebuild</Action>
+          )}
+          {(state._tag === 'Landed' || state._tag === 'Crashed') && (
+            <Action onClick={() => send({ _tag: 'Dismantle' })}>
+              Dismantle
+            </Action>
+          )}
+        </>
+      }
+    />
+  );
+};
+
+export const RocketView = View.make(Rocket, {
+  OnPad: draw,
+  Ascending: draw,
+  Separating: draw,
+  Cruising: draw,
+  Descending: draw,
+  Landed: draw,
+  Returning: draw,
+  Crashed: draw,
+  Lost: draw,
 });
 
-export const LaunchSiteView = View.make(
-  LaunchSite,
-  ({ model, children, send }) => (
-    <Stage sky={model.weather}>
-      <Toolbar>
-        <Button
-          pressed={model.weather === 'storm'}
-          onClick={() => send({ _tag: 'ToggledStorm' })}
-        >
-          Storm
-        </Button>
-        <Button onClick={() => send({ _tag: 'Built' })}>Build</Button>
-      </Toolbar>
-      <Berths>
+export const FleetView = View.make(Fleet, ({ model, children, send }) => (
+  <div className="relative size-full">
+    <AnimatePresence>{model.sky === 'storm' && <Rain />}</AnimatePresence>
+    <Toolbar>
+      <Pill
+        disabled={model.rockets.length >= MOST}
+        onClick={() => send({ _tag: 'Build' })}
+      >
+        Build a rocket
+      </Pill>
+      <Pill
+        pressed={model.sky === 'storm'}
+        onClick={() => send({ _tag: 'ToggledSky' })}
+      >
+        {model.sky === 'storm' ? 'Storm' : 'Clear sky'}
+      </Pill>
+    </Toolbar>
+    <Site count={children.rockets.length} landing top={72}>
+      <AnimatePresence>
         {children.rockets.map((rocket, index) => (
-          <Berth key={rocket.id} name={model.rockets[index]!}>
-            <RocketView node={rocket} />
-          </Berth>
+          <motion.div key={rocket.id} exit={{ opacity: 0 }}>
+            <Place index={index} name={model.rockets[index]!}>
+              <RocketView node={rocket} />
+            </Place>
+          </motion.div>
         ))}
-      </Berths>
-    </Stage>
-  ),
-);
+      </AnimatePresence>
+    </Site>
+  </div>
+));

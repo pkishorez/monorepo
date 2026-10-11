@@ -2,10 +2,10 @@ import { Composition, registerRoot } from 'remotion';
 import { laymos } from './explainers/laymos/index.ts';
 import { effectOak } from './walkthroughs/effect-oak/index.ts';
 
-// Every Explainer and every Style of every Walkthrough, playable in Remotion
-// Studio and renderable by id.
+// Every Explainer and every Walkthrough, playable in Remotion Studio and
+// renderable by id.
 const explainers = [laymos];
-const walkthroughs = [...effectOak];
+const walkthroughs = [effectOak];
 
 function Root() {
   return (

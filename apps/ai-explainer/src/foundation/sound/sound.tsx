@@ -48,14 +48,17 @@ const seam = (t: number) =>
 const level = { under: 0.2, open: 0.42 };
 
 // The music bed for a video of `durationInFrames`, ducking whenever `speaking`
-// says the narrator is (0 to 1). Repeats of the loop crossfade at equal
-// power, so the seam neither dips nor swells.
+// says the narrator is (0 to 1), or at the `level` given for each frame.
+// Repeats of the loop crossfade at equal power, so the seam neither dips nor
+// swells.
 export function Music({
   durationInFrames,
-  speaking,
+  speaking = () => 0,
+  level: levelAt,
 }: {
   durationInFrames: number;
-  speaking: (frame: number) => number;
+  speaking?: (frame: number) => number;
+  level?: (frame: number) => number;
 }) {
   const loop = bed.loop * fps;
   const overlap = bed.overlap * fps;
@@ -81,7 +84,9 @@ export function Music({
             );
             return (
               Math.max(0, Math.min(fadeIn, fadeOut)) *
-              mix(level.open, level.under, speaking(frame))
+              (levelAt
+                ? levelAt(frame)
+                : mix(level.open, level.under, speaking(frame)))
             );
           }}
         />

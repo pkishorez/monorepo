@@ -1,4 +1,5 @@
-export { LaunchSite } from './launch-site.js';
+export { Fleet } from './fleet.js';
+export { Hangar } from './hangar.js';
 export { Rocket } from './rocket.js';
-export { LaunchSiteView } from './view.js';
+export { FleetView, RocketView } from './view.js';
 export { Weather } from './weather.js';
