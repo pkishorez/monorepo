@@ -11,13 +11,20 @@ import * as state from './state/index.js';
  * Workers, a Fleet of them, and the Fleet with its Capabilities.
  */
 export const APPS = {
-  actor: toReact(actor.Rocket, actor.RocketView, Layer.empty),
-  state: toReact(state.Rocket, state.RocketView, Layer.empty),
-  fleet: toReact(fleet.Fleet, fleet.FleetView, Layer.empty),
+  actor: toReact(actor.Rocket, actor.RocketView, Layer.empty, {
+    name: 'rockets/actor',
+  }),
+  state: toReact(state.Rocket, state.RocketView, Layer.empty, {
+    name: 'rockets/state',
+  }),
+  fleet: toReact(fleet.Fleet, fleet.FleetView, Layer.empty, {
+    name: 'rockets/fleet',
+  }),
   capabilities: toReact(
     capabilities.Fleet,
     capabilities.FleetView,
     Layer.empty,
+    { name: 'rockets/capabilities' },
   ),
 };
 

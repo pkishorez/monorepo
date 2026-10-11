@@ -7,11 +7,11 @@ An app is one tree of Actors that lives outside React. Each Actor is a small sta
 ### The tree
 
 **Actor**:
-One piece of the app: its Model and States, the Messages it accepts, its Update, the Capabilities it Requires and Provides, and the Children it Invokes. A state machine and an actor at once: Messages are the only way it changes, and its State decides which Actors exist below it. A description, not a running thing and not a React component. Made in two steps: its Schemas and Requires first, then how it behaves, at two Levels.
+One piece of the app: its Model and States, the Input and Props it takes, the Messages it accepts, its Update, the Capabilities it Requires and Provides, and the Children it Invokes. A state machine and an actor at once: Messages are the only way it changes, and its State decides which Actors exist below it. A description, not a running thing and not a React component. Made in two steps: its Schemas and Requires first, then how it behaves, at two Levels.
 _Avoid_: Node, component, machine
 
 **Instance**:
-One running Actor in the tree: its ID, its current Model and State, and its Children. Called an "actor instance" where "Instance" alone is unclear. Views draw an Instance; Messages are sent to one.
+One running Actor in the tree: its ID, its current Model, State and Props, and its Children. Called an "actor instance" where "Instance" alone is unclear. Views draw an Instance; Messages are sent to one.
 _Avoid_: ref, process, live node, store
 
 **Instance ID**:
@@ -27,15 +27,15 @@ An Actor its parent Invokes. Written at the top, a fixed Child exists for as lon
 _Avoid_: slot, dependency, subcomponent
 
 **Input**:
-The data a parent hands a Child when it Invokes it, which the Child's init starts from. From then on the Child owns that data; the parent keeps only the key. Read once: there is no controlled Child. A parent that must change a Child later gives it a new key, which is a fresh Instance, or Provides a Capability the Child's Workers turn into Messages.
-_Avoid_: props, params, args, controlled input
+The data a parent hands a Child when it Invokes it, which the Child's init starts from. From then on the Child owns that data; the parent keeps only the key. Read once: what the parent wants the Child to see from then on is its Props, and a parent that must start a Child over gives it a new key, which is a fresh Instance.
+_Avoid_: params, args, controlled input
 
 **Invoke**:
 What a parent does to its Children: the State, and for keyed Children the Model, say which exist, and each one starts or stops as that changes. Leaving a State stops every Child it Invoked and everything they own. Declared in the Actor's definition, never called from code.
 _Avoid_: spawn, create, mount
 
 **Snapshot**:
-The whole app as one value: every Instance, with its ID, its Actor's name, its State, its Model and its Children. The only truth about the app's data; Replay rebuilds it, and saving the app saves it.
+The whole app as one value: every Instance, with its ID, its Actor's name, its State, its Model and its Children. The only truth about the app's data, and Replay rebuilds it from the Log. Saving the app saves its Log; a lighter save is a Log of one Restore.
 _Avoid_: store, app state, actor system
 
 ### Data and change
@@ -43,6 +43,10 @@ _Avoid_: store, app state, actor system
 **Model**:
 The data an Actor keeps in every State. Always serializable, described with Schema. Every new Model, from init or an Update, is checked against its Schema, as is every State and Input; one that does not match changes nothing.
 _Avoid_: shared, store, context, props
+
+**Props**:
+The data a parent hands a Child for as long as it lives, worked out from the parent's Model and State after every Update of the parent. The Child reads it and never writes it: its Update sees it with every Message, its Workers' Conditions read it, and its View draws it. A change runs none of the Child's rules; the Child sees it at its next Message. Only the direct parent hands Props. Never in the Log: Replay works it out again from the parent.
+_Avoid_: context (Effect's word), controlled input, parameters
 
 **State**:
 Which one of an Actor's exclusive situations it is in, with the data that only exists in that situation. An Actor without States has exactly one. An Actor's Model and State together are all of its data.
@@ -53,15 +57,19 @@ An Update that ends in a different State than it started in. Leaving a State sto
 _Avoid_: re-entry, navigation
 
 **Message**:
-A fact that happened, addressed to one Instance: a click, a timer tick, a Command's result. The only way a Model or State changes. Every Message Sent is checked against its Actor's Schema first, and one that does not match is refused at the Send and never reaches Update or the Log.
+A fact that happened, addressed to one Instance: a click, a timer tick, a Command's result. The only way a Model or State changes. Every Message Sent is checked against its Actor's Schema first, and one that does not match is refused at the Send and never reaches Update or the Log. Always serializable, so a Log can be saved.
 _Avoid_: event (XState's word; Effect Oak uses Elm's names), action
 
+**Restore**:
+A Message to the root that replaces the whole Snapshot with one saved before, stamped with that Snapshot's Time. The only Message no Update sees: Replay checks each Instance against its Actor's Schemas and puts the Snapshot in place, or warns and leaves init as it was. A Log of one Restore is the light way to save an app: the Step before it is init, and nothing before the Restore can be travelled to but init.
+_Avoid_: checkpoint, hydrate, load, seed
+
 **Envelope**:
-A Message with the Instance ID it is sent to, its Source and its Time: what a Send makes, what Replay plays, and the heart of every Log entry.
+A Message with the Instance it is sent to, its Source and its Time: what a Send makes, what Replay plays, and all a Log entry holds.
 _Avoid_: event, packet
 
 **Source**:
-Who Sent a Message: a View, a Command by its name, or a Worker by its name and key, and the Instance it belongs to. The same Instance the Message goes to, except for a Request, which comes from the Instance whose Command made it. Kept with the Envelope.
+Who Sent a Message: the Instance, and what in it Sent: its View, a Command by its name, or a Worker by its name and key. The same Instance the Message goes to, except for a Request, which comes from the Instance whose Command or Worker made it. A Message Sent from outside the tree, by a test or a tool, comes from outside, not from an Instance; a Restore no one Sent: it was given to the app. Kept with the Envelope to show who talked to whom; Replay never reads it.
 _Avoid_: sender, origin, caller
 
 **Time**:
@@ -69,11 +77,11 @@ When a Message arrived, in milliseconds since the Runtime started. Stamped by th
 _Avoid_: timestamp, now, clock (on its own)
 
 **Update**:
-The pure rule that takes the current Model, State, a Message and its Time and returns the next Model and State, and the Commands it asks for. It never sees Capabilities, so Replay can run it with nothing else. Written under `on`, at the top or in a State's block; the State's rule wins over the top one, and a Message with no rule in either is ignored. A Message with no rule anywhere, at the top or in any State, is always ignored, and making its Actor warns of it. The only thing that changes the Model, so whatever is running is readable from it.
+The pure rule that takes the current Model, State and Props, a Message and its Time and returns the next Model and State, and the Commands it asks for. It never sees Capabilities, so Replay can run it with nothing else. Written under `on`, at the top or in a State's block; the State's rule wins over the top one, and a Message with no rule in either is ignored. A Message with no rule anywhere, at the top or in any State, is always ignored, and making its Actor warns of it. The only thing that changes the Model, so whatever is running is readable from it.
 _Avoid_: reducer, handler
 
 **Log**:
-A tree of entries, one per Message, each pointing to the entry before it: the Envelope, and what came of it: handled, ignored, or dropped because its Instance was gone. Replay needs only the Messages on the way to an entry.
+A tree of entries, one per Message, each pointing to the entry before it and holding its Envelope, nothing else. What came of a Message is worked out from the Snapshots before and after it. Replay needs only the Messages on the way to an entry. Saved and given back, it is where an app carries on from, on a server, at build time, after a reload, or after its code changed.
 _Avoid_: history, journal, event store
 
 **Head**:
@@ -85,8 +93,8 @@ The line of entries grown from one start of the Runtime: starting from an earlie
 _Avoid_: fork (as a noun), timeline, run, session
 
 **Replay**:
-Rebuilding the Snapshot from Messages alone: init, then each Message with its Time through Update, handed to the Instance with its ID. A Message for an Instance that is gone is dropped, as it was live; Replay never Invokes an Instance the Messages did not. No Capabilities, Workers or Commands run.
-_Avoid_: rehydrate, restore
+Rebuilding the Snapshot from Messages alone: init, then each Message with its Time through Update, handed to the Instance with its ID, and a Restore in place of the whole Snapshot. A Message for an Instance that is gone is dropped, as it was live; Replay never Invokes an Instance the Messages did not. Props are worked out again from each parent. A Message that no longer fits its Actor's Schema is warned of and skipped. No Capabilities, Workers or Commands run.
+_Avoid_: rehydrate, rebuild
 
 **Step**:
 One point Time Travel can show: the app right after one Log entry, or right after init. Nothing between two Messages is a Step.
@@ -107,7 +115,7 @@ Work that runs for exactly as long as its Condition holds: a socket, a timer, an
 _Avoid_: lifetime, subscription, activity, process, job, Web Worker
 
 **Condition**:
-What a Worker is owned by, read from its Instance's own Model and State after every Update: its Level (the Instance, or the State whose block it is written in), and within it always, a yes or no, or a list of keys. When a key appears its Worker starts; when it goes, the Worker's Scope closes and its finalizers run. Nothing stops a Worker but its Condition, so stopping work is changing the Model.
+What a Worker is owned by, read from its Instance's own Model, State and Props whenever they change: its Level (the Instance, or the State whose block it is written in), and within it always, a yes or no, or a list of keys. When a key appears its Worker starts; when it goes, the Worker's Scope closes and its finalizers run. Nothing stops a Worker but its Condition, so stopping work is changing the Model.
 _Avoid_: trigger, guard, dependency, cancel, handle
 
 **Finalizer**:
@@ -135,7 +143,7 @@ _Avoid_: output, bubble, callback, event
 ### Drawing
 
 **View**:
-How one Actor is drawn: a React component that reads the Model, State and current Children of one Instance, and data its parent hands it, and can only Send. One function draws every State, so a Transition keeps the DOM, and an Instance that has stopped is drawn with its last data while it leaves the page. It never sees Capabilities, so it draws a Replay exactly like the live app. Kept apart from the Actor, so the same Actor can be drawn more than one way or not at all. Anything that moves between Messages is worked out here, at each Frame, from the Model, State and Time: the Model says what is happening, the View decides how that looks.
+How one Actor is drawn: a React component that reads the Model, State, Props and current Children of one Instance, and can only Send. A parent's View hands it nothing but where to draw. One function draws every State, so a Transition keeps the DOM, and an Instance that has stopped is drawn with its last data while it leaves the page. It never sees Capabilities, so it draws a Replay exactly like the live app. Kept apart from the Actor, so the same Actor can be drawn more than one way or not at all. Anything that moves between Messages is worked out here, at each Frame, from the Model, State, Props and Time: the Model says what is happening, the View decides how that looks.
 _Avoid_: render, template, component (on its own)
 
 **Frame**:
@@ -147,7 +155,7 @@ Hand a Message to an Instance, making an Envelope that is handled at once. The o
 _Avoid_: dispatch, emit, trigger
 
 **Runtime**:
-The live app: the Snapshot, plus the Capabilities, Workers and Commands that connect it to the outside world, and the Log. One per app, however many times the app is drawn; it starts when the app is first drawn and stops when the last drawing goes. Only code outside the tree, like a timeline, sees it: it reads the Log and chooses the Step shown.
+The live app: the Snapshot, plus the Capabilities, Workers and Commands that connect it to the outside world, and the Log. One per app, however many times the app is drawn; it starts from init, or carries on from a saved Log, when the app is first mounted in a browser, and stops when the last drawing goes. Drawn with no Runtime, on a server or at build time, the app shows the Step its Log shows and cannot Send. Only code outside the tree, like a timeline, sees it: it reads the Log and chooses the Step shown.
 _Avoid_: store, engine, interpreter, actor system
 
 ### Seeing the app
@@ -161,7 +169,7 @@ The one Branch the Timeline and the Inspector walk, from init to its latest entr
 _Avoid_: selected branch, active branch
 
 **Change**:
-What one Step did to the Snapshot: the Instances and Workers it started and stopped, its Transitions, and every field of a Model or State that took a new value, with the value it had before. Init's Change is every Instance starting. An ignored or dropped Message, or one whose Update gave back the same data, has no Change.
+What one Step did to the Snapshot: the Instances and Workers it started and stopped, its Transitions, and every field of a Model, State or Props that took a new value, with the value it had before. Init's Change is every Instance starting. An ignored or dropped Message, or one whose Update gave back the same data, has no Change.
 _Avoid_: diff, delta, patch, mutation
 
 **Inspector**:

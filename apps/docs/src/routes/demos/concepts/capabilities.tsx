@@ -9,6 +9,5 @@ const App = toReact(Board, BoardView, Layer.empty);
 
 export const Route = createFileRoute('/demos/concepts/capabilities')({
   component: () => <ConceptPage app={App} menu={<DemoMenu />} />,
-  ssr: false,
   head: ({ match }) => demoHead(match.fullPath),
 });

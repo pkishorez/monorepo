@@ -21,6 +21,5 @@ export const Route = createFileRoute('/demos/apps/rockets')({
       : 'capabilities',
   }),
   component: RocketsPage,
-  ssr: false,
   head: ({ match }) => demoHead(match.fullPath),
 });

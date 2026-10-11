@@ -24,6 +24,10 @@ const SOURCE = {
     name: 'Worker',
     means: 'From work that runs while its Condition holds, by its name and key',
   },
+  restore: {
+    name: 'Restore',
+    means: 'A saved Snapshot given to the app, which no one Sent',
+  },
 } as const;
 
 const BADGE: Record<Kind, string> = {

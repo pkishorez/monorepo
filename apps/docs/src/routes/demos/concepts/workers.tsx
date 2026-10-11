@@ -9,6 +9,5 @@ const App = toReact(Clock, ClockView, Layer.empty);
 
 export const Route = createFileRoute('/demos/concepts/workers')({
   component: () => <ConceptPage app={App} menu={<DemoMenu />} />,
-  ssr: false,
   head: ({ match }) => demoHead(match.fullPath),
 });

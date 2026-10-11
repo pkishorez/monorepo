@@ -6,6 +6,7 @@ import { Log } from '../log/index.ts';
 import type { Entry, RuntimeState } from '../log/index.ts';
 import { Replay } from '../replay/index.ts';
 import type { ReplayOptions } from '../replay/index.ts';
+import { isRestore } from '../snapshot/index.ts';
 import { makeMailbox } from './mailbox.ts';
 import { reconcile } from './reconcile.ts';
 import { makeTime } from './time.ts';
@@ -19,7 +20,8 @@ import type { WorkerStatus, Works } from './work.ts';
  * 1. Start     the root is created from init, and goes live with the
  *              Capabilities of the app's Layer. Time starts at 0 on Effect's
  *              monotonic Clock, which Commands and Workers use too. Given a
- *              saved Log, the Runtime Replays to its Head and goes live there.
+ *              saved Log, the Runtime Replays to its Head and carries on as
+ *              the Log says: live there, stopped there, or showing an entry.
  * 2. Deliver   each Message, checked against its Actor's Schema as it is
  *              Sent, so a bad one throws in the code that Sent it and never
  *              reaches the mailbox. `handle` makes the next Snapshot, `reconcile`
@@ -45,8 +47,10 @@ export type Needs<A> = Types<A>['open'];
 export interface RuntimeOptions extends ReplayOptions {
   /** The root's Input. */
   readonly input?: unknown;
-  /** A Log saved before, to carry on from its Head. */
+  /** A Log saved before, to carry on from its Head, stopped or running, showing what it showed. */
   readonly saved?: RuntimeState;
+  /** A Replay of the saved Log, made with the same Input, to reuse what it has already played. Not with `input`. */
+  readonly replay?: Replay;
 }
 
 /** A running app: its Snapshot, its Log, and the controls to stop, start and show. */
@@ -97,6 +101,12 @@ const start = <A extends AnyActor>(
   options: RuntimeOptions = {},
 ): Effect.Effect<Running<A>, never, Needs<A> | Scope.Scope> =>
   Effect.gen(function* () {
+    if (options.replay && options.input !== undefined)
+      return yield* Effect.die(
+        new Error(
+          '[effect-oak] give the Input to the Replay, not to the Runtime with it',
+        ),
+      );
     const clock = yield* Clock.Clock;
     const outer = yield* Effect.scope;
     const time = makeTime(() => clock.monotonicTimeNanosUnsafe());
@@ -110,13 +120,16 @@ const start = <A extends AnyActor>(
     const root = actor.definition;
     const { every = 100 } = options;
     let log = Log.make(options.saved);
-    let replay = Replay.make(root, options.input, options);
+    let replay = options.replay ?? Replay.make(root, options.input, options);
     const listeners = new Set<() => void>();
     const notify = () => {
       for (const listener of listeners) listener();
     };
 
-    let snapshot: Snapshot = init(root, options.input);
+    // A shared Replay's init, so what was drawn before stays the same objects.
+    let snapshot: Snapshot = options.replay
+      ? yield* replay.seek([])
+      : init(root, options.input);
     let drawn = snapshot;
     const played = new Map<number | null, Snapshot>([[null, snapshot]]);
     let live: Scope.Closeable | undefined;
@@ -150,10 +163,11 @@ const start = <A extends AnyActor>(
       notify,
     );
     const send = (instance: string, message: Tagged, source: Source) => {
-      actorAt(root, snapshot, instance)?.check.message(
-        message,
-        `Message ${JSON.stringify(message._tag)}`,
-      );
+      if (!isRestore(message))
+        actorAt(root, snapshot, instance)?.check.message(
+          message,
+          `Message ${JSON.stringify(message._tag)}`,
+        );
       mailbox.send(instance, message, source);
     };
 
@@ -261,11 +275,19 @@ const start = <A extends AnyActor>(
         return Fiber.join(fiber);
       });
 
-    const { head } = log.get();
-    if (options.saved && head !== null) {
-      const next = yield* replay.seek(log.branch(head));
-      goLive(next, log.get().entries[head]!.at, head);
-    } else goLive(snapshot, 0, head);
+    const { head, entries, running, shown } = log.get();
+    const first =
+      head === null ? snapshot : yield* replay.seek(log.branch(head));
+    const at = head === null ? 0 : entries[head]!.at;
+    if (!options.saved || running) goLive(first, at, head);
+    else {
+      // Saved stopped: the Snapshot and Time are the Head's, and nothing runs.
+      snapshot = drawn = first;
+      time.start(at);
+      time.stop();
+      log.set({ head, running: false, shown: null });
+    }
+    if (shown !== null) yield* show(shown);
 
     yield* Effect.addFinalizer(() =>
       Effect.suspend(() => {

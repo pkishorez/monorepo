@@ -68,6 +68,8 @@ export interface Drawn {
   readonly subscribe: (listener: () => void) => () => void;
   /** The Instance with this ID as drawn now, the same object while it does not change. */
   readonly props: (id: string) => Drawable | undefined;
+  /** The Instance as first drawn, before any Runtime: what a server draws and the client hydrates against. */
+  readonly served: (id: string) => Drawable | undefined;
 }
 
 export const DrawnContext = createContext<Drawn | undefined>(undefined);
@@ -126,8 +128,10 @@ const make = <A extends AnyActor, P extends object = {}>(
         throw new Error(
           `[effect-oak] ${actor.name}View is drawn outside its app`,
         );
-      const live = useSyncExternalStore(drawn.subscribe, () =>
-        drawn.props(instance.id),
+      const live = useSyncExternalStore(
+        drawn.subscribe,
+        () => drawn.props(instance.id),
+        () => drawn.served(instance.id),
       );
       // The last data drawn, for a View still on screen after its Instance
       // stopped. Written during render on purpose: it only ever holds what
