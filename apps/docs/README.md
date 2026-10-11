@@ -5,12 +5,14 @@ Live demos of the monorepo's packages, published at docs.kishore.app.
 ## Big picture
 
 A plain TanStack Start app. The home page lists the demos, and each demo opens
-on its own page under `/demos`, with its code in `src/demos`. Today there is
-one: `effect-oak`, Road: a two-lane driving game built as an Effect Oak Node
-and drawn as SVG at every frame. Dodge oncoming cars with ← → or a tap on
-either half; a crash ends the run and leaves it in Replay. Effect Oak demos run in one shell (`src/demos/effect-oak/shell`):
-the app alone in the middle, Live or in Replay (Space switches; Replay stops
-Time and shows a scrubber), and its Messages on a timeline on demand.
+on its own page under `/demos`, with its code in `src/demos`. There are two
+groups. `concepts` is one demo per concept of Effect Oak, drawn as moving
+shapes rather than as an app, a marble diagram for the actor model; its
+drawing vocabulary is in `src/demos/concepts/CONTEXT.md` and the ladder in
+`src/demos/NOTES.md`. `apps` holds Rockets, the tutorial app the Effect Oak
+Walkthrough builds up, and the Showreel it is recorded from. Every demo runs
+in one shell (`src/demos/shell`): the app beside the Effect Oak devtools,
+which Time Travel it and show its Log and Inspector.
 
 The UI uses `@kstackz/web-platform`. A Cloudflare Worker serves the site, and
 the infrastructure is declared with Alchemy in `alchemy.run.ts` and
@@ -18,8 +20,8 @@ the infrastructure is declared with Alchemy in `alchemy.run.ts` and
 
 ### Add a demo
 
-Put its code in `src/demos/<name>`, add a route at
-`src/routes/demos/<name>.tsx`, list it in `DEMOS` in `src/lib/demos.tsx` (the home page and every demo's menu read it),
+Put its code in `src/demos/<group>/<name>`, add a route at
+`src/routes/demos/<group>/<name>.tsx`, list it in `DEMOS` in `src/lib/demos.tsx` (the home page and every demo's menu read it),
 and allow the route to import it in `laymos.config.json`.
 
 ## Usage
@@ -76,4 +78,4 @@ First-time setup, once per Cloudflare account:
    the `kishore.app` zone already exists in the account. No dashboard steps.
 4. Verify in a browser once DNS and TLS propagate (usually under a minute):
    - `https://docs.kishore.app/` (landing page)
-   - `https://docs.kishore.app/demos/effect-oak` (a demo)
+   - `https://docs.kishore.app/demos/concepts/actor` (a demo)

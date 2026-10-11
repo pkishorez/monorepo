@@ -1,6 +1,6 @@
 // The narration, from the Walkthrough's storyboard in the docs app: the
 // same beats the storyboard shows are the ones spoken here.
-import { SCRIPT } from '../../../../docs/src/demos/effect-oak/showreel/script.ts';
+import { SCRIPT } from '../../../../docs/src/demos/apps/showreel/script.ts';
 
 export const beats = SCRIPT;
 

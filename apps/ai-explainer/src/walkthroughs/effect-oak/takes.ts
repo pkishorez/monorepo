@@ -6,7 +6,7 @@ import type { Stage, Take } from '../../foundation/walkthrough/index.ts';
 // Descending takes 3.4 s, Returning 2.4 s. Under 30 fuel at Land, it crashes.
 
 /** The page the recorder plays, under the docs app's address. */
-export const page = '/demos/effect-oak/showreel?record=1';
+export const page = '/demos/apps/showreel?record=1';
 
 const rocket = (name: string) => new RegExp(`^${name}: OnPad`);
 
