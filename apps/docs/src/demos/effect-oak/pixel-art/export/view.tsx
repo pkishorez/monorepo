@@ -12,22 +12,16 @@ import {
 import { Button } from '@kstackz/web-platform/components/button';
 import { Export } from './export.js';
 
-export const ExportView = View.make(Export, {
-  Idle: ({ send }) => (
-    <Button size="sm" onClick={() => send({ _tag: 'ClickedExport' })}>
-      <Download /> Export PNG
+export const ExportView = View.make(Export, ({ _tag, state, send }) => (
+  <>
+    <Button
+      size="sm"
+      disabled={_tag !== 'Idle'}
+      onClick={() => send({ _tag: 'ClickedExport' })}
+    >
+      <Download /> {_tag === 'Exporting' ? 'Exporting…' : 'Export PNG'}
     </Button>
-  ),
-  Exporting: () => (
-    <Button size="sm" disabled>
-      <Download /> Exporting…
-    </Button>
-  ),
-  Failed: ({ state, send }) => (
-    <>
-      <Button size="sm" disabled>
-        <Download /> Export PNG
-      </Button>
+    {_tag === 'Failed' && (
       <AlertDialog
         open
         onOpenChange={(open) => {
@@ -46,6 +40,6 @@ export const ExportView = View.make(Export, {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </>
-  ),
-});
+    )}
+  </>
+));

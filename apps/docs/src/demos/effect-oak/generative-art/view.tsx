@@ -1,6 +1,4 @@
 import { View } from 'effect-oak/react';
-import type { ViewProps } from 'effect-oak/react';
-import type { MotionValue } from 'motion/react';
 import { Button } from '@kstackz/web-platform/components/button';
 import { Slider } from '@kstackz/web-platform/components/slider';
 import { advance, HEIGHT, POINTER_RADIUS, WIDTH } from './flow/index.js';
@@ -16,8 +14,6 @@ import { Sky } from './sky/index.js';
  * The field and its controls. Both States draw the same; Paused has a clock
  * that stands still, so the Sky carries nothing on.
  */
-
-type Props = ViewProps<typeof Prism> & { readonly frame: MotionValue<number> };
 
 const Setting = ({
   label,
@@ -52,7 +48,7 @@ const Setting = ({
   </div>
 );
 
-const Field = ({ model, state, send, frame }: Props) => (
+export const PrismView = View.make(Prism, ({ model, state, send, frame }) => (
   <div className="flex size-full overflow-y-auto p-4">
     <div className="m-auto flex w-full flex-col items-center gap-4">
       <div className="text-center">
@@ -113,9 +109,4 @@ const Field = ({ model, state, send, frame }: Props) => (
       </div>
     </div>
   </div>
-);
-
-export const PrismView = View.make(Prism, {
-  Running: (props) => <Field {...props} />,
-  Paused: (props) => <Field {...props} />,
-});
+));

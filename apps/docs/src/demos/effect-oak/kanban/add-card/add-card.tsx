@@ -55,8 +55,8 @@ export const makeAddCard = (columnId: string) => {
     },
   });
 
-  const AddCardView = View.make(AddCard, {
-    Closed: ({ send }) => (
+  const AddCardView = View.make(AddCard, ({ _tag, state, send }) =>
+    _tag === 'Closed' ? (
       <button
         type="button"
         className="w-full rounded-lg border border-dashed p-2 text-sm text-muted-foreground hover:text-foreground"
@@ -64,8 +64,7 @@ export const makeAddCard = (columnId: string) => {
       >
         + Add card
       </button>
-    ),
-    Open: ({ state, send }) => (
+    ) : (
       <form
         className="flex flex-col gap-2"
         onSubmit={(event) => {
@@ -100,7 +99,7 @@ export const makeAddCard = (columnId: string) => {
         </div>
       </form>
     ),
-  });
+  );
 
   return { AddCard, AddCardView };
 };

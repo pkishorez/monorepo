@@ -103,40 +103,39 @@ const STATS = [
   ['Tasks completed', '128'],
 ] as const;
 
-export const LoggedInView = View.make(LoggedInPages, {
-  Opening: () => null,
-  Dashboard: ({ state, send }) => (
+export const LoggedInView = View.make(LoggedInPages, ({ _tag, state, send }) =>
+  _tag === 'Opening' ? null : (
     <>
-      <Nav page="Dashboard" name={state.session.name} send={send} />
-      <section className="mx-auto flex max-w-2xl flex-col gap-6 p-6">
-        <h1 className="text-2xl font-semibold">
-          Welcome back, {state.session.name}!
-        </h1>
-        <div className="grid gap-4 sm:grid-cols-3">
-          {STATS.map(([label, value]) => (
-            <div key={label} className="rounded-lg border p-4">
-              <p className="text-xs text-muted-foreground uppercase">{label}</p>
-              <p className="text-2xl font-semibold">{value}</p>
-            </div>
-          ))}
-        </div>
-      </section>
+      <Nav page={_tag} name={state.session.name} send={send} />
+      {_tag === 'Dashboard' ? (
+        <section className="mx-auto flex max-w-2xl flex-col gap-6 p-6">
+          <h1 className="text-2xl font-semibold">
+            Welcome back, {state.session.name}!
+          </h1>
+          <div className="grid gap-4 sm:grid-cols-3">
+            {STATS.map(([label, value]) => (
+              <div key={label} className="rounded-lg border p-4">
+                <p className="text-xs text-muted-foreground uppercase">
+                  {label}
+                </p>
+                <p className="text-2xl font-semibold">{value}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : (
+        <section className="mx-auto flex max-w-md flex-col gap-4 p-6">
+          <h1 className="text-2xl font-semibold">Settings</h1>
+          <dl className="flex flex-col divide-y rounded-lg border text-sm">
+            {(['userId', 'email', 'name'] as const).map((key) => (
+              <div key={key} className="flex justify-between p-3">
+                <dt className="text-muted-foreground">{key}</dt>
+                <dd className="font-medium">{state.session[key]}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      )}
     </>
   ),
-  Settings: ({ state, send }) => (
-    <>
-      <Nav page="Settings" name={state.session.name} send={send} />
-      <section className="mx-auto flex max-w-md flex-col gap-4 p-6">
-        <h1 className="text-2xl font-semibold">Settings</h1>
-        <dl className="flex flex-col divide-y rounded-lg border text-sm">
-          {(['userId', 'email', 'name'] as const).map((key) => (
-            <div key={key} className="flex justify-between p-3">
-              <dt className="text-muted-foreground">{key}</dt>
-              <dd className="font-medium">{state.session[key]}</dd>
-            </div>
-          ))}
-        </dl>
-      </section>
-    </>
-  ),
-});
+);

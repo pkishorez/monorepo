@@ -16,8 +16,8 @@ export const WorldMapView = View.make(
             The camera is an Actor's Model; flights are drawn at every Frame.
           </p>
         </header>
-        <FinderView node={children.finder} />
-        <PlacesView node={children.places} />
+        <FinderView instance={children.finder} />
+        <PlacesView instance={children.places} />
       </aside>
       <main className="min-h-0 flex-1">
         <Viewport

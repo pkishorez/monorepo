@@ -57,56 +57,59 @@ export const Products = Actor.make('Products', {
   },
 });
 
-export const ProductsView = View.make(Products, {
-  Loading: () => (
-    <div className="flex justify-center p-10">
-      <Spinner />
-    </div>
-  ),
-  Ready: ({ state, send }) => {
-    const search = state.search.trim().toLowerCase();
-    const shown = state.products.filter((product) =>
-      product.name.toLowerCase().includes(search),
-    );
-    return (
-      <div className="flex flex-col gap-4">
-        <Input
-          type="search"
-          aria-label="Search products"
-          placeholder="Search products…"
-          value={state.search}
-          onChange={(event) =>
-            send({ _tag: 'ChangedSearch', value: event.target.value })
-          }
-        />
-        {shown.length === 0 ? (
-          <p className="py-6 text-center text-sm text-muted-foreground">
-            No products match “{state.search}”.
-          </p>
-        ) : (
-          <ul className="grid gap-3 sm:grid-cols-2">
-            {shown.map((item) => (
-              <li
-                key={item.id}
-                className="flex items-center justify-between rounded-lg border p-4"
-              >
-                <div>
-                  <p className="font-medium">{item.name}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {money(item.price)}
-                  </p>
-                </div>
-                <Button
-                  size="sm"
-                  onClick={() => send({ _tag: 'ClickedAddToCart', item })}
+export const ProductsView = View.make(Products, ({ _tag, state, send }) => {
+  switch (_tag) {
+    case 'Loading':
+      return (
+        <div className="flex justify-center p-10">
+          <Spinner />
+        </div>
+      );
+    case 'Ready': {
+      const search = state.search.trim().toLowerCase();
+      const shown = state.products.filter((product) =>
+        product.name.toLowerCase().includes(search),
+      );
+      return (
+        <div className="flex flex-col gap-4">
+          <Input
+            type="search"
+            aria-label="Search products"
+            placeholder="Search products…"
+            value={state.search}
+            onChange={(event) =>
+              send({ _tag: 'ChangedSearch', value: event.target.value })
+            }
+          />
+          {shown.length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              No products match “{state.search}”.
+            </p>
+          ) : (
+            <ul className="grid gap-3 sm:grid-cols-2">
+              {shown.map((item) => (
+                <li
+                  key={item.id}
+                  className="flex items-center justify-between rounded-lg border p-4"
                 >
-                  Add to cart
-                </Button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    );
-  },
+                  <div>
+                    <p className="font-medium">{item.name}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {money(item.price)}
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() => send({ _tag: 'ClickedAddToCart', item })}
+                  >
+                    Add to cart
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      );
+    }
+  }
 });

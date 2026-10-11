@@ -4,20 +4,18 @@ import { Auth } from './auth.js';
 import { LoggedInView } from './logged-in/index.js';
 import { LoggedOutView } from './logged-out/index.js';
 
-export const AuthView = View.make(Auth, {
-  Checking: () => (
+export const AuthView = View.make(Auth, ({ _tag, children }) =>
+  _tag === 'Checking' ? (
     <div className="flex size-full items-center justify-center">
       <Spinner />
     </div>
-  ),
-  LoggedOut: ({ children }) => (
+  ) : (
     <div className="size-full overflow-y-auto">
-      <LoggedOutView node={children.pages} />
+      {_tag === 'LoggedOut' ? (
+        <LoggedOutView instance={children.pages} />
+      ) : (
+        <LoggedInView instance={children.pages} />
+      )}
     </div>
   ),
-  LoggedIn: ({ children }) => (
-    <div className="size-full overflow-y-auto">
-      <LoggedInView node={children.pages} />
-    </div>
-  ),
-});
+);

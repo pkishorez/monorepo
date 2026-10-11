@@ -42,7 +42,7 @@ Drawing is one function from text to elements. Islands are drawn by the caller:
 \`\`\`tsx
 <Prose
   source={post.body}
-  islands={{ Counter: () => <CounterView node={children.counter} /> }}
+  islands={{ Counter: () => <CounterView instance={children.counter} /> }}
 />
 \`\`\`
 

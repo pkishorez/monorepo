@@ -45,10 +45,13 @@
   },
   "devDependencies": {
     "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
     "effect": "catalog:",
+    "jsdom": "catalog:",
     "laymos": "workspace:*",
     "motion": "catalog:",
     "react": "catalog:",
+    "react-dom": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:"

@@ -105,17 +105,22 @@ const Form = ({
   </div>
 );
 
-export const CheckoutView = View.make(Checkout, {
-  Editing: ({ model, state, send }) => (
-    <Form {...model} error={state.error} send={send} />
-  ),
-  Placing: ({ model, send }) => <Form {...model} placing send={send} />,
-  Placed: ({ state }) => (
-    <div className="rounded-lg border p-4">
-      <p className="font-medium">Order {state.orderId} placed.</p>
-      <p className="text-sm text-muted-foreground">
-        Thanks! Your cart is empty again.
-      </p>
-    </div>
-  ),
-});
+export const CheckoutView = View.make(
+  Checkout,
+  ({ _tag, model, state, send }) =>
+    _tag === 'Placed' ? (
+      <div className="rounded-lg border p-4">
+        <p className="font-medium">Order {state.orderId} placed.</p>
+        <p className="text-sm text-muted-foreground">
+          Thanks! Your cart is empty again.
+        </p>
+      </div>
+    ) : (
+      <Form
+        {...model}
+        error={_tag === 'Editing' ? state.error : null}
+        placing={_tag === 'Placing'}
+        send={send}
+      />
+    ),
+);

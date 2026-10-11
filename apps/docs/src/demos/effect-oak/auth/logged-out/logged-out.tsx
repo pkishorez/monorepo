@@ -55,31 +55,30 @@ const Nav = ({
   </nav>
 );
 
-export const LoggedOutView = View.make(LoggedOutPages, {
-  Home: ({ send }) => (
+export const LoggedOutView = View.make(
+  LoggedOutPages,
+  ({ _tag, children, send }) => (
     <>
-      <Nav page="Home" send={send} />
-      <section className="mx-auto flex max-w-md flex-col gap-4 p-6">
-        <h1 className="text-2xl font-semibold">Welcome</h1>
-        <p className="text-muted-foreground">
-          The dashboard and settings are only for signed-in users.
-        </p>
-        <Button
-          className="self-start"
-          onClick={() => send({ _tag: 'ClickedLogin' })}
-        >
-          Sign in
-        </Button>
-      </section>
+      <Nav page={_tag} send={send} />
+      {_tag === 'Home' ? (
+        <section className="mx-auto flex max-w-md flex-col gap-4 p-6">
+          <h1 className="text-2xl font-semibold">Welcome</h1>
+          <p className="text-muted-foreground">
+            The dashboard and settings are only for signed-in users.
+          </p>
+          <Button
+            className="self-start"
+            onClick={() => send({ _tag: 'ClickedLogin' })}
+          >
+            Sign in
+          </Button>
+        </section>
+      ) : (
+        <section className="mx-auto flex max-w-sm flex-col gap-4 p-6">
+          <h1 className="text-2xl font-semibold">Sign in</h1>
+          <LoginFormView instance={children.form} />
+        </section>
+      )}
     </>
   ),
-  Login: ({ children, send }) => (
-    <>
-      <Nav page="Login" send={send} />
-      <section className="mx-auto flex max-w-sm flex-col gap-4 p-6">
-        <h1 className="text-2xl font-semibold">Sign in</h1>
-        <LoginFormView node={children.form} />
-      </section>
-    </>
-  ),
-});
+);

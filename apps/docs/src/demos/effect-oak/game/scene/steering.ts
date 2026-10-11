@@ -24,23 +24,20 @@ export const useKeys = (keys: Readonly<Record<string, () => void>>) => {
   }, [keys]);
 };
 
-/** ← and → steer, and so does a tap on the left or right half of the element given the result. */
-export const useSteering = (
-  send: (message: Steered) => void,
-  more: Readonly<Record<string, () => void>> = {},
-) => {
-  useKeys({
+/**
+ * ← and → steer, and so does a tap on the left or right half of the element
+ * given `onPointerDown`. Hand `keys` to `useKeys`.
+ */
+export const steering = (send: (message: Steered) => void) => ({
+  keys: {
     ArrowLeft: () => send({ _tag: 'Steered', toward: 'left' }),
     ArrowRight: () => send({ _tag: 'Steered', toward: 'right' }),
-    ...more,
-  });
-  return {
-    onPointerDown: (event: PointerEvent<HTMLElement>) => {
-      const { left, width } = event.currentTarget.getBoundingClientRect();
-      send({
-        _tag: 'Steered',
-        toward: event.clientX < left + width / 2 ? 'left' : 'right',
-      });
-    },
-  };
-};
+  },
+  onPointerDown: (event: PointerEvent<HTMLElement>) => {
+    const { left, width } = event.currentTarget.getBoundingClientRect();
+    send({
+      _tag: 'Steered',
+      toward: event.clientX < left + width / 2 ? 'left' : 'right',
+    });
+  },
+});

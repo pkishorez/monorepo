@@ -106,7 +106,7 @@ export const PersonalBlogView = View.make(
           <span className="text-sm text-muted-foreground">
             {attributes.label ?? 'Counter'}
           </span>
-          <CounterView node={children.counter} />
+          <CounterView instance={children.counter} />
         </div>
       ),
       Note: (_: unknown, inner: ReactNode) => (

@@ -6,59 +6,8 @@ import { Posts } from './posts.js';
 
 const time = (servedAt: number) => new Date(servedAt).toLocaleTimeString();
 
-export const PostsView = View.make(Posts, {
-  Browsing: ({ model, send }) => {
-    const list = AsyncData.dataOf(model.list);
-    const error = AsyncData.errorOf(model.list);
-    const retry = () => send({ _tag: 'ClickedRetryPosts' });
-    return (
-      <section className="flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Posts</h2>
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={AsyncData.isPending(model.list)}
-            onClick={() => send({ _tag: 'ClickedInvalidatePosts' })}
-          >
-            {model.list._tag === 'Refreshing' ? 'Refreshing…' : 'Invalidate'}
-          </Button>
-        </div>
-        <p className="text-sm text-muted-foreground">
-          Open a post, go back, and open it again: the second visit is drawn
-          from the Model. Invalidate fetches the list again while the current
-          one stays on screen.
-        </p>
-        {error !== undefined && <ErrorPanel error={error} onRetry={retry} />}
-        {list === undefined ? (
-          error === undefined && <LoadingPanel text="Loading posts…" />
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {list.data.map((post) => (
-              <li key={post.id}>
-                <button
-                  type="button"
-                  className="flex w-full items-center justify-between gap-4 rounded-lg border px-4 py-3 text-left hover:bg-muted"
-                  onClick={() => send({ _tag: 'ClickedPost', postId: post.id })}
-                >
-                  <span>
-                    <span className="block font-medium">{post.title}</span>
-                    <span className="block text-sm text-muted-foreground">
-                      {post.excerpt}
-                    </span>
-                  </span>
-                  {AsyncData.dataOf(
-                    model.details[post.id] ?? AsyncData.idle,
-                  ) !== undefined && <Badge variant="secondary">Cached</Badge>}
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-    );
-  },
-  Reading: ({ model, state, send }) => {
+export const PostsView = View.make(Posts, ({ _tag, model, state, send }) => {
+  if (_tag === 'Reading') {
     const entry = model.details[state.postId] ?? AsyncData.idle;
     const page = AsyncData.dataOf(entry);
     const error = AsyncData.errorOf(entry);
@@ -97,5 +46,53 @@ export const PostsView = View.make(Posts, {
         )}
       </section>
     );
-  },
+  }
+  const list = AsyncData.dataOf(model.list);
+  const error = AsyncData.errorOf(model.list);
+  const retry = () => send({ _tag: 'ClickedRetryPosts' });
+  return (
+    <section className="flex flex-col gap-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold">Posts</h2>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={AsyncData.isPending(model.list)}
+          onClick={() => send({ _tag: 'ClickedInvalidatePosts' })}
+        >
+          {model.list._tag === 'Refreshing' ? 'Refreshing…' : 'Invalidate'}
+        </Button>
+      </div>
+      <p className="text-sm text-muted-foreground">
+        Open a post, go back, and open it again: the second visit is drawn from
+        the Model. Invalidate fetches the list again while the current one stays
+        on screen.
+      </p>
+      {error !== undefined && <ErrorPanel error={error} onRetry={retry} />}
+      {list === undefined ? (
+        error === undefined && <LoadingPanel text="Loading posts…" />
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {list.data.map((post) => (
+            <li key={post.id}>
+              <button
+                type="button"
+                className="flex w-full items-center justify-between gap-4 rounded-lg border px-4 py-3 text-left hover:bg-muted"
+                onClick={() => send({ _tag: 'ClickedPost', postId: post.id })}
+              >
+                <span>
+                  <span className="block font-medium">{post.title}</span>
+                  <span className="block text-sm text-muted-foreground">
+                    {post.excerpt}
+                  </span>
+                </span>
+                {AsyncData.dataOf(model.details[post.id] ?? AsyncData.idle) !==
+                  undefined && <Badge variant="secondary">Cached</Badge>}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
 });

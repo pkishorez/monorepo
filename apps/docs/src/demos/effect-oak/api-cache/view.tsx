@@ -30,9 +30,9 @@ export const ApiCacheView = View.make(ApiCache, ({ model, children, send }) => (
         </TabsList>
       </Tabs>
       {model.tab === 'Posts' ? (
-        <PostsView node={children.posts} />
+        <PostsView instance={children.posts} />
       ) : (
-        <StatsView node={children.stats} />
+        <StatsView instance={children.stats} />
       )}
     </div>
   </div>

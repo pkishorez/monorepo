@@ -67,13 +67,13 @@ export const UiShowcaseView = View.make(
                   title="Basic"
                   hint="Tab stays inside; Escape, Close or the backdrop dismiss it."
                 >
-                  <dialog.DialogView node={children.dialog} />
+                  <dialog.DialogView instance={children.dialog} />
                 </Section>
                 <Section
                   title="Nested"
                   hint="The delete dialog is a Child of the settings dialog."
                 >
-                  <settings.DialogView node={children.settings} />
+                  <settings.DialogView instance={children.settings} />
                 </Section>
               </>
             )}
@@ -82,29 +82,29 @@ export const UiShowcaseView = View.make(
                 title="Basic"
                 hint="Arrow keys, Home and End move; type a letter to jump; Enter chooses."
               >
-                <menu.MenuView node={children.menu} />
+                <menu.MenuView instance={children.menu} />
               </Section>
             )}
             {page === 'Tabs' && (
               <>
                 <Section title="Horizontal" hint="Arrow Left and Right select.">
-                  <tabsHorizontal.TabsView node={children.tabsHorizontal} />
+                  <tabsHorizontal.TabsView instance={children.tabsHorizontal} />
                 </Section>
                 <Section title="Vertical" hint="Arrow Up and Down select.">
-                  <tabsVertical.TabsView node={children.tabsVertical} />
+                  <tabsVertical.TabsView instance={children.tabsVertical} />
                 </Section>
               </>
             )}
             {page === 'Listbox' && (
               <>
                 <Section title="Single" hint="Choosing closes the list.">
-                  <listbox.ListboxView node={children.listbox} />
+                  <listbox.ListboxView instance={children.listbox} />
                 </Section>
                 <Section
                   title="Multiple"
                   hint="Choosing toggles; the list stays open."
                 >
-                  <listboxMulti.ListboxView node={children.listboxMulti} />
+                  <listboxMulti.ListboxView instance={children.listboxMulti} />
                 </Section>
               </>
             )}
@@ -113,27 +113,27 @@ export const UiShowcaseView = View.make(
                 title="Basic"
                 hint="Type to filter, arrows to move, Enter to choose, Escape to undo."
               >
-                <combobox.ComboboxView node={children.combobox} />
+                <combobox.ComboboxView instance={children.combobox} />
               </Section>
             )}
             {page === 'Disclosure' && (
               <>
                 <Section title="Basic" hint="The panel animates its height.">
-                  <disclosure.DisclosureView node={children.disclosure} />
+                  <disclosure.DisclosureView instance={children.disclosure} />
                 </Section>
                 <Section
                   title="Collapsed preview"
                   hint="Folds to a few lines instead of hiding."
                 >
                   <disclosurePreview.DisclosureView
-                    node={children.disclosurePreview}
+                    instance={children.disclosurePreview}
                   />
                 </Section>
               </>
             )}
             {page === 'Switch' && (
               <Section title="Basic" hint="Controlled by its Actor's Model.">
-                <notifications.SwitchView node={children.notifications} />
+                <notifications.SwitchView instance={children.notifications} />
               </Section>
             )}
             {page === 'Tooltip' && (
@@ -142,10 +142,12 @@ export const UiShowcaseView = View.make(
                   title="With a delay"
                   hint="Hover for half a second, or Tab to it."
                 >
-                  <tooltip.TooltipView node={children.tooltip} />
+                  <tooltip.TooltipView instance={children.tooltip} />
                 </Section>
                 <Section title="No delay" hint="Shows as soon as you hover.">
-                  <tooltipNoDelay.TooltipView node={children.tooltipNoDelay} />
+                  <tooltipNoDelay.TooltipView
+                    instance={children.tooltipNoDelay}
+                  />
                 </Section>
               </>
             )}

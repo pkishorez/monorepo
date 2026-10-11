@@ -17,9 +17,9 @@ import type { Rule } from './rules.js';
  * back. Every change is reported to whoever Provides Fields: a Request, so
  * the form gets each field's value and validity without reading its Children.
  *
- * The status is Model data, not the Actor's States: a View draws each State
- * with its own component, so every Transition would remount the input and
- * take the focus away while typing.
+ * The status is Model data, not the Actor's States: a View used to draw each
+ * State with its own component, so every Transition would remount the input
+ * and take the focus away while typing.
  */
 
 /** Whoever takes reports from fields: the form. */

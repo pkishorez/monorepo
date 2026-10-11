@@ -46,6 +46,9 @@ import { Route as DemosEffectOakViewTransitionsRouteImport } from './routes/demo
 import { Route as DemosEffectOakWeatherRouteImport } from './routes/demos/effect-oak/weather'
 import { Route as DemosEffectOakWebComponentsRouteImport } from './routes/demos/effect-oak/web-components'
 import { Route as DemosEffectOakWebsocketChatRouteImport } from './routes/demos/effect-oak/websocket-chat'
+import { Route as DemosEffectOakReactViewsListRouteImport } from './routes/demos/effect-oak/react-views/list'
+import { Route as DemosEffectOakReactViewsMotionRouteImport } from './routes/demos/effect-oak/react-views/motion'
+import { Route as DemosEffectOakReactViewsTransitionsRouteImport } from './routes/demos/effect-oak/react-views/transitions'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -246,6 +249,24 @@ const DemosEffectOakWebsocketChatRoute =
     path: '/demos/effect-oak/websocket-chat',
     getParentRoute: () => rootRouteImport,
   } as any)
+const DemosEffectOakReactViewsListRoute =
+  DemosEffectOakReactViewsListRouteImport.update({
+    id: '/demos/effect-oak/react-views/list',
+    path: '/demos/effect-oak/react-views/list',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const DemosEffectOakReactViewsMotionRoute =
+  DemosEffectOakReactViewsMotionRouteImport.update({
+    id: '/demos/effect-oak/react-views/motion',
+    path: '/demos/effect-oak/react-views/motion',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const DemosEffectOakReactViewsTransitionsRoute =
+  DemosEffectOakReactViewsTransitionsRouteImport.update({
+    id: '/demos/effect-oak/react-views/transitions',
+    path: '/demos/effect-oak/react-views/transitions',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -285,6 +306,9 @@ export interface FileRoutesByFullPath {
   '/demos/effect-oak/web-components': typeof DemosEffectOakWebComponentsRoute
   '/demos/effect-oak/websocket-chat': typeof DemosEffectOakWebsocketChatRoute
   '/demos/effect-oak/': typeof DemosEffectOakIndexRoute
+  '/demos/effect-oak/react-views/list': typeof DemosEffectOakReactViewsListRoute
+  '/demos/effect-oak/react-views/motion': typeof DemosEffectOakReactViewsMotionRoute
+  '/demos/effect-oak/react-views/transitions': typeof DemosEffectOakReactViewsTransitionsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -324,6 +348,9 @@ export interface FileRoutesByTo {
   '/demos/effect-oak/web-components': typeof DemosEffectOakWebComponentsRoute
   '/demos/effect-oak/websocket-chat': typeof DemosEffectOakWebsocketChatRoute
   '/demos/effect-oak': typeof DemosEffectOakIndexRoute
+  '/demos/effect-oak/react-views/list': typeof DemosEffectOakReactViewsListRoute
+  '/demos/effect-oak/react-views/motion': typeof DemosEffectOakReactViewsMotionRoute
+  '/demos/effect-oak/react-views/transitions': typeof DemosEffectOakReactViewsTransitionsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -364,6 +391,9 @@ export interface FileRoutesById {
   '/demos/effect-oak/web-components': typeof DemosEffectOakWebComponentsRoute
   '/demos/effect-oak/websocket-chat': typeof DemosEffectOakWebsocketChatRoute
   '/demos/effect-oak/': typeof DemosEffectOakIndexRoute
+  '/demos/effect-oak/react-views/list': typeof DemosEffectOakReactViewsListRoute
+  '/demos/effect-oak/react-views/motion': typeof DemosEffectOakReactViewsMotionRoute
+  '/demos/effect-oak/react-views/transitions': typeof DemosEffectOakReactViewsTransitionsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -405,6 +435,9 @@ export interface FileRouteTypes {
     | '/demos/effect-oak/web-components'
     | '/demos/effect-oak/websocket-chat'
     | '/demos/effect-oak/'
+    | '/demos/effect-oak/react-views/list'
+    | '/demos/effect-oak/react-views/motion'
+    | '/demos/effect-oak/react-views/transitions'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -444,6 +477,9 @@ export interface FileRouteTypes {
     | '/demos/effect-oak/web-components'
     | '/demos/effect-oak/websocket-chat'
     | '/demos/effect-oak'
+    | '/demos/effect-oak/react-views/list'
+    | '/demos/effect-oak/react-views/motion'
+    | '/demos/effect-oak/react-views/transitions'
   id:
     | '__root__'
     | '/'
@@ -483,6 +519,9 @@ export interface FileRouteTypes {
     | '/demos/effect-oak/web-components'
     | '/demos/effect-oak/websocket-chat'
     | '/demos/effect-oak/'
+    | '/demos/effect-oak/react-views/list'
+    | '/demos/effect-oak/react-views/motion'
+    | '/demos/effect-oak/react-views/transitions'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -523,6 +562,9 @@ export interface RootRouteChildren {
   DemosEffectOakWebComponentsRoute: typeof DemosEffectOakWebComponentsRoute
   DemosEffectOakWebsocketChatRoute: typeof DemosEffectOakWebsocketChatRoute
   DemosEffectOakIndexRoute: typeof DemosEffectOakIndexRoute
+  DemosEffectOakReactViewsListRoute: typeof DemosEffectOakReactViewsListRoute
+  DemosEffectOakReactViewsMotionRoute: typeof DemosEffectOakReactViewsMotionRoute
+  DemosEffectOakReactViewsTransitionsRoute: typeof DemosEffectOakReactViewsTransitionsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -786,6 +828,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DemosEffectOakWebsocketChatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/demos/effect-oak/react-views/list': {
+      id: '/demos/effect-oak/react-views/list'
+      path: '/demos/effect-oak/react-views/list'
+      fullPath: '/demos/effect-oak/react-views/list'
+      preLoaderRoute: typeof DemosEffectOakReactViewsListRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/demos/effect-oak/react-views/motion': {
+      id: '/demos/effect-oak/react-views/motion'
+      path: '/demos/effect-oak/react-views/motion'
+      fullPath: '/demos/effect-oak/react-views/motion'
+      preLoaderRoute: typeof DemosEffectOakReactViewsMotionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/demos/effect-oak/react-views/transitions': {
+      id: '/demos/effect-oak/react-views/transitions'
+      path: '/demos/effect-oak/react-views/transitions'
+      fullPath: '/demos/effect-oak/react-views/transitions'
+      preLoaderRoute: typeof DemosEffectOakReactViewsTransitionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -829,6 +892,10 @@ const rootRouteChildren: RootRouteChildren = {
   DemosEffectOakWebComponentsRoute: DemosEffectOakWebComponentsRoute,
   DemosEffectOakWebsocketChatRoute: DemosEffectOakWebsocketChatRoute,
   DemosEffectOakIndexRoute: DemosEffectOakIndexRoute,
+  DemosEffectOakReactViewsListRoute: DemosEffectOakReactViewsListRoute,
+  DemosEffectOakReactViewsMotionRoute: DemosEffectOakReactViewsMotionRoute,
+  DemosEffectOakReactViewsTransitionsRoute:
+    DemosEffectOakReactViewsTransitionsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

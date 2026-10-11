@@ -1,6 +1,4 @@
 import { View } from 'effect-oak/react';
-import type { ViewProps } from 'effect-oak/react';
-import type { MotionValue } from 'motion/react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   Action,
@@ -27,68 +25,53 @@ const Scrubbed = () => (
   </motion.p>
 );
 
-const draw = ({
-  id,
-  model,
-  state,
-  send,
-  frame,
-}: ViewProps<typeof Rocket> & { frame: MotionValue<number> }) => {
-  const scrubbed =
-    model.scrubbedAt !== null && frame.get() - model.scrubbedAt < 600;
-  return (
-    <Flight
-      flies
-      id={id}
-      tag={state._tag}
-      fuel={model.fuel}
-      safe={state._tag !== 'Descending' || state.safe}
-      shake={scrubbed ? model.scrubbedAt : null}
-      note={scrubbed && <Scrubbed key={model.scrubbedAt} />}
-      onFuel={() => send({ _tag: 'Fuel' })}
-      actions={
-        <>
-          {state._tag === 'OnPad' && model.fuel > 0 && (
-            <Action onClick={() => send({ _tag: 'Launch' })}>Launch</Action>
-          )}
-          {state._tag === 'Cruising' && (
-            <Action onClick={() => send({ _tag: 'Land' })}>Land</Action>
-          )}
-          {state._tag === 'Lost' && (
-            <Action onClick={() => send({ _tag: 'Rebuild' })}>Rebuild</Action>
-          )}
-        </>
-      }
-      landed={
-        <>
-          {state._tag === 'Landed' && (
-            <Action onClick={() => send({ _tag: 'Return' })}>Return</Action>
-          )}
-          {state._tag === 'Crashed' && (
-            <Action onClick={() => send({ _tag: 'Rebuild' })}>Rebuild</Action>
-          )}
-          {(state._tag === 'Landed' || state._tag === 'Crashed') && (
-            <Action onClick={() => send({ _tag: 'Dismantle' })}>
-              Dismantle
-            </Action>
-          )}
-        </>
-      }
-    />
-  );
-};
-
-export const RocketView = View.make(Rocket, {
-  OnPad: draw,
-  Ascending: draw,
-  Separating: draw,
-  Cruising: draw,
-  Descending: draw,
-  Landed: draw,
-  Returning: draw,
-  Crashed: draw,
-  Lost: draw,
-});
+export const RocketView = View.make(
+  Rocket,
+  ({ _tag, id, model, state, send, frame }) => {
+    const scrubbed =
+      model.scrubbedAt !== null && frame.get() - model.scrubbedAt < 600;
+    return (
+      <Flight
+        flies
+        id={id}
+        tag={_tag}
+        fuel={model.fuel}
+        safe={_tag !== 'Descending' || state.safe}
+        shake={scrubbed ? model.scrubbedAt : null}
+        note={scrubbed && <Scrubbed key={model.scrubbedAt} />}
+        onFuel={() => send({ _tag: 'Fuel' })}
+        actions={
+          <>
+            {_tag === 'OnPad' && model.fuel > 0 && (
+              <Action onClick={() => send({ _tag: 'Launch' })}>Launch</Action>
+            )}
+            {_tag === 'Cruising' && (
+              <Action onClick={() => send({ _tag: 'Land' })}>Land</Action>
+            )}
+            {_tag === 'Lost' && (
+              <Action onClick={() => send({ _tag: 'Rebuild' })}>Rebuild</Action>
+            )}
+          </>
+        }
+        landed={
+          <>
+            {_tag === 'Landed' && (
+              <Action onClick={() => send({ _tag: 'Return' })}>Return</Action>
+            )}
+            {_tag === 'Crashed' && (
+              <Action onClick={() => send({ _tag: 'Rebuild' })}>Rebuild</Action>
+            )}
+            {(_tag === 'Landed' || _tag === 'Crashed') && (
+              <Action onClick={() => send({ _tag: 'Dismantle' })}>
+                Dismantle
+              </Action>
+            )}
+          </>
+        }
+      />
+    );
+  },
+);
 
 export const FleetView = View.make(Fleet, ({ model, children, send }) => (
   <div className="relative size-full">
@@ -112,7 +95,7 @@ export const FleetView = View.make(Fleet, ({ model, children, send }) => (
         {children.rockets.map((rocket, index) => (
           <motion.div key={rocket.id} exit={{ opacity: 0 }}>
             <Place index={index} name={model.rockets[index]!}>
-              <RocketView node={rocket} />
+              <RocketView instance={rocket} />
             </Place>
           </motion.div>
         ))}

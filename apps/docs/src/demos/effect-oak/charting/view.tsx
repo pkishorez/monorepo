@@ -41,7 +41,7 @@ export const ChartingView = View.make(Charting, ({ model, children, send }) => {
               Live from npm and GitHub, drawn as SVG.
             </p>
           </header>
-          <ControlsView node={children.controls} />
+          <ControlsView instance={children.controls} />
           {telemetry && (
             <div className="grid grid-cols-2 gap-2">
               <Figure label="Stars" value={telemetry.repository.stars} />

@@ -72,9 +72,8 @@ const advance = (model: { readonly count: number; readonly step: number }) => {
   };
 };
 
-export const WidgetView = View.make(Widget, {
-  Waiting: () => null,
-  Running: ({ model, send }) => (
+export const WidgetView = View.make(Widget, ({ _tag, model, send }) =>
+  _tag === 'Waiting' ? null : (
     <div className="flex flex-col items-center gap-4 rounded-xl border border-teal-300 bg-teal-50 p-6 text-zinc-900 dark:border-teal-800 dark:bg-teal-950 dark:text-zinc-100">
       <div className="text-xs font-semibold tracking-wide text-teal-700 uppercase dark:text-teal-300">
         Effect Oak widget
@@ -88,4 +87,4 @@ export const WidgetView = View.make(Widget, {
       </Button>
     </div>
   ),
-});
+);

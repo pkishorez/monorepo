@@ -19,7 +19,7 @@ export const FleetView = View.make(Fleet, ({ model, children, send }) => (
         {children.rockets.map((rocket, index) => (
           <motion.div key={rocket.id} exit={{ opacity: 0 }}>
             <Place index={index} name={model.rockets[index]!}>
-              <RocketView node={rocket} />
+              <RocketView instance={rocket} />
             </Place>
           </motion.div>
         ))}

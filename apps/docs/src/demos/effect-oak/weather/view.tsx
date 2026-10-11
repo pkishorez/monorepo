@@ -56,25 +56,21 @@ const Page = ({
   </div>
 );
 
-export const WeatherView = View.make(Weather, {
-  Idle: ({ model, send }) => <Page zipCode={model.zipCode} send={send} />,
-  Loading: ({ model, send }) => (
-    <Page zipCode={model.zipCode} loading send={send}>
-      <p className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-        <Spinner /> Fetching weather…
-      </p>
+export const WeatherView = View.make(
+  Weather,
+  ({ _tag, model, state, send }) => (
+    <Page zipCode={model.zipCode} loading={_tag === 'Loading'} send={send}>
+      {_tag === 'Loading' ? (
+        <p className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+          <Spinner /> Fetching weather…
+        </p>
+      ) : _tag === 'Loaded' ? (
+        <Report weather={state.weather} />
+      ) : _tag === 'Failed' ? (
+        <Alert variant="destructive">
+          <AlertDescription>{state.error}</AlertDescription>
+        </Alert>
+      ) : null}
     </Page>
   ),
-  Loaded: ({ model, state, send }) => (
-    <Page zipCode={model.zipCode} send={send}>
-      <Report weather={state.weather} />
-    </Page>
-  ),
-  Failed: ({ model, state, send }) => (
-    <Page zipCode={model.zipCode} send={send}>
-      <Alert variant="destructive">
-        <AlertDescription>{state.error}</AlertDescription>
-      </Alert>
-    </Page>
-  ),
-});
+);

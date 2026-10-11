@@ -33,9 +33,8 @@ One plain look: the theme's ink on its paper, fuel as the one colour.
   right, five rockets to a row, at most twenty, and zooms to fit, so each
   new rocket zooms the site out a little.
 - `Flight` draws one rocket and its pads. Every State of the Rocket is drawn
-  by the same component; each mounts fresh, so the rocket's position lives in
-  motion values kept per Instance, and every State animates on from where the
-  last one left it. Drawn on its own, a rocket brings its own site and a
+  by the same function; the rocket's position lives in motion values kept
+  per Instance, and every State animates on from where the last one left it. Drawn on its own, a rocket brings its own site and a
   strip of its States.
 - Storms rain from the top right; a scrubbed launch shakes the rocket.
 
