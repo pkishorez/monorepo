@@ -40,7 +40,7 @@ future Explainers too.
 ### Make a Walkthrough
 
 A Walkthrough builds up a live app chapter by chapter. Its Storyboard lives
-in the docs app (Effect Oak's is at `/demos/effect-oak/showreel`); agree the
+in the docs app (Effect Oak's is at `/demos/apps/showreel`); agree the
 beats there, then, with the docs dev server running:
 
 ```sh

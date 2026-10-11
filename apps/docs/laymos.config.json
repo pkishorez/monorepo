@@ -12,139 +12,26 @@
   ],
   "rules": {
     "src/router.tsx": ["src/components"],
-    "src/routes": ["src/lib", "src/demos/effect-oak"],
-    "src/demos/effect-oak/canvas-art": ["src/demos/effect-oak/frame-canvas"],
-    "src/demos/effect-oak/generative-art": [
-      "src/demos/effect-oak/frame-canvas"
+    "src/routes": ["src/lib", "src/demos"],
+    "src/demos/concepts/page": ["src/demos/shell", "src/demos/concepts/shapes"],
+    "src/demos/concepts/actor": ["src/demos/concepts/shapes"],
+    "src/demos/concepts/states": ["src/demos/concepts/shapes"],
+    "src/demos/concepts/commands": ["src/demos/concepts/shapes"],
+    "src/demos/concepts/workers": ["src/demos/concepts/shapes"],
+    "src/demos/apps/rockets": ["src/demos/shell"],
+    "src/demos/apps/rockets/actor": ["src/demos/apps/rockets/draw"],
+    "src/demos/apps/rockets/state": ["src/demos/apps/rockets/draw"],
+    "src/demos/apps/rockets/fleet": [
+      "src/demos/apps/rockets/draw",
+      "src/demos/apps/rockets/state"
     ],
-    "src/demos/effect-oak/api-cache": [
-      "src/demos/effect-oak/async-data",
-      "src/demos/effect-oak/blog-server"
+    "src/demos/apps/rockets/capabilities": ["src/demos/apps/rockets/draw"],
+    "src/demos/apps/showreel": ["src/demos/apps/rockets"],
+    "src/demos/concepts/children": [
+      "src/demos/concepts/actor",
+      "src/demos/concepts/shapes"
     ],
-    "src/demos/effect-oak/api-cache-query": [
-      "src/demos/effect-oak/async-data",
-      "src/demos/effect-oak/blog-server"
-    ],
-    "src/demos/effect-oak/charting": ["src/demos/effect-oak/async-data"],
-    "src/demos/effect-oak/query-sync/param": [
-      "src/demos/effect-oak/query-sync/url"
-    ],
-    "src/demos/effect-oak/map/places": ["src/demos/effect-oak/map/world"],
-    "src/demos/effect-oak/map/finder": ["src/demos/effect-oak/map/world"],
-    "src/demos/effect-oak/map/viewport": ["src/demos/effect-oak/map/world"],
-    "src/demos/effect-oak/shopping-cart/products": [
-      "src/demos/effect-oak/shopping-cart/basket",
-      "src/demos/effect-oak/shopping-cart/shop-server"
-    ],
-    "src/demos/effect-oak/shopping-cart/checkout": [
-      "src/demos/effect-oak/shopping-cart/basket",
-      "src/demos/effect-oak/shopping-cart/shop-server"
-    ],
-    "src/demos/effect-oak/shopping-cart/cart-page": [
-      "src/demos/effect-oak/shopping-cart/basket"
-    ],
-    "src/demos/effect-oak/shopping-cart/shop-server": [
-      "src/demos/effect-oak/shopping-cart/basket"
-    ],
-    "src/demos/effect-oak/kanban/board-store": [
-      "src/demos/effect-oak/kanban/columns"
-    ],
-    "src/demos/effect-oak/auth/logged-out": [
-      "src/demos/effect-oak/auth/auth-server",
-      "src/demos/effect-oak/auth/session"
-    ],
-    "src/demos/effect-oak/auth/logged-in": [
-      "src/demos/effect-oak/auth/session"
-    ],
-    "src/demos/effect-oak/auth/auth-server": [
-      "src/demos/effect-oak/auth/session"
-    ],
-    "src/demos/effect-oak/routing": ["src/demos/effect-oak/location"],
-    "src/demos/effect-oak/route-transitions": ["src/demos/effect-oak/location"],
-    "src/demos/effect-oak/view-transitions": ["src/demos/effect-oak/location"],
-    "src/demos/effect-oak/personal-blog": ["src/demos/effect-oak/location"],
-    "src/demos/effect-oak/routing/people": [
-      "src/demos/effect-oak/routing/route"
-    ],
-    "src/demos/effect-oak/routing/files": [
-      "src/demos/effect-oak/routing/route"
-    ],
-    "src/demos/effect-oak/embedding/widget": [
-      "src/demos/effect-oak/embedding/port"
-    ],
-    "src/demos/effect-oak/web-components/fields": [
-      "src/demos/effect-oak/web-components/elements"
-    ],
-    "src/demos/effect-oak/job-application/personal-info": [
-      "src/demos/effect-oak/job-application/application",
-      "src/demos/effect-oak/job-application/fields"
-    ],
-    "src/demos/effect-oak/job-application/work-history": [
-      "src/demos/effect-oak/job-application/application",
-      "src/demos/effect-oak/job-application/fields"
-    ],
-    "src/demos/effect-oak/job-application/skills": [
-      "src/demos/effect-oak/job-application/application",
-      "src/demos/effect-oak/job-application/fields"
-    ],
-    "src/demos/effect-oak/job-application/cover-letter": [
-      "src/demos/effect-oak/job-application/application",
-      "src/demos/effect-oak/job-application/fields"
-    ],
-    "src/demos/effect-oak/job-application/attachments": [
-      "src/demos/effect-oak/job-application/application"
-    ],
-    "src/demos/effect-oak/job-application/step-nav": [
-      "src/demos/effect-oak/job-application/application"
-    ],
-    "src/demos/effect-oak/job-application/preview": [
-      "src/demos/effect-oak/job-application/application"
-    ],
-    "src/demos/effect-oak/job-application/review": [
-      "src/demos/effect-oak/job-application/application"
-    ],
-    "src/demos/effect-oak/ui-showcase/dialog": [
-      "src/demos/effect-oak/ui-showcase/focus",
-      "src/demos/effect-oak/ui-showcase/picks"
-    ],
-    "src/demos/effect-oak/ui-showcase/menu": [
-      "src/demos/effect-oak/ui-showcase/focus",
-      "src/demos/effect-oak/ui-showcase/picks"
-    ],
-    "src/demos/effect-oak/ui-showcase/tabs": [
-      "src/demos/effect-oak/ui-showcase/focus",
-      "src/demos/effect-oak/ui-showcase/picks"
-    ],
-    "src/demos/effect-oak/ui-showcase/listbox": [
-      "src/demos/effect-oak/ui-showcase/focus",
-      "src/demos/effect-oak/ui-showcase/picks"
-    ],
-    "src/demos/effect-oak/ui-showcase/combobox": [
-      "src/demos/effect-oak/ui-showcase/focus",
-      "src/demos/effect-oak/ui-showcase/picks"
-    ],
-    "src/demos/effect-oak/ui-showcase/switch": [
-      "src/demos/effect-oak/ui-showcase/picks"
-    ],
-    "src/demos/effect-oak/rockets": ["src/demos/effect-oak/shell"],
-    "src/demos/effect-oak/rockets/actor": ["src/demos/effect-oak/rockets/draw"],
-    "src/demos/effect-oak/rockets/state": ["src/demos/effect-oak/rockets/draw"],
-    "src/demos/effect-oak/rockets/fleet": [
-      "src/demos/effect-oak/rockets/draw",
-      "src/demos/effect-oak/rockets/state"
-    ],
-    "src/demos/effect-oak/rockets/capabilities": [
-      "src/demos/effect-oak/rockets/draw"
-    ],
-    "src/demos/effect-oak/showreel": ["src/demos/effect-oak/rockets"],
-    "src/demos/effect-oak/react-views/list": [
-      "src/demos/effect-oak/react-views/render-count"
-    ],
-    "src/demos/effect-oak/react-views/transitions": [
-      "src/demos/effect-oak/react-views/render-count"
-    ],
-    "src/demos/effect-oak/react-views/motion": [
-      "src/demos/effect-oak/react-views/render-count"
-    ]
+    "src/demos/concepts/keyed-children": ["src/demos/concepts/shapes"],
+    "src/demos/concepts/capabilities": ["src/demos/concepts/shapes"]
   }
 }

@@ -28,7 +28,7 @@ stop, and start again from any entry, growing a new Branch.
 
 Read the language in [CONTEXT.md](./CONTEXT.md), the decisions in
 [docs/adr/](./docs/adr/), and how the Log works in
-[docs/log-tree.md](./docs/log-tree.md). Live demos are at `/demos/effect-oak` in the docs app.
+[docs/log-tree.md](./docs/log-tree.md). Live demos are at `/demos/concepts` in the docs app: one per concept, drawn as moving shapes.
 
 ## Install
 
