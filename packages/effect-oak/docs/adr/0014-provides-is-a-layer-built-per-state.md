@@ -1,3 +1,7 @@
+---
+status: partly superseded by ADR-0017
+---
+
 # Provides is a Layer built once per State
 
 What a State Provides is a scoped Layer, built when the State is entered and closed when it is left. It gets the Actor's Requires from Effect and its Instance's current Model, State and changes, so a Capability that follows the Model updates itself from inside (for example into a `SubscriptionRef`). The Children's work waits until it is built; if it fails, the failure is logged and those Children's work never starts.

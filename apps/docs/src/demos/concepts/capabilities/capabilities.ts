@@ -15,13 +15,13 @@ const report = (name: string) => ({
  * that Provides it: the Request goes through the Capability.
  */
 export const Scorer = Actor.make('Scorer', {
-  requires: { scores: Scores },
+  requires: [Scores],
   input: Schema.Struct({ name: Schema.String }),
   model: Schema.Struct({ name: Schema.String, scored: Schema.Number }),
   message: Schema.TaggedUnion({ Score: {} }),
 }).build({
   init: ({ name }) => ({ model: { name, scored: 0 } }),
-  update: {
+  on: {
     Score: (_, { model }) => ({
       model: { ...model, scored: model.scored + 1 },
       command: report(model.name),
@@ -47,10 +47,9 @@ export const Board = Actor.make('Board', {
     RemoveLast: {},
     Scored: { name: Schema.String },
   }),
-  provides: [Scores],
-  children: { players: Actor.many(Scorer) },
 }).build({
   init: () => ({ model: { players: ['P-1'], next: 2, total: 0 } }),
+  children: { players: Actor.many(Scorer) },
   provides: (self) =>
     Layer.succeed(Scores, {
       total: self.get.pipe(Effect.map(({ model }) => model.total)),
@@ -59,7 +58,7 @@ export const Board = Actor.make('Board', {
   invoke: ({ model }) => ({
     players: model.players.map((name) => ({ key: name, input: { name } })),
   }),
-  update: {
+  on: {
     AddPlayer: (_, { model }) =>
       model.players.length < MOST_PLAYERS
         ? {

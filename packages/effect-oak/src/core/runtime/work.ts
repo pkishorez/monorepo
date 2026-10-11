@@ -27,13 +27,14 @@ const Sending = Context.Reference<Source | undefined>('effect-oak/Sending', {
 
 /*
  * The work of every live Instance, in nested Scopes: the live app's Scope
- * holds the root's, an Instance's holds its State's, and a State's holds its
- * Children's. Closing a Scope stops everything below it, children first.
+ * holds the root's, an Instance's holds its State's and the Children written
+ * at its top, and a State's holds that State's own Children. Closing a Scope stops everything below it, children first.
  * Workers hang on the Instance's Scope and follow its data: after every
  * change, each Worker's Condition names the keys that should run.
  *
- * 1. Start   an Instance: its Scope, its `self`, its Workers, and its State.
- * 2. Enter   a State: its Scope, the Layer it Provides, and its Children.
+ * 1. Start   an Instance: its Scope, its `self`, the Layer its top Provides,
+ *            its Workers, the Children written at its top, and its State.
+ * 2. Enter   a State: its Scope, the Layer it Provides, and its own Children.
  *            Work waits for the Capabilities from above, so starting never
  *            blocks.
  * 3. Change  tells the Instance's own work its new data, and syncs its
@@ -74,7 +75,9 @@ interface Work {
   readonly self: Self<unknown, Tagged, Tagged>;
   /** By Worker name, then by key. */
   readonly workers: Map<string, Map<string, Live>>;
-  /** The current State's Scope, and what its Children get. */
+  /** What the Children written at its top get: the top Provides over what is above. */
+  readonly own: Parent;
+  /** The current State's Scope, and what its own Children get. */
   state: Parent & { readonly scope: Scope.Closeable };
 }
 
@@ -158,6 +161,7 @@ export const makeWorks = (
       changes: SubscriptionRef.changes(data),
       now: Effect.sync(now),
     };
+    const own = Deferred.makeUnsafe<Context.Context<never>>();
     const work: Work = {
       definition,
       scope,
@@ -165,11 +169,57 @@ export const makeWorks = (
       data,
       self,
       workers: new Map(),
+      own: { scope, capabilities: own },
       state: undefined!,
     };
     works.set(instance.id, work);
+    provideInto(scope, instance.id, work.above, definition.provides, self, own);
     sync(work, instance);
+    const slots = definition.children[instance.state._tag] ?? {};
+    for (const slot of definition.lasting)
+      startHeld(instance, slot, slots, work.own);
     enter(work, instance);
+  };
+
+  /** Build a Provide over the Capabilities from above, once they exist, and hand the result on. */
+  const provideInto = (
+    scope: Scope.Scope,
+    path: string,
+    above: Deferred.Deferred<Context.Context<never>>,
+    provide: Function | undefined,
+    self: Work['self'],
+    into: Deferred.Deferred<Context.Context<never>>,
+  ) =>
+    fork(
+      scope,
+      path,
+      Deferred.await(above).pipe(
+        Effect.flatMap((context) =>
+          provide
+            ? Layer.buildWithScope(
+                provide(self) as Layer.Layer<never, never, any>,
+                scope,
+              ).pipe(
+                Effect.provideContext(context),
+                Effect.map((provided) => Context.merge(context, provided)),
+              )
+            : Effect.succeed(context),
+        ),
+        Effect.flatMap((below) => Deferred.succeed(into, below)),
+      ) as Effect.Effect<unknown, never, never>,
+    );
+
+  /** Start the Instances held in one slot. */
+  const startHeld = (
+    instance: Instance,
+    slot: string,
+    slots: Readonly<Record<string, { readonly definition: Definition }>>,
+    parent: Parent,
+  ) => {
+    const held = instance.children[slot];
+    if (!held) return;
+    const child = slots[slot]!.definition;
+    for (const kid of isMany(held) ? held : [held]) start(kid, child, parent);
   };
 
   // 2. Enter
@@ -179,33 +229,18 @@ export const makeWorks = (
     const scope = Scope.forkUnsafe(work.scope);
     const capabilities = Deferred.makeUnsafe<Context.Context<never>>();
     work.state = { scope, capabilities };
-
-    const provide = definition.provides[tag];
-    fork(
+    provideInto(
       scope,
       instance.id,
-      Deferred.await(work.above).pipe(
-        Effect.flatMap((above) =>
-          provide
-            ? Layer.buildWithScope(
-                provide(work.self) as Layer.Layer<never, never, any>,
-                scope,
-              ).pipe(
-                Effect.provideContext(above),
-                Effect.map((provided) => Context.merge(above, provided)),
-              )
-            : Effect.succeed(above),
-        ),
-        Effect.flatMap((below) => Deferred.succeed(capabilities, below)),
-      ) as Effect.Effect<unknown, never, never>,
+      work.own.capabilities,
+      definition.stateProvides[tag],
+      work.self,
+      capabilities,
     );
-
     const slots = definition.children[tag] ?? {};
-    for (const [slot, held] of Object.entries(instance.children)) {
-      const child = slots[slot]!.definition;
-      for (const kid of isMany(held) ? held : [held])
-        start(kid, child, work.state);
-    }
+    for (const slot of Object.keys(instance.children))
+      if (!definition.lasting.includes(slot))
+        startHeld(instance, slot, slots, work.state);
   };
 
   // 3. Change
@@ -339,11 +374,11 @@ export const makeWorks = (
     close(work.scope);
   };
 
-  /** Leave the current State: its Provides and Children stop. */
+  /** Leave the current State: its Provides and its own Children stop. */
   const leave = (instance: Instance): void => {
     const work = works.get(instance.id);
     if (!work) return;
-    forgetChildren(instance);
+    forgetChildren(instance, work.definition.lasting);
     close(work.state.scope);
   };
 
@@ -355,9 +390,13 @@ export const makeWorks = (
     works.delete(instance.id);
     forgetChildren(instance);
   };
-  const forgetChildren = (instance: Instance) => {
-    for (const held of Object.values(instance.children))
-      for (const kid of isMany(held) ? held : [held]) forget(kid);
+  const forgetChildren = (
+    instance: Instance,
+    keep: ReadonlyArray<string> = [],
+  ) => {
+    for (const [slot, held] of Object.entries(instance.children))
+      if (!keep.includes(slot))
+        for (const kid of isMany(held) ? held : [held]) forget(kid);
   };
   const close = (scope: Scope.Closeable) => {
     Effect.runFork(Scope.close(scope, Exit.void));
@@ -373,9 +412,11 @@ export const makeWorks = (
     command,
     stop,
     leave,
-    /** Where the Children of an Instance's current State hang. */
-    parentOf: (instance: Instance): Parent | undefined =>
-      works.get(instance.id)?.state,
+    /** Where the Children in a slot hang: at the top, or in the current State. */
+    parentOf: (instance: Instance, slot: string): Parent | undefined => {
+      const work = works.get(instance.id);
+      return work?.definition.lasting.includes(slot) ? work.own : work?.state;
+    },
     /** What an Instance's Workers are doing, by name and key. */
     workers: (instance: string): ReadonlyArray<WorkerStatus> => {
       const work = works.get(instance);

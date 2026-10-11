@@ -15,10 +15,9 @@ export const Fleet = Actor.make('Fleet', {
     Dismantle: { name: Schema.String },
     ToggledSky: {},
   }),
-  provides: [Weather, Hangar],
-  children: { rockets: Actor.many(Rocket) },
 }).build({
   init: () => ({ model: { rockets: ['R-1'], next: 2, sky: 'clear' } }),
+  children: { rockets: Actor.many(Rocket) },
   provides: (self) =>
     Layer.mergeAll(
       Layer.succeed(Weather, {
@@ -31,7 +30,7 @@ export const Fleet = Actor.make('Fleet', {
   invoke: ({ model }) => ({
     rockets: model.rockets.map((name) => ({ key: name, input: { name } })),
   }),
-  update: {
+  on: {
     Build: (_, { model }) =>
       model.rockets.length < 20
         ? {

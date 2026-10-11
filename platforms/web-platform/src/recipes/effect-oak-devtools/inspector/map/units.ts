@@ -124,11 +124,7 @@ const workersOf = (
   state: string | undefined,
 ): ReadonlyArray<WorkerUnit> =>
   Object.entries(definition.workers)
-    .filter(([, worker]) =>
-      state === undefined
-        ? worker.kind !== 'state'
-        : worker.kind === 'state' && worker.state === state,
-    )
+    .filter(([, worker]) => worker.state === state)
     .map(([name, worker]) => {
       const before = keysOf(worker, was);
       const after = keysOf(worker, is);

@@ -12,7 +12,7 @@ export const Player = Actor.make('Player', {
   message: Schema.TaggedUnion({ Increment: {} }),
 }).build({
   init: ({ name }) => ({ model: { name, count: 0 } }),
-  update: {
+  on: {
     Increment: (_, { model }) => ({
       model: { ...model, count: model.count + 1 },
     }),
@@ -30,13 +30,13 @@ export const Scoreboard = Actor.make('Scoreboard', {
     next: Schema.Number,
   }),
   message: Schema.TaggedUnion({ AddPlayer: {}, RemoveLast: {} }),
-  children: { players: Actor.many(Player) },
 }).build({
   init: () => ({ model: { players: ['P-1'], next: 2 } }),
+  children: { players: Actor.many(Player) },
   invoke: ({ model }) => ({
     players: model.players.map((name) => ({ key: name, input: { name } })),
   }),
-  update: {
+  on: {
     AddPlayer: (_, { model }) => ({
       model: {
         players: [...model.players, `P-${model.next}`],

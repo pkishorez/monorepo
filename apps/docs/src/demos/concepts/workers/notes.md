@@ -10,7 +10,7 @@ Circle while it runs:
 
 - `tick`: owned by the Instance itself. Ticked every second, for as long as
   the Clock exists.
-- `run`: owned by the Running State (`in: 'Running'`). Ran every 250 ms,
+- `run`: owned by the Running State (written in its block). Ran every 250 ms,
   counted in the State's data `{ since, ran }`; a Ran is new data in the
   same State, not a Transition, so the Ring stays.
 - `blink`: owned by a yes or no (`while: model.armed`). Blinked every 400 ms

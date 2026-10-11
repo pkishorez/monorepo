@@ -11,11 +11,13 @@ import { Counter } from '../actor/index.js';
 export const Room = Actor.make('Room', {
   state: Schema.TaggedUnion({ Empty: {}, Occupied: {} }),
   message: Schema.TaggedUnion({ Toggle: {} }),
-  children: { Occupied: { counter: Counter } },
 }).build({
   init: () => ({ state: { _tag: 'Empty' } }),
-  update: {
-    Empty: { Toggle: () => ({ state: { _tag: 'Occupied' } }) },
-    Occupied: { Toggle: () => ({ state: { _tag: 'Empty' } }) },
+  state: {
+    Empty: { on: { Toggle: () => ({ state: { _tag: 'Occupied' } }) } },
+    Occupied: {
+      children: { counter: Counter },
+      on: { Toggle: () => ({ state: { _tag: 'Empty' } }) },
+    },
   },
 });

@@ -7,7 +7,7 @@ An app is one tree of Actors that lives outside React. Each Actor is a small sta
 ### The tree
 
 **Actor**:
-One piece of the app: its Model and States, the Messages it accepts, its Update, the Capabilities it Requires and Provides, and the Children it Invokes. A state machine and an actor at once: Messages are the only way it changes, and its State decides which Actors exist below it. A description, not a running thing and not a React component.
+One piece of the app: its Model and States, the Messages it accepts, its Update, the Capabilities it Requires and Provides, and the Children it Invokes. A state machine and an actor at once: Messages are the only way it changes, and its State decides which Actors exist below it. A description, not a running thing and not a React component. Made in two steps: its Schemas and Requires first, then how it behaves, at two Levels.
 _Avoid_: Node, component, machine
 
 **Instance**:
@@ -18,13 +18,17 @@ _Avoid_: ref, process, live node, store
 Who an Instance is, made from its parent's ID, the Child's name, its key if it has one, and how many times the parent has Invoked that Child so far. The same Messages always give the same IDs, and an Instance Invoked again gets a new ID, so a Message for an Instance that is gone is dropped.
 _Avoid_: path, address, number
 
+**Level**:
+Where a part of an Actor's behavior is written, which says how long it holds: the top, for as long as the Instance lives, or one State's block, for as long as that State lasts. Provides, Children, Updates and Workers are each written at either Level.
+_Avoid_: scope (Effect's word), section, layer
+
 **Child**:
-An Actor its parent Invokes while in a given State. A fixed Child exists for as long as the State lasts; a keyed Child exists for as long as its key is in the parent's Model too. The State and the Model decide which Children exist, never the View.
+An Actor its parent Invokes. Written at the top, a fixed Child exists for as long as its parent and lasts through every Transition; written in a State's block, for as long as that State lasts. A keyed Child exists for as long as its key is in the parent's Model too. The State and the Model decide which Children exist, never the View.
 _Avoid_: slot, dependency, subcomponent
 
 **Input**:
-The data a parent hands a Child when it Invokes it, which the Child's init starts from. From then on the Child owns that data; the parent keeps only the key.
-_Avoid_: props, params, args
+The data a parent hands a Child when it Invokes it, which the Child's init starts from. From then on the Child owns that data; the parent keeps only the key. Read once: there is no controlled Child. A parent that must change a Child later gives it a new key, which is a fresh Instance, or Provides a Capability the Child's Workers turn into Messages.
+_Avoid_: props, params, args, controlled input
 
 **Invoke**:
 What a parent does to its Children: the State, and for keyed Children the Model, say which exist, and each one starts or stops as that changes. Leaving a State stops every Child it Invoked and everything they own. Declared in the Actor's definition, never called from code.
@@ -65,7 +69,7 @@ When a Message arrived, in milliseconds since the Runtime started. Stamped by th
 _Avoid_: timestamp, now, clock (on its own)
 
 **Update**:
-The pure rule that takes the current Model, State, a Message and its Time and returns the next Model and State, and the Commands it asks for. It never sees Capabilities, so Replay can run it with nothing else. Written per State; a Message with no rule in the current State is ignored. The only thing that changes the Model, so whatever is running is readable from it.
+The pure rule that takes the current Model, State, a Message and its Time and returns the next Model and State, and the Commands it asks for. It never sees Capabilities, so Replay can run it with nothing else. Written under `on`, at the top or in a State's block; the State's rule wins over the top one, and a Message with no rule in either is ignored. The only thing that changes the Model, so whatever is running is readable from it.
 _Avoid_: reducer, handler
 
 **Log**:
@@ -103,7 +107,7 @@ Work that runs for exactly as long as its Condition holds: a socket, a timer, an
 _Avoid_: lifetime, subscription, activity, process, job, Web Worker
 
 **Condition**:
-What a Worker is owned by, read from its Instance's own Model and State after every Update: the Instance itself, one State, a yes or no, or a list of keys. When a key appears its Worker starts; when it goes, the Worker's Scope closes and its finalizers run. Nothing stops a Worker but its Condition, so stopping work is changing the Model.
+What a Worker is owned by, read from its Instance's own Model and State after every Update: its Level (the Instance, or the State whose block it is written in), and within it always, a yes or no, or a list of keys. When a key appears its Worker starts; when it goes, the Worker's Scope closes and its finalizers run. Nothing stops a Worker but its Condition, so stopping work is changing the Model.
 _Avoid_: trigger, guard, dependency, cancel, handle
 
 **Finalizer**:
@@ -117,11 +121,11 @@ What an Actor can rely on from above, or offers to everything below it while in 
 _Avoid_: service (for this), context, interface, dependency, input, output
 
 **Requires**:
-The Capabilities an Actor needs from above, each under a local name. A Child's Requires must be covered by its parent's Requires or by what the parent Provides in that State, so a Capability passing through an Actor is Required by it too. The root's Requires come from the app's Layer.
+The Capabilities an Actor's own Workers, Commands and Provides may use, as a list: nothing else is in reach of its code. It is about the Actor alone, never its Children. What an Actor still needs from above is its Requires plus whatever its Children need that it does not Provide where they are placed; that need bubbles up until an ancestor Provides it, and the app's Layer covers the rest.
 _Avoid_: inject, consume, depends on
 
 **Provides**:
-The Capabilities an Actor gives its descendants, per State. Declared in the Actor's definition and built once each time the State is entered, torn down when it is left; a Capability that follows the Model watches its Instance's changes itself. The nearest Provider wins.
+The Capabilities an Actor gives its descendants, as one Layer per Level: written at the top, it is built once when the Instance starts and reaches the Children of every State; written in a State's block, it is built each time that State is entered, torn down when it is left, and reaches only that State's Children. It cancels out what the Children below it need. A Capability that follows the Model watches its Instance's changes itself. The nearest Provider wins. Most belong at the top; a State Provides only what can exist only in it.
 _Avoid_: exposes, exports
 
 **Request**:

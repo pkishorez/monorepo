@@ -53,7 +53,7 @@ const Row = Actor.make('Row', {
   message: Schema.TaggedUnion({ Bumped: {} }),
 }).build({
   init: ({ text }) => ({ model: { text, bumps: 0 } }),
-  update: {
+  on: {
     Bumped: (_, { model }) => ({ model: { ...model, bumps: model.bumps + 1 } }),
   },
 });
@@ -75,7 +75,7 @@ const Header = Actor.make('Header', {
   message: Schema.TaggedUnion({ Clicked: {} }),
 }).build({
   init: () => ({ model: { clicks: 0 } }),
-  update: {
+  on: {
     Clicked: (_, { model }) => ({ model: { clicks: model.clicks + 1 } }),
   },
 });
@@ -100,15 +100,15 @@ const List = Actor.make('List', {
     Selected: { id: Schema.String },
     Retitled: { title: Schema.String },
   }),
-  children: { header: Header, rows: Actor.many(Row) },
 }).build({
   init: () => ({
     model: { ids: ['a', 'b', 'c'], next: 0, selected: 'a', title: 'List' },
   }),
+  children: { header: Header, rows: Actor.many(Row) },
   invoke: ({ model }) => ({
     rows: model.ids.map((id) => ({ key: id, input: { text: id } })),
   }),
-  update: {
+  on: {
     Added: (_, { model }) => ({
       model: {
         ...model,
@@ -239,10 +239,12 @@ const Editor = Actor.make('Editor', {
   }),
 }).build({
   init: () => ({ model: { draft: '' }, state: { _tag: 'Editing' } }),
-  update: {
+  state: {
     Editing: {
-      Typed: ({ text }) => ({ model: { draft: text } }),
-      Saved: (_, { at }) => ({ state: { _tag: 'Saving', since: at } }),
+      on: {
+        Typed: ({ text }) => ({ model: { draft: text } }),
+        Saved: (_, { at }) => ({ state: { _tag: 'Saving', since: at } }),
+      },
     },
   },
 });

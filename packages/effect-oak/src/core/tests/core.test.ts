@@ -11,7 +11,7 @@ import type { Scope } from 'effect';
 import { TestClock } from 'effect/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Actor, Replay, Runtime, instanceAt } from '../index.ts';
-import type { Instance, Running } from '../index.ts';
+import type { Instance, Running, Types } from '../index.ts';
 
 class Server extends Context.Service<
   Server,
@@ -32,7 +32,7 @@ class Session extends Context.Service<
 >()('test/Session') {}
 
 const Login = Actor.make('Login', {
-  requires: { signIn: SignIn },
+  requires: [SignIn],
   model: Schema.Struct({ name: Schema.String, typedAt: Schema.Number }),
   message: Schema.TaggedUnion({
     Typed: { name: Schema.String },
@@ -40,7 +40,7 @@ const Login = Actor.make('Login', {
   }),
 }).build({
   init: () => ({ model: { name: '', typedAt: 0 } }),
-  update: {
+  on: {
     Typed: (message, { at }) => ({
       model: { name: message.name, typedAt: at },
     }),
@@ -56,12 +56,12 @@ const Login = Actor.make('Login', {
 });
 
 const Todos = Actor.make('Todos', {
-  requires: { session: Session },
+  requires: [Session],
   model: Schema.Struct({ items: Schema.Array(Schema.String) }),
   message: Schema.TaggedUnion({ Added: { text: Schema.String }, Quit: {} }),
 }).build({
   init: () => ({ model: { items: [] } }),
-  update: {
+  on: {
     Added: (message, { model }) => ({
       model: { items: [...model.items, message.text] },
     }),
@@ -83,10 +83,8 @@ const AuthState = Schema.TaggedUnion({
 });
 
 const Auth = Actor.make('Auth', {
-  requires: { server: Server },
+  requires: [Server],
   state: AuthState,
-  provides: { Anonymous: [SignIn], Authenticated: [Session] },
-  children: { Anonymous: { login: Login }, Authenticated: { todos: Todos } },
   message: Schema.TaggedUnion({
     CheckedSession: { user: Schema.optional(Schema.String) },
     LoggedIn: { user: Schema.String },
@@ -95,53 +93,58 @@ const Auth = Actor.make('Auth', {
   }),
 }).build({
   init: () => ({ state: { _tag: 'Checking' } }),
-  update: {
+  state: {
     Checking: {
-      CheckedSession: ({ user }) => ({
-        state: user ? { _tag: 'Authenticated', user } : { _tag: 'Anonymous' },
-      }),
+      workers: {
+        check: {
+          run: (self) =>
+            Effect.gen(function* () {
+              const user = yield* (yield* Server).checkSession;
+              yield* self.send({ _tag: 'CheckedSession', user });
+            }),
+        },
+      },
+      on: {
+        CheckedSession: ({ user }) => ({
+          state: user ? { _tag: 'Authenticated', user } : { _tag: 'Anonymous' },
+        }),
+      },
     },
     Anonymous: {
-      LoggedIn: ({ user }) => ({ state: { _tag: 'Authenticated', user } }),
+      children: { login: Login },
+      provides: (self) =>
+        Layer.succeed(SignIn, {
+          complete: (user) => self.send({ _tag: 'LoggedIn', user }),
+        }),
+      on: {
+        LoggedIn: ({ user }) => ({ state: { _tag: 'Authenticated', user } }),
+      },
     },
     Authenticated: {
-      Renamed: ({ user }) => ({ state: { _tag: 'Authenticated', user } }),
-      LoggedOut: () => ({ state: { _tag: 'Anonymous' } }),
+      children: { todos: Todos },
+      provides: (self) =>
+        Layer.effect(
+          Session,
+          Effect.gen(function* () {
+            built.push((yield* self.get).state.user);
+            const user = yield* SubscriptionRef.make(
+              (yield* self.get).state.user,
+            );
+            // The Capability follows the Model itself, without being built again.
+            yield* self.changes.pipe(
+              Stream.runForEach(({ state }) =>
+                SubscriptionRef.set(user, state.user),
+              ),
+              Effect.forkScoped,
+            );
+            return { user, logOut: self.send({ _tag: 'LoggedOut' }) };
+          }),
+        ),
+      on: {
+        Renamed: ({ user }) => ({ state: { _tag: 'Authenticated', user } }),
+        LoggedOut: () => ({ state: { _tag: 'Anonymous' } }),
+      },
     },
-  },
-  workers: {
-    check: {
-      in: 'Checking',
-      run: (self) =>
-        Effect.gen(function* () {
-          const user = yield* (yield* Server).checkSession;
-          yield* self.send({ _tag: 'CheckedSession', user });
-        }),
-    },
-  },
-  provides: {
-    Anonymous: (self) =>
-      Layer.succeed(SignIn, {
-        complete: (user) => self.send({ _tag: 'LoggedIn', user }),
-      }),
-    Authenticated: (self) =>
-      Layer.effect(
-        Session,
-        Effect.gen(function* () {
-          built.push((yield* self.get).state.user);
-          const user = yield* SubscriptionRef.make(
-            (yield* self.get).state.user,
-          );
-          // The Capability follows the Model itself, without being built again.
-          yield* self.changes.pipe(
-            Stream.runForEach(({ state }) =>
-              SubscriptionRef.set(user, state.user),
-            ),
-            Effect.forkScoped,
-          );
-          return { user, logOut: self.send({ _tag: 'LoggedOut' }) };
-        }),
-      ),
   },
 });
 
@@ -291,12 +294,12 @@ const Counter = Actor.make('Counter', {
   message: Schema.TaggedUnion({ Bumped: {} }),
 }).build({
   init: () => ({ model: { count: 0 } }),
-  update: { Bumped: (_, { model }) => ({ model: { count: model.count + 1 } }) },
+  on: { Bumped: (_, { model }) => ({ model: { count: model.count + 1 } }) },
 });
 
-const Board = Actor.make('Board', {
+const Board = Actor.make('Board', {}).build({
   children: { left: Counter, right: Counter },
-}).build({});
+});
 
 describe('keyed Children', () => {
   const Row = Actor.make('Row', {
@@ -305,7 +308,7 @@ describe('keyed Children', () => {
     message: Schema.TaggedUnion({ Toggled: {} }),
   }).build({
     init: ({ text }) => ({ model: { text, done: false } }),
-    update: {
+    on: {
       Toggled: (_, { model }) => ({ model: { ...model, done: !model.done } }),
     },
   });
@@ -320,13 +323,13 @@ describe('keyed Children', () => {
       Removed: { id: Schema.String },
       Reversed: {},
     }),
-    children: { rows: Actor.many(Row) },
   }).build({
     init: () => ({ model: { ids: [], next: 0 } }),
+    children: { rows: Actor.many(Row) },
     invoke: ({ model }) => ({
       rows: model.ids.map((id) => ({ key: id, input: { text: `#${id}` } })),
     }),
-    update: {
+    on: {
       Added: (_, { model }) => ({
         model: { ids: [...model.ids, `${model.next}`], next: model.next + 1 },
       }),
@@ -375,10 +378,10 @@ describe('keyed Children', () => {
     ));
 
   it('a State with keyed Children must say what it Invokes', () => {
-    const Forgot = Actor.make('Forgot', {
+    // @ts-expect-error invoke is missing
+    const Forgot = Actor.make('Forgot', {}).build({
       children: { rows: Actor.many(Row) },
-      // @ts-expect-error invoke is missing
-    }).build({});
+    });
     expect(Forgot).toBeDefined();
   });
 });
@@ -424,7 +427,7 @@ const Timer = Actor.make('Timer', {
   }),
 }).build({
   init: () => ({ model: { chunks: [], streaming: false } }),
-  update: {
+  on: {
     Wait: () => ({ command: ring }),
     Both: () => ({ command: [ring, ring] }),
     Rang: () => ({}),
@@ -493,23 +496,17 @@ const Metronome = Actor.make('Metronome', {
   message: Schema.TaggedUnion({ Beat: {}, Rest: {}, Ping: {}, Pong: {} }),
 }).build({
   init: () => ({ model: { beats: 0 }, state: { _tag: 'Running' } }),
-  update: {
-    Running: {
-      Beat: (_, { model }) => ({ model: { beats: model.beats + 1 } }),
-      Rest: () => ({ state: { _tag: 'Resting' } }),
-    },
-    '*': {
-      Ping: () => ({
-        command: {
-          name: 'pong',
-          run: Effect.sleep('1 second').pipe(
-            Effect.tap(() => Effect.sync(() => heard.push('pong'))),
-            Effect.as({ _tag: 'Pong' as const }),
-          ),
-        },
-      }),
-      Pong: () => ({}),
-    },
+  on: {
+    Ping: () => ({
+      command: {
+        name: 'pong',
+        run: Effect.sleep('1 second').pipe(
+          Effect.tap(() => Effect.sync(() => heard.push('pong'))),
+          Effect.as({ _tag: 'Pong' as const }),
+        ),
+      },
+    }),
+    Pong: () => ({}),
   },
   workers: {
     alive: {
@@ -518,18 +515,29 @@ const Metronome = Actor.make('Metronome', {
           Effect.andThen(Effect.never),
         ),
     },
-    beat: {
-      in: 'Running',
-      run: (self) =>
-        Effect.addFinalizer(() => Effect.sync(() => heard.push('rested'))).pipe(
-          Effect.andThen(
-            Effect.sleep('100 millis').pipe(
-              Effect.tap(() => Effect.sync(() => heard.push('beat'))),
-              Effect.andThen(self.send({ _tag: 'Beat' })),
-              Effect.forever,
+  },
+  state: {
+    Running: {
+      on: {
+        Beat: (_, { model }) => ({ model: { beats: model.beats + 1 } }),
+        Rest: () => ({ state: { _tag: 'Resting' } }),
+      },
+      workers: {
+        beat: {
+          run: (self) =>
+            Effect.addFinalizer(() =>
+              Effect.sync(() => heard.push('rested')),
+            ).pipe(
+              Effect.andThen(
+                Effect.sleep('100 millis').pipe(
+                  Effect.tap(() => Effect.sync(() => heard.push('beat'))),
+                  Effect.andThen(self.send({ _tag: 'Beat' })),
+                  Effect.forever,
+                ),
+              ),
             ),
-          ),
-        ),
+        },
+      },
     },
   },
 });
@@ -553,7 +561,7 @@ const Uploads = Actor.make('Uploads', {
   }),
 }).build({
   init: () => ({ model: { uploads: [] } }),
-  update: {
+  on: {
     Started: ({ id }, { model }) => ({
       model: {
         uploads: [...model.uploads, { id, status: 'Uploading', progress: 0 }],
@@ -613,7 +621,7 @@ const Once = Actor.make('Once', {
   message: Schema.TaggedUnion({ On: {}, Off: {}, Ran: {}, Late: {} }),
 }).build({
   init: () => ({ model: { on: false, runs: 0 } }),
-  update: {
+  on: {
     On: (_, { model }) => ({ model: { ...model, on: true } }),
     Off: (_, { model }) => ({ model: { ...model, on: false } }),
     Ran: (_, { model }) => ({ model: { ...model, runs: model.runs + 1 } }),
@@ -636,7 +644,7 @@ const Alarm = Actor.make('Alarm', {
   message: Schema.TaggedUnion({ Set: {}, Rang: {} }),
 }).build({
   init: () => ({ model: { ringAt: null } }),
-  update: {
+  on: {
     Set: (_, { at }) => ({ model: { ringAt: at + 1000 } }),
     Rang: () => ({ model: { ringAt: null } }),
   },
@@ -851,48 +859,96 @@ describe('Requires and Provides', () => {
     expect(needs).toBeDefined();
   });
 
-  it('a Child must find what it needs in its parent Requires or Provides', () => {
-    const Orphan = Actor.make('Orphan', {
-      // @ts-expect-error Session: the parent neither Requires nor Provides it
+  it("a Child's needs bubble up until something Provides them", () => {
+    const Orphan = Actor.make('Orphan', {}).build({
       children: { todos: Todos },
-    }).build({});
-    const Passes = Actor.make('Passes', {
-      requires: { session: Session },
-      children: { todos: Todos },
-    }).build({});
-    expect([Orphan, Passes]).toBeDefined();
+    });
+    const bubbled: Effect.Effect<unknown, never, Session | Scope.Scope> =
+      Runtime.start(Orphan);
+    // @ts-expect-error Session is still needed: nothing above Todos Provides it
+    const covered: Effect.Effect<unknown, never, Scope.Scope> =
+      Runtime.start(Orphan);
+    expect([bubbled, covered]).toBeDefined();
   });
 
   it('a Capability Provided in one State does not reach Children of another', () => {
-    const Wrong = Actor.make('Wrong', {
-      state: AuthState,
-      provides: { Authenticated: [Session] },
-      // @ts-expect-error Session is Provided only in Authenticated, but Todos lives in Anonymous
-      children: { Anonymous: { todos: Todos } },
-    });
-    expect(Wrong).toBeDefined();
-  });
-
-  it('an Actor must build every Capability its shape says it Provides', () => {
-    const Forgot = Actor.make('Forgot', {
-      state: AuthState,
-      provides: { Authenticated: [Session] },
-    }).build(
-      // @ts-expect-error provides.Authenticated is missing
-      { init: () => ({ state: { _tag: 'Checking' } }) },
-    );
-    const Other = Actor.make('Other', {
-      state: AuthState,
-      provides: { Authenticated: [Session] },
-    }).build({
+    const Wrong = Actor.make('Wrong', { state: AuthState }).build({
       init: () => ({ state: { _tag: 'Checking' } }),
-      provides: {
-        Authenticated: () =>
-          // @ts-expect-error builds SignIn, but the shape says Session
-          Layer.succeed(SignIn, { complete: () => Effect.void }),
+      state: {
+        Anonymous: { children: { todos: Todos } },
+        Authenticated: {
+          provides: (self) =>
+            Layer.effect(
+              Session,
+              Effect.gen(function* () {
+                const user = yield* SubscriptionRef.make(
+                  (yield* self.get).state.user,
+                );
+                return { user, logOut: Effect.void };
+              }),
+            ),
+        },
       },
     });
-    expect([Forgot, Other]).toBeDefined();
+    // @ts-expect-error Session reaches Authenticated only, and Todos lives in Anonymous
+    const covered: Effect.Effect<unknown, never, Scope.Scope> =
+      Runtime.start(Wrong);
+    expect(covered).toBeDefined();
+  });
+
+  it('a Capability Provided at the top reaches the Children of every State', () => {
+    const Top = Actor.make('Top', { state: AuthState }).build({
+      init: () => ({ state: { _tag: 'Checking' } }),
+      provides: () =>
+        Layer.effect(
+          Session,
+          Effect.gen(function* () {
+            const user = yield* SubscriptionRef.make('ada');
+            return { user, logOut: Effect.void };
+          }),
+        ),
+      state: { Anonymous: { children: { todos: Todos } } },
+    });
+    const covered: Effect.Effect<unknown, never, Scope.Scope> =
+      Runtime.start(Top);
+    expect(covered).toBeDefined();
+  });
+
+  it("an Actor's own code reaches only what it Requires", () => {
+    const Greedy = Actor.make('Greedy', {}).build({
+      workers: {
+        // @ts-expect-error Server is not in Requires
+        check: { run: () => Effect.flatMap(Server, (s) => s.checkSession) },
+      },
+    });
+    const Asks = Actor.make('Asks', { requires: [Server] }).build({
+      workers: {
+        check: { run: () => Effect.flatMap(Server, (s) => s.checkSession) },
+      },
+    });
+    expect([Greedy, Asks]).toBeDefined();
+  });
+
+  it('a Provide in a State sees that State narrowed', () => {
+    const Narrow = Actor.make('Narrow', { state: AuthState }).build({
+      init: () => ({ state: { _tag: 'Checking' } }),
+      state: {
+        Anonymous: {
+          provides: (self) =>
+            Layer.effect(
+              Session,
+              Effect.gen(function* () {
+                const user = yield* SubscriptionRef.make(
+                  // @ts-expect-error Anonymous has no user
+                  (yield* self.get).state.user,
+                );
+                return { user, logOut: Effect.void };
+              }),
+            ),
+        },
+      },
+    });
+    expect(Narrow).toBeDefined();
   });
 });
 
@@ -914,7 +970,7 @@ describe('the mailbox', () => {
                 ),
             },
           },
-          update: {
+          on: {
             Ping: (_, { model }) => ({ model: { n: model.n + 1 } }),
             Pong: (_, { model }) => ({ model: { n: model.n + 10 } }),
           },
@@ -1053,4 +1109,122 @@ describe('the Log as a tree', () => {
         expect(at(app, 'Auth/todos#1').model).toEqual({ items: [] });
       }),
     ));
+});
+
+describe('levels', () => {
+  class Clock2 extends Context.Service<
+    Clock2,
+    { readonly tick: Effect.Effect<void> }
+  >()('test/Clock2') {}
+
+  /** A Child that counts its own ticks, through the Capability from above. */
+  const Ticker = Actor.make('Ticker', {
+    requires: [Clock2],
+    model: Schema.Struct({ ticks: Schema.Number }),
+    message: Schema.TaggedUnion({ Ticked: {} }),
+  }).build({
+    init: () => ({ model: { ticks: 0 } }),
+    on: { Ticked: (_, { model }) => ({ model: { ticks: model.ticks + 1 } }) },
+    workers: {
+      alive: {
+        run: () =>
+          Effect.addFinalizer(() =>
+            Effect.sync(() => heard.push('ticker gone')),
+          ).pipe(
+            Effect.andThen(Effect.flatMap(Clock2, (clock) => clock.tick)),
+            Effect.andThen(Effect.never),
+          ),
+      },
+    },
+  });
+
+  const Door = Actor.make('Door', {
+    state: Schema.TaggedUnion({ Open: {}, Shut: {} }),
+    model: Schema.Struct({ loud: Schema.Boolean }),
+    message: Schema.TaggedUnion({ Toggle: {}, Hush: {} }),
+  }).build({
+    init: () => ({ model: { loud: true }, state: { _tag: 'Open' } }),
+    provides: () =>
+      Layer.succeed(Clock2, {
+        tick: Effect.sync(() => heard.push('tick')),
+      }),
+    children: { ticker: Ticker },
+    on: { Hush: (_, { model }) => ({ model: { ...model, loud: false } }) },
+    state: {
+      Open: {
+        children: { guest: Counter },
+        on: { Toggle: () => ({ state: { _tag: 'Shut' } }) },
+        workers: {
+          creak: {
+            while: ({ model }) => model.loud,
+            run: () =>
+              Effect.addFinalizer(() =>
+                Effect.sync(() => heard.push('creak stopped')),
+              ).pipe(Effect.andThen(Effect.never)),
+          },
+        },
+      },
+      Shut: { on: { Toggle: () => ({ state: { _tag: 'Open' } }) } },
+    },
+  });
+
+  it('a Child written at the top lasts through Transitions, with its data and work', () =>
+    run(
+      Effect.gen(function* () {
+        heard.length = 0;
+        const app = yield* Runtime.start(Door);
+        yield* settle;
+        expect(heard).toEqual(['tick']);
+        expect(Object.keys(app.snapshot().children).sort()).toEqual([
+          'guest',
+          'ticker',
+        ]);
+
+        app.send('Door/ticker#1', { _tag: 'Ticked' });
+        app.send('Door', { _tag: 'Toggle' });
+        app.send('Door', { _tag: 'Toggle' });
+        yield* settle;
+
+        expect(at(app, 'Door/ticker#1').model).toEqual({ ticks: 1 });
+        expect(at(app, 'Door/guest#2')).toBeDefined();
+        expect(heard).toEqual(['tick', 'creak stopped']);
+        expect(app.snapshotAt(app.state().head)).toEqual(app.snapshot());
+      }),
+    ));
+
+  it('a Worker in a State block runs only in that State, and only while its test holds', () =>
+    run(
+      Effect.gen(function* () {
+        heard.length = 0;
+        const app = yield* Runtime.start(Door);
+        yield* settle;
+        expect(app.workers('Door').map((w) => w.name)).toEqual(['creak']);
+        app.send('Door', { _tag: 'Hush' });
+        yield* settle;
+        expect(heard).toEqual(['tick', 'creak stopped']);
+        expect(Door.definition.workers['creak']).toMatchObject({
+          kind: 'while',
+          state: 'Open',
+        });
+      }),
+    ));
+
+  it('a top-level Child is drawn in every State', () => {
+    const kids: Types<typeof Door>['children']['Shut'] = {
+      ticker: Ticker,
+    };
+    expect(kids).toBeDefined();
+  });
+
+  it('a name written twice is an error', () => {
+    expect(() =>
+      Actor.make('Twice', {
+        state: Schema.TaggedUnion({ A: {} }),
+      }).build({
+        init: () => ({ state: { _tag: 'A' } }),
+        children: { kid: Counter },
+        state: { A: { children: { kid: Counter } } },
+      }),
+    ).toThrow('Child "kid" is written at the top and in A');
+  });
 });
