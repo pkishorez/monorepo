@@ -53,6 +53,7 @@ pnpm add effect-oak effect react motion
 | ----------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | `Actor.make`      | Defines an Actor from its Requires and Schemas. `.build` adds how it behaves, at the top and in one block per State.    |
 | `Actor.many`      | Declares a keyed Child slot: one Instance of an Actor per key the parent Invokes.                                       |
+| `Command.make`    | Defines a Command from its name, the Schema of its args and the Effect it runs; an Update calls it with the args.       |
 | `Runtime.start`   | Starts an Actor as the root of a running app, inside a Scope, with its Snapshot, Log, Time and `stop`, `start`, `show`. |
 | `Replay.make`     | Rebuilds the Snapshot right after any Log entry from the Messages alone, yielding as it goes.                           |
 | `Replay.fold`     | The Snapshot right after a Branch, played now with no yielding.                                                         |
@@ -146,6 +147,12 @@ export const Auth = Actor.make('Auth', {
 ### A list of Actors, a Command, and a Worker per key
 
 ```ts
+const save = Command.make('save', {
+  args: Schema.Struct({ id: Schema.String }),
+  run: () =>
+    Effect.sleep('1 second').pipe(Effect.as({ _tag: 'Saved' as const })),
+});
+
 const List = Actor.make('List', {
   model: Schema.Struct({
     ids: Schema.Array(Schema.String),
@@ -177,12 +184,7 @@ const List = Actor.make('List', {
           uploading: [...model.uploading, id],
           next: model.next + 1,
         },
-        command: {
-          name: 'save',
-          run: Effect.sleep('1 second').pipe(
-            Effect.as({ _tag: 'Saved' as const }),
-          ),
-        },
+        command: save({ id }),
       };
     },
     Removed: ({ id }, { model }) => ({
@@ -212,7 +214,7 @@ const List = Actor.make('List', {
 - `invoke` sits beside the `children` it feeds, and says which keys exist, the Input each new Child starts from, and the Props each is handed. After every Update, a new key Invokes a Row, a key gone stops it, and a key kept keeps its Instance. From then on the Row owns its data.
 - Props are what the parent says now, worked out again after each of its Updates: the Row declares them with `props` beside `input`, and its Update, its Workers' Conditions and its View read them. It never writes them, and a change runs none of its rules. Props equal to the last ones keep the Instance; new ones are not in the Log, since Replay works them out again from the parent.
 - Instance IDs are deterministic: `List/rows[0]#1` is the first `rows` keyed `0`. A key Invoked again gets `#2`, so a Message meant for the old Instance is dropped.
-- A Command is an errand: one named Effect that ends with at most one Message. Nothing stops it but its Instance stopping, and there is no cancel. An Update may return a list of Commands; they run concurrently.
+- A Command is an errand, made once with `Command.make`: a name, the Schema of its args and the Effect it runs from them, ending with at most one Message. The Update asks for it with its args, `save({ id })`, which is plain data a test can compare; the args are checked when it runs. Nothing stops it but its Instance stopping, and there is no cancel. An Update may return a list of Commands; they run concurrently.
 - A Worker runs for exactly as long as its Condition holds, read from the Model, State and Props whenever they change: its Level, and within it always, `while` a test is true, or `each` key a function names, one Worker per key. Removing an id from `uploading` interrupts that upload and runs its finalizers; a finished upload Sends `Uploaded`, whose Update takes its key away. Stopping work is changing the Model.
 - The Worker does the work and the Model keeps the story: every step the user could notice is a Message. A Worker must be able to start from the Model alone, because a resume or a start from an earlier Log entry starts every Worker whose condition holds. A Worker that waits until a Time in the Model sleeps for `that - now`, so it waits only what is left. A finalizer never Sends.
 

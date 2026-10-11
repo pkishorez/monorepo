@@ -44,14 +44,19 @@ export interface Self<Model, State, Msg, Props = void> {
   readonly now: Effect.Effect<number>;
 }
 
+/** Where a Command keeps the Effect it runs, out of sight of a comparison. */
+export const RUN: unique symbol = Symbol.for('effect-oak/Command/run');
+
 /**
- * An errand an Update asks for: one named Effect that ends with at most one
- * Message, Sent to its Instance. Nothing stops it but its Instance stopping;
- * work that must be stopped, show progress or survive a stop is a Worker.
+ * An errand an Update asks for, as `Command.make` makes it: its name and
+ * args, and the Effect that ends with at most one Message, Sent to its
+ * Instance. Nothing stops it but its Instance stopping; work that must be
+ * stopped, show progress or survive a stop is a Worker.
  */
-export interface Command<Msg, R extends Requires> {
+export interface Command<Out, Ids = never> {
   readonly name: string;
-  readonly run: Effect.Effect<Msg | void, never, IdsOf<R>>;
+  readonly args: unknown;
+  readonly [RUN]: Effect.Effect<Out, never, Ids>;
 }
 
 /** The Updates of one level, by Message tag. */
@@ -73,7 +78,9 @@ type Rules<
     readonly model?: Model;
     readonly state?: Next;
     /** The Commands to run, concurrently. */
-    readonly command?: Command<Msg, R> | ReadonlyArray<Command<Msg, R>>;
+    readonly command?:
+      | Command<Msg | void, IdsOf<R>>
+      | ReadonlyArray<Command<Msg | void, IdsOf<R>>>;
   };
 };
 

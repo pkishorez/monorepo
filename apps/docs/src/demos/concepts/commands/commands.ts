@@ -1,5 +1,18 @@
 import { Effect, Schema } from 'effect';
-import { Actor } from 'effect-oak';
+import { Actor, Command } from 'effect-oak';
+
+/** The errand: sleep a second, then draw a face. */
+const roll = Command.make('roll', {
+  run: () =>
+    Effect.sleep('1 second').pipe(
+      Effect.andThen(
+        Effect.sync(() => ({
+          _tag: 'Rolled' as const,
+          value: 1 + Math.floor(Math.random() * 6),
+        })),
+      ),
+    ),
+});
 
 /**
  * A die. Roll asks for a Command: an errand that sleeps a second, then ends
@@ -22,17 +35,7 @@ export const Dice = Actor.make('Dice', {
         ? {}
         : {
             model: { ...model, rolling: true },
-            command: {
-              name: 'roll',
-              run: Effect.sleep('1 second').pipe(
-                Effect.andThen(
-                  Effect.sync(() => ({
-                    _tag: 'Rolled' as const,
-                    value: 1 + Math.floor(Math.random() * 6),
-                  })),
-                ),
-              ),
-            },
+            command: roll(),
           },
     Rolled: ({ value }) => ({ model: { value, rolling: false } }),
   },

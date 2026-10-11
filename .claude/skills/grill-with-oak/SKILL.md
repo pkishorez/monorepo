@@ -45,8 +45,8 @@ recommendation:
 4. **Messages**: every fact that can reach it, named in the past tense.
 5. **Updates and Transitions**: what each Message does in each State, and
    which ones change State.
-6. **Commands**: the errands an Update asks for, each ending in at most one
-   Message.
+6. **Commands**: the errands an Update asks for, the args each takes, and
+   the one Message each ends with at most.
 7. **Workers and Conditions**: the work that runs for as long as a Condition
    holds, at which Level, and what each Sends.
 8. **Requires**: the Capabilities its own code needs from above, with a
