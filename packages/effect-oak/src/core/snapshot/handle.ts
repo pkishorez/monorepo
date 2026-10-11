@@ -1,6 +1,8 @@
 import type { Definition } from '../actor/index.ts';
 import { enter, follow } from './invoke.ts';
 import { slotToward, within } from './id.ts';
+import { isMany } from './many.ts';
+import { checkRestore, isRestore } from './restore.ts';
 import type { Envelope, Instance, Snapshot } from './snapshot.ts';
 
 /*
@@ -46,6 +48,7 @@ export const handle = (
   snapshot: Snapshot,
   { instance: id, message, at }: Envelope,
 ): Handled => {
+  if (isRestore(message)) return restored(root, snapshot, id, message);
   // 1. Find
   const path = find(root, snapshot, id);
   if (!path) return { outcome: 'dropped', from: '', to: '', snapshot };
@@ -97,6 +100,37 @@ export const handle = (
             ? next.command
             : [next.command],
     },
+  };
+};
+
+const warned = new WeakSet<object>();
+
+const restored = (
+  root: Definition,
+  snapshot: Snapshot,
+  id: string,
+  message: Parameters<typeof checkRestore>[1],
+): Handled => {
+  const from = snapshot.state._tag;
+  if (id !== snapshot.id)
+    return { outcome: 'dropped', from: '', to: '', snapshot };
+  const checked = checkRestore(root, message);
+  if ('reason' in checked) {
+    if (!warned.has(message)) {
+      warned.add(message);
+      console.warn(
+        `[effect-oak] a Restore no longer matches ${root.name}, and is ignored: ${checked.reason}`,
+      );
+    }
+    return { outcome: 'ignored', from, to: from, snapshot };
+  }
+  const after = checked.snapshot;
+  return {
+    outcome: 'handled',
+    from,
+    to: after.state._tag,
+    snapshot: after,
+    change: { before: snapshot, after, definition: root, commands: [] },
   };
 };
 
@@ -167,10 +201,6 @@ const replace = (path: ReadonlyArray<Step>, after: Instance): Snapshot => {
   }
   return child;
 };
-
-export const isMany = (
-  held: Instance | ReadonlyArray<Instance>,
-): held is ReadonlyArray<Instance> => Array.isArray(held);
 
 /** The Instance with this ID, if it is in the Snapshot. */
 export const instanceAt = (

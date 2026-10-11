@@ -137,6 +137,8 @@ const origin = (
   switch (source.kind) {
     case 'view':
       return pointer ? { x: pointer.x - box.left, y: pointer.y - box.top } : to;
+    case 'restore':
+      return to;
     case 'worker': {
       const ring = find(
         root,

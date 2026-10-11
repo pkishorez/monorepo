@@ -25,7 +25,9 @@ covers the rest.
 Every Message goes into the Log with its Time. The Log is a tree, like git
 commits: Replay folds any path through `handle` to draw the app right after
 any Message on any Branch, while the live app keeps running. The Runtime can
-stop, and start again from any entry, growing a new Branch.
+stop, and start again from any entry, growing a new Branch. The Log is also
+what an app is saved as and drawn from before it runs: on a server, at build
+time, and across a hot reload.
 
 Read the language in [CONTEXT.md](./CONTEXT.md), the decisions in
 [docs/adr/](./docs/adr/), and how the Log works in
@@ -47,23 +49,29 @@ pnpm add effect-oak effect react motion
 
 ### `effect-oak`
 
-| Export          | What it does                                                                                                            |
-| --------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `Actor.make`    | Defines an Actor from its Requires and Schemas. `.build` adds how it behaves, at the top and in one block per State.    |
-| `Actor.many`    | Declares a keyed Child slot: one Instance of an Actor per key the parent Invokes.                                       |
-| `Runtime.start` | Starts an Actor as the root of a running app, inside a Scope, with its Snapshot, Log, Time and `stop`, `start`, `show`. |
-| `Replay.make`   | Rebuilds the Snapshot right after any Log entry from the Messages alone, yielding as it goes.                           |
-| `init`          | The Snapshot right after init: the root and every Child its State Invokes.                                              |
-| `handle`        | Applies one Envelope to a Snapshot and gives the next one, purely.                                                      |
-| `instanceAt`    | Finds the Instance with an ID in a Snapshot.                                                                            |
-| `isMany`        | Tells a keyed Child slot from a fixed one in an Instance's Children.                                                    |
+| Export            | What it does                                                                                                            |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `Actor.make`      | Defines an Actor from its Requires and Schemas. `.build` adds how it behaves, at the top and in one block per State.    |
+| `Actor.many`      | Declares a keyed Child slot: one Instance of an Actor per key the parent Invokes.                                       |
+| `Runtime.start`   | Starts an Actor as the root of a running app, inside a Scope, with its Snapshot, Log, Time and `stop`, `start`, `show`. |
+| `Replay.make`     | Rebuilds the Snapshot right after any Log entry from the Messages alone, yielding as it goes.                           |
+| `Replay.fold`     | The Snapshot right after a Branch, played now with no yielding.                                                         |
+| `Replay.restored` | The lightest Log an app can be saved as: one Restore of a Snapshot at a Time, right after init.                         |
+| `restore`         | The Restore Message: given to the root, it replaces the whole Snapshot with a saved one, checked against the Actors.    |
+| `isRestore`       | Tells a Restore from any other Message.                                                                                 |
+| `RESTORE`         | The Restore Message's tag.                                                                                              |
+| `Log`             | `Log.make` holds a Log as one value, empty or carrying on from a saved one, with its Branches and children.             |
+| `init`            | The Snapshot right after init: the root and every Child its State Invokes.                                              |
+| `handle`          | Applies one Envelope to a Snapshot and gives the next one, purely.                                                      |
+| `instanceAt`      | Finds the Instance with an ID in a Snapshot.                                                                            |
+| `isMany`          | Tells a keyed Child slot from a fixed one in an Instance's Children.                                                    |
 
 ### `effect-oak/react`
 
-| Export      | What it does                                                                                                                                                                                  |
-| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `View.make` | Defines how one Actor is drawn, one function for every State, as a React component that takes the Instance and data props from its parent.                                                    |
-| `toReact`   | Turns a root Actor, its View and a Layer into one React component that runs the whole app, one Runtime for every mount; `useRuntime` reads its Log, shows any entry, and stops and starts it. |
+| Export      | What it does                                                                                                                                                                                                                                                        |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `View.make` | Defines how one Actor is drawn, one function for every State, as a React component that takes the Instance and data props from its parent.                                                                                                                          |
+| `toReact`   | Turns a root Actor, its View and a Layer into one React component that runs the whole app, one Runtime for every mount; `useRuntime` reads its Log, shows any entry, and stops and starts it. Drawn before it runs, on a server too, from a saved Log if given one. |
 
 ## Usage
 
@@ -242,3 +250,13 @@ const DemoApp = toReact(Auth, AuthView, ServerLive);
 - Work that must survive a stop belongs in a Worker: Commands running at a stop are lost. The outside world is not rewound.
 - Whatever moves between Messages is drawn from `frame`, a `MotionValue<number>` holding the Time, with `useTransform`; nothing renders between Messages.
 - `toReact` does not compile until the Layer covers every Capability the tree still needs.
+
+### Drawing it before it runs
+
+```tsx
+const DemoApp = toReact(Auth, AuthView, ServerLive, { saved });
+```
+
+- The app is drawn before any Runtime exists: with no Log, right after init; with a saved Log, at its Head or at the entry it was showing, Replayed through Suspense. A server or a static build gets the same HTML the client hydrates, and `useRuntime` reads the saved Log from the start, so a Timeline is drawn there too. Until the Runtime starts, a Send is dropped.
+- `saved` is a `RuntimeState`, what `useRuntime` and `Running.state()` give: plain JSON. The Runtime carries on as it says: live at its Head with Time going on from there, stopped, or showing an entry. `Replay.restored(definition, snapshot, at)` makes the lightest one, a Log of one Restore right after init, for an app that saves only its Snapshot; init stays the first Step. Where the Log is kept is the app's business.
+- When the last mount closes, the Log is left under the app's name, the root Actor's by default, and the next mount of an app with that name carries on from it: the same component mounted again, or a new one after a hot reload, whose code Replays the old Messages. A Message the new code handles differently warns and goes on. Give `name` when two apps share a root Actor and must not share a Log; two apps of one name mounted at once is a console error.

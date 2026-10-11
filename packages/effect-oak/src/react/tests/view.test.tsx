@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { Actor } from '../../core/index.ts';
 import { View, toReact } from '../index.ts';
 import type { ViewProps } from '../index.ts';
+import { registry } from '../registry.ts';
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
@@ -26,6 +27,7 @@ let host: HTMLDivElement;
 let root: ReactRoot;
 
 beforeEach(() => {
+  registry.clear();
   renders = {};
   sends = {};
   host = document.createElement('div');

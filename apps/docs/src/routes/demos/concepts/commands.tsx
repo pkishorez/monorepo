@@ -9,6 +9,5 @@ const App = toReact(Dice, DiceView, Layer.empty);
 
 export const Route = createFileRoute('/demos/concepts/commands')({
   component: () => <ConceptPage app={App} menu={<DemoMenu />} />,
-  ssr: false,
   head: ({ match }) => demoHead(match.fullPath),
 });

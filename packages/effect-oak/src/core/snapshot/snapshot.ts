@@ -32,10 +32,10 @@ export type Snapshot = Instance;
 /**
  * Who Sent a Message: a View, a Command by its name, or a Worker by its name
  * and key, and the Instance it belongs to. Only a Request comes from another
- * Instance than its target.
+ * Instance than its target. A Restore no one Sent: it was given to the app.
  */
 export interface Source {
-  readonly kind: 'view' | 'command' | 'worker';
+  readonly kind: 'view' | 'command' | 'worker' | 'restore';
   readonly instance: string;
   /** The Command's or Worker's name. */
   readonly name?: string;

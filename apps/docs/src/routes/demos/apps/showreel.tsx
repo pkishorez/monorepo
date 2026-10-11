@@ -9,6 +9,5 @@ export const Route = createFileRoute('/demos/apps/showreel')({
   validateSearch: (search: Record<string, unknown>): { record?: 1 } =>
     String(search['record']) === '1' ? { record: 1 } : {},
   component: ShowreelPage,
-  ssr: false,
   head: ({ match }) => demoHead(match.fullPath),
 });

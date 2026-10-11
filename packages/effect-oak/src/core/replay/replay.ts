@@ -1,8 +1,8 @@
 import { Effect } from 'effect';
 import type { Definition } from '../actor/index.ts';
-import { handle, init } from '../snapshot/index.ts';
+import { handle, init, restore } from '../snapshot/index.ts';
 import type { Snapshot } from '../snapshot/index.ts';
-import type { Entry } from '../log/index.ts';
+import type { Entry, RuntimeState } from '../log/index.ts';
 
 /*
  * Replay: the Snapshot right after any Log entry, from the Messages alone.
@@ -16,6 +16,10 @@ import type { Entry } from '../log/index.ts';
  * 4. Yield  to the main thread whenever playing has taken `budget` millis,
  *           so a long Branch never freezes the page. Interrupting a seek
  *           stops it at the next yield.
+ *
+ * `fold` plays a whole Branch in one go, with no yielding, for code that
+ * needs the Snapshot now. `restored` makes the lightest Log an app can be
+ * saved as: one Restore of a Snapshot, right after init.
  */
 
 export interface ReplayOptions {
@@ -56,11 +60,7 @@ const make = (
       for (let index = from + 1; index < branch.length; index++) {
         // 2. Play
         const entry = branch[index]!;
-        if (entry.outcome === 'handled') {
-          const played = handle(root, snapshot, entry);
-          if (played.outcome !== 'handled') diverged(entry, played.outcome);
-          snapshot = played.snapshot;
-        }
+        snapshot = play(root, snapshot, entry);
         // 3. Save
         if ((index + 1) % every === 0) saved.set(entry.id, snapshot);
         // 4. Yield
@@ -82,7 +82,52 @@ const make = (
   };
 };
 
-export const Replay = { make };
+/** The Snapshot right after one entry, from the one before it. */
+const play = (root: Definition, snapshot: Snapshot, entry: Entry): Snapshot => {
+  if (entry.outcome !== 'handled') return snapshot;
+  const played = handle(root, snapshot, entry);
+  if (played.outcome !== 'handled') diverged(entry, played.outcome);
+  return played.snapshot;
+};
+
+/** The Snapshot right after the last entry of `branch`, played now with no yielding, from init or from `from`. */
+const fold = (
+  root: Definition,
+  branch: ReadonlyArray<Entry>,
+  from: Snapshot = init(root),
+): Snapshot =>
+  branch.reduce((snapshot, entry) => play(root, snapshot, entry), from);
+
+/**
+ * A saved Log of one Restore: the app right after init, then `snapshot` at
+ * Time `at`. The lightest way to save an app: nothing before the Restore can
+ * be travelled to but init.
+ */
+const restored = (
+  root: Definition,
+  snapshot: Snapshot,
+  at: number,
+  input?: unknown,
+): RuntimeState => ({
+  entries: [
+    {
+      id: 0,
+      parent: null,
+      instance: root.name,
+      message: restore(snapshot),
+      source: { kind: 'restore', instance: root.name },
+      at,
+      outcome: 'handled',
+      from: init(root, input).state._tag,
+      to: snapshot.state._tag,
+    },
+  ],
+  head: 0,
+  running: true,
+  shown: null,
+});
+
+export const Replay = { make, fold, restored };
 
 const now = () => performance.now();
 

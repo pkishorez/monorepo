@@ -1,15 +1,18 @@
 import { instanceAt, isMany } from '../core/index.ts';
-import type { AnyActor, Instance, Running, Tagged } from '../core/index.ts';
+import type { AnyActor, Instance, Snapshot, Tagged } from '../core/index.ts';
 import type { Drawable, Drawn, Handle } from './view.tsx';
 
 /*
  * What Views read: the props of any Instance, from the Snapshot drawn now.
  * Props stay the same object while the Instance's Model, State and Children's
  * IDs stay the same, so a View re-renders only when its own Instance changes.
- * A View of the past or of a stopped app cannot Send.
+ * A View of the past, of a stopped app, or of an app whose Runtime has not
+ * started cannot Send.
  */
 export const makeDrawn = (
-  runtime: () => Running<AnyActor> | undefined,
+  drawn: () => Snapshot | undefined,
+  served: () => Snapshot | undefined,
+  deliver: (id: string, message: Tagged) => void,
   subscribe: Drawn['subscribe'],
 ): Drawn => {
   const handles = new Map<string, Handle<AnyActor>>();
@@ -28,16 +31,18 @@ export const makeDrawn = (
       sends.set(
         id,
         (send = (message) => {
-          const app = runtime();
-          if (app && app.state().shown === null) app.send(id, message);
+          deliver(id, message);
         }),
       );
     return send;
   };
 
-  const props = (id: string) => {
-    const app = runtime();
-    const instance = app && instanceAt(app.drawn(), id);
+  const propsIn = (
+    cache: Map<string, { instance: Instance; props: Drawable }>,
+    snapshot: Snapshot | undefined,
+    id: string,
+  ) => {
+    const instance = snapshot && instanceAt(snapshot, id);
     const hit = cache.get(id);
     if (!instance) {
       cache.delete(id);
@@ -69,7 +74,17 @@ export const makeDrawn = (
     return next;
   };
 
-  return { subscribe, props };
+  const onServer = new Map<string, { instance: Instance; props: Drawable }>();
+  return {
+    subscribe,
+    props: (id) => propsIn(cache, drawn(), id),
+    served: (id) => {
+      const snapshot = served();
+      return snapshot === drawn()
+        ? propsIn(cache, snapshot, id)
+        : propsIn(onServer, snapshot, id);
+    },
+  };
 };
 
 const same = (a: Instance, b: Instance) =>

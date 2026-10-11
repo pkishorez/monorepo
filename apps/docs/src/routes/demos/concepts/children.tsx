@@ -9,6 +9,5 @@ const App = toReact(Room, RoomView, Layer.empty);
 
 export const Route = createFileRoute('/demos/concepts/children')({
   component: () => <ConceptPage app={App} menu={<DemoMenu />} />,
-  ssr: false,
   head: ({ match }) => demoHead(match.fullPath),
 });
