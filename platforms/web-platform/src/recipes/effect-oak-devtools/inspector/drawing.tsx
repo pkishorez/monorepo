@@ -1,5 +1,7 @@
 import { AnimatePresence, motion } from 'motion/react';
+import type { WorkerStatus } from 'effect-oak';
 import type { Step } from '../step/index.ts';
+import { workersId } from './map/index.ts';
 import type { AppMap, Status } from './map/index.ts';
 import { Circle, Many, Pill } from './nodes.tsx';
 
@@ -18,17 +20,22 @@ const MARKERS = ['dim', 'same', 'started', 'stopped'] as const;
 const markerOf = (status: Status) =>
   `url(#oak-arrow-${status === 'changed' ? 'same' : status})`;
 
-/** The map: edges, then nodes, so nodes sit on top. */
+/** The map: edges, then nodes, so nodes sit on top. Live, each open card is told what its keys are doing. */
 export const Drawing = ({
   map,
   step,
   picked,
+  workers,
   onPick,
   onToggle,
 }: {
   readonly map: AppMap;
   readonly step: Step;
   readonly picked: string | null;
+  /** What an Instance's Workers are doing now; `undefined` while not live. */
+  readonly workers:
+    | ((instance: string) => ReadonlyArray<WorkerStatus>)
+    | undefined;
   readonly onPick: (id: string) => void;
   readonly onToggle: (id: string) => void;
 }) => {
@@ -103,6 +110,10 @@ export const Drawing = ({
       <AnimatePresence>
         {map.nodes.map((node) => {
           const message = node.id === target ? entry?.message._tag : undefined;
+          const live =
+            node.kind !== 'many' && workers && node.card?.instance !== undefined
+              ? workers(node.card.instance)
+              : undefined;
           return node.kind === 'actor' ? (
             <Circle
               key={node.id}
@@ -110,7 +121,9 @@ export const Drawing = ({
               stepKey={stepKey}
               message={message}
               picked={picked !== null && node.instance?.id === picked}
+              live={live}
               onPick={() => node.instance && onPick(node.instance.id)}
+              onToggle={() => onToggle(workersId(node.id))}
             />
           ) : node.kind === 'many' ? (
             <Many
@@ -121,7 +134,12 @@ export const Drawing = ({
               onToggle={() => onToggle(node.id)}
             />
           ) : (
-            <Pill key={node.id} node={node} />
+            <Pill
+              key={node.id}
+              node={node}
+              live={live}
+              onToggle={() => onToggle(workersId(node.id))}
+            />
           );
         })}
       </AnimatePresence>

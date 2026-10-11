@@ -4,8 +4,9 @@ import { View } from 'effect-oak/react';
 import { Info } from 'lucide-react';
 
 /*
- * A tooltip as an Actor: hidden, or shown. Hovering waits `delayMs` before
- * showing, as a Command; leaving replaces it, so a pointer that passes over
+ * A tooltip as an Actor: hidden, waiting, or shown. Hovering sets `waiting`,
+ * and a Worker owned by that flag sleeps `delayMs` before showing; leaving
+ * clears the flag, which stops the Worker, so a pointer that passes over
  * the trigger shows nothing. The wait runs in the app's Time: pausing the
  * timeline mid-wait holds the tooltip back too. Focus shows it at once, and
  * Escape, blur or leaving hide it.
@@ -20,10 +21,11 @@ type Options = {
 
 const make = (options: Options) => {
   const tip = `${options.id}-tip`;
-  const hidden = { model: { shown: false }, cancel: 'wait' } as const;
+  const hidden = { model: { shown: false, waiting: false } } as const;
+  const shown = { model: { shown: true, waiting: false } } as const;
 
   const Tooltip = Actor.make(`Tooltip(${options.id})`, {
-    model: Schema.Struct({ shown: Schema.Boolean }),
+    model: Schema.Struct({ shown: Schema.Boolean, waiting: Schema.Boolean }),
     message: Schema.TaggedUnion({
       PointerEntered: {},
       Waited: {},
@@ -31,23 +33,25 @@ const make = (options: Options) => {
       Left: {},
     }),
   }).build({
-    init: () => ({ model: { shown: false } }),
+    init: () => hidden,
+    workers: {
+      wait: {
+        while: ({ model }) => model.waiting,
+        run: (self) =>
+          Effect.sleep(options.delayMs).pipe(
+            Effect.andThen(self.send({ _tag: 'Waited' })),
+          ),
+      },
+    },
     update: {
       PointerEntered: (_, { model }) =>
         model.shown
           ? {}
           : options.delayMs === 0
-            ? { model: { shown: true } }
-            : {
-                command: {
-                  key: 'wait',
-                  run: Effect.sleep(options.delayMs).pipe(
-                    Effect.as({ _tag: 'Waited' as const }),
-                  ),
-                },
-              },
-      Waited: () => ({ model: { shown: true } }),
-      Focused: () => ({ model: { shown: true } }),
+            ? shown
+            : { model: { shown: false, waiting: true } },
+      Waited: () => shown,
+      Focused: () => shown,
       Left: () => hidden,
     },
   });

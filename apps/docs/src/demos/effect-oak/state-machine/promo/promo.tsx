@@ -46,9 +46,12 @@ export const PromoCode = Actor.make('PromoCode', {
       model.input.trim() === ''
         ? {}
         : {
-            command: Effect.gen(function* () {
-              yield* (yield* Promos).submit(model.input);
-            }),
+            command: {
+              name: 'submit',
+              run: Effect.gen(function* () {
+                yield* (yield* Promos).submit(model.input);
+              }),
+            },
           },
   },
 });

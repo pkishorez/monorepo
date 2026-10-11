@@ -14,20 +14,23 @@ const clamp = (k: number) => Math.min(MAX, Math.max(MIN, k));
 /**
  * A surface that pans and zooms what is drawn on it: drag to pan; scroll,
  * pinch or the buttons to zoom, at the pointer or the middle; Fit to see it
- * all. What is drawn has x 0
- * in its middle, which fitting puts in the surface's middle: once, when
+ * all. What is drawn has x 0 in its middle, which fitting puts in the
+ * surface's middle, and may reach above y 0 as far as `top`: once, when
  * first shown, and on Fit. A press that does not move is a click: on the
  * content it reaches the content, on the empty surface it calls
  * `onBackground`.
  */
 export const Canvas = ({
   width,
+  top = 0,
   height,
   onBackground,
   overlay,
   children,
 }: {
   readonly width: number;
+  /** How far above y 0 what is drawn reaches: 0 or less. */
+  readonly top?: number;
   readonly height: number;
   readonly onBackground: () => void;
   /** Drawn over the surface, not moved by it. */
@@ -38,8 +41,8 @@ export const Canvas = ({
   const x = useMotionValue(0);
   const y = useMotionValue(0);
   const k = useMotionValue(1);
-  const size = useRef({ width, height });
-  size.current = { width, height };
+  const size = useRef({ width, top, height });
+  size.current = { width, top, height };
   const pointers = useRef(new Map<number, { x: number; y: number }>());
   const dragged = useRef(false);
 
@@ -54,13 +57,14 @@ export const Canvas = ({
   const fit = (smooth: boolean) => {
     const box = ref.current?.getBoundingClientRect();
     if (!box || box.width === 0) return;
-    const { width: w, height: h } = size.current;
+    const { width: w, top: t, height } = size.current;
+    const h = height - t;
     // Room for what is drawn over the surface: the bar on top, the zoom below.
     const room = { width: box.width - 16, height: box.height - TOP - BOTTOM };
     const next = clamp(Math.min(room.width / w, room.height / h, 1.1));
     const to = {
       x: box.width / 2,
-      y: TOP + Math.max((room.height - h * next) / 2, 0),
+      y: TOP + Math.max((room.height - h * next) / 2, 0) - t * next,
       k: next,
     };
     const go = (value: typeof x, target: number) =>

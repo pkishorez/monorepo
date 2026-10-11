@@ -3,7 +3,7 @@ import { Context, Effect, Layer, Queue, Schema, Stream } from 'effect';
 /*
  * How a parent tells a Query what to do. Effect Oak has no way for a parent
  * to send its Child a Message, so the app's Layer holds a mailbox per Query:
- * the parent's Command posts an Order, the Query's Lifetime hears it and
+ * the parent's Command posts an Order, the Query's Worker hears it and
  * sends it to its own Actor. Orders posted before the Query listens wait in
  * its mailbox. Both the parent's Message and the Query's are in the Log.
  */

@@ -13,8 +13,8 @@ The Log is one value in memory, owned by the Runtime. It is the only source of t
 
 ## Stopping and starting
 
-- **`stop()`** interrupts every Command and Lifetime at once. The tree, the Log and the Head stay as they are, and the Frame stands still. Nothing can Send.
-- **`start(from?)`** Replays the path to `from` (the Head if not given), goes live from that tree with its Instance numbers kept, and moves the Head to `from`. Every Instance enters its current State, so Lifetimes start again. Commands that were running when the Runtime stopped are gone: their Messages never arrive. `init` runs inside the Replay, so its Commands do not run again either. `start(null)` starts from right after init.
+- **`stop()`** interrupts every Command and Worker at once. The tree, the Log and the Head stay as they are, and the Frame stands still. Nothing can Send.
+- **`start(from?)`** Replays the path to `from` (the Head if not given), goes live from that tree with its Instance numbers kept, and moves the Head to `from`. Every Instance enters its current State and its Workers' conditions are read again, so every Worker that should run starts again, from the Model alone. Commands that were running when the Runtime stopped are gone: their Messages never arrive. `init` runs inside the Replay, so its Commands do not run again either. `start(null)` starts from right after init.
 - **Starting while running** stops first, then starts.
 - **`start()` with no entry** is a resume: the same Branch carries on.
 - **Time** on a new Branch carries on from `from`'s Time (0 right after init). A resume carries on from the Time it stopped at. Time spent stopped is not counted.
@@ -22,7 +22,7 @@ The Log is one value in memory, owned by the Runtime. It is the only source of t
 
 Two rules follow, and the README states them:
 
-- Work that must survive a stop belongs in a Lifetime, not a Command. A first fetch is a Lifetime.
+- Work that must survive a stop belongs in a Worker, not a Command. A first fetch is a Worker.
 - The outside world is not rewound. Starting from an old entry rebuilds the app, not the server, the socket or localStorage.
 
 ## Storage

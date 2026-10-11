@@ -1,13 +1,16 @@
-import type { Instance, Snapshot } from 'effect-oak';
-import { kidsOf } from './step.ts';
+import { isMany } from 'effect-oak';
+import type { Definition, Instance, Snapshot } from 'effect-oak';
 import type { Around } from './step.ts';
 
 /*
  * A Step's Change, worked out from the Snapshots right before and after it:
  * one Row per Instance, in tree order, saying whether the Step started or
- * stopped it, moved its State, and which fields of its Model or State took a
- * new value. Fields are compared down to plain values, lists by position;
- * equal contents are no change. Pure, and remembered per pair of Snapshots.
+ * stopped it, moved its State, which fields of its Model or State took a new
+ * value, and which of its Workers it started or stopped. Fields are compared
+ * down to plain values, lists by position; equal contents are no change.
+ * Workers follow from the Snapshot alone: each Worker's Condition names the
+ * keys it expects for the Instance's data, and the Change is their diff.
+ * Pure, and remembered per pair of Snapshots.
  */
 
 /** One field of a Model or State that took a new value. */
@@ -19,6 +22,21 @@ export interface Field {
   readonly kind: 'changed' | 'added' | 'removed';
   readonly before: unknown;
   readonly after: unknown;
+}
+
+/** What a Step did to one Worker key: its Condition named it anew, dropped it, or kept it. */
+export type Life = 'started' | 'stopped' | 'kept';
+
+/** One key a Worker's Condition names, and what the Step did to it. */
+export interface WorkerKey {
+  /** `''` for every kind but `each`. */
+  readonly key: string;
+  readonly life: Life;
+}
+
+/** One of an Instance's Workers at a Step: one per key its Condition names, and what the Step did to it. */
+export interface WorkerRow extends WorkerKey {
+  readonly name: string;
 }
 
 /** One Instance at a Step, and what the Step did to it. */
@@ -33,50 +51,87 @@ export interface Row {
     | { readonly from: string; readonly to: string }
     | undefined;
   readonly fields: ReadonlyArray<Field>;
+  /** Its Workers as the Step leaves them, and the ones the Step stopped. Empty without its Actor's definition. */
+  readonly workers: ReadonlyArray<WorkerRow>;
 }
 
 /** Whether the Step did anything to this Instance. */
 export const touched = (row: Row) =>
-  row.life !== 'kept' || row.transition !== undefined || row.fields.length > 0;
+  row.life !== 'kept' ||
+  row.transition !== undefined ||
+  row.fields.length > 0 ||
+  row.workers.some((worker) => worker.life !== 'kept');
 
 const remembered = new WeakMap<
   Snapshot,
-  { readonly before: Snapshot | undefined; readonly rows: ReadonlyArray<Row> }
+  {
+    readonly before: Snapshot | undefined;
+    readonly definition: Definition | undefined;
+    readonly rows: ReadonlyArray<Row>;
+  }
 >();
 
-/** Every Instance before and after a Step, in tree order; init starts them all. */
-export const rowsOf = ({ before, after }: Around): ReadonlyArray<Row> => {
+/**
+ * Every Instance before and after a Step, in tree order; init starts them
+ * all. With the root Actor's definition, each Row also carries its Workers.
+ */
+export const rowsOf = (
+  { before, after }: Around,
+  definition?: Definition,
+): ReadonlyArray<Row> => {
   const known = remembered.get(after);
-  if (known && known.before === before) return known.rows;
+  if (known && known.before === before && known.definition === definition)
+    return known.rows;
   const rows: Array<Row> = [];
   const walk = (
+    actor: Definition | undefined,
     was: Instance | undefined,
     is: Instance | undefined,
     depth: number,
   ) => {
-    rows.push(rowOf(was, is, depth));
-    const olds = was ? kidsOf(was) : [];
-    const nows = is ? kidsOf(is) : [];
-    const now = new Set(nows.map((kid) => kid.id));
-    for (const kid of nows)
+    rows.push(rowOf(actor, was, is, depth));
+    const olds = was ? slotted(was) : [];
+    const nows = is ? slotted(is) : [];
+    const now = new Set(nows.map(([, kid]) => kid.id));
+    for (const [slot, kid] of nows)
       walk(
-        olds.find((old) => old.id === kid.id),
+        childOf(actor, is!, slot),
+        olds.find(([, old]) => old.id === kid.id)?.[1],
         kid,
         depth + 1,
       );
-    for (const old of olds)
-      if (!now.has(old.id)) walk(old, undefined, depth + 1);
+    for (const [slot, old] of olds)
+      if (!now.has(old.id))
+        walk(childOf(actor, was!, slot), old, undefined, depth + 1);
   };
-  walk(before, after, 0);
-  remembered.set(after, { before, rows });
+  walk(definition, before, after, 0);
+  remembered.set(after, { before, definition, rows });
   return rows;
 };
 
+/** An Instance's Children, every slot, in order, each with its slot's name. */
+const slotted = (
+  instance: Instance,
+): ReadonlyArray<readonly [slot: string, kid: Instance]> =>
+  Object.entries(instance.children).flatMap(([slot, held]) =>
+    (isMany(held) ? held : [held]).map((kid) => [slot, kid] as const),
+  );
+
+/** The Actor a parent Invokes in one slot while in its State. */
+const childOf = (
+  actor: Definition | undefined,
+  parent: Instance,
+  slot: string,
+): Definition | undefined =>
+  actor?.children[parent.state._tag]?.[slot]?.definition;
+
 const rowOf = (
+  actor: Definition | undefined,
   was: Instance | undefined,
   is: Instance | undefined,
   depth: number,
 ): Row => {
+  const workers = workersOf(actor, was, is);
   if (!was || !is)
     return {
       instance: (is ?? was)!,
@@ -84,6 +139,7 @@ const rowOf = (
       life: is ? 'started' : 'stopped',
       transition: undefined,
       fields: [],
+      workers,
     };
   const fields: Array<Field> = [];
   fieldsOf('model', was.model, is.model, [], fields);
@@ -95,8 +151,62 @@ const rowOf = (
     life: 'kept',
     transition: moved ? { from: was.state._tag, to: is.state._tag } : undefined,
     fields,
+    workers,
   };
 };
+
+/** The Workers an Instance expects: one per key each Condition names for its data. */
+export const expectedOf = (
+  actor: Definition,
+  instance: Instance,
+): ReadonlyArray<{ readonly name: string; readonly key: string }> =>
+  Object.entries(actor.workers).flatMap(([name, worker]) =>
+    worker
+      .keys({ model: instance.model, state: instance.state })
+      .map((key) => ({ name, key })),
+  );
+
+/**
+ * One Worker's keys before and after a Step, each with what the Step did to
+ * it: the keys after, started or kept in their order, then the ones stopped.
+ */
+export const keyLives = (
+  before: ReadonlyArray<string>,
+  after: ReadonlyArray<string>,
+): ReadonlyArray<WorkerKey> => {
+  const olds = new Set(before);
+  const nows = new Set(after);
+  return [
+    ...after.map((key): WorkerKey => ({
+      key,
+      life: olds.has(key) ? 'kept' : 'started',
+    })),
+    ...before
+      .filter((key) => !nows.has(key))
+      .map((key): WorkerKey => ({ key, life: 'stopped' })),
+  ];
+};
+
+/** The keys a Worker's Condition names for an Instance, if it runs. */
+const keysOf = (
+  worker: Definition['workers'][string],
+  instance: Instance | undefined,
+): ReadonlyArray<string> =>
+  instance ? worker.keys({ model: instance.model, state: instance.state }) : [];
+
+/** The Workers after the Step, started or kept, then the ones it stopped, Worker by Worker. */
+const workersOf = (
+  actor: Definition | undefined,
+  was: Instance | undefined,
+  is: Instance | undefined,
+): ReadonlyArray<WorkerRow> =>
+  actor
+    ? Object.entries(actor.workers).flatMap(([name, worker]) =>
+        keyLives(keysOf(worker, was), keysOf(worker, is)).map(
+          (key): WorkerRow => ({ name, ...key }),
+        ),
+      )
+    : [];
 
 /** A State's data, without its tag. */
 export const dataOf = (instance: Instance): Record<string, unknown> => {

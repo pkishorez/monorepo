@@ -1,4 +1,4 @@
-import { Effect, Schema } from 'effect';
+import { Schema } from 'effect';
 import { Actor } from 'effect-oak';
 import { View } from 'effect-oak/react';
 import { Check, ChevronsUpDown } from 'lucide-react';
@@ -98,13 +98,7 @@ const make = (config: Options) => {
     if (!config.multiple)
       return {
         model: { ...model, ...closed, selected: [option] },
-        command: Effect.all(
-          [reportPick(config.id, option), focusId(ids.button)],
-          {
-            concurrency: 'unbounded',
-            discard: true,
-          },
-        ),
+        command: [reportPick(config.id, option), focusId(ids.button)],
       };
     const selected = model.selected.includes(option)
       ? model.selected.filter((value) => value !== option)

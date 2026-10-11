@@ -11,7 +11,7 @@ import { Location, heardUrl, pushUrl, readPath } from '../location/index.js';
  * Unlike the routing demo, a click changes the State first and pushes the
  * URL after, in a Command. The View wraps the click's Send in a View
  * Transition, which needs the new page in the DOM before the click returns:
- * waiting for the URL to come back through a Lifetime would be too late.
+ * waiting for the URL to come back through a Worker would be too late.
  * Back and forward still arrive from the URL, as `ChangedUrl`.
  */
 
@@ -56,12 +56,7 @@ export const ViewTransitions = Actor.make('ViewTransitions', {
   }),
 }).build({
   init: () => ({ model: { path: '', filter: '' }, state: { _tag: 'Opening' } }),
-  lifetime: {
-    Opening: listen,
-    Gallery: listen,
-    Artwork: listen,
-    NotFound: listen,
-  },
+  workers: { listen: { run: listen } },
   update: {
     Gallery: {
       EditedFilter: ({ filter }, { model }) => ({

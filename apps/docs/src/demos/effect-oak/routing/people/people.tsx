@@ -15,15 +15,16 @@ import { Person, findPerson, remember, search } from './staff.js';
  * page shows. It cannot be handed the search when it is made (`init` takes
  * nothing), so it listens to the URL itself: the search arrives as
  * `HeardSearch` right after it is created, and again whenever the query
- * changes while the page stays. Submitting pushes a new URL, and so does a
- * click on a person: the URL is a Capability any Actor can move, and the root
- * hears it like any other change.
+ * changes while the page stays. The lookup is a Worker keyed on the query
+ * being searched: a new query stops the old lookup and starts its own.
+ * Submitting pushes a new URL, and so does a click on a person: the URL is a
+ * Capability any Actor can move, and the root hears it like any other change.
  */
 
 const LOOKUP_MS = 300;
 
 const Results = Schema.TaggedUnion({
-  Loading: {},
+  Loading: { query: Schema.String },
   Loaded: { query: Schema.String, people: Schema.Array(Person) },
 });
 type Results = typeof Results.Type;
@@ -44,24 +45,41 @@ export const People = Actor.make('People', {
   }),
 }).build({
   init: () => ({
-    model: { input: '', history: [], results: { _tag: 'Loading' } },
+    model: {
+      input: '',
+      history: [],
+      results: { _tag: 'Loading', query: '' },
+    },
   }),
-  lifetime: (self) =>
-    heardUrl(null).pipe(
-      Stream.map(({ path }) => searchOn(path)),
-      Stream.filter((text): text is string => text !== null),
-      Stream.changes,
-      Stream.map((text) => ({ _tag: 'HeardSearch' as const, text })),
-      Stream.runForEach(self.send),
-    ),
+  workers: {
+    listen: {
+      run: (self) =>
+        heardUrl(null).pipe(
+          Stream.map(({ path }) => searchOn(path)),
+          Stream.filter((text): text is string => text !== null),
+          Stream.changes,
+          Stream.map((text) => ({ _tag: 'HeardSearch' as const, text })),
+          Stream.runForEach(self.send),
+        ),
+    },
+    lookUp: {
+      each: ({ model }) =>
+        model.results._tag === 'Loading' ? [model.results.query] : [],
+      run: (self, query) =>
+        Effect.sleep(LOOKUP_MS).pipe(
+          Effect.andThen(
+            self.send({ _tag: 'FoundPeople', query, people: search(query) }),
+          ),
+        ),
+    },
+  },
   update: {
     HeardSearch: ({ text }, { model }) => ({
       model: {
         input: text,
         history: remember(model.history, text),
-        results: { _tag: 'Loading' },
+        results: { _tag: 'Loading', query: text },
       },
-      command: { key: 'lookUp', run: lookUp(text) },
     }),
     EditedInput: ({ value }, { model }) => ({
       model: { ...model, input: value },
@@ -75,15 +93,6 @@ export const People = Actor.make('People', {
     }),
   },
 });
-
-const lookUp = (text: string) =>
-  Effect.sleep(LOOKUP_MS).pipe(
-    Effect.as({
-      _tag: 'FoundPeople' as const,
-      query: text,
-      people: search(text),
-    }),
-  );
 
 const statusOf = (results: Results) => {
   if (results._tag === 'Loading') return 'Searching…';

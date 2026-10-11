@@ -30,7 +30,7 @@ so the plan was to:
   every change. The root keeps the latest Part of each step in a Sheet and
   draws the nav, preview and review from it (blocker 13).
 - Send Submit's "show every error" down through a Layer Capability that each
-  step's Lifetime listens to (blocker 14).
+  step's Worker listens to (blocker 14).
 - Keep entries (positions, skills) as data in their step's Model, not as
   Actors (blocker 1).
 - Make Review, the preview and the step nav drawings, not Actors: they keep
@@ -44,9 +44,9 @@ JobApplication (root)       Model { step, sheet, submitAttempted, submission }
                             Reported{part} → sheet[part._tag] = part
                             ClickedSubmit → revealAll (+ submit Command if complete)
 ├─ personalInfo: PersonalInfo   fields as Model data; EditedEmail → Rules, then a
-│                               check Command (keyed); Lifetime: heardReveal
-├─ workHistory: WorkHistory     entries: Entry[] (data, by id), nextId; Lifetime: heardReveal
-├─ skills: Skills               entries: Skill[] (data, by id), nextId; Lifetime: heardReveal
+│                               check Worker keyed by the value; Worker: heardReveal
+├─ workHistory: WorkHistory     entries: Entry[] (data, by id), nextId; Worker: heardReveal
+├─ skills: Skills               entries: Skill[] (data, by id), nextId; Worker: heardReveal
 ├─ coverLetter: CoverLetter     content
 └─ attachments: Attachments     resume, others (name and size only)
 
@@ -93,8 +93,10 @@ replaced before it runs (see blocker 7 below).
   a field is valid is worked out from its Rules; `shown` says whether its
   errors are drawn yet (typed in, or revealed by Submit). The email adds
   `emailCheck: Unchecked | Checking | Free | Taken`.
-- **The latest email check wins by its Command key** (`checkEmail`)
-  instead of Foldkit's `emailValidationId`. The value guard is kept.
+- **The latest email check wins by its Worker's key**: `checkEmail` runs one
+  Worker per value while `emailCheck` is Checking, so a new value stops the
+  old check, instead of Foldkit's `emailValidationId`. No value guard: a
+  stopped Worker's answer cannot land.
 - **Submit always succeeds**, as Foldkit's does; its unused SubmitError
   state is dropped.
 - **The earliest start date is read in the View** (`new Date()`), since
@@ -124,8 +126,8 @@ All are known; none is new.
 - **14, no parent → Child Messages.** Submit must reveal every step's
   errors. `Reveals` is a mailbox Capability in the Layer (about 40 lines): the
   root's Command posts, and three steps carry `requires: { reveals }`,
-  `lifetime: heardReveal` and a `RevealedErrors` Message only to hear
-  it. `tell: [[children.workHistory, { _tag: 'RevealedErrors' }], …]` would
+  `workers: { hearReveal: heardReveal }` and a `RevealedErrors` Message only
+  to hear it. `tell: [[children.workHistory, { _tag: 'RevealedErrors' }], …]` would
   replace all of it.
 - **10, Children belong to one State.** Steps cannot be the root's States;
   the current step is a Model field and the View picks the Child to draw.
@@ -136,9 +138,8 @@ All are known; none is new.
   entry would be a natural Actor.
 - **3, no init input.** Minor here: `today` is read in the View, and entry
   ids come from a counter.
-- **7, no way to stop one Command** is gone: every email keystroke starts
-  its report and check under the `checkEmail` key, which replaces only the
-  stale check.
+- **7, no way to stop one Command** is gone: the email check is a Worker
+  keyed by the value, and a keystroke that changes the value stops it.
 
 ## Ergonomics at this size
 
@@ -159,8 +160,8 @@ and almost all the extra code goes into blockers 13 and 14.
 update })`, about 15 lines before any logic. The repeated parts are:
   - the `changed` helper (one per step, five in all, each building that
     step's Part);
-  - `requires: { answers: Answers, reveals: Reveals }`, `lifetime:
-heardReveal` and `RevealedErrors: {}` in three steps.
+  - `requires: { answers: Answers, reveals: Reveals }`, `workers: { hearReveal:
+heardReveal }` and `RevealedErrors: {}` in three steps.
 
   All of it comes from blockers 13 and 14, not from the Actor shape.
 
@@ -211,8 +212,8 @@ What Effect Oak would need to test it the same way:
 - **One Update on a given Model** (blocker 5). Most of Foldkit's stories
   would port directly to the step Actors, since their Updates are pure.
 - **A Request seen as a Command** (blocker 4): "typing reports the Part" is
-  a `report` Command today, an anonymous Effect.
-- **Emitting a Lifetime's Message** (blocker 6), to send `RevealedErrors`.
+  a Command named `report` today; a test would need its Part too.
+- **Emitting a Worker's Message** (blocker 6), to send `RevealedErrors`.
   `Runtime.start` with a stub Layer can drive `Reveals` today.
 - **Drawing a View from a given Model** (blocker 5) for the scenes. The root
   View's scenes would also need its Children's Models, since each step is

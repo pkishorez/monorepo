@@ -13,7 +13,7 @@ orders come from a fake `ShopServer` in the app's Layer.
 Shop (root)                       Model { cart }; requires ShopServer (from the Layer)
   Products                        Provides Basket { cart, add, clear }
   └─ products: Products           requires ShopServer, Basket
-       Loading                    Lifetime: ShopServer.products → Loaded
+       Loading                    Worker: ShopServer.products → Loaded
        Ready { products, search } Add to cart → Command → Basket.add(item) (a Request)
   Cart                            drawn from the Model by cart-page/; the shop's own Messages
   Checkout                        Provides Basket
@@ -82,5 +82,5 @@ What Effect Oak would need:
   Testing Library today.
 - Named Commands (blocker 4) to check the Checkout asked to place an order.
   Today the Command needs a stub `ShopServer` and `Basket` to run at all.
-- A way to emit the Products Lifetime's `Loaded` (blocker 6).
+- A way to emit the Products Worker's `Loaded` (blocker 6).
 - Routing tests have nothing to test until there are URLs (blocker 15).

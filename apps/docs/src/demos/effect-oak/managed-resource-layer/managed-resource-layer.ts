@@ -7,9 +7,9 @@ import { EngineHost } from './engine-host/index.js';
  * An engine that is built from a Layer when switched on and torn down when
  * switched off: Off → On → Off, or Failed.
  *
- * On's Lifetime boots the engine and holds it for as long as the State lasts,
+ * On's Worker boots the engine and holds it for as long as the State lasts,
  * so leaving On is what tears it down. Booting and Ready are one State, On,
- * with the engine's id once it is known: two States would mean two Lifetimes,
+ * with the engine's id once it is known: two States would mean two Workers,
  * and the engine would be torn down between them. On Provides Engine to its
  * Calculator Child, which squares numbers on it.
  */
@@ -31,22 +31,25 @@ export const EnginePanel = Actor.make('EnginePanel', {
   children: { On: { calculator: Calculator } },
 }).build({
   init: () => ({ state: { _tag: 'Off' } }),
-  lifetime: {
-    On: (self) =>
-      Stream.unwrap(
-        Effect.gen(function* () {
-          return (yield* EngineHost).boot;
-        }),
-      ).pipe(
-        Stream.map((engineId) => ({
-          _tag: 'StartedEngine' as const,
-          engineId,
-        })),
-        Stream.catch((reason) =>
-          Stream.make({ _tag: 'FailedStartEngine' as const, reason }),
+  workers: {
+    boot: {
+      in: 'On',
+      run: (self) =>
+        Stream.unwrap(
+          Effect.gen(function* () {
+            return (yield* EngineHost).boot;
+          }),
+        ).pipe(
+          Stream.map((engineId) => ({
+            _tag: 'StartedEngine' as const,
+            engineId,
+          })),
+          Stream.catch((reason) =>
+            Stream.make({ _tag: 'FailedStartEngine' as const, reason }),
+          ),
+          Stream.runForEach(self.send),
         ),
-        Stream.runForEach(self.send),
-      ),
+    },
   },
   provides: {
     On: () =>

@@ -11,7 +11,7 @@ clicked.
 
 ```
 Charting (root)        Model { telemetry as AsyncData, choice, selectedDatumId }
-                       Provides Choices (a Request); first fetch in the Lifetime,
+                       Provides Choices (a Request); first fetch in a Worker,
                        refetch → Command asking Telemetry
 └─ controls: Controls  Model { mode, packageId, period }; every choice → Choices.chose
 telemetry/  Telemetry Capability and its Layer over npm and GitHub; weeks

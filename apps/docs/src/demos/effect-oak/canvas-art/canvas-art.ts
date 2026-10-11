@@ -45,8 +45,9 @@ const Ball = Schema.Struct({
 type Ball = typeof Ball.Type;
 
 /** A random ball at the point clicked: the randomness goes into a Message. */
-const generateBall = (x: number, y: number) =>
-  Effect.gen(function* () {
+const generateBall = (x: number, y: number) => ({
+  name: 'generateBall',
+  run: Effect.gen(function* () {
     const angle = yield* Random.nextBetween(0, Math.PI * 2);
     const speed = yield* Random.nextBetween(SPEED.min, SPEED.max);
     const radius = yield* Random.nextBetween(RADIUS.min, RADIUS.max);
@@ -62,7 +63,8 @@ const generateBall = (x: number, y: number) =>
       radius,
       color: PALETTE[color] ?? '#ffffff',
     };
-  });
+  }),
+});
 
 export const Box = Actor.make('Box', {
   model: Schema.Struct({ balls: Schema.Array(Ball), nextId: Schema.Number }),

@@ -53,11 +53,9 @@ export const kindOf = (step: Step, around: Around | undefined): Kind => {
   return kind;
 };
 
-/** An Instance's Children, every slot, in order. */
-export const kidsOf = (instance: Instance): ReadonlyArray<Instance> =>
-  Object.values(instance.children).flatMap((held) =>
-    isMany(held) ? held : [held],
-  );
+/** How a Command or Worker is named: its name, and its key after `#` for an `each` Worker. */
+export const workName = (name: string, key?: string) =>
+  key === undefined || key === '' ? name : `${name}#${key}`;
 
 /** A Message's fields besides its tag. */
 export const payloadOf = ({ _tag, ...payload }: { readonly _tag: string }) =>

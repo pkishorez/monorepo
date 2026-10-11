@@ -26,9 +26,12 @@ export const Editor = Actor.make('Editor', {
     Editing: {
       Submitted: (_, { at }) => ({
         state: { _tag: 'Saving', since: at },
-        command: Effect.sleep('1 second').pipe(
-          Effect.as({ _tag: 'Finished' as const }),
-        ),
+        command: {
+          name: 'save',
+          run: Effect.sleep('1 second').pipe(
+            Effect.as({ _tag: 'Finished' as const }),
+          ),
+        },
       }),
     },
     Saving: { Finished: () => ({ state: { _tag: 'Saved' } }) },

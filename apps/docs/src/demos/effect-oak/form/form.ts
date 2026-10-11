@@ -54,13 +54,15 @@ export const FieldViews = {
 const Entry = Schema.Struct({ value: Schema.String, valid: Schema.Boolean });
 const EMPTY = { value: '', valid: false };
 
-const submitForm = (name: string) =>
-  Effect.gen(function* () {
+const submitForm = (name: string) => ({
+  name: 'submit',
+  run: Effect.gen(function* () {
     yield* Effect.sleep(FAKE_API_DELAY_MS);
     return (yield* Random.nextBoolean)
       ? { _tag: 'SucceededSubmitForm' as const, name }
       : { _tag: 'FailedSubmitForm' as const };
-  });
+  }),
+});
 
 export const Waitlist = Actor.make('Waitlist', {
   model: Schema.Struct({

@@ -13,7 +13,7 @@ actor/         An Actor     Rocket { fuel }; Fuel. Click the rocket to fuel it.
 state/         States       Rocket: OnPad → Ascending → Separating → Cruising
                             → Descending { safe } → Landed → Returning → OnPad,
                             or Crashed (landed with under 30 fuel) or Lost (ran dry).
-                            Each moving State's Lifetime sends the Message that
+                            Each moving State's Worker sends the Message that
                             ends it; Cruising burns 5 fuel every 0.7 s, and a
                             rocket docks back on its pad with an empty tank.
 fleet/         Children     Fleet { rockets, next }; Build, Dismantle; Actor.many(Rocket)

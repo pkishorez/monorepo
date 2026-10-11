@@ -12,7 +12,7 @@ random.
 
 ```
 Waitlist (root)            Model { name, email, message: { value, valid }, submission }
-                           Provides Fields; ClickedFormSubmit → Command → SucceededSubmitForm | FailedSubmitForm
+                           Provides Fields; ClickedFormSubmit → Command `submit` → SucceededSubmitForm | FailedSubmitForm
 ├─ name: Field(name)       Model { value, status }; Typed → Rules → Fields.report (a Request)
 ├─ email: Field(email)     … plus an async check, replacing any check still running
 └─ message: Field(message)
@@ -25,11 +25,11 @@ the same behavior. A field reports `{ value, valid }` to the form through the
 
 ## Deviations
 
-- **The latest email check wins by a keyed Command.** Foldkit lets every
+- **The latest email check wins by its Worker's key.** Foldkit lets every
   `ValidateEmail` finish and drops answers for an old value. Here the check
-  runs under the `check` key, so each keystroke replaces the check still
-  running, so a stale answer never
-  arrives. The value guard is kept anyway.
+  is a Worker with one key per value while the status is Validating, so each
+  keystroke stops the check still running and starts its own; a stale answer
+  cannot arrive, and there is no value guard.
 - **Field status is in the Model, not States.** A View drew each State with
   its own component, so with NotValidated, Validating, Valid and Invalid as
   States every Transition would remount the input mid-typing and lose focus.

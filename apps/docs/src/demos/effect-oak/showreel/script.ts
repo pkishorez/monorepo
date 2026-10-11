@@ -8,7 +8,7 @@ export const CHAPTERS = [
   { n: 0, title: 'Effect Oak', idea: 'Music, the name, and in.' },
   { n: 1, title: 'Actor', idea: 'A Model, Messages, an Update, and a View.' },
   { n: 2, title: 'State', idea: 'One rocket, many situations.' },
-  { n: 3, title: 'Lifetime', idea: 'Work that runs while a State lasts.' },
+  { n: 3, title: 'Worker', idea: 'Work that runs while a State lasts.' },
   { n: 4, title: 'Children', idea: 'A Fleet of Rockets.' },
   {
     n: 5,
@@ -161,10 +161,9 @@ export const SCRIPT: ReadonlyArray<Beat> = [
   {
     id: 'lifetime',
     chapter: 3,
-    title: 'Lifetime',
+    title: 'Worker',
     say: 'A Lifetime: an Effect that runs for as long as one State lasts. When the rocket leaves the State, its Lifetime is interrupted. There is nothing to clean up by hand.',
-    direction:
-      '"3 · Lifetime" rises and settles. The lifetime block slides in.',
+    direction: '"3 · Worker" rises and settles. The workers block slides in.',
   },
   {
     id: 'lifetime-steps',
@@ -172,7 +171,7 @@ export const SCRIPT: ReadonlyArray<Beat> = [
     title: 'Each step hands over',
     say: 'While Ascending, wait, then tell the rocket its boosters are spent. Separating waits, then sends Steadied. Each step hands over to the next.',
     direction:
-      'The two Lifetimes light up; on the right a launch plays alongside them.',
+      'The two Workers light up; on the right a launch plays alongside them.',
   },
   {
     id: 'lifetime-burn',
@@ -180,12 +179,12 @@ export const SCRIPT: ReadonlyArray<Beat> = [
     title: 'Burning fuel',
     say: 'While Cruising, burn fuel, forever. Forever is safe here: landing leaves the State, and the loop stops on its own.',
     direction:
-      'The Cruising Lifetime lights up; the fuel in the cruising rocket drains, step by step. Land: the draining stops.',
+      'The Cruising Worker lights up; the fuel in the cruising rocket drains, step by step. Land: the draining stops.',
   },
   {
     id: 'lifetime-whole',
     chapter: 3,
-    title: "The whole Instance's Lifetime",
+    title: "The whole Instance's Worker",
     say: "A Lifetime can also span the rocket's whole life. Do something when it starts, run as many fibers as you like while it lives, and add a finaliser for when it stops. It's just a scoped Effect.",
     direction: 'The three comments light up one after the other.',
   },

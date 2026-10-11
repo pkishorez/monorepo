@@ -28,7 +28,7 @@ Seen in the browser:
 - Time Travel to 0 s still shows the crash panel. The crash is React state in
   the View, not app state, so Replay cannot see it. The Shell's `over` cannot
   be set either, because the route cannot see the crash.
-- A Command or Lifetime whose Message makes Update throw would throw inside its
+- A Command or Worker whose Message makes Update throw would throw inside its
   fiber. Nothing would show at all.
 
 ## Deviations
@@ -55,7 +55,7 @@ const App = toReact(Actor, View, layer, {
 
 Inside the Runtime, a thrown Update would become a Log entry with outcome
 `'crashed'` and the error. The Runtime would stop its queue, Commands and
-Lifetimes, and `useRuntime` would expose that it crashed. Replay could
+Workers, and `useRuntime` would expose that it crashed. Replay could
 then stop at that Message, so Time Travel shows the app as it was just before.
 
 ## Testing

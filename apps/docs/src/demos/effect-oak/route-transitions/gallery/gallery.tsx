@@ -8,14 +8,14 @@ import { PAINTINGS, paintingPath } from './paintings.js';
  * The Gallery page and the Painting page.
  *
  * The catalog is a Child of the root's Gallery State: entering the Gallery
- * creates it, and its Loading Lifetime fetches (600 ms of pretend) once per
+ * creates it, and its Loading Worker fetches (600 ms of pretend) once per
  * entry. Leaving the Gallery mid-load destroys it and the load with it, so
  * coming back starts a fresh one and never a second at once. This is
  * Foldkit's `Transition.isEntering(transition, 'Gallery')` with nothing
  * written: an entry is a Child being created.
  *
  * A painting is drawn from the root's Painting State, which loads it itself:
- * moving from one painting to the next stays in that State, so no Lifetime
+ * moving from one painting to the next stays in that State, so no Worker
  * or Child would start again.
  */
 
@@ -30,11 +30,14 @@ export const Catalog = Actor.make('Catalog', {
   }),
 }).build({
   init: () => ({ state: { _tag: 'Loading' } }),
-  lifetime: {
-    Loading: (self) =>
-      Effect.sleep(CATALOG_MS).pipe(
-        Effect.andThen(self.send({ _tag: 'LoadedCatalog' })),
-      ),
+  workers: {
+    load: {
+      in: 'Loading',
+      run: (self) =>
+        Effect.sleep(CATALOG_MS).pipe(
+          Effect.andThen(self.send({ _tag: 'LoadedCatalog' })),
+        ),
+    },
   },
   update: {
     Loading: { LoadedCatalog: () => ({ state: { _tag: 'Ready' } }) },

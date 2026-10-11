@@ -13,7 +13,8 @@ visit to a post is drawn from the cache.
 
 ```
 ApiCacheQuery (root)       Model { tab, openPostId }; Provides Reader (a Request)
-                           Lifetime: tick every 5 s; Commands tell Queries what to do
+                           Worker: tick every 5 s while the Stats tab is shown;
+                           Commands tell Queries what to do
 ├─ posts: Query(Posts)     entries by key as AsyncData; a clicked row → Chose → Reader.open
 ├─ post: Query(Post)       keyed by post id; draws the key it was last told to load
 └─ stats: Query(Stats)
@@ -29,9 +30,9 @@ Opening a post is four Messages: `Chose` in Posts, `OpenedPost` in the app,
 - **Orders go through a Capability.** Foldkit's parent runs
   `posts.loadIfMissing(model)` on the Query's slice of its Model. Here each
   Query is its own Actor, and a parent cannot send a Child a Message, so a
-  parent's Command posts to the Query's mailbox and the Query's Lifetime
+  parent's Command posts to the Query's mailbox and the Query's Worker
   hears it. Orders posted before the Query listens wait (the root's
-  Lifetime orders the posts and may run before its Children listen).
+  Worker orders the posts and may run before its Children listen).
 - **Refresh and Retry go straight to the Query** from its own View, not
   through the parent.
 - **No "Cached" badge on the list.** The badge needs the Post Query's Model
@@ -39,8 +40,9 @@ Opening a post is four Messages: `Chose` in Posts, `OpenedPost` in the app,
 - **The post Query shows the key it was last ordered**, since the app's
   `openPostId` cannot be handed to its View (roll-up 13).
 - The unavailable post is the flaky one from `api-cache`, sharing its fake
-  server; the 5-second tick runs while the tab is hidden (roll-up 12).
-- `makeQuery` casts its Lifetime's needs: TypeScript cannot see that
+  server; the 5-second tick is a Worker owned by `tab === 'Stats'`, so it
+  stops while the tab is hidden.
+- `makeQuery` casts its Worker's needs: TypeScript cannot see that
   `Orders` is among `{ orders } & R`'s Capabilities while `R` is generic.
 
 ## Blockers
@@ -51,7 +53,6 @@ Opening a post is four Messages: `Chose` in Posts, `OpenedPost` in the app,
   a Command `Actor.tell(child, message)`, would replace the mailbox. It is
   replay-safe: the told Message is sent and logged like any other.
 - **A View cannot read another Actor's Model** (roll-up 13): no Cached badge.
-- **A Lifetime cannot follow the Model** (roll-up 12).
 
 ## Testing
 
@@ -62,8 +63,8 @@ Scenes click through a fixture Model.
 
 What Effect Oak would need:
 
-- Named Commands (roll-up 4): `tell('Stats', …)` is an anonymous Effect, so a
-  test cannot see which Query was told what.
+- `tell('Stats', …)` is a Command named `tell`, but the name does not carry
+  which Query was told what; a test needs the Command's arguments too.
 - A way to test a Query Actor with a stub Orders and Blog: `Runtime.start` with
   a stub Layer can do it today. A test of the whole app has to follow four
   Messages across three Actors for one click.

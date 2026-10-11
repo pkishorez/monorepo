@@ -83,7 +83,7 @@ export const Skills = Actor.make('Skills', {
   }),
 }).build({
   init: () => ({ model: { entries: [blankSkill(0)], nextId: 1 } }),
-  lifetime: heardReveal,
+  workers: { hearReveal: heardReveal },
   update: {
     ClickedAdd: (_, { model }) =>
       changed({

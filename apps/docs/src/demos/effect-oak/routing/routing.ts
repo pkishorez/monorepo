@@ -9,13 +9,13 @@ import { RouteState, routeFrom } from './route/index.js';
  * is a Location Capability in the app's Layer.
  *
  * The URL comes first, as in Foldkit. A click Sends `ClickedLink`, whose
- * Command pushes the path; the Location hears it, and the State's Lifetime
+ * Command pushes the path; the Location hears it, and the `listen` Worker
  * sends `ChangedUrl`, whose Update turns the path into the next State. Back
  * and forward arrive the same way. Only the People State has a Child: the
  * search page, which exists while that route shows.
  *
- * Every State needs the same Lifetime, because a Lifetime belongs to one
- * State: each starts listening on entry, from the path it was entered with.
+ * The Worker is owned by the Instance, so it listens across every State,
+ * from the path the Model shows when it starts.
  */
 
 const listen = (self: {
@@ -44,16 +44,7 @@ export const Routing = Actor.make('Routing', {
   children: { People: { people: People } },
 }).build({
   init: () => ({ model: { path: '' }, state: { _tag: 'Opening' } }),
-  lifetime: {
-    Opening: listen,
-    Home: listen,
-    Nested: listen,
-    People: listen,
-    Person: listen,
-    FilesIndex: listen,
-    Files: listen,
-    NotFound: listen,
-  },
+  workers: { listen: { run: listen } },
   update: {
     '*': {
       ChangedUrl: ({ path }) => ({ model: { path }, state: routeFrom(path) }),

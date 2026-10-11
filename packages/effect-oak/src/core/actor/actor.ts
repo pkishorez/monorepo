@@ -4,6 +4,7 @@ import type {
   Behavior,
   ByState,
   ChildrenFor,
+  Data,
   Definition,
   Many,
   Open,
@@ -13,6 +14,7 @@ import type {
   Single,
   Slot,
   Tagged,
+  WorkerDefinition,
 } from './types.ts';
 
 /** An Actor's definition, waiting for the behavior that runs it. */
@@ -63,11 +65,12 @@ function make(name: string, shape: any): Defined<any, AnyActor> {
         requires: shape.requires ?? {},
         init: behavior.init ?? (() => ({})),
         update: keyed(behavior.update) as Definition['update'],
-        lifetime: (shape.state
-          ? (behavior.lifetime ?? {})
-          : behavior.lifetime
-            ? { '*': behavior.lifetime }
-            : {}) as Definition['lifetime'],
+        workers: Object.fromEntries(
+          Object.entries(behavior.workers ?? {}).map(([name, worker]) => [
+            name,
+            workerOf(worker),
+          ]),
+        ),
         provides: keyed(behavior.provides) as Definition['provides'],
         children,
         invoke: keyed(behavior.invoke) as Definition['invoke'],
@@ -90,6 +93,30 @@ const statesOf = (
   return [...new Set(byState.flatMap((part) => Object.keys(part ?? {})))];
 };
 
+const ONE: ReadonlyArray<string> = [''];
+const NONE: ReadonlyArray<string> = [];
+
+/** A Worker's Condition as the keys it names: one, `''`, for every kind but `each`. */
+const workerOf = (worker: any): WorkerDefinition => {
+  const { run } = worker;
+  if ('each' in worker) return { kind: 'each', keys: worker.each, run };
+  if ('while' in worker)
+    return {
+      kind: 'while',
+      keys: (data: Data<unknown, Tagged>) => (worker.while(data) ? ONE : NONE),
+      run,
+    };
+  if ('in' in worker)
+    return {
+      kind: 'state',
+      state: worker.in,
+      keys: (data: Data<unknown, Tagged>) =>
+        data.state._tag === worker.in ? ONE : NONE,
+      run,
+    };
+  return { kind: 'instance', keys: () => ONE, run };
+};
+
 const isMany = (slot: Slot): slot is Many<AnyActor> =>
   '_tag' in slot && slot._tag === 'Many';
 
@@ -102,6 +129,6 @@ const many = <A extends AnyActor>(actor: A): Many<A> => ({
 /**
  * An Actor, in two steps. `make` defines it: Requires, Input, Schemas, what it
  * Provides and its Children, which fixes every type and the shape of the tree.
- * `build` makes it run: init, Update, Lifetimes, Provides and what it Invokes.
+ * `build` makes it run: init, Update, Workers, Provides and what it Invokes.
  */
 export const Actor = { make, many };

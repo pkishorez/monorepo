@@ -32,9 +32,12 @@ export const Composer = Actor.make('Composer', {
       if (text === '') return {};
       return {
         model: { text: '' },
-        command: Effect.gen(function* () {
-          yield* (yield* Composing).add(text);
-        }),
+        command: {
+          name: 'add',
+          run: Effect.gen(function* () {
+            yield* (yield* Composing).add(text);
+          }),
+        },
       };
     },
   },

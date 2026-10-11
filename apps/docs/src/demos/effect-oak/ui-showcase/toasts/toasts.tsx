@@ -47,10 +47,12 @@ export const SAMPLES = {
 } as const satisfies Record<Variant, { title: string; description: string }>;
 
 /** A Command that expires the toast with this id after a while. */
-export const expireLater = (id: number) =>
-  Effect.sleep(EXPIRE_MS).pipe(
+export const expireLater = (id: number) => ({
+  name: 'expire',
+  run: Effect.sleep(EXPIRE_MS).pipe(
     Effect.as({ _tag: 'ExpiredToast' as const, id }),
-  );
+  ),
+});
 
 const TONE: Record<Variant, string> = {
   Info: 'border-l-sky-500',

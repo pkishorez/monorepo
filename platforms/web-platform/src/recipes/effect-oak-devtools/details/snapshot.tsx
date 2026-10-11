@@ -4,12 +4,14 @@ import { dataOf, pathName } from '../step/index.ts';
 import type { Field, Row } from '../step/index.ts';
 import { Diff, Value, Was } from './value.tsx';
 import { Who } from './who.tsx';
+import { WorkerTags } from './workers.tsx';
 
 /**
  * The Snapshot read like the map: one block per Instance, indented as deep as
  * it is, with its State and its data as a tree, open all the way. What the
  * Step changed is lit where it sits, its old value struck through beside the
- * new one. Very deep or very long data starts folded, so big apps stay fast.
+ * new one, and the Workers it expects as tags, the ones just started lit.
+ * Very deep or very long data starts folded, so big apps stay fast.
  */
 export const Snapshot = ({ rows }: { readonly rows: ReadonlyArray<Row> }) => {
   const top = Math.min(...rows.map((row) => row.depth));
@@ -38,6 +40,7 @@ const Block = ({
   const data = dataOf(instance);
   const hasModel = !isEmpty(instance.model);
   const hasState = Object.keys(data).length > 0;
+  const workers = row.workers.filter((worker) => worker.life !== 'stopped');
   return (
     <section
       className={`flex flex-col gap-1 ${depth > 0 ? 'border-l pl-3' : ''}`}
@@ -61,6 +64,12 @@ const Block = ({
             </span>
           ))}
       </Who>
+      {workers.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+          Workers
+          <WorkerTags workers={workers} />
+        </div>
+      )}
       {!hasModel && !hasState && (
         <p className="text-xs text-muted-foreground/70">No data</p>
       )}

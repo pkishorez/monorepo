@@ -35,7 +35,7 @@ export const StepDetails = ({
   const around = inspection.around(step);
   if (!around) return null;
   // 1. Narrow
-  const all = rowsOf(around);
+  const all = rowsOf(around, inspection.runtime.definition);
   const rows =
     picked === null ? all : all.filter((row) => row.instance.id === picked);
   const one = picked === null ? undefined : rows[0];

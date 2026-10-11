@@ -18,9 +18,9 @@ rewritten to use the fix.
 | 1    | 5. Testing: no typed way to run one Update or draw one View                                                                                      | 33     |
 | 2    | 4. Testing: Commands are anonymous Effects                                                                                                       | 27     |
 | 3    | 13. A parent cannot pass data to a Child (or read it) (View props: resolved)                                                                     | 12     |
-| 4    | 10. Lifetimes and Children belong to exactly one State (Lifetimes: partly resolved)                                                              | 11     |
+| 4    | 10. Lifetimes and Children belong to exactly one State (Workers: resolved)                                                                       | 11     |
 | 5    | 3. Children (and the root) cannot be given input on creation (Children: resolved)                                                                | 9      |
-| 6    | 6. Testing: no way to emit a Lifetime's Message                                                                                                  | 8      |
+| 6    | 6. Testing: no way to emit a Worker's Message                                                                                                    | 8      |
 | 6    | 15. No routing                                                                                                                                   | 8      |
 | 8    | 14. A parent cannot send its Child a Message                                                                                                     | 6      |
 | 9    | 1. No list of Children (resolved)                                                                                                                | 5      |
@@ -42,51 +42,51 @@ up through Requests.
 - The route `src/routes/demos/effect-oak/<slug>.tsx` makes the app with `toReact(Actor, View, layer)` and shows it in `Shell` with `<DemoMenu />`. `head: ({ match }) => demoHead(match.fullPath)` takes the title and description from the demo's entry.
 - `frame-canvas/` is a 2D canvas painted at every Frame, shared by canvas-art and generative-art (one Rule per demo that uses it, in `laymos.config.json`).
 - `async-data/` is fetched data as Model data (Foldkit's AsyncData) with its loading and error panels, shared by api-cache, api-cache-query and charting. `blog-server/` is the fake blog API both API cache demos ask through a Capability.
-- `location/` is the demo's own path after the `#`, as a Location Capability (push, replace, back and forward), with `heardUrl` (a Stream a Lifetime runs with `Stream.runForEach(self.send)`), `pushUrl` for Commands and a `Link`. Shared by routing, route-transitions, view-transitions and personal-blog; the docs router owns the real path.
+- `location/` is the demo's own path after the `#`, as a Location Capability (push, replace, back and forward), with `heardUrl` (a Stream a Worker runs with `Stream.runForEach(self.send)`), `pushUrl` for Commands and a `Link`. Shared by routing, route-transitions, view-transitions and personal-blog; the docs router owns the real path.
 - embedding makes its own app with `toReact`, because its host page mounts the widget into an element; its route hands the Shell the host page with the widget's Log and Time Travel.
 - Each demo has an entry in `DEMOS` in `src/lib/demos.tsx` with its `group`. The home page and the menu group demos by it.
 
 ## Demos
 
-| Demo                                                      | Group                  | Status  | Note                                                                                                            |
-| --------------------------------------------------------- | ---------------------- | ------- | --------------------------------------------------------------------------------------------------------------- |
-| [rockets](rockets/notes.md)                               | Basics                 | works   | A Rocket, its States and Lifetimes, a Fleet of them, and the Fleet's Capabilities: four apps, one plain look.   |
-| [showreel](showreel/notes.md)                             | Basics                 | works   | The Effect Oak Walkthrough's Storyboard: every beat, playable, and the frame the video records.                 |
-| [counter](counter/notes.md)                               | Basics                 | works   | One Actor, three Messages.                                                                                      |
-| [counters](counters/notes.md)                             | Basics                 | partial | Rows are Foldkit-style Submodels in the parent's Model; kept, though `Actor.many` could make them Children now. |
-| [stopwatch](stopwatch/notes.md)                           | Basics                 | works   | Two States and no ticks: the View draws the running time at each Frame.                                         |
-| [crash-view](crash-view/notes.md)                         | Basics                 | partial | No crash hook: the View catches the throw itself, and the crash is outside the Log.                             |
-| [todo](todo/notes.md)                                     | Basics                 | partial | Loading Lifetime, Composer child Actor with a Request, saving Commands; rows are not Actors.                    |
-| [weather](weather/notes.md)                               | Commands and Lifetimes | works   | States for Idle, Loading, Loaded, Failed; real Open-Meteo API through a Forecast Capability.                    |
-| [interrupting-commands](interrupting-commands/notes.md)   | Commands and Lifetimes | partial | Cancel all is `replaceCommands`; cancelling one needs a demo Capability that keys work by id.                   |
-| [slow-warnings](slow-warnings/notes.md)                   | Commands and Lifetimes | partial | No slow hook: the View times Update, View and patch work itself. Subscription phase skipped.                    |
-| [managed-resource-layer](managed-resource-layer/notes.md) | Commands and Lifetimes | works   | A Lifetime holds the engine's Layer for as long as On lasts; a host Capability keeps the engine.                |
-| [form](form/notes.md)                                     | Commands and Lifetimes | works   | Three field Actors from one factory report up by Request; latest email check wins by replacing.                 |
-| [websocket-chat](websocket-chat/notes.md)                 | Commands and Lifetimes | works   | Real echo socket held open by Online's Lifetime; Composer child sends through a Capability.                     |
-| [road](game/notes.md) (code `game/`)                      | Graphics               | works   | Effect Oak's own demo, moved to `/demos/effect-oak/road`.                                                       |
-| [canvas-art](canvas-art/notes.md)                         | Graphics               | works   | No ticks: each ball's place is a formula of the box's clock, drawn at each Frame.                               |
-| [snake](snake/notes.md)                                   | Graphics               | works   | Ticks, as a chain of Commands: a Lifetime cannot speed up with the score.                                       |
-| [generative-art](generative-art/notes.md)                 | Graphics               | partial | Particles stepped in the View between Messages; the sliders cannot be Child Actors.                             |
-| [pixel-art](pixel-art/notes.md)                           | Graphics               | partial | Tools and Export are Children; the resize picker cannot be one: no data from parent to Child.                   |
-| [api-cache](api-cache/notes.md)                           | Data                   | works   | Each tab a Child with its cache as AsyncData; Stats ask the Tabs Capability before refetching.                  |
-| [api-cache-query](api-cache-query/notes.md)               | Data                   | partial | Queries are Actors; the app can only tell them what to load through a mailbox Capability.                       |
-| [query-sync](query-sync/notes.md)                         | Data                   | works   | No router: the URL is a Capability each Actor listens to; Time Travel does not move the URL.                    |
-| [charting](charting/notes.md)                             | Data                   | works   | Live npm and GitHub data drawn as SVG from the Model, so no chart sync Commands.                                |
-| [map](map/notes.md)                                       | Data                   | works   | OSM tiles; the camera and flights are Model data drawn at every Frame.                                          |
-| [shopping-cart](shopping-cart/notes.md)                   | Apps                   | partial | Pages are States; leaving one destroys its Child, and products cannot show cart quantities.                     |
-| [kanban](kanban/notes.md)                                 | Apps                   | works   | Drag is a State whose Lifetime follows the pointer; add-card forms are one Actor per column.                    |
-| [auth](auth/notes.md)                                     | Apps                   | works   | Signed-out and signed-in sites are Children of their States; pages are States, no URLs.                         |
-| [state-machine](state-machine/notes.md)                   | Apps                   | partial | The checkout is one Actor's States; Transitions are not data, so no chart or analysis.                          |
-| [routing](routing/notes.md)                               | Routing and host       | works   | Pages are root States heard from a Location Capability; Time Travel does not move the URL.                      |
-| [route-transitions](route-transitions/notes.md)           | Routing and host       | works   | Entry is a Child's Lifetime, staying and leaving are Update; the Studio reports every edit up.                  |
-| [view-transitions](view-transitions/notes.md)             | Routing and host       | partial | The View wraps its Send in startViewTransition + flushSync; back and forward cannot animate.                    |
-| [personal-blog](personal-blog/notes.md)                   | Routing and host       | works   | Tiny markdown formatter; pages are Model data so the Counter Child survives navigation.                         |
-| [embedding](embedding/notes.md)                           | Routing and host       | works   | Hand-built `embed` into a plain DOM page, ports as a Capability; one mount at a time.                           |
-| [web-components](web-components/notes.md)                 | Routing and host       | works   | Two hand-made custom elements; React 19 binds properties and events, nothing was missing.                       |
-| [ssr](ssr/notes.md)                                       | Routing and host       | skipped | Not built: Effect Oak runs only in the browser. Listed here only, not in `DEMOS`.                               |
-| [ssg](ssg/notes.md)                                       | Routing and host       | skipped | Not built, for the same reasons as ssr. Listed here only, not in `DEMOS`.                                       |
-| [job-application](job-application/notes.md)               | Large apps             | works   | Five step Children kept for the whole app; each reports its answers up so the root can preview.                 |
-| [ui-showcase](ui-showcase/notes.md)                       | Large apps             | partial | Nine component factories, each an Actor; all uncontrolled: parents hear picks but cannot set them.              |
+| Demo                                                      | Group                | Status  | Note                                                                                                            |
+| --------------------------------------------------------- | -------------------- | ------- | --------------------------------------------------------------------------------------------------------------- |
+| [rockets](rockets/notes.md)                               | Basics               | works   | A Rocket, its States and Workers, a Fleet of them , and the Fleet's Capabilities: four apps, one plain look.    |
+| [showreel](showreel/notes.md)                             | Basics               | works   | The Effect Oak Walkthrough's Storyboard: every beat, playable, and the frame the video records.                 |
+| [counter](counter/notes.md)                               | Basics               | works   | One Actor, three Messages.                                                                                      |
+| [counters](counters/notes.md)                             | Basics               | partial | Rows are Foldkit-style Submodels in the parent's Model; kept, though `Actor.many` could make them Children now. |
+| [stopwatch](stopwatch/notes.md)                           | Basics               | works   | Two States and no ticks: the View draws the running time at each Frame.                                         |
+| [crash-view](crash-view/notes.md)                         | Basics               | partial | No crash hook: the View catches the throw itself, and the crash is outside the Log.                             |
+| [todo](todo/notes.md)                                     | Basics               | partial | Loading Worker, Composer child Actor with a Request, saving Commands; rows are not Actors.                      |
+| [weather](weather/notes.md)                               | Commands and Workers | works   | States for Idle, Loading, Loaded, Failed; real Open-Meteo API through a Forecast Capability.                    |
+| [interrupting-commands](interrupting-commands/notes.md)   | Commands and Workers | partial | Each upload is a Worker on its row's status; cancel sets the status, and the Worker stops. No cancel verb.      |
+| [slow-warnings](slow-warnings/notes.md)                   | Commands and Workers | partial | No slow hook: the View times Update, View and patch work itself. Subscription phase skipped.                    |
+| [managed-resource-layer](managed-resource-layer/notes.md) | Commands and Workers | works   | A Worker holds the engine's Layer for as long as On lasts; a host Capability keeps the engine.                  |
+| [form](form/notes.md)                                     | Commands and Workers | works   | Three field Actors from one factory report up by Request; latest email check wins by replacing.                 |
+| [websocket-chat](websocket-chat/notes.md)                 | Commands and Workers | works   | Real echo socket held open by Online's Worker; Composer child sends through a Capability.                       |
+| [road](game/notes.md) (code `game/`)                      | Graphics             | works   | Effect Oak's own demo, moved to `/demos/effect-oak/road`.                                                       |
+| [canvas-art](canvas-art/notes.md)                         | Graphics             | works   | No ticks: each ball's place is a formula of the box's clock, drawn at each Frame.                               |
+| [snake](snake/notes.md)                                   | Graphics             | works   | Ticks, as a chain of Commands: a Worker reads the score live, but the chain was kept.                           |
+| [generative-art](generative-art/notes.md)                 | Graphics             | partial | Particles stepped in the View between Messages; the sliders cannot be Child Actors.                             |
+| [pixel-art](pixel-art/notes.md)                           | Graphics             | partial | Tools and Export are Children; the resize picker cannot be one: no data from parent to Child.                   |
+| [api-cache](api-cache/notes.md)                           | Data                 | works   | Each tab a Child with its cache as AsyncData; Stats ask the Tabs Capability before refetching.                  |
+| [api-cache-query](api-cache-query/notes.md)               | Data                 | partial | Queries are Actors; the app can only tell them what to load through a mailbox Capability.                       |
+| [query-sync](query-sync/notes.md)                         | Data                 | works   | No router: the URL is a Capability each Actor listens to; Time Travel does not move the URL.                    |
+| [charting](charting/notes.md)                             | Data                 | works   | Live npm and GitHub data drawn as SVG from the Model, so no chart sync Commands.                                |
+| [map](map/notes.md)                                       | Data                 | works   | OSM tiles; the camera and flights are Model data drawn at every Frame.                                          |
+| [shopping-cart](shopping-cart/notes.md)                   | Apps                 | partial | Pages are States; leaving one destroys its Child, and products cannot show cart quantities.                     |
+| [kanban](kanban/notes.md)                                 | Apps                 | works   | Drag is a State whose Worker follows the pointer; add-card forms are one Actor per column.                      |
+| [auth](auth/notes.md)                                     | Apps                 | works   | Signed-out and signed-in sites are Children of their States; pages are States, no URLs.                         |
+| [state-machine](state-machine/notes.md)                   | Apps                 | partial | The checkout is one Actor's States; Transitions are not data, so no chart or analysis.                          |
+| [routing](routing/notes.md)                               | Routing and host     | works   | Pages are root States heard from a Location Capability; Time Travel does not move the URL.                      |
+| [route-transitions](route-transitions/notes.md)           | Routing and host     | works   | Entry is a Child's Worker, staying and leaving are Update; the Studio reports every edit up.                    |
+| [view-transitions](view-transitions/notes.md)             | Routing and host     | partial | The View wraps its Send in startViewTransition + flushSync; back and forward cannot animate.                    |
+| [personal-blog](personal-blog/notes.md)                   | Routing and host     | works   | Tiny markdown formatter; pages are Model data so the Counter Child survives navigation.                         |
+| [embedding](embedding/notes.md)                           | Routing and host     | works   | Hand-built `embed` into a plain DOM page, ports as a Capability; one mount at a time.                           |
+| [web-components](web-components/notes.md)                 | Routing and host     | works   | Two hand-made custom elements; React 19 binds properties and events, nothing was missing.                       |
+| [ssr](ssr/notes.md)                                       | Routing and host     | skipped | Not built: Effect Oak runs only in the browser. Listed here only, not in `DEMOS`.                               |
+| [ssg](ssg/notes.md)                                       | Routing and host     | skipped | Not built, for the same reasons as ssr. Listed here only, not in `DEMOS`.                                       |
+| [job-application](job-application/notes.md)               | Large apps           | works   | Five step Children kept for the whole app; each reports its answers up so the root can preview.                 |
+| [ui-showcase](ui-showcase/notes.md)                       | Large apps           | partial | Nine component factories, each an Actor; all uncontrolled: parents hear picks but cannot set them.              |
 
 ## Library blockers
 
@@ -130,22 +130,23 @@ up through Requests.
 5. **Testing: no typed way to run one Update, or draw a View from a given
    Model, State and Time.** Foldkit's `story` and `scene` need both. Hit by
    every demo ([counter](counter/notes.md) lists what is needed).
-6. **Testing: no way to emit a Lifetime's Message in a unit test**, like
+6. **Testing: no way to emit a Worker's Message in a unit test**, like
    Foldkit's `Subscription.emit` or `ManagedResource.acquire`. Hit by
    [todo](todo/notes.md), [managed-resource-layer](managed-resource-layer/notes.md),
    [websocket-chat](websocket-chat/notes.md),
    [generative-art](generative-art/notes.md), [kanban](kanban/notes.md),
    [auth](auth/notes.md), [shopping-cart](shopping-cart/notes.md) and
    [job-application](job-application/notes.md) (Submit's reveal).
-7. **Resolved: no way to stop one Command.** A Command can be keyed
-   (`command: { key: 'upload-3', run }`); a new one under the same key
-   replaces it, and `cancel: 'upload-3'` in Update's return stops it.
-   `replaceCommands` is gone. Before, it stopped all of an Actor's Commands and
-   nothing stopped one by key. Hit by
-   [interrupting-commands](interrupting-commands/notes.md) and
-   [job-application](job-application/notes.md) (replacing the email check
-   also stops a pending report) and [ui-showcase](ui-showcase/notes.md) (a
-   dismissed toast's expiry keeps running).
+7. **Resolved, twice: no way to stop one Command.** First by keyed Commands
+   and `cancel`; then both went away. A Command is an errand: one named
+   Effect, at most one Message back, nothing stops it but its Instance
+   stopping. Work that must stop is a Worker whose condition is in the Model:
+   cancelling an upload sets its row's status, and the Worker for that key
+   stops, finalizers and all. No stale guard is needed: the Worker's Scope
+   closes before the next Message is handled ([ADR 0016](../../../../../packages/effect-oak/docs/adr/0016-work-is-a-command-or-a-worker.md)). Hit by
+   [interrupting-commands](interrupting-commands/notes.md),
+   [job-application](job-application/notes.md) and
+   [ui-showcase](ui-showcase/notes.md).
 8. **No slow-work hook.** Nothing reports how long an Update or a View took,
    like Foldkit's `slow` callback. `onSlow` on `Runtime.start` and `toReact`,
    or a `tookMs` on each Log entry, would be the API. Hit by
@@ -159,14 +160,13 @@ up through Requests.
    entry, torn down on leaving) would be the API. Hit by
    [managed-resource-layer](managed-resource-layer/notes.md) and
    [websocket-chat](websocket-chat/notes.md).
-10. **Lifetimes and Children belong to exactly one State.** Partly resolved:
-    a `'*'` Lifetime lasts the whole Instance, across every State; a set of
-    States still cannot share a Lifetime or a Child. A resource held
-    across Booting and Ready, or Connecting and Connected, forces the two
-    into one State with a flag; a Child wanted in several States is created
-    anew on every Transition between them. Lifetimes and Children keyed by a
-    set of States (`'Booting | Ready'`, or `'*'`), kept while moving inside
-    the set, would be the API. Hit by
+10. **Lifetimes and Children belong to exactly one State.** Resolved for
+    Workers: a Worker is owned by a condition, which can be the Instance, one
+    State (`in`), any test of the State and Model (`while`, so a resource held
+    across Booting and Ready is `while: ({ state }) => state._tag !== 'Off'`),
+    or a list of keys (`each`). Still open for Children: a Child wanted in
+    several States is created anew on every Transition between them. Children
+    keyed by a set of States would be the API. Hit by
     [managed-resource-layer](managed-resource-layer/notes.md),
     [websocket-chat](websocket-chat/notes.md), [weather](weather/notes.md),
     [form](form/notes.md), [generative-art](generative-art/notes.md)
@@ -193,23 +193,19 @@ up through Requests.
     (every component's open/closed is a boolean, since remounting the
     trigger loses the focus it should return to).
 
-12. **Resolved: a Lifetime cannot follow the Model.** A Lifetime is now a
-    scoped Effect given `self`, whose `self.changes` is a Stream of the
-    Instance's Model and State, so it can follow a projection itself. Before,
-    it started once, with the Model
-    as it was on entering the State; Foldkit's Subscriptions restart when
-    `modelToDependencies` changes. A Lifetime keyed on a projection
-    (`{ key: ({ model }) => …, run: … }`, restarted when the key changes)
-    would be the API. Hit by [snake](snake/notes.md) (its clock speeds up
-    with the score, so each tick is a Command planning the next),
-    [api-cache](api-cache/notes.md) and
-    [api-cache-query](api-cache-query/notes.md) (the stats timer ticks while
-    its tab is hidden). A Lifetime also keeps the Capabilities it started with,
-    while a Command sees the latest ones.
+12. **Resolved: a Lifetime cannot follow the Model.** A Worker is owned by a
+    condition read from the Model and State after every Update: `while` a
+    test holds, or `each` key a function names, one Worker per key. The stats
+    timer runs only while its tab is shown; a Worker keyed by a row runs for
+    as long as the row says so. Inside, `self.get` and `self.changes` read
+    the live data, so a key decides existence and nothing else restarts it
+    (Foldkit's Subscriptions restart when `modelToDependencies` changes). Hit
+    by [snake](snake/notes.md), [api-cache](api-cache/notes.md) and
+    [api-cache-query](api-cache-query/notes.md).
 13. **A parent cannot pass data to a Child.** Resolved for drawing: a View
     takes data props from its parent as its draw's second parameter (ADR
     0015). Still open for logic: before that, a Child's Update and View saw
-    only its own Model; Capabilities reach only its Commands and Lifetimes.
+    only its own Model; Capabilities reach only its Commands and Workers.
     Foldkit gives a Submodel's view `viewInputs`. A View input
     (`<ResizeView node={children.resize} input={{ size }} />`, typed by the
     Child's View, replay-safe because it comes from the parent's State) would

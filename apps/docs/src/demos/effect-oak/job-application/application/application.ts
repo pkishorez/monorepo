@@ -10,7 +10,7 @@ import type { Part } from './parts.js';
  *   answers for its nav, preview, review and submit.
  * - Down, through Reveals: a Capability in the app's Layer. Effect Oak has no
  *   way for a parent to send its Child a Message (blocker 14), so pressing
- *   Submit posts a reveal there, and each step's Lifetime hears it and sends
+ *   Submit posts a reveal there, and each step's Worker hears it and sends
  *   `RevealedErrors` to its own Actor. Both Messages are in the Log, so
  *   Replay needs neither Capability.
  */
@@ -48,27 +48,34 @@ export const RevealsLive = Layer.sync(Reveals, () => {
 });
 
 /** A step's Command: hand the application this step's latest Part. */
-export const report = (part: Part) =>
-  Effect.gen(function* () {
+export const report = (part: Part) => ({
+  name: 'report',
+  run: Effect.gen(function* () {
     yield* (yield* Answers).report(part);
-  });
-
-/** The application's Command: every step shows all its errors. */
-export const revealAll = Effect.gen(function* () {
-  yield* (yield* Reveals).reveal;
+  }),
 });
 
-/** A step's Lifetime: each reveal, as the step's own Message. */
-export const heardReveal = (self: {
-  readonly send: (message: {
-    readonly _tag: 'RevealedErrors';
-  }) => Effect.Effect<void>;
-}) =>
-  Effect.gen(function* () {
-    yield* (yield* Reveals).heard.pipe(
-      Stream.runForEach(() => self.send({ _tag: 'RevealedErrors' })),
-    );
-  });
+/** The application's Command: every step shows all its errors. */
+export const revealAll = {
+  name: 'revealAll',
+  run: Effect.gen(function* () {
+    yield* (yield* Reveals).reveal;
+  }),
+};
+
+/** A step's Worker: each reveal, as the step's own Message. */
+export const heardReveal = {
+  run: (self: {
+    readonly send: (message: {
+      readonly _tag: 'RevealedErrors';
+    }) => Effect.Effect<void>;
+  }) =>
+    Effect.gen(function* () {
+      yield* (yield* Reveals).heard.pipe(
+        Stream.runForEach(() => self.send({ _tag: 'RevealedErrors' })),
+      );
+    }),
+};
 
 export { blankSheet, FileInfo, Part, Sheet } from './parts.js';
 export { STEPS, Step, stepAfter, stepLabel } from './steps.js';

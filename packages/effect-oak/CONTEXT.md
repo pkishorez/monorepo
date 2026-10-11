@@ -45,7 +45,7 @@ Which one of an Actor's exclusive situations it is in, with the data that only e
 _Avoid_: status, mode, phase
 
 **Transition**:
-An Update that ends in a different State than it started in. Leaving a State ends its Lifetime and stops its Children; entering one Invokes its Children and starts its Lifetime. Staying in the same State with new data is not a Transition, though keyed Children still follow the Model.
+An Update that ends in a different State than it started in. Leaving a State stops its Workers and its Children; entering one Invokes its Children and starts its Workers. Staying in the same State with new data is not a Transition, though keyed Children still follow the Model.
 _Avoid_: re-entry, navigation
 
 **Message**:
@@ -57,7 +57,7 @@ A Message with the Instance ID it is sent to, its Source and its Time: what a Se
 _Avoid_: event, packet
 
 **Source**:
-Who Sent a Message: a View, a Command or a Lifetime, and the Instance it belongs to. The same Instance the Message goes to, except for a Request, which comes from the Instance whose Command made it. Kept with the Envelope.
+Who Sent a Message: a View, a Command by its name, or a Worker by its name and key, and the Instance it belongs to. The same Instance the Message goes to, except for a Request, which comes from the Instance whose Command made it. Kept with the Envelope.
 _Avoid_: sender, origin, caller
 
 **Time**:
@@ -65,7 +65,7 @@ When a Message arrived, in milliseconds since the Runtime started. Stamped by th
 _Avoid_: timestamp, now, clock (on its own)
 
 **Update**:
-The pure rule that takes the current Model, State, a Message and its Time and returns the next Model and State, and maybe a Command. It never sees Capabilities, so Replay can run it with nothing else. Written per State; a Message with no rule in the current State is ignored.
+The pure rule that takes the current Model, State, a Message and its Time and returns the next Model and State, and the Commands it asks for. It never sees Capabilities, so Replay can run it with nothing else. Written per State; a Message with no rule in the current State is ignored. The only thing that changes the Model, so whatever is running is readable from it.
 _Avoid_: reducer, handler
 
 **Log**:
@@ -81,7 +81,7 @@ The line of entries grown from one start of the Runtime: starting from an earlie
 _Avoid_: fork (as a noun), timeline, run, session
 
 **Replay**:
-Rebuilding the Snapshot from Messages alone: init, then each Message with its Time through Update, handed to the Instance with its ID. A Message for an Instance that is gone is dropped, as it was live; Replay never Invokes an Instance the Messages did not. No Capabilities, Lifetimes or Commands run.
+Rebuilding the Snapshot from Messages alone: init, then each Message with its Time through Update, handed to the Instance with its ID. A Message for an Instance that is gone is dropped, as it was live; Replay never Invokes an Instance the Messages did not. No Capabilities, Workers or Commands run.
 _Avoid_: rehydrate, restore
 
 **Step**:
@@ -92,15 +92,23 @@ _Avoid_: index, tick, position
 Drawing the app as a Replay at a Step: every Message up to it is played, and the app is drawn at that Message's Time. The live app keeps running underneath, and nothing can be sent from the past.
 _Avoid_: undo, rewind, snapshot history, pause
 
-### Effects
+### Work
 
 **Command**:
-One piece of work an Update asks for: an Effect that may Send its Instance any number of Messages, such as one per chunk of a stream. It gets its Actor's Capabilities from Effect (`yield* Session`). Owned by its Instance, not its State: it runs until it ends or the Instance stops, and a Command started under the same key interrupts it (the latest plan wins).
-_Avoid_: effect, side effect, task
+An errand an Update asks for: one named Effect that ends with at most one Message, Sent to its Instance. For work with nothing to show while it runs: replace the URL, tell a cache, make a Request. It gets Capabilities from Effect. Nothing stops it but its Instance stopping; work that must be stopped, show progress, or survive a stop is a Worker.
+_Avoid_: effect, side effect, task, invoke, cancel (there is none)
 
-**Lifetime**:
-Work that runs for exactly as long as an Instance exists, or as long as it is in one State: a socket, a timer, a first fetch. A scoped Effect that Sends its Instance Messages and reads its current Model and State; it gets Capabilities from Effect, like a Command. When the Instance stops or leaves the State, its Scope closes.
-_Avoid_: subscription, activity, resource, entry action
+**Worker**:
+Work that runs for exactly as long as its Condition holds: a socket, a timer, an upload, a multi-step process. A named, scoped Effect that Sends its Instance any number of Messages and reads its current Model and State; it gets Capabilities from Effect. It must be able to start from the Model alone, because it starts again whenever its Condition holds anew. One Worker runs per key its Condition names.
+_Avoid_: lifetime, subscription, activity, process, job, Web Worker
+
+**Condition**:
+What a Worker is owned by, read from its Instance's own Model and State after every Update: the Instance itself, one State, a yes or no, or a list of keys. When a key appears its Worker starts; when it goes, the Worker's Scope closes and its finalizers run. Nothing stops a Worker but its Condition, so stopping work is changing the Model.
+_Avoid_: trigger, guard, dependency, cancel, handle
+
+**Finalizer**:
+What a Worker does as its Scope closes, whether it finished or its Condition stopped: close the outside world. It never Sends; the Update that changed the Condition already recorded why, with its Time.
+_Avoid_: cleanup hook, teardown, on exit
 
 ### Capabilities
 
@@ -117,7 +125,7 @@ The Capabilities an Actor gives its descendants, per State. Declared in the Acto
 _Avoid_: exposes, exports
 
 **Request**:
-A function on a Capability that sends a Message to the Instance that Provides it, so a descendant can ask an ancestor for a change without knowing where it is. Called from a Command, never from a View.
+A function on a Capability that sends a Message to the Instance that Provides it, so a descendant can ask an ancestor for a change without knowing where it is. Called from a Command or a Worker, never from a View.
 _Avoid_: output, bubble, callback, event
 
 ### Drawing
@@ -131,11 +139,11 @@ The Time the Views are drawn at, one value for the whole app that every View is 
 _Avoid_: tick, render
 
 **Send**:
-Hand a Message to an Instance, making an Envelope that is handled at once. The only thing a View can do besides drawing; Lifetimes and Commands can Send only to their own Instance.
+Hand a Message to an Instance, making an Envelope that is handled at once. The only thing a View can do besides drawing; Workers and Commands can Send only to their own Instance.
 _Avoid_: dispatch, emit, trigger
 
 **Runtime**:
-The live app: the Snapshot, plus the Capabilities, Lifetimes and Commands that connect it to the outside world, and the Log. One per app, however many times the app is drawn; it starts when the app is first drawn and stops when the last drawing goes. Only code outside the tree, like a timeline, sees it: it reads the Log and chooses the Step shown.
+The live app: the Snapshot, plus the Capabilities, Workers and Commands that connect it to the outside world, and the Log. One per app, however many times the app is drawn; it starts when the app is first drawn and stops when the last drawing goes. Only code outside the tree, like a timeline, sees it: it reads the Log and chooses the Step shown.
 _Avoid_: store, engine, interpreter, actor system
 
 ### Seeing the app
@@ -149,9 +157,9 @@ The one Branch the Timeline and the Inspector walk, from init to its latest entr
 _Avoid_: selected branch, active branch
 
 **Change**:
-What one Step did to the Snapshot: the Instances it started and stopped, its Transitions, and every field of a Model or State that took a new value, with the value it had before. Init's Change is every Instance starting. An ignored or dropped Message, or one whose Update gave back the same data, has no Change.
+What one Step did to the Snapshot: the Instances and Workers it started and stopped, its Transitions, and every field of a Model or State that took a new value, with the value it had before. Init's Change is every Instance starting. An ignored or dropped Message, or one whose Update gave back the same data, has no Change.
 _Avoid_: diff, delta, patch, mutation
 
 **Inspector**:
-One Step taken apart, on a map of the whole app drawn from its Actors: every State each can be in and every Child each State Invokes, dim until an Instance runs there. An Actor without States is drawn without its one State. The Step lights up the Instances that exist and their States, with its Change marked, and any Instance's data. Moves one Step at a time along the Branch in view.
+One Step taken apart, on a map of the whole app drawn from its Actors: every State each can be in, every Child each State Invokes and every Worker it can own, dim until an Instance runs there. Which Workers a Step expects follows from the Snapshot; whether each is running, finished or failed is known live only. An Actor without States is drawn without its one State. The Step lights up the Instances that exist and their States, with its Change marked, and any Instance's data. Moves one Step at a time along the Branch in view.
 _Avoid_: devtools (the repo's DevTools is another thing), debugger, panel

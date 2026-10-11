@@ -11,9 +11,9 @@ in the query string (`?search=rex&diet=Carnivore&sorting=Length:Descending`).
 Opening that URL restores the table; unknown values are ignored.
 
 ```
-QuerySync (root)         Model { browse }; Lifetime: Url.query → ChangedUrl
+QuerySync (root)         Model { browse }; Worker: Url.query → ChangedUrl
                          ClickedColumnHeader → Command: Url.replace({ sorting })
-├─ search: Param(search) Model { value }; Lifetime: its parameter → HeardUrl
+├─ search: Param(search) Model { value }; Worker: its parameter → HeardUrl
 ├─ diet: Param(diet)     Edited → Command: Url.replace({ [name]: value })
 └─ period: Param(period)
 url/     Url Capability: the query string as a Stream, `replace` without a history entry
@@ -32,7 +32,7 @@ then `ChangedUrl` in the app and `HeardUrl` in the search.
   the URL, `ChangedUrl` and `ClickedLink` are Runtime Messages, and
   `replaceUrl`/`pushUrl` are Commands. Here a `Url` Capability in the app's
   Layer wraps `history.replaceState` and `popstate`, and the first URL
-  arrives as a Message from a Lifetime.
+  arrives as a Message from a Worker.
 - **`@foldkit/ui` Listbox became a native select**, inside a Param Child. The
   Listbox's open state would have been a Child too, but the selected value is
   the app's (roll-up 13), so each control mirrors its parameter instead.
@@ -45,7 +45,7 @@ then `ChangedUrl` in the app and `HeardUrl` in the search.
   - `init` cannot take the URL (or any input), so the starting URL is a
     Message just after init: Replay at step 0 draws the unfiltered table.
   - No URL change Message or link interception from the Runtime; each app
-    writes its own Capability and Lifetime.
+    writes its own Capability and Worker.
   - Time Travel does not move the address bar: stepping back draws old
     filters while the URL shows the latest. A router would need the URL to be
     replayed from the Log too.
@@ -73,4 +73,4 @@ What Effect Oak would need:
 - `browse.ts` and `table/rows.ts` are plain functions and can be tested
   today, including printing and parsing sorting.
 - A stub Url Capability with a scripted query Stream: `Runtime.start` with a
-  stub Layer can do it today, which tests the Lifetimes too.
+  stub Layer can do it today, which tests the Workers too.

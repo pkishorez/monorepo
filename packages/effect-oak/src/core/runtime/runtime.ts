@@ -10,7 +10,7 @@ import { makeMailbox } from './mailbox.ts';
 import { reconcile } from './reconcile.ts';
 import { makeTime } from './time.ts';
 import { makeWorks } from './work.ts';
-import type { Works } from './work.ts';
+import type { WorkerStatus, Works } from './work.ts';
 
 /*
  * The live app: the Snapshot, its Log, and the work that connects it to the
@@ -18,12 +18,12 @@ import type { Works } from './work.ts';
  *
  * 1. Start     the root is created from init, and goes live with the
  *              Capabilities of the app's Layer. Time starts at 0 on Effect's
- *              monotonic Clock, which Commands and Lifetimes use too. Given a
+ *              monotonic Clock, which Commands and Workers use too. Given a
  *              saved Log, the Runtime Replays to its Head and goes live there.
  * 2. Deliver   each Envelope: `handle` makes the next Snapshot, `reconcile`
- *              stops and starts work where it landed, the Update's Command
- *              runs, and the entry is appended to the Log after the Head.
- * 3. Stop      closes the live Scope: every Lifetime, Command and Capability
+ *              stops and starts work where it landed, the Update's Commands
+ *              run, and the entry is appended to the Log after the Head.
+ * 3. Stop      closes the live Scope: every Worker, Command and Capability
  *              ends. The Snapshot and the Log stay, Time stands still, and
  *              nothing can Send.
  * 4. Start     from any entry Replays the Branch to it and goes live there:
@@ -73,8 +73,10 @@ export interface Running<A> {
   readonly children: (of: number | null) => ReadonlyArray<Entry>;
   /** Show the Snapshot right after init or an entry, on any Branch, or live with `null`. */
   readonly show: (entry: number | 'init' | null) => Effect.Effect<void>;
-  /** Close every Lifetime, Command and Capability. The Snapshot and the Log stay. */
+  /** Close every Worker, Command and Capability. The Snapshot and the Log stay. */
   readonly stop: () => Effect.Effect<void>;
+  /** What an Instance's Workers are doing now: live only, never in the Snapshot. Empty while stopped. */
+  readonly workers: (instance: string) => ReadonlyArray<WorkerStatus>;
   /**
    * Start from an entry (`null`: right after init), growing a new Branch from
    * it; with no entry, resume from the Head. Stops first if running.
@@ -129,7 +131,7 @@ const start = <A extends AnyActor>(
       const { change } = handled;
       if (change && works) {
         reconcile(works, change.definition, change.before, change.after);
-        works.command(change.after, change.command, change.cancel);
+        works.command(change.after, change.commands);
       }
       const entry = log.append({
         ...envelope,
@@ -151,7 +153,7 @@ const start = <A extends AnyActor>(
       const scope = Scope.forkUnsafe(outer);
       const capabilities = Deferred.makeUnsafe<Context.Context<never>>();
       Deferred.doneUnsafe(capabilities, Effect.succeed(services));
-      const fresh = makeWorks(services, mailbox.send);
+      const fresh = makeWorks(services, mailbox.send, time.now);
       live = scope;
       works = fresh;
       snapshot = drawn = next;
@@ -280,6 +282,7 @@ const start = <A extends AnyActor>(
       children: (of) => log.children(of),
       show: (entry) => latest(show(entry)),
       stop: () => latest(halt),
+      workers: (instance) => works?.workers(instance) ?? [],
       start: (from) => latest(startFrom(from)),
       clear: () => latest(clear),
     };

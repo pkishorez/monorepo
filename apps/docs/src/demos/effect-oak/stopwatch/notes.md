@@ -42,7 +42,7 @@ with `Command.resolve(DetermineStartTime, CompletedDetermineStartTime({ startTim
 Its scenes emit a tick with `Subscription.emit(Ticked())` and check that the
 text reads `00:04.32`.
 
-There are no Commands or Lifetimes here, so the Update tests only need a typed
+There are no Commands or Workers here, so the Update tests only need a typed
 `Actor.step` that takes `at` (see [../counter/notes.md](../counter/notes.md)).
 Then "Start at 1000, Stop at 5320 → Stopped { elapsed: 4320 }" is one call.
 To test what the View shows, Effect Oak would also need to draw a View at a

@@ -10,7 +10,7 @@ all, clear completed, all saved to localStorage.
 
 ```
 Todos (root)                       requires TodoStore (from the Layer)
-  Loading                          Lifetime: TodoStore.load → Loaded { todos }
+  Loading                          Worker: TodoStore.load → Loaded { todos }
   Ready { todos, filter, editing } Provides Composing
   └─ composer: Composer            Model { text }; Submitted → Command → Composing.add(text)
                                    (a Request: it reaches Todos as RequestedAdd)
@@ -28,7 +28,7 @@ Adding a todo goes: `Submitted` (composer) → Command calls `Composing.add` →
 ## Deviations
 
 - **Flags became a Loading State.** Foldkit reads localStorage before `init`
-  through `flags`. Here the root starts in `Loading`, and its Lifetime reads the
+  through `flags`. Here the root starts in `Loading`, and its Worker reads the
   `TodoStore` Capability and sends `Loaded { todos }`. The saved todos arrive as a
   Message, at Time 0, so Replay shows them without touching localStorage.
 - **The new-todo field is a child Actor** (`Composer`) that hands new todos up
@@ -51,7 +51,7 @@ Adding a todo goes: `Submitted` (composer) → Command calls `Composing.add` →
 - **Children cannot be given input when they are created.** (now possible: a Child's `init` takes its Input; this demo is unchanged) `init` takes
   nothing. A single `Editor` Child, created on entering an `Editing` State,
   would need the todo's text to start from. It could only get it by reading a
-  Capability in a Lifetime and sending itself a Message. That costs an extra
+  Capability in a Worker and sending itself a Message. That costs an extra
   Message per edit, so editing stayed in the root. An API could be
   `children: { Editing: { editor: Editor.with((state) => ({ text: state.text })) } }`,
   with `init: (input) => …`. The input would be computed in Update's pure
@@ -76,7 +76,7 @@ What Effect Oak would need:
   Effect.
 - A typed `Actor.step` that returns those Commands (see
   [../counter/notes.md](../counter/notes.md)).
-- **Lifetimes as data in tests**: a way to emit a Lifetime's Message, the way
+- **Workers as data in tests**: a way to emit a Worker's Message, the way
   Foldkit has `Subscription.emit`. Today `Runtime.start` with a test
   `TodoStore` Layer works, but then it is an integration test.
 - A way to test a Request: drive the `Composer` with a fake `Composing`, or

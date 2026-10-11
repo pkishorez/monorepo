@@ -31,7 +31,7 @@ resuming the Runtime from it for hydration. On top of that:
   prerendered path draws its own page and the browser resumes on the same
   one.
 - **Nothing per request**: a prerender has no cookies or session, so any
-  per-user data must arrive after hydration, through a Lifetime of the
+  per-user data must arrive after hydration, through a Worker of the
   resumed Runtime.
 
 The roll-up lists this as blocker 20.

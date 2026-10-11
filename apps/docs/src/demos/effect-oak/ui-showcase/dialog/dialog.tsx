@@ -1,4 +1,4 @@
-import { Effect, Schema } from 'effect';
+import { Schema } from 'effect';
 import { Actor } from 'effect-oak';
 import { View } from 'effect-oak/react';
 import { focusFirstIn, focusId } from '../focus/index.js';
@@ -60,13 +60,7 @@ const behavior = (options: Options) => {
         model.open
           ? {
               model: { open: false },
-              command: Effect.all(
-                [reportPick(options.id, value), focusId(ids.trigger)],
-                {
-                  concurrency: 'unbounded',
-                  discard: true,
-                },
-              ),
+              command: [reportPick(options.id, value), focusId(ids.trigger)],
             }
           : {},
     },

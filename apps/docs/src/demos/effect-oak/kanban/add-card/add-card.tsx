@@ -45,9 +45,12 @@ export const makeAddCard = (columnId: string) => {
           if (title === '') return {};
           return {
             state: { _tag: 'Closed' },
-            command: Effect.gen(function* () {
-              yield* (yield* Adding).add(columnId, title);
-            }),
+            command: {
+              name: 'add',
+              run: Effect.gen(function* () {
+                yield* (yield* Adding).add(columnId, title);
+              }),
+            },
           };
         },
         Cancelled: () => ({ state: { _tag: 'Closed' } }),

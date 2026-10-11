@@ -12,8 +12,8 @@ type Order = typeof Order.Type;
  *
  * The parent decides when to load, through Orders. The Query's own View may
  * retry or refresh it directly, and may report a choice the user made in it
- * (a clicked row) through `choose`, a Command the app writes: usually a
- * Request to the parent.
+ * (a clicked row) through `choose`, an Effect the app writes, run as a
+ * Command: usually a Request to the parent.
  */
 
 type Requires = Readonly<Record<string, Context.Key<any, any>>>;
@@ -23,11 +23,13 @@ type IdsOf<R extends Requires> = {
 
 export { Orders, OrdersLive } from './orders.js';
 
-/** Post an Order to the Query with this name, from a parent's Command. */
-export const tell = (query: string, order: Order) =>
-  Effect.gen(function* () {
+/** A parent's Command: post an Order to the Query with this name. */
+export const tell = (query: string, order: Order) => ({
+  name: 'tell',
+  run: Effect.gen(function* () {
     yield* (yield* Orders).tell(query, order);
-  });
+  }),
+});
 
 export const makeQuery = <
   const Name extends string,
@@ -40,12 +42,14 @@ export const makeQuery = <
   readonly fetch: (key: string) => Effect.Effect<A['Type'], string, IdsOf<R>>;
   readonly choose?: (value: string) => Effect.Effect<void, never, IdsOf<R>>;
 }) => {
-  const fetch = (key: string) =>
-    Effect.map(AsyncData.attempt(options.fetch(key)), (result) => ({
+  const fetch = (key: string) => ({
+    name: 'fetch',
+    run: Effect.map(AsyncData.attempt(options.fetch(key)), (result) => ({
       _tag: 'Settled' as const,
       key,
       result,
-    }));
+    })),
+  });
 
   const Entry = AsyncData.schema(options.data);
   type Entry = AsyncData<A['Type']>;
@@ -96,15 +100,21 @@ export const makeQuery = <
   }).build({
     init: () => ({ model: { entries: {}, focus: '' } }),
     // TypeScript cannot see that Orders is among `{ orders } & R`'s
-    // Capabilities while R is generic, so the Lifetime's needs are cast away here.
-    lifetime: (self) =>
-      Effect.gen(function* () {
-        yield* (yield* Orders)
-          .heard(options.name)
-          .pipe(
-            Stream.runForEach((order) => self.send({ _tag: 'Ordered', order })),
-          );
-      }) as Effect.Effect<void>,
+    // Capabilities while R is generic, so the Worker's needs are cast away here.
+    workers: {
+      listen: {
+        run: (self) =>
+          Effect.gen(function* () {
+            yield* (yield* Orders)
+              .heard(options.name)
+              .pipe(
+                Stream.runForEach((order) =>
+                  self.send({ _tag: 'Ordered', order }),
+                ),
+              );
+          }) as Effect.Effect<void>,
+      },
+    },
     update: {
       Ordered: ({ order: { _tag, key } }, { model }) =>
         step({ ...model, focus: key }, key, ORDERS[_tag]),
@@ -113,7 +123,9 @@ export const makeQuery = <
       ClickedRefresh: ({ key }, { model }) =>
         step(model, key, AsyncData.revalidateOrLoad),
       Chose: ({ value }) =>
-        options.choose ? { command: options.choose(value) } : {},
+        options.choose
+          ? { command: { name: 'choose', run: options.choose(value) } }
+          : {},
       Settled: ({ key, result }, { model }) => ({
         model: {
           ...model,

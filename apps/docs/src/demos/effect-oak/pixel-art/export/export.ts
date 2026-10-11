@@ -16,30 +16,33 @@ export class Printable extends Context.Service<
 const SIZE_PX = 512;
 const SCALE = 4;
 
-const exportPng = Effect.gen(function* () {
-  const colors = yield* (yield* Printable).colors;
-  const size = colors.length;
-  const cell = Math.max(1, Math.floor(SIZE_PX / size)) * SCALE;
-  const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = size * cell;
-  const context = canvas.getContext('2d');
-  if (!context)
-    return {
-      _tag: 'FailedExport' as const,
-      error: 'Canvas 2D context not available',
-    };
-  colors.forEach((row, y) =>
-    row.forEach((color, x) => {
-      context.fillStyle = color;
-      context.fillRect(x * cell, y * cell, cell, cell);
-    }),
-  );
-  const link = document.createElement('a');
-  link.download = 'pixel-art.png';
-  link.href = canvas.toDataURL('image/png');
-  link.click();
-  return { _tag: 'SucceededExport' as const };
-});
+const exportPng = {
+  name: 'exportPng',
+  run: Effect.gen(function* () {
+    const colors = yield* (yield* Printable).colors;
+    const size = colors.length;
+    const cell = Math.max(1, Math.floor(SIZE_PX / size)) * SCALE;
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = size * cell;
+    const context = canvas.getContext('2d');
+    if (!context)
+      return {
+        _tag: 'FailedExport' as const,
+        error: 'Canvas 2D context not available',
+      };
+    colors.forEach((row, y) =>
+      row.forEach((color, x) => {
+        context.fillStyle = color;
+        context.fillRect(x * cell, y * cell, cell, cell);
+      }),
+    );
+    const link = document.createElement('a');
+    link.download = 'pixel-art.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+    return { _tag: 'SucceededExport' as const };
+  }),
+};
 
 export const Export = Actor.make('Export', {
   requires: { printable: Printable },

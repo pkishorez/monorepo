@@ -11,13 +11,13 @@ click, Pause/Play, Reset, and Turbulence and Noise scale sliders.
 
 ```
 Prism (one Actor)              Model { particles, nextId, flowStrength, noiseScale, pointer }
-  Running { before, since }    Lifetime: every 500 ms, 4 random seeds → CompletedGenerateAmbient
+  Running { before, since }    Worker: every 500 ms, 4 random seeds → CompletedGenerateAmbient
   Paused { clock }
   any                          every Update first settles the particles to `at`
                                PressedCanvas → Command (Random) → CompletedGenerateBurst
 flow/    the physics: noise, the field, `advance` (step a particle on) and `settle`
 sky/     the canvas: carries particles on to each Frame and paints them; not an Actor
-seeds.ts random new particles, for Commands and the Lifetime
+seeds.ts random new particles, for Commands and the Workers
 ```
 
 ## How motion works without ticks
@@ -41,7 +41,7 @@ Step back in Time Travel), starts again from the Model.
 - **No `TickedFrame`.** Foldkit sends a Message per animation frame and steps
   in Update. Here about 2 ambient Messages a second, plus clicks, pointer
   moves and sliders.
-- **Ambient particles come from a Lifetime**, 4 every 500 ms, and are taken
+- **Ambient particles come from a Worker**, 4 every 500 ms, and are taken
   only while there are fewer than 55. Foldkit asks for up to 3 new ones per
   frame. The rate here is about what fades.
 - Running and Paused are States, with a clock that stops while Paused (as in
@@ -59,8 +59,8 @@ Step back in Time Travel), starts again from the Model.
   by Request like the form's fields) would have to live in both Running and
   Paused, and Children belong to one State (roll-up blocker 10). It would be
   created anew at every Pause, and could not start from the current value
-  (blocker 3). Putting Running/Paused into the Model instead would lose the
-  Lifetime, which belongs to a State. So the Actor is one, and the sliders are
+  (blocker 3). Putting Running/Paused into the Model instead would mean the
+  ambient Worker is owned by a `while` on it rather than by a State. So the Actor is one, and the sliders are
   plain controls sending its Messages.
 
 ## Testing
@@ -73,7 +73,7 @@ sliders are labelled.
 What Effect Oak would need:
 
 - Named Commands to resolve the burst (roll-up blocker 4), and emitting the
-  ambient Lifetime's Message by hand (blocker 6).
+  ambient Worker's Message by hand (blocker 6).
 - A typed `Actor.step` (blocker 5). `flow/` is plain functions: "a particle
   stepped to 1000 then to 2000 is where it is stepped straight to 2000" can be
   tested today.

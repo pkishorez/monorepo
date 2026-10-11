@@ -12,10 +12,13 @@ import { Telemetry, TelemetryData } from './telemetry/index.js';
  * Commands have no counterpart.
  */
 
-const fetchTelemetry = Effect.gen(function* () {
-  const result = yield* AsyncData.attempt((yield* Telemetry).fetch);
-  return { _tag: 'SettledFetchTelemetry' as const, result };
-});
+const fetchTelemetry = {
+  name: 'fetchTelemetry',
+  run: Effect.gen(function* () {
+    const result = yield* AsyncData.attempt((yield* Telemetry).fetch);
+    return { _tag: 'SettledFetchTelemetry' as const, result };
+  }),
+};
 
 const Model = Schema.Struct({
   telemetry: AsyncData.schema(TelemetryData),
@@ -51,8 +54,12 @@ export const Charting = Actor.make('Charting', {
       selectedDatumId: null,
     },
   }),
-  lifetime: (self) =>
-    Effect.flatMap(fetchTelemetry, (message) => self.send(message)),
+  workers: {
+    load: {
+      run: (self) =>
+        Effect.flatMap(fetchTelemetry.run, (message) => self.send(message)),
+    },
+  },
   provides: (self) =>
     Layer.succeed(Choices, {
       chose: (choice) => self.send({ _tag: 'ReportedChoice', choice }),

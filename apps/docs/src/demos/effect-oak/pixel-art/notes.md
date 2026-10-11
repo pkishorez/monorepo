@@ -13,7 +13,7 @@ picture saved to localStorage.
 
 ```
 PixelArt (root)                requires PictureStore (from the Layer)
-  Loading                      Lifetime: PictureStore.load → Loaded { saved }
+  Loading                      Worker: PictureStore.load → Loaded { saved }
   Ready { grid, size, undo, redo, theme, color, tool, mirror, drawing, hovered, pendingSize }
                                Provides Brush (a Request) and Printable (reads the picture as colors)
                                finished changes → Command: PictureStore.save → SucceededSave | FailedSave
@@ -48,7 +48,7 @@ store.ts PictureStore Capability and its localStorage Layer
 ## Blockers
 
 - **A parent cannot pass data to a Child.** A Child's Update and View see only
-  its own Model; Capabilities reach only its Commands and Lifetimes. A `Resize`
+  its own Model; Capabilities reach only its Commands and Workers. A `Resize`
   Child (the size picker and its confirmation) needs the current size to
   draw the picker and whether the picture is empty to decide whether to ask.
   It could only read them in a Command and send itself a copy, so resizing

@@ -9,7 +9,7 @@ import { Session, SignedIn } from '../session/index.js';
  *
  * Both pages draw the session, but a Child is created with nothing (`init`
  * takes no input) and its View sees only its own Model. So it starts in
- * Opening, whose Lifetime reads SignedIn once and sends Opened with the
+ * Opening, whose Worker reads SignedIn once and sends Opened with the
  * session: one extra Message per sign-in, to copy data the parent already has.
  */
 
@@ -28,12 +28,15 @@ export const LoggedInPages = Actor.make('LoggedInPages', {
   }),
 }).build({
   init: () => ({ state: { _tag: 'Opening' } }),
-  lifetime: {
-    Opening: (self) =>
-      Effect.gen(function* () {
-        const { session } = yield* SignedIn;
-        yield* self.send({ _tag: 'Opened', session });
-      }),
+  workers: {
+    open: {
+      in: 'Opening',
+      run: (self) =>
+        Effect.gen(function* () {
+          const { session } = yield* SignedIn;
+          yield* self.send({ _tag: 'Opened', session });
+        }),
+    },
   },
   update: {
     Opening: {
@@ -55,9 +58,12 @@ export const LoggedInPages = Actor.make('LoggedInPages', {
 });
 
 /** Ask the app to sign out: a Request. */
-const logOut = Effect.gen(function* () {
-  yield* (yield* SignedIn).logOut();
-});
+const logOut = {
+  name: 'logOut',
+  run: Effect.gen(function* () {
+    yield* (yield* SignedIn).logOut();
+  }),
+};
 
 type Send = (
   message:

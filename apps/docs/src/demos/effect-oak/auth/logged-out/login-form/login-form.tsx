@@ -23,15 +23,17 @@ const problem = (email: string, password: string) =>
       ? 'Password is required'
       : null;
 
-const logIn = (email: string, password: string) =>
-  Effect.gen(function* () {
+const logIn = (email: string, password: string) => ({
+  name: 'logIn',
+  run: Effect.gen(function* () {
     const session = yield* (yield* AuthServer).login(email, password);
     yield* (yield* SignIn).complete(session);
   }).pipe(
     Effect.catch((error) =>
       Effect.succeed({ _tag: 'FailedLogin' as const, error }),
     ),
-  );
+  ),
+});
 
 export const LoginForm = Actor.make('LoginForm', {
   requires: { server: AuthServer, signIn: SignIn },

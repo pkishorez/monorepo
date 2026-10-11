@@ -14,7 +14,7 @@ export const ApiCacheView = View.make(ApiCache, ({ model, children, send }) => (
       <header className="flex flex-col gap-1">
         <h1 className="text-2xl font-semibold">API cache</h1>
         <p className="text-muted-foreground">
-          Query client patterns written as Model data, Update and one Lifetime.
+          Query client patterns written as Model data, Update and one Worker.
         </p>
       </header>
       <Tabs

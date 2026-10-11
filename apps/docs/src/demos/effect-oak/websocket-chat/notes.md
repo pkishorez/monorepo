@@ -10,7 +10,7 @@ them come back, with errors and a retry.
 ```
 Chat (root)                        requires ChatServer (from the Layer)
   Disconnected
-  Online { connected, messages }   Lifetime: ChatServer.connect → Connected / Received / Disconnected / Failed
+  Online { connected, messages }   Worker: ChatServer.connect → Connected / Received / Disconnected / Failed
                                    Provides Conversation
   └─ composer: Composer            requires Conversation; Model { text }; SubmittedMessage → Command → Conversation.send
   Error { error }
@@ -19,7 +19,7 @@ composer/     Composer Actor and its View, and the Conversation Capability it re
 transcript/   Transcript, a drawing of the messages
 ```
 
-Leaving Online interrupts its Lifetime, which closes the socket. The messages
+Leaving Online stops its Worker, which closes the socket. The messages
 live in Online, so they go when it is left, as Foldkit clears them on
 disconnect.
 
@@ -28,14 +28,14 @@ disconnect.
 - **Network: the real echo server Foldkit uses**, `wss://ws.postman-echo.com/raw`.
   It needs no key.
 - **Connecting and Connected are one State**, `Online`, with `connected`.
-  Two States would be two Lifetimes, and the socket would close between them.
+  Two States would be two Workers, and the socket would close between them.
 - **Timestamps are in the Messages.** Foldkit timestamps each message with a
-  separate Command and a `TimestampedMessage`. Here the Lifetime and the send
+  separate Command and a `TimestampedMessage`. Here the Worker and the send
   read the wall clock and put it in `ReceivedMessage` and
   `SucceededSendMessage`, so Replay shows the same times without a Command.
 - The connection timeout sleeps on Effect's Clock, so it runs on while
   Replay shows the past.
-- No `ReleasedChatSocket`: a Lifetime cannot send once it is interrupted.
+- No `ReleasedChatSocket`: a Worker's finalizer never sends.
 
 ## Blockers
 
@@ -44,7 +44,7 @@ disconnect.
   socket is kept inside `ChatServer`, whose `send` writes to it, like
   Foldkit's ManagedResource. `provides` is now a Layer built per State, so
   Online could Provide the socket itself; this demo has not moved to that.
-- **A Lifetime belongs to exactly one State**, which merged Connecting and
+- **A Worker owned by a State belongs to exactly one**, which merged Connecting and
   Connected (same as managed-resource-layer).
 
 ## Testing
@@ -57,8 +57,8 @@ incoming message.
 
 What Effect Oak would need:
 
-- **Emit a Lifetime's Message** in a test (roll-up blocker 6): connecting,
-  receiving and failing are all Lifetime Messages here.
+- **Emit a Worker's Message** in a test (roll-up blocker 6): connecting,
+  receiving and failing are all Worker Messages here.
 - Named Commands (blocker 4) for the Composer's send.
 - A fake `ChatServer` Layer already works with `Runtime.start`, as an
   integration test.

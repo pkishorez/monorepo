@@ -8,7 +8,7 @@ import { ComputeEngine, engineLayer, type Engine } from './compute-engine.js';
  * the engine here:
  *
  * - `boot` builds the engine's Layer in the Stream's own scope, keeps the
- *   engine while the Stream runs, and says its id. Run it as a Lifetime:
+ *   engine while the Stream runs, and says its id. Run it as a Worker:
  *   leaving the State interrupts it, which tears the engine down.
  * - `current` is the running engine, or fails if there is none.
  */

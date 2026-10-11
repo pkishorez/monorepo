@@ -18,9 +18,9 @@ RouteTransitions (root)      requires Location
   Painting { paintingId, ready }
   Studio                     Provides Drafts; └─ studio: Studio
   NotFound { path }
-  every State: Lifetime heardUrl(model.path) → ChangedUrl
+  Worker `listen`: heardUrl(model.path) → ChangedUrl
   ChangedUrl → next State, log entry, Commands: load painting / save draft
-Catalog                      Loading → Ready (Lifetime: 600 ms)
+Catalog                      Loading → Ready (Worker: 600 ms)
   Ready: ClickedLink → Command: Location.push
 Studio                       Model { text }
   Edited → Command: Drafts.edited(text)   (a Request: root's EditedDraft)
@@ -36,10 +36,10 @@ Foldkit compares the previous and next route with `Transition.isEntering`,
 handler. In Effect Oak each kind of change has its own home:
 
 - **Entering** a page that owns work is a Child being created. The Catalog
-  starts loading in its own Lifetime, and leaving mid-load destroys the load
+  starts loading in its own Worker, and leaving mid-load destroys the load
   with it, so "only once per fresh entry" and "never twice at once" need no
   code at all.
-- **Staying** (Painting 1 → Painting 2) is not a Transition: no Lifetime or
+- **Staying** (Painting 1 → Painting 2) is not a Transition: no Worker or
   Child restarts (ADR 0002). So the painting is loaded by a Command from the
   root's Update, which compares the old and new id, as Foldkit does.
 - **Leaving** is an Update too: there are no exit actions, but Update is
@@ -61,7 +61,7 @@ handler. In Effect Oak each kind of change has its own home:
 
 ## Blockers
 
-- **No routing** (blocker 15): the same per-State Lifetime, `Opening`, and
+- **No routing** (blocker 15): the same `listen` Worker, `Opening`, and
   Time Travel not moving the address bar, as in routing.
 - **Children cannot be given input when they are created** (now possible: a Child's `init` takes its Input; this demo is unchanged) (blocker 3): the
   Studio editor cannot start from the root's draft.
@@ -87,4 +87,4 @@ What Effect Oak would need:
   Catalog Child being created and destroyed. Testing it means running the
   tree: `Runtime.start` with a stub Location, or a way to say "the Gallery
   State has a Catalog Child in Loading" from a step result.
-- Emitting a Lifetime's Message by hand (blocker 6) for `LoadedCatalog`.
+- Emitting a Worker's Message by hand (blocker 6) for `LoadedCatalog`.

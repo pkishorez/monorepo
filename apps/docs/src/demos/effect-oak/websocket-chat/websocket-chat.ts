@@ -6,10 +6,10 @@ import { Composer, Conversation } from './composer/index.js';
 /*
  * A chat with an echo server: Disconnected → Online → Disconnected or Error.
  *
- * Online's Lifetime holds the socket open for as long as the State lasts,
+ * Online's Worker holds the socket open for as long as the State lasts,
  * and turns what happens to it into Messages. Connecting and Connected are
  * one State, Online, told apart by `connected`: two States would mean two
- * Lifetimes, and the socket would close between them. Online Provides Conversation
+ * Workers, and the socket would close between them. Online Provides Conversation
  * to its Composer Child; a send that works or fails comes back here. The
  * conversation lives in Online, so leaving it clears the messages.
  */
@@ -43,36 +43,39 @@ export const Chat = Actor.make('Chat', {
   children: { Online: { composer: Composer } },
 }).build({
   init: () => ({ state: { _tag: 'Disconnected' } }),
-  lifetime: {
-    Online: (self) =>
-      Stream.unwrap(
-        Effect.gen(function* () {
-          return (yield* ChatServer).connect;
-        }),
-      ).pipe(
-        Stream.mapEffect((event) =>
-          Effect.map(wallClock, (sentAt) => {
-            switch (event._tag) {
-              case 'Opened':
-                return { _tag: 'ConnectedChatSocket' as const };
-              case 'Received':
-                return {
-                  _tag: 'ReceivedMessage' as const,
-                  text: event.text,
-                  sentAt,
-                };
-              case 'Closed':
-                return { _tag: 'DisconnectedChatSocket' as const };
-              case 'Failed':
-                return {
-                  _tag: 'FailedChatSocket' as const,
-                  error: event.error,
-                };
-            }
+  workers: {
+    listen: {
+      in: 'Online',
+      run: (self) =>
+        Stream.unwrap(
+          Effect.gen(function* () {
+            return (yield* ChatServer).connect;
           }),
+        ).pipe(
+          Stream.mapEffect((event) =>
+            Effect.map(wallClock, (sentAt) => {
+              switch (event._tag) {
+                case 'Opened':
+                  return { _tag: 'ConnectedChatSocket' as const };
+                case 'Received':
+                  return {
+                    _tag: 'ReceivedMessage' as const,
+                    text: event.text,
+                    sentAt,
+                  };
+                case 'Closed':
+                  return { _tag: 'DisconnectedChatSocket' as const };
+                case 'Failed':
+                  return {
+                    _tag: 'FailedChatSocket' as const,
+                    error: event.error,
+                  };
+              }
+            }),
+          ),
+          Stream.runForEach(self.send),
         ),
-        Stream.runForEach(self.send),
-      ),
+    },
   },
   provides: {
     Online: (self) =>

@@ -11,12 +11,12 @@ kept in localStorage.
 
 ```
 Board (root)                            Model { columns }; requires BoardStore (from the Layer)
-  Loading                               Lifetime: BoardStore.load → Loaded
+  Loading                               Worker: BoardStore.load → Loaded
   Idle                                  Provides Adding
   ├─ todo: AddCard(todo)                Closed | Open { title }; Submitted → Command
   ├─ in-progress: AddCard(in-progress)    → Adding.add(columnId, title) (a Request)
   └─ done: AddCard(done)
-  Dragging { cardId, columnId, index }  Lifetime: follow(cardId), pointer and Escape
+  Dragging { cardId, columnId, index }  Worker: follow(cardId), pointer and Escape
                                         → Hovered | Dropped | Cancelled
 columns/      Columns Schema, the default board, moveCard, appendCard
 board-store/  BoardStore Capability and its localStorage Layer
@@ -25,7 +25,7 @@ card/         CardTile, a drawing
 add-card/     makeAddCard(columnId): the AddCard Actor and View, the Adding Capability
 ```
 
-Pressing a card sends `PickedUp` and the Board goes `Dragging`. Its Lifetime
+Pressing a card sends `PickedUp` and the Board goes `Dragging`. Its Worker
 listens to the document: every pointer move is hit-tested against the
 columns and cards the View marks, and only a change of target becomes a
 `Hovered` Message (`Stream.changesWith`). So a drag across the board is a few
@@ -36,7 +36,7 @@ sends `Dropped`: the columns change, a Command saves them, and the Board is
 ## Deviations
 
 - **No library.** Foldkit uses its `DragAndDrop` UI Submodel. This uses plain
-  pointer events and `document.elementsFromPoint` in a Lifetime.
+  pointer events and `document.elementsFromPoint` in a Worker.
 - **No ghost card following the pointer.** The held card is drawn, outlined,
   where it would land. A ghost could be moved through a ref by the View, since
   the pointer position is not app data; it was left out to keep the demo small.
@@ -59,8 +59,8 @@ sends `Dropped`: the columns change, a Command saves them, and the Board is
 - **Children belong to exactly one State** (blocker 10). The add-card forms
   live in `Idle`, so starting a drag destroys them and an open form is lost.
   Keeping them across `Idle | Dragging` would need Children keyed by a set of
-  States. The other way, drag as Model data instead of a State, loses the
-  Lifetime that holds the listeners for exactly as long as the drag.
+  States. The other way, drag as Model data instead of a State, would own
+  the Worker that holds the listeners by a `while` on that data instead.
 
 ## Testing
 
@@ -77,7 +77,7 @@ What Effect Oak would need:
   (`PickedUp`, `Hovered`, `Dropped`), so a story needs no pointer at all.
 - Named Commands (blocker 4) to check `SaveBoard` was asked for with the new
   columns and to answer `GenerateCardId`.
-- Emitting a Lifetime's Message (blocker 6): `follow` reads the DOM, so a test
+- Emitting a Worker's Message (blocker 6): `follow` reads the DOM, so a test
   would send `Hovered` itself rather than run it. `follow` alone can be tested
   in a DOM test by firing pointer events.
 - Drawing a View from a given Model and State (blocker 5) for the scenes.
@@ -86,6 +86,6 @@ What Effect Oak would need:
 
 - Replay draws a drag in progress, card held mid-air, because `Dragging`
   and its target are State.
-- The Lifetime reads the DOM the View drew (data attributes). That ties the
+- The Worker reads the DOM the View drew (data attributes). That ties the
   Actor to its View; a hit-test Capability given by the View would be cleaner
   but Views cannot provide Capabilities.

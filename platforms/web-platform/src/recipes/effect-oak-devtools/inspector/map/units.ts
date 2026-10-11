@@ -1,14 +1,35 @@
 import { isMany } from 'effect-oak';
-import type { Definition, Instance } from 'effect-oak';
-import type { Around } from '../../step/index.ts';
+import type { Definition, Instance, WorkerDefinition } from 'effect-oak';
+import { keyLives } from '../../step/index.ts';
+import type { Around, WorkerKey } from '../../step/index.ts';
 
 /*
  * The Actors, with the Snapshots before and after a Step laid over them: one
  * Unit per Actor in the tree, each with a Group per State and the Units each
- * State Invokes; an Actor without States has one Group with no pill. Every Unit and Group carries how the Step left it. Pure.
+ * State Invokes; an Actor without States has one Group with no pill. Each
+ * Worker belongs where its Condition is read: a State's to that Group, every
+ * other to its Unit, with the keys the Snapshot expects after the Step and
+ * the ones the Step stopped. Every Unit, Group and Worker carries how the
+ * Step left it. Pure.
  */
 
 export type Status = 'dim' | 'same' | 'changed' | 'started' | 'stopped';
+
+/** One Worker an Actor can own, with the keys the Step expects of it. */
+export interface WorkerUnit {
+  readonly id: string;
+  readonly name: string;
+  readonly kind: WorkerDefinition['kind'];
+  /**
+   * The keys its Condition names after the Step, started or kept, then the
+   * ones the Step stopped; `''` for every kind but `each`. Empty when it
+   * should not run and did not before.
+   */
+  readonly keys: ReadonlyArray<WorkerKey>;
+  readonly status: Status;
+  /** The Instance it belongs to at this Step, to read what it is doing live. */
+  readonly instance: string | undefined;
+}
 
 export interface Group {
   readonly id: string;
@@ -16,6 +37,10 @@ export interface Group {
   readonly tag: string | undefined;
   readonly status: Status;
   readonly units: ReadonlyArray<Unit>;
+  /** The Workers owned by this State. */
+  readonly workers: ReadonlyArray<WorkerUnit>;
+  /** Whether its node is open, showing its Workers. */
+  readonly open: boolean;
 }
 
 export interface Unit {
@@ -32,7 +57,19 @@ export interface Unit {
       }
     | undefined;
   readonly groups: ReadonlyArray<Group>;
+  /** The Workers owned by the Instance, a yes or no, or a list of keys. */
+  readonly workers: ReadonlyArray<WorkerUnit>;
+  /** Whether its node is open, showing its Workers. */
+  readonly open: boolean;
 }
+
+const WORKERS = '~workers';
+
+/** The id under which an owner's Workers are opened, apart from a keyed Child's. */
+export const workersId = (owner: string) => `${owner}${WORKERS}`;
+
+/** Whether an opened id is an owner's Workers, not a keyed Child. */
+export const opensWorkers = (id: string) => id.endsWith(WORKERS);
 
 const statusOf = (
   was: Instance | undefined,
@@ -51,6 +88,59 @@ const statusOf = (
 
 const held = (instance: Instance | undefined, slot: string) =>
   instance?.children[slot];
+
+const NONE: ReadonlyArray<string> = [];
+
+/** The keys a Worker's Condition names for an Instance's data, if it runs. */
+const keysOf = (worker: WorkerDefinition, instance: Instance | undefined) =>
+  instance
+    ? worker.keys({ model: instance.model, state: instance.state })
+    : NONE;
+
+/** Dim with no keys, green when keys appear, red when they go, changed when the set moves. */
+const workerStatus = (
+  before: ReadonlyArray<string>,
+  after: ReadonlyArray<string>,
+  fresh: boolean,
+): Status =>
+  before.length === 0 && after.length === 0
+    ? 'dim'
+    : fresh || before.length === 0
+      ? 'started'
+      : after.length === 0
+        ? 'stopped'
+        : before.length === after.length &&
+            before.every((key, at) => key === after[at])
+          ? 'same'
+          : 'changed';
+
+/** The Workers of one owner: a State's (`state` given) or the Actor's own. */
+const workersOf = (
+  definition: Definition,
+  id: string,
+  was: Instance | undefined,
+  is: Instance | undefined,
+  fresh: boolean,
+  state: string | undefined,
+): ReadonlyArray<WorkerUnit> =>
+  Object.entries(definition.workers)
+    .filter(([, worker]) =>
+      state === undefined
+        ? worker.kind !== 'state'
+        : worker.kind === 'state' && worker.state === state,
+    )
+    .map(([name, worker]) => {
+      const before = keysOf(worker, was);
+      const after = keysOf(worker, is);
+      return {
+        id: `${id}~${name}`,
+        name,
+        kind: worker.kind,
+        keys: keyLives(before, after),
+        status: workerStatus(before, after, fresh),
+        instance: (is ?? was)?.id,
+      };
+    });
 
 const build = (
   definition: Definition,
@@ -79,6 +169,8 @@ const build = (
           id: groupId,
           tag: single ? undefined : tag,
           status: statusOf(before, after, fresh && after !== undefined),
+          workers: workersOf(definition, groupId, was, is, fresh, tag),
+          open: open.has(workersId(groupId)),
           units: slots.map(([slot, child]): Unit => {
             const kidId = `${groupId}.${slot}`;
             const old = held(before, slot);
@@ -113,12 +205,16 @@ const build = (
                 open: opened,
                 members: [...olds, ...nows].map((kid) => kid.id),
               },
+              workers: [],
+              open: false,
               groups: opened
                 ? [
                     {
                       id: `${kidId}::all`,
                       tag: undefined,
                       status: 'same',
+                      workers: [],
+                      open: false,
                       units: merged(olds, nows).map(([o, n]) =>
                         build(
                           child.definition,
@@ -144,6 +240,10 @@ const build = (
     status,
     many: undefined,
     groups,
+    workers: recursive
+      ? []
+      : workersOf(definition, id, was, is, fresh, undefined),
+    open: open.has(workersId(id)),
   };
 };
 

@@ -6,7 +6,7 @@ export const NAMES = Object.keys(APPS) as ReadonlyArray<AppName>;
 
 const TITLES: Record<AppName, string> = {
   actor: 'An Actor',
-  state: 'States and Lifetimes',
+  state: 'States and Workers',
   fleet: 'A Fleet',
   capabilities: 'Capabilities',
 };

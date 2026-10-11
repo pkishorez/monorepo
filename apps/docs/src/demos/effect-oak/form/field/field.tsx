@@ -12,10 +12,11 @@ import type { Rule } from './rules.js';
  * Validating, Valid or Invalid.
  *
  * Typing runs the field's Rules at once. If they pass and the field has an
- * async check, it goes to Validating and runs the check as a Command under
- * the `check` key, which replaces any check still running, so only the latest value's answer comes
- * back. Every change is reported to whoever Provides Fields: a Request, so
- * the form gets each field's value and validity without reading its Children.
+ * async check, it goes to Validating, and a Worker keyed by the value runs
+ * the check: a new value is a new key, so the check for the old one stops and
+ * only the latest value's answer comes back. Every change is reported to
+ * whoever Provides Fields: a Request, so the form gets each field's value and
+ * validity without reading its Children.
  *
  * The status is Model data, not the Actor's States: a View used to draw each
  * State with its own component, so every Transition would remount the input
@@ -47,10 +48,12 @@ type Options = {
 export { rules } from './rules.js';
 
 export const makeField = (options: Options) => {
-  const report = (value: string, valid: boolean) =>
-    Effect.gen(function* () {
+  const report = (value: string, valid: boolean) => ({
+    name: 'report',
+    run: Effect.gen(function* () {
       yield* (yield* Fields).report(options.key, { value, valid });
-    });
+    }),
+  });
 
   const Field = Actor.make(`Field(${options.key})`, {
     requires: { fields: Fields },
@@ -80,7 +83,6 @@ export const makeField = (options: Options) => {
           return {
             model: { value, status: { _tag: 'Invalid', error } },
             command: report(value, false),
-            cancel: 'check',
           };
         if (!check)
           return {
@@ -89,29 +91,31 @@ export const makeField = (options: Options) => {
           };
         return {
           model: { value, status: { _tag: 'Validating' } },
-          command: {
-            key: 'check',
-            run: Effect.gen(function* () {
-              yield* report(value, false);
-              const error = yield* check(value);
-              return { _tag: 'CompletedCheck' as const, value, error };
-            }),
-          },
+          command: report(value, false),
         };
       },
-      CompletedCheck: ({ value, error }, { model }) =>
-        value !== model.value || model.status._tag !== 'Validating'
-          ? {}
-          : {
-              model: {
-                value,
-                status:
-                  error === null
-                    ? { _tag: 'Valid' }
-                    : { _tag: 'Invalid', error },
-              },
-              command: report(value, error === null),
-            },
+      CompletedCheck: ({ value, error }) => ({
+        model: {
+          value,
+          status:
+            error === null ? { _tag: 'Valid' } : { _tag: 'Invalid', error },
+        },
+        command: report(value, error === null),
+      }),
+    },
+    workers: {
+      // One check per value being validated: typing again stops the old one.
+      check: {
+        each: ({ model }) =>
+          model.status._tag === 'Validating' ? [model.value] : [],
+        run: (self, value) =>
+          Effect.gen(function* () {
+            const { check } = options;
+            if (!check) return;
+            const error = yield* check(value);
+            yield* self.send({ _tag: 'CompletedCheck', value, error });
+          }),
+      },
     },
   });
 

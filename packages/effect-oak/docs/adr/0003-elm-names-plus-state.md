@@ -10,4 +10,4 @@ Effect Oak uses Elm's names for its parts: Model, Message, Update, Command, View
 ## Consequences
 
 - Update, Lifetimes and Views read `{ model, state, services }`.
-- Lifetime keeps its own name instead of Elm's Subscription: it is anything that runs while a State lasts, not only listening.
+- Lifetime keeps its own name instead of Elm's Subscription: it is anything that runs while a State lasts, not only listening. Renamed Worker in [ADR 0016](0016-work-is-a-command-or-a-worker.md).

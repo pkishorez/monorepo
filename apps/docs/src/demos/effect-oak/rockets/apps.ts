@@ -8,7 +8,7 @@ import * as state from './state/index.js';
 /*
  * The Rockets demo as four apps, each with its own Log, in the order the
  * Walkthrough builds them up: one Actor, a Rocket with States and
- * Lifetimes, a Fleet of them, and the Fleet with its Capabilities.
+ * Workers, a Fleet of them, and the Fleet with its Capabilities.
  */
 export const APPS = {
   actor: toReact(actor.Rocket, actor.RocketView, Layer.empty),

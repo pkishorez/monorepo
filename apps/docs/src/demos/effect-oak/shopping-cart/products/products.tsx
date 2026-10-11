@@ -8,7 +8,7 @@ import { Basket, Item, money } from '../basket/index.js';
 import { ShopServer } from '../shop-server/index.js';
 
 /*
- * The products page: Loading the catalog from the ShopServer in a Lifetime,
+ * The products page: Loading the catalog from the ShopServer in a Worker,
  * then Ready with a search. "Add to cart" is a Request through Basket, so the
  * page never holds the cart.
  *
@@ -31,12 +31,15 @@ export const Products = Actor.make('Products', {
   }),
 }).build({
   init: () => ({ state: { _tag: 'Loading' } }),
-  lifetime: {
-    Loading: (self) =>
-      Effect.gen(function* () {
-        const products = yield* (yield* ShopServer).products;
-        yield* self.send({ _tag: 'Loaded', products });
-      }),
+  workers: {
+    load: {
+      in: 'Loading',
+      run: (self) =>
+        Effect.gen(function* () {
+          const products = yield* (yield* ShopServer).products;
+          yield* self.send({ _tag: 'Loaded', products });
+        }),
+    },
   },
   update: {
     Loading: {
@@ -49,9 +52,12 @@ export const Products = Actor.make('Products', {
         state: { ...state, search: value },
       }),
       ClickedAddToCart: ({ item }) => ({
-        command: Effect.gen(function* () {
-          yield* (yield* Basket).add(item);
-        }),
+        command: {
+          name: 'add',
+          run: Effect.gen(function* () {
+            yield* (yield* Basket).add(item);
+          }),
+        },
       }),
     },
   },

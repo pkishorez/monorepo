@@ -18,11 +18,12 @@ import {
  * One round of snake: NotStarted → Playing ⇄ Paused → GameOver.
  *
  * The snake moves one cell per Tick: a game of discrete steps, so it ticks.
- * Each Tick asks for the next one as a Command under the `tick` key, sleeping
- * in the app's Time, sooner as the score grows. Pausing cancels that key;
- * resuming asks again. A new apple's place is random, so it comes back from
- * a Command as a Message. When the snake bites itself the round tells the
- * Scores Request how it did.
+ * A Worker owned by the Playing State sends them, sleeping in the app's Time
+ * between each, sooner as the score grows: it reads the points before every
+ * sleep. Pausing leaves Playing, which stops the Worker; resuming starts it
+ * again. A new apple's place is random, so it comes back from a Command as a
+ * Message. When the snake bites itself the round tells the Scores Request
+ * how it did.
  */
 
 /** Whoever keeps the high score: the arcade. */
@@ -37,16 +38,10 @@ const HEAD = { x: 10, y: 10 };
 /** Milliseconds between steps: 150, down to 80 as the score grows. */
 const interval = (points: number) => Math.max(80, 150 - points);
 
-const tick = (points: number) => ({
-  key: 'tick',
-  run: Effect.sleep(interval(points)).pipe(
-    Effect.as({ _tag: 'Ticked' as const }),
-  ),
-});
-
 /** A random free cell for the apple. */
-const placeApple = (body: Body) =>
-  Effect.gen(function* () {
+const placeApple = (body: Body) => ({
+  name: 'placeApple',
+  run: Effect.gen(function* () {
     for (;;) {
       const position = {
         x: yield* Random.nextIntBetween(0, GRID, { halfOpen: true }),
@@ -55,12 +50,15 @@ const placeApple = (body: Body) =>
       if (!contains(body, position))
         return { _tag: 'CompletedGenerateApplePosition' as const, position };
     }
-  });
+  }),
+});
 
-const report = (points: number) =>
-  Effect.gen(function* () {
+const report = (points: number) => ({
+  name: 'report',
+  run: Effect.gen(function* () {
     yield* (yield* Scores).finished(points);
-  });
+  }),
+});
 
 const fresh = () => {
   const snake = start(HEAD);
@@ -101,28 +99,35 @@ export const Round = Actor.make('Round', {
   }),
 }).build({
   init: fresh,
-  lifetime: {
-    '*': (self) =>
-      Effect.gen(function* () {
-        const { model } = yield* self.get;
-        yield* self.send(yield* placeApple(model.snake));
-      }),
+  workers: {
+    /** The first apple, once the round exists. */
+    seed: {
+      run: (self) =>
+        Effect.gen(function* () {
+          const { model } = yield* self.get;
+          yield* self.send(yield* placeApple(model.snake).run);
+        }),
+    },
+    /** One step per interval, read from the points before each sleep. */
+    tick: {
+      in: 'Playing',
+      run: (self) =>
+        Effect.gen(function* () {
+          const { model } = yield* self.get;
+          yield* Effect.sleep(interval(model.points));
+          yield* self.send({ _tag: 'Ticked' });
+        }).pipe(Effect.forever),
+    },
   },
   update: {
     NotStarted: {
-      PressedStart: (_, { model }) => ({
-        state: { _tag: 'Playing' },
-        command: tick(model.points),
-      }),
+      PressedStart: () => ({ state: { _tag: 'Playing' } }),
     },
     Playing: {
       Turned: ({ direction }, { model }) => ({
         model: { ...model, nextDirection: direction },
       }),
-      PressedPause: () => ({
-        state: { _tag: 'Paused' },
-        cancel: 'tick',
-      }),
+      PressedPause: () => ({ state: { _tag: 'Paused' } }),
       Ticked: (_, { model }) => {
         const direction = isOpposite(model.direction, model.nextDirection)
           ? model.direction
@@ -137,33 +142,17 @@ export const Round = Actor.make('Round', {
         const points = eats ? model.points + POINTS_PER_APPLE : model.points;
         return {
           model: { ...model, snake, direction, points },
-          command: eats
-            ? {
-                key: 'tick',
-                run: (self) =>
-                  Effect.gen(function* () {
-                    yield* self.send(yield* placeApple(snake));
-                    return yield* tick(points).run;
-                  }),
-              }
-            : tick(points),
+          command: eats ? placeApple(snake) : undefined,
         };
       },
     },
     Paused: {
-      PressedPause: (_, { model }) => ({
-        state: { _tag: 'Playing' },
-        command: tick(model.points),
-      }),
+      PressedPause: () => ({ state: { _tag: 'Playing' } }),
     },
     '*': {
       PressedRestart: () => {
         const next = fresh();
-        return {
-          ...next,
-          command: { key: 'apple', run: placeApple(next.model.snake) },
-          cancel: 'tick',
-        };
+        return { ...next, command: placeApple(next.model.snake) };
       },
       CompletedGenerateApplePosition: ({ position }, { model }) => ({
         model: { ...model, apple: position },

@@ -4,7 +4,7 @@ import { Url } from '../url/index.js';
 
 /*
  * One query parameter as an Actor: the control that edits it (a search box, a
- * filter) keeps a mirror of it in its Model. Its Lifetime listens to the URL,
+ * filter) keeps a mirror of it in its Model. Its Worker listens to the URL,
  * so the value arrives from the address bar at start and after every change;
  * an edit is written to the URL by a Command and comes back the same way.
  *
@@ -19,10 +19,12 @@ export const makeParam = (options: {
   readonly parse?: (raw: string) => string;
 }) => {
   const parse = options.parse ?? ((raw: string) => raw);
-  const write = (value: string) =>
-    Effect.gen(function* () {
+  const write = (value: string) => ({
+    name: 'write',
+    run: Effect.gen(function* () {
       yield* (yield* Url).replace({ [options.name]: value });
-    });
+    }),
+  });
 
   return Actor.make(`Param(${options.name})`, {
     requires: { url: Url },
@@ -33,18 +35,24 @@ export const makeParam = (options: {
     }),
   }).build({
     init: () => ({ model: { value: '' } }),
-    lifetime: (self) =>
-      Stream.unwrap(
-        Effect.gen(function* () {
-          return (yield* Url).query;
-        }),
-      ).pipe(
-        Stream.map((query) =>
-          parse(new URLSearchParams(query).get(options.name) ?? ''),
-        ),
-        Stream.changes,
-        Stream.runForEach((value) => self.send({ _tag: 'HeardUrl', value })),
-      ),
+    workers: {
+      listen: {
+        run: (self) =>
+          Stream.unwrap(
+            Effect.gen(function* () {
+              return (yield* Url).query;
+            }),
+          ).pipe(
+            Stream.map((query) =>
+              parse(new URLSearchParams(query).get(options.name) ?? ''),
+            ),
+            Stream.changes,
+            Stream.runForEach((value) =>
+              self.send({ _tag: 'HeardUrl', value }),
+            ),
+          ),
+      },
+    },
     update: {
       HeardUrl: ({ value }) => ({ model: { value } }),
       Edited: ({ value }) => ({ model: { value }, command: write(value) }),

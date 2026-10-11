@@ -11,15 +11,17 @@ import { Forecast, WeatherData } from './forecast/index.js';
  * no rule, so it is ignored: Foldkit's "if pending, do nothing" is a State.
  */
 
-const fetchWeather = (zipCode: string) =>
-  Effect.gen(function* () {
+const fetchWeather = (zipCode: string) => ({
+  name: 'fetchWeather',
+  run: Effect.gen(function* () {
     const weather = yield* (yield* Forecast).lookup(zipCode);
     return { _tag: 'SucceededFetchWeather' as const, weather };
   }).pipe(
     Effect.catch((error) =>
       Effect.succeed({ _tag: 'FailedFetchWeather' as const, error }),
     ),
-  );
+  ),
+});
 
 const submitted = (
   _: unknown,
