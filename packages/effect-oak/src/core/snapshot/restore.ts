@@ -7,8 +7,8 @@ import type { Instance, Snapshot } from './snapshot.ts';
  * Restore: a Message to the root that replaces the whole Snapshot with one
  * saved before. The only Message no Update sees. Before it is put in place,
  * every Instance is checked against its Actor: its ID, its Actor's name, its
- * State, its Model and its Children's slots; one that does not match is a
- * reason, and the Restore is ignored.
+ * State, its Model, its Props and its Children's slots; one that does not
+ * match is a reason, and the Restore is ignored.
  */
 
 export const RESTORE = '@effect-oak/Restore';
@@ -52,6 +52,7 @@ const check = (
   try {
     definition.check.model(instance.model, `the Model of ${id}`);
     definition.check.state(instance.state, `the State of ${id}`);
+    definition.check.props(instance.props, `the Props of ${id}`);
   } catch (error) {
     return (error as Error).message;
   }

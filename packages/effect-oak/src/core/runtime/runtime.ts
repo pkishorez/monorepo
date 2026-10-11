@@ -1,7 +1,7 @@
 import { Clock, Context, Deferred, Effect, Exit, Fiber, Scope } from 'effect';
 import type { AnyActor, Tagged, Types } from '../actor/index.ts';
-import { actorAt, handle, init } from '../snapshot/index.ts';
-import type { Envelope, Snapshot, Source } from '../snapshot/index.ts';
+import { actorAt, handle, init, outcomeOf } from '../snapshot/index.ts';
+import type { Envelope, Handled, Snapshot, Source } from '../snapshot/index.ts';
 import { Log } from '../log/index.ts';
 import type { Entry, RuntimeState } from '../log/index.ts';
 import { Replay } from '../replay/index.ts';
@@ -26,7 +26,8 @@ import type { WorkerStatus, Works } from './work.ts';
  *              Sent, so a bad one throws in the code that Sent it and never
  *              reaches the mailbox. `handle` makes the next Snapshot, `reconcile`
  *              stops and starts work where it landed, the Update's Commands
- *              run, and the entry is appended to the Log after the Head.
+ *              run, and the Envelope is appended to the Log after the Head.
+ *              What came of it is remembered beside the Log, never in it.
  * 3. Stop      closes the live Scope: every Worker, Command and Capability
  *              ends. The Snapshot and the Log stay, Time stands still, and
  *              nothing can Send.
@@ -35,7 +36,8 @@ import type { WorkerStatus, Works } from './work.ts';
  * 5. Show      the Snapshot right after init or any entry, on any Branch,
  *              or live.
  * 6. Read      the Snapshot right after any entry, played from the one before
- *              it and remembered, for code that takes the app apart.
+ *              it and remembered, and what came of the entry, for code that
+ *              takes the app apart.
  * 7. Clear     forgets every entry on every Branch and goes live from init.
  *
  * Stop, start and show are Effects; a new one interrupts the one still running.
@@ -59,7 +61,7 @@ export interface Running<A> {
   readonly snapshot: () => Snapshot;
   /** What to draw: the live Snapshot, or the one right after the entry shown. */
   readonly drawn: () => Snapshot;
-  /** Hand a Message to an Instance, from its View unless said otherwise. Dropped while stopped. */
+  /** Hand a Message to an Instance, from outside the tree unless said otherwise. Dropped while stopped. */
   readonly send: (
     instance: string,
     message: Tagged & { readonly [field: string]: unknown },
@@ -67,6 +69,12 @@ export interface Running<A> {
   ) => void;
   /** The Snapshot right after an entry, on any Branch; `null` for right after init. */
   readonly snapshotAt: (entry: number | null) => Snapshot;
+  /**
+   * What came of an entry: handled, ignored because no rule took it, or
+   * dropped because its Instance was gone. Worked out, never kept in the
+   * Log; an entry that diverged on Replay counts as ignored.
+   */
+  readonly outcome: (entry: number) => Handled['outcome'];
   /** The Time now, in milliseconds. It stands still while stopped. */
   readonly now: () => number;
   /** The whole Log, as one value. */
@@ -132,6 +140,7 @@ const start = <A extends AnyActor>(
       : init(root, options.input);
     let drawn = snapshot;
     const played = new Map<number | null, Snapshot>([[null, snapshot]]);
+    const outcomes = new Map<number, Handled['outcome']>();
     let live: Scope.Closeable | undefined;
     let works: Works | undefined;
     let depth = 0;
@@ -148,12 +157,8 @@ const start = <A extends AnyActor>(
         reconcile(works, change.definition, change.before, change.after);
         works.command(change.after, change.commands);
       }
-      const entry = log.append({
-        ...envelope,
-        outcome: handled.outcome,
-        from: handled.from,
-        to: handled.to,
-      });
+      const entry = log.append(envelope);
+      outcomes.set(entry.id, handled.outcome);
       if (++depth % every === 0) replay.save(entry.id, snapshot);
     };
     const mailbox = makeMailbox(
@@ -245,11 +250,20 @@ const start = <A extends AnyActor>(
       }
       let found = played.get(at)!;
       for (const next of path.reverse()) {
-        if (next.outcome === 'handled')
-          found = handle(root, found, next).snapshot;
+        found = Replay.play(root, found, next);
         played.set(next.id, found);
       }
       return found;
+    };
+
+    const outcome = (id: number) => {
+      let known = outcomes.get(id);
+      if (known) return known;
+      const entry = log.get().entries[id];
+      if (!entry) throw new RangeError(`[effect-oak] no Log entry ${id}`);
+      known = outcomeOf(root, snapshotAt(entry.parent), entry);
+      outcomes.set(id, known);
+      return known;
     };
 
     // 7. Clear
@@ -261,6 +275,7 @@ const start = <A extends AnyActor>(
       const first = init(root, options.input);
       played.clear();
       played.set(null, first);
+      outcomes.clear();
       replay.save(null, first);
       goLive(first, 0, null);
     });
@@ -300,9 +315,10 @@ const start = <A extends AnyActor>(
     return {
       snapshot: () => snapshot,
       drawn: () => drawn,
-      send: (instance, message, source = { kind: 'view', instance }) =>
+      send: (instance, message, source = { kind: 'outside' }) =>
         send(instance, message, source),
       snapshotAt,
+      outcome,
       now: time.now,
       state: () => log.get(),
       subscribe: (listener) => {

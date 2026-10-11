@@ -22,6 +22,7 @@ export {
   instanceAt,
   isMany,
   isRestore,
+  outcomeOf,
   restore,
 } from './snapshot/index.ts';
 export type {

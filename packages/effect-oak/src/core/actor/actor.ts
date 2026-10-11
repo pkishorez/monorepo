@@ -21,16 +21,20 @@ import { Effect, Schema, SchemaAST } from 'effect';
 export interface Defined<
   Name extends string,
   Input,
+  Props,
   Model,
   State extends Tagged,
   Msg extends Tagged,
   R extends Requires,
 > {
-  readonly build: <const B extends Behavior<Input, Model, State, Msg, R, B>>(
+  readonly build: <
+    const B extends Behavior<Input, Props, Model, State, Msg, R, B>,
+  >(
     behavior: B,
   ) => ActorOf<
     Name,
     Input,
+    Props,
     Model,
     State,
     Msg,
@@ -45,14 +49,16 @@ type Codec<T> = Schema.Codec<T, unknown, never, never>;
 /**
  * What `make` takes: every type the behavior is checked against, as codecs,
  * and the Capabilities the Actor's own code may use. Every value is checked
- * against them too, as it is made: each Input, each Model and State from
- * init or an Update, and each Message as it is Sent.
+ * against them too, as it is made: each Input and Props, each Model and
+ * State from init or an Update, and each Message as it is Sent.
  */
-export interface Shape<Input, Model, State, Msg, R extends Requires> {
+export interface Shape<Input, Props, Model, State, Msg, R extends Requires> {
   /** The Capabilities its own Workers, Commands and Provides use. Nothing else is in reach. */
   readonly requires?: R;
-  /** What a parent hands this Actor when it Invokes it. */
+  /** What a parent hands this Actor when it Invokes it, which init starts from. */
   readonly input?: Codec<Input>;
+  /** What a parent hands this Actor for as long as it lives, worked out again after each of the parent's Updates. */
+  readonly props?: Codec<Props>;
   readonly model?: Codec<Model>;
   readonly message?: Codec<Msg>;
   readonly state?: Codec<State>;
@@ -65,11 +71,12 @@ function make<
   Msg extends Tagged = never,
   const R extends Requires = readonly [],
   Input = void,
+  Props = void,
 >(
   name: Name,
-  shape: Shape<Input, Model, State, Msg, R>,
-): Defined<Name, Input, Model, State, Msg, R>;
-function make(name: string, shape: Shape<any, any, any, any, any>) {
+  shape: Shape<Input, Props, Model, State, Msg, R>,
+): Defined<Name, Input, Props, Model, State, Msg, R>;
+function make(name: string, shape: Shape<any, any, any, any, any, any>) {
   return {
     build: (behavior: any): AnyActor => ({
       name,
@@ -89,7 +96,7 @@ type Block = {
 /** The plain definition the engine works from, out of the Schemas and the levels. */
 const definitionOf = (
   name: string,
-  shape: Shape<any, any, any, any, any>,
+  shape: Shape<any, any, any, any, any, any>,
   behavior: Block & {
     readonly init?: Definition['init'];
     readonly state?: Record<string, Block | undefined>;
@@ -147,6 +154,7 @@ const definitionOf = (
     requires: shape.requires ?? [],
     check: {
       input: checkerOf(name)(shape.input),
+      props: checkerOf(name)(shape.props),
       model: checkerOf(name)(shape.model),
       state: checkerOf(name)(shape.state),
       message: checkerOf(name)(shape.message),
@@ -235,7 +243,7 @@ const NONE: ReadonlyArray<string> = [];
  */
 const workerOf = (worker: any, state: string | undefined): WorkerDefinition => {
   const { run } = worker;
-  const own: (data: Data<unknown, Tagged>) => ReadonlyArray<string> =
+  const own: (data: Data<unknown, Tagged, unknown>) => ReadonlyArray<string> =
     'each' in worker
       ? worker.each
       : 'while' in worker

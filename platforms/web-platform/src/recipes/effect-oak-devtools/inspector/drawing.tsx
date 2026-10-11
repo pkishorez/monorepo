@@ -41,7 +41,7 @@ export const Drawing = ({
 }) => {
   const entry = step === 'init' ? undefined : step;
   const stepKey = entry ? entry.id : 'init';
-  const target = entry && map.at.get(entry.instance);
+  const target = entry && map.at.get(entry.destination);
   return (
     <>
       <svg

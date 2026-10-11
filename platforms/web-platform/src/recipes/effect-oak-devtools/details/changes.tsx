@@ -55,6 +55,7 @@ const FieldLine = ({
   <>
     <dt className="font-mono text-muted-foreground">
       {field.in === 'state' && <span className="opacity-60">{state} · </span>}
+      {field.in === 'props' && <span className="opacity-60">props · </span>}
       {pathName(field.path) || field.in}
     </dt>
     <dd className="min-w-0">

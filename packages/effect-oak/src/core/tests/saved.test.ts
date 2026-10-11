@@ -41,7 +41,7 @@ const timed = <A>(effect: Effect.Effect<A, never, Scope.Scope>) =>
   );
 
 const envelope = (message: { readonly _tag: string }, at = 0) => ({
-  instance: 'Counter',
+  destination: 'Counter',
   message,
   source: { kind: 'view', instance: 'Counter' } as const,
   at,
@@ -121,12 +121,12 @@ describe('Restore', () => {
     const ahead: Snapshot = { ...room, invoked: {} };
     const stale = handle(Room.definition, room, {
       ...envelope(restore(ahead)),
-      instance: 'Room',
+      destination: 'Room',
     });
     expect(stale.outcome).toBe('ignored');
     const fine = handle(Room.definition, room, {
       ...envelope(restore({ ...room })),
-      instance: 'Room',
+      destination: 'Room',
     });
     expect(fine.outcome).toBe('handled');
   });
@@ -134,7 +134,7 @@ describe('Restore', () => {
   it('is dropped when sent to anything but the root', () => {
     const handled = handle(Counter.definition, first, {
       ...envelope(restore(at42)),
-      instance: 'Counter/child#1',
+      destination: 'Counter/child#1',
     });
     expect(handled.outcome).toBe('dropped');
   });
@@ -168,11 +168,19 @@ describe('Replay.restored', () => {
         expect(light.head).toBe(0);
         expect(light.entries[0]).toMatchObject({
           parent: null,
+          destination: 'Counter',
           at: 300,
-          from: 'Idle',
-          to: 'Busy',
           source: { kind: 'restore' },
         });
+        // The entry holds only the Envelope: what came of it is worked out.
+        expect(Object.keys(light.entries[0]!).sort()).toEqual([
+          'at',
+          'destination',
+          'id',
+          'message',
+          'parent',
+          'source',
+        ]);
 
         const app = yield* Runtime.start(Counter, { saved: light });
         expect(app.snapshot()).toEqual(snapshot);

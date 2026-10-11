@@ -69,7 +69,7 @@ A Message with the Instance it is sent to, its Source and its Time: what a Send 
 _Avoid_: event, packet
 
 **Source**:
-Who Sent a Message: the Instance, and what in it Sent: its View, a Command by its name, or a Worker by its name and key. The same Instance the Message goes to, except for a Request, which comes from the Instance whose Command or Worker made it. A Message Sent from outside the tree, by a test or a tool, comes from outside, not from an Instance; a Restore no one Sent: it was given to the app. Kept with the Envelope to show who talked to whom; Replay never reads it.
+Who Sent a Message: the Instance, and what in it Sent: its View, a Command by its name, a Worker by its name and key, or what it Provides. The same Instance the Message goes to, except for a Request, which comes from the Instance whose Command or Worker made it. A Message Sent from outside the tree, by a test or a tool, comes from outside, not from an Instance; a Restore no one Sent: it was given to the app. Kept with the Envelope to show who talked to whom; Replay never reads it.
 _Avoid_: sender, origin, caller
 
 **Time**:

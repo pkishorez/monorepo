@@ -40,6 +40,7 @@ const Block = ({
   const data = dataOf(instance);
   const hasModel = !isEmpty(instance.model);
   const hasState = Object.keys(data).length > 0;
+  const hasProps = instance.props !== undefined;
   const workers = row.workers.filter((worker) => worker.life !== 'stopped');
   return (
     <section
@@ -70,7 +71,7 @@ const Block = ({
           <WorkerTags workers={workers} />
         </div>
       )}
-      {!hasModel && !hasState && (
+      {!hasModel && !hasState && !hasProps && (
         <p className="text-xs text-muted-foreground/70">No data</p>
       )}
       {hasModel && (
@@ -82,6 +83,14 @@ const Block = ({
             In <span className="font-mono">{tag}</span>
           </span>
           <Entries where="state" value={data} fields={row.fields} />
+        </div>
+      )}
+      {hasProps && (
+        <div className="flex flex-col gap-0.5">
+          <span className="text-[11px] text-muted-foreground">
+            Props from its parent
+          </span>
+          <Entries where="props" value={instance.props} fields={row.fields} />
         </div>
       )}
     </section>

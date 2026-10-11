@@ -31,7 +31,7 @@ describe('a fixed Child', () => {
         app.send('Room', { _tag: 'Toggle' });
         expect(app.snapshot().children).toEqual({});
         app.send('Room/counter#1', { _tag: 'Increment' });
-        expect(app.log().at(-1)?.outcome).toBe('dropped');
+        expect(app.outcome(app.log().at(-1)!.id)).toBe('dropped');
       }),
     ));
 

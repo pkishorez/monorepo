@@ -94,7 +94,11 @@ const NONE: ReadonlyArray<string> = [];
 /** The keys a Worker's Condition names for an Instance's data, if it runs. */
 const keysOf = (worker: WorkerDefinition, instance: Instance | undefined) =>
   instance
-    ? worker.keys({ model: instance.model, state: instance.state })
+    ? worker.keys({
+        model: instance.model,
+        state: instance.state,
+        props: instance.props,
+      })
     : NONE;
 
 /** Dim with no keys, green when keys appear, red when they go, changed when the set moves. */

@@ -5,18 +5,18 @@ import type { Around } from './step.ts';
 /*
  * A Step's Change, worked out from the Snapshots right before and after it:
  * one Row per Instance, in tree order, saying whether the Step started or
- * stopped it, moved its State, which fields of its Model or State took a new
- * value, and which of its Workers it started or stopped. Fields are compared
+ * stopped it, moved its State, which fields of its Model, State or Props took
+ * a new value, and which of its Workers it started or stopped. Fields are compared
  * down to plain values, lists by position; equal contents are no change.
  * Workers follow from the Snapshot alone: each Worker's Condition names the
  * keys it expects for the Instance's data, and the Change is their diff.
  * Pure, and remembered per pair of Snapshots.
  */
 
-/** One field of a Model or State that took a new value. */
+/** One field of a Model, State or Props that took a new value. */
 export interface Field {
-  /** Whether it lives in the Model, or in the data of the State. */
-  readonly in: 'model' | 'state';
+  /** Whether it lives in the Model, in the data of the State, or in the Props its parent hands it. */
+  readonly in: 'model' | 'state' | 'props';
   /** Where it is, from the top: `['items', 2, 'done']`; empty for the whole value. */
   readonly path: ReadonlyArray<string | number>;
   readonly kind: 'changed' | 'added' | 'removed';
@@ -145,6 +145,7 @@ const rowOf = (
   fieldsOf('model', was.model, is.model, [], fields);
   const moved = was.state._tag !== is.state._tag;
   if (!moved) fieldsOf('state', dataOf(was), dataOf(is), [], fields);
+  fieldsOf('props', was.props, is.props, [], fields);
   return {
     instance: is,
     depth,
@@ -162,7 +163,11 @@ export const expectedOf = (
 ): ReadonlyArray<{ readonly name: string; readonly key: string }> =>
   Object.entries(actor.workers).flatMap(([name, worker]) =>
     worker
-      .keys({ model: instance.model, state: instance.state })
+      .keys({
+        model: instance.model,
+        state: instance.state,
+        props: instance.props,
+      })
       .map((key) => ({ name, key })),
   );
 
@@ -192,7 +197,13 @@ const keysOf = (
   worker: Definition['workers'][string],
   instance: Instance | undefined,
 ): ReadonlyArray<string> =>
-  instance ? worker.keys({ model: instance.model, state: instance.state }) : [];
+  instance
+    ? worker.keys({
+        model: instance.model,
+        state: instance.state,
+        props: instance.props,
+      })
+    : [];
 
 /** The Workers after the Step, started or kept, then the ones it stopped, Worker by Worker. */
 const workersOf = (

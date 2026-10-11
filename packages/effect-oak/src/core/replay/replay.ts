@@ -1,6 +1,6 @@
 import { Effect } from 'effect';
 import type { Definition } from '../actor/index.ts';
-import { handle, init, restore } from '../snapshot/index.ts';
+import { init, replayed, restore } from '../snapshot/index.ts';
 import type { Snapshot } from '../snapshot/index.ts';
 import type { Entry, RuntimeState } from '../log/index.ts';
 
@@ -9,17 +9,21 @@ import type { Entry, RuntimeState } from '../log/index.ts';
  * Only init and Update run; no Capabilities, Workers or Commands.
  *
  * 1. Start  from the nearest saved Snapshot on the Branch, or from init.
- * 2. Play   each entry after it through `handle`. Entries that were ignored
- *           or dropped live changed nothing, and are skipped.
+ * 2. Play   each entry after it through `handle`. One for an Instance that
+ *           is gone is dropped, as it was live. One whose Message no longer
+ *           fits its Actor's Schema, or whose Update now gives data that does
+ *           not, has diverged: the code changed under the Log. It is warned
+ *           of once and skipped.
  * 3. Save   a Snapshot every `every` entries, and the last one, so seeking
  *           again rarely plays far.
  * 4. Yield  to the main thread whenever playing has taken `budget` millis,
  *           so a long Branch never freezes the page. Interrupting a seek
  *           stops it at the next yield.
  *
- * `fold` plays a whole Branch in one go, with no yielding, for code that
- * needs the Snapshot now. `restored` makes the lightest Log an app can be
- * saved as: one Restore of a Snapshot, right after init.
+ * `play` plays one entry, as every Replay does. `fold` plays a whole Branch
+ * in one go, with no yielding, for code that needs the Snapshot now.
+ * `restored` makes the lightest Log an app can be saved as: one Restore of a
+ * Snapshot, right after init.
  */
 
 export interface ReplayOptions {
@@ -84,10 +88,12 @@ const make = (
 
 /** The Snapshot right after one entry, from the one before it. */
 const play = (root: Definition, snapshot: Snapshot, entry: Entry): Snapshot => {
-  if (entry.outcome !== 'handled') return snapshot;
-  const played = handle(root, snapshot, entry);
-  if (played.outcome !== 'handled') diverged(entry, played.outcome);
-  return played.snapshot;
+  try {
+    return replayed(root, snapshot, entry).snapshot;
+  } catch (error) {
+    diverged(entry, error);
+    return snapshot;
+  }
 };
 
 /** The Snapshot right after the last entry of `branch`, played now with no yielding, from init or from `from`. */
@@ -107,19 +113,15 @@ const restored = (
   root: Definition,
   snapshot: Snapshot,
   at: number,
-  input?: unknown,
 ): RuntimeState => ({
   entries: [
     {
       id: 0,
       parent: null,
-      instance: root.name,
+      destination: root.name,
       message: restore(snapshot),
-      source: { kind: 'restore', instance: root.name },
+      source: { kind: 'restore' },
       at,
-      outcome: 'handled',
-      from: init(root, input).state._tag,
-      to: snapshot.state._tag,
     },
   ],
   head: 0,
@@ -127,12 +129,20 @@ const restored = (
   shown: null,
 });
 
-export const Replay = { make, fold, restored };
+export const Replay = { make, play, fold, restored };
 
 const now = () => performance.now();
 
-/** The Messages no longer give what they gave live: the code changed under the Log. */
-const diverged = (entry: Entry, outcome: string) =>
+const warned = new WeakSet<Entry>();
+
+/**
+ * The Messages no longer fit the code: it changed under the Log. Warned once
+ * per entry, however often it is played.
+ */
+const diverged = (entry: Entry, error: unknown) => {
+  if (warned.has(entry)) return;
+  warned.add(entry);
   console.warn(
-    `[effect-oak] Replay diverged at entry ${entry.id}: ${entry.message._tag} for ${entry.instance} was handled live, ${outcome} now`,
+    `[effect-oak] Replay diverged at entry ${entry.id}, ${entry.message._tag} for ${entry.destination}, and skips it: ${(error as Error).message}`,
   );
+};

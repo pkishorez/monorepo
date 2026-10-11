@@ -25,7 +25,7 @@ export const Marbles = ({
   /** The Picture every Marble is measured against. */
   readonly picture: RefObject<HTMLDivElement | null>;
 }) => {
-  const { log, shown } = useRuntime();
+  const { log, shown, outcome } = useRuntime();
   const layer = useRef<HTMLDivElement>(null);
   const flown = useRef(log.length);
   const pointer = useRef<Point | null>(null);
@@ -50,8 +50,9 @@ export const Marbles = ({
     const root = picture.current;
     const over = layer.current;
     if (!root || !over) return;
-    for (const entry of fresh) fly(entry, root, over, pointer.current);
-  }, [log, shown, picture]);
+    for (const entry of fresh)
+      fly(entry, outcome(entry.id) !== 'handled', root, over, pointer.current);
+  }, [log, shown, outcome, picture]);
 
   return (
     <div
@@ -68,11 +69,12 @@ const find = (root: HTMLElement, attribute: string, value: string) =>
 /** Fly one Marble from where its Source is drawn to its Instance's Circle; drop it if the Circle is gone. */
 const fly = (
   entry: Entry,
+  hollow: boolean,
   root: HTMLElement,
   over: HTMLElement,
   pointer: Point | null,
 ) => {
-  const target = find(root, 'data-instance', entry.instance);
+  const target = find(root, 'data-instance', entry.destination);
   if (!target) return;
   const box = root.getBoundingClientRect();
   const local = (rect: DOMRect, atTop = false): Point => ({
@@ -83,18 +85,15 @@ const fly = (
   const from = origin(entry, root, box, to, pointer, local);
 
   const dot = document.createElement('span');
-  Object.assign(
-    dot.style,
-    marbleStyle(entry.source.kind, entry.outcome !== 'handled'),
-    {
-      position: 'absolute',
-      left: `${from.x}px`,
-      top: `${from.y}px`,
-      translate: '-50% -50%',
-    },
-  );
+  Object.assign(dot.style, marbleStyle(entry.source.kind, hollow), {
+    position: 'absolute',
+    left: `${from.x}px`,
+    top: `${from.y}px`,
+    translate: '-50% -50%',
+  });
   over.appendChild(dot);
-  const climb = entry.source.instance !== entry.instance;
+  const climb =
+    'instance' in entry.source && entry.source.instance !== entry.destination;
   const flight = dot.animate(
     [
       { left: `${from.x}px`, top: `${from.y}px` },
@@ -130,7 +129,7 @@ const origin = (
   local: (rect: DOMRect, atTop?: boolean) => Point,
 ): Point => {
   const { source } = entry;
-  if (source.instance !== entry.instance) {
+  if ('instance' in source && source.instance !== entry.destination) {
     const from = find(root, 'data-instance', source.instance);
     return from ? local(from.getBoundingClientRect()) : to;
   }
@@ -138,12 +137,14 @@ const origin = (
     case 'view':
       return pointer ? { x: pointer.x - box.left, y: pointer.y - box.top } : to;
     case 'restore':
+    case 'outside':
+    case 'provide':
       return to;
     case 'worker': {
       const ring = find(
         root,
         'data-worker',
-        `${source.instance}/${source.name ?? ''}/${source.key ?? ''}`,
+        `${source.instance}/${source.name}/${source.key ?? ''}`,
       );
       return ring ? local(ring.getBoundingClientRect(), true) : to;
     }

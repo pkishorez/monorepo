@@ -21,8 +21,8 @@ export const Strip = ({
 }: {
   readonly useRuntime: () => AppRuntime;
 }) => {
-  const { log, shown, show, frame } = useRuntime();
-  const lanes = [...new Set(log.map((entry) => entry.instance))];
+  const { log, shown, show, frame, outcome } = useRuntime();
+  const lanes = [...new Set(log.map((entry) => entry.destination))];
   const x = useTransform(
     frame,
     (time) => `${(-Math.max(0, time - WINDOW) / WINDOW) * 100}%`,
@@ -61,17 +61,17 @@ export const Strip = ({
             <button
               key={entry.id}
               type="button"
-              title={`${entry.message._tag} · ${entry.outcome}`}
+              title={`${entry.message._tag} · ${outcome(entry.id)}`}
               onClick={() => show(entry.id)}
               className={`absolute -translate-x-1/2 -translate-y-1/2 rounded-full p-1 ${entry.id === shown ? 'ring-1 ring-foreground' : ''}`}
               style={{
                 left: at(entry.at),
-                top: lanes.indexOf(entry.instance) * LANE + LANE / 2,
+                top: lanes.indexOf(entry.destination) * LANE + LANE / 2,
               }}
             >
               <Marble
                 source={entry.source.kind}
-                hollow={entry.outcome !== 'handled'}
+                hollow={outcome(entry.id) !== 'handled'}
               />
             </button>
           ))}

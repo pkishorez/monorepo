@@ -51,6 +51,7 @@ const mount = async (app: ReactNode) => {
 
 const Row = Actor.make('Row', {
   input: Schema.Struct({ text: Schema.String }),
+  props: Schema.Struct({ selected: Schema.Boolean }),
   model: Schema.Struct({ text: Schema.String, bumps: Schema.Number }),
   message: Schema.TaggedUnion({ Bumped: {} }),
 }).build({
@@ -60,17 +61,14 @@ const Row = Actor.make('Row', {
   },
 });
 
-const RowView = View.make(
-  Row,
-  (self, { selected }: { readonly selected: boolean }) => {
-    drew(self);
-    return (
-      <li {...self.root} data-selected={selected}>
-        {self.model.text}:{self.model.bumps}
-      </li>
-    );
-  },
-);
+const RowView = View.make(Row, (self) => {
+  drew(self);
+  return (
+    <li {...self.root} data-selected={self.props.selected}>
+      {self.model.text}:{self.model.bumps}
+    </li>
+  );
+});
 
 const Header = Actor.make('Header', {
   model: Schema.Struct({ clicks: Schema.Number }),
@@ -108,7 +106,11 @@ const List = Actor.make('List', {
   }),
   children: { header: Header, rows: Actor.many(Row) },
   invoke: ({ model }) => ({
-    rows: model.ids.map((id) => ({ key: id, input: { text: id } })),
+    rows: model.ids.map((id) => ({
+      key: id,
+      input: { text: id },
+      props: { selected: id === model.selected },
+    })),
   }),
   on: {
     Added: (_, { model }) => ({
@@ -135,11 +137,7 @@ const ListView = View.make(List, (self) => {
       <HeaderView instance={children.header} />
       <ul>
         {children.rows.map((row) => (
-          <RowView
-            key={row.id}
-            instance={row}
-            selected={row.key === model.selected}
-          />
+          <RowView key={row.id} instance={row} />
         ))}
       </ul>
     </section>
@@ -177,7 +175,7 @@ describe('targeted rendering', () => {
     expect(renders).toEqual({ [LIST]: 1 });
   });
 
-  it('a prop renders only the Children whose prop changed', async () => {
+  it('new Props render only the Children whose Props changed', async () => {
     await mount(<ListApp />);
     renders = {};
     await send(LIST, { _tag: 'Selected', id: 'c' });
@@ -287,7 +285,7 @@ describe('root', () => {
       seen = ref.current;
       return (
         <ul>
-          <RowView instance={children.rows[0]!} ref={ref} selected={false} />
+          <RowView instance={children.rows[0]!} ref={ref} />
         </ul>
       );
     });
@@ -301,11 +299,7 @@ describe('root', () => {
     const MotionRow = motion.create(RowView);
     const Parent = View.make(List, ({ children }) => (
       <ul>
-        <MotionRow
-          instance={children.rows[0]!}
-          selected={false}
-          initial={{ opacity: 0.25 }}
-        />
+        <MotionRow instance={children.rows[0]!} initial={{ opacity: 0.25 }} />
       </ul>
     ));
     const App = toReact(List, Parent, Layer.empty);
@@ -327,7 +321,6 @@ const ExitView = View.make(List, (self) => {
           <MotionRow
             key={kid.id}
             instance={kid}
-            selected={false}
             exit={{ opacity: 0, transition: { duration: 60 } }}
           />
         ))}
@@ -362,12 +355,7 @@ const SelectView = View.make(List, (self) => {
   return (
     <ul>
       {self.children.rows.map((kid) => (
-        <MotionRow
-          key={kid.id}
-          instance={kid}
-          selected={kid.key === self.model.selected}
-          animate={{ opacity: 1 }}
-        />
+        <MotionRow key={kid.id} instance={kid} animate={{ opacity: 1 }} />
       ))}
     </ul>
   );
@@ -382,7 +370,7 @@ describe('motion.create and memo', () => {
     expect(renders).toEqual({ [LIST]: 1 });
   });
 
-  it('draws it again when a prop changes', async () => {
+  it('draws it again when its Props change', async () => {
     const App = toReact(List, SelectView, Layer.empty);
     await mount(<App />);
     renders = {};
@@ -397,7 +385,6 @@ describe('motion.create and memo', () => {
         <ul>
           <RowView
             instance={self.children.rows[0]!}
-            selected={false}
             style={{ opacity: self.model.title.length / 10 }}
           />
         </ul>
@@ -425,23 +412,19 @@ export const types = () => {
       // @ts-expect-error `since` exists only in Saving
       state.since,
   );
-  // @ts-expect-error props are data: a function is not one
+  // A View reads the Props its parent Actor hands it, typed by the Actor.
+  View.make(Row, ({ props }) => (props.selected ? 'on' : 'off'));
   View.make(
     Row,
-    ({ id }, { onPick }: { readonly onPick: () => void }) => id + onPick.name,
-  );
-  // @ts-expect-error `instance` belongs to the View
-  View.make(Row, ({ id }, { instance }: { readonly instance: string }) =>
-    instance === id ? id : null,
+    ({ props }) =>
+      // @ts-expect-error Row's Props have no `title`
+      props.title,
   );
   const self = null! as ViewProps<typeof Row>;
-  const RowAlone = View.make(Row, () => null);
   return [
     self.root,
-    // @ts-expect-error a View with props needs them
     <RowView instance={{ id: 'x' }} />,
-    <RowAlone instance={{ id: 'x' }} />,
-    // @ts-expect-error a View without props takes none
-    <RowAlone instance={{ id: 'x' }} selected />,
+    // @ts-expect-error a parent View hands only where to draw: data is Props
+    <RowView instance={{ id: 'x' }} selected />,
   ];
 };

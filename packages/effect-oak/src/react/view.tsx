@@ -40,6 +40,8 @@ export type ViewProps<A> = {
     readonly id: string;
     readonly model: Types<A>['model'];
     readonly state: Only<Types<A>['state'], T>;
+    /** What its parent hands it now. */
+    readonly props: Types<A>['props'];
     readonly children: {
       readonly [K in keyof KidsIn<A, T>]: HandleOf<KidsIn<A, T>[K]>;
     };
@@ -74,35 +76,23 @@ export interface Drawn {
 
 export const DrawnContext = createContext<Drawn | undefined>(undefined);
 
-/** Names a View's component takes for itself, which its own props cannot use. */
-type Reserved = 'instance' | 'key' | 'ref' | 'style';
-
 /**
- * The props a parent may not hand a View: functions and reserved names. Props
- * are data only, so what a View does always goes through a Message.
+ * A View: a React component drawing one Instance of its Actor at the app's
+ * Frame. A parent View hands it only where to draw: the Instance, and the
+ * `ref` and `style` to animate it by. Data from the parent is its Props, which
+ * the parent Actor hands it, so Update and Workers see it too.
  */
-type NotData<P> = {
-  [K in keyof P]: K extends Reserved ? K : P[K] extends Function ? K : never;
-}[keyof P];
-
-type Checked<P> = [NotData<P>] extends [never]
-  ? []
-  : [notData: { readonly propsMustBeData: NotData<P> }];
-
-/** A View: a React component drawing one Instance of its Actor at the app's Frame. */
-export type ViewOf<A, P = {}> = (
-  props: {
-    readonly instance: Handle<A>;
-    readonly ref?: Ref<Element> | undefined;
-    readonly style?: CSSProperties | undefined;
-  } & P,
-) => ReactNode;
+export type ViewOf<A> = (props: {
+  readonly instance: Handle<A>;
+  readonly ref?: Ref<Element> | undefined;
+  readonly style?: CSSProperties | undefined;
+}) => ReactNode;
 
 /**
- * How one Actor is drawn: one function from the Instance and the props its
- * parent hands it. The result re-renders only when its own Instance's Model,
- * State or set of Children changes, or its props do, never because a
- * descendant did.
+ * How one Actor is drawn: one function of its Instance. The result re-renders
+ * only when its own Instance's Model, State, Props or set of Children changes,
+ * or the parent hands it a new `ref` or `style`, never because a descendant
+ * did.
  *
  * Once the Instance stops, the View keeps drawing its last data, so an exit
  * animation still has something to show.
@@ -110,18 +100,16 @@ export type ViewOf<A, P = {}> = (
  * `style` counts as changed only when its values do: `motion.create` hands
  * the View a new `style` object on every render, with the same values.
  */
-const make = <A extends AnyActor, P extends object = {}>(
+const make = <A extends AnyActor>(
   actor: A,
-  draw: (self: ViewProps<A>, props: P) => ReactNode,
-  ..._notData: Checked<P>
-): ViewOf<A, P> => {
+  draw: (self: ViewProps<A>) => ReactNode,
+): ViewOf<A> => {
   const View = memo(
     ({
       instance,
       ref,
       style,
-      ...props
-    }: Parameters<ViewOf<A, P>>[0] & { readonly key?: never }) => {
+    }: Parameters<ViewOf<A>>[0] & { readonly key?: never }) => {
       const frame = use(FrameContext);
       const drawn = use(DrawnContext);
       if (!drawn)
@@ -140,24 +128,21 @@ const make = <A extends AnyActor, P extends object = {}>(
       if (live) last.current = live;
       const self = live ?? last.current;
       if (!self) return null;
-      return draw(
-        {
-          ...self,
-          frame,
-          root: { ref: ref as Ref<never>, style },
-        } as ViewProps<A>,
-        props as unknown as P,
-      );
+      return draw({
+        ...self,
+        frame,
+        root: { ref: ref as Ref<never>, style },
+      } as ViewProps<A>);
     },
     same,
   );
   View.displayName = `${actor.name}View`;
-  return View as unknown as ViewOf<A, P>;
+  return View as unknown as ViewOf<A>;
 };
 
 type Shown = Readonly<Record<string, unknown>>;
 
-/** Props are the same when each is the same value, and `style` when each of its values is. */
+/** What the parent hands is the same when each is the same value, and `style` when each of its values is. */
 const same = (a: Shown, b: Shown): boolean => {
   const keys = Object.keys(b);
   if (keys.length !== Object.keys(a).length) return false;

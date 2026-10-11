@@ -203,12 +203,15 @@ describe('a tree of Actors', () => {
         expect(app.snapshot().state._tag).toBe('Anonymous');
         app.send('Auth/todos#1', { _tag: 'Added', text: 'too late' });
 
+        // What came of each entry is worked out, never kept in the Log.
+        const tagAt = (entry: number | null, id: string) =>
+          instanceAt(app.snapshotAt(entry), id)?.state._tag ?? '';
         expect(
           app
             .log()
             .map(
               (e) =>
-                `${e.instance} ${e.message._tag} ${e.outcome} ${e.from}→${e.to}`,
+                `${e.destination} ${e.message._tag} ${app.outcome(e.id)} ${tagAt(e.parent, e.destination)}→${tagAt(e.id, e.destination)}`,
             ),
         ).toEqual([
           'Auth CheckedSession handled Checking→Anonymous',
@@ -224,19 +227,20 @@ describe('a tree of Actors', () => {
         expect(
           app
             .log()
-            .map(
-              (e) =>
-                `${e.source.kind} ${e.source.instance}${e.source.name ? ` ${e.source.name}` : ''}`,
+            .map(({ source }) =>
+              source.kind === 'command' || source.kind === 'worker'
+                ? `${source.kind} ${source.instance} ${source.name}`
+                : source.kind,
             ),
         ).toEqual([
           'worker Auth check',
-          'view Auth/login#1',
-          'view Auth/login#1',
+          'outside',
+          'outside',
           'command Auth/login#1 signIn',
-          'view Auth/todos#1',
-          'view Auth/todos#1',
+          'outside',
+          'outside',
           'command Auth/todos#1 logOut',
-          'view Auth/todos#1',
+          'outside',
         ]);
         // Any entry's Snapshot, played again, is the one the app had live.
         expect(app.snapshotAt(app.state().head)).toEqual(app.snapshot());
@@ -271,7 +275,7 @@ describe('a tree of Actors', () => {
         const app = yield* started;
         yield* settle;
         app.send('Auth', { _tag: 'LoggedOut' });
-        expect(app.log().at(-1)?.outcome).toBe('ignored');
+        expect(app.outcome(app.log().at(-1)!.id)).toBe('ignored');
       }),
     ));
 
@@ -310,7 +314,9 @@ describe('a tree of Actors', () => {
     }).build({
       init: () => ({ model: { count: 0, row: 'a' }, state: { _tag: 'Open' } }),
       children: { row: Row },
-      invoke: ({ model }) => ({ row: { text: model.row as string } }),
+      invoke: ({ model }) => ({
+        row: { input: { text: model.row as string } },
+      }),
       on: {
         Counted: ({ by }, { model }) => ({
           model: { ...model, count: by > 1 ? (String(by) as never) : by },
@@ -321,7 +327,7 @@ describe('a tree of Actors', () => {
     const first = init(Sheet.definition);
     const sent = (message: Types<typeof Sheet>['message']) =>
       handle(Sheet.definition, first, {
-        instance: 'Sheet',
+        destination: 'Sheet',
         message,
         source: { kind: 'view', instance: 'Sheet' },
         at: 0,
@@ -458,7 +464,7 @@ describe('keyed Children', () => {
         app.send('List', { _tag: 'Removed', id: '0' });
         expect(rows(app)).toEqual([]);
         app.send('List/rows[0]#1', { _tag: 'Toggled' });
-        expect(app.log().at(-1)?.outcome).toBe('dropped');
+        expect(app.outcome(app.log().at(-1)!.id)).toBe('dropped');
       }),
     ));
 
@@ -1219,7 +1225,7 @@ describe('the Log as a tree', () => {
         yield* app.start(0);
         expect(app.snapshot().state._tag).toBe('Anonymous');
         app.send('Auth/todos#1', { _tag: 'Added', text: 'stale' });
-        expect(app.log().at(-1)?.outcome).toBe('dropped');
+        expect(app.outcome(app.log().at(-1)!.id)).toBe('dropped');
         yield* settle;
         app.send('Auth', { _tag: 'LoggedIn', user: 'bob' });
         expect(at(app, 'Auth/todos#1').model).toEqual({ items: [] });

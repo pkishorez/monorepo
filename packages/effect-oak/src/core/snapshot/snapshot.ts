@@ -18,6 +18,11 @@ export interface Instance {
   readonly key?: string;
   readonly state: Tagged;
   readonly model: unknown;
+  /**
+   * What its parent hands it now, if its Actor declares Props. Worked out by
+   * the parent, never written by the Instance.
+   */
+  readonly props?: unknown;
   /** A fixed Child by its name; keyed Children by their slot, in the Model's order. */
   readonly children: Readonly<
     Record<string, Instance | ReadonlyArray<Instance>>
@@ -30,22 +35,34 @@ export interface Instance {
 export type Snapshot = Instance;
 
 /**
- * Who Sent a Message: a View, a Command by its name, or a Worker by its name
- * and key, and the Instance it belongs to. Only a Request comes from another
- * Instance than its target. A Restore no one Sent: it was given to the app.
+ * Who Sent a Message: the Instance, and what in it Sent: its View, a Command
+ * by its name, a Worker by its name and key, or what it Provides. Only a
+ * Request comes from another Instance than its destination. A Message from outside the tree, by
+ * a test or a tool, comes from no Instance; a Restore no one Sent: it was
+ * given to the app.
  */
-export interface Source {
-  readonly kind: 'view' | 'command' | 'worker' | 'restore';
-  readonly instance: string;
-  /** The Command's or Worker's name. */
-  readonly name?: string;
-  /** The key an `each` Worker runs for. */
-  readonly key?: string;
-}
+export type Source =
+  | { readonly kind: 'view'; readonly instance: string }
+  | {
+      readonly kind: 'command';
+      readonly instance: string;
+      readonly name: string;
+    }
+  | {
+      readonly kind: 'worker';
+      readonly instance: string;
+      readonly name: string;
+      /** The key an `each` Worker runs for. */
+      readonly key?: string;
+    }
+  | { readonly kind: 'provide'; readonly instance: string }
+  | { readonly kind: 'outside' }
+  | { readonly kind: 'restore' };
 
 /** A Message, the Instance it is for, who Sent it, and its Time. */
 export interface Envelope {
-  readonly instance: string;
+  /** The ID of the Instance it is for. */
+  readonly destination: string;
   readonly message: Tagged;
   readonly source: Source;
   readonly at: number;
@@ -54,4 +71,4 @@ export interface Envelope {
 // 1. Init
 /** The app right after init: the root, named after its Actor, and every Child its State Invokes. */
 export const init = (root: Definition, input?: unknown): Snapshot =>
-  create(root, root.name, undefined, input);
+  create(root, root.name, undefined, { input });

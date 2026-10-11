@@ -3,9 +3,10 @@ import type { AnyActor, Instance, Snapshot, Tagged } from '../core/index.ts';
 import type { Drawable, Drawn, Handle } from './view.tsx';
 
 /*
- * What Views read: the props of any Instance, from the Snapshot drawn now.
- * Props stay the same object while the Instance's Model, State and Children's
- * IDs stay the same, so a View re-renders only when its own Instance changes.
+ * What Views read: what any Instance is drawn from, out of the Snapshot drawn
+ * now. It stays the same object while the Instance's Model, State, Props and
+ * Children's IDs stay the same, so a View re-renders only when its own
+ * Instance changes.
  * A View of the past, of a stopped app, or of an app whose Runtime has not
  * started cannot Send.
  */
@@ -57,6 +58,7 @@ export const makeDrawn = (
       id,
       model: instance.model,
       state: instance.state,
+      props: instance.props,
       // The same object while the Children's IDs stay the same, so a memoized
       // component or a `useMemo` given them sees no change.
       children:
@@ -88,7 +90,10 @@ export const makeDrawn = (
 };
 
 const same = (a: Instance, b: Instance) =>
-  a.model === b.model && a.state === b.state && sameIds(a, b);
+  a.model === b.model &&
+  a.state === b.state &&
+  a.props === b.props &&
+  sameIds(a, b);
 
 const sameIds = (a: Instance, b: Instance) => {
   if (a.children === b.children) return true;

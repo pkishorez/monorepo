@@ -12,8 +12,9 @@ import type { Works } from './work.ts';
  * - A Transition leaves the old State (its own Children stop with it), tells
  *   the Instance its new data, and enters the new State. Children written at
  *   the top last through it, and are reconciled like any other.
- * - The same State with new data tells the Instance, and keyed Children
- *   follow: new ones start, gone ones stop, kept ones are reconciled.
+ * - The same State with new data or new Props tells the Instance, and keyed
+ *   Children follow: new ones start, gone ones stop, kept ones are
+ *   reconciled.
  */
 export const reconcile = (
   works: Works,
@@ -27,7 +28,11 @@ export const reconcile = (
     works.leave(before);
     works.change(after);
     works.enter(after);
-  } else if (before.model !== after.model || before.state !== after.state)
+  } else if (
+    before.model !== after.model ||
+    before.state !== after.state ||
+    before.props !== after.props
+  )
     works.change(after);
   if (before.children === after.children) return;
 
