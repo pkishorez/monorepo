@@ -63,6 +63,7 @@ pnpm add effect-oak effect react motion
 | `Log`             | `Log.make` holds a Log as one value, empty or carrying on from a saved one, with its Branches and children.             |
 | `init`            | The Snapshot right after init: the root and every Child its State Invokes.                                              |
 | `handle`          | Applies one Envelope to a Snapshot and gives the next one, purely.                                                      |
+| `outcomeOf`       | Works out what came of one Envelope on a Snapshot: handled, ignored or dropped. The Log never keeps it.                 |
 | `instanceAt`      | Finds the Instance with an ID in a Snapshot.                                                                            |
 | `isMany`          | Tells a keyed Child slot from a fixed one in an Instance's Children.                                                    |
 
@@ -70,7 +71,7 @@ pnpm add effect-oak effect react motion
 
 | Export      | What it does                                                                                                                                                                                                                                                        |
 | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `View.make` | Defines how one Actor is drawn, one function for every State, as a React component that takes the Instance and data props from its parent.                                                                                                                          |
+| `View.make` | Defines how one Actor is drawn, one function for every State, as a React component that takes the Instance, and a `ref` and `style`, from its parent.                                                                                                               |
 | `toReact`   | Turns a root Actor, its View and a Layer into one React component that runs the whole app, one Runtime for every mount; `useRuntime` reads its Log, shows any entry, and stops and starts it. Drawn before it runs, on a server too, from a saved Log if given one. |
 
 ## Usage
@@ -161,7 +162,11 @@ const List = Actor.make('List', {
   init: () => ({ model: { ids: [], uploading: [], next: 0 } }),
   children: { rows: Actor.many(Row) },
   invoke: ({ model }) => ({
-    rows: model.ids.map((id) => ({ key: id, input: { text: `#${id}` } })),
+    rows: model.ids.map((id) => ({
+      key: id,
+      input: { text: `#${id}` },
+      props: { uploading: model.uploading.includes(id) },
+    })),
   }),
   on: {
     Added: (_, { model }) => {
@@ -204,10 +209,11 @@ const List = Actor.make('List', {
 });
 ```
 
-- `invoke` sits beside the `children` it feeds, and says which keys exist and the Input each new Child starts from. After every Update, a new key Invokes a Row, a key gone stops it, and a key kept keeps its Instance. From then on the Row owns its data.
+- `invoke` sits beside the `children` it feeds, and says which keys exist, the Input each new Child starts from, and the Props each is handed. After every Update, a new key Invokes a Row, a key gone stops it, and a key kept keeps its Instance. From then on the Row owns its data.
+- Props are what the parent says now, worked out again after each of its Updates: the Row declares them with `props` beside `input`, and its Update, its Workers' Conditions and its View read them. It never writes them, and a change runs none of its rules. Props equal to the last ones keep the Instance; new ones are not in the Log, since Replay works them out again from the parent.
 - Instance IDs are deterministic: `List/rows[0]#1` is the first `rows` keyed `0`. A key Invoked again gets `#2`, so a Message meant for the old Instance is dropped.
 - A Command is an errand: one named Effect that ends with at most one Message. Nothing stops it but its Instance stopping, and there is no cancel. An Update may return a list of Commands; they run concurrently.
-- A Worker runs for exactly as long as its Condition holds, read from the Model and State after every Update: its Level, and within it always, `while` a test is true, or `each` key a function names, one Worker per key. Removing an id from `uploading` interrupts that upload and runs its finalizers; a finished upload Sends `Uploaded`, whose Update takes its key away. Stopping work is changing the Model.
+- A Worker runs for exactly as long as its Condition holds, read from the Model, State and Props whenever they change: its Level, and within it always, `while` a test is true, or `each` key a function names, one Worker per key. Removing an id from `uploading` interrupts that upload and runs its finalizers; a finished upload Sends `Uploaded`, whose Update takes its key away. Stopping work is changing the Model.
 - The Worker does the work and the Model keeps the story: every step the user could notice is a Message. A Worker must be able to start from the Model alone, because a resume or a start from an earlier Log entry starts every Worker whose condition holds. A Worker that waits until a Time in the Model sleeps for `that - now`, so it waits only what is left. A finalizer never Sends.
 
 ### Drawing it with React
@@ -229,24 +235,21 @@ export const AuthView = View.make(Auth, ({ _tag, state, children }) => {
   }
 });
 
-const RowView = View.make(
-  Row,
-  ({ model, root }, { selected }: { readonly selected: boolean }) => (
-    <li {...root} data-selected={selected}>
-      {model.text}
-    </li>
-  ),
-);
+const RowView = View.make(Row, ({ model, props, root }) => (
+  <li {...root} data-uploading={props.uploading}>
+    {model.text}
+  </li>
+));
 const MotionRow = motion.create(RowView);
 
 const DemoApp = toReact(Auth, AuthView, ServerLive);
 ```
 
-- One function draws every State. It gets `_tag`, `model`, `state`, `children` (Handles; arrays for keyed Children, each with its `key`), `send`, `frame` and `root`; a `switch` on `_tag` narrows `state` and `children`. The DOM stays across a Transition. It never sees Capabilities, so it draws a Replay exactly like the live app.
-- A Child is placed with `<RowView instance={handle} />`. Its draw's second parameter is data from the parent (`selected` above), for drawing only: a function prop is a type error, and what a View does goes through a Message.
+- One function draws every State. It gets `_tag`, `model`, `state`, `props`, `children` (Handles; arrays for keyed Children, each with its `key`), `send`, `frame` and `root`; a `switch` on `_tag` narrows `state` and `children`. The DOM stays across a Transition. It never sees Capabilities, so it draws a Replay exactly like the live app.
+- A Child is placed with `<RowView instance={handle} />`. A parent View hands it only where to draw; data from the parent is the Row's Props, which the parent Actor hands it, so its Update and Workers see the same.
 - Spreading `root` on the View's own element hands it the parent's `ref` and `style`, so `motion.create(RowView)` animates it, with no wrapper element, and it stays memoized. A View whose Instance has stopped keeps drawing its last data, so `AnimatePresence` can play its exit.
-- A View re-renders only when its own Instance's Model, State or set of Children changes, or its props do. Many Messages handled in a row make one render.
-- `DemoApp.useRuntime()` returns `{ log, head, running, shown, show, stop, start, children, workers, frame }` from anywhere on the page. `show(id)` draws the app right after that entry, on any Branch; `stop()` closes every Worker, Command and Capability; `start(id)` Replays to that entry and grows a new Branch from it, and `start()` resumes. `workers(id)` says what an Instance's Workers are doing live: running, finished, or failed.
+- A View re-renders only when its own Instance's Model, State, Props or set of Children changes, or its `ref` or `style` does. Many Messages handled in a row make one render.
+- `DemoApp.useRuntime()` returns `{ log, head, running, shown, show, stop, start, children, snapshotAt, outcome, workers, frame }` from anywhere on the page. Each `log` entry is only its Envelope: `destination`, `message`, `at`, and `source`, the Instance that Sent it and what in it did; `outcome(id)` works out whether it was handled, ignored or dropped. `show(id)` draws the app right after that entry, on any Branch; `stop()` closes every Worker, Command and Capability; `start(id)` Replays to that entry and grows a new Branch from it, and `start()` resumes. `workers(id)` says what an Instance's Workers are doing live: running, finished, or failed.
 - Work that must survive a stop belongs in a Worker: Commands running at a stop are lost. The outside world is not rewound.
 - Whatever moves between Messages is drawn from `frame`, a `MotionValue<number>` holding the Time, with `useTransform`; nothing renders between Messages.
 - `toReact` does not compile until the Layer covers every Capability the tree still needs.

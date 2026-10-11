@@ -1,9 +1,11 @@
 import type { Envelope } from '../snapshot/index.ts';
 
 /*
- * The Log: a tree of entries, one per Message, each pointing to its parent.
- * One value in memory, the only source of truth for the Runtime, Replay and
- * timelines. The Runtime tells its subscribers when it changes.
+ * The Log: a tree of entries, one per Message, each pointing to its parent
+ * and holding its Envelope, nothing else: what came of a Message is worked
+ * out from the Snapshots around it. One value in memory, the only source of
+ * truth for the Runtime, Replay and timelines. The Runtime tells its
+ * subscribers when it changes.
  *
  * 1. Append    pushes an entry after the Head and moves the Head to it. The
  *              entries are one append-only array every state shares.
@@ -13,16 +15,12 @@ import type { Envelope } from '../snapshot/index.ts';
  *              most once per change; and the children of any entry.
  */
 
-/** One line of the Log: an Envelope, and what came of it. */
+/** One line of the Log: an Envelope, and where it sits. */
 export interface Entry extends Envelope {
   /** Its position in the Log. */
   readonly id: number;
   /** The entry before it, or `null` right after init. */
   readonly parent: number | null;
-  readonly outcome: 'handled' | 'ignored' | 'dropped';
-  /** The State tag before and after. */
-  readonly from: string;
-  readonly to: string;
 }
 
 /** Everything the Runtime knows about its Log, as one value. */
@@ -40,7 +38,7 @@ export interface RuntimeState {
 export interface Log {
   readonly get: () => RuntimeState;
   /** Push an entry after the Head, and move the Head to it. */
-  readonly append: (entry: Omit<Entry, 'id' | 'parent'>) => Entry;
+  readonly append: (envelope: Envelope) => Entry;
   /** Move the Head, start or stop, or show an entry, in one change. */
   readonly set: (
     change: Partial<Pick<RuntimeState, 'head' | 'running' | 'shown'>>,
@@ -77,9 +75,9 @@ const make = (saved: RuntimeState = EMPTY): Log => {
   };
 
   // 1. Append
-  const append: Log['append'] = (fields) => {
+  const append: Log['append'] = (envelope) => {
     const { head } = state;
-    const entry: Entry = { id: entries.length, parent: head, ...fields };
+    const entry: Entry = { id: entries.length, parent: head, ...envelope };
     entries.push(entry);
     index(entry);
     change({ ...state, head: entry.id });

@@ -9,18 +9,20 @@ import type { Envelope, Instance, Snapshot } from './snapshot.ts';
  * Handle: an Envelope and a Snapshot give the next Snapshot. Pure.
  *
  * 1. Find     the Instance the Envelope is for. One that is gone drops it.
- * 2. Update   runs the rule for its State and the Message. No rule ignores it.
+ * 2. Update   runs the rule for its State and the Message, with its Model,
+ *             State and Props. No rule ignores it.
  *             A new Model or State it gives is checked against the Actor's
  *             Schemas, and one that does not match throws before anything
  *             changes.
  * 3. Apply    the new data: a new State is a Transition and Invokes the
  *             State's Children fresh; the same State lets keyed Children
- *             follow the Model.
+ *             follow the Model. Either way every Child is handed its Props
+ *             again.
  * 4. Replace  the Instance in the Snapshot. Every Instance off its path stays
  *             the same object.
  */
 
-/** What handling one Envelope did. */
+/** What handling one Envelope did. Never kept in the Log: handling it again says the same. */
 export interface Handled {
   readonly outcome: 'handled' | 'ignored' | 'dropped';
   /** The State tag before and after; empty when dropped. */
@@ -46,7 +48,7 @@ type Step = {
 export const handle = (
   root: Definition,
   snapshot: Snapshot,
-  { instance: id, message, at }: Envelope,
+  { destination: id, message, at }: Envelope,
 ): Handled => {
   if (isRestore(message)) return restored(root, snapshot, id, message);
   // 1. Find
@@ -64,6 +66,7 @@ export const handle = (
   const next = rule(message, {
     model: instance.model,
     state: instance.state,
+    props: instance.props,
     at,
   });
 
@@ -101,6 +104,42 @@ export const handle = (
             : [next.command],
     },
   };
+};
+
+/**
+ * Handle an Envelope from the Log: first check its Message against its
+ * Actor's Schema, as a Send does. Throws when either no longer fits, because
+ * the code changed under the Log.
+ */
+export const replayed = (
+  root: Definition,
+  snapshot: Snapshot,
+  envelope: Envelope,
+): Handled => {
+  const { destination, message } = envelope;
+  if (!isRestore(message))
+    actorAt(root, snapshot, destination)?.check.message(
+      message,
+      `Message ${JSON.stringify(message._tag)}`,
+    );
+  return handle(root, snapshot, envelope);
+};
+
+/**
+ * What came of an Envelope handled on this Snapshot: worked out by handling
+ * it again, never kept. One that no longer fits the code, which Replay skips,
+ * counts as ignored.
+ */
+export const outcomeOf = (
+  root: Definition,
+  snapshot: Snapshot,
+  envelope: Envelope,
+): Handled['outcome'] => {
+  try {
+    return replayed(root, snapshot, envelope).outcome;
+  } catch {
+    return 'ignored';
+  }
 };
 
 const warned = new WeakSet<object>();

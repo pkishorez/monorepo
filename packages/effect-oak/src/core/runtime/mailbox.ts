@@ -42,7 +42,7 @@ export const makeMailbox = (
   return {
     send: (instance: string, message: Tagged, source: Source) => {
       if (!open()) return;
-      waiting.push({ instance, message, source, at: now() });
+      waiting.push({ destination: instance, message, source, at: now() });
       drain();
     },
     /** Run `f` without handling Messages, then handle what it sent. */

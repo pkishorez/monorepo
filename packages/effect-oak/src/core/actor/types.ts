@@ -17,22 +17,24 @@ type IdsOf<R extends Requires> = R[number] extends infer K
 
 export type Only<U, T> = Extract<U, { readonly _tag: T }>;
 
-/** An Instance's data at one moment. */
-export type Data<Model, State> = {
+/** An Instance's data at one moment: its own Model and State, and the Props its parent hands it. */
+export type Data<Model, State, Props = void> = {
   readonly model: Model;
   readonly state: State;
+  /** What the parent hands it now. Read only: a change runs none of its rules. */
+  readonly props: Props;
 };
 
 /**
  * What an Instance's own work holds of it: Workers and Provides. Sends go
  * only to this Instance; `get` and `changes` are always current.
  */
-export interface Self<Model, State, Msg> {
+export interface Self<Model, State, Msg, Props = void> {
   readonly id: string;
   readonly send: (message: Msg) => Effect.Effect<void>;
-  readonly get: Effect.Effect<Data<Model, State>>;
-  /** The current data, then each new value after a Message changes it. */
-  readonly changes: Stream.Stream<Data<Model, State>>;
+  readonly get: Effect.Effect<Data<Model, State, Props>>;
+  /** The current data, then each new value after a Message or the parent changes it. */
+  readonly changes: Stream.Stream<Data<Model, State, Props>>;
   /**
    * The app's Time now, in milliseconds since the Runtime started: the clock
    * Messages are stamped with, which stands still while stopped. A Worker
@@ -53,10 +55,17 @@ export interface Command<Msg, R extends Requires> {
 }
 
 /** The Updates of one level, by Message tag. */
-type Rules<Model, State, Msg extends Tagged, R extends Requires, Next> = {
+type Rules<
+  Model,
+  State,
+  Props,
+  Msg extends Tagged,
+  R extends Requires,
+  Next,
+> = {
   readonly [K in Msg['_tag']]?: (
     message: Only<Msg, K>,
-    scope: Data<Model, State> & {
+    scope: Data<Model, State, Props> & {
       /** The Message's Time, in milliseconds since the Runtime started. */
       readonly at: number;
     },
@@ -69,39 +78,43 @@ type Rules<Model, State, Msg extends Tagged, R extends Requires, Next> = {
 };
 
 /** A Worker's Effect: scoped, Sending its Instance, given the key it runs for. */
-type Run<Model, State, Msg, R extends Requires> = (
-  self: Self<Model, State, Msg>,
+type Run<Model, State, Props, Msg, R extends Requires> = (
+  self: Self<Model, State, Msg, Props>,
   key: string,
 ) => Effect.Effect<unknown, never, IdsOf<R> | Scope.Scope>;
 
 /**
  * Work that runs for exactly as long as its Condition holds, read from the
- * Instance's own data after every Update. Where it is written is part of the
- * Condition: at the top it is owned by the Instance, in a State's block by
- * that State. Inside that, it runs always, `while` a test is true, or once
+ * Instance's own data, Props included, whenever it changes. Where it is
+ * written is part of the Condition: at the top it is owned by the Instance,
+ * in a State's block by that State. Inside that, it runs always, `while` a test is true, or once
  * per key `each` names. When the Condition stops holding, its Scope closes.
  */
-export type Worker<Model, State, Msg, R extends Requires> =
+export type Worker<Model, State, Msg, R extends Requires, Props = void> =
   | {
       readonly while?: never;
       readonly each?: never;
-      readonly run: Run<Model, State, Msg, R>;
+      readonly run: Run<Model, State, Props, Msg, R>;
     }
   | {
-      readonly while: (data: Data<Model, State>) => boolean;
+      readonly while: (data: Data<Model, State, Props>) => boolean;
       readonly each?: never;
-      readonly run: Run<Model, State, Msg, R>;
+      readonly run: Run<Model, State, Props, Msg, R>;
     }
   | {
       readonly while?: never;
-      readonly each: (data: Data<Model, State>) => ReadonlyArray<string>;
-      readonly run: Run<Model, State, Msg, R>;
+      readonly each: (data: Data<Model, State, Props>) => ReadonlyArray<string>;
+      readonly run: Run<Model, State, Props, Msg, R>;
     };
 
 /** Every Worker of one level, by name. */
-export type Workers<Model, State, Msg, R extends Requires> = Readonly<
-  Record<string, Worker<Model, State, Msg, R>>
->;
+export type Workers<
+  Model,
+  State,
+  Msg,
+  R extends Requires,
+  Props = void,
+> = Readonly<Record<string, Worker<Model, State, Msg, R, Props>>>;
 
 // Children ------------------------------------------------------------------------
 
@@ -116,11 +129,13 @@ export type Children = Readonly<Record<string, Slot>>;
 
 export type ActorOf<S> = S extends Many<infer A> ? A : S;
 
-type InputOf<A> = Types<A>['input'];
-
-type Keyed<I> = [I] extends [void]
-  ? { readonly key: string; readonly input?: I }
-  : { readonly key: string; readonly input: I };
+/** What a parent hands one Child: its Input, read once, and its Props, read live. Each is required once the Child declares it. */
+type Given<A> = ([Types<A>['input']] extends [void]
+  ? { readonly input?: Types<A>['input'] }
+  : { readonly input: Types<A>['input'] }) &
+  ([Types<A>['props']] extends [void]
+    ? { readonly props?: Types<A>['props'] }
+    : { readonly props: Types<A>['props'] });
 
 type ManyKeys<C> = {
   [K in keyof C]: C[K] extends Many<any> ? K : never;
@@ -128,17 +143,19 @@ type ManyKeys<C> = {
 type NeedKeys<C> = {
   [K in keyof C]: C[K] extends Many<any>
     ? never
-    : [InputOf<C[K]>] extends [void]
+    : {} extends Given<C[K]>
       ? never
       : K;
 }[keyof C];
 type FreeKeys<C> = Exclude<keyof C, ManyKeys<C> | NeedKeys<C>>;
 
-/** What a level Invokes: the keys and Input of each keyed Child, and the Input of each fixed one. */
+/** What a level Invokes: the key, Input and Props of each keyed Child, and the Input and Props of each fixed one. */
 export type Invocation<C> = {
-  readonly [K in ManyKeys<C>]: ReadonlyArray<Keyed<InputOf<ActorOf<C[K]>>>>;
-} & { readonly [K in NeedKeys<C>]: InputOf<C[K]> } & {
-  readonly [K in FreeKeys<C>]?: InputOf<C[K]>;
+  readonly [K in ManyKeys<C>]: ReadonlyArray<
+    { readonly key: string } & Given<ActorOf<C[K]>>
+  >;
+} & { readonly [K in NeedKeys<C>]: Given<C[K]> } & {
+  readonly [K in FreeKeys<C>]?: Given<C[K]>;
 };
 
 // The behavior ---------------------------------------------------------------------
@@ -147,26 +164,38 @@ export type Invocation<C> = {
 type KidsOf<L> = L extends { readonly children: infer C } ? C : {};
 
 /** `invoke` is required once a level has a Child that needs keys or Input. */
-type InvokePart<Model, State, C> =
+type InvokePart<Model, State, Props, C> =
   {} extends Invocation<C>
-    ? { readonly invoke?: (data: Data<Model, State>) => Invocation<C> }
-    : { readonly invoke: (data: Data<Model, State>) => Invocation<C> };
+    ? {
+        readonly invoke?: (data: Data<Model, State, Props>) => Invocation<C>;
+      }
+    : {
+        readonly invoke: (data: Data<Model, State, Props>) => Invocation<C>;
+      };
 
 /**
  * One level of an Actor's behavior: the top, for as long as the Instance
  * lives, or one State's block, for as long as that State lasts. `L` is the
  * level as written, so `invoke` is checked against the `children` beside it.
  */
-type Level<Model, State, Msg extends Tagged, R extends Requires, Next, L> = {
+type Level<
+  Model,
+  State,
+  Props,
+  Msg extends Tagged,
+  R extends Requires,
+  Next,
+  L,
+> = {
   /** The Capabilities this level gives everything below it, as one Layer. */
   readonly provides?: (
-    self: Self<Model, State, Msg>,
+    self: Self<Model, State, Msg, Props>,
   ) => Layer.Layer<any, never, IdsOf<R>>;
   readonly children?: Children;
   /** The Updates: per Message, the next Model and State and the Commands. */
-  readonly on?: Rules<Model, State, Msg, R, Next>;
-  readonly workers?: Workers<Model, State, Msg, R>;
-} & InvokePart<Model, State, KidsOf<L>>;
+  readonly on?: Rules<Model, State, Props, Msg, R, Next>;
+  readonly workers?: Workers<Model, State, Msg, R, Props>;
+} & InvokePart<Model, State, Props, KidsOf<L>>;
 
 type ModelInit<Model> = {} extends Model
   ? { readonly model?: Model }
@@ -189,6 +218,7 @@ export type IsSingle<State> = [State] extends [Single] ? true : false;
  */
 export type Behavior<
   Input,
+  Props,
   Model,
   State extends Tagged,
   Msg extends Tagged,
@@ -196,14 +226,14 @@ export type Behavior<
   B,
 > =
   IsSingle<State> extends true
-    ? Level<Model, Single, Msg, R, never, B> & {
+    ? Level<Model, Single, Props, Msg, R, never, B> & {
         readonly state?: never;
       } & ([Input] extends [void]
           ? {} extends Model
             ? { readonly init?: (input: Input) => ModelInit<Model> }
             : { readonly init: (input: Input) => ModelInit<Model> }
           : { readonly init: (input: Input) => ModelInit<Model> })
-    : Level<Model, State, Msg, R, State, B> & {
+    : Level<Model, State, Props, Msg, R, State, B> & {
         /** The first Model and State, from the Input. */
         readonly init: (
           input: Input,
@@ -213,6 +243,7 @@ export type Behavior<
           readonly [T in State['_tag']]?: Level<
             Model,
             Only<State, T>,
+            Props,
             Msg,
             R,
             State,
@@ -231,7 +262,7 @@ type ProvidedOf<L> = L extends {
   : never;
 
 type OpenOf<A> =
-  A extends Actor<any, any, any, any, any, any, infer O> ? O : never;
+  A extends Actor<any, any, any, any, any, any, any, infer O> ? O : never;
 
 /** What the Children of a level still need from above. */
 type KidsOpen<C> = { [K in keyof C]: OpenOf<ActorOf<C[K]>> }[keyof C];
@@ -276,7 +307,9 @@ export interface WorkerDefinition {
   /** The State whose block it is written in; none for a top-level Worker. */
   readonly state?: string;
   /** The keys the Condition names for this data; `''` for the one Worker of the other kinds. */
-  readonly keys: (data: Data<unknown, Tagged>) => ReadonlyArray<string>;
+  readonly keys: (
+    data: Data<unknown, Tagged, unknown>,
+  ) => ReadonlyArray<string>;
   readonly run: Function;
 }
 
@@ -289,6 +322,7 @@ export interface Definition {
   /** Throw unless a value matches the Actor's Schema for it. */
   readonly check: {
     readonly input: Check;
+    readonly props: Check;
     readonly model: Check;
     readonly state: Check;
     readonly message: Check;
@@ -321,6 +355,7 @@ declare const types: unique symbol;
 export interface Actor<
   out Name extends string,
   out Input,
+  out Props,
   out Model,
   out State extends Tagged,
   out Msg extends Tagged,
@@ -331,6 +366,7 @@ export interface Actor<
   readonly definition: Definition;
   readonly [types]?: {
     readonly input: Input;
+    readonly props: Props;
     readonly model: Model;
     readonly state: State;
     readonly message: Msg;
@@ -339,13 +375,14 @@ export interface Actor<
   };
 }
 
-export type AnyActor = Actor<string, any, any, any, any, any, any>;
+export type AnyActor = Actor<string, any, any, any, any, any, any, any>;
 
 /** Everything an Actor's types say, for the Runtime and Views. */
 export type Types<A> =
   A extends Actor<
     any,
     infer Input,
+    infer Props,
     infer Model,
     infer State,
     infer Msg,
@@ -354,6 +391,7 @@ export type Types<A> =
   >
     ? {
         input: Input;
+        props: Props;
         model: Model;
         state: State;
         message: Msg;

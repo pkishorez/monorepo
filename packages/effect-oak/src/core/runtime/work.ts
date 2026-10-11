@@ -37,7 +37,7 @@ const Sending = Context.Reference<Source | undefined>('effect-oak/Sending', {
  * 2. Enter   a State: its Scope, the Layer it Provides, and its own Children.
  *            Work waits for the Capabilities from above, so starting never
  *            blocks.
- * 3. Change  tells the Instance's own work its new data, and syncs its
+ * 3. Change  tells the Instance's own work its new data or Props, and syncs its
  *            Workers: a key that appeared starts one, a key that went stops
  *            one, a key that stayed is left alone.
  * 4. Command runs an errand an Update asked for, in the Instance's Scope,
@@ -71,8 +71,10 @@ interface Work {
   readonly definition: Definition;
   readonly scope: Scope.Closeable;
   readonly above: Deferred.Deferred<Context.Context<never>>;
-  readonly data: SubscriptionRef.SubscriptionRef<Data<unknown, Tagged>>;
-  readonly self: Self<unknown, Tagged, Tagged>;
+  readonly data: SubscriptionRef.SubscriptionRef<
+    Data<unknown, Tagged, unknown>
+  >;
+  readonly self: Self<unknown, Tagged, Tagged, unknown>;
   /** By Worker name, then by key. */
   readonly workers: Map<string, Map<string, Live>>;
   /** What the Children written at its top get: the top Provides over what is above. */
@@ -139,21 +141,19 @@ export const makeWorks = (
   ): void => {
     const scope = Scope.forkUnsafe(parent.scope);
     const data = run(
-      SubscriptionRef.make<Data<unknown, Tagged>>({
-        model: instance.model,
-        state: instance.state,
-      }),
+      SubscriptionRef.make<Data<unknown, Tagged, unknown>>(dataOf(instance)),
     );
     const self: Work['self'] = {
       id: instance.id,
-      // A Request runs in another Instance's work, which is its Source.
+      // A Request runs in another Instance's work, which is its Source;
+      // outside any Command or Worker, the Instance's own Provide Sent it.
       send: (message) =>
         Effect.flatMap(Effect.service(Sending), (source) =>
           Effect.sync(() =>
             send(
               instance.id,
               message,
-              source ?? { kind: 'worker', instance: instance.id },
+              source ?? { kind: 'provide', instance: instance.id },
             ),
           ),
         ),
@@ -247,21 +247,13 @@ export const makeWorks = (
   const change = (instance: Instance): void => {
     const work = works.get(instance.id);
     if (!work) return;
-    run(
-      SubscriptionRef.set(work.data, {
-        model: instance.model,
-        state: instance.state,
-      }),
-    );
+    run(SubscriptionRef.set(work.data, dataOf(instance)));
     sync(work, instance);
   };
 
   /** Start the Workers whose keys appeared, and stop those whose keys went. */
   const sync = (work: Work, instance: Instance): void => {
-    const data: Data<unknown, Tagged> = {
-      model: instance.model,
-      state: instance.state,
-    };
+    const data = dataOf(instance);
     for (const [name, worker] of Object.entries(work.definition.workers)) {
       const keys = new Set(worker.keys(data));
       let live = work.workers.get(name);
@@ -435,6 +427,12 @@ export const makeWorks = (
  */
 const stopped = (cause: Cause.Cause<unknown>) =>
   Cause.hasInterruptsOnly(cause) || Pull.isDoneCause(cause);
+
+const dataOf = (instance: Instance): Data<unknown, Tagged, unknown> => ({
+  model: instance.model,
+  state: instance.state,
+  props: instance.props,
+});
 
 const isMessage = (value: unknown): value is Tagged =>
   typeof value === 'object' &&

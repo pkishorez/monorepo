@@ -92,10 +92,13 @@ export const useInspection = (
       around: (at) => {
         const after = runtime.snapshotAt(at === 'init' ? null : at.id);
         return after
-          ? {
-              before: at === 'init' ? undefined : runtime.snapshotAt(at.parent),
-              after,
-            }
+          ? at === 'init'
+            ? { before: undefined, after }
+            : {
+                before: runtime.snapshotAt(at.parent),
+                after,
+                outcome: runtime.outcome(at.id),
+              }
           : undefined;
       },
       show,

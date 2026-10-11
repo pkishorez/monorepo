@@ -38,13 +38,11 @@ interface RuntimeState {
 }
 
 interface Entry extends Envelope {
-  // Envelope: { instance: string (the Instance ID), message: Tagged, at: number }
+  // Envelope: { destination: string (the Instance ID), message: Tagged, source: Source, at: number }
   readonly id: number;
   readonly parent: number | null;
-  readonly outcome: 'handled' | 'ignored' | 'dropped';
-  readonly from: string;
-  readonly to: string;
 }
+// What came of an entry is worked out from the Snapshots around it, never kept (ADR 0023).
 ```
 
 - Adding a Message is a push: `entries` is one append-only array the states share, never copied per Message.
@@ -66,6 +64,7 @@ Persistence comes later, as saving and loading this value.
 | `stop()`                  | Stop the Runtime                                                    |
 | `start(entry?)`           | Start from an entry (`null`: right after init), or resume the Head  |
 | `children(entry \| null)` | The entries that follow an entry (`null`: init), to draw the tree   |
+| `outcome(entry)`          | Whether an entry was handled, ignored or dropped, worked out        |
 | `frame`                   | The app's Frame: still while stopped, moving while live and running |
 
 ## What changes in the code

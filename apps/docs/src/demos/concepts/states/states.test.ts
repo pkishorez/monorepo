@@ -26,7 +26,7 @@ describe('2. States', () => {
         app.send('Door', { _tag: 'Lock', code: '1234' });
         expect(app.snapshot().state).toEqual({ _tag: 'Locked', code: '1234' });
         app.send('Door', { _tag: 'Toggle' });
-        expect(app.log().at(-1)?.outcome).toBe('ignored');
+        expect(app.outcome(app.log().at(-1)!.id)).toBe('ignored');
         expect(app.snapshot().state).toEqual({ _tag: 'Locked', code: '1234' });
       }),
     ));
@@ -39,21 +39,23 @@ describe('2. States', () => {
 
         // The wrong code has a rule, so it is handled, but with no Change.
         app.send('Door', { _tag: 'Unlock', code: '0000' });
-        expect(app.log().at(-1)).toMatchObject({
-          outcome: 'handled',
-          from: 'Locked',
-          to: 'Locked',
-        });
+        expect(app.outcome(app.log().at(-1)!.id)).toBe('handled');
+        const wrong = app.log().at(-1)!;
+        expect(app.snapshotAt(wrong.id)).toBe(app.snapshotAt(wrong.parent));
         expect(app.snapshot().state).toEqual({ _tag: 'Locked', code: '1234' });
 
         app.send('Door', { _tag: 'Unlock', code: '1234' });
         expect(app.snapshot().state).toEqual({ _tag: 'Closed' });
         // Leaving Locked leaves its data behind: Lock is only a rule of Closed.
         app.send('Door', { _tag: 'Unlock', code: '1234' });
-        expect(app.log().at(-1)?.outcome).toBe('ignored');
+        expect(app.outcome(app.log().at(-1)!.id)).toBe('ignored');
 
+        // What State each Message left and entered is worked out from the Snapshots.
+        const tag = (entry: number | null) => app.snapshotAt(entry).state._tag;
         expect(
-          app.log().map((e) => `${e.message._tag} ${e.from}→${e.to}`),
+          app
+            .log()
+            .map((e) => `${e.message._tag} ${tag(e.parent)}→${tag(e.id)}`),
         ).toEqual([
           'Lock Closed→Locked',
           'Unlock Locked→Locked',

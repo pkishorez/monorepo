@@ -24,6 +24,15 @@ const SOURCE = {
     name: 'Worker',
     means: 'From work that runs while its Condition holds, by its name and key',
   },
+  provide: {
+    name: 'Provide',
+    means:
+      'From a Capability the Instance Provides, outside any Command or Worker',
+  },
+  outside: {
+    name: 'Outside',
+    means: 'From code outside the tree, like a test or a tool',
+  },
   restore: {
     name: 'Restore',
     means: 'A saved Snapshot given to the app, which no one Sent',
@@ -58,7 +67,7 @@ export const Happened = ({
   const entry = step === 'init' ? undefined : step;
   const changed = rows.filter(touched);
   const payload = entry ? payloadOf(entry.message) : {};
-  const nothing = nothingOf(step, kind, nameOf);
+  const nothing = nothingOf(step, kind, rows, nameOf);
 
   return (
     <div className="flex flex-col gap-4">
@@ -83,23 +92,30 @@ export const Happened = ({
         {entry && (
           <div className="flex flex-wrap items-center gap-1.5 text-xs">
             <Chip title={SOURCE[entry.source.kind].means}>
-              {entry.source.instance !== entry.instance && (
-                <span className="font-medium">
-                  {nameOf(entry.source.instance)}
-                </span>
-              )}
+              {'instance' in entry.source &&
+                entry.source.instance !== entry.destination && (
+                  <span className="font-medium">
+                    {nameOf(entry.source.instance)}
+                  </span>
+                )}
               <span className="text-muted-foreground">
                 {SOURCE[entry.source.kind].name}
               </span>
-              {entry.source.name !== undefined && (
+              {(entry.source.kind === 'command' ||
+                entry.source.kind === 'worker') && (
                 <span className="font-mono">
-                  {workName(entry.source.name, entry.source.key)}
+                  {workName(
+                    entry.source.name,
+                    entry.source.kind === 'worker'
+                      ? entry.source.key
+                      : undefined,
+                  )}
                 </span>
               )}
             </Chip>
             <ArrowRight aria-label="to" className="size-3.5 text-primary" />
             <Chip>
-              <span className="font-medium">{nameOf(entry.instance)}</span>
+              <span className="font-medium">{nameOf(entry.destination)}</span>
             </Chip>
           </div>
         )}
@@ -154,14 +170,22 @@ const Section = ({
 );
 
 /** Why the Step changed nothing, when it didn't. */
-const nothingOf = (step: Step, kind: Kind, nameOf: NameOf) => {
+const nothingOf = (
+  step: Step,
+  kind: Kind,
+  rows: ReadonlyArray<Row>,
+  nameOf: NameOf,
+) => {
   if (step === 'init') return undefined;
-  const target = nameOf(step.instance);
+  const target = nameOf(step.destination);
+  // Ignored, so its State is the one it was in.
+  const state = rows.find((row) => row.instance.id === step.destination)
+    ?.instance.state._tag;
   switch (kind) {
     case 'ignored':
-      return step.from === 'Single'
+      return state === undefined || state === 'Single'
         ? `Nothing happened: ${target} has no rule for it.`
-        : `Nothing happened: ${target} has no rule for it in ${step.from}.`;
+        : `Nothing happened: ${target} has no rule for it in ${state}.`;
     case 'dropped':
       return `Nothing happened: ${target} had already stopped.`;
     case 'still':

@@ -37,7 +37,7 @@ describe('Capabilities', () => {
 
         // The Request's Source is the Scorer's Command, addressed to the Board.
         const scored = app.log().at(-1)!;
-        expect(scored.instance).toBe('Board');
+        expect(scored.destination).toBe('Board');
         expect(scored.message).toEqual({ _tag: 'Scored', name: 'P-2' });
         expect(scored.source).toMatchObject({
           kind: 'command',
@@ -54,7 +54,7 @@ describe('Capabilities', () => {
         app.send('Board', { _tag: 'RemoveLast' });
         expect(app.snapshot().children['players']).toEqual([]);
         app.send('Board/players[P-1]#1', { _tag: 'Score' });
-        expect(app.log().at(-1)?.outcome).toBe('dropped');
+        expect(app.outcome(app.log().at(-1)!.id)).toBe('dropped');
         expect(app.snapshot().model).toMatchObject({ total: 0 });
       }),
     ));

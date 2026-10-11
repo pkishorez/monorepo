@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { motionValue } from 'motion/react';
 import type { MotionValue } from 'motion/react';
 import { Effect, Exit, Fiber, Layer, Scope } from 'effect';
-import { Log, Replay, Runtime, init } from '../core/index.ts';
+import { Log, Replay, Runtime, init, outcomeOf } from '../core/index.ts';
 import type {
   AnyActor,
   Definition,
@@ -69,6 +69,11 @@ export interface AppRuntime {
   readonly children: (entry: number | null) => ReadonlyArray<Entry>;
   /** The Snapshot right after an entry, on any Branch (`null`: right after init), to take the app apart. */
   readonly snapshotAt: (entry: number | null) => Snapshot | undefined;
+  /**
+   * What came of an entry: handled, ignored, or dropped because its Instance
+   * was gone. Worked out, never kept in the Log.
+   */
+  readonly outcome: (entry: number) => 'handled' | 'ignored' | 'dropped';
   /** The root Actor's definition: every State, Child and Worker the app can have. */
   readonly definition: Definition;
   /** What an Instance's Workers are doing now: live only, never in the Snapshot. Empty while stopped. */
@@ -214,7 +219,8 @@ export const toReact = <A extends AnyActor, Provided>(
     () => runtime?.drawn() ?? seed?.snapshot,
     () => seed?.snapshot,
     (id, message) => {
-      if (runtime && runtime.state().shown === null) runtime.send(id, message);
+      if (runtime && runtime.state().shown === null)
+        runtime.send(id, message, { kind: 'view', instance: id });
     },
     subscribe,
   );
@@ -285,6 +291,12 @@ export const toReact = <A extends AnyActor, Provided>(
     runtime?.children(entry) ?? seedOf().log.children(entry);
   const snapshotAt = (entry: number | null) =>
     runtime?.snapshotAt(entry) ?? playedAt(seedOf(), entry);
+  const outcome = (entry: number) => {
+    if (runtime) return runtime.outcome(entry);
+    const seed = seedOf();
+    const envelope = seed.log.get().entries[entry]!;
+    return outcomeOf(definition, playedAt(seed, envelope.parent), envelope);
+  };
 
   const Drawn = () => {
     if (!runtime) {
@@ -328,6 +340,7 @@ export const toReact = <A extends AnyActor, Provided>(
         clear,
         children,
         snapshotAt,
+        outcome,
         definition,
         workers: (instance) => runtime?.workers(instance) ?? NO_WORKERS,
         frame,

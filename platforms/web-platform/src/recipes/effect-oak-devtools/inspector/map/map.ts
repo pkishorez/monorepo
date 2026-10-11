@@ -52,11 +52,13 @@ export const mapOf = (
   const { centers, ...laid } = layout(unitsOf(definition, around, open));
   const entry = step === 'init' ? undefined : step;
   const centre = (instance: string) => centers.get(laid.at.get(instance) ?? '');
-  const from = entry && centre(entry.source.instance);
-  const to = entry && centre(entry.instance);
+  const sender =
+    entry && 'instance' in entry.source ? entry.source.instance : undefined;
+  const from = sender && centre(sender);
+  const to = entry && centre(entry.destination);
   const bend = from && to && Math.min(from.x, to.x) - 120;
   const request =
-    entry && entry.source.instance !== entry.instance && from && to
+    entry && sender !== entry.destination && from && to
       ? `M ${from.x - CIRCLE / 2 - 4} ${from.y} C ${bend} ${from.y}, ${bend} ${to.y}, ${to.x - CIRCLE / 2 - 4} ${to.y}`
       : undefined;
   return { ...laid, request };

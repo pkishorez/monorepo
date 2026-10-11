@@ -24,16 +24,21 @@ describe('1. Actor', () => {
         app.send('Counter', { _tag: 'Reset' });
         expect(app.snapshot().model).toEqual({ count: 0 });
 
-        // Every Message is a Log entry, handled, Sent by a View to the one Instance.
+        // Every Message is a Log entry for the one Instance, and each was handled.
         expect(
-          app.log().map((e) => `${e.instance} ${e.message._tag} ${e.outcome}`),
+          app
+            .log()
+            .map(
+              (e) => `${e.destination} ${e.message._tag} ${app.outcome(e.id)}`,
+            ),
         ).toEqual([
           'Counter Increment handled',
           'Counter Increment handled',
           'Counter Decrement handled',
           'Counter Reset handled',
         ]);
-        expect(app.log().every((e) => e.source.kind === 'view')).toBe(true);
+        // Sent by the test, from outside the tree; a click in the View says 'view'.
+        expect(app.log().every((e) => e.source.kind === 'outside')).toBe(true);
       }),
     ));
 

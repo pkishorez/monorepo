@@ -47,7 +47,7 @@ describe('keyed Children', () => {
 
         // The Player is gone, so a Message for it is dropped.
         app.send('Scoreboard/players[P-1]#1', { _tag: 'Increment' });
-        expect(app.log().at(-1)?.outcome).toBe('dropped');
+        expect(app.outcome(app.log().at(-1)!.id)).toBe('dropped');
 
         // Removing from an empty Scoreboard is a handled Message with no Change.
         app.send('Scoreboard', { _tag: 'RemoveLast' });

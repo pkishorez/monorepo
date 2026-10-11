@@ -19,10 +19,12 @@ export type Kind =
   | 'ignored'
   | 'dropped';
 
-/** The Snapshots right before and after a Step; init has nothing before it. */
+/** The Snapshots right before and after a Step, and what came of its entry; init has nothing before it. */
 export interface Around {
   readonly before: Snapshot | undefined;
   readonly after: Snapshot;
+  /** Worked out, never kept in the Log; none for init. */
+  readonly outcome?: 'handled' | 'ignored' | 'dropped';
 }
 
 export const KIND_LABEL: Record<Kind, string> = {
@@ -40,14 +42,18 @@ export const kindOf = (step: Step, around: Around | undefined): Kind => {
   if (step === 'init') return 'init';
   let kind = kinds.get(step);
   if (kind) return kind;
-  if (step.outcome !== 'handled') kind = step.outcome;
-  else if (step.from !== step.to) kind = 'transition';
-  else if (!around) return 'update';
+  if (!around) return 'update';
+  const { outcome = 'handled' } = around;
+  if (outcome !== 'handled') kind = outcome;
   else {
-    const was = around.before && instanceAt(around.before, step.instance);
-    const is = instanceAt(around.after, step.instance);
+    const was = around.before && instanceAt(around.before, step.destination);
+    const is = instanceAt(around.after, step.destination);
     kind =
-      was?.model !== is?.model || was?.state !== is?.state ? 'update' : 'still';
+      was?.state._tag !== is?.state._tag
+        ? 'transition'
+        : was?.model !== is?.model || was?.state !== is?.state
+          ? 'update'
+          : 'still';
   }
   kinds.set(step, kind);
   return kind;
@@ -77,6 +83,7 @@ export const describe = (instance: Instance): object => ({
   ...(instance.key === undefined ? {} : { key: instance.key }),
   ...(instance.state._tag === 'Single' ? {} : { state: instance.state }),
   model: instance.model,
+  ...(instance.props === undefined ? {} : { props: instance.props }),
   ...(Object.keys(instance.children).length === 0
     ? {}
     : {
