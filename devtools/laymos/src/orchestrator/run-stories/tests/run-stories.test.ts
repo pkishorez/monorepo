@@ -264,7 +264,8 @@ describe('findSelfContainedViolations', () => {
   });
 });
 
-describe('runStories in the Browser Venue', () => {
+// Needs a local Chromium; CI runs no browser tests for now.
+describe.skipIf(process.env.CI)('runStories in the Browser Venue', () => {
   test('records Steps, screenshots, and every frame of each Tab', async () => {
     const browser = fixture('browser');
     const reports = finished(await run(browser));
