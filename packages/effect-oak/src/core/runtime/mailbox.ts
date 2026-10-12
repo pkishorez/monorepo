@@ -2,23 +2,22 @@ import type { Tagged } from '../actor/index.ts';
 import type { Envelope, Source } from '../snapshot/index.ts';
 
 /*
- * The one mailbox. A Message is handled before `send` returns, unless another
- * is being handled (a Worker sending as it starts, say): then it waits its
- * turn, so every Message sees a settled app. Its Time is when it was sent, so
- * Times only grow along the queue. Subscribers are told once the queue is
- * empty: many Messages make one render, still inside the keypress that sent
- * the first. A Message sent while the mailbox is closed (the Runtime is
- * stopped) is dropped unrecorded. A Message whose Update gives data that
- * does not match its Schemas changes nothing; the rest of the queue is still
- * handled, then the `send` that drained it throws.
+ * The one Mailbox. A Message is stamped with its Time and handled before
+ * `send` returns, unless another is being handled (a Worker sending as it
+ * starts, say): then it waits its turn, so every Message sees a settled app
+ * and Times only grow along the queue. Subscribers are told once the queue
+ * is empty: many Messages make one render. A Message sent while the Mailbox
+ * is closed is dropped. One whose Update gives data that does not match its
+ * Schemas changes nothing; the rest of the queue is still handled, then the
+ * `send` that drained it throws.
  */
 export const makeMailbox = (
   now: () => number,
-  open: () => boolean,
   deliver: (envelope: Envelope) => void,
   drained: () => void,
 ) => {
   const waiting: Array<Envelope> = [];
+  let open = false;
   let busy = false;
 
   const drain = () => {
@@ -40,17 +39,24 @@ export const makeMailbox = (
   };
 
   return {
-    send: (instance: string, message: Tagged, source: Source) => {
-      if (!open()) return;
-      waiting.push({ destination: instance, message, source, at: now() });
+    open: () => {
+      open = true;
+    },
+    close: () => {
+      open = false;
+      waiting.length = 0;
+    },
+    send: (destination: string, message: Tagged, source: Source) => {
+      if (!open) return;
+      waiting.push({ destination, message, source, at: now() });
       drain();
     },
     /** Run `f` without handling Messages, then handle what it sent. */
-    hold: <A>(f: () => A): A => {
+    hold: (f: () => void) => {
       const draining = busy;
       busy = true;
       try {
-        return f();
+        f();
       } finally {
         busy = draining;
         if (!draining) drain();

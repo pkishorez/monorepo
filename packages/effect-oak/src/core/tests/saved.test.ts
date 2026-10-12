@@ -4,6 +4,7 @@ import { TestClock } from 'effect/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   Actor,
+  History,
   Replay,
   Runtime,
   handle,
@@ -11,10 +12,10 @@ import {
   instanceAt,
   restore,
 } from '../index.ts';
-import type { RuntimeState, Snapshot } from '../index.ts';
+import type { SavedHistory, Snapshot } from '../index.ts';
 
 /*
- * A saved Log: what an app carries on from, and the Restore that puts a
+ * A saved History: what an app carries on from, and the Restore that puts a
  * saved Snapshot in it.
  */
 
@@ -47,8 +48,8 @@ const envelope = (message: { readonly _tag: string }, at = 0) => ({
   at,
 });
 
-/** A Log of three Messages, as a Runtime leaves it. */
-const saved = (): Effect.Effect<RuntimeState, never, Scope.Scope> =>
+/** A History of three Messages, as a Runtime leaves it. */
+const saved = (): Effect.Effect<SavedHistory, never, Scope.Scope> =>
   Effect.gen(function* () {
     const app = yield* Runtime.start(Counter);
     yield* TestClock.adjust('100 millis');
@@ -57,7 +58,7 @@ const saved = (): Effect.Effect<RuntimeState, never, Scope.Scope> =>
     app.send('Counter', { _tag: 'Started' });
     yield* TestClock.adjust('100 millis');
     app.send('Counter', { _tag: 'Bumped' });
-    return app.state();
+    return app.history.save();
   });
 
 afterEach(() => {
@@ -145,11 +146,8 @@ describe('Replay.fold', () => {
     timed(
       Effect.gen(function* () {
         const state = yield* saved();
-        const branch = state.entries;
-        const folded = Replay.fold(Counter.definition, branch);
-        const sought = yield* Replay.make(Counter.definition, undefined).seek(
-          branch,
-        );
+        const folded = Replay.fold(Counter.definition, state.entries);
+        const sought = yield* History.load(Counter, state).seek();
         expect(folded).toEqual(sought);
         expect(folded.model).toEqual({ count: 2 });
         expect(folded.state).toEqual({ _tag: 'Busy', since: 200 });
@@ -157,23 +155,23 @@ describe('Replay.fold', () => {
     ));
 });
 
-describe('Replay.restored', () => {
-  it('is a Log of one Restore right after init', () =>
+describe('History.restored', () => {
+  it('is a History of one Restore right after init', () =>
     timed(
       Effect.gen(function* () {
         const state = yield* saved();
         const snapshot = Replay.fold(Counter.definition, state.entries);
-        const light = Replay.restored(Counter.definition, snapshot, 300);
-        expect(light.entries).toHaveLength(1);
-        expect(light.head).toBe(0);
-        expect(light.entries[0]).toMatchObject({
+        const light = History.restored(Counter, snapshot, 300);
+        expect(light.save().entries).toHaveLength(1);
+        expect(light.head()).toBe(0);
+        expect(light.save().entries[0]).toMatchObject({
           parent: null,
           destination: 'Counter',
           at: 300,
           source: { kind: 'restore' },
         });
         // The entry holds only the Envelope: what came of it is worked out.
-        expect(Object.keys(light.entries[0]!).sort()).toEqual([
+        expect(Object.keys(light.save().entries[0]!).sort()).toEqual([
           'at',
           'destination',
           'id',
@@ -182,18 +180,15 @@ describe('Replay.restored', () => {
           'source',
         ]);
 
-        const app = yield* Runtime.start(Counter, { saved: light });
+        const app = yield* Runtime.start(light);
         expect(app.snapshot()).toEqual(snapshot);
         expect(app.now()).toBe(300);
-        expect(app.log()).toHaveLength(1);
+        expect(app.history.branch()).toHaveLength(1);
         // Init is still the floor: before the Restore, the Actor's own init.
-        expect(app.snapshotAt(null).model).toEqual({ count: 0 });
-        yield* app.show('init');
-        expect(app.drawn().model).toEqual({ count: 0 });
-        yield* app.show(null);
+        expect(app.history.snapshotAt(null).model).toEqual({ count: 0 });
         app.send('Counter', { _tag: 'Done' });
         expect(app.snapshot().state._tag).toBe('Idle');
-        expect(app.log().map((e) => e.message._tag)).toEqual([
+        expect(app.history.branch().map((e) => e.message._tag)).toEqual([
           '@effect-oak/Restore',
           'Done',
         ]);
@@ -201,65 +196,34 @@ describe('Replay.restored', () => {
     ));
 });
 
-describe('a shared Replay', () => {
-  it('cannot be given beside an Input', async () => {
-    const replay = Replay.make(Counter.definition, undefined);
-    await expect(
-      timed(Runtime.start(Counter, { input: {}, replay })),
-    ).rejects.toThrow('give the Input to the Replay');
-  });
-});
-
-describe('a saved Log', () => {
+describe('a saved History', () => {
   it('carries on live at its Head, from its Time', () =>
     timed(
       Effect.gen(function* () {
         const state = yield* saved();
-        const app = yield* Runtime.start(Counter, { saved: state });
-        expect(app.state().running).toBe(true);
-        expect(app.state().head).toBe(2);
+        const app = yield* Runtime.start(History.load(Counter, state));
+        expect(app.running()).toBe(true);
+        expect(app.history.head()).toBe(2);
         expect(app.now()).toBe(300);
         expect(instanceAt(app.snapshot(), 'Counter')?.model).toEqual({
           count: 2,
         });
         yield* TestClock.adjust('50 millis');
         app.send('Counter', { _tag: 'Bumped' });
-        expect(app.log().at(-1)).toMatchObject({ id: 3, parent: 2, at: 350 });
+        expect(app.history.branch().at(-1)).toMatchObject({
+          id: 3,
+          parent: 2,
+          at: 350,
+        });
       }),
     ));
 
-  it('stays stopped when it was saved stopped', () =>
+  it('is plain JSON: its entries and its Head', () =>
     timed(
       Effect.gen(function* () {
         const state = yield* saved();
-        const app = yield* Runtime.start(Counter, {
-          saved: { ...state, running: false },
-        });
-        expect(app.state().running).toBe(false);
-        expect(app.now()).toBe(300);
-        expect(app.snapshot().model).toEqual({ count: 2 });
-        app.send('Counter', { _tag: 'Bumped' });
-        expect(app.log()).toHaveLength(3);
-        yield* app.start();
-        expect(app.state().running).toBe(true);
-        app.send('Counter', { _tag: 'Bumped' });
-        expect(app.snapshot().model).toEqual({ count: 3 });
-      }),
-    ));
-
-  it('shows the entry it was showing, with the live app underneath', () =>
-    timed(
-      Effect.gen(function* () {
-        const state = yield* saved();
-        const app = yield* Runtime.start(Counter, {
-          saved: { ...state, shown: 0 },
-        });
-        expect(app.state().shown).toBe(0);
-        expect(app.state().running).toBe(true);
-        expect(app.drawn().model).toEqual({ count: 1 });
-        expect(app.snapshot().model).toEqual({ count: 2 });
-        yield* app.show(null);
-        expect(app.drawn()).toBe(app.snapshot());
+        expect(Object.keys(state).sort()).toEqual(['entries', 'head']);
+        expect(JSON.parse(JSON.stringify(state))).toEqual(state);
       }),
     ));
 });

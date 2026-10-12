@@ -6,7 +6,7 @@ export type {
   ActorOf,
   AnyActor,
   Data,
-  Definition,
+  ActorDefinition,
   Many,
   Only,
   Self,

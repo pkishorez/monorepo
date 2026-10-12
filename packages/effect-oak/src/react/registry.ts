@@ -1,23 +1,19 @@
-import type { RuntimeState } from '../core/index.ts';
+import type { History } from '../core/index.ts';
 
 /*
- * Where an app's Log outlives its module: a registry on `globalThis`, keyed
- * by the root Actor's name. While an app is mounted its Log is read live from
- * here; when its last mount closes, the Log is left here. The next mount of an
- * app with that name carries on from it, whether it is the same `toReact`
+ * Where an app's History outlives its module: a registry on `globalThis`,
+ * keyed by the app's name. While an app is mounted its History is here;
+ * when its last mount closes, the History stays. The next mount of an app
+ * with that name carries on from it, whether it is the same `toReact`
  * mounted again or a fresh one from a module hot reload, whose new code
- * Replays the old Log. Nothing is ever written on a server, where no mount
- * happens.
+ * replays the old History. Nothing is ever written on a server, where no
+ * mount happens.
  */
 
 interface Kept {
-  /** The Log the last closed mount left. */
-  readonly saved?: RuntimeState;
-  /** The app mounted now, and its Log as it is. */
-  readonly live?: {
-    readonly app: object;
-    readonly state: () => RuntimeState | undefined;
-  };
+  readonly history: History;
+  /** The app mounted now, if one is. */
+  readonly live?: object;
 }
 
 const KEY = Symbol.for('effect-oak/apps');
@@ -28,28 +24,19 @@ const apps = (): Map<string, Kept> => {
 };
 
 export const registry = {
-  /** The Log of the app mounted under this name, else the one its last mount left. */
-  saved: (name: string): RuntimeState | undefined => {
-    const kept = apps().get(name);
-    return kept?.live?.state() ?? kept?.saved;
+  /** The History of the app mounted under this name, else the one its last mount left. */
+  history: (name: string): History | undefined => apps().get(name)?.history,
+  /** Note that `app` is mounted with its History; false if another app of that name already is. */
+  claim: (name: string, app: object, history: History): boolean => {
+    const live = apps().get(name)?.live;
+    if (live !== undefined && live !== app) return false;
+    apps().set(name, { history, live: app });
+    return true;
   },
-  /** Note that `app` is mounted; false if another app of that name already is. */
-  claim: (
-    name: string,
-    app: object,
-    state: () => RuntimeState | undefined,
-  ): boolean => {
-    const kept = apps().get(name) ?? {};
-    const free = kept.live === undefined || kept.live.app === app;
-    if (free) apps().set(name, { ...kept, live: { app, state } });
-    return free;
-  },
-  /** Leave the Log as the app closes. */
-  release: (name: string, app: object, saved: RuntimeState | undefined) => {
+  /** Leave the History as the app closes. */
+  release: (name: string, app: object) => {
     const kept = apps().get(name);
-    if (kept?.live?.app !== app) return;
-    const left = saved ?? kept.saved;
-    apps().set(name, left ? { saved: left } : {});
+    if (kept?.live === app) apps().set(name, { history: kept.history });
   },
   /** Forget every app: for tests. */
   clear: () => apps().clear(),

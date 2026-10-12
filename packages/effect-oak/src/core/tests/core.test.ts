@@ -183,7 +183,7 @@ const timed = <A>(effect: Effect.Effect<A, never, Scope.Scope>) =>
     Effect.scoped(effect).pipe(Effect.provide(TestClock.layer())),
   );
 
-const started = Runtime.start(Auth).pipe(Effect.provide(ServerLive));
+const started = Runtime.start(Auth, ServerLive);
 
 describe('a tree of Actors', () => {
   it('moves through States, Invoking and stopping Children', () =>
@@ -214,13 +214,13 @@ describe('a tree of Actors', () => {
 
         // What came of each entry is worked out, never kept in the Log.
         const tagAt = (entry: number | null, id: string) =>
-          instanceAt(app.snapshotAt(entry), id)?.state._tag ?? '';
+          instanceAt(app.history.snapshotAt(entry), id)?.state._tag ?? '';
         expect(
-          app
-            .log()
+          app.history
+            .branch()
             .map(
               (e) =>
-                `${e.destination} ${e.message._tag} ${app.outcome(e.id)} ${tagAt(e.parent, e.destination)}→${tagAt(e.id, e.destination)}`,
+                `${e.destination} ${e.message._tag} ${app.history.outcome(e.id)} ${tagAt(e.parent, e.destination)}→${tagAt(e.id, e.destination)}`,
             ),
         ).toEqual([
           'Auth CheckedSession handled Checking→Anonymous',
@@ -234,8 +234,8 @@ describe('a tree of Actors', () => {
         ]);
         // A Request's Source is the Command that made it, in another Instance.
         expect(
-          app
-            .log()
+          app.history
+            .branch()
             .map(({ source }) =>
               source.kind === 'command' || source.kind === 'worker'
                 ? `${source.kind} ${source.instance} ${source.name}`
@@ -252,17 +252,21 @@ describe('a tree of Actors', () => {
           'outside',
         ]);
         // Any entry's Snapshot, played again, is the one the app had live.
-        expect(app.snapshotAt(app.state().head)).toEqual(app.snapshot());
-        expect(app.snapshotAt(null).state._tag).toBe('Checking');
+        expect(app.history.snapshotAt(app.history.head())).toEqual(
+          app.snapshot(),
+        );
+        expect(app.history.snapshotAt(null).state._tag).toBe('Checking');
         // Invoked again, login gets a new ID.
         expect(Object.values(app.snapshot().children)).toMatchObject([
           { id: 'Auth/login#2' },
         ]);
 
-        // Clear forgets every Branch and goes live from init.
-        yield* app.clear();
+        // A cleared History forgets every Branch, and the app goes live from init.
+        yield* app.stop();
+        app.history.clear();
+        yield* app.start();
         yield* settle;
-        expect(app.state().entries.map((e) => e.message._tag)).toEqual([
+        expect(app.history.save().entries.map((e) => e.message._tag)).toEqual([
           'CheckedSession',
         ]);
         expect(app.snapshot().state._tag).toBe('Anonymous');
@@ -284,7 +288,9 @@ describe('a tree of Actors', () => {
         const app = yield* started;
         yield* settle;
         app.send('Auth', { _tag: 'LoggedOut' });
-        expect(app.outcome(app.log().at(-1)!.id)).toBe('ignored');
+        expect(app.history.outcome(app.history.branch().at(-1)!.id)).toBe(
+          'ignored',
+        );
       }),
     ));
 
@@ -294,7 +300,7 @@ describe('a tree of Actors', () => {
         const app = yield* started;
         yield* settle;
         const before = app.snapshot();
-        const entries = app.log().length;
+        const entries = app.history.branch().length;
         expect(() =>
           app.send('Auth', { _tag: 'Renamed', user: 42 as never }),
         ).toThrow(/Auth: Message "Renamed" does not match its Schema/);
@@ -302,9 +308,9 @@ describe('a tree of Actors', () => {
           /Auth: Message "Nope" does not match its Schema/,
         );
         expect(app.snapshot()).toBe(before);
-        expect(app.log()).toHaveLength(entries);
+        expect(app.history.branch()).toHaveLength(entries);
         app.send('Auth', { _tag: 'LoggedOut' });
-        expect(app.log()).toHaveLength(entries + 1);
+        expect(app.history.branch()).toHaveLength(entries + 1);
       }),
     ));
 
@@ -368,9 +374,9 @@ describe('a tree of Actors', () => {
           /the Model the Update for "Counted"/,
         );
         expect(app.snapshot()).toBe(before);
-        expect(app.log()).toHaveLength(0);
+        expect(app.history.branch()).toHaveLength(0);
         app.send('Sheet', { _tag: 'Counted', by: 1 });
-        expect(app.log()).toHaveLength(1);
+        expect(app.history.branch()).toHaveLength(1);
       }),
     );
   });
@@ -473,7 +479,9 @@ describe('keyed Children', () => {
         app.send('List', { _tag: 'Removed', id: '0' });
         expect(rows(app)).toEqual([]);
         app.send('List/rows[0]#1', { _tag: 'Toggled' });
-        expect(app.outcome(app.log().at(-1)!.id)).toBe('dropped');
+        expect(app.history.outcome(app.history.branch().at(-1)!.id)).toBe(
+          'dropped',
+        );
       }),
     ));
 
@@ -496,7 +504,7 @@ describe('Time', () => {
         app.send('Auth/login#1', { _tag: 'Typed', name: 'ada' });
 
         expect(app.now()).toBe(250);
-        expect(app.log().map((e) => e.at)).toEqual([0, 250]);
+        expect(app.history.branch().map((e) => e.at)).toEqual([0, 250]);
         expect(at(app, 'Auth/login#1').model).toMatchObject({ typedAt: 250 });
       }),
     ));
@@ -560,13 +568,15 @@ describe('Commands', () => {
         const app = yield* Runtime.start(Timer);
         app.send('Timer', { _tag: 'Wait' });
         yield* TestClock.adjust('999 millis');
-        expect(app.log().length).toBe(1);
+        expect(app.history.branch().length).toBe(1);
         yield* TestClock.adjust('1 millis');
-        expect(app.log().map((e) => [e.message._tag, e.at])).toEqual([
-          ['Wait', 0],
-          ['Rang', 1000],
-        ]);
-        expect(app.log()[1]!.source).toEqual({
+        expect(app.history.branch().map((e) => [e.message._tag, e.at])).toEqual(
+          [
+            ['Wait', 0],
+            ['Rang', 1000],
+          ],
+        );
+        expect(app.history.branch()[1]!.source).toEqual({
           kind: 'command',
           instance: 'Timer',
           name: 'ring',
@@ -597,7 +607,9 @@ describe('Commands', () => {
         const app = yield* Runtime.start(Liar);
         app.send('Liar', { _tag: 'Ask' });
         yield* TestClock.adjust('1 millis');
-        expect(app.log().map((entry) => entry.message._tag)).toEqual(['Ask']);
+        expect(app.history.branch().map((entry) => entry.message._tag)).toEqual(
+          ['Ask'],
+        );
         expect(failed.mock.calls.join(' ')).toMatch(
           /Liar command answer failed[\s\S]*Message "Answered" does not match its Schema/,
         );
@@ -611,7 +623,7 @@ describe('Commands', () => {
       message: { _tag: 'Submitted' },
       source: { kind: 'view', instance: 'Login' },
       at: 0,
-    }).change!.commands;
+    }).commands;
     expect(asked).toEqual([{ name: 'signIn', args: { name: '' } }]);
   });
 
@@ -634,7 +646,9 @@ describe('Commands', () => {
         const app = yield* Runtime.start(Form);
         app.send('Form', { _tag: 'Save' });
         yield* TestClock.adjust('1 millis');
-        expect(app.log().map((entry) => entry.message._tag)).toEqual(['Save']);
+        expect(app.history.branch().map((entry) => entry.message._tag)).toEqual(
+          ['Save'],
+        );
         expect(failed.mock.calls.join(' ')).toMatch(
           /Form command save failed[\s\S]*Command save: its args do not match their Schema/,
         );
@@ -648,11 +662,13 @@ describe('Commands', () => {
         const app = yield* Runtime.start(Timer);
         app.send('Timer', { _tag: 'Both' });
         yield* TestClock.adjust('1 second');
-        expect(app.log().map((e) => [e.message._tag, e.at])).toEqual([
-          ['Both', 0],
-          ['Rang', 1000],
-          ['Rang', 1000],
-        ]);
+        expect(app.history.branch().map((e) => [e.message._tag, e.at])).toEqual(
+          [
+            ['Both', 0],
+            ['Rang', 1000],
+            ['Rang', 1000],
+          ],
+        );
       }),
     ));
 });
@@ -850,7 +866,7 @@ describe('Workers', () => {
           streaming: false,
         });
         expect(app.workers('Timer')).toEqual([]);
-        expect(app.log()[1]!.source).toEqual({
+        expect(app.history.branch()[1]!.source).toEqual({
           kind: 'worker',
           instance: 'Timer',
           name: 'stream',
@@ -879,7 +895,7 @@ describe('Workers', () => {
         });
         expect(heard).toEqual(['closed a', 'closed b']);
         expect(app.workers('Uploads')).toEqual([]);
-        expect(app.log().at(-1)!.source).toEqual({
+        expect(app.history.branch().at(-1)!.source).toEqual({
           kind: 'worker',
           instance: 'Uploads',
           name: 'upload',
@@ -913,25 +929,31 @@ describe('Workers', () => {
         app.send('Alarm', { _tag: 'Set' });
         yield* TestClock.adjust('600 millis');
         yield* app.stop();
-        // The Clock runs on while stopped; Time does not.
+        // The Clock runs on while stopped; Time carries on from the Head's.
         yield* TestClock.adjust('5 seconds');
         yield* app.start();
-        expect(app.now()).toBe(600);
-        yield* TestClock.adjust('399 millis');
-        expect(app.log().map((e) => e.message._tag)).toEqual(['Set']);
-        yield* TestClock.adjust('1 millis');
-        expect(app.log().map((e) => [e.message._tag, e.at])).toEqual([
-          ['Set', 0],
-          ['Rang', 1000],
+        expect(app.now()).toBe(0);
+        yield* TestClock.adjust('999 millis');
+        expect(app.history.branch().map((e) => e.message._tag)).toEqual([
+          'Set',
         ]);
+        yield* TestClock.adjust('1 millis');
+        expect(app.history.branch().map((e) => [e.message._tag, e.at])).toEqual(
+          [
+            ['Set', 0],
+            ['Rang', 1000],
+          ],
+        );
         // A fork from the entry that set it waits the whole second again, from its Time.
         yield* app.start(0);
         yield* TestClock.adjust('1 second');
-        expect(app.log().map((e) => [e.message._tag, e.at])).toEqual([
-          ['Set', 0],
-          ['Rang', 1000],
-        ]);
-        expect(app.state().entries.length).toBe(3);
+        expect(app.history.branch().map((e) => [e.message._tag, e.at])).toEqual(
+          [
+            ['Set', 0],
+            ['Rang', 1000],
+          ],
+        );
+        expect(app.history.save().entries.length).toBe(3);
       }),
     ));
 
@@ -942,7 +964,10 @@ describe('Workers', () => {
         const app = yield* Runtime.start(Once);
         app.send('Once', { _tag: 'On' });
         yield* settle;
-        expect(app.log().map((e) => e.message._tag)).toEqual(['On', 'Ran']);
+        expect(app.history.branch().map((e) => e.message._tag)).toEqual([
+          'On',
+          'Ran',
+        ]);
         expect(error).toHaveBeenCalledTimes(1);
         expect(error.mock.calls[0]![0]).toMatch(
           /Worker once of Once sent a Message after it stopped/,
@@ -998,10 +1023,11 @@ describe('Replay', () => {
         yield* later;
         app.send('Auth/todos#1', { _tag: 'Quit' });
         yield* settle;
-        expect(app.log().length).toBe(7);
+        expect(app.history.branch().length).toBe(7);
 
         const replay = Replay.make(Auth.definition, undefined, { every: 2 });
-        const step = (n: number) => replay.seek(app.log().slice(0, n));
+        const step = (n: number) =>
+          replay.seek(app.history.branch().slice(0, n));
         expect((yield* step(0)).state._tag).toBe('Checking');
         expect(instanceAt(yield* step(2), 'Auth/login#1')?.model).toMatchObject(
           { name: 'ada' },
@@ -1022,21 +1048,27 @@ describe('Replay', () => {
 
 describe('Requires and Provides', () => {
   it('a tree needs only what no ancestor Provides', () => {
-    const needs: Effect.Effect<unknown, never, Server | Scope.Scope> =
-      Runtime.start(Auth);
-    expect(needs).toBeDefined();
+    const covered = Runtime.start(Auth, ServerLive);
+    // @ts-expect-error Server is needed, and no Layer gives it
+    const short = Runtime.start(Auth);
+    expect([covered, short]).toBeDefined();
   });
 
   it("a Child's needs bubble up until something Provides them", () => {
     const Orphan = Actor.make('Orphan', {}).build({
       children: { todos: Todos },
     });
-    const bubbled: Effect.Effect<unknown, never, Session | Scope.Scope> =
-      Runtime.start(Orphan);
+    const SessionLive = Layer.effect(
+      Session,
+      Effect.gen(function* () {
+        const user = yield* SubscriptionRef.make('ada');
+        return { user, logOut: Effect.void };
+      }),
+    );
+    const covered = Runtime.start(Orphan, SessionLive);
     // @ts-expect-error Session is still needed: nothing above Todos Provides it
-    const covered: Effect.Effect<unknown, never, Scope.Scope> =
-      Runtime.start(Orphan);
-    expect([bubbled, covered]).toBeDefined();
+    const short = Runtime.start(Orphan);
+    expect([covered, short]).toBeDefined();
   });
 
   it('a Capability Provided in one State does not reach Children of another', () => {
@@ -1059,9 +1091,8 @@ describe('Requires and Provides', () => {
       },
     });
     // @ts-expect-error Session reaches Authenticated only, and Todos lives in Anonymous
-    const covered: Effect.Effect<unknown, never, Scope.Scope> =
-      Runtime.start(Wrong);
-    expect(covered).toBeDefined();
+    const short = Runtime.start(Wrong);
+    expect(short).toBeDefined();
   });
 
   it('a Capability Provided at the top reaches the Children of every State', () => {
@@ -1156,7 +1187,8 @@ describe('the mailbox', () => {
 });
 
 describe('the Log as a tree', () => {
-  const tags = (app: Running<unknown>) => app.log().map((e) => e.message._tag);
+  const tags = (app: Running<unknown>) =>
+    app.history.branch().map((e) => e.message._tag);
 
   it('grows the Branch with each Message, after the Head', () =>
     timed(
@@ -1164,13 +1196,13 @@ describe('the Log as a tree', () => {
         const app = yield* Runtime.start(Timer);
         app.send('Timer', { _tag: 'Rang' });
         app.send('Timer', { _tag: 'Rang' });
-        expect(app.log().map((e) => [e.id, e.parent])).toEqual([
+        expect(app.history.branch().map((e) => [e.id, e.parent])).toEqual([
           [0, null],
           [1, 0],
         ]);
-        expect(app.state().head).toBe(1);
-        expect(app.children(null).map((e) => e.id)).toEqual([0]);
-        expect(app.children(0).map((e) => e.id)).toEqual([1]);
+        expect(app.history.head()).toBe(1);
+        expect(app.history.children(null).map((e) => e.id)).toEqual([0]);
+        expect(app.history.children(0).map((e) => e.id)).toEqual([1]);
       }),
     ));
 
@@ -1182,7 +1214,7 @@ describe('the Log as a tree', () => {
         app.send('Metronome', { _tag: 'Ping' });
         heard.length = 0;
         yield* app.stop();
-        expect(app.state().running).toBe(false);
+        expect(app.running()).toBe(false);
         expect(heard).toEqual(['rested', 'gone']);
 
         yield* TestClock.adjust('2 seconds');
@@ -1198,24 +1230,25 @@ describe('the Log as a tree', () => {
       Effect.gen(function* () {
         const app = yield* Runtime.start(Metronome);
         yield* TestClock.adjust('350 millis');
-        expect(app.log().map((e) => e.at)).toEqual([100, 200, 300]);
+        expect(app.history.branch().map((e) => e.at)).toEqual([100, 200, 300]);
         yield* app.stop();
         yield* TestClock.adjust('1 second');
 
         yield* app.start(1);
-        expect(app.state()).toMatchObject({ head: 1, running: true });
+        expect(app.history.head()).toBe(1);
+        expect(app.running()).toBe(true);
         expect(app.now()).toBe(200);
         expect(app.snapshot().model).toEqual({ beats: 2 });
 
         yield* TestClock.adjust('100 millis');
-        expect(app.log().map((e) => e.id)).toEqual([0, 1, 3]);
-        expect(app.log()[2]).toMatchObject({ parent: 1, at: 300 });
-        expect(app.children(1).map((e) => e.id)).toEqual([2, 3]);
+        expect(app.history.branch().map((e) => e.id)).toEqual([0, 1, 3]);
+        expect(app.history.branch()[2]).toMatchObject({ parent: 1, at: 300 });
+        expect(app.history.children(1).map((e) => e.id)).toEqual([2, 3]);
         expect(app.snapshot().model).toEqual({ beats: 3 });
       }),
     ));
 
-  it('start() resumes the Branch from where it stopped', () =>
+  it("start() resumes the Branch from its Head, at the Head's Time", () =>
     timed(
       Effect.gen(function* () {
         const app = yield* Runtime.start(Metronome);
@@ -1223,13 +1256,15 @@ describe('the Log as a tree', () => {
         yield* app.stop();
         yield* TestClock.adjust('1 second');
         yield* app.start();
-        expect(app.now()).toBe(250);
+        expect(app.now()).toBe(200);
         yield* TestClock.adjust('100 millis');
-        expect(app.log().map((e) => [e.id, e.parent, e.at])).toEqual([
-          [0, null, 100],
-          [1, 0, 200],
-          [2, 1, 350],
-        ]);
+        expect(app.history.branch().map((e) => [e.id, e.parent, e.at])).toEqual(
+          [
+            [0, null, 100],
+            [1, 0, 200],
+            [2, 1, 300],
+          ],
+        );
       }),
     ));
 
@@ -1242,22 +1277,31 @@ describe('the Log as a tree', () => {
         expect(app.now()).toBe(0);
         expect(app.snapshot().model).toEqual({ beats: 0 });
         yield* TestClock.adjust('100 millis');
-        expect(app.children(null).map((e) => e.id)).toEqual([0, 2]);
+        expect(app.history.children(null).map((e) => e.id)).toEqual([0, 2]);
       }),
     ));
 
-  it('shows the app right after an entry on another Branch', () =>
+  it('tells the Snapshot right after an entry on another Branch', () =>
     timed(
       Effect.gen(function* () {
         const app = yield* Runtime.start(Metronome);
         yield* TestClock.adjust('350 millis');
         yield* app.start(0);
-        yield* app.show(2);
-        expect(app.state().shown).toBe(2);
-        expect(app.drawn().model).toEqual({ beats: 3 });
+        expect((yield* app.history.seek(2)).model).toEqual({ beats: 3 });
         expect(app.snapshot().model).toEqual({ beats: 1 });
-        yield* app.show(null);
-        expect(app.drawn()).toBe(app.snapshot());
+      }),
+    ));
+
+  it('keeps its Head while the Runtime runs on it', () =>
+    timed(
+      Effect.gen(function* () {
+        const app = yield* Runtime.start(Metronome);
+        yield* TestClock.adjust('250 millis');
+        expect(() => app.history.moveHead(0)).toThrow('stop the Runtime');
+        yield* app.stop();
+        app.history.moveHead(0);
+        yield* app.start();
+        expect(app.snapshot().model).toEqual({ beats: 1 });
       }),
     ));
 
@@ -1271,7 +1315,9 @@ describe('the Log as a tree', () => {
         yield* app.start(0);
         expect(app.snapshot().state._tag).toBe('Anonymous');
         app.send('Auth/todos#1', { _tag: 'Added', text: 'stale' });
-        expect(app.outcome(app.log().at(-1)!.id)).toBe('dropped');
+        expect(app.history.outcome(app.history.branch().at(-1)!.id)).toBe(
+          'dropped',
+        );
         yield* settle;
         app.send('Auth', { _tag: 'LoggedIn', user: 'bob' });
         expect(at(app, 'Auth/todos#1').model).toEqual({ items: [] });
@@ -1356,7 +1402,9 @@ describe('levels', () => {
         expect(at(app, 'Door/ticker#1').model).toEqual({ ticks: 1 });
         expect(at(app, 'Door/guest#2')).toBeDefined();
         expect(heard).toEqual(['tick', 'creak stopped']);
-        expect(app.snapshotAt(app.state().head)).toEqual(app.snapshot());
+        expect(app.history.snapshotAt(app.history.head())).toEqual(
+          app.snapshot(),
+        );
       }),
     ));
 

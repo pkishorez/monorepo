@@ -1,9 +1,9 @@
-import type { Definition } from '../actor/index.ts';
+import { Array as Arr } from 'effect';
+import type { ActorDefinition } from '../actor/index.ts';
 import { enter, follow } from './invoke.ts';
-import { slotToward, within } from './id.ts';
-import { isMany } from './many.ts';
 import { checkRestore, isRestore } from './restore.ts';
 import type { Envelope, Instance, Snapshot } from './snapshot.ts';
+import { pathTo, replace } from './tree.ts';
 
 /*
  * Handle: an Envelope and a Snapshot give the next Snapshot. Pure.
@@ -20,40 +20,36 @@ import type { Envelope, Instance, Snapshot } from './snapshot.ts';
  *             again.
  * 4. Replace  the Instance in the Snapshot. Every Instance off its path stays
  *             the same object.
+ *
+ * A Restore skips all four: it puts a whole saved Snapshot in place.
  */
 
-/** What handling one Envelope did. Never kept in the Log: handling it again says the same. */
+/** What handling one Envelope did. Never kept in the History: handling it again says the same. */
 export interface Handled {
   readonly outcome: 'handled' | 'ignored' | 'dropped';
   /** The State tag before and after; empty when dropped. */
   readonly from: string;
   readonly to: string;
   readonly snapshot: Snapshot;
-  /** When handled: the Instance before and after, and its Actor. */
-  readonly change?: {
-    readonly before: Instance;
-    readonly after: Instance;
-    readonly definition: Definition;
-    /** The Commands the Update asked for. */
-    readonly commands: ReadonlyArray<unknown>;
-  };
+  /** The Commands the Update asked for, to run in the Instance it was for. */
+  readonly commands: ReadonlyArray<unknown>;
 }
 
-type Step = {
-  readonly instance: Instance;
-  readonly definition: Definition;
-  readonly slot: string;
-};
+const nothing = (
+  snapshot: Snapshot,
+  outcome: 'ignored' | 'dropped',
+  tag = '',
+) => ({ outcome, from: tag, to: tag, snapshot, commands: [] }) as const;
 
 export const handle = (
-  root: Definition,
+  root: ActorDefinition,
   snapshot: Snapshot,
   { destination: id, message, at }: Envelope,
 ): Handled => {
   if (isRestore(message)) return restored(root, snapshot, id, message);
   // 1. Find
-  const path = find(root, snapshot, id);
-  if (!path) return { outcome: 'dropped', from: '', to: '', snapshot };
+  const path = pathTo(root, snapshot, id);
+  if (!path) return nothing(snapshot, 'dropped');
   const { instance, definition } = path.at(-1)!;
   const from = instance.state._tag;
 
@@ -62,7 +58,7 @@ export const handle = (
     definition.update['*']?.[message._tag]) as
     | ((message: unknown, scope: unknown) => Next)
     | undefined;
-  if (!rule) return { outcome: 'ignored', from, to: from, snapshot };
+  if (!rule) return nothing(snapshot, 'ignored', from);
   const next = rule(message, {
     model: instance.model,
     state: instance.state,
@@ -92,67 +88,20 @@ export const handle = (
     from,
     to: state._tag,
     snapshot: after === instance ? snapshot : replace(path, after),
-    change: {
-      before: instance,
-      after,
-      definition,
-      commands:
-        next.command === undefined
-          ? []
-          : Array.isArray(next.command)
-            ? next.command
-            : [next.command],
-    },
+    commands: next.command === undefined ? [] : Arr.ensure(next.command),
   };
-};
-
-/**
- * Handle an Envelope from the Log: first check its Message against its
- * Actor's Schema, as a Send does. Throws when either no longer fits, because
- * the code changed under the Log.
- */
-export const replayed = (
-  root: Definition,
-  snapshot: Snapshot,
-  envelope: Envelope,
-): Handled => {
-  const { destination, message } = envelope;
-  if (!isRestore(message))
-    actorAt(root, snapshot, destination)?.check.message(
-      message,
-      `Message ${JSON.stringify(message._tag)}`,
-    );
-  return handle(root, snapshot, envelope);
-};
-
-/**
- * What came of an Envelope handled on this Snapshot: worked out by handling
- * it again, never kept. One that no longer fits the code, which Replay skips,
- * counts as ignored.
- */
-export const outcomeOf = (
-  root: Definition,
-  snapshot: Snapshot,
-  envelope: Envelope,
-): Handled['outcome'] => {
-  try {
-    return replayed(root, snapshot, envelope).outcome;
-  } catch {
-    return 'ignored';
-  }
 };
 
 const warned = new WeakSet<object>();
 
 const restored = (
-  root: Definition,
+  root: ActorDefinition,
   snapshot: Snapshot,
   id: string,
   message: Parameters<typeof checkRestore>[1],
 ): Handled => {
   const from = snapshot.state._tag;
-  if (id !== snapshot.id)
-    return { outcome: 'dropped', from: '', to: '', snapshot };
+  if (id !== snapshot.id) return nothing(snapshot, 'dropped');
   const checked = checkRestore(root, message);
   if ('reason' in checked) {
     if (!warned.has(message)) {
@@ -161,7 +110,7 @@ const restored = (
         `[effect-oak] a Restore no longer matches ${root.name}, and is ignored: ${checked.reason}`,
       );
     }
-    return { outcome: 'ignored', from, to: from, snapshot };
+    return nothing(snapshot, 'ignored', from);
   }
   const after = checked.snapshot;
   return {
@@ -169,7 +118,7 @@ const restored = (
     from,
     to: after.state._tag,
     snapshot: after,
-    change: { before: snapshot, after, definition: root, commands: [] },
+    commands: [],
   };
 };
 
@@ -177,80 +126,4 @@ type Next = {
   readonly model?: unknown;
   readonly state?: Instance['state'];
   readonly command?: unknown;
-};
-
-/** The Actor of the Instance with ID `id`, if it is in the Snapshot. */
-export const actorAt = (
-  root: Definition,
-  snapshot: Snapshot,
-  id: string,
-): Definition | undefined => find(root, snapshot, id)?.at(-1)?.definition;
-
-/** The Instances from the root down to `id`, with their Actors; none if it is gone. */
-const find = (
-  root: Definition,
-  snapshot: Snapshot,
-  id: string,
-): ReadonlyArray<Step> | undefined => {
-  const path: Array<Step> = [
-    { instance: snapshot, definition: root, slot: '' },
-  ];
-  for (let step = path[0]!; step.instance.id !== id;) {
-    const slot = slotToward(step.instance.id, id);
-    if (slot === undefined) return undefined;
-    const definition =
-      step.definition.children[step.instance.state._tag]?.[slot]?.definition;
-    const child = childToward(step.instance.children[slot], id);
-    if (!definition || !child) return undefined;
-    step = { instance: child, definition, slot };
-    path.push(step);
-  }
-  return path;
-};
-
-const childToward = (
-  held: Instance | ReadonlyArray<Instance> | undefined,
-  id: string,
-): Instance | undefined =>
-  held === undefined
-    ? undefined
-    : isMany(held)
-      ? held.find((child) => within(child.id, id))
-      : within(held.id, id)
-        ? held
-        : undefined;
-
-const replace = (path: ReadonlyArray<Step>, after: Instance): Snapshot => {
-  let child = after;
-  for (let index = path.length - 2; index >= 0; index--) {
-    const { instance } = path[index]!;
-    const { slot } = path[index + 1]!;
-    const held = instance.children[slot]!;
-    const id = child.id;
-    const replaced = child;
-    child = {
-      ...instance,
-      children: {
-        ...instance.children,
-        [slot]: isMany(held)
-          ? held.map((kept) => (kept.id === id ? replaced : kept))
-          : replaced,
-      },
-    };
-  }
-  return child;
-};
-
-/** The Instance with this ID, if it is in the Snapshot. */
-export const instanceAt = (
-  snapshot: Snapshot,
-  id: string,
-): Instance | undefined => {
-  let instance: Instance | undefined = snapshot;
-  while (instance && instance.id !== id) {
-    const slot = slotToward(instance.id, id);
-    instance =
-      slot === undefined ? undefined : childToward(instance.children[slot], id);
-  }
-  return instance;
 };

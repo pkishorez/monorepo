@@ -22,16 +22,19 @@ code reaches only the Capabilities it Requires. What its Children need bubbles
 up until an ancestor Provides it, and the app does not compile until its Layer
 covers the rest.
 
-Every Message goes into the Log with its Time. The Log is a tree, like git
-commits: Replay folds any path through `handle` to draw the app right after
-any Message on any Branch, while the live app keeps running. The Runtime can
-stop, and start again from any entry, growing a new Branch. The Log is also
-what an app is saved as and drawn from before it runs: on a server, at build
-time, and across a hot reload.
+The Runtime runs a History. It starts the root Instance at the History's
+Head, hands it every Message through one Mailbox, and writes each one into
+the History; every Instance runs the rest of its own life, starting and
+stopping its States, Children, Workers and Commands. The History is a tree
+of Messages, like git commits, that replays itself to the Snapshot right
+after any one of them, on any Branch, while the live app keeps running. Stop,
+move its Head, and start again, and new Messages grow a new Branch. A History
+is also what an app is saved as and drawn from before it runs: on a server,
+at build time, and across a hot reload.
 
 Read the language in [CONTEXT.md](./CONTEXT.md), the decisions in
-[docs/adr/](./docs/adr/), and how the Log works in
-[docs/log-tree.md](./docs/log-tree.md). Live demos are at `/demos/concepts` in the docs app: one per concept, drawn as moving shapes.
+[docs/adr/](./docs/adr/), and how the History works in
+[docs/history.md](./docs/history.md). Live demos are at `/demos/concepts` in the docs app: one per concept, drawn as moving shapes.
 
 ## Install
 
@@ -49,31 +52,31 @@ pnpm add effect-oak effect react motion
 
 ### `effect-oak`
 
-| Export            | What it does                                                                                                            |
-| ----------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `Actor.make`      | Defines an Actor from its Requires and Schemas. `.build` adds how it behaves, at the top and in one block per State.    |
-| `Actor.many`      | Declares a keyed Child slot: one Instance of an Actor per key the parent Invokes.                                       |
-| `Command.make`    | Defines a Command from its name, the Schema of its args and the Effect it runs; an Update calls it with the args.       |
-| `Runtime.start`   | Starts an Actor as the root of a running app, inside a Scope, with its Snapshot, Log, Time and `stop`, `start`, `show`. |
-| `Replay.make`     | Rebuilds the Snapshot right after any Log entry from the Messages alone, yielding as it goes.                           |
-| `Replay.fold`     | The Snapshot right after a Branch, played now with no yielding.                                                         |
-| `Replay.restored` | The lightest Log an app can be saved as: one Restore of a Snapshot at a Time, right after init.                         |
-| `restore`         | The Restore Message: given to the root, it replaces the whole Snapshot with a saved one, checked against the Actors.    |
-| `isRestore`       | Tells a Restore from any other Message.                                                                                 |
-| `RESTORE`         | The Restore Message's tag.                                                                                              |
-| `Log`             | `Log.make` holds a Log as one value, empty or carrying on from a saved one, with its Branches and children.             |
-| `init`            | The Snapshot right after init: the root and every Child its State Invokes.                                              |
-| `handle`          | Applies one Envelope to a Snapshot and gives the next one, purely.                                                      |
-| `outcomeOf`       | Works out what came of one Envelope on a Snapshot: handled, ignored or dropped. The Log never keeps it.                 |
-| `instanceAt`      | Finds the Instance with an ID in a Snapshot.                                                                            |
-| `isMany`          | Tells a keyed Child slot from a fixed one in an Instance's Children.                                                    |
+| Export             | What it does                                                                                                         |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| `Actor.make`       | Defines an Actor from its Requires and Schemas. `.build` adds how it behaves, at the top and in one block per State. |
+| `Actor.many`       | Declares a keyed Child slot: one Instance of an Actor per key the parent Invokes.                                    |
+| `Command.make`     | Defines a Command from its name, the Schema of its args and the Effect it runs; an Update calls it with the args.    |
+| `Runtime.start`    | Runs an Actor, or carries a History on, inside a Scope, with the app's Layer; gives back `send`, `start` and `stop`. |
+| `History.make`     | A new, empty History for an Actor, with the root's Input.                                                            |
+| `History.load`     | A History carrying on from one saved before, read with the Actor's code as it is now.                                |
+| `History.restored` | The lightest History an app can be saved as: one Restore of a Snapshot at a Time, right after init.                  |
+| `Replay.fold`      | The Snapshot right after a Branch, played now with no yielding.                                                      |
+| `restore`          | The Restore Message: given to the root, it replaces the whole Snapshot with a saved one, checked against the Actors. |
+| `isRestore`        | Tells a Restore from any other Message.                                                                              |
+| `RESTORE`          | The Restore Message's tag.                                                                                           |
+| `init`             | The Snapshot right after init: the root and every Child its State Invokes.                                           |
+| `handle`           | Applies one Envelope to a Snapshot and gives the next one, purely.                                                   |
+| `outcomeOf`        | Works out what came of one Envelope on a Snapshot: handled, ignored or dropped. The History never keeps it.          |
+| `instanceAt`       | Finds the Instance with an ID in a Snapshot.                                                                         |
+| `isMany`           | Tells a keyed Child slot from a fixed one in an Instance's Children.                                                 |
 
 ### `effect-oak/react`
 
-| Export      | What it does                                                                                                                                                                                                                                                        |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `View.make` | Defines how one Actor is drawn, one function for every State, as a React component that takes the Instance, and a `ref` and `style`, from its parent.                                                                                                               |
-| `toReact`   | Turns a root Actor, its View and a Layer into one React component that runs the whole app, one Runtime for every mount; `useRuntime` reads its Log, shows any entry, and stops and starts it. Drawn before it runs, on a server too, from a saved Log if given one. |
+| Export      | What it does                                                                                                                                                                                                                                                               |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `View.make` | Defines how one Actor is drawn, one function for every State, as a React component that takes the Instance, and a `ref` and `style`, from its parent.                                                                                                                      |
+| `toReact`   | Turns a root Actor, its View and a Layer into one React component that runs the whole app, one Runtime for every mount; `useRuntime` reads its History, shows any Step, and stops and starts it. Drawn before it runs, on a server too, from a saved History if given one. |
 
 ## Usage
 
@@ -212,11 +215,11 @@ const List = Actor.make('List', {
 ```
 
 - `invoke` sits beside the `children` it feeds, and says which keys exist, the Input each new Child starts from, and the Props each is handed. After every Update, a new key Invokes a Row, a key gone stops it, and a key kept keeps its Instance. From then on the Row owns its data.
-- Props are what the parent says now, worked out again after each of its Updates: the Row declares them with `props` beside `input`, and its Update, its Workers' Conditions and its View read them. It never writes them, and a change runs none of its rules. Props equal to the last ones keep the Instance; new ones are not in the Log, since Replay works them out again from the parent.
+- Props are what the parent says now, worked out again after each of its Updates: the Row declares them with `props` beside `input`, and its Update, its Workers' Conditions and its View read them. It never writes them, and a change runs none of its rules. Props equal to the last ones keep the Instance; new ones are not in the History, since Replay works them out again from the parent.
 - Instance IDs are deterministic: `List/rows[0]#1` is the first `rows` keyed `0`. A key Invoked again gets `#2`, so a Message meant for the old Instance is dropped.
 - A Command is an errand, made once with `Command.make`: a name, the Schema of its args and the Effect it runs from them, ending with at most one Message. The Update asks for it with its args, `save({ id })`, which is plain data a test can compare; the args are checked when it runs. Nothing stops it but its Instance stopping, and there is no cancel. An Update may return a list of Commands; they run concurrently.
-- A Worker runs for exactly as long as its Condition holds, read from the Model, State and Props whenever they change: its Level, and within it always, `while` a test is true, or `each` key a function names, one Worker per key. Removing an id from `uploading` interrupts that upload and runs its finalizers; a finished upload Sends `Uploaded`, whose Update takes its key away. Stopping work is changing the Model.
-- The Worker does the work and the Model keeps the story: every step the user could notice is a Message. A Worker must be able to start from the Model alone, because a resume or a start from an earlier Log entry starts every Worker whose condition holds. A Worker that waits until a Time in the Model sleeps for `that - now`, so it waits only what is left. A finalizer never Sends.
+- A Worker runs for exactly as long as its Condition holds, read from the Model, State and Props whenever they change: where it is written, at the top or in a State, and within that always, `while` a test is true, or `each` key a function names, one Worker per key. Removing an id from `uploading` interrupts that upload and runs its finalizers; a finished upload Sends `Uploaded`, whose Update takes its key away. Stopping work is changing the Model.
+- The Worker does the work and the Model keeps the story: every step the user could notice is a Message. A Worker must be able to start from the Model alone, because a resume or a start from an earlier History entry starts every Worker whose condition holds. A Worker that waits until a Time in the Model sleeps for `that - now`, so it waits only what is left. A finalizer never Sends.
 
 ### Drawing it with React
 
@@ -251,7 +254,7 @@ const DemoApp = toReact(Auth, AuthView, ServerLive);
 - A Child is placed with `<RowView instance={handle} />`. A parent View hands it only where to draw; data from the parent is the Row's Props, which the parent Actor hands it, so its Update and Workers see the same.
 - Spreading `root` on the View's own element hands it the parent's `ref` and `style`, so `motion.create(RowView)` animates it, with no wrapper element, and it stays memoized. A View whose Instance has stopped keeps drawing its last data, so `AnimatePresence` can play its exit.
 - A View re-renders only when its own Instance's Model, State, Props or set of Children changes, or its `ref` or `style` does. Many Messages handled in a row make one render.
-- `DemoApp.useRuntime()` returns `{ log, head, running, shown, show, stop, start, children, snapshotAt, outcome, workers, frame }` from anywhere on the page. Each `log` entry is only its Envelope: `destination`, `message`, `at`, and `source`, the Instance that Sent it and what in it did; `outcome(id)` works out whether it was handled, ignored or dropped. `show(id)` draws the app right after that entry, on any Branch; `stop()` closes every Worker, Command and Capability; `start(id)` Replays to that entry and grows a new Branch from it, and `start()` resumes. `workers(id)` says what an Instance's Workers are doing live: running, finished, or failed.
+- `DemoApp.useRuntime()` returns `{ history, branch, head, running, shown, show, start, stop, clear, workers, frame }` from anywhere on the page. Each `branch` entry is only its Envelope: `destination`, `message`, `at`, and `source`, the Instance that Sent it and what in it did; `history.outcome(id)` works out whether it was handled, ignored or dropped, and `history.snapshotAt(id)` takes the app apart there. `show(id)` draws the app right after that entry, on any Branch, while the live app runs on; `stop()` closes every Worker, Command and Capability; `start(id)` moves the Head to that entry and goes live there, growing a new Branch, and `start()` carries on from the Head, at its Time. `workers(id)` says what an Instance's Workers are doing live: running, finished, or failed.
 - Work that must survive a stop belongs in a Worker: Commands running at a stop are lost. The outside world is not rewound.
 - Whatever moves between Messages is drawn from `frame`, a `MotionValue<number>` holding the Time, with `useTransform`; nothing renders between Messages.
 - `toReact` does not compile until the Layer covers every Capability the tree still needs.
@@ -262,6 +265,6 @@ const DemoApp = toReact(Auth, AuthView, ServerLive);
 const DemoApp = toReact(Auth, AuthView, ServerLive, { saved });
 ```
 
-- The app is drawn before any Runtime exists: with no Log, right after init; with a saved Log, at its Head or at the entry it was showing, Replayed through Suspense. A server or a static build gets the same HTML the client hydrates, and `useRuntime` reads the saved Log from the start, so a Timeline is drawn there too. Until the Runtime starts, a Send is dropped.
-- `saved` is a `RuntimeState`, what `useRuntime` and `Running.state()` give: plain JSON. The Runtime carries on as it says: live at its Head with Time going on from there, stopped, or showing an entry. `Replay.restored(definition, snapshot, at)` makes the lightest one, a Log of one Restore right after init, for an app that saves only its Snapshot; init stays the first Step. Where the Log is kept is the app's business.
-- When the last mount closes, the Log is left under the app's name, the root Actor's by default, and the next mount of an app with that name carries on from it: the same component mounted again, or a new one after a hot reload, whose code Replays the old Messages. A Message the new code handles differently warns and goes on. Give `name` when two apps share a root Actor and must not share a Log; two apps of one name mounted at once is a console error.
+- The app is drawn before any Runtime exists: with no History, right after init; with a saved one, at its Head, replayed through Suspense. A server or a static build gets the same HTML the client hydrates, and `useRuntime` reads the saved History from the start, so a Timeline is drawn there too. Until the Runtime starts, a Send is dropped.
+- `saved` is what `history.save()` gives: plain JSON, its entries and its Head. The Runtime carries on live at the Head, with Time going on from the Head's. `History.restored(Auth, snapshot, at).save()` makes the lightest one, a History of one Restore right after init, for an app that saves only its Snapshot; init stays the first Step. Where the History is kept is the app's business.
+- When the last mount closes, the History is left under the app's name, the root Actor's by default, and the next mount of an app with that name carries on from it: the same component mounted again, or a new one after a hot reload, whose code replays the old Messages. A Message the new code handles differently warns and goes on. Give `name` when two apps share a root Actor and must not share a History; two apps of one name mounted at once is a console error.

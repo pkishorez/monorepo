@@ -66,15 +66,15 @@ export const FrameContext = createContext<MotionValue<number>>(motionValue(0));
 export type Drawable = Omit<ViewProps<AnyActor>, 'frame' | 'root'>;
 
 /** What Views read the app through, provided by `toReact`. */
-export interface Drawn {
+export interface DrawnApp {
   readonly subscribe: (listener: () => void) => () => void;
-  /** The Instance with this ID as drawn now, the same object while it does not change. */
-  readonly props: (id: string) => Drawable | undefined;
+  /** The Instance with this ID in the Snapshot drawn now, the same object while it does not change. */
+  readonly instance: (id: string) => Drawable | undefined;
   /** The Instance as first drawn, before any Runtime: what a server draws and the client hydrates against. */
   readonly served: (id: string) => Drawable | undefined;
 }
 
-export const DrawnContext = createContext<Drawn | undefined>(undefined);
+export const AppContext = createContext<DrawnApp | undefined>(undefined);
 
 /**
  * A View: a React component drawing one Instance of its Actor at the app's
@@ -111,14 +111,14 @@ const make = <A extends AnyActor>(
       style,
     }: Parameters<ViewOf<A>>[0] & { readonly key?: never }) => {
       const frame = use(FrameContext);
-      const drawn = use(DrawnContext);
+      const drawn = use(AppContext);
       if (!drawn)
         throw new Error(
           `[effect-oak] ${actor.name}View is drawn outside its app`,
         );
       const live = useSyncExternalStore(
         drawn.subscribe,
-        () => drawn.props(instance.id),
+        () => drawn.instance(instance.id),
         () => drawn.served(instance.id),
       );
       // The last data drawn, for a View still on screen after its Instance
