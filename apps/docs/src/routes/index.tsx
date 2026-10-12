@@ -1,5 +1,4 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { DemosDropdown } from '@/lib/demos';
 import { ThemeToggle } from '@/lib/theme';
 
 const focusRing =
@@ -50,15 +49,6 @@ function Home() {
             </a>
           </nav>
         </header>
-
-        <section className="flex items-center gap-3 py-3.5">
-          <span className="text-sm font-medium">Effect Oak</span>
-          <span className="hidden text-xs text-muted-foreground sm:inline">
-            An app as one tree of Actors
-          </span>
-          <span className="h-px flex-1 bg-border/60" aria-hidden="true" />
-          <DemosDropdown />
-        </section>
       </div>
     </main>
   );

@@ -482,12 +482,6 @@ importers:
       '@kstackz/web-platform':
         specifier: workspace:*
         version: link:../../platforms/web-platform
-      '@shikijs/langs':
-        specifier: 'catalog:'
-        version: 4.4.3
-      '@shikijs/themes':
-        specifier: 'catalog:'
-        version: 4.4.3
       '@tanstack/react-router':
         specifier: 'catalog:'
         version: 1.170.32(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -500,24 +494,15 @@ importers:
       effect:
         specifier: 'catalog:'
         version: 4.0.0
-      effect-oak:
-        specifier: workspace:*
-        version: link:../../packages/effect-oak
       lucide-react:
         specifier: 'catalog:'
         version: 1.41.0(react@19.2.8)
-      motion:
-        specifier: 'catalog:'
-        version: 13.2.0(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       react:
         specifier: 'catalog:'
         version: 19.2.8
       react-dom:
         specifier: 'catalog:'
         version: 19.2.8(react@19.2.8)
-      shiki:
-        specifier: 'catalog:'
-        version: 4.4.3
     devDependencies:
       '@cloudflare/workers-types':
         specifier: 'catalog:'
@@ -552,9 +537,6 @@ importers:
       vite:
         specifier: npm:@voidzero-dev/vite-plus-core@1.0.0
         version: '@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.4.1)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(typescript@7.0.2)(yaml@2.9.0)'
-      vitest:
-        specifier: 5.0.1
-        version: 5.0.1(@opentelemetry/api@1.9.1)(@types/node@26.4.1)(@vitest/browser-preview@5.0.1)(@vitest/ui@5.0.1)(@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.4.1)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(typescript@7.0.2)(yaml@2.9.0))(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.14.6(@types/node@26.4.1)(typescript@7.0.2))
 
   apps/ledger:
     dependencies:
