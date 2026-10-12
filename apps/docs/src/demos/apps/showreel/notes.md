@@ -17,7 +17,7 @@ showreel.tsx the page, and `?record=1`, the frame alone for the recorder
 ```
 
 `?record=1` draws only the frame and exposes `window.showreel.go(id)`;
-`pnpm record effect-oak` in `apps/ai-explainer` drives it.
+`pnpm record effect-oak` in the AI Explainer app (now in the private `mine` repo, `apps/ai-explainer`) drives it.
 
 ## Blockers
 
