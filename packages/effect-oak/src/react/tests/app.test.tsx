@@ -5,8 +5,8 @@ import type { Root as ReactRoot } from 'react-dom/client';
 import { prerender } from 'react-dom/static';
 import { Effect, Layer, Schema } from 'effect';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { Actor, Replay, Runtime } from '../../core/index.ts';
-import type { RuntimeState } from '../../core/index.ts';
+import { Actor, History, Replay, Runtime } from '../../core/index.ts';
+import type { SavedHistory } from '../../core/index.ts';
 import { View, toReact } from '../index.ts';
 import { registry } from '../registry.ts';
 
@@ -32,14 +32,14 @@ const CounterView = View.make(Counter, (self) => {
   return <output>{self.model.count}</output>;
 });
 
-/** A Log of `n` Bumps, as a Runtime leaves it. */
-const bumped = (n: number): Promise<RuntimeState> =>
+/** A History of `n` Bumps, as a Runtime leaves it. */
+const bumped = (n: number): Promise<SavedHistory> =>
   Effect.runPromise(
     Effect.scoped(
       Effect.gen(function* () {
         const app = yield* Runtime.start(Counter);
         for (let i = 0; i < n; i++) app.send('Counter', { _tag: 'Bumped' });
-        return app.state();
+        return app.history.save();
       }),
     ),
   );
@@ -95,11 +95,11 @@ describe('the first draw', () => {
     expect(host.textContent).toBe('4');
   });
 
-  it('draws a Log of one Restore', async () => {
+  it('draws a History of one Restore', async () => {
     const state = await bumped(5);
     const snapshot = Replay.fold(Counter.definition, state.entries);
     const App = toReact(Counter, CounterView, Layer.empty, {
-      saved: Replay.restored(Counter.definition, snapshot, 500),
+      saved: History.restored(Counter, snapshot, 500).save(),
     });
     root = createRoot(host);
     await act(async () => root!.render(<App />));
@@ -153,14 +153,6 @@ describe('on a server', () => {
     await started(host);
     expect(host.textContent).toBe('8');
   });
-
-  it('renders the entry a Log was showing, at its Time', async () => {
-    const state = await bumped(4);
-    const App = toReact(Counter, CounterView, Layer.empty, {
-      saved: { ...state, shown: 1 },
-    });
-    expect(await html(<App />)).toContain('<output>2</output>');
-  });
 });
 
 describe('useRuntime before the Runtime', () => {
@@ -169,8 +161,8 @@ describe('useRuntime before the Runtime', () => {
       saved: await bumped(3),
     });
     const Probe = () => {
-      const { log, head, running } = App.useRuntime();
-      return <i>{`${log.length}/${head}/${running}`}</i>;
+      const { branch, head, running } = App.useRuntime();
+      return <i>{`${branch.length}/${head}/${running}`}</i>;
     };
     const { prelude } = await prerender(
       <>
@@ -185,7 +177,7 @@ describe('useRuntime before the Runtime', () => {
       if (done) break;
       served += new TextDecoder().decode(value);
     }
-    expect(served).toContain('<i>3/2/true</i>');
+    expect(served).toContain('<i>3/2/false</i>');
     expect(served).toContain('<output>3</output>');
   });
 
@@ -207,10 +199,48 @@ describe('useRuntime before the Runtime', () => {
         </>,
       ),
     );
-    expect(seen?.log.map((e) => e.message._tag)).toEqual(['Bumped', 'Bumped']);
+    expect(seen?.branch.map((e) => e.message._tag)).toEqual([
+      'Bumped',
+      'Bumped',
+    ]);
     expect(seen?.head).toBe(1);
-    expect(seen?.snapshotAt(0)?.model).toEqual({ count: 1 });
-    expect(seen?.children(null).map((e) => e.id)).toEqual([0]);
+    expect(seen?.history.snapshotAt(0).model).toEqual({ count: 1 });
+    expect(seen?.history.children(null).map((e) => e.id)).toEqual([0]);
+  });
+});
+
+describe('Time Travel', () => {
+  it('shows any Step while the live app runs on, and drops a Send from the past', async () => {
+    const App = toReact(Counter, CounterView, Layer.empty, {
+      saved: await bumped(4),
+    });
+    let seen: ReturnType<typeof App.useRuntime> | undefined;
+    const Probe = () => {
+      seen = App.useRuntime();
+      return null;
+    };
+    root = createRoot(host);
+    await act(async () =>
+      root!.render(
+        <>
+          <App />
+          <Probe />
+        </>,
+      ),
+    );
+    await started(host);
+    expect(host.textContent).toBe('5');
+
+    await act(async () => seen!.show(1));
+    await tick();
+    expect(host.textContent).toBe('2');
+    expect(seen?.shown).toBe(1);
+    await act(async () => sends['Counter']!({ _tag: 'Bumped' }));
+    expect(seen?.head).toBe(4);
+
+    await act(async () => seen!.show(null));
+    expect(host.textContent).toBe('5');
+    expect(seen?.running).toBe(true);
   });
 });
 

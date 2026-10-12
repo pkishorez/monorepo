@@ -4,13 +4,14 @@ import { TestClock } from 'effect/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   Actor,
+  History,
   Replay,
   Runtime,
   init,
   instanceAt,
   outcomeOf,
 } from '../index.ts';
-import type { Instance, Running, RuntimeState } from '../index.ts';
+import type { Instance, Running, SavedHistory } from '../index.ts';
 
 // A list whose rows are handed whether they are selected --------------------------
 
@@ -122,10 +123,9 @@ describe('Props', () => {
         expect(at(app, row('b')).model).toBe(b!.model);
         expect(at(app, row('c'))).toBe(c);
         // Only the parent's Message is in the Log.
-        expect(app.log().map((entry) => entry.message._tag)).toEqual([
-          'Retitled',
-          'Selected',
-        ]);
+        expect(app.history.branch().map((entry) => entry.message._tag)).toEqual(
+          ['Retitled', 'Selected'],
+        );
       }),
     ));
 
@@ -153,7 +153,7 @@ describe('Props', () => {
         expect(running('b')).toEqual(['poll']);
         yield* TestClock.adjust('25 millis');
         expect(at(app, row('b')).model).toMatchObject({ ticks: 2 });
-        expect(app.log().at(-1)!.source).toEqual({
+        expect(app.history.branch().at(-1)!.source).toEqual({
           kind: 'worker',
           instance: row('b'),
           name: 'poll',
@@ -168,9 +168,15 @@ describe('Props', () => {
         app.send('List', { _tag: 'Selected', id: 'c' });
         app.send(row('c'), { _tag: 'Edited' });
         app.send('List', { _tag: 'Selected', id: 'a' });
-        expect(app.snapshotAt(app.state().head)).toEqual(app.snapshot());
-        expect(Replay.fold(List.definition, app.log())).toEqual(app.snapshot());
-        expect(JSON.stringify(app.state().entries)).not.toContain('selected"');
+        expect(app.history.snapshotAt(app.history.head())).toEqual(
+          app.snapshot(),
+        );
+        expect(Replay.fold(List.definition, app.history.branch())).toEqual(
+          app.snapshot(),
+        );
+        expect(JSON.stringify(app.history.save().entries)).not.toContain(
+          'selected"',
+        );
       }),
     ));
 
@@ -201,7 +207,7 @@ describe('the Log', () => {
             instance: row('a'),
           },
         );
-        expect(app.log()).toEqual([
+        expect(app.history.branch()).toEqual([
           {
             id: 0,
             parent: null,
@@ -231,21 +237,23 @@ describe('the Log', () => {
         live.send('List', { _tag: 'Selected', id: 'b' });
         live.send(row('zzz'), { _tag: 'Edited' });
         const outcomes = (app: Running<unknown>) =>
-          app.log().map((entry) => app.outcome(entry.id));
+          app.history.branch().map((entry) => app.history.outcome(entry.id));
         expect(outcomes(live)).toEqual([
           'handled',
           'handled',
           'handled',
           'dropped',
         ]);
-        const saved = yield* Runtime.start(List, { saved: live.state() });
+        const saved = yield* Runtime.start(
+          History.load(List, live.history.save()),
+        );
         expect(outcomes(saved)).toEqual(outcomes(live));
       }),
     ));
 
   it('Replay warns of a Message that no longer fits, once, and skips it', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const entries: RuntimeState['entries'] = [
+    const entries: SavedHistory['entries'] = [
       {
         id: 0,
         parent: null,

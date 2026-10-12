@@ -303,7 +303,7 @@ export type Check = (value: unknown, what: string) => void;
 
 /** One Child slot, as the engine sees it. */
 export interface SlotDefinition {
-  readonly definition: Definition;
+  readonly definition: ActorDefinition;
   readonly many: boolean;
 }
 
@@ -321,7 +321,7 @@ export interface WorkerDefinition {
 }
 
 /** The plain definition the engine works from; an Actor without States is keyed by its one State. */
-export interface Definition {
+export interface ActorDefinition {
   readonly name: string;
   /** Every State it can be in, by tag: the ones its State Schema names. */
   readonly states: ReadonlyArray<string>;
@@ -370,7 +370,7 @@ export interface Actor<
   out Needs,
 > {
   readonly name: Name;
-  readonly definition: Definition;
+  readonly definition: ActorDefinition;
   readonly [types]?: {
     readonly input: Input;
     readonly props: Props;

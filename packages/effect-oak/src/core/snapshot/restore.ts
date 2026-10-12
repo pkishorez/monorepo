@@ -1,7 +1,6 @@
-import type { Definition, Tagged } from '../actor/index.ts';
-import { counterOf, slotToward } from './id.ts';
-import { isMany } from './many.ts';
+import type { ActorDefinition, Tagged } from '../actor/index.ts';
 import type { Instance, Snapshot } from './snapshot.ts';
+import { counterOf, isMany, slotToward } from './tree.ts';
 
 /*
  * Restore: a Message to the root that replaces the whole Snapshot with one
@@ -28,7 +27,7 @@ export const restore = (snapshot: Snapshot): Restore => ({
 
 /** The saved Snapshot if every Instance in it matches its Actor, else why not. */
 export const checkRestore = (
-  root: Definition,
+  root: ActorDefinition,
   { snapshot }: Restore,
 ): { readonly snapshot: Snapshot } | { readonly reason: string } => {
   if (snapshot.id !== root.name)
@@ -38,7 +37,7 @@ export const checkRestore = (
 };
 
 const check = (
-  definition: Definition,
+  definition: ActorDefinition,
   instance: Instance,
   key: string | undefined,
 ): string | undefined => {

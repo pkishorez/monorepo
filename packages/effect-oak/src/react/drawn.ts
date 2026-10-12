@@ -1,6 +1,6 @@
 import { instanceAt, isMany } from '../core/index.ts';
 import type { AnyActor, Instance, Snapshot, Tagged } from '../core/index.ts';
-import type { Drawable, Drawn, Handle } from './view.tsx';
+import type { Drawable, DrawnApp, Handle } from './view.tsx';
 
 /*
  * What Views read: what any Instance is drawn from, out of the Snapshot drawn
@@ -14,8 +14,8 @@ export const makeDrawn = (
   drawn: () => Snapshot | undefined,
   served: () => Snapshot | undefined,
   deliver: (id: string, message: Tagged) => void,
-  subscribe: Drawn['subscribe'],
-): Drawn => {
+  subscribe: DrawnApp['subscribe'],
+): DrawnApp => {
   const handles = new Map<string, Handle<AnyActor>>();
   const sends = new Map<string, (message: Tagged) => void>();
   const cache = new Map<string, { instance: Instance; props: Drawable }>();
@@ -79,7 +79,7 @@ export const makeDrawn = (
   const onServer = new Map<string, { instance: Instance; props: Drawable }>();
   return {
     subscribe,
-    props: (id) => propsIn(cache, drawn(), id),
+    instance: (id) => propsIn(cache, drawn(), id),
     served: (id) => {
       const snapshot = served();
       return snapshot === drawn()

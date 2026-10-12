@@ -4,7 +4,7 @@ export type {
   AnyActor,
   Data,
   Defined,
-  Definition,
+  ActorDefinition,
   Many,
   Only,
   Self,
@@ -21,7 +21,6 @@ export {
   instanceAt,
   isMany,
   isRestore,
-  outcomeOf,
   restore,
 } from './snapshot/index.ts';
 export type {
@@ -32,14 +31,12 @@ export type {
   Snapshot,
   Source,
 } from './snapshot/index.ts';
-export { Log } from './log/index.ts';
-export type { Entry, RuntimeState } from './log/index.ts';
-export { Replay } from './replay/index.ts';
-export type { ReplayOptions } from './replay/index.ts';
-export { Runtime } from './runtime/index.ts';
+export { History, Replay, outcomeOf } from './history/index.ts';
 export type {
-  Needs,
-  Running,
-  RuntimeOptions,
-  WorkerStatus,
-} from './runtime/index.ts';
+  Entry,
+  HistoryOptions,
+  ReplayOptions,
+  SavedHistory,
+} from './history/index.ts';
+export { Runtime } from './runtime/index.ts';
+export type { Needs, Running, WorkerStatus } from './runtime/index.ts';

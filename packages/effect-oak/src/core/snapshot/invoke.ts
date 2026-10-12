@@ -1,6 +1,6 @@
-import type { Definition } from '../actor/index.ts';
-import { equal } from './equal.ts';
-import { childId, counterOf } from './id.ts';
+import type { ActorDefinition } from '../actor/index.ts';
+import { Equal } from 'effect';
+import { childId, counterOf } from './tree.ts';
 import type { Instance } from './snapshot.ts';
 
 /*
@@ -28,7 +28,7 @@ const SINGLE = { _tag: 'Single' } as const;
 
 // 1. Create
 export const create = (
-  definition: Definition,
+  definition: ActorDefinition,
   id: string,
   key: string | undefined,
   { input, props }: Given,
@@ -58,7 +58,10 @@ export const create = (
  * A Child written at the top lasts through the Transition; then every Child
  * follows the parent's data.
  */
-export const enter = (definition: Definition, instance: Instance): Instance => {
+export const enter = (
+  definition: ActorDefinition,
+  instance: Instance,
+): Instance => {
   const slots = definition.children[instance.state._tag];
   if (!slots) return { ...instance, children: {} };
   const invocation = invocationOf(definition, instance);
@@ -88,7 +91,7 @@ export const enter = (definition: Definition, instance: Instance): Instance => {
 
 // 3. Follow
 export const follow = (
-  definition: Definition,
+  definition: ActorDefinition,
   instance: Instance,
 ): Instance => {
   const slots = Object.entries(definition.children[instance.state._tag] ?? {});
@@ -129,18 +132,18 @@ export const follow = (
 
 /** A Child kept, with the Props it is handed now: the same Instance while they say the same. */
 const handedProps = (
-  definition: Definition,
+  definition: ActorDefinition,
   child: Instance,
   props: unknown,
 ): Instance => {
-  if (equal(child.props, props)) return child;
+  if (Equal.equals(child.props, props)) return child;
   definition.check.props(props, `the Props of ${child.id}`);
   const { props: _, ...rest } = child;
   return follow(definition, props === undefined ? rest : { ...rest, props });
 };
 
 const invoke = (
-  definition: Definition,
+  definition: ActorDefinition,
   parent: string,
   slot: string,
   key: string | undefined,
@@ -154,7 +157,7 @@ const invoke = (
 };
 
 const invocationOf = (
-  definition: Definition,
+  definition: ActorDefinition,
   instance: Instance,
 ): Readonly<Record<string, unknown>> =>
   definition.invoke[instance.state._tag]?.({

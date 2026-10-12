@@ -1,4 +1,4 @@
-import type { Definition, Tagged } from '../actor/index.ts';
+import type { ActorDefinition, Tagged } from '../actor/index.ts';
 import { create } from './invoke.ts';
 
 /*
@@ -70,5 +70,5 @@ export interface Envelope {
 
 // 1. Init
 /** The app right after init: the root, named after its Actor, and every Child its State Invokes. */
-export const init = (root: Definition, input?: unknown): Snapshot =>
+export const init = (root: ActorDefinition, input?: unknown): Snapshot =>
   create(root, root.name, undefined, { input });

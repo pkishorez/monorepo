@@ -4,7 +4,7 @@ import type {
   Behavior,
   Check,
   Data,
-  Definition,
+  ActorDefinition,
   KidsByState,
   Many,
   OpenOfBehavior,
@@ -98,10 +98,10 @@ const definitionOf = (
   name: string,
   shape: Shape<any, any, any, any, any, any>,
   behavior: Block & {
-    readonly init?: Definition['init'];
+    readonly init?: ActorDefinition['init'];
     readonly state?: Record<string, Block | undefined>;
   },
-): Definition => {
+): ActorDefinition => {
   const blocks = behavior.state ?? {};
   const states = statesOf(shape.state, blocks);
   const top = slots(behavior.children);
