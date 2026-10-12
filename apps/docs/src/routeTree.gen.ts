@@ -10,156 +10,33 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as DemosAppsRocketsRouteImport } from './routes/demos/apps/rockets'
-import { Route as DemosAppsShowreelRouteImport } from './routes/demos/apps/showreel'
-import { Route as DemosConceptsActorRouteImport } from './routes/demos/concepts/actor'
-import { Route as DemosConceptsCapabilitiesRouteImport } from './routes/demos/concepts/capabilities'
-import { Route as DemosConceptsChildrenRouteImport } from './routes/demos/concepts/children'
-import { Route as DemosConceptsCommandsRouteImport } from './routes/demos/concepts/commands'
-import { Route as DemosConceptsKeyedChildrenRouteImport } from './routes/demos/concepts/keyed-children'
-import { Route as DemosConceptsStatesRouteImport } from './routes/demos/concepts/states'
-import { Route as DemosConceptsWorkersRouteImport } from './routes/demos/concepts/workers'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DemosAppsRocketsRoute = DemosAppsRocketsRouteImport.update({
-  id: '/demos/apps/rockets',
-  path: '/demos/apps/rockets',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DemosAppsShowreelRoute = DemosAppsShowreelRouteImport.update({
-  id: '/demos/apps/showreel',
-  path: '/demos/apps/showreel',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DemosConceptsActorRoute = DemosConceptsActorRouteImport.update({
-  id: '/demos/concepts/actor',
-  path: '/demos/concepts/actor',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DemosConceptsCapabilitiesRoute =
-  DemosConceptsCapabilitiesRouteImport.update({
-    id: '/demos/concepts/capabilities',
-    path: '/demos/concepts/capabilities',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const DemosConceptsChildrenRoute = DemosConceptsChildrenRouteImport.update({
-  id: '/demos/concepts/children',
-  path: '/demos/concepts/children',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DemosConceptsCommandsRoute = DemosConceptsCommandsRouteImport.update({
-  id: '/demos/concepts/commands',
-  path: '/demos/concepts/commands',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DemosConceptsKeyedChildrenRoute =
-  DemosConceptsKeyedChildrenRouteImport.update({
-    id: '/demos/concepts/keyed-children',
-    path: '/demos/concepts/keyed-children',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const DemosConceptsStatesRoute = DemosConceptsStatesRouteImport.update({
-  id: '/demos/concepts/states',
-  path: '/demos/concepts/states',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DemosConceptsWorkersRoute = DemosConceptsWorkersRouteImport.update({
-  id: '/demos/concepts/workers',
-  path: '/demos/concepts/workers',
-  getParentRoute: () => rootRouteImport,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/demos/apps/rockets': typeof DemosAppsRocketsRoute
-  '/demos/apps/showreel': typeof DemosAppsShowreelRoute
-  '/demos/concepts/actor': typeof DemosConceptsActorRoute
-  '/demos/concepts/capabilities': typeof DemosConceptsCapabilitiesRoute
-  '/demos/concepts/children': typeof DemosConceptsChildrenRoute
-  '/demos/concepts/commands': typeof DemosConceptsCommandsRoute
-  '/demos/concepts/keyed-children': typeof DemosConceptsKeyedChildrenRoute
-  '/demos/concepts/states': typeof DemosConceptsStatesRoute
-  '/demos/concepts/workers': typeof DemosConceptsWorkersRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/demos/apps/rockets': typeof DemosAppsRocketsRoute
-  '/demos/apps/showreel': typeof DemosAppsShowreelRoute
-  '/demos/concepts/actor': typeof DemosConceptsActorRoute
-  '/demos/concepts/capabilities': typeof DemosConceptsCapabilitiesRoute
-  '/demos/concepts/children': typeof DemosConceptsChildrenRoute
-  '/demos/concepts/commands': typeof DemosConceptsCommandsRoute
-  '/demos/concepts/keyed-children': typeof DemosConceptsKeyedChildrenRoute
-  '/demos/concepts/states': typeof DemosConceptsStatesRoute
-  '/demos/concepts/workers': typeof DemosConceptsWorkersRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/demos/apps/rockets': typeof DemosAppsRocketsRoute
-  '/demos/apps/showreel': typeof DemosAppsShowreelRoute
-  '/demos/concepts/actor': typeof DemosConceptsActorRoute
-  '/demos/concepts/capabilities': typeof DemosConceptsCapabilitiesRoute
-  '/demos/concepts/children': typeof DemosConceptsChildrenRoute
-  '/demos/concepts/commands': typeof DemosConceptsCommandsRoute
-  '/demos/concepts/keyed-children': typeof DemosConceptsKeyedChildrenRoute
-  '/demos/concepts/states': typeof DemosConceptsStatesRoute
-  '/demos/concepts/workers': typeof DemosConceptsWorkersRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths:
-    | '/'
-    | '/demos/apps/rockets'
-    | '/demos/apps/showreel'
-    | '/demos/concepts/actor'
-    | '/demos/concepts/capabilities'
-    | '/demos/concepts/children'
-    | '/demos/concepts/commands'
-    | '/demos/concepts/keyed-children'
-    | '/demos/concepts/states'
-    | '/demos/concepts/workers'
+  fullPaths: '/'
   fileRoutesByTo: FileRoutesByTo
-  to:
-    | '/'
-    | '/demos/apps/rockets'
-    | '/demos/apps/showreel'
-    | '/demos/concepts/actor'
-    | '/demos/concepts/capabilities'
-    | '/demos/concepts/children'
-    | '/demos/concepts/commands'
-    | '/demos/concepts/keyed-children'
-    | '/demos/concepts/states'
-    | '/demos/concepts/workers'
-  id:
-    | '__root__'
-    | '/'
-    | '/demos/apps/rockets'
-    | '/demos/apps/showreel'
-    | '/demos/concepts/actor'
-    | '/demos/concepts/capabilities'
-    | '/demos/concepts/children'
-    | '/demos/concepts/commands'
-    | '/demos/concepts/keyed-children'
-    | '/demos/concepts/states'
-    | '/demos/concepts/workers'
+  to: '/'
+  id: '__root__' | '/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  DemosAppsRocketsRoute: typeof DemosAppsRocketsRoute
-  DemosAppsShowreelRoute: typeof DemosAppsShowreelRoute
-  DemosConceptsActorRoute: typeof DemosConceptsActorRoute
-  DemosConceptsCapabilitiesRoute: typeof DemosConceptsCapabilitiesRoute
-  DemosConceptsChildrenRoute: typeof DemosConceptsChildrenRoute
-  DemosConceptsCommandsRoute: typeof DemosConceptsCommandsRoute
-  DemosConceptsKeyedChildrenRoute: typeof DemosConceptsKeyedChildrenRoute
-  DemosConceptsStatesRoute: typeof DemosConceptsStatesRoute
-  DemosConceptsWorkersRoute: typeof DemosConceptsWorkersRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -171,83 +48,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/demos/apps/rockets': {
-      id: '/demos/apps/rockets'
-      path: '/demos/apps/rockets'
-      fullPath: '/demos/apps/rockets'
-      preLoaderRoute: typeof DemosAppsRocketsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/demos/apps/showreel': {
-      id: '/demos/apps/showreel'
-      path: '/demos/apps/showreel'
-      fullPath: '/demos/apps/showreel'
-      preLoaderRoute: typeof DemosAppsShowreelRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/demos/concepts/actor': {
-      id: '/demos/concepts/actor'
-      path: '/demos/concepts/actor'
-      fullPath: '/demos/concepts/actor'
-      preLoaderRoute: typeof DemosConceptsActorRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/demos/concepts/capabilities': {
-      id: '/demos/concepts/capabilities'
-      path: '/demos/concepts/capabilities'
-      fullPath: '/demos/concepts/capabilities'
-      preLoaderRoute: typeof DemosConceptsCapabilitiesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/demos/concepts/children': {
-      id: '/demos/concepts/children'
-      path: '/demos/concepts/children'
-      fullPath: '/demos/concepts/children'
-      preLoaderRoute: typeof DemosConceptsChildrenRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/demos/concepts/commands': {
-      id: '/demos/concepts/commands'
-      path: '/demos/concepts/commands'
-      fullPath: '/demos/concepts/commands'
-      preLoaderRoute: typeof DemosConceptsCommandsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/demos/concepts/keyed-children': {
-      id: '/demos/concepts/keyed-children'
-      path: '/demos/concepts/keyed-children'
-      fullPath: '/demos/concepts/keyed-children'
-      preLoaderRoute: typeof DemosConceptsKeyedChildrenRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/demos/concepts/states': {
-      id: '/demos/concepts/states'
-      path: '/demos/concepts/states'
-      fullPath: '/demos/concepts/states'
-      preLoaderRoute: typeof DemosConceptsStatesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/demos/concepts/workers': {
-      id: '/demos/concepts/workers'
-      path: '/demos/concepts/workers'
-      fullPath: '/demos/concepts/workers'
-      preLoaderRoute: typeof DemosConceptsWorkersRouteImport
-      parentRoute: typeof rootRouteImport
-    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  DemosAppsRocketsRoute: DemosAppsRocketsRoute,
-  DemosAppsShowreelRoute: DemosAppsShowreelRoute,
-  DemosConceptsActorRoute: DemosConceptsActorRoute,
-  DemosConceptsCapabilitiesRoute: DemosConceptsCapabilitiesRoute,
-  DemosConceptsChildrenRoute: DemosConceptsChildrenRoute,
-  DemosConceptsCommandsRoute: DemosConceptsCommandsRoute,
-  DemosConceptsKeyedChildrenRoute: DemosConceptsKeyedChildrenRoute,
-  DemosConceptsStatesRoute: DemosConceptsStatesRoute,
-  DemosConceptsWorkersRoute: DemosConceptsWorkersRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

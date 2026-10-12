@@ -7,31 +7,10 @@
     "src/start.ts",
     "src/server.ts",
     "src/components/not-found.tsx",
-    "src/lib/theme.tsx",
-    "src/lib/demos.tsx"
+    "src/lib/theme.tsx"
   ],
   "rules": {
     "src/router.tsx": ["src/components"],
-    "src/routes": ["src/lib", "src/demos"],
-    "src/demos/concepts/page": ["src/demos/shell", "src/demos/concepts/shapes"],
-    "src/demos/concepts/actor": ["src/demos/concepts/shapes"],
-    "src/demos/concepts/states": ["src/demos/concepts/shapes"],
-    "src/demos/concepts/commands": ["src/demos/concepts/shapes"],
-    "src/demos/concepts/workers": ["src/demos/concepts/shapes"],
-    "src/demos/apps/rockets": ["src/demos/shell"],
-    "src/demos/apps/rockets/actor": ["src/demos/apps/rockets/draw"],
-    "src/demos/apps/rockets/state": ["src/demos/apps/rockets/draw"],
-    "src/demos/apps/rockets/fleet": [
-      "src/demos/apps/rockets/draw",
-      "src/demos/apps/rockets/state"
-    ],
-    "src/demos/apps/rockets/capabilities": ["src/demos/apps/rockets/draw"],
-    "src/demos/apps/showreel": ["src/demos/apps/rockets"],
-    "src/demos/concepts/children": [
-      "src/demos/concepts/actor",
-      "src/demos/concepts/shapes"
-    ],
-    "src/demos/concepts/keyed-children": ["src/demos/concepts/shapes"],
-    "src/demos/concepts/capabilities": ["src/demos/concepts/shapes"]
+    "src/routes": ["src/lib"]
   }
 }

@@ -9,25 +9,19 @@
     "build": "vp build",
     "lint": "tsc --noEmit && pnpm lint:laymos",
     "lint:laymos": "laymos lint",
-    "test": "vitest run",
     "deploy:prod": "ALLOW_DEPLOY=true alchemy deploy --stage prod"
   },
   "dependencies": {
     "@fontsource-variable/inter": "catalog:",
     "@fontsource-variable/jetbrains-mono": "catalog:",
     "@kstackz/web-platform": "workspace:*",
-    "@shikijs/langs": "catalog:",
-    "@shikijs/themes": "catalog:",
     "@tanstack/react-router": "catalog:",
     "@tanstack/react-router-devtools": "catalog:",
     "@tanstack/react-start": "catalog:",
     "effect": "catalog:",
-    "effect-oak": "workspace:*",
     "lucide-react": "catalog:",
-    "motion": "catalog:",
     "react": "catalog:",
-    "react-dom": "catalog:",
-    "shiki": "catalog:"
+    "react-dom": "catalog:"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "catalog:",
@@ -40,7 +34,6 @@
     "laymos": "workspace:*",
     "tailwindcss": "catalog:",
     "typescript": "catalog:",
-    "vite": "catalog:",
-    "vitest": "catalog:"
+    "vite": "catalog:"
   }
 }

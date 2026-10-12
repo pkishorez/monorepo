@@ -4,25 +4,17 @@ Live demos of the monorepo's packages, published at docs.kishore.app.
 
 ## Big picture
 
-A plain TanStack Start app. The home page lists the demos, and each demo opens
-on its own page under `/demos`, with its code in `src/demos`. There are two
-groups. `concepts` is one demo per concept of Effect Oak, drawn as moving
-shapes rather than as an app, a marble diagram for the actor model; its
-drawing vocabulary is in `src/demos/concepts/CONTEXT.md` and the ladder in
-`src/demos/NOTES.md`. `apps` holds Rockets, the tutorial app the Effect Oak
-Walkthrough builds up, and the Showreel it is recorded from. Every demo runs
-in one shell (`src/demos/shell`): the app beside the Effect Oak devtools,
-which Time Travel it and show its Log and Inspector.
+A plain TanStack Start app. For now it is only its home page, which links the
+monorepo: the Effect Oak demos that lived here were removed, to be rethought.
 
 The UI uses `@kstackz/web-platform`. A Cloudflare Worker serves the site, and
 the infrastructure is declared with Alchemy in `alchemy.run.ts` and
 `src/infra`.
 
-### Add a demo
+### Add a page
 
-Put its code in `src/demos/<group>/<name>`, add a route at
-`src/routes/demos/<group>/<name>.tsx`, list it in `DEMOS` in `src/lib/demos.tsx` (the home page and every demo's menu read it),
-and allow the route to import it in `laymos.config.json`.
+Add a route under `src/routes/` and, if it imports code outside `src/lib`,
+allow that import in `laymos.config.json`.
 
 ## Usage
 
@@ -78,4 +70,3 @@ First-time setup, once per Cloudflare account:
    the `kishore.app` zone already exists in the account. No dashboard steps.
 4. Verify in a browser once DNS and TLS propagate (usually under a minute):
    - `https://docs.kishore.app/` (landing page)
-   - `https://docs.kishore.app/demos/concepts/actor` (a demo)
