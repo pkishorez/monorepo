@@ -122,7 +122,7 @@ describe('Props', () => {
         expect(at(app, row('a')).model).toBe(a!.model);
         expect(at(app, row('b')).model).toBe(b!.model);
         expect(at(app, row('c'))).toBe(c);
-        // Only the parent's Message is in the Log.
+        // Only the parent's Message is in the History.
         expect(app.history.branch().map((entry) => entry.message._tag)).toEqual(
           ['Retitled', 'Selected'],
         );
@@ -161,7 +161,7 @@ describe('Props', () => {
       }),
     ));
 
-  it('are worked out again by Replay, never kept in the Log', () =>
+  it('are worked out again by Replay, never kept in the History', () =>
     run(
       Effect.gen(function* () {
         const app = yield* Runtime.start(List);
@@ -193,7 +193,7 @@ describe('Props', () => {
   });
 });
 
-describe('the Log', () => {
+describe('the History', () => {
   it('holds only the Envelope, from outside the tree unless a View says so', () =>
     run(
       Effect.gen(function* () {
@@ -228,7 +228,7 @@ describe('the Log', () => {
       }),
     ));
 
-  it('says what came of each entry, worked out, on a saved Log too', () =>
+  it('says what came of each entry, worked out, on a saved History too', () =>
     run(
       Effect.gen(function* () {
         const live = yield* Runtime.start(List);

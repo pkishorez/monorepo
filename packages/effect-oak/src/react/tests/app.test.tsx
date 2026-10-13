@@ -13,7 +13,7 @@ import { registry } from '../registry.ts';
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
 /*
- * The app before it runs: drawn from its Log on a server and in a browser,
+ * The app before it runs: drawn from its History on a server and in a browser,
  * hydrated, then taken over by the Runtime; and carried across mounts and
  * hot reloads by the registry.
  */
@@ -84,7 +84,7 @@ describe('the first draw', () => {
     expect(host.textContent).toBe('1');
   });
 
-  it('draws a saved Log at its Head, through Suspense', async () => {
+  it('draws a saved History at its Head, through Suspense', async () => {
     const App = toReact(Counter, CounterView, Layer.empty, {
       saved: await bumped(3),
     });
@@ -129,12 +129,12 @@ describe('on a server', () => {
     }
   };
 
-  it('renders init with no Log', async () => {
+  it('renders init with no History', async () => {
     const App = toReact(Counter, CounterView, Layer.empty);
     expect(await html(<App />)).toContain('<output>0</output>');
   });
 
-  it('renders a saved Log at its Head, and the client hydrates it', async () => {
+  it('renders a saved History at its Head, and the client hydrates it', async () => {
     const App = toReact(Counter, CounterView, Layer.empty, {
       saved: await bumped(7),
     });
@@ -156,7 +156,7 @@ describe('on a server', () => {
 });
 
 describe('useRuntime before the Runtime', () => {
-  it('reads the saved Log on a server, drawn before the app', async () => {
+  it('reads the saved History on a server, drawn before the app', async () => {
     const App = toReact(Counter, CounterView, Layer.empty, {
       saved: await bumped(3),
     });
@@ -181,7 +181,7 @@ describe('useRuntime before the Runtime', () => {
     expect(served).toContain('<output>3</output>');
   });
 
-  it('reads the saved Log', async () => {
+  it('reads the saved History', async () => {
     const App = toReact(Counter, CounterView, Layer.empty, {
       saved: await bumped(2),
     });
@@ -245,7 +245,7 @@ describe('Time Travel', () => {
 });
 
 describe('across mounts and hot reloads', () => {
-  it('a new app with the same name carries on from the Log the last one left', async () => {
+  it('a new app with the same name carries on from the History the last one left', async () => {
     const First = toReact(Counter, CounterView, Layer.empty);
     root = createRoot(host);
     act(() => root!.render(<First />));
@@ -270,7 +270,7 @@ describe('across mounts and hot reloads', () => {
     });
     const Second = toReact(Reloaded, ReloadedView, Layer.empty);
     root = createRoot(host);
-    // Drawn from the old Log through the new code, before the Runtime.
+    // Drawn from the old History through the new code, before the Runtime.
     await act(async () => root!.render(<Second />));
     expect(host.textContent).toBe('20');
     await started(host);
@@ -292,7 +292,7 @@ describe('across mounts and hot reloads', () => {
     expect(host.textContent).toBe('2');
   });
 
-  it('two apps with the same name mounted at once are an error, and the second keeps its own Log', async () => {
+  it('two apps with the same name mounted at once are an error, and the second keeps its own History', async () => {
     const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
     const One = toReact(Counter, CounterView, Layer.empty);
     const Two = toReact(Counter, CounterView, Layer.empty, {
