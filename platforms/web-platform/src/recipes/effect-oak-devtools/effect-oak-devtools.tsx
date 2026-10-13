@@ -4,7 +4,8 @@ import { AnimatePresence } from 'motion/react';
 import { handle, isRestore } from 'effect-oak';
 import type { ActorDefinition, Entry, Instance, Snapshot } from 'effect-oak';
 import type { AppRuntime } from 'effect-oak/react';
-import { INK, ink } from './ink/index.ts';
+import { cn } from '#lib/utils';
+import { INK } from './ink/index.ts';
 import type { Tone } from './ink/index.ts';
 import { AppMap } from './map/index.ts';
 import type { Pick } from './map/index.ts';
@@ -27,13 +28,11 @@ import { Timeline } from './timeline/index.ts';
  *
  * 1. Scene     the Map of the Step shown, from the Actors and its Snapshot,
  *              with the live app's Workers laid over it when it is live.
- * 2. Where     a mark in the corner saying whether this is the live app or a
- *              past Step, and so what the Workers' dots can say.
- * 3. Pick      a card, a State or Worker on it, one of its Instances, or the
+ * 2. Pick      a card, a State or Worker on it, one of its Instances, or the
  *              Step's Message; a pick gone from the Step shown closes the
  *              Sheet.
- * 4. Sheet     what is picked, taken apart.
- * 5. Timeline  which Step is shown.
+ * 3. Sheet     what is picked, taken apart.
+ * 4. Timeline  which Step is shown, and whether it is live.
  */
 
 type Statuses = NonNullable<Parameters<typeof sceneOf>[0]['statuses']>;
@@ -54,11 +53,17 @@ type Statuses = NonNullable<Parameters<typeof sceneOf>[0]['statuses']>;
 export function EffectOakDevtools({
   runtime,
   layout,
+  dotted,
+  className,
 }: {
   /** The running app: `App.useRuntime()`. */
   readonly runtime: AppRuntime;
   /** How the Map is laid out: a packed tree, or an outline. */
   readonly layout?: Kind;
+  /** Dots under the Map. On by default; off, a background given by `className` shows through. */
+  readonly dotted?: boolean;
+  /** Classes for its root, merged over its own: a see-through background over the app. */
+  readonly className?: string;
 }) {
   const { history, branch, shown, running } = runtime;
   const definition = history.actor.definition;
@@ -104,6 +109,8 @@ export function EffectOakDevtools({
       definition={definition}
       step={step}
       {...(layout ? { layout } : {})}
+      {...(className ? { className } : {})}
+      {...(dotted === undefined ? {} : { dotted })}
       // 3. Workers
       {...(live && running ? { statuses: runtime.workers } : {})}
       timeline={{
@@ -130,6 +137,8 @@ export function Inspector({
   statuses,
   layout,
   timeline,
+  dotted,
+  className,
 }: {
   /** The root Actor's definition. */
   readonly definition: ActorDefinition;
@@ -140,6 +149,10 @@ export function Inspector({
   /** How the Map is laid out: a packed tree, or an outline. */
   readonly layout?: Kind;
   readonly timeline: ComponentProps<typeof Timeline>;
+  /** Dots under the Map. On by default. */
+  readonly dotted?: boolean;
+  /** Classes for its root, merged over its own. */
+  readonly className?: string;
 }) {
   const [picked, setPicked] = useState<Pick | undefined>(undefined);
   const [chosen, setChosen] = useState<ReadonlyMap<string, string>>(
@@ -162,18 +175,22 @@ export function Inspector({
     [definition, step, statuses, layout, chosen, folded],
   );
 
-  // 3. Pick and 4. Sheet
+  // 2. Pick and 3. Sheet
   const sheet = picked && sheetOf(scene, picked);
 
   return (
     <div
-      className="@container bg-background text-foreground relative flex h-full w-full flex-col overflow-clip"
+      className={cn(
+        '@container bg-background text-foreground relative flex h-full w-full flex-col overflow-clip',
+        className,
+      )}
       style={INK}
     >
       <div className="relative flex min-h-0 flex-1 flex-col">
         <div className="relative min-h-0 flex-1">
           <AppMap
             scene={scene}
+            {...(dotted === undefined ? {} : { dotted })}
             picked={sheet ? picked : undefined}
             onPick={setPicked}
             onChoose={(place, instance) =>
@@ -187,25 +204,6 @@ export function Inspector({
               })
             }
           />
-          {/* 2. Where */}
-          <p className="bg-background/85 pointer-events-none absolute top-3 left-3 flex h-7 items-center gap-2 rounded-full border px-3 text-[11px] backdrop-blur-sm">
-            <span
-              className="size-1.5 rounded-full"
-              style={{
-                backgroundColor: scene.live ? ink('active') : ink('dim'),
-              }}
-            />
-            {scene.live ? (
-              <span className="font-medium">Live</span>
-            ) : (
-              <>
-                <span className="font-medium">A past Step</span>
-                <span className="text-muted-foreground hidden @md:inline">
-                  Workers show only whether they are on
-                </span>
-              </>
-            )}
-          </p>
         </div>
         <AnimatePresence>
           {sheet && (
@@ -217,7 +215,7 @@ export function Inspector({
           )}
         </AnimatePresence>
       </div>
-      {/* 5. Timeline */}
+      {/* 4. Timeline */}
       <Timeline {...timeline} />
     </div>
   );

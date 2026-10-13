@@ -149,6 +149,7 @@ export function AppMap({
   onPick,
   onChoose,
   onFold,
+  dotted,
 }: {
   readonly scene: Scene;
   readonly picked: Pick | undefined;
@@ -157,6 +158,8 @@ export function AppMap({
   readonly onChoose: (place: string, instance: string) => void;
   /** Fold or unfold what hangs below a card. */
   readonly onFold: (place: string) => void;
+  /** Dots under the Map. On by default. */
+  readonly dotted?: boolean;
 }) {
   const hasBelow = new Set(scene.lines.map((line) => line.from));
   const { at, beats } = scene;
@@ -187,6 +190,7 @@ export function AppMap({
       bounds={boundsOf(scene)}
       label="Map of the app"
       onTap={() => onPick(undefined)}
+      {...(dotted === undefined ? {} : { dotted })}
     >
       {/* 1. Lines */}
       <svg
@@ -337,11 +341,11 @@ export function AppMap({
         })}
       </AnimatePresence>
 
-      {/* 3. Beats */}
+      {/* 3. Beats, over every card, the picked one too */}
       {beats && beats.to !== popup?.id && (
         <div
           {...ITEM}
-          className="absolute top-0 left-0"
+          className="absolute top-0 left-0 z-20"
           style={{
             opacity: Math.max(shows(beats.to), shows(beats.send?.at)),
             transition: 'opacity 150ms ease',
