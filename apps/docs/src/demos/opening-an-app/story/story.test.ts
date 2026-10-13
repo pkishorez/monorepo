@@ -94,7 +94,7 @@ describe('Opening an app', () => {
       }),
     ));
 
-  it('each file is a keyed Download whose Worker runs while it is Downloading', () =>
+  it('each file is a keyed Download whose Worker runs while it is Downloading and not paused', () =>
     timed(
       Effect.gen(function* () {
         const app = yield* signedIn;
@@ -107,16 +107,54 @@ describe('Opening an app', () => {
 
         yield* TestClock.adjust('2 seconds');
         app.send(first, { _tag: 'Pause' });
+        yield* Effect.yieldNow;
+        expect(at(app, first)?.props).toEqual({ paused: true });
         expect(workers(app, first)).toEqual([]);
         expect(at(app, first)?.model).toMatchObject({ done: 2000 });
 
         yield* TestClock.adjust(`${DURATION} millis`);
         expect(at(app, second)?.state).toEqual({ _tag: 'Done' });
-        expect(at(app, first)?.state).toEqual({ _tag: 'Paused' });
+        expect(at(app, first)?.state).toEqual({ _tag: 'Downloading' });
 
         app.send(first, { _tag: 'Resume' });
+        yield* Effect.yieldNow;
         yield* TestClock.adjust(`${DURATION - 2000} millis`);
         expect(at(app, first)?.state).toEqual({ _tag: 'Done' });
+      }),
+    ));
+
+  it('Pause all and Resume all change only the list’s data, and every Download follows its Props', () =>
+    timed(
+      Effect.gen(function* () {
+        const app = yield* signedIn;
+        const downloads = 'App/downloads#1';
+        app.send(downloads, { _tag: 'Add' });
+        app.send(downloads, { _tag: 'Add' });
+        const first = `${downloads}/files[1]#1`;
+        const second = `${downloads}/files[2]#1`;
+
+        app.send(downloads, { _tag: 'PauseAll' });
+        expect(workers(app, first)).toEqual([]);
+        expect(workers(app, second)).toEqual([]);
+
+        app.send(downloads, { _tag: 'ResumeAll' });
+        expect(workers(app, first)).toEqual(['download']);
+        expect(workers(app, second)).toEqual(['download']);
+        expect(tags(app).slice(-2)).toEqual(['PauseAll', 'ResumeAll']);
+      }),
+    ));
+
+  it('Cancel all empties the list, and every Download stops', () =>
+    timed(
+      Effect.gen(function* () {
+        const app = yield* signedIn;
+        const downloads = 'App/downloads#1';
+        app.send(downloads, { _tag: 'Add' });
+        app.send(downloads, { _tag: 'Add' });
+        app.send(downloads, { _tag: 'CancelAll' });
+        expect(at(app, downloads)?.model).toMatchObject({ files: [] });
+        expect(at(app, `${downloads}/files[1]#1`)).toBeUndefined();
+        expect(at(app, `${downloads}/files[2]#1`)).toBeUndefined();
       }),
     ));
 

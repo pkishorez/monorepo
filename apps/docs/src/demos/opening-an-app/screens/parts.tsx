@@ -30,7 +30,7 @@ export function Button({
    * What it says while busy. The button is as wide as its words: going busy,
    * its background grows or shrinks to the new words as they cross-fade in.
    */
-  readonly busyLabel?: string;
+  readonly busyLabel?: ReactNode;
   readonly className?: string;
   readonly children: ReactNode;
 }) {
@@ -102,6 +102,14 @@ export function Spinner({ className = '' }: { readonly className?: string }) {
     />
   );
 }
+
+/**
+ * Words beside an icon, shown only where the Window is wide enough: on a
+ * narrow one the icon stands alone, so a row of buttons never outgrows it.
+ */
+export const Wide = ({ children }: { readonly children: ReactNode }) => (
+  <span className="hidden @md:inline">{children}</span>
+);
 
 /** A Time, in milliseconds since the app started, as minutes and seconds. */
 export function Clock({ at }: { readonly at: number }) {
