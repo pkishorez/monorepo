@@ -5,6 +5,11 @@ on:
     branches: [main]
   pull_request:
     types: [opened, reopened, synchronize]
+    # The changeset release PR changes only these, so it starts no run.
+    paths-ignore:
+      - '.changeset/**'
+      - '**/CHANGELOG.md'
+      - '**/package.json'
   workflow_dispatch:
     inputs:
       stage:

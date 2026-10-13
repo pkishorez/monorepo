@@ -3,6 +3,11 @@ name: 🧹 cleanup:docs
 on:
   pull_request:
     types: [closed]
+    # The changeset release PR changes only these, so it starts no run.
+    paths-ignore:
+      - '.changeset/**'
+      - '**/CHANGELOG.md'
+      - '**/package.json'
   workflow_dispatch:
     inputs:
       pr:
