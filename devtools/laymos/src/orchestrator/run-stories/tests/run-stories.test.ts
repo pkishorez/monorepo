@@ -48,7 +48,8 @@ function finished(events: readonly ProofRunEvent[]): Map<string, ProofReport> {
   );
 }
 
-describe('getStoryTree', () => {
+// Importing Proofs through tsx takes a few seconds on a CI runner.
+describe('getStoryTree', { timeout: 30_000 }, () => {
   test('builds the Story tree from folders and Tellings without running any Proof', async () => {
     const tree = await getStoryTree(verdicts).pipe(Effect.runPromise);
 
