@@ -1,1 +1,1 @@
-export { EffectOakDevtools } from './effect-oak-devtools.tsx';
+export { EffectOakDevtools, Inspector } from './effect-oak-devtools.tsx';
