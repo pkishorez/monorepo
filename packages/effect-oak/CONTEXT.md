@@ -161,17 +161,13 @@ _Avoid_: stage, root, provider
 ### Seeing the app
 
 **Timeline**:
-The whole History drawn as a graph, newest first: one row per Message on every Branch, each a name and a dot. Each Branch keeps the lane it was born in: the first runs down the middle and every fork gets its own lane to the right, so nothing moves as the History grows. The Branch in view is lit where it stands. Picking a dot chooses the Step shown everywhere; a dot on another Branch brings that Branch into view.
-_Avoid_: history, message list
+The Inspector's bar for picking the Step shown: every Step on the Branch in view, in order, and a way to bring another Branch into view. Picking a Step shows it everywhere, the app too; going live shows the Head again.
+_Avoid_: history, message list, scrubber
 
 **Branch in view**:
 The one Branch the Timeline and the Inspector walk, from init to its latest entry: the Head's, until another is picked. A Step before a split is on every Branch that grows from it, so picking it keeps the Branch in view.
 _Avoid_: selected branch, active branch
 
-**Change**:
-What one Step did to the Snapshot: the Instances and Workers it started and stopped, its Transitions, and every field of a Model, State or Props that took a new value, with the value it had before. Init's Change is every Instance starting. An ignored or dropped Message, or one whose Update gave back the same data, has no Change.
-_Avoid_: diff, delta, patch, mutation
-
 **Inspector**:
-One Step taken apart, on a map of the whole app drawn from its Actors: every State each can be in, every Child each State Invokes and every Worker it can own, dim until an Instance runs there. Which Workers a Step expects follows from the Snapshot; whether each is running, finished or failed is known live only. An Actor without States is drawn without its one State. The Step lights up the Instances that exist and their States, with its Change marked, and any Instance's data. Moves one Step at a time along the Branch in view.
-_Avoid_: devtools (the repo's DevTools is another thing), debugger, panel
+The one way to look inside the app: the Snapshot at the Step shown, drawn as a tree from its Actors, filling its space, with the Timeline below it. Every Actor and every State it can be in is drawn, dim until an Instance runs there or is in it, and the drawing is the same at every Step: a slot of keyed Children is one place counting its Instances, and every Worker an Actor has is a row on it, with the keys it runs now. Each Step is drawn from its own Snapshot alone, never compared with the one before: what the Step's Message did shows as who Sent it, the Request it made, and the Commands its Update asked for. Picking an Instance, a Worker or the Message opens its data. What only the live app knows, whether each Worker is running, finished or failed, is laid over it and shown as not known where it is not.
+_Avoid_: devtools (the repo's DevTools is another thing), debugger, panel, stage
