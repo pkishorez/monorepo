@@ -24,9 +24,10 @@ allow that import in `laymos.config.json`.
 
 ### Run locally
 
-`pnpm dev` starts the plain Vite dev server through Portless: no Cloudflare
-account, credentials or Alchemy state are involved, because the Worker uses no
-Cloudflare bindings. Alchemy is only for deploys. Production
+`pnpm dev` first builds the workspace packages the docs app depends on, so the
+demos import their current `dist` output. It then starts the plain Vite dev
+server through Portless: no Cloudflare account, credentials or Alchemy state
+are involved, because the Worker uses no Cloudflare bindings. Alchemy is only for deploys. Production
 `docs.kishore.app` maps to local `https://docs.kishore.computer`.
 `portless.json` supplies the name `docs.kishore`, using the shared Portless
 proxy configuration. In a Git worktree, Portless adds the worktree prefix to
