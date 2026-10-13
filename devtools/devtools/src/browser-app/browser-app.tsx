@@ -15,9 +15,9 @@ import {
   MoonIcon,
   SunIcon,
 } from '@kestack/web-platform/components/lucide';
-import { DevtoolsRpcProvider } from '../client/devtools-rpc/index.js';
-import { Lotel } from '../ui/lotel/lotel/index.js';
-import { Monoverse, MonoverseHeader } from '../ui/monoverse/monoverse/index.js';
+import { DevtoolsRpcProvider } from './devtools-rpc/index.js';
+import { Lotel } from './ui/lotel/index.js';
+import { Monoverse, MonoverseHeader } from './ui/monoverse/index.js';
 
 type Theme = 'dark' | 'light';
 

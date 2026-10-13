@@ -1,0 +1,134 @@
+import { Schema } from 'effect';
+import { Rpc, RpcGroup } from 'effect/rpc';
+import {
+  ArchitectureAnalysisSchema,
+  ConfigValidationIssueSchema,
+  FileContentSchema,
+  FileListSchema,
+} from 'laymos/architecture-analysis-schema';
+import {
+  ProofReportSchema,
+  ProofRunEventSchema,
+  StoryTreeSchema,
+} from 'laymos/story/schema';
+
+export class InvalidProjectPath extends Schema.TaggedError<InvalidProjectPath>(
+  'InvalidProjectPath',
+)('InvalidProjectPath', {
+  reason: Schema.Literals(['relative', 'not-found', 'not-directory']),
+}) {}
+
+export class ConfigReadError extends Schema.TaggedError<ConfigReadError>(
+  'ConfigReadError',
+)('ConfigReadError', { message: Schema.String }) {}
+
+export class ConfigParseError extends Schema.TaggedError<ConfigParseError>(
+  'ConfigParseError',
+)('ConfigParseError', { message: Schema.String }) {}
+
+export class ConfigSchemaError extends Schema.TaggedError<ConfigSchemaError>(
+  'ConfigSchemaError',
+)('ConfigSchemaError', { message: Schema.String }) {}
+
+export class ConfigValidationError extends Schema.TaggedError<ConfigValidationError>(
+  'ConfigValidationError',
+)('ConfigValidationError', {
+  issues: Schema.Array(ConfigValidationIssueSchema),
+}) {}
+
+export class SourceAnalysisError extends Schema.TaggedError<SourceAnalysisError>(
+  'SourceAnalysisError',
+)('SourceAnalysisError', {
+  message: Schema.String,
+  baseDir: Schema.optional(Schema.String),
+}) {}
+
+export class FileNotFoundError extends Schema.TaggedError<FileNotFoundError>(
+  'FileNotFoundError',
+)('FileNotFoundError', { path: Schema.String }) {}
+
+export class FileReadError extends Schema.TaggedError<FileReadError>(
+  'FileReadError',
+)('FileReadError', {
+  filePath: Schema.String,
+  message: Schema.String,
+}) {}
+
+export class StoriesUnavailableError extends Schema.TaggedError<StoriesUnavailableError>(
+  'StoriesUnavailableError',
+)('StoriesUnavailableError', {
+  reason: Schema.Literals([
+    'no-stories-path',
+    'load',
+    'invalid-proof',
+    'unknown-scope',
+    'invalid-timeout',
+  ]),
+  path: Schema.String,
+}) {}
+
+const AnalyzeLaymosProjectError = Schema.Union([
+  InvalidProjectPath,
+  ConfigReadError,
+  ConfigParseError,
+  ConfigSchemaError,
+  ConfigValidationError,
+  SourceAnalysisError,
+]);
+
+const LaymosStoriesError = Schema.Union([
+  InvalidProjectPath,
+  ConfigReadError,
+  ConfigParseError,
+  ConfigSchemaError,
+  ConfigValidationError,
+  StoriesUnavailableError,
+]);
+
+const GetLaymosFilesError = Schema.Union([
+  InvalidProjectPath,
+  ConfigReadError,
+  ConfigParseError,
+  ConfigSchemaError,
+  ConfigValidationError,
+  SourceAnalysisError,
+  FileNotFoundError,
+  FileReadError,
+]);
+
+export const LaymosRpc = RpcGroup.make(
+  Rpc.make('AnalyzeLaymosProject', {
+    payload: { projectPath: Schema.String },
+    success: ArchitectureAnalysisSchema,
+    error: AnalyzeLaymosProjectError,
+  }),
+  Rpc.make('GetLaymosFileList', {
+    payload: { projectPath: Schema.String, modulePath: Schema.String },
+    success: FileListSchema,
+    error: GetLaymosFilesError,
+  }),
+  Rpc.make('GetLaymosFile', {
+    payload: { projectPath: Schema.String, path: Schema.String },
+    success: FileContentSchema,
+    error: GetLaymosFilesError,
+  }),
+  Rpc.make('GetLaymosStories', {
+    payload: { projectPath: Schema.String },
+    success: StoryTreeSchema,
+    error: LaymosStoriesError,
+  }),
+  Rpc.make('GetLaymosStoryReports', {
+    payload: { projectPath: Schema.String },
+    success: Schema.Array(ProofReportSchema),
+    error: LaymosStoriesError,
+  }),
+  Rpc.make('RunLaymosStories', {
+    payload: {
+      projectPath: Schema.String,
+      scope: Schema.optional(Schema.String),
+    },
+    success: ProofRunEventSchema,
+    error: LaymosStoriesError,
+    stream: true,
+  }),
+);

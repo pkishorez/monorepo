@@ -3,7 +3,7 @@ import {
   formatAttributes,
   formatMillis,
   offsetColumn,
-} from '../text-format.js';
+} from './text-format.js';
 import type {
   SimpleLog,
   SimpleSpan,

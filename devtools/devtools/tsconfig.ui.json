@@ -11,10 +11,7 @@
     "src/browser.tsx",
     "src/browser-app/**/*",
     "src/browser-globals.d.ts",
-    "src/client/**/*",
-    "src/rpc/**/*",
-    "src/ui/**/*",
-    "src/views/**/*"
+    "src/rpc/**/*"
   ],
   "exclude": ["node_modules", "**/*.test.ts", "**/*.test.tsx"]
 }

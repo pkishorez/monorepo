@@ -1,19 +1,21 @@
-import { DevtoolsToolRpc, GitRpc, MonoverseRpc } from '../rpc/index.js';
-import { analyzeLaymosProject } from './analyze-laymos-project/index.js';
-import { analyzeMonorepo } from './analyze-monorepo/index.js';
-import { getLaymosFile, getLaymosFileList } from './get-laymos-files/index.js';
-import { getLaymosStories } from './get-laymos-stories/index.js';
-import { getLaymosStoryReports } from './get-laymos-story-reports/index.js';
-import { getMonorepoFile } from './get-monorepo-file/index.js';
+import { LaymosRpc } from '../rpc/laymos/index.js';
+import { GitRpc } from '../rpc/git/index.js';
+import { MonoverseRpc } from '../rpc/monoverse/index.js';
+import { analyzeLaymosProject } from './laymos/analyze-project/index.js';
+import { analyzeMonorepo } from './monoverse/analyze-monorepo/index.js';
+import { getLaymosFile, getLaymosFileList } from './laymos/get-files/index.js';
+import { getLaymosStories } from './laymos/get-stories/index.js';
+import { getLaymosStoryReports } from './laymos/get-story-reports/index.js';
+import { getMonorepoFile } from './monoverse/get-monorepo-file/index.js';
 import {
   getBranches,
   getChanges,
   getFileDiff,
   getKnownFiles,
 } from './git-changes/index.js';
-import { runLaymosStories } from './run-laymos-stories/index.js';
+import { runLaymosStories } from './laymos/run-stories/index.js';
 
-export const DevtoolsHandlersLive = DevtoolsToolRpc.toLayer({
+export const DevtoolsHandlersLive = LaymosRpc.toLayer({
   AnalyzeLaymosProject: ({ projectPath }) => analyzeLaymosProject(projectPath),
   GetLaymosFileList: ({ projectPath, modulePath }) =>
     getLaymosFileList(projectPath, modulePath),

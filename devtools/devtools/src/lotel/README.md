@@ -23,8 +23,7 @@ Terms are defined in [docs/lotel.md](../../docs/lotel.md). Decisions are
 pnpm add @kestack/devtools
 ```
 
-No peer dependencies. These subpaths are source TypeScript, like
-`@kestack/devtools/rpc`, and need `effect` in the consuming project.
+No peer dependencies; `effect` is a regular dependency.
 
 ## Exports
 
