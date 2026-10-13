@@ -9,5 +9,5 @@ The pretend browser the app runs in, sized like a desktop or a phone. The app la
 _Avoid_: frame, device, viewport
 
 **Devtools**:
-The Kabuki devtools, full screen over the Window, the app showing through blurred behind them. Ctrl+/ opens and closes them; closing them brings the app back to live from any past Step.
+The Kabuki devtools beside the Window: full screen over it with the app showing through blurred, a bar under it, a panel on its right, or a floating window. Ctrl+/ opens and closes them; a past Step shown stays shown after they close, with a dot on the button, until going live.
 _Avoid_: inspector (the devtools' own word for what they draw), overlay, panel
