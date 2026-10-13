@@ -1,6 +1,6 @@
 {
   "name": "@kestack/auth-toolkit",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "private": false,
   "description": "One shared sign-in service on Cloudflare, the guard both sides of an Effect API agree on, and the server and client halves that sign in to it",
   "keywords": [

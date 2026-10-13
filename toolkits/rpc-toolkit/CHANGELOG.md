@@ -1,1 +1,12 @@
 # @kestack/rpc-toolkit
+
+## 0.0.1
+
+### Patch Changes
+
+- [`971ddea`](https://github.com/pkishorez/monorepo/commit/971ddead3dd5c7b16ce1466d878535047e9406d9) Thanks [@pkishorez](https://github.com/pkishorez)! - Breaking: three entry points, `rpc`, `http-api` and `alchemy`, replace the old ones (`rpc/cannotation`, `http/cannotation`, `rpc/invocation`, `rpc/websocket-client`, `rpc/cloudflare/*`). The Cannotation is now Middleware (`Rpc.middleware`, `HttpApi.middleware`). `Rpc` has three Transports, each a client and server pair: `http`, `websocket` and the new `inProcess`, which calls the handlers in the same process.
+
+  The websocket server can keep stream state in the Durable Object's SQLite (`Rpc.websocket.streams.sqlite`) instead of the 2 KB socket attachment, closes a socket whose saved state is lost with `RESUME_LOST` so the client resubscribes, and its client `url` may be an Effect run before every connect. `@kestack/std-toolkit` is now a required peer. Needs Effect `^4.0.0`.
+
+- Updated dependencies [[`971ddea`](https://github.com/pkishorez/monorepo/commit/971ddead3dd5c7b16ce1466d878535047e9406d9)]:
+  - @kestack/std-toolkit@0.0.1
