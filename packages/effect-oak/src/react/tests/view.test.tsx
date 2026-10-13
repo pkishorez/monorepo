@@ -7,8 +7,8 @@ import { AnimatePresence, motion } from 'motion/react';
 import { Layer, Schema } from 'effect';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { Actor } from '../../core/index.ts';
-import { View, toReact } from '../index.ts';
-import type { ViewProps } from '../index.ts';
+import { View, toReact, useChild, useChildren } from '../index.ts';
+import type { Handle, ViewProps } from '../index.ts';
 import { registry } from '../registry.ts';
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
@@ -224,6 +224,134 @@ const ListApp = () => {
   const [App] = useState(() => toReact(List, ListView, Layer.empty));
   return <App />;
 };
+
+// A parent View reading its Children -------------------------------------------------
+
+/** Every Row's bumps, summed: re-renders on its own as a Row changes. */
+const Bumps = ({
+  rows,
+}: {
+  readonly rows: ReadonlyArray<Handle<typeof Row>>;
+}) => {
+  const read = useChildren(rows);
+  renders.Bumps = (renders.Bumps ?? 0) + 1;
+  seenRows = read;
+  return <p>bumps:{read.reduce((sum, kid) => sum + kid.model.bumps, 0)}</p>;
+};
+
+/** Which Row is selected, picked from each: re-renders only as that changes. */
+const Selected = ({
+  rows,
+}: {
+  readonly rows: ReadonlyArray<Handle<typeof Row>>;
+}) => {
+  const selected = useChildren(rows, (kid) => kid.props.selected);
+  renders.Selected = (renders.Selected ?? 0) + 1;
+  return <p>selected:{selected.join(',')}</p>;
+};
+
+/** Whether the Header was clicked more than once: re-renders only as that changes. */
+const Busy = ({ header }: { readonly header: Handle<typeof Header> }) => {
+  const busy = useChild(header, (read) => read.model.clicks > 1);
+  renders.Busy = (renders.Busy ?? 0) + 1;
+  return <p>busy:{String(busy)}</p>;
+};
+
+const Clicks = ({ header }: { readonly header: Handle<typeof Header> }) => {
+  const read = useChild(header);
+  return <p>clicks:{read?.model.clicks}</p>;
+};
+
+let seenRows: ReadonlyArray<object> = [];
+
+const ReadingView = View.make(List, (self) => {
+  drew(self);
+  const { children } = self;
+  return (
+    <section>
+      <Bumps rows={children.rows} />
+      <Clicks header={children.header} />
+      <Selected rows={children.rows} />
+      <Busy header={children.header} />
+      <HeaderView instance={children.header} />
+      <ul>
+        {children.rows.map((kid) => (
+          <RowView key={kid.id} instance={kid} />
+        ))}
+      </ul>
+    </section>
+  );
+});
+
+const ReadingApp = () => {
+  const [App] = useState(() => toReact(List, ReadingView, Layer.empty));
+  return <App />;
+};
+
+describe('a parent View reading its Children', () => {
+  it('re-renders only the component that reads, never the parent View', async () => {
+    await mount(<ReadingApp />);
+    renders = {};
+    await send(row('b'), { _tag: 'Bumped' });
+    await send(row('c'), { _tag: 'Bumped' });
+    expect(host.textContent).toContain('bumps:2');
+    expect(renders).toEqual({ Bumps: 2, [row('b')]: 1, [row('c')]: 1 });
+  });
+
+  it('given a selector, re-renders only when what it picks changes', async () => {
+    await mount(<ReadingApp />);
+    renders = {};
+    await send(row('b'), { _tag: 'Bumped' });
+    await send(HEADER, { _tag: 'Clicked' });
+    expect(renders.Selected).toBeUndefined();
+    expect(renders.Busy).toBeUndefined();
+
+    // The second click turns what Busy picks to true.
+    await send(HEADER, { _tag: 'Clicked' });
+    expect(renders.Busy).toBe(1);
+    expect(renders.Selected).toBeUndefined();
+    expect(host.textContent).toContain('busy:true');
+  });
+
+  it('reads a fixed Child', async () => {
+    await mount(<ReadingApp />);
+    await send(HEADER, { _tag: 'Clicked' });
+    expect(host.textContent).toContain('clicks:1');
+  });
+
+  it('reads, and never Sends or reaches further down', async () => {
+    await mount(<ReadingApp />);
+    expect(Object.keys(seenRows[0]!).sort()).toEqual([
+      '_tag',
+      'id',
+      'model',
+      'props',
+      'state',
+    ]);
+  });
+
+  it('follows the slot as keys come and go, and stays the same list while none change', async () => {
+    await mount(<ReadingApp />);
+    const before = seenRows;
+    await send(LIST, { _tag: 'Retitled', title: 'Renamed' });
+    expect(seenRows).toBe(before);
+    await send(LIST, { _tag: 'Removed', id: 'a' });
+    expect(seenRows.map((kid) => (kid as { id: string }).id)).toEqual([
+      row('b'),
+      row('c'),
+    ]);
+  });
+
+  it('throws outside an app', () => {
+    const Lost = () => {
+      useChild({ id: 'nowhere' });
+      return null;
+    };
+    expect(() => {
+      act(() => root.render(<Lost />));
+    }).toThrow('useChild is used outside its app');
+  });
+});
 
 // One draw function across States ---------------------------------------------------
 

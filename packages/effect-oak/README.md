@@ -12,6 +12,9 @@ it Provides to them and which Workers run. Leaving a State stops all of it.
 Any fact in the Model can own a Worker too: an upload runs for as long as its
 row says Uploading.
 Keyed Children follow the Model: a list of items can be a list of Actors.
+It is declarative, as React is: a parent says what should be, never what to
+do. It controls its Children only by whether they exist and by their Props,
+and what it must control it owns, as React lifts state up.
 
 The whole app is one immutable Snapshot, and handling a Message is a pure
 function from one Snapshot to the next. There is one mailbox, and a Message is
@@ -72,10 +75,12 @@ pnpm add effect-oak effect react
 
 ### `effect-oak/react`
 
-| Export      | What it does                                                                                                                                                                                                                                                               |
-| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `View.make` | Defines how one Actor is drawn, one function for every State, as a React component that takes the Instance, and a `ref` and `style`, from its parent.                                                                                                                      |
-| `toReact`   | Turns a root Actor, its View and a Layer into one React component that runs the whole app, one Runtime for every mount; `useRuntime` reads its History, shows any Step, and stops and starts it. Drawn before it runs, on a server too, from a saved History if given one. |
+| Export        | What it does                                                                                                                                                                                                                                                               |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `View.make`   | Defines how one Actor is drawn, one function for every State, as a React component that takes the Instance, and a `ref` and `style`, from its parent.                                                                                                                      |
+| `toReact`     | Turns a root Actor, its View and a Layer into one React component that runs the whole app, one Runtime for every mount; `useRuntime` reads its History, shows any Step, and stops and starts it. Drawn before it runs, on a server too, from a saved History if given one. |
+| `useChild`    | Reads one fixed Child's Model, State and Props from its parent's View, to draw, or only what an optional selector picks; an escape hatch that can never Send.                                                                                                              |
+| `useChildren` | Reads a slot of keyed Children the same way, in order; only the component that calls it re-renders, as they change or as what the selector picks does.                                                                                                                     |
 
 ## Usage
 

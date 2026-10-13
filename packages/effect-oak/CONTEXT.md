@@ -19,7 +19,7 @@ Who an Instance is, made from its parent's ID, the Child's name, its key if it h
 _Avoid_: path, address, number
 
 **Child**:
-An Actor its parent Invokes. Written at the top, a fixed Child exists for as long as its parent and lasts through every Transition; written in a State's block, for as long as that State lasts. A keyed Child exists for as long as its key is in the parent's Model too. The State and the Model decide which Children exist, never the View.
+An Actor its parent Invokes. Written at the top, a fixed Child exists for as long as its parent and lasts through every Transition; written in a State's block, for as long as that State lasts. A keyed Child exists for as long as its key is in the parent's Model too. The State and the Model decide which Children exist, never the View. A parent controls a Child only by whether it exists and by its Props, and never Sends to it: what a parent must control, it owns.
 _Avoid_: slot, dependency, subcomponent
 
 **Input**:
@@ -139,7 +139,7 @@ _Avoid_: output, bubble, callback, event
 ### Drawing
 
 **View**:
-How one Actor is drawn: a React component that reads the Model, State, Props and current Children of one Instance, and can only Send. A parent's View hands it nothing but where to draw. One function draws every State, so a Transition keeps the DOM, and an Instance that has stopped is drawn with its last data while it leaves the page. It never sees Capabilities, so it draws a Replay exactly like the live app. Kept apart from the Actor, so the same Actor can be drawn more than one way or not at all.
+How one Actor is drawn: a React component that reads the Model, State, Props and current Children of one Instance, and can only Send. A parent's View hands it nothing but where to draw. A parent's View can also read its own Children's Model, State and Props, to draw them, but never Send to them. One function draws every State, so a Transition keeps the DOM, and an Instance that has stopped is drawn with its last data while it leaves the page. It never sees Capabilities, so it draws a Replay exactly like the live app. Kept apart from the Actor, so the same Actor can be drawn more than one way or not at all.
 _Avoid_: render, template, component (on its own)
 
 **Send**:
