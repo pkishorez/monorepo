@@ -7,8 +7,15 @@ export class Session extends Context.Service<
   { readonly signOut: Effect.Effect<void> }
 >()('Session') {}
 
-/** What Downloads Provides to its files: a way for one to take itself off the list. */
+/**
+ * What Downloads Provides to its files: a way for one to take itself off the
+ * list, or to ask to be paused or resumed, since Downloads owns that.
+ */
 export class Shelf extends Context.Service<
   Shelf,
-  { readonly remove: (id: string) => Effect.Effect<void> }
+  {
+    readonly remove: (id: string) => Effect.Effect<void>;
+    readonly pause: (id: string) => Effect.Effect<void>;
+    readonly resume: (id: string) => Effect.Effect<void>;
+  }
 >()('Shelf') {}

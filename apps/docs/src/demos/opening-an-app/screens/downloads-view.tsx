@@ -11,10 +11,10 @@ import {
   Plus,
   X,
 } from 'lucide-react';
-import { View } from 'effect-oak/react';
-import type { ViewProps } from 'effect-oak/react';
+import { View, useChildren } from 'effect-oak/react';
+import type { Handle, ViewProps } from 'effect-oak/react';
 import { DURATION, Download, Downloads, STEP } from '../story/index.ts';
-import { Button, EASE } from './parts.tsx';
+import { Button, EASE, Wide } from './parts.tsx';
 
 /** The height of one download in the list, in pixels. */
 const ROW = 64;
@@ -36,16 +36,25 @@ export const DownloadsView = View.make(
   ({ model, children, send }) => (
     <section className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-4">
-        <div className="flex items-baseline gap-2">
+        <div className="flex min-w-0 items-baseline gap-2">
           <h2 className="text-sm font-medium">Downloads</h2>
-          <span className="text-xs text-muted-foreground tabular-nums">
-            {model.files.length} {model.files.length === 1 ? 'file' : 'files'}
-          </span>
+          <Count files={children.files} />
         </div>
-        <Button tone="primary" onClick={() => send({ _tag: 'Add' })}>
-          <Plus className="size-3.5" />
-          Add file
-        </Button>
+        <div className="flex shrink-0 items-center gap-1 @md:gap-2">
+          <AllButtons
+            files={model.files}
+            downloads={children.files}
+            send={send}
+          />
+          <Button
+            tone="primary"
+            label="Add file"
+            onClick={() => send({ _tag: 'Add' })}
+          >
+            <Plus className="size-3.5" />
+            <Wide>Add file</Wide>
+          </Button>
+        </div>
       </div>
       <motion.div
         initial={false}
@@ -81,6 +90,70 @@ export const DownloadsView = View.make(
     </section>
   ),
 );
+
+/** How many files there are and how many are done, read from the Downloads themselves. */
+function Count({
+  files,
+}: {
+  readonly files: ReadonlyArray<Handle<typeof Download>>;
+}) {
+  // Picks only whether each is done, so a tick of progress never redraws it.
+  const downloads = useChildren(files, (file) => file._tag === 'Done');
+  const done = downloads.filter(Boolean).length;
+  return (
+    <span className="truncate text-xs text-muted-foreground tabular-nums">
+      {downloads.length === 0
+        ? 'none yet'
+        : `${done} of ${downloads.length} done`}
+    </span>
+  );
+}
+
+/**
+ * Pause all, or resume all once every unfinished file is paused, and cancel
+ * all. Each only changes the list's own data: the Downloads follow it. It
+ * reads which Downloads are done, so it never offers to pause a finished one.
+ */
+function AllButtons({
+  files,
+  downloads,
+  send,
+}: {
+  readonly files: ViewProps<typeof Downloads>['model']['files'];
+  readonly downloads: ReadonlyArray<Handle<typeof Download>>;
+  readonly send: ViewProps<typeof Downloads>['send'];
+}) {
+  const done = new Set(
+    useChildren(downloads, (file) => file._tag === 'Done' && file.model.id),
+  );
+  const unfinished = files.filter((file) => !done.has(file.id));
+  const allPaused =
+    unfinished.length > 0 && unfinished.every((file) => file.paused);
+  return (
+    <>
+      <Button
+        disabled={unfinished.length === 0}
+        label={allPaused ? 'Resume all' : 'Pause all'}
+        onClick={() => send({ _tag: allPaused ? 'ResumeAll' : 'PauseAll' })}
+      >
+        {allPaused ? (
+          <Play className="size-3.5" />
+        ) : (
+          <Pause className="size-3.5" />
+        )}
+        <Wide>{allPaused ? 'Resume all' : 'Pause all'}</Wide>
+      </Button>
+      <Button
+        disabled={files.length === 0}
+        label="Cancel all"
+        onClick={() => send({ _tag: 'CancelAll' })}
+      >
+        <X className="size-3.5" />
+        <Wide>Cancel all</Wide>
+      </Button>
+    </>
+  );
+}
 
 const DownloadView = View.make(Download, (self) => <Row {...self} />);
 
@@ -121,10 +194,11 @@ function Swap({
 }
 
 function Row(self: ViewProps<typeof Download>) {
-  const { model, send } = self;
+  const { model, props, send } = self;
   const Icon =
     ICONS[model.name.split('.').at(-1) as keyof typeof ICONS] ?? FileText;
   const done = self._tag === 'Done';
+  const status = done ? 'Done' : props.paused ? 'Paused' : 'Downloading';
   return (
     <div className="flex h-full items-center gap-3 px-4">
       <span
@@ -141,10 +215,10 @@ function Row(self: ViewProps<typeof Download>) {
           }}
         </Swap>
       </span>
-      <Progress name={model.name} done={model.done} status={self._tag} />
+      <Progress name={model.name} done={model.done} status={status} />
       {/* Two button slots always, so a button going never moves the bar. */}
       <div className="flex shrink-0 items-center">
-        <Swap shown={self._tag} className="size-8">
+        <Swap shown={status} className="size-8">
           {{
             Downloading: (
               <Button
@@ -218,11 +292,17 @@ function Progress({
         {/* A fixed width, so a status of any length never moves the name. */}
         <Swap
           shown={status}
-          className="w-20 shrink-0 text-xs text-muted-foreground tabular-nums *:justify-items-end"
+          className="w-10 shrink-0 text-xs text-muted-foreground tabular-nums *:justify-items-end @md:w-20"
         >
           {{
             Downloading: <span>{percent}</span>,
-            Paused: <span>Paused · {percent}</span>,
+            // Narrow, the grey bar and the Resume button say it is paused.
+            Paused: (
+              <span>
+                <Wide>Paused · </Wide>
+                {percent}
+              </span>
+            ),
             Done: 'Done',
           }}
         </Swap>
