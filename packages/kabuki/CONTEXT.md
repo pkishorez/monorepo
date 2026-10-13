@@ -77,8 +77,16 @@ The pure rule that takes the current Model, State and Props, a Message and its T
 _Avoid_: reducer, handler
 
 **History**:
-Everything that happened to an app: a tree of entries, one per Message, each pointing to the entry before it and holding its Envelope, nothing else, and the Head the next one grows from. What came of a Message is worked out from the Snapshots before and after it. Replay needs only the Messages on the way to an entry. Saved and given back, it is where an app carries on from, on a server, at build time, after a reload, or after its code changed. Saved, every value in it is its Schema's encoded side, so that side must be JSON-safe.
+Everything that happened to an app: a tree of entries, one per Message, each pointing to the entry before it and holding its Envelope, nothing else, and the Head the next one grows from. What came of a Message is worked out from the Snapshots before and after it. Replay needs only the Messages on the way to an entry. Saved and given back, it is where an app carries on from, on a server, at build time, after a reload, or after its code changed. Saved, every value in it is its Schema's encoded side, so that side must be JSON-safe. Unbounded unless it has a Window.
 _Avoid_: log, journal, event store
+
+**Window**:
+How many entries a History keeps on the Head's Branch, counted back from the Head: none by default, so it keeps everything. It can be set when the History is made and changed at any time, even while a Runtime runs on it; a smaller one Compacts at once, and every entry after keeps to it.
+_Avoid_: limit, cap, retention, max size
+
+**Compact**:
+Fold every entry before the Window into one: the oldest entry kept becomes a Restore of the Snapshot right after it, with its Time and its place, and nothing before it. What is not on its way to the Head and did not grow from that entry is gone, other Branches included. What the folded Messages did is kept only as that Snapshot, so code changed later never plays them again. Never touches the Head.
+_Avoid_: prune, trim, truncate, garbage-collect
 
 **Head**:
 The History entry the next Message goes after. It moves to each new entry, and to an earlier one only while no Runtime runs on the History; starting there grows a new Branch.

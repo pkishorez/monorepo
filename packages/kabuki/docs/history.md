@@ -22,6 +22,10 @@ Two rules follow:
 - Work that must survive a stop belongs in a Worker, not a Command. A first fetch is a Worker.
 - The outside world is not rewound. Starting from an old entry rebuilds the app, not the server, the socket or localStorage.
 
+## Keeping it small
+
+A History keeps every entry unless it has a Window ([ADR 0029](adr/0029-a-window-compacts-the-history-into-a-restore.md)). With one, after every append and whenever the Window changes, it Compacts: the oldest entry kept on the Head's Branch becomes a Restore of the Snapshot right after it, with its own id and Time, and every entry that does not grow from it is swept, with what Replay remembered of it. Compacting twice is compacting once, and it never touches the Head, so `history.keep(n)` works while a Runtime runs. Time Travel then reaches init, the Restore, and the entries after it.
+
 ## Showing the past
 
 Showing a Step is the App's business, not the Runtime's. The App draws the History's Snapshot right after the Step shown, at its Time, while the live app runs on underneath, and drops any Send from the past. Showing live again draws the Runtime's Snapshot.

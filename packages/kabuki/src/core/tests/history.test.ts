@@ -393,3 +393,107 @@ describe('the History lock', () => {
       }),
     ));
 });
+
+describe('a Window', () => {
+  const tags = (history: History) =>
+    history.branch().map((entry) => `${entry.id} ${entry.message._tag}`);
+  const count = (history: History, entry: number | null) =>
+    instanceAt(history.snapshotAt(entry), 'Counter')?.model;
+
+  it('keeps that many entries on the Branch, the oldest a Restore of the Snapshot after it', () =>
+    timed(
+      Effect.gen(function* () {
+        const app = yield* Runtime.start(History.make(Counter, { window: 3 }));
+        for (let at = 1; at <= 5; at++) {
+          yield* TestClock.adjust('100 millis');
+          app.send('Counter', { _tag: 'Bumped' });
+        }
+        expect(tags(app.history)).toEqual([
+          '2 @kestack/kabuki/Restore',
+          '3 Bumped',
+          '4 Bumped',
+        ]);
+        expect(app.history.branch()[0]).toMatchObject({
+          parent: null,
+          at: 300,
+          source: { kind: 'restore' },
+        });
+        expect(count(app.history, 2)).toEqual({ count: 3 });
+        expect(count(app.history, 4)).toEqual({ count: 5 });
+        expect(count(app.history, null)).toEqual({ count: 0 });
+        expect(app.history.has(1)).toBe(false);
+        expect(instanceAt(app.snapshot(), 'Counter')?.model).toEqual({
+          count: 5,
+        });
+      }),
+    ));
+
+  it('changes while the Runtime runs, and keeping it again changes nothing', () =>
+    timed(
+      Effect.gen(function* () {
+        const app = yield* Runtime.start(Counter);
+        for (let at = 1; at <= 5; at++) app.send('Counter', { _tag: 'Bumped' });
+        expect(app.history.window()).toBe(null);
+        app.history.keep(2);
+        const once = app.history.save();
+        expect(tags(app.history)).toEqual([
+          '3 @kestack/kabuki/Restore',
+          '4 Bumped',
+        ]);
+        app.history.keep(2);
+        expect(app.history.save()).toEqual(once);
+        app.history.keep(null);
+        expect(app.history.save()).toEqual(once);
+        app.send('Counter', { _tag: 'Bumped' });
+        expect(app.history.head()).toBe(5);
+        expect(count(app.history, 5)).toEqual({ count: 6 });
+      }),
+    ));
+
+  it('sweeps every entry that does not grow from the oldest one kept', () =>
+    timed(
+      Effect.gen(function* () {
+        const app = yield* Runtime.start(Counter);
+        for (let at = 1; at <= 5; at++) app.send('Counter', { _tag: 'Bumped' });
+        yield* app.start(1);
+        app.send('Counter', { _tag: 'Started' });
+        // The Branch 0 1 5: the floor is 1, so 2 to 4 grew from it and stay.
+        app.history.keep(2);
+        expect(app.history.save().entries.map((entry) => entry.id)).toEqual([
+          1, 2, 3, 4, 5,
+        ]);
+        expect(app.history.children(1).map((entry) => entry.id)).toEqual([
+          2, 5,
+        ]);
+        app.history.keep(1);
+        expect(app.history.save().entries.map((entry) => entry.id)).toEqual([
+          5,
+        ]);
+        expect(app.snapshot().state._tag).toBe('Busy');
+      }),
+    ));
+
+  it('saves a History that loads and carries on from its ids', () =>
+    timed(
+      Effect.gen(function* () {
+        const app = yield* Runtime.start(History.make(Counter, { window: 2 }));
+        for (let at = 1; at <= 4; at++) app.send('Counter', { _tag: 'Bumped' });
+        const state = app.history.save();
+        const again = yield* Runtime.start(History.load(Counter, state));
+        expect(instanceAt(again.snapshot(), 'Counter')?.model).toEqual({
+          count: 4,
+        });
+        again.send('Counter', { _tag: 'Bumped' });
+        expect(again.history.branch().at(-1)).toMatchObject({
+          id: 4,
+          parent: 3,
+        });
+      }),
+    ));
+
+  it('keeps at least one entry', () => {
+    expect(() => History.make(Counter, { window: 0 })).toThrow(
+      /at least 1 entry, not 0/,
+    );
+  });
+});

@@ -31,7 +31,9 @@ import type { ViewOf } from './view.tsx';
  *           clear that fails is logged and kept as the app's failure.
  * 3. Show   any Step: the Views draw the Snapshot right after it, while
  *           the live app runs on underneath. A Send from the past is
- *           dropped.
+ *           dropped. A Step Compacted away shows the oldest one left.
+ * 4. Keep   the History's Window, once changed, in `localStorage` under the
+ *           app's name, and start from it after a reload.
  */
 
 type Unmet<A, Provided> = [Exclude<Needs<A>, Provided>] extends [never]
@@ -50,6 +52,13 @@ export interface AppOptions {
   readonly name?: string;
   /** A History saved before: the app is first drawn at its Head, and its Runtime carries on from there. */
   readonly saved?: SavedHistory;
+  /**
+   * How many entries its History keeps on the Head's Branch; every one by
+   * default. `history.keep` changes it later, and the change is remembered
+   * in the browser under the app's name, so it outlasts a reload and wins
+   * over this.
+   */
+  readonly window?: number | null;
 }
 
 /** The running app, for code outside the tree: a timeline, a devtool. */
@@ -87,12 +96,35 @@ export const toReact = <A extends AnyActor, Provided>(
   const root = { id: actor.definition.name };
   const app = {};
 
+  // 4. Keep
+  const windowKey = `@kestack/kabuki:${name}:window`;
+  /** The Window this app was left with, else the one it is given. */
+  const keptWindow = () => {
+    const stored = readStored(windowKey);
+    if (stored === 'all') return { window: null };
+    const count = Number(stored);
+    if (stored !== undefined && Number.isInteger(count) && count >= 1)
+      return { window: count };
+    return options.window === undefined ? {} : { window: options.window };
+  };
+  let written: number | null | undefined;
+  const remember = (window: number | null) => {
+    if (written === undefined) written = keptWindow().window ?? null;
+    if (window === written) return;
+    written = window;
+    writeStored(windowKey, window === null ? 'all' : `${window}`);
+  };
+
   const own = () =>
-    options.saved ? History.load(actor, options.saved) : History.make(actor);
+    options.saved
+      ? History.load(actor, options.saved, keptWindow())
+      : History.make(actor, keptWindow());
   /** The History an app of this name holds or left, read with this code, else its own. */
   const adopt = () => {
     const left = registry.history(name);
-    return left ? History.load(actor, left.save()) : own();
+    return left
+      ? History.load(actor, left.save(), { window: left.window() })
+      : own();
   };
 
   let history: History<A> | undefined;
@@ -114,7 +146,12 @@ export const toReact = <A extends AnyActor, Provided>(
     unwatch();
     history = next;
     first = undefined;
-    unwatch = next.subscribe(changed);
+    unwatch = next.subscribe(() => {
+      if (typeof shown === 'number' && !next.has(shown))
+        show(next.branch()[0]?.id ?? 'init');
+      remember(next.window());
+      changed();
+    });
     return next;
   };
   const historyOf = () => history ?? take(adopt());
@@ -371,4 +408,19 @@ const host = <A extends AnyActor>(
       ),
     );
   };
+};
+
+/** A value kept in the browser, or nothing: on a server, or where storage is refused. */
+const readStored = (key: string) => {
+  try {
+    return globalThis.localStorage?.getItem(key) ?? undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+const writeStored = (key: string, value: string) => {
+  try {
+    globalThis.localStorage?.setItem(key, value);
+  } catch {}
 };
