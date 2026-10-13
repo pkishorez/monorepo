@@ -1,9 +1,9 @@
-import { motion, useTransform } from '@kstackz/web-platform/components/motion';
+import { motion, useTransform } from '@kestack/web-platform/components/motion';
 import {
   GestureProvider,
   GestureZone,
   usePullToRefresh,
-} from '@kstackz/web-platform/input';
+} from '@kestack/web-platform/input';
 import { Effect } from 'effect';
 import { Gesture, Proof } from 'laymos/story';
 import { useState } from 'react';
@@ -73,7 +73,7 @@ export default Proof.browser({
     'The usePullToRefresh Pattern: a swipe down at the top of the list pulls the indicator with resistance, arms past 72px, and holds while onRefresh runs.',
   page: (root) => {
     const app = createRoot(root);
-    void import('@kstackz/web-platform/theme/global.css').then(() =>
+    void import('@kestack/web-platform/theme/global.css').then(() =>
       app.render(
         <GestureProvider>
           <GestureZone className="flex h-dvh flex-col bg-background text-foreground">

@@ -1,11 +1,11 @@
-import { StdTable } from '@kstackz/std-toolkit/db';
+import { StdTable } from '@kestack/std-toolkit/db';
 import type {
   AccessPatternDefinition,
   GlobalSecondaryIndex,
   KeyedEntity,
   PrimaryIndex,
   StdTable as StdTableType,
-} from '@kstackz/std-toolkit/db';
+} from '@kestack/std-toolkit/db';
 import { MessageSchema, RunSchema, ThreadSchema } from './schemas/index.js';
 
 export {

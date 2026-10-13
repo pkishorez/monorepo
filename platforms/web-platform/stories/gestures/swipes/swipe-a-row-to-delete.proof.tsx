@@ -1,5 +1,5 @@
-import { GestureProvider, GestureZone } from '@kstackz/web-platform/input';
-import { SwipeRow } from '@kstackz/web-platform/recipes/swipe-row';
+import { GestureProvider, GestureZone } from '@kestack/web-platform/input';
+import { SwipeRow } from '@kestack/web-platform/recipes/swipe-row';
 import { Effect } from 'effect';
 import { Gesture, Proof } from 'laymos/story';
 import { useState } from 'react';
@@ -53,7 +53,7 @@ export default Proof.browser({
     'web-platform’s SwipeRow recipe: each row is a Gesture Zone with a useSwipe left. Past 112px Delete arms; letting go slides the row away and deletes it.',
   page: (root) => {
     const app = createRoot(root);
-    void import('@kstackz/web-platform/theme/global.css').then(() =>
+    void import('@kestack/web-platform/theme/global.css').then(() =>
       app.render(
         <GestureProvider>
           <GestureZone className="h-dvh bg-background p-4 text-foreground">

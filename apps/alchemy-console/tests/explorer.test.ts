@@ -1,10 +1,10 @@
 import { Effect, Layer, Logger } from 'effect';
 import { RpcTest } from 'effect/rpc';
 import { FetchHttpClient } from 'effect/http';
-import { Authz } from '@kstackz/auth-toolkit/guard';
-import { authz } from '@kstackz/auth-toolkit/server';
-import { SQLite } from '@kstackz/std-toolkit/db/sqlite';
-import { makeNodeSQLite } from '@kstackz/std-toolkit/db/sqlite/node';
+import { Authz } from '@kestack/auth-toolkit/guard';
+import { authz } from '@kestack/auth-toolkit/server';
+import { SQLite } from '@kestack/std-toolkit/db/sqlite';
+import { makeNodeSQLite } from '@kestack/std-toolkit/db/sqlite/node';
 import { expect, it, vi } from 'vite-plus/test';
 import { consoleTable } from '../src/server/storage/table/index.ts';
 import { storeEntity as stores } from '../src/server/storage/stores/index.ts';

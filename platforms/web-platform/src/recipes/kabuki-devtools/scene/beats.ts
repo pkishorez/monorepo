@@ -1,4 +1,4 @@
-import type { Envelope, Source } from '@kstackz/kabuki';
+import type { Envelope, Source } from '@kestack/kabuki';
 
 /*
  * The Beats of a Step: what its Message did, read from its Envelope and the

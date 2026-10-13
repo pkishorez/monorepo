@@ -50,7 +50,7 @@ const bearer = (token: (() => string | null) | Effect.Effect<string>) =>
  * The guard for Effect RPC, the contract both sides import: `guard(policy?)`
  * attaches it to an Rpc or an RpcGroup (the nearest value wins), `Current`
  * is who called, `bearer` signs a client's calls. The server half is
- * `authz.layer` from `@kstackz/auth-toolkit/server`.
+ * `authz.layer` from `@kestack/auth-toolkit/server`.
  */
 export const Authz: typeof shared & {
   readonly guard: (typeof rpcMiddleware)['with'];

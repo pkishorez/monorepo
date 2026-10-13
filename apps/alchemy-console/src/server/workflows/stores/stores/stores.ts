@@ -1,5 +1,5 @@
 import { Effect, Stream } from 'effect';
-import { Authz } from '@kstackz/auth-toolkit/guard';
+import { Authz } from '@kestack/auth-toolkit/guard';
 import { StoreError } from '../../../../shared/contracts/stores/index.ts';
 import {
   BrowseError,

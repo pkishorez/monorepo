@@ -1,7 +1,7 @@
 import { Deferred, Effect, Layer, Schema } from 'effect';
-import { StdTable, type StdTableService } from '@kstackz/std-toolkit/db';
-import { Memory } from '@kstackz/std-toolkit/db/memory';
-import { ESchema } from '@kstackz/std-toolkit/eschema';
+import { StdTable, type StdTableService } from '@kestack/std-toolkit/db';
+import { Memory } from '@kestack/std-toolkit/db/memory';
+import { ESchema } from '@kestack/std-toolkit/eschema';
 import { nameToken, namedUser, type User } from '../../../contract/index.js';
 import { type Listed, SignIn } from '../../account/index.js';
 

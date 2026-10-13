@@ -1,6 +1,6 @@
 import { Effect, Fiber, Layer } from 'effect';
-import { defaultBroadcaster } from '@kstackz/std-toolkit/core';
-import { Memory } from '@kstackz/std-toolkit/db/memory';
+import { defaultBroadcaster } from '@kestack/std-toolkit/core';
+import { Memory } from '@kestack/std-toolkit/db/memory';
 import { describe, expect, it } from 'vitest';
 import { FLUSH_MIN_CHARS } from '../constants.js';
 import { COMMON_PARTS, customPart } from '../protocol/index.js';

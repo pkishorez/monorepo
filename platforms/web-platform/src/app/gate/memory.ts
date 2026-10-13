@@ -1,6 +1,6 @@
 import { Effect, type Layer, Schema } from 'effect';
-import { StdTable, type StdTableService } from '@kstackz/std-toolkit/db';
-import { ESchema } from '@kstackz/std-toolkit/eschema';
+import { StdTable, type StdTableService } from '@kestack/std-toolkit/db';
+import { ESchema } from '@kestack/std-toolkit/eschema';
 import { Backend } from '../host/index.ts';
 
 const User = Schema.Struct({

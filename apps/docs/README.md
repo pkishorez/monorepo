@@ -11,7 +11,7 @@ a Kabuki app in a browser window: it loads its assets, signs in, syncs
 and downloads files, with the Kabuki devtools over it on Ctrl+/. Its drawing words are in
 [`src/demos/opening-an-app/CONTEXT.md`](./src/demos/opening-an-app/CONTEXT.md).
 
-The UI uses `@kstackz/web-platform`. A Cloudflare Worker serves the site, and
+The UI uses `@kestack/web-platform`. A Cloudflare Worker serves the site, and
 the infrastructure is declared with Alchemy in `alchemy.run.ts` and
 `src/infra`.
 

@@ -143,6 +143,6 @@ const diverged = (entry: Entry, error: unknown) => {
   if (warned.has(entry)) return;
   warned.add(entry);
   console.warn(
-    `[@kstackz/kabuki] Replay diverged at entry ${entry.id}, ${entry.message._tag} for ${entry.destination}, and skips it: ${(error as Error).message}`,
+    `[@kestack/kabuki] Replay diverged at entry ${entry.id}, ${entry.message._tag} for ${entry.destination}, and skips it: ${(error as Error).message}`,
   );
 };

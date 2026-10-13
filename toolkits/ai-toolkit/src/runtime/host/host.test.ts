@@ -1,6 +1,6 @@
 import { Effect, Layer, Schedule } from 'effect';
-import { defaultBroadcaster } from '@kstackz/std-toolkit/core';
-import { Memory } from '@kstackz/std-toolkit/db/memory';
+import { defaultBroadcaster } from '@kestack/std-toolkit/core';
+import { Memory } from '@kestack/std-toolkit/db/memory';
 import { describe, expect, it } from 'vitest';
 import type { HarnessContext, RunOutcome } from '../protocol/index.js';
 import { aiTable, messages, runs, threads } from '../table/index.js';

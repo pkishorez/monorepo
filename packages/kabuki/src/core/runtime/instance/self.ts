@@ -28,7 +28,7 @@ export type AnySelf = Self<unknown, Tagged, Tagged, unknown>;
 
 /** The work running now, which `self.send` stamps as the Message's Source. */
 const Sending = Context.Reference<Source | undefined>(
-  '@kstackz/kabuki/Sending',
+  '@kestack/kabuki/Sending',
   {
     defaultValue: () => undefined,
   },
@@ -104,7 +104,7 @@ export const forkIn = (
   fiber.addObserver((exit) => {
     if (Exit.isFailure(exit) && !stopped(exit.cause))
       console.error(
-        `[@kstackz/kabuki] ${label} failed:\n${Cause.pretty(exit.cause)}`,
+        `[@kestack/kabuki] ${label} failed:\n${Cause.pretty(exit.cause)}`,
       );
   });
   return fiber;

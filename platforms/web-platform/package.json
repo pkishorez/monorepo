@@ -1,5 +1,5 @@
 {
-  "name": "@kstackz/web-platform",
+  "name": "@kestack/web-platform",
   "version": "0.0.0",
   "private": false,
   "description": "The way to build a kstack app: one config made into a PWA on TanStack Start with its Theme, its APIs on a cloud or a device Backend, several Accounts with one Session each, the screens before sign-in, and the server; plus the components, input, forms and Recipes to build screens with.",
@@ -183,11 +183,11 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "catalog:",
-    "@kstackz/auth-toolkit": "workspace:*",
-    "@kstackz/rpc-toolkit": "workspace:*",
-    "@kstackz/std-toolkit": "workspace:*",
-    "@kstackz/use-gesture": "workspace:*",
-    "@kstackz/use-keys": "workspace:*",
+    "@kestack/auth-toolkit": "workspace:*",
+    "@kestack/rpc-toolkit": "workspace:*",
+    "@kestack/std-toolkit": "workspace:*",
+    "@kestack/use-gesture": "workspace:*",
+    "@kestack/use-keys": "workspace:*",
     "@tailwindcss/vite": "catalog:",
     "@tanstack/react-router": "catalog:",
     "@tanstack/react-start": "catalog:",
@@ -198,7 +198,7 @@
     "@typescript/native": "catalog:",
     "@vitejs/plugin-react": "catalog:",
     "effect": "catalog:",
-    "@kstackz/kabuki": "workspace:*",
+    "@kestack/kabuki": "workspace:*",
     "laymos": "workspace:*",
     "react": "catalog:",
     "react-cosmos": "catalog:",
@@ -211,15 +211,15 @@
   },
   "peerDependencies": {
     "@cloudflare/workers-types": "5.20260904.1",
-    "@kstackz/auth-toolkit": "workspace:*",
-    "@kstackz/rpc-toolkit": "workspace:*",
-    "@kstackz/std-toolkit": "workspace:*",
-    "@kstackz/use-gesture": "workspace:*",
-    "@kstackz/use-keys": "workspace:*",
+    "@kestack/auth-toolkit": "workspace:*",
+    "@kestack/rpc-toolkit": "workspace:*",
+    "@kestack/std-toolkit": "workspace:*",
+    "@kestack/use-gesture": "workspace:*",
+    "@kestack/use-keys": "workspace:*",
     "@tanstack/react-router": "1.170.32",
     "@tanstack/react-start": "1.168.49",
     "effect": "^4.0.0",
-    "@kstackz/kabuki": "workspace:*",
+    "@kestack/kabuki": "workspace:*",
     "laymos": "workspace:*",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
@@ -230,7 +230,7 @@
     "@cloudflare/workers-types": {
       "optional": true
     },
-    "@kstackz/use-keys": {
+    "@kestack/use-keys": {
       "optional": true
     },
     "@tanstack/react-router": {
@@ -242,7 +242,7 @@
     "effect": {
       "optional": true
     },
-    "@kstackz/kabuki": {
+    "@kestack/kabuki": {
       "optional": true
     },
     "laymos": {

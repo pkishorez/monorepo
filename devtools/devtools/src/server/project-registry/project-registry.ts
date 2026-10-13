@@ -3,9 +3,9 @@ import { randomUUID } from 'node:crypto';
 import { homedir } from 'node:os';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { Context, Data, Effect, Layer } from 'effect';
-import type { Entity } from '@kstackz/std-toolkit/core';
-import { SQLite, type SQLiteDriver } from '@kstackz/std-toolkit/db/sqlite';
-import { makeNodeSQLite } from '@kstackz/std-toolkit/db/sqlite/node';
+import type { Entity } from '@kestack/std-toolkit/core';
+import { SQLite, type SQLiteDriver } from '@kestack/std-toolkit/db/sqlite';
+import { makeNodeSQLite } from '@kestack/std-toolkit/db/sqlite/node';
 import {
   ProjectRegistryError,
   ProjectRegistryRpc,

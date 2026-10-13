@@ -332,13 +332,13 @@ describe('across mounts and hot reloads', () => {
   });
 });
 
-/** What @kstackz/kabuki logged as an error, without React's own notes. */
+/** What @kestack/kabuki logged as an error, without React's own notes. */
 const ours = (errors: {
   mock: { calls: ReadonlyArray<ReadonlyArray<unknown>> };
 }) =>
   errors.mock.calls
     .map((call) => String(call[0]))
-    .filter((message) => message.includes('[@kstackz/kabuki]'));
+    .filter((message) => message.includes('[@kestack/kabuki]'));
 
 describe('mounting', () => {
   it('starts one Runtime under StrictMode', async () => {

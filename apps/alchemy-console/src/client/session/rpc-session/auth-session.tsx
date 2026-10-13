@@ -1,7 +1,7 @@
 import { Effect } from 'effect';
 import { createContext, useContext, useState } from 'react';
 import type { ReactNode } from 'react';
-import type { Account } from '@kstackz/auth-toolkit/client';
+import type { Account } from '@kestack/auth-toolkit/client';
 import {
   QueryClient,
   QueryClientProvider,

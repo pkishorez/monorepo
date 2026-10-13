@@ -11,8 +11,8 @@ import {
   Plus,
   X,
 } from 'lucide-react';
-import { View, useChildren } from '@kstackz/kabuki/react';
-import type { Handle, ViewProps } from '@kstackz/kabuki/react';
+import { View, useChildren } from '@kestack/kabuki/react';
+import type { Handle, ViewProps } from '@kestack/kabuki/react';
 import { DURATION, Download, Downloads, STEP } from '../story/index.ts';
 import { Button, EASE, Wide } from './parts.tsx';
 

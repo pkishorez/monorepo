@@ -1,6 +1,6 @@
 import { Effect, Layer } from 'effect';
 import { describe, expect, it, vi } from 'vitest';
-import { SignIn, Unreachable, type User } from '@kstackz/auth-toolkit/client';
+import { SignIn, Unreachable, type User } from '@kestack/auth-toolkit/client';
 import { memoryHost, type Host } from '../../host/index.ts';
 import { createGate, type GateView } from '../index.ts';
 import { gateMemory, gateTable } from '../memory.ts';

@@ -1,6 +1,6 @@
 import { Effect } from 'effect';
 import { useState } from 'react';
-import { Button } from '@kstackz/web-platform/components/button';
+import { Button } from '@kestack/web-platform/components/button';
 import {
   Dialog,
   DialogContent,
@@ -8,8 +8,8 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@kstackz/web-platform/components/dialog';
-import { Trash2 } from '@kstackz/web-platform/components/lucide';
+} from '@kestack/web-platform/components/dialog';
+import { Trash2 } from '@kestack/web-platform/components/lucide';
 import { isAlchemyManagedStack } from '../../../../shared/contracts/targets/index.ts';
 import { Rpc } from '../../../connections/rpc/index.ts';
 import { useRpcAction } from '../queries/index.ts';

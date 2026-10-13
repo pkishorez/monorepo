@@ -1,14 +1,14 @@
 import type { ReactNode } from 'react';
 import type { Package } from '../analysis';
 
-import { ChevronLeft, Layers } from '@kstackz/web-platform/components/lucide';
+import { ChevronLeft, Layers } from '@kestack/web-platform/components/lucide';
 import {
   AnimatePresence,
   motion,
   useReducedMotion,
-} from '@kstackz/web-platform/components/motion';
-import { Button } from '@kstackz/web-platform/components/button';
-import { cn } from '@kstackz/web-platform/components/utils';
+} from '@kestack/web-platform/components/motion';
+import { Button } from '@kestack/web-platform/components/button';
+import { cn } from '@kestack/web-platform/components/utils';
 
 interface LaymosDrilldownProps {
   readonly monorepoName: string;

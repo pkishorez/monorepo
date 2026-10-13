@@ -1,4 +1,4 @@
-import { TreeWalk } from '@kstackz/use-gesture';
+import { TreeWalk } from '@kestack/use-gesture';
 import { useRef, useState } from 'react';
 import type { Choice } from './choice.ts';
 import { useThumbLock } from './lock.ts';

@@ -1,7 +1,7 @@
 import { Effect } from 'effect';
-import { Authz } from '@kstackz/auth-toolkit/guard';
-import { nextUlid } from '@kstackz/std-toolkit/core';
-import type { DatabaseError } from '@kstackz/std-toolkit/db';
+import { Authz } from '@kestack/auth-toolkit/guard';
+import { nextUlid } from '@kestack/std-toolkit/core';
+import type { DatabaseError } from '@kestack/std-toolkit/db';
 import {
   CredentialError,
   ProviderFailure,

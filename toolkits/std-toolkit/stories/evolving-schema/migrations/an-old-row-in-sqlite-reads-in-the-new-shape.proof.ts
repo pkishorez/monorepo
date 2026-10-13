@@ -1,9 +1,9 @@
 import { Effect, Schema, Stream } from 'effect';
 import { Proof } from 'laymos/story';
-import { StdTable } from '@kstackz/std-toolkit/db';
-import { SQLite } from '@kstackz/std-toolkit/db/sqlite';
-import { makeNodeSQLite } from '@kstackz/std-toolkit/db/sqlite/node';
-import { EntityESchema } from '@kstackz/std-toolkit/eschema';
+import { StdTable } from '@kestack/std-toolkit/db';
+import { SQLite } from '@kestack/std-toolkit/db/sqlite';
+import { makeNodeSQLite } from '@kestack/std-toolkit/db/sqlite/node';
+import { EntityESchema } from '@kestack/std-toolkit/eschema';
 
 const TaskV1 = EntityESchema.make('Task', 'taskId', {
   boardId: Schema.String,

@@ -11,18 +11,18 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
-} from '@kstackz/web-platform/recipes/frame';
+} from '@kestack/web-platform/recipes/frame';
 import {
   Collapsible,
   CollapsibleContent,
-} from '@kstackz/web-platform/components/collapsible';
+} from '@kestack/web-platform/components/collapsible';
 import {
   ChevronRight,
   ChevronsDownUp,
   ChevronsUpDown,
   Layers,
   Search,
-} from '@kstackz/web-platform/components/lucide';
+} from '@kestack/web-platform/components/lucide';
 import { Rpc } from '../../../connections/rpc/index.ts';
 import { useRpcQuery, rpcQueryKeys } from '../queries/index.ts';
 import type { NavigationLink } from '../state-view/index.ts';

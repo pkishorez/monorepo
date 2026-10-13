@@ -2,7 +2,7 @@ import { type MotionValue, motionValue } from 'motion/react';
 import type {
   Pointer as CorePointer,
   Pointers as CorePointers,
-} from '@kstackz/use-gesture';
+} from '@kestack/use-gesture';
 import type { Target } from '../touch-input/index.ts';
 
 type Sample = CorePointer<Target>['start'];

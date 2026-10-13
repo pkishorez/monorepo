@@ -1,4 +1,4 @@
-# @kstackz/ai-toolkit
+# @kestack/ai-toolkit
 
 Effect-native runtime for stateful coding-agent harnesses whose Messages live in a StdTable
 
@@ -6,23 +6,23 @@ Effect-native runtime for stateful coding-agent harnesses whose Messages live in
 
 Claude Code and Codex turns run for minutes, pause for questions and approvals, and must outlive the browser tab that started them. Streaming the answer back over the request that started it ties the Run to one connection. ai-toolkit removes that coupling: a client starts a Run over RPC and gets nothing back but `void`; every fact about the Run lands as an immutable Message row in the AI Table, and clients read the table through whatever feed they already have.
 
-The package builds on `@kstackz/std-toolkit`. The AI Table is a `StdTable` with `threads`, `runs`, and `messages` entities, so any std-toolkit database adapter (memory, SQLite, DynamoDB, IndexedDB) can store it, and `@kstackz/std-toolkit/sync` can mirror it into a browser. The playground uses `@kstackz/rpc-toolkit/rpc/websocket-client` to keep its subscriptions alive; a production app can pair the same RPC with its own transport and feed.
+The package builds on `@kestack/std-toolkit`. The AI Table is a `StdTable` with `threads`, `runs`, and `messages` entities, so any std-toolkit database adapter (memory, SQLite, DynamoDB, IndexedDB) can store it, and `@kestack/std-toolkit/sync` can mirror it into a browser. The playground uses `@kestack/rpc-toolkit/rpc/websocket-client` to keep its subscriptions alive; a production app can pair the same RPC with its own transport and feed.
 
 Vocabulary is in [CONTEXT.md](CONTEXT.md), the decisions are in [docs/adr/](docs/adr/), and the lifecycle of one turn, the table layout, and the harness SDK boundaries are in [docs/turn-flow.md](docs/turn-flow.md).
 
 ## Install
 
 ```sh
-pnpm add @kstackz/ai-toolkit effect
+pnpm add @kestack/ai-toolkit effect
 ```
 
 - `effect` (peer, required): the RPC contract, layers, schemas, and the StdTable service all come from Effect.
 
-`@kstackz/std-toolkit`, `@anthropic-ai/claude-agent-sdk`, `@openai/codex`, and `@effect/platform-node` are regular dependencies and install with the package. Node 24 or newer is required.
+`@kestack/std-toolkit`, `@anthropic-ai/claude-agent-sdk`, `@openai/codex`, and `@effect/platform-node` are regular dependencies and install with the package. Node 24 or newer is required.
 
 ## Exports
 
-### `@kstackz/ai-toolkit/rpc`
+### `@kestack/ai-toolkit/rpc`
 
 | Export                             | What it does                                                                                                |
 | ---------------------------------- | ----------------------------------------------------------------------------------------------------------- |
@@ -57,7 +57,7 @@ pnpm add @kstackz/ai-toolkit effect
 | `CODEX_PARTS.REQUEST_RESOLVED`     | Part name `codex.request.resolved`, the Resolution to a Codex request.                                      |
 | `CUSTOM_PART_NAMES`                | Tuple of every custom part name across the three maps above.                                                |
 
-### `@kstackz/ai-toolkit/rpc/live`
+### `@kestack/ai-toolkit/rpc/live`
 
 | Export              | What it does                                                                                                                            |
 | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
@@ -66,11 +66,11 @@ pnpm add @kstackz/ai-toolkit effect
 | `HarnessHost`       | Service with `start`, `cancel`, `resolveClaude`, and `resolveCodex`, for callers that skip RPC.                                         |
 | `HarnessHost.layer` | Layer that builds the host, runs the Bootstrap Sweep, and cancels live Runs on shutdown; accepts a config and optional harness runners. |
 
-### `@kstackz/ai-toolkit/table`
+### `@kestack/ai-toolkit/table`
 
 | Export          | What it does                                                                             |
 | --------------- | ---------------------------------------------------------------------------------------- |
-| `aiTable`       | The `StdTable` named `@kstackz/ai-toolkit` with its primary key and GSI1 to GSI5.        |
+| `aiTable`       | The `StdTable` named `@kestack/ai-toolkit` with its primary key and GSI1 to GSI5.        |
 | `threads`       | Thread entity with a `byUpdate` feed on GSI2.                                            |
 | `runs`          | Run entity keyed under its Thread, with `byThreadUpdate` on GSI1 and `byUpdate` on GSI2. |
 | `messages`      | Message entity keyed under its Run, with `byThreadUpdate` on GSI1.                       |
@@ -79,23 +79,23 @@ pnpm add @kstackz/ai-toolkit effect
 | `MessageSchema` | Entity schema for a Message row.                                                         |
 | `MESSAGE_ROLES` | Tuple of Message roles: `system`, `user`, `assistant`.                                   |
 
-### `@kstackz/ai-toolkit/client`
+### `@kestack/ai-toolkit/client`
 
 | Export             | What it does                                                                                                                       |
 | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
 | `toUiMessages`     | Folds ordered Message rows of one Run and role into turns and joins streamed text and thinking.                                    |
 | `toUiConversation` | Folds rows into turns, pairs each question with its Resolution and tool activity, and groups non-prose parts into activity blocks. |
 
-### `@kstackz/ai-toolkit/playground`
+### `@kestack/ai-toolkit/playground`
 
 | Export                  | What it does                                                                                                   |
 | ----------------------- | -------------------------------------------------------------------------------------------------------------- |
 | `AiPlaygroundRpc`       | Demo-only group: `createThread`, `subscribeThreads`, `subscribeMessages`.                                      |
 | `AiPlaygroundServerRpc` | `AiRpc` merged with `AiPlaygroundRpc`; the group the Playground Server serves.                                 |
 | `PlaygroundFailed`      | Error returned by the playground calls.                                                                        |
-| `makePlaygroundSync`    | Builds `threads` and `messages` synced collections over a playground client using `@kstackz/std-toolkit/sync`. |
+| `makePlaygroundSync`    | Builds `threads` and `messages` synced collections over a playground client using `@kestack/std-toolkit/sync`. |
 
-The `@kstackz/ai-toolkit` binary exposes `ai-toolkit serve --port 3001`, which runs the Playground Server against the current directory.
+The `@kestack/ai-toolkit` binary exposes `ai-toolkit serve --port 3001`, which runs the Playground Server against the current directory.
 
 ## Usage
 
@@ -109,11 +109,11 @@ import { Layer } from 'effect';
 import { HttpRouter } from 'effect/http';
 import { RpcSerialization, RpcServer } from 'effect/rpc';
 import { NodeHttpServer, NodeServices } from '@effect/platform-node';
-import { defaultBroadcaster } from '@kstackz/std-toolkit/core';
-import { Memory } from '@kstackz/std-toolkit/db/memory';
-import { AiRpc } from '@kstackz/ai-toolkit/rpc';
-import { AiRpcLive } from '@kstackz/ai-toolkit/rpc/live';
-import { aiTable } from '@kstackz/ai-toolkit/table';
+import { defaultBroadcaster } from '@kestack/std-toolkit/core';
+import { Memory } from '@kestack/std-toolkit/db/memory';
+import { AiRpc } from '@kestack/ai-toolkit/rpc';
+import { AiRpcLive } from '@kestack/ai-toolkit/rpc/live';
+import { aiTable } from '@kestack/ai-toolkit/table';
 
 const storage = Layer.merge(Memory.make(aiTable).layer, defaultBroadcaster);
 
@@ -143,10 +143,10 @@ export const server = HttpRouter.serve(rpc).pipe(
 
 ```ts
 import { Effect, Layer } from 'effect';
-import { defaultBroadcaster } from '@kstackz/std-toolkit/core';
-import { Memory } from '@kstackz/std-toolkit/db/memory';
-import { HarnessHost } from '@kstackz/ai-toolkit/rpc/live';
-import { aiTable, messages, runs, threads } from '@kstackz/ai-toolkit/table';
+import { defaultBroadcaster } from '@kestack/std-toolkit/core';
+import { Memory } from '@kestack/std-toolkit/db/memory';
+import { HarnessHost } from '@kestack/ai-toolkit/rpc/live';
+import { aiTable, messages, runs, threads } from '@kestack/ai-toolkit/table';
 
 const storage = Layer.merge(Memory.make(aiTable).layer, defaultBroadcaster);
 const host = HarnessHost.layer({ hostId: 'test' }).pipe(
@@ -192,12 +192,12 @@ The docs demo connects over WebSocket, syncs `threads` and `messages` into live 
 ```ts
 import { Context, Effect, Layer, Scope } from 'effect';
 import { RpcClient } from 'effect/rpc';
-import { toUiConversation } from '@kstackz/ai-toolkit/client';
+import { toUiConversation } from '@kestack/ai-toolkit/client';
 import {
   AiPlaygroundServerRpc,
   makePlaygroundSync,
-} from '@kstackz/ai-toolkit/playground';
-import { Rpc } from '@kstackz/rpc-toolkit/rpc';
+} from '@kestack/ai-toolkit/playground';
+import { Rpc } from '@kestack/rpc-toolkit/rpc';
 
 const boot = Effect.gen(function* () {
   const context = yield* Layer.build(

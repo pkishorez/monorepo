@@ -2,7 +2,7 @@
 
 Status: narrowed by [ADR 0008](0008-one-version-for-the-packages-that-depend-on-each-other.md): only the packages that depend on another package in the repo share the one version; the rest version alone.
 
-Every `@kstackz/*` package and `laymos` sit in one changeset `fixed` group, so they always release together under one version number, the way Effect versions its packages. Users follow one rule: keep all kstack packages on the same version. `use-effect-ts` depends on nothing in the repo and keeps its own version.
+Every `@kestack/*` package and `laymos` sit in one changeset `fixed` group, so they always release together under one version number, the way Effect versions its packages. Users follow one rule: keep all kstack packages on the same version. `use-effect-ts` depends on nothing in the repo and keeps its own version.
 
 ## Considered Options
 

@@ -1,5 +1,5 @@
 import { Effect, Fiber, Layer } from 'effect';
-import { Memory } from '@kstackz/std-toolkit/db/memory';
+import { Memory } from '@kestack/std-toolkit/db/memory';
 import { describe, expect, it } from 'vitest';
 import { nameToken } from '../../../../contract/index.js';
 import { SignIn } from '../../../account/index.js';

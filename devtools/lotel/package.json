@@ -1,5 +1,5 @@
 {
-  "name": "@kstackz/lotel",
+  "name": "@kestack/lotel",
   "version": "0.0.0",
   "private": false,
   "description": "Telemetry contracts and orchestration for DevTools",
@@ -44,7 +44,7 @@
     "effect": "catalog:"
   },
   "devDependencies": {
-    "@kstackz/std-toolkit": "workspace:*",
+    "@kestack/std-toolkit": "workspace:*",
     "@tsconfig/node22": "catalog:",
     "@types/node": "catalog:",
     "typescript": "catalog:",
@@ -55,6 +55,6 @@
     "access": "public"
   },
   "peerDependencies": {
-    "@kstackz/std-toolkit": "workspace:*"
+    "@kestack/std-toolkit": "workspace:*"
   }
 }

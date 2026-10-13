@@ -117,7 +117,7 @@ export class EntityESchema<
 
   '~standard' = {
     version: 1 as const,
-    vendor: '@kstackz/std-toolkit/eschema',
+    vendor: '@kestack/std-toolkit/eschema',
     types: {
       input: null as unknown as LatestType<TLatest>,
       output: null as unknown as LatestType<TLatest>,

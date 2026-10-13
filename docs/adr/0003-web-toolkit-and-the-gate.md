@@ -2,7 +2,7 @@
 
 Status: partly superseded by [ADR 0006](0006-platforms-may-break-toolkits-keep-what-persists.md): web-toolkit is now the Web Platform, the PWA is always on, and the Gate is in the Web Platform (platform-toolkit was folded into it by [ADR 0007](0007-web-is-the-only-platform.md)).
 
-`@kstackz/ui-toolkit` and `@kstackz/pwa-toolkit` merge into `@kstackz/web-platform`, laid out like expo-platform: one Laymos layer per job, one subpath per layer, bottom to top `theme`, `feedback`, `input`, `components`, `form`, `recipes`, `client`, `pwa`, with `server` beside them. `client` and `server` are the opinionated way in and assume TanStack Start. The PWA sits above `client` and plugs into it, so `client` never imports it: an app that leaves `pwa` out ships no service worker, manifest or Update Prompt.
+`@kestack/ui-toolkit` and `@kestack/pwa-toolkit` merge into `@kestack/web-platform`, laid out like expo-platform: one Laymos layer per job, one subpath per layer, bottom to top `theme`, `feedback`, `input`, `components`, `form`, `recipes`, `client`, `pwa`, with `server` beside them. `client` and `server` are the opinionated way in and assume TanStack Start. The PWA sits above `client` and plugs into it, so `client` never imports it: an app that leaves `pwa` out ships no service worker, manifest or Update Prompt.
 
 What runs sign-in on a device (the **Gate**: which Backend, which Signed-in Accounts, the Backend Lifetime and the Session Lifetime) moves out of `ledger/core` into auth-toolkit with no platform code, because the Expo app runs the same Gate. web-platform and expo-platform give it their platform pieces and their React wiring.
 
@@ -11,7 +11,7 @@ What runs sign-in on a device (the **Gate**: which Backend, which Signed-in Acco
 - **Keep two packages, ui-toolkit and pwa-toolkit**: rejected. Every web app wanted both, and the opinionated setup that ties them (root document, sign-in, server) had no home, so each app copied it.
 - **Make every app a PWA, with no way out**: rejected. A PWA is a promise to work offline and update in place; an app should make it on purpose, by adding a layer.
 - **Put the Gate in web-platform**: rejected. Expo would import a web package or keep a copy.
-- **Keep the devtools-only blocks (laymos, otel-trace-viewer, monoverse, flow-swimlane) in web-platform**: rejected. They go to a private `@devtools/ui` that `@kstackz/devtools` bundles, so web-platform carries only what any web app needs.
+- **Keep the devtools-only blocks (laymos, otel-trace-viewer, monoverse, flow-swimlane) in web-platform**: rejected. They go to a private `@devtools/ui` that `@kestack/devtools` bundles, so web-platform carries only what any web app needs.
 
 ## Consequences
 

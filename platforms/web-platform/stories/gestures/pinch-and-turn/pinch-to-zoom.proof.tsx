@@ -2,13 +2,13 @@ import {
   motion,
   useMotionValue,
   useTransform,
-} from '@kstackz/web-platform/components/motion';
+} from '@kestack/web-platform/components/motion';
 import {
   GestureProvider,
   GestureZone,
   type Pointer,
   useGesture,
-} from '@kstackz/web-platform/input';
+} from '@kestack/web-platform/input';
 import { Effect } from 'effect';
 import { Gesture, Proof } from 'laymos/story';
 import { useRef } from 'react';
@@ -75,7 +75,7 @@ export default Proof.browser({
     'useGesture with `directions: "all"` reads both fingers as motion values; the photo scales by how far apart they are.',
   page: (root) => {
     const app = createRoot(root);
-    void import('@kstackz/web-platform/theme/global.css').then(() =>
+    void import('@kestack/web-platform/theme/global.css').then(() =>
       app.render(
         <GestureProvider>
           <GestureZone className="flex h-dvh flex-col bg-background p-6 text-foreground">

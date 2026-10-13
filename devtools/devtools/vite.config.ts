@@ -46,15 +46,15 @@ export default defineConfig({
     // them up front stops a first JSON or CSS file from failing while Vite
     // re-optimizes mid-session.
     include: [
-      '@kstackz/web-platform > @shikijs/langs/css',
-      '@kstackz/web-platform > @shikijs/langs/html',
-      '@kstackz/web-platform > @shikijs/langs/javascript',
-      '@kstackz/web-platform > @shikijs/langs/json',
-      '@kstackz/web-platform > @shikijs/langs/jsx',
-      '@kstackz/web-platform > @shikijs/langs/markdown',
-      '@kstackz/web-platform > @shikijs/langs/tsx',
-      '@kstackz/web-platform > @shikijs/langs/typescript',
-      '@kstackz/web-platform > @shikijs/langs/yaml',
+      '@kestack/web-platform > @shikijs/langs/css',
+      '@kestack/web-platform > @shikijs/langs/html',
+      '@kestack/web-platform > @shikijs/langs/javascript',
+      '@kestack/web-platform > @shikijs/langs/json',
+      '@kestack/web-platform > @shikijs/langs/jsx',
+      '@kestack/web-platform > @shikijs/langs/markdown',
+      '@kestack/web-platform > @shikijs/langs/tsx',
+      '@kestack/web-platform > @shikijs/langs/typescript',
+      '@kestack/web-platform > @shikijs/langs/yaml',
     ],
   },
   server: {

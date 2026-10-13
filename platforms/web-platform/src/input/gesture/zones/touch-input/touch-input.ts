@@ -3,7 +3,7 @@ import {
   type PointerSample,
   type PointerSink,
   type ZoneTree,
-} from '@kstackz/use-gesture';
+} from '@kestack/use-gesture';
 import {
   isTextEntry,
   nativeScrollKeeps,

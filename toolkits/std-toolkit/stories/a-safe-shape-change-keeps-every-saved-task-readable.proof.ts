@@ -1,10 +1,10 @@
 import { Effect, Schema, Stream } from 'effect';
 import { Proof } from 'laymos/story';
-import { StdTable } from '@kstackz/std-toolkit/db';
-import { SQLite } from '@kstackz/std-toolkit/db/sqlite';
-import { makeNodeSQLite } from '@kstackz/std-toolkit/db/sqlite/node';
-import { EntityESchema } from '@kstackz/std-toolkit/eschema';
-import { TableSnapshot } from '@kstackz/std-toolkit/snapshot';
+import { StdTable } from '@kestack/std-toolkit/db';
+import { SQLite } from '@kestack/std-toolkit/db/sqlite';
+import { makeNodeSQLite } from '@kestack/std-toolkit/db/sqlite/node';
+import { EntityESchema } from '@kestack/std-toolkit/eschema';
+import { TableSnapshot } from '@kestack/std-toolkit/snapshot';
 
 // Last release: a task has a title.
 const TaskV1 = EntityESchema.make('Task', 'taskId', {

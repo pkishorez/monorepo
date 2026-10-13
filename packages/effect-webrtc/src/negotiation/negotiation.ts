@@ -9,13 +9,13 @@ export const TraceCarrierSchema = Schema.Struct({
 export type TraceCarrier = typeof TraceCarrierSchema.Type;
 
 export const PeerSessionId = Schema.String.pipe(
-  Schema.brand('@kstackz/effect-webrtc/PeerSessionId'),
+  Schema.brand('@kestack/effect-webrtc/PeerSessionId'),
 );
 
 export type PeerSessionId = typeof PeerSessionId.Type;
 
 export const ConnectionAttemptId = Schema.String.pipe(
-  Schema.brand('@kstackz/effect-webrtc/ConnectionAttemptId'),
+  Schema.brand('@kestack/effect-webrtc/ConnectionAttemptId'),
 );
 
 export type ConnectionAttemptId = typeof ConnectionAttemptId.Type;

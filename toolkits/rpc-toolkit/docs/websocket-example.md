@@ -8,7 +8,7 @@ client-supplied identity or roles as trusted authorization.
 // contract.ts — imported by the server and browser
 import { Schema } from 'effect';
 import { Rpc as EffectRpc, RpcGroup } from 'effect/rpc';
-import { Rpc } from '@kstackz/rpc-toolkit/rpc';
+import { Rpc } from '@kestack/rpc-toolkit/rpc';
 
 export class Forbidden extends Schema.Error<Forbidden>('example/Forbidden')({
   _tag: Schema.tag('Forbidden'),
@@ -29,7 +29,7 @@ export const Counter = Access.with(true)(
 ```ts
 // server.ts — server only
 import { Effect, Layer, Option, Schema, Stream } from 'effect';
-import { Rpc } from '@kstackz/rpc-toolkit/rpc';
+import { Rpc } from '@kestack/rpc-toolkit/rpc';
 import { Access, Counter, Forbidden } from './contract.js';
 
 export const makeHandlers = (options: {
@@ -75,7 +75,7 @@ With Alchemy, declare the Worker and its Durable Object together. Here,
 ```ts
 // counter-worker.ts — default export required by Alchemy
 import { Effect } from 'effect';
-import { DurableRpcWorker } from '@kstackz/rpc-toolkit/alchemy';
+import { DurableRpcWorker } from '@kestack/rpc-toolkit/alchemy';
 import { Counter } from './contract.js';
 import { makeHandlers } from './server.js';
 import { authorization } from './authorization.js';
@@ -130,7 +130,7 @@ Without Alchemy, build the runtime directly instead:
 
 ```ts
 // durable-server.ts — host composition without Alchemy
-import { Rpc } from '@kstackz/rpc-toolkit/rpc';
+import { Rpc } from '@kestack/rpc-toolkit/rpc';
 import { Counter } from './contract.js';
 import { makeHandlers } from './server.js';
 
@@ -153,7 +153,7 @@ and WebSocket close callbacks, running them through its Effect integration.
 import { Effect, Layer, Stream } from 'effect';
 import { Headers } from 'effect/http';
 import { RpcClient } from 'effect/rpc';
-import { Rpc } from '@kstackz/rpc-toolkit/rpc';
+import { Rpc } from '@kestack/rpc-toolkit/rpc';
 import { Access, Counter } from './contract.js';
 
 export const watchCounter = (

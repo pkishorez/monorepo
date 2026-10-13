@@ -1,5 +1,5 @@
 import { useRef, useState, type PointerEvent } from 'react';
-import { cn } from '@kstackz/web-platform/components/utils';
+import { cn } from '@kestack/web-platform/components/utils';
 import type { PhaseReport, Step } from 'laymos/story/schema';
 
 import { storiesKeys } from '../stories-keys';

@@ -1,5 +1,5 @@
 import { Effect, Queue } from 'effect';
-import type { StdTableService } from '@kstackz/std-toolkit/db';
+import type { StdTableService } from '@kestack/std-toolkit/db';
 import { FLUSH_MIN_CHARS } from '../constants.js';
 import type {
   AiCustomPart,

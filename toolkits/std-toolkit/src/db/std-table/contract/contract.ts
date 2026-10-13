@@ -221,7 +221,7 @@ export const StdTableService = <Name extends string>(logicalName: Name) => {
   let tag = tags.get(logicalName);
   if (tag === undefined) {
     tag = Context.Service<StdTableService<string>>(
-      `@kstackz/std-toolkit/db/StdTable/${logicalName}`,
+      `@kestack/std-toolkit/db/StdTable/${logicalName}`,
     );
     tags.set(logicalName, tag);
   }

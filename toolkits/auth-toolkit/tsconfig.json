@@ -8,11 +8,11 @@
     "moduleResolution": "nodenext",
     "jsx": "react-jsx",
     "paths": {
-      "@kstackz/auth-toolkit/guard": ["./src/guard/index.ts"],
-      "@kstackz/auth-toolkit/server": ["./src/server/index.ts"],
-      "@kstackz/auth-toolkit/server/cloud": ["./src/server/cloud/index.ts"],
-      "@kstackz/auth-toolkit/client": ["./src/client/index.ts"],
-      "@kstackz/auth-toolkit/client/cli": [
+      "@kestack/auth-toolkit/guard": ["./src/guard/index.ts"],
+      "@kestack/auth-toolkit/server": ["./src/server/index.ts"],
+      "@kestack/auth-toolkit/server/cloud": ["./src/server/cloud/index.ts"],
+      "@kestack/auth-toolkit/client": ["./src/client/index.ts"],
+      "@kestack/auth-toolkit/client/cli": [
         "./src/client/sign-in/device-code/index.ts"
       ]
     },

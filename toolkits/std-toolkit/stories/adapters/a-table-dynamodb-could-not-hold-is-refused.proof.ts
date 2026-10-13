@@ -1,6 +1,6 @@
 import { Effect } from 'effect';
 import { Proof } from 'laymos/story';
-import { StdTable } from '@kstackz/std-toolkit/db';
+import { StdTable } from '@kestack/std-toolkit/db';
 
 const refusal = (define: () => unknown) =>
   Effect.sync(() => {

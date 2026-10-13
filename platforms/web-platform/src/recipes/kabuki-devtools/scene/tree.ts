@@ -1,5 +1,5 @@
-import { isMany } from '@kstackz/kabuki';
-import type { ActorDefinition, Instance, Snapshot } from '@kstackz/kabuki';
+import { isMany } from '@kestack/kabuki';
+import type { ActorDefinition, Instance, Snapshot } from '@kestack/kabuki';
 import { measure } from './nodes.ts';
 import type { Item, WorkerKey, WorkerRow, WorkerStatus } from './nodes.ts';
 

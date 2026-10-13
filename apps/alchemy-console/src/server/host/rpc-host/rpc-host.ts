@@ -1,12 +1,12 @@
 import { Effect, Layer } from 'effect';
-import { authz } from '@kstackz/auth-toolkit/server/cloud';
+import { authz } from '@kestack/auth-toolkit/server/cloud';
 import { ConsoleApi } from '../../../shared/api/console-api/index.ts';
 import { ConsoleHandlers } from '../../handlers/console-handlers/index.ts';
 import { FetchHttpClient } from 'effect/http';
 import { HttpEffect } from 'effect/http';
 import { RpcSerialization, RpcServer } from 'effect/rpc';
-import { SQLite } from '@kstackz/std-toolkit/db/sqlite';
-import { makeD1SQLite } from '@kstackz/std-toolkit/db/sqlite/d1';
+import { SQLite } from '@kestack/std-toolkit/db/sqlite';
+import { makeD1SQLite } from '@kestack/std-toolkit/db/sqlite/d1';
 import { consoleTable } from '../../storage/table/index.ts';
 import { telemetryLayer } from '../../telemetry/index.ts';
 

@@ -1,1 +1,1 @@
-# @kstackz/effect-webrtc
+# @kestack/effect-webrtc

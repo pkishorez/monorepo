@@ -1,9 +1,9 @@
-import { motion } from '@kstackz/web-platform/components/motion';
+import { motion } from '@kestack/web-platform/components/motion';
 import {
   GestureProvider,
   GestureZone,
   useSidebar,
-} from '@kstackz/web-platform/input';
+} from '@kestack/web-platform/input';
 import { Effect } from 'effect';
 import { Gesture, Proof } from 'laymos/story';
 import { createRoot } from 'react-dom/client';
@@ -62,7 +62,7 @@ export default Proof.browser({
     'The useSidebar Pattern: a swipe right from the left edge pulls it open under the finger, a swipe left anywhere closes it, and it settles by where the momentum would carry it.',
   page: (root) => {
     const app = createRoot(root);
-    void import('@kstackz/web-platform/theme/global.css').then(() =>
+    void import('@kestack/web-platform/theme/global.css').then(() =>
       app.render(
         <GestureProvider>
           <GestureZone className="h-dvh overflow-hidden bg-background text-foreground">

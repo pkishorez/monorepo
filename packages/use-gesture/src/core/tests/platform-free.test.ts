@@ -46,7 +46,7 @@ const files = Object.entries(sources).map(([file, code]) => ({
   code: withoutComments(code),
 }));
 
-describe('the core of @kstackz/use-gesture is platform-free', () => {
+describe('the core of @kestack/use-gesture is platform-free', () => {
   it('finds its sources', () => {
     expect(files.length).toBeGreaterThan(8);
   });

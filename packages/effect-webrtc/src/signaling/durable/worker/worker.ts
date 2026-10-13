@@ -10,12 +10,12 @@ import {
   Stream,
 } from 'effect';
 import type * as Cloudflare from 'alchemy/Cloudflare';
-import { verifyRequest } from '@kstackz/auth-toolkit/server/cloud';
+import { verifyRequest } from '@kestack/auth-toolkit/server/cloud';
 import {
   isTrustedOrigin,
   validateTrustedOrigins,
-} from '@kstackz/auth-toolkit/worker';
-import type { Rpc } from '@kstackz/rpc-toolkit/rpc';
+} from '@kestack/auth-toolkit/worker';
+import type { Rpc } from '@kestack/rpc-toolkit/rpc';
 import { HttpServerRequest, HttpServerResponse } from 'effect/http';
 import {
   ConnectionMetadata,
@@ -48,7 +48,7 @@ const resolveRequestValue = <A>(value: RequestValue<A>, request: Request): A =>
     : value;
 
 const ConnectionContext = Context.Reference<DurableConnection>(
-  '@kstackz/effect-webrtc/DurableConnection',
+  '@kestack/effect-webrtc/DurableConnection',
   {
     defaultValue: () => {
       throw new Error('Durable signaling RPC called without a connection');

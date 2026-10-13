@@ -1,6 +1,6 @@
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { Monitor, Smartphone } from '@kstackz/web-platform/components/lucide';
-import { cn } from '@kstackz/web-platform/components/utils';
+import { Monitor, Smartphone } from '@kestack/web-platform/components/lucide';
+import { cn } from '@kestack/web-platform/components/utils';
 import type { Recording, Step } from 'laymos/story/schema';
 
 import { frameAt } from './recording-clock';

@@ -16,6 +16,6 @@ ADR 0001 forbade hooks in Views because a hook can hold state and start work, wh
 
 ## Consequences
 
-- `@kstackz/kabuki/react` exports `useChild` and `useChildren`; outside an app they throw.
+- `@kestack/kabuki/react` exports `useChild` and `useChildren`; outside an app they throw.
 - A Child that has stopped reads as `undefined`, and `useChildren` leaves it out.
 - Opening an app counts finished Downloads and offers Pause all only over unfinished ones.

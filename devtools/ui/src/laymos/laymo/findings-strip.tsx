@@ -1,6 +1,6 @@
 import type { ArchitectureAnalysis } from 'laymos';
 
-import { cn } from '@kstackz/web-platform/components/utils';
+import { cn } from '@kestack/web-platform/components/utils';
 
 /**
  * One count the strip shows: how many of a finding there are, its name in

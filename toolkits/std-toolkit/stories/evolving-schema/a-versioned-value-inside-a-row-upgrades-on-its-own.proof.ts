@@ -1,6 +1,6 @@
 import { Effect, Schema } from 'effect';
 import { Proof } from 'laymos/story';
-import { ValueESchema } from '@kstackz/std-toolkit/eschema';
+import { ValueESchema } from '@kestack/std-toolkit/eschema';
 
 // A theme was free text; v2 makes it one of two words. There is no object to hold `_v`, so it lives in an envelope.
 const Theme = ValueESchema.make('Theme', Schema.String)

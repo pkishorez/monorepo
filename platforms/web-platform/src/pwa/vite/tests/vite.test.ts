@@ -45,7 +45,7 @@ const buildFixture = async (
     cacheDir: join(temp, `${name}-cache`),
     resolve: {
       alias: {
-        '@kstackz/web-platform/pwa/worker': join(root, 'src/fake-worker.js'),
+        '@kestack/web-platform/pwa/worker': join(root, 'src/fake-worker.js'),
       },
     },
     build: { outDir, assetsInlineLimit: 0, sourcemap: true },
@@ -67,13 +67,13 @@ describe('pwa() build', () => {
     const installedRoot = join(temp, 'installed');
     const packageRoot = join(
       installedRoot,
-      'node_modules/@kstackz/web-platform',
+      'node_modules/@kestack/web-platform',
     );
     await mkdir(packageRoot, { recursive: true });
     await writeFile(
       join(packageRoot, 'package.json'),
       JSON.stringify({
-        name: '@kstackz/web-platform',
+        name: '@kestack/web-platform',
         type: 'module',
         exports: { './pwa/rpc/client': './client.js' },
       }),
@@ -84,7 +84,7 @@ describe('pwa() build', () => {
     );
     await writeFile(
       join(installedRoot, 'server.js'),
-      "export { default } from '@kstackz/web-platform/pwa/rpc/client';",
+      "export { default } from '@kestack/web-platform/pwa/rpc/client';",
     );
     await build({
       configFile: false,

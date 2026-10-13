@@ -1,5 +1,5 @@
 import { Schema } from 'effect';
-import { EntityESchema } from '@kstackz/std-toolkit/eschema';
+import { EntityESchema } from '@kestack/std-toolkit/eschema';
 import { consoleTable } from '../table/index.ts';
 
 export const storeSchema = EntityESchema.make('store', 'id', {

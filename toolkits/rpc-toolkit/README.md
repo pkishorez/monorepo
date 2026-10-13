@@ -1,30 +1,30 @@
-# @kstackz/rpc-toolkit
+# @kestack/rpc-toolkit
 
 Effect RPC and HttpApi with Middleware both sides agree on, three Transports with a fixed protocol, and Cloudflare deploy declarations
 
 ## Big picture
 
-Effect RPC and Effect HttpApi give you middleware, but every app re-invents the same layer on top: a declaration on an endpoint that says how it may be called, a server half that checks it, a client half that rewrites the outgoing request. rpc-toolkit ships that once as Middleware (`Rpc.middleware`, `HttpApi.middleware`). The declaration lives in shared contract code; the two halves stay on their own side of the wire. Who may call what is auth-toolkit's Guard, built on `Rpc.middleware`; use [`@kstackz/auth-toolkit`](../auth-toolkit/README.md) for sign-in and authorization.
+Effect RPC and Effect HttpApi give you middleware, but every app re-invents the same layer on top: a declaration on an endpoint that says how it may be called, a server half that checks it, a client half that rewrites the outgoing request. rpc-toolkit ships that once as Middleware (`Rpc.middleware`, `HttpApi.middleware`). The declaration lives in shared contract code; the two halves stay on their own side of the wire. Who may call what is auth-toolkit's Guard, built on `Rpc.middleware`; use [`@kestack/auth-toolkit`](../auth-toolkit/README.md) for sign-in and authorization.
 
 The other thing every app re-invents is how a client reaches its server. `Rpc` has three Transports, each a client and server pair with the protocol fixed so the two always agree: `http` (POST, NDJSON, batched, on anything that speaks `Request` and `Response`), `websocket` (a Cloudflare Durable Object that hibernates without breaking streams, and a client that restarts subscriptions after a reconnect) and `inProcess` (the handlers in the same process, no wire). Client code is `RpcClient.make(group)` on every Transport, so moving between them changes one layer.
 
-The `alchemy` door deploys the websocket server as one Worker plus one Durable Object. The websocket server can keep its Stream Store on the Durable Object's own SQLite through [`@kstackz/std-toolkit`](../std-toolkit/README.md), for sockets whose open streams outgrow the attachment. The `rpc` and `http-api` doors never import Alchemy, and Cloudflare only as types.
+The `alchemy` door deploys the websocket server as one Worker plus one Durable Object. The websocket server can keep its Stream Store on the Durable Object's own SQLite through [`@kestack/std-toolkit`](../std-toolkit/README.md), for sockets whose open streams outgrow the attachment. The `rpc` and `http-api` doors never import Alchemy, and Cloudflare only as types.
 
 Vocabulary is in [CONTEXT.md](CONTEXT.md) and the decisions behind the shape are in [docs/adr/](docs/adr/) and the repo's [ADR 0005](../../docs/adr/0005-three-toolkits-three-doors.md). A full contract, server, worker and browser example is in [docs/websocket-example.md](docs/websocket-example.md). Long-form guides to the websocket Transport are its module READMEs: [server](src/rpc/websocket/server/README.md) and [client](src/rpc/websocket/client/README.md).
 
 ## Install
 
 ```sh
-pnpm add @kstackz/rpc-toolkit @kstackz/std-toolkit effect
+pnpm add @kestack/rpc-toolkit @kestack/std-toolkit effect
 ```
 
 - `effect` (peer, required): every door builds on `effect/rpc` or `effect/http-api`.
 - `alchemy` (peer, optional): needed only by the `alchemy` door, which wraps Alchemy's Cloudflare resources.
-- `@kstackz/std-toolkit` (peer, required): `Rpc.websocket.streams.sqlite` keeps stream state in a StdTable on the Durable Object's SQLite.
+- `@kestack/std-toolkit` (peer, required): `Rpc.websocket.streams.sqlite` keeps stream state in a StdTable on the Durable Object's SQLite.
 
 ## Exports
 
-### `@kstackz/rpc-toolkit/rpc`
+### `@kestack/rpc-toolkit/rpc`
 
 | Export                                 | What it does                                                                                                                                                                 |
 | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -45,14 +45,14 @@ pnpm add @kstackz/rpc-toolkit @kstackz/std-toolkit effect
 | `Rpc.websocket.InvocationKind`         | Context reference the server sets to `fresh` or `replay`; middleware reads it to skip admission on Hibernation Replay.                                                       |
 | `Rpc.inProcess.client`                 | Layer that provides an `RpcClient.Protocol` answered by a group's handlers in the same process, with no transport and no serialization.                                      |
 
-### `@kstackz/rpc-toolkit/http-api`
+### `@kestack/rpc-toolkit/http-api`
 
 | Export               | What it does                                                                                                                                                       |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `HttpApi`            | Namespace holding Middleware for Effect HttpApi.                                                                                                                   |
 | `HttpApi.middleware` | Same shape as `Rpc.middleware` over `HttpApiEndpoint` and `HttpApiGroup`, plus a `security` option that feeds OpenAPI and hands the credential to the server half. |
 
-### `@kstackz/rpc-toolkit/alchemy`
+### `@kestack/rpc-toolkit/alchemy`
 
 | Export             | What it does                                                                                                                                                            |
 | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -68,7 +68,7 @@ The contract declares a `RateLimit` Middleware with a value: the group allows 10
 ```ts
 import { Effect, Layer, Option, Schema } from 'effect';
 import { Rpc as EffectRpc, RpcClient, RpcGroup } from 'effect/rpc';
-import { Rpc } from '@kstackz/rpc-toolkit/rpc';
+import { Rpc } from '@kestack/rpc-toolkit/rpc';
 
 // contract.ts: imported by client and server
 class TooManyCalls extends Schema.Error<TooManyCalls>('app/TooManyCalls')({
@@ -129,7 +129,7 @@ const program = Effect.gen(function* () {
 ```ts
 import { Context, Effect, Layer, Stream } from 'effect';
 import { RpcClient } from 'effect/rpc';
-import { Rpc } from '@kstackz/rpc-toolkit/rpc';
+import { Rpc } from '@kestack/rpc-toolkit/rpc';
 
 class Greeting extends Context.Service<Greeting, string>()('app/Greeting') {}
 
@@ -169,8 +169,8 @@ The server checkpoints its cursor so a replay after waking continues where it wa
 ```ts
 // counter-worker.ts
 import { Effect, Option, Schema, Stream } from 'effect';
-import { DurableRpcWorker } from '@kstackz/rpc-toolkit/alchemy';
-import { Rpc } from '@kstackz/rpc-toolkit/rpc';
+import { DurableRpcWorker } from '@kestack/rpc-toolkit/alchemy';
+import { Rpc } from '@kestack/rpc-toolkit/rpc';
 
 const Handlers = Counter.toLayer({
   watch: () =>

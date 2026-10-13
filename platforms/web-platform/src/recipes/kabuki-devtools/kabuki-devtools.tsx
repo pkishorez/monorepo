@@ -1,14 +1,14 @@
 import { useMemo, useRef, useState } from 'react';
 import type { ComponentProps } from 'react';
 import { AnimatePresence } from 'motion/react';
-import { handle, isRestore } from '@kstackz/kabuki';
+import { handle, isRestore } from '@kestack/kabuki';
 import type {
   ActorDefinition,
   Entry,
   Instance,
   Snapshot,
-} from '@kstackz/kabuki';
-import type { AppRuntime } from '@kstackz/kabuki/react';
+} from '@kestack/kabuki';
+import type { AppRuntime } from '@kestack/kabuki/react';
 import { cn } from '#lib/utils';
 import { INK } from './ink/index.ts';
 import type { Tone } from './ink/index.ts';

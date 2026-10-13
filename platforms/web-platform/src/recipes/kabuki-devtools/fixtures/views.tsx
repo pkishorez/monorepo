@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react';
 import { Layer } from 'effect';
-import type { AnyActor } from '@kstackz/kabuki';
-import { View, toReact } from '@kstackz/kabuki/react';
-import type { Handle, ViewOf } from '@kstackz/kabuki/react';
+import type { AnyActor } from '@kestack/kabuki';
+import { View, toReact } from '@kestack/kabuki/react';
+import type { Handle, ViewOf } from '@kestack/kabuki/react';
 import * as shop from './shop.ts';
 
 /*

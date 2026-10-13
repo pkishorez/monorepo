@@ -1,4 +1,4 @@
-import type { Instance } from '@kstackz/kabuki';
+import type { Instance } from '@kestack/kabuki';
 
 /*
  * What the Map is made of, before it is laid out: one Node per place an

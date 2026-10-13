@@ -1,6 +1,6 @@
 import { Effect } from 'effect';
-import { SQLite } from '@kstackz/std-toolkit/db/sqlite';
-import { makeNodeSQLite } from '@kstackz/std-toolkit/db/sqlite/node';
+import { SQLite } from '@kestack/std-toolkit/db/sqlite';
+import { makeNodeSQLite } from '@kestack/std-toolkit/db/sqlite/node';
 import { describe, expect, test } from 'vitest';
 
 import { makeSqliteProjectRegistry } from '../index.js';

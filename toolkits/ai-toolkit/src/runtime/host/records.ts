@@ -1,6 +1,6 @@
 import { Effect } from 'effect';
-import type { Entity } from '@kstackz/std-toolkit/core';
-import type { StdTableService } from '@kstackz/std-toolkit/db';
+import type { Entity } from '@kestack/std-toolkit/core';
+import type { StdTableService } from '@kestack/std-toolkit/db';
 import { SYNC_PAGE_SIZE } from '../constants.js';
 import {
   ACTIVE_RUN_STATUSES,

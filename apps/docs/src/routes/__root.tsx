@@ -5,7 +5,7 @@ import {
   Scripts,
 } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
-import { getTheme } from '@kstackz/web-platform/client/server';
+import { getTheme } from '@kestack/web-platform/client/server';
 import appCss from '@/styles/app.css?url';
 import { appTheme } from '@/lib/theme';
 

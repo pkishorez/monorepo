@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import type { Pointer, Pointers } from '@kstackz/use-gesture';
+import type { Pointer, Pointers } from '@kestack/use-gesture';
 import { createMotionPointers } from '../motion-pointers.ts';
 
 const start = { x: 10, y: 10, t: 0 };

@@ -1,8 +1,8 @@
 import { Effect, Schema } from 'effect';
 import { Proof } from 'laymos/story';
-import { StdTable } from '@kstackz/std-toolkit/db';
-import { EntityESchema } from '@kstackz/std-toolkit/eschema';
-import { TableSnapshot } from '@kstackz/std-toolkit/snapshot';
+import { StdTable } from '@kestack/std-toolkit/db';
+import { EntityESchema } from '@kestack/std-toolkit/eschema';
+import { TableSnapshot } from '@kestack/std-toolkit/snapshot';
 
 const TaskV1 = EntityESchema.make('Task', 'taskId', {
   boardId: Schema.String,

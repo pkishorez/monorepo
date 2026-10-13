@@ -1,6 +1,6 @@
 import { Duration, Effect, Option, Stream } from 'effect';
-import type { Entity } from '@kstackz/std-toolkit/core';
-import type { QueryPage, StdTableService } from '@kstackz/std-toolkit/db';
+import type { Entity } from '@kestack/std-toolkit/core';
+import type { QueryPage, StdTableService } from '@kestack/std-toolkit/db';
 import { SYNC_PAGE_SIZE } from '../../runtime/constants.js';
 import {
   messages,

@@ -107,7 +107,7 @@ const restored = (
     if (!warned.has(message)) {
       warned.add(message);
       console.warn(
-        `[@kstackz/kabuki] a Restore no longer matches ${root.name}, and is ignored: ${checked.reason}`,
+        `[@kestack/kabuki] a Restore no longer matches ${root.name}, and is ignored: ${checked.reason}`,
       );
     }
     return nothing(snapshot, 'ignored', from);

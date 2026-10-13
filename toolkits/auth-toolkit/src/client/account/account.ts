@@ -39,7 +39,7 @@ export interface SignInOptions {
 
 /** The sign-in service could not be reached, or refused the call. */
 export class Unreachable extends Schema.Error<Unreachable>(
-  '@kstackz/auth-toolkit/Unreachable',
+  '@kestack/auth-toolkit/Unreachable',
 )({ _tag: Schema.tag('Unreachable'), reason: Schema.String }) {}
 
 /** This device's Accounts on one Backend: who is signed in, signing one more
@@ -69,4 +69,4 @@ export class SignIn extends Context.Service<
     /** The error the last sign-in came back with, if any, reported once. */
     readonly takeLoginError: Effect.Effect<LoginError | null>;
   }
->()('@kstackz/auth-toolkit/SignIn') {}
+>()('@kestack/auth-toolkit/SignIn') {}

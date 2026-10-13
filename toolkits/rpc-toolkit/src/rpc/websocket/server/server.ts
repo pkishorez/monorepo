@@ -59,7 +59,7 @@ export interface ConnectionSlot<A> {
  * Server-controlled; clients cannot select replay through request data.
  */
 export const InvocationKind = Context.Reference<'fresh' | 'replay'>(
-  '@kstackz/rpc-toolkit/InvocationKind',
+  '@kestack/rpc-toolkit/InvocationKind',
   { defaultValue: () => 'fresh' },
 );
 

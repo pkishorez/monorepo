@@ -1,6 +1,6 @@
 import { Schema } from 'effect';
-import { EntityESchema } from '@kstackz/std-toolkit/eschema';
-import { StdTable } from '@kstackz/std-toolkit/db';
+import { EntityESchema } from '@kestack/std-toolkit/eschema';
+import { StdTable } from '@kestack/std-toolkit/db';
 
 /**
  * How the Project registry keeps one entry: one absolute folder, an optional

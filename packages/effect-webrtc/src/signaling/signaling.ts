@@ -53,5 +53,5 @@ interface SignalingService {
 
 /** Provider-agnostic exchange of addressed WebRTC negotiation messages. */
 export class Signaling extends Context.Service<Signaling, SignalingService>()(
-  '@kstackz/effect-webrtc/Signaling',
+  '@kestack/effect-webrtc/Signaling',
 ) {}

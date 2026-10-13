@@ -7,12 +7,12 @@ import {
   Stream,
 } from 'effect';
 import { type RpcClient, RpcClient as Client, RpcSchema } from 'effect/rpc';
-import { Authz } from '@kstackz/auth-toolkit/guard';
+import { Authz } from '@kestack/auth-toolkit/guard';
 import type { ApiClients, Apis } from '../apis/index.ts';
 import type { Backend } from '../host/index.ts';
 
 interface PublicClient {
-  readonly '@kstackz/web-platform/PublicClient': unique symbol;
+  readonly '@kestack/web-platform/PublicClient': unique symbol;
 }
 
 type AnyCall = (...args: ReadonlyArray<unknown>) => unknown;
@@ -41,7 +41,7 @@ export const publicClients = <A extends Apis>(
     if (client === undefined) {
       client = options.protocol(backend, name).then((protocol) => {
         const Key = Context.Service<PublicClient, Record<string, AnyCall>>(
-          `@kstackz/web-platform/PublicClient/${key}`,
+          `@kestack/web-platform/PublicClient/${key}`,
         );
         const runtime = ManagedRuntime.make(
           Layer.effect(

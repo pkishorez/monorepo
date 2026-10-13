@@ -21,7 +21,7 @@ export class Device extends Context.Service<
      * rest. */
     readonly keep: (userIds: ReadonlyArray<string>) => Effect.Effect<void>;
   }
->()('@kstackz/auth-toolkit/gate/Device') {}
+>()('@kestack/auth-toolkit/gate/Device') {}
 
 /** Opens Sessions; each ends with its scope. */
 export class Sessions extends Context.Service<
@@ -31,7 +31,7 @@ export class Sessions extends Context.Service<
       account: Held,
     ) => Effect.Effect<unknown, never, Scope.Scope>;
   }
->()('@kstackz/auth-toolkit/gate/Sessions') {}
+>()('@kestack/auth-toolkit/gate/Sessions') {}
 
 /** The browser-wide Account Switch, one at a time, the last one asked for
  * winning; and telling the device's other tabs what changed. */
@@ -43,4 +43,4 @@ export class Switching extends Context.Service<
      * signed out, so they are not reported lost there. */
     readonly announce: (quiet?: ReadonlyArray<string>) => Effect.Effect<void>;
   }
->()('@kstackz/auth-toolkit/gate/Switching') {}
+>()('@kestack/auth-toolkit/gate/Switching') {}

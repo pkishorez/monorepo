@@ -1,4 +1,4 @@
-import { cn } from '@kstackz/web-platform/components/utils';
+import { cn } from '@kestack/web-platform/components/utils';
 
 /**
  * A vertical edge to drag a panel's width by, desktop only. It reports the

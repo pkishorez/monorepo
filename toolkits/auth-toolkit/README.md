@@ -1,4 +1,4 @@
-# @kstackz/auth-toolkit
+# @kestack/auth-toolkit
 
 One shared sign-in service on Cloudflare, the guard both sides of an Effect API agree on, and the server and client halves that sign in to it
 
@@ -21,7 +21,7 @@ Worker. `client` is the app's half on the device Backend: `SignIn`, the
 Service every Sign-in mechanism provides, and `signIn.named`, which signs in
 by name with a Name Token. Running sign-in on a device (the Gate, each
 Account's Session, `createApp`) is
-[`@kstackz/web-platform`](../../platforms/web-platform)'s
+[`@kestack/web-platform`](../../platforms/web-platform)'s
 ([ADR 0006](../../docs/adr/0006-platforms-may-break-toolkits-keep-what-persists.md)).
 
 `server/cloud`, `client/web` and `client/cli` are doors of their own because
@@ -36,21 +36,21 @@ the schema runbook in [`docs/migrations.md`](./docs/migrations.md).
 ## Install
 
 ```sh
-pnpm add @kstackz/auth-toolkit
+pnpm add @kestack/auth-toolkit
 ```
 
 Peer dependencies, all optional; install the ones your doors need:
 
 - `effect`: `guard`, `server`, `client` and `client/cli` are Effect Layers and Services.
-- `@kstackz/rpc-toolkit`: the guard is its Middleware.
-- `@kstackz/std-toolkit`: `signIn.named` keeps Named Accounts in its Table adapters.
+- `@kestack/rpc-toolkit`: the guard is its Middleware.
+- `@kestack/std-toolkit`: `signIn.named` keeps Named Accounts in its Table adapters.
 - `react`: the Auth Worker's own pages are React.
-- `better-sqlite3`: `@kstackz/auth-toolkit/worker/memory` runs SQLite in-process for tests.
-- `alchemy`: `@kstackz/auth-toolkit/worker/alchemy` declares the D1 resource in `alchemy.run.ts`.
+- `better-sqlite3`: `@kestack/auth-toolkit/worker/memory` runs SQLite in-process for tests.
+- `alchemy`: `@kestack/auth-toolkit/worker/alchemy` declares the D1 resource in `alchemy.run.ts`.
 
 ## Exports
 
-### `@kstackz/auth-toolkit/worker`
+### `@kestack/auth-toolkit/worker`
 
 | Export                   | What it does                                                                                                       |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------ |
@@ -60,19 +60,19 @@ Peer dependencies, all optional; install the ones your doors need:
 | `validateTrustedOrigins` | Throws when a trusted origin pattern is neither a full origin, a host pattern, nor an app scheme and path.         |
 | `AUTH_PAGES`             | The paths of the login, consent, device, and error pages.                                                          |
 
-### `@kstackz/auth-toolkit/worker/memory`
+### `@kestack/auth-toolkit/worker/memory`
 
 | Export   | What it does                                                                                 |
 | -------- | -------------------------------------------------------------------------------------------- |
 | `memory` | Builds an in-memory SQLite Primary Database Provider migrated with the shipped `.sql` files. |
 
-### `@kstackz/auth-toolkit/worker/alchemy`
+### `@kestack/auth-toolkit/worker/alchemy`
 
 | Export                      | What it does                                                                            |
 | --------------------------- | --------------------------------------------------------------------------------------- |
 | `d1PrimaryDatabaseResource` | Declares the D1 database as an Alchemy resource with the package's migrations attached. |
 
-### `@kstackz/auth-toolkit/guard`
+### `@kestack/auth-toolkit/guard`
 
 | Export                  | What it does                                                                                         |
 | ----------------------- | ---------------------------------------------------------------------------------------------------- |
@@ -87,7 +87,7 @@ Peer dependencies, all optional; install the ones your doors need:
 | `Authz.Unavailable`     | Error when the Auth Worker could not be asked (503).                                                 |
 | `AuthzHttp`             | The same guard for Effect HttpApi: `guard`, `policy`, `scope`, `Current`, `Resolver` and the errors. |
 
-### `@kstackz/auth-toolkit/server`
+### `@kestack/auth-toolkit/server`
 
 | Export          | What it does                                                                                           |
 | --------------- | ------------------------------------------------------------------------------------------------------ |
@@ -96,7 +96,7 @@ Peer dependencies, all optional; install the ones your doors need:
 | `authz.device`  | The device Resolver: reads the caller from a Name Token, asking no one.                                |
 | `authz.cookies` | Verifies once per batched request and relays refreshed cookies; give it as `Rpc.http.server`'s `wrap`. |
 
-### `@kstackz/auth-toolkit/server/cloud`
+### `@kestack/auth-toolkit/server/cloud`
 
 | Export                    | What it does                                                                                                                  |
 | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
@@ -106,7 +106,7 @@ Peer dependencies, all optional; install the ones your doors need:
 | `verifyAccessToken`       | Without Effect: verifies a bearer Access Token against the Auth Worker's JWKS for one Resource Server.                        |
 | `createMcpResourceServer` | Without Effect: an MCP Server's fetch handler that accepts only Access Tokens and publishes its Protected Resource Metadata.  |
 
-### `@kstackz/auth-toolkit/client`
+### `@kestack/auth-toolkit/client`
 
 | Export               | What it does                                                                   |
 | -------------------- | ------------------------------------------------------------------------------ |
@@ -119,15 +119,15 @@ Peer dependencies, all optional; install the ones your doors need:
 | `namedAccountsTable` | The StdTable Named Accounts are kept in.                                       |
 
 The Gate, `createApp`, `Backend` and `keepSyncs` are in
-[`@kstackz/web-platform`](../../platforms/web-platform).
+[`@kestack/web-platform`](../../platforms/web-platform).
 
-### `@kstackz/auth-toolkit/client/web`
+### `@kestack/auth-toolkit/client/web`
 
 | Export   | What it does                                                              |
 | -------- | ------------------------------------------------------------------------- |
 | `cookie` | Sign-in in a browser against the Auth Worker, with its cookie and Google. |
 
-### `@kstackz/auth-toolkit/client/cli`
+### `@kestack/auth-toolkit/client/cli`
 
 | Export                      | What it does                                                             |
 | --------------------------- | ------------------------------------------------------------------------ |
@@ -152,7 +152,7 @@ package's migrations. The same call runs in tests with `memory()`, as
 
 ```ts
 // src/worker.ts
-import { createAuthWorker, d1 } from '@kstackz/auth-toolkit/worker';
+import { createAuthWorker, d1 } from '@kestack/auth-toolkit/worker';
 
 export default {
   fetch(request: Request, env: Env) {
@@ -174,7 +174,7 @@ export default {
 
 // alchemy.run.ts
 import * as Cloudflare from 'alchemy/Cloudflare';
-import { d1PrimaryDatabaseResource } from '@kstackz/auth-toolkit/worker/alchemy';
+import { d1PrimaryDatabaseResource } from '@kestack/auth-toolkit/worker/alchemy';
 
 const db = d1PrimaryDatabaseResource('auth-db');
 export const authWorker = await Cloudflare.Worker('auth-worker', {
@@ -206,7 +206,7 @@ export const Handlers = Api.toLayer({
 });
 
 // worker.ts, the cloud Backend
-import { authz } from '@kstackz/auth-toolkit/server/cloud';
+import { authz } from '@kestack/auth-toolkit/server/cloud';
 const rpc = Rpc.http.server(
   Api,
   Handlers.pipe(
@@ -223,8 +223,8 @@ const device = Handlers.pipe(
 );
 
 // The client: a Sign-in per Backend, each a Layer of SignIn.
-import { SignIn, signIn } from '@kstackz/auth-toolkit/client';
-import { cookie } from '@kstackz/auth-toolkit/client/web';
+import { SignIn, signIn } from '@kestack/auth-toolkit/client';
+import { cookie } from '@kestack/auth-toolkit/client/web';
 const cloudSignIn = cookie({ authWorkerUrl: 'https://auth.example.com' });
 const deviceSignIn = signIn.named({
   choose: Effect.succeed({ email: 'ada@demo' }),
@@ -245,14 +245,14 @@ const accounts = await Effect.runPromise(
 - An app does not run these itself: the [Web Platform](../../platforms/web-platform)'s Gate runs them and signs every API call with the active Account's token.
 
 A CLI signs in with `deviceCode({ authWorkerUrl, app, version })` from
-`@kstackz/auth-toolkit/client/cli`: `login` prints a code and URL, opens
+`@kestack/auth-toolkit/client/cli`: `login` prints a code and URL, opens
 the browser, waits for approval, and keeps the token at
 `$XDG_STATE_HOME/<app>/auth.json` (mode `0600`); `DeviceCode.rpcSession`
 signs every RPC call with it, and any Backend accepts it as a Sign-in
 ([ADR 0010](./docs/adr/0010-device-login-is-a-first-party-session.md)).
 
 An MCP Server is `createMcpResourceServer({ authWorkerUrl, resource,
-requiredScopes, handler })` from `@kstackz/auth-toolkit/server/cloud`: it
+requiredScopes, handler })` from `@kestack/auth-toolkit/server/cloud`: it
 accepts only Access Tokens for its `resource`, publishes its Protected
 Resource Metadata so MCP clients find the Auth Worker, and hands `handler`
 the Token Principal. The Auth Worker needs `authorizationServer` with the

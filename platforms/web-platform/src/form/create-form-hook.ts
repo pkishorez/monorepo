@@ -13,7 +13,7 @@ import { SubmitButton } from './components/submit-button.js';
  *
  * @example
  * ```tsx
- * import { useAppForm } from "@kstackz/web-platform/form"
+ * import { useAppForm } from "@kestack/web-platform/form"
  *
  * function MyForm() {
  *   const form = useAppForm({

@@ -119,7 +119,7 @@ const definitionOf = (
     for (const [worker, written] of Object.entries(from.workers ?? {})) {
       if (workers[worker])
         throw new Error(
-          `[@kstackz/kabuki] ${name}: Worker "${worker}" is written twice`,
+          `[@kestack/kabuki] ${name}: Worker "${worker}" is written twice`,
         );
       workers[worker] = workerOf(written, state);
     }
@@ -133,7 +133,7 @@ const definitionOf = (
     for (const slot of Object.keys(own))
       if (slot in top)
         throw new Error(
-          `[@kstackz/kabuki] ${name}: Child "${slot}" is written at the top and in ${tag}`,
+          `[@kestack/kabuki] ${name}: Child "${slot}" is written at the top and in ${tag}`,
         );
     children[tag] = { ...top, ...own };
     invoke[tag] = merged(behavior.invoke, block.invoke);
@@ -147,7 +147,7 @@ const definitionOf = (
     if (!Object.values(update).some((rules) => tag in rules))
       Effect.runSync(
         Effect.logWarning(
-          `[@kstackz/kabuki] ${name}: Message "${tag}" has no rule at the top or in any State, so it is always ignored`,
+          `[@kestack/kabuki] ${name}: Message "${tag}" has no rule at the top or in any State, so it is always ignored`,
         ),
       );
 
@@ -222,7 +222,7 @@ const checkerOf =
         decode(value);
       } catch (error) {
         throw new TypeError(
-          `[@kstackz/kabuki] ${name}: ${what} does not match its Schema\n${(error as Error).message}`,
+          `[@kestack/kabuki] ${name}: ${what} does not match its Schema\n${(error as Error).message}`,
         );
       }
     };

@@ -1,7 +1,7 @@
 import { Effect } from 'effect';
 import { describe, expect, test } from 'vitest';
 
-import type { CapturedTrace } from '@kstackz/effect-tracer/recorder';
+import type { CapturedTrace } from '@kestack/effect-tracer/recorder';
 
 import { Gesture, isProof, Proof, type ProofHost } from '../index.js';
 

@@ -1,4 +1,4 @@
-# @kstackz/lotel
+# @kestack/lotel
 
 Telemetry contracts and orchestration for DevTools
 
@@ -10,8 +10,8 @@ that something, as a library: an OTLP/HTTP ingestion group, an RPC group for
 writing and reading Span Records and Log Records, and a SQLite Telemetry Store
 behind a service interface. It runs no server of its own.
 
-[@kstackz/devtools](../devtools/README.md) hosts these layers inside its DevTools Server
-and adds the browser UI. [@kstackz/effect-tracer](../effect-tracer/README.md)
+[@kestack/devtools](../devtools/README.md) hosts these layers inside its DevTools Server
+and adds the browser UI. [@kestack/effect-tracer](../effect-tracer/README.md)
 is the sending side.
 
 Terms are defined in [CONTEXT.md](./CONTEXT.md). Decisions are in
@@ -20,26 +20,26 @@ Terms are defined in [CONTEXT.md](./CONTEXT.md). Decisions are in
 ## Install
 
 ```sh
-pnpm add @kstackz/lotel
+pnpm add @kestack/lotel
 ```
 
 lotel has no peer dependencies; `effect` is a regular dependency.
 
 ## Exports
 
-### `@kstackz/lotel`
+### `@kestack/lotel`
 
 Node. Everything a host process needs.
 
 | Export                      | What it does                                                             |
 | --------------------------- | ------------------------------------------------------------------------ |
-| `LotelRpc`                  | Re-export of the RPC group from `@kstackz/lotel/rpc`.                    |
+| `LotelRpc`                  | Re-export of the RPC group from `@kestack/lotel/rpc`.                    |
 | `LotelRpcLive`              | Layer that fulfils `LotelRpc` against the `TelemetryStore` service.      |
 | `LotelOtlpHttpGroup`        | HttpApi group with `POST /v1/traces` and `POST /v1/logs`.                |
 | `LotelOtlpHttpLive`         | Layer that decodes OTLP/HTTP JSON and writes it to the `TelemetryStore`. |
-| `sqliteTelemetryStoreLayer` | Re-export of the SQLite store layer from `@kstackz/lotel/sqlite`.        |
+| `sqliteTelemetryStoreLayer` | Re-export of the SQLite store layer from `@kestack/lotel/sqlite`.        |
 
-### `@kstackz/lotel/rpc`
+### `@kestack/lotel/rpc`
 
 Browser-safe. The contract only.
 
@@ -47,7 +47,7 @@ Browser-safe. The contract only.
 | ---------- | ------------------------------------------------------------------------------------------------------------------ |
 | `LotelRpc` | RPC group with `SaveSpans`, `InsertLogs`, `ListSpans`, `ListLogs`, `ListTraces`, `GetTrace`, and `ClearTelemetry`. |
 
-### `@kstackz/lotel/telemetry`
+### `@kestack/lotel/telemetry`
 
 Browser-safe. Schemas and errors.
 
@@ -76,7 +76,7 @@ Browser-safe. Schemas and errors.
 | `OtlpBadRequest`                   | HTTP 400 error for an undecodable OTLP body.                                |
 | `OtlpInternalError`                | HTTP 500 error for a store failure during ingestion.                        |
 
-### `@kstackz/lotel/sqlite`
+### `@kestack/lotel/sqlite`
 
 Node.
 
@@ -89,7 +89,7 @@ Node.
 ### Host lotel in your own server
 
 Serve the RPC group and OTLP ingestion on one HTTP server, backed by one
-SQLite file. This is what `@kstackz/devtools` does.
+SQLite file. This is what `@kestack/devtools` does.
 
 ```ts
 import { createServer } from 'node:http';
@@ -97,8 +97,8 @@ import { Layer } from 'effect';
 import { HttpRouter } from 'effect/http';
 import { RpcSerialization, RpcServer } from 'effect/rpc';
 import { NodeHttpServer, NodeServices } from '@effect/platform-node';
-import { LotelOtlpHttpLive, LotelRpc, LotelRpcLive } from '@kstackz/lotel';
-import { sqliteTelemetryStoreLayer } from '@kstackz/lotel/sqlite';
+import { LotelOtlpHttpLive, LotelRpc, LotelRpcLive } from '@kestack/lotel';
+import { sqliteTelemetryStoreLayer } from '@kestack/lotel/sqlite';
 
 const RpcRouteLive = RpcServer.layerHttp({
   group: LotelRpc,
@@ -139,7 +139,7 @@ import {
   LotelRpc,
   LotelRpcLive,
   sqliteTelemetryStoreLayer,
-} from '@kstackz/lotel';
+} from '@kestack/lotel';
 
 const program = Effect.scoped(
   Effect.gen(function* () {

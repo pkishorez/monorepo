@@ -180,7 +180,7 @@ const keyedIn = (
   for (const { key } of keyed) {
     if (seen.has(key))
       throw new Error(
-        `[@kstackz/kabuki] ${slot}: key "${key}" is Invoked twice`,
+        `[@kestack/kabuki] ${slot}: key "${key}" is Invoked twice`,
       );
     seen.add(key);
   }

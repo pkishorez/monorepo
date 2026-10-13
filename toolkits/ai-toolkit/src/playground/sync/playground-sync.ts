@@ -1,12 +1,12 @@
 import { Effect, type Stream } from 'effect';
 import { RpcClient } from 'effect/rpc';
-import type { Entity } from '@kstackz/std-toolkit/core';
+import type { Entity } from '@kestack/std-toolkit/core';
 import {
   createStdSync,
   strategy,
   type SyncedCollection,
   type SyncStore,
-} from '@kstackz/std-toolkit/sync';
+} from '@kestack/std-toolkit/sync';
 import type { Message, Thread } from '../../runtime/table/index.js';
 import { MessageSchema, ThreadSchema } from '../../runtime/table/index.js';
 import { AiPlaygroundServerRpc } from '../contract/index.js';

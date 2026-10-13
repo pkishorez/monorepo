@@ -1,4 +1,4 @@
-import type { LogRecord, SpanRecord } from '@kstackz/lotel/telemetry';
+import type { LogRecord, SpanRecord } from '@kestack/lotel/telemetry';
 import type { OtelEvent, OtelSpan, OtelStatus } from '../trace-model';
 import { attachCapturedLogs as attachCapturedLogsToSpans } from './captured-log-transform';
 

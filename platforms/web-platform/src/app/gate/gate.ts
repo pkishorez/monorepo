@@ -6,7 +6,7 @@ import {
   type NamedChoice,
   namedChooser,
   SignIn,
-} from '@kstackz/auth-toolkit/client';
+} from '@kestack/auth-toolkit/client';
 import { type Backend, backendNamed, type Host } from '../host/index.ts';
 import { makeStatus, type StatusCell } from '../session/index.ts';
 import {

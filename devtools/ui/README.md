@@ -1,18 +1,18 @@
 # @devtools/ui
 
-The UI only the DevTools show: the trace viewer, Laymos's architecture explorer and the monorepo map. Private: @kstackz/devtools bundles it.
+The UI only the DevTools show: the trace viewer, Laymos's architecture explorer and the monorepo map. Private: @kestack/devtools bundles it.
 
 ## Big picture
 
-These views used to live in `@kstackz/ui-toolkit`, but no app other than
+These views used to live in `@kestack/ui-toolkit`, but no app other than
 DevTools shows them. They moved here when ui-toolkit became
-`@kstackz/web-platform`, so web-platform carries only what any web app needs
+`@kestack/web-platform`, so web-platform carries only what any web app needs
 ([ADR 0003](../../docs/adr/0003-web-toolkit-and-the-gate.md)).
 
-The package is never published. `@kstackz/devtools` lists it as a
+The package is never published. `@kestack/devtools` lists it as a
 devDependency and bundles it into its browser UI at build time, so nothing
-installs it. It is built on `@kstackz/web-platform` for components and theme,
-and reads its data shapes from `@kstackz/lotel`, `@kstackz/effect-tracer`
+installs it. It is built on `@kestack/web-platform` for components and theme,
+and reads its data shapes from `@kestack/lotel`, `@kestack/effect-tracer`
 and `laymos`.
 
 The package ships TypeScript source. Each folder in `src/` is one view, with
@@ -36,8 +36,8 @@ import type { TraceGroup } from '@devtools/ui/otel-trace-viewer/trace-model';
 ```
 
 - Add `"@devtools/ui": "workspace:*"` to `devDependencies`, never
-  `dependencies`: the published `@kstackz/devtools` must not depend on it.
-- `pnpm --filter @kstackz/devtools build` bundles what DevTools imports.
+  `dependencies`: the published `@kestack/devtools` must not depend on it.
+- `pnpm --filter @kestack/devtools build` bundles what DevTools imports.
 
 ### Work on a view in isolation
 

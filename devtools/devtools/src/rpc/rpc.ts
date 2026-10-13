@@ -1,6 +1,6 @@
 import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
-import { LotelRpc } from '@kstackz/lotel/rpc';
+import { LotelRpc } from '@kestack/lotel/rpc';
 import { GitRpc } from './git.js';
 import { MonoverseRpc } from './monoverse.js';
 import {

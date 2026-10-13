@@ -1,4 +1,4 @@
-# @kstackz/effect-tracer
+# @kestack/effect-tracer
 
 Effect tracing tools for in-process recording and OTLP export
 
@@ -9,8 +9,8 @@ Effect programs already emit spans and logs through `Effect.withSpan` and
 keeps spans and logs in memory inside the process, in emission order, so a
 test, a Story, or an in-app panel can read them back as plain data. The
 telemetry layers export them over OTLP/HTTP to a collector such as the
-[@kstackz/devtools](../devtools/README.md) DevTools Server, which stores them with
-[@kstackz/lotel](../lotel/README.md).
+[@kestack/devtools](../devtools/README.md) DevTools Server, which stores them with
+[@kestack/lotel](../lotel/README.md).
 
 The full telemetry layer uses the OpenTelemetry SDK and also exports metrics.
 The dev-telemetry layer does the same job for local development with
@@ -23,7 +23,7 @@ reports, and `apps/docs` uses it to drive a live trace panel.
 ## Install
 
 ```sh
-pnpm add @kstackz/effect-tracer
+pnpm add @kestack/effect-tracer
 ```
 
 Peer dependencies:
@@ -33,7 +33,7 @@ Peer dependencies:
 
 ## Exports
 
-### `@kstackz/effect-tracer/recorder`
+### `@kestack/effect-tracer/recorder`
 
 Runs anywhere Effect runs, including the browser.
 
@@ -45,7 +45,7 @@ Runs anywhere Effect runs, including the browser.
 | `sequenceOrder`         | Pads a sequence number so string sorting matches numeric order.                                     |
 | `readSequence`          | Parses a sequence attribute value back to a number, or null.                                        |
 
-### `@kstackz/effect-tracer/telemetry`
+### `@kestack/effect-tracer/telemetry`
 
 Node. Uses the OpenTelemetry SDK.
 
@@ -53,7 +53,7 @@ Node. Uses the OpenTelemetry SDK.
 | -------------------- | ------------------------------------------------------------------------------------------------ |
 | `makeTelemetryLayer` | Builds one Layer exporting traces, logs, and metrics over OTLP/HTTP; each signal can be toggled. |
 
-### `@kstackz/effect-tracer/telemetry/dev-telemetry`
+### `@kestack/effect-tracer/telemetry/dev-telemetry`
 
 Runs anywhere `fetch` exists.
 
@@ -70,7 +70,7 @@ logs come back in the order they were emitted, even inside one millisecond.
 
 ```ts
 import { Effect } from 'effect';
-import { makeTraceRecorder } from '@kstackz/effect-tracer/recorder';
+import { makeTraceRecorder } from '@kestack/effect-tracer/recorder';
 
 const recorder = makeTraceRecorder();
 
@@ -105,7 +105,7 @@ once instead of wrapping each Effect.
 
 ```ts
 import { ManagedRuntime } from 'effect';
-import { makeTraceRecorder } from '@kstackz/effect-tracer/recorder';
+import { makeTraceRecorder } from '@kestack/effect-tracer/recorder';
 
 const recorder = makeTraceRecorder();
 
@@ -128,7 +128,7 @@ the runtime shows up in the Lotel Tool.
 
 ```ts
 import { Effect, Layer, ManagedRuntime } from 'effect';
-import { makeDevTelemetryLayer } from '@kstackz/effect-tracer/telemetry/dev-telemetry';
+import { makeDevTelemetryLayer } from '@kestack/effect-tracer/telemetry/dev-telemetry';
 
 const runtime = ManagedRuntime.make(
   makeDevTelemetryLayer({

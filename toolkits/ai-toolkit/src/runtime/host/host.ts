@@ -1,5 +1,5 @@
 import { Context, Effect, Fiber, Layer, Semaphore } from 'effect';
-import type { StdTableService } from '@kstackz/std-toolkit/db';
+import type { StdTableService } from '@kestack/std-toolkit/db';
 import { HOST_ID, RUN_TIMEOUT_MS } from '../constants.js';
 import { claudeRun } from '../harnesses/claude/index.js';
 import { codexRun } from '../harnesses/codex/index.js';
@@ -91,7 +91,7 @@ const waitingStatus = (
 export class HarnessHost extends Context.Service<
   HarnessHost,
   HarnessHostShape
->()('@kstackz/ai-toolkit/HarnessHost') {
+>()('@kestack/ai-toolkit/HarnessHost') {
   static layer(
     config: HarnessHostConfig = {},
     runners: HarnessRunners = { claude: claudeRun, codex: codexRun },

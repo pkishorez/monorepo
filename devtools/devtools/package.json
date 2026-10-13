@@ -1,5 +1,5 @@
 {
-  "name": "@kstackz/devtools",
+  "name": "@kestack/devtools",
   "version": "0.0.0",
   "private": false,
   "description": "Local DevTools server for telemetry and architecture analysis, with Client Commands for reading it back",
@@ -30,25 +30,25 @@
   "scripts": {
     "build": "vp pack && vp build",
     "build:watch": "vp pack --watch",
-    "dev": "vp run -F '@kstackz/devtools^...' build && portless run --force tsx scripts/dev.mts",
+    "dev": "vp run -F '@kestack/devtools^...' build && portless run --force tsx scripts/dev.mts",
     "lint": "vp check && tsc --noEmit && tsc -p tsconfig.ui.json --noEmit && laymos lint",
     "test": "vitest run && tsx scripts/package-smoke.mts"
   },
   "dependencies": {
     "@effect/platform-node": "catalog:",
     "@effect/platform-node-shared": "catalog:",
-    "@kstackz/lotel": "workspace:*",
+    "@kestack/lotel": "workspace:*",
     "effect": "catalog:",
     "env-paths": "catalog:",
     "laymos": "workspace:*",
-    "@kstackz/std-toolkit": "workspace:*",
+    "@kestack/std-toolkit": "workspace:*",
     "typescript": "catalog:typescript6",
     "yaml": "catalog:"
   },
   "devDependencies": {
     "@devtools/ui": "workspace:*",
-    "@kstackz/effect-tracer": "workspace:*",
-    "@kstackz/web-platform": "workspace:*",
+    "@kestack/effect-tracer": "workspace:*",
+    "@kestack/web-platform": "workspace:*",
     "@tailwindcss/vite": "catalog:",
     "@tanstack/react-db": "catalog:",
     "@tanstack/react-query": "catalog:",

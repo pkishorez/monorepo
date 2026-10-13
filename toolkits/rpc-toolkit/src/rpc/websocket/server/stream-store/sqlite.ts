@@ -1,10 +1,10 @@
-import { StdTable, type DatabaseError } from '@kstackz/std-toolkit/db';
-import { SQLite } from '@kstackz/std-toolkit/db/sqlite';
+import { StdTable, type DatabaseError } from '@kestack/std-toolkit/db';
+import { SQLite } from '@kestack/std-toolkit/db/sqlite';
 import {
   makeDurableObjectSQLite,
   type DurableObjectSQLiteStorage,
-} from '@kstackz/std-toolkit/db/sqlite/durable-object';
-import { EntityESchema } from '@kstackz/std-toolkit/eschema';
+} from '@kestack/std-toolkit/db/sqlite/durable-object';
+import { EntityESchema } from '@kestack/std-toolkit/eschema';
 import { Effect, Option, Schema, Stream } from 'effect';
 import type { StreamStore } from './stream-store.ts';
 

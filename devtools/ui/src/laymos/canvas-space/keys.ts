@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { describe, type Binding } from '@kstackz/use-keys';
+import { describe, type Binding } from '@kestack/use-keys';
 
 const arrows: Readonly<Record<string, string>> = {
   ArrowLeft: '←',

@@ -1,5 +1,5 @@
 import { Fragment } from 'react';
-import { Button } from '@kstackz/web-platform/components/button';
+import { Button } from '@kestack/web-platform/components/button';
 import {
   Check,
   CircleAlert,
@@ -7,7 +7,7 @@ import {
   ShieldCheck,
   Trash2,
   Unlink,
-} from '@kstackz/web-platform/components/lucide';
+} from '@kestack/web-platform/components/lucide';
 import type {
   deletionEvent,
   deletionPlan,

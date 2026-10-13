@@ -33,7 +33,7 @@ const readOf = (drawn: Drawable | undefined): Read | undefined => {
 const useDrawn = (hook: string): DrawnApp => {
   const drawn = use(AppContext);
   if (!drawn)
-    throw new Error(`[@kstackz/kabuki] ${hook} is used outside its app`);
+    throw new Error(`[@kestack/kabuki] ${hook} is used outside its app`);
   return drawn;
 };
 

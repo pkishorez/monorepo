@@ -1,6 +1,6 @@
 import type { ComponentType, ReactNode } from 'react';
-import { Button } from '@kstackz/web-platform/components/button';
-import { RefreshCw } from '@kstackz/web-platform/components/lucide';
+import { Button } from '@kestack/web-platform/components/button';
+import { RefreshCw } from '@kestack/web-platform/components/lucide';
 
 export function RefreshButton({
   query,

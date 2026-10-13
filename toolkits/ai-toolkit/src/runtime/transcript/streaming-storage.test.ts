@@ -1,10 +1,10 @@
 import { Buffer } from 'node:buffer';
 import { performance } from 'node:perf_hooks';
 import { Effect, Layer, Schema } from 'effect';
-import type { Entity } from '@kstackz/std-toolkit/core';
-import { defaultBroadcaster } from '@kstackz/std-toolkit/core';
-import type { QueryPage } from '@kstackz/std-toolkit/db';
-import { Memory } from '@kstackz/std-toolkit/db/memory';
+import type { Entity } from '@kestack/std-toolkit/core';
+import { defaultBroadcaster } from '@kestack/std-toolkit/core';
+import type { QueryPage } from '@kestack/std-toolkit/db';
+import { Memory } from '@kestack/std-toolkit/db/memory';
 import { describe, expect, it } from 'vitest';
 import { SYNC_PAGE_SIZE } from '../constants.js';
 import {

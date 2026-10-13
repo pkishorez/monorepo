@@ -1,5 +1,5 @@
 import { Layer, Schema } from 'effect';
-import { Actor } from '@kstackz/kabuki';
+import { Actor } from '@kestack/kabuki';
 import { Shelf } from './capabilities.ts';
 import { Download } from './download.ts';
 

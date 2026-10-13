@@ -1,6 +1,6 @@
 # Replay steps by Message, and the Frame is a motion value
 
-Partly superseded: the Frame was removed, so there is no `frame` and no `@kstackz/kabuki/motion`; what changes over time arrives as Messages and is drawn from the Model. No ADR records that yet. Stepping by Message and having no Pause stand.
+Partly superseded: the Frame was removed, so there is no `frame` and no `@kestack/kabuki/motion`; what changes over time arrives as Messages and is drawn from the Model. No ADR records that yet. Stepping by Message and having no Pause stand.
 
 Supersedes the parts of ADR 0005 that seek by Time, pause the app's Time and draw through `useFrame`. Time stays in the Message.
 
@@ -22,7 +22,7 @@ Outside the tree, `App.useRuntime()` gives the Log, the step shown (`null` for l
 
 ## Consequences
 
-- `@kstackz/kabuki/react` has `motion` as a peer dependency.
+- `@kestack/kabuki/react` has `motion` as a peer dependency.
 - Update still gets `at`, and Replay gives it the same `at`, so motion stays deterministic.
 - Commands and Lifetimes use Effect's own Clock.
 - A View computes its first position during render (`useTransform` does), so a new Model never shows for a frame at an old position.

@@ -1,7 +1,7 @@
 # Rpc.websocket client
 
 ```ts
-import { Rpc } from '@kstackz/rpc-toolkit/rpc';
+import { Rpc } from '@kestack/rpc-toolkit/rpc';
 
 Rpc.websocket.client; // the Transport's client half
 Rpc.websocket.connection; // the RpcConnection service
@@ -43,7 +43,7 @@ a new connection is established.
 import * as Layer from 'effect/Layer';
 import * as ManagedRuntime from 'effect/ManagedRuntime';
 import { RpcClient } from 'effect/rpc';
-import { Rpc } from '@kstackz/rpc-toolkit/rpc';
+import { Rpc } from '@kestack/rpc-toolkit/rpc';
 
 const protocol = Rpc.websocket.client(ChatRpcs, { url: '/rpc/chat' });
 

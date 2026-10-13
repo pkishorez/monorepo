@@ -1,4 +1,4 @@
-import { makeDevTelemetryLayer } from '@kstackz/effect-tracer/telemetry/dev-telemetry';
+import { makeDevTelemetryLayer } from '@kestack/effect-tracer/telemetry/dev-telemetry';
 import { Layer } from 'effect';
 import { FetchHttpClient } from 'effect/http';
 

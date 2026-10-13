@@ -1,6 +1,6 @@
 import { Effect } from 'effect';
 import { HttpServerResponse } from 'effect/http';
-import { Rpc } from '@kstackz/rpc-toolkit/rpc';
+import { Rpc } from '@kestack/rpc-toolkit/rpc';
 import { afterEach, expect, it, vi } from 'vitest';
 import { DurableSignalingRpcs } from '../src/signaling/durable/rpc/index.js';
 import {

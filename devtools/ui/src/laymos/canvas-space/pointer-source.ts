@@ -5,7 +5,7 @@ import {
   type PointerSink,
   type Pointers,
   type ZoneTree,
-} from '@kstackz/use-gesture';
+} from '@kestack/use-gesture';
 
 export type Target = Element | null;
 export type SpaceListener = GestureListener<Target>;

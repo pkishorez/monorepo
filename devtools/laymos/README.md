@@ -26,10 +26,10 @@ Proof. How to write a Telling is in
 [docs/writing-stories.md](./docs/writing-stories.md).
 
 The library entry does everything the CLI does, so other tools can host it.
-[@kstackz/devtools](../devtools/README.md) serves Architecture Analyses, change sets, and
+[@kestack/devtools](../devtools/README.md) serves Architecture Analyses, change sets, and
 Proof reports over RPC to its browser UI using the browser-safe schema
 subpaths, and plays Recordings back on the Stories canvas. Stories capture
-traces with [@kstackz/effect-tracer](../effect-tracer/README.md).
+traces with [@kestack/effect-tracer](../effect-tracer/README.md).
 
 Terms are defined in [CONTEXT.md](./CONTEXT.md). Decisions are in
 [docs/adr/](./docs/adr/); the tree of Modules, Rules and Exceptions is

@@ -1,5 +1,5 @@
 {
-  "name": "@kstackz/ai-toolkit",
+  "name": "@kestack/ai-toolkit",
   "version": "0.0.0",
   "description": "Effect-native runtime for stateful coding-agent harnesses whose Messages live in a StdTable",
   "repository": {
@@ -55,11 +55,11 @@
     "@openai/codex": "catalog:"
   },
   "peerDependencies": {
-    "@kstackz/std-toolkit": "workspace:*",
+    "@kestack/std-toolkit": "workspace:*",
     "effect": "^4.0.0"
   },
   "devDependencies": {
-    "@kstackz/std-toolkit": "workspace:*",
+    "@kestack/std-toolkit": "workspace:*",
     "@tanstack/ai": "catalog:",
     "@tsconfig/node22": "catalog:",
     "@types/node": "catalog:",

@@ -11,7 +11,7 @@ import { counterOf, isMany, slotToward } from './tree.ts';
  * match is a reason, and the Restore is ignored.
  */
 
-export const RESTORE = '@kstackz/kabuki/Restore';
+export const RESTORE = '@kestack/kabuki/Restore';
 
 export interface Restore extends Tagged {
   readonly _tag: typeof RESTORE;

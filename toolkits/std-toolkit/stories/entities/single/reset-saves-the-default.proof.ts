@@ -1,9 +1,9 @@
 import { Effect, Fiber, Schema, Stream } from 'effect';
 import { Proof } from 'laymos/story';
-import { defaultBroadcaster } from '@kstackz/std-toolkit/core';
-import { StdTable } from '@kstackz/std-toolkit/db';
-import { Memory } from '@kstackz/std-toolkit/db/memory';
-import { ESchema } from '@kstackz/std-toolkit/eschema';
+import { defaultBroadcaster } from '@kestack/std-toolkit/core';
+import { StdTable } from '@kestack/std-toolkit/db';
+import { Memory } from '@kestack/std-toolkit/db/memory';
+import { ESchema } from '@kestack/std-toolkit/eschema';
 
 const Settings = ESchema.make('Settings', {
   theme: Schema.Literals(['light', 'dark']),

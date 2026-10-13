@@ -1,4 +1,4 @@
-import type { Account, LoginError, User } from '@kstackz/auth-toolkit/client';
+import type { Account, LoginError, User } from '@kestack/auth-toolkit/client';
 
 /** An Account as the Gate holds it, marked active or not. Its token is null
  * while it is only remembered, as when it opened before the Backend

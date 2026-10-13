@@ -1,7 +1,7 @@
 {
   "name": "@devtools/ui",
   "version": "0.0.0",
-  "description": "The UI only the DevTools show: the trace viewer, Laymos's architecture explorer and the monorepo map. Private: @kstackz/devtools bundles it.",
+  "description": "The UI only the DevTools show: the trace viewer, Laymos's architecture explorer and the monorepo map. Private: @kestack/devtools bundles it.",
   "private": true,
   "type": "module",
   "sideEffects": false,
@@ -17,12 +17,12 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@kstackz/effect-tracer": "workspace:*",
-    "@kstackz/lotel": "workspace:*",
-    "@kstackz/std-toolkit": "workspace:*",
-    "@kstackz/use-gesture": "workspace:*",
-    "@kstackz/use-keys": "workspace:*",
-    "@kstackz/web-platform": "workspace:*",
+    "@kestack/effect-tracer": "workspace:*",
+    "@kestack/lotel": "workspace:*",
+    "@kestack/std-toolkit": "workspace:*",
+    "@kestack/use-gesture": "workspace:*",
+    "@kestack/use-keys": "workspace:*",
+    "@kestack/web-platform": "workspace:*",
     "effect": "catalog:",
     "laymos": "workspace:*",
     "lucide-react": "catalog:",

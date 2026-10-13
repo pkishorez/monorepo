@@ -13,15 +13,15 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
-} from '@kstackz/web-platform/components/tabs';
-import { cn } from '@kstackz/web-platform/components/utils';
+} from '@kestack/web-platform/components/tabs';
+import { cn } from '@kestack/web-platform/components/utils';
 import {
   ChangesMenu,
   defaultGitOptions,
   uncommittedBaseRef,
   type GitOptions,
-} from '@kstackz/web-platform/components/viewers/git-changes';
-import type { LoadFileDiff } from '@kstackz/web-platform/components/viewers/source-explorer';
+} from '@kestack/web-platform/components/viewers/git-changes';
+import type { LoadFileDiff } from '@kestack/web-platform/components/viewers/source-explorer';
 
 import { FileList } from '../file-list';
 import { usePreference } from '../preferences';

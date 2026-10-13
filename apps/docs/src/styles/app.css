@@ -1,9 +1,9 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
-@import '@kstackz/web-platform/theme/sources.css';
-@import '@kstackz/web-platform/theme/font-inter.css';
-@import '@kstackz/web-platform/theme/theme.css';
+@import '@kestack/web-platform/theme/sources.css';
+@import '@kestack/web-platform/theme/font-inter.css';
+@import '@kestack/web-platform/theme/theme.css';
 
 @custom-variant dark (&:where(.dark, .dark *, [data-theme='dark'], [data-theme='dark'] *));
 

@@ -1,8 +1,8 @@
 import { Effect, Exit, Schema, Stream } from 'effect';
 import { FetchHttpClient, HttpClient } from 'effect/http';
-import { Authz } from '@kstackz/auth-toolkit/guard';
-import { SQLite } from '@kstackz/std-toolkit/db/sqlite';
-import { makeNodeSQLite } from '@kstackz/std-toolkit/db/sqlite/node';
+import { Authz } from '@kestack/auth-toolkit/guard';
+import { SQLite } from '@kestack/std-toolkit/db/sqlite';
+import { makeNodeSQLite } from '@kestack/std-toolkit/db/sqlite/node';
 import { expect, it, vi } from 'vite-plus/test';
 import { consoleTable } from '../src/server/storage/table/index.ts';
 import { storeEntity as stores } from '../src/server/storage/stores/index.ts';

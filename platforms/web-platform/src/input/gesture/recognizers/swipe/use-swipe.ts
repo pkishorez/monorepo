@@ -1,9 +1,9 @@
 import { type MotionValue, useMotionValue } from 'motion/react';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { type Direction, Swipe as Rules } from '@kstackz/use-gesture';
+import { type Direction, Swipe as Rules } from '@kestack/use-gesture';
 import { type Pointers, useGesture } from '../../zones/index.ts';
 
-export type { Direction } from '@kstackz/use-gesture';
+export type { Direction } from '@kestack/use-gesture';
 export type CommitRule = Rules.CommitRule;
 export type Edge = Rules.Edge;
 export type Fingers = Rules.Fingers;

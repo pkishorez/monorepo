@@ -6,10 +6,10 @@ import {
   type TableSource,
   type TabMessage,
 } from './host/index.ts';
-import { cookie } from '@kstackz/auth-toolkit/client/web';
-import { sharedBroadcaster } from '@kstackz/std-toolkit/core';
-import { IDB, type IDBTable } from '@kstackz/std-toolkit/db/idb';
-import { Sync } from '@kstackz/std-toolkit/sync/idb';
+import { cookie } from '@kestack/auth-toolkit/client/web';
+import { sharedBroadcaster } from '@kestack/std-toolkit/core';
+import { IDB, type IDBTable } from '@kestack/std-toolkit/db/idb';
+import { Sync } from '@kestack/std-toolkit/sync/idb';
 
 // `?backend=device` or `?backend=cloud` (or their former names, `local` and
 // `remote`) chooses the Backend, as Settings would, and leaves the address.

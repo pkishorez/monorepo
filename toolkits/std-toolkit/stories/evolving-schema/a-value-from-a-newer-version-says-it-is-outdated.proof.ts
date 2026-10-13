@@ -3,7 +3,7 @@ import { Proof } from 'laymos/story';
 import {
   EntityESchema,
   findOutdatedVersion,
-} from '@kstackz/std-toolkit/eschema';
+} from '@kestack/std-toolkit/eschema';
 
 // This reader only knows v1. Somewhere, newer code already writes v2.
 const Task = EntityESchema.make('Task', 'taskId', {

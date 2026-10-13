@@ -1,5 +1,5 @@
-import { StdTable } from '@kstackz/std-toolkit/db';
-import { SQLite, type SQLiteDriver } from '@kstackz/std-toolkit/db/sqlite';
+import { StdTable } from '@kestack/std-toolkit/db';
+import { SQLite, type SQLiteDriver } from '@kestack/std-toolkit/db/sqlite';
 import {
   LogEntitySchema,
   SpanEntitySchema,

@@ -1,6 +1,6 @@
 import { type Pointer, useGesture } from '../../input/index.ts';
 import { useRef } from 'react';
-import type { TreeWalk } from '@kstackz/use-gesture';
+import type { TreeWalk } from '@kestack/use-gesture';
 
 // The thumb lands on this part of the screen's width, from the left.
 const THUMB_PART = 0.5;

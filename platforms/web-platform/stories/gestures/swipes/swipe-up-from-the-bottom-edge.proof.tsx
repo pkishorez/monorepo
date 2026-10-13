@@ -3,12 +3,12 @@ import {
   motion,
   useMotionValue,
   useMotionValueEvent,
-} from '@kstackz/web-platform/components/motion';
+} from '@kestack/web-platform/components/motion';
 import {
   GestureProvider,
   GestureZone,
   useSwipe,
-} from '@kstackz/web-platform/input';
+} from '@kestack/web-platform/input';
 import { Effect } from 'effect';
 import { Gesture, Proof } from 'laymos/story';
 import { useState } from 'react';
@@ -94,7 +94,7 @@ export default Proof.browser({
     'useSwipe with `from: { edge: "bottom", within: 40 }` captures touches landing at the edge even over a list that scrolls; a swipe up elsewhere still scrolls the list.',
   page: (root) => {
     const app = createRoot(root);
-    void import('@kstackz/web-platform/theme/global.css').then(() =>
+    void import('@kestack/web-platform/theme/global.css').then(() =>
       app.render(
         <GestureProvider>
           <GestureZone className="h-dvh overflow-hidden bg-background text-foreground">

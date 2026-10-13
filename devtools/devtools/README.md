@@ -1,4 +1,4 @@
-# @kstackz/devtools
+# @kestack/devtools
 
 Local DevTools server for telemetry and architecture analysis, with Client
 Commands for reading it back
@@ -13,10 +13,10 @@ reads Traces back from a running server as JSON or text, so a shell or a
 coding agent can query telemetry without a browser.
 
 The server hosts two Tools. Lotel stores and shows OpenTelemetry data using
-[@kstackz/lotel](../lotel/README.md). Monoverse maps a monorepo or a single
+[@kestack/lotel](../lotel/README.md). Monoverse maps a monorepo or a single
 package and opens a Package's architecture in place as Embedded Laymos,
 through [laymos](../laymos/README.md). Applications send telemetry with
-[@kstackz/effect-tracer](../effect-tracer/README.md). The Tools' views come
+[@kestack/effect-tracer](../effect-tracer/README.md). The Tools' views come
 from the private [@devtools/ui](../ui/README.md), which is a devDependency
 bundled into the browser UI at build time, so it is never installed.
 
@@ -28,16 +28,16 @@ Terms are defined in [CONTEXT.md](./CONTEXT.md) and, for Monoverse,
 ## Install
 
 ```sh
-npm i -g @kstackz/devtools
+npm i -g @kestack/devtools
 ```
 
-Or run it without installing: `npx @kstackz/devtools`.
+Or run it without installing: `npx @kestack/devtools`.
 
-It has no peer dependencies. The `@kstackz/devtools/rpc` subpath is source TypeScript and needs `effect` in the consuming project.
+It has no peer dependencies. The `@kestack/devtools/rpc` subpath is source TypeScript and needs `effect` in the consuming project.
 
 ## Exports
 
-### `@kstackz/devtools/rpc`
+### `@kestack/devtools/rpc`
 
 The RPC contract the server fulfils and the browser and Client Commands call.
 It merges the Lotel, Laymos, git, Monoverse, and Project registry groups.
@@ -100,7 +100,7 @@ devtools --open
 
 ```ts
 import { Effect, ManagedRuntime } from 'effect';
-import { makeDevTelemetryLayer } from '@kstackz/effect-tracer/telemetry/dev-telemetry';
+import { makeDevTelemetryLayer } from '@kestack/effect-tracer/telemetry/dev-telemetry';
 
 // One runtime per process; each names its own service.
 const server = ManagedRuntime.make(

@@ -10,14 +10,14 @@
   "format": false,
   "fixed": [
     [
-      "@kstackz/ai-toolkit",
-      "@kstackz/auth-toolkit",
-      "@kstackz/devtools",
-      "@kstackz/effect-webrtc",
-      "@kstackz/lotel",
-      "@kstackz/rpc-toolkit",
-      "@kstackz/std-toolkit",
-      "@kstackz/web-platform",
+      "@kestack/ai-toolkit",
+      "@kestack/auth-toolkit",
+      "@kestack/devtools",
+      "@kestack/effect-webrtc",
+      "@kestack/lotel",
+      "@kestack/rpc-toolkit",
+      "@kestack/std-toolkit",
+      "@kestack/web-platform",
       "laymos"
     ]
   ],

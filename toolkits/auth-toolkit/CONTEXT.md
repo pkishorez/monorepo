@@ -125,7 +125,7 @@ A named permission a User grants a Client Application at consent time and an Acc
 _Avoid_: permission (reserved for what an Authorization Policy decides), role
 
 **Consumer Backend**:
-Any service (other than the Auth Worker itself) that needs to know whether an incoming request is authenticated. Talks to the Auth Worker over HTTP through `@kstackz/auth-toolkit/server` — it never touches the Primary Database directly. A Backend is one.
+Any service (other than the Auth Worker itself) that needs to know whether an incoming request is authenticated. Talks to the Auth Worker over HTTP through `@kestack/auth-toolkit/server` — it never touches the Primary Database directly. A Backend is one.
 _Avoid_: server, app, client (reserved for the browser side)
 
 **Cookie Cache**:
@@ -161,7 +161,7 @@ An optional rule that accepts or rejects an identity when it first registers, li
 _Avoid_: invariant, user validation
 
 **Direct Sign-in Check**:
-The browser calling the Auth Worker itself (cross-origin, not proxied) to ask "am I logged in" — used by `cookie` (`@kstackz/auth-toolkit/client/web`) to list, sign in, switch, and sign out. Requires the Auth Worker to allow the browser's origin (see Trusted Origin) and needs its cookie readable across origins (see Shared Cookie Domain).
+The browser calling the Auth Worker itself (cross-origin, not proxied) to ask "am I logged in" — used by `cookie` (`@kestack/auth-toolkit/client/web`) to list, sign in, switch, and sign out. Requires the Auth Worker to allow the browser's origin (see Trusted Origin) and needs its cookie readable across origins (see Shared Cookie Domain).
 _Avoid_: Direct Session Check (the former name), proxied check (that's the separate Server-Side Verification path)
 
 **Server-Side Verification**:
@@ -185,7 +185,7 @@ The Consumer Backend could not find out who called because Server-Side Verificat
 _Avoid_: VerificationUnavailable (the former name), unauthenticated request, invalid session
 
 **Guard**:
-auth-toolkit's Middleware (see rpc-toolkit), `Authz` for Effect RPC and `AuthzHttp` for Effect HttpApi, imported by both sides from `@kstackz/auth-toolkit/guard`. Attached without a value (`Authz.guard()`) it is an Authentication Requirement; attached with one it also carries an Authorization Policy. Which value applies follows rpc-toolkit's Nearest Wins. Its server half is `authz.layer` (`authz.http`); its client half is `Authz.bearer`.
+auth-toolkit's Middleware (see rpc-toolkit), `Authz` for Effect RPC and `AuthzHttp` for Effect HttpApi, imported by both sides from `@kestack/auth-toolkit/guard`. Attached without a value (`Authz.guard()`) it is an Authentication Requirement; attached with one it also carries an Authorization Policy. Which value applies follows rpc-toolkit's Nearest Wins. Its server half is `authz.layer` (`authz.http`); its client half is `Authz.bearer`.
 _Avoid_: Auth Cannotation (the former name), auth middleware, withAuthz and `.with` (the generic verb; Authz calls it `guard`)
 
 **Authentication Requirement**:

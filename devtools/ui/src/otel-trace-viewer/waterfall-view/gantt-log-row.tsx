@@ -1,6 +1,6 @@
 import { MessageSquareTextIcon } from 'lucide-react';
 
-import { cn } from '@kstackz/web-platform/components/utils';
+import { cn } from '@kestack/web-platform/components/utils';
 
 import { detectLogSeverity } from '../trace-presentation';
 import type { OtelEvent, OtelSpan } from '../trace-model';

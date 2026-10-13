@@ -1,4 +1,4 @@
-# @kstackz/kabuki
+# @kestack/kabuki
 
 An app as one tree of Actors outside React: each Actor a small state machine driven by Messages, one immutable Snapshot for the whole app, Effect running the work, and React only drawing it.
 
@@ -42,17 +42,17 @@ Read the language in [CONTEXT.md](./CONTEXT.md), the decisions in
 ## Install
 
 ```sh
-pnpm add @kstackz/kabuki effect react
+pnpm add @kestack/kabuki effect react
 ```
 
 - `effect`: Schemas describe Inputs, Models, States and Messages, and every
   one is checked against its Schema as it is made; Workers, Commands and
   Capabilities are Effect values and Layers.
-- `react`: `@kstackz/kabuki/react` draws the tree with React components.
+- `react`: `@kestack/kabuki/react` draws the tree with React components.
 
 ## Exports
 
-### `@kstackz/kabuki`
+### `@kestack/kabuki`
 
 | Export             | What it does                                                                                                         |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------- |
@@ -74,7 +74,7 @@ pnpm add @kstackz/kabuki effect react
 | `instanceAt`       | Finds the Instance with an ID in a Snapshot.                                                                         |
 | `isMany`           | Tells a keyed Child slot from a fixed one in an Instance's Children.                                                 |
 
-### `@kstackz/kabuki/react`
+### `@kestack/kabuki/react`
 
 | Export        | What it does                                                                                                                                                                                                                                                               |
 | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

@@ -1,4 +1,4 @@
-# @kstackz/std-toolkit/core
+# @kestack/std-toolkit/core
 
 Entity envelope, metadata schemas, ULID generation, and the change Broadcaster shared by every std-toolkit subpath.
 
@@ -12,7 +12,7 @@ See the [top README](../../README.md).
 
 ## Exports
 
-### `@kstackz/std-toolkit/core`
+### `@kestack/std-toolkit/core`
 
 | Export                   | What it does                                                                                 |
 | ------------------------ | -------------------------------------------------------------------------------------------- |
@@ -34,7 +34,7 @@ Adapters stamp `_u` with `nextUlid`. Providing a different generator through `Ul
 
 ```ts
 import { Effect } from 'effect';
-import { Ulid } from '@kstackz/std-toolkit/core';
+import { Ulid } from '@kestack/std-toolkit/core';
 
 const sequentialUlid = () => {
   let issued = 0;
