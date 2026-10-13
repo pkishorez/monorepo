@@ -21,11 +21,11 @@ packages are at [docs.kishore.app](https://docs.kishore.app).
 ## kstack packages
 
 These packages are published under the `@kestack` npm scope (plus `laymos`
-and `use-effect-ts`). The ones that depend on another package here share one
-version and always release together, so keep them on the same version:
-ai-toolkit, auth-toolkit, rpc-toolkit, std-toolkit, web-platform, devtools,
-laymos and effect-webrtc. kabuki, use-gesture, use-keys, effect-tracer
-and `use-effect-ts` depend on nothing here and version on their own. See [docs/adr/0008-one-version-for-the-packages-that-depend-on-each-other.md](./docs/adr/0008-one-version-for-the-packages-that-depend-on-each-other.md).
+and `use-effect-ts`). They release in two version groups, so keep each group
+on one version: the stack (ai-toolkit, auth-toolkit, rpc-toolkit, std-toolkit,
+web-platform and effect-webrtc) and DevTools (devtools, effect-tracer and
+laymos). kabuki, use-gesture, use-keys and `use-effect-ts` depend on nothing
+here and version on their own. See [ADR 0009](./docs/adr/0009-two-version-groups-the-stack-and-devtools.md).
 
 ### Toolkits
 

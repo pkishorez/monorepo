@@ -1,6 +1,6 @@
 # One version for the packages that depend on each other; the rest version alone
 
-Status: accepted. Narrows [ADR 0002](0002-one-version-for-the-kstack-packages.md), and supersedes the version half of [ADR 0006](0006-platforms-may-break-toolkits-keep-what-persists.md).
+Status: narrowed by [ADR 0009](0009-two-version-groups-the-stack-and-devtools.md): the one group is split into the stack and DevTools. Narrows [ADR 0002](0002-one-version-for-the-kstack-packages.md), and supersedes the version half of [ADR 0006](0006-platforms-may-break-toolkits-keep-what-persists.md).
 
 A package joins the changeset `fixed` group when it depends on another package in this repo, as a dependency or a peer. Today that is ai-toolkit, auth-toolkit, rpc-toolkit, std-toolkit, the Web Platform, devtools, laymos and effect-webrtc: they always release together under one version, and an app keeps them on the same one. A package that depends on nothing in the repo versions on its own: `@kestack/kabuki`, `@kestack/use-gesture`, `@kestack/use-keys`, `@kestack/effect-tracer` and `use-effect-ts`. A package moves into the group the day it starts depending on one inside it.
 
