@@ -71,12 +71,14 @@ async function expandPatterns(
   for await (const match of glob(positive, {
     cwd: root,
     withFileTypes: true,
+    // Not walked at all, so `packages/**` stays clear of installed packages.
+    exclude: (entry) => entry.name === 'node_modules',
   })) {
     if (!match.isDirectory()) continue;
     const folder = relative(root, join(match.parentPath, match.name))
       .split(sep)
       .join('/');
-    if (folder === '' || folder.includes('node_modules')) continue;
+    if (folder === '' || folder.split('/').includes('node_modules')) continue;
     if (negative.some((pattern) => matchesGlob(folder, pattern))) continue;
     folders.add(folder);
   }

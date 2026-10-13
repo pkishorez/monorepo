@@ -13,17 +13,19 @@ packages are at [docs.kishore.app](https://docs.kishore.app).
 
 ### Applications
 
-| Workspace                                        | Purpose                                                                                                                           |
-| ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
-| [`apps/docs`](./apps/docs)                       | Live demos of the public packages, a plain TanStack Start app deployed to Cloudflare Workers.                                     |
-| [`apps/alchemy-console`](./apps/alchemy-console) | Web console for browsing Alchemy state stores and deleting stacks, stages and resources with user-owned provider credentials.     |
-| [`apps/ledger`](./apps/ledger)                   | Ledger on the web: a money tracker that is the blueprint for every kstack app, run by keys on desktop and by gestures on a phone. |
+| Workspace                                        | Purpose                                                                                                                       |
+| ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| [`apps/docs`](./apps/docs)                       | Live demos of the public packages, a plain TanStack Start app deployed to Cloudflare Workers.                                 |
+| [`apps/alchemy-console`](./apps/alchemy-console) | Web console for browsing Alchemy state stores and deleting stacks, stages and resources with user-owned provider credentials. |
 
 ## kstack packages
 
-These packages are published under the `@kstackz` npm scope (plus `laymos`)
-and share one version: they always release together, so keep them on the same
-version. See [docs/adr/0002-one-version-for-the-kstack-packages.md](./docs/adr/0002-one-version-for-the-kstack-packages.md).
+These packages are published under the `@kstackz` npm scope (plus `laymos`
+and `use-effect-ts`). The ones that depend on another package here share one
+version and always release together, so keep them on the same version:
+ai-toolkit, auth-toolkit, rpc-toolkit, std-toolkit, web-platform, devtools,
+lotel, laymos and effect-webrtc. kabuki, use-gesture, use-keys, effect-tracer
+and `use-effect-ts` depend on nothing here and version on their own. See [docs/adr/0008-one-version-for-the-packages-that-depend-on-each-other.md](./docs/adr/0008-one-version-for-the-packages-that-depend-on-each-other.md).
 
 ### Toolkits
 
@@ -51,9 +53,10 @@ version. See [docs/adr/0002-one-version-for-the-kstack-packages.md](./docs/adr/0
 
 These keep their own names and versions.
 
-| Workspace                                            | Package                                                        | Purpose                                                |
-| ---------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------ |
-| [`packages/use-effect-ts`](./packages/use-effect-ts) | [`use-effect-ts`](https://www.npmjs.com/package/use-effect-ts) | React hooks for running and consuming Effect programs. |
+| Workspace                                            | Package                                                            | Purpose                                                 |
+| ---------------------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------- |
+| [`packages/kabuki`](./packages/kabuki)               | [`@kstackz/kabuki`](https://www.npmjs.com/package/@kstackz/kabuki) | An app as one tree of Actors on Effect, drawn by React. |
+| [`packages/use-effect-ts`](./packages/use-effect-ts) | [`use-effect-ts`](https://www.npmjs.com/package/use-effect-ts)     | React hooks for running and consuming Effect programs.  |
 
 ## Single-table design toolkit
 

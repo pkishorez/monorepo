@@ -200,9 +200,9 @@ _Avoid_: Tab Client, page client (the Service Worker API's own `Client` is the p
 A system-level message shown by the operating system on the app's behalf. Never an in-app message.
 _Avoid_: push (the delivery channel, not the message), toast, alert
 
-### Effect Oak Inspector
+### Kabuki Inspector
 
-How the Inspector (see effect-oak's glossary) draws the Snapshot. Drawing words only: an Actor, an Instance, a State and a Worker keep their effect-oak names.
+How the Inspector (see @kstackz/kabuki's glossary) draws the Snapshot. Drawing words only: an Actor, an Instance, a State and a Worker keep their @kstackz/kabuki names.
 
 **Devtools**:
 The Inspector on a running app, from its runtime: its Timeline is the app's History, a Step picked there Time Travels the app itself, and live, its Worker Rows say what each Worker is doing.

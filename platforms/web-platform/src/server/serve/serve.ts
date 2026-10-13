@@ -3,7 +3,7 @@ import type { Apis, RpcsOf } from '../../define/index.ts';
 import type { Rpc as EffectRpc } from 'effect/rpc';
 import { authz } from '@kstackz/auth-toolkit/server/cloud';
 import { Rpc } from '@kstackz/rpc-toolkit/rpc';
-import { liveUser } from '../live/index.ts';
+import { forOwner, liveUser } from '../live/index.ts';
 import { webServer } from '../worker/index.ts';
 
 /** One API's handlers on the cloud Backend, with the services they stand
@@ -74,7 +74,7 @@ export const createServer = <A extends Apis, Env>(
       return new Response('The sign-in service could not be asked', {
         status: 503,
       });
-    return objects.getByName(user).fetch(request);
+    return objects.getByName(user).fetch(forOwner(request, user));
   };
   return webServer<Env>({
     route: (request, env) => {

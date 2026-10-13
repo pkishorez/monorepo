@@ -212,6 +212,27 @@ describe('the Gate', () => {
     await openOn('mary');
   });
 
+  it('keeps a switch made before the Backend first answered', async () => {
+    const { state, gate, openOn } = world({
+      signedIn: [{ user: ada, active: true }, { user: mary }],
+      remembered: [ada, mary],
+    });
+    state.reachable = false;
+    await openOn('ada');
+    gate.switchTo('mary');
+    await openOn('mary');
+
+    state.reachable = true;
+    gate.checkAgain();
+    await vi.waitFor(() => expect(state.log).toContain('active mary-token'));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    await openOn('mary');
+    expect(state.log.filter((line) => line.startsWith('open'))).toEqual([
+      'open ada null',
+      'open mary null',
+    ]);
+  });
+
   it('leaves the cookie on the last of several quick switches', async () => {
     const zoe = user('zoe');
     const { state, gate, openOn } = world({
@@ -341,6 +362,19 @@ describe('the Gate', () => {
       signedIn: [{ user: ada, active: true }, { user: mary }],
     });
     await openOn('ada');
+    expect(gate.signOut()).toBe(true);
+    await openOn('mary');
+    expect(state.log).toContain('sign out ada-token');
+  });
+
+  it('signs out an account opened before the Backend first answered', async () => {
+    const { state, gate, openOn } = world({
+      signedIn: [{ user: ada, active: true }, { user: mary }],
+      remembered: [ada, mary],
+    });
+    state.reachable = false;
+    await openOn('ada');
+    state.reachable = true;
     expect(gate.signOut()).toBe(true);
     await openOn('mary');
     expect(state.log).toContain('sign out ada-token');

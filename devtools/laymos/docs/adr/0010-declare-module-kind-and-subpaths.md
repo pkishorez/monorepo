@@ -1,5 +1,8 @@
 # Declare Module kind and Subpaths
 
+Superseded by [ADR-0019](./0019-architecture-is-one-tree-of-modules.md):
+architecture is now one tree of Modules, with Rules and Exceptions.
+
 ADR-0012 supersedes the `kind` and `subpaths` decisions. Its remaining
 shape and observed-kind decisions still apply.
 

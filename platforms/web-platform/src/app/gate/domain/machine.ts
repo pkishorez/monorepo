@@ -79,16 +79,32 @@ type Verify = {
   readonly fresh: boolean;
 };
 
+// The token of a Remembered Account, which holds none until the Backend
+// answers: asked of the Backend, null once it no longer names the account.
+const tokenOf = (account: Held) =>
+  Effect.gen(function* () {
+    if (account.token !== null) return account.token;
+    const accounts = yield* (yield* SignIn).list;
+    return (
+      accounts.find(({ user }) => user.id === account.user.id)?.token ?? null
+    );
+  });
+
 // Confirms the open account behind the screen: first the Account Switch
 // still owed, then who is signed in. Null when the accounts were just
-// checked.
+// checked, or when the switch is still owed and the Backend is out of
+// reach, so no answer from before the switch can undo it.
 const verifying = fromEffect(({ input }: { input: Verify }) =>
   Effect.gen(function* () {
     if (input.fresh) return null;
-    if (input.pending && input.account.token !== null) {
-      const switching = yield* Switching;
-      yield* switching.switchTo(input.account.token);
-      yield* switching.announce();
+    if (input.pending) {
+      const token = yield* Effect.result(tokenOf(input.account));
+      if (token._tag === 'Failure') return null;
+      if (token.success !== null) {
+        const switching = yield* Switching;
+        yield* switching.switchTo(token.success);
+        yield* switching.announce();
+      }
     }
     return yield* check(input.account.user);
   }),
@@ -106,19 +122,22 @@ const forgetting = fromEffect(({ input }: { input: User }) =>
 );
 
 type SignOut = {
-  readonly token: string | null;
+  readonly account: Held | null;
   readonly quiet: ReadonlyArray<string>;
 };
 
-// Signs one account out by its token, or every account given none. The
+// Signs one account out, or every account given none; an account still
+// only remembered is signed out by the token the Backend names it with. The
 // check after it deletes what the device kept for them and opens whoever is
 // left.
 const signingOut = fromEffect(({ input }: { input: SignOut }) =>
   Effect.gen(function* () {
     const signIn = yield* SignIn;
-    yield* input.token === null
-      ? signIn.signOutAll
-      : signIn.signOut(input.token);
+    if (input.account === null) yield* signIn.signOutAll;
+    else {
+      const token = yield* tokenOf(input.account);
+      if (token !== null) yield* signIn.signOut(token);
+    }
     yield* (yield* Switching).announce(input.quiet);
   }),
 );
@@ -182,13 +201,10 @@ const leaving = {
       },
     };
   },
-  SIGN_OUT: ({ context }: Leave) => {
-    if (context.account?.token == null) return;
-    return {
-      target: '#gate.signingOut',
-      context: { ...context, session: null },
-    };
-  },
+  SIGN_OUT: ({ context }: Leave) => ({
+    target: '#gate.signingOut',
+    context: { ...context, session: null },
+  }),
   SIGN_OUT_EVERYONE: ({ context }: Leave) => ({
     target: '#gate.signingOut',
     context: { ...context, account: null, session: null },
@@ -267,11 +283,11 @@ export const gateMachine = setupEffect({
         input: ({ context }): SignOut =>
           context.account === null
             ? {
-                token: null,
+                account: null,
                 quiet: context.accounts.map(({ user }) => user.id),
               }
             : {
-                token: context.account.token,
+                account: context.account,
                 quiet: [context.account.user.id],
               },
         onDone: ({ context }) => ({
@@ -341,10 +357,7 @@ export const gateMachine = setupEffect({
           target: 'open',
           context: { ...context, failures: 0 },
         }),
-        SIGN_OUT: ({ context }) => {
-          if (context.account?.token == null) return;
-          return { target: 'signingOut' };
-        },
+        SIGN_OUT: { target: 'signingOut' },
       },
     },
     open: {

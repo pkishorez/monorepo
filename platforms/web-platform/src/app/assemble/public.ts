@@ -58,6 +58,10 @@ export const publicClients = <A extends Apis>(
         );
       });
       made.set(key, client);
+      // A load that failed is tried again on the next call.
+      client.catch(() => {
+        if (made.get(key) === client) made.delete(key);
+      });
     }
     return client;
   };

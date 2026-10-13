@@ -70,6 +70,26 @@ describe('a Tree Walk showing', () => {
     expect(after.walk.shown).toBe(true);
     expect(after.walk.path).toEqual([2]);
   });
+
+  it('changes nothing for a step not above 0 or a finger not a finite point', () => {
+    const walk = begin(TREE, ['entries']);
+    const far = { x: 0, y: 100 };
+    for (const step of [0, -10, Number.NaN]) {
+      expect(move(walk, TREE, ['entries'], far, { reveal: 5, step })).toEqual({
+        walk,
+        events: [],
+      });
+    }
+    for (const finger of [
+      { x: Number.NaN, y: 0 },
+      { x: 0, y: Number.POSITIVE_INFINITY },
+    ]) {
+      expect(move(walk, TREE, ['entries'], finger)).toEqual({
+        walk,
+        events: [],
+      });
+    }
+  });
 });
 
 describe('a Tree Walk Stepping up and down', () => {

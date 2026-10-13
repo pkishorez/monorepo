@@ -1,0 +1,4 @@
+{
+  "sourceRoots": ["src"],
+  "ignoredPaths": ["src/real.ts", "src/ghost"]
+}

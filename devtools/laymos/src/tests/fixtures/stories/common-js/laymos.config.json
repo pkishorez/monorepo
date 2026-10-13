@@ -1,0 +1,5 @@
+{
+  "sourceRoots": ["src"],
+  "storiesPath": "stories",
+  "fileModules": ["src/app.ts"]
+}

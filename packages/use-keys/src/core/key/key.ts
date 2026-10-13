@@ -28,23 +28,33 @@ export const isModifier = (name: string): name is Modifier =>
 
 const LETTER = /^[a-z]$/i;
 const LETTER_CODE = /^Key([A-Z])$/;
+const DIGIT_CODE = /^Digit([0-9])$/;
 
 /**
  * What a key means, from a browser event's `key` and `code`:
  * - a letter is lowercase, whatever Shift or Caps Lock did; when the layout
  *   or Option types something else on a letter key, it is that key's letter;
- * - a digit or symbol is the character typed;
- * - any other key is its name, and the space bar is `'Space'`.
+ * - a digit or symbol is the character typed, except that with Alt (Option)
+ *   down and Ctrl up a digit key is its digit, as macOS types `'™'` for
+ *   Option+2; AltGr, which is Ctrl+Alt, keeps what it types;
+ * - any other key is its name, and the space bar is `'Space'`, even when
+ *   Option makes it type a non-breaking space.
  */
 export const nameOf = (event: {
   readonly key: string;
   readonly code: string;
+  readonly altKey?: boolean;
+  readonly ctrlKey?: boolean;
 }): string => {
   const { key, code } = event;
   if (LETTER.test(key)) return key.toLowerCase();
   const letter = LETTER_CODE.exec(code)?.[1];
   if (letter !== undefined) return letter.toLowerCase();
-  if (key === ' ') return 'Space';
+  const digit = DIGIT_CODE.exec(code)?.[1];
+  if (digit !== undefined && event.altKey === true && event.ctrlKey !== true) {
+    return digit;
+  }
+  if (key === ' ' || code === 'Space') return 'Space';
   if (key === 'OS') return 'Meta';
   if (key === 'Unidentified' || key === '') return code;
   return key;

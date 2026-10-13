@@ -32,7 +32,8 @@ export type PointerSample<Target> = {
  * at the last change. `target` is what it landed on. `x` and `y` are where
  * it is now; `dx` and `dy` how far it is from where it landed. They keep
  * where it lifted after. `end` is set once it lifts. Each change makes a new
- * Pointer; `start` stays the same object for the whole Gesture.
+ * Pointer; `start` stays the same object for the whole Gesture, unless a
+ * new finger lands with a lifted one's id and takes its place.
  */
 export type Pointer<Target> = {
   readonly id: number;
@@ -84,10 +85,19 @@ export const createPointers = <Target>() => {
     pointers: () => pointers,
     /** Whether some finger is down. */
     active: () => [...pointers.values()].some((p) => p.end === undefined),
-    /** A finger landed: it joins the Gesture, or starts one. */
+    /**
+     * A finger landed: it joins the Gesture, or starts one. A source may
+     * reuse a lifted finger's id, as Android does; the new finger takes its
+     * place, last in landing order.
+     */
     down: (sample: PointerSample<Target>) => {
-      if (pointers.has(sample.id)) return undefined;
+      if (live(sample.id) !== undefined) return undefined;
       if (pointers.size === 0) zero = sample.t;
+      if (pointers.has(sample.id)) {
+        const next = new Map(pointers);
+        next.delete(sample.id);
+        pointers = next;
+      }
       return replace({
         id: sample.id,
         target: sample.target,

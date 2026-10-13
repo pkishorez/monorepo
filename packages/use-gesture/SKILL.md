@@ -29,7 +29,8 @@ import {
 
 The package root, `@kstackz/use-gesture`, is the platform-free core under
 them: `createGestureProvider`, which any touch source feeds plain finger
-samples, the `Swipe` rules and the `TreeWalk` a picker moves through. Reach
+samples, the `Swipe` rules, `thumbLock` (a listener for a still left thumb
+beside a moving finger) and the `TreeWalk` a picker moves through. Reach
 for it only to bring gestures to another platform; on the web, use
 `@kstackz/web-platform/input`.
 

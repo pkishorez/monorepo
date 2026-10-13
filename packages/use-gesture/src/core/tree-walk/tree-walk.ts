@@ -120,7 +120,8 @@ const EVENTS: Readonly<Record<Way, Exclude<Event, 'wrong'>>> = {
  * or go back to, where it counts from follows the finger, so turning
  * around counts from where it turned; a sideways push there is wrong once.
  * It shows once the finger is `reveal` px from where it landed, or with
- * the first move. Each move made, and each wrong, is told.
+ * the first move. Each move made, and each wrong, is told. A finger that
+ * is not a finite point, or a `step` that is not above 0, changes nothing.
  */
 export const move = <C extends Choice<C>>(
   walk: Walk,
@@ -129,6 +130,10 @@ export const move = <C extends Choice<C>>(
   finger: Point,
   { reveal, step }: Distances = DISTANCES,
 ): { readonly walk: Walk; readonly events: ReadonlyArray<Event> } => {
+  // Either would never stop counting moves.
+  if (!(step > 0) || !Number.isFinite(finger.x) || !Number.isFinite(finger.y)) {
+    return { walk, events: [] };
+  }
   let next =
     walk.shown || Math.hypot(finger.x, finger.y) < reveal
       ? walk

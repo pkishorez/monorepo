@@ -1,5 +1,5 @@
 /**
- * TanStack Form integration for ui-toolkit
+ * TanStack Form integration for the web-platform components
  *
  * This module provides a schema-agnostic form primitive that integrates
  * TanStack Form with the existing UI components.

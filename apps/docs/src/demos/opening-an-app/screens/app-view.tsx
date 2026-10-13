@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { Check, CloudOff, TreeDeciduous } from 'lucide-react';
-import { View } from 'effect-oak/react';
+import { View } from '@kstackz/kabuki/react';
 import { scrollBar } from '@kstackz/web-platform/components/scroll-styles';
 import type { ReactNode } from 'react';
 import { ASSETS, App } from '../story/index.ts';

@@ -231,6 +231,25 @@ describe('public calls', () => {
     expect((guarded as { _tag: string })._tag).toBe('Unauthenticated');
   });
 
+  it('loads a client again after a load that failed', async () => {
+    const handlers = device();
+    let loads = 0;
+    const clients = publicClients(apis, {
+      backend: () => 'device',
+      protocol: async (_, name) => {
+        loads += 1;
+        if (loads === 1) throw new Error('offline');
+        return (await import('../../apis/index.ts')).deviceProtocol(
+          apis[name as keyof typeof apis],
+          handlers[name as keyof typeof handlers] as never,
+        );
+      },
+    });
+    const first = await Effect.runPromiseExit(clients.public.Hello());
+    expect(first._tag).toBe('Failure');
+    expect(await Effect.runPromise(clients.public.Hello())).toBe('hello');
+  });
+
   it('runs an app with no auth on the Backend its launch asked for', async () => {
     const app = createApp({
       host: () => memoryHost({ launchBackend: 'device' }),

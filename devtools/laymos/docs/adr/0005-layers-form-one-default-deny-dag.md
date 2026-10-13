@@ -1,5 +1,8 @@
 # Layers form one default-deny dependency DAG
 
+Superseded by [ADR-0019](./0019-architecture-is-one-tree-of-modules.md):
+architecture is now one tree of Modules, with Rules and Exceptions.
+
 Laymos treats Layers as a partition of the supported files beneath Source
 roots after explicit ignored paths are removed: every included file belongs to
 exactly one Layer, and declared Layer scopes may never overlap. LayerGraphs are

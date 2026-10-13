@@ -1,5 +1,8 @@
 # A Layer reads as a rank stack, wrapped towards a square
 
+Superseded by [ADR-0019](./0019-architecture-is-one-tree-of-modules.md):
+architecture is now one tree of Modules, with Rules and Exceptions.
+
 A Module Graph already stacked its members by their declared Rules, so a reader
 could see which member stood on which. A Layer did not. Free-form Configured
 Modules were laid out in a square-ish grid whose row and column meant nothing,

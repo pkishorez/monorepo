@@ -230,20 +230,16 @@
       "src/input"
     ],
     "src/recipes/account-switcher": ["src/recipes/parts/email-privacy"],
-    "src/recipes/effect-oak-devtools": ["src/components/viewers"],
+    "src/recipes/kabuki-devtools": ["src/components/viewers"],
     "src/recipes/frame/sidebar": ["src/recipes/frame/frame"],
     "src/recipes/local-sign-in": ["src/recipes/parts/email-privacy"],
     "src/server": ["src/define"],
     "src/server/serve": ["src/server/live", "src/server/worker"],
-    "src/recipes/effect-oak-devtools/map": [
-      "src/recipes/effect-oak-devtools/ink",
-      "src/recipes/effect-oak-devtools/scene"
+    "src/recipes/kabuki-devtools/map": [
+      "src/recipes/kabuki-devtools/ink",
+      "src/recipes/kabuki-devtools/scene"
     ],
-    "src/recipes/effect-oak-devtools/timeline": [
-      "src/recipes/effect-oak-devtools/ink"
-    ],
-    "src/recipes/effect-oak-devtools/sheet": [
-      "src/recipes/effect-oak-devtools/ink"
-    ]
+    "src/recipes/kabuki-devtools/timeline": ["src/recipes/kabuki-devtools/ink"],
+    "src/recipes/kabuki-devtools/sheet": ["src/recipes/kabuki-devtools/ink"]
   }
 }

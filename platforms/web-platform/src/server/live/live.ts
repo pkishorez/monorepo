@@ -1,5 +1,5 @@
 import type * as cf from '@cloudflare/workers-types';
-import { Effect, Layer } from 'effect';
+import { Context, Effect, Layer } from 'effect';
 import { HttpServerRequest, HttpServerResponse } from 'effect/http';
 import type { Rpc as EffectRpc } from 'effect/rpc';
 import type { Api } from '../../define/index.ts';
@@ -69,6 +69,43 @@ export const liveUser = (
   );
 };
 
+/** The header `createServer` names a Live Object's owner by, set on every
+ * request it forwards there, whatever the caller sent. */
+export const LIVE_OWNER = 'x-kstack-live-owner';
+
+/** `request` as forwarded to the Live Object of `owner`. */
+export const forOwner = (request: Request, owner: string): Request => {
+  const headers = new Headers(request.headers);
+  headers.set(LIVE_OWNER, owner);
+  return new Request(request, { headers });
+};
+
+type Resolver = Context.Service.Identifier<typeof Authz.Resolver>;
+
+// Where the object keeps whom it was opened for, beside the app's own keys.
+const OWNER_KEY = '@kstackz/web-platform/live/owner';
+
+/** `found`, narrowed to calls signed by `owner`: any other user's is
+ * signed by nobody. */
+export const ownedBy = (
+  owner: () => Promise<string | undefined>,
+): Layer.Layer<Resolver, never, Resolver> =>
+  Layer.effect(
+    Authz.Resolver,
+    Effect.map(Authz.Resolver, (found) =>
+      Authz.Resolver.of({
+        resolve: (request) =>
+          Effect.flatMap(found.resolve(request), (resolution) =>
+            resolution === null
+              ? Effect.succeed(null)
+              : Effect.map(Effect.promise(owner), (pinned) =>
+                  pinned === resolution.current.user.id ? resolution : null,
+                ),
+          ),
+      }),
+    ),
+  );
+
 /** What the runtime calls on a Live Object. */
 export interface LiveObject {
   fetch(request: Request): Promise<Response>;
@@ -78,8 +115,10 @@ export interface LiveObject {
 
 /**
  * A Live Object: a Durable Object class serving one API over hibernatable
- * WebSockets, one object per user, its storage theirs alone. Every call is
- * still checked, by the token it carries. `backend` makes the API's
+ * WebSockets, one object per user, its storage theirs alone. It keeps whom
+ * it was first opened for, and refuses a socket opened for anyone else;
+ * every call is still checked, by the token it carries, and refused unless
+ * that token is the same user's. `backend` makes the API's
  * handlers from the object's own storage, and `streams` where open streams
  * are kept while it sleeps (in the sockets' own notes, about 2 KB each,
  * when not given). Export it from the Worker by the name its binding has.
@@ -107,12 +146,20 @@ export const liveObject = <Rpcs extends EffectRpc.Any, Env>(options: {
       ) => Promise<void>;
     }>;
 
+    readonly #storage: cf.DurableObjectStorage;
+    #owner: Promise<string | undefined> | undefined;
+
     constructor(state: cf.DurableObjectState, env: Env) {
+      this.#storage = state.storage;
       const { state: hibernation, upgrade } =
         Rpc.websocket.fromDurableObjectState(state);
       const handlers = options
         .backend(env, state.storage)
-        .pipe(Layer.provide(resolver(options.auth))) as Layer.Layer<
+        .pipe(
+          Layer.provide(
+            ownedBy(this.#pinned).pipe(Layer.provide(resolver(options.auth))),
+          ),
+        ) as Layer.Layer<
         | EffectRpc.ToHandler<Rpcs>
         | EffectRpc.Middleware<Rpcs>
         | EffectRpc.ServicesServer<Rpcs>
@@ -146,7 +193,19 @@ export const liveObject = <Rpcs extends EffectRpc.Any, Env>(options: {
       );
     }
 
+    // Whom the object was first opened for, read once per wake.
+    readonly #pinned = () =>
+      (this.#owner ??= this.#storage.get<string>(OWNER_KEY));
+
     async fetch(request: Request): Promise<Response> {
+      const owner = request.headers.get(LIVE_OWNER);
+      if (owner === null) return new Response('Forbidden', { status: 403 });
+      const pinned = await this.#pinned();
+      if (pinned === undefined) {
+        await this.#storage.put(OWNER_KEY, owner);
+        this.#owner = Promise.resolve(owner);
+      } else if (pinned !== owner)
+        return new Response('Forbidden', { status: 403 });
       return (await this.#served).accept(request);
     }
 

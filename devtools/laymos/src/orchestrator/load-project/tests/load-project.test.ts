@@ -55,4 +55,19 @@ describe('loadProject', () => {
       ],
     });
   });
+
+  test('surfaces an Ignored path that does not exist as a Config validation ConfigError', async () => {
+    const error = await run(fixture('tree/missing-ignored-path')).pipe(
+      Effect.flip,
+      Effect.runPromise,
+    );
+
+    expect(error).toMatchObject({
+      _tag: 'ConfigError',
+      reason: 'validation',
+      issues: [
+        { kind: 'path', message: 'Ignored path does not exist: src/ghost' },
+      ],
+    });
+  });
 });

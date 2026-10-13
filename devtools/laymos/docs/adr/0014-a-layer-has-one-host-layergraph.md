@@ -1,5 +1,8 @@
 # A Layer has one Host LayerGraph
 
+Superseded by [ADR-0019](./0019-architecture-is-one-tree-of-modules.md):
+architecture is now one tree of Modules, with Rules and Exceptions.
+
 The Layers <> Modules view draws one lane per LayerGraph, and a Layer belonging
 to several lanes was drawn as one box stretched from the leftmost member lane to
 the rightmost. Membership was computed by unioning both ends of every Rule, so a

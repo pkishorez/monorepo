@@ -11,16 +11,13 @@
   "fixed": [
     [
       "@kstackz/ai-toolkit",
-      "effect-oak",
       "@kstackz/auth-toolkit",
       "@kstackz/devtools",
-      "@kstackz/effect-tracer",
       "@kstackz/effect-webrtc",
       "@kstackz/lotel",
       "@kstackz/rpc-toolkit",
       "@kstackz/std-toolkit",
-      "@kstackz/use-gesture",
-      "@kstackz/use-keys",
+      "@kstackz/web-platform",
       "laymos"
     ]
   ],

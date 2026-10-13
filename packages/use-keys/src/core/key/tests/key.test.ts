@@ -23,6 +23,24 @@ describe('nameOf', () => {
     expect(nameOf({ key: '&', code: 'Digit1' })).toBe('&');
   });
 
+  it('uses the digit of the physical key while Option or Alt is down', () => {
+    expect(nameOf({ key: '™', code: 'Digit2', altKey: true })).toBe('2');
+    expect(nameOf({ key: '€', code: 'Digit2', altKey: true })).toBe('2');
+    expect(nameOf({ key: '¡', code: 'Digit1', altKey: true })).toBe('1');
+  });
+
+  it('keeps what AltGr types on a digit key', () => {
+    expect(
+      nameOf({ key: '@', code: 'Digit0', altKey: true, ctrlKey: true }),
+    ).toBe('@');
+  });
+
+  it('names the space bar Space, whatever Option typed', () => {
+    expect(nameOf({ key: '\u00a0', code: 'Space', altKey: true })).toBe(
+      'Space',
+    );
+  });
+
   it('names other keys', () => {
     expect(nameOf({ key: ' ', code: 'Space' })).toBe('Space');
     expect(nameOf({ key: 'Enter', code: 'Enter' })).toBe('Enter');

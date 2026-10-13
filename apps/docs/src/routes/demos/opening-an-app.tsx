@@ -11,11 +11,11 @@ export const Route = createFileRoute('/demos/opening-an-app')({
   ),
   head: () => ({
     meta: [
-      { title: 'Opening an app · Effect Oak' },
+      { title: 'Opening an app · Kabuki' },
       {
         name: 'description',
         content:
-          'An app opening, drawn as the tree of Effect Oak Actors it is: States, Children, Workers, Commands and Capabilities, with Time Travel.',
+          'An app opening, drawn as the tree of Kabuki Actors it is: States, Children, Workers, Commands and Capabilities, with Time Travel.',
       },
     ],
   }),

@@ -1,6 +1,6 @@
 # The three area Toolkits are three doors each, and the front end holds two choices
 
-Status: amended by [ADR 0006](0006-platforms-may-break-toolkits-keep-what-persists.md): `createApp` and the Gate moved to platform-toolkit, and the Platforms are rebuilt on it.
+Status: amended by [ADR 0006](0006-platforms-may-break-toolkits-keep-what-persists.md): `createApp` and the Gate moved to platform-toolkit, and the Platforms are rebuilt on it. Since [ADR 0007](0007-web-is-the-only-platform.md) both live in the Web Platform.
 
 rpc-toolkit, auth-toolkit and std-toolkit are the platform-free first principles every kstack app and Platform is built on, and their public surface had grown to 19, 8 and many subpaths with overlapping words (five meanings of "local", three of "session", three of "backend", four of "platform"). Each now reads as a few nouns with one door per side, and the app's client holds exactly two choices: which Backend (`cloud` or `device`), and which Platform (web or expo). Everything else is a part underneath a door, exported for the unusual app and never needed by the usual one.
 

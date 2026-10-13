@@ -119,6 +119,17 @@ describe('useShortcut', () => {
     expect(onCommit).toHaveBeenCalledTimes(1);
   });
 
+  it('matches alt+digit on macOS, where Option types another character', () => {
+    const onCommit = vi.fn();
+    render(
+      <KeysProvider>
+        <Shortcut keys="alt+2" onCommit={onCommit} />
+      </KeysProvider>,
+    );
+    tap(document.body, { key: '™', code: 'Digit2', altKey: true });
+    expect(onCommit).toHaveBeenCalledTimes(1);
+  });
+
   it('matches exact modifiers, Caps Lock aside', () => {
     const onCommit = vi.fn();
     render(

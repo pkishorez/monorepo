@@ -1,6 +1,6 @@
 # One Web Toolkit, with the PWA opt-in and the Gate in auth-toolkit
 
-Status: partly superseded by [ADR 0006](0006-platforms-may-break-toolkits-keep-what-persists.md): web-toolkit is now the Web Platform, the PWA is always on, and the Gate is in platform-toolkit.
+Status: partly superseded by [ADR 0006](0006-platforms-may-break-toolkits-keep-what-persists.md): web-toolkit is now the Web Platform, the PWA is always on, and the Gate is in the Web Platform (platform-toolkit was folded into it by [ADR 0007](0007-web-is-the-only-platform.md)).
 
 `@kstackz/ui-toolkit` and `@kstackz/pwa-toolkit` merge into `@kstackz/web-platform`, laid out like expo-platform: one Laymos layer per job, one subpath per layer, bottom to top `theme`, `feedback`, `input`, `components`, `form`, `recipes`, `client`, `pwa`, with `server` beside them. `client` and `server` are the opinionated way in and assume TanStack Start. The PWA sits above `client` and plugs into it, so `client` never imports it: an app that leaves `pwa` out ships no service worker, manifest or Update Prompt.
 

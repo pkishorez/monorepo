@@ -88,6 +88,23 @@ describe('thumbLock', () => {
     ]);
   });
 
+  it("locks again when the next finger reuses a lifted finger's id", () => {
+    const touch = setup();
+    touch.down(0, 40, 600);
+    touch.down(1, 300, 400);
+    touch.up(1, 300, 400);
+    expect(touch.down(1, 320, 420)).toBe(true);
+    touch.move(1, 320, 460);
+    touch.up(1, 320, 460);
+    expect(touch.log).toEqual([
+      'lock',
+      'lifted',
+      'lock',
+      'move 0,40',
+      'lifted',
+    ]);
+  });
+
   it('never locks on a thumb that landed on the right half', () => {
     const touch = setup();
     touch.down(1, 260, 600);

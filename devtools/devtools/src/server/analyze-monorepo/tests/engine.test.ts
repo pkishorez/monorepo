@@ -189,6 +189,23 @@ describe('the workspaces field', () => {
       },
     ));
 
+  test('skips node_modules but keeps a folder whose name only contains it', () =>
+    withMonorepo(
+      {
+        'pnpm-workspace.yaml': 'packages:\n  - packages/**\n',
+        'packages/core/package.json': '{"name":"core"}',
+        'packages/core/node_modules/dep/package.json': '{"name":"dep"}',
+        'packages/node_modules_tools/package.json': '{"name":"tools"}',
+      },
+      async (root) => {
+        const analysis = await Effect.runPromise(analyzeMonorepo(root));
+        expect(analysis.packages.map((pkg) => pkg.name)).toEqual([
+          'core',
+          'tools',
+        ]);
+      },
+    ));
+
   test('honours negated globs', () =>
     withMonorepo(
       {
@@ -283,6 +300,21 @@ describe('a Single Package', () => {
         expect(analysis.packages).toMatchObject([
           { name: 'solo', path: '.', hasLaymos: true, hasStories: true },
         ]);
+      },
+    ));
+
+  test('is a pnpm-workspace.yaml without packages, holding only settings', () =>
+    withMonorepo(
+      {
+        'pnpm-workspace.yaml': 'catalog:\n  effect: 4.0.0\n',
+        'package.json': '{"name":"solo"}',
+        'packages/inner/package.json': '{"name":"inner"}',
+      },
+      async (root) => {
+        const analysis = await Effect.runPromise(analyzeMonorepo(root));
+        expect(analysis.kind).toBe('single-package');
+        expect(analysis.packageManager).toBe('pnpm');
+        expect(analysis.packages.map((pkg) => pkg.name)).toEqual(['solo']);
       },
     ));
 

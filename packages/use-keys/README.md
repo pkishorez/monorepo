@@ -102,7 +102,9 @@ function Inbox() {
 
 - A Shortcut matches one key going down with exactly its modifiers: `j`
   never fires on Ctrl+J. A letter is written lowercase with `shift` for its
-  capital, and Caps Lock is ignored; a symbol is the character typed.
+  capital, and Caps Lock is ignored; a symbol is the character typed. With
+  `alt`, a letter or digit is the key pressed, so `alt+2` matches macOS's
+  Option+2, which types `™`.
   `mod` is Cmd on Apple platforms and Ctrl elsewhere. Modifiers come in
   the order `mod`/`ctrl`, `alt`, `shift`, `meta`; a typo fails to compile.
 - One Shortcut or Sequence is written inline; a list is always

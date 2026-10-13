@@ -4,7 +4,7 @@ The way to build a kstack app: one config made into a PWA on TanStack Start with
 
 ## Big picture
 
-Every kstack web app used to wire the same things by hand: the root document, the Theme, the PWA, sign-in and its screens, the browser as a Host, and the server for its APIs. This Package holds all of it, so a new app writes only its APIs, its Backend, its Session, its Cache and its screens ([ADR 0004](../../docs/adr/0004-an-app-is-api-backend-and-stores.md)). It replaces `@kstackz/web-toolkit`, `@kstackz/ui-toolkit` and `@kstackz/pwa-toolkit`.
+Every kstack web app used to wire the same things by hand: the root document, the Theme, the PWA, sign-in and its screens, the browser as a Host, and the server for its APIs. This Package holds all of it, so a new app writes only its APIs, its Backend, its Session, its Cache and its screens ([ADR 0004](../../docs/adr/0004-an-app-is-api-backend-and-stores.md)). It replaces `@kstackz/ui-toolkit` and `@kstackz/pwa-toolkit`.
 
 The root door is `createApp`. It runs the app on the browser (IndexedDB with a Broadcaster per database every tab hears, the sign-in service's cookies, the window's network and tabs) and gives back the app with its root route, the Theme, `SignedIn` with the screens before an Account is open (the Gate Screens and Account Lost recipes), and the named sign-in dialog for the device Backend. Every app is a PWA: `createApp` always adds the PWA's Root Plugin. The `server` door's `createServer` serves each `http` API on its cloud Backend and each `websocket` API in the caller's own Live Object (a Durable Object made with `liveObject`, one per user), and checks every call with the sign-in service. Underneath `createApp` is the Gate: it keeps the app on one Backend, remembers the Accounts there, opens the active Account's Session at once (Open First) and confirms it behind, and holds the app on an Account Lost until the User acts. Each Session is written once with `defineSession`; closing it interrupts every call still in flight, so nothing of one Account reaches another's screen. Why the Web Platform may break while the Toolkits keep what persists is [ADR 0006](../../docs/adr/0006-platforms-may-break-toolkits-keep-what-persists.md).
 
@@ -19,7 +19,7 @@ pnpm add @kstackz/web-platform @kstackz/auth-toolkit @kstackz/rpc-toolkit @kstac
 pnpm add -D @tailwindcss/vite
 ```
 
-An app that renders on the server adds `@kstackz/web-platform` to `ssr.noExternal` in its Vite config, as Ledger, `apps/docs` and `apps/alchemy-console` do. Its stylesheet imports `@kstackz/web-platform/theme/global.css`, which also points Tailwind at the Package's own classes.
+An app that renders on the server adds `@kstackz/web-platform` to `ssr.noExternal` in its Vite config, as `apps/docs` and `apps/alchemy-console` do. Its stylesheet imports `@kstackz/web-platform/theme/global.css`, which also points Tailwind at the Package's own classes.
 
 - `@kstackz/auth-toolkit`: Accounts sign in with its `cookie` and, on the device Backend, `signIn.named`; `createServer` checks calls with its `authz.cloud`.
 - `@kstackz/rpc-toolkit`: each API is called with its `http`, `websocket` and `inProcess` Transports; `createServer` answers each `http` API with its `Rpc.http.server`, and `liveObject` each `websocket` one with its `Rpc.websocket.server`.
@@ -33,6 +33,8 @@ An app that renders on the server adds `@kstackz/web-platform` to `ssr.noExterna
 - `vite` (optional): needed by `./pwa/vite`.
 - `laymos` (optional): the file diff and change types the diff, git-changes and source-explorer viewers read.
 - `use-effect-ts` (optional): runs `./components/viewers/source-explorer`'s loaders inside React.
+- `@kstackz/kabuki` (optional): the running app `./recipes/kabuki-devtools` inspects.
+- `@cloudflare/workers-types` (optional): the Durable Object types `./server`'s `liveObject` is declared with.
 
 ## Exports
 
@@ -331,6 +333,13 @@ Owned shadcn copies on Base UI, one subpath per file, such as `@kstackz/web-plat
 | ----------------- | -------------------------------------------------------------------------------------------------- |
 | `AccountSwitcher` | A menu of the Signed-in Accounts: switch, add an account, sign out the Active Account or everyone. |
 
+### `@kstackz/web-platform/recipes/kabuki-devtools`
+
+| Export           | What it does                                                                                                                                |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `KabukiDevtools` | The Inspector on a running Kabuki app, from `App.useRuntime()`: picking a Step on its Timeline Time Travels the app, going live comes back. |
+| `Inspector`      | The Step shown, drawn as a Map, with the Sheet of what is picked and the Timeline under it; it lays itself out by its own width.            |
+
 ### `@kstackz/web-platform/client`
 
 | Export    | What it does                                                                                                                                               |
@@ -422,7 +431,7 @@ Owned shadcn copies on Base UI, one subpath per file, such as `@kstackz/web-plat
 | Export              | What it does                                                                                                                                                                                                                                                                               |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `createServer`      | A web app's server from its APIs and its cloud Backend: each `http` API at its path, each `websocket` API's socket handed to the Live Object named for whoever its `access_token` names, each call checked with the sign-in service when the app has auth, everything else TanStack Start. |
-| `liveObject`        | A Durable Object class serving one `websocket` API, one object per user with its own storage, each call still checked; `streams` sets where open streams are kept while it sleeps.                                                                                                         |
+| `liveObject`        | A Durable Object class serving one `websocket` API, one object per user with its own storage, refusing sockets and calls from any other user; `streams` sets where open streams are kept while it sleeps.                                                                                  |
 | `webServer`         | One fetch handler: `/rpc` goes to the app's API, everything else to TanStack Start; a Cloudflare Worker's default export as it is.                                                                                                                                                         |
 | `isDeployedStage`   | Whether an alchemy stage reaches the world: `prod` or a pull request's `prN`.                                                                                                                                                                                                              |
 | `assertStageIsSafe` | Refuses a deployed stage unless `ALLOW_DEPLOY=true`.                                                                                                                                                                                                                                       |
@@ -433,7 +442,7 @@ Owned shadcn copies on Base UI, one subpath per file, such as `@kstackz/web-plat
 
 ### A web app from one config
 
-`app.ts` makes the app once; the root route and the Worker come from it. From Ledger's `src/app.ts`, `src/routes/__root.tsx` and `src/worker.ts`.
+`app.ts` makes the app once; the root route and the Worker come from it.
 
 ```tsx
 // src/app.ts
@@ -467,7 +476,7 @@ export default createServer({
     ledger: ledgerBackend.pipe(Layer.provide(tableCloud(env.DB))),
   }),
   live: (env: WorkerEnv) => ({ ledger: env.LedgerObject }), // a liveObject
-  auth: { url: AUTH_URL, resource: LEDGER_RESOURCE },
+  auth: { url: AUTH_URL },
 }) satisfies ExportedHandler<WorkerEnv>;
 ```
 
@@ -475,12 +484,12 @@ export default createServer({
 - `SignedIn` renders its children while an Account is open, and otherwise the Gate Screens or Account Lost. Everything inside remounts on an Account Switch.
 - The Host is made the first time anything asks, so `app.ts` loads on the server too. The device Backend's code loads the first time someone chooses it; `?backend=device` in the address starts on it.
 - `createServer` serves each `http` API at its path and everything else from TanStack Start. Point `tanstackStart({ server: { entry } })` at this file.
-- A `websocket` API is served by `live` instead of `backend`: each `(env) => ({ [api]: namespace })` names a Durable Object binding, and a socket opens at `getByName(userId)` once its `access_token` checks out (401 without one, 503 when the sign-in service can't be asked). Ledger's `LedgerObject`, made with `liveObject`, is the example.
+- A `websocket` API is served by `live` instead of `backend`: each `(env) => ({ [api]: namespace })` names a Durable Object binding, and a socket opens at `getByName(userId)` once its `access_token` checks out (401 without one, 503 when the sign-in service can't be asked). The binding's class is made with `liveObject`, and takes calls only from the user it is named for.
 - With `auth`, each call is checked by auth-toolkit's `authz.cloud` for a bearer token or the sign-in cookie, and refreshed cookies go back on the answer. `resource` lets in Access Tokens for that Resource Server too, such as an MCP client's.
 
 ### Building the PWA
 
-`createApp` adds the PWA to the root route; `pwa()` in the Vite plugins builds its worker and manifest. From Ledger's `vite.config.ts`.
+`createApp` adds the PWA to the root route; `pwa()` in the Vite plugins builds its worker and manifest.
 
 ```ts
 // vite.config.ts

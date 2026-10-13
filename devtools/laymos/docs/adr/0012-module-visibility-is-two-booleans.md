@@ -1,5 +1,8 @@
 # Module visibility is two booleans
 
+Superseded by [ADR-0019](./0019-architecture-is-one-tree-of-modules.md):
+architecture is now one tree of Modules, with Rules and Exceptions.
+
 ADR-0010 declared each Configured Module as Normal, Shared, or Entry and added
 `subpaths`. Those three kinds encoded two independent facts — whether same-Layer
 peers may import the Module, and whether other Layers may — and encoded them
