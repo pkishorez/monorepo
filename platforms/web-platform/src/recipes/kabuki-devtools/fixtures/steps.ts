@@ -1,6 +1,6 @@
 import { Effect, Schema } from 'effect';
-import { Actor, Command, handle, init } from '@kstackz/kabuki';
-import type { Envelope, Snapshot, Source } from '@kstackz/kabuki';
+import { Actor, Command, handle, init } from '@kestack/kabuki';
+import type { Envelope, Snapshot, Source } from '@kestack/kabuki';
 
 /*
  * Shop: a small app with one of everything the Map draws, and a run of it

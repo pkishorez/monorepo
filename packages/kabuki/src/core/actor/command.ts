@@ -26,7 +26,7 @@ const checkerOf = (name: string, schema: Codec<unknown> | undefined) => {
       decode(args);
     } catch (error) {
       throw new TypeError(
-        `[@kstackz/kabuki] Command ${name}: its args do not match their Schema\n${(error as Error).message}`,
+        `[@kestack/kabuki] Command ${name}: its args do not match their Schema\n${(error as Error).message}`,
       );
     }
   };

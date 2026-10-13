@@ -1,6 +1,6 @@
 import { Effect, Schema, Stream } from 'effect';
 import { fromEffect, fromEffectEventStream, setupEffect } from '@xstate/effect';
-import { SignIn } from '@kstackz/auth-toolkit/client';
+import { SignIn } from '@kestack/auth-toolkit/client';
 import { type Checked, check } from './check.ts';
 import { Device, type Remembered, Sessions, Switching } from './services.ts';
 import type { Held, User } from './types.ts';

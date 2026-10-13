@@ -7,8 +7,8 @@ import {
   ShieldAlert,
   Terminal,
   TriangleAlert,
-} from '@kstackz/web-platform/components/lucide';
-import { cn } from '@kstackz/web-platform/components/utils';
+} from '@kestack/web-platform/components/lucide';
+import { cn } from '@kestack/web-platform/components/utils';
 
 import { StateMark } from '../badges';
 import { useCanvasState } from '../canvas-context';

@@ -2,7 +2,7 @@ import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { Effect, Option } from 'effect';
-import type { CapturedTrace as RecordedTrace } from '@kstackz/effect-tracer/recorder';
+import type { CapturedTrace as RecordedTrace } from '@kestack/effect-tracer/recorder';
 
 import type { Proof, ProofHost } from '../../story/index.js';
 import type {

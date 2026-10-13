@@ -11,14 +11,14 @@ import {
   Stream,
 } from 'effect';
 import { type RpcClient, RpcClient as Client } from 'effect/rpc';
-import type { Account } from '@kstackz/auth-toolkit/client';
-import { Authz } from '@kstackz/auth-toolkit/guard';
-import { Rpc } from '@kstackz/rpc-toolkit/rpc';
+import type { Account } from '@kestack/auth-toolkit/client';
+import { Authz } from '@kestack/auth-toolkit/guard';
+import { Rpc } from '@kestack/rpc-toolkit/rpc';
 import {
   createStdSync,
   type EffectRuntime,
   type SyncStore,
-} from '@kstackz/std-toolkit/sync';
+} from '@kestack/std-toolkit/sync';
 import type { ApiClients, Apis } from '../apis/index.ts';
 import type { SessionContext } from './define.ts';
 import { SessionClosed } from './define.ts';
@@ -46,7 +46,7 @@ export interface Opened<S> {
 }
 
 interface ClientOf {
-  readonly '@kstackz/web-platform/ApiClient': unique symbol;
+  readonly '@kestack/web-platform/ApiClient': unique symbol;
 }
 
 type AnyCall = (...args: ReadonlyArray<unknown>) => unknown;
@@ -100,7 +100,7 @@ export const openSession = <A extends Apis, S>(options: {
       names.map((name) => [
         name,
         Context.Service<ClientOf, Made>(
-          `@kstackz/web-platform/ApiClient/${name}`,
+          `@kestack/web-platform/ApiClient/${name}`,
         ),
       ]),
     );

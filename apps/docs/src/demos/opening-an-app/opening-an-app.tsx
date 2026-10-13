@@ -1,7 +1,7 @@
 // oxlint-disable-next-line no-restricted-imports -- Ctrl+/ is a key on the whole page, which only a listener on window hears.
 import { useEffect, useState } from 'react';
 import { Layer } from 'effect';
-import { toReact } from '@kstackz/kabuki/react';
+import { toReact } from '@kestack/kabuki/react';
 import { Monitor, Network, Smartphone, X } from 'lucide-react';
 import {
   Dialog,
@@ -9,8 +9,8 @@ import {
   DialogContent,
   DialogTitle,
   DialogTrigger,
-} from '@kstackz/web-platform/components/dialog';
-import { KabukiDevtools } from '@kstackz/web-platform/recipes/kabuki-devtools';
+} from '@kestack/web-platform/components/dialog';
+import { KabukiDevtools } from '@kestack/web-platform/recipes/kabuki-devtools';
 import { Browser } from './browser/index.ts';
 import type { Device } from './browser/index.ts';
 import { AppView, PastContext } from './screens/index.ts';

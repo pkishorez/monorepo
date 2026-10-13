@@ -126,7 +126,7 @@ const open = <A extends AnyActor>(
   const unlocked = (what: string) => {
     if (locks > 0)
       throw new Error(
-        `[@kstackz/kabuki] stop the Runtime before ${what} its History`,
+        `[@kestack/kabuki] stop the Runtime before ${what} its History`,
       );
   };
   const add = (entry: Entry) => {
@@ -151,7 +151,7 @@ const open = <A extends AnyActor>(
   const moveHead: History<A>['moveHead'] = (to) => {
     unlocked('moving the Head of');
     if (to !== null && !entries[to])
-      throw new RangeError(`[@kstackz/kabuki] no History entry ${to}`);
+      throw new RangeError(`[@kestack/kabuki] no History entry ${to}`);
     change(to);
   };
 
@@ -179,7 +179,7 @@ const open = <A extends AnyActor>(
   const outcome = (id: number) => {
     const entry = entries[id];
     if (!entry)
-      throw new RangeError(`[@kstackz/kabuki] no History entry ${id}`);
+      throw new RangeError(`[@kestack/kabuki] no History entry ${id}`);
     const known =
       outcomes.get(id) ??
       outcomeOf(root, replay.at(branch(entry.parent)), entry);

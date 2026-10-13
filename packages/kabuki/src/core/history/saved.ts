@@ -119,7 +119,7 @@ const actorsAt = (
 export const checkSaved = (saved: SavedHistory): void => {
   const fail = (why: string) => {
     throw new TypeError(
-      `[@kstackz/kabuki] the saved History is corrupt: ${why}`,
+      `[@kestack/kabuki] the saved History is corrupt: ${why}`,
     );
   };
   if (!saved || !Array.isArray(saved.entries)) fail('it has no entries');

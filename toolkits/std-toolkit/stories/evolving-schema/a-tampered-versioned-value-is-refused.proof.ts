@@ -1,6 +1,6 @@
 import { Effect, Schema } from 'effect';
 import { Proof } from 'laymos/story';
-import { ValueESchema } from '@kstackz/std-toolkit/eschema';
+import { ValueESchema } from '@kestack/std-toolkit/eschema';
 
 const Theme = ValueESchema.make('Theme', Schema.String).build();
 

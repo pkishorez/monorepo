@@ -224,7 +224,7 @@ describe('History.restored', () => {
         app.send('Counter', { _tag: 'Done' });
         expect(app.snapshot().state._tag).toBe('Idle');
         expect(app.history.branch().map((e) => e.message._tag)).toEqual([
-          '@kstackz/kabuki/Restore',
+          '@kestack/kabuki/Restore',
           'Done',
         ]);
       }),

@@ -1,6 +1,6 @@
 import { Kbd, KbdGroup } from '#components/ui/kbd';
 import { cn } from '#lib/utils';
-import type { Binding, Shortcut } from '@kstackz/use-keys';
+import type { Binding, Shortcut } from '@kestack/use-keys';
 
 /** Whether this is an Apple device, where `mod` is Cmd. */
 const mac = () =>

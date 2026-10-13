@@ -44,7 +44,7 @@ export const makeWorkers = (
           closing
             ? Effect.die(
                 new Error(
-                  `[@kstackz/kabuki] Worker ${label} of ${own.self.id} sent a Message after it stopped. Finalizers may not send.`,
+                  `[@kestack/kabuki] Worker ${label} of ${own.self.id} sent a Message after it stopped. Finalizers may not send.`,
                 ),
               )
             : own.self.send(message),

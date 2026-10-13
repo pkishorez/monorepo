@@ -1,1 +1,1 @@
-# @kstackz/auth-toolkit
+# @kestack/auth-toolkit

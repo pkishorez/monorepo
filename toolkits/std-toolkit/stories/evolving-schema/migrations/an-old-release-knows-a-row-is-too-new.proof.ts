@@ -1,11 +1,11 @@
 import { Effect, Schema } from 'effect';
 import { Proof } from 'laymos/story';
-import { StdTable } from '@kstackz/std-toolkit/db';
-import { Memory } from '@kstackz/std-toolkit/db/memory';
+import { StdTable } from '@kestack/std-toolkit/db';
+import { Memory } from '@kestack/std-toolkit/db/memory';
 import {
   EntityESchema,
   findOutdatedVersion,
-} from '@kstackz/std-toolkit/eschema';
+} from '@kestack/std-toolkit/eschema';
 
 const TaskV1 = EntityESchema.make('Task', 'taskId', {
   boardId: Schema.String,

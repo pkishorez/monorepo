@@ -8,11 +8,11 @@ import {
   useState,
 } from 'react';
 import type { ComponentType, ReactNode } from 'react';
-import { Button } from '@kstackz/web-platform/components/button';
-import { Input } from '@kstackz/web-platform/components/input';
-import { ScrollArea } from '@kstackz/web-platform/components/scroll-area';
-import { Skeleton } from '@kstackz/web-platform/components/skeleton';
-import { Trash2 } from '@kstackz/web-platform/components/lucide';
+import { Button } from '@kestack/web-platform/components/button';
+import { Input } from '@kestack/web-platform/components/input';
+import { ScrollArea } from '@kestack/web-platform/components/scroll-area';
+import { Skeleton } from '@kestack/web-platform/components/skeleton';
+import { Trash2 } from '@kestack/web-platform/components/lucide';
 import {
   Dialog,
   DialogContent,
@@ -20,7 +20,7 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from '@kstackz/web-platform/components/dialog';
+} from '@kestack/web-platform/components/dialog';
 import { Rpc } from '../../../connections/rpc/index.ts';
 import { useRpcAction } from '../queries/index.ts';
 import {

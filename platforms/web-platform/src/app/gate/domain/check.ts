@@ -1,12 +1,12 @@
 import { Effect, Schema } from 'effect';
-import { SignIn } from '@kstackz/auth-toolkit/client';
+import { SignIn } from '@kestack/auth-toolkit/client';
 import { Device } from './services.ts';
 import type { Held, User } from './types.ts';
 
 /** The Backend could not be reached, and nobody was open here before to
  * open without it. */
 export class Unreachable extends Schema.Error<Unreachable>(
-  '@kstackz/auth-toolkit/gate/Unreachable',
+  '@kestack/auth-toolkit/gate/Unreachable',
 )({ _tag: Schema.tag('Unreachable') }) {}
 
 /** Who is signed in, and whose Session to open. */

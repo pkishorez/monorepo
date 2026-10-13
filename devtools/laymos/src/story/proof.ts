@@ -11,7 +11,7 @@ import {
   makeTraceRecorder,
   type CapturedSpan,
   type CapturedTrace,
-} from '@kstackz/effect-tracer/recorder';
+} from '@kestack/effect-tracer/recorder';
 
 import { makeBrowser, type Browser, type BrowserHost } from './browser.js';
 import type { PhaseName, Venue } from './schema/index.js';

@@ -1,16 +1,16 @@
 import { Effect } from 'effect';
 import { useQueryClient } from '@tanstack/react-query';
 import { useId, useRef, useState } from 'react';
-import { Button } from '@kstackz/web-platform/components/button';
-import { Input } from '@kstackz/web-platform/components/input';
-import { Checkbox } from '@kstackz/web-platform/components/checkbox';
+import { Button } from '@kestack/web-platform/components/button';
+import { Input } from '@kestack/web-platform/components/input';
+import { Checkbox } from '@kestack/web-platform/components/checkbox';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@kstackz/web-platform/components/select';
+} from '@kestack/web-platform/components/select';
 import {
   Dialog,
   DialogContent,
@@ -18,8 +18,8 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from '@kstackz/web-platform/components/dialog';
-import { CircleAlert, Plus } from '@kstackz/web-platform/components/lucide';
+} from '@kestack/web-platform/components/dialog';
+import { CircleAlert, Plus } from '@kestack/web-platform/components/lucide';
 import { Rpc } from '../../../connections/rpc/index.ts';
 import type { storeView } from '../../../../shared/contracts/stores/index.ts';
 import { useRpcAction, rpcQueryKeys } from '../queries/index.ts';

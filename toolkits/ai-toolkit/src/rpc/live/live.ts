@@ -1,5 +1,5 @@
 import { Effect, Layer } from 'effect';
-import type { StdTableService } from '@kstackz/std-toolkit/db';
+import type { StdTableService } from '@kestack/std-toolkit/db';
 import {
   HarnessHost,
   type HarnessHostConfig,

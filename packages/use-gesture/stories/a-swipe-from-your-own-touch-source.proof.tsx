@@ -7,7 +7,7 @@ import {
   Swipe,
   wants,
   type ZoneTree,
-} from '@kstackz/use-gesture';
+} from '@kestack/use-gesture';
 import { Effect } from 'effect';
 import { Gesture, Proof } from 'laymos/story';
 import { useEffect, useRef, useState } from 'react';

@@ -15,7 +15,7 @@ import type {
 } from 'laymos';
 import { useComponentLifecycle } from 'use-effect-ts';
 
-import { Button } from '@kstackz/web-platform/components/button';
+import { Button } from '@kestack/web-platform/components/button';
 import {
   ChevronLeft,
   ChevronRight,
@@ -25,20 +25,20 @@ import {
   FileCode2,
   FileDiff as FileDiffIcon,
   X,
-} from '@kstackz/web-platform/components/lucide';
-import { scrollbarStyles } from '@kstackz/web-platform/components/scroll-styles';
-import { cn } from '@kstackz/web-platform/components/utils';
+} from '@kestack/web-platform/components/lucide';
+import { scrollbarStyles } from '@kestack/web-platform/components/scroll-styles';
+import { cn } from '@kestack/web-platform/components/utils';
 import {
   defaultDiffOptions,
   DiffViewer,
-} from '@kstackz/web-platform/components/viewers/diff-viewer';
+} from '@kestack/web-platform/components/viewers/diff-viewer';
 import {
   expandAll,
   FileTree,
-} from '@kstackz/web-platform/components/viewers/file-tree';
-import { MarkdownViewer } from '@kstackz/web-platform/components/viewers/markdown-viewer';
-import { SourceViewer } from '@kstackz/web-platform/components/viewers/source-viewer';
-import { useIsMobile } from '@kstackz/web-platform/components/hooks/use-mobile';
+} from '@kestack/web-platform/components/viewers/file-tree';
+import { MarkdownViewer } from '@kestack/web-platform/components/viewers/markdown-viewer';
+import { SourceViewer } from '@kestack/web-platform/components/viewers/source-viewer';
+import { useIsMobile } from '@kestack/web-platform/components/hooks/use-mobile';
 
 import { ResizeHandle, usePreference } from '../preferences';
 

@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, type ReactNode } from 'react';
 import { motion, useTransform } from 'motion/react';
 
-import { cn } from '@kstackz/web-platform/components/utils';
+import { cn } from '@kestack/web-platform/components/utils';
 
 import type { Size } from './geometry';
 import type { CardValues } from './use-card-motion';

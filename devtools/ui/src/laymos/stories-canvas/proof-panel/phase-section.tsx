@@ -1,6 +1,6 @@
-import { Check, X } from '@kstackz/web-platform/components/lucide';
-import { cn } from '@kstackz/web-platform/components/utils';
-import { JsonTree } from '@kstackz/web-platform/components/viewers/json';
+import { Check, X } from '@kestack/web-platform/components/lucide';
+import { cn } from '@kestack/web-platform/components/utils';
+import { JsonTree } from '@kestack/web-platform/components/viewers/json';
 import type {
   JsonValue,
   PhaseName,

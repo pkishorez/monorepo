@@ -14,8 +14,8 @@ import {
   Files,
   PanelRightClose,
   PanelRightOpen,
-} from '@kstackz/web-platform/components/lucide';
-import { cn } from '@kstackz/web-platform/components/utils';
+} from '@kestack/web-platform/components/lucide';
+import { cn } from '@kestack/web-platform/components/utils';
 
 import {
   aimCamera,

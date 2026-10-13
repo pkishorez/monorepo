@@ -1,6 +1,6 @@
 # Opening an app
 
-The demo is an app opening in a browser window: it loads its assets, waits for a sign-in, then syncs and downloads files. How it works inside is the Kabuki devtools' job, laid over it. Drawing words only: an Actor, an Instance, a State, a Worker, a Command and a Capability keep their @kstackz/kabuki names.
+The demo is an app opening in a browser window: it loads its assets, waits for a sign-in, then syncs and downloads files. How it works inside is the Kabuki devtools' job, laid over it. Drawing words only: an Actor, an Instance, a State, a Worker, a Command and a Capability keep their @kestack/kabuki names.
 
 ## Language
 

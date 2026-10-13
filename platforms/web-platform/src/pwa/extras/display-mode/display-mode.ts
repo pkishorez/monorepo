@@ -40,7 +40,7 @@ export const readDisplayMode = (): DisplayModeValue => {
 export class DisplayMode extends Context.Service<
   DisplayMode,
   { readonly mode: SubscriptionRef.SubscriptionRef<DisplayModeValue> }
->()('@kstackz/web-platform/pwa/DisplayMode') {
+>()('@kestack/web-platform/pwa/DisplayMode') {
   static readonly layer: Layer.Layer<DisplayMode> = Layer.effect(
     this,
     Effect.gen(function* () {

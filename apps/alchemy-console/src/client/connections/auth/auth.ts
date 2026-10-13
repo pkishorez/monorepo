@@ -1,6 +1,6 @@
 import { Effect } from 'effect';
-import { SignIn } from '@kstackz/auth-toolkit/client';
-import { cookie } from '@kstackz/auth-toolkit/client/web';
+import { SignIn } from '@kestack/auth-toolkit/client';
+import { cookie } from '@kestack/auth-toolkit/client/web';
 
 // Built once so every caller shares one Auth Worker client.
 export const accounts = Effect.runSync(

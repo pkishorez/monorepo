@@ -33,7 +33,7 @@ export const makeCollectionItemSchema = <S extends AnyESchema>(
   return {
     '~standard': {
       version: 1,
-      vendor: '@kstackz/std-toolkit/sync',
+      vendor: '@kestack/std-toolkit/sync',
       types: {
         input: null as unknown as CollectionItem<S['Type']>,
         output: null as unknown as CollectionItem<S['Type']>,

@@ -1,8 +1,8 @@
 import { Effect, Schema } from 'effect';
 import { Proof } from 'laymos/story';
-import { StdTable } from '@kstackz/std-toolkit/db';
-import { Memory } from '@kstackz/std-toolkit/db/memory';
-import { ESchema } from '@kstackz/std-toolkit/eschema';
+import { StdTable } from '@kestack/std-toolkit/db';
+import { Memory } from '@kestack/std-toolkit/db/memory';
+import { ESchema } from '@kestack/std-toolkit/eschema';
 
 // Last release: v1 settings. This release: v2 adds a font size.
 const SettingsV1 = ESchema.make('Settings', {

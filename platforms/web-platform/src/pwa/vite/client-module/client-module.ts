@@ -6,11 +6,11 @@ import { type BuildVersion, resolveBuildVersion } from './build-version.js';
 import { clientBuildInfo } from './client-info.js';
 
 const RESOLVED_ID = `\0${VIRTUAL_CLIENT_MODULE_ID}`;
-const PACKAGE = '@kstackz/web-platform';
+const PACKAGE = '@kestack/web-platform';
 
 /**
  * Serves `virtual:pwa-toolkit/client` to the client and server environments.
- * On the server `@kstackz/web-platform` stays in Vite's module graph (not
+ * On the server `@kestack/web-platform` stays in Vite's module graph (not
  * externalized) so its import of the virtual module resolves; in the
  * browser it is pre-bundled with its dependencies, the virtual module left
  * out for this plugin to serve.

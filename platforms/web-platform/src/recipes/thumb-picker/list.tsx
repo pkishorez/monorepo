@@ -1,6 +1,6 @@
 import { ChevronRight } from '#lib/lucide';
 import { cn } from '#lib/utils';
-import { TreeWalk } from '@kstackz/use-gesture';
+import { TreeWalk } from '@kestack/use-gesture';
 import { motion, type Transition } from 'motion/react';
 import type { Choice } from './choice.ts';
 

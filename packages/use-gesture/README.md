@@ -1,6 +1,6 @@
-# @kstackz/use-gesture
+# @kestack/use-gesture
 
-Touch gestures: a platform-free core that reads every finger of a touch from any touch source. Its web side is in @kstackz/web-platform's input.
+Touch gestures: a platform-free core that reads every finger of a touch from any touch source. Its web side is in @kestack/web-platform's input.
 
 ## Big picture
 
@@ -17,7 +17,7 @@ nest; the core decides which zones hear a Gesture and which one takes it,
 reads its Direction, and holds the rules a Swipe is judged by and the Tree
 Walk a picker moves through.
 
-The platforms build on it. `@kstackz/web-platform/input` is the browser's
+The platforms build on it. `@kestack/web-platform/input` is the browser's
 touch source and React bindings: a `GestureProvider`, `GestureZone`s that are
 DOM elements, `useGesture` with every finger as Motion values, the `useSwipe`
 Recognizer, and the `useSidebar` and `usePullToRefresh` Patterns. The web side started as ui-toolkit's gestures block and lived here as
@@ -32,14 +32,14 @@ was ui-toolkit's, for its since-removed Native block. The agent guide is
 ## Install
 
 ```sh
-pnpm add @kstackz/use-gesture
+pnpm add @kestack/use-gesture
 ```
 
 No peer dependencies: the core uses no DOM, no React and no Motion.
 
 ## Exports
 
-### `@kstackz/use-gesture`
+### `@kestack/use-gesture`
 
 | Export                  | What it does                                                                                                        |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------- |
@@ -74,7 +74,7 @@ a plain tree stands in for its views, with a view as each finger's
 `target`.
 
 ```ts
-import { createGestureProvider, type ZoneTree } from '@kstackz/use-gesture';
+import { createGestureProvider, type ZoneTree } from '@kestack/use-gesture';
 
 type View = { parent: View | null; zone: boolean; trapped: boolean };
 const zoneOf = (view: View | null): View | null =>

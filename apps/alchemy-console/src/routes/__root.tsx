@@ -5,7 +5,7 @@ import {
   createRootRoute,
 } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
-import { getTheme } from '@kstackz/web-platform/client/server';
+import { getTheme } from '@kestack/web-platform/client/server';
 import type { ReactNode } from 'react';
 import {
   appTheme,

@@ -1,6 +1,6 @@
 import { Context, type Effect, Schema, type Scope } from 'effect';
 import type { SubscriptionRef } from 'effect';
-import type { Account } from '@kstackz/auth-toolkit/client';
+import type { Account } from '@kestack/auth-toolkit/client';
 import type { ApiClients, Apis } from '../apis/index.ts';
 import type { StdSync } from './open.ts';
 import { useOpened, useOpenedStatus } from './react.tsx';
@@ -26,12 +26,12 @@ export interface SessionContext<A extends Apis> {
 /** A Session was closed, by an Account Switch, a sign-out or a change of
  * Backend, while something of it still ran. */
 export class SessionClosed extends Schema.Error<SessionClosed>(
-  '@kstackz/web-platform/SessionClosed',
+  '@kestack/web-platform/SessionClosed',
 )({ _tag: Schema.tag('SessionClosed') }) {}
 
 /** Who is open, for Effect code: `yield* session.Service`. */
 export interface SessionOf<S> {
-  readonly '@kstackz/web-platform/Session': S;
+  readonly '@kestack/web-platform/Session': S;
 }
 
 /** Runs an Effect in the open Session, with its Service provided. Rejects
@@ -51,7 +51,7 @@ export const defineSession = <A extends Apis, S>(
   open: (context: SessionContext<A>) => Effect.Effect<S, never, Scope.Scope>,
 ) => {
   const Service = Context.Service<SessionOf<S>, S>(
-    '@kstackz/web-platform/Session',
+    '@kestack/web-platform/Session',
   );
   return {
     apis,

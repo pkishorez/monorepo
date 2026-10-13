@@ -1,11 +1,11 @@
 ---
 name: use-gesture
-description: Add touch gestures on the web with @kstackz/web-platform/input, built on @kstackz/use-gesture's core — a GestureProvider at the root, nested GestureZones for the areas that own touch, Patterns such as useSidebar and usePullToRefresh, Recognizers such as useSwipe, and useGesture, which reports every finger of a touch as motion values. Use when a screen or element should respond to gestures such as opening a sidebar, pulling to refresh, swiping a row, pinching a card, or a multi-finger swipe; or when choosing between it and Motion's own element gestures.
+description: Add touch gestures on the web with @kestack/web-platform/input, built on @kestack/use-gesture's core — a GestureProvider at the root, nested GestureZones for the areas that own touch, Patterns such as useSidebar and usePullToRefresh, Recognizers such as useSwipe, and useGesture, which reports every finger of a touch as motion values. Use when a screen or element should respond to gestures such as opening a sidebar, pulling to refresh, swiping a row, pinching a card, or a multi-finger swipe; or when choosing between it and Motion's own element gestures.
 ---
 
 # use-gesture
 
-The web side of this package lives in `@kstackz/web-platform/input`: a
+The web side of this package lives in `@kestack/web-platform/input`: a
 `GestureProvider`, `GestureZone`s that nest, and three layers of hooks that
 read the Gestures their nearest zone hears.
 Reach for the highest one that fits:
@@ -24,15 +24,15 @@ import {
   usePullToRefresh,
   useSidebar,
   useSwipe,
-} from '@kstackz/web-platform/input';
+} from '@kestack/web-platform/input';
 ```
 
-The package root, `@kstackz/use-gesture`, is the platform-free core under
+The package root, `@kestack/use-gesture`, is the platform-free core under
 them: `createGestureProvider`, which any touch source feeds plain finger
 samples, the `Swipe` rules, `thumbLock` (a listener for a still left thumb
 beside a moving finger) and the `TreeWalk` a picker moves through. Reach
 for it only to bring gestures to another platform; on the web, use
-`@kstackz/web-platform/input`.
+`@kestack/web-platform/input`.
 
 ```tsx
 // The whole app is a zone; the inbox list is one inside it; each row is one

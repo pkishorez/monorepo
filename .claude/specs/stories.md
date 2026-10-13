@@ -217,7 +217,7 @@ every Telling issue as violations.
 ## Stories canvas (devtools/ui)
 
 Replaces the React Flow canvas entirely. Plain DOM, `motion` (layout
-animations), `@kstackz/use-gesture` for pan/pinch/drag. Remove `@xyflow/react`
+animations), `@kestack/use-gesture` for pan/pinch/drag. Remove `@xyflow/react`
 from devtools/ui if nothing else uses it.
 
 - **A space to explore**: a bounded, freely pannable 2D space (drag empty
@@ -261,7 +261,7 @@ from devtools/ui if nothing else uses it.
 
 Deleted everywhere: std-toolkit, auth-toolkit, effect-webrtc, laymos fixtures.
 `Story.flow`, `Story.trace`, `Story.question`, `Story.group`, support files,
-Story pages, spine, snippets: gone. laymos no longer depends on `@kstackz/flow`.
+Story pages, spine, snippets: gone. laymos no longer depends on `@kestack/flow`.
 
 ## The Story trees
 

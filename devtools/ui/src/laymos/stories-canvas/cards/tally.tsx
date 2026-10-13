@@ -1,5 +1,5 @@
-import { ShieldAlert } from '@kstackz/web-platform/components/lucide';
-import { cn } from '@kstackz/web-platform/components/utils';
+import { ShieldAlert } from '@kestack/web-platform/components/lucide';
+import { cn } from '@kestack/web-platform/components/utils';
 
 import { StateMark } from '../badges';
 import { stateStyles } from '../state-style';

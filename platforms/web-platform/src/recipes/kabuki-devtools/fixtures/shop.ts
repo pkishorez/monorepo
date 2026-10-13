@@ -1,5 +1,5 @@
 import { Effect, Schema } from 'effect';
-import { Actor, Command } from '@kstackz/kabuki';
+import { Actor, Command } from '@kestack/kabuki';
 
 /*
  * A bigger Shop, to run live beside the devtools: four levels, keyed

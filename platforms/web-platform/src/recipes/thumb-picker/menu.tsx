@@ -1,7 +1,7 @@
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import type { TreeWalk } from '@kstackz/use-gesture';
+import type { TreeWalk } from '@kestack/use-gesture';
 import type { Choice } from './choice.ts';
 import { List } from './list.tsx';
 

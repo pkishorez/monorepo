@@ -1,4 +1,4 @@
-import type { Entity } from '@kstackz/std-toolkit/core';
+import type { Entity } from '@kestack/std-toolkit/core';
 import {
   ExportLogsServiceRequestSchema,
   ExportTraceServiceRequestSchema,

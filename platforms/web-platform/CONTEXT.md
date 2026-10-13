@@ -202,7 +202,7 @@ _Avoid_: push (the delivery channel, not the message), toast, alert
 
 ### Kabuki Inspector
 
-How the Inspector (see @kstackz/kabuki's glossary) draws the Snapshot. Drawing words only: an Actor, an Instance, a State and a Worker keep their @kstackz/kabuki names.
+How the Inspector (see @kestack/kabuki's glossary) draws the Snapshot. Drawing words only: an Actor, an Instance, a State and a Worker keep their @kestack/kabuki names.
 
 **Devtools**:
 The Inspector on a running app, from its runtime: its Timeline is the app's History, a Step picked there Time Travels the app itself, and live, its Worker Rows say what each Worker is doing.

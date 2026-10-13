@@ -1,4 +1,4 @@
-# @kstackz/std-toolkit/db/idb
+# @kestack/std-toolkit/db/idb
 
 IndexedDB adapter that realizes a StdTable on a reusable in-browser database connection.
 
@@ -12,7 +12,7 @@ See the [top README](../../../README.md).
 
 ## Exports
 
-### `@kstackz/std-toolkit/db/idb`
+### `@kestack/std-toolkit/db/idb`
 
 | Export         | What it does                                                                              |
 | -------------- | ----------------------------------------------------------------------------------------- |
@@ -28,8 +28,8 @@ The program is the same one any adapter runs; only the layer changes.
 
 ```ts
 import { Effect } from 'effect';
-import { StdTable } from '@kstackz/std-toolkit/db';
-import { IDB } from '@kstackz/std-toolkit/db/idb';
+import { StdTable } from '@kestack/std-toolkit/db';
+import { IDB } from '@kestack/std-toolkit/db/idb';
 
 const table = StdTable.make('board').primary('pk', 'sk').build();
 

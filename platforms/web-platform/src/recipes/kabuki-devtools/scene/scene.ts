@@ -1,4 +1,4 @@
-import type { ActorDefinition, Snapshot } from '@kstackz/kabuki';
+import type { ActorDefinition, Snapshot } from '@kestack/kabuki';
 import { beatsOf } from './beats.ts';
 import type { Beats, Said } from './beats.ts';
 import { layout } from './layout/index.ts';

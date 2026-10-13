@@ -1,6 +1,6 @@
 import { Context, Effect, Layer, Option, PubSub, Stream } from 'effect';
 import { RpcClient } from 'effect/rpc';
-import { Rpc } from '@kstackz/rpc-toolkit/rpc';
+import { Rpc } from '@kestack/rpc-toolkit/rpc';
 import type { Scope } from 'effect/Scope';
 import type { PeerId } from '../../peer-identity/index.js';
 import {

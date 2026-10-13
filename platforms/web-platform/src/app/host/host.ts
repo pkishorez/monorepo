@@ -1,12 +1,12 @@
 import { Effect, Layer, Schema, Scope } from 'effect';
-import { type SignIn, signIn } from '@kstackz/auth-toolkit/client';
+import { type SignIn, signIn } from '@kestack/auth-toolkit/client';
 import {
   type Broadcaster,
   defaultBroadcaster,
-} from '@kstackz/std-toolkit/core';
-import type { StdTableService, TableDefinition } from '@kstackz/std-toolkit/db';
-import { Memory } from '@kstackz/std-toolkit/db/memory';
-import { Sync, type SyncStore } from '@kstackz/std-toolkit/sync';
+} from '@kestack/std-toolkit/core';
+import type { StdTableService, TableDefinition } from '@kestack/std-toolkit/db';
+import { Memory } from '@kestack/std-toolkit/db/memory';
+import { Sync, type SyncStore } from '@kestack/std-toolkit/sync';
 
 /** Where an app's Backend runs, and its Users sign in: in the cloud, or on
  * this device, in the app itself. */

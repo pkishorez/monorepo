@@ -1,4 +1,4 @@
-# @kstackz/std-toolkit/sync
+# @kestack/std-toolkit/sync
 
 Effect-based synchronization of TanStack DB Collections from an authoritative backend, with a local copy that survives reloads and one tab reading for all.
 
@@ -16,7 +16,7 @@ See the [top README](../../README.md). This subpath needs the optional peers `@t
 
 ## Exports
 
-### `@kstackz/std-toolkit/sync`
+### `@kestack/std-toolkit/sync`
 
 | Export              | What it does                                                                                                                         |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
@@ -28,7 +28,7 @@ See the [top README](../../README.md). This subpath needs the optional peers `@t
 | `Sync.memory`       | The default Sync adapter: ephemeral storage, no Leadership, no Doorbell.                                                             |
 | `syncStore`         | The StdTable definition a Sync Store keeps its data in, for building a custom Sync adapter.                                          |
 
-### `@kstackz/std-toolkit/sync/paced`
+### `@kestack/std-toolkit/sync/paced`
 
 | Export             | What it does                                                                                         |
 | ------------------ | ---------------------------------------------------------------------------------------------------- |
@@ -36,7 +36,7 @@ See the [top README](../../README.md). This subpath needs the optional peers `@t
 | `coalesceStrategy` | Constructs one coalesce pacer directly.                                                              |
 | `buildPacedUpdate` | Builds a paced update function from a pacer, an optimistic apply callback, and a commit.             |
 
-### `@kstackz/std-toolkit/sync/idb`
+### `@kestack/std-toolkit/sync/idb`
 
 | Export            | What it does                                                                                     |
 | ----------------- | ------------------------------------------------------------------------------------------------ |
@@ -44,11 +44,11 @@ See the [top README](../../README.md). This subpath needs the optional peers `@t
 | `Sync.idb.list`   | Lists every Std Sync stored in this browser.                                                     |
 | `Sync.idb.remove` | Deletes a Std Sync's stored data, stopping a live instance of it first.                          |
 
-### `@kstackz/std-toolkit/sync/memory`
+### `@kestack/std-toolkit/sync/memory`
 
 | Export        | What it does                                                                                  |
 | ------------- | --------------------------------------------------------------------------------------------- |
-| `Sync.memory` | The same Sync adapter `@kstackz/std-toolkit/sync` exports, on its own door like its siblings. |
+| `Sync.memory` | The same Sync adapter `@kestack/std-toolkit/sync` exports, on its own door like its siblings. |
 
 ## Usage
 
@@ -58,8 +58,8 @@ A window keyed on `boardId` starts when a TanStack query filters on that field. 
 
 ```ts
 import { createLiveQueryCollection, eq } from '@tanstack/react-db';
-import { createStdSync, strategy } from '@kstackz/std-toolkit/sync';
-import { Sync } from '@kstackz/std-toolkit/sync/idb';
+import { createStdSync, strategy } from '@kestack/std-toolkit/sync';
+import { Sync } from '@kestack/std-toolkit/sync/idb';
 
 const app = createStdSync({ name: 'board', store: Sync.idb() });
 

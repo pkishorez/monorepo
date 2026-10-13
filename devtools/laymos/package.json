@@ -64,7 +64,7 @@
   "dependencies": {
     "@effect/platform-node": "catalog:",
     "@effect/platform-node-shared": "catalog:",
-    "@kstackz/effect-tracer": "workspace:*",
+    "@kestack/effect-tracer": "workspace:*",
     "oxc-parser": "catalog:",
     "oxc-resolver": "catalog:",
     "tsx": "catalog:",

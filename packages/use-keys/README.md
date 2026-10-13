@@ -1,4 +1,4 @@
-# @kstackz/use-keys
+# @kestack/use-keys
 
 Keyboard shortcuts for React: every key the page hears, the Shortcuts and Sequences built on it, and an app's whole keyboard in one place.
 
@@ -20,7 +20,7 @@ has what it needs; the nearest Surface's Action wins a key, and the user's
 own Bindings replace the defaults at once.
 
 It is the keyboard counterpart of
-[`@kstackz/use-gesture`](../use-gesture) and shares its ideas, but not its
+[`@kestack/use-gesture`](../use-gesture) and shares its ideas, but not its
 zones: a key has no position, so the app keeps listeners apart with
 `enabled`. A text field keeps its keys, Escape leaves it, and an element
 marked `data-keys="enabled"` or `data-keys="disabled"` hands its keys over
@@ -33,7 +33,7 @@ it are in [docs/adr/](./docs/adr/).
 ## Install
 
 ```sh
-pnpm add @kstackz/use-keys react react-dom
+pnpm add @kestack/use-keys react react-dom
 ```
 
 - `react`, `react-dom`: the provider and the hooks are a React component and
@@ -41,7 +41,7 @@ pnpm add @kstackz/use-keys react react-dom
 
 ## Exports
 
-### `@kstackz/use-keys`
+### `@kestack/use-keys`
 
 | Export         | What it does                                                                                                        |
 | -------------- | ------------------------------------------------------------------------------------------------------------------- |
@@ -52,14 +52,14 @@ pnpm add @kstackz/use-keys react react-dom
 | `sequence`     | Writes a Sequence from a string, `'g g'`, or a list of its steps.                                                   |
 | `describe`     | Writes a Shortcut or Sequence back as people write it, for a cheat sheet.                                           |
 
-### `@kstackz/use-keys/recognizers`
+### `@kestack/use-keys/recognizers`
 
 | Export        | What it does                                                                                      |
 | ------------- | ------------------------------------------------------------------------------------------------- |
 | `useShortcut` | Acts when a key goes down while exactly its modifiers are down, and keeps that key from the page. |
 | `useSequence` | Acts when Shortcuts are pressed in order, each in time, and says while one is under way.          |
 
-### `@kstackz/use-keys/surfaces`
+### `@kestack/use-keys/surfaces`
 
 | Export       | What it does                                                                                                              |
 | ------------ | ------------------------------------------------------------------------------------------------------------------------- |
@@ -74,8 +74,8 @@ even from a text field. The provider at the root sets how long a key is held
 before it repeats and how long a Sequence waits for its next key.
 
 ```tsx
-import { KeysProvider, shortcut } from '@kstackz/use-keys';
-import { useSequence, useShortcut } from '@kstackz/use-keys/recognizers';
+import { KeysProvider, shortcut } from '@kestack/use-keys';
+import { useSequence, useShortcut } from '@kestack/use-keys/recognizers';
 
 <KeysProvider
   repeat={{ delay: 200, interval: 40 }}
@@ -120,8 +120,8 @@ The inbox and its reply box are Surfaces, and the palette works everywhere.
 The app keeps the Active Surface in its own state.
 
 ```tsx
-import { sequence, shortcut } from '@kstackz/use-keys';
-import { createKeys } from '@kstackz/use-keys/surfaces';
+import { sequence, shortcut } from '@kestack/use-keys';
+import { createKeys } from '@kestack/use-keys/surfaces';
 
 export const keys = createKeys({
   actions: {
@@ -207,7 +207,7 @@ the callbacks, and use `active`, which changes only as the keys start and
 end.
 
 ```tsx
-import { useKeys, useKeysState } from '@kstackz/use-keys';
+import { useKeys, useKeysState } from '@kestack/use-keys';
 
 function Canvas() {
   const board = useRef<BoardHandle>(null);

@@ -1,9 +1,9 @@
-import { play } from '@kstackz/web-platform/feedback';
-import { GestureProvider, GestureZone } from '@kstackz/web-platform/input';
+import { play } from '@kestack/web-platform/feedback';
+import { GestureProvider, GestureZone } from '@kestack/web-platform/input';
 import {
   type Choice,
   ThumbPicker,
-} from '@kstackz/web-platform/recipes/thumb-picker';
+} from '@kestack/web-platform/recipes/thumb-picker';
 import { Effect } from 'effect';
 import { Gesture, Proof } from 'laymos/story';
 import { useState } from 'react';
@@ -72,7 +72,7 @@ export default Proof.browser({
     'Pushing left at the top list leads nowhere: the Tree Walk tells a Wrong Way once and the menu shakes; it counts on from where the finger turned, so two Steps down reach Reports.',
   page: (root) => {
     const app = createRoot(root);
-    void import('@kstackz/web-platform/theme/global.css').then(() =>
+    void import('@kestack/web-platform/theme/global.css').then(() =>
       app.render(
         <GestureProvider>
           <GestureZone className="h-dvh bg-background p-4 text-foreground">

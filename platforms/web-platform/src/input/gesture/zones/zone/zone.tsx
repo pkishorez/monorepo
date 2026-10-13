@@ -18,7 +18,7 @@ import {
   type Directions,
   type GestureEnd,
   type GestureProvider as CoreProvider,
-} from '@kstackz/use-gesture';
+} from '@kestack/use-gesture';
 import {
   createTouchInput,
   DOM_ZONES,
@@ -30,7 +30,7 @@ import {
   type Pointers,
 } from './motion-pointers.ts';
 
-export type { Direction, Directions, GestureEnd } from '@kstackz/use-gesture';
+export type { Direction, Directions, GestureEnd } from '@kestack/use-gesture';
 export type { Pointer, Pointers } from './motion-pointers.ts';
 
 type Tracker = CoreProvider<Element, Target>;

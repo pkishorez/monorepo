@@ -2,7 +2,7 @@ import type { MouseEvent, ReactNode } from 'react';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
-import { cn } from '@kstackz/web-platform/components/utils';
+import { cn } from '@kestack/web-platform/components/utils';
 
 import type { TreeIndex } from '../story-scope';
 import { resolveLink } from './telling-links';

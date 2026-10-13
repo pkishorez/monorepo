@@ -1,11 +1,11 @@
-import { cn } from '@kstackz/web-platform/components/utils';
+import { cn } from '@kestack/web-platform/components/utils';
 
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@kstackz/web-platform/components/tooltip';
+} from '@kestack/web-platform/components/tooltip';
 import { STATUS_BG, StatusDot } from '../trace-presentation';
 import {
   BAR_COL_INSET,

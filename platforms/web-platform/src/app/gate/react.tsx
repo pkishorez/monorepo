@@ -4,7 +4,7 @@ import {
   useContext,
   useSyncExternalStore,
 } from 'react';
-import type { NamedChoice } from '@kstackz/auth-toolkit/client';
+import type { NamedChoice } from '@kestack/auth-toolkit/client';
 import type { GateView } from './domain/index.ts';
 import type { Gate } from './gate.ts';
 

@@ -3,9 +3,9 @@ import { Context, Effect, Layer } from 'effect';
 import { HttpServerRequest, HttpServerResponse } from 'effect/http';
 import type { Rpc as EffectRpc } from 'effect/rpc';
 import type { Api } from '../../define/index.ts';
-import { authz } from '@kstackz/auth-toolkit/server/cloud';
-import { Authz } from '@kstackz/auth-toolkit/guard';
-import { Rpc } from '@kstackz/rpc-toolkit/rpc';
+import { authz } from '@kestack/auth-toolkit/server/cloud';
+import { Authz } from '@kestack/auth-toolkit/guard';
+import { Rpc } from '@kestack/rpc-toolkit/rpc';
 
 /** The shared sign-in service, as a cloud API checks each call with it. */
 export interface LiveAuth {
@@ -83,7 +83,7 @@ export const forOwner = (request: Request, owner: string): Request => {
 type Resolver = Context.Service.Identifier<typeof Authz.Resolver>;
 
 // Where the object keeps whom it was opened for, beside the app's own keys.
-const OWNER_KEY = '@kstackz/web-platform/live/owner';
+const OWNER_KEY = '@kestack/web-platform/live/owner';
 
 /** `found`, narrowed to calls signed by `owner`: any other user's is
  * signed by nobody. */

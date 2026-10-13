@@ -2,12 +2,12 @@ import {
   animate,
   motion,
   useMotionValue,
-} from '@kstackz/web-platform/components/motion';
+} from '@kestack/web-platform/components/motion';
 import {
   GestureProvider,
   GestureZone,
   useGesture,
-} from '@kstackz/web-platform/input';
+} from '@kestack/web-platform/input';
 import { Effect } from 'effect';
 import { Gesture, Proof } from 'laymos/story';
 import { useRef, useState } from 'react';
@@ -119,7 +119,7 @@ export default Proof.browser({
     'A card is its own Gesture Zone; useGesture with `directions: "all"` takes the touch, the card follows the finger’s dx and dy, and where the finger lifts picks the column.',
   page: (root) => {
     const app = createRoot(root);
-    void import('@kstackz/web-platform/theme/global.css').then(() =>
+    void import('@kestack/web-platform/theme/global.css').then(() =>
       app.render(
         <GestureProvider>
           <main className="flex h-dvh flex-col bg-background p-4 text-foreground">

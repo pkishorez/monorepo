@@ -12,7 +12,7 @@ const factory = monotonicFactory();
  * via `Effect.provideService(Ulid, () => ...)` for deterministic IDs.
  */
 export const Ulid = Context.Reference<() => string>(
-  '@kstackz/std-toolkit/Ulid',
+  '@kestack/std-toolkit/Ulid',
   {
     defaultValue: () => factory,
   },

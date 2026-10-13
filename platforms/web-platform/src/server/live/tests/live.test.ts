@@ -2,7 +2,7 @@ import type * as cf from '@cloudflare/workers-types';
 import { Effect, Layer, Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
 import { describe, expect, it } from 'vitest';
-import { Authz, type Resolution } from '@kstackz/auth-toolkit/guard';
+import { Authz, type Resolution } from '@kestack/auth-toolkit/guard';
 import { Api } from '../../../define/index.ts';
 import { forOwner, liveObject, ownedBy } from '../live.ts';
 
@@ -72,7 +72,7 @@ describe('a Live Object', () => {
 
   it('refuses a socket opened for anyone but its owner', async () => {
     const object = new Live(
-      stateWith({ '@kstackz/web-platform/live/owner': 'ada' }),
+      stateWith({ '@kestack/web-platform/live/owner': 'ada' }),
       {},
     );
     const request = new Request('https://app.test/live');

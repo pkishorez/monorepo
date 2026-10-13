@@ -1,1 +1,1 @@
-# @kstackz/effect-tracer
+# @kestack/effect-tracer

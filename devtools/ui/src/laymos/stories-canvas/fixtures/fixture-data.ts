@@ -78,7 +78,7 @@ function proofSource(
   if (venue === 'browser') {
     return `import { Effect } from 'effect';
 import { Proof } from 'laymos/story';
-import { mountTodoApp } from '@kstackz/std-toolkit/demo';
+import { mountTodoApp } from '@kestack/std-toolkit/demo';
 
 export default Proof.browser({
   title: '${title}',${critical ? '\n  critical: true,' : ''}
@@ -103,7 +103,7 @@ export default Proof.browser({
   }
   return `import { Effect } from 'effect';
 import { Proof } from 'laymos/story';
-import { EvolvingSchema } from '@kstackz/std-toolkit/evolving-schema';
+import { EvolvingSchema } from '@kestack/std-toolkit/evolving-schema';
 
 const User = EvolvingSchema.make('User')
   .version('v1', { name: 'string' })

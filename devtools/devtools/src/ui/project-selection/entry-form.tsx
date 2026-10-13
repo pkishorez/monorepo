@@ -1,9 +1,9 @@
 import type { FormEvent, KeyboardEvent, ReactNode } from 'react';
 import { useState } from 'react';
-import { Button } from '@kstackz/web-platform/components/button';
-import { Input } from '@kstackz/web-platform/components/input';
-import { Label } from '@kstackz/web-platform/components/label';
-import { XIcon } from '@kstackz/web-platform/components/lucide';
+import { Button } from '@kestack/web-platform/components/button';
+import { Input } from '@kestack/web-platform/components/input';
+import { Label } from '@kestack/web-platform/components/label';
+import { XIcon } from '@kestack/web-platform/components/lucide';
 
 export const entryHint =
   'Point Monoverse at a monorepo root or a package folder by its absolute path.';

@@ -1,6 +1,6 @@
 import { Effect, Schema } from 'effect';
 import { Proof } from 'laymos/story';
-import { ESchema } from '@kstackz/std-toolkit/eschema';
+import { ESchema } from '@kestack/std-toolkit/eschema';
 
 // Settings existed before the app adopted ESchema, so stored values carry no `_v`.
 const Settings = ESchema.make('Settings', {

@@ -1,8 +1,8 @@
 import { Effect, Schema, Stream } from 'effect';
 import { Proof } from 'laymos/story';
-import { StdTable } from '@kstackz/std-toolkit/db';
-import { Memory } from '@kstackz/std-toolkit/db/memory';
-import { ESchema } from '@kstackz/std-toolkit/eschema';
+import { StdTable } from '@kestack/std-toolkit/db';
+import { Memory } from '@kestack/std-toolkit/db/memory';
+import { ESchema } from '@kestack/std-toolkit/eschema';
 
 const Settings = ESchema.make('Settings', {
   theme: Schema.Literals(['light', 'dark']),

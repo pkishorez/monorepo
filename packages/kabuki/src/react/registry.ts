@@ -16,7 +16,7 @@ interface Kept {
   readonly live?: object;
 }
 
-const KEY = Symbol.for('@kstackz/kabuki/apps');
+const KEY = Symbol.for('@kestack/kabuki/apps');
 
 const apps = (): Map<string, Kept> => {
   const global = globalThis as { [KEY]?: Map<string, Kept> };

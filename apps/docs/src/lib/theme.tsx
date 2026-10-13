@@ -1,4 +1,4 @@
-import { createTheme } from '@kstackz/web-platform/theme';
+import { createTheme } from '@kestack/web-platform/theme';
 import { Moon, Sun } from 'lucide-react';
 
 const cookieDomain =

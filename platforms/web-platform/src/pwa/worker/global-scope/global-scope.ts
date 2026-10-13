@@ -33,7 +33,7 @@ interface GlobalScopeService {
 export class GlobalScope extends Context.Service<
   GlobalScope,
   GlobalScopeService
->()('@kstackz/web-platform/pwa/worker/GlobalScope') {
+>()('@kestack/web-platform/pwa/worker/GlobalScope') {
   static fromGlobal(global: ServiceWorkerGlobal): GlobalScopeService {
     return {
       origin: global.location.origin,
@@ -51,7 +51,7 @@ export class GlobalScope extends Context.Service<
 export class KeepAlive extends Context.Service<
   KeepAlive,
   (fiber: Fiber.Fiber<unknown, unknown>) => void
->()('@kstackz/web-platform/pwa/worker/KeepAlive') {
+>()('@kestack/web-platform/pwa/worker/KeepAlive') {
   static forEvent(
     event: ExtendableEvent,
   ): (fiber: Fiber.Fiber<unknown, unknown>) => void {

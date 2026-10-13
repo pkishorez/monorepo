@@ -13,7 +13,7 @@ interface RequestAuthStateValue {
 export class RequestAuthState extends Context.Service<
   RequestAuthState,
   RequestAuthStateValue
->()('@kstackz/auth-toolkit/server/RequestAuthState') {}
+>()('@kestack/auth-toolkit/server/RequestAuthState') {}
 
 /** Verifies a request's caller once for all the calls it carries, and puts
  * the sign-in cookies refreshed while doing so on its response. Give it as

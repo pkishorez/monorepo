@@ -10,21 +10,21 @@ kstack needs one opinionated Web Toolkit an app is built from, with a Gate both 
 
 ## Outcome
 
-- `@kstackz/web-toolkit` exists and `@kstackz/ui-toolkit` and `@kstackz/pwa-toolkit` are deleted. Every app in the repo (Ledger web, `apps/docs`, `apps/alchemy-console`, auth-toolkit's sign-in app, devtools) builds on it.
+- `@kestack/web-toolkit` exists and `@kestack/ui-toolkit` and `@kestack/pwa-toolkit` are deleted. Every app in the repo (Ledger web, `apps/docs`, `apps/alchemy-console`, auth-toolkit's sign-in app, devtools) builds on it.
 - An app that leaves the `pwa` layer out ships no service worker, manifest or Update Prompt.
 - auth-toolkit exposes the Gate with no platform code; Ledger web and Ledger Expo both run on it, through web-toolkit and expo-toolkit.
 - An Account Switch shows the new User's data on the next render; an Account Lost stops the app behind a dialog the User cannot dismiss until they sign in to that account again or switch to another.
 - Signed-out pages, signed-in pages and signed-in parts of a page are composed declaratively.
 - Ledger's client setup is about 20 lines and overrides nothing but what its Session Lifetime holds.
 - expo-toolkit calls its top layer `recipes`.
-- The devtools-only blocks live in a private `@devtools/ui`, bundled into `@kstackz/devtools`.
+- The devtools-only blocks live in a private `@devtools/ui`, bundled into `@kestack/devtools`.
 
 ## Requirements
 
 1. web-toolkit's layers, bottom to top: `theme`, `feedback`, `input`, `components`, `form`, `recipes`, `client`, `pwa`; `server` beside them. Each layer is one subpath, checked by Laymos.
 2. `theme` depends on nothing; the Theme's TanStack Start server function belongs to `client`.
 3. `feedback` is sound, mirroring expo-toolkit's haptics layer.
-4. `input` holds touch-versus-keyboard detection with its pre-paint script and CSS variants (`touch:`, `keyboard:`), the web part of `@kstackz/use-gesture`, and `@kstackz/use-keys`.
+4. `input` holds touch-versus-keyboard detection with its pre-paint script and CSS variants (`touch:`, `keyboard:`), the web part of `@kestack/use-gesture`, and `@kestack/use-keys`.
 5. `components` holds the owned shadcn copies (private `parts/`), icons, `cn`, and the general viewers (json, markdown, diff, source, file tree, git changes).
 6. `form` sits on `components`. Its tie to `input` is deferred.
 7. `recipes` hold whole interactions: Frame and Sidebar, Thumb Picker, Key Bar, Swipe Row, Sheet, Local Sign-In, Sign-In, User Switcher (Account Switcher), Update Prompt and Install Prompt, the Account Lost dialog, and the dialog showing a Gate Notice. Recipes adapt to touch or keyboard themselves (one Sheet is a dialog with a keyboard and a drawer on touch; the Sidebar pushes the page on touch and stays beside it with a keyboard). Recipes never import `client` and never require being inside `<SignedIn>`.
@@ -55,14 +55,14 @@ kstack needs one opinionated Web Toolkit an app is built from, with a Gate both 
 31. The Frame knows nothing of sign-in; the app fills its slots (the User Switcher's place in the Sidebar) and wraps them in `<SignedIn>`.
 32. The PublicApi (no Authz, over the Backend Lifetime's connection) and UserApi (Authz, over the Session Lifetime's) split is the documented convention; one group with Authz stays valid.
 33. auth-toolkit's sign-in-service screens (consent, grants, scopes, session list, and the rest of `blocks/auth` except Local Sign-In and the Account Switcher) move into auth-toolkit, next to its sign-in app.
-34. The devtools-only blocks (laymos, otel-trace-viewer with its trace model and presentation, monoverse, flow-swimlane, devtools-panel) move to a private `@devtools/ui` at `devtools/ui`, a devDependency of `@kstackz/devtools`, bundled at build time and built on web-toolkit.
+34. The devtools-only blocks (laymos, otel-trace-viewer with its trace model and presentation, monoverse, flow-swimlane, devtools-panel) move to a private `@devtools/ui` at `devtools/ui`, a devDependency of `@kestack/devtools`, bundled at build time and built on web-toolkit.
 35. expo-toolkit renames `patterns` to `recipes`; it gives the Gate its platform pieces and React wiring as web-toolkit does.
 36. Ledger's reusable web code moves in the same change: device detection to `input`; thumb picker, key bar, swipe row, user switcher and Sidebar keys to `recipes`; sound to `feedback`; the `/rpc` handler and Worker entry to `server`; splash and head setup to `pwa`/`client`.
-37. Every app switches over in one change; `@kstackz/ui-toolkit` and `@kstackz/pwa-toolkit` are deleted, not deprecated.
+37. Every app switches over in one change; `@kestack/ui-toolkit` and `@kestack/pwa-toolkit` are deleted, not deprecated.
 
 ## Modules and Layers
 
-### web-toolkit (`@kstackz/web-toolkit`, new)
+### web-toolkit (`@kestack/web-toolkit`, new)
 
 **Responsibility.** The one Toolkit for web apps: UI, input, forms, Recipes, the optional PWA, and the opinionated client and server setup that connects auth-, rpc- and std-toolkit for the web.
 
@@ -82,7 +82,7 @@ kstack needs one opinionated Web Toolkit an app is built from, with a Gate both 
 - **pwa:** everything from pwa-toolkit, plus manifest from the Theme, splash head and generator, Offline Fallback, plugging into `client`'s extension points.
 - **server:** the `/rpc`-or-Start fetch handler, the per-request RPC-over-HTTP host (scope, NDJSON, Authz cookies), Cloudflare and alchemy defaults.
 
-**Dependencies.** auth-toolkit (Gate, auth clients, Authz), rpc-toolkit (transports), std-toolkit (db, sync, browser platform), TanStack Start, `@kstackz/use-gesture` core.
+**Dependencies.** auth-toolkit (Gate, auth clients, Authz), rpc-toolkit (transports), std-toolkit (db, sync, browser platform), TanStack Start, `@kestack/use-gesture` core.
 
 **Testing.** Layer graph passes Laymos; an app without `pwa` emits no service worker or manifest; `<SignedIn>` subtree remounts on an Account Switch and nothing outside it does; `useSession()` throws outside `<SignedIn>`; Recipes render signed out; Sheet picks dialog or drawer by device; the server routes `/rpc` and pages.
 
@@ -154,9 +154,9 @@ kstack needs one opinionated Web Toolkit an app is built from, with a Gate both 
 
 **Responsibility.** UI only devtools needs.
 
-**Change.** Created at `devtools/ui` from the devtools-only blocks, built on web-toolkit. `@kstackz/devtools` lists it as a devDependency and bundles it.
+**Change.** Created at `devtools/ui` from the devtools-only blocks, built on web-toolkit. `@kestack/devtools` lists it as a devDependency and bundles it.
 
-**Testing.** `@kstackz/devtools`'s package smoke test passes with no `@devtools/ui` in its published dependencies.
+**Testing.** `@kestack/devtools`'s package smoke test passes with no `@devtools/ui` in its published dependencies.
 
 ### auth-toolkit sign-in app
 
@@ -178,7 +178,7 @@ The app's `client` setup hands the Gate (auth-toolkit) the web platform from `cl
 
 ## Implementation Decisions
 
-- Name `@kstackz/web-toolkit`; layer names as in Requirement 1; the layout is copied from expo-toolkit (layers per job, subpath per layer, owned copies behind a module graph, private `parts/`).
+- Name `@kestack/web-toolkit`; layer names as in Requirement 1; the layout is copied from expo-toolkit (layers per job, subpath per layer, owned copies behind a module graph, private `parts/`).
 - The layout recipe is the **Frame**; **App Shell** keeps its PWA meaning.
 - The layer named `client` matches pwa-toolkit's **Client** (the app's side in one open page).
 - The Gate lives in auth-toolkit, using auth-toolkit's words: Signed-in Account, Active Account, Account Switch, Backend Lifetime, Session Lifetime.

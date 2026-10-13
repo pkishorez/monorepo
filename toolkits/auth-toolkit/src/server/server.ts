@@ -4,6 +4,6 @@
 // with the Resolver it is given; `device` is the Resolver the device Backend
 // is given; `cookies` relays the sign-in cookies refreshed while checking, as
 // `Rpc.http.server`'s `wrap`. The cloud Resolver is `authz.cloud` from
-// `@kstackz/auth-toolkit/server/cloud`.
+// `@kestack/auth-toolkit/server/cloud`.
 export { rpcLayer as layer, httpLayer as http } from './authz/index.js';
 export { cookies, device } from './authz/index.js';

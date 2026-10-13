@@ -6,8 +6,8 @@ import {
   type MotionStyle,
 } from 'motion/react';
 
-import { Minus, Plus } from '@kstackz/web-platform/components/lucide';
-import { cn } from '@kstackz/web-platform/components/utils';
+import { Minus, Plus } from '@kestack/web-platform/components/lucide';
+import { cn } from '@kestack/web-platform/components/utils';
 
 import { ResizeHandle, usePreference } from '../preferences';
 import { zoneAttribute } from './pointer-source';

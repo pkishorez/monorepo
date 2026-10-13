@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import type { Instance } from '@kstackz/kabuki';
+import type { Instance } from '@kestack/kabuki';
 import { INK } from '../ink/index.ts';
 import type {
   Beats,

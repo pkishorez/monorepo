@@ -1,13 +1,13 @@
 import { useState } from 'react';
-import { Button } from '@kstackz/web-platform/components/button';
+import { Button } from '@kestack/web-platform/components/button';
 import {
   Empty,
   EmptyContent,
   EmptyDescription,
   EmptyHeader,
   EmptyTitle,
-} from '@kstackz/web-platform/components/empty';
-import { PencilIcon } from '@kstackz/web-platform/components/lucide';
+} from '@kestack/web-platform/components/empty';
+import { PencilIcon } from '@kestack/web-platform/components/lucide';
 import type { WorktreeResolution } from '../../rpc/index.js';
 import { ManageEntryDialog } from './manage-entry.js';
 import { basename, findEntryForPath, useProjectRegistry } from './registry.js';

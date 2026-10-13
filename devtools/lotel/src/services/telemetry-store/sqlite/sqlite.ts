@@ -1,11 +1,11 @@
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { Effect, Layer } from 'effect';
-import { makeNodeSQLite } from '@kstackz/std-toolkit/db/sqlite/node';
+import { makeNodeSQLite } from '@kestack/std-toolkit/db/sqlite/node';
 import type { TelemetryStoreShape } from '../telemetry-store.js';
 import { TelemetryStoreError } from '../telemetry-store.js';
 import { makeSqliteEntities } from './entities.js';
-import type { Entity } from '@kstackz/std-toolkit/core';
+import type { Entity } from '@kestack/std-toolkit/core';
 import type {
   SpanRecord,
   UpdateCursor,

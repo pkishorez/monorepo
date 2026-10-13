@@ -1,10 +1,10 @@
 # effect-tracer is a bundled devDependency, not a runtime dependency
 
-Superseded: effect-tracer is now published as `@kstackz/effect-tracer` on the
+Superseded: effect-tracer is now published as `@kestack/effect-tracer` on the
 same version as laymos, so laymos lists it under `dependencies`, a runtime
 dependency, and nothing is bundled.
 
-Story artifacts (traces and flows) reuse `@kstackz/effect-tracer`'s
+Story artifacts (traces and flows) reuse `@kestack/effect-tracer`'s
 recorder and flow contract, and the frontend reuses its FlowSwimlane
 renderer. Publishing laymos with effect-tracer as a runtime dependency would
 leak an unstable sibling devtool into every consumer's install, so

@@ -1,5 +1,5 @@
-import { shortcut } from '@kstackz/use-keys';
-import { createKeys } from '@kstackz/use-keys/surfaces';
+import { shortcut } from '@kestack/use-keys';
+import { createKeys } from '@kestack/use-keys/surfaces';
 
 export {
   keepsKeys,

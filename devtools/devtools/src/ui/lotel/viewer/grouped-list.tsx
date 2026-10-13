@@ -1,10 +1,10 @@
-import { ChevronRightIcon } from '@kstackz/web-platform/components/lucide';
+import { ChevronRightIcon } from '@kestack/web-platform/components/lucide';
 import { NewTracesRow, TraceList } from '@devtools/ui/otel-trace-viewer';
 import type {
   OtelSpan,
   TraceGroup,
 } from '@devtools/ui/otel-trace-viewer/trace-model';
-import { cn } from '@kstackz/web-platform/components/utils';
+import { cn } from '@kestack/web-platform/components/utils';
 import type { ColumnWidths, TraceListSettings } from './state';
 import { groupTracesBy } from './filtering';
 

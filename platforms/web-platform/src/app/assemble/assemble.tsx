@@ -5,8 +5,8 @@ import {
   namedAccountsTable,
   signIn,
   type SignIn,
-} from '@kstackz/auth-toolkit/client';
-import { Sync, type SyncStore } from '@kstackz/std-toolkit/sync';
+} from '@kestack/auth-toolkit/client';
+import { Sync, type SyncStore } from '@kestack/std-toolkit/sync';
 import {
   type ApiClients,
   type Apis,
@@ -69,7 +69,7 @@ class Link extends Context.Service<
     readonly store: SyncStore;
     readonly keep: (userIds: ReadonlyArray<string>) => Effect.Effect<void>;
   }
->()('@kstackz/web-platform/app/Link') {}
+>()('@kestack/web-platform/app/Link') {}
 
 /** An app's parts with no Accounts: its APIs and its cache. */
 const makeCore = <A extends Apis, C>(

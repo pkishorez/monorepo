@@ -5,7 +5,7 @@ import type {
   RpcClientError,
   RpcGroup,
 } from 'effect/rpc';
-import { Rpc } from '@kstackz/rpc-toolkit/rpc';
+import { Rpc } from '@kestack/rpc-toolkit/rpc';
 
 /** How an API is reached on the cloud Backend. On the device Backend every
  * API is called in this process, whatever its Transport. */

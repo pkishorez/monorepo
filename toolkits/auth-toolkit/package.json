@@ -1,5 +1,5 @@
 {
-  "name": "@kstackz/auth-toolkit",
+  "name": "@kestack/auth-toolkit",
   "version": "0.0.0",
   "private": false,
   "description": "One shared sign-in service on Cloudflare, the guard both sides of an Effect API agree on, and the server and client halves that sign in to it",
@@ -85,18 +85,18 @@
     "zustand": "catalog:"
   },
   "peerDependencies": {
-    "@kstackz/rpc-toolkit": "workspace:*",
-    "@kstackz/std-toolkit": "workspace:*",
+    "@kestack/rpc-toolkit": "workspace:*",
+    "@kestack/std-toolkit": "workspace:*",
     "alchemy": "2.0.0-beta.80",
     "better-sqlite3": "13.0.3",
     "effect": "^4.0.0",
     "react": "^19.0.0"
   },
   "peerDependenciesMeta": {
-    "@kstackz/rpc-toolkit": {
+    "@kestack/rpc-toolkit": {
       "optional": true
     },
-    "@kstackz/std-toolkit": {
+    "@kestack/std-toolkit": {
       "optional": true
     },
     "alchemy": {
@@ -117,8 +117,8 @@
     "@effect/platform-node": "catalog:",
     "@fontsource-variable/inter": "catalog:",
     "@fontsource-variable/jetbrains-mono": "catalog:",
-    "@kstackz/rpc-toolkit": "workspace:*",
-    "@kstackz/std-toolkit": "workspace:*",
+    "@kestack/rpc-toolkit": "workspace:*",
+    "@kestack/std-toolkit": "workspace:*",
     "@tailwindcss/vite": "catalog:",
     "@tsconfig/node22": "catalog:",
     "@types/better-sqlite3": "catalog:",

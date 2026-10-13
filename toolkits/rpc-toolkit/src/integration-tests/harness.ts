@@ -1,5 +1,5 @@
 import { DatabaseSync } from 'node:sqlite';
-import type { DurableObjectSQLiteStorage } from '@kstackz/std-toolkit/db/sqlite/durable-object';
+import type { DurableObjectSQLiteStorage } from '@kestack/std-toolkit/db/sqlite/durable-object';
 import { Effect } from 'effect';
 import { HttpServerRequest } from 'effect/http';
 import { Rpc } from '../rpc/index.ts';

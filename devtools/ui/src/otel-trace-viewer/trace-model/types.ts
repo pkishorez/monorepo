@@ -13,7 +13,7 @@ export interface OtelEvent {
 
 /**
  * Structurally compatible with `CapturedSpan` from
- * `@kstackz/effect-tracer/recorder`, so spans recorded from a live Effect
+ * `@kestack/effect-tracer/recorder`, so spans recorded from a live Effect
  * program render without translation.
  */
 export interface OtelSpan {

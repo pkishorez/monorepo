@@ -19,7 +19,7 @@ export class Pwa extends Context.Service<
     /** Deletes every Runtime Cache (use on sign-out); the Precache stays. */
     readonly clearRuntimeCache: Effect.Effect<void>;
   }
->()('@kstackz/web-platform/pwa/Pwa') {
+>()('@kestack/web-platform/pwa/Pwa') {
   /**
    * Registers the worker and watches it. Browser only: build it after
    * hydration, never during SSR (there it is `Unsupported`).

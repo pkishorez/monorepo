@@ -7,32 +7,32 @@
     "module": "nodenext",
     "moduleResolution": "nodenext",
     "paths": {
-      "@kstackz/effect-webrtc": ["./src/effect-webrtc/index.ts"],
-      "@kstackz/effect-webrtc/platform/browser": [
+      "@kestack/effect-webrtc": ["./src/effect-webrtc/index.ts"],
+      "@kestack/effect-webrtc/platform/browser": [
         "./src/platform/browser/index.ts"
       ],
-      "@kstackz/effect-webrtc/platform/memory": [
+      "@kestack/effect-webrtc/platform/memory": [
         "./src/platform/memory/index.ts"
       ],
-      "@kstackz/effect-webrtc/platform/werift": [
+      "@kestack/effect-webrtc/platform/werift": [
         "./src/platform/werift/index.ts"
       ],
-      "@kstackz/effect-webrtc/signaling/memory": [
+      "@kestack/effect-webrtc/signaling/memory": [
         "./src/signaling/memory/index.ts"
       ],
-      "@kstackz/effect-webrtc/signaling/nostr": [
+      "@kestack/effect-webrtc/signaling/nostr": [
         "./src/signaling/nostr/index.ts"
       ],
-      "@kstackz/effect-webrtc/signaling/durable": [
+      "@kestack/effect-webrtc/signaling/durable": [
         "./src/signaling/durable/index.ts"
       ],
-      "@kstackz/effect-webrtc/signaling/durable/rpc": [
+      "@kestack/effect-webrtc/signaling/durable/rpc": [
         "./src/signaling/durable/rpc/index.ts"
       ],
-      "@kstackz/effect-webrtc/signaling/durable/worker": [
+      "@kestack/effect-webrtc/signaling/durable/worker": [
         "./src/signaling/durable/worker/index.ts"
       ],
-      "@kstackz/effect-webrtc/signaling/durable/alchemy": [
+      "@kestack/effect-webrtc/signaling/durable/alchemy": [
         "./src/signaling/durable/alchemy/index.ts"
       ]
     },

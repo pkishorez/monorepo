@@ -1,5 +1,5 @@
 {
-  "name": "@kstackz/effect-webrtc",
+  "name": "@kestack/effect-webrtc",
   "version": "0.0.0",
   "private": false,
   "description": "Effect-native peer sessions and RPC over WebRTC data channels",
@@ -83,16 +83,16 @@
     "test": "vitest run"
   },
   "peerDependencies": {
-    "@kstackz/auth-toolkit": "workspace:*",
-    "@kstackz/rpc-toolkit": "workspace:*",
+    "@kestack/auth-toolkit": "workspace:*",
+    "@kestack/rpc-toolkit": "workspace:*",
     "alchemy": "2.0.0-beta.80",
     "effect": "^4.0.0"
   },
   "peerDependenciesMeta": {
-    "@kstackz/auth-toolkit": {
+    "@kestack/auth-toolkit": {
       "optional": true
     },
-    "@kstackz/rpc-toolkit": {
+    "@kestack/rpc-toolkit": {
       "optional": true
     },
     "alchemy": {
@@ -105,8 +105,8 @@
     "werift": "catalog:"
   },
   "devDependencies": {
-    "@kstackz/auth-toolkit": "workspace:*",
-    "@kstackz/rpc-toolkit": "workspace:*",
+    "@kestack/auth-toolkit": "workspace:*",
+    "@kestack/rpc-toolkit": "workspace:*",
     "@tsconfig/node22": "catalog:",
     "@typescript/native": "catalog:",
     "alchemy": "catalog:",

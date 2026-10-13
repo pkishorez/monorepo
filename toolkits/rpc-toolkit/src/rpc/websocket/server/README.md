@@ -1,7 +1,7 @@
 # Rpc.websocket server
 
 ```ts
-import { Rpc } from '@kstackz/rpc-toolkit/rpc';
+import { Rpc } from '@kestack/rpc-toolkit/rpc';
 
 Rpc.websocket.server; // serve an Api over hibernatable sockets
 Rpc.websocket.checkpoint; // "where was I?" inside a streaming handler
@@ -113,7 +113,7 @@ Wire the Durable Object:
 ```ts
 import * as Cloudflare from 'alchemy/Cloudflare';
 import * as Effect from 'effect/Effect';
-import { Rpc } from '@kstackz/rpc-toolkit/rpc';
+import { Rpc } from '@kestack/rpc-toolkit/rpc';
 
 const CounterObject = Cloudflare.DurableObject(
   'CounterObject',
@@ -141,7 +141,7 @@ Note the shape: you return **three** entry points, not one `fetch`. You no longe
 connection for its lifetime — you own callbacks that get handed sockets you don't remember.
 The server speaks JSON, as `Rpc.websocket.client` does; there is nothing to configure.
 
-`@kstackz/rpc-toolkit/alchemy`'s `DurableRpcWorker` does this wiring for you, with a
+`@kestack/rpc-toolkit/alchemy`'s `DurableRpcWorker` does this wiring for you, with a
 Worker in front that forwards every request to one Durable Object instance.
 
 ---
@@ -168,7 +168,7 @@ The fix is a read-resume-write sandwich around code that otherwise doesn't chang
 
 ```ts
 // ✅ survives hibernation
-import { Rpc } from '@kstackz/rpc-toolkit/rpc';
+import { Rpc } from '@kestack/rpc-toolkit/rpc';
 
 const Cursor = Schema.Struct({ cursor: Schema.Number });
 
@@ -370,7 +370,7 @@ The sticky notes live in a **Stream Store**, chosen with the server's `streams` 
 A few streams carrying a JWT in their headers already overflow 2 KB. Then use SQLite:
 
 ```ts
-import { Rpc } from '@kstackz/rpc-toolkit/rpc';
+import { Rpc } from '@kestack/rpc-toolkit/rpc';
 
 // raw workerd, inside the Durable Object class
 const rpc =
@@ -393,7 +393,7 @@ DurableRpcWorker<Self>()(
 );
 ```
 
-- It is built on `@kstackz/std-toolkit` (a peer) and needs a SQLite-backed Durable Object class.
+- It is built on `@kestack/std-toolkit` (a peer) and needs a SQLite-backed Durable Object class.
 - It creates its table (`rpc_stream_store`, or `tableName`) on first use with std-toolkit's
   `SQLite.setup`, which is idempotent; no migration step.
 - Each socket's record and each open stream (request with headers, plus checkpoint) is a row,

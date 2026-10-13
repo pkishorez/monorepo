@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Effect } from 'effect';
 import { Proof } from 'laymos/story';
-import { KeysProvider, shortcut } from '@kstackz/use-keys';
-import { useSequence, useShortcut } from '@kstackz/use-keys/recognizers';
+import { KeysProvider, shortcut } from '@kestack/use-keys';
+import { useSequence, useShortcut } from '@kestack/use-keys/recognizers';
 
 const css = `
   body { margin: 0; background: #f4f4f5; color: #18181b; font: 18px/1.5 ui-sans-serif, system-ui, -apple-system, sans-serif; }

@@ -1,8 +1,8 @@
 import { Effect } from 'effect';
 import type { Scope } from 'effect';
 import { TestClock } from 'effect/testing';
-import { Runtime, instanceAt } from '@kstackz/kabuki';
-import type { Running } from '@kstackz/kabuki';
+import { Runtime, instanceAt } from '@kestack/kabuki';
+import type { Running } from '@kestack/kabuki';
 import { describe, expect, it } from 'vitest';
 import { App, DURATION } from './index.ts';
 

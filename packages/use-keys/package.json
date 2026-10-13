@@ -1,5 +1,5 @@
 {
-  "name": "@kstackz/use-keys",
+  "name": "@kestack/use-keys",
   "version": "0.0.0",
   "private": false,
   "description": "Keyboard shortcuts for React: every key the page hears, the Shortcuts and Sequences built on it, and an app's whole keyboard in one place.",

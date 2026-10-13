@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { Button } from '@kstackz/web-platform/components/button';
+import { Button } from '@kestack/web-platform/components/button';
 import {
   ChevronsUpDownIcon,
   FolderIcon,
   RotateCwIcon,
-} from '@kstackz/web-platform/components/lucide';
-import { cn } from '@kstackz/web-platform/components/utils';
+} from '@kestack/web-platform/components/lucide';
+import { cn } from '@kestack/web-platform/components/utils';
 import { ProjectPickerDialog } from './project-picker.js';
 import {
   basename,

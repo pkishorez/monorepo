@@ -99,7 +99,7 @@ const make = <A extends AnyActor>(
       const drawn = use(AppContext);
       if (!drawn)
         throw new Error(
-          `[@kstackz/kabuki] ${actor.name}View is drawn outside its app`,
+          `[@kestack/kabuki] ${actor.name}View is drawn outside its app`,
         );
       const live = useSyncExternalStore(
         drawn.subscribe,

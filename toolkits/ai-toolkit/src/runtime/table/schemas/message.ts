@@ -1,5 +1,5 @@
 import { Schema } from 'effect';
-import { EntityESchema } from '@kstackz/std-toolkit/eschema';
+import { EntityESchema } from '@kestack/std-toolkit/eschema';
 import { AiMessagePartSchema } from '../../protocol/index.js';
 
 export const MESSAGE_ROLES = ['system', 'user', 'assistant'] as const;

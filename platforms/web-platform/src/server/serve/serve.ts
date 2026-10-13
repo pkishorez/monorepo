@@ -1,8 +1,8 @@
 import { Layer } from 'effect';
 import type { Apis, RpcsOf } from '../../define/index.ts';
 import type { Rpc as EffectRpc } from 'effect/rpc';
-import { authz } from '@kstackz/auth-toolkit/server/cloud';
-import { Rpc } from '@kstackz/rpc-toolkit/rpc';
+import { authz } from '@kestack/auth-toolkit/server/cloud';
+import { Rpc } from '@kestack/rpc-toolkit/rpc';
 import { forOwner, liveUser } from '../live/index.ts';
 import { webServer } from '../worker/index.ts';
 

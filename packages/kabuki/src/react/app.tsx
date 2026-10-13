@@ -127,7 +127,7 @@ export const toReact = <A extends AnyActor, Provided>(
     } else {
       if (Cause.hasInterruptsOnly(exit.cause)) return;
       console.error(
-        `[@kstackz/kabuki] ${name} could not ${what}:\n${Cause.pretty(exit.cause)}`,
+        `[@kestack/kabuki] ${name} could not ${what}:\n${Cause.pretty(exit.cause)}`,
       );
       failure = exit.cause;
     }
@@ -183,7 +183,7 @@ export const toReact = <A extends AnyActor, Provided>(
     if (mounts++ === 0) {
       if (!registry.claim(name, app, historyOf())) {
         console.error(
-          `[@kstackz/kabuki] two apps named ${name} are mounted at once; they cannot share a History`,
+          `[@kestack/kabuki] two apps named ${name} are mounted at once; they cannot share a History`,
         );
         take(own());
         changed();
@@ -207,7 +207,7 @@ export const toReact = <A extends AnyActor, Provided>(
         },
         (error: unknown) => {
           console.error(
-            `[@kstackz/kabuki] ${name} could not be drawn, so its Runtime did not start`,
+            `[@kestack/kabuki] ${name} could not be drawn, so its Runtime did not start`,
             error,
           );
         },

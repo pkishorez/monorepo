@@ -119,7 +119,7 @@ export class DeviceCode extends Context.Service<
     readonly token: Effect.Effect<string, SignedOut>;
     readonly whoami: Effect.Effect<User, SignedOut | AuthWorkerFailure>;
   }
->()('@kstackz/auth-toolkit/DeviceCode') {
+>()('@kestack/auth-toolkit/DeviceCode') {
   static readonly layer = (
     config: DeviceCodeOptions,
   ): Layer.Layer<

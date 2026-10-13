@@ -41,7 +41,7 @@ describe('analyzeMonorepo', () => {
 
     expect(analysis.kind).toBe('single-package');
     expect(analysis.packages).toMatchObject([
-      { name: '@kstackz/devtools', path: '.', hasLaymos: true },
+      { name: '@kestack/devtools', path: '.', hasLaymos: true },
     ]);
   });
 
@@ -74,7 +74,7 @@ describe('analyzeMonorepo', () => {
     expect(analysis.packageManager).toBe('pnpm');
     expect(analysis.packages.length).toBeGreaterThan(0);
     expect(
-      analysis.packages.some((pkg) => pkg.name === '@kstackz/devtools'),
+      analysis.packages.some((pkg) => pkg.name === '@kestack/devtools'),
     ).toBe(true);
   });
 });

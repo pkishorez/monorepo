@@ -4,8 +4,8 @@ import { named } from './sign-in/named/index.js';
  * How an Account signs in on the device Backend: `named`, by name. The
  * sign-ins against the sign-in service each have their own door, because
  * each brings what its place needs: `cookie` (a browser, better-auth) in
- * `@kstackz/auth-toolkit/client/web`, `deviceCode` (a CLI, Node) in
- * `@kstackz/auth-toolkit/client/cli`. Running sign-in on a device, the Gate
+ * `@kestack/auth-toolkit/client/web`, `deviceCode` (a CLI, Node) in
+ * `@kestack/auth-toolkit/client/cli`. Running sign-in on a device, the Gate
  * and each Account's Session, is the Web Platform's.
  */
 export const signIn = { named };

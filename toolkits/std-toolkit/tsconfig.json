@@ -8,36 +8,36 @@
     "module": "nodenext",
     "moduleResolution": "nodenext",
     "paths": {
-      "@kstackz/std-toolkit/alchemy": ["./src/alchemy/index.ts"],
-      "@kstackz/std-toolkit/core": ["./src/core/index.ts"],
-      "@kstackz/std-toolkit/eschema": ["./src/eschema/index.ts"],
-      "@kstackz/std-toolkit/snapshot": ["./src/snapshot/index.ts"],
-      "@kstackz/std-toolkit/snapshot/vitest": [
+      "@kestack/std-toolkit/alchemy": ["./src/alchemy/index.ts"],
+      "@kestack/std-toolkit/core": ["./src/core/index.ts"],
+      "@kestack/std-toolkit/eschema": ["./src/eschema/index.ts"],
+      "@kestack/std-toolkit/snapshot": ["./src/snapshot/index.ts"],
+      "@kestack/std-toolkit/snapshot/vitest": [
         "./src/snapshot/vitest/index.ts"
       ],
-      "@kstackz/std-toolkit/studio-rpc": ["./src/studio-rpc/index.ts"],
-      "@kstackz/std-toolkit/sync": ["./src/sync/index.ts"],
-      "@kstackz/std-toolkit/sync/paced": ["./src/sync/paced/index.ts"],
-      "@kstackz/std-toolkit/sync/idb": ["./src/sync/store/idb/index.ts"],
-      "@kstackz/std-toolkit/sync/memory": ["./src/sync/store/memory/index.ts"],
-      "@kstackz/std-toolkit/db": ["./src/db/index.ts"],
-      "@kstackz/std-toolkit/db/dynamodb": ["./src/db/dynamodb/index.ts"],
-      "@kstackz/std-toolkit/db/idb": ["./src/db/idb/index.ts"],
-      "@kstackz/std-toolkit/db/memory": ["./src/db/memory/index.ts"],
-      "@kstackz/std-toolkit/db/sqlite": ["./src/db/sqlite/index.ts"],
-      "@kstackz/std-toolkit/db/sqlite/better-sqlite3": [
+      "@kestack/std-toolkit/studio-rpc": ["./src/studio-rpc/index.ts"],
+      "@kestack/std-toolkit/sync": ["./src/sync/index.ts"],
+      "@kestack/std-toolkit/sync/paced": ["./src/sync/paced/index.ts"],
+      "@kestack/std-toolkit/sync/idb": ["./src/sync/store/idb/index.ts"],
+      "@kestack/std-toolkit/sync/memory": ["./src/sync/store/memory/index.ts"],
+      "@kestack/std-toolkit/db": ["./src/db/index.ts"],
+      "@kestack/std-toolkit/db/dynamodb": ["./src/db/dynamodb/index.ts"],
+      "@kestack/std-toolkit/db/idb": ["./src/db/idb/index.ts"],
+      "@kestack/std-toolkit/db/memory": ["./src/db/memory/index.ts"],
+      "@kestack/std-toolkit/db/sqlite": ["./src/db/sqlite/index.ts"],
+      "@kestack/std-toolkit/db/sqlite/better-sqlite3": [
         "./src/db/sqlite/drivers/better-sqlite3/index.ts"
       ],
-      "@kstackz/std-toolkit/db/sqlite/bun": [
+      "@kestack/std-toolkit/db/sqlite/bun": [
         "./src/db/sqlite/drivers/bun/index.ts"
       ],
-      "@kstackz/std-toolkit/db/sqlite/d1": [
+      "@kestack/std-toolkit/db/sqlite/d1": [
         "./src/db/sqlite/drivers/d1/index.ts"
       ],
-      "@kstackz/std-toolkit/db/sqlite/durable-object": [
+      "@kestack/std-toolkit/db/sqlite/durable-object": [
         "./src/db/sqlite/drivers/durable-object/index.ts"
       ],
-      "@kstackz/std-toolkit/db/sqlite/node": [
+      "@kestack/std-toolkit/db/sqlite/node": [
         "./src/db/sqlite/drivers/node/index.ts"
       ]
     },

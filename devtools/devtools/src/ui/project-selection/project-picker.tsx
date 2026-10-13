@@ -1,25 +1,25 @@
 import { useState } from 'react';
-import { Button } from '@kstackz/web-platform/components/button';
+import { Button } from '@kestack/web-platform/components/button';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '@kstackz/web-platform/components/dialog';
+} from '@kestack/web-platform/components/dialog';
 import {
   Empty,
   EmptyDescription,
   EmptyHeader,
   EmptyTitle,
-} from '@kstackz/web-platform/components/empty';
+} from '@kestack/web-platform/components/empty';
 import {
   CheckIcon,
   EllipsisIcon,
   FolderIcon,
   PlusIcon,
-} from '@kstackz/web-platform/components/lucide';
-import { cn } from '@kstackz/web-platform/components/utils';
+} from '@kestack/web-platform/components/lucide';
+import { cn } from '@kestack/web-platform/components/utils';
 import type { ProjectEntry } from '../../rpc/index.js';
 import { EntryForm, entryHint } from './entry-form.js';
 import { ManageEntryDialog, entryTitle } from './manage-entry.js';

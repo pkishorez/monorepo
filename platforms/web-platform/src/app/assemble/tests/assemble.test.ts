@@ -1,9 +1,9 @@
 import { Effect, Layer, Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
 import { describe, expect, it, vi } from 'vitest';
-import { SignIn } from '@kstackz/auth-toolkit/client';
-import { Authz } from '@kstackz/auth-toolkit/guard';
-import { authz } from '@kstackz/auth-toolkit/server';
+import { SignIn } from '@kestack/auth-toolkit/client';
+import { Authz } from '@kestack/auth-toolkit/guard';
+import { authz } from '@kestack/auth-toolkit/server';
 import { Api } from '../../apis/index.ts';
 import { memoryHost } from '../../host/index.ts';
 import {

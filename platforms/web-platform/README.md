@@ -1,10 +1,10 @@
-# @kstackz/web-platform
+# @kestack/web-platform
 
 The way to build a kstack app: one config made into a PWA on TanStack Start with its Theme, its APIs on a cloud or a device Backend, several Accounts with one Session each, the screens before sign-in, and the server; plus the components, input, forms and Recipes to build screens with.
 
 ## Big picture
 
-Every kstack web app used to wire the same things by hand: the root document, the Theme, the PWA, sign-in and its screens, the browser as a Host, and the server for its APIs. This Package holds all of it, so a new app writes only its APIs, its Backend, its Session, its Cache and its screens ([ADR 0004](../../docs/adr/0004-an-app-is-api-backend-and-stores.md)). It replaces `@kstackz/ui-toolkit` and `@kstackz/pwa-toolkit`.
+Every kstack web app used to wire the same things by hand: the root document, the Theme, the PWA, sign-in and its screens, the browser as a Host, and the server for its APIs. This Package holds all of it, so a new app writes only its APIs, its Backend, its Session, its Cache and its screens ([ADR 0004](../../docs/adr/0004-an-app-is-api-backend-and-stores.md)). It replaces `@kestack/ui-toolkit` and `@kestack/pwa-toolkit`.
 
 The root door is `createApp`. It runs the app on the browser (IndexedDB with a Broadcaster per database every tab hears, the sign-in service's cookies, the window's network and tabs) and gives back the app with its root route, the Theme, `SignedIn` with the screens before an Account is open (the Gate Screens and Account Lost recipes), and the named sign-in dialog for the device Backend. Every app is a PWA: `createApp` always adds the PWA's Root Plugin. The `server` door's `createServer` serves each `http` API on its cloud Backend and each `websocket` API in the caller's own Live Object (a Durable Object made with `liveObject`, one per user), and checks every call with the sign-in service. Underneath `createApp` is the Gate: it keeps the app on one Backend, remembers the Accounts there, opens the active Account's Session at once (Open First) and confirms it behind, and holds the app on an Account Lost until the User acts. Each Session is written once with `defineSession`; closing it interrupts every call still in flight, so nothing of one Account reaches another's screen. Why the Web Platform may break while the Toolkits keep what persists is [ADR 0006](../../docs/adr/0006-platforms-may-break-toolkits-keep-what-persists.md).
 
@@ -15,36 +15,36 @@ It ships built `dist/` (from `vp pack`). Terms are in [CONTEXT.md](./CONTEXT.md)
 ## Install
 
 ```sh
-pnpm add @kstackz/web-platform @kstackz/auth-toolkit @kstackz/rpc-toolkit @kstackz/std-toolkit react react-dom @kstackz/use-gesture
+pnpm add @kestack/web-platform @kestack/auth-toolkit @kestack/rpc-toolkit @kestack/std-toolkit react react-dom @kestack/use-gesture
 pnpm add -D @tailwindcss/vite
 ```
 
-An app that renders on the server adds `@kstackz/web-platform` to `ssr.noExternal` in its Vite config, as `apps/docs` and `apps/alchemy-console` do. Its stylesheet imports `@kstackz/web-platform/theme/global.css`, which also points Tailwind at the Package's own classes.
+An app that renders on the server adds `@kestack/web-platform` to `ssr.noExternal` in its Vite config, as `apps/docs` and `apps/alchemy-console` do. Its stylesheet imports `@kestack/web-platform/theme/global.css`, which also points Tailwind at the Package's own classes.
 
-- `@kstackz/auth-toolkit`: Accounts sign in with its `cookie` and, on the device Backend, `signIn.named`; `createServer` checks calls with its `authz.cloud`.
-- `@kstackz/rpc-toolkit`: each API is called with its `http`, `websocket` and `inProcess` Transports; `createServer` answers each `http` API with its `Rpc.http.server`, and `liveObject` each `websocket` one with its `Rpc.websocket.server`.
-- `@kstackz/std-toolkit`: the Gate's memory, Named Accounts, the Cache and each user's Std Sync are kept in its IndexedDB adapters.
+- `@kestack/auth-toolkit`: Accounts sign in with its `cookie` and, on the device Backend, `signIn.named`; `createServer` checks calls with its `authz.cloud`.
+- `@kestack/rpc-toolkit`: each API is called with its `http`, `websocket` and `inProcess` Transports; `createServer` answers each `http` API with its `Rpc.http.server`, and `liveObject` each `websocket` one with its `Rpc.websocket.server`.
+- `@kestack/std-toolkit`: the Gate's memory, Named Accounts, the Cache and each user's Std Sync are kept in its IndexedDB adapters.
 - `react`, `react-dom`: every component, Recipe and the root document render with React 19.
-- `@kstackz/use-gesture`: the platform-free gesture core that `./input`'s web gestures and the Thumb Picker run on.
-- `@kstackz/use-keys` (optional): the Binding and Shortcut types `./recipes/key-bindings` shows.
+- `@kestack/use-gesture`: the platform-free gesture core that `./input`'s web gestures and the Thumb Picker run on.
+- `@kestack/use-keys` (optional): the Binding and Shortcut types `./recipes/key-bindings` shows.
 - `@tanstack/react-router` (optional): `./client`'s `webRoot` is a root route.
 - `@tanstack/react-start` (optional): `./client/server` reads the Theme cookie with it, and `./server` hands pages to its server entry.
 - `effect` (optional): the root door, the PWA subpaths, `./server`, and the diff and source viewers are built on it.
 - `vite` (optional): needed by `./pwa/vite`.
 - `laymos` (optional): the file diff and change types the diff, git-changes and source-explorer viewers read.
 - `use-effect-ts` (optional): runs `./components/viewers/source-explorer`'s loaders inside React.
-- `@kstackz/kabuki` (optional): the running app `./recipes/kabuki-devtools` inspects.
+- `@kestack/kabuki` (optional): the running app `./recipes/kabuki-devtools` inspects.
 - `@cloudflare/workers-types` (optional): the Durable Object types `./server`'s `liveObject` is declared with.
 
 ## Exports
 
-### `@kstackz/web-platform`
+### `@kestack/web-platform`
 
 | Export      | What it does                                                                                                                                               |
 | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `createApp` | A web app from one config: its root route, Theme and PWA, its APIs, device Backend and Cache, and with `auth` its Accounts and the screens before sign-in. |
 
-### `@kstackz/web-platform/define`
+### `@kestack/web-platform/define`
 
 What an app writes before `createApp`. It loads nothing of the browser app, so a Worker and tests import it.
 
@@ -57,7 +57,7 @@ What an app writes before `createApp`. It loads nothing of the browser app, so a
 | `syncName`      | The name of one user's Std Sync on the device.                            |
 | `keepSyncs`     | Deletes every user's Std Sync on the device but the ones still signed in. |
 
-### `@kstackz/web-platform/theme`
+### `@kestack/web-platform/theme`
 
 | Export             | What it does                                                                                                                                    |
 | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -65,7 +65,7 @@ What an app writes before `createApp`. It loads nothing of the browser app, so a
 | `themeFromCookies` | Reads the Theme from a `Cookie` header string; dark when it is missing or unknown.                                                              |
 | `THEME_COOKIE`     | The cookie's name, `kui-theme`.                                                                                                                 |
 
-### `@kstackz/web-platform/theme/*.css`
+### `@kestack/web-platform/theme/*.css`
 
 | Export           | What it does                                                                                                     |
 | ---------------- | ---------------------------------------------------------------------------------------------------------------- |
@@ -76,13 +76,13 @@ What an app writes before `createApp`. It loads nothing of the browser app, so a
 | `shiki.css`      | Dark-theme colors and diff line marks for highlighted code; included by `global.css`.                            |
 | `font-inter.css` | Inter and JetBrains Mono as variable fonts; import it beside `global.css` to use them.                           |
 
-### `@kstackz/web-platform/feedback`
+### `@kestack/web-platform/feedback`
 
 | Export | What it does                                                                                                       |
 | ------ | ------------------------------------------------------------------------------------------------------------------ |
 | `play` | Plays one short sound made by the browser, such as `tick`, `arm`, `confirm` or `wrong`; the web's twin of haptics. |
 
-### `@kstackz/web-platform/input`
+### `@kestack/web-platform/input`
 
 | Export             | What it does                                                                                                               |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------- |
@@ -95,9 +95,9 @@ What an app writes before `createApp`. It loads nothing of the browser app, so a
 | `useSidebar`       | A sidebar that follows a Swipe open from anywhere or an edge, and back, then settles open or closed.                       |
 | `usePullToRefresh` | Pull to refresh: a Swipe down at a list's top, followed with resistance, refreshing past a distance.                       |
 
-### `@kstackz/web-platform/components/*`
+### `@kestack/web-platform/components/*`
 
-Owned shadcn copies on Base UI, one subpath per file, such as `@kstackz/web-platform/components/button`.
+Owned shadcn copies on Base UI, one subpath per file, such as `@kestack/web-platform/components/button`.
 
 | Export                                                                                                                                                                                                                                                                                                   | What it does                                                               |
 | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
@@ -165,14 +165,14 @@ Owned shadcn copies on Base UI, one subpath per file, such as `@kstackz/web-plat
 | `toggle`: `Toggle`, `toggleVariants`                                                                                                                                                                                                                                                                     | A button that stays pressed.                                               |
 | `tooltip`: `Tooltip`, `TooltipTrigger`, `TooltipContent`, `TooltipProvider`                                                                                                                                                                                                                              | A short hint shown on hover or focus.                                      |
 
-### `@kstackz/web-platform/components/viewers/diff-viewer`
+### `@kestack/web-platform/components/viewers/diff-viewer`
 
 | Export               | What it does                                                                                   |
 | -------------------- | ---------------------------------------------------------------------------------------------- |
 | `DiffViewer`         | Shows one file's diff, side by side or unified; its options can be held by the caller to keep. |
 | `defaultDiffOptions` | The options a diff opens with: split, unwrapped, both sides, folded.                           |
 
-### `@kstackz/web-platform/components/viewers/file-tree`
+### `@kestack/web-platform/components/viewers/file-tree`
 
 | Export          | What it does                                                    |
 | --------------- | --------------------------------------------------------------- |
@@ -182,7 +182,7 @@ Owned shadcn copies on Base UI, one subpath per file, such as `@kstackz/web-plat
 | `expandTo`      | The folder paths that lead to one file, to reveal it.           |
 | `toggleSubtree` | Opens or closes one folder together with every folder under it. |
 
-### `@kstackz/web-platform/components/viewers/git-changes`
+### `@kestack/web-platform/components/viewers/git-changes`
 
 | Export               | What it does                                                                         |
 | -------------------- | ------------------------------------------------------------------------------------ |
@@ -194,7 +194,7 @@ Owned shadcn copies on Base UI, one subpath per file, such as `@kstackz/web-plat
 | `rollUpChanges`      | Each owner's change status from the files it owns.                                   |
 | `changedPathsUnder`  | The changed files under one or more path prefixes.                                   |
 
-### `@kstackz/web-platform/components/viewers/json`
+### `@kestack/web-platform/components/viewers/json`
 
 | Export       | What it does                              |
 | ------------ | ----------------------------------------- |
@@ -202,76 +202,76 @@ Owned shadcn copies on Base UI, one subpath per file, such as `@kstackz/web-plat
 | `JsonTree`   | Shows a JSON value as an expandable tree. |
 | `JsonEditor` | Edits JSON text in CodeMirror.            |
 
-### `@kstackz/web-platform/components/viewers/markdown-viewer`
+### `@kestack/web-platform/components/viewers/markdown-viewer`
 
 | Export           | What it does                                                   |
 | ---------------- | -------------------------------------------------------------- |
 | `MarkdownViewer` | Renders Markdown, with GitHub tables and lists, as typography. |
 
-### `@kstackz/web-platform/components/viewers/source-explorer`
+### `@kestack/web-platform/components/viewers/source-explorer`
 
 | Export           | What it does                                                               |
 | ---------------- | -------------------------------------------------------------------------- |
 | `SourceExplorer` | A dialog that opens one scope's documentation and files, with their diffs. |
 
-### `@kstackz/web-platform/components/viewers/source-viewer`
+### `@kestack/web-platform/components/viewers/source-viewer`
 
 | Export         | What it does                                                       |
 | -------------- | ------------------------------------------------------------------ |
 | `SourceViewer` | Shows highlighted source with line numbers, ranges and diff lines. |
 
-### `@kstackz/web-platform/components/hooks/use-element-width`
+### `@kestack/web-platform/components/hooks/use-element-width`
 
 | Export            | What it does                           |
 | ----------------- | -------------------------------------- |
 | `useElementWidth` | An element's content width, kept live. |
 
-### `@kstackz/web-platform/components/hooks/use-mobile`
+### `@kestack/web-platform/components/hooks/use-mobile`
 
 | Export         | What it does                                                                |
 | -------------- | --------------------------------------------------------------------------- |
 | `useIsMobile`  | Whether the screen is phone-sized; wide on the server and during hydration. |
 | `MOBILE_QUERY` | The media query `useIsMobile` reads.                                        |
 
-### `@kstackz/web-platform/components/hooks/use-scroll`
+### `@kestack/web-platform/components/hooks/use-scroll`
 
 | Export      | What it does                                                                                                |
 | ----------- | ----------------------------------------------------------------------------------------------------------- |
 | `useScroll` | Keeps a scroller pinned to its bottom as content grows, until the user scrolls up; scrolls back on request. |
 
-### `@kstackz/web-platform/components/utils`
+### `@kestack/web-platform/components/utils`
 
 | Export | What it does                                               |
 | ------ | ---------------------------------------------------------- |
 | `cn`   | Joins class names and merges conflicting Tailwind classes. |
 
-### `@kstackz/web-platform/components/lucide`
+### `@kestack/web-platform/components/lucide`
 
 | Export     | What it does                                             |
 | ---------- | -------------------------------------------------------- |
 | every icon | Re-exports `lucide-react`, so apps use the same version. |
 
-### `@kstackz/web-platform/components/motion`
+### `@kestack/web-platform/components/motion`
 
 | Export       | What it does                                             |
 | ------------ | -------------------------------------------------------- |
 | every export | Re-exports `motion/react`, so apps use the same version. |
 
-### `@kstackz/web-platform/components/scroll-styles`
+### `@kestack/web-platform/components/scroll-styles`
 
 | Export            | What it does                                                                        |
 | ----------------- | ----------------------------------------------------------------------------------- |
 | `scrollbarStyles` | Classes for thin scrollbars on devices with a fine pointer.                         |
 | `scrollBar`       | The same classes for a `default`, `small` or hidden scrollbar, in one or both axes. |
 
-### `@kstackz/web-platform/components/shadow-dom`
+### `@kestack/web-platform/components/shadow-dom`
 
 | Export           | What it does                                                                     |
 | ---------------- | -------------------------------------------------------------------------------- |
 | `ShadowScope`    | Renders its children in a shadow root with the given CSS and a portal container. |
 | `useShadowScope` | The shadow root, portal container and Theme of the nearest `ShadowScope`.        |
 
-### `@kstackz/web-platform/form`
+### `@kestack/web-platform/form`
 
 | Export        | What it does                                                                                                                                                       |
 | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -279,7 +279,7 @@ Owned shadcn copies on Base UI, one subpath per file, such as `@kstackz/web-plat
 | `withForm`    | Builds a piece of form that takes the form as a prop.                                                                                                              |
 | `formOptions` | TanStack Form's `formOptions`, to share options between forms.                                                                                                     |
 
-### `@kstackz/web-platform/recipes/frame`
+### `@kestack/web-platform/recipes/frame`
 
 | Export                                                         | What it does                                                                                                                                                 |
 | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -290,69 +290,69 @@ Owned shadcn copies on Base UI, one subpath per file, such as `@kstackz/web-plat
 | `SidebarMenuSub`, `SidebarMenuSubItem`, `SidebarMenuSubButton` | Nested menu rows.                                                                                                                                            |
 | `SidebarInput`, `SidebarMenuSkeleton`                          | A search input and a loading row for the Sidebar.                                                                                                            |
 
-### `@kstackz/web-platform/recipes/thumb-picker`
+### `@kestack/web-platform/recipes/thumb-picker`
 
 | Export        | What it does                                                                                                                           |
 | ------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
 | `ThumbPicker` | Picks from a menu by a thumb's swipe while another finger holds still: up and down Step, right opens, left goes back, lifting chooses. |
 
-### `@kstackz/web-platform/recipes/swipe-row`
+### `@kestack/web-platform/recipes/swipe-row`
 
 | Export     | What it does                                                                                          |
 | ---------- | ----------------------------------------------------------------------------------------------------- |
 | `SwipeRow` | A row one finger swipes left to delete, arming past a distance with a click; a mouse never swipes it. |
 
-### `@kstackz/web-platform/recipes/key-bindings`
+### `@kestack/web-platform/recipes/key-bindings`
 
 | Export        | What it does                                                                                          |
 | ------------- | ----------------------------------------------------------------------------------------------------- |
 | `BindingKeys` | A Binding's keys step by step, such as `⌘` `K`, shown only where there is a keyboard unless `always`. |
 | `recorded`    | Turns one recorded key press into a Shortcut, with Cmd on a Mac and Ctrl elsewhere as `mod`.          |
 
-### `@kstackz/web-platform/recipes/local-sign-in`
+### `@kestack/web-platform/recipes/local-sign-in`
 
 | Export        | What it does                                                                                   |
 | ------------- | ---------------------------------------------------------------------------------------------- |
 | `LocalSignIn` | Asks who to sign in as on the device Backend, with one-tap presets and an email and name form. |
 
-### `@kstackz/web-platform/recipes/account-lost`
+### `@kestack/web-platform/recipes/account-lost`
 
 | Export        | What it does                                                                                                           |
 | ------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | `AccountLost` | Holds the app on an Account Lost until the User signs in to it again or opens another Account; it cannot be dismissed. |
 
-### `@kstackz/web-platform/recipes/gate-screens`
+### `@kestack/web-platform/recipes/gate-screens`
 
 | Export        | What it does                                                                                                                                   |
 | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | `GateScreens` | Every screen before an Account is open, in one card: checking, opening, signing out, signed out with the way to the other Backend, unopenable. |
 
-### `@kstackz/web-platform/recipes/account-switcher`
+### `@kestack/web-platform/recipes/account-switcher`
 
 | Export            | What it does                                                                                       |
 | ----------------- | -------------------------------------------------------------------------------------------------- |
 | `AccountSwitcher` | A menu of the Signed-in Accounts: switch, add an account, sign out the Active Account or everyone. |
 
-### `@kstackz/web-platform/recipes/kabuki-devtools`
+### `@kestack/web-platform/recipes/kabuki-devtools`
 
 | Export           | What it does                                                                                                                                |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | `KabukiDevtools` | The Inspector on a running Kabuki app, from `App.useRuntime()`: picking a Step on its Timeline Time Travels the app, going live comes back. |
 | `Inspector`      | The Step shown, drawn as a Map, with the Sheet of what is picked and the Timeline under it; it lays itself out by its own width.            |
 
-### `@kstackz/web-platform/client`
+### `@kestack/web-platform/client`
 
 | Export    | What it does                                                                                                                                               |
 | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `webRoot` | The root route's options: the document in the Theme set before paint, the device marked, the shared head, a 404, and each Root Plugin's head and provider. |
 
-### `@kstackz/web-platform/client/server`
+### `@kestack/web-platform/client/server`
 
 | Export     | What it does                                                                                     |
 | ---------- | ------------------------------------------------------------------------------------------------ |
 | `getTheme` | Reads the Theme from the request's cookie, for the app's own server function behind `loadTheme`. |
 
-### `@kstackz/web-platform/pwa`
+### `@kestack/web-platform/pwa`
 
 | Export              | What it does                                                                                                                         |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
@@ -365,27 +365,27 @@ Owned shadcn copies on Base UI, one subpath per file, such as `@kstackz/web-plat
 | `splashHead`        | The iOS startup image tags, one per screen iOS matches.                                                                              |
 | `splashScreens`     | Each splash image's size, its `/splash/<w>x<h>.png` path, and the screen it is for, for an app to draw them.                         |
 
-### `@kstackz/web-platform/pwa/vite`
+### `@kestack/web-platform/pwa/vite`
 
 | Export | What it does                                                                                                                                                |
 | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `pwa`  | Vite plugins that emit the manifest, pick the Precache, compute the Build ID, build the worker (or the Kill Switch) and add `no-cache` rules to `_headers`. |
 
-### `@kstackz/web-platform/pwa/splash`
+### `@kestack/web-platform/pwa/splash`
 
 | Export          | What it does                                                                                  |
 | --------------- | --------------------------------------------------------------------------------------------- |
 | `splashHead`    | The iOS startup image tags, one per screen iOS matches.                                       |
 | `splashScreens` | Each splash image's size, path and screen, with no React, for a script that draws the images. |
 
-### `@kstackz/web-platform/pwa/worker`
+### `@kestack/web-platform/pwa/worker`
 
 | Export             | What it does                                                                                                      |
 | ------------------ | ----------------------------------------------------------------------------------------------------------------- |
 | `runServiceWorker` | Starts the worker; call it once at the top of the entry, optionally with a `layer` such as a Worker Server.       |
 | `WorkerHost`       | Service given to that `layer`: the worker's Build ID and a stream of every `message` event that is not a Command. |
 
-### `@kstackz/web-platform/pwa/client`
+### `@kestack/web-platform/pwa/client`
 
 | Export              | What it does                                                                                                         |
 | ------------------- | -------------------------------------------------------------------------------------------------------------------- |
@@ -394,7 +394,7 @@ Owned shadcn copies on Base UI, one subpath per file, such as `@kstackz/web-plat
 | `PwaStatus`         | Tagged enum `Unsupported`, `Installing`, `Ready`, `UpdateReady`, `Updating`.                                         |
 | `clearRuntimeCache` | Effect that deletes every Runtime Cache, with no registration or `Pwa` needed.                                       |
 
-### `@kstackz/web-platform/pwa/extras`
+### `@kestack/web-platform/pwa/extras`
 
 | Export                  | What it does                                                                                                      |
 | ----------------------- | ----------------------------------------------------------------------------------------------------------------- |
@@ -412,13 +412,13 @@ Owned shadcn copies on Base UI, one subpath per file, such as `@kstackz/web-plat
 | `useStoragePersistence` | Persisted flag with `persist` and `estimate`; `null` while unknown.                                               |
 | `StoragePersistence`    | The Effect service behind `useStoragePersistence`, with its `layer`.                                              |
 
-### `@kstackz/web-platform/pwa/rpc/worker`
+### `@kestack/web-platform/pwa/rpc/worker`
 
 | Export               | What it does                                                                                           |
 | -------------------- | ------------------------------------------------------------------------------------------------------ |
 | `WorkerServer.layer` | Serves an Effect `RpcGroup` inside the worker; provide its handlers and pass it to `runServiceWorker`. |
 
-### `@kstackz/web-platform/pwa/rpc/client`
+### `@kestack/web-platform/pwa/rpc/client`
 
 | Export               | What it does                                                                              |
 | -------------------- | ----------------------------------------------------------------------------------------- |
@@ -426,7 +426,7 @@ Owned shadcn copies on Base UI, one subpath per file, such as `@kstackz/web-plat
 | `WorkerClient.layer` | The same client as a Layer under your own service tag.                                    |
 | `VersionSkew`        | Tagged error a call fails with when the worker belongs to another Build ID than the page. |
 
-### `@kstackz/web-platform/server`
+### `@kestack/web-platform/server`
 
 | Export              | What it does                                                                                                                                                                                                                                                                               |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -446,7 +446,7 @@ Owned shadcn copies on Base UI, one subpath per file, such as `@kstackz/web-plat
 
 ```tsx
 // src/app.ts
-import { createApp } from '@kstackz/web-platform';
+import { createApp } from '@kestack/web-platform';
 export const app = createApp({
   name: 'ledger',
   title: 'Ledger',
@@ -469,7 +469,7 @@ export const { SignedIn, useAccounts, useGate, theme: appTheme } = app;
 export const Route = createRootRoute(app.root({ stylesheet: appCss }));
 
 // src/worker.ts
-import { createServer } from '@kstackz/web-platform/server';
+import { createServer } from '@kestack/web-platform/server';
 export default createServer({
   apis,
   backend: (env: WorkerEnv) => ({
@@ -493,7 +493,7 @@ export default createServer({
 
 ```ts
 // vite.config.ts
-ssr: { noExternal: ['@kstackz/web-platform'] },
+ssr: { noExternal: ['@kestack/web-platform'] },
 plugins: [
   tailwindcss(),
   tanstackStart({

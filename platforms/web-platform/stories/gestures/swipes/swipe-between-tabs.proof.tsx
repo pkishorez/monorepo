@@ -4,13 +4,13 @@ import {
   useMotionValue,
   useMotionValueEvent,
   useTransform,
-} from '@kstackz/web-platform/components/motion';
+} from '@kestack/web-platform/components/motion';
 import {
   GestureProvider,
   GestureZone,
   type SwipeRelease,
   useSwipe,
-} from '@kstackz/web-platform/input';
+} from '@kestack/web-platform/input';
 import { Effect } from 'effect';
 import { Gesture, Proof } from 'laymos/story';
 import { useRef, useState } from 'react';
@@ -104,7 +104,7 @@ export default Proof.browser({
     'Two useSwipes in one Gesture Zone, one per Direction, each enabled only where there is a tab to go to; the pages follow the fingers and settle with their speed.',
   page: (root) => {
     const app = createRoot(root);
-    void import('@kstackz/web-platform/theme/global.css').then(() =>
+    void import('@kestack/web-platform/theme/global.css').then(() =>
       app.render(
         <GestureProvider>
           <GestureZone className="h-dvh bg-background p-4 text-foreground">

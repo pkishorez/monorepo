@@ -8,7 +8,7 @@ status: partly superseded by ADR-0012 (how two Recognizers are kept apart) and A
 
 ADR 0009 rejected hooks like these beside a lower-level one because each needed rules against the others. These have none. Recognizers never know about each other: two that hear the same Gesture may both Commit, and the app keeps them apart with zones, `trapped` and `enabled`, as it does for `useGesture`. A Pattern that needs two Recognizers, such as a sidebar's open and close Swipes, keeps them apart the same way, with `enabled`.
 
-The block moves out of ui-toolkit into `@kstackz/use-gesture`, with the core untouched in `src/core` and the layers beside it in `src/recognizers` and `src/patterns`. Laymos holds the direction: a lower layer never imports a higher one. There is one entry point; the layers are an internal rule, not something an app learns to import a Pattern.
+The block moves out of ui-toolkit into `@kestack/use-gesture`, with the core untouched in `src/core` and the layers beside it in `src/recognizers` and `src/patterns`. Laymos holds the direction: a lower layer never imports a higher one. There is one entry point; the layers are an internal rule, not something an app learns to import a Pattern.
 
 ## Considered Options
 

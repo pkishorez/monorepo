@@ -2,7 +2,7 @@ import type { OtelEvent, OtelSpan } from '../trace-model';
 
 /**
  * Structurally compatible with `CapturedLog` from
- * `@kstackz/effect-tracer/recorder` and laymos's `CapturedTraceSchema`.
+ * `@kestack/effect-tracer/recorder` and laymos's `CapturedTraceSchema`.
  */
 interface CapturedLogRecord {
   readonly spanId: string | null;

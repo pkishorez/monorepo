@@ -3,12 +3,12 @@ import {
   motion,
   useMotionValue,
   useMotionValueEvent,
-} from '@kstackz/web-platform/components/motion';
+} from '@kestack/web-platform/components/motion';
 import {
   GestureProvider,
   GestureZone,
   useSwipe,
-} from '@kstackz/web-platform/input';
+} from '@kestack/web-platform/input';
 import { Effect } from 'effect';
 import { Gesture, Proof } from 'laymos/story';
 import { useState } from 'react';
@@ -84,7 +84,7 @@ export default Proof.browser({
     'Each row is a Gesture Zone with a useSwipe right inside a scrolling list: a swipe up on a row scrolls the list, a swipe right on a row files it.',
   page: (root) => {
     const app = createRoot(root);
-    void import('@kstackz/web-platform/theme/global.css').then(() =>
+    void import('@kestack/web-platform/theme/global.css').then(() =>
       app.render(
         <GestureProvider>
           <main className="flex h-dvh flex-col bg-background text-foreground">

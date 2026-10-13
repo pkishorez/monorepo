@@ -45,7 +45,7 @@ export interface Self<Model, State, Msg, Props = void> {
 }
 
 /** Where a Command keeps the Effect it runs, out of sight of a comparison. */
-export const RUN: unique symbol = Symbol.for('@kstackz/kabuki/Command/run');
+export const RUN: unique symbol = Symbol.for('@kestack/kabuki/Command/run');
 
 /**
  * An errand an Update asks for, as `Command.make` makes it: its name and

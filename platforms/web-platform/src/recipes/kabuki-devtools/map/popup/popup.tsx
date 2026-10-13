@@ -1,5 +1,5 @@
 import { motion, useReducedMotion } from 'motion/react';
-import type { Instance } from '@kstackz/kabuki';
+import type { Instance } from '@kestack/kabuki';
 import { cn } from '../../../../components/lib/utils.ts';
 import { ink } from '../../ink/index.ts';
 

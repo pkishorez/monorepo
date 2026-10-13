@@ -1,5 +1,5 @@
 import { Schema } from 'effect';
-import { EntityESchema } from '@kstackz/std-toolkit/eschema';
+import { EntityESchema } from '@kestack/std-toolkit/eschema';
 import { HARNESS_IDS, RUN_STATUSES } from '../../protocol/index.js';
 
 const ClaudeRunDataSchema = Schema.Struct({

@@ -5,18 +5,18 @@ import type { Principal } from './principal.js';
  * `id`, `email` and `name`, so a policy that reads only those works for
  * either. */
 export class Current extends Context.Service<Current, Principal>()(
-  '@kstackz/auth-toolkit/Current',
+  '@kestack/auth-toolkit/Current',
 ) {}
 
 export class Unauthenticated extends Schema.Error<Unauthenticated>(
-  '@kstackz/auth-toolkit/Unauthenticated',
+  '@kestack/auth-toolkit/Unauthenticated',
 )(
   { _tag: Schema.tag('Unauthenticated'), reason: Schema.String },
   { httpApiStatus: 401 },
 ) {}
 
 export class Forbidden extends Schema.Error<Forbidden>(
-  '@kstackz/auth-toolkit/Forbidden',
+  '@kestack/auth-toolkit/Forbidden',
 )(
   { _tag: Schema.tag('Forbidden'), reason: Schema.String },
   { httpApiStatus: 403 },
@@ -25,7 +25,7 @@ export class Forbidden extends Schema.Error<Forbidden>(
 /** Who is calling could not be found out, because the sign-in service could
  * not be asked. Not the same as a call nobody signed. */
 export class Unavailable extends Schema.Error<Unavailable>(
-  '@kstackz/auth-toolkit/Unavailable',
+  '@kestack/auth-toolkit/Unavailable',
 )(
   { _tag: Schema.tag('Unavailable'), reason: Schema.String },
   { httpApiStatus: 503 },
@@ -47,7 +47,7 @@ export class Resolver extends Context.Service<
       request: Request,
     ) => Effect.Effect<Resolution | null, unknown>;
   }
->()('@kstackz/auth-toolkit/Authz/Resolver') {}
+>()('@kestack/auth-toolkit/Authz/Resolver') {}
 
 /** What a guard's value is: a rule the caller must pass. */
 export type Policy = (current: Principal) => Effect.Effect<void, Forbidden>;

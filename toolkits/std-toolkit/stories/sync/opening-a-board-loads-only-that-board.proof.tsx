@@ -3,12 +3,12 @@ import { Effect, Schema } from 'effect';
 import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Proof } from 'laymos/story';
-import type { Entity } from '@kstackz/std-toolkit/core';
-import { StdTable } from '@kstackz/std-toolkit/db';
-import { IDB } from '@kstackz/std-toolkit/db/idb';
-import { EntityESchema } from '@kstackz/std-toolkit/eschema';
-import { createStdSync, strategy } from '@kstackz/std-toolkit/sync';
-import { Sync } from '@kstackz/std-toolkit/sync/idb';
+import type { Entity } from '@kestack/std-toolkit/core';
+import { StdTable } from '@kestack/std-toolkit/db';
+import { IDB } from '@kestack/std-toolkit/db/idb';
+import { EntityESchema } from '@kestack/std-toolkit/eschema';
+import { createStdSync, strategy } from '@kestack/std-toolkit/sync';
+import { Sync } from '@kestack/std-toolkit/sync/idb';
 
 const Task = EntityESchema.make('Task', 'taskId', {
   boardId: Schema.String,
