@@ -2,6 +2,11 @@ name: 🧪 test:monorepo
 
 on:
   pull_request:
+    # The changeset release PR changes only these, so it starts no run.
+    paths-ignore:
+      - '.changeset/**'
+      - '**/CHANGELOG.md'
+      - '**/package.json'
   push:
     branches:
       - main
