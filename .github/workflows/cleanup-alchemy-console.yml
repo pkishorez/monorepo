@@ -16,7 +16,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   cleanup:
-    if: github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'preview:console')
+    if: ${{ !startsWith(github.head_ref, 'changeset-release/') && (github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'preview:console')) }}
     runs-on: ubuntu-latest
     env:
       STAGE: pr${{ github.event_name == 'workflow_dispatch' && inputs.pr_number || github.event.number }}

@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   detect:
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    if: (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && !startsWith(github.head_ref, 'changeset-release/')
     runs-on: ubuntu-latest
     outputs:
       affected: ${{ steps.affected.outputs.affected }}
@@ -79,7 +79,7 @@ jobs:
           esac
   summary:
     needs: [detect, deploy]
-    if: always()
+    if: always() && !startsWith(github.head_ref, 'changeset-release/')
     runs-on: ubuntu-latest
     steps:
       - name: Deployment summary
