@@ -11,7 +11,7 @@ import {
   loadKnownFiles,
 } from 'laymos';
 
-import { GitUnavailableError, InvalidFolderPath } from '../../rpc/index.js';
+import { GitUnavailableError, InvalidFolderPath } from '../../rpc/git/index.js';
 
 /**
  * Fulfils the Tool-neutral git contract for any folder inside a repository:

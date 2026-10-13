@@ -10,8 +10,8 @@ import {
   ProjectRegistryError,
   ProjectRegistryRpc,
   type ProjectEntry,
-} from '../../rpc/index.js';
-import { resolveWorktrees } from '../resolve-worktrees/index.js';
+} from '../../rpc/project-registry/index.js';
+import { resolveWorktrees } from './resolve-worktrees/index.js';
 import {
   entries,
   table,

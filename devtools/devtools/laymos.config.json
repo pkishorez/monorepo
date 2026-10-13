@@ -6,120 +6,103 @@
     "src/server/main.ts",
     "src/server/handlers.ts",
     "src/cli/skills.ts",
-    "src/cli/text-format.ts",
-    "src/ui/lotel/collections.ts",
-    "src/ui/monoverse/monoverse/monorepo-explorer/analysis.ts"
+    "src/browser-app/ui/lotel/collections.ts",
+    "src/browser-app/ui/monoverse/monorepo-explorer/analysis.ts"
   ],
   "rules": {
     "src/browser.tsx": ["src/browser-app"],
+    "src/browser-app": ["src/rpc"],
+    "src/browser-app/ui": ["src/browser-app/devtools-rpc"],
+    "src/cli/client-command": ["src/rpc"],
+    "src/cli/traces": ["src/cli/client-command", "src/lotel/telemetry-schema"],
     "src/server/main.ts": [
       "src/server/local-devtools-server",
       "src/cli/traces",
       "src/cli/skills.ts"
     ],
-    "src/cli/client-command": ["src/rpc"],
-    "src/browser-app": [
-      "src/client/devtools-rpc",
-      "src/ui/monoverse/monoverse",
-      "src/ui/lotel/lotel"
-    ],
-    "src/ui": ["src/client", "src/rpc"],
-    "src/ui/monoverse": [
-      "src/ui/laymos/project-workspace",
-      "src/ui/git-changes",
-      "src/ui/project-selection"
-    ],
-    "src/ui/lotel/lotel": [
-      "src/ui/lotel/viewer",
-      "src/ui/lotel/collections.ts"
-    ],
-    "src/ui/lotel/viewer": [
-      "src/ui/lotel/collections.ts",
-      "src/ui/lotel/trace-viewer"
-    ],
-    "src/client": ["src/rpc"],
-    "src/server": ["src/rpc"],
     "src/server/local-devtools-server": [
       "src/server/handlers.ts",
       "src/server/project-registry",
-      "src/lotel"
+      "src/lotel",
+      "src/rpc"
     ],
     "src/server/handlers.ts": [
-      "src/server/analyze-laymos-project",
-      "src/server/analyze-monorepo",
-      "src/server/get-laymos-files",
-      "src/server/get-laymos-stories",
-      "src/server/get-laymos-story-reports",
-      "src/server/get-monorepo-file",
+      "src/server/laymos",
+      "src/server/monoverse",
       "src/server/git-changes",
-      "src/server/run-laymos-stories"
+      "src/rpc/laymos",
+      "src/rpc/git",
+      "src/rpc/monoverse"
     ],
-    "src/server/project-registry": ["src/server/resolve-worktrees"],
-    "src/server/analyze-monorepo/monorepo": [
-      "src/server/analyze-monorepo/package",
-      "src/server/analyze-monorepo/package-graph"
+    "src/server/monoverse/analyze-monorepo/monorepo": [
+      "src/server/monoverse/analyze-monorepo/package",
+      "src/server/monoverse/analyze-monorepo/package-graph"
     ],
-    "src/server/analyze-monorepo/package": [
-      "src/server/analyze-monorepo/package-graph"
+    "src/server/monoverse/analyze-monorepo/package": [
+      "src/server/monoverse/analyze-monorepo/package-graph"
     ],
-    "src/cli/traces": [
-      "src/cli/client-command",
-      "src/cli/text-format.ts",
+    "src/rpc": ["src/lotel/rpc"],
+    "src/browser-app/ui/monoverse": [
+      "src/browser-app/ui/laymos",
+      "src/browser-app/ui/git-changes"
+    ],
+    "src/browser-app/ui/laymos": ["src/browser-app/ui/git-changes"],
+    "src/browser-app/ui/lotel/viewer": [
+      "src/browser-app/ui/lotel/collections.ts",
+      "src/browser-app/ui/lotel/trace-viewer"
+    ],
+    "src/browser-app/ui/lotel/collections.ts": ["src/lotel/telemetry-schema"],
+    "src/browser-app/ui/lotel/trace-viewer/trace-dock": [
+      "src/browser-app/ui/lotel/trace-viewer/waterfall-view",
+      "src/browser-app/ui/lotel/trace-viewer/trace-presentation"
+    ],
+    "src/browser-app/ui/lotel/trace-viewer/trace-list": [
+      "src/browser-app/ui/lotel/trace-viewer/waterfall-view",
+      "src/browser-app/ui/lotel/trace-viewer/trace-presentation"
+    ],
+    "src/browser-app/ui/lotel/trace-viewer/waterfall-view": [
+      "src/browser-app/ui/lotel/trace-viewer/trace-presentation"
+    ],
+    "src/browser-app/ui/lotel/trace-viewer/trace-normalization": [
       "src/lotel/telemetry-schema"
     ],
-    "src/ui/laymos": ["src/ui/git-changes"],
-    "src/ui/lotel/trace-viewer/trace-dock": [
-      "src/ui/lotel/trace-viewer/waterfall-view",
-      "src/ui/lotel/trace-viewer/trace-presentation"
+    "src/browser-app/ui/laymos/analysis-explorer": [
+      "src/browser-app/ui/laymos/laymo",
+      "src/browser-app/ui/laymos/file-list",
+      "src/browser-app/ui/laymos/preferences",
+      "src/browser-app/ui/laymos/project-changes"
     ],
-    "src/ui/lotel/trace-viewer/trace-list": [
-      "src/ui/lotel/trace-viewer/waterfall-view",
-      "src/ui/lotel/trace-viewer/trace-presentation"
+    "src/browser-app/ui/laymos/analysis-explorer/stories-canvas": [
+      "src/browser-app/ui/laymos/canvas-space",
+      "src/browser-app/ui/lotel/trace-viewer"
     ],
-    "src/ui/lotel/trace-viewer/waterfall-view": [
-      "src/ui/lotel/trace-viewer/trace-presentation"
+    "src/browser-app/ui/laymos/laymo": [
+      "src/browser-app/ui/laymos/canvas-space",
+      "src/browser-app/ui/laymos/project-changes"
     ],
-    "src/ui/lotel/trace-viewer/trace-normalization": [
-      "src/lotel/telemetry-schema"
+    "src/browser-app/ui/laymos/canvas-space": [
+      "src/browser-app/ui/laymos/preferences"
     ],
-    "src/ui/laymos/project-workspace/analysis-explorer": [
-      "src/ui/laymos/laymo",
-      "src/ui/laymos/file-list",
-      "src/ui/laymos/preferences",
-      "src/ui/laymos/project-changes"
+    "src/browser-app/ui/laymos/file-list": [
+      "src/browser-app/ui/laymos/preferences"
     ],
-    "src/ui/laymos/project-workspace/analysis-explorer/stories-canvas": [
-      "src/ui/laymos/canvas-space",
-      "src/ui/lotel/trace-viewer"
-    ],
-    "src/ui/laymos/laymo": [
-      "src/ui/laymos/canvas-space",
-      "src/ui/laymos/project-changes"
-    ],
-    "src/ui/laymos/canvas-space": ["src/ui/laymos/preferences"],
-    "src/ui/laymos/file-list": ["src/ui/laymos/preferences"],
-    "src/ui/monoverse/monoverse/monorepo-explorer": [
-      "src/ui/laymos/laymo",
-      "src/ui/laymos/file-list"
-    ],
-    "src/ui/monoverse/monoverse/monorepo-explorer/package-cards": [
-      "src/ui/laymos/project-changes"
-    ],
-    "src/ui/lotel/collections.ts": ["src/lotel/telemetry-schema"],
     "*": [
-      "src/ui/lotel/trace-viewer/trace-model",
-      "src/ui/monoverse/monoverse/monorepo-explorer/analysis.ts",
+      "src/browser-app/ui/lotel/trace-viewer/trace-model",
+      "src/browser-app/ui/monoverse/monorepo-explorer/analysis.ts",
       "src/lotel/telemetry-schema"
     ],
-    "src/rpc": ["src/lotel/rpc"]
+    "src/server/laymos": ["src/rpc/laymos"],
+    "src/server/git-changes": ["src/rpc/git"],
+    "src/server/monoverse": ["src/rpc/monoverse"],
+    "src/server/project-registry": ["src/rpc/project-registry"]
   },
   "ignoredPaths": [
-    "src/ui/cosmos.decorator.tsx",
-    "src/ui/lotel/trace-viewer/trace-viewer.fixture.tsx",
-    "src/ui/monoverse/monoverse/monorepo-explorer/monoverse.fixture.tsx",
-    "src/ui/laymos/project-workspace/analysis-explorer/fixtures",
-    "src/ui/laymos/project-workspace/analysis-explorer/stories-canvas/fixtures",
-    "src/ui/laymos/file-list/fixtures",
-    "src/ui/laymos/laymo/fixtures"
+    "src/browser-app/ui/cosmos.decorator.tsx",
+    "src/browser-app/ui/lotel/trace-viewer/trace-viewer.fixture.tsx",
+    "src/browser-app/ui/monoverse/monorepo-explorer/monoverse.fixture.tsx",
+    "src/browser-app/ui/laymos/analysis-explorer/fixtures",
+    "src/browser-app/ui/laymos/analysis-explorer/stories-canvas/fixtures",
+    "src/browser-app/ui/laymos/file-list/fixtures",
+    "src/browser-app/ui/laymos/laymo/fixtures"
   ]
 }

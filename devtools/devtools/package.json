@@ -15,10 +15,18 @@
   "license": "MIT",
   "type": "module",
   "exports": {
-    "./lotel": "./src/lotel/index.ts",
-    "./lotel/rpc": "./src/lotel/rpc/index.ts",
-    "./lotel/telemetry": "./src/lotel/telemetry-schema/index.ts",
-    "./rpc": "./src/rpc/index.ts"
+    "./lotel": {
+      "types": "./dist/lotel/index.d.ts",
+      "default": "./dist/lotel/index.js"
+    },
+    "./lotel/rpc": {
+      "types": "./dist/lotel/rpc/index.d.ts",
+      "default": "./dist/lotel/rpc/index.js"
+    },
+    "./lotel/telemetry": {
+      "types": "./dist/lotel/telemetry-schema/index.d.ts",
+      "default": "./dist/lotel/telemetry-schema/index.js"
+    }
   },
   "bin": {
     "devtools": "dist/server/main.mjs"
@@ -26,14 +34,11 @@
   "files": [
     "dist",
     "skills",
-    "src/lotel",
-    "!src/lotel/**/*.test.ts",
-    "src/rpc",
     "README.md",
     "LICENSE"
   ],
   "scripts": {
-    "build": "vp pack && vp build",
+    "build": "vp pack && tsc -p tsconfig.build.json && vp build",
     "build:watch": "vp pack --watch",
     "cosmos": "cosmos",
     "dev": "vp run -F '@kestack/devtools^...' build && portless run --force tsx scripts/dev.mts",
