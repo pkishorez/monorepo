@@ -12,7 +12,8 @@ import type { Entry, SavedHistory } from './history.ts';
  *            does not fit is saved as it is: it never plays.
  * 2. Decode  an entry read back. One that no longer fits the code is kept
  *            as it was saved: Replay warns of it and skips it.
- * 3. Check   a saved History's shape before it is read.
+ * 3. Check   a saved History's shape before it is read: ids rise, but
+ *            need not start at 0 or follow on, once it is Compacted.
  */
 
 // 1. Encode
@@ -115,7 +116,7 @@ const actorsAt = (
 };
 
 // 3. Check
-/** Throws, saying what is wrong, unless `saved` is a History's shape: entries by position, each after an earlier one, and a Head among them. */
+/** Throws, saying what is wrong, unless `saved` is a History's shape: entries by rising id, each after an earlier one, and a Head among them. */
 export const checkSaved = (saved: SavedHistory): void => {
   const fail = (why: string) => {
     throw new TypeError(
@@ -123,19 +124,19 @@ export const checkSaved = (saved: SavedHistory): void => {
     );
   };
   if (!saved || !Array.isArray(saved.entries)) fail('it has no entries');
+  const seen = new Set<number>();
+  let last = -1;
   saved.entries.forEach((entry, index) => {
-    if (entry?.id !== index) fail(`entry ${index} has the id ${entry?.id}`);
+    const id = entry?.id;
+    if (!(Number.isInteger(id) && id > last))
+      fail(`entry ${index} has the id ${id}, not one after ${last}`);
     const { parent } = entry;
-    if (
-      parent !== null &&
-      !(Number.isInteger(parent) && parent >= 0 && parent < index)
-    )
-      fail(`entry ${index} follows ${parent}, not an entry before it`);
+    if (parent !== null && !seen.has(parent))
+      fail(`entry ${id} follows ${parent}, not an entry before it`);
+    seen.add(id);
+    last = id;
   });
   const { head } = saved;
-  if (
-    head !== null &&
-    !(Number.isInteger(head) && head >= 0 && head < saved.entries.length)
-  )
+  if (head !== null && !seen.has(head))
     fail(`its Head ${head} is not one of its ${saved.entries.length} entries`);
 };

@@ -62,6 +62,7 @@ let root: ReactRoot | undefined;
 
 beforeEach(() => {
   registry.clear();
+  localStorage.clear();
   sends = {};
   host = document.createElement('div');
   document.body.append(host);
@@ -241,6 +242,82 @@ describe('Time Travel', () => {
     await act(async () => seen!.show(null));
     expect(host.textContent).toBe('5');
     expect(seen?.running).toBe(true);
+  });
+
+  it('a Step Compacted away shows the oldest one left', async () => {
+    const App = toReact(Counter, CounterView, Layer.empty, {
+      saved: await bumped(4),
+    });
+    let seen: ReturnType<typeof App.useRuntime> | undefined;
+    const Probe = () => {
+      seen = App.useRuntime();
+      return null;
+    };
+    root = createRoot(host);
+    await act(async () =>
+      root!.render(
+        <>
+          <App />
+          <Probe />
+        </>,
+      ),
+    );
+    await started(host);
+    await act(async () => seen!.show(1));
+    await tick();
+    expect(host.textContent).toBe('2');
+
+    await act(async () => seen!.history.keep(2));
+    await tick();
+    expect(seen?.shown).toBe(3);
+    expect(host.textContent).toBe('4');
+    expect(seen?.branch.map((entry) => entry.id)).toEqual([3, 4]);
+  });
+});
+
+describe('the Window', () => {
+  it('is remembered by name and outlasts a reload, over the one given in code', async () => {
+    const First = toReact(Counter, CounterView, Layer.empty, {
+      name: 'kept',
+      window: 10,
+    });
+    let seen: ReturnType<typeof First.useRuntime> | undefined;
+    const Probe = () => {
+      seen = First.useRuntime();
+      return null;
+    };
+    root = createRoot(host);
+    await act(async () =>
+      root!.render(
+        <>
+          <First />
+          <Probe />
+        </>,
+      ),
+    );
+    expect(seen?.history.window()).toBe(10);
+    expect(localStorage.getItem('@kestack/kabuki:kept:window')).toBeNull();
+    await act(async () => seen!.history.keep(3));
+    expect(localStorage.getItem('@kestack/kabuki:kept:window')).toBe('3');
+    await act(async () => root?.unmount());
+
+    // A reload: nothing left in memory, only what the browser kept.
+    registry.clear();
+    const Again = toReact(Counter, CounterView, Layer.empty, {
+      name: 'kept',
+      window: 10,
+    });
+    let again: ReturnType<typeof Again.useRuntime> | undefined;
+    const Read = () => {
+      again = Again.useRuntime();
+      return null;
+    };
+    root = createRoot(host);
+    await act(async () => root!.render(<Read />));
+    expect(again?.history.window()).toBe(3);
+
+    await act(async () => again!.history.keep(null));
+    expect(localStorage.getItem('@kestack/kabuki:kept:window')).toBe('all');
   });
 });
 

@@ -26,6 +26,8 @@ export interface Replay {
   readonly seek: (branch: ReadonlyArray<Entry>) => Effect.Effect<Snapshot>;
   /** Remember the Snapshot right after an entry. */
   readonly remember: (entry: number, snapshot: Snapshot) => void;
+  /** Forget the Snapshot right after an entry the History no longer has. */
+  readonly forget: (entry: number) => void;
 }
 
 const make = (
@@ -71,6 +73,7 @@ const make = (
     at,
     seek,
     remember: (entry, snapshot) => void played.set(entry, snapshot),
+    forget: (entry) => void played.delete(entry),
   };
 };
 
