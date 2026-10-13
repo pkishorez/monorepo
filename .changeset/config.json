@@ -9,15 +9,14 @@
   "commit": false,
   "format": false,
   "fixed": [
+    ["@kestack/devtools", "@kestack/effect-tracer", "laymos"],
     [
       "@kestack/ai-toolkit",
       "@kestack/auth-toolkit",
-      "@kestack/devtools",
       "@kestack/effect-webrtc",
       "@kestack/rpc-toolkit",
       "@kestack/std-toolkit",
-      "@kestack/web-platform",
-      "laymos"
+      "@kestack/web-platform"
     ]
   ],
   "linked": [],
