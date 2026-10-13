@@ -54,6 +54,7 @@ type Statuses = NonNullable<Parameters<typeof sceneOf>[0]['statuses']>;
  *              Message asked for are worked out again from the Step before,
  *              once each.
  * 3. Workers   live and running, what each Instance's Workers are doing.
+ * 4. Window    how many entries the History keeps, changed at any time.
  */
 export function KabukiDevtools({
   runtime,
@@ -133,6 +134,9 @@ export function KabukiDevtools({
         onShow: (index) =>
           runtime.show(index === 0 ? 'init' : steps[index - 1]!.id),
         onLive: () => runtime.show(null),
+        head: steps === branch,
+        window: history.window(),
+        onWindow: history.keep,
       }}
     />
   );

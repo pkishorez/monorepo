@@ -11,7 +11,8 @@ import { ink } from '../../ink/index.ts';
  * 1. Place   at 100%, never zoomed in: centred if the whole drawing fits,
  *            else centred across with its top a little below the surface's,
  *            running down. From then on it stays where the reader leaves
- *            it: the surface never moves by itself.
+ *            it: the surface never moves by itself, but when it is resized
+ *            what was at its centre stays at its centre.
  * 2. Pan     drag with a finger or the pointer, from anywhere, over what is
  *            drawn too: a press becomes a drag once it moves, and the click
  *            it would have made is swallowed. A press that stays put clicks
@@ -108,6 +109,21 @@ export function Canvas({
     );
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- placed once, where the drawing first is; later it stays where the reader leaves it.
   }, [x, y, scale]);
+
+  // 1. Place: a resize keeps the centre where it was.
+  useEffect(() => {
+    const element = surface.current!;
+    let width = element.clientWidth;
+    let height = element.clientHeight;
+    const observer = new ResizeObserver(() => {
+      x.set(x.get() + (element.clientWidth - width) / 2);
+      y.set(y.get() + (element.clientHeight - height) / 2);
+      width = element.clientWidth;
+      height = element.clientHeight;
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [x, y]);
 
   // 3. Zoom, from the wheel: a passive listener could not stop the page scrolling.
   useEffect(() => {
