@@ -8,8 +8,10 @@ import { ink } from '../../ink/index.ts';
  * A surface to pan and zoom a drawing on, sized by whatever holds it. Knows
  * nothing of what it draws.
  *
- * 1. Place   the drawing's origin sits at the top centre, and stays where the
- *            reader leaves it: the surface never moves by itself.
+ * 1. Place   at 100%, never zoomed in: centred if the whole drawing fits,
+ *            else centred across with its top a little below the surface's,
+ *            running down. From then on it stays where the reader leaves
+ *            it: the surface never moves by itself.
  * 2. Pan     drag with a finger or the pointer, from anywhere, over what is
  *            drawn too: a press becomes a drag once it moves, and the click
  *            it would have made is swallowed. A press that stays put clicks
@@ -35,6 +37,8 @@ export interface Bounds {
 const MIN = 0.25;
 const MAX = 2.5;
 const PAD = 56;
+/** Room above the root when the Map first opens too tall to fit, in pixels. */
+const TOP = 100;
 const SPRING = { type: 'spring', duration: 0.45, bounce: 0 } as const;
 
 const clamp = (scale: number) => Math.min(MAX, Math.max(MIN, scale));
@@ -56,11 +60,14 @@ export function Canvas({
   bounds,
   label,
   onTap,
+  dotted = true,
   children,
 }: {
   /** What the drawing covers, for Fit. */
   readonly bounds: Bounds;
   readonly label: string;
+  /** Dots under the drawing; without them, whatever is behind shows through. */
+  readonly dotted?: boolean;
   /** The surface was tapped, away from anything drawn. */
   readonly onTap: () => void;
   /** The drawing, its origin at 0, 0. */
@@ -68,7 +75,7 @@ export function Canvas({
 }) {
   const surface = useRef<HTMLDivElement>(null);
   const x = useMotionValue(0);
-  const y = useMotionValue(PAD);
+  const y = useMotionValue(TOP);
   const scale = useMotionValue(1);
 
   /** Scale to `next` about a point on the surface. */
@@ -88,11 +95,19 @@ export function Canvas({
     }
   };
 
-  // 1. Place
+  // 1. Place, once, from the drawing as it first is.
   useEffect(() => {
     const element = surface.current!;
-    x.set(element.clientWidth / 2);
-  }, [x]);
+    const width = element.clientWidth;
+    const height = element.clientHeight;
+    const fits = bounds.bottom - bounds.top <= height - PAD * 2;
+    scale.set(1);
+    x.set(width / 2 - (bounds.left + bounds.right) / 2);
+    y.set(
+      fits ? height / 2 - (bounds.top + bounds.bottom) / 2 : TOP - bounds.top,
+    );
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- placed once, where the drawing first is; later it stays where the reader leaves it.
+  }, [x, y, scale]);
 
   // 3. Zoom, from the wheel: a passive listener could not stop the page scrolling.
   useEffect(() => {
@@ -242,10 +257,14 @@ export function Canvas({
       aria-label={label}
       // Clipped, never hidden: a hidden overflow still scrolls to whatever takes focus, and the drawing would jump.
       className="relative h-full w-full cursor-grab touch-none overflow-clip select-none active:cursor-grabbing"
-      style={{
-        backgroundImage: `radial-gradient(${ink('grain')} 1px, transparent 1px)`,
-        backgroundSize: '20px 20px',
-      }}
+      style={
+        dotted
+          ? {
+              backgroundImage: `radial-gradient(${ink('grain')} 1px, transparent 1px)`,
+              backgroundSize: '20px 20px',
+            }
+          : undefined
+      }
       // No browser menu anywhere on the Map: a right click is the Map's own.
       onContextMenu={(event) => event.preventDefault()}
       onPointerDown={onPointerDown}
