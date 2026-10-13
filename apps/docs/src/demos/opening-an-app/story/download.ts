@@ -5,14 +5,8 @@ import { Shelf } from './capabilities.ts';
 /** How long one file takes, in milliseconds of Downloading. */
 export const DURATION = 8000;
 
-/**
- * How much of a file is done at Time `time`, in milliseconds of Downloading:
- * what was done before this run, and, while Downloading, the time since it
- * began. The download is simulated, so its progress follows from the Model
- * and Time alone; a real one would Send what it has done.
- */
-export const doneAt = (done: number, since: number | undefined, time: number) =>
-  Math.min(DURATION, done + (since === undefined ? 0 : time - since));
+/** How often a Downloading file reports what it has done, in milliseconds. */
+export const STEP = 500;
 
 const cancel = Command.make('cancel', {
   args: Schema.Struct({ id: Schema.String }),
@@ -24,37 +18,29 @@ const cancel = Command.make('cancel', {
 });
 
 /**
- * One file. Its progress is never a Message: the Model keeps how much was
- * done before the last pause, the State when this run began, and the Worker
- * and the View both work the rest out with `doneAt`.
+ * One file. Its Worker downloads while it is Downloading and Sends what it
+ * has done every `STEP`, so the Model always says how far along it is.
  */
 export const Download = Actor.make('Download', {
   requires: [Shelf],
-  input: Schema.Struct({
-    id: Schema.String,
-    name: Schema.String,
-    since: Schema.Number,
-  }),
+  input: Schema.Struct({ id: Schema.String, name: Schema.String }),
   model: Schema.Struct({
     id: Schema.String,
     name: Schema.String,
+    /** Milliseconds of it downloaded, up to `DURATION`. */
     done: Schema.Number,
   }),
-  state: Schema.TaggedUnion({
-    Downloading: { since: Schema.Number },
-    Paused: {},
-    Done: {},
-  }),
+  state: Schema.TaggedUnion({ Downloading: {}, Paused: {}, Done: {} }),
   message: Schema.TaggedUnion({
-    Finished: {},
+    Progressed: {},
     Pause: {},
     Resume: {},
     Cancel: {},
   }),
 }).build({
-  init: ({ id, name, since }) => ({
+  init: ({ id, name }) => ({
     model: { id, name, done: 0 },
-    state: { _tag: 'Downloading', since },
+    state: { _tag: 'Downloading' },
   }),
   on: {
     Cancel: (_, { model }) => ({ command: cancel({ id: model.id }) }),
@@ -64,30 +50,26 @@ export const Download = Actor.make('Download', {
       workers: {
         download: {
           run: (self) =>
-            Effect.gen(function* () {
-              const { model, state } = yield* self.get;
-              const now = yield* self.now;
-              const left = DURATION - doneAt(model.done, state.since, now);
-              yield* Effect.sleep(Math.max(0, left));
-              yield* self.send({ _tag: 'Finished' });
-            }),
+            Effect.forever(
+              Effect.sleep(STEP).pipe(
+                Effect.andThen(self.send({ _tag: 'Progressed' })),
+              ),
+            ),
         },
       },
       on: {
-        Pause: (_, { model, state, at }) => ({
-          model: { ...model, done: doneAt(model.done, state.since, at) },
-          state: { _tag: 'Paused' },
-        }),
-        Finished: (_, { model }) => ({
-          model: { ...model, done: DURATION },
-          state: { _tag: 'Done' },
-        }),
+        Progressed: (_, { model }) => {
+          const done = Math.min(DURATION, model.done + STEP);
+          return {
+            model: { ...model, done },
+            ...(done === DURATION ? { state: { _tag: 'Done' } } : {}),
+          };
+        },
+        Pause: () => ({ state: { _tag: 'Paused' } }),
       },
     },
     Paused: {
-      on: {
-        Resume: (_, { at }) => ({ state: { _tag: 'Downloading', since: at } }),
-      },
+      on: { Resume: () => ({ state: { _tag: 'Downloading' } }) },
     },
   },
 });

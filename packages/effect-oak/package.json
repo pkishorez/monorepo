@@ -30,10 +30,6 @@
     "./react": {
       "types": "./dist/react/index.d.ts",
       "default": "./dist/react/index.js"
-    },
-    "./motion": {
-      "types": "./dist/react/motion.d.ts",
-      "default": "./dist/react/motion.js"
     }
   },
   "scripts": {
@@ -44,13 +40,7 @@
   },
   "peerDependencies": {
     "effect": "^4.0.0",
-    "motion": "13.2.0",
     "react": "19.2.8"
-  },
-  "peerDependenciesMeta": {
-    "motion": {
-      "optional": true
-    }
   },
   "devDependencies": {
     "@types/react": "catalog:",

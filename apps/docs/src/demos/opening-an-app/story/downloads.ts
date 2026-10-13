@@ -9,7 +9,6 @@ export const FILES = ['photos.zip', 'song.mp3', 'notes.pdf', 'movie.mp4'];
 const File = Schema.Struct({
   id: Schema.String,
   name: Schema.String,
-  since: Schema.Number,
 });
 
 /** A list of files, one keyed Download per file, for as long as its key is in the Model. */
@@ -30,14 +29,13 @@ export const Downloads = Actor.make('Downloads', {
       remove: (id) => self.send({ _tag: 'Remove', id }),
     }),
   on: {
-    Add: (_, { model, at }) => ({
+    Add: (_, { model }) => ({
       model: {
         // Newest first.
         files: [
           {
             id: `${model.next + 1}`,
             name: FILES[model.next % FILES.length]!,
-            since: at,
           },
           ...model.files,
         ],

@@ -15,7 +15,7 @@ export const makeDrawn = (
   served: () => Snapshot | undefined,
   deliver: (id: string, message: Tagged) => void,
   subscribe: DrawnApp['subscribe'],
-): Omit<DrawnApp, 'time'> => {
+): DrawnApp => {
   const handles = new Map<string, Handle<AnyActor>>();
   const sends = new Map<string, (message: Tagged) => void>();
   const cache = new Map<string, { instance: Instance; props: Drawable }>();

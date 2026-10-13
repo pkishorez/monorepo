@@ -3,7 +3,7 @@ import { motion } from 'motion/react';
 import { LogOut, RefreshCw } from 'lucide-react';
 import { View } from 'effect-oak/react';
 import { Home } from '../story/index.ts';
-import { Ago, Button, PastContext } from './parts.tsx';
+import { Button, Clock, PastContext } from './parts.tsx';
 
 /** The signed-in page: a greeting, the connection, and the sync the user turns on and off. */
 export const HomeView = View.make(Home, ({ model, props, send }) => (
@@ -78,8 +78,8 @@ export const HomeView = View.make(Home, ({ model, props, send }) => (
             <>
               {model.sync ? '' : 'Off · '}
               <span className="tabular-nums">{model.synced} synced</span>
-              {' · last '}
-              <Ago at={model.last} />
+              {' · last at '}
+              <Clock at={model.last} />
             </>
           )}
         </span>
