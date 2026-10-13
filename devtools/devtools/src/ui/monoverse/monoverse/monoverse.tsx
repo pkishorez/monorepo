@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react';
 import { Effect } from 'effect';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { scrollbarStyles } from '@kestack/web-platform/components/scroll-styles';
-import { Monoverse as MonorepoExplorer } from '@devtools/ui/monoverse';
+import { Monoverse as MonorepoExplorer } from './monorepo-explorer/index.js';
 import {
   DevtoolsClient,
   useDevtoolsRuntime,

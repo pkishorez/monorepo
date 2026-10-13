@@ -22,7 +22,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@kestack/web-platform/components/popover';
-import { serviceColor } from '@devtools/ui/otel-trace-viewer';
+import { serviceColor } from '../trace-viewer/index.js';
 import { cn } from '@kestack/web-platform/components/utils';
 import {
   formatServiceName,

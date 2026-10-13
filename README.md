@@ -24,7 +24,7 @@ These packages are published under the `@kestack` npm scope (plus `laymos`
 and `use-effect-ts`). The ones that depend on another package here share one
 version and always release together, so keep them on the same version:
 ai-toolkit, auth-toolkit, rpc-toolkit, std-toolkit, web-platform, devtools,
-lotel, laymos and effect-webrtc. kabuki, use-gesture, use-keys, effect-tracer
+laymos and effect-webrtc. kabuki, use-gesture, use-keys, effect-tracer
 and `use-effect-ts` depend on nothing here and version on their own. See [docs/adr/0008-one-version-for-the-packages-that-depend-on-each-other.md](./docs/adr/0008-one-version-for-the-packages-that-depend-on-each-other.md).
 
 ### Toolkits
@@ -42,12 +42,11 @@ and `use-effect-ts` depend on nothing here and version on their own. See [docs/a
 
 ### Developer tools
 
-| Workspace                                            | Package                                                                          | Purpose                                                                                              |
-| ---------------------------------------------------- | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| [`devtools/devtools`](./devtools/devtools)           | [`@kestack/devtools`](https://www.npmjs.com/package/@kestack/devtools)           | Local DevTools server for traces, logs, and architecture, plus Client Commands for reading traces.   |
-| [`devtools/lotel`](./devtools/lotel)                 | [`@kestack/lotel`](https://www.npmjs.com/package/@kestack/lotel)                 | Local OpenTelemetry library for ingesting, storing, and querying traces and logs during development. |
-| [`devtools/effect-tracer`](./devtools/effect-tracer) | [`@kestack/effect-tracer`](https://www.npmjs.com/package/@kestack/effect-tracer) | In-process recording and OTLP export for Effect traces and logs.                                     |
-| [`devtools/laymos`](./devtools/laymos)               | [`laymos`](https://www.npmjs.com/package/laymos)                                 | Declares and enforces TypeScript architecture as layers.                                             |
+| Workspace                                            | Package                                                                          | Purpose                                                                                            |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| [`devtools/devtools`](./devtools/devtools)           | [`@kestack/devtools`](https://www.npmjs.com/package/@kestack/devtools)           | Local DevTools server for traces, logs, and architecture, plus Client Commands for reading traces. |
+| [`devtools/effect-tracer`](./devtools/effect-tracer) | [`@kestack/effect-tracer`](https://www.npmjs.com/package/@kestack/effect-tracer) | In-process recording and OTLP export for Effect traces and logs.                                   |
+| [`devtools/laymos`](./devtools/laymos)               | [`laymos`](https://www.npmjs.com/package/laymos)                                 | Declares and enforces TypeScript architecture as layers.                                           |
 
 ## Stand-alone packages
 

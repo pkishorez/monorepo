@@ -1,4 +1,4 @@
-import type { KeyValue } from '@kestack/lotel/telemetry';
+import type { KeyValue } from '../../lotel/telemetry-schema/index.js';
 import { byTime, isoTime, nanosToMillis } from '../text-format.js';
 
 type AnyValue = NonNullable<KeyValue['value']>;

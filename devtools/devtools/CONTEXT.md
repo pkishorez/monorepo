@@ -57,7 +57,7 @@ _Avoid_: Monorepo Tool, Workspace Tool.
 
 **Lotel**:
 The DevTools Tool and domain for receiving and inspecting local OpenTelemetry
-data. See the [Lotel context](../lotel/CONTEXT.md).
+data. See the [Lotel context](./docs/lotel.md).
 _Avoid_: Telemetry Tool, OTel Tool.
 
 **DevTools URL**:

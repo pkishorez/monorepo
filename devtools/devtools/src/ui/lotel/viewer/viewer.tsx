@@ -6,9 +6,9 @@ import {
   groupByTrace,
   transformLog,
   transformSpan,
-} from '@devtools/ui/otel-trace-viewer';
-import type { OtelEvent } from '@devtools/ui/otel-trace-viewer/trace-model';
-import type { TraceView } from '@devtools/ui/otel-trace-viewer/trace-presentation';
+} from '../trace-viewer/index.js';
+import type { OtelEvent } from '../trace-viewer/trace-model/index.js';
+import type { TraceView } from '../trace-viewer/trace-presentation/index.js';
 import { SearchIcon } from '@kestack/web-platform/components/lucide';
 import { scrollbarStyles } from '@kestack/web-platform/components/scroll-styles';
 import { cn } from '@kestack/web-platform/components/utils';

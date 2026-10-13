@@ -1,7 +1,6 @@
 ---
 '@kestack/ai-toolkit': patch
 '@kestack/effect-tracer': patch
-'@kestack/lotel': patch
 ---
 
-Moves to stable Effect 4: the `effect` peer is now `^4.0.0`. ai-toolkit's `makePlaygroundSync` takes `store` instead of `platform`. lotel's Span and Log Records drop `flowId` and `participantName`; records stored with them still read.
+Moves to stable Effect 4: the `effect` peer is now `^4.0.0`. ai-toolkit's `makePlaygroundSync` takes `store` instead of `platform`.

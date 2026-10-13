@@ -1,7 +1,7 @@
 import type {
   OtelSpan,
   TraceGroup,
-} from '@devtools/ui/otel-trace-viewer/trace-model';
+} from '../trace-viewer/trace-model/index.js';
 import { AlertTriangleIcon } from '@kestack/web-platform/components/lucide';
 import { cn } from '@kestack/web-platform/components/utils';
 import { formatRelativeTime, groupTracesBy } from './filtering';

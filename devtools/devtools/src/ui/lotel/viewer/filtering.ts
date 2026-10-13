@@ -1,7 +1,7 @@
 import type {
   OtelSpan,
   TraceGroup,
-} from '@devtools/ui/otel-trace-viewer/trace-model';
+} from '../trace-viewer/trace-model/index.js';
 import type { Filters } from './state';
 
 export const SERVICE_ATTR_KEY = 'resource.service.name';

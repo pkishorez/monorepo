@@ -10,7 +10,7 @@ keeps spans and logs in memory inside the process, in emission order, so a
 test, a Story, or an in-app panel can read them back as plain data. The
 telemetry layers export them over OTLP/HTTP to a collector such as the
 [@kestack/devtools](../devtools/README.md) DevTools Server, which stores them with
-[@kestack/lotel](../lotel/README.md).
+its [Lotel](../devtools/src/lotel/README.md) Tool.
 
 The full telemetry layer uses the OpenTelemetry SDK and also exports metrics.
 The dev-telemetry layer does the same job for local development with
