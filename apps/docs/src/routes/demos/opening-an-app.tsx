@@ -4,10 +4,10 @@ import { ThemeToggle } from '@/lib/theme';
 
 export const Route = createFileRoute('/demos/opening-an-app')({
   component: () => (
-    <>
-      <OpeningAnApp />
-      <ThemeToggle />
-    </>
+    <OpeningAnApp
+      // In the demo's header, not the page's corner, where the devtools draw their own controls.
+      actions={<ThemeToggle className="-mr-2 shrink-0" />}
+    />
   ),
   head: () => ({
     meta: [
