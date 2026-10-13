@@ -26,9 +26,6 @@ import type { WorkerStatus } from './worker.ts';
  *             new; new data reaches its Self and its Workers; its Children
  *             follow theirs.
  * 4. Stop     close its Scope, and everything in it ends, Children first.
- *
- * A State lasts while its Instance is in it: a Scope inside the Instance's,
- * what the State Provides, and the Children written in it.
  */
 
 export interface ActorInstance {
@@ -61,9 +58,138 @@ const start = (
   host: Host,
   scope: Scope.Scope,
 ): ActorInstance => {
+  // 1. Start
+  const live = (
+    definition: ActorDefinition,
+    instance: Instance,
+    parent: Place,
+  ): Living => {
+    const own = makeOwn(instance, host, parent.services);
+    const inside = open(parent, definition.provides, own);
+    const workers = makeWorkers(definition.workers, own, inside.scope);
+    workers.sync(dataOf(instance));
+    const top = children(
+      slotsAt(definition, instance, 'top'),
+      instance,
+      inside,
+    );
+
+    /** A State lasts while the Instance is in it: a Scope inside the Instance's, what it Provides, and its Children. */
+    const enter = (instance: Instance) => {
+      const place = open(
+        inside,
+        definition.stateProvides[instance.state._tag],
+        own,
+      );
+      return {
+        children: children(
+          slotsAt(definition, instance, 'state'),
+          instance,
+          place,
+        ),
+        stop: () => Effect.runFork(Scope.close(place.scope, Exit.void)),
+      };
+    };
+    let state = enter(instance);
+    let current = instance;
+
+    // 3. Follow
+    const follow = (next: Instance) => {
+      if (next === current) return;
+      const before = current;
+      current = next;
+      const entered = before.state._tag !== next.state._tag;
+      if (entered) state.stop();
+      if (DATA.some((field) => before[field] !== next[field])) {
+        own.set(next);
+        workers.sync(dataOf(next));
+      }
+      if (entered) state = enter(next);
+      else state.children.follow(next);
+      top.follow(next);
+    };
+
+    const living: Living = {
+      follow,
+      find: (id) =>
+        id === instance.id ? living : (top.find(id) ?? state.children.find(id)),
+      command: (commands) => runCommands(commands, own, inside.scope),
+      workers: workers.statuses,
+      // 4. Stop
+      stop: () => Scope.close(inside.scope, Exit.void),
+    };
+    return living;
+  };
+
+  /** A Scope inside `outer`, and the Capabilities below it: the ones from above, with what is Provided there built over them. */
+  const open = (
+    outer: Place,
+    provide: Function | undefined,
+    own: Own,
+  ): Place & { readonly scope: Scope.Closeable } => {
+    const scope = Scope.forkUnsafe(outer.scope);
+    if (!provide) return { scope, services: outer.services };
+    const services = Deferred.makeUnsafe<Context.Context<never>>();
+    forkIn(
+      host,
+      scope,
+      `${own.self.id} provides`,
+      Deferred.await(outer.services).pipe(
+        Effect.flatMap((above) =>
+          Layer.buildWithScope(
+            provide(own.self) as Layer.Layer<never>,
+            scope,
+          ).pipe(
+            Effect.provideContext(above),
+            Effect.map((built) => Context.merge(above, built)),
+          ),
+        ),
+        Effect.flatMap((below) => Deferred.succeed(services, below)),
+      ),
+    );
+    return { scope, services };
+  };
+
+  /** The Children held in some slots, alive in one Place: they start, follow and stop as the slots change. */
+  const children = (
+    slots: Readonly<Record<string, SlotDefinition>>,
+    instance: Instance,
+    place: Place,
+  ) => {
+    const alive = new Map<string, Living>();
+    const held = (parent: Instance) =>
+      Object.keys(slots).flatMap((slot) => {
+        const kids = parent.children[slot];
+        const all = !kids ? [] : isMany(kids) ? kids : [kids];
+        return all.map((kid) => ({ kid, definition: slots[slot]!.definition }));
+      });
+    const add = ({ kid, definition }: ReturnType<typeof held>[number]) =>
+      alive.set(kid.id, live(definition, kid, place));
+    held(instance).forEach(add);
+
+    return {
+      follow: (parent: Instance) => {
+        const next = held(parent);
+        const kept = new Set(next.map(({ kid }) => kid.id));
+        for (const [id, gone] of alive)
+          if (!kept.has(id)) {
+            alive.delete(id);
+            Effect.runFork(gone.stop());
+          }
+        for (const each of next) {
+          const known = alive.get(each.kid.id);
+          if (known) known.follow(each.kid);
+          else add(each);
+        }
+      },
+      find: (id: string) =>
+        [...alive].find(([kid]) => within(kid, id))?.[1].find(id),
+    };
+  };
+
   const services = Deferred.makeUnsafe<Context.Context<never>>();
   Deferred.doneUnsafe(services, Effect.succeed(host.services));
-  const root = live(definition, snapshot, host, { scope, services });
+  const root = live(definition, snapshot, { scope, services });
   let current = snapshot;
 
   return {
@@ -77,152 +203,6 @@ const start = (
     },
     workers: (id) => root.find(id)?.workers() ?? [],
     stop: root.stop,
-  };
-};
-
-// 1. Start
-const live = (
-  definition: ActorDefinition,
-  instance: Instance,
-  host: Host,
-  parent: Place,
-): Living => {
-  const scope = Scope.forkUnsafe(parent.scope);
-  const own = makeOwn(instance, host, parent.services);
-  const inside: Place = {
-    scope,
-    services: provided(parent.services, scope, definition.provides, own, host),
-  };
-  const workers = makeWorkers(definition.workers, own, scope);
-  workers.sync(dataOf(instance));
-  const top = children(
-    slotsAt(definition, instance, 'top'),
-    instance,
-    inside,
-    host,
-  );
-  let state = State.start(definition, instance, own, inside, host);
-  let current = instance;
-
-  // 3. Follow
-  const follow = (next: Instance) => {
-    if (next === current) return;
-    const before = current;
-    current = next;
-    const entered = before.state._tag !== next.state._tag;
-    if (entered) state.stop();
-    if (DATA.some((field) => before[field] !== next[field])) {
-      own.set(next);
-      workers.sync(dataOf(next));
-    }
-    if (entered) state = State.start(definition, next, own, inside, host);
-    else state.children.follow(next);
-    top.follow(next);
-  };
-
-  const living: Living = {
-    follow,
-    find: (id) =>
-      id === instance.id ? living : (top.find(id) ?? state.children.find(id)),
-    command: (commands) => runCommands(commands, own, scope),
-    workers: workers.statuses,
-    // 4. Stop
-    stop: () => Scope.close(scope, Exit.void),
-  };
-  return living;
-};
-
-const State = {
-  start: (
-    definition: ActorDefinition,
-    instance: Instance,
-    own: Own,
-    inside: Place,
-    host: Host,
-  ) => {
-    const scope = Scope.forkUnsafe(inside.scope);
-    const provides = definition.stateProvides[instance.state._tag];
-    const place: Place = {
-      scope,
-      services: provided(inside.services, scope, provides, own, host),
-    };
-    return {
-      children: children(
-        slotsAt(definition, instance, 'state'),
-        instance,
-        place,
-        host,
-      ),
-      stop: () => Effect.runFork(Scope.close(scope, Exit.void)),
-    };
-  },
-};
-
-/** The Capabilities below what an Instance or its State Provides: the ones from above, with it built over them. */
-const provided = (
-  above: Services,
-  scope: Scope.Scope,
-  provide: Function | undefined,
-  own: Own,
-  host: Host,
-): Services => {
-  if (!provide) return above;
-  const below = Deferred.makeUnsafe<Context.Context<never>>();
-  forkIn(
-    host,
-    scope,
-    `${own.self.id} provides`,
-    Deferred.await(above).pipe(
-      Effect.flatMap((services) =>
-        Layer.buildWithScope(
-          provide(own.self) as Layer.Layer<never>,
-          scope,
-        ).pipe(
-          Effect.provideContext(services),
-          Effect.map((built) => Context.merge(services, built)),
-        ),
-      ),
-      Effect.flatMap((services) => Deferred.succeed(below, services)),
-    ),
-  );
-  return below;
-};
-
-/** The Children held in some slots, alive in one Place: they start, follow and stop as the slots change. */
-const children = (
-  slots: Readonly<Record<string, SlotDefinition>>,
-  instance: Instance,
-  place: Place,
-  host: Host,
-) => {
-  const alive = new Map<string, Living>();
-  const held = (parent: Instance) =>
-    Object.keys(slots).flatMap((slot) => {
-      const kids = parent.children[slot];
-      const all = !kids ? [] : isMany(kids) ? kids : [kids];
-      return all.map((kid) => ({ kid, definition: slots[slot]!.definition }));
-    });
-  const add = ({ kid, definition }: ReturnType<typeof held>[number]) =>
-    alive.set(kid.id, live(definition, kid, host, place));
-  held(instance).forEach(add);
-
-  return {
-    follow: (parent: Instance) => {
-      const next = held(parent);
-      const kept = new Set(next.map(({ kid }) => kid.id));
-      for (const [id, gone] of alive)
-        if (!kept.has(id)) {
-          alive.delete(id);
-          Effect.runFork(gone.stop());
-        }
-      for (const each of next) {
-        const known = alive.get(each.kid.id);
-        if (known) known.follow(each.kid);
-        else add(each);
-      }
-    },
-    find: (id: string) =>
-      [...alive].find(([kid]) => within(kid, id))?.[1].find(id),
   };
 };
 
