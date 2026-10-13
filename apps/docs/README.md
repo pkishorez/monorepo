@@ -4,8 +4,12 @@ Live demos of the monorepo's packages, published at docs.kishore.app.
 
 ## Big picture
 
-A plain TanStack Start app. For now it is only its home page, which links the
-monorepo: the Effect Oak demos that lived here were removed, to be rethought.
+A plain TanStack Start app: a home page that links the monorepo, and the
+demos it lists, each on its own page under `/demos` with its code in
+`src/demos`. The one demo so far is Opening an app (`/demos/opening-an-app`),
+an Effect Oak app in a browser window: it loads its assets, signs in, syncs
+and downloads files, with the Effect Oak devtools over it on Ctrl+/. Its drawing words are in
+[`src/demos/opening-an-app/CONTEXT.md`](./src/demos/opening-an-app/CONTEXT.md).
 
 The UI uses `@kstackz/web-platform`. A Cloudflare Worker serves the site, and
 the infrastructure is declared with Alchemy in `alchemy.run.ts` and
@@ -33,6 +37,7 @@ Vite.
 ```bash
 pnpm --filter docs dev     # dev server
 pnpm --filter docs lint    # tsc --noEmit + laymos lint
+pnpm --filter docs test    # the demos' stories, on a test clock
 ```
 
 ### Build

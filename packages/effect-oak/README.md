@@ -34,7 +34,7 @@ at build time, and across a hot reload.
 
 Read the language in [CONTEXT.md](./CONTEXT.md), the decisions in
 [docs/adr/](./docs/adr/), and how the History works in
-[docs/history.md](./docs/history.md). Live demos are at `/demos/concepts` in the docs app: one per concept, drawn as moving shapes.
+[docs/history.md](./docs/history.md). A live demo, Opening an app, is at `/demos/opening-an-app` in the docs app: every concept in one story, drawn as the tree.
 
 ## Install
 

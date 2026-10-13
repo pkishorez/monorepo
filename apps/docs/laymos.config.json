@@ -11,6 +11,7 @@
   ],
   "rules": {
     "src/router.tsx": ["src/components"],
-    "src/routes": ["src/lib"]
+    "src/routes": ["src/lib", "src/demos"],
+    "src/demos/opening-an-app/screens": ["src/demos/opening-an-app/story"]
   }
 }
