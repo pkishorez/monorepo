@@ -9,6 +9,10 @@
       "src/core/snapshot",
       "src/core/history"
     ],
-    "src/react": ["src/core"]
+    "src/react": ["src/core"],
+    "src/routing": ["src/core", "src/react"],
+    "src/routing/router": ["src/routing/route", "src/routing/adapter"],
+    "src/routing/browser": ["src/routing/adapter"],
+    "src/routing/tanstack": ["src/routing/adapter"]
   }
 }

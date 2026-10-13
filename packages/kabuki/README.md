@@ -35,6 +35,13 @@ move its Head, and start again, and new Messages grow a new Branch. A History
 is also what an app is saved as and drawn from before it runs: on a server,
 at build time, and across a hot reload.
 
+Routing is a layer on top, in `@kestack/kabuki/routing`, that core never
+imports: one Router Actor above the app holds its history and hands the
+current Route down as Props, so a page move is one Message and a page is a
+Child coming and going. It routes in memory by default; the browser's history
+and TanStack Router's are Adapters, each its own subpath. How it fits
+together is in [docs/routing.md](./docs/routing.md).
+
 Read the language in [CONTEXT.md](./CONTEXT.md), the decisions in
 [docs/adr/](./docs/adr/), and how the History works in
 [docs/history.md](./docs/history.md). A live demo, Opening an app, is at `/demos/opening-an-app` in the docs app: every concept in one story, drawn as the tree.
@@ -83,6 +90,35 @@ pnpm add @kestack/kabuki effect react
 | `toReact`     | Turns a root Actor, its View and a Layer into one React component that runs the whole app, one Runtime for every mount; `useRuntime` reads its History, shows any Step, and stops and starts it. Drawn before it runs, on a server too, from a saved History if given one. |
 | `useChild`    | Reads one fixed Child's Model, State and Props from its parent's View, to draw, or only what an optional selector picks; an escape hatch that can never Send.                                                                                                              |
 | `useChildren` | Reads a slot of keyed Children the same way, in order; only the component that calls it re-renders, as they change or as what the selector picks does.                                                                                                                     |
+
+### `@kestack/kabuki/routing`
+
+| Export           | What it does                                                                                                                                                        |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Route.tree`     | Defines every place of an app once: a constructor per place, a Schema per node's Props, the URL both ways, each place's head, and an outlet per node with children. |
+| `Route.path`     | One place: its path template, params, query and head, and the places under it.                                                                                      |
+| `Router.app`     | Puts the Router above an app's root: it holds the history and hands the current Route down as Props; gives the Actor, its View and `startAt`.                       |
+| `Router.Link`    | Draws a plain `<a href>` to a Route; the Router catches a plain click and moves the app.                                                                            |
+| `Router.Head`    | Sets the page's title from data the Routes cannot know, like a project's name.                                                                                      |
+| `Router.push`    | A Command that moves the app to a Route as a new entry.                                                                                                             |
+| `Router.replace` | A Command that puts a Route in place of the current entry, so Back skips it.                                                                                        |
+| `Router.back`    | A Command that goes Back.                                                                                                                                           |
+| `Router.forward` | A Command that goes Forward.                                                                                                                                        |
+| `Router.backTo`  | A Command that goes Back when the app came from a Route, and replaces the entry with it otherwise: closing a dialog with a Route of its own.                        |
+| `Navigation`     | The Capability the Router Provides, which an Actor that moves the app lists in its Requires.                                                                        |
+| `useRouter`      | Reads the Router from a component drawn inside the app: the current Route and URL, the history, the title, and Back and Forward.                                    |
+
+### `@kestack/kabuki/routing/browser`
+
+| Export    | What it does                                                                                                                        |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `browser` | A Layer that puts the app's address in the browser's own history, for an app that owns the whole site or everything under its base. |
+
+### `@kestack/kabuki/routing/tanstack`
+
+| Export     | What it does                                                                                                                                                     |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tanstack` | A Layer that puts the app's address in TanStack Router's history, for an app on a TanStack Start catch-all route; TanStack gets back every URL outside the base. |
 
 ## Usage
 

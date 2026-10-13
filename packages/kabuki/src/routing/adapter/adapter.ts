@@ -1,0 +1,36 @@
+import { Context } from 'effect';
+
+/**
+ * Where an app's Address lives, besides memory: the browser's own history or
+ * TanStack Router's. Every URL here is a whole path with its query, base
+ * included. An entry's key is what the router stamps on each history entry it
+ * writes, so Back and Forward land on an entry it knows. With no Adapter in
+ * the Layer, the app routes in memory and never touches a URL.
+ */
+export interface AdapterShape {
+  /** The URL shown now: path and query. */
+  readonly url: () => string;
+  /** The key the router stamped on the entry shown now, if it wrote it. */
+  readonly key: () => string | null;
+  /** Hear every change of the URL, whoever made it; gives back how to stop. */
+  readonly listen: (changed: () => void) => () => void;
+  readonly push: (url: string, key: string) => void;
+  readonly replace: (url: string, key: string) => void;
+  /** Move through the history by `by` entries: -1 is Back. */
+  readonly go: (by: number) => void;
+  /** Go to a URL outside the app's base: hand it to whoever owns the rest of the site. */
+  readonly leave: (url: string) => void;
+}
+
+export class Adapter extends Context.Service<Adapter, AdapterShape>()(
+  '@kestack/kabuki/routing/Adapter',
+) {}
+
+/** The key the router keeps in a history entry's state. */
+export const KEY = '@kestack/kabuki/routing';
+
+/** The key in a history entry's state, if the router wrote one. */
+export const keyIn = (state: unknown): string | null => {
+  const found = (state as Record<string, unknown> | null | undefined)?.[KEY];
+  return typeof found === 'string' ? found : null;
+};

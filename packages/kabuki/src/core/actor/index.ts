@@ -4,12 +4,17 @@ export { RUN } from './types.ts';
 export type { Defined } from './actor.ts';
 export type {
   ActorOf,
+  ActorType,
   AnyActor,
+  Behavior,
   Data,
   ActorDefinition,
   Encoding,
+  KidsByState,
   Many,
   Only,
+  OpenOfBehavior,
+  Requires,
   Self,
   SlotDefinition,
   Tagged,

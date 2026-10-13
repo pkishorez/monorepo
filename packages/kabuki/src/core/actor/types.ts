@@ -397,6 +397,18 @@ export interface Actor<
 
 export type AnyActor = Actor<string, any, any, any, any, any, any, any>;
 
+/** The Actor interface, by a name that does not clash with the `Actor` value: for code that builds Actors on top of `Actor.make`. */
+export type ActorType<
+  Name extends string,
+  Input,
+  Props,
+  Model,
+  State extends Tagged,
+  Msg extends Tagged,
+  Kids,
+  Needs,
+> = Actor<Name, Input, Props, Model, State, Msg, Kids, Needs>;
+
 /** Everything an Actor's types say, for the Runtime and Views. */
 export type Types<A> =
   A extends Actor<

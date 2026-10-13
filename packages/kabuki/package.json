@@ -30,6 +30,18 @@
     "./react": {
       "types": "./dist/react/index.d.ts",
       "default": "./dist/react/index.js"
+    },
+    "./routing": {
+      "types": "./dist/routing/index.d.ts",
+      "default": "./dist/routing/index.js"
+    },
+    "./routing/browser": {
+      "types": "./dist/routing/browser/index.d.ts",
+      "default": "./dist/routing/browser/index.js"
+    },
+    "./routing/tanstack": {
+      "types": "./dist/routing/tanstack/index.d.ts",
+      "default": "./dist/routing/tanstack/index.js"
     }
   },
   "scripts": {
