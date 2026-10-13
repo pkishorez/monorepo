@@ -1,7 +1,7 @@
 import { createContext, use } from 'react';
 import type { ReactNode } from 'react';
 import { AnimatePresence, motion, useTransform } from 'motion/react';
-import type { MotionValue } from 'motion/react';
+import { useFrame } from 'effect-oak/motion';
 
 /** The curve every screen moves on. */
 export const EASE = [0.32, 0.72, 0, 1] as const;
@@ -105,14 +105,8 @@ export function Spinner({ className = '' }: { readonly className?: string }) {
 }
 
 /** How long ago a Time was, worked out at every Frame. */
-export function Ago({
-  frame,
-  at,
-}: {
-  readonly frame: MotionValue<number>;
-  readonly at: number;
-}) {
-  const text = useTransform(frame, (now) => {
+export function Ago({ at }: { readonly at: number }) {
+  const text = useTransform(useFrame(), (now) => {
     const seconds = Math.max(0, Math.floor((now - at) / 1000));
     return seconds < 2 ? 'just now' : `${seconds}s ago`;
   });

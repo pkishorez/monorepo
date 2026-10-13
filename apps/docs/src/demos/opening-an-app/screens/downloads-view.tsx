@@ -1,5 +1,4 @@
 import { AnimatePresence, motion, useTransform } from 'motion/react';
-import type { MotionValue } from 'motion/react';
 import type { ReactNode } from 'react';
 import {
   Check,
@@ -12,9 +11,10 @@ import {
   Plus,
   X,
 } from 'lucide-react';
+import { useFrame } from 'effect-oak/motion';
 import { View } from 'effect-oak/react';
 import type { ViewProps } from 'effect-oak/react';
-import { DURATION, Download, Downloads } from '../story/index.ts';
+import { DURATION, Download, Downloads, doneAt } from '../story/index.ts';
 import { Button, EASE } from './parts.tsx';
 
 /** The height of one download in the list, in pixels. */
@@ -122,7 +122,7 @@ function Swap({
 }
 
 function Row(self: ViewProps<typeof Download>) {
-  const { model, send, frame } = self;
+  const { model, send } = self;
   const Icon =
     ICONS[model.name.split('.').at(-1) as keyof typeof ICONS] ?? FileText;
   const done = self._tag === 'Done';
@@ -144,7 +144,6 @@ function Row(self: ViewProps<typeof Download>) {
       </span>
       <Progress
         name={model.name}
-        frame={frame}
         done={model.done}
         since={self._tag === 'Downloading' ? self.state.since : undefined}
         status={self._tag}
@@ -187,7 +186,6 @@ function Row(self: ViewProps<typeof Download>) {
 }
 
 interface Along {
-  readonly frame: MotionValue<number>;
   /** Milliseconds done before this run. */
   readonly done: number;
   /** When this run began, while Downloading. */
@@ -199,10 +197,8 @@ interface Along {
  * the Model says. Its inputs are read once: whoever draws it gives it a new
  * key when they change.
  */
-const useAlong = ({ frame, done, since }: Along) =>
-  useTransform(frame, (time) =>
-    Math.min(1, (done + (since === undefined ? 0 : time - since)) / DURATION),
-  );
+const useAlong = ({ done, since }: Along) =>
+  useTransform(useFrame(), (time) => doneAt(done, since, time) / DURATION);
 
 function Percent(along: Along) {
   const percent = useTransform(

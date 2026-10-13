@@ -39,14 +39,15 @@ Read the language in [CONTEXT.md](./CONTEXT.md), the decisions in
 ## Install
 
 ```sh
-pnpm add effect-oak effect react motion
+pnpm add effect-oak effect react
 ```
 
 - `effect`: Schemas describe Inputs, Models, States and Messages, and every
   one is checked against its Schema as it is made; Workers, Commands and
   Capabilities are Effect values and Layers.
 - `react`: `effect-oak/react` draws the tree with React components.
-- `motion`: the Frame every View gets is a Framer Motion `MotionValue`.
+- `motion` (optional): `effect-oak/motion` gives Views the Frame as a Framer
+  Motion `MotionValue`. Without it, motion is never bundled.
 
 ## Exports
 
@@ -77,6 +78,12 @@ pnpm add effect-oak effect react motion
 | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `View.make` | Defines how one Actor is drawn, one function for every State, as a React component that takes the Instance, and a `ref` and `style`, from its parent.                                                                                                                      |
 | `toReact`   | Turns a root Actor, its View and a Layer into one React component that runs the whole app, one Runtime for every mount; `useRuntime` reads its History, shows any Step, and stops and starts it. Drawn before it runs, on a server too, from a saved History if given one. |
+
+### `effect-oak/motion`
+
+| Export     | What it does                                                                                                                                |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `useFrame` | The Frame, the Time the app is drawn at, as a `MotionValue`: moving while live and running, standing at the Step's Time while one is shown. |
 
 ## Usage
 
@@ -250,13 +257,13 @@ const MotionRow = motion.create(RowView);
 const DemoApp = toReact(Auth, AuthView, ServerLive);
 ```
 
-- One function draws every State. It gets `_tag`, `model`, `state`, `props`, `children` (Handles; arrays for keyed Children, each with its `key`), `send`, `frame` and `root`; a `switch` on `_tag` narrows `state` and `children`. The DOM stays across a Transition. It never sees Capabilities, so it draws a Replay exactly like the live app.
+- One function draws every State. It gets `_tag`, `model`, `state`, `props`, `children` (Handles; arrays for keyed Children, each with its `key`), `send` and `root`; a `switch` on `_tag` narrows `state` and `children`. The DOM stays across a Transition. It never sees Capabilities, so it draws a Replay exactly like the live app.
 - A Child is placed with `<RowView instance={handle} />`. A parent View hands it only where to draw; data from the parent is the Row's Props, which the parent Actor hands it, so its Update and Workers see the same.
 - Spreading `root` on the View's own element hands it the parent's `ref` and `style`, so `motion.create(RowView)` animates it, with no wrapper element, and it stays memoized. A View whose Instance has stopped keeps drawing its last data, so `AnimatePresence` can play its exit.
 - A View re-renders only when its own Instance's Model, State, Props or set of Children changes, or its `ref` or `style` does. Many Messages handled in a row make one render.
-- `DemoApp.useRuntime()` returns `{ history, branch, head, running, shown, show, start, stop, clear, workers, frame }` from anywhere on the page. Each `branch` entry is only its Envelope: `destination`, `message`, `at`, and `source`, the Instance that Sent it and what in it did; `history.outcome(id)` works out whether it was handled, ignored or dropped, and `history.snapshotAt(id)` takes the app apart there. `show(id)` draws the app right after that entry, on any Branch, while the live app runs on; `stop()` closes every Worker, Command and Capability; `start(id)` moves the Head to that entry and goes live there, growing a new Branch, and `start()` carries on from the Head, at its Time. `workers(id)` says what an Instance's Workers are doing live: running, finished, or failed.
+- `DemoApp.useRuntime()` returns `{ history, branch, head, running, shown, show, start, stop, clear, workers }` from anywhere on the page. Each `branch` entry is only its Envelope: `destination`, `message`, `at`, and `source`, the Instance that Sent it and what in it did; `history.outcome(id)` works out whether it was handled, ignored or dropped, and `history.snapshotAt(id)` takes the app apart there. `show(id)` draws the app right after that entry, on any Branch, while the live app runs on; `stop()` closes every Worker, Command and Capability; `start(id)` moves the Head to that entry and goes live there, growing a new Branch, and `start()` carries on from the Head, at its Time. `workers(id)` says what an Instance's Workers are doing live: running, finished, or failed.
 - Work that must survive a stop belongs in a Worker: Commands running at a stop are lost. The outside world is not rewound.
-- Whatever moves between Messages is drawn from `frame`, a `MotionValue<number>` holding the Time, with `useTransform`; nothing renders between Messages.
+- Whatever moves between Messages, like how long ago or how far along, is drawn from `useFrame()` from `effect-oak/motion` with `useTransform`; nothing renders between Messages, and a past Step draws at its own Time.
 - `toReact` does not compile until the Layer covers every Capability the tree still needs.
 
 ### Drawing it before it runs

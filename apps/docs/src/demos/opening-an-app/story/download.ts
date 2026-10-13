@@ -5,6 +5,15 @@ import { Shelf } from './capabilities.ts';
 /** How long one file takes, in milliseconds of Downloading. */
 export const DURATION = 8000;
 
+/**
+ * How much of a file is done at Time `time`, in milliseconds of Downloading:
+ * what was done before this run, and, while Downloading, the time since it
+ * began. The download is simulated, so its progress follows from the Model
+ * and Time alone; a real one would Send what it has done.
+ */
+export const doneAt = (done: number, since: number | undefined, time: number) =>
+  Math.min(DURATION, done + (since === undefined ? 0 : time - since));
+
 const cancel = Command.make('cancel', {
   args: Schema.Struct({ id: Schema.String }),
   run: ({ id }) =>
@@ -16,8 +25,8 @@ const cancel = Command.make('cancel', {
 
 /**
  * One file. Its progress is never a Message: the Model keeps how much was
- * done before the last pause, the State when this run began, and the View
- * works the rest out from the Frame.
+ * done before the last pause, the State when this run began, and the Worker
+ * and the View both work the rest out with `doneAt`.
  */
 export const Download = Actor.make('Download', {
   requires: [Shelf],
@@ -58,7 +67,7 @@ export const Download = Actor.make('Download', {
             Effect.gen(function* () {
               const { model, state } = yield* self.get;
               const now = yield* self.now;
-              const left = DURATION - model.done - (now - state.since);
+              const left = DURATION - doneAt(model.done, state.since, now);
               yield* Effect.sleep(Math.max(0, left));
               yield* self.send({ _tag: 'Finished' });
             }),
@@ -66,7 +75,7 @@ export const Download = Actor.make('Download', {
       },
       on: {
         Pause: (_, { model, state, at }) => ({
-          model: { ...model, done: model.done + at - state.since },
+          model: { ...model, done: doneAt(model.done, state.since, at) },
           state: { _tag: 'Paused' },
         }),
         Finished: (_, { model }) => ({
