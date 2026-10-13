@@ -1,8 +1,6 @@
 // oxlint-disable-next-line no-restricted-imports -- the app's one mount effect: counting mounts starts and stops the Runtime, which lives outside React.
 import { Suspense, use, useEffect, useSyncExternalStore } from 'react';
 import type { ReactNode } from 'react';
-import { motionValue } from 'motion/react';
-import type { MotionValue } from 'motion/react';
 import { Effect, Exit, Fiber, Scope } from 'effect';
 import type { Layer } from 'effect';
 import { History, Runtime } from '../core/index.ts';
@@ -17,8 +15,8 @@ import type {
 } from '../core/index.ts';
 import { makeDrawn } from './drawn.ts';
 import { registry } from './registry.ts';
-import { AppContext, FrameContext } from './view.tsx';
-import type { ViewOf } from './view.tsx';
+import { AppContext } from './view.tsx';
+import type { DrawnApp, DrawnTime, ViewOf } from './view.tsx';
 
 /*
  * The App: an Actor tree with its Layer, as one React component. It draws
@@ -30,9 +28,9 @@ import type { ViewOf } from './view.tsx';
  * 2. Mount  the first mount starts one Runtime on the History; the last
  *           unmount stops it and leaves the History for the next mount of an
  *           app with this name, after a hot reload too.
- * 3. Show   any Step: the Views draw the Snapshot right after it, at its
- *           Time, while the live app runs on underneath. A Send from the
- *           past is dropped.
+ * 3. Show   any Step: the Views draw the Snapshot right after it, while
+ *           the live app runs on underneath. A Send from the past is
+ *           dropped.
  */
 
 type Unmet<A, Provided> = [Exclude<Needs<A>, Provided>] extends [never]
@@ -70,8 +68,6 @@ export interface AppRuntime<A = AnyActor> {
   readonly clear: () => void;
   /** What an Instance's Workers are doing now. Empty while stopped. */
   readonly workers: (instance: string) => ReadonlyArray<WorkerStatus>;
-  /** The Time the Views are drawn at. */
-  readonly frame: MotionValue<number>;
 }
 
 const NO_WORKERS: ReadonlyArray<WorkerStatus> = [];
@@ -86,7 +82,6 @@ export const toReact = <A extends AnyActor, Provided>(
   const RootView = view;
   const name = options.name ?? actor.definition.name;
   const root = { id: actor.definition.name };
-  const frame = motionValue(0);
   const app = {};
 
   const own = () =>
@@ -107,7 +102,6 @@ export const toReact = <A extends AnyActor, Provided>(
   let seen: Seen | undefined;
   const changed = () => {
     seen = undefined;
-    moveFrame();
     for (const listener of listeners) listener();
   };
 
@@ -149,40 +143,32 @@ export const toReact = <A extends AnyActor, Provided>(
   const snapshot = () =>
     shown === null ? (runtime?.snapshot() ?? first?.snapshot) : past;
 
+  /** The Time of the Step shown, or of the Head before any Runtime. */
   const timeOf = (step: Step | null) =>
     step === null || step === 'init' ? 0 : historyOf().save().entries[step]!.at;
 
-  // The Frame follows the Runtime's Time, one animation frame at a time, only while live and running.
-  let loop: number | undefined;
-  const tick = () => {
-    if (runtime) frame.set(runtime.now());
-    loop = requestAnimationFrame(tick);
-  };
-  const moveFrame = () => {
-    const live = shown === null;
-    frame.set(
-      live ? (runtime?.now() ?? timeOf(historyOf().head())) : timeOf(shown),
-    );
-    const wanted = live && (runtime?.running() ?? false);
-    if (wanted && loop === undefined) loop = requestAnimationFrame(tick);
-    if (!wanted && loop !== undefined) {
-      cancelAnimationFrame(loop);
-      loop = undefined;
-    }
-  };
+  const time = (): DrawnTime =>
+    shown !== null
+      ? { now: timeOf(shown), moving: false }
+      : runtime
+        ? { now: runtime.now(), moving: runtime.running() }
+        : { now: timeOf(historyOf().head()), moving: false };
 
-  const drawn = makeDrawn(
-    snapshot,
-    () => first?.snapshot,
-    (id, message) => {
-      if (shown === null)
-        runtime?.send(id, message, { kind: 'view', instance: id });
-    },
-    (listener) => {
-      listeners.add(listener);
-      return () => listeners.delete(listener);
-    },
-  );
+  const drawn: DrawnApp = {
+    time,
+    ...makeDrawn(
+      snapshot,
+      () => first?.snapshot,
+      (id, message) => {
+        if (shown === null)
+          runtime?.send(id, message, { kind: 'view', instance: id });
+      },
+      (listener) => {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+    ),
+  };
 
   // 2. Mount
   let mounts = 0;
@@ -274,9 +260,7 @@ export const toReact = <A extends AnyActor, Provided>(
     if (!runtime) waitForFirstDraw();
     return (
       <AppContext value={drawn}>
-        <FrameContext value={frame}>
-          <RootView instance={root} />
-        </FrameContext>
+        <RootView instance={root} />
       </AppContext>
     );
   };
@@ -309,7 +293,6 @@ export const toReact = <A extends AnyActor, Provided>(
         stop,
         clear,
         workers: (instance) => runtime?.workers(instance) ?? NO_WORKERS,
-        frame,
       };
     },
   });

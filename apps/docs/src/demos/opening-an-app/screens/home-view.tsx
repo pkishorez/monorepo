@@ -6,7 +6,7 @@ import { Home } from '../story/index.ts';
 import { Ago, Button, PastContext } from './parts.tsx';
 
 /** The signed-in page: a greeting, the connection, and the sync the user turns on and off. */
-export const HomeView = View.make(Home, ({ model, props, send, frame }) => (
+export const HomeView = View.make(Home, ({ model, props, send }) => (
   <section className="flex flex-col gap-6">
     <div className="flex items-start justify-between gap-4">
       <div className="flex flex-col gap-1">
@@ -79,7 +79,7 @@ export const HomeView = View.make(Home, ({ model, props, send, frame }) => (
               {model.sync ? '' : 'Off · '}
               <span className="tabular-nums">{model.synced} synced</span>
               {' · last '}
-              <Ago frame={frame} at={model.last} />
+              <Ago at={model.last} />
             </>
           )}
         </span>

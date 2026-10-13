@@ -1,7 +1,5 @@
 import { createContext, memo, use, useRef, useSyncExternalStore } from 'react';
 import type { CSSProperties, ReactNode, Ref } from 'react';
-import { motionValue } from 'motion/react';
-import type { MotionValue } from 'motion/react';
 import type { AnyActor, Many, Only, Types } from '../core/index.ts';
 
 /** One Instance in the tree, to draw: its ID and, for a keyed Child, its key. Never changes. */
@@ -46,24 +44,13 @@ export type ViewProps<A> = {
       readonly [K in keyof KidsIn<A, T>]: HandleOf<KidsIn<A, T>[K]>;
     };
     readonly send: (message: Types<A>['message']) => void;
-    /**
-     * The Time the app is drawn at. Turn it into motion with `useTransform`,
-     * or listen to it with `useMotionValueEvent`; reading it never renders.
-     */
-    readonly frame: MotionValue<number>;
     /** Spread on the element the View draws as its root: `<li {...root}>`. */
     readonly root: Root;
   };
 }[Types<A>['state']['_tag']];
 
-/**
- * The app's one Frame, provided by `toReact`. Outside a running app it
- * stands still at 0.
- */
-export const FrameContext = createContext<MotionValue<number>>(motionValue(0));
-
-/** The Instance's part of what a View draws from; the Frame and root are added when drawing. */
-export type Drawable = Omit<ViewProps<AnyActor>, 'frame' | 'root'>;
+/** The Instance's part of what a View draws from; `root` is added when drawing. */
+export type Drawable = Omit<ViewProps<AnyActor>, 'root'>;
 
 /** What Views read the app through, provided by `toReact`. */
 export interface DrawnApp {
@@ -72,13 +59,19 @@ export interface DrawnApp {
   readonly instance: (id: string) => Drawable | undefined;
   /** The Instance as first drawn, before any Runtime: what a server draws and the client hydrates against. */
   readonly served: (id: string) => Drawable | undefined;
+  /** The Time the app is drawn at, and whether it moves: only while live and running. */
+  readonly time: () => DrawnTime;
+}
+
+export interface DrawnTime {
+  readonly now: number;
+  readonly moving: boolean;
 }
 
 export const AppContext = createContext<DrawnApp | undefined>(undefined);
 
 /**
- * A View: a React component drawing one Instance of its Actor at the app's
- * Frame. A parent View hands it only where to draw: the Instance, and the
+ * A View: a React component drawing one Instance of its Actor. A parent View hands it only where to draw: the Instance, and the
  * `ref` and `style` to animate it by. Data from the parent is its Props, which
  * the parent Actor hands it, so Update and Workers see it too.
  */
@@ -110,7 +103,6 @@ const make = <A extends AnyActor>(
       ref,
       style,
     }: Parameters<ViewOf<A>>[0] & { readonly key?: never }) => {
-      const frame = use(FrameContext);
       const drawn = use(AppContext);
       if (!drawn)
         throw new Error(
@@ -130,7 +122,6 @@ const make = <A extends AnyActor>(
       if (!self) return null;
       return draw({
         ...self,
-        frame,
         root: { ref: ref as Ref<never>, style },
       } as ViewProps<A>);
     },

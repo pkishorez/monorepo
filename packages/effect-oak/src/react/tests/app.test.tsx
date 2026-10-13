@@ -7,7 +7,9 @@ import { Effect, Layer, Schema } from 'effect';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Actor, History, Replay, Runtime } from '../../core/index.ts';
 import type { SavedHistory } from '../../core/index.ts';
+import type { MotionValue } from 'motion/react';
 import { View, toReact } from '../index.ts';
+import { useFrame } from '../motion.ts';
 import { registry } from '../registry.ts';
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
@@ -241,6 +243,61 @@ describe('Time Travel', () => {
     await act(async () => seen!.show(null));
     expect(host.textContent).toBe('5');
     expect(seen?.running).toBe(true);
+  });
+});
+
+describe('the Frame', () => {
+  it('stands at the Time drawn, and moves only while live and running', async () => {
+    const at = (id: number, time: number) => ({
+      id,
+      parent: id === 0 ? null : id - 1,
+      destination: 'Counter',
+      message: { _tag: 'Bumped' },
+      source: { kind: 'outside' } as const,
+      at: time,
+    });
+    let frame: MotionValue<number> | undefined;
+    const TimedView = View.make(Counter, (self) => {
+      sends[self.id] = self.send;
+      frame = useFrame();
+      return <output>{self.model.count}</output>;
+    });
+    const App = toReact(Counter, TimedView, Layer.empty, {
+      saved: { entries: [at(0, 100), at(1, 200), at(2, 300)], head: 2 },
+    });
+    let seen: ReturnType<typeof App.useRuntime> | undefined;
+    const Probe = () => {
+      seen = App.useRuntime();
+      return null;
+    };
+    root = createRoot(host);
+    await act(async () =>
+      root!.render(
+        <>
+          <App />
+          <Probe />
+        </>,
+      ),
+    );
+    await started(host);
+
+    await act(async () => seen!.show(0));
+    await tick();
+    expect(frame!.get()).toBe(100);
+    await new Promise((done) => setTimeout(done, 40));
+    expect(frame!.get()).toBe(100);
+
+    await act(async () => seen!.show(null));
+    const live = frame!.get();
+    expect(live).toBeGreaterThanOrEqual(300);
+    await act(() => new Promise((done) => setTimeout(done, 60)));
+    expect(frame!.get()).toBeGreaterThan(live);
+
+    await act(async () => seen!.stop());
+    await tick();
+    const stopped = frame!.get();
+    await new Promise((done) => setTimeout(done, 40));
+    expect(frame!.get()).toBe(stopped);
   });
 });
 

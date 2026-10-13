@@ -139,12 +139,12 @@ _Avoid_: output, bubble, callback, event
 ### Drawing
 
 **View**:
-How one Actor is drawn: a React component that reads the Model, State, Props and current Children of one Instance, and can only Send. A parent's View hands it nothing but where to draw. One function draws every State, so a Transition keeps the DOM, and an Instance that has stopped is drawn with its last data while it leaves the page. It never sees Capabilities, so it draws a Replay exactly like the live app. Kept apart from the Actor, so the same Actor can be drawn more than one way or not at all. Anything that moves between Messages is worked out here, at each Frame, from the Model, State, Props and Time: the Model says what is happening, the View decides how that looks.
+How one Actor is drawn: a React component that reads the Model, State, Props and current Children of one Instance, and can only Send. A parent's View hands it nothing but where to draw. One function draws every State, so a Transition keeps the DOM, and an Instance that has stopped is drawn with its last data while it leaves the page. It never sees Capabilities, so it draws a Replay exactly like the live app. Kept apart from the Actor, so the same Actor can be drawn more than one way or not at all.
 _Avoid_: render, template, component (on its own)
 
 **Frame**:
-The Time the Views are drawn at, one value for the whole app that every View is given: it moves at every animation frame while live, and stands still at the Step's Time during Time Travel. React renders only when a Message changes the Instance; the Frame moves what is already drawn. Nothing about it is stored.
-_Avoid_: tick, render
+The Time the app is drawn at: while live and running it moves at every animation frame, stopped it stands still, and showing a Step it stands at that Step's Time, so the past is drawn exactly as it was. Only for drawing what follows from the Model and Time alone, like how long ago or how far along; moving from one Snapshot to the next is React's, and a fact always arrives as a Message. A View asks for it; nothing about it is stored.
+_Avoid_: tick, render, now
 
 **Send**:
 Hand a Message to an Instance, making an Envelope that is handled at once. The only thing a View can do besides drawing; Workers and Commands can Send only to their own Instance.
