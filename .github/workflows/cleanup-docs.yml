@@ -20,7 +20,7 @@ permissions:
 
 jobs:
   cleanup:
-    if: github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'preview:docs')
+    if: ${{ !startsWith(github.head_ref, 'changeset-release/') && (github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'preview:docs')) }}
     runs-on: ubuntu-latest
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
