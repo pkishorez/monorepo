@@ -1,5 +1,8 @@
 # Module Graphs partition complex Layers
 
+Superseded by [ADR-0019](./0019-architecture-is-one-tree-of-modules.md):
+architecture is now one tree of Modules, with Rules and Exceptions.
+
 Modules within a Layer are flat and independent, and the only way to express one
 Module depending on a peer is to mark the peer Shared. That mechanism is
 Layer-wide and untargeted, so a chain of siblings is encoded as a scatter of

@@ -1,7 +1,7 @@
 import { use } from 'react';
 import { motion } from 'motion/react';
 import { LogOut, RefreshCw } from 'lucide-react';
-import { View } from 'effect-oak/react';
+import { View } from '@kstackz/kabuki/react';
 import { Home } from '../story/index.ts';
 import { Button, Clock, PastContext, Wide } from './parts.tsx';
 

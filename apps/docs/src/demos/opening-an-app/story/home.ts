@@ -1,5 +1,5 @@
 import { Effect, Schema } from 'effect';
-import { Actor, Command } from 'effect-oak';
+import { Actor, Command } from '@kstackz/kabuki';
 import { Session } from './capabilities.ts';
 
 /** How often the heartbeat beats, in milliseconds. */

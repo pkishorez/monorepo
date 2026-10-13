@@ -1,5 +1,5 @@
 import { Effect, Layer, Schema } from 'effect';
-import { Actor, Command } from 'effect-oak';
+import { Actor, Command } from '@kstackz/kabuki';
 import { Session } from './capabilities.ts';
 import { Downloads } from './downloads.ts';
 import { Home } from './home.ts';

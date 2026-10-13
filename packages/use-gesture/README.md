@@ -22,7 +22,7 @@ touch source and React bindings: a `GestureProvider`, `GestureZone`s that are
 DOM elements, `useGesture` with every finger as Motion values, the `useSwipe`
 Recognizer, and the `useSidebar` and `usePullToRefresh` Patterns. The web side started as ui-toolkit's gestures block and lived here as
 `./web` until web-platform took it
-([ADR 0003](../../docs/adr/0003-web-platform-and-the-gate.md)).
+([ADR 0003](../../docs/adr/0003-web-toolkit-and-the-gate.md)).
 
 The language is in [CONTEXT.md](./CONTEXT.md), and the decisions that shaped
 it are in [docs/adr/](./docs/adr/). They are numbered from 0002 because 0001

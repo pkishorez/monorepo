@@ -1,6 +1,6 @@
 # Web is the only platform
 
-Status: accepted. Supersedes the Expo half of [ADR 0006](0006-platforms-may-break-toolkits-keep-what-persists.md), Ledger's [ADR 0009](../../apps/ledger/docs/adr/0009-native-ledger-signs-in-as-an-oauth-client.md) and [ADR 0010](../../apps/ledger/docs/adr/0010-ledger-is-a-core-a-web-app-and-an-expo-app.md), and auth-toolkit's [ADR 0017](../../toolkits/auth-toolkit/docs/adr/0017-first-party-native-apps-are-fixed-oauth-clients.md).
+Status: accepted. Supersedes the Expo half of [ADR 0006](0006-platforms-may-break-toolkits-keep-what-persists.md), Ledger's ADR 0009 and ADR 0010 (Ledger is removed for now; it is kept at the `ledger-last` tag), and auth-toolkit's [ADR 0017](../../toolkits/auth-toolkit/docs/adr/0017-first-party-native-apps-are-fixed-oauth-clients.md).
 
 kstack builds for the web alone. The Expo Platform, the Expo Ledger app and everything that existed only for them are gone: the Platform Toolkit (folded into the Web Platform, Host and all), Ledger's platform-free core (merged back into one app in `apps/ledger`), std-toolkit's Expo SQLite driver and `Sync.sqlite`, auth-toolkit's OAuth sign-in on a phone with its First-Party Clients and app-scheme origins, and use-gesture's worklet-safe core. React is no longer held back to the Expo SDK's pin. Every abstraction had to be invented twice, once per platform, and kept in step; one platform is simpler to build, to test and to reason about, and the web reaches every device already, as an installable PWA.
 

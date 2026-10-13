@@ -50,7 +50,7 @@ function Home() {
           </nav>
         </header>
         <section className="flex items-center gap-3">
-          <span className="text-sm font-medium">Effect Oak</span>
+          <span className="text-sm font-medium">Kabuki</span>
           <span className="hidden text-xs text-muted-foreground sm:inline">
             An app as one tree of Actors
           </span>

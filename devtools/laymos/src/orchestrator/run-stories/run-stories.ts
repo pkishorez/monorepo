@@ -15,6 +15,7 @@ import type { ConfigError } from '../../services/config/index.js';
 import { openBrowserVenue } from './browser-venue/browser-venue.js';
 import { StoriesError } from './errors.js';
 import {
+  describeProofs,
   findStoryFolders,
   importProofs,
   proofFilesOf,
@@ -52,11 +53,20 @@ const defaultProcessTimeout = Duration.seconds(10);
 // Browser Proofs move at a person's pace, so they take longer.
 const defaultBrowserTimeout = Duration.seconds(90);
 
-/** The Story tree; Proof files are imported for their metadata, and nothing runs. */
+/**
+ * The Story tree; Proof files are imported for their metadata, and nothing
+ * runs. A Proof file unchanged since the last call is not imported again.
+ */
 export function getStoryTree(
   configPath: string,
 ): Effect.Effect<StoryTree, ConfigError | StoriesError> {
-  return Effect.map(loadStories(configPath), ({ tree }) => tree);
+  return Effect.gen(function* () {
+    const config = yield* readStoriesConfig(configPath);
+    const folders = yield* findStoryFolders(config);
+    const leaves = yield* describeProofs(config, proofFilesOf(folders));
+    const byId = new Map(leaves.map((leaf) => [leaf.id, leaf]));
+    return treeOf(config, folders, (file) => byId.get(file.id)!);
+  });
 }
 
 /** Every Telling issue in the tree, read without importing any Proof file. */

@@ -37,7 +37,7 @@ function Places() {
       <ThumbPicker
         tree={tree}
         start={['today']}
-        // As Ledger does: a tick for each, and a buzz for each move.
+        // A tick for each, and a buzz for each move.
         onFeedback={(feedback) => {
           if (feedback === 'wrong') return tell('wrong');
           play('tick');
@@ -69,7 +69,7 @@ function Places() {
 export default Proof.browser({
   title: 'A resting thumb and a swiping finger pick a place',
   description:
-    'web-platform’s ThumbPicker over use-gesture’s Tree Walk: the left thumb rests, another finger swipes down a Step, right to open Accounts, down to Bank, and lifts to go there. Each move ticks and buzzes, as Ledger does.',
+    'web-platform’s ThumbPicker over use-gesture’s Tree Walk: the left thumb rests, another finger swipes down a Step, right to open Accounts, down to Bank, and lifts to go there. Each move ticks and buzzes.',
   page: (root) => {
     const app = createRoot(root);
     void import('@kstackz/web-platform/theme/global.css').then(() =>

@@ -39,7 +39,7 @@ How a Gesture ends when the browser takes its touch — a Native Scroll, a touch
 _Avoid_: aborted, lost
 
 **Pointer**:
-One finger, or pen, of a Gesture: where, when and on what it landed (an element on the web, a view on a phone), counted from the Gesture's start, where it is now and how far it has moved, and where and when it lifted. A lifted Pointer stays part of the Gesture until the Gesture ends.
+One finger, or pen, of a Gesture: where, when and on what it landed (an element on the web, a view on a phone), counted from the Gesture's start, where it is now and how far it has moved, and where and when it lifted. A lifted Pointer stays part of the Gesture until the Gesture ends, or until a new finger lands with its id, as Android reuses them, and takes its place.
 _Avoid_: touch, finger (outside plain speech), contact
 
 **Active**:
@@ -72,6 +72,10 @@ _Avoid_: fail, abort, reject
 The Recognizer for fingers moving one way — up, down, left or right — with a set finger count. It follows the fingers while Tracking and Commits at release on distance or speed. It wants its own Direction while enabled, unless it starts only from an edge: then it wants no Direction and captures the touches that land at that edge instead. It Cancels for the wrong direction as soon as a touch's Direction is not its own. A flick is a Swipe that Commits on speed alone.
 _Avoid_: flick (a Swipe setting, not its own Recognizer), pan (movement in any direction), drag
 
+**Thumb Lock**:
+A still left thumb beside a moving finger. It holds when a second finger lands while the first, landed on the left half of the screen, has stayed still; from then it takes the touch in every Direction and follows the other finger. That finger lifting ends it; the thumb lifting first, or the Gesture Interrupted, calls it off. The thumb may stay down for another Lock. A touch of one finger is left alone, so the page still scrolls.
+_Avoid_: hold (a still finger alone), two-finger pan
+
 ### Patterns
 
 **Pattern**:
@@ -85,5 +89,5 @@ _Avoid_: drawer, nav
 ### Pickers
 
 **Tree Walk**:
-How a picker moves through a tree of choices as one finger goes, with no say in how the finger is read or the choices drawn: every so many px up or down Steps through a list, right opens the marked choice's own choices, left goes back, and a push sideways where there is nothing to open or go back to is a Wrong Way. Letting go chooses the marked choice, unless it is where the swipe began or on the way to it. Ledger's Place Picker moves this way.
+How a picker moves through a tree of choices as one finger goes, with no say in how the finger is read or the choices drawn: every so many px up or down Steps through a list, right opens the marked choice's own choices, left goes back, and a push sideways where there is nothing to open or go back to is a Wrong Way. Letting go chooses the marked choice, unless it is where the swipe began or on the way to it. The Web Platform's Thumb Picker moves this way.
 _Avoid_: menu, navigation, path

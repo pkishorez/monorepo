@@ -75,14 +75,13 @@
     "@typescript/native": "catalog:",
     "effect": "catalog:",
     "playwright-core": "catalog:",
-    "tsx": "catalog:",
     "typescript": "catalog:typescript6",
     "vite": "catalog:",
     "vitest": "catalog:"
   },
   "peerDependencies": {
     "effect": "^4.0.0",
-    "playwright-core": "1.63.0",
+    "playwright-core": "^1.63.0",
     "vite": "^8.0.0"
   },
   "peerDependenciesMeta": {

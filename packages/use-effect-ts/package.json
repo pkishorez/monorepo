@@ -12,7 +12,7 @@
   "type": "module",
   "exports": {
     ".": {
-      "types": "./dist/index.js",
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
     },
@@ -45,6 +45,6 @@
   },
   "peerDependencies": {
     "effect": "^4.0.0",
-    "react": "19.2.8"
+    "react": "^19.0.0"
   }
 }

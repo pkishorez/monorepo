@@ -1,5 +1,5 @@
 import { Effect, Schema } from 'effect';
-import { Actor, Command } from 'effect-oak';
+import { Actor, Command } from '@kstackz/kabuki';
 import { Shelf } from './capabilities.ts';
 
 /** How long one file takes, in milliseconds of Downloading. */

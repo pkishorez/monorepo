@@ -20,7 +20,7 @@
     "@tanstack/react-router-devtools": "catalog:",
     "@tanstack/react-start": "catalog:",
     "effect": "catalog:",
-    "effect-oak": "workspace:*",
+    "@kstackz/kabuki": "workspace:*",
     "lucide-react": "catalog:",
     "motion": "catalog:",
     "react": "catalog:",

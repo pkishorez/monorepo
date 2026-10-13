@@ -7,7 +7,8 @@ import { MonorepoReadError } from './errors.js';
 
 /**
  * The workspace globs of the folder at `root`. `pnpm-workspace.yaml` lists
- * them under `packages:`, and wins when present. Otherwise the root
+ * them under `packages:`, and wins when present; one without `packages:`
+ * (settings or a catalog only) lists none, as pnpm reads it. Otherwise the root
  * `package.json` lists them under `workspaces`, either as an array (npm, yarn,
  * bun) or as `{ packages: [...] }` (yarn; `nohoist` and other keys ignored).
  * A `package.json` with no `workspaces` field lists none: `undefined`, a
@@ -57,10 +58,10 @@ function readIfPresent(
   });
 }
 
-function pnpmGlobs(document: unknown): readonly string[] {
-  if (!isRecord(document)) return [];
+function pnpmGlobs(document: unknown): readonly string[] | undefined {
+  if (!isRecord(document)) return undefined;
   const packages = document.packages;
-  if (!Array.isArray(packages)) return [];
+  if (!Array.isArray(packages)) return undefined;
   return packages.filter((entry): entry is string => typeof entry === 'string');
 }
 

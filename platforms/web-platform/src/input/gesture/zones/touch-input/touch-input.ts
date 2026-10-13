@@ -182,7 +182,8 @@ export const createTouchInput = (win: Window, sink: PointerSink<Target>) => {
     if (tracked.has(event.pointerId)) onAway();
   };
   const onAway = () => {
-    for (const id of [...tracked.keys()]) untrack(id);
+    // A copy of the ids, as `untrack` deletes from `tracked`.
+    for (const id of Array.from(tracked.keys())) untrack(id);
     // Pointer events stamp their time on this clock.
     sink.cancelAll(performance.now());
   };

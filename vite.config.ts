@@ -12,9 +12,9 @@ export default defineConfig({
     ],
     overrides: [
       {
-        // Effect Oak apps keep state in Nodes and motion in the Frame. A
+        // Kabuki apps keep state in Nodes and motion in the Frame. A
         // useEffect there needs a disable comment that says why.
-        files: ['apps/docs/src/demos/**', 'packages/effect-oak/src/**'],
+        files: ['apps/docs/src/demos/**', 'packages/kabuki/src/**'],
         rules: {
           'no-restricted-imports': [
             'error',

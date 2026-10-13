@@ -5,14 +5,14 @@
     {
       "label": "Unversioned workspace roots",
       "dependencyTypes": ["local"],
-      "packages": ["public-monorepo", "docs", "ledger"],
+      "packages": ["public-monorepo", "docs"],
       "isIgnored": true
     },
     {
       "label": "Internal dependencies use workspace:* everywhere",
       "dependencies": [
         "@kstackz/ai-toolkit",
-        "effect-oak",
+        "@kstackz/kabuki",
         "@kstackz/auth-toolkit",
         "@kstackz/devtools",
         "@kstackz/effect-tracer",
@@ -54,6 +54,18 @@
       "pinVersion": "^5.0.0"
     },
     {
+      "label": "React peers accept any React 19 release",
+      "dependencies": ["react", "react-dom"],
+      "dependencyTypes": ["peer"],
+      "pinVersion": "^19.0.0"
+    },
+    {
+      "label": "Playwright peers accept any Playwright release from the one tested",
+      "dependencies": ["playwright-core"],
+      "dependencyTypes": ["peer"],
+      "pinVersion": "^1.63.0"
+    },
+    {
       "label": "Synchronize remaining dependencies",
       "dependencyTypes": [
         "local",
@@ -70,7 +82,7 @@
       "label": "Internal workspace protocols are enforced by version groups",
       "dependencies": [
         "@kstackz/ai-toolkit",
-        "effect-oak",
+        "@kstackz/kabuki",
         "@kstackz/auth-toolkit",
         "@kstackz/devtools",
         "@kstackz/effect-tracer",
@@ -89,8 +101,15 @@
       "isIgnored": true
     },
     {
-      "label": "Effect, Vite, and Vitest peers use a caret range",
-      "dependencies": ["effect", "vite", "vitest"],
+      "label": "Effect, Playwright, React, Vite, and Vitest peers use a caret range",
+      "dependencies": [
+        "effect",
+        "playwright-core",
+        "react",
+        "react-dom",
+        "vite",
+        "vitest"
+      ],
       "dependencyTypes": ["peer"],
       "range": "^"
     },

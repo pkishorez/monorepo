@@ -198,7 +198,7 @@
     "@typescript/native": "catalog:",
     "@vitejs/plugin-react": "catalog:",
     "effect": "catalog:",
-    "effect-oak": "workspace:*",
+    "@kstackz/kabuki": "workspace:*",
     "laymos": "workspace:*",
     "react": "catalog:",
     "react-cosmos": "catalog:",
@@ -210,6 +210,7 @@
     "vitest": "catalog:"
   },
   "peerDependencies": {
+    "@cloudflare/workers-types": "5.20260904.1",
     "@kstackz/auth-toolkit": "workspace:*",
     "@kstackz/rpc-toolkit": "workspace:*",
     "@kstackz/std-toolkit": "workspace:*",
@@ -218,14 +219,17 @@
     "@tanstack/react-router": "1.170.32",
     "@tanstack/react-start": "1.168.49",
     "effect": "^4.0.0",
-    "effect-oak": "workspace:*",
+    "@kstackz/kabuki": "workspace:*",
     "laymos": "workspace:*",
-    "react": "19.2.8",
-    "react-dom": "19.2.8",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
     "use-effect-ts": "workspace:*",
     "vite": "^8.0.0"
   },
   "peerDependenciesMeta": {
+    "@cloudflare/workers-types": {
+      "optional": true
+    },
     "@kstackz/use-keys": {
       "optional": true
     },
@@ -238,7 +242,7 @@
     "effect": {
       "optional": true
     },
-    "effect-oak": {
+    "@kstackz/kabuki": {
       "optional": true
     },
     "laymos": {

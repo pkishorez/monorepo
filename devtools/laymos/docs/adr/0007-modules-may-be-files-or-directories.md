@@ -1,5 +1,8 @@
 # Modules may be files or directories
 
+Superseded by [ADR-0019](./0019-architecture-is-one-tree-of-modules.md):
+architecture is now one tree of Modules, with Rules and Exceptions.
+
 ADR-0010 supersedes the `shared` field name while retaining File Modules and
 their public-door behavior for Normal and Shared kinds.
 

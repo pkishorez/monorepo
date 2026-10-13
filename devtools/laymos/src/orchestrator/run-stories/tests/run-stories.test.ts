@@ -1,5 +1,7 @@
 import { existsSync } from 'node:fs';
+import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
+import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 import { Effect, Stream } from 'effect';
@@ -29,6 +31,7 @@ function fixture(name: string): string {
 
 const verdicts = fixture('verdicts');
 const tellings = fixture('tellings');
+const commonJs = fixture('common-js');
 
 function run(configPath: string, scope?: string) {
   return runStories(configPath, { scope }).pipe(
@@ -100,6 +103,70 @@ describe('getStoryTree', () => {
       ['tellings/told', 'Told'],
       ['tellings/quiet', 'quiet'],
     ]);
+  });
+
+  test('imports a Proof file again only once it changed', async () => {
+    const root = fileURLToPath(
+      new URL(
+        `../../../tests/fixtures/stories/edited-${randomUUID()}/`,
+        import.meta.url,
+      ),
+    );
+    const proofPath = join(root, 'stories/edited.proof.ts');
+    const writeProof = (title: string) =>
+      writeFile(
+        proofPath,
+        `import { Effect } from 'effect';
+import { Proof } from '../../../../../story/index.js';
+
+const counts = globalThis as { editedImports?: number };
+counts.editedImports = (counts.editedImports ?? 0) + 1;
+
+export default Proof.make({
+  title: '${title}',
+  prepare: Effect.void,
+  act: () => Effect.void,
+  verify: () => Proof.assert('it ran', true),
+});
+`,
+      );
+    const titleOf = async () =>
+      (
+        await getStoryTree(join(root, 'laymos.config.json')).pipe(
+          Effect.runPromise,
+        )
+      ).proofs[0]!.title;
+    const imports = () =>
+      (globalThis as { editedImports?: number }).editedImports ?? 0;
+    try {
+      await mkdir(join(root, 'stories'), { recursive: true });
+      await writeFile(
+        join(root, 'laymos.config.json'),
+        JSON.stringify({ sourceRoots: ['stories'], storiesPath: 'stories' }),
+      );
+      await writeProof('First');
+
+      expect(await titleOf()).toBe('First');
+      const before = imports();
+      expect(await titleOf()).toBe('First');
+      expect(imports()).toBe(before);
+      await writeProof('The second');
+      expect(await titleOf()).toBe('The second');
+      expect(imports()).toBe(before + 1);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  test('loads Proofs in a package without "type": "module" as CommonJS', async () => {
+    const tree = await getStoryTree(commonJs).pipe(Effect.runPromise);
+
+    expect(tree.proofs.map(({ title }) => title)).toEqual([
+      'A Proof loaded as CommonJS',
+    ]);
+    expect(
+      [...finished(await run(commonJs)).values()].map(({ verdict }) => verdict),
+    ).toEqual(['passed']);
   });
 
   test('fails without a Stories path', async () => {

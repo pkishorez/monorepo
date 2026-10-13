@@ -1,5 +1,8 @@
 # Rules point at the real Layer, not at a stand-in
 
+Superseded by [ADR-0019](./0019-architecture-is-one-tree-of-modules.md):
+architecture is now one tree of Modules, with Rules and Exceptions.
+
 ADR 0014 gave every Layer one Host LayerGraph so that no Layer was drawn as a
 rail spanning several lanes. To keep every Rule inside the lane that declared it,
 it also introduced the Layer Reference: an outlined stub drawn in a lane that

@@ -1,0 +1,176 @@
+import { Clock, Context, Effect, Fiber, Layer } from 'effect';
+import type { Scope } from 'effect';
+import type { AnyActor, Tagged, Types } from '../actor/index.ts';
+import { actorAt, isRestore } from '../snapshot/index.ts';
+import type { Snapshot, Source } from '../snapshot/index.ts';
+import { History, isHistory } from '../history/index.ts';
+import { ActorInstance } from './instance/index.ts';
+import type { WorkerStatus } from './instance/index.ts';
+import { makeMailbox } from './mailbox.ts';
+import { makeTime } from './time.ts';
+
+/*
+ * The Runtime runs an Actor's History.
+ *
+ * 1. Start  at the History's Head: replay to it, carry Time on from its
+ *           Time, and start the root Instance there, hosted by the one
+ *           Mailbox, the Time and the app's Layer.
+ * 2. Send   a Message, checked against its Actor's Schema, into the
+ *           Mailbox. The Mailbox hands each one to the root Instance, writes
+ *           it into the History, and tells subscribers once it is empty.
+ * 3. Stop   close the Mailbox, stand Time still, and stop the root Instance:
+ *           everything it runs ends. The Snapshot and the History stay.
+ *
+ * To branch off: stop, move the History's Head, start. `start(entry)` does
+ * all three.
+ */
+
+/** Capabilities an Actor's tree still needs from the app's Layer. */
+export type Needs<A> = Types<A>['open'];
+
+/** The app's Layer, which must cover every Capability the tree still needs. */
+type LayerFor<A> = [Needs<A>] extends [never]
+  ? [layer?: Layer.Layer<never>]
+  : [layer: Layer.Layer<Needs<A>>];
+
+export interface Running<A> {
+  readonly history: History<A>;
+  /** The live Snapshot; the last one while stopped. */
+  readonly snapshot: () => Snapshot;
+  readonly running: () => boolean;
+  /** The Time now, in milliseconds. It stands still while stopped. */
+  readonly now: () => number;
+  /** Hand a Message to any Instance, from outside the tree unless said otherwise. Dropped while stopped. */
+  readonly send: (
+    instance: string,
+    message: Tagged & { readonly [field: string]: unknown },
+    source?: Source,
+  ) => void;
+  /** Called once the Mailbox is empty, and on every start and stop. */
+  readonly subscribe: (listener: () => void) => () => void;
+  /** What an Instance's Workers are doing now. Empty while stopped. */
+  readonly workers: (instance: string) => ReadonlyArray<WorkerStatus>;
+  /** Start at the Head, or move the Head to an entry first (`null`: init). Stops first if running. */
+  readonly start: (from?: number | null) => Effect.Effect<void>;
+  readonly stop: () => Effect.Effect<void>;
+}
+
+const start = <A extends AnyActor>(
+  from: A | History<A>,
+  ...layer: LayerFor<A>
+): Effect.Effect<Running<A>, never, Scope.Scope> =>
+  Effect.gen(function* () {
+    const history = isHistory(from) ? (from as History<A>) : History.make(from);
+    const root = history.actor.definition;
+    const scope = yield* Effect.scope;
+    const clock = yield* Clock.Clock;
+    const built = yield* Layer.build(layer[0] ?? Layer.empty);
+    const services = Context.add(
+      built,
+      Clock.Clock,
+      clock,
+    ) as Context.Context<never>;
+    const time = makeTime(() => clock.monotonicTimeNanosUnsafe());
+    const listeners = new Set<() => void>();
+    const notify = () => listeners.forEach((listener) => listener());
+
+    let snapshot: Snapshot;
+    let instance: ActorInstance | undefined;
+    let release = () => {};
+
+    const mailbox = makeMailbox(
+      time.now,
+      (envelope) => {
+        const handled = instance!.receive(envelope);
+        snapshot = handled.snapshot;
+        history.append(envelope, handled);
+      },
+      notify,
+    );
+
+    // 2. Send
+    const send = (id: string, message: Tagged, source: Source) => {
+      if (!isRestore(message))
+        actorAt(root, snapshot, id)?.check.message(
+          message,
+          `Message ${JSON.stringify(message._tag)}`,
+        );
+      mailbox.send(id, message, source);
+    };
+
+    // 1. Start
+    const go = Effect.gen(function* () {
+      snapshot = yield* history.seek();
+      time.start(history.branch().at(-1)?.at ?? 0);
+      release = history.lock();
+      mailbox.open();
+      mailbox.hold(() => {
+        instance = ActorInstance.start(
+          root,
+          snapshot,
+          { send, now: time.now, services },
+          scope,
+        );
+      });
+      notify();
+    });
+
+    // 3. Stop
+    const halt = Effect.suspend(() => {
+      if (!instance) return Effect.void;
+      const stopping = instance;
+      instance = undefined;
+      mailbox.close();
+      time.stop();
+      release();
+      notify();
+      return stopping.stop();
+    });
+
+    const restart = (from?: number | null) =>
+      Effect.gen(function* () {
+        yield* halt;
+        if (from !== undefined) history.moveHead(from);
+        yield* go;
+      });
+
+    /** A new start or stop interrupts the one still under way. */
+    let current: Fiber.Fiber<void> | undefined;
+    let closed = false;
+    const latest = (effect: Effect.Effect<void>) =>
+      Effect.suspend(() => {
+        if (closed) return Effect.void;
+        current?.interruptUnsafe();
+        const fiber = Effect.runForkWith(services)(effect);
+        current = fiber;
+        return Fiber.join(fiber);
+      });
+
+    yield* go;
+    yield* Effect.addFinalizer(() =>
+      Effect.suspend(() => {
+        closed = true;
+        current?.interruptUnsafe();
+        return halt;
+      }),
+    );
+
+    return {
+      history,
+      snapshot: () => snapshot,
+      running: () => instance !== undefined,
+      now: time.now,
+      send: (id, message, source = { kind: 'outside' }) =>
+        send(id, message, source),
+      subscribe: (listener) => {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+      workers: (id) => instance?.workers(id) ?? [],
+      start: (from) => latest(restart(from)),
+      stop: () => latest(halt),
+    };
+  });
+
+/** Runs an Actor, or carries a History on, until its Scope closes. */
+export const Runtime = { start };

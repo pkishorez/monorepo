@@ -1,10 +1,11 @@
 import { randomUUID } from 'node:crypto';
-import { readdir, readFile } from 'node:fs/promises';
+import { readdir, readFile, stat } from 'node:fs/promises';
 import { basename, dirname, join, relative, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { Effect } from 'effect';
 import { NodeServices } from '@effect/platform-node';
+import { register as registerCommonJs } from 'tsx/cjs/api';
 import { register } from 'tsx/esm/api';
 
 import { isProof, type Proof } from '../../story/index.js';
@@ -159,7 +160,21 @@ export function importProofs(
   files: readonly ProofFile[],
 ): Effect.Effect<readonly LoadedProof[], StoriesError> {
   return Effect.acquireUseRelease(
-    Effect.sync(() => register({ namespace: `laymos-${randomUUID()}` })),
+    Effect.sync(() => {
+      const namespace = `laymos-${randomUUID()}`;
+      // A Proof file in a package without `"type": "module"` loads as
+      // CommonJS, which the ESM loader hands to the CommonJS one under the
+      // same namespace.
+      const commonJs = registerCommonJs({ namespace });
+      const esm = register({ namespace });
+      return {
+        import: esm.import,
+        unregister: async () => {
+          commonJs.unregister();
+          await esm.unregister();
+        },
+      };
+    }),
     (loader) =>
       Effect.forEach(files, (file) =>
         Effect.gen(function* () {
@@ -169,7 +184,7 @@ export function importProofs(
             catch: (cause) =>
               new StoriesError({ reason: 'load', path: file.path, cause }),
           });
-          const proof: unknown = (module as { default?: unknown }).default;
+          const proof = defaultExportOf(module);
           if (!isProof(proof)) {
             return yield* new StoriesError({
               reason: 'invalid-proof',
@@ -199,6 +214,65 @@ export function importProofs(
       ),
     (loader) => Effect.promise(() => loader.unregister()),
   );
+}
+
+interface DescribedProof {
+  readonly stamp: string;
+  readonly leaf: ProofLeaf;
+}
+
+const described = new Map<string, ReadonlyMap<string, DescribedProof>>();
+
+/**
+ * The leaf of every Proof file, importing only the files that changed since
+ * the last call for this Project. Node never frees an imported module, so
+ * importing every Proof on each call would grow the process without bound.
+ */
+export function describeProofs(
+  config: StoriesConfig,
+  files: readonly ProofFile[],
+): Effect.Effect<readonly ProofLeaf[], StoriesError> {
+  return Effect.gen(function* () {
+    const known = described.get(config.projectRoot);
+    const stamped = yield* Effect.forEach(files, (file) =>
+      Effect.tryPromise({
+        try: () => stat(file.path),
+        catch: (cause) =>
+          new StoriesError({ reason: 'load', path: file.path, cause }),
+      }).pipe(
+        Effect.map(({ mtimeMs, size }) => ({
+          file,
+          stamp: `${mtimeMs}:${size}`,
+        })),
+      ),
+    );
+    const changed = stamped.filter(
+      ({ file, stamp }) => known?.get(file.path)?.stamp !== stamp,
+    );
+    const imported =
+      changed.length === 0
+        ? []
+        : yield* importProofs(
+            config,
+            changed.map(({ file }) => file),
+          );
+    const fresh = new Map(imported.map(({ file, leaf }) => [file.path, leaf]));
+    const next = new Map(
+      stamped.map(({ file, stamp }) => [
+        file.path,
+        { stamp, leaf: fresh.get(file.path) ?? known!.get(file.path)!.leaf },
+      ]),
+    );
+    described.set(config.projectRoot, next);
+    return files.map((file) => next.get(file.path)!.leaf);
+  });
+}
+
+/** A CommonJS Proof file's `export default` arrives one level deeper, under `default.default`. */
+function defaultExportOf(module: unknown): unknown {
+  const exported = (module as { default?: unknown }).default;
+  if (isProof(exported)) return exported;
+  return (exported as { default?: unknown } | undefined)?.default;
 }
 
 /** What the tree shows for a Proof file that was never imported: its name only. */

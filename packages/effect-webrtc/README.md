@@ -6,7 +6,7 @@ Effect-native peer sessions and RPC over WebRTC data channels
 
 WebRTC gives two endpoints a direct data channel, but the application still has to pick a signaling service, run offer and answer negotiation, notice when a connection dies, and start again. This Package hides that behind one `Peer` value. You declare which remote Peer you want, the Package keeps a Peer Session with it, and you call the remote's Effect RPC contract as ordinary Effects.
 
-Two Services are pluggable. `Signaling` carries negotiation messages between Peers and comes in memory, Nostr, and Durable (authenticated Cloudflare Durable Object) flavours. `WebRtcPlatform` supplies the host WebRTC implementation and comes in memory, browser, and werift (Node) flavours. Tests and stories run entirely in memory with no networking.
+Two Services are pluggable. `Signaling` carries negotiation messages between Peers and comes in memory, Nostr, and Durable (authenticated Cloudflare Durable Object) flavours. `WebRtcPlatform` supplies the host WebRTC implementation and comes in memory, browser, and werift (Node) flavours. Tests run entirely in memory with no networking.
 
 RPC uses `effect/rpc` directly over the data channel. Connection attempts and RPC invocations are traced as separate Effect spans labelled with both Peers, so any OpenTelemetry exporter (for example `@kstackz/effect-tracer`) shows them. The Durable Signaling Provider authenticates with `@kstackz/auth-toolkit` and deploys with `@kstackz/rpc-toolkit`'s Alchemy Durable RPC worker.
 

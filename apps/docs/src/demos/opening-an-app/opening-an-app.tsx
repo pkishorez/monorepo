@@ -1,7 +1,7 @@
 // oxlint-disable-next-line no-restricted-imports -- Ctrl+/ is a key on the whole page, which only a listener on window hears.
 import { useEffect, useState } from 'react';
 import { Layer } from 'effect';
-import { toReact } from 'effect-oak/react';
+import { toReact } from '@kstackz/kabuki/react';
 import { Monitor, Network, Smartphone, X } from 'lucide-react';
 import {
   Dialog,
@@ -10,7 +10,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@kstackz/web-platform/components/dialog';
-import { EffectOakDevtools } from '@kstackz/web-platform/recipes/effect-oak-devtools';
+import { KabukiDevtools } from '@kstackz/web-platform/recipes/kabuki-devtools';
 import { Browser } from './browser/index.ts';
 import type { Device } from './browser/index.ts';
 import { AppView, PastContext } from './screens/index.ts';
@@ -56,7 +56,7 @@ export function OpeningAnApp() {
         <div className="flex min-w-0 flex-1 items-baseline gap-3">
           <h1 className="text-sm font-medium">Opening an app</h1>
           <p className="hidden truncate text-[13px] text-muted-foreground lg:block">
-            An Effect Oak app. Open the devtools to see inside it.
+            A Kabuki app. Open the devtools to see inside it.
           </p>
         </div>
         <Devices device={device} onChange={setDevice} />
@@ -81,8 +81,8 @@ export function OpeningAnApp() {
           showCloseButton={false}
           className="inset-0 top-0 left-0 flex h-dvh w-screen max-w-none translate-x-0 translate-y-0 flex-col gap-0 rounded-none bg-transparent p-0 ring-0 data-closed:zoom-out-100 data-open:zoom-in-100 sm:max-w-none"
         >
-          <DialogTitle className="sr-only">Effect Oak devtools</DialogTitle>
-          <EffectOakDevtools
+          <DialogTitle className="sr-only">Kabuki devtools</DialogTitle>
+          <KabukiDevtools
             runtime={runtime}
             dotted={false}
             className="bg-background/45 backdrop-blur-[3px]"

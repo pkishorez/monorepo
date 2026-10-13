@@ -37,7 +37,7 @@ function Places() {
       <ThumbPicker
         tree={tree}
         start={['today']}
-        // As Ledger does: a tick for each, and a buzz for each move.
+        // A tick for each, and a buzz for each move.
         onFeedback={(feedback) => {
           if (feedback === 'wrong') return tell('wrong');
           play('tick');

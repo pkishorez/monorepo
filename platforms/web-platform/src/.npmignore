@@ -1,6 +1,7 @@
 **/*.test.*
 **/*.fixture.*
 **/fixtures/
+**/tests/
 **/examples/
 **/skill/
 **/test-data.ts

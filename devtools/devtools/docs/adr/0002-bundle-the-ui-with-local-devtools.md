@@ -1,5 +1,8 @@
 # Bundle the UI with local DevTools
 
+Amended by [ADR-0007](./0007-laymos-is-reached-through-monoverse.md): there is
+no `/laymos` route; Laymos is reached only inside Monoverse.
+
 DevTools ships Lotel and Laymos as a self-contained browser application served
 from the same loopback server as its RPC and OTLP endpoints. The bundled UI is
 the canonical interface and replaces the hosted `kishore.app` client so the UI,

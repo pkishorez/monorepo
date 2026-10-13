@@ -1,5 +1,8 @@
 # Modules form disjoint deep boundaries within Layers
 
+Superseded by [ADR-0019](./0019-architecture-is-one-tree-of-modules.md):
+architecture is now one tree of Modules, with Rules and Exceptions.
+
 ADR-0007 supersedes this decision only where it rejects or defers File Modules.
 Its remaining directory-boundary decisions still apply.
 

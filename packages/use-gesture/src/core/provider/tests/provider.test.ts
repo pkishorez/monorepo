@@ -121,6 +121,26 @@ describe('createGestureProvider: one Gesture', () => {
     expect(pointers.get(2)?.end).toEqual({ x: 50, y: 40, t: 120 });
   });
 
+  it("lets a new finger take a lifted finger's id, but not a live one's", () => {
+    const tracker = createTracker();
+    const screen = zone(page);
+    const heard = listened(tracker, screen);
+
+    tracker.sink.down(at(screen, 0, 0, 0, 0));
+    tracker.sink.down(at(screen, 1, 50, 0, 10));
+    expect(tracker.sink.down(at(screen, 1, 60, 0, 15))).toBe(false);
+    tracker.sink.up(at(screen, 1, 50, 20, 20));
+    expect(tracker.sink.down(at(screen, 1, 80, 0, 30))).toBe(true);
+    tracker.sink.move(at(screen, 1, 80, 10, 40));
+    tracker.sink.up(at(screen, 1, 80, 10, 50));
+    tracker.sink.up(at(screen, 0, 0, 0, 60));
+
+    const [pointers] = lastEnd(heard);
+    expect([...pointers.keys()]).toEqual([0, 1]);
+    expect(pointers.get(1)?.start).toEqual({ x: 80, y: 0, t: 30 });
+    expect(pointers.get(1)?.dy).toBe(10);
+  });
+
   it('tells each landing and lifting, then starts afresh', () => {
     const tracker = createTracker();
     const screen = zone(page);

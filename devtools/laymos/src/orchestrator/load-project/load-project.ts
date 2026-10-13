@@ -1,4 +1,5 @@
-import { dirname, resolve } from 'node:path';
+import { existsSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 
 import { Effect } from 'effect';
 
@@ -31,6 +32,7 @@ export function loadProject(configPath: string) {
     );
     const issues = [
       ...missingFileModules(config, fileGraph),
+      ...missingIgnoredPaths(config, baseDir),
       ...validateAgainstTree(
         config,
         buildModuleTree(fileGraph.keys(), config.fileModules),
@@ -54,5 +56,14 @@ function missingFileModules(config: Config, fileGraph: FileGraph) {
     .map((path) => ({
       kind: 'path' as const,
       message: `File Module is no analyzed source file: ${path}`,
+    }));
+}
+
+function missingIgnoredPaths(config: Config, baseDir: string) {
+  return config.ignoredPaths
+    .filter((path) => !existsSync(join(baseDir, path)))
+    .map((path) => ({
+      kind: 'path' as const,
+      message: `Ignored path does not exist: ${path}`,
     }));
 }

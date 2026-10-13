@@ -30,7 +30,7 @@ jobs:
       AWS_REGION: ${{ vars.AWS_REGION }}
       # Lets Alchemy skip the STS account lookup.
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
-      # Opt-in required by the accident guard in apps/docs/alchemy.run.ts.
+      # Opt-in required by the accident guard in apps/docs/src/infra/stage.ts.
       ALLOW_DEPLOY: 'true'
       STAGE: pr${{ inputs.pr || github.event.number }}
     steps:

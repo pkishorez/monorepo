@@ -1,5 +1,7 @@
-import { parseLoadSubsetOptions } from '@tanstack/query-db-collection';
-import type { LoadSubsetOptions } from '@tanstack/react-db';
+import {
+  parseLoadSubsetOptions,
+  type LoadSubsetOptions,
+} from '@tanstack/react-db';
 import {
   windowKey as makeWindowKey,
   type WindowKey,
