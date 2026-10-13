@@ -333,6 +333,12 @@ Owned shadcn copies on Base UI, one subpath per file, such as `@kestack/web-plat
 | ----------------- | -------------------------------------------------------------------------------------------------- |
 | `AccountSwitcher` | A menu of the Signed-in Accounts: switch, add an account, sign out the Active Account or everyone. |
 
+### `@kestack/web-platform/recipes/devtools-dock`
+
+| Export         | What it does                                                                                                                                                                                                                   |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `DevtoolsDock` | Wraps a page with devtools opened from a corner button of one fixed size and place, or Ctrl+/: full screen, a resizable bar or side panel, or a floating window, kept across reloads; phones get only full screen and the bar. |
+
 ### `@kestack/web-platform/recipes/kabuki-devtools`
 
 | Export           | What it does                                                                                                                                |

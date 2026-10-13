@@ -208,6 +208,10 @@ How the Inspector (see @kestack/kabuki's glossary) draws the Snapshot. Drawing w
 The Inspector on a running app, from its runtime: its Timeline is the app's History, a Step picked there Time Travels the app itself, and live, its Worker Rows say what each Worker is doing.
 _Avoid_: debugger, panel
 
+**Devtools Dock**:
+Where Devtools sit beside a page, opened from one button that never moves: full screen over the page, a bar under it or a panel on its right that push the page aside, or a floating window. Its Layout and sizes are kept across reloads.
+_Avoid_: drawer, overlay, devtools panel
+
 **Map**:
 The Inspector's drawing of one Snapshot: a tree of Nodes and State Nodes joined by Links, as a packed tree top-down or as an outline, the root at its top. Every Node's size comes from its Actor alone; what hangs below one comes from the State it is in, so the Map moves at a Transition and at a Fold, and only then: what stops shrinks into what it hung from, what starts grows out of it, and the rest glides to its new place.
 _Avoid_: graph, canvas, diagram

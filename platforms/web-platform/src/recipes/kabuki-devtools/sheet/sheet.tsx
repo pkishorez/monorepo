@@ -7,15 +7,16 @@ import { ink } from '../ink/index.ts';
 import type { Tone } from '../ink/index.ts';
 
 /*
- * The Sheet: the data of what is picked, along the bottom of the Inspector.
+ * The Sheet: the data of what is picked, over the Map.
  *
- * 1. Open   it grows up from the bottom, quickly, and shrinks away when
- *           closed. Picking something else changes what it says in place:
- *           it never closes and opens again.
- * 2. Fit    on a wide Inspector it is a section of its own under the Map,
- *           what is picked on its left and each value in a column beside
- *           it; on a narrow one it is a drawer over the Map, the full width,
- *           everything stacked.
+ * 1. Open   it slides in quickly, and away when closed. Picking something
+ *           else changes what it says in place: it never closes and opens
+ *           again.
+ * 2. Fit    on a wide Inspector it is a panel floating on the Map's right,
+ *           as tall as it needs and no taller than the Map; on a narrow one
+ *           it is a drawer from the bottom, the full width. Either way
+ *           everything is stacked, since every value is a tree that grows
+ *           down.
  * 3. Read   what it is and its name, a few facts, a list such as its
  *           Workers, then each value as a tree.
  */
@@ -66,108 +67,97 @@ export function Sheet({
     <motion.section
       aria-label={`${kind} ${title}`}
       className={cn(
-        // 2. Fit: a drawer over the Map when narrow, a section under it when wide.
-        'bg-background absolute inset-x-0 bottom-0 z-30 flex max-h-[65%] flex-col overflow-hidden border-t @3xl:max-h-72',
-        'rounded-t-xl shadow-[0_-1px_2px_rgb(0_0_0/0.04),0_-8px_24px_rgb(0_0_0/0.08)]',
-        '@3xl:relative @3xl:z-auto @3xl:shrink-0 @3xl:rounded-none @3xl:shadow-none',
+        'bg-popover text-popover-foreground absolute z-30 flex flex-col overflow-hidden border',
+        'shadow-[0_1px_2px_rgb(0_0_0/0.06),0_12px_32px_rgb(0_0_0/0.16)]',
+        // 2. Fit: a drawer from the bottom when narrow, a panel on the right when wide.
+        'inset-x-0 bottom-0 max-h-[70%] rounded-t-xl border-b-0',
+        '@3xl:inset-x-auto @3xl:top-3 @3xl:right-3 @3xl:bottom-auto @3xl:max-h-[calc(100%-1.5rem)] @3xl:w-88 @3xl:rounded-xl @3xl:border-b',
       )}
-      initial={still ? false : { height: 0 }}
-      animate={{ height: 'auto' }}
+      initial={still ? false : { opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
       exit={
         still
-          ? { height: 0, transition: { duration: 0 } }
-          : { height: 0, transition: { duration: 0.12, ease: 'easeIn' } }
+          ? { opacity: 0, transition: { duration: 0 } }
+          : { opacity: 0, y: 8, transition: { duration: 0.12, ease: 'easeIn' } }
       }
-      transition={{ duration: 0.18, ease: OUT }}
+      transition={{ duration: 0.2, ease: OUT }}
     >
-      <div className="flex min-h-0 flex-1 flex-col">
-        {/* 3. Read: what it is */}
-        <header className="flex shrink-0 items-center gap-3 px-4 pt-3 pb-2">
-          <div className="min-w-0 flex-1">
-            <p
-              className="text-[10.5px] font-medium tracking-wider uppercase"
-              style={{ color: ink(tone) }}
-            >
-              {kind}
-            </p>
-            <h2 className="truncate text-sm font-semibold">{title}</h2>
-          </div>
-          <button
-            type="button"
-            aria-label="Close"
-            onClick={onClose}
-            className="text-muted-foreground hover:text-foreground hover:bg-muted grid size-8 shrink-0 place-items-center rounded-md transition-colors duration-150 outline-none focus-visible:ring-2 [&_svg]:size-4"
-          >
-            <X />
-          </button>
-        </header>
-
-        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-4 pb-4 @3xl:flex-row @3xl:gap-6 @3xl:overflow-x-auto @3xl:overflow-y-hidden">
-          {(facts.length > 0 || rows) && (
-            <div className="flex shrink-0 flex-col gap-4 @3xl:w-64 @3xl:overflow-y-auto">
-              {facts.length > 0 && (
-                <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-xs">
-                  {facts.map((fact) => (
-                    <div key={fact.label} className="contents">
-                      <dt className="text-muted-foreground">{fact.label}</dt>
-                      <dd className="min-w-0 truncate font-mono text-[11.5px]">
-                        {fact.value}
-                      </dd>
-                    </div>
-                  ))}
-                </dl>
-              )}
-              {rows && (
-                <Part title={rows.title}>
-                  {rows.items.length === 0 ? (
-                    <p className="text-muted-foreground text-xs">
-                      None running.
-                    </p>
-                  ) : (
-                    <ul className="flex flex-col gap-1">
-                      {rows.items.map((row) => (
-                        <li
-                          key={row.label}
-                          className="flex items-center gap-2 text-xs"
-                        >
-                          <span
-                            className="size-1.5 shrink-0 rounded-full"
-                            style={{ backgroundColor: ink(row.tone) }}
-                          />
-                          <span className="min-w-0 flex-1 truncate font-mono text-[11.5px]">
-                            {row.label}
-                          </span>
-                          <span className="text-muted-foreground">
-                            {row.detail}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </Part>
-              )}
-            </div>
-          )}
-
-          {/* 3. Read: each value */}
-          {sections.map((section) => (
-            <Part
-              key={section.title}
-              title={section.title}
-              className="@3xl:w-80 @3xl:shrink-0 @3xl:overflow-y-auto"
-            >
-              {section.value !== null && typeof section.value === 'object' ? (
-                <div className="bg-muted/40 rounded-lg border p-2">
-                  <JsonTree value={section.value} collapsed={2} tone="syntax" />
-                </div>
-              ) : (
-                <p className="font-mono text-xs">
-                  {JSON.stringify(section.value) ?? 'nothing'}
-                </p>
-              )}
-            </Part>
-          ))}
+      {/* 3. Read: what it is */}
+      <header className="flex shrink-0 items-start gap-3 border-b px-4 py-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-muted-foreground flex items-center gap-1.5 text-[11px] font-medium">
+            <span
+              className="size-1.5 rounded-full"
+              style={{ backgroundColor: ink(tone) }}
+            />
+            {kind}
+          </p>
+          <h2 className="mt-0.5 truncate text-[15px] font-semibold">{title}</h2>
         </div>
+        <button
+          type="button"
+          aria-label="Close"
+          onClick={onClose}
+          className="text-muted-foreground hover:text-foreground hover:bg-muted -mr-1.5 grid size-8 shrink-0 place-items-center rounded-md transition-colors duration-150 outline-none focus-visible:ring-2 [&_svg]:size-4"
+        >
+          <X />
+        </button>
+      </header>
+
+      <div className="flex min-h-0 flex-col gap-5 overflow-y-auto overscroll-contain px-4 py-3.5">
+        {facts.length > 0 && (
+          <dl className="grid grid-cols-[minmax(4.5rem,auto)_1fr] gap-x-4 gap-y-2 text-xs">
+            {facts.map((fact) => (
+              <div key={fact.label} className="contents">
+                <dt className="text-muted-foreground">{fact.label}</dt>
+                <dd className="min-w-0 truncate font-mono text-[11.5px]">
+                  {fact.value}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        )}
+
+        {rows && (
+          <Part title={rows.title}>
+            {rows.items.length === 0 ? (
+              <p className="text-muted-foreground text-xs">None running.</p>
+            ) : (
+              <ul className="flex flex-col gap-1.5">
+                {rows.items.map((row) => (
+                  <li
+                    key={row.label}
+                    className="flex items-center gap-2 text-xs"
+                  >
+                    <span
+                      className="size-1.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: ink(row.tone) }}
+                    />
+                    <span className="min-w-0 flex-1 truncate font-mono text-[11.5px]">
+                      {row.label}
+                    </span>
+                    <span className="text-muted-foreground">{row.detail}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Part>
+        )}
+
+        {/* 3. Read: each value */}
+        {sections.map((section) => (
+          <Part key={section.title} title={section.title}>
+            {section.value !== null && typeof section.value === 'object' ? (
+              <div className="bg-muted/40 -mx-1 rounded-lg px-2.5 py-2">
+                <JsonTree value={section.value} collapsed={3} tone="syntax" />
+              </div>
+            ) : (
+              <p className="font-mono text-xs">
+                {JSON.stringify(section.value) ?? 'nothing'}
+              </p>
+            )}
+          </Part>
+        ))}
       </div>
     </motion.section>
   );
@@ -183,10 +173,8 @@ function Part({
   readonly children: ReactNode;
 }) {
   return (
-    <section className={cn('flex flex-col gap-1.5', className)}>
-      <h3 className="text-muted-foreground text-[10.5px] font-medium tracking-wider uppercase">
-        {title}
-      </h3>
+    <section className={cn('flex flex-col gap-2', className)}>
+      <h3 className="text-muted-foreground text-[11px] font-medium">{title}</h3>
       {children}
     </section>
   );
