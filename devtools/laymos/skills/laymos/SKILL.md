@@ -21,8 +21,9 @@ you write the few Rules that say who may import whom, and the strata are what
 the picture shows: inside any folder, a Module sits below the siblings that
 import it.
 
-Read `references/design.md` before choosing module boundaries, splitting or
-combining modules, or designing orchestration.
+Read `references/design.md` before choosing module boundaries, placing,
+nesting, or lifting a capability, splitting or combining modules, or designing
+orchestration.
 
 ## What is Laymos?
 
@@ -75,8 +76,9 @@ between two paths, each a Wrapper or a Module at any depth:
 
 Every Module inside the source may import the Index of every Module inside
 the target. Rules do not chain. Write them as narrow as the need: a Rule to a
-nested Module grants that Module alone; a Rule to a Wrapper grants everything
-in it. `*` as a source means every sibling of the target (a Shared Rule).
+Module grants it and every Module nested in it, so point a Rule at the
+deepest Module the source needs; a Rule to a Wrapper grants everything in it.
+`*` as a source means every sibling of the target (a Shared Rule).
 Rules cannot loop, and a Rule from inside a path to the path itself is
 rejected.
 

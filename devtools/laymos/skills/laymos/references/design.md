@@ -1,8 +1,8 @@
 # Module design
 
-Read this when choosing boundaries, splitting or combining modules, opening a
-module into nested modules, or designing orchestration. Concepts stay short;
-scenarios decide.
+Read this when choosing boundaries, placing or lifting a capability, splitting
+or combining modules, opening a module into nested modules, or designing
+orchestration. Concepts stay short; scenarios decide.
 
 ## Module boundary
 
@@ -92,6 +92,16 @@ one nothing uses is dead.
 **Does a Nested Module need `index.ts`?**
 Yes. That is what makes it a Module; siblings and outsiders use its Index.
 
+**What does a Rule to a Module that holds Modules grant?**
+That Module and every Module nested in it. When the source needs one nested
+part, point the Rule at that part; one Rule to the parent covers the parent
+and its parts, so a second Rule to a part is unused.
+
+**A Wrapper holds one Module and that Module's parts as siblings. What now?**
+Make the Wrapper the Module. The entry's files become its own files and the
+parts nest inside it, where its own files reach them for free. A Wrapper
+around a single Module adds a level and hides nothing.
+
 **Should Rules among siblings mirror runtime calls?**
 No. Rules express correctness dependencies, not execution chronology.
 
@@ -101,6 +111,55 @@ When B simplifies A, B stands without A, and A needs B to fulfil its promise.
 **A sibling wants something from the parent. What now?**
 It is a user of the parent, not a part of it. Move it out, or write an
 Exception with a Reason and plan the move.
+
+## Placement
+
+Two forces meet in the tree. Hiding pushes a capability down, into the one
+Module that uses it. Sharing pulls it up, to where its users meet. The
+direction settles both: a parent uses its children for free, siblings use
+each other by Rule, and nothing uses its own ancestor.
+
+**Where does a capability live?**
+With its owner: inside the Module whose promise it serves, as deep as that is.
+
+**Only one Module uses it. Where does it go?**
+Nested inside that Module, private. Nothing outside needs to know it exists.
+
+**A second Module needs it. Lift it?**
+Not if it still has an owner. Write a narrow Rule to the nested Module where
+it lives; private means closed by default, not closed forever.
+
+**When does it lift?**
+When no single owner remains: it serves its users more than its parent. Lift
+it to the lowest level where all its users meet, as their sibling.
+
+**Lifted code: a sibling with Rules, or a foundation under `*`?**
+A sibling with a Rule from each user. `*` is for a true foundation every
+sibling uses; it is never a place to put things nobody owns.
+
+**Its users drop back to one. What now?**
+Push it back down into that user. A shared Module with one user hides nothing.
+
+**A nested Module needs a type from its parent's own files. What now?**
+Move it into a Nested Module and give the siblings a Rule to it. A parent's own
+files compose; they use children and are never used by them.
+
+**A deep Module imports a sibling of its ancestor. Is that wrong?**
+No. That is another subtree, reached by an inherited Rule. Write the Rule from
+the narrowest source that needs it: `src/a/x -> src/b`, not `src/a -> src/b`.
+
+**A deep Module imports its own ancestor. Is that wrong?**
+Yes. It uses the thing it sits inside. Move it out, or extract what it needs
+into a Nested Module. An Exception is debt: its Reason names the move that
+ends it.
+
+**Should I group with a Module or a Wrapper?**
+A Module to hide: outsiders see one Index. A Wrapper only to group: a Rule to
+it reaches every Module inside.
+
+**May a parent's Index re-export a child?**
+Only as part of the parent's own promise. A pass-through re-export makes the
+child public without anyone deciding it should be.
 
 ## Orchestrator
 
