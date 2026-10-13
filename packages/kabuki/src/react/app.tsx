@@ -53,6 +53,12 @@ export interface AppOptions {
   /** A History saved before: the app is first drawn at its Head, and its Runtime carries on from there. */
   readonly saved?: SavedHistory;
   /**
+   * The root's Input, read once, when the app first makes its History: not
+   * for a saved History, nor one a hot reload left. A function, so it can
+   * read what is only there at that moment, like the browser's URL.
+   */
+  readonly input?: () => unknown;
+  /**
    * How many entries its History keeps on the Head's Branch; every one by
    * default. `history.keep` changes it later, and the change is remembered
    * in the browser under the app's name, so it outlasts a reload and wins
@@ -118,7 +124,10 @@ export const toReact = <A extends AnyActor, Provided>(
   const own = () =>
     options.saved
       ? History.load(actor, options.saved, keptWindow())
-      : History.make(actor, keptWindow());
+      : History.make(actor, {
+          ...keptWindow(),
+          ...(options.input ? { input: options.input() } : {}),
+        });
   /** The History an app of this name holds or left, read with this code, else its own. */
   const adopt = () => {
     const left = registry.history(name);

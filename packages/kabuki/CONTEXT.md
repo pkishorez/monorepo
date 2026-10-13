@@ -144,6 +144,48 @@ _Avoid_: exposes, exports
 A function on a Capability that sends a Message to the Instance that Provides it, so a descendant can ask an ancestor for a change without knowing where it is. Called from a Command or a Worker, never from a View.
 _Avoid_: output, bubble, callback, event
 
+### Routing
+
+**Route**:
+One typed place in the app, with its params and query: what a URL means once it is read, one tagged value per level. Every URL reads as exactly one Route, and a URL that names no place reads as the not-found Route rather than failing. Held once, by the Router, and handed down as Props.
+_Avoid_: page, path, location, screen
+
+**Routes**:
+The one definition of every Route in the app, a tree of places where a place can hold others. The same definition reads a URL into a Route, writes a Route back as a URL, and says each place's head, so none of them can disagree.
+_Avoid_: route table, route map
+
+**Router**:
+The one Actor routing adds, above the app's own root: it holds the app's history, as entries and where it is in them, hands the app the current Route as Props, and is sent every move. The only thing in an app that knows about URLs.
+_Avoid_: navigator, history (Kabuki's History is another thing)
+
+**Outlet**:
+What an Actor whose Route holds others uses to serve them: one keyed Child slot per child Route, holding the Actor for the current one, keyed by its params, and a View that draws it. A new param is a fresh page; a new query is the same page with new Props.
+_Avoid_: layout, wrapper, slot (on its own)
+
+**Navigation**:
+The Capability the Router Provides to everything below it: Requests to push a Route, replace it, go back or forward, each one Message to the Router, with its Source. Moving between pages is a Child coming and going under an Outlet, never "a navigation".
+_Avoid_: router (the Actor), history
+
+**Move**:
+The last change of the Router's current entry: where from, where to, and how, a load, push, replace, back or forward. Each Outlet sees it at its own level, which is what a page's enter and exit animations read.
+_Avoid_: transition (Kabuki's Transition is another thing), navigation
+
+**Redirect**:
+A URL that is never a place, replaced in the address by the Route the Routes name for it, so Back never returns to it. A URL that reads as a Route but is not how that Route is written is replaced the same way.
+_Avoid_: guard, forward
+
+**Address**:
+The URL as the live Router writes it: a Command per move, and nothing when the browser already shows it. Time Travel never touches it: a past Step is a drawing of the app, and the move that led there is one Message on the Timeline.
+_Avoid_: location, url bar, sync
+
+**Adapter**:
+Where an app's Address lives: in memory, the default, so any app routes without touching a URL; in the browser's own history; or in TanStack Router's, for an app on a TanStack Start catch-all route. Given in the app's Layer; the Routes and every Actor are the same whichever it is.
+_Avoid_: backend, driver, host, mode
+
+**Head**:
+What a place says about itself to the browser and to search: its title and meta tags. Written in the Routes when the Route alone knows it, which a server can work out from a URL; drawn by a page's View when only its data knows it, which only the browser sees.
+_Avoid_: meta, SEO, document
+
 ### Drawing
 
 **View**:

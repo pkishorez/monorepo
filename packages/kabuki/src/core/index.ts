@@ -1,12 +1,17 @@
 export { Actor, Command } from './actor/index.ts';
 export type {
   ActorOf,
+  ActorType,
   AnyActor,
+  Behavior,
   Data,
   Defined,
   ActorDefinition,
+  KidsByState,
   Many,
   Only,
+  OpenOfBehavior,
+  Requires,
   Self,
   Tagged,
   Types,
