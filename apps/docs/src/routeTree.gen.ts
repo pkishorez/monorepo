@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DemosOpeningAnAppRouteImport } from './routes/demos/opening-an-app'
+import { Route as DemosKabukiRoutingSplatRouteImport } from './routes/demos/kabuki-routing.$'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -22,31 +23,40 @@ const DemosOpeningAnAppRoute = DemosOpeningAnAppRouteImport.update({
   path: '/demos/opening-an-app',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DemosKabukiRoutingSplatRoute = DemosKabukiRoutingSplatRouteImport.update({
+  id: '/demos/kabuki-routing/$',
+  path: '/demos/kabuki-routing/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/demos/opening-an-app': typeof DemosOpeningAnAppRoute
+  '/demos/kabuki-routing/$': typeof DemosKabukiRoutingSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/demos/opening-an-app': typeof DemosOpeningAnAppRoute
+  '/demos/kabuki-routing/$': typeof DemosKabukiRoutingSplatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/demos/opening-an-app': typeof DemosOpeningAnAppRoute
+  '/demos/kabuki-routing/$': typeof DemosKabukiRoutingSplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/demos/opening-an-app'
+  fullPaths: '/' | '/demos/opening-an-app' | '/demos/kabuki-routing/$'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/demos/opening-an-app'
-  id: '__root__' | '/' | '/demos/opening-an-app'
+  to: '/' | '/demos/opening-an-app' | '/demos/kabuki-routing/$'
+  id: '__root__' | '/' | '/demos/opening-an-app' | '/demos/kabuki-routing/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DemosOpeningAnAppRoute: typeof DemosOpeningAnAppRoute
+  DemosKabukiRoutingSplatRoute: typeof DemosKabukiRoutingSplatRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -65,12 +75,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DemosOpeningAnAppRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/demos/kabuki-routing/$': {
+      id: '/demos/kabuki-routing/$'
+      path: '/demos/kabuki-routing/$'
+      fullPath: '/demos/kabuki-routing/$'
+      preLoaderRoute: typeof DemosKabukiRoutingSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DemosOpeningAnAppRoute: DemosOpeningAnAppRoute,
+  DemosKabukiRoutingSplatRoute: DemosKabukiRoutingSplatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

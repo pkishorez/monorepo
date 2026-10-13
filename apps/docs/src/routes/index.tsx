@@ -61,6 +61,13 @@ function Home() {
           >
             Opening an app →
           </Link>
+          <Link
+            to="/demos/kabuki-routing/$"
+            params={{ _splat: '' }}
+            className={`text-sm text-muted-foreground transition-colors hover:text-primary ${focusRing}`}
+          >
+            Routing →
+          </Link>
         </section>
       </div>
     </main>

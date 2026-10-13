@@ -12,6 +12,13 @@
   "rules": {
     "src/router.tsx": ["src/components"],
     "src/routes": ["src/lib", "src/demos"],
-    "src/demos/opening-an-app/screens": ["src/demos/opening-an-app/story"]
+    "src/demos/opening-an-app/screens": ["src/demos/opening-an-app/story"],
+    "src/demos/kabuki-routing/app": [
+      "src/demos/kabuki-routing/routes",
+      "src/demos/kabuki-routing/parts"
+    ],
+    "src/demos/kabuki-routing/app/sign-in": [
+      "src/demos/kabuki-routing/app/capabilities"
+    ]
   }
 }
