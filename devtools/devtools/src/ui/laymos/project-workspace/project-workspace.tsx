@@ -10,7 +10,7 @@ import {
   EmptyTitle,
 } from '@kestack/web-platform/components/empty';
 import { toast } from '@kestack/web-platform/components/sonner';
-import { Laymos as AnalysisExplorer } from '@devtools/ui/laymos';
+import { Laymos as AnalysisExplorer } from './analysis-explorer/index.js';
 import {
   DevtoolsClient,
   useDevtoolsRuntime,

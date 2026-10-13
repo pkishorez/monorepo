@@ -8,7 +8,7 @@ import type {
   LoadMonorepoAnalysis,
   MonorepoAnalysis,
   MonoverseProps,
-} from '@devtools/ui/monoverse';
+} from './monorepo-explorer/index.js';
 import { Monoverse } from './monoverse.js';
 
 const state = vi.hoisted(() => ({
@@ -161,9 +161,9 @@ vi.mock('../../project-selection/index.js', () => ({
 vi.mock('../../laymos/project-workspace/index.js', () => ({
   LaymosProjectWorkspace: () => null,
 }));
-vi.mock('@devtools/ui/monoverse', async (importOriginal) => {
+vi.mock('./monorepo-explorer/index.js', async (importOriginal) => {
   const actual =
-    await importOriginal<typeof import('@devtools/ui/monoverse')>();
+    await importOriginal<typeof import('./monorepo-explorer/index.js')>();
   const FakeMonoverse = ({
     loadAnalysis,
     reloadNonce,

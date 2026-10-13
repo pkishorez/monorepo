@@ -12,16 +12,17 @@ endpoint, and OTLP/HTTP ingestion. Every subcommand is a Client Command that
 reads Traces back from a running server as JSON or text, so a shell or a
 coding agent can query telemetry without a browser.
 
-The server hosts two Tools. Lotel stores and shows OpenTelemetry data using
-[@kestack/lotel](../lotel/README.md). Monoverse maps a monorepo or a single
-package and opens a Package's architecture in place as Embedded Laymos,
-through [laymos](../laymos/README.md). Applications send telemetry with
-[@kestack/effect-tracer](../effect-tracer/README.md). The Tools' views come
-from the private [@devtools/ui](../ui/README.md), which is a devDependency
-bundled into the browser UI at build time, so it is never installed.
+The server hosts two Tools. Lotel stores and shows OpenTelemetry data; its
+telemetry contracts and store ship here as the `@kestack/devtools/lotel`
+subpaths ([src/lotel](./src/lotel/README.md)). Monoverse maps a monorepo or a
+single package and opens a Package's architecture in place as Embedded
+Laymos, through [laymos](../laymos/README.md). Applications send telemetry
+with [@kestack/effect-tracer](../effect-tracer/README.md). Each Tool's views
+live under `src/ui` and are bundled into the browser UI at build time;
+`pnpm cosmos` opens their fixtures.
 
-Terms are defined in [CONTEXT.md](./CONTEXT.md) and, for Monoverse,
-[docs/monoverse.md](./docs/monoverse.md). Decisions are in
+Terms are defined in [CONTEXT.md](./CONTEXT.md) and, per Tool, in
+[docs/lotel.md](./docs/lotel.md) and [docs/monoverse.md](./docs/monoverse.md). Decisions are in
 [docs/adr/](./docs/adr/). The agent skill shipped with the package is in
 [skills/devtools/SKILL.md](./skills/devtools/SKILL.md).
 
@@ -33,9 +34,24 @@ npm i -g @kestack/devtools
 
 Or run it without installing: `npx @kestack/devtools`.
 
-It has no peer dependencies. The `@kestack/devtools/rpc` subpath is source TypeScript and needs `effect` in the consuming project.
+It has no peer dependencies. The `@kestack/devtools/rpc` and `@kestack/devtools/lotel` subpaths are source TypeScript and need `effect` in the consuming project.
 
 ## Exports
+
+### `@kestack/devtools/lotel`
+
+Node. Lotel's RPC and OTLP/HTTP layers and its SQLite Telemetry Store; see
+[src/lotel](./src/lotel/README.md#kestackdevtoolslotel-1).
+
+### `@kestack/devtools/lotel/rpc`
+
+Browser-safe. The `LotelRpc` contract alone; see
+[src/lotel](./src/lotel/README.md#kestackdevtoolslotelrpc).
+
+### `@kestack/devtools/lotel/telemetry`
+
+Browser-safe. Span and Log Record Schemas, Trace shapes, OTLP bodies and
+errors; see [src/lotel](./src/lotel/README.md#kestackdevtoolsloteltelemetry).
 
 ### `@kestack/devtools/rpc`
 

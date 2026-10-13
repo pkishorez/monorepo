@@ -1,6 +1,6 @@
-import { TraceDock } from '@devtools/ui/otel-trace-viewer';
-import type { TraceGroup } from '@devtools/ui/otel-trace-viewer/trace-model';
-import type { TraceView } from '@devtools/ui/otel-trace-viewer/trace-presentation';
+import { TraceDock } from '../trace-viewer/index.js';
+import type { TraceGroup } from '../trace-viewer/trace-model/index.js';
+import type { TraceView } from '../trace-viewer/trace-presentation/index.js';
 import { Button } from '@kestack/web-platform/components/button';
 import {
   AlertTriangleIcon,

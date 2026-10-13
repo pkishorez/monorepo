@@ -487,7 +487,7 @@ Exit criteria:
 
 ### Phase 9: Migrate workspace consumers
 
-- [ ] Migrate `devtools/lotel` database definitions and layers.
+- [ ] Migrate `devtools/devtools/src/lotel` database definitions and layers.
 - [ ] Search the full workspace for legacy DynamoDB, SQLite, and IndexedDB imports.
 - [ ] Replace adapter-specific Entity types with portable Entity definitions.
 - [ ] Replace old database-scoped registries and mutable binding calls.
