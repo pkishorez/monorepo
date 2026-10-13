@@ -1,4 +1,4 @@
-import { AnimatePresence, motion, useTransform } from 'motion/react';
+import { AnimatePresence, motion } from 'motion/react';
 import type { ReactNode } from 'react';
 import {
   Check,
@@ -11,10 +11,9 @@ import {
   Plus,
   X,
 } from 'lucide-react';
-import { useFrame } from 'effect-oak/motion';
 import { View } from 'effect-oak/react';
 import type { ViewProps } from 'effect-oak/react';
-import { DURATION, Download, Downloads, doneAt } from '../story/index.ts';
+import { DURATION, Download, Downloads, STEP } from '../story/index.ts';
 import { Button, EASE } from './parts.tsx';
 
 /** The height of one download in the list, in pixels. */
@@ -142,12 +141,7 @@ function Row(self: ViewProps<typeof Download>) {
           }}
         </Swap>
       </span>
-      <Progress
-        name={model.name}
-        done={model.done}
-        since={self._tag === 'Downloading' ? self.state.since : undefined}
-        status={self._tag}
-      />
+      <Progress name={model.name} done={model.done} status={self._tag} />
       {/* Two button slots always, so a button going never moves the bar. */}
       <div className="flex shrink-0 items-center">
         <Swap shown={self._tag} className="size-8">
@@ -185,33 +179,19 @@ function Row(self: ViewProps<typeof Download>) {
   );
 }
 
-interface Along {
-  /** Milliseconds done before this run. */
-  readonly done: number;
-  /** When this run began, while Downloading. */
-  readonly since: number | undefined;
-}
-
-/**
- * How far along a file is, from 0 to 1, worked out at every Frame from what
- * the Model says. Its inputs are read once: whoever draws it gives it a new
- * key when they change.
- */
-const useAlong = ({ done, since }: Along) =>
-  useTransform(useFrame(), (time) => doneAt(done, since, time) / DURATION);
-
-function Percent(along: Along) {
-  const percent = useTransform(
-    useAlong(along),
-    (p) => `${Math.floor(p * 100)}%`,
-  );
-  return <motion.span>{percent}</motion.span>;
-}
-
-function Bar({ paused, ...along }: Along & { readonly paused: boolean }) {
+/** A bar that follows how far along a file is, eased across each step it reports. */
+function Bar({
+  along,
+  paused,
+}: {
+  readonly along: number;
+  readonly paused: boolean;
+}) {
   return (
     <motion.div
-      style={{ scaleX: useAlong(along) }}
+      initial={false}
+      animate={{ scaleX: along }}
+      transition={{ duration: STEP / 1000, ease: 'linear' }}
       className={`h-full origin-left rounded-full transition-colors duration-200 ${
         paused ? 'bg-foreground/30' : 'bg-emerald-500'
       }`}
@@ -221,13 +201,16 @@ function Bar({ paused, ...along }: Along & { readonly paused: boolean }) {
 
 function Progress({
   name,
+  done,
   status,
-  ...along
-}: Along & {
+}: {
   readonly name: string;
+  /** Milliseconds of it downloaded. */
+  readonly done: number;
   readonly status: 'Downloading' | 'Paused' | 'Done';
 }) {
-  const run = `${along.done}:${along.since}`;
+  const along = done / DURATION;
+  const percent = `${Math.floor(along * 100)}%`;
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-1.5">
       <div className="flex items-baseline justify-between gap-3 text-[13px]">
@@ -238,18 +221,14 @@ function Progress({
           className="w-20 shrink-0 text-xs text-muted-foreground tabular-nums *:justify-items-end"
         >
           {{
-            Downloading: <Percent key={run} {...along} />,
-            Paused: (
-              <span>
-                Paused · <Percent key={run} {...along} />
-              </span>
-            ),
+            Downloading: <span>{percent}</span>,
+            Paused: <span>Paused · {percent}</span>,
             Done: 'Done',
           }}
         </Swap>
       </div>
       <div className="h-1 overflow-hidden rounded-full bg-foreground/10">
-        <Bar key={run} paused={status === 'Paused'} {...along} />
+        <Bar along={along} paused={status === 'Paused'} />
       </div>
     </div>
   );

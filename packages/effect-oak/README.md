@@ -46,8 +46,6 @@ pnpm add effect-oak effect react
   one is checked against its Schema as it is made; Workers, Commands and
   Capabilities are Effect values and Layers.
 - `react`: `effect-oak/react` draws the tree with React components.
-- `motion` (optional): `effect-oak/motion` gives Views the Frame as a Framer
-  Motion `MotionValue`. Without it, motion is never bundled.
 
 ## Exports
 
@@ -78,12 +76,6 @@ pnpm add effect-oak effect react
 | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `View.make` | Defines how one Actor is drawn, one function for every State, as a React component that takes the Instance, and a `ref` and `style`, from its parent.                                                                                                                      |
 | `toReact`   | Turns a root Actor, its View and a Layer into one React component that runs the whole app, one Runtime for every mount; `useRuntime` reads its History, shows any Step, and stops and starts it. Drawn before it runs, on a server too, from a saved History if given one. |
-
-### `effect-oak/motion`
-
-| Export     | What it does                                                                                                                                |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `useFrame` | The Frame, the Time the app is drawn at, as a `MotionValue`: moving while live and running, standing at the Step's Time while one is shown. |
 
 ## Usage
 
@@ -263,7 +255,7 @@ const DemoApp = toReact(Auth, AuthView, ServerLive);
 - A View re-renders only when its own Instance's Model, State, Props or set of Children changes, or its `ref` or `style` does. Many Messages handled in a row make one render.
 - `DemoApp.useRuntime()` returns `{ history, branch, head, running, shown, show, start, stop, clear, workers }` from anywhere on the page. Each `branch` entry is only its Envelope: `destination`, `message`, `at`, and `source`, the Instance that Sent it and what in it did; `history.outcome(id)` works out whether it was handled, ignored or dropped, and `history.snapshotAt(id)` takes the app apart there. `show(id)` draws the app right after that entry, on any Branch, while the live app runs on; `stop()` closes every Worker, Command and Capability; `start(id)` moves the Head to that entry and goes live there, growing a new Branch, and `start()` carries on from the Head, at its Time. `workers(id)` says what an Instance's Workers are doing live: running, finished, or failed.
 - Work that must survive a stop belongs in a Worker: Commands running at a stop are lost. The outside world is not rewound.
-- Whatever moves between Messages, like how long ago or how far along, is drawn from `useFrame()` from `effect-oak/motion` with `useTransform`; nothing renders between Messages, and a past Step draws at its own Time.
+- What changes over time arrives as Messages: a Worker Sends a `Tick` or its progress, and the View draws the Model. motion can smooth what it draws from one Message to the next.
 - `toReact` does not compile until the Layer covers every Capability the tree still needs.
 
 ### Drawing it before it runs

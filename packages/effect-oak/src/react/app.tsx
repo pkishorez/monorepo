@@ -16,7 +16,7 @@ import type {
 import { makeDrawn } from './drawn.ts';
 import { registry } from './registry.ts';
 import { AppContext } from './view.tsx';
-import type { DrawnApp, DrawnTime, ViewOf } from './view.tsx';
+import type { ViewOf } from './view.tsx';
 
 /*
  * The App: an Actor tree with its Layer, as one React component. It draws
@@ -143,32 +143,18 @@ export const toReact = <A extends AnyActor, Provided>(
   const snapshot = () =>
     shown === null ? (runtime?.snapshot() ?? first?.snapshot) : past;
 
-  /** The Time of the Step shown, or of the Head before any Runtime. */
-  const timeOf = (step: Step | null) =>
-    step === null || step === 'init' ? 0 : historyOf().save().entries[step]!.at;
-
-  const time = (): DrawnTime =>
-    shown !== null
-      ? { now: timeOf(shown), moving: false }
-      : runtime
-        ? { now: runtime.now(), moving: runtime.running() }
-        : { now: timeOf(historyOf().head()), moving: false };
-
-  const drawn: DrawnApp = {
-    time,
-    ...makeDrawn(
-      snapshot,
-      () => first?.snapshot,
-      (id, message) => {
-        if (shown === null)
-          runtime?.send(id, message, { kind: 'view', instance: id });
-      },
-      (listener) => {
-        listeners.add(listener);
-        return () => listeners.delete(listener);
-      },
-    ),
-  };
+  const drawn = makeDrawn(
+    snapshot,
+    () => first?.snapshot,
+    (id, message) => {
+      if (shown === null)
+        runtime?.send(id, message, { kind: 'view', instance: id });
+    },
+    (listener) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+  );
 
   // 2. Mount
   let mounts = 0;

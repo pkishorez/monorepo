@@ -59,13 +59,6 @@ export interface DrawnApp {
   readonly instance: (id: string) => Drawable | undefined;
   /** The Instance as first drawn, before any Runtime: what a server draws and the client hydrates against. */
   readonly served: (id: string) => Drawable | undefined;
-  /** The Time the app is drawn at, and whether it moves: only while live and running. */
-  readonly time: () => DrawnTime;
-}
-
-export interface DrawnTime {
-  readonly now: number;
-  readonly moving: boolean;
 }
 
 export const AppContext = createContext<DrawnApp | undefined>(undefined);

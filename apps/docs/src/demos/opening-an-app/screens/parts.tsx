@@ -1,7 +1,6 @@
 import { createContext, use } from 'react';
 import type { ReactNode } from 'react';
-import { AnimatePresence, motion, useTransform } from 'motion/react';
-import { useFrame } from 'effect-oak/motion';
+import { AnimatePresence, motion } from 'motion/react';
 
 /** The curve every screen moves on. */
 export const EASE = [0.32, 0.72, 0, 1] as const;
@@ -104,11 +103,12 @@ export function Spinner({ className = '' }: { readonly className?: string }) {
   );
 }
 
-/** How long ago a Time was, worked out at every Frame. */
-export function Ago({ at }: { readonly at: number }) {
-  const text = useTransform(useFrame(), (now) => {
-    const seconds = Math.max(0, Math.floor((now - at) / 1000));
-    return seconds < 2 ? 'just now' : `${seconds}s ago`;
-  });
-  return <motion.span className="tabular-nums">{text}</motion.span>;
+/** A Time, in milliseconds since the app started, as minutes and seconds. */
+export function Clock({ at }: { readonly at: number }) {
+  const seconds = Math.floor(at / 1000);
+  return (
+    <span className="tabular-nums">
+      {Math.floor(seconds / 60)}:{`${seconds % 60}`.padStart(2, '0')}
+    </span>
+  );
 }
