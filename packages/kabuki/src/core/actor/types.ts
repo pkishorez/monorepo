@@ -129,17 +129,24 @@ export type Workers<
  * When a Child exists, written as a Worker's Condition is: always, `while` a
  * test is true, or once per key `each` names. Where it is written is part of
  * it too: at the top for as long as the Instance lives, in a State's block
- * while that State lasts.
+ * while that State lasts. A Child that is one, always or `while`, may name a
+ * `key`: when it changes, the Child is Invoked again, a fresh Instance.
  */
 type Condition<Model, State, Props> =
-  | { readonly while?: never; readonly each?: never }
+  | {
+      readonly while?: never;
+      readonly each?: never;
+      readonly key?: (data: Data<Model, State, Props>) => string;
+    }
   | {
       readonly while: (data: Data<Model, State, Props>) => boolean;
       readonly each?: never;
+      readonly key?: (data: Data<Model, State, Props>) => string;
     }
   | {
       readonly while?: never;
       readonly each: (data: Data<Model, State, Props>) => ReadonlyArray<string>;
+      readonly key?: never;
     };
 
 /**
@@ -195,6 +202,7 @@ export interface AnyChild {
   readonly actor: AnyActor;
   readonly while?: Function;
   readonly each?: Function;
+  readonly key?: Function;
   readonly input?: Function;
   readonly props?: Function;
 }
@@ -341,7 +349,9 @@ export interface SlotDefinition {
    * list in the order of its keys.
    */
   readonly kind: 'always' | 'while' | 'each';
-  /** The keys its Condition names for this data; `''` for the one Instance of the other kinds. */
+  /** Whether its one Instance is held under a key, and Invoked again when it changes. */
+  readonly keyed: boolean;
+  /** The keys its Condition names for this data; `''` for the one unkeyed Instance of the other kinds. */
   readonly keys: (
     data: Data<unknown, Tagged, unknown>,
   ) => ReadonlyArray<string>;

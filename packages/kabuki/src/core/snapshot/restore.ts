@@ -77,7 +77,7 @@ const check = (
       const reason = check(
         wanted.definition,
         child,
-        isMany(held) ? child.key : undefined,
+        isMany(held) || wanted.keyed ? child.key : undefined,
       );
       if (reason !== undefined) return reason;
     }

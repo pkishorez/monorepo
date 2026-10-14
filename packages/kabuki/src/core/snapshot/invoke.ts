@@ -16,7 +16,8 @@ import type { Instance } from './snapshot.ts';
  *            Condition do.
  * 3. Follow  every Child follows the parent's data by key, the way a Worker
  *            does: a key its Condition names Invokes a Child, a key gone
- *            stops it, a key kept keeps it. Every Child kept is handed its
+ *            stops it, a key kept keeps it. A single Child with a `key` is
+ *            held the same way, so a new key replaces it. Every Child kept is handed its
  *            Props again: new ones give it a new Instance, and its own
  *            Children follow them in turn.
  */
@@ -88,7 +89,10 @@ export const follow = (
   };
   let invoked: Counters | undefined;
   let children: Record<string, Instance | ReadonlyArray<Instance>> | undefined;
-  for (const [slot, { definition: child, kind, keys, input, props }] of slots) {
+  for (const [
+    slot,
+    { definition: child, kind, keyed, keys, input, props },
+  ] of slots) {
     const many = kind === 'each';
     const held = instance.children[slot];
     const before = (
@@ -112,7 +116,7 @@ export const follow = (
         child,
         instance.id,
         slot,
-        many ? key : undefined,
+        many || keyed ? key : undefined,
         {
           input: input(data, key),
           props: props(data, key),
