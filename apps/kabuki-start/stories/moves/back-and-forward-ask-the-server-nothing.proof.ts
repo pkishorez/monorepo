@@ -36,9 +36,13 @@ export default Proof.browser({
         const page = raw as Page;
         page.on('request', (request) => {
           const url = new URL(request.url());
+          // A Loader call, or a page; not a file, nor what the CDN adds under /cdn-cgi/.
           if (
             url.origin === new URL(SITE).origin &&
-            (request.method() === 'POST' || !/\.\w+$/.test(url.pathname))
+            (url.pathname === '/_kabuki/load' ||
+              (request.method() === 'GET' &&
+                !/\.\w+$/.test(url.pathname) &&
+                !url.pathname.startsWith('/cdn-cgi/')))
           )
             asked.push(`${request.method()} ${url.pathname}`);
         });
@@ -67,7 +71,7 @@ export default Proof.browser({
         tab,
         asked,
         before: asked.length,
-        loads: asked.filter((each) => each.startsWith('POST')).length,
+        loads: asked.filter((each) => each.endsWith(' /_kabuki/load')).length,
       };
     }),
   act: ({ tab, asked, before }) =>
