@@ -76,7 +76,7 @@ describe('vite build', () => {
       path.basename(script!),
     );
     expect(response.headers.get('cache-control')).toBe(
-      'public, max-age=0, s-maxage=31536000',
+      'public, max-age=0, s-maxage=31536000, no-transform',
     );
     // The app's styles are linked in the head, so nothing is painted bare.
     const style =

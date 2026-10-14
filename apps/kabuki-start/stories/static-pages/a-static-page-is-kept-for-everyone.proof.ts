@@ -6,8 +6,8 @@ const SITE =
   globalThis.process?.env.KABUKI_START_URL?.replace(/\/$/, '') ??
   'http://localhost:4317';
 
-const KEPT = 'public, max-age=0, s-maxage=31536000';
-const NEVER = 'private, no-store';
+const KEPT = 'public, max-age=0, s-maxage=31536000, no-transform';
+const NEVER = 'private, no-store, no-transform';
 
 /** One page's status and Cache-Control, and whether a build served it (`vp dev` says "build dev"). */
 const get = (path: string, cookie?: string) =>

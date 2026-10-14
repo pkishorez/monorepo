@@ -48,7 +48,7 @@ export default Proof.make({
         );
         yield* Proof.assert(
           `never kept (${page.cache})`,
-          page.cache === 'private, no-store',
+          page.cache === 'private, no-store, no-transform',
         );
       }
     }),

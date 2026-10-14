@@ -94,7 +94,7 @@ describe('a static page', () => {
   it('is shared: kept in the Cache under the build id', async () => {
     const { response } = await page('/blog');
     expect(response.headers.get('cache-control')).toBe(
-      'public, max-age=0, s-maxage=31536000',
+      'public, max-age=0, s-maxage=31536000, no-transform',
     );
   });
 
@@ -128,7 +128,7 @@ describe('a static page', () => {
     expect(runs.filter((run) => run === 'Blog.Post:hello')).toHaveLength(1);
     expect(await second.text()).toBe(await first.text());
     expect(second.headers.get('cache-control')).toBe(
-      'public, max-age=0, s-maxage=31536000',
+      'public, max-age=0, s-maxage=31536000, no-transform',
     );
     expect([...kept.keys()]).toEqual([
       'https://site.test/_kabuki/cache/build-1/blog/hello',
@@ -154,7 +154,9 @@ describe('a dynamic page', () => {
     expect(response.status).toBe(200);
     expect(html).toContain('signed in as <!-- -->ada');
     expect(html).toContain('<p>the overview</p>');
-    expect(response.headers.get('cache-control')).toBe('private, no-store');
+    expect(response.headers.get('cache-control')).toBe(
+      'private, no-store, no-transform',
+    );
   });
 
   it('runs the Loaders of nested places at once', async () => {
@@ -170,7 +172,9 @@ describe('a dynamic page', () => {
     const response = await get('/account/settings');
     expect(response.status).toBe(302);
     expect(response.headers.get('location')).toBe('/sign-in');
-    expect(response.headers.get('cache-control')).toBe('private, no-store');
+    expect(response.headers.get('cache-control')).toBe(
+      'private, no-store, no-transform',
+    );
   });
 });
 
@@ -182,7 +186,7 @@ describe('a client place', () => {
     expect(runs).toEqual([]);
     // Nothing above it is drawn per request.
     expect(response.headers.get('cache-control')).toBe(
-      'public, max-age=0, s-maxage=31536000',
+      'public, max-age=0, s-maxage=31536000, no-transform',
     );
   });
 
@@ -193,7 +197,9 @@ describe('a client place', () => {
     expect(html).toContain('signed in as <!-- -->ada');
     expect(html).toContain('<div id="account-outlet"></div>');
     expect(runs).toEqual(['Account']);
-    expect(response.headers.get('cache-control')).toBe('private, no-store');
+    expect(response.headers.get('cache-control')).toBe(
+      'private, no-store, no-transform',
+    );
   });
 });
 

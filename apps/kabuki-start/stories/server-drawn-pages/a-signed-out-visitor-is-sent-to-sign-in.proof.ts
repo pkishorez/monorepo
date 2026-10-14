@@ -32,7 +32,7 @@ export default Proof.make({
         yield* Proof.assert(`to /sign-in (${to})`, to === '/sign-in');
         yield* Proof.assert(
           `and is never kept (${cache})`,
-          cache === 'private, no-store',
+          cache === 'private, no-store, no-transform',
         );
       }
     }),

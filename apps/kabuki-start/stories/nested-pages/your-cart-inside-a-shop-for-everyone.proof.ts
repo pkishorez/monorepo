@@ -55,8 +55,8 @@ export default Proof.make({
       );
       yield* Proof.assert(
         `neither is kept (${full.cache}, ${empty.cache})`,
-        full.cache === 'private, no-store' &&
-          empty.cache === 'private, no-store',
+        full.cache === 'private, no-store, no-transform' &&
+          empty.cache === 'private, no-store, no-transform',
       );
     }),
 });

@@ -144,11 +144,14 @@ GET /blog/hello
    are added to the head, their chunks preloaded and their styles linked,
    each marked with its id.
 6. **Keep.** A page whose places drawn here are all static is the same for
-   everyone until the next deploy: `public, max-age=0, s-maxage=31536000`,
+   everyone until the next deploy: `public, max-age=0, s-maxage=31536000, no-transform`,
    and put in the platform's Cache, if it has one, under the build id and
    the URL before it is sent, so the next request finds it: on Cloudflare it
    is drawn once per deploy per data center. Any other page is
-   `private, no-store`, with the headers its Loaders added. In dev nothing
+   `private, no-store, no-transform`, with the headers its Loaders added.
+   Every page is `no-transform`, so the edge sends the Document as drawn,
+   without injecting a script, like Cloudflare's Web Analytics beacon, that
+   hydration does not expect. In dev nothing
    is kept.
 
 ## In the browser
