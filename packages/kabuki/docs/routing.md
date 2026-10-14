@@ -186,7 +186,8 @@ A page served by an Actor can name two screens its slot shows in its stead
 while it has no Input: `pending`, drawn from its Props while its Loader
 runs, and `failed`, drawn from its Props and the `{ reason }` once the move
 to it broke. Its Actor and View never see either: they start from the Input,
-as before.
+as before. A page drawn by a function has neither of its own, and shows the
+app's failed screen.
 
 ```tsx
 export const Post = {
@@ -208,11 +209,17 @@ Router.app(Routes, App, { failed: ({ reason }) => <Failed reason={reason} /> });
   places above keep their pages, and that place's slot shows the screen. A
   quicker move lands as before, and shows no screen.
 - Once shown, the screen stays at least `pending.minimum` (300ms), so it
-  never flashes: `Router.app(Routes, App, { pending: { delay, minimum } })`.
+  never flashes, whatever the answer: `Router.app(Routes, App, { pending: {
+delay, minimum } })`. The delay counts from when the move began, so a
+  Runtime that stops and resumes waits only what is left.
 - A move whose Loaders break, as opposed to not found or a Redirect, lands
   anyway, marked failed. Its slot shows the page's failed screen, or the
-  app's `failed` with none; with neither it is empty. `useRouter().failed`
-  says why. A link to the same Route, Back or Forward to it, tries again.
+  app's `failed` with none. With neither, the move does not land and the page
+  shown stays. `useRouter().failed` says why.
+- A link to the same Route, Back or Forward to it, tries again: the failed
+  screen stays until the pending screen would show, after the delay.
+- A Redirect or not found after a move landed early ends that move: the
+  move keeps where it came from.
 - A server draws a client place's pending screen in the page it sends, and
   the browser starts from it.
 - An outlet's function is handed each of the three as its own page, with its

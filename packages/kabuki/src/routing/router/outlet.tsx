@@ -41,49 +41,51 @@ type Preload = () => Promise<void>;
 /** The lazy View serving each place, by its node: written by the outlets, read by the Router. */
 const lazyViews = new WeakMap<AnyNode, Preload>();
 
+/** The nodes of the places on `route`, from the root down, each with its dotted name. */
+const nodesOn = (children: Children, route: Value) => {
+  const nodes: Array<readonly [string, AnyNode]> = [];
+  let layer = children;
+  let value: Value | undefined = route;
+  const at: Array<string> = [];
+  while (value) {
+    const node: AnyNode | undefined = layer[value._tag];
+    if (!node) break;
+    at.push(value._tag);
+    nodes.push([at.join('.'), node]);
+    layer = node.children;
+    value = value.page as Value | undefined;
+  }
+  return nodes;
+};
+
 /**
  * Start loading the code of every lazy View serving a place on `route`,
  * so it loads beside the place's Input rather than after it. A View whose
  * code fails to load is loaded again when it is drawn.
  */
 export const preloadViews = (children: Children, route: Value) => {
-  let layer = children;
-  let value: Value | undefined = route;
-  while (value) {
-    const node: AnyNode | undefined = layer[value._tag];
-    if (!node) return;
+  for (const [, node] of nodesOn(children, route))
     lazyViews
       .get(node)?.()
       .catch(() => {});
-    layer = node.children;
-    value = value.page as Value | undefined;
-  }
 };
 
-/** The places whose page has a pending screen, by node: written by the outlets, read by the Router. */
-const pendingScreens = new WeakSet<AnyNode>();
+/** The screens each place's page has, by node: written by the outlets, read by the Router. */
+const pageScreens = new WeakMap<
+  AnyNode,
+  { readonly pending: boolean; readonly failed: boolean }
+>();
 
 /**
- * Whether the place `name` on `route` has a pending screen: a move to it
- * then lands before its Input, so its slot shows the screen while it loads.
+ * Which screens the page of the place `name` on `route` has of its own: a
+ * move to it lands early only for a pending screen, and lands broken only
+ * for a failed screen, its own or the app's.
  */
-export const hasPendingScreen = (
-  children: Children,
-  route: Value,
-  name: string,
-) => {
-  let layer = children;
-  let value: Value | undefined = route;
-  const at: Array<string> = [];
-  while (value) {
-    const node: AnyNode | undefined = layer[value._tag];
-    if (!node) return false;
-    at.push(value._tag);
-    if (at.join('.') === name) return pendingScreens.has(node);
-    layer = node.children;
-    value = value.page as Value | undefined;
-  }
-  return false;
+export const screensOn = (children: Children, route: Value, name: string) => {
+  const found = nodesOn(children, route).find(([dotted]) => dotted === name);
+  return (
+    (found && pageScreens.get(found[1])) ?? { pending: false, failed: false }
+  );
 };
 
 /** The node a child tag names, the root's not-found included. */
@@ -162,7 +164,10 @@ export const outletOf =
       const { preload } = page.view as { preload?: Preload };
       if (typeof preload === 'function')
         lazyViews.set(childOf(node, tag), preload);
-      if (page.pending) pendingScreens.add(childOf(node, tag));
+      pageScreens.set(childOf(node, tag), {
+        pending: page.pending !== undefined,
+        failed: page.failed !== undefined,
+      });
     }
 
     const invoke = ({ props }: { readonly props: Handed }) =>
@@ -189,11 +194,13 @@ export const outletOf =
       for (const tag of tags) {
         const serving = pages[tag]!;
         const handed = handedTo(node, at, tag, of.props);
-        if (isServed(serving) && handed?.missing) {
+        if (handed?.missing) {
           // A server draws the same pending screen the browser starts from.
+          // A page drawn by a function has none, and the app's failed screen.
+          const own = isServed(serving) ? serving : undefined;
           const screen = failed
-            ? (serving.failed ?? (failedScreen && (() => failedScreen(failed))))
-            : serving.pending;
+            ? (own?.failed ?? (failedScreen && (() => failedScreen(failed))))
+            : own?.pending;
           const showing = failed ? 'failed' : 'pending';
           if (screen)
             page = {

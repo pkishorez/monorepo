@@ -1,5 +1,6 @@
 export { app } from './router.tsx';
 export type {
+  Held,
   LoadFailure,
   PendingMove,
   RouterInput,
