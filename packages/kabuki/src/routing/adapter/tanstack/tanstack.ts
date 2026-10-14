@@ -1,5 +1,5 @@
 import { Layer } from 'effect';
-import { Adapter, KEY, keyIn } from '../adapter/index.ts';
+import { Adapter, KEY, keyIn } from '../index.ts';
 
 /** The part of a TanStack Router history the Adapter needs: `router.history`. */
 export interface TanStackHistory {

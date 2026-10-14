@@ -1,5 +1,6 @@
-import { Context, Effect } from 'effect';
+import { Context, Effect, Layer } from 'effect';
 import { Route } from '../../../../routing/index.ts';
+import { Start } from '../../../server/index.ts';
 import { Routes } from './routes.ts';
 
 export const POSTS = [
@@ -51,7 +52,8 @@ const viewer = (request: Request) => {
     : Effect.fail(Route.redirect(Routes.SignIn()));
 };
 
-export default Routes.loaders({
+/** The Loaders alone, as a test hands them its own Layer. */
+export const loaders = Routes.loaders({
   Blog: () =>
     Effect.gen(function* () {
       begin('Blog');
@@ -94,3 +96,8 @@ export default Routes.loaders({
       return { visits: new URL(request.url).pathname.length };
     }),
 });
+
+/** What the Loaders Require, made once from the Worker's env. */
+export default Start.layers<{ readonly WORD?: string }>()
+  .instance((env) => Layer.succeed(Greeting, { word: env.WORD ?? 'Read:' }))
+  .loaders(loaders);

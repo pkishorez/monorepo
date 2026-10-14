@@ -1,13 +1,20 @@
-import { Effect, Layer } from 'effect';
+import { Context, Effect, Layer, Schema } from 'effect';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { Loading } from '../../routing/index.ts';
-import { client as loaderRpc } from '../loader-rpc/index.ts';
-import type { Build } from '../page/index.ts';
-import { server } from '../server/index.ts';
-import app from './app/src/app.tsx';
+import { Actor } from '../../core/index.ts';
+import { View } from '../../react/index.ts';
+import { Loading, Route, Router } from '../../routing/index.ts';
+import { loading as loaderRpc } from '../client/index.ts';
+import { Start } from '../common/index.ts';
+import type { Build } from '../common/index.ts';
+import { Start as Server, server } from '../server/index.ts';
+import started, { app } from './app/src/app.tsx';
 import Document from './app/src/document.tsx';
-import layer from './app/src/layer.server.ts';
-import loaders, { Greeting, reset, runs } from './app/src/loaders.server.ts';
+import served, {
+  Greeting,
+  loaders,
+  reset,
+  runs,
+} from './app/src/loaders.server.ts';
 import { Routes } from './app/src/routes.ts';
 
 /*
@@ -33,17 +40,11 @@ const build: Build = {
   head: [],
 };
 
-const worker = server({
-  app,
-  document: Document,
-  loaders,
-  layer,
-  build,
-});
-const env = { WORD: 'Read:' };
+const worker = server({ app: started, loaders: served, build });
+const host = { env: { WORD: 'Read:' } };
 
 const get = (path: string, init?: RequestInit) =>
-  worker.fetch(new Request(`https://site.test${path}`, init), env);
+  worker.fetch(new Request(`https://site.test${path}`, init), host);
 const page = async (path: string, init?: RequestInit) => {
   const response = await get(path, init);
   return { response, html: await response.text() };
@@ -108,31 +109,30 @@ describe('a static page', () => {
       );
       return copy;
     };
-    vi.stubGlobal('caches', {
-      default: {
-        match: async (key: Request) => {
-          const hit = kept.get(key.url);
-          return hit && raised(hit);
-        },
-        put: async (key: Request, response: Response) => {
-          kept.set(key.url, response);
-        },
+    const cache = {
+      match: async (key: Request) => {
+        const hit = kept.get(key.url);
+        return hit && raised(hit);
       },
-    });
-    try {
-      const first = await page('/blog/hello');
-      const second = await page('/blog/hello');
-      expect(runs.filter((run) => run === 'Blog.Post:hello')).toHaveLength(1);
-      expect(second.html).toBe(first.html);
-      expect(second.response.headers.get('cache-control')).toBe(
-        'public, max-age=0, s-maxage=31536000',
-      );
-      expect([...kept.keys()]).toEqual([
-        'https://site.test/_kabuki/cache/build-1/blog/hello',
-      ]);
-    } finally {
-      vi.unstubAllGlobals();
-    }
+      put: async (key: Request, response: Response) => {
+        kept.set(key.url, response);
+      },
+    };
+    const cached = (path: string) =>
+      worker.fetch(new Request(`https://site.test${path}`), {
+        ...host,
+        cache,
+      });
+    const first = await cached('/blog/hello');
+    const second = await cached('/blog/hello');
+    expect(runs.filter((run) => run === 'Blog.Post:hello')).toHaveLength(1);
+    expect(await second.text()).toBe(await first.text());
+    expect(second.headers.get('cache-control')).toBe(
+      'public, max-age=0, s-maxage=31536000',
+    );
+    expect([...kept.keys()]).toEqual([
+      'https://site.test/_kabuki/cache/build-1/blog/hello',
+    ]);
   });
 
   it('writes Inputs as JSON that cannot close its script', async () => {
@@ -283,18 +283,265 @@ describe('other requests', () => {
   it('a page that fails to draw is a 500, logged', async () => {
     const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
     const broken = server({
-      app,
-      document: () => {
-        throw new Error('no document');
-      },
-      loaders,
-      layer: Layer.succeed(Greeting, { word: '' }),
+      app: Start.app(app, {
+        document: () => {
+          throw new Error('no document');
+        },
+      }),
+      loaders: Server.layers()
+        .instance(() => Layer.succeed(Greeting, { word: '' }))
+        .loaders(loaders),
       build,
     });
-    const response = await broken.fetch(new Request('https://site.test/'));
+    const response = await broken.fetch(
+      new Request('https://site.test/'),
+      host,
+    );
     expect(response.status).toBe(500);
     expect(await response.text()).toContain('Something went wrong');
     expect(logged).toHaveBeenCalled();
+    logged.mockRestore();
+  });
+});
+
+/** What a request Layer may be made from: an instance service. */
+class Word extends Context.Service<Word, { readonly word: string }>()(
+  'test/Word',
+) {}
+/** Who is visiting: a visitor service, made from the request. */
+class Visitor extends Context.Service<Visitor, { readonly name: string }>()(
+  'test/Visitor',
+) {}
+
+describe('what an app writes', () => {
+  const greeting = Layer.succeed(Greeting, { word: 'Hi' });
+  /** Greeting, made from Word, which only an instance tier gives. */
+  const fromWord = Layer.effect(
+    Greeting,
+    Effect.gen(function* () {
+      return { word: (yield* Word).word };
+    }),
+  );
+
+  it('checks the Loaders against the tiers that give what they Require', () => {
+    // @ts-expect-error the Loaders Require Greeting, and no tier gives it
+    Server.layers().loaders(loaders);
+    const served = Server.layers()
+      .instance(() => greeting)
+      .loaders(loaders);
+    expect(served.loaders).toBe(loaders);
+    expect(served.tiers.instance?.(undefined)).toBe(greeting);
+    Server.layers()
+      .request(() => greeting)
+      .loaders(loaders);
+    // The env is typed as the platform gives it.
+    Server.layers<{ readonly WORD: string }>()
+      .instance((env) => Layer.succeed(Greeting, { word: env.WORD }))
+      .loaders(loaders);
+  });
+
+  it('checks each tier against the tiers before it', () => {
+    Server.layers()
+      .instance(() => Layer.succeed(Word, { word: 'Hi' }))
+      .request(() => fromWord)
+      .loaders(loaders);
+    Server.layers()
+      // @ts-expect-error the request tier Requires Word, which no instance tier gives
+      .request(() => fromWord);
+    Server.layers()
+      // @ts-expect-error the instance tier is made first: it may Require nothing
+      .instance(() => fromWord);
+  });
+
+  it('keeps the visitor tier from static Loaders, whose pages everyone shares', () => {
+    const seen = Layer.succeed(Visitor, { name: 'ada' });
+    const visiting = Routes.loaders({
+      ...loaders,
+      // Account is dynamic: it may ask who is visiting.
+      Account: () =>
+        Effect.gen(function* () {
+          return { name: (yield* Visitor).name };
+        }),
+    });
+    Server.layers()
+      .instance(() => greeting)
+      .visitor(() => seen)
+      .loaders(visiting);
+    const leaking = Routes.loaders({
+      ...loaders,
+      // Blog is static: what it answers is kept for everyone.
+      Blog: () =>
+        Effect.gen(function* () {
+          yield* Visitor;
+          return [];
+        }),
+    });
+    Server.layers()
+      .instance(() => greeting)
+      .visitor(() => seen)
+      // @ts-expect-error a static Loader Requires Visitor, which only the visitor tier gives
+      .loaders(leaking);
+    // A dynamic Loader may add headers to its response; a static one may not.
+    Server.layers()
+      .instance(() => greeting)
+      .loaders(
+        Routes.loaders({
+          ...loaders,
+          Account: () =>
+            Effect.as(
+              Server.ResponseHeaders.use((headers) => headers.append('x', 'y')),
+              { name: 'ada' },
+            ),
+        }),
+      );
+    Server.layers()
+      .instance(() => greeting)
+      .loaders(
+        // @ts-expect-error a static Loader's page is kept for everyone: no headers of its own
+        Routes.loaders({
+          ...loaders,
+          Blog: () =>
+            Effect.as(
+              Server.ResponseHeaders.use((headers) => headers.append('x', 'y')),
+              [],
+            ),
+        }),
+      );
+  });
+
+  it('lets every Loader use the visitor tier when no place with an Input is static', () => {
+    const Dynamic = Route.tree({
+      Home: Route.path('/'),
+      Account: Route.path('/account', {
+        render: 'dynamic',
+        input: Schema.Struct({ name: Schema.String }),
+      }),
+    });
+    Server.layers()
+      .visitor(() => Layer.succeed(Visitor, { name: 'ada' }))
+      .loaders(
+        Dynamic.loaders({
+          Account: () =>
+            Effect.gen(function* () {
+              return { name: (yield* Visitor).name };
+            }),
+        }),
+      );
+  });
+
+  it('checks the app’s Layer against what its Actors Require', () => {
+    const Greeter = Actor.make('Greeter', {
+      requires: [Greeting],
+      props: Routes.props,
+    }).build({});
+    const greeter = Router.app(Routes, {
+      actor: Greeter,
+      view: View.make(Greeter, () => null),
+    });
+    // @ts-expect-error the app Requires Greeting in the browser
+    Start.app(greeter);
+    // @ts-expect-error a Document is not a Layer
+    Start.app(greeter, { document: Document });
+    expect(Start.app(greeter, { layer: greeting }).layer).toBe(greeting);
+    expect(Start.app(app).document).toBeUndefined();
+  });
+
+  it('refuses a default export it cannot check', () => {
+    expect(() => server({ app: app as never, build })).toThrow(
+      'src/app must default-export Start.app',
+    );
+    expect(() =>
+      server({ app: started, loaders: loaders as never, build }),
+    ).toThrow('src/loaders.server must default-export Start.layers()');
+  });
+
+  it('draws an app with no Document in the plainest one, with no Loaders', async () => {
+    const bare = server({
+      app: Start.app(app),
+      build: { ...build, id: undefined },
+    });
+    const response = await bare.fetch(new Request('https://site.test/'), host);
+    const html = await response.text();
+    expect(html).toMatch(
+      /^<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"\/>/,
+    );
+    expect(html).toContain('<p>home</p>');
+  });
+});
+
+describe('the Loaders’ tiers', () => {
+  /** A server whose tiers count how often each is made. */
+  const counted = (
+    word: () => Effect.Effect<{ readonly word: string }> = () =>
+      Effect.succeed({ word: 'Hi' }),
+  ) => {
+    const made = { instance: 0, request: 0, visitor: 0 };
+    const worker = server({
+      app: started,
+      loaders: Server.layers()
+        .instance(() =>
+          Layer.effect(
+            Greeting,
+            Effect.suspend(() => {
+              made.instance++;
+              return word();
+            }),
+          ),
+        )
+        .request(() => Layer.effectDiscard(Effect.sync(() => made.request++)))
+        .visitor(() =>
+          Layer.effectDiscard(
+            Effect.andThen(
+              Effect.sync(() => made.visitor++),
+              Server.ResponseHeaders.use((headers) =>
+                headers.append('set-cookie', 'seen=1'),
+              ),
+            ),
+          ),
+        )
+        .loaders(loaders),
+      build: { ...build, id: undefined },
+    });
+    const fetch = (path: string, init?: RequestInit) =>
+      worker.fetch(new Request(`https://site.test${path}`, init), host);
+    return { made, fetch };
+  };
+
+  it('makes the instance tier once, and the request tier for each request that loads', async () => {
+    const { made, fetch } = counted();
+    await fetch('/blog');
+    await fetch('/blog/hello');
+    await fetch('/');
+    expect(made).toEqual({ instance: 1, request: 2, visitor: 0 });
+  });
+
+  it('makes the visitor tier only for a dynamic or client place, and sends the headers it adds', async () => {
+    const { made, fetch } = counted();
+    const page = await fetch('/account', { headers: { cookie: 'user=ada' } });
+    expect(page.status).toBe(200);
+    expect(page.headers.get('set-cookie')).toBe('seen=1');
+    const rpc = await fetch('/_kabuki/load', {
+      method: 'POST',
+      body: JSON.stringify({ places: [{ name: 'Dashboard', params: {} }] }),
+    });
+    expect(rpc.headers.get('set-cookie')).toBe('seen=1');
+    const shared = await fetch('/blog');
+    expect(shared.headers.get('set-cookie')).toBeNull();
+    expect(made.visitor).toBe(2);
+  });
+
+  it('makes the instance tier again if making it failed', async () => {
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+    let tries = 0;
+    const { made, fetch } = counted(() =>
+      tries++ === 0
+        ? Effect.die(new Error('the database is down'))
+        : Effect.succeed({ word: 'Hi' }),
+    );
+    expect((await fetch('/blog')).status).toBe(500);
+    expect((await fetch('/blog')).status).toBe(200);
+    expect((await fetch('/blog')).status).toBe(200);
+    expect(made.instance).toBe(2);
     logged.mockRestore();
   });
 });
@@ -303,7 +550,7 @@ describe('the Loader RPC', () => {
   const loading = loaderRpc(Routes, {
     url: 'https://site.test/_kabuki/load',
     fetch: (input, init) =>
-      worker.fetch(new Request(input as string, init), env),
+      worker.fetch(new Request(input as string, init), host),
   });
   const load = (
     places: ReadonlyArray<{
@@ -327,7 +574,7 @@ describe('the Loader RPC', () => {
                       ...init,
                       headers: { ...init?.headers, cookie },
                     }),
-                    env,
+                    host,
                   ),
               })
             : loading,

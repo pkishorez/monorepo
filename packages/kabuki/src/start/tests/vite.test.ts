@@ -4,6 +4,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createBuilder, createServer } from 'vite';
 import type { InlineConfig } from 'vite';
 import { afterAll, describe, expect, it } from 'vitest';
+import { cloudflare } from '../platform/cloudflare/index.ts';
 import { start } from '../vite/index.ts';
 
 /*
@@ -25,12 +26,12 @@ const config = (outDir: string, at = root): InlineConfig => ({
   resolve: {
     alias: [
       {
-        find: /^@kestack\/kabuki\/start\/(server|client)$/,
+        find: /^@kestack\/kabuki\/start\/(server|client|platform\/cloudflare)$/,
         replacement: `${source}/start/$1/index.ts`,
       },
       {
         find: /^@kestack\/kabuki\/start$/,
-        replacement: `${source}/start/document/index.ts`,
+        replacement: `${source}/start/common/common.ts`,
       },
     ],
   },
@@ -38,7 +39,7 @@ const config = (outDir: string, at = root): InlineConfig => ({
     client: { build: { outDir: path.join(outDir, 'client') } },
     ssr: { build: { outDir: path.join(outDir, 'server') } },
   },
-  plugins: [start()],
+  plugins: [start({ platform: cloudflare() })],
 });
 
 afterAll(() => rmSync(out, { recursive: true, force: true }));
@@ -180,7 +181,7 @@ describe('vite dev', () => {
 
 describe('a Worker environment that finds its own dependencies', () => {
   it('scans the app’s server files, which its entry imports, and Start’s', async () => {
-    const plugin = start();
+    const plugin = start({ platform: cloudflare() });
     const hooks = plugin as unknown as {
       readonly config: {
         readonly handler: (config: object, env: object) => unknown;
@@ -197,12 +198,7 @@ describe('a Worker environment that finds its own dependencies', () => {
     });
     expect(
       worker.optimizeDeps.entries.map((file) => path.relative(root, file)),
-    ).toEqual([
-      'src/app.tsx',
-      'src/document.tsx',
-      'src/loaders.server.ts',
-      'src/layer.server.ts',
-    ]);
+    ).toEqual(['src/app.tsx', 'src/loaders.server.ts']);
     // Vite's own server environment, in Node, and the browser: left as they are.
     expect(hooks.configEnvironment('ssr', {})).toBeUndefined();
     expect(

@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { Layer } from 'effect';
 import { toReact } from '@kestack/kabuki/react';
 import { Router } from '@kestack/kabuki/routing';
-import { tanstack } from '@kestack/kabuki/routing/tanstack';
+import { tanstack } from '@kestack/kabuki/routing/adapter/tanstack';
 import { DevtoolsDock } from '@kestack/web-platform/recipes/devtools-dock';
 import { KabukiDevtools } from '@kestack/web-platform/recipes/kabuki-devtools';
 import { App } from './app/index.ts';

@@ -1,5 +1,5 @@
 import { Layer } from 'effect';
-import { Adapter, KEY, keyIn } from '../adapter/index.ts';
+import { Adapter, KEY, keyIn } from '../index.ts';
 
 const CHANGED = '@kestack/kabuki/routing:changed';
 

@@ -1,26 +1,11 @@
-export {
-  MANAGED,
-  NotFoundError,
-  RedirectError,
-  inputsSchema,
-  inputsUnder,
-  levelSchema,
-  paramsKey,
-  path,
-  placeKey,
-  propsOf,
-  tagsOf,
-  treeWith,
-  valueAt,
-} from './route.ts';
+export { treeWith } from './route.ts';
+export { path } from './node.ts';
 export type {
   AnyNode,
   Children,
   Codec,
   Inputs,
   LevelOf,
-  LoadError,
-  Metadata,
   Misdrawn,
   Node,
   NotFound,
@@ -30,12 +15,29 @@ export type {
   PropsOf,
   Read,
   Redirects,
-  RenderMode,
   RootProps,
   RouteOf,
-  Tag,
   Tree,
   Value,
   ValueOf,
-} from './route.ts';
+} from './node.ts';
+export {
+  inputsSchema,
+  inputsUnder,
+  levelSchema,
+  paramsKey,
+  propsOf,
+  valueAt,
+} from './values.ts';
+export { placeKey } from './places.ts';
+export { NotFoundError, RedirectError } from './loader.ts';
+export type {
+  LoadError,
+  Loaders,
+  PlaceType,
+  RenderMode,
+  StaticOf,
+} from './loader.ts';
+export { MANAGED, tagsOf } from './metadata.ts';
+export type { Metadata, Tag } from './metadata.ts';
 export type { Drawn, How, Move, Outlet, OutletOf, PageOf } from './outlet.ts';

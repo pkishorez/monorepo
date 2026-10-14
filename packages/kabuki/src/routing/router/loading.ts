@@ -33,12 +33,12 @@ type AnyLoader = (
 ) => Effect.Effect<unknown, LoadError, any>;
 
 type ServicesOf<L> = {
-  [K in keyof L]: L[K] extends (
+  [K in keyof L & string]-?: L[K] extends (
     ...args: never
   ) => Effect.Effect<any, any, infer R>
     ? R
     : never;
-}[keyof L];
+}[keyof L & string];
 
 /**
  * A `Loading` that runs the Loaders in place, as `Routes.loaders` types them:

@@ -13,6 +13,23 @@ Router + Adapter             Router.app(Routes, App)            holds where the 
 Routes                       Route.tree({ … })                  pure data: Schemas, URL ⇄ Route, Metadata, Inputs
 ```
 
+### Where the code lives
+
+```
+src/routing/
+  route/          Routes as data: node.ts (the types, Route.path), values.ts, places.ts,
+                  url.ts, metadata.ts, loader.ts, outlet.ts; route.ts makes the tree
+  router/         the Router Actor: moves, loading, navigation, outlets, hooks
+  adapter/        the port: where the address lives            @kestack/kabuki/routing/adapter
+    browser/      the browser's own history                    @kestack/kabuki/routing/adapter/browser
+    tanstack/     TanStack Router's history                    @kestack/kabuki/routing/adapter/tanstack
+```
+
+`route` is pure data and depends on nothing else here, so Start's shared
+code reads it without the Router; `router` uses `route` and `adapter`. Each
+adapter lives under the port it fills and is imported from its own subpath,
+so an app carries only the one it uses.
+
 ### Routes: every place, once
 
 ```ts
