@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import type { AnyActor, Many, Types } from '../../core/index.ts';
+import type { AnyActor, Types } from '../../core/index.ts';
 import type { ViewOf } from '../../react/index.ts';
 import type { Codec, LevelOf, PropsOf } from './node.ts';
 
@@ -95,25 +95,23 @@ export interface Drawn {
 }
 
 /**
- * What a node's outlet writes: one keyed Child slot per child Route its
- * Actor serves, an Invocation that fills the current one from the Props,
- * and a View that draws whichever page is current. Use `children` and
- * `invoke` in the level that draws the pages.
+ * What a node's outlet writes: a Child per child Route its Actor serves,
+ * one of `each` key, at most the current one's, handed its Input and Props
+ * from the Props, and a View that draws whichever page is current. Spread
+ * `children` into the level that draws the pages.
  */
 export interface Outlet<Ps, P, V> {
   readonly children: {
     readonly [K in ActorKeys<Ps>]: Ps[K] extends {
       readonly actor: infer A extends AnyActor;
     }
-      ? Many<A>
+      ? {
+          readonly actor: A;
+          readonly each: (data: { readonly props: P }) => ReadonlyArray<string>;
+          readonly input: (data: { readonly props: P }) => any;
+          readonly props: (data: { readonly props: P }) => any;
+        }
       : never;
-  };
-  readonly invoke: (data: { readonly props: P }) => {
-    readonly [K in ActorKeys<Ps>]: ReadonlyArray<{
-      readonly key: string;
-      readonly props: any;
-      readonly input: any;
-    }>;
   };
   /**
    * The current page. Hand it a function to wrap the page, with how this

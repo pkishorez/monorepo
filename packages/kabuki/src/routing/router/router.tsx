@@ -539,17 +539,17 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
     init: (from: RouterInput<Route> | undefined) => ({
       model: firstModel(from),
     }),
-    children: { page: page.actor },
-    invoke: ({ model }: { readonly model: Model }) => {
-      const { route, inputs } = current(model);
-      return {
-        page: {
-          props: {
+    children: {
+      page: {
+        actor: page.actor,
+        props: ({ model }: { readonly model: Model }) => {
+          const { route, inputs } = current(model);
+          return {
             page: route,
             ...(Object.keys(inputs).length > 0 ? { inputs } : {}),
-          },
+          };
         },
-      };
+      },
     },
     provides: (self: { readonly send: Send }) =>
       Layer.succeed(Navigation, {

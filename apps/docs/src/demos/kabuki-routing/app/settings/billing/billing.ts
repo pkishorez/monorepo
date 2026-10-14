@@ -18,7 +18,6 @@ export const BillingActor = Actor.make('Billing', {
 }).build({
   init: () => ({ model: { reads: 0 } }),
   children: pages.children,
-  invoke: pages.invoke,
   workers: {
     meter: {
       run: (self) =>

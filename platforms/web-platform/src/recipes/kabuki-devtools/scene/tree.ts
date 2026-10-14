@@ -161,7 +161,7 @@ export const treeOf = (
             held.definition,
             holders.flatMap((holder) => asList(holder.children[name])),
             slot,
-            held.many,
+            held.kind === 'each',
             below,
           );
         });

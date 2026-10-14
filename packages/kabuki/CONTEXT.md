@@ -19,7 +19,7 @@ Who an Instance is, made from its parent's ID, the Child's name, its key if it h
 _Avoid_: path, address, number
 
 **Child**:
-An Actor its parent Invokes. Written at the top, a fixed Child exists for as long as its parent and lasts through every Transition; written in a State's block, for as long as that State lasts. A keyed Child exists for as long as its key is in the parent's Model too. The State and the Model decide which Children exist, never the View. A parent controls a Child only by whether it exists and by its Props, and never Sends to it: what a parent must control, it owns.
+An Actor its parent Invokes, written as a Worker is: by name, with a Condition. Written at the top, a Child exists for as long as its parent and lasts through every Transition; written in a State's block, for as long as that State lasts. Within that it exists always, `while` a test on the parent's data holds, or once per key `each` names. A Child that may be absent is typed so in its parent's View. The State and the Model decide which Children exist, never the View. A parent controls a Child only by whether it exists and by its Props, and never Sends to it: what a parent must control, it owns.
 _Avoid_: slot, dependency, subcomponent
 
 **Input**:
@@ -27,7 +27,7 @@ The data a parent hands a Child when it Invokes it, which the Child's init start
 _Avoid_: params, args, controlled input
 
 **Invoke**:
-What a parent does to its Children: the State, and for keyed Children the Model, say which exist, and each one starts or stops as that changes. Leaving a State stops every Child it Invoked and everything they own. Declared in the Actor's definition, never called from code.
+What a parent does to its Children: the State and each Child's Condition say which exist, and each one starts or stops as that changes; one that comes back is a fresh Instance. Leaving a State stops every Child it Invoked and everything they own. Declared in the Actor's definition, never called from code.
 _Avoid_: spawn, create, mount
 
 **Snapshot**:
@@ -159,7 +159,7 @@ The one Actor routing adds, above the app's own root: it holds the app's history
 _Avoid_: navigator, history (Kabuki's History is another thing)
 
 **Outlet**:
-What an Actor whose Route holds others uses to serve them: one keyed Child slot per child Route, holding the Actor for the current one, keyed by its params, and a View that draws it. A new param is a fresh page; a new query is the same page with new Props.
+What an Actor whose Route holds others uses to serve them: one Child per child Route, of `each` key its params give, so it holds the Actor for the current one alone, and a View that draws it. A new param is a fresh page; a new query is the same page with new Props.
 _Avoid_: layout, wrapper, slot (on its own)
 
 **Navigation**:

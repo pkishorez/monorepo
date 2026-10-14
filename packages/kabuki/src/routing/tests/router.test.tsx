@@ -71,7 +71,6 @@ const ProjectsActor = Actor.make('Projects', {
 }).build({
   init: () => ({ model: { opened: 0 } }),
   children: projects.children,
-  invoke: projects.invoke,
 });
 const Projects = {
   actor: ProjectsActor,
@@ -83,7 +82,6 @@ const SettingsActor = Actor.make('Settings', {
   props: Routes.Settings.props,
 }).build({
   children: sections.children,
-  invoke: sections.invoke,
 });
 const Settings = {
   actor: SettingsActor,
@@ -93,7 +91,6 @@ const Settings = {
 const pages = Routes.outlet({ Dashboard, Projects, Settings });
 const AppActor = Actor.make('App', { props: Routes.props }).build({
   children: pages.children,
-  invoke: pages.invoke,
 });
 const App = { actor: AppActor, view: View.make(AppActor, () => null) };
 

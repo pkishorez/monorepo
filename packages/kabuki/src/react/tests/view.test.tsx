@@ -104,14 +104,15 @@ const List = Actor.make('List', {
   init: () => ({
     model: { ids: ['a', 'b', 'c'], next: 0, selected: 'a', title: 'List' },
   }),
-  children: { header: Header, rows: Actor.many(Row) },
-  invoke: ({ model }) => ({
-    rows: model.ids.map((id) => ({
-      key: id,
-      input: { text: id },
-      props: { selected: id === model.selected },
-    })),
-  }),
+  children: {
+    header: { actor: Header },
+    rows: {
+      actor: Row,
+      each: ({ model }) => model.ids,
+      input: (_, id) => ({ text: id }),
+      props: ({ model }, id) => ({ selected: id === model.selected }),
+    },
+  },
   on: {
     Added: (_, { model }) => ({
       model: {
@@ -548,6 +549,29 @@ export const types = () => {
       // @ts-expect-error Row's Props have no `title`
       props.title,
   );
+  // A Child is always there, there or not `while` its test holds, or a list of `each`.
+  const Lamp = Actor.make('Lamp', {
+    model: Schema.Struct({ on: Schema.Boolean }),
+  }).build({
+    init: () => ({ model: { on: false } }),
+    children: {
+      header: { actor: Header },
+      shade: { actor: Header, while: ({ model }) => model.on },
+      rows: {
+        actor: Row,
+        each: () => ['a'],
+        input: (_, id) => ({ text: id }),
+        props: () => ({ selected: false }),
+      },
+    },
+  });
+  View.make(Lamp, ({ children }) => [
+    children.header.id,
+    children.shade?.id,
+    children.rows.map((row) => row.key),
+    // @ts-expect-error `shade` is there only while its test holds
+    children.shade.id,
+  ]);
   const self = null! as ViewProps<typeof Row>;
   return [
     self.root,

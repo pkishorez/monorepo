@@ -35,7 +35,6 @@ const BlogActor = (() => {
   }).build({
     init: (list) => ({ model: { count: list.length } }),
     children: posts.children,
-    invoke: posts.invoke,
   });
   return {
     actor,
@@ -61,7 +60,6 @@ const AccountActor = (() => {
   }).build({
     init: (viewer) => ({ model: { name: viewer.name } }),
     children: sections.children,
-    invoke: sections.invoke,
   });
   return {
     actor,
@@ -114,7 +112,6 @@ const pages = Routes.outlet({
 
 const AppActor = Actor.make('App', { props: Routes.props }).build({
   children: pages.children,
-  invoke: pages.invoke,
 });
 
 const App = {

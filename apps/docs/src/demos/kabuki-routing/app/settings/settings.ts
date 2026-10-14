@@ -18,7 +18,6 @@ export const SettingsActor = Actor.make('Settings', {
 }).build({
   init: () => ({ model: { saves: 0 } }),
   children: pages.children,
-  invoke: pages.invoke,
   workers: {
     autosave: {
       run: (self) =>

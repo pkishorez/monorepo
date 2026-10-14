@@ -36,7 +36,6 @@ const BlogActor = Actor.make('Blog', {
 }).build({
   init: (list) => ({ model: list }),
   children: posts.children,
-  invoke: posts.invoke,
 });
 
 const BlogView = View.make(BlogActor, (self) => (

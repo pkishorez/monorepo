@@ -1,6 +1,6 @@
 import { createContext, memo, use, useRef, useSyncExternalStore } from 'react';
 import type { CSSProperties, ReactNode, Ref } from 'react';
-import type { AnyActor, Many, Only, Types } from '../core/index.ts';
+import type { AnyActor, Only, Types } from '../core/index.ts';
 import { lazy, preload } from './lazy.tsx';
 
 /** One Instance in the tree, to draw: its ID and, for a keyed Child, its key. Never changes. */
@@ -10,10 +10,14 @@ export interface Handle<A> {
   readonly actor?: A;
 }
 
-type HandleOf<S> =
-  S extends Many<infer A>
+/** A Child as its View finds it: a list of `each`, one that may be absent `while` its test is false, else one always there. */
+type HandleOf<C> = C extends { readonly actor: infer A }
+  ? C extends { readonly each: Function }
     ? ReadonlyArray<Handle<A> & { readonly key: string }>
-    : Handle<S>;
+    : C extends { readonly while: Function }
+      ? Handle<A> | undefined
+      : Handle<A>
+  : never;
 
 type KidsIn<A, T> = T extends keyof Types<A>['children']
   ? Types<A>['children'][T]

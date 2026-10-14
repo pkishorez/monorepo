@@ -44,12 +44,11 @@ export const AppActor = Actor.make('App', {
     }),
   state: {
     SignedOut: {
-      children: { signIn: SignIn.actor },
+      children: { signIn: { actor: SignIn.actor } },
       on: { SignedIn: ({ name }) => ({ state: { _tag: 'SignedIn', name } }) },
     },
     SignedIn: {
       children: pages.children,
-      invoke: pages.invoke,
       workers: {
         onward: {
           while: ({ props }) =>

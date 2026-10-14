@@ -1,0 +1,1833 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kabuki routing, one Message at a time</title>
+    <style>
+      :root {
+        --ink: #1c1d1f;
+        --muted: #6a6c70;
+        --line: #e4e4e2;
+        --bg: #fbfbfa;
+        --card: #fff;
+        --app: #8a8b88;
+        --team: #c0392b;
+        --project: #2f64c4;
+        --task: #7b4bb8;
+        --router: #1f8a7a;
+        --chg: #fff3b8;
+        --code: #17181a;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        margin: 0;
+        font:
+          15px/1.6 ui-sans-serif,
+          -apple-system,
+          'Segoe UI',
+          sans-serif;
+        color: var(--ink);
+        background: var(--bg);
+        -webkit-font-smoothing: antialiased;
+      }
+      main {
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 40px 32px 120px;
+      }
+      h1 {
+        font-size: 30px;
+        line-height: 1.2;
+        margin: 0 0 8px;
+        letter-spacing: -0.01em;
+      }
+      h2 {
+        font-size: 22px;
+        margin: 0 0 6px;
+        letter-spacing: -0.01em;
+      }
+      h3 {
+        font-size: 13px;
+        margin: 0 0 8px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--muted);
+      }
+      p {
+        margin: 0 0 10px;
+        max-width: 72ch;
+      }
+      .lead {
+        font-size: 17px;
+        color: var(--muted);
+        max-width: 66ch;
+      }
+      section {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 26px 28px;
+        margin: 24px 0;
+      }
+      .num {
+        display: inline-grid;
+        place-items: center;
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        background: var(--ink);
+        color: #fff;
+        font-size: 13px;
+        font-weight: 600;
+        margin-right: 8px;
+        vertical-align: 2px;
+      }
+      code {
+        font:
+          13px ui-monospace,
+          Menlo,
+          monospace;
+        background: #f1f1ef;
+        padding: 1px 5px;
+        border-radius: 4px;
+      }
+      .rule {
+        border-left: 3px solid var(--ink);
+        padding: 4px 0 4px 14px;
+        margin: 14px 0 0;
+        font-size: 16px;
+      }
+      .toc {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 16px;
+      }
+      .toc a {
+        font-size: 13.5px;
+        color: var(--ink);
+        text-decoration: none;
+        border: 1px solid var(--line);
+        background: #fff;
+        border-radius: 99px;
+        padding: 4px 12px;
+      }
+      .toc a:hover {
+        background: #f1f1ef;
+      }
+
+      .anatomy {
+        display: grid;
+        grid-template-columns: 1fr 1.1fr;
+        gap: 28px;
+        align-items: center;
+        margin-top: 10px;
+      }
+      .box {
+        border: 2px solid var(--ink);
+        border-radius: 14px;
+        padding: 14px;
+        background: #fff;
+      }
+      .box .title {
+        font-weight: 700;
+        margin-bottom: 10px;
+      }
+      .slot {
+        border-radius: 8px;
+        padding: 7px 10px;
+        margin: 6px 0;
+        font-size: 13.5px;
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+      }
+      .slot span {
+        color: var(--muted);
+        font-size: 12.5px;
+        text-align: right;
+      }
+      .s-input {
+        background: #eef3fb;
+      }
+      .s-model {
+        background: #eef7ef;
+      }
+      .s-state {
+        background: #f6effb;
+      }
+      .s-msg {
+        background: #fdf3e2;
+      }
+      .s-props {
+        background: #fbeceb;
+      }
+      .s-kids {
+        background: #f1f1ef;
+      }
+      .anatomy ul {
+        margin: 0;
+        padding-left: 18px;
+      }
+      .anatomy li {
+        margin: 6px 0;
+      }
+
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 14px;
+        margin-top: 12px;
+      }
+      .card {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 14px 16px;
+        background: #fcfcfb;
+      }
+      .card h4 {
+        margin: 0 0 6px;
+        font-size: 15px;
+      }
+      .card p {
+        font-size: 14px;
+        margin: 0;
+      }
+
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        font-size: 14px;
+        margin: 10px 0 0;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 9px 10px;
+        border-bottom: 1px solid var(--line);
+        vertical-align: top;
+      }
+      th {
+        font-size: 12px;
+        color: var(--muted);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
+      .pairs {
+        margin-top: 14px;
+        display: grid;
+        gap: 8px;
+      }
+      .prow {
+        display: grid;
+        grid-template-columns: 60px 1fr 70px 1fr;
+        align-items: center;
+      }
+      .prow .lvl {
+        font-size: 11px;
+        color: var(--muted);
+      }
+      .pc {
+        border: 2px solid;
+        border-radius: 10px;
+        padding: 8px 11px;
+        font-size: 12.5px;
+        background: #fff;
+      }
+      .pc b {
+        font-size: 13.5px;
+      }
+      .pc.k {
+        border-style: dashed;
+      }
+      .pc .p {
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 11.5px;
+        color: var(--muted);
+        display: block;
+      }
+      .hand {
+        font-size: 11px;
+        color: var(--muted);
+        text-align: center;
+        line-height: 1.2;
+      }
+
+      #sim {
+        padding: 0;
+        overflow: hidden;
+      }
+      .simhead {
+        padding: 22px 26px 12px;
+      }
+      .timeline {
+        display: flex;
+        gap: 6px;
+        overflow-x: auto;
+        padding: 4px 26px 16px;
+      }
+      .tstep {
+        flex: 0 0 auto;
+        border: 1px solid var(--line);
+        background: #fff;
+        border-radius: 10px;
+        padding: 7px 10px;
+        cursor: pointer;
+        font-size: 12.5px;
+        text-align: left;
+        min-width: 112px;
+        font-family: inherit;
+        color: inherit;
+      }
+      .tstep .n {
+        font-size: 11px;
+        color: var(--muted);
+      }
+      .tstep .m {
+        font:
+          12px ui-monospace,
+          Menlo,
+          monospace;
+        display: block;
+        margin-top: 2px;
+      }
+      .tstep:hover {
+        background: #f5f5f3;
+      }
+      .tstep.on {
+        background: var(--ink);
+        color: #fff;
+        border-color: var(--ink);
+      }
+      .tstep.on .n {
+        color: #bbb;
+      }
+      .tstep.future {
+        opacity: 0.45;
+      }
+      .ctrl {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        padding: 0 26px 14px;
+        flex-wrap: wrap;
+      }
+      .ctrl button {
+        font: inherit;
+        font-size: 13.5px;
+        border: 1px solid var(--line);
+        background: #fff;
+        border-radius: 8px;
+        padding: 6px 12px;
+        cursor: pointer;
+      }
+      .ctrl button:hover {
+        background: #f3f3f1;
+      }
+      .ctrl button.primary {
+        background: var(--ink);
+        color: #fff;
+        border-color: var(--ink);
+      }
+      .ctrl button:disabled {
+        opacity: 0.4;
+        cursor: default;
+      }
+      .mode {
+        font-size: 13px;
+        padding: 6px 12px;
+        border-radius: 8px;
+      }
+      .mode.live {
+        background: #e6f4ea;
+        color: #1f5c30;
+      }
+      .mode.tt {
+        background: #fff3d6;
+        color: #7a4c10;
+      }
+      .what {
+        margin: 0 26px 16px;
+        padding: 14px 16px;
+        border-radius: 10px;
+        background: #f7f7f5;
+        font-size: 15px;
+      }
+      .what .msg {
+        font:
+          13px ui-monospace,
+          Menlo,
+          monospace;
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 2px 8px;
+        margin-right: 6px;
+      }
+      .what .src {
+        font-size: 12.5px;
+        color: var(--muted);
+      }
+      .what p {
+        margin: 8px 0 0;
+        max-width: none;
+      }
+      .restart {
+        margin: 0 26px 16px;
+        padding: 10px 12px;
+        border-radius: 8px;
+        background: #fff7e0;
+        font-size: 13.5px;
+        display: none;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        border-top: 1px solid var(--line);
+      }
+      .pane {
+        padding: 18px 22px 22px;
+        border-right: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+        min-width: 0;
+      }
+      .pane:nth-child(2) {
+        border-right: 0;
+      }
+      .pane.wide {
+        grid-column: 1 / -1;
+        border-right: 0;
+      }
+
+      .win {
+        border: 1px solid #d6d6d3;
+        border-radius: 10px;
+        overflow: hidden;
+        background: #fff;
+      }
+      .bar {
+        height: 30px;
+        background: #f1f1ef;
+        border-bottom: 1px solid #e3e3e0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0 10px;
+      }
+      .bar i {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #d3d3cf;
+        flex: 0 0 auto;
+      }
+      .bar .addr {
+        flex: 1;
+        background: #fff;
+        border-radius: 6px;
+        font:
+          12px ui-monospace,
+          Menlo,
+          monospace;
+        padding: 3px 8px;
+        color: #444;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+      .scr {
+        padding: 10px;
+        min-height: 270px;
+      }
+      .sb {
+        border: 2px solid;
+        border-radius: 9px;
+        padding: 8px 10px 10px;
+        margin-top: 8px;
+        font-size: 12.5px;
+      }
+      .sb .t {
+        font-weight: 700;
+        font-size: 12px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+      }
+      .sb .t i {
+        font-style: normal;
+        font-weight: 400;
+        color: var(--muted);
+        font-size: 11px;
+      }
+      .sb .body {
+        margin-top: 4px;
+        color: #333;
+      }
+      .skel {
+        margin-top: 8px;
+        border: 2px dashed;
+        border-radius: 9px;
+        padding: 14px;
+        color: #6a6c70;
+        font-size: 12.5px;
+        background: linear-gradient(
+          90deg,
+          #f0f0ee 0%,
+          #f8f8f6 40%,
+          #f0f0ee 80%
+        );
+        background-size: 300% 100%;
+        animation: shimmer 1.4s linear infinite;
+      }
+      .err {
+        margin-top: 8px;
+        border: 2px solid #d9534f;
+        background: #fdeeee;
+        color: #9b2c28;
+        border-radius: 9px;
+        padding: 10px 12px;
+        font-size: 12.5px;
+      }
+      .err button {
+        font: inherit;
+        font-size: 12px;
+        margin-left: 8px;
+        border: 1px solid #d9534f;
+        background: #fff;
+        color: #9b2c28;
+        border-radius: 6px;
+        padding: 1px 8px;
+        cursor: pointer;
+      }
+      .spin {
+        font-size: 11px;
+        color: var(--task);
+        background: #f3eefb;
+        border-radius: 99px;
+        padding: 1px 8px;
+      }
+      .editor {
+        margin-top: 6px;
+        font:
+          12px ui-monospace,
+          Menlo,
+          monospace;
+        border: 1px solid #c9c9c5;
+        border-radius: 6px;
+        padding: 5px 7px;
+        background: #fffef6;
+      }
+      @keyframes shimmer {
+        from {
+          background-position: 100% 0;
+        }
+        to {
+          background-position: -100% 0;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .skel {
+          animation: none;
+        }
+      }
+
+      .model {
+        font:
+          12.5px/1.7 ui-monospace,
+          Menlo,
+          monospace;
+        background: #fafaf8;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 12px 14px;
+      }
+      .model .k {
+        color: var(--muted);
+        display: inline-block;
+        min-width: 64px;
+      }
+      .model .row {
+        border-radius: 4px;
+        padding: 0 4px;
+        margin: 0 -4px;
+      }
+      .chg {
+        background: var(--chg);
+      }
+      .workers {
+        margin-top: 10px;
+        display: grid;
+        gap: 6px;
+      }
+      .worker {
+        font-size: 13px;
+        padding: 7px 12px;
+        border-radius: 8px;
+      }
+      .worker.on {
+        background: #e6f4ea;
+        color: #1f5c30;
+      }
+      .worker.off {
+        background: #f3f3f1;
+        color: var(--muted);
+      }
+      .rules {
+        margin: 0;
+        padding-left: 18px;
+        font-size: 14px;
+      }
+      .rules li {
+        margin: 6px 0;
+      }
+
+      .levels {
+        display: grid;
+        gap: 10px;
+      }
+      .level {
+        display: grid;
+        grid-template-columns: 60px 1fr 60px 1fr;
+        align-items: stretch;
+      }
+      .level .lvl {
+        font-size: 11.5px;
+        color: var(--muted);
+        align-self: center;
+      }
+      .level .to {
+        align-self: center;
+        text-align: center;
+        color: #9a9b98;
+        font-size: 11px;
+        line-height: 1.3;
+      }
+      .acard {
+        border: 2px solid;
+        border-radius: 10px;
+        padding: 8px 12px;
+        background: #fff;
+        font-size: 12.5px;
+        min-width: 0;
+      }
+      .acard.k {
+        border-style: dashed;
+        background: #fbfdfc;
+      }
+      .acard .h {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 8px;
+      }
+      .acard .h b {
+        font-size: 13.5px;
+      }
+      .life {
+        font-size: 10.5px;
+        font-weight: 600;
+        padding: 1px 8px;
+        border-radius: 99px;
+        white-space: nowrap;
+      }
+      .life.born {
+        background: #e6f4ea;
+        color: #1f5c30;
+      }
+      .life.stopped {
+        background: #fdeeee;
+        color: #9b2c28;
+      }
+      .life.kept {
+        background: #f1f1ef;
+        color: var(--muted);
+      }
+      .acard.gone {
+        opacity: 0.5;
+      }
+      .absent {
+        border: 2px dashed #dcdcd8;
+        border-radius: 10px;
+        padding: 8px 12px;
+        color: #9a9b98;
+        font-size: 12.5px;
+        display: flex;
+        align-items: center;
+      }
+      .f {
+        display: grid;
+        grid-template-columns: 52px 1fr;
+        gap: 6px;
+        margin-top: 4px;
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 11.5px;
+        line-height: 1.5;
+      }
+      .f .lab {
+        font-family: ui-sans-serif, sans-serif;
+        font-size: 10.5px;
+        font-weight: 600;
+        border-radius: 4px;
+        padding: 0 5px;
+        align-self: start;
+        text-align: center;
+      }
+      .f .val {
+        word-break: break-word;
+        border-radius: 4px;
+        padding: 0 4px;
+      }
+      .lab.props {
+        background: #fbeceb;
+      }
+      .lab.input {
+        background: #eef3fb;
+      }
+      .lab.model {
+        background: #eef7ef;
+      }
+      .lab.state {
+        background: #f6effb;
+      }
+      .lab.worker {
+        background: #e6f4ea;
+      }
+      .muted {
+        color: #9a9b98;
+      }
+
+      .code {
+        margin-top: 14px;
+        border-radius: 10px;
+        overflow: hidden;
+        background: var(--code);
+      }
+      .tabs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 2px;
+        padding: 6px 6px 0;
+        background: #222326;
+      }
+      .tabs button {
+        font:
+          12.5px ui-monospace,
+          Menlo,
+          monospace;
+        color: #a9abb0;
+        background: transparent;
+        border: 0;
+        padding: 7px 12px;
+        border-radius: 7px 7px 0 0;
+        cursor: pointer;
+      }
+      .tabs button.on {
+        background: var(--code);
+        color: #f1f1f1;
+      }
+      pre {
+        margin: 0;
+        padding: 16px 18px;
+        color: #e6e6e6;
+        font:
+          13px/1.6 ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          monospace;
+        overflow-x: auto;
+      }
+      .c {
+        color: #8b9a7c;
+        font-style: italic;
+      }
+      .s {
+        color: #e3b980;
+      }
+      .kw {
+        color: #8fb5f0;
+      }
+
+      .faq {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        margin-top: 12px;
+      }
+      .faq div {
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 12px 14px;
+        font-size: 14px;
+        background: #fcfcfb;
+      }
+      .faq b {
+        display: block;
+        margin-bottom: 4px;
+      }
+
+      @media (max-width: 900px) {
+        .anatomy,
+        .cards,
+        .grid,
+        .faq {
+          grid-template-columns: 1fr;
+        }
+        main {
+          padding: 24px 14px;
+        }
+        .pane {
+          border-right: 0;
+        }
+        .level,
+        .prow {
+          grid-template-columns: 1fr;
+        }
+        .level .to,
+        .prow .hand {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Kabuki routing, one Message at a time</h1>
+      <p class="lead">
+        Five small ideas, then a walkthrough you click through one Message at a
+        time. Each step shows the screen, every Actor and its Workers changing
+        together.
+      </p>
+      <div class="toc">
+        <a href="#actor">1 · An Actor</a>
+        <a href="#worker">2 · Workers & Commands</a>
+        <a href="#time">3 · History & time travel</a>
+        <a href="#route">4 · A route = Route Actor + your page</a>
+        <a href="#router">5 · The Router</a>
+        <a href="#sim"><b>▶ Walkthrough</b></a>
+        <a href="#code">The code</a>
+        <a href="#faq">Tricky questions</a>
+      </div>
+
+      <section id="actor">
+        <h2><span class="num">1</span>An Actor is a box</h2>
+        <div class="anatomy">
+          <div class="box">
+            <div class="title">Task</div>
+            <div class="slot s-props">
+              <b>Props</b
+              ><span>from the parent · read-only · always fresh</span>
+            </div>
+            <div class="slot s-input">
+              <b>Input</b><span>a starting gift · read once, in init</span>
+            </div>
+            <div class="slot s-model">
+              <b>Model</b><span>its own data</span>
+            </div>
+            <div class="slot s-state">
+              <b>State</b><span>its mood: Reading or Editing</span>
+            </div>
+            <div class="slot s-msg">
+              <b>Messages</b
+              ><span>things that happened · the only way to change</span>
+            </div>
+            <div class="slot s-kids">
+              <b>Children</b><span>boxes inside this box</span>
+            </div>
+          </div>
+          <ul>
+            <li>
+              <b>Input</b> comes in once, when the box is made.
+              <code>init</code> uses it. Never read again.
+            </li>
+            <li>
+              <b>Props</b> are handed down by the parent, always the latest.
+              Updates and Views read them; only the parent writes them.
+            </li>
+            <li>
+              <b>Model</b> and <b>State</b> change only when a
+              <b>Message</b> arrives.
+            </li>
+            <li>
+              <b>Children</b> exist because the box says so, from its Model,
+              State and Props.
+            </li>
+            <li>
+              A <b>View</b> draws the box from these. That's all a View does.
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <section id="worker">
+        <h2><span class="num">2</span>Outside work: Workers and Commands</h2>
+        <p>
+          Anything that touches the outside world runs outside the Model. What
+          it learns comes back as <b>Messages</b>; only Messages change the
+          Model.
+        </p>
+        <table>
+          <tr>
+            <th style="width: 18%"></th>
+            <th>Worker</th>
+            <th>Command</th>
+          </tr>
+          <tr>
+            <td><b>Runs</b></td>
+            <td>
+              <b>While its Condition holds</b>, read from the Model. Change the
+              Model, and it starts or stops.
+            </td>
+            <td>Once, when an Update asks for it. Fire and forget.</td>
+          </tr>
+          <tr>
+            <td><b>Sends</b></td>
+            <td>
+              <b>Any number of Messages</b> while it runs: progress, ticks,
+              socket events, results.
+            </td>
+            <td><b>At most one</b> Message, at the end.</td>
+          </tr>
+          <tr>
+            <td><b>Can be stopped</b></td>
+            <td>Yes: change the Model so its Condition no longer holds.</td>
+            <td>No. Only its Instance stopping ends it.</td>
+          </tr>
+          <tr>
+            <td><b>Examples</b></td>
+            <td>
+              A socket, a timer, an upload with progress,
+              <b>a Route Actor's load Worker</b>
+            </td>
+            <td>
+              <code>Router.push(…)</code>, <code>Router.reload()</code>, an RPC
+              save
+            </td>
+          </tr>
+        </table>
+      </section>
+
+      <section id="time">
+        <h2><span class="num">3</span>History, Snapshot, time travel</h2>
+        <div class="cards">
+          <div class="card">
+            <h4>History</h4>
+            <p>
+              The list of every Message, in order. A fetched result is
+              <b>inside</b> its Message.
+            </p>
+          </div>
+          <div class="card">
+            <h4>Snapshot</h4>
+            <p>
+              Every box's Model and State, right now. Plain data. Props aren't
+              saved: they're worked out from the parents again.
+            </p>
+          </div>
+          <div class="card">
+            <h4>Time travel</h4>
+            <p>
+              Pick a Message. Kabuki replays the History up to it and
+              <b>draws</b> that Snapshot. No Worker runs, nothing is fetched.
+            </p>
+          </div>
+        </div>
+        <div class="rule">
+          Replay never fetches: the data is in the Messages.
+          <b>Restarting</b> from a Snapshot starts every Worker whose Condition
+          holds, so a fetch that was in flight runs again.
+        </div>
+      </section>
+
+      <section id="route">
+        <h2>
+          <span class="num">4</span>A route is two Actors: Kabuki's Route Actor,
+          and your page
+        </h2>
+        <p>
+          For every route on the URL there's a pair.
+          <b>Kabuki's Route Actor</b> does the loading. <b>Your page</b> is a
+          normal Actor inside it, and gets the loading status as Props.
+        </p>
+        <table>
+          <tr>
+            <th style="width: 20%"></th>
+            <th>Route Actor (Kabuki's; you never write it)</th>
+            <th>Your page (<code>Route.page</code>)</th>
+          </tr>
+          <tr>
+            <td><b>Model</b></td>
+            <td>
+              <code>load</code>: <code>Loading</code> ·
+              <code>Failed { reason }</code> ·
+              <code>Ready { data, refreshing }</code>
+            </td>
+            <td>Whatever you want</td>
+          </tr>
+          <tr>
+            <td><b>Input</b></td>
+            <td>
+              What's already known at the start: the server's data, or the data
+              the Router kept for Back. With data it starts <code>Ready</code>;
+              without, <code>Loading</code>.
+            </td>
+            <td>
+              <b>None.</b> It exists before its data, so there's nothing to hand
+              it at the start.
+            </td>
+          </tr>
+          <tr>
+            <td><b>Workers</b></td>
+            <td>
+              <b>load</b>: runs while <code>Loading</code> or
+              <code>refreshing</code>; sends <code>Loaded</code> or
+              <code>Failed</code>
+            </td>
+            <td>Yours</td>
+          </tr>
+          <tr>
+            <td><b>Props</b></td>
+            <td><code>params</code>, from the Router or the page above</td>
+            <td>
+              <code>params</code> and <code>load</code>, handed by its Route
+              Actor
+            </td>
+          </tr>
+          <tr>
+            <td><b>States, Messages, children</b></td>
+            <td>Fixed</td>
+            <td>Yours, fully. Child routes are added to its children.</td>
+          </tr>
+          <tr>
+            <td><b>Exists</b></td>
+            <td>As soon as the URL points at it</td>
+            <td>
+              As soon as its Route Actor exists, <b>even while loading</b>
+            </td>
+          </tr>
+        </table>
+        <div class="rule">
+          Your page draws its own loading, error and data from
+          <code>props.load</code> with a <code>switch</code>. That's just
+          drawing Props: no promise, no Suspense, no special screen API.
+        </div>
+      </section>
+
+      <section id="router">
+        <h2><span class="num">5</span>The Router only knows where you are</h2>
+        <p>
+          The Router is the top Actor. Its Model is the URL and the history for
+          Back and Forward. It decides <b>which Route Actors exist</b>, one per
+          level of the URL, keyed by their params. It doesn't load anything;
+          each Route Actor loads its own data.
+        </p>
+        <div class="pairs">
+          <div class="prow">
+            <span class="lvl">top</span>
+            <div class="pc" style="border-color: var(--router)">
+              <b style="color: var(--router)">Router</b
+              ><span class="p">url, back/forward</span>
+            </div>
+            <span class="hand"></span><span></span>
+          </div>
+          <div class="prow">
+            <span class="lvl">root</span>
+            <div class="pc" style="border-color: var(--app)">
+              <b style="color: var(--app)">App</b
+              ><span class="p">your root page: no path, no data</span>
+            </div>
+            <span class="hand"></span><span></span>
+          </div>
+          <div class="prow">
+            <span class="lvl">level 1</span>
+            <div class="pc k" style="border-color: var(--team)">
+              <b style="color: var(--team)">Route: Team</b
+              ><span class="p">load: Ready</span>
+            </div>
+            <span class="hand">params,<br />load →</span>
+            <div class="pc" style="border-color: var(--team)">
+              <b style="color: var(--team)">Team page</b
+              ><span class="p">a child of App</span>
+            </div>
+          </div>
+          <div class="prow">
+            <span class="lvl">level 2</span>
+            <div class="pc k" style="border-color: var(--project)">
+              <b style="color: var(--project)">Route: Project</b
+              ><span class="p">load: Ready</span>
+            </div>
+            <span class="hand">params,<br />load →</span>
+            <div class="pc" style="border-color: var(--project)">
+              <b style="color: var(--project)">Project page</b
+              ><span class="p">a child of Team page</span>
+            </div>
+          </div>
+          <div class="prow">
+            <span class="lvl">level 3</span>
+            <div class="pc k" style="border-color: var(--task)">
+              <b style="color: var(--task)">Route: Task</b
+              ><span class="p">load: Loading</span>
+            </div>
+            <span class="hand">params,<br />load →</span>
+            <div class="pc" style="border-color: var(--task)">
+              <b style="color: var(--task)">Task page</b
+              ><span class="p">a child of Project page</span>
+            </div>
+          </div>
+        </div>
+        <p style="margin-top: 12px; font-size: 14px; color: var(--muted)">
+          Dashed = Kabuki's. Solid = yours. A child route's Route Actor is a
+          child of the page above it, so that page's View places it like any
+          child: <code>&lt;TaskView instance={self.children.Task} /&gt;</code>.
+        </p>
+      </section>
+
+      <section id="sim">
+        <div class="simhead">
+          <h2>▶ Walkthrough: open a task, edit it, save, move on</h2>
+          <p>
+            Click any Message to <b>time travel</b> to it (← → keys work too).
+            Yellow marks what changed.
+          </p>
+        </div>
+        <div class="timeline" id="timeline"></div>
+        <div class="ctrl">
+          <button id="prev">← Back</button>
+          <button id="next" class="primary">Next Message →</button>
+          <span class="mode" id="mode"></span>
+          <button id="restartBtn">What if I restart live from here?</button>
+        </div>
+        <div class="what" id="what"></div>
+        <div class="restart" id="restart"></div>
+        <div class="grid">
+          <div class="pane">
+            <h3>The screen (each page draws its own Props)</h3>
+            <div id="screen"></div>
+          </div>
+          <div class="pane">
+            <h3>The Router's Model & running Workers</h3>
+            <div id="routerModel"></div>
+            <h3 style="margin-top: 20px">Why it looks like this</h3>
+            <ul class="rules" id="why"></ul>
+          </div>
+          <div class="pane wide">
+            <h3>
+              The Snapshot: each level is Kabuki's Route Actor → your page
+            </h3>
+            <div id="actors" class="levels"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="code">
+        <h2>The code for this walkthrough</h2>
+        <p>
+          You write pages and Loaders. Route Actors are made by Kabuki from
+          <code>Route.page</code>.
+        </p>
+        <div class="code" id="codebox"></div>
+      </section>
+
+      <section id="faq">
+        <h2>Tricky questions</h2>
+        <div class="faq">
+          <div>
+            <b>Do parent and child load one after another?</b>No, at the same
+            time. Both Route Actors exist as soon as the URL points at them, and
+            each one's Worker starts. The child is drawn once the parent page's
+            View places it, which it does in its <code>Ready</code> branch.
+          </div>
+          <div>
+            <b>What does the server send?</b>For <code>static</code>/<code
+              >dynamic</code
+            >
+            routes, Start runs the Loaders first and hands the data as each
+            Route Actor's Input, so they start <code>Ready</code> and the HTML
+            is complete. A <code>client</code> route starts
+            <code>Loading</code>, so its page's skeleton is in the HTML.
+          </div>
+          <div>
+            <b>Where's the promise for Suspense?</b>There isn't one. Loading is
+            a value in a Route Actor's Model, handed to the page as Props. The
+            View draws it with a <code>switch</code>.
+          </div>
+          <div>
+            <b>Why don't pages get Input?</b>Input is read once, when the Actor
+            is created, and a page is created before its data exists. Data that
+            can change belongs in Props.
+          </div>
+          <div>
+            <b>What if a page needs an editable copy?</b>An Update sees the
+            Props with every Message, so copy it when it's needed:
+            <code>Edit: (_, { props }) =&gt; …props.load.data…</code>.
+          </div>
+          <div>
+            <b>Back button?</b>The Router keeps each history entry's data. Going
+            back hands it to the new Route Actor as Input, so it starts
+            <code>Ready</code> at once.
+          </div>
+          <div>
+            <b>Does a quick click flash a skeleton?</b>No. The Router waits up
+            to 150 ms before switching to the new URL, so a fast load lands
+            straight in <code>Ready</code>. A skeleton that does show stays at
+            least 300 ms.
+          </div>
+          <div>
+            <b>One request or many?</b>Route Actors that start loading at the
+            same moment are combined into one request to
+            <code>/_kabuki/load</code>, with Effect's request batching.
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const TEAM = { name: 'Acme' };
+      const P42 = { name: 'Website', columns: 3 };
+      const P43 = { name: 'Mobile app', columns: 4 };
+      const T7a = { title: 'Fix footer', notes: 'Footer is broken' };
+      const T7b = { title: 'Fix footer ✓', notes: 'Footer fixed' };
+      const ready = (data, refreshing = false) => ({
+        _tag: 'Ready',
+        data,
+        refreshing,
+      });
+      const LOADING = { _tag: 'Loading' };
+
+      // Each level: route = Kabuki's Route Actor, page = yours.
+      const L = {
+        team: (load, extra = {}) => ({
+          route: { key: 'team=acme', load, ...extra.route },
+          page: { params: { team: 'acme' }, ...extra.page },
+        }),
+        project: (id, load, extra = {}) => ({
+          route: { key: `id=${id}`, load, ...extra.route },
+          page: { params: { team: 'acme', id }, ...extra.page },
+        }),
+        task: (load, extra = {}) => ({
+          route: { key: 'task=7', load, ...extra.route },
+          page: {
+            params: { team: 'acme', id: '42', task: '7' },
+            ...extra.page,
+          },
+        }),
+      };
+
+      const S = [
+        {
+          msg: 'Restore',
+          src: 'the server drew this page',
+          url: '/teams/acme/projects/42',
+          say: 'The page arrives already drawn. Start ran the Loaders for Team and Project on the server and handed each Route Actor its data as Input, so both started Ready.',
+          levels: {
+            Team: L.team(ready(TEAM), { route: { input: TEAM } }),
+            Project: L.project('42', ready(P42), { route: { input: P42 } }),
+          },
+          why: [
+            'Each Route Actor got its data as <b>Input</b>, so it started <code>Ready</code>.',
+            'No Route Actor is loading, so no load Worker runs.',
+            'Pages have <b>no Input</b>. They read <code>props.load</code>.',
+          ],
+        },
+        {
+          msg: 'Pushed(/…/tasks/7)',
+          src: 'a click on a link (to the Router)',
+          url: '/teams/acme/projects/42/tasks/7',
+          say: 'You click "Fix footer". The Router moves to the new URL, so a Task Route Actor and a Task page are made. Nothing is known about Task yet, so it starts Loading.',
+          levels: {
+            Team: L.team(ready(TEAM)),
+            Project: L.project('42', ready(P42)),
+            Task: L.task(LOADING, {
+              route: { born: true, input: null },
+              page: { born: true, model: { draft: null }, state: 'Reading' },
+            }),
+          },
+          why: [
+            'Route: Task has no Input, so it starts <code>Loading</code>, and its <b>load Worker</b> starts.',
+            'The Task page <b>exists already</b>. Its Props say <code>load: Loading</code>, so its View draws a skeleton.',
+            "Team and Project are kept: their params didn't change.",
+            'Had the data come back within 150 ms, the Router would have waited and Task would start straight in <code>Ready</code>.',
+          ],
+        },
+        {
+          msg: 'Loaded(task)',
+          src: "Route: Task's load Worker",
+          url: '/teams/acme/projects/42/tasks/7',
+          say: 'The data arrives as a Message to Route: Task. Its Model becomes Ready, and the Task page gets the new Props.',
+          levels: {
+            Team: L.team(ready(TEAM)),
+            Project: L.project('42', ready(P42)),
+            Task: L.task(ready(T7a), {
+              page: { model: { draft: null }, state: 'Reading' },
+            }),
+          },
+          why: [
+            'The data is <b>inside</b> this Message, so replay never fetches it again.',
+            'Same Task page as before, with new Props. Nothing was recreated.',
+            "Route: Task isn't <code>Loading</code> any more, so its Worker stops.",
+          ],
+        },
+        {
+          msg: 'Edit',
+          src: "Task page's View (a click)",
+          url: '/teams/acme/projects/42/tasks/7',
+          say: "You click Edit. The Task page's Update reads its Props and copies the notes into its own Model as a draft.",
+          levels: {
+            Team: L.team(ready(TEAM)),
+            Project: L.project('42', ready(P42)),
+            Task: L.task(ready(T7a), {
+              page: { model: { draft: 'Footer is broken' }, state: 'Editing' },
+            }),
+          },
+          why: [
+            'An Update sees the Props with every Message, so the page copies data when it needs to, without an Input.',
+            "The page's own States work as usual.",
+          ],
+        },
+        {
+          msg: 'Typed("Footer fixed")',
+          src: "Task page's View (typing)",
+          url: '/teams/acme/projects/42/tasks/7',
+          say: "You type. The draft lives in the Task page's Model.",
+          levels: {
+            Team: L.team(ready(TEAM)),
+            Project: L.project('42', ready(P42)),
+            Task: L.task(ready(T7a), {
+              page: { model: { draft: 'Footer fixed' }, state: 'Editing' },
+            }),
+          },
+          why: [
+            "The <b>loaded</b> data is in Route: Task. The page's <b>own</b> data (the draft) is in the page.",
+          ],
+        },
+        {
+          msg: 'Reload',
+          src: "the Task page's Router.reload(), after its RPC save",
+          url: '/teams/acme/projects/42/tasks/7',
+          say: 'The save went through RPC. The page goes back to Reading and asks for its data again. Route: Task marks itself refreshing; the old data stays.',
+          levels: {
+            Team: L.team(ready(TEAM)),
+            Project: L.project('42', ready(P42)),
+            Task: L.task(ready(T7a, true), {
+              page: { model: { draft: 'Footer fixed' }, state: 'Reading' },
+            }),
+          },
+          why: [
+            "<code>refreshing: true</code>, so Route: Task's load Worker runs again.",
+            'The page still has <code>data</code>, so it keeps drawing it, plus a spinner. No skeleton.',
+          ],
+        },
+        {
+          msg: 'Loaded(task)',
+          src: "Route: Task's load Worker",
+          url: '/teams/acme/projects/42/tasks/7',
+          say: 'The fresh data arrives. The Task page gets it as new Props. Its draft and State are untouched.',
+          levels: {
+            Team: L.team(ready(TEAM)),
+            Project: L.project('42', ready(P42)),
+            Task: L.task(ready(T7b), {
+              page: { model: { draft: 'Footer fixed' }, state: 'Reading' },
+            }),
+          },
+          why: [
+            'New data = new Props. Nothing restarts.',
+            'Refreshing is over, so the Worker stops.',
+          ],
+        },
+        {
+          msg: 'Pushed(/…/projects/43)',
+          src: 'a click on a link (to the Router)',
+          url: '/teams/acme/projects/43',
+          say: 'You go to another project. Team stays. Projects 42 and 43 are different addresses, so the Project pair is replaced, and Task goes with it.',
+          levels: {
+            Team: L.team(ready(TEAM)),
+            Project: L.project('43', LOADING, {
+              route: {
+                born: true,
+                input: null,
+                replaced: 'Route: Project id=42',
+              },
+              page: { born: true },
+            }),
+            Task: { stopped: true },
+          },
+          why: [
+            "Team's key (<code>team=acme</code>) didn't change, so the Team pair stays, with its state.",
+            "Project's key changed, so a <b>new</b> Route: Project and page are made, starting <code>Loading</code>.",
+            'Task lived inside Project 42, so it stops too.',
+            'The new Project page draws its own skeleton.',
+          ],
+        },
+        {
+          msg: 'Failed(server error)',
+          src: "Route: Project's load Worker",
+          url: '/teams/acme/projects/43',
+          say: 'The Project Loader breaks. Route: Project writes it down, and the Project page draws an error from its Props.',
+          levels: {
+            Team: L.team(ready(TEAM)),
+            Project: L.project('43', {
+              _tag: 'Failed',
+              reason: 'server error',
+            }),
+            Task: null,
+          },
+          why: [
+            'Failure is a value in a Model, not an exception.',
+            "The Project page's <code>switch</code> reaches <code>Failed</code> and draws Retry.",
+            'Nothing is loading, so the Worker is off.',
+          ],
+        },
+        {
+          msg: 'Retried',
+          src: 'the Retry link (the same address)',
+          url: '/teams/acme/projects/43',
+          say: 'You click Retry, a link to the same address. The Router asks Route: Project to try again, so it goes back to Loading.',
+          levels: {
+            Team: L.team(ready(TEAM)),
+            Project: L.project('43', LOADING),
+            Task: null,
+          },
+          why: [
+            '<code>Loading</code> again, so the load Worker runs again.',
+            "Same page Instance: the address didn't change.",
+          ],
+        },
+        {
+          msg: 'Loaded(project)',
+          src: "Route: Project's load Worker",
+          url: '/teams/acme/projects/43',
+          say: "Project 43's data arrives. The Project page draws it.",
+          levels: {
+            Team: L.team(ready(TEAM)),
+            Project: L.project('43', ready(P43)),
+            Task: null,
+          },
+          why: [
+            "Same rule everywhere: a Route Actor's <code>load</code> becomes its page's Props.",
+            'Nothing is loading or refreshing.',
+          ],
+        },
+      ];
+
+      let at = 0;
+      const LIVE = S.length - 1;
+      const esc = (s) =>
+        String(s)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;');
+      const show = (v) =>
+        v === null
+          ? 'null'
+          : v === undefined
+            ? '—'
+            : typeof v === 'string'
+              ? `'${v}'`
+              : Array.isArray(v)
+                ? `[${v.join(', ')}]`
+                : typeof v === 'object'
+                  ? `{ ${Object.entries(v)
+                      .map(([k, x]) => `${k}: ${show(x)}`)
+                      .join(', ')} }`
+                  : String(v);
+      const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+      const COLORS = {
+        Team: 'var(--team)',
+        Project: 'var(--project)',
+        Task: 'var(--task)',
+      };
+      const NAMES = ['Team', 'Project', 'Task'];
+      const alive = (lv) => lv && !lv.stopped;
+      const busy = (lv) =>
+        alive(lv) &&
+        (lv.route.load._tag === 'Loading' || lv.route.load.refreshing);
+
+      function drawPage(name, lv, inner) {
+        const c = COLORS[name],
+          load = lv.route.load;
+        const title = (t, extra = '') =>
+          `<div class="t" style="color:${c}">${t}<span>${extra}<i> ${name}View</i></span></div>`;
+        if (load._tag === 'Loading')
+          return `<div class="skel" style="border-color:${c}">${name} skeleton… <span style="font-size:11px">(drawn by the ${name} page: <code>props.load</code> is Loading)</span></div>`;
+        if (load._tag === 'Failed')
+          return `<div class="err">${name} page: couldn't load (${esc(load.reason)}) <button onclick="go(${S.findIndex((x) => x.msg === 'Retried')})">Retry</button></div>`;
+        const d = load.data,
+          spin = load.refreshing
+            ? '<span class="spin">↻ refreshing</span>'
+            : '';
+        if (name === 'Team')
+          return `<div class="sb" style="border-color:${c}">${title('Team: ' + esc(d.name), spin)}${inner}</div>`;
+        if (name === 'Project')
+          return `<div class="sb" style="border-color:${c}">${title('Project: ' + esc(d.name), spin)}<div class="body">Board with ${d.columns} columns</div>${inner}</div>`;
+        const p = lv.page;
+        const body =
+          p.state === 'Editing'
+            ? `<div class="editor">${esc(p.model.draft)}▍</div>`
+            : `Notes: ${esc(d.notes)} &nbsp;<u>Edit</u>`;
+        return `<div class="sb" style="border-color:${c}">${title('Task: ' + esc(d.title), spin)}<div class="body">${body}</div></div>`;
+      }
+
+      function drawScreen(st) {
+        let inner = '';
+        for (const name of [...NAMES].reverse()) {
+          const lv = st.levels[name];
+          if (!alive(lv)) continue;
+          inner = drawPage(name, lv, inner);
+        }
+        return `<div class="win"><div class="bar"><i></i><i></i><i></i><div class="addr">${esc(st.url)}</div></div>
+    <div class="scr"><div class="sb" style="border-color:var(--app);margin-top:0"><div class="t" style="color:var(--app)">App shell<i>AppView</i></div>${inner}</div></div></div>`;
+      }
+
+      function drawRouter(st, prev) {
+        const list = (s) =>
+          NAMES.filter((n) => alive(s.levels[n])).map(
+            (n) => `${n}(${s.levels[n].route.key})`,
+          );
+        const rows = [
+          ['url', `'${st.url}'`, prev && prev.url !== st.url],
+          [
+            'routes',
+            `[${list(st).join(', ')}]`,
+            prev && !same(list(prev), list(st)),
+          ],
+          ['back', 'each entry keeps its data', false],
+        ];
+        const ws = NAMES.filter((n) => busy(st.levels[n])).map(
+          (n) =>
+            `<div class="worker on">● Route: ${n}'s <b>load Worker</b> running (${st.levels[n].route.load._tag === 'Loading' ? 'loading' : 'refreshing'})</div>`,
+        );
+        return `<div class="model">${rows.map(([k, v, c]) => `<div class="row ${c ? 'chg' : ''}"><span class="k">${k}:</span> ${v}</div>`).join('')}</div>
+    <div style="font-size:12.5px;color:var(--muted);margin-top:6px">The Router doesn't track loading. Each Route Actor does.</div>
+    <div class="workers">${ws.length ? ws.join('') : '<div class="worker off">○ No load Worker running</div>'}</div>`;
+      }
+
+      const field = (lab, cls, val, changed) =>
+        `<div class="f"><span class="lab ${cls}">${lab}</span><span class="val ${changed ? 'chg' : ''}">${val}</span></div>`;
+      const showLoad = (l) =>
+        l._tag === 'Ready'
+          ? `Ready { data: ${show(l.data)}, refreshing: ${l.refreshing} }`
+          : l._tag === 'Failed'
+            ? `Failed { reason: '${l.reason}' }`
+            : 'Loading';
+
+      function drawActors(st, prev) {
+        const out = [
+          `<div class="level"><span class="lvl">top</span><div class="acard" style="border-color:var(--router)"><div class="h"><b style="color:var(--router)">Router</b><span class="life kept">Kabuki's</span></div><div class="muted" style="margin-top:3px">Its Model is shown above.</div></div><span class="to"></span><div class="acard" style="border-color:var(--app)"><div class="h"><b style="color:var(--app)">App</b><span class="life kept">your root page</span></div><div class="muted" style="margin-top:3px">No path, no data. Its child is Route: Team.</div></div></div>`,
+        ];
+        for (const name of NAMES) {
+          const lv = st.levels[name],
+            c = COLORS[name];
+          const pl =
+            prev && alive(prev.levels[name]) ? prev.levels[name] : null;
+          if (!lv) {
+            out.push(
+              `<div class="level"><span class="lvl">${name}</span><div class="absent">no Route: ${name}: the URL doesn't point at one</div><span class="to"></span><div class="absent">no ${name} page</div></div>`,
+            );
+            continue;
+          }
+          if (lv.stopped) {
+            out.push(
+              `<div class="level"><span class="lvl">${name}</span><div class="acard k gone" style="border-color:${c}"><div class="h"><b>Route: ${name}</b><span class="life stopped">stopped</span></div></div><span class="to"></span><div class="acard gone" style="border-color:${c}"><div class="h"><b>${name} page</b><span class="life stopped">stopped</span></div></div></div>`,
+            );
+            continue;
+          }
+          const r = lv.route,
+            p = lv.page;
+          const sameInst = pl && pl.route.key === r.key;
+          const life = (born) =>
+            born
+              ? '<span class="life born">made now</span>'
+              : '<span class="life kept">kept</span>';
+          const input =
+            r.input === undefined
+              ? '<span class="muted">already used at init</span>'
+              : r.input === null
+                ? 'nothing known <span class="muted">(read once, now)</span>'
+                : `${show(r.input)} <span class="muted">(from the server)</span>`;
+          let rc = `<div class="acard k" style="border-color:${c}"><div class="h"><b style="color:${c}">Route: ${name} <span class="muted" style="font-weight:400;font-size:11.5px">${r.key}</span></b>${life(r.born)}</div>`;
+          if (r.replaced)
+            rc += `<div class="muted" style="font-size:11.5px">replaces ${r.replaced}</div>`;
+          rc += field('Input', 'input', input, r.born);
+          rc += field(
+            'Model',
+            'model',
+            `load: ${showLoad(r.load)}`,
+            sameInst && !same(pl.route.load, r.load),
+          );
+          rc += field(
+            'Worker',
+            'worker',
+            busy(lv)
+              ? '<b style="color:#1f5c30">load: running</b>'
+              : '<span class="muted">load: off</span>',
+            sameInst && busy(pl) !== busy(lv),
+          );
+          rc += '</div>';
+          let pc = `<div class="acard" style="border-color:${c}"><div class="h"><b style="color:${c}">${name} page</b>${life(p.born)}</div>`;
+          pc += field('Props', 'props', `params: ${show(p.params)}`, false);
+          pc += field(
+            '',
+            '',
+            `load: ${showLoad(r.load)}`,
+            sameInst && !same(pl.route.load, r.load),
+          );
+          pc += field(
+            'Input',
+            'input',
+            '<span class="muted">none: pages take no Input</span>',
+            false,
+          );
+          if (p.model)
+            pc += field(
+              'Model',
+              'model',
+              show(p.model),
+              sameInst && !same(pl.page.model, p.model),
+            );
+          if (p.state)
+            pc += field(
+              'State',
+              'state',
+              p.state,
+              sameInst && pl.page.state !== p.state,
+            );
+          if (!p.model && !p.state)
+            pc += field(
+              'Model',
+              'model',
+              '<span class="muted">none of its own</span>',
+              false,
+            );
+          pc += '</div>';
+          out.push(
+            `<div class="level"><span class="lvl">${name}</span>${rc}<span class="to">params,<br>load<br>→</span>${pc}</div>`,
+          );
+        }
+        return out.join('');
+      }
+
+      function render() {
+        const st = S[at],
+          prev = at > 0 ? S[at - 1] : null;
+        document.getElementById('timeline').innerHTML = S.map(
+          (s, i) =>
+            `<button class="tstep ${i === at ? 'on' : ''} ${i > at ? 'future' : ''}" onclick="go(${i})"><span class="n">#${i}</span><span class="m">${esc(s.msg)}</span></button>`,
+        ).join('');
+        document.getElementById('what').innerHTML =
+          `<span class="msg">${esc(st.msg)}</span><span class="src">sent by ${st.src}</span><p>${st.say}</p>`;
+        document.getElementById('screen').innerHTML = drawScreen(st);
+        document.getElementById('routerModel').innerHTML = drawRouter(st, prev);
+        document.getElementById('actors').innerHTML = drawActors(st, prev);
+        document.getElementById('why').innerHTML = st.why
+          .map((w) => `<li>${w}</li>`)
+          .join('');
+        const mode = document.getElementById('mode');
+        mode.className = 'mode ' + (at === LIVE ? 'live' : 'tt');
+        mode.innerHTML =
+          at === LIVE
+            ? '● Live: the latest Message'
+            : `⏪ Time travel: drawing the Snapshot after #${at}. Nothing runs.`;
+        document.getElementById('restart').style.display = 'none';
+        document.getElementById('prev').disabled = at === 0;
+        document.getElementById('next').disabled = at === LIVE;
+        document
+          .querySelector('.tstep.on')
+          ?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      }
+
+      function restartNote() {
+        const st = S[at],
+          r = document.getElementById('restart');
+        const loadingNow = NAMES.filter((n) => busy(st.levels[n]));
+        r.innerHTML =
+          `<b>Restart live from #${at}:</b> the History after #${at} is set aside on its own branch, and Kabuki starts every Worker whose Condition holds in this Snapshot. ` +
+          (loadingNow.length
+            ? loadingNow
+                .map(
+                  (n) =>
+                    `Route: ${n} is <code>${st.levels[n].route.load._tag === 'Loading' ? 'Loading' : 'refreshing'}</code>, so <b>its load Worker fetches again</b>.`,
+                )
+                .join(' ') +
+              ' The screen stays as you see it until the data arrives.'
+            : 'No Route Actor is loading or refreshing, so <b>nothing is fetched</b>. The app carries on from here.');
+        r.style.display = 'block';
+      }
+
+      window.go = (i) => {
+        at = Math.max(0, Math.min(LIVE, i));
+        render();
+      };
+      document.getElementById('prev').onclick = () => go(at - 1);
+      document.getElementById('next').onclick = () => go(at + 1);
+      document.getElementById('restartBtn').onclick = restartNote;
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowRight') go(at + 1);
+        if (e.key === 'ArrowLeft') go(at - 1);
+      });
+      render();
+
+      const CODE = {
+        'task.tsx': `// Your page: a normal Actor with an address. No Input.
+export const Task = Route.page('Task', {
+  path: '/tasks/:task',
+  params: { task: Schema.String },
+  data: TaskData,                                           // what its Loader returns
+  model: Schema.Struct({ draft: Schema.NullOr(Schema.String) }),
+  state: Schema.TaggedUnion({ Reading: {}, Editing: {} }),
+  message: Schema.TaggedUnion({ Edit: {}, Typed: { text: Schema.String }, Saved: {} }),
+}).build({
+  init: () => ({ model: { draft: null }, state: { _tag: 'Reading' } }),
+  on: {
+    // an Update sees the Props: copy the data when it's needed
+    Edit: (_, { props }) =>
+      props.load._tag === 'Ready'
+        ? { model: { draft: props.load.data.notes }, state: { _tag: 'Editing' } }
+        : {},
+    Typed: ({ text }) => ({ model: { draft: text } }),
+    Saved: () => ({ state: { _tag: 'Reading' }, command: Router.reload() }),
+  },
+});
+
+export const TaskView = View.make(Task, (self) => {
+  const load = self.props.load;
+  switch (load._tag) {
+    case 'Loading': return <TaskSkeleton />;
+    case 'Failed': return <Failed reason={load.reason} />;
+    case 'Ready': return (
+      <RedBox>
+        {load.refreshing && <Spinner />}
+        <h3>{load.data.title}</h3>
+        {self._tag === 'Editing'
+          ? <Editor value={self.model.draft} onChange={(text) => self.send({ _tag: 'Typed', text })} />
+          : <button onClick={() => self.send({ _tag: 'Edit' })}>Edit</button>}
+      </RedBox>
+    );
+  }
+});`,
+        'project.tsx': `export const Project = Route.page('Project', {
+  path: '/projects/:id',
+  params: { id: Schema.String },
+  data: ProjectData,
+  pages: { Task },              // child routes: Kabuki adds Route: Task to its children
+}).build();                     // no logic of its own
+
+export const ProjectView = View.make(Project, (self) => {
+  const load = self.props.load;
+  switch (load._tag) {
+    case 'Loading': return <ProjectSkeleton />;
+    case 'Failed': return (
+      <Failed reason={load.reason}>
+        <Router.Link to={Routes.Team.Project(self.props.params)}>Retry</Router.Link>
+      </Failed>
+    );
+    case 'Ready': return (
+      <RedBox title={load.data.name}>
+        <Board columns={load.data.columns} />
+        {/* the child route, placed like any child */}
+        {self.children.Task && <TaskView instance={self.children.Task} />}
+      </RedBox>
+    );
+  }
+});`,
+        'team.tsx': `export const Team = Route.page('Team', {
+  path: '/teams/:team',
+  params: { team: Schema.String },
+  data: TeamData,
+  pages: { Project },
+}).build();
+
+export const TeamView = View.make(Team, (self) => {
+  const load = self.props.load;
+  if (load._tag === 'Loading') return <TeamSkeleton />;
+  if (load._tag === 'Failed') return <Failed reason={load.reason} />;
+  return (
+    <RedBox title={load.data.name}>
+      {self.children.Project && <ProjectView instance={self.children.Project} />}
+    </RedBox>
+  );
+});`,
+        'app.tsx': `// The root is a page with no path and no data.
+export const App = Route.page('App', { pages: { Team } }).build();
+
+const AppView = View.make(App, (self) => (
+  <Shell>
+    {self.children.Team && <TeamView instance={self.children.Team} />}
+  </Shell>
+));
+
+export const Routes = Route.tree(App);          // the Router, typed links, the URL map
+export default Start.app(Routes, AppView);`,
+        'loaders.server.ts': `// Runs on the server. One Loader per route that has data. Same as today.
+export default Start.layers<Env>()
+  .instance((env) => DbLive(env.DB))
+  .loaders(Routes.loaders({
+    Team: ({ team }) => Teams.get(team),
+    'Team.Project': ({ team, id }) => Projects.get(team, id),
+    'Team.Project.Task': ({ id, task }) => Tasks.get(id, task),
+  }));`,
+        "Kabuki's Route Actor (sketch)": `// Not your code. Kabuki makes one of these per route, from Route.page.
+const RouteTask = Actor.make('Route:Task', {
+  input: Schema.NullOr(TaskData),                 // what's already known: server data, or Back
+  props: Schema.Struct({ params: TaskParams }),
+  model: Schema.Struct({ load: Load(TaskData) }), // Loading | Failed | Ready { data, refreshing }
+  message: Schema.TaggedUnion({
+    Loaded: { data: TaskData }, Failed: { reason: Schema.String }, Reload: {}, Retry: {},
+  }),
+}).build({
+  init: (known) => ({ model: { load: known ? Ready(known) : Loading } }),
+  children: {
+    page: {                                       // your page, its one child
+      actor: Task,
+      props: ({ props, model }) => ({ params: props.params, load: model.load }),
+    },
+  },
+  workers: {
+    load: {
+      while: ({ model }) => model.load._tag === 'Loading' || model.load.refreshing,
+      run: (self) => Loader.call('Team.Project.Task', self.props.params)   // batched with others
+        .pipe(Effect.matchEffect({
+          onSuccess: (data) => self.send({ _tag: 'Loaded', data }),
+          onFailure: (e) => self.send({ _tag: 'Failed', reason: e.message }),
+        })),
+    },
+  },
+  on: { Loaded: …, Failed: …, Reload: …, Retry: … },
+});`,
+      };
+      const hl = (src) => {
+        const re =
+          /(\/\/.*$|\{\/\*.*?\*\/\})|('(?:[^'\\\n]|\\.)*')|\b(const|export|default|import|from|return|true|false|null|switch|case|if)\b/gm;
+        let out = '',
+          last = 0,
+          m;
+        while ((m = re.exec(src))) {
+          out += esc(src.slice(last, m.index));
+          out += `<span class="${m[1] ? 'c' : m[2] ? 's' : 'kw'}">${esc(m[0])}</span>`;
+          last = re.lastIndex;
+        }
+        return out + esc(src.slice(last));
+      };
+      const box = document.getElementById('codebox');
+      const names = Object.keys(CODE);
+      box.innerHTML = `<div class="tabs">${names.map((n, i) => `<button class="${i ? '' : 'on'}">${esc(n)}</button>`).join('')}</div><pre></pre>`;
+      const showCode = (i) => {
+        box
+          .querySelectorAll('.tabs button')
+          .forEach((b, j) => b.classList.toggle('on', i === j));
+        box.querySelector('pre').innerHTML = hl(CODE[names[i]]);
+      };
+      box
+        .querySelectorAll('.tabs button')
+        .forEach((b, i) => (b.onclick = () => showCode(i)));
+      showCode(0);
+    </script>
+  </body>
+</html>

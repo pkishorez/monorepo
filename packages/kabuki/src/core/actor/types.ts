@@ -125,65 +125,91 @@ export type Workers<
 
 // Children ------------------------------------------------------------------------
 
-/** A keyed Child: one Instance of `actor` per key the parent Invokes. */
-export interface Many<A extends AnyActor> {
-  readonly _tag: 'Many';
-  readonly actor: A;
+/**
+ * When a Child exists, written as a Worker's Condition is: always, `while` a
+ * test is true, or once per key `each` names. Where it is written is part of
+ * it too: at the top for as long as the Instance lives, in a State's block
+ * while that State lasts.
+ */
+type Condition<Model, State, Props> =
+  | { readonly while?: never; readonly each?: never }
+  | {
+      readonly while: (data: Data<Model, State, Props>) => boolean;
+      readonly each?: never;
+    }
+  | {
+      readonly while?: never;
+      readonly each: (data: Data<Model, State, Props>) => ReadonlyArray<string>;
+    };
+
+/**
+ * What a parent hands one Child, worked out from its data and the Child's
+ * key, `''` unless it is one of `each`: its Input, read once, and its Props,
+ * read live. Each is required once the Child declares it.
+ */
+type Given<A, Model, State, Props> = ([Types<A>['input']] extends [void]
+  ? {
+      readonly input?: (
+        data: Data<Model, State, Props>,
+        key: string,
+      ) => Types<A>['input'];
+    }
+  : {
+      readonly input: (
+        data: Data<Model, State, Props>,
+        key: string,
+      ) => Types<A>['input'];
+    }) &
+  ([Types<A>['props']] extends [void]
+    ? {
+        readonly props?: (
+          data: Data<Model, State, Props>,
+          key: string,
+        ) => Types<A>['props'];
+      }
+    : {
+        readonly props: (
+          data: Data<Model, State, Props>,
+          key: string,
+        ) => Types<A>['props'];
+      });
+
+/**
+ * One Child, checked against the Actor written in it: when it exists, and
+ * what it is handed. `C` is the Child as written.
+ */
+export type Child<Model, State, Props, C> = C extends {
+  readonly actor: infer A extends AnyActor;
+}
+  ? { readonly actor: A } & Given<A, Model, State, Props> &
+      Condition<Model, State, Props>
+  : { readonly actor: AnyActor };
+
+/** Every Child of one level, by name, each checked against its own Actor. */
+export type Children<Model, State, Props, C> = {
+  readonly [K in keyof C]: Child<Model, State, Props, C[K]>;
+};
+
+/** A Child as written, loosely: what the engine and Views read it as. */
+export interface AnyChild {
+  readonly actor: AnyActor;
+  readonly while?: Function;
+  readonly each?: Function;
+  readonly input?: Function;
+  readonly props?: Function;
 }
 
-export type Slot = AnyActor | Many<AnyActor>;
-export type Children = Readonly<Record<string, Slot>>;
-
-export type ActorOf<S> = S extends Many<infer A> ? A : S;
-
-/** What a parent hands one Child: its Input, read once, and its Props, read live. Each is required once the Child declares it. */
-type Given<A> = ([Types<A>['input']] extends [void]
-  ? { readonly input?: Types<A>['input'] }
-  : { readonly input: Types<A>['input'] }) &
-  ([Types<A>['props']] extends [void]
-    ? { readonly props?: Types<A>['props'] }
-    : { readonly props: Types<A>['props'] });
-
-type ManyKeys<C> = {
-  [K in keyof C]: C[K] extends Many<any> ? K : never;
-}[keyof C];
-type NeedKeys<C> = {
-  [K in keyof C]: C[K] extends Many<any>
-    ? never
-    : {} extends Given<C[K]>
-      ? never
-      : K;
-}[keyof C];
-type FreeKeys<C> = Exclude<keyof C, ManyKeys<C> | NeedKeys<C>>;
-
-/** What a level Invokes: the key, Input and Props of each keyed Child, and the Input and Props of each fixed one. */
-export type Invocation<C> = {
-  readonly [K in ManyKeys<C>]: ReadonlyArray<
-    { readonly key: string } & Given<ActorOf<C[K]>>
-  >;
-} & { readonly [K in NeedKeys<C>]: Given<C[K]> } & {
-  readonly [K in FreeKeys<C>]?: Given<C[K]>;
-};
+export type ActorOf<C> = C extends { readonly actor: infer A } ? A : never;
 
 // The behavior ---------------------------------------------------------------------
 
-/** The Children a level, as written, Invokes. */
+/** The Children of a level, as written. */
 type KidsOf<L> = L extends { readonly children: infer C } ? C : {};
-
-/** `invoke` is required once a level has a Child that needs keys or Input. */
-type InvokePart<Model, State, Props, C> =
-  {} extends Invocation<C>
-    ? {
-        readonly invoke?: (data: Data<Model, State, Props>) => Invocation<C>;
-      }
-    : {
-        readonly invoke: (data: Data<Model, State, Props>) => Invocation<C>;
-      };
 
 /**
  * One level of an Actor's behavior: the top, for as long as the Instance
  * lives, or one State's block, for as long as that State lasts. `L` is the
- * level as written, so `invoke` is checked against the `children` beside it.
+ * level as written, so each Child is checked against the Actor written in it.
  */
 type Level<
   Model,
@@ -198,11 +224,11 @@ type Level<
   readonly provides?: (
     self: Self<Model, State, Msg, Props>,
   ) => Layer.Layer<any, never, IdsOf<R>>;
-  readonly children?: Children;
+  readonly children?: Children<Model, State, Props, KidsOf<L>>;
   /** The Updates: per Message, the next Model and State and the Commands. */
   readonly on?: Rules<Model, State, Props, Msg, R, Next>;
   readonly workers?: Workers<Model, State, Msg, R, Props>;
-} & InvokePart<Model, State, Props, KidsOf<L>>;
+};
 
 type ModelInit<Model> = {} extends Model
   ? { readonly model?: Model }
@@ -219,9 +245,9 @@ type BlockOf<B, T extends PropertyKey> = B extends {
 export type IsSingle<State> = [State] extends [Single] ? true : false;
 
 /**
- * How an Actor is built. `B` is the behavior as written: each level's
- * `invoke` is checked against its own `children`, and what the levels
- * Provide and Invoke becomes the Actor's type.
+ * How an Actor is built. `B` is the behavior as written: each Child is
+ * checked against the Actor written in it, and what the levels Provide and
+ * Invoke becomes the Actor's type.
  */
 export type Behavior<
   Input,
@@ -307,10 +333,28 @@ export interface Encoding {
   readonly decode: (value: unknown) => unknown;
 }
 
-/** One Child slot, as the engine sees it. */
+/** One Child slot, as the engine sees it: when it exists, and what each of its Instances is handed. */
 export interface SlotDefinition {
   readonly definition: ActorDefinition;
-  readonly many: boolean;
+  /**
+   * `always` is held as one Instance; `while`, as one or none; `each`, as a
+   * list in the order of its keys.
+   */
+  readonly kind: 'always' | 'while' | 'each';
+  /** The keys its Condition names for this data; `''` for the one Instance of the other kinds. */
+  readonly keys: (
+    data: Data<unknown, Tagged, unknown>,
+  ) => ReadonlyArray<string>;
+  /** The Input of a new Instance with this key; read once, as it is Invoked. */
+  readonly input: (
+    data: Data<unknown, Tagged, unknown>,
+    key: string,
+  ) => unknown;
+  /** The Props of the Instance with this key, worked out again after each of the parent's Updates. */
+  readonly props: (
+    data: Data<unknown, Tagged, unknown>,
+    key: string,
+  ) => unknown;
 }
 
 /** One Worker, as the engine sees it: which keys its Condition names, and what runs for each. */
@@ -366,8 +410,6 @@ export interface ActorDefinition {
   >;
   /** The slots written at the top: they last as long as the Instance. */
   readonly lasting: ReadonlyArray<string>;
-  /** What each State Invokes, the top-level Invocation included. */
-  readonly invoke: Readonly<Record<string, Function | undefined>>;
 }
 
 declare const types: unique symbol;

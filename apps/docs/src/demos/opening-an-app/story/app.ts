@@ -93,8 +93,10 @@ export const App = Actor.make('App', {
       },
     },
     Inside: {
-      children: { home: Home, downloads: Downloads },
-      invoke: ({ state }) => ({ home: { props: { name: state.name } } }),
+      children: {
+        home: { actor: Home, props: ({ state }) => ({ name: state.name }) },
+        downloads: { actor: Downloads },
+      },
       provides: (self) =>
         Layer.succeed(Session, { signOut: self.send({ _tag: 'SignedOut' }) }),
       on: {

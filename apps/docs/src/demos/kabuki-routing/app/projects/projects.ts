@@ -18,15 +18,13 @@ export const pages = Routes.Projects.outlet({
 export const ProjectsActor = Actor.make('Projects', {
   props: Routes.Projects.props,
 }).build({
-  children: { ...pages.children, open: Actor.many(Project.actor) },
-  invoke: (data) => {
-    const { page } = data.props;
-    return {
-      ...pages.invoke(data),
-      open:
-        page._tag === 'List'
-          ? []
-          : [{ key: String(page.id), input: { id: page.id } }],
-    };
+  children: {
+    ...pages.children,
+    open: {
+      actor: Project.actor,
+      each: ({ props: { page } }) =>
+        page._tag === 'List' ? [] : [String(page.id)],
+      input: (_, id) => ({ id: Number(id) }),
+    },
   },
 });

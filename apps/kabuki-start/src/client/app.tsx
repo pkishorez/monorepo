@@ -28,7 +28,6 @@ const AppActor = Actor.make('App', {
 }).build({
   init: () => ({ model: { live: null } }),
   children: pages.children,
-  invoke: pages.invoke,
   workers: {
     tick: {
       run: (self) =>

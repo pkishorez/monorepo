@@ -117,7 +117,6 @@ const BlogActor = Actor.make('Blog', {
 }).build({
   init: (list) => ({ model: { count: list.length } }),
   children: posts.children,
-  invoke: posts.invoke,
 });
 const DashboardActor = Actor.make('Dashboard', {
   input: Routes.Dashboard.input,
@@ -132,7 +131,6 @@ const pages = Routes.outlet({
 });
 const AppActor = Actor.make('App', { props: Routes.props }).build({
   children: pages.children,
-  invoke: pages.invoke,
 });
 const Root = Router.app(Routes, served(AppActor));
 const loading = Router.memory(Routes, loaders);
@@ -390,7 +388,6 @@ describe('a place served by a lazy View', () => {
   });
   const ChartsActor = Actor.make('Charts', { props: Charts.props }).build({
     children: charts.children,
-    invoke: charts.invoke,
   });
 
   it("starts loading its code with its place's Input, not after it", () =>

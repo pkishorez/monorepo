@@ -7,8 +7,8 @@ import { counterOf, isMany, slotToward } from './tree.ts';
  * saved before. The only Message no Update sees. Before it is put in place,
  * every Instance is checked against its Actor: its ID, its Actor's name, its
  * State, its Model, its Props and its Children's slots, every one its State
- * Invokes and no other; one that does not
- * match is a reason, and the Restore is ignored.
+ * always holds and no other; one that does not match is a reason, and the
+ * Restore is ignored.
  */
 
 export const RESTORE = '@kestack/kabuki/Restore';
@@ -57,15 +57,16 @@ const check = (
     return (error as Error).message;
   }
   const slots = definition.children[tag] ?? {};
-  for (const slot of Object.keys(slots))
-    if (!(slot in instance.children))
+  for (const [slot, { kind }] of Object.entries(slots))
+    if (kind !== 'while' && !(slot in instance.children))
       return `${id} is in ${tag}, which Invokes "${slot}", but holds no such Child`;
   for (const [slot, held] of Object.entries(instance.children)) {
     const wanted = slots[slot];
     if (!wanted)
       return `${id} has a Child "${slot}" that ${tag} does not Invoke`;
-    if (isMany(held) !== wanted.many)
-      return `${id}'s Child "${slot}" is ${wanted.many ? '' : 'not '}keyed`;
+    const many = wanted.kind === 'each';
+    if (isMany(held) !== many)
+      return `${id}'s Child "${slot}" is ${many ? '' : 'not '}keyed`;
     for (const child of isMany(held) ? held : [held]) {
       if (slotToward(id, child.id) !== slot)
         return `${child.id} is not under ${id}'s "${slot}"`;

@@ -1,17 +1,16 @@
 import type {
   Actor as ActorOf,
   AnyActor,
+  AnyChild,
   Behavior,
   Check,
   Data,
   ActorDefinition,
   Encoding,
   KidsByState,
-  Many,
   OpenOfBehavior,
   Requires,
   Single,
-  Slot,
   SlotDefinition,
   Tagged,
   WorkerDefinition,
@@ -90,8 +89,7 @@ function make(name: string, shape: Shape<any, any, any, any, any, any>) {
 
 type Block = {
   readonly provides?: Function;
-  readonly children?: Record<string, Slot>;
-  readonly invoke?: Function;
+  readonly children?: Record<string, AnyChild>;
   readonly on?: Record<string, Function>;
   readonly workers?: Record<string, any>;
 };
@@ -111,7 +109,6 @@ const definitionOf = (
   const lasting = Object.keys(top);
 
   const children: Record<string, Record<string, SlotDefinition>> = {};
-  const invoke: Record<string, Function | undefined> = {};
   const update: Record<string, Record<string, Function>> = {};
   const stateProvides: Record<string, Function | undefined> = {};
   const workers: Record<string, WorkerDefinition> = {};
@@ -136,7 +133,6 @@ const definitionOf = (
           `[@kestack/kabuki] ${name}: Child "${slot}" is written at the top and in ${tag}`,
         );
     children[tag] = { ...top, ...own };
-    invoke[tag] = merged(behavior.invoke, block.invoke);
     if (block.on) update[tag] = block.on as Record<string, Function>;
     stateProvides[tag] = block.provides;
     addWorkers(block, tag);
@@ -175,28 +171,38 @@ const definitionOf = (
     stateProvides,
     children,
     lasting,
-    invoke,
   };
 };
 
 const slots = (
-  children: Record<string, Slot> | undefined,
+  children: Record<string, AnyChild> | undefined,
 ): Record<string, SlotDefinition> =>
   Object.fromEntries(
     Object.entries(children ?? {}).map(([slot, child]) => [
       slot,
-      isMany(child)
-        ? { definition: child.actor.definition, many: true }
-        : { definition: child.definition, many: false },
+      slotOf(child),
     ]),
   );
 
-/** The top-level Invocation and a State's own, as one. */
-const merged = (
-  top: Function | undefined,
-  own: Function | undefined,
-): Function | undefined =>
-  !top ? own : !own ? top : (data: unknown) => ({ ...top(data), ...own(data) });
+const ONE: ReadonlyArray<string> = [''];
+const NONE: ReadonlyArray<string> = [];
+const NOTHING = () => undefined;
+
+/** A Child as the keys its Condition names, the way a Worker is: one, `''`, for every kind but `each`. */
+const slotOf = (child: AnyChild): SlotDefinition => {
+  const exists = child.while;
+  return {
+    definition: child.actor.definition,
+    kind: child.each ? 'each' : exists ? 'while' : 'always',
+    keys: child.each
+      ? (child.each as SlotDefinition['keys'])
+      : exists
+        ? (data) => (exists(data) ? ONE : NONE)
+        : () => ONE,
+    input: (child.input ?? NOTHING) as SlotDefinition['input'],
+    props: (child.props ?? NOTHING) as SlotDefinition['props'],
+  };
+};
 
 /**
  * The State tags: a tagged union's cases, else every State a block is
@@ -254,9 +260,6 @@ const tagsOf = (schema: Schema.Top | undefined): ReadonlyArray<string> => {
   );
 };
 
-const ONE: ReadonlyArray<string> = [''];
-const NONE: ReadonlyArray<string> = [];
-
 /**
  * A Worker's Condition as the keys it names: one, `''`, for every kind but
  * `each`. Written in a State's block, it names none outside that State.
@@ -286,19 +289,10 @@ const workerOf = (worker: any, state: string | undefined): WorkerDefinition => {
   };
 };
 
-const isMany = (slot: Slot): slot is Many<AnyActor> =>
-  '_tag' in slot && slot._tag === 'Many';
-
-/** A keyed Child slot: the parent Invokes one Instance of `actor` per key. */
-const many = <A extends AnyActor>(actor: A): Many<A> => ({
-  _tag: 'Many',
-  actor,
-});
-
 /**
  * An Actor, in two steps. `make` takes its Schemas and Requires, which fixes
  * every type. `build` takes how it behaves, at the top for as long as the
  * Instance lives and in one block per State for as long as that State lasts:
- * its Provides, Children, Invocation, Updates under `on`, and Workers.
+ * its Provides, Children, Updates under `on`, and Workers.
  */
-export const Actor = { make, many };
+export const Actor = { make };
