@@ -3,19 +3,19 @@ import { existsSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { isRunnableDevEnvironment } from 'vite';
 import type { Plugin, ViteDevServer } from 'vite';
-import type { Build } from '../page/index.ts';
-import { serveWorker } from './dev.ts';
-import type { Fetching } from './dev.ts';
+import type { Build } from '../common/index.ts';
+import type { Handler, Platform } from '../platform/index.ts';
+import { serveHandler } from './dev.ts';
 import {
   BUILD,
   CLIENT,
-  DOCUMENT,
   ENTRY,
+  HANDLER,
   WORKER,
   buildModule,
   clientEntry,
   devScripts,
-  documentModule,
+  handlerModule,
   workerEntry,
 } from './entries.ts';
 import { findFiles } from './files.ts';
@@ -29,12 +29,15 @@ import { DEV_STYLES, serveStyles } from './styles.ts';
  * Start's Vite plugin: the app writes its files, and the plugin writes the
  * rest.
  *
- * 1. Find      the app's files by name: `src/app`, and if they are there
- *              `src/document`, `src/loaders.server`, `src/layer.server` and
- *              `src/layer.client`.
- * 2. Write     the Worker's entry and the browser's as modules of its own,
- *              and set them as the `ssr` and `client` builds' inputs, so the
- *              Cloudflare plugin Alchemy injects takes the Worker's as `main`.
+ * 1. Find      the app's two files by name: `src/app`, and if it is there
+ *              `src/loaders.server`. Each says what it needs in it: the
+ *              app its Document and browser Layer, the Loaders their
+ *              server Layers.
+ * 2. Write     Start's handler, which knows no platform; the server's
+ *              entry, which hands it to the platform's adapter; and the
+ *              browser's. The server's and the browser's are the `ssr` and
+ *              `client` builds' inputs, so a platform's own plugin, as the
+ *              Cloudflare one Alchemy injects, takes the server's as `main`.
  * 3. Name      every `View.lazy(() => import('./x'))` with its module's id,
  *              the same on the server and in the browser.
  * 4. Build     the client first, then the Worker, which is handed the client's
@@ -45,8 +48,11 @@ import { DEV_STYLES, serveStyles } from './styles.ts';
  *              links the app's styles, so a drawn page is never painted bare.
  */
 
-/** Where Start finds the app's files, from the Vite root; each has a default. */
-export type StartOptions = FileOptions;
+/** Where the server runs, and where Start finds the app's files, from the Vite root. */
+export interface StartOptions extends FileOptions {
+  /** Where the server runs, as its adapter says: `cloudflare()` from `@kestack/kabuki/start/platform/cloudflare`. */
+  readonly platform: Platform;
+}
 
 /** A file the client build writes for the Worker to read, and which is never deployed. */
 const MANIFEST = '.vite/kabuki-start.json';
@@ -60,8 +66,8 @@ const built = (): Map<string, Omit<Build, 'head'>> => {
 
 const resolved = (id: string) => `\0${id}`;
 
-/** Start's Vite plugin. Put it beside the React plugin: `plugins: [react(), start()]`. */
-export const start = (options: StartOptions = {}): Plugin => {
+/** Start's Vite plugin. Put it beside the React plugin: `plugins: [react(), start({ platform: cloudflare() })]`. */
+export const start = (options: StartOptions): Plugin => {
   let root = process.cwd();
   let base = '/';
   let server: ViteDevServer | undefined;
@@ -124,9 +130,7 @@ export const start = (options: StartOptions = {}): Plugin => {
           // scan the app's files, and what the entry imports, so the first
           // page in dev does not find new dependencies and reload.
           optimizeDeps: {
-            entries: [found.app, found.document, found.clientLayer].filter(
-              (file): file is string => file !== undefined,
-            ),
+            entries: [found.app],
             include: ['react-dom/client'],
           },
           environments: {
@@ -147,15 +151,7 @@ export const start = (options: StartOptions = {}): Plugin => {
                 ? {
                     resolve: {
                       noExternal: true,
-                      conditions: [
-                        'workerd',
-                        'worker',
-                        'edge-light',
-                        'module',
-                        'browser',
-                        'import',
-                        'default',
-                      ],
+                      conditions: [...options.platform.conditions],
                     },
                   }
                 : {}),
@@ -195,12 +191,9 @@ export const start = (options: StartOptions = {}): Plugin => {
       const found = files();
       return {
         optimizeDeps: {
-          entries: [
-            found.app,
-            found.document,
-            found.loaders,
-            found.serverLayer,
-          ].filter((file): file is string => file !== undefined),
+          entries: [found.app, found.loaders].filter(
+            (file): file is string => file !== undefined,
+          ),
           include: [
             'effect',
             'react',
@@ -218,12 +211,13 @@ export const start = (options: StartOptions = {}): Plugin => {
     },
 
     resolveId(id) {
-      if ([WORKER, CLIENT, DOCUMENT, BUILD].includes(id)) return resolved(id);
+      if ([HANDLER, WORKER, CLIENT, BUILD].includes(id)) return resolved(id);
       return undefined;
     },
 
     async load(id) {
-      if (id === resolved(WORKER)) return workerEntry(files());
+      if (id === resolved(HANDLER)) return handlerModule(files());
+      if (id === resolved(WORKER)) return workerEntry(options.platform);
       if (id === resolved(CLIENT))
         return clientEntry(
           files(),
@@ -231,7 +225,6 @@ export const start = (options: StartOptions = {}): Plugin => {
             ? `${base}${DEV_STYLES}`
             : undefined,
         );
-      if (id === resolved(DOCUMENT)) return documentModule(files());
       if (id === resolved(BUILD)) {
         if (this.environment.config.command === 'serve')
           return buildModule(await devBuild());
@@ -291,23 +284,16 @@ export const start = (options: StartOptions = {}): Plugin => {
     // 5. Dev
     configureServer(dev) {
       server = dev;
-      dev.middlewares.use(
-        serveStyles(dev, () => {
-          const found = files();
-          return [found.app, found.document].filter(
-            (file): file is string => file !== undefined,
-          );
-        }),
-      );
+      dev.middlewares.use(serveStyles(dev, () => [files().app]));
       return () => {
         const ssr = dev.environments.ssr;
         if (!ssr || !isRunnableDevEnvironment(ssr)) return;
         dev.middlewares.use(
-          serveWorker(
+          serveHandler(
             async () =>
               (
-                (await ssr.runner.import(WORKER)) as {
-                  readonly default: Fetching;
+                (await ssr.runner.import(HANDLER)) as {
+                  readonly default: Handler;
                 }
               ).default,
             (error) => ssr.config.logger.error(error.stack ?? error.message),

@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import type { AnyActor, Many, Types } from '../../core/index.ts';
 import type { ViewOf } from '../../react/index.ts';
-import type { Codec, LevelOf, PropsOf } from './route.ts';
+import type { Codec, LevelOf, PropsOf } from './node.ts';
 
 /** How the app got to where it is. */
 export type How = 'load' | 'push' | 'replace' | 'back' | 'forward';

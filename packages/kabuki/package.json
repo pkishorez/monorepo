@@ -35,17 +35,21 @@
       "types": "./dist/routing/index.d.ts",
       "default": "./dist/routing/index.js"
     },
-    "./routing/browser": {
-      "types": "./dist/routing/browser/index.d.ts",
-      "default": "./dist/routing/browser/index.js"
+    "./routing/adapter": {
+      "types": "./dist/routing/adapter/index.d.ts",
+      "default": "./dist/routing/adapter/index.js"
     },
-    "./routing/tanstack": {
-      "types": "./dist/routing/tanstack/index.d.ts",
-      "default": "./dist/routing/tanstack/index.js"
+    "./routing/adapter/browser": {
+      "types": "./dist/routing/adapter/browser/index.d.ts",
+      "default": "./dist/routing/adapter/browser/index.js"
+    },
+    "./routing/adapter/tanstack": {
+      "types": "./dist/routing/adapter/tanstack/index.d.ts",
+      "default": "./dist/routing/adapter/tanstack/index.js"
     },
     "./start": {
-      "types": "./dist/start/document/index.d.ts",
-      "default": "./dist/start/document/index.js"
+      "types": "./dist/start/common/common.d.ts",
+      "default": "./dist/start/common/common.js"
     },
     "./start/server": {
       "types": "./dist/start/server/index.d.ts",
@@ -54,6 +58,14 @@
     "./start/client": {
       "types": "./dist/start/client/index.d.ts",
       "default": "./dist/start/client/index.js"
+    },
+    "./start/platform": {
+      "types": "./dist/start/platform/index.d.ts",
+      "default": "./dist/start/platform/index.js"
+    },
+    "./start/platform/cloudflare": {
+      "types": "./dist/start/platform/cloudflare/index.d.ts",
+      "default": "./dist/start/platform/cloudflare/index.js"
     },
     "./start/vite": {
       "types": "./dist/start/vite/index.d.ts",

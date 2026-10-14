@@ -53,12 +53,34 @@ export type LoadersOf<X extends PlaceType> = {
   ]: LoaderOf<P>;
 };
 
+declare const STATIC: unique symbol;
+
+/**
+ * Loaders as `Routes.loaders` gives them: the record, and, by type alone,
+ * the names of the static places among them. A server hands those nothing
+ * made from the request, since what they answer is the same for everyone.
+ */
+export type Loaders<L, Static extends string> = L & {
+  // The names sit in an object, so that none static, `never`, still says so.
+  readonly [STATIC]?: { readonly names: Static };
+};
+
+/**
+ * The names of the static places among Loaders. Loaders `Routes.loaders`
+ * did not give say nothing, so every one of them counts as static.
+ */
+export type StaticOf<L> = L extends {
+  readonly [STATIC]?: { readonly names: infer S extends string };
+}
+  ? S
+  : keyof L & string;
+
 /**
  * A record of Loaders with exactly the `Wanted` names: a name too many, and
  * the names missing, each say so in the error, by name.
  */
 export type Exactly<L, Wanted extends PropertyKey> = L & {
-  readonly [K in Exclude<keyof L, Wanted>]: {
+  readonly [K in Exclude<keyof L & string, Wanted>]: {
     readonly 'is not a place with an Input': K;
   };
 } & ([Exclude<Wanted, keyof L>] extends [never]

@@ -1,4 +1,4 @@
-import type { Assets } from '../page/index.ts';
+import type { Assets } from '../common/index.ts';
 import { ENTRY } from './entries.ts';
 
 /*

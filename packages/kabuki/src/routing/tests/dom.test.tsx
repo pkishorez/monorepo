@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { Actor, Runtime } from '../../core/index.ts';
 import { View, toReact } from '../../react/index.ts';
 import { registry } from '../../react/registry.ts';
-import { browser } from '../browser/index.ts';
+import { browser } from '../adapter/browser/index.ts';
 import { Route, Router, usePending } from '../index.ts';
 import type { How } from '../index.ts';
 

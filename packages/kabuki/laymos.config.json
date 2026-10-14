@@ -13,25 +13,37 @@
     "src/react": ["src/core"],
     "src/routing": ["src/core", "src/react"],
     "src/routing/router": ["src/routing/route", "src/routing/adapter"],
-    "src/routing/browser": ["src/routing/adapter"],
-    "src/routing/tanstack": ["src/routing/adapter"],
-    "src/start/page": ["src/core", "src/routing/route"],
-    "src/start/document": ["src/start/page"],
-    "src/start/loader-rpc": ["src/routing"],
     "src/start/server": [
       "src/core",
       "src/react",
       "src/routing",
-      "src/start/page",
-      "src/start/loader-rpc"
+      "src/start/common",
+      "src/start/platform"
     ],
     "src/start/client": [
       "src/core",
       "src/react",
       "src/routing",
-      "src/start/page",
-      "src/start/loader-rpc"
+      "src/start/common"
     ],
-    "src/start/vite": ["src/start/page"]
-  }
+    "src/start/vite": ["src/start/common", "src/start/platform"],
+    "src/start/common": ["src/core", "src/react", "src/routing/route"]
+  },
+  "exceptions": [
+    {
+      "from": "src/start/platform/cloudflare",
+      "to": "src/start/platform",
+      "because": "An adapter implements the port its platform declares: it imports the Platform, Host and Handler types it fills, and nothing else of its parent."
+    },
+    {
+      "from": "src/routing/adapter/browser",
+      "to": "src/routing/adapter",
+      "because": "An adapter implements the port its parent declares: it imports the Adapter it fills, and nothing else of its parent."
+    },
+    {
+      "from": "src/routing/adapter/tanstack",
+      "to": "src/routing/adapter",
+      "because": "An adapter implements the port its parent declares: it imports the Adapter it fills, and nothing else of its parent."
+    }
+  ]
 }

@@ -2,6 +2,21 @@ import { Exit, Schema } from 'effect';
 import type { Codec, PlaceSchema } from '../../routing/route/index.ts';
 
 /*
+ * The Loader RPC: how the browser asks the server for the Inputs of the
+ * places a move needs, all in one request. Made from the Routes, so it
+ * cannot disagree with them: a place with an Input is one call, its params
+ * the payload, its Input the answer, NotFound or Redirect its failure.
+ *
+ * It is a fixed JSON protocol over the Routes' Schemas rather than an
+ * `effect/rpc` group: a move asks for all its places at once, which one
+ * request with one answer says directly, a Loader is handed the very request
+ * that asked, cookies and all, and the browser ships no RPC client.
+ */
+
+/** Where the server answers it. */
+export const PATH = '/_kabuki/load';
+
+/*
  * The Loader RPC's messages, in JSON, each value written with the Routes' own
  * Schemas: a place's params with its params Schema, its Input with its Input
  * Schema, a Redirect's Route with the Route Schema.

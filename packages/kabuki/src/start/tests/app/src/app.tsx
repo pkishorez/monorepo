@@ -2,7 +2,8 @@ import { Schema } from 'effect';
 import { Actor } from '../../../../core/index.ts';
 import { View } from '../../../../react/index.ts';
 import { Router } from '../../../../routing/index.ts';
-import { Start } from '../../../document/index.ts';
+import { Start } from '../../../common/index.ts';
+import Document from './document.tsx';
 import { Routes } from './routes.ts';
 import './app.css';
 
@@ -125,4 +126,7 @@ const App = {
   )),
 };
 
-export default Router.app(Routes, App);
+/** The app alone, as a test or a story runs it. */
+export const app = Router.app(Routes, App);
+
+export default Start.app(app, { document: Document });

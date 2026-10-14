@@ -4,12 +4,12 @@ import type { Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { registry } from '../../react/registry.ts';
 import { client } from '../client/index.ts';
-import type { Build } from '../page/index.ts';
+import type { Build } from '../common/index.ts';
 import { server } from '../server/index.ts';
-import app from './app/src/app.tsx';
+import { Start } from '../common/index.ts';
+import started, { app } from './app/src/app.tsx';
 import Document from './app/src/document.tsx';
-import layer from './app/src/layer.server.ts';
-import loaders, { reset, runs } from './app/src/loaders.server.ts';
+import served, { reset, runs } from './app/src/loaders.server.ts';
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
@@ -26,17 +26,11 @@ const build: Build = {
   views: null,
   head: [],
 };
-const env = { WORD: 'Read:' };
-const worker = server({
-  app,
-  document: Document,
-  loaders,
-  layer,
-  build,
-});
+const host = { env: { WORD: 'Read:' } };
+const worker = server({ app: started, loaders: served, build });
 
 let root: Root | undefined;
-let redraw: ((options: Parameters<typeof client>[0]) => void) | undefined;
+let redraw: ((app: Parameters<typeof client>[0]) => void) | undefined;
 let errors: Array<unknown> = [];
 
 beforeEach(() => {
@@ -49,7 +43,7 @@ beforeEach(() => {
     errors.push(args);
   });
   vi.stubGlobal('fetch', (input: string, init?: RequestInit) =>
-    worker.fetch(new Request(new URL(input, location.href), init), env),
+    worker.fetch(new Request(new URL(input, location.href), init), host),
   );
 });
 
@@ -64,14 +58,14 @@ afterEach(async () => {
 const open = async (path: string) => {
   history.replaceState(null, '', path);
   const html = await (
-    await worker.fetch(new Request(new URL(path, location.href)), env)
+    await worker.fetch(new Request(new URL(path, location.href)), host)
   ).text();
   document.open();
   document.write(html);
   document.close();
   const drawn = document.body.innerHTML;
   await act(async () => {
-    ({ root, redraw } = await client({ app, document: Document }));
+    ({ root, redraw } = await client(started));
   });
   return drawn;
 };
@@ -138,15 +132,16 @@ describe('hydrating a page Start drew', () => {
     await open('/blog/hello');
     await until(() => document.querySelector('h1')?.textContent === 'Hello');
     await act(async () =>
-      redraw!({
-        app,
-        document: ({ children }) => (
-          <Document>
-            <p id="new">new code</p>
-            {children}
-          </Document>
-        ),
-      }),
+      redraw!(
+        Start.app(app, {
+          document: ({ children }) => (
+            <Document>
+              <p id="new">new code</p>
+              {children}
+            </Document>
+          ),
+        }),
+      ),
     );
     await until(() => document.querySelector('#new') !== null);
     expect(document.querySelector('h1')!.textContent).toBe('Hello');

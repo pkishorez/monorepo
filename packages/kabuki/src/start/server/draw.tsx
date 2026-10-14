@@ -7,9 +7,14 @@ import { toReact } from '../../react/index.ts';
 import type { LazyView } from '../../react/index.ts';
 import { tagsOf } from '../../routing/route/index.ts';
 import type { Inputs } from '../../routing/route/index.ts';
-import { PageContext, serialize } from '../page/index.ts';
-import type { Assets, Build, Page } from '../page/index.ts';
-import type { DocumentType, ServedApp } from './served.ts';
+import { PageContext, serialize } from '../common/index.ts';
+import type {
+  Assets,
+  Build,
+  DocumentType,
+  Page,
+  ServedApp,
+} from '../common/index.ts';
 
 /*
  * Drawing one URL, purely: the Router's init at its Route with the Inputs

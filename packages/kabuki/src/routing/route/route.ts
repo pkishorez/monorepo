@@ -1,9 +1,32 @@
 import { Schema } from 'effect';
-import { MODES } from './loader.ts';
-import type { Exactly, LoadersOf, RenderMode } from './loader.ts';
+import type { Exactly, Loaders, LoadersOf } from './loader.ts';
 import { merge } from './metadata.ts';
 import type { Metadata } from './metadata.ts';
+import { dotted, hasChildren, segments } from './node.ts';
+import type {
+  AnyNode,
+  Children,
+  Codec,
+  Inputs,
+  LoaderNames,
+  NameOf,
+  Node,
+  NotFound,
+  Place,
+  PlaceSchema,
+  PlacesOf,
+  Read,
+  Redirects,
+  RootProps,
+  RouteOf,
+  StaticNames,
+  Tree,
+  Value,
+} from './node.ts';
 import type { OutletOf } from './outlet.ts';
+import { allPlaces, checkModes, placesOn } from './places.ts';
+import { decodeSegment, fit, match, write } from './url.ts';
+import { inputsSchema, levelSchema, propsFieldsOf } from './values.ts';
 
 /*
  * Routes are written once, as a tree of `Route.path` nodes. The same tree is
@@ -20,533 +43,11 @@ import type { OutletOf } from './outlet.ts';
  * params and query, and, if it has children, `page`, and the Inputs of the
  * places below it under `inputs`. The root's Props are `{ page, inputs }`.
  * A place is named by its tags from the root, dotted: `Settings.Billing`.
+ *
+ * This file makes the tree from its parts: `node.ts` the types and
+ * `Route.path`, `values.ts` each level's Schemas, `places.ts` the places,
+ * `url.ts` a URL both ways, and `metadata.ts` the Metadata.
  */
-
-type Fields = Schema.Struct.Fields;
-/** A Schema read and written without Capabilities and at once. */
-export type Codec<T> = Schema.Codec<T, unknown, never, never>;
-
-/** What a node's Metadata is worked out from: its own params and query, and its Input. */
-type MetadataOf<P extends Fields, Q extends Fields, I> =
-  | Metadata
-  | ((values: Schema.Struct.Type<P & Q>, input: I) => Metadata);
-
-/**
- * One node: a path template, its params and query, the Input it needs and
- * its Render Mode, its Metadata, and the nodes under it. `I` is `never` for
- * a node with no Input, `M` `undefined` for one that draws as its parent.
- */
-export interface Node<
-  P extends Fields = {},
-  Q extends Fields = {},
-  C extends object = {},
-  I = never,
-  M extends RenderMode | undefined = undefined,
-> {
-  readonly path: string;
-  readonly params: P;
-  readonly query: Q;
-  readonly input: Codec<I> | undefined;
-  readonly render: M;
-  /** Typed where it is written, in `Route.path`'s options. */
-  readonly metadata:
-    | Metadata
-    | ((values: any, input: any) => Metadata)
-    | undefined;
-  readonly children: C;
-}
-
-export type AnyNode = Node<any, any, any, any, any>;
-export type Children = { readonly [tag: string]: AnyNode };
-
-type Simplify<T> = { [K in keyof T]: T[K] } & {};
-type IsEmpty<C> = [keyof C] extends [never] ? true : false;
-
-type OwnOf<N> =
-  N extends Node<infer P, infer Q, any, any, any>
-    ? Schema.Struct.Type<P & Q>
-    : never;
-type ParamsOf<N> =
-  N extends Node<infer P, any, any, any, any> ? Schema.Struct.Type<P> : never;
-type ChildrenOf<N> = N extends Node<any, any, infer C, any, any> ? C : never;
-type InputOf<N> = N extends Node<any, any, any, infer I, any> ? I : never;
-/** A node's Render Mode: its own, else its parent's. */
-type ModeOf<N, Parent extends RenderMode> =
-  N extends Node<any, any, any, any, infer M>
-    ? [M] extends [RenderMode]
-      ? M
-      : Parent
-    : Parent;
-
-/** The value of one node under its tag. */
-export type ValueOf<T extends string, N> = Simplify<
-  { readonly _tag: T } & OwnOf<N> &
-    (IsEmpty<ChildrenOf<N>> extends true
-      ? {}
-      : { readonly page: LevelOf<ChildrenOf<N>> })
->;
-
-/** Every value one level can hold: one case per child. */
-export type LevelOf<C> = {
-  [K in keyof C & string]: ValueOf<K, C[K]>;
-}[keyof C & string];
-
-/** The Route of a URL that names no place. */
-export type NotFound = { readonly _tag: 'NotFound'; readonly path: string };
-
-/** Every Route of an app. */
-export type RouteOf<C> = LevelOf<C> | NotFound;
-
-/** The Inputs of the places of a Route, by dotted name. Each is there once loaded. */
-export type Inputs = { readonly [name: string]: unknown };
-
-/** What a node's Actor is handed as Props: its value without the tag, and the Inputs below it. */
-export type PropsOf<N> = Simplify<
-  OwnOf<N> &
-    (IsEmpty<ChildrenOf<N>> extends true
-      ? {}
-      : {
-          readonly page: LevelOf<ChildrenOf<N>>;
-          readonly inputs?: Inputs;
-        })
->;
-
-/** The root's Props: the whole Route, under `page`, and the Inputs of its places. */
-export type RootProps<C> = {
-  readonly page: RouteOf<C>;
-  readonly inputs?: Inputs;
-};
-
-type Ctor<Args, R> = {} extends Args ? (args?: Args) => R : (args: Args) => R;
-
-/**
- * What one node is in the tree a user holds: its Props' Schema, its Input's
- * if it has one, and where it sits; a place to call when it has no children,
- * else its children and its outlet.
- */
-export type NodeApi<N, R, Args> = {
-  /** The Schema of what this node's Actor is handed as Props. */
-  readonly props: Codec<PropsOf<N>>;
-  /** Where this node sits: the tags from the root. */
-  readonly at: ReadonlyArray<string>;
-} & ([InputOf<N>] extends [never]
-  ? {}
-  : {
-      /** The Schema of this place's Input: what its Loader answers and its Actor starts from. */
-      readonly input: Codec<InputOf<N>>;
-    }) &
-  (IsEmpty<ChildrenOf<N>> extends true
-    ? Ctor<Args, R>
-    : Tree<ChildrenOf<N>, R, Args> & {
-        /** Which Actor, or drawing, serves each child Route. */
-        readonly outlet: OutletOf<ChildrenOf<N>, PropsOf<N>>;
-      });
-
-/** A NodeApi per node, nested as written. Each constructor takes its own and its ancestors' params and query. */
-export type Tree<C, R, Inherited> = {
-  readonly [K in keyof C & string]: NodeApi<
-    C[K],
-    R,
-    Simplify<Inherited & OwnOf<C[K]>>
-  >;
-};
-
-/** Every place of a tree, as the types know it. */
-export type PlacesOf<
-  C,
-  Pre extends string = '',
-  Ps = {},
-  Mode extends RenderMode = 'static',
-> = [keyof C] extends [never]
-  ? never
-  : {
-      [K in keyof C & string]:
-        | {
-            readonly name: `${Pre}${K}`;
-            readonly params: Simplify<Ps & ParamsOf<C[K]>>;
-            readonly input: InputOf<C[K]>;
-            readonly mode: ModeOf<C[K], Mode>;
-          }
-        | PlacesOf<
-            ChildrenOf<C[K]>,
-            `${Pre}${K}.`,
-            Ps & ParamsOf<C[K]>,
-            ModeOf<C[K], Mode>
-          >;
-    }[keyof C & string];
-
-/** The dotted name of every place of a tree with an Input: each needs a Loader. */
-type LoaderNames<C> =
-  LoadersOf<PlacesOf<C>> extends infer L ? keyof L & string : never;
-
-/** The dotted name of every place of a tree. */
-type NameOf<C> =
-  PlacesOf<C> extends { readonly name: infer N extends string } ? N : string;
-
-type Earlier<M, Parent> = M extends 'static'
-  ? Parent extends 'static'
-    ? false
-    : true
-  : M extends 'dynamic'
-    ? Parent extends 'client'
-      ? true
-      : false
-    : false;
-
-/** The dotted names of the places drawn earlier than the place that holds them. */
-export type Misdrawn<
-  C,
-  Pre extends string = '',
-  Mode extends RenderMode = 'static',
-> = [keyof C] extends [never]
-  ? never
-  : {
-      [K in keyof C & string]:
-        | (C[K] extends Node<any, any, any, any, infer M>
-            ? [M] extends [RenderMode]
-              ? Earlier<M, Mode> extends true
-                ? `${Pre}${K}`
-                : never
-              : never
-            : never)
-        | Misdrawn<ChildrenOf<C[K]>, `${Pre}${K}.`, ModeOf<C[K], Mode>>;
-    }[keyof C & string];
-
-/** The names of the params a redirect's path template holds: `/posts/:slug` → `slug`. */
-type ParamsIn<T extends string> =
-  T extends `${string}:${infer Name}/${infer Rest}`
-    ? Name | ParamsIn<`/${Rest}`>
-    : T extends `${string}:${infer Name}`
-      ? Name
-      : never;
-
-/** Paths that are never a place, each with the Route that replaces it, from the params its template names. */
-export type Redirects<C, D> = {
-  readonly [K in keyof D & string]: (
-    routes: Tree<C, RouteOf<C>, {}>,
-    params: { readonly [P in ParamsIn<K>]: string },
-  ) => RouteOf<C>;
-};
-
-/** What reading a URL gives: the Route it names, or the Route it is replaced by. */
-export type Read<R> =
-  | { readonly _tag: 'At'; readonly route: R }
-  | { readonly _tag: 'Redirect'; readonly route: R };
-
-/** One place on a Route's path: its dotted name, every param down to it, its Render Mode and its Input's Schema. */
-export interface Place<Name extends string = string> {
-  readonly name: Name;
-  readonly params: Readonly<Record<string, unknown>>;
-  readonly render: RenderMode;
-  readonly input: Codec<unknown> | undefined;
-}
-
-/** One place of the tree, as Schemas: what a Loader RPC is made from. */
-export interface PlaceSchema<Name extends string = string> {
-  readonly name: Name;
-  /** Every param down to it, its own and its ancestors'. */
-  readonly params: Codec<Record<string, unknown>>;
-  readonly render: RenderMode;
-  readonly input: Codec<unknown> | undefined;
-}
-
-/**
- * A place: `Route.path('/projects/:id', { params: { id: Schema.FiniteFromString } })`,
- * with the nodes under it as a third argument. `input` says it needs a
- * Loader; `render` how it is first drawn, its parent's by default;
- * `metadata` what it says about itself, from its params and Input.
- */
-export const path = <
-  P extends Fields = {},
-  Q extends Fields = {},
-  C extends object = {},
-  I = never,
-  M extends RenderMode | undefined = undefined,
->(
-  template: string,
-  options?: {
-    readonly params?: P;
-    readonly query?: Q;
-    readonly input?: Codec<I>;
-    readonly render?: M;
-    readonly metadata?: MetadataOf<P, Q, I>;
-  },
-  children?: C,
-): Node<P, Q, C, I, M> => ({
-  path: template,
-  params: (options?.params ?? {}) as P,
-  query: (options?.query ?? {}) as Q,
-  input: options?.input,
-  render: options?.render as M,
-  metadata: options?.metadata,
-  children: (children ?? {}) as C,
-});
-
-// Values --------------------------------------------------------------------------
-
-export type Value = {
-  readonly _tag: string;
-  readonly [field: string]: unknown;
-};
-
-const segments = (template: string) => template.split('/').filter(Boolean);
-const hasChildren = (node: AnyNode) => Object.keys(node.children).length > 0;
-const dotted = (at: ReadonlyArray<string>) => at.join('.');
-
-/** The Schema of the fields a node's value holds besides its tag. */
-const fieldsOf = (node: AnyNode): Fields => ({
-  ...node.params,
-  ...node.query,
-  ...(hasChildren(node) ? { page: levelSchema(node.children, false) } : {}),
-});
-
-/** Every place below `at` that has an Input, with its dotted name. */
-const inputsBelow = (
-  children: Children,
-  at: ReadonlyArray<string>,
-): ReadonlyArray<readonly [string, Codec<unknown>]> =>
-  Object.entries(children).flatMap(([tag, node]) => [
-    ...(node.input
-      ? [[dotted([...at, tag]), node.input as Codec<unknown>] as const]
-      : []),
-    ...inputsBelow(node.children, [...at, tag]),
-  ]);
-
-/** The Schema of the Inputs of the places below `at`, each there once loaded. */
-export const inputsSchema = (
-  children: Children,
-  at: ReadonlyArray<string>,
-): Codec<Inputs> | undefined => {
-  const below = inputsBelow(children, at);
-  if (below.length === 0) return undefined;
-  return Schema.Struct(
-    Object.fromEntries(
-      below.map(([name, input]) => [name, Schema.optionalKey(input)]),
-    ),
-  ) as unknown as Codec<Inputs>;
-};
-
-/** The Schema of a node's Props: its value's fields, and the Inputs below it if any place there has one. */
-const propsFieldsOf = (node: AnyNode, at: ReadonlyArray<string>): Fields => {
-  const inputs = inputsSchema(node.children, at);
-  return {
-    ...fieldsOf(node),
-    ...(inputs ? { inputs: Schema.optionalKey(inputs) } : {}),
-  };
-};
-
-const cache = new WeakMap<object, Codec<unknown>>();
-export const levelSchema = (
-  children: Children,
-  root: boolean,
-): Codec<unknown> => {
-  if (!root && cache.has(children)) return cache.get(children)!;
-  const schema = Schema.TaggedUnion({
-    ...Object.fromEntries(
-      Object.entries(children).map(([tag, node]) => [tag, fieldsOf(node)]),
-    ),
-    ...(root ? { NotFound: { path: Schema.String } } : {}),
-  }) as unknown as Codec<unknown>;
-  if (!root) cache.set(children, schema);
-  return schema;
-};
-
-/** A node's value without its tag: what its Actor is handed. */
-export const propsOf = (value: Value): Record<string, unknown> => {
-  const { _tag: _, ...rest } = value;
-  return rest;
-};
-
-/** The value one level down a path of tags, if the Route goes that way. */
-export const valueAt = (
-  route: Value | null | undefined,
-  at: ReadonlyArray<string>,
-): Value | undefined => {
-  let value = route ?? undefined;
-  for (const tag of at)
-    value = value?._tag === tag ? (value.page as Value | undefined) : undefined;
-  return value;
-};
-
-/** The params of a node's value, as one string: two values with the same params are the same place. */
-export const paramsKey = (node: AnyNode, value: Value): string =>
-  JSON.stringify(Object.keys(node.params).map((key) => value[key]));
-
-/** The Inputs of the places below `at`: what a node hands down in its Props. */
-export const inputsUnder = (
-  inputs: Inputs | undefined,
-  at: ReadonlyArray<string>,
-): Inputs | undefined => {
-  if (!inputs) return undefined;
-  const prefix = at.length === 0 ? '' : `${dotted(at)}.`;
-  const below = Object.entries(inputs).filter(([name]) =>
-    name.startsWith(prefix),
-  );
-  return below.length === 0 ? undefined : Object.fromEntries(below);
-};
-
-// Places --------------------------------------------------------------------------
-
-/** The places on a Route's path, from the root down. The not-found Route has none. */
-const placesOn = (children: Children, route: Value): ReadonlyArray<Place> => {
-  const out: Array<Place> = [];
-  let layer = children;
-  let value: Value | undefined = route;
-  const at: Array<string> = [];
-  let params: Record<string, unknown> = {};
-  let render: RenderMode = 'static';
-  while (value) {
-    const node: AnyNode | undefined = layer[value._tag];
-    if (!node) break;
-    at.push(value._tag);
-    const own = value;
-    params = {
-      ...params,
-      ...Object.fromEntries(Object.keys(node.params).map((k) => [k, own[k]])),
-    };
-    render = (node.render as RenderMode | undefined) ?? render;
-    out.push({ name: dotted(at), params, render, input: node.input });
-    layer = node.children;
-    value = hasChildren(node) ? (value.page as Value | undefined) : undefined;
-  }
-  return out;
-};
-
-/** Every place of the tree, as Schemas, from the root down. */
-const allPlaces = (
-  children: Children,
-  at: ReadonlyArray<string> = [],
-  params: Fields = {},
-  render: RenderMode = 'static',
-): ReadonlyArray<PlaceSchema> =>
-  Object.entries(children).flatMap(([tag, node]) => {
-    const here = [...at, tag];
-    const fields = { ...params, ...node.params };
-    const mode = (node.render as RenderMode | undefined) ?? render;
-    return [
-      {
-        name: dotted(here),
-        params: Schema.Struct(fields) as unknown as Codec<
-          Record<string, unknown>
-        >,
-        render: mode,
-        input: node.input,
-      },
-      ...allPlaces(node.children, here, fields, mode),
-    ];
-  });
-
-/** Throws, naming the place, if one is drawn earlier than the place that holds it. */
-const checkModes = (
-  children: Children,
-  at: ReadonlyArray<string> = [],
-  parent: RenderMode = 'static',
-): void => {
-  for (const [tag, node] of Object.entries(children)) {
-    const own = node.render as RenderMode | undefined;
-    if (own && MODES.indexOf(own) < MODES.indexOf(parent))
-      throw new Error(
-        `[@kestack/kabuki/routing] ${dotted([...at, tag])} is ${own}, but the place that holds it is ${parent}: a place can only be drawn later than its parent`,
-      );
-    checkModes(node.children, [...at, tag], own ?? parent);
-  }
-};
-
-/** A place's key: its name and every param down to it. A place whose key did not change keeps its Input. */
-export const placeKey = (place: Place): string =>
-  JSON.stringify([place.name, place.params]);
-
-// Reading and writing URLs --------------------------------------------------------
-
-const structOf = (fields: Fields) =>
-  Schema.Struct(fields) as unknown as Codec<Record<string, unknown>>;
-
-const decode = (fields: Fields, raw: Record<string, string>) => {
-  const exit = Schema.decodeUnknownExit(structOf(fields))(raw);
-  return exit._tag === 'Success' ? exit.value : undefined;
-};
-
-const encode = (fields: Fields, value: Value) =>
-  Schema.encodeUnknownSync(structOf(fields))(
-    Object.fromEntries(
-      Object.keys(fields)
-        .filter((key) => value[key] !== undefined)
-        .map((key) => [key, value[key]]),
-    ),
-  ) as Record<string, unknown>;
-
-/** One segment, decoded; a malformed one names no place. */
-const decodeSegment = (segment: string): string | undefined => {
-  try {
-    return decodeURIComponent(segment);
-  } catch {
-    return undefined;
-  }
-};
-
-/** The raw params a template's segments name, if the segments fit it exactly. */
-const fit = (
-  template: ReadonlyArray<string>,
-  rest: ReadonlyArray<string>,
-): Record<string, string> | undefined => {
-  const raw: Record<string, string> = {};
-  const fits = template.every((part, at) => {
-    if (!part.startsWith(':')) return part === rest[at];
-    raw[part.slice(1)] = rest[at]!;
-    return true;
-  });
-  return fits ? raw : undefined;
-};
-
-/** The value a URL's segments name under one layer, if any. */
-const match = (
-  children: Children,
-  rest: ReadonlyArray<string>,
-  search: URLSearchParams,
-): Value | undefined => {
-  for (const [tag, node] of Object.entries(children)) {
-    const template = segments(node.path);
-    if (template.length > rest.length) continue;
-    if (!hasChildren(node) && template.length !== rest.length) continue;
-    const raw = fit(template, rest);
-    if (!raw) continue;
-    const params = decode(node.params, raw);
-    const query = decode(
-      node.query,
-      Object.fromEntries(
-        Object.keys(node.query).flatMap((key) => {
-          const found = search.get(key);
-          return found === null ? [] : [[key, found]];
-        }),
-      ),
-    );
-    if (!params || !query) continue;
-    if (!hasChildren(node)) return { _tag: tag, ...params, ...query };
-    const page = match(node.children, rest.slice(template.length), search);
-    if (page) return { _tag: tag, ...params, ...query, page };
-  }
-  return undefined;
-};
-
-/** A value's segments and query under one layer. */
-const write = (
-  children: Children,
-  value: Value,
-  out: { segments: Array<string>; query: URLSearchParams },
-) => {
-  const node = children[value._tag];
-  if (!node) return;
-  const params = encode(node.params, value);
-  for (const part of segments(node.path))
-    out.segments.push(
-      part.startsWith(':')
-        ? encodeURIComponent(String(params[part.slice(1)]))
-        : part,
-    );
-  for (const [key, found] of Object.entries(encode(node.query, value)))
-    out.query.set(key, String(found));
-  if (hasChildren(node)) write(node.children, value.page as Value, out);
-};
 
 /**
  * The Metadata of a value: the deepest node that says anything wins, field
@@ -574,8 +75,6 @@ const metadataOf = (
     : {};
   return merge(own, below);
 };
-
-// The tree ------------------------------------------------------------------------
 
 type Options<C, D> = {
   readonly redirect?: Redirects<C, D>;
@@ -725,7 +224,7 @@ export const treeWith = <C extends object, D>(
     readonly every: ReadonlyArray<PlaceSchema<Name>>;
     readonly loaders: <const L extends Partial<LoadersOf<PlacesOf<C>>>>(
       loaders: Exactly<L, LoaderNames<C>> & Partial<LoadersOf<PlacesOf<C>>>,
-    ) => L;
+    ) => Loaders<L, StaticNames<C>>;
     readonly children: C;
   };
 };
@@ -777,8 +276,3 @@ const wrapped = (
     );
   return build(children, [], (value) => value);
 };
-
-export { NotFoundError, RedirectError } from './loader.ts';
-export type { LoadError, PlaceType, RenderMode } from './loader.ts';
-export { MANAGED, tagsOf } from './metadata.ts';
-export type { Metadata, Tag } from './metadata.ts';

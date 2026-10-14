@@ -46,9 +46,11 @@ Start, in `@kestack/kabuki/start` and its Vite plugin, serves a routed app
 from a Cloudflare Worker: for a URL it runs the Loaders of the places it
 names at once, starts every page from its Input, and sends the HTML with the
 Snapshot beside it, which the browser hydrates and carries on from. It never
-runs a Runtime on the server. An app writes its Routes, its app, its Loaders
-and, if it wants one, its Document; the plugin writes every entry. How it
-works is in [docs/start.md](./docs/start.md).
+runs a Runtime on the server. An app writes three files: its Routes, its app
+with its Document and what it needs in the browser, and its Loaders with what
+they need on the server, in three tiers; the plugin writes every entry. Each
+platform is an adapter of its own subpath, Cloudflare Workers for now. How it works is in
+[docs/start.md](./docs/start.md).
 
 Read the language in [CONTEXT.md](./CONTEXT.md), the decisions in
 [docs/adr/](./docs/adr/), and how the History works in
@@ -126,13 +128,21 @@ pnpm add @kestack/kabuki effect react
 | `usePending`     | Reads the move the Router waits on while it loads Inputs, for a progress bar; `usePending<Route>()` types its Route as the app's.                                                                                                                                                                                  |
 | `useRouter`      | Reads the Router from a component drawn inside the app: the current Route and URL, the history, the title, and Back and Forward; `useRouter<Route>()` types its Routes as the app's.                                                                                                                               |
 
-### `@kestack/kabuki/routing/browser`
+### `@kestack/kabuki/routing/adapter`
+
+| Export    | What it does                                                                                               |
+| --------- | ---------------------------------------------------------------------------------------------------------- |
+| `Adapter` | The service where an app's address lives, which each adapter below gives: write one for any other history. |
+| `KEY`     | The key the Router keeps in a history entry's state, so Back and Forward land on an entry it knows.        |
+| `keyIn`   | Reads that key from a history entry's state, if the Router wrote one.                                      |
+
+### `@kestack/kabuki/routing/adapter/browser`
 
 | Export    | What it does                                                                                                                        |
 | --------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | `browser` | A Layer that puts the app's address in the browser's own history, for an app that owns the whole site or everything under its base. |
 
-### `@kestack/kabuki/routing/tanstack`
+### `@kestack/kabuki/routing/adapter/tanstack`
 
 | Export     | What it does                                                                                                                                                     |
 | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -142,27 +152,43 @@ pnpm add @kestack/kabuki effect react
 
 | Export           | What it does                                                                                                                                |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Start.app`      | Gives the app its Document and what its Actors Require in the browser, checked against them: what `src/app` default-exports.                |
+| `Start.Document` | The plainest Document, Start's parts in an English page: what an app that gives none is drawn in.                                           |
 | `Start.Head`     | Draws, in the Document's `<head>`, the charset and viewport, the Metadata, and the styles and chunks the page needs.                        |
 | `Start.Scripts`  | Draws, at the end of the Document's `<body>`, the saved History as JSON and the script that hydrates the page.                              |
 | `Start.useDrawn` | Reads when and by which build the server drew the page, and whether the component asking was in that drawing or drawn later by the browser. |
 
+### `@kestack/kabuki/start/platform`
+
+The port each platform's adapter fills, in types only: no runtime value.
+
+### `@kestack/kabuki/start/platform/cloudflare`
+
+| Export       | What it does                                                                                                                      |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| `cloudflare` | Cloudflare Workers, for `start({ platform: cloudflare() })`: the server built as one module in its edge form.                     |
+| `serve`      | Start's handler as a Worker's `fetch`, handed the Worker's env and the Cloudflare Cache: what the server's entry default-exports. |
+
 ### `@kestack/kabuki/start/vite`
 
-| Export  | What it does                                                                                                                                                                                     |
-| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `start` | The Vite plugin: finds the app's files by name, writes the Worker's and the browser's entries, names every lazy View by its module, and serves SSR in dev; works under Alchemy's `Website.Vite`. |
+| Export  | What it does                                                                                                                                                                                                                                                     |
+| ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `start` | The Vite plugin: builds for the platform its adapter names, finds the app's two files by name, writes Start's handler, the server's and the browser's entries, names every lazy View by its module, and serves SSR in dev; works under Alchemy's `Website.Vite`. |
 
 ### `@kestack/kabuki/start/server`
 
-| Export   | What it does                                                                                                                                 |
-| -------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `server` | Makes the Worker's `fetch` from the app, its Document, Loaders and server Layer: what the plugin's Worker entry runs; an app never calls it. |
+| Export                  | What it does                                                                                                                                                                                                                          |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `server`                | Makes Start's handler, which knows no platform, from what the app's two files export: what the plugin's handler module runs; an app never calls it.                                                                                   |
+| `Start.layers`          | Gives the Loaders what they Require on the server, in three tiers, a call each (`instance`, `request`, `visitor`), each checked against the tiers before it, and the Loaders checked last: what `src/loaders.server` default-exports. |
+| `Start.ResponseHeaders` | The service a dynamic or client Loader, or the visitor tier, adds headers to its response with, as a refreshed session's `set-cookie`.                                                                                                |
 
 ### `@kestack/kabuki/start/client`
 
-| Export   | What it does                                                                                                                   |
-| -------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `client` | Hydrates a page the Worker drew, from the History it saved in it: what the plugin's browser entry runs; an app never calls it. |
+| Export    | What it does                                                                                                                        |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `client`  | Hydrates a page the Worker drew, from the History it saved in it: what the plugin's browser entry runs; an app never calls it.      |
+| `loading` | The `Loading` that asks the server for the Inputs of the places a move needs, at `POST /_kabuki/load`: what `client` hydrates with. |
 
 ## Usage
 

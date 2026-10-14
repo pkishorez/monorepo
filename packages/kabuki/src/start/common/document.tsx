@@ -1,6 +1,6 @@
 import { use, useState, useSyncExternalStore } from 'react';
 import type { ReactNode } from 'react';
-import { ID, PageContext, usePage } from '../page/index.ts';
+import { ID, PageContext, usePage } from './page.ts';
 
 /*
  * The Document's two parts Start fills: `<Start.Head />` in its `<head>`,
@@ -72,7 +72,7 @@ const never = () => () => {};
  * test or a story. A component keeps its answer for as long as it is
  * mounted.
  */
-function useDrawn(): Start.Drawn | null {
+function useDrawn(): Drawn | null {
   const drawn = use(PageContext);
   // A server's snapshot is read on the server and while hydrating what it drew.
   const hydrating = useSyncExternalStore(
@@ -85,26 +85,34 @@ function useDrawn(): Start.Drawn | null {
   return { ...drawn.page.drawn, hydrated };
 }
 
-/**
- * The parts of the Document Start fills: `<Start.Head />` goes in its
- * `<head>`, `<Start.Scripts />` at the end of its `<body>`; and
- * `Start.useDrawn()`, when and by which build the server drew the page.
- */
-export const Start = { Head, Scripts, useDrawn };
-
-export declare namespace Start {
-  /** What the Document is drawn with: the app, as its children, to put in `<body>`. */
-  export interface DocumentProps {
-    readonly children: ReactNode;
-  }
-
-  /** What `Start.useDrawn()` gives: when and by which build the server drew the page, and whether the component asking was in it. */
-  export interface Drawn {
-    /** When the server drew the page, in milliseconds since the epoch, after its Loaders answered. */
-    readonly at: number;
-    /** The build that drew it; none in dev. */
-    readonly build: string | undefined;
-    /** Whether the component asking was drawn by the server and hydrated, rather than by the browser after. */
-    readonly hydrated: boolean;
-  }
+/** The plainest Document, for an app that gives none: Start's parts in an English page. */
+function Document({ children }: DocumentProps) {
+  return (
+    <html lang="en">
+      <head>
+        <Head />
+      </head>
+      <body>
+        {children}
+        <Scripts />
+      </body>
+    </html>
+  );
 }
+
+/** What the Document is drawn with: the app, as its children, to put in `<body>`. */
+export interface DocumentProps {
+  readonly children: ReactNode;
+}
+
+/** What `useDrawn()` gives: when and by which build the server drew the page, and whether the component asking was in it. */
+export interface Drawn {
+  /** When the server drew the page, in milliseconds since the epoch, after its Loaders answered. */
+  readonly at: number;
+  /** The build that drew it; none in dev. */
+  readonly build: string | undefined;
+  /** Whether the component asking was drawn by the server and hydrated, rather than by the browser after. */
+  readonly hydrated: boolean;
+}
+
+export { Document, Head, Scripts, useDrawn };

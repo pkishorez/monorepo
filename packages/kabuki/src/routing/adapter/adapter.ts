@@ -1,5 +1,12 @@
 import { Context } from 'effect';
 
+/*
+ * Where an app's address lives: the port each adapter fills, each in a
+ * folder of its own under this one, imported from its own subpath, so an
+ * app carries only the adapter it uses: `browser/` for the browser's own
+ * history, `tanstack/` for TanStack Router's.
+ */
+
 /**
  * Where an app's Address lives, besides memory: the browser's own history or
  * TanStack Router's. Every URL here is a whole path with its query, base

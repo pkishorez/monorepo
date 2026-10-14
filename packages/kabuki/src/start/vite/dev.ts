@@ -1,20 +1,14 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { Readable } from 'node:stream';
+import type { Handler } from '../platform/index.ts';
 
 /*
- * `vite dev` without the Cloudflare plugin: the Worker's `fetch` run in
- * Vite's own server environment, in Node, each request handed to it and
- * its response written back. Under Alchemy the Cloudflare plugin runs the
- * Worker in workerd instead, and this stands aside.
+ * `vite dev` with nothing else to run the server: Start's handler, which
+ * knows no platform, run in Vite's own server environment, in Node, each
+ * request handed to it with an empty env and no Cache, and its response
+ * written back. Where a platform's own plugin runs the server, as the
+ * Cloudflare plugin under `alchemy dev` runs workerd, this stands aside.
  */
-
-export interface Fetching {
-  readonly fetch: (
-    request: Request,
-    env: unknown,
-    context: { readonly waitUntil: (promise: Promise<unknown>) => void },
-  ) => Promise<Response>;
-}
 
 const toRequest = (incoming: IncomingMessage): Request => {
   const host = incoming.headers.host ?? 'localhost';
@@ -51,17 +45,17 @@ const send = async (response: Response, outgoing: ServerResponse) => {
 };
 
 /** A Connect middleware that answers every request it is handed with the Worker. */
-export const serveWorker =
-  (load: () => Promise<Fetching>, onError: (error: Error) => void) =>
+export const serveHandler =
+  (load: () => Promise<Handler>, onError: (error: Error) => void) =>
   async (
     incoming: IncomingMessage,
     outgoing: ServerResponse,
     next: (error?: unknown) => void,
   ) => {
     try {
-      const worker = await load();
+      const handler = await load();
       await send(
-        await worker.fetch(toRequest(incoming), {}, { waitUntil: () => {} }),
+        await handler.fetch(toRequest(incoming), { env: {} }),
         outgoing,
       );
     } catch (error) {
