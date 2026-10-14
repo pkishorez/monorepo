@@ -97,6 +97,44 @@ describe('a static page', () => {
     );
   });
 
+  it('is drawn once per build, and leaves the Cache with its own Cache-Control', async () => {
+    const kept = new Map<string, Response>();
+    // As a zone's Browser Cache TTL does to what comes out of the Cache.
+    const raised = (response: Response) => {
+      const copy = new Response(response.clone().body, response);
+      copy.headers.set(
+        'cache-control',
+        'public, max-age=14400, s-maxage=31536000',
+      );
+      return copy;
+    };
+    vi.stubGlobal('caches', {
+      default: {
+        match: async (key: Request) => {
+          const hit = kept.get(key.url);
+          return hit && raised(hit);
+        },
+        put: async (key: Request, response: Response) => {
+          kept.set(key.url, response);
+        },
+      },
+    });
+    try {
+      const first = await page('/blog/hello');
+      const second = await page('/blog/hello');
+      expect(runs.filter((run) => run === 'Blog.Post:hello')).toHaveLength(1);
+      expect(second.html).toBe(first.html);
+      expect(second.response.headers.get('cache-control')).toBe(
+        'public, max-age=0, s-maxage=31536000',
+      );
+      expect([...kept.keys()]).toEqual([
+        'https://site.test/_kabuki/cache/build-1/blog/hello',
+      ]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('writes Inputs as JSON that cannot close its script', async () => {
     const { html } = await page('/blog/evil');
     expect(html).not.toContain('<script>window.pwned');
