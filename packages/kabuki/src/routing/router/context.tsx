@@ -2,7 +2,7 @@
 import { createContext, use, useEffect } from 'react';
 import type { AnchorHTMLAttributes, ReactNode } from 'react';
 import { MANAGED, tagsOf } from '../route/index.ts';
-import type { How, Inputs, Metadata } from '../route/index.ts';
+import type { Failure, How, Inputs, Metadata } from '../route/index.ts';
 import type { AnyRoute } from './navigation.ts';
 
 /** One entry of the router's history: its Route, and the Inputs of its places by dotted name. */
@@ -10,6 +10,8 @@ export interface Entry<Route extends AnyRoute = AnyRoute> {
   readonly key: string;
   readonly route: Route;
   readonly inputs: Inputs;
+  /** Why the Inputs it lacks did not come: the move to it broke. */
+  readonly failed?: Failure;
 }
 
 /** A move the Router waits on while it loads the Inputs its places need: where to, and how. */
@@ -30,6 +32,10 @@ export interface Drawing {
     readonly how: How;
   };
   readonly pending: Pending | null;
+  /** Why the current entry lacks Inputs, if the move to it broke. */
+  readonly failed: Failure | null;
+  /** The app's failed screen, for a page with none of its own. */
+  readonly failedScreen: ((failure: Failure) => ReactNode) | undefined;
   /** The Metadata the Routes give the current entry. */
   readonly metadata: Metadata;
   readonly go: (by: number) => void;
@@ -101,6 +107,8 @@ export interface RouterState<Route extends AnyRoute = AnyRoute> {
   };
   /** The move the Router waits on while it loads, if any. */
   readonly pending: Pending<Route> | null;
+  /** Why the current entry lacks Inputs, if the move to it broke. A link to it again retries. */
+  readonly failed: Failure | null;
   readonly metadata: Metadata;
   readonly title: string | undefined;
   readonly canGoBack: boolean;
@@ -121,7 +129,7 @@ export const useRouter = <
   Route extends AnyRoute = AnyRoute,
 >(): RouterState<Route> => {
   const drawing = useDrawing('useRouter');
-  const { entries, at, go, move, pending, metadata } = drawing;
+  const { entries, at, go, move, pending, failed, metadata } = drawing;
   const route = entries[at]!.route;
   const state: RouterState = {
     route,
@@ -130,6 +138,7 @@ export const useRouter = <
     at,
     move,
     pending,
+    failed,
     metadata,
     title: metadata.title,
     canGoBack: at > 0,

@@ -7,14 +7,21 @@ import {
   CardHeader,
   CardTitle,
 } from '@kestack/web-platform/components/card';
-import { PageFrame, Provenance, link, tile } from '../../components/index.ts';
+import {
+  PageFrame,
+  Provenance,
+  enter,
+  link,
+  tile,
+} from '../../components/index.ts';
 import { Routes } from '../../../shared/index.ts';
 import { Post } from './post/index.ts';
 
 /*
  * The blog: the list of posts, loaded once for every page under /blog, and
  * the post the URL names. Both are static: drawn once per deploy. The index
- * is the list, so the blog's own View draws it, from its own Input.
+ * is the list, so the blog's own View draws it, from its own Input. Opening
+ * a post keeps the blog: only the post's slot shows its pending screen.
  */
 
 const posts = Routes.Blog.outlet({
@@ -60,15 +67,31 @@ const BlogView = View.make(BlogActor, (self) => (
             </li>
           ))}
         </ul>
-        <Router.Link
-          to={Routes.Blog.Post({ slug: 'missing' })}
-          className={`${link} text-sm text-muted-foreground`}
-        >
-          A post that is not there
-        </Router.Link>
+        <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted-foreground">
+          <Router.Link
+            to={Routes.Blog.Post({ slug: 'broken' })}
+            className={link}
+          >
+            A post whose Loader breaks
+          </Router.Link>
+          <Router.Link
+            to={Routes.Blog.Post({ slug: 'missing' })}
+            className={link}
+          >
+            A post that is not there
+          </Router.Link>
+        </div>
       </PageFrame>
     ) : (
-      <posts.View of={self} />
+      <posts.View of={self}>
+        {(page) =>
+          page && (
+            <div key={page.key} className={enter}>
+              {page.element}
+            </div>
+          )
+        }
+      </posts.View>
     )}
     <Provenance place="Blog" loadedAt={self.model.loadedAt} />
   </div>

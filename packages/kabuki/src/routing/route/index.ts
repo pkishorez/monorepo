@@ -40,4 +40,12 @@ export type {
 } from './loader.ts';
 export { MANAGED, tagsOf } from './metadata.ts';
 export type { Metadata, Tag } from './metadata.ts';
-export type { Drawn, How, Move, Outlet, OutletOf, PageOf } from './outlet.ts';
+export type {
+  Drawn,
+  Failure,
+  How,
+  Move,
+  Outlet,
+  OutletOf,
+  PageOf,
+} from './outlet.ts';

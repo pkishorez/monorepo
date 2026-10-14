@@ -1,7 +1,6 @@
 {
   "$schema": "../../devtools/laymos/schema.json",
   "sourceRoots": ["src"],
-  "storiesPath": "stories",
   "ignoredPaths": ["src/client/styles.css"],
   "fileModules": [
     "src/client/app.tsx",

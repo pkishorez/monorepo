@@ -6,3 +6,19 @@
     @apply bg-background font-sans text-foreground antialiased;
   }
 }
+
+/* A page fades up into its slot: its pending screen, then the page. */
+@keyframes enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+.animate-enter {
+  animation: enter 200ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-enter {
+    animation: none;
+  }
+}

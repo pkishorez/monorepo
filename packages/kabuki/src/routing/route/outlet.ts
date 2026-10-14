@@ -21,12 +21,24 @@ type InputOf<N> = N extends { readonly input: Codec<infer I> | undefined }
   ? I
   : never;
 
+/** Why a place has no Input: its Loader, or the way to it, broke. */
+export interface Failure {
+  readonly reason: string;
+}
+
 /**
  * What serves one child Route: an Actor with its View, or a function that
- * draws it from its Props and, for a place with one, its Input.
+ * draws it from its Props and, for a place with one, its Input. An Actor's
+ * place can name what its slot shows in its stead while it has no Input:
+ * `pending` while its Loader runs, `failed` once it has broken.
  */
 export type PageOf<N> =
-  | { readonly actor: AnyActor; readonly view: ViewOf<any> }
+  | {
+      readonly actor: AnyActor;
+      readonly view: ViewOf<any>;
+      readonly pending?: (props: PropsOf<N>) => ReactNode;
+      readonly failed?: (props: PropsOf<N>, failure: Failure) => ReactNode;
+    }
   | ((props: PropsOf<N>, input: InputOf<N>) => ReactNode);
 
 type Pages<C, Optional extends string> = {
@@ -77,6 +89,8 @@ export interface Drawn {
   readonly key: string;
   /** Which child Route it serves. */
   readonly tag: string;
+  /** The page itself, or its pending or failed screen in its stead: each has a key of its own. */
+  readonly showing: 'page' | 'pending' | 'failed';
   readonly element: ReactNode;
 }
 

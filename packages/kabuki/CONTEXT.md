@@ -187,8 +187,16 @@ What a place says about itself to the browser and to search: its title, descript
 _Avoid_: head (the History's Head is another thing), meta, SEO, document
 
 **Loader**:
-How a place gets its Input: one server function per place that declares one, given its params, and the request unless the place is static. The Routes declare the Input; a place that declares one and has no Loader is a type error. For a URL, the Loaders of every place it names run at once, none waiting on another, and each page starts from its own answer. A Loader that fails says the place is not found, or Redirects. Only places load: a part of a page starts from its defaults or Props.
+How a place gets its Input: one server function per place that declares one, given its params, and the request unless the place is static. The Routes declare the Input; a place that declares one and has no Loader is a type error. For a URL, the Loaders of every place it names run at once, none waiting on another, and each page starts from its own answer. A Loader that fails says the place is not found, or Redirects; one that breaks lands the move failed, for the Failed screen. Only places load: a part of a page starts from its defaults or Props.
 _Avoid_: fetcher, data function, middleware, load (Restore's avoided word)
+
+**Pending screen**:
+What a page's slot shows in its stead while its Loader runs, once a move has waited long enough to land without it. Named with the page; the page itself never sees it.
+_Avoid_: loading state, skeleton (one thing a screen may draw), pending component, placeholder
+
+**Failed screen**:
+What a page's slot shows in its stead when the move to it broke: the page's own, or the app's. A link to it again retries.
+_Avoid_: error boundary, error page, error component
 
 **Render Mode**:
 Where and when a place is first drawn, said in the Routes and inherited by the places it holds: static, the same for everyone and drawn once until the next deploy; dynamic, drawn for each request; client, drawn in the browser alone, the server sending everything above it. A place can only be drawn later than the place that holds it. Only the first drawing differs: after it, every move happens in the browser.
