@@ -14,7 +14,11 @@ export default defineConfig({
       {
         // Kabuki apps keep state in Nodes and motion in the Frame. A
         // useEffect there needs a disable comment that says why.
-        files: ['apps/docs/src/demos/**', 'packages/kabuki/src/**'],
+        files: [
+          'apps/docs/src/demos/**',
+          'apps/kabuki-start/src/**',
+          'packages/kabuki/src/**',
+        ],
         rules: {
           'no-restricted-imports': [
             'error',

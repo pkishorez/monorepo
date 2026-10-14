@@ -1,0 +1,42 @@
+{
+  "name": "kabuki-start",
+  "description": "A small site served by Kabuki Start, with a page for every Render Mode, published at start.kishore.app.",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "scripts": {
+    "dev": "vp run --filter 'kabuki-start^...' build && portless run --force vp dev",
+    "build": "vp build",
+    "lint": "tsc --noEmit && pnpm lint:laymos",
+    "lint:laymos": "laymos lint",
+    "stories": "laymos stories",
+    "test": "vitest run",
+    "deploy": "alchemy deploy",
+    "deploy:prod": "ALLOW_DEPLOY=true alchemy deploy --stage prod"
+  },
+  "dependencies": {
+    "@kestack/auth-toolkit": "workspace:*",
+    "@kestack/kabuki": "workspace:*",
+    "@kestack/rpc-toolkit": "workspace:*",
+    "@kestack/std-toolkit": "workspace:*",
+    "@kestack/use-gesture": "workspace:*",
+    "@kestack/web-platform": "workspace:*",
+    "effect": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "catalog:",
+    "@tailwindcss/vite": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "alchemy": "catalog:",
+    "laymos": "workspace:*",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}
