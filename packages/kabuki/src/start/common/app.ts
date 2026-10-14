@@ -4,9 +4,9 @@ import type { AnyActor, Needs } from '../../core/index.ts';
 import type { ViewOf } from '../../react/index.ts';
 import type {
   Codec,
-  Inputs,
   Metadata,
   Place,
+  PlaceData,
   PlaceSchema,
 } from '../../routing/route/index.ts';
 
@@ -17,19 +17,20 @@ import type {
  * there, so the check cannot be skipped.
  */
 
-/** What Start needs of the app the Router serves: what `Router.app(Routes, App)` gives. */
+/** What Start needs of the app the Router serves: what `Router.app(Routes, AppView)` gives. */
 export interface ServedApp {
   readonly actor: AnyActor;
   readonly view: ViewOf<any>;
+  /** The Router's Input at a URL, with what its places start from, by dotted name. */
   readonly startAt: (
     url?: string,
-    inputs?: Inputs,
-  ) => { readonly route: any; readonly inputs?: Inputs } | undefined;
+    known?: Readonly<Record<string, any>>,
+  ) => { readonly route: any; readonly known?: object } | undefined;
   readonly href: (route: any) => string;
   readonly routes: {
     readonly route: Codec<any>;
     readonly path: (route: any) => string;
-    readonly metadata: (of: any, inputs?: Inputs) => Metadata;
+    readonly metadata: (of: any, data?: PlaceData) => Metadata;
     readonly places: (of: any) => ReadonlyArray<Place>;
     readonly every: ReadonlyArray<PlaceSchema>;
   };
@@ -58,7 +59,7 @@ type AppOptions<A extends ServedApp> = {
 
 /**
  * The app, its Document, and what its Actors Require in the browser:
- * `export default Start.app(Router.app(Routes, App), { document, layer })`.
+ * `export default Start.app(Router.app(Routes, AppView), { document, layer })`.
  * Leaving out a Capability the app Requires is a type error.
  */
 export const app = <A extends ServedApp>(
@@ -81,5 +82,5 @@ export const branded = (value: unknown, brand: symbol) =>
 /** What `src/app` default-exports: `Start.app(…)`, and nothing else, so its Layer is checked. */
 export const appOf = (exported: unknown): StartApp => {
   if (branded(exported, APP)) return exported as StartApp;
-  throw refused('src/app', 'Start.app(Router.app(Routes, App), { … })');
+  throw refused('src/app', 'Start.app(Router.app(Routes, AppView), { … })');
 };

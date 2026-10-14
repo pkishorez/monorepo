@@ -1,6 +1,5 @@
 import { Schema } from 'effect';
-import { Actor } from '@kestack/kabuki';
-import { Routes } from '../../../../routes/index.ts';
+import { Route } from '@kestack/kabuki/routing';
 
 export const INVOICES = [
   { id: 'inv-3', month: 'March', amount: 120 },
@@ -9,8 +8,9 @@ export const INVOICES = [
 ] as const;
 
 /** The invoices page, the third level down: which invoice is open is its own business. */
-export const InvoicesActor = Actor.make('Invoices', {
-  props: Routes.Settings.Billing.Invoices.props,
+export const Invoices = Route.page({
+  path: '/invoices',
+  metadata: { title: 'Invoices · Acme' },
   model: Schema.Struct({ open: Schema.NullOr(Schema.String) }),
   message: Schema.TaggedUnion({ Toggled: { id: Schema.String } }),
 }).build({

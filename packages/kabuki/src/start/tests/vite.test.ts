@@ -123,9 +123,9 @@ describe('vite build', () => {
       method: 'POST',
       body: JSON.stringify({ places: [{ name: 'Dashboard', params: {} }] }),
     });
-    expect(await response.json()).toEqual({
-      _tag: 'Loaded',
-      inputs: { Dashboard: { visits: '/_kabuki/load'.length } },
+    expect(JSON.parse(await response.text())).toEqual({
+      name: 'Dashboard',
+      outcome: { _tag: 'Loaded', data: { visits: '/_kabuki/load'.length } },
     });
   }, 60_000);
 });

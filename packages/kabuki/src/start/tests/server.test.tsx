@@ -1,7 +1,5 @@
 import { Context, Effect, Layer, Schema } from 'effect';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { Actor } from '../../core/index.ts';
-import { View } from '../../react/index.ts';
 import { Loading, Route, Router } from '../../routing/index.ts';
 import { loading as loaderRpc } from '../client/index.ts';
 import { Start } from '../common/index.ts';
@@ -135,7 +133,7 @@ describe('a static page', () => {
     ]);
   });
 
-  it('writes Inputs as JSON that cannot close its script', async () => {
+  it('writes the data as JSON that cannot close its script', async () => {
     const { html } = await page('/blog/evil');
     expect(html).not.toContain('<script>window.pwned');
     const json = /id="kabuki-start">(.*?)<\/script>/s.exec(html)![1]!;
@@ -179,10 +177,10 @@ describe('a dynamic page', () => {
 });
 
 describe('a client place', () => {
-  it('is drawn empty, with what is known of its Metadata, and its Loader never runs', async () => {
+  it('is drawn loading, with what is known of its Metadata, and its Loader never runs', async () => {
     const { response, html } = await page('/dashboard');
     expect(html).toContain('<title>Dashboard</title>');
-    expect(html).toContain('<main id="app"></main>');
+    expect(html).toContain('<main id="app"><p>loading…</p></main>');
     expect(runs).toEqual([]);
     // Nothing above it is drawn per request.
     expect(response.headers.get('cache-control')).toBe(
@@ -190,12 +188,12 @@ describe('a client place', () => {
     );
   });
 
-  it('under a dynamic place: the place above is drawn, its outlet empty', async () => {
+  it('under a dynamic place: the place above is drawn, the client one loading', async () => {
     const { response, html } = await page('/account/activity', {
       headers: { cookie: 'user=ada' },
     });
     expect(html).toContain('signed in as <!-- -->ada');
-    expect(html).toContain('<div id="account-outlet"></div>');
+    expect(html).toContain('<div id="account-outlet"><p>loading…</p></div>');
     expect(runs).toEqual(['Account']);
     expect(response.headers.get('cache-control')).toBe(
       'private, no-store, no-transform',
@@ -203,12 +201,11 @@ describe('a client place', () => {
   });
 });
 
-describe('a client place with no Input', () => {
-  it('is drawn empty, with its Metadata', async () => {
+describe('a client place with no data', () => {
+  it('has nothing to wait for: it is drawn whole, with its Metadata', async () => {
     const { html } = await page('/sketch');
     expect(html).toContain('<title>Sketch</title>');
-    expect(html).toContain('<main id="app"></main>');
-    expect(html).not.toContain('the sketch');
+    expect(html).toContain('the sketch');
   });
 });
 
@@ -231,10 +228,24 @@ describe('a URL that names no page', () => {
     expect(html).toContain('nothing at <!-- -->/nowhere');
   });
 
-  it('draws it with a 404 when a Loader says its place is not found', async () => {
+  it('draws the page that is not found, failed, with a 404: the pages above it are drawn', async () => {
     const { response, html } = await page('/blog/missing');
     expect(response.status).toBe(404);
-    expect(html).toContain('nothing at <!-- -->/blog/missing');
+    expect(html).toContain('<p>2<!-- --> posts</p>');
+    expect(html).toContain('<p>not found</p>');
+    expect(response.headers.get('cache-control')).toBe(
+      'private, no-store, no-transform',
+    );
+  });
+
+  it('draws a page whose Loader broke, failed, with a 500, and logs it', async () => {
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { response, html } = await page('/blog/broken');
+    expect(response.status).toBe(500);
+    expect(html).toContain('<p>2<!-- --> posts</p>');
+    expect(html).toContain('<p>broke: the post broke</p>');
+    expect(logged).toHaveBeenCalled();
+    logged.mockRestore();
   });
 });
 
@@ -415,14 +426,19 @@ describe('what an app writes', () => {
       );
   });
 
-  it('lets every Loader use the visitor tier when no place with an Input is static', () => {
-    const Dynamic = Route.tree({
-      Home: Route.path('/'),
-      Account: Route.path('/account', {
-        render: 'dynamic',
-        input: Schema.Struct({ name: Schema.String }),
-      }),
-    });
+  it('lets every Loader use the visitor tier when no place with data is static', () => {
+    const Dynamic = Route.tree(
+      Route.page({
+        pages: {
+          Home: Route.page({ path: '/' }).build({}),
+          Account: Route.page({
+            path: '/account',
+            render: 'dynamic',
+            data: Schema.Struct({ name: Schema.String }),
+          }).build({}),
+        },
+      }).build({}),
+    );
     Server.layers()
       .visitor(() => Layer.succeed(Visitor, { name: 'ada' }))
       .loaders(
@@ -436,14 +452,14 @@ describe('what an app writes', () => {
   });
 
   it('checks the app’s Layer against what its Actors Require', () => {
-    const Greeter = Actor.make('Greeter', {
+    const Greeter = Route.page({
       requires: [Greeting],
-      props: Routes.props,
+      pages: { Home: Route.page({ path: '/' }).build({}) },
     }).build({});
-    const greeter = Router.app(Routes, {
-      actor: Greeter,
-      view: View.make(Greeter, () => null),
-    });
+    const greeter = Router.app(
+      Route.tree(Greeter),
+      Route.view(Greeter, () => null),
+    );
     // @ts-expect-error the app Requires Greeting in the browser
     Start.app(greeter);
     // @ts-expect-error a Document is not a Layer
@@ -585,7 +601,6 @@ describe('the Loader RPC', () => {
               })
             : loading,
         ),
-        Effect.result,
       ),
     );
 
@@ -594,34 +609,93 @@ describe('the Loader RPC', () => {
       { name: 'Blog', params: {} },
       { name: 'Blog.Post', params: { slug: 'hello' } },
     ]);
-    expect(answer._tag).toBe('Success');
-    expect(answer._tag === 'Success' && answer.success).toEqual({
-      Blog: [
-        { slug: 'hello', title: 'Read: Hello' },
-        {
-          slug: 'evil',
-          title: 'Read: </script><script>window.pwned = true</script>',
-        },
-      ],
-      'Blog.Post': { slug: 'hello', title: 'Hello', body: 'Hi.' },
+    expect(answer).toEqual({
+      Blog: {
+        _tag: 'Loaded',
+        data: [
+          { slug: 'hello', title: 'Read: Hello' },
+          {
+            slug: 'evil',
+            title: 'Read: </script><script>window.pwned = true</script>',
+          },
+        ],
+      },
+      'Blog.Post': {
+        _tag: 'Loaded',
+        data: { slug: 'hello', title: 'Hello', body: 'Hi.' },
+      },
     });
   });
 
   it('hands a dynamic Loader the request that asked', async () => {
     const answer = await load([{ name: 'Account', params: {} }], 'user=lin');
-    expect(answer._tag === 'Success' && answer.success).toEqual({
-      Account: { name: 'lin' },
+    expect(answer).toEqual({
+      Account: { _tag: 'Loaded', data: { name: 'lin' } },
     });
   });
 
-  it('carries NotFound and Redirect back as failures', async () => {
-    const missing = await load([{ name: 'Blog.Post', params: { slug: 'x' } }]);
-    expect(missing._tag === 'Failure' && missing.failure._tag).toBe('NotFound');
-    const moved = await load([{ name: 'Account', params: {} }]);
-    expect(moved._tag === 'Failure' && moved.failure).toMatchObject({
+  it('answers each place on its own: not found, a Redirect, broken', async () => {
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const answer = await load([
+      { name: 'Blog', params: {} },
+      { name: 'Blog.Post', params: { slug: 'x' } },
+      { name: 'Account', params: {} },
+    ]);
+    expect(answer['Blog']?._tag).toBe('Loaded');
+    expect(answer['Blog.Post']).toEqual({ _tag: 'NotFound' });
+    expect(answer['Account']).toEqual({
       _tag: 'Redirect',
       route: Routes.SignIn(),
     });
+    const broken = await load([
+      { name: 'Blog.Post', params: { slug: 'broken' } },
+    ]);
+    expect(broken['Blog.Post']).toEqual({
+      _tag: 'Broken',
+      reason: 'the post broke',
+    });
+    logged.mockRestore();
+  });
+
+  it('answers one line per place, each as soon as its Loader is done', async () => {
+    const response = await get('/_kabuki/load', {
+      method: 'POST',
+      body: JSON.stringify({
+        places: [
+          { name: 'Blog', params: {} },
+          { name: 'Blog.Post', params: { slug: 'x' } },
+        ],
+      }),
+    });
+    expect(response.headers.get('content-type')).toBe('application/x-ndjson');
+    const lines = (await response.text())
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line) as { readonly name: string });
+    expect(lines.map(({ name }) => name).sort()).toEqual(['Blog', 'Blog.Post']);
+  });
+
+  it('in the browser, breaks only the places a broken answer had not reached', async () => {
+    const answer = await Effect.runPromise(
+      Effect.gen(function* () {
+        const found = yield* Loading;
+        return yield* found.load([
+          { name: 'Blog', params: {} },
+          { name: 'Dashboard', params: {} },
+        ]);
+      }).pipe(
+        Effect.provide(
+          loaderRpc(Routes, {
+            fetch: async () =>
+              new Response(
+                `${JSON.stringify({ name: 'Blog', outcome: { _tag: 'Loaded', data: [] } })}\nnot json\n`,
+              ),
+          }),
+        ),
+      ),
+    );
+    expect(answer['Blog']).toEqual({ _tag: 'Loaded', data: [] });
+    expect(answer['Dashboard']?._tag).toBe('Broken');
   });
 
   it('refuses an ask it cannot read with a 400', async () => {

@@ -1,6 +1,6 @@
 # Routing a Kabuki app
 
-The demo is a small signed-in app, Acme, that routes itself with `@kestack/kabuki/routing`, in a browser window whose address can live in memory or on TanStack Router. Each routing case is explained on the page that shows it. The routing words, Route, Routes, Router, Outlet, Navigation, Move, Redirect, Address, Adapter and Metadata, keep their @kestack/kabuki names; the words here are the demo's own.
+The demo is a small signed-in app, Acme, that routes itself with `@kestack/kabuki/routing`, in a browser window whose address can live in memory or on TanStack Router. Each routing case is explained on the page that shows it. The routing words, Route, Routes, Router, Page, Navigation, Move, Redirect, Address, Adapter and Metadata, keep their @kestack/kabuki names; the words here are the demo's own.
 
 ## Language
 

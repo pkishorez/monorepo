@@ -1,4 +1,4 @@
 import { View } from '../../../../react/index.ts';
-import { LabActor } from './app.tsx';
+import { Lab } from './routes.ts';
 
-export default View.make(LabActor, () => <p>the lab, loaded lazily</p>);
+export default View.make(Lab.actor, () => <p>the lab, loaded lazily</p>);

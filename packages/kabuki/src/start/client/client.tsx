@@ -4,6 +4,7 @@ import type { Root } from 'react-dom/client';
 import { Layer } from 'effect';
 import type { SavedHistory } from '../../core/index.ts';
 import { View, toReact } from '../../react/index.ts';
+import { Router } from '../../routing/index.ts';
 import { browser } from '../../routing/adapter/browser/index.ts';
 import {
   Document as Plain,
@@ -23,9 +24,9 @@ import { loading } from './rpc.ts';
  *             hydrating never waits on their code.
  * 3. Hydrate  the Document around the App drawn from that History, with the
  *             address in the browser's history, the Loaders served by the
- *             Loader RPC, and the app's own Layer. Once it is mounted the
- *             Runtime starts, and places drawn without their Input, the
- *             client ones, load as after a click.
+ *             Loader RPC behind the Data cache, and the app's own Layer.
+ *             Once it is mounted the Runtime starts, and the places drawn
+ *             loading, the client ones, load their data.
  * 4. Redraw   with new code, after a hot reload: the new App carries on from
  *             the History the old one leaves, replayed with the new code.
  */
@@ -56,7 +57,7 @@ export const client = async (exported: StartApp): Promise<Hydrated> => {
       app.view as never,
       Layer.mergeAll(
         browser(),
-        loading(app.routes),
+        Router.cached(app.routes, loading(app.routes)),
         layer ?? (Layer.empty as unknown as Layer.Layer<any>),
       ) as never,
     ) as unknown as DrawnApp;

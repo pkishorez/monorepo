@@ -1,18 +1,20 @@
 # Start
 
 `@kestack/kabuki/start` serves a routed Kabuki app from the platform its
-adapter names, Cloudflare Workers for now. For a URL it reads the Route, runs the Loaders of the places it names, starts
-every page from its Input and draws the result in the Document, with the
-Snapshot beside it; the browser hydrates that and carries on. A server never
-runs a Runtime, so what it draws is pure. Why is
-[ADR 0030](adr/0030-a-server-draws-pages-started-from-their-loaders.md).
+adapter names, Cloudflare Workers for now. For a URL it reads the Route, runs the Loaders of the pages it names, starts
+each page's Place from what its Loader came to, and draws the result in the
+Document, with the Snapshot beside it; the browser hydrates that and carries
+on. A server never runs a Runtime, so what it draws is pure. Why is
+[ADR 0030](adr/0030-a-server-draws-pages-started-from-their-loaders.md), and
+[ADR 0035](adr/0035-a-page-is-an-actor-and-its-place-loads-its-data.md) for
+pages.
 
 ## What an app writes
 
 ```
 src/
-  routes.ts           the Routes: every place, its Input and Render Mode
-  app.tsx             default-exports Start.app(Router.app(Routes, App), { … })
+  pages/              one Route.page per page, its data and Render Mode; Route.tree(() => App)
+  app.tsx             default-exports Start.app(Router.app(Routes, AppView), { … })
   loaders.server.ts   default-exports Start.layers<Env>()…loaders(Routes.loaders({ … }))
 vite.config.ts        plugins: [react(), start({ platform: cloudflare() })]
 alchemy.run.ts        Cloudflare.Website.Vite('Site')
@@ -28,7 +30,7 @@ found by name, each overridable in `start({ … })`. Why is
 // src/app.tsx: drawn on the server and in the browser
 import { Start } from '@kestack/kabuki/start';
 
-export const app = Router.app(Routes, App);
+export const app = Router.app(Routes, AppView);
 export default Start.app(app, { document: Document, layer: LiveUpdatesLive });
 ```
 
@@ -77,9 +79,11 @@ from. Why three, and a call each, is
 [ADR 0032](adr/0032-the-loaders-layers-come-in-three-tiers.md).
 
 `Start.ResponseHeaders` is how a dynamic or client Loader, or the visitor
-tier, adds headers to the response, as a refreshed session's `set-cookie`,
-on the page and on `/_kabuki/load` alike. A static page has none: it is
-kept for everyone.
+tier, adds headers to the response, as a refreshed session's `set-cookie`.
+On a page, both do. On `/_kabuki/load` only the tiers do: the answer starts
+before the Loaders run, so each place is sent as it is done, and a header a
+Loader adds there comes too late; a session is refreshed in the visitor
+tier. A static page has none: it is kept for everyone.
 
 ```tsx
 // src/document.tsx: any file app.tsx imports
@@ -119,31 +123,32 @@ GET /blog/hello
   1. read      /blog/hello → Blog › Post { slug: 'hello' }
   2. split     Blog, Blog.Post: static, drawn here
   3. load      Blog() and Blog.Post({ slug }), at once
-  4. start     the Router's init at the Route with those Inputs → a Restore
+  4. start     the Router's init at the Route, each Place from its data → a Restore
   5. draw      <Document><App saved /></Document>, every lazy View resolved
   6. keep      every place drawn here is static: in the Cache, by build id
 ```
 
 1. **Read.** A redirect in the Routes, or a URL not written as its Route is
    (`/blog/hello/`), is a `308` to the Route's URL, with the query it had.
-2. **Split.** The places on the Route's path are drawn here up to the first
-   client one; that place and those under it are the browser's. The client
-   place's Outlet is drawn empty, with an Input or without one, and its
-   Metadata says what it can without its Input.
-3. **Load.** The Loaders of the places drawn here run at once, each handed
-   its params, and the request unless its place is static, with the
-   Loaders' tiers: the instance's, made once; the request's, made for this
-   request; and the visitor's only if a place drawn here is not static. A Loader that
-   fails as not found draws the not-found Route with a `404`; a Redirect is a
-   `302`, since it depends on the request. Anything else is a `500`, logged.
-4. **Start.** `Root.startAt(url, inputs)` is the Router's Input; its init,
-   and every page's init from its Input, is the Snapshot, saved as a History
-   of one Restore. Nothing runs.
+2. **Split.** The places on the Route's path are loaded here up to the first
+   client one; that page and those under it are the browser's: they are
+   drawn loading, and their Metadata says what it can without their data.
+3. **Load.** The Loaders of the places loaded here run at once, each handed
+   its params and query, and the request unless its place is static, with
+   the Loaders' tiers: the instance's, made once; the request's, made for
+   this request; and the visitor's only if a place loaded here is not
+   static. A Redirect is a `302`, since it depends on the request. Any other
+   answer is what its page starts from: a page not found is drawn failed and
+   makes the response a `404`; a Loader that broke, its page drawn failed
+   and a `500`, logged. The pages above it are drawn as they are.
+4. **Start.** `Root.startAt(url, known)` is the Router's Input; its init,
+   and every Place's init from what its Loader came to, is the Snapshot,
+   saved as a History of one Restore. Nothing runs.
 5. **Draw.** React draws the Document around the App drawn from that History
    and waits for every lazy View, so the HTML is whole. The lazy Views it drew
    are added to the head, their chunks preloaded and their styles linked,
    each marked with its id.
-6. **Keep.** A page whose places drawn here are all static is the same for
+6. **Keep.** A `200` whose places loaded here are all static is the same for
    everyone until the next deploy: `public, max-age=0, s-maxage=31536000, no-transform`,
    and put in the platform's Cache, if it has one, under the build id and
    the URL before it is sent, so the next request finds it: on Cloudflare it
@@ -158,31 +163,34 @@ GET /blog/hello
 
 The client entry reads the saved History from the page, preloads the lazy
 Views the head names, and hydrates the Document with the browser's address,
-the Loader RPC and the app's own Layer. Once mounted, the Runtime starts at the
-Restore. A client place, drawn without its Input, is a pending move from
-init, so it loads exactly as after a click. The Metadata the server drew is
-the Router's from then on: it writes it after every move.
+the Loader RPC behind the Data cache, and the app's own Layer. Once mounted,
+the Runtime starts at the Restore. A client page, drawn loading, loads its
+data as its Place starts. The Metadata the server drew is the Router's from
+then on: it writes it after every move, and when a page's data comes.
 
 ## The Loader RPC
 
-The browser asks for the Inputs of the places a move needs at
-`POST /_kabuki/load`, all of them in one request:
+The browser asks for the data of the places asked for in the same moment at
+`POST /_kabuki/load`, all of them in one request, and the server answers
+each on its own line, as soon as its Loader is done:
 
 ```
-→ { places: [{ name: 'Blog.Post', params: { slug: 'again' } }] }
-← { _tag: 'Loaded', inputs: { 'Blog.Post': { … } } }
-  | { _tag: 'NotFound' }
-  | { _tag: 'Redirect', route: { _tag: 'SignIn' } }
+→ { places: [{ name: 'Teams', params: { team: 'core' } },
+             { name: 'Teams.Member', params: { team: 'core', member: 'ada' } }] }
+← { "name": "Teams.Member", "outcome": { "_tag": "Loaded", "data": { … } } }
+  { "name": "Teams", "outcome": { "_tag": "Loaded", "data": { … } } }
 ```
 
-Start makes it from `Routes.every`: params are written with each place's
-params Schema, Inputs with its Input Schema, a Redirect's Route with the
-Route Schema, so it cannot disagree with the Routes. The server hands each
-Loader the request that asked, cookies and all. It is a fixed JSON protocol
-rather than an `effect/rpc` group: a move asks for every place at once, which
-one request with one answer says directly; a Loader needs the very
+An outcome is `Loaded`, `NotFound`, `Redirect` with its Route, or `Broken`
+with why. Start makes it from `Routes.every`: params are written with each
+place's params Schema, data with its data Schema, a Redirect's Route with
+the Route Schema, so it cannot disagree with the Routes. The server hands
+each Loader the request that asked, cookies and all. It is a fixed protocol
+of JSON lines rather than an `effect/rpc` group: many places in one request,
+each answered as it comes, says it directly; a Loader needs the very
 `Request`; and the browser ships no RPC client. A malformed ask is a `400`;
-a request that gets no answer leaves the page as it is.
+a request that gets no answer breaks the pages it asked for, and each can
+retry.
 
 ## Lazy Views
 
@@ -190,10 +198,10 @@ a request that gets no answer leaves the page as it is.
 drawn. The plugin gives each one the id of the module it loads, its path from
 the Vite root, which is its key in the client manifest, so the server names
 the lazy Views it drew in the head and the browser preloads exactly those
-before it hydrates. A lazy View the server did not draw, like a client
-place's, starts loading when the Router starts loading its place's Input,
-on the first page as after a click, so its code and its Input arrive
-together. Actors stay eager: Replay and Restore need every Actor.
+before it hydrates. A page's lazy View, `Route.view(Page, View.lazy(…))`,
+the server did not draw starts loading when a move to it or a preload of it
+starts, so its code and its data arrive together. Actors stay eager: Replay
+and Restore need every Actor.
 
 ## Where the code lives
 

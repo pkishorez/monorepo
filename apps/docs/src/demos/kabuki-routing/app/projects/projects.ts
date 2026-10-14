@@ -1,30 +1,24 @@
-import { Actor } from '@kestack/kabuki';
-import { Routes } from '../../routes/index.ts';
+import { Schema } from 'effect';
+import { Route } from '@kestack/kabuki/routing';
 import { List } from './list/index.ts';
 import { Project } from './project/index.ts';
-import { Share } from './share/index.ts';
 
 /**
- * The outlet serves the list and the share dialog. The project itself is a
- * slot of Projects' own, keyed by its id and filled for the project and its
- * dialog alike, so the dialog opens over a page that keeps running.
+ * Everything under /projects. Where the URL ends here, it draws the list,
+ * an Actor of its own made only while no project is open; the project is
+ * its page, and the share dialog the project's.
  */
-export const pages = Routes.Projects.outlet({
-  List,
-  Project: () => null,
-  Share,
-});
-
-export const ProjectsActor = Actor.make('Projects', {
-  props: Routes.Projects.props,
+export const Projects = Route.page({
+  path: '/projects',
+  query: { q: Schema.optionalKey(Schema.String) },
+  metadata: { title: 'Projects · Acme' },
+  pages: { Project },
 }).build({
   children: {
-    ...pages.children,
-    open: {
-      actor: Project.actor,
-      each: ({ props: { page } }) =>
-        page._tag === 'List' ? [] : [String(page.id)],
-      input: (_, id) => ({ id: Number(id) }),
+    list: {
+      actor: List.actor,
+      while: ({ props }) => !props.route.page,
+      props: ({ props }) => props.query,
     },
   },
 });

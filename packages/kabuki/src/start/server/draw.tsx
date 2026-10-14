@@ -5,8 +5,8 @@ import { History } from '../../core/index.ts';
 import type { AnyActor, SavedHistory } from '../../core/index.ts';
 import { toReact } from '../../react/index.ts';
 import type { LazyView } from '../../react/index.ts';
+import type { Known } from '../../routing/page/index.ts';
 import { tagsOf } from '../../routing/route/index.ts';
-import type { Inputs } from '../../routing/route/index.ts';
 import { PageContext, serialize } from '../common/index.ts';
 import type {
   Assets,
@@ -17,8 +17,8 @@ import type {
 } from '../common/index.ts';
 
 /*
- * Drawing one URL, purely: the Router's init at its Route with the Inputs
- * the Loaders gave, saved as a History of one Restore; the Document drawn
+ * Drawing one URL, purely: the Router's init at its Route with what the
+ * Loaders gave each place, saved as a History of one Restore; the Document drawn
  * around the App drawn from it, every lazy View resolved; then the files of
  * the lazy Views it drew added to the head, each marked with its id so the
  * browser preloads it before it hydrates.
@@ -29,11 +29,19 @@ type DrawnApp = ComponentType<{
   readonly onLazyView?: (view: LazyView<AnyActor>) => void;
 }>;
 
-/** What one drawing starts from: the Route and the Inputs of its server-drawn places. */
+/** What one drawing starts from: the Route and what its server-drawn places start from, by dotted name. */
 export interface At {
   readonly route: unknown;
-  readonly inputs?: Inputs;
+  readonly known?: Readonly<Record<string, Known>>;
 }
+
+/** The data among what places start from, by dotted name: what the Metadata is worked out from. */
+const dataOf = (known: Readonly<Record<string, Known>> = {}) =>
+  Object.fromEntries(
+    Object.entries(known).flatMap(([name, each]) =>
+      each._tag === 'Ready' ? [[name, each.data]] : [],
+    ),
+  );
 
 const attribute = (value: string) =>
   value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
@@ -85,7 +93,7 @@ export const drawer = (
       history.snapshotAt(null),
       0,
     ).save();
-    const metadata = app.routes.metadata(at.route, at.inputs ?? {});
+    const metadata = app.routes.metadata(at.route, dataOf(at.known));
     const page: Page = {
       entry: build.entry,
       head: build.head,

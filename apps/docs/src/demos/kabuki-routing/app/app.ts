@@ -1,33 +1,31 @@
 import { Layer, Schema } from 'effect';
-import { Actor } from '@kestack/kabuki';
-import { Navigation } from '@kestack/kabuki/routing';
+import { Navigation, Route } from '@kestack/kabuki/routing';
 import { Routes } from '../routes/index.ts';
 import { Session } from './capabilities/index.ts';
 import { Dashboard } from './dashboard/index.ts';
 import { Projects } from './projects/index.ts';
 import { Settings } from './settings/index.ts';
 import { SignIn } from './sign-in/index.ts';
-import { NotFound, Redirecting } from './screens.tsx';
 
-/** The top-level pages a signed-in user can be on. The public ones are passed through. */
-export const pages = Routes.outlet({
-  Home: Redirecting,
-  SignIn: Redirecting,
-  Dashboard,
-  Projects,
-  Settings,
-  NotFound,
-});
+/** The public page at /. The app draws it itself: it has nothing of its own. */
+const Home = Route.page({ path: '/', metadata: { title: 'Acme' } }).build({});
+
+/** The sign-in page. The form is the app's, there for as long as no one is signed in. */
+const SignInPage = Route.page({
+  path: '/sign-in',
+  metadata: { title: 'Sign in · Acme' },
+}).build({});
 
 /**
- * Who the user is. The pages exist only while SignedIn: that is the whole
- * sign-in guard, and the URL never changes for it. A signed-in user on a
- * public page is sent on to the dashboard, with the entry replaced, by a
- * Worker that runs for exactly as long as that is so.
+ * The app, its root page, and who the user is. Its pages are always there;
+ * its View draws them only while SignedIn: that is the whole sign-in
+ * guard, and the URL never changes for it. A signed-in user on a public
+ * page is sent on to the dashboard, with the entry replaced, by a Worker
+ * that runs for exactly as long as that is so.
  */
-export const AppActor = Actor.make('App', {
+export const App = Route.page({
+  pages: { Home, SignIn: SignInPage, Dashboard, Projects, Settings },
   requires: [Navigation],
-  props: Routes.props,
   state: Schema.TaggedUnion({
     SignedOut: {},
     SignedIn: { name: Schema.String },
@@ -48,14 +46,14 @@ export const AppActor = Actor.make('App', {
       on: { SignedIn: ({ name }) => ({ state: { _tag: 'SignedIn', name } }) },
     },
     SignedIn: {
-      children: pages.children,
       workers: {
         onward: {
           while: ({ props }) =>
-            props.page._tag === 'Home' || props.page._tag === 'SignIn',
+            props.route.page?._tag === 'Home' ||
+            props.route.page?._tag === 'SignIn',
           run: () =>
             Navigation.use((navigation) =>
-              navigation.replace(Routes.Dashboard()),
+              navigation.replace(() => Routes.Dashboard()),
             ),
         },
       },

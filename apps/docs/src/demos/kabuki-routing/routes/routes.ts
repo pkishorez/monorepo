@@ -1,5 +1,5 @@
-import { Schema } from 'effect';
 import { Route } from '@kestack/kabuki/routing';
+import { App } from '../app/index.ts';
 
 /** The projects every page reads: the demo has no backend. */
 export const PROJECTS: ReadonlyArray<{
@@ -13,59 +13,18 @@ export const PROJECTS: ReadonlyArray<{
   { id: 5, name: 'Beacon' },
 ];
 
-/** Every place in the demo app, once. Home and sign-in are public; the rest needs a user. */
-export const Routes = Route.tree(
-  {
-    Home: Route.path('/', { metadata: { title: 'Acme' } }),
-    SignIn: Route.path('/sign-in', { metadata: { title: 'Sign in · Acme' } }),
-    Dashboard: Route.path('/dashboard', {
-      metadata: { title: 'Dashboard · Acme' },
-    }),
-    Projects: Route.path(
-      '/projects',
-      { metadata: { title: 'Projects · Acme' } },
-      {
-        List: Route.path('/', {
-          query: { q: Schema.optionalKey(Schema.String) },
-        }),
-        Project: Route.path('/:id', {
-          params: { id: Schema.FiniteFromString },
-          // The title is the project's name, worked out from the Route alone.
-          metadata: ({ id }) => ({
-            title: `${PROJECTS.find((each) => each.id === id)?.name ?? `Project ${id}`} · Acme`,
-          }),
-        }),
-        Share: Route.path('/:id/share', {
-          params: { id: Schema.FiniteFromString },
-        }),
-      },
-    ),
-    Settings: Route.path(
-      '/settings',
-      { metadata: { title: 'Settings · Acme' } },
-      {
-        Profile: Route.path('/'),
-        Billing: Route.path(
-          '/billing',
-          { metadata: { title: 'Billing · Acme' } },
-          {
-            Plan: Route.path('/'),
-            Invoices: Route.path('/invoices', {
-              metadata: { title: 'Invoices · Acme' },
-            }),
-          },
-        ),
-      },
-    ),
+/**
+ * Every place in the demo app, read down from its root page once first
+ * used, so the pages can import them. Each page writes its own path; Home
+ * and sign-in are public, the rest needs a user.
+ */
+export const Routes = Route.tree(() => App, {
+  // Old addresses that are never a place: replaced, so Back skips them.
+  redirect: {
+    '/account': (r) => r.Settings(),
+    '/billing': (r) => r.Settings.Billing(),
   },
-  {
-    // Old addresses that are never a place: replaced, so Back skips them.
-    redirect: {
-      '/account': (r) => r.Settings.Profile(),
-      '/billing': (r) => r.Settings.Billing.Plan(),
-    },
-  },
-);
+});
 
 export type Route = typeof Routes.route.Type;
 

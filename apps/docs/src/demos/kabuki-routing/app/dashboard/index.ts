@@ -1,4 +1,2 @@
-import { DashboardActor } from './dashboard.ts';
-import { DashboardView } from './view.tsx';
-
-export const Dashboard = { actor: DashboardActor, view: DashboardView };
+export { Dashboard } from './dashboard.ts';
+export { DashboardView } from './view.tsx';

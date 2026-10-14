@@ -1,8 +1,8 @@
-import { View } from '@kestack/kabuki/react';
-import { Button, DialogPanel } from '../../../parts/index.ts';
-import { ShareActor } from './share.ts';
+import { Route } from '@kestack/kabuki/routing';
+import { Button, DialogPanel } from '../../../../parts/index.ts';
+import { Share } from './share.ts';
 
-export const ShareView = View.make(ShareActor, ({ model, send, root }) => (
+export const ShareView = Route.view(Share, ({ model, send, root }) => (
   <div {...root} className="contents">
     <DialogPanel title="Share project" onClose={() => send({ _tag: 'Closed' })}>
       <p className="text-[13px] leading-relaxed text-muted-foreground">

@@ -1,7 +1,6 @@
 import { Schema } from 'effect';
-import { MODES } from './loader.ts';
 import type { RenderMode } from './loader.ts';
-import { dotted, hasChildren } from './node.ts';
+import { dotted } from './node.ts';
 import type {
   AnyNode,
   Children,
@@ -11,11 +10,12 @@ import type {
   PlaceSchema,
   Value,
 } from './node.ts';
+import { pick } from './values.ts';
 
 /*
- * A Route's places: those on its path, each with every param down to it,
- * its Render Mode and its Input; every place of the tree as Schemas; and
- * the check that no place is drawn earlier than the place that holds it.
+ * A Route's places: those on its path, each with its key, what its Loader
+ * is handed, its Render Mode and its data; and every place of the tree as
+ * Schemas.
  */
 
 /** The places on a Route's path, from the root down. The not-found Route has none. */
@@ -33,17 +33,40 @@ export const placesOn = (
     const node: AnyNode | undefined = layer[value._tag];
     if (!node) break;
     at.push(value._tag);
-    const own = value;
-    params = {
-      ...params,
-      ...Object.fromEntries(Object.keys(node.params).map((k) => [k, own[k]])),
-    };
+    params = { ...params, ...pick(node.params, value) };
     render = (node.render as RenderMode | undefined) ?? render;
-    out.push({ name: dotted(at), params, render, input: node.input });
+    const name = dotted(at);
+    out.push({
+      name,
+      key: JSON.stringify([name, params]),
+      params: { ...params, ...pick(node.query, value) },
+      render,
+      input: node.input,
+    });
     layer = node.children;
-    value = hasChildren(node) ? (value.page as Value | undefined) : undefined;
+    value = value.page as Value | undefined;
   }
   return out;
+};
+
+/** The nodes on a Route's path, from the root down, each with its dotted name. */
+export const nodesOn = (
+  children: Children,
+  route: Value,
+): ReadonlyArray<readonly [string, AnyNode]> => {
+  const nodes: Array<readonly [string, AnyNode]> = [];
+  let layer = children;
+  let value: Value | undefined = route;
+  const at: Array<string> = [];
+  while (value) {
+    const node: AnyNode | undefined = layer[value._tag];
+    if (!node) break;
+    at.push(value._tag);
+    nodes.push([dotted(at), node]);
+    layer = node.children;
+    value = value.page as Value | undefined;
+  }
+  return nodes;
 };
 
 /** Every place of the tree, as Schemas, from the root down. */
@@ -60,7 +83,7 @@ export const allPlaces = (
     return [
       {
         name: dotted(here),
-        params: Schema.Struct(fields) as unknown as Codec<
+        params: Schema.Struct({ ...fields, ...node.query }) as unknown as Codec<
           Record<string, unknown>
         >,
         render: mode,
@@ -70,22 +93,18 @@ export const allPlaces = (
     ];
   });
 
-/** Throws, naming the place, if one is drawn earlier than the place that holds it. */
-export const checkModes = (
+/** Every path of the tree, as written from the root: `/projects/:id/tasks/:task`. */
+export const pathsOf = (
   children: Children,
-  at: ReadonlyArray<string> = [],
-  parent: RenderMode = 'static',
-): void => {
-  for (const [tag, node] of Object.entries(children)) {
-    const own = node.render as RenderMode | undefined;
-    if (own && MODES.indexOf(own) < MODES.indexOf(parent))
-      throw new Error(
-        `[@kestack/kabuki/routing] ${dotted([...at, tag])} is ${own}, but the place that holds it is ${parent}: a place can only be drawn later than its parent`,
-      );
-    checkModes(node.children, [...at, tag], own ?? parent);
-  }
-};
-
-/** A place's key: its name and every param down to it. A place whose key did not change keeps its Input. */
-export const placeKey = (place: Place): string =>
-  JSON.stringify([place.name, place.params]);
+  above = '',
+): ReadonlyArray<readonly [string, string]> =>
+  Object.entries(children).flatMap(([tag, node]) => {
+    const own = node.path.split('/').filter(Boolean).join('/');
+    const path = own ? `${above}/${own}` : above;
+    return [
+      [tag, path || '/'] as const,
+      ...pathsOf(node.children, path).map(
+        ([name, written]) => [`${tag}.${name}`, written] as const,
+      ),
+    ];
+  });

@@ -1,23 +1,28 @@
 import { Effect, Schema } from 'effect';
-import { Actor } from '@kestack/kabuki';
-import { Routes } from '../../routes/index.ts';
+import { Route } from '@kestack/kabuki/routing';
 import { Billing } from './billing/index.ts';
 import { Profile } from './profile/index.ts';
 
-export const pages = Routes.Settings.outlet({ Profile, Billing });
-
 /**
- * The wrapper around every settings page. `autosave` runs on every page
- * under /settings and stops only when the user leaves it; each section's
- * Actor comes and goes with the Route.
+ * The wrapper around every settings page. Where the URL ends here it draws
+ * the profile form, an Actor of its own made only then; Billing is its
+ * page. `autosave` runs on every page under /settings and stops only when
+ * the user leaves it; each section's Actor comes and goes with the Route.
  */
-export const SettingsActor = Actor.make('Settings', {
-  props: Routes.Settings.props,
+export const Settings = Route.page({
+  path: '/settings',
+  metadata: { title: 'Settings · Acme' },
+  pages: { Billing },
   model: Schema.Struct({ saves: Schema.Number }),
   message: Schema.TaggedUnion({ Saved: {} }),
 }).build({
   init: () => ({ model: { saves: 0 } }),
-  children: pages.children,
+  children: {
+    profile: {
+      actor: Profile.actor,
+      while: ({ props }) => !props.route.page,
+    },
+  },
   workers: {
     autosave: {
       run: (self) =>

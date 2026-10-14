@@ -1,229 +1,297 @@
 # Routing
 
 `@kestack/kabuki/routing` adds routing to a Kabuki app without changing how
-an app is written: Routes are data, the Router is one Actor, and every page is
-a plain Actor that is handed its Route as Props. Core never imports it.
+an app is written: a page is an Actor with a place in the URL, the Router is
+one Actor above them, and a page's data is handed to it as Props. Core never
+imports it. Why it is built this way is in
+[ADR 0035](adr/0035-a-page-is-an-actor-and-its-place-loads-its-data.md).
 
 ## Four parts
 
 ```
-Your Actors and Views        App, Settings, Billing …           plain Kabuki
-outlet                       Routes.Settings.outlet({ … })      writes `children` and a View
-Router + Adapter             Router.app(Routes, App)            holds where the app is; talks to the URL
-Routes                       Route.tree({ … })                  pure data: Schemas, URL ⇄ Route, Metadata, Inputs
+Your pages and Views         Route.page, Route.view            plain Kabuki Actors
+Places                       written by Route.page             load each page's data, hand it in as `status`
+Router + Adapter             Router.app(Routes, AppView)       holds where the app is; talks to the URL
+Routes                       Route.tree(() => App)             read down from the pages: Schemas, URL ⇄ Route, Metadata
 ```
 
 ### Where the code lives
 
 ```
 src/routing/
-  route/          Routes as data: node.ts (the types, Route.path), values.ts, places.ts,
-                  url.ts, metadata.ts, loader.ts, outlet.ts; route.ts makes the tree
-  router/         the Router Actor: moves, loading, navigation, outlets, hooks
+  route/          Routes as data: node.ts (the types), values.ts, places.ts, url.ts,
+                  metadata.ts, loader.ts; route.ts makes the Routes from the pages
+  capability/     what the Router and Places use: Loading, the Data cache, Navigation
+  page/           Route.page, the Place it writes, Route.view, Route.tree
+  router/         the Router Actor: moves, links, hooks, the Metadata in the document
   adapter/        the port: where the address lives            @kestack/kabuki/routing/adapter
     browser/      the browser's own history                    @kestack/kabuki/routing/adapter/browser
     tanstack/     TanStack Router's history                    @kestack/kabuki/routing/adapter/tanstack
 ```
 
-`route` is pure data and depends on nothing else here, so Start's shared
-code reads it without the Router; `router` uses `route` and `adapter`. Each
-adapter lives under the port it fills and is imported from its own subpath,
-so an app carries only the one it uses.
+`route` is pure data and depends on nothing else here, so Start's shared code
+reads it without the Router. `page` uses `route` and `capability`; `router`
+uses all three and `adapter`.
 
-### Routes: every place, once
+## A page
 
-```ts
-export const Routes = Route.tree(
-  {
-    Dashboard: Route.path('/', { metadata: { title: 'Dashboard' } }),
-    Settings: Route.path(
-      '/settings',
-      { metadata: { title: 'Settings' } },
-      {
-        Overview: Route.path('/'),
-        Billing: Route.path('/billing', { metadata: { title: 'Billing' } }),
-      },
-    ),
-    Blog: Route.path(
-      '/blog',
-      { input: Schema.Array(PostSummary) },
-      {
-        Index: Route.path('/'),
-        Post: Route.path('/:slug', {
-          params: { slug: Schema.String },
-          input: Post,
-          metadata: (_params, post) => ({
-            title: post.title,
-            description: post.summary,
-          }),
-        }),
-      },
-    ),
-    Account: Route.path('/account', { render: 'dynamic', input: Viewer }),
+```tsx
+export const Task = Route.page({
+  path: '/tasks/:task',
+  params: { task: Schema.String },
+  data: TaskData,
+  metadata: ({ task }, data) => ({ title: data?.title ?? `Task ${task}` }),
+  requires: [Navigation],
+  model: Schema.Struct({ draft: Schema.NullOr(Schema.String) }),
+  state: Schema.TaggedUnion({ Reading: {}, Editing: {} }),
+  message: Schema.TaggedUnion({
+    Edit: {},
+    Typed: { text: Schema.String },
+    Saved: {},
+  }),
+}).build({
+  init: () => ({ model: { draft: null }, state: { _tag: 'Reading' } }),
+  on: {
+    Edit: (_, { props }) =>
+      props.status._tag === 'Ready'
+        ? {
+            model: { draft: props.status.data.notes },
+            state: { _tag: 'Editing' },
+          }
+        : {},
+    Typed: ({ text }) => ({ model: { draft: text } }),
+    Saved: () => ({ state: { _tag: 'Reading' }, command: Router.reload() }),
   },
-  {
-    redirect: {
-      '/profile': (r) => r.Settings.Overview(),
-      '/posts/:slug': (r, { slug }) => r.Blog.Post({ slug }),
-    },
-    metadata: { description: 'Acme, the app' },
-    notFound: { title: 'Not found', robots: 'noindex' },
-  },
-);
+});
+
+export const TaskView = Route.view(Task, ({ props }) => {
+  switch (props.status._tag) {
+    case 'Loading':
+      return <TaskSkeleton />;
+    case 'Failed':
+      return <Failed reason={props.status.reason} />;
+    case 'Ready':
+      return <TaskBody task={props.status.data} />;
+  }
+});
 ```
 
-- `Routes.Settings.Billing()` is a Route value: `{ _tag: 'Settings', page: { _tag: 'Billing' } }`. Params are checked by type: `Routes.Blog.Post({ slug: 'hello' })`.
-- `Routes.read(url)` and `Routes.path(route)` turn a URL into a Route and back. A URL that names no place reads as `NotFound`; a malformed one too. A redirect's path can hold params, handed to it as strings.
-- `Routes.Settings.props` is the Schema of what the Settings Actor is handed: its params and query, `page`, the child that is current, and `inputs`, the Inputs of the places below it. `Routes.props` is the root's: `{ page, inputs }`.
-- A place is named by its tags from the root, dotted: `Blog.Post`.
+`Route.page` is `Actor.make` with a place in the URL, and every field is
+optional: `path`, `params`, `query`, `data` (its Loader's Schema), `render`,
+`metadata` and `pages`, then the Actor's own `requires`, `model`, `state` and
+`message`. `build` takes how it behaves, at the top and per State, as any
+Actor's does. A page takes no Input: it exists before its data. It is handed
+Props:
+
+- `params` and `query`: its own, typed from its Schemas.
+- `status`, if it has `data`: `Loading`, `Failed { reason, notFound }`, or
+  `Ready { data, refreshing }`. `refreshing` is true while the data loads
+  again behind what is shown. Its View draws all three with a `switch`, and
+  its Updates read it as Props: to keep an editable copy, an Update copies it
+  into the Model.
+- `route`: where it sits. `route.name` is its dotted name; `route.page` is the Route one level down, if the
+  URL goes on; `route.params` every path param down to it, its ancestors'
+  too, typed loosely; the root's `route.notFound` is the path of a URL that
+  names no page.
+
+`Route.view(Task, draw)` draws the page from its own data, and is the View
+of the Place around it, which is what the page above holds.
+`Route.view(Task, View.lazy(() => import('./task-view')))` loads its code
+when first drawn, or when a move to it or a preload starts; that module
+default-exports `View.make(Task.actor, …)`.
+
+### Pages under a page
+
+```tsx
+export const Project = Route.page({
+  path: '/projects/:id',
+  params: { id: Schema.FiniteFromString },
+  data: ProjectData,
+  pages: { Task, Files },
+}).build({});
+
+export const ProjectView = Route.view(Project, (self) => (
+  <section>
+    <ProjectHeader status={self.props.status} />
+    {self.children.Task && <TaskView instance={self.children.Task} />}
+    {self.children.Files && <FilesView instance={self.children.Files} />}
+    {!self.props.route.page && <Overview />}
+  </section>
+));
+```
+
+Each key of `pages` names a page under it, and is its name: `Project.Task`.
+Kabuki adds one Child per page, by its key, beside the page's own: there
+while the URL names it, and made again when its params change, so new params
+are a new page with fresh state, and a new query is the same page. A page
+with pages is a place on its own when the URL ends at it, so there is no
+index page: the parent draws what it shows there. A parent decides where and
+whether its pages are drawn, and can draw one whatever its own status: a
+parent and its page load side by side.
+
+### Routes: read down from the root
+
+```ts
+export const App = Route.page({ pages: { Home, Blog, Projects } }).build({});
+
+export const Routes = Route.tree(() => App, {
+  redirect: { '/posts/:slug': (r, { slug }) => r.Blog.Post({ slug }) },
+  metadata: { description: 'Acme, the app' },
+  notFound: { title: 'Not found', robots: 'noindex' },
+  preload: 'intent',
+  preloadDelay: 50,
+});
+```
+
+The root page has no path and no data. `Route.tree` walks its `pages` down:
+
+- `Routes.Projects.Task({ id: 4, task: 'a' })` is a Route value, `{ _tag:
+'Projects', id: 4, page: { _tag: 'Task', task: 'a' } }`; `Routes.Projects({
+id: 4 })` ends at the project. Params are checked by type.
+- `Routes.read(url)` and `Routes.path(route)` turn a URL into a Route and
+  back. A URL that names no place, or a param that does not read, is
+  `NotFound`. A redirect's path can hold params, handed to it as strings.
+- `Routes.paths()` prints every place's path as written from the root. Two
+  places at one path are refused when the Routes are made.
+- `Routes.places(route)` lists the places on a Route's path, each with its
+  dotted name, its key, what its Loader is handed and its Render Mode;
+  `Routes.every` lists every place as Schemas, which is what a Loader RPC is
+  made from; `Routes.place` is the Schema of every dotted name.
+
+`Route.tree(() => App)` reads the root when the Routes are first used, so a
+page can import the Routes for its Updates, as long as nothing reads them
+while the modules load. `Route.tree(App)` reads it at once.
+
+#### Moving from an Update
+
+A page's type is part of the Routes', so a page that moves the app hands the
+Router a function that makes the Route, not the Route:
+
+```ts
+Saved: () => ({ command: Router.push(() => Routes.Projects({ id: 4 })) }),
+```
+
+What the function does is checked; only what it returns is typed loosely,
+so the page's type never waits on the Routes'. A Route value at hand, as from
+Props, is handed as it is. Every move takes either: `push`, `replace`,
+`backTo`, `preload`, and `Navigation`'s Requests in a Worker.
 
 #### Metadata
 
-`metadata` is a value, or worked out from the place's own params and query
-and its Input. The deepest place that says a field wins, field by field, Open
-Graph's too: title, description, canonical, `openGraph`, `robots`, and more
-`meta` and `link` tags as written. `Routes.metadata(route or url, inputs)` is
-pure, so a server can call it; a place whose Metadata needs its Input says
-nothing until it has one. The tree's `metadata` is the root's, under every
-place's, and `notFound` is the not-found Route's, over the root's.
+`metadata` is a value, or worked out from the page's params and query and its
+data, `undefined` until it is there. The deepest place that says a field
+wins, field by field, Open Graph's too. `Routes.metadata(route or url,
+data)` is pure, so a server can call it. In the browser the Router writes it
+again when a page's data comes, not only on a move.
 
-#### Inputs and Render Modes
+#### Data and Render Modes
 
-`input`, a Schema, says a place needs a Loader before it is drawn.
-`Routes.Blog.Post.input` is that Schema, which the page's Actor takes as its
-own Input. `render` is `static`, the default, `dynamic` or `client`, and the
-places below inherit it; a place can only be drawn later than its parent, so
-a static place under a dynamic one is a type error, and an error when the
-Routes are made.
-
-`Routes.places(route)` lists the places on a Route's path, from the root down,
-each with its dotted name, every param down to it, its Render Mode and its
-Input's Schema. `Routes.every` lists every place of the tree as Schemas, which
-is what a Loader RPC is made from. `Routes.place` is the Schema of every
-place's dotted name, so a part of a page that takes one is checked by type:
-
-```ts
-export type Place = typeof Routes.place.Type; // 'Blog' | 'Blog.Index' | 'Blog.Post' | …
-```
+`data`, a Schema, says a page needs a Loader. `render` is `static`, the
+default, `dynamic` or `client`, inherited by the pages under it; any mode may
+sit under any other. A server draws a page's data for `static` and `dynamic`;
+a `client` page, and every page under it, is sent loading, and the browser
+loads it.
 
 #### Loaders
 
 ```ts
 export default Routes.loaders({
-  Blog: () => Posts.list(),
-  'Blog.Post': ({ slug }) => Posts.get(slug),
-  Account: (_params, request) => Auth.viewer(request),
+  Projects: ({ id }) => Db.project(id),
+  'Projects.Task': ({ id, task }) => Db.task(id, task),
+  Search: ({ q }, request) => Search.run(q, request),
 });
 ```
 
 `Routes.loaders` is a typing helper and runs nothing: one function per place
-with an Input, by its dotted name, and no other. A static place's Loader is
-given its params, its own and its ancestors'; a dynamic or client place's,
-the request too. Each returns its Input, or fails with `Route.notFound()` or
-`Route.redirect(route)`. Missing, extra or wrong-typed is a type error, and
-the error names the places: `these places have an Input and no Loader:
-"Blog.Post" | …`, or `is not a place with an Input: "Home"`. Both
-failures are Schema classes, `Route.NotFound` and `Route.Redirect`, so they
-travel over the wire.
+with data, by its dotted name, and no other. A Loader is handed every path
+param down to it and its own query; a dynamic or client place's, the request
+too. Each returns its data, or fails with `Route.notFound()` or
+`Route.redirect(route)`; a defect breaks its page alone. Missing, extra or
+wrong-typed is a type error that names the places. A child that needs its
+parent's data calls the same service; a request-scoped Layer makes it run
+once.
 
-### The Router: one Actor above the app
+## The Place: a page's data
 
-`Router.app(Routes, App)` is an Actor like any other. Its Model is the history,
-`entries` and `at`, each entry a Route with the Inputs of its places by dotted
-name, the last `move`, and the `pending` move it waits on. Its one Child is
-your App, whose Props are `{ page, inputs }` of `entries[at]`. Every move is
-one Message to it:
+Kabuki writes one Actor around each page, its Place, never written by a user.
+Its Model is the page's `status`; its one Child is the page.
 
-| Message      | Sent by                                                      |
-| ------------ | ------------------------------------------------------------ |
-| `Pushed`     | a click on a `Router.Link`, or `Router.push`                 |
-| `Replaced`   | `Router.replace`                                             |
-| `Went`       | `Router.back` and `Router.forward`, `useRouter`              |
-| `WentBackTo` | `Router.backTo`                                              |
-| `Arrived`    | the Adapter: Back, Forward, a typed URL, a fresh load        |
-| `Loaded`     | the `load` Worker, with the Inputs a pending move waits on   |
-| `Failed`     | the `load` Worker, when a Loader says not found or Redirects |
+- **Starts** from what is known as it is made: the data the Router loaded
+  before the move landed, the server's, or the Data cache's copy. Knowing
+  nothing, `Loading`.
+- **Loads** with a Worker, while Loading, or due: after a reload, on a copy
+  the Data cache kept, or when its query changes. The data shown stays
+  meanwhile, `refreshing`. A loading screen stays at least 300ms, so it never
+  flashes.
+- **Fails** its own page alone: `Failed`, not found or broken. Loading again
+  behind data shown keeps the data when it fails.
+- **Redirects**: a Loader's Redirect replaces the entry.
 
-It Provides `Navigation`, so a page that moves the app from an Update lists
-`Navigation` in its Requires and returns `Router.push(route)` as a Command.
+Its Messages are `Loaded`, `Failed` and `Redirected`, each on the Timeline.
 
-### Loading: a move that needs Inputs
+## The Router: one Actor above the app
 
-A move to a Route whose places need Inputs the entry shown does not hold
-waits: the page shown stays drawn, the move is kept in the Model as
-`pending`, and a Worker loads what is missing through the `Loading`
-Capability, all at once. A place whose key, its name and every param down to
-it, did not change keeps its Input. On the answer the move lands, pushed or
-replaced. A newer move stops the Worker and drops its answer, by id. Not found
-lands on the not-found Route; a Redirect is followed in place of the move, so
-Back never returns to it. Back and Forward reuse the Inputs each entry holds.
-The code of every lazy View serving a place on the pending Route starts
-loading with its Inputs, so it is never a second wait after them.
+`Router.app(Routes, AppView)` is an Actor like any other. Its Model is the
+history, `entries` and `at`, each entry a Route, the last `move`, the
+`pending` move it holds, and what the last move's pages start from. Its one
+Child is the root page's Place. Every move is one Message to it:
 
-`usePending()` gives the pending move, `{ to, how }`, for a progress bar;
-`useRouter().pending` too. Both read any Route as `{ _tag: string }`; name the
-app's Route to read it as one of its Routes:
+| Message      | Sent by                                                           |
+| ------------ | ----------------------------------------------------------------- |
+| `Pushed`     | a click on a `Router.Link`, or `Router.push`                      |
+| `Replaced`   | `Router.replace`                                                  |
+| `Went`       | `Router.back` and `Router.forward`, `useRouter`                   |
+| `WentBackTo` | `Router.backTo`                                                   |
+| `Arrived`    | the Adapter: Back, Forward, a typed URL, a fresh load             |
+| `Loaded`     | the `load` Worker, with what the held move's new pages start from |
+| `Redirected` | the `load` Worker, when a Loader Redirects                        |
+| `Waited`     | the `wait` Worker, when the move has waited its delay             |
+| `Reloaded`   | `Router.reload`, `Router.Retry`, a link to the page shown         |
+| `Preloading` | a `Router.Link` that preloads, or `Router.preload`                |
 
-```ts
-type Route = typeof Routes.route.Type;
-const pending = usePending<Route>();
-const href = pending && Routes.path(pending.to);
-```
+It Provides `Navigation`, so a page that moves the app lists it in its
+Requires and returns `Router.push(…)` as a Command.
 
-`Router.memory(Routes, loaders)` is a `Loading` that runs the Loaders in place,
-for tests and stories. With no `Loading` in the Layer a move lands at once,
-and a place with an Input is not drawn until it has one.
+### A move, held up to 150ms
 
-`Root.startAt(url, inputs)` is the Router's Input at a URL with the Inputs its
-places already have, purely: what a server draws from. Places it has no Input
-for are pending from init, so once the Runtime starts they load as after a
-click. `Root.href(route)` writes a Route as a URL, under the base, and
-`Root.routes` is the Routes it serves: what [Start](start.md) reads.
+A move to pages whose data is not on screen is held: the page shown stays,
+`usePending()` says where it goes, and a Worker asks `Loading` for the new
+pages' data. If it comes within the delay, or the Data cache has it, the move
+lands with each new Place `Ready`, and no loading screen shows. Past the
+delay the move lands anyway, and each new Place shows it is loading and
+loads its own; a Place joins the load the Router started. Pages whose key,
+name and path params, did not change are kept, with their state. A newer
+move drops an older answer. `Router.app(Routes, AppView, { delay })` changes
+the 150ms.
 
-### Pending and failed screens
+### The Data cache
 
-A page served by an Actor can name two screens its slot shows in its stead
-while it has no Input: `pending`, drawn from its Props while its Loader
-runs, and `failed`, drawn from its Props and the `{ reason }` once the move
-to it broke. Its Actor and View never see either: they start from the Input,
-as before. A page drawn by a function has neither of its own, and shows the
-app's failed screen.
+`Router.cached(Routes, loading)` puts the Data cache in front of a `Loading`;
+Start's browser has one. It keeps the last data of each place, one copy per
+name and what its Loader is handed, the newest, up to 50, the least recently
+used dropped first; a failure is never kept. A move to a page with a copy,
+Back, Forward or a plain link, starts it `Ready` at once: a static page as it
+is, a dynamic or client one `refreshing`, loaded again behind it. A place
+being loaded is joined, never asked for twice. Places asked for in the same
+moment are one request, each answered as it comes.
 
-```tsx
-export const Post = {
-  actor: PostActor,
-  view: PostView,
-  pending: ({ slug }) => <Skeleton label={`Loading ${slug}…`} />,
-  failed: ({ slug }, { reason }) => (
-    <Failed reason={reason}>
-      <Router.Link to={Routes.Blog.Post({ slug })}>Try again</Router.Link>
-    </Failed>
-  ),
-};
+### Reload and retry
 
-Router.app(Routes, App, { failed: ({ reason }) => <Failed reason={reason} /> });
-```
+`Router.reload()`, a Command, `useRouter().reload()`, or `<Router.Retry>`, a
+button, loads every page on screen again: their data stays shown,
+`refreshing`, and the pages, their Models and States, are kept. A failed
+page goes back to loading. Every other copy in the Data cache is dropped. A
+link to the page shown does the same.
 
-- A move still loading after `pending.delay` (150ms) lands early if the
-  outermost place it waits on has a pending screen: the address moves, the
-  places above keep their pages, and that place's slot shows the screen. A
-  quicker move lands as before, and shows no screen.
-- Once shown, the screen stays at least `pending.minimum` (300ms), so it
-  never flashes, whatever the answer: `Router.app(Routes, App, { pending: {
-delay, minimum } })`. The delay counts from when the move began, so a
-  Runtime that stops and resumes waits only what is left.
-- A move whose Loaders break, as opposed to not found or a Redirect, lands
-  anyway, marked failed. Its slot shows the page's failed screen, or the
-  app's `failed` with none. With neither, the move does not land and the page
-  shown stays. `useRouter().failed` says why.
-- A link to the same Route, Back or Forward to it, tries again: the failed
-  screen stays until the pending screen would show, after the delay.
-- A Redirect or not found after a move landed early ends that move: the
-  move keeps where it came from.
-- A server draws a client place's pending screen in the page it sends, and
-  the browser starts from it.
-- An outlet's function is handed each of the three as its own page, with its
-  own `key` and `showing`: `'pending'`, `'page'` or `'failed'`.
+### Preload
+
+`<Router.Link to={…} preload="intent" | "viewport" | false preloadDelay={…}>`
+asks the Router to preload where it goes: on hover, focus or touch after the
+delay, 50ms; once the link scrolls into view; or never. `'intent'` unless the
+link or the Routes say. Each ask is a `Preloading` Message; the Router's
+Command warms the Data cache and the code of the lazy Views on that Route,
+and nothing comes back. `Router.preload(route)` does the same from an
+Update. A move during a preload joins it.
 
 ### The Adapter: where the address lives
 
@@ -240,110 +308,35 @@ toReact(Root.actor, Root.view, Layer.mergeAll(AppLive, tanstack()), {
 With an Adapter, the Router writes each move to the address with a Command,
 stamping each history entry with a key, and a Worker hears the address: a
 Back lands on an entry the Router knows. A redirect, or a URL that is not how
-its Route is written, is replaced. `startAt` reads the URL once, so the app is
-drawn at the right page from the first frame.
+its Route is written, is replaced. `startAt(url, known)` is the Router's
+Input at a URL with what its pages start from: what a server draws from, and
+how an app is drawn at the right page from the first frame.
 
 Commands never run during Time Travel, so the address stays live: a past
-Step is a drawing, and the move that led there is one Message on the Timeline.
+Step is a drawing. Nothing fetches either: each page's data is in its
+Place's Model, and a fetched answer is in the Message that brought it.
 
-### Outlets: the pages under a place
+## One click, a project to one of its tasks
 
-```ts
-const sections = Routes.Settings.outlet({ Overview, Billing });
-
-export const SettingsActor = Actor.make('Settings', { props: Routes.Settings.props })
-  .build({ children: sections.children });
-
-export const SettingsView = View.make(SettingsActor, (self) => (
-  <section>
-    <Tabs />
-    <sections.View of={self} />
-  </section>
-));
-```
-
-`outlet` writes nothing you could not write yourself:
-
-- `children`: one Child per child Route, `{ Overview: { actor: Overview.actor, each, input, props }, … }`. Its `each` names one key, the current child's params, read from the Props' `page`, so that Child holds one Instance, handed its value as Props and its place's Input from the Props' `inputs` as its Input; the others hold none. A place with an Input is empty until it has one. A new param is a fresh page; a new query is the same page with new Props. Spread it beside Children of the Actor's own: `children: { ...sections.children, help: { actor: Help } }`.
-- `View`: draws whichever Instance is there. A child served by a function instead of an Actor is drawn by it, from its Props and Input. Each page is keyed, so a new one starts its React state afresh. A client place is drawn only once the browser draws on its own: a server, and the hydration of what it drew, leave it empty, Input or not.
-
-A child that has nothing of its own, like a blog's index, which is the
-blog's list, is drawn by the parent's View from its own Model, which it
-started from its Input. Its outlet entry draws nothing, and the View reads
-which child is current from its Props:
-
-```tsx
-const posts = Routes.Blog.outlet({ Index: () => null, Post });
-
-const BlogView = View.make(BlogActor, (self) =>
-  self.props.page._tag === 'Index' ? (
-    <PostList posts={self.model.posts} />
-  ) : (
-    <posts.View of={self} />
-  ),
-);
-```
-
-Kabuki works the rest out: when Settings' Props change, its Children
-follow them, in the same Message.
-
-## One click, Overview to Billing
-
-1. `Router.Link` drew `<a href="/settings/billing">`. The Router's View catches the plain click and Sends `Pushed`.
-2. The Router's entries grow by one. The App's Props are now `{ page: Settings › Billing }`.
-3. The App's outlet keeps Settings: its key did not change. Settings is handed `{ page: { _tag: 'Billing' } }`; its outlet stops Overview and starts Billing. Anything Settings runs keeps running.
-4. With an Adapter, the `write the address` Command pushes `/settings/billing`.
+1. `Router.Link` drew `<a href="/projects/4/tasks/a">`. The Router's View catches the plain click and Sends `Pushed`.
+2. The project's key did not change, so only the task is new. The Router holds the move and asks for the task's data.
+3. It comes in 80ms: the move lands, the project keeps its Place, its Model and its Workers, and its `pages` follow its Props: the task's Place is made `Ready`, and the task page with it.
+4. With an Adapter, the `write the address` Command pushes the URL; the Router writes the task's Metadata once it is drawn.
 
 ## Guards
 
-A guard is where an Actor sits. Put the pages' outlet in the State that
-allows them, `SignedIn`, and they cannot exist without a user; the URL stays
-what it is while the user signs in. A page for some users only is the same:
-its slot is filled only when the Props or Model allow it.
-
-## Animating pages
-
-An outlet's View takes a function of the page and the move at its level, so
-a page can be wrapped in an animation library's component:
-
-```tsx
-<AnimatePresence custom={move} mode="popLayout">
-  <sections.View of={self}>
-    {(page, move) =>
-      page && (
-        <motion.div
-          key={page.key}
-          custom={move}
-          variants={slide}
-          initial="enter"
-          animate="center"
-          exit="exit"
-        >
-          {page.element}
-        </motion.div>
-      )
-    }
-  </sections.View>
-</AnimatePresence>
-```
-
-A leaving page's Actor has already stopped; its View keeps drawing its last
-data while it animates out. A pending or failed screen comes and goes the
-same way, with a key of its own; `page.showing` says which it is.
-
-## Metadata in the document
-
-With an Adapter, the Router writes the Metadata of the entry shown to the
-document after every move: the title, and every tag marked `data-kabuki`,
-which replace the ones marked before; tags nobody marked are left alone. A
-TanStack route can call `Routes.metadata(url)` in its own `head`. In memory
-the document is never touched. A View never writes Metadata: what needs data
-is worked out from the place's Input.
+A guard is what a page draws. The root page draws sign-in in place of its
+pages while signed out, and the URL stays what it is while the user signs
+in. A Worker that reads `props.route.page` can `replace` a public page with
+the dashboard once signed in. Pages exist whatever the root's State, so their
+Workers run; a page whose work must wait for a user reads that from a
+Capability.
 
 ## Not built yet
 
+- Typed ancestor params: a page sees its own params typed, and `route.params` loosely.
 - Blocking a move, as over unsaved changes.
-- Typed failures: a Loader can only break, not fail with an error its
-  place declares.
 - Scroll restoration per history entry.
+- Devtools folding each Place into its page.
+- Starting a `client` page's data request from the document's head, before the code loads.
 - One routed app per page: two Routers on one page would both write the address.

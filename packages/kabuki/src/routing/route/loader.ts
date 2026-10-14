@@ -30,6 +30,16 @@ export class RedirectError extends Schema.TaggedError<RedirectError>()(
 /** How a Loader fails: the place is not found, or the app goes elsewhere. */
 export type LoadError = NotFoundError | RedirectError;
 
+/**
+ * What loading one place came to: its data, or why there is none: its
+ * Loader said not found or Redirected, or something broke on the way.
+ */
+export type Outcome =
+  | { readonly _tag: 'Loaded'; readonly data: unknown }
+  | { readonly _tag: 'NotFound' }
+  | { readonly _tag: 'Redirect'; readonly route: unknown }
+  | { readonly _tag: 'Broken'; readonly reason: string };
+
 /** What the types know of one place: its dotted name, every param down to it, its Input, and its Render Mode. */
 export interface PlaceType {
   readonly name: string;
@@ -38,7 +48,7 @@ export interface PlaceType {
   readonly mode: RenderMode;
 }
 
-/** A place's Loader: a static place's is given its params; a dynamic or client place's, the request too. */
+/** A place's Loader: a static place's is given its params and query; a dynamic or client place's, the request too. */
 export type LoaderOf<X extends PlaceType> = X['mode'] extends 'static'
   ? (params: X['params']) => Effect.Effect<X['input'], LoadError, any>
   : (
