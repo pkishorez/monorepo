@@ -180,6 +180,44 @@ for are pending from init, so once the Runtime starts they load as after a
 click. `Root.href(route)` writes a Route as a URL, under the base, and
 `Root.routes` is the Routes it serves: what [Start](start.md) reads.
 
+### Pending and failed screens
+
+A page served by an Actor can name two screens its slot shows in its stead
+while it has no Input: `pending`, drawn from its Props while its Loader
+runs, and `failed`, drawn from its Props and the `{ reason }` once the move
+to it broke. Its Actor and View never see either: they start from the Input,
+as before.
+
+```tsx
+export const Post = {
+  actor: PostActor,
+  view: PostView,
+  pending: ({ slug }) => <Skeleton label={`Loading ${slug}…`} />,
+  failed: ({ slug }, { reason }) => (
+    <Failed reason={reason}>
+      <Router.Link to={Routes.Blog.Post({ slug })}>Try again</Router.Link>
+    </Failed>
+  ),
+};
+
+Router.app(Routes, App, { failed: ({ reason }) => <Failed reason={reason} /> });
+```
+
+- A move still loading after `pending.delay` (150ms) lands early if the
+  outermost place it waits on has a pending screen: the address moves, the
+  places above keep their pages, and that place's slot shows the screen. A
+  quicker move lands as before, and shows no screen.
+- Once shown, the screen stays at least `pending.minimum` (300ms), so it
+  never flashes: `Router.app(Routes, App, { pending: { delay, minimum } })`.
+- A move whose Loaders break, as opposed to not found or a Redirect, lands
+  anyway, marked failed. Its slot shows the page's failed screen, or the
+  app's `failed` with none; with neither it is empty. `useRouter().failed`
+  says why. A link to the same Route, Back or Forward to it, tries again.
+- A server draws a client place's pending screen in the page it sends, and
+  the browser starts from it.
+- An outlet's function is handed each of the three as its own page, with its
+  own `key` and `showing`: `'pending'`, `'page'` or `'failed'`.
+
 ### The Adapter: where the address lives
 
 With no Adapter in the Layer, the app routes in memory: Back and Forward are
@@ -284,7 +322,8 @@ a page can be wrapped in an animation library's component:
 ```
 
 A leaving page's Actor has already stopped; its View keeps drawing its last
-data while it animates out.
+data while it animates out. A pending or failed screen comes and goes the
+same way, with a key of its own; `page.showing` says which it is.
 
 ## Metadata in the document
 
@@ -298,5 +337,7 @@ is worked out from the place's Input.
 ## Not built yet
 
 - Blocking a move, as over unsaved changes.
+- Typed failures: a Loader can only break, not fail with an error its
+  place declares.
 - Scroll restoration per history entry.
 - One routed app per page: two Routers on one page would both write the address.

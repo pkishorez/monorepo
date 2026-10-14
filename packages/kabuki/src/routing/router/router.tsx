@@ -1,5 +1,5 @@
-import { Effect, Layer, Option, Queue, Schema, Stream } from 'effect';
-import type { MouseEvent } from 'react';
+import { Cause, Effect, Layer, Option, Queue, Schema, Stream } from 'effect';
+import type { MouseEvent, ReactNode } from 'react';
 import { Actor, Command } from '../../core/index.ts';
 import type { ActorType, AnyActor, Types } from '../../core/index.ts';
 import { View } from '../../react/index.ts';
@@ -8,6 +8,7 @@ import { Adapter } from '../adapter/index.ts';
 import type {
   Children,
   Codec,
+  Failure,
   How,
   Inputs,
   LoadError,
@@ -22,7 +23,7 @@ import type { Drawing, Entry } from './context.tsx';
 import { Loading } from './loading.ts';
 import { Navigation } from './navigation.ts';
 import type { AnyRoute } from './navigation.ts';
-import { preloadViews } from './outlet.tsx';
+import { hasPendingScreen, preloadViews } from './outlet.tsx';
 import { keep, wanted } from './plan.ts';
 
 /** What the router needs of a Routes tree. */
@@ -44,6 +45,8 @@ const LANDS = ['push', 'replace', 'load', 'arrive'] as const;
 type Lands = (typeof LANDS)[number];
 /** Redirects followed in a row before a move gives up, as not found. */
 const HOPS = 8;
+/** How long a move waits before its page's pending screen shows, and how long the screen then stays at least, in milliseconds. */
+const PENDING = { delay: 150, minimum: 300 };
 
 /** A move the Router waits on while it loads the Inputs its places need. */
 export interface PendingMove<Route> {
@@ -57,6 +60,10 @@ export interface PendingMove<Route> {
   readonly wanted: ReadonlyArray<string>;
   /** How many Redirects led here. */
   readonly hops: number;
+  /** When the move landed early, to show a pending screen while it loads. */
+  readonly shown: number | null;
+  /** The Inputs that came, held while the pending screen has not stayed its minimum. */
+  readonly ready: Inputs | null;
 }
 
 /** The router's Model: the history as entries and where it is in them, the last move, and the one it waits on. */
@@ -65,6 +72,7 @@ export interface RouterModel<Route> {
     readonly key: string;
     readonly route: Route;
     readonly inputs: Inputs;
+    readonly failed?: Failure;
   }>;
   readonly at: number;
   /** The key the next entry gets. */
@@ -102,6 +110,7 @@ export type RouterMessage<Route> =
     }
   | { readonly _tag: 'Attached' }
   | { readonly _tag: 'Left'; readonly url: string }
+  | { readonly _tag: 'Waited'; readonly id: number }
   | { readonly _tag: 'Loaded'; readonly id: number; readonly inputs: Inputs }
   | {
       readonly _tag: 'Failed';
@@ -180,8 +189,18 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
   options?: {
     /** Where the app is mounted, like `/app`: every link and URL is under it. */
     readonly base?: string;
+    /** The failed screen of every page that has none of its own. */
+    readonly failed?: (failure: Failure) => ReactNode;
+    /**
+     * How long a move waits, in milliseconds, before its page's pending
+     * screen shows, so a quick load shows none; and how long the screen
+     * then stays at least, so it never flashes. 150 and 300 unless said.
+     */
+    readonly pending?: { readonly delay?: number; readonly minimum?: number };
   },
 ) => {
+  const delay = options?.pending?.delay ?? PENDING.delay;
+  const minimum = options?.pending?.minimum ?? PENDING.minimum;
   const base = (options?.base ?? '').replace(/\/$/, '');
   const href = (route: Route) => {
     const path = routes.path(route);
@@ -207,6 +226,7 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
     key: Schema.String,
     route: RouteSchema,
     inputs: InputsSchema,
+    failed: Schema.optionalKey(Schema.Struct({ reason: Schema.String })),
   });
   const actor = Actor.make('Router', {
     input: Schema.UndefinedOr(
@@ -232,6 +252,8 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
           inputs: InputsSchema,
           wanted: Schema.Array(Schema.String),
           hops: Schema.Number,
+          shown: Schema.NullOr(Schema.Number),
+          ready: Schema.NullOr(InputsSchema),
         }),
       ),
       loads: Schema.Number,
@@ -250,6 +272,7 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
       },
       Attached: {},
       Left: { url: Schema.String },
+      Waited: { id: Schema.Number },
       Loaded: { id: Schema.Number, inputs: InputsSchema },
       Failed: {
         id: Schema.Number,
@@ -302,6 +325,20 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
       ? model.move
       : { from: null, to: route, how: 'load' },
   });
+  /** The entry shown, marked as one whose move broke, or no longer. */
+  const marked = (model: Model, failed?: Failure): Model => ({
+    ...model,
+    entries: model.entries.map((entry, index) =>
+      index === model.at
+        ? {
+            key: entry.key,
+            route: entry.route,
+            inputs: entry.inputs,
+            ...(failed ? { failed } : {}),
+          }
+        : entry,
+    ),
+  });
   const writing = (model: Model, replace: boolean) =>
     write({
       url: href(current(model).route),
@@ -346,13 +383,18 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
       inputs,
       wanted: missing,
       hops,
+      shown: null,
+      ready: null,
     };
     return { model: { ...model, pending, loads: model.loads + 1 } };
   };
 
-  /** After Back or Forward: the entry reached keeps its Inputs; any it lacks are loaded. */
+  /**
+   * After Back or Forward: the entry reached keeps its Inputs; any it lacks
+   * are loaded, again if the move to it broke.
+   */
   const reached = (model: Model, command?: Cmd): Out => {
-    const filling = toward(model, current(model).route, 'load');
+    const filling = toward(marked(model), current(model).route, 'load');
     return {
       model: filling.model,
       ...(command === undefined ? {} : { command }),
@@ -381,7 +423,16 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
       pending:
         missing.length === 0
           ? null
-          : { id: 0, to: route, how: 'load', inputs, wanted: missing, hops: 0 },
+          : {
+              id: 0,
+              to: route,
+              how: 'load',
+              inputs,
+              wanted: missing,
+              hops: 0,
+              shown: null,
+              ready: null,
+            },
       loads: 1,
       attached: false,
       loaded: false,
@@ -434,9 +485,13 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
               : { _tag: 'Redirect', route: error.route as Route },
           ),
         ),
-        Effect.catchCause((cause) =>
-          failed({ _tag: 'Broken', reason: String(cause) }),
-        ),
+        Effect.catchCause((cause) => {
+          const error = Cause.squash(cause);
+          return failed({
+            _tag: 'Broken',
+            reason: error instanceof Error ? error.message : String(error),
+          });
+        }),
       );
     });
 
@@ -472,8 +527,11 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
         { model }: { readonly model: Model },
       ) => {
         if (model.pending && same(route, model.pending.to)) return {};
-        if (same(route, current(model).route))
+        if (same(route, current(model).route)) {
+          // A link to a page whose move broke tries it again.
+          if (current(model).failed) return reached(model);
           return model.pending ? { model: { ...model, pending: null } } : {};
+        }
         return toward(model, route, 'push');
       },
       Replaced: (
@@ -558,16 +616,38 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
       Left: ({ url }: { readonly url: string }) => ({
         command: leave({ url }),
       }),
+      // Still loading after the delay: the move lands without the Inputs
+      // it waits on, and their slot shows the pending screen.
+      Waited: (
+        { id }: { readonly id: number },
+        { model, at }: { readonly model: Model; readonly at: number },
+      ) => {
+        const pending = model.pending;
+        if (pending?.id !== id || pending.shown !== null) return {};
+        const landed = land(model, pending.to, pending.how, pending.inputs);
+        return {
+          ...landed,
+          model: {
+            ...landed.model,
+            pending: { ...pending, how: 'load', shown: at },
+          },
+        };
+      },
       Loaded: (
         { id, inputs }: { readonly id: number; readonly inputs: Inputs },
-        { model }: { readonly model: Model },
+        { model, at }: { readonly model: Model; readonly at: number },
       ) => {
         const pending = model.pending;
         if (pending?.id !== id) return {};
-        return land(model, pending.to, pending.how, {
-          ...pending.inputs,
-          ...inputs,
-        });
+        const all = { ...pending.inputs, ...inputs };
+        // A pending screen stays its minimum: the `hold` Worker lands it then.
+        if (
+          pending.shown !== null &&
+          pending.ready === null &&
+          at - pending.shown < minimum
+        )
+          return { model: { ...model, pending: { ...pending, ready: all } } };
+        return land(model, pending.to, pending.how, all);
       },
       Failed: (
         {
@@ -579,7 +659,17 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
         const pending = model.pending;
         if (pending?.id !== id) return {};
         const settled = { ...model, pending: null };
-        if (failure._tag === 'Broken') return { model: settled };
+        if (failure._tag === 'Broken') {
+          // The move lands without the Inputs it waited on, marked: its
+          // slot shows the failed screen, and a link to it tries again.
+          const landed = same(pending.to, current(model).route)
+            ? { model: settled }
+            : land(settled, pending.to, pending.how, pending.inputs);
+          return {
+            ...landed,
+            model: marked(landed.model, { reason: failure.reason }),
+          };
+        }
         if (failure._tag === 'Redirect' && pending.hops < HOPS)
           return toward(settled, failure.route, pending.how, pending.hops + 1);
         return land(settled, notFound(pending.to), pending.how, {});
@@ -597,6 +687,54 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
           Effect.gen(function* () {
             const { pending } = (yield* self.get).model;
             if (pending) yield* load(pending, self.send);
+          }),
+      },
+      // Lands a move that is still loading after the delay, if the outermost
+      // place it waits on has a pending screen to show in its stead.
+      wait: {
+        each: ({ model }: { readonly model: Model }) => {
+          const pending = model.pending;
+          return pending &&
+            pending.shown === null &&
+            !same(pending.to, current(model).route) &&
+            hasPendingScreen(
+              routes.children as Children,
+              pending.to as Value,
+              pending.wanted[0]!,
+            )
+            ? [String(pending.id)]
+            : [];
+        },
+        run: (self: {
+          readonly send: Send;
+          readonly get: Effect.Effect<{ readonly model: Model }>;
+        }) =>
+          Effect.gen(function* () {
+            const { pending } = (yield* self.get).model;
+            if (!pending) return;
+            yield* Effect.sleep(delay);
+            yield* self.send({ _tag: 'Waited', id: pending.id });
+          }),
+      },
+      // Lands Inputs that came while a pending screen had not stayed its minimum.
+      hold: {
+        each: ({ model }: { readonly model: Model }) =>
+          model.pending?.ready ? [String(model.pending.id)] : [],
+        run: (self: {
+          readonly send: Send;
+          readonly get: Effect.Effect<{ readonly model: Model }>;
+          readonly now: Effect.Effect<number>;
+        }) =>
+          Effect.gen(function* () {
+            const { pending } = (yield* self.get).model;
+            if (!pending?.ready || pending.shown === null) return;
+            const now = yield* self.now;
+            yield* Effect.sleep(Math.max(0, pending.shown + minimum - now));
+            yield* self.send({
+              _tag: 'Loaded',
+              id: pending.id,
+              inputs: pending.ready,
+            });
           }),
       },
       // Hears the address, if an Adapter holds one: Back, Forward, a typed URL.
@@ -668,6 +806,8 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
             how: pending.how === 'arrive' ? 'push' : pending.how,
           }
         : null,
+      failed: entry.failed ?? null,
+      failedScreen: options?.failed,
       metadata,
       go: (by) => send({ _tag: 'Went', by }),
     };

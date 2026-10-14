@@ -11,13 +11,8 @@ import { ThemeToggle } from './theme-toggle.tsx';
 
 const NAV: ReadonlyArray<{ readonly to: Route; readonly label: string }> = [
   { to: Routes.Home(), label: 'Home' },
-  { to: Routes.About(), label: 'About' },
   { to: Routes.Blog.Index(), label: 'Blog' },
-  { to: Routes.Docs.Index(), label: 'Docs' },
-  { to: Routes.Shop.Index(), label: 'Shop' },
-  { to: Routes.Account.Overview(), label: 'Account' },
-  { to: Routes.Dashboard.Overview(), label: 'Dashboard' },
-  { to: Routes.SignIn(), label: 'Sign in' },
+  { to: Routes.Flaky(), label: 'Flaky' },
 ];
 
 export function Nav() {

@@ -8,13 +8,22 @@ import type {
   AnyNode,
   Children,
   Drawn,
+  Failure,
   Inputs,
   Move,
   Value,
 } from '../route/index.ts';
 import { useDrawing } from './context.tsx';
 
-type Served = { readonly actor: AnyActor; readonly view: ViewOf<any> };
+type Served = {
+  readonly actor: AnyActor;
+  readonly view: ViewOf<any>;
+  readonly pending?: (props: Record<string, unknown>) => ReactNode;
+  readonly failed?: (
+    props: Record<string, unknown>,
+    failure: Failure,
+  ) => ReactNode;
+};
 type Page =
   | Served
   | ((props: Record<string, unknown>, input: unknown) => ReactNode);
@@ -51,6 +60,32 @@ export const preloadViews = (children: Children, route: Value) => {
   }
 };
 
+/** The places whose page has a pending screen, by node: written by the outlets, read by the Router. */
+const pendingScreens = new WeakSet<AnyNode>();
+
+/**
+ * Whether the place `name` on `route` has a pending screen: a move to it
+ * then lands before its Input, so its slot shows the screen while it loads.
+ */
+export const hasPendingScreen = (
+  children: Children,
+  route: Value,
+  name: string,
+) => {
+  let layer = children;
+  let value: Value | undefined = route;
+  const at: Array<string> = [];
+  while (value) {
+    const node: AnyNode | undefined = layer[value._tag];
+    if (!node) return false;
+    at.push(value._tag);
+    if (at.join('.') === name) return pendingScreens.has(node);
+    layer = node.children;
+    value = value.page as Value | undefined;
+  }
+  return false;
+};
+
 /** The node a child tag names, the root's not-found included. */
 const childOf = (node: AnyNode, tag: string): AnyNode =>
   node.children[tag] ?? {
@@ -64,9 +99,10 @@ const childOf = (node: AnyNode, tag: string): AnyNode =>
   };
 
 /**
- * What the child `tag` is handed, if it is current and has what it needs:
- * its value's fields as Props, with the Inputs of the places below it, and
- * its own Input. A place with an Input is not drawn until it has one.
+ * What the child `tag` is handed, if it is current: its value's fields as
+ * Props, with the Inputs of the places below it, and its own Input.
+ * `missing` if its place has an Input and it is not there yet: its page is
+ * not drawn until it is.
  */
 const handedTo = (
   node: AnyNode,
@@ -79,12 +115,12 @@ const handedTo = (
   const child = childOf(node, tag);
   const here = [...at, tag];
   const input = props.inputs?.[here.join('.')];
-  if (child.input && input === undefined) return undefined;
   const below = inputsUnder(props.inputs, here);
   return {
     key: paramsKey(child, value),
     props: { ...propsOf(value), ...(below ? { inputs: below } : {}) },
     input,
+    missing: child.input !== undefined && input === undefined,
   };
 };
 
@@ -109,6 +145,8 @@ const useBrowser = () =>
  * Props' `inputs`, and is not there until that Input is. Its View draws the
  * Instance there, or the drawing that serves the child; a client place only
  * once the browser draws on its own, so a server draws its outlet empty.
+ * While the current child has no Input, it draws the page's pending screen,
+ * or its failed screen if the move to it broke, the app's if it has none.
  */
 export const outletOf =
   (node: AnyNode, at: ReadonlyArray<string>) =>
@@ -120,16 +158,18 @@ export const outletOf =
       served.map((tag) => [tag, Actor.many((pages[tag] as Served).actor)]),
     );
     for (const tag of served) {
-      const { preload } = (pages[tag] as Served).view as { preload?: Preload };
+      const page = pages[tag] as Served;
+      const { preload } = page.view as { preload?: Preload };
       if (typeof preload === 'function')
         lazyViews.set(childOf(node, tag), preload);
+      if (page.pending) pendingScreens.add(childOf(node, tag));
     }
 
     const invoke = ({ props }: { readonly props: Handed }) =>
       Object.fromEntries(
         served.map((tag) => {
           const handed = handedTo(node, at, tag, props);
-          return [tag, handed ? [handed] : []];
+          return [tag, handed && !handed.missing ? [handed] : []];
         }),
       );
 
@@ -143,13 +183,29 @@ export const outletOf =
       };
       readonly children?: (page: Drawn | null, move: Move<Value>) => ReactNode;
     }) => {
-      const { move } = useDrawing('An outlet');
+      const { move, failed, failedScreen } = useDrawing('An outlet');
       const browser = useBrowser();
       let page: Drawn | null = null;
       for (const tag of tags) {
+        const serving = pages[tag]!;
+        const handed = handedTo(node, at, tag, of.props);
+        if (isServed(serving) && handed?.missing) {
+          // A server draws the same pending screen the browser starts from.
+          const screen = failed
+            ? (serving.failed ?? (failedScreen && (() => failedScreen(failed))))
+            : serving.pending;
+          const showing = failed ? 'failed' : 'pending';
+          if (screen)
+            page = {
+              key: `${tag}:${handed.key}:${showing}`,
+              tag,
+              showing,
+              element: screen(handed.props, failed!),
+            };
+          break;
+        }
         // A client place is drawn in the browser alone: never on a server.
         if (!browser && childOf(node, tag).render === 'client') continue;
-        const serving = pages[tag]!;
         if (isServed(serving)) {
           const [instance] =
             ((of.children as Record<string, unknown>)[tag] as
@@ -160,15 +216,16 @@ export const outletOf =
           page = {
             key: instance.id,
             tag,
+            showing: 'page',
             element: <PageView instance={instance} />,
           };
           break;
         }
-        const handed = handedTo(node, at, tag, of.props);
-        if (handed) {
+        if (handed && !handed.missing) {
           page = {
             key: `${tag}:${handed.key}`,
             tag,
+            showing: 'page',
             element: serving(handed.props, handed.input),
           };
           break;

@@ -321,6 +321,158 @@ describe('a move that waits on its Inputs', () => {
   });
 });
 
+describe('a page with pending and failed screens', () => {
+  const Store = Route.tree({
+    Front: Route.path('/'),
+    Item: Route.path('/items/:id', {
+      params: { id: Schema.FiniteFromString },
+      input: Schema.Struct({ name: Schema.String }),
+    }),
+    Plain: Route.path('/plain', { input: Schema.String }),
+  });
+  let open: () => void = () => {};
+  let broken = false;
+  const loading = Router.memory(
+    Store,
+    Store.loaders({
+      Item: ({ id }) =>
+        Effect.promise(() => new Promise<void>((done) => (open = done))).pipe(
+          Effect.andThen(() =>
+            broken ? Effect.die('the shelf fell') : Effect.void,
+          ),
+          Effect.as({ name: `Lamp ${id}` }),
+        ),
+      Plain: () => Effect.die('no plain'),
+    }),
+  );
+  const ItemActor = Actor.make('Item', {
+    input: Store.Item.input,
+    props: Store.Item.props,
+    model: Store.Item.input,
+  }).build({ init: (item) => ({ model: item }) });
+  const PlainActor = Actor.make('Plain', {
+    input: Store.Plain.input,
+    props: Store.Plain.props,
+  }).build({ init: () => ({}) });
+  let showing: Array<string> = [];
+  const store = Store.outlet({
+    Front: () => (
+      <main>
+        front
+        <Router.Link to={Store.Item({ id: 2 })}>lamp</Router.Link>
+        <Router.Link to={Store.Plain()}>plain</Router.Link>
+      </main>
+    ),
+    Item: {
+      actor: ItemActor,
+      view: View.make(ItemActor, ({ model }) => <main>item {model.name}</main>),
+      pending: ({ id }) => <main>loading item {id}</main>,
+      failed: ({ id }, { reason }) => (
+        <main>
+          item {id} broke: {reason}
+          <Router.Link to={Store.Item({ id })}>retry</Router.Link>
+        </main>
+      ),
+    },
+    Plain: { actor: PlainActor, view: View.make(PlainActor, () => null) },
+  });
+  const StoreActor = Actor.make('Store', { props: Store.props }).build({
+    children: store.children,
+    invoke: store.invoke,
+  });
+  const StoreApp = {
+    actor: StoreActor,
+    view: View.make(StoreActor, (self) => (
+      <store.View of={self}>
+        {(page) => {
+          if (page) showing.push(page.showing);
+          return page && <div key={page.key}>{page.element}</div>;
+        }}
+      </store.View>
+    )),
+  };
+  const wait = (ms: number) =>
+    act(() => new Promise((done) => setTimeout(done, ms)));
+  const drawStore = async () => {
+    history.replaceState(null, '', '/');
+    showing = [];
+    broken = false;
+    const Root = Router.app(Store, StoreApp, {
+      pending: { delay: 20, minimum: 80 },
+      failed: ({ reason }) => <main>the app broke: {reason}</main>,
+    });
+    const Drawn = toReact(
+      Root.actor,
+      Root.view,
+      Layer.mergeAll(browser(), loading),
+      { name: `store-${count++}`, input: Root.startAt },
+    );
+    root = createRoot(host);
+    await act(async () => root!.render(<Drawn />));
+    await settle();
+  };
+
+  it('keeps the page shown through a quick load', async () => {
+    await drawStore();
+    await click('a[href="/items/2"]');
+    await act(async () => open());
+    await settle();
+    expect(host.textContent).toContain('item Lamp 2');
+    expect(showing).not.toContain('pending');
+  });
+
+  it('lands a slow move with its pending screen, then the page once its Input comes', async () => {
+    await drawStore();
+    await click('a[href="/items/2"]');
+    expect(host.textContent).toContain('front');
+    await wait(40);
+    expect(host.textContent).toContain('loading item 2');
+    expect(location.pathname).toBe('/items/2');
+    await wait(100);
+    await act(async () => open());
+    await settle();
+    expect(host.textContent).toContain('item Lamp 2');
+    expect(showing.filter((each, at) => each !== showing[at - 1])).toEqual([
+      'page',
+      'pending',
+      'page',
+    ]);
+  });
+
+  it('keeps the pending screen its minimum, so it never flashes', async () => {
+    await drawStore();
+    await click('a[href="/items/2"]');
+    await wait(30);
+    await act(async () => open());
+    await settle();
+    expect(host.textContent).toContain('loading item 2');
+    await wait(100);
+    expect(host.textContent).toContain('item Lamp 2');
+  });
+
+  it('shows the failed screen when the move breaks, and a link to it tries again', async () => {
+    await drawStore();
+    broken = true;
+    await click('a[href="/items/2"]');
+    await act(async () => open());
+    await settle();
+    expect(host.textContent).toContain('item 2 broke');
+    expect(location.pathname).toBe('/items/2');
+    broken = false;
+    await click('a[href="/items/2"]');
+    await act(async () => open());
+    await wait(100);
+    expect(host.textContent).toContain('item Lamp 2');
+  });
+
+  it("shows the app's failed screen for a page with none", async () => {
+    await drawStore();
+    await click('a[href="/plain"]');
+    expect(host.textContent).toContain('the app broke');
+    expect(location.pathname).toBe('/plain');
+  });
+});
+
 describe('the Timeline', () => {
   it('holds one Message per move on an Adapter: the Router never hears its own write back', async () => {
     history.replaceState(null, '', '/app');

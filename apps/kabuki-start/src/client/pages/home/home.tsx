@@ -9,46 +9,29 @@ import { PageFrame, tile } from '../../components/index.ts';
 import { Routes } from '../../../shared/index.ts';
 
 const TOUR = [
-  { to: Routes.About(), url: '/about', what: 'static, no Input' },
-  { to: Routes.Blog.Index(), url: '/blog', what: 'static, from a Loader' },
   {
-    to: Routes.Docs.Page({ page: 'loaders' }),
-    url: '/docs/loaders',
-    what: 'two static Loaders at once',
+    to: Routes.Blog.Index(),
+    url: '/blog',
+    what: 'open a post: it takes a second, and its pending screen shows inside the blog',
   },
   {
-    to: Routes.Docs.Playground(),
-    url: '/docs/playground',
-    what: 'client under static, a lazy View',
+    to: Routes.Blog.Post({ slug: 'broken' }),
+    url: '/blog/broken',
+    what: "a post whose Loader breaks: the app's failed screen",
   },
   {
-    to: Routes.Account.Settings(),
-    url: '/account/settings',
-    what: 'dynamic, from your cookie',
-  },
-  {
-    to: Routes.Account.Activity(),
-    url: '/account/activity',
-    what: 'client under dynamic',
-  },
-  {
-    to: Routes.Dashboard.Overview(),
-    url: '/dashboard',
-    what: 'client, a lazy View',
-  },
-  {
-    to: Routes.Shop.Cart(),
-    url: '/shop/cart',
-    what: 'dynamic under static',
+    to: Routes.Flaky(),
+    url: '/flaky',
+    what: 'a client place that fails half the time: its own pending and failed screens',
   },
 ] as const;
 
-/** The landing page: static, with no Input, and a tour of the others. */
+/** The landing page: static, with no Input, and a tour of the slow pages. */
 export const Home = () => (
   <PageFrame
     place="Home"
-    title="Every Render Mode, one site"
-    intro="Each page here is a place in the Routes, drawn first by the server or by the browser as its Render Mode says. The box under each title says which drew it, when, and where its Input came from."
+    title="Pending and failed screens"
+    intro="A move that loads for more than 150ms lands early and shows its page's pending screen in the page's slot; one whose Loader breaks shows a failed screen there. A quick move shows neither. Every Loader here is slow on purpose."
   >
     <ul className="grid gap-3 sm:grid-cols-2">
       {TOUR.map(({ to, url, what }) => (

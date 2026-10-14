@@ -1,6 +1,6 @@
 {
   "name": "kabuki-start",
-  "description": "A small site served by Kabuki Start, with a page for every Render Mode, published at start.kishore.app.",
+  "description": "A small site served by Kabuki Start that shows pending and failed screens on slow pages, published at start.kishore.app.",
   "private": true,
   "type": "module",
   "sideEffects": false,
@@ -9,7 +9,6 @@
     "build": "vp build",
     "lint": "tsc --noEmit && pnpm lint:laymos",
     "lint:laymos": "laymos lint",
-    "stories": "laymos stories",
     "test": "vitest run",
     "deploy": "alchemy deploy",
     "deploy:prod": "ALLOW_DEPLOY=true alchemy deploy --stage prod"
