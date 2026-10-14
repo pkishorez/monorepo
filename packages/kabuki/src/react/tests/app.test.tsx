@@ -156,6 +156,92 @@ describe('on a server', () => {
   });
 });
 
+describe('a History given when drawn', () => {
+  const html = async (node: React.ReactNode) => {
+    const { prelude } = await prerender(node);
+    let out = '';
+    const reader = prelude.getReader();
+    const decoder = new TextDecoder();
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) return out;
+      out += decoder.decode(value);
+    }
+  };
+
+  /** A History of one Restore at `n` Bumps, as a server makes one from its Loaders. */
+  const restoredAt = async (n: number) => {
+    const state = await bumped(n);
+    const snapshot = Replay.fold(Counter.definition, state.entries);
+    return History.restored(Counter, snapshot, 100).save();
+  };
+
+  it('a server draws each request its own, at once, in one process', async () => {
+    const App = toReact(Counter, CounterView, Layer.empty);
+    const [three, seven] = await Promise.all([
+      html(<App saved={await bumped(3)} />),
+      html(<App saved={await restoredAt(7)} />),
+    ]);
+    expect(three).toContain('<output>3</output>');
+    expect(seven).toContain('<output>7</output>');
+    // The app's own History is left as it was.
+    expect(await html(<App />)).toContain('<output>0</output>');
+    expect(registry.history('Counter')).toBeUndefined();
+  });
+
+  it('a History of one Restore is drawn on the first render, without suspending', () => {
+    return restoredAt(5).then((saved) => {
+      const App = toReact(Counter, CounterView, Layer.empty);
+      root = createRoot(host);
+      act(() => root!.render(<App saved={saved} fallback="…" />));
+      expect(host.textContent).toBe('5');
+    });
+  });
+
+  it.each([
+    ['a Branch to replay', () => bumped(4), 4],
+    ['one Restore', () => restoredAt(4), 4],
+  ])(
+    'the browser hydrates %s as the server drew it, then the Runtime starts from it',
+    async (_, make, count) => {
+      const App = toReact(Counter, CounterView, Layer.empty);
+      const saved = await make();
+      const served = await html(<App saved={saved} />);
+      expect(served).toContain(`<output>${count}</output>`);
+
+      // The browser reads its own copy, as Start's Scripts send it.
+      const sent = JSON.parse(JSON.stringify(saved)) as SavedHistory;
+      host.innerHTML = served;
+      const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+      await act(async () => {
+        root = hydrateRoot(host, <App saved={sent} />);
+      });
+      expect(host.textContent).toBe(`${count}`);
+      const about = errors.mock.calls.map((call) => String(call[0]));
+      expect(about.filter((e) => !e.includes('multiple renderers'))).toEqual(
+        [],
+      );
+      await started(host);
+      expect(host.textContent).toBe(`${count + 1}`);
+      expect(registry.history('Counter')?.branch().length).toBe(
+        saved.entries.length + 1,
+      );
+    },
+  );
+
+  it('is not taken over a History the app already has, as after a hot reload', async () => {
+    const App = toReact(Counter, CounterView, Layer.empty);
+    root = createRoot(host);
+    act(() => root!.render(<App />));
+    await started(host);
+    await act(async () => root!.unmount());
+
+    root = createRoot(host);
+    await act(async () => root!.render(<App saved={await bumped(9)} />));
+    expect(host.textContent).toBe('1');
+  });
+});
+
 describe('useRuntime before the Runtime', () => {
   it('reads the saved History on a server, drawn before the app', async () => {
     const App = toReact(Counter, CounterView, Layer.empty, {

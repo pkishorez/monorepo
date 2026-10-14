@@ -42,6 +42,14 @@ Child coming and going. It routes in memory by default; the browser's history
 and TanStack Router's are Adapters, each its own subpath. How it fits
 together is in [docs/routing.md](./docs/routing.md).
 
+Start, in `@kestack/kabuki/start` and its Vite plugin, serves a routed app
+from a Cloudflare Worker: for a URL it runs the Loaders of the places it
+names at once, starts every page from its Input, and sends the HTML with the
+Snapshot beside it, which the browser hydrates and carries on from. It never
+runs a Runtime on the server. An app writes its Routes, its app, its Loaders
+and, if it wants one, its Document; the plugin writes every entry. How it
+works is in [docs/start.md](./docs/start.md).
+
 Read the language in [CONTEXT.md](./CONTEXT.md), the decisions in
 [docs/adr/](./docs/adr/), and how the History works in
 [docs/history.md](./docs/history.md). A live demo, Opening an app, is at `/demos/opening-an-app` in the docs app: every concept in one story, drawn as the tree.
@@ -56,6 +64,8 @@ pnpm add @kestack/kabuki effect react
   one is checked against its Schema as it is made; Workers, Commands and
   Capabilities are Effect values and Layers.
 - `react`: `@kestack/kabuki/react` draws the tree with React components.
+- `react-dom`, optional: Start draws pages with `react-dom/server` and hydrates them with `react-dom/client`.
+- `vite`, optional: `@kestack/kabuki/start/vite` is a Vite plugin.
 
 ## Exports
 
@@ -84,29 +94,37 @@ pnpm add @kestack/kabuki effect react
 
 ### `@kestack/kabuki/react`
 
-| Export        | What it does                                                                                                                                                                                                                                                               |
-| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `View.make`   | Defines how one Actor is drawn, one function for every State, as a React component that takes the Instance, and a `ref` and `style`, from its parent.                                                                                                                      |
-| `toReact`     | Turns a root Actor, its View and a Layer into one React component that runs the whole app, one Runtime for every mount; `useRuntime` reads its History, shows any Step, and stops and starts it. Drawn before it runs, on a server too, from a saved History if given one. |
-| `useChild`    | Reads one fixed Child's Model, State and Props from its parent's View, to draw, or only what an optional selector picks; an escape hatch that can never Send.                                                                                                              |
-| `useChildren` | Reads a slot of keyed Children the same way, in order; only the component that calls it re-renders, as they change or as what the selector picks does.                                                                                                                     |
+| Export         | What it does                                                                                                                                                                                                                                                               |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `View.make`    | Defines how one Actor is drawn, one function for every State, as a React component that takes the Instance, and a `ref` and `style`, from its parent.                                                                                                                      |
+| `toReact`      | Turns a root Actor, its View and a Layer into one React component that runs the whole app, one Runtime for every mount; `useRuntime` reads its History, shows any Step, and stops and starts it. Drawn before it runs, on a server too, from a saved History if given one. |
+| `View.lazy`    | A View whose code is loaded the first time it is drawn, or on `preload()`; a server waits for it before it sends, and tells the App's `onLazyView`.                                                                                                                        |
+| `View.preload` | Loads the lazy Views made with these ids, so a browser hydrating a page a server drew never waits on their code.                                                                                                                                                           |
+| `useChild`     | Reads one fixed Child's Model, State and Props from its parent's View, to draw, or only what an optional selector picks; an escape hatch that can never Send.                                                                                                              |
+| `useChildren`  | Reads a slot of keyed Children the same way, in order; only the component that calls it re-renders, as they change or as what the selector picks does.                                                                                                                     |
 
 ### `@kestack/kabuki/routing`
 
-| Export           | What it does                                                                                                                                                        |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Route.tree`     | Defines every place of an app once: a constructor per place, a Schema per node's Props, the URL both ways, each place's head, and an outlet per node with children. |
-| `Route.path`     | One place: its path template, params, query and head, and the places under it.                                                                                      |
-| `Router.app`     | Puts the Router above an app's root: it holds the history and hands the current Route down as Props; gives the Actor, its View and `startAt`.                       |
-| `Router.Link`    | Draws a plain `<a href>` to a Route; the Router catches a plain click and moves the app.                                                                            |
-| `Router.Head`    | Sets the page's title from data the Routes cannot know, like a project's name.                                                                                      |
-| `Router.push`    | A Command that moves the app to a Route as a new entry.                                                                                                             |
-| `Router.replace` | A Command that puts a Route in place of the current entry, so Back skips it.                                                                                        |
-| `Router.back`    | A Command that goes Back.                                                                                                                                           |
-| `Router.forward` | A Command that goes Forward.                                                                                                                                        |
-| `Router.backTo`  | A Command that goes Back when the app came from a Route, and replaces the entry with it otherwise: closing a dialog with a Route of its own.                        |
-| `Navigation`     | The Capability the Router Provides, which an Actor that moves the app lists in its Requires.                                                                        |
-| `useRouter`      | Reads the Router from a component drawn inside the app: the current Route and URL, the history, the title, and Back and Forward.                                    |
+| Export           | What it does                                                                                                                                                                                                                                                                                                       |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `Route.tree`     | Defines every place of an app once: a constructor per place, a Schema per node's Props, per Input and of every place's dotted name, the URL both ways, each place's Metadata and Render Mode, the typing of its Loaders, and an outlet per node with children; also the root's Metadata and the not-found Route's. |
+| `Route.path`     | One place: its path template, params, query, Input, Render Mode and Metadata, and the places under it.                                                                                                                                                                                                             |
+| `Route.notFound` | What a Loader fails with when its place is not found.                                                                                                                                                                                                                                                              |
+| `Route.redirect` | What a Loader fails with to send the app to another Route.                                                                                                                                                                                                                                                         |
+| `Route.NotFound` | The Schema of a Loader's not-found failure, to carry it over the wire.                                                                                                                                                                                                                                             |
+| `Route.Redirect` | The Schema of a Loader's Redirect, to carry it over the wire.                                                                                                                                                                                                                                                      |
+| `Router.app`     | Puts the Router above an app's root: it holds the history and hands the current Route down as Props; gives the Actor, its View, `startAt`, `href` and the Routes.                                                                                                                                                  |
+| `Router.Link`    | Draws a plain `<a href>` to a Route; the Router catches a plain click and moves the app.                                                                                                                                                                                                                           |
+| `Router.memory`  | A `Loading` that runs the Loaders in place, for tests and stories.                                                                                                                                                                                                                                                 |
+| `Router.push`    | A Command that moves the app to a Route as a new entry.                                                                                                                                                                                                                                                            |
+| `Router.replace` | A Command that puts a Route in place of the current entry, so Back skips it.                                                                                                                                                                                                                                       |
+| `Router.back`    | A Command that goes Back.                                                                                                                                                                                                                                                                                          |
+| `Router.forward` | A Command that goes Forward.                                                                                                                                                                                                                                                                                       |
+| `Router.backTo`  | A Command that goes Back when the app came from a Route, and replaces the entry with it otherwise: closing a dialog with a Route of its own.                                                                                                                                                                       |
+| `Navigation`     | The Capability the Router Provides, which an Actor that moves the app lists in its Requires.                                                                                                                                                                                                                       |
+| `Loading`        | The Capability the Router uses, if the Layer has it, to load the Inputs a move needs.                                                                                                                                                                                                                              |
+| `usePending`     | Reads the move the Router waits on while it loads Inputs, for a progress bar; `usePending<Route>()` types its Route as the app's.                                                                                                                                                                                  |
+| `useRouter`      | Reads the Router from a component drawn inside the app: the current Route and URL, the history, the title, and Back and Forward; `useRouter<Route>()` types its Routes as the app's.                                                                                                                               |
 
 ### `@kestack/kabuki/routing/browser`
 
@@ -119,6 +137,32 @@ pnpm add @kestack/kabuki effect react
 | Export     | What it does                                                                                                                                                     |
 | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `tanstack` | A Layer that puts the app's address in TanStack Router's history, for an app on a TanStack Start catch-all route; TanStack gets back every URL outside the base. |
+
+### `@kestack/kabuki/start`
+
+| Export           | What it does                                                                                                                                |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Start.Head`     | Draws, in the Document's `<head>`, the charset and viewport, the Metadata, and the styles and chunks the page needs.                        |
+| `Start.Scripts`  | Draws, at the end of the Document's `<body>`, the saved History as JSON and the script that hydrates the page.                              |
+| `Start.useDrawn` | Reads when and by which build the server drew the page, and whether the component asking was in that drawing or drawn later by the browser. |
+
+### `@kestack/kabuki/start/vite`
+
+| Export  | What it does                                                                                                                                                                                     |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `start` | The Vite plugin: finds the app's files by name, writes the Worker's and the browser's entries, names every lazy View by its module, and serves SSR in dev; works under Alchemy's `Website.Vite`. |
+
+### `@kestack/kabuki/start/server`
+
+| Export   | What it does                                                                                                                                 |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `server` | Makes the Worker's `fetch` from the app, its Document, Loaders and server Layer: what the plugin's Worker entry runs; an app never calls it. |
+
+### `@kestack/kabuki/start/client`
+
+| Export   | What it does                                                                                                                   |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `client` | Hydrates a page the Worker drew, from the History it saved in it: what the plugin's browser entry runs; an app never calls it. |
 
 ## Usage
 

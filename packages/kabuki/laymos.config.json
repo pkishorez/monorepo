@@ -1,6 +1,7 @@
 {
   "$schema": "../../devtools/laymos/schema.json",
   "sourceRoots": ["src"],
+  "ignoredPaths": ["src/start/tests/app", "src/start/tests/bare"],
   "rules": {
     "src/core/snapshot": ["src/core/actor"],
     "src/core/history": ["src/core/actor", "src/core/snapshot"],
@@ -13,6 +14,24 @@
     "src/routing": ["src/core", "src/react"],
     "src/routing/router": ["src/routing/route", "src/routing/adapter"],
     "src/routing/browser": ["src/routing/adapter"],
-    "src/routing/tanstack": ["src/routing/adapter"]
+    "src/routing/tanstack": ["src/routing/adapter"],
+    "src/start/page": ["src/core", "src/routing/route"],
+    "src/start/document": ["src/start/page"],
+    "src/start/loader-rpc": ["src/routing"],
+    "src/start/server": [
+      "src/core",
+      "src/react",
+      "src/routing",
+      "src/start/page",
+      "src/start/loader-rpc"
+    ],
+    "src/start/client": [
+      "src/core",
+      "src/react",
+      "src/routing",
+      "src/start/page",
+      "src/start/loader-rpc"
+    ],
+    "src/start/vite": ["src/start/page"]
   }
 }

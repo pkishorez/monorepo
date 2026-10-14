@@ -42,6 +42,22 @@
     "./routing/tanstack": {
       "types": "./dist/routing/tanstack/index.d.ts",
       "default": "./dist/routing/tanstack/index.js"
+    },
+    "./start": {
+      "types": "./dist/start/document/index.d.ts",
+      "default": "./dist/start/document/index.js"
+    },
+    "./start/server": {
+      "types": "./dist/start/server/index.d.ts",
+      "default": "./dist/start/server/index.js"
+    },
+    "./start/client": {
+      "types": "./dist/start/client/index.d.ts",
+      "default": "./dist/start/client/index.js"
+    },
+    "./start/vite": {
+      "types": "./dist/start/vite/index.d.ts",
+      "default": "./dist/start/vite/index.js"
     }
   },
   "scripts": {
@@ -52,7 +68,17 @@
   },
   "peerDependencies": {
     "effect": "^4.0.0",
-    "react": "^19.0.0"
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "vite": "^8.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react-dom": {
+      "optional": true
+    },
+    "vite": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@types/react": "catalog:",

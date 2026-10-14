@@ -1,13 +1,22 @@
-// oxlint-disable-next-line no-restricted-imports -- the head is written to the document, which only an effect may touch.
-import { createContext, use, useEffect, useState } from 'react';
+// oxlint-disable-next-line no-restricted-imports -- the Metadata is written to the document, which only an effect may touch.
+import { createContext, use, useEffect } from 'react';
 import type { AnchorHTMLAttributes, ReactNode } from 'react';
-import type { Head as HeadOf, How } from '../route/index.ts';
+import { MANAGED, tagsOf } from '../route/index.ts';
+import type { How, Inputs, Metadata } from '../route/index.ts';
 import type { AnyRoute } from './navigation.ts';
 
-/** One entry of the router's history. */
-export interface Entry {
+/** One entry of the router's history: its Route, and the Inputs of its places by dotted name. */
+export interface Entry<Route extends AnyRoute = AnyRoute> {
   readonly key: string;
-  readonly route: AnyRoute;
+  readonly route: Route;
+  readonly inputs: Inputs;
+}
+
+/** A move the Router waits on while it loads the Inputs its places need: where to, and how. */
+export interface Pending<Route extends AnyRoute = AnyRoute> {
+  readonly to: Route;
+  /** `load` fills the entry shown now: places it holds have no Input yet. */
+  readonly how: 'push' | 'replace' | 'load';
 }
 
 /** What the router's View hands everything drawn below it: drawing data, read from the Snapshot shown. */
@@ -20,15 +29,10 @@ export interface Drawing {
     readonly to: AnyRoute;
     readonly how: How;
   };
-  /** Whether an Adapter holds the address: the head is then written to the document. */
-  readonly attached: boolean;
-  /** The head the Routes give the current Route. */
-  readonly head: HeadOf;
+  readonly pending: Pending | null;
+  /** The Metadata the Routes give the current entry. */
+  readonly metadata: Metadata;
   readonly go: (by: number) => void;
-  readonly title: {
-    readonly set: (title: string | null) => void;
-    readonly value: string | null;
-  };
 }
 
 export const RouterContext = createContext<Drawing | undefined>(undefined);
@@ -42,20 +46,27 @@ export const useDrawing = (what: string): Drawing => {
   return drawing;
 };
 
-/** The title a page drew with `Router.Head`, kept by the router's View. */
-export const useTitle = () => {
-  const [value, set] = useState<string | null>(null);
-  return { value, set };
-};
-
 /**
- * Writes the page's title to the document, when an Adapter holds the
- * address: an app routing in memory never touches the document.
+ * Writes the Metadata to the document after every move, when an Adapter
+ * holds the address: the title, and every tag marked `data-kabuki`, which
+ * replace the ones marked before. Tags nobody marked are left alone, and an
+ * app routing in memory never touches the document.
  */
-export function HeadWriter({ title }: { readonly title: string | undefined }) {
+export function MetadataWriter({ metadata }: { readonly metadata: Metadata }) {
+  const tags = tagsOf(metadata);
+  const written = JSON.stringify([metadata.title, tags]);
   useEffect(() => {
-    if (title !== undefined) document.title = title;
-  }, [title]);
+    if (metadata.title !== undefined) document.title = metadata.title;
+    for (const old of document.head.querySelectorAll(`[${MANAGED}]`))
+      old.remove();
+    for (const { tag, attributes } of tags) {
+      const element = document.createElement(tag);
+      for (const [name, value] of Object.entries(attributes))
+        element.setAttribute(name, value);
+      document.head.append(element);
+    }
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- `written` is the Metadata, as one string.
+  }, [written]);
   return null;
 }
 
@@ -77,27 +88,20 @@ export function Link({ to, ...rest }: LinkProps) {
   return <a {...rest} href={href(to)} />;
 }
 
-/**
- * The page's title, from data the Routes cannot know, like a project's name.
- * The last one drawn wins over what the Routes say; it goes when it is no
- * longer drawn.
- */
-export function Head({ title }: { readonly title: string }) {
-  const { title: kept } = useDrawing('Router.Head');
-  useEffect(() => {
-    kept.set(title);
-    return () => kept.set(null);
-  }, [kept.set, title]);
-  return null;
-}
-
 /** What a component drawn inside the app can read of the router, and its own Back and Forward. */
-export interface RouterState {
-  readonly route: AnyRoute;
+export interface RouterState<Route extends AnyRoute = AnyRoute> {
+  readonly route: Route;
   readonly href: string;
-  readonly entries: ReadonlyArray<Entry>;
+  readonly entries: ReadonlyArray<Entry<Route>>;
   readonly at: number;
-  readonly move: Drawing['move'];
+  readonly move: {
+    readonly from: Route | null;
+    readonly to: Route;
+    readonly how: How;
+  };
+  /** The move the Router waits on while it loads, if any. */
+  readonly pending: Pending<Route> | null;
+  readonly metadata: Metadata;
   readonly title: string | undefined;
   readonly canGoBack: boolean;
   readonly canGoForward: boolean;
@@ -107,22 +111,42 @@ export interface RouterState {
   readonly goTo: (at: number) => void;
 }
 
-/** The router, for a component drawn inside a `Router.app`: an address bar, a history list. */
-export const useRouter = (): RouterState => {
+/**
+ * The router, for a component drawn inside a `Router.app`: an address bar, a
+ * history list. Name the app's Route, `useRouter<Route>()` with
+ * `type Route = typeof Routes.route.Type`, to read its Routes as that type:
+ * every Route the Router holds is one of them.
+ */
+export const useRouter = <
+  Route extends AnyRoute = AnyRoute,
+>(): RouterState<Route> => {
   const drawing = useDrawing('useRouter');
-  const { entries, at, go, move } = drawing;
+  const { entries, at, go, move, pending, metadata } = drawing;
   const route = entries[at]!.route;
-  return {
+  const state: RouterState = {
     route,
     href: drawing.href(route),
     entries,
     at,
     move,
-    title: drawing.title.value ?? drawing.head.title,
+    pending,
+    metadata,
+    title: metadata.title,
     canGoBack: at > 0,
     canGoForward: at < entries.length - 1,
     back: () => go(-1),
     forward: () => go(1),
     goTo: (to) => go(to - at),
   };
+  return state as RouterState<Route>;
 };
+
+/**
+ * The move the Router waits on while it loads the Inputs of its places, or
+ * `null`: for a progress bar. The page drawn is still the one before it.
+ * `usePending<Route>()` reads its Route as the app's, as `useRouter` does.
+ */
+export const usePending = <
+  Route extends AnyRoute = AnyRoute,
+>(): Pending<Route> | null =>
+  useDrawing('usePending').pending as Pending<Route> | null;
