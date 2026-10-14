@@ -17,6 +17,7 @@
     "src/client/document.tsx": ["src/client/components"],
     "src/client/pages": ["src/client/components"],
     "src/server": ["src/shared", "src/infra"],
-    "src/server/loaders.server.ts": ["src/server/backend"]
+    "src/server/loaders.server.ts": ["src/server/backend"],
+    "src/shared/pages": ["src/shared/data"]
   }
 }

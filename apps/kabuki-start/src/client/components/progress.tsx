@@ -3,11 +3,11 @@ import { Routes } from '../../shared/index.ts';
 import type { Route } from '../../shared/index.ts';
 
 /*
- * A thin bar across the top while a move waits on its Loaders: the page
- * shown stays until the next one has its Inputs.
+ * A thin bar across the top while the Router holds a move, up to 150 ms,
+ * waiting on its data: the page shown stays until then.
  */
 
-/** A thin bar across the top while the Router waits on a move's Loaders. */
+/** A thin bar across the top while the Router holds a move. */
 export function Progress() {
   const pending = usePending<Route>();
   return (

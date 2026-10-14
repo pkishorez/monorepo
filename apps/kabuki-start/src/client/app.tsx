@@ -1,76 +1,47 @@
-import { Clock, Effect, Schema } from 'effect';
-import { Actor } from '@kestack/kabuki';
-import { View } from '@kestack/kabuki/react';
-import { Router } from '@kestack/kabuki/routing';
+import { Route, Router } from '@kestack/kabuki/routing';
 import { Start } from '@kestack/kabuki/start';
-import { Failed, Layout, enter } from './components/index.ts';
+import { Pages, Routes } from '../shared/index.ts';
+import { Layout, enter } from './components/index.ts';
 import Document from './document.tsx';
-import { Blog } from './pages/blog/index.ts';
-import { Flaky } from './pages/flaky/index.ts';
-import { Home } from './pages/home/index.ts';
+import { BlogView } from './pages/blog/index.ts';
+import { FlakyView } from './pages/flaky/index.ts';
+import { HomeView } from './pages/home/index.ts';
 import { NotFound } from './pages/not-found/index.ts';
-import { Routes } from '../shared/index.ts';
+import { NotesView } from './pages/notes/index.ts';
+import { PreloadView } from './pages/preload/index.ts';
+import { SearchView } from './pages/search/index.ts';
+import { TeamView } from './pages/teams/index.ts';
 import './styles.css';
 
 /*
- * The app: the page each Route names, in the shell, in the Document. Its
- * one Worker ticks once the Runtime has started, which a page drawn by the
- * server shows only after it hydrates. Each page fades up into its slot,
- * and a page with no failed screen of its own shows the app's.
+ * The root page's View: the layout, and the one page the URL names, which
+ * fades up into place. A URL that names no page draws the not-found page.
  */
 
-const pages = Routes.outlet({ Home, Blog, Flaky, NotFound });
-
-const AppActor = Actor.make('App', {
-  props: Routes.props,
-  model: Schema.Struct({ live: Schema.NullOr(Schema.Number) }),
-  message: Schema.TaggedUnion({ Ticked: { now: Schema.Number } }),
-}).build({
-  init: () => ({ model: { live: null } }),
-  children: pages.children,
-  workers: {
-    tick: {
-      run: (self) =>
-        Effect.forever(
-          Clock.currentTimeMillis.pipe(
-            Effect.flatMap((now) => self.send({ _tag: 'Ticked', now })),
-            Effect.andThen(Effect.sleep('1 second')),
-          ),
-        ),
-    },
-  },
-  on: { Ticked: ({ now }) => ({ model: { live: now } }) },
+const AppView = Route.view(Pages.App, (self) => {
+  const { Home, Blog, Teams, Search, Notes, Preload, Flaky } = self.children;
+  const page =
+    (Home && <HomeView instance={Home} />) ??
+    (Blog && <BlogView instance={Blog} />) ??
+    (Teams && <TeamView instance={Teams} />) ??
+    (Search && <SearchView instance={Search} />) ??
+    (Notes && <NotesView instance={Notes} />) ??
+    (Preload && <PreloadView instance={Preload} />) ??
+    (Flaky && <FlakyView instance={Flaky} />);
+  const shown = Home ?? Blog ?? Teams ?? Search ?? Notes ?? Preload ?? Flaky;
+  return (
+    <div {...self.root}>
+      <Layout live={self.model.live}>
+        {self.props.route.notFound !== null ? (
+          <NotFound path={self.props.route.notFound} />
+        ) : (
+          <div key={shown?.id} className={enter}>
+            {page}
+          </div>
+        )}
+      </Layout>
+    </div>
+  );
 });
 
-const AppView = View.make(AppActor, (self) => (
-  <div {...self.root}>
-    <Layout live={self.model.live}>
-      <pages.View of={self}>
-        {(page) =>
-          page && (
-            <div key={page.key} className={enter}>
-              {page.element}
-            </div>
-          )
-        }
-      </pages.View>
-    </Layout>
-  </div>
-));
-
-export default Start.app(
-  Router.app(
-    Routes,
-    { actor: AppActor, view: AppView },
-    {
-      failed: ({ reason }) => (
-        <Failed title="This page broke" reason={reason}>
-          <p className="text-sm text-muted-foreground">
-            Follow the link again to retry.
-          </p>
-        </Failed>
-      ),
-    },
-  ),
-  { document: Document },
-);
+export default Start.app(Router.app(Routes, AppView), { document: Document });
