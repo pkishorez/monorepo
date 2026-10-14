@@ -3,10 +3,16 @@
  * may be kept.
  */
 
+/*
+ * Every page is `no-transform`: the browser hydrates the whole Document, so
+ * it must get it as drawn. Edge rewriting, as Cloudflare's injected Web
+ * Analytics beacon, email obfuscation or Rocket Loader, would change it.
+ */
+
 /** A page every server-drawn place of which is static: the same for everyone until the next deploy. */
-export const SHARED = 'public, max-age=0, s-maxage=31536000';
+export const SHARED = 'public, max-age=0, s-maxage=31536000, no-transform';
 /** A page drawn for this request alone. */
-export const PRIVATE = 'private, no-store';
+export const PRIVATE = 'private, no-store, no-transform';
 
 export const html = (body: string, status: number, cache: string) =>
   new Response(body, {
