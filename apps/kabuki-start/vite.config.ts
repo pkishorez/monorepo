@@ -1,3 +1,4 @@
+import { cloudflare } from '@kestack/kabuki/start/platform/cloudflare';
 import { start } from '@kestack/kabuki/start/vite';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
@@ -10,5 +11,13 @@ export default defineConfig({
   },
   // Its components are ESM with CSS-only side effects: bundle them for the server too.
   ssr: { noExternal: ['@kestack/web-platform'] },
-  plugins: [tailwindcss(), react(), start()],
+  plugins: [
+    tailwindcss(),
+    react(),
+    start({
+      platform: cloudflare(),
+      app: 'src/client/app',
+      loaders: 'src/server/loaders.server',
+    }),
+  ],
 });
