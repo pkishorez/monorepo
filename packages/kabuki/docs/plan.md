@@ -217,6 +217,67 @@ Also agreed along the way:
 - Start the `client` data request **from an inline `<head>` script**,
   before the JS loads, and hand the answer to the Route Actors.
 
+## Decisions from the second session
+
+These override the text above where they differ. Rename at implementation.
+
+- **Names**: Kabuki's wrapper Actor is the **Place** (not "Route Actor");
+  the user's Actor is the **Page**; the Prop is **`status`**
+  (`Loading | Failed | Ready { data, refreshing }`), not `load`. "Route"
+  keeps its glossary meaning: the parsed URL value. The builder stays
+  `Route.page`. Glossary gains Place, Page, Data cache, Preload; Outlet goes.
+- **`pages` is built on ADR 0034**: each child route is an `each` Child of
+  the Page, keyed by its params.
+- **Data cache lives in the `Loading` capability**, as an in-memory wrapper
+  in `src/routing/router/`, outside the Snapshot. Data enters the app only
+  as Messages (a hit comes back at once as `Loaded`), so replay stays exact.
+  Memory only; the server's first data seeds it; it does not survive F5.
+- **Refetch on a hit**: never for `static` places; always (in the
+  background, `refreshing: true`) for `dynamic` and `client`. Cap 50, least
+  recently used dropped first.
+- **`Router.reload()`**: every Place on screen refetches, old data shown;
+  every other cache entry is dropped. A narrower form can come later.
+- **The cache** holds in-flight requests too (a click during a preload
+  joins it); failures are not kept. It lives only inside the browser's
+  `Loading` Layer, made once when the app starts; the server has none.
+- **Preload is in this plan, as a Message**: a `Preload { route }` Request
+  through Navigation; the Router's Update leaves its Model alone and returns
+  a Command that warms the cache (data and view code). Nothing comes back.
+  Visible on the Timeline; replay never fetches. Skips a key already cached
+  or in flight.
+- **Link options**: `preload: 'intent' | 'viewport' | false` and
+  `preloadDelay`; app default `'intent'` / 50 ms, set in
+  `Route.tree(App, { preload, preloadDelay })`. `'intent'` = hover, focus or
+  touch start after the delay. `'viewport'` = once, when scrolled into view.
+  Also `navigation.preload(route)` from code.
+- **A place's name is written once**: its key in the parent's `pages`.
+  `Route.page({ … })` takes no name. The same Page under two parents is two
+  places with two Loaders.
+
+### Round 4
+
+- **A keyed `while` Child in core**: `{ actor, while, key: (data) => string }`
+  is one Child or none, made again when its key changes. A child route is
+  one: `self.children.Task` is a Handle or `undefined`.
+- **Pending and Failed screens go**: a Page draws its own `status`. The
+  timing stays: the Router holds a move 150 ms; a Place holds `Loaded` until
+  `Loading` has shown 300 ms.
+- **No app-wide failed fallback**: `status` is a union, so every Page
+  handles `Failed`. Kabuki ships a small `<Failed reason retry />`.
+- **Not found**: an unknown URL → the root Page gets a `notFound` Prop. A
+  Loader's `Route.notFound()` → that Place is `Failed { NotFound }`; the
+  server answers 404.
+- **Query**: a place declares the `query` fields its Loader reads; a change
+  in them refetches with `refreshing: true` (same Place, same Page). The
+  cache key includes them. Other query changes only change Props.
+- **Metadata**: `metadata(route, data | undefined)`; written again when
+  data arrives.
+- **Import cycles**: accepted; `Routes` is read only in Views and Updates.
+- **First build**: Place, `Route.page`/`Route.tree`, Data cache, preload,
+  reload, batching; port `apps/kabuki-start`, the `apps/docs` routing demos
+  and devtools fixtures. Later: devtools folding Places, the `<head>`
+  request for `client` pages, preload History growth.
+
 ## Costs and open questions
 
 1. **Twice the Actors in the tree.** Devtools should fold Route Actors
@@ -252,7 +313,7 @@ Page-authoring gaps only, most important first:
 3. Scroll restoration per history entry (`docs/routing.md` "Not built yet").
 4. Early data request from `<head>` for `client` routes.
 5. Error handling beyond Loader failures (render errors are a bare 500).
-6. Preload on hover / link in view.
+6. Preload on hover / link in view — **moved into this plan**.
 7. Blocking a move (unsaved changes).
 8. Catch-all segments (`/docs/*`) — Foldkit has `rest`.
 9. Strictly typed `Router.Link to` / `push` (today any `{ _tag: string }`).

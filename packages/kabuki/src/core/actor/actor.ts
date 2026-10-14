@@ -188,17 +188,23 @@ const ONE: ReadonlyArray<string> = [''];
 const NONE: ReadonlyArray<string> = [];
 const NOTHING = () => undefined;
 
-/** A Child as the keys its Condition names, the way a Worker is: one, `''`, for every kind but `each`. */
+/**
+ * A Child as the keys its Condition names, the way a Worker is: one, `''`,
+ * for every kind but `each`, or its `key` if it names one.
+ */
 const slotOf = (child: AnyChild): SlotDefinition => {
   const exists = child.while;
+  const key = child.key as ((data: unknown) => string) | undefined;
+  const one: SlotDefinition['keys'] = key ? (data) => [key(data)] : () => ONE;
   return {
     definition: child.actor.definition,
     kind: child.each ? 'each' : exists ? 'while' : 'always',
+    keyed: key !== undefined,
     keys: child.each
       ? (child.each as SlotDefinition['keys'])
       : exists
-        ? (data) => (exists(data) ? ONE : NONE)
-        : () => ONE,
+        ? (data) => (exists(data) ? one(data) : NONE)
+        : one,
     input: (child.input ?? NOTHING) as SlotDefinition['input'],
     props: (child.props ?? NOTHING) as SlotDefinition['props'],
   };

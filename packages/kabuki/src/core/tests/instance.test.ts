@@ -416,6 +416,52 @@ describe('a Child written with `while`', () => {
   });
 });
 
+describe('a single Child written with a `key`', () => {
+  const Tab = Actor.make('Tab', {
+    model: Schema.Struct({ open: Schema.NullOr(Schema.String) }),
+    message: Schema.TaggedUnion({
+      Opened: { name: Schema.NullOr(Schema.String) },
+    }),
+  }).build({
+    init: () => ({ model: { open: null } }),
+    children: {
+      page: {
+        actor: Counter,
+        while: ({ model }) => model.open !== null,
+        key: ({ model }) => model.open ?? '',
+      },
+    },
+    on: { Opened: ({ name }) => ({ model: { open: name } }) },
+  });
+
+  it('is one Instance, Invoked again when its key changes', () =>
+    run(
+      Effect.gen(function* () {
+        const app = yield* Runtime.start(Tab);
+        expect(app.snapshot().children).toEqual({});
+
+        app.send('Tab', { _tag: 'Opened', name: 'a' });
+        app.send('Tab/page[a]#1', { _tag: 'Bumped' });
+        expect(at(app, 'Tab/page[a]#1').model).toEqual({ count: 1 });
+
+        // The same key keeps it.
+        app.send('Tab', { _tag: 'Opened', name: 'a' });
+        expect(at(app, 'Tab/page[a]#1').model).toEqual({ count: 1 });
+
+        // A new key is a fresh Instance in its place.
+        app.send('Tab', { _tag: 'Opened', name: 'b' });
+        const held = app.snapshot().children['page'] as Instance;
+        expect(held.id).toBe('Tab/page[b]#1');
+        expect(held.model).toEqual({ count: 0 });
+
+        const loaded = yield* Runtime.start(
+          History.load(Tab, app.history.save()),
+        );
+        expect(loaded.snapshot()).toEqual(app.snapshot());
+      }),
+    ));
+});
+
 describe('written at the top or in a State', () => {
   class Clock2 extends Context.Service<
     Clock2,
