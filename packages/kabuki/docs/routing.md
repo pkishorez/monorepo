@@ -8,7 +8,7 @@ a plain Actor that is handed its Route as Props. Core never imports it.
 
 ```
 Your Actors and Views        App, Settings, Billing …           plain Kabuki
-outlet                       Routes.Settings.outlet({ … })      writes `children`, `invoke` and a View
+outlet                       Routes.Settings.outlet({ … })      writes `children` and a View
 Router + Adapter             Router.app(Routes, App)            holds where the app is; talks to the URL
 Routes                       Route.tree({ … })                  pure data: Schemas, URL ⇄ Route, Metadata, Inputs
 ```
@@ -252,7 +252,7 @@ Step is a drawing, and the move that led there is one Message on the Timeline.
 const sections = Routes.Settings.outlet({ Overview, Billing });
 
 export const SettingsActor = Actor.make('Settings', { props: Routes.Settings.props })
-  .build({ children: sections.children, invoke: sections.invoke });
+  .build({ children: sections.children });
 
 export const SettingsView = View.make(SettingsActor, (self) => (
   <section>
@@ -264,8 +264,7 @@ export const SettingsView = View.make(SettingsActor, (self) => (
 
 `outlet` writes nothing you could not write yourself:
 
-- `children`: one keyed slot per child Route, `{ Overview: Actor.many(Overview.actor), … }`.
-- `invoke`: from the Props' `page`, the current child's slot holds one Instance, keyed by its params, handed its value as Props and its place's Input from the Props' `inputs` as its Input; the others are empty. A place with an Input is empty until it has one. A new param is a fresh page; a new query is the same page with new Props.
+- `children`: one Child per child Route, `{ Overview: { actor: Overview.actor, each, input, props }, … }`. Its `each` names one key, the current child's params, read from the Props' `page`, so that Child holds one Instance, handed its value as Props and its place's Input from the Props' `inputs` as its Input; the others hold none. A place with an Input is empty until it has one. A new param is a fresh page; a new query is the same page with new Props. Spread it beside Children of the Actor's own: `children: { ...sections.children, help: { actor: Help } }`.
 - `View`: draws whichever Instance is there. A child served by a function instead of an Actor is drawn by it, from its Props and Input. Each page is keyed, so a new one starts its React state afresh. A client place is drawn only once the browser draws on its own: a server, and the hydration of what it drew, leave it empty, Input or not.
 
 A child that has nothing of its own, like a blog's index, which is the
@@ -285,7 +284,7 @@ const BlogView = View.make(BlogActor, (self) =>
 );
 ```
 
-Kabuki works the rest out: when Settings' Props change, its keyed Children
+Kabuki works the rest out: when Settings' Props change, its Children
 follow them, in the same Message.
 
 ## One click, Overview to Billing

@@ -71,17 +71,17 @@ export const Item = Actor.make('Item', {
     },
     state: { _tag: 'Idle' },
   }),
-  children: { reviews: Actor.many(Review) },
-  invoke: ({ model }) => ({
-    reviews: model.reviews.map((key) => ({
-      key,
-      input: { text: `${model.name} ${key}` },
-    })),
-  }),
+  children: {
+    reviews: {
+      actor: Review,
+      each: ({ model }) => model.reviews,
+      input: ({ model }, key) => ({ text: `${model.name} ${key}` }),
+    },
+  },
   state: {
     Idle: { on: { Save: () => ({ state: { _tag: 'Saving' } }) } },
     Saving: {
-      children: { upload: Upload },
+      children: { upload: { actor: Upload } },
       workers: { save: { run: after(6000, { _tag: 'Saved' } as const) } },
       on: { Saved: () => ({ state: { _tag: 'Idle' } }) },
     },
@@ -104,13 +104,13 @@ export const Catalog = Actor.make('Catalog', {
   init: () => ({
     model: { ids: ['tea', 'cup', 'pot'], thumbs: ['tea', 'cup', 'pot'] },
   }),
-  children: { items: Actor.many(Item) },
-  invoke: ({ model }) => ({
-    items: model.ids.map((id) => ({
-      key: id,
-      input: { name: id, reviews: REVIEWS[id] ?? 1 },
-    })),
-  }),
+  children: {
+    items: {
+      actor: Item,
+      each: ({ model }) => model.ids,
+      input: (_, id) => ({ name: id, reviews: REVIEWS[id] ?? 1 }),
+    },
+  },
   workers: {
     thumb: {
       each: ({ model }) => model.thumbs,
@@ -164,7 +164,7 @@ export const Payment = Actor.make('Payment', {
       on: { Challenged: () => ({ state: { _tag: 'Challenge' } }) },
     },
     Challenge: {
-      children: { challenge: ThreeDSecureChallenge },
+      children: { challenge: { actor: ThreeDSecureChallenge } },
       workers: { wait: { run: after(2500, { _tag: 'Polled' } as const) } },
       on: {
         Polled: (_, { model }) => ({
@@ -224,7 +224,7 @@ export const Cart = Actor.make('Cart', {
     },
     Checkout: {
       workers: { pay: { run: never } },
-      children: { payment: Payment },
+      children: { payment: { actor: Payment } },
     },
   },
 });
@@ -248,7 +248,7 @@ export const Shop = Actor.make('Shop', {
   message: Schema.TaggedUnion({ Loaded: {}, Close: {}, Reopen: {} }),
 }).build({
   init: () => ({ state: { _tag: 'Loading' } }),
-  children: { session: Session },
+  children: { session: { actor: Session } },
   state: {
     Loading: {
       workers: { fetch: { run: after(1200, { _tag: 'Loaded' } as const) } },
@@ -256,14 +256,14 @@ export const Shop = Actor.make('Shop', {
     },
     Open: {
       children: {
-        catalog: Catalog,
-        cart: Cart,
-        recommendations: RecommendationCarousel,
+        catalog: { actor: Catalog },
+        cart: { actor: Cart },
+        recommendations: { actor: RecommendationCarousel },
       },
       on: { Close: () => ({ state: { _tag: 'Closed' } }) },
     },
     Closed: {
-      children: { notice: Notice },
+      children: { notice: { actor: Notice } },
       on: { Reopen: () => ({ state: { _tag: 'Open' } }) },
     },
   },

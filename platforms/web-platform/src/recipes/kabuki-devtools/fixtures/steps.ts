@@ -49,10 +49,13 @@ const Catalog = Actor.make('Catalog', {
   init: () => ({
     model: { ids: ['tea', 'cup', 'pot'], thumbs: ['tea', 'cup', 'pot'] },
   }),
-  children: { items: Actor.many(Item) },
-  invoke: ({ model }) => ({
-    items: model.ids.map((id) => ({ key: id, input: { name: id } })),
-  }),
+  children: {
+    items: {
+      actor: Item,
+      each: ({ model }) => model.ids,
+      input: (_, id) => ({ name: id }),
+    },
+  },
   workers: { thumb: { each: ({ model }) => model.thumbs, run: never } },
   on: {
     Stocked: ({ ids }, { model }) => ({
@@ -121,17 +124,17 @@ export const Shop = Actor.make('Shop', {
   message: Schema.TaggedUnion({ Loaded: {}, Close: {} }),
 }).build({
   init: () => ({ state: { _tag: 'Loading' } }),
-  children: { session: Session },
+  children: { session: { actor: Session } },
   state: {
     Loading: {
       workers: { fetch: { run: never } },
       on: { Loaded: () => ({ state: { _tag: 'Open' } }) },
     },
     Open: {
-      children: { catalog: Catalog, cart: Cart },
+      children: { catalog: { actor: Catalog }, cart: { actor: Cart } },
       on: { Close: () => ({ state: { _tag: 'Closed' } }) },
     },
-    Closed: { children: { notice: Notice } },
+    Closed: { children: { notice: { actor: Notice } } },
   },
 });
 

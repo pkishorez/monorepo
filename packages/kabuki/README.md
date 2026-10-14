@@ -11,7 +11,8 @@ changes, and its State decides which Children it Invokes, which Capabilities
 it Provides to them and which Workers run. Leaving a State stops all of it.
 Any fact in the Model can own a Worker too: an upload runs for as long as its
 row says Uploading.
-Keyed Children follow the Model: a list of items can be a list of Actors.
+Children are written the way Workers are: always, `while` a test holds, or
+one per key `each` names, so a list of items can be a list of Actors.
 It is declarative, as React is: a parent says what should be, never what to
 do. It controls its Children only by whether they exist and by their Props,
 and what it must control it owns, as React lifts state up.
@@ -76,7 +77,6 @@ pnpm add @kestack/kabuki effect react
 | Export             | What it does                                                                                                         |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------- |
 | `Actor.make`       | Defines an Actor from its Requires and Schemas. `.build` adds how it behaves, at the top and in one block per State. |
-| `Actor.many`       | Declares a keyed Child slot: one Instance of an Actor per key the parent Invokes.                                    |
 | `Command.make`     | Defines a Command from its name, the Schema of its args and the Effect it runs; an Update calls it with the args.    |
 | `Runtime.start`    | Runs an Actor, or carries a History on, inside a Scope, with the app's Layer; gives back `send`, `start` and `stop`. |
 | `History.make`     | A new, empty History for an Actor, with the root's Input.                                                            |
@@ -92,7 +92,7 @@ pnpm add @kestack/kabuki effect react
 | `handle`           | Applies one Envelope to a Snapshot and gives the next one, purely.                                                   |
 | `outcomeOf`        | Works out what came of one Envelope on a Snapshot: handled, ignored or dropped. The History never keeps it.          |
 | `instanceAt`       | Finds the Instance with an ID in a Snapshot.                                                                         |
-| `isMany`           | Tells a keyed Child slot from a fixed one in an Instance's Children.                                                 |
+| `isMany`           | Tells the list of an `each` Child from one Instance in an Instance's Children.                                       |
 
 ### `@kestack/kabuki/react`
 
@@ -102,8 +102,8 @@ pnpm add @kestack/kabuki effect react
 | `toReact`      | Turns a root Actor, its View and a Layer into one React component that runs the whole app, one Runtime for every mount; `useRuntime` reads its History, shows any Step, and stops and starts it. Drawn before it runs, on a server too, from a saved History if given one. |
 | `View.lazy`    | A View whose code is loaded the first time it is drawn, or on `preload()`; a server waits for it before it sends, and tells the App's `onLazyView`.                                                                                                                        |
 | `View.preload` | Loads the lazy Views made with these ids, so a browser hydrating a page a server drew never waits on their code.                                                                                                                                                           |
-| `useChild`     | Reads one fixed Child's Model, State and Props from its parent's View, to draw, or only what an optional selector picks; an escape hatch that can never Send.                                                                                                              |
-| `useChildren`  | Reads a slot of keyed Children the same way, in order; only the component that calls it re-renders, as they change or as what the selector picks does.                                                                                                                     |
+| `useChild`     | Reads one Child's Model, State and Props from its parent's View, to draw, or only what an optional selector picks; an escape hatch that can never Send.                                                                                                                    |
+| `useChildren`  | Reads the Instances of an `each` Child the same way, in order; only the component that calls it re-renders, as they change or as what the selector picks does.                                                                                                             |
 
 ### `@kestack/kabuki/routing`
 
@@ -230,7 +230,7 @@ export const Auth = Actor.make('Auth', {
       },
     },
     Anonymous: {
-      children: { login: Login },
+      children: { login: { actor: Login } },
       provides: (self) =>
         Layer.succeed(SignIn, {
           complete: (user) => self.send({ _tag: 'LoggedIn', user }),
@@ -240,7 +240,7 @@ export const Auth = Actor.make('Auth', {
       },
     },
     Authenticated: {
-      children: { todos: Todos },
+      children: { todos: { actor: Todos } },
       provides: (self) =>
         Layer.succeed(Session, {
           user: self.get.pipe(Effect.map(({ state }) => state.user)),
@@ -253,7 +253,7 @@ export const Auth = Actor.make('Auth', {
 ```
 
 - `make` takes only the Requires and the Schemas, which fix every type. `build` is checked against them: an Update that returns a State the Schema does not have, or a `state.user` read where there is none, does not compile.
-- `build` has two Levels. What is written at the top holds for as long as the Instance lives; what is written in a State's block holds while that State lasts. Each Level can hold `provides`, `children`, `invoke`, `on` and `workers`.
+- `build` has two Levels. What is written at the top holds for as long as the Instance lives; what is written in a State's block holds while that State lasts. Each Level can hold `provides`, `children`, `on` and `workers`.
 - An Update that returns a different `_tag` is a Transition: the old State's Children, Workers and Capabilities stop, the new State's start. A Child written at the top lasts through it.
 - A Worker is a named, scoped Effect given `self`: `send` to its own Instance, `get` and `changes` for its current data, and `now` for the app's Time. Written in the `Checking` block, `check` runs while that State lasts.
 - Provides is one Layer per Level, built each time its Level starts. A Capability that reads the Model reads it through `self`, so it never goes stale. It cancels out what the Children below it need; a need nothing cancels bubbles up to the app's Layer.
@@ -282,14 +282,14 @@ const List = Actor.make('List', {
   }),
 }).build({
   init: () => ({ model: { ids: [], uploading: [], next: 0 } }),
-  children: { rows: Actor.many(Row) },
-  invoke: ({ model }) => ({
-    rows: model.ids.map((id) => ({
-      key: id,
-      input: { text: `#${id}` },
-      props: { uploading: model.uploading.includes(id) },
-    })),
-  }),
+  children: {
+    rows: {
+      actor: Row,
+      each: ({ model }) => model.ids,
+      input: (_, id) => ({ text: `#${id}` }),
+      props: ({ model }, id) => ({ uploading: model.uploading.includes(id) }),
+    },
+  },
   on: {
     Added: (_, { model }) => {
       const id = `${model.next}`;
@@ -326,7 +326,7 @@ const List = Actor.make('List', {
 });
 ```
 
-- `invoke` sits beside the `children` it feeds, and says which keys exist, the Input each new Child starts from, and the Props each is handed. After every Update, a new key Invokes a Row, a key gone stops it, and a key kept keeps its Instance. From then on the Row owns its data.
+- A Child is written as a Worker is: its `actor`, then always, `while` a test is true, or `each` key a function names, one Instance per key. Its `input` and `props` are worked out from the parent's data and the Child's key, `''` unless it is one of `each`. After every Update, a new key Invokes a Row, a key gone stops it, and a key kept keeps its Instance. From then on the Row owns its data. A Child written with `while` stops when its test turns false and comes back as a fresh Instance.
 - Props are what the parent says now, worked out again after each of its Updates: the Row declares them with `props` beside `input`, and its Update, its Workers' Conditions and its View read them. It never writes them, and a change runs none of its rules. Props equal to the last ones keep the Instance; new ones are not in the History, since Replay works them out again from the parent.
 - Instance IDs are deterministic: `List/rows[0]#1` is the first `rows` keyed `0`. A key Invoked again gets `#2`, so a Message meant for the old Instance is dropped.
 - A Command is an errand, made once with `Command.make`: a name, the Schema of its args and the Effect it runs from them, ending with at most one Message. The Update asks for it with its args, `save({ id })`, which is plain data a test can compare; the args are checked when it runs. Nothing stops it but its Instance stopping, and there is no cancel. An Update may return a list of Commands; they run concurrently.
@@ -362,7 +362,7 @@ const MotionRow = motion.create(RowView);
 const DemoApp = toReact(Auth, AuthView, ServerLive);
 ```
 
-- One function draws every State. It gets `_tag`, `model`, `state`, `props`, `children` (Handles; arrays for keyed Children, each with its `key`), `send` and `root`; a `switch` on `_tag` narrows `state` and `children`. The DOM stays across a Transition. It never sees Capabilities, so it draws a Replay exactly like the live app.
+- One function draws every State. It gets `_tag`, `model`, `state`, `props`, `children` (Handles: one for a Child that is always there, one or `undefined` for a `while` Child, a list for an `each` Child, each with its `key`), `send` and `root`; a `switch` on `_tag` narrows `state` and `children`. The DOM stays across a Transition. It never sees Capabilities, so it draws a Replay exactly like the live app.
 - A Child is placed with `<RowView instance={handle} />`. A parent View hands it only where to draw; data from the parent is the Row's Props, which the parent Actor hands it, so its Update and Workers see the same.
 - Spreading `root` on the View's own element hands it the parent's `ref` and `style`, so `motion.create(RowView)` animates it, with no wrapper element, and it stays memoized. A View whose Instance has stopped keeps drawing its last data, so `AnimatePresence` can play its exit.
 - A View re-renders only when its own Instance's Model, State, Props or set of Children changes, or its `ref` or `style` does. Many Messages handled in a row make one render.

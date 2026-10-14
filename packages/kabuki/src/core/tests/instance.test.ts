@@ -1,6 +1,14 @@
 import { Context, Effect, Layer, Schema } from 'effect';
 import { describe, expect, it, vi } from 'vitest';
-import { Actor, Runtime, handle, init, instanceAt } from '../index.ts';
+import {
+  Actor,
+  History,
+  Runtime,
+  handle,
+  init,
+  instanceAt,
+  restore,
+} from '../index.ts';
 import type { Instance, Running, Types } from '../index.ts';
 import {
   Login,
@@ -159,10 +167,12 @@ describe('a tree of Actors', () => {
       }),
     }).build({
       init: () => ({ model: { count: 0, row: 'a' }, state: { _tag: 'Open' } }),
-      children: { row: Row },
-      invoke: ({ model }) => ({
-        row: { input: { text: model.row as string } },
-      }),
+      children: {
+        row: {
+          actor: Row,
+          input: ({ model }) => ({ text: model.row as string }),
+        },
+      },
       on: {
         Counted: ({ by }, { model }) => ({
           model: { ...model, count: by > 1 ? (String(by) as never) : by },
@@ -250,10 +260,13 @@ describe('keyed Children', () => {
     }),
   }).build({
     init: () => ({ model: { ids: [], next: 0 } }),
-    children: { rows: Actor.many(Row) },
-    invoke: ({ model }) => ({
-      rows: model.ids.map((id) => ({ key: id, input: { text: `#${id}` } })),
-    }),
+    children: {
+      rows: {
+        actor: Row,
+        each: ({ model }) => model.ids,
+        input: (_, id) => ({ text: `#${id}` }),
+      },
+    },
     on: {
       Added: (_, { model }) => ({
         model: { ids: [...model.ids, `${model.next}`], next: model.next + 1 },
@@ -304,10 +317,100 @@ describe('keyed Children', () => {
       }),
     ));
 
-  it('a State with keyed Children must say what it Invokes', () => {
-    // @ts-expect-error invoke is missing
+  it('a Child whose Actor takes Input must be handed it', () => {
     const Forgot = Actor.make('Forgot', {}).build({
-      children: { rows: Actor.many(Row) },
+      // @ts-expect-error input is missing
+      children: { rows: { actor: Row, each: () => ['a'] } },
+    });
+    expect(Forgot).toBeDefined();
+  });
+});
+
+describe('a Child written with `while`', () => {
+  /** A Child whose work says when it stops. */
+  const Light = Actor.make('Light', {}).build({
+    workers: {
+      glow: {
+        run: () =>
+          Effect.addFinalizer(() =>
+            Effect.sync(() => heard.push('glow stopped')),
+          ).pipe(Effect.andThen(Effect.never)),
+      },
+    },
+  });
+
+  const Room = Actor.make('Room', {
+    model: Schema.Struct({ lit: Schema.Boolean }),
+    message: Schema.TaggedUnion({ Switched: {} }),
+  }).build({
+    init: () => ({ model: { lit: false } }),
+    children: {
+      light: { actor: Light, while: ({ model }) => model.lit },
+      counter: { actor: Counter, while: ({ model }) => model.lit },
+    },
+    on: { Switched: (_, { model }) => ({ model: { lit: !model.lit } }) },
+  });
+
+  const restored = (snapshot: Instance) =>
+    handle(Room.definition, init(Room.definition), {
+      destination: 'Room',
+      message: restore(snapshot),
+      source: { kind: 'restore' },
+      at: 0,
+    }).outcome;
+
+  it('exists only while its test holds, a fresh Instance each time', () =>
+    run(
+      Effect.gen(function* () {
+        heard.length = 0;
+        const app = yield* Runtime.start(Room);
+        expect(app.snapshot().children).toEqual({});
+
+        app.send('Room', { _tag: 'Switched' });
+        yield* settle;
+        expect(Object.keys(app.snapshot().children).sort()).toEqual([
+          'counter',
+          'light',
+        ]);
+        app.send('Room/counter#1', { _tag: 'Bumped' });
+        expect(at(app, 'Room/counter#1').model).toEqual({ count: 1 });
+
+        app.send('Room', { _tag: 'Switched' });
+        yield* settle;
+        expect(app.snapshot().children).toEqual({});
+        expect(heard).toEqual(['glow stopped']);
+
+        app.send('Room', { _tag: 'Switched' });
+        expect(at(app, 'Room/counter#2').model).toEqual({ count: 0 });
+        app.send('Room/counter#1', { _tag: 'Bumped' });
+        expect(app.history.outcome(app.history.branch().at(-1)!.id)).toBe(
+          'dropped',
+        );
+      }),
+    ));
+
+  it('is restored, saved and loaded whether it is there or not', () =>
+    run(
+      Effect.gen(function* () {
+        const live = yield* Runtime.start(Room);
+        expect(restored(live.snapshot())).toBe('handled');
+        live.send('Room', { _tag: 'Switched' });
+        expect(restored(live.snapshot())).toBe('handled');
+        live.send('Room', { _tag: 'Switched' });
+
+        const loaded = yield* Runtime.start(
+          History.load(Room, live.history.save()),
+        );
+        expect(loaded.snapshot()).toEqual(live.snapshot());
+      }),
+    ));
+
+  it('is checked like any other Child', () => {
+    const Forgot = Actor.make('Forgot', {}).build({
+      children: {
+        // @ts-expect-error a Child is written with `while` or `each`, never both
+        light: { actor: Light, while: () => true, each: () => ['a'] },
+      },
     });
     expect(Forgot).toBeDefined();
   });
@@ -350,11 +453,11 @@ describe('written at the top or in a State', () => {
       Layer.succeed(Clock2, {
         tick: Effect.sync(() => heard.push('tick')),
       }),
-    children: { ticker: Ticker },
+    children: { ticker: { actor: Ticker } },
     on: { Hush: (_, { model }) => ({ model: { ...model, loud: false } }) },
     state: {
       Open: {
-        children: { guest: Counter },
+        children: { guest: { actor: Counter } },
         on: { Toggle: () => ({ state: { _tag: 'Shut' } }) },
         workers: {
           creak: {
@@ -415,7 +518,7 @@ describe('written at the top or in a State', () => {
 
   it('a top-level Child is drawn in every State', () => {
     const kids: Types<typeof Door>['children']['Shut'] = {
-      ticker: Ticker,
+      ticker: { actor: Ticker },
     };
     expect(kids).toBeDefined();
   });
@@ -426,8 +529,8 @@ describe('written at the top or in a State', () => {
         state: Schema.TaggedUnion({ A: {} }),
       }).build({
         init: () => ({ state: { _tag: 'A' } }),
-        children: { kid: Counter },
-        state: { A: { children: { kid: Counter } } },
+        children: { kid: { actor: Counter } },
+        state: { A: { children: { kid: { actor: Counter } } } },
       }),
     ).toThrow('Child "kid" is written at the top and in A');
   });

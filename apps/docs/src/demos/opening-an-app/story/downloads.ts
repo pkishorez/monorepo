@@ -31,14 +31,19 @@ export const Downloads = Actor.make('Downloads', {
   }),
 }).build({
   init: () => ({ model: { files: [], next: 0 } }),
-  children: { files: Actor.many(Download) },
-  invoke: ({ model }) => ({
-    files: model.files.map(({ id, name, paused }) => ({
-      key: id,
-      input: { id, name },
-      props: { paused },
-    })),
-  }),
+  children: {
+    files: {
+      actor: Download,
+      each: ({ model }) => model.files.map(({ id }) => id),
+      input: ({ model }, id) => {
+        const { name } = model.files.find((file) => file.id === id)!;
+        return { id, name };
+      },
+      props: ({ model }, id) => ({
+        paused: model.files.find((file) => file.id === id)!.paused,
+      }),
+    },
+  },
   provides: (self) =>
     Layer.succeed(Shelf, {
       remove: (id) => self.send({ _tag: 'Remove', id }),

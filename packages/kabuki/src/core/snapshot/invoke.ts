@@ -1,28 +1,29 @@
 import type { ActorDefinition } from '../actor/index.ts';
 import { Equal } from 'effect';
-import { childId, counterOf } from './tree.ts';
+import { childId, counterOf, isMany } from './tree.ts';
 import type { Instance } from './snapshot.ts';
 
 /*
- * Invoke: the State, and for keyed Children the Model, say which Children
- * exist, and the parent's data says what each is handed. Pure: Instances are
- * created by running init, never by Effects.
+ * Invoke: each Child's Condition, read from the parent's data, says which
+ * of its Instances exist, and the parent's data says what each is handed.
+ * Pure: Instances are created by running init, never by Effects.
  *
  * 1. Create  an Instance runs init from its Input and enters its State. The
  *            Input, the Props, and the Model and State init gives, are
  *            checked against the Actor's Schemas.
- * 2. Enter   a State Invokes every Child it writes, fresh; a Child written
- *            at the top lasts as long as its Instance.
- * 3. Follow  in the same State, keyed Children follow the Model by key: a new
- *            key Invokes a Child, a key gone stops it, a key kept keeps it.
- *            Every Child kept is handed its Props again: new ones give it a
- *            new Instance, and its own Children follow them in turn.
+ * 2. Enter   a State starts with none of the Children it writes; a Child
+ *            written at the top lasts as long as its Instance and its
+ *            Condition do.
+ * 3. Follow  every Child follows the parent's data by key, the way a Worker
+ *            does: a key its Condition names Invokes a Child, a key gone
+ *            stops it, a key kept keeps it. Every Child kept is handed its
+ *            Props again: new ones give it a new Instance, and its own
+ *            Children follow them in turn.
  */
 
 type Counters = Record<string, number>;
 /** What a parent hands one Child: its Input, read once by init, and its Props, read live. */
 type Given = { readonly input?: unknown; readonly props?: unknown };
-type Keyed = Given & { readonly key: string };
 
 const SINGLE = { _tag: 'Single' } as const;
 
@@ -54,39 +55,23 @@ export const create = (
 
 // 2. Enter
 /**
- * Enter the Instance's State: every Child the State writes is Invoked fresh.
- * A Child written at the top lasts through the Transition; then every Child
- * follows the parent's data.
+ * Enter the Instance's State: only the Children written at the top are
+ * kept, and following the parent's data Invokes the State's own fresh.
  */
 export const enter = (
   definition: ActorDefinition,
   instance: Instance,
 ): Instance => {
-  const slots = definition.children[instance.state._tag];
-  if (!slots) return { ...instance, children: {} };
-  const invocation = invocationOf(definition, instance);
-  const invoked: Counters = { ...instance.invoked };
   const children: Record<string, Instance | ReadonlyArray<Instance>> = {};
-  for (const [slot, { definition: child, many }] of Object.entries(slots)) {
+  for (const slot of Object.keys(
+    definition.children[instance.state._tag] ?? {},
+  )) {
     const kept = definition.lasting.includes(slot)
       ? instance.children[slot]
       : undefined;
-    children[slot] =
-      kept ??
-      (many
-        ? keyedIn(invocation, slot).map((given) =>
-            invoke(child, instance.id, slot, given.key, given, invoked),
-          )
-        : invoke(
-            child,
-            instance.id,
-            slot,
-            undefined,
-            givenIn(invocation, slot),
-            invoked,
-          ));
+    if (kept) children[slot] = kept;
   }
-  return follow(definition, { ...instance, children, invoked });
+  return follow(definition, { ...instance, children });
 };
 
 // 3. Follow
@@ -96,34 +81,50 @@ export const follow = (
 ): Instance => {
   const slots = Object.entries(definition.children[instance.state._tag] ?? {});
   if (slots.length === 0) return instance;
-  const invocation = invocationOf(definition, instance);
+  const data = {
+    model: instance.model,
+    state: instance.state,
+    props: instance.props,
+  };
   let invoked: Counters | undefined;
   let children: Record<string, Instance | ReadonlyArray<Instance>> | undefined;
-  for (const [slot, { definition: child, many }] of slots) {
-    if (!many) {
-      const held = instance.children[slot] as Instance | undefined;
-      if (!held) continue;
-      const handed = handedProps(child, held, givenIn(invocation, slot).props);
-      if (handed !== held)
-        (children ??= { ...instance.children })[slot] = handed;
-      continue;
-    }
-    const before = (instance.children[slot] ?? []) as ReadonlyArray<Instance>;
-    const byKey = new Map(before.map((kept) => [kept.key, kept]));
-    const wanted = keyedIn(invocation, slot);
-    let changed = wanted.length !== before.length;
-    const after = wanted.map((given, index) => {
-      const kept = byKey.get(given.key);
+  for (const [slot, { definition: child, kind, keys, input, props }] of slots) {
+    const many = kind === 'each';
+    const held = instance.children[slot];
+    const before = (
+      held === undefined ? [] : isMany(held) ? held : [held]
+    ) as ReadonlyArray<Instance>;
+    const byKey = new Map(before.map((kept) => [kept.key ?? '', kept]));
+    const wanted = keysOf(slot, keys(data));
+    // `each` is always held, as a list even when empty.
+    let changed =
+      wanted.length !== before.length || (many && held === undefined);
+    const after = wanted.map((key, index) => {
+      const kept = byKey.get(key);
       if (kept) {
-        const handed = handedProps(child, kept, given.props);
-        if (before[index] !== handed) changed = true;
-        return handed;
+        const next = handedProps(child, kept, props(data, key));
+        if (before[index] !== next) changed = true;
+        return next;
       }
       changed = true;
       invoked ??= { ...instance.invoked };
-      return invoke(child, instance.id, slot, given.key, given, invoked);
+      return invoke(
+        child,
+        instance.id,
+        slot,
+        many ? key : undefined,
+        {
+          input: input(data, key),
+          props: props(data, key),
+        },
+        invoked,
+      );
     });
-    if (changed) (children ??= { ...instance.children })[slot] = after;
+    if (!changed) continue;
+    children ??= { ...instance.children };
+    if (many) children[slot] = after;
+    else if (after[0]) children[slot] = after[0];
+    else delete children[slot];
   }
   return children
     ? { ...instance, children, invoked: invoked ?? instance.invoked }
@@ -156,33 +157,18 @@ const invoke = (
   return create(definition, childId(parent, slot, key, generation), key, given);
 };
 
-const invocationOf = (
-  definition: ActorDefinition,
-  instance: Instance,
-): Readonly<Record<string, unknown>> =>
-  definition.invoke[instance.state._tag]?.({
-    model: instance.model,
-    state: instance.state,
-    props: instance.props,
-  }) ?? {};
-
-const givenIn = (
-  invocation: Readonly<Record<string, unknown>>,
+/** The keys a Condition names, each once. */
+const keysOf = (
   slot: string,
-): Given => (invocation[slot] ?? {}) as Given;
-
-const keyedIn = (
-  invocation: Readonly<Record<string, unknown>>,
-  slot: string,
-): ReadonlyArray<Keyed> => {
-  const keyed = (invocation[slot] ?? []) as ReadonlyArray<Keyed>;
+  keys: ReadonlyArray<string>,
+): ReadonlyArray<string> => {
   const seen = new Set<string>();
-  for (const { key } of keyed) {
+  for (const key of keys) {
     if (seen.has(key))
       throw new Error(
         `[@kestack/kabuki] ${slot}: key "${key}" is Invoked twice`,
       );
     seen.add(key);
   }
-  return keyed;
+  return keys;
 };

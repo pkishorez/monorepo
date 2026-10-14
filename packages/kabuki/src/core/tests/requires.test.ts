@@ -46,11 +46,11 @@ describe('requires, from A down to D', () => {
   it('1. nobody Provides: every need reaches the root', () => {
     const C = Actor.make('C', { requires: [SC] }).build({
       ...uses(SC),
-      children: { d: D },
+      children: { d: { actor: D } },
     });
     const A = Actor.make('A', { requires: [SA] }).build({
       ...uses(SA),
-      children: { b: B, c: C },
+      children: { b: { actor: B }, c: { actor: C } },
     });
     same<Needs<typeof C>, SC | SD>(true);
     same<Needs<typeof A>, SA | SB | SC | SD>(true);
@@ -59,12 +59,12 @@ describe('requires, from A down to D', () => {
   it('2. C Provides SD at its top: D is covered, and SD stops at C', () => {
     const C = Actor.make('C', { requires: [SC] }).build({
       ...uses(SC),
-      children: { d: D },
+      children: { d: { actor: D } },
       provides: () => sd,
     });
     const A = Actor.make('A', { requires: [SA] }).build({
       ...uses(SA),
-      children: { b: B, c: C },
+      children: { b: { actor: B }, c: { actor: C } },
     });
     same<Needs<typeof C>, SC>(true);
     same<Needs<typeof A>, SA | SB | SC>(true);
@@ -73,11 +73,11 @@ describe('requires, from A down to D', () => {
   it('3. A Provides SD at its top: it reaches its grandchild D', () => {
     const C = Actor.make('C', { requires: [SC] }).build({
       ...uses(SC),
-      children: { d: D },
+      children: { d: { actor: D } },
     });
     const A = Actor.make('A', { requires: [SA] }).build({
       ...uses(SA),
-      children: { b: B, c: C },
+      children: { b: { actor: B }, c: { actor: C } },
       provides: () => sd,
     });
     same<Needs<typeof A>, SA | SB | SC>(true);
@@ -86,11 +86,11 @@ describe('requires, from A down to D', () => {
   it('4. A Provides SB only in On: a B placed in On is covered, a B at the top is not', () => {
     const InOn = Actor.make('A', { state: St }).build({
       init: () => ({ state: { _tag: 'On' } }),
-      state: { On: { children: { b: B }, provides: () => sb } },
+      state: { On: { children: { b: { actor: B } }, provides: () => sb } },
     });
     const AtTop = Actor.make('A', { state: St }).build({
       init: () => ({ state: { _tag: 'On' } }),
-      children: { b: B },
+      children: { b: { actor: B } },
       state: { On: { provides: () => sb } },
     });
     same<Needs<typeof InOn>, never>(true);
@@ -102,7 +102,7 @@ describe('requires, from A down to D', () => {
       init: () => ({ state: { _tag: 'On' } }),
       state: {
         On: { provides: () => sb },
-        Off: { children: { b: B } },
+        Off: { children: { b: { actor: B } } },
       },
     });
     same<Needs<typeof A>, SB>(true);
@@ -135,7 +135,7 @@ describe('requires, from A down to D', () => {
     });
     const Right = Actor.make('A', { requires: [SA] }).build({
       provides: () => fromSA,
-      children: { d: D },
+      children: { d: { actor: D } },
     });
     same<Needs<typeof Right>, SA>(true);
     expect(Wrong).toBeDefined();
@@ -144,11 +144,11 @@ describe('requires, from A down to D', () => {
   it('8. the root must get the rest from the Layer', () => {
     const C = Actor.make('C', { requires: [SC] }).build({
       ...uses(SC),
-      children: { d: D },
+      children: { d: { actor: D } },
     });
     const A = Actor.make('A', { requires: [SA] }).build({
       ...uses(SA),
-      children: { b: B, c: C },
+      children: { b: { actor: B }, c: { actor: C } },
     });
     // @ts-expect-error SD is still needed by D, and nothing gives it
     const short: Effect.Effect<unknown, never, never> = Runtime.start(A).pipe(

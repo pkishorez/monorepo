@@ -1,6 +1,5 @@
 import { Fragment, useSyncExternalStore } from 'react';
 import type { ReactNode } from 'react';
-import { Actor } from '../../core/index.ts';
 import type { AnyActor } from '../../core/index.ts';
 import type { ViewOf } from '../../react/index.ts';
 import { inputsUnder, paramsKey, propsOf, valueAt } from '../route/index.ts';
@@ -140,8 +139,8 @@ const useBrowser = () =>
   );
 
 /**
- * A node's outlet, at `at` in the tree: a keyed Child slot per child Route
- * an Actor serves, filled from the Props' `page` with at most one Instance;
+ * A node's outlet, at `at` in the tree: a Child per child Route an Actor
+ * serves, one of `each` key the Props' `page` names, so at most one;
  * the key is the child's params, so new params are a fresh Instance and a
  * new query is not. Each Instance starts from its place's Input, from the
  * Props' `inputs`, and is not there until that Input is. Its View draws the
@@ -156,9 +155,6 @@ export const outletOf =
     const tags = Object.keys(pages);
     const served = tags.filter((tag) => isServed(pages[tag]!));
 
-    const children = Object.fromEntries(
-      served.map((tag) => [tag, Actor.many((pages[tag] as Served).actor)]),
-    );
     for (const tag of served) {
       const page = pages[tag] as Served;
       const { preload } = page.view as { preload?: Preload };
@@ -170,13 +166,21 @@ export const outletOf =
       });
     }
 
-    const invoke = ({ props }: { readonly props: Handed }) =>
-      Object.fromEntries(
-        served.map((tag) => {
-          const handed = handedTo(node, at, tag, props);
-          return [tag, handed && !handed.missing ? [handed] : []];
-        }),
-      );
+    type Data = { readonly props: Handed };
+    const children = Object.fromEntries(
+      served.map((tag) => [
+        tag,
+        {
+          actor: (pages[tag] as Served).actor,
+          each: ({ props }: Data) => {
+            const handed = handedTo(node, at, tag, props);
+            return handed && !handed.missing ? [handed.key] : [];
+          },
+          input: ({ props }: Data) => handedTo(node, at, tag, props)?.input,
+          props: ({ props }: Data) => handedTo(node, at, tag, props)?.props,
+        },
+      ]),
+    );
 
     const View = ({
       of,
@@ -248,5 +252,5 @@ export const outletOf =
       });
     };
 
-    return { children, invoke, View };
+    return { children, View };
   };

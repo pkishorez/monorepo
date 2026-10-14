@@ -80,7 +80,6 @@ const ProjectsActor = Actor.make('Projects', {
   props: Routes.Projects.props,
 }).build({
   children: projects.children,
-  invoke: projects.invoke,
 });
 const Projects = {
   actor: ProjectsActor,
@@ -101,7 +100,6 @@ const Projects = {
 const pages = Routes.outlet({ Home, Projects });
 const AppActor = Actor.make('App', { props: Routes.props }).build({
   children: pages.children,
-  invoke: pages.invoke,
 });
 const App = {
   actor: AppActor,
@@ -395,7 +393,6 @@ describe('a page with pending and failed screens', () => {
   });
   const StoreActor = Actor.make('Store', { props: Store.props }).build({
     children: store.children,
-    invoke: store.invoke,
   });
   const StoreApp = {
     actor: StoreActor,
@@ -595,7 +592,6 @@ describe('an outlet without a wrapper', () => {
   });
   const ItemsActor = Actor.make('Items', { props: Items.props }).build({
     children: items.children,
-    invoke: items.invoke,
   });
   const ItemsApp = {
     actor: ItemsActor,

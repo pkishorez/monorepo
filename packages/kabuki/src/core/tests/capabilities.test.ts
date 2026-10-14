@@ -43,7 +43,7 @@ describe('Requires and Provides', () => {
 
   it("a Child's needs bubble up until something Provides them", () => {
     const Orphan = Actor.make('Orphan', {}).build({
-      children: { todos: Todos },
+      children: { todos: { actor: Todos } },
     });
     const SessionLive = Layer.effect(
       Session,
@@ -62,7 +62,7 @@ describe('Requires and Provides', () => {
     const Wrong = Actor.make('Wrong', { state: AuthState }).build({
       init: () => ({ state: { _tag: 'Checking' } }),
       state: {
-        Anonymous: { children: { todos: Todos } },
+        Anonymous: { children: { todos: { actor: Todos } } },
         Authenticated: {
           provides: (self) =>
             Layer.effect(
@@ -93,7 +93,7 @@ describe('Requires and Provides', () => {
             return { user, logOut: Effect.void };
           }),
         ),
-      state: { Anonymous: { children: { todos: Todos } } },
+      state: { Anonymous: { children: { todos: { actor: Todos } } } },
     });
     const covered: Effect.Effect<unknown, never, Scope.Scope> =
       Runtime.start(Top);

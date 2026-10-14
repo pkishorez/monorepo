@@ -108,10 +108,9 @@ describe('Restore', () => {
       message: Schema.TaggedUnion({ Came: { name: Schema.String } }),
     }).build({
       init: () => ({ model: { guests: ['ada'] } }),
-      children: { guest: Actor.many(Counter) },
-      invoke: ({ model }) => ({
-        guest: model.guests.map((key) => ({ key })),
-      }),
+      children: {
+        guest: { actor: Counter, each: ({ model }) => model.guests },
+      },
       on: {
         Came: ({ name }, { model }) => ({
           model: { guests: [...model.guests, name] },
@@ -135,7 +134,7 @@ describe('Restore', () => {
   it('is ignored when a fixed Child its State Invokes is missing', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const Shelf = Actor.make('Shelf', {}).build({
-      children: { counter: Counter },
+      children: { counter: { actor: Counter } },
     });
     const shelf = init(Shelf.definition);
     const handled = handle(Shelf.definition, shelf, {

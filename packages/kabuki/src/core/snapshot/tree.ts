@@ -37,7 +37,7 @@ export const slotToward = (parent: string, id: string): string | undefined => {
   return end < 0 ? undefined : rest.slice(0, end);
 };
 
-/** Tells a keyed Child slot from a fixed one in an Instance's Children. */
+/** Tells the list of an `each` Child from one Instance in an Instance's Children. */
 export const isMany = (
   held: Instance | ReadonlyArray<Instance>,
 ): held is ReadonlyArray<Instance> => Array.isArray(held);

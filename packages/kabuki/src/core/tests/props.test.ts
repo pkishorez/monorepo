@@ -30,8 +30,9 @@ const Row = Actor.make('Row', {
   message: Schema.TaggedUnion({ Edited: {}, Ticked: {} }),
 }).build({
   init: ({ text }) => ({ model: { text, edits: 0, ticks: 0 } }),
-  children: { cell: Cell },
-  invoke: ({ props }) => ({ cell: { props: { lit: props.selected } } }),
+  children: {
+    cell: { actor: Cell, props: ({ props }) => ({ lit: props.selected }) },
+  },
   on: {
     Edited: (_, { model, props }) =>
       props.selected ? { model: { ...model, edits: model.edits + 1 } } : {},
@@ -62,14 +63,14 @@ const List = Actor.make('List', {
   }),
 }).build({
   init: () => ({ model: { ids: ['a', 'b', 'c'], selected: 'a', title: '' } }),
-  children: { rows: Actor.many(Row) },
-  invoke: ({ model }) => ({
-    rows: model.ids.map((id) => ({
-      key: id,
-      input: { text: id },
-      props: { selected: id === model.selected },
-    })),
-  }),
+  children: {
+    rows: {
+      actor: Row,
+      each: ({ model }) => model.ids,
+      input: (_, id) => ({ text: id }),
+      props: ({ model }, id) => ({ selected: id === model.selected }),
+    },
+  },
   on: {
     Selected: ({ id }, { model }) => ({ model: { ...model, selected: id } }),
     Retitled: ({ title }, { model }) => ({ model: { ...model, title } }),
@@ -182,10 +183,13 @@ describe('Props', () => {
 
   it('are checked against their Schema', () => {
     const Bad = Actor.make('Bad', {}).build({
-      children: { row: Row },
-      invoke: () => ({
-        row: { input: { text: 'x' }, props: { selected: 'yes' as never } },
-      }),
+      children: {
+        row: {
+          actor: Row,
+          input: () => ({ text: 'x' }),
+          props: () => ({ selected: 'yes' as never }),
+        },
+      },
     });
     expect(() => init(Bad.definition)).toThrow(
       /Row: the Props of Bad\/row#1 does not match its Schema/,
@@ -287,14 +291,16 @@ describe('the History', () => {
 
 export const types = () => [
   Actor.make('NeedsProps', {}).build({
-    children: { rows: Actor.many(Row) },
-    // @ts-expect-error a Child that declares Props must be handed them
-    invoke: () => ({ rows: [{ key: 'a', input: { text: 'a' } }] }),
+    children: {
+      // @ts-expect-error a Child that declares Props must be handed them
+      rows: { actor: Row, each: () => ['a'], input: () => ({ text: 'a' }) },
+    },
   }),
-  Actor.make('FixedNeedsProps', {}).build({
-    children: { cell: Cell },
-    // @ts-expect-error a fixed Child is handed `{ input, props }`, not its Props alone
-    invoke: () => ({ cell: { lit: true } }),
+  Actor.make('WrongProps', {}).build({
+    children: {
+      // @ts-expect-error its Props must be the ones its Actor declares
+      cell: { actor: Cell, props: () => ({ lit: 'yes' }) },
+    },
   }),
   Actor.make('Reads', {
     props: Schema.Struct({ n: Schema.Number }),

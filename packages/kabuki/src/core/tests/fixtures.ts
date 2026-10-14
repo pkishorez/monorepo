@@ -114,7 +114,7 @@ export const Auth = Actor.make('Auth', {
       },
     },
     Anonymous: {
-      children: { login: Login },
+      children: { login: { actor: Login } },
       provides: (self) =>
         Layer.succeed(SignIn, {
           complete: (user) => self.send({ _tag: 'LoggedIn', user }),
@@ -124,7 +124,7 @@ export const Auth = Actor.make('Auth', {
       },
     },
     Authenticated: {
-      children: { todos: Todos },
+      children: { todos: { actor: Todos } },
       provides: (self) =>
         Layer.effect(
           Session,
@@ -188,7 +188,7 @@ export const Counter = Actor.make('Counter', {
 });
 
 export const Board = Actor.make('Board', {}).build({
-  children: { left: Counter, right: Counter },
+  children: { left: { actor: Counter }, right: { actor: Counter } },
 });
 
 /** What work did, seen from outside. */
