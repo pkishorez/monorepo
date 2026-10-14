@@ -8,7 +8,7 @@ import { Actor, Runtime } from '../../core/index.ts';
 import { View, toReact } from '../../react/index.ts';
 import { registry } from '../../react/registry.ts';
 import { browser } from '../adapter/browser/index.ts';
-import { Route, Router, usePending } from '../index.ts';
+import { Route, Router, usePending, useRouter } from '../index.ts';
 import type { How } from '../index.ts';
 
 /*
@@ -329,6 +329,7 @@ describe('a page with pending and failed screens', () => {
       input: Schema.Struct({ name: Schema.String }),
     }),
     Plain: Route.path('/plain', { input: Schema.String }),
+    Note: Route.path('/note', { input: Schema.String }),
   });
   let open: () => void = () => {};
   let broken = false;
@@ -336,13 +337,22 @@ describe('a page with pending and failed screens', () => {
     Store,
     Store.loaders({
       Item: ({ id }) =>
-        Effect.promise(() => new Promise<void>((done) => (open = done))).pipe(
-          Effect.andThen(() =>
-            broken ? Effect.die('the shelf fell') : Effect.void,
-          ),
-          Effect.as({ name: `Lamp ${id}` }),
-        ),
-      Plain: () => Effect.die('no plain'),
+        id === 3
+          ? Effect.sleep('100 millis').pipe(
+              Effect.andThen(
+                Effect.fail(Route.redirect(Store.Item({ id: 2 }))),
+              ),
+            )
+          : Effect.promise(
+              () => new Promise<void>((done) => (open = done)),
+            ).pipe(
+              Effect.andThen(() =>
+                broken ? Effect.die(new Error('the shelf fell')) : Effect.void,
+              ),
+              Effect.as({ name: `Lamp ${id}` }),
+            ),
+      Plain: () => Effect.die(new Error('no plain')),
+      Note: () => Effect.die(new Error('no note')),
     }),
   );
   const ItemActor = Actor.make('Item', {
@@ -355,12 +365,18 @@ describe('a page with pending and failed screens', () => {
     props: Store.Plain.props,
   }).build({ init: () => ({}) });
   let showing: Array<string> = [];
+  function From() {
+    const { move } = useRouter();
+    return <p>from {move.from?._tag ?? 'nowhere'}</p>;
+  }
   const store = Store.outlet({
     Front: () => (
       <main>
         front
         <Router.Link to={Store.Item({ id: 2 })}>lamp</Router.Link>
+        <Router.Link to={Store.Item({ id: 3 })}>old lamp</Router.Link>
         <Router.Link to={Store.Plain()}>plain</Router.Link>
+        <Router.Link to={Store.Note()}>note</Router.Link>
       </main>
     ),
     Item: {
@@ -375,6 +391,7 @@ describe('a page with pending and failed screens', () => {
       ),
     },
     Plain: { actor: PlainActor, view: View.make(PlainActor, () => null) },
+    Note: (_props, note) => <main>{note}</main>,
   });
   const StoreActor = Actor.make('Store', { props: Store.props }).build({
     children: store.children,
@@ -383,23 +400,29 @@ describe('a page with pending and failed screens', () => {
   const StoreApp = {
     actor: StoreActor,
     view: View.make(StoreActor, (self) => (
-      <store.View of={self}>
-        {(page) => {
-          if (page) showing.push(page.showing);
-          return page && <div key={page.key}>{page.element}</div>;
-        }}
-      </store.View>
+      <>
+        <From />
+        <store.View of={self}>
+          {(page) => {
+            if (page) showing.push(page.showing);
+            return page && <div key={page.key}>{page.element}</div>;
+          }}
+        </store.View>
+      </>
     )),
   };
+  // Wide margins, so a slow machine lands nowhere near an edge.
   const wait = (ms: number) =>
     act(() => new Promise((done) => setTimeout(done, ms)));
-  const drawStore = async () => {
+  const drawStore = async (withFailed = true) => {
     history.replaceState(null, '', '/');
     showing = [];
     broken = false;
     const Root = Router.app(Store, StoreApp, {
-      pending: { delay: 20, minimum: 80 },
-      failed: ({ reason }) => <main>the app broke: {reason}</main>,
+      pending: { delay: 50, minimum: 400 },
+      ...(withFailed
+        ? { failed: ({ reason }) => <main>the app broke: {reason}</main> }
+        : {}),
     });
     const Drawn = toReact(
       Root.actor,
@@ -425,13 +448,14 @@ describe('a page with pending and failed screens', () => {
     await drawStore();
     await click('a[href="/items/2"]');
     expect(host.textContent).toContain('front');
-    await wait(40);
+    await wait(200);
     expect(host.textContent).toContain('loading item 2');
     expect(location.pathname).toBe('/items/2');
-    await wait(100);
+    await wait(300);
     await act(async () => open());
     await settle();
     expect(host.textContent).toContain('item Lamp 2');
+    expect(host.textContent).toContain('from Front');
     expect(showing.filter((each, at) => each !== showing[at - 1])).toEqual([
       'page',
       'pending',
@@ -442,15 +466,27 @@ describe('a page with pending and failed screens', () => {
   it('keeps the pending screen its minimum, so it never flashes', async () => {
     await drawStore();
     await click('a[href="/items/2"]');
-    await wait(30);
+    await wait(100);
     await act(async () => open());
     await settle();
     expect(host.textContent).toContain('loading item 2');
-    await wait(100);
+    await wait(500);
     expect(host.textContent).toContain('item Lamp 2');
   });
 
-  it('shows the failed screen when the move breaks, and a link to it tries again', async () => {
+  it('holds a failure as long, then shows the failed screen', async () => {
+    await drawStore();
+    broken = true;
+    await click('a[href="/items/2"]');
+    await wait(100);
+    await act(async () => open());
+    await settle();
+    expect(host.textContent).toContain('loading item 2');
+    await wait(500);
+    expect(host.textContent).toContain('item 2 broke: the shelf fell');
+  });
+
+  it('shows the failed screen when the move breaks; a link to it shows it until the pending screen would', async () => {
     await drawStore();
     broken = true;
     await click('a[href="/items/2"]');
@@ -460,16 +496,45 @@ describe('a page with pending and failed screens', () => {
     expect(location.pathname).toBe('/items/2');
     broken = false;
     await click('a[href="/items/2"]');
+    expect(host.textContent).toContain('item 2 broke');
+    await wait(200);
+    expect(host.textContent).toContain('loading item 2');
     await act(async () => open());
-    await wait(100);
+    await wait(500);
     expect(host.textContent).toContain('item Lamp 2');
+  });
+
+  it('keeps the move a Redirect ends a landed move with', async () => {
+    await drawStore();
+    await click('a[href="/items/3"]');
+    await wait(200);
+    expect(host.textContent).toContain('loading item 3');
+    await wait(600);
+    await act(async () => open());
+    await wait(500);
+    expect(location.pathname).toBe('/items/2');
+    expect(host.textContent).toContain('item Lamp 2');
+    expect(host.textContent).toContain('from Front');
   });
 
   it("shows the app's failed screen for a page with none", async () => {
     await drawStore();
     await click('a[href="/plain"]');
-    expect(host.textContent).toContain('the app broke');
+    expect(host.textContent).toContain('the app broke: no plain');
     expect(location.pathname).toBe('/plain');
+  });
+
+  it("shows the app's failed screen for a page a function draws", async () => {
+    await drawStore();
+    await click('a[href="/note"]');
+    expect(host.textContent).toContain('the app broke: no note');
+  });
+
+  it('stays on the page shown when no failed screen would show the failure', async () => {
+    await drawStore(false);
+    await click('a[href="/plain"]');
+    expect(host.textContent).toContain('front');
+    expect(location.pathname).toBe('/');
   });
 });
 
