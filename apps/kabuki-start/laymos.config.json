@@ -2,21 +2,22 @@
   "$schema": "../../devtools/laymos/schema.json",
   "sourceRoots": ["src"],
   "storiesPath": "stories",
-  "ignoredPaths": ["src/styles.css"],
+  "ignoredPaths": ["src/client/styles.css"],
   "fileModules": [
-    "src/routes.ts",
-    "src/app.tsx",
-    "src/document.tsx",
-    "src/loaders.server.ts",
-    "src/layer.server.ts"
+    "src/client/app.tsx",
+    "src/client/document.tsx",
+    "src/server/loaders.server.ts"
   ],
   "rules": {
-    "src/app.tsx": ["src/pages", "src/shell", "src/routes.ts"],
-    "src/document.tsx": ["src/theme"],
-    "src/loaders.server.ts": ["src/backend", "src/session", "src/routes.ts"],
-    "src/layer.server.ts": ["src/backend"],
-    "src/pages": ["src/parts", "src/session", "src/routes.ts"],
-    "src/shell": ["src/parts", "src/theme", "src/routes.ts"],
-    "src/parts": ["src/routes.ts"]
+    "src/client": ["src/shared"],
+    "src/client/app.tsx": [
+      "src/client/pages",
+      "src/client/components",
+      "src/client/document.tsx"
+    ],
+    "src/client/document.tsx": ["src/client/components"],
+    "src/client/pages": ["src/client/components"],
+    "src/server": ["src/shared", "src/infra"],
+    "src/server/loaders.server.ts": ["src/server/backend"]
   }
 }
