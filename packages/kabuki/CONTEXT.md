@@ -151,23 +151,43 @@ One typed place in the app, with its params and query: what a URL means once it 
 _Avoid_: page, path, location, screen
 
 **Routes**:
-The one definition of every Route in the app, a tree of places where a place can hold others. The same definition reads a URL into a Route, writes a Route back as a URL, and says each place's Metadata, so none of them can disagree.
+Every Route of the app, read down from the root Page through the Pages under each: the same definition reads a URL into a Route, writes a Route back as a URL, and says each place's Metadata, so none of them can disagree.
 _Avoid_: route table, route map
 
+**Page**:
+An Actor with a place in the URL, written as any Actor is, with its own Model, States, Messages, Children and Workers. It takes no Input: it exists before its data, and is handed its params, its query and its data's Status as Props. The Pages under it are its Children, there while the URL names them.
+_Avoid_: route component, screen, view (a Page's View is a View)
+
+**Place**:
+The Actor Kabuki writes around each Page, holding its data and loading it, and handing it to the Page as its Status. The Page above holds the Place, never the Page. A place is also where a Page sits in the Routes, named by its keys from the root, dotted: `Blog.Post`.
+_Avoid_: route actor, wrapper, loader actor
+
+**Status**:
+Where a Page's data is: loading, failed, or ready with it, and refreshing while it loads again behind what is shown. A Page draws all three itself.
+_Avoid_: loading state, pending, async state
+
 **Router**:
-The one Actor routing adds, above the app's own root: it holds the app's history, as entries and where it is in them, hands the app the current Route as Props, and is sent every move. The only thing in an app that knows about URLs.
+The one Actor routing adds, above the root Page's Place: it holds the app's history, as entries and where it is in them, holds a Move up to a moment while the Pages it brings load, and is sent every Move. It never holds a Page's data. The only thing in an app that knows about URLs.
 _Avoid_: navigator, history (Kabuki's History is another thing)
 
-**Outlet**:
-What an Actor whose Route holds others uses to serve them: one Child per child Route, of `each` key its params give, so it holds the Actor for the current one alone, and a View that draws it. A new param is a fresh page; a new query is the same page with new Props.
-_Avoid_: layout, wrapper, slot (on its own)
+**Data cache**:
+The last data each place loaded, one copy per place and params, newest first, kept in the browser outside the Snapshot. A Move to a Page with a copy, Back, a link, or a Preload, shows it at once; a dynamic or client Page loads it again behind it. Data reaches the app only in the Messages that bring it.
+_Avoid_: back cache, query cache, store
+
+**Preload**:
+A Message asking the Router to warm the Data cache, and load the code of the lazy Views, for a Route the app may move to: from a link on hover or once in view, or from an Update. Nothing comes back.
+_Avoid_: prefetch
+
+**Reload**:
+Loading every Page on screen again, its data shown meanwhile, and dropping every other copy in the Data cache: after a save, or to retry a Page that failed. The Pages, their Models and States, stay.
+_Avoid_: refresh (a browser's), invalidate, revalidate
 
 **Navigation**:
-The Capability the Router Provides to everything below it: Requests to push a Route, replace it, go back or forward, each one Message to the Router, with its Source. Moving between pages is a Child coming and going under an Outlet, never "a navigation".
+The Capability the Router Provides to everything below it: Requests to push a Route, replace it, go back or forward, Reload and Preload, each one Message to the Router, with its Source. Moving between Pages is a Child coming and going under a Page, never "a navigation".
 _Avoid_: router (the Actor), history
 
 **Move**:
-The last change of the Router's current entry: where from, where to, and how, a load, push, replace, back or forward. Each Outlet sees it at its own level, which is what a page's enter and exit animations read.
+The last change of the Router's current entry: where from, where to, and how, a load, push, replace, back or forward. What a Page's enter and exit animations read.
 _Avoid_: transition (Kabuki's Transition is another thing), navigation
 
 **Redirect**:
@@ -183,23 +203,15 @@ Where an app's Address lives: in memory, the default, so any app routes without 
 _Avoid_: backend, driver, host, mode
 
 **Metadata**:
-What a place says about itself to the browser and to search: its title, description and the tags that link and share it. Written in the Routes, from the Route and the place's Input, so a server works it out before it draws; a View never writes it.
+What a place says about itself to the browser and to search: its title, description and the tags that link and share it. Written on the Page, from its params and its data once there, so a server works it out before it draws; a View never writes it.
 _Avoid_: head (the History's Head is another thing), meta, SEO, document
 
 **Loader**:
-How a place gets its Input: one server function per place that declares one, given its params, and the request unless the place is static. The Routes declare the Input; a place that declares one and has no Loader is a type error. For a URL, the Loaders of every place it names run at once, none waiting on another, and each page starts from its own answer. A Loader that fails says the place is not found, or Redirects; one that breaks lands the move failed, for the Failed screen. Only places load: a part of a page starts from its defaults or Props.
+How a place gets its data: one server function per Page that declares data, given its params and query, and the request unless the place is static. A Page that declares data and has no Loader is a type error. Loaders never wait on one another: a Page and the Pages under it load side by side. A Loader that fails says the place is not found, or Redirects; one that breaks fails its Page alone. Only Pages load: a part of a Page starts from its defaults or Props.
 _Avoid_: fetcher, data function, middleware, load (Restore's avoided word)
 
-**Pending screen**:
-What a page's slot shows in its stead while its Loader runs, once a move has waited long enough to land without it. Named with the page; the page itself never sees it.
-_Avoid_: loading state, skeleton (one thing a screen may draw), pending component, placeholder
-
-**Failed screen**:
-What a page's slot shows in its stead when the move to it broke: the page's own, or the app's. A link to it again retries.
-_Avoid_: error boundary, error page, error component
-
 **Render Mode**:
-Where and when a place is first drawn, said in the Routes and inherited by the places it holds: static, the same for everyone and drawn once until the next deploy; dynamic, drawn for each request; client, drawn in the browser alone, the server sending everything above it. A place can only be drawn later than the place that holds it. Only the first drawing differs: after it, every move happens in the browser.
+Where and when a Page's data is first loaded, said on the Page and inherited by the Pages under it: static, the same for everyone and drawn once until the next deploy; dynamic, loaded for each request; client, loaded in the browser alone, the server sending the Page loading. Only the first drawing differs: after it, every move happens in the browser.
 _Avoid_: SSR, SSG, CSR, strategy
 
 ### Drawing

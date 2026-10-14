@@ -1,59 +1,19 @@
-import { NotFoundError, RedirectError, path, treeWith } from './route/index.ts';
-import type {
-  Metadata,
-  Misdrawn,
-  Redirects,
-  RouteOf,
-  Tree,
-} from './route/index.ts';
 import {
-  Link,
-  app,
+  Loading,
   back,
   backTo,
+  cached,
   forward,
   memory,
-  outletOf,
+  preload,
   push,
+  reload,
   replace,
-} from './router/index.ts';
-import type { AnyRoute } from './router/index.ts';
-
-type Options<C, D> = {
-  readonly redirect?: D & Redirects<C, D>;
-  /** The root's Metadata, under every place's: the site's name, its default description. */
-  readonly metadata?: Metadata;
-  /** The not-found Route's Metadata, over the root's. */
-  readonly notFound?: Metadata;
-};
-
-/** A tree with a place drawn earlier than the place that holds it names the place, and is refused. */
-type Checked<C> = [Misdrawn<C>] extends [never]
-  ? unknown
-  : {
-      readonly 'a place is drawn earlier than the place that holds it': Misdrawn<C>;
-    };
-
-/**
- * Every place of an app, as one tree of `Route.path` nodes: a constructor
- * per place, a Schema per node and per Input, the URL both ways, each
- * place's Metadata and Render Mode, the typing of its Loaders, and an
- * outlet per node with children. `redirect` names paths that are never a
- * place, each with the Route that replaces it, from its params; `metadata`
- * is the root's, under every place's, and `notFound` the not-found Route's.
- */
-const tree = <
-  C extends object,
-  const D extends Readonly<
-    Record<string, (routes: Tree<C, RouteOf<C>, {}>, params: any) => RouteOf<C>>
-  > = {},
->(
-  children: C & Checked<C>,
-  options?: Options<C, D>,
-) =>
-  treeWith<C, D>(children, options ?? {}, (node, at) => ({
-    outlet: outletOf(node, at),
-  }));
+} from './capability/index.ts';
+import type { AnyRoute } from './capability/index.ts';
+import { page, tree, view } from './page/index.ts';
+import { NotFoundError, RedirectError } from './route/index.ts';
+import { Link, Retry, app } from './router/index.ts';
 
 /** A Loader's failure: the place it was asked for is not found. */
 const notFound = () => new NotFoundError();
@@ -62,13 +22,16 @@ const notFound = () => new NotFoundError();
 const redirect = (route: AnyRoute) => new RedirectError({ route });
 
 /**
- * Writing an app's places: `Route.tree` and `Route.path`; and what a
- * Loader fails with, `Route.notFound()` and `Route.redirect(route)`, whose
- * Schemas are `Route.NotFound` and `Route.Redirect`.
+ * Writing an app's pages: `Route.page` makes one, an Actor with a place in
+ * the URL; `Route.view` draws it; `Route.tree` reads the Routes down from
+ * the root page. A Loader fails with `Route.notFound()` and
+ * `Route.redirect(route)`, whose Schemas are `Route.NotFound` and
+ * `Route.Redirect`.
  */
 export const Route = {
+  page,
+  view,
   tree,
-  path,
   notFound,
   redirect,
   NotFound: NotFoundError,
@@ -83,20 +46,25 @@ export declare namespace Route {
 }
 
 /**
- * The router: `Router.app` puts it above an app's root and `Link` draws
- * inside it; `push`, `replace`, `back`, `forward` and `backTo` are Commands
- * an Update returns to move the app; `memory` is a `Loading` that runs the
- * Loaders in place.
+ * The router: `Router.app` puts it above an app's root page, and `Link` and
+ * `Retry` draw inside it; `push`, `replace`, `back`, `forward`, `backTo`,
+ * `reload` and `preload` are Commands an Update returns; `memory` is a
+ * `Loading` that runs the Loaders in place, and `cached` puts the Data
+ * cache in front of one.
  */
 export const Router = {
   app,
   Link,
+  Retry,
   memory,
+  cached,
   push,
   replace,
   back,
   forward,
   backTo,
+  reload,
+  preload,
 };
 
-export type { RouteOf };
+export { Loading };

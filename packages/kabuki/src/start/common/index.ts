@@ -5,13 +5,12 @@ export { Document } from './document.tsx';
 export { ID, PageContext, readPage, serialize, usePage } from './page.ts';
 export type { Assets, Build, Drawing, Drawn, Page, Script } from './page.ts';
 export {
+  NDJSON,
   PATH,
   loadable,
   readAsk,
-  readInputs,
-  readRoute,
+  readLine,
   writeAsk,
-  writeInputs,
-  writeRoute,
+  writeLine,
 } from './wire.ts';
-export type { Answer, RoutesOnWire, Wanted } from './wire.ts';
+export type { Line, RoutesOnWire, Wanted } from './wire.ts';

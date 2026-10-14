@@ -1,6 +1,5 @@
 import { Effect, Schema } from 'effect';
-import { Actor } from '@kestack/kabuki';
-import { Navigation, Router } from '@kestack/kabuki/routing';
+import { Navigation, Route, Router } from '@kestack/kabuki/routing';
 import { PROJECTS, Routes } from '../../routes/index.ts';
 
 /**
@@ -8,9 +7,10 @@ import { PROJECTS, Routes } from '../../routes/index.ts';
  * dashboard is open, and its one Message that moves the app does it from an
  * Update, with a Command.
  */
-export const DashboardActor = Actor.make('Dashboard', {
+export const Dashboard = Route.page({
+  path: '/dashboard',
+  metadata: { title: 'Dashboard · Acme' },
   requires: [Navigation],
-  props: Routes.Dashboard.props,
   model: Schema.Struct({ ticks: Schema.Number }),
   message: Schema.TaggedUnion({ Ticked: {}, SurpriseClicked: {} }),
 }).build({
@@ -28,7 +28,7 @@ export const DashboardActor = Actor.make('Dashboard', {
   on: {
     Ticked: (_, { model }) => ({ model: { ticks: model.ticks + 1 } }),
     SurpriseClicked: (_, { model }) => ({
-      command: Router.push(
+      command: Router.push(() =>
         Routes.Projects.Project({
           id: PROJECTS[model.ticks % PROJECTS.length]!.id,
         }),

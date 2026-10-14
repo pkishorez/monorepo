@@ -24,7 +24,7 @@ const tool =
  * the browser's.
  */
 export function Toolbar() {
-  const router = useRouter();
+  const router = useRouter<Route>();
   const [open, setOpen] = useState(false);
   const path = router.href.startsWith(BASE)
     ? router.href.slice(BASE.length) || '/'
@@ -86,7 +86,7 @@ export function Toolbar() {
                   {index + 1}
                 </span>
                 <code className="truncate font-mono">
-                  {Routes.path(entry.route as Route)}
+                  {Routes.path(entry.route)}
                 </code>
               </button>
             </li>
@@ -97,11 +97,13 @@ export function Toolbar() {
   );
 }
 
-const NAV = [
-  ['Dashboard', Routes.Dashboard(), LayoutDashboard],
-  ['Projects', Routes.Projects.List(), FolderKanban],
-  ['Settings', Routes.Settings.Profile(), Settings2],
-] as const;
+/** Where the signed-in app goes. Made when drawn: the Routes read this module before they are made. */
+const nav = () =>
+  [
+    ['Dashboard', Routes.Dashboard(), LayoutDashboard],
+    ['Projects', Routes.Projects(), FolderKanban],
+    ['Settings', Routes.Settings(), Settings2],
+  ] as const;
 
 /** The signed-in app around a page: where to go, and who is signed in. */
 export function Shell({
@@ -110,11 +112,13 @@ export function Shell({
   onSignOut,
   children,
 }: {
-  readonly route: Route;
+  /** The Route the app is at; none on a URL that names no place. */
+  readonly route: Route | undefined;
   readonly name: string;
   readonly onSignOut: () => void;
   readonly children: ReactNode;
 }) {
+  const NAV = nav();
   return (
     <div className="flex min-h-0 flex-1">
       <aside className="flex w-48 shrink-0 flex-col gap-1 border-r border-border p-3 max-@2xl:hidden">
@@ -125,7 +129,7 @@ export function Shell({
           <Router.Link
             key={label}
             to={to}
-            aria-current={route._tag === to._tag ? 'page' : undefined}
+            aria-current={route?._tag === to._tag ? 'page' : undefined}
             className="flex h-8 items-center gap-2 rounded-lg px-2 text-[13px] text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground aria-[current=page]:bg-muted aria-[current=page]:font-medium aria-[current=page]:text-foreground"
           >
             <Icon className="size-4" />
@@ -184,7 +188,10 @@ export function Landing() {
         <Router.Link className={chip} to={Routes.Settings.Billing.Invoices()}>
           Straight to the invoices
         </Router.Link>
-        <Router.Link className={chip} to={Routes.Projects.Share({ id: 3 })}>
+        <Router.Link
+          className={chip}
+          to={Routes.Projects.Project.Share({ id: 3 })}
+        >
           Straight to a dialog
         </Router.Link>
       </div>
@@ -249,7 +256,8 @@ export function NotFound({ path }: { readonly path: string }) {
     >
       <Case title="Not found is a place too">
         A URL that names nothing, or a param that does not read, like
-        /projects/abc, is the not-found Route: the app draws it like any page.
+        /projects/abc, is the not-found Route: the root page is handed its path,
+        and draws it like any page.
       </Case>
       <div>
         <Router.Link className={chip} to={Routes.Dashboard()}>

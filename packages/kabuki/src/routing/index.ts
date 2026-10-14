@@ -1,21 +1,23 @@
-export { Route, Router } from './routing.ts';
-export { Loading, Navigation, usePending, useRouter } from './router/index.ts';
+export { Loading, Route, Router } from './routing.ts';
+export { Navigation, outcomeOf } from './capability/index.ts';
+export type { Answer, AnyRoute, To, Wanted } from './capability/index.ts';
+export { usePending, useRouter } from './router/index.ts';
+export type { Entry, LinkProps, Pending, RouterState } from './router/index.ts';
 export type {
-  AnyRoute,
-  Entry,
-  LinkProps,
-  Pending,
-  RouterState,
-} from './router/index.ts';
+  AnyPage,
+  Known,
+  Page,
+  PageProps,
+  Preload,
+  Status,
+  Where,
+} from './page/index.ts';
 export type {
-  Drawn,
   How,
   LevelOf,
   Metadata,
-  Move,
   NotFound,
-  Outlet,
-  PropsOf,
+  Outcome,
   RenderMode,
   RouteOf,
 } from './route/index.ts';

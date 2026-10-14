@@ -1,11 +1,11 @@
 import { Exit, Schema } from 'effect';
-import type { Codec, PlaceSchema } from '../../routing/route/index.ts';
+import type { Codec, Outcome, PlaceSchema } from '../../routing/route/index.ts';
 
 /*
- * The Loader RPC: how the browser asks the server for the Inputs of the
+ * The Loader RPC: how the browser asks the server for the data of the
  * places a move needs, all in one request. Made from the Routes, so it
- * cannot disagree with them: a place with an Input is one call, its params
- * the payload, its Input the answer, NotFound or Redirect its failure.
+ * cannot disagree with them: a place with data is one call, what its Loader
+ * is handed the payload, and its outcome the answer.
  *
  * It is a fixed JSON protocol over the Routes' Schemas rather than an
  * `effect/rpc` group: a move asks for all its places at once, which one
@@ -18,13 +18,16 @@ export const PATH = '/_kabuki/load';
 
 /*
  * The Loader RPC's messages, in JSON, each value written with the Routes' own
- * Schemas: a place's params with its params Schema, its Input with its Input
- * Schema, a Redirect's Route with the Route Schema.
+ * Schemas: what a place's Loader is handed with its params Schema, its data
+ * with its data Schema, a Redirect's Route with the Route Schema. Each place
+ * is answered on its own line, as soon as its Loader is done, so a quick
+ * place never waits on a slow one, and one that breaks fails its page alone.
  *
  *   ask     { places: [{ name: 'Blog.Post', params: { slug: 'hello' } }] }
- *   answer  { _tag: 'Loaded', inputs: { 'Blog.Post': { … } } }
- *         | { _tag: 'NotFound' }
- *         | { _tag: 'Redirect', route: { _tag: 'Blog', page: … } }
+ *   answer  one line of JSON per place, in the order they finish:
+ *           { name: 'Blog.Post', outcome: { _tag: 'Loaded', data: { … } } }
+ *           each outcome one of  { _tag: 'Loaded', data }  { _tag: 'NotFound' }
+ *                        { _tag: 'Redirect', route }  { _tag: 'Broken', reason }
  */
 
 /** What the wire needs of a Routes tree: every place, and the Schema of every Route. */
@@ -33,13 +36,14 @@ export interface RoutesOnWire {
   readonly route: Codec<unknown>;
 }
 
-export type Answer =
-  | {
-      readonly _tag: 'Loaded';
-      readonly inputs: Readonly<Record<string, unknown>>;
-    }
-  | { readonly _tag: 'NotFound' }
-  | { readonly _tag: 'Redirect'; readonly route: unknown };
+/** One line of the answer: what loading one place came to. */
+export interface Line {
+  readonly name: string;
+  readonly outcome: Outcome;
+}
+
+/** The answer's media type: one JSON value per line. */
+export const NDJSON = 'application/x-ndjson';
 
 /** A place to load, decoded: its dotted name and its params. */
 export interface Wanted {
@@ -53,7 +57,7 @@ const Ask = Schema.Struct({
   ),
 });
 
-/** Every place with an Input, by dotted name: only those can be asked for. */
+/** Every place with data, by dotted name: only those can be asked for. */
 export const loadable = (routes: RoutesOnWire) =>
   new Map(
     routes.every.flatMap((place) =>
@@ -66,9 +70,7 @@ type Places = ReturnType<typeof loadable>;
 const placeOf = (places: Places, name: string) => {
   const place = places.get(name);
   if (!place)
-    throw new Error(
-      `[@kestack/kabuki/start] ${name} is not a place with an Input`,
-    );
+    throw new Error(`[@kestack/kabuki/start] ${name} is not a place with data`);
   return place;
 };
 
@@ -100,35 +102,39 @@ export const readAsk = (places: Places, body: unknown): ReadonlyArray<Wanted> =>
     ),
   }));
 
-const inputsWith =
+const outcomeWith =
   (direction: 'encode' | 'decode') =>
-  (places: Places, inputs: Readonly<Record<string, unknown>>) =>
-    Object.fromEntries(
-      Object.entries(inputs).map(([name, input]) => {
-        const schema = placeOf(places, name).input!;
-        return [
-          name,
-          sync(
-            direction === 'encode'
-              ? Schema.encodeUnknownExit(schema)(input)
-              : Schema.decodeUnknownExit(schema)(input),
-            `the Input of ${name} does not match its Schema`,
+  (routes: RoutesOnWire, places: Places, { name, outcome }: Line): Line => {
+    const code = (schema: Codec<unknown>) => (value: unknown) =>
+      direction === 'encode'
+        ? Schema.encodeUnknownExit(schema)(value)
+        : Schema.decodeUnknownExit(schema)(value);
+    if (outcome._tag === 'Loaded')
+      return {
+        name,
+        outcome: {
+          _tag: 'Loaded',
+          data: sync(
+            code(placeOf(places, name).input!)(outcome.data),
+            `the data of ${name} does not match its Schema`,
           ),
-        ];
-      }),
-    );
+        },
+      };
+    if (outcome._tag === 'Redirect')
+      return {
+        name,
+        outcome: {
+          _tag: 'Redirect',
+          route: sync(
+            code(routes.route)(outcome.route),
+            'a Redirect names no Route',
+          ),
+        },
+      };
+    return { name, outcome };
+  };
 
-export const writeInputs = inputsWith('encode');
-export const readInputs = inputsWith('decode');
-
-export const writeRoute = (routes: RoutesOnWire, route: unknown) =>
-  sync(
-    Schema.encodeUnknownExit(routes.route)(route),
-    'a Redirect names no Route',
-  );
-
-export const readRoute = (routes: RoutesOnWire, route: unknown) =>
-  sync(
-    Schema.decodeUnknownExit(routes.route)(route),
-    'a Redirect names no Route',
-  );
+/** One place's outcome as a line, its data and Redirect written with their Schemas. */
+export const writeLine = outcomeWith('encode');
+/** A line read back with its Schemas. */
+export const readLine = outcomeWith('decode');

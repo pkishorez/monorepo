@@ -3,10 +3,12 @@
 A handoff for a new session. It records what was decided, why, and what was
 tried and dropped, so the work can start without the original discussion.
 
-Status: **design agreed; its groundwork built.** Branch `feat/kabuki-routing`.
-Built first: Children are written as Workers are ([ADR 0034](adr/0034-a-child-is-written-as-a-worker-is.md)):
-`children: { page: { actor, while?, each?, input?, props? } }`, with no
-`invoke` and no `Actor.many`. A Route Actor's page is one such Child.
+Status: **built** on `feat/kabuki-routing`: the library, Start, the example
+app `apps/kabuki-start` and the docs demo. How it works now is
+[routing.md](routing.md) and
+[ADR 0035](adr/0035-a-page-is-an-actor-and-its-place-loads-its-data.md);
+this plan stays as the record of how the design was reached. The "Route
+Actor" below was named the Place when it was built.
 
 A visual walkthrough of the final model sits beside this file:
 [plan-walkthrough.html](plan-walkthrough.html). Open it in a browser. It steps
@@ -277,6 +279,25 @@ These override the text above where they differ. Rename at implementation.
   reload, batching; port `apps/kabuki-start`, the `apps/docs` routing demos
   and devtools fixtures. Later: devtools folding Places, the `<head>`
   request for `client` pages, preload History growth.
+
+### Found while building
+
+- **A move takes a function that makes the Route.** The Routes' type is
+  worked out from the pages, so an Update that returns
+  `Router.push(Routes.X())` types the page from itself and TypeScript gives
+  up. `Router.push(() => Routes.X())` is typed `() => any`, which TypeScript
+  never works out while typing the page; the body is still checked.
+- **`Route.tree(() => App)` reads the root once first used**, so the pages
+  can import the Routes without a module-order crash.
+- **The Loader RPC answers each place on its own line.** One request with
+  one answer made a quick page wait for the slowest; now each is answered as
+  its Loader is done, still one request.
+- **The Data cache asks `Loading.each`**, which answers places as they come,
+  and the memory `Loading` does the same.
+- **Pages without data** have no `status` Prop; their Place is always
+  `Ready`, its data `null`.
+- **A server draws a client page loading**, not empty, and a failed page with
+  a `404` or `500`, the pages above it drawn.
 
 ## Costs and open questions
 

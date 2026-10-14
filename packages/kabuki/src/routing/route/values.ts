@@ -1,66 +1,23 @@
 import { Schema } from 'effect';
-import { dotted, hasChildren } from './node.ts';
-import type {
-  AnyNode,
-  Children,
-  Codec,
-  Fields,
-  Inputs,
-  Value,
-} from './node.ts';
+import { dotted } from './node.ts';
+import type { AnyNode, Children, Codec, Fields, Value } from './node.ts';
 
 /*
- * A Route's values: the Schema of each level and of each node's Props, the
- * value one level down, the key of a node's params, and the Inputs a node
- * hands down.
+ * A Route's values: the Schema of each level, the key of a node's params,
+ * the own params and query of a value, and every place's data Schema.
  */
 
 /** The Schema of the fields a node's value holds besides its tag. */
 const fieldsOf = (node: AnyNode): Fields => ({
   ...node.params,
   ...node.query,
-  ...(hasChildren(node) ? { page: levelSchema(node.children, false) } : {}),
+  ...(Object.keys(node.children).length > 0
+    ? { page: Schema.optionalKey(levelSchema(node.children, false)) }
+    : {}),
 });
 
-/** Every place below `at` that has an Input, with its dotted name. */
-const inputsBelow = (
-  children: Children,
-  at: ReadonlyArray<string>,
-): ReadonlyArray<readonly [string, Codec<unknown>]> =>
-  Object.entries(children).flatMap(([tag, node]) => [
-    ...(node.input
-      ? [[dotted([...at, tag]), node.input as Codec<unknown>] as const]
-      : []),
-    ...inputsBelow(node.children, [...at, tag]),
-  ]);
-
-/** The Schema of the Inputs of the places below `at`, each there once loaded. */
-export const inputsSchema = (
-  children: Children,
-  at: ReadonlyArray<string>,
-): Codec<Inputs> | undefined => {
-  const below = inputsBelow(children, at);
-  if (below.length === 0) return undefined;
-  return Schema.Struct(
-    Object.fromEntries(
-      below.map(([name, input]) => [name, Schema.optionalKey(input)]),
-    ),
-  ) as unknown as Codec<Inputs>;
-};
-
-/** The Schema of a node's Props: its value's fields, and the Inputs below it if any place there has one. */
-export const propsFieldsOf = (
-  node: AnyNode,
-  at: ReadonlyArray<string>,
-): Fields => {
-  const inputs = inputsSchema(node.children, at);
-  return {
-    ...fieldsOf(node),
-    ...(inputs ? { inputs: Schema.optionalKey(inputs) } : {}),
-  };
-};
-
 const cache = new WeakMap<object, Codec<unknown>>();
+/** The Schema of one level: a case per child, and at the root the not-found Route. */
 export const levelSchema = (
   children: Children,
   root: boolean,
@@ -76,11 +33,32 @@ export const levelSchema = (
   return schema;
 };
 
-/** A node's value without its tag: what its Actor is handed. */
-export const propsOf = (value: Value): Record<string, unknown> => {
-  const { _tag: _, ...rest } = value;
-  return rest;
-};
+/** Every place with data, by dotted name, with its data's Schema. */
+export const dataSchemas = (
+  children: Children,
+  at: ReadonlyArray<string> = [],
+): ReadonlyArray<readonly [string, Codec<unknown>]> =>
+  Object.entries(children).flatMap(([tag, node]) => [
+    ...(node.input
+      ? [[dotted([...at, tag]), node.input as Codec<unknown>] as const]
+      : []),
+    ...dataSchemas(node.children, [...at, tag]),
+  ]);
+
+/** The fields of a value that `fields` names. */
+export const pick = (
+  fields: Fields,
+  value: Value | undefined,
+): Record<string, unknown> =>
+  Object.fromEntries(
+    Object.keys(fields)
+      .filter((key) => value?.[key] !== undefined)
+      .map((key) => [key, value![key]]),
+  );
+
+/** The params of a node's value, as one string: two values with the same params are the same place. */
+export const paramsKey = (node: AnyNode, value: Value): string =>
+  JSON.stringify(Object.keys(node.params).map((key) => value[key]));
 
 /** The value one level down a path of tags, if the Route goes that way. */
 export const valueAt = (
@@ -91,21 +69,4 @@ export const valueAt = (
   for (const tag of at)
     value = value?._tag === tag ? (value.page as Value | undefined) : undefined;
   return value;
-};
-
-/** The params of a node's value, as one string: two values with the same params are the same place. */
-export const paramsKey = (node: AnyNode, value: Value): string =>
-  JSON.stringify(Object.keys(node.params).map((key) => value[key]));
-
-/** The Inputs of the places below `at`: what a node hands down in its Props. */
-export const inputsUnder = (
-  inputs: Inputs | undefined,
-  at: ReadonlyArray<string>,
-): Inputs | undefined => {
-  if (!inputs) return undefined;
-  const prefix = at.length === 0 ? '' : `${dotted(at)}.`;
-  const below = Object.entries(inputs).filter(([name]) =>
-    name.startsWith(prefix),
-  );
-  return below.length === 0 ? undefined : Object.fromEntries(below);
 };

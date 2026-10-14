@@ -57,7 +57,6 @@ export const match = (
   for (const [tag, node] of Object.entries(children)) {
     const template = segments(node.path);
     if (template.length > rest.length) continue;
-    if (!hasChildren(node) && template.length !== rest.length) continue;
     const raw = fit(template, rest);
     if (!raw) continue;
     const params = decode(node.params, raw);
@@ -71,9 +70,14 @@ export const match = (
       ),
     );
     if (!params || !query) continue;
-    if (!hasChildren(node)) return { _tag: tag, ...params, ...query };
-    const page = match(node.children, rest.slice(template.length), search);
-    if (page) return { _tag: tag, ...params, ...query, page };
+    const own = { _tag: tag, ...params, ...query };
+    const below = rest.slice(template.length);
+    const page = hasChildren(node)
+      ? match(node.children, below, search)
+      : undefined;
+    if (page) return { ...own, page };
+    // A page with pages is a place on its own too, when the URL ends at it.
+    if (below.length === 0) return own;
   }
   return undefined;
 };
@@ -95,5 +99,5 @@ export const write = (
     );
   for (const [key, found] of Object.entries(encode(node.query, value)))
     out.query.set(key, String(found));
-  if (hasChildren(node)) write(node.children, value.page as Value, out);
+  if (value.page) write(node.children, value.page as Value, out);
 };

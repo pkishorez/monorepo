@@ -20,5 +20,12 @@
     "src/demos/kabuki-routing/app/sign-in": [
       "src/demos/kabuki-routing/app/capabilities"
     ]
-  }
+  },
+  "exceptions": [
+    {
+      "from": "src/demos/kabuki-routing/routes",
+      "to": "src/demos/kabuki-routing/app",
+      "because": "The Routes are read down from the root page, once first used; the pages read the Routes only when they run."
+    }
+  ]
 }

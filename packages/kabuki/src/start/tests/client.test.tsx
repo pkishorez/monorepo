@@ -108,13 +108,19 @@ describe('hydrating a page Start drew', () => {
     expect(errors).toEqual([]);
   });
 
-  it('draws a client place with no Input once hydrated, as the browser', async () => {
+  it('keeps a client place with no data as the server drew it: it waited on nothing', async () => {
     const drawn = await open('/sketch');
-    expect(drawn).not.toContain('the sketch');
+    expect(drawn).toContain('the sketch');
     await until(() => document.querySelector('#sketch') !== null);
-    expect(document.querySelector('#sketch .stamp')!.textContent).toBe(
-      'drawn by the browser, dev',
-    );
+    expect(document.body.innerHTML).toBe(drawn);
+    expect(errors).toEqual([]);
+  });
+
+  it('keeps a page the server drew failed, and loads nothing again', async () => {
+    const drawn = await open('/blog/missing');
+    await until(() => document.body.textContent!.includes('not found'));
+    expect(document.body.innerHTML).toBe(drawn);
+    expect(runs.sort()).toEqual(['Blog', 'Blog.Post:missing']);
     expect(errors).toEqual([]);
   });
 

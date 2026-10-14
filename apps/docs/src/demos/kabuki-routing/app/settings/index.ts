@@ -1,4 +1,2 @@
-import { SettingsActor } from './settings.ts';
-import { SettingsView } from './view.tsx';
-
-export const Settings = { actor: SettingsActor, view: SettingsView };
+export { Settings } from './settings.ts';
+export { SettingsView } from './view.tsx';

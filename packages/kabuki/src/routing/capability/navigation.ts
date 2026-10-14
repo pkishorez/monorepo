@@ -6,6 +6,20 @@ import { Command } from '../../core/index.ts';
 export type AnyRoute = { readonly _tag: string };
 
 /**
+ * Where a move goes: a Route, or a function that makes one, called as the
+ * move is asked for. A page's Update or Worker hands a function,
+ * `Router.push(() => Routes.Blog())`: the Routes' type is worked out from
+ * the pages, so a page must not need it to be typed. Its return is `any`
+ * for that reason alone; what the function does is still checked.
+ */
+// oxlint-disable-next-line typescript/no-explicit-any -- a function's return typed `any` is never worked out while the page is typed.
+export type To = AnyRoute | (() => any);
+
+/** The Route `to` names. */
+export const routeOf = (to: To): AnyRoute =>
+  typeof to === 'function' ? (to() as AnyRoute) : to;
+
+/**
  * The Capability the router Provides to everything below it: Requests that
  * move the app, each one Message to the router, with who asked. An Actor
  * that moves the app from an Update lists it in its Requires and returns
@@ -14,12 +28,16 @@ export type AnyRoute = { readonly _tag: string };
 export class Navigation extends Context.Service<
   Navigation,
   {
-    readonly push: (route: AnyRoute) => Effect.Effect<void>;
-    readonly replace: (route: AnyRoute) => Effect.Effect<void>;
+    readonly push: (to: To) => Effect.Effect<void>;
+    readonly replace: (to: To) => Effect.Effect<void>;
     readonly back: Effect.Effect<void>;
     readonly forward: Effect.Effect<void>;
     /** Back, if the entry before is `route`; else replace this entry with it. */
-    readonly backTo: (route: AnyRoute) => Effect.Effect<void>;
+    readonly backTo: (to: To) => Effect.Effect<void>;
+    /** Load every place on screen again, its data shown meanwhile, and drop every other copy the Data cache keeps. */
+    readonly reload: Effect.Effect<void>;
+    /** Warm the Data cache, and the code of the lazy Views, for a Route the app may move to. */
+    readonly preload: (to: To) => Effect.Effect<void>;
   }
 >()('@kestack/kabuki/routing/Navigation') {}
 
@@ -44,13 +62,24 @@ const backingTo = Command.make('back to', {
   args,
   run: ({ route }) => Navigation.use((navigation) => navigation.backTo(route)),
 });
+const reloading = Command.make('reload', {
+  run: () => Navigation.use((navigation) => navigation.reload),
+});
+const preloading = Command.make('preload', {
+  args,
+  run: ({ route }) => Navigation.use((navigation) => navigation.preload(route)),
+});
 
 /** Move to a Route, as a new entry. */
-export const push = (route: AnyRoute) => pushing({ route });
+export const push = (to: To) => pushing({ route: routeOf(to) });
 /** Put a Route in place of this entry: Back skips what was here. */
-export const replace = (route: AnyRoute) => replacing({ route });
+export const replace = (to: To) => replacing({ route: routeOf(to) });
 /** The browser's Back, or the memory history's. */
 export const back = () => backing();
 export const forward = () => forwarding();
 /** Close something with a Route of its own, like a dialog: Back if the app came from `route`, else replace this entry with it. */
-export const backTo = (route: AnyRoute) => backingTo({ route });
+export const backTo = (to: To) => backingTo({ route: routeOf(to) });
+/** Load every place on screen again, as after a save: the data shown stays until the new data comes. */
+export const reload = () => reloading();
+/** Warm the Data cache for a Route the app may move to next. */
+export const preload = (to: To) => preloading({ route: routeOf(to) });

@@ -68,6 +68,8 @@ export const loaders = Routes.loaders({
       begin(`Blog.Post:${slug}`);
       if (slug === 'moved')
         return yield* Route.redirect(Routes.Blog.Post({ slug: 'hello' }));
+      if (slug === 'broken')
+        return yield* Effect.die(new Error('the post broke'));
       const post = POSTS.find((each) => each.slug === slug);
       if (!post) return yield* Route.notFound();
       return post;

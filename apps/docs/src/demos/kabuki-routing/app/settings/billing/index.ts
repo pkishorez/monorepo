@@ -1,4 +1,2 @@
-import { BillingActor } from './billing.ts';
-import { BillingView } from './view.tsx';
-
-export const Billing = { actor: BillingActor, view: BillingView };
+export { Billing } from './billing.ts';
+export { BillingView } from './view.tsx';

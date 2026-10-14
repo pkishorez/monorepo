@@ -1,51 +1,40 @@
-export { treeWith } from './route.ts';
-export { path } from './node.ts';
+export { routesOf } from './route.ts';
+export type { RoutesApi, RoutesOptions } from './route.ts';
+export { dotted } from './node.ts';
 export type {
   AnyNode,
   Children,
+  ChildrenOf,
   Codec,
-  Inputs,
+  DataOf,
+  Fields,
+  How,
   LevelOf,
-  Misdrawn,
+  MetadataOf,
   Node,
   NotFound,
   Place,
+  PlaceData,
   PlaceSchema,
   PlacesOf,
-  PropsOf,
   Read,
   Redirects,
-  RootProps,
   RouteOf,
+  Simplify,
   Tree,
   Value,
   ValueOf,
 } from './node.ts';
-export {
-  inputsSchema,
-  inputsUnder,
-  levelSchema,
-  paramsKey,
-  propsOf,
-  valueAt,
-} from './values.ts';
-export { placeKey } from './places.ts';
+export { levelSchema, paramsKey, pick, valueAt } from './values.ts';
+export { nodesOn } from './places.ts';
 export { NotFoundError, RedirectError } from './loader.ts';
 export type {
   LoadError,
   Loaders,
+  Outcome,
   PlaceType,
   RenderMode,
   StaticOf,
 } from './loader.ts';
-export { MANAGED, tagsOf } from './metadata.ts';
+export { MANAGED, merge, tagsOf } from './metadata.ts';
 export type { Metadata, Tag } from './metadata.ts';
-export type {
-  Drawn,
-  Failure,
-  How,
-  Move,
-  Outlet,
-  OutletOf,
-  PageOf,
-} from './outlet.ts';

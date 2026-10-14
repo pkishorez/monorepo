@@ -1,27 +1,31 @@
-// oxlint-disable-next-line no-restricted-imports -- the Metadata is written to the document, which only an effect may touch.
-import { createContext, use, useEffect } from 'react';
-import type { AnchorHTMLAttributes, ReactNode } from 'react';
+// oxlint-disable-next-line no-restricted-imports -- the Metadata is written to the document, and a link watches its hover and its place on screen: each only an effect may do.
+import { createContext, use, useEffect, useRef } from 'react';
+import type {
+  AnchorHTMLAttributes,
+  ButtonHTMLAttributes,
+  FocusEvent,
+  MouseEvent,
+  ReactNode,
+  TouchEvent,
+} from 'react';
+import type { AnyRoute } from '../capability/index.ts';
+import type { Preload } from '../page/index.ts';
 import { MANAGED, tagsOf } from '../route/index.ts';
-import type { Failure, How, Inputs, Metadata } from '../route/index.ts';
-import type { AnyRoute } from './navigation.ts';
+import type { How, Metadata } from '../route/index.ts';
 
-/** One entry of the router's history: its Route, and the Inputs of its places by dotted name. */
+/** One entry of the router's history: its key and its Route. */
 export interface Entry<Route extends AnyRoute = AnyRoute> {
   readonly key: string;
   readonly route: Route;
-  readonly inputs: Inputs;
-  /** Why the Inputs it lacks did not come: the move to it broke. */
-  readonly failed?: Failure;
 }
 
-/** A move the Router waits on while it loads the Inputs its places need: where to, and how. */
+/** A move the Router holds while it loads the data of its places: where to, and how. */
 export interface Pending<Route extends AnyRoute = AnyRoute> {
   readonly to: Route;
-  /** `load` fills the entry shown now: places it holds have no Input yet. */
-  readonly how: 'push' | 'replace' | 'load';
+  readonly how: 'push' | 'replace' | 'load' | 'back' | 'forward';
 }
 
-/** What the router's View hands everything drawn below it: drawing data, read from the Snapshot shown. */
+/** What the router's View hands everything drawn below it: drawing data, read from the Snapshot shown, and its Sends. */
 export interface Drawing {
   readonly href: (route: AnyRoute) => string;
   readonly entries: ReadonlyArray<Entry>;
@@ -32,13 +36,13 @@ export interface Drawing {
     readonly how: How;
   };
   readonly pending: Pending | null;
-  /** Why the current entry lacks Inputs, if the move to it broke. */
-  readonly failed: Failure | null;
-  /** The app's failed screen, for a page with none of its own. */
-  readonly failedScreen: ((failure: Failure) => ReactNode) | undefined;
-  /** The Metadata the Routes give the current entry. */
+  /** The Metadata the Routes give the current entry, from its params alone. */
   readonly metadata: Metadata;
   readonly go: (by: number) => void;
+  readonly reload: () => void;
+  readonly preload: (route: AnyRoute) => void;
+  /** When a link preloads, unless it says. */
+  readonly linkPreload: { readonly mode: Preload; readonly delay: number };
 }
 
 export const RouterContext = createContext<Drawing | undefined>(undefined);
@@ -53,10 +57,10 @@ export const useDrawing = (what: string): Drawing => {
 };
 
 /**
- * Writes the Metadata to the document after every move, when an Adapter
- * holds the address: the title, and every tag marked `data-kabuki`, which
- * replace the ones marked before. Tags nobody marked are left alone, and an
- * app routing in memory never touches the document.
+ * Writes the Metadata to the document after every move, and when a page's
+ * data comes: the title, and every tag marked `data-kabuki`, which replace
+ * the ones marked before. Tags nobody marked are left alone, and an app
+ * routing in memory never touches the document.
  */
 export function MetadataWriter({ metadata }: { readonly metadata: Metadata }) {
   const tags = tagsOf(metadata);
@@ -82,19 +86,100 @@ export type LinkProps = Omit<
 > & {
   /** Where it goes: a Route, never a string. */
   readonly to: AnyRoute;
+  /**
+   * When it preloads its Route's data and code: on hover or focus, after
+   * `preloadDelay`; once it scrolls into view; or never. The Routes' default
+   * unless said, `'intent'` unless they say.
+   */
+  readonly preload?: Preload;
+  /** How long, in milliseconds, an `'intent'` link waits before it preloads. */
+  readonly preloadDelay?: number;
   readonly children?: ReactNode;
 };
 
 /**
  * A link to a Route. It draws a plain `<a href>`, so a new tab, a copied
  * link and a crawler all see the real URL; the router catches a plain click.
+ * It asks the Router to preload where it goes, as `preload` says: each ask
+ * is one Message, so the Timeline shows it.
  */
-export function Link({ to, ...rest }: LinkProps) {
-  const { href } = useDrawing('Router.Link');
-  return <a {...rest} href={href(to)} />;
+export function Link({
+  to,
+  preload,
+  preloadDelay,
+  onMouseEnter,
+  onMouseLeave,
+  onFocus,
+  onBlur,
+  onTouchStart,
+  ...rest
+}: LinkProps) {
+  const drawing = useDrawing('Router.Link');
+  const mode = preload ?? drawing.linkPreload.mode;
+  const wait = preloadDelay ?? drawing.linkPreload.delay;
+  const ref = useRef<HTMLAnchorElement>(null);
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const latest = useRef({ to, ask: drawing.preload });
+  latest.current = { to, ask: drawing.preload };
+  const href = drawing.href(to);
+
+  useEffect(() => {
+    const link = ref.current;
+    if (
+      mode !== 'viewport' ||
+      !link ||
+      typeof IntersectionObserver === 'undefined'
+    )
+      return;
+    const seen = new IntersectionObserver((entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return;
+      seen.disconnect();
+      latest.current.ask(latest.current.to);
+    });
+    seen.observe(link);
+    return () => seen.disconnect();
+  }, [mode, href]);
+  useEffect(() => () => clearTimeout(timer.current), []);
+
+  const intend = () => {
+    if (mode !== 'intent') return;
+    clearTimeout(timer.current);
+    timer.current = setTimeout(
+      () => latest.current.ask(latest.current.to),
+      wait,
+    );
+  };
+  const drop = () => clearTimeout(timer.current);
+  return (
+    <a
+      {...rest}
+      ref={ref}
+      href={href}
+      onMouseEnter={(event: MouseEvent<HTMLAnchorElement>) => {
+        intend();
+        onMouseEnter?.(event);
+      }}
+      onMouseLeave={(event: MouseEvent<HTMLAnchorElement>) => {
+        drop();
+        onMouseLeave?.(event);
+      }}
+      onFocus={(event: FocusEvent<HTMLAnchorElement>) => {
+        intend();
+        onFocus?.(event);
+      }}
+      onBlur={(event: FocusEvent<HTMLAnchorElement>) => {
+        drop();
+        onBlur?.(event);
+      }}
+      onTouchStart={(event: TouchEvent<HTMLAnchorElement>) => {
+        if (mode === 'intent') latest.current.ask(latest.current.to);
+        onTouchStart?.(event);
+      }}
+    />
+  );
 }
 
-/** What a component drawn inside the app can read of the router, and its own Back and Forward. */
+/** What a component drawn inside the app can read of the router, and its own Back, Forward and reload. */
 export interface RouterState<Route extends AnyRoute = AnyRoute> {
   readonly route: Route;
   readonly href: string;
@@ -105,10 +190,8 @@ export interface RouterState<Route extends AnyRoute = AnyRoute> {
     readonly to: Route;
     readonly how: How;
   };
-  /** The move the Router waits on while it loads, if any. */
+  /** The move the Router holds while it loads, if any. */
   readonly pending: Pending<Route> | null;
-  /** Why the current entry lacks Inputs, if the move to it broke. A link to it again retries. */
-  readonly failed: Failure | null;
   readonly metadata: Metadata;
   readonly title: string | undefined;
   readonly canGoBack: boolean;
@@ -117,19 +200,23 @@ export interface RouterState<Route extends AnyRoute = AnyRoute> {
   readonly forward: () => void;
   /** Move to entry `at` of the history. */
   readonly goTo: (at: number) => void;
+  /** Load every page on screen again, its data shown meanwhile: a failed page retries. */
+  readonly reload: () => void;
+  /** Warm the Data cache for a Route. */
+  readonly preload: (route: Route) => void;
 }
 
 /**
  * The router, for a component drawn inside a `Router.app`: an address bar, a
- * history list. Name the app's Route, `useRouter<Route>()` with
- * `type Route = typeof Routes.route.Type`, to read its Routes as that type:
- * every Route the Router holds is one of them.
+ * history list, a retry button. Name the app's Route,
+ * `useRouter<Route>()` with `type Route = typeof Routes.route.Type`, to read
+ * its Routes as that type: every Route the Router holds is one of them.
  */
 export const useRouter = <
   Route extends AnyRoute = AnyRoute,
 >(): RouterState<Route> => {
   const drawing = useDrawing('useRouter');
-  const { entries, at, go, move, pending, failed, metadata } = drawing;
+  const { entries, at, go, move, pending, metadata } = drawing;
   const route = entries[at]!.route;
   const state: RouterState = {
     route,
@@ -138,7 +225,6 @@ export const useRouter = <
     at,
     move,
     pending,
-    failed,
     metadata,
     title: metadata.title,
     canGoBack: at > 0,
@@ -146,12 +232,14 @@ export const useRouter = <
     back: () => go(-1),
     forward: () => go(1),
     goTo: (to) => go(to - at),
+    reload: drawing.reload,
+    preload: drawing.preload,
   };
-  return state as RouterState<Route>;
+  return state as unknown as RouterState<Route>;
 };
 
 /**
- * The move the Router waits on while it loads the Inputs of its places, or
+ * The move the Router holds while it loads the data of its places, or
  * `null`: for a progress bar. The page drawn is still the one before it.
  * `usePending<Route>()` reads its Route as the app's, as `useRouter` does.
  */
@@ -159,3 +247,26 @@ export const usePending = <
   Route extends AnyRoute = AnyRoute,
 >(): Pending<Route> | null =>
   useDrawing('usePending').pending as Pending<Route> | null;
+
+/**
+ * A button that loads every page on screen again: for a failed page's
+ * screen, so the page whose Loader broke retries. Any other button props
+ * pass through.
+ */
+export function Retry({
+  onClick,
+  type = 'button',
+  ...rest
+}: ButtonHTMLAttributes<HTMLButtonElement>) {
+  const { reload } = useDrawing('Router.Retry');
+  return (
+    <button
+      {...rest}
+      type={type}
+      onClick={(event) => {
+        onClick?.(event);
+        if (!event.defaultPrevented) reload();
+      }}
+    />
+  );
+}
