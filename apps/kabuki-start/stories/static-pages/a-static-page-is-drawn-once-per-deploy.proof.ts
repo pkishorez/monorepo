@@ -24,10 +24,12 @@ export default Proof.make({
   title:
     'A static page is drawn once per deploy and then served from the cache',
   description:
-    'Three requests for the same post, the last with a session cookie, get the very page drawn for the first: same draw time, same build. In dev every request is drawn again, which the Proof says instead.',
+    'Once a post has been asked for, three more requests for it, the last with a session cookie, all get that one drawing: same draw time, same build. The first ask may land while a fresh deploy is still spreading, so it only warms the cache. In dev every request is drawn again, which the Proof says instead.',
   prepare: Effect.succeed({}),
   act: () =>
     Effect.gen(function* () {
+      yield* drawn();
+      yield* Effect.sleep('500 millis');
       const first = yield* drawn();
       yield* Effect.sleep('50 millis');
       const second = yield* drawn();
@@ -50,12 +52,12 @@ export default Proof.make({
         return;
       }
       yield* Proof.assert(
-        `the second request got the page drawn for the first (build ${first.build})`,
+        `the next request got the very same drawing (${first.at}, build ${first.build})`,
         second.at === first.at && second.build === first.build,
       );
       yield* Proof.assert(
         'and so did a signed-in one: a static page is the same for everyone',
-        signedIn.at === first.at,
+        signedIn.at === first.at && signedIn.build === first.build,
       );
     }),
 });
