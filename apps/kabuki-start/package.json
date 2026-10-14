@@ -1,6 +1,6 @@
 {
   "name": "kabuki-start",
-  "description": "A small site served by Kabuki Start that shows pending and failed screens on slow pages, published at start.kishore.app.",
+  "description": "A small site served by Kabuki Start that shows every routing case: loading, nested and parallel pages, failures, redirects, preloads and reloads, published at start.kishore.app.",
   "private": true,
   "type": "module",
   "sideEffects": false,

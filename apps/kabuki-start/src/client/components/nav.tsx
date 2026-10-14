@@ -5,13 +5,17 @@ import { column } from './styles.ts';
 import { ThemeToggle } from './theme-toggle.tsx';
 
 /*
- * The site's name, a link to every top-level place, the current one marked,
- * and the switch between light and dark.
+ * The site's name, a link to every top-level page, the current one marked,
+ * and the switch between light and dark. Every link preloads on hover.
  */
 
 const NAV: ReadonlyArray<{ readonly to: Route; readonly label: string }> = [
   { to: Routes.Home(), label: 'Home' },
-  { to: Routes.Blog.Index(), label: 'Blog' },
+  { to: Routes.Blog(), label: 'Blog' },
+  { to: Routes.Teams({ team: 'core' }), label: 'Teams' },
+  { to: Routes.Search(), label: 'Search' },
+  { to: Routes.Notes(), label: 'Notes' },
+  { to: Routes.Preload(), label: 'Preload' },
   { to: Routes.Flaky(), label: 'Flaky' },
 ];
 

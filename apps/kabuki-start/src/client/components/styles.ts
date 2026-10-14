@@ -13,5 +13,5 @@ export const link =
 export const tile =
   'block h-full rounded-xl transition-colors outline-none hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-ring/50 [&>[data-slot=card]]:h-full [&>[data-slot=card]]:bg-transparent [&>[data-slot=card]]:transition-shadow hover:[&>[data-slot=card]]:ring-foreground/20';
 
-/** A page coming into its slot: its pending screen, the page, or its failed screen. */
+/** A page coming into its place: its loading screen, its data, or why it failed. */
 export const enter = 'animate-enter';

@@ -1,1 +1,1 @@
-export { Flaky } from './flaky.tsx';
+export { FlakyView } from './flaky.tsx';

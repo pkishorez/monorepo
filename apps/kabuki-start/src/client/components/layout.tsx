@@ -5,7 +5,7 @@ import { Nav } from './nav.tsx';
 import { Progress } from './progress.tsx';
 
 /*
- * What is around every page: a bar while a move waits on its Loaders, the
+ * What is around every page: a bar while the Router holds a move, the
  * nav, the page itself, and a footer that says when the server drew this
  * page and whether the Runtime has started.
  */

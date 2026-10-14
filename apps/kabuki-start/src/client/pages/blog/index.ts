@@ -1,1 +1,1 @@
-export { Blog } from './blog.tsx';
+export { BlogView } from './blog.tsx';
