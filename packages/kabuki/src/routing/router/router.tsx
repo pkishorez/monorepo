@@ -5,27 +5,66 @@ import type { ActorType, AnyActor, Types } from '../../core/index.ts';
 import { View } from '../../react/index.ts';
 import type { ViewOf } from '../../react/index.ts';
 import { Adapter } from '../adapter/index.ts';
-import type { Codec, Head, How, Read } from '../route/index.ts';
-import { HeadWriter, RouterContext, useTitle } from './context.tsx';
+import type {
+  Children,
+  Codec,
+  How,
+  Inputs,
+  LoadError,
+  Metadata,
+  Place,
+  PlaceSchema,
+  Read,
+  Value,
+} from '../route/index.ts';
+import { MetadataWriter, RouterContext } from './context.tsx';
 import type { Drawing, Entry } from './context.tsx';
+import { Loading } from './loading.ts';
 import { Navigation } from './navigation.ts';
 import type { AnyRoute } from './navigation.ts';
+import { preloadViews } from './outlet.tsx';
+import { keep, wanted } from './plan.ts';
 
 /** What the router needs of a Routes tree. */
 export interface RoutesLike<Route> {
+  /** The nodes as written: where the outlets made from them keep their lazy Views. */
+  readonly children: object;
   readonly route: Codec<Route>;
+  readonly inputs: Codec<Inputs>;
   readonly read: (url: string) => Read<Route>;
   readonly path: (route: Route) => string;
-  readonly head: (of: Route | string) => Head;
+  readonly metadata: (of: Route | string, inputs?: Inputs) => Metadata;
+  readonly places: (of: Route | string) => ReadonlyArray<Place>;
+  readonly every: ReadonlyArray<PlaceSchema>;
 }
 
 const HOW: ReadonlyArray<How> = ['load', 'push', 'replace', 'back', 'forward'];
+/** How a pending move lands: `arrive` is a push the address already shows. */
+const LANDS = ['push', 'replace', 'load', 'arrive'] as const;
+type Lands = (typeof LANDS)[number];
+/** Redirects followed in a row before a move gives up, as not found. */
+const HOPS = 8;
 
-/** The router's Model: the history as entries and where it is in them, and the last move. */
+/** A move the Router waits on while it loads the Inputs its places need. */
+export interface PendingMove<Route> {
+  /** Which load this is: an answer for any other is dropped. */
+  readonly id: number;
+  readonly to: Route;
+  readonly how: Lands;
+  /** The Inputs kept from the entry shown: places whose key did not change. */
+  readonly inputs: Inputs;
+  /** The places being loaded, by dotted name. */
+  readonly wanted: ReadonlyArray<string>;
+  /** How many Redirects led here. */
+  readonly hops: number;
+}
+
+/** The router's Model: the history as entries and where it is in them, the last move, and the one it waits on. */
 export interface RouterModel<Route> {
   readonly entries: ReadonlyArray<{
     readonly key: string;
     readonly route: Route;
+    readonly inputs: Inputs;
   }>;
   readonly at: number;
   /** The key the next entry gets. */
@@ -35,11 +74,20 @@ export interface RouterModel<Route> {
     readonly to: Route;
     readonly how: How;
   };
+  readonly pending: PendingMove<Route> | null;
+  /** The id the next pending move gets. */
+  readonly loads: number;
   /** Whether an Adapter holds the address. */
   readonly attached: boolean;
   /** Whether the Adapter has said which URL the app opened at. */
   readonly loaded: boolean;
 }
+
+/** Why a load did not give the Inputs: a Loader's answer, or something broke on the way. */
+export type LoadFailure<Route> =
+  | { readonly _tag: 'NotFound' }
+  | { readonly _tag: 'Redirect'; readonly route: Route }
+  | { readonly _tag: 'Broken'; readonly reason: string };
 
 export type RouterMessage<Route> =
   | { readonly _tag: 'Pushed'; readonly route: Route }
@@ -53,7 +101,19 @@ export type RouterMessage<Route> =
       readonly url: string;
     }
   | { readonly _tag: 'Attached' }
-  | { readonly _tag: 'Left'; readonly url: string };
+  | { readonly _tag: 'Left'; readonly url: string }
+  | { readonly _tag: 'Loaded'; readonly id: number; readonly inputs: Inputs }
+  | {
+      readonly _tag: 'Failed';
+      readonly id: number;
+      readonly failure: LoadFailure<Route>;
+    };
+
+/** The router's Input: the Route it starts at and the Inputs its places already have. */
+export interface RouterInput<Route> {
+  readonly route: Route;
+  readonly inputs?: Inputs;
+}
 
 type Single = { readonly _tag: 'Single' };
 
@@ -95,14 +155,23 @@ const linkOf = (event: MouseEvent): HTMLAnchorElement | undefined => {
   return link;
 };
 
+type Cmd = ReturnType<typeof write>;
+type Out = {
+  readonly model?: unknown;
+  readonly command?: Cmd | ReadonlyArray<Cmd>;
+};
+
 /**
  * The router of an app: one Actor, above the app's own root. It holds the
- * history, as entries and where it is in them, and hands the app the
- * current Route as Props, `{ page }`. Every move is one Message to it: a
- * link click, a Request on Navigation, the Adapter's Back and Forward. It
- * draws the app, catches plain clicks on links inside it, and writes the
- * head. With no Adapter in the Layer it routes in memory; with one, it
- * writes each move to the address with a Command, and hears the address
+ * history, as entries and where it is in them, each with the Inputs of its
+ * places, and hands the app the current Route and those Inputs as Props,
+ * `{ page, inputs }`. Every move is one Message to it: a link click, a
+ * Request on Navigation, the Adapter's Back and Forward. A move to places
+ * that need Inputs it does not hold waits, pending, while a Worker loads
+ * them through `Loading`; Back and Forward reuse the Inputs an entry holds.
+ * It draws the app, catches plain clicks on links inside it, and writes
+ * the Metadata. With no Adapter in the Layer it routes in memory; with one,
+ * it writes each move to the address with a Command, and hears the address
  * with a Worker.
  */
 export const app = <Route extends AnyRoute, A extends AnyActor>(
@@ -128,14 +197,26 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
   };
   const same = (a: Route, b: Route) => routes.path(a) === routes.path(b);
   const start = () => routes.read('/').route;
+  const notFound = (route: Route) =>
+    ({ _tag: 'NotFound', path: routes.path(route) }) as unknown as Route;
 
   const RouteSchema = routes.route;
+  const InputsSchema = routes.inputs;
+  const checkInputs = Schema.is(Schema.toType(InputsSchema));
+  const EntrySchema = Schema.Struct({
+    key: Schema.String,
+    route: RouteSchema,
+    inputs: InputsSchema,
+  });
   const actor = Actor.make('Router', {
-    input: Schema.UndefinedOr(RouteSchema),
+    input: Schema.UndefinedOr(
+      Schema.Struct({
+        route: RouteSchema,
+        inputs: Schema.optionalKey(InputsSchema),
+      }),
+    ),
     model: Schema.Struct({
-      entries: Schema.Array(
-        Schema.Struct({ key: Schema.String, route: RouteSchema }),
-      ),
+      entries: Schema.Array(EntrySchema),
       at: Schema.Number,
       next: Schema.Number,
       move: Schema.Struct({
@@ -143,6 +224,17 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
         to: RouteSchema,
         how: Schema.Literals(HOW),
       }),
+      pending: Schema.NullOr(
+        Schema.Struct({
+          id: Schema.Number,
+          to: RouteSchema,
+          how: Schema.Literals(LANDS),
+          inputs: InputsSchema,
+          wanted: Schema.Array(Schema.String),
+          hops: Schema.Number,
+        }),
+      ),
+      loads: Schema.Number,
       attached: Schema.Boolean,
       loaded: Schema.Boolean,
     }),
@@ -158,6 +250,15 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
       },
       Attached: {},
       Left: { url: Schema.String },
+      Loaded: { id: Schema.Number, inputs: InputsSchema },
+      Failed: {
+        id: Schema.Number,
+        failure: Schema.TaggedUnion({
+          NotFound: {},
+          Redirect: { route: RouteSchema },
+          Broken: { reason: Schema.String },
+        }),
+      },
     }),
   } as never) as unknown as {
     build: (behavior: unknown) => AnyActor;
@@ -168,33 +269,39 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
   const moved = (model: Model, to: number, how: How): Model => ({
     ...model,
     at: to,
+    pending: null,
     move: { from: current(model).route, to: model.entries[to]!.route, how },
   });
-  const replaced = (model: Model, route: Route): Model => ({
+  const replaced = (model: Model, route: Route, inputs: Inputs): Model => ({
     ...model,
     entries: model.entries.map((entry, index) =>
-      index === model.at ? { key: entry.key, route } : entry,
+      index === model.at ? { key: entry.key, route, inputs } : entry,
     ),
+    pending: null,
     move: { from: current(model).route, to: route, how: 'replace' },
   });
-  const pushed = (model: Model, route: Route): Model => ({
+  const pushed = (model: Model, route: Route, inputs: Inputs): Model => ({
     ...model,
     entries: [
       ...model.entries.slice(0, model.at + 1),
-      { key: String(model.next), route },
+      { key: String(model.next), route, inputs },
     ],
     at: model.at + 1,
     next: model.next + 1,
+    pending: null,
     move: { from: current(model).route, to: route, how: 'push' },
   });
-  const going = (model: Model, by: number) => {
-    const to = Math.min(Math.max(model.at + by, 0), model.entries.length - 1);
-    if (to === model.at) return {};
-    return {
-      model: moved(model, to, to < model.at ? 'back' : 'forward'),
-      command: go({ by: to - model.at }),
-    };
-  };
+  /** The entry shown now, at `route` with `inputs`: the first one, or the one the address opened at. */
+  const filled = (model: Model, route: Route, inputs: Inputs): Model => ({
+    ...model,
+    entries: model.entries.map((entry, index) =>
+      index === model.at ? { key: entry.key, route, inputs } : entry,
+    ),
+    pending: null,
+    move: same(route, current(model).route)
+      ? model.move
+      : { from: null, to: route, how: 'load' },
+  });
   const writing = (model: Model, replace: boolean) =>
     write({
       url: href(current(model).route),
@@ -202,27 +309,154 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
       replace,
     });
 
+  /** A move landing, with every Input its places need. */
+  const land = (model: Model, route: Route, how: Lands, inputs: Inputs) => {
+    if (how === 'load') {
+      const changed = !same(route, current(model).route);
+      const next = filled(model, route, inputs);
+      return changed
+        ? { model: next, command: writing(next, true) }
+        : { model: next };
+    }
+    if (how === 'replace') {
+      const next = replaced(model, route, inputs);
+      return { model: next, command: writing(next, true) };
+    }
+    if (same(route, current(model).route))
+      return { model: { ...model, pending: null } };
+    const next = pushed(model, route, inputs);
+    return { model: next, command: writing(next, how === 'arrive') };
+  };
+
+  /**
+   * A move to `route`: it lands at once if its places have every Input they
+   * need, kept from the entry shown where a place's key did not change;
+   * otherwise it waits, pending, while the `load` Worker loads the rest.
+   */
+  const toward = (model: Model, route: Route, how: Lands, hops = 0) => {
+    const places = routes.places(route);
+    const shown = current(model);
+    const inputs = keep(routes.places(shown.route), shown.inputs, places);
+    const missing = wanted(places, inputs);
+    if (missing.length === 0) return land(model, route, how, inputs);
+    const pending: PendingMove<Route> = {
+      id: model.loads,
+      to: route,
+      how,
+      inputs,
+      wanted: missing,
+      hops,
+    };
+    return { model: { ...model, pending, loads: model.loads + 1 } };
+  };
+
+  /** After Back or Forward: the entry reached keeps its Inputs; any it lacks are loaded. */
+  const reached = (model: Model, command?: Cmd): Out => {
+    const filling = toward(model, current(model).route, 'load');
+    return {
+      model: filling.model,
+      ...(command === undefined ? {} : { command }),
+    };
+  };
+
+  const going = (model: Model, by: number): Out => {
+    const to = Math.min(Math.max(model.at + by, 0), model.entries.length - 1);
+    if (to === model.at) return {};
+    return reached(
+      moved(model, to, to < model.at ? 'back' : 'forward'),
+      go({ by: to - model.at }),
+    );
+  };
+
+  const firstModel = (from: RouterInput<Route> | undefined): Model => {
+    const route = from?.route ?? start();
+    const places = routes.places(route);
+    const inputs = keep(places, from?.inputs ?? {}, places);
+    const missing = wanted(places, inputs);
+    return {
+      entries: [{ key: '0', route, inputs }],
+      at: 0,
+      next: 1,
+      move: { from: null, to: route, how: 'load' },
+      pending:
+        missing.length === 0
+          ? null
+          : { id: 0, to: route, how: 'load', inputs, wanted: missing, hops: 0 },
+      loads: 1,
+      attached: false,
+      loaded: false,
+    };
+  };
+
+  type Send = (message: RouterMessage<Route>) => Effect.Effect<void>;
+  /**
+   * Loads what the pending move wants, through `Loading`: with none, it
+   * lands with what it has. The code of the lazy Views it will draw starts
+   * loading at the same time, so it is not a second wait after the Inputs.
+   */
+  const load = (pending: PendingMove<Route>, send: Send) =>
+    Effect.gen(function* () {
+      preloadViews(routes.children as Children, pending.to as Value);
+      const found = yield* Effect.serviceOption(Loading);
+      const id = pending.id;
+      if (Option.isNone(found))
+        return yield* send({ _tag: 'Loaded', id, inputs: {} });
+      const places = routes
+        .places(pending.to)
+        .filter((place) => pending.wanted.includes(place.name))
+        .map(({ name, params }) => ({ name, params }));
+      const failed = (failure: LoadFailure<Route>) =>
+        send({ _tag: 'Failed', id, failure });
+      yield* found.value.load(places).pipe(
+        Effect.flatMap((answer) => {
+          const inputs = Object.fromEntries(
+            pending.wanted.map((name) => [name, answer[name]]),
+          );
+          const missing = pending.wanted.filter(
+            (name) => inputs[name] === undefined,
+          );
+          if (missing.length > 0)
+            return failed({
+              _tag: 'Broken',
+              reason: `no Input for ${missing.join(', ')}`,
+            });
+          if (!checkInputs(inputs))
+            return failed({
+              _tag: 'Broken',
+              reason: 'an Input does not match its Schema',
+            });
+          return send({ _tag: 'Loaded', id, inputs });
+        }),
+        Effect.catch((error: LoadError) =>
+          failed(
+            error._tag === 'NotFound'
+              ? { _tag: 'NotFound' }
+              : { _tag: 'Redirect', route: error.route as Route },
+          ),
+        ),
+        Effect.catchCause((cause) =>
+          failed({ _tag: 'Broken', reason: String(cause) }),
+        ),
+      );
+    });
+
   const built = actor.build({
-    init: (from: Route | undefined) => {
-      const route = from ?? start();
+    init: (from: RouterInput<Route> | undefined) => ({
+      model: firstModel(from),
+    }),
+    children: { page: page.actor },
+    invoke: ({ model }: { readonly model: Model }) => {
+      const { route, inputs } = current(model);
       return {
-        model: {
-          entries: [{ key: '0', route }],
-          at: 0,
-          next: 1,
-          move: { from: null, to: route, how: 'load' },
-          attached: false,
-          loaded: false,
-        } satisfies Model,
+        page: {
+          props: {
+            page: route,
+            ...(Object.keys(inputs).length > 0 ? { inputs } : {}),
+          },
+        },
       };
     },
-    children: { page: page.actor },
-    invoke: ({ model }: { readonly model: Model }) => ({
-      page: { props: { page: current(model).route } },
-    }),
-    provides: (self: {
-      readonly send: (message: RouterMessage<Route>) => Effect.Effect<void>;
-    }) =>
+    provides: (self: { readonly send: Send }) =>
       Layer.succeed(Navigation, {
         push: (route) => self.send({ _tag: 'Pushed', route: route as Route }),
         replace: (route) =>
@@ -237,17 +471,15 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
         { route }: { readonly route: Route },
         { model }: { readonly model: Model },
       ) => {
-        if (same(route, current(model).route)) return {};
-        const next = pushed(model, route);
-        return { model: next, command: writing(next, false) };
+        if (model.pending && same(route, model.pending.to)) return {};
+        if (same(route, current(model).route))
+          return model.pending ? { model: { ...model, pending: null } } : {};
+        return toward(model, route, 'push');
       },
       Replaced: (
         { route }: { readonly route: Route },
         { model }: { readonly model: Model },
-      ) => {
-        const next = replaced(model, route);
-        return { model: next, command: writing(next, true) };
-      },
+      ) => toward(model, route, 'replace'),
       Went: (
         { by }: { readonly by: number },
         { model }: { readonly model: Model },
@@ -258,8 +490,7 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
       ) => {
         const before = model.entries[model.at - 1];
         if (before && same(before.route, route)) return going(model, -1);
-        const next = replaced(model, route);
-        return { model: next, command: writing(next, true) };
+        return toward(model, route, 'replace');
       },
       Arrived: (
         {
@@ -272,7 +503,7 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
           readonly url: string;
         },
         { model }: { readonly model: Model },
-      ) => {
+      ): Out => {
         // A URL that is not how the Route is written, a redirect's or one
         // with a stray slash, is replaced by the one that is.
         const canonical = routes.path(route) === url;
@@ -287,33 +518,39 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
             {
               ...model,
               entries: model.entries.map((entry, index) =>
-                index === known ? { key: entry.key, route } : entry,
+                index === known && !same(route, entry.route)
+                  ? { key: entry.key, route, inputs: {} }
+                  : entry,
               ),
             },
             known,
             known < model.at ? 'back' : 'forward',
           );
-          return canonical
-            ? { model: at }
-            : { model: at, command: writing(at, true) };
+          return reached(at, canonical ? undefined : writing(at, true));
         }
         if (!model.loaded) {
           // The URL the app opened at: this entry, now with the router's key.
+          // A load already under way for it, as for a place drawn without
+          // its Input on a server, carries on rather than starting again.
+          const loading = model.pending && same(model.pending.to, route);
           const opened: Model = {
             ...model,
             loaded: true,
-            entries: model.entries.map((entry, index) =>
-              index === model.at ? { key: entry.key, route } : entry,
-            ),
-            move: same(route, current(model).route)
-              ? model.move
-              : { from: null, to: route, how: 'load' },
+            pending: loading ? model.pending : null,
           };
-          return { model: opened, command: writing(opened, true) };
+          if (same(route, current(opened).route)) {
+            if (loading)
+              return { model: opened, command: writing(opened, true) };
+            const filling = reached(opened);
+            return {
+              model: filling.model,
+              command: writing(opened, true),
+            };
+          }
+          return toward(opened, route, 'load');
         }
         // A URL the app did not write: typed in, or a link from the rest of the site.
-        const next = pushed(model, route);
-        return { model: next, command: writing(next, true) };
+        return toward(model, route, 'arrive');
       },
       Attached: (_: unknown, { model }: { readonly model: Model }) => ({
         model: { ...model, attached: true },
@@ -321,12 +558,51 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
       Left: ({ url }: { readonly url: string }) => ({
         command: leave({ url }),
       }),
+      Loaded: (
+        { id, inputs }: { readonly id: number; readonly inputs: Inputs },
+        { model }: { readonly model: Model },
+      ) => {
+        const pending = model.pending;
+        if (pending?.id !== id) return {};
+        return land(model, pending.to, pending.how, {
+          ...pending.inputs,
+          ...inputs,
+        });
+      },
+      Failed: (
+        {
+          id,
+          failure,
+        }: { readonly id: number; readonly failure: LoadFailure<Route> },
+        { model }: { readonly model: Model },
+      ) => {
+        const pending = model.pending;
+        if (pending?.id !== id) return {};
+        const settled = { ...model, pending: null };
+        if (failure._tag === 'Broken') return { model: settled };
+        if (failure._tag === 'Redirect' && pending.hops < HOPS)
+          return toward(settled, failure.route, pending.how, pending.hops + 1);
+        return land(settled, notFound(pending.to), pending.how, {});
+      },
     },
     workers: {
+      // Loads the Inputs the pending move wants; a newer move stops it.
+      load: {
+        each: ({ model }: { readonly model: Model }) =>
+          model.pending ? [String(model.pending.id)] : [],
+        run: (self: {
+          readonly send: Send;
+          readonly get: Effect.Effect<{ readonly model: Model }>;
+        }) =>
+          Effect.gen(function* () {
+            const { pending } = (yield* self.get).model;
+            if (pending) yield* load(pending, self.send);
+          }),
+      },
       // Hears the address, if an Adapter holds one: Back, Forward, a typed URL.
       address: {
         run: (self: {
-          readonly send: (message: RouterMessage<Route>) => Effect.Effect<void>;
+          readonly send: Send;
           readonly get: Effect.Effect<{ readonly model: Model }>;
         }) =>
           Effect.gen(function* () {
@@ -350,7 +626,7 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
                 if (url === undefined) return;
                 const { model } = yield* self.get;
                 const entry = current(model);
-                // The Router's own write coming back: nothing moved.
+                // The Router's own write coming back, or the address of a move still loading: nothing moved.
                 if (at.key() === entry.key && url === routes.path(entry.route))
                   return;
                 yield* self.send({
@@ -366,7 +642,7 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
     },
   });
 
-  /** What the View draws, with the one piece of drawing state: a title a page drew. */
+  /** What the View draws. */
   function Frame({
     model,
     send,
@@ -378,17 +654,22 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
     readonly root: object;
     readonly instance: { readonly id: string };
   }) {
-    const title = useTitle();
-    const head = routes.head(current(model).route);
+    const entry = current(model);
+    const metadata = routes.metadata(entry.route, entry.inputs);
+    const pending = model.pending;
     const drawing: Drawing = {
       href: href as (route: AnyRoute) => string,
       entries: model.entries as ReadonlyArray<Entry>,
       at: model.at,
       move: model.move,
-      attached: model.attached,
-      head,
+      pending: pending
+        ? {
+            to: pending.to,
+            how: pending.how === 'arrive' ? 'push' : pending.how,
+          }
+        : null,
+      metadata,
       go: (by) => send({ _tag: 'Went', by }),
-      title,
     };
     const onClick = (event: MouseEvent) => {
       const link = linkOf(event);
@@ -413,7 +694,7 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
     const PageView = page.view as ViewOf<AnyActor>;
     return (
       <RouterContext value={drawing}>
-        {model.attached && <HeadWriter title={title.value ?? head.title} />}
+        {model.attached && <MetadataWriter metadata={metadata} />}
         <div {...root} style={{ display: 'contents' }} onClick={onClick}>
           <PageView instance={instance} />
         </div>
@@ -433,40 +714,46 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
   ));
 
   /**
-   * The Route the browser's URL names now, for `toReact`'s `input`, so an
-   * app on an Adapter is drawn at the right page from the first frame. On
-   * a server, or in memory, it is the start.
+   * The Router's Input at a URL, with the Inputs its places already have:
+   * for `toReact`'s `input`, so an app on an Adapter is drawn at the right
+   * page from the first frame, and for a server, which draws a URL from the
+   * Inputs its Loaders gave. With no URL, the browser's, if there is one; a
+   * redirect's URL starts at the Route it names. Places it has no Input for
+   * are loaded once the Runtime starts.
    */
-  const startAt = (): Route | undefined => {
-    if (typeof location === 'undefined') return undefined;
-    const url = inside(`${location.pathname}${location.search}`);
-    return url === undefined ? undefined : routes.read(url).route;
+  const startAt = (
+    url?: string,
+    inputs?: Inputs,
+  ): RouterInput<Route> | undefined => {
+    const at =
+      url ??
+      (typeof location === 'undefined'
+        ? undefined
+        : `${location.pathname}${location.search}`);
+    if (at === undefined) return undefined;
+    const within = inside(at);
+    if (within === undefined) return undefined;
+    const route = routes.read(within).route;
+    return inputs ? { route, inputs } : { route };
   };
 
+  type RouterActor = ActorType<
+    'Router',
+    RouterInput<Route> | undefined,
+    void,
+    RouterModel<Route>,
+    Single,
+    RouterMessage<Route>,
+    { readonly Single: { readonly page: A } },
+    Exclude<Types<A>['open'], Navigation>
+  >;
+
   return {
-    actor: built as unknown as ActorType<
-      'Router',
-      Route | undefined,
-      void,
-      RouterModel<Route>,
-      Single,
-      RouterMessage<Route>,
-      { readonly Single: { readonly page: A } },
-      Exclude<Types<A>['open'], Navigation>
-    >,
-    view: view as unknown as ViewOf<
-      ActorType<
-        'Router',
-        Route | undefined,
-        void,
-        RouterModel<Route>,
-        Single,
-        RouterMessage<Route>,
-        { readonly Single: { readonly page: A } },
-        Exclude<Types<A>['open'], Navigation>
-      >
-    >,
+    actor: built as unknown as RouterActor,
+    view: view as unknown as ViewOf<RouterActor>,
     startAt,
     href,
+    /** The Routes it serves: what Start reads a URL and serves the Loaders with. */
+    routes,
   };
 };

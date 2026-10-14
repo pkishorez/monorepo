@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act } from 'react';
+import { act, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { Root as ReactRoot } from 'react-dom/client';
 import { Effect, Layer, Schema } from 'effect';
@@ -8,25 +8,25 @@ import { Actor, Runtime } from '../../core/index.ts';
 import { View, toReact } from '../../react/index.ts';
 import { registry } from '../../react/registry.ts';
 import { browser } from '../browser/index.ts';
-import { Route, Router } from '../index.ts';
+import { Route, Router, usePending } from '../index.ts';
 import type { How } from '../index.ts';
 
 /*
  * The router drawn in a document: link clicks, the browser Adapter, Back and
- * Forward, the head, and what an outlet hands an animation.
+ * Forward, the Metadata, a pending move, and what an outlet hands an animation.
  */
 
 const Routes = Route.tree(
   {
-    Home: Route.path('/', { head: { title: 'Home' } }),
+    Home: Route.path('/', { metadata: { title: 'Home' } }),
     Projects: Route.path(
       '/projects',
-      { head: { title: 'Projects' } },
+      { metadata: { title: 'Projects' } },
       {
         List: Route.path('/'),
         Project: Route.path('/:id', {
           params: { id: Schema.FiniteFromString },
-          head: ({ id }) => ({ title: `Project ${id}` }),
+          metadata: ({ id }) => ({ title: `Project ${id}` }),
         }),
       },
     ),
@@ -63,7 +63,6 @@ const Project = {
     <main>
       project {props.id}
       <Router.Link to={Routes.Home()}>home</Router.Link>
-      <Router.Head title={`Harbor ${props.id}`} />
     </main>
   )),
 };
@@ -220,11 +219,105 @@ describe('on the browser history', () => {
     expect(location.pathname).toBe('/app/projects/7');
   });
 
-  it("writes the head: the Routes', then a page's own", async () => {
+  it("writes the title the Routes give each move's Route", async () => {
     await draw('browser', '/app');
     expect(document.title).toBe('Home');
     await click('a[href="/app/projects/7"]');
-    expect(document.title).toBe('Harbor 7');
+    expect(document.title).toBe('Project 7');
+  });
+});
+
+describe('a move that waits on its Inputs', () => {
+  const Item = Schema.Struct({ name: Schema.String });
+  const Shop = Route.tree({
+    Front: Route.path('/', {
+      metadata: { title: 'Shop', description: 'Everything' },
+    }),
+    Item: Route.path('/items/:id', {
+      params: { id: Schema.FiniteFromString },
+      input: Item,
+      metadata: (_params, item) => ({
+        title: item.name,
+        openGraph: { title: item.name },
+      }),
+    }),
+  });
+  let open: () => void = () => {};
+  const loading = Router.memory(
+    Shop,
+    Shop.loaders({
+      Item: ({ id }) =>
+        Effect.promise(() => new Promise<void>((done) => (open = done))).pipe(
+          Effect.as({ name: `Lamp ${id}` }),
+        ),
+    }),
+  );
+  function Progress() {
+    // Typed as the shop's Route, so `Shop.path` takes it as it is.
+    const pending = usePending<typeof Shop.route.Type>();
+    return pending ? <p>loading {Shop.path(pending.to)}</p> : null;
+  }
+  const shop = Shop.outlet({
+    Front: () => (
+      <main>
+        front
+        <Router.Link to={Shop.Item({ id: 2 })}>lamp</Router.Link>
+      </main>
+    ),
+    Item: (_props, item) => <main>item {item.name}</main>,
+  });
+  const ShopActor = Actor.make('Shop', { props: Shop.props }).build({});
+  const ShopApp = {
+    actor: ShopActor,
+    view: View.make(ShopActor, (self) => (
+      <>
+        <Progress />
+        <shop.View of={self} />
+      </>
+    )),
+  };
+
+  it('keeps the page drawn while it loads, shows it pending, then writes the Metadata', async () => {
+    history.replaceState(null, '', '/');
+    const unmarked = document.createElement('meta');
+    unmarked.setAttribute('name', 'theme-color');
+    document.head.append(unmarked);
+    const Root = Router.app(Shop, ShopApp);
+    const Drawn = toReact(
+      Root.actor,
+      Root.view,
+      Layer.mergeAll(browser(), loading),
+      { name: `shop-${count++}`, input: Root.startAt },
+    );
+    root = createRoot(host);
+    await act(async () => root!.render(<Drawn />));
+    await settle();
+    expect(document.title).toBe('Shop');
+    const described = () =>
+      document.head
+        .querySelector('meta[name="description"][data-kabuki]')
+        ?.getAttribute('content');
+    expect(described()).toBe('Everything');
+
+    await click('a[href="/items/2"]');
+    expect(host.textContent).toContain('front');
+    expect(host.textContent).toContain('loading /items/2');
+    expect(location.pathname).toBe('/');
+
+    await act(async () => open());
+    await settle();
+    expect(host.textContent).toContain('item Lamp 2');
+    expect(host.textContent).not.toContain('loading');
+    expect(location.pathname).toBe('/items/2');
+    expect(document.title).toBe('Lamp 2');
+    expect(described()).toBeUndefined();
+    expect(
+      document.head
+        .querySelector('meta[property="og:title"][data-kabuki]')
+        ?.getAttribute('content'),
+    ).toBe('Lamp 2');
+    expect(unmarked.isConnected).toBe(true);
+    unmarked.remove();
   });
 });
 
@@ -266,5 +359,62 @@ describe('an outlet', () => {
     await draw('memory');
     await click('a[href="/app/projects/7"]');
     expect(moves.at(-1)).toEqual({ how: 'push', from: null, to: 'Project' });
+  });
+});
+
+describe('an outlet without a wrapper', () => {
+  const Items = Route.tree({
+    Item: Route.path('/items/:id', { params: { id: Schema.String } }),
+    Sketch: Route.path('/sketch', { render: 'client' }),
+  });
+  /** Remembers the id it was first drawn with, for as long as React keeps it. */
+  function First({ id }: { readonly id: string }) {
+    const [first] = useState(id);
+    return <p id="first">{first}</p>;
+  }
+  const items = Items.outlet({
+    Item: ({ id }) => <First id={id} />,
+    Sketch: () => <p id="sketch">sketch</p>,
+  });
+  const ItemsActor = Actor.make('Items', { props: Items.props }).build({
+    children: items.children,
+    invoke: items.invoke,
+  });
+  const ItemsApp = {
+    actor: ItemsActor,
+    view: View.make(ItemsActor, (self) => <items.View of={self} />),
+  };
+
+  it('draws a new page with fresh React state', async () => {
+    history.replaceState(null, '', '/items/a');
+    const Root = Router.app(Items, ItemsApp);
+    const Drawn = toReact(Root.actor, Root.view, browser(), {
+      name: `items-${count++}`,
+      input: Root.startAt,
+    });
+    root = createRoot(host);
+    await act(async () => root!.render(<Drawn />));
+    await settle();
+    expect(host.querySelector('#first')?.textContent).toBe('a');
+    await act(async () => history.pushState(null, '', '/items/b'));
+    await act(
+      async () => void window.dispatchEvent(new PopStateEvent('popstate')),
+    );
+    await settle();
+    expect(host.querySelector('#first')?.textContent).toBe('b');
+  });
+
+  it('draws a client place in the browser, never on a server', async () => {
+    const { renderToString } = await import('react-dom/server');
+    const Root = Router.app(Items, ItemsApp);
+    const Drawn = toReact(Root.actor, Root.view, Layer.empty, {
+      name: `sketch-${count++}`,
+      input: () => Root.startAt('/sketch'),
+    });
+    expect(renderToString(<Drawn />)).not.toContain('sketch');
+    root = createRoot(host);
+    await act(async () => root!.render(<Drawn />));
+    await settle();
+    expect(host.querySelector('#sketch')).not.toBeNull();
   });
 });

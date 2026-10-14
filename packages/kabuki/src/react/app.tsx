@@ -14,9 +14,11 @@ import type {
   WorkerStatus,
 } from '../core/index.ts';
 import { makeDrawn } from './drawn.ts';
+import { LazyContext } from './lazy.tsx';
+import type { LazyView } from './lazy.tsx';
 import { registry } from './registry.ts';
 import { AppContext } from './view.tsx';
-import type { ViewOf } from './view.tsx';
+import type { DrawnApp, ViewOf } from './view.tsx';
 
 /*
  * The App: an Actor tree with its Layer, as one React component. It draws
@@ -24,7 +26,9 @@ import type { ViewOf } from './view.tsx';
  * from it.
  *
  * 1. Draw   before it runs, on a server too: the History's Head, replayed
- *           through Suspense.
+ *           through Suspense when it is longer than one entry. A History
+ *           given when drawn (`saved`) is drawn on its own, so a server
+ *           draws each request's; the first mount takes it as the app's.
  * 2. Mount  the first mount starts one Runtime on the History; the last
  *           unmount stops it and leaves the History for the next mount of an
  *           app with this name, after a hot reload too. A start, stop or
@@ -136,8 +140,8 @@ export const toReact = <A extends AnyActor, Provided>(
       : own();
   };
 
-  let history: History<A> | undefined;
-  let first: FirstDraw | undefined;
+  /** The drawing of the app's own History: what the Runtime runs and `useRuntime` reads. */
+  let mine: Draw<A> | undefined;
   let runtime: Running<A> | undefined;
   let shown: Step | null = null;
   let past: Snapshot | undefined;
@@ -149,21 +153,59 @@ export const toReact = <A extends AnyActor, Provided>(
     seen = undefined;
     for (const listener of listeners) listener();
   };
+  const subscribe: DrawnApp['subscribe'] = (listener) => {
+    listeners.add(listener);
+    return () => listeners.delete(listener);
+  };
+
+  /** One History drawn: the app's own, or one given when drawn, which only the app's own Runtime ever runs. */
+  const makeDraw = (history: History<A>): Draw<A> => {
+    const draw: Draw<A> = { history, first: undefined, drawn: undefined! };
+    const live = () =>
+      shown === null ? (runtime?.snapshot() ?? draw.first?.snapshot) : past;
+    draw.drawn = makeDrawn(
+      () => (draw === mine ? live() : draw.first?.snapshot),
+      () => draw.first?.snapshot,
+      (id, message) => {
+        if (draw === mine && shown === null)
+          runtime?.send(id, message, { kind: 'view', instance: id });
+      },
+      subscribe,
+    );
+    return draw;
+  };
 
   let unwatch = () => {};
-  const take = (next: History<A>) => {
+  const take = (next: Draw<A>) => {
     unwatch();
-    history = next;
-    first = undefined;
-    unwatch = next.subscribe(() => {
-      if (typeof shown === 'number' && !next.has(shown))
-        show(next.branch()[0]?.id ?? 'init');
-      remember(next.window());
+    mine = next;
+    const { history } = next;
+    unwatch = history.subscribe(() => {
+      if (typeof shown === 'number' && !history.has(shown))
+        show(history.branch()[0]?.id ?? 'init');
+      remember(history.window());
       changed();
     });
     return next;
   };
-  const historyOf = () => history ?? take(adopt());
+  const whose = () => mine;
+  const mineOf = () => mine ?? take(makeDraw(adopt()));
+  const historyOf = () => mineOf().history;
+
+  /** The drawing of a History given when drawn, one per saved History, so a draw that suspends finds it again. */
+  const given = new WeakMap<SavedHistory, Draw<A>>();
+  const givenOf = (saved: SavedHistory) => {
+    let draw = given.get(saved);
+    if (!draw)
+      given.set(
+        saved,
+        (draw = makeDraw(History.load(actor, saved, keptWindow()))),
+      );
+    return draw;
+  };
+  /** Until the app has a History of its own, a given one is drawn as it is. */
+  const takesGiven = (saved: SavedHistory | undefined): saved is SavedHistory =>
+    saved !== undefined && mounts === 0 && !registry.history(name);
 
   /** What came of a start, stop or clear: an interruption is a newer one taking over, not a failure. */
   const settled = (what: string) => (exit: Exit.Exit<unknown, unknown>) => {
@@ -181,64 +223,54 @@ export const toReact = <A extends AnyActor, Provided>(
   };
 
   // 1. Draw
-  /** Start replaying the History to its Head, once: what the app draws before its Runtime starts. */
-  const firstDraw = (): FirstDraw => {
-    if (first) return first;
-    const from = historyOf();
-    const draw: FirstDraw = { snapshot: undefined, replaying: undefined! };
-    draw.replaying =
-      from.head() === null
-        ? fulfilled((draw.snapshot = from.snapshotAt(null)))
+  /**
+   * Start replaying a History to its Head, once: what the app draws before
+   * its Runtime starts. Init, or one entry such as a Restore, is drawn at
+   * once; a longer Branch is replayed without blocking the page.
+   */
+  const firstDraw = (draw: Draw<A>): FirstDraw => {
+    if (draw.first) return draw.first;
+    const from = draw.history;
+    const head = from.head();
+    const first: FirstDraw = { snapshot: undefined, replaying: undefined! };
+    first.replaying =
+      head === null || from.branch(head).length <= 1
+        ? fulfilled((first.snapshot = from.snapshotAt(head)))
         : tracked(
             Effect.runPromise(from.seek()).then((snapshot) => {
-              draw.snapshot = snapshot;
+              first.snapshot = snapshot;
               changed();
               return snapshot;
             }),
           );
-    return (first = draw);
+    return (draw.first = first);
   };
 
   /** Before the Runtime starts, wait for the first Snapshot: React shows the fallback until it is replayed. */
-  const waitForFirstDraw = () => {
-    const { snapshot, replaying } = firstDraw();
+  const waitForFirstDraw = (draw: Draw<A>) => {
+    const { snapshot, replaying } = firstDraw(draw);
     if (!snapshot) use(replaying);
   };
-
-  const snapshot = () =>
-    shown === null ? (runtime?.snapshot() ?? first?.snapshot) : past;
-
-  const drawn = makeDrawn(
-    snapshot,
-    () => first?.snapshot,
-    (id, message) => {
-      if (shown === null)
-        runtime?.send(id, message, { kind: 'view', instance: id });
-    },
-    (listener) => {
-      listeners.add(listener);
-      return () => listeners.delete(listener);
-    },
-  );
 
   // 2. Mount
   let mounts = 0;
   let close = () => {};
   let unsubscribe = () => {};
-  const mount = () => {
+  const mount = (saved: SavedHistory | undefined) => {
+    if (takesGiven(saved)) take(givenOf(saved));
     if (mounts++ === 0) {
       if (!registry.claim(name, app, historyOf())) {
         console.error(
           `[@kestack/kabuki] two apps named ${name} are mounted at once; they cannot share a History`,
         );
-        take(own());
+        take(makeDraw(own()));
         changed();
       }
       let open = true;
       close = () => {
         open = false;
       };
-      firstDraw().replaying.then(
+      firstDraw(mineOf()).replaying.then(
         () => {
           if (!open) return;
           close = host(historyOf(), layer, (exit) => {
@@ -313,21 +345,30 @@ export const toReact = <A extends AnyActor, Provided>(
       failure,
     });
 
-  const Drawn = () => {
-    if (!runtime) waitForFirstDraw();
+  const Drawn = ({ draw }: { readonly draw: Draw<A> }) => {
+    if (!runtime || draw !== mine) waitForFirstDraw(draw);
     return (
-      <AppContext value={drawn}>
+      <AppContext value={draw.drawn}>
         <RootView instance={root} />
       </AppContext>
     );
   };
 
-  const App = ({ fallback = null }: { readonly fallback?: ReactNode }) => {
-    useEffect(mount, []);
-    return (
+  const App = ({ fallback = null, saved, onLazyView }: AppProps) => {
+    // The History given is read once, at the first mount, like `input`.
+    useEffect(() => mount(saved), []);
+    // Drawn again when the app takes another History of its own.
+    useSyncExternalStore(subscribe, whose, whose);
+    const draw = takesGiven(saved) ? givenOf(saved) : mineOf();
+    const drawn = (
       <Suspense fallback={fallback}>
-        <Drawn />
+        <Drawn draw={draw} />
       </Suspense>
+    );
+    return onLazyView ? (
+      <LazyContext value={onLazyView}>{drawn}</LazyContext>
+    ) : (
+      drawn
     );
   };
 
@@ -335,7 +376,7 @@ export const toReact = <A extends AnyActor, Provided>(
     displayName: name,
     useRuntime: (): AppRuntime<A> => {
       const { head, running, shown, failure } = useSyncExternalStore(
-        drawn.subscribe,
+        subscribe,
         read,
         read,
       );
@@ -355,6 +396,29 @@ export const toReact = <A extends AnyActor, Provided>(
     },
   });
 };
+
+/** What the App component takes. */
+export interface AppProps {
+  /** Drawn while the History is replayed, or a lazy View loaded. */
+  readonly fallback?: ReactNode;
+  /**
+   * A History to draw, given when the App is drawn, so a server draws each
+   * request's own: drawn at its Head with no Runtime, as `options.saved` is.
+   * The first mount in a browser takes it as the app's History and starts
+   * the Runtime from it, unless an app of this name has one already, as
+   * after a hot reload. Read once: a later one is not drawn.
+   */
+  readonly saved?: SavedHistory;
+  /** Told of every lazy View this drawing draws, so a server can preload their code in the page. */
+  readonly onLazyView?: (view: LazyView<AnyActor>) => void;
+}
+
+/** One History, drawn: the app's own, or one given when the App is drawn. */
+interface Draw<A> {
+  readonly history: History<A>;
+  first: FirstDraw | undefined;
+  drawn: DrawnApp;
+}
 
 /** What useRuntime reads, the same object until something changes. */
 interface Seen {

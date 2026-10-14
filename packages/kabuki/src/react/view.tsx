@@ -1,6 +1,7 @@
 import { createContext, memo, use, useRef, useSyncExternalStore } from 'react';
 import type { CSSProperties, ReactNode, Ref } from 'react';
 import type { AnyActor, Many, Only, Types } from '../core/index.ts';
+import { lazy, preload } from './lazy.tsx';
 
 /** One Instance in the tree, to draw: its ID and, for a keyed Child, its key. Never changes. */
 export interface Handle<A> {
@@ -140,4 +141,8 @@ const same = (a: Shown, b: Shown): boolean => {
 const sameValues = (a: Shown | undefined, b: Shown | undefined) =>
   a !== undefined && b !== undefined && same(a, b);
 
-export const View = { make };
+/**
+ * `make` draws an Actor; `lazy` loads a View made with `make` when it is
+ * first drawn; `preload` loads the lazy Views made with these ids.
+ */
+export const View = { make, lazy, preload };

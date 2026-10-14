@@ -151,7 +151,7 @@ One typed place in the app, with its params and query: what a URL means once it 
 _Avoid_: page, path, location, screen
 
 **Routes**:
-The one definition of every Route in the app, a tree of places where a place can hold others. The same definition reads a URL into a Route, writes a Route back as a URL, and says each place's head, so none of them can disagree.
+The one definition of every Route in the app, a tree of places where a place can hold others. The same definition reads a URL into a Route, writes a Route back as a URL, and says each place's Metadata, so none of them can disagree.
 _Avoid_: route table, route map
 
 **Router**:
@@ -182,9 +182,17 @@ _Avoid_: location, url bar, sync
 Where an app's Address lives: in memory, the default, so any app routes without touching a URL; in the browser's own history; or in TanStack Router's, for an app on a TanStack Start catch-all route. Given in the app's Layer; the Routes and every Actor are the same whichever it is.
 _Avoid_: backend, driver, host, mode
 
-**Head**:
-What a place says about itself to the browser and to search: its title and meta tags. Written in the Routes when the Route alone knows it, which a server can work out from a URL; drawn by a page's View when only its data knows it, which only the browser sees.
-_Avoid_: meta, SEO, document
+**Metadata**:
+What a place says about itself to the browser and to search: its title, description and the tags that link and share it. Written in the Routes, from the Route and the place's Input, so a server works it out before it draws; a View never writes it.
+_Avoid_: head (the History's Head is another thing), meta, SEO, document
+
+**Loader**:
+How a place gets its Input: one server function per place that declares one, given its params, and the request unless the place is static. The Routes declare the Input; a place that declares one and has no Loader is a type error. For a URL, the Loaders of every place it names run at once, none waiting on another, and each page starts from its own answer. A Loader that fails says the place is not found, or Redirects. Only places load: a part of a page starts from its defaults or Props.
+_Avoid_: fetcher, data function, middleware, load (Restore's avoided word)
+
+**Render Mode**:
+Where and when a place is first drawn, said in the Routes and inherited by the places it holds: static, the same for everyone and drawn once until the next deploy; dynamic, drawn for each request; client, drawn in the browser alone, the server sending everything above it. A place can only be drawn later than the place that holds it. Only the first drawing differs: after it, every move happens in the browser.
+_Avoid_: SSR, SSG, CSR, strategy
 
 ### Drawing
 
@@ -207,6 +215,16 @@ _Avoid_: store, engine, interpreter, actor system
 **App**:
 An Actor tree with its Layer, made into one React component: it runs one Runtime for every mount, and draws the Snapshot at the Step shown, or live. Each View draws its Instance from that Snapshot; a Send from a past Step is dropped.
 _Avoid_: stage, root, provider
+
+### Serving
+
+**Start**:
+What serves an app's first drawing: for a URL, it reads the Route, runs the Loaders, starts every page from its Input and draws the result in the Document, with the Snapshot beside it, so the browser carries on from it. Never runs a Runtime: what it draws is pure. Serves the Loaders to the browser for every move after.
+_Avoid_: framework, server, SSR
+
+**Document**:
+The page's HTML around the app, written once: where Start puts the Metadata, the styles and the scripts, and where code that must run before the first paint is written inline. Given no data, so it is the same for every Render Mode.
+_Avoid_: shell, layout, root, html
 
 ### Seeing the app
 

@@ -21,7 +21,8 @@ export const Route = createFileRoute('/demos/kabuki-routing/$')({
     meta: [
       {
         title:
-          Routes.head(`/${params._splat ?? ''}`).title ?? 'Routing · Kabuki',
+          Routes.metadata(`/${params._splat ?? ''}`).title ??
+          'Routing · Kabuki',
       },
       {
         name: 'description',

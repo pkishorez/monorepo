@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import type { AnyActor, Many, Types } from '../../core/index.ts';
 import type { ViewOf } from '../../react/index.ts';
-import type { LevelOf, PropsOf } from './route.ts';
+import type { Codec, LevelOf, PropsOf } from './route.ts';
 
 /** How the app got to where it is. */
 export type How = 'load' | 'push' | 'replace' | 'back' | 'forward';
@@ -17,10 +17,17 @@ export interface Move<V> {
   readonly how: How;
 }
 
-/** What serves one child Route: an Actor with its View, or a function that draws it from its Props. */
+type InputOf<N> = N extends { readonly input: Codec<infer I> | undefined }
+  ? I
+  : never;
+
+/**
+ * What serves one child Route: an Actor with its View, or a function that
+ * draws it from its Props and, for a place with one, its Input.
+ */
 export type PageOf<N> =
   | { readonly actor: AnyActor; readonly view: ViewOf<any> }
-  | ((props: PropsOf<N>) => ReactNode);
+  | ((props: PropsOf<N>, input: InputOf<N>) => ReactNode);
 
 type Pages<C, Optional extends string> = {
   readonly [K in Exclude<keyof C & string, Optional>]: PageOf<C[K]>;
@@ -28,12 +35,28 @@ type Pages<C, Optional extends string> = {
   readonly [K in Optional & keyof C]?: PageOf<C[K]>;
 };
 
-/** Each Actor named must take as Props what its Route hands it. */
+/** Whether an Actor starts from what its place hands it as Input: its place's Input, or nothing. */
+type TakesInput<A, N> = [InputOf<N>] extends [never]
+  ? [undefined] extends [Types<A>['input']]
+    ? true
+    : [Types<A>['input']] extends [void]
+      ? true
+      : false
+  : [InputOf<N>] extends [Types<A>['input']]
+    ? true
+    : false;
+
+/** Each Actor named must take as Props what its Route hands it, and start from its place's Input. */
 type Checked<Ps, C> = {
   readonly [K in keyof Ps]: K extends keyof C
     ? Ps[K] extends { readonly actor: infer A }
       ? [PropsOf<C[K]>] extends [Types<A>['props']]
-        ? Ps[K]
+        ? TakesInput<A, C[K]> extends true
+          ? Ps[K]
+          : {
+              readonly actor: A;
+              readonly 'its Input is not what this place loads': InputOf<C[K]>;
+            }
         : {
             readonly actor: A;
             readonly 'its Props are not what this Route hands it': PropsOf<
@@ -75,6 +98,7 @@ export interface Outlet<Ps, P, V> {
     readonly [K in ActorKeys<Ps>]: ReadonlyArray<{
       readonly key: string;
       readonly props: any;
+      readonly input: any;
     }>;
   };
   /**

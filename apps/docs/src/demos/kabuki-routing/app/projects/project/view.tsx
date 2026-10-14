@@ -22,10 +22,9 @@ export const ProjectView = View.make(ProjectActor, ({ model, root }) => {
     );
   return (
     <div {...root}>
-      <Router.Head title={`${project.name} · Acme`} />
       <Page
         title={project.name}
-        about={`Project ${id}. The tab's title is its name: data only this page knows.`}
+        about={`Project ${id}. The tab's title is its name, which the Routes work out from the URL.`}
       >
         <Running name="presence" count={model.seen} />
         <div className="flex flex-wrap gap-2">
