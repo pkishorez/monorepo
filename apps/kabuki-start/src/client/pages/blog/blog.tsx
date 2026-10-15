@@ -1,5 +1,5 @@
 import { motion } from 'motion/react';
-import { Route, Router, useScroll } from '@kestack/kabuki/routing';
+import { Route, Router } from '@kestack/kabuki/routing';
 import { Pages, Routes } from '../../../shared/index.ts';
 import {
   Loaded,
@@ -15,27 +15,26 @@ import { PostView } from './post.tsx';
 /*
  * The blog: its list of posts, and the post the URL names beside it. The
  * post is the blog's Child, there while the URL names it, and loads on its
- * own: the blog, and its list, stay as they are. The list is the blog's
- * Scroll area, `url`: come back to the blog any way at all and it is where
- * it was. The post is its own, `entry`.
+ * own: the blog, and its list, stay as they are. The list stays on the page
+ * as a post opens, so its scroll is kept; its links say `resetScroll`
+ * false, so on a phone, where the post below it scrolls the window, the
+ * window stays too.
  */
 
 export const BlogView = Route.view(Pages.Blog, (self) => {
-  const list = useScroll();
   const post = self.children.Post;
   const open = self.props.route.page?.slug;
   return (
     <PlaceFrame
       place="Blog"
       status={self.props.status}
-      intro="Two Places, two Scroll areas. Scroll the list and a post, open another, then press Back: the post returns where you read to, and the list never moved."
+      intro="Scroll the list and a post, open another, then press Back: the post returns where you read to, and the list never moved. Nothing on these pages says how: the Router keeps every scroll per entry."
     >
       <div
         className={`grid gap-4 ${panes} lg:grid-cols-[minmax(0,19rem)_minmax(0,1fr)]`}
       >
         <nav
           aria-label="Posts"
-          ref={list}
           className="max-h-80 overflow-y-auto overscroll-contain rounded-lg border border-border bg-background/60 p-1.5 lg:h-full lg:max-h-none"
         >
           <Loaded
@@ -50,6 +49,7 @@ export const BlogView = Route.view(Pages.Blog, (self) => {
                     <li key={each.slug}>
                       <Router.Link
                         to={Routes.Blog.Post({ slug: each.slug })}
+                        resetScroll={false}
                         aria-current={open === each.slug ? 'page' : undefined}
                         className={`${row} aria-[current=page]:font-medium`}
                       >

@@ -1,11 +1,10 @@
-import type { RenderMode, ScrollMode } from '@kestack/kabuki/routing';
-import { Routes, scrollOf } from '../../shared/index.ts';
+import type { RenderMode } from '@kestack/kabuki/routing';
+import { Routes } from '../../shared/index.ts';
 import type { Place } from '../../shared/index.ts';
 
 /*
- * How each Render Mode and scroll mode is shown: its word, what it means in
- * a line, and, for a Render Mode alone, its color. Scroll modes stay grey:
- * three colors are all the site adds.
+ * How each Render Mode is shown: its word, what it means in a line, and its
+ * color, the only three colors the site adds.
  */
 
 export const MODE: Readonly<
@@ -39,20 +38,6 @@ export const MODE: Readonly<
   },
 };
 
-export type Scroll = 'entry' | 'url' | 'off';
-
-export const SCROLL: Readonly<Record<Scroll, string>> = {
-  entry:
-    'Back and Forward put it where it was on that entry; a new entry starts at the top',
-  url: 'any way back, a link too, finds it where it was left',
-  off: 'never remembered, never moved',
-};
-
-const scrollName = (mode: ScrollMode): Scroll =>
-  mode === false ? 'off' : mode;
-
-/** A place's Render Mode and scroll mode, as its pages say. */
-export const modesOf = (place: Place) => ({
-  render: Routes.every.find((each) => each.name === place)?.render ?? 'static',
-  scroll: scrollName(scrollOf(place)),
-});
+/** A place's Render Mode, as its pages say. */
+export const modeOf = (place: Place): RenderMode =>
+  Routes.every.find((each) => each.name === place)?.render ?? 'static';

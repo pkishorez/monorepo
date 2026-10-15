@@ -1,5 +1,4 @@
 import { Route } from '@kestack/kabuki/routing';
-import type { ScrollMode } from '@kestack/kabuki/routing';
 import { App } from './app.ts';
 
 /*
@@ -20,21 +19,3 @@ export type Route = typeof Routes.route.Type;
 
 /** A place's dotted name, as the Routes write it: `Blog.Post`. */
 export type Place = typeof Routes.place.Type;
-
-type Node = {
-  readonly scroll: ScrollMode | undefined;
-  readonly children: Readonly<Record<string, Node>>;
-};
-
-/** A place's scroll mode: its own, else the nearest page above it that says one. */
-export const scrollOf = (place: Place): ScrollMode => {
-  let mode: ScrollMode = App.scroll ?? 'entry';
-  let layer = Routes.children as unknown as Readonly<Record<string, Node>>;
-  for (const tag of place.split('.')) {
-    const node = layer[tag];
-    if (!node) break;
-    mode = node.scroll ?? mode;
-    layer = node.children;
-  }
-  return mode;
-};

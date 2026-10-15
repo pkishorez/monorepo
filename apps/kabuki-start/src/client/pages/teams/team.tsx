@@ -1,5 +1,5 @@
 import { motion } from 'motion/react';
-import { Route, Router, useScroll } from '@kestack/kabuki/routing';
+import { Route, Router } from '@kestack/kabuki/routing';
 import { Pages, Routes } from '../../../shared/index.ts';
 import {
   Loaded,
@@ -17,11 +17,10 @@ import { MemberView } from './member.tsx';
  * member's place whatever its own state: both load at once, and each shows
  * its own loading screen until its data comes; the member, quicker, shows
  * first. Their headers show both Loaders took their own time, side by side.
- * The member list is the team's Scroll area, `url`.
+ * The list stays as a member opens, and its links say `resetScroll` false.
  */
 
 export const TeamView = Route.view(Pages.Teams, (self) => {
-  const members = useScroll();
   const { status, params } = self.props;
   const member = self.children.Member;
   const open = self.props.route.page?.member;
@@ -45,10 +44,7 @@ export const TeamView = Route.view(Pages.Teams, (self) => {
       <div
         className={`grid gap-4 ${panes} lg:grid-cols-[minmax(0,17rem)_minmax(0,1fr)]`}
       >
-        <div
-          ref={members}
-          className="max-h-80 overflow-y-auto overscroll-contain rounded-lg border border-border bg-background/60 p-1.5 lg:h-full lg:max-h-none"
-        >
+        <div className="max-h-80 overflow-y-auto overscroll-contain rounded-lg border border-border bg-background/60 p-1.5 lg:h-full lg:max-h-none">
           <Loaded
             status={status}
             label={`Loading the ${params.team} team… (1.2 s)`}
@@ -63,6 +59,7 @@ export const TeamView = Route.view(Pages.Teams, (self) => {
                         team: team.slug,
                         member: each.handle,
                       })}
+                      resetScroll={false}
                       aria-current={open === each.handle ? 'page' : undefined}
                       className={`${row} justify-between aria-[current=page]:font-medium`}
                     >

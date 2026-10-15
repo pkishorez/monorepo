@@ -4,8 +4,8 @@ import { Loaded, PlaceFrame } from '../../components/index.ts';
 
 /*
  * A long feed that scrolls the window, a client page: the server sends it
- * loading and the browser loads it. It marks no Scroll area: the window is
- * the deepest Place's, so it is this page's. Open a post and press Back:
+ * loading and the browser loads it. Nothing on it says anything of scroll:
+ * the Router keeps the window per entry. Open a post and press Back:
  * the feed shows its copy at once, and the window goes back once it is
  * drawn. Reload the tab: the same, from the tab's session storage.
  */

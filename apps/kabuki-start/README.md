@@ -16,23 +16,22 @@ Every page is an Actor written with `Route.page`, and draws its own data from
 lists long, so each case has something to show, one URL each, toured from
 the home page:
 
-| URL                                  | What it shows                                                                                                                   |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
-| `/blog`, `/blog/pages-are-actors`    | Nested pages, static, in two panes: the list keeps its scroll however you come back (`url`), the post on Back (`entry`).        |
-| `/teams/core/ada`                    | Parallel loading, dynamic: a team and its member load side by side, the member first; the member list keeps its scroll (`url`). |
-| `/feed`                              | A client page that scrolls the window: open a post, press Back or reload, and the window goes back once the feed is drawn.      |
-| `/canvas`                            | A board whose page says `scroll: false`: Kabuki never remembers or moves it.                                                    |
-| `/blog/broken`, `/flaky`             | A Loader that breaks: the page says why, with Try again, inside its own box; `/flaky` is a client page, half the time.          |
-| `/blog/missing`, `/nowhere`          | Not found: a Loader's, drawn inside the blog, and a URL's, drawn by the root page; both a `404`.                                |
-| `/blog/moved`, `/posts/no-waterfall` | Redirects: a Loader's `302`, and an old address the Routes replace with a `308`.                                                |
-| `/search?q=scroll`                   | A query its Loader reads: a new one loads again on the same page, the results shown meanwhile, each query with its own scroll.  |
-| `/notes`                             | A page with States and a draft: Reload loads its data again, and the draft stays.                                               |
-| `/preload`                           | Links that preload on hover, once in view, or never, to slow pages whose Views load lazily.                                     |
+| URL                                  | What it shows                                                                                                                 |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| `/blog`, `/blog/pages-are-actors`    | Nested pages, static, in two panes: the list keeps its scroll as a post opens, and Back puts the post back where you read to. |
+| `/teams/core/ada`                    | Parallel loading, dynamic: a team and its member load side by side, the member first.                                         |
+| `/feed`                              | A client page that scrolls the window: open a post, press Back or reload, and the window goes back once the feed is drawn.    |
+| `/blog/broken`, `/flaky`             | A Loader that breaks: the page says why, with Try again, inside its own box; `/flaky` is a client page, half the time.        |
+| `/blog/missing`, `/nowhere`          | Not found: a Loader's, drawn inside the blog, and a URL's, drawn by the root page; both a `404`.                              |
+| `/blog/moved`, `/posts/no-waterfall` | Redirects: a Loader's `302`, and an old address the Routes replace with a `308`.                                              |
+| `/search?q=scroll`                   | A query its Loader reads: a new one loads again on the same page, the results shown meanwhile.                                |
+| `/notes`                             | A page with States and a draft: Reload loads its data again, and the draft stays.                                             |
+| `/preload`                           | Links that preload on hover, once in view, or never, to slow pages whose Views load lazily.                                   |
 
 Each page is drawn in a box, nested as its pages are, whose left edge is the
 color of its Render Mode: green static, amber dynamic, blue client, the only
 three colors the site adds. Its header says its place and path, its Render
-Mode and scroll mode, where its data is, whether the server drew it or the
+Mode, where its data is, whether the server drew it or the
 browser did, and whether its data came with the page or was loaded in the
 browser, and how long its Loader took. Kabuki's devtools open from the button
 in the bottom-right corner, or Ctrl+/: the Timeline of every Message and the

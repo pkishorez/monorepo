@@ -2,14 +2,7 @@ import type { RenderMode } from '@kestack/kabuki/routing';
 import { Route, Router } from '@kestack/kabuki/routing';
 import { Pages, Routes } from '../../../shared/index.ts';
 import type { Route as AnyRoute } from '../../../shared/index.ts';
-import {
-  MODE,
-  PlaceFrame,
-  SCROLL,
-  chip,
-  modesOf,
-} from '../../components/index.ts';
-import type { Scroll } from '../../components/index.ts';
+import { MODE, PlaceFrame, chip, modeOf } from '../../components/index.ts';
 
 /*
  * The landing page: static, with no data. How to read a box, then a tour
@@ -21,6 +14,8 @@ type Stop = {
   readonly to: AnyRoute;
   readonly url: string;
   readonly what: string;
+  /** The element on the page it goes to. */
+  readonly hash?: string;
 };
 
 const TOUR: ReadonlyArray<{
@@ -51,9 +46,10 @@ const TOUR: ReadonlyArray<{
         what: 'a client page: sent loading, loaded in the browser. Scroll far, open a post, press Back: the window waits for the feed, then goes back.',
       },
       {
-        to: Routes.Canvas(),
-        url: '/canvas',
-        what: 'a page that says scroll: false. Pan it, leave, come back: it is at its corner again.',
+        to: Routes.Blog.Post({ slug: 'scroll-entry' }),
+        url: '/blog/scroll-entry#part-5',
+        what: 'a link to a part of a post: the move lands, its data comes, then part 5 is scrolled into view.',
+        hash: 'part-5',
       },
     ],
   },
@@ -110,7 +106,20 @@ const TOUR: ReadonlyArray<{
 ];
 
 const RENDER: ReadonlyArray<RenderMode> = ['static', 'dynamic', 'client'];
-const SCROLLS: ReadonlyArray<Scroll> = ['entry', 'url', 'off'];
+/** What the Router does with scroll, as TanStack Router does it: nothing on a page says it. */
+const SCROLL: ReadonlyArray<readonly [string, string]> = [
+  ['a new entry', 'the window goes to the top, or to the #hash'],
+  [
+    'Back, Forward, a reload',
+    'the window and every list go back where they were',
+  ],
+  ['what stays on the page', 'keeps where it was, as the blog’s list does'],
+  [
+    'data-scroll-restoration-id',
+    'names a pane, so a new post’s is never taken for the last one’s',
+  ],
+  ['resetScroll: false', 'a link that leaves every scroll as it is'],
+];
 
 export const HomeView = Route.view(Pages.Home, () => (
   <div className="space-y-8 sm:space-y-12">
@@ -123,8 +132,9 @@ export const HomeView = Route.view(Pages.Home, () => (
       </h1>
       <p className="max-w-prose text-pretty text-muted-foreground sm:text-lg">
         Each page sits in a box with the color of its Render Mode. Nested pages
-        are nested boxes, each loading on its own, each putting its own scroll
-        back. Every Loader is slow on purpose. Move around, then press Back.
+        are nested boxes, each loading on its own. Every scroll is kept per
+        history entry. Every Loader is slow on purpose. Move around, then press
+        Back.
       </p>
     </div>
 
@@ -148,17 +158,14 @@ export const HomeView = Route.view(Pages.Home, () => (
           </ul>
         </section>
         <section className="space-y-3">
-          <h2 className="text-sm font-medium">Scroll: where it goes back to</h2>
+          <h2 className="text-sm font-medium">
+            Scroll: kept per entry, as TanStack Start does
+          </h2>
           <ul className="space-y-2.5">
-            {SCROLLS.map((mode) => (
-              <li key={mode} className="flex items-start gap-3 text-sm">
-                <span className={`${chip} mt-0.5 shrink-0`}>
-                  <span aria-hidden className="text-muted-foreground">
-                    ⇅
-                  </span>
-                  {mode}
-                </span>
-                <span className="text-muted-foreground">{SCROLL[mode]}</span>
+            {SCROLL.map(([when, what]) => (
+              <li key={when} className="flex items-start gap-3 text-sm">
+                <span className={`${chip} mt-0.5 shrink-0`}>{when}</span>
+                <span className="text-muted-foreground">{what}</span>
               </li>
             ))}
           </ul>
@@ -174,13 +181,14 @@ export const HomeView = Route.view(Pages.Home, () => (
       <section key={title} className="space-y-3">
         <h2 className="text-sm font-medium text-muted-foreground">{title}</h2>
         <ul className="grid gap-3 sm:grid-cols-2">
-          {stops.map(({ to, url, what }) => {
+          {stops.map(({ to, url, what, hash }) => {
             const page = Routes.places(to).at(-1);
-            const render = page ? modesOf(page.name).render : 'static';
+            const render = page ? modeOf(page.name) : 'static';
             return (
               <li key={url}>
                 <Router.Link
                   to={to}
+                  {...(hash ? { hash } : {})}
                   className={`group flex h-full flex-col gap-2 rounded-xl border border-l-[3px] border-border bg-card/60 p-4 transition-colors hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none ${MODE[render].edge}`}
                 >
                   <span className="flex items-center justify-between gap-3">

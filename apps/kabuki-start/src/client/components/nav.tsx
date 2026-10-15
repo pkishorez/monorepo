@@ -2,7 +2,7 @@ import { motion } from 'motion/react';
 import { Router, useRouter } from '@kestack/kabuki/routing';
 import { Routes } from '../../shared/index.ts';
 import type { Place, Route } from '../../shared/index.ts';
-import { MODE, modesOf } from './modes.ts';
+import { MODE, modeOf } from './modes.ts';
 import { quick } from './motion.ts';
 import { column } from './styles.ts';
 import { ThemeToggle } from './theme-toggle.tsx';
@@ -23,7 +23,6 @@ const NAV: ReadonlyArray<{ readonly to: Route; readonly label: string }> = [
   { to: Routes.Notes(), label: 'Notes' },
   { to: Routes.Preload(), label: 'Preload' },
   { to: Routes.Flaky(), label: 'Flaky' },
-  { to: Routes.Canvas(), label: 'Canvas' },
 ];
 
 export function Nav() {
@@ -45,7 +44,7 @@ export function Nav() {
       <ul className="-my-1 flex min-w-0 flex-1 gap-0.5 overflow-x-auto py-1 text-sm [scrollbar-width:none]">
         {NAV.map(({ to, label }) => {
           const current = to._tag === route._tag;
-          const { render } = modesOf(to._tag as Place);
+          const render = modeOf(to._tag as Place);
           return (
             <li key={label} className="shrink-0">
               <Router.Link
