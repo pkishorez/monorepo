@@ -116,6 +116,11 @@ was in the drawing and hydrated, or was drawn later by the browser, after a
 move or as part of a client place. It is `null` outside a page Start served,
 as in a test or a story.
 
+`Start.useRuntime()` reads the running app from the Document, for devtools
+drawn around it: what `App.useRuntime()` gives an app drawn with `toReact`,
+its History, the Step shown and how to show another. It is `null` on the
+server, which draws each request from a History of its own and runs none.
+
 ## One request
 
 ```

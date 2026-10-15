@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { act } from 'react';
+import { renderToString } from 'react-dom/server';
 import type { Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { registry } from '../../react/registry.ts';
@@ -131,6 +132,36 @@ describe('hydrating a page Start drew', () => {
     ).not.toBeNull();
     expect(document.body.innerHTML).toBe(drawn);
     expect(document.body.textContent).toContain('the lab, loaded lazily');
+    expect(errors).toEqual([]);
+  });
+
+  it('hands the Document the running app, and nothing outside Start', async () => {
+    function Running() {
+      const runtime = Start.useRuntime();
+      return (
+        <p id="runtime">
+          {runtime ? `${runtime.running} ${runtime.branch.length > 0}` : 'none'}
+        </p>
+      );
+    }
+    expect(renderToString(<Running />)).toContain('none');
+    await open('/blog/hello');
+    await until(() => document.querySelector('h1')?.textContent === 'Hello');
+    await act(async () =>
+      redraw!(
+        Start.app(app, {
+          document: ({ children }) => (
+            <Document>
+              <Running />
+              {children}
+            </Document>
+          ),
+        }),
+      ),
+    );
+    await until(
+      () => document.querySelector('#runtime')?.textContent === 'true true',
+    );
     expect(errors).toEqual([]);
   });
 

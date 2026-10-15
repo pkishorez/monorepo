@@ -1,6 +1,7 @@
 import { use, useState, useSyncExternalStore } from 'react';
 import type { ReactNode } from 'react';
-import { ID, PageContext, usePage } from './page.ts';
+import type { AppRuntime } from '../../react/index.ts';
+import { ID, PageContext, RuntimeContext, usePage } from './page.ts';
 
 /*
  * The Document's two parts Start fills: `<Start.Head />` in its `<head>`,
@@ -85,6 +86,17 @@ function useDrawn(): Drawn | null {
   return { ...drawn.page.drawn, hydrated };
 }
 
+/**
+ * The running app, for devtools drawn in the Document around it: its
+ * History, the Step shown, and how to show another. `null` on the server,
+ * which draws each request from a History of its own and runs none, and
+ * outside a page Start served.
+ */
+function useRuntime(): AppRuntime | null {
+  const read = use(RuntimeContext);
+  return read ? read() : null;
+}
+
 /** The plainest Document, for an app that gives none: Start's parts in an English page. */
 function Document({ children }: DocumentProps) {
   return (
@@ -115,4 +127,4 @@ export interface Drawn {
   readonly hydrated: boolean;
 }
 
-export { Document, Head, Scripts, useDrawn };
+export { Document, Head, Scripts, useDrawn, useRuntime };
