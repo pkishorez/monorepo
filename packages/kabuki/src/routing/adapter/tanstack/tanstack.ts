@@ -6,6 +6,7 @@ export interface TanStackHistory {
   readonly location: {
     readonly pathname: string;
     readonly search: string;
+    readonly hash?: string;
     readonly state: unknown;
   };
   readonly subscribe: (listener: () => void) => () => void;
@@ -41,6 +42,8 @@ export const tanstack = (options?: {
     const history = (options?.history ?? fromWindow)();
     return {
       url: () => `${history.location.pathname}${history.location.search}`,
+      hash: () =>
+        decodeURIComponent((history.location.hash ?? '').replace(/^#/, '')),
       key: () => keyIn(history.location.state),
       listen: (changed) => history.subscribe(changed),
       push: (url, key) => history.push(url, { [KEY]: key }),

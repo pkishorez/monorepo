@@ -8,7 +8,12 @@ export type {
   Wanted,
 } from './capability/index.ts';
 export { usePending, useRouter } from './router/index.ts';
-export { useScroll } from './scroll/index.ts';
+export { useElementScrollRestoration } from './scroll/index.ts';
+export type {
+  HashScroll,
+  ScrollLocation,
+  ScrollRestorationOptions,
+} from './scroll/index.ts';
 export type { Entry, LinkProps, Pending, RouterState } from './router/index.ts';
 export type {
   AnyPage,
@@ -27,5 +32,4 @@ export type {
   Outcome,
   RenderMode,
   RouteOf,
-  ScrollMode,
 } from './route/index.ts';

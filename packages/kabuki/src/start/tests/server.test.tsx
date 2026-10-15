@@ -133,6 +133,14 @@ describe('a static page', () => {
     ]);
   });
 
+  it('puts its scroll back before the app hydrates, with an inline script', async () => {
+    const { html } = await page('/');
+    const script = html.indexOf('@kestack/kabuki/routing:scroll');
+    expect(script).toBeGreaterThan(0);
+    expect(script).toBeLessThan(html.indexOf('<script type="module"'));
+    expect(saved(html).scroll).toContain('sessionStorage');
+  });
+
   it('writes the data as JSON that cannot close its script', async () => {
     const { html } = await page('/blog/evil');
     expect(html).not.toContain('<script>window.pwned');

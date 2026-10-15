@@ -15,11 +15,44 @@ export type AnyRoute = { readonly _tag: string };
 // oxlint-disable-next-line typescript/no-explicit-any -- a function's return typed `any` is never worked out while the page is typed.
 export type To = AnyRoute | (() => any);
 
-/** What a push or replace may say besides where it goes. */
-export interface MoveOptions {
-  /** Where the page is scrolled once the move lands: to the top, as a push is, or kept, as a replace is. */
-  readonly scroll?: 'top' | 'keep';
+/** How an element is scrolled into view: as `Element.scrollIntoView` takes it. */
+export interface HashScrollOptions {
+  readonly behavior?: 'auto' | 'instant' | 'smooth';
+  readonly block?: 'start' | 'center' | 'end' | 'nearest';
+  readonly inline?: 'start' | 'center' | 'end' | 'nearest';
 }
+
+/** What a push or replace may say besides where it goes, as TanStack Router's navigations say it. */
+export interface MoveOptions {
+  /** `false`: the move leaves every scroll as it is, restoring and resetting nothing. */
+  readonly resetScroll?: boolean;
+  /** The element the move goes to on the page, by its id: `#setup`. */
+  readonly hash?: string;
+  /** How that element is scrolled into view; `false` leaves it. */
+  readonly hashScrollIntoView?: boolean | HashScrollOptions;
+}
+
+const position = Schema.optionalKey(
+  Schema.Literals(['start', 'center', 'end', 'nearest']),
+);
+
+/** The Schemas of a move's options, for the Messages that carry them. */
+export const moveOptions = {
+  resetScroll: Schema.optionalKey(Schema.Boolean),
+  hash: Schema.optionalKey(Schema.String),
+  hashScrollIntoView: Schema.optionalKey(
+    Schema.Union([
+      Schema.Boolean,
+      Schema.Struct({
+        behavior: Schema.optionalKey(
+          Schema.Literals(['auto', 'instant', 'smooth']),
+        ),
+        block: position,
+        inline: position,
+      }),
+    ]),
+  ),
+};
 
 /** The Route `to` names. */
 export const routeOf = (to: To): AnyRoute =>
@@ -49,10 +82,7 @@ export class Navigation extends Context.Service<
 
 const Route = Schema.Struct({ _tag: Schema.String });
 const args = Schema.Struct({ route: Route });
-const moving = Schema.Struct({
-  route: Route,
-  scroll: Schema.optionalKey(Schema.Literals(['top', 'keep'])),
-});
+const moving = Schema.Struct({ route: Route, ...moveOptions });
 
 const pushing = Command.make('push', {
   args: moving,
@@ -82,10 +112,10 @@ const preloading = Command.make('preload', {
   run: ({ route }) => Navigation.use((navigation) => navigation.preload(route)),
 });
 
-/** Move to a Route, as a new entry: `{ scroll: 'keep' }` leaves the page scrolled as it is. */
+/** Move to a Route, as a new entry: `{ resetScroll: false }` leaves the page scrolled as it is, `{ hash }` goes to an element on it. */
 export const push = (to: To, options: MoveOptions = {}) =>
   pushing({ route: routeOf(to), ...options });
-/** Put a Route in place of this entry: Back skips what was here. `{ scroll: 'top' }` scrolls the page to its top. */
+/** Put a Route in place of this entry: Back skips what was here. */
 export const replace = (to: To, options: MoveOptions = {}) =>
   replacing({ route: routeOf(to), ...options });
 /** The browser's Back, or the memory history's. */

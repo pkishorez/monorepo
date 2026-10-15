@@ -194,9 +194,9 @@ _Avoid_: transition (Kabuki's Transition is another thing), navigation
 One step of the Router's history: a Route, and the key the Router gives it, so Back and Forward land on an Entry it knows. A push makes a new one; a replace or a Reload keeps the one shown.
 _Avoid_: history entry (Kabuki's History is another thing), location, state
 
-**Scroll area**:
-An element a Page's View marks as scrolling, named within its Place; the window is the deepest Place's. Where it was scrolled is remembered per Entry, or per visit to its Place's part of the URL, as its Page says, and put back when that Place is drawn again.
-_Avoid_: scroller, scroll container, viewport
+**Scroll restoration**:
+Where the window and every element the user scrolled were, kept under the Entry they were scrolled on and put back when the app returns to it, as TanStack Router does: a new Entry starts at the top, what stays on the page keeps where it was, and a move can say to leave it all as it is. Kept outside the Snapshot.
+_Avoid_: scroll memory, scroll area, scroll position
 
 **Redirect**:
 A URL that is never a place, replaced in the address by the Route the Routes name for it, so Back never returns to it. A URL that reads as a Route but is not how that Route is written is replaced the same way.

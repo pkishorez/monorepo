@@ -6,10 +6,16 @@ export {
   back,
   backTo,
   forward,
+  moveOptions,
   preload,
   push,
   reload,
   replace,
   routeOf,
 } from './navigation.ts';
-export type { AnyRoute, MoveOptions, To } from './navigation.ts';
+export type {
+  AnyRoute,
+  HashScrollOptions,
+  MoveOptions,
+  To,
+} from './navigation.ts';

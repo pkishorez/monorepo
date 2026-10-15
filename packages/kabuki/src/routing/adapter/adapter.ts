@@ -17,6 +17,8 @@ import { Context } from 'effect';
 export interface AdapterShape {
   /** The URL shown now: path and query. */
   readonly url: () => string;
+  /** The element on the page the URL names now, after its `#`, decoded; none if it names none. */
+  readonly hash?: () => string;
   /** The key the router stamped on the entry shown now, if it wrote it. */
   readonly key: () => string | null;
   /** Hear every change of the URL, whoever made it; gives back how to stop. */

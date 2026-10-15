@@ -74,6 +74,12 @@ const lazyTags = (build: Build, ids: Iterable<string>): string => {
   return tags;
 };
 
+/** The script that puts the page's scroll back before the app hydrates, where the Router restores it. */
+const scrollOf = (app: ServedApp, route: unknown) => {
+  const scroll = app.restoreScroll?.(route);
+  return scroll ? { scroll } : {};
+};
+
 /** Draws the app at a Route as a whole HTML page; throws if anything in it fails to draw. */
 export const drawer = (
   app: ServedApp,
@@ -99,6 +105,7 @@ export const drawer = (
       head: build.head,
       saved,
       drawn: { at: Date.now(), build: build.id },
+      ...scrollOf(app, at.route),
     };
     const views = new Set<string>();
     const failures: Array<unknown> = [];

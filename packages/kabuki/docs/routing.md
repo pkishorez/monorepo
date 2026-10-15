@@ -24,15 +24,15 @@ src/routing/
   capability/     what the Router and Places use: Loading, the Data cache, Navigation
   page/           Route.page, the Place it writes, Route.view, Route.tree
   router/         the Router Actor: moves, links, hooks, the Metadata in the document
-  scroll/         Scroll areas: remembered, saved for a reload, put back by each Place
+  scroll/         scroll restoration, as TanStack Router's: kept per entry, put back after each move
   adapter/        the port: where the address lives            @kestack/kabuki/routing/adapter
     browser/      the browser's own history                    @kestack/kabuki/routing/adapter/browser
     tanstack/     TanStack Router's history                    @kestack/kabuki/routing/adapter/tanstack
 ```
 
 `route` is pure data and depends on nothing else here, so Start's shared code
-reads it without the Router. `scroll` uses only `route`. `page` uses `route`,
-`capability` and `scroll`; `router` uses all four and `adapter`.
+reads it without the Router. `scroll` uses nothing else here. `page` uses
+`route`, `capability` and `scroll`; `router` uses all four and `adapter`.
 
 ## A page
 
@@ -79,7 +79,7 @@ export const TaskView = Route.view(Task, ({ props }) => {
 
 `Route.page` is `Actor.make` with a place in the URL, and every field is
 optional: `path`, `params`, `query`, `data` (its Loader's Schema), `render`,
-`scroll`, `metadata` and `pages`, then the Actor's own `requires`, `model`, `state` and
+`metadata` and `pages`, then the Actor's own `requires`, `model`, `state` and
 `message`. `build` takes how it behaves, at the top and per State, as any
 Actor's does. A page takes no Input: it exists before its data. It is handed
 Props:
@@ -319,68 +319,64 @@ Place's Model, and a fetched answer is in the Message that brought it.
 
 ## Scroll
 
-```tsx
-export const App = Route.page({ pages: { Mail, Settings } }).build({}); // scroll: 'entry', the default
-
-export const Folder = Route.page({
-  path: '/:folder',
-  params: { folder: Schema.String },
-  scroll: 'url', // the list comes back however the app returns to it
-  pages: { Message }, // Message says 'entry' for itself
-}).build({});
-
-export const FolderView = Route.view(Folder, (self) => {
-  const list = useScroll(); // a ref; `useScroll('sidebar')` names a second one
-  return (
-    <section>
-      <ul ref={list}>…</ul>
-      {self.children.Message && (
-        <MessageView instance={self.children.Message} />
-      )}
-    </section>
-  );
+```ts
+export const app = Router.app(Routes, AppView, {
+  scrollRestoration: true,
+  // all optional:
+  getScrollRestorationKey: ({ route, path, key }) => key, // `path` keeps one per URL
+  scrollToTopSelectors: ['#main'], // reset on a new entry, rather than kept
+  scrollRestorationBehavior: 'instant',
+  defaultHashScrollIntoView: { block: 'start' },
 });
 ```
 
-A page's `scroll` says where its Scroll areas go back to, inherited by the
-pages under it, and the root's is the app's:
+Scroll restoration is TanStack Router's, option for option. Nothing on a
+page says anything: the window and every element the user scrolls are kept
+per history entry, the way a site of whole pages behaves.
 
-- `'entry'`, the default: where they were on the history entry the app comes
-  back to, by Back, Forward or a reload. A new entry starts at the top.
-- `'url'`: where they were the last time this place, with these params and
-  this query, was shown, however the app comes back, a plain link too.
-- `false`: never touched, for a chat that keeps itself at its bottom, or a
-  canvas.
+1. **Track.** Every element the user scrolls, and the window, is kept with
+   where it is, under the restoration key of the entry drawn: the entry's
+   key unless `getScrollRestorationKey` says. An element is named by its
+   `data-scroll-restoration-id`, else by its path in the document.
+2. **Carry.** On a move to another key, what is still on the page keeps
+   where it was: a list beside the post that opens. Never the window, nor
+   what `scrollToTopSelectors` names: a container whose content a move
+   replaces.
+3. **Restore.** Once every Place on screen has its data, what is kept for
+   the key the move lands on is put back. With nothing kept for the window,
+   a push or replace to a hash scrolls its element into view, else the
+   window, and what `scrollToTopSelectors` names, go to the top. Back,
+   Forward and a reload find what their entry kept. A replace keeps its
+   entry's key, so it keeps its scroll.
+4. **Save.** To the tab's session storage when the page is hidden, so a
+   reload, and a duplicated tab, start from it. Under Start the page holds
+   an inline script that puts it back before the app hydrates, so a reload
+   never paints at the top first.
 
-`useScroll(name?)` marks the element a View draws as one of its Place's
-Scroll areas: a ref, so it fits any element, a virtual list's too. A Place
-with two names each; two of one name are refused. The window needs nothing:
-it is the deepest Place's.
+A move says otherwise for itself, as TanStack's do:
 
-- **Each Place puts its own back**, once, as it is drawn with its data, after
-  a move that made it. A Place the move keeps is not drawn again, so it is
-  never touched, and a Place that failed is left at its top.
-- **The window** goes back once every Place on screen has its data. A push
-  to another page under the root goes to the top; a push that keeps that
-  page, as opening a post beside its list, leaves the window as it is, as
-  does a replace. A wheel, a touch or a key before then wins. With an
-  Adapter, Kabuki puts it back, not the browser.
-- **A move can say**: `<Router.Link scroll="keep">`, `Router.push(to, {
-scroll: 'keep' })`, `Router.replace(to, { scroll: 'top' })`. Back still
-  goes back to what each entry was.
-- **Kept** in memory as each area scrolls, on the entry drawn; with
-  an Adapter, saved to the tab's session storage when an entry is left or the
-  page is hidden, so a reload, and a duplicated tab, start from it. A link
-  opened in a new tab starts empty. Each kind keeps its last 100.
-- **Never in the Snapshot**, and never run while the app shows a past Step:
-  Time Travel does not scroll. Why it is built this way is in
-  [ADR 0036](adr/0036-each-place-puts-its-own-scroll-back.md).
+- `resetScroll: false`, on `Router.Link`, `Router.push` and `Router.replace`:
+  restore nothing and reset nothing, as opening a post below its list on a
+  phone, where the window must stay.
+- `hash`: the element on the page it goes to, `href` ending `#part-5`.
+  `hashScrollIntoView` says how it is scrolled into view; `false` leaves it.
+
+`useElementScrollRestoration({ id } | { getElement })` reads what is kept for
+an element, or the window, on the entry drawn: for a virtual list that puts
+itself back.
+
+Kabuki adds two things TanStack has no need of. A move lands before its
+data after 150 ms, so restoring waits for every Place's data, and scrolls in
+between, as the browser clamping the window when a page goes out, are not
+kept. And nothing scrolls while the app shows a past Step. Why it follows
+TanStack is in
+[ADR 0036](adr/0036-scroll-restoration-follows-tanstack-router.md).
 
 An app on TanStack Router leaves TanStack's own scroll restoration off for
 the route Kabuki is drawn on. An app that animates a page out, as
 `AnimatePresence` does, turns the browser's scroll anchoring off around it,
-`overflow-anchor: none`: else taking the page away when its exit ends moves
-the window after Kabuki put it back.
+`overflow-anchor: none`, and names the panes that go out and come in, with
+`data-scroll-restoration-id`, so the two are never taken for each other.
 
 ## One click, a project to one of its tasks
 
@@ -402,8 +398,6 @@ Capability.
 
 - Typed ancestor params: a page sees its own params typed, and `route.params` loosely.
 - Blocking a move, as over unsaved changes.
-- A link to a spot on another page, `/docs/a#setup`: the Router drops the
-  `#setup` on the move, so the page opens at its top.
 - Moving focus on a move, for a screen reader, as scroll is put back.
 - Devtools folding each Place into its page.
 - Starting a `client` page's data request from the document's head, before the code loads.

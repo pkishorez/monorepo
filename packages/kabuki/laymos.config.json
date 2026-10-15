@@ -40,7 +40,7 @@
       "src/routing/capability",
       "src/routing/scroll"
     ],
-    "src/routing/scroll": ["src/routing/route"]
+    "src/routing/scroll": []
   },
   "exceptions": [
     {

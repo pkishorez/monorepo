@@ -1,410 +1,355 @@
-import {
-  createContext,
-  use,
-  useCallback,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from 'react';
-import type { ReactNode, RefCallback } from 'react';
+import { createContext, use, useLayoutEffect, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import { useLive } from '../../react/index.ts';
-import { nodesOn } from '../route/index.ts';
-import type {
-  Children,
-  How,
-  Place,
-  ScrollMode,
-  Value,
-} from '../route/index.ts';
-import { memory } from './memory.ts';
-import type { Memory, Point } from './memory.ts';
+import { ID, WINDOW, elementOf, selectorOf } from './selector.ts';
+import type { Position, Positions } from './selector.ts';
 import * as session from './session.ts';
 
 /*
- * Scroll restoration: each Place puts its own Scroll areas back, and the
- * window is the deepest Place's. Nothing here is in the Snapshot, and none
- * of it runs while the app shows a past Step.
+ * Scroll restoration, as TanStack Router does it: the window and every
+ * element the user scrolls are remembered under the history entry they
+ * were scrolled on, and put back when the app comes back to it. Nothing is
+ * marked and no page says anything; what deviates is said once, on the
+ * Router, or on a move.
  *
- * 1. Remember  every area's position as it scrolls, in memory: on the entry
- *              drawn, or for its place, as its Page's mode says. Through a
- *              held move the entry drawn is still the one before it.
- * 2. Save      to the tab's session storage, with an Adapter, when an entry
- *              is left, the page is hidden, or the app goes.
- * 3. Restore   a Place's areas once, as it is drawn with its data: where
- *              they were on the entry the app came back to, or for the
- *              place, unless the move said `top` or `keep`. A new entry's
- *              areas start at the top, as new elements do.
- * 4. Window    on every move: back to where it was, once every Place on
- *              screen has its data; to the top for a push to another page
- *              under the root, and left as it is for a push that keeps it,
- *              as opening a post beside its list, and for a replace. A
- *              wheel, a touch or a key first wins.
+ * 1. Track    every element the user scrolls, and the window, by its name
+ *             (`data-scroll-restoration-id`, else its path in the document),
+ *             with where it is, under the restoration key of the entry
+ *             drawn: the entry's key unless `getScrollRestorationKey` says.
+ * 2. Carry    on a move to another key, what is still on the page keeps
+ *             where it was: its position is copied to the new key. Never
+ *             the window, nor an element `scrollToTopSelectors` names.
+ * 3. Restore  once every Place on screen has its data: what is kept for the
+ *             key the move lands on is put back. With nothing for the
+ *             window, a push or replace to a hash scrolls its element into
+ *             view, else the window and `scrollToTopSelectors` go to the
+ *             top. A move that says `resetScroll: false` touches nothing.
+ * 4. Save     to the tab's session storage when the page is hidden, for a
+ *             reload, which a server's inline script puts back before the
+ *             app hydrates.
+ *
+ * Kabuki's own: a move can land before its data, so restoring waits for
+ * every Place's; and nothing here runs while the app shows a past Step.
  */
 
-/** The name of a Place's area when it has one: `useScroll()`. */
-const MAIN = 'main';
-/** The window's name, as an area of the deepest Place. */
-const WINDOW = 'window';
+/** How an element is scrolled into view, as `Element.scrollIntoView` takes it. */
+export type HashScroll =
+  | boolean
+  | {
+      readonly behavior?: 'auto' | 'instant' | 'smooth';
+      readonly block?: 'start' | 'center' | 'end' | 'nearest';
+      readonly inline?: 'start' | 'center' | 'end' | 'nearest';
+    };
 
-/** Runs once the frame drawn is laid out: the next animation frame, where there is one. */
-const afterPaint = (run: () => void) =>
-  typeof requestAnimationFrame === 'function'
-    ? requestAnimationFrame(run)
-    : setTimeout(run, 0);
+/** Where an app is, as scroll restoration reads it. */
+export interface ScrollLocation<Route = { readonly _tag: string }> {
+  readonly route: Route;
+  /** Its path and query, as the address writes it. */
+  readonly path: string;
+  /** The key of its history entry. */
+  readonly key: string;
+}
 
-/** What the Router hands Scrolling: its Routes, and the move shown. */
+/** Scroll restoration's options on `Router.app`, named as TanStack Router's. */
+export interface ScrollRestorationOptions<Route = { readonly _tag: string }> {
+  /** Whether it restores scroll at all, or where: off unless said. */
+  readonly scrollRestoration?:
+    | boolean
+    | ((options: { readonly route: Route }) => boolean);
+  /** What positions are kept under: the entry's key unless said, its `path` to keep one per URL. */
+  readonly getScrollRestorationKey?: (
+    location: ScrollLocation<Route>,
+  ) => string;
+  /** Elements, by selector or function, that go to the top on a move to a new entry rather than keep where they were. */
+  readonly scrollToTopSelectors?: ReadonlyArray<
+    string | (() => Element | null | undefined)
+  >;
+  /** How it scrolls: `instant`, `smooth` or `auto`. */
+  readonly scrollRestorationBehavior?: 'auto' | 'instant' | 'smooth';
+  /** How a hash's element is scrolled into view when a move does not say: `true` unless said. */
+  readonly defaultHashScrollIntoView?: HashScroll;
+}
+
+/** What the Router hands Scrolling: its options, and the move drawn. */
 export interface ScrollingProps {
-  readonly routes: {
-    readonly root: { readonly scroll: ScrollMode | undefined };
-    readonly children: object;
-    readonly places: (route: never) => ReadonlyArray<Place>;
-  };
-  /** The Route drawn. */
-  readonly route: { readonly _tag: string };
-  /** The key of the entry shown. */
-  readonly entry: string;
+  readonly options: ScrollRestorationOptions<never>;
+  /** Where the app is drawn. */
+  readonly at: ScrollLocation;
+  /** The element on the page its entry goes to. */
+  readonly hash: string | undefined;
   readonly move: {
-    readonly how: How;
-    readonly scroll?: 'top' | 'keep' | undefined;
+    readonly how: 'load' | 'push' | 'replace' | 'back' | 'forward';
+    readonly resetScroll?: boolean | undefined;
+    readonly hashScrollIntoView?: HashScroll | undefined;
   };
   /** Whether a move is held: the entry may already be the one it goes to. */
   readonly pending: boolean;
-  /** Whether an Adapter holds the address: the Memory is saved for a reload. */
+  /** Whether an Adapter holds the address: positions are saved for a reload. */
   readonly attached: boolean;
   /** Whether the Adapter has said which entry the app opened at: before, its key is not known. */
   readonly loaded: boolean;
   readonly children: ReactNode;
 }
 
-/** A place on the Route drawn: its key, with its query, and its mode. */
-interface Shown {
-  readonly key: string;
-  readonly mode: ScrollMode;
-}
+/** Whether scroll restoration is on at a Route. */
+export const restores = (
+  options: ScrollRestorationOptions<never>,
+  route: unknown,
+) =>
+  typeof options.scrollRestoration === 'function'
+    ? options.scrollRestoration({ route } as never)
+    : options.scrollRestoration === true;
 
-/** Every place on the Route drawn, by dotted name, the root's `''`, from the root down. */
-const shownOn = (
-  routes: ScrollingProps['routes'],
-  route: ScrollingProps['route'],
-): ReadonlyMap<string, Shown> => {
-  let mode: ScrollMode = routes.root.scroll ?? 'entry';
-  const shown = new Map<string, Shown>([
-    ['', { key: JSON.stringify(['', {}]), mode }],
-  ]);
-  if (route._tag === 'NotFound') return shown;
-  const nodes = nodesOn(routes.children as Children, route as Value);
-  routes.places(route as never).forEach((place, at) => {
-    mode = nodes[at]?.[1].scroll ?? mode;
-    shown.set(place.name, {
-      key: JSON.stringify([place.name, place.params]),
-      mode,
-    });
-  });
-  return shown;
-};
+/** The restoration key of a location. */
+export const keyOf = (
+  options: ScrollRestorationOptions<never>,
+  at: ScrollLocation,
+) => options.getScrollRestorationKey?.(at as never) ?? at.key;
 
-/** What each Place reads of the Router's Scrolling. */
 interface Frame {
-  /** Whether an area may be remembered now: while the app is live. */
-  readonly remembering: () => boolean;
-  /** Where the app is: the entry shown and the move that led there. */
-  readonly arrival: () => Arrival;
-  readonly remember: (place: string, area: string, at: Point) => void;
-  readonly recall: (
-    place: string,
-    area: string,
-    entry: string,
-  ) => Point | undefined;
-  /** A Place says whether it has its data, for the window to wait on. */
+  /** A Place says whether it has its data, for restoring to wait on. */
   readonly ready: (place: object, ready: boolean) => void;
   readonly left: (place: object) => void;
+  /** What is kept for an element or the window, under the key drawn. */
+  readonly entry: (name: string) => Position | undefined;
 }
 
-interface Arrival {
-  readonly entry: string;
-  readonly move: ScrollingProps['move'];
-}
-
-const FrameContext = createContext<
-  { readonly frame: Frame; readonly settled: boolean } | undefined
->(undefined);
+const FrameContext = createContext<Frame | undefined>(undefined);
 
 /**
- * Around the app, inside the Router: remembers the window, puts it back on
- * every move, and hands each Place what it puts its own areas back from.
+ * Around the app, inside the Router: tracks what scrolls, and puts it back
+ * after every move once every Place on screen has its data.
  */
 export function Scrolling(props: ScrollingProps) {
   const live = useLive();
-  const now = { props, live, shown: shownOn(props.routes, props.route) };
-  const latest = useRef(now);
-  latest.current = now;
-  const state = useRef<{
-    frame: Frame;
-    save: () => void;
-    readies: Map<object, boolean>;
-    /** The window waits on the Places for its data, then is put back. */
-    waiting: (() => void) | undefined;
-    /** No window position is remembered from a move until it is put back. */
-    settling: boolean;
-    turn: number;
-    last: string | undefined;
-    /** The entry drawn: through a held move, still the one before it, so a scroll just before a click is kept for it. */
-    entry: string;
-    /** The key of the page under the root the last move drew: a push that keeps it keeps the window. */
-    page: string | null;
-  }>(undefined);
-  if (!state.current) {
-    let own: Memory | undefined;
-    const readies = new Map<object, boolean>();
-    const memoryOf = () =>
-      (own ??= memory(
-        latest.current.props.attached ? session.read() : undefined,
-      ));
-    const where = (place: string, area: string, entry: string) => {
-      const shown = latest.current.shown.get(place);
-      if (!shown || shown.mode === false) return undefined;
-      return {
-        entry: shown.mode === 'entry' ? entry : null,
-        area: `${shown.key}#${area}`,
-      };
-    };
-    const check = () => {
-      const s = state.current!;
-      if (s.waiting && [...readies.values()].every(Boolean)) s.waiting();
-    };
-    state.current = {
-      save: () => {
-        if (latest.current.props.attached && own) session.write(own.saved());
-      },
-      readies,
-      waiting: undefined,
-      settling: false,
-      turn: 0,
-      last: undefined,
-      entry: props.entry,
-      page: null,
-      frame: {
-        remembering: () => latest.current.live,
-        arrival: () => ({
-          entry: latest.current.props.entry,
-          move: latest.current.props.move,
-        }),
-        remember: (place, area, at) => {
-          const found = where(place, area, state.current!.entry);
-          if (found) memoryOf().set(found, at);
-        },
-        recall: (place, area, entry) => {
-          const found = where(place, area, entry);
-          return found && memoryOf().get(found);
-        },
-        ready: (place, ready) => {
-          readies.set(place, ready);
-          check();
-        },
-        left: (place) => {
-          readies.delete(place);
-          check();
-        },
-      },
-    };
-  }
-  const s = state.current;
-  // Until the Adapter says which entry the app opened at, its key is not
-  // known, so nothing is put back: in memory that is never, and nothing
-  // is kept from before.
-  const settled = props.move.how !== 'load' || props.loaded;
+  const on = restores(props.options, props.at.route);
+  const key = keyOf(props.options, props.at);
+  const latest = useRef({ props, live, on });
+  latest.current = { props, live, on };
+  const [s] = useState(() => ({
+    positions: undefined as Positions | undefined,
+    readies: new Map<object, boolean>(),
+    /** The restoration key drawn: through a held move, still the one before it. */
+    key,
+    /** Our own scrolling, which is not the user's. */
+    ignore: false,
+    /** The move last restored for, as one string. */
+    last: undefined as string | undefined,
+    /** Restoring, once every Place has its data. */
+    waiting: undefined as (() => void) | undefined,
+  }));
+  const positions = () =>
+    (s.positions ??= latest.current.props.attached ? session.read() : {});
+  const save = () => {
+    if (latest.current.props.attached && s.positions)
+      session.write(s.positions);
+  };
+  const check = () => {
+    if (s.waiting && [...s.readies.values()].every(Boolean)) s.waiting();
+  };
+  const [frame] = useState<Frame>(() => ({
+    ready: (place, ready) => {
+      s.readies.set(place, ready);
+      check();
+    },
+    left: (place) => {
+      s.readies.delete(place);
+      check();
+    },
+    entry: (name) => positions()[s.key]?.[name],
+  }));
 
-  // 1. Remember the window, and 2. save when the page is hidden or the app goes.
+  // 1. Track, and 4. save.
   useLayoutEffect(() => {
-    const deepest = () => [...latest.current.shown.keys()].at(-1)!;
-    const scrolled = () => {
-      if (!s.frame.remembering() || s.settling) return;
-      s.frame.remember(deepest(), WINDOW, [scrollX, scrollY]);
+    const scrolled = (event: Event) => {
+      // Waiting to restore, the page is not yet what the user will see: a
+      // page going out shortens it, and the browser clamps the window.
+      if (s.ignore || s.waiting || !latest.current.live || !latest.current.on)
+        return;
+      const target = event.target;
+      const kept = (positions()[s.key] ??= {});
+      if (target === document || target === document.documentElement)
+        kept[WINDOW] = { scrollX, scrollY };
+      else if (target instanceof Element && target.isConnected)
+        kept[selectorOf(target)] = {
+          scrollX: target.scrollLeft,
+          scrollY: target.scrollTop,
+        };
     };
     const interrupt = () => {
-      if (!s.waiting) return;
       s.waiting = undefined;
-      s.turn += 1;
-      s.settling = false;
     };
     const hidden = () => {
-      if (document.visibilityState === 'hidden') s.save();
+      // The browser may put a reload back too; ours runs from what is saved.
+      history.scrollRestoration = 'auto';
+      save();
     };
-    addEventListener('scroll', scrolled, { passive: true });
-    addEventListener('pagehide', s.save);
-    document.addEventListener('visibilitychange', hidden);
+    const shown = (event: PageTransitionEvent) => {
+      if (event.persisted && latest.current.on)
+        history.scrollRestoration = 'manual';
+    };
+    document.addEventListener('scroll', scrolled, {
+      capture: true,
+      passive: true,
+    });
+    addEventListener('pagehide', hidden);
+    addEventListener('pageshow', shown);
     for (const input of ['wheel', 'touchmove', 'keydown'] as const)
       addEventListener(input, interrupt, { passive: true });
     return () => {
-      s.save();
-      removeEventListener('scroll', scrolled);
-      removeEventListener('pagehide', s.save);
-      document.removeEventListener('visibilitychange', hidden);
+      save();
+      document.removeEventListener('scroll', scrolled, { capture: true });
+      removeEventListener('pagehide', hidden);
+      removeEventListener('pageshow', shown);
       for (const input of ['wheel', 'touchmove', 'keydown'] as const)
         removeEventListener(input, interrupt);
     };
-  }, [s]);
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- set up once; it reads the latest through refs.
+  }, []);
 
-  // With an Adapter, Kabuki puts the window back, not the browser, unless the root says `false`.
-  const owns =
-    props.attached && (props.routes.root.scroll ?? 'entry') !== false;
+  // Kabuki puts scroll back, not the browser, while it is on.
+  const manual = on && props.attached;
   useLayoutEffect(() => {
-    if (!owns || !('scrollRestoration' in history)) return;
+    if (!manual || !('scrollRestoration' in history)) return;
     const before = history.scrollRestoration;
     history.scrollRestoration = 'manual';
     return () => {
       history.scrollRestoration = before;
     };
-  }, [owns]);
+  }, [manual]);
 
-  // 4. Window
-  const move = `${props.entry} ${props.move.how} ${props.move.scroll ?? ''} ${JSON.stringify(props.route)}`;
+  // 2. Carry, and 3. restore, after every move.
+  const settled = props.move.how !== 'load' || props.loaded;
+  const move = `${key} ${props.move.how} ${props.hash ?? ''} ${props.at.path}`;
   useLayoutEffect(() => {
-    if (!live || props.pending) return;
-    s.entry = props.entry;
+    if (!live || props.pending || !settled) return;
+    const from = s.key;
+    s.key = key;
     if (s.last === move) return;
     s.last = move;
-    s.save();
     s.waiting = undefined;
-    const turn = (s.turn += 1);
-    const done = () => {
-      s.settling = false;
-    };
-    const { shown } = latest.current;
-    const deepest = [...shown.keys()].at(-1)!;
-    const page = [...shown.values()][1]?.key ?? null;
-    const kept = page !== null && page === s.page;
-    s.page = page;
-    const mode = shown.get(deepest)!.mode;
-    const { how, scroll } = props.move;
-    if (!settled || mode === false || scroll === 'keep') return done();
-    if (scroll === 'top') {
-      scrollTo(0, 0);
-      return done();
+    if (!on) return;
+    const options = latest.current.props.options;
+    const { how } = props.move;
+    const reset = props.move.resetScroll !== false;
+    const hashing = how === 'push' || how === 'replace';
+    const hashScroll =
+      props.move.hashScrollIntoView ??
+      options.defaultHashScrollIntoView ??
+      true;
+    const kept = positions();
+    let toTop: Set<Element> | undefined;
+    const toTopElements = () =>
+      (toTop ??= new Set(
+        (options.scrollToTopSelectors ?? [])
+          .filter((selector) => selector !== WINDOW)
+          .map(elementOf)
+          .filter((element): element is Element => element !== undefined),
+      ));
+
+    // 2. Carry
+    const before = kept[from];
+    if (before && from !== key) {
+      const after = (kept[key] ??= {});
+      for (const name in before) {
+        if (name === WINDOW) {
+          if (reset) continue;
+        } else {
+          const element = elementOf(name);
+          if (!element) continue;
+          if (reset && toTopElements().has(element)) continue;
+        }
+        after[name] ??= before[name]!;
+      }
     }
-    if (how === 'replace') return done();
-    const at = s.frame.recall(deepest, WINDOW, props.entry);
-    if (!at) {
-      if (how === 'push' && !kept) scrollTo(0, 0);
-      return done();
-    }
-    s.settling = true;
-    s.waiting = () => {
+
+    // 3. Restore
+    const restore = () => {
       s.waiting = undefined;
-      afterPaint(() => {
-        if (s.turn !== turn) return;
-        scrollTo(at[0], at[1]);
-        done();
-      });
+      const behavior = options.scrollRestorationBehavior;
+      const hash = props.hash;
+      s.ignore = true;
+      try {
+        let windowRestored = false;
+        if (reset) {
+          const skipWindow = Boolean(hash && hashScroll && hashing);
+          const tops = hash ? undefined : new Set(toTopElements());
+          for (const name in kept[key] ?? {}) {
+            const { scrollX: left, scrollY: top } = kept[key]![name]!;
+            if (name === WINDOW) {
+              if (skipWindow) continue;
+              scrollTo({ top, left, ...(behavior ? { behavior } : {}) });
+              windowRestored = true;
+            } else {
+              const element = elementOf(name);
+              if (!element) continue;
+              element.scrollLeft = left;
+              element.scrollTop = top;
+              tops?.delete(element);
+            }
+          }
+          if (!hash) {
+            const origin = {
+              top: 0,
+              left: 0,
+              ...(behavior ? { behavior } : {}),
+            };
+            if (!windowRestored) scrollTo(origin);
+            for (const element of tops ?? []) element.scrollTo(origin);
+          }
+        }
+        if (!windowRestored && hash && hashScroll)
+          document
+            .getElementById(hash)
+            ?.scrollIntoView(hashScroll === true ? undefined : hashScroll);
+      } finally {
+        s.ignore = false;
+      }
     };
-    if ([...s.readies.values()].every(Boolean)) s.waiting();
+    s.waiting = restore;
+    check();
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- `move` is the move, as one string.
-  }, [move, props.pending, live, settled]);
+  }, [move, props.pending, live, settled, on]);
 
-  return (
-    <FrameContext value={{ frame: s.frame, settled: settled && live }}>
-      {props.children}
-    </FrameContext>
-  );
+  return <FrameContext value={frame}>{props.children}</FrameContext>;
 }
-
-/** What `useScroll` registers its element with: the Place it is drawn in. */
-interface Areas {
-  readonly register: (area: string, element: Element) => () => void;
-}
-
-const PlaceContext = createContext<Areas | undefined>(undefined);
 
 /**
- * Around each Place's View, written by `Route.view`: remembers its Scroll
- * areas and, 3., puts them back once it has its data.
+ * Around each Place's View, written by `Route.view`: says whether its data
+ * is there, so restoring waits for it.
  */
-export function ScrollPlace({
-  name,
-  status,
+export function ScrollReady({
+  ready,
   children,
 }: {
-  readonly name: string;
-  /** Where its data is: an area is put back once it is not loading, and never for a page that failed. */
-  readonly status: 'loading' | 'failed' | 'ready';
+  readonly ready: boolean;
   readonly children: ReactNode;
 }) {
-  const found = use(FrameContext);
-  const [self] = useState(() => ({
-    areas: new Map<string, Element>(),
-    restored: new Set<string>(),
-    arrival: undefined as Arrival | undefined,
-    status,
-    settled: false,
-  }));
-  self.status = status;
-  self.settled = found?.settled ?? false;
-
-  const restore = useCallback(
-    (area: string, element: Element) => {
-      const frame = found?.frame;
-      if (!frame || !self.settled || self.status === 'loading') return;
-      if (self.restored.has(area)) return;
-      self.restored.add(area);
-      self.arrival ??= frame.arrival();
-      const { entry, move } = self.arrival;
-      if (self.status === 'failed' || move.scroll) return;
-      const at = frame.recall(name, area, entry);
-      if (!at) return;
-      afterPaint(() => {
-        // Scrolled first, by the user or the page itself: theirs wins.
-        if (element.scrollLeft !== 0 || element.scrollTop !== 0) return;
-        element.scrollTo(at[0], at[1]);
-      });
-    },
-    [found, name, self],
-  );
-
+  const frame = use(FrameContext);
+  const [self] = useState(() => ({}));
   useLayoutEffect(() => {
-    found?.frame.ready(self, status !== 'loading');
-    for (const [area, element] of self.areas) restore(area, element);
-  }, [found, self, status, found?.settled, restore]);
-  useLayoutEffect(() => () => found?.frame.left(self), [found, self]);
-
-  const [areas] = useState<Areas>(() => ({
-    register: (area, element) => {
-      const before = self.areas.get(area);
-      if (before && before !== element)
-        throw new Error(
-          `[@kestack/kabuki/routing] two Scroll areas are named "${area}" in ${name || 'the root'}: name each one`,
-        );
-      self.areas.set(area, element);
-      const scrolled = () => {
-        const frame = found?.frame;
-        if (!frame?.remembering()) return;
-        frame.remember(name, area, [element.scrollLeft, element.scrollTop]);
-      };
-      element.addEventListener('scroll', scrolled, { passive: true });
-      restore(area, element);
-      return () => {
-        element.removeEventListener('scroll', scrolled);
-        if (self.areas.get(area) === element) self.areas.delete(area);
-      };
-    },
-  }));
-  return <PlaceContext value={areas}>{children}</PlaceContext>;
+    frame?.ready(self, ready);
+  }, [frame, self, ready]);
+  useLayoutEffect(() => () => frame?.left(self), [frame, self]);
+  return children;
 }
 
 /**
- * Marks an element as one of its Place's Scroll areas: spread the ref on
- * the element that scrolls. Where it was is remembered, and put back as its
- * Page's `scroll` says. A Place with more than one names each:
- * `useScroll('sidebar')`. The window is remembered without it.
+ * Where an element, or the window, was scrolled on the entry drawn, as kept
+ * for it: for a list that restores itself, as a virtualized one does. Name
+ * it by its `data-scroll-restoration-id`, or hand it over.
  */
-export const useScroll = (name: string = MAIN): RefCallback<Element> => {
-  const areas = use(PlaceContext);
-  if (!areas)
-    throw new Error(
-      '[@kestack/kabuki/routing] useScroll is drawn outside a page of a Router.app',
-    );
-  return useCallback(
-    (element: Element | null) =>
-      element ? areas.register(name, element) : undefined,
-    [areas, name],
+export const useElementScrollRestoration = (
+  options:
+    | { readonly id: string }
+    | { readonly getElement: () => Element | Window | null | undefined },
+): Position | undefined => {
+  const frame = use(FrameContext);
+  if (!frame) return undefined;
+  if ('id' in options) return frame.entry(`[${ID}="${options.id}"]`);
+  const element = options.getElement();
+  if (!element) return undefined;
+  return frame.entry(
+    element === window ? WINDOW : selectorOf(element as Element),
   );
 };

@@ -6,7 +6,7 @@ import { View } from '../../react/index.ts';
 import type { LazyView, ViewOf, ViewProps } from '../../react/index.ts';
 import { nodesOn } from '../route/index.ts';
 import type { AnyNode, Children, Value } from '../route/index.ts';
-import { ScrollPlace } from '../scroll/index.ts';
+import { ScrollReady } from '../scroll/index.ts';
 import type { AnyPage } from './page.ts';
 import type { Status } from './status.ts';
 
@@ -98,23 +98,13 @@ export function view(
       <>
         {page.input && <Showing name={props.name} status={status} />}
         {/* Keyed by its Place, so a page made again, new params, starts its React state afresh. */}
-        <ScrollPlace
-          key={self.id}
-          name={props.name}
-          status={
-            status?._tag === 'Loading'
-              ? 'loading'
-              : status?._tag === 'Failed'
-                ? 'failed'
-                : 'ready'
-          }
-        >
+        <ScrollReady key={self.id} ready={status?._tag !== 'Loading'}>
           <Inner
             instance={children.page}
             ref={self.root.ref}
             style={self.root.style}
           />
-        </ScrollPlace>
+        </ScrollReady>
       </>
     );
   });

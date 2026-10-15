@@ -106,8 +106,7 @@ export default function Document({ children }: Start.DocumentProps) {
 An app with no Document is drawn in the plainest one, `Start.Document`:
 `<html lang="en">` with `<Start.Head />` and `<Start.Scripts />` in it. `<Start.Head />` draws
 the charset and viewport, the title and every Metadata tag, and the styles
-and chunks of the client entry; `<Start.Scripts />` the saved History as JSON
-and the script that hydrates the page. Code that must run before the first
+and chunks of the client entry; `<Start.Scripts />` the saved History as JSON, the script that hydrates the page, and, where the Router restores scroll, the inline script that puts it back before it hydrates, as TanStack Start's does. Code that must run before the first
 paint, like a theme bootstrap, is the Document's own.
 
 `Start.useDrawn()` reads, from any component, when the server drew the page

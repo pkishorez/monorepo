@@ -12,6 +12,7 @@ export const browser = () =>
     const tell = () => dispatchEvent(new Event(CHANGED));
     return {
       url: () => `${location.pathname}${location.search}`,
+      hash: () => decodeURIComponent(location.hash.slice(1)),
       key: () => keyIn(history.state),
       listen: (changed) => {
         addEventListener('popstate', changed);
