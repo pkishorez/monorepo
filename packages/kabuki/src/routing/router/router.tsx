@@ -4,8 +4,13 @@ import { Actor, Command } from '../../core/index.ts';
 import type { ActorType, AnyActor, Types } from '../../core/index.ts';
 import { View } from '../../react/index.ts';
 import type { ViewOf } from '../../react/index.ts';
-import { Adapter } from '../adapter/index.ts';
-import { Loading, Navigation, routeOf } from '../capability/index.ts';
+import { Adapter, KEY } from '../adapter/index.ts';
+import {
+  Loading,
+  Navigation,
+  moveOptions,
+  routeOf,
+} from '../capability/index.ts';
 import type { AnyRoute, MoveOptions } from '../capability/index.ts';
 import { knownOf, preloadViews } from '../page/index.ts';
 import type { AnyPage, Known, Preload } from '../page/index.ts';
@@ -20,8 +25,9 @@ import type {
   Read,
   Value,
 } from '../route/index.ts';
-import { Scrolling } from '../scroll/index.ts';
-import { SCROLLED } from './context.tsx';
+import { Scrolling, keyOf, restores, scriptFor } from '../scroll/index.ts';
+import type { ScrollRestorationOptions } from '../scroll/index.ts';
+import { linkOptions } from './context.tsx';
 import { Frame } from './frame.tsx';
 
 /** What the router needs of a Routes tree. */
@@ -65,13 +71,9 @@ export interface PendingMove<Route> {
   readonly since: number;
   /** The key the address already holds for where it goes, from before the page loaded, else `null`: a new entry gets a new one. */
   readonly key: string | null;
-  /** Where the page is scrolled once it lands, if the push or replace said. */
-  readonly scroll?: Scroll;
+  /** What the push or replace said besides where it goes. */
+  readonly said?: MoveOptions;
 }
-
-/** Where a push or replace says the page is scrolled once it lands: to the top, or kept as it is. */
-type Scroll = NonNullable<MoveOptions['scroll']>;
-const SCROLL = ['top', 'keep'] as const;
 
 /** What a move carries besides where it goes and how. */
 interface Along {
@@ -79,15 +81,42 @@ interface Along {
   readonly hops?: number;
   /** The key the address already holds for where it goes. */
   readonly key?: string | null;
-  readonly scroll?: Scroll | undefined;
+  readonly said?: MoveOptions | undefined;
 }
+
+/** One entry of the history: its key, its Route, and the element on the page it goes to, if any. */
+interface Entry<Route> {
+  readonly key: string;
+  readonly route: Route;
+  readonly hash?: string;
+}
+
+/** What a landed move says about its scroll, of what its push or replace said. */
+const scrollOf = (said: MoveOptions | undefined) => ({
+  ...(said?.resetScroll === undefined ? {} : { resetScroll: said.resetScroll }),
+  ...(said?.hashScrollIntoView === undefined
+    ? {}
+    : { hashScrollIntoView: said.hashScrollIntoView }),
+});
+
+/** What a Pushed or Replaced Message said besides where it goes. */
+const saidOf = ({
+  resetScroll,
+  hash,
+  hashScrollIntoView,
+}: MoveOptions): MoveOptions => ({
+  ...(resetScroll === undefined ? {} : { resetScroll }),
+  ...(hash ? { hash } : {}),
+  ...(hashScrollIntoView === undefined ? {} : { hashScrollIntoView }),
+});
+
+/** An entry at `route`, with `hash` if there is one. */
+const entryOf = <Route,>(key: string, route: Route, hash?: string) =>
+  hash ? { key, route, hash } : { key, route };
 
 /** The router's Model: the history as entries and where it is in them, the last move, and the one it holds. */
 export interface RouterModel<Route> {
-  readonly entries: ReadonlyArray<{
-    readonly key: string;
-    readonly route: Route;
-  }>;
+  readonly entries: ReadonlyArray<Entry<Route>>;
   readonly at: number;
   /** What every key this page load gives starts with, so no key is given twice across reloads: `m` in memory. */
   readonly session: string;
@@ -97,8 +126,10 @@ export interface RouterModel<Route> {
     readonly from: Route | null;
     readonly to: Route;
     readonly how: How;
-    /** Where the push or replace said the page is scrolled, if it did. */
-    readonly scroll?: Scroll;
+    /** `false`: the push or replace said to leave every scroll as it is. */
+    readonly resetScroll?: boolean;
+    /** How the push or replace said its hash's element is scrolled into view. */
+    readonly hashScrollIntoView?: MoveOptions['hashScrollIntoView'];
   };
   readonly pending: PendingMove<Route> | null;
   /**
@@ -119,12 +150,8 @@ export interface RouterModel<Route> {
 }
 
 export type RouterMessage<Route> =
-  | { readonly _tag: 'Pushed'; readonly route: Route; readonly scroll?: Scroll }
-  | {
-      readonly _tag: 'Replaced';
-      readonly route: Route;
-      readonly scroll?: Scroll;
-    }
+  | ({ readonly _tag: 'Pushed'; readonly route: Route } & MoveOptions)
+  | ({ readonly _tag: 'Replaced'; readonly route: Route } & MoveOptions)
   | { readonly _tag: 'Went'; readonly by: number }
   | { readonly _tag: 'WentBackTo'; readonly route: Route }
   | {
@@ -132,6 +159,8 @@ export type RouterMessage<Route> =
       readonly route: Route;
       readonly key: string | null;
       readonly url: string;
+      /** The element on the page the address names, after its `#`. */
+      readonly hash: string;
     }
   | { readonly _tag: 'Attached'; readonly session: string }
   | { readonly _tag: 'Left'; readonly url: string }
@@ -229,8 +258,9 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
     readonly base?: string;
     /** How long a move waits for its data, in milliseconds, before it lands and its pages show they are loading: 150 unless said. */
     readonly delay?: number;
-  },
+  } & ScrollRestorationOptions<Route>,
 ) => {
+  const scrolling = (options ?? {}) as ScrollRestorationOptions<never>;
   const delay = options?.delay ?? DELAY;
   const base = (options?.base ?? '').replace(/\/$/, '');
   const href = (route: Route) => {
@@ -277,7 +307,11 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
     ),
     model: Schema.Struct({
       entries: Schema.Array(
-        Schema.Struct({ key: Schema.String, route: RouteSchema }),
+        Schema.Struct({
+          key: Schema.String,
+          route: RouteSchema,
+          hash: Schema.optionalKey(Schema.String),
+        }),
       ),
       at: Schema.Number,
       session: Schema.String,
@@ -286,7 +320,8 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
         from: Schema.NullOr(RouteSchema),
         to: RouteSchema,
         how: Schema.Literals(HOW),
-        scroll: Schema.optionalKey(Schema.Literals(SCROLL)),
+        resetScroll: moveOptions.resetScroll,
+        hashScrollIntoView: moveOptions.hashScrollIntoView,
       }),
       pending: Schema.NullOr(
         Schema.Struct({
@@ -297,7 +332,7 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
           hops: Schema.Number,
           since: Schema.Number,
           key: Schema.NullOr(Schema.String),
-          scroll: Schema.optionalKey(Schema.Literals(SCROLL)),
+          said: Schema.optionalKey(Schema.Struct(moveOptions)),
         }),
       ),
       holding: Schema.NullOr(RouteSchema),
@@ -308,20 +343,15 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
       loaded: Schema.Boolean,
     }),
     message: Schema.TaggedUnion({
-      Pushed: {
-        route: RouteSchema,
-        scroll: Schema.optionalKey(Schema.Literals(SCROLL)),
-      },
-      Replaced: {
-        route: RouteSchema,
-        scroll: Schema.optionalKey(Schema.Literals(SCROLL)),
-      },
+      Pushed: { route: RouteSchema, ...moveOptions },
+      Replaced: { route: RouteSchema, ...moveOptions },
       Went: { by: Schema.Number },
       WentBackTo: { route: RouteSchema },
       Arrived: {
         route: RouteSchema,
         key: Schema.NullOr(Schema.String),
         url: Schema.String,
+        hash: Schema.String,
       },
       Attached: { session: Schema.String },
       Left: { url: Schema.String },
@@ -341,9 +371,12 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
   const shown = (model: Model) => model.holding ?? current(model).route;
   /** A key no entry has had, in this page load or any before it. */
   const fresh = (model: Model) => `${model.session}.${model.next}`;
+  /** Where an entry is in the address: its Route's URL, and its hash. */
+  const addressOf = (entry: Entry<Route>) =>
+    `${href(entry.route)}${entry.hash ? `#${entry.hash}` : ''}`;
   const writing = (model: Model, replace: boolean) =>
     write({
-      url: href(current(model).route),
+      url: addressOf(current(model)),
       key: current(model).key,
       replace,
     });
@@ -358,10 +391,9 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
     to: Route,
     how: Lands,
     known: Model['known'],
-    { key = null, scroll }: Along = {},
+    { key = null, said }: Along = {},
   ): Out => {
     const settled: Model = { ...model, pending: null, holding: null, known };
-    const said = scroll ? { scroll } : {};
     const from = shown(model);
     // Back and Forward are at their entry already: the move only lands.
     if (how === 'back' || how === 'forward')
@@ -371,7 +403,7 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
       const next: Model = {
         ...settled,
         entries: settled.entries.map((entry, at) =>
-          at === model.at ? { key: entry.key, route: to } : entry,
+          at === model.at ? entryOf(entry.key, to, entry.hash) : entry,
         ),
         move: changed ? { ...model.move, to } : model.move,
       };
@@ -383,22 +415,26 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
       const next: Model = {
         ...settled,
         entries: settled.entries.map((entry, at) =>
-          at === model.at ? { key: entry.key, route: to } : entry,
+          at === model.at ? entryOf(entry.key, to, said?.hash) : entry,
         ),
-        move: { from, to, how: 'replace', ...said },
+        move: { from, to, how: 'replace', ...scrollOf(said) },
       };
       return { model: next, command: writing(next, true) };
     }
-    if (same(to, current(model).route)) return { model: settled };
+    if (
+      same(to, current(model).route) &&
+      (said?.hash ?? '') === (current(model).hash ?? '')
+    )
+      return { model: settled };
     const next: Model = {
       ...settled,
       entries: [
         ...model.entries.slice(0, model.at + 1),
-        { key: key ?? fresh(model), route: to },
+        entryOf(key ?? fresh(model), to, said?.hash),
       ],
       at: model.at + 1,
       next: key === null ? model.next + 1 : model.next,
-      move: { from, to, how: 'push', ...said },
+      move: { from, to, how: 'push', ...scrollOf(said) },
     };
     return { model: next, command: writing(next, how === 'arrive') };
   };
@@ -431,7 +467,7 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
       hops: along.hops ?? 0,
       since: now,
       key: along.key ?? null,
-      ...(along.scroll ? { scroll: along.scroll } : {}),
+      ...(along.said ? { said: along.said } : {}),
     };
     return { model: { ...model, pending, loads: model.loads + 1 } };
   };
@@ -596,19 +632,25 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
       }),
     on: {
       Pushed: (
-        { route, scroll }: { readonly route: Route; readonly scroll?: Scroll },
+        message: { readonly route: Route } & MoveOptions,
         { model, at }: { readonly model: Model; readonly at: number },
       ): Out => {
+        const { route } = message;
+        const said = saidOf(message);
         if (model.pending && same(route, model.pending.to)) return {};
         // A link to the page shown loads it again: a failed page retries.
-        if (same(route, current(model).route))
+        if (
+          same(route, current(model).route) &&
+          (said.hash ?? '') === (current(model).hash ?? '')
+        )
           return reloading({ ...model, pending: null });
-        return toward(model, route, 'push', at, { scroll });
+        return toward(model, route, 'push', at, { said });
       },
       Replaced: (
-        { route, scroll }: { readonly route: Route; readonly scroll?: Scroll },
+        message: { readonly route: Route } & MoveOptions,
         { model, at }: { readonly model: Model; readonly at: number },
-      ) => toward(model, route, 'replace', at, { scroll }),
+      ) =>
+        toward(model, message.route, 'replace', at, { said: saidOf(message) }),
       Went: (
         { by }: { readonly by: number },
         { model, at }: { readonly model: Model; readonly at: number },
@@ -626,10 +668,12 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
           route,
           key,
           url,
+          hash,
         }: {
           readonly route: Route;
           readonly key: string | null;
           readonly url: string;
+          readonly hash: string;
         },
         { model, at: now }: { readonly model: Model; readonly at: number },
       ): Out => {
@@ -650,7 +694,11 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
                 ...moving,
                 command: [
                   ...([] as Array<Cmd>).concat(moving.command ?? []),
-                  write({ url: href(route), key: key!, replace: true }),
+                  write({
+                    url: addressOf(entryOf(key!, route, hash)),
+                    key: key!,
+                    replace: true,
+                  }),
                 ],
               };
         }
@@ -662,7 +710,7 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
             loaded: true,
             entries: model.entries.map((entry, at) =>
               at === model.at
-                ? { key: key ?? fresh(model), route: entry.route }
+                ? entryOf(key ?? fresh(model), entry.route, hash)
                 : entry,
             ),
             next: key === null ? model.next + 1 : model.next,
@@ -674,7 +722,10 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
         // A URL the app did not write this page load: typed in, a link from
         // the rest of the site, or an entry from before a reload, whose key
         // it keeps.
-        return toward(model, route, 'arrive', now, { key });
+        return toward(model, route, 'arrive', now, {
+          key,
+          ...(hash ? { said: { hash } } : {}),
+        });
       },
       Attached: (
         { session }: { readonly session: string },
@@ -796,6 +847,7 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
                   route: routes.read(url).route,
                   key: at.key(),
                   url,
+                  hash: at.hash?.() ?? '',
                 });
               }),
             );
@@ -825,11 +877,10 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
         return;
       }
       event.preventDefault();
-      const scroll = link.getAttribute(SCROLLED);
       send({
         _tag: 'Pushed',
         route: routes.read(within).route,
-        ...(scroll === 'top' || scroll === 'keep' ? { scroll } : {}),
+        ...linkOptions(link, url),
       });
     };
     const drawn = shown(model);
@@ -861,9 +912,13 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
         onClick={onClick}
       >
         <Scrolling
-          routes={routes}
-          route={drawn}
-          entry={current(model).key}
+          options={scrolling}
+          at={{
+            route: drawn,
+            path: routes.path(drawn),
+            key: current(model).key,
+          }}
+          hash={current(model).hash}
           move={model.move}
           pending={model.pending !== null}
           attached={model.attached}
@@ -919,11 +974,29 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
     Exclude<Types<A>['open'], Navigation>
   >;
 
+  /** A key the Router never gives: what a custom key gives back when it keeps the entry's own. */
+  const ENTRY = '\u0000entry';
+  /**
+   * The script a server writes in a page at `route`, run before the app
+   * hydrates, that puts its scroll back from the tab's session storage, as
+   * TanStack Start's does; `null` where scroll restoration is off.
+   */
+  const restoreScroll = (route: Route): string | null => {
+    if (!restores(scrolling, route)) return null;
+    const key = keyOf(scrolling, {
+      route,
+      path: routes.path(route),
+      key: ENTRY,
+    });
+    return scriptFor(KEY, key === ENTRY ? undefined : key);
+  };
+
   return {
     actor: built as unknown as RouterActor,
     view: routerView as unknown as ViewOf<RouterActor>,
     startAt,
     href,
+    restoreScroll,
     /** The Routes it serves: what Start reads a URL and serves the Loaders with. */
     routes,
   };

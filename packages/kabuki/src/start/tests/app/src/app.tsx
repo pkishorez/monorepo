@@ -134,6 +134,6 @@ const AppView = Route.view(App, (self) => {
 });
 
 /** The app alone, as a test or a story runs it. */
-export const app = Router.app(Routes, AppView);
+export const app = Router.app(Routes, AppView, { scrollRestoration: true });
 
 export default Start.app(app, { document: Document });

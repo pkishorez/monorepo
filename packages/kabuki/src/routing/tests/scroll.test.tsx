@@ -2,17 +2,24 @@
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { Root as ReactRoot } from 'react-dom/client';
-import { Layer, Schema } from 'effect';
+import { Effect, Layer, Schema } from 'effect';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { toReact } from '../../react/index.ts';
 import { registry } from '../../react/registry.ts';
+import { KEY } from '../adapter/index.ts';
 import { browser } from '../adapter/browser/index.ts';
-import { Route, Router, useScroll } from '../index.ts';
+import { Route, Router } from '../index.ts';
+import type { ScrollRestorationOptions } from '../index.ts';
+import { scriptFor } from '../scroll/index.ts';
+import { selectorOf } from '../scroll/selector.ts';
 
 /*
- * Scroll restoration drawn in a document, on the browser's history: a page's
- * own Scroll areas and the window, put back per entry or per place, a move
- * that says otherwise, a reload, and a page that says never.
+ * Scroll restoration as TanStack Router does it, drawn in a document on the
+ * browser's history: the window and every element scrolled, kept per entry
+ * and put back on Back; what stays on the page keeps where it was; what
+ * `scrollToTopSelectors` names goes to the top; a move that says
+ * `resetScroll: false`; a hash; a key per path; a reload, and the script a
+ * server writes for it.
  *
  * jsdom lays nothing out, so every element and the window keep the position
  * they are given, and a user's scroll is a position and a `scroll` event.
@@ -42,9 +49,15 @@ Object.defineProperty(Element.prototype, 'scrollLeft', {
     at(this).x = x;
   },
 });
-Element.prototype.scrollTo = function (this: Element, x: unknown, y?: unknown) {
-  at(this).x = Number(x);
-  at(this).y = Number(y);
+Element.prototype.scrollTo = function (this: Element, options?: unknown) {
+  const { left = 0, top = 0 } = options as { left?: number; top?: number };
+  at(this).x = left;
+  at(this).y = top;
+};
+/** The elements scrolled into view, by id, in order. */
+let intoView: Array<string> = [];
+Element.prototype.scrollIntoView = function (this: Element) {
+  intoView.push(this.id);
 };
 Object.defineProperty(window, 'scrollX', { get: () => at(window).x });
 Object.defineProperty(window, 'scrollY', { get: () => at(window).y });
@@ -52,91 +65,96 @@ Object.defineProperty(history, 'scrollRestoration', {
   value: 'auto',
   writable: true,
 });
-window.scrollTo = ((x: number, y: number) => {
-  at(window).x = x;
-  at(window).y = y;
+window.scrollTo = ((x: unknown, y?: number) => {
+  const to =
+    typeof x === 'object'
+      ? (x as { left?: number; top?: number })
+      : { left: x as number, top: y };
+  at(window).x = to.left ?? 0;
+  at(window).y = to.top ?? 0;
 }) as typeof window.scrollTo;
 
-/** The user scrolls `target` to `y`. */
+/** The user scrolls an element, or the window, to `y`. */
 const scroll = async (target: Element | Window, y: number) => {
   if (target === window) at(window).y = y;
   else (target as Element).scrollTop = y;
-  await act(async () => void target.dispatchEvent(new Event('scroll')));
+  const on = target === window ? document : (target as Element);
+  await act(async () => void on.dispatchEvent(new Event('scroll')));
 };
 
 const Message = Route.page({
   path: '/:id',
   params: { id: Schema.String },
-  scroll: 'entry',
 }).build({});
-const MessageView = Route.view(Message, ({ props }) => {
-  const pane = useScroll();
-  return (
-    <article id="pane" ref={pane}>
-      message {props.params.id}
-      <Router.Link to={Routes.Folder.Message({ folder: 'inbox', id: 'b' })}>
-        b
-      </Router.Link>
-    </article>
-  );
-});
+const MessageView = Route.view(Message, ({ props }) => (
+  <article id="pane">
+    message {props.params.id}
+    <h2 id="part-2">part two</h2>
+    <Router.Link to={Routes.Folder.Message({ folder: 'inbox', id: 'b' })}>
+      b
+    </Router.Link>
+  </article>
+));
 
 const Folder = Route.page({
   path: '/f/:folder',
   params: { folder: Schema.String },
-  scroll: 'url',
   pages: { Message },
 }).build({});
-const FolderView = Route.view(Folder, (self) => {
-  const list = useScroll();
-  return (
-    <section>
-      <ul id="list" ref={list}>
-        <li>
-          <Router.Link to={Routes.Folder.Message({ folder: 'inbox', id: 'a' })}>
-            a
-          </Router.Link>
-        </li>
-      </ul>
-      {self.children.Message && (
-        <MessageView instance={self.children.Message} />
-      )}
-    </section>
-  );
-});
+const FolderView = Route.view(Folder, (self) => (
+  <section>
+    <ul id="list" data-scroll-restoration-id="list">
+      <li>
+        <Router.Link to={Routes.Folder.Message({ folder: 'inbox', id: 'a' })}>
+          a
+        </Router.Link>
+      </li>
+    </ul>
+    {self.children.Message && <MessageView instance={self.children.Message} />}
+  </section>
+));
+
+const Slow = Route.page({
+  path: '/slow',
+  data: Schema.Struct({ text: Schema.String }),
+}).build({});
+const SlowView = Route.view(Slow, ({ props }) => (
+  <p>{props.status._tag === 'Ready' ? props.status.data.text : 'loading'}</p>
+));
+/** Holds the slow page's Loader until it is let go. */
+let letGo: () => void = () => {};
 
 const Settings = Route.page({ path: '/settings' }).build({});
 const SettingsView = Route.view(Settings, () => (
-  <main>
+  <div>
     settings
     <Router.Link to={Routes.Folder({ folder: 'inbox' })}>inbox</Router.Link>
-    <Router.Link to={Routes.Folder({ folder: 'inbox' })} scroll="keep">
+    <Router.Link to={Routes.Folder({ folder: 'inbox' })} resetScroll={false}>
       inbox, kept
     </Router.Link>
-  </main>
+    <Router.Link to={Routes.Slow()}>slow</Router.Link>
+    <Router.Link
+      to={Routes.Folder.Message({ folder: 'inbox', id: 'a' })}
+      hash="part-2"
+    >
+      part two
+    </Router.Link>
+  </div>
 ));
 
-const Canvas = Route.page({ path: '/canvas', scroll: false }).build({});
-const CanvasView = Route.view(Canvas, () => {
-  const board = useScroll();
-  return <div id="board" ref={board} />;
-});
-
-const App = Route.page({ pages: { Folder, Settings, Canvas } }).build({});
+const App = Route.page({ pages: { Folder, Settings, Slow } }).build({});
 const AppView = Route.view(App, (self) => (
-  <>
-    <nav>
-      <Router.Link to={Routes.Settings()}>to settings</Router.Link>
-      <Router.Link to={Routes.Canvas()}>to canvas</Router.Link>
-    </nav>
+  <main id="main">
+    <Router.Link to={Routes.Settings()}>to settings</Router.Link>
     {self.children.Folder && <FolderView instance={self.children.Folder} />}
     {self.children.Settings && (
       <SettingsView instance={self.children.Settings} />
     )}
-    {self.children.Canvas && <CanvasView instance={self.children.Canvas} />}
-  </>
+    {self.children.Slow && <SlowView instance={self.children.Slow} />}
+  </main>
 ));
 const Routes = Route.tree(App);
+type AnyRoute = typeof Routes.route.Type;
 
 const tick = () => act(() => new Promise((done) => setTimeout(done, 20)));
 const settle = async () => {
@@ -146,6 +164,7 @@ const settle = async () => {
 let host: HTMLDivElement;
 let root: ReactRoot | undefined;
 let count = 0;
+let options: ScrollRestorationOptions<AnyRoute> = {};
 /** The app drawn last, to show a past Step of. */
 let runtime: { readonly show: (step: number | null) => void } | undefined;
 
@@ -153,11 +172,19 @@ let runtime: { readonly show: (step: number | null) => void } | undefined;
 const load = async () => {
   await act(async () => root?.unmount());
   registry.clear();
-  const Root = Router.app(Routes, AppView);
+  const Root = Router.app(Routes, AppView, options);
   const Drawn = toReact(
     Root.actor,
     Root.view,
-    browser() as Layer.Layer<never>,
+    Layer.mergeAll(
+      browser(),
+      Router.memory(Routes, {
+        Slow: () =>
+          Effect.promise(
+            () => new Promise<void>((done) => (letGo = done)),
+          ).pipe(Effect.as({ text: 'slow, there' })),
+      }),
+    ) as Layer.Layer<never>,
     { name: `scroll-${count++}`, input: Root.startAt },
   );
   const Probe = () => {
@@ -175,7 +202,11 @@ const load = async () => {
   );
   await settle();
 };
-const open = async (url: string) => {
+const open = async (
+  url: string,
+  given: ScrollRestorationOptions<AnyRoute> = { scrollRestoration: true },
+) => {
+  options = given;
   history.replaceState(null, '', url);
   await load();
 };
@@ -195,11 +226,12 @@ const back = async () => {
   await act(async () => history.back());
   await settle();
 };
-const top = (selector: string) => host.querySelector(selector)!.scrollTop;
+const top = (selector: string) => document.querySelector(selector)!.scrollTop;
 
 beforeEach(() => {
   sessionStorage.clear();
   window.scrollTo(0, 0);
+  intoView = [];
   host = document.createElement('div');
   document.body.append(host);
 });
@@ -210,61 +242,18 @@ afterEach(async () => {
   host.remove();
 });
 
-describe("a page's own Scroll area", () => {
-  it('per entry: Back puts it back, and a new entry starts at the top', async () => {
-    await open('/f/inbox/a');
-    await scroll(host.querySelector('#pane')!, 200);
-    await click('b');
-    expect(host.textContent).toContain('message b');
-    expect(top('#pane')).toBe(0);
-
-    await back();
-    expect(host.textContent).toContain('message a');
-    expect(top('#pane')).toBe(200);
-  });
-
-  it('per place: any way back to it puts it back, a plain link too', async () => {
-    await open('/f/inbox');
-    await scroll(host.querySelector('#list')!, 80);
-    await click('to settings');
-    expect(host.textContent).toContain('settings');
-
-    await click('inbox');
-    expect(top('#list')).toBe(80);
-  });
-
-  it('is never touched on a page whose mode is false', async () => {
-    await open('/canvas');
-    await scroll(host.querySelector('#board')!, 40);
-    await click('to settings');
-    await back();
-    expect(top('#board')).toBe(0);
-  });
-
-  it('is put back on Back to an entry from before a reload', async () => {
-    await open('/f/inbox/a');
-    await scroll(host.querySelector('#pane')!, 200);
-    await click('b');
-    await load();
-    expect(host.textContent).toContain('message b');
-
-    await back();
-    expect(host.textContent).toContain('message a');
-    expect(top('#pane')).toBe(200);
-  });
-
-  it('outlasts a reload, from the tab’s session storage', async () => {
-    await open('/f/inbox/a');
-    await scroll(host.querySelector('#pane')!, 120);
-    await load();
-    expect(host.textContent).toContain('message a');
-    expect(top('#pane')).toBe(120);
-  });
-});
-
 describe('the window', () => {
-  it('goes to the top for a push, and back where it was on Back', async () => {
+  it('is left to the browser unless the Router says scrollRestoration', async () => {
+    await open('/settings', {});
+    await scroll(window, 300);
+    await click('inbox');
+    expect(scrollY).toBe(300);
+    expect(history.scrollRestoration).toBe('auto');
+  });
+
+  it('goes to the top on a new entry, and back where it was on Back', async () => {
     await open('/settings');
+    expect(history.scrollRestoration).toBe('manual');
     await scroll(window, 300);
     await click('inbox');
     expect(scrollY).toBe(0);
@@ -274,23 +263,143 @@ describe('the window', () => {
     expect(scrollY).toBe(300);
   });
 
-  it('stays as it is for a push that keeps the page, as opening a message in its folder', async () => {
-    await open('/f/inbox/a');
-    await scroll(window, 400);
-    await click('b');
-    expect(host.textContent).toContain('message b');
-    expect(scrollY).toBe(400);
+  it('goes to the top once the new page has its data, whatever moved it while it loaded', async () => {
+    await open('/settings');
+    await scroll(window, 300);
+    await click('slow');
+    await act(() => new Promise((done) => setTimeout(done, 200)));
+    expect(host.textContent).toContain('loading');
+    // The page going out shortens the document: the browser clamps the window.
+    await scroll(window, 120);
+    await act(async () => letGo());
+    await settle();
+    await act(() => new Promise((done) => setTimeout(done, 400)));
+    expect(host.textContent).toContain('slow, there');
+    expect(scrollY).toBe(0);
   });
 
-  it('stays as it is for a link that says keep', async () => {
+  it('is left as it is by a move that says resetScroll: false', async () => {
     await open('/settings');
     await scroll(window, 300);
     await click('inbox, kept');
-    expect(host.textContent).toContain('a');
+    expect(host.querySelector('#list')).not.toBeNull();
     expect(scrollY).toBe(300);
   });
 
-  it('is never moved by a past Step, as Time Travel shows it', async () => {
+  it('is kept per path when getScrollRestorationKey says so: a plain link finds it', async () => {
+    await open('/settings', {
+      scrollRestoration: true,
+      getScrollRestorationKey: ({ path }) => path,
+    });
+    await scroll(window, 300);
+    await click('inbox');
+    expect(scrollY).toBe(0);
+    await click('to settings');
+    expect(scrollY).toBe(300);
+  });
+});
+
+describe('an element', () => {
+  it('still on the page keeps where it was on a new entry, and Back puts it back', async () => {
+    await open('/f/inbox/a');
+    await scroll(host.querySelector('#list')!, 80);
+    await click('b');
+    expect(host.textContent).toContain('message b');
+    expect(top('#list')).toBe(80);
+
+    await back();
+    expect(host.textContent).toContain('message a');
+    expect(top('#list')).toBe(80);
+
+    // The new entry kept what it started from: Forward puts that back.
+    await scroll(host.querySelector('#list')!, 10);
+    await act(async () => history.forward());
+    await settle();
+    expect(host.textContent).toContain('message b');
+    expect(top('#list')).toBe(80);
+  });
+
+  it('that scrollToTopSelectors names goes to the top on a new entry, and back on Back', async () => {
+    await open('/f/inbox/a', {
+      scrollRestoration: true,
+      scrollToTopSelectors: ['#pane'],
+    });
+    await scroll(host.querySelector('#pane')!, 200);
+    await click('b');
+    expect(top('#pane')).toBe(0);
+
+    await back();
+    expect(top('#pane')).toBe(200);
+  });
+
+  it('is named by its data-scroll-restoration-id, else by its path', () => {
+    const list = document.createElement('ul');
+    list.setAttribute('data-scroll-restoration-id', 'list');
+    const plain = document.createElement('div');
+    host.append(list, plain);
+    expect(selectorOf(list)).toBe('[data-scroll-restoration-id="list"]');
+    expect(selectorOf(plain)).toMatch(/^html:nth-child\(1\) > body:nth-child/);
+    expect(document.querySelector(selectorOf(plain))).toBe(plain);
+  });
+});
+
+describe('a hash', () => {
+  it('scrolls its element into view on a push, and Back restores the window', async () => {
+    await open('/settings');
+    await scroll(window, 300);
+    await click('part two');
+    expect(location.hash).toBe('#part-2');
+    expect(intoView).toEqual(['part-2']);
+
+    await back();
+    expect(scrollY).toBe(300);
+  });
+});
+
+describe('a reload', () => {
+  it('starts from the tab’s session storage, and Back to an entry from before it too', async () => {
+    await open('/settings');
+    await scroll(window, 300);
+    await click('inbox');
+    await scroll(window, 120);
+    await load();
+    expect(scrollY).toBe(120);
+
+    await back();
+    expect(host.textContent).toContain('settings');
+    expect(scrollY).toBe(300);
+  });
+
+  it('is put back before the app hydrates by the script a server writes', () => {
+    expect(Router.app(Routes, AppView).restoreScroll(Routes.Settings())).toBe(
+      null,
+    );
+    const script = Router.app(Routes, AppView, {
+      scrollRestoration: true,
+    }).restoreScroll(Routes.Settings())!;
+    host.innerHTML = '<div id="pane"></div>';
+    sessionStorage.setItem(
+      '@kestack/kabuki/routing:scroll',
+      JSON.stringify({
+        'k.1': {
+          window: { scrollX: 0, scrollY: 500 },
+          [selectorOf(host.firstElementChild!)]: { scrollX: 0, scrollY: 40 },
+        },
+      }),
+    );
+    history.replaceState({ [KEY]: 'k.1' }, '', '/settings');
+    new Function(script)();
+    expect(scrollY).toBe(500);
+    expect(top('#pane')).toBe(40);
+
+    history.replaceState({ [KEY]: 'k.2' }, '', '/settings#pane');
+    new Function(scriptFor(KEY))();
+    expect(intoView).toEqual(['pane']);
+  });
+});
+
+describe('Time Travel', () => {
+  it('never moves the window to a past Step', async () => {
     await open('/settings');
     await scroll(window, 300);
     await click('inbox');
@@ -304,23 +413,5 @@ describe('the window', () => {
     await act(async () => runtime!.show(null));
     await settle();
     expect(scrollY).toBe(0);
-  });
-
-  it('is put back by Kabuki, not the browser', async () => {
-    await open('/settings');
-    expect(history.scrollRestoration).toBe('manual');
-  });
-});
-
-describe('useScroll', () => {
-  it('is refused outside a page', () => {
-    function Loose() {
-      useScroll();
-      return null;
-    }
-    const loose = createRoot(document.createElement('div'));
-    expect(() => act(() => loose.render(<Loose />))).toThrow(
-      /useScroll is drawn outside a page/,
-    );
   });
 });

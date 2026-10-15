@@ -52,6 +52,8 @@ export interface Page {
   readonly head: ReadonlyArray<Script>;
   readonly saved: SavedHistory;
   readonly drawn: Drawing;
+  /** The script that puts the page's scroll back before the app hydrates, if the Router restores it here. */
+  readonly scroll?: string;
 }
 
 /**

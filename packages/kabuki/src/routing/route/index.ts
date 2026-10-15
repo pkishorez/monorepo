@@ -22,7 +22,6 @@ export type {
   RouteOf,
   Simplify,
   Tree,
-  ScrollMode,
   Value,
   ValueOf,
 } from './node.ts';

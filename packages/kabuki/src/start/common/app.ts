@@ -27,6 +27,8 @@ export interface ServedApp {
     known?: Readonly<Record<string, any>>,
   ) => { readonly route: any; readonly known?: object } | undefined;
   readonly href: (route: any) => string;
+  /** The script that puts a page's scroll back before the app hydrates, or `null` where the Router restores none. */
+  readonly restoreScroll?: (route: any) => string | null;
   readonly routes: {
     readonly route: Codec<any>;
     readonly path: (route: any) => string;

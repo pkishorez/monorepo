@@ -11,13 +11,6 @@ import type { Metadata } from './metadata.ts';
 
 export type Fields = Schema.Struct.Fields;
 
-/**
- * Where a page's Scroll areas go back to: `entry`, where they were on the
- * history entry the app returns to; `url`, where they were the last time
- * its place, with these params and query, was shown, however the app comes
- * back; `false`, never touched.
- */
-export type ScrollMode = 'entry' | 'url' | false;
 /** A Schema read and written without Capabilities and at once. */
 export type Codec<T> = Schema.Codec<T, unknown, never, never>;
 
@@ -51,8 +44,6 @@ export interface Node<
   /** The Schema of the data its Loader gives. */
   readonly input: Codec<I> | undefined;
   readonly render: M;
-  /** Its Scroll areas' mode, its parent's unless said. */
-  readonly scroll: ScrollMode | undefined;
   /** Typed where it is written, in `Route.page`'s options. */
   readonly metadata:
     | Metadata

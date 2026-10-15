@@ -54,6 +54,10 @@ function Scripts() {
   const { page, json } = usePage('<Start.Scripts />');
   return (
     <>
+      {/* Before the app hydrates, its scroll is put back: a reload never paints at the top first. */}
+      {page.scroll && (
+        <script dangerouslySetInnerHTML={{ __html: page.scroll }} />
+      )}
       <script
         type="application/json"
         id={ID}

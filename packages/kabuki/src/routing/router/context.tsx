@@ -17,6 +17,8 @@ import type { How, Metadata } from '../route/index.ts';
 export interface Entry<Route extends AnyRoute = AnyRoute> {
   readonly key: string;
   readonly route: Route;
+  /** The element on the page it goes to, after its `#`. */
+  readonly hash?: string;
 }
 
 /** A move the Router holds while it loads the data of its places: where to, and how. */
@@ -34,8 +36,10 @@ export interface Drawing {
     readonly from: AnyRoute | null;
     readonly to: AnyRoute;
     readonly how: How;
-    /** Where the push or replace said the page is scrolled, if it did. */
-    readonly scroll?: MoveOptions['scroll'];
+    /** `false`: the push or replace said to leave every scroll as it is. */
+    readonly resetScroll?: boolean;
+    /** How the push or replace said its hash's element is scrolled into view. */
+    readonly hashScrollIntoView?: MoveOptions['hashScrollIntoView'];
   };
   readonly pending: Pending | null;
   /** The Metadata the Routes give the current entry, from its params alone. */
@@ -49,8 +53,27 @@ export interface Drawing {
 
 export const RouterContext = createContext<Drawing | undefined>(undefined);
 
-/** The attribute a link says where its push leaves the page scrolled with: `top` or `keep`. */
-export const SCROLLED = 'data-kabuki-scroll';
+/** What a link says its push leaves the scroll as: `false`, as it is. */
+const RESET_SCROLL = 'data-reset-scroll';
+/** How a link says its hash's element is scrolled into view, as JSON. */
+const HASH_SCROLL = 'data-hash-scroll-into-view';
+
+/** What a link clicked says besides where it goes: its hash, and what its `Router.Link` said of scroll. */
+export const linkOptions = (link: Element, url: URL): MoveOptions => {
+  const hash = decodeURIComponent(url.hash.slice(1));
+  const said = link.getAttribute(HASH_SCROLL);
+  let hashScrollIntoView: MoveOptions['hashScrollIntoView'];
+  try {
+    hashScrollIntoView = said === null ? undefined : JSON.parse(said);
+  } catch {}
+  return {
+    ...(link.getAttribute(RESET_SCROLL) === 'false'
+      ? { resetScroll: false }
+      : {}),
+    ...(hash ? { hash } : {}),
+    ...(hashScrollIntoView === undefined ? {} : { hashScrollIntoView }),
+  };
+};
 
 export const useDrawing = (what: string): Drawing => {
   const drawing = use(RouterContext);
@@ -99,8 +122,12 @@ export type LinkProps = Omit<
   readonly preload?: Preload;
   /** How long, in milliseconds, an `'intent'` link waits before it preloads. */
   readonly preloadDelay?: number;
-  /** Where the page is scrolled once its push lands: `'top'`, as a push is unless said, or `'keep'`. */
-  readonly scroll?: MoveOptions['scroll'];
+  /** `false`: its move leaves every scroll as it is, as opening a post below its list. */
+  readonly resetScroll?: boolean;
+  /** The element on the page it goes to, by id: `href` ends `#hash`. */
+  readonly hash?: string;
+  /** How that element is scrolled into view; `false` leaves it. */
+  readonly hashScrollIntoView?: MoveOptions['hashScrollIntoView'];
   readonly children?: ReactNode;
 };
 
@@ -114,7 +141,9 @@ export function Link({
   to,
   preload,
   preloadDelay,
-  scroll,
+  resetScroll,
+  hash,
+  hashScrollIntoView,
   onMouseEnter,
   onMouseLeave,
   onFocus,
@@ -129,7 +158,7 @@ export function Link({
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const latest = useRef({ to, ask: drawing.preload });
   latest.current = { to, ask: drawing.preload };
-  const href = drawing.href(to);
+  const href = `${drawing.href(to)}${hash ? `#${encodeURIComponent(hash)}` : ''}`;
 
   useEffect(() => {
     const link = ref.current;
@@ -163,7 +192,10 @@ export function Link({
       {...rest}
       ref={ref}
       href={href}
-      {...(scroll ? { [SCROLLED]: scroll } : {})}
+      {...(resetScroll === false ? { [RESET_SCROLL]: 'false' } : {})}
+      {...(hashScrollIntoView === undefined
+        ? {}
+        : { [HASH_SCROLL]: JSON.stringify(hashScrollIntoView) })}
       onMouseEnter={(event: MouseEvent<HTMLAnchorElement>) => {
         intend();
         onMouseEnter?.(event);
@@ -198,7 +230,8 @@ export interface RouterState<Route extends AnyRoute = AnyRoute> {
     readonly from: Route | null;
     readonly to: Route;
     readonly how: How;
-    readonly scroll?: MoveOptions['scroll'];
+    readonly resetScroll?: boolean;
+    readonly hashScrollIntoView?: MoveOptions['hashScrollIntoView'];
   };
   /** The move the Router holds while it loads, if any. */
   readonly pending: Pending<Route> | null;
