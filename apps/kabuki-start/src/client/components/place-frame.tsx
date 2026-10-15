@@ -5,7 +5,7 @@ import { Start } from '@kestack/kabuki/start';
 import { Routes } from '../../shared/index.ts';
 import type { Place } from '../../shared/index.ts';
 import { clock } from './clock.ts';
-import { MODE, modesOf } from './modes.ts';
+import { MODE, modeOf } from './modes.ts';
 import { quick } from './motion.ts';
 import { chip } from './styles.ts';
 
@@ -15,7 +15,7 @@ import { chip } from './styles.ts';
  * from facts alone:
  *
  * - its dotted name and its path, as the Routes write them;
- * - its Render Mode and its scroll mode, as its pages say;
+ * - its Render Mode, as its pages say;
  * - where its data is: loading, ready, refreshing, or failed;
  * - who drew it: the server, if it was in the page the server sent and was
  *   hydrated, else the browser, after a move or because it is a client page;
@@ -128,7 +128,7 @@ export function PlaceFrame({
   readonly children?: ReactNode;
   readonly className?: string;
 }) {
-  const { render, scroll } = modesOf(place);
+  const render = modeOf(place);
   const mode = MODE[render];
   const state = stateOf(status);
   const data =
@@ -137,7 +137,6 @@ export function PlaceFrame({
     <section
       data-testid={`place:${place}`}
       data-mode={render}
-      data-scroll={scroll}
       className={`min-w-0 rounded-xl border border-l-[3px] border-border bg-card/60 shadow-xs ${mode.edge} ${fill ? 'lg:flex lg:h-full lg:flex-col' : ''} ${className}`}
     >
       <header className="space-y-1.5 border-b border-border/70 px-3.5 py-2.5 sm:px-4">
@@ -149,12 +148,6 @@ export function PlaceFrame({
           <span className={chip} title={mode.what}>
             <span aria-hidden className={`size-1.5 rounded-full ${mode.dot}`} />
             <span className={mode.text}>{render}</span>
-          </span>
-          <span className={chip} title={`scroll: ${scroll}`}>
-            <span aria-hidden className="text-muted-foreground">
-              ⇅
-            </span>
-            {scroll}
           </span>
           <span
             className={`${chip} overflow-hidden`}

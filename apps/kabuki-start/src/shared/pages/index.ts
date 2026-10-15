@@ -1,6 +1,5 @@
 export { App } from './app.ts';
 export { Blog, Post } from './blog/index.ts';
-export { Canvas } from './canvas.ts';
 export { Feed } from './feed.ts';
 export { Flaky } from './flaky.ts';
 export { Home } from './home.ts';
@@ -8,5 +7,5 @@ export { Notes } from './notes.ts';
 export { Preload, Slow } from './preload/index.ts';
 export { Search } from './search.ts';
 export { Member, Teams } from './teams/index.ts';
-export { Routes, scrollOf } from './routes.ts';
+export { Routes } from './routes.ts';
 export type { Place, Route } from './routes.ts';

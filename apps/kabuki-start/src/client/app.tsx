@@ -5,7 +5,6 @@ import { Pages, Routes } from '../shared/index.ts';
 import { Layout, directionOf, settle, slide } from './components/index.ts';
 import Document from './document.tsx';
 import { BlogView } from './pages/blog/index.ts';
-import { CanvasView } from './pages/canvas/index.ts';
 import { FeedView } from './pages/feed/index.ts';
 import { FlakyView } from './pages/flaky/index.ts';
 import { HomeView } from './pages/home/index.ts';
@@ -27,7 +26,7 @@ import './styles.css';
  */
 
 const AppView = Route.view(Pages.App, (self) => {
-  const { Home, Blog, Teams, Feed, Search, Notes, Preload, Flaky, Canvas } =
+  const { Home, Blog, Teams, Feed, Search, Notes, Preload, Flaky } =
     self.children;
   const direction = directionOf(useRouter().move.how);
   const page =
@@ -38,18 +37,9 @@ const AppView = Route.view(Pages.App, (self) => {
     (Search && <SearchView instance={Search} />) ??
     (Notes && <NotesView instance={Notes} />) ??
     (Preload && <PreloadView instance={Preload} />) ??
-    (Flaky && <FlakyView instance={Flaky} />) ??
-    (Canvas && <CanvasView instance={Canvas} />);
+    (Flaky && <FlakyView instance={Flaky} />);
   const shown =
-    Home ??
-    Blog ??
-    Teams ??
-    Feed ??
-    Search ??
-    Notes ??
-    Preload ??
-    Flaky ??
-    Canvas;
+    Home ?? Blog ?? Teams ?? Feed ?? Search ?? Notes ?? Preload ?? Flaky;
   const notFound = self.props.route.notFound;
   return (
     <div {...self.root}>
@@ -74,4 +64,11 @@ const AppView = Route.view(Pages.App, (self) => {
   );
 });
 
-export default Start.app(Router.app(Routes, AppView), { document: Document });
+/*
+ * Scroll restoration as TanStack Start does it: the window and every
+ * element scrolled are kept per history entry and put back on Back, a
+ * reload too, and what stays on the page keeps where it was.
+ */
+const app = Router.app(Routes, AppView, { scrollRestoration: true });
+
+export default Start.app(app, { document: Document });

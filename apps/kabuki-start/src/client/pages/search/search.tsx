@@ -1,17 +1,16 @@
-import { Route, Router, useScroll } from '@kestack/kabuki/routing';
+import { Route, Router } from '@kestack/kabuki/routing';
 import { Input } from '@kestack/web-platform/components/input';
 import { Pages, Routes } from '../../../shared/index.ts';
-import { Loaded, PlaceFrame, pane, row } from '../../components/index.ts';
+import { Loaded, PlaceFrame, row } from '../../components/index.ts';
 
 /*
  * A search box whose query is the URL's. What is typed is the page's own
  * Model, so the box never waits; each keystroke replaces the entry, and the
- * results load again behind the ones shown. The results are its Scroll
- * area, `url`, which counts the query: each search keeps its own place.
+ * results load again behind the ones shown. A replace keeps its entry,
+ * so the window keeps its scroll as the query changes.
  */
 
 export const SearchView = Route.view(Pages.Search, ({ props, model, send }) => {
-  const results = useScroll();
   return (
     <PlaceFrame
       place="Search"
@@ -26,7 +25,7 @@ export const SearchView = Route.view(Pages.Search, ({ props, model, send }) => {
         value={model.typed ?? props.query.q ?? ''}
         onChange={(event) => send({ _tag: 'Typed', text: event.target.value })}
       />
-      <div ref={results} className={`${pane} -mr-2 pr-2`}>
+      <div>
         <Loaded status={props.status} label="Searching… (0.6 s)" lines={6}>
           {(found) => (
             <section className="space-y-2">

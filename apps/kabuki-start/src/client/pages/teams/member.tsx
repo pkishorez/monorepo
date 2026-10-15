@@ -1,19 +1,21 @@
-import { Route, useScroll } from '@kestack/kabuki/routing';
+import { Route } from '@kestack/kabuki/routing';
 import { Pages } from '../../../shared/index.ts';
 import { Loaded, PlaceFrame, pane } from '../../components/index.ts';
 
 /*
  * One member, inside the team's page, whatever the team's own state: its
- * Loader is quicker, so it often shows first. Its activity is its Scroll
- * area, `entry`: a new member starts at the top, Back finds the one before
+ * Loader is quicker, so it often shows first. Its activity is named for its
+ * member, so a new member starts at the top, and Back finds the one before
  * where it was.
  */
 
 export const MemberView = Route.view(Pages.Member, ({ props }) => {
-  const activity = useScroll();
   return (
     <PlaceFrame place="Teams.Member" status={props.status} fill>
-      <div ref={activity} className={`${pane} -mr-2 pr-2`}>
+      <div
+        data-scroll-restoration-id={`member:${props.params.member}`}
+        className={`${pane} -mr-2 pr-2`}
+      >
         <Loaded
           status={props.status}
           label={`Loading @${props.params.member}… (0.7 s)`}

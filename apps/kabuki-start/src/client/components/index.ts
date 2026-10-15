@@ -1,8 +1,7 @@
 export { clock } from './clock.ts';
 export { Devtools } from './devtools.tsx';
 export { Layout } from './layout.tsx';
-export { MODE, SCROLL, modesOf } from './modes.ts';
-export type { Scroll } from './modes.ts';
+export { MODE, modeOf } from './modes.ts';
 export { EASE, directionOf, quick, settle, slide } from './motion.ts';
 export { PlaceFrame } from './place-frame.tsx';
 export { Slot } from './slot.tsx';
