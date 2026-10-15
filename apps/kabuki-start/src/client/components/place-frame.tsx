@@ -1,4 +1,4 @@
-import { AnimatePresence, motion } from 'motion/react';
+import { motion } from 'motion/react';
 import type { ReactNode } from 'react';
 import type { Status } from '@kestack/kabuki/routing';
 import { Start } from '@kestack/kabuki/start';
@@ -16,7 +16,7 @@ import { chip } from './styles.ts';
  *
  * - its dotted name and its path, as the Routes write them;
  * - its Render Mode and its scroll mode, as its pages say;
- * - where its data is: loading, ready, loading again, or failed;
+ * - where its data is: loading, ready, refreshing, or failed;
  * - who drew it: the server, if it was in the page the server sent and was
  *   hydrated, else the browser, after a move or because it is a client page;
  * - where its data came from: every Loader stamps when it ran, so data
@@ -30,7 +30,7 @@ const STATE = {
   none: { label: 'no data', tone: 'text-muted-foreground' },
   loading: { label: 'loading', tone: 'text-muted-foreground' },
   ready: { label: 'ready', tone: 'text-foreground' },
-  refreshing: { label: 'loading again', tone: 'text-foreground' },
+  refreshing: { label: 'refreshing', tone: 'text-foreground' },
   failed: { label: 'failed', tone: 'text-destructive' },
 } as const;
 
@@ -45,7 +45,26 @@ const stateOf = (status: Status<unknown> | undefined): keyof typeof STATE =>
           ? 'refreshing'
           : 'ready';
 
-function Provenance({ data }: { readonly data: Timed | undefined }) {
+/** The states a place can be in: one with no data is always `none`. */
+const STATES_WITH_DATA = ['loading', 'ready', 'refreshing', 'failed'] as const;
+const STATES_WITHOUT = ['none'] as const;
+
+/*
+ * Nothing in the header moves as its data comes and goes. The state chip
+ * holds every word it can show, stacked in one cell, so it is as wide as
+ * the longest and only which one shows changes. The line about the data
+ * is there from the first drawing, short enough for a phone's width, and
+ * only its words change.
+ */
+
+function Provenance({
+  data,
+  loads,
+}: {
+  readonly data: Timed | undefined;
+  /** Whether the place has data at all: it keeps a line for it from the start. */
+  readonly loads: boolean;
+}) {
   const drawn = Start.useDrawn();
   const by = drawn?.hydrated ? 'server' : 'browser';
   const from =
@@ -53,14 +72,14 @@ function Provenance({ data }: { readonly data: Timed | undefined }) {
       ? undefined
       : drawn && data.loadedAt <= drawn.at
         ? 'came with the page'
-        : 'loaded in the browser';
+        : 'loaded by the browser';
   return (
     <p
       data-testid="provenance"
       data-drawn={by}
-      className="flex flex-wrap gap-x-3 gap-y-0.5 font-mono text-[11px] text-muted-foreground"
+      className="space-y-0.5 font-mono text-[11px] text-muted-foreground"
     >
-      <span>
+      <span className="block truncate">
         drawn by{' '}
         <span className="text-foreground">
           {by === 'server' && drawn
@@ -68,12 +87,19 @@ function Provenance({ data }: { readonly data: Timed | undefined }) {
             : 'the browser'}
         </span>
       </span>
-      {data && from && (
-        <span>
-          data <span className="text-foreground">{from}</span>, its Loader took{' '}
-          <span className="text-foreground tabular-nums">
-            {data.loadedAt - data.startedAt} ms
-          </span>
+      {loads && (
+        <span className="block truncate">
+          data{' '}
+          {data && from ? (
+            <>
+              <span className="text-foreground">{from}</span>, in{' '}
+              <span className="text-foreground tabular-nums">
+                {data.loadedAt - data.startedAt} ms
+              </span>
+            </>
+          ) : (
+            'not here yet'
+          )}
         </span>
       )}
     </p>
@@ -130,34 +156,35 @@ export function PlaceFrame({
             </span>
             {scroll}
           </span>
-          <motion.span
-            layout
-            transition={quick}
+          <span
             className={`${chip} overflow-hidden`}
             data-testid="state"
             data-state={state}
+            role="status"
           >
-            <AnimatePresence mode="popLayout" initial={false}>
-              <motion.span
-                key={state}
-                initial={{ opacity: 0, y: 4 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -4 }}
-                transition={quick}
-                className={`flex items-center gap-1.5 ${STATE[state].tone}`}
-              >
-                {(state === 'loading' || state === 'refreshing') && (
+            <span className="grid justify-items-center">
+              {(status ? STATES_WITH_DATA : STATES_WITHOUT).map((each) => (
+                <motion.span
+                  key={each}
+                  initial={false}
+                  animate={
+                    each === state ? { opacity: 1, y: 0 } : { opacity: 0, y: 4 }
+                  }
+                  transition={quick}
+                  aria-hidden={each !== state}
+                  className={`col-start-1 row-start-1 flex items-center gap-1.5 ${STATE[each].tone}`}
+                >
                   <span
                     aria-hidden
-                    className="size-1.5 animate-pulse rounded-full bg-current"
+                    className={`size-1.5 rounded-full bg-current ${each === 'loading' || each === 'refreshing' ? 'animate-pulse' : 'hidden'}`}
                   />
-                )}
-                {STATE[state].label}
-              </motion.span>
-            </AnimatePresence>
-          </motion.span>
+                  {STATE[each].label}
+                </motion.span>
+              ))}
+            </span>
+          </span>
         </div>
-        <Provenance data={data} />
+        <Provenance data={data} loads={status !== undefined} />
       </header>
       <div
         className={`space-y-5 p-3.5 sm:p-5 ${fill ? 'lg:flex lg:min-h-0 lg:flex-1 lg:flex-col' : ''}`}
