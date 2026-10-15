@@ -8,7 +8,7 @@ import { toReact } from '../../react/index.ts';
 import { registry } from '../../react/registry.ts';
 import { KEY } from '../adapter/index.ts';
 import { browser } from '../adapter/browser/index.ts';
-import { Route, Router } from '../index.ts';
+import { Navigation, Route, Router } from '../index.ts';
 import type { ScrollRestorationOptions } from '../index.ts';
 import { scriptFor } from '../scroll/index.ts';
 import { selectorOf } from '../scroll/selector.ts';
@@ -124,10 +124,28 @@ const SlowView = Route.view(Slow, ({ props }) => (
 /** Holds the slow page's Loader until it is let go. */
 let letGo: () => void = () => {};
 
-const Settings = Route.page({ path: '/settings' }).build({});
-const SettingsView = Route.view(Settings, () => (
+const Settings = Route.page({
+  path: '/settings',
+  query: { tab: Schema.optionalKey(Schema.String) },
+  requires: [Navigation],
+  message: Schema.TaggedUnion({ Tabbed: { keep: Schema.Boolean } }),
+}).build({
+  on: {
+    Tabbed: ({ keep }) => ({
+      command: Router.replace(
+        () => Routes.Settings({ tab: 'two' }),
+        keep ? { resetScroll: false } : {},
+      ),
+    }),
+  },
+});
+const SettingsView = Route.view(Settings, ({ send }) => (
   <div>
     settings
+    <button onClick={() => send({ _tag: 'Tabbed', keep: false })}>tab</button>
+    <button onClick={() => send({ _tag: 'Tabbed', keep: true })}>
+      tab, kept
+    </button>
     <Router.Link to={Routes.Folder({ folder: 'inbox' })}>inbox</Router.Link>
     <Router.Link to={Routes.Folder({ folder: 'inbox' })} resetScroll={false}>
       inbox, kept
@@ -222,6 +240,13 @@ const click = async (text: string) => {
   );
   await settle();
 };
+const press = async (text: string) => {
+  const button = [...host.querySelectorAll('button')].find(
+    (each) => each.textContent?.trim() === text,
+  )!;
+  await act(async () => button.click());
+  await settle();
+};
 const back = async () => {
   await act(async () => history.back());
   await settle();
@@ -263,19 +288,36 @@ describe('the window', () => {
     expect(scrollY).toBe(300);
   });
 
-  it('goes to the top once the new page has its data, whatever moved it while it loaded', async () => {
+  it('goes to the top as the move lands, before the new page has its data', async () => {
     await open('/settings');
     await scroll(window, 300);
     await click('slow');
     await act(() => new Promise((done) => setTimeout(done, 200)));
     expect(host.textContent).toContain('loading');
-    // The page going out shortens the document: the browser clamps the window.
-    await scroll(window, 120);
+    expect(scrollY).toBe(0);
     await act(async () => letGo());
-    await settle();
+    // A loading screen stays at least 300 ms.
     await act(() => new Promise((done) => setTimeout(done, 400)));
     expect(host.textContent).toContain('slow, there');
     expect(scrollY).toBe(0);
+  });
+
+  it('goes to the top on a replace, a new entry in the place of the one shown', async () => {
+    await open('/settings');
+    const before = history.state[KEY];
+    await scroll(window, 300);
+    await press('tab');
+    expect(location.search).toBe('?tab=two');
+    expect(history.state[KEY]).not.toBe(before);
+    expect(scrollY).toBe(0);
+  });
+
+  it('is left as it is by a replace that says resetScroll: false', async () => {
+    await open('/settings');
+    await scroll(window, 300);
+    await press('tab, kept');
+    expect(location.search).toBe('?tab=two');
+    expect(scrollY).toBe(300);
   });
 
   it('is left as it is by a move that says resetScroll: false', async () => {

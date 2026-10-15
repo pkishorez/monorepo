@@ -342,12 +342,13 @@ per history entry, the way a site of whole pages behaves.
    where it was: a list beside the post that opens. Never the window, nor
    what `scrollToTopSelectors` names: a container whose content a move
    replaces.
-3. **Restore.** Once every Place on screen has its data, what is kept for
-   the key the move lands on is put back. With nothing kept for the window,
-   a push or replace to a hash scrolls its element into view, else the
-   window, and what `scrollToTopSelectors` names, go to the top. Back,
-   Forward and a reload find what their entry kept. A replace keeps its
-   entry's key, so it keeps its scroll.
+3. **Restore.** As the move lands, with whatever is drawn then, what is
+   kept for the key it lands on is put back. With nothing kept for the
+   window, a push or replace to a hash scrolls its element into view, else
+   the window, and what `scrollToTopSelectors` names, go to the top. Back,
+   Forward and a reload find what their entry kept. A replace is a new entry
+   in the place of the one shown, with a key of its own, so it goes to the
+   top as a push does, unless it says `resetScroll: false`.
 4. **Save.** To the tab's session storage when the page is hidden, so a
    reload, and a duplicated tab, start from it. Under Start the page holds
    an inline script that puts it back before the app hydrates, so a reload
@@ -365,11 +366,10 @@ A move says otherwise for itself, as TanStack's do:
 an element, or the window, on the entry drawn: for a virtual list that puts
 itself back.
 
-Kabuki adds two things TanStack has no need of. A move lands before its
-data after 150 ms, so restoring waits for every Place's data, and scrolls in
-between, as the browser clamping the window when a page goes out, are not
-kept. And nothing scrolls while the app shows a past Step. Why it follows
-TanStack is in
+A page that lands still loading may be too short to reach where it was:
+what is drawn as the move lands is what is restored, as in TanStack, and a
+move held up to 150 ms for its data mostly lands drawn. Nothing scrolls
+while the app shows a past Step. Why it follows TanStack is in
 [ADR 0036](adr/0036-scroll-restoration-follows-tanstack-router.md).
 
 An app on TanStack Router leaves TanStack's own scroll restoration off for
