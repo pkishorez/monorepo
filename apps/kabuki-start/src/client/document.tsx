@@ -1,10 +1,11 @@
 import { Start } from '@kestack/kabuki/start';
-import { Theme } from './components/index.ts';
+import { Devtools, Theme } from './components/index.ts';
 
 /**
  * The HTML around the app. The Theme's script runs before the body is
  * painted, and changes `<html>` before React hydrates it, which React is
- * told to expect.
+ * told to expect. Kabuki's devtools sit around the app, from the button in
+ * the corner.
  */
 export default function Document({ children }: Start.DocumentProps) {
   return (
@@ -14,7 +15,7 @@ export default function Document({ children }: Start.DocumentProps) {
         <Theme.Script />
       </head>
       <body>
-        {children}
+        <Devtools>{children}</Devtools>
         <Start.Scripts />
       </body>
     </html>
