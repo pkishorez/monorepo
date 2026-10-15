@@ -274,7 +274,9 @@ used dropped first; a failure is never kept. A move to a page with a copy,
 Back, Forward or a plain link, starts it `Ready` at once: a static page as it
 is, a dynamic or client one `refreshing`, loaded again behind it. A place
 being loaded is joined, never asked for twice. Places asked for in the same
-moment are one request, each answered as it comes.
+moment are one request, each answered as it comes. The data a server drew the
+page with is kept the same way as the browser starts it, so Back to the
+first page is at once too.
 
 ### Reload and retry
 

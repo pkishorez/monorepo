@@ -40,6 +40,12 @@ export class Loading extends Context.Service<
     readonly preload?: (places: ReadonlyArray<Wanted>) => Effect.Effect<void>;
     /** Drops every copy the Data cache keeps. */
     readonly forget?: Effect.Effect<void>;
+    /**
+     * Keeps data a place already has, as if it had been loaded: what a
+     * server drew the page with, so Back to it is at once. A copy already
+     * kept stays.
+     */
+    readonly keep?: (place: Wanted, data: unknown) => Effect.Effect<void>;
   }
 >()('@kestack/kabuki/routing/Loading') {}
 
