@@ -1,0 +1,5 @@
+---
+'@kestack/kabuki': patch
+---
+
+Scroll restoration. A page says where its Scroll areas go back to, `scroll: 'entry' | 'url' | false`, inherited by the pages under it, `'entry'` from the root: where they were on the history entry the app comes back to, where they were the last time the place was shown however the app returns, or never. `useScroll(name?)` marks an element a page's View draws as one of its areas; the window is the deepest page's. Each page puts its own areas back as it is drawn with its data, and a page a move keeps is never touched. `<Router.Link scroll="keep">`, `Router.push(to, { scroll })` and `Router.replace(to, { scroll })` say otherwise for one move. With an Adapter, positions are saved to the tab's session storage, so a reload starts from them. Nothing scrolls while the app shows a past Step: `useLive()`, from `@kestack/kabuki/react`, says whether a View draws the app as it is now.

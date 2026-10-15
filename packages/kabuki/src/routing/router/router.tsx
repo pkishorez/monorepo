@@ -6,7 +6,7 @@ import { View } from '../../react/index.ts';
 import type { ViewOf } from '../../react/index.ts';
 import { Adapter } from '../adapter/index.ts';
 import { Loading, Navigation, routeOf } from '../capability/index.ts';
-import type { AnyRoute } from '../capability/index.ts';
+import type { AnyRoute, MoveOptions } from '../capability/index.ts';
 import { knownOf, preloadViews } from '../page/index.ts';
 import type { AnyPage, Known, Preload } from '../page/index.ts';
 import type {
@@ -20,6 +20,8 @@ import type {
   Read,
   Value,
 } from '../route/index.ts';
+import { Scrolling } from '../scroll/index.ts';
+import { SCROLLED } from './context.tsx';
 import { Frame } from './frame.tsx';
 
 /** What the router needs of a Routes tree. */
@@ -63,6 +65,21 @@ export interface PendingMove<Route> {
   readonly since: number;
   /** The key the address already holds for where it goes, from before the page loaded, else `null`: a new entry gets a new one. */
   readonly key: string | null;
+  /** Where the page is scrolled once it lands, if the push or replace said. */
+  readonly scroll?: Scroll;
+}
+
+/** Where a push or replace says the page is scrolled once it lands: to the top, or kept as it is. */
+type Scroll = NonNullable<MoveOptions['scroll']>;
+const SCROLL = ['top', 'keep'] as const;
+
+/** What a move carries besides where it goes and how. */
+interface Along {
+  /** How many Redirects led here. */
+  readonly hops?: number;
+  /** The key the address already holds for where it goes. */
+  readonly key?: string | null;
+  readonly scroll?: Scroll | undefined;
 }
 
 /** The router's Model: the history as entries and where it is in them, the last move, and the one it holds. */
@@ -80,6 +97,8 @@ export interface RouterModel<Route> {
     readonly from: Route | null;
     readonly to: Route;
     readonly how: How;
+    /** Where the push or replace said the page is scrolled, if it did. */
+    readonly scroll?: Scroll;
   };
   readonly pending: PendingMove<Route> | null;
   /**
@@ -100,8 +119,12 @@ export interface RouterModel<Route> {
 }
 
 export type RouterMessage<Route> =
-  | { readonly _tag: 'Pushed'; readonly route: Route }
-  | { readonly _tag: 'Replaced'; readonly route: Route }
+  | { readonly _tag: 'Pushed'; readonly route: Route; readonly scroll?: Scroll }
+  | {
+      readonly _tag: 'Replaced';
+      readonly route: Route;
+      readonly scroll?: Scroll;
+    }
   | { readonly _tag: 'Went'; readonly by: number }
   | { readonly _tag: 'WentBackTo'; readonly route: Route }
   | {
@@ -263,6 +286,7 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
         from: Schema.NullOr(RouteSchema),
         to: RouteSchema,
         how: Schema.Literals(HOW),
+        scroll: Schema.optionalKey(Schema.Literals(SCROLL)),
       }),
       pending: Schema.NullOr(
         Schema.Struct({
@@ -273,6 +297,7 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
           hops: Schema.Number,
           since: Schema.Number,
           key: Schema.NullOr(Schema.String),
+          scroll: Schema.optionalKey(Schema.Literals(SCROLL)),
         }),
       ),
       holding: Schema.NullOr(RouteSchema),
@@ -283,8 +308,14 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
       loaded: Schema.Boolean,
     }),
     message: Schema.TaggedUnion({
-      Pushed: { route: RouteSchema },
-      Replaced: { route: RouteSchema },
+      Pushed: {
+        route: RouteSchema,
+        scroll: Schema.optionalKey(Schema.Literals(SCROLL)),
+      },
+      Replaced: {
+        route: RouteSchema,
+        scroll: Schema.optionalKey(Schema.Literals(SCROLL)),
+      },
       Went: { by: Schema.Number },
       WentBackTo: { route: RouteSchema },
       Arrived: {
@@ -327,9 +358,10 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
     to: Route,
     how: Lands,
     known: Model['known'],
-    key: string | null = null,
+    { key = null, scroll }: Along = {},
   ): Out => {
     const settled: Model = { ...model, pending: null, holding: null, known };
+    const said = scroll ? { scroll } : {};
     const from = shown(model);
     // Back and Forward are at their entry already: the move only lands.
     if (how === 'back' || how === 'forward')
@@ -353,7 +385,7 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
         entries: settled.entries.map((entry, at) =>
           at === model.at ? { key: entry.key, route: to } : entry,
         ),
-        move: { from, to, how: 'replace' },
+        move: { from, to, how: 'replace', ...said },
       };
       return { model: next, command: writing(next, true) };
     }
@@ -366,7 +398,7 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
       ],
       at: model.at + 1,
       next: key === null ? model.next + 1 : model.next,
-      move: { from, to, how: 'push' },
+      move: { from, to, how: 'push', ...said },
     };
     return { model: next, command: writing(next, how === 'arrive') };
   };
@@ -381,8 +413,7 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
     route: Route,
     how: Lands,
     now: number,
-    hops = 0,
-    key: string | null = null,
+    along: Along = {},
   ): Out => {
     const drawn = new Set(
       routes.places(shown(model)).map((place) => place.key),
@@ -391,15 +422,16 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
       .places(route)
       .filter((place) => place.input && !drawn.has(place.key))
       .map((place) => place.name);
-    if (wanted.length === 0) return land(model, route, how, {}, key);
+    if (wanted.length === 0) return land(model, route, how, {}, along);
     const pending: PendingMove<Route> = {
       id: model.loads,
       to: route,
       how,
       wanted,
-      hops,
+      hops: along.hops ?? 0,
       since: now,
-      key,
+      key: along.key ?? null,
+      ...(along.scroll ? { scroll: along.scroll } : {}),
     };
     return { model: { ...model, pending, loads: model.loads + 1 } };
   };
@@ -542,10 +574,18 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
     },
     provides: (self: { readonly send: Send }) =>
       Layer.succeed(Navigation, {
-        push: (to) =>
-          self.send({ _tag: 'Pushed', route: routeOf(to) as Route }),
-        replace: (to) =>
-          self.send({ _tag: 'Replaced', route: routeOf(to) as Route }),
+        push: (to, options) =>
+          self.send({
+            _tag: 'Pushed',
+            route: routeOf(to) as Route,
+            ...options,
+          }),
+        replace: (to, options) =>
+          self.send({
+            _tag: 'Replaced',
+            route: routeOf(to) as Route,
+            ...options,
+          }),
         back: self.send({ _tag: 'Went', by: -1 }),
         forward: self.send({ _tag: 'Went', by: 1 }),
         backTo: (to) =>
@@ -556,19 +596,19 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
       }),
     on: {
       Pushed: (
-        { route }: { readonly route: Route },
+        { route, scroll }: { readonly route: Route; readonly scroll?: Scroll },
         { model, at }: { readonly model: Model; readonly at: number },
       ): Out => {
         if (model.pending && same(route, model.pending.to)) return {};
         // A link to the page shown loads it again: a failed page retries.
         if (same(route, current(model).route))
           return reloading({ ...model, pending: null });
-        return toward(model, route, 'push', at);
+        return toward(model, route, 'push', at, { scroll });
       },
       Replaced: (
-        { route }: { readonly route: Route },
+        { route, scroll }: { readonly route: Route; readonly scroll?: Scroll },
         { model, at }: { readonly model: Model; readonly at: number },
-      ) => toward(model, route, 'replace', at),
+      ) => toward(model, route, 'replace', at, { scroll }),
       Went: (
         { by }: { readonly by: number },
         { model, at }: { readonly model: Model; readonly at: number },
@@ -634,7 +674,7 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
         // A URL the app did not write this page load: typed in, a link from
         // the rest of the site, or an entry from before a reload, whose key
         // it keeps.
-        return toward(model, route, 'arrive', now, 0, key);
+        return toward(model, route, 'arrive', now, { key });
       },
       Attached: (
         { session }: { readonly session: string },
@@ -653,7 +693,7 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
       ): Out => {
         const pending = model.pending;
         if (pending?.id !== id) return {};
-        return land(model, pending.to, pending.how, {}, pending.key);
+        return land(model, pending.to, pending.how, {}, pending);
       },
       Loaded: (
         { id, known }: { readonly id: number; readonly known: Model['known'] },
@@ -661,7 +701,7 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
       ): Out => {
         const pending = model.pending;
         if (pending?.id !== id) return {};
-        return land(model, pending.to, pending.how, known, pending.key);
+        return land(model, pending.to, pending.how, known, pending);
       },
       Redirected: (
         { id, route }: { readonly id: number; readonly route: Route },
@@ -675,7 +715,7 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
             ? 'replace'
             : pending.how;
         if (pending.hops < HOPS)
-          return toward(settled, route, how, at, pending.hops + 1);
+          return toward(settled, route, how, at, { hops: pending.hops + 1 });
         return land(settled, notFound(pending.to), how, {});
       },
       Reloaded: (_: unknown, { model }: { readonly model: Model }) =>
@@ -785,7 +825,12 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
         return;
       }
       event.preventDefault();
-      send({ _tag: 'Pushed', route: routes.read(within).route });
+      const scroll = link.getAttribute(SCROLLED);
+      send({
+        _tag: 'Pushed',
+        route: routes.read(within).route,
+        ...(scroll === 'top' || scroll === 'keep' ? { scroll } : {}),
+      });
     };
     const drawn = shown(model);
     return (
@@ -815,17 +860,27 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
         root={self.root}
         onClick={onClick}
       >
-        {(() => {
-          const RootView = view as ViewOf<AnyActor>;
-          return (
-            <RootView
-              instance={
-                (self.children as { readonly page: { readonly id: string } })
-                  .page
-              }
-            />
-          );
-        })()}
+        <Scrolling
+          routes={routes}
+          route={drawn}
+          entry={current(model).key}
+          move={model.move}
+          pending={model.pending !== null}
+          attached={model.attached}
+          loaded={model.loaded}
+        >
+          {(() => {
+            const RootView = view as ViewOf<AnyActor>;
+            return (
+              <RootView
+                instance={
+                  (self.children as { readonly page: { readonly id: string } })
+                    .page
+                }
+              />
+            );
+          })()}
+        </Scrolling>
       </Frame>
     );
   });

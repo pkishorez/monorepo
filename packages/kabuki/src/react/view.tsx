@@ -64,6 +64,8 @@ export interface DrawnApp {
   readonly instance: (id: string) => Drawable | undefined;
   /** The Instance as first drawn, before any Runtime: what a server draws and the client hydrates against. */
   readonly served: (id: string) => Drawable | undefined;
+  /** Whether it draws the app as it is now, not a past Step: what may touch the page around it. */
+  readonly live: () => boolean;
 }
 
 export const AppContext = createContext<DrawnApp | undefined>(undefined);

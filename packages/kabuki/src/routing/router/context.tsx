@@ -8,7 +8,7 @@ import type {
   ReactNode,
   TouchEvent,
 } from 'react';
-import type { AnyRoute } from '../capability/index.ts';
+import type { AnyRoute, MoveOptions } from '../capability/index.ts';
 import type { Preload } from '../page/index.ts';
 import { MANAGED, tagsOf } from '../route/index.ts';
 import type { How, Metadata } from '../route/index.ts';
@@ -34,6 +34,8 @@ export interface Drawing {
     readonly from: AnyRoute | null;
     readonly to: AnyRoute;
     readonly how: How;
+    /** Where the push or replace said the page is scrolled, if it did. */
+    readonly scroll?: MoveOptions['scroll'];
   };
   readonly pending: Pending | null;
   /** The Metadata the Routes give the current entry, from its params alone. */
@@ -46,6 +48,9 @@ export interface Drawing {
 }
 
 export const RouterContext = createContext<Drawing | undefined>(undefined);
+
+/** The attribute a link says where its push leaves the page scrolled with: `top` or `keep`. */
+export const SCROLLED = 'data-kabuki-scroll';
 
 export const useDrawing = (what: string): Drawing => {
   const drawing = use(RouterContext);
@@ -94,6 +99,8 @@ export type LinkProps = Omit<
   readonly preload?: Preload;
   /** How long, in milliseconds, an `'intent'` link waits before it preloads. */
   readonly preloadDelay?: number;
+  /** Where the page is scrolled once its push lands: `'top'`, as a push is unless said, or `'keep'`. */
+  readonly scroll?: MoveOptions['scroll'];
   readonly children?: ReactNode;
 };
 
@@ -107,6 +114,7 @@ export function Link({
   to,
   preload,
   preloadDelay,
+  scroll,
   onMouseEnter,
   onMouseLeave,
   onFocus,
@@ -155,6 +163,7 @@ export function Link({
       {...rest}
       ref={ref}
       href={href}
+      {...(scroll ? { [SCROLLED]: scroll } : {})}
       onMouseEnter={(event: MouseEvent<HTMLAnchorElement>) => {
         intend();
         onMouseEnter?.(event);
@@ -189,6 +198,7 @@ export interface RouterState<Route extends AnyRoute = AnyRoute> {
     readonly from: Route | null;
     readonly to: Route;
     readonly how: How;
+    readonly scroll?: MoveOptions['scroll'];
   };
   /** The move the Router holds while it loads, if any. */
   readonly pending: Pending<Route> | null;

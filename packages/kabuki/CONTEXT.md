@@ -190,6 +190,14 @@ _Avoid_: router (the Actor), history
 The last change of the Router's current entry: where from, where to, and how, a load, push, replace, back or forward. What a Page's enter and exit animations read.
 _Avoid_: transition (Kabuki's Transition is another thing), navigation
 
+**Entry**:
+One step of the Router's history: a Route, and the key the Router gives it, so Back and Forward land on an Entry it knows. A push makes a new one; a replace or a Reload keeps the one shown.
+_Avoid_: history entry (Kabuki's History is another thing), location, state
+
+**Scroll area**:
+An element a Page's View marks as scrolling, named within its Place; the window is the deepest Place's. Where it was scrolled is remembered per Entry, or per visit to its Place's part of the URL, as its Page says, and put back when that Place is drawn again.
+_Avoid_: scroller, scroll container, viewport
+
 **Redirect**:
 A URL that is never a place, replaced in the address by the Route the Routes name for it, so Back never returns to it. A URL that reads as a Route but is not how that Route is written is replaced the same way.
 _Avoid_: guard, forward

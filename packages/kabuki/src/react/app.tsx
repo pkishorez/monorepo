@@ -171,6 +171,7 @@ export const toReact = <A extends AnyActor, Provided>(
           runtime?.send(id, message, { kind: 'view', instance: id });
       },
       subscribe,
+      () => draw === mine && shown === null,
     );
     return draw;
   };
