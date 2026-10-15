@@ -61,6 +61,8 @@ export interface PendingMove<Route> {
   readonly hops: number;
   /** When the move began: it lands without its data `delay` after. */
   readonly since: number;
+  /** The key the address already holds for where it goes, from before the page loaded, else `null`: a new entry gets a new one. */
+  readonly key: string | null;
 }
 
 /** The router's Model: the history as entries and where it is in them, the last move, and the one it holds. */
@@ -70,7 +72,9 @@ export interface RouterModel<Route> {
     readonly route: Route;
   }>;
   readonly at: number;
-  /** The key the next entry gets. */
+  /** What every key this page load gives starts with, so no key is given twice across reloads: `m` in memory. */
+  readonly session: string;
+  /** The number the next entry's key ends with. */
   readonly next: number;
   readonly move: {
     readonly from: Route | null;
@@ -106,7 +110,7 @@ export type RouterMessage<Route> =
       readonly key: string | null;
       readonly url: string;
     }
-  | { readonly _tag: 'Attached' }
+  | { readonly _tag: 'Attached'; readonly session: string }
   | { readonly _tag: 'Left'; readonly url: string }
   | { readonly _tag: 'Waited'; readonly id: number }
   | {
@@ -253,6 +257,7 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
         Schema.Struct({ key: Schema.String, route: RouteSchema }),
       ),
       at: Schema.Number,
+      session: Schema.String,
       next: Schema.Number,
       move: Schema.Struct({
         from: Schema.NullOr(RouteSchema),
@@ -267,6 +272,7 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
           wanted: Schema.Array(Schema.String),
           hops: Schema.Number,
           since: Schema.Number,
+          key: Schema.NullOr(Schema.String),
         }),
       ),
       holding: Schema.NullOr(RouteSchema),
@@ -286,7 +292,7 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
         key: Schema.NullOr(Schema.String),
         url: Schema.String,
       },
-      Attached: {},
+      Attached: { session: Schema.String },
       Left: { url: Schema.String },
       Waited: { id: Schema.Number },
       Loaded: { id: Schema.Number, known: KnownSchema },
@@ -302,6 +308,8 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
   const current = (model: Model) => model.entries[model.at]!;
   /** The Route drawn: the current entry's, or the one a held Back or Forward still draws. */
   const shown = (model: Model) => model.holding ?? current(model).route;
+  /** A key no entry has had, in this page load or any before it. */
+  const fresh = (model: Model) => `${model.session}.${model.next}`;
   const writing = (model: Model, replace: boolean) =>
     write({
       url: href(current(model).route),
@@ -319,6 +327,7 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
     to: Route,
     how: Lands,
     known: Model['known'],
+    key: string | null = null,
   ): Out => {
     const settled: Model = { ...model, pending: null, holding: null, known };
     const from = shown(model);
@@ -353,10 +362,10 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
       ...settled,
       entries: [
         ...model.entries.slice(0, model.at + 1),
-        { key: String(model.next), route: to },
+        { key: key ?? fresh(model), route: to },
       ],
       at: model.at + 1,
-      next: model.next + 1,
+      next: key === null ? model.next + 1 : model.next,
       move: { from, to, how: 'push' },
     };
     return { model: next, command: writing(next, how === 'arrive') };
@@ -373,6 +382,7 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
     how: Lands,
     now: number,
     hops = 0,
+    key: string | null = null,
   ): Out => {
     const drawn = new Set(
       routes.places(shown(model)).map((place) => place.key),
@@ -381,7 +391,7 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
       .places(route)
       .filter((place) => place.input && !drawn.has(place.key))
       .map((place) => place.name);
-    if (wanted.length === 0) return land(model, route, how, {});
+    if (wanted.length === 0) return land(model, route, how, {}, key);
     const pending: PendingMove<Route> = {
       id: model.loads,
       to: route,
@@ -389,6 +399,7 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
       wanted,
       hops,
       since: now,
+      key,
     };
     return { model: { ...model, pending, loads: model.loads + 1 } };
   };
@@ -430,8 +441,9 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
   const firstModel = (from: RouterInput<Route> | undefined): Model => {
     const route = from?.route ?? start();
     return {
-      entries: [{ key: '0', route }],
+      entries: [{ key: 'm.0', route }],
       at: 0,
+      session: 'm',
       next: 1,
       move: { from: null, to: route, how: 'load' },
       pending: null,
@@ -603,17 +615,32 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
               };
         }
         if (!model.loaded) {
-          // The URL the app opened at: this entry, now with the router's key.
-          const opened: Model = { ...model, loaded: true };
+          // The URL the app opened at: this entry, with the key the address
+          // kept for it before a reload, else a new one.
+          const opened: Model = {
+            ...model,
+            loaded: true,
+            entries: model.entries.map((entry, at) =>
+              at === model.at
+                ? { key: key ?? fresh(model), route: entry.route }
+                : entry,
+            ),
+            next: key === null ? model.next + 1 : model.next,
+          };
           if (same(route, current(opened).route))
             return { model: opened, command: writing(opened, true) };
           return toward(opened, route, 'load', now);
         }
-        // A URL the app did not write: typed in, or a link from the rest of the site.
-        return toward(model, route, 'arrive', now);
+        // A URL the app did not write this page load: typed in, a link from
+        // the rest of the site, or an entry from before a reload, whose key
+        // it keeps.
+        return toward(model, route, 'arrive', now, 0, key);
       },
-      Attached: (_: unknown, { model }: { readonly model: Model }) => ({
-        model: { ...model, attached: true },
+      Attached: (
+        { session }: { readonly session: string },
+        { model }: { readonly model: Model },
+      ) => ({
+        model: { ...model, attached: true, session },
       }),
       Left: ({ url }: { readonly url: string }) => ({
         command: leave({ url }),
@@ -626,7 +653,7 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
       ): Out => {
         const pending = model.pending;
         if (pending?.id !== id) return {};
-        return land(model, pending.to, pending.how, {});
+        return land(model, pending.to, pending.how, {}, pending.key);
       },
       Loaded: (
         { id, known }: { readonly id: number; readonly known: Model['known'] },
@@ -634,7 +661,7 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
       ): Out => {
         const pending = model.pending;
         if (pending?.id !== id) return {};
-        return land(model, pending.to, pending.how, known);
+        return land(model, pending.to, pending.how, known, pending.key);
       },
       Redirected: (
         { id, route }: { readonly id: number; readonly route: Route },
@@ -700,7 +727,10 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
             if (Option.isNone(found)) return;
             const at = found.value;
             if (!(yield* self.get).model.attached)
-              yield* self.send({ _tag: 'Attached' });
+              yield* self.send({
+                _tag: 'Attached',
+                session: Math.random().toString(36).slice(2, 10),
+              });
             const changes = Stream.callback<null>((queue) =>
               Effect.acquireRelease(
                 Effect.sync(() => {

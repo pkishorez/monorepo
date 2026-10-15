@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { Runtime } from '../../core/index.ts';
 import { toReact } from '../../react/index.ts';
 import { registry } from '../../react/registry.ts';
+import { keyIn } from '../adapter/index.ts';
 import { browser } from '../adapter/browser/index.ts';
 import { Route, Router, usePending, useRouter } from '../index.ts';
 
@@ -212,6 +213,48 @@ describe('on the browser history', () => {
   it('hands the root page a URL that names no place', async () => {
     await draw('browser', '/app/nowhere');
     expect(host.textContent).toContain('nowhere');
+  });
+});
+
+describe('a reload', () => {
+  /** The page loaded again: a new app on the same history, its entries and their state kept. */
+  const reload = async () => {
+    await act(async () => root?.unmount());
+    registry.clear();
+    const Root = Router.app(Routes, AppView, { base: '/app' });
+    const Drawn = toReact(Root.actor, Root.view, browser(), {
+      name: `browser-${count++}`,
+      input: Root.startAt,
+    });
+    root = createRoot(host);
+    await act(async () => root!.render(<Drawn />));
+    await settle();
+  };
+  const key = () => keyIn(history.state);
+
+  it('keeps the key of the entry it opens at, and gives keys no earlier page load gave', async () => {
+    await draw('browser', '/app');
+    const home = key();
+    await click('a[href="/app/projects/7"]');
+    const seven = key();
+    expect(new Set([home, seven]).size).toBe(2);
+
+    await reload();
+    expect(key()).toBe(seven);
+    await click('a[href="/app"]');
+    expect([home, seven]).not.toContain(key());
+  });
+
+  it('keeps the key of an entry from before it, on Back', async () => {
+    await draw('browser', '/app');
+    const home = key();
+    await click('a[href="/app/projects/7"]');
+    await reload();
+
+    await act(async () => history.back());
+    await settle();
+    expect(host.textContent).toContain('home');
+    expect(key()).toBe(home);
   });
 });
 
