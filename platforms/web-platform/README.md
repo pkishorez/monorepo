@@ -335,9 +335,9 @@ Owned shadcn copies on Base UI, one subpath per file, such as `@kestack/web-plat
 
 ### `@kestack/web-platform/recipes/devtools-dock`
 
-| Export         | What it does                                                                                                                                                                                                                   |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `DevtoolsDock` | Wraps a page with devtools opened from a corner button of one fixed size and place, or Ctrl+/: full screen, a resizable bar or side panel, or a floating window, kept across reloads; phones get only full screen and the bar. |
+| Export         | What it does                                                                                                                                                                                                                                                                                                                                         |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DevtoolsDock` | Wraps a page with devtools opened from a corner button of one fixed size and place, or Ctrl+/: full screen, a resizable bar or side panel, or a floating window, kept across reloads; phones get only full screen and the bar. With `scrolls="window"`, a page that scrolls the window stays in the document's flow, the bar or panel fixed over it. |
 
 ### `@kestack/web-platform/recipes/kabuki-devtools`
 

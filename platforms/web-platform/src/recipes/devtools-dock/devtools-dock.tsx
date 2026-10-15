@@ -28,7 +28,10 @@ import { cn } from '#lib/utils';
  * 2. Lay out the page fills what the devtools leave: a full-screen layer
  *            over it, a bar under it or a side panel on its right, both
  *            pushing it aside and resizable by their edge, or a floating
- *            window, moved by its title and resized by any corner.
+ *            window, moved by its title and resized by any corner. A page
+ *            that scrolls the window, as a site does, is left in the
+ *            document's flow: the bar and the panel are fixed over it, and
+ *            the body is padded by their size so nothing hides under them.
  * 3. Button  two icons, fixed in the bottom-right corner at one size
  *            whatever is open or marked: open and close, and the Layout. A
  *            click on the Layout steps to the next one; a right click or a
@@ -87,6 +90,7 @@ export function DevtoolsDock({
   label = 'Devtools',
   status,
   storageKey = 'devtools-dock',
+  scrolls = 'dock',
 }: {
   /** The devtools, drawn for the Layout they are in. */
   readonly devtools: (layout: DockLayout) => ReactNode;
@@ -97,6 +101,13 @@ export function DevtoolsDock({
   readonly status?: ReactNode;
   /** Where the Dock keeps how it was left. */
   readonly storageKey?: string;
+  /**
+   * What scrolls the page: `dock`, a box the height of the screen that the
+   * page fills, for an app that scrolls its own parts; or `window`, for a
+   * site whose page scrolls the window, which keeps its sticky headers and
+   * its scroll restoration.
+   */
+  readonly scrolls?: 'dock' | 'window';
 }) {
   // 1. Keep
   const [kept, setKept] = useState(INITIAL);
@@ -159,56 +170,82 @@ export function DevtoolsDock({
   // 2. Lay out
   const docked = open && (layout === 'bottom' || layout === 'side');
   const size = layout === 'bottom' ? kept.bottom : kept.side;
+  const inFlow = scrolls === 'window';
+  // A page in the window's flow makes room for the bar or the panel over it.
+  useEffect(() => {
+    if (!inFlow || !docked) return;
+    const side = layout === 'bottom' ? 'paddingBottom' : 'paddingRight';
+    const body = document.body.style;
+    const before = body[side];
+    body[side] = `${size}px`;
+    return () => {
+      body[side] = before;
+    };
+  }, [inFlow, docked, layout, size]);
+
+  const aside = docked && (
+    <aside
+      // A new Layout lays the devtools out afresh: the Map fits again.
+      key={layout}
+      aria-label={label}
+      className={cn(
+        'bg-background flex shrink-0 flex-col',
+        layout === 'bottom' ? 'border-t' : 'border-l',
+        !inFlow
+          ? 'relative'
+          : layout === 'bottom'
+            ? 'fixed inset-x-0 bottom-0 z-40'
+            : 'fixed inset-y-0 right-0 z-40',
+      )}
+      style={{
+        ...clear,
+        [layout === 'bottom' ? 'height' : 'width']: size,
+      }}
+    >
+      <Edge
+        along={layout === 'bottom' ? 'top' : 'left'}
+        onResize={(to) =>
+          keep(
+            layout === 'bottom'
+              ? {
+                  bottom: clamp(
+                    window.innerHeight - to.y,
+                    MIN,
+                    window.innerHeight * 0.85,
+                  ),
+                }
+              : {
+                  side: clamp(
+                    window.innerWidth - to.x,
+                    MIN + 120,
+                    window.innerWidth * 0.85,
+                  ),
+                },
+          )
+        }
+      />
+      <div className="min-h-0 flex-1">{devtools(layout)}</div>
+    </aside>
+  );
 
   return (
     <>
-      <div
-        className={cn(
-          'flex h-dvh w-full overflow-hidden',
-          docked && layout === 'bottom' ? 'flex-col' : 'flex-row',
-        )}
-      >
-        <div className="relative min-h-0 min-w-0 flex-1">{children}</div>
-        {docked && (
-          <aside
-            // A new Layout lays the devtools out afresh: the Map fits again.
-            key={layout}
-            aria-label={label}
-            className={cn(
-              'bg-background relative flex shrink-0 flex-col',
-              layout === 'bottom' ? 'border-t' : 'border-l',
-            )}
-            style={{
-              ...clear,
-              [layout === 'bottom' ? 'height' : 'width']: size,
-            }}
-          >
-            <Edge
-              along={layout === 'bottom' ? 'top' : 'left'}
-              onResize={(to) =>
-                keep(
-                  layout === 'bottom'
-                    ? {
-                        bottom: clamp(
-                          window.innerHeight - to.y,
-                          MIN,
-                          window.innerHeight * 0.85,
-                        ),
-                      }
-                    : {
-                        side: clamp(
-                          window.innerWidth - to.x,
-                          MIN + 120,
-                          window.innerWidth * 0.85,
-                        ),
-                      },
-                )
-              }
-            />
-            <div className="min-h-0 flex-1">{devtools(layout)}</div>
-          </aside>
-        )}
-      </div>
+      {inFlow ? (
+        <>
+          {children}
+          {aside}
+        </>
+      ) : (
+        <div
+          className={cn(
+            'flex h-dvh w-full overflow-hidden',
+            docked && layout === 'bottom' ? 'flex-col' : 'flex-row',
+          )}
+        >
+          <div className="relative min-h-0 min-w-0 flex-1">{children}</div>
+          {aside}
+        </div>
+      )}
 
       {open && layout === 'full' && (
         <div
