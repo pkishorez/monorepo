@@ -43,7 +43,7 @@ const TOUR: ReadonlyArray<{
       {
         to: Routes.Feed(),
         url: '/feed',
-        what: 'a client page: sent loading, loaded in the browser. Scroll far, open a post, press Back: the window waits for the feed, then goes back.',
+        what: 'a client page: sent loading, loaded in the browser. Scroll far, open a post, press Back: its copy is shown at once, and the window goes back.',
       },
       {
         to: Routes.Blog.Post({ slug: 'scroll-entry' }),
