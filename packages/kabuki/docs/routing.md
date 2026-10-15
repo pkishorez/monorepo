@@ -360,9 +360,11 @@ it is the deepest Place's.
 - **Each Place puts its own back**, once, as it is drawn with its data, after
   a move that made it. A Place the move keeps is not drawn again, so it is
   never touched, and a Place that failed is left at its top.
-- **The window** goes back once every Place on screen has its data, to the
-  top for a push, and stays as it is for a replace. A wheel, a touch or a key
-  before then wins. With an Adapter, Kabuki puts it back, not the browser.
+- **The window** goes back once every Place on screen has its data. A push
+  to another page under the root goes to the top; a push that keeps that
+  page, as opening a post beside its list, leaves the window as it is, as
+  does a replace. A wheel, a touch or a key before then wins. With an
+  Adapter, Kabuki puts it back, not the browser.
 - **A move can say**: `<Router.Link scroll="keep">`, `Router.push(to, {
 scroll: 'keep' })`, `Router.replace(to, { scroll: 'top' })`. Back still
   goes back to what each entry was.
