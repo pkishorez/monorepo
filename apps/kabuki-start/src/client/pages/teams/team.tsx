@@ -32,11 +32,9 @@ export const TeamView = Route.view(Pages.Teams, (self) => {
       status={status}
       intro={
         <>
-          {status._tag === 'Ready'
-            ? `The ${status.data.name} team, drawn`
-            : 'Drawn'}{' '}
-          for each request: open at a member and both Loaders start together.
-          Come back by a link and the list is where you left it. Try{' '}
+          The {params.team.charAt(0).toUpperCase() + params.team.slice(1)} team,
+          drawn for each request: open at a member and both Loaders start
+          together. Come back by a link and the list is where you left it. Try{' '}
           <Router.Link to={Routes.Teams({ team: other })} className={link}>
             the {other} team
           </Router.Link>
