@@ -366,7 +366,7 @@ it is the deepest Place's.
 - **A move can say**: `<Router.Link scroll="keep">`, `Router.push(to, {
 scroll: 'keep' })`, `Router.replace(to, { scroll: 'top' })`. Back still
   goes back to what each entry was.
-- **Kept** in memory as each area scrolls, never while a move is held; with
+- **Kept** in memory as each area scrolls, on the entry drawn; with
   an Adapter, saved to the tab's session storage when an entry is left or the
   page is hidden, so a reload, and a duplicated tab, start from it. A link
   opened in a new tab starts empty. Each kind keeps its last 100.
@@ -375,7 +375,10 @@ scroll: 'keep' })`, `Router.replace(to, { scroll: 'top' })`. Back still
   [ADR 0036](adr/0036-each-place-puts-its-own-scroll-back.md).
 
 An app on TanStack Router leaves TanStack's own scroll restoration off for
-the route Kabuki is drawn on.
+the route Kabuki is drawn on. An app that animates a page out, as
+`AnimatePresence` does, turns the browser's scroll anchoring off around it,
+`overflow-anchor: none`: else taking the page away when its exit ends moves
+the window after Kabuki put it back.
 
 ## One click, a project to one of its tasks
 

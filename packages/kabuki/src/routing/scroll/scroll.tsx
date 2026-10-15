@@ -26,8 +26,8 @@ import * as session from './session.ts';
  * of it runs while the app shows a past Step.
  *
  * 1. Remember  every area's position as it scrolls, in memory: on the entry
- *              shown, or for its place, as its Page's mode says; never while
- *              a move is held.
+ *              drawn, or for its place, as its Page's mode says. Through a
+ *              held move the entry drawn is still the one before it.
  * 2. Save      to the tab's session storage, with an Adapter, when an entry
  *              is left, the page is hidden, or the app goes.
  * 3. Restore   a Place's areas once, as it is drawn with its data: where
@@ -103,7 +103,7 @@ const shownOn = (
 
 /** What each Place reads of the Router's Scrolling. */
 interface Frame {
-  /** Whether an area may be remembered now: live, and no move held. */
+  /** Whether an area may be remembered now: while the app is live. */
   readonly remembering: () => boolean;
   /** Where the app is: the entry shown and the move that led there. */
   readonly arrival: () => Arrival;
@@ -146,6 +146,8 @@ export function Scrolling(props: ScrollingProps) {
     settling: boolean;
     turn: number;
     last: string | undefined;
+    /** The entry drawn: through a held move, still the one before it, so a scroll just before a click is kept for it. */
+    entry: string;
   }>(undefined);
   if (!state.current) {
     let own: Memory | undefined;
@@ -175,14 +177,15 @@ export function Scrolling(props: ScrollingProps) {
       settling: false,
       turn: 0,
       last: undefined,
+      entry: props.entry,
       frame: {
-        remembering: () => latest.current.live && !latest.current.props.pending,
+        remembering: () => latest.current.live,
         arrival: () => ({
           entry: latest.current.props.entry,
           move: latest.current.props.move,
         }),
         remember: (place, area, at) => {
-          const found = where(place, area, latest.current.props.entry);
+          const found = where(place, area, state.current!.entry);
           if (found) memoryOf().set(found, at);
         },
         recall: (place, area, entry) => {
@@ -252,15 +255,9 @@ export function Scrolling(props: ScrollingProps) {
   // 4. Window
   const move = `${props.entry} ${props.move.how} ${props.move.scroll ?? ''} ${JSON.stringify(props.route)}`;
   useLayoutEffect(() => {
-    if (!live) return;
-    if (props.pending) {
-      s.settling = true;
-      return;
-    }
-    if (s.last === move) {
-      if (!s.waiting) s.settling = false;
-      return;
-    }
+    if (!live || props.pending) return;
+    s.entry = props.entry;
+    if (s.last === move) return;
     s.last = move;
     s.save();
     s.waiting = undefined;
