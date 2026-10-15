@@ -18,7 +18,9 @@ import { PostView } from './post.tsx';
  * own: the blog, and its list, stay as they are. The list stays on the page
  * as a post opens, so its scroll is kept; its links say `resetScroll`
  * false, so on a phone, where the post below it scrolls the window, the
- * window stays too.
+ * window stays too. It is named, `data-scroll-restoration-id`: as a page
+ * slides out, the one before still beside it, its place in the document
+ * is not where it was kept.
  */
 
 export const BlogView = Route.view(Pages.Blog, (self) => {
@@ -35,6 +37,7 @@ export const BlogView = Route.view(Pages.Blog, (self) => {
       >
         <nav
           aria-label="Posts"
+          data-scroll-restoration-id="posts"
           className="max-h-80 overflow-y-auto overscroll-contain rounded-lg border border-border bg-background/60 p-1.5 lg:h-full lg:max-h-none"
         >
           <Loaded

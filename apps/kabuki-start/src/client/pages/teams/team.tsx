@@ -18,6 +18,7 @@ import { MemberView } from './member.tsx';
  * its own loading screen until its data comes; the member, quicker, shows
  * first. Their headers show both Loaders took their own time, side by side.
  * The list stays as a member opens, and its links say `resetScroll` false.
+ * It is named for its team, as the blog's list is, for the same reason.
  */
 
 export const TeamView = Route.view(Pages.Teams, (self) => {
@@ -44,7 +45,10 @@ export const TeamView = Route.view(Pages.Teams, (self) => {
       <div
         className={`grid gap-4 ${panes} lg:grid-cols-[minmax(0,17rem)_minmax(0,1fr)]`}
       >
-        <div className="max-h-80 overflow-y-auto overscroll-contain rounded-lg border border-border bg-background/60 p-1.5 lg:h-full lg:max-h-none">
+        <div
+          data-scroll-restoration-id={`team:${params.team}`}
+          className="max-h-80 overflow-y-auto overscroll-contain rounded-lg border border-border bg-background/60 p-1.5 lg:h-full lg:max-h-none"
+        >
           <Loaded
             status={status}
             label={`Loading the ${params.team} team… (1.2 s)`}
