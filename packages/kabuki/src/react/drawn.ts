@@ -16,6 +16,7 @@ export const makeDrawn = (
   served: () => Snapshot | undefined,
   deliver: (id: string, message: Tagged) => void,
   subscribe: DrawnApp['subscribe'],
+  live: () => boolean = () => true,
 ): DrawnApp => {
   const handles = new Map<string, Handle<AnyActor>>();
   const sends = new Map<string, (message: Tagged) => void>();
@@ -94,6 +95,7 @@ export const makeDrawn = (
 
   return {
     subscribe,
+    live,
     instance: (id) => {
       prune();
       return propsIn(cache, drawn(), id);

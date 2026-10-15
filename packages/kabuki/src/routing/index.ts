@@ -1,7 +1,14 @@
 export { Loading, Route, Router } from './routing.ts';
 export { Navigation, outcomeOf } from './capability/index.ts';
-export type { Answer, AnyRoute, To, Wanted } from './capability/index.ts';
+export type {
+  Answer,
+  AnyRoute,
+  MoveOptions,
+  To,
+  Wanted,
+} from './capability/index.ts';
 export { usePending, useRouter } from './router/index.ts';
+export { useScroll } from './scroll/index.ts';
 export type { Entry, LinkProps, Pending, RouterState } from './router/index.ts';
 export type {
   AnyPage,
@@ -20,4 +27,5 @@ export type {
   Outcome,
   RenderMode,
   RouteOf,
+  ScrollMode,
 } from './route/index.ts';

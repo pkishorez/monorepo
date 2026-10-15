@@ -15,6 +15,12 @@ export type AnyRoute = { readonly _tag: string };
 // oxlint-disable-next-line typescript/no-explicit-any -- a function's return typed `any` is never worked out while the page is typed.
 export type To = AnyRoute | (() => any);
 
+/** What a push or replace may say besides where it goes. */
+export interface MoveOptions {
+  /** Where the page is scrolled once the move lands: to the top, as a push is, or kept, as a replace is. */
+  readonly scroll?: 'top' | 'keep';
+}
+
 /** The Route `to` names. */
 export const routeOf = (to: To): AnyRoute =>
   typeof to === 'function' ? (to() as AnyRoute) : to;
@@ -28,8 +34,8 @@ export const routeOf = (to: To): AnyRoute =>
 export class Navigation extends Context.Service<
   Navigation,
   {
-    readonly push: (to: To) => Effect.Effect<void>;
-    readonly replace: (to: To) => Effect.Effect<void>;
+    readonly push: (to: To, options?: MoveOptions) => Effect.Effect<void>;
+    readonly replace: (to: To, options?: MoveOptions) => Effect.Effect<void>;
     readonly back: Effect.Effect<void>;
     readonly forward: Effect.Effect<void>;
     /** Back, if the entry before is `route`; else replace this entry with it. */
@@ -43,14 +49,20 @@ export class Navigation extends Context.Service<
 
 const Route = Schema.Struct({ _tag: Schema.String });
 const args = Schema.Struct({ route: Route });
+const moving = Schema.Struct({
+  route: Route,
+  scroll: Schema.optionalKey(Schema.Literals(['top', 'keep'])),
+});
 
 const pushing = Command.make('push', {
-  args,
-  run: ({ route }) => Navigation.use((navigation) => navigation.push(route)),
+  args: moving,
+  run: ({ route, ...options }) =>
+    Navigation.use((navigation) => navigation.push(route, options)),
 });
 const replacing = Command.make('replace', {
-  args,
-  run: ({ route }) => Navigation.use((navigation) => navigation.replace(route)),
+  args: moving,
+  run: ({ route, ...options }) =>
+    Navigation.use((navigation) => navigation.replace(route, options)),
 });
 const backing = Command.make('back', {
   run: () => Navigation.use((navigation) => navigation.back),
@@ -70,10 +82,12 @@ const preloading = Command.make('preload', {
   run: ({ route }) => Navigation.use((navigation) => navigation.preload(route)),
 });
 
-/** Move to a Route, as a new entry. */
-export const push = (to: To) => pushing({ route: routeOf(to) });
-/** Put a Route in place of this entry: Back skips what was here. */
-export const replace = (to: To) => replacing({ route: routeOf(to) });
+/** Move to a Route, as a new entry: `{ scroll: 'keep' }` leaves the page scrolled as it is. */
+export const push = (to: To, options: MoveOptions = {}) =>
+  pushing({ route: routeOf(to), ...options });
+/** Put a Route in place of this entry: Back skips what was here. `{ scroll: 'top' }` scrolls the page to its top. */
+export const replace = (to: To, options: MoveOptions = {}) =>
+  replacing({ route: routeOf(to), ...options });
 /** The browser's Back, or the memory history's. */
 export const back = () => backing();
 export const forward = () => forwarding();

@@ -12,4 +12,4 @@ export {
   replace,
   routeOf,
 } from './navigation.ts';
-export type { AnyRoute, To } from './navigation.ts';
+export type { AnyRoute, MoveOptions, To } from './navigation.ts';

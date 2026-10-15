@@ -20,6 +20,7 @@ import type {
   MetadataOf,
   Node,
   RenderMode,
+  ScrollMode,
   Simplify,
   Value,
 } from '../route/index.ts';
@@ -73,6 +74,8 @@ export interface PageOptions<
   readonly data?: Codec<D>;
   /** How it is first drawn: static, dynamic or client; its parent's unless said. */
   readonly render?: M;
+  /** Where its Scroll areas go back to: `entry`, `url`, or `false`; its parent's unless said, `entry` at the root. */
+  readonly scroll?: ScrollMode;
   /** What it says about itself, from its params, query and data once there. */
   readonly metadata?: MetadataOf<P, Q, D>;
   /** The pages under it, each named by its key here. */
@@ -330,6 +333,7 @@ export const page = <
       query,
       input: options.data,
       render: options.render,
+      scroll: options.scroll,
       metadata: options.metadata,
       children: pages,
       actor,

@@ -24,14 +24,15 @@ src/routing/
   capability/     what the Router and Places use: Loading, the Data cache, Navigation
   page/           Route.page, the Place it writes, Route.view, Route.tree
   router/         the Router Actor: moves, links, hooks, the Metadata in the document
+  scroll/         Scroll areas: remembered, saved for a reload, put back by each Place
   adapter/        the port: where the address lives            @kestack/kabuki/routing/adapter
     browser/      the browser's own history                    @kestack/kabuki/routing/adapter/browser
     tanstack/     TanStack Router's history                    @kestack/kabuki/routing/adapter/tanstack
 ```
 
 `route` is pure data and depends on nothing else here, so Start's shared code
-reads it without the Router. `page` uses `route` and `capability`; `router`
-uses all three and `adapter`.
+reads it without the Router. `scroll` uses only `route`. `page` uses `route`,
+`capability` and `scroll`; `router` uses all four and `adapter`.
 
 ## A page
 
@@ -78,7 +79,7 @@ export const TaskView = Route.view(Task, ({ props }) => {
 
 `Route.page` is `Actor.make` with a place in the URL, and every field is
 optional: `path`, `params`, `query`, `data` (its Loader's Schema), `render`,
-`metadata` and `pages`, then the Actor's own `requires`, `model`, `state` and
+`scroll`, `metadata` and `pages`, then the Actor's own `requires`, `model`, `state` and
 `message`. `build` takes how it behaves, at the top and per State, as any
 Actor's does. A page takes no Input: it exists before its data. It is handed
 Props:
@@ -316,6 +317,66 @@ Commands never run during Time Travel, so the address stays live: a past
 Step is a drawing. Nothing fetches either: each page's data is in its
 Place's Model, and a fetched answer is in the Message that brought it.
 
+## Scroll
+
+```tsx
+export const App = Route.page({ pages: { Mail, Settings } }).build({}); // scroll: 'entry', the default
+
+export const Folder = Route.page({
+  path: '/:folder',
+  params: { folder: Schema.String },
+  scroll: 'url', // the list comes back however the app returns to it
+  pages: { Message }, // Message says 'entry' for itself
+}).build({});
+
+export const FolderView = Route.view(Folder, (self) => {
+  const list = useScroll(); // a ref; `useScroll('sidebar')` names a second one
+  return (
+    <section>
+      <ul ref={list}>…</ul>
+      {self.children.Message && (
+        <MessageView instance={self.children.Message} />
+      )}
+    </section>
+  );
+});
+```
+
+A page's `scroll` says where its Scroll areas go back to, inherited by the
+pages under it, and the root's is the app's:
+
+- `'entry'`, the default: where they were on the history entry the app comes
+  back to, by Back, Forward or a reload. A new entry starts at the top.
+- `'url'`: where they were the last time this place, with these params and
+  this query, was shown, however the app comes back, a plain link too.
+- `false`: never touched, for a chat that keeps itself at its bottom, or a
+  canvas.
+
+`useScroll(name?)` marks the element a View draws as one of its Place's
+Scroll areas: a ref, so it fits any element, a virtual list's too. A Place
+with two names each; two of one name are refused. The window needs nothing:
+it is the deepest Place's.
+
+- **Each Place puts its own back**, once, as it is drawn with its data, after
+  a move that made it. A Place the move keeps is not drawn again, so it is
+  never touched, and a Place that failed is left at its top.
+- **The window** goes back once every Place on screen has its data, to the
+  top for a push, and stays as it is for a replace. A wheel, a touch or a key
+  before then wins. With an Adapter, Kabuki puts it back, not the browser.
+- **A move can say**: `<Router.Link scroll="keep">`, `Router.push(to, {
+scroll: 'keep' })`, `Router.replace(to, { scroll: 'top' })`. Back still
+  goes back to what each entry was.
+- **Kept** in memory as each area scrolls, never while a move is held; with
+  an Adapter, saved to the tab's session storage when an entry is left or the
+  page is hidden, so a reload, and a duplicated tab, start from it. A link
+  opened in a new tab starts empty. Each kind keeps its last 100.
+- **Never in the Snapshot**, and never run while the app shows a past Step:
+  Time Travel does not scroll. Why it is built this way is in
+  [ADR 0036](adr/0036-each-place-puts-its-own-scroll-back.md).
+
+An app on TanStack Router leaves TanStack's own scroll restoration off for
+the route Kabuki is drawn on.
+
 ## One click, a project to one of its tasks
 
 1. `Router.Link` drew `<a href="/projects/4/tasks/a">`. The Router's View catches the plain click and Sends `Pushed`.
@@ -336,7 +397,9 @@ Capability.
 
 - Typed ancestor params: a page sees its own params typed, and `route.params` loosely.
 - Blocking a move, as over unsaved changes.
-- Scroll restoration per history entry.
+- A link to a spot on another page, `/docs/a#setup`: the Router drops the
+  `#setup` on the move, so the page opens at its top.
+- Moving focus on a move, for a screen reader, as scroll is put back.
 - Devtools folding each Place into its page.
 - Starting a `client` page's data request from the document's head, before the code loads.
 - One routed app per page: two Routers on one page would both write the address.
