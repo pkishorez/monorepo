@@ -51,6 +51,8 @@ export const Profile = Schema.Struct({
   name: Schema.String,
   role: Schema.String,
   bio: Schema.String,
+  /** What they did lately, newest first: long enough to scroll. */
+  activity: Schema.Array(Schema.String),
 });
 
 export const Results = Schema.Struct({
@@ -67,5 +69,19 @@ export const Notes = Schema.Struct({
 });
 
 export const Slow = Schema.Struct({ ...timed, n: Schema.Number });
+
+export const FeedItem = Schema.Struct({
+  id: Schema.Number,
+  slug: Schema.String,
+  title: Schema.String,
+  summary: Schema.String,
+  minutes: Schema.Number,
+});
+
+/** A long feed, loaded in the browser alone. */
+export const Feed = Schema.Struct({
+  ...timed,
+  items: Schema.Array(FeedItem),
+});
 
 export const Luck = Schema.Struct({ ...timed, luck: Schema.Number });

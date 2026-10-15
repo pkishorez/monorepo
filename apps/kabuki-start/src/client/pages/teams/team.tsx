@@ -1,78 +1,101 @@
-import { Route, Router } from '@kestack/kabuki/routing';
+import { motion } from 'motion/react';
+import { Route, Router, useScroll } from '@kestack/kabuki/routing';
 import { Pages, Routes } from '../../../shared/index.ts';
 import {
   Loaded,
-  PageFrame,
-  Refreshing,
-  Skeleton,
+  PlaceFrame,
+  Slot,
   link,
+  quick,
+  panes,
+  row,
 } from '../../components/index.ts';
 import { MemberView } from './member.tsx';
 
 /*
  * A team, and the member the URL names beside it. The team draws its
  * member's place whatever its own state: both load at once, and each shows
- * its own loading screen until its data comes. Opened at a member, the
- * member, quicker, shows first. Their Provenance boxes show both Loaders
- * started at the same moment.
+ * its own loading screen until its data comes; the member, quicker, shows
+ * first. Their headers show both Loaders took their own time, side by side.
+ * The member list is the team's Scroll area, `url`.
  */
 
 export const TeamView = Route.view(Pages.Teams, (self) => {
+  const members = useScroll();
   const { status, params } = self.props;
+  const member = self.children.Member;
+  const open = self.props.route.page?.member;
+  const other = params.team === 'core' ? 'web' : 'core';
   return (
-    <div className="grid gap-8 lg:grid-cols-[1fr_1fr]">
-      <Loaded status={status} label={`Loading the ${params.team} team…`}>
-        {(team, refreshing) => (
-          <PageFrame
-            place="Teams"
-            data={team}
-            title={`${team.name} team`}
-            intro="A dynamic page with a page under it. Pick a member: only the member loads, the team stays. Come back to a team seen before: its copy shows at once, and loads again behind it."
-            aside={<Refreshing on={refreshing} />}
+    <PlaceFrame
+      place="Teams"
+      status={status}
+      intro={
+        <>
+          {status._tag === 'Ready'
+            ? `The ${status.data.name} team, drawn`
+            : 'Drawn'}{' '}
+          for each request: open at a member and both Loaders start together.
+          Come back by a link and the list is where you left it. Try{' '}
+          <Router.Link to={Routes.Teams({ team: other })} className={link}>
+            the {other} team
+          </Router.Link>
+          .
+        </>
+      }
+    >
+      <div
+        className={`grid gap-4 ${panes} lg:grid-cols-[minmax(0,17rem)_minmax(0,1fr)]`}
+      >
+        <div
+          ref={members}
+          className="max-h-80 overflow-y-auto overscroll-contain rounded-lg border border-border bg-background/60 p-1.5 lg:h-full lg:max-h-none"
+        >
+          <Loaded
+            status={status}
+            label={`Loading the ${params.team} team… (1.2 s)`}
+            lines={8}
           >
-            <ul className="flex flex-wrap gap-2">
-              {team.members.map((member) => (
-                <li key={member.handle}>
-                  <Router.Link
-                    to={Routes.Teams.Member({
-                      team: team.slug,
-                      member: member.handle,
-                    })}
-                    aria-current={
-                      self.props.route.page?.member === member.handle
-                        ? 'page'
-                        : undefined
-                    }
-                    className="block rounded-md border border-border px-3 py-1.5 text-sm hover:bg-muted aria-[current=page]:bg-muted aria-[current=page]:font-medium"
-                  >
-                    {member.name}
-                  </Router.Link>
-                </li>
-              ))}
-            </ul>
-            <p className="text-sm text-muted-foreground">
-              Other team:{' '}
-              <Router.Link
-                to={Routes.Teams({
-                  team: team.slug === 'core' ? 'web' : 'core',
-                })}
-                className={link}
-              >
-                {team.slug === 'core' ? 'Web' : 'Core'}
-              </Router.Link>
-            </p>
-          </PageFrame>
-        )}
-      </Loaded>
-      <div>
-        {self.children.Member ? (
-          <MemberView instance={self.children.Member} />
-        ) : status._tag === 'Loading' ? (
-          <Skeleton label="…" />
-        ) : (
-          <p className="text-sm text-muted-foreground">Pick a member.</p>
-        )}
+            {(team) => (
+              <ul>
+                {team.members.map((each) => (
+                  <li key={each.handle}>
+                    <Router.Link
+                      to={Routes.Teams.Member({
+                        team: team.slug,
+                        member: each.handle,
+                      })}
+                      aria-current={open === each.handle ? 'page' : undefined}
+                      className={`${row} justify-between aria-[current=page]:font-medium`}
+                    >
+                      {open === each.handle && (
+                        <motion.span
+                          layoutId="team-current"
+                          transition={quick}
+                          className="absolute inset-0 -z-10 rounded-lg bg-muted"
+                        />
+                      )}
+                      <span className="truncate">{each.name}</span>
+                      <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
+                        {each.role}
+                      </span>
+                    </Router.Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Loaded>
+        </div>
+        <Slot className="lg:h-full" id={member?.id ?? 'none'}>
+          {member ? (
+            <MemberView instance={member} />
+          ) : (
+            <div className="grid min-h-48 place-items-center rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground lg:h-full">
+              Pick a member: only the member loads, the team stays.
+            </div>
+          )}
+        </Slot>
       </div>
-    </div>
+    </PlaceFrame>
   );
 });

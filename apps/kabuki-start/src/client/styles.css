@@ -1,24 +1,33 @@
 @import '@kestack/web-platform/theme/global.css';
 @import '@kestack/web-platform/theme/font-inter.css';
 
+/*
+ * The only colors this site adds: one per Render Mode, so every Place's box
+ * says how it was drawn at a glance. The three share one lightness, so none
+ * reads louder than another, and each takes about four fifths of the chroma
+ * its hue can hold there: green for static, amber for dynamic, blue for
+ * client. Light: L 0.56 on a near-white ground, about 4.5:1 for their small
+ * labels. Dark: L 0.78 on a near-black ground.
+ */
+:root {
+  --mode-static: oklch(0.56 0.13 152);
+  --mode-dynamic: oklch(0.56 0.11 62);
+  --mode-client: oklch(0.56 0.16 258);
+}
+:where(.dark, [data-theme='dark']) {
+  --mode-static: oklch(0.78 0.15 152);
+  --mode-dynamic: oklch(0.78 0.12 70);
+  --mode-client: oklch(0.78 0.1 258);
+}
+
+@theme inline {
+  --color-static: var(--mode-static);
+  --color-dynamic: var(--mode-dynamic);
+  --color-client: var(--mode-client);
+}
+
 @layer base {
   body {
     @apply bg-background font-sans text-foreground antialiased;
-  }
-}
-
-/* A page fades up into its slot: its pending screen, then the page. */
-@keyframes enter {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-}
-.animate-enter {
-  animation: enter 200ms ease-out;
-}
-@media (prefers-reduced-motion: reduce) {
-  .animate-enter {
-    animation: none;
   }
 }

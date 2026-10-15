@@ -9,7 +9,8 @@ import { Routes } from '../shared/index.ts';
 /*
  * One Loader per page with data, most of them slow on purpose, so each case
  * has something to show: a post takes a second, a team longer than its
- * member, a slow page a second and a half, and /flaky breaks on a coin toss.
+ * member, a slow page a second and a half, the feed most of a second, and
+ * /flaky breaks on a coin toss.
  */
 
 /**
@@ -44,6 +45,7 @@ const loaders = Routes.loaders({
   Teams: ({ team }) => read((db) => db.team(team), '1200 millis'),
   'Teams.Member': ({ team, member }) =>
     read((db) => db.member(team, member), '700 millis'),
+  Feed: () => read((db) => db.feed, '900 millis'),
   Search: ({ q }) => read((db) => db.search(q ?? ''), '600 millis'),
   Notes: () => read((db) => db.notes, '800 millis'),
   'Preload.Slow': ({ n }) => read(() => Effect.succeed({ n }), '1500 millis'),

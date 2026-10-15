@@ -21,6 +21,7 @@
     "@kestack/use-gesture": "workspace:*",
     "@kestack/web-platform": "workspace:*",
     "effect": "catalog:",
+    "motion": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:"
   },

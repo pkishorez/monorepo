@@ -17,7 +17,7 @@ export function Footer({ live }: { readonly live: number | null }) {
         <p className="flex items-center gap-2">
           <span
             aria-hidden
-            className={`size-1.5 rounded-full ${drawn ? 'bg-positive' : 'bg-muted-foreground/40'}`}
+            className={`size-1.5 rounded-full ${drawn ? 'bg-foreground/60' : 'bg-muted-foreground/40'}`}
           />
           <span data-testid="document">
             {drawn
@@ -28,7 +28,7 @@ export function Footer({ live }: { readonly live: number | null }) {
         <p className="flex items-center gap-2">
           <span
             aria-hidden
-            className={`size-1.5 rounded-full ${live === null ? 'bg-muted-foreground/40' : 'bg-sky-500'}`}
+            className={`size-1.5 rounded-full ${live === null ? 'bg-muted-foreground/40' : 'animate-pulse bg-positive'}`}
           />
           <span data-testid="runtime" data-live={live !== null}>
             {live === null

@@ -7,7 +7,8 @@ import { Routes } from './routes.ts';
  * A search whose query is in the URL, as `?q=`. Its Loader reads the query,
  * so a new one loads again on the same page, the results shown meanwhile.
  * What is typed is the page's own Model: each keystroke replaces the entry,
- * so Back skips them.
+ * so Back skips them. Its results say `url`, which counts the query: each
+ * search comes back where its results were left.
  */
 
 export const Search = Route.page({
@@ -15,6 +16,7 @@ export const Search = Route.page({
   query: { q: Schema.optionalKey(Schema.String) },
   render: 'dynamic',
   data: Results,
+  scroll: 'url',
   requires: [Navigation],
   metadata: about(
     '/search',
