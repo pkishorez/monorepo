@@ -274,6 +274,14 @@ describe('the window', () => {
     expect(scrollY).toBe(300);
   });
 
+  it('stays as it is for a push that keeps the page, as opening a message in its folder', async () => {
+    await open('/f/inbox/a');
+    await scroll(window, 400);
+    await click('b');
+    expect(host.textContent).toContain('message b');
+    expect(scrollY).toBe(400);
+  });
+
   it('stays as it is for a link that says keep', async () => {
     await open('/settings');
     await scroll(window, 300);

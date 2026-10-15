@@ -35,8 +35,10 @@ import * as session from './session.ts';
  *              place, unless the move said `top` or `keep`. A new entry's
  *              areas start at the top, as new elements do.
  * 4. Window    on every move: back to where it was, once every Place on
- *              screen has its data; to the top for a push; left as it is
- *              for a replace. A wheel, a touch or a key first wins.
+ *              screen has its data; to the top for a push to another page
+ *              under the root, and left as it is for a push that keeps it,
+ *              as opening a post beside its list, and for a replace. A
+ *              wheel, a touch or a key first wins.
  */
 
 /** The name of a Place's area when it has one: `useScroll()`. */
@@ -148,6 +150,8 @@ export function Scrolling(props: ScrollingProps) {
     last: string | undefined;
     /** The entry drawn: through a held move, still the one before it, so a scroll just before a click is kept for it. */
     entry: string;
+    /** The key of the page under the root the last move drew: a push that keeps it keeps the window. */
+    page: string | null;
   }>(undefined);
   if (!state.current) {
     let own: Memory | undefined;
@@ -178,6 +182,7 @@ export function Scrolling(props: ScrollingProps) {
       turn: 0,
       last: undefined,
       entry: props.entry,
+      page: null,
       frame: {
         remembering: () => latest.current.live,
         arrival: () => ({
@@ -267,6 +272,9 @@ export function Scrolling(props: ScrollingProps) {
     };
     const { shown } = latest.current;
     const deepest = [...shown.keys()].at(-1)!;
+    const page = [...shown.values()][1]?.key ?? null;
+    const kept = page !== null && page === s.page;
+    s.page = page;
     const mode = shown.get(deepest)!.mode;
     const { how, scroll } = props.move;
     if (!settled || mode === false || scroll === 'keep') return done();
@@ -277,7 +285,7 @@ export function Scrolling(props: ScrollingProps) {
     if (how === 'replace') return done();
     const at = s.frame.recall(deepest, WINDOW, props.entry);
     if (!at) {
-      if (how === 'push') scrollTo(0, 0);
+      if (how === 'push' && !kept) scrollTo(0, 0);
       return done();
     }
     s.settling = true;
