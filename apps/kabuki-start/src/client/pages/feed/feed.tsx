@@ -5,9 +5,9 @@ import { Loaded, PlaceFrame } from '../../components/index.ts';
 /*
  * A long feed that scrolls the window, a client page: the server sends it
  * loading and the browser loads it. Nothing on it says anything of scroll:
- * the Router keeps the window per entry. Open a post and press Back:
- * the feed shows its copy at once, and the window goes back once it is
- * drawn. Reload the tab: the same, from the tab's session storage.
+ * the Router keeps the window per entry. Open a post and press Back: the
+ * feed shows its copy at once, and the window goes back. A reload draws it
+ * loading first, too short to go back to, as in TanStack Start.
  */
 
 export const FeedView = Route.view(Pages.Feed, ({ props }) => (
@@ -15,7 +15,7 @@ export const FeedView = Route.view(Pages.Feed, ({ props }) => (
     place="Feed"
     status={props.status}
     title="Feed"
-    intro="Sixty posts down the window. Scroll far, open one, press Back. Or reload the tab: the window still comes back to where you were."
+    intro="Sixty posts down the window. Scroll far, open one, press Back: the window comes back to where you were."
   >
     <Loaded
       status={props.status}

@@ -6,8 +6,8 @@ import { Loaded, PlaceFrame, row } from '../../components/index.ts';
 /*
  * A search box whose query is the URL's. What is typed is the page's own
  * Model, so the box never waits; each keystroke replaces the entry, and the
- * results load again behind the ones shown. A replace keeps its entry,
- * so the window keeps its scroll as the query changes.
+ * results load again behind the ones shown. Its replace says
+ * `resetScroll: false`, so the page stays where it is as the query changes.
  */
 
 export const SearchView = Route.view(Pages.Search, ({ props, model, send }) => {

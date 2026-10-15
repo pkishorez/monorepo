@@ -7,8 +7,8 @@ import { Routes } from './routes.ts';
  * A search whose query is in the URL, as `?q=`. Its Loader reads the query,
  * so a new one loads again on the same page, the results shown meanwhile.
  * What is typed is the page's own Model: each keystroke replaces the entry,
- * so Back skips them. A replace keeps its entry, so the results keep
- * their scroll as the query changes.
+ * so Back skips them, and says `resetScroll: false`, so the page stays
+ * where it is as the query changes.
  */
 
 export const Search = Route.page({
@@ -29,7 +29,9 @@ export const Search = Route.page({
   on: {
     Typed: ({ text }) => ({
       model: { typed: text },
-      command: Router.replace(() => Routes.Search(text ? { q: text } : {})),
+      command: Router.replace(() => Routes.Search(text ? { q: text } : {}), {
+        resetScroll: false,
+      }),
     }),
   },
 });

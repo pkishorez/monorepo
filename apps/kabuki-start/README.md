@@ -20,7 +20,7 @@ the home page:
 | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
 | `/blog`, `/blog/pages-are-actors`    | Nested pages, static, in two panes: the list keeps its scroll as a post opens, and Back puts the post back where you read to. |
 | `/teams/core/ada`                    | Parallel loading, dynamic: a team and its member load side by side, the member first.                                         |
-| `/feed`                              | A client page that scrolls the window: open a post, press Back or reload, and the window goes back once the feed is drawn.    |
+| `/feed`                              | A client page that scrolls the window: open a post, press Back, and the window goes back.                                     |
 | `/blog/broken`, `/flaky`             | A Loader that breaks: the page says why, with Try again, inside its own box; `/flaky` is a client page, half the time.        |
 | `/blog/missing`, `/nowhere`          | Not found: a Loader's, drawn inside the blog, and a URL's, drawn by the root page; both a `404`.                              |
 | `/blog/moved`, `/posts/no-waterfall` | Redirects: a Loader's `302`, and an old address the Routes replace with a `308`.                                              |
