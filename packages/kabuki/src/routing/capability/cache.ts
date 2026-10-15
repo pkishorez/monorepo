@@ -22,6 +22,8 @@ import type { Answer, RoutesWithPlaces, Wanted } from './loading.ts';
  *            request, each answered as it comes. The load runs on its own:
  *            a Place that stops waiting does not stop it, and its answer is
  *            still kept.
+ * 5. Seed    with the data a server drew the page with, so a page first
+ *            seen from the server is kept as one loaded in the browser is.
  */
 
 /** Asks of one batch, split so no ask names a place twice: answers come back by name. */
@@ -198,6 +200,12 @@ export const cached = <E, R>(
             (place) => loading(place),
             { discard: true },
           ),
+        // 5. Seed
+        keep: (place, data) =>
+          Effect.sync(() => {
+            const key = keyOf(place);
+            if (!copies.has(key)) keep(key, { data, seq: (asked += 1) });
+          }),
         // What is on its way was asked before: it is neither joined nor kept.
         forget: Effect.sync(() => {
           copies.clear();

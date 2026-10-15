@@ -810,6 +810,25 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
             yield* self.send({ _tag: 'Waited', id: pending.id });
           }),
       },
+      // Keeps what the pages drawn first were handed, as a server's page
+      // hands them, in the Data cache: Back to them is at once, as to a
+      // page loaded in the browser.
+      keep: {
+        run: (self: {
+          readonly get: Effect.Effect<{ readonly model: Model }>;
+        }) =>
+          Effect.gen(function* () {
+            const found = yield* Effect.serviceOption(Loading);
+            if (Option.isNone(found) || !found.value.keep) return;
+            const { model } = yield* self.get;
+            if (model.move.how !== 'load') return;
+            for (const { name, params, input } of routes.places(shown(model))) {
+              const known = model.known[name];
+              if (input && known?._tag === 'Ready')
+                yield* found.value.keep({ name, params }, known.data);
+            }
+          }),
+      },
       // Hears the address, if an Adapter holds one: Back, Forward, a typed URL.
       address: {
         run: (self: {

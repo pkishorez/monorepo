@@ -318,6 +318,28 @@ describe('the Data cache', () => {
       }),
     ));
 
+  it('keeps what a server drew the page with: Back to it is at once, and loads nothing', () =>
+    run(
+      Effect.gen(function* () {
+        const input = Root.startAt('/blog/hello', {
+          Blog: { _tag: 'Ready', data: BLOG, stale: false },
+          'Blog.Post': { _tag: 'Ready', data: POSTS[0], stale: false },
+        });
+        const app = yield* Runtime.start(
+          History.make(Root.actor, { input }),
+          loading,
+        );
+        yield* settle;
+        push(app, Routes.Home());
+        yield* settle;
+        send(app, { _tag: 'Went', by: -1 });
+        yield* settle;
+        expect(router(app).pending).toBeNull();
+        expect(status(app, 'Post')).toEqual(ready(POSTS[0]));
+        expect(calls).toEqual({});
+      }),
+    ));
+
   it('shows a dynamic or client page from its copy at once, Ready and refreshing, then fresh', () =>
     run(
       Effect.gen(function* () {

@@ -89,6 +89,24 @@ describe('hydrating a page Start drew', () => {
     expect(document.title).toBe('Hello');
   });
 
+  it('keeps the data the server drew with: Back to the first page loads nothing again', async () => {
+    await open('/blog/hello');
+    await until(() => document.querySelector('h1')?.textContent === 'Hello');
+    expect(runs.sort()).toEqual(['Blog', 'Blog.Post:hello']);
+
+    // Away to another page, as a link the browser does not reload for…
+    await act(async () => {
+      history.pushState(null, '', '/');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
+    await until(() => document.body.textContent!.includes('home'));
+    // …and Back: the blog and its post are drawn from what the server drew.
+    await act(async () => history.back());
+    await until(() => document.querySelector('h1')?.textContent === 'Hello');
+    expect(runs.sort()).toEqual(['Blog', 'Blog.Post:hello']);
+    expect(errors).toEqual([]);
+  });
+
   it('loads a client place through the Loader RPC once the Runtime starts', async () => {
     await open('/dashboard');
     expect(runs).toEqual(['Dashboard']);

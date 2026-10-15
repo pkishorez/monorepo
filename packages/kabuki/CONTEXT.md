@@ -171,7 +171,7 @@ The one Actor routing adds, above the root Page's Place: it holds the app's hist
 _Avoid_: navigator, history (Kabuki's History is another thing)
 
 **Data cache**:
-The last data each place loaded, one copy per place and params, newest first, kept in the browser outside the Snapshot. A Move to a Page with a copy, Back, a link, or a Preload, shows it at once; a dynamic or client Page loads it again behind it. Data reaches the app only in the Messages that bring it.
+The last data each place loaded, one copy per place and params, newest first, kept in the browser outside the Snapshot. A Move to a Page with a copy, Back, a link, or a Preload, shows it at once; a dynamic or client Page loads it again behind it. The data a server drew the page with is kept in it too. Data reaches the app only in the Messages that bring it.
 _Avoid_: back cache, query cache, store
 
 **Preload**:
