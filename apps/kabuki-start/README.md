@@ -12,23 +12,31 @@ pages, Places, Loaders and Render Modes in
 [`packages/kabuki/docs/routing.md`](../../packages/kabuki/docs/routing.md).
 
 Every page is an Actor written with `Route.page`, and draws its own data from
-`status`: loading, failed or ready. Its Loaders are slow on purpose, so each
-case has something to show, one URL each, toured from the home page:
+`status`: loading, failed or ready. Its Loaders are slow on purpose, and its
+lists long, so each case has something to show, one URL each, toured from
+the home page:
 
-| URL                                  | What it shows                                                                                      |
-| ------------------------------------ | -------------------------------------------------------------------------------------------------- |
-| `/blog`, `/blog/pages-are-actors`    | Nested pages, static: the post loads in a second beside the blog, and Back makes no request.       |
-| `/teams/core/ada`                    | Parallel loading: a team and its member load side by side; the member, quicker, shows first.       |
-| `/blog/broken`, `/flaky`             | A Loader that breaks: the page says why, with Try again; `/flaky` is a client page, half the time. |
-| `/blog/missing`, `/nowhere`          | Not found: a Loader's, drawn inside the blog, and a URL's, drawn by the root page; both a `404`.   |
-| `/blog/moved`, `/posts/no-waterfall` | Redirects: a Loader's `302`, and an old address the Routes replace with a `308`.                   |
-| `/search?q=back`                     | A query its Loader reads: a new one loads again on the same page, the results shown meanwhile.     |
-| `/notes`                             | A page with States and a draft: Reload loads its data again, and the draft stays.                  |
-| `/preload`                           | Links that preload on hover, once in view, or never, to slow pages whose Views load lazily.        |
+| URL                                  | What it shows                                                                                                                   |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| `/blog`, `/blog/pages-are-actors`    | Nested pages, static, in two panes: the list keeps its scroll however you come back (`url`), the post on Back (`entry`).        |
+| `/teams/core/ada`                    | Parallel loading, dynamic: a team and its member load side by side, the member first; the member list keeps its scroll (`url`). |
+| `/feed`                              | A client page that scrolls the window: open a post, press Back or reload, and the window goes back once the feed is drawn.      |
+| `/canvas`                            | A board whose page says `scroll: false`: Kabuki never remembers or moves it.                                                    |
+| `/blog/broken`, `/flaky`             | A Loader that breaks: the page says why, with Try again, inside its own box; `/flaky` is a client page, half the time.          |
+| `/blog/missing`, `/nowhere`          | Not found: a Loader's, drawn inside the blog, and a URL's, drawn by the root page; both a `404`.                                |
+| `/blog/moved`, `/posts/no-waterfall` | Redirects: a Loader's `302`, and an old address the Routes replace with a `308`.                                                |
+| `/search?q=scroll`                   | A query its Loader reads: a new one loads again on the same page, the results shown meanwhile, each query with its own scroll.  |
+| `/notes`                             | A page with States and a draft: Reload loads its data again, and the draft stays.                                               |
+| `/preload`                           | Links that preload on hover, once in view, or never, to slow pages whose Views load lazily.                                     |
 
-Each page shows a box that says its Render Mode, whether the server drew it
-or the browser did, and whether its data came with the page or was loaded in
-the browser, when its Loader started and how long it took. The backend is
+Each page is drawn in a box, nested as its pages are, whose left edge is the
+color of its Render Mode: green static, amber dynamic, blue client, the only
+three colors the site adds. Its header says its place and path, its Render
+Mode and scroll mode, where its data is, whether the server drew it or the
+browser did, and whether its data came with the page or was loaded in the
+browser, and how long its Loader took. A new page slides in the way the move
+went, with `motion`, still for anyone who asks for less motion. It works the
+same on a phone: there the panes stack and the window scrolls. The backend is
 pretend.
 
 ## Usage
@@ -46,7 +54,7 @@ src/
     app.tsx       the root page's View, in the layout and the Document (Start's `app`)
     document.tsx  the <html> around the app
     pages/        one View per page, nested as the pages are
-    components/   what the pages are drawn with: layout, nav, status, provenance, theme
+    components/   what the pages are drawn with: the Place frame, layout, nav, status, motion, theme
   server/       the server only
     loaders.server.ts  one Loader per page with data, slow on purpose (Start's `loaders`)
     backend/      the pretend database, in the Worker's memory

@@ -1,7 +1,10 @@
 export { clock } from './clock.ts';
 export { Layout } from './layout.tsx';
-export { PageFrame } from './page-frame.tsx';
-export { Provenance } from './provenance.tsx';
-export { Failed, Loaded, Refreshing, Skeleton } from './status.tsx';
-export { column, enter, link, tile } from './styles.ts';
+export { MODE, SCROLL, modesOf } from './modes.ts';
+export type { Scroll } from './modes.ts';
+export { EASE, directionOf, quick, settle, slide } from './motion.ts';
+export { PlaceFrame } from './place-frame.tsx';
+export { Slot } from './slot.tsx';
+export { Failed, Loaded, Skeleton } from './status.tsx';
+export { chip, column, link, pane, panes, row } from './styles.ts';
 export { Theme } from './theme.ts';

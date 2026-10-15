@@ -11,7 +11,7 @@ export function ThemeToggle() {
       size="icon-sm"
       onClick={toggleTheme}
       aria-label="Switch theme"
-      className="order-2 ml-auto text-muted-foreground sm:order-3"
+      className="shrink-0 text-muted-foreground"
     >
       <MoonIcon className="dark:hidden" />
       <SunIcon className="hidden dark:block" />

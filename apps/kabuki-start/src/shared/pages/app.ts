@@ -1,6 +1,8 @@
 import { Clock, Effect, Schema } from 'effect';
 import { Route } from '@kestack/kabuki/routing';
 import { Blog } from './blog/index.ts';
+import { Canvas } from './canvas.ts';
+import { Feed } from './feed.ts';
 import { Flaky } from './flaky.ts';
 import { Home } from './home.ts';
 import { Notes } from './notes.ts';
@@ -9,13 +11,16 @@ import { Search } from './search.ts';
 import { Teams } from './teams/index.ts';
 
 /*
- * The root page: no path and no data, every other page under it. Its one
- * Worker ticks once the Runtime has started, which a page drawn by the
- * server shows only after it hydrates.
+ * The root page: no path and no data, every other page under it. Its
+ * `scroll: 'entry'` is every page's unless it says: Back and Forward put each
+ * Scroll area back where it was on that entry. Its one Worker ticks once the
+ * Runtime has started, which a page drawn by the server shows only after it
+ * hydrates.
  */
 
 export const App = Route.page({
-  pages: { Home, Blog, Teams, Search, Notes, Preload, Flaky },
+  scroll: 'entry',
+  pages: { Home, Blog, Teams, Feed, Search, Notes, Preload, Flaky, Canvas },
   model: Schema.Struct({ live: Schema.NullOr(Schema.Number) }),
   message: Schema.TaggedUnion({ Ticked: { now: Schema.Number } }),
 }).build({

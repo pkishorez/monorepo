@@ -1,5 +1,5 @@
 import { Context, Effect, Layer } from 'effect';
-import { POSTS, TEAMS } from './data.ts';
+import { FEED, POSTS, TEAMS } from './data.ts';
 
 /*
  * The pretend backend, in the Worker's memory: what a database would hold.
@@ -53,6 +53,7 @@ const backend = {
             .includes(q.toLowerCase()),
       ).map(summary),
     })),
+  feed: Effect.sync(() => ({ items: FEED })),
   notes: Effect.sync(() => {
     reads += 1;
     return {
