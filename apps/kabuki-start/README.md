@@ -34,7 +34,9 @@ color of its Render Mode: green static, amber dynamic, blue client, the only
 three colors the site adds. Its header says its place and path, its Render
 Mode and scroll mode, where its data is, whether the server drew it or the
 browser did, and whether its data came with the page or was loaded in the
-browser, and how long its Loader took. A new page slides in the way the move
+browser, and how long its Loader took. Kabuki's devtools open from the button
+in the bottom-right corner, or Ctrl+/: the Timeline of every Message and the
+Map of every Actor, its Places too. A new page slides in the way the move
 went, with `motion`, still for anyone who asks for less motion. It works the
 same on a phone: there the panes stack and the window scrolls. The backend is
 pretend.

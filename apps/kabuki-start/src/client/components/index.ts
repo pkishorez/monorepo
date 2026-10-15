@@ -1,4 +1,5 @@
 export { clock } from './clock.ts';
+export { Devtools } from './devtools.tsx';
 export { Layout } from './layout.tsx';
 export { MODE, SCROLL, modesOf } from './modes.ts';
 export type { Scroll } from './modes.ts';
