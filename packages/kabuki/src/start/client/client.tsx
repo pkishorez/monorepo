@@ -4,11 +4,13 @@ import type { Root } from 'react-dom/client';
 import { Layer } from 'effect';
 import type { SavedHistory } from '../../core/index.ts';
 import { View, toReact } from '../../react/index.ts';
+import type { AppRuntime } from '../../react/index.ts';
 import { Router } from '../../routing/index.ts';
 import { browser } from '../../routing/adapter/browser/index.ts';
 import {
   Document as Plain,
   PageContext,
+  RuntimeContext,
   appOf,
   readPage,
 } from '../common/index.ts';
@@ -39,6 +41,8 @@ export interface Hydrated {
 }
 
 type DrawnApp = ComponentType<{ readonly saved?: SavedHistory }>;
+/** The App's own hook for the running app, which the Document reads through `Start.useRuntime()`. */
+type Runs = { readonly useRuntime: () => AppRuntime };
 
 /** Hydrates the page a server drew. */
 export const client = async (exported: StartApp): Promise<Hydrated> => {
@@ -63,9 +67,11 @@ export const client = async (exported: StartApp): Promise<Hydrated> => {
     ) as unknown as DrawnApp;
     return (
       <PageContext value={drawn}>
-        <Document>
-          <App saved={drawn.page.saved} />
-        </Document>
+        <RuntimeContext value={(App as unknown as Runs).useRuntime}>
+          <Document>
+            <App saved={drawn.page.saved} />
+          </Document>
+        </RuntimeContext>
       </PageContext>
     );
   };
