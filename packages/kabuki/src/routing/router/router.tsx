@@ -412,11 +412,14 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
         : { model: next };
     }
     if (how === 'replace') {
+      // A new entry in the place of the one shown, with a key of its own:
+      // what was kept for the one before is not its.
       const next: Model = {
         ...settled,
         entries: settled.entries.map((entry, at) =>
-          at === model.at ? entryOf(entry.key, to, said?.hash) : entry,
+          at === model.at ? entryOf(fresh(model), to, said?.hash) : entry,
         ),
+        next: model.next + 1,
         move: { from, to, how: 'replace', ...scrollOf(said) },
       };
       return { model: next, command: writing(next, true) };

@@ -19,8 +19,8 @@ import * as session from './session.ts';
  * 2. Carry    on a move to another key, what is still on the page keeps
  *             where it was: its position is copied to the new key. Never
  *             the window, nor an element `scrollToTopSelectors` names.
- * 3. Restore  once every Place on screen has its data: what is kept for the
- *             key the move lands on is put back. With nothing for the
+ * 3. Restore  as the move lands, with whatever is drawn then: what is kept
+ *             for the key it lands on is put back. With nothing for the
  *             window, a push or replace to a hash scrolls its element into
  *             view, else the window and `scrollToTopSelectors` go to the
  *             top. A move that says `resetScroll: false` touches nothing.
@@ -28,8 +28,9 @@ import * as session from './session.ts';
  *             reload, which a server's inline script puts back before the
  *             app hydrates.
  *
- * Kabuki's own: a move can land before its data, so restoring waits for
- * every Place's; and nothing here runs while the app shows a past Step.
+ * Kabuki's own: nothing here runs while the app shows a past Step. A page
+ * that lands still loading may be too short to reach where it was: as in
+ * TanStack Router, what is drawn when the move lands is what is restored.
  */
 
 /** How an element is scrolled into view, as `Element.scrollIntoView` takes it. */
@@ -107,9 +108,6 @@ export const keyOf = (
 ) => options.getScrollRestorationKey?.(at as never) ?? at.key;
 
 interface Frame {
-  /** A Place says whether it has its data, for restoring to wait on. */
-  readonly ready: (place: object, ready: boolean) => void;
-  readonly left: (place: object) => void;
   /** What is kept for an element or the window, under the key drawn. */
   readonly entry: (name: string) => Position | undefined;
 }
@@ -118,7 +116,7 @@ const FrameContext = createContext<Frame | undefined>(undefined);
 
 /**
  * Around the app, inside the Router: tracks what scrolls, and puts it back
- * after every move once every Place on screen has its data.
+ * as every move lands.
  */
 export function Scrolling(props: ScrollingProps) {
   const live = useLive();
@@ -128,15 +126,12 @@ export function Scrolling(props: ScrollingProps) {
   latest.current = { props, live, on };
   const [s] = useState(() => ({
     positions: undefined as Positions | undefined,
-    readies: new Map<object, boolean>(),
     /** The restoration key drawn: through a held move, still the one before it. */
     key,
     /** Our own scrolling, which is not the user's. */
     ignore: false,
     /** The move last restored for, as one string. */
     last: undefined as string | undefined,
-    /** Restoring, once every Place has its data. */
-    waiting: undefined as (() => void) | undefined,
   }));
   const positions = () =>
     (s.positions ??= latest.current.props.attached ? session.read() : {});
@@ -144,28 +139,14 @@ export function Scrolling(props: ScrollingProps) {
     if (latest.current.props.attached && s.positions)
       session.write(s.positions);
   };
-  const check = () => {
-    if (s.waiting && [...s.readies.values()].every(Boolean)) s.waiting();
-  };
   const [frame] = useState<Frame>(() => ({
-    ready: (place, ready) => {
-      s.readies.set(place, ready);
-      check();
-    },
-    left: (place) => {
-      s.readies.delete(place);
-      check();
-    },
     entry: (name) => positions()[s.key]?.[name],
   }));
 
   // 1. Track, and 4. save.
   useLayoutEffect(() => {
     const scrolled = (event: Event) => {
-      // Waiting to restore, the page is not yet what the user will see: a
-      // page going out shortens it, and the browser clamps the window.
-      if (s.ignore || s.waiting || !latest.current.live || !latest.current.on)
-        return;
+      if (s.ignore || !latest.current.live || !latest.current.on) return;
       const target = event.target;
       const kept = (positions()[s.key] ??= {});
       if (target === document || target === document.documentElement)
@@ -175,9 +156,6 @@ export function Scrolling(props: ScrollingProps) {
           scrollX: target.scrollLeft,
           scrollY: target.scrollTop,
         };
-    };
-    const interrupt = () => {
-      s.waiting = undefined;
     };
     const hidden = () => {
       // The browser may put a reload back too; ours runs from what is saved.
@@ -194,15 +172,11 @@ export function Scrolling(props: ScrollingProps) {
     });
     addEventListener('pagehide', hidden);
     addEventListener('pageshow', shown);
-    for (const input of ['wheel', 'touchmove', 'keydown'] as const)
-      addEventListener(input, interrupt, { passive: true });
     return () => {
       save();
       document.removeEventListener('scroll', scrolled, { capture: true });
       removeEventListener('pagehide', hidden);
       removeEventListener('pageshow', shown);
-      for (const input of ['wheel', 'touchmove', 'keydown'] as const)
-        removeEventListener(input, interrupt);
     };
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- set up once; it reads the latest through refs.
   }, []);
@@ -227,7 +201,6 @@ export function Scrolling(props: ScrollingProps) {
     s.key = key;
     if (s.last === move) return;
     s.last = move;
-    s.waiting = undefined;
     if (!on) return;
     const options = latest.current.props.options;
     const { how } = props.move;
@@ -264,8 +237,7 @@ export function Scrolling(props: ScrollingProps) {
     }
 
     // 3. Restore
-    const restore = () => {
-      s.waiting = undefined;
+    {
       const behavior = options.scrollRestorationBehavior;
       const hash = props.hash;
       s.ignore = true;
@@ -305,33 +277,12 @@ export function Scrolling(props: ScrollingProps) {
       } finally {
         s.ignore = false;
       }
-    };
-    s.waiting = restore;
-    check();
+    }
+
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- `move` is the move, as one string.
   }, [move, props.pending, live, settled, on]);
 
   return <FrameContext value={frame}>{props.children}</FrameContext>;
-}
-
-/**
- * Around each Place's View, written by `Route.view`: says whether its data
- * is there, so restoring waits for it.
- */
-export function ScrollReady({
-  ready,
-  children,
-}: {
-  readonly ready: boolean;
-  readonly children: ReactNode;
-}) {
-  const frame = use(FrameContext);
-  const [self] = useState(() => ({}));
-  useLayoutEffect(() => {
-    frame?.ready(self, ready);
-  }, [frame, self, ready]);
-  useLayoutEffect(() => () => frame?.left(self), [frame, self]);
-  return children;
 }
 
 /**

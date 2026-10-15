@@ -191,7 +191,7 @@ The last change of the Router's current entry: where from, where to, and how, a 
 _Avoid_: transition (Kabuki's Transition is another thing), navigation
 
 **Entry**:
-One step of the Router's history: a Route, and the key the Router gives it, so Back and Forward land on an Entry it knows. A push makes a new one; a replace or a Reload keeps the one shown.
+One step of the Router's history: a Route, and the key the Router gives it, so Back and Forward land on an Entry it knows. A push makes a new one after the one shown; a replace makes a new one in its place, with a key of its own; a Reload keeps it.
 _Avoid_: history entry (Kabuki's History is another thing), location, state
 
 **Scroll restoration**:
