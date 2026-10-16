@@ -1,13 +1,23 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 import type { ReactNode, RefObject } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
+import { Button } from '@kestack/web-platform/components/button';
+import { RotateCcwIcon } from '@kestack/web-platform/components/lucide';
 
 /*
- * What every idea's picture is made of. A picture is a few still steps,
- * one after another, and each step is a cause and what it changes: a
- * Message arrives, then only what it touches moves, then it holds long
- * enough to read. One thing moves at a time. A reader who asks for less
- * motion sees one step that tells the whole idea.
+ * What every picture is made of, on the landing page and in the docs. A
+ * picture is a few still steps, one after another, and each step is a
+ * cause and what it changes: a Message arrives, then only what it
+ * touches moves, then it holds long enough to read. One thing moves at a
+ * time. A reader who asks for less motion sees one step that tells the
+ * whole idea.
  */
 
 /** Arriving: fast out of the gate, settling in. */
@@ -19,31 +29,67 @@ export const MOVE = { duration: 0.4, ease: [0.77, 0, 0.175, 1] } as const;
 /** An indicator following what is current. */
 export const SPRING = { type: 'spring', duration: 0.35, bounce: 0 } as const;
 
+/** The stretch of the loop a picture is playing now, as fractions of it. */
+type Run = {
+  readonly from: number;
+  readonly to: number;
+  readonly ms: number;
+  readonly id: number;
+};
+
+/** What a frame around a picture offers it: a progress bar and a replay button. */
+type Host = {
+  readonly show: (run: Run | null) => void;
+  readonly replayWith: (replay: () => void) => void;
+};
+
+const HostContext = createContext<Host | null>(null);
+
 /**
  * The step a picture is at, looping through steps held this many
  * milliseconds each, and how many times it has looped. Runs only while on
- * screen and not under the pointer; with less motion asked for, stays at
- * `still`.
+ * screen; with less motion asked for, stays at `still`. Inside a
+ * `PictureFrame`, it shows its progress there and can be played again
+ * from the start.
  */
 export function useSteps(durations: ReadonlyArray<number>, still: number) {
   const ref = useRef<HTMLDivElement>(null);
+  const host = useContext(HostContext);
   const [at, setAt] = useState({ step: 0, round: 0 });
-  // Timers, an observer and pointer listeners: the page around React,
-  // given back on unmount.
+  const [replays, setReplays] = useState(0);
+  useEffect(() => {
+    host?.replayWith(() => setReplays((count) => count + 1));
+  }, [host]);
+  // Timers and an observer: the page around React, given back on unmount.
   useEffect(() => {
     const element = ref.current;
     if (!element) return;
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
       setAt({ step: still, round: 0 });
+      host?.show(null);
       return;
     }
+    if (replays > 0)
+      setAt((previous) => ({ step: 0, round: previous.round + 1 }));
+    const total = durations.reduce((sum, ms) => sum + ms, 0);
+    const before = (step: number) =>
+      durations.slice(0, step).reduce((sum, ms) => sum + ms, 0) / total;
     let step = 0;
     let visible = false;
-    let hovered = false;
+    let runs = 0;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const schedule = () => {
       clearTimeout(timer);
-      if (!visible || hovered) return;
+      if (!visible) {
+        host?.show({ from: before(step), to: before(step), ms: 0, id: ++runs });
+        return;
+      }
+      host?.show({
+        from: before(step),
+        to: before(step + 1),
+        ms: durations[step]!,
+        id: ++runs,
+      });
       timer = setTimeout(() => {
         step = (step + 1) % durations.length;
         setAt((previous) => ({
@@ -57,25 +103,62 @@ export function useSteps(durations: ReadonlyArray<number>, still: number) {
       visible = entry?.isIntersecting ?? false;
       schedule();
     });
-    const enter = () => {
-      hovered = true;
-      schedule();
-    };
-    const leave = () => {
-      hovered = false;
-      schedule();
-    };
     observer.observe(element);
-    element.addEventListener('pointerenter', enter);
-    element.addEventListener('pointerleave', leave);
     return () => {
       observer.disconnect();
-      element.removeEventListener('pointerenter', enter);
-      element.removeEventListener('pointerleave', leave);
       clearTimeout(timer);
     };
-  }, [durations, still]);
+  }, [durations, still, host, replays]);
   return [ref, at.step, at.round] as const;
+}
+
+/**
+ * Where a picture is shown: a thin bar along its bottom edge fills as the
+ * loop plays, and a button in its corner plays it again from the start.
+ * Both appear only once a picture inside uses `useSteps`.
+ */
+export function PictureFrame({ children }: { readonly children: ReactNode }) {
+  const [run, setRun] = useState<Run | null>(null);
+  const replay = useRef<(() => void) | null>(null);
+  const [host] = useState<Host>(() => ({
+    show: setRun,
+    replayWith: (next) => {
+      replay.current = next;
+    },
+  }));
+  return (
+    <HostContext value={host}>
+      <div className="relative">
+        {children}
+        {run && (
+          <>
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              aria-label="Play again from the start"
+              title="Play again"
+              onClick={() => replay.current?.()}
+              className="absolute top-2 right-2 text-muted-foreground"
+            >
+              <RotateCcwIcon />
+            </Button>
+            <div
+              aria-hidden
+              className="absolute inset-x-0 bottom-0 h-0.5 bg-border/60"
+            >
+              <motion.div
+                key={run.id}
+                className="h-full bg-foreground/40"
+                initial={{ width: `${run.from * 100}%` }}
+                animate={{ width: `${run.to * 100}%` }}
+                transition={{ duration: run.ms / 1000, ease: 'linear' }}
+              />
+            </div>
+          </>
+        )}
+      </div>
+    </HostContext>
+  );
 }
 
 /** An Actor: its name, and its State or a fact beside it. */

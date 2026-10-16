@@ -19,6 +19,7 @@
     "src/client/demos/opening-an-app/screens": [
       "src/client/demos/opening-an-app/story"
     ],
-    "src/shared/pages": ["src/shared/content"]
+    "src/shared/pages": ["src/shared/content"],
+    "src/client/docs": ["src/client/components"]
   }
 }

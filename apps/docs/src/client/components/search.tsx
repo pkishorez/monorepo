@@ -12,7 +12,6 @@ import {
 import { Kbd } from '@kestack/web-platform/components/kbd';
 import { SearchIcon } from '@kestack/web-platform/components/lucide';
 import { SECTIONS, router } from '../../shared/index.ts';
-import { SoonBadge } from './soon-badge.tsx';
 
 /*
  * Search: every docs page by its title, summary and section, in a dialog
@@ -102,10 +101,7 @@ export function Search() {
                       tabIndex={-1}
                       className="pointer-events-none flex min-w-0 flex-1 flex-col"
                     >
-                      <span className="flex items-center gap-2">
-                        {doc.title}
-                        {'soon' in doc && <SoonBadge />}
-                      </span>
+                      <span>{doc.title}</span>
                       <span className="truncate text-xs text-muted-foreground">
                         {doc.summary}
                       </span>

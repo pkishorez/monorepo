@@ -1,20 +1,26 @@
 import { Router, useRouter } from '@kestack/kabuki/routing';
-import { ArrowLeftIcon } from '@kestack/web-platform/components/lucide';
-import { SECTIONS, router } from '../../shared/index.ts';
+import {
+  ArrowLeftIcon,
+  ArrowUpRightIcon,
+} from '@kestack/web-platform/components/lucide';
+import { DEMO, SECTIONS, numberOf, router } from '../../shared/index.ts';
 import type { Route, Slug } from '../../shared/index.ts';
 
 /*
  * kabuki's docs, section by section, as its table of contents says. First
  * a way out of kabuki, back to the stack's home. Each section hangs its
- * pages off a line, and the page shown marks its part of the line. A
- * series' pages are numbered, as chapters; a page not written yet is
- * quieter, and says so.
+ * pages off a line, and the page shown marks its part of the line. The
+ * primitives are numbered, to read in order. Last, the demo, which opens
+ * full screen in a new tab.
  */
 
 const currentSlug = (route: Route): Slug | undefined =>
   route._tag === 'Kabuki' && route.page?._tag === 'Doc'
     ? route.page.slug
     : undefined;
+
+const row =
+  '-ml-px flex min-h-8 items-center gap-2.5 border-l-2 border-transparent py-1 pr-2 pl-3.5 text-sm text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground aria-[current=page]:border-foreground aria-[current=page]:font-medium aria-[current=page]:text-foreground';
 
 export function Sidebar() {
   const { route } = useRouter<Route>();
@@ -34,34 +40,41 @@ export function Sidebar() {
             {section.title}
           </h2>
           <ul className="border-l border-border">
-            {section.docs.map((doc, index) => (
+            {section.docs.map((doc) => (
               <li key={doc.slug}>
                 <Router.Link
                   to={router.Kabuki.Doc({ slug: doc.slug })}
                   aria-current={current === doc.slug ? 'page' : undefined}
-                  className={`-ml-px flex min-h-8 items-center gap-2.5 border-l-2 border-transparent py-1 pr-2 pl-3.5 text-sm transition-colors hover:border-foreground/30 hover:text-foreground aria-[current=page]:border-foreground aria-[current=page]:font-medium aria-[current=page]:text-foreground ${
-                    'soon' in doc
-                      ? 'text-muted-foreground/70'
-                      : 'text-muted-foreground'
-                  }`}
+                  className={row}
                 >
-                  {'series' in section && (
+                  {'numbered' in section && (
                     <span className="w-3 shrink-0 font-mono text-[11px] tabular-nums opacity-70">
-                      {index + 1}
+                      {numberOf(doc.slug)}
                     </span>
                   )}
                   <span className="min-w-0 flex-1 truncate">{doc.title}</span>
-                  {'soon' in doc && (
-                    <span className="font-mono text-[10px] opacity-70">
-                      soon
-                    </span>
-                  )}
                 </Router.Link>
               </li>
             ))}
           </ul>
         </section>
       ))}
+      <section className="space-y-2">
+        <h2 className="text-[13px] font-semibold text-foreground">Demo</h2>
+        <ul className="border-l border-border">
+          <li>
+            <a
+              href={DEMO.href}
+              target="_blank"
+              rel="noreferrer"
+              className={`group ${row}`}
+            >
+              <span className="min-w-0 flex-1 truncate">{DEMO.title}</span>
+              <ArrowUpRightIcon className="size-3.5 shrink-0 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+            </a>
+          </li>
+        </ul>
+      </section>
     </nav>
   );
 }

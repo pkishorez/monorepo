@@ -12,12 +12,14 @@ far, has a landing page and its docs under `/kabuki/<slug>`, with a sidebar,
 "On this page" and a pager.
 
 The table of contents is TypeScript, in `src/shared/content`: the toolkits,
-and kabuki's sections and pages. A page's slug is its URL and is checked by
-the router, so a URL not in the table of contents is a 404. A page's words
-are MDX, in `src/client/docs`, with its live demos beside it; a page not
-written yet draws its outline as placeholders. How to write one is in
-[docs/authoring.md](./docs/authoring.md). The full-screen demo, Opening an
-app, is at `/kabuki/demos/opening-an-app`; its drawing words are in
+and kabuki's sections and pages. Only written pages are in it. A page's slug
+is its URL and is checked by the router, so a URL not in the table of
+contents is a 404. A page's words are MDX, in `src/client/docs`, with its
+pictures and its live app beside it; the live app runs in the shared
+Playground, which shows what is inside it and a timeline of its Messages.
+How to write one is in [docs/authoring.md](./docs/authoring.md). The
+full-screen demo, Opening an app, is at `/kabuki/demos/opening-an-app`, and
+the sidebar opens it in a new tab; its drawing words are in
 [`src/client/demos/opening-an-app/CONTEXT.md`](./src/client/demos/opening-an-app/CONTEXT.md).
 
 MDX is compiled at build time by `@mdx-js/rollup`, with Shiki colouring the
@@ -38,9 +40,9 @@ src/
   client/       the Views: drawn by the server, then run by the browser
     app.tsx       the root page's View, in the layout and the Document
     document.tsx  the <html> around the app
-    docs/         every written page: its MDX and its live demos
+    docs/         every page: its MDX, its pictures and its live app
     pages/        one View per page: home, kabuki's landing, a docs page, the demo
-    components/   the header, sidebar, mobile menu, theme, and how MDX is drawn
+    components/   the header, sidebar, theme, how MDX is drawn, the Playground and picture parts
     demos/        the full-screen demo
   infra/        the Worker and its domain, declared with Alchemy
 ```

@@ -1,6 +1,12 @@
 import type { ReactNode } from 'react';
 import { motion } from 'motion/react';
-import { Cursor, Flash, Roll, useSteps, useTargets } from './parts.tsx';
+import {
+  Cursor,
+  Flash,
+  Roll,
+  useSteps,
+  useTargets,
+} from '../../../../components/index.ts';
 
 /*
  * Actor is the building block: a Counter, and the View it draws, as one

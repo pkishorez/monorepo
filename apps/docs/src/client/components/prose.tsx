@@ -1,16 +1,20 @@
 import { Children, Fragment, isValidElement, useState } from 'react';
 import type { ComponentProps, ReactElement, ReactNode } from 'react';
 import { Router } from '@kestack/kabuki/routing';
+import { ArrowUpRightIcon } from '@kestack/web-platform/components/lucide';
 import type { MDXComponents } from 'mdx/types';
-import { SLUGS, router } from '../../shared/index.ts';
+import { DEMO, SLUGS, router } from '../../shared/index.ts';
 import type { Route, Slug } from '../../shared/index.ts';
+import { PictureFrame } from './picture.tsx';
+import { Playground } from './playground/index.ts';
 import { link } from './styles.ts';
 
 /*
  * How a docs page's MDX is drawn: every Markdown element, and the few
- * components any page uses without importing them, `<Callout>` and `<Demo>`.
- * A link to a place on the site is a Router link; a link to a page the site
- * does not have fails the page, so it is caught before it ships.
+ * components any page uses without importing them: `<Callout>`, `<Demo>`
+ * and `<Playground>`. A link to a place on the site is a Router link; a
+ * link to a page the site does not have fails the page, so it is caught
+ * before it ships. A link to the full-screen demo opens it in a new tab.
  */
 
 /** The site's Route for an internal path; one it does not have throws. */
@@ -18,7 +22,6 @@ const routeOf = (href: string): Route => {
   const path = href.split('#')[0]!.replace(/\/$/, '');
   if (path === '') return router.Home();
   if (path === '/kabuki') return router.Kabuki();
-  if (path === '/kabuki/demos/opening-an-app') return router.Kabuki.Demo();
   const slug = path.match(/^\/kabuki\/([^/]+)$/)?.[1];
   if (slug && (SLUGS as ReadonlyArray<string>).includes(slug))
     return router.Kabuki.Doc({ slug: slug as Slug });
@@ -26,6 +29,14 @@ const routeOf = (href: string): Route => {
 };
 
 function A({ href = '', children }: ComponentProps<'a'>) {
+  // The demo is full screen, so it opens in a tab of its own.
+  if (href === DEMO.href)
+    return (
+      <a href={href} target="_blank" rel="noreferrer" className={link}>
+        {children}
+        <ArrowUpRightIcon className="ml-0.5 inline size-3.5 align-[-0.1em]" />
+      </a>
+    );
   if (!href.startsWith('/'))
     return (
       <a href={href} className={link}>
@@ -128,7 +139,7 @@ export function Demo({
     <figure className="my-8">
       <div className="overflow-hidden rounded-xl border border-border bg-card">
         {files.length === 0 ? (
-          output
+          <PictureFrame>{output}</PictureFrame>
         ) : (
           <>
             <div
@@ -158,7 +169,7 @@ export function Demo({
                 </button>
               ))}
             </div>
-            <div className="h-96">
+            <div className="h-[34rem] sm:h-[26rem]">
               <div role="tabpanel" hidden={shown !== null} className="h-full">
                 {output}
               </div>
@@ -214,4 +225,5 @@ export const prose: MDXComponents = {
   ),
   Callout,
   Demo,
+  Playground,
 };

@@ -1,0 +1,90 @@
+import { PlaylistApp } from './components/playlist-app.tsx';
+import { TreePicture } from './components/tree-picture.tsx';
+
+One Actor can only hold so much. In React, when a component grows too big,
+you split it into child components. kabuki works the same way: a big Actor
+is made of smaller ones, its **Children**.
+
+Each Child is a full Actor. It has its own Model, its own Messages, its own
+States and Workers. The parent just says which Children it has.
+
+## The parent's data decides
+
+Here's the part that makes Children powerful. A parent never creates or
+destroys a Child by hand. Its State and its Model decide which Children
+exist, and kabuki starts and stops them to match.
+
+<Demo caption="Signing in swaps the Login for a Playlist. The Playlist's ids decide its Songs: add an id and a Song arrives, remove one and only that Song leaves. Signing out takes the whole branch.">
+  <TreePicture />
+</Demo>
+
+Put that together with the last two pages. A State can own Children, so
+signing out stops everything below. A Child can have States and Workers of
+its own. That's how small, simple Actors compose into complex logic, and
+each piece stays easy to read.
+
+## Three ways to have a Child
+
+You list Children in the Build, the way you list Workers, and they follow
+the same rules.
+
+```ts
+children: {
+  header: { actor: HeaderLive },                       // always there
+  details: { actor: DetailsLive, while: ({ model }) => model.open },
+  songs: { actor: SongLive, each: ({ model }) => model.ids },
+},
+```
+
+- With nothing else, a Child is **always** there, for the parent's whole
+  life.
+- With **`while`**, it's there only while a test on the parent's data
+  holds. Like `{open && <Details />}` in React.
+- With **`each`**, there's one Child per key in a list. Like
+  `ids.map((id) => <Song key={id} />)` in React.
+
+Written inside a State, a Child exists only while the parent is in that
+State.
+
+## Starting a Child with data
+
+A new Song needs to know its title. The parent hands it an **Input** when
+the Child starts:
+
+```ts
+songs: {
+  actor: SongLive,
+  each: ({ model }) => model.ids,
+  input: (_, id) => SONGS[id],
+},
+```
+
+The Song reads its Input once, in its `init`. From then on the data is its
+own. If you like a song, the Song keeps that, not the Playlist.
+
+## Try it
+
+A Playlist, with one Song Child per id. Like a song, add one, remove one,
+and watch the tree on the right.
+
+<Demo caption="Like a song, then remove the one above it. The liked song stays liked: it is the same Child, with its own data. Add a song and a new Child starts.">
+
+<Playground app={PlaylistApp} />
+
+```ts file=./components/playlist.ts
+
+```
+
+```tsx file=./components/playlist-app.tsx
+
+```
+
+</Demo>
+
+<Callout title="Remember">
+  A parent's State and Model decide which Children exist. Each Child is a full
+  Actor that owns its own data.
+</Callout>
+
+But what if the parent wants to tell its Children something that keeps
+changing? That's [5. Props](/kabuki/props).

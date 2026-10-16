@@ -1,0 +1,106 @@
+import { AskPicture } from './components/ask-picture.tsx';
+import { PlaylistApp } from './components/playlist-app.tsx';
+
+We left the Song with a wish: it wants to say "play me". But a Child can't
+change its parent, and it can't send its parent a Message either. It
+doesn't even know who its parent is.
+
+In React, you'd solve this with context: a provider up the tree, and any
+component below can use what it offers. kabuki has the same idea, called
+**Capabilities**.
+
+## Provide it above, use it below
+
+A parent **Provides** a Capability. Anything below it, its Children, their
+Children and so on, can use it. The Song doesn't ask "who is my parent?".
+It just asks for a Player, and the nearest Actor that provides one
+answers.
+
+<Demo caption="A Song is pressed and calls play. The call climbs up as a Message to the Playlist, which provides the Player. Its Update runs, and the answer comes back down as Props.">
+  <AskPicture />
+</Demo>
+
+Look at how the answer comes back. The Playlist doesn't reach into the
+Song. Its Model changes, and the new Props flow down like before. Data
+still flows one way.
+
+## What it looks like
+
+A Capability is an Effect service: a name, and the functions it offers.
+
+```ts
+export class Player extends Context.Service<
+  Player,
+  { readonly play: (id: string) => Effect.Effect<void> }
+>()('docs/Player') {}
+```
+
+The Playlist provides it. Here, `play` sends the Playlist a Message, so
+asking for a song is just one more Message, kept like any other.
+
+```ts
+provides: (self) =>
+  Layer.succeed(Player, {
+    play: (id) => self.send({ _tag: 'Played', id }),
+  }),
+```
+
+The Song says it **Requires** a Player, in its Definition. Then a Command
+can use it:
+
+```ts
+requires: [Player],
+```
+
+```ts
+const play = Command.make('play', {
+  args: Schema.Struct({ id: Schema.String }),
+  run: ({ id }) =>
+    Effect.gen(function* () {
+      const player = yield* Player;
+      yield* player.play(id);
+    }),
+});
+```
+
+Requires are checked by TypeScript. Use a Capability you didn't list, and
+it doesn't compile. Put a Song somewhere nothing provides a Player, and
+that doesn't compile either.
+
+## For the outside world, too
+
+Not everything comes from an Actor. An API client, a clock, storage: these
+come from outside the tree. You hand them to the whole app as a Layer, the
+last argument of `toReact`. Any need that no Actor provides is covered
+there.
+
+## Try it
+
+Tap a song. The Song doesn't know who plays it. It asks for the Player,
+and the Playlist answers.
+
+<Demo caption="Tap a song: a Played Message reaches the Playlist from the Song's Command. Tap another, then drag the timeline back through them.">
+
+<Playground app={PlaylistApp} />
+
+```ts file=./components/playlist.ts
+
+```
+
+```ts file=./components/player.ts
+
+```
+
+```tsx file=./components/playlist-app.tsx
+
+```
+
+</Demo>
+
+<Callout title="Remember">
+  Props flow down. To ask for something up the tree, a Child uses a Capability
+  that an Actor above it provides.
+</Callout>
+
+That's the whole tree of logic. Next, how React draws it:
+[7. View](/kabuki/view).

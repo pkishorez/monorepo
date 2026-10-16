@@ -1,6 +1,13 @@
 import { motion } from 'motion/react';
 import type { ReactNode } from 'react';
-import { Cursor, Flash, Roll, SPRING, useSteps, useTargets } from './parts.tsx';
+import {
+  Cursor,
+  Flash,
+  Roll,
+  SPRING,
+  useSteps,
+  useTargets,
+} from '../../../../components/index.ts';
 
 /*
  * Only what changed draws again: an app drawn as a wireframe, each block

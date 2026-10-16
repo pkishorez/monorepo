@@ -1,0 +1,107 @@
+import { BoardApp } from './components/board-app.tsx';
+import { DrawsPicture } from './components/draws-picture.tsx';
+
+So far there's been a lot of logic and very little React. That's on
+purpose. In kabuki, the logic is one tree of Actors, and React has one job
+left: drawing it.
+
+Each Actor gets a **View**. A View is like a component's JSX, with
+everything else taken out. It reads what the Actor holds, and it can send
+it Messages. That's all.
+
+## A View draws one Actor
+
+`View.make` takes a Build and a function. The function gets the Actor's
+data, and returns what to draw.
+
+```tsx
+const CardView = View.make(CardLive, ({ model, send, root }) => (
+  <div {...root}>
+    {model.name}
+    <Button onClick={() => send({ _tag: 'Liked' })}>
+      Like · {model.likes}
+    </Button>
+  </div>
+));
+```
+
+Notice what it can't do. It can't change the Model; it can only send a
+Message and let the Actor decide. It never sees Capabilities, and it never
+starts any work. No `useState`, no `useEffect`.
+
+Spread `root` on the element you draw. It lets the parent place it, and
+animate it.
+
+## One function for every State
+
+The View also gets the State, as `_tag`. Switch on it, and each State
+draws its own way, with TypeScript knowing exactly what each one holds.
+
+```tsx
+switch (_tag) {
+  case 'Running':
+    return <Button onClick={() => send({ _tag: 'Paused' })}>Pause</Button>;
+  case 'Stopped':
+    return <Button onClick={() => send({ _tag: 'Started' })}>Start</Button>;
+}
+```
+
+## Children draw themselves
+
+A parent's View gets a handle for each Child. It hands the handle to the
+Child's View, and the Child draws itself, where the parent puts it.
+
+```tsx
+const BoardView = View.make(BoardLive, ({ children, root }) => (
+  <div {...root}>
+    {children.cards.map((card) => (
+      <CardView key={card.key} instance={card} />
+    ))}
+  </div>
+));
+```
+
+And here's the nice part. Each View watches only its own Actor. When one
+Card changes, only that Card draws again. The Board and the other Cards
+don't move. You get this without writing a single `memo`.
+
+<Demo caption="A Liked Message reaches one Card. Its likes roll, then only its block on the page draws again. The Board and the other Cards stay still.">
+  <DrawsPicture />
+</Demo>
+
+## From Actor to app
+
+Last, `toReact` takes your root Actor, its View, and the Layer for the
+outside world. It gives back one plain React component, ready to render
+anywhere.
+
+```tsx
+export const BoardApp = toReact(BoardLive, BoardView, Layer.empty);
+```
+
+## Try it
+
+Each card counts how many times it has drawn. Like one card a few times,
+and watch the counts.
+
+<Demo caption="Like Tea three times: only Tea's drawn count grows, and the board's stays at 1. Drag the timeline back: only the cards that differ draw again.">
+
+<Playground app={BoardApp} />
+
+```ts file=./components/board.ts
+
+```
+
+```tsx file=./components/board-app.tsx
+
+```
+
+</Demo>
+
+<Callout title="Remember">
+  A View draws its own Actor and sends it Messages. Nothing else. It draws again
+  only when its own Actor changes.
+</Callout>
+
+There's one more thing kabuki gives you for free, because every change is
+a Message: [8. History](/kabuki/history).

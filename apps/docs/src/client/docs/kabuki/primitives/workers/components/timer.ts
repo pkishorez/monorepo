@@ -4,17 +4,26 @@ import { Actor } from '@kestack/kabuki';
 export const Timer = Actor.define('Timer', {
   state: Schema.TaggedUnion({ Stopped: {}, Running: {} }),
   model: Schema.Struct({ seconds: Schema.Number }),
-  message: Schema.TaggedUnion({ Started: {}, Ticked: {}, Paused: {} }),
+  message: Schema.TaggedUnion({
+    Started: {},
+    Ticked: {},
+    Paused: {},
+    Reset: {},
+  }),
 });
 
 export const TimerLive = Actor.build(Timer, {
   init: () => ({ state: { _tag: 'Stopped' }, model: { seconds: 0 } }),
   state: {
     Stopped: {
-      on: { Started: () => ({ state: { _tag: 'Running' } }) },
+      on: {
+        Started: () => ({ state: { _tag: 'Running' } }),
+        Reset: () => ({ model: { seconds: 0 } }),
+      },
     },
     Running: {
-      // Runs while the State is Running, and stops the moment it is not.
+      // Lives in Running: it starts when the timer starts, and stops the
+      // moment the timer leaves Running. Nothing else starts or stops it.
       workers: {
         tick: {
           run: (self) =>

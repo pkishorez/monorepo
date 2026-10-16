@@ -1,0 +1,100 @@
+import { LanesPicture } from './components/lanes-picture.tsx';
+import { TimerApp } from './components/timer-app.tsx';
+
+Everything so far happens in an instant. A Message arrives, the Update
+runs, and the next Model is there. Updates are pure: they never wait,
+fetch, or touch the outside world.
+
+But real apps do things over time. A clock ticks. A socket stays open. A
+file uploads. In React, that's what `useEffect` is for. In kabuki, it's
+what **Workers** are for. Workers are where side effects live.
+
+## A Worker is work that runs for a while
+
+A Worker is a named Effect. It can run for as long as it likes, and it
+talks back the only way anything does in kabuki: by sending Messages to
+its Actor.
+
+Here's a clock that ticks once a second:
+
+```ts
+workers: {
+  tick: {
+    run: (self) =>
+      Effect.forever(
+        Effect.sleep('1 second').pipe(
+          Effect.andThen(self.send({ _tag: 'Ticked' })),
+        ),
+      ),
+  },
+},
+```
+
+The Worker doesn't change the time itself. It sends `Ticked`, and the
+Update does the counting, the same as for a click.
+
+## Where you write it is when it runs
+
+You never start a Worker, and you never stop one. You only say where it
+lives, and kabuki keeps it running for exactly that long.
+
+<Demo caption="One clock, three Workers. Each runs only while the place it is written in lasts: the Actor's life, the Running State, or a test on the data.">
+  <LanesPicture />
+</Demo>
+
+- Written at the top of the Build, a Worker runs for the Actor's **whole
+  life**.
+- Written inside a **State**, it runs while the Actor is in that State.
+  Leave the State, and it stops.
+- Given a **`while`**, it runs only while a test on the data holds:
+  `while: ({ model }) => model.unsaved`. Given an **`each`**, it runs one
+  copy per key in a list, like one upload per file.
+
+That's what declarative means here. There's no cleanup function to forget,
+and no interval to clear. What you write down is what runs.
+
+## Try it
+
+The timer's `tick` Worker is written inside `Running`. Start it, and the
+Worker appears on the right. Pause it, and it's gone.
+
+<Demo caption="Start, let it tick, then pause. The tick Worker exists only while the timer is Running. Drag the timeline back: the seconds go back, and nothing ticks twice.">
+
+<Playground app={TimerApp} />
+
+```ts file=./components/timer.ts
+
+```
+
+```tsx file=./components/timer-app.tsx
+
+```
+
+</Demo>
+
+## One-off errands: Commands
+
+Some work just needs to happen once: save this, then tell me. For that, an
+Update can ask for a **Command**. It runs once, ends with at most one
+Message, and nothing stops it.
+
+```ts
+const save = Command.make('save', {
+  run: () =>
+    Effect.sleep('1 second').pipe(Effect.as({ _tag: 'Saved' as const })),
+});
+
+// In an Update:
+Clicked: () => ({ model: { saving: true }, command: save() }),
+```
+
+Use a Worker for work that lasts, can be stopped, or reports progress. Use
+a Command for a quick errand.
+
+<Callout title="Remember">
+  Updates are instant and pure. Workers do the work, for exactly as long as the
+  place they are written in lasts.
+</Callout>
+
+Next: [4. Children](/kabuki/children), to build bigger Actors out of small
+ones.

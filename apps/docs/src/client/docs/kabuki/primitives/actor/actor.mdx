@@ -1,0 +1,105 @@
+import { CounterApp } from './components/counter-app.tsx';
+import { UpdatePicture } from './components/update-picture.tsx';
+
+In React, you build a UI out of components. In kabuki, you build your logic
+out of **Actors**. Everything else in these docs is something an Actor can
+do.
+
+## What is an Actor?
+
+An Actor is a small piece of your app that holds some data and reacts to
+what happens. It has three parts:
+
+- a **Model**: the data it holds, like `{ count: 0 }`;
+- **Messages**: the things that can happen to it, like `Added`;
+- an **Update**: what each Message does to the Model.
+
+That's it. Nothing outside can reach in and change the Model. The only way
+to change an Actor is to send it a Message, and let it decide.
+
+<Demo caption="Messages arrive one at a time. Each Update makes the next Model. The last Message has a word where a number belongs, so it is refused at the door.">
+  <UpdatePicture />
+</Demo>
+
+If you've used `useReducer`, this will feel familiar. The difference is that
+an Actor lives outside React, so your logic doesn't depend on what is on
+screen.
+
+Making an Actor takes two steps: you define it, then you build it.
+
+## 1. Define it
+
+The **Definition** says what the Actor is: its name, the shape of its
+Model, and the Messages it takes. Each shape is a Schema.
+
+```ts
+export const Counter = Actor.define('Counter', {
+  model: Schema.Struct({ count: Schema.Number }),
+  message: Schema.TaggedUnion({
+    Added: { amount: Schema.Number },
+    Reset: {},
+  }),
+});
+```
+
+Why a separate Definition? Because every type in your app flows from it.
+The Update, the button that sends `Added`, the parent that holds a Counter,
+your tests: TypeScript checks all of them against this one place. Forget
+the `amount`, and it doesn't compile.
+
+The Schemas also check at runtime. A Message that doesn't fit, like an
+`amount` of `'ten'`, is refused before anything sees it.
+
+And a Definition runs nothing. So anything can import it, a parent, a View
+or a test, without pulling in the logic behind it.
+
+## 2. Build it
+
+The **Build** says how the Actor behaves: where it starts, and what each
+Message does.
+
+```ts
+export const CounterLive = Actor.build(Counter, {
+  init: () => ({ model: { count: 0 } }),
+  on: {
+    Added: ({ amount }, { model }) => ({
+      model: { count: model.count + amount },
+    }),
+    Reset: () => ({ model: { count: 0 } }),
+  },
+});
+```
+
+Each Update gets the Message and the current Model, and returns the next
+Model. It's a plain function. It doesn't fetch, wait, or touch anything
+else, so it's easy to read and easy to test.
+
+By habit, the Build is named after the Actor with `Live`, and sits beside
+its Definition.
+
+## Try it
+
+Here is the Counter, running. Its code is in the tabs. On the right is what
+it holds; below is every Message it has been sent.
+
+<Demo caption="Press +1, +5 and +10. Each press is one Message, with its amount. Drag the timeline back, and the count goes back with it.">
+
+<Playground app={CounterApp} />
+
+```ts file=./components/counter.ts
+
+```
+
+```tsx file=./components/counter-app.tsx
+
+```
+
+</Demo>
+
+<Callout title="Remember">
+  An Actor changes only when it gets a Message. Its Update decides what that
+  Message means.
+</Callout>
+
+Some logic depends on the situation an Actor is in. That's what a
+[2. State machine](/kabuki/state-machine) is for.
