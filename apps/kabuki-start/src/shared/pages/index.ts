@@ -1,9 +1,7 @@
 export { App, AppLive } from './app.ts';
 export { Blog, BlogLive, Post, PostLive } from './blog/index.ts';
 export { Feed, FeedLive } from './feed.ts';
-export { Flaky, FlakyLive } from './flaky.ts';
 export { Home, HomeLive } from './home.ts';
-export { Notes, NotesLive } from './notes.ts';
 export { Preload, PreloadLive, Slow, SlowLive } from './preload/index.ts';
 export { Search, SearchLive } from './search.ts';
 export { Member, MemberLive, Teams, TeamsLive } from './teams/index.ts';

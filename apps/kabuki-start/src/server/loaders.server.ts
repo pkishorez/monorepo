@@ -1,4 +1,4 @@
-import { Clock, Effect, Random } from 'effect';
+import { Effect } from 'effect';
 import type { Duration } from 'effect';
 import { Page } from '@kestack/kabuki/routing';
 import { Start } from '@kestack/kabuki/start/server';
@@ -9,24 +9,19 @@ import { router } from '../shared/index.ts';
 /*
  * One Loader per page with data, most of them slow on purpose, so each case
  * has something to show: a post takes a second, a team longer than its
- * member, a slow page a second and a half, the feed most of a second, and
- * /flaky breaks on a coin toss.
+ * member, a slow page a second and a half, the feed most of a second.
  */
 
-/**
- * What `query` reads from the backend after `wait`, or not found if it
- * finds nothing, stamped with when it started and when it answered.
- */
+/** What `query` reads from the backend after `wait`, or not found if it finds nothing. */
 const read = <A extends object, E, R>(
   query: (db: Backend['Service']) => Effect.Effect<A | undefined, E, R>,
   wait: Duration.Input = 0,
 ) =>
   Effect.gen(function* () {
-    const startedAt = yield* Clock.currentTimeMillis;
     yield* Effect.sleep(wait);
     const found = yield* query(yield* Backend);
     if (found === undefined) return yield* Page.notFound();
-    return { ...found, startedAt, loadedAt: yield* Clock.currentTimeMillis };
+    return found;
   });
 
 const loaders = router.loaders({
@@ -47,17 +42,7 @@ const loaders = router.loaders({
     read((db) => db.member(team, member), '700 millis'),
   Feed: () => read((db) => db.feed, '900 millis'),
   Search: ({ q }) => read((db) => db.search(q ?? ''), '600 millis'),
-  Notes: () => read((db) => db.notes, '800 millis'),
-  'Preload.Slow': ({ n }) => read(() => Effect.succeed({ n }), '1500 millis'),
-  Flaky: () =>
-    Effect.gen(function* () {
-      const startedAt = yield* Clock.currentTimeMillis;
-      yield* Effect.sleep('1 second');
-      const luck = yield* Random.next;
-      if (luck < 0.5)
-        return yield* Effect.die(new Error('the coin came up tails'));
-      return { luck, startedAt, loadedAt: yield* Clock.currentTimeMillis };
-    }),
+  'Preload.Slow': ({ n }) => read((db) => db.slow(n), '1500 millis'),
 });
 
 export default Start.layers<WorkerEnv>()

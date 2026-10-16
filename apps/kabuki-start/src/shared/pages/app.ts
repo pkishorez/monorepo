@@ -2,9 +2,7 @@ import { Clock, Effect, Schema } from 'effect';
 import { Page } from '@kestack/kabuki/routing';
 import { Blog, BlogLive } from './blog/index.ts';
 import { Feed, FeedLive } from './feed.ts';
-import { Flaky, FlakyLive } from './flaky.ts';
 import { Home, HomeLive } from './home.ts';
-import { Notes, NotesLive } from './notes.ts';
 import { Preload, PreloadLive } from './preload/index.ts';
 import { Search, SearchLive } from './search.ts';
 import { Teams, TeamsLive } from './teams/index.ts';
@@ -17,7 +15,7 @@ import { Teams, TeamsLive } from './teams/index.ts';
 
 export const App = Page.define({
   metadata: { meta: [{ property: 'og:site_name', content: 'Kabuki Start' }] },
-  pages: { Home, Blog, Teams, Feed, Search, Notes, Preload, Flaky },
+  pages: { Home, Blog, Teams, Feed, Search, Preload },
   model: Schema.Struct({ live: Schema.NullOr(Schema.Number) }),
   message: Schema.TaggedUnion({ Ticked: { now: Schema.Number } }),
 });
@@ -29,9 +27,7 @@ export const AppLive = Page.build(App, {
     Teams: TeamsLive,
     Feed: FeedLive,
     Search: SearchLive,
-    Notes: NotesLive,
     Preload: PreloadLive,
-    Flaky: FlakyLive,
   },
   init: () => ({ model: { live: null } }),
   workers: {
