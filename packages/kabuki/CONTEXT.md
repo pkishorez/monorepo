@@ -207,7 +207,7 @@ Where the window and every element the user scrolled were, kept under the Entry 
 _Avoid_: scroll memory, scroll area, scroll position
 
 **Redirect**:
-A URL that is never a place, replaced in the address by the Route the Router definition names for it, so Back never returns to it. A URL that reads as a Route but is not how that Route is written is replaced the same way.
+Going somewhere other than the URL asked for, in place of it, so Back never returns to it. Written in the Router definition for a URL that is never a place, for good; or said by a Loader, to a Route of the app or a URL outside it, for this visitor, and for good only if it says so. A URL that reads as a Route but is not how that Route is written is replaced the same way.
 _Avoid_: guard, forward
 
 **Address**:

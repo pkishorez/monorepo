@@ -407,13 +407,51 @@ describe('the Loaders', () => {
   });
 
   it('fail with errors their Schemas can carry over the wire', () => {
-    const redirect = Page.redirect(Site.About());
-    const encoded = Schema.encodeUnknownSync(Page.Redirect)(redirect);
-    const decoded = Schema.decodeUnknownSync(Page.Redirect)(
-      JSON.parse(JSON.stringify(encoded)),
-    );
+    const carried = (redirect: Page.Redirect) =>
+      Schema.decodeUnknownSync(Page.Redirect)(
+        JSON.parse(
+          JSON.stringify(Schema.encodeUnknownSync(Page.Redirect)(redirect)),
+        ),
+      );
+    const decoded = carried(Page.redirect(Site.About()));
     expect(decoded).toBeInstanceOf(Page.Redirect);
     expect(decoded.route).toEqual(Site.About());
+    expect(
+      carried(Page.redirect(Site.About(), { permanent: true })).permanent,
+    ).toBe(true);
+    expect(carried(Page.redirect('https://example.com/a')).href).toBe(
+      'https://example.com/a',
+    );
+  });
+
+  it("Redirect only to the app's own Routes, or to a whole URL", () => {
+    const Other = Router.define(
+      Page.define({ pages: { Elsewhere: Page.define({ path: '/x' }) } }),
+    );
+    const typed = () => {
+      Site.loaders({
+        Blog: () => Effect.fail(Page.redirect('https://example.com/blog')),
+        'Blog.Post': () =>
+          Effect.fail(Page.redirect(Site.About(), { permanent: true })),
+        'Account.Settings': () => Effect.succeed({ title: '' }),
+        'Account.Activity': () => Effect.succeed({ title: '' }),
+        'Account.Static': () => Effect.succeed({ title: '' }),
+      });
+      Site.loaders({
+        Blog: () => Effect.succeed([]),
+        // @ts-expect-error a Route of another app
+        'Blog.Post': () => Effect.fail(Page.redirect(Other.Elsewhere())),
+        'Account.Settings': () => Effect.succeed({ title: '' }),
+        'Account.Activity': () => Effect.succeed({ title: '' }),
+        'Account.Static': () => Effect.succeed({ title: '' }),
+      });
+      // @ts-expect-error a path is a Route, or a whole URL
+      Page.redirect('/about');
+    };
+    expect(typed).toBeTypeOf('function');
+    expect(() => Page.redirect('javascript:alert(1)' as 'https://x')).toThrow(
+      'http or https',
+    );
   });
 });
 

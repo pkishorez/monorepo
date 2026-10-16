@@ -49,6 +49,14 @@ export const tanstack = (options?: {
       push: (url, key) => history.push(url, { [KEY]: key }),
       replace: (url, key) => history.replace(url, { [KEY]: key }),
       go: (by) => history.go(by),
-      leave: (url) => history.push(url),
+      // TanStack's history holds this site's URLs alone: another site is
+      // the browser's to go to.
+      leave: (url, options) => {
+        if (new URL(url, location.href).origin !== location.origin)
+          return options?.replace
+            ? location.replace(url)
+            : location.assign(url);
+        return options?.replace ? history.replace(url) : history.push(url);
+      },
     };
   });

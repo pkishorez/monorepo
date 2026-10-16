@@ -31,6 +31,7 @@ export const browser = () =>
         tell();
       },
       go: (by) => history.go(by),
-      leave: (url) => location.assign(url),
+      leave: (url, options) =>
+        options?.replace ? location.replace(url) : location.assign(url),
     };
   });

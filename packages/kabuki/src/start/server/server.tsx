@@ -38,9 +38,11 @@ import {
  * 4. Load     the Loaders of the places drawn here, all at once, with the
  *             request unless the place is static, and their Layers' tiers:
  *             the visitor's only if a place is not static; see `tiers.ts`.
- *             A Redirect is a `302`. Each other place starts from what its
- *             Loader came to: its data, or failed, so its page draws that;
- *             a place not found makes the page a `404`, one that broke a `500`.
+ *             A Redirect is a `302`, or a `308` if it says it is permanent,
+ *             to its Route or the URL outside the app it names. Each other
+ *             place starts from what its Loader came to: its data, or
+ *             failed, so its page draws that; a place not found makes the
+ *             page a `404`, one that broke a `500`.
  * 5. Draw     the Router's init at the Route, its places started from what
  *             they loaded, as a History of one Restore, in the Document; see
  *             `draw.tsx`. A client place starts loading, and its page draws
@@ -148,7 +150,7 @@ export const server = (options: ServerOptions): Handler => {
     run: Load,
     places: ReadonlyArray<Place>,
   ): Promise<
-    | { readonly _tag: 'Redirect'; readonly route: unknown }
+    | Extract<Outcome, { readonly _tag: 'Redirect' }>
     | {
         readonly _tag: 'Loaded';
         readonly known: Readonly<Record<string, Known>>;
@@ -166,8 +168,7 @@ export const server = (options: ServerOptions): Handler => {
         _tag: 'Broken',
         reason: `no answer for ${name}`,
       };
-      if (outcome._tag === 'Redirect')
-        return { _tag: 'Redirect', route: outcome.route };
+      if (outcome._tag === 'Redirect') return outcome;
       if (outcome._tag === 'NotFound') status = Math.max(status, 404);
       if (outcome._tag === 'Broken') {
         console.error(
@@ -209,7 +210,10 @@ export const server = (options: ServerOptions): Handler => {
     const cache = shared ? SHARED : PRIVATE;
     const drawPage = async () => {
       const answer = await loaded(load(request, host.env, headers), here);
-      if (answer._tag === 'Redirect') return found(app.href(answer.route));
+      if (answer._tag === 'Redirect') {
+        const to = answer.href ?? app.href(answer.route);
+        return answer.permanent ? permanent(to) : found(to);
+      }
       const status = route._tag === 'NotFound' ? 404 : answer.status;
       return drawn(
         { route, known: answer.known },

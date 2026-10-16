@@ -148,7 +148,9 @@ GET /blog/hello
    its params and query, and the request unless its place is static, with
    the Loaders' tiers: the instance's, made once; the request's, made for
    this request; and the visitor's only if a place loaded here is not
-   static. A Redirect is a `302`, since it depends on the request. Any other
+   static. A Redirect is a `302`, since it depends on the request, or a
+   `308` if the Loader says it is permanent; to its Route, or to the URL
+   outside the app it names. Any other
    answer is what its page starts from: a page not found is drawn failed and
    makes the response a `404`; a Loader that broke, its page drawn failed
    and a `500`, logged. The pages above it are drawn as they are.
@@ -193,7 +195,8 @@ each on its own line, as soon as its Loader is done:
   { "name": "Teams", "outcome": { "_tag": "Loaded", "data": { … } } }
 ```
 
-An outcome is `Loaded`, `NotFound`, `Redirect` with its Route, or `Broken`
+An outcome is `Loaded`, `NotFound`, `Redirect` with its Route or a URL
+outside the app, and `permanent` if it said so, or `Broken`
 with why. Start makes it from `router.every`: params are written with each
 place's params Schema, data with its data Schema, a Redirect's Route with
 the Route Schema, so it cannot disagree with the router. The server hands

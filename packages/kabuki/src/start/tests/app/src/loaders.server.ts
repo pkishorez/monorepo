@@ -68,6 +68,12 @@ export const loaders = router.loaders({
       begin(`Blog.Post:${slug}`);
       if (slug === 'moved')
         return yield* Page.redirect(router.Blog.Post({ slug: 'hello' }));
+      if (slug === 'renamed')
+        return yield* Page.redirect(router.Blog.Post({ slug: 'hello' }), {
+          permanent: true,
+        });
+      if (slug === 'elsewhere')
+        return yield* Page.redirect('https://example.com/post');
       if (slug === 'broken')
         return yield* Effect.die(new Error('the post broke'));
       const post = POSTS.find((each) => each.slug === slug);

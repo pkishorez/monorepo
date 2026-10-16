@@ -276,6 +276,18 @@ describe('redirects', () => {
     expect(response.status).toBe(302);
     expect(response.headers.get('location')).toBe('/blog/hello');
   });
+
+  it("a Loader's permanent Redirect is a 308", async () => {
+    const response = await get('/blog/renamed');
+    expect(response.status).toBe(308);
+    expect(response.headers.get('location')).toBe('/blog/hello');
+  });
+
+  it("a Loader's Redirect to a URL outside the app is a 302 to it", async () => {
+    const response = await get('/blog/elsewhere');
+    expect(response.status).toBe(302);
+    expect(response.headers.get('location')).toBe('https://example.com/post');
+  });
 });
 
 describe('lazy Views', () => {
@@ -651,6 +663,20 @@ describe('the Loader RPC', () => {
     expect(answer['Account']).toEqual({
       _tag: 'Redirect',
       route: router.SignIn(),
+    });
+    expect(
+      await load([{ name: 'Blog.Post', params: { slug: 'renamed' } }]),
+    ).toEqual({
+      'Blog.Post': {
+        _tag: 'Redirect',
+        route: router.Blog.Post({ slug: 'hello' }),
+        permanent: true,
+      },
+    });
+    expect(
+      await load([{ name: 'Blog.Post', params: { slug: 'elsewhere' } }]),
+    ).toEqual({
+      'Blog.Post': { _tag: 'Redirect', href: 'https://example.com/post' },
     });
     const broken = await load([
       { name: 'Blog.Post', params: { slug: 'broken' } },

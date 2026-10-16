@@ -127,8 +127,11 @@ export interface RoutesApi<C> {
    * one for each, and no other. A static place's is given its params and
    * query; a dynamic or client place's, the request too.
    */
-  readonly loaders: <const L extends Partial<LoadersOf<PlacesOf<C>>>>(
-    loaders: Exactly<L, LoaderNames<C>> & Partial<LoadersOf<PlacesOf<C>>>,
+  readonly loaders: <
+    const L extends Partial<LoadersOf<PlacesOf<C>, RouteOf<C>>>,
+  >(
+    loaders: Exactly<L, LoaderNames<C>> &
+      Partial<LoadersOf<PlacesOf<C>, RouteOf<C>>>,
   ) => Loaders<L, StaticNames<C>>;
   /** The nodes as written. */
   readonly children: C;

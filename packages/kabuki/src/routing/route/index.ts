@@ -33,6 +33,7 @@ export type {
   Loaders,
   Outcome,
   PlaceType,
+  RedirectTo,
   RenderMode,
   StaticOf,
 } from './loader.ts';
