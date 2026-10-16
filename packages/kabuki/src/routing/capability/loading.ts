@@ -1,5 +1,10 @@
 import { Cause, Context, Effect, Layer, Stream } from 'effect';
-import type { LoadError, Outcome, PlaceSchema } from '../route/index.ts';
+import type {
+  LoadError,
+  Outcome,
+  PlaceSchema,
+  RedirectError,
+} from '../route/index.ts';
 
 /** A place to load: its dotted name and what its Loader is handed, every path param down to it and its own query. */
 export interface Wanted {
@@ -49,6 +54,13 @@ export class Loading extends Context.Service<
   }
 >()('@kestack/kabuki/routing/Loading') {}
 
+/** A Loader's Redirect as an outcome: to its Route or its URL, and permanent only if it said so. */
+const redirectOf = (error: RedirectError): Outcome => ({
+  _tag: 'Redirect',
+  ...(error.href === undefined ? { route: error.route } : { href: error.href }),
+  ...(error.permanent ? { permanent: true } : {}),
+});
+
 /** A Loader's run as what it came to: its data, not found, a Redirect, or what broke. */
 export const outcomeOf = <R>(
   run: Effect.Effect<unknown, LoadError, R>,
@@ -57,9 +69,7 @@ export const outcomeOf = <R>(
     Effect.map((data): Outcome => ({ _tag: 'Loaded', data })),
     Effect.catch((error): Effect.Effect<Outcome> =>
       Effect.succeed(
-        error._tag === 'NotFound'
-          ? { _tag: 'NotFound' }
-          : { _tag: 'Redirect', route: error.route },
+        error._tag === 'NotFound' ? { _tag: 'NotFound' } : redirectOf(error),
       ),
     ),
     Effect.catchCause((cause) => {

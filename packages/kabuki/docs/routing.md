@@ -235,10 +235,81 @@ export default router.loaders({
 with data, by its dotted name, and no other. A Loader is handed every path
 param down to it and its own query; a dynamic or client place's, the request
 too. Each returns its data, or fails with `Page.notFound()` or
-`Page.redirect(route)`; a defect breaks its page alone. Missing, extra or
+`Page.redirect(…)`, below; a defect breaks its page alone. Missing, extra or
 wrong-typed is a type error that names the places. A child that needs its
 parent's data calls the same service; a request-scoped Layer makes it run
 once.
+
+### Redirects
+
+A redirect sends the app somewhere other than the URL asked for. There are
+two kinds, and the rule is: a move that never changes goes in the router; one
+that depends on who asks goes in a Loader.
+
+**In the router**, for a URL that is never a place: an old path, a renamed
+section.
+
+```ts
+Router.define(App, {
+  redirect: { '/posts/:slug': (r, { slug }) => r.Blog.Post({ slug }) },
+});
+```
+
+A server answers a `308` to the Route's URL, with the query it had. In the
+browser the address is replaced, so Back never returns to the old URL.
+
+**In a Loader**, for a place this visitor may not see, or that has moved:
+
+```ts
+Page.redirect(router.SignIn()); // 302 to a Route of the app
+Page.redirect(router.Blog.Post({ slug }), { permanent: true }); // 308
+Page.redirect('https://accounts.example.com/sign-in'); // 302 out of the app
+```
+
+- A server answers a `302`, or a `308` with `permanent`, and never keeps it.
+  Loaders run side by side, so the outermost place's Redirect wins.
+- In the browser, during a move, the move goes on to the Route, as a push,
+  or a replace if it was Back or Forward; eight Redirects in a row land on
+  not found. For a page already on screen, reloading or with a new query,
+  the Route replaces the entry. A whole URL is left for in place of the
+  entry; in memory, the move is dropped and nothing is left.
+- The Route is typed: a Loader can Redirect only to a Route of its own
+  router. A URL must be whole, `http://` or `https://`: a path of the app is
+  a Route.
+
+**Guarding a section.** There is no guard: who may see a place is its
+Loader's to say. Write the check once and have each Loader under the section
+call it; a page with no data has no Loader, and nothing to hide.
+
+```ts
+const signedIn = (request: Request) =>
+  Session.viewer(request).pipe(
+    Effect.flatMap((viewer) =>
+      viewer
+        ? Effect.succeed(viewer)
+        : Effect.fail(Page.redirect(router.SignIn())),
+    ),
+  );
+
+export default router.loaders({
+  Account: (_, request) => signedIn(request),
+  'Account.Settings': (_, request) =>
+    signedIn(request).pipe(Effect.flatMap((viewer) => Db.prefs(viewer))),
+});
+```
+
+A request-scoped Layer makes `Session.viewer` run once for the whole page.
+
+**The query.** A Route holds only the query its pages read. A URL with more,
+like `?utm_source=`, is left in the address as it is, so a script on the
+page can read it, and Back returns to it as the browser kept it; every move
+the app makes writes its Route alone. A server keeps the query on a router
+redirect's `308`; a redirect the browser follows writes its Route alone.
+
+**Not yet.** A Loader cannot say where the visitor was going, for a sign-in
+page to send them back: on a server's first drawing `request.url` is the
+page's, but in the browser a Loader is handed the Loader RPC's request, at
+`/_kabuki/load`.
 
 ## The Router holds every page's data
 
@@ -257,10 +328,12 @@ above it: each page passes on only the statuses under it.
   `refreshing`. A loading screen stays at least 300ms, so it never flashes.
 - **Settles** each answer into its place: `Ready`, or `Failed`, not found or
   broken, its own page alone. Loading again behind data shown keeps the data
-  when it fails for the same query. A Redirect replaces the entry. An answer
+  when it fails for the same query. A Redirect replaces the entry, or leaves
+  the app for a URL outside it. An answer
   for a place no longer on screen is dropped.
 
-Its Messages are `PlaceLoaded`, `PlaceFailed` and `PlaceRedirected`, each on
+Its Messages are `PlaceLoaded`, `PlaceFailed`, `PlaceRedirected` and
+`RedirectedAway`, each on
 the Timeline, Sent to the Router.
 
 ## The Router: one Actor above the app
@@ -287,6 +360,7 @@ after its key. Every move is one Message to it:
 | `PlaceLoaded`     | the `place` Worker, with one place's data                         |
 | `PlaceFailed`     | the `place` Worker, when one place is not found or broke          |
 | `PlaceRedirected` | the `place` Worker, when a page on screen's Loader Redirects      |
+| `RedirectedAway`  | either Worker, when a Loader Redirects to a URL outside the app   |
 | `Reloaded`        | `Router.reload`, `Router.Retry`, a link to the page shown         |
 | `Preloading`      | a `Router.Link` that preloads, or `Router.preload`                |
 

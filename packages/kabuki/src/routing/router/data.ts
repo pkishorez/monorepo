@@ -21,8 +21,8 @@ import type { Codec, Place } from '../route/index.ts';
  *           screen stays at least 300 ms.
  * 3. Settle each answer into its place: Ready, or Failed, keeping data
  *           shown when loading it again fails for the same query; a
- *           Redirect replaces the entry. An answer for a place no longer on
- *           screen is dropped.
+ *           Redirect replaces the entry, or leaves the app for a URL outside
+ *           it. An answer for a place no longer on screen is dropped.
  */
 
 /** How long a page's loading screen stays at least, so it never flashes. */
@@ -98,6 +98,10 @@ export const placeMessages = (routes: DataSchemas) => ({
     for: Schema.String,
   },
   PlaceRedirected: { route: Schema.Struct({ _tag: Schema.String }) },
+  RedirectedAway: {
+    href: Schema.String,
+    id: Schema.optionalKey(Schema.Number),
+  },
 });
 
 export type PlaceMessage =
@@ -118,7 +122,13 @@ export type PlaceMessage =
       readonly reload: number;
       readonly for: string;
     }
-  | { readonly _tag: 'PlaceRedirected'; readonly route: AnyRoute };
+  | { readonly _tag: 'PlaceRedirected'; readonly route: AnyRoute }
+  | {
+      readonly _tag: 'RedirectedAway';
+      readonly href: string;
+      /** The held move it ends, if it came from one. */
+      readonly id?: number;
+    };
 
 // 1. Start
 /** The data of the places with data on `route`: kept where the key is the same, else started from what is known. */
@@ -279,10 +289,11 @@ export const loadPlace = <Route>(
       case 'Broken':
         return yield* failed(answer.reason, false);
       case 'Redirect':
-        return yield* self.send({
-          _tag: 'PlaceRedirected',
-          route: answer.route as AnyRoute,
-        });
+        return yield* self.send(
+          answer.href === undefined
+            ? { _tag: 'PlaceRedirected', route: answer.route as AnyRoute }
+            : { _tag: 'RedirectedAway', href: answer.href },
+        );
     }
   });
 
@@ -290,7 +301,10 @@ export const loadPlace = <Route>(
 /** The data of the places once an answer for one of them came: unchanged if that place is gone. */
 export const settle = (
   holding: Holding,
-  message: Exclude<PlaceMessage, { readonly _tag: 'PlaceRedirected' }>,
+  message: Exclude<
+    PlaceMessage,
+    { readonly _tag: 'PlaceRedirected' | 'RedirectedAway' }
+  >,
 ): Holding => {
   const name =
     message._tag === 'PlaceLoaded' ? message.answer.name : message.name;

@@ -27,8 +27,14 @@ export interface AdapterShape {
   readonly replace: (url: string, key: string) => void;
   /** Move through the history by `by` entries: -1 is Back. */
   readonly go: (by: number) => void;
-  /** Go to a URL outside the app's base: hand it to whoever owns the rest of the site. */
-  readonly leave: (url: string) => void;
+  /**
+   * Go to a URL outside the app's base, or another site: hand it to whoever
+   * owns it. `replace` takes the place of the entry shown, as a Redirect does.
+   */
+  readonly leave: (
+    url: string,
+    options?: { readonly replace?: boolean },
+  ) => void;
 }
 
 export class Adapter extends Context.Service<Adapter, AdapterShape>()(

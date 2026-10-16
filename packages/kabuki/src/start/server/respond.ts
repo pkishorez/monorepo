@@ -23,7 +23,7 @@ export const html = (body: string, status: number, cache: string) =>
     },
   });
 
-/** A URL that is not written as its Route is, or a redirect in the Routes: for good. */
+/** A URL that is not written as its Route is, a redirect in the Routes, or a Loader's permanent Redirect: for good. */
 export const permanent = (location: string) =>
   new Response(null, { status: 308, headers: { location } });
 

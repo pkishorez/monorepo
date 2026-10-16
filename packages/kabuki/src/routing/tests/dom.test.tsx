@@ -199,6 +199,36 @@ describe('on the browser history', () => {
     expect(location.pathname).toBe('/app/projects/7');
   });
 
+  it('replaces a redirect it hears while its Route is on screen', async () => {
+    await draw('browser', '/app/projects');
+    await act(async () => history.pushState(null, '', '/app/old'));
+    await act(
+      async () => void window.dispatchEvent(new PopStateEvent('popstate')),
+    );
+    await settle();
+    expect(location.pathname).toBe('/app/projects');
+    expect(host.textContent).toContain('list');
+  });
+
+  it('leaves a query no page reads in the address, and writes each move without it', async () => {
+    const address = () => `${location.pathname}${location.search}`;
+    await draw('browser', '/app?ref=x');
+    expect(address()).toBe('/app?ref=x');
+    expect(keyIn(history.state)).not.toBeNull();
+    await click('a[href="/app/projects/7"]');
+    expect(address()).toBe('/app/projects/7');
+    // Back lands on the entry as the browser kept it.
+    await act(async () => history.back());
+    await settle();
+    expect(address()).toBe('/app?ref=x');
+    expect(host.textContent).toContain('home');
+    await act(async () => root?.unmount());
+    root = undefined;
+    // A redirect the browser follows writes its Route alone.
+    await draw('browser', '/app/old?ref=x');
+    expect(address()).toBe('/app/projects');
+  });
+
   it("writes the title the Routes give each move's Route", async () => {
     await draw('browser', '/app');
     expect(document.title).toBe('Home');

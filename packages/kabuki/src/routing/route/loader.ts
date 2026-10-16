@@ -19,16 +19,30 @@ export class NotFoundError extends Schema.TaggedError<NotFoundError>()(
 ) {}
 
 /**
- * A Loader's answer: go to another Route instead. The Route is plain data,
- * so it travels as it is; a Routes tree can check it with its `route` Schema.
+ * A Loader's answer: go elsewhere instead, to a Route of the app or, with
+ * `href`, to a URL outside it. Plain data, so it travels as it is; a Routes
+ * tree can check the Route with its `route` Schema. `permanent` is a `308`
+ * on the server rather than a `302`.
  */
 export class RedirectError extends Schema.TaggedError<RedirectError>()(
   'Redirect',
-  { route: Schema.Unknown },
+  {
+    route: Schema.optionalKey(Schema.Unknown),
+    href: Schema.optionalKey(Schema.String),
+    permanent: Schema.optionalKey(Schema.Boolean),
+  },
 ) {}
 
+/** A Redirect to a Route of type `R`, or out of the app: what a Loader of an app whose Routes are `R` may fail with. */
+export type RedirectTo<R> = RedirectError & { readonly route?: R };
+
 /** How a Loader fails: the place is not found, or the app goes elsewhere. */
-export type LoadError = NotFoundError | RedirectError;
+export type LoadError<R = unknown> = NotFoundError | RedirectTo<R>;
+
+/** Where a Redirect goes: a Route of the app, or a URL outside it. */
+export type Target =
+  | { readonly route: unknown; readonly href?: undefined }
+  | { readonly href: string; readonly route?: undefined };
 
 /**
  * What loading one place came to: its data, or why there is none: its
@@ -37,7 +51,7 @@ export type LoadError = NotFoundError | RedirectError;
 export type Outcome =
   | { readonly _tag: 'Loaded'; readonly data: unknown }
   | { readonly _tag: 'NotFound' }
-  | { readonly _tag: 'Redirect'; readonly route: unknown }
+  | ({ readonly _tag: 'Redirect'; readonly permanent?: boolean } & Target)
   | { readonly _tag: 'Broken'; readonly reason: string };
 
 /** What the types know of one place: its dotted name, every param down to it, its Input, and its Render Mode. */
@@ -49,18 +63,21 @@ export interface PlaceType {
 }
 
 /** A place's Loader: a static place's is given its params and query; a dynamic or client place's, the request too. */
-export type LoaderOf<X extends PlaceType> = X['mode'] extends 'static'
-  ? (params: X['params']) => Effect.Effect<X['input'], LoadError, any>
+export type LoaderOf<
+  X extends PlaceType,
+  R = unknown,
+> = X['mode'] extends 'static'
+  ? (params: X['params']) => Effect.Effect<X['input'], LoadError<R>, any>
   : (
       params: X['params'],
       request: Request,
-    ) => Effect.Effect<X['input'], LoadError, any>;
+    ) => Effect.Effect<X['input'], LoadError<R>, any>;
 
-/** One Loader per place with an Input, by its dotted name. */
-export type LoadersOf<X extends PlaceType> = {
+/** One Loader per place with an Input, by its dotted name, each Redirecting only to a Route of type `R`. */
+export type LoadersOf<X extends PlaceType, R = unknown> = {
   readonly [
     P in X as [P['input']] extends [never] ? never : P['name']
-  ]: LoaderOf<P>;
+  ]: LoaderOf<P, R>;
 };
 
 declare const STATIC: unique symbol;

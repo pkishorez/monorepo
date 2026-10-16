@@ -19,15 +19,17 @@ export const PATH = '/_kabuki/load';
 /*
  * The Loader RPC's messages, in JSON, each value written with the Routes' own
  * Schemas: what a place's Loader is handed with its params Schema, its data
- * with its data Schema, a Redirect's Route with the Route Schema. Each place
- * is answered on its own line, as soon as its Loader is done, so a quick
- * place never waits on a slow one, and one that breaks fails its page alone.
+ * with its data Schema, a Redirect's Route with the Route Schema; a URL it
+ * leaves for is a string. Each place is answered on its own line, as soon as
+ * its Loader is done, so a quick place never waits on a slow one, and one
+ * that breaks fails its page alone.
  *
  *   ask     { places: [{ name: 'Blog.Post', params: { slug: 'hello' } }] }
  *   answer  one line of JSON per place, in the order they finish:
  *           { name: 'Blog.Post', outcome: { _tag: 'Loaded', data: { … } } }
  *           each outcome one of  { _tag: 'Loaded', data }  { _tag: 'NotFound' }
- *                        { _tag: 'Redirect', route }  { _tag: 'Broken', reason }
+ *                        { _tag: 'Redirect', route or href, permanent? }
+ *                        { _tag: 'Broken', reason }
  */
 
 /** What the wire needs of a Routes tree: every place, and the Schema of every Route. */
@@ -120,11 +122,11 @@ const outcomeWith =
           ),
         },
       };
-    if (outcome._tag === 'Redirect')
+    if (outcome._tag === 'Redirect' && outcome.href === undefined)
       return {
         name,
         outcome: {
-          _tag: 'Redirect',
+          ...outcome,
           route: sync(
             code(routes.route)(outcome.route),
             'a Redirect names no Route',

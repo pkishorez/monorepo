@@ -202,8 +202,12 @@ const go = Command.make('go', {
   run: ({ by }) => adapter((at) => at.go(by)),
 });
 const leave = Command.make('leave', {
-  args: Schema.Struct({ url: Schema.String }),
-  run: ({ url }) => adapter((at) => at.leave(url)),
+  args: Schema.Struct({
+    url: Schema.String,
+    replace: Schema.optionalKey(Schema.Boolean),
+  }),
+  run: ({ url, replace }) =>
+    adapter((at) => at.leave(url, replace ? { replace } : undefined)),
 });
 const forget = Command.make('forget the Data cache', {
   run: () =>
@@ -279,6 +283,31 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
     return undefined;
   };
   const same = (a: Route, b: Route) => routes.path(a) === routes.path(b);
+  /**
+   * Whether `url` is how `route` is written, give or take query params no
+   * page reads, like `?utm_source=`: such a URL is left in the address as
+   * it is, and every move the app makes writes its Route alone.
+   */
+  const shows = (url: string, route: Route) => {
+    const written = routes.path(route);
+    if (url === written) return true;
+    const [path, query = ''] = url.split('?');
+    const [want, wanted = ''] = written.split('?');
+    if (path !== want) return false;
+    const reads = new URLSearchParams(wanted);
+    const read = new URLSearchParams(
+      Array.from(new URLSearchParams(query)).filter(([name]) =>
+        reads.has(name),
+      ),
+    );
+    return read.toString() === reads.toString();
+  };
+  /** A URL inside the base, with it. */
+  const withBase = (url: string) => {
+    if (!base) return url;
+    if (url === '/') return base;
+    return url.startsWith('/?') ? `${base}${url.slice(1)}` : `${base}${url}`;
+  };
   const start = () => routes.read('/').route;
   const notFound = (route: Route) =>
     ({ _tag: 'NotFound', path: routes.path(route) }) as unknown as Route;
@@ -442,7 +471,10 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
       };
       return { model: next, command: writing(next, true) };
     }
+    // A URL the app did not write is an entry the address already holds,
+    // even at the Route shown: a redirect's is written over.
     if (
+      how !== 'arrive' &&
       same(to, current(model).route) &&
       (said?.hash ?? '') === (current(model).hash ?? '')
     )
@@ -586,11 +618,11 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
       for (const { name } of places) {
         const answer = answers[name];
         if (answer?._tag === 'Redirect')
-          return yield* send({
-            _tag: 'Redirected',
-            id,
-            route: answer.route as Route,
-          });
+          return yield* send(
+            answer.href === undefined
+              ? { _tag: 'Redirected', id, route: answer.route as Route }
+              : { _tag: 'RedirectedAway', href: answer.href, id },
+          );
       }
       const known: Record<string, Known> = {};
       for (const { name } of places) {
@@ -716,17 +748,19 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
         { model, at: now }: { readonly model: Model; readonly at: number },
       ): Out => {
         // A URL that is not how the Route is written, a redirect's or one
-        // with a stray slash, is replaced by the one that is.
-        const canonical = routes.path(route) === url;
+        // with a stray slash, is replaced by the one that is. On the entry
+        // the app opened at or holds, one that only has a query no page
+        // reads is left as it is.
+        const kept = shows(url, route);
         const known =
           key === null
             ? -1
             : model.entries.findIndex((entry) => entry.key === key);
         if (known >= 0) {
           if (known === model.at && same(route, current(model).route))
-            return canonical ? {} : { command: writing(model, true) };
+            return kept ? {} : { command: writing(model, true) };
           const moving = reaching(model, known, route, now);
-          return canonical
+          return kept
             ? moving
             : {
                 ...moving,
@@ -754,7 +788,16 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
             next: key === null ? model.next + 1 : model.next,
           };
           if (same(route, current(opened).route))
-            return { model: opened, command: writing(opened, true) };
+            return {
+              model: opened,
+              command: kept
+                ? write({
+                    url: `${withBase(url)}${hash ? `#${hash}` : ''}`,
+                    key: current(opened).key,
+                    replace: true,
+                  })
+                : writing(opened, true),
+            };
           return toward(opened, route, 'load', now);
         }
         // A URL the app did not write this page load: typed in, a link from
@@ -832,6 +875,19 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
         { route }: { readonly route: AnyRoute },
         { model, at }: { readonly model: Model; readonly at: number },
       ) => toward(model, route as Route, 'replace', at),
+      // A Loader's Redirect out of the app: the move it ends, if any, is
+      // dropped, and the URL takes the entry's place. In memory, nothing is
+      // left.
+      RedirectedAway: (
+        { href, id }: { readonly href: string; readonly id?: number },
+        { model }: { readonly model: Model },
+      ): Out => ({
+        model:
+          id !== undefined && model.pending?.id === id
+            ? { ...model, pending: null }
+            : model,
+        command: leave({ url: href, replace: true }),
+      }),
     },
     workers: {
       // Loads the data of each place on screen whose data is due.
@@ -937,8 +993,7 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
                 const entry = current(model);
                 const target = model.pending?.to;
                 // The Router's own write coming back, or the address of a move still loading: nothing moved.
-                if (at.key() === entry.key && url === routes.path(entry.route))
-                  return;
+                if (at.key() === entry.key && shows(url, entry.route)) return;
                 if (target && url === routes.path(target)) return;
                 yield* self.send({
                   _tag: 'Arrived',

@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { History, Runtime } from '../../core/index.ts';
 import type { Instance, Running, Types } from '../../core/index.ts';
 import { View } from '../../react/index.ts';
+import { Adapter } from '../adapter/index.ts';
 import { Loading, Page, Router } from '../index.ts';
 
 /*
@@ -105,6 +106,8 @@ const loaders = Routes.loaders({
             return Effect.fail(
               Page.redirect(Routes.Blog.Post({ slug: 'hello' })),
             );
+          if (slug === 'away')
+            return Effect.fail(Page.redirect('https://example.com/away'));
           const post = POSTS.find((each) => each.slug === slug);
           return post ? Effect.succeed(post) : Effect.fail(Page.notFound());
         },
@@ -298,6 +301,52 @@ describe('a Loader that does not answer with data', () => {
         const { entries, at } = router(app);
         expect(entries[at]!.route).toEqual(Routes.Blog.Post({ slug: 'hello' }));
         expect(status(app, 'Post')).toEqual(ready(POSTS[0]));
+      }),
+    ));
+});
+
+describe('a Redirect out of the app', () => {
+  /** An Adapter at `/` that keeps every URL it is asked to leave for. */
+  const away = () => {
+    const left: Array<readonly [string, unknown]> = [];
+    const layer = Layer.succeed(Adapter, {
+      url: () => '/',
+      key: () => null,
+      listen: () => () => {},
+      push: () => {},
+      replace: () => {},
+      go: () => {},
+      leave: (url, options) => void left.push([url, options]),
+    });
+    return { left, layer };
+  };
+
+  it('leaves for its URL in place of the entry, and drops the move', () =>
+    run(
+      Effect.gen(function* () {
+        const { left, layer } = away();
+        const app = yield* Runtime.start(
+          Root.actor,
+          Layer.merge(loading, layer),
+        );
+        yield* settle;
+        push(app, Routes.Blog.Post({ slug: 'away' }));
+        yield* settle;
+        expect(left).toEqual([['https://example.com/away', { replace: true }]]);
+        expect(router(app).pending).toBeNull();
+        const { entries, at } = router(app);
+        expect(entries[at]!.route).toEqual(Routes.Home());
+      }),
+    ));
+
+  it('in memory, drops the move and leaves nothing', () =>
+    run(
+      Effect.gen(function* () {
+        const app = yield* Runtime.start(Root.actor, loading);
+        push(app, Routes.Blog.Post({ slug: 'away' }));
+        yield* settle;
+        expect(router(app).pending).toBeNull();
+        expect(router(app).entries).toHaveLength(1);
       }),
     ));
 });
