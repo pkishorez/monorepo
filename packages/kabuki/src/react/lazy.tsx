@@ -14,8 +14,10 @@ import type { ViewOf } from './view.tsx';
  *             `React.lazy`, which a server waits for before it sends.
  * 3. Collect  every lazy View a drawing draws is told to the App's
  *             `onLazyView`, so a server can preload its code in the page.
- * 4. Find     a lazy View made with an `id` by that id, so a browser can
- *             preload those the server drew before it hydrates.
+ * 4. Find     a lazy View by its Actor, so whatever moves the app to it can
+ *             preload its code first; and by its `id`, if made with one, so
+ *             a browser can preload those the server drew before it
+ *             hydrates.
  */
 
 /** A View whose code is loaded when it is first drawn, or preloaded. */
@@ -39,6 +41,12 @@ export const LazyContext = createContext<
 >(undefined);
 
 // 4. Find
+const byActor = new WeakMap<object, LazyView<AnyActor>>();
+
+/** The lazy View made for `actor`, if one was: to load its code before it is drawn. */
+export const lazyOf = (actor: AnyActor): LazyView<AnyActor> | undefined =>
+  byActor.get(actor.definition);
+
 const KEY = Symbol.for('@kestack/kabuki/lazy-views');
 const byId = (): Map<string, LazyView<AnyActor>> => {
   const global = globalThis as { [KEY]?: Map<string, LazyView<AnyActor>> };
@@ -46,10 +54,12 @@ const byId = (): Map<string, LazyView<AnyActor>> => {
 };
 
 /**
- * A View loaded when first drawn: `load` imports a module whose default
- * export is the View, made with `View.make`.
+ * A View of `actor` loaded when first drawn: `load` imports a module whose
+ * default export is the View, made with `View.make`. The Actor is named here
+ * so the View can be found by it, and preloaded, before its code is there.
  */
 export const lazy = <A extends AnyActor>(
+  actor: A,
   load: () => Promise<{ readonly default: ViewOf<A> }>,
   options: LazyOptions = {},
 ): LazyView<A> => {
@@ -71,18 +81,20 @@ export const lazy = <A extends AnyActor>(
   // 2. Draw
   const Lazy = ((props: Parameters<ViewOf<A>>[0]) => {
     // 3. Collect
-    use(LazyContext)?.(self as LazyView<AnyActor>);
+    use(LazyContext)?.(self as unknown as LazyView<AnyActor>);
     const Loaded = view;
     return Loaded ? <Loaded {...props} /> : <Loading {...props} />;
   }) as ViewOf<A>;
   const self = Object.defineProperties(Lazy, {
+    actor: { value: actor, enumerable: true },
     id: { value: options.id, enumerable: true },
     preload: { value: preload, enumerable: true },
     loaded: { get: () => view !== undefined, enumerable: true },
-    displayName: { value: `Lazy(${options.id ?? 'View'})` },
+    displayName: { get: () => `Lazy(${actor.name}View)` },
   }) as LazyView<A>;
   if (options.id !== undefined)
-    byId().set(options.id, self as LazyView<AnyActor>);
+    byId().set(options.id, self as unknown as LazyView<AnyActor>);
+  byActor.set(actor.definition, self as unknown as LazyView<AnyActor>);
   return self;
 };
 

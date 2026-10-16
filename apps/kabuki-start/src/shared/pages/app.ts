@@ -1,13 +1,13 @@
 import { Clock, Effect, Schema } from 'effect';
-import { Route } from '@kestack/kabuki/routing';
-import { Blog } from './blog/index.ts';
-import { Feed } from './feed.ts';
-import { Flaky } from './flaky.ts';
-import { Home } from './home.ts';
-import { Notes } from './notes.ts';
-import { Preload } from './preload/index.ts';
-import { Search } from './search.ts';
-import { Teams } from './teams/index.ts';
+import { Page } from '@kestack/kabuki/routing';
+import { Blog, BlogLive } from './blog/index.ts';
+import { Feed, FeedLive } from './feed.ts';
+import { Flaky, FlakyLive } from './flaky.ts';
+import { Home, HomeLive } from './home.ts';
+import { Notes, NotesLive } from './notes.ts';
+import { Preload, PreloadLive } from './preload/index.ts';
+import { Search, SearchLive } from './search.ts';
+import { Teams, TeamsLive } from './teams/index.ts';
 
 /*
  * The root page: no path and no data, every other page under it. Its one
@@ -15,11 +15,24 @@ import { Teams } from './teams/index.ts';
  * server shows only after it hydrates.
  */
 
-export const App = Route.page({
+export const App = Page.define({
+  metadata: { meta: [{ property: 'og:site_name', content: 'Kabuki Start' }] },
   pages: { Home, Blog, Teams, Feed, Search, Notes, Preload, Flaky },
   model: Schema.Struct({ live: Schema.NullOr(Schema.Number) }),
   message: Schema.TaggedUnion({ Ticked: { now: Schema.Number } }),
-}).build({
+});
+
+export const AppLive = Page.build(App, {
+  pages: {
+    Home: HomeLive,
+    Blog: BlogLive,
+    Teams: TeamsLive,
+    Feed: FeedLive,
+    Search: SearchLive,
+    Notes: NotesLive,
+    Preload: PreloadLive,
+    Flaky: FlakyLive,
+  },
   init: () => ({ model: { live: null } }),
   workers: {
     tick: {

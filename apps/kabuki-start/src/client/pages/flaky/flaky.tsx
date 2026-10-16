@@ -1,4 +1,4 @@
-import { Route } from '@kestack/kabuki/routing';
+import { View } from '@kestack/kabuki/react';
 import { Pages } from '../../../shared/index.ts';
 import { Loaded, PlaceFrame } from '../../components/index.ts';
 
@@ -8,7 +8,7 @@ import { Loaded, PlaceFrame } from '../../components/index.ts';
  * failure stays inside its own box.
  */
 
-export const FlakyView = Route.view(Pages.Flaky, ({ props }) => (
+export const FlakyView = View.make(Pages.FlakyLive, ({ props }) => (
   <PlaceFrame
     place="Flaky"
     status={props.status}

@@ -17,7 +17,11 @@ import type {
 } from './types.ts';
 import { Effect, Schema, SchemaAST } from 'effect';
 
-/** An Actor's Schemas, waiting for the behavior that runs it. */
+/**
+ * What an Actor is, as `Actor.define` gives it: its name, and the Schemas
+ * and Requires every type is fixed by. It runs nothing: `Actor.build` adds
+ * how it behaves.
+ */
 export interface Defined<
   Name extends string,
   Input,
@@ -27,27 +31,18 @@ export interface Defined<
   Msg extends Tagged,
   R extends Requires,
 > {
-  readonly build: <
-    const B extends Behavior<Input, Props, Model, State, Msg, R, B>,
-  >(
-    behavior: B,
-  ) => ActorOf<
-    Name,
-    Input,
-    Props,
-    Model,
-    State,
-    Msg,
-    KidsByState<State, B>,
-    OpenOfBehavior<R, B>
-  >;
+  readonly name: Name;
+  readonly shape: Shape<Input, Props, Model, State, Msg, R>;
 }
+
+/** Any Actor's definition, loosely. */
+export type AnyDefined = Defined<string, any, any, any, any, any, any>;
 
 /** A Schema Kabuki can read and write without Capabilities and at once. */
 type Codec<T> = Schema.Codec<T, unknown, never, never>;
 
 /**
- * What `make` takes: every type the behavior is checked against, as codecs,
+ * What `define` takes: every type the behavior is checked against, as codecs,
  * and the Capabilities the Actor's own code may use. Every value is checked
  * against them too, as it is made: each Input and Props, each Model and
  * State from init or an Update, and each Message as it is Sent. A saved
@@ -66,7 +61,7 @@ export interface Shape<Input, Props, Model, State, Msg, R extends Requires> {
   readonly state?: Codec<State>;
 }
 
-function make<
+function define<
   const Name extends string,
   State extends Tagged = Single,
   Model = {},
@@ -77,13 +72,55 @@ function make<
 >(
   name: Name,
   shape: Shape<Input, Props, Model, State, Msg, R>,
-): Defined<Name, Input, Props, Model, State, Msg, R>;
-function make(name: string, shape: Shape<any, any, any, any, any, any>) {
+): Defined<Name, Input, Props, Model, State, Msg, R> {
+  return { name, shape };
+}
+
+/** How the Actor `D` defines may be built, as written in `B`. */
+export type BehaviorOf<D, B> =
+  D extends Defined<
+    any,
+    infer Input,
+    infer Props,
+    infer Model,
+    infer State,
+    infer Msg,
+    infer R
+  >
+    ? Behavior<Input, Props, Model, State, Msg, R, B>
+    : never;
+
+/** The Actor `D` defines, built with `B`. */
+export type BuiltOf<D, B> =
+  D extends Defined<
+    infer Name,
+    infer Input,
+    infer Props,
+    infer Model,
+    infer State,
+    infer Msg,
+    infer R
+  >
+    ? ActorOf<
+        Name,
+        Input,
+        Props,
+        Model,
+        State,
+        Msg,
+        KidsByState<State, B>,
+        OpenOfBehavior<R, B>
+      >
+    : never;
+
+function build<D extends AnyDefined, const B extends BehaviorOf<D, B>>(
+  definition: D,
+  behavior: B,
+): BuiltOf<D, B>;
+function build(definition: AnyDefined, behavior: any): AnyActor {
   return {
-    build: (behavior: any): AnyActor => ({
-      name,
-      definition: definitionOf(name, shape, behavior),
-    }),
+    name: definition.name,
+    definition: definitionOf(definition.name, definition.shape, behavior),
   };
 }
 
@@ -296,9 +333,10 @@ const workerOf = (worker: any, state: string | undefined): WorkerDefinition => {
 };
 
 /**
- * An Actor, in two steps. `make` takes its Schemas and Requires, which fixes
- * every type. `build` takes how it behaves, at the top for as long as the
- * Instance lives and in one block per State for as long as that State lasts:
- * its Provides, Children, Updates under `on`, and Workers.
+ * An Actor, in two steps. `define` takes what it is: its Schemas and
+ * Requires, which fix every type. `build` takes a definition and how it
+ * behaves, at the top for as long as the Instance lives and in one block per
+ * State for as long as that State lasts: its Provides, Children, Updates
+ * under `on`, and Workers.
  */
-export const Actor = { make };
+export const Actor = { define, build };

@@ -1,7 +1,7 @@
 import { View } from '@kestack/kabuki/react';
-import { SignInActor } from './sign-in.ts';
+import { SignInLive } from './sign-in.ts';
 
-export const SignInView = View.make(SignInActor, ({ model, send, root }) => (
+export const SignInView = View.make(SignInLive, ({ model, send, root }) => (
   <form
     {...root}
     className="flex flex-col gap-3"

@@ -1,21 +1,24 @@
-import { Route } from '@kestack/kabuki/routing';
+import { Router } from '@kestack/kabuki/routing';
 import { App } from './app.ts';
 
 /*
- * The Routes, read down from the root page: every page's place in the URL
+ * The router, read down from the root page: every page's place in the URL
  * is its key in the page above, its path joined to theirs. Read once first
- * used, so a page can import them for its Updates.
+ * used, so a page can import it for its Updates. Scroll restoration as
+ * TanStack Start does it: the window and every element scrolled are kept
+ * per history entry and put back on Back, a reload too, and what stays on
+ * the page keeps where it was.
  */
 
-export const Routes = Route.tree(() => App, {
+export const router = Router.define(() => App, {
   // An old address that is never a place: a 308 to the post.
   redirect: { '/posts/:slug': (r, { slug }) => r.Blog.Post({ slug }) },
-  metadata: { meta: [{ property: 'og:site_name', content: 'Kabuki Start' }] },
   notFound: { title: 'Not found · Kabuki Start', robots: 'noindex' },
+  scrollRestoration: true,
 });
 
-/** Any Route of the site: `Routes.Blog.Post({ slug })` makes one. */
-export type Route = typeof Routes.route.Type;
+/** Any Route of the site: `router.Blog.Post({ slug })` makes one. */
+export type Route = typeof router.route.Type;
 
-/** A place's dotted name, as the Routes write it: `Blog.Post`. */
-export type Place = typeof Routes.place.Type;
+/** A place's dotted name, as the router writes it: `Blog.Post`. */
+export type Place = typeof router.place.Type;

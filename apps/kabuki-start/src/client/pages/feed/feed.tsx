@@ -1,5 +1,6 @@
-import { Route, Router } from '@kestack/kabuki/routing';
-import { Pages, Routes } from '../../../shared/index.ts';
+import { View } from '@kestack/kabuki/react';
+import { Router } from '@kestack/kabuki/routing';
+import { Pages, router } from '../../../shared/index.ts';
 import { Loaded, PlaceFrame } from '../../components/index.ts';
 
 /*
@@ -10,7 +11,7 @@ import { Loaded, PlaceFrame } from '../../components/index.ts';
  * loading first, too short to go back to, as in TanStack Start.
  */
 
-export const FeedView = Route.view(Pages.Feed, ({ props }) => (
+export const FeedView = View.make(Pages.FeedLive, ({ props }) => (
   <PlaceFrame
     place="Feed"
     status={props.status}
@@ -27,7 +28,7 @@ export const FeedView = Route.view(Pages.Feed, ({ props }) => (
           {feed.items.map((item) => (
             <li key={item.id}>
               <Router.Link
-                to={Routes.Blog.Post({ slug: item.slug })}
+                to={router.Blog.Post({ slug: item.slug })}
                 className="flex h-full flex-col gap-1.5 rounded-lg border border-border bg-background/60 p-4 transition-colors hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
               >
                 <span className="flex items-center justify-between font-mono text-[11px] text-muted-foreground tabular-nums">

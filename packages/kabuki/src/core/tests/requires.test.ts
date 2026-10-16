@@ -37,18 +37,18 @@ const uses = <S extends Context.Key<any, any>>(service: S) => ({
   workers: { work: { run: () => Effect.flatMap(service, () => Effect.never) } },
 });
 
-const B = Actor.make('B', { requires: [SB] }).build(uses(SB));
-const D = Actor.make('D', { requires: [SD] }).build(uses(SD));
+const B = Actor.build(Actor.define('B', { requires: [SB] }), uses(SB));
+const D = Actor.build(Actor.define('D', { requires: [SD] }), uses(SD));
 
 const St = Schema.TaggedUnion({ On: {}, Off: {} });
 
 describe('requires, from A down to D', () => {
   it('1. nobody Provides: every need reaches the root', () => {
-    const C = Actor.make('C', { requires: [SC] }).build({
+    const C = Actor.build(Actor.define('C', { requires: [SC] }), {
       ...uses(SC),
       children: { d: { actor: D } },
     });
-    const A = Actor.make('A', { requires: [SA] }).build({
+    const A = Actor.build(Actor.define('A', { requires: [SA] }), {
       ...uses(SA),
       children: { b: { actor: B }, c: { actor: C } },
     });
@@ -57,12 +57,12 @@ describe('requires, from A down to D', () => {
   });
 
   it('2. C Provides SD at its top: D is covered, and SD stops at C', () => {
-    const C = Actor.make('C', { requires: [SC] }).build({
+    const C = Actor.build(Actor.define('C', { requires: [SC] }), {
       ...uses(SC),
       children: { d: { actor: D } },
       provides: () => sd,
     });
-    const A = Actor.make('A', { requires: [SA] }).build({
+    const A = Actor.build(Actor.define('A', { requires: [SA] }), {
       ...uses(SA),
       children: { b: { actor: B }, c: { actor: C } },
     });
@@ -71,11 +71,11 @@ describe('requires, from A down to D', () => {
   });
 
   it('3. A Provides SD at its top: it reaches its grandchild D', () => {
-    const C = Actor.make('C', { requires: [SC] }).build({
+    const C = Actor.build(Actor.define('C', { requires: [SC] }), {
       ...uses(SC),
       children: { d: { actor: D } },
     });
-    const A = Actor.make('A', { requires: [SA] }).build({
+    const A = Actor.build(Actor.define('A', { requires: [SA] }), {
       ...uses(SA),
       children: { b: { actor: B }, c: { actor: C } },
       provides: () => sd,
@@ -84,11 +84,11 @@ describe('requires, from A down to D', () => {
   });
 
   it('4. A Provides SB only in On: a B placed in On is covered, a B at the top is not', () => {
-    const InOn = Actor.make('A', { state: St }).build({
+    const InOn = Actor.build(Actor.define('A', { state: St }), {
       init: () => ({ state: { _tag: 'On' } }),
       state: { On: { children: { b: { actor: B } }, provides: () => sb } },
     });
-    const AtTop = Actor.make('A', { state: St }).build({
+    const AtTop = Actor.build(Actor.define('A', { state: St }), {
       init: () => ({ state: { _tag: 'On' } }),
       children: { b: { actor: B } },
       state: { On: { provides: () => sb } },
@@ -98,7 +98,7 @@ describe('requires, from A down to D', () => {
   });
 
   it('5. A Provides SB in On but places B in Off: SB bubbles up', () => {
-    const A = Actor.make('A', { state: St }).build({
+    const A = Actor.build(Actor.define('A', { state: St }), {
       init: () => ({ state: { _tag: 'On' } }),
       state: {
         On: { provides: () => sb },
@@ -109,14 +109,14 @@ describe('requires, from A down to D', () => {
   });
 
   it("6. A Provides SD, but A's own Worker cannot use it: Provides points down", () => {
-    const Wrong = Actor.make('A', {}).build({
+    const Wrong = Actor.build(Actor.define('A', {}), {
       provides: () => sd,
       workers: {
         // @ts-expect-error SD is not in A's requires
         work: { run: () => Effect.flatMap(SD, () => Effect.never) },
       },
     });
-    const Right = Actor.make('A', { requires: [SD] }).build({
+    const Right = Actor.build(Actor.define('A', { requires: [SD] }), {
       provides: () => sd,
       ...uses(SD),
     });
@@ -129,11 +129,11 @@ describe('requires, from A down to D', () => {
       SD,
       Effect.map(SA, () => ({ d: Effect.void })),
     );
-    const Wrong = Actor.make('A', {}).build({
+    const Wrong = Actor.build(Actor.define('A', {}), {
       // @ts-expect-error building SD needs SA, which A does not require
       provides: () => fromSA,
     });
-    const Right = Actor.make('A', { requires: [SA] }).build({
+    const Right = Actor.build(Actor.define('A', { requires: [SA] }), {
       provides: () => fromSA,
       children: { d: { actor: D } },
     });
@@ -142,11 +142,11 @@ describe('requires, from A down to D', () => {
   });
 
   it('8. the root must get the rest from the Layer', () => {
-    const C = Actor.make('C', { requires: [SC] }).build({
+    const C = Actor.build(Actor.define('C', { requires: [SC] }), {
       ...uses(SC),
       children: { d: { actor: D } },
     });
-    const A = Actor.make('A', { requires: [SA] }).build({
+    const A = Actor.build(Actor.define('A', { requires: [SA] }), {
       ...uses(SA),
       children: { b: { actor: B }, c: { actor: C } },
     });

@@ -1,2 +1,2 @@
-export { Projects } from './projects.ts';
+export { Projects, ProjectsLive } from './projects.ts';
 export { ProjectsView } from './view.tsx';

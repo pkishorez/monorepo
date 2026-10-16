@@ -19,22 +19,27 @@ import type { SavedHistory, Snapshot } from '../index.ts';
  * saved Snapshot in it.
  */
 
-const Counter = Actor.make('Counter', {
-  model: Schema.Struct({ count: Schema.Number }),
-  state: Schema.TaggedUnion({ Idle: {}, Busy: { since: Schema.Number } }),
-  message: Schema.TaggedUnion({ Bumped: {}, Started: {}, Done: {} }),
-}).build({
-  init: () => ({ model: { count: 0 }, state: { _tag: 'Idle' } }),
-  on: {
-    Bumped: (_, { model }) => ({ model: { count: model.count + 1 } }),
-  },
-  state: {
-    Idle: {
-      on: { Started: (_, { at }) => ({ state: { _tag: 'Busy', since: at } }) },
+const Counter = Actor.build(
+  Actor.define('Counter', {
+    model: Schema.Struct({ count: Schema.Number }),
+    state: Schema.TaggedUnion({ Idle: {}, Busy: { since: Schema.Number } }),
+    message: Schema.TaggedUnion({ Bumped: {}, Started: {}, Done: {} }),
+  }),
+  {
+    init: () => ({ model: { count: 0 }, state: { _tag: 'Idle' } }),
+    on: {
+      Bumped: (_, { model }) => ({ model: { count: model.count + 1 } }),
     },
-    Busy: { on: { Done: () => ({ state: { _tag: 'Idle' } }) } },
+    state: {
+      Idle: {
+        on: {
+          Started: (_, { at }) => ({ state: { _tag: 'Busy', since: at } }),
+        },
+      },
+      Busy: { on: { Done: () => ({ state: { _tag: 'Idle' } }) } },
+    },
   },
-});
+);
 
 const timed = <A>(effect: Effect.Effect<A, never, Scope.Scope>) =>
   Effect.runPromise(
@@ -103,20 +108,23 @@ describe('Restore', () => {
 
   it('is ignored when a Child is ahead of what its parent has Invoked', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const Room = Actor.make('Room', {
-      model: Schema.Struct({ guests: Schema.Array(Schema.String) }),
-      message: Schema.TaggedUnion({ Came: { name: Schema.String } }),
-    }).build({
-      init: () => ({ model: { guests: ['ada'] } }),
-      children: {
-        guest: { actor: Counter, each: ({ model }) => model.guests },
+    const Room = Actor.build(
+      Actor.define('Room', {
+        model: Schema.Struct({ guests: Schema.Array(Schema.String) }),
+        message: Schema.TaggedUnion({ Came: { name: Schema.String } }),
+      }),
+      {
+        init: () => ({ model: { guests: ['ada'] } }),
+        children: {
+          guest: { actor: Counter, each: ({ model }) => model.guests },
+        },
+        on: {
+          Came: ({ name }, { model }) => ({
+            model: { guests: [...model.guests, name] },
+          }),
+        },
       },
-      on: {
-        Came: ({ name }, { model }) => ({
-          model: { guests: [...model.guests, name] },
-        }),
-      },
-    });
+    );
     const room = init(Room.definition);
     const ahead: Snapshot = { ...room, invoked: {} };
     const stale = handle(Room.definition, room, {
@@ -133,7 +141,7 @@ describe('Restore', () => {
 
   it('is ignored when a fixed Child its State Invokes is missing', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const Shelf = Actor.make('Shelf', {}).build({
+    const Shelf = Actor.build(Actor.define('Shelf', {}), {
       children: { counter: { actor: Counter } },
     });
     const shelf = init(Shelf.definition);
@@ -167,14 +175,19 @@ describe('Replay.fold', () => {
     ));
 
   it("plays from init with the root's Input", () => {
-    const From = Actor.make('From', {
-      input: Schema.Struct({ start: Schema.Number }),
-      model: Schema.Struct({ count: Schema.Number }),
-      message: Schema.TaggedUnion({ Bumped: {} }),
-    }).build({
-      init: ({ start }) => ({ model: { count: start } }),
-      on: { Bumped: (_, { model }) => ({ model: { count: model.count + 1 } }) },
-    });
+    const From = Actor.build(
+      Actor.define('From', {
+        input: Schema.Struct({ start: Schema.Number }),
+        model: Schema.Struct({ count: Schema.Number }),
+        message: Schema.TaggedUnion({ Bumped: {} }),
+      }),
+      {
+        init: ({ start }) => ({ model: { count: start } }),
+        on: {
+          Bumped: (_, { model }) => ({ model: { count: model.count + 1 } }),
+        },
+      },
+    );
     const branch = [
       {
         ...envelope({ _tag: 'Bumped' }),
@@ -266,17 +279,20 @@ describe('a saved History', () => {
       at: Schema.DateFromString,
       text: Schema.OptionFromNullOr(Schema.String),
     });
-    const Diary = Actor.make('Diary', {
-      model: Schema.Struct({ notes: Schema.Array(Note) }),
-      message: Schema.TaggedUnion({ Wrote: { note: Note } }),
-    }).build({
-      init: () => ({ model: { notes: [] } }),
-      on: {
-        Wrote: ({ note }, { model }) => ({
-          model: { notes: [...model.notes, note] },
-        }),
+    const Diary = Actor.build(
+      Actor.define('Diary', {
+        model: Schema.Struct({ notes: Schema.Array(Note) }),
+        message: Schema.TaggedUnion({ Wrote: { note: Note } }),
+      }),
+      {
+        init: () => ({ model: { notes: [] } }),
+        on: {
+          Wrote: ({ note }, { model }) => ({
+            model: { notes: [...model.notes, note] },
+          }),
+        },
       },
-    });
+    );
     const through = (saved: SavedHistory): SavedHistory =>
       JSON.parse(JSON.stringify(saved));
 

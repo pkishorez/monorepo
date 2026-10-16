@@ -1,54 +1,53 @@
 import { Effect, Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
-import { Route } from '../index.ts';
+import { View } from '../../react/index.ts';
+import { Page, Router } from '../index.ts';
 import { tagsOf } from '../route/index.ts';
 
 /*
  * The Routes, read down from the root page: values, URLs both ways,
- * Metadata, places and the typing of the Loaders.
+ * Metadata, places, the typing of the Loaders, and the names of the builds.
  */
 
-const Invoices = Route.page({
+const Invoices = Page.define({
   path: '/invoices',
   metadata: { title: 'Invoices' },
-}).build({});
-const Billing = Route.page({
+});
+const Billing = Page.define({
   path: '/billing',
   metadata: { title: 'Billing' },
   pages: { Invoices },
-}).build({});
-const Settings = Route.page({ path: '/settings', pages: { Billing } }).build(
-  {},
-);
-const Member = Route.page({
+});
+const Settings = Page.define({ path: '/settings', pages: { Billing } });
+const Member = Page.define({
   path: '/:name',
   params: { name: Schema.String },
-}).build({});
-const Teams = Route.page({
+});
+const Teams = Page.define({
   path: '/teams/:team',
   params: { team: Schema.String },
   pages: { Member },
-}).build({});
-const Project = Route.page({
+});
+const Project = Page.define({
   path: '/:id',
   params: { id: Schema.FiniteFromString },
   metadata: ({ id }) => ({ title: `Project ${id}` }),
-}).build({});
-const Projects = Route.page({
+});
+const Projects = Page.define({
   path: '/projects',
   query: { q: Schema.optionalKey(Schema.String) },
   metadata: { title: 'Projects' },
   pages: { Project },
-}).build({});
-const Dashboard = Route.page({
+});
+const Dashboard = Page.define({
   path: '/',
   metadata: { title: 'Dashboard' },
-}).build({});
-const App = Route.page({
+});
+const App = Page.define({
   pages: { Dashboard, Projects, Teams, Settings },
-}).build({});
+});
 
-const Routes = Route.tree(App, {
+const Routes = Router.define(App, {
   redirect: { '/account': (r) => r.Settings() },
 });
 
@@ -87,10 +86,32 @@ describe('a place', () => {
     expect(typed).toBeTypeOf('function');
   });
 
-  it('is named after its key, its Actor and Place too', () => {
-    expect(Project.actor.name).toBe('Project');
-    expect(Project.place.name).toBe('ProjectPlace');
-    expect(App.actor.name).toBe('App');
+  it('is drawn by a build named after its key, the root by `App`', () => {
+    const ProjectLive = Page.build(Project);
+    const ProjectsLive = Page.build(Projects, {
+      pages: { Project: ProjectLive },
+    });
+    const BillingLive = Page.build(Billing, {
+      pages: { Invoices: Page.build(Invoices) },
+    });
+    const AppLive = Page.build(App, {
+      pages: {
+        Dashboard: Page.build(Dashboard),
+        Projects: ProjectsLive,
+        Teams: Page.build(Teams, { pages: { Member: Page.build(Member) } }),
+        Settings: Page.build(Settings, { pages: { Billing: BillingLive } }),
+      },
+    });
+    expect(ProjectLive.name).toBe('Project');
+    expect(ProjectsLive.name).toBe('Projects');
+    expect(BillingLive.pages.Invoices.name).toBe('Invoices');
+    // The root has no key: the Router names it once it is given its View.
+    expect(AppLive.name).toBe('Page');
+    Router.app(
+      Routes,
+      View.make(AppLive, () => null),
+    );
+    expect(AppLive.name).toBe('App');
   });
 });
 
@@ -184,16 +205,16 @@ describe('the paths', () => {
   });
 
   it('may not clash: two places at one path are refused', () => {
-    const A = Route.page({
+    const A = Page.define({
       path: '/x/:id',
       params: { id: Schema.String },
-    }).build({});
-    const B = Route.page({
+    });
+    const B = Page.define({
       path: '/x/:name',
       params: { name: Schema.String },
-    }).build({});
-    const Root = Route.page({ pages: { A, B } }).build({});
-    expect(() => Route.tree(Root)).toThrow(/A and B are both at \/x\/:name/);
+    });
+    const Root = Page.define({ pages: { A, B } });
+    expect(() => Router.define(Root)).toThrow(/A and B are both at \/x\/:name/);
   });
 });
 
@@ -215,7 +236,7 @@ describe('the Metadata', () => {
 // Data, Render Modes, Loaders ------------------------------------------------------
 
 const Post = Schema.Struct({ title: Schema.String });
-const About = Route.page({
+const About = Page.define({
   path: '/about',
   metadata: {
     title: 'About',
@@ -224,8 +245,8 @@ const About = Route.page({
     openGraph: { title: 'About Acme', image: '/og.png' },
     robots: 'index',
   },
-}).build({});
-const BlogPost = Route.page({
+});
+const BlogPost = Page.define({
   path: '/:slug',
   params: { slug: Schema.String },
   data: Post,
@@ -233,33 +254,33 @@ const BlogPost = Route.page({
     title: post?.title ?? 'A post',
     ...(post ? { openGraph: { title: post.title } } : {}),
   }),
-}).build({});
-const Blog = Route.page({
+});
+const Blog = Page.define({
   path: '/blog',
   data: Schema.Array(Post),
   metadata: { openGraph: { type: 'website', title: 'Blog' } },
   pages: { Post: BlogPost },
-}).build({});
-const AccountSettings = Route.page({ path: '/settings', data: Post }).build({});
-const Activity = Route.page({
+});
+const AccountSettings = Page.define({ path: '/settings', data: Post });
+const Activity = Page.define({
   path: '/activity',
   render: 'client',
   query: { since: Schema.optionalKey(Schema.String) },
   data: Post,
-}).build({});
-const Static = Route.page({
+});
+const Static = Page.define({
   path: '/static',
   render: 'static',
   data: Post,
-}).build({});
-const Account = Route.page({
+});
+const Account = Page.define({
   path: '/account/:team',
   params: { team: Schema.String },
   render: 'dynamic',
   pages: { Settings: AccountSettings, Activity, Static },
-}).build({});
-const SiteRoot = Route.page({ pages: { About, Blog, Account } }).build({});
-const Site = Route.tree(SiteRoot, {
+});
+const SiteRoot = Page.define({ pages: { About, Blog, Account } });
+const Site = Router.define(SiteRoot, {
   redirect: {
     '/posts/:slug': (r, { slug }) => r.Blog.Post({ slug }),
     '/teams/:team/settings': (r, { team }) => r.Account.Settings({ team }),
@@ -329,13 +350,13 @@ describe('the Loaders', () => {
       Blog: () => Effect.succeed([{ title: 'a' }]),
       'Blog.Post': ({ slug }) =>
         slug === 'x'
-          ? Effect.fail(Route.notFound())
+          ? Effect.fail(Page.notFound())
           : Effect.succeed({ title: slug }),
       'Account.Settings': ({ team }, request) =>
         Effect.succeed({ title: `${team} ${request.method}` }),
       'Account.Activity': ({ since }, _request) =>
         since === undefined
-          ? Effect.fail(Route.redirect(Site.About()))
+          ? Effect.fail(Page.redirect(Site.About()))
           : Effect.succeed({ title: since }),
       'Account.Static': ({ team }) => Effect.succeed({ title: team }),
     });
@@ -386,12 +407,12 @@ describe('the Loaders', () => {
   });
 
   it('fail with errors their Schemas can carry over the wire', () => {
-    const redirect = Route.redirect(Site.About());
-    const encoded = Schema.encodeUnknownSync(Route.Redirect)(redirect);
-    const decoded = Schema.decodeUnknownSync(Route.Redirect)(
+    const redirect = Page.redirect(Site.About());
+    const encoded = Schema.encodeUnknownSync(Page.Redirect)(redirect);
+    const decoded = Schema.decodeUnknownSync(Page.Redirect)(
       JSON.parse(JSON.stringify(encoded)),
     );
-    expect(decoded).toBeInstanceOf(Route.Redirect);
+    expect(decoded).toBeInstanceOf(Page.Redirect);
     expect(decoded.route).toEqual(Site.About());
   });
 });
@@ -436,14 +457,14 @@ describe('the Metadata, in full', () => {
 });
 
 describe("the root's Metadata", () => {
-  const Home = Route.page({ path: '/', metadata: { title: 'Home' } }).build({});
-  const Plain = Route.page({ path: '/about' }).build({});
-  const Rooted = Route.tree(
-    Route.page({ pages: { Home, About: Plain } }).build({}),
-    {
+  const Home = Page.define({ path: '/', metadata: { title: 'Home' } });
+  const Plain = Page.define({ path: '/about' });
+  const Rooted = Router.define(
+    Page.define({
       metadata: { title: 'Site', description: 'A site' },
-      notFound: { title: 'Not found', robots: 'noindex' },
-    },
+      pages: { Home, About: Plain },
+    }),
+    { notFound: { title: 'Not found', robots: 'noindex' } },
   );
 
   it('is under every place, field by field', () => {
@@ -466,8 +487,8 @@ describe("the root's Metadata", () => {
   });
 
   it('is a root page with no data', () => {
-    const Loaded = Route.page({ data: Post }).build({});
+    const Loaded = Page.define({ data: Post });
     // @ts-expect-error the root page has no data
-    expect(() => Route.tree(Loaded)).toThrow(/root page has no data/);
+    expect(() => Router.define(Loaded)).toThrow(/root page has no data/);
   });
 });

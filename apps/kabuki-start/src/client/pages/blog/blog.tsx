@@ -1,6 +1,7 @@
+import { View } from '@kestack/kabuki/react';
 import { motion } from 'motion/react';
-import { Route, Router } from '@kestack/kabuki/routing';
-import { Pages, Routes } from '../../../shared/index.ts';
+import { Router } from '@kestack/kabuki/routing';
+import { Pages, router } from '../../../shared/index.ts';
 import {
   Loaded,
   PlaceFrame,
@@ -23,7 +24,7 @@ import { PostView } from './post.tsx';
  * is not where it was kept.
  */
 
-export const BlogView = Route.view(Pages.Blog, (self) => {
+export const BlogView = View.make(Pages.BlogLive, (self) => {
   const post = self.children.Post;
   const open = self.props.route.page?.slug;
   return (
@@ -51,7 +52,7 @@ export const BlogView = Route.view(Pages.Blog, (self) => {
                   {data.posts.map((each, at) => (
                     <li key={each.slug}>
                       <Router.Link
-                        to={Routes.Blog.Post({ slug: each.slug })}
+                        to={router.Blog.Post({ slug: each.slug })}
                         resetScroll={false}
                         aria-current={open === each.slug ? 'page' : undefined}
                         className={`${row} aria-[current=page]:font-medium`}
@@ -75,19 +76,19 @@ export const BlogView = Route.view(Pages.Blog, (self) => {
                   <p className="font-mono">When it goes wrong</p>
                   <p className="flex flex-wrap gap-x-4 gap-y-1">
                     <Router.Link
-                      to={Routes.Blog.Post({ slug: 'broken' })}
+                      to={router.Blog.Post({ slug: 'broken' })}
                       className={link}
                     >
                       breaks
                     </Router.Link>
                     <Router.Link
-                      to={Routes.Blog.Post({ slug: 'missing' })}
+                      to={router.Blog.Post({ slug: 'missing' })}
                       className={link}
                     >
                       not found
                     </Router.Link>
                     <Router.Link
-                      to={Routes.Blog.Post({ slug: 'moved' })}
+                      to={router.Blog.Post({ slug: 'moved' })}
                       className={link}
                     >
                       moved

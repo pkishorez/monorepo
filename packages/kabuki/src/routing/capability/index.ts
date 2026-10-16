@@ -11,11 +11,5 @@ export {
   push,
   reload,
   replace,
-  routeOf,
 } from './navigation.ts';
-export type {
-  AnyRoute,
-  HashScrollOptions,
-  MoveOptions,
-  To,
-} from './navigation.ts';
+export type { AnyRoute, HashScrollOptions, MoveOptions } from './navigation.ts';

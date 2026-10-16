@@ -3,7 +3,8 @@ import type { Scope } from 'effect';
 import { describe, expect, it } from 'vitest';
 import { History, Runtime } from '../../core/index.ts';
 import type { Instance, Running, Types } from '../../core/index.ts';
-import { Loading, Route, Router } from '../index.ts';
+import { View } from '../../react/index.ts';
+import { Loading, Page, Router } from '../index.ts';
 
 /*
  * The Router and the Places, running in memory: each page's data is loaded
@@ -18,14 +19,15 @@ const PostData = Schema.Struct({
   body: Schema.String,
 });
 
-const Post = Route.page({
+const Post = Page.define({
   path: '/:slug',
   params: { slug: Schema.String },
   data: PostData,
   model: Schema.Struct({ draft: Schema.NullOr(Schema.String) }),
   message: Schema.TaggedUnion({ Edit: {}, Typed: { text: Schema.String } }),
   metadata: (_, post) => ({ title: post?.title ?? 'A post' }),
-}).build({
+});
+const PostLive = Page.build(Post, {
   init: () => ({ model: { draft: null } }),
   on: {
     Edit: (_, { props }) =>
@@ -35,20 +37,24 @@ const Post = Route.page({
     Typed: ({ text }) => ({ model: { draft: text } }),
   },
 });
-const Blog = Route.page({
+const Blog = Page.define({
   path: '/blog',
   query: { tag: Schema.optionalKey(Schema.String) },
   data: Schema.Array(Summary),
   pages: { Post },
-}).build({});
-const Home = Route.page({ path: '/', metadata: { title: 'Home' } }).build({});
-const Stats = Route.page({
+});
+const BlogLive = Page.build(Blog, { pages: { Post: PostLive } });
+const Home = Page.define({ path: '/', metadata: { title: 'Home' } });
+const Stats = Page.define({
   path: '/stats',
   render: 'client',
   data: Schema.Struct({ visits: Schema.Number }),
-}).build({});
-const App = Route.page({ pages: { Home, Blog, Stats } }).build({});
-const Routes = Route.tree(App, {
+});
+const App = Page.define({ pages: { Home, Blog, Stats } });
+const AppLive = Page.build(App, {
+  pages: { Home: Page.build(Home), Blog: BlogLive, Stats: Page.build(Stats) },
+});
+const Routes = Router.define(App, {
   redirect: { '/posts/:slug': (r, { slug }) => r.Blog.Post({ slug }) },
 });
 
@@ -93,21 +99,21 @@ const loaders = Routes.loaders({
       Effect.flatMap(
         (): Effect.Effect<
           typeof PostData.Type,
-          Route.NotFound | Route.Redirect
+          Page.NotFound | Page.Redirect
         > => {
           if (slug === 'old')
             return Effect.fail(
-              Route.redirect(Routes.Blog.Post({ slug: 'hello' })),
+              Page.redirect(Routes.Blog.Post({ slug: 'hello' })),
             );
           const post = POSTS.find((each) => each.slug === slug);
-          return post ? Effect.succeed(post) : Effect.fail(Route.notFound());
+          return post ? Effect.succeed(post) : Effect.fail(Page.notFound());
         },
       ),
     ),
   Stats: () => counted('Stats').pipe(Effect.as({ visits: 3 })),
 });
 
-const AppView = Route.view(App, () => null);
+const AppView = View.make(AppLive, () => null);
 const Root = Router.app(Routes, AppView);
 const loading = Router.cached(Routes, Router.memory(Routes, loaders));
 
@@ -554,7 +560,7 @@ describe('the not-found Route', () => {
 });
 
 it('types a page: its Props, its pages and its data', () => {
-  const probe = (props: Types<typeof Post.actor>['props']) => {
+  const probe = (props: Types<typeof PostLive>['props']) => {
     const { status: now } = props;
     // @ts-expect-error the data is there only once Ready
     void now.data;

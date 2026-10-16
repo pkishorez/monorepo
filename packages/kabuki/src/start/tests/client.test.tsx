@@ -8,7 +8,8 @@ import { client } from '../client/index.ts';
 import type { Build } from '../common/index.ts';
 import { server } from '../server/index.ts';
 import { Start } from '../common/index.ts';
-import started, { app } from './app/src/app.tsx';
+import started, { AppView } from './app/src/app.tsx';
+import { router } from './app/src/routes.ts';
 import Document from './app/src/document.tsx';
 import served, { reset, runs } from './app/src/loaders.server.ts';
 
@@ -167,7 +168,7 @@ describe('hydrating a page Start drew', () => {
     await until(() => document.querySelector('h1')?.textContent === 'Hello');
     await act(async () =>
       redraw!(
-        Start.app(app, {
+        Start.app(router, AppView, {
           document: ({ children }) => (
             <Document>
               <Running />
@@ -188,7 +189,7 @@ describe('hydrating a page Start drew', () => {
     await until(() => document.querySelector('h1')?.textContent === 'Hello');
     await act(async () =>
       redraw!(
-        Start.app(app, {
+        Start.app(router, AppView, {
           document: ({ children }) => (
             <Document>
               <p id="new">new code</p>

@@ -33,7 +33,7 @@
       "src/start/common"
     ],
     "src/start/vite": ["src/start/common", "src/start/platform"],
-    "src/start/common": ["src/core", "src/react", "src/routing/route"],
+    "src/start/common": ["src/core", "src/react", "src/routing"],
     "src/routing/capability": ["src/routing/route"],
     "src/routing/page": ["src/routing/route", "src/routing/capability"],
     "src/routing/scroll": []

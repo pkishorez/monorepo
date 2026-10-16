@@ -1,13 +1,14 @@
 import { AnimatePresence, motion } from 'motion/react';
 import type { ReactNode } from 'react';
-import { Route, Router, useRouter } from '@kestack/kabuki/routing';
+import { View } from '@kestack/kabuki/react';
+import { Router, useRouter } from '@kestack/kabuki/routing';
 import type { RouterState } from '@kestack/kabuki/routing';
-import { Routes } from '../../routes/index.ts';
+import { router } from '../../routes/index.ts';
 import type { Route as AppRoute } from '../../routes/index.ts';
 import { Case, Page, Running, tab } from '../../parts/index.ts';
 import { BillingView } from './billing/index.ts';
-import { Profile } from './profile/index.ts';
-import { Settings } from './settings.ts';
+import { ProfileView } from './profile/index.ts';
+import { SettingsLive } from './settings.ts';
 
 const ORDER = ['Profile', 'Billing'];
 const EASE = [0.32, 0.72, 0, 1] as const;
@@ -58,7 +59,7 @@ function Sliding({
   );
 }
 
-export const SettingsView = Route.view(Settings, (self) => {
+export const SettingsView = View.make(SettingsLive, (self) => {
   const { page } = self.props.route;
   const { profile, Billing } = self.children;
   return (
@@ -69,14 +70,14 @@ export const SettingsView = Route.view(Settings, (self) => {
             <Router.Link
               className={tab}
               aria-current={page ? undefined : 'page'}
-              to={Routes.Settings()}
+              to={router.Settings()}
             >
               Profile
             </Router.Link>
             <Router.Link
               className={tab}
               aria-current={page?._tag === 'Billing' ? 'page' : undefined}
-              to={Routes.Settings.Billing()}
+              to={router.Settings.Billing()}
             >
               Billing
             </Router.Link>
@@ -85,7 +86,7 @@ export const SettingsView = Route.view(Settings, (self) => {
         </div>
         <div className="grid *:col-start-1 *:row-start-1">
           <Sliding section={page?._tag ?? 'Profile'}>
-            {profile && <Profile.view instance={profile} />}
+            {profile && <ProfileView instance={profile} />}
             {Billing && <BillingView instance={Billing} />}
           </Sliding>
         </div>

@@ -7,11 +7,11 @@
 
 /** Sentences the posts are written from: each post takes its own run of them. */
 const SENTENCES = [
-  'Route.page is Actor.make with a place in the URL.',
+  'Page.define is Actor.define with a place in the URL, and Page.build is Actor.build.',
   'The page writes its own Model, States, Messages, Children and Workers, as any Actor does.',
-  'Kabuki writes one more Actor around it, the Place, which loads its data and hands it in as status.',
+  'The Router loads its data and hands it in as status.',
   'A page draws Loading, Failed and Ready itself, with a switch on its status.',
-  'Every page on a URL has its own Place, and every Place loads its own data.',
+  'Every page on a URL loads its own data.',
   'Opened at a member, the team and the member start loading together.',
   'The browser asks for both in one request: the Data cache batches what is asked for in the same moment.',
   'Each answer comes back on its own line, as soon as its Loader is done.',
@@ -26,7 +26,7 @@ const SENTENCES = [
   'Pages whose key did not change are kept, with their Model and their State.',
   'A static page is drawn once per deploy per data center, and kept in the edge Cache.',
   'A client page is sent loading: the browser loads its data once the Runtime starts.',
-  'Each Scroll area is put back by its own Place, once its data is drawn.',
+  'Each Scroll area is put back by its own page, once its data is drawn.',
   'A page a move keeps is never drawn again, so its scroll is never touched.',
   'Per entry, Back and Forward return each area to where it was on that entry.',
   'Per URL, any way back to a place finds it where it was left, a plain link too.',
@@ -195,7 +195,7 @@ const DONE = [
   'paired on a Loader',
   'drew a new loading screen',
   'measured a cold start at the edge',
-  'answered a question about Places',
+  'answered a question about pages',
   'tidied the Timeline',
 ] as const;
 

@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { sceneOf } from './scene/index.ts';
 import type { Kind, Placed } from './scene/index.ts';
-import { SHOP_STEPS, Shop } from './fixtures/steps.ts';
+import { SHOP_STEPS, ShopLive } from './fixtures/steps.ts';
 
 const scene = (
   step: number,
   extra: Partial<Parameters<typeof sceneOf>[0]> = {},
 ) =>
   sceneOf({
-    definition: Shop.definition,
+    definition: ShopLive.definition,
     snapshot: SHOP_STEPS[step]!.snapshot,
     ...(SHOP_STEPS[step]!.said ? { said: SHOP_STEPS[step]!.said } : {}),
     ...extra,

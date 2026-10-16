@@ -1,5 +1,5 @@
 import { Schema } from 'effect';
-import { Route } from '@kestack/kabuki/routing';
+import { Page } from '@kestack/kabuki/routing';
 import { about, Post as PostData } from '../../data/index.ts';
 
 /*
@@ -9,7 +9,7 @@ import { about, Post as PostData } from '../../data/index.ts';
  * Redirects to a post that is there.
  */
 
-export const Post = Route.page({
+export const Post = Page.define({
   path: '/:slug',
   params: { slug: Schema.String },
   data: PostData,
@@ -17,4 +17,6 @@ export const Post = Route.page({
     about(`/blog/${slug}`, post?.title ?? 'A post', post?.summary ?? '', {
       type: 'article',
     }),
-}).build({});
+});
+
+export const PostLive = Page.build(Post);

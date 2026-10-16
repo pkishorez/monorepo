@@ -1,14 +1,14 @@
 import path from 'node:path';
 
 /*
- * Every `View.lazy(() => import('./x'))` given the id of the module it
+ * Every `View.lazy(Actor, () => import('./x'))` given the id of the module it
  * loads: its path from the Vite root, which is its key in the client
  * manifest. The server and the browser both see the same id, so a page
  * names the lazy Views it drew and the browser preloads them.
  */
 
 const LAZY =
-  /View\.lazy\(\s*\(\)\s*=>\s*import\(\s*(['"`])([^'"`]+)\1\s*\)\s*\)/g;
+  /View\.lazy\(\s*[\w$.]+\s*,\s*\(\)\s*=>\s*import\(\s*(['"`])([^'"`]+)\1\s*\)\s*\)/g;
 
 export const mentionsLazy = (code: string) => code.includes('View.lazy');
 

@@ -4,11 +4,11 @@ import { createRoot } from 'react-dom/client';
 import type { Root as ReactRoot } from 'react-dom/client';
 import { Effect, Layer, Schema } from 'effect';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { toReact } from '../../react/index.ts';
+import { View, toReact } from '../../react/index.ts';
 import { registry } from '../../react/registry.ts';
 import { KEY } from '../adapter/index.ts';
 import { browser } from '../adapter/browser/index.ts';
-import { Navigation, Route, Router } from '../index.ts';
+import { Page, Router } from '../index.ts';
 import type { ScrollRestorationOptions } from '../index.ts';
 import { scriptFor } from '../scroll/index.ts';
 import { selectorOf } from '../scroll/selector.ts';
@@ -82,11 +82,30 @@ const scroll = async (target: Element | Window, y: number) => {
   await act(async () => void on.dispatchEvent(new Event('scroll')));
 };
 
-const Message = Route.page({
+const Message = Page.define({
   path: '/:id',
   params: { id: Schema.String },
-}).build({});
-const MessageView = Route.view(Message, ({ props }) => (
+});
+const Folder = Page.define({
+  path: '/f/:folder',
+  params: { folder: Schema.String },
+  pages: { Message },
+});
+const Slow = Page.define({
+  path: '/slow',
+  data: Schema.Struct({ text: Schema.String }),
+});
+const Settings = Page.define({
+  path: '/settings',
+  query: { tab: Schema.optionalKey(Schema.String) },
+  message: Schema.TaggedUnion({ Tabbed: { keep: Schema.Boolean } }),
+});
+const App = Page.define({ pages: { Folder, Settings, Slow } });
+/** The Routes the pages link to; each test draws a router of its own, with its scroll options. */
+const Routes = Router.define(App);
+
+const MessageLive = Page.build(Message);
+const MessageView = View.make(MessageLive, ({ props }) => (
   <article id="pane">
     message {props.params.id}
     <h2 id="part-2">part two</h2>
@@ -96,12 +115,8 @@ const MessageView = Route.view(Message, ({ props }) => (
   </article>
 ));
 
-const Folder = Route.page({
-  path: '/f/:folder',
-  params: { folder: Schema.String },
-  pages: { Message },
-}).build({});
-const FolderView = Route.view(Folder, (self) => (
+const FolderLive = Page.build(Folder, { pages: { Message: MessageLive } });
+const FolderView = View.make(FolderLive, (self) => (
   <section>
     <ul id="list" data-scroll-restoration-id="list">
       <li>
@@ -114,32 +129,24 @@ const FolderView = Route.view(Folder, (self) => (
   </section>
 ));
 
-const Slow = Route.page({
-  path: '/slow',
-  data: Schema.Struct({ text: Schema.String }),
-}).build({});
-const SlowView = Route.view(Slow, ({ props }) => (
+const SlowLive = Page.build(Slow);
+const SlowView = View.make(SlowLive, ({ props }) => (
   <p>{props.status._tag === 'Ready' ? props.status.data.text : 'loading'}</p>
 ));
 /** Holds the slow page's Loader until it is let go. */
 let letGo: () => void = () => {};
 
-const Settings = Route.page({
-  path: '/settings',
-  query: { tab: Schema.optionalKey(Schema.String) },
-  requires: [Navigation],
-  message: Schema.TaggedUnion({ Tabbed: { keep: Schema.Boolean } }),
-}).build({
+const SettingsLive = Page.build(Settings, {
   on: {
     Tabbed: ({ keep }) => ({
       command: Router.replace(
-        () => Routes.Settings({ tab: 'two' }),
+        Routes.Settings({ tab: 'two' }),
         keep ? { resetScroll: false } : {},
       ),
     }),
   },
 });
-const SettingsView = Route.view(Settings, ({ send }) => (
+const SettingsView = View.make(SettingsLive, ({ send }) => (
   <div>
     settings
     <button onClick={() => send({ _tag: 'Tabbed', keep: false })}>tab</button>
@@ -160,8 +167,10 @@ const SettingsView = Route.view(Settings, ({ send }) => (
   </div>
 ));
 
-const App = Route.page({ pages: { Folder, Settings, Slow } }).build({});
-const AppView = Route.view(App, (self) => (
+const AppLive = Page.build(App, {
+  pages: { Folder: FolderLive, Settings: SettingsLive, Slow: SlowLive },
+});
+const AppView = View.make(AppLive, (self) => (
   <main id="main">
     <Router.Link to={Routes.Settings()}>to settings</Router.Link>
     {self.children.Folder && <FolderView instance={self.children.Folder} />}
@@ -171,7 +180,6 @@ const AppView = Route.view(App, (self) => (
     {self.children.Slow && <SlowView instance={self.children.Slow} />}
   </main>
 ));
-const Routes = Route.tree(App);
 type AnyRoute = typeof Routes.route.Type;
 
 const tick = () => act(() => new Promise((done) => setTimeout(done, 20)));
@@ -190,13 +198,14 @@ let runtime: { readonly show: (step: number | null) => void } | undefined;
 const load = async () => {
   await act(async () => root?.unmount());
   registry.clear();
-  const Root = Router.app(Routes, AppView, options);
+  const routed = Router.define(App, options);
+  const Root = Router.app(routed, AppView);
   const Drawn = toReact(
     Root.actor,
     Root.view,
     Layer.mergeAll(
       browser(),
-      Router.memory(Routes, {
+      Router.memory(routed, {
         Slow: () =>
           Effect.promise(
             () => new Promise<void>((done) => (letGo = done)),
@@ -416,9 +425,10 @@ describe('a reload', () => {
     expect(Router.app(Routes, AppView).restoreScroll(Routes.Settings())).toBe(
       null,
     );
-    const script = Router.app(Routes, AppView, {
-      scrollRestoration: true,
-    }).restoreScroll(Routes.Settings())!;
+    const script = Router.app(
+      Router.define(App, { scrollRestoration: true }),
+      AppView,
+    ).restoreScroll(Routes.Settings())!;
     host.innerHTML = '<div id="pane"></div>';
     sessionStorage.setItem(
       '@kestack/kabuki/routing:scroll',

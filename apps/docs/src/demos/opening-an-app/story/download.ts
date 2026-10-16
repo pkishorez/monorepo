@@ -41,7 +41,7 @@ const resume = Command.make('resume', {
  * says how far along it is. Downloads owns whether it is paused: Pause and
  * Resume ask it, through what it Provides.
  */
-export const Download = Actor.make('Download', {
+export const Download = Actor.define('Download', {
   requires: [Shelf],
   input: Schema.Struct({ id: Schema.String, name: Schema.String }),
   props: Schema.Struct({ paused: Schema.Boolean }),
@@ -58,7 +58,9 @@ export const Download = Actor.make('Download', {
     Resume: {},
     Cancel: {},
   }),
-}).build({
+});
+
+export const DownloadLive = Actor.build(Download, {
   init: ({ id, name }) => ({
     model: { id, name, done: 0 },
     state: { _tag: 'Downloading' },

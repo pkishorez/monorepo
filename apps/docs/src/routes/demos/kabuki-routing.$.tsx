@@ -1,11 +1,11 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { KabukiRouting, Routes } from '@/demos/kabuki-routing';
+import { KabukiRouting, router } from '@/demos/kabuki-routing';
 import { ThemeToggle } from '@/lib/theme';
 
 /**
  * The hand-over: TanStack matches everything under /demos/kabuki-routing
  * once, here, and the Kabuki app routes the rest itself. The title comes
- * from the app's Routes, worked out from the URL alone.
+ * from the app's router, worked out from the URL alone.
  */
 export const Route = createFileRoute('/demos/kabuki-routing/$')({
   // The app reads its first Route from the browser's URL, so it is drawn in
@@ -21,7 +21,7 @@ export const Route = createFileRoute('/demos/kabuki-routing/$')({
     meta: [
       {
         title:
-          Routes.metadata(`/${params._splat ?? ''}`).title ??
+          router.metadata(`/${params._splat ?? ''}`).title ??
           'Routing · Kabuki',
       },
       {

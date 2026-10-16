@@ -21,7 +21,7 @@ const every = (millis: number, effect: Effect.Effect<void>) =>
   Effect.forever(Effect.sleep(millis).pipe(Effect.andThen(effect)));
 
 /** Where the user lands: the name App hands it, a heartbeat, and a sync they turn on and off. */
-export const Home = Actor.make('Home', {
+export const Home = Actor.define('Home', {
   requires: [Session],
   props: Schema.Struct({ name: Schema.String }),
   model: Schema.Struct({
@@ -39,7 +39,9 @@ export const Home = Actor.make('Home', {
     Synced: {},
     SignOut: {},
   }),
-}).build({
+});
+
+export const HomeLive = Actor.build(Home, {
   init: () => ({
     model: { beats: 0, sync: false, synced: 0, last: null, signingOut: false },
   }),

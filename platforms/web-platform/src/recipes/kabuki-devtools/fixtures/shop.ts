@@ -30,18 +30,22 @@ const after =
   (self: { readonly send: (message: M) => Effect.Effect<void> }) =>
     Effect.sleep(millis).pipe(Effect.andThen(self.send(message)));
 
-export const Review = Actor.make('Review', {
+const Review = Actor.define('Review', {
   input: Schema.Struct({ text: Schema.String }),
   model: Schema.Struct({ text: Schema.String }),
-}).build({ init: ({ text }) => ({ model: { text } }) });
+});
+export const ReviewLive = Actor.build(Review, {
+  init: ({ text }) => ({ model: { text } }),
+});
 
-export const Upload = Actor.make('Upload', {
+const Upload = Actor.define('Upload', {
   state: Schema.TaggedUnion({
     Sending: {},
     Retrying: { attempt: Schema.Number },
   }),
   message: Schema.TaggedUnion({ Failed: {}, Retry: {} }),
-}).build({
+});
+export const UploadLive = Actor.build(Upload, {
   init: () => ({ state: { _tag: 'Sending' } }),
   state: {
     Sending: {
@@ -55,7 +59,7 @@ export const Upload = Actor.make('Upload', {
   },
 });
 
-export const Item = Actor.make('Item', {
+const Item = Actor.define('Item', {
   input: Schema.Struct({ name: Schema.String, reviews: Schema.Number }),
   model: Schema.Struct({
     name: Schema.String,
@@ -63,7 +67,8 @@ export const Item = Actor.make('Item', {
   }),
   state: Schema.TaggedUnion({ Idle: {}, Saving: {} }),
   message: Schema.TaggedUnion({ Save: {}, Saved: {} }),
-}).build({
+});
+export const ItemLive = Actor.build(Item, {
   init: ({ name, reviews }) => ({
     model: {
       name,
@@ -73,7 +78,7 @@ export const Item = Actor.make('Item', {
   }),
   children: {
     reviews: {
-      actor: Review,
+      actor: ReviewLive,
       each: ({ model }) => model.reviews,
       input: ({ model }, key) => ({ text: `${model.name} ${key}` }),
     },
@@ -81,7 +86,7 @@ export const Item = Actor.make('Item', {
   state: {
     Idle: { on: { Save: () => ({ state: { _tag: 'Saving' } }) } },
     Saving: {
-      children: { upload: { actor: Upload } },
+      children: { upload: { actor: UploadLive } },
       workers: { save: { run: after(6000, { _tag: 'Saved' } as const) } },
       on: { Saved: () => ({ state: { _tag: 'Idle' } }) },
     },
@@ -90,7 +95,7 @@ export const Item = Actor.make('Item', {
 
 const REVIEWS: Record<string, number> = { tea: 3, cup: 2, pot: 0 };
 
-export const Catalog = Actor.make('Catalog', {
+const Catalog = Actor.define('Catalog', {
   model: Schema.Struct({
     ids: Schema.Array(Schema.String),
     thumbs: Schema.Array(Schema.String),
@@ -100,13 +105,14 @@ export const Catalog = Actor.make('Catalog', {
     Queued: { ids: Schema.Array(Schema.String) },
     Thumbed: { id: Schema.String },
   }),
-}).build({
+});
+export const CatalogLive = Actor.build(Catalog, {
   init: () => ({
     model: { ids: ['tea', 'cup', 'pot'], thumbs: ['tea', 'cup', 'pot'] },
   }),
   children: {
     items: {
-      actor: Item,
+      actor: ItemLive,
       each: ({ model }) => model.ids,
       input: (_, id) => ({ name: id, reviews: REVIEWS[id] ?? 1 }),
     },
@@ -136,25 +142,22 @@ export const Catalog = Actor.make('Catalog', {
   },
 });
 
-export const RecommendationCarousel = Actor.make(
-  'RecommendationCarousel',
-  {},
-).build({
+const RecommendationCarousel = Actor.define('RecommendationCarousel', {});
+export const RecommendationCarouselLive = Actor.build(RecommendationCarousel, {
   workers: { rotate: { run: never } },
 });
 
-export const ThreeDSecureChallenge = Actor.make(
-  'ThreeDSecureChallenge',
-  {},
-).build({
+const ThreeDSecureChallenge = Actor.define('ThreeDSecureChallenge', {});
+export const ThreeDSecureChallengeLive = Actor.build(ThreeDSecureChallenge, {
   workers: { poll: { run: never } },
 });
 
-export const Payment = Actor.make('Payment', {
+const Payment = Actor.define('Payment', {
   model: Schema.Struct({ polls: Schema.Number }),
   state: Schema.TaggedUnion({ Authorising: {}, Challenge: {}, Captured: {} }),
   message: Schema.TaggedUnion({ Challenged: {}, Polled: {}, Passed: {} }),
-}).build({
+});
+export const PaymentLive = Actor.build(Payment, {
   init: () => ({ model: { polls: 0 }, state: { _tag: 'Authorising' } }),
   state: {
     Authorising: {
@@ -164,7 +167,7 @@ export const Payment = Actor.make('Payment', {
       on: { Challenged: () => ({ state: { _tag: 'Challenge' } }) },
     },
     Challenge: {
-      children: { challenge: { actor: ThreeDSecureChallenge } },
+      children: { challenge: { actor: ThreeDSecureChallengeLive } },
       workers: { wait: { run: after(2500, { _tag: 'Polled' } as const) } },
       on: {
         Polled: (_, { model }) => ({
@@ -188,7 +191,7 @@ const capture = Command.make('capture', {
   run: () => Effect.succeed({ _tag: 'Passed' as const }),
 });
 
-export const Cart = Actor.make('Cart', {
+const Cart = Actor.define('Cart', {
   state: Schema.TaggedUnion({
     Empty: {},
     Filled: { count: Schema.Number },
@@ -199,7 +202,8 @@ export const Cart = Actor.make('Cart', {
     CheckedOut: {},
     Tracked: {},
   }),
-}).build({
+});
+export const CartLive = Actor.build(Cart, {
   init: () => ({ state: { _tag: 'Empty' } }),
   on: { Tracked: () => ({}) },
   state: {
@@ -224,14 +228,15 @@ export const Cart = Actor.make('Cart', {
     },
     Checkout: {
       workers: { pay: { run: never } },
-      children: { payment: { actor: Payment } },
+      children: { payment: { actor: PaymentLive } },
     },
   },
 });
 
-export const Session = Actor.make('Session', {
+const Session = Actor.define('Session', {
   message: Schema.TaggedUnion({ Beat: {} }),
-}).build({
+});
+export const SessionLive = Actor.build(Session, {
   workers: {
     heartbeat: {
       run: (self) =>
@@ -241,14 +246,16 @@ export const Session = Actor.make('Session', {
   on: { Beat: () => ({}) },
 });
 
-export const Notice = Actor.make('Notice', {}).build({});
+const Notice = Actor.define('Notice', {});
+export const NoticeLive = Actor.build(Notice, {});
 
-export const Shop = Actor.make('Shop', {
+const Shop = Actor.define('Shop', {
   state: Schema.TaggedUnion({ Loading: {}, Open: {}, Closed: {} }),
   message: Schema.TaggedUnion({ Loaded: {}, Close: {}, Reopen: {} }),
-}).build({
+});
+export const ShopLive = Actor.build(Shop, {
   init: () => ({ state: { _tag: 'Loading' } }),
-  children: { session: { actor: Session } },
+  children: { session: { actor: SessionLive } },
   state: {
     Loading: {
       workers: { fetch: { run: after(1200, { _tag: 'Loaded' } as const) } },
@@ -256,14 +263,14 @@ export const Shop = Actor.make('Shop', {
     },
     Open: {
       children: {
-        catalog: { actor: Catalog },
-        cart: { actor: Cart },
-        recommendations: { actor: RecommendationCarousel },
+        catalog: { actor: CatalogLive },
+        cart: { actor: CartLive },
+        recommendations: { actor: RecommendationCarouselLive },
       },
       on: { Close: () => ({ state: { _tag: 'Closed' } }) },
     },
     Closed: {
-      children: { notice: { actor: Notice } },
+      children: { notice: { actor: NoticeLive } },
       on: { Reopen: () => ({ state: { _tag: 'Open' } }) },
     },
   },

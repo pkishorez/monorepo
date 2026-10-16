@@ -14,7 +14,7 @@ export interface Wanted {
 export type Answer = Outcome & { readonly stale?: boolean };
 
 /**
- * The Capability the Router and every Place use, if the Layer has it, to
+ * The Capability the Router uses, if the Layer has it, to
  * load the data of places: many at once, each answered on its own, never
  * failing. In a browser under Start it is the Loader RPC's client behind
  * the Data cache; in a test, a memory one. With none, a place with data
@@ -90,7 +90,7 @@ type ServicesOf<L> = {
 }[keyof L & string];
 
 /**
- * A `Loading` that runs the Loaders in place, as `Routes.loaders` types them:
+ * A `Loading` that runs the Loaders in place, as `router.loaders` types them:
  * for tests, stories, a server, and an app with no server. A dynamic or
  * client place's Loader is handed `request()`, a plain GET of
  * `http://memory/` by default.

@@ -6,6 +6,7 @@ export type {
   Behavior,
   Child,
   Data,
+  AnyDefined,
   Defined,
   ActorDefinition,
   KidsByState,

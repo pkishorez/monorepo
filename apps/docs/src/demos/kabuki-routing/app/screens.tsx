@@ -10,7 +10,7 @@ import {
   Settings2,
 } from 'lucide-react';
 import { Router, useRouter } from '@kestack/kabuki/routing';
-import { BASE, Routes } from '../routes/index.ts';
+import { BASE, router } from '../routes/index.ts';
 import type { Route } from '../routes/index.ts';
 import { Case, Page, chip } from '../parts/index.ts';
 
@@ -24,19 +24,19 @@ const tool =
  * the browser's.
  */
 export function Toolbar() {
-  const router = useRouter<Route>();
+  const state = useRouter<Route>();
   const [open, setOpen] = useState(false);
-  const path = router.href.startsWith(BASE)
-    ? router.href.slice(BASE.length) || '/'
-    : router.href;
+  const path = state.href.startsWith(BASE)
+    ? state.href.slice(BASE.length) || '/'
+    : state.href;
   return (
     <div className="relative flex h-11 shrink-0 items-center gap-1 border-b border-border bg-muted/40 px-2">
       <button
         type="button"
         aria-label="Back"
         className={tool}
-        disabled={!router.canGoBack}
-        onClick={router.back}
+        disabled={!state.canGoBack}
+        onClick={state.back}
       >
         <ArrowLeft className="size-4" />
       </button>
@@ -44,8 +44,8 @@ export function Toolbar() {
         type="button"
         aria-label="Forward"
         className={tool}
-        disabled={!router.canGoForward}
-        onClick={router.forward}
+        disabled={!state.canGoForward}
+        onClick={state.forward}
       >
         <ArrowRight className="size-4" />
       </button>
@@ -55,7 +55,7 @@ export function Toolbar() {
           {path}
         </code>
         <span className="hidden shrink-0 truncate text-muted-foreground @xl:block">
-          {router.title}
+          {state.title}
         </span>
       </div>
       <button
@@ -66,27 +66,27 @@ export function Toolbar() {
       >
         <History className="size-3.5" />
         <span className="tabular-nums">
-          {router.at + 1}/{router.entries.length}
+          {state.at + 1}/{state.entries.length}
         </span>
       </button>
       {open && (
         <ol className="absolute top-full right-2 z-30 mt-1 flex max-h-80 w-80 flex-col overflow-y-auto rounded-xl border border-border bg-popover p-1 shadow-[0_8px_32px_-8px_rgb(0_0_0/0.25)]">
-          {router.entries.map((entry, index) => (
+          {state.entries.map((entry, index) => (
             <li key={entry.key}>
               <button
                 type="button"
                 onClick={() => {
-                  router.goTo(index);
+                  state.goTo(index);
                   setOpen(false);
                 }}
-                aria-current={index === router.at ? 'true' : undefined}
+                aria-current={index === state.at ? 'true' : undefined}
                 className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs hover:bg-muted aria-[current=true]:bg-muted aria-[current=true]:font-medium"
               >
                 <span className="w-4 text-muted-foreground tabular-nums">
                   {index + 1}
                 </span>
                 <code className="truncate font-mono">
-                  {Routes.path(entry.route)}
+                  {router.path(entry.route)}
                 </code>
               </button>
             </li>
@@ -97,12 +97,12 @@ export function Toolbar() {
   );
 }
 
-/** Where the signed-in app goes. Made when drawn: the Routes read this module before they are made. */
+/** Where the signed-in app goes. Made when drawn: this module loads before the router can be read. */
 const nav = () =>
   [
-    ['Dashboard', Routes.Dashboard(), LayoutDashboard],
-    ['Projects', Routes.Projects(), FolderKanban],
-    ['Settings', Routes.Settings(), Settings2],
+    ['Dashboard', router.Dashboard(), LayoutDashboard],
+    ['Projects', router.Projects(), FolderKanban],
+    ['Settings', router.Settings(), Settings2],
   ] as const;
 
 /** The signed-in app around a page: where to go, and who is signed in. */
@@ -182,15 +182,15 @@ export function Landing() {
         </p>
       </div>
       <div className="flex flex-wrap justify-center gap-2">
-        <Router.Link className={chip} to={Routes.SignIn()}>
+        <Router.Link className={chip} to={router.SignIn()}>
           Sign in
         </Router.Link>
-        <Router.Link className={chip} to={Routes.Settings.Billing.Invoices()}>
+        <Router.Link className={chip} to={router.Settings.Billing.Invoices()}>
           Straight to the invoices
         </Router.Link>
         <Router.Link
           className={chip}
-          to={Routes.Projects.Project.Share({ id: 3 })}
+          to={router.Projects.Project.Share({ id: 3 })}
         >
           Straight to a dialog
         </Router.Link>
@@ -228,7 +228,7 @@ export function SignInCard({
         {children}
         <Router.Link
           className="text-center text-xs text-muted-foreground hover:text-foreground"
-          to={Routes.Home()}
+          to={router.Home()}
         >
           Back to the public page
         </Router.Link>
@@ -260,7 +260,7 @@ export function NotFound({ path }: { readonly path: string }) {
         and draws it like any page.
       </Case>
       <div>
-        <Router.Link className={chip} to={Routes.Dashboard()}>
+        <Router.Link className={chip} to={router.Dashboard()}>
           Back to the dashboard
         </Router.Link>
       </div>

@@ -5,11 +5,11 @@ import type { Root as ReactRoot } from 'react-dom/client';
 import { Effect, Layer, Schema } from 'effect';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { Runtime } from '../../core/index.ts';
-import { toReact } from '../../react/index.ts';
+import { View, toReact } from '../../react/index.ts';
 import { registry } from '../../react/registry.ts';
 import { keyIn } from '../adapter/index.ts';
 import { browser } from '../adapter/browser/index.ts';
-import { Route, Router, usePending, useRouter } from '../index.ts';
+import { Page, Router, useRouter } from '../index.ts';
 
 /*
  * The router drawn in a document: link clicks, the browser Adapter, Back and
@@ -23,12 +23,13 @@ function First({ id }: { readonly id: number }) {
   return <p id="first">{first}</p>;
 }
 
-const Project = Route.page({
+const Project = Page.define({
   path: '/:id',
   params: { id: Schema.FiniteFromString },
   metadata: ({ id }) => ({ title: `Project ${id}` }),
-}).build({});
-const ProjectView = Route.view(Project, ({ props }) => (
+});
+const ProjectLive = Page.build(Project);
+const ProjectView = View.make(ProjectLive, ({ props }) => (
   <main>
     project {props.params.id}
     <First id={props.params.id} />
@@ -36,12 +37,13 @@ const ProjectView = Route.view(Project, ({ props }) => (
   </main>
 ));
 
-const Projects = Route.page({
+const Projects = Page.define({
   path: '/projects',
   metadata: { title: 'Projects' },
   pages: { Project },
-}).build({});
-const ProjectsView = Route.view(Projects, (self) =>
+});
+const ProjectsLive = Page.build(Projects, { pages: { Project: ProjectLive } });
+const ProjectsView = View.make(ProjectsLive, (self) =>
   self.children.Project ? (
     <ProjectView instance={self.children.Project} />
   ) : (
@@ -49,8 +51,9 @@ const ProjectsView = Route.view(Projects, (self) =>
   ),
 );
 
-const Home = Route.page({ path: '/', metadata: { title: 'Home' } }).build({});
-const HomeView = Route.view(Home, () => (
+const Home = Page.define({ path: '/', metadata: { title: 'Home' } });
+const HomeLive = Page.build(Home);
+const HomeView = View.make(HomeLive, () => (
   <main>
     home
     <Router.Link to={Routes.Projects.Project({ id: 7 })}>seven</Router.Link>
@@ -66,8 +69,11 @@ const HomeView = Route.view(Home, () => (
   </main>
 ));
 
-const App = Route.page({ pages: { Home, Projects } }).build({});
-const AppView = Route.view(App, (self) => (
+const App = Page.define({ pages: { Home, Projects } });
+const AppLive = Page.build(App, {
+  pages: { Home: HomeLive, Projects: ProjectsLive },
+});
+const AppView = View.make(AppLive, (self) => (
   <>
     {self.children.Home && <HomeView instance={self.children.Home} />}
     {self.children.Projects && (
@@ -76,8 +82,9 @@ const AppView = Route.view(App, (self) => (
     {self.props.route.notFound !== null && <main>nowhere</main>}
   </>
 ));
-const Routes = Route.tree(App, {
+const Routes = Router.define(App, {
   redirect: { '/old': (r) => r.Projects() },
+  base: '/app',
 });
 
 const tick = () => act(() => new Promise((done) => setTimeout(done, 0)));
@@ -108,7 +115,7 @@ afterEach(async () => {
 /** Draw the app, in memory or on the browser's history at `/app`. */
 const draw = async (adapter: 'memory' | 'browser', at = '/app') => {
   history.replaceState(null, '', at);
-  const Root = Router.app(Routes, AppView, { base: '/app' });
+  const Root = Router.app(Routes, AppView);
   const Drawn =
     adapter === 'memory'
       ? toReact(Root.actor, Root.view, Layer.empty, {
@@ -221,7 +228,7 @@ describe('a reload', () => {
   const reload = async () => {
     await act(async () => root?.unmount());
     registry.clear();
-    const Root = Router.app(Routes, AppView, { base: '/app' });
+    const Root = Router.app(Routes, AppView);
     const Drawn = toReact(Root.actor, Root.view, browser(), {
       name: `browser-${count++}`,
       input: Root.startAt,
@@ -260,7 +267,7 @@ describe('a reload', () => {
 
 describe('a page with data', () => {
   const ItemData = Schema.Struct({ name: Schema.String });
-  const Item = Route.page({
+  const Item = Page.define({
     path: '/items/:id',
     params: { id: Schema.FiniteFromString },
     data: ItemData,
@@ -268,8 +275,9 @@ describe('a page with data', () => {
       title: item?.name ?? 'An item',
       ...(item ? { openGraph: { title: item.name } } : {}),
     }),
-  }).build({});
-  const ItemView = Route.view(Item, ({ props }) => {
+  });
+  const ItemLive = Page.build(Item);
+  const ItemView = View.make(ItemLive, ({ props }) => {
     switch (props.status._tag) {
       case 'Loading':
         return <main>loading item {props.params.id}</main>;
@@ -289,11 +297,12 @@ describe('a page with data', () => {
         );
     }
   });
-  const Front = Route.page({
+  const Front = Page.define({
     path: '/',
     metadata: { title: 'Shop', description: 'Everything' },
-  }).build({});
-  const FrontView = Route.view(Front, () => (
+  });
+  const FrontLive = Page.build(Front);
+  const FrontView = View.make(FrontLive, () => (
     <main>
       front
       <Router.Link to={Shop.Item({ id: 2 })} id="lamp">
@@ -305,15 +314,18 @@ describe('a page with data', () => {
     </main>
   ));
   function Progress() {
-    const pending = usePending<typeof Shop.route.Type>();
+    const { pending } = useRouter<typeof Shop.route.Type>();
     return pending ? <p>moving to {Shop.path(pending.to)}</p> : null;
   }
   function From() {
     const { move } = useRouter();
     return <p>from {move.from?._tag ?? 'nowhere'}</p>;
   }
-  const ShopRoot = Route.page({ pages: { Front, Item } }).build({});
-  const ShopView = Route.view(ShopRoot, (self) => (
+  const ShopRoot = Page.define({ pages: { Front, Item } });
+  const ShopLive = Page.build(ShopRoot, {
+    pages: { Front: FrontLive, Item: ItemLive },
+  });
+  const ShopView = View.make(ShopLive, (self) => (
     <>
       <Progress />
       <From />
@@ -321,7 +333,7 @@ describe('a page with data', () => {
       {self.children.Item && <ItemView instance={self.children.Item} />}
     </>
   ));
-  const Shop = Route.tree(ShopRoot, { preloadDelay: 20 });
+  const Shop = Router.define(ShopRoot, { preloadDelay: 20 });
 
   let open: () => void = () => {};
   let broken = false;
@@ -473,7 +485,7 @@ describe('a page with data', () => {
 describe('the Timeline', () => {
   it('holds one Message per move on an Adapter: the Router never hears its own write back', async () => {
     history.replaceState(null, '', '/app');
-    const Root = Router.app(Routes, AppView, { base: '/app' });
+    const Root = Router.app(Routes, AppView);
     const counts = await Effect.runPromise(
       Effect.scoped(
         Effect.gen(function* () {

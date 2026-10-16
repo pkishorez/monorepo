@@ -22,8 +22,8 @@ launchpad/
 
 ## Files
 
-- `<name>.ts` holds the Actor: `Actor.make` with its Schemas and Requires,
-  then `build`. Schemas and the pure logic of the Updates live here; nothing
+- `<name>.ts` holds the Actor: `Actor.define` with its Schemas and Requires,
+  then `Actor.build`. Schemas and the pure logic of the Updates live here; nothing
   is split out by kind.
 - `view.tsx` holds the View, `View.make(<Name>Actor, draw)`. A parent's View
   places a Child with `<Rocket.view instance={children.rockets} />`.

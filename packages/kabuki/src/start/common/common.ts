@@ -7,7 +7,7 @@ import type { DocumentProps as Props, Drawn as DrawnBy } from './document.tsx';
  * gives. The server's own, `Start.layers()` for `src/loaders.server`, is
  * `@kestack/kabuki/start/server`'s.
  *
- *   src/app.tsx           Start.app(app, { document, layer })
+ *   src/app.tsx           Start.app(router, AppView, { document, layer })
  *   src/document.tsx      <Start.Head /> in its head, <Start.Scripts /> at the end of its body
  */
 

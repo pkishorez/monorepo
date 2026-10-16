@@ -1,5 +1,4 @@
 import {
-  Loading,
   back,
   backTo,
   cached,
@@ -11,9 +10,9 @@ import {
   replace,
 } from './capability/index.ts';
 import type { AnyRoute } from './capability/index.ts';
-import { page, tree, view } from './page/index.ts';
+import { Page as Pages } from './page/index.ts';
 import { NotFoundError, RedirectError } from './route/index.ts';
-import { Link, Retry, app } from './router/index.ts';
+import { Link, Retry, app, define } from './router/index.ts';
 
 /** A Loader's failure: the place it was asked for is not found. */
 const notFound = () => new NotFoundError();
@@ -22,23 +21,22 @@ const notFound = () => new NotFoundError();
 const redirect = (route: AnyRoute) => new RedirectError({ route });
 
 /**
- * Writing an app's pages: `Route.page` makes one, an Actor with a place in
- * the URL; `Route.view` draws it; `Route.tree` reads the Routes down from
- * the root page. A Loader fails with `Route.notFound()` and
- * `Route.redirect(route)`, whose Schemas are `Route.NotFound` and
- * `Route.Redirect`.
+ * Pages: `Page.define` says what one is, an Actor with a place in the URL,
+ * and the pages under it; `Page.build` says how it behaves, with the build
+ * of each page under it. A page is drawn with `View.make`, as any Actor is.
+ * A Loader fails with `Page.notFound()` and `Page.redirect(route)`, whose
+ * Schemas are `Page.NotFound` and `Page.Redirect`.
  */
-export const Route = {
-  page,
-  view,
-  tree,
+export const Page = {
+  define: Pages.define,
+  build: Pages.build,
   notFound,
   redirect,
   NotFound: NotFoundError,
   Redirect: RedirectError,
 };
 
-export declare namespace Route {
+export declare namespace Page {
   /** A Loader's failure: the place is not found. */
   export type NotFound = NotFoundError;
   /** A Loader's failure: go to another Route instead. */
@@ -46,13 +44,15 @@ export declare namespace Route {
 }
 
 /**
- * The router: `Router.app` puts it above an app's root page, and `Link` and
- * `Retry` draw inside it; `push`, `replace`, `back`, `forward`, `backTo`,
- * `reload` and `preload` are Commands an Update returns; `memory` is a
- * `Loading` that runs the Loaders in place, and `cached` puts the Data
- * cache in front of one.
+ * The router: `Router.define` reads an app's router down from its root
+ * page's definition; `Router.app` puts it above the root page's View, as
+ * `Start.app` does; `Link` and `Retry` draw inside it; `push`, `replace`,
+ * `back`, `forward`, `backTo`, `reload` and `preload` are Commands an
+ * Update returns; `memory` is a `Loading` that runs the Loaders in place,
+ * and `cached` puts the Data cache in front of one.
  */
 export const Router = {
+  define,
   app,
   Link,
   Retry,
@@ -66,5 +66,3 @@ export const Router = {
   reload,
   preload,
 };
-
-export { Loading };

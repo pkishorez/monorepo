@@ -1,4 +1,4 @@
-import type { How } from '@kestack/kabuki/routing';
+import type { RouterState } from '@kestack/kabuki/routing';
 
 /*
  * One curve and two speeds for everything that moves, so the site moves as
@@ -12,7 +12,7 @@ export const quick = { duration: 0.18, ease: EASE } as const;
 export const settle = { duration: 0.26, ease: EASE } as const;
 
 /** Which way a move goes: forward, back, or neither. */
-export const directionOf = (how: How) =>
+export const directionOf = (how: RouterState['move']['how']) =>
   how === 'back' ? -1 : how === 'push' || how === 'forward' ? 1 : 0;
 
 /** A page or a pane coming in and going out, by the direction of the move. */

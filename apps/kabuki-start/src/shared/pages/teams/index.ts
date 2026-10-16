@@ -1,2 +1,2 @@
-export { Member } from './member.ts';
-export { Team as Teams } from './team.ts';
+export { Member, MemberLive } from './member.ts';
+export { Team as Teams, TeamLive as TeamsLive } from './team.ts';

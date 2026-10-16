@@ -2,7 +2,7 @@ import { motion } from 'motion/react';
 import type { ReactNode } from 'react';
 import type { Status } from '@kestack/kabuki/routing';
 import { Start } from '@kestack/kabuki/start';
-import { Routes } from '../../shared/index.ts';
+import { router } from '../../shared/index.ts';
 import type { Place } from '../../shared/index.ts';
 import { clock } from './clock.ts';
 import { MODE, modeOf } from './modes.ts';
@@ -14,7 +14,7 @@ import { chip } from './styles.ts';
  * screen. Its edge is the color of its Render Mode, and its header says,
  * from facts alone:
  *
- * - its dotted name and its path, as the Routes write them;
+ * - its dotted name and its path, as the router writes them;
  * - its Render Mode, as its pages say;
  * - where its data is: loading, ready, refreshing, or failed;
  * - who drew it: the server, if it was in the page the server sent and was
@@ -143,7 +143,7 @@ export function PlaceFrame({
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="mr-1 font-mono text-xs font-semibold">{place}</span>
           <span className="mr-auto font-mono text-[11px] text-muted-foreground">
-            {Routes.paths()[place]}
+            {router.paths()[place]}
           </span>
           <span className={chip} title={mode.what}>
             <span aria-hidden className={`size-1.5 rounded-full ${mode.dot}`} />

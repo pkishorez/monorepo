@@ -1,7 +1,7 @@
 import { Layer, Schema } from 'effect';
 import { Actor } from '@kestack/kabuki';
 import { Shelf } from './capabilities.ts';
-import { Download } from './download.ts';
+import { DownloadLive } from './download.ts';
 
 /** The files "+ Add file" takes, in turn. */
 export const FILES = ['photos.zip', 'song.mp3', 'notes.pdf', 'movie.mp4'];
@@ -18,7 +18,7 @@ const File = Schema.Struct({
  * the Model. It controls them only through its data: each file's `paused`
  * reaches its Download as Props, and cancel all empties the list.
  */
-export const Downloads = Actor.make('Downloads', {
+export const Downloads = Actor.define('Downloads', {
   model: Schema.Struct({ files: Schema.Array(File), next: Schema.Number }),
   message: Schema.TaggedUnion({
     Add: {},
@@ -29,11 +29,13 @@ export const Downloads = Actor.make('Downloads', {
     ResumeAll: {},
     CancelAll: {},
   }),
-}).build({
+});
+
+export const DownloadsLive = Actor.build(Downloads, {
   init: () => ({ model: { files: [], next: 0 } }),
   children: {
     files: {
-      actor: Download,
+      actor: DownloadLive,
       each: ({ model }) => model.files.map(({ id }) => id),
       input: ({ model }, id) => {
         const { name } = model.files.find((file) => file.id === id)!;

@@ -33,22 +33,25 @@ describe('Commands', () => {
     timed(
       Effect.gen(function* () {
         const failed = vi.spyOn(console, 'error').mockImplementation(() => {});
-        const Liar = Actor.make('Liar', {
-          message: Schema.TaggedUnion({
-            Ask: {},
-            Answered: { n: Schema.Number },
-          }),
-        }).build({
-          on: {
-            Ask: () => ({
-              command: Command.make('answer', {
-                run: () =>
-                  Effect.succeed({ _tag: 'Answered', n: 'one' } as never),
-              })(),
+        const Liar = Actor.build(
+          Actor.define('Liar', {
+            message: Schema.TaggedUnion({
+              Ask: {},
+              Answered: { n: Schema.Number },
             }),
-            Answered: () => ({}),
+          }),
+          {
+            on: {
+              Ask: () => ({
+                command: Command.make('answer', {
+                  run: () =>
+                    Effect.succeed({ _tag: 'Answered', n: 'one' } as never),
+                })(),
+              }),
+              Answered: () => ({}),
+            },
           },
-        });
+        );
         const app = yield* Runtime.start(Liar);
         app.send('Liar', { _tag: 'Ask' });
         yield* TestClock.adjust('1 millis');
@@ -80,14 +83,17 @@ describe('Commands', () => {
           args: Schema.Struct({ id: Schema.Number }),
           run: () => Effect.succeed({ _tag: 'Saved' as const }),
         });
-        const Form = Actor.make('Form', {
-          message: Schema.TaggedUnion({ Save: {}, Saved: {} }),
-        }).build({
-          on: {
-            Save: () => ({ command: save({ id: 'three' } as never) }),
-            Saved: () => ({}),
+        const Form = Actor.build(
+          Actor.define('Form', {
+            message: Schema.TaggedUnion({ Save: {}, Saved: {} }),
+          }),
+          {
+            on: {
+              Save: () => ({ command: save({ id: 'three' } as never) }),
+              Saved: () => ({}),
+            },
           },
-        });
+        );
         const app = yield* Runtime.start(Form);
         app.send('Form', { _tag: 'Save' });
         yield* TestClock.adjust('1 millis');

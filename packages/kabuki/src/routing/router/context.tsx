@@ -9,7 +9,7 @@ import type {
   TouchEvent,
 } from 'react';
 import type { AnyRoute, MoveOptions } from '../capability/index.ts';
-import type { Preload } from '../page/index.ts';
+import type { Preload } from './define.ts';
 import { MANAGED, tagsOf } from '../route/index.ts';
 import type { How, Metadata } from '../route/index.ts';
 
@@ -252,7 +252,7 @@ export interface RouterState<Route extends AnyRoute = AnyRoute> {
 /**
  * The router, for a component drawn inside a `Router.app`: an address bar, a
  * history list, a retry button. Name the app's Route,
- * `useRouter<Route>()` with `type Route = typeof Routes.route.Type`, to read
+ * `useRouter<Route>()` with `type Route = typeof router.route.Type`, to read
  * its Routes as that type: every Route the Router holds is one of them.
  */
 export const useRouter = <
@@ -280,16 +280,6 @@ export const useRouter = <
   };
   return state as unknown as RouterState<Route>;
 };
-
-/**
- * The move the Router holds while it loads the data of its places, or
- * `null`: for a progress bar. The page drawn is still the one before it.
- * `usePending<Route>()` reads its Route as the app's, as `useRouter` does.
- */
-export const usePending = <
-  Route extends AnyRoute = AnyRoute,
->(): Pending<Route> | null =>
-  useDrawing('usePending').pending as Pending<Route> | null;
 
 /**
  * A button that loads every page on screen again: for a failed page's

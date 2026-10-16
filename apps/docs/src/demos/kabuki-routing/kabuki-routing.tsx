@@ -6,10 +6,10 @@ import { Router } from '@kestack/kabuki/routing';
 import { tanstack } from '@kestack/kabuki/routing/adapter/tanstack';
 import { DevtoolsDock } from '@kestack/web-platform/recipes/devtools-dock';
 import { KabukiDevtools } from '@kestack/web-platform/recipes/kabuki-devtools';
-import { BASE, Routes } from './routes/index.ts';
+import { BASE, router } from './routes/index.ts';
 import { AppView } from './app/index.ts';
 
-const Root = Router.app(Routes, AppView, { base: BASE });
+const Root = Router.app(router, AppView);
 
 /** The same app twice: once routing in memory, the default, once on TanStack's history. */
 const Memory = toReact(Root.actor, Root.view, Layer.empty, {

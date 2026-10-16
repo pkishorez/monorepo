@@ -1,14 +1,14 @@
 import { Effect, Schema } from 'effect';
-import { Route } from '@kestack/kabuki/routing';
+import { Page } from '@kestack/kabuki/routing';
 import { PROJECTS } from '../../../routes/index.ts';
-import { Share } from './share/index.ts';
+import { Share, ShareLive } from './share/index.ts';
 
 /**
  * One project, keyed by its id: another id is a fresh Instance, and its
  * `presence` count starts over. Its share dialog is a page under it, so the
  * project stays while the dialog is open over it, and the count goes on.
  */
-export const Project = Route.page({
+export const Project = Page.define({
   path: '/:id',
   params: { id: Schema.FiniteFromString },
   // The title is the project's name, worked out from the Route alone.
@@ -18,7 +18,10 @@ export const Project = Route.page({
   pages: { Share },
   model: Schema.Struct({ seen: Schema.Number }),
   message: Schema.TaggedUnion({ Seen: {} }),
-}).build({
+});
+
+export const ProjectLive = Page.build(Project, {
+  pages: { Share: ShareLive },
   init: () => ({ model: { seen: 0 } }),
   workers: {
     presence: {

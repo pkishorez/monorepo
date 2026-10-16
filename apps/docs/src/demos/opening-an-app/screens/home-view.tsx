@@ -2,11 +2,11 @@ import { use } from 'react';
 import { motion } from 'motion/react';
 import { LogOut, RefreshCw } from 'lucide-react';
 import { View } from '@kestack/kabuki/react';
-import { Home } from '../story/index.ts';
+import { HomeLive } from '../story/index.ts';
 import { Button, Clock, PastContext, Wide } from './parts.tsx';
 
 /** The signed-in page: a greeting, the connection, and the sync the user turns on and off. */
-export const HomeView = View.make(Home, ({ model, props, send }) => (
+export const HomeView = View.make(HomeLive, ({ model, props, send }) => (
   <section className="flex flex-col gap-6">
     <div className="flex items-start justify-between gap-4">
       <div className="flex min-w-0 flex-col gap-1">

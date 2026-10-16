@@ -8,14 +8,16 @@ const signIn = Command.make('sign in', {
 });
 
 /** The sign-in form. Signing in is a Request to App, which owns who is signed in. */
-export const SignInActor = Actor.make('SignIn', {
+export const SignIn = Actor.define('SignIn', {
   requires: [Session],
   model: Schema.Struct({ name: Schema.String }),
   message: Schema.TaggedUnion({
     Named: { name: Schema.String },
     Submitted: {},
   }),
-}).build({
+});
+
+export const SignInLive = Actor.build(SignIn, {
   init: () => ({ model: { name: 'Ada' } }),
   on: {
     Named: ({ name }) => ({ model: { name } }),

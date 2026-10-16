@@ -1,7 +1,7 @@
 import { Schema } from 'effect';
-import { Navigation, Route, Router } from '@kestack/kabuki/routing';
+import { Page, Router } from '@kestack/kabuki/routing';
 import { about, Results } from '../data/index.ts';
-import { Routes } from './routes.ts';
+import { router } from './routes.ts';
 
 /*
  * A search whose query is in the URL, as `?q=`. Its Loader reads the query,
@@ -11,12 +11,11 @@ import { Routes } from './routes.ts';
  * where it is as the query changes.
  */
 
-export const Search = Route.page({
+export const Search = Page.define({
   path: '/search',
   query: { q: Schema.optionalKey(Schema.String) },
   render: 'dynamic',
   data: Results,
-  requires: [Navigation],
   metadata: about(
     '/search',
     'Search',
@@ -24,12 +23,14 @@ export const Search = Route.page({
   ),
   model: Schema.Struct({ typed: Schema.NullOr(Schema.String) }),
   message: Schema.TaggedUnion({ Typed: { text: Schema.String } }),
-}).build({
+});
+
+export const SearchLive = Page.build(Search, {
   init: () => ({ model: { typed: null } }),
   on: {
     Typed: ({ text }) => ({
       model: { typed: text },
-      command: Router.replace(() => Routes.Search(text ? { q: text } : {}), {
+      command: Router.replace(router.Search(text ? { q: text } : {}), {
         resetScroll: false,
       }),
     }),

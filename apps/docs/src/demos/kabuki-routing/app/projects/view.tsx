@@ -1,11 +1,11 @@
-import { Route } from '@kestack/kabuki/routing';
-import { List } from './list/index.ts';
+import { View } from '@kestack/kabuki/react';
+import { ListView } from './list/index.ts';
 import { ProjectView } from './project/index.ts';
-import { Projects } from './projects.ts';
+import { ProjectsLive } from './projects.ts';
 
-export const ProjectsView = Route.view(Projects, (self) => (
+export const ProjectsView = View.make(ProjectsLive, (self) => (
   <div {...self.root}>
-    {self.children.list && <List.view instance={self.children.list} />}
+    {self.children.list && <ListView instance={self.children.list} />}
     {self.children.Project && <ProjectView instance={self.children.Project} />}
   </div>
 ));

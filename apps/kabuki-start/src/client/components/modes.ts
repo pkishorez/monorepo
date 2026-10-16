@@ -1,5 +1,5 @@
 import type { RenderMode } from '@kestack/kabuki/routing';
-import { Routes } from '../../shared/index.ts';
+import { router } from '../../shared/index.ts';
 import type { Place } from '../../shared/index.ts';
 
 /*
@@ -40,4 +40,4 @@ export const MODE: Readonly<
 
 /** A place's Render Mode, as its pages say. */
 export const modeOf = (place: Place): RenderMode =>
-  Routes.every.find((each) => each.name === place)?.render ?? 'static';
+  router.every.find((each) => each.name === place)?.render ?? 'static';

@@ -3,7 +3,7 @@ import { Check, CloudOff, TreeDeciduous } from 'lucide-react';
 import { View } from '@kestack/kabuki/react';
 import { scrollBar } from '@kestack/web-platform/components/scroll-styles';
 import type { ReactNode } from 'react';
-import { ASSETS, App } from '../story/index.ts';
+import { ASSETS, AppLive } from '../story/index.ts';
 import { DownloadsView } from './downloads-view.tsx';
 import { HomeView } from './home-view.tsx';
 import { Button, EASE } from './parts.tsx';
@@ -13,7 +13,7 @@ import { Button, EASE } from './parts.tsx';
  * loaded, and the signed-in app Inside. One screen fades into the next; none
  * moves.
  */
-export const AppView = View.make(App, (self) => {
+export const AppView = View.make(AppLive, (self) => {
   const { send } = self;
   return (
     // Every screen sits in the one grid cell: one leaving and one coming

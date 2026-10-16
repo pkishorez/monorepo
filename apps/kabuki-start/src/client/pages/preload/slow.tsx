@@ -1,6 +1,6 @@
 import { View } from '@kestack/kabuki/react';
 import { Router } from '@kestack/kabuki/routing';
-import { Pages, Routes } from '../../../shared/index.ts';
+import { Pages, router } from '../../../shared/index.ts';
 import { Loaded, PlaceFrame, link } from '../../components/index.ts';
 
 /*
@@ -8,7 +8,7 @@ import { Loaded, PlaceFrame, link } from '../../components/index.ts';
  * the page, or a preload of it, loads this code beside its data.
  */
 
-export default View.make(Pages.Slow.actor, ({ props }) => (
+export default View.make(Pages.SlowLive, ({ props }) => (
   <PlaceFrame place="Preload.Slow" status={props.status}>
     <Loaded
       status={props.status}
@@ -23,7 +23,7 @@ export default View.make(Pages.Slow.actor, ({ props }) => (
             Its Loader takes a second and a half. Preloaded, it was here the
             moment you clicked, and its View's code came with it.
           </p>
-          <Router.Link to={Routes.Preload()} className={`${link} text-sm`}>
+          <Router.Link to={router.Preload()} className={`${link} text-sm`}>
             Back to the links
           </Router.Link>
         </div>

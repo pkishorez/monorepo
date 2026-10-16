@@ -1,5 +1,5 @@
 import { Schema } from 'effect';
-import { Navigation, Route, Router } from '@kestack/kabuki/routing';
+import { Page, Router } from '@kestack/kabuki/routing';
 import { about, Notes as NotesData } from '../data/index.ts';
 
 /*
@@ -8,11 +8,10 @@ import { about, Notes as NotesData } from '../data/index.ts';
  * the data shown, and never touches the page: the draft survives.
  */
 
-export const Notes = Route.page({
+export const Notes = Page.define({
   path: '/notes',
   render: 'dynamic',
   data: NotesData,
-  requires: [Navigation],
   metadata: about(
     '/notes',
     'Notes',
@@ -26,7 +25,9 @@ export const Notes = Route.page({
     CancelClicked: {},
     ReloadClicked: {},
   }),
-}).build({
+});
+
+export const NotesLive = Page.build(Notes, {
   init: () => ({ model: { draft: '' }, state: { _tag: 'Reading' } }),
   on: {
     ReloadClicked: () => ({ command: Router.reload() }),

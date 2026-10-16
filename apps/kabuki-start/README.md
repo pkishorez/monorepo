@@ -11,7 +11,7 @@ How Start works is in
 pages, Places, Loaders and Render Modes in
 [`packages/kabuki/docs/routing.md`](../../packages/kabuki/docs/routing.md).
 
-Every page is an Actor written with `Route.page`, and draws its own data from
+Every page is an Actor, defined with `Page.define` and built with `Page.build`, and draws its own data from
 `status`: loading, failed or ready. Its Loaders are slow on purpose, and its
 lists long, so each case has something to show, one URL each, toured from
 the home page:
@@ -23,7 +23,7 @@ the home page:
 | `/feed`                              | A client page that scrolls the window: open a post, press Back, and the window goes back.                                     |
 | `/blog/broken`, `/flaky`             | A Loader that breaks: the page says why, with Try again, inside its own box; `/flaky` is a client page, half the time.        |
 | `/blog/missing`, `/nowhere`          | Not found: a Loader's, drawn inside the blog, and a URL's, drawn by the root page; both a `404`.                              |
-| `/blog/moved`, `/posts/no-waterfall` | Redirects: a Loader's `302`, and an old address the Routes replace with a `308`.                                              |
+| `/blog/moved`, `/posts/no-waterfall` | Redirects: a Loader's `302`, and an old address the router replaces with a `308`.                                             |
 | `/search?q=scroll`                   | A query its Loader reads: a new one loads again on the same page, the results shown meanwhile.                                |
 | `/notes`                             | A page with States and a draft: Reload loads its data again, and the draft stays.                                             |
 | `/preload`                           | Links that preload on hover, once in view, or never, to slow pages whose Views load lazily.                                   |
@@ -50,7 +50,7 @@ The code is split by where it runs:
 src/
   shared/       both sides
     data/         the Schema of each page's data, and the Metadata helper
-    pages/        one Route.page per page, nested as the URL is; routes.ts reads them into the Routes
+    pages/        one page per file, its definition and build, nested as the URL is; routes.ts reads them into the router
   client/       the Views: drawn by the server, then run by the browser
     app.tsx       the root page's View, in the layout and the Document (Start's `app`)
     document.tsx  the <html> around the app

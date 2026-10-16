@@ -75,17 +75,21 @@ export const AppContext = createContext<DrawnApp | undefined>(undefined);
  * `ref` and `style` to animate it by. Data from the parent is its Props, which
  * the parent Actor hands it, so Update and Workers see it too.
  */
-export type ViewOf<A> = (props: {
+export type ViewOf<A> = ((props: {
   readonly instance: Handle<A>;
   readonly ref?: Ref<Element> | undefined;
   readonly style?: CSSProperties | undefined;
-}) => ReactNode;
+}) => ReactNode) & {
+  /** The Actor it draws. */
+  readonly actor: A;
+};
 
 /**
  * How one Actor is drawn: one function of its Instance. The result re-renders
  * only when its own Instance's Model, State, Props or set of Children changes,
  * or the parent hands it a new `ref` or `style`, never because a descendant
- * did.
+ * did. A new Instance in the same place, as a Child with a new key, is drawn
+ * afresh: no React state carries over from the one before.
  *
  * Once the Instance stops, the View keeps drawing its last data, so an exit
  * animation still has something to show.
@@ -97,37 +101,41 @@ const make = <A extends AnyActor>(
   actor: A,
   draw: (self: ViewProps<A>) => ReactNode,
 ): ViewOf<A> => {
-  const View = memo(
-    ({
-      instance,
-      ref,
-      style,
-    }: Parameters<ViewOf<A>>[0] & { readonly key?: never }) => {
-      const drawn = use(AppContext);
-      if (!drawn)
-        throw new Error(
-          `[@kestack/kabuki] ${actor.name}View is drawn outside its app`,
-        );
-      const live = useSyncExternalStore(
-        drawn.subscribe,
-        () => drawn.instance(instance.id),
-        () => drawn.served(instance.id),
+  type Given = Parameters<ViewOf<A>>[0];
+  const Drawn = ({ instance, ref, style }: Given) => {
+    const drawn = use(AppContext);
+    if (!drawn)
+      throw new Error(
+        `[@kestack/kabuki] ${actor.name}View is drawn outside its app`,
       );
-      // The last data drawn, for a View still on screen after its Instance
-      // stopped. Written during render on purpose: it only ever holds what
-      // the store gave, so a render React throws away cannot leave it wrong.
-      const last = useRef(live);
-      if (live) last.current = live;
-      const self = live ?? last.current;
-      if (!self) return null;
-      return draw({
-        ...self,
-        root: { ref: ref as Ref<never>, style },
-      } as ViewProps<A>);
-    },
+    const live = useSyncExternalStore(
+      drawn.subscribe,
+      () => drawn.instance(instance.id),
+      () => drawn.served(instance.id),
+    );
+    // The last data drawn, for a View still on screen after its Instance
+    // stopped. Written during render on purpose: it only ever holds what
+    // the store gave, so a render React throws away cannot leave it wrong.
+    const last = useRef(live);
+    if (live) last.current = live;
+    const self = live ?? last.current;
+    if (!self) return null;
+    return draw({
+      ...self,
+      root: { ref: ref as Ref<never>, style },
+    } as ViewProps<A>);
+  };
+  const View = memo(
+    (given: Given & { readonly key?: never }) => (
+      <Drawn key={given.instance.id} {...given} />
+    ),
     same,
   );
-  View.displayName = `${actor.name}View`;
+  // Read when shown, so a name given after the View is made still counts.
+  Object.defineProperties(View, {
+    actor: { value: actor, enumerable: true },
+    displayName: { get: () => `${actor.name}View`, configurable: true },
+  });
   return View as unknown as ViewOf<A>;
 };
 

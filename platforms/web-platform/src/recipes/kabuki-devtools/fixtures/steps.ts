@@ -20,12 +20,13 @@ import type { Envelope, Snapshot, Source } from '@kestack/kabuki';
 
 const never = () => Effect.never;
 
-const Item = Actor.make('Item', {
+const Item = Actor.define('Item', {
   input: Schema.Struct({ name: Schema.String }),
   model: Schema.Struct({ name: Schema.String }),
   state: Schema.TaggedUnion({ Idle: {}, Saving: {} }),
   message: Schema.TaggedUnion({ Save: {}, Saved: {} }),
-}).build({
+});
+const ItemLive = Actor.build(Item, {
   init: ({ name }) => ({ model: { name }, state: { _tag: 'Idle' } }),
   state: {
     Idle: { on: { Save: () => ({ state: { _tag: 'Saving' } }) } },
@@ -36,7 +37,7 @@ const Item = Actor.make('Item', {
   },
 });
 
-const Catalog = Actor.make('Catalog', {
+const Catalog = Actor.define('Catalog', {
   model: Schema.Struct({
     ids: Schema.Array(Schema.String),
     thumbs: Schema.Array(Schema.String),
@@ -45,13 +46,14 @@ const Catalog = Actor.make('Catalog', {
     Stocked: { ids: Schema.Array(Schema.String) },
     Thumbed: { id: Schema.String },
   }),
-}).build({
+});
+const CatalogLive = Actor.build(Catalog, {
   init: () => ({
     model: { ids: ['tea', 'cup', 'pot'], thumbs: ['tea', 'cup', 'pot'] },
   }),
   children: {
     items: {
-      actor: Item,
+      actor: ItemLive,
       each: ({ model }) => model.ids,
       input: (_, id) => ({ name: id }),
     },
@@ -72,7 +74,7 @@ const track = Command.make('track', {
   run: () => Effect.succeed({ _tag: 'Tracked' as const }),
 });
 
-const Cart = Actor.make('Cart', {
+const Cart = Actor.define('Cart', {
   state: Schema.TaggedUnion({
     Empty: {},
     Filled: { count: Schema.Number },
@@ -83,7 +85,8 @@ const Cart = Actor.make('Cart', {
     CheckedOut: {},
     Tracked: {},
   }),
-}).build({
+});
+const CartLive = Actor.build(Cart, {
   init: () => ({ state: { _tag: 'Empty' } }),
   on: { Tracked: () => ({}) },
   state: {
@@ -110,31 +113,34 @@ const Cart = Actor.make('Cart', {
   },
 });
 
-const Session = Actor.make('Session', {
+const Session = Actor.define('Session', {
   message: Schema.TaggedUnion({ Beat: {} }),
-}).build({
+});
+const SessionLive = Actor.build(Session, {
   workers: { heartbeat: { run: never } },
   on: { Beat: () => ({}) },
 });
 
-const Notice = Actor.make('Notice', {}).build({});
+const Notice = Actor.define('Notice', {});
+const NoticeLive = Actor.build(Notice, {});
 
-export const Shop = Actor.make('Shop', {
+const Shop = Actor.define('Shop', {
   state: Schema.TaggedUnion({ Loading: {}, Open: {}, Closed: {} }),
   message: Schema.TaggedUnion({ Loaded: {}, Close: {} }),
-}).build({
+});
+export const ShopLive = Actor.build(Shop, {
   init: () => ({ state: { _tag: 'Loading' } }),
-  children: { session: { actor: Session } },
+  children: { session: { actor: SessionLive } },
   state: {
     Loading: {
       workers: { fetch: { run: never } },
       on: { Loaded: () => ({ state: { _tag: 'Open' } }) },
     },
     Open: {
-      children: { catalog: { actor: Catalog }, cart: { actor: Cart } },
+      children: { catalog: { actor: CatalogLive }, cart: { actor: CartLive } },
       on: { Close: () => ({ state: { _tag: 'Closed' } }) },
     },
-    Closed: { children: { notice: { actor: Notice } } },
+    Closed: { children: { notice: { actor: NoticeLive } } },
   },
 });
 
@@ -225,7 +231,7 @@ const SCRIPT: ReadonlyArray<{
 ];
 
 const run = (): ReadonlyArray<ShopStep> => {
-  const definition = Shop.definition;
+  const definition = ShopLive.definition;
   let snapshot = init(definition);
   const steps: ShopStep[] = [{ label: 'init', snapshot }];
   SCRIPT.forEach(({ to, message, source }, index) => {

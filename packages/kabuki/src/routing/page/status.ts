@@ -4,13 +4,14 @@ import type { Codec, Value } from '../route/index.ts';
 
 /*
  * What a Page is handed about its data and where it is: its `status`, and
- * `route`, Kabuki's part of its Props.
+ * `route`, Kabuki's part of its Props; and what the Router starts a place's
+ * data from.
  */
 
 /**
  * Where a page's data is: loading, failed, or there. `refreshing` is true
  * while it loads again behind the data shown, after a reload or on a copy
- * the Data cache kept. `notFound` is a Loader's `Route.notFound()`.
+ * the Data cache kept. `notFound` is a Loader's `Page.notFound()`.
  */
 export type Status<D> =
   | { readonly _tag: 'Loading' }
@@ -28,7 +29,7 @@ export const statusSchema = <D>(data: Codec<D>): Codec<Status<D>> =>
     Ready: { data, refreshing: Schema.Boolean },
   }) as unknown as Codec<Status<D>>;
 
-/** What a Place starts from, when something is known as it is made: data, stale if the Data cache kept it, or why there is none. */
+/** What a place's data starts from, when something is known as it lands: data, stale if the Data cache kept it, or why there is none. */
 export type Known =
   | { readonly _tag: 'Ready'; readonly data: unknown; readonly stale: boolean }
   | {
@@ -37,7 +38,7 @@ export type Known =
       readonly notFound: boolean;
     };
 
-/** What an answer tells a Place it starts from; a Redirect tells it nothing, the Router follows it. */
+/** What an answer tells a place's data it starts from; a Redirect tells it nothing, the Router follows it. */
 export const knownOf = (answer: Answer): Known | undefined => {
   switch (answer._tag) {
     case 'Loaded':
@@ -72,10 +73,8 @@ export interface Where<Page = Value> {
  * of its type, so a page never reads it.
  */
 export interface Carried<Page = Value> extends Where<Page> {
-  /** What the places below start from, by dotted name. */
-  readonly known?: Readonly<Record<string, Known>>;
-  /** How many times the app was reloaded. */
-  readonly reload: number;
+  /** The status of each place below it, by dotted name, as the Router holds it. */
+  readonly data?: Readonly<Record<string, Status<unknown>>>;
 }
 
 export const whereSchema = (page: Codec<unknown> | undefined) =>
@@ -84,6 +83,5 @@ export const whereSchema = (page: Codec<unknown> | undefined) =>
     ...(page ? { page: Schema.optionalKey(page) } : {}),
     params: Schema.Record(Schema.String, Schema.Unknown),
     notFound: Schema.NullOr(Schema.String),
-    known: Schema.optionalKey(Schema.Record(Schema.String, Schema.Unknown)),
-    reload: Schema.Number,
+    data: Schema.optionalKey(Schema.Record(Schema.String, Schema.Unknown)),
   });

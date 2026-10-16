@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { View, useChildren } from '@kestack/kabuki/react';
 import type { Handle, ViewProps } from '@kestack/kabuki/react';
-import { DURATION, Download, Downloads, STEP } from '../story/index.ts';
+import { DURATION, DownloadLive, DownloadsLive, STEP } from '../story/index.ts';
 import { Button, EASE, Wide } from './parts.tsx';
 
 /** The height of one download in the list, in pixels. */
@@ -32,7 +32,7 @@ const SLIDE = { duration: 0.35, ease: EASE } as const;
  * thing on the page, so nothing else moves.
  */
 export const DownloadsView = View.make(
-  Downloads,
+  DownloadsLive,
   ({ model, children, send }) => (
     <section className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-4">
@@ -95,7 +95,7 @@ export const DownloadsView = View.make(
 function Count({
   files,
 }: {
-  readonly files: ReadonlyArray<Handle<typeof Download>>;
+  readonly files: ReadonlyArray<Handle<typeof DownloadLive>>;
 }) {
   // Picks only whether each is done, so a tick of progress never redraws it.
   const downloads = useChildren(files, (file) => file._tag === 'Done');
@@ -119,9 +119,9 @@ function AllButtons({
   downloads,
   send,
 }: {
-  readonly files: ViewProps<typeof Downloads>['model']['files'];
-  readonly downloads: ReadonlyArray<Handle<typeof Download>>;
-  readonly send: ViewProps<typeof Downloads>['send'];
+  readonly files: ViewProps<typeof DownloadsLive>['model']['files'];
+  readonly downloads: ReadonlyArray<Handle<typeof DownloadLive>>;
+  readonly send: ViewProps<typeof DownloadsLive>['send'];
 }) {
   const done = new Set(
     useChildren(downloads, (file) => file._tag === 'Done' && file.model.id),
@@ -155,7 +155,7 @@ function AllButtons({
   );
 }
 
-const DownloadView = View.make(Download, (self) => <Row {...self} />);
+const DownloadView = View.make(DownloadLive, (self) => <Row {...self} />);
 
 const ICONS = {
   zip: FileArchive,
@@ -193,7 +193,7 @@ function Swap({
   );
 }
 
-function Row(self: ViewProps<typeof Download>) {
+function Row(self: ViewProps<typeof DownloadLive>) {
   const { model, props, send } = self;
   const Icon =
     ICONS[model.name.split('.').at(-1) as keyof typeof ICONS] ?? FileText;
