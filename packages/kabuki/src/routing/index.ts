@@ -20,9 +20,12 @@ export type {
   RouterState,
 } from './router/index.ts';
 export type {
+  DataInfo,
+  From,
   PageBuild,
   PageDefinition,
   PageProps,
+  PlaceInfo,
   Status,
 } from './page/index.ts';
 export type { Metadata, RenderMode, RouteOf } from './route/index.ts';

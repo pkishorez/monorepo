@@ -97,7 +97,21 @@ A page takes no Input: it exists before its data. It is handed Props:
   `Ready { data, refreshing }`. `refreshing` is true while the data loads
   again behind what is shown. Its View draws all three with a `switch`, and
   its Updates read it as Props: to keep an editable copy, an Update copies it
-  into the Model.
+  into the Model. Each also has `info`, good to know and never needed to
+  draw:
+
+  | `info`       | On        | What it says                                                                |
+  | ------------ | --------- | --------------------------------------------------------------------------- |
+  | `render`     | every one | `static`, `dynamic` or `client`                                             |
+  | `staleTime`  | every one | its Stale time, in ms; `null` for a static page                             |
+  | `from`       | `Ready`   | `server`, in the page the server drew; `browser`, loaded; `cache`, a copy   |
+  | `arrivedAt`  | `Ready`   | when the data arrived, in ms since the epoch: the Stale time counts from it |
+  | `freshUntil` | `Ready`   | when it goes stale, in ms since the epoch; `null` for a static page         |
+  | `took`       | `Ready`   | ms from asking to the answer, the network's time too; `null` for a copy     |
+
+  It comes in the Router's Messages, as the data does, so a past Step shows
+  it as it was.
+
 - `route`: where it sits. `route.name` is its dotted name; `route.page` is the Route one level down, if the
   URL goes on; `route.params` every path param down to it, its ancestors'
   too, typed loosely; the root's `route.notFound` is the path of a URL that
@@ -181,7 +195,8 @@ id: 4 })` ends at the project. Params are checked by type. The type of any
 Its options are how the Router behaves too: `redirect`, `notFound` (the
 not-found Route's Metadata, over the root page's), `base`, `delay`,
 `preload`, `preloadDelay`, `staleTime` (every dynamic or client page's that
-says none, 0 unless said), and the scroll options below.
+says none, 0 unless said), `cacheSize` (how many copies the Data cache
+keeps, 50 unless said), and the scroll options below.
 
 #### Moving from an Update
 
@@ -390,14 +405,19 @@ changes the 150ms.
 
 ### The Data cache
 
-`Router.cached(router, loading)` puts the Data cache in front of a `Loading`;
-Start's browser has one. It keeps the last data of each place, one copy per
-name and what its Loader is handed, the newest, up to 50, the least recently
-used dropped first, never one for its age; a failure is never kept. A move
+The Router never loads data itself: it asks `Loading`, which a server or a
+test answers by running the Loaders, `Router.memory`, and Start's browser by
+calling the Loader RPC. `Router.cached(router, loading)` puts the Data cache
+in front of one; Start's browser does, a server never does, since a copy
+there would be shared by every visitor. It keeps the last data of each
+place, one copy per name and what its Loader is handed, the newest, up to
+the router's `cacheSize`, 50 unless said, the least recently used dropped
+first, never one for its age; a failure is never kept. A move
 to a page with a copy, Back, Forward or a plain link, starts it `Ready` at
 once: a fresh copy as it is, an older one `refreshing`, loaded again behind
 it. A place
-being loaded is joined, never asked for twice. Places asked for in the same
+being loaded is joined, never asked for twice, by a move or by the load
+behind an older copy; a Reload's load joins nothing. Places asked for in the same
 moment are one request, each answered as it comes. The data a server drew the
 page with is kept the same way as the browser starts it, so Back to the
 first page is at once too.
@@ -405,7 +425,8 @@ first page is at once too.
 ### Stale time
 
 A copy is fresh for its page's Stale time from when it arrives; the data a
-server drew the page with arrives as the app starts.
+server drew the page with arrived when the server loaded it. A page's
+`status.info.freshUntil` says when its data goes stale.
 
 ```ts
 const Feed = Page.define({

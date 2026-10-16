@@ -1,8 +1,13 @@
 import { Effect, Option, Schema } from 'effect';
 import { Loading } from '../capability/index.ts';
 import type { AnyRoute } from '../capability/index.ts';
-import type { Known, Status } from '../page/index.ts';
-import { statusSchema } from '../page/index.ts';
+import type { DataInfo, Known, Status } from '../page/index.ts';
+import {
+  DataInfoSchema,
+  dataInfoOf,
+  placeInfoOf,
+  statusSchema,
+} from '../page/index.ts';
 import type { Codec, Place } from '../route/index.ts';
 
 /*
@@ -86,6 +91,7 @@ export const placeMessages = (routes: DataSchemas) => ({
     answer: answerSchema(routes),
     key: Schema.String,
     stale: Schema.Boolean,
+    info: DataInfoSchema,
     reload: Schema.Number,
     for: Schema.String,
   },
@@ -110,6 +116,7 @@ export type PlaceMessage =
       readonly answer: { readonly name: string; readonly data: unknown };
       readonly key: string;
       readonly stale: boolean;
+      readonly info: DataInfo;
       readonly reload: number;
       readonly for: string;
     }
@@ -154,10 +161,20 @@ export const holdingAt = <Route>(
       for: forOf(place),
       status:
         from?._tag === 'Ready'
-          ? { _tag: 'Ready', data: from.data, refreshing: from.stale }
+          ? {
+              _tag: 'Ready',
+              data: from.data,
+              refreshing: from.stale,
+              info: dataInfoOf(place, from),
+            }
           : from?._tag === 'Failed'
-            ? { _tag: 'Failed', reason: from.reason, notFound: from.notFound }
-            : { _tag: 'Loading' },
+            ? {
+                _tag: 'Failed',
+                reason: from.reason,
+                notFound: from.notFound,
+                info: placeInfoOf(place),
+              }
+            : { _tag: 'Loading', info: placeInfoOf(place) },
     };
   }
   return out;
@@ -213,7 +230,7 @@ export const shownOf = <Route>(
         ? status
         : status._tag === 'Ready'
           ? { ...status, refreshing: true }
-          : { _tag: 'Loading' };
+          : { _tag: 'Loading', info: placeInfoOf(place) };
   }
   return out;
 };
@@ -258,11 +275,17 @@ export const loadPlace = <Route>(
     const answers = yield* found.value.load(
       [{ name, params: place.params }],
       // Data being loaded for a place that has none yet may already be on
-      // its way, or kept: anything else is asked again.
-      {
-        fresh: held.status._tag !== 'Loading' || reload > held.reload,
-      },
+      // its way, or kept. Behind a stale copy it may be on its way, as a
+      // preload's: joined, never answered by the copy. A reload's is asked
+      // again, joining nothing.
+      reload > held.reload
+        ? { fresh: true }
+        : held.status._tag === 'Loading'
+          ? {}
+          : { again: true },
     );
+    // When the answer came, before the loading screen's least time.
+    const arrived = yield* self.now;
     if (shown?._tag === 'Loading')
       yield* Effect.sleep(Math.max(0, began + MINIMUM - (yield* self.now)));
     const answer = answers[name] ?? {
@@ -281,6 +304,11 @@ export const loadPlace = <Route>(
               _tag: 'PlaceLoaded',
               answer: { name, data: answer.data },
               stale: answer.stale === true,
+              info: dataInfoOf(place, {
+                from: answer.cached ? 'cache' : 'browser',
+                at: answer.at ?? arrived,
+                took: answer.cached ? null : (answer.took ?? arrived - began),
+              }),
               ...stamp,
             });
       }
@@ -319,6 +347,7 @@ export const settle = (
           _tag: 'Ready',
           data: message.answer.data,
           refreshing: message.stale,
+          info: message.info,
         },
         reload: message.reload,
         for: message.for,
@@ -340,6 +369,10 @@ export const settle = (
               _tag: 'Failed',
               reason: message.reason,
               notFound: message.notFound,
+              info: {
+                render: held.status.info.render,
+                staleTime: held.status.info.staleTime,
+              },
             },
             reload: message.reload,
             for: message.for,

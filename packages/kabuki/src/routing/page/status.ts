@@ -1,6 +1,6 @@
 import { Schema } from 'effect';
 import type { Answer } from '../capability/index.ts';
-import type { Codec, Value } from '../route/index.ts';
+import type { Codec, RenderMode, Value } from '../route/index.ts';
 
 /*
  * What a Page is handed about its data and where it is: its `status`, and
@@ -8,41 +8,143 @@ import type { Codec, Value } from '../route/index.ts';
  * data from.
  */
 
+/** What is known of a place whatever its data: how it is drawn, and how long its data stays fresh. */
+export interface PlaceInfo {
+  readonly render: RenderMode;
+  /** Its Stale time, in milliseconds; `null` for a static page, fresh until the next deploy. */
+  readonly staleTime: number | null;
+}
+
+/** Where a place's data came from: the page the server drew, a load by the app, or a copy the Data cache kept. */
+export type From = 'server' | 'browser' | 'cache';
+
+/** What is known of a place's data once it is there, besides the data. */
+export interface DataInfo extends PlaceInfo {
+  readonly from: From;
+  /** When it arrived, in milliseconds since the epoch: its Stale time counts from it. */
+  readonly arrivedAt: number;
+  /** When it goes stale, in milliseconds since the epoch; `null` for a static page. */
+  readonly freshUntil: number | null;
+  /** How long, in milliseconds, from asking for it to its answer; `null` for a copy. */
+  readonly took: number | null;
+}
+
 /**
  * Where a page's data is: loading, failed, or there. `refreshing` is true
  * while it loads again behind the data shown, after a reload or on a copy
- * the Data cache kept. `notFound` is a Loader's `Page.notFound()`.
+ * the Data cache kept. `notFound` is a Loader's `Page.notFound()`. `info`
+ * is good to know, never needed to draw: how the page is drawn, its Stale
+ * time, and once its data is there, where it came from and when it goes
+ * stale.
  */
 export type Status<D> =
-  | { readonly _tag: 'Loading' }
+  | { readonly _tag: 'Loading'; readonly info: PlaceInfo }
   | {
       readonly _tag: 'Failed';
       readonly reason: string;
       readonly notFound: boolean;
+      readonly info: PlaceInfo;
     }
-  | { readonly _tag: 'Ready'; readonly data: D; readonly refreshing: boolean };
+  | {
+      readonly _tag: 'Ready';
+      readonly data: D;
+      readonly refreshing: boolean;
+      readonly info: DataInfo;
+    };
+
+const placeInfo = {
+  render: Schema.Literals(['static', 'dynamic', 'client']),
+  staleTime: Schema.NullOr(Schema.Number),
+};
+const PlaceInfoSchema = Schema.Struct(placeInfo);
+export const DataInfoSchema = Schema.Struct({
+  ...placeInfo,
+  from: Schema.Literals(['server', 'browser', 'cache']),
+  arrivedAt: Schema.Number,
+  freshUntil: Schema.NullOr(Schema.Number),
+  took: Schema.NullOr(Schema.Number),
+});
 
 export const statusSchema = <D>(data: Codec<D>): Codec<Status<D>> =>
   Schema.TaggedUnion({
-    Loading: {},
-    Failed: { reason: Schema.String, notFound: Schema.Boolean },
-    Ready: { data, refreshing: Schema.Boolean },
+    Loading: { info: PlaceInfoSchema },
+    Failed: {
+      reason: Schema.String,
+      notFound: Schema.Boolean,
+      info: PlaceInfoSchema,
+    },
+    Ready: { data, refreshing: Schema.Boolean, info: DataInfoSchema },
   }) as unknown as Codec<Status<D>>;
 
-/** What a place's data starts from, when something is known as it lands: data, stale if the Data cache kept it, or why there is none. */
+/** What is known of a place whatever its data. */
+export const placeInfoOf = (place: {
+  readonly render: RenderMode;
+  readonly staleTime: number;
+}): PlaceInfo => ({
+  render: place.render,
+  staleTime: Number.isFinite(place.staleTime) ? place.staleTime : null,
+});
+
+/** What is known of a place's data that arrived `at`, from `from`, in `took`. */
+export const dataInfoOf = (
+  place: { readonly render: RenderMode; readonly staleTime: number },
+  data: {
+    readonly from: From;
+    readonly at: number;
+    readonly took: number | null;
+  },
+): DataInfo => {
+  const info = placeInfoOf(place);
+  return {
+    ...info,
+    from: data.from,
+    arrivedAt: data.at,
+    freshUntil: info.staleTime === null ? null : data.at + info.staleTime,
+    took: data.took,
+  };
+};
+
+/**
+ * What a place's data starts from, when something is known as it lands:
+ * data, stale if the Data cache kept it, with where it came from, when it
+ * arrived and how long it took; or why there is none.
+ */
 export type Known =
-  | { readonly _tag: 'Ready'; readonly data: unknown; readonly stale: boolean }
+  | {
+      readonly _tag: 'Ready';
+      readonly data: unknown;
+      readonly stale: boolean;
+      readonly from: From;
+      /** When it arrived, in milliseconds since the epoch: its Stale time counts from it. */
+      readonly at: number;
+      readonly took: number | null;
+    }
   | {
       readonly _tag: 'Failed';
       readonly reason: string;
       readonly notFound: boolean;
     };
 
-/** What an answer tells a place's data it starts from; a Redirect tells it nothing, the Router follows it. */
-export const knownOf = (answer: Answer): Known | undefined => {
+/**
+ * What an answer tells a place's data it starts from: arrived when the
+ * Data cache says, else `now`; from a copy if the Data cache kept it, else
+ * from `from`. A Redirect tells it nothing, the Router follows it.
+ */
+export const knownOf = (
+  answer: Answer,
+  now: number,
+  from: From,
+): Known | undefined => {
   switch (answer._tag) {
     case 'Loaded':
-      return { _tag: 'Ready', data: answer.data, stale: answer.stale === true };
+      return {
+        _tag: 'Ready',
+        data: answer.data,
+        stale: answer.stale === true,
+        from: answer.cached ? 'cache' : from,
+        at: answer.at ?? now,
+        took: answer.cached ? null : (answer.took ?? null),
+      };
     case 'NotFound':
       return { _tag: 'Failed', reason: 'Not found', notFound: true };
     case 'Broken':

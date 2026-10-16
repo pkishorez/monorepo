@@ -22,6 +22,7 @@ import { pick } from './values.ts';
 export const placesOn = (
   children: Children,
   route: Value,
+  staleTimes: ReadonlyMap<string, number>,
 ): ReadonlyArray<Place> => {
   const out: Array<Place> = [];
   let layer = children;
@@ -41,6 +42,7 @@ export const placesOn = (
       key: JSON.stringify([name, params]),
       params: { ...params, ...pick(node.query, value) },
       render,
+      staleTime: staleTimes.get(name) ?? 0,
       input: node.input,
     });
     layer = node.children;

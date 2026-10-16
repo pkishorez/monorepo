@@ -39,6 +39,8 @@ export type RouterOptions<C, D> = {
   readonly preloadDelay?: number;
   /** How long, in milliseconds, a copy in the Data cache stays fresh, for every dynamic or client page that says none: 0 unless said. */
   readonly staleTime?: number;
+  /** How many copies the Data cache keeps, the least recently used dropped first: 50 unless said. */
+  readonly cacheSize?: number;
 } & ScrollRestorationOptions<RouteOf<C>>;
 
 /** What the Router reads of its definition besides the Routes. */
@@ -49,6 +51,7 @@ export interface Rooted<G extends AnyPageDefinition> {
     readonly base: string;
     readonly delay: number;
     readonly preload: { readonly mode: Preload; readonly delay: number };
+    readonly cacheSize: number;
     readonly scroll: ScrollRestorationOptions<never>;
   };
 }
@@ -107,6 +110,7 @@ export const define = <
       preload,
       preloadDelay,
       staleTime,
+      cacheSize,
       ...scroll
     } = options;
     return Object.assign(
@@ -122,6 +126,7 @@ export const define = <
           base: (base ?? '').replace(/\/$/, ''),
           delay: delay ?? 150,
           preload: { mode: preload ?? 'intent', delay: preloadDelay ?? 50 },
+          cacheSize: cacheSize ?? 50,
           scroll: scroll as ScrollRestorationOptions<never>,
         },
       },

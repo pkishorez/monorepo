@@ -209,6 +209,8 @@ export interface Place<Name extends string = string> {
   /** What its Loader is handed: every path param down to it, and its own query. */
   readonly params: Readonly<Record<string, unknown>>;
   readonly render: RenderMode;
+  /** How long, in milliseconds, a copy of its data stays fresh: `Infinity` for a static place. */
+  readonly staleTime: number;
   readonly input: Codec<unknown> | undefined;
 }
 

@@ -188,6 +188,9 @@ export const routesOf = <C extends object, D>(
     (typeof of === 'string' ? read(of).route : of) as Value;
   const every = allPlaces(nodes, options.staleTime);
   const names = every.map((place) => place.name);
+  const staleTimes = new Map(
+    every.map((place) => [place.name, place.staleTime]),
+  );
   const api: RoutesApi<C> = {
     route: levelSchema(nodes, true) as Codec<Route>,
     place: (names.length > 0
@@ -209,7 +212,7 @@ export const routesOf = <C extends object, D>(
     places: (of) => {
       const value = routeOf(of);
       return (
-        value._tag === 'NotFound' ? [] : placesOn(nodes, value)
+        value._tag === 'NotFound' ? [] : placesOn(nodes, value, staleTimes)
       ) as ReadonlyArray<Place<NameOf<C>>>;
     },
     every: every as ReadonlyArray<PlaceSchema<NameOf<C>>>,

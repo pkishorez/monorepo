@@ -154,11 +154,34 @@ const send = (
 const push = (app: Running<unknown>, route: unknown) =>
   send(app, { _tag: 'Pushed', route });
 
-const ready = (data: unknown, refreshing = false) => ({
-  _tag: 'Ready',
+/** What a server drew a place with: `data`, loaded as the page was drawn. */
+const served = (data: unknown) => ({
+  _tag: 'Ready' as const,
   data,
-  refreshing,
+  stale: false,
+  from: 'server' as const,
+  at: Date.now(),
+  took: 5,
 });
+/** A Ready status with `data`, whenever it goes stale. */
+const ready = (data: unknown, refreshing = false) =>
+  expect.objectContaining({ _tag: 'Ready', data, refreshing });
+/** When the page `name`'s data goes stale. */
+const freshUntil = (app: Running<unknown>, name: string) =>
+  (
+    status(app, name) as
+      | { readonly info?: { readonly freshUntil?: number | null } }
+      | undefined
+  )?.info?.freshUntil;
+/** Where the page `name`'s data came from, and how long it took. */
+const from = (app: Running<unknown>, name: string) => {
+  const info = (
+    status(app, name) as
+      | { readonly info?: { readonly from?: string; readonly took?: unknown } }
+      | undefined
+  )?.info;
+  return { from: info?.from, took: info?.took };
+};
 const BLOG = POSTS.map(({ slug, title }) => ({ slug, title }));
 
 describe('a move to pages with data', () => {
@@ -192,7 +215,10 @@ describe('a move to pages with data', () => {
         yield* wait(200);
         expect(router(app).pending).toBeNull();
         // Parent and child each load on their own: the Blog is Ready while the post still loads.
-        expect(status(app, 'Post')).toEqual({ _tag: 'Loading' });
+        expect(status(app, 'Post')).toEqual({
+          _tag: 'Loading',
+          info: { render: 'static', staleTime: null },
+        });
         open();
         yield* wait(350);
         expect(status(app, 'Post')).toEqual(ready(POSTS[0]));
@@ -208,7 +234,10 @@ describe('a move to pages with data', () => {
         const app = yield* Runtime.start(Root.actor, loading);
         push(app, Routes.Blog.Post({ slug: 'hello' }));
         yield* wait(500);
-        expect(status(app, 'Blog')).toEqual({ _tag: 'Loading' });
+        expect(status(app, 'Blog')).toEqual({
+          _tag: 'Loading',
+          info: { render: 'static', staleTime: null },
+        });
         expect(status(app, 'Post')).toEqual(ready(POSTS[0]));
         open();
         yield* settle;
@@ -270,6 +299,7 @@ describe('a Loader that does not answer with data', () => {
           _tag: 'Failed',
           reason: 'Blog.Post:hello broke',
           notFound: false,
+          info: { render: 'static', staleTime: null },
         });
         breaks.clear();
         push(app, Routes.Blog.Post({ slug: 'hello' }));
@@ -288,6 +318,7 @@ describe('a Loader that does not answer with data', () => {
           _tag: 'Failed',
           reason: 'Not found',
           notFound: true,
+          info: { render: 'static', staleTime: null },
         });
       }),
     ));
@@ -368,6 +399,8 @@ describe('the Data cache', () => {
         // it is Ready from its copy, with nothing to wait on.
         expect(router(app).pending).toBeNull();
         expect(status(app, 'Post')).toEqual(ready(POSTS[0]));
+        // A static page is fresh until the next deploy.
+        expect(freshUntil(app, 'Post')).toBeNull();
         open();
         expect(calls['Blog.Post:hello']).toBe(1);
       }),
@@ -377,8 +410,8 @@ describe('the Data cache', () => {
     run(
       Effect.gen(function* () {
         const input = Root.startAt('/blog/hello', {
-          Blog: { _tag: 'Ready', data: BLOG, stale: false },
-          'Blog.Post': { _tag: 'Ready', data: POSTS[0], stale: false },
+          Blog: served(BLOG),
+          'Blog.Post': served(POSTS[0]),
         });
         const app = yield* Runtime.start(
           History.make(Root.actor, { input }),
@@ -392,6 +425,8 @@ describe('the Data cache', () => {
         expect(router(app).pending).toBeNull();
         expect(status(app, 'Post')).toEqual(ready(POSTS[0]));
         expect(calls).toEqual({});
+        // A copy of what the server drew it with, from the Data cache now.
+        expect(from(app, 'Post')).toEqual({ from: 'cache', took: null });
       }),
     ));
 
@@ -518,11 +553,12 @@ describe('a copy that comes while a page loads', () => {
         const stale = Layer.succeed(Loading, {
           load: (places, options) =>
             Effect.sync(() => {
-              if (options?.fresh) fresh += 1;
+              const again = options?.fresh || options?.again;
+              if (again) fresh += 1;
               return Object.fromEntries(
                 places.map(({ name }) => [
                   name,
-                  options?.fresh
+                  again
                     ? { _tag: 'Loaded' as const, data: { visits: 2 } }
                     : {
                         _tag: 'Loaded' as const,
@@ -621,7 +657,7 @@ it('types a page: its Props, its pages and its data', () => {
 describe('a drawing a server saves', () => {
   it('restores in the browser as it was, through JSON: every page as it started', () => {
     const input = Root.startAt('/blog/hello', {
-      Blog: { _tag: 'Ready', data: BLOG, stale: false },
+      Blog: served(BLOG),
       'Blog.Post': { _tag: 'Failed', reason: 'gone', notFound: true },
     });
     const history = History.make(Root.actor, { input });
@@ -639,6 +675,7 @@ describe('a drawing a server saves', () => {
       _tag: 'Failed',
       reason: 'gone',
       notFound: true,
+      info: { render: 'static', staleTime: null },
     });
   });
 });
@@ -729,6 +766,80 @@ describe('a page with a Stale time', () => {
       }),
     ));
 
+  it('a move to an older copy during a preload of it joins the preload: one load', () =>
+    run(
+      Effect.gen(function* () {
+        const app = yield* Runtime.start(FreshRoot.actor, fresh);
+        push(app, Fresh.Feed());
+        yield* settle;
+        push(app, Fresh.Start());
+        yield* wait(100);
+        const open = hold('Feed');
+        send(app, { _tag: 'Preloading', route: Fresh.Feed() });
+        yield* settle;
+        push(app, Fresh.Feed());
+        yield* settle;
+        expect(status(app, 'Feed')).toEqual(ready(FEED, true));
+        open();
+        yield* settle;
+        expect(status(app, 'Feed')).toEqual(ready(FEED));
+        expect(calls).toEqual({ Feed: 2 });
+      }),
+    ));
+
+  it('says when its data goes stale: its Stale time from when it arrived, kept on a copy', () =>
+    run(
+      Effect.gen(function* () {
+        const app = yield* Runtime.start(FreshRoot.actor, fresh);
+        const before = Date.now();
+        push(app, Fresh.Feed());
+        yield* settle;
+        const until = freshUntil(app, 'Feed') as number;
+        expect(until).toBeGreaterThanOrEqual(before + 80);
+        expect(until).toBeLessThanOrEqual(Date.now() + 80);
+        push(app, Fresh.Start());
+        yield* settle;
+        send(app, { _tag: 'Went', by: -1 });
+        yield* settle;
+        // The copy is the same data: it goes stale when it did.
+        expect(freshUntil(app, 'Feed')).toBe(until);
+        push(app, Fresh.Start());
+        yield* wait(100);
+        send(app, { _tag: 'Went', by: -1 });
+        yield* wait(150);
+        // Loaded again: fresh from when the new data arrived.
+        expect(freshUntil(app, 'Feed')).toBeGreaterThan(until);
+      }),
+    ));
+
+  it('says where its data came from, and how long it took: in `info`', () =>
+    run(
+      Effect.gen(function* () {
+        const app = yield* Runtime.start(FreshRoot.actor, fresh);
+        const open = hold('Feed');
+        push(app, Fresh.Feed());
+        yield* wait(200);
+        expect(status(app, 'Feed')).toEqual({
+          _tag: 'Loading',
+          info: { render: 'dynamic', staleTime: 80 },
+        });
+        open();
+        // It landed after its delay; its loading screen stays 300 ms.
+        yield* wait(400);
+        const loaded = from(app, 'Feed');
+        expect(loaded.from).toBe('browser');
+        expect(loaded.took).toBeGreaterThanOrEqual(0);
+        push(app, Fresh.Start());
+        yield* settle;
+        // Stale by now: shown from its copy while it loads again.
+        hold('Feed');
+        send(app, { _tag: 'Went', by: -1 });
+        yield* settle;
+        expect(status(app, 'Feed')).toEqual(ready(FEED, true));
+        expect(from(app, 'Feed')).toEqual({ from: 'cache', took: null });
+      }),
+    ));
+
   it('a reload loads it again, fresh or not', () =>
     run(
       Effect.gen(function* () {
@@ -738,6 +849,30 @@ describe('a page with a Stale time', () => {
         send(app, { _tag: 'Reloaded' });
         yield* settle;
         expect(calls).toEqual({ Feed: 2 });
+      }),
+    ));
+});
+
+describe("the router's cacheSize", () => {
+  it('is how many copies the Data cache keeps: the least recently used goes', () =>
+    run(
+      Effect.gen(function* () {
+        const Small = Router.define(App, { cacheSize: 1 });
+        const app = yield* Runtime.start(
+          Router.app(Small, AppView).actor,
+          Router.cached(Small, Router.memory(Small, loaders)),
+        );
+        push(app, Small.Blog.Post({ slug: 'hello' }));
+        yield* settle;
+        push(app, Small.Blog.Post({ slug: 'again' }));
+        yield* settle;
+        hold('Blog.Post:hello');
+        send(app, { _tag: 'Went', by: -1 });
+        yield* settle;
+        // Its copy was dropped for the newer one: Back waits on its Loader.
+        expect(router(app).pending).not.toBeNull();
+        expect(calls['Blog.Post:hello']).toBe(2);
+        expect(Routes.options.cacheSize).toBe(50);
       }),
     ));
 });

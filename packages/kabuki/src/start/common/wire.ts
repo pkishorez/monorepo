@@ -106,7 +106,22 @@ export const readAsk = (places: Places, body: unknown): ReadonlyArray<Wanted> =>
 
 const outcomeWith =
   (direction: 'encode' | 'decode') =>
-  (routes: RoutesOnWire, places: Places, { name, outcome }: Line): Line => {
+  (routes: RoutesOnWire, places: Places, line: Line): Line => {
+    const { name } = line;
+    // Only the outcome goes on the wire: what a Loading adds besides, as
+    // how long it took, the browser works out for itself.
+    const {
+      took: _took,
+      at: _at,
+      cached: _cached,
+      stale: _stale,
+      ...outcome
+    } = line.outcome as Outcome & {
+      readonly took?: number;
+      readonly at?: number;
+      readonly cached?: boolean;
+      readonly stale?: boolean;
+    };
     const code = (schema: Codec<unknown>) => (value: unknown) =>
       direction === 'encode'
         ? Schema.encodeUnknownExit(schema)(value)
@@ -133,7 +148,7 @@ const outcomeWith =
           ),
         },
       };
-    return { name, outcome };
+    return { name, outcome: outcome as Outcome };
   };
 
 /** One place's outcome as a line, its data and Redirect written with their Schemas. */

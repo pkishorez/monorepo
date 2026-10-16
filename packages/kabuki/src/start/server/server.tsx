@@ -177,7 +177,7 @@ export const server = (options: ServerOptions): Handler => {
         );
         status = 500;
       }
-      known[name] = knownOf(outcome)!;
+      known[name] = knownOf(outcome, Date.now(), 'server')!;
     }
     return { _tag: 'Loaded', known, status };
   };

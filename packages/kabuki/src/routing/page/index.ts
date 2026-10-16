@@ -10,5 +10,18 @@ export type {
   PageProps,
   Rootless,
 } from './page.ts';
-export { knownOf, statusSchema } from './status.ts';
-export type { Known, Status, Where } from './status.ts';
+export {
+  DataInfoSchema,
+  dataInfoOf,
+  knownOf,
+  placeInfoOf,
+  statusSchema,
+} from './status.ts';
+export type {
+  DataInfo,
+  From,
+  Known,
+  PlaceInfo,
+  Status,
+  Where,
+} from './status.ts';
