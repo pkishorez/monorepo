@@ -26,7 +26,7 @@ the home page:
 | `/blog/moved`, `/posts/no-waterfall` | Redirects: a Loader's `302`, and an old address the router replaces with a `308`.                                             |
 | `/search?q=scroll`                   | A query its Loader reads: a new one loads again on the same page, the results shown meanwhile.                                |
 | `/notes`                             | A page with States and a draft: Reload loads its data again, and the draft stays.                                             |
-| `/preload`                           | Links that preload on hover, once in view, or never, to slow pages whose Views load lazily.                                   |
+| `/preload`                           | Links that preload on hover, once in view, or never, to slow pages whose Views load lazily and whose data stays fresh 30 s.   |
 
 Each page is drawn in a box, nested as its pages are, whose left edge is the
 color of its Render Mode: green static, amber dynamic, blue client, the only

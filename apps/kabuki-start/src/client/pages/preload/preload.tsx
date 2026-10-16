@@ -48,7 +48,7 @@ export const PreloadView = View.make(Pages.PreloadLive, (self) => {
     <PlaceFrame
       place="Preload"
       title="Preload"
-      intro="Every link goes to a page whose Loader takes a second and a half. A link that preloads warms the Data cache, and the page's lazy code, so the page is there when it is clicked."
+      intro="Every link goes to a page whose Loader takes a second and a half. A link that preloads warms the Data cache, and the page's lazy code, so the page is there when it is clicked. Its data then stays fresh for 30 seconds: a click, or Back to it, in that time loads nothing again."
     >
       <Slot id={slow?.id ?? 'links'}>
         {slow ? (
