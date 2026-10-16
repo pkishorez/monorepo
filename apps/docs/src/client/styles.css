@@ -1,0 +1,26 @@
+@import '@kestack/web-platform/theme/global.css';
+@import '@kestack/web-platform/theme/font-inter.css';
+
+@layer base {
+  body {
+    @apply bg-background font-sans text-foreground antialiased;
+  }
+}
+
+/*
+ * Code blocks: Shiki colours them for both themes at build time, light by
+ * default and dark in its `--shiki-dark` variables. The block's own
+ * background gives way to the page's.
+ */
+@layer components {
+  .shiki {
+    background-color: color-mix(
+      in oklab,
+      var(--color-muted) 40%,
+      transparent
+    ) !important;
+  }
+  .dark .shiki span {
+    color: var(--shiki-dark) !important;
+  }
+}

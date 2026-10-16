@@ -1,31 +1,24 @@
 {
   "$schema": "../../devtools/laymos/schema.json",
   "sourceRoots": ["src"],
-  "ignoredPaths": ["src/routeTree.gen.ts", "src/styles", "src/types.d.ts"],
-  "fileModules": [
-    "src/router.tsx",
-    "src/start.ts",
-    "src/server.ts",
-    "src/components/not-found.tsx",
-    "src/lib/theme.tsx"
-  ],
+  "ignoredPaths": ["src/client/styles.css"],
+  "fileModules": ["src/client/app.tsx", "src/client/document.tsx"],
   "rules": {
-    "src/router.tsx": ["src/components"],
-    "src/routes": ["src/lib", "src/demos"],
-    "src/demos/opening-an-app/screens": ["src/demos/opening-an-app/story"],
-    "src/demos/kabuki-routing/app": [
-      "src/demos/kabuki-routing/routes",
-      "src/demos/kabuki-routing/parts"
+    "src/client": ["src/shared"],
+    "src/client/app.tsx": [
+      "src/client/pages",
+      "src/client/components",
+      "src/client/document.tsx"
     ],
-    "src/demos/kabuki-routing/app/sign-in": [
-      "src/demos/kabuki-routing/app/capabilities"
-    ]
-  },
-  "exceptions": [
-    {
-      "from": "src/demos/kabuki-routing/routes",
-      "to": "src/demos/kabuki-routing/app",
-      "because": "The Routes are read down from the root page, once first used; the pages read the Routes only when they run."
-    }
-  ]
+    "src/client/document.tsx": ["src/client/components"],
+    "src/client/pages": [
+      "src/client/components",
+      "src/client/demos",
+      "src/client/docs"
+    ],
+    "src/client/demos/opening-an-app/screens": [
+      "src/client/demos/opening-an-app/story"
+    ],
+    "src/shared/pages": ["src/shared/content"]
+  }
 }

@@ -1,0 +1,61 @@
+import { StatesDecide } from './components/states-decide.tsx';
+
+kabuki keeps your app outside React. The app is a tree of Actors: small
+state machines that change only when they get a Message. React only draws
+what they hold.
+
+## The idea
+
+Each Actor has three things:
+
+- a **Model**, the data it holds,
+- a **State**, the mode it is in, such as `Stopped` or `Running`,
+- **Messages**, the only way anything about it changes.
+
+Here is a timer, built as one Actor. Start it, pause it, and watch the right
+side.
+
+<Demo caption="Start the timer: a tick Worker appears. Pause it: the Worker is gone, because it only exists while the State is Running.">
+  <StatesDecide />
+</Demo>
+
+The button does not call a function that changes the time. It sends a
+Message, `Started`, and the Actor decides what that means. The clock itself
+is a Worker that sends `Ticked` once a second.
+
+## States decide what exists
+
+This is the whole timer. The `tick` Worker is written inside the `Running`
+State, so it runs while the timer is Running and stops the moment it is not.
+
+```ts file=./components/timer.ts
+
+```
+
+There is no cleanup to write and no interval to forget. The same goes for
+everything a State starts: its Children, its Workers and what it Provides to
+them. Leave the State, and all of it stops.
+
+## One Snapshot
+
+The Models and States of every Actor in the app make up one value, the
+Snapshot. Handling a Message is a pure step from one Snapshot to the next,
+and every Message is kept in order, so you can show the app as it was at any
+earlier step, branch from there, and replay.
+
+<Callout title="Effect at the edges">
+  Anything that touches the outside world, such as timers, requests and storage,
+  is an [Effect](https://effect.website). Updates stay pure, which is what makes
+  the replay exact.
+</Callout>
+
+## When to use it
+
+kabuki fits apps where the hard part is state and work over time: syncing,
+uploads, sign-in flows, anything that starts, stops and fails. It is more
+than you need for a page that only shows data from a server.
+
+## Where next
+
+- [Quick start](/kabuki/quick-start): a running app in five minutes.
+- [Opening an app](/kabuki/opening-an-app): every idea at once, in a live demo.

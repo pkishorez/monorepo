@@ -1,6 +1,6 @@
 {
   "name": "docs",
-  "description": "Live demos of the monorepo's packages, published at docs.kishore.app.",
+  "description": "The docs for every ke stack toolkit, a kabuki start app published at docs.kishore.app.",
   "private": true,
   "type": "module",
   "sideEffects": false,
@@ -13,12 +13,7 @@
     "deploy:prod": "ALLOW_DEPLOY=true alchemy deploy --stage prod"
   },
   "dependencies": {
-    "@fontsource-variable/inter": "catalog:",
-    "@fontsource-variable/jetbrains-mono": "catalog:",
     "@kestack/web-platform": "workspace:*",
-    "@tanstack/react-router": "catalog:",
-    "@tanstack/react-router-devtools": "catalog:",
-    "@tanstack/react-start": "catalog:",
     "effect": "catalog:",
     "@kestack/kabuki": "workspace:*",
     "lucide-react": "catalog:",
@@ -28,7 +23,10 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "catalog:",
+    "@mdx-js/rollup": "catalog:",
+    "@shikijs/rehype": "catalog:",
     "@tailwindcss/vite": "catalog:",
+    "@types/mdx": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
