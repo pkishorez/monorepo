@@ -1,0 +1,67 @@
+import { Router, useRouter } from '@kestack/kabuki/routing';
+import { ArrowLeftIcon } from '@kestack/web-platform/components/lucide';
+import { SECTIONS, router } from '../../shared/index.ts';
+import type { Route, Slug } from '../../shared/index.ts';
+
+/*
+ * kabuki's docs, section by section, as its table of contents says. First
+ * a way out of kabuki, back to the stack's home. Each section hangs its
+ * pages off a line, and the page shown marks its part of the line. A
+ * series' pages are numbered, as chapters; a page not written yet is
+ * quieter, and says so.
+ */
+
+const currentSlug = (route: Route): Slug | undefined =>
+  route._tag === 'Kabuki' && route.page?._tag === 'Doc'
+    ? route.page.slug
+    : undefined;
+
+export function Sidebar() {
+  const { route } = useRouter<Route>();
+  const current = currentSlug(route);
+  return (
+    <nav aria-label="kabuki docs" className="space-y-7">
+      <Router.Link
+        to={router.Home()}
+        className="group flex w-fit items-center gap-1.5 text-[13px] text-muted-foreground hover:text-foreground"
+      >
+        <ArrowLeftIcon className="size-3.5 transition-transform group-hover:-translate-x-0.5" />
+        ke stack
+      </Router.Link>
+      {SECTIONS.map((section) => (
+        <section key={section.title} className="space-y-2">
+          <h2 className="text-[13px] font-semibold text-foreground">
+            {section.title}
+          </h2>
+          <ul className="border-l border-border">
+            {section.docs.map((doc, index) => (
+              <li key={doc.slug}>
+                <Router.Link
+                  to={router.Kabuki.Doc({ slug: doc.slug })}
+                  aria-current={current === doc.slug ? 'page' : undefined}
+                  className={`-ml-px flex min-h-8 items-center gap-2.5 border-l-2 border-transparent py-1 pr-2 pl-3.5 text-sm transition-colors hover:border-foreground/30 hover:text-foreground aria-[current=page]:border-foreground aria-[current=page]:font-medium aria-[current=page]:text-foreground ${
+                    'soon' in doc
+                      ? 'text-muted-foreground/70'
+                      : 'text-muted-foreground'
+                  }`}
+                >
+                  {'series' in section && (
+                    <span className="w-3 shrink-0 font-mono text-[11px] tabular-nums opacity-70">
+                      {index + 1}
+                    </span>
+                  )}
+                  <span className="min-w-0 flex-1 truncate">{doc.title}</span>
+                  {'soon' in doc && (
+                    <span className="font-mono text-[10px] opacity-70">
+                      soon
+                    </span>
+                  )}
+                </Router.Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
+    </nav>
+  );
+}

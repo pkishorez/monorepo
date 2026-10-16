@@ -1,0 +1,81 @@
+import { Playground } from './components/playground.tsx';
+
+You will build a counter: one Actor, drawn by React. It takes three files
+and about forty lines.
+
+## Install
+
+kabuki runs on [Effect](https://effect.website) and draws with React.
+
+```sh
+pnpm add @kestack/kabuki effect react
+```
+
+## Define the Actor
+
+An Actor is written in two parts. `Actor.define` says what it holds and which
+Messages it takes, as Schemas. `Actor.build` says what each Message does to
+it: an Update gets the Message and the current Model, and returns the next
+one.
+
+```ts file=./components/counter.ts
+
+```
+
+Updates are plain functions with no side effects, so this file is easy to
+test and to read.
+
+## Draw it
+
+`View.make` draws the Actor with React. It gets the Model and `send`, and
+nothing else: it cannot change the Model itself, only send a Message.
+`toReact` turns the Actor and its View into a component that runs the app.
+
+```tsx file=./components/counter-app.tsx
+
+```
+
+The last argument, `Layer.empty`, is where you would give the app what its
+Actors need from the outside world, such as an API client. The counter needs
+nothing.
+
+## Use it
+
+`CounterApp` is a plain React component. Put it anywhere.
+
+```tsx
+import { CounterApp } from './counter-app.tsx';
+
+export function Page() {
+  return <CounterApp />;
+}
+```
+
+## Try it
+
+This is that counter, running, with both its files beside it. Press the
+buttons, then drag the slider back.
+
+<Demo caption="Every Message is kept. The slider shows the counter as it was right after any of them, while the live app keeps running. Live goes back.">
+
+<Playground />
+
+```ts file=./components/counter.ts
+
+```
+
+```tsx file=./components/counter-app.tsx
+
+```
+
+</Demo>
+
+Nothing in the counter was written for this. Keeping every Message and
+showing any earlier step comes with every kabuki app.
+
+## Next steps
+
+- [Introduction](/kabuki/introduction): States, Workers, and why the app
+  lives outside React.
+- [Opening an app](/kabuki/opening-an-app): a whole app with sign-in, sync
+  and downloads, and devtools to look inside it.

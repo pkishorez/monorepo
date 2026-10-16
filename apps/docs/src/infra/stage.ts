@@ -11,7 +11,7 @@ export const assertStageIsSafe = (stage: string): void => {
   if (isDeployedStage(stage) && process.env.ALLOW_DEPLOY !== 'true') {
     throw new Error(
       `Refusing to target deployed stage "${stage}" without ALLOW_DEPLOY=true. ` +
-        `Deploys go through deploy.yml or \`pnpm deploy:prod\`.`,
+        `Deploys go through deploy-docs.yml or \`pnpm deploy:prod\`.`,
     );
   }
 };

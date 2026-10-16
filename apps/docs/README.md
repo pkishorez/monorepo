@@ -1,26 +1,54 @@
 # docs
 
-Live demos of the monorepo's packages, published at docs.kishore.app.
+The docs for every ke stack toolkit, a kabuki start app published at docs.kishore.app.
 
 ## Big picture
 
-A plain TanStack Start app: a home page that links the monorepo, and the
-demos it lists, each on its own page under `/demos` with its code in
-`src/demos`. The one demo so far is Opening an app (`/demos/opening-an-app`),
-a Kabuki app in a browser window: it loads its assets, signs in, syncs
-and downloads files, with the Kabuki devtools over it on Ctrl+/. Its drawing words are in
-[`src/demos/opening-an-app/CONTEXT.md`](./src/demos/opening-an-app/CONTEXT.md).
+A kabuki start app, built the way
+[`apps/kabuki-start`](../kabuki-start/README.md) is: every page is an Actor,
+drawn by one Cloudflare Worker and hydrated in the browser. The home page is
+one line for the stack and a door per toolkit. kabuki, the only toolkit so
+far, has a landing page and its docs under `/kabuki/<slug>`, with a sidebar,
+"On this page" and a pager.
 
-The UI uses `@kestack/web-platform`. A Cloudflare Worker serves the site, and
-the infrastructure is declared with Alchemy in `alchemy.run.ts` and
-`src/infra`.
+The table of contents is TypeScript, in `src/shared/content`: the toolkits,
+and kabuki's sections and pages. A page's slug is its URL and is checked by
+the router, so a URL not in the table of contents is a 404. A page's words
+are MDX, in `src/client/docs`, with its live demos beside it; a page not
+written yet draws its outline as placeholders. How to write one is in
+[docs/authoring.md](./docs/authoring.md). The full-screen demo, Opening an
+app, is at `/kabuki/demos/opening-an-app`; its drawing words are in
+[`src/client/demos/opening-an-app/CONTEXT.md`](./src/client/demos/opening-an-app/CONTEXT.md).
 
-### Add a page
-
-Add a route under `src/routes/` and, if it imports code outside `src/lib`,
-allow that import in `laymos.config.json`.
+MDX is compiled at build time by `@mdx-js/rollup`, with Shiki colouring the
+code and `mdx/remark-docs.ts` giving headings their ids and including demo
+files into code blocks. The UI uses `@kestack/web-platform`. The
+infrastructure is declared with Alchemy in `alchemy.run.ts` and `src/infra`.
 
 ## Usage
+
+### Find your way around
+
+```
+mdx/            the build step every page's MDX goes through
+src/
+  shared/       both sides
+    content/      the toolkits, kabuki's table of contents, and each page's Metadata
+    pages/        the page definitions; routes.ts reads them into the router
+  client/       the Views: drawn by the server, then run by the browser
+    app.tsx       the root page's View, in the layout and the Document
+    document.tsx  the <html> around the app
+    docs/         every written page: its MDX and its live demos
+    pages/        one View per page: home, kabuki's landing, a docs page, the demo
+    components/   the header, sidebar, mobile menu, theme, and how MDX is drawn
+    demos/        the full-screen demo
+  infra/        the Worker and its domain, declared with Alchemy
+```
+
+### Add a docs page
+
+Follow [docs/authoring.md](./docs/authoring.md): add it to the table of
+contents, write its MDX in its own folder, and register it.
 
 ### Run locally
 
@@ -38,7 +66,7 @@ Vite.
 ```bash
 pnpm --filter docs dev     # dev server
 pnpm --filter docs lint    # tsc --noEmit + laymos lint
-pnpm --filter docs test    # the demos' stories, on a test clock
+pnpm --filter docs test    # the demo's stories, and every link between pages
 ```
 
 ### Build
