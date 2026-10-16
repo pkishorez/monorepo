@@ -15,7 +15,7 @@ import { pick } from './values.ts';
 /*
  * A Route's places: those on its path, each with its key, what its Loader
  * is handed, its Render Mode and its data; and every place of the tree as
- * Schemas.
+ * Schemas, with the Stale time each is kept fresh for.
  */
 
 /** The places on a Route's path, from the root down. The not-found Route has none. */
@@ -69,27 +69,39 @@ export const nodesOn = (
   return nodes;
 };
 
-/** Every place of the tree, as Schemas, from the root down. */
+/**
+ * Every place of the tree, as Schemas, from the root down. A place's Stale
+ * time is its own, else its parent's, else `staleTime`; a static place's is
+ * `Infinity`, and one that says its own throws.
+ */
 export const allPlaces = (
   children: Children,
+  staleTime = 0,
   at: ReadonlyArray<string> = [],
   params: Fields = {},
   render: RenderMode = 'static',
 ): ReadonlyArray<PlaceSchema> =>
   Object.entries(children).flatMap(([tag, node]) => {
     const here = [...at, tag];
+    const name = dotted(here);
     const fields = { ...params, ...node.params };
     const mode = (node.render as RenderMode | undefined) ?? render;
+    if (mode === 'static' && node.staleTime !== undefined)
+      throw new Error(
+        `[@kestack/kabuki/routing] ${name} is static: its data is fresh until the next deploy, so it has no staleTime`,
+      );
+    const stale = node.staleTime ?? staleTime;
     return [
       {
-        name: dotted(here),
+        name,
         params: Schema.Struct({ ...fields, ...node.query }) as unknown as Codec<
           Record<string, unknown>
         >,
         render: mode,
+        staleTime: mode === 'static' ? Infinity : stale,
         input: node.input,
       },
-      ...allPlaces(node.children, here, fields, mode),
+      ...allPlaces(node.children, stale, here, fields, mode),
     ];
   });
 

@@ -530,3 +530,53 @@ describe("the root's Metadata", () => {
     expect(() => Router.define(Loaded)).toThrow(/root page has no data/);
   });
 });
+
+describe('the Stale time', () => {
+  const Data = Schema.Struct({ n: Schema.Number });
+  const Item = Page.define({
+    path: '/:id',
+    params: { id: Schema.String },
+    data: Data,
+  });
+  const Quick = Page.define({ path: '/quick', data: Data, staleTime: 10 });
+  const Pinned = Page.define({ path: '/pinned', render: 'static', data: Data });
+  const Feed = Page.define({
+    path: '/feed',
+    render: 'dynamic',
+    data: Data,
+    staleTime: 5_000,
+    pages: { Quick, Pinned, Item },
+  });
+  const Live = Page.define({ path: '/live', render: 'client', data: Data });
+  const Fixed = Page.define({ path: '/fixed', data: Data });
+  const Root = Page.define({ pages: { Feed, Live, Fixed } });
+
+  it("is a place's own, else its parent's, else the Router's; a static place's is Infinity", () => {
+    const Fresh = Router.define(Root, { staleTime: 1_000 });
+    expect(Fresh.every.map((place) => [place.name, place.staleTime])).toEqual([
+      ['Feed', 5_000],
+      ['Feed.Quick', 10],
+      ['Feed.Pinned', Infinity],
+      ['Feed.Item', 5_000],
+      ['Live', 1_000],
+      ['Fixed', Infinity],
+    ]);
+  });
+
+  it('is 0 unless the Router says', () => {
+    expect(
+      Router.define(Root).every.find(({ name }) => name === 'Live')?.staleTime,
+    ).toBe(0);
+  });
+
+  it('is refused on a static page', () => {
+    // @ts-expect-error a static page has no Stale time
+    Page.define({ path: '/x', render: 'static', data: Data, staleTime: 5 });
+    // A page static from its parent says so when the Router is made.
+    const Inside = Page.define({ path: '/inside', data: Data, staleTime: 5 });
+    const Outer = Page.define({ path: '/outer', pages: { Inside } });
+    expect(() => Router.define(Page.define({ pages: { Outer } }))).toThrow(
+      /Outer\.Inside is static/,
+    );
+  });
+});

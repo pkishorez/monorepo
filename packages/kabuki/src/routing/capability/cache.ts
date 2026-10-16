@@ -1,4 +1,4 @@
-import { Cause, Deferred, Effect, Layer, Stream } from 'effect';
+import { Cause, Clock, Deferred, Effect, Layer, Stream } from 'effect';
 import type { Outcome } from '../route/index.ts';
 import { Loading } from './loading.ts';
 import type { Answer, RoutesWithPlaces, Wanted } from './loading.ts';
@@ -9,10 +9,11 @@ import type { Answer, RoutesWithPlaces, Wanted } from './loading.ts';
  * `Loading` and lives as long as the Layer, so in a browser, as long as the
  * tab; a server has none.
  *
- * 1. Keep    every place loaded, up to `size` copies; the least recently
- *            used goes first. A failure is never kept.
- * 2. Answer  from a copy unless asked `fresh`: `stale` unless the place is
- *            static, whose data only changes with a deploy.
+ * 1. Keep    every place loaded, up to `size` copies, each with when it
+ *            arrived; the least recently used goes first, never one for its
+ *            age. A failure is never kept.
+ * 2. Answer  from a copy unless asked `fresh`: `stale` once it is older
+ *            than its place's Stale time; a static place's never is.
  * 3. Join    a place already being loaded: a click during a preload waits
  *            for the same answer rather than asking again. A fresh ask, a
  *            reload's, joins nothing, and an answer is kept only if nothing
@@ -23,7 +24,10 @@ import type { Answer, RoutesWithPlaces, Wanted } from './loading.ts';
  *            a place that stops waiting does not stop it, and its answer is
  *            still kept.
  * 5. Seed    with the data a server drew the page with, so a page first
- *            seen from the server is kept as one loaded in the browser is.
+ *            seen from the server is kept as one loaded in the browser is,
+ *            arrived as the app starts.
+ *
+ * A preload loads only the places with no fresh copy.
  */
 
 /** Asks of one batch, split so no ask names a place twice: answers come back by name. */
@@ -61,10 +65,8 @@ export const cached = <E, R>(
     Effect.gen(function* () {
       const source = yield* Loading;
       const size = options?.size ?? 50;
-      const statics = new Set(
-        routes.every
-          .filter((place) => place.render === 'static')
-          .map((place) => place.name),
+      const staleTimes = new Map(
+        routes.every.map((place) => [place.name, place.staleTime]),
       );
       type Ask = {
         readonly key: string;
@@ -73,11 +75,17 @@ export const cached = <E, R>(
         /** When it was asked, counted: a copy is kept only from an answer asked after the one kept. */
         readonly seq: number;
       };
+      type Copy = {
+        readonly data: unknown;
+        readonly seq: number;
+        /** When it arrived, in milliseconds. */
+        readonly at: number;
+      };
       // 1. Keep
-      const copies = new Map<
-        string,
-        { readonly data: unknown; readonly seq: number }
-      >();
+      const copies = new Map<string, Copy>();
+      /** Whether a copy of the place is younger than its Stale time. */
+      const freshOf = (place: Wanted, copy: Copy, now: number) =>
+        now - copy.at < (staleTimes.get(place.name) ?? 0);
       const flying = new Map<string, Ask>();
       let batch: Array<Ask> = [];
       let asked = 0;
@@ -86,7 +94,7 @@ export const cached = <E, R>(
 
       const keyOf = (place: Wanted) =>
         JSON.stringify([place.name, place.params]);
-      const keep = (key: string, copy: { data: unknown; seq: number }) => {
+      const keep = (key: string, copy: Copy) => {
         copies.delete(key);
         copies.set(key, copy);
         for (const oldest of copies.keys()) {
@@ -97,17 +105,18 @@ export const cached = <E, R>(
 
       // 4. Batch
       /** Settles one ask with what its place came to, and keeps its data, unless a newer ask's is kept or the copies were dropped since. */
-      const settle = (ask: Ask, outcome: Outcome) => {
-        const { key, answer, seq } = ask;
-        if (flying.get(key) === ask) flying.delete(key);
-        if (
-          outcome._tag === 'Loaded' &&
-          seq > forgotten &&
-          seq > (copies.get(key)?.seq ?? 0)
-        )
-          keep(key, { data: outcome.data, seq });
-        return Deferred.succeed(answer, outcome);
-      };
+      const settle = (ask: Ask, outcome: Outcome) =>
+        Effect.flatMap(Clock.currentTimeMillis, (at) => {
+          const { key, answer, seq } = ask;
+          if (flying.get(key) === ask) flying.delete(key);
+          if (
+            outcome._tag === 'Loaded' &&
+            seq > forgotten &&
+            seq > (copies.get(key)?.seq ?? 0)
+          )
+            keep(key, { data: outcome.data, seq, at });
+          return Deferred.succeed(answer, outcome);
+        });
       /** Asks the Loading behind for a batch, each settled as it comes if it can say so, and any left unanswered broken. */
       const ask = (asks: ReadonlyArray<Ask>) => {
         const places = asks.map(({ place }) => place);
@@ -169,7 +178,7 @@ export const cached = <E, R>(
 
       // 2. Answer
       const one = (place: Wanted, fresh: boolean): Effect.Effect<Answer> =>
-        Effect.suspend(() => {
+        Effect.flatMap(Clock.currentTimeMillis, (now) => {
           const key = keyOf(place);
           const copy = copies.get(key);
           if (!fresh && copy) {
@@ -177,7 +186,7 @@ export const cached = <E, R>(
             return Effect.succeed<Answer>({
               _tag: 'Loaded',
               data: copy.data,
-              stale: !statics.has(place.name),
+              stale: !freshOf(place, copy, now),
             });
           }
           return Effect.flatMap(loading(place, fresh), Deferred.await);
@@ -195,17 +204,24 @@ export const cached = <E, R>(
             { concurrency: 'unbounded' },
           ).pipe(Effect.map((answers) => Object.fromEntries(answers))),
         preload: (places) =>
-          Effect.forEach(
-            places.filter((place) => !copies.has(keyOf(place))),
-            (place) => loading(place),
-            { discard: true },
+          Effect.flatMap(Clock.currentTimeMillis, (now) =>
+            Effect.forEach(
+              places.filter((place) => {
+                const copy = copies.get(keyOf(place));
+                return !copy || !freshOf(place, copy, now);
+              }),
+              (place) => loading(place),
+              { discard: true },
+            ),
           ),
         // 5. Seed
         keep: (place, data) =>
-          Effect.sync(() => {
-            const key = keyOf(place);
-            if (!copies.has(key)) keep(key, { data, seq: (asked += 1) });
-          }),
+          Effect.flatMap(Clock.currentTimeMillis, (at) =>
+            Effect.sync(() => {
+              const key = keyOf(place);
+              if (!copies.has(key)) keep(key, { data, seq: (asked += 1), at });
+            }),
+          ),
         // What is on its way was asked before: it is neither joined nor kept.
         forget: Effect.sync(() => {
           copies.clear();

@@ -98,6 +98,8 @@ export type RoutesOptions<C, D> = {
   readonly metadata?: Metadata;
   /** The not-found Route's Metadata, over the root's. */
   readonly notFound?: Metadata;
+  /** The Stale time of every dynamic or client place that says none, nor its parent: 0 unless said. */
+  readonly staleTime?: number;
 };
 
 /** What `routesOf` gives besides a constructor per place. */
@@ -184,7 +186,7 @@ export const routesOf = <C extends object, D>(
   };
   const routeOf = (of: Route | string) =>
     (typeof of === 'string' ? read(of).route : of) as Value;
-  const every = allPlaces(nodes);
+  const every = allPlaces(nodes, options.staleTime);
   const names = every.map((place) => place.name);
   const api: RoutesApi<C> = {
     route: levelSchema(nodes, true) as Codec<Route>,

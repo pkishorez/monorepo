@@ -69,6 +69,14 @@ export interface PageOptions<
   readonly data?: Codec<D>;
   /** How it is first drawn: static, dynamic or client; its parent's unless said. */
   readonly render?: M;
+  /**
+   * How long, in milliseconds, a copy of its data stays fresh once it
+   * arrives: a Move or a Preload shows a fresh copy and loads nothing, and
+   * an older one is shown and loaded again behind it. Its parent's unless
+   * said, else the Router's. A static page has none: its data is fresh
+   * until the next deploy.
+   */
+  readonly staleTime?: M extends 'static' ? never : number;
   /** What it says about itself, from its params, query and data once there. */
   readonly metadata?: MetadataOf<P, Q, D>;
   /** The definitions of the pages under it, each named by its key here. */
@@ -294,6 +302,7 @@ const define = <
     query,
     input: options.data,
     render: options.render,
+    staleTime: options.staleTime,
     metadata: options.metadata,
     children: pages,
   } as never;

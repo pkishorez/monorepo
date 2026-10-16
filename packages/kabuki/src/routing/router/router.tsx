@@ -583,18 +583,19 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
    * loads beside the page's data rather than after it. Code that fails to
    * load is loaded again when it is drawn.
    */
-  const preloadViews = (route: Route) => {
-    let build: AnyPageBuild | undefined = root;
-    let value = route as unknown as Value | undefined;
-    while (build && value) {
-      build = (build.pages as Record<string, AnyPageBuild>)[value._tag];
-      if (build)
-        lazyOf(build)
-          ?.preload()
-          .catch(() => {});
-      value = value['page'] as Value | undefined;
-    }
-  };
+  const preloadViews = (route: Route) =>
+    Effect.sync(() => {
+      let build: AnyPageBuild | undefined = root;
+      let value = route as unknown as Value | undefined;
+      while (build && value) {
+        build = (build.pages as Record<string, AnyPageBuild>)[value._tag];
+        if (build)
+          lazyOf(build)
+            ?.preload()
+            .catch(() => {});
+        value = value['page'] as Value | undefined;
+      }
+    });
 
   /**
    * Loads what the pending move wants, through `Loading`: with none, it
@@ -604,7 +605,7 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
    */
   const load = (pending: PendingMove<Route>, send: Send) =>
     Effect.gen(function* () {
-      preloadViews(pending.to);
+      yield* preloadViews(pending.to);
       const found = yield* Effect.serviceOption(Loading);
       const { id } = pending;
       if (Option.isNone(found))
@@ -637,7 +638,7 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
     args: Schema.Struct({ route: RouteSchema }),
     run: ({ route }) =>
       Effect.gen(function* () {
-        preloadViews(route as Route);
+        yield* preloadViews(route as Route);
         const found = yield* Effect.serviceOption(Loading);
         if (Option.isNone(found) || !found.value.preload) return;
         yield* found.value.preload(
@@ -861,7 +862,12 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
       Preloading: (
         { route }: { readonly route: Route },
         { model }: { readonly model: Model },
-      ) => (same(route, shown(model)) ? {} : { command: preload({ route }) }),
+      ): Out =>
+        // The page shown, or the move held, is loading it already.
+        same(route, shown(model)) ||
+        (model.pending !== null && same(route, model.pending.to))
+          ? {}
+          : { command: preload({ route }) },
       PlaceLoaded: (
         message: Extract<PlaceMessage, { readonly _tag: 'PlaceLoaded' }>,
         { model }: { readonly model: Model },
