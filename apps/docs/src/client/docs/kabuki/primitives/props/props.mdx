@@ -1,0 +1,85 @@
+import { PlaylistApp } from './components/playlist-app.tsx';
+import { PropsPicture } from './components/props-picture.tsx';
+
+The Playlist from the last page has a new job: playing music. It decides
+which song plays. But each Song should show it, with a little animation
+next to its title.
+
+In React, you'd pass it down as a prop: `<Song playing={id === playing} />`.
+kabuki does exactly the same. A parent hands each Child its **Props**.
+
+## Props flow down
+
+Props are what the parent says now. Every time the parent's Model or State
+changes, kabuki works its Props out again and hands them down.
+
+<Demo caption="A Message changes the Playlist. Then its Props flow down, and each Song sees whether it is the one playing. The Songs only read them.">
+  <PropsPicture />
+</Demo>
+
+You write them beside the Child, as a function of the parent's data:
+
+```ts
+songs: {
+  actor: SongLive,
+  each: ({ model }) => model.ids,
+  input: (_, id) => SONGS[id],
+  props: ({ model }, id) => ({ playing: model.playing === id }),
+},
+```
+
+The Child says what Props it takes in its Definition, so the parent can't
+hand it the wrong shape:
+
+```ts
+props: Schema.Struct({ playing: Schema.Boolean }),
+```
+
+## A Child reads them, and never writes them
+
+The Song's View gets its Props, the same as in React. So do its Updates,
+with every Message, and its Workers' tests. Wherever the Song makes a
+decision, it can see what its parent says.
+
+But it can never change them. Only the parent can. That keeps the story
+simple: data flows down, one way.
+
+## Input or Props?
+
+The Song now gets two things from its parent, and they're different.
+
+- **Input** is read once, when the Child starts. The title is Input: the
+  Song keeps it as its own.
+- **Props** are read live, and change whenever the parent's data does.
+  `playing` is a Prop: the Playlist decides it, all the time.
+
+If the Child should own it, use Input. If the parent should keep deciding
+it, use Props.
+
+## Try it
+
+Press play and skip through the songs. Each Song draws its bars from its
+`playing` Prop. Open Inside to see each Song's Props.
+
+<Demo caption="Play, then skip. Only the Playlist's Model changes; each Song's Prop follows. Like a song: that is the Song's own data, and it stays.">
+
+<Playground app={PlaylistApp} />
+
+```ts file=./components/playlist.ts
+
+```
+
+```tsx file=./components/playlist-app.tsx
+
+```
+
+</Demo>
+
+<Callout title="Remember">
+  A parent controls a Child in two ways only: whether it exists, and its Props.
+  It never reaches in and changes it.
+</Callout>
+
+So data flows down. But what if a Song wants to say "play me"? It can't
+change its parent. That's what [6. Capabilities](/kabuki/capabilities) are
+for.

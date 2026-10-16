@@ -1,0 +1,82 @@
+import { SketchApp } from './components/sketch-app.tsx';
+import {
+  BranchPicture,
+  TravelPicture,
+} from './components/timeline-pictures.tsx';
+
+You may have noticed the timeline under every demo on this site. You can
+drag it back, and the app goes back with it. This page is about how that
+works. The short answer: you get it for free.
+
+## Every Message is kept
+
+Remember the rule from the start: the only way anything changes is a
+Message. So if kabuki keeps every Message, in order, it has the whole story
+of your app. That story is the **History**.
+
+<Demo caption="Each Painted Message adds a dot. The ring goes back to Step 2, and the sketch is drawn as it was there.">
+  <TravelPicture />
+</Demo>
+
+You don't write anything to get it. The sketch pad below is an Actor like
+any other, with a Model, two Messages and two Updates. kabuki keeps its
+Messages on its own.
+
+## Going back is playing again
+
+Updates are pure. The same Model and the same Message always give the same
+answer. So to see the app as it was after any Message, kabuki starts from
+`init` and plays the Messages again, up to that point. That's a **Replay**.
+
+Showing a past moment this way is **Time Travel**. The live app keeps
+running underneath, and the past is read only: you can look, but nothing
+can be sent from there.
+
+This is why Workers live outside Updates. A Replay plays only Messages and
+Updates, so no request is sent twice and no timer fires twice.
+
+## Carrying on from the past
+
+You can also go back and carry on from there. The new Messages grow a new
+**Branch** beside the old one, like a branch in git. Nothing is lost.
+
+<Demo caption="Back at Step 2, the app carries on. A new line grows beside the old one, and the old one stays.">
+  <BranchPicture />
+</Demo>
+
+## Saving is easy, too
+
+Since the app is its Messages, saving the app is saving its History.
+`history.save()` gives plain JSON. Hand it back with `toReact(…, { saved
+})`, and the app carries on from where it was, even after a reload.
+
+The History is yours to read, too. `App.useRuntime()` gives you the
+Messages, a way to show any moment, and a way to carry on from one. The
+timeline on this site is built on just that.
+
+## Try it
+
+Paint a few cells and pick another colour. Drag the timeline back, press
+"Carry on from here", and paint something different.
+
+<Demo caption="Paint, then drag the timeline back to see the sketch as it was. Carry on from there, and the new Messages grow a new Branch.">
+
+<Playground app={SketchApp} />
+
+```ts file=./components/sketch.ts
+
+```
+
+```tsx file=./components/sketch-app.tsx
+
+```
+
+</Demo>
+
+<Callout title="Remember">
+  Your app is its Messages. Keep them, and you can rebuild any moment.
+</Callout>
+
+That's all of kabuki: an Actor, its States, Workers, Children, Props,
+Capabilities, a View, and its History. To see them all at once, open the
+[full-screen demo](/kabuki/demos/opening-an-app).

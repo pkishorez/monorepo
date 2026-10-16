@@ -1,61 +1,46 @@
-import { StatesDecide } from './components/states-decide.tsx';
+import { LoopPicture } from './components/loop-picture.tsx';
+import { ReactTwins } from './components/react-twins.tsx';
 
-kabuki keeps your app outside React. The app is a tree of Actors: small
-state machines that change only when they get a Message. React only draws
-what they hold.
+Everything in kabuki starts with an **Actor**.
 
-## The idea
+In React, a component is the building block of your UI. In kabuki, an Actor
+is the building block of your logic. It holds some data, it listens for
+Messages, and it decides what each Message means. React is left with one
+job: drawing what the Actors hold.
 
-Each Actor has three things:
+## The loop
 
-- a **Model**, the data it holds,
-- a **State**, the mode it is in, such as `Stopped` or `Running`,
-- **Messages**, the only way anything about it changes.
+Every kabuki app runs the same small loop, again and again.
 
-Here is a timer, built as one Actor. Start it, pause it, and watch the right
-side.
-
-<Demo caption="Start the timer: a tick Worker appears. Pause it: the Worker is gone, because it only exists while the State is Running.">
-  <StatesDecide />
+<Demo caption="A press becomes a Message. The Actor's Update makes the next Model. React draws it. Nothing else changes anything.">
+  <LoopPicture />
 </Demo>
 
-The button does not call a function that changes the time. It sends a
-Message, `Started`, and the Actor decides what that means. The clock itself
-is a Worker that sends `Ticked` once a second.
+The button doesn't change the count. It sends a Message, `Incremented`, and
+the Actor decides what that means. Since every change goes through a
+Message, kabuki can keep them all. So you can see your app as it was at
+any moment, and carry on from there.
 
-## States decide what exists
+## If you know React
 
-This is the whole timer. The `tick` Worker is written inside the `Running`
-State, so it runs while the timer is Running and stops the moment it is not.
+You already know most of kabuki. Each idea has a twin in React, and each
+page of these docs is one of them.
 
-```ts file=./components/timer.ts
+<ReactTwins />
 
-```
-
-There is no cleanup to write and no interval to forget. The same goes for
-everything a State starts: its Children, its Workers and what it Provides to
-them. Leave the State, and all of it stops.
-
-## One Snapshot
-
-The Models and States of every Actor in the app make up one value, the
-Snapshot. Handling a Message is a pure step from one Snapshot to the next,
-and every Message is kept in order, so you can show the app as it was at any
-earlier step, branch from there, and replay.
-
-<Callout title="Effect at the edges">
-  Anything that touches the outside world, such as timers, requests and storage,
-  is an [Effect](https://effect.website). Updates stay pure, which is what makes
-  the replay exact.
-</Callout>
+The difference is where things live. In React, logic hides inside
+components, spread across hooks. In kabuki, the logic is one tree of
+Actors, outside React, and you declare all of it. What you write down is
+what runs.
 
 ## When to use it
 
-kabuki fits apps where the hard part is state and work over time: syncing,
+kabuki fits apps where the hard part is logic over time: syncing,
 uploads, sign-in flows, anything that starts, stops and fails. It is more
 than you need for a page that only shows data from a server.
 
 ## Where next
 
-- [Quick start](/kabuki/quick-start): a running app in five minutes.
-- [Opening an app](/kabuki/opening-an-app): every idea at once, in a live demo.
+Build a counter in five minutes in the [Quick start](/kabuki/quick-start),
+or read the story from the start with [1. Actor](/kabuki/actor). To see
+everything at once, open the [full-screen demo](/kabuki/demos/opening-an-app).

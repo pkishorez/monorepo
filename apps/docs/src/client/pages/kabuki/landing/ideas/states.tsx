@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'motion/react';
-import { ENTER, EXIT, SPRING, useSteps } from './parts.tsx';
+import { ENTER, EXIT, SPRING, useSteps } from '../../../../components/index.ts';
 
 /*
  * States decide what renders: a Profile is Idle, then Loading, then Ready.

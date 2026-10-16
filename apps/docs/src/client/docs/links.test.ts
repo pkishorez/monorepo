@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { DOCS } from '../../shared/index.ts';
+import { DEMO, DOCS } from '../../shared/index.ts';
 
 /*
  * Every link a docs page makes to the site names a page the site has, so a
@@ -20,7 +20,7 @@ const mdx = (dir: string): Array<string> =>
 const PATHS = new Set([
   '/',
   '/kabuki',
-  '/kabuki/demos/opening-an-app',
+  DEMO.href,
   ...DOCS.map((doc) => `/kabuki/${doc.slug}`),
 ]);
 

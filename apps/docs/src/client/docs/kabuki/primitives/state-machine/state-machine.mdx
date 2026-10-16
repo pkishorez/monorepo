@@ -1,0 +1,95 @@
+import { DoorApp } from './components/door-app.tsx';
+import { StatesPicture } from './components/states-picture.tsx';
+
+An Actor with a Model and an Update is already a tiny state machine. Every
+Message moves it from one Model to the next.
+
+But a lot of logic depends on the situation. A door can be locked, closed
+or open, and what "open the door" means depends on which. In React, you'd
+reach for conditional rendering: `if (locked) return …`. In kabuki, you
+reach for **States**: conditional logic, written down once.
+
+## A State is a situation
+
+Think of the door. It is always in exactly one of three situations. Each
+one is a State.
+
+<Demo caption="Messages move the door from State to State. Lock arrives while the door is open: there is no rule for it there, so nothing happens.">
+  <StatesPicture />
+</Demo>
+
+You list the States in the Definition, beside the Model and the Messages:
+
+```ts
+state: Schema.TaggedUnion({ Locked: {}, Closed: {}, Open: {} }),
+```
+
+The Model is still there. It's what the door keeps whatever State it is
+in, like how many times it has been opened. A State can carry data of its
+own too, data that only makes sense in that situation.
+
+## Each State decides what it listens to
+
+In the Build, each State gets its own block, with its own `on`. It lists
+only the Messages that make sense in that situation.
+
+```ts
+state: {
+  Locked: {
+    on: { Unlocked: () => ({ state: { _tag: 'Closed' } }) },
+  },
+  Closed: {
+    on: {
+      Opened: (_, { model }) => ({
+        state: { _tag: 'Open' },
+        model: { opened: model.opened + 1 },
+      }),
+      Locked: () => ({ state: { _tag: 'Locked' } }),
+    },
+  },
+  Open: {
+    on: { Shut: () => ({ state: { _tag: 'Closed' } }) },
+  },
+},
+```
+
+To move to another State, an Update just returns it. That move is called a
+**Transition**.
+
+Now look at what you didn't write. There's no `if (isOpen)` anywhere. A
+locked door can't be opened, because `Locked` has no rule for `Opened`. A
+Message with no rule in the current State is simply ignored. The
+impossible cases can't happen, because you never wrote them.
+
+## Try it
+
+Here is the door. All four buttons are always there. Press them in any
+order, and watch the State on the right.
+
+<Demo caption="Press Open while the door is locked: the Message is sent, but nothing changes. Unlock it first. Drag the timeline back to replay every move.">
+
+<Playground app={DoorApp} />
+
+```ts file=./components/door.ts
+
+```
+
+```tsx file=./components/door-app.tsx
+
+```
+
+</Demo>
+
+## A State can own things
+
+A State is more than a set of rules. It can also own things that exist
+only while the Actor is in it: work running in the background, and other
+Actors. Leave the State, and they stop. The next page starts with that
+work.
+
+<Callout title="Remember">
+  A State is a situation. It lists the Messages that make sense in it, and
+  ignores the rest.
+</Callout>
+
+Next: [3. Workers](/kabuki/workers), where side effects live.

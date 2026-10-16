@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'motion/react';
-import { ENTER, EXIT, MOVE, useSteps } from './parts.tsx';
+import { ENTER, EXIT, MOVE, useSteps } from '../../../../components/index.ts';
 
 /*
  * Rewind anything: a shopping list, and the log of Messages that made it,

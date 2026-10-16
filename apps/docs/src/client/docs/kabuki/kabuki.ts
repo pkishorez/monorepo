@@ -1,19 +1,31 @@
-import type { Written } from '../../../shared/index.ts';
+import type { Slug } from '../../../shared/index.ts';
 import { page } from '../page.ts';
 import type { Page } from '../page.ts';
-import * as openingAnApp from './examples/opening-an-app/opening-an-app.mdx';
-import * as routingTour from './examples/routing-tour/routing-tour.mdx';
 import * as introduction from './get-started/introduction/introduction.mdx';
 import * as quickStart from './get-started/quick-start/quick-start.mdx';
+import * as actor from './primitives/actor/actor.mdx';
+import * as stateMachine from './primitives/state-machine/state-machine.mdx';
+import * as workers from './primitives/workers/workers.mdx';
+import * as children from './primitives/children/children.mdx';
+import * as props from './primitives/props/props.mdx';
+import * as capabilities from './primitives/capabilities/capabilities.mdx';
+import * as view from './primitives/view/view.mdx';
+import * as history from './primitives/history/history.mdx';
 
 /*
- * Every written page of kabuki's docs, by slug. A page the table of contents
- * does not mark `soon` must be here, or this does not compile.
+ * Every page of kabuki's docs, by slug. Every page in the table of contents
+ * must be here, or this does not compile.
  */
 
-export const KABUKI: Record<Written, Page> = {
+export const KABUKI: Record<Slug, Page> = {
   introduction: page(introduction),
   'quick-start': page(quickStart),
-  'opening-an-app': page(openingAnApp),
-  'routing-tour': page(routingTour),
+  actor: page(actor),
+  'state-machine': page(stateMachine),
+  workers: page(workers),
+  children: page(children),
+  props: page(props),
+  capabilities: page(capabilities),
+  view: page(view),
+  history: page(history),
 };

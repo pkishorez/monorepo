@@ -1,4 +1,4 @@
-import { Playground } from './components/playground.tsx';
+import { CounterApp } from './components/counter-app.tsx';
 
 You will build a counter: one Actor, drawn by React. It takes three files
 and about forty lines.
@@ -53,12 +53,12 @@ export function Page() {
 
 ## Try it
 
-This is that counter, running, with both its files beside it. Press the
-buttons, then drag the slider back.
+This is that counter, running, with both its files beside it. On the right
+is what is inside it: the Counter and its Model.
 
-<Demo caption="Every Message is kept. The slider shows the counter as it was right after any of them, while the live app keeps running. Live goes back.">
+<Demo caption="Press + a few times. Each press is a Message, and a tick on the timeline. Drag the timeline back to see the counter as it was then. Live brings you back.">
 
-<Playground />
+<Playground app={CounterApp} />
 
 ```ts file=./components/counter.ts
 
@@ -75,7 +75,6 @@ showing any earlier step comes with every kabuki app.
 
 ## Next steps
 
-- [Introduction](/kabuki/introduction): States, Workers, and why the app
-  lives outside React.
-- [Opening an app](/kabuki/opening-an-app): a whole app with sign-in, sync
-  and downloads, and devtools to look inside it.
+You just made an Actor and drew it with a View. Everything else in kabuki
+builds on those two. Read the story from the start with
+[1. Actor](/kabuki/actor).

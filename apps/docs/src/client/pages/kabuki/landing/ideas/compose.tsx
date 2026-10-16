@@ -1,5 +1,12 @@
 import { AnimatePresence, motion } from 'motion/react';
-import { Cursor, ENTER, EXIT, SPRING, useSteps, useTargets } from './parts.tsx';
+import {
+  Cursor,
+  ENTER,
+  EXIT,
+  SPRING,
+  useSteps,
+  useTargets,
+} from '../../../../components/index.ts';
 
 /*
  * Actors compose, drawn as a tree of dots that is busy all the time: each

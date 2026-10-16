@@ -13,7 +13,7 @@ export const DemoView = View.make(Pages.DemoLive, () => (
         <div className="-mr-2 flex shrink-0 items-center gap-1">
           <ThemeToggle />
           <Router.Link
-            to={router.Kabuki.Doc({ slug: 'opening-an-app' })}
+            to={router.Kabuki.Doc({ slug: 'introduction' })}
             className="flex h-8 items-center gap-1.5 rounded-md px-2 text-sm text-muted-foreground hover:text-foreground"
           >
             <ArrowLeftIcon className="size-3.5" />
