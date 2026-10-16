@@ -1,7 +1,7 @@
 import { Schema } from 'effect';
 import { Actor } from '@kestack/kabuki';
 import { Navigation, Router } from '@kestack/kabuki/routing';
-import { Routes } from '../../../routes/index.ts';
+import { router } from '../../../routes/index.ts';
 
 /**
  * The project list, searched by `?q=`: what Projects draws while the URL
@@ -9,7 +9,7 @@ import { Routes } from '../../../routes/index.ts';
  * Props, so a new one keeps this Instance. Typing replaces the entry; when
  * Back brings an older query, `follow` puts it in the box.
  */
-export const ListActor = Actor.make('List', {
+export const List = Actor.define('List', {
   requires: [Navigation],
   props: Schema.Struct({ q: Schema.optionalKey(Schema.String) }),
   model: Schema.Struct({ draft: Schema.String }),
@@ -17,7 +17,9 @@ export const ListActor = Actor.make('List', {
     Typed: { q: Schema.String },
     QueryRead: { q: Schema.String },
   }),
-}).build({
+});
+
+export const ListLive = Actor.build(List, {
   init: () => ({ model: { draft: '' } }),
   workers: {
     follow: {
@@ -28,7 +30,7 @@ export const ListActor = Actor.make('List', {
   on: {
     Typed: ({ q }) => ({
       model: { draft: q },
-      command: Router.replace(() => Routes.Projects(q ? { q } : {})),
+      command: Router.replace(router.Projects(q ? { q } : {})),
     }),
     QueryRead: ({ q }, { model }) =>
       model.draft === q ? {} : { model: { draft: q } },

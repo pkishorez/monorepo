@@ -1,4 +1,4 @@
-import { Route } from '@kestack/kabuki/routing';
+import { Page } from '@kestack/kabuki/routing';
 import { about, Feed as FeedData } from '../data/index.ts';
 
 /*
@@ -7,9 +7,11 @@ import { about, Feed as FeedData } from '../data/index.ts';
  * the window goes back to where it was once the feed's data is there.
  */
 
-export const Feed = Route.page({
+export const Feed = Page.define({
   path: '/feed',
   render: 'client',
   data: FeedData,
   metadata: about('/feed', 'Feed', 'A client page that scrolls the window.'),
-}).build({});
+});
+
+export const FeedLive = Page.build(Feed);

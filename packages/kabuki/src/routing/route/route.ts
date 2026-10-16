@@ -34,8 +34,8 @@ import { dataSchemas, levelSchema, pick } from './values.ts';
  * A Route value is one tagged object per level, the one below under `page`
  * when the URL goes on:
  *
- *   Routes.Settings.Billing()  →  { _tag: 'Settings', page: { _tag: 'Billing' } }
- *   Routes.Settings()          →  { _tag: 'Settings' }
+ *   router.Settings.Billing()  →  { _tag: 'Settings', page: { _tag: 'Billing' } }
+ *   router.Settings()          →  { _tag: 'Settings' }
  *
  * A place is named by its tags from the root, dotted: `Settings.Billing`.
  * This file makes the Routes from their parts: `node.ts` the types,

@@ -207,6 +207,19 @@ export interface AnyChild {
   readonly props?: Function;
 }
 
+/**
+ * Any Child, read only for what its functions are handed: so they are typed
+ * from the parent's data even while the Children themselves are inferred.
+ */
+type Loose<Model, State, Props> = {
+  readonly actor: AnyActor;
+  readonly while?: (data: Data<Model, State, Props>) => boolean;
+  readonly each?: (data: Data<Model, State, Props>) => ReadonlyArray<string>;
+  readonly key?: (data: Data<Model, State, Props>) => string;
+  readonly input?: (data: Data<Model, State, Props>, key: string) => unknown;
+  readonly props?: (data: Data<Model, State, Props>, key: string) => unknown;
+};
+
 export type ActorOf<C> = C extends { readonly actor: infer A } ? A : never;
 
 // The behavior ---------------------------------------------------------------------
@@ -232,7 +245,8 @@ type Level<
   readonly provides?: (
     self: Self<Model, State, Msg, Props>,
   ) => Layer.Layer<any, never, IdsOf<R>>;
-  readonly children?: Children<Model, State, Props, KidsOf<L>>;
+  readonly children?: Children<Model, State, Props, KidsOf<L>> &
+    Readonly<Record<string, Loose<Model, State, Props>>>;
   /** The Updates: per Message, the next Model and State and the Commands. */
   readonly on?: Rules<Model, State, Props, Msg, R, Next>;
   readonly workers?: Workers<Model, State, Msg, R, Props>;
@@ -449,7 +463,7 @@ export interface Actor<
 
 export type AnyActor = Actor<string, any, any, any, any, any, any, any>;
 
-/** The Actor interface, by a name that does not clash with the `Actor` value: for code that builds Actors on top of `Actor.make`. */
+/** The Actor interface, by a name that does not clash with the `Actor` value: for code that builds Actors on top of `Actor.build`. */
 export type ActorType<
   Name extends string,
   Input,

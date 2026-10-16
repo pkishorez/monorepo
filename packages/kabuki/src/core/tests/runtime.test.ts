@@ -37,25 +37,28 @@ describe('the mailbox', () => {
   it('tells subscribers once the queue is empty', () =>
     run(
       Effect.gen(function* () {
-        const Echo = Actor.make('Echo', {
-          model: Schema.Struct({ n: Schema.Number }),
-          message: Schema.TaggedUnion({ Ping: {}, Pong: {} }),
-        }).build({
-          init: () => ({ model: { n: 0 } }),
-          workers: {
-            echo: {
-              run: (self) =>
-                self.changes.pipe(
-                  Stream.filter(({ model }) => model.n === 1),
-                  Stream.runForEach(() => self.send({ _tag: 'Pong' })),
-                ),
+        const Echo = Actor.build(
+          Actor.define('Echo', {
+            model: Schema.Struct({ n: Schema.Number }),
+            message: Schema.TaggedUnion({ Ping: {}, Pong: {} }),
+          }),
+          {
+            init: () => ({ model: { n: 0 } }),
+            workers: {
+              echo: {
+                run: (self) =>
+                  self.changes.pipe(
+                    Stream.filter(({ model }) => model.n === 1),
+                    Stream.runForEach(() => self.send({ _tag: 'Pong' })),
+                  ),
+              },
+            },
+            on: {
+              Ping: (_, { model }) => ({ model: { n: model.n + 1 } }),
+              Pong: (_, { model }) => ({ model: { n: model.n + 10 } }),
             },
           },
-          on: {
-            Ping: (_, { model }) => ({ model: { n: model.n + 1 } }),
-            Pong: (_, { model }) => ({ model: { n: model.n + 10 } }),
-          },
-        });
+        );
         const app = yield* Runtime.start(Echo);
         yield* settle;
         let told = 0;

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { KabukiDevtools, Inspector } from './kabuki-devtools.tsx';
 import { LiveShop } from './fixtures/views.tsx';
 import { INK, TONE_NAMES, ink } from './ink/index.ts';
-import { SHOP_STEPS, Shop } from './fixtures/steps.ts';
+import { SHOP_STEPS, ShopLive } from './fixtures/steps.ts';
 
 /*
  * The devtools on a bigger Shop running live beside them, then the
@@ -78,7 +78,7 @@ function At({
         }
       >
         <Inspector
-          definition={Shop.definition}
+          definition={ShopLive.definition}
           step={SHOP_STEPS[shown]!}
           layout={layout}
           {...(isLive ? { statuses } : {})}

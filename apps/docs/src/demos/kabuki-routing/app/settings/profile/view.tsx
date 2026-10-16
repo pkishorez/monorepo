@@ -1,8 +1,8 @@
 import { View } from '@kestack/kabuki/react';
 import { Case } from '../../../parts/index.ts';
-import { ProfileActor } from './profile.ts';
+import { ProfileLive } from './profile.ts';
 
-export const ProfileView = View.make(ProfileActor, ({ model, send, root }) => (
+export const ProfileView = View.make(ProfileLive, ({ model, send, root }) => (
   <div {...root} className="flex flex-col gap-4">
     <label className="flex max-w-xs flex-col gap-1.5 text-[13px] font-medium">
       Name

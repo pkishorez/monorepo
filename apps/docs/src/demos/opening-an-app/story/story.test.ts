@@ -4,7 +4,7 @@ import { TestClock } from 'effect/testing';
 import { Runtime, instanceAt } from '@kestack/kabuki';
 import type { Running } from '@kestack/kabuki';
 import { describe, expect, it } from 'vitest';
-import { App, DURATION } from './index.ts';
+import { AppLive, DURATION } from './index.ts';
 
 const timed = <A>(effect: Effect.Effect<A, never, Scope.Scope>) =>
   Effect.runPromise(
@@ -22,7 +22,7 @@ const tags = (app: Running<unknown>) =>
   app.history.branch().map((entry) => entry.message._tag);
 
 const signedIn = Effect.gen(function* () {
-  const app = yield* Runtime.start(App);
+  const app = yield* Runtime.start(AppLive);
   app.send('App', { _tag: 'Succeed' });
   app.send('App', { _tag: 'SignIn' });
   yield* TestClock.adjust('1200 millis');
@@ -33,7 +33,7 @@ describe('Opening an app', () => {
   it('Booting loads each asset with a Worker, then signs out on its own', () =>
     timed(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(App);
+        const app = yield* Runtime.start(AppLive);
         expect(workers(app, 'App')).toEqual(['load assets']);
         yield* TestClock.adjust('4800 millis');
         expect(tags(app)).toEqual([
@@ -52,7 +52,7 @@ describe('Opening an app', () => {
   it('Fail leaves Booting, which stops the Worker; Retry starts it from nothing', () =>
     timed(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(App);
+        const app = yield* Runtime.start(AppLive);
         yield* TestClock.adjust('1600 millis');
         app.send('App', { _tag: 'Fail' });
         expect(workers(app, 'App')).toEqual([]);

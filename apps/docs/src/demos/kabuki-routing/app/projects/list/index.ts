@@ -1,4 +1,2 @@
-import { ListActor } from './list.ts';
-import { ListView } from './view.tsx';
-
-export const List = { actor: ListActor, view: ListView };
+export { List, ListLive } from './list.ts';
+export { ListView } from './view.tsx';

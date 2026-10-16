@@ -2,6 +2,12 @@ import type { ComponentType, ReactNode } from 'react';
 import type { Layer } from 'effect';
 import type { AnyActor, Needs } from '../../core/index.ts';
 import type { ViewOf } from '../../react/index.ts';
+import { Router } from '../../routing/index.ts';
+import type {
+  Navigation,
+  PageBuild,
+  PageDefinition,
+} from '../../routing/index.ts';
 import type {
   Codec,
   Metadata,
@@ -11,13 +17,13 @@ import type {
 } from '../../routing/route/index.ts';
 
 /*
- * What `src/app` hands Start, on both sides: `Start.app(app, { document,
- * layer })`, the app the Router serves, its Document, and what its Actors
- * Require in the browser, checked against them. Start reads nothing else
- * there, so the check cannot be skipped.
+ * What `src/app` hands Start, on both sides: `Start.app(router, AppView, {
+ * document, layer })`, the app's router and the View of its root page, its
+ * Document, and what its Actors Require in the browser, checked against
+ * them. Start reads nothing else there, so the check cannot be skipped.
  */
 
-/** What Start needs of the app the Router serves: what `Router.app(Routes, AppView)` gives. */
+/** What Start needs of the app the Router serves: what `Router.app(router, AppView)` gives. */
 export interface ServedApp {
   readonly actor: AnyActor;
   readonly view: ViewOf<any>;
@@ -52,24 +58,34 @@ export interface StartApp<A extends ServedApp = ServedApp> {
   readonly layer?: Layer.Layer<any, never, never>;
 }
 
+/** What the root page's build still needs from above, besides what the Router Provides. */
+type NeedsOf<A> = Exclude<Needs<A>, Navigation>;
+
 /** The app's Layer, which must cover every Capability the tree still needs. */
-type AppOptions<A extends ServedApp> = {
+type AppOptions<A> = {
   readonly document?: DocumentType;
-} & ([Needs<A['actor']>] extends [never]
+} & ([NeedsOf<A>] extends [never]
   ? { readonly layer?: Layer.Layer<never, never, never> }
-  : { readonly layer: Layer.Layer<Needs<A['actor']>, never, never> });
+  : { readonly layer: Layer.Layer<NeedsOf<A>, never, never> });
 
 /**
  * The app, its Document, and what its Actors Require in the browser:
- * `export default Start.app(Router.app(Routes, AppView), { document, layer })`.
- * Leaving out a Capability the app Requires is a type error.
+ * `export default Start.app(router, AppView, { document, layer })`, where
+ * `AppView` draws the build of the router's root page. Leaving out a
+ * Capability the app Requires is a type error.
  */
-export const app = <A extends ServedApp>(
-  served: A,
-  ...[options]: [Needs<A['actor']>] extends [never]
+export const app = <G extends PageDefinition, A extends PageBuild<G>>(
+  router: { readonly root: G },
+  view: ViewOf<A>,
+  ...[options]: [NeedsOf<A>] extends [never]
     ? [options?: AppOptions<A>]
     : [options: AppOptions<A>]
-): StartApp<A> => ({ [APP]: true, app: served, ...options }) as StartApp<A>;
+): StartApp =>
+  ({
+    [APP]: true,
+    app: Router.app(router as never, view as unknown as ViewOf<AnyActor>),
+    ...options,
+  }) as unknown as StartApp;
 
 /** Why a file's default export is refused: only Start's own values are checked by type. */
 export const refused = (file: string, what: string) =>
@@ -84,5 +100,5 @@ export const branded = (value: unknown, brand: symbol) =>
 /** What `src/app` default-exports: `Start.app(…)`, and nothing else, so its Layer is checked. */
 export const appOf = (exported: unknown): StartApp => {
   if (branded(exported, APP)) return exported as StartApp;
-  throw refused('src/app', 'Start.app(Router.app(Routes, AppView), { … })');
+  throw refused('src/app', 'Start.app(router, AppView, { … })');
 };

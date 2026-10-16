@@ -6,6 +6,7 @@ import { prerender } from 'react-dom/static';
 import { Layer } from 'effect';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Actor } from '../../core/index.ts';
+import type { AnyActor } from '../../core/index.ts';
 import { View, toReact } from '../index.ts';
 import type { LazyView, ViewOf } from '../index.ts';
 import { registry } from '../registry.ts';
@@ -33,7 +34,7 @@ const html = async (node: React.ReactNode) => {
 
 /** A parent drawing the Ticker as its fixed Child, through whichever View it is given. */
 const pageWith = (TickerView: ViewOf<typeof Ticker>) => {
-  const Page = Actor.make('Page', {}).build({
+  const Page = Actor.build(Actor.define('Page', {}), {
     children: { ticker: { actor: Ticker } },
   });
   const PageView = View.make(Page, (self) => (
@@ -49,7 +50,7 @@ let root: ReactRoot | undefined;
 let made = 0;
 /** A lazy Ticker View, by default with a fresh id, so each test loads it anew. */
 const lazyTicker = (id = `ticker-${made++}`) =>
-  View.lazy(() => import('./lazy/ticker-view.tsx'), { id });
+  View.lazy(Ticker, () => import('./lazy/ticker-view.tsx'), { id });
 
 beforeEach(() => {
   registry.clear();
@@ -76,7 +77,7 @@ describe('a lazy View', () => {
   it('a server waits for it, and is told which lazy Views it drew', async () => {
     const TickerView = lazyTicker();
     const App = pageWith(TickerView);
-    const used = new Set<LazyView<never>>();
+    const used = new Set<LazyView<AnyActor>>();
     const served = await html(<App onLazyView={(view) => used.add(view)} />);
     expect(served).toContain('<output data-ticker="true">0</output>');
     expect([...used].map((view) => view.id)).toEqual([TickerView.id]);

@@ -1,56 +1,61 @@
 import { Schema } from 'effect';
 import { expect, it } from 'vitest';
 import type { Types } from '../../core/index.ts';
-import { Navigation, Route, Router } from '../index.ts';
+import { Page, Router } from '../index.ts';
 
 /*
- * A page whose Update moves the app with the Routes its own type is part of:
- * it hands the Router a function that makes the Route, so the page's type
- * never waits on the Routes'.
+ * A page's build moves the app with the router read down from the pages'
+ * definitions: the router never waits on a build, so a build may name any
+ * Route by type.
  */
 
 // Read once first used: written before the pages, as a module the pages import is.
-const Cycle = Route.tree(() => Root);
+const router = Router.define(() => Root);
 
-const Other = Route.page({ path: '/other' }).build({});
-const Go = Route.page({
+const Other = Page.define({ path: '/other' });
+const Go = Page.define({
   path: '/go',
-  requires: [Navigation],
   model: Schema.Struct({ clicks: Schema.Number }),
   message: Schema.TaggedUnion({ Clicked: {} }),
   state: Schema.TaggedUnion({ Idle: {}, Busy: {} }),
-}).build({
+});
+const Root = Page.define({ pages: { Other, Go } });
+
+const GoLive = Page.build(Go, {
   init: () => ({ model: { clicks: 0 }, state: { _tag: 'Idle' } }),
   on: {
     Clicked: (_, { model }) => ({
       model: { clicks: model.clicks + 1 },
-      command: Router.push(() => Cycle.Other()),
+      command: Router.push(router.Other()),
     }),
   },
   state: {
     Busy: {
-      on: { Clicked: () => ({ command: Router.replace(() => Cycle.Go()) }) },
+      on: { Clicked: () => ({ command: Router.replace(router.Go()) }) },
     },
   },
 });
-const Root = Route.page({ pages: { Other, Go } }).build({});
+const RootLive = Page.build(Root, {
+  pages: { Other: Page.build(Other), Go: GoLive },
+});
 
-it('types the Routes of pages whose Updates use them', () => {
-  const other: { readonly _tag: string } = Cycle.Other();
-  // What the function does is still checked.
+it('types the Routes a build moves the app with', () => {
+  const other: typeof router.route.Type = router.Other();
   // @ts-expect-error no such page
-  const wrong = () => Router.push(() => Cycle.Elsewhere());
-  const probe = (props: Types<typeof Go.actor>['model']) => {
-    const clicks: number = props.clicks;
+  const wrong = () => Router.push(router.Elsewhere());
+  const probe = (model: Types<typeof GoLive>['model']) => {
+    const clicks: number = model.clicks;
     return clicks;
   };
   // @ts-expect-error no such page
-  expect(() => Cycle.Nowhere()).toThrow();
+  expect(() => router.Nowhere()).toThrow();
   expect(other).toEqual({ _tag: 'Other' });
   expect(wrong).toThrow();
-  expect(Cycle.paths()).toEqual({ Other: '/other', Go: '/go' });
-  expect('Go' in Cycle).toBe(true);
-  expect(Router.push(() => Cycle.Other())).toMatchObject({
+  expect(router.paths()).toEqual({ Other: '/other', Go: '/go' });
+  expect('Go' in router).toBe(true);
+  expect(router.root).toBe(Root);
+  expect(RootLive.pages.Go).toBe(GoLive);
+  expect(Router.push(router.Other())).toMatchObject({
     args: { route: { _tag: 'Other' } },
   });
   expect(probe).toBeTypeOf('function');

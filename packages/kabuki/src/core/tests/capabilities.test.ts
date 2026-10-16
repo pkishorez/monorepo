@@ -42,7 +42,7 @@ describe('Requires and Provides', () => {
   });
 
   it("a Child's needs bubble up until something Provides them", () => {
-    const Orphan = Actor.make('Orphan', {}).build({
+    const Orphan = Actor.build(Actor.define('Orphan', {}), {
       children: { todos: { actor: Todos } },
     });
     const SessionLive = Layer.effect(
@@ -59,7 +59,7 @@ describe('Requires and Provides', () => {
   });
 
   it('a Capability Provided in one State does not reach Children of another', () => {
-    const Wrong = Actor.make('Wrong', { state: AuthState }).build({
+    const Wrong = Actor.build(Actor.define('Wrong', { state: AuthState }), {
       init: () => ({ state: { _tag: 'Checking' } }),
       state: {
         Anonymous: { children: { todos: { actor: Todos } } },
@@ -83,7 +83,7 @@ describe('Requires and Provides', () => {
   });
 
   it('a Capability Provided at the top reaches the Children of every State', () => {
-    const Top = Actor.make('Top', { state: AuthState }).build({
+    const Top = Actor.build(Actor.define('Top', { state: AuthState }), {
       init: () => ({ state: { _tag: 'Checking' } }),
       provides: () =>
         Layer.effect(
@@ -101,13 +101,13 @@ describe('Requires and Provides', () => {
   });
 
   it("an Actor's own code reaches only what it Requires", () => {
-    const Greedy = Actor.make('Greedy', {}).build({
+    const Greedy = Actor.build(Actor.define('Greedy', {}), {
       workers: {
         // @ts-expect-error Server is not in Requires
         check: { run: () => Effect.flatMap(Server, (s) => s.checkSession) },
       },
     });
-    const Asks = Actor.make('Asks', { requires: [Server] }).build({
+    const Asks = Actor.build(Actor.define('Asks', { requires: [Server] }), {
       workers: {
         check: { run: () => Effect.flatMap(Server, (s) => s.checkSession) },
       },
@@ -116,7 +116,7 @@ describe('Requires and Provides', () => {
   });
 
   it('a Provide in a State sees that State narrowed', () => {
-    const Narrow = Actor.make('Narrow', { state: AuthState }).build({
+    const Narrow = Actor.build(Actor.define('Narrow', { state: AuthState }), {
       init: () => ({ state: { _tag: 'Checking' } }),
       state: {
         Anonymous: {

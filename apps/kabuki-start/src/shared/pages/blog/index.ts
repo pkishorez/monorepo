@@ -1,2 +1,2 @@
-export { Blog } from './blog.ts';
-export { Post } from './post.ts';
+export { Blog, BlogLive } from './blog.ts';
+export { Post, PostLive } from './post.ts';

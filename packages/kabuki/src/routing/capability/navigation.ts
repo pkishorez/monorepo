@@ -5,16 +5,6 @@ import { Command } from '../../core/index.ts';
 /** A Route of any app: what the router moves to. */
 export type AnyRoute = { readonly _tag: string };
 
-/**
- * Where a move goes: a Route, or a function that makes one, called as the
- * move is asked for. A page's Update or Worker hands a function,
- * `Router.push(() => Routes.Blog())`: the Routes' type is worked out from
- * the pages, so a page must not need it to be typed. Its return is `any`
- * for that reason alone; what the function does is still checked.
- */
-// oxlint-disable-next-line typescript/no-explicit-any -- a function's return typed `any` is never worked out while the page is typed.
-export type To = AnyRoute | (() => any);
-
 /** How an element is scrolled into view: as `Element.scrollIntoView` takes it. */
 export interface HashScrollOptions {
   readonly behavior?: 'auto' | 'instant' | 'smooth';
@@ -54,29 +44,28 @@ export const moveOptions = {
   ),
 };
 
-/** The Route `to` names. */
-export const routeOf = (to: To): AnyRoute =>
-  typeof to === 'function' ? (to() as AnyRoute) : to;
-
 /**
  * The Capability the router Provides to everything below it: Requests that
- * move the app, each one Message to the router, with who asked. An Actor
- * that moves the app from an Update lists it in its Requires and returns
- * `Router.push(…)` and the like as Commands.
+ * move the app, each one Message to the router, with who asked. Every page
+ * Requires it, so a page's Update returns `Router.push(…)` and the like as
+ * Commands; any other Actor below the router lists it in its Requires.
  */
 export class Navigation extends Context.Service<
   Navigation,
   {
-    readonly push: (to: To, options?: MoveOptions) => Effect.Effect<void>;
-    readonly replace: (to: To, options?: MoveOptions) => Effect.Effect<void>;
+    readonly push: (to: AnyRoute, options?: MoveOptions) => Effect.Effect<void>;
+    readonly replace: (
+      to: AnyRoute,
+      options?: MoveOptions,
+    ) => Effect.Effect<void>;
     readonly back: Effect.Effect<void>;
     readonly forward: Effect.Effect<void>;
     /** Back, if the entry before is `route`; else replace this entry with it. */
-    readonly backTo: (to: To) => Effect.Effect<void>;
+    readonly backTo: (to: AnyRoute) => Effect.Effect<void>;
     /** Load every place on screen again, its data shown meanwhile, and drop every other copy the Data cache keeps. */
     readonly reload: Effect.Effect<void>;
     /** Warm the Data cache, and the code of the lazy Views, for a Route the app may move to. */
-    readonly preload: (to: To) => Effect.Effect<void>;
+    readonly preload: (to: AnyRoute) => Effect.Effect<void>;
   }
 >()('@kestack/kabuki/routing/Navigation') {}
 
@@ -113,17 +102,17 @@ const preloading = Command.make('preload', {
 });
 
 /** Move to a Route, as a new entry: `{ resetScroll: false }` leaves the page scrolled as it is, `{ hash }` goes to an element on it. */
-export const push = (to: To, options: MoveOptions = {}) =>
-  pushing({ route: routeOf(to), ...options });
+export const push = (to: AnyRoute, options: MoveOptions = {}) =>
+  pushing({ route: to, ...options });
 /** Put a Route in place of this entry: Back skips what was here. */
-export const replace = (to: To, options: MoveOptions = {}) =>
-  replacing({ route: routeOf(to), ...options });
+export const replace = (to: AnyRoute, options: MoveOptions = {}) =>
+  replacing({ route: to, ...options });
 /** The browser's Back, or the memory history's. */
 export const back = () => backing();
 export const forward = () => forwarding();
 /** Close something with a Route of its own, like a dialog: Back if the app came from `route`, else replace this entry with it. */
-export const backTo = (to: To) => backingTo({ route: routeOf(to) });
+export const backTo = (to: AnyRoute) => backingTo({ route: to });
 /** Load every place on screen again, as after a save: the data shown stays until the new data comes. */
 export const reload = () => reloading();
 /** Warm the Data cache for a Route the app may move to next. */
-export const preload = (to: To) => preloading({ route: routeOf(to) });
+export const preload = (to: AnyRoute) => preloading({ route: to });

@@ -1,10 +1,10 @@
 import { View } from '@kestack/kabuki/react';
 import { Router } from '@kestack/kabuki/routing';
-import { PROJECTS, Routes } from '../../../routes/index.ts';
+import { PROJECTS, router } from '../../../routes/index.ts';
 import { Card, Case, Page } from '../../../parts/index.ts';
-import { ListActor } from './list.ts';
+import { ListLive } from './list.ts';
 
-export const ListView = View.make(ListActor, ({ model, props, send, root }) => {
+export const ListView = View.make(ListLive, ({ model, props, send, root }) => {
   const q = (props.q ?? '').toLowerCase();
   const found = PROJECTS.filter((project) =>
     project.name.toLowerCase().includes(q),
@@ -28,7 +28,7 @@ export const ListView = View.make(ListActor, ({ model, props, send, root }) => {
               {found.map((project) => (
                 <li key={project.id}>
                   <Router.Link
-                    to={Routes.Projects.Project({ id: project.id })}
+                    to={router.Projects.Project({ id: project.id })}
                     className="flex h-9 items-center justify-between rounded-md px-2 text-[13px] hover:bg-muted"
                   >
                     {project.name}

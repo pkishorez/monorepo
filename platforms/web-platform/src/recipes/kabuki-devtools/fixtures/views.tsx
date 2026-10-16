@@ -95,8 +95,8 @@ const viewOf = (actor: AnyActor): ViewOf<AnyActor> => {
 
 /** The bigger Shop, running. */
 export const LiveShop = toReact(
-  shop.Shop,
-  viewOf(shop.Shop) as ViewOf<typeof shop.Shop>,
+  shop.ShopLive,
+  viewOf(shop.ShopLive) as ViewOf<typeof shop.ShopLive>,
   Layer.empty,
   { name: 'devtools-live-shop' },
 );

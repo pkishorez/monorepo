@@ -7,8 +7,16 @@ An app is one tree of Actors that lives outside React. Each Actor is a small sta
 ### The tree
 
 **Actor**:
-One piece of the app: its Model and States, the Input and Props it takes, the Messages it accepts, its Update, the Capabilities it Requires and Provides, and the Children it Invokes. A state machine and an actor at once: Messages are the only way it changes, and its State decides which Actors exist below it. A description, not a running thing and not a React component. Made in two steps: its Schemas and Requires first, then how it behaves: written at the top, for as long as the Instance lives, or written in a State, for as long as that State lasts.
+One piece of the app: its Model and States, the Input and Props it takes, the Messages it accepts, its Update, the Capabilities it Requires and Provides, and the Children it Invokes. A state machine and an actor at once: Messages are the only way it changes, and its State decides which Actors exist below it. A description, not a running thing and not a React component. Made in two steps, its Definition and its Build.
 _Avoid_: Node, component, machine
+
+**Definition**:
+What an Actor is: its name, its Schemas and its Requires, which fix every type. It runs nothing and imports only other Definitions, so anything may import it. Named after the Actor: `Counter`.
+_Avoid_: spec, schema (on its own), type
+
+**Build**:
+How a defined Actor behaves: its init, its Updates, its Children, Workers and Provides, written at the top, for as long as the Instance lives, or in a State, for as long as that State lasts. It is what runs, what a parent Invokes and what a View draws. Named after the Actor with `Live`: `CounterLive`, beside its Definition.
+_Avoid_: implementation, instance (an Instance is a running Build)
 
 **Instance**:
 One running Actor in the tree: its ID, its current Model, State and Props, and its Children. Called an "actor instance" where "Instance" alone is unclear. Views draw an Instance; Messages are sent to one.
@@ -27,7 +35,7 @@ The data a parent hands a Child when it Invokes it, which the Child's init start
 _Avoid_: params, args, controlled input
 
 **Invoke**:
-What a parent does to its Children: the State and each Child's Condition say which exist, and each one starts or stops as that changes; one that comes back is a fresh Instance. Leaving a State stops every Child it Invoked and everything they own. Declared in the Actor's definition, never called from code.
+What a parent does to its Children: the State and each Child's Condition say which exist, and each one starts or stops as that changes; one that comes back is a fresh Instance. Leaving a State stops every Child it Invoked and everything they own. Declared in the Actor's Build, never called from code.
 _Avoid_: spawn, create, mount
 
 **Snapshot**:
@@ -150,25 +158,25 @@ _Avoid_: output, bubble, callback, event
 One typed place in the app, with its params and query: what a URL means once it is read, one tagged value per level. Every URL reads as exactly one Route, and a URL that names no place reads as the not-found Route rather than failing. Held once, by the Router, and handed down as Props.
 _Avoid_: page, path, location, screen
 
-**Routes**:
-Every Route of the app, read down from the root Page through the Pages under each: the same definition reads a URL into a Route, writes a Route back as a URL, and says each place's Metadata, so none of them can disagree.
-_Avoid_: route table, route map
+**Router definition**:
+The app's `router`: every Route of the app, read down from the root Page's Definition through the Pages under each, and how the Router behaves in the browser. The same definition makes each Route, reads a URL into a Route, writes a Route back as a URL, and says each place's Metadata, so none of them can disagree. Made from Definitions alone, so any Build may import it to move the app; it runs nothing, the Router Actor does.
+_Avoid_: route table, route map, Routes (its old name)
 
 **Page**:
-An Actor with a place in the URL, written as any Actor is, with its own Model, States, Messages, Children and Workers. It takes no Input: it exists before its data, and is handed its params, its query and its data's Status as Props. The Pages under it are its Children, there while the URL names them.
+An Actor with a place in the URL, with its own Model, States, Messages, Children and Workers. Its Definition says where it is, what it loads and the Definitions of the Pages under it; its Build says how it behaves and names the Build of each Page under it. One Actor: nothing is written around it. It takes no Input: it exists before its data, and is handed its params, its query and its data's Status as Props. The Pages under it are its Children, there while the URL names them.
 _Avoid_: route component, screen, view (a Page's View is a View)
 
 **Place**:
-The Actor Kabuki writes around each Page, holding its data and loading it, and handing it to the Page as its Status. The Page above holds the Place, never the Page. A place is also where a Page sits in the Routes, named by its keys from the root, dotted: `Blog.Post`.
+Where a Page sits in the Router definition, named by its keys from the root, dotted: `Blog.Post`. The Router holds the data of each place on screen under that name. Not an Actor: there is no Actor around a Page.
 _Avoid_: route actor, wrapper, loader actor
 
 **Status**:
-Where a Page's data is: loading, failed, or ready with it, and refreshing while it loads again behind what is shown. A Page draws all three itself.
+Where a Page's data is: loading, failed, or ready with it, and refreshing while it loads again behind what is shown. The Router hands it down to each Page as a Prop; a Page draws all three itself.
 _Avoid_: loading state, pending, async state
 
 **Router**:
-The one Actor routing adds, above the root Page's Place: it holds the app's history, as entries and where it is in them, holds a Move up to a moment while the Pages it brings load, and is sent every Move. It never holds a Page's data. The only thing in an app that knows about URLs.
-_Avoid_: navigator, history (Kabuki's History is another thing)
+The one Actor routing adds, above the root Page, made from the Router definition: it holds the app's history, as entries and where it is in them, holds a Move up to a moment while the Pages it brings load, and is sent every Move. It holds the data of every place on screen and loads it, and hands each Page its own as its Status, down through the Pages above it. The only thing in an app that knows about URLs.
+_Avoid_: navigator, history (Kabuki's History is another thing), router (the Router definition)
 
 **Data cache**:
 The last data each place loaded, one copy per place and params, newest first, kept in the browser outside the Snapshot. A Move to a Page with a copy, Back, a link, or a Preload, shows it at once; a dynamic or client Page loads it again behind it. The data a server drew the page with is kept in it too. Data reaches the app only in the Messages that bring it.
@@ -199,7 +207,7 @@ Where the window and every element the user scrolled were, kept under the Entry 
 _Avoid_: scroll memory, scroll area, scroll position
 
 **Redirect**:
-A URL that is never a place, replaced in the address by the Route the Routes name for it, so Back never returns to it. A URL that reads as a Route but is not how that Route is written is replaced the same way.
+A URL that is never a place, replaced in the address by the Route the Router definition names for it, so Back never returns to it. A URL that reads as a Route but is not how that Route is written is replaced the same way.
 _Avoid_: guard, forward
 
 **Address**:
@@ -207,7 +215,7 @@ The URL as the live Router writes it: a Command per move, and nothing when the b
 _Avoid_: location, url bar, sync
 
 **Adapter**:
-Where an app's Address lives: in memory, the default, so any app routes without touching a URL; in the browser's own history; or in TanStack Router's, for an app on a TanStack Start catch-all route. Given in the app's Layer; the Routes and every Actor are the same whichever it is.
+Where an app's Address lives: in memory, the default, so any app routes without touching a URL; in the browser's own history; or in TanStack Router's, for an app on a TanStack Start catch-all route. Given in the app's Layer; the Router definition and every Actor are the same whichever it is.
 _Avoid_: backend, driver, host, mode
 
 **Metadata**:
@@ -225,7 +233,7 @@ _Avoid_: SSR, SSG, CSR, strategy
 ### Drawing
 
 **View**:
-How one Actor is drawn: a React component that reads the Model, State, Props and current Children of one Instance, and can only Send. A parent's View hands it nothing but where to draw. A parent's View can also read its own Children's Model, State and Props, to draw them, but never Send to them. One function draws every State, so a Transition keeps the DOM, and an Instance that has stopped is drawn with its last data while it leaves the page. It never sees Capabilities, so it draws a Replay exactly like the live app. Kept apart from the Actor, so the same Actor can be drawn more than one way or not at all.
+How one Build is drawn: a React component that reads the Model, State, Props and current Children of one Instance, and can only Send. A parent's View hands it nothing but where to draw. A parent's View can also read its own Children's Model, State and Props, to draw them, but never Send to them. One function draws every State, so a Transition keeps the DOM, and an Instance that has stopped is drawn with its last data while it leaves the page. It never sees Capabilities, so it draws a Replay exactly like the live app. Kept apart from the Actor, so the same Actor can be drawn more than one way or not at all.
 _Avoid_: render, template, component (on its own)
 
 **Send**:

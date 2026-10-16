@@ -66,7 +66,7 @@ export type LoadersOf<X extends PlaceType> = {
 declare const STATIC: unique symbol;
 
 /**
- * Loaders as `Routes.loaders` gives them: the record, and, by type alone,
+ * Loaders as `router.loaders` gives them: the record, and, by type alone,
  * the names of the static places among them. A server hands those nothing
  * made from the request, since what they answer is the same for everyone.
  */
@@ -76,7 +76,7 @@ export type Loaders<L, Static extends string> = L & {
 };
 
 /**
- * The names of the static places among Loaders. Loaders `Routes.loaders`
+ * The names of the static places among Loaders. Loaders `router.loaders`
  * did not give say nothing, so every one of them counts as static.
  */
 export type StaticOf<L> = L extends {

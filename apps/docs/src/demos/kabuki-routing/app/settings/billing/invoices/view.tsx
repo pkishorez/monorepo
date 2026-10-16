@@ -1,8 +1,8 @@
-import { Route } from '@kestack/kabuki/routing';
+import { View } from '@kestack/kabuki/react';
 import { Card } from '../../../../parts/index.ts';
-import { INVOICES, Invoices } from './invoices.ts';
+import { INVOICES, InvoicesLive } from './invoices.ts';
 
-export const InvoicesView = Route.view(Invoices, ({ model, send, root }) => (
+export const InvoicesView = View.make(InvoicesLive, ({ model, send, root }) => (
   <div {...root}>
     <Card>
       <ul className="flex flex-col divide-y divide-border text-[13px]">

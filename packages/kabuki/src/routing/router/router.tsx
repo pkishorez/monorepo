@@ -2,20 +2,14 @@ import { Effect, Layer, Option, Queue, Schema, Stream } from 'effect';
 import type { MouseEvent } from 'react';
 import { Actor, Command } from '../../core/index.ts';
 import type { ActorType, AnyActor, Types } from '../../core/index.ts';
-import { View } from '../../react/index.ts';
+import { View, lazyOf } from '../../react/index.ts';
 import type { ViewOf } from '../../react/index.ts';
 import { Adapter, KEY } from '../adapter/index.ts';
-import {
-  Loading,
-  Navigation,
-  moveOptions,
-  routeOf,
-} from '../capability/index.ts';
+import { Loading, Navigation, moveOptions } from '../capability/index.ts';
 import type { AnyRoute, MoveOptions } from '../capability/index.ts';
-import { knownOf, preloadViews } from '../page/index.ts';
-import type { AnyPage, Known, Preload } from '../page/index.ts';
+import { knownOf } from '../page/index.ts';
+import type { AnyPageBuild, AnyPageDefinition, Known } from '../page/index.ts';
 import type {
-  Children,
   Codec,
   How,
   Metadata,
@@ -26,16 +20,23 @@ import type {
   Value,
 } from '../route/index.ts';
 import { Scrolling, keyOf, restores, scriptFor } from '../scroll/index.ts';
-import type { ScrollRestorationOptions } from '../scroll/index.ts';
 import { linkOptions } from './context.tsx';
+import {
+  dueRuns,
+  holdingAt,
+  holdingSchema,
+  loadPlace,
+  placeMessages,
+  readyOf,
+  settle,
+  shownOf,
+} from './data.ts';
+import type { Holding, PlaceMessage } from './data.ts';
+import type { Rooted } from './define.ts';
 import { Frame } from './frame.tsx';
 
-/** What the router needs of a Routes tree. */
-export interface RoutesLike<Route> {
-  /** The pages under the root, as written. */
-  readonly children: object;
-  /** The root page: its Place is the Router's one Child. */
-  readonly root: AnyPage;
+/** What the router needs of its definition. */
+export interface RoutesLike<Route> extends Rooted<AnyPageDefinition> {
   readonly route: Codec<Route>;
   /** Every place with data, by dotted name, with its data's Schema. */
   readonly data: ReadonlyArray<readonly [string, Codec<unknown>]>;
@@ -45,7 +46,6 @@ export interface RoutesLike<Route> {
   readonly places: (of: Route | string) => ReadonlyArray<Place>;
   /** Every place of the tree, as Schemas: what a Loader RPC is made from. */
   readonly every: ReadonlyArray<PlaceSchema>;
-  readonly preload: { readonly mode: Preload; readonly delay: number };
 }
 
 const HOW: ReadonlyArray<How> = ['load', 'push', 'replace', 'back', 'forward'];
@@ -54,8 +54,6 @@ const LANDS = ['push', 'replace', 'load', 'arrive', 'back', 'forward'] as const;
 type Lands = (typeof LANDS)[number];
 /** Redirects followed in a row before a move gives up, as not found. */
 const HOPS = 8;
-/** How long a move waits for its data before it lands without it, in milliseconds. */
-const DELAY = 150;
 
 /** A move the Router holds while it loads the data of the places it brings. */
 export interface PendingMove<Route> {
@@ -139,9 +137,9 @@ export interface RouterModel<Route> {
   readonly holding: Route | null;
   /** The id the next pending move gets. */
   readonly loads: number;
-  /** What the places the last move brought start from, by dotted name. */
-  readonly known: Readonly<Record<string, Known>>;
-  /** How many times the app was reloaded: each Place loads its data again when it goes up. */
+  /** The data of each place with data on the Route drawn, by dotted name: each page is handed its own. */
+  readonly data: Holding;
+  /** How many times the app was reloaded: every place on screen loads its data again when it goes up. */
   readonly reload: number;
   /** Whether an Adapter holds the address. */
   readonly attached: boolean;
@@ -172,7 +170,8 @@ export type RouterMessage<Route> =
     }
   | { readonly _tag: 'Redirected'; readonly id: number; readonly route: Route }
   | { readonly _tag: 'Reloaded' }
-  | { readonly _tag: 'Preloading'; readonly route: Route };
+  | { readonly _tag: 'Preloading'; readonly route: Route }
+  | PlaceMessage;
 
 /** The router's Input: the Route it starts at and what its places already start from. */
 export interface RouterInput<Route> {
@@ -237,32 +236,36 @@ type Out = {
 };
 
 /**
- * The router of an app: one Actor, above the app's root page. It holds the
- * history, as entries and where it is in them, and hands the root's Place
- * the current Route. Every move is one Message to it: a link click, a
- * Request on Navigation, the Adapter's Back and Forward. A move to places
- * whose data is not there yet waits up to 150 ms while a Worker loads it
- * through `Loading`, so a quick answer, or a copy the Data cache kept,
- * shows no loading screen; after that the move lands and each new Place
- * loads its own. The data itself lives in the Places, never here. It draws
- * the app, catches plain clicks on links inside it, preloads for links, and
- * writes the Metadata. With no Adapter in the Layer it routes in memory;
- * with one, it writes each move to the address with a Command, and hears
- * the address with a Worker.
+ * The router of an app: one Actor, above the build of the app's root page,
+ * drawn with the root page's View. It holds the history, as entries and
+ * where it is in them, and hands the root page the current Route. Every
+ * move is one Message to it: a link click, a Request on Navigation, the
+ * Adapter's Back and Forward. A move to places whose data is not there yet
+ * waits up to its delay while a Worker loads it through `Loading`, so a
+ * quick answer, or a copy the Data cache kept, shows no loading screen;
+ * after that the move lands and each new place loads its own. It holds the
+ * data of every place on screen, `data.ts`, and hands each page its own as
+ * `status`, down through the pages above it. It draws the app, catches
+ * plain clicks on links inside it, preloads for links, and writes the
+ * Metadata. With no Adapter in the Layer it routes in memory; with one, it
+ * writes each move to the address with a Command, and hears the address
+ * with a Worker.
  */
 export const app = <Route extends AnyRoute, A extends AnyActor>(
-  routes: RoutesLike<Route> & { readonly root: { readonly place: A } },
+  routes: RoutesLike<Route>,
   view: ViewOf<A>,
-  options?: {
-    /** Where the app is mounted, like `/app`: every link and URL is under it. */
-    readonly base?: string;
-    /** How long a move waits for its data, in milliseconds, before it lands and its pages show they are loading: 150 unless said. */
-    readonly delay?: number;
-  } & ScrollRestorationOptions<Route>,
 ) => {
-  const scrolling = (options ?? {}) as ScrollRestorationOptions<never>;
-  const delay = options?.delay ?? DELAY;
-  const base = (options?.base ?? '').replace(/\/$/, '');
+  const { base, delay, scroll: scrolling } = routes.options;
+  const root = view.actor as unknown as AnyPageBuild;
+  if (root.page !== routes.root)
+    throw new Error(
+      '[@kestack/kabuki/routing] the View handed to the Router does not draw a build of its root page',
+    );
+  // Named for devtools and errors, as every page is after its key.
+  if (root.name === 'Page') {
+    (root as { name: string }).name = 'App';
+    (root.definition as { name: string }).name = 'App';
+  }
   const href = (route: Route) => {
     const path = routes.path(route);
     return base && path === '/' ? base : `${base}${path}`;
@@ -298,7 +301,7 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
       ]),
     ),
   ) as unknown as Codec<Readonly<Record<string, Known>>>;
-  const actor = Actor.make('Router', {
+  const actor = Actor.define('Router', {
     input: Schema.UndefinedOr(
       Schema.Struct({
         route: RouteSchema,
@@ -337,7 +340,7 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
       ),
       holding: Schema.NullOr(RouteSchema),
       loads: Schema.Number,
-      known: KnownSchema,
+      data: holdingSchema(routes),
       reload: Schema.Number,
       attached: Schema.Boolean,
       loaded: Schema.Boolean,
@@ -360,10 +363,9 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
       Redirected: { id: Schema.Number, route: RouteSchema },
       Reloaded: {},
       Preloading: { route: RouteSchema },
+      ...placeMessages(routes),
     }),
-  } as never) as unknown as {
-    build: (behavior: unknown) => AnyActor;
-  };
+  } as never);
 
   type Model = RouterModel<Route>;
   const current = (model: Model) => model.entries[model.at]!;
@@ -381,6 +383,12 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
       replace,
     });
 
+  /** The model with the data of the places on the Route it draws: each new place starts from what is known. */
+  const withData = (model: Model, known: Readonly<Record<string, Known>>) => ({
+    ...model,
+    data: holdingAt(routes, shown(model), model.data, known, model.reload),
+  });
+
   /**
    * A move landing, with what its new places start from. A Redirect or not
    * found on the entry shown keeps the move that led to it, now to where it
@@ -390,10 +398,20 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
     model: Model,
     to: Route,
     how: Lands,
-    known: Model['known'],
-    { key = null, said }: Along = {},
+    known: Readonly<Record<string, Known>>,
+    along: Along = {},
   ): Out => {
-    const settled: Model = { ...model, pending: null, holding: null, known };
+    const out = landing(model, to, how, along);
+    return { ...out, model: withData(out.model as Model, known) };
+  };
+
+  const landing = (
+    model: Model,
+    to: Route,
+    how: Lands,
+    { key = null, said }: Along = {},
+  ): Out & { readonly model: Model } => {
+    const settled: Model = { ...model, pending: null, holding: null };
     const from = shown(model);
     // Back and Forward are at their entry already: the move only lands.
     if (how === 'back' || how === 'forward')
@@ -520,7 +538,7 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
       pending: null,
       holding: null,
       loads: 0,
-      known: from?.known ?? {},
+      data: holdingAt(routes, route, {}, from?.known ?? {}, 0),
       reload: 0,
       attached: false,
       loaded: false,
@@ -529,6 +547,24 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
 
   type Send = (message: RouterMessage<Route>) => Effect.Effect<void>;
   /**
+   * Starts loading the code of the lazy View of every page on `route`, so it
+   * loads beside the page's data rather than after it. Code that fails to
+   * load is loaded again when it is drawn.
+   */
+  const preloadViews = (route: Route) => {
+    let build: AnyPageBuild | undefined = root;
+    let value = route as unknown as Value | undefined;
+    while (build && value) {
+      build = (build.pages as Record<string, AnyPageBuild>)[value._tag];
+      if (build)
+        lazyOf(build)
+          ?.preload()
+          .catch(() => {});
+      value = value['page'] as Value | undefined;
+    }
+  };
+
+  /**
    * Loads what the pending move wants, through `Loading`: with none, it
    * lands without. The code of the lazy Views it will draw starts loading
    * at the same time, so it is not a second wait after the data. A Redirect,
@@ -536,7 +572,7 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
    */
   const load = (pending: PendingMove<Route>, send: Send) =>
     Effect.gen(function* () {
-      preloadViews(routes.children as Children, pending.to as Value);
+      preloadViews(pending.to);
       const found = yield* Effect.serviceOption(Loading);
       const { id } = pending;
       if (Option.isNone(found))
@@ -569,7 +605,7 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
     args: Schema.Struct({ route: RouteSchema }),
     run: ({ route }) =>
       Effect.gen(function* () {
-        preloadViews(routes.children as Children, route as Value);
+        preloadViews(route as Route);
         const found = yield* Effect.serviceOption(Loading);
         if (Option.isNone(found) || !found.value.preload) return;
         yield* found.value.preload(
@@ -586,27 +622,28 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
     command: forget(),
   });
 
-  const built = actor.build({
+  const built = (
+    Actor.build as (definition: unknown, behavior: unknown) => AnyActor
+  )(actor, {
     init: (from: RouterInput<Route> | undefined) => ({
       model: firstModel(from),
     }),
     children: {
       page: {
-        actor: routes.root.place,
-        input: ({ model }: { readonly model: Model }) => ({
-          reload: model.reload,
-          for: '{}',
-        }),
+        actor: root,
         props: ({ model }: { readonly model: Model }) => {
           const route = shown(model) as unknown as Value;
           const found = route._tag !== 'NotFound';
           return {
-            name: '',
-            value: found ? { _tag: '', page: route } : { _tag: '' },
             params: {},
-            notFound: found ? null : String(route['path']),
-            known: model.known,
-            reload: model.reload,
+            query: {},
+            route: {
+              name: '',
+              ...(found ? { page: route } : {}),
+              params: {},
+              notFound: found ? null : String(route['path']),
+              data: shownOf(routes, shown(model), model.data, model.reload),
+            },
           };
         },
       },
@@ -616,22 +653,20 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
         push: (to, options) =>
           self.send({
             _tag: 'Pushed',
-            route: routeOf(to) as Route,
+            route: to as Route,
             ...options,
           }),
         replace: (to, options) =>
           self.send({
             _tag: 'Replaced',
-            route: routeOf(to) as Route,
+            route: to as Route,
             ...options,
           }),
         back: self.send({ _tag: 'Went', by: -1 }),
         forward: self.send({ _tag: 'Went', by: 1 }),
-        backTo: (to) =>
-          self.send({ _tag: 'WentBackTo', route: routeOf(to) as Route }),
+        backTo: (to) => self.send({ _tag: 'WentBackTo', route: to as Route }),
         reload: self.send({ _tag: 'Reloaded' }),
-        preload: (to) =>
-          self.send({ _tag: 'Preloading', route: routeOf(to) as Route }),
+        preload: (to) => self.send({ _tag: 'Preloading', route: to as Route }),
       }),
     on: {
       Pushed: (
@@ -740,7 +775,7 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
         command: leave({ url }),
       }),
       // Still loading after the delay: the move lands without the data it
-      // waits on, and each new Place shows it is loading, then loads it.
+      // waits on, and each new place shows it is loading, then loads it.
       Waited: (
         { id }: { readonly id: number },
         { model }: { readonly model: Model },
@@ -750,7 +785,13 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
         return land(model, pending.to, pending.how, {}, pending);
       },
       Loaded: (
-        { id, known }: { readonly id: number; readonly known: Model['known'] },
+        {
+          id,
+          known,
+        }: {
+          readonly id: number;
+          readonly known: Readonly<Record<string, Known>>;
+        },
         { model }: { readonly model: Model },
       ): Out => {
         const pending = model.pending;
@@ -778,8 +819,43 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
         { route }: { readonly route: Route },
         { model }: { readonly model: Model },
       ) => (same(route, shown(model)) ? {} : { command: preload({ route }) }),
+      PlaceLoaded: (
+        message: Extract<PlaceMessage, { readonly _tag: 'PlaceLoaded' }>,
+        { model }: { readonly model: Model },
+      ): Out => ({ model: { ...model, data: settle(model.data, message) } }),
+      PlaceFailed: (
+        message: Extract<PlaceMessage, { readonly _tag: 'PlaceFailed' }>,
+        { model }: { readonly model: Model },
+      ): Out => ({ model: { ...model, data: settle(model.data, message) } }),
+      // A Loader's Redirect for a page on screen replaces the entry.
+      PlaceRedirected: (
+        { route }: { readonly route: AnyRoute },
+        { model, at }: { readonly model: Model; readonly at: number },
+      ) => toward(model, route as Route, 'replace', at),
     },
     workers: {
+      // Loads the data of each place on screen whose data is due.
+      place: {
+        each: ({ model }: { readonly model: Model }) =>
+          dueRuns(routes, shown(model), model.data, model.reload),
+        run: (
+          self: {
+            readonly send: Send;
+            readonly get: Effect.Effect<{ readonly model: Model }>;
+            readonly now: Effect.Effect<number>;
+          },
+          run: string,
+        ) =>
+          loadPlace(routes, run, {
+            send: self.send,
+            get: Effect.map(self.get, ({ model }) => ({
+              route: shown(model),
+              holding: model.data,
+              reload: model.reload,
+            })),
+            now: self.now,
+          }),
+      },
       // Loads the data the pending move wants; a newer move stops it.
       load: {
         each: ({ model }: { readonly model: Model }) =>
@@ -823,9 +899,9 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
             const { model } = yield* self.get;
             if (model.move.how !== 'load') return;
             for (const { name, params, input } of routes.places(shown(model))) {
-              const known = model.known[name];
-              if (input && known?._tag === 'Ready')
-                yield* found.value.keep({ name, params }, known.data);
+              const status = model.data[name]?.status;
+              if (input && status?._tag === 'Ready')
+                yield* found.value.keep({ name, params }, status.data);
             }
           }),
       },
@@ -906,9 +982,13 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
       });
     };
     const drawn = shown(model);
+    // The Metadata follows the data of the pages drawn, not only the move.
+    const metadata = routes.metadata(
+      drawn,
+      readyOf(shownOf(routes, drawn, model.data, model.reload)),
+    );
     return (
       <Frame
-        known={model.known}
         drawing={{
           href: href as (route: AnyRoute) => string,
           entries: model.entries,
@@ -921,14 +1001,13 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
                   model.pending.how === 'arrive' ? 'push' : model.pending.how,
               }
             : null,
-          metadata: routes.metadata(drawn, {}),
+          metadata,
           go: (by) => send({ _tag: 'Went', by }),
           reload: () => send({ _tag: 'Reloaded' }),
           preload: (route) =>
             send({ _tag: 'Preloading', route: route as Route }),
-          linkPreload: routes.preload,
+          linkPreload: routes.options.preload,
         }}
-        metadataOf={(data) => routes.metadata(drawn, data)}
         attached={model.attached}
         root={self.root}
         onClick={onClick}
@@ -947,7 +1026,7 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
           loaded={model.loaded}
         >
           {(() => {
-            const RootView = view as ViewOf<AnyActor>;
+            const RootView = view as unknown as ViewOf<AnyActor>;
             return (
               <RootView
                 instance={

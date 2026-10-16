@@ -1,5 +1,5 @@
 import { Schema } from 'effect';
-import { Route } from '@kestack/kabuki/routing';
+import { Page } from '@kestack/kabuki/routing';
 
 export const INVOICES = [
   { id: 'inv-3', month: 'March', amount: 120 },
@@ -8,12 +8,14 @@ export const INVOICES = [
 ] as const;
 
 /** The invoices page, the third level down: which invoice is open is its own business. */
-export const Invoices = Route.page({
+export const Invoices = Page.define({
   path: '/invoices',
   metadata: { title: 'Invoices · Acme' },
   model: Schema.Struct({ open: Schema.NullOr(Schema.String) }),
   message: Schema.TaggedUnion({ Toggled: { id: Schema.String } }),
-}).build({
+});
+
+export const InvoicesLive = Page.build(Invoices, {
   init: () => ({ model: { open: null } }),
   on: {
     Toggled: ({ id }, { model }) => ({

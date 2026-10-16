@@ -1,5 +1,6 @@
-import { Route, Router } from '@kestack/kabuki/routing';
-import { Pages, Routes } from '../../../shared/index.ts';
+import { View } from '@kestack/kabuki/react';
+import { Router } from '@kestack/kabuki/routing';
+import { Pages, router } from '../../../shared/index.ts';
 import { Loaded, PlaceFrame, link, pane } from '../../components/index.ts';
 
 /*
@@ -12,7 +13,7 @@ import { Loaded, PlaceFrame, link, pane } from '../../components/index.ts';
  * it: `/blog/scroll-entry#part-5`.
  */
 
-export const PostView = Route.view(Pages.Post, ({ props }) => {
+export const PostView = View.make(Pages.PostLive, ({ props }) => {
   return (
     <PlaceFrame place="Blog.Post" status={props.status} fill>
       <div
@@ -60,7 +61,7 @@ export const PostView = Route.view(Pages.Post, ({ props }) => {
               <p className="border-t border-border pt-4 text-sm text-muted-foreground">
                 At the end. Open{' '}
                 <Router.Link
-                  to={Routes.Blog.Post({
+                  to={router.Blog.Post({
                     slug:
                       post.slug === 'back-is-free'
                         ? 'pages-are-actors'

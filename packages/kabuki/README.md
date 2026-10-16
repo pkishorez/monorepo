@@ -37,12 +37,14 @@ is also what an app is saved as and drawn from before it runs: on a server,
 at build time, and across a hot reload.
 
 Routing is a layer on top, in `@kestack/kabuki/routing`, that core never
-imports: a page is an Actor with a place in the URL, and Kabuki writes one
-more around it, its Place, that loads its data and hands it in as Props. One
-Router Actor above them holds the history, so a page move is one Message and
-a page is a Child coming and going. It routes in memory by default; the browser's history
-and TanStack Router's are Adapters, each its own subpath. How it fits
-together is in [docs/routing.md](./docs/routing.md).
+imports: a page is an Actor with a place in the URL. The router is read down
+from the pages' definitions, so any build can import it and name a Route by
+type. One Router Actor above the pages holds the history and the data of
+every page on screen, and hands each page its own as Props, so a page move
+is one Message and a page is a Child coming and going. It routes in memory
+by default; the browser's history and TanStack Router's are Adapters, each
+its own subpath. How it fits together is in
+[docs/routing.md](./docs/routing.md).
 
 Start, in `@kestack/kabuki/start` and its Vite plugin, serves a routed app
 from a Cloudflare Worker: for a URL it runs the Loaders of the places it
@@ -77,7 +79,8 @@ pnpm add @kestack/kabuki effect react
 
 | Export             | What it does                                                                                                         |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------- |
-| `Actor.make`       | Defines an Actor from its Requires and Schemas. `.build` adds how it behaves, at the top and in one block per State. |
+| `Actor.define`     | Says what an Actor is: its name, Requires and Schemas, which fix every type. It runs nothing.                        |
+| `Actor.build`      | Says how a defined Actor behaves, at the top and in one block per State: the build is what runs and is drawn.        |
 | `Command.make`     | Defines a Command from its name, the Schema of its args and the Effect it runs; an Update calls it with the args.    |
 | `Runtime.start`    | Runs an Actor, or carries a History on, inside a Scope, with the app's Layer; gives back `send`, `start` and `stop`. |
 | `History.make`     | A new, empty History for an Actor, with the root's Input.                                                            |
@@ -99,42 +102,41 @@ pnpm add @kestack/kabuki effect react
 
 | Export         | What it does                                                                                                                                                                                                                                                               |
 | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `View.make`    | Defines how one Actor is drawn, one function for every State, as a React component that takes the Instance, and a `ref` and `style`, from its parent.                                                                                                                      |
+| `View.make`    | Defines how one built Actor is drawn, one function for every State, as a React component that takes the Instance, and a `ref` and `style`, from its parent; the View carries its Actor as `.actor`.                                                                        |
 | `toReact`      | Turns a root Actor, its View and a Layer into one React component that runs the whole app, one Runtime for every mount; `useRuntime` reads its History, shows any Step, and stops and starts it. Drawn before it runs, on a server too, from a saved History if given one. |
-| `View.lazy`    | A View whose code is loaded the first time it is drawn, or on `preload()`; a server waits for it before it sends, and tells the App's `onLazyView`.                                                                                                                        |
+| `View.lazy`    | A View of the Actor it is given first, whose code is loaded the first time it is drawn, or on `preload()`; a server waits for it before it sends, and tells the App's `onLazyView`.                                                                                        |
 | `View.preload` | Loads the lazy Views made with these ids, so a browser hydrating a page a server drew never waits on their code.                                                                                                                                                           |
 | `useChild`     | Reads one Child's Model, State and Props from its parent's View, to draw, or only what an optional selector picks; an escape hatch that can never Send.                                                                                                                    |
 | `useChildren`  | Reads the Instances of an `each` Child the same way, in order; only the component that calls it re-renders, as they change or as what the selector picks does.                                                                                                             |
+| `lazyOf`       | Finds the lazy View made for an Actor, if one was, to load its code before it is drawn.                                                                                                                                                                                    |
 | `useLive`      | Says whether the app is drawn as it is now, not at a past Step, so an effect that touches the page around it can stay still under Time Travel.                                                                                                                             |
 
 ### `@kestack/kabuki/routing`
 
 | Export                        | What it does                                                                                                                                                                                                                                        |
 | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Route.page`                  | Makes a page: an Actor with a place in the URL, its params, query, data, Render Mode, Metadata and the pages under it, built as any Actor is.                                                                                                       |
-| `Route.view`                  | Draws a page from its own data, or by a lazy View, as the View of the Place that loads it.                                                                                                                                                          |
-| `Route.tree`                  | Reads every page down from the root page: a constructor per place, the URL both ways, each place's Metadata and Render Mode, every path, and the typing of the Loaders.                                                                             |
-| `Route.notFound`              | What a Loader fails with when its place is not found.                                                                                                                                                                                               |
-| `Route.redirect`              | What a Loader fails with to send the app to another Route.                                                                                                                                                                                          |
-| `Route.NotFound`              | The Schema of a Loader's not-found failure, to carry it over the wire.                                                                                                                                                                              |
-| `Route.Redirect`              | The Schema of a Loader's Redirect, to carry it over the wire.                                                                                                                                                                                       |
-| `Router.app`                  | Puts the Router above the root page: it holds the history and every move; gives the Actor, its View, `startAt`, `href` and the Routes. With `scrollRestoration: true` it restores scroll as TanStack Router does, with its options.                 |
+| `Page.define`                 | Says what a page is: an Actor definition with a place in the URL, its params, query, data, Render Mode, Metadata and the definitions of the pages under it.                                                                                         |
+| `Page.build`                  | Says how a page behaves, as `Actor.build` takes it, with the build of each page under it in `pages`; a page is drawn with `View.make`.                                                                                                              |
+| `Page.notFound`               | What a Loader fails with when its place is not found.                                                                                                                                                                                               |
+| `Page.redirect`               | What a Loader fails with to send the app to another Route.                                                                                                                                                                                          |
+| `Page.NotFound`               | The Schema of a Loader's not-found failure, to carry it over the wire.                                                                                                                                                                              |
+| `Page.Redirect`               | The Schema of a Loader's Redirect, to carry it over the wire.                                                                                                                                                                                       |
+| `Router.define`               | Reads the app's router down from the root page's definition: a constructor per place, the URL both ways, each place's Metadata and Render Mode, every path, the typing of the Loaders, and how the Router behaves in the browser.                   |
+| `Router.app`                  | Puts the Router above the root page's View: it holds the history, every move and every page's data; gives the Actor, its View, `startAt` and `href`. With `scrollRestoration: true` on the router it restores scroll as TanStack Router does.       |
 | `Router.Link`                 | Draws a plain `<a href>` to a Route, preloading it on hover, once in view, or never, going to an element on the page with `hash`, and leaving every scroll as it is with `resetScroll={false}`; the Router catches a plain click and moves the app. |
 | `Router.Retry`                | A button that loads every page on screen again, for a page whose Loader broke.                                                                                                                                                                      |
 | `Router.memory`               | A `Loading` that runs the Loaders in place, for tests, stories and the server.                                                                                                                                                                      |
 | `Router.cached`               | Puts the Data cache in front of a `Loading`: the last data of each place, shown at once on Back, a link or a preload.                                                                                                                               |
-| `Router.push`                 | A Command that moves the app to a Route, or the Route a function makes, as a new entry.                                                                                                                                                             |
+| `Router.push`                 | A Command that moves the app to a Route, as a new entry.                                                                                                                                                                                            |
 | `Router.replace`              | A Command that puts a Route in place of the current entry, so Back skips it.                                                                                                                                                                        |
 | `Router.back`                 | A Command that goes Back.                                                                                                                                                                                                                           |
 | `Router.forward`              | A Command that goes Forward.                                                                                                                                                                                                                        |
 | `Router.backTo`               | A Command that goes Back when the app came from a Route, and replaces the entry with it otherwise: closing a dialog with a Route of its own.                                                                                                        |
 | `Router.reload`               | A Command that loads every page on screen again, as after a save; the pages and their Models stay.                                                                                                                                                  |
 | `Router.preload`              | A Command that warms the Data cache, and the code of the lazy Views, for a Route.                                                                                                                                                                   |
-| `Navigation`                  | The Capability the Router Provides, which an Actor that moves the app lists in its Requires.                                                                                                                                                        |
-| `Loading`                     | The Capability the Router and every Place use, if the Layer has it, to load the data of places.                                                                                                                                                     |
-| `outcomeOf`                   | A Loader's run as what it came to: its data, not found, a Redirect, or what broke; for a `Loading` of your own.                                                                                                                                     |
-| `usePending`                  | Reads the move the Router holds while it loads, for a progress bar; `usePending<Route>()` types its Route as the app's.                                                                                                                             |
-| `useRouter`                   | Reads the Router from a component drawn inside the app: the current Route and URL, the history, the title, Back, Forward, reload and preload; `useRouter<Route>()` types its Routes as the app's.                                                   |
+| `Navigation`                  | The Capability the Router Provides to every page, which an Actor under a page that moves the app lists in its Requires.                                                                                                                             |
+| `Loading`                     | The Capability the Router uses, if the Layer has it, to load the data of places.                                                                                                                                                                    |
+| `useRouter`                   | Reads the Router from a component drawn inside the app: the current Route and URL, the history, the move it holds while it loads as `pending`, the title, Back, Forward, reload and preload; `useRouter<Route>()` types its Routes as the app's.    |
 | `useElementScrollRestoration` | Reads where an element, or the window, was scrolled on the entry drawn, as scroll restoration kept it: for a virtual list that puts itself back.                                                                                                    |
 
 ### `@kestack/kabuki/routing/adapter`
@@ -159,14 +161,14 @@ pnpm add @kestack/kabuki effect react
 
 ### `@kestack/kabuki/start`
 
-| Export             | What it does                                                                                                                                |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Start.app`        | Gives the app its Document and what its Actors Require in the browser, checked against them: what `src/app` default-exports.                |
-| `Start.Document`   | The plainest Document, Start's parts in an English page: what an app that gives none is drawn in.                                           |
-| `Start.Head`       | Draws, in the Document's `<head>`, the charset and viewport, the Metadata, and the styles and chunks the page needs.                        |
-| `Start.Scripts`    | Draws, at the end of the Document's `<body>`, the saved History as JSON and the script that hydrates the page.                              |
-| `Start.useDrawn`   | Reads when and by which build the server drew the page, and whether the component asking was in that drawing or drawn later by the browser. |
-| `Start.useRuntime` | Reads the running app from the Document, for devtools drawn around it; `null` on the server.                                                |
+| Export             | What it does                                                                                                                                                     |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Start.app`        | Gives the app's router and its root page's View their Document and what the Actors Require in the browser, checked against them: what `src/app` default-exports. |
+| `Start.Document`   | The plainest Document, Start's parts in an English page: what an app that gives none is drawn in.                                                                |
+| `Start.Head`       | Draws, in the Document's `<head>`, the charset and viewport, the Metadata, and the styles and chunks the page needs.                                             |
+| `Start.Scripts`    | Draws, at the end of the Document's `<body>`, the saved History as JSON and the script that hydrates the page.                                                   |
+| `Start.useDrawn`   | Reads when and by which build the server drew the page, and whether the component asking was in that drawing or drawn later by the browser.                      |
+| `Start.useRuntime` | Reads the running app from the Document, for devtools drawn around it; `null` on the server.                                                                     |
 
 ### `@kestack/kabuki/start/platform`
 
@@ -208,7 +210,7 @@ This root signs a user in. While `Anonymous` it Provides `SignIn` and Invokes
 `login`; while `Authenticated` it Provides `Session` and Invokes `todos`.
 
 ```ts
-export const Auth = Actor.make('Auth', {
+export const Auth = Actor.define('Auth', {
   requires: [Server],
   state: Schema.TaggedUnion({
     Checking: {},
@@ -220,7 +222,9 @@ export const Auth = Actor.make('Auth', {
     LoggedIn: { user: Schema.String },
     LoggedOut: {},
   }),
-}).build({
+});
+
+export const AuthLive = Actor.build(Auth, {
   init: () => ({ state: { _tag: 'Checking' } }),
   state: {
     Checking: {
@@ -240,7 +244,7 @@ export const Auth = Actor.make('Auth', {
       },
     },
     Anonymous: {
-      children: { login: { actor: Login } },
+      children: { login: { actor: LoginLive } },
       provides: (self) =>
         Layer.succeed(SignIn, {
           complete: (user) => self.send({ _tag: 'LoggedIn', user }),
@@ -250,7 +254,7 @@ export const Auth = Actor.make('Auth', {
       },
     },
     Authenticated: {
-      children: { todos: { actor: Todos } },
+      children: { todos: { actor: TodosLive } },
       provides: (self) =>
         Layer.succeed(Session, {
           user: self.get.pipe(Effect.map(({ state }) => state.user)),
@@ -262,8 +266,8 @@ export const Auth = Actor.make('Auth', {
 });
 ```
 
-- `make` takes only the Requires and the Schemas, which fix every type. `build` is checked against them: an Update that returns a State the Schema does not have, or a `state.user` read where there is none, does not compile.
-- `build` has two Levels. What is written at the top holds for as long as the Instance lives; what is written in a State's block holds while that State lasts. Each Level can hold `provides`, `children`, `on` and `workers`.
+- `Actor.define` takes only the name, the Requires and the Schemas, which fix every type, and imports nothing but other definitions. `Actor.build` is checked against them: an Update that returns a State the Schema does not have, or a `state.user` read where there is none, does not compile. The definition is `Auth`, the build `AuthLive`, side by side in one file.
+- A build has two Levels. What is written at the top holds for as long as the Instance lives; what is written in a State's block holds while that State lasts. Each Level can hold `provides`, `children`, `on` and `workers`.
 - An Update that returns a different `_tag` is a Transition: the old State's Children, Workers and Capabilities stop, the new State's start. A Child written at the top lasts through it.
 - A Worker is a named, scoped Effect given `self`: `send` to its own Instance, `get` and `changes` for its current data, and `now` for the app's Time. Written in the `Checking` block, `check` runs while that State lasts.
 - Provides is one Layer per Level, built each time its Level starts. A Capability that reads the Model reads it through `self`, so it never goes stale. It cancels out what the Children below it need; a need nothing cancels bubbles up to the app's Layer.
@@ -278,7 +282,7 @@ const save = Command.make('save', {
     Effect.sleep('1 second').pipe(Effect.as({ _tag: 'Saved' as const })),
 });
 
-const List = Actor.make('List', {
+const List = Actor.define('List', {
   model: Schema.Struct({
     ids: Schema.Array(Schema.String),
     uploading: Schema.Array(Schema.String),
@@ -290,11 +294,13 @@ const List = Actor.make('List', {
     Saved: {},
     Uploaded: { id: Schema.String },
   }),
-}).build({
+});
+
+const ListLive = Actor.build(List, {
   init: () => ({ model: { ids: [], uploading: [], next: 0 } }),
   children: {
     rows: {
-      actor: Row,
+      actor: RowLive,
       each: ({ model }) => model.ids,
       input: (_, id) => ({ text: `#${id}` }),
       props: ({ model }, id) => ({ uploading: model.uploading.includes(id) }),
@@ -346,7 +352,7 @@ const List = Actor.make('List', {
 ### Drawing it with React
 
 ```tsx
-export const AuthView = View.make(Auth, ({ _tag, state, children }) => {
+export const AuthView = View.make(AuthLive, ({ _tag, state, children }) => {
   switch (_tag) {
     case 'Checking':
       return <Spinner />;
@@ -362,14 +368,14 @@ export const AuthView = View.make(Auth, ({ _tag, state, children }) => {
   }
 });
 
-const RowView = View.make(Row, ({ model, props, root }) => (
+const RowView = View.make(RowLive, ({ model, props, root }) => (
   <li {...root} data-uploading={props.uploading}>
     {model.text}
   </li>
 ));
 const MotionRow = motion.create(RowView);
 
-const DemoApp = toReact(Auth, AuthView, ServerLive);
+const DemoApp = toReact(AuthLive, AuthView, ServerLive);
 ```
 
 - One function draws every State. It gets `_tag`, `model`, `state`, `props`, `children` (Handles: one for a Child that is always there, one or `undefined` for a `while` Child, a list for an `each` Child, each with its `key`), `send` and `root`; a `switch` on `_tag` narrows `state` and `children`. The DOM stays across a Transition. It never sees Capabilities, so it draws a Replay exactly like the live app.
@@ -384,9 +390,9 @@ const DemoApp = toReact(Auth, AuthView, ServerLive);
 ### Drawing it before it runs
 
 ```tsx
-const DemoApp = toReact(Auth, AuthView, ServerLive, { saved });
+const DemoApp = toReact(AuthLive, AuthView, ServerLive, { saved });
 ```
 
 - The app is drawn before any Runtime exists: with no History, right after init; with a saved one, at its Head, replayed through Suspense. A server or a static build gets the same HTML the client hydrates, and `useRuntime` reads the saved History from the start, so a Timeline is drawn there too. Until the Runtime starts, a Send is dropped.
-- `saved` is what `history.save()` gives: its entries and its Head, each Message, and each Instance of a Restore's Snapshot, written through its Actor's Schemas and read back through them on load. So the encoded side of every Schema must be JSON-safe, and then it is plain JSON: a `Date` as `Schema.DateFromString`, an `Option` as `Schema.OptionFromNullOr`. A saved History never changes, and one whose Head is not one of its entries fails to load. The Runtime carries on live at the Head, with Time going on from the Head's. `History.restored(Auth, snapshot, at).save()` makes the lightest one, a History of one Restore right after init, for an app that saves only its Snapshot; init stays the first Step. Where the History is kept is the app's business. Give `window` to keep only that many entries on the Head's Branch: the oldest kept becomes a Restore of the Snapshot right after it, and Time Travel reaches nothing before it. `history.keep(n)` changes it at any time, `history.keep(null)` stops Compacting. An app made with `toReact` remembers a Window changed that way in `localStorage` under its name, and starts from it after a reload, over the `window` it was given.
+- `saved` is what `history.save()` gives: its entries and its Head, each Message, and each Instance of a Restore's Snapshot, written through its Actor's Schemas and read back through them on load. So the encoded side of every Schema must be JSON-safe, and then it is plain JSON: a `Date` as `Schema.DateFromString`, an `Option` as `Schema.OptionFromNullOr`. A saved History never changes, and one whose Head is not one of its entries fails to load. The Runtime carries on live at the Head, with Time going on from the Head's. `History.restored(AuthLive, snapshot, at).save()` makes the lightest one, a History of one Restore right after init, for an app that saves only its Snapshot; init stays the first Step. Where the History is kept is the app's business. Give `window` to keep only that many entries on the Head's Branch: the oldest kept becomes a Restore of the Snapshot right after it, and Time Travel reaches nothing before it. `history.keep(n)` changes it at any time, `history.keep(null)` stops Compacting. An app made with `toReact` remembers a Window changed that way in `localStorage` under its name, and starts from it after a reload, over the `window` it was given.
 - When the last mount closes, the History is left under the app's name, the root Actor's by default, and the next mount of an app with that name carries on from it: the same component mounted again, or a new one after a hot reload, whose code replays the old Messages. A Message the new code handles differently warns and goes on. Give `name` when two apps share a root Actor and must not share a History; two apps of one name mounted at once is a console error.

@@ -96,7 +96,7 @@ describe('Workers', () => {
     run(
       Effect.gen(function* () {
         const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
-        const Broken = Actor.make('Broken', {}).build({
+        const Broken = Actor.build(Actor.define('Broken', {}), {
           workers: { boom: { run: () => Effect.die(new Error('boom')) } },
         });
         const app = yield* Runtime.start(Broken);

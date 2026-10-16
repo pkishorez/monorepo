@@ -15,67 +15,78 @@ import type { Instance, Running, SavedHistory } from '../index.ts';
 
 // A list whose rows are handed whether they are selected --------------------------
 
-const Cell = Actor.make('Cell', {
-  props: Schema.Struct({ lit: Schema.Boolean }),
-}).build({});
-
-const Row = Actor.make('Row', {
-  input: Schema.Struct({ text: Schema.String }),
-  props: Schema.Struct({ selected: Schema.Boolean }),
-  model: Schema.Struct({
-    text: Schema.String,
-    edits: Schema.Number,
-    ticks: Schema.Number,
+const Cell = Actor.build(
+  Actor.define('Cell', {
+    props: Schema.Struct({ lit: Schema.Boolean }),
   }),
-  message: Schema.TaggedUnion({ Edited: {}, Ticked: {} }),
-}).build({
-  init: ({ text }) => ({ model: { text, edits: 0, ticks: 0 } }),
-  children: {
-    cell: { actor: Cell, props: ({ props }) => ({ lit: props.selected }) },
-  },
-  on: {
-    Edited: (_, { model, props }) =>
-      props.selected ? { model: { ...model, edits: model.edits + 1 } } : {},
-    Ticked: (_, { model }) => ({ model: { ...model, ticks: model.ticks + 1 } }),
-  },
-  workers: {
-    poll: {
-      while: ({ props }) => props.selected,
-      run: (self) =>
-        Effect.forever(
-          Effect.sleep('10 millis').pipe(
-            Effect.andThen(self.send({ _tag: 'Ticked' })),
+  {},
+);
+
+const Row = Actor.build(
+  Actor.define('Row', {
+    input: Schema.Struct({ text: Schema.String }),
+    props: Schema.Struct({ selected: Schema.Boolean }),
+    model: Schema.Struct({
+      text: Schema.String,
+      edits: Schema.Number,
+      ticks: Schema.Number,
+    }),
+    message: Schema.TaggedUnion({ Edited: {}, Ticked: {} }),
+  }),
+  {
+    init: ({ text }) => ({ model: { text, edits: 0, ticks: 0 } }),
+    children: {
+      cell: { actor: Cell, props: ({ props }) => ({ lit: props.selected }) },
+    },
+    on: {
+      Edited: (_, { model, props }) =>
+        props.selected ? { model: { ...model, edits: model.edits + 1 } } : {},
+      Ticked: (_, { model }) => ({
+        model: { ...model, ticks: model.ticks + 1 },
+      }),
+    },
+    workers: {
+      poll: {
+        while: ({ props }) => props.selected,
+        run: (self) =>
+          Effect.forever(
+            Effect.sleep('10 millis').pipe(
+              Effect.andThen(self.send({ _tag: 'Ticked' })),
+            ),
           ),
-        ),
+      },
     },
   },
-});
+);
 
-const List = Actor.make('List', {
-  model: Schema.Struct({
-    ids: Schema.Array(Schema.String),
-    selected: Schema.String,
-    title: Schema.String,
+const List = Actor.build(
+  Actor.define('List', {
+    model: Schema.Struct({
+      ids: Schema.Array(Schema.String),
+      selected: Schema.String,
+      title: Schema.String,
+    }),
+    message: Schema.TaggedUnion({
+      Selected: { id: Schema.String },
+      Retitled: { title: Schema.String },
+    }),
   }),
-  message: Schema.TaggedUnion({
-    Selected: { id: Schema.String },
-    Retitled: { title: Schema.String },
-  }),
-}).build({
-  init: () => ({ model: { ids: ['a', 'b', 'c'], selected: 'a', title: '' } }),
-  children: {
-    rows: {
-      actor: Row,
-      each: ({ model }) => model.ids,
-      input: (_, id) => ({ text: id }),
-      props: ({ model }, id) => ({ selected: id === model.selected }),
+  {
+    init: () => ({ model: { ids: ['a', 'b', 'c'], selected: 'a', title: '' } }),
+    children: {
+      rows: {
+        actor: Row,
+        each: ({ model }) => model.ids,
+        input: (_, id) => ({ text: id }),
+        props: ({ model }, id) => ({ selected: id === model.selected }),
+      },
+    },
+    on: {
+      Selected: ({ id }, { model }) => ({ model: { ...model, selected: id } }),
+      Retitled: ({ title }, { model }) => ({ model: { ...model, title } }),
     },
   },
-  on: {
-    Selected: ({ id }, { model }) => ({ model: { ...model, selected: id } }),
-    Retitled: ({ title }, { model }) => ({ model: { ...model, title } }),
-  },
-});
+);
 
 const row = (key: string) => `List/rows[${key}]#1`;
 
@@ -182,7 +193,7 @@ describe('Props', () => {
     ));
 
   it('are checked against their Schema', () => {
-    const Bad = Actor.make('Bad', {}).build({
+    const Bad = Actor.build(Actor.define('Bad', {}), {
       children: {
         row: {
           actor: Row,
@@ -290,25 +301,28 @@ describe('the History', () => {
 // Types ---------------------------------------------------------------------------------
 
 export const types = () => [
-  Actor.make('NeedsProps', {}).build({
+  Actor.build(Actor.define('NeedsProps', {}), {
     children: {
       // @ts-expect-error a Child that declares Props must be handed them
       rows: { actor: Row, each: () => ['a'], input: () => ({ text: 'a' }) },
     },
   }),
-  Actor.make('WrongProps', {}).build({
+  Actor.build(Actor.define('WrongProps', {}), {
     children: {
       // @ts-expect-error its Props must be the ones its Actor declares
       cell: { actor: Cell, props: () => ({ lit: 'yes' }) },
     },
   }),
-  Actor.make('Reads', {
-    props: Schema.Struct({ n: Schema.Number }),
-    message: Schema.TaggedUnion({ Go: {} }),
-  }).build({
-    on: {
-      // @ts-expect-error Props are read, never given back
-      Go: (_, { props }) => ({ props: { n: props.n + 1 } }),
+  Actor.build(
+    Actor.define('Reads', {
+      props: Schema.Struct({ n: Schema.Number }),
+      message: Schema.TaggedUnion({ Go: {} }),
+    }),
+    {
+      on: {
+        // @ts-expect-error Props are read, never given back
+        Go: (_, { props }) => ({ props: { n: props.n + 1 } }),
+      },
     },
-  }),
+  ),
 ];

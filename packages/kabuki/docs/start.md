@@ -1,21 +1,23 @@
 # Start
 
 `@kestack/kabuki/start` serves a routed Kabuki app from the platform its
-adapter names, Cloudflare Workers for now. For a URL it reads the Route, runs the Loaders of the pages it names, starts
-each page's Place from what its Loader came to, and draws the result in the
-Document, with the Snapshot beside it; the browser hydrates that and carries
-on. A server never runs a Runtime, so what it draws is pure. Why is
+adapter names, Cloudflare Workers for now. For a URL it reads the Route,
+runs the Loaders of the pages it names, starts the Router with each page's
+data from what its Loader came to, and draws the result in the Document,
+with the Snapshot beside it; the browser hydrates that and carries on. A
+server never runs a Runtime, so what it draws is pure. Why is
 [ADR 0030](adr/0030-a-server-draws-pages-started-from-their-loaders.md), and
-[ADR 0035](adr/0035-a-page-is-an-actor-and-its-place-loads-its-data.md) for
-pages.
+[ADR 0035](adr/0035-a-page-is-an-actor-and-its-place-loads-its-data.md) and
+[ADR 0037](adr/0037-a-page-is-defined-apart-from-its-build-and-the-router-holds-its-data.md)
+for pages.
 
 ## What an app writes
 
 ```
 src/
-  pages/              one Route.page per page, its data and Render Mode; Route.tree(() => App)
-  app.tsx             default-exports Start.app(Router.app(Routes, AppView), { … })
-  loaders.server.ts   default-exports Start.layers<Env>()…loaders(Routes.loaders({ … }))
+  pages/              Page.define and Page.build per page, its data and Render Mode; Router.define(App, { … })
+  app.tsx             default-exports Start.app(router, AppView, { … })
+  loaders.server.ts   default-exports Start.layers<Env>()…loaders(router.loaders({ … }))
 vite.config.ts        plugins: [react(), start({ platform: cloudflare() })]
 alchemy.run.ts        Cloudflare.Website.Vite('Site')
 ```
@@ -30,18 +32,21 @@ found by name, each overridable in `start({ … })`. Why is
 // src/app.tsx: drawn on the server and in the browser
 import { Start } from '@kestack/kabuki/start';
 
-export const app = Router.app(Routes, AppView);
-export default Start.app(app, { document: Document, layer: LiveUpdatesLive });
+export const AppView = View.make(AppLive, (self) => …); // the root page
+export default Start.app(router, AppView, {
+  document: Document,
+  layer: LiveUpdatesLive,
+});
 ```
 
 ```ts
 // src/loaders.server.ts: the server only
 import { Start } from '@kestack/kabuki/start/server';
 
-export const loaders = Routes.loaders({
+export const loaders = router.loaders({
   Blog: () => Posts.list(),
-  'Blog.Post': ({ slug }) => Posts.get(slug), // fails with Route.notFound()
-  Account: () => CurrentUser.viewer, // or Route.redirect(…)
+  'Blog.Post': ({ slug }) => Posts.get(slug), // fails with Page.notFound()
+  Account: () => CurrentUser.viewer, // or Page.redirect(…)
 });
 
 export default Start.layers<WorkerEnv>()
@@ -53,8 +58,10 @@ export default Start.layers<WorkerEnv>()
 
 Start reads only these, so every one is checked: a default export that is
 not `Start.app(…)`, or not `Start.layers()…loaders(…)`, fails when the
-server starts. The bare `app` and `loaders` are exported too, for a test or
-a story to run with Layers of its own. The browser Layer is imported on the
+server starts. The bare `AppView` and `loaders` are exported too, for a test
+or a story to run with `Router.app(router, AppView)` and Layers of its own.
+`AppView` draws the build of the router's root page; `Start.app` refuses any
+other. The browser Layer is imported on the
 server too, since `app.tsx` is, but never built there: a Layer is a value,
 so only a module that touches the browser when it is imported must be kept
 out of it.
@@ -127,12 +134,12 @@ GET /blog/hello
   1. read      /blog/hello → Blog › Post { slug: 'hello' }
   2. split     Blog, Blog.Post: static, drawn here
   3. load      Blog() and Blog.Post({ slug }), at once
-  4. start     the Router's init at the Route, each Place from its data → a Restore
+  4. start     the Router's init at the Route, with each place's data → a Restore
   5. draw      <Document><App saved /></Document>, every lazy View resolved
   6. keep      every place drawn here is static: in the Cache, by build id
 ```
 
-1. **Read.** A redirect in the Routes, or a URL not written as its Route is
+1. **Read.** A redirect in the router, or a URL not written as its Route is
    (`/blog/hello/`), is a `308` to the Route's URL, with the query it had.
 2. **Split.** The places on the Route's path are loaded here up to the first
    client one; that page and those under it are the browser's: they are
@@ -145,9 +152,10 @@ GET /blog/hello
    answer is what its page starts from: a page not found is drawn failed and
    makes the response a `404`; a Loader that broke, its page drawn failed
    and a `500`, logged. The pages above it are drawn as they are.
-4. **Start.** `Root.startAt(url, known)` is the Router's Input; its init,
-   and every Place's init from what its Loader came to, is the Snapshot,
-   saved as a History of one Restore. Nothing runs.
+4. **Start.** The Router's `startAt(url, known)` is its Input; its init,
+   holding each place's data from what its Loader came to, and every page's
+   init under it, is the Snapshot, saved as a History of one Restore.
+   Nothing runs.
 5. **Draw.** React draws the Document around the App drawn from that History
    and waits for every lazy View, so the HTML is whole. The lazy Views it drew
    are added to the head, their chunks preloaded and their styles linked,
@@ -168,8 +176,8 @@ GET /blog/hello
 The client entry reads the saved History from the page, preloads the lazy
 Views the head names, and hydrates the Document with the browser's address,
 the Loader RPC behind the Data cache, and the app's own Layer. Once mounted,
-the Runtime starts at the Restore. A client page, drawn loading, loads its
-data as its Place starts. The Metadata the server drew is the Router's from
+the Runtime starts at the Restore. A client page, drawn loading, has its
+data loaded by the Router once it starts. The Metadata the server drew is the Router's from
 then on: it writes it after every move, and when a page's data comes.
 
 ## The Loader RPC
@@ -186,9 +194,9 @@ each on its own line, as soon as its Loader is done:
 ```
 
 An outcome is `Loaded`, `NotFound`, `Redirect` with its Route, or `Broken`
-with why. Start makes it from `Routes.every`: params are written with each
+with why. Start makes it from `router.every`: params are written with each
 place's params Schema, data with its data Schema, a Redirect's Route with
-the Route Schema, so it cannot disagree with the Routes. The server hands
+the Route Schema, so it cannot disagree with the router. The server hands
 each Loader the request that asked, cookies and all. It is a fixed protocol
 of JSON lines rather than an `effect/rpc` group: many places in one request,
 each answered as it comes, says it directly; a Loader needs the very
@@ -198,13 +206,14 @@ retry.
 
 ## Lazy Views
 
-`View.lazy(() => import('./chart-view.tsx'))` is a View loaded when first
-drawn. The plugin gives each one the id of the module it loads, its path from
+`View.lazy(ChartLive, () => import('./chart-view.tsx'))` is a View of
+`ChartLive` loaded when first drawn; that module default-exports
+`View.make(ChartLive, …)`. The plugin gives each one the id of the module it loads, its path from
 the Vite root, which is its key in the client manifest, so the server names
 the lazy Views it drew in the head and the browser preloads exactly those
-before it hydrates. A page's lazy View, `Route.view(Page, View.lazy(…))`,
-the server did not draw starts loading when a move to it or a preload of it
-starts, so its code and its data arrive together. Actors stay eager: Replay
+before it hydrates. A page's lazy View the server did not draw is found by
+its page's build, so it starts loading when a move to it or a preload of it
+starts, and its code and its data arrive together. Actors stay eager: Replay
 and Restore need every Actor.
 
 ## Where the code lives

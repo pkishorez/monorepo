@@ -1,7 +1,8 @@
+import { View } from '@kestack/kabuki/react';
 import type { RenderMode } from '@kestack/kabuki/routing';
-import { Route, Router } from '@kestack/kabuki/routing';
-import { Pages, Routes } from '../../../shared/index.ts';
-import type { Route as AnyRoute } from '../../../shared/index.ts';
+import { Router } from '@kestack/kabuki/routing';
+import { Pages, router } from '../../../shared/index.ts';
+import type { Route } from '../../../shared/index.ts';
 import { MODE, PlaceFrame, chip, modeOf } from '../../components/index.ts';
 
 /*
@@ -11,7 +12,7 @@ import { MODE, PlaceFrame, chip, modeOf } from '../../components/index.ts';
  */
 
 type Stop = {
-  readonly to: AnyRoute;
+  readonly to: Route;
   readonly url: string;
   readonly what: string;
   /** The element on the page it goes to. */
@@ -26,12 +27,12 @@ const TOUR: ReadonlyArray<{
     title: 'Nested pages and their scroll',
     stops: [
       {
-        to: Routes.Blog.Post({ slug: 'pages-are-actors' }),
+        to: router.Blog.Post({ slug: 'pages-are-actors' }),
         url: '/blog/pages-are-actors',
         what: 'two panes, two Places: scroll both, open another post, press Back. The post comes back where you read to; the list never moved.',
       },
       {
-        to: Routes.Teams.Member({ team: 'core', member: 'ada' }),
+        to: router.Teams.Member({ team: 'core', member: 'ada' }),
         url: '/teams/core/ada',
         what: 'a team and its member load side by side, the member first. Leave and come back by a link: the member list is where it was.',
       },
@@ -41,12 +42,12 @@ const TOUR: ReadonlyArray<{
     title: 'The window',
     stops: [
       {
-        to: Routes.Feed(),
+        to: router.Feed(),
         url: '/feed',
         what: 'a client page: sent loading, loaded in the browser. Scroll far, open a post, press Back: its copy is shown at once, and the window goes back.',
       },
       {
-        to: Routes.Blog.Post({ slug: 'scroll-entry' }),
+        to: router.Blog.Post({ slug: 'scroll-entry' }),
         url: '/blog/scroll-entry#part-5',
         what: 'a link to a part of a post: the move lands, its data comes, then part 5 is scrolled into view.',
         hash: 'part-5',
@@ -57,17 +58,17 @@ const TOUR: ReadonlyArray<{
     title: 'Loading and the Data cache',
     stops: [
       {
-        to: Routes.Preload(),
+        to: router.Preload(),
         url: '/preload',
         what: 'links that load the next page on hover, once in view, or never',
       },
       {
-        to: Routes.Notes(),
+        to: router.Notes(),
         url: '/notes',
         what: 'a reload loads the data again behind it; the page and its draft stay',
       },
       {
-        to: Routes.Search({ q: 'scroll' }),
+        to: router.Search({ q: 'scroll' }),
         url: '/search?q=scroll',
         what: 'a query its Loader reads: a new one loads again on the same page, each with its own scroll',
       },
@@ -77,27 +78,27 @@ const TOUR: ReadonlyArray<{
     title: 'When it goes wrong',
     stops: [
       {
-        to: Routes.Blog.Post({ slug: 'broken' }),
+        to: router.Blog.Post({ slug: 'broken' }),
         url: '/blog/broken',
         what: 'a Loader that breaks: the post says so and retries, the blog around it stays',
       },
       {
-        to: Routes.Flaky(),
+        to: router.Flaky(),
         url: '/flaky',
         what: 'a client page that fails half the time',
       },
       {
-        to: Routes.Blog.Post({ slug: 'missing' }),
+        to: router.Blog.Post({ slug: 'missing' }),
         url: '/blog/missing',
         what: 'a Loader that finds nothing: a 404, drawn inside the blog',
       },
       {
-        to: Routes.Blog.Post({ slug: 'moved' }),
+        to: router.Blog.Post({ slug: 'moved' }),
         url: '/blog/moved',
         what: "a Loader's Redirect: a 302 from the server, a move in the browser",
       },
       {
-        to: Routes.read('/nowhere').route,
+        to: router.read('/nowhere').route,
         url: '/nowhere',
         what: 'a URL that names no page: the root page draws it, a 404',
       },
@@ -121,7 +122,7 @@ const SCROLL: ReadonlyArray<readonly [string, string]> = [
   ['resetScroll: false', 'a link that leaves every scroll as it is'],
 ];
 
-export const HomeView = Route.view(Pages.Home, () => (
+export const HomeView = View.make(Pages.HomeLive, () => (
   <div className="space-y-8 sm:space-y-12">
     <div className="max-w-3xl space-y-4 pt-2">
       <p className="font-mono text-xs text-muted-foreground">
@@ -182,7 +183,7 @@ export const HomeView = Route.view(Pages.Home, () => (
         <h2 className="text-sm font-medium text-muted-foreground">{title}</h2>
         <ul className="grid gap-3 sm:grid-cols-2">
           {stops.map(({ to, url, what, hash }) => {
-            const page = Routes.places(to).at(-1);
+            const page = router.places(to).at(-1);
             const render = page ? modeOf(page.name) : 'static';
             return (
               <li key={url}>

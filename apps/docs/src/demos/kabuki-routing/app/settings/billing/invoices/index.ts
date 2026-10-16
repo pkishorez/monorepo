@@ -1,2 +1,2 @@
-export { Invoices } from './invoices.ts';
+export { Invoices, InvoicesLive } from './invoices.ts';
 export { InvoicesView } from './view.tsx';

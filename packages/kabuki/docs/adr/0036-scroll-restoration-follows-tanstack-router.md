@@ -1,5 +1,7 @@
 # Scroll restoration follows TanStack Router
 
+Partly superseded by [ADR 0037](0037-a-page-is-defined-apart-from-its-build-and-the-router-holds-its-data.md): the scroll options are given to `Router.define`, not `Router.app`. Everything else stands.
+
 Kabuki restores scroll as TanStack Router does, with its option names: `scrollRestoration`, `getScrollRestorationKey`, `scrollToTopSelectors`, `scrollRestorationBehavior` and `defaultHashScrollIntoView` on `Router.app`, `resetScroll`, `hash` and `hashScrollIntoView` on a move, `data-scroll-restoration-id` on an element, and `useElementScrollRestoration`. The window and every element the user scrolls are kept per history entry, what stays on the page keeps where it was, and a new entry starts at the top. Under Start, the page holds an inline script that puts it back before the app hydrates. It lives in `src/routing/scroll`, which imports nothing else of routing.
 
 Restoring happens as the move lands, with whatever is drawn then, as in TanStack: a page still loading may be too short to reach where it was. Nothing scrolls while the app shows a past Step.

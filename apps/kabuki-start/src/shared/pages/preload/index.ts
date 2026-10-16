@@ -1,2 +1,2 @@
-export { Preload } from './preload.ts';
-export { Slow } from './slow.ts';
+export { Preload, PreloadLive } from './preload.ts';
+export { Slow, SlowLive } from './slow.ts';

@@ -1,4 +1,4 @@
-import { Route } from '@kestack/kabuki/routing';
+import { View } from '@kestack/kabuki/react';
 import { Button } from '@kestack/web-platform/components/button';
 import { Textarea } from '@kestack/web-platform/components/textarea';
 import { Pages } from '../../../shared/index.ts';
@@ -11,7 +11,7 @@ import { Loaded, PlaceFrame } from '../../components/index.ts';
  * stay.
  */
 
-export const NotesView = Route.view(Pages.Notes, (self) => {
+export const NotesView = View.make(Pages.NotesLive, (self) => {
   const { status } = self.props;
   return (
     <PlaceFrame

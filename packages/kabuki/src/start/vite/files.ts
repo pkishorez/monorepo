@@ -12,7 +12,7 @@ import path from 'node:path';
 export interface FileOptions {
   /**
    * Default-exports the app, with its Document and what it needs in the
-   * browser: `Start.app(Router.app(Routes, AppView), { … })`, from
+   * browser: `Start.app(router, AppView, { … })`, from
    * `@kestack/kabuki/start`. By default `src/app`.
    */
   readonly app?: string;

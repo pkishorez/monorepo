@@ -1,8 +1,8 @@
 import { Effect, Layer, Schema } from 'effect';
 import { Actor, Command } from '@kestack/kabuki';
 import { Session } from './capabilities.ts';
-import { Downloads } from './downloads.ts';
-import { Home } from './home.ts';
+import { DownloadsLive } from './downloads.ts';
+import { HomeLive } from './home.ts';
 
 /** What Booting loads, in order. */
 export const ASSETS = ['fonts', 'images', 'sounds'];
@@ -20,7 +20,7 @@ const signIn = Command.make('sign in', {
  * The app being opened. Booting loads its assets until the user says how it
  * went, Signed out waits for a sign-in, and Inside Invokes everything else.
  */
-export const App = Actor.make('App', {
+export const App = Actor.define('App', {
   model: Schema.Struct({ attempts: Schema.Number }),
   state: Schema.TaggedUnion({
     Booting: { loaded: Schema.Array(Schema.String) },
@@ -37,7 +37,9 @@ export const App = Actor.make('App', {
     SignedIn: { name: Schema.String },
     SignedOut: {},
   }),
-}).build({
+});
+
+export const AppLive = Actor.build(App, {
   init: () => ({
     model: { attempts: 1 },
     state: { _tag: 'Booting', loaded: [] },
@@ -94,8 +96,8 @@ export const App = Actor.make('App', {
     },
     Inside: {
       children: {
-        home: { actor: Home, props: ({ state }) => ({ name: state.name }) },
-        downloads: { actor: Downloads },
+        home: { actor: HomeLive, props: ({ state }) => ({ name: state.name }) },
+        downloads: { actor: DownloadsLive },
       },
       provides: (self) =>
         Layer.succeed(Session, { signOut: self.send({ _tag: 'SignedOut' }) }),

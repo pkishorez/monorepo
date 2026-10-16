@@ -8,9 +8,9 @@ import { KabukiDevtools } from '@kestack/web-platform/recipes/kabuki-devtools';
 import { Browser } from './browser/index.ts';
 import type { Device } from './browser/index.ts';
 import { AppView, PastContext } from './screens/index.ts';
-import { App } from './story/index.ts';
+import { AppLive } from './story/index.ts';
 
-const Demo = toReact(App, AppView, Layer.empty, { name: 'opening-an-app' });
+const Demo = toReact(AppLive, AppView, Layer.empty, { name: 'opening-an-app' });
 
 /**
  * Opening an app, running in a browser window like any app. How it works

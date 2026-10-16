@@ -1,4 +1,4 @@
-import { Route } from '@kestack/kabuki/routing';
+import { View } from '@kestack/kabuki/react';
 import { Pages } from '../../../shared/index.ts';
 import { Loaded, PlaceFrame, pane } from '../../components/index.ts';
 
@@ -9,7 +9,7 @@ import { Loaded, PlaceFrame, pane } from '../../components/index.ts';
  * where it was.
  */
 
-export const MemberView = Route.view(Pages.Member, ({ props }) => {
+export const MemberView = View.make(Pages.MemberLive, ({ props }) => {
   return (
     <PlaceFrame place="Teams.Member" status={props.status} fill>
       <div

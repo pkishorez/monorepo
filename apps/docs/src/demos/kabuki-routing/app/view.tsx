@@ -1,10 +1,10 @@
-import { Route } from '@kestack/kabuki/routing';
-import { Routes } from '../routes/index.ts';
+import { View } from '@kestack/kabuki/react';
+import { router } from '../routes/index.ts';
 import { DashboardView } from './dashboard/index.ts';
 import { ProjectsView } from './projects/index.ts';
 import { SettingsView } from './settings/index.ts';
-import { SignIn } from './sign-in/index.ts';
-import { App } from './app.ts';
+import { SignInView } from './sign-in/index.ts';
+import { AppLive } from './app.ts';
 import {
   Landing,
   NotFound,
@@ -18,7 +18,7 @@ import {
  * The app under its address bar: the public page, sign-in where a page needs
  * a user, or the signed-in app around the page its Route names.
  */
-export const AppView = Route.view(App, (self) => {
+export const AppView = View.make(AppLive, (self) => {
   const { page, notFound } = self.props.route;
   const pages = self.children;
   return (
@@ -46,9 +46,9 @@ export const AppView = Route.view(App, (self) => {
         </div>
       ) : (
         <SignInCard
-          wanted={page && page._tag !== 'SignIn' ? Routes.path(page) : null}
+          wanted={page && page._tag !== 'SignIn' ? router.path(page) : null}
         >
-          <SignIn.view instance={self.children.signIn} />
+          <SignInView instance={self.children.signIn} />
         </SignInCard>
       )}
     </div>

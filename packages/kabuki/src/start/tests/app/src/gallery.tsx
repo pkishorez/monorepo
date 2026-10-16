@@ -1,7 +1,7 @@
 import { View } from '../../../../react/index.ts';
-import { Gallery } from './routes.ts';
+import { GalleryLive } from './routes.ts';
 import './gallery.css';
 
-export default View.make(Gallery.actor, () => (
+export default View.make(GalleryLive, () => (
   <p className="gallery">the gallery, loaded lazily</p>
 ));

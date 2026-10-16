@@ -1,10 +1,10 @@
 import { Clock, Effect, Random } from 'effect';
 import type { Duration } from 'effect';
-import { Route } from '@kestack/kabuki/routing';
+import { Page } from '@kestack/kabuki/routing';
 import { Start } from '@kestack/kabuki/start/server';
 import type { WorkerEnv } from '../infra/index.ts';
 import { Backend } from './backend/index.ts';
-import { Routes } from '../shared/index.ts';
+import { router } from '../shared/index.ts';
 
 /*
  * One Loader per page with data, most of them slow on purpose, so each case
@@ -25,11 +25,11 @@ const read = <A extends object, E, R>(
     const startedAt = yield* Clock.currentTimeMillis;
     yield* Effect.sleep(wait);
     const found = yield* query(yield* Backend);
-    if (found === undefined) return yield* Route.notFound();
+    if (found === undefined) return yield* Page.notFound();
     return { ...found, startedAt, loadedAt: yield* Clock.currentTimeMillis };
   });
 
-const loaders = Routes.loaders({
+const loaders = router.loaders({
   Blog: () => read((db) => db.posts),
   'Blog.Post': ({ slug }) => {
     if (slug === 'broken')
@@ -38,7 +38,7 @@ const loaders = Routes.loaders({
       );
     if (slug === 'moved')
       return Effect.fail(
-        Route.redirect(Routes.Blog.Post({ slug: 'pages-are-actors' })),
+        Page.redirect(router.Blog.Post({ slug: 'pages-are-actors' })),
       );
     return read((db) => db.post(slug), '1 second');
   },

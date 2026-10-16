@@ -1,7 +1,7 @@
 import { Effect, Schema } from 'effect';
-import { Route } from '@kestack/kabuki/routing';
-import { Billing } from './billing/index.ts';
-import { Profile } from './profile/index.ts';
+import { Page } from '@kestack/kabuki/routing';
+import { Billing, BillingLive } from './billing/index.ts';
+import { ProfileLive } from './profile/index.ts';
 
 /**
  * The wrapper around every settings page. Where the URL ends here it draws
@@ -9,17 +9,20 @@ import { Profile } from './profile/index.ts';
  * page. `autosave` runs on every page under /settings and stops only when
  * the user leaves it; each section's Actor comes and goes with the Route.
  */
-export const Settings = Route.page({
+export const Settings = Page.define({
   path: '/settings',
   metadata: { title: 'Settings · Acme' },
   pages: { Billing },
   model: Schema.Struct({ saves: Schema.Number }),
   message: Schema.TaggedUnion({ Saved: {} }),
-}).build({
+});
+
+export const SettingsLive = Page.build(Settings, {
+  pages: { Billing: BillingLive },
   init: () => ({ model: { saves: 0 } }),
   children: {
     profile: {
-      actor: Profile.actor,
+      actor: ProfileLive,
       while: ({ props }) => !props.route.page,
     },
   },

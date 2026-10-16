@@ -1,7 +1,7 @@
 import { Context, Effect, Layer } from 'effect';
-import { Route } from '../../../../routing/index.ts';
+import { Page } from '../../../../routing/index.ts';
 import { Start } from '../../../server/index.ts';
-import { Routes } from './routes.ts';
+import { router } from './routes.ts';
 
 export const POSTS = [
   { slug: 'hello', title: 'Hello', body: 'Hi.' },
@@ -49,11 +49,11 @@ const viewer = (request: Request) => {
   )?.[1];
   return name
     ? Effect.succeed({ name })
-    : Effect.fail(Route.redirect(Routes.SignIn()));
+    : Effect.fail(Page.redirect(router.SignIn()));
 };
 
 /** The Loaders alone, as a test hands them its own Layer. */
-export const loaders = Routes.loaders({
+export const loaders = router.loaders({
   Blog: () =>
     Effect.gen(function* () {
       begin('Blog');
@@ -67,11 +67,11 @@ export const loaders = Routes.loaders({
     Effect.gen(function* () {
       begin(`Blog.Post:${slug}`);
       if (slug === 'moved')
-        return yield* Route.redirect(Routes.Blog.Post({ slug: 'hello' }));
+        return yield* Page.redirect(router.Blog.Post({ slug: 'hello' }));
       if (slug === 'broken')
         return yield* Effect.die(new Error('the post broke'));
       const post = POSTS.find((each) => each.slug === slug);
-      if (!post) return yield* Route.notFound();
+      if (!post) return yield* Page.notFound();
       return post;
     }),
   Account: (_params, request) =>

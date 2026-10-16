@@ -1,13 +1,14 @@
 import { AnimatePresence, motion } from 'motion/react';
-import { Route, Router } from '@kestack/kabuki/routing';
-import { PROJECTS, Routes } from '../../../routes/index.ts';
+import { View } from '@kestack/kabuki/react';
+import { Router } from '@kestack/kabuki/routing';
+import { PROJECTS, router } from '../../../routes/index.ts';
 import { Case, Page, Running, chip } from '../../../parts/index.ts';
 import { ShareView } from './share/index.ts';
-import { Project } from './project.ts';
+import { ProjectLive } from './project.ts';
 
 const EASE = [0.32, 0.72, 0, 1] as const;
 
-export const ProjectView = Route.view(Project, (self) => {
+export const ProjectView = View.make(ProjectLive, (self) => {
   const { id } = self.props.params;
   const project = PROJECTS.find((each) => each.id === id);
   if (!project)
@@ -17,7 +18,7 @@ export const ProjectView = Route.view(Project, (self) => {
           title={`No project ${id}`}
           about="The URL is a real place; the data behind it is what is missing. That is the page's to say, not the router's."
         >
-          <Router.Link className={chip} to={Routes.Projects()}>
+          <Router.Link className={chip} to={router.Projects()}>
             All projects
           </Router.Link>
         </Page>
@@ -28,31 +29,31 @@ export const ProjectView = Route.view(Project, (self) => {
     <div {...self.root}>
       <Page
         title={project.name}
-        about={`Project ${id}. The tab's title is its name, which the Routes work out from the URL.`}
+        about={`Project ${id}. The tab's title is its name, which the router work out from the URL.`}
       >
         <Running name="presence" count={self.model.seen} />
         <div className="flex flex-wrap gap-2">
           <Router.Link
             className={chip}
-            to={Routes.Projects.Project.Share({ id })}
+            to={router.Projects.Project.Share({ id })}
           >
             Share…
           </Router.Link>
           {id > 1 && (
             <Router.Link
               className={chip}
-              to={Routes.Projects.Project({ id: id - 1 })}
+              to={router.Projects.Project({ id: id - 1 })}
             >
               ← Project {id - 1}
             </Router.Link>
           )}
           <Router.Link
             className={chip}
-            to={Routes.Projects.Project({ id: id + 1 })}
+            to={router.Projects.Project({ id: id + 1 })}
           >
             Project {id + 1} →
           </Router.Link>
-          <Router.Link className={chip} to={Routes.Projects()}>
+          <Router.Link className={chip} to={router.Projects()}>
             All projects
           </Router.Link>
         </div>

@@ -1,7 +1,7 @@
 import { View } from '@kestack/kabuki/react';
-import { Route, Router } from '@kestack/kabuki/routing';
+import { Router } from '@kestack/kabuki/routing';
 import type { Preload } from '@kestack/kabuki/routing';
-import { Pages, Routes } from '../../../shared/index.ts';
+import { Pages, router } from '../../../shared/index.ts';
 import { PlaceFrame, Slot } from '../../components/index.ts';
 
 /*
@@ -11,10 +11,7 @@ import { PlaceFrame, Slot } from '../../components/index.ts';
  * the links, sliding in the way the move went.
  */
 
-const SlowView = Route.view(
-  Pages.Slow,
-  View.lazy(() => import('./slow.tsx')),
-);
+const SlowView = View.lazy(Pages.SlowLive, () => import('./slow.tsx'));
 
 const ROWS: ReadonlyArray<{
   readonly mode: Preload;
@@ -45,7 +42,7 @@ const ROWS: ReadonlyArray<{
 const tile =
   'grid size-12 place-items-center rounded-lg border border-border bg-background font-mono text-sm transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none';
 
-export const PreloadView = Route.view(Pages.Preload, (self) => {
+export const PreloadView = View.make(Pages.PreloadLive, (self) => {
   const slow = self.children.Slow;
   return (
     <PlaceFrame
@@ -74,7 +71,7 @@ export const PreloadView = Route.view(Pages.Preload, (self) => {
                   {pages.map((n) => (
                     <li key={n}>
                       <Router.Link
-                        to={Routes.Preload.Slow({ n })}
+                        to={router.Preload.Slow({ n })}
                         preload={mode}
                         className={tile}
                       >

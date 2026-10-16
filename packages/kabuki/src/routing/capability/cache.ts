@@ -18,9 +18,9 @@ import type { Answer, RoutesWithPlaces, Wanted } from './loading.ts';
  *            reload's, joins nothing, and an answer is kept only if nothing
  *            asked later is, and the copies were not dropped since.
  * 4. Batch   the places asked for in the same moment into one ask of the
- *            Loading behind, so many Places loading at once are one
+ *            Loading behind, so many places loading at once are one
  *            request, each answered as it comes. The load runs on its own:
- *            a Place that stops waiting does not stop it, and its answer is
+ *            a place that stops waiting does not stop it, and its answer is
  *            still kept.
  * 5. Seed    with the data a server drew the page with, so a page first
  *            seen from the server is kept as one loaded in the browser is.

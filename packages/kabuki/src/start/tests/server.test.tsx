@@ -1,11 +1,12 @@
 import { Context, Effect, Layer, Schema } from 'effect';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { Loading, Route, Router } from '../../routing/index.ts';
+import { Loading, Page, Router } from '../../routing/index.ts';
 import { loading as loaderRpc } from '../client/index.ts';
+import { View } from '../../react/index.ts';
 import { Start } from '../common/index.ts';
 import type { Build } from '../common/index.ts';
 import { Start as Server, server } from '../server/index.ts';
-import started, { app } from './app/src/app.tsx';
+import started, { AppView } from './app/src/app.tsx';
 import Document from './app/src/document.tsx';
 import served, {
   Greeting,
@@ -13,7 +14,7 @@ import served, {
   reset,
   runs,
 } from './app/src/loaders.server.ts';
-import { Routes } from './app/src/routes.ts';
+import { router } from './app/src/routes.ts';
 
 /*
  * Start's Worker for a small site: each Render Mode's HTML, status codes,
@@ -308,7 +309,7 @@ describe('other requests', () => {
   it('a page that fails to draw is a 500, logged', async () => {
     const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
     const broken = server({
-      app: Start.app(app, {
+      app: Start.app(router, AppView, {
         document: () => {
           throw new Error('no document');
         },
@@ -380,7 +381,7 @@ describe('what an app writes', () => {
 
   it('keeps the visitor tier from static Loaders, whose pages everyone shares', () => {
     const seen = Layer.succeed(Visitor, { name: 'ada' });
-    const visiting = Routes.loaders({
+    const visiting = router.loaders({
       ...loaders,
       // Account is dynamic: it may ask who is visiting.
       Account: () =>
@@ -392,7 +393,7 @@ describe('what an app writes', () => {
       .instance(() => greeting)
       .visitor(() => seen)
       .loaders(visiting);
-    const leaking = Routes.loaders({
+    const leaking = router.loaders({
       ...loaders,
       // Blog is static: what it answers is kept for everyone.
       Blog: () =>
@@ -410,7 +411,7 @@ describe('what an app writes', () => {
     Server.layers()
       .instance(() => greeting)
       .loaders(
-        Routes.loaders({
+        router.loaders({
           ...loaders,
           Account: () =>
             Effect.as(
@@ -423,7 +424,7 @@ describe('what an app writes', () => {
       .instance(() => greeting)
       .loaders(
         // @ts-expect-error a static Loader's page is kept for everyone: no headers of its own
-        Routes.loaders({
+        router.loaders({
           ...loaders,
           Blog: () =>
             Effect.as(
@@ -435,18 +436,13 @@ describe('what an app writes', () => {
   });
 
   it('lets every Loader use the visitor tier when no place with data is static', () => {
-    const Dynamic = Route.tree(
-      Route.page({
-        pages: {
-          Home: Route.page({ path: '/' }).build({}),
-          Account: Route.page({
-            path: '/account',
-            render: 'dynamic',
-            data: Schema.Struct({ name: Schema.String }),
-          }).build({}),
-        },
-      }).build({}),
-    );
+    const Home = Page.define({ path: '/' });
+    const Account = Page.define({
+      path: '/account',
+      render: 'dynamic',
+      data: Schema.Struct({ name: Schema.String }),
+    });
+    const Dynamic = Router.define(Page.define({ pages: { Home, Account } }));
     Server.layers()
       .visitor(() => Layer.succeed(Visitor, { name: 'ada' }))
       .loaders(
@@ -460,25 +456,26 @@ describe('what an app writes', () => {
   });
 
   it('checks the app’s Layer against what its Actors Require', () => {
-    const Greeter = Route.page({
-      requires: [Greeting],
-      pages: { Home: Route.page({ path: '/' }).build({}) },
-    }).build({});
-    const greeter = Router.app(
-      Route.tree(Greeter),
-      Route.view(Greeter, () => null),
+    const Home = Page.define({ path: '/' });
+    const Greeter = Page.define({ requires: [Greeting], pages: { Home } });
+    const GreeterView = View.make(
+      Page.build(Greeter, { pages: { Home: Page.build(Home) } }),
+      () => null,
     );
+    const greeter = Router.define(Greeter);
     // @ts-expect-error the app Requires Greeting in the browser
-    Start.app(greeter);
+    Start.app(greeter, GreeterView);
     // @ts-expect-error a Document is not a Layer
-    Start.app(greeter, { document: Document });
-    expect(Start.app(greeter, { layer: greeting }).layer).toBe(greeting);
-    expect(Start.app(app).document).toBeUndefined();
+    Start.app(greeter, GreeterView, { document: Document });
+    expect(Start.app(greeter, GreeterView, { layer: greeting }).layer).toBe(
+      greeting,
+    );
+    expect(Start.app(router, AppView).document).toBeUndefined();
   });
 
   it('refuses a default export it cannot check', () => {
-    expect(() => server({ app: app as never, build })).toThrow(
-      'src/app must default-export Start.app',
+    expect(() => server({ app: AppView as never, build })).toThrow(
+      'src/app must default-export Start.app(router, AppView, { … })',
     );
     expect(() =>
       server({ app: started, loaders: loaders as never, build }),
@@ -487,7 +484,7 @@ describe('what an app writes', () => {
 
   it('draws an app with no Document in the plainest one, with no Loaders', async () => {
     const bare = server({
-      app: Start.app(app),
+      app: Start.app(router, AppView),
       build: { ...build, id: undefined },
     });
     const response = await bare.fetch(new Request('https://site.test/'), host);
@@ -577,7 +574,7 @@ describe('the Loaders’ tiers', () => {
 });
 
 describe('the Loader RPC', () => {
-  const loading = loaderRpc(Routes, {
+  const loading = loaderRpc(router, {
     url: 'https://site.test/_kabuki/load',
     fetch: (input, init) =>
       worker.fetch(new Request(input as string, init), host),
@@ -596,7 +593,7 @@ describe('the Loader RPC', () => {
       }).pipe(
         Effect.provide(
           cookie
-            ? loaderRpc(Routes, {
+            ? loaderRpc(router, {
                 url: 'https://site.test/_kabuki/load',
                 fetch: (input, init) =>
                   worker.fetch(
@@ -653,7 +650,7 @@ describe('the Loader RPC', () => {
     expect(answer['Blog.Post']).toEqual({ _tag: 'NotFound' });
     expect(answer['Account']).toEqual({
       _tag: 'Redirect',
-      route: Routes.SignIn(),
+      route: router.SignIn(),
     });
     const broken = await load([
       { name: 'Blog.Post', params: { slug: 'broken' } },
@@ -693,7 +690,7 @@ describe('the Loader RPC', () => {
         ]);
       }).pipe(
         Effect.provide(
-          loaderRpc(Routes, {
+          loaderRpc(router, {
             fetch: async () =>
               new Response(
                 `${JSON.stringify({ name: 'Blog', outcome: { _tag: 'Loaded', data: [] } })}\nnot json\n`,

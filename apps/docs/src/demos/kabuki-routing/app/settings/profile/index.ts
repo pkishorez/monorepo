@@ -1,4 +1,2 @@
-import { ProfileActor } from './profile.ts';
-import { ProfileView } from './view.tsx';
-
-export const Profile = { actor: ProfileActor, view: ProfileView };
+export { Profile, ProfileLive } from './profile.ts';
+export { ProfileView } from './view.tsx';

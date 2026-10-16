@@ -1,5 +1,5 @@
-import { Route } from '@kestack/kabuki/routing';
-import { Post } from './post.ts';
+import { Page } from '@kestack/kabuki/routing';
+import { Post, PostLive } from './post.ts';
 import { about, PostList } from '../../data/index.ts';
 
 /*
@@ -7,9 +7,11 @@ import { about, PostList } from '../../data/index.ts';
  * are static. Opening a post keeps the blog: only the post loads.
  */
 
-export const Blog = Route.page({
+export const Blog = Page.define({
   path: '/blog',
   data: PostList,
   metadata: about('/blog', 'Blog', 'Notes on pages as Actors.'),
   pages: { Post },
-}).build({});
+});
+
+export const BlogLive = Page.build(Blog, { pages: { Post: PostLive } });

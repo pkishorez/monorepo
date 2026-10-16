@@ -1,11 +1,12 @@
-import { Route, Router } from '@kestack/kabuki/routing';
-import { Routes } from '../../../routes/index.ts';
+import { View } from '@kestack/kabuki/react';
+import { Router } from '@kestack/kabuki/routing';
+import { router } from '../../../routes/index.ts';
 import { Running, tab } from '../../../parts/index.ts';
 import { InvoicesView } from './invoices/index.ts';
-import { Billing } from './billing.ts';
+import { BillingLive } from './billing.ts';
 import { Plan } from './plan.tsx';
 
-export const BillingView = Route.view(Billing, (self) => {
+export const BillingView = View.make(BillingLive, (self) => {
   const { page } = self.props.route;
   return (
     <div {...self.root} className="flex flex-col gap-4">
@@ -14,14 +15,14 @@ export const BillingView = Route.view(Billing, (self) => {
           <Router.Link
             className={tab}
             aria-current={page ? undefined : 'page'}
-            to={Routes.Settings.Billing()}
+            to={router.Settings.Billing()}
           >
             Plan
           </Router.Link>
           <Router.Link
             className={tab}
             aria-current={page?._tag === 'Invoices' ? 'page' : undefined}
-            to={Routes.Settings.Billing.Invoices()}
+            to={router.Settings.Billing.Invoices()}
           >
             Invoices
           </Router.Link>

@@ -6,7 +6,7 @@ import type { Metadata } from './metadata.ts';
  * A node of the Routes and everything the types work out from a tree of
  * them: each level's values, every Route, every place with its params,
  * data and Render Mode, and the names Loaders are written under. A page
- * made with `Route.page` is a node; its `pages` are the nodes under it.
+ * defined with `Page.define` is a node; its `pages` are the nodes under it.
  */
 
 export type Fields = Schema.Struct.Fields;
@@ -44,7 +44,7 @@ export interface Node<
   /** The Schema of the data its Loader gives. */
   readonly input: Codec<I> | undefined;
   readonly render: M;
-  /** Typed where it is written, in `Route.page`'s options. */
+  /** Typed where it is written, in `Page.define`'s options. */
   readonly metadata:
     | Metadata
     | ((values: any, data: any) => Metadata)

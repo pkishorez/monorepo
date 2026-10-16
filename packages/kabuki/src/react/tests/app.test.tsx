@@ -18,13 +18,16 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
  * hot reloads by the registry.
  */
 
-const Counter = Actor.make('Counter', {
-  model: Schema.Struct({ count: Schema.Number }),
-  message: Schema.TaggedUnion({ Bumped: {} }),
-}).build({
-  init: () => ({ model: { count: 0 } }),
-  on: { Bumped: (_, { model }) => ({ model: { count: model.count + 1 } }) },
-});
+const Counter = Actor.build(
+  Actor.define('Counter', {
+    model: Schema.Struct({ count: Schema.Number }),
+    message: Schema.TaggedUnion({ Bumped: {} }),
+  }),
+  {
+    init: () => ({ model: { count: 0 } }),
+    on: { Bumped: (_, { model }) => ({ model: { count: model.count + 1 } }) },
+  },
+);
 
 let sends: Record<string, (message: { _tag: 'Bumped' }) => void> = {};
 const CounterView = View.make(Counter, (self) => {
@@ -418,15 +421,18 @@ describe('across mounts and hot reloads', () => {
     await act(async () => root!.unmount());
 
     // The module reloaded: a new Actor with a new rule, and a new toReact.
-    const Reloaded = Actor.make('Counter', {
-      model: Schema.Struct({ count: Schema.Number }),
-      message: Schema.TaggedUnion({ Bumped: {} }),
-    }).build({
-      init: () => ({ model: { count: 0 } }),
-      on: {
-        Bumped: (_, { model }) => ({ model: { count: model.count + 10 } }),
+    const Reloaded = Actor.build(
+      Actor.define('Counter', {
+        model: Schema.Struct({ count: Schema.Number }),
+        message: Schema.TaggedUnion({ Bumped: {} }),
+      }),
+      {
+        init: () => ({ model: { count: 0 } }),
+        on: {
+          Bumped: (_, { model }) => ({ model: { count: model.count + 10 } }),
+        },
       },
-    });
+    );
     const ReloadedView = View.make(Reloaded, (self) => {
       sends[self.id] = self.send;
       return <output>{self.model.count}</output>;

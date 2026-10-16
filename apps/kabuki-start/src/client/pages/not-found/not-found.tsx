@@ -1,6 +1,6 @@
 import { Router } from '@kestack/kabuki/routing';
 import { buttonVariants } from '@kestack/web-platform/components/button';
-import { Routes } from '../../../shared/index.ts';
+import { router } from '../../../shared/index.ts';
 
 /** A URL that names no page: the root page draws this, and the server answers 404. */
 export function NotFound({ path }: { readonly path: string }) {
@@ -16,7 +16,7 @@ export function NotFound({ path }: { readonly path: string }) {
         the root page draws this, and the server answered 404.
       </p>
       <Router.Link
-        to={Routes.Home()}
+        to={router.Home()}
         className={buttonVariants({ variant: 'outline' })}
       >
         Back home

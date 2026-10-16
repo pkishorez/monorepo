@@ -1,7 +1,8 @@
 import { AnimatePresence, motion } from 'motion/react';
-import { Route, Router, useRouter } from '@kestack/kabuki/routing';
+import { View } from '@kestack/kabuki/react';
+import { useRouter } from '@kestack/kabuki/routing';
 import { Start } from '@kestack/kabuki/start';
-import { Pages, Routes } from '../shared/index.ts';
+import { Pages, router } from '../shared/index.ts';
 import { Layout, directionOf, settle, slide } from './components/index.ts';
 import Document from './document.tsx';
 import { BlogView } from './pages/blog/index.ts';
@@ -25,7 +26,7 @@ import './styles.css';
  * not-found page.
  */
 
-const AppView = Route.view(Pages.App, (self) => {
+const AppView = View.make(Pages.AppLive, (self) => {
   const { Home, Blog, Teams, Feed, Search, Notes, Preload, Flaky } =
     self.children;
   const direction = directionOf(useRouter().move.how);
@@ -64,11 +65,4 @@ const AppView = Route.view(Pages.App, (self) => {
   );
 });
 
-/*
- * Scroll restoration as TanStack Start does it: the window and every
- * element scrolled are kept per history entry and put back on Back, a
- * reload too, and what stays on the page keeps where it was.
- */
-const app = Router.app(Routes, AppView, { scrollRestoration: true });
-
-export default Start.app(app, { document: Document });
+export default Start.app(router, AppView, { document: Document });

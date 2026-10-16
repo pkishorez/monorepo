@@ -1,4 +1,4 @@
-import { Route } from '@kestack/kabuki/routing';
+import { Page } from '@kestack/kabuki/routing';
 import { about, Luck } from '../data/index.ts';
 
 /*
@@ -7,9 +7,11 @@ import { about, Luck } from '../data/index.ts';
  * or why it failed, with a button that tries again.
  */
 
-export const Flaky = Route.page({
+export const Flaky = Page.define({
   path: '/flaky',
   render: 'client',
   data: Luck,
   metadata: about('/flaky', 'Flaky', 'A client page that fails half the time.'),
-}).build({});
+});
+
+export const FlakyLive = Page.build(Flaky);

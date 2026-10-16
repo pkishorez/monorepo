@@ -1,6 +1,6 @@
 import { motion } from 'motion/react';
 import { Router, useRouter } from '@kestack/kabuki/routing';
-import { Routes } from '../../shared/index.ts';
+import { router } from '../../shared/index.ts';
 import type { Place, Route } from '../../shared/index.ts';
 import { MODE, modeOf } from './modes.ts';
 import { quick } from './motion.ts';
@@ -15,14 +15,14 @@ import { ThemeToggle } from './theme-toggle.tsx';
  */
 
 const NAV: ReadonlyArray<{ readonly to: Route; readonly label: string }> = [
-  { to: Routes.Home(), label: 'Home' },
-  { to: Routes.Blog(), label: 'Blog' },
-  { to: Routes.Teams({ team: 'core' }), label: 'Teams' },
-  { to: Routes.Feed(), label: 'Feed' },
-  { to: Routes.Search(), label: 'Search' },
-  { to: Routes.Notes(), label: 'Notes' },
-  { to: Routes.Preload(), label: 'Preload' },
-  { to: Routes.Flaky(), label: 'Flaky' },
+  { to: router.Home(), label: 'Home' },
+  { to: router.Blog(), label: 'Blog' },
+  { to: router.Teams({ team: 'core' }), label: 'Teams' },
+  { to: router.Feed(), label: 'Feed' },
+  { to: router.Search(), label: 'Search' },
+  { to: router.Notes(), label: 'Notes' },
+  { to: router.Preload(), label: 'Preload' },
+  { to: router.Flaky(), label: 'Flaky' },
 ];
 
 export function Nav() {
@@ -30,7 +30,7 @@ export function Nav() {
   return (
     <nav className={`${column} flex items-center gap-3 py-2.5 sm:gap-6`}>
       <Router.Link
-        to={Routes.Home()}
+        to={router.Home()}
         className="flex shrink-0 items-center gap-2 font-semibold tracking-tight"
       >
         <span

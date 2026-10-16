@@ -1,23 +1,22 @@
 import type { ReactNode } from 'react';
 import { View } from '../../../../react/index.ts';
-import { Route, Router } from '../../../../routing/index.ts';
 import type { Status } from '../../../../routing/index.ts';
 import { Start } from '../../../common/index.ts';
 import Document from './document.tsx';
 import {
-  Account,
-  AccountActivity,
-  App,
-  Blog,
-  BlogPost,
-  Dashboard,
-  Gallery,
-  Home,
-  Lab,
-  Routes,
-  Settings,
-  SignIn,
-  Sketch,
+  AccountActivityLive,
+  AccountLive,
+  AppLive,
+  BlogLive,
+  BlogPostLive,
+  DashboardLive,
+  GalleryLive,
+  HomeLive,
+  LabLive,
+  SettingsLive,
+  SignInLive,
+  SketchLive,
+  router,
 } from './routes.ts';
 import './app.css';
 
@@ -44,7 +43,7 @@ const loaded = <D,>(status: Status<D>, ready: (data: D) => ReactNode) => {
   }
 };
 
-const PostView = Route.view(BlogPost, ({ props }) =>
+const PostView = View.make(BlogPostLive, ({ props }) =>
   loaded(props.status, (post) => (
     <article>
       <h1>{post.title}</h1>
@@ -52,7 +51,7 @@ const PostView = Route.view(BlogPost, ({ props }) =>
     </article>
   )),
 );
-const BlogView = Route.view(Blog, (self) => (
+const BlogView = View.make(BlogLive, (self) => (
   <section>
     {loaded(self.props.status, (list) => (
       <p>{list.length} posts</p>
@@ -65,13 +64,13 @@ const BlogView = Route.view(Blog, (self) => (
   </section>
 ));
 
-const SettingsView = Route.view(Settings, ({ props }) =>
+const SettingsView = View.make(SettingsLive, ({ props }) =>
   loaded(props.status, (prefs) => <p>theme {prefs.theme}</p>),
 );
-const ActivityView = Route.view(AccountActivity, ({ props }) =>
+const ActivityView = View.make(AccountActivityLive, ({ props }) =>
   loaded(props.status, (activity) => <p>{activity.events} events</p>),
 );
-const AccountView = Route.view(Account, (self) => (
+const AccountView = View.make(AccountLive, (self) => (
   <section>
     {loaded(self.props.status, (viewer) => (
       <p>signed in as {viewer.name}</p>
@@ -88,33 +87,29 @@ const AccountView = Route.view(Account, (self) => (
   </section>
 ));
 
-const HomeView = Route.view(Home, () => (
+const HomeView = View.make(HomeLive, () => (
   <>
     <p>home</p>
     <Stamp />
   </>
 ));
-const DashboardView = Route.view(Dashboard, ({ props }) =>
+const DashboardView = View.make(DashboardLive, ({ props }) =>
   loaded(props.status, (stats) => <p>{stats.visits} visits</p>),
 );
-const LabView = Route.view(
-  Lab,
-  View.lazy(() => import('./lab.tsx'), { id: 'src/lab.tsx' }),
-);
+const LabView = View.lazy(LabLive, () => import('./lab.tsx'), {
+  id: 'src/lab.tsx',
+});
 // Its id is the one Start's Vite plugin gives it: its path from the root.
-const GalleryView = Route.view(
-  Gallery,
-  View.lazy(() => import('./gallery.tsx')),
-);
-const SignInView = Route.view(SignIn, () => <p>sign in</p>);
-const SketchView = Route.view(Sketch, () => (
+const GalleryView = View.lazy(GalleryLive, () => import('./gallery.tsx'));
+const SignInView = View.make(SignInLive, () => <p>sign in</p>);
+const SketchView = View.make(SketchLive, () => (
   <div id="sketch">
     <p>the sketch</p>
     <Stamp />
   </div>
 ));
 
-const AppView = Route.view(App, (self) => {
+export const AppView = View.make(AppLive, (self) => {
   const { children: at, props } = self;
   return (
     <main id="app">
@@ -133,7 +128,4 @@ const AppView = Route.view(App, (self) => {
   );
 });
 
-/** The app alone, as a test or a story runs it. */
-export const app = Router.app(Routes, AppView, { scrollRestoration: true });
-
-export default Start.app(app, { document: Document });
+export default Start.app(router, AppView, { document: Document });
