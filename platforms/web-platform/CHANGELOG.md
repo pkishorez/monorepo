@@ -1,5 +1,25 @@
 # @kestack/ui-toolkit
 
+## 0.0.2
+
+### Patch Changes
+
+- [#66](https://github.com/pkishorez/monorepo/pull/66) [`a87e8b7`](https://github.com/pkishorez/monorepo/commit/a87e8b73cf0b6ede5894806cccc374fab4fa9497) Thanks [@pkishorez](https://github.com/pkishorez)! - `DevtoolsDock` takes `scrolls: 'window'` for a site whose page scrolls the window: the page stays in the document's flow, keeping its sticky headers and scroll restoration, and the bottom bar or side panel is fixed over it, with the body padded by its size.
+
+- [`250b3db`](https://github.com/pkishorez/monorepo/commit/250b3db5c5b55b375e4649e632b642089f00c587) Thanks [@pkishorez](https://github.com/pkishorez)! - New `recipes/devtools-dock`: `DevtoolsDock` wraps a page with devtools opened from a fixed corner button or Ctrl+/, laid out full screen, as a resizable bar or side panel, or as a floating window, kept across reloads. A click on the Layout button steps to the next Layout, a right click picks one; phones get only full screen and the bar. The Kabuki Timeline keeps clear of the button, the Sheet is a panel over the Map, and the History's Window is a Base UI select with presets from 1 to 500.
+
+- [#66](https://github.com/pkishorez/monorepo/pull/66) [`cb8daac`](https://github.com/pkishorez/monorepo/commit/cb8daaca0574b1c80bea06da0435ff4cfbe114d1) Thanks [@pkishorez](https://github.com/pkishorez)! - A Child is written as a Worker is: `children: { rows: { actor: Row, each: ({ model }) => model.ids, input: (_, id) => …, props: ({ model }, id) => … } }`. `invoke` and `Actor.many` are gone: a Child is always there, there `while` a test holds, or one per key `each` names, and its `input` and `props` take the parent's data and its key. A `while` Child is new, and comes back as a fresh Instance; a parent's View types it as a Handle or `undefined`. An outlet's `children` now carries everything, so `invoke: outlet.invoke` is dropped and the outlet is spread beside the Actor's own Children.
+
+- [`f2462af`](https://github.com/pkishorez/monorepo/commit/f2462af9b7e78e8a817111cd07a6193a90984560) Thanks [@pkishorez](https://github.com/pkishorez)! - A History can keep a Window: `History.make(actor, { window: 100 })`, `toReact(..., { window: 100 })`, or `history.keep(n)` at any time, even while the app runs. Entries older than the Window Compact into a Restore of the Snapshot right after them; `history.keep(null)` keeps every one again from then on. Saved Histories' ids now rise but may skip, and `history.has(id)` says whether an entry is still there. The Kabuki DevTools Timeline gets a Window field. `toReact` remembers a changed Window in `localStorage` under the app's name, so it outlasts a reload.
+- Updated dependencies [[`cb8daac`](https://github.com/pkishorez/monorepo/commit/cb8daaca0574b1c80bea06da0435ff4cfbe114d1), [`78aa972`](https://github.com/pkishorez/monorepo/commit/78aa972696c33baa0f0ad3521bb454c17537ef4c), [`13fa549`](https://github.com/pkishorez/monorepo/commit/13fa54979520c64fa87ac8ae576a5f6bdb4cd4f6), [`bf66a56`](https://github.com/pkishorez/monorepo/commit/bf66a566d0c102e1892766f321c93dad264b3b79), [`f2462af`](https://github.com/pkishorez/monorepo/commit/f2462af9b7e78e8a817111cd07a6193a90984560), [`fd94bc0`](https://github.com/pkishorez/monorepo/commit/fd94bc006a15b5960ea67ade3dfb333b1e7b6fce), [`2ba4537`](https://github.com/pkishorez/monorepo/commit/2ba4537b0ab0f5a22105f62a6c635a6dd64614ef), [`db8d448`](https://github.com/pkishorez/monorepo/commit/db8d448b3f2cef855f704596f2cc5991ced11c14), [`a1037fe`](https://github.com/pkishorez/monorepo/commit/a1037fe03e52badd0eb8d71ac81c87bbf007b5a1), [`ccb8fde`](https://github.com/pkishorez/monorepo/commit/ccb8fde624c92bb445cf422ba2db719a3f0e4965), [`3428d71`](https://github.com/pkishorez/monorepo/commit/3428d71ac531333a1da3ec48d3777cbf6b092636), [`478ff35`](https://github.com/pkishorez/monorepo/commit/478ff35181a31706a333cd1108f3c0030289ef33), [`9eca385`](https://github.com/pkishorez/monorepo/commit/9eca385a8763f5c44acff676345c62d825af9c07), [`7be2c3d`](https://github.com/pkishorez/monorepo/commit/7be2c3dc37fe98789be9c67ec6f36c6b66de67bd)]:
+  - @kestack/kabuki@0.0.2
+  - @kestack/auth-toolkit@0.0.2
+  - @kestack/rpc-toolkit@0.0.2
+  - @kestack/std-toolkit@0.0.2
+  - laymos@0.0.13
+  - @kestack/use-gesture@0.0.1
+  - @kestack/use-keys@0.0.1
+
 ## 0.0.1
 
 ### Patch Changes
