@@ -1,76 +1,79 @@
 import { View } from '@kestack/kabuki/react';
-import type { RenderMode } from '@kestack/kabuki/routing';
 import { Router } from '@kestack/kabuki/routing';
 import { Pages, router } from '../../../shared/index.ts';
 import type { Route } from '../../../shared/index.ts';
-import { MODE, PlaceFrame, chip, modeOf } from '../../components/index.ts';
+import { PlaceFrame, link } from '../../components/index.ts';
 
 /*
- * The landing page: static, with no data. How to read a box, then a tour
- * of every case, one stop per URL, each marked with the color of the page
- * it goes to.
+ * The landing page: static, with no data. Every case Kabuki Start handles,
+ * one URL each. The box around each page says what happened.
  */
 
 type Stop = {
-  readonly to: Route;
   readonly url: string;
   readonly what: string;
-  /** The element on the page it goes to. */
+  /** The Route a link goes to; none for a URL the server answers itself. */
+  readonly to?: Route;
   readonly hash?: string;
 };
 
-const TOUR: ReadonlyArray<{
+const GROUPS: ReadonlyArray<{
   readonly title: string;
   readonly stops: ReadonlyArray<Stop>;
 }> = [
   {
-    title: 'Nested pages and their scroll',
+    title: 'Render Modes',
     stops: [
       {
-        to: router.Blog.Post({ slug: 'pages-are-actors' }),
         url: '/blog/pages-are-actors',
-        what: 'two panes, two Places: scroll both, open another post, press Back. The post comes back where you read to; the list never moved.',
+        to: router.Blog.Post({ slug: 'pages-are-actors' }),
+        what: 'Static, nested: open another post and only the post loads.',
       },
       {
-        to: router.Teams.Member({ team: 'core', member: 'ada' }),
         url: '/teams/core/ada',
-        what: 'a team and its member load side by side, the member first. Leave and come back by a link: the member list is where it was.',
+        to: router.Teams.Member({ team: 'core', member: 'ada' }),
+        what: 'Dynamic: a team and its member load side by side.',
       },
-    ],
-  },
-  {
-    title: 'The window',
-    stops: [
       {
-        to: router.Feed(),
         url: '/feed',
-        what: 'a client page: sent loading, loaded in the browser. Scroll far, open a post, press Back: its copy is shown at once, and the window goes back.',
-      },
-      {
-        to: router.Blog.Post({ slug: 'scroll-entry' }),
-        url: '/blog/scroll-entry#part-5',
-        what: 'a link to a part of a post: the move lands, its data comes, then part 5 is scrolled into view.',
-        hash: 'part-5',
+        to: router.Feed(),
+        what: 'Client: sent loading, loaded in the browser.',
       },
     ],
   },
   {
-    title: 'Loading and the Data cache',
+    title: 'Scroll',
     stops: [
       {
-        to: router.Preload(),
+        url: '/blog/pages-are-actors',
+        to: router.Blog.Post({ slug: 'pages-are-actors' }),
+        what: 'Scroll both panes, open another post, press Back: each comes back.',
+      },
+      {
+        url: '/feed',
+        to: router.Feed(),
+        what: 'Scroll the window, open a post, press Back: the window comes back.',
+      },
+      {
+        url: '/blog/scroll-entry#part-5',
+        to: router.Blog.Post({ slug: 'scroll-entry' }),
+        hash: 'part-5',
+        what: 'A link to part of a page: scrolled into view once its data comes.',
+      },
+    ],
+  },
+  {
+    title: 'Loading',
+    stops: [
+      {
         url: '/preload',
-        what: 'links that load the next page on hover, once in view, or never',
+        to: router.Preload(),
+        what: 'Links that preload, and a Stale time of 30 s.',
       },
       {
-        to: router.Notes(),
-        url: '/notes',
-        what: 'a reload loads the data again behind it; the page and its draft stay',
-      },
-      {
-        to: router.Search({ q: 'scroll' }),
         url: '/search?q=scroll',
-        what: 'a query its Loader reads: a new one loads again on the same page, each with its own scroll',
+        to: router.Search({ q: 'scroll' }),
+        what: 'A query its Loader reads. Reload keeps what you typed.',
       },
     ],
   },
@@ -78,138 +81,70 @@ const TOUR: ReadonlyArray<{
     title: 'When it goes wrong',
     stops: [
       {
-        to: router.Blog.Post({ slug: 'broken' }),
         url: '/blog/broken',
-        what: 'a Loader that breaks: the post says so and retries, the blog around it stays',
+        to: router.Blog.Post({ slug: 'broken' }),
+        what: 'A Loader that breaks, inside its own card, with Try again.',
       },
       {
-        to: router.Flaky(),
-        url: '/flaky',
-        what: 'a client page that fails half the time',
-      },
-      {
-        to: router.Blog.Post({ slug: 'missing' }),
         url: '/blog/missing',
-        what: 'a Loader that finds nothing: a 404, drawn inside the blog',
+        to: router.Blog.Post({ slug: 'missing' }),
+        what: 'A Loader that finds nothing: a 404.',
       },
       {
-        to: router.Blog.Post({ slug: 'moved' }),
-        url: '/blog/moved',
-        what: "a Loader's Redirect: a 302 from the server, a move in the browser",
-      },
-      {
-        to: router.read('/nowhere').route,
         url: '/nowhere',
-        what: 'a URL that names no page: the root page draws it, a 404',
+        to: router.read('/nowhere').route,
+        what: 'A URL with no page: a 404.',
+      },
+      {
+        url: '/blog/moved',
+        to: router.Blog.Post({ slug: 'moved' }),
+        what: 'A Loader that Redirects: a 302.',
+      },
+      {
+        url: '/posts/no-waterfall',
+        what: 'An old address the router redirects: a 308.',
       },
     ],
   },
 ];
 
-const RENDER: ReadonlyArray<RenderMode> = ['static', 'dynamic', 'client'];
-/** What the Router does with scroll, as TanStack Router does it: nothing on a page says it. */
-const SCROLL: ReadonlyArray<readonly [string, string]> = [
-  ['a new entry', 'the window goes to the top, or to the #hash'],
-  [
-    'Back, Forward, a reload',
-    'the window and every list go back where they were',
-  ],
-  ['what stays on the page', 'keeps where it was, as the blog’s list does'],
-  [
-    'data-scroll-restoration-id',
-    'names a pane, so a new post’s is never taken for the last one’s',
-  ],
-  ['resetScroll: false', 'a link that leaves every scroll as it is'],
-];
-
 export const HomeView = View.make(Pages.HomeLive, () => (
-  <div className="space-y-8 sm:space-y-12">
-    <div className="max-w-3xl space-y-4 pt-2">
-      <p className="font-mono text-xs text-muted-foreground">
-        @kestack/kabuki/start
-      </p>
-      <h1 className="text-3xl font-semibold tracking-tight text-balance sm:text-5xl">
-        Every page is an Actor, in a box that says how it got here.
-      </h1>
-      <p className="max-w-prose text-pretty text-muted-foreground sm:text-lg">
-        Each page sits in a box with the color of its Render Mode. Nested pages
-        are nested boxes, each loading on its own. Every scroll is kept per
-        history entry. Every Loader is slow on purpose. Move around, then press
-        Back.
-      </p>
-    </div>
-
-    <PlaceFrame place="Home" title="How to read a box">
-      <div className="grid gap-6 sm:grid-cols-2">
-        <section className="space-y-3">
-          <h2 className="text-sm font-medium">Render Mode: its color</h2>
-          <ul className="space-y-2.5">
-            {RENDER.map((mode) => (
-              <li key={mode} className="flex items-start gap-3 text-sm">
-                <span className={`${chip} mt-0.5 shrink-0`}>
-                  <span
-                    aria-hidden
-                    className={`size-1.5 rounded-full ${MODE[mode].dot}`}
-                  />
-                  <span className={MODE[mode].text}>{mode}</span>
-                </span>
-                <span className="text-muted-foreground">{MODE[mode].what}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-        <section className="space-y-3">
-          <h2 className="text-sm font-medium">
-            Scroll: kept per entry, as TanStack Start does
+  <PlaceFrame
+    place="Home"
+    title="Kabuki Start"
+    intro="Every page is an Actor, drawn in a card that says how it got here. Loaders are slow on purpose."
+  >
+    <div className="space-y-8">
+      {GROUPS.map(({ title, stops }) => (
+        <section key={title} className="space-y-2">
+          <h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+            {title}
           </h2>
-          <ul className="space-y-2.5">
-            {SCROLL.map(([when, what]) => (
-              <li key={when} className="flex items-start gap-3 text-sm">
-                <span className={`${chip} mt-0.5 shrink-0`}>{when}</span>
+          <ul className="divide-y divide-border text-sm">
+            {stops.map(({ url, what, to, hash }) => (
+              <li
+                key={url + what}
+                className="grid gap-1 py-2.5 sm:grid-cols-[15rem_1fr]"
+              >
+                {to ? (
+                  <Router.Link
+                    to={to}
+                    {...(hash ? { hash } : {})}
+                    className={`${link} font-mono`}
+                  >
+                    {url}
+                  </Router.Link>
+                ) : (
+                  <a href={url} className={`${link} font-mono`}>
+                    {url}
+                  </a>
+                )}
                 <span className="text-muted-foreground">{what}</span>
               </li>
             ))}
           </ul>
         </section>
-      </div>
-      <p className="text-sm text-muted-foreground">
-        Its header also says where its data is, who drew it, and whether its
-        data came with the page or was loaded in the browser.
-      </p>
-    </PlaceFrame>
-
-    {TOUR.map(({ title, stops }) => (
-      <section key={title} className="space-y-3">
-        <h2 className="text-sm font-medium text-muted-foreground">{title}</h2>
-        <ul className="grid gap-3 sm:grid-cols-2">
-          {stops.map(({ to, url, what, hash }) => {
-            const page = router.places(to).at(-1);
-            const render = page ? modeOf(page.name) : 'static';
-            return (
-              <li key={url}>
-                <Router.Link
-                  to={to}
-                  {...(hash ? { hash } : {})}
-                  className={`group flex h-full flex-col gap-2 rounded-xl border border-l-[3px] border-border bg-card/60 p-4 transition-colors hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none ${MODE[render].edge}`}
-                >
-                  <span className="flex items-center justify-between gap-3">
-                    <span className="font-mono text-sm font-medium">{url}</span>
-                    <span
-                      aria-hidden
-                      className="text-muted-foreground transition-transform group-hover:translate-x-0.5"
-                    >
-                      →
-                    </span>
-                  </span>
-                  <span className="text-sm text-pretty text-muted-foreground">
-                    {what}
-                  </span>
-                </Router.Link>
-              </li>
-            );
-          })}
-        </ul>
-      </section>
-    ))}
-  </div>
+      ))}
+    </div>
+  </PlaceFrame>
 ));

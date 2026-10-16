@@ -1,10 +1,8 @@
 export { clock } from './clock.ts';
 export { Devtools } from './devtools.tsx';
 export { Layout } from './layout.tsx';
-export { MODE, modeOf } from './modes.ts';
-export { EASE, directionOf, quick, settle, slide } from './motion.ts';
+export { useNow } from './now.ts';
 export { PlaceFrame } from './place-frame.tsx';
-export { Slot } from './slot.tsx';
 export { Failed, Loaded, Skeleton } from './status.tsx';
-export { chip, column, link, pane, panes, row } from './styles.ts';
+export { column, link, list, pane, panes, row } from './styles.ts';
 export { Theme } from './theme.ts';

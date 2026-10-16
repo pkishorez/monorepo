@@ -13,8 +13,8 @@ const summary = ({ slug, title, summary, date }: (typeof POSTS)[number]) => ({
   date,
 });
 
-/** How many times the notes were read: each read is a new version. */
-let reads = 0;
+/** How many times each slow page was loaded: a Loader that runs again counts up. */
+const slowLoads = new Map<number, number>();
 
 /** Each read answers what a page needs, or `undefined` if there is nothing there. */
 const backend = {
@@ -54,13 +54,12 @@ const backend = {
       ).map(summary),
     })),
   feed: Effect.sync(() => ({ items: FEED })),
-  notes: Effect.sync(() => {
-    reads += 1;
-    return {
-      text: 'Edit me, then reload: the draft stays while the notes load again.',
-      version: reads,
-    };
-  }),
+  slow: (n: number) =>
+    Effect.sync(() => {
+      const loads = (slowLoads.get(n) ?? 0) + 1;
+      slowLoads.set(n, loads);
+      return { n, loads };
+    }),
 };
 
 /** The pretend backend the Loaders read. */
