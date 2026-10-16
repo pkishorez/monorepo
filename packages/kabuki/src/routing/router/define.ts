@@ -37,6 +37,8 @@ export type RouterOptions<C, D> = {
   readonly preload?: Preload;
   /** How long, in milliseconds, an `'intent'` link waits before it preloads: 50 by default. */
   readonly preloadDelay?: number;
+  /** How long, in milliseconds, a copy in the Data cache stays fresh, for every dynamic or client page that says none: 0 unless said. */
+  readonly staleTime?: number;
 } & ScrollRestorationOptions<RouteOf<C>>;
 
 /** What the Router reads of its definition besides the Routes. */
@@ -104,6 +106,7 @@ export const define = <
       delay,
       preload,
       preloadDelay,
+      staleTime,
       ...scroll
     } = options;
     return Object.assign(
@@ -111,6 +114,7 @@ export const define = <
         ...(redirect ? { redirect } : {}),
         ...(notFound ? { notFound } : {}),
         ...(metadata ? { metadata } : {}),
+        ...(staleTime === undefined ? {} : { staleTime }),
       }),
       {
         root: page,

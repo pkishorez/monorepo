@@ -179,8 +179,12 @@ The one Actor routing adds, above the root Page, made from the Router definition
 _Avoid_: navigator, history (Kabuki's History is another thing), router (the Router definition)
 
 **Data cache**:
-The last data each place loaded, one copy per place and params, newest first, kept in the browser outside the Snapshot. A Move to a Page with a copy, Back, a link, or a Preload, shows it at once; a dynamic or client Page loads it again behind it. The data a server drew the page with is kept in it too. Data reaches the app only in the Messages that bring it.
+The last data each place loaded, one copy per place and params, newest first, kept in the browser outside the Snapshot. A Move to a Page with a copy, Back, a link, or a Preload, shows it at once; a dynamic or client Page loads it again behind it once the copy is older than its Stale time. It holds a fixed number of copies, the least recently used dropped first, and never drops one for its age. The data a server drew the page with is kept in it too, as arrived when the app starts. Data reaches the app only in the Messages that bring it.
 _Avoid_: back cache, query cache, store
+
+**Stale time**:
+How long a copy in the Data cache stays fresh after it arrives, said on a dynamic or client Page and inherited by the Pages under it, the Router's unless said, none unless the Router says. A fresh copy is shown and not loaded again, by a Move or a Preload alike; an older one is shown and loaded again behind it. A static Page's copy is fresh until the next deploy, and a Reload ignores it.
+_Avoid_: max age, freshness, cache time, GC time
 
 **Preload**:
 A Message asking the Router to warm the Data cache, and load the code of the lazy Views, for a Route the app may move to: from a link on hover or once in view, or from an Update. Nothing comes back.

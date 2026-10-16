@@ -12,9 +12,9 @@ import type { Codec, Place } from '../route/index.ts';
  *
  * 1. Start  as a move lands, each new place from what is known: the data
  *           the move loaded before it landed, the server's, or the Data
- *           cache's copy, which it shows and loads again. Knowing nothing,
- *           Loading. A place whose key, its name and path params, did not
- *           change keeps what it has.
+ *           cache's copy, which it shows, and loads again once stale.
+ *           Knowing nothing, Loading. A place whose key, its name and path
+ *           params, did not change keeps what it has.
  * 2. Load   with the `place` Worker, one run per place whose data is due:
  *           while it is loading, after a reload, on a stale copy, or when
  *           its query changes. The data shown stays meanwhile; a loading

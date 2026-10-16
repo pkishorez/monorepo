@@ -44,6 +44,8 @@ export interface Node<
   /** The Schema of the data its Loader gives. */
   readonly input: Codec<I> | undefined;
   readonly render: M;
+  /** How long, in milliseconds, a copy of its data stays fresh: its parent's unless said. */
+  readonly staleTime: number | undefined;
   /** Typed where it is written, in `Page.define`'s options. */
   readonly metadata:
     | Metadata
@@ -216,6 +218,8 @@ export interface PlaceSchema<Name extends string = string> {
   /** What its Loader is handed: every path param down to it, its own and its ancestors', and its own query. */
   readonly params: Codec<Record<string, unknown>>;
   readonly render: RenderMode;
+  /** How long, in milliseconds, a copy of its data stays fresh: `Infinity` for a static place, fresh until the next deploy. */
+  readonly staleTime: number;
   readonly input: Codec<unknown> | undefined;
 }
 

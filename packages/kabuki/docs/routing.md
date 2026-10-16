@@ -175,12 +175,13 @@ id: 4 })` ends at the project. Params are checked by type. The type of any
   places at one path are refused when the router is made.
 - `router.places(route)` lists the places on a Route's path, each with its
   dotted name, its key, what its Loader is handed and its Render Mode;
-  `router.every` lists every place as Schemas, which is what a Loader RPC is
+  `router.every` lists every place as Schemas, with its Stale time, which is what a Loader RPC is
   made from; `router.place` is the Schema of every dotted name.
 
 Its options are how the Router behaves too: `redirect`, `notFound` (the
 not-found Route's Metadata, over the root page's), `base`, `delay`,
-`preload`, `preloadDelay`, and the scroll options below.
+`preload`, `preloadDelay`, `staleTime` (every dynamic or client page's that
+says none, 0 unless said), and the scroll options below.
 
 #### Moving from an Update
 
@@ -220,6 +221,13 @@ default, `dynamic` or `client`, inherited by the pages under it; any mode may
 sit under any other. A server draws a page's data for `static` and `dynamic`;
 a `client` page, and every page under it, is sent loading, and the browser
 loads it.
+
+`staleTime`, in milliseconds, is how long a copy of a page's data stays
+fresh in the Data cache once it arrives: see [Stale time](#stale-time). It
+is inherited by the pages under it, and only a `dynamic` or `client` page
+has one: a static page's data is fresh until the next deploy, so
+`staleTime` on it is a type error, or an error when the router is made if
+the page is static from its parent.
 
 #### Loaders
 
@@ -385,13 +393,37 @@ changes the 150ms.
 `Router.cached(router, loading)` puts the Data cache in front of a `Loading`;
 Start's browser has one. It keeps the last data of each place, one copy per
 name and what its Loader is handed, the newest, up to 50, the least recently
-used dropped first; a failure is never kept. A move to a page with a copy,
-Back, Forward or a plain link, starts it `Ready` at once: a static page as it
-is, a dynamic or client one `refreshing`, loaded again behind it. A place
+used dropped first, never one for its age; a failure is never kept. A move
+to a page with a copy, Back, Forward or a plain link, starts it `Ready` at
+once: a fresh copy as it is, an older one `refreshing`, loaded again behind
+it. A place
 being loaded is joined, never asked for twice. Places asked for in the same
 moment are one request, each answered as it comes. The data a server drew the
 page with is kept the same way as the browser starts it, so Back to the
 first page is at once too.
+
+### Stale time
+
+A copy is fresh for its page's Stale time from when it arrives; the data a
+server drew the page with arrives as the app starts.
+
+```ts
+const Feed = Page.define({
+  path: '/feed',
+  render: 'dynamic',
+  data: FeedData,
+  staleTime: 30_000,
+});
+export const router = Router.define(App, { staleTime: 5_000 });
+```
+
+- A move or a Preload to a page whose copy is fresh shows it and loads
+  nothing; an older copy is shown `refreshing` and loaded again behind it.
+- A page's own, else its parent's, else the router's: 0 unless said, so
+  every copy of a dynamic or client page is loaded again when shown. A
+  static page's copy is fresh until the next deploy.
+- A Reload loads every page on screen whatever its Stale time, and drops
+  every other copy.
 
 ### Reload and retry
 
@@ -408,8 +440,11 @@ asks the Router to preload where it goes: on hover, focus or touch after the
 delay, 50ms; once the link scrolls into view; or never. `'intent'` unless the
 link or the router says. Each ask is a `Preloading` Message; the Router's
 Command warms the Data cache and the code of the lazy Views on that Route,
-and nothing comes back. `Router.preload(route)` does the same from an
-Update. A move during a preload joins it.
+and nothing comes back: a place with a fresh copy is not loaded. A preload
+of the page shown, or of the move held, asks nothing. `Router.preload(route)`
+does the same from an Update. A move during a preload joins it, and one
+after it shows the copy as its Stale time says. With no Data cache, from
+`Router.cached`, only the code is preloaded.
 
 ### The Adapter: where the address lives
 

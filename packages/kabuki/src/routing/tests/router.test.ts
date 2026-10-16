@@ -642,3 +642,102 @@ describe('a drawing a server saves', () => {
     });
   });
 });
+
+describe('a page with a Stale time', () => {
+  const Feed = Page.define({
+    path: '/feed',
+    render: 'dynamic',
+    staleTime: 80,
+    data: Schema.Struct({ items: Schema.Number }),
+  });
+  const Start = Page.define({ path: '/' });
+  const Shell = Page.define({ pages: { Start, Feed } });
+  const Fresh = Router.define(Shell);
+  const FreshRoot = Router.app(
+    Fresh,
+    View.make(
+      Page.build(Shell, {
+        pages: { Start: Page.build(Start), Feed: Page.build(Feed) },
+      }),
+      () => null,
+    ),
+  );
+  const fresh = Router.cached(
+    Fresh,
+    Router.memory(
+      Fresh,
+      Fresh.loaders({
+        Feed: () => counted('Feed').pipe(Effect.as({ items: 2 })),
+      }),
+    ),
+  );
+  const FEED = { items: 2 };
+
+  it('shows a fresh copy and loads nothing', () =>
+    run(
+      Effect.gen(function* () {
+        const app = yield* Runtime.start(FreshRoot.actor, fresh);
+        push(app, Fresh.Feed());
+        yield* settle;
+        push(app, Fresh.Start());
+        yield* settle;
+        send(app, { _tag: 'Went', by: -1 });
+        yield* settle;
+        expect(router(app).pending).toBeNull();
+        expect(status(app, 'Feed')).toEqual(ready(FEED));
+        expect(calls).toEqual({ Feed: 1 });
+      }),
+    ));
+
+  it('shows an older copy at once, refreshing, and loads it again behind it', () =>
+    run(
+      Effect.gen(function* () {
+        const app = yield* Runtime.start(FreshRoot.actor, fresh);
+        push(app, Fresh.Feed());
+        yield* settle;
+        push(app, Fresh.Start());
+        yield* wait(100);
+        const open = hold('Feed');
+        send(app, { _tag: 'Went', by: -1 });
+        yield* settle;
+        expect(router(app).pending).toBeNull();
+        expect(status(app, 'Feed')).toEqual(ready(FEED, true));
+        open();
+        yield* settle;
+        expect(status(app, 'Feed')).toEqual(ready(FEED));
+        expect(calls).toEqual({ Feed: 2 });
+      }),
+    ));
+
+  it('a preload skips a fresh copy, loads an older one again, and the move after it loads nothing', () =>
+    run(
+      Effect.gen(function* () {
+        const app = yield* Runtime.start(FreshRoot.actor, fresh);
+        send(app, { _tag: 'Preloading', route: Fresh.Feed() });
+        yield* settle;
+        send(app, { _tag: 'Preloading', route: Fresh.Feed() });
+        yield* settle;
+        expect(calls).toEqual({ Feed: 1 });
+        yield* wait(100);
+        send(app, { _tag: 'Preloading', route: Fresh.Feed() });
+        yield* settle;
+        expect(calls).toEqual({ Feed: 2 });
+        push(app, Fresh.Feed());
+        yield* settle;
+        expect(status(app, 'Feed')).toEqual(ready(FEED));
+        expect(calls).toEqual({ Feed: 2 });
+      }),
+    ));
+
+  it('a reload loads it again, fresh or not', () =>
+    run(
+      Effect.gen(function* () {
+        const app = yield* Runtime.start(FreshRoot.actor, fresh);
+        push(app, Fresh.Feed());
+        yield* settle;
+        send(app, { _tag: 'Reloaded' });
+        yield* settle;
+        expect(calls).toEqual({ Feed: 2 });
+      }),
+    ));
+});
