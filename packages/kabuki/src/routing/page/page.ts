@@ -368,7 +368,18 @@ const pagesOf = (
                 ...(below === undefined ? {} : { data: below }),
               },
               ...(definition.input
-                ? { status: route.data?.[name] ?? { _tag: 'Loading' } }
+                ? {
+                    // The Router hands every page with data its status;
+                    // before it does, the page's own render, its Stale
+                    // time not known here.
+                    status: route.data?.[name] ?? {
+                      _tag: 'Loading',
+                      info: {
+                        render: definition.render ?? 'static',
+                        staleTime: null,
+                      },
+                    },
+                  }
                 : {}),
             };
           },

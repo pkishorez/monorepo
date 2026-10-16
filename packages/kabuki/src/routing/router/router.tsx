@@ -1,4 +1,4 @@
-import { Effect, Layer, Option, Queue, Schema, Stream } from 'effect';
+import { Clock, Effect, Layer, Option, Queue, Schema, Stream } from 'effect';
 import type { MouseEvent } from 'react';
 import { Actor, Command } from '../../core/index.ts';
 import type { ActorType, AnyActor, Types } from '../../core/index.ts';
@@ -320,7 +320,13 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
         name,
         Schema.optionalKey(
           Schema.Union([
-            Schema.TaggedStruct('Ready', { data, stale: Schema.Boolean }),
+            Schema.TaggedStruct('Ready', {
+              data,
+              stale: Schema.Boolean,
+              from: Schema.Literals(['server', 'browser', 'cache']),
+              at: Schema.Number,
+              took: Schema.NullOr(Schema.Number),
+            }),
             Schema.TaggedStruct('Failed', {
               reason: Schema.String,
               notFound: Schema.Boolean,
@@ -626,8 +632,9 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
           );
       }
       const known: Record<string, Known> = {};
+      const now = yield* Clock.currentTimeMillis;
       for (const { name } of places) {
-        const each = answers[name] && knownOf(answers[name]);
+        const each = answers[name] && knownOf(answers[name], now, 'browser');
         if (each) known[name] = each;
       }
       yield* send({ _tag: 'Loaded', id, known });
@@ -962,8 +969,14 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
             if (model.move.how !== 'load') return;
             for (const { name, params, input } of routes.places(shown(model))) {
               const status = model.data[name]?.status;
+              // Arrived when the page says, so the copy goes stale when
+              // the page says it does.
               if (input && status?._tag === 'Ready')
-                yield* found.value.keep({ name, params }, status.data);
+                yield* found.value.keep(
+                  { name, params },
+                  status.data,
+                  status.info.arrivedAt,
+                );
             }
           }),
       },

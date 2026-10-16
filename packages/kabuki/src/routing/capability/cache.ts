@@ -12,12 +12,14 @@ import type { Answer, RoutesWithPlaces, Wanted } from './loading.ts';
  * 1. Keep    every place loaded, up to `size` copies, each with when it
  *            arrived; the least recently used goes first, never one for its
  *            age. A failure is never kept.
- * 2. Answer  from a copy unless asked `fresh`: `stale` once it is older
- *            than its place's Stale time; a static place's never is.
+ * 2. Answer  from a copy unless asked `again` or `fresh`: `stale` once it
+ *            is older than its place's Stale time; a static place's never
+ *            is.
  * 3. Join    a place already being loaded: a click during a preload waits
- *            for the same answer rather than asking again. A fresh ask, a
- *            reload's, joins nothing, and an answer is kept only if nothing
- *            asked later is, and the copies were not dropped since.
+ *            for the same answer rather than asking again, and so does the
+ *            load behind a stale copy. A fresh ask, a reload's, joins
+ *            nothing, and an answer is kept only if nothing asked later is,
+ *            and the copies were not dropped since.
  * 4. Batch   the places asked for in the same moment into one ask of the
  *            Loading behind, so many places loading at once are one
  *            request, each answered as it comes. The load runs on its own:
@@ -25,7 +27,7 @@ import type { Answer, RoutesWithPlaces, Wanted } from './loading.ts';
  *            still kept.
  * 5. Seed    with the data a server drew the page with, so a page first
  *            seen from the server is kept as one loaded in the browser is,
- *            arrived as the app starts.
+ *            arrived when the server loaded it.
  *
  * A preload loads only the places with no fresh copy.
  */
@@ -52,8 +54,8 @@ const reasonOf = (cause: Cause.Cause<unknown>) => {
 
 /**
  * A `Loading` that keeps what `inner` loads, for the places of `routes`:
- * `Router.cached(Routes, loading(Routes))`. `size` copies at most, 50
- * unless said.
+ * `Router.cached(Routes, loading(Routes))`. `size` copies at most: the
+ * router's `cacheSize` unless said, 50 unless it says.
  */
 export const cached = <E, R>(
   routes: RoutesWithPlaces,
@@ -64,16 +66,18 @@ export const cached = <E, R>(
     Loading,
     Effect.gen(function* () {
       const source = yield* Loading;
-      const size = options?.size ?? 50;
+      const size = options?.size ?? routes.options?.cacheSize ?? 50;
       const staleTimes = new Map(
         routes.every.map((place) => [place.name, place.staleTime]),
       );
       type Ask = {
         readonly key: string;
         readonly place: Wanted;
-        readonly answer: Deferred.Deferred<Outcome>;
+        readonly answer: Deferred.Deferred<Answer>;
         /** When it was asked, counted: a copy is kept only from an answer asked after the one kept. */
         readonly seq: number;
+        /** When it was asked, in milliseconds: how long its answer took counts from it. */
+        readonly since: number;
       };
       type Copy = {
         readonly data: unknown;
@@ -107,7 +111,7 @@ export const cached = <E, R>(
       /** Settles one ask with what its place came to, and keeps its data, unless a newer ask's is kept or the copies were dropped since. */
       const settle = (ask: Ask, outcome: Outcome) =>
         Effect.flatMap(Clock.currentTimeMillis, (at) => {
-          const { key, answer, seq } = ask;
+          const { key, answer, seq, since } = ask;
           if (flying.get(key) === ask) flying.delete(key);
           if (
             outcome._tag === 'Loaded' &&
@@ -115,7 +119,7 @@ export const cached = <E, R>(
             seq > (copies.get(key)?.seq ?? 0)
           )
             keep(key, { data: outcome.data, seq, at });
-          return Deferred.succeed(answer, outcome);
+          return Deferred.succeed(answer, { ...outcome, at, took: at - since });
         });
       /** Asks the Loading behind for a batch, each settled as it comes if it can say so, and any left unanswered broken. */
       const ask = (asks: ReadonlyArray<Ask>) => {
@@ -162,13 +166,13 @@ export const cached = <E, R>(
        * was asked before it.
        */
       const loading = (place: Wanted, fresh = false) =>
-        Effect.suspend(() => {
+        Effect.flatMap(Clock.currentTimeMillis, (since) => {
           const key = keyOf(place);
           // 3. Join
           const going = flying.get(key);
           if (going && !fresh) return Effect.succeed(going.answer);
-          const answer = Deferred.makeUnsafe<Outcome>();
-          const ask: Ask = { key, place, answer, seq: (asked += 1) };
+          const answer = Deferred.makeUnsafe<Answer>();
+          const ask: Ask = { key, place, answer, seq: (asked += 1), since };
           flying.set(key, ask);
           batch.push(ask);
           return batch.length === 1
@@ -177,16 +181,22 @@ export const cached = <E, R>(
         });
 
       // 2. Answer
-      const one = (place: Wanted, fresh: boolean): Effect.Effect<Answer> =>
+      const one = (
+        place: Wanted,
+        fresh: boolean,
+        again: boolean,
+      ): Effect.Effect<Answer> =>
         Effect.flatMap(Clock.currentTimeMillis, (now) => {
           const key = keyOf(place);
           const copy = copies.get(key);
-          if (!fresh && copy) {
+          if (!fresh && !again && copy) {
             keep(key, copy);
             return Effect.succeed<Answer>({
               _tag: 'Loaded',
               data: copy.data,
               stale: !freshOf(place, copy, now),
+              at: copy.at,
+              cached: true,
             });
           }
           return Effect.flatMap(loading(place, fresh), Deferred.await);
@@ -198,7 +208,7 @@ export const cached = <E, R>(
             places,
             (place) =>
               Effect.map(
-                one(place, options?.fresh === true),
+                one(place, options?.fresh === true, options?.again === true),
                 (answer) => [place.name, answer] as const,
               ),
             { concurrency: 'unbounded' },
@@ -215,11 +225,12 @@ export const cached = <E, R>(
             ),
           ),
         // 5. Seed
-        keep: (place, data) =>
-          Effect.flatMap(Clock.currentTimeMillis, (at) =>
+        keep: (place, data, arrived) =>
+          Effect.flatMap(Clock.currentTimeMillis, (now) =>
             Effect.sync(() => {
               const key = keyOf(place);
-              if (!copies.has(key)) keep(key, { data, seq: (asked += 1), at });
+              if (!copies.has(key))
+                keep(key, { data, seq: (asked += 1), at: arrived ?? now });
             }),
           ),
         // What is on its way was asked before: it is neither joined nor kept.

@@ -1,4 +1,4 @@
-import { Cause, Context, Effect, Layer, Stream } from 'effect';
+import { Cause, Clock, Context, Effect, Layer, Stream } from 'effect';
 import type {
   LoadError,
   Outcome,
@@ -15,8 +15,17 @@ export interface Wanted {
 /**
  * What loading one place came to, as `Loading` answers it. `stale` is a
  * copy the Data cache kept: shown at once, and loaded again behind it.
+ * `at` is when the Data cache had the data arrive, in milliseconds since
+ * the epoch; `cached` that it is a copy; `took` how long its load took.
  */
-export type Answer = Outcome & { readonly stale?: boolean };
+export type Answer = Outcome & {
+  readonly stale?: boolean;
+  readonly at?: number;
+  /** From a copy the Data cache kept, not a load. */
+  readonly cached?: boolean;
+  /** How long, in milliseconds, from asking for it to its answer. */
+  readonly took?: number;
+};
 
 /**
  * The Capability the Router uses, if the Layer has it, to
@@ -28,10 +37,14 @@ export type Answer = Outcome & { readonly stale?: boolean };
 export class Loading extends Context.Service<
   Loading,
   {
-    /** Loads each place: from a copy the Data cache keeps unless `fresh`, else from its Loader. */
+    /**
+     * Loads each place: from a copy the Data cache keeps, else from its
+     * Loader. `again`, behind a stale copy shown, never answers from a copy
+     * but joins a load on its way; `fresh`, a reload's, joins nothing.
+     */
     readonly load: (
       places: ReadonlyArray<Wanted>,
-      options?: { readonly fresh?: boolean },
+      options?: { readonly fresh?: boolean; readonly again?: boolean },
     ) => Effect.Effect<Readonly<Record<string, Answer>>>;
     /**
      * Loads the places at once, and answers each by its dotted name as it
@@ -46,11 +59,15 @@ export class Loading extends Context.Service<
     /** Drops every copy the Data cache keeps. */
     readonly forget?: Effect.Effect<void>;
     /**
-     * Keeps data a place already has, as if it had been loaded: what a
-     * server drew the page with, so Back to it is at once. A copy already
-     * kept stays.
+     * Keeps data a place already has, as if it had arrived `at`, now
+     * unless said: what a server drew the page with, so Back to it is at
+     * once. A copy already kept stays.
      */
-    readonly keep?: (place: Wanted, data: unknown) => Effect.Effect<void>;
+    readonly keep?: (
+      place: Wanted,
+      data: unknown,
+      at?: number,
+    ) => Effect.Effect<void>;
   }
 >()('@kestack/kabuki/routing/Loading') {}
 
@@ -84,6 +101,8 @@ export const outcomeOf = <R>(
 /** What `memory` needs of a Routes tree: every place, with its Render Mode. */
 export interface RoutesWithPlaces {
   readonly every: ReadonlyArray<PlaceSchema>;
+  /** The Router's options: how many copies the Data cache keeps. */
+  readonly options?: { readonly cacheSize?: number };
 }
 
 type AnyLoader = (
@@ -134,10 +153,14 @@ export const memory = <L extends Readonly<Record<string, AnyLoader>>>(
                       )
                     : loader(place.params as never, request()),
               );
-              return Effect.map(
-                outcomeOf(run as Effect.Effect<unknown, LoadError, unknown>),
-                (outcome) => [place.name, outcome as Answer] as const,
-              );
+              return Effect.gen(function* () {
+                const began = yield* Clock.currentTimeMillis;
+                const outcome = yield* outcomeOf(
+                  run as Effect.Effect<unknown, LoadError, unknown>,
+                );
+                const took = (yield* Clock.currentTimeMillis) - began;
+                return [place.name, { ...outcome, took } as Answer] as const;
+              });
             },
             { concurrency: 'unbounded', unordered: true },
           ),
