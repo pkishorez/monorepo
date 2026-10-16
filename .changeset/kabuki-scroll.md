@@ -1,5 +1,0 @@
----
-'@kestack/kabuki': patch
----
-
-Scroll restoration, as TanStack Router does it, with its options. `Router.app(Routes, View, { scrollRestoration: true })` keeps the window and every element the user scrolls per history entry: a new entry starts at the top, what stays on the page keeps where it was, and Back, Forward and a reload put it all back as the move lands. A replace is a new entry with a key of its own, so it goes to the top as a push does. `getScrollRestorationKey`, `scrollToTopSelectors`, `scrollRestorationBehavior` and `defaultHashScrollIntoView` tune it; a move says `resetScroll: false` to leave it all as it is, and `hash` with `hashScrollIntoView` to go to an element, on `Router.Link`, `Router.push` and `Router.replace`. An element is named by its `data-scroll-restoration-id`, else its path; `useElementScrollRestoration` reads what is kept for one. Under Start the page holds an inline script that puts scroll back before the app hydrates. The Router keeps each entry's `#hash`. Nothing scrolls while the app shows a past Step: `useLive()`, from `@kestack/kabuki/react`, says whether a View draws the app as it is now.
