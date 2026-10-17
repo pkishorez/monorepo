@@ -1,19 +1,31 @@
 import { Page } from '@kestack/kabuki/routing';
 import { about, toolkitOf } from '../../content/index.ts';
-import { Demo, DemoLive } from './demo.ts';
+import {
+  Demo,
+  DemoLive,
+  StageDemo,
+  StageDemoLive,
+  TodosDemo,
+  TodosDemoLive,
+} from './demo.ts';
 import { Doc, DocLive } from './doc.ts';
 
 /*
  * kabuki: its landing page when the URL ends here, a docs page under it,
- * or the full-screen demo.
+ * or one of the full-screen demos.
  */
 
 export const Kabuki = Page.define({
   path: '/kabuki',
   metadata: about('/kabuki', 'kabuki', toolkitOf('kabuki').pitch),
-  pages: { Doc, Demo },
+  pages: { Doc, Demo, TodosDemo, StageDemo },
 });
 
 export const KabukiLive = Page.build(Kabuki, {
-  pages: { Doc: DocLive, Demo: DemoLive },
+  pages: {
+    Doc: DocLive,
+    Demo: DemoLive,
+    TodosDemo: TodosDemoLive,
+    StageDemo: StageDemoLive,
+  },
 });

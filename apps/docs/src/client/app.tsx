@@ -10,7 +10,7 @@ import './styles.css';
 
 /*
  * The root page's View: the one toolkit's place the URL names, in the
- * site's layout. The full-screen demo is drawn alone, with no layout. A URL
+ * site's layout. The full-screen demos are drawn alone, with no layout. A URL
  * that names no page draws the not-found page.
  */
 
@@ -20,7 +20,9 @@ const AppView = View.make(Pages.AppLive, (self) => {
   if (
     Kabuki &&
     route.page?._tag === 'Kabuki' &&
-    route.page.page?._tag === 'Demo'
+    (route.page.page?._tag === 'Demo' ||
+      route.page.page?._tag === 'TodosDemo' ||
+      route.page.page?._tag === 'StageDemo')
   )
     return <KabukiView instance={Kabuki} />;
   return (

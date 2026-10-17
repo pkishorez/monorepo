@@ -150,6 +150,7 @@ export function AppMap({
   onChoose,
   onFold,
   dotted,
+  follow,
 }: {
   readonly scene: Scene;
   readonly picked: Pick | undefined;
@@ -160,6 +161,8 @@ export function AppMap({
   readonly onFold: (place: string) => void;
   /** Dots under the Map. On by default. */
   readonly dotted?: boolean;
+  /** Keep the whole Map in view as it changes, with no controls: for presenting. */
+  readonly follow?: boolean;
 }) {
   const hasBelow = new Set(scene.lines.map((line) => line.from));
   const { at, beats } = scene;
@@ -191,6 +194,7 @@ export function AppMap({
       label="Map of the app"
       onTap={() => onPick(undefined)}
       {...(dotted === undefined ? {} : { dotted })}
+      {...(follow ? { follow } : {})}
     >
       {/* 1. Lines */}
       <svg
@@ -463,7 +467,8 @@ function StateNode({ state }: { readonly state: PlacedState }) {
       </div>
       {state.names && (
         <p
-          className="truncate text-center text-[10.5px]"
+          // As wide as the names, centred under the State, never cut short.
+          className="relative left-1/2 w-max -translate-x-1/2 text-[10.5px] whitespace-nowrap"
           style={{ color: ink('dim'), lineHeight: `${STATE.names}px` }}
         >
           {state.names.join(', ')}

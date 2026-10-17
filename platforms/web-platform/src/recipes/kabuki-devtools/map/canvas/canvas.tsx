@@ -19,7 +19,8 @@ import { ink } from '../../ink/index.ts';
  *            what it is on.
  * 3. Zoom    scroll, pinch, or the buttons; always about a point, so what
  *            is under it stays there.
- * 4. Fit     the whole drawing in view, on demand.
+ * 4. Fit     the whole drawing in view, on demand; or, when following,
+ *            every time the drawing changes, with no buttons to steer it.
  * 5. Tap     a tap on the surface itself, not on anything drawn (marked
  *            `ITEM`), says so.
  *            A right click never opens the browser's menu here.
@@ -38,6 +39,8 @@ export interface Bounds {
 const MIN = 0.25;
 const MAX = 2.5;
 const PAD = 56;
+/** The room left round the drawing while following it: it is all there is to see. */
+const FOLLOW_PAD = 24;
 /** Room above the root when the Map first opens too tall to fit, in pixels. */
 const TOP = 100;
 const SPRING = { type: 'spring', duration: 0.45, bounce: 0 } as const;
@@ -62,6 +65,7 @@ export function Canvas({
   label,
   onTap,
   dotted = true,
+  follow = false,
   children,
 }: {
   /** What the drawing covers, for Fit. */
@@ -69,6 +73,8 @@ export function Canvas({
   readonly label: string;
   /** Dots under the drawing; without them, whatever is behind shows through. */
   readonly dotted?: boolean;
+  /** Keep the whole drawing in view as it changes, with no controls: for presenting. */
+  readonly follow?: boolean;
   /** The surface was tapped, away from anything drawn. */
   readonly onTap: () => void;
   /** The drawing, its origin at 0, 0. */
@@ -246,11 +252,12 @@ export function Canvas({
     const element = surface.current!;
     const width = bounds.right - bounds.left;
     const height = bounds.bottom - bounds.top;
+    const pad = follow ? FOLLOW_PAD : PAD;
     const to = clamp(
       Math.min(
         1.25,
-        (element.clientWidth - PAD * 2) / Math.max(1, width),
-        (element.clientHeight - PAD * 2) / Math.max(1, height),
+        (element.clientWidth - pad * 2) / Math.max(1, width),
+        (element.clientHeight - pad * 2) / Math.max(1, height),
       ),
     );
     animate(scale, to, SPRING);
@@ -265,6 +272,12 @@ export function Canvas({
       SPRING,
     );
   };
+
+  // 4. Fit, following the drawing as it grows and shrinks.
+  useEffect(() => {
+    if (follow) fit();
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- refits only when what is drawn moves its edges.
+  }, [follow, bounds.left, bounds.right, bounds.top, bounds.bottom]);
 
   return (
     <div
@@ -295,20 +308,22 @@ export function Canvas({
       >
         {children}
       </motion.div>
-      <div
-        {...ITEM}
-        className="bg-background/85 absolute top-3 right-3 flex flex-col overflow-hidden rounded-lg border shadow-xs backdrop-blur-sm"
-      >
-        <Control label="Zoom in" onClick={() => zoomBy(1.25)}>
-          <Plus />
-        </Control>
-        <Control label="Zoom out" onClick={() => zoomBy(0.8)}>
-          <Minus />
-        </Control>
-        <Control label="Fit everything" onClick={fit}>
-          <Maximize />
-        </Control>
-      </div>
+      {!follow && (
+        <div
+          {...ITEM}
+          className="bg-background/85 absolute top-3 right-3 flex flex-col overflow-hidden rounded-lg border shadow-xs backdrop-blur-sm"
+        >
+          <Control label="Zoom in" onClick={() => zoomBy(1.25)}>
+            <Plus />
+          </Control>
+          <Control label="Zoom out" onClick={() => zoomBy(0.8)}>
+            <Minus />
+          </Control>
+          <Control label="Fit everything" onClick={fit}>
+            <Maximize />
+          </Control>
+        </div>
+      )}
     </div>
   );
 }

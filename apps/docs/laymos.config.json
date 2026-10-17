@@ -20,6 +20,8 @@
       "src/client/demos/opening-an-app/story"
     ],
     "src/shared/pages": ["src/shared/content"],
-    "src/client/docs": ["src/client/components"]
+    "src/client/docs": ["src/client/components"],
+    "src/client/demos/todos": ["src/client/demos/stage"],
+    "src/client/demos/opening-an-app": ["src/client/demos/stage"]
   }
 }

@@ -7,6 +7,10 @@ export {
   DocLive,
   Kabuki,
   KabukiLive,
+  StageDemo,
+  StageDemoLive,
+  TodosDemo,
+  TodosDemoLive,
 } from './kabuki/index.ts';
 export { router } from './routes.ts';
 export type { Route } from './routes.ts';

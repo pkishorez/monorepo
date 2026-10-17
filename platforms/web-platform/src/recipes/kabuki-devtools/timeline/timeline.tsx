@@ -16,7 +16,7 @@ import { ink } from '../ink/index.ts';
 /*
  * The Timeline: the bar under the Map for picking the Step shown.
  *
- * 1. Step    one step back or on.
+ * 1. Step    one step back or on, either side of the Track.
  * 2. Track   one tick per Step on the Branch in view, init first; the one
  *            shown stands taller. When they do not all fit, the row glides
  *            to keep the one shown in the middle, stopping at either end,
@@ -25,9 +25,14 @@ import { ink } from '../ink/index.ts';
  *            its Message's name over it, and a click or tap anywhere on the
  *            track picks the nearest. The last tick, when it is the Head,
  *            goes live.
- * 3. Read    the Step shown: its place and its Message, once there is room.
- * 4. Branch  bring another Branch into view, when there is more than one.
- * 5. Live    back to the Head, or the sign that it is there.
+ * 3. Read    the live Step: its place and its Message, once there is room.
+ * 4. Branch  bring another Branch into view, when there is more than one
+ *            and there is room.
+ * 5. Live    the sign that it is live; or, while a past Step is shown, a
+ *            pill over the bar with that Step, Fork here, which grows a
+ *            new Branch from it, and Go live. The bar below stays only the
+ *            Track, so it fits a phone. The pill steps aside while the
+ *            pointer reads the Track.
  * 6. Window  how many entries the History keeps: a preset, or any number
  *            typed in, set on Enter or blur. A smaller one Compacts at once,
  *            and cannot be undone. 1 keeps only the Snapshot; 2 is the least
@@ -56,6 +61,7 @@ export function Timeline({
   live,
   onShow: showStep,
   onLive,
+  onFork,
   head = false,
   branches = [],
   branch,
@@ -71,6 +77,8 @@ export function Timeline({
   readonly live: boolean;
   readonly onShow: (index: number) => void;
   readonly onLive: () => void;
+  /** Go live from the Step shown, growing a new Branch from it. */
+  readonly onFork?: () => void;
   /** The last Step is the Head: picking it goes live. */
   readonly head?: boolean;
   readonly branches?: ReadonlyArray<TimelineBranch>;
@@ -164,23 +172,60 @@ export function Timeline({
         )}
       </AnimatePresence>
 
-      {/* 1. Step */}
-      <div className="flex">
-        <Press
-          label="Step back"
-          disabled={shown <= 0}
-          onClick={() => onShow(shown - 1)}
-        >
-          <ChevronLeft />
-        </Press>
-        <Press
-          label="Step on"
-          disabled={shown >= last && (live || !head)}
-          onClick={() => onShow(shown + 1)}
-        >
-          <ChevronRight />
-        </Press>
-      </div>
+      {/* 5. Live, while a past Step is shown: where it is, Fork, Go live */}
+      <AnimatePresence>
+        {!live && !near && step && (
+          <motion.div
+            key="past"
+            className="bg-popover text-popover-foreground absolute bottom-full left-1/2 mb-3 flex h-10 w-max max-w-[calc(100%-1rem)] items-center gap-1 rounded-full border p-1 pl-3.5 text-xs shadow-[0_1px_2px_rgb(0_0_0/0.06),0_4px_12px_rgb(0_0_0/0.1)]"
+            initial={{ opacity: 0, y: 6, x: '-50%' }}
+            animate={{ opacity: 1, y: 0, x: '-50%' }}
+            exit={{ opacity: 0, y: 6, x: '-50%' }}
+            transition={
+              still ? { duration: 0 } : { duration: 0.15, ease: 'easeOut' }
+            }
+          >
+            <span className="mr-1.5 flex min-w-0 items-baseline gap-1.5 whitespace-nowrap">
+              <span className="truncate font-medium">
+                {shown === 0 ? 'init' : step.label}
+              </span>
+              <span className="text-muted-foreground tabular-nums">
+                {shown} of {last}
+              </span>
+            </span>
+            {onFork && (
+              <button
+                type="button"
+                onClick={onFork}
+                className="text-muted-foreground hover:bg-muted hover:text-foreground flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 font-medium transition-[background-color,color,scale] duration-150 outline-none focus-visible:ring-2 active:scale-[0.97]"
+              >
+                <GitBranch className="size-3.5" />
+                Fork here
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onLive}
+              className="bg-foreground text-background flex h-8 shrink-0 items-center gap-2 rounded-full px-3 font-medium transition-[opacity,scale] duration-150 outline-none hover:opacity-90 focus-visible:ring-2 active:scale-[0.97]"
+            >
+              <span
+                className="size-2 rounded-full"
+                style={{ backgroundColor: ink('active') }}
+              />
+              Go live
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 1. Step back */}
+      <Press
+        label="Step back"
+        disabled={shown <= 0}
+        onClick={() => onShow(shown - 1)}
+      >
+        <ChevronLeft />
+      </Press>
 
       {/* 2. Track */}
       <div
@@ -238,8 +283,17 @@ export function Timeline({
         ))}
       </div>
 
-      {/* 3. Read */}
-      {step && (
+      {/* 1. Step on */}
+      <Press
+        label="Step on"
+        disabled={shown >= last && (live || !head)}
+        onClick={() => onShow(shown + 1)}
+      >
+        <ChevronRight />
+      </Press>
+
+      {/* 3. Read, live; a past Step is read above */}
+      {live && step && (
         <div className="hidden min-w-0 flex-col items-end leading-tight @md:flex">
           <span className="truncate text-xs font-medium">
             {shown === 0 ? 'init' : step.label}
@@ -252,7 +306,7 @@ export function Timeline({
 
       {/* 4. Branch */}
       {branches.length > 1 && onBranch && (
-        <label className="text-muted-foreground hover:text-foreground relative flex h-9 items-center gap-1.5 rounded-md border px-2 text-xs transition-colors duration-150 focus-within:ring-2">
+        <label className="text-muted-foreground hover:text-foreground relative hidden h-9 items-center gap-1.5 rounded-md border px-2 text-xs transition-colors duration-150 focus-within:ring-2 @md:flex">
           <GitBranch className="size-3.5" />
           <span className="sr-only">Branch in view</span>
           <select
@@ -269,44 +323,23 @@ export function Timeline({
         </label>
       )}
 
-      {/* 5. Live */}
-      <button
-        type="button"
-        onClick={onLive}
-        disabled={live}
-        className={cn(
-          'flex h-9 shrink-0 items-center gap-2 rounded-md border px-3 text-xs font-medium transition-[background-color,color,scale] duration-150 outline-none focus-visible:ring-2 active:scale-[0.97]',
-          live
-            ? 'text-foreground cursor-default'
-            : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-        )}
-      >
-        <span className="relative grid size-2 place-items-center">
-          {live && (
+      {/* 5. Live, the sign that it is there */}
+      {live && (
+        <span className="flex h-9 shrink-0 items-center gap-2 px-1 text-xs font-medium @md:px-2">
+          <span className="relative grid size-2 place-items-center">
             <span
               className="absolute inset-0 animate-ping rounded-full opacity-60 motion-reduce:hidden"
               style={{ backgroundColor: ink('active') }}
             />
-          )}
-          <span
-            className="size-2 rounded-full border"
-            style={
-              live
-                ? { backgroundColor: ink('active'), borderColor: ink('active') }
-                : { borderColor: 'currentColor' }
-            }
-          />
-        </span>
-        {/* As wide as its longer word either way, so nothing beside it moves. */}
-        <span className="grid whitespace-nowrap">
-          <span aria-hidden className="invisible col-start-1 row-start-1">
-            Go live
+            <span
+              className="size-2 rounded-full"
+              style={{ backgroundColor: ink('active') }}
+            />
           </span>
-          <span className="col-start-1 row-start-1">
-            {live ? 'Live' : 'Go live'}
-          </span>
+          <span className="hidden @md:inline">Live</span>
+          <span className="sr-only @md:hidden">Live</span>
         </span>
-      </button>
+      )}
 
       {/* 6. Window */}
       {onWindow && <WindowPicker window={window ?? null} onWindow={onWindow} />}

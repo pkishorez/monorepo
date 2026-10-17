@@ -118,7 +118,10 @@ export const treeOf = (
       definition.name,
       many,
       stateless ? undefined : definition.states,
-      Object.keys(definition.workers),
+      // Each row as it reads, with the State it runs in.
+      Object.entries(definition.workers).map(([name, worker]) =>
+        worker.state === undefined ? name : `${name} · in ${worker.state}`,
+      ),
     );
     const count = (tag: string) =>
       instances.filter((each) => each.state._tag === tag).length;

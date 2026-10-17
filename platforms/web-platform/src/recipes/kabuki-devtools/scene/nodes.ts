@@ -72,7 +72,7 @@ export const CARD = {
   row: 22,
   gap: 6,
   min: 168,
-  max: 264,
+  max: 300,
 } as const;
 
 const optionWidth = (tag: string, many: boolean) =>

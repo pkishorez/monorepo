@@ -50,6 +50,8 @@ type Statuses = NonNullable<Parameters<typeof sceneOf>[0]['statuses']>;
  *              the one a Step shown from another Branch is on.
  * 2. Step      the Step shown is the app's own: picking one on the Timeline
  *              Time Travels the app, and going live comes back to the Head.
+ *              Forking goes live from the Step shown instead, growing a new
+ *              Branch from it; the old one stays in the History.
  *              Its Snapshot is replayed from the History; the Commands its
  *              Message asked for are worked out again from the Step before,
  *              once each.
@@ -60,6 +62,7 @@ export function KabukiDevtools({
   runtime,
   layout,
   dotted,
+  presenting = false,
   className,
 }: {
   /** The running app: `App.useRuntime()`. */
@@ -68,6 +71,8 @@ export function KabukiDevtools({
   readonly layout?: Kind;
   /** Dots under the Map. On by default; off, a background given by `className` shows through. */
   readonly dotted?: boolean;
+  /** Only the Map, kept whole in view as the app changes: no Timeline and no controls, for a talk or a recording. */
+  readonly presenting?: boolean;
   /** Classes for its root, merged over its own: a see-through background over the app. */
   readonly className?: string;
 }) {
@@ -119,6 +124,7 @@ export function KabukiDevtools({
       {...(layout ? { layout } : {})}
       {...(className ? { className } : {})}
       {...(dotted === undefined ? {} : { dotted })}
+      {...(presenting ? { presenting } : {})}
       // 3. Workers
       {...(live && running ? { statuses: runtime.workers } : {})}
       timeline={{
@@ -134,6 +140,11 @@ export function KabukiDevtools({
         onShow: (index) =>
           runtime.show(index === 0 ? 'init' : steps[index - 1]!.id),
         onLive: () => runtime.show(null),
+        onFork: () => {
+          if (shown === null) return;
+          runtime.start(shown === 'init' ? null : shown);
+          runtime.show(null);
+        },
         head: steps === branch,
         window: history.window(),
         onWindow: history.keep,
@@ -149,6 +160,7 @@ export function Inspector({
   layout,
   timeline,
   dotted,
+  presenting = false,
   className,
 }: {
   /** The root Actor's definition. */
@@ -162,6 +174,8 @@ export function Inspector({
   readonly timeline: ComponentProps<typeof Timeline>;
   /** Dots under the Map. On by default. */
   readonly dotted?: boolean;
+  /** Only the Map, kept whole in view: no Timeline and no controls. */
+  readonly presenting?: boolean;
   /** Classes for its root, merged over its own. */
   readonly className?: string;
 }) {
@@ -202,6 +216,7 @@ export function Inspector({
           <AppMap
             scene={scene}
             {...(dotted === undefined ? {} : { dotted })}
+            {...(presenting ? { follow: true } : {})}
             picked={sheet ? picked : undefined}
             onPick={setPicked}
             onChoose={(place, instance) =>
@@ -227,7 +242,7 @@ export function Inspector({
         </AnimatePresence>
       </div>
       {/* 4. Timeline */}
-      <Timeline {...timeline} />
+      {!presenting && <Timeline {...timeline} />}
     </div>
   );
 }
