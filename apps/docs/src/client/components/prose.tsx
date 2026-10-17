@@ -1,20 +1,22 @@
-import { Children, Fragment, isValidElement, useState } from 'react';
-import type { ComponentProps, ReactElement, ReactNode } from 'react';
+import { useState } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 import { Router } from '@kestack/kabuki/routing';
 import { ArrowUpRightIcon } from '@kestack/web-platform/components/lucide';
 import type { MDXComponents } from 'mdx/types';
 import { DEMO, SLUGS, router } from '../../shared/index.ts';
 import type { Route, Slug } from '../../shared/index.ts';
+import { AppWindow } from './app-window.tsx';
+import { Files, split } from './files.tsx';
 import { PictureFrame } from './picture.tsx';
 import { Playground } from './playground/index.ts';
 import { link } from './styles.ts';
 
 /*
  * How a docs page's MDX is drawn: every Markdown element, and the few
- * components any page uses without importing them: `<Callout>`, `<Demo>`
- * and `<Playground>`. A link to a place on the site is a Router link; a
- * link to a page the site does not have fails the page, so it is caught
- * before it ships. A link to the full-screen demo opens it in a new tab.
+ * components any page uses without importing them: `<Callout>`, `<Demo>`,
+ * `<Playground>`, and a demo page's `<AppWindow>` and `<Files>`. A link
+ * to a place on the site is a Router link; a link to a page the site
+ * does not have fails the page, so it is caught before it ships. A link to the full-screen demo opens it in a new tab.
  */
 
 /** The site's Route for an internal path; one it does not have throws. */
@@ -102,8 +104,6 @@ function Pre({ className, ...props }: ComponentProps<'pre'>) {
   );
 }
 
-type FileBlock = ReactElement<{ readonly 'data-file'?: string }>;
-
 const tab =
   'flex h-10 shrink-0 items-center gap-2 border-b-2 border-transparent px-3 text-sm text-muted-foreground hover:text-foreground aria-selected:border-foreground aria-selected:text-foreground';
 
@@ -121,20 +121,7 @@ export function Demo({
   readonly children: ReactNode;
 }) {
   const [shown, setShown] = useState<number | null>(null);
-  // MDX hands each code block over inside a Fragment of its own.
-  const parts = Children.toArray(children).flatMap((part) =>
-    isValidElement<{ readonly children?: ReactNode }>(part) &&
-    part.type === Fragment
-      ? Children.toArray(part.props.children)
-      : [part],
-  );
-  const files = parts.filter(
-    (part): part is FileBlock =>
-      isValidElement(part) &&
-      typeof (part.props as { 'data-file'?: unknown })['data-file'] ===
-        'string',
-  );
-  const output = parts.filter((part) => !files.includes(part as FileBlock));
+  const { files, rest: output } = split(children);
   return (
     <figure className="my-8">
       <div className="overflow-hidden rounded-xl border border-border bg-card">
@@ -226,4 +213,6 @@ export const prose: MDXComponents = {
   Callout,
   Demo,
   Playground,
+  AppWindow,
+  Files,
 };

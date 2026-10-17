@@ -1,0 +1,52 @@
+import { CounterApp } from './app/app.tsx';
+
+A number, a button to add one, a button to take one away, and a reset.
+Every press is a Message to one Actor. Press a few, and watch the devtools
+under the app: each Message arrives, and the count it left behind.
+
+<AppWindow app={CounterApp} url="counter.app" />
+
+## How it works
+
+The Counter is one [Actor](/kabuki/actor). Its Model is `{ count }`, and it
+takes three Messages: `Incremented`, `Decremented` and `Reset`. Its Update
+says what each one does to the count. That's the whole app's logic, in a
+dozen lines, and none of it knows React is there.
+
+The [View](/kabuki/view) draws the count, and turns each button press into
+a Message with `send`. It never changes the count itself; it asks, and the
+Actor decides.
+
+`toReact` joins the two into one React component, `<CounterApp />`, that you
+can put anywhere.
+
+## Things to try
+
+- **Watch a Message arrive.** Press `+`. The Counter's card on the Map
+  flashes with the Message. Click the card to see its Model.
+- **Go back in time.** Press a few times, then click or drag along the
+  Timeline under the Map. The app shows the count as it was, read only. Go
+  live to come back. This is the Counter's [History](/kabuki/history).
+- **Change the past.** From an earlier Step, fork, and press something
+  else. The new presses grow a new Branch; the old one is still there.
+
+## The code
+
+Three files: the Actor, its View, and the line that makes them a React
+component.
+
+<Files>
+
+```ts file=./app/counter.ts
+
+```
+
+```tsx file=./app/counter-view.tsx
+
+```
+
+```tsx file=./app/app.tsx
+
+```
+
+</Files>

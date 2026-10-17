@@ -28,10 +28,18 @@ export default defineConfig({
             {
               themes: { light: 'github-light', dark: 'github-dark' },
               defaultColor: 'light',
-              // A block that includes a file is named after it: a Demo's tab.
+              // Left unset, Shiki loads all of its ~200 grammars on the first page.
+              langs: ['sh', 'ts', 'tsx'],
+              // A block that includes a file is named after it: a Demo's tab,
+              // and where it sits in a demo page's tree of Files.
               parseMetaString: (meta: string) => {
                 const file = meta.match(/file=(\S+)/)?.[1];
-                return file ? { 'data-file': basename(file) } : {};
+                return file
+                  ? {
+                      'data-file': basename(file),
+                      'data-path': file.replace(/^\.\//, ''),
+                    }
+                  : {};
               },
             },
           ],

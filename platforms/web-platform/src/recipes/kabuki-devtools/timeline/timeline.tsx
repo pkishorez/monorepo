@@ -20,10 +20,13 @@ import { ink } from '../ink/index.ts';
  * 2. Track   one tick per Step on the Branch in view, init first; the one
  *            shown stands taller. When they do not all fit, the row glides
  *            to keep the one shown in the middle, stopping at either end,
- *            and live it rests at its right end; a finger or a trackpad
- *            can still swipe it. The tick nearest the pointer rises with
- *            its Message's name over it, and a click or tap anywhere on the
- *            track picks the nearest. The last tick, when it is the Head,
+ *            and live it rests at its right end; a trackpad can still
+ *            swipe it. The tick nearest the pointer rises with its
+ *            Message's name over it, and a click or tap anywhere on the
+ *            track picks the nearest. Pressing and dragging, with a mouse
+ *            or a finger, scrubs: the Step shown follows it, and the row
+ *            holds still under it until it lets go, gliding only while it
+ *            is held near either end. The last tick, when it is the Head,
  *            goes live.
  * 3. Read    the live Step: its place and its Message, once there is room.
  * 4. Branch  bring another Branch into view, when there is more than one
@@ -38,6 +41,9 @@ import { ink } from '../ink/index.ts';
  *            and cannot be undone. 1 keeps only the Snapshot; 2 is the least
  *            that still shows a change.
  */
+
+/** How near either end of the track, in pixels, a scrub glides the row. */
+const EDGE = 32;
 
 const PRESETS = [1, 2, 5, 10, 25, 50, 100, 500];
 const HINTS: Partial<Record<number, string>> = {
@@ -131,8 +137,56 @@ export function Timeline({
     );
   };
 
-  // The Step shown in the middle of the track, or as near as its ends allow.
+  /** The Step a press on the track last showed, while it drags. */
+  const scrub = useRef<number | undefined>(undefined);
+  const [scrubbing, setScrubbing] = useState(false);
+  const scrubTo = (clientX: number) => {
+    const index = nearestTo(clientX);
+    if (index === scrub.current) return;
+    scrub.current = index;
+    onShow(index);
+  };
+  const latest = useRef(scrubTo);
+  latest.current = scrubTo;
+  const stopScrubbing = (pointerType: string) => {
+    setScrubbing(false);
+    // Only a mouse stays over the track once it lets go.
+    if (pointerType === 'mouse') return;
+    pointer.current = undefined;
+    setNear(undefined);
+  };
+
+  // Held near either end while scrubbing, the row glides that way, faster
+  // the nearer the end, and the Step shown keeps up with it.
   useEffect(() => {
+    if (!scrubbing) return;
+    let frame = 0;
+    const glide = () => {
+      const at = track.current;
+      const x = pointer.current;
+      if (at && x !== undefined) {
+        const { left, right } = at.getBoundingClientRect();
+        const by =
+          x < left + EDGE
+            ? -(left + EDGE - x)
+            : x > right - EDGE
+              ? x - (right - EDGE)
+              : 0;
+        if (by !== 0) {
+          at.scrollLeft += Math.sign(by) * Math.min(Math.abs(by), EDGE) * 0.4;
+          latest.current(x);
+        }
+      }
+      frame = requestAnimationFrame(glide);
+    };
+    frame = requestAnimationFrame(glide);
+    return () => cancelAnimationFrame(frame);
+  }, [scrubbing]);
+
+  // The Step shown in the middle of the track, or as near as its ends allow;
+  // held while scrubbing, so the tick under the mouse stays under it.
+  useEffect(() => {
+    if (scrubbing) return;
     const at = track.current;
     const tick = at?.children[shown] as HTMLElement | undefined;
     if (!at || !tick) return;
@@ -140,7 +194,7 @@ export function Timeline({
       left: tick.offsetLeft + tick.offsetWidth / 2 - at.clientWidth / 2,
       behavior: still ? 'instant' : 'smooth',
     });
-  }, [shown, steps.length, still]);
+  }, [shown, steps.length, still, scrubbing]);
 
   return (
     <div
@@ -232,18 +286,35 @@ export function Timeline({
         ref={track}
         role="list"
         aria-label="Steps"
-        className="relative flex h-full min-w-0 flex-1 touch-pan-x items-center gap-[3px] overflow-x-auto overscroll-x-contain px-1 [scrollbar-width:none]"
-        onPointerMove={(event) => {
-          if (event.pointerType !== 'mouse') return;
+        className="relative flex h-full min-w-0 flex-1 touch-none items-center gap-[3px] overflow-x-auto overscroll-x-contain px-1 [scrollbar-width:none]"
+        onPointerDown={(event) => {
+          scrub.current = undefined;
+          if (!event.isPrimary || event.button !== 0) return;
+          event.preventDefault();
+          event.currentTarget.setPointerCapture(event.pointerId);
           pointer.current = event.clientX;
           point();
+          setScrubbing(true);
+          scrubTo(event.clientX);
         }}
+        onPointerMove={(event) => {
+          if (event.pointerType !== 'mouse' && !scrubbing) return;
+          pointer.current = event.clientX;
+          point();
+          if (scrubbing) scrubTo(event.clientX);
+        }}
+        onPointerUp={(event) => stopScrubbing(event.pointerType)}
+        onPointerCancel={(event) => stopScrubbing(event.pointerType)}
+        onLostPointerCapture={(event) => stopScrubbing(event.pointerType)}
         onPointerLeave={() => {
+          if (scrubbing) return;
           pointer.current = undefined;
           setNear(undefined);
         }}
         onScroll={point}
         onClick={(event) => {
+          // A mouse or a finger has picked its Step already, on press.
+          if (event.detail > 0 && scrub.current !== undefined) return;
           if (event.target === event.currentTarget)
             onShow(nearestTo(event.clientX));
         }}
@@ -256,7 +327,10 @@ export function Timeline({
             title={`${index === 0 ? 'init' : `${index}. ${each.label}`}`}
             aria-label={index === 0 ? 'init' : `Step ${index}, ${each.label}`}
             aria-current={index === shown ? 'step' : undefined}
-            onClick={() => onShow(index)}
+            onClick={(event) => {
+              if (event.detail > 0 && scrub.current !== undefined) return;
+              onShow(index);
+            }}
             className="group grid h-8 w-2.5 shrink-0 place-items-center outline-none"
           >
             <span

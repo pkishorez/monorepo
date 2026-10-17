@@ -10,8 +10,8 @@ import type { Route, Slug } from '../../shared/index.ts';
  * kabuki's docs, section by section, as its table of contents says. First
  * a way out of kabuki, back to the stack's home. Each section hangs its
  * pages off a line, and the page shown marks its part of the line. The
- * primitives are numbered, to read in order. Last, the demo, which opens
- * full screen in a new tab.
+ * primitives are numbered, to read in order. Last, the demos, from the
+ * simplest up; the full-screen one ends them, in a new tab.
  */
 
 const currentSlug = (route: Route): Slug | undefined =>
@@ -56,25 +56,22 @@ export function Sidebar() {
                 </Router.Link>
               </li>
             ))}
+            {section.title === 'Demos' && (
+              <li>
+                <a
+                  href={DEMO.href}
+                  target="_blank"
+                  rel="noreferrer"
+                  className={`group ${row}`}
+                >
+                  <span className="min-w-0 flex-1 truncate">{DEMO.title}</span>
+                  <ArrowUpRightIcon className="size-3.5 shrink-0 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                </a>
+              </li>
+            )}
           </ul>
         </section>
       ))}
-      <section className="space-y-2">
-        <h2 className="text-[13px] font-semibold text-foreground">Demo</h2>
-        <ul className="border-l border-border">
-          <li>
-            <a
-              href={DEMO.href}
-              target="_blank"
-              rel="noreferrer"
-              className={`group ${row}`}
-            >
-              <span className="min-w-0 flex-1 truncate">{DEMO.title}</span>
-              <ArrowUpRightIcon className="size-3.5 shrink-0 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-            </a>
-          </li>
-        </ul>
-      </section>
     </nav>
   );
 }

@@ -82,9 +82,50 @@ export const SECTIONS = [
       },
     ],
   },
+  {
+    title: 'Demos',
+    docs: [
+      {
+        slug: 'counter',
+        title: 'Counter',
+        summary: 'The smallest kabuki app: one number, three Messages.',
+      },
+      {
+        slug: 'counters',
+        title: 'Counters',
+        summary: 'A list of Counters, each its own Actor.',
+      },
+      {
+        slug: 'stopwatch',
+        title: 'Stopwatch',
+        summary: 'A Worker that ticks only while it runs.',
+      },
+      {
+        slug: 'todos',
+        title: 'To-dos',
+        summary: 'Add, check off and filter a list of to-dos.',
+      },
+      {
+        slug: 'checkout',
+        title: 'Checkout',
+        summary: 'A checkout as a state machine, with steps it can skip.',
+      },
+      {
+        slug: 'managed-resource',
+        title: 'Managed resource',
+        summary: 'A service that starts with a State and stops with it.',
+      },
+      {
+        slug: 'shopping-cart',
+        title: 'Shopping cart',
+        summary:
+          'Products, a cart and a checkout, shared through Capabilities.',
+      },
+    ],
+  },
 ] as const satisfies ReadonlyArray<Section>;
 
-/** The full-screen demo: every primitive in one app, opened in a new tab. */
+/** The full-screen demo: every primitive in one app, opened in a new tab, after the demos on pages. */
 export const DEMO = {
   title: 'Opening an app',
   summary: 'Every primitive at once, drawn as the tree of Actors.',
