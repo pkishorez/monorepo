@@ -1,1 +1,63 @@
-This demo is being written.
+import { TodosApp } from './app/app.tsx';
+
+A list of to-dos. Add one, check it off, rename it, delete it, filter the
+list, and clear the ones that are done. The list is one Actor, and every
+to-do is an Actor of its own. Watch the devtools under the app: a card for
+the list, and the to-dos' cards under it.
+
+<AppWindow app={TodosApp} url="todos.app" />
+
+## How it works
+
+The list is the `Todos` Actor. Its filter is its
+[State](/kabuki/state-machine): `All`, `Active` or `Done`, and `Filtered`
+moves it from one to the next. Its Model keeps what it acts on: which
+to-dos there are, and which are done. So `Toggled`, `Removed` and
+`ClearedDone` are its Messages.
+
+Each to-do is a `Todo` [Child](/kabuki/children), one per id in the list.
+Add an id and a Todo starts; remove one and only that Todo stops. A Todo
+gets its text as Input, once, and from then on the text is its own.
+Renaming it is a Message to that Todo alone.
+
+Whether a to-do is done, the list decides, and hands it down as a
+[Prop](/kabuki/props). The Todo only reads it, to strike its text through.
+
+The text you type stays in React until you press Add. Only then does it
+become a Message.
+
+## Things to try
+
+- **One card per to-do.** Under the list on the Map is a stack of Todo
+  cards, one per to-do; its arrows step through them. Add a to-do and the
+  stack grows. Check one off, then click its card: its Prop says `done`.
+  Rename it, and the Message lands on that card, not the list's.
+- **Go back in time.** Delete a to-do, then click or drag along the
+  Timeline. It comes back, and its card with it. Go live to come back.
+- **Change the past.** From an earlier Step, fork, and do something else.
+  The new Messages grow a new Branch; the old one is still there.
+
+## The code
+
+Four files: the two Actors, their Views, and the line that makes them a
+React component.
+
+<Files>
+
+```ts file=./app/todos.ts
+
+```
+
+```tsx file=./app/todos-view.tsx
+
+```
+
+```tsx file=./app/todo-view.tsx
+
+```
+
+```tsx file=./app/app.tsx
+
+```
+
+</Files>

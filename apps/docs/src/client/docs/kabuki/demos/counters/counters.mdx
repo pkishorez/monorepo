@@ -1,1 +1,66 @@
-This demo is being written.
+import { CountersApp } from './app/app.tsx';
+
+A list of Counters. Add one, remove one, and press each on its own. Every
+Counter is an Actor of its own, a Child of the list, with its own count.
+The total at the top adds them all up.
+
+<AppWindow app={CountersApp} url="counters.app" />
+
+## How it works
+
+The list is one [Actor](/kabuki/actor). Its Model is only a list of ids,
+and it takes two Messages: `Added` and `Removed`. It never holds a count.
+
+Each id is a [Child](/kabuki/children): a Counter, with its own Model,
+`{ count }`, and its own Messages. The list doesn't create or stop them by
+hand. It changes its ids, and Kabuki starts a Counter for each new id and
+stops the one whose id is gone.
+
+The list also hands each Counter its place, as a [Prop](/kabuki/props).
+Remove the first Counter and the others move up: their places change,
+because the list says so, but their counts stay, because those are their
+own.
+
+The total is read in the list's View. It looks at each Counter's count to
+add them up, and can never change one.
+
+## Things to try
+
+- **See the tree.** Add a Counter. On the Map, the Counter card under the
+  list now counts one more; step through them with its arrows. Click it to
+  see that Counter's Model and Props.
+- **Keep what's yours.** Press a few times on Counter 2, then remove
+  Counter 1. Counter 2 becomes Counter 1 and keeps its count. Click its
+  card: the place Prop changed, the Model didn't.
+- **Go back and fork.** Click or drag along the Timeline to a Step before a
+  Counter was removed. It's back, with its count. Fork from there and press
+  something else: a new Branch grows, and the old one is still there.
+
+## The code
+
+Five files: the Counter and its View, the list and its View, and the line
+that makes them one React component.
+
+<Files>
+
+```ts file=./app/counter.ts
+
+```
+
+```tsx file=./app/counter-view.tsx
+
+```
+
+```ts file=./app/counters.ts
+
+```
+
+```tsx file=./app/counters-view.tsx
+
+```
+
+```tsx file=./app/app.tsx
+
+```
+
+</Files>

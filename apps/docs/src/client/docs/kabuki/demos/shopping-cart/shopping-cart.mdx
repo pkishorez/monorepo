@@ -1,1 +1,87 @@
-This demo is being written.
+import { ShopApp } from './app/app.tsx';
+
+A list of products, a cart, and a checkout. The list and the cart are two
+Children of one Shop, and they never talk to each other. Add a few things,
+change your mind, and check out. Watch the devtools under the app: every
+change climbs from a Child to the Shop as a Message.
+
+<AppWindow app={ShopApp} url="shop.app" />
+
+## How it works
+
+The Shop is one [Actor](/kabuki/actor) that keeps the order: a list of
+lines, each a product and how many. It has two
+[States](/kabuki/state-machine): `Shopping`, and `Placed` once you check
+out.
+
+While it's `Shopping`, it has [Children](/kabuki/children): a `Product`
+for each thing it sells, and one `Cart`. It hands them what they need as
+[Props](/kabuki/props). Each Product gets how many of it are in the cart.
+The Cart gets the lines. Neither keeps a copy.
+
+A Child can't change its parent's Model. So the Shop provides a
+[Capability](/kabuki/capabilities), the `Basket`, with three things to ask
+for: add, change, and check out. A Product's Add button sends it a Message,
+and its Update runs a Command that asks the Basket. The Basket turns the
+ask into a Message to the Shop. The Shop's Update changes the lines, and
+the new Props flow back down to every Child.
+
+The Children don't know who provides the Basket. Put them under another
+Actor that provides one, and they work the same.
+
+## Things to try
+
+- **Follow one press up the tree.** Add a mug. On the Map, the Product's
+  card flashes with `Added`, then the Shop's card flashes with its own
+  `Added`. Click the Shop's card to see the lines in its Model.
+- **Go back in time.** Add, change and check out, then click or drag along
+  the Timeline. The cart fills and empties as it was, read only. Go live to
+  come back.
+- **Change the past.** Go back to a Step before you checked out, fork, and
+  add something else. The new order grows a new Branch; the one you placed
+  is still there.
+
+## The code
+
+The data, the Capability, then each Actor with its View, from the bottom
+of the tree up.
+
+<Files>
+
+```ts file=./app/products.ts
+
+```
+
+```ts file=./app/basket.ts
+
+```
+
+```ts file=./app/product.ts
+
+```
+
+```tsx file=./app/product-view.tsx
+
+```
+
+```ts file=./app/cart.ts
+
+```
+
+```tsx file=./app/cart-view.tsx
+
+```
+
+```ts file=./app/shop.ts
+
+```
+
+```tsx file=./app/shop-view.tsx
+
+```
+
+```tsx file=./app/app.tsx
+
+```
+
+</Files>

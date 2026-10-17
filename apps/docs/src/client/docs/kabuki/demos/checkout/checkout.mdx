@@ -1,1 +1,66 @@
-This demo is being written.
+import { CheckoutApp } from './app/app.tsx';
+
+A checkout in four steps: pick a format, give an address, pay, and review.
+Each step is a State of one Actor, and each State takes only the Messages
+that make sense on it. Pick the e-book and the checkout skips Shipping,
+because there is nothing to ship.
+
+<AppWindow app={CheckoutApp} url="checkout.app" />
+
+## How it works
+
+The Checkout is one [Actor](/kabuki/actor) with six
+[States](/kabuki/state-machine): `Cart`, `Shipping`, `Payment`, `Review`,
+`Placing` and `Placed`. Its Model is the order, kept across every step.
+
+Each State lists its own Messages. `Cart` takes `FormatChosen`, and picks
+the next State from it: `Payment` for an e-book, `Shipping` for a
+paperback. `Payment` takes `WentBack` and returns the way you came. Only
+`Review` takes `PromoTried`; it applies `SAVE10`, and keeps any other code
+in its own State data, to show why it was turned down. There is no
+`if (step === …)` anywhere. A Message a State has no rule for is ignored,
+so a skipped or out-of-order step can't happen.
+
+`Placing` owns a [Worker](/kabuki/workers): a pretend payment that waits a
+moment, then sends `OrderConfirmed`. It runs only while the order is
+`Placing`.
+
+The forms are plain React. What you type stays in React state, and a step
+sends one Message when you press Continue.
+
+## Things to try
+
+- **Follow the State.** Go through a step or two. The Checkout's card on
+  the Map shows the State it is in. Click the card to see the order in its
+  Model.
+- **Replay the steps.** Place an order, then click or drag along the
+  Timeline. The app shows each step as it was, read only. Try `SAVE20`
+  before `SAVE10` on Review, and find the turned-down code in the State.
+- **Take the other path.** Click the first Step on the Timeline, fork
+  there, press Back, and pick the other format. The new Steps grow a new
+  Branch, with or without Shipping; the old one is still there.
+
+## The code
+
+Four files: the Actor, its View, the forms for each step, and the line
+that makes them a React component.
+
+<Files>
+
+```ts file=./app/checkout.ts
+
+```
+
+```tsx file=./app/checkout-view.tsx
+
+```
+
+```tsx file=./app/steps.tsx
+
+```
+
+```tsx file=./app/app.tsx
+
+```
+
+</Files>

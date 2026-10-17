@@ -1,1 +1,63 @@
-This demo is being written.
+import { TickerApp } from './app/app.tsx';
+
+A live price, and a switch for the feed behind it. Turn it on, and the feed
+opens. Turn it off, and the feed closes. Nothing closes it by hand: leaving
+the State does.
+
+<AppWindow app={TickerApp} url="ticker.app" />
+
+## How it works
+
+The Ticker is one [Actor](/kabuki/actor) with two
+[States](/kabuki/state-machine), `Off` and `On`. A `Switched` Message moves
+it from one to the other.
+
+The price comes from a `PriceFeed`, a [Capability](/kabuki/capabilities)
+built from an Effect Layer. The Layer opens the feed when it is built, and
+closes it when its Scope closes. Each time, it sends the Ticker a `Logged`
+Message, so you can watch it happen.
+
+Only the `On` State provides the feed. In the same State lives a Quote, a
+[Child](/kabuki/children) that requires a `PriceFeed`. Its
+[Worker](/kabuki/workers) reads a price every second and a half, and sends
+it to the Quote as a `Priced` Message.
+
+Switch off, and the Ticker leaves `On`. Everything that State started stops
+with it: the Quote and its Worker first, then the feed, whose release runs
+and logs `Feed closed`.
+
+## Things to try
+
+- **Watch it come and go.** Switch on. A Quote appears under the Ticker on
+  the Map, and its Worker starts. Switch off, and both are gone. Click a
+  card to see its Model and State.
+- **Go back in time.** Click or drag along the Timeline to an earlier Step.
+  The app shows the price as it was, read only. Nothing opens or closes
+  while you look: a past Step only draws.
+- **Fork while it's on.** From a Step in `On`, fork. The new Branch opens a
+  fresh feed of its own, and logs it.
+
+## The code
+
+Four files: the feed and its Layer, the Actors, their Views, and the line
+that makes them a React component.
+
+<Files>
+
+```ts file=./app/price-feed.ts
+
+```
+
+```ts file=./app/ticker.ts
+
+```
+
+```tsx file=./app/ticker-view.tsx
+
+```
+
+```tsx file=./app/app.tsx
+
+```
+
+</Files>

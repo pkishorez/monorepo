@@ -1,1 +1,59 @@
-This demo is being written.
+import { StopwatchApp } from './app/app.tsx';
+
+A stopwatch: start it, take laps, pause, resume, reset. While it runs, a
+Worker sends a Tick once a second. When it stops running, so does the
+Worker. Start it, and watch the devtools under the app.
+
+<AppWindow app={StopwatchApp} url="stopwatch.app" />
+
+## How it works
+
+The Stopwatch is one Actor with three [States](/kabuki/state-machine):
+`Idle`, `Running` and `Paused`. Each State takes only the Messages that make
+sense in it: you can take a lap only while it runs, and reset only once it
+is paused.
+
+The `tick` [Worker](/kabuki/workers) is written inside `Running`, so it runs
+only there. Nothing starts or stops it: entering `Running` starts it, and
+leaving stops it. Each `Ticked` banks the time so far into the Model and stays
+in `Running`, so the Worker keeps going.
+
+Every Update is handed `at`, the time its Message arrived. So `Paused` and
+`Lapped` are exact to the hundredth, with no Tick needed. The Worker could
+tick every 10ms, but then every second would add a hundred Steps to the
+History. Once a second keeps the History short, and the View counts the
+hundredths on screen in between. That count is only drawing: the Actor never
+sees it, and it stands still when you look at a past Step.
+
+## Things to try
+
+- **Watch the Worker come and go.** Press Start. On the Map, the Stopwatch's
+  card shows `tick` running, and a `Ticked` arrives each second. Press Pause,
+  and the Worker is gone. Click the card to see the Model and State.
+- **Go back in time.** Take a few laps, pause, then click or drag along the
+  Timeline. The time and laps show as they were at each Step, and the
+  hundredths stop counting. Go live to come back.
+- **Change the past.** Pick a Step from before a lap, fork, and press
+  something else. The new Messages grow a new Branch, and the Worker starts
+  again if that Step was `Running`.
+
+## The code
+
+Three files: the Actor, its View, and the line that makes them a React
+component.
+
+<Files>
+
+```ts file=./app/stopwatch.ts
+
+```
+
+```tsx file=./app/stopwatch-view.tsx
+
+```
+
+```tsx file=./app/app.tsx
+
+```
+
+</Files>
