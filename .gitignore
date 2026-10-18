@@ -5,6 +5,8 @@
 node_modules
 .turbo
 dist
+.output
+.vercel
 .coordination.*
 .wrangler
 .claude/settings.local.json

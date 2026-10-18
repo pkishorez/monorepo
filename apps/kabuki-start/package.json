@@ -33,6 +33,7 @@
     "@vitejs/plugin-react": "catalog:",
     "alchemy": "catalog:",
     "laymos": "workspace:*",
+    "nitro": "catalog:",
     "tailwindcss": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",

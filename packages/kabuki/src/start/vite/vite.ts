@@ -50,7 +50,7 @@ import { DEV_STYLES, serveStyles } from './styles.ts';
 
 /** Where the server runs, and where Start finds the app's files, from the Vite root. */
 export interface StartOptions extends FileOptions {
-  /** Where the server runs, as its adapter says: `cloudflare()` from `@kestack/kabuki/start/platform/cloudflare`. */
+  /** Where the server runs, as its adapter says: `cloudflare()` from `@kestack/kabuki/start/platform/cloudflare`, or `nitro()` from `@kestack/kabuki/start/platform/nitro` beside Nitro's own plugin. */
   readonly platform: Platform;
 }
 
@@ -161,18 +161,18 @@ export const start = (options: StartOptions): Plugin => {
               },
             },
           },
-          // 4. Build
+          // 4. Build: Start's own two; any other environment is left to the
+          // plugin that adds it, as Nitro builds its server after these.
           ...(config.builder?.buildApp
             ? {}
             : {
                 builder: {
                   buildApp: async (builder) => {
-                    await builder.build(builder.environments.client!);
-                    for (const environment of Object.values(
-                      builder.environments,
-                    ))
-                      if (!environment.isBuilt)
+                    for (const name of ['client', 'ssr']) {
+                      const environment = builder.environments[name];
+                      if (environment && !environment.isBuilt)
                         await builder.build(environment);
+                    }
                   },
                 },
               }),

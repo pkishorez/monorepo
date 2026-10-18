@@ -1,12 +1,18 @@
 import { basename } from 'node:path';
 import mdx from '@mdx-js/rollup';
 import { cloudflare } from '@kestack/kabuki/start/platform/cloudflare';
+import { nitro as onNitro } from '@kestack/kabuki/start/platform/nitro';
 import { start } from '@kestack/kabuki/start/vite';
 import rehypeShiki from '@shikijs/rehype';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
+import { nitro } from 'nitro/vite';
 import { defineConfig } from 'vite';
 import { remarkDocs } from './mdx/remark-docs.ts';
+
+// Cloudflare by default, as Alchemy deploys it; `KABUKI_PLATFORM=nitro` builds
+// for any Nitro preset instead, as `NITRO_PRESET` names it.
+const viaNitro = process.env.KABUKI_PLATFORM === 'nitro';
 
 export default defineConfig({
   server: {
@@ -47,6 +53,10 @@ export default defineConfig({
       }),
     },
     react({ include: /\.(mdx|tsx|ts)$/ }),
-    start({ platform: cloudflare(), app: 'src/client/app' }),
+    start({
+      platform: viaNitro ? onNitro() : cloudflare(),
+      app: 'src/client/app',
+    }),
+    ...(viaNitro ? [nitro()] : []),
   ],
 });

@@ -53,7 +53,8 @@ Snapshot beside it, which the browser hydrates and carries on from. It never
 runs a Runtime on the server. An app writes three files: its pages, its app
 with its Document and what it needs in the browser, and its Loaders with what
 they need on the server, in three tiers; the plugin writes every entry. Each
-platform is an adapter of its own subpath, Cloudflare Workers for now. How it works is in
+platform is an adapter of its own subpath: Cloudflare Workers, or through
+Nitro any host it has a preset for, Node, Bun, Vercel and AWS Lambda among them. How it works is in
 [docs/start.md](./docs/start.md).
 
 Read the language in [CONTEXT.md](./CONTEXT.md), the decisions in
@@ -180,6 +181,13 @@ The port each platform's adapter fills, in types only: no runtime value.
 | ------------ | --------------------------------------------------------------------------------------------------------------------------------- |
 | `cloudflare` | Cloudflare Workers, for `start({ platform: cloudflare() })`: the server built as one module in its edge form.                     |
 | `serve`      | Start's handler as a Worker's `fetch`, handed the Worker's env and the Cloudflare Cache: what the server's entry default-exports. |
+
+### `@kestack/kabuki/start/platform/nitro`
+
+| Export  | What it does                                                                                                                                          |
+| ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `nitro` | Any Nitro preset, for `start({ platform: nitro() })` beside Nitro's own `nitro()` plugin, which builds the server for the host and serves the assets. |
+| `serve` | Start's handler as Nitro's SSR entry, handed the process's env and no Cache: what the server's entry default-exports.                                 |
 
 ### `@kestack/kabuki/start/vite`
 

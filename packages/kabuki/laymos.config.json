@@ -45,6 +45,11 @@
       "because": "An adapter implements the port its platform declares: it imports the Platform, Host and Handler types it fills, and nothing else of its parent."
     },
     {
+      "from": "src/start/platform/nitro",
+      "to": "src/start/platform",
+      "because": "An adapter implements the port its platform declares: it imports the Platform, Host and Handler types it fills, and nothing else of its parent."
+    },
+    {
       "from": "src/routing/adapter/browser",
       "to": "src/routing/adapter",
       "because": "An adapter implements the port its parent declares: it imports the Adapter it fills, and nothing else of its parent."
