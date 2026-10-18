@@ -40,4 +40,6 @@ export interface Platform {
    * module and export: the entry default-exports `serve(handler)`.
    */
   readonly serve: { readonly from: string; readonly name: string };
+  /** Vite config the platform adds to the app's, as `nitro()` hands Nitro's plugin its preset. */
+  readonly config?: Readonly<Record<string, unknown>>;
 }

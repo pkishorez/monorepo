@@ -52,13 +52,20 @@ describe('cloudflare', () => {
 });
 
 describe('nitro', () => {
-  it('builds for Node, and wraps the handler in its own serve', () => {
-    const platform = nitro();
+  it('builds for Node by its preset, and hands Nitro the preset', () => {
+    const platform = nitro({ preset: 'vercel' });
     expect(platform.conditions[0]).toBe('node');
+    expect(platform.config).toEqual({ nitro: { preset: 'vercel' } });
     expect(platform.serve).toEqual({
       from: '@kestack/kabuki/start/platform/nitro',
       name: 'serve',
     });
+  });
+
+  it('builds for workerd on a Cloudflare preset', () => {
+    expect(nitro({ preset: 'cloudflare_module' }).conditions[0]).toBe(
+      'workerd',
+    );
   });
 
   it('hands each request to Start with the process’s env and no Cache', async () => {
@@ -68,5 +75,17 @@ describe('nitro', () => {
     );
     expect(await response.text()).toBe('drawn');
     expect(hosts).toEqual([{ env: process.env }]);
+  });
+
+  it('hands the Worker’s env and the Cache on Cloudflare', async () => {
+    const cache = { match: async () => undefined, put: async () => {} };
+    vi.stubGlobal('caches', { default: cache });
+    const { hosts, handler } = recording();
+    const env = { DB: 'binding' };
+    const request = Object.assign(new Request('https://site.test/'), {
+      runtime: { cloudflare: { env } },
+    });
+    await serve$(handler).fetch(request);
+    expect(hosts).toEqual([{ env, cache }]);
   });
 });

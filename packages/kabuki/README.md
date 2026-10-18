@@ -184,10 +184,10 @@ The port each platform's adapter fills, in types only: no runtime value.
 
 ### `@kestack/kabuki/start/platform/nitro`
 
-| Export  | What it does                                                                                                                                          |
-| ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `nitro` | Any Nitro preset, for `start({ platform: nitro() })` beside Nitro's own `nitro()` plugin, which builds the server for the host and serves the assets. |
-| `serve` | Start's handler as Nitro's SSR entry, handed the process's env and no Cache: what the server's entry default-exports.                                 |
+| Export  | What it does                                                                                                                                                                                               |
+| ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `nitro` | Any Nitro preset, for `start({ platform: nitro({ preset: 'vercel' }) })` beside Nitro's own plain `nitro()` plugin, which it hands the preset; Nitro builds the server for the host and serves the assets. |
+| `serve` | Start's handler as Nitro's SSR entry, handed the Worker's env and the Cloudflare Cache on Cloudflare, and the process's env elsewhere: what the server's entry default-exports.                            |
 
 ### `@kestack/kabuki/start/vite`
 

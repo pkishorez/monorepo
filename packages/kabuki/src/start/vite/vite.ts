@@ -125,6 +125,7 @@ export const start = (options: StartOptions): Plugin => {
           path.join(config.build?.outDir ?? 'dist', name);
         const found = findFiles(root, options);
         return {
+          ...options.platform.config,
           appType: 'custom',
           // The browser's entry is the plugin's own, which Vite cannot scan:
           // scan the app's files, and what the entry imports, so the first
