@@ -29,7 +29,11 @@ import type { WorkerStatus } from './worker.ts';
  */
 
 export interface ActorInstance {
-  readonly receive: (envelope: Envelope) => Handled;
+  /** Handle an Envelope; `heard` is told what came of it before any Instance follows it. */
+  readonly receive: (
+    envelope: Envelope,
+    heard?: (handled: Handled) => void,
+  ) => Handled;
   readonly workers: (instance: string) => ReadonlyArray<WorkerStatus>;
   readonly stop: () => Effect.Effect<void>;
 }
@@ -194,9 +198,10 @@ const start = (
 
   return {
     // 2. Receive
-    receive: (envelope) => {
+    receive: (envelope, heard) => {
       const handled = handle(definition, current, envelope);
       current = handled.snapshot;
+      heard?.(handled);
       root.follow(current);
       root.find(envelope.destination)?.command(handled.commands);
       return handled;

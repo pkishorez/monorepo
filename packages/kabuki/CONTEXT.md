@@ -19,7 +19,7 @@ How a defined Actor behaves: its init, its Updates, its Children, Workers and Pr
 _Avoid_: implementation, instance (an Instance is a running Build)
 
 **Instance**:
-One running Actor in the tree: its ID, its current Model, State and Props, and its Children. Called an "actor instance" where "Instance" alone is unclear. Views draw an Instance; Messages are sent to one.
+One running Actor in the tree: its ID, its current Model, State and Props, and its Children. Called an "actor instance" where "Instance" alone is unclear. Views draw an Instance; Messages are sent to one. Code outside the tree reaches the root Instance through its Runtime, typed by its Actor and always live, and from it any Instance below: it reads their data and their Workers and Sends to them, and changes nothing else. An Instance that has stopped, or was reached before the app last started over, by a start or a Restore, reads as it was when last read, and nothing Sent to it arrives.
 _Avoid_: ref, process, live node, store
 
 **Instance ID**:
@@ -73,7 +73,7 @@ A Message with the Instance it is sent to, its Source and its Time: what a Send 
 _Avoid_: event, packet
 
 **Source**:
-Who Sent a Message: the Instance, and what in it Sent: its View, a Command by its name, a Worker by its name and key, or what it Provides. The same Instance the Message goes to, except for a Request, which comes from the Instance whose Command or Worker made it. A Message Sent from outside the tree, by a test or a tool, comes from outside, not from an Instance; a Restore no one Sent: it was given to the app. Kept with the Envelope to show who talked to whom; Replay never reads it.
+Who Sent a Message: the Instance, and what in it Sent: its View, a Command by its name, a Worker by its name and key, or what it Provides. The same Instance the Message goes to, except for a Request, which comes from the Instance whose Command or Worker made it. A Message Sent from outside the tree, by a test, a tool or the server the app runs on, comes from outside, not from an Instance, named by whoever Sent it; a Restore no one Sent: it was given to the app. Kept with the Envelope to show who talked to whom; Replay never reads it.
 _Avoid_: sender, origin, caller
 
 **Time**:
@@ -85,11 +85,11 @@ The pure rule that takes the current Model, State and Props, a Message and its T
 _Avoid_: reducer, handler
 
 **History**:
-Everything that happened to an app: a tree of entries, one per Message, each pointing to the entry before it and holding its Envelope, nothing else, and the Head the next one grows from. What came of a Message is worked out from the Snapshots before and after it. Replay needs only the Messages on the way to an entry. Saved and given back, it is where an app carries on from, on a server, at build time, after a reload, or after its code changed. Saved, every value in it is its Schema's encoded side, so that side must be JSON-safe. Unbounded unless it has a Window.
+Everything that happened to an app: a tree of entries, one per Message, each pointing to the entry before it and holding its Envelope, nothing else, and the Head the next one grows from. What came of a Message is worked out from the Snapshots before and after it. Replay needs only the Messages on the way to an entry. Saved and given back, it is where an app carries on from, on a server, at build time, after a reload, or after its code changed. Saved, every value in it is its Schema's encoded side, so that side must be JSON-safe. Keeps as much as its Window says.
 _Avoid_: log, journal, event store
 
 **Window**:
-How many entries a History keeps on the Head's Branch, counted back from the Head: none by default, so it keeps everything. It can be set when the History is made and changed at any time, even while a Runtime runs on it; a smaller one Compacts at once, and every entry after keeps to it.
+How many entries a History keeps on the Head's Branch, counted back from the Head: a hundred in a browser, and none on a server, where a History holds only the app as it is now. Keeping everything is a choice, never a default. It can be set when the History is made and changed at any time, even while a Runtime runs on it; a smaller one Compacts at once, and every entry after keeps to it.
 _Avoid_: limit, cap, retention, max size
 
 **Compact**:
@@ -241,7 +241,7 @@ How one Build is drawn: a React component that reads the Model, State, Props and
 _Avoid_: render, template, component (on its own)
 
 **Send**:
-Hand a Message to an Instance, making an Envelope that is handled at once. The only thing a View can do besides drawing; Workers and Commands can Send only to their own Instance.
+Hand a Message to an Instance, making an Envelope that is handled at once. The only thing a View can do besides drawing; Workers and Commands can Send only to their own Instance. Code outside the tree can Send to any live Instance, through its Runtime, and learns whether it arrived.
 _Avoid_: dispatch, emit, trigger
 
 **Host**:
@@ -249,7 +249,7 @@ What the Runtime gives the Instances it runs: a way to Send to any Instance, the
 _Avoid_: self, context, environment
 
 **Runtime**:
-What runs a History: it starts the root Instance at the History's Head, hands it every Message through the one Mailbox, and writes each one into the History. Everything else about an Instance's life happens in the Instance. One per app, however many times the app is drawn; it starts when the app is first mounted in a browser, and stops when the last drawing goes. Drawn with no Runtime, on a server or at build time, the app shows its History's Head and cannot Send.
+What runs a History: it starts the root Instance at the History's Head, hands it every Message through the one Mailbox, and writes each one into the History. Everything else about an Instance's life happens in the Instance. One per app, however many times the app is drawn; it starts when the app is first mounted in a browser, and stops when the last drawing goes. On a server it can run with no drawing at all, for as long as the process lives. Drawn with no Runtime, on a server or at build time, the app shows its History's Head and cannot Send.
 _Avoid_: store, engine, interpreter, actor system
 
 **App**:

@@ -7,6 +7,7 @@ import { History, Runtime } from '../core/index.ts';
 import type {
   AnyActor,
   Entry,
+  LiveInstance,
   Needs,
   Running,
   SavedHistory,
@@ -63,8 +64,8 @@ export interface AppOptions {
    */
   readonly input?: () => unknown;
   /**
-   * How many entries its History keeps on the Head's Branch; every one by
-   * default. `history.keep` changes it later, and the change is remembered
+   * How many entries its History keeps on the Head's Branch; the last 100
+   * by default, and `null` keeps every one. `history.keep` changes it later, and the change is remembered
    * in the browser under the app's name, so it outlasts a reload and wins
    * over this.
    */
@@ -88,6 +89,10 @@ export interface AppRuntime<A = AnyActor> {
   readonly clear: () => void;
   /** What an Instance's Workers are doing now. Empty while stopped. */
   readonly workers: (instance: string) => ReadonlyArray<WorkerStatus>;
+  /** The root Instance, typed and live, Sending from outside named `from`; `null` until the Runtime starts. */
+  readonly instance: (options: {
+    readonly from: string;
+  }) => LiveInstance<A> | null;
   /** Why the last start, stop or clear failed, also logged; `null` once one succeeds. */
   readonly failure: Cause.Cause<unknown> | null;
 }
@@ -113,13 +118,13 @@ export const toReact = <A extends AnyActor, Provided>(
     const stored = readStored(windowKey);
     if (stored === 'all') return { window: null };
     const count = Number(stored);
-    if (stored !== undefined && Number.isInteger(count) && count >= 1)
+    if (stored !== undefined && Number.isInteger(count) && count >= 0)
       return { window: count };
-    return options.window === undefined ? {} : { window: options.window };
+    return { window: options.window === undefined ? 100 : options.window };
   };
   let written: number | null | undefined;
   const remember = (window: number | null) => {
-    if (written === undefined) written = keptWindow().window ?? null;
+    if (written === undefined) written = keptWindow().window;
     if (window === written) return;
     written = window;
     writeStored(windowKey, window === null ? 'all' : `${window}`);
@@ -392,6 +397,7 @@ export const toReact = <A extends AnyActor, Provided>(
         stop,
         clear,
         workers: (instance) => runtime?.workers(instance) ?? NO_WORKERS,
+        instance: (options) => runtime?.instance(options) ?? null,
         failure,
       };
     },

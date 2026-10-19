@@ -54,7 +54,7 @@ const byOf = (source: Source): string => {
     case 'provide':
       return 'Provides';
     case 'outside':
-      return 'Outside';
+      return source.name ?? 'Outside';
     case 'restore':
       return 'Restore';
   }

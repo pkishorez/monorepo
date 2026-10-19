@@ -221,7 +221,7 @@ describe('a tree of Actors', () => {
     // Live, a bad Update changes nothing and throws at the Send.
     return run(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(Sheet);
+        const app = yield* Runtime.start(History.make(Sheet));
         const before = app.snapshot();
         expect(() => app.send('Sheet', { _tag: 'Counted', by: 2 })).toThrow(
           /the Model the Update for "Counted"/,
@@ -237,7 +237,7 @@ describe('a tree of Actors', () => {
   it('keeps every Instance off the changed path the same object', () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(Board);
+        const app = yield* Runtime.start(History.make(Board));
         const before = app.snapshot();
         app.send('Board/left#1', { _tag: 'Bumped' });
         const after = app.snapshot();
@@ -304,7 +304,7 @@ describe('keyed Children', () => {
   it('follow the Model by key, each starting from its Input', () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(List);
+        const app = yield* Runtime.start(History.make(List));
         app.send('List', { _tag: 'Added', text: '' });
         app.send('List', { _tag: 'Added', text: '' });
         expect(rows(app).map((row) => [row.id, row.model])).toEqual([
@@ -323,7 +323,7 @@ describe('keyed Children', () => {
   it('a key Invoked again is a new Instance', () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(List);
+        const app = yield* Runtime.start(History.make(List));
         app.send('List', { _tag: 'Added', text: '' });
         app.send('List/rows[0]#1', { _tag: 'Toggled' });
         app.send('List', { _tag: 'Removed', id: '0' });
@@ -384,7 +384,7 @@ describe('a Child written with `while`', () => {
     run(
       Effect.gen(function* () {
         heard.length = 0;
-        const app = yield* Runtime.start(Room);
+        const app = yield* Runtime.start(History.make(Room));
         expect(app.snapshot().children).toEqual({});
 
         app.send('Room', { _tag: 'Switched' });
@@ -413,7 +413,7 @@ describe('a Child written with `while`', () => {
   it('is restored, saved and loaded whether it is there or not', () =>
     run(
       Effect.gen(function* () {
-        const live = yield* Runtime.start(Room);
+        const live = yield* Runtime.start(History.make(Room));
         expect(restored(live.snapshot())).toBe('handled');
         live.send('Room', { _tag: 'Switched' });
         expect(restored(live.snapshot())).toBe('handled');
@@ -461,7 +461,7 @@ describe('a single Child written with a `key`', () => {
   it('is one Instance, Invoked again when its key changes', () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(Tab);
+        const app = yield* Runtime.start(History.make(Tab));
         expect(app.snapshot().children).toEqual({});
 
         app.send('Tab', { _tag: 'Opened', name: 'a' });
@@ -553,7 +553,7 @@ describe('written at the top or in a State', () => {
     run(
       Effect.gen(function* () {
         heard.length = 0;
-        const app = yield* Runtime.start(Door);
+        const app = yield* Runtime.start(History.make(Door));
         yield* settle;
         expect(heard).toEqual(['tick']);
         expect(Object.keys(app.snapshot().children).sort()).toEqual([
@@ -579,7 +579,7 @@ describe('written at the top or in a State', () => {
     run(
       Effect.gen(function* () {
         heard.length = 0;
-        const app = yield* Runtime.start(Door);
+        const app = yield* Runtime.start(History.make(Door));
         yield* settle;
         expect(app.workers('Door').map((w) => w.name)).toEqual(['creak']);
         app.send('Door', { _tag: 'Hush' });

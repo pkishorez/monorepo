@@ -56,7 +56,7 @@ const envelope = (message: { readonly _tag: string }, at = 0) => ({
 /** A History of three Messages, as a Runtime leaves it. */
 const saved = (): Effect.Effect<SavedHistory, never, Scope.Scope> =>
   Effect.gen(function* () {
-    const app = yield* Runtime.start(Counter);
+    const app = yield* Runtime.start(History.make(Counter));
     yield* TestClock.adjust('100 millis');
     app.send('Counter', { _tag: 'Bumped' });
     yield* TestClock.adjust('100 millis');
@@ -299,7 +299,7 @@ describe('a saved History', () => {
     it('so a Date or an Option in a Message comes back through JSON', () =>
       timed(
         Effect.gen(function* () {
-          const app = yield* Runtime.start(Diary);
+          const app = yield* Runtime.start(History.make(Diary));
           app.send('Diary', {
             _tag: 'Wrote',
             note: { at: new Date(5), text: Option.some('hi') },
@@ -352,7 +352,7 @@ describe('a saved History', () => {
   it('keeps a Message for no Instance as it was Sent: it was dropped, so it never plays', () =>
     timed(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(Counter);
+        const app = yield* Runtime.start(History.make(Counter));
         app.send('Counter/gone#1', { _tag: 'Whatever' });
         expect(app.history.save().entries[0]!.message).toEqual({
           _tag: 'Whatever',
@@ -363,7 +363,7 @@ describe('a saved History', () => {
   it('never changes once given: the next one is new', () =>
     timed(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(Counter);
+        const app = yield* Runtime.start(History.make(Counter));
         app.send('Counter', { _tag: 'Bumped' });
         const before = app.history.save();
         expect(app.history.save()).toBe(before);
@@ -446,7 +446,7 @@ describe('a Window', () => {
   it('changes while the Runtime runs, and keeping it again changes nothing', () =>
     timed(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(Counter);
+        const app = yield* Runtime.start(History.make(Counter));
         for (let at = 1; at <= 5; at++) app.send('Counter', { _tag: 'Bumped' });
         expect(app.history.window()).toBe(null);
         app.history.keep(2);
@@ -468,7 +468,7 @@ describe('a Window', () => {
   it('sweeps every entry that does not grow from the oldest one kept', () =>
     timed(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(Counter);
+        const app = yield* Runtime.start(History.make(Counter));
         for (let at = 1; at <= 5; at++) app.send('Counter', { _tag: 'Bumped' });
         yield* app.start(1);
         app.send('Counter', { _tag: 'Started' });
@@ -506,9 +506,34 @@ describe('a Window', () => {
       }),
     ));
 
-  it('keeps at least one entry', () => {
-    expect(() => History.make(Counter, { window: 0 })).toThrow(
-      /at least 1 entry, not 0/,
+  it('of 0 keeps no Message, only the app as it is now, as a Runtime started from an Actor does', () =>
+    timed(
+      Effect.gen(function* () {
+        const app = yield* Runtime.start(Counter);
+        expect(app.history.window()).toBe(0);
+        for (let at = 1; at <= 3; at++) app.send('Counter', { _tag: 'Bumped' });
+        expect(tags(app.history)).toEqual(['2 @kestack/kabuki/Restore']);
+        expect(count(app.history, 2)).toEqual({ count: 3 });
+        yield* app.stop();
+        yield* app.start();
+        expect(instanceAt(app.snapshot(), 'Counter')?.model).toEqual({
+          count: 3,
+        });
+        // Each start from init grows one entry, folded at once: none is left behind.
+        for (let at = 1; at <= 3; at++) {
+          yield* app.start(null);
+          app.send('Counter', { _tag: 'Bumped' });
+        }
+        expect(app.history.save().entries).toHaveLength(1);
+        expect(app.history.branch()[0]?.message._tag).toBe(
+          '@kestack/kabuki/Restore',
+        );
+      }),
+    ));
+
+  it('keeps 0 entries or more', () => {
+    expect(() => History.make(Counter, { window: -1 })).toThrow(
+      /0 entries or more, not -1/,
     );
   });
 });

@@ -10,7 +10,7 @@ import {
 import type { Scope } from 'effect';
 import { TestClock } from 'effect/testing';
 import { expect } from 'vitest';
-import { Actor, Command, Runtime, instanceAt } from '../index.ts';
+import { Actor, Command, History, Runtime, instanceAt } from '../index.ts';
 import type { Instance, Running } from '../index.ts';
 
 /* The Actors, Layers and helpers the core tests share. */
@@ -188,7 +188,9 @@ export const timed = <A>(effect: Effect.Effect<A, never, Scope.Scope>) =>
     Effect.scoped(effect).pipe(Effect.provide(TestClock.layer())),
   );
 
-export const started = Runtime.start(Auth, ServerLive);
+export const started = Effect.suspend(() =>
+  Runtime.start(History.make(Auth), ServerLive),
+);
 
 export const Counter = Actor.build(
   Actor.define('Counter', {

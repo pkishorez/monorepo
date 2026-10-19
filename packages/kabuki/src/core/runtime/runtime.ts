@@ -7,6 +7,8 @@ import { History, isHistory } from '../history/index.ts';
 import { ActorInstance } from './instance/index.ts';
 import type { WorkerStatus } from './instance/index.ts';
 import { makeMailbox } from './mailbox.ts';
+import { reach } from './reach.ts';
+import type { LiveInstance } from './reach.ts';
 import { makeTime } from './time.ts';
 
 /*
@@ -23,6 +25,9 @@ import { makeTime } from './time.ts';
  *
  * To branch off: stop, move the History's Head, start. `start(entry)` does
  * all three.
+ *
+ * Started from an Actor, as a server does, its History keeps no Messages,
+ * only the app as it is now: a History made with a Window keeps more.
  */
 
 /** Capabilities an Actor's tree still needs from the app's Layer. */
@@ -40,6 +45,8 @@ export interface Running<A> {
   readonly running: () => boolean;
   /** The Time now, in milliseconds. It stands still while stopped. */
   readonly now: () => number;
+  /** The root Instance, typed and live, for code outside the tree: what it Sends comes from outside, named `from`. */
+  readonly instance: (options: { readonly from: string }) => LiveInstance<A>;
   /** Hand a Message to any Instance, from outside the tree unless said otherwise. Dropped while stopped. */
   readonly send: (
     instance: string,
@@ -60,7 +67,9 @@ const start = <A extends AnyActor>(
   ...layer: LayerFor<A>
 ): Effect.Effect<Running<A>, never, Scope.Scope> =>
   Effect.gen(function* () {
-    const history = isHistory(from) ? (from as History<A>) : History.make(from);
+    const history = isHistory(from)
+      ? (from as History<A>)
+      : History.make(from, { window: 0 });
     const root = history.actor.definition;
     const scope = yield* Effect.scope;
     const clock = yield* Clock.Clock;
@@ -77,12 +86,19 @@ const start = <A extends AnyActor>(
     let snapshot: Snapshot;
     let instance: ActorInstance | undefined;
     let release = () => {};
+    /** How many times the app has started over, by a start or a Restore: an Instance reached in one run is stopped in the next. */
+    let runs = 0;
 
     const mailbox = makeMailbox(
       time.now,
       (envelope) => {
-        const handled = instance!.receive(envelope);
-        snapshot = handled.snapshot;
+        // Known before any Instance follows it, so what they start reads it:
+        // a Restore put in place starts the app over, one refused changes nothing.
+        const handled = instance!.receive(envelope, (handled) => {
+          if (isRestore(envelope.message) && handled.outcome === 'handled')
+            runs++;
+          snapshot = handled.snapshot;
+        });
         history.append(envelope, handled);
       },
       notify,
@@ -100,6 +116,7 @@ const start = <A extends AnyActor>(
 
     // 1. Start
     const go = Effect.gen(function* () {
+      runs++;
       snapshot = yield* history.seek();
       time.start(history.branch().at(-1)?.at ?? 0);
       release = history.lock();
@@ -155,8 +172,10 @@ const start = <A extends AnyActor>(
       }),
     );
 
-    return {
+    const running: Running<A> = {
       history,
+      instance: ({ from }) =>
+        reach<A>({ ...running, run: () => runs }, root, from),
       snapshot: () => snapshot,
       running: () => instance !== undefined,
       now: time.now,
@@ -170,6 +189,7 @@ const start = <A extends AnyActor>(
       start: (from) => latest(restart(from)),
       stop: () => latest(halt),
     };
+    return running;
   });
 
 /** Runs an Actor, or carries a History on, until its Scope closes. */

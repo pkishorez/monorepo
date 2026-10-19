@@ -4,7 +4,7 @@ import { createRoot } from 'react-dom/client';
 import type { Root as ReactRoot } from 'react-dom/client';
 import { Effect, Layer, Schema } from 'effect';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { Runtime } from '../../core/index.ts';
+import { History, Runtime } from '../../core/index.ts';
 import { View, toReact } from '../../react/index.ts';
 import { registry } from '../../react/registry.ts';
 import { keyIn } from '../adapter/index.ts';
@@ -519,7 +519,7 @@ describe('the Timeline', () => {
     const counts = await Effect.runPromise(
       Effect.scoped(
         Effect.gen(function* () {
-          const app = yield* Runtime.start(Root.actor, browser());
+          const app = yield* Runtime.start(History.make(Root.actor), browser());
           const settled = Effect.promise(
             () => new Promise((done) => setTimeout(done, 10)),
           );

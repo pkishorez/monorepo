@@ -5,11 +5,13 @@ export type {
   AnyActor,
   Behavior,
   Child,
+  ChildAs,
   Data,
   AnyDefined,
   Defined,
   ActorDefinition,
   KidsByState,
+  KidsIn,
   Only,
   OpenOfBehavior,
   Requires,
@@ -45,4 +47,9 @@ export type {
   SavedHistory,
 } from './history/index.ts';
 export { Runtime } from './runtime/index.ts';
-export type { Needs, Running, WorkerStatus } from './runtime/index.ts';
+export type {
+  LiveInstance,
+  Needs,
+  Running,
+  WorkerStatus,
+} from './runtime/index.ts';

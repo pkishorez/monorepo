@@ -1,6 +1,13 @@
 import { createContext, memo, use, useRef, useSyncExternalStore } from 'react';
 import type { CSSProperties, ReactNode, Ref } from 'react';
-import type { AnyActor, Only, Types } from '../core/index.ts';
+import type {
+  ActorOf,
+  AnyActor,
+  ChildAs,
+  KidsIn,
+  Only,
+  Types,
+} from '../core/index.ts';
 import { lazy, preload } from './lazy.tsx';
 
 /** One Instance in the tree, to draw: its ID and, for a keyed Child, its key. Never changes. */
@@ -9,19 +16,6 @@ export interface Handle<A> {
   readonly key?: string;
   readonly actor?: A;
 }
-
-/** A Child as its View finds it: a list of `each`, one that may be absent `while` its test is false, else one always there. */
-type HandleOf<C> = C extends { readonly actor: infer A }
-  ? C extends { readonly each: Function }
-    ? ReadonlyArray<Handle<A> & { readonly key: string }>
-    : C extends { readonly while: Function }
-      ? Handle<A> | undefined
-      : Handle<A>
-  : never;
-
-type KidsIn<A, T> = T extends keyof Types<A>['children']
-  ? Types<A>['children'][T]
-  : {};
 
 /**
  * What a parent may hand the root element of a View: the `ref` and `style`
@@ -46,7 +40,10 @@ export type ViewProps<A> = {
     /** What its parent hands it now. */
     readonly props: Types<A>['props'];
     readonly children: {
-      readonly [K in keyof KidsIn<A, T>]: HandleOf<KidsIn<A, T>[K]>;
+      readonly [K in keyof KidsIn<A, T>]: ChildAs<
+        KidsIn<A, T>[K],
+        Handle<ActorOf<KidsIn<A, T>[K]>>
+      >;
     };
     readonly send: (message: Types<A>['message']) => void;
     /** Spread on the element the View draws as its root: `<li {...root}>`. */

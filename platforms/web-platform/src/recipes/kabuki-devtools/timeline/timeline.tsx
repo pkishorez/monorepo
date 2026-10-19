@@ -424,7 +424,7 @@ function WindowPicker({
         <input
           autoFocus
           type="number"
-          min={1}
+          min={0}
           step={1}
           inputMode="numeric"
           defaultValue={window ?? ''}
@@ -435,7 +435,7 @@ function WindowPicker({
           }}
           onBlur={(event) => {
             const typed = event.currentTarget.valueAsNumber;
-            if (Number.isInteger(typed) && typed >= 1 && typed !== window)
+            if (Number.isInteger(typed) && typed >= 0 && typed !== window)
               onWindow(typed);
             setTyping(false);
           }}

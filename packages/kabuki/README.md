@@ -78,26 +78,27 @@ pnpm add @kestack/kabuki effect react
 
 ### `@kestack/kabuki`
 
-| Export             | What it does                                                                                                         |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------- |
-| `Actor.define`     | Says what an Actor is: its name, Requires and Schemas, which fix every type. It runs nothing.                        |
-| `Actor.build`      | Says how a defined Actor behaves, at the top and in one block per State: the build is what runs and is drawn.        |
-| `Command.make`     | Defines a Command from its name, the Schema of its args and the Effect it runs; an Update calls it with the args.    |
-| `Runtime.start`    | Runs an Actor, or carries a History on, inside a Scope, with the app's Layer; gives back `send`, `start` and `stop`. |
-| `History.make`     | A new, empty History for an Actor, with the root's Input.                                                            |
-| `History.load`     | A History carrying on from one saved before, read with the Actor's code as it is now.                                |
-| `History.restored` | The lightest History an app can be saved as: one Restore of a Snapshot at a Time, right after init.                  |
-| `history.keep`     | Sets the History's Window, how many entries it keeps; older ones Compact into a Restore. Works while it runs.        |
-| `Replay.make`      | Plays Branches of one app from init, remembering Snapshots so playing again starts from the nearest one.             |
-| `Replay.fold`      | The Snapshot right after a Branch, played now from init with the root's Input, with no yielding.                     |
-| `restore`          | The Restore Message: given to the root, it replaces the whole Snapshot with a saved one, checked against the Actors. |
-| `isRestore`        | Tells a Restore from any other Message.                                                                              |
-| `RESTORE`          | The Restore Message's tag.                                                                                           |
-| `init`             | The Snapshot right after init: the root and every Child its State Invokes.                                           |
-| `handle`           | Applies one Envelope to a Snapshot and gives the next one, purely.                                                   |
-| `outcomeOf`        | Works out what came of one Envelope on a Snapshot: handled, ignored or dropped. The History never keeps it.          |
-| `instanceAt`       | Finds the Instance with an ID in a Snapshot.                                                                         |
-| `isMany`           | Tells the list of an `each` Child from one Instance in an Instance's Children.                                       |
+| Export             | What it does                                                                                                                                                               |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Actor.define`     | Says what an Actor is: its name, Requires and Schemas, which fix every type. It runs nothing.                                                                              |
+| `Actor.build`      | Says how a defined Actor behaves, at the top and in one block per State: the build is what runs and is drawn.                                                              |
+| `Command.make`     | Defines a Command from its name, the Schema of its args and the Effect it runs; an Update calls it with the args.                                                          |
+| `Runtime.start`    | Runs an Actor, or carries a History on, inside a Scope, with the app's Layer; gives back `send`, `start` and `stop`. Started from an Actor, its History keeps no Messages. |
+| `running.instance` | The root Instance, typed and live, for code outside the tree: reads any Instance's data, Children and Workers, and Sends to it from outside under a name.                  |
+| `History.make`     | A new, empty History for an Actor, with the root's Input.                                                                                                                  |
+| `History.load`     | A History carrying on from one saved before, read with the Actor's code as it is now.                                                                                      |
+| `History.restored` | The lightest History an app can be saved as: one Restore of a Snapshot at a Time, right after init.                                                                        |
+| `history.keep`     | Sets the History's Window, how many entries it keeps; older ones Compact into a Restore. Works while it runs.                                                              |
+| `Replay.make`      | Plays Branches of one app from init, remembering Snapshots so playing again starts from the nearest one.                                                                   |
+| `Replay.fold`      | The Snapshot right after a Branch, played now from init with the root's Input, with no yielding.                                                                           |
+| `restore`          | The Restore Message: given to the root, it replaces the whole Snapshot with a saved one, checked against the Actors.                                                       |
+| `isRestore`        | Tells a Restore from any other Message.                                                                                                                                    |
+| `RESTORE`          | The Restore Message's tag.                                                                                                                                                 |
+| `init`             | The Snapshot right after init: the root and every Child its State Invokes.                                                                                                 |
+| `handle`           | Applies one Envelope to a Snapshot and gives the next one, purely.                                                                                                         |
+| `outcomeOf`        | Works out what came of one Envelope on a Snapshot: handled, ignored or dropped. The History never keeps it.                                                                |
+| `instanceAt`       | Finds the Instance with an ID in a Snapshot.                                                                                                                               |
+| `isMany`           | Tells the list of an `each` Child from one Instance in an Instance's Children.                                                                                             |
 
 ### `@kestack/kabuki/react`
 
@@ -402,5 +403,5 @@ const DemoApp = toReact(AuthLive, AuthView, ServerLive, { saved });
 ```
 
 - The app is drawn before any Runtime exists: with no History, right after init; with a saved one, at its Head, replayed through Suspense. A server or a static build gets the same HTML the client hydrates, and `useRuntime` reads the saved History from the start, so a Timeline is drawn there too. Until the Runtime starts, a Send is dropped.
-- `saved` is what `history.save()` gives: its entries and its Head, each Message, and each Instance of a Restore's Snapshot, written through its Actor's Schemas and read back through them on load. So the encoded side of every Schema must be JSON-safe, and then it is plain JSON: a `Date` as `Schema.DateFromString`, an `Option` as `Schema.OptionFromNullOr`. A saved History never changes, and one whose Head is not one of its entries fails to load. The Runtime carries on live at the Head, with Time going on from the Head's. `History.restored(AuthLive, snapshot, at).save()` makes the lightest one, a History of one Restore right after init, for an app that saves only its Snapshot; init stays the first Step. Where the History is kept is the app's business. Give `window` to keep only that many entries on the Head's Branch: the oldest kept becomes a Restore of the Snapshot right after it, and Time Travel reaches nothing before it. `history.keep(n)` changes it at any time, `history.keep(null)` stops Compacting. An app made with `toReact` remembers a Window changed that way in `localStorage` under its name, and starts from it after a reload, over the `window` it was given.
+- `saved` is what `history.save()` gives: its entries and its Head, each Message, and each Instance of a Restore's Snapshot, written through its Actor's Schemas and read back through them on load. So the encoded side of every Schema must be JSON-safe, and then it is plain JSON: a `Date` as `Schema.DateFromString`, an `Option` as `Schema.OptionFromNullOr`. A saved History never changes, and one whose Head is not one of its entries fails to load. The Runtime carries on live at the Head, with Time going on from the Head's. `History.restored(AuthLive, snapshot, at).save()` makes the lightest one, a History of one Restore right after init, for an app that saves only its Snapshot; init stays the first Step. Where the History is kept is the app's business. Give `window` to keep only that many entries on the Head's Branch: the oldest kept becomes a Restore of the Snapshot right after it, and Time Travel reaches nothing before it. `history.keep(n)` changes it at any time, `history.keep(null)` stops Compacting. A Runtime started from an Actor keeps none, only the app as it is now, and an app made with `toReact` keeps the last 100. An app made with `toReact` remembers a Window changed that way in `localStorage` under its name, and starts from it after a reload, over the `window` it was given.
 - When the last mount closes, the History is left under the app's name, the root Actor's by default, and the next mount of an app with that name carries on from it: the same component mounted again, or a new one after a hot reload, whose code replays the old Messages. A Message the new code handles differently warns and goes on. Give `name` when two apps share a root Actor and must not share a History; two apps of one name mounted at once is a console error.

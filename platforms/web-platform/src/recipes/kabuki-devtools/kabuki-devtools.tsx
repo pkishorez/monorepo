@@ -292,7 +292,9 @@ const fromOf = ({ source, send }: NonNullable<Scene['beats']>) => {
     case 'provide':
       return 'what it Provides';
     case 'outside':
-      return 'outside the app';
+      return source.name === undefined
+        ? 'outside the app'
+        : `${source.name}, outside the app`;
     case 'restore':
       return 'a Restore';
   }
