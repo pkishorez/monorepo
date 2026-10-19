@@ -1,0 +1,144 @@
+import { SnakeApp } from './app/app.tsx';
+import { keyLock } from './app/browser/keyboard.ts';
+
+Snake, with three lives and no walls: off one edge, on at the other. Bite
+your own body with a life left, and the snake turns red, slides back three
+cells along its own path, and plays on. Then drag along the Timeline under
+the game: every move and every bite plays back, and you can carry on from
+any moment.
+
+<AppWindow app={SnakeApp} url="snake.app" tall keys={keyLock} />
+
+## How it works
+
+Two [Actors](/kabuki/actor). The `Stage` keeps the score and the lives, and
+is `Ready`, `Playing` or `Over`. It Invokes a `Game` as a
+[Child](/kabuki/children) only while `Playing`, so the end of a game stops
+the Game and every [Worker](/kabuki/workers) it ran, and the next game is a
+fresh one.
+
+The Game's Model is the track: every cell the head has been on, and where
+on it the head is now. The snake is the last few cells of that track, so a
+move only adds a cell to it. The track runs on past the edges and the board
+wraps it, so a snake crossing an edge is still one line.
+
+A bite is played out in [States](/kabuki/state-machine), so nothing else
+ticks meanwhile. `Bitten` shows the bite where it happened, then its
+`rewind` Worker moves the head back along the track a cell at a time, one
+`Rewound` each. `Recovering` rests a moment, then plays on. The last bite
+is `Crashed`: shown, then reported, and the game ends.
+
+The Game tells the Stage how it went through a
+[Capability](/kabuki/capabilities), the `Referee`, which the Stage Provides
+while `Playing`. It asks with a Command: `scored` after it eats, `crashed`
+after a bite. The Stage hands the lives back down as
+[Props](/kabuki/props), so the Game knows whether a bite ends it.
+
+Each Worker runs only where it is written. `tick` moves the snake while
+the Game is `Running`, so pausing stops it, and `steer` reads the arrows
+only then. `controls` runs in every State and turns Space into a `Space`
+Message: a fact, not an order. Each State's Update says what it means:
+pause while `Running`, play on while `Paused`, skip the rest of a rewind
+while `Bitten`, end the game while `Crashed`. `place food` runs
+whenever the Model has no food. It rolls with Effect's `Random`, seeded by
+where the snake is, and Sends where the food landed. A replay never rolls
+again: it plays that Message.
+
+The keys come from a `Keyboard` Capability in the app's Layer, as Elm reads
+keys through a subscription. In the browser they come with a lock: while
+most of the game is in view, the window locks the game's keys to it and
+rings itself to say so. Every other key still reaches the page. Scroll
+away or press Esc, and the keys go back to the page, which reaches the
+Game as `Away`: a running game pauses. The test gives the app a keyboard
+it presses by hand.
+
+The View draws the track as one path, rounded at each turn, and the snake
+as a stretch of it. A move only changes where the stretch starts and ends,
+so Motion slides it along the path, round the corners: forward on a tick,
+back a cell at a time after a bite, and either way as you drag the
+Timeline. The State sets the color: red while `Bitten`, green again once
+it recovers. The board draws
+the snake once for each board-sized tile it spans and cuts each copy at its
+edge, so a snake leaving one side slides in at the other.
+
+## Things to try
+
+- **Watch the Workers.** Start a game with Space. On the Map, the Game
+  runs `tick` and `steer`. Press Space to pause, and they are gone; only
+  `controls` is left, waiting for Space.
+- **Scroll away.** The ring round the window goes, and the game pauses.
+  Scroll back, and Space plays on.
+- **Cross an edge.** Head off the side of the board. The snake leaves on
+  one side and comes in on the other, without a break.
+- **Bite yourself on purpose.** Once the snake is five long, turn back
+  into it. It turns red and a life goes grey; on the Map, the Game is
+  `Bitten` and runs `rewind`. It slides back three cells, rests in
+  `Recovering`, and goes on.
+- **Rewind it.** Lose all three lives, then drag along the Timeline. The
+  snake slides back and forth along its path, bites and all.
+- **Change the past.** Pick a Step a few seconds before the end, carry on
+  from there, and steer clear of your tail. The new moves grow a new
+  Branch beside the old game.
+
+## The code
+
+A folder per Actor, each with its View; the Capabilities between them;
+the board's rules; the browser's keys; the drawing both Views share; and
+the line that makes it all one React component. That component is all a host React app
+needs:
+
+```tsx
+import { SnakeApp } from './snake/app.tsx';
+
+export function Page() {
+  return <SnakeApp />;
+}
+```
+
+<Files>
+
+```tsx file=./app/app.tsx
+
+```
+
+```ts file=./app/rules.ts
+
+```
+
+```ts file=./app/stage/stage.ts
+
+```
+
+```tsx file=./app/stage/stage-view.tsx
+
+```
+
+```ts file=./app/game/game.ts
+
+```
+
+```tsx file=./app/game/game-view.tsx
+
+```
+
+```ts file=./app/capabilities/referee.ts
+
+```
+
+```ts file=./app/capabilities/keyboard.ts
+
+```
+
+```ts file=./app/capabilities/seed.ts
+
+```
+
+```ts file=./app/browser/keyboard.ts
+
+```
+
+```tsx file=./app/drawing/snake.tsx
+
+```
+
+</Files>

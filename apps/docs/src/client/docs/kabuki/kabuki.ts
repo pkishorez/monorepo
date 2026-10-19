@@ -18,6 +18,8 @@ import * as todos from './demos/todos/todos.mdx';
 import * as checkout from './demos/checkout/checkout.mdx';
 import * as managedResource from './demos/managed-resource/managed-resource.mdx';
 import * as shoppingCart from './demos/shopping-cart/shopping-cart.mdx';
+import * as snake from './demos/snake/snake.mdx';
+import * as openingAnApp from './demos/opening-an-app/opening-an-app.mdx';
 
 /*
  * Every page of kabuki's docs, by slug. Every page in the table of contents
@@ -42,4 +44,6 @@ export const KABUKI: Record<Slug, Page> = {
   checkout: page(checkout),
   'managed-resource': page(managedResource),
   'shopping-cart': page(shoppingCart),
+  snake: page(snake),
+  'opening-an-app': page(openingAnApp),
 };

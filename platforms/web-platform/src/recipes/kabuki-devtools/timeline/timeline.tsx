@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { ChevronLeft, ChevronRight, GitBranch } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
@@ -14,21 +14,23 @@ import {
 import { ink } from '../ink/index.ts';
 
 /*
- * The Timeline: the bar under the Map for picking the Step shown.
+ * The Timeline: the bar over or under the Map for picking the Step shown.
  *
  * 1. Step    one step back or on, either side of the Track.
- * 2. Track   one tick per Step on the Branch in view, init first; the one
- *            shown stands taller. When they do not all fit, the row glides
- *            to keep the one shown in the middle, stopping at either end,
- *            and live it rests at its right end; a trackpad can still
- *            swipe it. The tick nearest the pointer rises with its
- *            Message's name over it, and a click or tap anywhere on the
- *            track picks the nearest. Pressing and dragging, with a mouse
- *            or a finger, scrubs: the Step shown follows it, and the row
- *            holds still under it until it lets go, gliding only while it
- *            is held near either end. The last tick, when it is the Head,
- *            goes live.
- * 3. Read    the live Step: its place and its Message, once there is room.
+ * 2. Track   one rail for the Branch in view, init at its left end and
+ *            the last Step at its right, every Step in between at its
+ *            share of the way, so it never scrolls. The rail is lit up to
+ *            the playhead, which stands on the Step shown and glides to
+ *            the next one picked. A Fork is marked where its Branch grew.
+ *            The Step nearest the pointer has its Message's name over it,
+ *            and a click or tap anywhere on the rail picks it. Pressing
+ *            and dragging, with a mouse or a finger, scrubs: the playhead
+ *            follows the pointer smoothly, the Step shown keeps up with
+ *            it, and on letting go the playhead settles on that Step. The
+ *            last Step, when it is the Head, goes live. Arrow keys step it.
+ * 3. Read    the live Step: its place and its Message, once there is room,
+ *            in a slot of a fixed width that stays, faded, while a past
+ *            Step is shown, so the Track keeps its place and its width.
  * 4. Branch  bring another Branch into view, when there is more than one
  *            and there is room.
  * 5. Live    the sign that it is live; or, while a past Step is shown, a
@@ -41,9 +43,6 @@ import { ink } from '../ink/index.ts';
  *            and cannot be undone. 1 keeps only the Snapshot; 2 is the least
  *            that still shows a change.
  */
-
-/** How near either end of the track, in pixels, a scrub glides the row. */
-const EDGE = 32;
 
 const PRESETS = [1, 2, 5, 10, 25, 50, 100, 500];
 const HINTS: Partial<Record<number, string>> = {
@@ -74,6 +73,8 @@ export function Timeline({
   onBranch,
   window,
   onWindow,
+  forks = [],
+  placement = 'bottom',
 }: {
   /** Every Step on the Branch in view, init first. */
   readonly steps: ReadonlyArray<TimelineStep>;
@@ -94,8 +95,12 @@ export function Timeline({
   /** How many entries the History keeps on the Head's Branch, `null` for every one. */
   readonly window?: number | null;
   readonly onWindow?: (window: number | null) => void;
+  /** Where Forks grew from: the places of the Steps a Branch left. */
+  readonly forks?: ReadonlyArray<number>;
+  /** Where the bar sits: over the Map, its popovers open down; under it, up. */
+  readonly placement?: 'top' | 'bottom';
 }) {
-  const track = useRef<HTMLDivElement>(null);
+  const rail = useRef<HTMLDivElement>(null);
 
   const step = steps[shown];
   const last = steps.length - 1;
@@ -110,131 +115,105 @@ export function Timeline({
 
   const bar = useRef<HTMLDivElement>(null);
   const still = useReducedMotion();
-  const [near, setNear] = useState<{ index: number; x: number }>();
-  /** The tick nearest the pointer, gaps included, and its middle in the bar. */
-  /** The tick nearest a point across the track, gaps included. */
-  const nearestTo = (clientX: number) => {
-    const ticks = [...track.current!.children];
-    let index = 0;
-    let best = Infinity;
-    ticks.forEach((tick, at) => {
-      const { left, width } = tick.getBoundingClientRect();
-      const off = Math.abs(left + width / 2 - clientX);
-      if (off < best) [index, best] = [at, off];
-    });
-    return index;
-  };
-  /** Where the mouse is over the track, to follow it as the row glides. */
-  const pointer = useRef<number | undefined>(undefined);
-  const point = () => {
-    if (pointer.current === undefined) return;
-    const index = nearestTo(pointer.current);
-    const { left, width } =
-      track.current!.children[index]!.getBoundingClientRect();
-    const x = left + width / 2 - bar.current!.getBoundingClientRect().left;
-    setNear((was) =>
-      was?.index === index && was.x === x ? was : { index, x },
-    );
+  const over = placement === 'top';
+  /** A Step's share of the way along the rail. */
+  const shareOf = (index: number) => (last <= 0 ? 1 : index / last);
+  /** The share of the rail under a point, and the Step nearest it. */
+  const read = (clientX: number) => {
+    const { left, width } = rail.current!.getBoundingClientRect();
+    const share = Math.min(1, Math.max(0, (clientX - left) / width));
+    return { share, index: Math.round(share * last) };
   };
 
-  /** The Step a press on the track last showed, while it drags. */
+  /** The Step nearest the pointer, to name it over the rail. */
+  const [near, setNear] = useState<number>();
+  /** While scrubbing, where the pointer holds the playhead. */
+  const [drag, setDrag] = useState<number>();
+  /** The Step a press on the rail last showed, while it drags. */
   const scrub = useRef<number | undefined>(undefined);
-  const [scrubbing, setScrubbing] = useState(false);
   const scrubTo = (clientX: number) => {
-    const index = nearestTo(clientX);
+    const { share, index } = read(clientX);
+    setDrag(share);
+    setNear(index);
     if (index === scrub.current) return;
     scrub.current = index;
     onShow(index);
   };
-  const latest = useRef(scrubTo);
-  latest.current = scrubTo;
   const stopScrubbing = (pointerType: string) => {
-    setScrubbing(false);
-    // Only a mouse stays over the track once it lets go.
-    if (pointerType === 'mouse') return;
-    pointer.current = undefined;
-    setNear(undefined);
+    setDrag(undefined);
+    // Only a mouse stays over the rail once it lets go.
+    if (pointerType !== 'mouse') setNear(undefined);
   };
-
-  // Held near either end while scrubbing, the row glides that way, faster
-  // the nearer the end, and the Step shown keeps up with it.
-  useEffect(() => {
-    if (!scrubbing) return;
-    let frame = 0;
-    const glide = () => {
-      const at = track.current;
-      const x = pointer.current;
-      if (at && x !== undefined) {
-        const { left, right } = at.getBoundingClientRect();
-        const by =
-          x < left + EDGE
-            ? -(left + EDGE - x)
-            : x > right - EDGE
-              ? x - (right - EDGE)
-              : 0;
-        if (by !== 0) {
-          at.scrollLeft += Math.sign(by) * Math.min(Math.abs(by), EDGE) * 0.4;
-          latest.current(x);
-        }
-      }
-      frame = requestAnimationFrame(glide);
-    };
-    frame = requestAnimationFrame(glide);
-    return () => cancelAnimationFrame(frame);
-  }, [scrubbing]);
-
-  // The Step shown in the middle of the track, or as near as its ends allow;
-  // held while scrubbing, so the tick under the mouse stays under it.
-  useEffect(() => {
-    if (scrubbing) return;
-    const at = track.current;
-    const tick = at?.children[shown] as HTMLElement | undefined;
-    if (!at || !tick) return;
-    at.scrollTo({
-      left: tick.offsetLeft + tick.offsetWidth / 2 - at.clientWidth / 2,
-      behavior: still ? 'instant' : 'smooth',
-    });
-  }, [shown, steps.length, still, scrubbing]);
+  const scrubbing = drag !== undefined;
+  /** Where over the bar to name the Step near the pointer: at the playhead while scrubbing. */
+  const tipX = (() => {
+    if (near === undefined || !rail.current || !bar.current) return 0;
+    const { left, width } = rail.current.getBoundingClientRect();
+    const share = scrubbing ? drag : shareOf(near);
+    return left + share * width - bar.current.getBoundingClientRect().left;
+  })();
+  const at = drag ?? shareOf(shown);
+  const glide = still
+    ? { duration: 0 }
+    : scrubbing
+      ? { type: 'tween' as const, duration: 0.08, ease: 'linear' as const }
+      : { type: 'spring' as const, stiffness: 260, damping: 32 };
 
   return (
     <div
       ref={bar}
-      className="bg-background/90 relative flex h-14 shrink-0 items-center gap-2 border-t px-2 backdrop-blur-sm @md:gap-3 @md:px-3"
+      className={cn(
+        'bg-background/90 relative z-10 flex h-14 shrink-0 items-center gap-2 px-2 backdrop-blur-sm @md:gap-3 @md:px-3',
+        over ? 'border-b' : 'border-t',
+      )}
       // Clear of a button laid over its right end, such as the Devtools Dock's.
       style={{ paddingRight: 'calc(var(--dock-reserve, 0px) + 0.75rem)' }}
     >
       <AnimatePresence>
-        {near && steps[near.index] && (
+        {near !== undefined && steps[near] && (
           <motion.div
             key="tip"
             role="tooltip"
-            className="bg-popover text-popover-foreground pointer-events-none absolute bottom-full left-0 mb-1.5 rounded-md border px-2 py-1 text-xs font-medium whitespace-nowrap shadow-[0_1px_2px_rgb(0_0_0/0.06),0_4px_12px_rgb(0_0_0/0.1)]"
-            initial={{ opacity: 0, y: 4, x: near.x, translateX: '-50%' }}
-            animate={{ opacity: 1, y: 0, x: near.x, translateX: '-50%' }}
-            exit={{ opacity: 0, y: 4 }}
+            className={cn(
+              'bg-popover text-popover-foreground pointer-events-none absolute left-0 rounded-md border px-2 py-1 text-xs font-medium whitespace-nowrap shadow-[0_1px_2px_rgb(0_0_0/0.06),0_4px_12px_rgb(0_0_0/0.1)]',
+              over ? 'top-full mt-1.5' : 'bottom-full mb-1.5',
+            )}
+            initial={{
+              opacity: 0,
+              y: over ? -4 : 4,
+              x: tipX,
+              translateX: '-50%',
+            }}
+            animate={{ opacity: 1, y: 0, x: tipX, translateX: '-50%' }}
+            exit={{ opacity: 0, y: over ? -4 : 4 }}
             transition={
               still
                 ? { duration: 0 }
                 : {
-                    x: { type: 'spring', stiffness: 700, damping: 45 },
+                    x: scrubbing
+                      ? { duration: 0 }
+                      : { type: 'spring', stiffness: 700, damping: 45 },
                     default: { duration: 0.12, ease: 'easeOut' },
                   }
             }
           >
-            {nameOf(near.index)}
+            {nameOf(near)}
           </motion.div>
         )}
       </AnimatePresence>
 
       {/* 5. Live, while a past Step is shown: where it is, Fork, Go live */}
       <AnimatePresence>
-        {!live && !near && step && (
+        {!live && near === undefined && step && (
           <motion.div
             key="past"
-            className="bg-popover text-popover-foreground absolute bottom-full left-1/2 mb-3 flex h-10 w-max max-w-[calc(100%-1rem)] items-center gap-1 rounded-full border p-1 pl-3.5 text-xs shadow-[0_1px_2px_rgb(0_0_0/0.06),0_4px_12px_rgb(0_0_0/0.1)]"
-            initial={{ opacity: 0, y: 6, x: '-50%' }}
+            className={cn(
+              'bg-popover text-popover-foreground absolute left-1/2 z-10 flex h-10 w-max max-w-[calc(100%-1rem)] items-center gap-1 rounded-full border p-1 pl-3.5 text-xs shadow-[0_1px_2px_rgb(0_0_0/0.06),0_4px_12px_rgb(0_0_0/0.1)]',
+              over ? 'top-full mt-3' : 'bottom-full mb-3',
+            )}
+            initial={{ opacity: 0, y: over ? -6 : 6, x: '-50%' }}
             animate={{ opacity: 1, y: 0, x: '-50%' }}
-            exit={{ opacity: 0, y: 6, x: '-50%' }}
+            exit={{ opacity: 0, y: over ? -6 : 6, x: '-50%' }}
             transition={
               still ? { duration: 0 } : { duration: 0.15, ease: 'easeOut' }
             }
@@ -283,78 +262,81 @@ export function Timeline({
 
       {/* 2. Track */}
       <div
-        ref={track}
-        role="list"
+        ref={rail}
+        role="slider"
+        tabIndex={0}
         aria-label="Steps"
-        className="relative flex h-full min-w-0 flex-1 touch-none items-center gap-[3px] overflow-x-auto overscroll-x-contain px-1 [scrollbar-width:none]"
+        aria-valuemin={0}
+        aria-valuemax={last}
+        aria-valuenow={shown}
+        aria-valuetext={`${nameOf(shown)}, ${shown} of ${last}`}
+        className="group/rail relative mx-2 flex h-full min-w-0 flex-1 cursor-pointer touch-none items-center rounded-md outline-none focus-visible:ring-2"
         onPointerDown={(event) => {
           scrub.current = undefined;
           if (!event.isPrimary || event.button !== 0) return;
           event.preventDefault();
           event.currentTarget.setPointerCapture(event.pointerId);
-          pointer.current = event.clientX;
-          point();
-          setScrubbing(true);
           scrubTo(event.clientX);
         }}
         onPointerMove={(event) => {
-          if (event.pointerType !== 'mouse' && !scrubbing) return;
-          pointer.current = event.clientX;
-          point();
-          if (scrubbing) scrubTo(event.clientX);
+          if (scrubbing) return scrubTo(event.clientX);
+          if (event.pointerType === 'mouse') setNear(read(event.clientX).index);
         }}
         onPointerUp={(event) => stopScrubbing(event.pointerType)}
         onPointerCancel={(event) => stopScrubbing(event.pointerType)}
         onLostPointerCapture={(event) => stopScrubbing(event.pointerType)}
         onPointerLeave={() => {
-          if (scrubbing) return;
-          pointer.current = undefined;
-          setNear(undefined);
+          if (!scrubbing) setNear(undefined);
         }}
-        onScroll={point}
-        onClick={(event) => {
-          // A mouse or a finger has picked its Step already, on press.
-          if (event.detail > 0 && scrub.current !== undefined) return;
-          if (event.target === event.currentTarget)
-            onShow(nearestTo(event.clientX));
+        onKeyDown={(event) => {
+          if (event.key === 'ArrowLeft' && shown > 0) onShow(shown - 1);
+          else if (event.key === 'ArrowRight' && shown < last)
+            onShow(shown + 1);
+          else return;
+          event.preventDefault();
         }}
       >
-        {steps.map((each, index) => (
-          <button
-            key={each.id}
-            type="button"
-            role="listitem"
-            title={`${index === 0 ? 'init' : `${index}. ${each.label}`}`}
-            aria-label={index === 0 ? 'init' : `Step ${index}, ${each.label}`}
-            aria-current={index === shown ? 'step' : undefined}
-            onClick={(event) => {
-              if (event.detail > 0 && scrub.current !== undefined) return;
-              onShow(index);
-            }}
-            className="group grid h-8 w-2.5 shrink-0 place-items-center outline-none"
+        {/* The rail, and the way already come lit. */}
+        <div
+          className="absolute inset-x-0 h-1 rounded-full"
+          style={{ backgroundColor: ink('line') }}
+        />
+        <motion.div
+          className="absolute left-0 h-1 rounded-full"
+          style={{ backgroundColor: ink('line-lit') }}
+          initial={false}
+          animate={{ width: `${at * 100}%` }}
+          transition={glide}
+        />
+        {/* Where a Branch grew from. */}
+        {forks.map((index) => (
+          <span
+            key={index}
+            className="absolute -translate-x-1/2 -translate-y-[9px]"
+            style={{ left: `${shareOf(index) * 100}%`, color: ink('message') }}
           >
-            <span
-              className={cn(
-                'w-[3px] rounded-full transition-[height,background-color] duration-150 ease-out',
-                index === shown
-                  ? 'h-6'
-                  : index === near?.index
-                    ? 'h-5'
-                    : 'h-3 group-focus-visible:h-5',
-              )}
-              style={{
-                backgroundColor:
-                  index === shown
-                    ? ink('message')
-                    : index === near?.index
-                      ? 'var(--foreground)'
-                      : index < shown
-                        ? ink('line-lit')
-                        : ink('line'),
-              }}
-            />
-          </button>
+            <GitBranch className="size-3" />
+          </span>
         ))}
+        {/* The playhead. */}
+        <motion.div
+          className="pointer-events-none absolute -translate-x-1/2"
+          initial={false}
+          animate={{ left: `${at * 100}%` }}
+          transition={glide}
+        >
+          <motion.span
+            className="block size-3.5 rounded-full border-2"
+            style={{
+              borderColor: live ? ink('active') : ink('message'),
+              backgroundColor: 'var(--background)',
+              boxShadow: `0 0 0 ${scrubbing ? 6 : 0}px color-mix(in oklab, ${live ? ink('active') : ink('message')} 22%, transparent)`,
+              transition: 'box-shadow 160ms ease-out, border-color 160ms',
+            }}
+            animate={{ scale: scrubbing ? 1.25 : 1 }}
+            transition={still ? { duration: 0 } : { duration: 0.16 }}
+          />
+        </motion.div>
       </div>
 
       {/* 1. Step on */}
@@ -366,17 +348,40 @@ export function Timeline({
         <ChevronRight />
       </Press>
 
-      {/* 3. Read, live; a past Step is read above */}
-      {live && step && (
-        <div className="hidden min-w-0 flex-col items-end leading-tight @md:flex">
-          <span className="truncate text-xs font-medium">
-            {shown === 0 ? 'init' : step.label}
+      {/* 3. Read and 5. Live: one slot of a fixed width, kept while a past
+          Step is shown and only faded, so the Track never moves or resizes. */}
+      <div
+        aria-hidden={!live}
+        className={cn(
+          'flex shrink-0 items-center justify-end gap-2 transition-opacity duration-150 @md:w-40',
+          live ? 'opacity-100' : 'pointer-events-none opacity-0',
+        )}
+      >
+        {step && (
+          <div className="hidden min-w-0 flex-1 flex-col items-end leading-tight @md:flex">
+            <span className="max-w-full truncate text-xs font-medium">
+              {shown === 0 ? 'init' : step.label}
+            </span>
+            <span className="text-muted-foreground text-[10.5px] whitespace-nowrap tabular-nums">
+              {shown} of {last}
+            </span>
+          </div>
+        )}
+        <span className="flex h-9 shrink-0 items-center gap-2 px-1 text-xs font-medium @md:px-0">
+          <span className="relative grid size-2 place-items-center">
+            <span
+              className="absolute inset-0 animate-ping rounded-full opacity-60 motion-reduce:hidden"
+              style={{ backgroundColor: ink('active') }}
+            />
+            <span
+              className="size-2 rounded-full"
+              style={{ backgroundColor: ink('active') }}
+            />
           </span>
-          <span className="text-muted-foreground text-[10.5px] whitespace-nowrap tabular-nums">
-            {shown} of {last}
-          </span>
-        </div>
-      )}
+          <span className="hidden @md:inline">Live</span>
+          <span className="sr-only @md:hidden">Live</span>
+        </span>
+      </div>
 
       {/* 4. Branch */}
       {branches.length > 1 && onBranch && (
@@ -395,24 +400,6 @@ export function Timeline({
             ))}
           </select>
         </label>
-      )}
-
-      {/* 5. Live, the sign that it is there */}
-      {live && (
-        <span className="flex h-9 shrink-0 items-center gap-2 px-1 text-xs font-medium @md:px-2">
-          <span className="relative grid size-2 place-items-center">
-            <span
-              className="absolute inset-0 animate-ping rounded-full opacity-60 motion-reduce:hidden"
-              style={{ backgroundColor: ink('active') }}
-            />
-            <span
-              className="size-2 rounded-full"
-              style={{ backgroundColor: ink('active') }}
-            />
-          </span>
-          <span className="hidden @md:inline">Live</span>
-          <span className="sr-only @md:hidden">Live</span>
-        </span>
       )}
 
       {/* 6. Window */}

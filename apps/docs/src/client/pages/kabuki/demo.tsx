@@ -4,6 +4,7 @@ import { Router } from '@kestack/kabuki/routing';
 import { ArrowLeftIcon } from '@kestack/web-platform/components/lucide';
 import { Pages, router } from '../../../shared/index.ts';
 import { ThemeToggle } from '../../components/index.ts';
+import { SnakeRecord } from '../../docs/index.ts';
 import {
   OpeningAnApp,
   OpeningAnAppStage,
@@ -55,4 +56,19 @@ export const StageDemoView = View.make(Pages.StageDemoLive, () => {
   );
   if (hash === null) return <div className="h-dvh bg-background" />;
   return hash === '#opening-an-app' ? <OpeningAnAppStage /> : <TodosStage />;
+});
+
+const never = () => () => {};
+
+/**
+ * Snake, staged to be recorded. It reads its seed and script from the
+ * URL's query, so it is drawn in the browser alone.
+ */
+export const SnakeRecordView = View.make(Pages.SnakeRecordLive, () => {
+  const browser = useSyncExternalStore(
+    never,
+    () => true,
+    () => false,
+  );
+  return browser ? <SnakeRecord /> : <div className="h-dvh bg-background" />;
 });

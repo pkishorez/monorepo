@@ -6,7 +6,13 @@ export { ThemeToggle } from './theme-toggle.tsx';
 export { ToolkitLink, toolkitRoute } from './toolkit-link.tsx';
 export { Callout, Demo, prose } from './prose.tsx';
 export { KabukiMark } from './brand.tsx';
-export { Playground } from './playground/index.ts';
+export {
+  Playground,
+  Timeline,
+  carryOn,
+  showStep,
+  stepOf,
+} from './playground/index.ts';
 export {
   ARROW,
   Box,

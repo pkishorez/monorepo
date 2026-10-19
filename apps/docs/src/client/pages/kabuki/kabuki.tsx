@@ -1,7 +1,12 @@
 import { View } from '@kestack/kabuki/react';
 import { Pages } from '../../../shared/index.ts';
 import { Sidebar, column } from '../../components/index.ts';
-import { DemoView, StageDemoView, TodosDemoView } from './demo.tsx';
+import {
+  DemoView,
+  SnakeRecordView,
+  StageDemoView,
+  TodosDemoView,
+} from './demo.tsx';
 import { DocView } from './doc.tsx';
 import { Landing } from './landing/landing.tsx';
 
@@ -17,10 +22,12 @@ export const KabukiView = View.make(Pages.KabukiLive, (self) => {
     Demo: demo,
     TodosDemo: todos,
     StageDemo: stage,
+    SnakeRecord: record,
   } = self.children;
   if (demo) return <DemoView instance={demo} />;
   if (todos) return <TodosDemoView instance={todos} />;
   if (stage) return <StageDemoView instance={stage} />;
+  if (record) return <SnakeRecordView instance={record} />;
   if (!doc) return <Landing />;
   return (
     <div className={`${column} grid gap-10 lg:grid-cols-[15rem_minmax(0,1fr)]`}>

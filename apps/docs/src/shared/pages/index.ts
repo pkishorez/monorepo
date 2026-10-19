@@ -5,6 +5,8 @@ export {
   DemoLive,
   Doc,
   DocLive,
+  SnakeRecord,
+  SnakeRecordLive,
   Kabuki,
   KabukiLive,
   StageDemo,

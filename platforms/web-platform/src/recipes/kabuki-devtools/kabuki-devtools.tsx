@@ -37,7 +37,8 @@ import { Timeline } from './timeline/index.ts';
  *              Step's Message; a pick gone from the Step shown closes the
  *              Sheet.
  * 3. Sheet     what is picked, taken apart.
- * 4. Timeline  which Step is shown, and whether it is live.
+ * 4. Timeline  which Step is shown, and whether it is live: under the Map,
+ *              or over it, where it sits right under the app it travels.
  */
 
 type Statuses = NonNullable<Parameters<typeof sceneOf>[0]['statuses']>;
@@ -63,6 +64,7 @@ export function KabukiDevtools({
   layout,
   dotted,
   presenting = false,
+  timelineAt,
   className,
 }: {
   /** The running app: `App.useRuntime()`. */
@@ -73,6 +75,8 @@ export function KabukiDevtools({
   readonly dotted?: boolean;
   /** Only the Map, kept whole in view as the app changes: no Timeline and no controls, for a talk or a recording. */
   readonly presenting?: boolean;
+  /** Where the Timeline sits: under the Map, or over it. */
+  readonly timelineAt?: 'top' | 'bottom';
   /** Classes for its root, merged over its own: a see-through background over the app. */
   readonly className?: string;
 }) {
@@ -125,6 +129,7 @@ export function KabukiDevtools({
       {...(className ? { className } : {})}
       {...(dotted === undefined ? {} : { dotted })}
       {...(presenting ? { presenting } : {})}
+      {...(timelineAt ? { timelineAt } : {})}
       // 3. Workers
       {...(live && running ? { statuses: runtime.workers } : {})}
       timeline={{
@@ -146,6 +151,10 @@ export function KabukiDevtools({
           runtime.show(null);
         },
         head: steps === branch,
+        // Where a Branch grew: a Step whose parent has more than one child.
+        forks: steps.flatMap((each, index) =>
+          history.children(each.parent).length > 1 ? [index] : [],
+        ),
         window: history.window(),
         onWindow: history.keep,
       }}
@@ -161,6 +170,7 @@ export function Inspector({
   timeline,
   dotted,
   presenting = false,
+  timelineAt = 'bottom',
   className,
 }: {
   /** The root Actor's definition. */
@@ -176,6 +186,8 @@ export function Inspector({
   readonly dotted?: boolean;
   /** Only the Map, kept whole in view: no Timeline and no controls. */
   readonly presenting?: boolean;
+  /** Where the Timeline sits: under the Map, or over it. */
+  readonly timelineAt?: 'top' | 'bottom';
   /** Classes for its root, merged over its own. */
   readonly className?: string;
 }) {
@@ -211,6 +223,10 @@ export function Inspector({
       )}
       style={INK}
     >
+      {/* 4. Timeline, over the Map */}
+      {!presenting && timelineAt === 'top' && (
+        <Timeline {...timeline} placement="top" />
+      )}
       <div className="relative flex min-h-0 flex-1 flex-col">
         <div className="relative min-h-0 flex-1">
           <AppMap
@@ -241,8 +257,8 @@ export function Inspector({
           )}
         </AnimatePresence>
       </div>
-      {/* 4. Timeline */}
-      {!presenting && <Timeline {...timeline} />}
+      {/* 4. Timeline, under the Map */}
+      {!presenting && timelineAt === 'bottom' && <Timeline {...timeline} />}
     </div>
   );
 }

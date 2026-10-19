@@ -22,7 +22,8 @@ const AppView = View.make(Pages.AppLive, (self) => {
     route.page?._tag === 'Kabuki' &&
     (route.page.page?._tag === 'Demo' ||
       route.page.page?._tag === 'TodosDemo' ||
-      route.page.page?._tag === 'StageDemo')
+      route.page.page?._tag === 'StageDemo' ||
+      route.page.page?._tag === 'SnakeRecord')
   )
     return <KabukiView instance={Kabuki} />;
   return (

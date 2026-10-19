@@ -3,6 +3,8 @@ import { about, toolkitOf } from '../../content/index.ts';
 import {
   Demo,
   DemoLive,
+  SnakeRecord,
+  SnakeRecordLive,
   StageDemo,
   StageDemoLive,
   TodosDemo,
@@ -18,7 +20,7 @@ import { Doc, DocLive } from './doc.ts';
 export const Kabuki = Page.define({
   path: '/kabuki',
   metadata: about('/kabuki', 'kabuki', toolkitOf('kabuki').pitch),
-  pages: { Doc, Demo, TodosDemo, StageDemo },
+  pages: { Doc, Demo, TodosDemo, StageDemo, SnakeRecord },
 });
 
 export const KabukiLive = Page.build(Kabuki, {
@@ -27,5 +29,6 @@ export const KabukiLive = Page.build(Kabuki, {
     Demo: DemoLive,
     TodosDemo: TodosDemoLive,
     StageDemo: StageDemoLive,
+    SnakeRecord: SnakeRecordLive,
   },
 });

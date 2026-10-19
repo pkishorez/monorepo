@@ -121,6 +121,16 @@ export const SECTIONS = [
         summary:
           'Products, a cart and a checkout, shared through Capabilities.',
       },
+      {
+        slug: 'snake',
+        title: 'Snake',
+        summary: 'A game you can rewind, and play on from any moment.',
+      },
+      {
+        slug: 'opening-an-app',
+        title: 'Opening an app',
+        summary: 'A whole app as Actors: it boots, signs in and signs out.',
+      },
     ],
   },
 ] as const satisfies ReadonlyArray<Section>;

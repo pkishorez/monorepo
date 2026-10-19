@@ -1,10 +1,12 @@
 import { useState } from 'react';
+import { motion } from 'motion/react';
 import { View } from '@kestack/kabuki/react';
 import { Input } from '@kestack/web-platform/components/input';
 import { TodoLive } from './todos.ts';
 
-// Draws one to-do's text, struck through when its Prop says done. Click
-// it to rename it; the new text is sent only when you finish.
+// Draws one to-do's text, struck through when its Prop says done: the line
+// draws across it, left to right, and the text greys. Click it to rename
+// it; the new text is sent only when you finish.
 export const TodoView = View.make(TodoLive, ({ model, props, send, root }) => {
   const [draft, setDraft] = useState<string | null>(null);
 
@@ -42,11 +44,25 @@ export const TodoView = View.make(TodoLive, ({ model, props, send, root }) => {
       type="button"
       title="Rename"
       onClick={() => setDraft(model.text)}
-      className={`h-9 min-w-0 flex-1 truncate rounded-md px-2.5 text-left text-sm transition-colors hover:bg-muted ${
-        props.done ? 'text-muted-foreground line-through' : ''
+      className={`h-9 min-w-0 flex-1 truncate rounded-md px-2.5 text-left text-sm transition-colors duration-200 hover:bg-muted ${
+        props.done ? 'text-muted-foreground' : ''
       }`}
     >
-      {model.text}
+      <span className="relative">
+        {model.text}
+        <motion.span
+          aria-hidden
+          initial={false}
+          animate={{ scaleX: props.done ? 1 : 0 }}
+          transition={{
+            duration: props.done ? 0.25 : 0.15,
+            ease: props.done ? [0.23, 1, 0.32, 1] : [0.4, 0, 1, 1],
+          }}
+          className={`absolute inset-x-0 top-1/2 h-px bg-current ${
+            props.done ? 'origin-left' : 'origin-right'
+          }`}
+        />
+      </span>
     </button>
   );
 });

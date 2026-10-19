@@ -36,3 +36,15 @@ export const StageDemo = Page.define({
 });
 
 export const StageDemoLive = Page.build(StageDemo);
+
+/** Snake, staged to be recorded: exactly 1080 by 1080, with nothing of the site around it. */
+export const SnakeRecord = Page.define({
+  path: '/demos/snake/record',
+  metadata: about(
+    '/kabuki/demos/snake/record',
+    'Snake, to record · kabuki',
+    'The Snake demo staged as a square video: the game, its tree of Actors, and its Timeline.',
+  ),
+});
+
+export const SnakeRecordLive = Page.build(SnakeRecord);

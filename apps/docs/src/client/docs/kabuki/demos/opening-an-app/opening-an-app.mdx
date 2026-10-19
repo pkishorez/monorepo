@@ -1,0 +1,75 @@
+import { OpeningAnAppApp } from '../../../../demos/opening-an-app/index.ts';
+
+A whole app, opening: it loads its assets, waits for you to sign in, then
+keeps a heartbeat, syncs and downloads files until you sign out. Every
+part of it is an Actor, and the devtools under it draw them as they come
+and go. The reload in the address bar starts it over.
+
+<AppWindow app={OpeningAnAppApp} url="opening-an.app" tall site />
+
+## How it works
+
+The app is the `App` Actor, and its [States](/kabuki/state-machine) are
+the screens: `Booting`, `Failed`, `SignedOut` and `Inside`. Each State
+only accepts its own Messages: `SignIn` means something while
+`SignedOut`, and nothing anywhere else.
+
+While `Booting`, its `load assets` [Worker](/kabuki/workers) loads the
+fonts, the images and the sounds, one `AssetLoaded` each. When the last
+one lands, the app is `SignedOut`, and the Worker is gone with the State
+it ran in.
+
+Sign in, and once the `sign in` Command answers, the app is `Inside`.
+`Inside` Invokes two [Children](/kabuki/children): `Home`, with its
+heartbeat and the sync you turn on and off, and `Downloads`, with a
+`Download` of its own for every file. Sign out, and `Inside` ends: both
+Children stop, and every Worker under them is interrupted. There is no
+cleanup code: each Worker is an Effect, so stopping it is interrupting it.
+
+`Home` signs out through a [Capability](/kabuki/capabilities), the
+`Session`, that `Inside` Provides. It asks; the App decides.
+
+The same app runs full screen, with the devtools over it, in the
+[full-screen demo](/kabuki/demos/opening-an-app).
+
+## Things to try
+
+- **Watch it boot.** Reload it from the address bar. On the Map, `App` is
+  `Booting` and runs `load assets`; when the last asset lands, the Worker
+  is gone.
+- **Sign in.** The tree grows: `Home` and `Downloads` under `App`, and
+  `Home`'s `heartbeat` beating every few seconds.
+- **Add a file.** A `Download` card joins the tree for each one. It is
+  `Downloading` and runs `download` until it is `Done`; cancel it, and its
+  card goes.
+- **Sign out.** Everything under `Inside` stops at once.
+
+## The code
+
+<Files>
+
+```ts file=../../../../demos/opening-an-app/story/app.ts
+
+```
+
+```ts file=../../../../demos/opening-an-app/story/home.ts
+
+```
+
+```ts file=../../../../demos/opening-an-app/story/downloads.ts
+
+```
+
+```ts file=../../../../demos/opening-an-app/story/download.ts
+
+```
+
+```ts file=../../../../demos/opening-an-app/story/capabilities.ts
+
+```
+
+```tsx file=../../../../demos/opening-an-app/app.tsx
+
+```
+
+</Files>
