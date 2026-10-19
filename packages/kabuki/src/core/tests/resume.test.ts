@@ -298,6 +298,30 @@ describe('a saved History that no longer fits the code', () => {
     );
   });
 
+  it("loads one whose root's name holds a `/`", async () => {
+    const Named = Actor.build(
+      Actor.define('app/Counter', {
+        model: Schema.Struct({ count: Schema.Number }),
+        message: Schema.TaggedUnion({ Bumped: {} }),
+      }),
+      {
+        init: () => ({ model: { count: 0 } }),
+        on: {
+          Bumped: (_, { model }) => ({ model: { count: model.count + 1 } }),
+        },
+      },
+    );
+    const saved = await run(
+      Effect.gen(function* () {
+        const app = yield* Runtime.start(History.make(Named));
+        app.send('app/Counter', { _tag: 'Bumped' });
+        return app.history.save();
+      }),
+    );
+    const history = History.load(Named, saved, { onMismatch: 'fail' });
+    expect(count(history.snapshotAt(history.head()))).toBe(1);
+  });
+
   it("loads one that still fits with `onMismatch: 'fail'`", async () => {
     const history = History.load(Counter, await bumped(3), {
       onMismatch: 'fail',
