@@ -1,12 +1,12 @@
 # @kestack/web-platform
 
-The way to build a kstack app: one config made into a PWA on TanStack Start with its Theme, its APIs on a cloud or a device Backend, several Accounts with one Session each, the screens before sign-in, and the server; plus the components, input, forms and Recipes to build screens with.
+The way to build a kstack app: one config made into a PWA on TanStack Start with its Theme, its APIs on a cloud or a Local Backend, several Accounts with one Session each, the screens before sign-in, and the server; plus the components, input, forms and Recipes to build screens with.
 
 ## Big picture
 
 Every kstack web app used to wire the same things by hand: the root document, the Theme, the PWA, sign-in and its screens, the browser as a Host, and the server for its APIs. This Package holds all of it, so a new app writes only its APIs, its Backend, its Session, its Cache and its screens ([ADR 0004](../../docs/adr/0004-an-app-is-api-backend-and-stores.md)). It replaces `@kestack/ui-toolkit` and `@kestack/pwa-toolkit`.
 
-The root door is `createApp`. It runs the app on the browser (IndexedDB with a Broadcaster per database every tab hears, the sign-in service's cookies, the window's network and tabs) and gives back the app with its root route, the Theme, `SignedIn` with the screens before an Account is open (the Gate Screens and Account Lost recipes), and the named sign-in dialog for the device Backend. Every app is a PWA: `createApp` always adds the PWA's Root Plugin. The `server` door's `createServer` serves each `http` API on its cloud Backend and each `websocket` API in the caller's own Live Object (a Durable Object made with `liveObject`, one per user), and checks every call with the sign-in service. Underneath `createApp` is the Gate: it keeps the app on one Backend, remembers the Accounts there, opens the active Account's Session at once (Open First) and confirms it behind, and holds the app on an Account Lost until the User acts. Each Session is written once with `defineSession`; closing it interrupts every call still in flight, so nothing of one Account reaches another's screen. Why the Web Platform may break while the Toolkits keep what persists is [ADR 0006](../../docs/adr/0006-platforms-may-break-toolkits-keep-what-persists.md).
+The root door is `createApp`. It runs the app on the browser (IndexedDB with a Broadcaster per database every tab hears, the sign-in service's cookie, the window's network and tabs) and gives back the app with its root route, the Theme, `SignedIn` with the screens before an Account is open (the Gate Screens and Account Lost recipes), and the Local Sign-In dialog for the Local Backend. Every app is a PWA: `createApp` always adds the PWA's Root Plugin. The `server` door's `createServer` serves each `http` API on its cloud Backend and each `websocket` API in the caller's own Live Object (a Durable Object made with `liveObject`, one per user), and checks every call with the sign-in service. Underneath `createApp` is the Gate, built on auth-toolkit's `Accounts`: it keeps the app on one Backend, opens the Active Account's Session at launch at once from the Account last seen (Open First) and confirms it behind, follows every Account Switch, and holds the app on an Account Lost until the User acts. Each Session is written once with `defineSession`; closing it interrupts every call still in flight, so nothing of one Account reaches another's screen. Why the Web Platform may break while the Toolkits keep what persists is [ADR 0006](../../docs/adr/0006-platforms-may-break-toolkits-keep-what-persists.md).
 
 Underneath, it is laid out one layer per job and one subpath per layer, bottom to top: `theme`, `feedback`, `input`, `components`, `form`, `recipes`, `client`, then `pwa`; `server` stands beside them. These stay exported for screens and for the unusual app; [ADR 0003](../../docs/adr/0003-web-toolkit-and-the-gate.md) is the earlier design.
 
@@ -21,9 +21,9 @@ pnpm add -D @tailwindcss/vite
 
 An app that renders on the server adds `@kestack/web-platform` to `ssr.noExternal` in its Vite config, as `apps/docs` and `apps/alchemy-console` do. Its stylesheet imports `@kestack/web-platform/theme/global.css`, which also points Tailwind at the Package's own classes.
 
-- `@kestack/auth-toolkit`: Accounts sign in with its `cookie` and, on the device Backend, `signIn.named`; `createServer` checks calls with its `authz.cloud`.
+- `@kestack/auth-toolkit`: its `browser()` gives the Accounts, by the sign-in service's cookie or, on the Local Backend, as Local Accounts; `createServer` and the Local Backend check calls with its `auth()`.
 - `@kestack/rpc-toolkit`: each API is called with its `http`, `websocket` and `inProcess` Transports; `createServer` answers each `http` API with its `Rpc.http.server`, and `liveObject` each `websocket` one with its `Rpc.websocket.server`.
-- `@kestack/std-toolkit`: the Gate's memory, Named Accounts, the Cache and each user's Std Sync are kept in its IndexedDB adapters.
+- `@kestack/std-toolkit`: the Gate's memory, the last-known Accounts, Local Accounts, the Cache and each user's Std Sync are kept in its IndexedDB adapters.
 - `react`, `react-dom`: every component, Recipe and the root document render with React 19.
 - `@kestack/use-gesture`: the platform-free gesture core that `./input`'s web gestures and the Thumb Picker run on.
 - `@kestack/use-keys` (optional): the Binding and Shortcut types `./recipes/key-bindings` shows.
@@ -33,16 +33,16 @@ An app that renders on the server adds `@kestack/web-platform` to `ssr.noExterna
 - `vite` (optional): needed by `./pwa/vite`.
 - `laymos` (optional): the file diff and change types the diff, git-changes and source-explorer viewers read.
 - `use-effect-ts` (optional): runs `./components/viewers/source-explorer`'s loaders inside React.
-- `@kestack/kabuki` (optional): the running app `./recipes/kabuki-devtools` inspects.
+- `@kestack/kabuki` (optional): `./recipes/kabuki-devtools` re-exports its `./devtools`, the Inspector on a running app.
 - `@cloudflare/workers-types` (optional): the Durable Object types `./server`'s `liveObject` is declared with.
 
 ## Exports
 
 ### `@kestack/web-platform`
 
-| Export      | What it does                                                                                                                                               |
-| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `createApp` | A web app from one config: its root route, Theme and PWA, its APIs, device Backend and Cache, and with `auth` its Accounts and the screens before sign-in. |
+| Export      | What it does                                                                                                                                              |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `createApp` | A web app from one config: its root route, Theme and PWA, its APIs, Local Backend and Cache, and with `auth` its Accounts and the screens before sign-in. |
 
 ### `@kestack/web-platform/define`
 
@@ -311,9 +311,9 @@ Owned shadcn copies on Base UI, one subpath per file, such as `@kestack/web-plat
 
 ### `@kestack/web-platform/recipes/local-sign-in`
 
-| Export        | What it does                                                                                   |
-| ------------- | ---------------------------------------------------------------------------------------------- |
-| `LocalSignIn` | Asks who to sign in as on the device Backend, with one-tap presets and an email and name form. |
+| Export        | What it does                                                                                  |
+| ------------- | --------------------------------------------------------------------------------------------- |
+| `LocalSignIn` | Asks who to sign in as on the Local Backend, with one-tap presets and an email and name form. |
 
 ### `@kestack/web-platform/recipes/account-lost`
 
@@ -341,10 +341,11 @@ Owned shadcn copies on Base UI, one subpath per file, such as `@kestack/web-plat
 
 ### `@kestack/web-platform/recipes/kabuki-devtools`
 
-| Export           | What it does                                                                                                                                |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `KabukiDevtools` | The Inspector on a running Kabuki app, from `App.useRuntime()`: picking a Step on its Timeline Time Travels the app, going live comes back. |
-| `Inspector`      | The Step shown, drawn as a Map, with the Sheet of what is picked and the Timeline under it; it lays itself out by its own width.            |
+| Export             | What it does                                                                                                                |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------- |
+| `KabukiDevtools`   | `@kestack/kabuki/devtools`' Inspector on a running Kabuki app, re-exported: it fills what holds it, as in a `DevtoolsDock`. |
+| `FloatingDevtools` | `@kestack/kabuki/devtools`' corner button that opens the devtools over the page, re-exported.                               |
+| `Inspector`        | `@kestack/kabuki/devtools`' Inspector on any Step given it, re-exported.                                                    |
 
 ### `@kestack/web-platform/client`
 
@@ -434,15 +435,15 @@ Owned shadcn copies on Base UI, one subpath per file, such as `@kestack/web-plat
 
 ### `@kestack/web-platform/server`
 
-| Export              | What it does                                                                                                                                                                                                                                                                               |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `createServer`      | A web app's server from its APIs and its cloud Backend: each `http` API at its path, each `websocket` API's socket handed to the Live Object named for whoever its `access_token` names, each call checked with the sign-in service when the app has auth, everything else TanStack Start. |
-| `liveObject`        | A Durable Object class serving one `websocket` API, one object per user with its own storage, refusing sockets and calls from any other user; `streams` sets where open streams are kept while it sleeps.                                                                                  |
-| `webServer`         | One fetch handler: `/rpc` goes to the app's API, everything else to TanStack Start; a Cloudflare Worker's default export as it is.                                                                                                                                                         |
-| `isDeployedStage`   | Whether an alchemy stage reaches the world: `prod` or a pull request's `prN`.                                                                                                                                                                                                              |
-| `assertStageIsSafe` | Refuses a deployed stage unless `ALLOW_DEPLOY=true`.                                                                                                                                                                                                                                       |
-| `domainFor`         | Where a stage is served: the domain for `prod`, `prN-<domain>` for a pull request, nowhere for anyone's own stage.                                                                                                                                                                         |
-| `devConfigFor`      | A local stage's dev server on the `PORT` portless gives it; throws when there is none.                                                                                                                                                                                                     |
+| Export              | What it does                                                                                                                                                                                                                                                                                              |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `createServer`      | A web app's server from its APIs and its cloud Backend: each `http` API at its path, each `websocket` API's socket handed to the Live Object named for whoever the sign-in cookie on its upgrade names, each call checked with the sign-in service when the app has auth, everything else TanStack Start. |
+| `liveObject`        | A Durable Object class serving one `websocket` API, one object per user with its own storage, refusing sockets and calls from any other user; `streams` sets where open streams are kept while it sleeps.                                                                                                 |
+| `webServer`         | One fetch handler: `/rpc` goes to the app's API, everything else to TanStack Start; a Cloudflare Worker's default export as it is.                                                                                                                                                                        |
+| `isDeployedStage`   | Whether an alchemy stage reaches the world: `prod` or a pull request's `prN`.                                                                                                                                                                                                                             |
+| `assertStageIsSafe` | Refuses a deployed stage unless `ALLOW_DEPLOY=true`.                                                                                                                                                                                                                                                      |
+| `domainFor`         | Where a stage is served: the domain for `prod`, `prN-<domain>` for a pull request, nowhere for anyone's own stage.                                                                                                                                                                                        |
+| `devConfigFor`      | A local stage's dev server on the `PORT` portless gives it; throws when there is none.                                                                                                                                                                                                                    |
 
 ## Usage
 
@@ -459,7 +460,7 @@ export const app = createApp({
   description: 'Write down what you spend and earn, and see where it goes.',
   mark: createElement(LedgerMark),
   apis, // { ledger: Api.websocket(LedgerApi, { path: '/live' }) }, from ./define
-  device, // every API's handlers on the device's Storage
+  local, // every API's handlers on the device's Storage
   cache: ledgerCache,
   auth: {
     url: AUTH_URL,
@@ -486,12 +487,12 @@ export default createServer({
 }) satisfies ExportedHandler<WorkerEnv>;
 ```
 
-- `app.root` is the root route: the document in the Theme, the PWA's head and prompts, and the named sign-in dialog when there is a device Backend.
+- `app.root` is the root route: the document in the Theme, the PWA's head and prompts, and the Local Sign-In dialog when there is a Local Backend.
 - `SignedIn` renders its children while an Account is open, and otherwise the Gate Screens or Account Lost. Everything inside remounts on an Account Switch.
-- The Host is made the first time anything asks, so `app.ts` loads on the server too. The device Backend's code loads the first time someone chooses it; `?backend=device` in the address starts on it.
+- The Host is made the first time anything asks, so `app.ts` loads on the server too. The Local Backend's code loads the first time someone chooses it; `?backend=local` in the address starts on it (`device`, its former name, still works).
 - `createServer` serves each `http` API at its path and everything else from TanStack Start. Point `tanstackStart({ server: { entry } })` at this file.
-- A `websocket` API is served by `live` instead of `backend`: each `(env) => ({ [api]: namespace })` names a Durable Object binding, and a socket opens at `getByName(userId)` once its `access_token` checks out (401 without one, 503 when the sign-in service can't be asked). The binding's class is made with `liveObject`, and takes calls only from the user it is named for.
-- With `auth`, each call is checked by auth-toolkit's `authz.cloud` for a bearer token or the sign-in cookie, and refreshed cookies go back on the answer. `resource` lets in Access Tokens for that Resource Server too, such as an MCP client's.
+- A `websocket` API is served by `live` instead of `backend`: each `(env) => ({ [api]: namespace })` names a Durable Object binding, and a socket opens at `getByName(userId)` once the sign-in cookie on its upgrade checks out (401 without one, 503 when the sign-in service can't be asked). The binding's class is made with `liveObject`, and opens sockets only for the user it is named for; every call on one is that user's.
+- With `auth`, each call is checked by auth-toolkit's `auth()` for the sign-in cookie (or a Device's bearer), and refreshed cookies go back on the answer; handlers need nothing of auth's. `oauth: { resource }` lets in Access Tokens for that Resource Server too, such as an MCP client's. The app's pages and Worker must sit under the sign-in service's cookie domain.
 
 ### Building the PWA
 

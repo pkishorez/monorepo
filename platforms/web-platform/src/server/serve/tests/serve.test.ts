@@ -24,7 +24,7 @@ const server = createServer({
 });
 
 describe('a WebSocket API', () => {
-  it('opens no object for a socket that carries no token', async () => {
+  it('opens no object for a socket that carries no cookie', async () => {
     const response = await server.fetch(
       new Request('https://app.test/live'),
       {},
@@ -34,7 +34,9 @@ describe('a WebSocket API', () => {
 
   it('answers 503 when the sign-in service cannot be asked', async () => {
     const response = await server.fetch(
-      new Request('https://app.test/live?access_token=t'),
+      new Request('https://app.test/live', {
+        headers: { cookie: 'better-auth.session_token=t' },
+      }),
       {},
     );
     expect(response.status).toBe(503);

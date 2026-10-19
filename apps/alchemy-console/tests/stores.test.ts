@@ -1,8 +1,7 @@
 import { Effect, Layer, Schema } from 'effect';
 import { RpcTest } from 'effect/rpc';
 import { FetchHttpClient } from 'effect/http';
-import { Authz } from '@kestack/auth-toolkit/guard';
-import { authz } from '@kestack/auth-toolkit/server';
+import { auth } from '@kestack/auth-toolkit/server/rpc';
 import { SQLite } from '@kestack/std-toolkit/db/sqlite';
 import { makeNodeSQLite } from '@kestack/std-toolkit/db/sqlite/node';
 import { expect, it } from 'vite-plus/test';
@@ -19,6 +18,7 @@ import { ConsoleApi } from '../src/shared/api/console-api/index.ts';
 import { createStoreInput } from '../src/shared/contracts/stores/index.ts';
 import { createCredentialInput } from '../src/shared/contracts/credentials/index.ts';
 import { ConsoleHandlers } from '../src/server/handlers/console-handlers/index.ts';
+import { signedAs } from './fixtures/signed-as.ts';
 
 const accountId = 'a'.repeat(32);
 const apiToken = 'account-test-token';
@@ -65,37 +65,7 @@ const providerFetch = Object.assign(
   },
   { preconnect: () => {} },
 );
-const headers = (userId: string) => ({ headers: { cookie: userId } });
-const resolver = Layer.succeed(Authz.Resolver, {
-  resolve: (request) =>
-    Effect.sync(() => {
-      const id = request.headers.get('cookie');
-      if (!id || id === 'invalid') return null;
-      const now = new Date();
-      return {
-        current: {
-          kind: 'session' as const,
-          user: {
-            id,
-            name: id,
-            email: `${id}@example.com`,
-            emailVerified: true,
-            createdAt: now,
-            updatedAt: now,
-          },
-          session: {
-            id: `session-${id}`,
-            userId: id,
-            token: 'session-token',
-            expiresAt: new Date(Date.now() + 60000),
-            createdAt: now,
-            updatedAt: now,
-          },
-        },
-        refreshedCookies: [],
-      };
-    }),
-});
+const headers = (userId: string) => ({ headers: signedAs(userId) });
 
 const makeClient = () => RpcTest.makeClient(ConsoleApi);
 const run = <A, E>(
@@ -114,7 +84,7 @@ const run = <A, E>(
     }).pipe(
       Effect.scoped,
       Effect.provide(ConsoleHandlers.pipe(Layer.provide(table.layer))),
-      Effect.provide(authz.layer.pipe(Layer.provide(resolver))),
+      Effect.provide(auth({ local: true })),
       Effect.provide(FetchHttpClient.layer),
       Effect.provideService(FetchHttpClient.Fetch, fetch),
       Effect.provideService(FetchHttpClient.RequestInit, {
@@ -469,7 +439,7 @@ it('persists raw secrets at schema v1 and removes the actual rows on delete', as
     }).pipe(
       Effect.scoped,
       Effect.provide(ConsoleHandlers.pipe(Layer.provide(table.layer))),
-      Effect.provide(authz.layer.pipe(Layer.provide(resolver))),
+      Effect.provide(auth({ local: true })),
       Effect.provide(FetchHttpClient.layer),
       Effect.provideService(FetchHttpClient.Fetch, providerFetch),
       Effect.provideService(FetchHttpClient.RequestInit, {

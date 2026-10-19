@@ -117,6 +117,12 @@ catalogs:
     '@standard-schema/spec':
       specifier: 1.1.0
       version: 1.1.0
+    '@tailwindcss/node':
+      specifier: 4.3.3
+      version: 4.3.3
+    '@tailwindcss/oxide':
+      specifier: 4.3.3
+      version: 4.3.3
     '@tailwindcss/typography':
       specifier: 0.5.20
       version: 0.5.20
@@ -177,9 +183,6 @@ catalogs:
     '@vitejs/plugin-react':
       specifier: 6.1.1
       version: 6.1.1
-    '@xstate/effect':
-      specifier: 0.1.0-alpha.6
-      version: 0.1.0-alpha.6
     alchemy:
       specifier: 2.0.0-beta.80
       version: 2.0.0-beta.80
@@ -324,18 +327,12 @@ catalogs:
     ulidx:
       specifier: 2.4.1
       version: 2.4.1
-    use-sync-external-store:
-      specifier: 1.6.0
-      version: 1.6.0
     vite-plus:
       specifier: 1.0.0
       version: 1.0.0
     werift:
       specifier: 0.24.4
       version: 0.24.4
-    xstate:
-      specifier: 6.0.0-alpha.64
-      version: 6.0.0-alpha.64
     yaml:
       specifier: 2.9.0
       version: 2.9.0
@@ -543,9 +540,6 @@ importers:
 
   apps/kabuki-start:
     dependencies:
-      '@kestack/auth-toolkit':
-        specifier: workspace:*
-        version: link:../../toolkits/auth-toolkit
       '@kestack/kabuki':
         specifier: workspace:*
         version: link:../../packages/kabuki
@@ -873,6 +867,12 @@ importers:
         specifier: npm:@voidzero-dev/vite-plus-core@1.0.0
         version: '@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.4.1)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(typescript@7.0.2)(yaml@2.9.0)'
     devDependencies:
+      '@tailwindcss/node':
+        specifier: 'catalog:'
+        version: 4.3.3
+      '@tailwindcss/oxide':
+        specifier: 'catalog:'
+        version: 4.3.3
       '@types/react':
         specifier: 'catalog:'
         version: 19.2.18
@@ -897,6 +897,9 @@ importers:
       react-dom:
         specifier: 'catalog:'
         version: 19.2.8(react@19.2.8)
+      tailwindcss:
+        specifier: 'catalog:'
+        version: 4.3.3
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
@@ -1024,9 +1027,6 @@ importers:
       '@uiw/react-json-view':
         specifier: 'catalog:'
         version: 2.0.0-alpha.43(@babel/runtime@7.29.7)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      '@xstate/effect':
-        specifier: 'catalog:'
-        version: 0.1.0-alpha.6(effect@4.0.0)(xstate@6.0.0-alpha.64)
       class-variance-authority:
         specifier: 'catalog:'
         version: 0.7.1
@@ -1087,9 +1087,6 @@ importers:
       vite:
         specifier: npm:@voidzero-dev/vite-plus-core@1.0.0
         version: '@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.4.1)(@typescript/typescript6@6.0.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.0)'
-      xstate:
-        specifier: 'catalog:'
-        version: 6.0.0-alpha.64
       zustand:
         specifier: 'catalog:'
         version: 5.0.15(@types/react@19.2.18)(immer@11.1.8)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8))
@@ -1230,27 +1227,12 @@ importers:
       '@cloudflare/workers-types':
         specifier: 'catalog:'
         version: 5.20260904.1
-      '@tanstack/react-query':
-        specifier: 'catalog:'
-        version: 5.102.8(react@19.2.8)
-      '@tanstack/react-router':
-        specifier: 'catalog:'
-        version: 1.170.32(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      '@tanstack/react-start':
-        specifier: 'catalog:'
-        version: 1.168.49(@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.4.1)(@typescript/typescript6@6.0.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.0))(crossws@0.4.9(srvx@0.11.20))(esbuild@0.28.2)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(rolldown@1.2.7)(rollup@4.64.7)(supports-color@10.2.2)(webpack@5.105.0(esbuild@0.28.2)(lightningcss@1.33.0)(postcss@8.5.28))
       better-auth:
         specifier: 'catalog:'
         version: 1.7.2(84cbfadf5f056ab8c5fd770026f55cd2)
       drizzle-orm:
         specifier: 'catalog:'
         version: 1.0.0-rc.4(@cloudflare/workers-types@5.20260904.1)(@effect/sql-d1@4.0.0(effect@4.0.0))(@effect/sql-sqlite-do@4.0.0(effect@4.0.0))(@electric-sql/pglite@0.3.15)(@libsql/client@0.17.4)(@opentelemetry/api@1.9.1)(@types/better-sqlite3@9.6.0)(@types/pg@8.23.1)(better-sqlite3@13.0.3)(bun-types@1.4.1)(effect@4.0.0)(pg@8.23.0)(valibot@1.2.0(@typescript/typescript6@6.0.2))(zod@4.5.4)
-      use-sync-external-store:
-        specifier: 'catalog:'
-        version: 1.6.0(react@19.2.8)
-      zustand:
-        specifier: 'catalog:'
-        version: 5.0.15(@types/react@19.2.18)(immer@11.1.8)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8))
     devDependencies:
       '@base-ui/react':
         specifier: 'catalog:'
@@ -1258,12 +1240,9 @@ importers:
       '@effect/platform-node':
         specifier: 'catalog:'
         version: 4.0.0(effect@4.0.0)(redis@6.2.1(@opentelemetry/api@1.9.1))
-      '@fontsource-variable/inter':
-        specifier: 'catalog:'
-        version: 5.3.0
-      '@fontsource-variable/jetbrains-mono':
-        specifier: 'catalog:'
-        version: 5.3.0
+      '@kestack/kabuki':
+        specifier: workspace:*
+        version: link:../../packages/kabuki
       '@kestack/rpc-toolkit':
         specifier: workspace:*
         version: link:../rpc-toolkit
@@ -1303,15 +1282,6 @@ importers:
       better-sqlite3:
         specifier: 'catalog:'
         version: 13.0.3
-      class-variance-authority:
-        specifier: 'catalog:'
-        version: 0.7.1
-      clsx:
-        specifier: 'catalog:'
-        version: 2.1.1
-      cn:
-        specifier: 'catalog:'
-        version: 0.2.6
       drizzle-kit:
         specifier: 'catalog:'
         version: 1.0.0-rc.4
@@ -1336,21 +1306,9 @@ importers:
       react-dom:
         specifier: 'catalog:'
         version: 19.2.8(react@19.2.8)
-      shadcn:
-        specifier: 'catalog:'
-        version: 4.21.0(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
-      sonner:
-        specifier: 'catalog:'
-        version: 2.0.8(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      tailwind-merge:
-        specifier: 'catalog:'
-        version: 3.6.0
       tailwindcss:
         specifier: 'catalog:'
         version: 4.3.3
-      tw-animate-css:
-        specifier: 'catalog:'
-        version: 1.4.0
       typescript:
         specifier: catalog:typescript6
         version: '@typescript/typescript6@6.0.2'
@@ -5619,12 +5577,6 @@ packages:
     resolution: {integrity: sha512-5AXjrcMClTryPe9LgZrygpB1lj7s0S9E0+W+AHaVKAVyHanafK86iPSvG5xHVSp/jC+VH1UXu0TAEmY279xH7A==}
     engines: {node: '>=14.6'}
 
-  '@xstate/effect@0.1.0-alpha.6':
-    resolution: {integrity: sha512-6fQ8vTfQf8evetno5x4vrS49IoS9XuiyPJixDHmQeIabZVXo1nSBtIZp6tw2ofYDkfdtlSPBYUnjoGhPB8T0Rw==}
-    peerDependencies:
-      effect: ^4.0.0
-      xstate: ^6.0.0-alpha.63
-
   '@xtuc/ieee754@1.2.0':
     resolution: {integrity: sha512-DX8nKgqcGwsc0eJSqYt5lwP4DH5FlHnmuWWBRy7X0NcaGR0ZtuyeESgMwTYVEtxmsNGY+qit4QYT/MIYTOTPeA==}
 
@@ -9335,10 +9287,6 @@ packages:
   xmlchars@2.2.0:
     resolution: {integrity: sha512-JZnDKK8B0RCDw84FNdDAIpZK+JuJw+s7Lz8nksI7SIuU3UXJJslUthsi+uWBUYOwPFwW7W7PRLRfUKpxjtjFCw==}
 
-  xstate@6.0.0-alpha.64:
-    resolution: {integrity: sha512-TJ3bMBeFq+Qhl+b0R747RdVLUx5D6P7j/JcSfqJMmPajAY+ZadGIQ+p3z8WEPdIsJ5xpzqy7P0Ou5fTDx/FOGw==}
-    hasBin: true
-
   xtend@4.0.2:
     resolution: {integrity: sha512-LKYU1iAXJXUgAXn9URjiu+MWhyUXHsvfp7mcuYm9dSUKK0/CjtrUwFAxD82/mCWbtLsGjFIad0wIsod4zrTAEQ==}
     engines: {node: '>=0.4'}
@@ -12885,12 +12833,12 @@ snapshots:
   '@types/eslint-scope@3.7.7':
     dependencies:
       '@types/eslint': 9.6.1
-      '@types/estree': 1.0.8
+      '@types/estree': 1.0.9
     optional: true
 
   '@types/eslint@9.6.1':
     dependencies:
-      '@types/estree': 1.0.8
+      '@types/estree': 1.0.9
       '@types/json-schema': 7.0.15
     optional: true
 
@@ -13370,11 +13318,6 @@ snapshots:
     optional: true
 
   '@xmldom/xmldom@0.9.12': {}
-
-  '@xstate/effect@0.1.0-alpha.6(effect@4.0.0)(xstate@6.0.0-alpha.64)':
-    dependencies:
-      effect: 4.0.0
-      xstate: 6.0.0-alpha.64
 
   '@xtuc/ieee754@1.2.0':
     optional: true
@@ -17561,7 +17504,7 @@ snapshots:
   webpack@5.105.0(esbuild@0.28.2)(lightningcss@1.33.0)(postcss@8.5.28):
     dependencies:
       '@types/eslint-scope': 3.7.7
-      '@types/estree': 1.0.8
+      '@types/estree': 1.0.9
       '@types/json-schema': 7.0.15
       '@webassemblyjs/ast': 1.14.1
       '@webassemblyjs/wasm-edit': 1.14.1
@@ -17695,8 +17638,6 @@ snapshots:
       js-yaml: 4.2.0
 
   xmlchars@2.2.0: {}
-
-  xstate@6.0.0-alpha.64: {}
 
   xtend@4.0.2:
     optional: true

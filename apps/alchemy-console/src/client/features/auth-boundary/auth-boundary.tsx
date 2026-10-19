@@ -1,8 +1,7 @@
 import { Effect } from 'effect';
 import { useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { useComponentLifecycle, useRunEffect } from 'use-effect-ts';
-import type { LoginError } from '@kestack/auth-toolkit/client';
+import { useRunEffect } from 'use-effect-ts';
 import { Button } from '@kestack/web-platform/components/button';
 import { GoogleButton } from '@kestack/web-platform/components/google-button';
 import {
@@ -22,23 +21,14 @@ import {
 function useAuthAction(action: 'login' | 'logout') {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [loginError, setLoginError] = useState<LoginError | null>(null);
   const active = useRef(false);
-  const session = useSession();
-  useComponentLifecycle(
-    action === 'login'
-      ? accounts.takeLoginError.pipe(
-          Effect.flatMap((taken) => Effect.sync(() => setLoginError(taken))),
-        )
-      : Effect.void,
-  );
+  // Signing in leaves the page for the Login Screen, which shows its own
+  // errors; signing out lands as a new Accounts state.
   const run = useRunEffect(() =>
-    (action === 'login'
-      ? accounts.signIn()
-      : accounts.signOutAll.pipe(
-          Effect.andThen(Effect.promise(session.refresh)),
-        )
-    ).pipe(
+    accounts.pipe(
+      Effect.flatMap((accounts) =>
+        action === 'login' ? accounts.signIn() : accounts.signOutAll,
+      ),
       Effect.catch(() =>
         Effect.sync(() =>
           setError('The sign-in service didn’t respond. Try again.'),
@@ -57,14 +47,9 @@ function useAuthAction(action: 'login' | 'logout') {
     active.current = true;
     setPending(true);
     setError(null);
-    setLoginError(null);
     void run();
   };
-  return {
-    pending,
-    start,
-    error: error ?? loginError?.description ?? null,
-  };
+  return { pending, start, error };
 }
 
 function LogoutButton() {
@@ -240,7 +225,7 @@ function SessionGate({ children }: { children: ReactNode }) {
     );
 
   return (
-    <RpcProvider key={session.account.token}>
+    <RpcProvider key={session.account.id}>
       <ConnectionGate>{children}</ConnectionGate>
     </RpcProvider>
   );

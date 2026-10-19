@@ -9,6 +9,7 @@ vi.mock('@kestack/std-toolkit/db/sqlite/d1', () => ({
   makeD1SQLite: mocks.makeDatabase,
 }));
 
+import { authWorkerUrl } from '../src/shared/api/auth-worker/index.ts';
 import { makeRpcRuntime, Rpc } from '../src/client/connections/rpc/index.ts';
 import { handleRpc } from '../src/server/host/rpc-host/index.ts';
 import { consoleTable } from '../src/server/storage/table/index.ts';
@@ -47,7 +48,7 @@ it('preserves authenticated RPC and exports linked spans with safe correlated lo
           { status: 403 },
         );
       }
-      if (url.hostname === 'auth.kishore.computer') {
+      if (url.hostname === new URL(authWorkerUrl).hostname) {
         return Response.json({
           user: { id: 'alice' },
           session: { id: 'session', userId: 'alice' },

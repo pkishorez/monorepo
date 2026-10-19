@@ -4,7 +4,8 @@ import { Effect, SubscriptionRef } from 'effect';
  * Whether the open Account has been confirmed by its Sign-in since the
  * Session opened, and when it last was. An Account opened from what the
  * device remembers is `verifying` until the Sign-in answers; a call made
- * meanwhile waits for the token, and nothing fails for being early.
+ * meanwhile goes out as that Account, and is refused Account Changed if
+ * the sign-in service says someone else is active.
  */
 export interface SessionStatus {
   readonly state: 'verifying' | 'verified';

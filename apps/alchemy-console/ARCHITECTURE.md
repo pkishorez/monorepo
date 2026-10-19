@@ -126,7 +126,7 @@ selection out of the deleted stage. Preview does not invalidate browsing data.
 ## Frontend/backend contract
 
 `POST /rpc` (also `/rpc/`) serves the shared `ConsoleApi` over NDJSON. The client
-and host import the same composed definition. `Authz.guard()` wraps the merged
+and host import the same composed definition. `Auth.required` wraps the merged
 group once, so every procedure inherits authentication. The operation boundary
 still checks store ownership and deletion permissions. Capability declarations
 are not independently mounted.

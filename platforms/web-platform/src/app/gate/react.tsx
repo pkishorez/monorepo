@@ -4,9 +4,8 @@ import {
   useContext,
   useSyncExternalStore,
 } from 'react';
-import type { NamedChoice } from '@kestack/auth-toolkit/client';
-import type { GateView } from './domain/index.ts';
-import type { Gate } from './gate.ts';
+import type { Gate, LocalChoice } from './gate.ts';
+import type { GateView } from './types.ts';
 
 type Open<S> = Extract<GateView<S>, { kind: 'open' }>;
 type NotOpen<S> = Exclude<GateView<S>, { kind: 'open' }>;
@@ -49,7 +48,7 @@ export const gateReact = <S,>(gate: Gate<S>) => {
         : (fallback ?? null);
     }
     return (
-      <OpenContext key={view.account.user.id} value={view}>
+      <OpenContext key={view.account.id} value={view}>
         {props.children}
       </OpenContext>
     );
@@ -61,12 +60,12 @@ export const gateReact = <S,>(gate: Gate<S>) => {
   }
 
   const dismissNotice = () => void gate.takeNotice();
-  const answer = (choice: NamedChoice | null) =>
-    gate.namedSignIn.answer(choice);
+  const answer = (choice: LocalChoice | null) =>
+    gate.localSignIn.answer(choice);
 
   /**
    * The Gate, anywhere: what it shows, the Backend it runs on and changing
-   * it, whether the device is online, the oldest Gate Notice, the Named
+   * it, whether the device is online, the oldest Gate Notice, the Local
    * Sign-In's question, and what can be done before anyone is open.
    */
   const useGate = () => ({
@@ -91,12 +90,12 @@ export const gateReact = <S,>(gate: Gate<S>) => {
     /** Signs the Active Account out, or forgets a lost one; false when the
      * Backend can't be reached. */
     signOut: gate.signOut,
-    /** Whether the device Backend is asking who signs in, and the answer: a
+    /** Whether the Local Backend is asking who signs in, and the answer: a
      * choice, or null to sign nobody in. */
-    namedSignIn: {
+    localSignIn: {
       asking: useSyncExternalStore(
-        gate.namedSignIn.subscribe,
-        gate.namedSignIn.isAsking,
+        gate.localSignIn.subscribe,
+        gate.localSignIn.isAsking,
         () => false,
       ),
       answer,
@@ -116,7 +115,8 @@ export const gateReact = <S,>(gate: Gate<S>) => {
       all: open.accounts,
       /** Signs one more account in, who becomes the Active Account. */
       add: gate.addAccount,
-      /** An Account Switch, at once. */
+      /** An Account Switch: the Session closes at once, and the account
+       * opens once the Backend has switched. */
       switchTo: gate.switchTo,
       /** False when the Backend can't be reached. */
       signOut: gate.signOut,

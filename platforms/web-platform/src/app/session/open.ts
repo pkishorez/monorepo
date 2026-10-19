@@ -12,7 +12,6 @@ import {
 } from 'effect';
 import { type RpcClient, RpcClient as Client } from 'effect/rpc';
 import type { Account } from '@kestack/auth-toolkit/client';
-import { Authz } from '@kestack/auth-toolkit/guard';
 import { Rpc } from '@kestack/rpc-toolkit/rpc';
 import {
   createStdSync,
@@ -73,7 +72,8 @@ const droppedOn = (connection: Made['connection']) =>
 
 /**
  * Opens one Account's Session: a runtime holding every API's client, each
- * over its own protocol and signed with `token`, the user's Std Sync on
+ * over its own protocol and signed by `signing`, the Accounts' signing of
+ * every guarded call, the user's Std Sync on
  * `store`, and then the app's own Session on them. Ends, in order: the
  * app's Session, the Std Sync once its writes on their way have landed,
  * every call still in flight (interrupted), the runtime.
@@ -85,7 +85,8 @@ export const openSession = <A extends Apis, S>(options: {
   };
   readonly store: SyncStore;
   readonly account: Account;
-  readonly token: Effect.Effect<string>;
+  /** What signs every guarded call as the Active Account. */
+  readonly signing: Layer.Layer<never>;
   readonly status: StatusCell;
   readonly open: (
     context: SessionContext<A>,
@@ -104,7 +105,6 @@ export const openSession = <A extends Apis, S>(options: {
         ),
       ]),
     );
-    const bearer = Authz.bearer(options.token);
     const layers = names.map((name) =>
       Layer.effect(
         keys.get(name)!,
@@ -112,7 +112,7 @@ export const openSession = <A extends Apis, S>(options: {
           client: Client.make(apis[name]!.group),
           connection: Effect.serviceOption(Rpc.websocket.connection),
         }),
-      ).pipe(Layer.provide([options.protocols[name]!, bearer])),
+      ).pipe(Layer.provide([options.protocols[name]!, options.signing])),
     );
     const runtime = ManagedRuntime.make(
       (layers.length === 0
@@ -169,7 +169,7 @@ export const openSession = <A extends Apis, S>(options: {
       names.map((name, index) => [name, signed(raw[index] as Made)]),
     ) as ApiClients<A>;
 
-    const sync = makeSync(syncName(account.user.id), runtime, options.store);
+    const sync = makeSync(syncName(account.id), runtime, options.store);
     yield* Effect.addFinalizer(() =>
       Effect.tryPromise(() => sync.dispose()).pipe(
         Effect.catch((error) => Effect.logWarning('[sync]', error)),

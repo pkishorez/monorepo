@@ -1,9 +1,4 @@
-import type { Account, LoginError, User } from '@kestack/auth-toolkit/client';
-
-/** An Account as the Gate holds it, marked active or not. Its token is null
- * while it is only remembered, as when it opened before the Backend
- * answered. */
-export type Held = Account & { readonly active: boolean };
+import type { Account } from '@kestack/auth-toolkit/client';
 
 /** What every screen asks the Gate. */
 export type GateView<S> =
@@ -27,10 +22,11 @@ export type GateView<S> =
       readonly accounts: ReadonlyArray<Account>;
     };
 
-/** A message the Gate leaves for the app once. */
+/** A message the Gate leaves for the app once: a sign-in that ended
+ * without signing anyone in, and why. */
 export type GateNotice = {
-  readonly kind: 'loginError';
-  readonly error: LoginError;
+  readonly kind: 'signInFailed';
+  readonly message: string;
 };
 
-export type { User };
+export type { Account };

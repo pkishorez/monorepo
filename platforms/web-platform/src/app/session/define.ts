@@ -12,11 +12,11 @@ import type { SessionStatus } from './status.ts';
 export interface SessionContext<A extends Apis> {
   /** Whose Session it is. */
   readonly account: Account;
-  /** Every API, each call signed with the Account's token. A call still on
+  /** Every API, each guarded call signed as the Account. A call still on
    * its way when the Session closes is interrupted. */
   readonly apis: ApiClients<A>;
   /** A Std Sync named for the user, kept where the Backend keeps it: on the
-   * device for the cloud Backend, in memory for the device Backend. Make
+   * device for the cloud Backend, in memory for the Local Backend. Make
    * its collections; it is disposed with the Session. */
   readonly sync: StdSync;
   /** Whether the Account has been confirmed since the Session opened. */

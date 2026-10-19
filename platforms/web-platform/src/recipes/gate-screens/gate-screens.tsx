@@ -24,10 +24,10 @@ export interface GateScreensProps {
   /** For the Google button. */
   theme: 'light' | 'dark';
   screen: GateScreen;
-  /** The Backend running, and whether the app has a device Backend to
+  /** The Backend running, and whether the app has a Local Backend to
    * offer. */
-  backend: 'cloud' | 'device' | null;
-  hasDevice: boolean;
+  backend: 'cloud' | 'local' | null;
+  hasLocal: boolean;
   /** Why the last sign-in came back with nobody, shown once. */
   loginError?: string | null;
   onLoginErrorShown?: () => void;
@@ -35,13 +35,13 @@ export interface GateScreensProps {
   onCheckAgain: () => void;
   onRetry: () => void;
   onSignOut: () => void;
-  onBackend: (backend: 'cloud' | 'device') => void;
+  onBackend: (backend: 'cloud' | 'local') => void;
 }
 
 /**
  * Every screen an app shows before an Account is open: checking who is
  * signed in, opening an Account, signing out, signed out (Google on the
- * cloud Backend, a name on the device Backend, and the way to the other),
+ * cloud Backend, a name on the Local Backend, and the way to the other),
  * and an Account that would not open. One card for all of them, so nothing
  * jumps between them. An Account Lost is the Account Lost recipe.
  */
@@ -91,7 +91,7 @@ export function GateScreens(props: GateScreensProps) {
 }
 
 function SignedOut(props: GateScreensProps & { unreachable: boolean }) {
-  if (props.backend === 'device') {
+  if (props.backend === 'local') {
     return (
       <Card {...props}>
         <div className="space-y-3">
@@ -111,7 +111,7 @@ function SignedOut(props: GateScreensProps & { unreachable: boolean }) {
           <Button variant="outline" onClick={props.onCheckAgain}>
             Try again
           </Button>
-          {props.hasDevice && <OtherBackend {...props} to="device" />}
+          {props.hasLocal && <OtherBackend {...props} to="local" />}
         </div>
       </Card>
     );
@@ -120,17 +120,17 @@ function SignedOut(props: GateScreensProps & { unreachable: boolean }) {
     <Card {...props}>
       <div className="space-y-3">
         <GoogleSignIn {...props} />
-        {props.hasDevice && <OtherBackend {...props} to="device" />}
+        {props.hasLocal && <OtherBackend {...props} to="local" />}
       </div>
     </Card>
   );
 }
 
 // The way from one Backend to the other.
-function OtherBackend(props: GateScreensProps & { to: 'device' | 'cloud' }) {
+function OtherBackend(props: GateScreensProps & { to: 'local' | 'cloud' }) {
   return (
     <p className="text-sm text-muted-foreground">
-      {props.to === 'device'
+      {props.to === 'local'
         ? `Or try ${props.title} on this device, without an account.`
         : 'Or sign in with Google, to keep everything on every device.'}{' '}
       <Button
@@ -138,7 +138,7 @@ function OtherBackend(props: GateScreensProps & { to: 'device' | 'cloud' }) {
         className="h-auto p-0"
         onClick={() => props.onBackend(props.to)}
       >
-        {props.to === 'device' ? 'Use this device' : 'Use Google'}
+        {props.to === 'local' ? 'Use this device' : 'Use Google'}
       </Button>
     </p>
   );

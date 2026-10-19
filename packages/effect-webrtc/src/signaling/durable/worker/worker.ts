@@ -10,11 +10,7 @@ import {
   Stream,
 } from 'effect';
 import type * as Cloudflare from 'alchemy/Cloudflare';
-import { verifyRequest } from '@kestack/auth-toolkit/server/cloud';
-import {
-  isTrustedOrigin,
-  validateTrustedOrigins,
-} from '@kestack/auth-toolkit/worker';
+import { verify } from '@kestack/auth-toolkit/server/http';
 import type { Rpc } from '@kestack/rpc-toolkit/rpc';
 import { HttpServerRequest, HttpServerResponse } from 'effect/http';
 import {
@@ -25,6 +21,7 @@ import {
   type PeerDescriptor,
   TooManyPeerWaits,
 } from '../rpc/index.js';
+import { isOriginUnder } from './origin.js';
 
 const MAX_PEERS_PER_USER = 64;
 const MAX_WAITS_PER_CONNECTION = 16;
@@ -71,7 +68,9 @@ const connectionFromSocket = (socket: cf.WebSocket) => {
 export const durableSignalingConnection = (
   options: {
     readonly authWorkerUrl: RequestValue<string>;
-    readonly trustedOrigins: RequestValue<ReadonlyArray<string>>;
+    /** The Auth Worker's Shared Cookie Domain (e.g. `.example.com`): a
+     * socket opens only from a page on it or under it. */
+    readonly cookieDomain: RequestValue<string>;
   },
   state: Cloudflare.DurableObjectState['Service'],
 ): Rpc.ConnectionSlot<DurableConnection> => ({
@@ -82,13 +81,14 @@ export const durableSignalingConnection = (
       const request = yield* HttpServerRequest.toWeb(serverRequest).pipe(
         Effect.mapError(() => HttpServerResponse.empty({ status: 400 })),
       );
-      const trustedOrigins = resolveRequestValue(
-        options.trustedOrigins,
-        request,
-      );
-      validateTrustedOrigins(trustedOrigins);
       const origin = request.headers.get('origin');
-      if (origin === null || !isTrustedOrigin(origin, trustedOrigins)) {
+      if (
+        origin === null ||
+        !isOriginUnder(
+          origin,
+          resolveRequestValue(options.cookieDomain, request),
+        )
+      ) {
         return yield* reject(403);
       }
 
@@ -100,9 +100,8 @@ export const durableSignalingConnection = (
       }).pipe(Effect.mapError(() => HttpServerResponse.empty({ status: 400 })));
 
       const verified = yield* Effect.tryPromise(() =>
-        verifyRequest({
-          authWorkerUrl: resolveRequestValue(options.authWorkerUrl, request),
-          request,
+        verify(request, {
+          url: resolveRequestValue(options.authWorkerUrl, request),
         }),
       ).pipe(Effect.mapError(() => HttpServerResponse.empty({ status: 503 })));
       if (verified === null) return yield* reject(401);

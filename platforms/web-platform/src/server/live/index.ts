@@ -2,8 +2,8 @@ export {
   forOwner,
   type LiveAuth,
   type LiveBackend,
+  liveCaller,
   type LiveObject,
   liveObject,
-  liveUser,
-  ownedBy,
+  refusal,
 } from './live.ts';
