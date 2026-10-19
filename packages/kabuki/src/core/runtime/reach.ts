@@ -17,7 +17,8 @@ import type { WorkerStatus } from './instance/index.ts';
  * Actor, and every Instance below it. Each one holds only its ID and its
  * Actor, and reads the rest from the Runtime's Snapshot whenever it is read,
  * so it is always live. One that has stopped, or was reached before the
- * Runtime last started, reads what it held when last read. It can
+ * app last started over, by a start or a Restore, reads what it held when
+ * last read. It can
  * Send, always from outside under the name it was reached with, and change
  * nothing else.
  */
@@ -50,7 +51,7 @@ type Typed<A> = {
     };
     /** What its Workers are doing now. Empty once it has stopped. */
     readonly workers: ReadonlyArray<WorkerStatus>;
-    /** Whether it has stopped, or the Runtime has since it was reached: nothing Sent to it arrives. Reach the app again after a start. */
+    /** Whether it has stopped, or the app has started over since it was reached, by a start or a Restore: nothing Sent to it arrives. Reach the app again after either. */
     readonly stopped: boolean;
     /**
      * Send it a Message from outside: `true` once a live Instance has it, or
@@ -81,7 +82,7 @@ export interface Reachable {
   readonly running: () => boolean;
   readonly send: (id: string, message: Tagged, source: Source) => void;
   readonly workers: (id: string) => ReadonlyArray<WorkerStatus>;
-  /** Which start of the Runtime this is. */
+  /** How many times the app has started over, by a start or a Restore. */
   readonly run: () => number;
 }
 

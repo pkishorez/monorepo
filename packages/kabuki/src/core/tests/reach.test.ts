@@ -1,6 +1,6 @@
 import { Effect, Schema } from 'effect';
 import { describe, expect, expectTypeOf, it } from 'vitest';
-import { Actor, History, Runtime } from '../index.ts';
+import { Actor, History, Runtime, restore } from '../index.ts';
 import { Auth, ServerLive, run, settle } from './fixtures.ts';
 
 /*
@@ -183,6 +183,23 @@ describe('an Instance reached from outside', () => {
         expect(board.stopped).toBe(true);
         expect(board.send({ _tag: 'Toggled' })).toBe(false);
         expect(board.model.ids).toEqual(['b', 'a']);
+      }),
+    ));
+
+  it('reached before a Restore, is stopped, though the Restore brings its ID back', () =>
+    run(
+      Effect.gen(function* () {
+        const running = yield* Runtime.start(Board);
+        const board = running.instance({ from: 'test' });
+        const row = board.children.rows[0]!;
+        const saved = running.snapshot();
+        board.send({ _tag: 'Removed', id: 'a' });
+        running.send('Board', { ...restore(saved) });
+        expect(running.instance({ from: 'test' }).children.rows[0]!.id).toBe(
+          row.id,
+        );
+        expect(row.stopped).toBe(true);
+        expect(row.send({ _tag: 'Retried' })).toBe(false);
       }),
     ));
 

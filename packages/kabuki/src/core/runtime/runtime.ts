@@ -86,12 +86,13 @@ const start = <A extends AnyActor>(
     let snapshot: Snapshot;
     let instance: ActorInstance | undefined;
     let release = () => {};
-    /** How many times it has started: an Instance reached in one run is stopped in the next. */
+    /** How many times the app has started over, by a start or a Restore: an Instance reached in one run is stopped in the next. */
     let runs = 0;
 
     const mailbox = makeMailbox(
       time.now,
       (envelope) => {
+        if (isRestore(envelope.message)) runs++;
         const handled = instance!.receive(envelope);
         snapshot = handled.snapshot;
         history.append(envelope, handled);
