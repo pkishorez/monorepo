@@ -1,6 +1,7 @@
 import { Effect, Schema } from 'effect';
 import { describe, expect, expectTypeOf, it, vi } from 'vitest';
 import { Actor, History, Runtime, restore } from '../index.ts';
+import type { LiveInstance } from '../index.ts';
 import { Auth, ServerLive, run, settle } from './fixtures.ts';
 
 /*
@@ -200,6 +201,53 @@ describe('an Instance reached from outside', () => {
         );
         expect(row.stopped).toBe(true);
         expect(row.send({ _tag: 'Retried' })).toBe(false);
+      }),
+    ));
+
+  it('is stopped by a Restore before anything the Restore starts runs', () =>
+    run(
+      Effect.gen(function* () {
+        let held: LiveInstance<typeof Lamp> | undefined;
+        let armed = false;
+        const sent: Array<boolean> = [];
+        const Lamp = Actor.build(
+          Actor.define('Lamp', {
+            model: Schema.Struct({ on: Schema.Boolean, count: Schema.Number }),
+            message: Schema.TaggedUnion({ Switched: {}, Bumped: {} }),
+          }),
+          {
+            init: () => ({ model: { on: false, count: 0 } }),
+            on: {
+              Switched: (_, { model }) => ({
+                model: { ...model, on: !model.on },
+              }),
+              Bumped: (_, { model }) => ({
+                model: { ...model, count: model.count + 1 },
+              }),
+            },
+            workers: {
+              glow: {
+                while: ({ model }) => model.on,
+                run: () => {
+                  if (armed) sent.push(held!.send({ _tag: 'Bumped' }));
+                  return Effect.never;
+                },
+              },
+            },
+          },
+        );
+        const running = yield* Runtime.start(Lamp);
+        held = running.instance({ from: 'test' });
+        held.send({ _tag: 'Switched' });
+        const saved = running.snapshot();
+        held.send({ _tag: 'Switched' });
+        armed = true;
+        running.send('Lamp', { ...restore(saved) });
+        expect(sent).toEqual([false]);
+        expect(running.instance({ from: 'test' }).model).toEqual({
+          on: true,
+          count: 0,
+        });
       }),
     ));
 
