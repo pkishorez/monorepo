@@ -1,5 +1,29 @@
 # @kestack/ui-toolkit
 
+## 0.0.3
+
+### Patch Changes
+
+- [#69](https://github.com/pkishorez/monorepo/pull/69) [`cc56f42`](https://github.com/pkishorez/monorepo/commit/cc56f42da8b843480b231c7a6c75581bc3c09180) Thanks [@kishorenuma](https://github.com/kishorenuma)! - The Kabuki devtools name who Sent a Message from outside the app, as code reaching it with `running.instance({ from })` named itself, and the Window picker takes 0.
+
+- [#71](https://github.com/pkishorez/monorepo/pull/71) [`cfa827b`](https://github.com/pkishorez/monorepo/commit/cfa827be0e6d7d2bfcaac40170d672dbc38eaf38) Thanks [@kishorenuma](https://github.com/kishorenuma)! - The Kabuki devtools' Map has a button under its zoom controls to lay it out as a packed tree or an outline; `layout` is now only how it starts.
+
+- [#71](https://github.com/pkishorez/monorepo/pull/71) [`cfa827b`](https://github.com/pkishorez/monorepo/commit/cfa827be0e6d7d2bfcaac40170d672dbc38eaf38) Thanks [@kishorenuma](https://github.com/kishorenuma)! - auth-toolkit is rebuilt around three Caller Kinds (Browser, Device, OAuth) and four doors. The root exports one `Auth` guard for RPC and HttpApi; `server/rpc` and `server/http` each take one `auth({ url })`; `client/browser` and `client/device` each give one Layer for the `Accounts` service; `worker` exports `authWorker`, configured by `cookieDomain`, `brand` and an `oauth` resources map. Browser apps never hold tokens and send `expect-user`, so a switch in another tab fails Account Changed instead of acting as the wrong User. The Device and Consent Screens approve as a chosen Account without switching, and the Auth Worker's pages are a new Kabuki app whose pages arrive with their data, read by Loaders inside the worker. Their header has a light/dark Theme toggle, following the system until pressed. Breaking: `guard`, `server`, `server/cloud`, `client/web` and `client/cli` are gone, as are `Authz`, `SignIn`, `DeviceCode`, `trustedOrigins` and Test Sign-In.
+
+  web-platform's Gate now runs on `Accounts` (XState removed), its Device Backend is the Local Backend, and its server takes `auth: { url, oauth? }`. effect-webrtc takes `cookieDomain` instead of `trustedOrigins`. kabuki's page types no longer ask a parent for what it provides to its child pages.
+
+- [`f670d36`](https://github.com/pkishorez/monorepo/commit/f670d36ada4fc430a3e33571ea6488437806a555) Thanks [@pkishorez](https://github.com/pkishorez)! - The Kabuki devtools' Timeline fits a phone. The bar under the Map is only the Track, between Step back and Step on, with a sign that it is live. While a past Step is shown, a pill over the bar reads that Step and holds Fork here, which grows a new Branch from it, and Go live; it steps aside while the pointer reads the Track. Read, the Branch picker and Keep show only once there is room.
+
+- [`cb88306`](https://github.com/pkishorez/monorepo/commit/cb88306a264dc9b2b16116b3caf90d5280590b7d) Thanks [@pkishorez](https://github.com/pkishorez)! - The Kabuki devtools' Timeline scrubs: press on the Track with a mouse or a finger and drag, and the Step shown follows it. The row holds still under the pointer, and glides while it is held near either end, so a long History can be scrubbed end to end on a phone. A finger on the Track scrubs instead of swiping it.
+- Updated dependencies [[`cc56f42`](https://github.com/pkishorez/monorepo/commit/cc56f42da8b843480b231c7a6c75581bc3c09180), [`cfa827b`](https://github.com/pkishorez/monorepo/commit/cfa827be0e6d7d2bfcaac40170d672dbc38eaf38), [`2064962`](https://github.com/pkishorez/monorepo/commit/2064962d963b38babbae6e4481318ffef5ff6ca8), [`cfa827b`](https://github.com/pkishorez/monorepo/commit/cfa827be0e6d7d2bfcaac40170d672dbc38eaf38), [`cfa827b`](https://github.com/pkishorez/monorepo/commit/cfa827be0e6d7d2bfcaac40170d672dbc38eaf38), [`cfa827b`](https://github.com/pkishorez/monorepo/commit/cfa827be0e6d7d2bfcaac40170d672dbc38eaf38), [`42b55f4`](https://github.com/pkishorez/monorepo/commit/42b55f470d7451a8bb6caca421a1aae79e330b0b)]:
+  - @kestack/kabuki@0.0.3
+  - @kestack/rpc-toolkit@0.0.3
+  - @kestack/auth-toolkit@0.0.3
+  - @kestack/std-toolkit@0.0.3
+  - laymos@0.0.14
+  - @kestack/use-gesture@0.0.1
+  - @kestack/use-keys@0.0.1
+
 ## 0.0.2
 
 ### Patch Changes
