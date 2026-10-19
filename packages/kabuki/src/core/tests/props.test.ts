@@ -109,7 +109,7 @@ describe('Props', () => {
   it("hands each Child its Props, and the Child's Update reads them", () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(List);
+        const app = yield* Runtime.start(History.make(List));
         expect(at(app, row('a')).props).toEqual({ selected: true });
         expect(at(app, row('b')).props).toEqual({ selected: false });
         app.send(row('b'), { _tag: 'Edited' });
@@ -122,7 +122,7 @@ describe('Props', () => {
   it('a change runs none of the Child’s rules, and keeps the Instance while they say the same', () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(List);
+        const app = yield* Runtime.start(History.make(List));
         const [a, b, c] = ['a', 'b', 'c'].map((key) => at(app, row(key)));
         app.send('List', { _tag: 'Retitled', title: 'Mine' });
         expect(at(app, row('a'))).toBe(a);
@@ -144,7 +144,7 @@ describe('Props', () => {
   it("flow on down through a Child's own invoke", () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(List);
+        const app = yield* Runtime.start(History.make(List));
         expect(at(app, `${row('b')}/cell#1`).props).toEqual({ lit: false });
         app.send('List', { _tag: 'Selected', id: 'b' });
         expect(at(app, `${row('b')}/cell#1`).props).toEqual({ lit: true });
@@ -155,7 +155,7 @@ describe('Props', () => {
   it('start and stop the Workers whose Condition reads them', () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(List);
+        const app = yield* Runtime.start(History.make(List));
         const running = (key: string) =>
           app.workers(row(key)).map(({ name }) => name);
         expect(running('a')).toEqual(['poll']);
@@ -176,7 +176,7 @@ describe('Props', () => {
   it('are worked out again by Replay, never kept in the History', () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(List);
+        const app = yield* Runtime.start(History.make(List));
         app.send('List', { _tag: 'Selected', id: 'c' });
         app.send(row('c'), { _tag: 'Edited' });
         app.send('List', { _tag: 'Selected', id: 'a' });
@@ -212,7 +212,7 @@ describe('the History', () => {
   it('holds only the Envelope, from outside the tree unless a View says so', () =>
     run(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(List);
+        const app = yield* Runtime.start(History.make(List));
         app.send('List', { _tag: 'Retitled', title: 'x' });
         app.send(
           row('a'),
@@ -246,7 +246,7 @@ describe('the History', () => {
   it('says what came of each entry, worked out, on a saved History too', () =>
     run(
       Effect.gen(function* () {
-        const live = yield* Runtime.start(List);
+        const live = yield* Runtime.start(History.make(List));
         live.send('List', { _tag: 'Retitled', title: 'x' });
         live.send(row('b'), { _tag: 'Edited' });
         live.send('List', { _tag: 'Selected', id: 'b' });

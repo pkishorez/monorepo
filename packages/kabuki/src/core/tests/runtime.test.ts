@@ -1,7 +1,7 @@
 import { Effect, Schema, Stream } from 'effect';
 import { TestClock } from 'effect/testing';
 import { describe, expect, it } from 'vitest';
-import { Actor, Replay, Runtime, instanceAt } from '../index.ts';
+import { Actor, History, Replay, Runtime, instanceAt } from '../index.ts';
 import type { Running } from '../index.ts';
 import {
   Auth,
@@ -59,7 +59,7 @@ describe('the mailbox', () => {
             },
           },
         );
-        const app = yield* Runtime.start(Echo);
+        const app = yield* Runtime.start(History.make(Echo));
         yield* settle;
         let told = 0;
         app.subscribe(() => told++);
@@ -78,7 +78,7 @@ describe('the History as a tree', () => {
   it('grows the Branch with each Message, after the Head', () =>
     timed(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(Timer);
+        const app = yield* Runtime.start(History.make(Timer));
         app.send('Timer', { _tag: 'Rang' });
         app.send('Timer', { _tag: 'Rang' });
         expect(app.history.branch().map((e) => [e.id, e.parent])).toEqual([
@@ -94,7 +94,7 @@ describe('the History as a tree', () => {
   it('stop closes every Worker and Command, and Time stands still', () =>
     timed(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(Metronome);
+        const app = yield* Runtime.start(History.make(Metronome));
         yield* TestClock.adjust('250 millis');
         app.send('Metronome', { _tag: 'Ping' });
         heard.length = 0;
@@ -113,7 +113,7 @@ describe('the History as a tree', () => {
   it('start(from) grows a new Branch from an entry, and the old one stays', () =>
     timed(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(Metronome);
+        const app = yield* Runtime.start(History.make(Metronome));
         yield* TestClock.adjust('350 millis');
         expect(app.history.branch().map((e) => e.at)).toEqual([100, 200, 300]);
         yield* app.stop();
@@ -136,7 +136,7 @@ describe('the History as a tree', () => {
   it("start() resumes the Branch from its Head, at the Head's Time", () =>
     timed(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(Metronome);
+        const app = yield* Runtime.start(History.make(Metronome));
         yield* TestClock.adjust('250 millis');
         yield* app.stop();
         yield* TestClock.adjust('1 second');
@@ -156,7 +156,7 @@ describe('the History as a tree', () => {
   it('starting while running stops first', () =>
     timed(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(Metronome);
+        const app = yield* Runtime.start(History.make(Metronome));
         yield* TestClock.adjust('250 millis');
         yield* app.start(null);
         expect(app.now()).toBe(0);
@@ -169,7 +169,7 @@ describe('the History as a tree', () => {
   it('tells the Snapshot right after an entry on another Branch', () =>
     timed(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(Metronome);
+        const app = yield* Runtime.start(History.make(Metronome));
         yield* TestClock.adjust('350 millis');
         yield* app.start(0);
         expect((yield* app.history.seek(2)).model).toEqual({ beats: 3 });
@@ -180,7 +180,7 @@ describe('the History as a tree', () => {
   it('keeps its Head while the Runtime runs on it', () =>
     timed(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(Metronome);
+        const app = yield* Runtime.start(History.make(Metronome));
         yield* TestClock.adjust('250 millis');
         expect(() => app.history.moveHead(0)).toThrow('stop the Runtime');
         yield* app.stop();

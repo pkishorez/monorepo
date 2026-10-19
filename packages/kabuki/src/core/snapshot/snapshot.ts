@@ -38,7 +38,8 @@ export type Snapshot = Instance;
  * Who Sent a Message: the Instance, and what in it Sent: its View, a Command
  * by its name, a Worker by its name and key, or what it Provides. Only a
  * Request comes from another Instance than its destination. A Message from outside the tree, by
- * a test or a tool, comes from no Instance; a Restore no one Sent: it was
+ * a test, a tool or the server the app runs on, comes from no Instance, named by
+ * whoever Sent it; a Restore no one Sent: it was
  * given to the app.
  */
 export type Source =
@@ -56,7 +57,11 @@ export type Source =
       readonly key?: string;
     }
   | { readonly kind: 'provide'; readonly instance: string }
-  | { readonly kind: 'outside' }
+  | {
+      readonly kind: 'outside';
+      /** Who Sent it, as code reaching the app from outside named itself. */
+      readonly name?: string;
+    }
   | { readonly kind: 'restore' };
 
 /** A Message, the Instance it is for, who Sent it, and its Time. */

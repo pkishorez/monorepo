@@ -1,7 +1,7 @@
 import { Effect, Schema } from 'effect';
 import { TestClock } from 'effect/testing';
 import { describe, expect, it, vi } from 'vitest';
-import { Actor, Command, Runtime, handle, init } from '../index.ts';
+import { Actor, Command, History, Runtime, handle, init } from '../index.ts';
 import { Login, timed, Timer } from './fixtures.ts';
 
 /* Commands: errands an Update asks for, each ending with at most one Message. */
@@ -10,7 +10,7 @@ describe('Commands', () => {
   it("sleep on Effect's Clock, and end with a Message stamped when it arrives", () =>
     timed(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(Timer);
+        const app = yield* Runtime.start(History.make(Timer));
         app.send('Timer', { _tag: 'Wait' });
         yield* TestClock.adjust('999 millis');
         expect(app.history.branch().length).toBe(1);
@@ -52,7 +52,7 @@ describe('Commands', () => {
             },
           },
         );
-        const app = yield* Runtime.start(Liar);
+        const app = yield* Runtime.start(History.make(Liar));
         app.send('Liar', { _tag: 'Ask' });
         yield* TestClock.adjust('1 millis');
         expect(app.history.branch().map((entry) => entry.message._tag)).toEqual(
@@ -94,7 +94,7 @@ describe('Commands', () => {
             },
           },
         );
-        const app = yield* Runtime.start(Form);
+        const app = yield* Runtime.start(History.make(Form));
         app.send('Form', { _tag: 'Save' });
         yield* TestClock.adjust('1 millis');
         expect(app.history.branch().map((entry) => entry.message._tag)).toEqual(
@@ -110,7 +110,7 @@ describe('Commands', () => {
   it('a list of Commands runs concurrently', () =>
     timed(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(Timer);
+        const app = yield* Runtime.start(History.make(Timer));
         app.send('Timer', { _tag: 'Both' });
         yield* TestClock.adjust('1 second');
         expect(app.history.branch().map((e) => [e.message._tag, e.at])).toEqual(

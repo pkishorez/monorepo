@@ -1,7 +1,7 @@
 import { Effect } from 'effect';
 import { TestClock } from 'effect/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { Actor, Runtime } from '../index.ts';
+import { Actor, History, Runtime } from '../index.ts';
 import {
   settle,
   run,
@@ -24,7 +24,7 @@ describe('Workers', () => {
   it('follow a yes or no in the Model, and are seen live by name', () =>
     timed(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(Timer);
+        const app = yield* Runtime.start(History.make(Timer));
         expect(app.workers('Timer')).toEqual([]);
         app.send('Timer', { _tag: 'Stream' });
         expect(app.workers('Timer')).toEqual([
@@ -48,7 +48,7 @@ describe('Workers', () => {
     timed(
       Effect.gen(function* () {
         heard.length = 0;
-        const app = yield* Runtime.start(Uploads);
+        const app = yield* Runtime.start(History.make(Uploads));
         app.send('Uploads', { _tag: 'Started', id: 'a' });
         app.send('Uploads', { _tag: 'Started', id: 'b' });
         expect(app.workers('Uploads').map((w) => w.key)).toEqual(['a', 'b']);
@@ -78,7 +78,7 @@ describe('Workers', () => {
     run(
       Effect.gen(function* () {
         vi.spyOn(console, 'error').mockImplementation(() => {});
-        const app = yield* Runtime.start(Once);
+        const app = yield* Runtime.start(History.make(Once));
         app.send('Once', { _tag: 'On' });
         yield* settle;
         expect(app.snapshot().model).toEqual({ on: true, runs: 1 });
@@ -99,7 +99,7 @@ describe('Workers', () => {
         const Broken = Actor.build(Actor.define('Broken', {}), {
           workers: { boom: { run: () => Effect.die(new Error('boom')) } },
         });
-        const app = yield* Runtime.start(Broken);
+        const app = yield* Runtime.start(History.make(Broken));
         yield* settle;
         expect(app.workers('Broken')).toEqual([
           { name: 'boom', key: '', status: 'failed' },
@@ -111,7 +111,7 @@ describe('Workers', () => {
   it('read the Time, so a wait until a Time in the Model survives a stop and a fork', () =>
     timed(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(Alarm);
+        const app = yield* Runtime.start(History.make(Alarm));
         app.send('Alarm', { _tag: 'Set' });
         yield* TestClock.adjust('600 millis');
         yield* app.stop();
@@ -147,7 +147,7 @@ describe('Workers', () => {
     run(
       Effect.gen(function* () {
         const error = vi.spyOn(console, 'error').mockImplementation(() => {});
-        const app = yield* Runtime.start(Once);
+        const app = yield* Runtime.start(History.make(Once));
         app.send('Once', { _tag: 'On' });
         yield* settle;
         expect(app.history.branch().map((e) => e.message._tag)).toEqual([
@@ -165,7 +165,7 @@ describe('Workers', () => {
     timed(
       Effect.gen(function* () {
         heard.length = 0;
-        const app = yield* Runtime.start(Metronome);
+        const app = yield* Runtime.start(History.make(Metronome));
         yield* TestClock.adjust('250 millis');
         app.send('Metronome', { _tag: 'Rest' });
         yield* settle;

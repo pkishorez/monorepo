@@ -344,6 +344,18 @@ export type KidsByState<State extends Tagged, B> = {
   readonly [T in State['_tag']]: KidsOf<B> & KidsOf<BlockOf<B, T>>;
 };
 
+/** An Actor's Children in one State, as written: its slots by name. */
+export type KidsIn<A, T> = T extends keyof Types<A>['children']
+  ? Types<A>['children'][T]
+  : {};
+
+/** A Child as its parent finds it, each Instance as `N`: a list of `each`, one that may be absent `while` its test is false, else one always there. */
+export type ChildAs<C, N> = C extends { readonly each: Function }
+  ? ReadonlyArray<N & { readonly key: string }>
+  : C extends { readonly while: Function }
+    ? N | undefined
+    : N;
+
 // What the engine reads ------------------------------------------------------------
 
 /** Throws unless a value matches one of an Actor's Schemas; `what` names it in the error. */

@@ -40,7 +40,7 @@ const bumped = (n: number): Promise<SavedHistory> =>
   Effect.runPromise(
     Effect.scoped(
       Effect.gen(function* () {
-        const app = yield* Runtime.start(Counter);
+        const app = yield* Runtime.start(History.make(Counter));
         for (let i = 0; i < n; i++) app.send('Counter', { _tag: 'Bumped' });
         return app.history.save();
       }),

@@ -46,7 +46,7 @@ export interface SavedHistory {
 export interface HistoryOptions extends ReplayOptions {
   /** The root's Input. */
   readonly input?: unknown;
-  /** How many entries to keep on the Head's Branch; `null`, the default, keeps everything. */
+  /** How many entries to keep on the Head's Branch; `null`, the default, keeps everything, and `0` keeps no Message, only the app as it is now. */
   readonly window?: number | null;
 }
 
@@ -229,9 +229,9 @@ const open = <A extends AnyActor>(
   /** The oldest entry the Window keeps on the Head's Branch, or none when the whole Branch fits. */
   const floor = () => {
     const path = branch(head);
-    return window === null || path.length <= window
-      ? undefined
-      : path[path.length - window]!;
+    // Nothing kept is still the one Restore of the app as it is now.
+    const kept = window === null ? path.length : Math.max(window, 1);
+    return path.length <= kept ? undefined : path[path.length - kept]!;
   };
 
   /** Make an entry the start of the History: a Restore of the Snapshot right after it, at its Time, after init. */
@@ -346,9 +346,9 @@ const restoreAt = (
 });
 
 const checkWindow = (window: number | null) => {
-  if (window !== null && !(Number.isInteger(window) && window >= 1))
+  if (window !== null && !(Number.isInteger(window) && window >= 0))
     throw new RangeError(
-      `[@kestack/kabuki] a Window keeps at least 1 entry, not ${window}`,
+      `[@kestack/kabuki] a Window keeps 0 entries or more, not ${window}`,
     );
   return window;
 };
