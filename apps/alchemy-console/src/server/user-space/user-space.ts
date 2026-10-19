@@ -18,6 +18,7 @@ import {
   sentBy,
   SocketCaller,
 } from './caller.ts';
+import { makeDeadlines } from './deadlines.ts';
 import { sessionBound } from './session-bound.ts';
 import { socketOf } from './socket.ts';
 import { Storage } from './services/storage/index.ts';
@@ -42,13 +43,17 @@ import { sessionHandlers } from './workflows/session/index.ts';
 const services = (state: cf.DurableObjectState) => Storage.layer(state.storage);
 
 /** Every workflow's handlers, served as one `ConsoleApi`, each stream ending with its caller's session. */
-const handlers = ConsoleApi.toLayer(
-  Effect.gen(function* () {
-    return sessionBound({
-      ...(yield* sessionHandlers),
-    });
-  }),
-);
+const handlers = (deadlines: ReturnType<typeof makeDeadlines>) =>
+  ConsoleApi.toLayer(
+    Effect.gen(function* () {
+      return sessionBound(
+        {
+          ...(yield* sessionHandlers),
+        },
+        deadlines,
+      );
+    }),
+  );
 
 const unauthorized = HttpServerResponse.text('Unauthorized', { status: 401 });
 
@@ -56,7 +61,10 @@ const unauthorized = HttpServerResponse.text('Unauthorized', { status: 401 });
 const serve = (state: cf.DurableObjectState) =>
   Effect.gen(function* () {
     const built = yield* Layer.build(services(state));
-    const served = handlers.pipe(Layer.provide(Layer.succeedContext(built)));
+    const deadlines = makeDeadlines(state.storage);
+    const served = handlers(deadlines).pipe(
+      Layer.provide(Layer.succeedContext(built)),
+    );
 
     // A socket's caller is said once, at its upgrade, and kept with it,
     // acting for them only until their time is up.
@@ -120,6 +128,7 @@ const serve = (state: cf.DurableObjectState) =>
         Effect.runPromise(sockets.message(socketOf(socket), data)),
       close: (socket: cf.WebSocket, code: number, reason: string) =>
         Effect.runPromise(sockets.close(socketOf(socket), code, reason)),
+      alarm: () => deadlines.ring(Date.now()),
     };
   });
 
@@ -149,6 +158,10 @@ export class UserSpace extends DurableObject {
     data: string | ArrayBuffer,
   ): Promise<void> {
     await (await this.#served).message(socket as unknown as cf.WebSocket, data);
+  }
+
+  override async alarm(): Promise<void> {
+    await (await this.#served).alarm();
   }
 
   override async webSocketClose(

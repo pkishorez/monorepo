@@ -15,6 +15,14 @@ import { owner, userSpaceTable } from './table.ts';
  * tabs. A storage failure inside the user's own object is a defect.
  */
 
+const sameMember = (a: Member | null, b: Member | null) =>
+  a === b ||
+  (a !== null &&
+    b !== null &&
+    a.userId === b.userId &&
+    a.email === b.email &&
+    a.name === b.name);
+
 export class Storage extends Context.Service<
   Storage,
   {
@@ -58,11 +66,9 @@ export class Storage extends Context.Service<
                 const current = yield* read;
                 if (current.member !== null && current.at > at)
                   return current.member;
-                const same =
-                  current.member?.userId === member.userId &&
-                  current.member.email === member.email &&
-                  current.member.name === member.name;
-                if (!same)
+                // A newer word moves `at` on even when the member is the
+                // same, so an older one can never undo it.
+                if (current.member === null || at > current.at)
                   yield* owner
                     .put({ member, at })
                     .pipe(Effect.provideContext(table), Effect.orDie);
@@ -74,7 +80,7 @@ export class Storage extends Context.Service<
                 Stream.map(({ value }) => value.member),
                 Stream.provideContext(table),
               ),
-            ),
+            ).pipe(Stream.changesWith(sameMember)),
           },
         });
       }),

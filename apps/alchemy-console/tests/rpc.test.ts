@@ -99,6 +99,13 @@ describe('/rpc', () => {
         expect((yield* newer['Session.me']()).name).toBe('Carol King');
         expect((yield* watched.next).name).toBe('Carol King');
 
+        // A socket opened in between, under an old name, still loses to
+        // the newest word, though it repeated the same name.
+        const between = yield* console_.socket({ ...carol, name: 'Old Carol' });
+        const newest = yield* console_.socket({ ...carol, name: 'Carol King' });
+        yield* newest['Session.me']();
+        expect((yield* between['Session.me']()).name).toBe('Carol King');
+
         // The older socket still says Carol, but the newer name stands.
         expect((yield* older['Session.me']()).name).toBe('Carol King');
         expect(yield* watched.within('300 millis')).toEqual([]);
