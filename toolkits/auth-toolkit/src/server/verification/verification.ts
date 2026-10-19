@@ -97,6 +97,19 @@ export const verify = async (
   return (await resolveWith(options, request))?.principal ?? null;
 };
 
+/**
+ * `verify`, with the Sign-in cookies the Auth Worker refreshed while
+ * verifying, which the response to `request` should carry, as a page drawn
+ * on the server or a socket's upgrade.
+ */
+export const verifyRefreshing = (
+  request: Request,
+  options: AuthOptions,
+): Promise<Resolution | null> => {
+  isLocal(options);
+  return resolveWith(options, request);
+};
+
 /** A request carrying only `headers`, as the Resolver reads it. */
 export const requestOf = (headers: Readonly<Record<string, string>>) =>
   new Request('http://auth.local', { headers: Object.entries(headers) });

@@ -130,6 +130,63 @@ describe('vite build', () => {
   }, 60_000);
 });
 
+describe('a Worker with its own main', () => {
+  const mainConfig = (outDir: string): InlineConfig => ({
+    ...config(outDir),
+    plugins: [start({ platform: cloudflare(), main: 'src/worker.ts' })],
+  });
+
+  it('builds the app’s main as the Worker, which exports more and serves Start’s pages', async () => {
+    const at = path.join(out, 'main');
+    const builder = await createBuilder(mainConfig(at));
+    await builder.buildApp();
+    expect(readdirSync(path.join(at, 'server'))).toEqual(['index.js']);
+    const worker = (await import(
+      pathToFileURL(path.join(at, 'server', 'index.js')).href
+    )) as {
+      readonly default: {
+        readonly fetch: (request: Request, env: unknown) => Promise<Response>;
+      };
+      readonly Extra: new () => { readonly kind: string };
+    };
+    expect(new worker.Extra().kind).toBe('extra');
+    const fetch = (url: string) =>
+      worker.default.fetch(new Request(`https://site.test${url}`), {});
+    expect(await (await fetch('/extra')).text()).toBe('extra');
+    const page = await fetch('/blog/hello');
+    expect(page.status).toBe(200);
+    expect(await page.text()).toContain('<h1>Hello</h1>');
+  }, 60_000);
+
+  it('names it the one server input, for a platform plugin that takes the input as the Worker’s main', () => {
+    const plugin = start({ platform: cloudflare(), main: 'src/worker.ts' });
+    const hooks = plugin as unknown as {
+      readonly config: {
+        readonly handler: (
+          config: object,
+          env: object,
+        ) => {
+          readonly environments: {
+            readonly ssr: {
+              readonly build: {
+                readonly rollupOptions: { readonly input: object };
+              };
+            };
+          };
+        };
+      };
+    };
+    const written = hooks.config.handler.call(
+      { meta: {} },
+      { root },
+      { command: 'build' },
+    );
+    expect(written.environments.ssr.build.rollupOptions.input).toEqual({
+      index: path.join(root, 'src/worker.ts'),
+    });
+  });
+});
+
 describe('vite dev', () => {
   it('draws pages through the same Worker, with Vite’s client and the browser entry', async () => {
     const server = await createServer({

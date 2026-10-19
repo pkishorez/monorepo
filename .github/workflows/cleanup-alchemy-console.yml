@@ -43,7 +43,7 @@ jobs:
         id: preview
         run: |
           if ! printf '%s\n' "$STAGE" | grep -qxE 'pr[0-9]+'; then exit 1; fi
-          if stages=$(pnpm -C apps/alchemy-console exec alchemy state list AlchemyConsole); then
+          if stages=$(pnpm -C apps/alchemy-console exec alchemy state list AlchemyConsole --backend cloudflare); then
             if printf '%s\n' "$stages" | grep -qxF "AlchemyConsole/$STAGE/"; then
               echo 'exists=true' >> "$GITHUB_OUTPUT"
             else

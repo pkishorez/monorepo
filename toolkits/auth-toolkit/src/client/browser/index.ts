@@ -3,4 +3,5 @@ export {
   browserAccountsTable,
   localAccountsTable,
   localChooser,
+  localTokenOf,
 } from './browser.js';

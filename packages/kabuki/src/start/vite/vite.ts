@@ -158,7 +158,9 @@ export const start = (options: StartOptions): Plugin => {
                 : {}),
               build: {
                 outDir: outDir('ssr'),
-                ...input({ index: WORKER }, true),
+                // One input, which a platform's plugin takes as the
+                // Worker's main: the app's own, if it has one.
+                ...input({ index: found.main ?? WORKER }, true),
               },
             },
           },
@@ -192,7 +194,7 @@ export const start = (options: StartOptions): Plugin => {
       const found = files();
       return {
         optimizeDeps: {
-          entries: [found.app, found.loaders].filter(
+          entries: [found.app, found.loaders, found.main].filter(
             (file): file is string => file !== undefined,
           ),
           include: [

@@ -23,11 +23,20 @@ export interface FileOptions {
    * `src/loaders.server`.
    */
   readonly loaders?: string;
+  /**
+   * The Worker's main module, for a Worker that exports more than Start's
+   * handler, as one hosting a Durable Object: it default-exports the
+   * plugin's, `export { default } from 'virtual:kabuki-start/worker'`, or
+   * wraps it. Built as the server's one input. By default none: the
+   * plugin's Worker is the main.
+   */
+  readonly main?: string;
 }
 
 export interface Files {
   readonly app: string;
   readonly loaders: string | undefined;
+  readonly main: string | undefined;
 }
 
 const EXTENSIONS = ['.tsx', '.ts', '.jsx', '.js', '.mts', '.mjs'];
@@ -56,4 +65,5 @@ export const findFiles = (root: string, options: FileOptions): Files => ({
   loaders: options.loaders
     ? required(root, options.loaders, 'Loaders')
     : find(root, 'src/loaders.server'),
+  main: options.main ? required(root, options.main, 'main') : undefined,
 });

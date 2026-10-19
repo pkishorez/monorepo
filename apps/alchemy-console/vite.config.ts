@@ -1,37 +1,30 @@
-import { defineConfig, type SsrDepOptimizationConfig } from 'vite-plus';
-import { tanstackStart } from '@tanstack/react-start/plugin/vite';
-import react from '@vitejs/plugin-react';
+import { cloudflare } from '@kestack/kabuki/start/platform/cloudflare';
+import { start } from '@kestack/kabuki/start/vite';
 import tailwindcss from '@tailwindcss/vite';
+import react from '@vitejs/plugin-react';
+import { defineConfig } from 'vite';
 
 export default defineConfig({
-  resolve: { tsconfigPaths: true },
-  build: { rolldownOptions: { external: ['cloudflare:workers'] } },
-  // The optimized engine is local source; refresh it on each dev-server start.
-  optimizeDeps: { force: true },
-  ssr: {
-    // Optimize the engine and provider entries together so dev never evaluates unused
-    // alchemy exports (the Cloudflare Worker module resolves a workerd binary at import).
-    // The SSR environment has its own optimizer that ignores the root `force`, so the
-    // pre-bundled engine goes stale whenever its source changes unless forced here too.
-    // Vite honors `force` at runtime even though the SSR config type omits it.
-    optimizeDeps: {
-      include: ['alchemy-console/deletion-engine', 'alchemy-console/providers'],
-      force: true,
-    } as SsrDepOptimizationConfig,
-    noExternal: ['@kestack/web-platform'],
-    resolve: { mainFields: ['browser', 'module', 'jsnext:main', 'jsnext'] },
-  },
   server: {
-    allowedHosts: ['.console.kishore.computer'],
+    // Accept the Host headers the portless proxy and its Tailscale share forward during dev.
+    allowedHosts: ['.console.kishore.computer', '.ts.net'],
+  },
+  // Its components are ESM with CSS-only side effects: bundle them for the server too.
+  ssr: { noExternal: ['@kestack/web-platform'] },
+  // workerd's own modules, which a build without Alchemy's Cloudflare plugin
+  // (plain `vp build`) leaves for the runtime.
+  environments: {
+    ssr: { build: { rolldownOptions: { external: [/^cloudflare:/] } } },
   },
   plugins: [
     tailwindcss(),
-    tanstackStart({
-      router: {
-        indexToken: 'page',
-        routeToken: 'layout',
-      },
-    }),
     react(),
+    start({
+      platform: cloudflare(),
+      app: 'src/client/app',
+      loaders: 'src/server/loaders.server',
+      // The Worker also exports the User Space Durable Object class.
+      main: 'src/server/worker.ts',
+    }),
   ],
 });

@@ -1,107 +1,52 @@
 {
-  "$schema": "./node_modules/laymos/schema.json",
+  "$schema": "../../devtools/laymos/schema.json",
   "sourceRoots": ["src"],
-  "ignoredPaths": ["src/routeTree.gen.ts"],
+  "ignoredPaths": ["src/env.d.ts", "src/client/styles.css"],
   "fileModules": [
-    "src/server.ts",
-    "src/router.tsx",
-    "src/routes/__root.tsx",
-    "src/routes/page.tsx",
-    "src/routes/settings/page.tsx",
-    "src/routes/stores/page.tsx",
-    "src/routes/stores/$storeId/page.tsx"
+    "src/client/app.tsx",
+    "src/client/document.tsx",
+    "src/server/worker.ts",
+    "src/server/loaders.server.ts"
   ],
   "rules": {
-    "*": ["src/server/storage/table"],
-    "src/shared/contracts/deletion": ["src/shared/contracts/credentials"],
-    "src/shared/contracts/resources": ["src/shared/contracts/targets"],
-    "src/shared/api": ["src/shared/rpc"],
-    "src/shared/rpc": ["src/shared/contracts"],
-    "src/server.ts": ["src/server/host"],
-    "src/server/host": [
-      "src/server/handlers",
-      "src/server/telemetry",
-      "src/server/storage/table",
-      "src/shared/api"
+    "src/client/app.tsx": [
+      "src/client/console",
+      "src/client/document.tsx",
+      "src/shared/pages"
     ],
-    "src/server/handlers": ["src/shared/api", "src/server/workflows"],
-    "src/server/workflows": [
-      "src/server/services",
-      "src/server/providers",
-      "src/server/storage",
-      "src/shared/contracts"
+    "src/client/console": [
+      "src/client/pages",
+      "src/shared/pages",
+      "src/shared/contracts/console-api",
+      "src/shared/contracts/local-session",
+      "src/shared/contracts/member"
     ],
-    "src/server/workflows/stores/stores": [
-      "src/server/workflows/stores/access",
-      "src/server/workflows/stores/management",
-      "src/server/workflows/stores/explorer",
-      "src/server/workflows/stores/deletion"
+    "src/client/pages": ["src/shared/pages"],
+    "src/server/worker.ts": ["src/server/host", "src/server/user-space"],
+    "src/server/loaders.server.ts": [
+      "src/server/host",
+      "src/server/user-space",
+      "src/shared/pages",
+      "src/shared/contracts/console-api"
     ],
-    "src/server/services": ["src/server/providers", "src/shared/contracts"],
-    "src/server/services/deletion/deletion": [
-      "src/server/services/deletion/engine"
+    "src/server/host": ["src/server/user-space", "src/shared/contracts/member"],
+    "src/server/host/visitor": ["src/shared/contracts/local-session"],
+    "src/server/user-space": [
+      "src/shared/contracts/console-api",
+      "src/shared/contracts/member"
     ],
-    "src/server/services/deletion/engine": [
-      "src/server/services/deletion/review",
-      "src/server/services/deletion/selection",
-      "src/server/services/deletion/forget"
+    "src/server/user-space/workflows/session": [
+      "src/server/user-space/services/storage"
     ],
-    "src/server/services/deletion/review": [
-      "src/server/services/deletion/selection"
+    "src/shared/contracts/console-api": ["src/shared/contracts/member"],
+    "src/shared/pages": [
+      "src/shared/contracts/console-api",
+      "src/shared/contracts/member"
     ],
-    "src/server/providers": ["src/shared/contracts"],
-    "src/server/providers/providers": [
-      "src/server/providers/cloudflare",
-      "src/server/providers/aws"
+    "src/shared/pages/console": [
+      "src/shared/pages/capabilities",
+      "src/shared/pages/welcome"
     ],
-    "src/client/features": [
-      "src/client/session",
-      "src/client/providers",
-      "src/client/connections/rpc",
-      "src/shared/contracts"
-    ],
-    "src/client/features/settings": [
-      "src/client/features/query-feedback",
-      "src/client/features/credentials"
-    ],
-    "src/client/features/auth-boundary": [
-      "src/client/features/brand",
-      "src/client/connections/auth"
-    ],
-    "src/client/features/console": [
-      "src/client/features/brand",
-      "src/client/features/credentials",
-      "src/client/features/query-feedback"
-    ],
-    "src/client/features/console/workspace": [
-      "src/client/features/console/stores",
-      "src/client/features/console/explorer",
-      "src/client/features/console/resources",
-      "src/client/features/console/deletion",
-      "src/client/features/console/state-view",
-      "src/client/features/console/queries"
-    ],
-    "src/client/features/console/stores": [
-      "src/client/features/console/explorer",
-      "src/client/features/console/queries"
-    ],
-    "src/client/features/console/explorer": [
-      "src/client/features/console/state-view",
-      "src/client/features/console/queries"
-    ],
-    "src/client/features/console/resources": [
-      "src/client/features/console/state-view",
-      "src/client/features/console/queries"
-    ],
-    "src/client/features/console/deletion": [
-      "src/client/features/console/queries"
-    ],
-    "src/client/providers/credential-forms": [
-      "src/client/providers/cloudflare",
-      "src/client/providers/aws"
-    ],
-    "src/client/session": ["src/client/connections"],
-    "src/client/connections": ["src/shared/api", "src/client/telemetry"],
-    "src/routes": ["src/client/features"]
+    "src/shared/pages/welcome": ["src/shared/pages/capabilities"]
   }
 }

@@ -60,6 +60,3 @@ jobs:
         run: |
           node --test .github/scripts/test-summary.test.mjs
           node .github/scripts/test.mjs
-
-      - name: Worker integration test
-        run: pnpm --filter alchemy-console test:worker

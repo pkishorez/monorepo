@@ -2,6 +2,16 @@
 
 ## Terms
 
+**User Space**
+The one Durable Object per user that holds every record the user owns and
+serves their Console API. Nothing outside it reads or writes their data.
+_Avoid_: Tenant, user database
+
+**Invite list**
+The emails allowed to use Console, kept in Console's own config, not the
+shared Auth Worker's. Anyone else who signs in is told Console is invite-only.
+_Avoid_: Allowlist, whitelist
+
 **GitHub connection**
 One GitHub account or organization a user has connected to Console, through
 which Console sees that account's repositories and hears about their pushes

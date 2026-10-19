@@ -163,10 +163,22 @@ type PagesOf<C> = {
   readonly [K in keyof C]: PageBuild<C[K], AnyActor, any>;
 };
 
-/** What `Page.build` takes besides the Actor's behavior: the builds of the pages under it, if it has any. */
-type WithPages<C> = [keyof C] extends [never]
-  ? { readonly pages?: never }
-  : { readonly pages: PagesOf<C> };
+/** What `Page.build` takes besides the Actor's behavior: the builds of the pages under it, if it has any, and whose they are. */
+type WithPages<C, Model, State, Props> = [keyof C] extends [never]
+  ? { readonly pages?: never; readonly scope?: never }
+  : {
+      readonly pages: PagesOf<C>;
+      /**
+       * Whose the pages under it are, worked out from its data, as the
+       * account signed in: when it changes, every page under it starts
+       * again, with a fresh Model and Workers, though the URL stays.
+       */
+      readonly scope?: (data: {
+        readonly model: Model;
+        readonly state: State;
+        readonly props: Props;
+      }) => string;
+    };
 
 /** What the types of a page definition hold, as written. */
 interface PageTypes {
@@ -205,7 +217,7 @@ export type PageBehaviorOf<D, B> = D extends {
       RequiresOf<T>,
       B
     > &
-      WithPages<T['children']>
+      WithPages<T['children'], T['model'], T['state'], PropsOf<T>>
   : never;
 
 /** Each page under it, as a Child of the page: there while the URL names it. */
@@ -328,6 +340,7 @@ const belowOf = (
 const pagesOf = (
   definitions: Children,
   builds: Readonly<Record<string, AnyPageBuild>>,
+  scope: ((data: never) => string) | undefined,
 ) =>
   Object.fromEntries(
     Object.entries(definitions).map(([tag, definition]) => {
@@ -353,7 +366,10 @@ const pagesOf = (
         {
           actor: build,
           while: (data: Data) => data.props.route.page?._tag === tag,
-          key: (data: Data) => paramsKey(definition, valueOf(data)),
+          key: (data: Data) => {
+            const key = paramsKey(definition, valueOf(data));
+            return scope ? `${scope(data as never)} ${key}` : key;
+          },
           props: (data: Data) => {
             const value = valueOf(data);
             const { route } = data.props;
@@ -402,8 +418,13 @@ function build<
  * `pages` the build of each page its definition names.
  */
 function build(definition: AnyPageDefinition, behavior: any = {}): unknown {
-  const { pages: builds = {}, ...written } = behavior as {
+  const {
+    pages: builds = {},
+    scope,
+    ...written
+  } = behavior as {
     readonly pages?: Readonly<Record<string, AnyPageBuild>>;
+    readonly scope?: (data: never) => string;
     readonly children?: Record<string, unknown>;
     readonly state?: Record<string, { readonly children?: object }>;
   };
@@ -423,7 +444,7 @@ function build(definition: AnyPageDefinition, behavior: any = {}): unknown {
     Actor.build as (definition: unknown, behavior: unknown) => AnyActor
   )(definition, {
     ...written,
-    children: { ...written.children, ...pagesOf(pages, builds) },
+    children: { ...written.children, ...pagesOf(pages, builds, scope) },
   });
   return Object.assign(actor, { page: definition, pages: builds });
 }

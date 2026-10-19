@@ -5,6 +5,7 @@ export {
   requestOf,
   resolver,
   verify,
+  verifyRefreshing,
   type Resolution,
   type Resolve,
 } from './verification.js';

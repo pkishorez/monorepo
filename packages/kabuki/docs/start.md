@@ -309,17 +309,19 @@ export type WorkerEnv = Cloudflare.InferEnv<typeof Site>;
   drawn by Vite's alone. A build links the built stylesheets in the head.
 - `vite build` and `alchemy deploy` build the client and the server; Alchemy
   deploys `dist/client` as assets and the Worker in front of them. No `main`
-  is needed. A Worker that must export more, like a Durable Object, points
-  `main` at a module that re-exports the plugin's:
-  `export { default } from 'virtual:kabuki-start/worker'`.
+  is needed. A Worker that must export more, like a Durable Object, names
+  its own main to the plugin, `start({ platform, main: 'src/worker.ts' })`,
+  a module that default-exports the plugin's Worker or wraps it:
+  `export { default } from 'virtual:kabuki-start/worker'`. The plugin builds
+  it as the server's one input, which Alchemy's Cloudflare plugin takes as
+  the Worker's main, so `Website.Vite` is given no `main` of its own: given
+  one too, the build has two inputs and fails.
 
 ## Not built yet
 
 - An adapter for any platform but Cloudflare: the port is shaped by one
   adapter until a second proves it.
 - Caching the Loader RPC's answers for static places.
-- A custom `main` re-exporting `virtual:kabuki-start/worker` is not yet
-  covered by a test.
 - Streaming: a page is sent once it is whole.
 - An app mounted under a Router `base` other than the site's root serves the
   Loader RPC at the root's `/_kabuki/load`.

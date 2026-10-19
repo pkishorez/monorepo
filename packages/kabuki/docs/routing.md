@@ -158,6 +158,20 @@ at it, so there is no index page: the parent draws what it shows there. A
 parent decides where and whether its pages are drawn, and can draw one
 whatever its own status: a parent and its page load side by side.
 
+#### Whose the pages are
+
+A page's pages are kept while their params stay, but sometimes what they
+hold belongs to someone: the account signed in. `scope`, worked out from
+the page's own data, says whose; when it changes, every page under it starts
+again, its Model fresh and its Workers begun anew, though the URL stays.
+
+```ts
+export const ConsoleLive = Page.build(Console, {
+  pages: { Welcome: WelcomeLive },
+  scope: ({ state }) => (state._tag === 'SignedIn' ? state.member.id : ''),
+});
+```
+
 ### The router: read down from the root
 
 ```ts

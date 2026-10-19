@@ -1,3 +1,7 @@
+---
+Status: superseded by ADR-0003
+---
+
 # Credentials are user-owned, matched by account, and selected per provider per deletion
 
 ## Context

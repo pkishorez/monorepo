@@ -13,7 +13,7 @@ vi.mock('../access-token.js', () => ({
 
 import { localToken, localUser } from '../../../contract/index.js';
 import type { AuthOptions } from '../options.js';
-import { resolver, verify } from '../verification.js';
+import { resolver, verify, verifyRefreshing } from '../verification.js';
 
 const url = 'https://auth.example.com';
 const resource = 'https://api.example.com';
@@ -203,5 +203,31 @@ describe('verify', () => {
     expect(await verify(request, { url })).toBeNull();
     mocks.verifySignIn.mockRejectedValueOnce(new Error('down'));
     await expect(verify(request, { url })).rejects.toThrow('down');
+  });
+});
+
+describe('verifyRefreshing', () => {
+  it('gives the Sign-in cookies the Auth Worker refreshed, for the response to carry', async () => {
+    mocks.verifySignIn.mockReset();
+    mocks.verifySignIn.mockResolvedValue({
+      session,
+      user,
+      refreshedCookies: ['session=new; Path=/'],
+    });
+    expect(
+      await verifyRefreshing(
+        new Request('https://api.example.com/', {
+          headers: { cookie: 'session=abc' },
+        }),
+        { url },
+      ),
+    ).toEqual({
+      principal: { kind: 'session', session, user },
+      refreshedCookies: ['session=new; Path=/'],
+    });
+    mocks.verifySignIn.mockResolvedValueOnce(null);
+    expect(
+      await verifyRefreshing(new Request('https://api.example.com/'), { url }),
+    ).toBeNull();
   });
 });

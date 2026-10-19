@@ -15,6 +15,7 @@ export default defineConfig({
         // Kabuki apps keep state in Nodes and motion in the Frame. A
         // useEffect there needs a disable comment that says why.
         files: [
+          'apps/alchemy-console/src/**',
           'apps/docs/src/client/demos/**',
           'apps/docs/src/client/docs/**',
           'apps/kabuki-start/src/**',
