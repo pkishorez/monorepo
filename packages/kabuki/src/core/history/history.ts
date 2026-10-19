@@ -105,7 +105,10 @@ const load = <A extends AnyActor>(
 ): History<A> => {
   checkSaved(saved);
   const root = actor.definition;
-  const history = open(
+  // Before it is opened: Compacting to a Window would hide what does not fit.
+  if (options?.onMismatch === 'fail')
+    strict(root, saved.entries, options.input);
+  return open(
     actor,
     {
       entries: saved.entries.map((entry) => decodeEntry(root, entry)),
@@ -114,9 +117,6 @@ const load = <A extends AnyActor>(
     saved.entries,
     options,
   );
-  if (options?.onMismatch === 'fail')
-    strict(root, history.branch(), options.input);
-  return history;
 };
 
 /** A History of decoded entries, and those already encoded, by position. */

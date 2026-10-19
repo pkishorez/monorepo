@@ -3,6 +3,7 @@ import type { ActorDefinition } from '../actor/index.ts';
 import { actorAt, handle, init, isRestore } from '../snapshot/index.ts';
 import type { Envelope, Handled, Snapshot } from '../snapshot/index.ts';
 import type { Entry } from './history.ts';
+import { decodeEntry } from './saved.ts';
 
 /*
  * Replay: the Snapshot right after any entry, from the Messages alone. Only
@@ -139,29 +140,40 @@ const fold = (
   );
 
 /**
- * Play a Branch from init, throwing at the first entry that no longer fits
- * the code, where Replay would warn and skip it: a Message its Actor's Schema
- * refuses, or a Restore that is not put in place.
+ * Play every entry of a saved History, on every Branch, each from the one
+ * before it, throwing at the first that no longer fits the code, where Replay
+ * would warn and skip it: a Message that no longer decodes or that its Actor's
+ * Schema refuses, or a Restore that is not put in place. A Message for an
+ * Instance that is gone was dropped live, and is dropped again.
  */
 export const strict = (
   root: ActorDefinition,
-  branch: ReadonlyArray<Entry>,
+  saved: ReadonlyArray<Entry>,
   input?: unknown,
-): Snapshot =>
-  branch.reduce(
-    (snapshot, entry) => {
-      let handled: Handled;
-      try {
-        handled = replayed(root, snapshot, entry);
-      } catch (error) {
-        throw mismatch(entry, (error as Error).message);
-      }
-      if (isRestore(entry.message) && handled.outcome !== 'handled')
-        throw mismatch(entry, 'its Snapshot no longer matches the Actors');
-      return handled.snapshot;
-    },
-    init(root, input),
-  );
+): void => {
+  const after = new Map<number | null, Snapshot>([[null, init(root, input)]]);
+  // Oldest first, so the entry before each one is already played.
+  for (const entry of saved) {
+    const before = after.get(entry.parent)!;
+    const restoring = isRestore(entry.message);
+    const decoded = decodeEntry(root, entry);
+    // An entry that does not decode comes back as it was saved.
+    if (
+      decoded === entry &&
+      (restoring || actorAt(root, before, entry.destination))
+    )
+      throw mismatch(entry, "it no longer decodes with its Actor's Schemas");
+    let handled: Handled;
+    try {
+      handled = replayed(root, before, decoded);
+    } catch (error) {
+      throw mismatch(entry, (error as Error).message);
+    }
+    if (restoring && handled.outcome !== 'handled')
+      throw mismatch(entry, 'its Snapshot no longer matches the Actors');
+    after.set(entry.id, handled.snapshot);
+  }
+};
 
 const mismatch = (entry: Entry, reason: string) =>
   new Error(

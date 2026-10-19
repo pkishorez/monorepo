@@ -211,6 +211,68 @@ describe('a saved History that no longer fits the code', () => {
     warn.mockRestore();
   });
 
+  it('fails before a Window Compacts away what does not fit', async () => {
+    const sent = await bumped(2, null);
+    expect(() =>
+      History.load(Quiet, sent, { window: 0, onMismatch: 'fail' }),
+    ).toThrow(/at entry 0, Bumped for Counter/);
+  });
+
+  it('fails when a Message no longer decodes, though its decoded side would fit', async () => {
+    const setter = (n: typeof Schema.Number | typeof Schema.NumberFromString) =>
+      Actor.build(
+        Actor.define('Setter', {
+          model: Schema.Struct({ n: Schema.Number }),
+          message: Schema.TaggedUnion({ Set: { n } }),
+        }),
+        {
+          init: () => ({ model: { n: 0 } }),
+          on: { Set: () => ({}) },
+        },
+      );
+    const saved = await run(
+      Effect.gen(function* () {
+        const app = yield* Runtime.start(History.make(setter(Schema.Number)));
+        app.send('Setter', { _tag: 'Set', n: 42 });
+        return app.history.save();
+      }),
+    );
+    expect(() =>
+      History.load(setter(Schema.NumberFromString), saved, {
+        onMismatch: 'fail',
+      }),
+    ).toThrow(/at entry 0, Set for Setter: it no longer decodes/);
+  });
+
+  it("fails for a Branch other than the Head's too", async () => {
+    const Both = Actor.build(
+      Actor.define('Counter', {
+        model: Schema.Struct({ count: Schema.Number }),
+        message: Schema.TaggedUnion({ Bumped: {}, Reset: {} }),
+      }),
+      {
+        init: () => ({ model: { count: 0 } }),
+        on: {
+          Bumped: (_, { model }) => ({ model: { count: model.count + 1 } }),
+          Reset: () => ({ model: { count: 0 } }),
+        },
+      },
+    );
+    const saved = await run(
+      Effect.gen(function* () {
+        const app = yield* Runtime.start(History.make(Both));
+        app.send('Counter', { _tag: 'Reset' });
+        yield* app.start(null);
+        app.send('Counter', { _tag: 'Bumped' });
+        return app.history.save();
+      }),
+    );
+    expect(saved.head).toBe(1);
+    expect(() => History.load(Counter, saved, { onMismatch: 'fail' })).toThrow(
+      /at entry 0, Reset for Counter/,
+    );
+  });
+
   it("loads one that still fits with `onMismatch: 'fail'`", async () => {
     const history = History.load(Counter, await bumped(3), {
       onMismatch: 'fail',
