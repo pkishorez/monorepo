@@ -8,8 +8,9 @@ import { SHOP_STEPS, ShopLive } from './fixtures/steps.ts';
  * The devtools on a bigger Shop running live beside them, then the
  * Inspector on Shop, a small app with one of everything: its colours, then
  * the Map at each kind of Step, then the whole thing to walk through.
- * Each can be laid out as a packed tree or an outline, from the switch at
- * its top. The Map's words one at a time are in `map/map.fixture.tsx`.
+ * Each can be laid out as a packed tree or an outline, from the button
+ * under the Map's zoom controls. The Map's words one at a time are in
+ * `map/map.fixture.tsx`.
  */
 
 const steps = SHOP_STEPS.map((step, index) => ({
@@ -43,27 +44,9 @@ function At({
   readonly width?: number;
 }) {
   const [shown, setShown] = useState(step);
-  const [layout, setLayout] = useState<'tree' | 'outline'>('tree');
   const isLive = shown === head;
   return (
     <div className="bg-muted/30 relative grid h-svh place-items-center">
-      <div className="bg-background absolute top-3 left-1/2 z-50 flex -translate-x-1/2 rounded-full border p-0.5 text-xs shadow-sm">
-        {(['tree', 'outline'] as const).map((each) => (
-          <button
-            key={each}
-            type="button"
-            onClick={() => setLayout(each)}
-            aria-pressed={layout === each}
-            className={
-              layout === each
-                ? 'bg-foreground text-background rounded-full px-3 py-1'
-                : 'text-muted-foreground hover:text-foreground rounded-full px-3 py-1'
-            }
-          >
-            {each === 'tree' ? 'Packed tree' : 'Outline'}
-          </button>
-        ))}
-      </div>
       <div
         className="h-full w-full overflow-hidden"
         style={
@@ -80,7 +63,6 @@ function At({
         <Inspector
           definition={ShopLive.definition}
           step={SHOP_STEPS[shown]!}
-          layout={layout}
           {...(isLive ? { statuses } : {})}
           timeline={{
             steps,

@@ -7,7 +7,6 @@ import {
   Stream,
 } from 'effect';
 import { type RpcClient, RpcClient as Client, RpcSchema } from 'effect/rpc';
-import { Authz } from '@kestack/auth-toolkit/guard';
 import type { ApiClients, Apis } from '../apis/index.ts';
 import type { Backend } from '../host/index.ts';
 
@@ -19,8 +18,8 @@ type AnyCall = (...args: ReadonlyArray<unknown>) => unknown;
 
 /**
  * Every API's client signed as nobody, on whichever Backend runs when a
- * call is made: a public call goes out as it is, and a guarded one fails
- * Unauthenticated without being sent. For calls outside `SignedIn`.
+ * call is made: a public call goes out as it is, and the Backend answers a
+ * guarded one Unauthenticated. For calls outside `SignedIn`.
  */
 export const publicClients = <A extends Apis>(
   apis: A,
@@ -49,7 +48,7 @@ export const publicClients = <A extends Apis>(
             Client.make(apis[name]!.group) as unknown as Effect.Effect<
               Record<string, AnyCall>
             >,
-          ).pipe(Layer.provide([protocol, Authz.bearer(() => null)])),
+          ).pipe(Layer.provide(protocol)),
         );
         return runtime.runPromise(
           Effect.gen(function* () {

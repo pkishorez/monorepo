@@ -14,6 +14,9 @@ vi.mock('@kestack/std-toolkit/db/sqlite/d1', () => ({
 }));
 import { makeRpcRuntime, Rpc } from '../src/client/connections/rpc/index.ts';
 import { handleRpc } from '../src/server/host/rpc-host/index.ts';
+import { authWorkerUrl } from '../src/shared/api/auth-worker/index.ts';
+
+const authWorkerHost = new URL(authWorkerUrl).hostname;
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -21,7 +24,6 @@ afterEach(() => {
 });
 
 it('cancels server work when the query fiber is interrupted', async () => {
-  vi.stubEnv('DEV', false);
   const database = makeNodeSQLite({ path: ':memory:' });
   mocks.makeDatabase.mockReturnValue(database);
   const started = Promise.withResolvers<void>();
@@ -34,7 +36,7 @@ it('cancels server work when the query fiber is interrupted', async () => {
         request.headers.set('cookie', 'session=test');
         return handleRpc(request, {} as D1Database);
       }
-      if (new URL(request.url).hostname === 'auth.kishore.app') {
+      if (new URL(request.url).hostname === authWorkerHost) {
         return Promise.resolve(
           Response.json({
             user: { id: 'alice' },
@@ -80,7 +82,6 @@ it('cancels server work when the query fiber is interrupted', async () => {
 });
 
 it('streams deletion progress through the real RPC host before completion', async () => {
-  vi.stubEnv('DEV', false);
   const database = makeNodeSQLite({ path: ':memory:' });
   const table = SQLite.make(consoleTable, { database });
   mocks.makeDatabase.mockReturnValue(database);
@@ -122,7 +123,7 @@ it('streams deletion progress through the real RPC host before completion', asyn
         request.headers.set('cookie', 'session=test');
         return handleRpc(request, {} as D1Database);
       }
-      if (host === 'auth.kishore.app')
+      if (host === authWorkerHost)
         return Promise.resolve(
           Response.json({
             user: { id: 'alice' },
@@ -169,7 +170,6 @@ it('streams deletion progress through the real RPC host before completion', asyn
 });
 
 it('streams preview analysis and the failing resource through the real RPC host', async () => {
-  vi.stubEnv('DEV', false);
   const database = makeNodeSQLite({ path: ':memory:' });
   const table = SQLite.make(consoleTable, { database });
   mocks.makeDatabase.mockReturnValue(database);
@@ -207,7 +207,7 @@ it('streams preview analysis and the failing resource through the real RPC host'
         request.headers.set('cookie', 'session=test');
         return handleRpc(request, {} as D1Database);
       }
-      if (host === 'auth.kishore.app')
+      if (host === authWorkerHost)
         return Promise.resolve(
           Response.json({
             user: { id: 'alice' },

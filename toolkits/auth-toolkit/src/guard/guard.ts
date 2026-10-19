@@ -1,63 +1,62 @@
-import { Effect } from 'effect';
-import { Headers } from 'effect/http';
-import {
-  Current,
-  Forbidden,
-  policy,
-  Resolver,
-  scope,
-  Unauthenticated,
-  Unavailable,
-} from './current.js';
-import { httpMiddleware, rpcMiddleware } from './middleware.js';
+import { HttpApi } from '@kestack/rpc-toolkit/http-api';
+import { Rpc } from '@kestack/rpc-toolkit/rpc';
+import { Context, Effect } from 'effect';
 
-/** What both flavours of the guard share. */
-const shared = {
-  Current,
-  Resolver,
-  Unauthenticated,
-  Forbidden,
-  Unavailable,
-  policy,
-  scope,
-};
+import { Failure, Failures, Forbidden } from './errors.js';
+import type { Principal } from './principal.js';
 
-/** Signs every guarded call an RPC client makes as one Account, over any
- * Transport: `Authorization: Bearer` with the token `token` gives at each
- * call. Read as a function, a null token fails the call Unauthenticated
- * without sending it; as an Effect, the call waits for it. */
-const bearer = (token: (() => string | null) | Effect.Effect<string>) =>
-  rpcMiddleware.client(({ request, next }) =>
-    Effect.flatMap(
-      Effect.isEffect(token) ? token : Effect.sync(token),
-      (current) =>
-        current === null
-          ? Effect.fail(
-              new Unauthenticated({ reason: 'No token for this Account yet' }),
-            )
-          : next({
-              ...request,
-              headers: Headers.set(
-                request.headers,
-                'authorization',
-                `Bearer ${current}`,
-              ),
-            }),
+/** The verified Principal of one guarded call. Both kinds carry a `user`
+ * with `id`, `email` and `name`, so a policy that reads only those works for
+ * either. */
+export class User extends Context.Service<User, Principal>()(
+  '@kestack/auth-toolkit/User',
+) {}
+
+/** What the Guard's value is: a rule the caller must pass. A Scope policy
+ * also names its Scopes, for the challenge an OAuth Client reads. */
+export interface Policy {
+  (principal: Principal): Effect.Effect<void, Forbidden>;
+  readonly scopes?: ReadonlyArray<string>;
+}
+
+export type Invariant = (
+  principal: Principal,
+) => boolean | Effect.Effect<boolean>;
+
+/** A Policy from an invariant, failing Forbidden with `reason`. */
+export const policy =
+  (invariant: Invariant, reason: string): Policy =>
+  (principal) => {
+    const holds = invariant(principal);
+    return Effect.flatMap(
+      Effect.isEffect(holds) ? holds : Effect.succeed(holds),
+      (ok) => (ok ? Effect.void : Effect.fail(new Forbidden({ reason }))),
+    );
+  };
+
+/** A Policy that holds only for a Token Principal carrying every listed
+ * Scope. A Sign-in Principal has no Scopes, so it always fails. */
+export const scope = (...required: [string, ...string[]]): Policy =>
+  Object.assign(
+    policy(
+      (principal) =>
+        principal.kind === 'token' &&
+        required.every((name) => principal.scopes.includes(name)),
+      `Scope required: ${required.join(' ')}`,
     ),
+    { scopes: required },
   );
 
-/**
- * The guard for Effect RPC, the contract both sides import: `guard(policy?)`
- * attaches it to an Rpc or an RpcGroup (the nearest value wins), `Current`
- * is who called, `bearer` signs a client's calls. The server half is
- * `authz.layer` from `@kestack/auth-toolkit/server`.
- */
-export const Authz: typeof shared & {
-  readonly guard: (typeof rpcMiddleware)['with'];
-  readonly bearer: typeof bearer;
-} = { ...shared, guard: rpcMiddleware.with, bearer };
+/** The Guard as an Rpc Middleware: its server half is `server/rpc`'s
+ * `auth()`, its client half `signRpc`. */
+export const rpcMiddleware = Rpc.middleware<Policy>()(
+  '@kestack/auth-toolkit/rpc/Auth',
+  { provides: User, error: Failure },
+);
 
-/** The same guard for Effect HttpApi; its server half is `authz.http`. */
-export const AuthzHttp: typeof shared & {
-  readonly guard: (typeof httpMiddleware)['with'];
-} = { ...shared, guard: httpMiddleware.with };
+/** The Guard as an HttpApi Middleware: its server half is `server/http`'s
+ * `auth()`, its client half `signHttp`. */
+export const httpMiddleware = HttpApi.middleware<Policy>()(
+  '@kestack/auth-toolkit/http-api/Auth',
+  { provides: User, error: Failures },
+);

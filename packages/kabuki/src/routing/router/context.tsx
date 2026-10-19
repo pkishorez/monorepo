@@ -8,7 +8,11 @@ import type {
   ReactNode,
   TouchEvent,
 } from 'react';
-import type { AnyRoute, MoveOptions } from '../capability/index.ts';
+import type {
+  AnyRoute,
+  MoveOptions,
+  ReloadOptions,
+} from '../capability/index.ts';
 import type { Preload } from './define.ts';
 import { MANAGED, tagsOf } from '../route/index.ts';
 import type { How, Metadata } from '../route/index.ts';
@@ -21,10 +25,10 @@ export interface Entry<Route extends AnyRoute = AnyRoute> {
   readonly hash?: string;
 }
 
-/** A move the Router holds while it loads the data of its places: where to, and how. */
+/** A move the Router holds while it loads the data of its places: where to, and how; `reload` is a reload anew, on the Route shown. */
 export interface Pending<Route extends AnyRoute = AnyRoute> {
   readonly to: Route;
-  readonly how: 'push' | 'replace' | 'load' | 'back' | 'forward';
+  readonly how: 'push' | 'replace' | 'load' | 'back' | 'forward' | 'reload';
 }
 
 /** What the router's View hands everything drawn below it: drawing data, read from the Snapshot shown, and its Sends. */
@@ -45,7 +49,7 @@ export interface Drawing {
   /** The Metadata the Routes give the current entry, from its params alone. */
   readonly metadata: Metadata;
   readonly go: (by: number) => void;
-  readonly reload: () => void;
+  readonly reload: (options?: ReloadOptions) => void;
   readonly preload: (route: AnyRoute) => void;
   /** When a link preloads, unless it says. */
   readonly linkPreload: { readonly mode: Preload; readonly delay: number };
@@ -243,8 +247,8 @@ export interface RouterState<Route extends AnyRoute = AnyRoute> {
   readonly forward: () => void;
   /** Move to entry `at` of the history. */
   readonly goTo: (at: number) => void;
-  /** Load every page on screen again, its data shown meanwhile: a failed page retries. */
-  readonly reload: () => void;
+  /** Load every page on screen again, its data shown meanwhile: a failed page retries. `{ anew: true }` drops the data shown, as a move does. */
+  readonly reload: (options?: ReloadOptions) => void;
   /** Warm the Data cache for a Route. */
   readonly preload: (route: Route) => void;
 }

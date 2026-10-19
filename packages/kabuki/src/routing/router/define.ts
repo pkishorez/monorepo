@@ -33,6 +33,8 @@ export type RouterOptions<C, D> = {
   readonly base?: string;
   /** How long a move waits for its data, in milliseconds, before it lands and its pages show they are loading: 150 unless said. */
   readonly delay?: number;
+  /** How long, in milliseconds, a page's loading screen stays at least once drawn, so it never flashes: 300 unless said. */
+  readonly minimum?: number;
   /** When a `Router.Link` preloads, unless it says: `'intent'` by default. */
   readonly preload?: Preload;
   /** How long, in milliseconds, an `'intent'` link waits before it preloads: 50 by default. */
@@ -50,6 +52,7 @@ export interface Rooted<G extends AnyPageDefinition> {
   readonly options: {
     readonly base: string;
     readonly delay: number;
+    readonly minimum: number;
     readonly preload: { readonly mode: Preload; readonly delay: number };
     readonly cacheSize: number;
     readonly scroll: ScrollRestorationOptions<never>;
@@ -107,6 +110,7 @@ export const define = <
       notFound,
       base,
       delay,
+      minimum,
       preload,
       preloadDelay,
       staleTime,
@@ -125,6 +129,7 @@ export const define = <
         options: {
           base: (base ?? '').replace(/\/$/, ''),
           delay: delay ?? 150,
+          minimum: minimum ?? 300,
           preload: { mode: preload ?? 'intent', delay: preloadDelay ?? 50 },
           cacheSize: cacheSize ?? 50,
           scroll: scroll as ScrollRestorationOptions<never>,

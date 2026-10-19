@@ -1,4 +1,4 @@
-import { type Apis, type DeviceBackends } from './apis/index.ts';
+import { type Apis, type LocalBackends } from './apis/index.ts';
 import {
   type AuthApp,
   createApp as assemble,
@@ -29,7 +29,7 @@ export interface WebAuth<A extends Apis, S> {
   readonly url: string;
   /** What one Account keeps while it is active. */
   readonly session?: SessionDef<A, S>;
-  /** Who to try the device Backend as, in one tap. */
+  /** Who to try the Local Backend as, in one tap. */
   readonly presets?: ReadonlyArray<LocalSignInChoice>;
 }
 
@@ -45,10 +45,10 @@ export interface WebAppConfig<A extends Apis, S, C> {
   /** The app's mark, above its name before sign-in. */
   readonly mark?: ReactNode;
   readonly apis?: A;
-  /** The device Backend: every API's handlers on the device's Storage. */
-  readonly device?: (
+  /** The Local Backend: every API's handlers on the device's Storage. */
+  readonly local?: (
     storage: Storage,
-  ) => DeviceBackends<A> | Promise<DeviceBackends<A>>;
+  ) => LocalBackends<A> | Promise<LocalBackends<A>>;
   readonly auth?: WebAuth<A, S>;
   /** What only this device keeps, such as Settings. */
   readonly cache?: (storage: Storage) => C;
@@ -75,7 +75,7 @@ const screenOf = (
       return { kind: view.kind };
     case 'opening':
     case 'unopenable':
-      return { kind: view.kind, name: view.account.user.name };
+      return { kind: view.kind, name: view.account.name };
     case 'signedOut':
       return { kind: 'signedOut', unreachable: view.unreachable };
   }
@@ -83,7 +83,7 @@ const screenOf = (
 
 /**
  * A web app: a PWA on TanStack Start in the app's Theme, with its APIs on
- * the cloud Backend at this origin or on the device Backend in the page,
+ * the cloud Backend at this origin or on the Local Backend in the page,
  * and, with `auth`, several Accounts signed in on this device, one Session
  * each. `root` is the root route; `SignedIn` wraps what needs an Account
  * and shows the right screen otherwise. Make one per app, in `app.ts`.
@@ -106,7 +106,7 @@ export function createApp<A extends Apis, S, C>(
   const parts = {
     host,
     ...(config.apis !== undefined && { apis: config.apis }),
-    ...(config.device !== undefined && { device: config.device }),
+    ...(config.local !== undefined && { local: config.local }),
     ...(config.cache !== undefined && { cache: config.cache }),
   };
   const pwa = pwaRoot(
@@ -130,10 +130,10 @@ export function createApp<A extends Apis, S, C>(
     auth: auth.session === undefined ? {} : { session: auth.session },
   } as never) as AuthApp<A, S, C>;
 
-  // Asks who signs in to the device Backend, wherever the app is.
-  const named: RootPlugin = {
+  // Asks who signs in to the Local Backend, wherever the app is.
+  const localSignIn: RootPlugin = {
     Provider: (props: { readonly children: ReactNode }) => {
-      const { asking, answer } = app.useGate().namedSignIn;
+      const { asking, answer } = app.useGate().localSignIn;
       return (
         <>
           {props.children}
@@ -157,8 +157,8 @@ export function createApp<A extends Apis, S, C>(
     if (view.kind === 'accountLost')
       return (
         <AccountLost
-          lost={view.account.user}
-          others={view.accounts.map(({ user }) => user)}
+          lost={view.account}
+          others={view.accounts}
           onSignInAgain={() => void gate.signIn()}
           onSwitch={gate.switchTo}
           onSignOut={() => void gate.signOut()}
@@ -175,12 +175,8 @@ export function createApp<A extends Apis, S, C>(
         theme={shown}
         screen={screenOf(view)}
         backend={gate.backend}
-        hasDevice={config.device !== undefined}
-        loginError={
-          notice?.kind === 'loginError'
-            ? (notice.error.description ?? 'Sign in didn’t finish. Try again.')
-            : null
-        }
+        hasLocal={config.local !== undefined}
+        loginError={notice?.kind === 'signInFailed' ? notice.message : null}
         onLoginErrorShown={gate.dismissNotice}
         onSignIn={gate.signIn}
         onCheckAgain={gate.checkAgain}
@@ -214,7 +210,7 @@ export function createApp<A extends Apis, S, C>(
     ...app,
     SignedIn,
     theme,
-    root: rootOf(config.device === undefined ? [pwa] : [pwa, named]),
+    root: rootOf(config.local === undefined ? [pwa] : [pwa, localSignIn]),
   };
 }
 

@@ -1,7 +1,8 @@
-import { Effect, Schema } from 'effect';
+import { Context, Effect, Layer, Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
+import type { Types } from '../../core/index.ts';
 import { View } from '../../react/index.ts';
-import { Page, Router } from '../index.ts';
+import { Navigation, Page, Router } from '../index.ts';
 import { tagsOf } from '../route/index.ts';
 
 /*
@@ -578,5 +579,77 @@ describe('the Stale time', () => {
     expect(() => Router.define(Page.define({ pages: { Outer } }))).toThrow(
       /Outer\.Inside is static/,
     );
+  });
+});
+
+describe("a page's Provides", () => {
+  it('cover what the pages under it need: the need stops at the page', () => {
+    class Greeting extends Context.Service<
+      Greeting,
+      { readonly text: string }
+    >()('Greeting') {}
+    const Child = Page.define({ path: '/child', requires: [Greeting] });
+    const ChildLive = Page.build(Child, {
+      workers: {
+        greet: { run: () => Effect.flatMap(Greeting, () => Effect.never) },
+      },
+    });
+    const Parent = Page.define({ pages: { Child } });
+    const ParentLive = Page.build(Parent, {
+      pages: { Child: ChildLive },
+      provides: () => Layer.succeed(Greeting, { text: 'hi' }),
+    });
+    type Same<X, Y> =
+      (<T>() => T extends X ? 1 : 2) extends <T>() => T extends Y ? 1 : 2
+        ? true
+        : false;
+    const child: Same<Types<typeof ChildLive>['open'], Greeting | Navigation> =
+      true;
+    const parent: Same<Types<typeof ParentLive>['open'], Navigation> = true;
+    expect([child, parent]).toEqual([true, true]);
+  });
+});
+
+describe('a whole query', () => {
+  const Authorize = Page.define({
+    path: '/authorize',
+    query: {
+      client_id: Schema.optionalKey(Schema.String),
+      search: Page.wholeQuery,
+    },
+  });
+  const Signed = Router.define(
+    Page.define({ pages: { Authorize, Dashboard } }),
+  );
+  const SIGNED =
+    'client_id=notes&scope=a+b&ba_param=client_id&ba_param=scope&sig=s1';
+
+  it('reads every pair of the query as written, a repeated one too', () => {
+    expect(Signed.read(`/authorize?${SIGNED}`).route).toEqual({
+      _tag: 'Authorize',
+      client_id: 'notes',
+      search: SIGNED,
+    });
+    expect(Signed.read('/authorize').route).toEqual({ _tag: 'Authorize' });
+  });
+
+  it('writes it back whole, each field said over it', () => {
+    const route = Signed.read(`/authorize?${SIGNED}`).route;
+    expect(Signed.path(route)).toBe(`/authorize?${SIGNED}`);
+    expect(
+      Signed.path(Signed.Authorize({ search: SIGNED, client_id: 'other' })),
+    ).toBe(
+      '/authorize?client_id=other&scope=a+b&ba_param=client_id&ba_param=scope&sig=s1',
+    );
+    expect(Signed.path(Signed.Authorize({ client_id: 'notes' }))).toBe(
+      '/authorize?client_id=notes',
+    );
+  });
+
+  it('is what the Loader is handed, and the Data cache keeps a copy under', () => {
+    const [place] = Signed.places(`/authorize?${SIGNED}`);
+    expect(place?.params).toEqual({ client_id: 'notes', search: SIGNED });
+    const [other] = Signed.places('/authorize?client_id=notes&sig=s2');
+    expect(other?.params).not.toEqual(place?.params);
   });
 });

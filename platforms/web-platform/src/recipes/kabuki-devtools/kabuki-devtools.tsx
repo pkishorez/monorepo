@@ -69,7 +69,7 @@ export function KabukiDevtools({
 }: {
   /** The running app: `App.useRuntime()`. */
   readonly runtime: AppRuntime;
-  /** How the Map is laid out: a packed tree, or an outline. */
+  /** How the Map is laid out at first: a packed tree, or an outline; the reader can switch it. */
   readonly layout?: Kind;
   /** Dots under the Map. On by default; off, a background given by `className` shows through. */
   readonly dotted?: boolean;
@@ -179,7 +179,7 @@ export function Inspector({
   readonly step: { readonly snapshot: Snapshot; readonly said?: Said };
   /** What the live app says of each Instance's Workers, while the Step shown is live. */
   readonly statuses?: Statuses;
-  /** How the Map is laid out: a packed tree, or an outline. */
+  /** How the Map is laid out at first: a packed tree, or an outline; the reader can switch it. */
   readonly layout?: Kind;
   readonly timeline: ComponentProps<typeof Timeline>;
   /** Dots under the Map. On by default. */
@@ -196,6 +196,7 @@ export function Inspector({
     () => new Map(),
   );
   const [folded, setFolded] = useState<ReadonlySet<string>>(() => new Set());
+  const [laidOut, setLaidOut] = useState<Kind>(layout ?? 'tree');
 
   // 1. Scene
   const scene = useMemo(
@@ -205,11 +206,11 @@ export function Inspector({
         snapshot: step.snapshot,
         ...(step.said ? { said: step.said } : {}),
         ...(statuses ? { statuses } : {}),
-        ...(layout ? { layout } : {}),
+        layout: laidOut,
         chosen,
         folded,
       }),
-    [definition, step, statuses, layout, chosen, folded],
+    [definition, step, statuses, laidOut, chosen, folded],
   );
 
   // 2. Pick and 3. Sheet
@@ -233,6 +234,8 @@ export function Inspector({
             scene={scene}
             {...(dotted === undefined ? {} : { dotted })}
             {...(presenting ? { follow: true } : {})}
+            layout={laidOut}
+            onLayout={setLaidOut}
             picked={sheet ? picked : undefined}
             onPick={setPicked}
             onChoose={(place, instance) =>

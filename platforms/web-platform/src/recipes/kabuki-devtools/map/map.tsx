@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, ListTree, Network } from 'lucide-react';
 import {
   AnimatePresence,
   animate,
@@ -8,9 +8,9 @@ import {
 } from 'motion/react';
 import { ink } from '../ink/index.ts';
 import { FOLD, STATE } from '../scene/index.ts';
-import type { Placed, PlacedState, Scene } from '../scene/index.ts';
+import type { Kind, Placed, PlacedState, Scene } from '../scene/index.ts';
 import { Beat } from './beat/index.ts';
-import { Canvas, ITEM, OWN } from './canvas/index.ts';
+import { Canvas, Control, ITEM, OWN } from './canvas/index.ts';
 import type { Bounds } from './canvas/index.ts';
 import { Link, Via } from './link/index.ts';
 import { Node } from './node/index.ts';
@@ -151,6 +151,8 @@ export function AppMap({
   onFold,
   dotted,
   follow,
+  layout,
+  onLayout,
 }: {
   readonly scene: Scene;
   readonly picked: Pick | undefined;
@@ -163,6 +165,10 @@ export function AppMap({
   readonly dotted?: boolean;
   /** Keep the whole Map in view as it changes, with no controls: for presenting. */
   readonly follow?: boolean;
+  /** How the Map is laid out now, with a button to switch it when `onLayout` is given. */
+  readonly layout?: Kind;
+  /** Lay the Map out the other way. */
+  readonly onLayout?: (layout: Kind) => void;
 }) {
   const hasBelow = new Set(scene.lines.map((line) => line.from));
   const { at, beats } = scene;
@@ -195,6 +201,22 @@ export function AppMap({
       onTap={() => onPick(undefined)}
       {...(dotted === undefined ? {} : { dotted })}
       {...(follow ? { follow } : {})}
+      {...(layout ? { shape: layout } : {})}
+      controls={
+        onLayout &&
+        (layout === 'outline' ? (
+          <Control label="Lay out as a tree" onClick={() => onLayout('tree')}>
+            <Network />
+          </Control>
+        ) : (
+          <Control
+            label="Lay out as an outline"
+            onClick={() => onLayout('outline')}
+          >
+            <ListTree />
+          </Control>
+        ))
+      }
     >
       {/* 1. Lines */}
       <svg

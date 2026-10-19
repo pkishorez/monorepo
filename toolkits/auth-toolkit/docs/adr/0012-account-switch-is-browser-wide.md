@@ -6,7 +6,7 @@ Date: 2026-09-20
 
 ## Status
 
-Accepted
+Accepted. Amended by [ADR 0019](./0019-browser-callers-are-same-site-and-never-hold-tokens.md): the Consent Screen and Device Screen approve as an Approving Account, which switches nothing; signing out one Account is also offered to apps through `Accounts.signOut(userId)`.
 
 ## Context
 

@@ -1,21 +1,25 @@
 import { Context, Effect, Layer } from 'effect';
-import type { RpcClient } from 'effect/rpc';
+import { RpcClient } from 'effect/rpc';
 import { type ReactNode, useSyncExternalStore } from 'react';
 import {
-  namedAccountsTable,
-  signIn,
-  type SignIn,
+  type Account,
+  Accounts,
+  type AccountsState,
 } from '@kestack/auth-toolkit/client';
+import {
+  browser,
+  localAccountsTable,
+} from '@kestack/auth-toolkit/client/browser';
 import { Sync, type SyncStore } from '@kestack/std-toolkit/sync';
 import {
   type ApiClients,
   type Apis,
   cloudProtocol,
-  type DeviceBackends,
-  deviceProtocol,
+  type LocalBackends,
+  localProtocol,
 } from '../apis/index.ts';
 import { createGate, gateReact, type GateView } from '../gate/index.ts';
-import type { Backend, Host, Storage } from '../host/index.ts';
+import type { AccountsLayer, Backend, Host, Storage } from '../host/index.ts';
 import {
   defineSession,
   keepSyncs,
@@ -41,12 +45,13 @@ export interface AppConfig<A extends Apis, S, C> {
   readonly host: () => Host;
   /** The app's APIs, by name. */
   readonly apis?: A;
-  /** The device Backend: every API's handlers, run in the app on the
+  /** The Local Backend: every API's handlers, run in the app on the
    * device's own Storage, or what loads them the first time it is chosen.
-   * Without it, the app has only the cloud Backend. */
-  readonly device?: (
+   * Who signed a call is read from its Local Token, so the handlers need
+   * nothing of auth's. Without it, the app has only the cloud Backend. */
+  readonly local?: (
     storage: Storage,
-  ) => DeviceBackends<A> | Promise<DeviceBackends<A>>;
+  ) => LocalBackends<A> | Promise<LocalBackends<A>>;
   /** Signing in: several Accounts on this device, one open at a time, each
    * with its own Session. Without it, the app has no Accounts. */
   readonly auth?: AuthConfig<A, S>;
@@ -57,53 +62,118 @@ export interface AppConfig<A extends Apis, S, C> {
 
 type NotOpen<S> = Exclude<GateView<S>, { kind: 'open' }>;
 
+/** What signs every guarded call as the Active Account. */
+type Signing = Layer.Success<AccountsLayer>;
+
 /** What runs while the app is on one Backend: how a Session reaches each
  * API, where its Std Sync is kept, and what deletes signed-out users'. */
 class Link extends Context.Service<
   Link,
   {
-    /** Each API's protocol for an Account whose token `token` gives. */
-    readonly protocols: (
-      token: Effect.Effect<string>,
-    ) => Readonly<Record<string, Layer.Layer<RpcClient.Protocol>>>;
+    /** Each API's protocol for a Session. */
+    readonly protocols: () => Readonly<
+      Record<string, Layer.Layer<RpcClient.Protocol>>
+    >;
     readonly store: SyncStore;
     readonly keep: (userIds: ReadonlyArray<string>) => Effect.Effect<void>;
   }
 >()('@kestack/web-platform/app/Link') {}
 
+const activeId = (state: AccountsState) =>
+  state._tag === 'SignedIn'
+    ? state.active.id
+    : state._tag === 'Checking'
+      ? state.last?.id
+      : undefined;
+
+/**
+ * `protocol` sending every call as `account` alone, whatever the Accounts'
+ * signing, which signs as the Active Account of the moment, put on it:
+ * `expect-user` always names `account`, so the cloud refuses the call
+ * Account Changed once the cookie is another's; and a bearer goes only while
+ * `account` is still the Active Account, so the Local Backend refuses it
+ * Unauthenticated after. What a Session leaves behind an Account Switch, its
+ * Std Sync's last writes or a call still waiting, never lands as the next
+ * Account.
+ */
+export const sendingAs = (
+  protocol: Layer.Layer<RpcClient.Protocol>,
+  account: Account,
+  accounts: Accounts['Service'],
+): Layer.Layer<RpcClient.Protocol> =>
+  Layer.effect(
+    RpcClient.Protocol,
+    Effect.gen(function* () {
+      const inner = yield* RpcClient.Protocol;
+      return {
+        ...inner,
+        send: (clientId, request, transferables) =>
+          request._tag !== 'Request'
+            ? inner.send(clientId, request, transferables)
+            : Effect.flatMap(accounts.current, (state) => {
+                const active = activeId(state) === account.id;
+                const headers = request.headers.flatMap(
+                  ([name, value]): Array<[string, string]> =>
+                    name === 'expect-user'
+                      ? [[name, account.id]]
+                      : name === 'authorization' && !active
+                        ? []
+                        : [[name, value]],
+                );
+                return inner.send(
+                  clientId,
+                  { ...request, headers },
+                  transferables,
+                );
+              }),
+      };
+    }),
+  ).pipe(Layer.provideMerge(protocol));
+
 /** An app's parts with no Accounts: its APIs and its cache. */
 const makeCore = <A extends Apis, C>(
-  config: Pick<AppConfig<A, unknown, C>, 'host' | 'apis' | 'device' | 'cache'>,
+  config: Pick<AppConfig<A, unknown, C>, 'host' | 'apis' | 'local' | 'cache'>,
 ) => {
   let made: Host | undefined;
   const host = () => (made ??= config.host());
   const apis = (config.apis ?? {}) as A;
   const names = Object.keys(apis);
 
-  let loaded: Promise<DeviceBackends<A>> | undefined;
-  const loadDevice = () =>
-    (loaded ??= Promise.resolve(config.device!(host().storage)));
-
-  const cloudProtocols = (token: Effect.Effect<string> | null = null) =>
+  // A guarded call is signed with the Accounts' signing; a public one goes
+  // out signed as nobody.
+  const cloudProtocols = (signed: boolean) =>
     Object.fromEntries(
       names.map((name) => [
         name,
-        cloudProtocol(apis[name]!, host().cloud.url, token),
+        cloudProtocol(apis[name]!, host().cloud.url, { signed }),
       ]),
     );
-  const deviceProtocols = async () => {
-    const handlers = await loadDevice();
-    return Object.fromEntries(
-      names.map((name) => [
-        name,
-        deviceProtocol(apis[name]!, handlers[name] as never),
-      ]),
-    );
-  };
+  // The Local Backend's handlers, each behind auth-toolkit's Local mode,
+  // which reads who signed a call from its Local Token. Loaded the first
+  // time it is chosen, with the server half of auth.
+  let loaded:
+    | Promise<Record<string, Layer.Layer<RpcClient.Protocol>>>
+    | undefined;
+  const localProtocols = () =>
+    (loaded ??= Promise.all([
+      config.local!(host().storage),
+      import('@kestack/auth-toolkit/server/rpc'),
+    ]).then(([handlers, { auth }]) => {
+      const guard = auth({ local: true });
+      return Object.fromEntries(
+        names.map((name) => [
+          name,
+          localProtocol(
+            apis[name]!,
+            Layer.merge(guard, handlers[name] as never) as never,
+          ),
+        ]),
+      );
+    }));
   const protocolOf = async (backend: Backend, name: string) =>
-    backend === 'device'
-      ? (await deviceProtocols())[name]!
-      : cloudProtocols()[name]!;
+    backend === 'local'
+      ? (await localProtocols())[name]!
+      : cloudProtocols(false)[name]!;
 
   let cacheMade: C | undefined;
   const cache = () => (cacheMade ??= config.cache!(host().storage));
@@ -111,9 +181,9 @@ const makeCore = <A extends Apis, C>(
   return {
     host,
     apis,
-    hasDevice: config.device !== undefined,
+    hasLocal: config.local !== undefined,
     cloudProtocols,
-    deviceProtocols,
+    localProtocols,
     protocolOf,
     cache,
   };
@@ -127,7 +197,7 @@ const backendStore = (core: ReturnType<typeof makeCore>) => {
   const current = (): Backend => {
     if (backend === null) {
       const asked = core.host().lifecycle.launchBackend();
-      backend = asked === 'device' && core.hasDevice ? 'device' : 'cloud';
+      backend = asked === 'local' && core.hasLocal ? 'local' : 'cloud';
     }
     return backend;
   };
@@ -138,7 +208,7 @@ const backendStore = (core: ReturnType<typeof makeCore>) => {
       return () => void listeners.delete(changed);
     },
     set: (next: Backend) => {
-      backend = next === 'device' && core.hasDevice ? 'device' : 'cloud';
+      backend = next === 'local' && core.hasLocal ? 'local' : 'cloud';
       listeners.forEach((changed) => changed());
     },
   };
@@ -147,7 +217,7 @@ const backendStore = (core: ReturnType<typeof makeCore>) => {
 /**
  * An app on any platform. Nothing runs until a screen first asks, so it
  * can be made where the Host is not there yet, as on a web server. With
- * `auth`, it runs sign-in on this device on the cloud or the device
+ * `auth`, it runs sign-in on this device on the cloud or the Local
  * Backend, and opens one Session per active Account, with every API signed
  * as them and a Std Sync named for them; the app's Session says what that
  * Session holds, this says when. Make one per app. The Web Platform's
@@ -209,16 +279,16 @@ const authApp = <A extends Apis, S, C>(
     auth.session ??
     (defineSession(apis, () => Effect.void) as unknown as SessionDef<A, S>);
 
-  const gate = createGate<Opened<S>, Link>({
+  const gate = createGate<Opened<S>, Link | Signing>({
     host,
     cloud: () => {
-      const cloudSignIn = host().cloud.signIn;
-      if (cloudSignIn === undefined)
-        throw new Error('An app with auth needs a Host that signs in');
+      const accounts = host().cloud.accounts;
+      if (accounts === undefined)
+        throw new Error('An app with auth needs a Host with Accounts');
       return Layer.mergeAll(
-        cloudSignIn,
+        accounts,
         Layer.sync(Link, () => ({
-          protocols: (token) => core.cloudProtocols(token),
+          protocols: () => core.cloudProtocols(true),
           store: host().storage.sync,
           keep: (userIds) =>
             Effect.tryPromise(() =>
@@ -228,19 +298,23 @@ const authApp = <A extends Apis, S, C>(
               Effect.asVoid,
             ),
         })),
-      ) as Layer.Layer<SignIn | Link>;
+      ) as Layer.Layer<Accounts | Link | Signing>;
     },
-    ...(core.hasDevice && {
-      device: async (choose) => {
-        const protocols = await core.deviceProtocols();
+    ...(core.hasLocal && {
+      local: async (choose) => {
+        const protocols = await core.localProtocols();
         return Layer.mergeAll(
-          signIn.named({
-            choose,
-            storage: host().storage.table(namedAccountsTable, 'device'),
+          browser({
+            local: {
+              choose,
+              // In the database named `device`, where devices have kept
+              // their Local Accounts since this Backend was called that.
+              storage: host().storage.table(localAccountsTable, 'device'),
+            },
           }),
           Layer.succeed(Link, {
             protocols: () => protocols,
-            // The device Backend keeps everything already: a Session's Std
+            // The Local Backend keeps everything already: a Session's Std
             // Sync lives in memory, and there is nothing to delete.
             store: Sync.memory(),
             keep: () => Effect.void,
@@ -248,15 +322,22 @@ const authApp = <A extends Apis, S, C>(
         );
       },
     }),
-    session: (account, token, status) =>
+    session: (account, status) =>
       Effect.gen(function* () {
         const { protocols, store } = yield* Link;
+        const signing = yield* Effect.context<Signing>();
+        const accounts = Context.get(signing, Accounts);
         return yield* openSession({
           apis,
-          protocols: protocols(token) as never,
+          protocols: Object.fromEntries(
+            Object.entries(protocols()).map(([name, protocol]) => [
+              name,
+              sendingAs(protocol, account, accounts),
+            ]),
+          ) as never,
           store,
           account,
-          token,
+          signing: Layer.succeedContext(signing),
           status,
           open: session.open,
           service: session.Service,

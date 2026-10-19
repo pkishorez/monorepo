@@ -1,4 +1,4 @@
-// What an app writes before `createApp`: its APIs, its device Backend over
+// What an app writes before `createApp`: its APIs, its Local Backend over
 // the device's Storage, and its Session. Nothing here loads the browser app,
 // so a Worker and a test can import it.
 export {
@@ -6,8 +6,8 @@ export {
   type ApiClient,
   type ApiClients,
   type Apis,
-  type DeviceBackend,
-  type DeviceBackends,
+  type LocalBackend,
+  type LocalBackends,
   type RpcsOf,
   type Transport,
 } from '../app/apis/index.ts';

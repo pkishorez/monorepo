@@ -2,7 +2,7 @@
   "name": "@kestack/auth-toolkit",
   "version": "0.0.2",
   "private": false,
-  "description": "One shared sign-in service on Cloudflare, the guard both sides of an Effect API agree on, and the server and client halves that sign in to it",
+  "description": "One sign-in service on Cloudflare, the guard both sides of an Effect API import, and the Layers a web app or a device signs in with",
   "keywords": [
     "better-auth",
     "auth",
@@ -24,6 +24,10 @@
     "dist/"
   ],
   "exports": {
+    ".": {
+      "types": "./dist/auth/index.d.ts",
+      "default": "./dist/auth/index.js"
+    },
     "./worker": {
       "types": "./dist/worker/worker/index.d.ts",
       "default": "./dist/worker/app/worker.js"
@@ -36,29 +40,25 @@
       "types": "./dist/worker/database/sqlite/d1/resource/index.d.ts",
       "default": "./dist/worker/database/sqlite/d1/resource/index.js"
     },
-    "./guard": {
-      "types": "./dist/guard/index.d.ts",
-      "default": "./dist/guard/index.js"
+    "./server/rpc": {
+      "types": "./dist/server/rpc/index.d.ts",
+      "default": "./dist/server/rpc/index.js"
     },
-    "./server": {
-      "types": "./dist/server/index.d.ts",
-      "default": "./dist/server/index.js"
-    },
-    "./server/cloud": {
-      "types": "./dist/server/cloud/index.d.ts",
-      "default": "./dist/server/cloud/index.js"
+    "./server/http": {
+      "types": "./dist/server/http/index.d.ts",
+      "default": "./dist/server/http/index.js"
     },
     "./client": {
-      "types": "./dist/client/index.d.ts",
-      "default": "./dist/client/index.js"
+      "types": "./dist/client/accounts/index.d.ts",
+      "default": "./dist/client/accounts/index.js"
     },
-    "./client/web": {
-      "types": "./dist/client/sign-in/cookie/index.d.ts",
-      "default": "./dist/client/sign-in/cookie/index.js"
+    "./client/browser": {
+      "types": "./dist/client/browser/index.d.ts",
+      "default": "./dist/client/browser/index.js"
     },
-    "./client/cli": {
-      "types": "./dist/client/sign-in/device-code/index.d.ts",
-      "default": "./dist/client/sign-in/device-code/index.js"
+    "./client/device": {
+      "types": "./dist/client/device/index.d.ts",
+      "default": "./dist/client/device/index.js"
     }
   },
   "scripts": {
@@ -76,13 +76,8 @@
     "@better-auth/mcp": "catalog:",
     "@better-auth/oauth-provider": "catalog:",
     "@cloudflare/workers-types": "catalog:",
-    "@tanstack/react-query": "catalog:",
-    "@tanstack/react-router": "catalog:",
-    "@tanstack/react-start": "catalog:",
     "better-auth": "catalog:",
-    "drizzle-orm": "catalog:",
-    "use-sync-external-store": "catalog:",
-    "zustand": "catalog:"
+    "drizzle-orm": "catalog:"
   },
   "peerDependencies": {
     "@kestack/rpc-toolkit": "workspace:*",
@@ -115,8 +110,7 @@
   "devDependencies": {
     "@base-ui/react": "catalog:",
     "@effect/platform-node": "catalog:",
-    "@fontsource-variable/inter": "catalog:",
-    "@fontsource-variable/jetbrains-mono": "catalog:",
+    "@kestack/kabuki": "workspace:*",
     "@kestack/rpc-toolkit": "workspace:*",
     "@kestack/std-toolkit": "workspace:*",
     "@tailwindcss/vite": "catalog:",
@@ -130,9 +124,6 @@
     "alchemy": "catalog:",
     "auth": "catalog:",
     "better-sqlite3": "catalog:",
-    "class-variance-authority": "catalog:",
-    "clsx": "catalog:",
-    "cn": "catalog:",
     "drizzle-kit": "catalog:",
     "effect": "catalog:",
     "jose": "catalog:",
@@ -141,11 +132,7 @@
     "motion": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "shadcn": "catalog:",
-    "sonner": "catalog:",
-    "tailwind-merge": "catalog:",
     "tailwindcss": "catalog:",
-    "tw-animate-css": "catalog:",
     "typescript": "catalog:typescript6",
     "vite": "catalog:",
     "vitest": "catalog:"

@@ -1,19 +1,15 @@
-export {
-  createAuthWorker,
-  d1,
-  isTrustedOrigin,
-  validateTrustedOrigins,
-} from './worker.js';
-export type { EmbeddedAsset, PagesApp } from './pages.js';
-export {
-  AUTH_PAGES,
-  type Branding,
-  type BrandStyle,
-  type PagesContext,
-} from '../../contract/index.js';
+export { authWorker, d1, type AuthWorker } from './worker.js';
 export type {
-  AuthorizationServerConfig,
-  ClientRegistration,
-  MultiSessionConfig,
-  ScopeDefinition,
-} from './auth-model.js';
+  AuthWorkerConfig,
+  Brand,
+  Candidate,
+  OAuthResources,
+} from './config.js';
+export type {
+  AccountView,
+  ClientView,
+  GrantView,
+  ScopeView,
+  SignInView,
+} from './browser-api.js';
+export type { SignInKind } from './sign-in-name.js';

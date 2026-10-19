@@ -6,12 +6,15 @@ import {
   type TableSource,
   type TabMessage,
 } from './host/index.ts';
-import { cookie } from '@kestack/auth-toolkit/client/web';
+import {
+  browser,
+  browserAccountsTable,
+} from '@kestack/auth-toolkit/client/browser';
 import { sharedBroadcaster } from '@kestack/std-toolkit/core';
 import { IDB, type IDBTable } from '@kestack/std-toolkit/db/idb';
 import { Sync } from '@kestack/std-toolkit/sync/idb';
 
-// `?backend=device` or `?backend=cloud` (or their former names, `local` and
+// `?backend=local` or `?backend=cloud` (or their former names, `device` and
 // `remote`) chooses the Backend, as Settings would, and leaves the address.
 const launchBackend = (): Backend | null => {
   const url = new URL(window.location.href);
@@ -41,10 +44,11 @@ const onForeground = (shown: () => void) => {
 
 /**
  * The browser as an app's Host: each table in the IndexedDB database it
- * names, heard by every tab, Std Sync in IndexedDB shared by every tab, the cloud APIs at this
- * origin, sign-in through the sign-in service at `authUrl` and its cookies
- * when the app has auth, and the window's network, visibility and other
- * tabs under `name`. Made in the browser only.
+ * names, heard by every tab, Std Sync in IndexedDB shared by every tab, the
+ * cloud APIs at this origin, the Accounts on the sign-in service at
+ * `authUrl` when the app has auth (by its cookie, the last-known ones kept
+ * so the app opens at once), and the window's network, visibility and
+ * other tabs under `name`. Made in the browser only.
  */
 export const webHost = (options: {
   readonly name: string;
@@ -80,7 +84,10 @@ export const webHost = (options: {
     cloud: {
       url: window.location.origin,
       ...(authUrl !== undefined && {
-        signIn: cookie({ authWorkerUrl: authUrl }),
+        accounts: browser({
+          url: authUrl,
+          cache: table(browserAccountsTable, 'gate'),
+        }),
         manageAccounts: async () => {
           window.open(authUrl, '_blank', 'noopener');
         },

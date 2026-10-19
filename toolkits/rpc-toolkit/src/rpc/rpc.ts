@@ -8,6 +8,13 @@
  */
 export { make as middleware } from './middleware/index.ts';
 
+/**
+ * Runs an observer with the Exit of each call sent from within an effect,
+ * before the caller sees it: how a Client Implementation reacts to an answer,
+ * since its `next` only sends. `next(request).pipe(Rpc.onExit(observer))`.
+ */
+export { onExit } from './on-exit/index.ts';
+
 // Each Transport is a module namespace, not an object, so a bundler keeps
 // only the halves an app calls: `Rpc.http.client` leaves `Rpc.http.server`
 // and the other Transports out.
@@ -24,6 +31,7 @@ export * as websocket from './websocket/index.ts';
 /** The inProcess Transport: the group's handlers in this process, no wire. */
 export * as inProcess from './in-process/index.ts';
 
+export type { ExitObserver } from './on-exit/index.ts';
 export type {
   ClientImpl as MiddlewareClient,
   Middleware,

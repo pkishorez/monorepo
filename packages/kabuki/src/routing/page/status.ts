@@ -32,10 +32,12 @@ export interface DataInfo extends PlaceInfo {
 /**
  * Where a page's data is: loading, failed, or there. `refreshing` is true
  * while it loads again behind the data shown, after a reload or on a copy
- * the Data cache kept. `notFound` is a Loader's `Page.notFound()`. `info`
- * is good to know, never needed to draw: how the page is drawn, its Stale
- * time, and once its data is there, where it came from and when it goes
- * stale.
+ * the Data cache kept. `waited` is true when the data took the place of a
+ * loading screen the page drew, so a View can fade it in then alone; data
+ * that came before anything was drawn, or behind data shown, did not wait.
+ * `notFound` is a Loader's `Page.notFound()`. `info` is good to know,
+ * never needed to draw: how the page is drawn, its Stale time, and once its
+ * data is there, where it came from and when it goes stale.
  */
 export type Status<D> =
   | { readonly _tag: 'Loading'; readonly info: PlaceInfo }
@@ -49,6 +51,8 @@ export type Status<D> =
       readonly _tag: 'Ready';
       readonly data: D;
       readonly refreshing: boolean;
+      /** It took the place of a loading screen the page drew. */
+      readonly waited: boolean;
       readonly info: DataInfo;
     };
 
@@ -73,7 +77,12 @@ export const statusSchema = <D>(data: Codec<D>): Codec<Status<D>> =>
       notFound: Schema.Boolean,
       info: PlaceInfoSchema,
     },
-    Ready: { data, refreshing: Schema.Boolean, info: DataInfoSchema },
+    Ready: {
+      data,
+      refreshing: Schema.Boolean,
+      waited: Schema.Boolean,
+      info: DataInfoSchema,
+    },
   }) as unknown as Codec<Status<D>>;
 
 /** What is known of a place whatever its data. */

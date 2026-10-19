@@ -1,6 +1,6 @@
 # Web Platform
 
-The way to build a kstack app: one config made into a PWA on TanStack Start, with its Theme, its APIs on a cloud or a device Backend, several Accounts signed in on one device with one Session each, its cache, the screens before sign-in, and the look, input, components and Recipes to build its screens.
+The way to build a kstack app: one config made into a PWA on TanStack Start, with its Theme, its APIs on a cloud or a Local Backend, several Accounts signed in on one device with one Session each, its cache, the screens before sign-in, and the look, input, components and Recipes to build its screens.
 
 ## Language
 
@@ -15,19 +15,19 @@ One of an app's named ways to call a Backend: a group and the Transport it is re
 _Avoid_: endpoint, service, client, Api (the former single group)
 
 **Backend**:
-What answers an app's APIs: the cloud Backend or the device Backend. Each has its own Accounts; changing Backend signs no one out of either. The same handlers run on both; only the Services they are given differ.
+What answers an app's APIs: the cloud Backend or the Local Backend. Each has its own Accounts; changing Backend signs no one out of either. The same handlers run on both; only the Services they are given differ.
 _Avoid_: server, environment, mode
 
 **Cloud Backend**:
 The Backend run on a server, where Users sign in through the sign-in service and their data is kept for every device. Formerly the Remote Backend; a stored or launched `remote` is read as `cloud`.
 _Avoid_: Remote Backend, real backend, production
 
-**Device Backend**:
-The Backend run in the app itself, every API's handlers in this process, where Users sign in as Named Accounts and their data never leaves the device. An app has it for every API or not at all. Formerly the Local Backend; a stored or launched `local` is read as `device`.
-_Avoid_: Local Backend, demo, mock backend, offline mode
+**Local Backend**:
+The Backend run in the app itself, every API's handlers in this process, where Users sign in as Local Accounts and their data never leaves the device. An app has it for every API or not at all. Formerly the Device Backend; a stored or launched `device` is read as `local`, because Device now names auth-toolkit's Caller Kind.
+_Avoid_: Device Backend, demo, mock backend, offline mode
 
 **Public Call**:
-A call to an API outside any Session, signed as nobody: it goes out if the call is not guarded, and fails Unauthenticated without being sent if it is.
+A call to an API outside any Session, signed as nobody: it goes out with no cookie, and the Backend answers it Unauthenticated if it is guarded.
 _Avoid_: anonymous request, unsigned API
 
 **Cache**:
@@ -37,15 +37,15 @@ _Avoid_: local storage, preferences store
 ### Accounts
 
 **Gate**:
-What runs an app's sign-in on one device: which Backend it is on, which Accounts there are, and which is the Active Account, whose Session it keeps open. Every screen asks it whether someone is signed in; nothing starts until one first asks. Only an app with auth has one.
+What runs an app's sign-in on one device: which Backend it is on, and the Session of the Active Account, which auth-toolkit's Accounts name. Every screen asks it whether someone is signed in; nothing starts until one first asks. Only an app with auth has one.
 _Avoid_: auth gate (it is more than a check), app machine, session manager
 
 **Open First**:
-The Gate's rule for an account it already knows: on an Account Switch, or at launch with an Active Account remembered, its Session opens at once from what the device keeps, and the Backend confirms it afterwards. Only a device that knows nobody waits for the Backend.
+The Gate's rule for the account last seen here: at launch its Session opens at once from what the device keeps, and the Backend confirms it afterwards. A device that knows nobody waits for the Backend, and so does an Account Switch, since the sign-in service's cookie decides whom a call is from.
 _Avoid_: optimistic switch, eager open, cached login
 
 **Remembered Accounts**:
-The Accounts on one Backend as of the Gate's last check, kept by the device, with no tokens, so the Gate can show them and Open First before the Backend answers. Every answer from the Backend replaces them whole; they never hold an account the Backend did not name.
+The Accounts on the cloud Backend as of the last check, kept by auth-toolkit's Accounts (`browser({ cache })`) with no tokens, so the Gate can Open First before the Backend answers. Every answer from the Backend replaces them whole; they never hold an account the Backend did not name.
 _Avoid_: account cache (Cache is what belongs to no user), multi-session, device sessions
 
 **Account Lost**:
@@ -67,7 +67,7 @@ What the Web Platform gives a Session to be built from: every API signed as the 
 _Avoid_: session input, session deps
 
 **Session Status**:
-Whether the open Account has been confirmed by its Sign-in since the Session opened: verifying or verified, with when it was last verified. A call made while verifying waits for the token; nothing fails for being early.
+Whether the open Account has been confirmed by its Sign-in since the Session opened: verifying or verified, with when it was last verified. A call made while verifying goes out as that Account, and is refused Account Changed if the sign-in service names someone else.
 _Avoid_: auth state, loading
 
 **Session Closed**:
@@ -95,11 +95,11 @@ _Avoid_: app shell (the PWA's App Shell is what boots offline), layout, chrome
 ### Client
 
 **Root Plugin**:
-Something the root document takes in without knowing it: head tags for every page, and a provider around every page. The PWA and the named sign-in dialog plug in this way; `createApp` gives both to every app.
+Something the root document takes in without knowing it: head tags for every page, and a provider around every page. The PWA and the Local Sign-In dialog plug in this way; `createApp` gives both to every app.
 _Avoid_: extension, middleware, addon
 
 **Live Object**:
-A Durable Object that serves one of an app's WebSocket APIs to one user: their store, and where every one of their sockets connects, so a change one device makes is pushed to the others as it is made. It sleeps between messages and resumes its open streams when it wakes. Every call on it is still checked.
+A Durable Object that serves one of an app's WebSocket APIs to one user: their store, and where every one of their sockets connects, so a change one device makes is pushed to the others as it is made. It sleeps between messages and resumes its open streams when it wakes. A socket opens only for that user, checked by the sign-in cookie on its upgrade, and every call on it is theirs, with what that socket's own Sign-in or Access Token allows; it is checked again every five minutes, so a call on a socket whose Sign-in has ended is refused.
 _Avoid_: room, channel, actor
 
 **Gate Screens**:

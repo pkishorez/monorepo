@@ -19,19 +19,18 @@ import type { Codec, Place } from '../route/index.ts';
  *           the move loaded before it landed, the server's, or the Data
  *           cache's copy, which it shows, and loads again once stale.
  *           Knowing nothing, Loading. A place whose key, its name and path
- *           params, did not change keeps what it has.
+ *           params, did not change keeps what it has, unless it is loading
+ *           anew: then it starts over as a new place does.
  * 2. Load   with the `place` Worker, one run per place whose data is due:
  *           while it is loading, after a reload, on a stale copy, or when
  *           its query changes. The data shown stays meanwhile; a loading
- *           screen stays at least 300 ms.
+ *           screen stays at least the Router's `minimum`. A place loading
+ *           anew is not due: the move the Router holds loads it.
  * 3. Settle each answer into its place: Ready, or Failed, keeping data
  *           shown when loading it again fails for the same query; a
  *           Redirect replaces the entry, or leaves the app for a URL outside
  *           it. An answer for a place no longer on screen is dropped.
  */
-
-/** How long a page's loading screen stays at least, so it never flashes. */
-const MINIMUM = 300;
 
 /** One place's data, as the Router holds it. */
 export interface Held {
@@ -42,6 +41,8 @@ export interface Held {
   readonly reload: number;
   /** What its Loader was handed, as one string: a new query loads it again. */
   readonly for: string;
+  /** Its data is no one's any more, as after the account changed: shown while a move is held, never kept. */
+  readonly anew?: boolean;
 }
 
 export type Holding = Readonly<Record<string, Held>>;
@@ -69,6 +70,7 @@ export const holdingSchema = (routes: DataSchemas) =>
             status: statusSchema(data),
             reload: Schema.Number,
             for: Schema.String,
+            anew: Schema.optionalKey(Schema.Boolean),
           }),
         ),
       ]),
@@ -150,7 +152,7 @@ export const holdingAt = <Route>(
   for (const place of routes.places(route)) {
     if (!place.input) continue;
     const kept = before[place.name];
-    if (kept && kept.key === place.key) {
+    if (kept && kept.key === place.key && !kept.anew) {
       out[place.name] = kept;
       continue;
     }
@@ -165,6 +167,8 @@ export const holdingAt = <Route>(
               _tag: 'Ready',
               data: from.data,
               refreshing: from.stale,
+              // Loading anew from a loading screen: the data takes its place.
+              waited: kept?.key === place.key && kept.status._tag === 'Loading',
               info: dataInfoOf(place, from),
             }
           : from?._tag === 'Failed'
@@ -180,6 +184,19 @@ export const holdingAt = <Route>(
   return out;
 };
 
+/** The data of every place, each to be loaded anew: shown until a move lands, never kept by it. */
+export const anewOf = (holding: Holding): Holding =>
+  Object.fromEntries(
+    Object.entries(holding).map(([name, held]) => [
+      name,
+      { ...held, anew: true },
+    ]),
+  );
+
+/** Whether any place is to be loaded anew. */
+export const renewing = (holding: Holding): boolean =>
+  Object.values(holding).some((held) => held.anew === true);
+
 // 2. Load
 /** Whether a place's data is due to load, and why: the run it is loaded for, as one key. */
 const dueOf = (
@@ -187,6 +204,7 @@ const dueOf = (
   held: Held,
   reload: number,
 ): string | undefined => {
+  if (held.anew) return undefined;
   const asked = reload > held.reload || forOf(place) !== held.for;
   const { status } = held;
   if (
@@ -247,11 +265,13 @@ export const readyOf = (
 
 /**
  * Loads the data of one place, for the run `run` names, through `Loading`:
- * with none, it stays loading. Sends what it came to.
+ * with none, it stays loading. A loading screen stays at least `minimum`
+ * milliseconds. Sends what it came to.
  */
 export const loadPlace = <Route>(
   routes: DataRoutes<Route>,
   run: string,
+  minimum: number,
   self: {
     readonly send: (message: PlaceMessage) => Effect.Effect<void>;
     readonly get: Effect.Effect<{
@@ -287,7 +307,7 @@ export const loadPlace = <Route>(
     // When the answer came, before the loading screen's least time.
     const arrived = yield* self.now;
     if (shown?._tag === 'Loading')
-      yield* Effect.sleep(Math.max(0, began + MINIMUM - (yield* self.now)));
+      yield* Effect.sleep(Math.max(0, began + minimum - (yield* self.now)));
     const answer = answers[name] ?? {
       _tag: 'Broken',
       reason: `no answer for ${name}`,
@@ -347,6 +367,8 @@ export const settle = (
           _tag: 'Ready',
           data: message.answer.data,
           refreshing: message.stale,
+          // Anything but data shown was drawn as a loading screen.
+          waited: held.status._tag !== 'Ready',
           info: message.info,
         },
         reload: message.reload,

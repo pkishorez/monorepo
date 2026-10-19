@@ -1,4 +1,4 @@
-import { Effect, Layer } from 'effect';
+import { Layer } from 'effect';
 import type {
   Rpc as EffectRpc,
   RpcClient,
@@ -7,7 +7,7 @@ import type {
 } from 'effect/rpc';
 import { Rpc } from '@kestack/rpc-toolkit/rpc';
 
-/** How an API is reached on the cloud Backend. On the device Backend every
+/** How an API is reached on the cloud Backend. On the Local Backend every
  * API is called in this process, whatever its Transport. */
 export type Transport = 'http' | 'websocket';
 
@@ -54,17 +54,18 @@ export type ApiClients<A extends Apis> = {
   readonly [K in keyof A]: ApiClient<RpcsOf<A[K]>>;
 };
 
-/** One API's handlers, with everything they stand on, run on the device. */
-export type DeviceBackend<Rpcs extends EffectRpc.Any> = Layer.Layer<
-  EffectRpc.ToHandler<Rpcs> | EffectRpc.Middleware<Rpcs>,
+/** One API's handlers, with everything they stand on, run in the app. Who
+ * signed a call is given by the Web Platform when the app has auth. */
+export type LocalBackend<Rpcs extends EffectRpc.Any> = Layer.Layer<
+  EffectRpc.ToHandler<Rpcs>,
   unknown
 >;
 
-/** The device Backend: every API's handlers, by the same names. An app
- * with a device Backend has one for every API, or the device Backend would
- * be half real. */
-export type DeviceBackends<A extends Apis> = {
-  readonly [K in keyof A]: DeviceBackend<RpcsOf<A[K]>>;
+/** The Local Backend: every API's handlers, by the same names. An app with
+ * a Local Backend has one for every API, or the Local Backend would be half
+ * real. */
+export type LocalBackends<A extends Apis> = {
+  readonly [K in keyof A]: LocalBackend<RpcsOf<A[K]>>;
 };
 
 /** `path` against `base`; a full URL stays as it is. */
@@ -73,36 +74,32 @@ export const resolve = (path: string, base: string) =>
     ? path
     : `${base.replace(/\/$/, '')}/${path.replace(/^\//, '')}`;
 
-// `url` with the token `token` gives as its `access_token`.
-const signedUrl = (url: string, token: Effect.Effect<string>) =>
-  Effect.map(token, (current) => {
-    const signed = new URL(url);
-    signed.searchParams.set('access_token', current);
-    return signed.href;
-  });
-
-/** How a call reaches one API on the cloud Backend. A call carries its
- * Account's token and never a cookie, which names whoever is active in the
- * browser. A WebSocket also opens with the token `token` gives at each
- * connect, in its address, as a browser sets no headers on one: that is how
- * the cloud knows whose it is before any call. */
+/** How a call reaches one API on the cloud Backend. The sign-in service's
+ * cookie goes with a guarded call, as the Accounts' signing sets it, and a
+ * WebSocket opens with it; a public call (`signed: false`) goes with no
+ * cookie, signed as nobody. */
 export const cloudProtocol = (
   { group, transport, path }: Apis[string],
   base: string,
-  token: Effect.Effect<string> | null = null,
+  options: { readonly signed: boolean } = { signed: true },
 ): Layer.Layer<RpcClient.Protocol> => {
   const url = resolve(path, base);
   return transport === 'http'
-    ? Rpc.http.client(group, { url, credentials: 'omit' })
-    : (Rpc.websocket.client(group, {
-        url: token === null ? url : signedUrl(url, token),
-      }) as Layer.Layer<RpcClient.Protocol, never, never>);
+    ? Rpc.http.client(group, {
+        url,
+        ...(!options.signed && { credentials: 'omit' as const }),
+      })
+    : (Rpc.websocket.client(group, { url }) as Layer.Layer<
+        RpcClient.Protocol,
+        never,
+        never
+      >);
 };
 
 /** How a call reaches one API's handlers in this process. */
-export const deviceProtocol = (
+export const localProtocol = (
   { group }: Apis[string],
-  handlers: DeviceBackend<EffectRpc.Any>,
+  handlers: LocalBackend<EffectRpc.Any>,
 ): Layer.Layer<RpcClient.Protocol> =>
   Rpc.inProcess
     .client(group, handlers as never)

@@ -1,16 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { memory } from '../../database/sqlite/memory/index.js';
-import type { PagesContext } from '../../../contract/index.js';
-import { createAuthWorker } from '../worker.js';
+import type { PagesContext } from '../pages.js';
+import { makeAuthWorker } from '../worker.js';
+import { baseURL, config } from './fixture.js';
 
-const baseURL = 'https://auth.example.com';
-const config = {
-  baseURL,
-  secret: 'test-secret-test-secret-test-secret',
-  google: { clientId: 'test', clientSecret: 'test' },
-  trustedOrigins: ['https://app.example.com'],
-  branding: { appName: 'Example' },
-};
+const createAuthWorker = (
+  options: Parameters<typeof makeAuthWorker>[0],
+  pages?: Parameters<typeof makeAuthWorker>[1],
+) => makeAuthWorker(options, pages);
+
+const resources = (...urls: string[]) => ({
+  resources: Object.fromEntries(urls.map((url) => [url, {}])),
+});
 
 const get = (handler: (request: Request) => Promise<Response>, path: string) =>
   handler(new Request(`${baseURL}/api/auth${path}`));
@@ -33,9 +34,10 @@ describe('Authorization Server Role', () => {
     const { handler } = createAuthWorker({
       ...config,
       database: memory(),
-      authorizationServer: {
-        resources: ['https://api.example.com'],
-        scopes: [{ name: 'notes:read', description: 'Read notes' }],
+      oauth: {
+        resources: {
+          'https://api.example.com': { 'notes:read': 'Read notes' },
+        },
       },
     });
 
@@ -55,7 +57,9 @@ describe('Authorization Server Role', () => {
     expect(body.grant_types_supported).not.toContain(
       'urn:ietf:params:oauth:grant-type:device_code',
     );
-    expect(body.registration_endpoint).toBeUndefined();
+    expect(body.registration_endpoint).toBe(
+      `${baseURL}/api/auth/oauth2/register`,
+    );
 
     const jwks = await get(handler, '/jwks');
     expect(jwks.status).toBe(200);
@@ -72,7 +76,7 @@ describe('Authorization Server Role', () => {
     const { handler } = createAuthWorker({
       ...config,
       database: memory(),
-      authorizationServer: { resources: [] },
+      oauth: resources(),
     });
     const inserted = await handler(
       new Request(`${baseURL}/.well-known/oauth-authorization-server/api/auth`),
@@ -85,16 +89,11 @@ describe('Authorization Server Role', () => {
 });
 
 describe('Client Registration', () => {
-  const metadataFor = async (
-    clientRegistration: 'manual' | 'dynamic' | 'cimd' | 'dynamic+cimd',
-  ) => {
+  const selfRegistering = async () => {
     const { handler } = createAuthWorker({
       ...config,
       database: memory(),
-      authorizationServer: {
-        resources: ['https://mcp.example.com/mcp'],
-        clientRegistration,
-      },
+      oauth: resources('https://mcp.example.com/mcp'),
     });
     const response = await get(
       handler,
@@ -107,22 +106,12 @@ describe('Client Registration', () => {
     return { handler, metadata };
   };
 
-  it('is manual by default: no registration endpoint, no metadata documents', async () => {
-    const { metadata, handler } = await metadataFor('manual');
-    expect(metadata.registration_endpoint).toBeUndefined();
-    expect(metadata.client_id_metadata_document_supported).toBeUndefined();
-    const attempt = await handler(
-      new Request(`${baseURL}/api/auth/oauth2/register`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          client_name: 'inspector',
-          redirect_uris: ['http://localhost:6274/oauth/callback'],
-          token_endpoint_auth_method: 'none',
-        }),
-      }),
+  it('advertises both self-registration and Client ID Metadata Documents', async () => {
+    const { metadata } = await selfRegistering();
+    expect(metadata.client_id_metadata_document_supported).toBe(true);
+    expect(metadata.registration_endpoint).toBe(
+      `${baseURL}/api/auth/oauth2/register`,
     );
-    expect(attempt.status).toBeGreaterThanOrEqual(400);
   });
 
   const register = (
@@ -149,12 +138,8 @@ describe('Client Registration', () => {
     client_uri: 'https://github.com/modelcontextprotocol/inspector',
   };
 
-  it('dynamic registers an MCP client unauthenticated, as a native app', async () => {
-    const { metadata, handler } = await metadataFor('dynamic');
-    expect(metadata.registration_endpoint).toBe(
-      `${baseURL}/api/auth/oauth2/register`,
-    );
-    expect(metadata.client_id_metadata_document_supported).toBeUndefined();
+  it('registers an MCP client unauthenticated, as a native app', async () => {
+    const { handler } = await selfRegistering();
     const registered = await register(handler, inspector);
     expect(registered.status).toBe(201);
     const client = (await registered.json()) as {
@@ -169,8 +154,8 @@ describe('Client Registration', () => {
     expect(client.redirect_uris).toEqual(inspector.redirect_uris);
   });
 
-  it('dynamic still holds web clients to https redirects', async () => {
-    const { handler } = await metadataFor('dynamic');
+  it('still holds web clients to https redirects', async () => {
+    const { handler } = await selfRegistering();
     const web = await register(handler, {
       ...inspector,
       redirect_uris: ['https://app.example.com/callback'],
@@ -193,20 +178,6 @@ describe('Client Registration', () => {
     });
     expect(declaredWeb.status).toBe(400);
   });
-
-  it('cimd advertises metadata documents without a registration endpoint', async () => {
-    const { metadata } = await metadataFor('cimd');
-    expect(metadata.client_id_metadata_document_supported).toBe(true);
-    expect(metadata.registration_endpoint).toBeUndefined();
-  });
-
-  it('dynamic+cimd advertises both', async () => {
-    const { metadata } = await metadataFor('dynamic+cimd');
-    expect(metadata.client_id_metadata_document_supported).toBe(true);
-    expect(metadata.registration_endpoint).toBe(
-      `${baseURL}/api/auth/oauth2/register`,
-    );
-  });
 });
 
 describe('the pages app', () => {
@@ -214,7 +185,7 @@ describe('the pages app', () => {
     fetch: (request: Request, context: PagesContext) =>
       Promise.resolve(
         new Response(
-          `${String(context.branding.appName)}:${new URL(request.url).pathname}:${Object.keys(context.authorizationServer?.scopes ?? {}).join(',')}`,
+          `${context.brand.name}:${new URL(request.url).pathname}:${Object.keys(context.oauth?.scopes ?? {}).join(',')}`,
         ),
       ),
     assets: {
@@ -222,23 +193,30 @@ describe('the pages app', () => {
       '/assets/font.woff2': { type: 'font/woff2', base64: 'AAEC' },
     },
   };
-  const withPages = createAuthWorker({
-    ...config,
-    database: memory(),
-    authorizationServer: {
-      resources: [],
-      scopes: [{ name: 'notes:read', description: 'Read your notes' }],
+  const withPages = createAuthWorker(
+    {
+      ...config,
+      database: memory(),
+      oauth: {
+        resources: {
+          'https://api.example.com': { 'notes:read': 'Read your notes' },
+        },
+      },
     },
     pages,
-  });
+  );
 
   it('renders pages and server-function calls with the app name', async () => {
     const login = await withPages.handler(new Request(`${baseURL}/login`));
-    expect(await login.text()).toBe('Example:/login:notes:read');
+    expect(await login.text()).toBe(
+      'Example:/login:openid,profile,email,offline_access,notes:read',
+    );
     const fn = await withPages.handler(
       new Request(`${baseURL}/_serverFn/x`, { method: 'POST' }),
     );
-    expect(await fn.text()).toBe('Example:/_serverFn/x:notes:read');
+    expect(await fn.text()).toBe(
+      'Example:/_serverFn/x:openid,profile,email,offline_access,notes:read',
+    );
   });
 
   it('serves embedded text and binary assets as immutable', async () => {
@@ -257,11 +235,10 @@ describe('the pages app', () => {
   });
 
   it('serves the pages with the Identity Role alone, but not discovery', async () => {
-    const identityOnly = createAuthWorker({
-      ...config,
-      database: memory(),
+    const identityOnly = createAuthWorker(
+      { ...config, database: memory() },
       pages,
-    });
+    );
     const login = await identityOnly.handler(new Request(`${baseURL}/login`));
     expect(login.status).toBe(200);
     const discovery = await identityOnly.handler(
@@ -276,7 +253,7 @@ describe('Grant revocation', () => {
     const { auth, handler } = createAuthWorker({
       ...config,
       database: memory(),
-      authorizationServer: { resources: ['https://api.example.com'] },
+      oauth: resources('https://api.example.com'),
     });
     const { adapter, internalAdapter } = await auth.$context;
     const signIn = async (email: string) => {

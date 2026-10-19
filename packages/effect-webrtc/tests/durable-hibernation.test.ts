@@ -48,7 +48,7 @@ it('replays the peer subscription after a hibernation wake', async () => {
           upgrade: () =>
             Effect.succeed([HttpServerResponse.empty(), target.port] as const),
           connection: durableSignalingConnection(
-            { authWorkerUrl: '', trustedOrigins: [] },
+            { authWorkerUrl: '', cookieDomain: '' },
             {} as never,
           ),
         });

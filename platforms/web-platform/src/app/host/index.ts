@@ -1,4 +1,5 @@
 export {
+  type AccountsLayer,
   Backend,
   backendNamed,
   type Host,

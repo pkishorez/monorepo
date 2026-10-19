@@ -543,6 +543,25 @@ describe('a reload', () => {
         expect(calls).toEqual({ Blog: 2, 'Blog.Post:hello': 2 });
       }),
     ));
+
+  it('keeps what it loaded in the Data cache: Back to it after is at once', () =>
+    run(
+      Effect.gen(function* () {
+        const app = yield* Runtime.start(Root.actor, loading);
+        push(app, Routes.Blog.Post({ slug: 'hello' }));
+        yield* settle;
+        send(app, { _tag: 'Reloaded' });
+        yield* settle;
+        push(app, Routes.Home());
+        yield* settle;
+        hold('Blog.Post:hello');
+        send(app, { _tag: 'Went', by: -1 });
+        yield* settle;
+        expect(router(app).pending).toBeNull();
+        expect(status(app, 'Post')).toEqual(ready(POSTS[0]));
+        expect(calls['Blog.Post:hello']).toBe(2);
+      }),
+    ));
 });
 
 describe('a copy that comes while a page loads', () => {
@@ -875,4 +894,180 @@ describe("the router's cacheSize", () => {
         expect(Routes.options.cacheSize).toBe(50);
       }),
     ));
+});
+
+/** A Ready status with `data` that did, or did not, take the place of a loading screen. */
+const arrived = (data: unknown, waited: boolean) =>
+  expect.objectContaining({ _tag: 'Ready', data, refreshing: false, waited });
+const LOADING_POST = {
+  _tag: 'Loading',
+  info: { render: 'static', staleTime: null },
+};
+
+describe("a Ready status's waited", () => {
+  it('is false for data that came while the move was held', () =>
+    run(
+      Effect.gen(function* () {
+        const app = yield* Runtime.start(Root.actor, loading);
+        push(app, Routes.Blog.Post({ slug: 'hello' }));
+        yield* settle;
+        expect(status(app, 'Post')).toEqual(arrived(POSTS[0], false));
+      }),
+    ));
+
+  it('is true for data that took the place of a loading screen', () =>
+    run(
+      Effect.gen(function* () {
+        const open = hold('Blog.Post:hello');
+        const app = yield* Runtime.start(Root.actor, loading);
+        push(app, Routes.Blog.Post({ slug: 'hello' }));
+        yield* wait(200);
+        expect(status(app, 'Post')).toEqual(LOADING_POST);
+        open();
+        yield* wait(350);
+        expect(status(app, 'Post')).toEqual(arrived(POSTS[0], true));
+      }),
+    ));
+
+  it('is false again once the data is loaded behind the data shown', () =>
+    run(
+      Effect.gen(function* () {
+        const app = yield* Runtime.start(
+          History.make(Root.actor, { input: Root.startAt('/stats') }),
+          loading,
+        );
+        yield* wait(350);
+        expect(status(app, 'Stats')).toEqual(arrived({ visits: 3 }, true));
+        send(app, { _tag: 'Reloaded' });
+        yield* settle;
+        expect(status(app, 'Stats')).toEqual(arrived({ visits: 3 }, false));
+      }),
+    ));
+});
+
+describe("the router's minimum", () => {
+  const Quick = Router.define(App, { minimum: 40 });
+  const QuickRoot = Router.app(Quick, AppView);
+  const quick = Router.cached(Quick, Router.memory(Quick, loaders));
+
+  it('is how long a loading screen stays at least: 300 unless said', () =>
+    run(
+      Effect.gen(function* () {
+        expect(Routes.options.minimum).toBe(300);
+        expect(Quick.options.minimum).toBe(40);
+        const open = hold('Blog.Post:hello');
+        const slow = yield* Runtime.start(Root.actor, loading);
+        const fast = yield* Runtime.start(QuickRoot.actor, quick);
+        push(slow, Routes.Blog.Post({ slug: 'hello' }));
+        push(fast, Quick.Blog.Post({ slug: 'hello' }));
+        yield* wait(200);
+        expect(status(slow, 'Post')).toEqual(LOADING_POST);
+        expect(status(fast, 'Post')).toEqual(LOADING_POST);
+        open();
+        yield* wait(60);
+        // Landed at 150: one stays until 190, the other until 450.
+        expect(status(fast, 'Post')).toEqual(arrived(POSTS[0], true));
+        expect(status(slow, 'Post')).toEqual(LOADING_POST);
+        yield* wait(300);
+        expect(status(slow, 'Post')).toEqual(arrived(POSTS[0], true));
+      }),
+    ));
+});
+
+describe('a reload anew', () => {
+  /** The Stats page's data counts its loads, so new data is told from old. */
+  let version = 0;
+  const versioned = Router.cached(
+    Routes,
+    Router.memory(
+      Routes,
+      Routes.loaders({
+        ...loaders,
+        Stats: () =>
+          counted('Stats').pipe(Effect.map(() => ({ visits: (version += 1) }))),
+      }),
+    ),
+  );
+  const atStats = Effect.gen(function* () {
+    version = 0;
+    const app = yield* Runtime.start(Root.actor, versioned);
+    push(app, Routes.Stats());
+    yield* settle;
+    expect(status(app, 'Stats')).toEqual(arrived({ visits: 1 }, false));
+    return app;
+  });
+
+  it('holds the data shown up to the delay, never refreshing behind it, then shows Loading at least the minimum', () =>
+    run(
+      Effect.gen(function* () {
+        const app = yield* atStats;
+        const open = hold('Stats');
+        send(app, { _tag: 'Reloaded', anew: true });
+        yield* settle;
+        expect(router(app).pending).toEqual(
+          expect.objectContaining({ to: Routes.Stats(), how: 'reload' }),
+        );
+        expect(status(app, 'Stats')).toEqual(arrived({ visits: 1 }, false));
+        yield* wait(200);
+        expect(router(app).pending).toBeNull();
+        expect(status(app, 'Stats')).toEqual({
+          _tag: 'Loading',
+          info: { render: 'client', staleTime: 0 },
+        });
+        open();
+        yield* wait(50);
+        expect(status(app, 'Stats')).toEqual(
+          expect.objectContaining({ _tag: 'Loading' }),
+        );
+        yield* wait(300);
+        expect(status(app, 'Stats')).toEqual(arrived({ visits: 2 }, true));
+        // The page joined the load the Router held: nothing ran twice.
+        expect(calls['Stats']).toBe(2);
+      }),
+    ));
+
+  it('swaps in data that comes within the delay, with no loading screen, and drops every copy the Data cache kept', () =>
+    run(
+      Effect.gen(function* () {
+        const app = yield* atStats;
+        send(app, { _tag: 'Preloading', route: Routes.Blog() });
+        yield* settle;
+        expect(calls['Blog']).toBe(1);
+        send(app, { _tag: 'Reloaded', anew: true });
+        yield* settle;
+        expect(router(app).pending).toBeNull();
+        expect(status(app, 'Stats')).toEqual(arrived({ visits: 2 }, false));
+        push(app, Routes.Blog());
+        yield* settle;
+        expect(calls['Blog']).toBe(2);
+      }),
+    ));
+
+  it('a move while it is held loads the data it keeps anew too', () =>
+    run(
+      Effect.gen(function* () {
+        const app = yield* Runtime.start(Root.actor, loading);
+        push(app, Routes.Blog.Post({ slug: 'hello' }));
+        yield* settle;
+        expect(calls).toEqual({ Blog: 1, 'Blog.Post:hello': 1 });
+        hold('Blog.Post:hello');
+        send(app, { _tag: 'Reloaded', anew: true });
+        yield* settle;
+        push(app, Routes.Blog());
+        yield* settle;
+        expect(router(app).pending).toBeNull();
+        expect(find(app, 'Post')).toBeUndefined();
+        expect(status(app, 'Blog')).toEqual(arrived(BLOG, false));
+        expect(calls['Blog']).toBe(2);
+      }),
+    ));
+
+  it('is the Command Router.reload({ anew: true })', () => {
+    expect(Router.reload({ anew: true })).toEqual(
+      expect.objectContaining({ name: 'reload', args: { anew: true } }),
+    );
+    expect(Router.reload()).toEqual(
+      expect.objectContaining({ name: 'reload', args: {} }),
+    );
+  });
 });

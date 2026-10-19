@@ -1,19 +1,10 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
 import { memory } from '../../database/sqlite/memory/index.js';
-import { createAuthWorker } from '../worker.js';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { baseURL, makeWith } from './fixture.js';
 
-const baseURL = 'https://auth.example.com';
+const make = makeWith(memory);
+
 const DEVICE_CODE_GRANT = 'urn:ietf:params:oauth:grant-type:device_code';
-
-const make = () =>
-  createAuthWorker({
-    baseURL,
-    secret: 'test-secret-test-secret-test-secret',
-    google: { clientId: 'test', clientSecret: 'test' },
-    trustedOrigins: ['https://app.example.com'],
-    branding: { appName: 'Example' },
-    database: memory(),
-  });
 
 type Handler = ReturnType<typeof make>['handler'];
 
@@ -85,7 +76,7 @@ describe('Device Login', () => {
           device_code: code.device_code,
           client_id: 'demo',
         },
-        { 'user-agent': 'demo/1.2.0' },
+        { 'user-agent': 'demo/1.2.0 (laptop)' },
       );
     expect(await (await poll()).json()).toMatchObject({
       error: 'authorization_pending',
@@ -138,7 +129,7 @@ describe('Device Login', () => {
       authorization: `Bearer ${issued.access_token}`,
     });
     expect(await sessions.json()).toContainEqual(
-      expect.objectContaining({ userAgent: 'demo/1.2.0' }),
+      expect.objectContaining({ userAgent: 'demo/1.2.0 (laptop)' }),
     );
     const out = await post(
       handler,

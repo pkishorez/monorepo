@@ -4,6 +4,7 @@ export type {
   Answer,
   AnyRoute,
   MoveOptions,
+  ReloadOptions,
   Wanted,
 } from './capability/index.ts';
 export { useRouter } from './router/index.ts';

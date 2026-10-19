@@ -310,7 +310,7 @@ export type Behavior<
 // What the Actor's type says -------------------------------------------------------
 
 /** The Capabilities a level's `provides` builds. */
-type ProvidedOf<L> = L extends {
+export type ProvidedOf<L> = L extends {
   readonly provides: (...args: any) => Layer.Layer<infer P, any, any>;
 }
   ? P

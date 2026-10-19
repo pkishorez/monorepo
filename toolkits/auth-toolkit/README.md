@@ -1,37 +1,41 @@
 # @kestack/auth-toolkit
 
-One shared sign-in service on Cloudflare, the guard both sides of an Effect API agree on, and the server and client halves that sign in to it
+One sign-in service on Cloudflare, the guard both sides of an Effect API import, and the Layers a web app or a device signs in with
 
 ## Big picture
 
-**Run the sign-in service.** One Cloudflare Worker, the Auth Worker, owns
-sign-in, sign-out and every Sign-in over a Primary Database (D1). It serves
-its own login, consent, device and home pages, so there is nothing else to
-deploy. Every other program asks it "who is this?" instead of touching auth
-state. A First-Party program (your web app, your CLI) holds a
-Sign-in; a Third-Party program (an MCP client) holds an Access Token and
-needs the opt-in Authorization Server Role. The `worker` doors are this half.
+One Cloudflare Worker, the Auth Worker, owns sign-in, sign-out and every
+Sign-in, over a D1 Primary Database. It serves its own Home Page, Login
+Screen, Device Screen and Consent Screen, so there is nothing else to deploy.
+Every other program asks it "who is this?" instead of touching auth state.
 
-**Sign in to it.** Three doors, one per side. `guard` is the contract both
-sides import: `Authz`, built on rpc-toolkit's `Rpc.middleware` (and
-`AuthzHttp` on `HttpApi.middleware`). `server` is its half on a Backend:
-`authz.layer` checks every guarded call with a Resolver Service whose
-`device` version reads a Name Token and whose `cloud` version asks the Auth
-Worker. `client` is the app's half on the device Backend: `SignIn`, the
-Service every Sign-in mechanism provides, and `signIn.named`, which signs in
-by name with a Name Token. Running sign-in on a device (the Gate, each
-Account's Session, `createApp`) is
-[`@kestack/web-platform`](../../platforms/web-platform)'s
-([ADR 0006](../../docs/adr/0006-platforms-may-break-toolkits-keep-what-persists.md)).
+A program reaches a User's data in one of three ways, and the doors follow
+from that. A **Browser** is a web app on the Shared Cookie Domain; its
+credential is the Auth Worker's cookie, which page code never reads. A
+**Device** (a CLI, a TV or phone app) keeps its own Sign-in token. An
+**OAuth** caller is someone else's program, such as an MCP client, holding an
+Access Token after consent; the toolkit ships nothing for that side. The
+root door is the contract both sides import, `Auth`. `server/rpc` and
+`server/http` are its server half, one `auth()` value per backend.
+`client/browser` and `client/device` each provide the same `Accounts`
+service, so app code does not care which one it runs on.
 
-`server/cloud`, `client/web` and `client/cli` are doors of their own because
-they bring better-auth's server code, better-auth's browser client and Node,
-and a device Backend in the browser must never load the cloud Resolver. Why the toolkits are cut this way is
-[ADR 0005](../../docs/adr/0005-three-toolkits-three-doors.md); the words are
-in [`CONTEXT.md`](./CONTEXT.md) and the package's decisions in
-[`docs/adr/`](./docs/adr/). Every `createAuthWorker` option is in
+The Guard is Middleware from
+[`@kestack/rpc-toolkit`](../rpc-toolkit/README.md), and the clients keep
+their Accounts in [`@kestack/std-toolkit`](../std-toolkit/README.md) tables.
+[`@kestack/web-platform`](../../platforms/web-platform) builds its Gate on
+`Accounts`. The pages are a [`@kestack/kabuki`](../../packages/kabuki) app,
+bundled into the `worker` door.
+
+The words are in [`CONTEXT.md`](./CONTEXT.md), the decisions in
+[`docs/adr/`](./docs/adr/) (the doors are
+[ADR 0018](./docs/adr/0018-three-caller-kinds-four-doors.md), the Browser
+rules [ADR 0019](./docs/adr/0019-browser-callers-are-same-site-and-never-hold-tokens.md)).
+Every `authWorker` option is in
 [`docs/auth-worker-configuration.md`](./docs/auth-worker-configuration.md),
-the schema runbook in [`docs/migrations.md`](./docs/migrations.md).
+the schema runbook in [`docs/migrations.md`](./docs/migrations.md), the
+pages' design guidelines in [`docs/design.md`](./docs/design.md), and the
+spec this shape was built from in [`docs/redesign.md`](./docs/redesign.md).
 
 ## Install
 
@@ -41,219 +45,235 @@ pnpm add @kestack/auth-toolkit
 
 Peer dependencies, all optional; install the ones your doors need:
 
-- `effect`: `guard`, `server`, `client` and `client/cli` are Effect Layers and Services.
-- `@kestack/rpc-toolkit`: the guard is its Middleware.
-- `@kestack/std-toolkit`: `signIn.named` keeps Named Accounts in its Table adapters.
-- `react`: the Auth Worker's own pages are React.
-- `better-sqlite3`: `@kestack/auth-toolkit/worker/memory` runs SQLite in-process for tests.
-- `alchemy`: `@kestack/auth-toolkit/worker/alchemy` declares the D1 resource in `alchemy.run.ts`.
+- `effect`: the root, `server/*` and `client/*` doors are Effect values.
+- `@kestack/rpc-toolkit`: the Guard is its Middleware, and the clients re-check through its `Rpc.onExit`.
+- `@kestack/std-toolkit`: `client/browser` and `client/device` keep Accounts in its StdTable adapters.
+- `better-sqlite3`: `worker/memory` runs SQLite in-process for tests.
+- `alchemy`: `worker/alchemy` declares the D1 database in `alchemy.run.ts`.
+- `react`: the pages are React. The `worker` door carries its own bundled copy, so a deployment does not need it installed.
 
 ## Exports
 
+### `@kestack/auth-toolkit`
+
+| Export                 | What it does                                                                                 |
+| ---------------------- | -------------------------------------------------------------------------------------------- |
+| `Auth.required`        | Guards an Rpc, RpcGroup, HttpApiEndpoint or HttpApiGroup: it runs only for a known caller.   |
+| `Auth.scope`           | Guards it for an Access Token carrying every named Scope; `yield*` it to check in a handler. |
+| `Auth.policy`          | Guards it with an invariant and the reason it fails with; `yield*` it to check in a handler. |
+| `Auth.User`            | The Service a guarded handler reads the caller's Principal from.                             |
+| `Auth.Unauthenticated` | Error for a guarded call nobody signed (401).                                                |
+| `Auth.Forbidden`       | Error for a call its policy refused (403).                                                   |
+| `Auth.Unavailable`     | Error when the Auth Worker could not be asked (503).                                         |
+| `Auth.AccountChanged`  | Error for a Browser call whose `expect-user` is not the cookie's Active Account (409).       |
+
 ### `@kestack/auth-toolkit/worker`
 
-| Export                   | What it does                                                                                                       |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------ |
-| `createAuthWorker`       | Assembles the Auth Worker and returns the better-auth instance plus a fetch handler that serves the API and pages. |
-| `d1`                     | Builds the Primary Database Provider from a Cloudflare D1 binding.                                                 |
-| `isTrustedOrigin`        | Tells whether an origin matches any of the given trusted origin patterns.                                          |
-| `validateTrustedOrigins` | Throws when a trusted origin pattern is neither a full origin, a host pattern, nor an app scheme and path.         |
-| `AUTH_PAGES`             | The paths of the login, consent, device, and error pages.                                                          |
+| Export       | What it does                                                                                        |
+| ------------ | --------------------------------------------------------------------------------------------------- |
+| `authWorker` | Builds the Auth Worker: the better-auth instance and a fetch handler for the API, pages and assets. |
+| `d1`         | Builds the Primary Database from a Cloudflare D1 binding.                                           |
 
 ### `@kestack/auth-toolkit/worker/memory`
 
-| Export   | What it does                                                                                 |
-| -------- | -------------------------------------------------------------------------------------------- |
-| `memory` | Builds an in-memory SQLite Primary Database Provider migrated with the shipped `.sql` files. |
+| Export   | What it does                                                                        |
+| -------- | ----------------------------------------------------------------------------------- |
+| `memory` | Builds an in-memory SQLite Primary Database migrated with the shipped `.sql` files. |
 
 ### `@kestack/auth-toolkit/worker/alchemy`
 
-| Export                      | What it does                                                                            |
-| --------------------------- | --------------------------------------------------------------------------------------- |
-| `d1PrimaryDatabaseResource` | Declares the D1 database as an Alchemy resource with the package's migrations attached. |
+| Export       | What it does                                                                   |
+| ------------ | ------------------------------------------------------------------------------ |
+| `d1Database` | Declares the D1 database as an Alchemy resource with the package's migrations. |
 
-### `@kestack/auth-toolkit/guard`
+### `@kestack/auth-toolkit/server/rpc`
 
-| Export                  | What it does                                                                                         |
-| ----------------------- | ---------------------------------------------------------------------------------------------------- |
-| `Authz.guard`           | Attaches the guard to an Rpc or RpcGroup, with an optional policy; the nearest one wins.             |
-| `Authz.bearer`          | Client half: signs every guarded call with a token, read at each call or waited for.                 |
-| `Authz.policy`          | Builds a policy from an invariant and the reason it fails Forbidden with.                            |
-| `Authz.scope`           | Builds a policy that holds only for an Access Token carrying every listed Scope.                     |
-| `Authz.Current`         | The Service a guarded handler reads who called from.                                                 |
-| `Authz.Resolver`        | The Service that finds out who a request is from; tests replace it.                                  |
-| `Authz.Unauthenticated` | Error for a guarded call nobody signed (401).                                                        |
-| `Authz.Forbidden`       | Error for a call whose policy refused (403).                                                         |
-| `Authz.Unavailable`     | Error when the Auth Worker could not be asked (503).                                                 |
-| `AuthzHttp`             | The same guard for Effect HttpApi: `guard`, `policy`, `scope`, `Current`, `Resolver` and the errors. |
+| Export     | What it does                                                                                          |
+| ---------- | ----------------------------------------------------------------------------------------------------- |
+| `auth`     | The Guard's server half for Effect RPC: verifies each call against the Auth Worker, or in Local mode. |
+| `testAuth` | The same Layer with a fixed Principal (or nobody) behind every call, for handlers' tests.             |
 
-### `@kestack/auth-toolkit/server`
+### `@kestack/auth-toolkit/server/http`
 
-| Export          | What it does                                                                                           |
-| --------------- | ------------------------------------------------------------------------------------------------------ |
-| `authz.layer`   | Server half of `Authz`: resolves each guarded RPC's caller, checks its policy, provides it.            |
-| `authz.http`    | Server half of `AuthzHttp` for Effect HttpApi.                                                         |
-| `authz.device`  | The device Resolver: reads the caller from a Name Token, asking no one.                                |
-| `authz.cookies` | Verifies once per batched request and relays refreshed cookies; give it as `Rpc.http.server`'s `wrap`. |
-
-### `@kestack/auth-toolkit/server/cloud`
-
-| Export                    | What it does                                                                                                                  |
-| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `authz`                   | Everything `server`'s `authz` has, plus `cloud`.                                                                              |
-| `authz.cloud`             | The cloud Resolver: asks the Auth Worker about a cookie or bearer, and verifies Access Tokens itself given a `resource`.      |
-| `verifyRequest`           | Without Effect: forwards a request's cookie or bearer to the Auth Worker and returns the User, Sign-in and refreshed cookies. |
-| `verifyAccessToken`       | Without Effect: verifies a bearer Access Token against the Auth Worker's JWKS for one Resource Server.                        |
-| `createMcpResourceServer` | Without Effect: an MCP Server's fetch handler that accepts only Access Tokens and publishes its Protected Resource Metadata.  |
+| Export     | What it does                                                                                                                 |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `auth`     | The Guard's server half for Effect HttpApi; with `oauth` it is a Resource Server and serves its Protected Resource Metadata. |
+| `testAuth` | The same Layer with a fixed Principal (or nobody) behind every call, for handlers' tests.                                    |
+| `verify`   | Without Effect: resolves who a plain `Request` is from, or null.                                                             |
 
 ### `@kestack/auth-toolkit/client`
 
-| Export               | What it does                                                                   |
-| -------------------- | ------------------------------------------------------------------------------ |
-| `signIn.named`       | Sign-in by name on the device Backend, each Account holding a Name Token.      |
-| `SignIn`             | The Service every Sign-in mechanism provides: list, sign in, switch, sign out. |
-| `Unreachable`        | Error when the Auth Worker could not be reached or refused.                    |
-| `nameToken`          | Makes and reads a Name Token.                                                  |
-| `namedUser`          | The Named Account an email names.                                              |
-| `namedChooser`       | A `choose` for `signIn.named` that a dialog answers.                           |
-| `namedAccountsTable` | The StdTable Named Accounts are kept in.                                       |
+| Export                      | What it does                                                                             |
+| --------------------------- | ---------------------------------------------------------------------------------------- |
+| `Accounts`                  | The Service for who is signed in on this client: state, sign in, switch, sign out.       |
+| `AccountsState`             | The `Checking`, `SignedIn` and `SignedOut` states, with their constructors and `$match`. |
+| `AuthWorkerUnreachable`     | Error when the Auth Worker could not be reached at all.                                  |
+| `AuthWorkerUnavailable`     | Error when the Auth Worker answered with a server error.                                 |
+| `AuthWorkerRejected`        | Error when the Auth Worker refused the request, with its reason.                         |
+| `InvalidAuthWorkerResponse` | Error when the Auth Worker's answer could not be read.                                   |
+| `DeviceLoginFailed`         | Error when a Device Login was denied or its code expired.                                |
+| `AccountLimitReached`       | Error when one more Account would pass the limit.                                        |
 
-The Gate, `createApp`, `Backend` and `keepSyncs` are in
-[`@kestack/web-platform`](../../platforms/web-platform).
+### `@kestack/auth-toolkit/client/browser`
 
-### `@kestack/auth-toolkit/client/web`
+| Export                 | What it does                                                                                     |
+| ---------------------- | ------------------------------------------------------------------------------------------------ |
+| `browser`              | `Accounts` over the Auth Worker's cookie, plus the signing of every guarded call; or Local mode. |
+| `browserAccountsTable` | The StdTable the optional `cache` keeps the last-known Accounts in, without tokens.              |
+| `localAccountsTable`   | The StdTable Local mode keeps Local Accounts in.                                                 |
+| `localChooser`         | A Local mode `choose` that a sign-in dialog answers.                                             |
 
-| Export   | What it does                                                              |
-| -------- | ------------------------------------------------------------------------- |
-| `cookie` | Sign-in in a browser against the Auth Worker, with its cookie and Google. |
+### `@kestack/auth-toolkit/client/device`
 
-### `@kestack/auth-toolkit/client/cli`
-
-| Export                      | What it does                                                             |
-| --------------------------- | ------------------------------------------------------------------------ |
-| `deviceCode`                | Sign-in for a CLI by Device Login, the token kept between runs.          |
-| `DeviceCode`                | The Service `deviceCode` provides: `login`, `logout`, `token`, `whoami`. |
-| `DeviceCode.rpcSession`     | Signs every RPC call with the kept token.                                |
-| `SignedOut`                 | Error when there is no Sign-in, or a dead one.                           |
-| `DeviceLoginFailed`         | Error when the code was denied or expired.                               |
-| `AuthWorkerUnreachable`     | Error when the Auth Worker could not be reached at all.                  |
-| `AuthWorkerUnavailable`     | Error when the Auth Worker answered with a 5xx status.                   |
-| `AuthWorkerRejected`        | Error when the Auth Worker answered with a 4xx status.                   |
-| `InvalidAuthWorkerResponse` | Error when the Auth Worker's response did not have the expected shape.   |
+| Export                | What it does                                                                                            |
+| --------------------- | ------------------------------------------------------------------------------------------------------- |
+| `device`              | `Accounts` over stored Sign-in tokens, signing in by Device Login and every guarded call with a bearer. |
+| `deviceAccountsTable` | The StdTable the Sign-in Store keeps each Account and its token in.                                     |
 
 ## Usage
 
-### Run the sign-in service
+### A Browser app and its RPC backend
 
-Your Worker entrypoint calls `createAuthWorker` once and hands every request
-to its `handler`; `alchemy.run.ts` declares the D1 database with the
-package's migrations. The same call runs in tests with `memory()`, as
-`src/worker/worker/tests/device-login.test.ts` does.
-
-```ts
-// src/worker.ts
-import { createAuthWorker, d1 } from '@kestack/auth-toolkit/worker';
-
-export default {
-  fetch(request: Request, env: Env) {
-    const { handler } = createAuthWorker({
-      baseURL: 'https://auth.example.com',
-      secret: env.AUTH_SECRET,
-      branding: { appName: 'Example' },
-      database: d1(env.DB),
-      google: {
-        clientId: env.GOOGLE_CLIENT_ID,
-        clientSecret: env.GOOGLE_CLIENT_SECRET,
-      },
-      trustedOrigins: ['https://app.example.com', '*.preview.example.com'],
-      cookieDomain: '.example.com',
-    });
-    return handler(request);
-  },
-};
-
-// alchemy.run.ts
-import * as Cloudflare from 'alchemy/Cloudflare';
-import { d1PrimaryDatabaseResource } from '@kestack/auth-toolkit/worker/alchemy';
-
-const db = d1PrimaryDatabaseResource('auth-db');
-export const authWorker = await Cloudflare.Worker('auth-worker', {
-  entrypoint: 'src/worker.ts',
-  bindings: { DB: db },
-});
-```
-
-- `handler` serves `/api/auth/*`, the pages at `/`, `/login`, `/consent`, `/device` and `/error`, and their embedded assets.
-- `trustedOrigins` allows the browser's Direct Sign-in Check and drives credentialed CORS; `cookieDomain` lets every subdomain read the cookie.
-- `validateUser` is the User Admission Policy; `multiSession: { maximumAccounts }` caps the Accounts a browser holds (default 5).
-- Add `authorizationServer` only when a Third-Party program needs Access Tokens.
-- `d1PrimaryDatabaseResource` applies pending migrations on every `alchemy deploy`.
-
-### Sign in to it
-
-The contract guards its calls; the cloud Backend serves them over HTTP with
-the cloud Resolver; a Sign-in is a Layer of `SignIn`. Lifted from
-`src/client/sign-in/named/tests/named.test.ts`.
+The contract guards `WhoAmI`; the backend at `api.example.com` serves it with
+`auth({ url })`; the web app at `app.example.com` provides `browser({ url })`
+and calls it. Lifted from `src/server/rpc/tests/rpc.test.ts` and
+`src/client/browser/tests/browser.test.ts`.
 
 ```ts
-// api.ts, shared by both sides
+// api.ts, imported by both sides
 const WhoAmI = Rpc.make('WhoAmI', { success: Schema.String }).pipe(
-  Authz.guard(),
+  Auth.required,
 );
 export const Api = RpcGroup.make(WhoAmI);
 export const Handlers = Api.toLayer({
-  WhoAmI: () => Effect.map(Authz.Current, ({ user }) => user.email),
+  WhoAmI: () => Effect.map(Auth.User, ({ user }) => user.email),
 });
 
-// worker.ts, the cloud Backend
-import { authz } from '@kestack/auth-toolkit/server/cloud';
-const rpc = Rpc.http.server(
-  Api,
-  Handlers.pipe(
-    Layer.merge(authz.layer),
-    Layer.provide(authz.cloud({ authWorkerUrl: 'https://auth.example.com' })),
-  ),
-  { wrap: authz.cookies },
-);
+// server.ts
+import { Rpc as Rpcs } from '@kestack/rpc-toolkit/rpc';
+import { auth } from '@kestack/auth-toolkit/server/rpc';
+const url = 'https://auth.example.com';
+export default {
+  fetch: Rpcs.http.server(Api, Layer.mergeAll(Handlers, auth({ url }))),
+};
 
-// The device Backend: the same handlers, on the device Resolver.
-const device = Handlers.pipe(
-  Layer.merge(authz.layer),
-  Layer.provide(authz.device),
-);
-
-// The client: a Sign-in per Backend, each a Layer of SignIn.
-import { SignIn, signIn } from '@kestack/auth-toolkit/client';
-import { cookie } from '@kestack/auth-toolkit/client/web';
-const cloudSignIn = cookie({ authWorkerUrl: 'https://auth.example.com' });
-const deviceSignIn = signIn.named({
-  choose: Effect.succeed({ email: 'ada@demo' }),
-});
-const accounts = await Effect.runPromise(
-  Effect.gen(function* () {
-    const accounts = yield* SignIn;
-    yield* accounts.signIn();
-    return yield* accounts.list; // each with its user, token and active
-  }).pipe(Effect.provide(deviceSignIn)),
+// app.ts
+import { Accounts } from '@kestack/auth-toolkit/client';
+import { browser } from '@kestack/auth-toolkit/client/browser';
+const whoAmI = Effect.gen(function* () {
+  const state = yield* (yield* Accounts).check;
+  if (state._tag === 'SignedOut') return yield* (yield* Accounts).signIn();
+  const client = yield* RpcClient.make(Api);
+  return yield* client.WhoAmI();
+}).pipe(
+  Effect.scoped,
+  Effect.provide(Rpcs.http.client(Api, { url: 'https://api.example.com/rpc' })),
+  Effect.provide(browser({ url })),
 );
 ```
 
-- `Authz.guard()` alone requires a caller; `Authz.guard(Authz.policy(invariant, reason))` also authorizes. The nearest declaration wins between an RPC and its group.
-- No caller fails `Authz.Unauthenticated`, a refused policy `Authz.Forbidden`, an unreachable Auth Worker `Authz.Unavailable`. Tests replace only `Authz.Resolver`.
-- `authz.cloud` gets `resource` to accept Access Tokens too, which makes the Backend a Resource Server (MCP clients call it so).
-- A Named Account's token is a Name Token, which `authz.device` reads and no one verifies. Named Accounts are kept in `namedAccountsTable`, in memory unless `storage` is given.
-- An app does not run these itself: the [Web Platform](../../platforms/web-platform)'s Gate runs them and signs every API call with the active Account's token.
+- The Auth Worker is `authWorker({ url, secret, google, database: d1(env.DB), cookieDomain: '.example.com', brand })`; every origin under `cookieDomain` is trusted and no other is.
+- `browser` sends the cookie (`credentials: 'include'`) and an `expect-user` header naming the Active Account on every guarded call; the transport needs no options.
+- When another tab switched Accounts, the backend fails the call `Auth.AccountChanged` before the handler runs, and `Accounts` checks again by itself.
+- A Batched RPC Request is verified once, and the cookies the Auth Worker refreshed go on its response.
+- `signIn()` leaves the page for the Login Screen and never completes in place.
 
-A CLI signs in with `deviceCode({ authWorkerUrl, app, version })` from
-`@kestack/auth-toolkit/client/cli`: `login` prints a code and URL, opens
-the browser, waits for approval, and keeps the token at
-`$XDG_STATE_HOME/<app>/auth.json` (mode `0600`); `DeviceCode.rpcSession`
-signs every RPC call with it, and any Backend accepts it as a Sign-in
-([ADR 0010](./docs/adr/0010-device-login-is-a-first-party-session.md)).
+### A CLI signing in as a Device
 
-An MCP Server is `createMcpResourceServer({ authWorkerUrl, resource,
-requiredScopes, handler })` from `@kestack/auth-toolkit/server/cloud`: it
-accepts only Access Tokens for its `resource`, publishes its Protected
-Resource Metadata so MCP clients find the Auth Worker, and hands `handler`
-the Token Principal. The Auth Worker needs `authorizationServer` with the
-resource listed ([ADR 0009](./docs/adr/0009-mcp-clients-register-themselves.md)).
+`device` keeps each Account's Sign-in token in a StdTable the program
+chooses; here SQLite, so the Accounts last between runs. Lifted from
+`src/client/device/tests/device.test.ts`.
+
+```ts
+import { Accounts } from '@kestack/auth-toolkit/client';
+import {
+  device,
+  deviceAccountsTable,
+} from '@kestack/auth-toolkit/client/device';
+import { SQLite } from '@kestack/std-toolkit/db/sqlite';
+import { makeNodeSQLite } from '@kestack/std-toolkit/db/sqlite/node';
+
+const database = makeNodeSQLite({ path: `${homedir()}/.acme/auth.db` });
+const accounts = device({
+  url: 'https://auth.example.com',
+  app: 'acme-cli',
+  version: '1.4.0',
+  storage: SQLite.make(deviceAccountsTable, { database }).layer,
+});
+
+const login = Effect.flatMap(Accounts, (accounts) =>
+  accounts.signIn({ account: 'ada@example.com' }),
+);
+
+const whoAmI = Effect.gen(function* () {
+  const client = yield* RpcClient.make(Api);
+  return yield* client.WhoAmI();
+}).pipe(
+  Effect.scoped,
+  Effect.provide(Rpcs.http.client(Api, { url: 'https://api.example.com/rpc' })),
+);
+
+await Effect.runPromise(SQLite.setup(deviceAccountsTable, { database }));
+await Effect.runPromise(
+  Effect.andThen(login, whoAmI).pipe(Effect.provide(accounts)),
+);
+```
+
+- `signIn` prints a link to `/device?code=…&account=…` and its code, and opens the browser when `o` is pressed (`open: 'auto'` opens it at once; without a terminal it only prints). It completes once the User approves.
+- Every guarded call carries the Active Account's token as a bearer. The same backend accepts it with no change: it is a Sign-in, not an Access Token ([ADR 0010](./docs/adr/0010-device-login-is-a-first-party-session.md)).
+- The Device sends `acme-cli/1.4.0 (<hostname>)` as its User-Agent, so the Home Page lists it as "acme-cli on <hostname>".
+- Start-up asks nobody: the stored Accounts are trusted until `check` or a refused call.
+
+### An MCP server with OAuth
+
+An MCP server is one HttpApi endpoint behind `server/http`'s `auth` with
+`oauth`; its tools check Scopes inside. The Auth Worker lists the resource
+under `oauth.resources`. Lifted from `src/server/http/tests/http.test.ts`;
+the MCP protocol itself is left out.
+
+```ts
+// the Auth Worker
+authWorker({
+  ...config,
+  oauth: {
+    resources: {
+      'https://mcp.example.com/mcp': { 'notes:read': 'Read your notes' },
+    },
+  },
+});
+
+// the MCP server
+import { Auth } from '@kestack/auth-toolkit';
+import { auth } from '@kestack/auth-toolkit/server/http';
+
+const resource = 'https://mcp.example.com/mcp';
+const Mcp = HttpApiEndpoint.post('mcp', '/mcp', {
+  success: Schema.String,
+  error: Auth.Forbidden,
+}).pipe(Auth.required);
+class Api extends HttpApi.make('mcp-api').add(
+  HttpApiGroup.make('mcp').add(Mcp),
+) {}
+const Handlers = HttpApiBuilder.group(Api, 'mcp', (handlers) =>
+  handlers.handle('mcp', () =>
+    Effect.gen(function* () {
+      yield* Auth.scope('notes:read');
+      return (yield* Auth.User).user.email;
+    }),
+  ),
+);
+export const App = HttpApiBuilder.layer(Api).pipe(
+  Layer.provide(Handlers),
+  Layer.provide(
+    auth({
+      url: 'https://auth.example.com',
+      oauth: { resource, scopes: ['notes:read'] },
+    }),
+  ),
+);
+```
+
+- `auth` with `oauth` serves the Protected Resource Metadata at both RFC 9728 paths, readable from any origin, naming the Auth Worker as the issuer.
+- A call without a token gets a 401 with the `WWW-Authenticate` challenge MCP clients follow; a missing Scope gets a 403 with `insufficient_scope`.
+- Access Tokens are checked against the Auth Worker's keys, asking it nothing per call ([ADR 0007](./docs/adr/0007-access-tokens-are-verified-locally-against-jwks.md)). A token minted for another resource is refused.
+- MCP clients register themselves; there is nothing to set up per client ([ADR 0009](./docs/adr/0009-mcp-clients-register-themselves.md)).

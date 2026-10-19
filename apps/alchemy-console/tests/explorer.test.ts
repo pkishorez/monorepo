@@ -1,8 +1,7 @@
 import { Effect, Layer, Logger } from 'effect';
 import { RpcTest } from 'effect/rpc';
 import { FetchHttpClient } from 'effect/http';
-import { Authz } from '@kestack/auth-toolkit/guard';
-import { authz } from '@kestack/auth-toolkit/server';
+import { auth } from '@kestack/auth-toolkit/server/rpc';
 import { SQLite } from '@kestack/std-toolkit/db/sqlite';
 import { makeNodeSQLite } from '@kestack/std-toolkit/db/sqlite/node';
 import { expect, it, vi } from 'vite-plus/test';
@@ -10,38 +9,9 @@ import { consoleTable } from '../src/server/storage/table/index.ts';
 import { storeEntity as stores } from '../src/server/storage/stores/index.ts';
 import { ConsoleApi } from '../src/shared/api/console-api/index.ts';
 import { ConsoleHandlers } from '../src/server/handlers/console-handlers/index.ts';
+import { signedAs } from './fixtures/signed-as.ts';
 
 const token = 'private-store-token';
-const resolver = Layer.succeed(Authz.Resolver, {
-  resolve: (request) =>
-    Effect.sync(() => {
-      const id = request.headers.get('cookie');
-      if (!id || id === 'invalid') return null;
-      const now = new Date();
-      return {
-        current: {
-          kind: 'session' as const,
-          user: {
-            id,
-            name: id,
-            email: `${id}@example.com`,
-            emailVerified: true,
-            createdAt: now,
-            updatedAt: now,
-          },
-          session: {
-            id: `session-${id}`,
-            userId: id,
-            token: 'session-token',
-            expiresAt: new Date(Date.now() + 60000),
-            createdAt: now,
-            updatedAt: now,
-          },
-        },
-        refreshedCookies: [],
-      };
-    }),
-});
 
 const makeClient = () => RpcTest.makeClient(ConsoleApi);
 const run = <A, E>(
@@ -88,7 +58,7 @@ const run = <A, E>(
           Layer.provide(FetchHttpClient.layer),
         ),
       ),
-      Effect.provide(authz.layer.pipe(Layer.provide(resolver))),
+      Effect.provide(auth({ local: true })),
       Effect.provide(table.layer),
       Effect.provideService(FetchHttpClient.Fetch, fetch),
       Effect.provideService(FetchHttpClient.RequestInit, {
@@ -98,7 +68,7 @@ const run = <A, E>(
     ),
   );
 };
-const options = (id = 'alice') => ({ headers: { cookie: id } });
+const options = (id = 'alice') => ({ headers: signedAs(id) });
 const resource = {
   fqn: 'Bucket',
   logicalId: 'Bucket',

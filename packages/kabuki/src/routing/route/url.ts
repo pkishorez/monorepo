@@ -5,8 +5,19 @@ import type { Children, Codec, Fields, Value } from './node.ts';
 /*
  * A URL read as a value and a value written as a URL, layer by layer:
  * path segments by each node's template and params Schema, the query by
- * its query Schema.
+ * its query Schema. A query field that is `wholeQuery` holds the whole
+ * query, every pair as written.
  */
+
+/**
+ * A query field holding the whole query as written, every pair of it, a
+ * repeated or undeclared one too, without the `?`: for a page whose query
+ * is someone else's to say, as a signed request. Read back, it is written
+ * whole, each other field of the page said over it.
+ */
+export const wholeQuery = Schema.optionalKey(Schema.String);
+
+const isWhole = (fields: Fields, key: string) => fields[key] === wholeQuery;
 
 const structOf = (fields: Fields) =>
   Schema.Struct(fields) as unknown as Codec<Record<string, unknown>>;
@@ -60,11 +71,14 @@ export const match = (
     const raw = fit(template, rest);
     if (!raw) continue;
     const params = decode(node.params, raw);
+    const whole = search.toString();
     const query = decode(
       node.query,
       Object.fromEntries(
         Object.keys(node.query).flatMap((key) => {
-          const found = search.get(key);
+          const found = isWhole(node.query, key)
+            ? whole || null
+            : search.get(key);
           return found === null ? [] : [[key, found]];
         }),
       ),
@@ -97,7 +111,12 @@ export const write = (
         ? encodeURIComponent(String(params[part.slice(1)]))
         : part,
     );
-  for (const [key, found] of Object.entries(encode(node.query, value)))
-    out.query.set(key, String(found));
+  const query = Object.entries(encode(node.query, value));
+  for (const [key, found] of query)
+    if (isWhole(node.query, key))
+      for (const [name, each] of new URLSearchParams(String(found)))
+        out.query.append(name, each);
+  for (const [key, found] of query)
+    if (!isWhole(node.query, key)) out.query.set(key, String(found));
   if (value.page) write(node.children, value.page as Value, out);
 };

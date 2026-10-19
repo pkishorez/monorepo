@@ -16,6 +16,7 @@ import {
   RpcServer,
 } from 'effect/rpc';
 import type { Scope } from 'effect/Scope';
+import { withExitObservers } from '../on-exit/index.ts';
 
 /**
  * The `RpcClient.Protocol` for `group` over HTTP: each batch of calls is one
@@ -23,10 +24,12 @@ import type { Scope } from 'effect/Scope';
  * on top with `RpcClient.make(group)`.
  *
  * `credentials` is the `fetch` option (`'omit'` keeps the browser's cookies
- * off a call that carries its own token); `headers` go on every request.
+ * off a call that carries its own token); `headers` go on every request. A
+ * Client Implementation may set fetch options for the calls it sends by
+ * providing `FetchHttpClient.RequestInit` around `next`; those win.
  */
 export const client = <Rpcs extends Rpc.Any>(
-  _group: RpcGroup.RpcGroup<Rpcs>,
+  group: RpcGroup.RpcGroup<Rpcs>,
   options: {
     readonly url: string;
     readonly credentials?: RequestCredentials | undefined;
@@ -34,7 +37,7 @@ export const client = <Rpcs extends Rpc.Any>(
   },
 ): Layer.Layer<RpcClient.Protocol> => {
   const headers = options.headers;
-  return RpcClient.layerProtocolHttp({
+  const protocol = RpcClient.layerProtocolHttp({
     url: options.url,
     ...(headers !== undefined && {
       transformClient: HttpClient.mapRequest(
@@ -55,6 +58,7 @@ export const client = <Rpcs extends Rpc.Any>(
       RpcSerialization.layerNdjson,
     ]),
   );
+  return withExitObservers(group)(protocol);
 };
 
 /** What answering one request takes: the response, needing the request. */

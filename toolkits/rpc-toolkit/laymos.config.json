@@ -7,6 +7,9 @@
     "src/alchemy": ["src/rpc"],
     "src/rpc/websocket/server/stream-store": [
       "src/rpc/websocket/server/durable-object-state.ts"
-    ]
+    ],
+    "src/rpc/http": ["src/rpc/on-exit"],
+    "src/rpc/in-process": ["src/rpc/on-exit"],
+    "src/rpc/websocket/client": ["src/rpc/on-exit"]
   }
 }

@@ -1,93 +1,151 @@
 # Auth Worker configuration
 
-What each `createAuthWorker` option does, and the behaviour a deployment
-inherits whether or not it sets anything. Vocabulary follows
+What each `authWorker` option does, and the behaviour a deployment inherits
+whether or not it sets anything. Vocabulary follows
 [`CONTEXT.md`](../CONTEXT.md).
+
+```ts
+import { authWorker, d1 } from '@kestack/auth-toolkit/worker';
+
+const { handler } = authWorker({
+  url: 'https://auth.example.com',
+  secret: env.AUTH_SECRET,
+  google: { clientId: env.GOOGLE_ID, clientSecret: env.GOOGLE_SECRET },
+  database: d1(env.DB),
+  cookieDomain: '.example.com',
+  brand: { name: 'Example', logo: 'https://example.com/logo.svg' },
+});
+```
 
 ## Options
 
-| Option                | Effect                                                                                                                                                                                                                                                             |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `baseURL`             | The Auth Worker's own public URL. Consumer Backends and the browser client point at this value.                                                                                                                                                                    |
-| `secret`              | The better-auth secret. Rotating it signs every User out.                                                                                                                                                                                                          |
-| `branding`            | What the pages show. `appName` and `logoUrl` are strings, or the value plus inline CSS over the pages' own. `logoUrl` is also the favicon.                                                                                                                         |
-| `database`            | The Primary Database Provider: `d1PrimaryDatabase(env.DB)` in production, `memoryPrimaryDatabase()` in tests. Sessions and verification records live here.                                                                                                         |
-| `google`              | Google OAuth client id and secret. Google is the only identity provider.                                                                                                                                                                                           |
-| `trustedOrigins`      | Origins allowed to make a Direct Sign-in Check. Each entry is a full origin (`https://app.example.com`) or a host pattern (`*.example.com`). Malformed patterns throw at startup. Scheme-less patterns match `https` only. The opaque origin `null` never matches. |
-| `cookieDomain`        | The Shared Cookie Domain, for example `.example.com`, so every subdomain's browser can read the session cookie. Omit it for a single-origin deployment.                                                                                                            |
-| `cookieCacheMaxAge`   | Cookie Cache lifetime in seconds. Defaults to 300. See "Revocation lag" below.                                                                                                                                                                                     |
-| `dashApiKey`          | Connects the Worker to Better Auth Infrastructure (Dash). Absent or blank leaves Dash disabled.                                                                                                                                                                    |
-| `validateUser`        | The User Admission Policy. See below.                                                                                                                                                                                                                              |
-| `authorizationServer` | Turns on the Authorization Server Role. See below.                                                                                                                                                                                                                 |
-| `multiSession`        | Caps the Signed-in Accounts a browser can hold. See below.                                                                                                                                                                                                         |
-| `testSignIn`          | `{ stage }` turns on the Test Sign-In. Only `stage: 'local'` may; any other stage throws, so the service refuses to start. See below.                                                                                                                              |
+| Option         | Effect                                                                                                                                                                                                    |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `url`          | The Auth Worker's own public URL. Its host must be under `cookieDomain`.                                                                                                                                  |
+| `secret`       | The better-auth secret. Rotating it signs every User out.                                                                                                                                                 |
+| `google`       | Google OAuth client id and secret. Google is the only identity provider.                                                                                                                                  |
+| `database`     | The Primary Database: `d1(env.DB)` in production, `memory()` from `@kestack/auth-toolkit/worker/memory` in tests. Sessions and verification records live here.                                            |
+| `cookieDomain` | Required. The Shared Cookie Domain, for example `.example.com`. The session cookie is scoped to it, and it is the only trust rule: any origin under it is trusted, no other origin is. See "Trust" below. |
+| `brand`        | What the pages show: `name` ("Sign in to {name}"), an optional `logo` URL (also the favicon), and an optional `accent`, one CSS colour for the primary button and the focus ring.                         |
+| `maxAccounts`  | Accounts one browser may hold. Defaults to 5. Must be a positive integer.                                                                                                                                 |
+| `admit`        | The User Admission Policy: `(user: { email, name }) => boolean`, sync or async. See below.                                                                                                                |
+| `dashApiKey`   | Connects the Worker to better-auth's hosted dashboard. Absent or blank leaves it off.                                                                                                                     |
+| `oauth`        | Turns on the Authorization Server Role: `{ resources: { [url]: { [scope]: description } } }`. See below.                                                                                                  |
+
+`authWorker` throws at startup on a missing `secret` or `brand.name`, a `url`
+that is not absolute or not under `cookieDomain`, a `cookieDomain` that is
+not a bare domain, a bad `maxAccounts`, a resource key that is not a URL, an invalid
+scope name, or one scope described two different ways.
+
+It returns `{ auth, handler }`: the better-auth instance, for server-side
+calls, and the fetch handler that serves `/api/auth/*`, the pages, and their
+assets.
 
 ## Always on
 
-- **Admin plugin.** The Worker always includes better-auth's Admin plugin so the hosted dashboard can persist and enforce bans. It does not expose the Admin client API and does not bootstrap local Administrators.
+- **Admin plugin.** Lets the hosted dashboard persist and enforce bans. It does not expose the Admin client API and does not bootstrap Administrators.
 - **Rate limiting is disabled.** better-auth's built-in rate limiter is off. Put rate limiting in front of the Worker if you need it.
-- **Signed-in Accounts.** Better Auth's `multiSession` plugin runs on every deployment. See below.
-- **Device Login.** The `deviceAuthorization` and `bearer` plugins run on every deployment, so a CLI can sign in without the Authorization Server Role. A Device Login token is a Session sent as a bearer, not an Access Token.
-- **Pages.** The handler serves `/`, `/login`, `/device`, and `/error` from a prebuilt TanStack Start app with embedded assets. No assets binding and no build step in the consumer. With the Authorization Server Role on it also serves `/consent` and `/.well-known/*`.
-- **CORS.** `trustedOrigins` drives both better-auth's origin validation and the credentialed CORS headers the handler adds on `/api/auth/*`. Preflights from untrusted origins get 403.
+- **Accounts.** better-auth's `multiSession` plugin runs on every deployment, capped at `maxAccounts`.
+- **Device Login.** The `deviceAuthorization` and `bearer` plugins run on every deployment. A Device's token is a Sign-in sent as a bearer, not an Access Token. A Device should send a User-Agent of `<app>/<version> (<hostname>)` so the Home Page can name it "<app> on <hostname>".
+- **Cookie Cache.** Fixed at five minutes. See "Revocation lag".
+- **Pages.** The handler serves `/`, `/login`, `/device`, `/consent` and `/error` from the prebuilt Kabuki pages app with embedded assets; no assets binding and no build step in the consumer. Any other path draws a not-found page with a 404. Without `oauth` nothing sends a User to `/consent`, and its endpoints answer 404. With `oauth` the handler also serves `/.well-known/*`.
+- **No tokens to pages.** No response a browser can get carries a Sign-in token: `token` fields are removed from better-auth's JSON (`get-session`, `list-sessions`, `multi-session/list-device-sessions`, `multi-session/set-active`, sign-in answers) and the bearer plugin's `set-auth-token` header is dropped. The exceptions issue a credential on purpose to a program that is not a page: `/device/token` (Device Login), `/oauth2/*` (OAuth Clients) and `/dash/*` (the hosted dashboard). See [ADR 0019](./adr/0019-browser-callers-are-same-site-and-never-hold-tokens.md).
+
+## Trust
+
+`cookieDomain` decides trust. An origin is trusted when its host is the
+domain itself or any subdomain of it, at any depth, over `https`; `http` is
+trusted only when the Worker's own `url` is `http` (local development). The
+opaque origin `null` never is. The same rule drives:
+
+- the credentialed CORS headers on `/api/auth/*` (an untrusted preflight gets 403);
+- better-auth's origin and redirect checks (`trustedOrigins` is derived, not configured);
+- the Worker's own state-changing endpoints below, which refuse a `POST` whose `Origin` is missing or untrusted.
+
+A web app on another site is not served. There is no `trustedOrigins`.
 
 ## User Admission Policy
 
-`validateUser` runs when an identity registers, links an account, or starts a
-fresh provider sign-in. Return nothing to admit. Return
-`{ error, errorDescription }` with safe, user-facing text to reject. A thrown
-error fails closed with a generic message. The policy does not re-evaluate
-existing Sessions; ban an already-admitted User instead.
-
-## Test Sign-In
-
-`testSignIn: { stage: 'local' }` adds `POST /api/auth/sign-in/test` and a
-"Test sign-in (local only)" link on the Login Screen. Anyone with an email
-under the reserved `.test` domain (`ada@ledger.test`) signs in by naming it,
-with no Google, and the sign-in continues an authorization like any other.
-It exists so agents and tests can sign in on a developer's machine; pass the
-deployment's real stage, and the Worker refuses to start on any stage but
-`local`.
+`admit` runs when an identity registers, links an account, or starts a fresh
+Google sign-in. Return `true` to admit; anything else refuses with
+"This account cannot sign in here." A thrown error fails closed. The policy
+does not re-evaluate existing Sign-ins; ban an already-admitted User instead.
 
 ## Revocation lag
 
-The Cookie Cache lets the Auth Worker confirm a Session from the cookie alone
-for up to `cookieCacheMaxAge` seconds. A revoked Session can therefore keep
-working on another device until its cache expires. A cache miss reads the
-Primary Database. There is no secondary storage; see
+The Cookie Cache lets the Auth Worker confirm a Sign-in from the cookie
+alone for up to five minutes. A revoked Sign-in can therefore keep working
+in another browser until its cache expires. A cache miss reads the Primary
+Database. There is no secondary storage; see
 [ADR 0005](./adr/0005-auth-state-uses-only-the-primary-database.md).
 
 ## Authorization Server Role
 
 ```ts
-authorizationServer: {
-  resources: ['https://api.example.com'],
-  scopes: [{ name: 'notes:write', description: 'Create and edit notes' }],
-  clientRegistration: 'manual',
+oauth: {
+  resources: {
+    'https://mcp.example.com': { 'notes:read': 'Read your notes' },
+    'https://api.example.com': { 'notes:write': 'Create and edit notes' },
+  },
 }
 ```
 
-- `resources` lists every Resource Server's audience URL. A Resource Server that is not listed cannot receive Access Tokens.
-- `scopes` are shown on the Consent Screen. OpenID's `openid`, `profile`, `email`, and `offline_access` are always present.
-- Refresh tokens turn over on every use. Presenting a spent one revokes every refresh and Access Token that client holds for that User (better-auth's own reuse detection). Revoking a refresh token at `/oauth2/revoke` ends it; a JWT Access Token cannot be revoked and lives until it expires.
-- `clientRegistration` defaults to `'manual'`: an Administrator creates every Client Application. `'dynamic'` allows unauthenticated self-registration (RFC 7591). `'cimd'` accepts a Client ID Metadata Document at the client's own HTTPS URL. `'dynamic+cimd'` allows both; MCP clients need it, see [ADR 0009](./adr/0009-mcp-clients-register-themselves.md).
-- Access Tokens are JWTs bound to one resource and carry the User's `email` and `name`. Resource Servers verify them locally against the Worker's JWKS, so revoking a Grant stops new tokens but does not recall issued ones. They last one hour, better-auth's default. See [ADR 0007](./adr/0007-access-tokens-are-verified-locally-against-jwks.md).
-- The JWT plugin's `/api/auth/token` route is disabled (404), so a Session cannot mint a JWT for itself. Access Tokens come only from the OAuth provider's token endpoint after consent.
+- Each key is a Resource Server's audience URL; one that is not listed cannot receive Access Tokens.
+- Each value lists the Scopes that resource understands, in the words the Consent Screen and the Home Page show. OpenID's `openid`, `profile`, `email` and `offline_access` are always offered, with words of their own.
+- OAuth Clients register themselves: Dynamic Client Registration (unauthenticated, RFC 7591) and Client ID Metadata Documents are both on, and there is no other choice. MCP clients need both; see [ADR 0009](./adr/0009-mcp-clients-register-themselves.md). A registration whose redirects are all plaintext loopback URLs is treated as a native app.
+- Refresh tokens turn over on every use. Presenting a spent one revokes every refresh and Access Token that client holds for that User. Removing a Grant revokes its refresh and Access Token records; a JWT Access Token already issued still lives until it expires.
+- Access Tokens are JWTs bound to one resource and carry the User's `email` and `name`. Resource Servers verify them locally against the Worker's JWKS. They last one hour. See [ADR 0007](./adr/0007-access-tokens-are-verified-locally-against-jwks.md).
+- The JWT plugin's `/api/auth/token` route is disabled (404), so a Sign-in cannot mint a JWT for itself.
 - The schema always contains the OAuth tables, so turning the role on needs no migration. See [ADR 0008](./adr/0008-the-migration-recipe-is-role-independent.md).
 
-## Signed-in Accounts
+## The Worker's own endpoints
 
-```ts
-createAuthWorker({ ...config, multiSession: { maximumAccounts: 5 } });
-```
+Below `/api/auth`, for the Worker's pages and for a First-Party web app's
+`Accounts`. All take and return JSON, are keyed by userId or Sign-in id, and
+never return a token. Every `POST` needs a trusted `Origin` and
+`content-type: application/json`. Failures answer
+`{ error, message }` with a 4xx status.
 
-- Always on. Omit `multiSession` to use the default of 5. `maximumAccounts` is passed to Better Auth and must be a positive integer or `createAuthWorker` throws. The account switcher hides "Add another account" at the limit. Stricter enforcement of new sign-ins is deferred.
-- Every page shows an account switcher top-right: switch in place, add another account, sign out of the active one, or sign out of all. The Home Page's "Sign out of this browser" signs out only the Active Account, and stays disabled until the account list loads.
-- The Device Screen never looks up a prefilled code on its own: looking up a code claims it for the Active Account, so the User picks the account first and then presses Continue. The switcher is hidden from then on.
-- An Account Switch rewrites the session cookie, so it changes the User for every First-Party app on the Shared Cookie Domain at once, and a consumer app's `signOut()` signs out every account. A browser holds one Signed-in Account per User. See [ADR 0012](./adr/0012-account-switch-is-browser-wide.md).
+| Endpoint                       | Does                                                                                                       |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| `GET /accounts`                | This browser's Accounts and the Active Account.                                                            |
+| `POST /accounts/switch`        | Account Switch to `userId`.                                                                                |
+| `POST /accounts/sign-out`      | Signs `userId` out of this browser; when it was active, the next Account becomes active.                   |
+| `GET /sign-ins`                | The Active Account's Sign-ins, named ("Chrome on macOS", "acme-cli on laptop"), this browser's marked.     |
+| `POST /sign-ins/revoke`        | Ends one of the Active Account's Sign-ins by `id`. This browser's own is the same as `/accounts/sign-out`. |
+| `POST /sign-ins/revoke-others` | Ends every Sign-in of the Active Account except this browser's.                                            |
+| `GET /grants`                  | The Active Account's Grants, with the OAuth Client and each Scope in words. Empty without `oauth`.         |
+| `POST /grants/revoke`          | Removes one Grant by `id`.                                                                                 |
+| `GET /device/request`          | What a Device Login code asks for, read without claiming it.                                               |
+| `POST /device/answer`          | Approves or denies a code as the Approving Account `userId`.                                               |
+| `GET /consent/request`         | What an authorization asks for, from the Consent Screen's signed query.                                    |
+| `POST /consent/answer`         | Grants or refuses it as the Approving Account `userId`; answers the URL to send the browser to.            |
+
+The Approving Account endpoints act as an Account other than the Active
+Account without switching: the Worker picks that User's session out of this
+browser's multi-session cookies and calls better-auth with it as a bearer,
+on the server. `userId` must be signed in on this browser.
+
+Who may call: the Accounts endpoints are open to every trusted origin, for a
+First-Party app's `Accounts`. The rest of the `POST`s (revoking Sign-ins and
+Grants, both answers) and better-auth's own `/device/approve`,
+`/device/deny` and `/oauth2/consent` take only the Worker's own origin
+(403 otherwise). `/device/code` and `/device/token` refuse any browser (a
+request with `Origin` or `Sec-Fetch-Site`): a Device calls them from a
+program.
+
+The Home Page's revokes also send `userId`, the Account the page shows. When
+the Active Account is someone else by then (another tab switched), they
+answer 409 `account_changed` and change nothing.
+
+better-auth claims a Device Login code for the first signed-in viewer of its
+own `GET /device`, so the Device Screen reads a code with
+`/device/request` and claims it only at `/device/answer`, for the chosen
+Account. A code another Account of this same browser claimed is handed to
+the chosen one; a code claimed by anyone else stays theirs (403).
 
 ## Consumer Backend behaviour worth knowing
 
-- A request with an `Authorization` header is treated as a bearer. `authz.cloud` with a `resource` verifies it as an Access Token first and never falls back to the cookie when that succeeds. If it is not an Access Token, the same bearer is forwarded to the Auth Worker as a Session, which is how Device Login tokens are accepted. Without `resource`, only the Session check runs.
-- `verifyRequest` forwards only the `authorization` or `cookie` header plus `x-forwarded-*` headers, server to server. It throws when the Auth Worker answers with an error status. That is an Authentication Verification Failure, not an absent Session, and the Effect integrations surface it as `Authz.VerificationUnavailable` (503). See [ADR 0002](./adr/0002-http-verification-failures-use-503.md).
-- Refreshed cookies come back as separate `Set-Cookie` values. Relaying them is optional. Append each one as its own header; do not join them. See [ADR 0004](./adr/0004-refreshed-cookie-relay-is-keyed-by-name.md).
+- A request with an `Authorization` header is treated as a bearer: an Access Token where the backend accepts them, otherwise a Device's Sign-in, checked with the Auth Worker. A Browser call carries the cookie and never a bearer.
+- Server-Side Verification forwards only the `authorization` or `cookie` header plus `x-forwarded-*` headers, server to server. An error status from the Auth Worker is an Authentication Verification Failure, surfaced as `Unavailable` (503), not an absent Sign-in. See [ADR 0002](./adr/0002-http-verification-failures-use-503.md).
+- Refreshed cookies come back as separate `Set-Cookie` values. Append each one as its own header; do not join them. See [ADR 0004](./adr/0004-refreshed-cookie-relay-is-keyed-by-name.md).

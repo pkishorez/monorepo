@@ -171,11 +171,11 @@ Where a Page sits in the Router definition, named by its keys from the root, dot
 _Avoid_: route actor, wrapper, loader actor
 
 **Status**:
-Where a Page's data is: loading, failed, or ready with it, refreshing while it loads again behind what is shown, and when it goes stale. The Router hands it down to each Page as a Prop; a Page draws all three itself.
+Where a Page's data is: loading, failed, or ready with it, refreshing while it loads again behind what is shown, and when it goes stale. Ready also says whether the data waited: it took the place of a loading screen the Page drew, so a View may fade it in then alone; data that came while its Move was held, from a copy, or behind data shown did not wait. The Router hands it down to each Page as a Prop; a Page draws all three itself.
 _Avoid_: loading state, pending, async state
 
 **Router**:
-The one Actor routing adds, above the root Page, made from the Router definition: it holds the app's history, as entries and where it is in them, holds a Move up to a moment while the Pages it brings load, and is sent every Move. It holds the data of every place on screen and loads it, and hands each Page its own as its Status, down through the Pages above it. The only thing in an app that knows about URLs.
+The one Actor routing adds, above the root Page, made from the Router definition: it holds the app's history, as entries and where it is in them, holds a Move up to its delay, 150 ms unless said, while the Pages it brings load, and is sent every Move. A Page that is still loading when the Move lands shows it, and its loading screen stays at least the Router's minimum, 300 ms unless said, so it never flashes. Both are timed by its Workers and land as Messages, so a Replay draws them the same. It holds the data of every place on screen and loads it, and hands each Page its own as its Status, down through the Pages above it. The only thing in an app that knows about URLs.
 _Avoid_: navigator, history (Kabuki's History is another thing), router (the Router definition)
 
 **Data cache**:
@@ -191,7 +191,7 @@ A Message asking the Router to warm the Data cache, and load the code of the laz
 _Avoid_: prefetch
 
 **Reload**:
-Loading every Page on screen again, its data shown meanwhile, and dropping every other copy in the Data cache: after a save, or to retry a Page that failed. The Pages, their Models and States, stay.
+Loading every Page on screen again, its data shown meanwhile, and dropping every other copy in the Data cache: after a save, or to retry a Page that failed. The Pages, their Models and States, stay. A Reload anew is for when what the data belongs to changed, as the signed-in account: the data shown is no one's any more, so it is never loaded behind, and every copy goes. The Router holds it as it holds a Move, the data shown until its delay at most, then each Page shows it is loading; a Move made meanwhile loads that data anew too.
 _Avoid_: refresh (a browser's), invalidate, revalidate
 
 **Navigation**:

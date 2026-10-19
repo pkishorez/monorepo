@@ -11,7 +11,7 @@ import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import { Effect } from 'effect';
 import { describe, expect, it, vi } from 'vitest';
-import { d1PrimaryDatabaseResource } from '../../d1/resource/resource.js';
+import { d1Database } from '../../d1/resource/resource.js';
 import { AUTH_MIGRATIONS_TABLE, authMigrationsDir } from '../migration.js';
 
 const { databaseResource } = vi.hoisted(() => ({ databaseResource: vi.fn() }));
@@ -19,7 +19,7 @@ vi.mock('alchemy/Cloudflare', () => ({ D1: { Database: databaseResource } }));
 
 describe('auth migrations', () => {
   it('wires the D1 resource to shared Drizzle v1 migrations', () => {
-    d1PrimaryDatabaseResource('auth-db', { name: 'auth' });
+    d1Database('auth-db', { name: 'auth' });
     expect(databaseResource).toHaveBeenCalledWith('auth-db', {
       name: 'auth',
       migrations: { dir: authMigrationsDir, table: AUTH_MIGRATIONS_TABLE },

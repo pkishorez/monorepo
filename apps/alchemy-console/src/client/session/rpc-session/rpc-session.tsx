@@ -2,6 +2,7 @@ import { Cause, Effect, Exit } from 'effect';
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useComponentLifecycle, useRunEffect } from 'use-effect-ts';
+import { authContext } from '../../connections/auth/index.ts';
 import { makeRpcRuntime, Rpc } from '../../connections/rpc/index.ts';
 import { useSession } from './auth-session.tsx';
 
@@ -30,9 +31,12 @@ export function RpcProvider({ children }: { children: ReactNode }) {
   useComponentLifecycle(
     Effect.gen(function* () {
       yield* Effect.sync(() => setConnection({ status: 'connecting' }));
+      // Every guarded call goes with the cookie and the Active Account's
+      // `expect-user`; one refused Account Changed re-checks the Accounts.
+      const auth = yield* authContext;
       const runtime = yield* Effect.acquireRelease(
         Effect.sync(() =>
-          makeRpcRuntime(new URL('/rpc', window.location.origin).href),
+          makeRpcRuntime(new URL('/rpc', window.location.origin).href, auth),
         ),
         (runtime) => runtime.disposeEffect,
       );
@@ -63,6 +67,8 @@ function message(error: unknown): string {
     return 'The request failed before it reached the server. Retry.';
   if ('_tag' in error && error._tag === 'Unauthenticated')
     return 'Your session expired. Sign in again to continue.';
+  if ('_tag' in error && error._tag === 'AccountChanged')
+    return 'You switched accounts in another tab.';
   if (
     'reason' in error &&
     typeof error.reason === 'string' &&

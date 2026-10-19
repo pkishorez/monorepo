@@ -11,7 +11,7 @@ import {
 } from './capability/index.ts';
 import type { AnyRoute } from './capability/index.ts';
 import { Page as Pages } from './page/index.ts';
-import { NotFoundError, RedirectError } from './route/index.ts';
+import { NotFoundError, RedirectError, wholeQuery } from './route/index.ts';
 import type { RedirectTo } from './route/index.ts';
 import { Link, Retry, app, define } from './router/index.ts';
 
@@ -52,13 +52,15 @@ function redirect(to: AnyRoute | Href, options: RedirectOptions = {}) {
  * and the pages under it; `Page.build` says how it behaves, with the build
  * of each page under it. A page is drawn with `View.make`, as any Actor is.
  * A Loader fails with `Page.notFound()` and `Page.redirect(route or URL)`,
- * whose Schemas are `Page.NotFound` and `Page.Redirect`.
+ * whose Schemas are `Page.NotFound` and `Page.Redirect`. `Page.wholeQuery`
+ * is a query field holding the whole query, every pair as written.
  */
 export const Page = {
   define: Pages.define,
   build: Pages.build,
   notFound,
   redirect,
+  wholeQuery,
   NotFound: NotFoundError,
   Redirect: RedirectError,
 };

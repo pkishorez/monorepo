@@ -7,6 +7,7 @@ import type {
   Defined,
   KidsByState,
   OpenOfBehavior,
+  ProvidedOf,
   Requires,
   Tagged,
   Types,
@@ -216,7 +217,7 @@ type PageKids<Pages> = {
   };
 };
 
-/** What the pages under it still need from above. */
+/** What the pages under it still need from above, before its own `provides`. */
 type PagesOpen<Pages> = {
   [K in keyof Pages]: Types<Pages[K]>['open'];
 }[keyof Pages];
@@ -240,7 +241,8 @@ export type BuiltPage<D, B> = D extends {
           readonly [S in T['state']['_tag']]: KidsByState<T['state'], B>[S] &
             PageKids<PagesIn<B>>;
         },
-        OpenOfBehavior<RequiresOf<T>, B> | PagesOpen<PagesIn<B>>
+        | OpenOfBehavior<RequiresOf<T>, B>
+        | Exclude<PagesOpen<PagesIn<B>>, ProvidedOf<B>>
       >,
       PagesIn<B>
     >

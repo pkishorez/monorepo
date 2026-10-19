@@ -1,5 +1,5 @@
 import { Effect, Layer, Schema, Scope } from 'effect';
-import { type SignIn, signIn } from '@kestack/auth-toolkit/client';
+import { browser } from '@kestack/auth-toolkit/client/browser';
 import {
   type Broadcaster,
   defaultBroadcaster,
@@ -8,23 +8,25 @@ import type { StdTableService, TableDefinition } from '@kestack/std-toolkit/db';
 import { Memory } from '@kestack/std-toolkit/db/memory';
 import { Sync, type SyncStore } from '@kestack/std-toolkit/sync';
 
-/** Where an app's Backend runs, and its Users sign in: in the cloud, or on
- * this device, in the app itself. */
-export const Backend = Schema.Literals(['cloud', 'device']);
+/** Where an app's Backend runs, and its Users sign in: in the cloud, or
+ * locally, in the app itself. */
+export const Backend = Schema.Literals(['cloud', 'local']);
 export type Backend = typeof Backend.Type;
 
-// What the Backends were called before, as a device may still keep them.
+// What the Backends were called before, as a device may still keep them:
+// the cloud was `remote`, and the Local Backend was `device` until Device
+// came to name auth-toolkit's Caller Kind.
 const FORMER: Readonly<Record<string, Backend>> = {
   remote: 'cloud',
-  local: 'device',
+  device: 'local',
 };
 
 /** The Backend `name` names, by its name or its former one (`remote`,
- * `local`); null for anything else. */
+ * `device`); null for anything else. */
 export const backendNamed = (
   name: string | null | undefined,
 ): Backend | null =>
-  name === 'cloud' || name === 'device'
+  name === 'cloud' || name === 'local'
     ? name
     : name == null
       ? null
@@ -36,8 +38,9 @@ export type TableSource<Name extends string> = Pick<
   'logicalName' | 'primary' | 'localSecondaryIndexes' | 'globalSecondaryIndexes'
 >;
 
-/** What one tab tells the device's other tabs: look again. `quiet` are
- * accounts it signed out itself, so they are not reported lost there. */
+/** What one tab tells the device's other tabs: look again at the Backend
+ * chosen and the account lost. `quiet` are accounts it signed out itself,
+ * so they are not reported lost there. */
 export type TabMessage = { readonly quiet: ReadonlyArray<string> };
 
 /** Where a Host keeps things: a table adapter and a Sync adapter for the
@@ -83,6 +86,10 @@ export const keptBroadcasters = (
   };
 };
 
+/** A Browser's Accounts, and the signing of every guarded call made with
+ * them, as auth-toolkit's `browser()` gives them. */
+export type AccountsLayer = ReturnType<typeof browser>;
+
 /**
  * Everything an app needs of where it runs: its Storage, its cloud address
  * and Sign-in, its lifecycle, and its other tabs if it has any. The browser
@@ -91,12 +98,12 @@ export const keptBroadcasters = (
 export interface Host {
   readonly storage: Storage;
   /** The cloud Backend: where its APIs answer, and, for an app with auth,
-   * how a user signs in to it and the sign-in service's own page for
-   * managing accounts. */
+   * its Accounts on the sign-in service and the sign-in service's own page
+   * for managing them. */
   readonly cloud: {
     /** What an API's path is resolved against. */
     readonly url: string;
-    readonly signIn?: Layer.Layer<SignIn>;
+    readonly accounts?: AccountsLayer;
     readonly manageAccounts?: () => Promise<void>;
   };
   /** When the app is online and in view. */
@@ -106,7 +113,7 @@ export interface Host {
     readonly onOnlineChange: (changed: () => void) => () => void;
     /** Calls `shown` whenever the app comes back into view. */
     readonly onForeground: (shown: () => void) => () => void;
-    /** The Backend the launch asked for, if any, as `?backend=device` does
+    /** The Backend the launch asked for, if any, as `?backend=local` does
      * on the web. Asked once, at start. */
     readonly launchBackend: () => Backend | null;
   };
@@ -120,12 +127,12 @@ export interface Host {
 /**
  * A Host kept in memory, with no network events and no other tabs: for
  * tests, and for running an app where nothing outlives the process. Its
- * cloud Sign-in signs nobody in unless `signIn` is given.
+ * cloud Accounts sign nobody in unless `accounts` is given.
  */
 export const memoryHost = (
   options: {
     readonly online?: () => boolean;
-    readonly signIn?: Layer.Layer<SignIn>;
+    readonly accounts?: AccountsLayer;
     readonly url?: string;
     readonly launchBackend?: Backend | null;
   } = {},
@@ -153,7 +160,9 @@ export const memoryHost = (
     },
     cloud: {
       url: options.url ?? 'http://localhost',
-      signIn: options.signIn ?? signIn.named({ choose: Effect.succeed(null) }),
+      accounts:
+        options.accounts ??
+        browser({ local: { choose: Effect.succeed(null) } }),
       manageAccounts: async () => {},
     },
     lifecycle: {

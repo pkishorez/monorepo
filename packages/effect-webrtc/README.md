@@ -234,7 +234,7 @@ export default class SignalingWorker extends DurableSignalingWorker<SignalingWor
   {
     main: import.meta.filename,
     authWorkerUrl: 'https://auth.example.com',
-    trustedOrigins: ['https://app.example.com'],
+    cookieDomain: '.example.com',
   },
 ) {}
 ```
@@ -265,7 +265,7 @@ const program = Effect.gen(function* () {
 }).pipe(Effect.scoped, Effect.provide(browserPlatform));
 ```
 
-- The worker verifies the browser session against `authWorkerUrl` and rejects untrusted origins.
+- The worker verifies the browser's sign-in cookie against `authWorkerUrl` and refuses a socket from any page not on `cookieDomain` or under it (403). Serve it under the same Shared Cookie Domain as the Auth Worker so the cookie reaches it.
 - `connect` sends the Peer Identifier, Peer Name, and mode as query parameters and returns a `Signaling` Layer bound to that socket.
 - `peers` emits the user's Peer Directory now and after every join or leave.
 - `Connectable` Peers accept inbound sessions; `Private` Peers only initiate.

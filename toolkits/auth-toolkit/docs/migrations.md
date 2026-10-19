@@ -23,8 +23,8 @@ builds never regenerate them; `pnpm build` only copies the folders into
 
 ## How migrations are applied
 
-- **D1.** `d1PrimaryDatabaseResource` hands the shipped folders to Alchemy, which applies pending migrations on every `alchemy deploy`. Consumers configure nothing.
-- **In-memory.** `memoryPrimaryDatabase()` runs the same `.sql` files against a `:memory:` SQLite database, so tests exercise the real schema.
+- **D1.** `d1Database` hands the shipped folders to Alchemy, which applies pending migrations on every `alchemy deploy`. Consumers configure nothing.
+- **In-memory.** `memory()` from `@kestack/auth-toolkit/worker/memory` runs the same `.sql` files against a `:memory:` SQLite database, so tests exercise the real schema.
 
 The generator config includes every plugin the toolkit supports, so the same
 recipe serves deployments with and without the Authorization Server Role. See

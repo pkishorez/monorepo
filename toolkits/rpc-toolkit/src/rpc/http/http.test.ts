@@ -1,6 +1,6 @@
 import { Context, Effect, Layer, Schema, Stream } from 'effect';
-import { HttpServerResponse } from 'effect/http';
-import { Rpc, RpcClient, RpcGroup } from 'effect/rpc';
+import { FetchHttpClient, HttpServerResponse } from 'effect/http';
+import { Rpc, RpcClient, RpcGroup, RpcMiddleware } from 'effect/rpc';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { client, server } from './index.ts';
 
@@ -106,5 +106,50 @@ describe('Rpc.http', () => {
 
     expect(response.headers.get('x-wrapped')).toBe('yes');
     expect(await response.text()).toContain('Hi Ada');
+  });
+
+  it('takes fetch options a Client Implementation gives one call', async () => {
+    class Cookie extends RpcMiddleware.Service<Cookie>()('test/Cookie', {
+      requiredForClient: true,
+    }) {}
+    const Guarded = Api.middleware(Cookie);
+    const answer = server(
+      Guarded,
+      Layer.mergeAll(
+        Handlers.pipe(Layer.provide(Layer.succeed(Greeting, 'Hi'))),
+        Layer.succeed(Cookie)((effect) => effect),
+      ),
+    );
+    const sent: Request[] = [];
+    const fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+      const request = new Request(input, init);
+      sent.push(request.clone());
+      return answer(request);
+    };
+
+    await Effect.gen(function* () {
+      const api = yield* RpcClient.make(Guarded);
+      return yield* api.Hello({ name: 'Ada' });
+    }).pipe(
+      Effect.scoped,
+      Effect.provide(
+        Layer.merge(
+          client(Guarded, { url: 'https://api.test/rpc' }),
+          RpcMiddleware.layerClient(Cookie, ({ request, next }) =>
+            Effect.provideService(next(request), FetchHttpClient.RequestInit, {
+              credentials: 'include',
+            }),
+          ),
+        ),
+      ),
+      // The global `fetch` is read once per process, so give this test its own.
+      Effect.provideService(
+        FetchHttpClient.Fetch,
+        fetch as typeof globalThis.fetch,
+      ),
+      Effect.runPromise,
+    );
+
+    expect(sent[0]?.credentials).toBe('include');
   });
 });

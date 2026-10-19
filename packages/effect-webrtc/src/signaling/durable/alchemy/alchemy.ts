@@ -1,5 +1,4 @@
 import type { Rpc, RpcGroup } from 'effect/rpc';
-import { validateTrustedOrigins } from '@kestack/auth-toolkit/worker';
 import { DurableRpcWorker } from '@kestack/rpc-toolkit/alchemy';
 import { DurableSignalingRpcs } from '../rpc/index.js';
 import {
@@ -17,7 +16,9 @@ type DurableSignalingRpc =
 export interface DurableSignalingWorkerOptions {
   readonly main: string;
   readonly authWorkerUrl: RequestValue<string>;
-  readonly trustedOrigins: RequestValue<ReadonlyArray<string>>;
+  /** The Auth Worker's Shared Cookie Domain (e.g. `.example.com`): a
+   * socket opens only from a page on it or under it. */
+  readonly cookieDomain: RequestValue<string>;
   readonly domain?: string;
   readonly dev?: { readonly port: number };
   readonly workersDev?: boolean;
@@ -25,15 +26,8 @@ export interface DurableSignalingWorkerOptions {
 
 export const DurableSignalingWorker =
   <Self>() =>
-  (id: string, options: DurableSignalingWorkerOptions) => {
-    if (typeof options.trustedOrigins !== 'function') {
-      validateTrustedOrigins(options.trustedOrigins);
-    }
-    return DurableRpcWorker<Self>()<
-      DurableSignalingRpc,
-      never,
-      DurableConnection
-    >(
+  (id: string, options: DurableSignalingWorkerOptions) =>
+    DurableRpcWorker<Self>()<DurableSignalingRpc, never, DurableConnection>(
       id,
       {
         main: options.main,
@@ -47,4 +41,3 @@ export const DurableSignalingWorker =
       },
       durableSignalingHandlers,
     );
-  };

@@ -1,1 +1,1 @@
-export { accounts } from './auth.ts';
+export { accounts, authContext } from './auth.ts';

@@ -117,7 +117,6 @@ catalog:
   '@uiw/react-codemirror': 4.25.11
   '@uiw/react-json-view': 2.0.0-alpha.43
   '@vitejs/plugin-react': 6.1.1
-  '@xstate/effect': 0.1.0-alpha.6
   alchemy: 2.0.0-beta.80
   auth: 1.7.2
   aws4fetch: 1.0.20
@@ -179,7 +178,6 @@ catalog:
   vite-plus: 1.0.0
   vitest: 5.0.1
   wrangler: 4.129.0
-  xstate: 6.0.0-alpha.64
   yaml: 2.9.0
   yoctocolors: 2.2.0
   zustand: 5.0.15

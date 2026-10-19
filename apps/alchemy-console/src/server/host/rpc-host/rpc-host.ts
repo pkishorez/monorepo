@@ -1,5 +1,6 @@
 import { Effect, Layer } from 'effect';
-import { authz } from '@kestack/auth-toolkit/server/cloud';
+import { auth } from '@kestack/auth-toolkit/server/rpc';
+import { authWorkerUrl } from '../../../shared/api/auth-worker/index.ts';
 import { ConsoleApi } from '../../../shared/api/console-api/index.ts';
 import { ConsoleHandlers } from '../../handlers/console-handlers/index.ts';
 import { FetchHttpClient } from 'effect/http';
@@ -35,15 +36,7 @@ export function handleRpc(
 
   const dependencies = Layer.mergeAll(
     ConsoleHandlers.pipe(Layer.provide(table.layer), Layer.provide(http)),
-    authz.layer.pipe(
-      Layer.provide(
-        authz.cloud({
-          authWorkerUrl: import.meta.env.DEV
-            ? 'https://auth.kishore.computer'
-            : 'https://auth.kishore.app',
-        }),
-      ),
-    ),
+    auth({ url: authWorkerUrl }),
     RpcSerialization.layerNdjson,
     table.layer,
   );
@@ -61,7 +54,7 @@ export function handleRpc(
     );
     return yield* Effect.gen(function* () {
       const rpc = yield* RpcServer.toHttpEffect(ConsoleApi);
-      return yield* authz.cookies(rpc).pipe(Effect.interruptible);
+      return yield* rpc.pipe(Effect.interruptible);
     }).pipe(Effect.provide(context));
   });
   const web = HttpEffect.toWebHandlerLayer(app, telemetryLayer());

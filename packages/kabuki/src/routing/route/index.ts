@@ -27,6 +27,7 @@ export type {
 } from './node.ts';
 export { levelSchema, paramsKey, pick, valueAt } from './values.ts';
 export { nodesOn } from './places.ts';
+export { wholeQuery } from './url.ts';
 export { NotFoundError, RedirectError } from './loader.ts';
 export type {
   LoadError,

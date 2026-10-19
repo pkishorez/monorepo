@@ -1,69 +1,63 @@
 import { betterAuth, type Auth, type BetterAuthOptions } from 'better-auth';
 import { dash } from '@better-auth/infra';
-import {
-  authModelOptions,
-  authorizationServerOptions,
-  multiSessionAccounts,
-  type AuthorizationServerConfig,
-  type MultiSessionConfig,
-} from './auth-model.js';
+import { authModelOptions, authorizationServerOptions } from './auth-model.js';
+import { browserApi, type AuthApi } from './browser-api.js';
+import { refuseCaller } from './callers.js';
 import { normalizeClientRegistration } from './client-registration.js';
 import {
-  AUTH_API_PATH,
-  type Branding,
-  type PagesContext,
-} from '../../contract/index.js';
-import { servePages, type PagesApp } from './pages.js';
-import { TEST_SIGN_IN_STAGE, testSignIn } from './plugins/index.js';
-import { isTrustedOrigin, validateTrustedOrigins } from './trusted-origins.js';
+  resolveConfig,
+  trustedOriginPatterns,
+  type AuthWorkerConfig,
+  type Resolved,
+} from './config.js';
+import { AUTH_API_PATH } from '../../contract/index.js';
+import { withoutSessionTokens } from './no-tokens.js';
+import { servePages, type PagesApp, type PagesContext } from './pages.js';
 import { d1 } from '../database/sqlite/d1/database/index.js';
 
-export { d1, isTrustedOrigin, validateTrustedOrigins };
+export { d1 };
 
-type ValidateUser = NonNullable<
+export interface AuthWorker {
+  /** The better-auth instance, for server-side calls. */
+  auth: Auth<BetterAuthOptions>;
+  /** Serves `/api/auth/*`, the pages, and their assets. */
+  handler: (request: Request) => Promise<Response>;
+}
+
+type ValidateUserInfo = NonNullable<
   NonNullable<BetterAuthOptions['user']>['validateUserInfo']
 >;
 
-interface AuthWorkerConfig {
-  baseURL: string;
-  secret: string;
-  branding: Branding;
-  database: BetterAuthOptions['database'];
-  google: { clientId: string; clientSecret: string };
-  trustedOrigins: string[];
-  cookieDomain?: string | undefined;
-  cookieCacheMaxAge?: number | undefined;
-  multiSession?: MultiSessionConfig | undefined;
-  dashApiKey?: string | undefined;
-  validateUser?: ValidateUser | undefined;
-  authorizationServer?: AuthorizationServerConfig | undefined;
-  pages?: PagesApp | undefined;
-  /** Turns the Test Sign-In on: anyone with a `.test` email signs in by
-   * naming it. Only the `local` stage may; any other `stage` makes
-   * `createAuthWorker` throw, so the service refuses to start. */
-  testSignIn?: { stage: string } | undefined;
-}
+const NOT_ADMITTED = {
+  error: 'not_admitted',
+  errorDescription: 'This account cannot sign in here.',
+};
 
-const REGISTRATION_PATH = `${AUTH_API_PATH}/oauth2/register`;
+const admission = (
+  admit: NonNullable<AuthWorkerConfig['admit']>,
+): ValidateUserInfo => {
+  return async ({ user }) => {
+    const email = typeof user.email === 'string' ? user.email : '';
+    const name = typeof user.name === 'string' ? user.name : '';
+    return (await admit({ email, name })) === true ? undefined : NOT_ADMITTED;
+  };
+};
+
+const REGISTRATION_PATH = '/oauth2/register';
 const WELL_KNOWN_PATH = '/.well-known/';
-
 const CORS_METHODS = 'GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS';
 
-const corsHeaders = (request: Request, trustedOrigins: string[]) => {
+const corsHeaders = (request: Request, resolved: Resolved) => {
   const headers = new Headers({ Vary: 'Origin' });
   const origin = request.headers.get('Origin');
-  if (!origin || !isTrustedOrigin(origin, trustedOrigins)) {
-    return { allowed: false, headers };
-  }
+  if (!resolved.isTrustedOrigin(origin)) return { allowed: false, headers };
 
   headers.set('Access-Control-Allow-Credentials', 'true');
   headers.set('Access-Control-Allow-Methods', CORS_METHODS);
-  headers.set('Access-Control-Allow-Origin', origin);
-  const requestedHeaders = request.headers.get(
-    'Access-Control-Request-Headers',
-  );
-  if (requestedHeaders) {
-    headers.set('Access-Control-Allow-Headers', requestedHeaders);
+  headers.set('Access-Control-Allow-Origin', origin!);
+  const requested = request.headers.get('Access-Control-Request-Headers');
+  if (requested) {
+    headers.set('Access-Control-Allow-Headers', requested);
     headers.append('Vary', 'Access-Control-Request-Headers');
   }
   return { allowed: true, headers };
@@ -72,11 +66,8 @@ const corsHeaders = (request: Request, trustedOrigins: string[]) => {
 const withCorsHeaders = (response: Response, cors: Headers) => {
   const headers = new Headers(response.headers);
   cors.forEach((value, key) => {
-    if (key === 'vary' && headers.has(key)) {
-      headers.append(key, value);
-    } else {
-      headers.set(key, value);
-    }
+    if (key === 'vary' && headers.has(key)) headers.append(key, value);
+    else headers.set(key, value);
   });
   return new Response(response.body, {
     status: response.status,
@@ -85,93 +76,96 @@ const withCorsHeaders = (response: Response, cors: Headers) => {
   });
 };
 
-export const createAuthWorker = (
+/** The Auth Worker with a pages app; the built `worker` door supplies it. */
+export const makeAuthWorker = (
   config: AuthWorkerConfig,
-): {
-  auth: Auth<BetterAuthOptions>;
-  handler: (request: Request) => Promise<Response>;
-} => {
-  validateTrustedOrigins(config.trustedOrigins);
-  if (config.testSignIn && config.testSignIn.stage !== TEST_SIGN_IN_STAGE) {
-    throw new Error(
-      `The Test Sign-In runs only on the "${TEST_SIGN_IN_STAGE}" stage, not "${config.testSignIn.stage}".`,
-    );
-  }
-
-  const modelOptions = authModelOptions(config);
-  const authorizationServer = config.authorizationServer
-    ? authorizationServerOptions(config.authorizationServer)
+  pages?: PagesApp,
+): AuthWorker => {
+  const resolved = resolveConfig(config);
+  const model = authModelOptions({
+    google: config.google,
+    maxAccounts: resolved.maxAccounts,
+  });
+  const authorizationServer = resolved.scopes
+    ? authorizationServerOptions({
+        resources: resolved.resources,
+        scopes: Object.keys(resolved.scopes),
+      })
     : undefined;
   const dashApiKey = config.dashApiKey?.trim();
 
   const auth = betterAuth({
-    ...modelOptions,
-    baseURL: config.baseURL,
+    ...model,
+    baseURL: config.url,
     secret: config.secret,
     database: config.database,
-    trustedOrigins: config.trustedOrigins,
-    user: config.validateUser
-      ? { validateUserInfo: config.validateUser }
+    trustedOrigins: trustedOriginPatterns(resolved),
+    user: config.admit
+      ? { validateUserInfo: admission(config.admit) }
       : undefined,
     plugins: [
-      ...(modelOptions.plugins ?? []),
+      ...(model.plugins ?? []),
       ...(authorizationServer?.plugins ?? []),
-      ...(config.testSignIn ? [testSignIn()] : []),
       ...(dashApiKey ? [dash({ apiKey: dashApiKey })] : []),
     ],
     disabledPaths: authorizationServer?.disabledPaths,
-    advanced: config.cookieDomain
-      ? {
-          crossSubDomainCookies: {
-            enabled: true,
-            domain: config.cookieDomain,
-          },
-        }
-      : undefined,
+    advanced: {
+      crossSubDomainCookies: { enabled: true, domain: resolved.domain },
+    },
   }) as Auth<BetterAuthOptions>;
 
-  const { authorizationServer: role, branding, pages } = config;
-  const maximumAccounts = multiSessionAccounts(config.multiSession);
+  const browser = browserApi(auth as unknown as AuthApi, resolved);
   const pagesContext: PagesContext = {
-    branding,
-    multiSession: { maximumAccounts },
-    testSignIn: config.testSignIn !== undefined,
-    authorizationServer: role
-      ? {
-          scopes: Object.fromEntries(
-            (role.scopes ?? []).map((scope) => [scope.name, scope.description]),
-          ),
-        }
-      : undefined,
+    brand: config.brand,
+    maxAccounts: resolved.maxAccounts,
+    cookieDomain: resolved.domain,
+    origin: resolved.origin,
+    oauth: resolved.scopes ? { scopes: resolved.scopes } : undefined,
+    reads: browser.reads,
   };
 
   const handler = async (request: Request) => {
     const { pathname } = new URL(request.url);
+    const isApiPath =
+      pathname === AUTH_API_PATH || pathname.startsWith(`${AUTH_API_PATH}/`);
     const isAuthPath =
-      pathname === AUTH_API_PATH ||
-      pathname.startsWith(`${AUTH_API_PATH}/`) ||
-      (role !== undefined && pathname.startsWith(WELL_KNOWN_PATH));
+      isApiPath ||
+      (authorizationServer !== undefined &&
+        pathname.startsWith(WELL_KNOWN_PATH));
     if (!isAuthPath) {
       return pages
         ? servePages(pages, request, pagesContext)
         : new Response('Not found', { status: 404 });
     }
 
-    const { allowed, headers: cors } = corsHeaders(
-      request,
-      config.trustedOrigins,
-    );
+    const { allowed, headers: cors } = corsHeaders(request, resolved);
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: allowed ? 204 : 403, headers: cors });
     }
 
-    const response = await auth.handler(
-      pathname === REGISTRATION_PATH
-        ? await normalizeClientRegistration(request)
-        : request,
-    );
+    const apiPath = isApiPath ? pathname.slice(AUTH_API_PATH.length) : pathname;
+    const refusal = isApiPath
+      ? refuseCaller(request, apiPath, resolved.origin)
+      : undefined;
+    if (refusal) return withCorsHeaders(refusal, cors);
+    const own = isApiPath ? await browser.handle(request, apiPath) : undefined;
+    const response =
+      own ??
+      (await withoutSessionTokens(
+        await auth.handler(
+          apiPath === REGISTRATION_PATH
+            ? await normalizeClientRegistration(request)
+            : request,
+        ),
+        apiPath,
+      ));
     return withCorsHeaders(response, cors);
   };
 
   return { auth, handler };
 };
+
+/** The Auth Worker. From source it serves no pages; the built
+ * `@kestack/auth-toolkit/worker` door pairs it with them. */
+export const authWorker = (config: AuthWorkerConfig): AuthWorker =>
+  makeAuthWorker(config);
