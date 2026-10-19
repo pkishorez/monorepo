@@ -92,8 +92,10 @@ const start = <A extends AnyActor>(
     const mailbox = makeMailbox(
       time.now,
       (envelope) => {
-        if (isRestore(envelope.message)) runs++;
         const handled = instance!.receive(envelope);
+        // A Restore put in place starts the app over; one refused changes nothing.
+        if (isRestore(envelope.message) && handled.outcome === 'handled')
+          runs++;
         snapshot = handled.snapshot;
         history.append(envelope, handled);
       },

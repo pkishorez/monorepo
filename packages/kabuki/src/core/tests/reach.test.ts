@@ -1,5 +1,5 @@
 import { Effect, Schema } from 'effect';
-import { describe, expect, expectTypeOf, it } from 'vitest';
+import { describe, expect, expectTypeOf, it, vi } from 'vitest';
 import { Actor, History, Runtime, restore } from '../index.ts';
 import { Auth, ServerLive, run, settle } from './fixtures.ts';
 
@@ -200,6 +200,25 @@ describe('an Instance reached from outside', () => {
         );
         expect(row.stopped).toBe(true);
         expect(row.send({ _tag: 'Retried' })).toBe(false);
+      }),
+    ));
+
+  it('stays live through a Restore that is refused', () =>
+    run(
+      Effect.gen(function* () {
+        const running = yield* Runtime.start(Board);
+        const board = running.instance({ from: 'test' });
+        const row = board.children.rows[0]!;
+        // Not for the root: dropped.
+        running.send(row.id, { ...restore(running.snapshot()) });
+        // Not a Snapshot of this app: ignored, with a warning.
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        running.send('Board', {
+          ...restore({ ...running.snapshot(), actor: 'Other' }),
+        });
+        warn.mockRestore();
+        expect(row.stopped).toBe(false);
+        expect(row.send({ _tag: 'Retried' })).toBe(true);
       }),
     ));
 
