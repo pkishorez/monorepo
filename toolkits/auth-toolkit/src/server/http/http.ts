@@ -112,5 +112,5 @@ export function auth(
 export const testAuth = (principal: Principal | null) =>
   layerWith(fixedResolver(principal), undefined);
 
-export { verify } from '../verification/index.js';
+export { verify, verifyRefreshing } from '../verification/index.js';
 export type { OAuthOptions } from '../verification/index.js';

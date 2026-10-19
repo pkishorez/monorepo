@@ -95,11 +95,12 @@ Peer dependencies, all optional; install the ones your doors need:
 
 ### `@kestack/auth-toolkit/server/http`
 
-| Export     | What it does                                                                                                                 |
-| ---------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `auth`     | The Guard's server half for Effect HttpApi; with `oauth` it is a Resource Server and serves its Protected Resource Metadata. |
-| `testAuth` | The same Layer with a fixed Principal (or nobody) behind every call, for handlers' tests.                                    |
-| `verify`   | Without Effect: resolves who a plain `Request` is from, or null.                                                             |
+| Export             | What it does                                                                                                                 |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| `auth`             | The Guard's server half for Effect HttpApi; with `oauth` it is a Resource Server and serves its Protected Resource Metadata. |
+| `testAuth`         | The same Layer with a fixed Principal (or nobody) behind every call, for handlers' tests.                                    |
+| `verify`           | Without Effect: resolves who a plain `Request` is from, or null.                                                             |
+| `verifyRefreshing` | As `verify`, with the Sign-in cookies the Auth Worker refreshed, for the response to carry.                                  |
 
 ### `@kestack/auth-toolkit/client`
 

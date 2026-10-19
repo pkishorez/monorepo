@@ -8,9 +8,9 @@ const member = (account: typeof ada) => ({
   email: account.email,
   name: account.name,
 });
-const signedIn = (account: typeof ada) => ({
-  _tag: 'SignedIn' as const,
-  member: member(account),
+const signedIn = (account: typeof ada, arrivedAt = 1) => ({
+  visitor: { _tag: 'SignedIn' as const, member: member(account) },
+  arrivedAt,
 });
 const seen = (active: typeof ada | null) => ({
   active,
@@ -23,10 +23,13 @@ describe('Console settles who is signed in', () => {
       state: { _tag: 'SignedIn', member: member(ada) },
       ask: null,
     });
-    expect(settle(null, { _tag: 'NotInvited', email: 'x@y' }, null)).toEqual({
-      state: { _tag: 'NotInvited', email: 'x@y' },
-      ask: null,
-    });
+    expect(
+      settle(
+        null,
+        { visitor: { _tag: 'NotInvited', email: 'x@y' }, arrivedAt: 1 },
+        null,
+      ).state,
+    ).toEqual({ _tag: 'NotInvited', email: 'x@y' });
   });
 
   it('is signed in when the Accounts and the Worker name the same member', () => {
@@ -43,19 +46,35 @@ describe('Console settles who is signed in', () => {
     });
   });
 
-  it('asks the Worker again, once, when another account became active', () => {
-    const asked = settle(seen(bob), signedIn(ada), null);
-    expect(asked.state).toEqual({ _tag: 'Checking' });
-    expect(asked.ask).not.toBeNull();
-    // Asked already and still apart: the Worker's word stands.
-    expect(settle(seen(bob), signedIn(ada), asked.ask)).toEqual({
-      state: { _tag: 'SignedIn', member: member(ada) },
+  it('asks the Worker again when another account became active, and waits for its answer', () => {
+    const asked = settle(seen(bob), signedIn(ada, 1), null);
+    expect(asked).toEqual({
+      state: { _tag: 'Checking' },
+      ask: { active: bob.id, arrivedAt: 1 },
+    });
+    // The Accounts say so again, or the old answer comes again: still
+    // checking, never the member before.
+    expect(settle(seen(bob), signedIn(ada, 1), asked.ask)).toEqual({
+      state: { _tag: 'Checking' },
+      ask: null,
+    });
+    // A new answer that names Bob settles it.
+    expect(settle(seen(bob), signedIn(bob, 2), asked.ask).state).toEqual({
+      _tag: 'SignedIn',
+      member: member(bob),
+    });
+    // A new answer that still names Ada: neither is trusted.
+    expect(settle(seen(bob), signedIn(ada, 2), asked.ask)).toEqual({
+      state: { _tag: 'Unreachable' },
       ask: null,
     });
   });
 
   it('asks again when the browser signed in but the Worker saw nobody', () => {
-    expect(settle(seen(ada), { _tag: 'SignedOut' }, null).ask).not.toBeNull();
+    expect(
+      settle(seen(ada), { visitor: { _tag: 'SignedOut' }, arrivedAt: 1 }, null)
+        .ask,
+    ).not.toBeNull();
   });
 
   it('keeps checking while the Worker’s answer is on its way', () => {
@@ -67,7 +86,11 @@ describe('Console settles who is signed in', () => {
 
   it('matches an invite refusal by email, in any case', () => {
     expect(
-      settle(seen(ada), { _tag: 'NotInvited', email: 'ADA@demo' }, null).state,
+      settle(
+        seen(ada),
+        { visitor: { _tag: 'NotInvited', email: 'ADA@demo' }, arrivedAt: 1 },
+        null,
+      ).state,
     ).toEqual({ _tag: 'NotInvited', email: 'ADA@demo' });
   });
 });

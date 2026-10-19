@@ -49,8 +49,11 @@ export const ConsoleModel = Schema.Struct({
   adding: Schema.Boolean,
   /** Why the last action failed, until the next one. */
   failure: Schema.NullOr(Schema.String),
-  /** The disagreement the Worker was last asked about, so it is asked once. */
-  asked: Schema.NullOr(Schema.String),
+  /** The question last put to the Worker: for which active account, about
+   * the word that arrived when, so it is asked once and answered by a newer one. */
+  asked: Schema.NullOr(
+    Schema.Struct({ active: Schema.String, arrivedAt: Schema.Number }),
+  ),
 });
 
 /** Who Console says is signed in. */
@@ -78,7 +81,7 @@ export const Console = Page.define({
       all: Schema.Array(Account),
     },
     AccountsUnreachable: {},
-    Visited: { visitor: Visitor },
+    Visited: { visitor: Visitor, arrivedAt: Schema.Number },
     RetryChosen: {},
     SignInChosen: {
       email: Schema.NullOr(Schema.String),

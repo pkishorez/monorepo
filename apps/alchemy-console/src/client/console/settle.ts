@@ -9,8 +9,10 @@ import type {
  * verified the session when it drew the page (the Visitor), and this
  * browser's Accounts, which hear of every sign-in, switch and sign-out, in
  * any tab. Until the Accounts speak, the Worker's word stands. When they
- * disagree, the Worker is asked again, once for each disagreement; asked
- * already, its word stands, so the two can never ask each other forever.
+ * disagree, the Worker is asked again, and Console waits, never showing
+ * the member before, until a newer word arrives. If that one disagrees
+ * too, neither is trusted: Console says the sign-in service did not answer,
+ * and Retry asks both again. So the two never ask each other forever.
  */
 
 type VisitorData = typeof Visitor.Type;
@@ -21,10 +23,22 @@ type Seen = {
   readonly all: ReadonlyArray<AccountData>;
 } | null;
 
+/** A question put to the Worker: for which active account, about the word that arrived when. */
+export interface Asked {
+  readonly active: string;
+  readonly arrivedAt: number;
+}
+
+/** The Worker's word, and when it arrived. */
+export interface Word {
+  readonly visitor: VisitorData;
+  readonly arrivedAt: number;
+}
+
 export interface Settled {
   readonly state: State;
-  /** The disagreement to ask the Worker about, by a key; null to ask nothing. */
-  readonly ask: string | null;
+  /** The question to put to the Worker; null to ask nothing. */
+  readonly ask: Asked | null;
 }
 
 /** The State the Worker's word alone names. */
@@ -54,16 +68,21 @@ const agree = (visitor: VisitorData, active: AccountData) => {
 
 export const settle = (
   seen: Seen,
-  visitor: VisitorData | undefined,
-  asked: string | null,
+  word: Word | undefined,
+  asked: Asked | null,
 ): Settled => {
   if (seen !== null && seen.active === null)
     return { state: { _tag: 'SignedOut' }, ask: null };
-  if (visitor === undefined) return { state: { _tag: 'Checking' }, ask: null };
-  if (seen === null || agree(visitor, seen.active!))
-    return { state: stateOf(visitor), ask: null };
-  const ask = `${seen.active!.id} ${JSON.stringify(visitor)}`;
-  return ask === asked
-    ? { state: stateOf(visitor), ask: null }
-    : { state: { _tag: 'Checking' }, ask };
+  if (word === undefined) return { state: { _tag: 'Checking' }, ask: null };
+  if (seen === null || agree(word.visitor, seen.active!))
+    return { state: stateOf(word.visitor), ask: null };
+  const active = seen.active!.id;
+  if (asked === null || asked.active !== active)
+    return {
+      state: { _tag: 'Checking' },
+      ask: { active, arrivedAt: word.arrivedAt },
+    };
+  return word.arrivedAt === asked.arrivedAt
+    ? { state: { _tag: 'Checking' }, ask: null }
+    : { state: { _tag: 'Unreachable' }, ask: null };
 };

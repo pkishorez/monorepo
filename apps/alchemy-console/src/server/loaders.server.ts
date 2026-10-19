@@ -23,9 +23,12 @@ const visit = (env: Env, request: Request) =>
   Layer.effect(
     Visit,
     Effect.gen(function* () {
-      const visited = yield* Effect.promise(() =>
+      const { visit: visited, cookies } = yield* Effect.promise(() =>
         visitorOf(request, env.CONSOLE_INVITES),
       );
+      // Sign-in cookies the Auth Worker refreshed go on the page.
+      const headers = yield* Start.ResponseHeaders;
+      for (const cookie of cookies) yield* headers.append('set-cookie', cookie);
       if (visited._tag !== 'Admitted') return visited;
       const member = yield* Effect.gen(function* () {
         const api = yield* RpcClient.make(ConsoleApi);

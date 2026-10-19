@@ -15,7 +15,7 @@ import { WelcomeLive, WelcomeView } from '../pages/welcome/index.ts';
 import { apiLayer } from './api.ts';
 import { googleBrowser, localBrowser, signInMode } from './browser.ts';
 import { recheck, signIn, signOut, switchTo } from './commands.ts';
-import { settle, stateOf } from './settle.ts';
+import { settle, stateOf, type Word } from './settle.ts';
 import { AddAccountDialog } from './views/add-account.tsx';
 import { NoticeScreen, SignInScreen } from './views/screens.tsx';
 import { Shell, ShellSkeleton } from './views/shell.tsx';
@@ -47,14 +47,25 @@ export const browserLayer = Layer.suspend(() =>
 type Model = typeof ConsoleModel.Type;
 type VisitorData = typeof Visitor.Type;
 
-/** The Worker's word on the visitor, once the page's data is there. */
-const visitorOf = (props: {
-  readonly status: { readonly _tag: string; readonly data?: VisitorData };
-}): VisitorData | undefined =>
-  props.status._tag === 'Ready' ? props.status.data : undefined;
+type Status = {
+  readonly _tag: string;
+  readonly data?: VisitorData;
+  readonly info?: object;
+};
 
-const settled = (model: Model, visitor: VisitorData | undefined) => {
-  const { state, ask } = settle(model.accounts, visitor, model.asked);
+/** The Worker's word on the visitor, and when it arrived, once the page's data is there. */
+const wordOf = (status: Status): Word | undefined =>
+  status._tag === 'Ready' && status.data !== undefined
+    ? {
+        visitor: status.data,
+        arrivedAt:
+          (status.info as { readonly arrivedAt?: number } | undefined)
+            ?.arrivedAt ?? 0,
+      }
+    : undefined;
+
+const settled = (model: Model, word: Word | undefined) => {
+  const { state, ask } = settle(model.accounts, word, model.asked);
   return ask === null
     ? { model, state }
     : {
@@ -85,8 +96,8 @@ export const ConsoleLive = Page.build(Console, {
   pages: { Welcome: WelcomeLive },
   // The pages are the signed-in member's: another member, after an Account
   // Switch, starts every one of them again.
-  scope: ({ state, props }) => {
-    const shown = shownOf(state, props.status);
+  scope: ({ model, state, props }) => {
+    const shown = shownOf(state, props.status, model.asked !== null);
     return shown._tag === 'SignedIn' ? shown.member.userId : '';
   },
   init: () => ({
@@ -146,16 +157,17 @@ export const ConsoleLive = Page.build(Console, {
         }),
     },
     visit: {
-      each: ({ props }) =>
-        props.status._tag === 'Ready'
-          ? [JSON.stringify(props.status.data)]
-          : [],
+      // Once for each word that arrives, a repeated one too.
+      each: ({ props }) => {
+        const word = wordOf(props.status);
+        return word === undefined ? [] : [JSON.stringify(word)];
+      },
       run: (self) =>
         Effect.flatMap(self.get, ({ props }) => {
-          const visitor = visitorOf(props);
-          return visitor === undefined
+          const word = wordOf(props.status);
+          return word === undefined
             ? Effect.void
-            : self.send({ _tag: 'Visited', visitor });
+            : self.send({ _tag: 'Visited', ...word });
         }),
     },
   },
@@ -163,12 +175,13 @@ export const ConsoleLive = Page.build(Console, {
   // 2. Settle, and 4. Act
   on: {
     AccountsSeen: ({ active, all }, { model, props }) =>
-      settled({ ...model, accounts: { active, all } }, visitorOf(props)),
+      settled({ ...model, accounts: { active, all } }, wordOf(props.status)),
     AccountsUnreachable: (_, { model }) => ({
       model: { ...model, busy: null },
       state: { _tag: 'Unreachable' },
     }),
-    Visited: ({ visitor }, { model }) => settled(model, visitor),
+    Visited: ({ visitor, arrivedAt }, { model }) =>
+      settled(model, { visitor, arrivedAt }),
     RetryChosen: (_, { model }) => ({
       model: { ...model, asked: null, failure: null },
       state: { _tag: 'Checking' },
@@ -223,20 +236,22 @@ type Shown =
   | { readonly _tag: 'Loading' }
   | { readonly _tag: 'Broken' };
 
-/** The screen to draw: the State's, or while Checking, the Worker's word's. */
+/** The screen to draw: the State's; while Checking, the one the Worker's
+ * word names, unless the Worker has been asked again and not answered. */
 const shownOf = (
   state: typeof ConsoleState.Type,
   status: { readonly _tag: string; readonly data?: VisitorData },
+  asking: boolean,
 ): Shown => {
   if (state._tag !== 'Checking') return state;
   if (status._tag === 'Loading') return { _tag: 'Loading' };
   if (status.data === undefined) return { _tag: 'Broken' };
-  return stateOf(status.data);
+  return asking ? { _tag: 'Loading' } : stateOf(status.data);
 };
 
 export const ConsoleView = View.make(ConsoleLive, (self) => {
   const { model, props, send, children } = self;
-  const shown = shownOf(self.state, props.status);
+  const shown = shownOf(self.state, props.status, model.asked !== null);
   const busy = model.busy !== null;
   const signInAs = (email: string | null, name: string | null) =>
     send({ _tag: 'SignInChosen', email, name });

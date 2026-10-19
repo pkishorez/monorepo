@@ -1,4 +1,4 @@
-import { verify } from '@kestack/auth-toolkit/server/http';
+import { verifyRefreshing } from '@kestack/auth-toolkit/server/http';
 import type { Member } from '../../../shared/contracts/member/index.ts';
 import { isInvited } from './invites.ts';
 import { asVerified, authOptions } from './sign-in.ts';
@@ -23,32 +23,39 @@ export type Visit =
       readonly at: number;
     };
 
-/**
- * Who `request` is from; `invites` is the Invite list as the Worker's var
- * writes it. Sign-in cookies the Auth Worker refreshes while verifying are
- * not relayed: the browser's own Accounts ask the Auth Worker on every load,
- * and that answer refreshes them.
- */
+/** Who a request is from, and the Sign-in cookies its response must carry. */
+export interface Visited {
+  readonly visit: Visit;
+  /** `set-cookie` values the Auth Worker refreshed while verifying. */
+  readonly cookies: ReadonlyArray<string>;
+}
+
+/** Who `request` is from; `invites` is the Invite list as the Worker's var writes it. */
 export const visitorOf = async (
   request: Request,
   invites: string,
-): Promise<Visit> => {
-  let principal: Awaited<ReturnType<typeof verify>>;
+): Promise<Visited> => {
+  let resolved: Awaited<ReturnType<typeof verifyRefreshing>>;
   try {
-    principal = await verify(asVerified(request), authOptions);
+    resolved = await verifyRefreshing(asVerified(request), authOptions);
   } catch {
-    return { _tag: 'Unreachable' };
+    return { visit: { _tag: 'Unreachable' }, cookies: [] };
   }
-  if (principal === null) return { _tag: 'SignedOut' };
+  if (resolved === null) return { visit: { _tag: 'SignedOut' }, cookies: [] };
+  const { principal, refreshedCookies: cookies } = resolved;
   const { id, email, name } = principal.user;
-  if (!isInvited(invites, email)) return { _tag: 'NotInvited', email };
+  if (!isInvited(invites, email))
+    return { visit: { _tag: 'NotInvited', email }, cookies };
   return {
-    _tag: 'Admitted',
-    member: { userId: id, email, name },
-    until:
-      principal.kind === 'session'
-        ? new Date(principal.session.expiresAt).getTime()
-        : Date.now(),
-    at: Date.now(),
+    cookies,
+    visit: {
+      _tag: 'Admitted',
+      member: { userId: id, email, name },
+      until:
+        principal.kind === 'session'
+          ? new Date(principal.session.expiresAt).getTime()
+          : Date.now(),
+      at: Date.now(),
+    },
   };
 };

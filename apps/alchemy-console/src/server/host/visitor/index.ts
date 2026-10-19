@@ -1,1 +1,1 @@
-export { visitorOf, type Visit } from './visitor.ts';
+export { visitorOf, type Visit, type Visited } from './visitor.ts';
