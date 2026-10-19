@@ -172,7 +172,7 @@ const whoAmI = Effect.gen(function* () {
 );
 ```
 
-- The Auth Worker is `authWorker({ url, secret, google, database: d1(env.DB), cookieDomain: '.example.com', brand })`; every origin under `cookieDomain` is trusted and no other is. Add `dev: true` when it runs locally: its pages then show the Kabuki devtools.
+- The Auth Worker is `authWorker({ url, secret, google, database: d1(env.DB), cookieDomain: '.example.com', brand })`; every origin under `cookieDomain` is trusted and no other is.
 - `browser` sends the cookie (`credentials: 'include'`) and an `expect-user` header naming the Active Account on every guarded call; the transport needs no options.
 - When another tab switched Accounts, the backend fails the call `Auth.AccountChanged` before the handler runs, and `Accounts` checks again by itself.
 - A Batched RPC Request is verified once, and the cookies the Auth Worker refreshed go on its response.

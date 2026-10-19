@@ -29,7 +29,6 @@ const worker = authWorker({
   google: { clientId: 'harness', clientSecret: 'harness' },
   database: memory(),
   cookieDomain: 'acme.localhost',
-  dev: true,
   ...(process.env.MAX_ACCOUNTS
     ? { maxAccounts: Number(process.env.MAX_ACCOUNTS) }
     : {}),

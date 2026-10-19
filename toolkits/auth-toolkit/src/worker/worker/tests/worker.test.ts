@@ -210,7 +210,6 @@ describe('authWorker', () => {
         maxAccounts: expected,
         cookieDomain: 'example.com',
         origin: 'https://auth.example.com',
-        devtools: false,
         // Functions, read in-process; JSON drops them.
         reads: {},
       });
@@ -234,28 +233,6 @@ describe('authWorker', () => {
         new Request('https://auth.example.com/', { headers: { cookie } }),
       );
       expect(((await page.json()) as { theme?: string }).theme).toBe(theme);
-    },
-  );
-
-  it.each([
-    ['https://auth.example.com', '.example.com', undefined, false],
-    ['http://localhost:8787', 'localhost', undefined, false],
-    ['http://auth.acme.localhost:8787', '.acme.localhost', false, false],
-    ['http://auth.acme.localhost:8787', '.acme.localhost', true, true],
-    ['https://auth.example.com', '.example.com', true, true],
-  ] as const)(
-    'shows the pages the devtools only with dev: true (%s, dev: %s)',
-    async (url, cookieDomain, dev, devtools) => {
-      const { handler } = makeAuthWorker(
-        { ...config, url, cookieDomain, dev },
-        {
-          assets: {},
-          fetch: async (_request: Request, context: PagesContext) =>
-            Response.json(context.devtools),
-        },
-      );
-      const page = await handler(new Request(`${url}/login`));
-      expect(await page.json()).toBe(devtools);
     },
   );
 
@@ -319,7 +296,6 @@ describe('authWorker', () => {
       [{ brand: { name: ' ' } }, /brand.name/],
       [{ maxAccounts: 0 }, /maxAccounts/],
       [{ maxAccounts: 1.5 }, /maxAccounts/],
-      [{ dev: 'true' as unknown as boolean }, /dev must be a boolean/],
       [{ oauth: { resources: { 'not a url': {} } } }, /absolute URL/],
       [
         { oauth: { resources: { 'https://a.example.com': { 'a b': 'x' } } } },

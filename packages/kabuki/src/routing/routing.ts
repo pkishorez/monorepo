@@ -13,7 +13,7 @@ import type { AnyRoute } from './capability/index.ts';
 import { Page as Pages } from './page/index.ts';
 import { NotFoundError, RedirectError, wholeQuery } from './route/index.ts';
 import type { RedirectTo } from './route/index.ts';
-import { FadeIn, Link, Retry, app, define } from './router/index.ts';
+import { Link, Retry, app, define } from './router/index.ts';
 
 /** A Loader's failure: the place it was asked for is not found. */
 const notFound = () => new NotFoundError();
@@ -75,7 +75,7 @@ export declare namespace Page {
 /**
  * The router: `Router.define` reads an app's router down from its root
  * page's definition; `Router.app` puts it above the root page's View, as
- * `Start.app` does; `Link`, `Retry` and `FadeIn` draw inside it; `push`, `replace`,
+ * `Start.app` does; `Link` and `Retry` draw inside it; `push`, `replace`,
  * `back`, `forward`, `backTo`, `reload` and `preload` are Commands an
  * Update returns; `memory` is a `Loading` that runs the Loaders in place,
  * and `cached` puts the Data cache in front of one.
@@ -85,7 +85,6 @@ export const Router = {
   app,
   Link,
   Retry,
-  FadeIn,
   memory,
   cached,
   push,

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Router } from '@kestack/kabuki/routing';
+import { motion, useReducedMotion } from 'motion/react';
 import type { Brand, PageData } from '../api/index.ts';
 import { cx } from '../ui/index.ts';
 import { AccountMenu } from './account-menu.tsx';
@@ -48,11 +48,12 @@ export function Frame({
   /** The page's data; null while it loads, or on the not-found page. */
   data: PageData | null;
   layout?: 'account' | 'task';
-  /** The data took the place of a loading screen: it fades in. */
+  /** The data took the place of a loading screen: it fades in, unless the visitor asks for less motion. */
   waited?: boolean;
   children: ReactNode;
 }) {
   const root = useRoot();
+  const still = useReducedMotion();
   // Loading, the page keeps the brand it was drawn in.
   if (data) root.last.current = data;
   const chrome = data ?? root.last.current;
@@ -106,7 +107,13 @@ export function Frame({
           layout === 'account' ? 'max-w-[688px]' : 'max-w-[448px]',
         )}
       >
-        <Router.FadeIn when={waited}>{children}</Router.FadeIn>
+        <motion.div
+          initial={waited && !still ? { opacity: 0 } : false}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.15, ease: 'easeOut' }}
+        >
+          {children}
+        </motion.div>
       </main>
     </div>
   );

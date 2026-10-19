@@ -33,7 +33,7 @@ An app that renders on the server adds `@kestack/web-platform` to `ssr.noExterna
 - `vite` (optional): needed by `./pwa/vite`.
 - `laymos` (optional): the file diff and change types the diff, git-changes and source-explorer viewers read.
 - `use-effect-ts` (optional): runs `./components/viewers/source-explorer`'s loaders inside React.
-- `@kestack/kabuki` (optional): `./recipes/kabuki-devtools` re-exports its `./devtools`, the Inspector on a running app.
+- `@kestack/kabuki` (optional): the running app `./recipes/kabuki-devtools` inspects.
 - `@cloudflare/workers-types` (optional): the Durable Object types `./server`'s `liveObject` is declared with.
 
 ## Exports
@@ -341,11 +341,10 @@ Owned shadcn copies on Base UI, one subpath per file, such as `@kestack/web-plat
 
 ### `@kestack/web-platform/recipes/kabuki-devtools`
 
-| Export             | What it does                                                                                                                |
-| ------------------ | --------------------------------------------------------------------------------------------------------------------------- |
-| `KabukiDevtools`   | `@kestack/kabuki/devtools`' Inspector on a running Kabuki app, re-exported: it fills what holds it, as in a `DevtoolsDock`. |
-| `FloatingDevtools` | `@kestack/kabuki/devtools`' corner button that opens the devtools over the page, re-exported.                               |
-| `Inspector`        | `@kestack/kabuki/devtools`' Inspector on any Step given it, re-exported.                                                    |
+| Export           | What it does                                                                                                                                                                                             |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `KabukiDevtools` | The Inspector on a running Kabuki app, from `App.useRuntime()`: picking a Step on its Timeline Time Travels the app, going live comes back.                                                              |
+| `Inspector`      | The Step shown, drawn as a Map, with the Sheet of what is picked and the Timeline under it; it lays itself out by its own width, and its Map as a packed tree or an outline, switched from its controls. |
 
 ### `@kestack/web-platform/client`
 

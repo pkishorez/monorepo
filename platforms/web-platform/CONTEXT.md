@@ -200,9 +200,13 @@ _Avoid_: Tab Client, page client (the Service Worker API's own `Client` is the p
 A system-level message shown by the operating system on the app's behalf. Never an in-app message.
 _Avoid_: push (the delivery channel, not the message), toast, alert
 
-### Kabuki Devtools
+### Kabuki Inspector
 
-The Devtools and the words of their drawing are @kestack/kabuki's (`@kestack/kabuki/devtools`); what the Web Platform adds is where they sit.
+How the Inspector (see @kestack/kabuki's glossary) draws the Snapshot. Drawing words only: an Actor, an Instance, a State and a Worker keep their @kestack/kabuki names.
+
+**Devtools**:
+The Inspector on a running app, from its runtime: its Timeline is the app's History, a Step picked there Time Travels the app itself, and live, its Worker Rows say what each Worker is doing.
+_Avoid_: debugger, panel
 
 **Devtools Dock**:
 Where Devtools sit beside a page, opened from one button that never moves: full screen over the page, a bar under it or a panel on its right that push the page aside, or a floating window. Its Layout and sizes are kept across reloads.

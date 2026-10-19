@@ -14,6 +14,4 @@ export type {
   RouterOptions,
 } from './define.ts';
 export { Link, Retry, useRouter } from './context.tsx';
-export { FadeIn } from './fade-in.tsx';
-export type { FadeInProps } from './fade-in.tsx';
 export type { Entry, LinkProps, Pending, RouterState } from './context.tsx';

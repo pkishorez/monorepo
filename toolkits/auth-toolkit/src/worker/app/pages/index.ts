@@ -1,6 +1,5 @@
 export { App, AppLive } from './app.ts';
 export { approving } from './approving.ts';
-export { DEVTOOLS_META } from './metadata.ts';
 export { Consent, ConsentLive, signInToContinue } from './consent.ts';
 export { Device, DeviceLive, pendingRequest } from './device.ts';
 export { ErrorPage, ErrorPageLive } from './error.ts';

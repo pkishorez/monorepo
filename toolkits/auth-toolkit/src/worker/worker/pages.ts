@@ -13,8 +13,6 @@ export interface PagesContext {
   origin: string;
   /** With the Authorization Server Role on: every Scope, in words. */
   oauth?: { scopes: Readonly<Record<string, string>> } | undefined;
-  /** The Auth Worker runs with `dev: true`: its pages show the Kabuki devtools. */
-  devtools: boolean;
   /** The visitor's Theme, read from its `theme` cookie; absent without one,
    * when the browser draws the system's. */
   theme?: Theme | undefined;

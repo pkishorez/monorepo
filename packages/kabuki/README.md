@@ -71,8 +71,7 @@ pnpm add @kestack/kabuki effect react
   one is checked against its Schema as it is made; Workers, Commands and
   Capabilities are Effect values and Layers.
 - `react`: `@kestack/kabuki/react` draws the tree with React components.
-- `react-dom`, optional: Start draws pages with `react-dom/server` and hydrates them with `react-dom/client`; `@kestack/kabuki/devtools` draws into a shadow root with `createPortal`.
-- `motion`, optional: `@kestack/kabuki/devtools` animates the Map, the Sheet and the Timeline with it.
+- `react-dom`, optional: Start draws pages with `react-dom/server` and hydrates them with `react-dom/client`.
 - `vite`, optional: `@kestack/kabuki/start/vite` is a Vite plugin.
 
 ## Exports
@@ -131,7 +130,6 @@ pnpm add @kestack/kabuki effect react
 | `Router.app`                  | Puts the Router above the root page's View: it holds the history, every move and every page's data; gives the Actor, its View, `startAt` and `href`. With `scrollRestoration: true` on the router it restores scroll as TanStack Router does.                                                                                                                                |
 | `Router.Link`                 | Draws a plain `<a href>` to a Route, preloading it on hover, once in view, or never, going to an element on the page with `hash`, and leaving every scroll as it is with `resetScroll={false}`; the Router catches a plain click and moves the app.                                                                                                                          |
 | `Router.Retry`                | A button that loads every page on screen again, for a page whose Loader broke.                                                                                                                                                                                                                                                                                               |
-| `Router.FadeIn`               | A `<div>` that fades its page's data in over 150 ms when it took the place of a loading screen, `<Router.FadeIn when={status.waited}>`, and stays still under reduced motion.                                                                                                                                                                                                |
 | `Router.memory`               | A `Loading` that runs the Loaders in place, for tests, stories and the server.                                                                                                                                                                                                                                                                                               |
 | `Router.cached`               | Puts the Data cache in front of a `Loading`: the last data of each place, shown at once on Back, a link or a preload.                                                                                                                                                                                                                                                        |
 | `Router.push`                 | A Command that moves the app to a Route, as a new entry.                                                                                                                                                                                                                                                                                                                     |
@@ -215,14 +213,6 @@ The port each platform's adapter fills, in types only: no runtime value.
 | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `client`  | Hydrates a page the Worker drew, from the History it saved in it: what the plugin's browser entry runs; an app never calls it.                                    |
 | `loading` | The `Loading` that asks the server for the data of places at `POST /_kabuki/load`, each answered as it comes: what `client` hydrates with, behind the Data cache. |
-
-### `@kestack/kabuki/devtools`
-
-| Export             | What it does                                                                                                                                                                     |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `KabukiDevtools`   | The Inspector on a running app, from `useRuntime()`, filling what holds it, in a shadow root with styles of its own: picking a Step Time Travels the app, going live comes back. |
-| `FloatingDevtools` | A button in the page's bottom-right corner that opens `KabukiDevtools` in a panel over the page, and closes it again; a past Step shown is marked on it.                         |
-| `Inspector`        | The Inspector on any Step it is given, with a Timeline the caller drives, for a story or a recording.                                                                            |
 
 ## Usage
 

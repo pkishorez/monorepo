@@ -44,8 +44,6 @@ export interface AuthWorkerConfig {
   dashApiKey?: string | undefined;
   /** Turns on the Authorization Server Role. */
   oauth?: { resources: OAuthResources } | undefined;
-  /** Development: the pages show the Kabuki devtools. @default false */
-  dev?: boolean | undefined;
 }
 
 export const DEFAULT_MAX_ACCOUNTS = 5;
@@ -106,10 +104,6 @@ export const resolveConfig = (config: AuthWorkerConfig): Resolved => {
   const maxAccounts = config.maxAccounts ?? DEFAULT_MAX_ACCOUNTS;
   if (!Number.isSafeInteger(maxAccounts) || maxAccounts < 1) {
     fail('maxAccounts must be a positive integer.');
-  }
-
-  if (config.dev !== undefined && typeof config.dev !== 'boolean') {
-    fail('dev must be a boolean.');
   }
 
   let scopes: Record<string, string> | undefined;

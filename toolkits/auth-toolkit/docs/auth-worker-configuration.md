@@ -31,12 +31,11 @@ const { handler } = authWorker({
 | `admit`        | The User Admission Policy: `(user: { email, name }) => boolean`, sync or async. See below.                                                                                                                |
 | `dashApiKey`   | Connects the Worker to better-auth's hosted dashboard. Absent or blank leaves it off.                                                                                                                     |
 | `oauth`        | Turns on the Authorization Server Role: `{ resources: { [url]: { [scope]: description } } }`. See below.                                                                                                  |
-| `dev`          | `true` in development: the pages show the Kabuki devtools. Defaults to `false`, production; the `url` is never used to guess.                                                                             |
 
 `authWorker` throws at startup on a missing `secret` or `brand.name`, a `url`
 that is not absolute or not under `cookieDomain`, a `cookieDomain` that is
-not a bare domain, a bad `maxAccounts`, a `dev` that is not a boolean, a resource key that is not a URL, an
-invalid scope name, or one scope described two different ways.
+not a bare domain, a bad `maxAccounts`, a resource key that is not a URL, an invalid
+scope name, or one scope described two different ways.
 
 It returns `{ auth, handler }`: the better-auth instance, for server-side
 calls, and the fetch handler that serves `/api/auth/*`, the pages, and their

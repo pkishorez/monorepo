@@ -15,7 +15,6 @@ export type {
   ScrollRestorationOptions,
 } from './scroll/index.ts';
 export type {
-  FadeInProps,
   LinkProps,
   Preload,
   RouterDefinition,

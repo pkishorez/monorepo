@@ -117,12 +117,6 @@ catalogs:
     '@standard-schema/spec':
       specifier: 1.1.0
       version: 1.1.0
-    '@tailwindcss/node':
-      specifier: 4.3.3
-      version: 4.3.3
-    '@tailwindcss/oxide':
-      specifier: 4.3.3
-      version: 4.3.3
     '@tailwindcss/typography':
       specifier: 0.5.20
       version: 0.5.20
@@ -867,12 +861,6 @@ importers:
         specifier: npm:@voidzero-dev/vite-plus-core@1.0.0
         version: '@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.4.1)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(typescript@7.0.2)(yaml@2.9.0)'
     devDependencies:
-      '@tailwindcss/node':
-        specifier: 'catalog:'
-        version: 4.3.3
-      '@tailwindcss/oxide':
-        specifier: 'catalog:'
-        version: 4.3.3
       '@types/react':
         specifier: 'catalog:'
         version: 19.2.18
@@ -897,9 +885,6 @@ importers:
       react-dom:
         specifier: 'catalog:'
         version: 19.2.8(react@19.2.8)
-      tailwindcss:
-        specifier: 'catalog:'
-        version: 4.3.3
       typescript:
         specifier: 'catalog:'
         version: 7.0.2

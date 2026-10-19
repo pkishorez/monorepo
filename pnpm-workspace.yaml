@@ -94,8 +94,6 @@ catalog:
   '@shikijs/rehype': 4.4.3
   '@shikijs/themes': 4.4.3
   '@standard-schema/spec': 1.1.0
-  '@tailwindcss/node': 4.3.3
-  '@tailwindcss/oxide': 4.3.3
   '@tailwindcss/typography': 0.5.20
   '@tailwindcss/vite': 4.3.3
   # Brings @tanstack/db 0.9.2 (verified 2026-09-27). Before upgrading, run

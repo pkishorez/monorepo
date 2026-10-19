@@ -239,10 +239,9 @@ export const cached = <E, R>(
         // the reload's own load, which forgot them: it is kept.
         forget: Effect.sync(() => {
           copies.clear();
-          const now = new Set(batch);
-          for (const [key, each] of flying)
-            if (!now.has(each)) flying.delete(key);
           forgotten = batch.length > 0 ? batch[0]!.seq - 1 : asked;
+          for (const [key, each] of flying)
+            if (each.seq <= forgotten) flying.delete(key);
         }),
       };
     }),
