@@ -14,6 +14,7 @@ export type {
   KidsIn,
   Only,
   OpenOfBehavior,
+  ProvidedOf,
   Requires,
   Self,
   Tagged,

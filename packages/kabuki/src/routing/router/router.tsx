@@ -5,8 +5,17 @@ import type { ActorType, AnyActor, Types } from '../../core/index.ts';
 import { View, lazyOf } from '../../react/index.ts';
 import type { ViewOf } from '../../react/index.ts';
 import { Adapter, KEY } from '../adapter/index.ts';
-import { Loading, Navigation, moveOptions } from '../capability/index.ts';
-import type { AnyRoute, MoveOptions } from '../capability/index.ts';
+import {
+  Loading,
+  Navigation,
+  moveOptions,
+  reloadOptions,
+} from '../capability/index.ts';
+import type {
+  AnyRoute,
+  MoveOptions,
+  ReloadOptions,
+} from '../capability/index.ts';
 import { knownOf } from '../page/index.ts';
 import type { AnyPageBuild, AnyPageDefinition, Known } from '../page/index.ts';
 import type {
@@ -22,12 +31,14 @@ import type {
 import { Scrolling, keyOf, restores, scriptFor } from '../scroll/index.ts';
 import { linkOptions } from './context.tsx';
 import {
+  anewOf,
   dueRuns,
   holdingAt,
   holdingSchema,
   loadPlace,
   placeMessages,
   readyOf,
+  renewing,
   settle,
   shownOf,
 } from './data.ts';
@@ -49,8 +60,16 @@ export interface RoutesLike<Route> extends Rooted<AnyPageDefinition> {
 }
 
 const HOW: ReadonlyArray<How> = ['load', 'push', 'replace', 'back', 'forward'];
-/** How a pending move lands: `arrive` is a push the address already shows; `back` and `forward` go to an entry. */
-const LANDS = ['push', 'replace', 'load', 'arrive', 'back', 'forward'] as const;
+/** How a pending move lands: `arrive` is a push the address already shows; `back` and `forward` go to an entry; `reload` stays on the entry shown, its data loaded anew. */
+const LANDS = [
+  'push',
+  'replace',
+  'load',
+  'arrive',
+  'back',
+  'forward',
+  'reload',
+] as const;
 type Lands = (typeof LANDS)[number];
 /** Redirects followed in a row before a move gives up, as not found. */
 const HOPS = 8;
@@ -71,6 +90,8 @@ export interface PendingMove<Route> {
   readonly key: string | null;
   /** What the push or replace said besides where it goes. */
   readonly said?: MoveOptions;
+  /** A reload anew's: the Data cache is dropped before it asks, so nothing it loads is a copy, or joins a load asked before. */
+  readonly anew?: boolean;
 }
 
 /** What a move carries besides where it goes and how. */
@@ -169,7 +190,7 @@ export type RouterMessage<Route> =
       readonly known: Readonly<Record<string, Known>>;
     }
   | { readonly _tag: 'Redirected'; readonly id: number; readonly route: Route }
-  | { readonly _tag: 'Reloaded' }
+  | ({ readonly _tag: 'Reloaded' } & ReloadOptions)
   | { readonly _tag: 'Preloading'; readonly route: Route }
   | PlaceMessage;
 
@@ -259,7 +280,7 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
   routes: RoutesLike<Route>,
   view: ViewOf<A>,
 ) => {
-  const { base, delay, scroll: scrolling } = routes.options;
+  const { base, delay, minimum, scroll: scrolling } = routes.options;
   const root = view.actor as unknown as AnyPageBuild;
   if (root.page !== routes.root)
     throw new Error(
@@ -371,6 +392,7 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
           since: Schema.Number,
           key: Schema.NullOr(Schema.String),
           said: Schema.optionalKey(Schema.Struct(moveOptions)),
+          anew: Schema.optionalKey(Schema.Boolean),
         }),
       ),
       holding: Schema.NullOr(RouteSchema),
@@ -396,7 +418,7 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
       Waited: { id: Schema.Number },
       Loaded: { id: Schema.Number, known: KnownSchema },
       Redirected: { id: Schema.Number, route: RouteSchema },
-      Reloaded: {},
+      Reloaded: reloadOptions,
       Preloading: { route: RouteSchema },
       ...placeMessages(routes),
     }),
@@ -448,6 +470,8 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
   ): Out & { readonly model: Model } => {
     const settled: Model = { ...model, pending: null, holding: null };
     const from = shown(model);
+    // A reload anew stays where it is: only its data is new.
+    if (how === 'reload') return { model: settled };
     // Back and Forward are at their entry already: the move only lands.
     if (how === 'back' || how === 'forward')
       return { model: { ...settled, move: { from, to, how } } };
@@ -510,8 +534,12 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
     now: number,
     along: Along = {},
   ): Out => {
+    // Data being loaded anew is drawn only until the move lands.
     const drawn = new Set(
-      routes.places(shown(model)).map((place) => place.key),
+      routes
+        .places(shown(model))
+        .filter((place) => !model.data[place.name]?.anew)
+        .map((place) => place.key),
     );
     const wanted = routes
       .places(route)
@@ -616,6 +644,9 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
       const { id } = pending;
       if (Option.isNone(found))
         return yield* send({ _tag: 'Loaded', id, known: {} });
+      // Data loaded anew is never answered by a copy, nor joins a load
+      // asked before: the Data cache is dropped before it asks.
+      if (pending.anew && found.value.forget) yield* found.value.forget;
       const places = routes
         .places(pending.to)
         .filter((place) => pending.wanted.includes(place.name));
@@ -662,6 +693,30 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
     command: forget(),
   });
 
+  /**
+   * A reload anew: the data of every place on screen is no one's any more.
+   * It is shown while a move is held, as a move to another page would be,
+   * and never kept: the move held, if there is one, now loads it too, else
+   * the Router holds one to the Route shown.
+   */
+  const reloadingAnew = (model: Model, now: number): Out => {
+    const marked: Model = { ...model, data: anewOf(model.data) };
+    const out = model.pending
+      ? toward(marked, model.pending.to, model.pending.how, now, model.pending)
+      : toward(marked, shown(model), 'reload', now);
+    const next = out.model as Model | undefined;
+    if (next?.pending)
+      return {
+        ...out,
+        model: { ...next, pending: { ...next.pending, anew: true } },
+      };
+    // Nothing on screen has data: what the Data cache keeps goes all the same.
+    return {
+      ...out,
+      command: [...([] as Array<Cmd>).concat(out.command ?? []), forget()],
+    };
+  };
+
   const built = (
     Actor.build as (definition: unknown, behavior: unknown) => AnyActor
   )(actor, {
@@ -705,7 +760,7 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
         back: self.send({ _tag: 'Went', by: -1 }),
         forward: self.send({ _tag: 'Went', by: 1 }),
         backTo: (to) => self.send({ _tag: 'WentBackTo', route: to as Route }),
-        reload: self.send({ _tag: 'Reloaded' }),
+        reload: (options) => self.send({ _tag: 'Reloaded', ...options }),
         preload: (to) => self.send({ _tag: 'Preloading', route: to as Route }),
       }),
     on: {
@@ -721,7 +776,9 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
           same(route, current(model).route) &&
           (said.hash ?? '') === (current(model).hash ?? '')
         )
-          return reloading({ ...model, pending: null });
+          return renewing(model.data)
+            ? reloadingAnew({ ...model, pending: null }, at)
+            : reloading({ ...model, pending: null });
         return toward(model, route, 'push', at, { said });
       },
       Replaced: (
@@ -857,15 +914,19 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
         if (pending?.id !== id) return {};
         const settled = { ...model, pending: null };
         const how =
-          pending.how === 'back' || pending.how === 'forward'
+          pending.how === 'back' ||
+          pending.how === 'forward' ||
+          pending.how === 'reload'
             ? 'replace'
             : pending.how;
         if (pending.hops < HOPS)
           return toward(settled, route, how, at, { hops: pending.hops + 1 });
         return land(settled, notFound(pending.to), how, {});
       },
-      Reloaded: (_: unknown, { model }: { readonly model: Model }) =>
-        reloading(model),
+      Reloaded: (
+        { anew }: ReloadOptions,
+        { model, at }: { readonly model: Model; readonly at: number },
+      ) => (anew ? reloadingAnew(model, at) : reloading(model)),
       Preloading: (
         { route }: { readonly route: Route },
         { model }: { readonly model: Model },
@@ -915,7 +976,7 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
           },
           run: string,
         ) =>
-          loadPlace(routes, run, {
+          loadPlace(routes, run, minimum, {
             send: self.send,
             get: Effect.map(self.get, ({ model }) => ({
               route: shown(model),
@@ -1077,7 +1138,12 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
             : null,
           metadata,
           go: (by) => send({ _tag: 'Went', by }),
-          reload: () => send({ _tag: 'Reloaded' }),
+          // Only what a reload says: a handler handed an event reloads plainly.
+          reload: (options) =>
+            send({
+              _tag: 'Reloaded',
+              ...(options?.anew === true ? { anew: true } : {}),
+            }),
           preload: (route) =>
             send({ _tag: 'Preloading', route: route as Route }),
           linkPreload: routes.options.preload,

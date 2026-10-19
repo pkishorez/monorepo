@@ -19,7 +19,8 @@ import type { Answer, RoutesWithPlaces, Wanted } from './loading.ts';
  *            for the same answer rather than asking again, and so does the
  *            load behind a stale copy. A fresh ask, a reload's, joins
  *            nothing, and an answer is kept only if nothing asked later is,
- *            and the copies were not dropped since.
+ *            and the copies were not dropped since it was sent: a reload's
+ *            own load, asked in the moment it drops them, is kept.
  * 4. Batch   the places asked for in the same moment into one ask of the
  *            Loading behind, so many places loading at once are one
  *            request, each answered as it comes. The load runs on its own:
@@ -233,11 +234,15 @@ export const cached = <E, R>(
                 keep(key, { data, seq: (asked += 1), at: arrived ?? now });
             }),
           ),
-        // What is on its way was asked before: it is neither joined nor kept.
+        // What is on its way was asked before: it is neither joined nor
+        // kept. What is asked in this very moment, still in the batch, is
+        // the reload's own load, which forgot them: it is kept.
         forget: Effect.sync(() => {
           copies.clear();
-          flying.clear();
-          forgotten = asked;
+          const now = new Set(batch);
+          for (const [key, each] of flying)
+            if (!now.has(each)) flying.delete(key);
+          forgotten = batch.length > 0 ? batch[0]!.seq - 1 : asked;
         }),
       };
     }),

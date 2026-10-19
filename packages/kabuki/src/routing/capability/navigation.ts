@@ -22,6 +22,19 @@ export interface MoveOptions {
   readonly hashScrollIntoView?: boolean | HashScrollOptions;
 }
 
+/** What a reload may say. */
+export interface ReloadOptions {
+  /**
+   * `true`: the data shown is no one's any more, as after the signed-in
+   * account changed. It is not shown behind the load: the Router holds it as
+   * a move, up to its delay, then each page shows it is loading.
+   */
+  readonly anew?: boolean;
+}
+
+/** The Schema of a reload's options, for the Message that carries them. */
+export const reloadOptions = { anew: Schema.optionalKey(Schema.Boolean) };
+
 const position = Schema.optionalKey(
   Schema.Literals(['start', 'center', 'end', 'nearest']),
 );
@@ -62,8 +75,12 @@ export class Navigation extends Context.Service<
     readonly forward: Effect.Effect<void>;
     /** Back, if the entry before is `route`; else replace this entry with it. */
     readonly backTo: (to: AnyRoute) => Effect.Effect<void>;
-    /** Load every place on screen again, its data shown meanwhile, and drop every other copy the Data cache keeps. */
-    readonly reload: Effect.Effect<void>;
+    /**
+     * Load every place on screen again, its data shown meanwhile, and drop
+     * every other copy the Data cache keeps; `{ anew: true }` drops the data
+     * shown too, and loads it as a move does.
+     */
+    readonly reload: (options?: ReloadOptions) => Effect.Effect<void>;
     /** Warm the Data cache, and the code of the lazy Views, for a Route the app may move to. */
     readonly preload: (to: AnyRoute) => Effect.Effect<void>;
   }
@@ -94,7 +111,8 @@ const backingTo = Command.make('back to', {
   run: ({ route }) => Navigation.use((navigation) => navigation.backTo(route)),
 });
 const reloading = Command.make('reload', {
-  run: () => Navigation.use((navigation) => navigation.reload),
+  args: Schema.Struct(reloadOptions),
+  run: (options) => Navigation.use((navigation) => navigation.reload(options)),
 });
 const preloading = Command.make('preload', {
   args,
@@ -112,7 +130,11 @@ export const back = () => backing();
 export const forward = () => forwarding();
 /** Close something with a Route of its own, like a dialog: Back if the app came from `route`, else replace this entry with it. */
 export const backTo = (to: AnyRoute) => backingTo({ route: to });
-/** Load every place on screen again, as after a save: the data shown stays until the new data comes. */
-export const reload = () => reloading();
+/**
+ * Load every place on screen again, as after a save: the data shown stays
+ * until the new data comes. `{ anew: true }`, when what the data belongs to
+ * changed, as the signed-in account: the data shown goes, as on a move.
+ */
+export const reload = (options: ReloadOptions = {}) => reloading(options);
 /** Warm the Data cache for a Route the app may move to next. */
 export const preload = (to: AnyRoute) => preloading({ route: to });

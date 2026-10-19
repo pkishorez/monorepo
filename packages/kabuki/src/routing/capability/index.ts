@@ -10,6 +10,12 @@ export {
   preload,
   push,
   reload,
+  reloadOptions,
   replace,
 } from './navigation.ts';
-export type { AnyRoute, HashScrollOptions, MoveOptions } from './navigation.ts';
+export type {
+  AnyRoute,
+  HashScrollOptions,
+  MoveOptions,
+  ReloadOptions,
+} from './navigation.ts';

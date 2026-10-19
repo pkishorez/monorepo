@@ -11,9 +11,9 @@ import {
 } from './capability/index.ts';
 import type { AnyRoute } from './capability/index.ts';
 import { Page as Pages } from './page/index.ts';
-import { NotFoundError, RedirectError } from './route/index.ts';
+import { NotFoundError, RedirectError, wholeQuery } from './route/index.ts';
 import type { RedirectTo } from './route/index.ts';
-import { Link, Retry, app, define } from './router/index.ts';
+import { FadeIn, Link, Retry, app, define } from './router/index.ts';
 
 /** A Loader's failure: the place it was asked for is not found. */
 const notFound = () => new NotFoundError();
@@ -52,13 +52,15 @@ function redirect(to: AnyRoute | Href, options: RedirectOptions = {}) {
  * and the pages under it; `Page.build` says how it behaves, with the build
  * of each page under it. A page is drawn with `View.make`, as any Actor is.
  * A Loader fails with `Page.notFound()` and `Page.redirect(route or URL)`,
- * whose Schemas are `Page.NotFound` and `Page.Redirect`.
+ * whose Schemas are `Page.NotFound` and `Page.Redirect`. `Page.wholeQuery`
+ * is a query field holding the whole query, every pair as written.
  */
 export const Page = {
   define: Pages.define,
   build: Pages.build,
   notFound,
   redirect,
+  wholeQuery,
   NotFound: NotFoundError,
   Redirect: RedirectError,
 };
@@ -73,7 +75,7 @@ export declare namespace Page {
 /**
  * The router: `Router.define` reads an app's router down from its root
  * page's definition; `Router.app` puts it above the root page's View, as
- * `Start.app` does; `Link` and `Retry` draw inside it; `push`, `replace`,
+ * `Start.app` does; `Link`, `Retry` and `FadeIn` draw inside it; `push`, `replace`,
  * `back`, `forward`, `backTo`, `reload` and `preload` are Commands an
  * Update returns; `memory` is a `Loading` that runs the Loaders in place,
  * and `cached` puts the Data cache in front of one.
@@ -83,6 +85,7 @@ export const Router = {
   app,
   Link,
   Retry,
+  FadeIn,
   memory,
   cached,
   push,

@@ -36,7 +36,15 @@
     "src/start/common": ["src/core", "src/react", "src/routing"],
     "src/routing/capability": ["src/routing/route"],
     "src/routing/page": ["src/routing/route", "src/routing/capability"],
-    "src/routing/scroll": []
+    "src/routing/scroll": [],
+    "src/devtools": ["src/core", "src/react"],
+    "src/devtools/map": [
+      "src/devtools/icons",
+      "src/devtools/ink",
+      "src/devtools/scene"
+    ],
+    "src/devtools/timeline": ["src/devtools/icons", "src/devtools/ink"],
+    "src/devtools/sheet": ["src/devtools/icons", "src/devtools/ink"]
   },
   "exceptions": [
     {
