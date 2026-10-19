@@ -18,6 +18,10 @@
       "src/client/document.tsx",
       "src/shared/pages"
     ],
+    "src/client/connect-github": [
+      "src/shared/contracts/github",
+      "src/shared/pages"
+    ],
     "src/client/console": [
       "src/client/pages",
       "src/shared/pages",
@@ -25,12 +29,18 @@
       "src/shared/contracts/local-session",
       "src/shared/contracts/member"
     ],
-    "src/client/pages": ["src/shared/pages"],
+    "src/client/pages": ["src/shared/pages", "src/client/connect-github"],
     "src/client/pages/settings": [
       "src/client/add-credential",
-      "src/shared/contracts/credential"
+      "src/shared/contracts/credential",
+      "src/shared/contracts/github"
     ],
-    "src/server/host": ["src/server/user-space", "src/shared/contracts/member"],
+    "src/server/host": [
+      "src/server/user-space",
+      "src/shared/contracts/member",
+      "src/server/connection-index"
+    ],
+    "src/server/host/github": ["src/server/host/visitor"],
     "src/server/host/visitor": ["src/shared/contracts/local-session"],
     "src/server/loaders.server.ts": [
       "src/server/host",
@@ -40,13 +50,21 @@
     ],
     "src/server/user-space": [
       "src/shared/contracts/console-api",
-      "src/shared/contracts/member"
+      "src/shared/contracts/member",
+      "src/server/connection-index"
     ],
+    "src/server/user-space/services/github": ["src/shared/contracts/github"],
     "src/server/user-space/services/providers": [
       "src/shared/contracts/credential"
     ],
     "src/server/user-space/services/storage": [
-      "src/shared/contracts/credential"
+      "src/shared/contracts/credential",
+      "src/shared/contracts/github"
+    ],
+    "src/server/user-space/workflows/connections": [
+      "src/server/user-space/services/github",
+      "src/server/user-space/services/storage",
+      "src/shared/contracts/github"
     ],
     "src/server/user-space/workflows/credentials": [
       "src/server/user-space/services/providers",
@@ -54,18 +72,28 @@
       "src/server/user-space/services/vault",
       "src/shared/contracts/credential"
     ],
+    "src/server/user-space/workflows/github-events": [
+      "src/server/user-space/workflows/connections"
+    ],
+    "src/server/user-space/workflows/repositories": [
+      "src/server/user-space/services/github",
+      "src/server/user-space/services/storage",
+      "src/shared/contracts/github"
+    ],
     "src/server/user-space/workflows/session": [
       "src/server/user-space/services/storage"
     ],
     "src/server/worker.ts": ["src/server/host", "src/server/user-space"],
     "src/shared/contracts/console-api": [
       "src/shared/contracts/credential",
-      "src/shared/contracts/member"
+      "src/shared/contracts/member",
+      "src/shared/contracts/github"
     ],
     "src/shared/pages": [
       "src/shared/contracts/console-api",
       "src/shared/contracts/credential",
-      "src/shared/contracts/member"
+      "src/shared/contracts/member",
+      "src/shared/contracts/github"
     ],
     "src/shared/pages/console": [
       "src/shared/pages/capabilities",

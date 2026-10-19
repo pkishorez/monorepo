@@ -56,22 +56,44 @@ const visit = (env: Env, request: Request) =>
     }),
   );
 
+type Ask = NonNullable<Visit['Service']['ask']>;
+
+/** The first list a stream of lists gives; none when it gives none. */
+const first = <A>(
+  ask: Ask,
+  open: (client: Client) => Stream.Stream<ReadonlyArray<A>, unknown>,
+) =>
+  Effect.map(
+    ask((client) => Stream.runHead(open(client))),
+    (head): ReadonlyArray<A> => (head._tag === 'Some' ? head.value : []),
+  );
+
 const loaders = router.loaders({
   Console: () => Effect.map(Visit, ({ visitor }) => visitor),
   'Console.Welcome': () =>
-    Effect.map(Visit, ({ visitor }) => ({
-      member: visitor._tag === 'SignedIn' ? visitor.member : null,
-    })),
+    Effect.gen(function* () {
+      const { visitor, ask } = yield* Visit;
+      if (visitor._tag !== 'SignedIn' || ask === null)
+        return { member: null, connections: null };
+      return {
+        member: visitor.member,
+        connections: yield* first(ask, (client) =>
+          client['Connections.list'](),
+        ),
+      };
+    }),
   'Console.Settings': () =>
     Effect.gen(function* () {
       const { ask } = yield* Visit;
-      if (ask === null) return { credentials: null };
-      const credentials = yield* ask((client) =>
-        Stream.runHead(client['Credentials.list']()),
+      if (ask === null) return { connections: null, credentials: null };
+      const [connections, credentials] = yield* Effect.all(
+        [
+          first(ask, (client) => client['Connections.list']()),
+          first(ask, (client) => client['Credentials.list']()),
+        ],
+        { concurrency: 2 },
       );
-      return {
-        credentials: credentials._tag === 'Some' ? credentials.value : [],
-      };
+      return { connections, credentials };
     }),
 });
 

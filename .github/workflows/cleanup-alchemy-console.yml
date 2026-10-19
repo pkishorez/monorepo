@@ -27,8 +27,13 @@ jobs:
       STAGE: pr${{ github.event_name == 'workflow_dispatch' && inputs.pr_number || github.event.number }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      # The stack reads the Vault key while it is evaluated, destroys too.
+      # The stack reads the Vault key and the GitHub App's keys while it is
+      # evaluated, destroys too; a preview is wired to the alchemy-console App.
       CONSOLE_VAULT_KEY: ${{ secrets.CONSOLE_VAULT_KEY }}
+      GH_APP_ID: ${{ secrets.GH_APP_ID }}
+      GH_APP_SLUG: ${{ secrets.GH_APP_SLUG }}
+      GH_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
+      GH_APP_WEBHOOK_SECRET: ${{ secrets.GH_APP_WEBHOOK_SECRET }}
     steps:
       - uses: actions/checkout@v7
         with:
