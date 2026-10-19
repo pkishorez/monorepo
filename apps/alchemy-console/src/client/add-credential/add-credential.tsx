@@ -15,11 +15,10 @@ import { Spinner } from '@kestack/web-platform/components/spinner';
 import {
   CredentialField,
   inputProblem,
-  NewCredential,
   Provider,
 } from '../../shared/contracts/credential/index.ts';
 import { Api } from '../../shared/pages/index.ts';
-import { add, close } from './commands.ts';
+import { add, announce, close, drop } from './commands.ts';
 import {
   AwsFields,
   CloudflareFields,
@@ -28,6 +27,7 @@ import {
   PROVIDER_LABEL,
   ProviderChoice,
 } from './fields.tsx';
+import { holdKeys } from './held-keys.ts';
 import { AddCredentialOpener } from './opener.ts';
 
 export { AddCredentialOpener };
@@ -39,12 +39,16 @@ export { AddCredentialOpener };
  * 1. Hold    the opener holds `AddCredentialLive` as a Child, hands it
  *            `open` and the `provider` it needs (null lets the user
  *            choose), and Provides an `AddCredentialOpener`.
- * 2. Check   a submitted form is checked here first, so a field that
- *            cannot be right is named at once, without a round trip.
+ * 2. Check   a submitted form is checked in the browser first, so a
+ *            field that cannot be right is named at once.
  * 3. Add     then the User Space asks the provider, and keeps the keys
  *            sealed; a field the provider blames shows its words under it.
+ *            The keys never ride in a Message, which the History keeps:
+ *            the form holds them (`held-keys.ts`) and the Message carries
+ *            a handle to them.
  * 4. Answer  the opener hears the new credential's ID, or that the user
- *            closed the sheet. Either way the sheet starts fresh next time.
+ *            closed the sheet. Closing starts a new attempt, so the answer
+ *            to one sent before is ignored.
  */
 
 const Problem = Schema.Struct({
@@ -64,15 +68,19 @@ export const AddCredential = Actor.define('AddCredential', {
     chosen: Provider,
     /** The Cloudflare account ID typed so far, for the token link. Not secret. */
     accountId: Schema.String,
+    /** Counts the sends and closes, so an answer names the one it is for. */
+    attempt: Schema.Number,
     busy: Schema.Boolean,
     problem: Schema.NullOr(Problem),
   }),
   message: Schema.TaggedUnion({
     ProviderChosen: { provider: Provider },
     AccountIdTyped: { accountId: Schema.String },
-    Submitted: { input: NewCredential },
-    Added: {},
-    Refused: { problem: Problem },
+    Invalid: { problem: Problem },
+    /** The form's keys, held under `handle`. */
+    Submitted: { handle: Schema.String },
+    Added: { attempt: Schema.Number, credentialId: Schema.String },
+    Refused: { attempt: Schema.Number, problem: Problem },
     CloseChosen: {},
   }),
 });
@@ -80,6 +88,7 @@ export const AddCredential = Actor.define('AddCredential', {
 const fresh = {
   chosen: 'cloudflare' as const,
   accountId: '',
+  attempt: 0,
   busy: false,
   problem: null,
 };
@@ -94,23 +103,30 @@ export const AddCredentialLive = Actor.build(AddCredential, {
       model: { ...model, accountId },
     }),
     // 2. Check, and 3. Add
-    Submitted: ({ input }, { model }) => {
-      if (model.busy) return {};
-      const problem = inputProblem(input);
-      return problem !== null
-        ? { model: { ...model, problem } }
-        : {
-            model: { ...model, busy: true, problem: null },
-            command: add({ input }),
-          };
+    Invalid: ({ problem }, { model }) =>
+      model.busy ? {} : { model: { ...model, problem } },
+    Submitted: ({ handle }, { model }) => {
+      if (model.busy) return { command: drop({ handle }) };
+      const attempt = model.attempt + 1;
+      return {
+        model: { ...model, attempt, busy: true, problem: null },
+        command: add({ handle, attempt }),
+      };
     },
     // 4. Answer
-    Added: () => ({ model: fresh }),
-    Refused: ({ problem }, { model }) => ({
-      model: { ...model, busy: false, problem },
-    }),
+    Added: ({ attempt, credentialId }, { model }) =>
+      attempt !== model.attempt
+        ? {}
+        : {
+            model: { ...fresh, attempt },
+            command: announce({ credentialId }),
+          },
+    Refused: ({ attempt, problem }, { model }) =>
+      attempt !== model.attempt
+        ? {}
+        : { model: { ...model, busy: false, problem } },
     CloseChosen: (_, { model }) => ({
-      model: { ...fresh, chosen: model.chosen },
+      model: { ...fresh, chosen: model.chosen, attempt: model.attempt + 1 },
       command: close({}),
     }),
   },
@@ -142,10 +158,17 @@ export const AddCredentialSheet = View.make(
               className="flex min-h-0 flex-1 flex-col"
               onSubmit={(event) => {
                 event.preventDefault();
-                send({
-                  _tag: 'Submitted',
-                  input: inputOf(provider, new FormData(event.currentTarget)),
-                });
+                if (model.busy) return;
+                const input = inputOf(
+                  provider,
+                  new FormData(event.currentTarget),
+                );
+                const problem = inputProblem(input);
+                send(
+                  problem === null
+                    ? { _tag: 'Submitted', handle: holdKeys(input) }
+                    : { _tag: 'Invalid', problem },
+                );
               }}
             >
               <SheetHeader className="pr-12">

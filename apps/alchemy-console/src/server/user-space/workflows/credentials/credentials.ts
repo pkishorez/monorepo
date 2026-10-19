@@ -79,18 +79,27 @@ export const credentialsHandlers = Effect.gen(function* () {
         if (problem !== null)
           return yield* new CredentialError({ reason: 'invalid', ...problem });
         const name = input.name.trim();
+        // Checked before asking the provider, to answer at once, and again
+        // with the write, since another tab may have taken it meanwhile.
         yield* uniqueName(storage, input.provider, name, null);
         const confirmed = yield* providers.verify(input);
-        const now = Date.now();
-        const saved = yield* storage.credentials.insert({
-          credentialId: yield* nextUlid,
-          name,
-          provider: input.provider,
-          ...confirmed,
-          sealed: yield* vault.encrypt(secretOf(input)),
-          createdAt: now,
-          updatedAt: now,
-        });
+        const sealed = yield* vault.encrypt(secretOf(input));
+        const credentialId = yield* nextUlid;
+        const saved = yield* storage.credentials.exclusively(
+          Effect.gen(function* () {
+            yield* uniqueName(storage, input.provider, name, null);
+            const now = Date.now();
+            return yield* storage.credentials.insert({
+              credentialId,
+              name,
+              provider: input.provider,
+              ...confirmed,
+              sealed,
+              createdAt: now,
+              updatedAt: now,
+            });
+          }),
+        );
         return summaryOf(saved);
       }),
     'Credentials.rename': ({
@@ -103,21 +112,25 @@ export const credentialsHandlers = Effect.gen(function* () {
       Effect.gen(function* () {
         const problem = nameProblem(name);
         if (problem !== null) return yield* invalid('name', problem);
-        const existing = yield* storage.credentials.get(credentialId);
-        if (existing === null) return yield* notFound;
-        yield* uniqueName(
-          storage,
-          existing.provider,
-          name.trim(),
-          credentialId,
+        return yield* storage.credentials.exclusively(
+          Effect.gen(function* () {
+            const existing = yield* storage.credentials.get(credentialId);
+            if (existing === null) return yield* notFound;
+            yield* uniqueName(
+              storage,
+              existing.provider,
+              name.trim(),
+              credentialId,
+            );
+            const renamed = yield* storage.credentials.rename(
+              credentialId,
+              name.trim(),
+              Date.now(),
+            );
+            if (renamed === null) return yield* notFound;
+            return summaryOf(renamed);
+          }),
         );
-        const renamed = yield* storage.credentials.rename(
-          credentialId,
-          name.trim(),
-          Date.now(),
-        );
-        if (renamed === null) return yield* notFound;
-        return summaryOf(renamed);
       }),
     'Credentials.remove': ({
       credentialId,

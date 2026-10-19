@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Stream } from 'effect';
+import { Context, Effect, Layer, Semaphore, Stream } from 'effect';
 import { defaultBroadcaster, type Entity } from '@kestack/std-toolkit/core';
 import { SQLite } from '@kestack/std-toolkit/db/sqlite';
 import {
@@ -44,6 +44,11 @@ export class Storage extends Context.Service<
     };
     /** The owner's Provider credentials, oldest first; secrets only sealed. */
     readonly credentials: {
+      /** Runs `effect` with no other `exclusively` effect in between, as a
+       * check for a taken name and the write it guards must run. */
+      readonly exclusively: <A, E, R>(
+        effect: Effect.Effect<A, E, R>,
+      ) => Effect.Effect<A, E, R>;
       readonly all: Effect.Effect<ReadonlyArray<StoredCredential>>;
       /** All of them now, then again after each change. */
       readonly changes: Stream.Stream<ReadonlyArray<StoredCredential>>;
@@ -80,6 +85,7 @@ export class Storage extends Context.Service<
         const run = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
           effect.pipe(Effect.provideContext(table), Effect.orDie);
 
+        const lock = yield* Semaphore.make(1);
         const read = run(owner.get()).pipe(Effect.map(({ value }) => value));
         const get = Effect.map(read, ({ member }) => member);
 
@@ -123,6 +129,7 @@ export class Storage extends Context.Service<
             ).pipe(Stream.changesWith(sameMember)),
           },
           credentials: {
+            exclusively: (effect) => Semaphore.withPermit(lock, effect),
             all,
             changes: Stream.concat(
               Stream.fromEffect(all),

@@ -140,6 +140,27 @@ describe('Credentials', () => {
       }),
     ));
 
+  it('keeps only one of two tabs adding the same name at once', () =>
+    run(
+      Effect.gen(function* () {
+        const [one, two] = yield* Effect.all([
+          console_.socket(bob),
+          console_.socket(bob),
+        ]);
+        const results = yield* Effect.all(
+          [one, two].map((tab) =>
+            Effect.exit(tab['Credentials.add'](sandbox('Twin'))),
+          ),
+          { concurrency: 'unbounded' },
+        );
+        expect(results.filter(Exit.isSuccess)).toHaveLength(1);
+        const [kept] = results.filter(Exit.isSuccess);
+        yield* one['Credentials.remove']({
+          credentialId: kept!.value.credentialId,
+        });
+      }),
+    ));
+
   it('never shows one member’s credentials to another', () =>
     run(
       Effect.gen(function* () {
