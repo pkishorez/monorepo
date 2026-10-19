@@ -18,6 +18,7 @@ import {
   sentBy,
   SocketCaller,
 } from './caller.ts';
+import { sessionBound } from './session-bound.ts';
 import { socketOf } from './socket.ts';
 import { Storage } from './services/storage/index.ts';
 import { sessionHandlers } from './workflows/session/index.ts';
@@ -40,12 +41,12 @@ import { sessionHandlers } from './workflows/session/index.ts';
 /** Every service, built once for the life of the object. */
 const services = (state: cf.DurableObjectState) => Storage.layer(state.storage);
 
-/** Every workflow's handlers, served as one `ConsoleApi`. */
+/** Every workflow's handlers, served as one `ConsoleApi`, each stream ending with its caller's session. */
 const handlers = ConsoleApi.toLayer(
   Effect.gen(function* () {
-    return {
+    return sessionBound({
       ...(yield* sessionHandlers),
-    };
+    });
   }),
 );
 
