@@ -201,6 +201,7 @@ export function AppMap({
       onTap={() => onPick(undefined)}
       {...(dotted === undefined ? {} : { dotted })}
       {...(follow ? { follow } : {})}
+      {...(layout ? { shape: layout } : {})}
       controls={
         onLayout &&
         (layout === 'outline' ? (

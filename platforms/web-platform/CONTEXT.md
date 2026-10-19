@@ -211,3 +211,47 @@ _Avoid_: debugger, panel
 **Devtools Dock**:
 Where Devtools sit beside a page, opened from one button that never moves: full screen over the page, a bar under it or a panel on its right that push the page aside, or a floating window. Its Layout and sizes are kept across reloads.
 _Avoid_: drawer, overlay, devtools panel
+
+**Map**:
+The Inspector's drawing of one Snapshot: a tree of Nodes and State Nodes joined by Links, as a packed tree top-down or as an outline, the root at its top. Every Node's size comes from its Actor alone; what hangs below one comes from the State it is in, so the Map moves at a Transition and at a Fold, and only then: what stops shrinks into what it hung from, what starts grows out of it, and the rest glides to its new place.
+_Avoid_: graph, canvas, diagram
+
+**Node**:
+One place an Actor runs, drawn as a card: the Actor's name, its States as options with the one its Instance is in filled, and its Worker Rows. Raised with a shadow while an Instance runs there, flat, dashed and dim while one only could. A slot of keyed Children is one place, drawn as a stack of cards showing one of its Instances at a time, picked with its Switcher: its States count every Instance and fill the shown one's, its Worker Rows and everything below it are the shown one's.
+_Avoid_: box, vertex
+
+**Switcher**:
+The arrows in a place of many's header that step through its Instances, with the shown one's key and where it is among them. Unless one is picked, it shows the one the Step's Message passed through, or the first.
+_Avoid_: pager, carousel, tabs
+
+**State Node**:
+A small node under a Node for each of its States that starts something. The one its Instance is in is lit, and what that State starts hangs from it; any other is faded and names what it would start beneath itself. What runs in every State hangs from the Node itself.
+_Avoid_: via, edge label, branch
+
+**Worker Row**:
+One line on a Node for each Worker its Actor has, there at every Step: the Worker's name, where it is written, and one dot per key it runs now. Live, a dot breathes while its key works, is red where it failed, and quiet where it finished; at a past Step a dot says only that its key is on. A Worker with no key running reads off.
+_Avoid_: pulse, badge, worker node, indicator
+
+**Link**:
+The curve from a Node to a State Node or a Node below it.
+_Avoid_: edge, wire, connection
+
+**Fold**:
+What a right click on a Node does: what hangs below it is hidden, named in one row under it, and a click on the names, or another right click, brings it back. A Message into a folded subtree is shown on the folded Node. A Node with nothing below it shakes instead.
+_Avoid_: collapse, hide, minimise
+
+**Popup**:
+What picking a place of keyed Children opens beside it, over the Map: its Instances, by key, with the State each is in, each to pick. Picking one shows it, as the Switcher does.
+_Avoid_: tooltip, menu, expansion
+
+**Focus**:
+What picking a Node does to the Map: the Node, the way up from it to the root, and what hangs right below it stay bright, and everything else all but fades away. A tap on the empty Map lets go.
+_Avoid_: highlight, selection, dim mode
+
+**Beat**:
+How a Step's Message is shown on the Map: an arrow from exactly what Sent it, the Worker Row or the Sender's name, into the Node it went to, which glows; the Message's tag on that Node's top edge, with who Sent it; and the Commands its Update asked for on its bottom edge. It rides along when the Map moves.
+_Avoid_: animation, frame, tick
+
+**Sheet**:
+The data of what is picked, along the bottom of the Inspector: an Instance, a place of many, a State, a Worker, or the Step's Message. On a wide Inspector it is a section of its own under the Map, what is picked on its left and each value in a column beside it; on a narrow one, a drawer over the Map, the full width, everything stacked.
+_Avoid_: panel, drawer (on its own), details, modal

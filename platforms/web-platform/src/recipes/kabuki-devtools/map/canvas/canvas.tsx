@@ -19,8 +19,9 @@ import { ink } from '../../ink/index.ts';
  *            what it is on.
  * 3. Zoom    scroll, pinch, or the buttons; always about a point, so what
  *            is under it stays there.
- * 4. Fit     the whole drawing in view, on demand; or, when following,
- *            every time the drawing changes, with no buttons to steer it.
+ * 4. Fit     the whole drawing in view, on demand, and when it is laid out
+ *            another way; or, when following, every time the drawing
+ *            changes, with no buttons to steer it.
  * 5. Tap     a tap on the surface itself, not on anything drawn (marked
  *            `ITEM`), says so.
  *            A right click never opens the browser's menu here.
@@ -67,6 +68,7 @@ export function Canvas({
   dotted = true,
   follow = false,
   controls,
+  shape,
   children,
 }: {
   /** What the drawing covers, for Fit. */
@@ -78,6 +80,8 @@ export function Canvas({
   readonly follow?: boolean;
   /** More buttons under Zoom and Fit, each a `Control`. */
   readonly controls?: ReactNode;
+  /** How the drawing is laid out: when it changes, the drawing is fitted anew. */
+  readonly shape?: string;
   /** The surface was tapped, away from anything drawn. */
   readonly onTap: () => void;
   /** The drawing, its origin at 0, 0. */
@@ -275,6 +279,15 @@ export function Canvas({
       SPRING,
     );
   };
+
+  // 4. Fit, once the drawing is laid out another way.
+  const laid = useRef(shape);
+  useEffect(() => {
+    if (laid.current === shape) return;
+    laid.current = shape;
+    fit();
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- refits only when the drawing is laid out anew.
+  }, [shape]);
 
   // 4. Fit, following the drawing as it grows and shrinks.
   useEffect(() => {
