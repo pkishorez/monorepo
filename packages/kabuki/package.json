@@ -67,6 +67,10 @@
       "types": "./dist/start/platform/cloudflare/index.d.ts",
       "default": "./dist/start/platform/cloudflare/index.js"
     },
+    "./start/platform/nitro": {
+      "types": "./dist/start/platform/nitro/index.d.ts",
+      "default": "./dist/start/platform/nitro/index.js"
+    },
     "./start/vite": {
       "types": "./dist/start/vite/index.d.ts",
       "default": "./dist/start/vite/index.js"
