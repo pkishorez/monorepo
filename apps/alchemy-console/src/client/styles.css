@@ -1,0 +1,24 @@
+@import '@kestack/web-platform/theme/global.css';
+@import '@kestack/web-platform/theme/font-inter.css';
+
+/* Arial sized to Inter's metrics, so text set before Inter arrives takes
+   the same room and nothing moves when it swaps in. */
+@font-face {
+  font-family: 'Inter Fallback';
+  src: local('Arial');
+  ascent-override: 90.49%;
+  descent-override: 22.56%;
+  line-gap-override: 0%;
+  size-adjust: 107.06%;
+}
+
+@theme {
+  --font-sans:
+    'Inter Variable', 'Inter Fallback', ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  body {
+    @apply bg-background font-sans text-foreground antialiased;
+  }
+}

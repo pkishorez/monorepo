@@ -1,24 +1,28 @@
 {
   "name": "alchemy-console",
-  "description": "Web console for browsing Alchemy state stores and deleting stacks, stages and resources with user-owned provider credentials.",
+  "description": "Deploy platform for Alchemy apps: connect GitHub, deploy every push and pull request, and explore every stack in your Cloudflare accounts.",
   "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "scripts": {
+    "build": "vp build",
+    "dev": "portless run --force alchemy dev",
+    "fmt": "vp fmt",
+    "lint": "vp check && pnpm lint:tsc && pnpm lint:laymos",
+    "lint:laymos": "laymos lint",
+    "lint:tsc": "tsc --noEmit",
+    "test": "vitest run"
+  },
   "dependencies": {
-    "@distilled.cloud/aws": "catalog:",
-    "@distilled.cloud/cloudflare": "catalog:",
     "@kestack/auth-toolkit": "workspace:*",
-    "@kestack/effect-tracer": "workspace:*",
+    "@kestack/kabuki": "workspace:*",
     "@kestack/rpc-toolkit": "workspace:*",
     "@kestack/std-toolkit": "workspace:*",
-    "@kestack/use-gesture": "workspace:*",
     "@kestack/web-platform": "workspace:*",
-    "@tanstack/react-query": "catalog:",
-    "@tanstack/react-router": "catalog:",
-    "@tanstack/react-start": "catalog:",
-    "alchemy": "catalog:",
     "effect": "catalog:",
     "react": "catalog:",
-    "react-dom": "catalog:",
-    "use-effect-ts": "workspace:*"
+    "react-dom": "catalog:"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "catalog:",
@@ -27,30 +31,13 @@
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
-    "esbuild": "catalog:",
+    "alchemy": "catalog:",
     "laymos": "workspace:*",
     "miniflare": "catalog:",
     "tailwindcss": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
-    "vite-plus": "catalog:"
-  },
-  "private": true,
-  "scripts": {
-    "build": "vp build",
-    "dev": "portless run --force alchemy dev",
-    "dev:force": "alchemy state unsafe nuke --backend local --yes && pnpm dev",
-    "fmt": "vp fmt",
-    "lint": "vp check && pnpm lint:tsc && pnpm lint:laymos",
-    "lint:laymos": "laymos lint",
-    "lint:tsc": "tsc --noEmit",
-    "test": "vp test run --config ../../vite.config.ts tests",
-    "test:worker": "node tests/worker-runtime.mjs"
-  },
-  "sideEffects": false,
-  "type": "module",
-  "exports": {
-    "./deletion-engine": "./src/server/services/deletion/engine/index.ts",
-    "./providers": "./src/server/providers/providers/index.ts"
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
   }
 }

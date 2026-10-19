@@ -1,7 +1,8 @@
 name: 🚀 deploy:alchemy-console
 on:
   push:
-    branches: [main]
+    # main deploys prod; console-next, the rewrite under review, deploys dev.
+    branches: [main, console-next]
   pull_request:
     types: [opened, reopened, synchronize]
     # The changeset release PR changes only these, so it starts no run.
@@ -12,13 +13,13 @@ on:
   workflow_dispatch:
     inputs:
       stage:
-        description: 'Stage to deploy: prod, or pr<N> for a preview of that PR'
+        description: 'Stage to deploy: prod, dev, or pr<N> for a preview of that PR'
         required: true
         type: string
 permissions:
   contents: read
 concurrency:
-  group: alchemy-console-${{ inputs.stage || (github.event_name == 'pull_request' && format('pr{0}', github.event.number)) || 'prod' }}
+  group: alchemy-console-${{ inputs.stage || (github.event_name == 'pull_request' && format('pr{0}', github.event.number)) || (github.ref_name == 'console-next' && 'dev') || 'prod' }}
   cancel-in-progress: false
 jobs:
   detect:
@@ -52,14 +53,23 @@ jobs:
       contents: read
       pull-requests: write
     env:
-      STAGE: ${{ inputs.stage || (github.event_name == 'pull_request' && format('pr{0}', github.event.number)) || 'prod' }}
+      STAGE: ${{ inputs.stage || (github.event_name == 'pull_request' && format('pr{0}', github.event.number)) || (github.ref_name == 'console-next' && 'dev') || 'prod' }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      # dev is wired to the alchemy-console-dev GitHub App and its own vault
+      # key; prod and the previews to the alchemy-console App's.
+      GH_APP_ID: ${{ github.ref_name == 'console-next' && secrets.DEV_GH_APP_ID || secrets.GH_APP_ID }}
+      GH_APP_SLUG: ${{ github.ref_name == 'console-next' && secrets.DEV_GH_APP_SLUG || secrets.GH_APP_SLUG }}
+      GH_APP_CLIENT_ID: ${{ github.ref_name == 'console-next' && secrets.DEV_GH_APP_CLIENT_ID || secrets.GH_APP_CLIENT_ID }}
+      GH_APP_CLIENT_SECRET: ${{ github.ref_name == 'console-next' && secrets.DEV_GH_APP_CLIENT_SECRET || secrets.GH_APP_CLIENT_SECRET }}
+      GH_APP_WEBHOOK_SECRET: ${{ github.ref_name == 'console-next' && secrets.DEV_GH_APP_WEBHOOK_SECRET || secrets.GH_APP_WEBHOOK_SECRET }}
+      GH_APP_PRIVATE_KEY: ${{ github.ref_name == 'console-next' && secrets.DEV_GH_APP_PRIVATE_KEY || secrets.GH_APP_PRIVATE_KEY }}
+      CONSOLE_VAULT_KEY: ${{ github.ref_name == 'console-next' && secrets.DEV_CONSOLE_VAULT_KEY || secrets.CONSOLE_VAULT_KEY }}
     steps:
       - name: Validate stage
         run: |
-          if ! printf '%s\n' "$STAGE" | grep -qxE 'prod|pr[0-9]+'; then
-            echo "::error::Stage must be 'prod' or 'pr<N>', got '$STAGE'."
+          if ! printf '%s\n' "$STAGE" | grep -qxE 'prod|dev|pr[0-9]+'; then
+            echo "::error::Stage must be 'prod', 'dev' or 'pr<N>', got '$STAGE'."
             exit 1
           fi
       - uses: actions/checkout@v7
@@ -91,7 +101,7 @@ jobs:
         env:
           AFFECTED: ${{ needs.detect.outputs.affected }}
           RESULT: ${{ needs.deploy.result }}
-          STAGE: ${{ inputs.stage || (github.event_name == 'pull_request' && format('pr{0}', github.event.number)) || 'prod' }}
+          STAGE: ${{ inputs.stage || (github.event_name == 'pull_request' && format('pr{0}', github.event.number)) || (github.ref_name == 'console-next' && 'dev') || 'prod' }}
         run: |
           case "$RESULT" in
             success)

@@ -1,72 +1,79 @@
-import { AlchemyContext, Stack, Stage } from 'alchemy';
+import { AlchemyContext, localState, Stack, Stage } from 'alchemy';
 import * as Cloudflare from 'alchemy/Cloudflare';
-import * as Output from 'alchemy/Output';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
-import {
-  D1,
-  providers as stdToolkitProviders,
-} from '@kestack/std-toolkit/alchemy';
-import { consoleTable } from './src/server/storage/table/index.ts';
-// Entities register on the table as their modules load; the snapshot must see all of them.
-import './src/server/storage/credentials/index.ts';
-import './src/server/storage/stores/index.ts';
+import type { UserSpace } from './src/server/worker.ts';
 
-const productionHost: string = 'console.kishore.app';
+/*
+ * Console's one stack: the Console Worker, a Kabuki Start site whose main
+ * module also exports the User Space Durable Object class, bound as
+ * `USER_SPACE`.
+ *
+ * Stages:
+ * - `prod` → console.kishore.app, from `main`;
+ * - `dev` → dev-console.kishore.app, from every push to `console-next`;
+ * - `pr<N>` → pr<N>-console.kishore.app, one per pull request.
+ * Those three deploy only from CI (`CI=true`), with the Auth Worker at
+ * auth.kishore.app, and keep their state in Cloudflare. Any other stage is
+ * personal, as `alchemy dev` makes: state on disk, and Local mode sign-in
+ * unless `CONSOLE_AUTH_URL` names an Auth Worker (auth.kishore.computer
+ * behind portless).
+ */
 
-export const Database = Cloudflare.D1.Database(
-  'DatabaseV2',
-  Effect.gen(function* () {
-    const stage = yield* Stage;
-    return { name: `alchemy-console-v3-${stage}` };
-  }),
-);
+const productionHost = 'console.kishore.app';
+const authWorker = 'https://auth.kishore.app';
+
+const isDeployed = (stage: string) =>
+  stage === 'prod' || stage === 'dev' || /^pr[0-9]+$/.test(stage);
+
+const domainFor = (stage: string) =>
+  stage === 'prod' ? productionHost : `${stage}-${productionHost}`;
 
 export const Worker = Cloudflare.Website.Vite(
   'Worker',
   Effect.gen(function* () {
     const stage = yield* Stage;
     const { dev } = yield* AlchemyContext;
-    const deployed = stage === 'prod' || /^pr[0-9]+$/.test(stage);
+    const deployed = isDeployed(stage);
     if (deployed && process.env.CI !== 'true') {
-      throw new Error('Deploy prod and PR stages through GitHub Actions.');
-    }
-    if (deployed && !productionHost) {
-      throw new Error('Choose a production domain before deploying.');
+      throw new Error(
+        `Deploy "${stage}" through GitHub Actions (deploy-alchemy-console.yml), not by hand.`,
+      );
     }
     const port = Number(process.env.PORT);
     if (dev && (!Number.isInteger(port) || port < 1 || port > 65535)) {
       throw new Error('Run pnpm dev so Portless can assign PORT.');
     }
-    // The new database starts with one table and a fresh snapshot baseline.
-    const database = yield* Database;
-    const table = yield* D1.table('ConsoleTableV2', {
-      table: consoleTable,
-      database,
-    });
-
     return {
-      env: { DB: Database },
-      // Keep Worker deployment behind the table resource.
-      tag: Output.map(table.snapshot, () => 'console-v2'),
+      env: {
+        USER_SPACE: Cloudflare.DurableObject<UserSpace>('UserSpace'),
+        // The Invite list: emails, comma-separated.
+        CONSOLE_INVITES:
+          process.env.CONSOLE_INVITES ?? 'kishore.iiitn@gmail.com',
+        // Inlined into the Worker and the browser alike; '' is Local mode.
+        VITE_CONSOLE_AUTH_URL: deployed
+          ? authWorker
+          : (process.env.CONSOLE_AUTH_URL ?? ''),
+      },
       compatibility: { date: '2026-07-01', flags: ['nodejs_compat'] },
       dev: dev ? { port } : undefined,
-      domain: deployed
-        ? stage === 'prod'
-          ? productionHost
-          : `${stage}-${productionHost}`
-        : undefined,
+      domain: deployed ? domainFor(stage) : undefined,
     };
   }),
 );
 
 export type WorkerEnv = Cloudflare.InferEnv<typeof Worker>;
 
+/** Deployed stages share their state in Cloudflare; a personal one keeps it on disk, in `.alchemy/`. */
+const State = Layer.unwrap(
+  Effect.gen(function* () {
+    const stage = yield* Stage;
+    return isDeployed(stage) ? Cloudflare.state() : localState();
+  }),
+);
+
 export default Stack(
   'AlchemyConsole',
-  {
-    providers: Layer.merge(Cloudflare.providers(), stdToolkitProviders()),
-    state: Cloudflare.state(),
-  },
+  { providers: Cloudflare.providers(), state: State },
   Worker,
 );

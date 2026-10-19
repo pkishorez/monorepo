@@ -122,6 +122,7 @@ Peer dependencies, all optional; install the ones your doors need:
 | `browserAccountsTable` | The StdTable the optional `cache` keeps the last-known Accounts in, without tokens.              |
 | `localAccountsTable`   | The StdTable Local mode keeps Local Accounts in.                                                 |
 | `localChooser`         | A Local mode `choose` that a sign-in dialog answers.                                             |
+| `localTokenOf`         | The Local Token a Local Account signs with, for a Local mode server that reads it from a cookie. |
 
 ### `@kestack/auth-toolkit/client/device`
 

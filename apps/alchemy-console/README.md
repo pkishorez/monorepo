@@ -1,67 +1,81 @@
 # alchemy-console
 
-Web console for browsing Alchemy state stores and deleting stacks, stages and resources with user-owned provider credentials.
+Deploy platform for Alchemy apps: connect GitHub, deploy every push and pull request, and explore every stack in your Cloudflare accounts.
 
 ## Big picture
 
-Alchemy records what it deployed in a state store. Reading that state, or
-tearing down a stage, otherwise means running the CLI with the right
-credentials on your machine. The console puts the same operations behind a
-login at [console.kishore.app](https://console.kishore.app): pick a store, walk
-its stacks and stages, inspect resources, actions and outputs, and delete a
-stage after a review that shows what will happen to every resource.
+A signed-in, invited user connects GitHub, picks a repository folder holding
+an `alchemy.run.ts`, and Console deploys it: Production on every push,
+a `pr<N>` preview per pull request, destroyed when it closes. Each run executes
+the project's own Alchemy, so custom resources deploy and destroy too
+([ADR 0003](./docs/adr/0003-rewrite-as-a-deploy-platform.md),
+[ADR 0005](./docs/adr/0005-runner-uses-the-projects-own-alchemy.md)). The
+words are in [CONTEXT.md](./CONTEXT.md).
 
-Credentials belong to the user, not the app. A user registers Cloudflare or AWS
-credentials once in Settings, grants them to stores, and chooses which one
-each deletion runs with. The vocabulary (store, grant, stage, deletion review,
-ignore a resource) is defined in [CONTEXT.md](./CONTEXT.md). The folder layout
-and layer graphs are in [ARCHITECTURE.md](./ARCHITECTURE.md), with decisions in
-[docs/adr](./docs/adr).
+It is one Cloudflare Worker. Its pages are a Kabuki app served by Kabuki Start
+(`@kestack/kabuki`); every user's data lives in their own User Space, a Durable
+Object the same Worker exports, which serves that user's Console API over
+hibernating WebSockets ([ADR 0004](./docs/adr/0004-each-user-owns-a-durable-object.md)).
+Sign-in is the shared Auth Worker's (`@kestack/auth-toolkit`), the API is
+Effect RPC (`@kestack/rpc-toolkit`), records are `@kestack/std-toolkit`
+entities on the object's SQLite, and the UI is `@kestack/web-platform`.
 
-It is a TanStack Start app on a Cloudflare Worker with a D1 database, declared
-in `alchemy.run.ts`. It builds on `@kestack/auth-toolkit` for login, `@kestack/rpc-toolkit` for
-the typed client to server API, `@kestack/std-toolkit` for the SQLite table layer and
-schemas, `@kestack/web-platform` and `use-effect-ts` for the UI, and
-`@kestack/effect-tracer` for telemetry. The deletion engine runs Alchemy's
-own `Plan.destroy` inside the Worker.
+The layout, which `laymos lint` checks, keeps client, server and runner apart:
+they share only `src/shared`.
+
+```
+src/
+  client/            the Kabuki app: app.tsx, document.tsx, console/ (the root gate), pages/<page>/
+  server/            worker.ts (the entry), loaders.server.ts, host/ (routes), user-space/ (the Durable Object)
+  shared/contracts/  what both sides speak: entities, console-api/
+  shared/pages/      the route tree, read by the browser and the Loaders alike
+```
 
 ## Usage
 
-### Run locally
+### Run it locally
 
-`pnpm dev` starts the Alchemy dev server through Portless, which assigns
-`PORT` and serves the app under the `console.kishore` name from
-`portless.json`. Use the URL printed at startup. `alchemy.run.ts` creates the
-local D1 database and runs `D1.table` to set up the console table.
+`pnpm dev` runs `alchemy dev` behind portless, on a personal stage with state
+on disk and Local mode sign-in: type any email, and an invited one gets in. Set
+`CONSOLE_INVITES` and `CONSOLE_AUTH_URL` as `.env.example` describes. `pnpm test`
+builds the Worker as a deploy does and runs it in Miniflare; `pnpm lint` runs
+the checks, types and `laymos lint`.
 
-```bash
-pnpm --filter alchemy-console dev          # dev server
-pnpm --filter alchemy-console dev:force    # nuke local Alchemy state, then dev
-pnpm --filter alchemy-console lint         # vp check + tsc --noEmit + laymos lint
-pnpm --filter alchemy-console fmt
-pnpm --filter alchemy-console test         # vitest, tests/*.test.ts
-pnpm --filter alchemy-console test:worker  # bundles the Worker with esbuild, runs it under Miniflare
+```sh
+CONSOLE_INVITES=ada@demo pnpm --filter alchemy-console dev
+pnpm --filter alchemy-console test
 ```
 
-### Build
+- `prod`, `dev` and `pr<N>` deploy only from CI: `main` to console.kishore.app, `console-next` to dev-console.kishore.app, each pull request to `pr<N>-console.kishore.app`.
 
-```bash
-pnpm --filter alchemy-console build        # vp build -> dist/
+### Add a page
+
+A page is a definition, a build and a View. The definition goes in
+`src/shared/pages/<page>/` and joins Console's `pages`; its build and View go
+in `src/client/pages/<page>/` and join `ConsoleLive`'s `pages` and
+`ConsoleView`; its Loader, if it has data, goes in `src/server/loaders.server.ts`.
+For live data the page runs one Worker that follows a Console API stream, as
+Welcome does:
+
+```ts
+workers: {
+  member: {
+    run: (self) =>
+      Effect.gen(function* () {
+        const api = yield* Api;
+        yield* api
+          .follow((client) => client['Session.watch']())
+          .pipe(Stream.runForEach((member) => self.send({ _tag: 'MemberSeen', member })));
+      }).pipe(Effect.retry(Schedule.spaced('2 seconds')), Effect.orDie),
+  },
+},
 ```
 
-### Deploy
+- The Worker runs while the page is on screen; leaving it stops the stream.
+- `Api.follow` begins the stream again as the new member after an Account Switch, on their own socket.
 
-Deploys only run in GitHub Actions. `alchemy.run.ts` throws when the stage is
-`prod` or `pr<N>` and `CI` is not `true`, so a local `alchemy deploy` cannot
-reach a deployed stage.
+### Add an RPC group, a workflow or a route
 
-`.github/workflows/deploy-alchemy-console.yml` deploys `prod` to
-`console.kishore.app` on every push to `main`, and `pr<N>` to
-`pr<N>-console.kishore.app` for each pull request. It needs
-`CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` secrets, runs
-`alchemy provider cloudflare bootstrap` once, then `alchemy deploy --stage <stage>`.
-The `D1.table` resource checks the console table snapshot and sets up the
-`alchemy-console` table in the new `alchemy-console-v3-<stage>` database. The
-previous database is removed during the deployment; its records are not
-copied. PR stages are removed by
-`cleanup-alchemy-console.yml`.
+- A group is a nested module of `src/shared/contracts/console-api/`, merged in `console-api.ts`: `Auth.required(Session.merge(Credentials))`.
+- Its handlers come from a workflow, `src/server/user-space/workflows/<name>/`, spread into `handlers` in `user-space.ts`; a service it needs is `src/server/user-space/services/<name>/`, built in `services` there.
+- A Worker route of its own, like `/github/*`, is a file in `src/server/host/` and a case in `host.ts`, answered before Start.

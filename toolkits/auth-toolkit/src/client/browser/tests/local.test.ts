@@ -11,7 +11,13 @@ import {
   User,
 } from '../../../guard/index.js';
 import { Accounts, AccountsState } from '../../accounts/index.js';
-import { browser, localAccountsTable, localChooser } from '../index.js';
+import { verify } from '../../../server/verification/index.js';
+import {
+  browser,
+  localAccountsTable,
+  localChooser,
+  localTokenOf,
+} from '../index.js';
 
 /** Signs in whoever is next in line, as a test's stand-in for a dialog. */
 const queue = (...choices: Array<{ email: string; name?: string } | null>) =>
@@ -184,6 +190,25 @@ describe('browser in Local mode', () => {
       failure: { _tag: 'Unauthenticated', reason: 'Not signed in' },
     });
     expect(after).toMatchObject({ success: 'ada@demo' });
+  });
+
+  it('gives the Active Account’s Local Token, which a Local mode server verifies', async () => {
+    const token = await run(
+      Effect.gen(function* () {
+        const accounts = yield* Accounts;
+        yield* accounts.signIn();
+        const state = yield* accounts.current;
+        return state._tag === 'SignedIn' ? localTokenOf(state.active) : null;
+      }),
+      browser({ local: { choose: queue({ email: 'ada@demo' }) } }),
+    );
+    const principal = await verify(
+      new Request('https://app.example.com/', {
+        headers: { authorization: `Bearer ${token}` },
+      }),
+      { local: true },
+    );
+    expect(principal?.user).toMatchObject({ email: 'ada@demo', name: 'ada' });
   });
 });
 

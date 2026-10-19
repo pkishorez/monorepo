@@ -22,6 +22,12 @@ import { watchTabs } from './tabs.js';
 
 export { browserAccountsTable, localAccountsTable, localChooser };
 
+/** The Local Token a Local Account signs its calls with, for a Local mode
+ * server that must know the visitor before any call, as one that draws the
+ * page from a cookie the app keeps. */
+export const localTokenOf = (account: Account): string =>
+  localToken.make(account);
+
 export type BrowserOptions =
   | {
       /** The Auth Worker's own URL. */
