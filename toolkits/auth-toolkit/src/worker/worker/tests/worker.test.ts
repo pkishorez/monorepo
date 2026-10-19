@@ -11,133 +11,143 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('better-auth', () => ({ betterAuth: mocks.betterAuth }));
 
-import { createAuthWorker } from '../worker.js';
+import type { PagesContext } from '../pages.js';
+import { authWorker, makeAuthWorker } from '../worker.js';
 
 const config = {
-  baseURL: 'https://auth.example.com',
+  url: 'https://auth.example.com',
   secret: 'test-secret-test-secret-test-secret',
   database: {} as never,
   google: { clientId: 'test', clientSecret: 'test' },
-  trustedOrigins: ['https://app.example.com', '*.preview.example.com'],
-  branding: { appName: 'Example' },
+  cookieDomain: '.example.com',
+  brand: { name: 'Example' },
 };
 
-describe('createAuthWorker', () => {
+const options = (call = 0) => mocks.betterAuth.mock.calls[call]?.[0];
+const pluginIds = (call = 0) =>
+  options(call).plugins.map((plugin: { id: string }) => plugin.id);
+
+const fromOrigin = (origin: string, init: RequestInit = {}) =>
+  new Request('https://auth.example.com/api/auth/get-session', {
+    ...init,
+    headers: { Origin: origin, ...init.headers },
+  });
+
+describe('authWorker', () => {
   beforeEach(() => {
     mocks.authHandler.mockClear();
     mocks.betterAuth.mockReset();
     mocks.betterAuth.mockReturnValue({ handler: mocks.authHandler });
   });
 
-  it('answers trusted preflight requests without calling Better Auth', async () => {
-    const { handler } = createAuthWorker(config);
-    const response = await handler(
-      new Request('https://auth.example.com/api/auth/get-session', {
-        method: 'OPTIONS',
-        headers: {
-          Origin: 'https://app.example.com',
-          'Access-Control-Request-Headers': 'content-type',
-          'Access-Control-Request-Method': 'GET',
-        },
-      }),
-    );
+  describe('trust under the Shared Cookie Domain', () => {
+    it('answers a preflight from any origin under it without better-auth', async () => {
+      const { handler } = authWorker(config);
+      const response = await handler(
+        fromOrigin('https://deep.preview.example.com', {
+          method: 'OPTIONS',
+          headers: {
+            'Access-Control-Request-Headers': 'content-type',
+            'Access-Control-Request-Method': 'GET',
+          },
+        }),
+      );
+      expect(response.status).toBe(204);
+      expect(response.headers.get('Access-Control-Allow-Origin')).toBe(
+        'https://deep.preview.example.com',
+      );
+      expect(response.headers.get('Access-Control-Allow-Credentials')).toBe(
+        'true',
+      );
+      expect(response.headers.get('Access-Control-Allow-Headers')).toBe(
+        'content-type',
+      );
+      expect(mocks.authHandler).not.toHaveBeenCalled();
+    });
 
-    expect(response.status).toBe(204);
-    expect(response.headers.get('Access-Control-Allow-Origin')).toBe(
-      'https://app.example.com',
-    );
-    expect(response.headers.get('Access-Control-Allow-Credentials')).toBe(
-      'true',
-    );
-    expect(response.headers.get('Access-Control-Allow-Headers')).toBe(
-      'content-type',
-    );
-    expect(mocks.authHandler).not.toHaveBeenCalled();
+    it('trusts the bare domain and keeps Vary on normal responses', async () => {
+      const { handler } = authWorker(config);
+      const response = await handler(fromOrigin('https://example.com'));
+      expect(response.headers.get('Access-Control-Allow-Origin')).toBe(
+        'https://example.com',
+      );
+      expect(response.headers.get('Vary')).toContain('Accept-Encoding');
+      expect(response.headers.get('Vary')).toContain('Origin');
+    });
+
+    it.each([
+      'https://app.example.com.attacker.test',
+      'https://notexample.com',
+      'http://app.example.com',
+      'null',
+    ])('does not trust %s', async (origin) => {
+      const { handler } = authWorker(config);
+      const response = await handler(fromOrigin(origin));
+      expect(response.headers.has('Access-Control-Allow-Origin')).toBe(false);
+      expect(response.headers.get('Vary')).toContain('Origin');
+      const preflight = await handler(
+        fromOrigin(origin, { method: 'OPTIONS' }),
+      );
+      expect(preflight.status).toBe(403);
+    });
+
+    it('trusts plaintext origins only when the worker itself is plaintext', async () => {
+      const { handler } = authWorker({
+        ...config,
+        url: 'http://auth.localhost:8787',
+        cookieDomain: 'localhost',
+      });
+      const response = await handler(
+        new Request('http://auth.localhost:8787/api/auth/get-session', {
+          headers: { Origin: 'http://app.localhost:3000' },
+        }),
+      );
+      expect(response.headers.get('Access-Control-Allow-Origin')).toBe(
+        'http://app.localhost:3000',
+      );
+    });
+
+    it('hands better-auth the same rule and a cross-subdomain cookie', () => {
+      authWorker(config);
+      expect(options().trustedOrigins).toEqual([
+        'https://auth.example.com',
+        'https://example.com',
+        'https://*.example.com',
+      ]);
+      expect(options().advanced.crossSubDomainCookies).toEqual({
+        enabled: true,
+        domain: 'example.com',
+      });
+    });
   });
 
-  it('adds CORS headers to normal responses for wildcard origins', async () => {
-    const { handler } = createAuthWorker(config);
-    const response = await handler(
-      new Request('https://auth.example.com/api/auth/get-session', {
-        headers: { Origin: 'https://branch.preview.example.com' },
-      }),
-    );
-
-    expect(response.headers.get('Access-Control-Allow-Origin')).toBe(
-      'https://branch.preview.example.com',
-    );
-    expect(response.headers.get('Vary')).toContain('Accept-Encoding');
-    expect(response.headers.get('Vary')).toContain('Origin');
+  it('disables rate limiting and fixes the Cookie Cache at five minutes', () => {
+    authWorker(config);
+    expect(options().rateLimit).toEqual({ enabled: false });
+    expect(options().session.cookieCache).toEqual({
+      enabled: true,
+      maxAge: 300,
+    });
   });
 
-  it('does not grant CORS access to untrusted origins', async () => {
-    const { handler } = createAuthWorker(config);
-    const response = await handler(
-      new Request('https://auth.example.com/api/auth/get-session', {
-        headers: { Origin: 'https://app.example.com.attacker.test' },
-      }),
-    );
-
-    expect(response.headers.has('Access-Control-Allow-Origin')).toBe(false);
-    expect(response.headers.get('Vary')).toContain('Origin');
+  it('uses only the Primary Database for persisted auth state', () => {
+    authWorker(config);
+    expect(options().database).toBe(config.database);
+    expect(options()).not.toHaveProperty('secondaryStorage');
+    expect(options().session.storeSessionInDatabase).toBe(true);
+    expect(options().verification.storeInDatabase).toBe(true);
   });
 
-  it('does not match a scheme-less wildcard against a plaintext origin', async () => {
-    const { handler } = createAuthWorker(config);
-    const response = await handler(
-      new Request('https://auth.example.com/api/auth/get-session', {
-        headers: { Origin: 'http://branch.preview.example.com' },
-      }),
-    );
-
-    expect(response.headers.has('Access-Control-Allow-Origin')).toBe(false);
-  });
-
-  it('varies on Origin when rejecting an untrusted preflight', async () => {
-    const { handler } = createAuthWorker(config);
-    const response = await handler(
-      new Request('https://auth.example.com/api/auth/get-session', {
-        method: 'OPTIONS',
-        headers: { Origin: 'https://attacker.test' },
-      }),
-    );
-
-    expect(response.status).toBe(403);
-    expect(response.headers.get('Vary')).toContain('Origin');
-  });
-
-  it('disables Better Auth rate limiting', () => {
-    createAuthWorker(config);
-
-    expect(mocks.betterAuth).toHaveBeenCalledWith(
-      expect.objectContaining({ rateLimit: { enabled: false } }),
-    );
-  });
-
-  it('uses only the primary database for persisted auth state', () => {
-    createAuthWorker(config);
-
-    const options = mocks.betterAuth.mock.calls[0]?.[0];
-    expect(options.database).toBe(config.database);
-    expect(options).not.toHaveProperty('secondaryStorage');
-    expect(options.session.storeSessionInDatabase).toBe(true);
-    expect(options.verification.storeInDatabase).toBe(true);
-  });
-
-  it('always installs Admin, Bearer, Device Login, and Signed-in Accounts, and Dash only with a non-empty API key', () => {
-    createAuthWorker(config);
-    expect(
-      mocks.betterAuth.mock.calls[0]?.[0].plugins.map(
-        (plugin: { id: string }) => plugin.id,
-      ),
-    ).toEqual(['admin', 'bearer', 'device-authorization', 'multi-session']);
-
-    createAuthWorker({ ...config, dashApiKey: '  dash-key  ' });
-    expect(
-      mocks.betterAuth.mock.calls[1]?.[0].plugins.map(
-        (plugin: { id: string }) => plugin.id,
-      ),
-    ).toEqual([
+  it('always installs Admin, Bearer, Device Login, and multi-session; Dash only with a key', () => {
+    authWorker(config);
+    expect(pluginIds(0)).toEqual([
+      'admin',
+      'bearer',
+      'device-authorization',
+      'multi-session',
+    ]);
+    authWorker({ ...config, dashApiKey: '  dash-key  ' });
+    expect(pluginIds(1)).toEqual([
       'admin',
       'bearer',
       'device-authorization',
@@ -145,67 +155,189 @@ describe('createAuthWorker', () => {
       'dash',
     ]);
     expect(
-      mocks.betterAuth.mock.calls[1]?.[0].plugins.find(
-        (plugin: { id: string }) => plugin.id === 'dash',
-      ).options.apiKey,
+      options(1).plugins.find((plugin: { id: string }) => plugin.id === 'dash')
+        .options.apiKey,
     ).toBe('dash-key');
+    authWorker({ ...config, dashApiKey: '   ' });
+    expect(pluginIds(2)).not.toContain('dash');
+  });
 
-    createAuthWorker({ ...config, dashApiKey: '   ' });
-    expect(
-      mocks.betterAuth.mock.calls[2]?.[0].plugins.map(
-        (plugin: { id: string }) => plugin.id,
-      ),
-    ).toEqual(['admin', 'bearer', 'device-authorization', 'multi-session']);
+  it('turns the Authorization Server Role on with self-registration only', () => {
+    authWorker({
+      ...config,
+      oauth: {
+        resources: {
+          'https://mcp.example.com': { 'notes:read': 'Read notes' },
+        },
+      },
+    });
+    expect(pluginIds()).toEqual(
+      expect.arrayContaining(['jwt', 'oauth-provider', 'cimd']),
+    );
+    const provider = options().plugins.find(
+      (plugin: { id: string }) => plugin.id === 'oauth-provider',
+    );
+    expect(provider.options).toMatchObject({
+      allowDynamicClientRegistration: true,
+      allowUnauthenticatedClientRegistration: true,
+      resources: ['https://mcp.example.com'],
+    });
+    expect(provider.options.scopes).toContain('notes:read');
+    expect(provider.options.scopes).toContain('openid');
   });
 
   it.each([
     [undefined, 5],
-    [{}, 5],
-    [{ maximumAccounts: 3 }, 3],
+    [3, 3],
   ] as const)(
-    'uses the same account limit for the plugin and pages with %j',
-    async (multiSession, expected) => {
-      const { handler } = createAuthWorker({
-        ...config,
-        multiSession,
-        pages: {
+    'uses one Account limit for the plugin and the pages (%s)',
+    async (maxAccounts, expected) => {
+      const { handler } = makeAuthWorker(
+        { ...config, maxAccounts },
+        {
           assets: {},
-          fetch: async (_request, context) =>
-            Response.json(context.multiSession),
+          fetch: async (_request: Request, context: PagesContext) =>
+            Response.json(context),
         },
-      });
-      const plugin = mocks.betterAuth.mock.calls[0]?.[0].plugins.find(
+      );
+      const plugin = options().plugins.find(
         (plugin: { id: string }) => plugin.id === 'multi-session',
       );
       expect(plugin.options.maximumSessions).toBe(expected);
       const page = await handler(new Request('https://auth.example.com/login'));
-      expect(await page.json()).toEqual({ maximumAccounts: expected });
+      expect(await page.json()).toEqual({
+        brand: { name: 'Example' },
+        maxAccounts: expected,
+        cookieDomain: 'example.com',
+        origin: 'https://auth.example.com',
+        devtools: false,
+        // Functions, read in-process; JSON drops them.
+        reads: {},
+      });
     },
   );
 
-  it('passes the optional User Admission Policy to Better Auth', () => {
-    const validateUser = vi.fn();
-    createAuthWorker({ ...config, validateUser });
+  it.each([
+    ['theme=dark', 'dark'],
+    ['other=1; theme=light', 'light'],
+    ['theme=sepia', undefined],
+    ['theme=system', undefined],
+  ] as const)(
+    'hands the pages the Theme from the cookie (%s)',
+    async (cookie, theme) => {
+      const { handler } = makeAuthWorker(config, {
+        assets: {},
+        fetch: async (_request: Request, context: PagesContext) =>
+          Response.json(context),
+      });
+      const page = await handler(
+        new Request('https://auth.example.com/', { headers: { cookie } }),
+      );
+      expect(((await page.json()) as { theme?: string }).theme).toBe(theme);
+    },
+  );
 
-    expect(mocks.betterAuth).toHaveBeenCalledWith(
-      expect.objectContaining({
-        user: expect.objectContaining({ validateUserInfo: validateUser }),
-      }),
-    );
-  });
+  it.each([
+    ['https://auth.example.com', '.example.com', undefined, false],
+    ['http://localhost:8787', 'localhost', undefined, false],
+    ['http://auth.acme.localhost:8787', '.acme.localhost', false, false],
+    ['http://auth.acme.localhost:8787', '.acme.localhost', true, true],
+    ['https://auth.example.com', '.example.com', true, true],
+  ] as const)(
+    'shows the pages the devtools only with dev: true (%s, dev: %s)',
+    async (url, cookieDomain, dev, devtools) => {
+      const { handler } = makeAuthWorker(
+        { ...config, url, cookieDomain, dev },
+        {
+          assets: {},
+          fetch: async (_request: Request, context: PagesContext) =>
+            Response.json(context.devtools),
+        },
+      );
+      const page = await handler(new Request(`${url}/login`));
+      expect(await page.json()).toBe(devtools);
+    },
+  );
 
-  it('throws on a scheme-less exact trustedOrigins pattern', () => {
-    expect(() =>
-      createAuthWorker({ ...config, trustedOrigins: ['app.example.com'] }),
-    ).toThrow(/Invalid trustedOrigins pattern "app.example.com"/);
-  });
-
-  it('throws on a malformed wildcard trustedOrigins pattern', () => {
-    expect(() =>
-      createAuthWorker({
+  it('gives the pages every Scope in words, OpenID included', async () => {
+    const { handler } = makeAuthWorker(
+      {
         ...config,
-        trustedOrigins: ['https://*.example.com/path'],
-      }),
-    ).toThrow(/Invalid trustedOrigins pattern/);
+        oauth: {
+          resources: {
+            'https://mcp.example.com': { 'notes:read': 'Read your notes' },
+            'https://api.example.com': { 'notes:read': 'Read your notes' },
+          },
+        },
+      },
+      {
+        assets: {},
+        fetch: async (_request: Request, context: PagesContext) =>
+          Response.json(context.oauth),
+      },
+    );
+    const page = await handler(new Request('https://auth.example.com/consent'));
+    const { scopes } = (await page.json()) as {
+      scopes: Record<string, string>;
+    };
+    expect(scopes['notes:read']).toBe('Read your notes');
+    expect(scopes.openid).toBeTruthy();
+  });
+
+  describe('the User Admission Policy', () => {
+    const validate = () => options().user.validateUserInfo;
+
+    it('admits on true and refuses on false', async () => {
+      const admit = vi.fn(({ email }: { email: string }) =>
+        email.endsWith('@example.com'),
+      );
+      authWorker({ ...config, admit });
+      expect(
+        await validate()({ user: { email: 'ada@example.com', name: 'Ada' } }),
+      ).toBeUndefined();
+      expect(admit).toHaveBeenCalledWith({
+        email: 'ada@example.com',
+        name: 'Ada',
+      });
+      expect(
+        await validate()({ user: { email: 'eve@evil.test', name: 'Eve' } }),
+      ).toMatchObject({ error: 'not_admitted' });
+    });
+
+    it('is absent unless configured', () => {
+      authWorker(config);
+      expect(options().user).toBeUndefined();
+    });
+  });
+
+  describe('config validation', () => {
+    it.each([
+      [{ cookieDomain: '' }, /cookieDomain/],
+      [{ cookieDomain: 'https://example.com' }, /cookieDomain/],
+      [{ cookieDomain: '.other.com' }, /not under cookieDomain/],
+      [{ url: 'auth.example.com' }, /url must be an absolute URL/],
+      [{ brand: { name: ' ' } }, /brand.name/],
+      [{ maxAccounts: 0 }, /maxAccounts/],
+      [{ maxAccounts: 1.5 }, /maxAccounts/],
+      [{ dev: 'true' as unknown as boolean }, /dev must be a boolean/],
+      [{ oauth: { resources: { 'not a url': {} } } }, /absolute URL/],
+      [
+        { oauth: { resources: { 'https://a.example.com': { 'a b': 'x' } } } },
+        /valid scope name/,
+      ],
+      [
+        {
+          oauth: {
+            resources: {
+              'https://a.example.com': { read: 'Read notes' },
+              'https://b.example.com': { read: 'Read photos' },
+            },
+          },
+        },
+        /two different descriptions/,
+      ],
+    ])('refuses %j', (overrides, message) => {
+      expect(() => authWorker({ ...config, ...overrides })).toThrow(message);
+    });
   });
 });

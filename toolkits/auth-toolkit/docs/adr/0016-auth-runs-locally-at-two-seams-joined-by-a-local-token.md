@@ -6,7 +6,7 @@ Date: 2026-10-06
 
 ## Status
 
-Accepted.
+Accepted. Amended by [ADR 0018](./0018-three-caller-kinds-four-doors.md): the two seams are one `local` option on the same doors, `browser({ local: { choose } })` on the client and `auth({ local: true })` on the backend, and the Name Token is a Local Token again.
 
 ## Context
 

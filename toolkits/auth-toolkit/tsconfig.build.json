@@ -8,10 +8,5 @@
     "outDir": "./dist"
   },
   "include": ["src/**/*"],
-  "exclude": [
-    "src/**/tests/**",
-    "src/worker/app",
-    "src/worker/pages",
-    "src/worker/ui"
-  ]
+  "exclude": ["src/**/tests/**", "src/worker/app"]
 }

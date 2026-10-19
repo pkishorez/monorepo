@@ -1,1 +1,1 @@
-export { d1PrimaryDatabaseResource } from './resource.js';
+export { d1Database } from './resource.js';

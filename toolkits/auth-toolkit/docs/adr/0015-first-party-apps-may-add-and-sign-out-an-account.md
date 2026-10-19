@@ -6,7 +6,7 @@ Date: 2026-10-05
 
 ## Status
 
-Accepted. Amends [ADR 0014](./0014-first-party-apps-may-switch-and-act-as-an-account.md) and [ADR 0012](./0012-account-switch-is-browser-wide.md).
+Accepted. Amends [ADR 0014](./0014-first-party-apps-may-switch-and-act-as-an-account.md) and [ADR 0012](./0012-account-switch-is-browser-wide.md). Amended by [ADR 0018](./0018-three-caller-kinds-four-doors.md) and [ADR 0019](./0019-browser-callers-are-same-site-and-never-hold-tokens.md): adding and signing out an Account are `Accounts.signIn()` and `Accounts.signOut(userId)`, keyed by userId, not a token.
 
 ## Context
 

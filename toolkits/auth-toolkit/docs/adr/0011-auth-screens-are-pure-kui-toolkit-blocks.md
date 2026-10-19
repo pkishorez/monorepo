@@ -6,7 +6,7 @@ Date: 2026-09-19
 
 ## Status
 
-Superseded by the monorepo's [ADR 0003](../../../../docs/adr/0003-web-toolkit-and-the-gate.md): ui-toolkit is gone, and auth-toolkit never imports web-toolkit, so the screens are owned copies in `src/auth-worker/ui`. That auth-toolkit only wires data to them still holds.
+Superseded by the monorepo's [ADR 0003](../../../../docs/adr/0003-web-toolkit-and-the-gate.md): ui-toolkit is gone, and auth-toolkit never imports web-toolkit, so the screens are owned copies in `src/auth-worker/ui`. That auth-toolkit only wires data to them still holds. Since [ADR 0018](./0018-three-caller-kinds-four-doors.md) the screens are rebuilt as Kabuki pages in `src/worker/app`: each page's model and commands hold the data, its views only draw.
 
 ## Context
 

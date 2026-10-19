@@ -8,13 +8,12 @@
     "moduleResolution": "nodenext",
     "jsx": "react-jsx",
     "paths": {
-      "@kestack/auth-toolkit/guard": ["./src/guard/index.ts"],
-      "@kestack/auth-toolkit/server": ["./src/server/index.ts"],
-      "@kestack/auth-toolkit/server/cloud": ["./src/server/cloud/index.ts"],
-      "@kestack/auth-toolkit/client": ["./src/client/index.ts"],
-      "@kestack/auth-toolkit/client/cli": [
-        "./src/client/sign-in/device-code/index.ts"
-      ]
+      "@kestack/auth-toolkit": ["./src/auth/index.ts"],
+      "@kestack/auth-toolkit/server/rpc": ["./src/server/rpc/index.ts"],
+      "@kestack/auth-toolkit/server/http": ["./src/server/http/index.ts"],
+      "@kestack/auth-toolkit/client": ["./src/client/accounts/index.ts"],
+      "@kestack/auth-toolkit/client/browser": ["./src/client/browser/index.ts"],
+      "@kestack/auth-toolkit/client/device": ["./src/client/device/index.ts"]
     },
     "rootDir": ".",
     "strict": true,
@@ -24,10 +23,5 @@
     "skipLibCheck": true
   },
   "include": ["src/**/*"],
-  "exclude": [
-    "node_modules",
-    "src/worker/app",
-    "src/worker/pages",
-    "src/worker/ui"
-  ]
+  "exclude": ["node_modules", "src/worker/app"]
 }

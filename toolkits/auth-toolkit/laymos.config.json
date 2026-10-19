@@ -3,64 +3,32 @@
   "sourceRoots": ["src"],
   "ignoredPaths": [
     "src/worker/database/sqlite/migration/migrations",
-    "src/worker/app/routeTree.gen.ts",
-    "src/worker/app/types.d.ts",
-    "src/worker/ui/screens/consent-screen.fixture.tsx",
-    "src/worker/ui/screens/device-screen.fixture.tsx",
-    "src/worker/ui/screens/fixtures",
-    "src/worker/ui/screens/home-screen.fixture.tsx",
-    "src/worker/ui/screens/login-screen.fixture.tsx",
-    "src/worker/ui/screens/not-found-screen.fixture.tsx"
+    "src/worker/app/styles.css"
   ],
   "fileModules": [
-    "src/client/client.ts",
-    "src/guard/current.ts",
-    "src/guard/middleware.ts",
-    "src/guard/principal.ts",
-    "src/server/server.ts",
-    "src/worker/app/router.tsx",
-    "src/worker/app/routes/__root.tsx",
-    "src/worker/app/routes/consent.tsx",
-    "src/worker/app/routes/device.tsx",
-    "src/worker/app/routes/error.tsx",
-    "src/worker/app/routes/login.tsx",
-    "src/worker/app/routes/page.tsx",
-    "src/worker/app/server.ts",
-    "src/worker/ui/components/alert-dialog.tsx",
-    "src/worker/ui/components/avatar.tsx",
-    "src/worker/ui/components/badge.tsx",
-    "src/worker/ui/components/button.tsx",
-    "src/worker/ui/components/dialog.tsx",
-    "src/worker/ui/components/dropdown-menu.tsx",
-    "src/worker/ui/components/google-button.tsx",
-    "src/worker/ui/components/input.tsx",
-    "src/worker/ui/components/label.tsx",
-    "src/worker/ui/components/sonner.tsx",
-    "src/worker/ui/components/spinner.tsx",
-    "src/worker/ui/lib/utils.ts",
-    "src/worker/ui/theme/cookie.ts",
-    "src/worker/ui/theme/document.ts",
-    "src/worker/ui/theme/model.ts",
-    "src/worker/ui/theme/status-bar.ts",
-    "src/worker/ui/theme/store.ts",
-    "src/worker/ui/theme/tanstack-start.ts",
-    "src/worker/ui/theme/theme.ts"
+    "src/worker/app/app.tsx",
+    "src/worker/app/document.tsx",
+    "src/worker/app/loaders.server.ts"
   ],
   "rules": {
-    "src/client": ["src/contract"],
-    "src/client/client.ts": ["src/client/account", "src/client/sign-in/named"],
-    "src/client/sign-in/cookie": ["src/client/account"],
-    "src/client/sign-in/named": ["src/client/account"],
-    "src/guard/principal.ts": ["src/contract"],
-    "src/guard/current.ts": ["src/guard/principal.ts"],
-    "src/guard/middleware.ts": ["src/guard/current.ts"],
-    "src/server": ["src/contract", "src/guard"],
-    "src/server/server.ts": ["src/server/authz"],
-    "src/server/cloud": [
-      "src/server/server.ts",
-      "src/server/authz",
-      "src/server/plain"
+    "src/client": ["src/contract", "src/guard"],
+    "src/client/accounts-layer": ["src/client/accounts"],
+    "src/client/auth-worker": ["src/client/accounts"],
+    "src/client/browser": [
+      "src/client/accounts",
+      "src/client/accounts-layer",
+      "src/client/auth-worker"
     ],
+    "src/client/device": [
+      "src/client/accounts",
+      "src/client/accounts-layer",
+      "src/client/auth-worker"
+    ],
+    "src/guard": ["src/contract"],
+    "src/auth": ["src/guard"],
+    "src/server": ["src/contract", "src/guard"],
+    "src/server/rpc": ["src/server/verification"],
+    "src/server/http": ["src/server/verification"],
     "src/worker/database/sqlite/d1/database": [
       "src/worker/database/sqlite/schema"
     ],
@@ -71,97 +39,25 @@
       "src/worker/database/sqlite/schema",
       "src/worker/database/sqlite/migration"
     ],
-    "src/worker/ui/components/alert-dialog.tsx": [
-      "src/worker/ui/components/button.tsx"
-    ],
-    "src/worker/ui/components/dialog.tsx": [
-      "src/worker/ui/components/button.tsx"
-    ],
-    "src/worker/ui/theme/tanstack-start.ts": [
-      "src/worker/ui/theme/cookie.ts",
-      "src/worker/ui/theme/model.ts"
-    ],
-    "src/worker/ui/theme/theme.ts": [
-      "src/worker/ui/theme/document.ts",
-      "src/worker/ui/theme/model.ts",
-      "src/worker/ui/theme/status-bar.ts",
-      "src/worker/ui/theme/store.ts"
-    ],
-    "src/worker/ui/theme/store.ts": [
-      "src/worker/ui/theme/cookie.ts",
-      "src/worker/ui/theme/document.ts",
-      "src/worker/ui/theme/model.ts"
-    ],
-    "src/worker/ui/theme/cookie.ts": ["src/worker/ui/theme/model.ts"],
-    "src/worker/ui/theme/document.ts": ["src/worker/ui/theme/model.ts"],
-    "src/worker/ui/theme/status-bar.ts": ["src/worker/ui/theme/model.ts"],
-    "src/worker/ui/screens": [
-      "src/worker/ui/components",
-      "src/worker/ui/lib",
-      "src/worker/ui/theme"
-    ],
-    "src/worker/ui/screens/auth-screens": [
-      "src/worker/ui/screens/screen-frame",
-      "src/worker/ui/screens/email-privacy",
-      "src/worker/ui/screens/account-switcher",
-      "src/worker/ui/screens/action-button",
-      "src/worker/ui/screens/session-list",
-      "src/worker/ui/screens/grant-list",
-      "src/worker/ui/screens/scope-list",
-      "src/worker/ui/screens/local-sign-in"
-    ],
-    "src/worker/ui/screens/session-list": [
-      "src/worker/ui/screens/action-button",
-      "src/worker/ui/screens/disclosure-list"
-    ],
-    "src/worker/ui/screens/grant-list": [
-      "src/worker/ui/screens/action-button",
-      "src/worker/ui/screens/disclosure-list",
-      "src/worker/ui/screens/scope-list"
-    ],
-    "src/worker/ui/screens/screen-frame": [
-      "src/worker/ui/screens/email-privacy",
-      "src/worker/ui/screens/account-switcher"
-    ],
-    "src/worker/ui/screens/account-switcher": [
-      "src/worker/ui/screens/email-privacy"
-    ],
-    "src/worker/ui/screens/local-sign-in": [
-      "src/worker/ui/screens/email-privacy"
-    ],
-    "src/worker/pages": ["src/worker/ui/screens/auth-screens"],
-    "src/worker/pages/home": [
-      "src/worker/pages/auth-api",
-      "src/worker/pages/user-access",
-      "src/worker/pages/screen-routing",
-      "src/worker/pages/signed-in-accounts"
-    ],
-    "src/worker/pages/login": [
-      "src/worker/pages/auth-api",
-      "src/worker/pages/screen-routing",
-      "src/worker/pages/signed-in-accounts"
-    ],
-    "src/worker/pages/consent": [
-      "src/worker/pages/auth-api",
-      "src/worker/pages/screen-routing",
-      "src/worker/pages/signed-in-accounts"
-    ],
-    "src/worker/pages/device": [
-      "src/worker/pages/auth-api",
-      "src/worker/pages/screen-routing",
-      "src/worker/pages/signed-in-accounts"
-    ],
-    "src/worker/pages/user-access": ["src/worker/pages/auth-api"],
-    "src/worker/pages/signed-in-accounts": [
-      "src/worker/pages/auth-api",
-      "src/worker/pages/screen-routing"
-    ],
-    "src/worker/app": ["src/worker/pages", "src/worker/ui/theme"],
     "src/worker/worker": [
       "src/contract",
       "src/worker/database/sqlite/d1/database"
     ],
-    "src/worker/app/routes/error.tsx": ["src/worker/ui/screens/auth-screens"],
-    "src/worker/app/server.ts": ["src/contract"]
+    "src/worker/app/pages": ["src/worker/app/api"],
+    "src/worker/app/views": [
+      "src/worker/app/api",
+      "src/worker/app/pages",
+      "src/worker/app/ui"
+    ],
+    "src/worker/app/app.tsx": [
+      "src/worker/app/api",
+      "src/worker/app/pages",
+      "src/worker/app/views",
+      "src/worker/app/document.tsx"
+    ],
+    "src/worker/app/loaders.server.ts": [
+      "src/worker/app/api",
+      "src/worker/app/pages"
+    ]
   }
 }

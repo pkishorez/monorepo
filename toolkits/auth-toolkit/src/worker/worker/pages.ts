@@ -1,4 +1,35 @@
-import type { PagesContext } from '../../contract/index.js';
+import type { BrowserReads } from './browser-api.js';
+import type { Brand } from './config.js';
+
+/** What the Auth Worker hands its pages app on every request. */
+export interface PagesContext {
+  brand: Brand;
+  /** Accounts one browser may hold. */
+  maxAccounts: number;
+  /** The Shared Cookie Domain without its leading dot: a page may send the
+   * browser back to an app under it. */
+  cookieDomain: string;
+  /** The Auth Worker's own origin. */
+  origin: string;
+  /** With the Authorization Server Role on: every Scope, in words. */
+  oauth?: { scopes: Readonly<Record<string, string>> } | undefined;
+  /** The Auth Worker runs with `dev: true`: its pages show the Kabuki devtools. */
+  devtools: boolean;
+  /** The visitor's Theme, read from its `theme` cookie; absent without one,
+   * when the browser draws the system's. */
+  theme?: Theme | undefined;
+  /** This browser's Accounts, Sign-ins, Grants and requests, for the pages'
+   * Loaders to draw each page with its data; never a token. */
+  reads: BrowserReads;
+}
+
+export type Theme = 'light' | 'dark';
+
+/** The `theme` cookie the pages write on the Shared Cookie Domain. */
+const themeOf = (request: Request): Theme | undefined =>
+  /(?:^|;\s*)theme=(light|dark)(?:;|$)/.exec(
+    request.headers.get('cookie') ?? '',
+  )?.[1] as Theme | undefined;
 
 export type EmbeddedAsset =
   | { type: string; body: string }
@@ -29,5 +60,5 @@ export const servePages = (
   const asset = pages.assets[new URL(request.url).pathname];
   return asset
     ? Promise.resolve(assetResponse(asset))
-    : pages.fetch(request, context);
+    : pages.fetch(request, { ...context, theme: themeOf(request) });
 };

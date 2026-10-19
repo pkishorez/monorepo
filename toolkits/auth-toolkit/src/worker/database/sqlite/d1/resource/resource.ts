@@ -4,14 +4,11 @@ import {
   authMigrationsDir,
 } from '../../migration/index.js';
 
-interface D1PrimaryDatabaseProps {
+interface D1DatabaseProps {
   name?: string;
 }
 
-export const d1PrimaryDatabaseResource = (
-  id: string,
-  props: D1PrimaryDatabaseProps = {},
-) =>
+export const d1Database = (id: string, props: D1DatabaseProps = {}) =>
   Cloudflare.D1.Database(id, {
     ...(props.name ? { name: props.name } : {}),
     migrations: {
