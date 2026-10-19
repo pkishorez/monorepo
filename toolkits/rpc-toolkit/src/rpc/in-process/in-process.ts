@@ -7,6 +7,7 @@ import type * as Rpc from 'effect/rpc/Rpc';
 import type * as RpcGroup from 'effect/rpc/RpcGroup';
 import * as RpcMessage from 'effect/rpc/RpcMessage';
 import type * as RpcSerialization from 'effect/rpc/RpcSerialization';
+import { withExitObservers } from '../on-exit/index.ts';
 
 /**
  * Values cross the connection as they are. Each side still checks them
@@ -109,4 +110,4 @@ export const client = <Rpcs extends Rpc.Any, E, R>(
   group: RpcGroup.RpcGroup<Rpcs>,
   handlers: Layer.Layer<Rpc.ToHandler<Rpcs> | Rpc.Middleware<Rpcs>, E, R>,
 ): Layer.Layer<RpcClient.Protocol, E, R> =>
-  protocol(group).pipe(Layer.provide(handlers));
+  withExitObservers(group)(protocol(group).pipe(Layer.provide(handlers)));

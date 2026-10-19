@@ -10,6 +10,7 @@ import {
 } from 'effect/rpc';
 import * as Socket from 'effect/socket/Socket';
 import { makeRpcConnection, type RpcConnectionService } from './connection.ts';
+import { withExitObservers } from '../../on-exit/index.ts';
 import { resolveUrl } from './url.ts';
 
 export type { ConnectionStatus } from './connection.ts';
@@ -58,7 +59,7 @@ export const keepSubscribed = <A, E, R>(
  * as an Effect, it is run before every connect instead.
  */
 export const client = <Rpcs extends Rpc.Any>(
-  _group: RpcGroup.RpcGroup<Rpcs>,
+  group: RpcGroup.RpcGroup<Rpcs>,
   options: {
     /** Where to connect. An Effect is run again before every connect, so a
      * reconnect can carry what has changed since, such as a fresh token. */
@@ -85,6 +86,7 @@ export const client = <Rpcs extends Rpc.Any>(
           ),
         ),
         Layer.provideMerge(rpcConnectionLayer),
+        withExitObservers(group),
       ),
     ),
   );

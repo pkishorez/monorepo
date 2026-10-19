@@ -159,7 +159,7 @@ const program = Effect.gen(function* () {
 
 - Only a POST is answered; anything else is a 405 with `Allow: POST`.
 - `handlers` and `services(request)` are built fresh for each request and live as long as its response, which a streamed body outlives.
-- `wrap: (app) => app` wraps how every request is answered, such as auth-toolkit's cookie handling; rpc-toolkit itself knows nothing of sign-in.
+- `wrap: (app) => app` wraps how every request is answered, such as setting a header on every response; rpc-toolkit itself knows nothing of sign-in.
 - The client gives the `RpcClient.Protocol` only; `RpcClient.make(group)` on top is the same on every Transport.
 
 ### Keep a stream alive across hibernation and reconnects

@@ -20,6 +20,10 @@ _Avoid_: handler, resolver (reserved for the consumer's own underlying service)
 The client-only half of a Middleware (`client`), present only when its Declaration opts in: logic that rewrites an outgoing request before it is sent.
 _Avoid_: client middleware, clientLayer (the former name)
 
+**Exit Observer**:
+What a Client Implementation attaches to a call it sends with `Rpc.onExit`: run with that call's decoded Exit before the caller sees it, over every Transport. The way a Client Implementation reacts to an answer, since its `next` only sends.
+_Avoid_: response hook, interceptor
+
 **Nearest Wins**:
 The one resolution rule for a Middleware's value: the declaration closest to the endpoint applies in full and shadows any group declaration.
 _Avoid_: merge, combine, override chain
