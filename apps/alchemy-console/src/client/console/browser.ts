@@ -32,12 +32,17 @@ const authUrl = import.meta.env.VITE_CONSOLE_AUTH_URL ?? '';
 export const signInMode: 'google' | 'local' =
   authUrl === '' ? 'local' : 'google';
 
+// As long as the Local Accounts it mirrors, which IndexedDB keeps: renewed
+// each time the browser hears of them, so the Worker never draws a visitor
+// signed out whom the browser still has signed in.
+const KEPT_SECONDS = 400 * 24 * 60 * 60;
+
 const keepLocalSession = (state: AccountsState) =>
   Effect.sync(() => {
     if (state._tag === 'Checking') return;
     document.cookie =
       state._tag === 'SignedIn'
-        ? `${LOCAL_SESSION_COOKIE}=${encodeURIComponent(localTokenOf(state.active))}; Path=/; SameSite=Lax`
+        ? `${LOCAL_SESSION_COOKIE}=${encodeURIComponent(localTokenOf(state.active))}; Path=/; SameSite=Lax; Max-Age=${KEPT_SECONDS}`
         : `${LOCAL_SESSION_COOKIE}=; Path=/; SameSite=Lax; Max-Age=0`;
   });
 
