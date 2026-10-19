@@ -7,7 +7,11 @@ import { Effect, Layer, Queue, Stream } from 'effect';
 import { RpcClient, RpcSerialization } from 'effect/rpc';
 import { Socket } from 'effect/socket';
 import { localTokenOf } from '@kestack/auth-toolkit/client/browser';
-import { Miniflare } from 'miniflare';
+import {
+  Miniflare,
+  type Request as MiniflareRequest,
+  Response as MiniflareResponse,
+} from 'miniflare';
 import { ConsoleApi } from '../../src/shared/contracts/console-api/index.ts';
 import { LOCAL_SESSION_COOKIE } from '../../src/shared/contracts/local-session/index.ts';
 
@@ -67,20 +71,59 @@ export interface Visitor {
 export const cookieOf = (visitor: Visitor) =>
   `${LOCAL_SESSION_COOKIE}=${encodeURIComponent(localTokenOf({ ...visitor, image: null }))}`;
 
-export const startConsole = async (options: { readonly invites: string }) => {
+/** The Vault key the tests' Worker seals with. */
+export const TEST_VAULT_KEY = Buffer.from(new Uint8Array(32).fill(7)).toString(
+  'base64',
+);
+
+/** What the Worker's own `fetch` reaches, in place of the internet. */
+export type Outbound = (request: Request) => Response | Promise<Response>;
+
+const nowhere: Outbound = () => {
+  throw new TypeError('The tests reach no network.');
+};
+
+export const startConsole = async (options: {
+  readonly invites: string;
+  readonly outbound?: Outbound;
+}) => {
   const out = await build();
   const server = path.join(out, 'ssr');
+  // The User Spaces' SQLite, on disk, so a test can read what was stored.
+  const persist = path.join(out, 'state');
+  const outbound = options.outbound ?? nowhere;
   const mf = new Miniflare({
     ...compatibility,
     modules: true,
     scriptPath: path.join(server, 'index.js'),
     modulesRoot: server,
     durableObjects: { USER_SPACE: { className: 'UserSpace', useSQLite: true } },
-    bindings: { CONSOLE_INVITES: options.invites },
+    durableObjectsPersist: persist,
+    bindings: {
+      CONSOLE_INVITES: options.invites,
+      CONSOLE_VAULT_KEY: TEST_VAULT_KEY,
+    },
+    outboundService: async (request: MiniflareRequest) => {
+      const answer = await outbound(
+        new Request(request.url, {
+          method: request.method,
+          headers: Object.fromEntries(request.headers),
+          ...(request.method === 'GET' || request.method === 'HEAD'
+            ? {}
+            : { body: await request.text() }),
+        }),
+      );
+      return new MiniflareResponse(await answer.text(), {
+        status: answer.status,
+        headers: Object.fromEntries(answer.headers),
+      });
+    },
   });
   const url = await mf.ready;
   return {
     url: url.href,
+    /** Where the User Spaces keep their SQLite files. */
+    persist,
     /** A request to the Worker, from `visitor` when given. */
     fetch: (pathname: string, visitor?: Visitor, headers = {}) =>
       mf.dispatchFetch(new URL(pathname, url), {

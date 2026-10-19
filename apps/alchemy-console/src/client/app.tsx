@@ -13,7 +13,8 @@ import './styles.css';
  *   Router (Start)
  *   └─ App        the root page, holding Console
  *      └─ Console the sign-in gate and Account menu; Provides Api, Session
- *         └─ Welcome
+ *         ├─ Welcome
+ *         └─ Settings  └─ Credentials └─ AddCredential
  *
  * A URL that names no page draws the root's not-found screen, and a 404.
  */

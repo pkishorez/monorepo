@@ -7,7 +7,8 @@ import { Console } from './console/index.ts';
  *
  *   App                the root: no path, no data, Console in it
  *   └─ Console  /      who the visitor is; the sign-in gate
- *      └─ Welcome  /   the next step for a member with no GitHub yet
+ *      ├─ Welcome  /           the next step for a member with no GitHub yet
+ *      └─ Settings /settings   what a member sets up once: credentials
  */
 
 /** The root page, which Kabuki requires to have no data: it only holds Console. */
@@ -27,6 +28,7 @@ export {
   ConsoleState,
   Visitor,
 } from './console/index.ts';
+export { Settings } from './settings/index.ts';
 export { Welcome } from './welcome/index.ts';
 export {
   Api,

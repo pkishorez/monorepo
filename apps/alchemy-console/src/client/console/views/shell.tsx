@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { Router } from '@kestack/kabuki/routing';
 import {
   Avatar,
   AvatarFallback,
@@ -16,9 +17,11 @@ import {
 import {
   ChevronsUpDownIcon,
   LogOutIcon,
+  SettingsIcon,
   UserPlusIcon,
 } from '@kestack/web-platform/components/lucide';
 import { Skeleton } from '@kestack/web-platform/components/skeleton';
+import { router } from '../../../shared/pages/index.ts';
 import { Brand } from './brand.tsx';
 
 /*
@@ -112,6 +115,13 @@ function AccountMenu({
           </>
         )}
         <DropdownMenuSeparator />
+        <DropdownMenuItem
+          render={<Router.Link to={router.Console.Settings()} />}
+        >
+          <SettingsIcon />
+          Settings
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
         <DropdownMenuItem disabled={busy} onClick={onAdd}>
           <UserPlusIcon />
           Add account
@@ -125,11 +135,27 @@ function AccountMenu({
   );
 }
 
-function Header({ children }: { readonly children: ReactNode }) {
+function Header({
+  children,
+  home = false,
+}: {
+  readonly children: ReactNode;
+  /** The brand links home, once someone is signed in. */
+  readonly home?: boolean;
+}) {
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/95 supports-backdrop-filter:backdrop-blur">
       <div className="mx-auto flex h-14 max-w-5xl items-center justify-between gap-4 px-4">
-        <Brand />
+        {home ? (
+          <Router.Link
+            to={router.Console.Welcome()}
+            className="rounded-sm focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+          >
+            <Brand />
+          </Router.Link>
+        ) : (
+          <Brand />
+        )}
         {children}
       </div>
     </header>
@@ -145,7 +171,7 @@ export function Shell({
 }) {
   return (
     <div className="flex min-h-dvh flex-col">
-      <Header>
+      <Header home>
         <AccountMenu {...menu} />
       </Header>
       <main className="mx-auto w-full max-w-5xl flex-1 px-4">{children}</main>

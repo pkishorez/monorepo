@@ -3,6 +3,7 @@ import { Page } from '@kestack/kabuki/routing';
 import { Accounts } from '@kestack/auth-toolkit/client';
 import { Member } from '../../contracts/member/index.ts';
 import { Browser } from '../capabilities/index.ts';
+import { Settings } from '../settings/index.ts';
 import { Welcome } from '../welcome/index.ts';
 
 /*
@@ -71,7 +72,7 @@ export const Console = Page.define({
   render: 'dynamic',
   data: Visitor,
   metadata: { title: 'Alchemy Console' },
-  pages: { Welcome },
+  pages: { Welcome, Settings },
   requires: [Accounts, Browser],
   model: ConsoleModel,
   state: ConsoleState,

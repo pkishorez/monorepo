@@ -9,6 +9,10 @@
     "src/server/loaders.server.ts"
   ],
   "rules": {
+    "src/client/add-credential": [
+      "src/shared/contracts/credential",
+      "src/shared/pages"
+    ],
     "src/client/app.tsx": [
       "src/client/console",
       "src/client/document.tsx",
@@ -22,29 +26,50 @@
       "src/shared/contracts/member"
     ],
     "src/client/pages": ["src/shared/pages"],
-    "src/server/worker.ts": ["src/server/host", "src/server/user-space"],
+    "src/client/pages/settings": [
+      "src/client/add-credential",
+      "src/shared/contracts/credential"
+    ],
+    "src/server/host": ["src/server/user-space", "src/shared/contracts/member"],
+    "src/server/host/visitor": ["src/shared/contracts/local-session"],
     "src/server/loaders.server.ts": [
       "src/server/host",
       "src/server/user-space",
       "src/shared/pages",
       "src/shared/contracts/console-api"
     ],
-    "src/server/host": ["src/server/user-space", "src/shared/contracts/member"],
-    "src/server/host/visitor": ["src/shared/contracts/local-session"],
     "src/server/user-space": [
       "src/shared/contracts/console-api",
       "src/shared/contracts/member"
     ],
+    "src/server/user-space/services/providers": [
+      "src/shared/contracts/credential"
+    ],
+    "src/server/user-space/services/storage": [
+      "src/shared/contracts/credential"
+    ],
+    "src/server/user-space/workflows/credentials": [
+      "src/server/user-space/services/providers",
+      "src/server/user-space/services/storage",
+      "src/server/user-space/services/vault",
+      "src/shared/contracts/credential"
+    ],
     "src/server/user-space/workflows/session": [
       "src/server/user-space/services/storage"
     ],
-    "src/shared/contracts/console-api": ["src/shared/contracts/member"],
+    "src/server/worker.ts": ["src/server/host", "src/server/user-space"],
+    "src/shared/contracts/console-api": [
+      "src/shared/contracts/credential",
+      "src/shared/contracts/member"
+    ],
     "src/shared/pages": [
       "src/shared/contracts/console-api",
+      "src/shared/contracts/credential",
       "src/shared/contracts/member"
     ],
     "src/shared/pages/console": [
       "src/shared/pages/capabilities",
+      "src/shared/pages/settings",
       "src/shared/pages/welcome"
     ],
     "src/shared/pages/welcome": ["src/shared/pages/capabilities"]

@@ -20,6 +20,7 @@
     "@kestack/rpc-toolkit": "workspace:*",
     "@kestack/std-toolkit": "workspace:*",
     "@kestack/web-platform": "workspace:*",
+    "aws4fetch": "catalog:",
     "effect": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:"

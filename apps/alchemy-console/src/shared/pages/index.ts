@@ -9,6 +9,7 @@ export {
   NotSignedIn,
   router,
   Session,
+  Settings,
   Visitor,
   Welcome,
   type ConsoleClient,
