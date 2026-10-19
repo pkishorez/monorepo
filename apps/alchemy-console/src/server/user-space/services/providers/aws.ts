@@ -46,14 +46,18 @@ export const verifyAws = (
       region: where,
     });
     const request = yield* Effect.promise(() =>
-      client.sign(`https://sts.${where}.amazonaws.com/`, {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/x-www-form-urlencoded',
-          accept: 'application/json',
+      // China's regions are their own partition, with their own domain.
+      client.sign(
+        `https://sts.${where}.amazonaws.com${where.startsWith('cn-') ? '.cn' : ''}/`,
+        {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/x-www-form-urlencoded',
+            accept: 'application/json',
+          },
+          body: 'Action=GetCallerIdentity&Version=2011-06-15',
         },
-        body: 'Action=GetCallerIdentity&Version=2011-06-15',
-      }),
+      ),
     );
     const response = yield* send(fetch, request, {
       field: 'region',

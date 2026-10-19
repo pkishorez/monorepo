@@ -94,6 +94,18 @@ describe('Providers.verify for Cloudflare', () => {
     expect(error?.field).toBe('accountId');
   });
 
+  it('accepts an account that has not registered its workers.dev subdomain', async () => {
+    const exit = await verify(cf(TOKEN), (request) =>
+      new URL(request.url).pathname.endsWith('/workers/subdomain')
+        ? json(404, {
+            success: false,
+            errors: [{ code: 10007, message: 'workers.api.error.not_found' }],
+          })
+        : cloudflare(request),
+    );
+    expect(Exit.isSuccess(exit)).toBe(true);
+  });
+
   it('says Cloudflare could not be reached', async () => {
     const error = errorOf(
       await verify(cf(TOKEN), () => Promise.reject(new TypeError('offline'))),

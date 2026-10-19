@@ -102,6 +102,25 @@ const problem = (field: CredentialField, message: string) => ({
   message,
 });
 
+/** Keys are visible ASCII only: anything else, like a zero-width space
+ * pasted along, could not even be sent in a request header. */
+const KEY = /^[\x21-\x7E]+$/;
+
+const keyProblem = (
+  field: CredentialField,
+  value: string,
+  missing: string,
+): { readonly field: CredentialField; readonly message: string } | null => {
+  const trimmed = value.trim();
+  if (trimmed.length === 0) return problem(field, missing);
+  if (!KEY.test(trimmed))
+    return problem(
+      field,
+      'It has a character keys never hold, like a space or a curly quote. Copy it again.',
+    );
+  return null;
+};
+
 /**
  * The first field of `input` that cannot be right, as the form shows it, or
  * null. The browser checks it before sending, and the User Space again.
@@ -117,17 +136,27 @@ export const inputProblem = (
         'accountId',
         'An account ID is 32 letters and digits, from the account’s overview page.',
       );
-    if (input.secret.apiToken.trim().length === 0)
-      return problem('apiToken', 'Paste the API token.');
-    return null;
+    return keyProblem(
+      'apiToken',
+      input.secret.apiToken,
+      'Paste the API token.',
+    );
   }
   if (!/^[A-Z0-9]{16,128}$/.test(input.secret.accessKeyId.trim()))
     return problem(
       'accessKeyId',
       'An access key ID is 16 or more capital letters and digits, like AKIA….',
     );
-  if (input.secret.secretAccessKey.trim().length === 0)
-    return problem('secretAccessKey', 'Paste the secret access key.');
+  const secret = keyProblem(
+    'secretAccessKey',
+    input.secret.secretAccessKey,
+    'Paste the secret access key.',
+  );
+  if (secret !== null) return secret;
+  const session = input.secret.sessionToken?.trim()
+    ? keyProblem('sessionToken', input.secret.sessionToken, '')
+    : null;
+  if (session !== null) return session;
   if (!/^[a-z]{2}(-gov|-iso[a-z]*)?-[a-z]+-[0-9]$/.test(input.region.trim()))
     return problem('region', 'Use a region code, like us-east-1.');
   return null;

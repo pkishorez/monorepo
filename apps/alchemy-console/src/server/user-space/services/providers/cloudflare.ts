@@ -66,7 +66,12 @@ export const verifyCloudflare = (
       });
 
     const subdomain = yield* read('/workers/subdomain');
-    if (!subdomain.ok) {
+    // An account that has never registered its workers.dev subdomain says
+    // so, which still proves the token reaches its Workers.
+    const unregistered = (subdomain.body?.errors ?? []).some(
+      ({ code }) => code === 10007,
+    );
+    if (!subdomain.ok && !unregistered) {
       const words = said(subdomain.body, secrets);
       if (noAccount(subdomain.status, subdomain.body))
         return yield* refused(
