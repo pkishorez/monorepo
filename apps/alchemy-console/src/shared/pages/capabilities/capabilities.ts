@@ -59,8 +59,9 @@ export class Api extends Context.Service<
     readonly call: <A, E>(
       use: (client: ConsoleClient) => Effect.Effect<A, E>,
     ) => Effect.Effect<A, E | NotSignedIn>;
-    /** A stream, as whoever is signed in: begun again for each new member,
-     * and after every reconnect; nothing while nobody is. */
+    /** A live stream, as whoever is signed in: begun again for each new
+     * member, after every reconnect, and whenever it ends; nothing while
+     * nobody is. */
     readonly follow: <A, E>(
       use: (client: ConsoleClient) => Stream.Stream<A, E>,
     ) => Stream.Stream<A, E>;

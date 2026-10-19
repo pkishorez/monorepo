@@ -21,6 +21,8 @@ export const Caller = Schema.Struct({
   member: Member,
   /** When the caller's session ends, in milliseconds since the epoch. */
   until: Schema.Number,
+  /** When the Worker verified them, so an older word never undoes a newer one. */
+  at: Schema.Number,
 });
 export type Caller = typeof Caller.Type;
 
@@ -58,7 +60,7 @@ export const SocketCaller = Context.Reference<Caller | null>(
 // A verified caller has no Sign-in of their own here, so its dates are fixed.
 const EPOCH = new Date(0);
 
-const principalOf = ({ member, until }: Caller): SignInPrincipal => ({
+const principalOf = ({ member, until, at }: Caller): SignInPrincipal => ({
   kind: 'session',
   user: {
     id: member.userId,
@@ -75,7 +77,8 @@ const principalOf = ({ member, until }: Caller): SignInPrincipal => ({
     userId: member.userId,
     expiresAt: new Date(until),
     createdAt: EPOCH,
-    updatedAt: EPOCH,
+    // When the Worker last verified the session.
+    updatedAt: new Date(at),
     ipAddress: null,
     userAgent: null,
   },

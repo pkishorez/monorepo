@@ -22,8 +22,10 @@ export class Storage extends Context.Service<
     readonly owner: {
       /** As last recorded; null before their first call. */
       readonly get: Effect.Effect<Member | null>;
-      /** Records them, telling every subscription if anything changed. */
-      readonly put: (member: Member) => Effect.Effect<void>;
+      /** Records them as verified at `at`, unless a later verification
+       * is recorded, telling every subscription if anything changed;
+       * answers who is recorded after. */
+      readonly put: (member: Member, at: number) => Effect.Effect<Member>;
       /** As recorded now, then each time it changes. */
       readonly changes: Stream.Stream<Member | null>;
     };
@@ -42,26 +44,29 @@ export class Storage extends Context.Service<
             defaultBroadcaster,
           ),
         );
-        const get = owner.get().pipe(
-          Effect.map(({ value }) => value.member),
+        const read = owner.get().pipe(
+          Effect.map(({ value }) => value),
           Effect.provideContext(table),
           Effect.orDie,
         );
+        const get = Effect.map(read, ({ member }) => member);
         return Storage.of({
           owner: {
             get,
-            put: (member) =>
+            put: (member, at) =>
               Effect.gen(function* () {
-                const current = yield* get;
-                if (
-                  current?.userId === member.userId &&
-                  current.email === member.email &&
-                  current.name === member.name
-                )
-                  return;
-                yield* owner
-                  .put({ member })
-                  .pipe(Effect.provideContext(table), Effect.orDie);
+                const current = yield* read;
+                if (current.member !== null && current.at > at)
+                  return current.member;
+                const same =
+                  current.member?.userId === member.userId &&
+                  current.member.email === member.email &&
+                  current.member.name === member.name;
+                if (!same)
+                  yield* owner
+                    .put({ member, at })
+                    .pipe(Effect.provideContext(table), Effect.orDie);
+                return member;
               }),
             changes: Stream.concat(
               Stream.fromEffect(get),

@@ -13,11 +13,13 @@ export const userSpaceTable = StdTable.make('user-space')
   .primary('pk', 'sk')
   .build();
 
-/** Who this User Space belongs to: unknown until their first call. */
+/** Who this User Space belongs to, as last verified: unknown until their first call. */
 const Owner = ESchema.make('Owner', {
   member: Schema.NullOr(Member),
+  /** When the Worker verified them so, in milliseconds since the epoch. */
+  at: Schema.Number,
 }).build();
 
 export const owner = userSpaceTable
   .singleEntity(Owner)
-  .default({ member: null });
+  .default({ member: null, at: 0 });

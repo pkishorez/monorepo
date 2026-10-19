@@ -8,7 +8,7 @@ import { sessionBound } from './session-bound.ts';
 const member = { userId: 'u-ada', email: 'ada@demo', name: 'Ada' };
 
 const asCaller = (until: number) =>
-  Effect.provideService(Auth.User, principalAt({ member, until }, 0)!);
+  Effect.provideService(Auth.User, principalAt({ member, until, at: 0 }, 0)!);
 
 describe('handlers bound to the caller’s session', () => {
   it('ends a stream when the caller’s session does', () =>

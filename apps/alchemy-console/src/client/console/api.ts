@@ -1,4 +1,4 @@
-import { Effect, Layer, RcMap, Stream } from 'effect';
+import { Effect, Layer, RcMap, Schedule, Stream } from 'effect';
 import type { Member } from '../../shared/contracts/member/index.ts';
 import { Api, Browser, NotSignedIn } from '../../shared/pages/index.ts';
 
@@ -9,8 +9,9 @@ import { Api, Browser, NotSignedIn } from '../../shared/pages/index.ts';
  * theirs uses it, as after an Account Switch. A stream follows the member:
  * on a switch it ends for the old one and begins again for the new one, so
  * no page ever reads one user's data on another user's socket. A socket
- * acts for its member only until their session ends; once a call on it is
- * refused, it is dropped, so the next call opens one verified again.
+ * acts for its member only until their session ends: then the User Space
+ * ends its streams and refuses its calls, the socket is dropped, and the
+ * stream is followed again on one opened, and verified, anew.
  */
 
 const refused = (error: unknown) =>
@@ -62,6 +63,14 @@ export const apiLayer = (signedIn: {
                         ? RcMap.invalidate(sockets, userId)
                         : Effect.void,
                     ),
+                    // A live stream that ends was ended at the socket's
+                    // deadline: follow it again on a fresh one.
+                    Stream.concat(
+                      Stream.drain(
+                        Stream.fromEffect(RcMap.invalidate(sockets, userId)),
+                      ),
+                    ),
+                    Stream.repeat(Schedule.spaced('1 second')),
                   ),
             ),
           ),

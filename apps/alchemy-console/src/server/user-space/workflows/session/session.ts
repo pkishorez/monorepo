@@ -5,14 +5,21 @@ import { Storage } from '../../services/storage/index.ts';
 
 /*
  * The Session group's handlers: who the caller is in their User Space. Each
- * call records the caller as the owner, as the Auth Worker names them now,
+ * call records the caller as the owner, as the Auth Worker last named them,
  * so a renamed user is seen renamed by every tab watching.
  */
 
-const callerOf = ({ user }: Principal): Member => ({
-  userId: user.id,
-  email: user.email,
-  name: user.name,
+const callerOf = (principal: Principal) => ({
+  member: {
+    userId: principal.user.id,
+    email: principal.user.email,
+    name: principal.user.name,
+  } satisfies Member,
+  // When the Worker verified the caller: an older word never undoes a newer.
+  at:
+    principal.kind === 'session'
+      ? new Date(principal.session.updatedAt).getTime()
+      : 0,
 });
 
 /** The handlers, for the composition root to serve under `ConsoleApi`. */
@@ -21,17 +28,16 @@ export const sessionHandlers = Effect.gen(function* () {
   return {
     'Session.me': () =>
       Effect.gen(function* () {
-        const caller = callerOf(yield* Auth.User);
-        yield* storage.owner.put(caller);
-        return caller;
+        const { member, at } = callerOf(yield* Auth.User);
+        return yield* storage.owner.put(member, at);
       }),
     'Session.watch': () =>
       Stream.unwrap(
         Effect.gen(function* () {
-          const caller = callerOf(yield* Auth.User);
-          yield* storage.owner.put(caller);
+          const { member, at } = callerOf(yield* Auth.User);
+          const recorded = yield* storage.owner.put(member, at);
           return storage.owner.changes.pipe(
-            Stream.map((owner) => owner ?? caller),
+            Stream.map((owner) => owner ?? recorded),
           );
         }),
       ),

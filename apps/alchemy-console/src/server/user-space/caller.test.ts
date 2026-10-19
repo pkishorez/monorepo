@@ -14,10 +14,11 @@ describe('a User Space’s caller', () => {
         }),
       },
     });
-    const sent = sentBy(forged, { member, until: 5 });
+    const sent = sentBy(forged, { member, until: 5, at: 0 });
     expect(senderOf(Object.fromEntries(sent.headers))).toEqual({
       member,
       until: 5,
+      at: 0,
     });
   });
 
@@ -27,13 +28,15 @@ describe('a User Space’s caller', () => {
   });
 
   it('acts on a socket until its session ends, an hour at most', () => {
-    expect(opened({ member, until: 10 * HOUR }, 0).until).toBe(HOUR);
-    expect(opened({ member, until: 1000 }, 0).until).toBe(1000);
+    expect(opened({ member, until: 10 * HOUR, at: 0 }, 0).until).toBe(HOUR);
+    expect(opened({ member, until: 1000, at: 0 }, 0).until).toBe(1000);
   });
 
   it('is nobody once their time is up', () => {
-    expect(principalAt({ member, until: 1000 }, 999)?.user.id).toBe('u-ada');
-    expect(principalAt({ member, until: 1000 }, 1000)).toBeNull();
+    expect(principalAt({ member, until: 1000, at: 0 }, 999)?.user.id).toBe(
+      'u-ada',
+    );
+    expect(principalAt({ member, until: 1000, at: 0 }, 1000)).toBeNull();
     expect(principalAt(null, 0)).toBeNull();
   });
 });

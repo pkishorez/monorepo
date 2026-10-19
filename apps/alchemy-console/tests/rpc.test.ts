@@ -86,4 +86,22 @@ describe('/rpc', () => {
           });
       }),
     ));
+
+  it('never lets a socket verified earlier undo a newer name', () =>
+    run(
+      Effect.gen(function* () {
+        const carol = { id: 'local_carol', email: 'ada@demo', name: 'Carol' };
+        const older = yield* console_.socket(carol);
+        const watched = yield* collect(older['Session.watch']());
+        expect((yield* watched.next).name).toBe('Carol');
+
+        const newer = yield* console_.socket({ ...carol, name: 'Carol King' });
+        expect((yield* newer['Session.me']()).name).toBe('Carol King');
+        expect((yield* watched.next).name).toBe('Carol King');
+
+        // The older socket still says Carol, but the newer name stands.
+        expect((yield* older['Session.me']()).name).toBe('Carol King');
+        expect(yield* watched.within('300 millis')).toEqual([]);
+      }),
+    ));
 });

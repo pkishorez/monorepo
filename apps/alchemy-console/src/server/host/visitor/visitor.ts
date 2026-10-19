@@ -19,6 +19,8 @@ export type Visit =
       readonly member: Member;
       /** When their session ends, in milliseconds since the epoch. */
       readonly until: number;
+      /** When they were verified, in milliseconds since the epoch. */
+      readonly at: number;
     };
 
 /**
@@ -47,5 +49,6 @@ export const visitorOf = async (
       principal.kind === 'session'
         ? new Date(principal.session.expiresAt).getTime()
         : Date.now(),
+    at: Date.now(),
   };
 };
