@@ -53,12 +53,10 @@ function WelcomeSkeleton() {
 }
 
 export const WelcomeView = View.make(WelcomeLive, ({ props, model, root }) => {
-  const drawn = props.status._tag === 'Ready' ? props.status.data.member : null;
-  // The live member, once it is the one the page was drawn for.
+  // The live member once their User Space has spoken, as drawn until then.
   const member =
-    model.member !== null && model.member.userId === drawn?.userId
-      ? model.member
-      : drawn;
+    model.member ??
+    (props.status._tag === 'Ready' ? props.status.data.member : null);
   return (
     <section
       {...root}

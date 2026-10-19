@@ -31,7 +31,7 @@ export const host = (start: Handler) => ({
         return rpc(
           request,
           (request) => visitorOf(request, env.CONSOLE_INVITES),
-          (member) => reach(env.USER_SPACE, member).socket(request),
+          (visitor) => reach(env.USER_SPACE, visitor).socket(request),
         );
       default:
         return start.fetch(request, env);

@@ -32,7 +32,7 @@ const visit = (env: Env, request: Request) =>
         return yield* api['Session.me']();
       }).pipe(
         Effect.scoped,
-        Effect.provide(reach(env.USER_SPACE, visited.member).api),
+        Effect.provide(reach(env.USER_SPACE, visited).api),
         Effect.orDie,
       );
       return { _tag: 'SignedIn' as const, member };

@@ -11,6 +11,11 @@ export default defineConfig({
   },
   // Its components are ESM with CSS-only side effects: bundle them for the server too.
   ssr: { noExternal: ['@kestack/web-platform'] },
+  // workerd's own modules, which a build without Alchemy's Cloudflare plugin
+  // (plain `vp build`) leaves for the runtime.
+  environments: {
+    ssr: { build: { rolldownOptions: { external: [/^cloudflare:/] } } },
+  },
   plugins: [
     tailwindcss(),
     react(),

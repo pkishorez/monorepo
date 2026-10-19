@@ -1,5 +1,6 @@
 import { AlchemyContext, localState, Stack, Stage } from 'alchemy';
 import * as Cloudflare from 'alchemy/Cloudflare';
+import * as Config from 'effect/Config';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
 import type { UserSpace } from './src/server/worker.ts';
@@ -40,6 +41,15 @@ export const Worker = Cloudflare.Website.Vite(
         `Deploy "${stage}" through GitHub Actions (deploy-alchemy-console.yml), not by hand.`,
       );
     }
+    // Read as Alchemy reads its settings, so `.env` and `--env-file` count.
+    const invites = yield* Config.String('CONSOLE_INVITES').pipe(
+      Config.withDefault('kishore.iiitn@gmail.com'),
+      Effect.orDie,
+    );
+    const localAuthUrl = yield* Config.String('CONSOLE_AUTH_URL').pipe(
+      Config.withDefault(''),
+      Effect.orDie,
+    );
     const port = Number(process.env.PORT);
     if (dev && (!Number.isInteger(port) || port < 1 || port > 65535)) {
       throw new Error('Run pnpm dev so Portless can assign PORT.');
@@ -48,12 +58,9 @@ export const Worker = Cloudflare.Website.Vite(
       env: {
         USER_SPACE: Cloudflare.DurableObject<UserSpace>('UserSpace'),
         // The Invite list: emails, comma-separated.
-        CONSOLE_INVITES:
-          process.env.CONSOLE_INVITES ?? 'kishore.iiitn@gmail.com',
+        CONSOLE_INVITES: invites,
         // Inlined into the Worker and the browser alike; '' is Local mode.
-        VITE_CONSOLE_AUTH_URL: deployed
-          ? authWorker
-          : (process.env.CONSOLE_AUTH_URL ?? ''),
+        VITE_CONSOLE_AUTH_URL: deployed ? authWorker : localAuthUrl,
       },
       compatibility: { date: '2026-07-01', flags: ['nodejs_compat'] },
       dev: dev ? { port } : undefined,

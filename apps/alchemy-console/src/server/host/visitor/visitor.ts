@@ -14,9 +14,19 @@ export type Visit =
   | { readonly _tag: 'SignedOut' }
   | { readonly _tag: 'Unreachable' }
   | { readonly _tag: 'NotInvited'; readonly email: string }
-  | { readonly _tag: 'Admitted'; readonly member: Member };
+  | {
+      readonly _tag: 'Admitted';
+      readonly member: Member;
+      /** When their session ends, in milliseconds since the epoch. */
+      readonly until: number;
+    };
 
-/** Who `request` is from; `invites` is the Invite list as the Worker's var writes it. */
+/**
+ * Who `request` is from; `invites` is the Invite list as the Worker's var
+ * writes it. Sign-in cookies the Auth Worker refreshes while verifying are
+ * not relayed: the browser's own Accounts ask the Auth Worker on every load,
+ * and that answer refreshes them.
+ */
 export const visitorOf = async (
   request: Request,
   invites: string,
@@ -30,5 +40,12 @@ export const visitorOf = async (
   if (principal === null) return { _tag: 'SignedOut' };
   const { id, email, name } = principal.user;
   if (!isInvited(invites, email)) return { _tag: 'NotInvited', email };
-  return { _tag: 'Admitted', member: { userId: id, email, name } };
+  return {
+    _tag: 'Admitted',
+    member: { userId: id, email, name },
+    until:
+      principal.kind === 'session'
+        ? new Date(principal.session.expiresAt).getTime()
+        : Date.now(),
+  };
 };

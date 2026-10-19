@@ -8,8 +8,13 @@ import { Api, Browser, NotSignedIn } from '../../shared/pages/index.ts';
  * shared by every call and stream of theirs; it closes once nothing of
  * theirs uses it, as after an Account Switch. A stream follows the member:
  * on a switch it ends for the old one and begins again for the new one, so
- * no page ever reads one user's data on another user's socket.
+ * no page ever reads one user's data on another user's socket. A socket
+ * acts for its member only until their session ends; once a call on it is
+ * refused, it is dropped, so the next call opens one verified again.
  */
+
+const refused = (error: unknown) =>
+  (error as { readonly _tag?: unknown } | null)?._tag === 'Unauthenticated';
 
 /** The Api for the member `signedIn` names: their id, now and on every change; null for nobody. */
 export const apiLayer = (signedIn: {
@@ -33,7 +38,13 @@ export const apiLayer = (signedIn: {
             const member = yield* signedIn.now;
             if (member === null) return yield* new NotSignedIn();
             const { client } = yield* RcMap.get(sockets, member.userId);
-            return yield* use(client);
+            return yield* use(client).pipe(
+              Effect.tapError((error) =>
+                refused(error)
+                  ? RcMap.invalidate(sockets, member.userId)
+                  : Effect.void,
+              ),
+            );
           }).pipe(Effect.scoped),
         follow: (use) =>
           ids.pipe(
@@ -44,6 +55,12 @@ export const apiLayer = (signedIn: {
                     Effect.map(
                       RcMap.get(sockets, userId),
                       ({ client, subscribe }) => subscribe(() => use(client)),
+                    ),
+                  ).pipe(
+                    Stream.tapError((error) =>
+                      refused(error)
+                        ? RcMap.invalidate(sockets, userId)
+                        : Effect.void,
                     ),
                   ),
             ),

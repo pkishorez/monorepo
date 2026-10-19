@@ -1,5 +1,6 @@
-import type { Member } from '../../shared/contracts/member/index.ts';
 import type { Visit } from './visitor/index.ts';
+
+type Admitted = Extract<Visit, { readonly _tag: 'Admitted' }>;
 
 /*
  * `/rpc`: the browser's socket to its User Space. Only a WebSocket upgrade
@@ -18,7 +19,7 @@ const isUpgrade = (request: Request) =>
 export const rpc = async (
   request: Request,
   visit: (request: Request) => Promise<Visit>,
-  open: (member: Member) => Promise<Response>,
+  open: (visitor: Admitted) => Promise<Response>,
 ): Promise<Response> => {
   if (!isUpgrade(request)) return refusal(426, 'Upgrade to a WebSocket');
   const visitor = await visit(request);
@@ -30,6 +31,6 @@ export const rpc = async (
     case 'NotInvited':
       return refusal(403, 'Console is invite-only for now');
     case 'Admitted':
-      return open(visitor.member);
+      return open(visitor);
   }
 };

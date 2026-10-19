@@ -35,8 +35,8 @@ import { Shell, ShellSkeleton } from './views/shell.tsx';
  *             Worker's word names, so the first paint is never a spinner.
  *
  * Pages are the Router's Children of Console, there whatever its State, so
- * Console Provides at its top and each page's work follows the member
- * through `Api`.
+ * Console Provides at its top; its `scope` is the signed-in member, so an
+ * Account Switch starts every page under it again, as the new member.
  */
 
 /** Accounts and the `Browser` Console Requires, for the app's Layer; built only in the browser. */
@@ -83,6 +83,12 @@ const idle = (model: Model) => model.busy === null;
 
 export const ConsoleLive = Page.build(Console, {
   pages: { Welcome: WelcomeLive },
+  // The pages are the signed-in member's: another member, after an Account
+  // Switch, starts every one of them again.
+  scope: ({ state, props }) => {
+    const shown = shownOf(state, props.status);
+    return shown._tag === 'SignedIn' ? shown.member.userId : '';
+  },
   init: () => ({
     model: {
       accounts: null,

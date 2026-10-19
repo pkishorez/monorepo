@@ -1,6 +1,6 @@
 import type * as cf from '@cloudflare/workers-types';
 import { DurableObject } from 'cloudflare:workers';
-import { Effect, Layer, Scope } from 'effect';
+import { Clock, Effect, Layer, Scope } from 'effect';
 import {
   FetchHttpClient,
   HttpServerRequest,
@@ -10,8 +10,14 @@ import type { RpcClient } from 'effect/rpc';
 import { authAs } from '@kestack/auth-toolkit/server/rpc';
 import { Rpc } from '@kestack/rpc-toolkit/rpc';
 import { ConsoleApi } from '../../shared/contracts/console-api/index.ts';
-import type { Member } from '../../shared/contracts/member/index.ts';
-import { principalOf, senderOf, sentBy, SocketCaller } from './caller.ts';
+import {
+  type Caller,
+  opened,
+  principalAt,
+  senderOf,
+  sentBy,
+  SocketCaller,
+} from './caller.ts';
 import { socketOf } from './socket.ts';
 import { Storage } from './services/storage/index.ts';
 import { sessionHandlers } from './workflows/session/index.ts';
@@ -51,15 +57,14 @@ const serve = (state: cf.DurableObjectState) =>
     const built = yield* Layer.build(services(state));
     const served = handlers.pipe(Layer.provide(Layer.succeedContext(built)));
 
-    // A socket's caller is said once, at its upgrade, and kept with it.
+    // A socket's caller is said once, at its upgrade, and kept with it,
+    // acting for them only until their time is up.
     const sockets = yield* Rpc.websocket.server(
       ConsoleApi,
       Layer.merge(
         served,
         authAs(
-          Effect.map(SocketCaller, (caller) =>
-            caller === null ? null : principalOf(caller),
-          ),
+          Effect.zipWith(SocketCaller, Clock.currentTimeMillis, principalAt),
         ),
       ),
       {
@@ -71,7 +76,9 @@ const serve = (state: cf.DurableObjectState) =>
             const caller = senderOf(request.headers);
             return caller === null
               ? Effect.fail(unauthorized)
-              : Effect.succeed(caller);
+              : Effect.map(Clock.currentTimeMillis, (now) =>
+                  opened(caller, now),
+                );
           },
         },
       },
@@ -84,7 +91,14 @@ const serve = (state: cf.DurableObjectState) =>
         return Promise.resolve(HttpServerResponse.toWeb(unauthorized));
       return Rpc.http.server(
         ConsoleApi,
-        Layer.merge(served, authAs(Effect.succeed(principalOf(caller)))),
+        Layer.merge(
+          served,
+          authAs(
+            Effect.map(Clock.currentTimeMillis, (now) =>
+              principalAt(caller, now),
+            ),
+          ),
+        ),
       )(request);
     };
 
@@ -147,23 +161,23 @@ export class UserSpace extends DurableObject {
   }
 }
 
-/** The member's own User Space, as the Worker reaches it. */
+/** The caller's own User Space, as the Worker reaches it. */
 export const reach = (
   namespace: DurableObjectNamespace<UserSpace>,
-  member: Member,
+  caller: Caller,
 ) => {
-  const stub = namespace.getByName(member.userId);
+  const stub = namespace.getByName(caller.member.userId);
   return {
-    /** Hands the browser's socket upgrade to it, as `member`. */
+    /** Hands the browser's socket upgrade to it, as `caller`. */
     socket: (request: Request): Promise<Response> =>
-      stub.fetch(sentBy(request, member)),
-    /** Calls its Console API over HTTP, as `member`: `RpcClient.make(ConsoleApi)` on it. */
+      stub.fetch(sentBy(request, caller)),
+    /** Calls its Console API over HTTP, as `caller`: `RpcClient.make(ConsoleApi)` on it. */
     api: Rpc.http
       .client(ConsoleApi, { url: 'https://user-space/rpc' })
       .pipe(
         Layer.provide(
           Layer.succeed(FetchHttpClient.Fetch, (input, init) =>
-            stub.fetch(sentBy(new Request(input, init), member)),
+            stub.fetch(sentBy(new Request(input, init), caller)),
           ),
         ),
       ) satisfies Layer.Layer<RpcClient.Protocol>,
