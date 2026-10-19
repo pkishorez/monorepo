@@ -2,6 +2,61 @@
 
 ## Terms
 
+**GitHub connection**
+One GitHub account or organization a user has connected to Console, through
+which Console sees that account's repositories and hears about their pushes
+and pull requests. A user may have several; each belongs to exactly one user.
+_Avoid_: GitHub project, GitHub integration, installation
+
+**Project**
+One Alchemy app in one repository: a repository reached through a GitHub
+connection, plus the folder that holds its `alchemy.run.ts`. A repository may
+hold several projects. A project owns exactly one stack.
+_Avoid_: App, site, repo
+
+**Environment**
+A project's deploy configuration for one kind of deployment, deciding which
+stage a commit deploys to and which provider credentials it deploys with.
+Environments are Console configuration; stages are what Alchemy records.
+_Avoid_: Stage (when meaning the configuration), target
+
+**Console stack**
+A stack that a Console project deploys. It is deployed and destroyed only
+through its project, by running the project's own code.
+
+**External stack**
+A stack found in a state store that no Console project deploys. Console only
+shows it; the one thing a user can do with it is import it as a project.
+_Avoid_: User-managed stack, unmanaged stack
+
+**Explore**
+The view of everything Alchemy has recorded in the accounts behind a user's
+provider credentials, marking each stack as a Console stack or an external
+stack.
+
+**Last deployed commit**
+The commit whose code most recently deployed a stage. Its code knows how to
+delete every kind of resource the stage holds, so a stage is always destroyed
+with it.
+
+**Run**
+One execution of a project's own code at one commit against one stage. A run
+is an Inspect (reads the stack's name, state store and providers; changes
+nothing), a Deploy or a Destroy; Deploy and Destroy begin with an Inspect.
+_Avoid_: Deployment, job, build
+
+**Run event**
+One reported step of a run, such as a resource moving from deleting to
+deleted, recorded in the order the runner reported it.
+
+**Runner**
+Console's program that performs a run inside the project's prepared
+environment, using the Alchemy version the project's own commit installs.
+
+**Import**
+Turning an external stack into a Console stack by linking it to a repository
+folder and assigning its existing stages to the project's environments.
+
 **Store**
 A named, user-owned Alchemy state location. A store lives in one provider
 (Cloudflare today), located through one provider credential, and may be
