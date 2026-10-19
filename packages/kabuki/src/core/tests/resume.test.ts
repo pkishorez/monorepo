@@ -273,6 +273,31 @@ describe('a saved History that no longer fits the code', () => {
     );
   });
 
+  it('fails for a Message to a slot the code no longer has, and loads one dropped live', async () => {
+    const parent = (withChild: boolean) =>
+      Actor.build(
+        Actor.define('Parent', {}),
+        withChild ? { children: { child: { actor: Counter } } } : {},
+      );
+    const saved = await run(
+      Effect.gen(function* () {
+        const app = yield* Runtime.start(History.make(parent(true)));
+        app.send('Parent/child#1', { _tag: 'Bumped' });
+        // Never there: dropped live.
+        app.send('Parent/child#2', { _tag: 'Bumped' });
+        return app.history.save();
+      }),
+    );
+    expect(
+      History.load(parent(true), saved, { onMismatch: 'fail' }).head(),
+    ).toBe(1);
+    expect(() =>
+      History.load(parent(false), saved, { window: 0, onMismatch: 'fail' }),
+    ).toThrow(
+      /at entry 0, Bumped for Parent\/child#1: the code no longer has a slot/,
+    );
+  });
+
   it("loads one that still fits with `onMismatch: 'fail'`", async () => {
     const history = History.load(Counter, await bumped(3), {
       onMismatch: 'fail',

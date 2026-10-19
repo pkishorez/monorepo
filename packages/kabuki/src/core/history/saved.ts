@@ -95,7 +95,8 @@ const convert = (
  * Actor of the slot at each step down, in any State. Usually one; a slot
  * name written in two States for two Actors gives both.
  */
-const actorsAt = (
+/** The Actors an Instance ID can be one of in this code: none if a slot on its way no longer exists. */
+export const actorsAt = (
   root: ActorDefinition,
   id: string,
 ): ReadonlyArray<ActorDefinition> => {
