@@ -1,8 +1,8 @@
-import type { Effect } from 'effect';
+import { Effect, Queue, Stream } from 'effect';
 import type { AnyActor } from '../actor/index.ts';
 import { isRestore, restore } from '../snapshot/index.ts';
 import type { Envelope, Handled, Snapshot } from '../snapshot/index.ts';
-import { Replay, outcomeOf } from './replay.ts';
+import { Replay, outcomeOf, strict } from './replay.ts';
 import type { ReplayOptions } from './replay.ts';
 import { checkSaved, decodeEntry, encodeEntry } from './saved.ts';
 
@@ -46,6 +46,12 @@ export interface SavedHistory {
 export interface HistoryOptions extends ReplayOptions {
   /** The root's Input. */
   readonly input?: unknown;
+  /**
+   * On load, what a saved History that no longer fits the code does: `'warn'`,
+   * the default, skips what does not fit, as Replay always does; `'fail'`
+   * throws at once, so a server never carries on from less than it saved.
+   */
+  readonly onMismatch?: 'warn' | 'fail';
   /** How many entries to keep on the Head's Branch; `null`, the default, keeps everything, and `0` keeps no Message, only the app as it is now. */
   readonly window?: number | null;
 }
@@ -78,6 +84,8 @@ export interface History<A = AnyActor> {
   /** What came of an entry: worked out again when not seen live. */
   readonly outcome: (entry: number) => Handled['outcome'];
   readonly subscribe: (listener: () => void) => () => void;
+  /** The History as plain JSON now, then after every change; a slow reader gets only the latest. */
+  readonly changes: Stream.Stream<SavedHistory>;
   /** Keep the Head where it is while a Runtime runs on it. Call what it returns to let go. */
   readonly lock: () => () => void;
 }
@@ -97,6 +105,9 @@ const load = <A extends AnyActor>(
 ): History<A> => {
   checkSaved(saved);
   const root = actor.definition;
+  // Before it is opened: Compacting to a Window would hide what does not fit.
+  if (options?.onMismatch === 'fail')
+    strict(root, saved.entries, options.input);
   return open(
     actor,
     {
@@ -211,6 +222,11 @@ const open = <A extends AnyActor>(
 
   // 4. Save
   /** A new array on every change, so one saved before never grows. */
+  const subscribe = (listener: () => void) => {
+    listeners.add(listener);
+    return () => void listeners.delete(listener);
+  };
+
   const save = () =>
     (state ??= {
       entries: Object.freeze(
@@ -298,10 +314,18 @@ const open = <A extends AnyActor>(
     seek: (entry = head) => replay.seek(branch(entry)),
     snapshotAt: (entry) => replay.at(branch(entry)),
     outcome,
-    subscribe: (listener) => {
-      listeners.add(listener);
-      return () => listeners.delete(listener);
-    },
+    subscribe,
+    changes: Stream.callback<SavedHistory>(
+      (queue) =>
+        Effect.acquireRelease(
+          Effect.sync(() => {
+            Queue.offerUnsafe(queue, save());
+            return subscribe(() => void Queue.offerUnsafe(queue, save()));
+          }),
+          (unsubscribe) => Effect.sync(unsubscribe),
+        ),
+      { bufferSize: 1, strategy: 'sliding' },
+    ),
     // Counted, so two Runtimes on one History each hold it until they let go.
     lock: () => {
       locks++;

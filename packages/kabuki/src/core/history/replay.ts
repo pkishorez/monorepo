@@ -3,6 +3,7 @@ import type { ActorDefinition } from '../actor/index.ts';
 import { actorAt, handle, init, isRestore } from '../snapshot/index.ts';
 import type { Envelope, Handled, Snapshot } from '../snapshot/index.ts';
 import type { Entry } from './history.ts';
+import { actorsAt, decodeEntry } from './saved.ts';
 
 /*
  * Replay: the Snapshot right after any entry, from the Messages alone. Only
@@ -136,6 +137,58 @@ const fold = (
   branch.reduce(
     (snapshot, entry) => play(root, snapshot, entry),
     init(root, input),
+  );
+
+/**
+ * Play every entry of a saved History, on every Branch, each from the one
+ * before it, throwing at the first that no longer fits the code, where Replay
+ * would warn and skip it: a Message for a slot the code no longer has, one
+ * that no longer decodes or that its Actor's Schema refuses, or a Restore
+ * that is not put in place. A Message for an Instance that is gone, in a slot
+ * that still exists, was dropped live, and is dropped again.
+ */
+export const strict = (
+  root: ActorDefinition,
+  saved: ReadonlyArray<Entry>,
+  input?: unknown,
+): void => {
+  // How many entries still grow from each one, so a Snapshot is let go
+  // once its last one is played.
+  const left = new Map<number | null, number>();
+  for (const { parent } of saved) left.set(parent, (left.get(parent) ?? 0) + 1);
+  const after = new Map<number | null, Snapshot>([[null, init(root, input)]]);
+  // Oldest first, so the entry before each one is already played.
+  for (const entry of saved) {
+    const before = after.get(entry.parent)!;
+    const remaining = left.get(entry.parent)! - 1;
+    left.set(entry.parent, remaining);
+    if (remaining === 0) after.delete(entry.parent);
+
+    const restoring = isRestore(entry.message);
+    if (!restoring && actorsAt(root, entry.destination).length === 0)
+      throw mismatch(entry, 'the code no longer has a slot on its way');
+    const decoded = decodeEntry(root, entry);
+    // An entry that does not decode comes back as it was saved.
+    if (
+      decoded === entry &&
+      (restoring || actorAt(root, before, entry.destination))
+    )
+      throw mismatch(entry, "it no longer decodes with its Actor's Schemas");
+    let handled: Handled;
+    try {
+      handled = replayed(root, before, decoded);
+    } catch (error) {
+      throw mismatch(entry, (error as Error).message);
+    }
+    if (restoring && handled.outcome !== 'handled')
+      throw mismatch(entry, 'its Snapshot no longer matches the Actors');
+    if (left.has(entry.id)) after.set(entry.id, handled.snapshot);
+  }
+};
+
+const mismatch = (entry: Entry, reason: string) =>
+  new Error(
+    `[@kestack/kabuki] the saved History no longer fits the code at entry ${entry.id}, ${entry.message._tag} for ${entry.destination}: ${reason}`,
   );
 
 export const Replay = { make, fold };

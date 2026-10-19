@@ -1,4 +1,4 @@
-import { Clock, Context, Effect, Fiber, Layer } from 'effect';
+import { Clock, Context, Effect, Fiber, Layer, Queue, Stream } from 'effect';
 import type { Scope } from 'effect';
 import type { AnyActor, Tagged, Types } from '../actor/index.ts';
 import { actorAt, isRestore } from '../snapshot/index.ts';
@@ -55,6 +55,8 @@ export interface Running<A> {
   ) => void;
   /** Called once the Mailbox is empty, and on every start and stop. */
   readonly subscribe: (listener: () => void) => () => void;
+  /** The live Snapshot now, then whenever `subscribe` is called; a slow reader gets only the latest. */
+  readonly changes: Stream.Stream<Snapshot>;
   /** What an Instance's Workers are doing now. Empty while stopped. */
   readonly workers: (instance: string) => ReadonlyArray<WorkerStatus>;
   /** Start at the Head, or move the Head to an entry first (`null`: init). Stops first if running. */
@@ -82,6 +84,10 @@ const start = <A extends AnyActor>(
     const time = makeTime(() => clock.monotonicTimeNanosUnsafe());
     const listeners = new Set<() => void>();
     const notify = () => listeners.forEach((listener) => listener());
+    const subscribe = (listener: () => void) => {
+      listeners.add(listener);
+      return () => void listeners.delete(listener);
+    };
 
     let snapshot: Snapshot;
     let instance: ActorInstance | undefined;
@@ -181,10 +187,18 @@ const start = <A extends AnyActor>(
       now: time.now,
       send: (id, message, source = { kind: 'outside' }) =>
         send(id, message, source),
-      subscribe: (listener) => {
-        listeners.add(listener);
-        return () => listeners.delete(listener);
-      },
+      subscribe,
+      changes: Stream.callback<Snapshot>(
+        (queue) =>
+          Effect.acquireRelease(
+            Effect.sync(() => {
+              Queue.offerUnsafe(queue, snapshot);
+              return subscribe(() => void Queue.offerUnsafe(queue, snapshot));
+            }),
+            (unsubscribe) => Effect.sync(unsubscribe),
+          ),
+        { bufferSize: 1, strategy: 'sliding' },
+      ),
       workers: (id) => instance?.workers(id) ?? [],
       start: (from) => latest(restart(from)),
       stop: () => latest(halt),

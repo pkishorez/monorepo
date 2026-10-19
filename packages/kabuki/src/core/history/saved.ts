@@ -95,12 +95,15 @@ const convert = (
  * Actor of the slot at each step down, in any State. Usually one; a slot
  * name written in two States for two Actors gives both.
  */
-const actorsAt = (
+/** The Actors an Instance ID can be one of in this code: none if a slot on its way no longer exists. */
+export const actorsAt = (
   root: ActorDefinition,
   id: string,
 ): ReadonlyArray<ActorDefinition> => {
-  const [first, ...steps] = id.split('/');
-  if (first !== root.name) return [];
+  // The root's name may hold a `/` itself; only what follows it is the path.
+  if (id !== root.name && !id.startsWith(`${root.name}/`)) return [];
+  const steps =
+    id === root.name ? [] : id.slice(root.name.length + 1).split('/');
   let at: ReadonlyArray<ActorDefinition> = [root];
   for (const step of steps) {
     const slot = step.slice(0, step.search(/[[#]/));
