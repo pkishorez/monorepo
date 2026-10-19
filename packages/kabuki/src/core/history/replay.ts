@@ -138,6 +138,36 @@ const fold = (
     init(root, input),
   );
 
+/**
+ * Play a Branch from init, throwing at the first entry that no longer fits
+ * the code, where Replay would warn and skip it: a Message its Actor's Schema
+ * refuses, or a Restore that is not put in place.
+ */
+export const strict = (
+  root: ActorDefinition,
+  branch: ReadonlyArray<Entry>,
+  input?: unknown,
+): Snapshot =>
+  branch.reduce(
+    (snapshot, entry) => {
+      let handled: Handled;
+      try {
+        handled = replayed(root, snapshot, entry);
+      } catch (error) {
+        throw mismatch(entry, (error as Error).message);
+      }
+      if (isRestore(entry.message) && handled.outcome !== 'handled')
+        throw mismatch(entry, 'its Snapshot no longer matches the Actors');
+      return handled.snapshot;
+    },
+    init(root, input),
+  );
+
+const mismatch = (entry: Entry, reason: string) =>
+  new Error(
+    `[@kestack/kabuki] the saved History no longer fits the code at entry ${entry.id}, ${entry.message._tag} for ${entry.destination}: ${reason}`,
+  );
+
 export const Replay = { make, fold };
 
 const warned = new WeakSet<Entry>();

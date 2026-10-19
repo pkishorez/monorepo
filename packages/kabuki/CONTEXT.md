@@ -65,7 +65,7 @@ A fact that happened, addressed to one Instance: a click, a timer tick, a Comman
 _Avoid_: event (XState's word; Kabuki uses Elm's names), action
 
 **Restore**:
-A Message to the root that replaces the whole Snapshot with one saved before, stamped with that Snapshot's Time. The only Message no Update sees: Replay checks each Instance against its Actor's Schemas and puts the Snapshot in place, or warns and leaves init as it was. A History of one Restore is the light way to save an app: the Step before it is init, and nothing before the Restore can be travelled to but init.
+A Message to the root that replaces the whole Snapshot with one saved before, stamped with that Snapshot's Time. The only Message no Update sees: Replay checks each Instance against its Actor's Schemas and puts the Snapshot in place, or warns and leaves init as it was; a History loaded strictly refuses to load instead. A History of one Restore is the light way to save an app: the Step before it is init, and nothing before the Restore can be travelled to but init.
 _Avoid_: checkpoint, hydrate, load, seed
 
 **Envelope**:
@@ -77,8 +77,8 @@ Who Sent a Message: the Instance, and what in it Sent: its View, a Command by it
 _Avoid_: sender, origin, caller
 
 **Time**:
-When a Message arrived, in milliseconds: from 0 at init, carried on from the Head's Time when a Runtime starts, and standing still while it is stopped. Stamped by the Runtime and kept with the Message. Update reads it, so a Replay gets the same answer as the live app. The one clock the app and its History share.
-_Avoid_: timestamp, now, clock (on its own)
+When a Message arrived, in milliseconds: from 0 at init, carried on from the Head's Time when a Runtime starts, and standing still while it is stopped. Stamped by the Runtime and kept with the Message. Update reads it, so a Replay gets the same answer as the live app. The one clock the app and its History share. It is how long things take inside the app, not a date: a moment in the world, a session that expires or a reminder at nine, is data a Message carries, and a Worker waits for it on the real clock, so it holds across a reload, a stop and a server starting over. Update never reads the real clock itself, as it reads nothing but its arguments.
+_Avoid_: timestamp, now, clock (on its own), date
 
 **Update**:
 The pure rule that takes the current Model, State and Props, a Message and its Time and returns the next Model and State, and the Commands it asks for. It never sees Capabilities, so Replay can run it with nothing else. Written under `on`, at the top or in a State's block; the State's rule wins over the top one, and a Message with no rule in either is ignored. A Message with no rule anywhere, at the top or in any State, is always ignored, and making its Actor warns of it. The only thing that changes the Model, so whatever is running is readable from it.
