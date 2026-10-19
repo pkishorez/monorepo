@@ -1,5 +1,13 @@
 # @kestack/devtools
 
+## 0.0.14
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @kestack/std-toolkit@0.0.3
+  - laymos@0.0.14
+
 ## 0.0.13
 
 ### Patch Changes
