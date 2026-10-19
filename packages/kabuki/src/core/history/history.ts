@@ -229,9 +229,10 @@ const open = <A extends AnyActor>(
   /** The oldest entry the Window keeps on the Head's Branch, or none when the whole Branch fits. */
   const floor = () => {
     const path = branch(head);
-    // Nothing kept is still the one Restore of the app as it is now.
-    const kept = window === null ? path.length : Math.max(window, 1);
-    return path.length <= kept ? undefined : path[path.length - kept]!;
+    if (window === null || path.length === 0) return undefined;
+    // Keeping nothing still keeps the app as it is now: the Head, as a Restore.
+    if (window === 0) return path.at(-1);
+    return path.length <= window ? undefined : path[path.length - window]!;
   };
 
   /** Make an entry the start of the History: a Restore of the Snapshot right after it, at its Time, after init. */

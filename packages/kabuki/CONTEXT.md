@@ -19,7 +19,7 @@ How a defined Actor behaves: its init, its Updates, its Children, Workers and Pr
 _Avoid_: implementation, instance (an Instance is a running Build)
 
 **Instance**:
-One running Actor in the tree: its ID, its current Model, State and Props, and its Children. Called an "actor instance" where "Instance" alone is unclear. Views draw an Instance; Messages are sent to one. Code outside the tree reaches the root Instance through its Runtime, typed by its Actor and always live, and from it any Instance below: it reads their data and their Workers and Sends to them, and changes nothing else. An Instance that has stopped reads as it was when last read, and nothing Sent to it arrives.
+One running Actor in the tree: its ID, its current Model, State and Props, and its Children. Called an "actor instance" where "Instance" alone is unclear. Views draw an Instance; Messages are sent to one. Code outside the tree reaches the root Instance through its Runtime, typed by its Actor and always live, and from it any Instance below: it reads their data and their Workers and Sends to them, and changes nothing else. An Instance that has stopped, or was reached before its Runtime last started, reads as it was when last read, and nothing Sent to it arrives.
 _Avoid_: ref, process, live node, store
 
 **Instance ID**:

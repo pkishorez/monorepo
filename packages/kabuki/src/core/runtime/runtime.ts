@@ -86,6 +86,8 @@ const start = <A extends AnyActor>(
     let snapshot: Snapshot;
     let instance: ActorInstance | undefined;
     let release = () => {};
+    /** How many times it has started: an Instance reached in one run is stopped in the next. */
+    let runs = 0;
 
     const mailbox = makeMailbox(
       time.now,
@@ -109,6 +111,7 @@ const start = <A extends AnyActor>(
 
     // 1. Start
     const go = Effect.gen(function* () {
+      runs++;
       snapshot = yield* history.seek();
       time.start(history.branch().at(-1)?.at ?? 0);
       release = history.lock();
@@ -166,7 +169,8 @@ const start = <A extends AnyActor>(
 
     const running: Running<A> = {
       history,
-      instance: ({ from }) => reach<A>(running, root, from),
+      instance: ({ from }) =>
+        reach<A>({ ...running, run: () => runs }, root, from),
       snapshot: () => snapshot,
       running: () => instance !== undefined,
       now: time.now,

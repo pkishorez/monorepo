@@ -185,4 +185,26 @@ describe('an Instance reached from outside', () => {
         expect(board.model.ids).toEqual(['b', 'a']);
       }),
     ));
+
+  it('reached before the Runtime last started, is stopped, though a new Instance has its ID', () =>
+    run(
+      Effect.gen(function* () {
+        const running = yield* Runtime.start(History.make(Board));
+        const board = running.instance({ from: 'test' });
+        const row = board.children.rows[0]!;
+        board.send({ _tag: 'Removed', id: 'a' });
+        expect(board.model.ids).toEqual(['b']);
+        yield* running.start(null);
+        yield* settle;
+        // Started over from init: `Board/rows[a]#1` is a new Instance.
+        expect(running.instance({ from: 'test' }).children.rows[0]!.id).toBe(
+          row.id,
+        );
+        expect(row.stopped).toBe(true);
+        expect(row.workers).toEqual([]);
+        expect(row.send({ _tag: 'Retried' })).toBe(false);
+        expect(board.stopped).toBe(true);
+        expect(board.model.ids).toEqual(['b']);
+      }),
+    ));
 });

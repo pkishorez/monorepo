@@ -519,6 +519,15 @@ describe('a Window', () => {
         expect(instanceAt(app.snapshot(), 'Counter')?.model).toEqual({
           count: 3,
         });
+        // Each start from init grows one entry, folded at once: none is left behind.
+        for (let at = 1; at <= 3; at++) {
+          yield* app.start(null);
+          app.send('Counter', { _tag: 'Bumped' });
+        }
+        expect(app.history.save().entries).toHaveLength(1);
+        expect(app.history.branch()[0]?.message._tag).toBe(
+          '@kestack/kabuki/Restore',
+        );
       }),
     ));
 
