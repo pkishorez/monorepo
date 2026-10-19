@@ -27,6 +27,8 @@ jobs:
       STAGE: pr${{ github.event_name == 'workflow_dispatch' && inputs.pr_number || github.event.number }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      # The stack reads the Vault key while it is evaluated, destroys too.
+      CONSOLE_VAULT_KEY: ${{ secrets.CONSOLE_VAULT_KEY }}
     steps:
       - uses: actions/checkout@v7
         with:

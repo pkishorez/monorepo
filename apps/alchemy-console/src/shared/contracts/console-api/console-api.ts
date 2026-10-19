@@ -1,4 +1,5 @@
 import { Auth } from '@kestack/auth-toolkit';
+import { Credentials } from './credentials/index.ts';
 import { Session } from './session/index.ts';
 
 /**
@@ -9,4 +10,4 @@ import { Session } from './session/index.ts';
  * `session/`: `Auth.required(Session.merge(Credentials, Projects))`. The
  * User Space serves every group it holds; nothing else changes.
  */
-export const ConsoleApi = Auth.required(Session);
+export const ConsoleApi = Auth.required(Session.merge(Credentials));

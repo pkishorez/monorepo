@@ -21,7 +21,10 @@ import {
 import { makeDeadlines } from './deadlines.ts';
 import { sessionBound } from './session-bound.ts';
 import { socketOf } from './socket.ts';
+import { Providers } from './services/providers/index.ts';
 import { Storage } from './services/storage/index.ts';
+import { Vault } from './services/vault/index.ts';
+import { credentialsHandlers } from './workflows/credentials/index.ts';
 import { sessionHandlers } from './workflows/session/index.ts';
 
 /*
@@ -39,8 +42,19 @@ import { sessionHandlers } from './workflows/session/index.ts';
  *   below, beside a group merged into `ConsoleApi`.
  */
 
+/** What the object reads from the Worker's env. */
+interface UserSpaceEnv {
+  /** The key the Vault seals secrets with: 32 bytes, in base64. */
+  readonly CONSOLE_VAULT_KEY?: string;
+}
+
 /** Every service, built once for the life of the object. */
-const services = (state: cf.DurableObjectState) => Storage.layer(state.storage);
+const services = (state: cf.DurableObjectState, env: UserSpaceEnv) =>
+  Layer.mergeAll(
+    Storage.layer(state.storage),
+    Vault.layer(env.CONSOLE_VAULT_KEY),
+    Providers.layer((input, init) => fetch(input, init)),
+  );
 
 /** Every workflow's handlers, served as one `ConsoleApi`, each stream ending with its caller's session. */
 const handlers = (deadlines: ReturnType<typeof makeDeadlines>) =>
@@ -49,6 +63,7 @@ const handlers = (deadlines: ReturnType<typeof makeDeadlines>) =>
       return sessionBound(
         {
           ...(yield* sessionHandlers),
+          ...(yield* credentialsHandlers),
         },
         deadlines,
       );
@@ -58,9 +73,9 @@ const handlers = (deadlines: ReturnType<typeof makeDeadlines>) =>
 const unauthorized = HttpServerResponse.text('Unauthorized', { status: 401 });
 
 /** The object's entry points: its fetch, and the callbacks of the sockets it hibernates. */
-const serve = (state: cf.DurableObjectState) =>
+const serve = (state: cf.DurableObjectState, env: UserSpaceEnv) =>
   Effect.gen(function* () {
-    const built = yield* Layer.build(services(state));
+    const built = yield* Layer.build(services(state, env));
     const deadlines = makeDeadlines(state.storage);
     const served = handlers(deadlines).pipe(
       Layer.provide(Layer.succeedContext(built)),
@@ -143,7 +158,7 @@ export class UserSpace extends DurableObject {
     const scope = Scope.makeUnsafe();
     // `cloudflare:workers` names its own copy of the workerd types.
     this.#served = Effect.runPromise(
-      serve(state as unknown as cf.DurableObjectState).pipe(
+      serve(state as unknown as cf.DurableObjectState, env).pipe(
         Scope.provide(scope),
       ),
     );

@@ -1,6 +1,7 @@
 import { Schema } from 'effect';
 import { StdTable } from '@kestack/std-toolkit/db';
-import { ESchema } from '@kestack/std-toolkit/eschema';
+import { EntityESchema, ESchema } from '@kestack/std-toolkit/eschema';
+import { Provider } from '../../../../shared/contracts/credential/index.ts';
 import { Member } from '../../../../shared/contracts/member/index.ts';
 
 /*
@@ -23,3 +24,24 @@ const Owner = ESchema.make('Owner', {
 export const owner = userSpaceTable
   .singleEntity(Owner)
   .default({ member: null, at: 0 });
+
+/** A Provider credential: its secret only ever as the Vault sealed it. */
+const Credential = EntityESchema.make('Credential', 'credentialId', {
+  name: Schema.String,
+  provider: Provider,
+  accountId: Schema.String,
+  accountName: Schema.NullOr(Schema.String),
+  region: Schema.NullOr(Schema.String),
+  /** The provider's keys as JSON, sealed by the Vault. */
+  sealed: Schema.String,
+  createdAt: Schema.Number,
+  updatedAt: Schema.Number,
+}).build();
+
+export type StoredCredential = typeof Credential.Type;
+
+/** Every credential is the owner's, so they share one partition. */
+export const credential = userSpaceTable
+  .entity(Credential)
+  .primary({ pk: [] })
+  .build();

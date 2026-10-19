@@ -64,7 +64,9 @@ jobs:
       GH_APP_CLIENT_SECRET: ${{ github.ref_name == 'console-next' && secrets.DEV_GH_APP_CLIENT_SECRET || secrets.GH_APP_CLIENT_SECRET }}
       GH_APP_WEBHOOK_SECRET: ${{ github.ref_name == 'console-next' && secrets.DEV_GH_APP_WEBHOOK_SECRET || secrets.GH_APP_WEBHOOK_SECRET }}
       GH_APP_PRIVATE_KEY: ${{ github.ref_name == 'console-next' && secrets.DEV_GH_APP_PRIVATE_KEY || secrets.GH_APP_PRIVATE_KEY }}
-      CONSOLE_VAULT_KEY: ${{ github.ref_name == 'console-next' && secrets.DEV_CONSOLE_VAULT_KEY || secrets.CONSOLE_VAULT_KEY }}
+      # The Vault key follows the stage deployed, so a manual dev deploy from
+      # another branch never swaps dev's key for prod's.
+      CONSOLE_VAULT_KEY: ${{ (inputs.stage || (github.event_name == 'pull_request' && format('pr{0}', github.event.number)) || (github.ref_name == 'console-next' && 'dev') || 'prod') == 'dev' && secrets.DEV_CONSOLE_VAULT_KEY || secrets.CONSOLE_VAULT_KEY }}
     steps:
       - name: Validate stage
         run: |

@@ -1,5 +1,5 @@
-import { Context, Effect, Layer } from 'effect';
-import { RpcClient } from 'effect/rpc';
+import { Context, Effect, Layer, Stream } from 'effect';
+import { RpcClient, type RpcClientError } from 'effect/rpc';
 import { Start } from '@kestack/kabuki/start/server';
 import { ConsoleApi } from '../shared/contracts/console-api/index.ts';
 import { router, type Visitor } from '../shared/pages/index.ts';
@@ -15,9 +15,23 @@ import { reach } from './user-space/index.ts';
  * Console API, as the member.
  */
 
-class Visit extends Context.Service<Visit, typeof Visitor.Type>()(
-  'alchemy-console/Loaders/Visit',
-) {}
+type Client = RpcClient.FromGroup<
+  typeof ConsoleApi,
+  RpcClientError.RpcClientError
+>;
+
+class Visit extends Context.Service<
+  Visit,
+  {
+    readonly visitor: typeof Visitor.Type;
+    /** Asks the member's User Space, as them; null for anyone Console turns away. */
+    readonly ask:
+      | (<A, E>(
+          use: (client: Client) => Effect.Effect<A, E>,
+        ) => Effect.Effect<A>)
+      | null;
+  }
+>()('alchemy-console/Loaders/Visit') {}
 
 const visit = (env: Env, request: Request) =>
   Layer.effect(
@@ -29,25 +43,36 @@ const visit = (env: Env, request: Request) =>
       // Sign-in cookies the Auth Worker refreshed go on the page.
       const headers = yield* Start.ResponseHeaders;
       for (const cookie of cookies) yield* headers.append('set-cookie', cookie);
-      if (visited._tag !== 'Admitted') return visited;
-      const member = yield* Effect.gen(function* () {
-        const api = yield* RpcClient.make(ConsoleApi);
-        return yield* api['Session.me']();
-      }).pipe(
-        Effect.scoped,
-        Effect.provide(reach(env.USER_SPACE, visited).api),
-        Effect.orDie,
-      );
-      return { _tag: 'SignedIn' as const, member };
+      if (visited._tag !== 'Admitted') return { visitor: visited, ask: null };
+      const api = reach(env.USER_SPACE, visited).api;
+      const ask = <A, E>(use: (client: Client) => Effect.Effect<A, E>) =>
+        Effect.flatMap(RpcClient.make(ConsoleApi), use).pipe(
+          Effect.scoped,
+          Effect.provide(api),
+          Effect.orDie,
+        );
+      const member = yield* ask((client) => client['Session.me']());
+      return { visitor: { _tag: 'SignedIn' as const, member }, ask };
     }),
   );
 
 const loaders = router.loaders({
-  Console: () => Visit,
+  Console: () => Effect.map(Visit, ({ visitor }) => visitor),
   'Console.Welcome': () =>
-    Effect.map(Visit, (visitor) => ({
+    Effect.map(Visit, ({ visitor }) => ({
       member: visitor._tag === 'SignedIn' ? visitor.member : null,
     })),
+  'Console.Settings': () =>
+    Effect.gen(function* () {
+      const { ask } = yield* Visit;
+      if (ask === null) return { credentials: null };
+      const credentials = yield* ask((client) =>
+        Stream.runHead(client['Credentials.list']()),
+      );
+      return {
+        credentials: credentials._tag === 'Some' ? credentials.value : [],
+      };
+    }),
 });
 
 export default Start.layers<Env>()
