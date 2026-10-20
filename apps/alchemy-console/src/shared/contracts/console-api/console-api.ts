@@ -2,6 +2,7 @@ import { Auth } from '@kestack/auth-toolkit';
 import { Connections } from './connections/index.ts';
 import { Credentials } from './credentials/index.ts';
 import { Repositories } from './repositories/index.ts';
+import { Runs } from './runs/index.ts';
 import { Session } from './session/index.ts';
 
 /**
@@ -13,5 +14,5 @@ import { Session } from './session/index.ts';
  * User Space serves every group it holds; nothing else changes.
  */
 export const ConsoleApi = Auth.required(
-  Session.merge(Credentials, Connections, Repositories),
+  Session.merge(Credentials, Connections, Repositories, Runs),
 );

@@ -1,4 +1,9 @@
-import { createHmac, generateKeyPairSync, verify } from 'node:crypto';
+import {
+  createHash,
+  createHmac,
+  generateKeyPairSync,
+  verify,
+} from 'node:crypto';
 import type { Outbound, TestApp } from './console.ts';
 
 /*
@@ -65,6 +70,12 @@ const signedByApp = (jwt: string) => {
     )
   );
 };
+
+/** The head commit the fake GitHub gives `ref`: a SHA is its own head. */
+export const headOf = (ref: string) =>
+  /^[0-9a-f]{40}$/.test(ref)
+    ? ref
+    : createHash('sha1').update(ref).digest('hex');
 
 export const fakeGitHub = () => {
   const installations = new Map<number, FakeInstallation>();
@@ -151,6 +162,15 @@ export const fakeGitHub = () => {
           private: true,
           default_branch: 'main',
         })),
+      });
+    const commit = url.pathname.match(
+      /^\/repos\/([^/]+\/[^/]+)\/commits\/(.+)$/,
+    );
+    if (commit && installation.repositories.includes(commit[1]!))
+      return json(200, {
+        sha: headOf(decodeURIComponent(commit[2]!)),
+        html_url: `https://github.com/${commit[1]}/commit/${headOf(commit[2]!)}`,
+        commit: { message: 'A commit', author: null },
       });
     const contents = url.pathname.match(
       /^\/repos\/([^/]+\/[^/]+)\/contents\/?(.*)$/,

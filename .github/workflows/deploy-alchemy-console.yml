@@ -66,6 +66,8 @@ jobs:
       GH_APP_PRIVATE_KEY: ${{ (inputs.stage || (github.event_name == 'pull_request' && format('pr{0}', github.event.number)) || (github.ref_name == 'console-next' && 'dev') || 'prod') == 'dev' && secrets.DEV_GH_APP_PRIVATE_KEY || secrets.GH_APP_PRIVATE_KEY }}
       GH_APP_CLIENT_ID: ${{ (inputs.stage || (github.event_name == 'pull_request' && format('pr{0}', github.event.number)) || (github.ref_name == 'console-next' && 'dev') || 'prod') == 'dev' && secrets.DEV_GH_APP_CLIENT_ID || secrets.GH_APP_CLIENT_ID }}
       GH_APP_CLIENT_SECRET: ${{ (inputs.stage || (github.event_name == 'pull_request' && format('pr{0}', github.event.number)) || (github.ref_name == 'console-next' && 'dev') || 'prod') == 'dev' && secrets.DEV_GH_APP_CLIENT_SECRET || secrets.GH_APP_CLIENT_SECRET }}
+      # 'on' once the Cloudflare token may deploy Containers: binds run containers.
+      CONSOLE_RUNNERS: ${{ vars.CONSOLE_RUNNERS }}
       CONSOLE_VAULT_KEY: ${{ (inputs.stage || (github.event_name == 'pull_request' && format('pr{0}', github.event.number)) || (github.ref_name == 'console-next' && 'dev') || 'prod') == 'dev' && secrets.DEV_CONSOLE_VAULT_KEY || secrets.CONSOLE_VAULT_KEY }}
     steps:
       - name: Validate stage

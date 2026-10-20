@@ -27,8 +27,10 @@ they share only `src/shared`.
 src/
   client/            the Kabuki app: app.tsx, document.tsx, console/ (the root gate), pages/<page>/
   server/            worker.ts (the entry), loaders.server.ts, host/ (routes), user-space/ (the Durable Object),
-                     connection-index/ (which user owns each GitHub App installation, on D1)
-  shared/contracts/  what both sides speak: entities, console-api/
+                     connection-index/ (which user owns each GitHub App installation, on D1),
+                     runner-container/ (the container-backed object a run runs in), run-token/
+  runner/            the program inside a run's container, bundled by runner.build.ts into the Dockerfile's image
+  shared/contracts/  what the sides speak: entities, console-api/, runner-api/
   shared/pages/      the route tree, read by the browser and the Loaders alike
 ```
 
@@ -57,6 +59,7 @@ pnpm --filter alchemy-console test
 
 - `prod`, `dev` and `pr<N>` deploy only from CI, each with its own Vault key and GitHub App from the repository secrets (`DEV_CONSOLE_VAULT_KEY` and `DEV_GH_APP_*`, the `alchemy-console-dev` App, for `dev`; `CONSOLE_VAULT_KEY` and `GH_APP_*`, the `alchemy-console` App, otherwise): `main` to console.kishore.app, `console-next` to dev-console.kishore.app, each pull request to `pr<N>-console.kishore.app`.
 - `pnpm test` also runs `tests/github-live.test.ts` against the real dev App when its keys are on disk, at `.env.github-dev` or `CONSOLE_GITHUB_ENV`.
+- Runs need a container, so only deployed stages run them, and only with the repository variable `CONSOLE_RUNNERS=on` (the Cloudflare token must be allowed to deploy Containers); elsewhere a run fails to start, saying so. `CONSOLE_RUNNER_LIVE=1 pnpm --filter alchemy-console test tests/runner-live.test.ts` builds the runner image with local Docker and Inspects the sandbox repository through it, with the dev App's keys as above.
 
 ### Add a page
 
@@ -86,9 +89,10 @@ workers: {
 
 ### Add an RPC group, a workflow or a route
 
-- A group is a nested module of `src/shared/contracts/console-api/`, merged in `console-api.ts`: `Auth.required(Session.merge(Credentials, Connections, Repositories))`.
+- A group is a nested module of `src/shared/contracts/console-api/`, merged in `console-api.ts`: `Auth.required(Session.merge(Credentials, Connections, Repositories, Runs))`.
+- A run is asked for with `RunLifecycle.enqueue` and heard ending with `RunLifecycle.onFinished` (`workflows/run-lifecycle/`); its container is started with only `RUN_ID`, `RUN_TOKEN` and `CONSOLE_URL`, and its runner asks the User Space for the rest over `/runner` (the `RunnerApi` group).
 - A secret a workflow keeps goes through the `vault` service: storage holds only what `vault.encrypt` sealed, and a run reads a credential's keys only through `envFor` in `workflows/credentials`.
 - A screen that needs a new credential holds `AddCredentialLive` (`src/client/add-credential/`) as a Child, hands it `open` and the provider it needs, and Provides an `AddCredentialOpener` to hear the new credential's ID.
 - Its handlers come from a workflow, `src/server/user-space/workflows/<name>/`, spread into `handlers` in `user-space.ts`; a service it needs is `src/server/user-space/services/<name>/`, built in `services` there.
 - A Worker route of its own is a file or folder in `src/server/host/` and a case in `host.ts`, answered before Start, as `/github/connected` and `/github/webhook` are (`host/github/`).
-- GitHub is reached only through the `github` service (`services/github/`), as the App or as one installation; its tokens never leave the User Space. A webhook delivery reaches the installation owner's User Space through `githubEvents.receive` (`workflows/github-events/`).
+- GitHub is reached only through the `github` service (`services/github/`), as the App or as one installation; its tokens never leave the User Space, but for the read-only token of one repository a run's runner checks out with. A webhook delivery reaches the installation owner's User Space through `githubEvents.receive` (`workflows/github-events/`).

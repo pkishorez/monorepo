@@ -39,12 +39,13 @@ export const folderPath = (path: string) => {
     : Effect.succeed(segments.map(encodeURIComponent).join('/'));
 };
 
-/** GET (or `method`) `path` with `token` (`Bearer` for both an App JWT and an installation token). */
+/** GET (or `method`, with a JSON `body`) `path` with `token` (`Bearer` for both an App JWT and an installation token). */
 export const call = (
   fetch: Fetch,
   token: string,
   path: string,
   method: 'GET' | 'POST' = 'GET',
+  body?: unknown,
 ) =>
   Effect.gen(function* () {
     const response = yield* Effect.tryPromise({
@@ -56,17 +57,21 @@ export const call = (
             authorization: `Bearer ${token}`,
             'user-agent': 'alchemy-console',
             'x-github-api-version': '2022-11-28',
+            ...(body === undefined
+              ? {}
+              : { 'content-type': 'application/json' }),
           },
+          ...(body === undefined ? {} : { body: JSON.stringify(body) }),
         }),
       catch: () => unreachable,
     });
-    const body = (yield* Effect.promise(() =>
+    const answer = (yield* Effect.promise(() =>
       response.json().catch(() => null),
     )) as { readonly message?: unknown } | null;
-    if (response.ok) return body as unknown;
+    if (response.ok) return answer as unknown;
     const said =
-      typeof body?.message === 'string'
-        ? ` GitHub said: ${body.message.slice(0, 200)}.`
+      typeof answer?.message === 'string'
+        ? ` GitHub said: ${answer.message.slice(0, 200)}.`
         : '';
     if (response.status === 404)
       return yield* notFound(`GitHub found nothing there.${said}`);
