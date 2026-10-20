@@ -1,4 +1,5 @@
 import { mkdtemp, rm } from 'node:fs/promises';
+import { createServer } from 'node:net';
 import { createRequire, findPackageJSON } from 'node:module';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -100,53 +101,139 @@ export interface TestApp {
   readonly clientSecret: string;
 }
 
+/** The variables a run's container is started with. */
+export type ContainerVariables = Readonly<Record<string, string>>;
+
+/**
+ * Where the tests' Worker starts and stops run containers, in place of
+ * Cloudflare's: the variables each container would get, and its run's ID.
+ */
+export interface Containers {
+  readonly start: (variables: ContainerVariables) => void | Promise<void>;
+  readonly stop: (runId: string) => void | Promise<void>;
+}
+
+/**
+ * Stands in for `RunnerContainer`: the same `start` and `stop` the User
+ * Space calls, handed to the test (`Containers`) instead of a container.
+ */
+const FAKE_CONTAINER = `
+import { DurableObject } from 'cloudflare:workers';
+export class RunnerContainer extends DurableObject {
+  async start(variables) {
+    await fetch('http://containers/start', { method: 'POST', body: JSON.stringify(variables) });
+  }
+  async stop() {
+    await fetch('http://containers/stop', { method: 'POST', body: this.ctx.id.name ?? '' });
+  }
+}
+export default { fetch: () => new Response('not here', { status: 404 }) };
+`;
+
+/** A free port on this machine. */
+const freePort = () =>
+  new Promise<number>((resolve, reject) => {
+    const probe = createServer();
+    probe.once('error', reject);
+    probe.listen(0, () => {
+      const { port } = probe.address() as { port: number };
+      probe.close(() => resolve(port));
+    });
+  });
+
 export const startConsole = async (options: {
   readonly invites: string;
   readonly outbound?: Outbound;
   readonly app?: TestApp;
+  /** Where run containers start; none bound when absent. */
+  readonly containers?: Containers;
+  /** How long a runner may go unheard before its run is Lost. */
+  readonly silenceMs?: number;
+  /** Listen on every interface, so a local container can call back. */
+  readonly listenEverywhere?: boolean;
 }) => {
   const out = await build();
   const server = path.join(out, 'ssr');
   // The User Spaces' SQLite, on disk, so a test can read what was stored.
   const persist = path.join(out, 'state');
   const outbound = options.outbound ?? nowhere;
+  const port = await freePort();
+  const containers = options.containers;
   const mf = new Miniflare({
-    ...compatibility,
-    modules: true,
-    scriptPath: path.join(server, 'index.js'),
-    modulesRoot: server,
-    durableObjects: { USER_SPACE: { className: 'UserSpace', useSQLite: true } },
+    host: options.listenEverywhere ? '0.0.0.0' : '127.0.0.1',
+    port,
     durableObjectsPersist: persist,
-    d1Databases: ['CONSOLE_INDEX'],
-    bindings: {
-      CONSOLE_INVITES: options.invites,
-      CONSOLE_VAULT_KEY: TEST_VAULT_KEY,
-      ...(options.app
-        ? {
-            GH_APP_ID: options.app.id,
-            GH_APP_SLUG: options.app.slug,
-            GH_APP_PRIVATE_KEY: options.app.privateKey,
-            GH_APP_WEBHOOK_SECRET: options.app.webhookSecret,
-            GH_APP_CLIENT_ID: options.app.clientId,
-            GH_APP_CLIENT_SECRET: options.app.clientSecret,
-          }
-        : {}),
-    },
-    outboundService: async (request: MiniflareRequest) => {
-      const answer = await outbound(
-        new Request(request.url, {
-          method: request.method,
-          headers: Object.fromEntries(request.headers),
-          ...(request.method === 'GET' || request.method === 'HEAD'
-            ? {}
-            : { body: await request.text() }),
-        }),
-      );
-      return new MiniflareResponse(await answer.text(), {
-        status: answer.status,
-        headers: Object.fromEntries(answer.headers),
-      });
-    },
+    workers: [
+      {
+        name: 'console',
+        ...compatibility,
+        modules: true,
+        scriptPath: path.join(server, 'index.js'),
+        modulesRoot: server,
+        durableObjects: {
+          USER_SPACE: { className: 'UserSpace', useSQLite: true },
+          ...(containers
+            ? {
+                RUNNER: {
+                  className: 'RunnerContainer',
+                  scriptName: 'containers',
+                  useSQLite: true,
+                },
+              }
+            : {}),
+        },
+        d1Databases: ['CONSOLE_INDEX'],
+        bindings: {
+          CONSOLE_INVITES: options.invites,
+          CONSOLE_VAULT_KEY: TEST_VAULT_KEY,
+          CONSOLE_URL: `http://127.0.0.1:${port}`,
+          ...(options.silenceMs
+            ? { CONSOLE_RUN_SILENCE_MS: String(options.silenceMs) }
+            : {}),
+          ...(options.app
+            ? {
+                GH_APP_ID: options.app.id,
+                GH_APP_SLUG: options.app.slug,
+                GH_APP_PRIVATE_KEY: options.app.privateKey,
+                GH_APP_WEBHOOK_SECRET: options.app.webhookSecret,
+                GH_APP_CLIENT_ID: options.app.clientId,
+                GH_APP_CLIENT_SECRET: options.app.clientSecret,
+              }
+            : {}),
+        },
+        outboundService: async (request: MiniflareRequest) => {
+          const answer = await outbound(
+            new Request(request.url, {
+              method: request.method,
+              headers: Object.fromEntries(request.headers),
+              ...(request.method === 'GET' || request.method === 'HEAD'
+                ? {}
+                : { body: await request.text() }),
+            }),
+          );
+          return new MiniflareResponse(await answer.text(), {
+            status: answer.status,
+            headers: Object.fromEntries(answer.headers),
+          });
+        },
+      },
+      {
+        name: 'containers',
+        ...compatibility,
+        modules: true,
+        script: FAKE_CONTAINER,
+        durableObjects: {
+          RUNNER: { className: 'RunnerContainer', useSQLite: true },
+        },
+        outboundService: async (request: MiniflareRequest) => {
+          const body = await request.text();
+          if (new URL(request.url).pathname === '/start')
+            await containers?.start(JSON.parse(body));
+          else await containers?.stop(body);
+          return new MiniflareResponse('ok');
+        },
+      },
+    ],
   });
   const url = await mf.ready;
   // The connection index's table, as its deploy makes it.
@@ -159,6 +246,8 @@ export const startConsole = async (options: {
   const connections = ConnectionIndex.make(binding);
   return {
     url: url.href,
+    /** What `CONSOLE_URL` is bound to: where a runner calls back. */
+    consoleUrl: `http://127.0.0.1:${port}`,
     /** Where the User Spaces keep their SQLite files. */
     persist,
     /** A request to the Worker, from `visitor` when given; a redirect is answered, not followed. */

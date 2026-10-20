@@ -23,7 +23,8 @@ import { appJwt, signingKey } from './jwt.ts';
  *   it no one does). Their token is used for that one question and dropped.
  *
  * Tokens stay in this object: no answer carries one, except
- * `installationToken`, which a run hands to its own container.
+ * `checkoutToken`, minted fresh for one run's container, that only reads
+ * the one repository the run checks out.
  */
 
 const Installation = Schema.Struct({
@@ -194,6 +195,10 @@ export class GitHub extends Context.Service<
     readonly installationToken: (
       installationId: number,
     ) => Effect.Effect<string, GitHubError>;
+    /** A new token that only reads `repo`'s contents, good for an hour: what a run's container clones with. */
+    readonly checkoutToken: (
+      input: InRepo,
+    ) => Effect.Effect<string, GitHubError>;
     /** Every repository the installation reaches, up to a thousand. */
     readonly repositories: (
       installationId: number,
@@ -229,13 +234,13 @@ export class GitHub extends Context.Service<
               new Error('GH_APP_PRIVATE_KEY is not an RSA private key.'),
           }).pipe(Effect.orDie),
         );
-        const asApp = (path: string, method?: 'GET' | 'POST') =>
+        const asApp = (path: string, method?: 'GET' | 'POST', body?: unknown) =>
           Effect.gen(function* () {
             const signing = yield* key;
             const jwt = yield* Effect.promise(() =>
               appJwt(signing, config.appId, Math.floor(Date.now() / 1000)),
             );
-            return yield* call(fetch, jwt, path, method);
+            return yield* call(fetch, jwt, path, method, body);
           });
 
         const tokens = new Map<
@@ -341,6 +346,16 @@ export class GitHub extends Context.Service<
               })),
             ),
           installationToken,
+          checkoutToken: ({ installationId, repo }) =>
+            Effect.gen(function* () {
+              const [, name] = (yield* repoPath(repo)).split('/');
+              const minted = yield* asApp(
+                `/app/installations/${installationId}/access_tokens`,
+                'POST',
+                { repositories: [name], permissions: { contents: 'read' } },
+              ).pipe(Effect.flatMap(decode(Token)));
+              return minted.token;
+            }),
           repositories: (installationId) =>
             Effect.gen(function* () {
               const found: Array<RepositoryInfo> = [];

@@ -1,4 +1,5 @@
 import { existsSync } from 'node:fs';
+import path from 'node:path';
 import { AlchemyContext, localState, Stack, Stage } from 'alchemy';
 import * as Cloudflare from 'alchemy/Cloudflare';
 import * as Secrets from 'alchemy/Secrets';
@@ -6,8 +7,9 @@ import * as Config from 'effect/Config';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
 import * as StdToolkit from '@kestack/std-toolkit/alchemy';
+import { buildRunner } from './runner.build.ts';
 import { connectionIndexTable } from './src/server/connection-index/index.ts';
-import type { UserSpace } from './src/server/worker.ts';
+import type { RunnerContainer, UserSpace } from './src/server/worker.ts';
 
 /*
  * Console's one stack: the Console Worker, a Kabuki Start site whose main
@@ -33,6 +35,14 @@ import type { UserSpace } from './src/server/worker.ts';
  * App's, passed by CI by the stage deployed; a personal stage reads the dev
  * App's from `.env.github-dev`. The connection index, which user owns each
  * installation, is a D1 database of the stage's own.
+ *
+ * Runs run in containers: a deployed stage binds `RUNNER`, a
+ * container-backed Durable Object class (`RunnerContainer`) whose image is
+ * `Dockerfile` built around the runner, bundled here into `.runner/` before
+ * each deploy, and tells each container to call back at `CONSOLE_URL`, the
+ * stage's own URL. A container is given only its run's ID, its run token and
+ * that URL. A personal stage binds no runner: its runs fail to start, saying
+ * so.
  */
 
 const productionHost = 'console.kishore.app';
@@ -62,6 +72,19 @@ const required = (name: string, deployed: boolean, local: string) =>
 
 const domainFor = (stage: string) =>
   stage === 'prod' ? productionHost : `${stage}-${productionHost}`;
+
+/** Where the runner bundle and its image's build context go. */
+const RUNNER_CONTEXT = path.join(import.meta.dirname, '.runner');
+
+/** Each run's container: the runner image, backing `RunnerContainer`. */
+const Runner = Cloudflare.Container<RunnerContainer>('Runner', {
+  context: RUNNER_CONTEXT,
+  dockerfile: path.join(import.meta.dirname, 'Dockerfile'),
+  className: 'RunnerContainer',
+  // Installs and the project's own Alchemy need room: 4 GiB, half a vCPU.
+  instanceType: 'standard-1',
+  maxInstances: 10,
+});
 
 export const Worker = Cloudflare.Website.Vite(
   'Worker',
@@ -117,6 +140,7 @@ export const Worker = Cloudflare.Website.Vite(
       table: connectionIndexTable,
       database: index,
     });
+    if (deployed) yield* Effect.promise(() => buildRunner(RUNNER_CONTEXT));
     const port = Number(process.env.PORT);
     if (dev && (!Number.isInteger(port) || port < 1 || port > 65535)) {
       throw new Error('Run pnpm dev so Portless can assign PORT.');
@@ -132,6 +156,10 @@ export const Worker = Cloudflare.Website.Vite(
         ...app,
         // The connection index: installation → user.
         CONSOLE_INDEX: index,
+        // Each run's container, and where it calls back.
+        ...(deployed
+          ? { RUNNER: Runner, CONSOLE_URL: `https://${domainFor(stage)}` }
+          : {}),
         // Inlined into the Worker and the browser alike; '' is Local mode.
         VITE_CONSOLE_AUTH_URL: deployed ? authWorker : localAuthUrl,
       },

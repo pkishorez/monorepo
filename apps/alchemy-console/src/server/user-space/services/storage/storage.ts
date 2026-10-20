@@ -16,6 +16,7 @@ import {
   type StoredInstallState,
   userSpaceTable,
 } from './table.ts';
+import { makeRuns, type Runs } from './runs.ts';
 
 /*
  * The User Space's records, on its Durable Object's SQLite: typed reads,
@@ -94,6 +95,8 @@ export class Storage extends Context.Service<
       /** False when there was none. */
       readonly remove: (connectionId: string) => Effect.Effect<boolean>;
     };
+    /** The owner's runs, their events and log batches, and the lanes they take turns in. */
+    readonly runs: Runs;
     /** The one-time states of install URLs not yet come back. */
     readonly installStates: {
       readonly issue: (record: StoredInstallState) => Effect.Effect<void>;
@@ -167,7 +170,13 @@ export class Storage extends Context.Service<
         const dropState = (state: string) =>
           run(installState.hardDelete({ state }, 'I KNOW WHAT I AM DOING'));
 
+        const runs = yield* makeRuns(
+          run as <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.Effect<A>,
+          table as never,
+        );
+
         return Storage.of({
+          runs,
           owner: {
             get,
             put: (member, at) =>

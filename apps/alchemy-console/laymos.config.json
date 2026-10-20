@@ -35,12 +35,17 @@
       "src/shared/contracts/credential",
       "src/shared/contracts/github"
     ],
+    "src/runner": [
+      "src/shared/contracts/run",
+      "src/shared/contracts/runner-api"
+    ],
     "src/server/host": [
       "src/server/user-space",
       "src/shared/contracts/member",
       "src/server/connection-index"
     ],
     "src/server/host/github": ["src/server/host/visitor"],
+    "src/server/host/runner": ["src/server/run-token"],
     "src/server/host/visitor": ["src/shared/contracts/local-session"],
     "src/server/loaders.server.ts": [
       "src/server/host",
@@ -51,15 +56,19 @@
     "src/server/user-space": [
       "src/shared/contracts/console-api",
       "src/shared/contracts/member",
-      "src/server/connection-index"
+      "src/server/connection-index",
+      "src/server/runner-container",
+      "src/shared/contracts/runner-api"
     ],
     "src/server/user-space/services/github": ["src/shared/contracts/github"],
     "src/server/user-space/services/providers": [
       "src/shared/contracts/credential"
     ],
+    "src/server/user-space/services/runner-host": ["src/server/run-token"],
     "src/server/user-space/services/storage": [
       "src/shared/contracts/credential",
-      "src/shared/contracts/github"
+      "src/shared/contracts/github",
+      "src/shared/contracts/run"
     ],
     "src/server/user-space/workflows/connections": [
       "src/server/user-space/services/github",
@@ -80,15 +89,28 @@
       "src/server/user-space/services/storage",
       "src/shared/contracts/github"
     ],
+    "src/server/user-space/workflows/run-lifecycle": [
+      "src/server/user-space/services/github",
+      "src/server/user-space/services/runner-host",
+      "src/server/user-space/services/storage",
+      "src/server/user-space/workflows/credentials",
+      "src/shared/contracts/run"
+    ],
     "src/server/user-space/workflows/session": [
       "src/server/user-space/services/storage"
     ],
-    "src/server/worker.ts": ["src/server/host", "src/server/user-space"],
+    "src/server/worker.ts": [
+      "src/server/host",
+      "src/server/user-space",
+      "src/server/runner-container"
+    ],
     "src/shared/contracts/console-api": [
       "src/shared/contracts/credential",
       "src/shared/contracts/member",
       "src/shared/contracts/github"
     ],
+    "src/shared/contracts/console-api/runs": ["src/shared/contracts/run"],
+    "src/shared/contracts/runner-api": ["src/shared/contracts/run"],
     "src/shared/pages": [
       "src/shared/contracts/console-api",
       "src/shared/contracts/credential",

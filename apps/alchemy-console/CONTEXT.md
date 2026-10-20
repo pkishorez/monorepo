@@ -63,6 +63,12 @@ deleted, recorded in the order the runner reported it.
 Console's program that performs a run inside the project's prepared
 environment, using the Alchemy version the project's own commit installs.
 
+**Run token**
+What a run's container shows Console to speak for that one run of that one
+user: signed by Console, good for the run's time, refused once the run ends.
+The only secret a container is started with.
+_Avoid_: runner key, container secret
+
 **Import**
 Turning an external stack into a Console stack by linking it to a repository
 folder and assigning its existing stages to the project's environments.

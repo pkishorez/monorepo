@@ -4,3 +4,5 @@ dist/
 .env
 .env.*
 !.env.example
+# The runner bundle the container image is built from (runner.build.ts).
+.runner/

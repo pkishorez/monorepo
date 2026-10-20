@@ -1,8 +1,9 @@
 import type * as cf from '@cloudflare/workers-types';
 import { DurableObject } from 'cloudflare:workers';
-import { Clock, Effect, Layer, Scope } from 'effect';
+import { Clock, Context, Effect, Layer, Scope } from 'effect';
 import {
   FetchHttpClient,
+  HttpBody,
   HttpServerRequest,
   HttpServerResponse,
 } from 'effect/http';
@@ -10,6 +11,8 @@ import type { RpcClient } from 'effect/rpc';
 import { authAs } from '@kestack/auth-toolkit/server/rpc';
 import { Rpc } from '@kestack/rpc-toolkit/rpc';
 import { ConsoleApi } from '../../shared/contracts/console-api/index.ts';
+import { RunnerApi } from '../../shared/contracts/runner-api/index.ts';
+import type { RunnerContainer } from '../runner-container/index.ts';
 import {
   type Caller,
   opened,
@@ -24,6 +27,7 @@ import { socketOf } from './socket.ts';
 import { ConnectionIndex } from '../connection-index/index.ts';
 import { GitHub } from './services/github/index.ts';
 import { Providers } from './services/providers/index.ts';
+import { RunnerHost } from './services/runner-host/index.ts';
 import { Storage } from './services/storage/index.ts';
 import { Vault } from './services/vault/index.ts';
 import {
@@ -38,6 +42,16 @@ import {
 import { credentialsHandlers } from './workflows/credentials/index.ts';
 import { type Delivery, receive } from './workflows/github-events/index.ts';
 import { repositoriesHandlers } from './workflows/repositories/index.ts';
+import {
+  RunLifecycle,
+  RunnerCaller,
+  runnerHandlers,
+  runnerOf,
+  runsHandlers,
+  sentByRunner,
+  SILENCE_LIMIT_MS,
+  TIMEOUT_MS,
+} from './workflows/run-lifecycle/index.ts';
 import { sessionHandlers } from './workflows/session/index.ts';
 
 /*
@@ -59,6 +73,11 @@ import { sessionHandlers } from './workflows/session/index.ts';
  * GitHub's returns from an install and from asking who the member is
  * (`reach(...)`), and `receiveGitHub` with a webhook
  * delivery for an installation the user owns (`owning(...).receive`).
+ *
+ * A run's runner has a socket of its own, at `/runner`, which the Worker
+ * opens only for a valid run token (`runner(...)`): it is served the
+ * RunnerApi, not the Console API, and is told apart from the tabs' sockets
+ * by its tag, so neither server ever sees the other's sockets.
  */
 
 /** What the object reads from the Worker's env. */
@@ -74,10 +93,26 @@ interface UserSpaceEnv {
   readonly GH_APP_CLIENT_SECRET?: string;
   /** The connection index's D1 database. */
   readonly CONSOLE_INDEX: D1Database;
+  /** One container per run, by run ID; unbound where runs can't run. */
+  readonly RUNNER?: DurableObjectNamespace<RunnerContainer>;
+  /** Where a run's runner reaches Console: this stage's own URL. */
+  readonly CONSOLE_URL?: string;
+  /** How long a runner may go unheard before its run is Lost; tests shorten it. */
+  readonly CONSOLE_RUN_SILENCE_MS?: string;
 }
+
+/** The tag a runner's socket is accepted with. */
+const RUNNER_TAG = 'runner';
 
 /** Every service, built once for the life of the object. */
 const services = (state: cf.DurableObjectState, env: UserSpaceEnv) =>
+  RunLifecycle.layer({
+    silenceLimitMs: Number(env.CONSOLE_RUN_SILENCE_MS) || SILENCE_LIMIT_MS,
+    timeoutMs: TIMEOUT_MS,
+    alarm: state.storage,
+  }).pipe(Layer.provideMerge(baseServices(state, env)));
+
+const baseServices = (state: cf.DurableObjectState, env: UserSpaceEnv) =>
   Layer.mergeAll(
     Storage.layer(state.storage),
     Vault.layer(env.CONSOLE_VAULT_KEY),
@@ -93,6 +128,13 @@ const services = (state: cf.DurableObjectState, env: UserSpaceEnv) =>
       (input, init) => fetch(input, init),
     ),
     ConnectionIndex.layer(env.CONSOLE_INDEX),
+    RunnerHost.layer({
+      // Every User Space is reached by its owner's ID (`reach`).
+      userId: state.id.name,
+      namespace: env.RUNNER,
+      consoleUrl: env.CONSOLE_URL,
+      vaultKey: env.CONSOLE_VAULT_KEY,
+    }),
   );
 
 /** Every workflow's handlers, served as one `ConsoleApi`, each stream ending with its caller's session. */
@@ -105,6 +147,7 @@ const handlers = (deadlines: ReturnType<typeof makeDeadlines>) =>
           ...(yield* credentialsHandlers),
           ...(yield* connectionsHandlers),
           ...(yield* repositoriesHandlers),
+          ...(yield* runsHandlers),
         },
         deadlines,
       );
@@ -112,6 +155,50 @@ const handlers = (deadlines: ReturnType<typeof makeDeadlines>) =>
   );
 
 const unauthorized = HttpServerResponse.text('Unauthorized', { status: 401 });
+
+/**
+ * The object's hibernated sockets, split by who holds them: the tabs' (no
+ * tag, as every socket before runners had none) and the runners'.
+ */
+const socketsOf = (state: cf.DurableObjectState, runner: boolean) => {
+  const isRunner = (ws: cf.WebSocket) => state.getTags(ws).includes(RUNNER_TAG);
+  const base = Rpc.websocket.fromDurableObjectState(state);
+  return {
+    state: {
+      getWebSockets: () =>
+        Effect.sync(() =>
+          state
+            .getWebSockets()
+            .filter((ws) => isRunner(ws) === runner)
+            .map(socketOf),
+        ),
+      setWebSocketAutoResponse: base.state.setWebSocketAutoResponse,
+    },
+    upgrade: runner
+      ? () =>
+          Effect.sync(() => {
+            const [client, server] = new (
+              globalThis as typeof globalThis & {
+                WebSocketPair: new () => [cf.WebSocket, cf.WebSocket];
+              }
+            ).WebSocketPair();
+            state.acceptWebSocket(server, [RUNNER_TAG]);
+            const raw = new Response(null, {
+              status: 101,
+              webSocket: client,
+            } as ResponseInit);
+            return [
+              HttpServerResponse.setBody(
+                HttpServerResponse.empty({ status: 101 }),
+                HttpBody.raw(raw),
+              ),
+              socketOf(server),
+            ] as const;
+          })
+      : base.upgrade,
+    isRunner,
+  };
+};
 
 /** The object's entry points: its fetch, and the callbacks of the sockets it hibernates. */
 const serve = (state: cf.DurableObjectState, env: UserSpaceEnv) =>
@@ -121,6 +208,35 @@ const serve = (state: cf.DurableObjectState, env: UserSpaceEnv) =>
     const served = handlers(deadlines).pipe(
       Layer.provide(Layer.succeedContext(built)),
     );
+    const tabs = socketsOf(state, false);
+    const runners = socketsOf(state, true);
+
+    // A runner's socket speaks for the one run the Worker named at its
+    // upgrade, and is served the RunnerApi only.
+    const runnerSockets = yield* Rpc.websocket.server(
+      RunnerApi,
+      RunnerApi.toLayer(runnerHandlers).pipe(
+        Layer.provide(Layer.succeedContext(built)),
+      ),
+      {
+        state: runners.state,
+        upgrade: runners.upgrade,
+        streams: Rpc.websocket.streams.sqlite({
+          storage: state.storage,
+          tableName: 'runner_stream_store',
+        }),
+        connection: {
+          tag: RunnerCaller,
+          initial: (request) => {
+            const caller = runnerOf(request.headers);
+            return caller === null
+              ? Effect.fail(unauthorized)
+              : Effect.succeed(caller);
+          },
+        },
+      },
+    );
+    const lifecycle = Context.get(built, RunLifecycle);
 
     // A socket's caller is said once, at its upgrade, and kept with it,
     // acting for them only until their time is up.
@@ -133,7 +249,8 @@ const serve = (state: cf.DurableObjectState, env: UserSpaceEnv) =>
         ),
       ),
       {
-        ...Rpc.websocket.fromDurableObjectState(state),
+        state: tabs.state,
+        upgrade: tabs.upgrade,
         streams: Rpc.websocket.streams.sqlite({ storage: state.storage }),
         connection: {
           tag: SocketCaller,
@@ -167,24 +284,43 @@ const serve = (state: cf.DurableObjectState, env: UserSpaceEnv) =>
       )(request);
     };
 
+    const upgraded = (
+      server: typeof sockets | typeof runnerSockets,
+      request: Request,
+    ) =>
+      Effect.runPromise(
+        server.accept.pipe(
+          Effect.provideService(
+            HttpServerRequest.HttpServerRequest,
+            HttpServerRequest.fromWeb(request),
+          ),
+          Effect.map((response) => HttpServerResponse.toWeb(response)),
+        ),
+      );
+    const serverOf = (socket: cf.WebSocket) =>
+      runners.isRunner(socket) ? runnerSockets : sockets;
+
     return {
-      fetch: (request: Request): Promise<Response> =>
-        request.headers.get('upgrade')?.toLowerCase() === 'websocket'
-          ? Effect.runPromise(
-              sockets.accept.pipe(
-                Effect.provideService(
-                  HttpServerRequest.HttpServerRequest,
-                  HttpServerRequest.fromWeb(request),
-                ),
-                Effect.map((response) => HttpServerResponse.toWeb(response)),
-              ),
-            )
-          : http(request),
+      fetch: (request: Request): Promise<Response> => {
+        if (request.headers.get('upgrade')?.toLowerCase() !== 'websocket')
+          return http(request);
+        // Only the Worker reaches this object, and it sends a runner here
+        // only once its run token checks out (`runner`).
+        return new URL(request.url).pathname === '/runner'
+          ? upgraded(runnerSockets, request)
+          : upgraded(sockets, request);
+      },
       message: (socket: cf.WebSocket, data: string | ArrayBuffer) =>
-        Effect.runPromise(sockets.message(socketOf(socket), data)),
+        Effect.runPromise(serverOf(socket).message(socketOf(socket), data)),
       close: (socket: cf.WebSocket, code: number, reason: string) =>
-        Effect.runPromise(sockets.close(socketOf(socket), code, reason)),
-      alarm: () => deadlines.ring(Date.now()),
+        Effect.runPromise(
+          serverOf(socket).close(socketOf(socket), code, reason),
+        ),
+      alarm: async () => {
+        const now = Date.now();
+        await deadlines.ring(now);
+        await Effect.runPromise(lifecycle.check(now));
+      },
       // The Worker's own calls, never a browser's: GitHub's return from an
       // install, and its webhook deliveries.
       connectGitHub: (input: ConnectInput) =>
@@ -290,6 +426,23 @@ export const reach = (
       ) satisfies Layer.Layer<RpcClient.Protocol>,
   };
 };
+
+/** The User Space of the user whose run a runner performs, as the Worker reaches it for `/runner`. */
+export const runner = (
+  namespace: DurableObjectNamespace<UserSpace>,
+  claim: { readonly userId: string; readonly runId: string },
+) => ({
+  /** Hands it the runner's socket upgrade, for that one run; the token stays behind. */
+  socket: (request: Request): Promise<Response> =>
+    namespace
+      .getByName(claim.userId)
+      .fetch(
+        sentByRunner(
+          new Request('https://user-space/runner', request),
+          claim.runId,
+        ),
+      ),
+});
 
 /** The User Space of the user who owns a GitHub installation, as a webhook reaches it. */
 export const owning = (
