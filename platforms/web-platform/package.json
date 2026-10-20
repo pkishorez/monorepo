@@ -130,6 +130,10 @@
       "types": "./dist/pwa/rpc/client/index.d.ts",
       "default": "./dist/pwa/rpc/client/index.js"
     },
+    "./start": {
+      "types": "./dist/start/index.d.ts",
+      "default": "./dist/start/index.js"
+    },
     "./server": {
       "types": "./dist/server/index.d.ts",
       "default": "./dist/server/index.js"

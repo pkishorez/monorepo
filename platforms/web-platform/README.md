@@ -21,8 +21,8 @@ pnpm add -D @tailwindcss/vite
 
 An app that renders on the server adds `@kestack/web-platform` to `ssr.noExternal` in its Vite config, as `apps/docs` and `apps/alchemy-console` do. Its stylesheet imports `@kestack/web-platform/theme/global.css`, which also points Tailwind at the Package's own classes.
 
-- `@kestack/auth-toolkit`: its `browser()` gives the Accounts, by the sign-in service's cookie or, on the Local Backend, as Local Accounts; `createServer` and the Local Backend check calls with its `auth()`.
-- `@kestack/rpc-toolkit`: each API is called with its `http`, `websocket` and `inProcess` Transports; `createServer` answers each `http` API with its `Rpc.http.server`, and `liveObject` each `websocket` one with its `Rpc.websocket.server`.
+- `@kestack/auth-toolkit`: its `browser()` gives the Accounts, by the sign-in service's cookie or, on the Local Backend, as Local Accounts, and signs every guarded call; `createServer` and the Local Backend check calls with its `auth()`.
+- `@kestack/rpc-toolkit`: each API is called with its `rpc/http`, `rpc/websocket` and `rpc/in-process` Transports; `createServer` answers each `http` API with `rpc/http`'s `server`, and `liveObject` each `websocket` one with `rpc/websocket`'s `server`.
 - `@kestack/std-toolkit`: the Gate's memory, the last-known Accounts, Local Accounts, the Cache and each user's Std Sync are kept in its IndexedDB adapters.
 - `react`, `react-dom`: every component, Recipe and the root document render with React 19.
 - `@kestack/use-gesture`: the platform-free gesture core that `./input`'s web gestures and the Thumb Picker run on.
@@ -33,7 +33,7 @@ An app that renders on the server adds `@kestack/web-platform` to `ssr.noExterna
 - `vite` (optional): needed by `./pwa/vite`.
 - `laymos` (optional): the file diff and change types the diff, git-changes and source-explorer viewers read.
 - `use-effect-ts` (optional): runs `./components/viewers/source-explorer`'s loaders inside React.
-- `@kestack/kabuki` (optional): the running app `./recipes/kabuki-devtools` inspects.
+- `@kestack/kabuki` (optional): the running app `./recipes/kabuki-devtools` inspects, and the Start parts `./start`'s Document draws.
 - `@cloudflare/workers-types` (optional): the Durable Object types `./server`'s `liveObject` is declared with.
 
 ## Exports
@@ -62,19 +62,20 @@ What an app writes before `createApp`. It loads nothing of the browser app, so a
 | Export             | What it does                                                                                                                                    |
 | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
 | `createTheme`      | Makes the app's Theme: `useTheme`, the head `Script` that sets it before paint, the `StatusBar` strip, and `manifest` colors for a given Theme. |
+| `FontPreload`      | Preloads Inter's Latin file from the head, the same file `font-inter.css` uses, so the first paint is already in Inter.                         |
 | `themeFromCookies` | Reads the Theme from a `Cookie` header string; dark when it is missing or unknown.                                                              |
 | `THEME_COOKIE`     | The cookie's name, `kui-theme`.                                                                                                                 |
 
 ### `@kestack/web-platform/theme/*.css`
 
-| Export           | What it does                                                                                                     |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `global.css`     | The one stylesheet to import: Tailwind, the tokens, the `dark`, `keyboard:` and `touch:` variants, and the rest. |
-| `theme.css`      | The design tokens as Tailwind theme variables; included by `global.css`.                                         |
-| `sources.css`    | Points Tailwind at the Package's built components, form, Recipes, client and PWA; included by `global.css`.      |
-| `typography.css` | The Tailwind typography plugin; included by `global.css`.                                                        |
-| `shiki.css`      | Dark-theme colors and diff line marks for highlighted code; included by `global.css`.                            |
-| `font-inter.css` | Inter and JetBrains Mono as variable fonts; import it beside `global.css` to use them.                           |
+| Export           | What it does                                                                                                              |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `global.css`     | The one stylesheet to import: Tailwind, the tokens, the `dark`, `keyboard:` and `touch:` variants, and the rest.          |
+| `theme.css`      | The design tokens as Tailwind theme variables; included by `global.css`.                                                  |
+| `sources.css`    | Points Tailwind at the Package's built components, form, Recipes, client and PWA; included by `global.css`.               |
+| `typography.css` | The Tailwind typography plugin; included by `global.css`.                                                                 |
+| `shiki.css`      | Dark-theme colors and diff line marks for highlighted code; included by `global.css`.                                     |
+| `font-inter.css` | Inter and JetBrains Mono as variable fonts, and `Inter Fallback` sized to Inter's metrics; import it beside `global.css`. |
 
 ### `@kestack/web-platform/feedback`
 
@@ -432,6 +433,14 @@ Owned shadcn copies on Base UI, one subpath per file, such as `@kestack/web-plat
 | `WorkerClient.layer` | The same client as a Layer under your own service tag.                                    |
 | `VersionSkew`        | Tagged error a call fails with when the worker belongs to another Build ID than the page. |
 
+### `@kestack/web-platform/start`
+
+The Document for an app on Kabuki Start.
+
+| Export     | What it does                                                                                                                                                            |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Document` | The HTML around a Kabuki Start app: Start's head and scripts, Inter preloaded, the Theme's script and the device marked before the first paint, and the app's own head. |
+
 ### `@kestack/web-platform/server`
 
 | Export              | What it does                                                                                                                                                                                                                                                                                              |
@@ -528,3 +537,43 @@ plugins: [
 - In `vite dev` the worker is off unless `pwa({ dev: true })`. `pwa({ enabled: false })` builds the Kill Switch.
 - The `app` preset (the default) answers any route offline from the App Shell; `content` saves visited pages and sends unvisited ones to the Offline Fallback. Paths under `neverCache` (default `/api/auth/`), non-GET requests and `navigation.denylist` never reach the caches.
 - While an update waits, the App Shell of the active build answers navigations, so every page stays on one Build ID until the user accepts ([ADR 0006](./docs/adr/0006-pending-update-pins-navigations-to-the-active-build.md)).
+
+### A Kabuki Start app's Document
+
+An app on Kabuki Start writes `src/document.tsx` as the Web Platform's
+`Document`, wrapping the app in what sits around every page. Lifted from
+`apps/kabuki-start/src/client/document.tsx`.
+
+```tsx
+// src/document.tsx
+import type { Start } from '@kestack/kabuki/start';
+import { Document as WebDocument } from '@kestack/web-platform/start';
+import { Devtools, Theme } from './components/index.ts';
+
+export default function Document({ children }: Start.DocumentProps) {
+  return (
+    <WebDocument theme={Theme}>
+      <Devtools>{children}</Devtools>
+    </WebDocument>
+  );
+}
+```
+
+```css
+/* src/styles.css */
+@import '@kestack/web-platform/theme/global.css';
+@import '@kestack/web-platform/theme/font-inter.css';
+```
+
+- Text never moves when Inter arrives. `FontPreload` asks for Inter's Latin
+  file before the first paint, and it is the very file `font-inter.css`
+  declares, since the app's bundler gives one file one URL. If the file is
+  late, text is set in `Inter Fallback`, Arial sized to Inter's metrics, which
+  the Theme's sans family names next, so the swap changes the letters' shapes
+  but moves nothing.
+- The Theme's script sets light or dark on `<html>` before the body paints,
+  and the device script sets `data-keyboard` and `data-touch` for the
+  `keyboard:` and `touch:` variants.
+- `head` adds the app's own tags, such as icons, after the Web Platform's.
+  The same rule holds for any other web font: preload the file the first
+  paint needs, and give it a fallback whose metrics match.

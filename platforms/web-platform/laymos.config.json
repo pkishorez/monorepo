@@ -234,6 +234,7 @@
     "src/recipes/frame/sidebar": ["src/recipes/frame/frame"],
     "src/recipes/local-sign-in": ["src/recipes/parts/email-privacy"],
     "src/server": ["src/define"],
+    "src/start": ["src/input/device", "src/theme"],
     "src/server/serve": ["src/server/live", "src/server/worker"],
     "src/recipes/kabuki-devtools/map": [
       "src/recipes/kabuki-devtools/ink",

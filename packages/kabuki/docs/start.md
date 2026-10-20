@@ -117,7 +117,14 @@ An app with no Document is drawn in the plainest one, `Start.Document`:
 `<html lang="en">` with `<Start.Head />` and `<Start.Scripts />` in it. `<Start.Head />` draws
 the charset and viewport, the title and every Metadata tag, and the styles
 and chunks of the client entry; `<Start.Scripts />` the saved History as JSON, the script that hydrates the page, and, where the Router restores scroll, the inline script that puts it back before it hydrates, as TanStack Start's does. Code that must run before the first
-paint, like a theme bootstrap, is the Document's own.
+paint, like a theme bootstrap, is the Document's own. So is the font: a web
+font loaded with `font-display: swap` and nothing preloaded paints the first
+frame in another font, then reflows every line when it arrives. Preload the
+file the first paint needs, and give it a fallback whose metrics match, so
+the page never moves. An app on the Web Platform gets both by writing its
+Document as `@kestack/web-platform/start`'s `Document`, which preloads Inter
+and sets its fallback, with the Theme and the device marked before the
+first paint.
 
 `Start.useDrawn()` reads, from any component, when the server drew the page
 (after its Loaders answered) and by which build, and whether that component
