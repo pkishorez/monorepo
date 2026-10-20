@@ -186,9 +186,13 @@ export class Storage extends Context.Service<
                   return current.member;
                 // A newer word moves `at` on even when the member is the
                 // same, so an older one can never undo it.
-                if (current.member === null || at > current.at)
+                if (current.member === null || at > current.at) {
                   yield* run(owner.put({ member, at }));
-                return member;
+                  return member;
+                }
+                // Verified in the same millisecond as the word recorded: that
+                // word stands, so two sockets never disagree on who is newer.
+                return current.member;
               }),
             changes: Stream.concat(
               Stream.fromEffect(get),
