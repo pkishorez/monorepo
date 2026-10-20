@@ -109,7 +109,7 @@ Peer dependencies, all optional; install the ones your doors need:
 | Export                      | What it does                                                                             |
 | --------------------------- | ---------------------------------------------------------------------------------------- |
 | `Accounts`                  | The Service for who is signed in on this client: state, sign in, switch, sign out.       |
-| `AccountsState`             | The `Checking`, `SignedIn` and `SignedOut` states, with their constructors and `$match`. |
+| `AccountsState`             | The `Checking`, `SignedIn` (and its `switchingTo`) and `SignedOut` states, and `$match`. |
 | `AuthWorkerUnreachable`     | Error when the Auth Worker could not be reached at all.                                  |
 | `AuthWorkerUnavailable`     | Error when the Auth Worker answered with a server error.                                 |
 | `AuthWorkerRejected`        | Error when the Auth Worker refused the request, with its reason.                         |
@@ -182,6 +182,7 @@ const whoAmI = Effect.gen(function* () {
 - When another tab switched Accounts, the backend fails the call `AccountChanged` before the handler runs, and `Accounts` checks again by itself.
 - A Batched RPC Request is verified once, and the cookies the Auth Worker refreshed go on its response.
 - `signIn()` leaves the page for the Login Screen and never completes in place.
+- `switchTo(userId)` is a round trip: until it is confirmed the state is `SignedIn` with `switchingTo`, and calls still act as the Account before; one that fails leaves the state as it was and fails ([ADR 0021](./docs/adr/0021-an-account-switch-under-way-is-state.md)).
 
 ### A CLI signing in as a Device
 

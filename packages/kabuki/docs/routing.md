@@ -454,6 +454,15 @@ button, loads every page on screen again: their data stays shown,
 page goes back to loading. Every other copy in the Data cache is dropped. A
 link to the page shown does the same.
 
+`Router.reload({ anew: true })` is for when what the data belongs to
+changed, as the signed-in account: the data shown is no one's any more, so
+it is never loaded behind. The Router holds it as a move, up to its delay,
+then each page shows it is loading. `{ anew: true, hold: true }` holds it
+until the new data comes, however long, so no page shows it is loading and
+the new data takes the old's place in one step. The Command ends once it
+lands, or once a move takes its place, so the Update that asked shows the
+wait, as an Account Switch dims the page it holds.
+
 ### Preload
 
 `<Router.Link to={…} preload="intent" | "viewport" | false preloadDelay={…}>`

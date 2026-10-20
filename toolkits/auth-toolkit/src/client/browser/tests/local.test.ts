@@ -1,5 +1,5 @@
 import { Memory } from '@kestack/std-toolkit/db/memory';
-import { Effect, Fiber, type Layer, Schema, type Scope } from 'effect';
+import { Effect, Fiber, type Layer, Schema, type Scope, Stream } from 'effect';
 import { Rpc, RpcGroup, RpcTest } from 'effect/rpc';
 import { describe, expect, it } from 'vitest';
 import { localToken } from '../../../contract/index.js';
@@ -121,7 +121,17 @@ describe('browser in Local mode', () => {
         const state = yield* accounts.current;
         const ada =
           state._tag === 'SignedIn' ? state.accounts[0]!.id : 'missing';
+        const during = yield* Effect.forkChild(
+          accounts.state.pipe(Stream.drop(1), Stream.runHead),
+        );
+        yield* Effect.yieldNow;
         yield* accounts.switchTo(ada);
+        const shown = yield* Fiber.join(during);
+        expect(
+          shown._tag === 'Some' && shown.value._tag === 'SignedIn'
+            ? shown.value.switchingTo?.email
+            : null,
+        ).toBe('ada@demo');
         const switched = yield* listed;
         yield* accounts.signOut(ada);
         const signedOut = yield* listed;

@@ -1,5 +1,14 @@
 import { Memory } from '@kestack/std-toolkit/db/memory';
-import { Effect, Exit, Fiber, Layer, Schema, type Scope } from 'effect';
+import {
+  Effect,
+  Exit,
+  Fiber,
+  Layer,
+  Option,
+  Schema,
+  type Scope,
+  Stream,
+} from 'effect';
 import { FetchHttpClient } from 'effect/http';
 import { Rpc, RpcGroup, RpcTest } from 'effect/rpc';
 import { hostname } from 'node:os';
@@ -170,8 +179,21 @@ describe('device', () => {
         yield* accounts.signIn();
         yield* accounts.signIn();
         const both = yield* accounts.current;
+        const during = yield* Effect.forkChild(
+          accounts.state.pipe(Stream.drop(1), Stream.runHead),
+        );
+        yield* Effect.yieldNow;
         yield* accounts.switchTo('ada');
         const switched = yield* accounts.current;
+        expect(yield* Fiber.join(during)).toEqual(
+          Option.some(
+            AccountsState.SignedIn({
+              active: bob,
+              accounts: [ada, bob],
+              switchingTo: ada,
+            }),
+          ),
+        );
         yield* accounts.signOut();
         return [both, switched, yield* accounts.current];
       }),

@@ -15,7 +15,8 @@ import { useRoot } from './root.ts';
  *
  * A Base UI Menu: arrow keys, Home/End and typing a name move through the
  * items; Escape closes and focus goes back to the avatar. An action stays
- * open on its item, busy, until it is done.
+ * open on its item, busy, until it is done. An Account Switch shows only
+ * once it has been under way a moment: a quick one shows nothing.
  */
 
 // Items sit 6px inside the 12px-round popup, so they round at 6px.
@@ -64,6 +65,8 @@ export function AccountMenu({
   const full = accounts.length >= maxAccounts;
   const others = accounts.filter((account) => account.id !== active.id);
   const busy = root.busy !== null;
+  // Until a switch shows, the items look as they did, and do nothing.
+  const disabled = busy && root.switching?.shown !== false;
 
   // An action done (or failed), the menu has nothing more to show.
   const wasBusy = useRef(busy);
@@ -97,7 +100,7 @@ export function AccountMenu({
                 <Who account={active} />
                 <Menu.Item
                   closeOnClick={false}
-                  disabled={busy}
+                  disabled={disabled}
                   aria-busy={root.busy === active.id ? true : undefined}
                   aria-label={`Sign out of ${active.email}`}
                   onClick={() => root.signOut(active)}
@@ -122,14 +125,16 @@ export function AccountMenu({
                       Switch account
                     </Menu.GroupLabel>
                     {others.map((account) => {
-                      const switching = root.busy === account.id;
+                      const switching =
+                        root.switching?.shown === true &&
+                        root.switching.userId === account.id;
                       return (
                         <Menu.Item
                           key={account.id}
                           label={account.name || account.email}
                           aria-label={`Switch to ${account.email}`}
                           closeOnClick={false}
-                          disabled={busy}
+                          disabled={disabled}
                           aria-busy={switching ? true : undefined}
                           onClick={() => root.switchTo(account)}
                           className={cx(
@@ -172,7 +177,7 @@ export function AccountMenu({
               {others.length > 0 ? (
                 <Menu.Item
                   closeOnClick={false}
-                  disabled={busy}
+                  disabled={disabled}
                   aria-busy={root.busy === 'all' ? true : undefined}
                   onClick={root.signOutAll}
                   className={cx(item, 'text-danger')}

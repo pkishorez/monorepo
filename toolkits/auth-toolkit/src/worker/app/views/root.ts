@@ -5,6 +5,13 @@ import type { Account, PageData } from '../api/index.ts';
 export interface Root {
   /** The Account an action is under way for, or `all`. */
   readonly busy: string | null;
+  /** The Account Switch under way: the Account it makes active, and
+   * whether it has been under way long enough to show. Shown, the page is
+   * dimmed and still. */
+  readonly switching: {
+    readonly userId: string;
+    readonly shown: boolean;
+  } | null;
   /** The last page data a Frame drew, kept by it: the brand a page still
    * loading is drawn in. */
   readonly last: { current: PageData | null };

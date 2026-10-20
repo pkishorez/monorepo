@@ -21,9 +21,12 @@ export const AppView = View.make(
     const { Home, Login, Device, Consent, Error } = children;
     // The last page data drawn, which each Frame with data keeps here.
     const last = useRef<PageData | null>(null);
+    const switchingTo = model.switching?.userId ?? null;
+    const shown = model.switching?.shownAt != null;
     const root = useMemo(
       (): Root => ({
         busy: model.busy,
+        switching: switchingTo === null ? null : { userId: switchingTo, shown },
         last,
         switchTo: ({ id, email }) =>
           send({ _tag: 'SwitchChosen', userId: id, email }),
@@ -31,7 +34,7 @@ export const AppView = View.make(
           send({ _tag: 'SignOutChosen', userId: id, email }),
         signOutAll: () => send({ _tag: 'SignOutAllChosen' }),
       }),
-      [model.busy, send],
+      [model.busy, switchingTo, shown, send],
     );
     const notFound = props.route.notFound;
     return (

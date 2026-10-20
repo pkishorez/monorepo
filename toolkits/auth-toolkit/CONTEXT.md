@@ -65,7 +65,7 @@ The Account a Device Login or a Grant is approved for, picked on the Device Scre
 _Avoid_: switching to approve, acting account, account selector
 
 **Account Switch**:
-Making a different Account the Active Account. Happens on the Auth Worker's pages or from a First-Party web app, and takes effect in every First-Party web app on the Shared Cookie Domain at once. Signing out an Account removes it entirely; there is no "signed out but remembered" state.
+Making a different Account the Active Account. Happens on the Auth Worker's pages or from a First-Party web app, and takes effect in every First-Party web app on the Shared Cookie Domain at once. It is never instant: until the Auth Worker confirms it, `Accounts` says it is under way (`SignedIn` with `switchingTo`) and the Account before stays active; one that fails leaves everything as it was. Signing out an Account removes it entirely; there is no "signed out but remembered" state.
 _Avoid_: switch user, set active (the endpoint, not the concept)
 
 **Login Screen**:

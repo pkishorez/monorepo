@@ -217,6 +217,31 @@ describe('browser', () => {
     ]);
   });
 
+  it('shows a switch under way, then the Account it made active', async () => {
+    const seen = await run(
+      fakeAuthWorker(),
+      Effect.gen(function* () {
+        const accounts = yield* Accounts;
+        yield* settled;
+        const states = yield* Effect.forkChild(
+          accounts.state.pipe(Stream.take(3), Stream.runCollect),
+        );
+        yield* Effect.yieldNow;
+        yield* accounts.switchTo('ada');
+        return yield* Fiber.join(states);
+      }),
+    );
+    expect(seen).toEqual([
+      AccountsState.SignedIn({ active: bob, accounts: [ada, bob] }),
+      AccountsState.SignedIn({
+        active: bob,
+        accounts: [ada, bob],
+        switchingTo: ada,
+      }),
+      AccountsState.SignedIn({ active: ada, accounts: [ada, bob] }),
+    ]);
+  });
+
   it('says what the Auth Worker refused, and tells unavailable from unreachable', async () => {
     const refused = await runExit(
       fakeAuthWorker(),

@@ -24,12 +24,18 @@ import { PageIntro } from '../components/index.ts';
  * is (the URL its client calls), then its three calls, one per level of
  * access, each with who may make it, the request a click sends, and what
  * came back, the refusal too. Both Workers check the same session cookie
- * with the same Auth Worker, and apply the same rule.
+ * with the same Auth Worker, and apply the same rule. While an Account
+ * Switch shows, its button spins, the rest of the bar waits, and the panels
+ * are dimmed and still: what they show is the Account before's.
  */
 
 type Self = ViewProps<typeof Pages.ApisLive>;
 type Model = Self['model'];
 type Call = Model['http']['public'];
+
+/** The Account a switch under way makes active, once it shows. */
+const switchShown = (model: Model) =>
+  model.switching?.shownAt != null ? model.switching.id : null;
 
 const WORKERS = [
   {
@@ -140,6 +146,8 @@ function Account({
   readonly send: Self['send'];
 }) {
   const { account } = model;
+  const switching = switchShown(model);
+  const waiting = switching !== null;
   return (
     <section className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border bg-card p-5">
       {account._tag === 'Checking' && (
@@ -180,14 +188,19 @@ function Account({
                 key={other.id}
                 variant="ghost"
                 size="sm"
+                disabled={waiting}
+                aria-busy={switching === other.id ? true : undefined}
+                className="aria-busy:opacity-100"
                 onClick={() => send({ _tag: 'SwitchTo', id: other.id })}
               >
+                {switching === other.id && <Spinner data-icon="inline-start" />}
                 Switch to {other.name}
               </Button>
             ))}
             <Button
               variant="ghost"
               size="sm"
+              disabled={waiting}
               onClick={() => send({ _tag: 'SignIn' })}
             >
               Add an account
@@ -195,12 +208,18 @@ function Account({
             <Button
               variant="outline"
               size="sm"
+              disabled={waiting}
               onClick={() => send({ _tag: 'SignOut' })}
             >
               Sign out
             </Button>
           </div>
         </>
+      )}
+      {model.switchFailed !== null && (
+        <p role="alert" className="w-full text-sm text-destructive">
+          Couldn't switch accounts. {model.switchFailed}
+        </p>
       )}
     </section>
   );
@@ -214,49 +233,7 @@ export const ApisView = View.make(Pages.ApisLive, ({ root, model, send }) => (
       {OWNER} gets the authorized answer.
     </PageIntro>
     <Account model={model} send={send} />
-    {WORKERS.map(({ api, name, kind, url, request }) => (
-      <section
-        key={api}
-        aria-label={name}
-        className="rounded-xl border border-border bg-card"
-      >
-        <header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-border px-5 py-4">
-          <div className="flex items-center gap-3">
-            <h2 className="font-semibold">{name}</h2>
-            <Badge variant="outline">{kind}</Badge>
-          </div>
-          <p className="font-mono text-xs break-all text-muted-foreground">
-            {url}
-          </p>
-        </header>
-        <div className="grid divide-y divide-border md:grid-cols-3 md:divide-x md:divide-y-0">
-          {LEVELS.map((level) => {
-            const call = model[api][level];
-            return (
-              <div key={level} className="flex flex-col gap-4 p-5">
-                <div className="space-y-1">
-                  <Label>{LEVEL[level].title}</Label>
-                  <p className="text-sm text-muted-foreground">
-                    {LEVEL[level].who}
-                  </p>
-                </div>
-                <p className="font-mono text-[13px]">{request[level]}</p>
-                <Response call={call} />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="mt-auto self-start"
-                  disabled={call._tag === 'Sending'}
-                  onClick={() => send({ _tag: 'Send', api, level })}
-                >
-                  Send request
-                </Button>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-    ))}
+    <Panels model={model} send={send} />
     <p className="text-sm text-muted-foreground">
       Each Worker checks the session with the Auth Worker at{' '}
       <span className="font-mono text-[13px]">
@@ -266,3 +243,65 @@ export const ApisView = View.make(Pages.ApisLive, ({ root, model, send }) => (
     </p>
   </div>
 ));
+
+/** One panel per Worker; dimmed and still while a switch shows. */
+function Panels({
+  model,
+  send,
+}: {
+  readonly model: Model;
+  readonly send: Self['send'];
+}) {
+  const waiting = switchShown(model) !== null;
+  return (
+    <div
+      inert={waiting}
+      aria-busy={waiting ? true : undefined}
+      className={`space-y-6 transition-opacity duration-150 ease-out motion-reduce:transition-none ${waiting ? 'opacity-50' : ''}`}
+    >
+      {WORKERS.map(({ api, name, kind, url, request }) => (
+        <section
+          key={api}
+          aria-label={name}
+          className="rounded-xl border border-border bg-card"
+        >
+          <header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-border px-5 py-4">
+            <div className="flex items-center gap-3">
+              <h2 className="font-semibold">{name}</h2>
+              <Badge variant="outline">{kind}</Badge>
+            </div>
+            <p className="font-mono text-xs break-all text-muted-foreground">
+              {url}
+            </p>
+          </header>
+          <div className="grid divide-y divide-border md:grid-cols-3 md:divide-x md:divide-y-0">
+            {LEVELS.map((level) => {
+              const call = model[api][level];
+              return (
+                <div key={level} className="flex flex-col gap-4 p-5">
+                  <div className="space-y-1">
+                    <Label>{LEVEL[level].title}</Label>
+                    <p className="text-sm text-muted-foreground">
+                      {LEVEL[level].who}
+                    </p>
+                  </div>
+                  <p className="font-mono text-[13px]">{request[level]}</p>
+                  <Response call={call} />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-auto self-start"
+                    disabled={call._tag === 'Sending'}
+                    onClick={() => send({ _tag: 'Send', api, level })}
+                  >
+                    Send request
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      ))}
+    </div>
+  );
+}

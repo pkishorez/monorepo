@@ -57,6 +57,7 @@ export function Frame({
   // Loading, the page keeps the brand it was drawn in.
   if (data) root.last.current = data;
   const chrome = data ?? root.last.current;
+  const switching = root.switching?.shown === true;
   const brand = chrome?.brand;
   const active = data?.accounts.list.find(
     (account) => account.id === data.accounts.active,
@@ -101,10 +102,14 @@ export function Frame({
           ) : null}
         </div>
       </header>
+      {/* An Account Switch under way: what is shown is still the Account before's, dimmed and still until the new one's takes its place. */}
       <main
+        inert={switching}
+        aria-busy={switching ? true : undefined}
         className={cx(
-          'mx-auto w-full flex-1 px-4 pt-8 pb-16 sm:px-6 sm:pt-14',
+          'mx-auto w-full flex-1 px-4 pt-8 pb-16 transition-opacity duration-150 ease-out sm:px-6 sm:pt-14 motion-reduce:transition-none',
           layout === 'account' ? 'max-w-[688px]' : 'max-w-[448px]',
+          switching && 'opacity-50',
         )}
       >
         <motion.div

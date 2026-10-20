@@ -24,12 +24,16 @@ export interface Account {
  * - `Checking`: not confirmed yet; `last` is the Active Account last seen
  *   here, when the client remembers one.
  * - `SignedIn`: the Active Account and every Account, in sign-in order.
+ *   `switchingTo` is the Account an Account Switch under way makes active:
+ *   `active` stays the Active Account, and every call acts as it, until the
+ *   switch is confirmed.
  * - `SignedOut`: no Account. */
 export type AccountsState = Data.TaggedEnum<{
   Checking: { readonly last?: Account };
   SignedIn: {
     readonly active: Account;
     readonly accounts: ReadonlyArray<Account>;
+    readonly switchingTo?: Account;
   };
   SignedOut: {};
 }>;
@@ -69,7 +73,10 @@ export class Accounts
       readonly signIn: (
         options?: SignInOptions,
       ) => Effect.Effect<void, AccountsError>;
-      /** Makes another signed-in Account the Active Account. */
+      /** Makes another signed-in Account the Active Account. While it is
+       * under way the state is `SignedIn` with `switchingTo`; once confirmed,
+       * `SignedIn` with the new Active Account. A switch that fails leaves
+       * the state as it was, without `switchingTo`, and fails. */
       readonly switchTo: (userId: string) => Effect.Effect<void, AccountsError>;
       /** Signs one Account out, the active one unless given. Signing out the
        * Active Account makes the next one active, if any. */

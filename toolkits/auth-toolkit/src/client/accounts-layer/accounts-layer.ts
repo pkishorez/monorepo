@@ -1,4 +1,11 @@
-import { Effect, Schema, type Scope, Semaphore, SubscriptionRef } from 'effect';
+import {
+  Effect,
+  Option,
+  Schema,
+  type Scope,
+  Semaphore,
+  SubscriptionRef,
+} from 'effect';
 import {
   type Account,
   Accounts,
@@ -88,7 +95,14 @@ const activeOf = (snapshot: Snapshot | null) =>
  * What changes the state runs one at a time (checks, actions, a peer's
  * Snapshot), so an answer never lands over one that came after it. A
  * sign-in, which may wait on the User for minutes, runs alone and commits
- * its answer only if nothing was committed since: what was is newer. */
+ * its answer only if nothing was committed since: what was is newer.
+ *
+ * An Account Switch shows at once as `switchingTo`, before it waits its
+ * turn, and goes once it is answered: the new Active Account, or on failure
+ * the state as it was. Of switches asked one after another, the newest is
+ * shown until the last is answered. A peer's Snapshot that arrives during
+ * a switch may be older than the switch's answer or newer, so once the
+ * switch is done it checks instead. */
 export const makeAccounts = ({
   source,
   last,
@@ -104,10 +118,33 @@ export const makeAccounts = ({
         : stateOf(last ?? signedOut),
     );
     let known = last === null ? null : JSON.stringify(last);
+    // The Account Switches under way, oldest first.
+    const switches: Array<{ readonly userId: string }> = [];
     // How many Snapshots the state has taken.
     let commits = 0;
     const lock = yield* Semaphore.make(1);
     const serially = lock.withPermit;
+
+    /** `state` with the newest Account Switch under way, when its Account
+     * is signed in here and not active already. */
+    const switching = (state: AccountsState): AccountsState => {
+      if (state._tag !== 'SignedIn') return state;
+      const { active, accounts } = state;
+      const userId = switches.at(-1)?.userId;
+      const to = accounts.find(({ id }) => id === userId && id !== active.id);
+      return to
+        ? AccountsState.SignedIn({ active, accounts, switchingTo: to })
+        : AccountsState.SignedIn({ active, accounts });
+    };
+    const switchingId = (state: AccountsState) =>
+      state._tag === 'SignedIn' ? state.switchingTo?.id : undefined;
+    // Shows the switches under way, when that changes what is shown.
+    const reshow = SubscriptionRef.updateSome(ref, (state) => {
+      const next = switching(state);
+      return switchingId(next) === switchingId(state)
+        ? Option.none()
+        : Option.some(next);
+    });
 
     // Kept before it is shown, so whoever sees the state can rely on it.
     const apply = (snapshot: Snapshot) =>
@@ -118,12 +155,25 @@ export const makeAccounts = ({
             commits++;
           }),
         ),
-        Effect.andThen(SubscriptionRef.setAndGet(ref, stateOf(snapshot))),
+        Effect.andThen(
+          SubscriptionRef.setAndGet(ref, switching(stateOf(snapshot))),
+        ),
       );
 
     const { announce } = yield* connect({
       check: Effect.suspend(() => Effect.ignore(check)),
-      apply: (snapshot) => serially(Effect.asVoid(apply(snapshot))),
+      apply: (snapshot) => {
+        const duringSwitch = switches.length > 0;
+        return serially(
+          Effect.asVoid(
+            duringSwitch
+              ? Effect.flatMap(source.read, commit).pipe(
+                  Effect.catch(() => apply(snapshot)),
+                )
+              : apply(snapshot),
+          ),
+        );
+      },
     });
 
     // Runs with the lock held.
@@ -168,7 +218,33 @@ export const makeAccounts = ({
           }),
           Effect.asVoid,
         ),
-      switchTo: (userId) => Effect.asVoid(committed(source.switchTo(userId))),
+      switchTo: (userId) =>
+        Effect.suspend(() => {
+          const asked = { userId };
+          const done = Effect.sync(() => {
+            const at = switches.indexOf(asked);
+            if (at !== -1) switches.splice(at, 1);
+          });
+          switches.push(asked);
+          return reshow.pipe(
+            Effect.andThen(
+              serially(
+                source.switchTo(userId).pipe(
+                  // Answered: what is committed shows the switch done.
+                  Effect.ensuring(done),
+                  Effect.flatMap(commit),
+                ),
+              ),
+            ),
+            // Failed or stopped: the state as it was, without this switch.
+            Effect.onExit((exit) =>
+              exit._tag === 'Success'
+                ? Effect.void
+                : Effect.andThen(done, reshow),
+            ),
+            Effect.asVoid,
+          );
+        }),
       signOut: (userId) =>
         serially(
           Effect.flatMap(current, (state) => {

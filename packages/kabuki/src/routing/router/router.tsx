@@ -92,6 +92,8 @@ export interface PendingMove<Route> {
   readonly said?: MoveOptions;
   /** A reload anew's: the Data cache is dropped before it asks, so nothing it loads is a copy, or joins a load asked before. */
   readonly anew?: boolean;
+  /** A held reload anew's: it waits for its data however long, and never lands without it. */
+  readonly hold?: boolean;
 }
 
 /** What a move carries besides where it goes and how. */
@@ -393,6 +395,7 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
           key: Schema.NullOr(Schema.String),
           said: Schema.optionalKey(Schema.Struct(moveOptions)),
           anew: Schema.optionalKey(Schema.Boolean),
+          hold: Schema.optionalKey(Schema.Boolean),
         }),
       ),
       holding: Schema.NullOr(RouteSchema),
@@ -697,9 +700,10 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
    * A reload anew: the data of every place on screen is no one's any more.
    * It is shown while a move is held, as a move to another page would be,
    * and never kept: the move held, if there is one, now loads it too, else
-   * the Router holds one to the Route shown.
+   * the Router holds one to the Route shown. Held (`hold`), or joining a
+   * held one, it waits for its data however long.
    */
-  const reloadingAnew = (model: Model, now: number): Out => {
+  const reloadingAnew = (model: Model, now: number, hold: boolean): Out => {
     const marked: Model = { ...model, data: anewOf(model.data) };
     const out = model.pending
       ? toward(marked, model.pending.to, model.pending.how, now, model.pending)
@@ -708,7 +712,14 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
     if (next?.pending)
       return {
         ...out,
-        model: { ...next, pending: { ...next.pending, anew: true } },
+        model: {
+          ...next,
+          pending: {
+            ...next.pending,
+            anew: true,
+            ...(hold || model.pending?.hold ? { hold: true } : {}),
+          },
+        },
       };
     // Nothing on screen has data: what the Data cache keeps goes all the same.
     return {
@@ -743,7 +754,10 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
         },
       },
     },
-    provides: (self: { readonly send: Send }) =>
+    provides: (self: {
+      readonly send: Send;
+      readonly changes: Stream.Stream<{ readonly model: Model }>;
+    }) =>
       Layer.succeed(Navigation, {
         push: (to, options) =>
           self.send({
@@ -760,7 +774,21 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
         back: self.send({ _tag: 'Went', by: -1 }),
         forward: self.send({ _tag: 'Went', by: 1 }),
         backTo: (to) => self.send({ _tag: 'WentBackTo', route: to as Route }),
-        reload: (options) => self.send({ _tag: 'Reloaded', ...options }),
+        reload: (options) =>
+          options?.anew === true && options.hold === true
+            ? Effect.gen(function* () {
+                yield* self.send({ _tag: 'Reloaded', ...options });
+                // Sent while the Mailbox is still busy, the Message waits
+                // its turn: past a yield, the Model is what it made.
+                yield* Effect.yieldNow;
+                yield* Stream.runHead(
+                  Stream.filter(
+                    self.changes,
+                    ({ model }) => model.pending?.hold !== true,
+                  ),
+                );
+              })
+            : self.send({ _tag: 'Reloaded', ...options }),
         preload: (to) => self.send({ _tag: 'Preloading', route: to as Route }),
       }),
     on: {
@@ -777,7 +805,7 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
           (said.hash ?? '') === (current(model).hash ?? '')
         )
           return renewing(model.data)
-            ? reloadingAnew({ ...model, pending: null }, at)
+            ? reloadingAnew({ ...model, pending: null }, at, false)
             : reloading({ ...model, pending: null });
         return toward(model, route, 'push', at, { said });
       },
@@ -924,9 +952,9 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
         return land(settled, notFound(pending.to), how, {});
       },
       Reloaded: (
-        { anew }: ReloadOptions,
+        { anew, hold }: ReloadOptions,
         { model, at }: { readonly model: Model; readonly at: number },
-      ) => (anew ? reloadingAnew(model, at) : reloading(model)),
+      ) => (anew ? reloadingAnew(model, at, hold === true) : reloading(model)),
       Preloading: (
         { route }: { readonly route: Route },
         { model }: { readonly model: Model },
@@ -999,10 +1027,12 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
             if (pending) yield* load(pending, self.send);
           }),
       },
-      // Lands a move still loading after the delay.
+      // Lands a move still loading after the delay; a held reload waits on.
       wait: {
         each: ({ model }: { readonly model: Model }) =>
-          model.pending ? [String(model.pending.id)] : [],
+          model.pending && !model.pending.hold
+            ? [String(model.pending.id)]
+            : [],
         run: (self: {
           readonly send: Send;
           readonly get: Effect.Effect<{ readonly model: Model }>;
@@ -1143,6 +1173,7 @@ export const app = <Route extends AnyRoute, A extends AnyActor>(
             send({
               _tag: 'Reloaded',
               ...(options?.anew === true ? { anew: true } : {}),
+              ...(options?.hold === true ? { hold: true } : {}),
             }),
           preload: (route) =>
             send({ _tag: 'Preloading', route: route as Route }),
