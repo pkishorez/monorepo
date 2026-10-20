@@ -102,6 +102,7 @@ const over = new RunError({
 const statusOf = (result: RunResult): RunStatus => {
   switch (result._tag) {
     case 'Succeeded':
+    case 'Deployed':
       return 'succeeded';
     case 'Failed':
       return 'failed';
@@ -122,7 +123,8 @@ export class RunLifecycle extends Context.Service<
     readonly onFinished: (handler: FinishedHandler) => Effect.Effect<void>;
     /** Ends a waiting run at once; asks a running one to stop. */
     readonly cancel: (runId: string) => Effect.Effect<void, RunError>;
-    /** The run, its events and logs so far, then each change, until it ends. */
+    /** The run, its events and logs so far, then each change, until it
+     * ends: a run that has ended is always the last update. */
     readonly watch: (runId: string) => Stream.Stream<RunUpdate, RunError>;
     /** The alarm rang at `now`: ends the runs that went silent or ran too long. */
     readonly check: (now: number) => Effect.Effect<void>;
@@ -130,12 +132,14 @@ export class RunLifecycle extends Context.Service<
     readonly active: (runId: string) => Effect.Effect<StoredRun, RunError>;
     /** The runner spoke: the run's silence deadline moves on. */
     readonly heard: (runId: string) => Effect.Effect<void, RunError>;
-    /** Keeps step `seq` once; refuses one that skips a number. */
+    /** Keeps step `seq` once; refuses one that skips a number. A step
+     * that starts a phase moves the run on to `status` with it. */
     readonly report: (
       runId: string,
       seq: number,
       write: (at: number) => Effect.Effect<void>,
       kind: 'event' | 'log',
+      status?: RunStatus,
     ) => Effect.Effect<void, RunError>;
     /** The runner says how the run ended. */
     readonly finish: (
@@ -391,7 +395,11 @@ export class RunLifecycle extends Context.Service<
                   const updates: Array<RunUpdate> = [];
                   const first = sentRun === '';
                   const runChanged = JSON.stringify(view) !== sentRun;
-                  if (first) updates.push({ _tag: 'Run', run: view });
+                  const ended = isFinished(run.status);
+                  // A run still going is said first, so a watcher draws it
+                  // at once; one that has ended is said last, after every
+                  // step, as it is when it ends while watched.
+                  if (first && !ended) updates.push({ _tag: 'Run', run: view });
                   const events = yield* runs.events.after(runId, sentEvents);
                   if (events.length > 0) {
                     sentEvents = events.at(-1)!.seq;
@@ -409,10 +417,10 @@ export class RunLifecycle extends Context.Service<
                     });
                   }
                   // A run's last word comes after its last step.
-                  if (!first && runChanged)
+                  if (first ? ended : runChanged)
                     updates.push({ _tag: 'Run', run: view });
                   sentRun = JSON.stringify(view);
-                  return { updates, ended: isFinished(run.status) };
+                  return { updates, ended };
                 });
                 return wakes(runId).pipe(
                   Stream.mapEffect(() => read),
@@ -463,7 +471,7 @@ export class RunLifecycle extends Context.Service<
                 yield* touch(run);
               }),
             ),
-          report: (runId, seq, write, kind) =>
+          report: (runId, seq, write, kind, status) =>
             locked(
               Effect.gen(function* () {
                 const run = yield* active(runId);
@@ -481,6 +489,7 @@ export class RunLifecycle extends Context.Service<
                 yield* runs.put({
                   ...run,
                   lastHeardAt: now,
+                  ...(status === undefined ? {} : { status }),
                   ...(kind === 'event'
                     ? { lastEventSeq: seq }
                     : { lastLogSeq: seq }),

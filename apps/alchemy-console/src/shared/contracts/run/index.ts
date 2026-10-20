@@ -1,6 +1,7 @@
 export {
   InspectResult,
   isFinished,
+  PlannedResource,
   Run,
   RunError,
   RunEvent,

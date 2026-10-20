@@ -151,13 +151,17 @@ export const startConsole = async (options: {
   readonly silenceMs?: number;
   /** Listen on every interface, so a local container can call back. */
   readonly listenEverywhere?: boolean;
+  /** Serve the app's own scripts and styles too, so a browser can run it. */
+  readonly assets?: boolean;
+  /** The port to listen on; a free one unless said. */
+  readonly port?: number;
 }) => {
   const out = await build();
   const server = path.join(out, 'ssr');
   // The User Spaces' SQLite, on disk, so a test can read what was stored.
   const persist = path.join(out, 'state');
   const outbound = options.outbound ?? nowhere;
-  const port = await freePort();
+  const port = options.port ?? (await freePort());
   const containers = options.containers;
   const mf = new Miniflare({
     host: options.listenEverywhere ? '0.0.0.0' : '127.0.0.1',
@@ -170,6 +174,14 @@ export const startConsole = async (options: {
         modules: true,
         scriptPath: path.join(server, 'index.js'),
         modulesRoot: server,
+        ...(options.assets
+          ? {
+              assets: {
+                directory: path.join(out, 'client'),
+                routerConfig: { has_user_worker: true },
+              },
+            }
+          : {}),
         durableObjects: {
           USER_SPACE: { className: 'UserSpace', useSQLite: true },
           ...(containers

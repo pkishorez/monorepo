@@ -53,6 +53,8 @@ export const makeOutbox = (
     let logSeq = 0;
     let lines: Array<string> = [];
     const redact = (options.redact ?? []).filter((secret) => secret.length > 0);
+    // Short values (a region, `true`) would blank out ordinary words.
+    const MIN_SECRET = 8;
     const retryable = options.retryable ?? (() => true);
     // Once a send is refused for good (the run is over), nothing more goes.
     let closed = false;
@@ -101,6 +103,10 @@ export const makeOutbox = (
     );
 
     return {
+      /** Never sends `secret` from now on, replacing it with `***`. */
+      redact: (secret: string) => {
+        if (secret.length >= MIN_SECRET) redact.push(secret);
+      },
       /** Sends `event` as the next step. */
       event: (event: RunnerEvent) =>
         Effect.sync(() => {

@@ -53,6 +53,10 @@ import {
   TIMEOUT_MS,
 } from './workflows/run-lifecycle/index.ts';
 import { sessionHandlers } from './workflows/session/index.ts';
+import {
+  followRuns,
+  projectsHandlers,
+} from './workflows/setup-project/index.ts';
 
 /*
  * The User Space: one Durable Object per user, holding that user's records
@@ -148,6 +152,7 @@ const handlers = (deadlines: ReturnType<typeof makeDeadlines>) =>
           ...(yield* connectionsHandlers),
           ...(yield* repositoriesHandlers),
           ...(yield* runsHandlers),
+          ...(yield* projectsHandlers),
         },
         deadlines,
       );
@@ -204,6 +209,8 @@ const socketsOf = (state: cf.DurableObjectState, runner: boolean) => {
 const serve = (state: cf.DurableObjectState, env: UserSpaceEnv) =>
   Effect.gen(function* () {
     const built = yield* Layer.build(services(state, env));
+    // Before any run can end: each one that ends settles its stage.
+    yield* followRuns.pipe(Effect.provideContext(built));
     const deadlines = makeDeadlines(state.storage);
     const served = handlers(deadlines).pipe(
       Layer.provide(Layer.succeedContext(built)),

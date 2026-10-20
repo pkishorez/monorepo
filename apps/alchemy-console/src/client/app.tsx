@@ -14,7 +14,10 @@ import './styles.css';
  *   └─ App        the root page, holding Console
  *      └─ Console the sign-in gate and Account menu; Provides Api, Session
  *         ├─ Welcome
- *         └─ Settings  └─ Credentials └─ AddCredential
+ *         ├─ Settings    └─ Credentials └─ AddCredential
+ *         ├─ NewProject  └─ AddCredential
+ *         └─ Project     └─ RunView (Production's latest run)
+ *            └─ Run      └─ RunView
  *
  * A URL that names no page draws the root's not-found screen, and a 404.
  */

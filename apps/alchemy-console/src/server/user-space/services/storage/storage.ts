@@ -16,6 +16,7 @@ import {
   type StoredInstallState,
   userSpaceTable,
 } from './table.ts';
+import { makeProjects, type ProjectsStorage } from './projects.ts';
 import { makeRuns, type Runs } from './runs.ts';
 
 /*
@@ -97,6 +98,10 @@ export class Storage extends Context.Service<
     };
     /** The owner's runs, their events and log batches, and the lanes they take turns in. */
     readonly runs: Runs;
+    /** The owner's projects, oldest first. */
+    readonly projects: ProjectsStorage['projects'];
+    /** Each project's stages. */
+    readonly stages: ProjectsStorage['stages'];
     /** The one-time states of install URLs not yet come back. */
     readonly installStates: {
       readonly issue: (record: StoredInstallState) => Effect.Effect<void>;
@@ -175,8 +180,15 @@ export class Storage extends Context.Service<
           table as never,
         );
 
+        const { projects, stages } = yield* makeProjects(
+          run as <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.Effect<A>,
+          table as never,
+        );
+
         return Storage.of({
           runs,
+          projects,
+          stages,
           owner: {
             get,
             put: (member, at) =>

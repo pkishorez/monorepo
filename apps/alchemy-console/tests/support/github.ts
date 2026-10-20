@@ -40,6 +40,8 @@ export interface FakeInstallation {
     string,
     Array<{ name: string; path: string; type: string }>
   >;
+  /** Every file's path, from the root, of each `owner/name` at its default branch. */
+  readonly files?: Record<string, Array<string>>;
 }
 
 export interface GitHubUser {
@@ -70,6 +72,13 @@ const signedByApp = (jwt: string) => {
     )
   );
 };
+
+/** The ID the fake GitHub gives a repository, from its name. */
+export const repoIdOf = (repo: string) =>
+  Number.parseInt(
+    createHash('sha1').update(repo).digest('hex').slice(0, 8),
+    16,
+  );
 
 /** The head commit the fake GitHub gives `ref`: a SHA is its own head. */
 export const headOf = (ref: string) =>
@@ -171,6 +180,30 @@ export const fakeGitHub = () => {
         sha: headOf(decodeURIComponent(commit[2]!)),
         html_url: `https://github.com/${commit[1]}/commit/${headOf(commit[2]!)}`,
         commit: { message: 'A commit', author: null },
+      });
+    const tree = url.pathname.match(
+      /^\/repos\/([^/]+\/[^/]+)\/git\/trees\/([^/]+)$/,
+    );
+    if (tree && installation.repositories.includes(tree[1]!))
+      return json(200, {
+        truncated: false,
+        tree: (installation.files?.[tree[1]!] ?? []).flatMap((path) => {
+          const segments = path.split('/');
+          return [
+            ...segments.slice(0, -1).map((_, index) => ({
+              path: segments.slice(0, index + 1).join('/'),
+              type: 'tree',
+            })),
+            { path, type: 'blob' },
+          ];
+        }),
+      });
+    const one = url.pathname.match(/^\/repos\/([^/]+\/[^/]+)$/);
+    if (one && installation.repositories.includes(one[1]!))
+      return json(200, {
+        id: repoIdOf(one[1]!),
+        full_name: one[1],
+        default_branch: 'main',
       });
     const contents = url.pathname.match(
       /^\/repos\/([^/]+\/[^/]+)\/contents\/?(.*)$/,

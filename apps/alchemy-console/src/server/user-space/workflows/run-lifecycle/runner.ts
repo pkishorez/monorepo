@@ -4,6 +4,7 @@ import {
   type RunnerEvent,
   type RunResult,
   type RunSpec,
+  type RunStatus,
 } from '../../../../shared/contracts/run/index.ts';
 import { GitHub } from '../../services/github/index.ts';
 import { Storage } from '../../services/storage/index.ts';
@@ -45,6 +46,14 @@ export const runnerOf = (headers: {
   const caller = decode(header);
   return caller._tag === 'Some' ? caller.value : null;
 };
+
+/** The status a step moves its run on to, if it starts a phase that has one. */
+const statusOf = (event: RunnerEvent): RunStatus | undefined =>
+  event._tag !== 'Phase'
+    ? undefined
+    : event.phase === 'planning' || event.phase === 'applying'
+      ? event.phase
+      : undefined;
 
 const caller = Effect.gen(function* () {
   const found = yield* RunnerCaller;
@@ -133,6 +142,7 @@ export const runnerHandlers = Effect.gen(function* () {
           (at) =>
             storage.runs.events.insert({ key: '', runId, seq, at, event }),
           'event',
+          statusOf(event),
         );
       }),
     log: ({

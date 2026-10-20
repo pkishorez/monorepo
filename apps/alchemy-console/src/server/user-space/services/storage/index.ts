@@ -1,2 +1,8 @@
 export { Storage } from './storage.ts';
-export type { StoredLane, StoredRun } from './table.ts';
+export type {
+  StoredEnvironment,
+  StoredLane,
+  StoredProject,
+  StoredRun,
+  StoredStage,
+} from './table.ts';

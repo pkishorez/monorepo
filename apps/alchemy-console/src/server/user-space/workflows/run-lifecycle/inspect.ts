@@ -25,7 +25,7 @@ const invalid = (message: string) =>
   new RunError({ reason: 'invalid', message });
 
 /** `folder` as a run keeps it: `.` or `a/b`, never leaving the repository. */
-export const folderOf = (folder: string) => {
+export const folderOf = (folder: string): Effect.Effect<string, RunError> => {
   const segments = folder
     .trim()
     .split('/')

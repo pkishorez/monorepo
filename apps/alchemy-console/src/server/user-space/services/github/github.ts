@@ -13,8 +13,9 @@ import { appJwt, signingKey } from './jwt.ts';
  * - As the App (a JWT from `GH_APP_ID` and `GH_APP_PRIVATE_KEY`): look up
  *   an installation, and mint its tokens.
  * - As an installation (its token, kept here until five minutes before it
- *   expires): its repositories, a folder listing, branches, a branch's
- *   head commit, and a comparison of two commits.
+ *   expires): its repositories, one repository, a folder listing, the
+ *   folders holding an `alchemy.run.ts`, branches, a branch's head commit,
+ *   and a comparison of two commits.
  * - As a GitHub user, once (their OAuth code, exchanged with
  *   `GH_APP_CLIENT_ID` and `GH_APP_CLIENT_SECRET`): whether they manage
  *   an installation's account, the proof the installation is theirs. That
@@ -73,6 +74,22 @@ const Contents = Schema.Union([
   // A file's path answers with the file.
   Schema.Struct({ type: Schema.String }),
 ]);
+
+const OneRepository = Schema.Struct({
+  id: Schema.Number,
+  full_name: Schema.String,
+  default_branch: Schema.String,
+});
+
+const Tree = Schema.Struct({
+  tree: Schema.Array(
+    Schema.Struct({ path: Schema.String, type: Schema.String }),
+  ),
+  truncated: Schema.Boolean,
+});
+
+/** The file a project's folder holds. */
+const ENTRYPOINT = 'alchemy.run.ts';
 
 const Branches = Schema.Array(
   Schema.Struct({
@@ -203,6 +220,19 @@ export class GitHub extends Context.Service<
     readonly repositories: (
       installationId: number,
     ) => Effect.Effect<ReadonlyArray<RepositoryInfo>, GitHubError>;
+    /** One repository, with the ID GitHub keeps through a rename. */
+    readonly repository: (input: InRepo) => Effect.Effect<
+      {
+        readonly id: number;
+        readonly fullName: string;
+        readonly defaultBranch: string;
+      },
+      GitHubError
+    >;
+    /** Every folder at `ref` holding an `alchemy.run.ts`, `.` for the root, root first; none under `node_modules`. */
+    readonly alchemyFolders: (
+      input: InRepo & { readonly ref: string },
+    ) => Effect.Effect<ReadonlyArray<string>, GitHubError>;
     /** One folder at `ref`; `path` is from the root, `''` for the root. */
     readonly listFolder: (
       input: InRepo & { readonly ref: string; readonly path: string },
@@ -378,6 +408,38 @@ export class GitHub extends Context.Service<
                   break;
               }
               return found;
+            }),
+          repository: ({ installationId, repo }) =>
+            Effect.flatMap(repoPath(repo), (path) =>
+              asInstallation(installationId, `/repos/${path}`),
+            ).pipe(
+              Effect.flatMap(decode(OneRepository)),
+              Effect.map(({ id, full_name, default_branch }) => ({
+                id,
+                fullName: full_name,
+                defaultBranch: default_branch,
+              })),
+            ),
+          alchemyFolders: ({ installationId, repo, ref }) =>
+            Effect.gen(function* () {
+              // One call for the whole tree; a tree too big for one answer
+              // is cut short by GitHub, and the folders in what came are kept.
+              const { tree } = yield* asInstallation(
+                installationId,
+                `/repos/${yield* repoPath(repo)}/git/trees/${encodeURIComponent(ref)}?recursive=1`,
+              ).pipe(Effect.flatMap(decode(Tree)));
+              const folders = tree.flatMap(({ path, type }) => {
+                if (type !== 'blob') return [];
+                const segments = path.split('/');
+                if (segments.at(-1) !== ENTRYPOINT) return [];
+                if (segments.includes('node_modules')) return [];
+                return [
+                  segments.length === 1 ? '.' : segments.slice(0, -1).join('/'),
+                ];
+              });
+              return folders.sort((a, b) =>
+                a === '.' ? -1 : b === '.' ? 1 : a.localeCompare(b),
+              );
             }),
           listFolder: ({ installationId, repo, ref, path }) =>
             Effect.gen(function* () {

@@ -7,8 +7,11 @@ import { Console } from './console/index.ts';
  *
  *   App                the root: no path, no data, Console in it
  *   └─ Console  /      who the visitor is; the sign-in gate
- *      ├─ Welcome  /           Connect GitHub; then the member's projects
- *      └─ Settings /settings   what a member sets up once: GitHub, credentials
+ *      ├─ Welcome    /                     Connect GitHub; then the member's projects
+ *      ├─ Settings   /settings             what a member sets up once: GitHub, credentials
+ *      ├─ NewProject /new                  a repository folder to Production deploying
+ *      └─ Project    /projects/:projectId  its Production stage and latest run, live
+ *         └─ Run     /runs/:runId          one run, step by step
  */
 
 /** The root page, which Kabuki requires to have no data: it only holds Console. */
@@ -28,6 +31,8 @@ export {
   ConsoleState,
   Visitor,
 } from './console/index.ts';
+export { NewProject, NewProjectStep, Target } from './new-project/index.ts';
+export { Project, Run } from './project/index.ts';
 export { Settings } from './settings/index.ts';
 export { Welcome } from './welcome/index.ts';
 export {

@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { compareVersions, inspect, LOCAL_STATE } from './alchemy.ts';
+import { compareVersions, inspect, LOCAL_STATE, outputsOf } from './alchemy.ts';
 import { installFor } from './workspace.ts';
 
 /*
@@ -80,5 +80,20 @@ describe('installFor', () => {
     });
     await writeFile(path.join(folder, 'bun.lock'), '');
     expect(installFor(root, folder).command).toBe('bun');
+  });
+});
+
+describe('outputsOf', () => {
+  it('keeps each output as text: a string as it is, anything else as JSON', () => {
+    expect(
+      outputsOf({ url: 'https://a.workers.dev', port: 8080, tags: ['a'] }),
+    ).toEqual({ url: 'https://a.workers.dev', port: '8080', tags: '["a"]' });
+  });
+
+  it('has none for a stack that exports nothing, and names a lone value `output`', () => {
+    expect(outputsOf(undefined)).toEqual({});
+    expect(outputsOf('https://a.workers.dev')).toEqual({
+      output: 'https://a.workers.dev',
+    });
   });
 });

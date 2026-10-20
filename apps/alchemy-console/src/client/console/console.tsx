@@ -11,6 +11,8 @@ import {
   Session,
   type Visitor,
 } from '../../shared/pages/index.ts';
+import { NewProjectLive, NewProjectView } from '../pages/new-project/index.ts';
+import { ProjectLive, ProjectView } from '../pages/project/index.ts';
 import { SettingsLive, SettingsView } from '../pages/settings/index.ts';
 import { WelcomeLive, WelcomeView } from '../pages/welcome/index.ts';
 import { apiLayer } from './api.ts';
@@ -94,7 +96,12 @@ const seenOf = (state: Exclude<AccountsState, { _tag: 'Checking' }>) =>
 const idle = (model: Model) => model.busy === null;
 
 export const ConsoleLive = Page.build(Console, {
-  pages: { Welcome: WelcomeLive, Settings: SettingsLive },
+  pages: {
+    Welcome: WelcomeLive,
+    Settings: SettingsLive,
+    NewProject: NewProjectLive,
+    Project: ProjectLive,
+  },
   // The pages are the signed-in member's: another member, after an Account
   // Switch, starts every one of them again.
   scope: ({ model, state, props }) => {
@@ -315,6 +322,10 @@ export const ConsoleView = View.make(ConsoleLive, (self) => {
           )}
           {children.Welcome && <WelcomeView instance={children.Welcome} />}
           {children.Settings && <SettingsView instance={children.Settings} />}
+          {children.NewProject && (
+            <NewProjectView instance={children.NewProject} />
+          )}
+          {children.Project && <ProjectView instance={children.Project} />}
           {signInMode === 'local' && (
             <AddAccountDialog
               open={model.adding}

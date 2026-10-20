@@ -138,7 +138,7 @@ export const credentialsHandlers = Effect.gen(function* () {
       readonly credentialId: string;
     }) =>
       Effect.gen(function* () {
-        const using = yield* projectsUsing(credentialId);
+        const using = yield* projectsUsing(storage, credentialId);
         if (using.length > 0)
           return yield* new CredentialError({
             reason: 'in-use',

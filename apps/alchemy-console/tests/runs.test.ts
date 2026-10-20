@@ -1,11 +1,8 @@
-import { Effect, Fiber, Layer, type Scope, Stream } from 'effect';
-import { RpcClient, RpcSerialization } from 'effect/rpc';
-import { Socket } from 'effect/socket';
+import { Effect, Fiber, type Scope, Stream } from 'effect';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { makeOutbox } from '../src/runner/index.ts';
 import { mint, verify } from '../src/server/run-token/index.ts';
 import type { RunUpdate } from '../src/shared/contracts/run/index.ts';
-import { RunnerApi } from '../src/shared/contracts/runner-api/index.ts';
 import { connectGitHub } from './support/connect.ts';
 import {
   type ContainerVariables,
@@ -13,6 +10,7 @@ import {
   TEST_VAULT_KEY,
 } from './support/console.ts';
 import { APP, fakeGitHub, headOf } from './support/github.ts';
+import { runnerAt } from './support/runner.ts';
 
 /*
  * Runs in the Worker as it deploys: an Inspect starts a container given
@@ -90,42 +88,7 @@ const inspect = async (
 };
 
 /** The run's runner, over `/runner` with `token`; `drop` cuts its socket as a network would. */
-const runner = (token: string) =>
-  Effect.gen(function* () {
-    const sockets: Array<WebSocket> = [];
-    const protocol = yield* Layer.build(
-      RpcClient.layerProtocolSocket({ retryTransientErrors: true }).pipe(
-        Layer.provide([
-          Socket.layerWebSocket(
-            `${console_.consoleUrl.replace(/^http/, 'ws')}/runner?token=${encodeURIComponent(token)}`,
-          ).pipe(
-            Layer.provide(
-              Layer.succeed(Socket.WebSocketConstructor, (address) => {
-                const ws = new globalThis.WebSocket(address);
-                sockets.push(ws);
-                return ws as never;
-              }),
-            ),
-          ),
-          RpcSerialization.layerJson,
-        ]),
-      ),
-    );
-    const client = yield* RpcClient.make(RunnerApi).pipe(
-      Effect.provideContext(protocol),
-    );
-    return {
-      client,
-      /** Cuts the socket once it is open. */
-      drop: Effect.gen(function* () {
-        while (sockets.at(-1)?.readyState !== WebSocket.OPEN)
-          yield* Effect.sleep('10 millis');
-        sockets.at(-1)!.close(4001, 'dropped');
-      }),
-      /** How many sockets it has opened: one more after each drop. */
-      opened: () => sockets.length,
-    };
-  });
+const runner = (token: string) => runnerAt(console_.consoleUrl, token);
 
 /** Everything the owner hears of `runId` until it ends. */
 const watched = (runId: string) =>

@@ -3,17 +3,11 @@ import { Command } from '@kestack/kabuki';
 import { View } from '@kestack/kabuki/react';
 import { Page } from '@kestack/kabuki/routing';
 import { Button } from '@kestack/web-platform/components/button';
-import {
-  Empty,
-  EmptyContent,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyTitle,
-} from '@kestack/web-platform/components/empty';
 import { Skeleton } from '@kestack/web-platform/components/skeleton';
 import { Spinner } from '@kestack/web-platform/components/spinner';
 import { Api, Welcome } from '../../../shared/pages/index.ts';
 import { GitHubReturnNotice, goInstall } from '../../connect-github/index.ts';
+import { Projects, ProjectsSkeleton } from './projects.tsx';
 
 /*
  * Welcome, as it behaves. It shows the pattern every page reuses for live
@@ -26,7 +20,7 @@ import { GitHubReturnNotice, goInstall } from '../../connect-github/index.ts';
  *
  * With no GitHub connection the one next step is Connect GitHub, which
  * leaves for GitHub's install page; with one, it is the member's projects,
- * none yet.
+ * each with its Production stage, or New project when there are none.
  */
 
 const retried = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
@@ -48,6 +42,7 @@ export const WelcomeLive = Page.build(Welcome, {
     model: {
       member: null,
       connections: null,
+      projects: null,
       connecting: false,
       problem: null,
     },
@@ -63,6 +58,21 @@ export const WelcomeLive = Page.build(Welcome, {
               .pipe(
                 Stream.runForEach((member) =>
                   self.send({ _tag: 'MemberSeen', member }),
+                ),
+              );
+          }),
+        ),
+    },
+    projects: {
+      run: (self) =>
+        retried(
+          Effect.gen(function* () {
+            const api = yield* Api;
+            yield* api
+              .follow((client) => client['Projects.list']())
+              .pipe(
+                Stream.runForEach((projects) =>
+                  self.send({ _tag: 'ProjectsSeen', projects }),
                 ),
               );
           }),
@@ -86,6 +96,9 @@ export const WelcomeLive = Page.build(Welcome, {
   },
   on: {
     MemberSeen: ({ member }, { model }) => ({ model: { ...model, member } }),
+    ProjectsSeen: ({ projects }, { model }) => ({
+      model: { ...model, projects },
+    }),
     ConnectionsSeen: ({ connections }, { model }) => ({
       model: { ...model, connections },
     }),
@@ -167,37 +180,6 @@ function ConnectGitHub({
   );
 }
 
-/** The member's projects, none yet. */
-function NoProjects() {
-  return (
-    <>
-      <h1
-        id="welcome-title"
-        className="text-2xl font-semibold tracking-tight sm:text-3xl"
-      >
-        Projects
-      </h1>
-      <Empty className="rounded-lg border border-dashed border-border">
-        <EmptyHeader>
-          <EmptyTitle>Create your first project</EmptyTitle>
-          <EmptyDescription>
-            Pick a repository folder with an alchemy.run.ts, and Console deploys
-            it to Production, then again on every push.
-          </EmptyDescription>
-        </EmptyHeader>
-        <EmptyContent>
-          <Button disabled aria-describedby="new-project-soon">
-            Create project
-          </Button>
-          <p id="new-project-soon" className="text-sm text-muted-foreground">
-            Creating projects arrives in the next release.
-          </p>
-        </EmptyContent>
-      </Empty>
-    </>
-  );
-}
-
 export const WelcomeView = View.make(
   WelcomeLive,
   ({ props, model, send, root }) => {
@@ -205,6 +187,7 @@ export const WelcomeView = View.make(
     // The live word once the User Space has spoken, as drawn until then.
     const member = model.member ?? drawn?.member ?? null;
     const connections = model.connections ?? drawn?.connections ?? null;
+    const projects = model.projects ?? drawn?.projects ?? null;
     return (
       <section
         {...root}
@@ -214,6 +197,8 @@ export const WelcomeView = View.make(
         <GitHubReturnNotice github={props.query.github} />
         {member === null || connections === null ? (
           <WelcomeSkeleton />
+        ) : connections.length > 0 && projects === null ? (
+          <ProjectsSkeleton />
         ) : connections.length === 0 ? (
           <ConnectGitHub
             name={member.name}
@@ -222,7 +207,7 @@ export const WelcomeView = View.make(
             onConnect={() => send({ _tag: 'ConnectChosen' })}
           />
         ) : (
-          <NoProjects />
+          <Projects projects={projects ?? []} />
         )}
       </section>
     );

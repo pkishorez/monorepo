@@ -8,6 +8,10 @@ import {
 } from '../../../../shared/contracts/github/index.ts';
 import { Member } from '../../../../shared/contracts/member/index.ts';
 import {
+  EnvironmentName,
+  StageStatus,
+} from '../../../../shared/contracts/project/index.ts';
+import {
   RunKind,
   RunnerEvent,
   RunResult,
@@ -174,6 +178,59 @@ export type StoredRunLog = typeof StoredRunLog.Type;
 export const runLog = userSpaceTable
   .entity(StoredRunLog)
   .primary({ pk: ['runId'] })
+  .build();
+
+/** What one Environment deploys with: variable values only as the Vault sealed them. */
+const StoredEnvironment = Schema.Struct({
+  /** Provider → credentialId. */
+  credentials: Schema.Record(Schema.String, Schema.String),
+  variables: Schema.Array(
+    Schema.Struct({ name: Schema.String, encryptedValue: Schema.String }),
+  ),
+});
+
+export type StoredEnvironment = typeof StoredEnvironment.Type;
+
+/** A Project: one repository folder, the stack it owns, and how it deploys. */
+const StoredProject = EntityESchema.make('Project', 'projectId', {
+  connectionId: Schema.String,
+  repo: Schema.Struct({ id: Schema.Number, fullName: Schema.String }),
+  folder: Schema.String,
+  setupCommand: Schema.NullOr(Schema.String),
+  productionBranch: Schema.String,
+  stackName: Schema.String,
+  production: StoredEnvironment,
+  preview: Schema.Union([
+    Schema.Literal('same-as-production'),
+    StoredEnvironment,
+  ]),
+  createdAt: Schema.Number,
+}).build();
+
+export type StoredProject = typeof StoredProject.Type;
+
+export const project = userSpaceTable
+  .entity(StoredProject)
+  .primary({ pk: [] })
+  .build();
+
+/** One stage of a project's stack, as Console last deployed it. */
+const StoredStage = EntityESchema.make('Stage', 'name', {
+  projectId: Schema.String,
+  environment: EnvironmentName,
+  pullRequest: Schema.NullOr(Schema.Number),
+  lastDeployedCommit: Schema.NullOr(Schema.String),
+  status: StageStatus,
+  outputs: Schema.Record(Schema.String, Schema.String),
+  lastRunId: Schema.NullOr(Schema.String),
+  updatedAt: Schema.Number,
+}).build();
+
+export type StoredStage = typeof StoredStage.Type;
+
+export const stage = userSpaceTable
+  .entity(StoredStage)
+  .primary({ pk: ['projectId'] })
   .build();
 
 /**

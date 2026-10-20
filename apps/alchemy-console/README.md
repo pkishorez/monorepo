@@ -59,7 +59,7 @@ pnpm --filter alchemy-console test
 
 - `prod`, `dev` and `pr<N>` deploy only from CI, each with its own Vault key and GitHub App from the repository secrets (`DEV_CONSOLE_VAULT_KEY` and `DEV_GH_APP_*`, the `alchemy-console-dev` App, for `dev`; `CONSOLE_VAULT_KEY` and `GH_APP_*`, the `alchemy-console` App, otherwise): `main` to console.kishore.app, `console-next` to dev-console.kishore.app, each pull request to `pr<N>-console.kishore.app`.
 - `pnpm test` also runs `tests/github-live.test.ts` against the real dev App when its keys are on disk, at `.env.github-dev` or `CONSOLE_GITHUB_ENV`.
-- Runs need a container, so only deployed stages run them, and only with the repository variable `CONSOLE_RUNNERS=on` (the Cloudflare token must be allowed to deploy Containers); elsewhere a run fails to start, saying so. `CONSOLE_RUNNER_LIVE=1 pnpm --filter alchemy-console test tests/runner-live.test.ts` builds the runner image with local Docker and Inspects the sandbox repository through it, with the dev App's keys as above.
+- Runs need a container, so only deployed stages run them, and only with the repository variable `CONSOLE_RUNNERS=on` (the Cloudflare token must be allowed to deploy Containers); elsewhere a run fails to start, saying so. `CONSOLE_RUNNER_LIVE=1 pnpm --filter alchemy-console test tests/runner-live.test.ts` builds the runner image with local Docker and Inspects the sandbox repository through it, with the dev App's keys as above; `tests/deploy-live.test.ts` goes on to make it a project and deploy its Production (stack `ConsoleSandbox`, stage `prod`) into the sandbox Cloudflare account, with that account's keys in `.env.cloudflare-sandbox` or at `CONSOLE_CLOUDFLARE_ENV`.
 
 ### Add a page
 
@@ -89,7 +89,9 @@ workers: {
 
 ### Add an RPC group, a workflow or a route
 
-- A group is a nested module of `src/shared/contracts/console-api/`, merged in `console-api.ts`: `Auth.required(Session.merge(Credentials, Connections, Repositories, Runs))`.
+- A group is a nested module of `src/shared/contracts/console-api/`, merged in `console-api.ts`: `Auth.required(Session.merge(Credentials, Connections, Repositories, Runs, Projects))`.
+- A project is made from a folder an Inspect read (`Projects.create`, `workflows/setup-project/`), which deploys its Production at once; a stage follows the runs that work on it through `RunLifecycle.onFinished`, live with its outputs after a Deploy that succeeds (`stages.markDeployed`).
+- A run is drawn by the `RunView` Actor (`src/client/run-view/`), held as a Child with the run's ID as its Props: it follows `Runs.watch` until the run ends, in every tab that shows it.
 - A run is asked for with `RunLifecycle.enqueue` and heard ending with `RunLifecycle.onFinished` (`workflows/run-lifecycle/`); its container is started with only `RUN_ID`, `RUN_TOKEN` and `CONSOLE_URL`, and its runner asks the User Space for the rest over `/runner` (the `RunnerApi` group).
 - A secret a workflow keeps goes through the `vault` service: storage holds only what `vault.encrypt` sealed, and a run reads a credential's keys only through `envFor` in `workflows/credentials`.
 - A screen that needs a new credential holds `AddCredentialLive` (`src/client/add-credential/`) as a Child, hands it `open` and the provider it needs, and Provides an `AddCredentialOpener` to hear the new credential's ID.

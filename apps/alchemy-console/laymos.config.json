@@ -30,11 +30,33 @@
       "src/shared/contracts/member"
     ],
     "src/client/pages": ["src/shared/pages", "src/client/connect-github"],
+    "src/client/pages/new-project": [
+      "src/client/add-credential",
+      "src/shared/contracts/credential",
+      "src/shared/contracts/github",
+      "src/shared/contracts/project",
+      "src/shared/contracts/run"
+    ],
+    "src/client/pages/project": [
+      "src/client/run-view",
+      "src/client/stage",
+      "src/shared/contracts/project"
+    ],
     "src/client/pages/settings": [
       "src/client/add-credential",
       "src/shared/contracts/credential",
       "src/shared/contracts/github"
     ],
+    "src/client/pages/welcome": [
+      "src/client/stage",
+      "src/shared/contracts/project"
+    ],
+    "src/client/run-view": [
+      "src/shared/contracts/project",
+      "src/shared/contracts/run",
+      "src/shared/pages"
+    ],
+    "src/client/stage": ["src/shared/contracts/project", "src/shared/pages"],
     "src/runner": [
       "src/shared/contracts/run",
       "src/shared/contracts/runner-api"
@@ -68,7 +90,8 @@
     "src/server/user-space/services/storage": [
       "src/shared/contracts/credential",
       "src/shared/contracts/github",
-      "src/shared/contracts/run"
+      "src/shared/contracts/run",
+      "src/shared/contracts/project"
     ],
     "src/server/user-space/workflows/connections": [
       "src/server/user-space/services/github",
@@ -99,6 +122,13 @@
     "src/server/user-space/workflows/session": [
       "src/server/user-space/services/storage"
     ],
+    "src/server/user-space/workflows/setup-project": [
+      "src/server/user-space/services/github",
+      "src/server/user-space/services/storage",
+      "src/server/user-space/workflows/run-lifecycle",
+      "src/shared/contracts/project",
+      "src/shared/contracts/run"
+    ],
     "src/server/worker.ts": [
       "src/server/host",
       "src/server/user-space",
@@ -109,7 +139,12 @@
       "src/shared/contracts/member",
       "src/shared/contracts/github"
     ],
+    "src/shared/contracts/console-api/projects": [
+      "src/shared/contracts/project",
+      "src/shared/contracts/run"
+    ],
     "src/shared/contracts/console-api/runs": ["src/shared/contracts/run"],
+    "src/shared/contracts/project": ["src/shared/contracts/run"],
     "src/shared/contracts/runner-api": ["src/shared/contracts/run"],
     "src/shared/pages": [
       "src/shared/contracts/console-api",
@@ -120,8 +155,21 @@
     "src/shared/pages/console": [
       "src/shared/pages/capabilities",
       "src/shared/pages/settings",
-      "src/shared/pages/welcome"
+      "src/shared/pages/welcome",
+      "src/shared/pages/new-project",
+      "src/shared/pages/project"
     ],
-    "src/shared/pages/welcome": ["src/shared/pages/capabilities"]
+    "src/shared/pages/new-project": [
+      "src/shared/contracts/run",
+      "src/shared/pages/capabilities"
+    ],
+    "src/shared/pages/project": [
+      "src/shared/contracts/project",
+      "src/shared/pages/capabilities"
+    ],
+    "src/shared/pages/welcome": [
+      "src/shared/pages/capabilities",
+      "src/shared/contracts/project"
+    ]
   }
 }

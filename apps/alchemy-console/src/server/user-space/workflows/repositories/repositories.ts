@@ -12,8 +12,29 @@ import { Storage } from '../../services/storage/index.ts';
  * - list     every repository of every connection, as last read from
  *            GitHub, now and after each change to a connection;
  * - folders  one folder of one of those repositories, at its default
- *            branch, read from GitHub as the connection's installation.
+ *            branch, read from GitHub as the connection's installation;
+ * - projectFolders  every folder of one of them, at its default branch,
+ *            that holds an `alchemy.run.ts`.
  */
+
+/** One of the connection's repositories, as last read; fails as not found otherwise. */
+const repositoryOf = (
+  storage: Storage['Service'],
+  connectionId: string,
+  repo: string,
+) =>
+  Effect.gen(function* () {
+    const connection = yield* storage.connections.get(connectionId);
+    const repository = connection?.repositories.find(
+      (each) => each.fullName.toLowerCase() === repo.toLowerCase(),
+    );
+    if (connection === null || repository === undefined)
+      return yield* new GitHubError({
+        reason: 'not-found',
+        message: `${repo} isn’t one of this connection’s repositories.`,
+      });
+    return { installationId: connection.installationId, repository };
+  });
 
 /** The handlers, for the composition root to serve under `ConsoleApi`. */
 export const repositoriesHandlers = Effect.gen(function* () {
@@ -41,20 +62,35 @@ export const repositoriesHandlers = Effect.gen(function* () {
       readonly path: string;
     }) =>
       Effect.gen(function* () {
-        const connection = yield* storage.connections.get(connectionId);
-        const repository = connection?.repositories.find(
-          (each) => each.fullName.toLowerCase() === repo.toLowerCase(),
+        const { installationId, repository } = yield* repositoryOf(
+          storage,
+          connectionId,
+          repo,
         );
-        if (connection === null || repository === undefined)
-          return yield* new GitHubError({
-            reason: 'not-found',
-            message: `${repo} isn’t one of this connection’s repositories.`,
-          });
         return yield* github.listFolder({
-          installationId: connection.installationId,
+          installationId,
           repo: repository.fullName,
           ref: repository.defaultBranch,
           path,
+        });
+      }),
+    'Repositories.projectFolders': ({
+      connectionId,
+      repo,
+    }: {
+      readonly connectionId: string;
+      readonly repo: string;
+    }) =>
+      Effect.gen(function* () {
+        const { installationId, repository } = yield* repositoryOf(
+          storage,
+          connectionId,
+          repo,
+        );
+        return yield* github.alchemyFolders({
+          installationId,
+          repo: repository.fullName,
+          ref: repository.defaultBranch,
         });
       }),
   };

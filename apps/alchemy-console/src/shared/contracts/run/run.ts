@@ -54,7 +54,28 @@ export const InspectResult = Schema.Struct({
 export type InspectResult = typeof InspectResult.Type;
 
 /** A step of a run, as the runner names it. */
-export const RunPhase = Schema.Literals(['cloning', 'setup', 'inspecting']);
+export const RunPhase = Schema.Literals([
+  'cloning',
+  'setup',
+  'inspecting',
+  /** A Deploy or Destroy working out what to change. */
+  'planning',
+  /** A Deploy or Destroy changing it. */
+  'applying',
+]);
+export type RunPhase = typeof RunPhase.Type;
+
+/** One resource or action a plan names, and what the plan does to it. */
+export const PlannedResource = Schema.Struct({
+  /** Its fully qualified name: what its status events name too. */
+  fqn: Schema.String,
+  logicalId: Schema.String,
+  /** `Cloudflare.Worker`, `Sandbox.Marker`, … */
+  resourceType: Schema.String,
+  /** `create`, `update`, `replace`, `delete`, `noop`, … as Alchemy plans it. */
+  action: Schema.String,
+});
+export type PlannedResource = typeof PlannedResource.Type;
 
 // Stored as written: plain structs with a literal `_tag`, no constructor defaults.
 const tagged = <Tag extends string, Fields extends Schema.Struct.Fields>(
@@ -66,12 +87,31 @@ const tagged = <Tag extends string, Fields extends Schema.Struct.Fields>(
 export const RunnerEvent = Schema.Union([
   tagged('Phase', { phase: RunPhase }),
   tagged('Inspected', { result: InspectResult }),
+  /** What the plan will do, before it does any of it. */
+  tagged('Planned', { resources: Schema.Array(PlannedResource) }),
+  /** One resource moved on: `creating`, `created`, `fail`, … as Alchemy says. */
+  tagged('ResourceStatus', {
+    fqn: Schema.String,
+    logicalId: Schema.String,
+    resourceType: Schema.String,
+    status: Schema.String,
+    message: Schema.NullOr(Schema.String),
+  }),
 ]);
 export type RunnerEvent = typeof RunnerEvent.Type;
 
 /** How a run ended, as the runner tells it. */
 export const RunResult = Schema.Union([
+  /** An Inspect that read the stack. */
   tagged('Succeeded', { inspect: InspectResult }),
+  /**
+   * A Deploy that applied its plan: the stack it read, and the stage's
+   * outputs, each as text (`url` → `https://…`).
+   */
+  tagged('Deployed', {
+    inspect: InspectResult,
+    outputs: Schema.Record(Schema.String, Schema.String),
+  }),
   tagged('Failed', { message: Schema.String }),
   tagged('Cancelled', {}),
 ]);

@@ -2,14 +2,19 @@ import { readFileSync } from 'node:fs';
 import { createRequire, findPackageJSON } from 'node:module';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import type { InspectResult } from '../shared/contracts/run/index.ts';
+import type {
+  InspectResult,
+  RunnerEvent,
+} from '../shared/contracts/run/index.ts';
 
 /*
  * The project's own Alchemy, as the runner drives it (ADR 0005): resolved
  * from the project's folder, never bundled with the runner, and run on the
  * project's own copy of Effect. Inspect opens the stack the way Alchemy's
  * CLI does and reads its name, the providers it registers, and where it
- * keeps its state, changing nothing.
+ * keeps its state, changing nothing. Deploy plans the stage, tells the plan,
+ * then applies it, telling each resource's every move as Alchemy reports
+ * it, and answers the stack's outputs.
  */
 
 /** The oldest Alchemy whose `Alchemist` the runner speaks. */
@@ -86,13 +91,9 @@ export const resolveAlchemy = (folder: string): Resolved => {
 
 let loaderRegistered = false;
 
-/** What the stack in `folder`'s `entrypoint` is, at `stage`. */
-export const inspect = async (options: {
-  readonly folder: string;
-  readonly entrypoint: string;
-  readonly stage: string;
-}): Promise<InspectResult> => {
-  const alchemy = resolveAlchemy(options.folder);
+/** The project's Alchemy and its own Effect, loaded from `folder`. */
+const load = async (folder: string) => {
+  const alchemy = resolveAlchemy(folder);
   // The stack's module is TypeScript: load it as Alchemy's CLI does.
   if (!loaderRegistered) {
     await importFrom(path.join(alchemy.root, 'bin', 'register-oxc.js'));
@@ -100,19 +101,41 @@ export const inspect = async (options: {
   }
   const fromAlchemy = createRequire(path.join(alchemy.root, 'package.json'));
   // The project's own Effect: Alchemy's values only run on it.
-  const { Cause, Context, Effect, Exit } = (await importFrom(
+  const effect = (await importFrom(
     fromAlchemy.resolve('effect'),
   )) as typeof import('effect');
   const Alchemist = await importFrom(
     alchemy.require.resolve('alchemy/Alchemist'),
   );
-  const { State } = await importFrom(alchemy.require.resolve('alchemy/State'));
   const { AuthProviders } = await importFrom(
     alchemy.require.resolve('alchemy/Auth'),
   );
-
   // The stack resolves its entrypoint, and keeps any file it writes, here.
-  process.chdir(options.folder);
+  process.chdir(folder);
+  return { alchemy, effect, Alchemist, AuthProviders };
+};
+
+/** Why a program on the project's Effect failed, in words. */
+const reasonOf = (
+  Cause: typeof import('effect').Cause,
+  cause: import('effect').Cause.Cause<unknown>,
+) => {
+  const reason = Cause.squash(cause);
+  return reason instanceof Error ? reason.message : String(reason);
+};
+
+/** What the stack in `folder`'s `entrypoint` is, at `stage`. */
+export const inspect = async (options: {
+  readonly folder: string;
+  readonly entrypoint: string;
+  readonly stage: string;
+}): Promise<InspectResult> => {
+  const { alchemy, effect, Alchemist, AuthProviders } = await load(
+    options.folder,
+  );
+  const { Cause, Context, Effect, Exit } = effect;
+  const { State } = await importFrom(alchemy.require.resolve('alchemy/State'));
+
   // Filled by the providers the stack registers as it opens.
   const registered: Record<string, unknown> = {};
   const program = Effect.gen(function* () {
@@ -133,12 +156,10 @@ export const inspect = async (options: {
     Effect.scoped,
   );
   const exit = await Effect.runPromiseExit(program as never);
-  if (Exit.isFailure(exit)) {
-    const reason = Cause.squash(exit.cause);
+  if (Exit.isFailure(exit))
     throw new InspectFailure(
-      `The stack didn’t open: ${reason instanceof Error ? reason.message : String(reason)}`,
+      `The stack didn’t open: ${reasonOf(Cause, exit.cause)}`,
     );
-  }
   const { stackName, state } = (
     exit as { value: { stackName: string; state: unknown } }
   ).value;
@@ -181,4 +202,162 @@ const stateStoreOf = (
   throw new InspectFailure(
     `The stack’s state store didn’t open: ${typeof reason?.message === 'string' ? reason.message : String(reason)}`,
   );
+};
+
+/** An Alchemy progress event, as much of it as a Deploy tells. */
+type Progress =
+  | { readonly _tag: 'plan.phase'; readonly phase: string }
+  | {
+      readonly _tag: 'apply.resource.status';
+      readonly fqn: string;
+      readonly id: string;
+      readonly type: string;
+      readonly status: string;
+      readonly message?: string;
+    }
+  | {
+      readonly _tag: 'apply.resource.note';
+      readonly id: string;
+      readonly message: string;
+    }
+  | { readonly _tag: 'state.bootstrap.started'; readonly store: string }
+  | { readonly _tag: 'state.bootstrap.completed'; readonly store: string }
+  | { readonly _tag: string };
+
+const PHASE_WORDS: Readonly<Record<string, string>> = {
+  'importing-module': 'Loading the stack',
+  'resolving-services': 'Setting up its providers',
+  'loading-state': 'Reading its state',
+  'computing-plan': 'Working out what to change',
+};
+
+/** Each output as text: a string as it is, anything else as JSON. */
+export const outputsOf = (output: unknown): Record<string, string> => {
+  if (output === null || typeof output !== 'object' || Array.isArray(output))
+    return output === undefined ? {} : { output: textOf(output) };
+  return Object.fromEntries(
+    Object.entries(output as Record<string, unknown>).map(([key, value]) => [
+      key,
+      textOf(value),
+    ]),
+  );
+};
+
+const textOf = (value: unknown): string => {
+  if (typeof value === 'string') return value;
+  try {
+    return JSON.stringify(value) ?? String(value);
+  } catch {
+    return String(value);
+  }
+};
+
+/**
+ * Deploys `stage` of the stack in `folder`'s `entrypoint` with the provider
+ * credentials already in the environment: plans, tells the plan, applies
+ * it, and answers the stack's outputs. A missing Cloudflare state store is
+ * deployed first, as `alchemy deploy --yes` does.
+ */
+export const deploy = async (options: {
+  readonly folder: string;
+  readonly entrypoint: string;
+  readonly stage: string;
+  /** Each step, as the run reports it. */
+  readonly onEvent: (event: RunnerEvent) => void;
+  /** A line for the run's log. */
+  readonly onLine: (line: string) => void;
+}): Promise<Record<string, string>> => {
+  const { effect, Alchemist, AuthProviders } = await load(options.folder);
+  const { Cause, Effect, Exit } = effect;
+  const report = (event: Progress) =>
+    Effect.sync(() => {
+      switch (event._tag) {
+        case 'plan.phase': {
+          const words = PHASE_WORDS[(event as { phase: string }).phase];
+          if (words !== undefined) options.onLine(`${words}…`);
+          return;
+        }
+        case 'state.bootstrap.started':
+          options.onLine(
+            `Setting up the Cloudflare state store ${(event as { store: string }).store}…`,
+          );
+          return;
+        case 'state.bootstrap.completed':
+          options.onLine('The Cloudflare state store is ready.');
+          return;
+        case 'apply.resource.note': {
+          const note = event as { id: string; message: string };
+          options.onLine(`${note.id}: ${note.message}`);
+          return;
+        }
+        case 'apply.resource.status': {
+          const status = event as Extract<
+            Progress,
+            { _tag: 'apply.resource.status' }
+          >;
+          options.onEvent({
+            _tag: 'ResourceStatus',
+            fqn: status.fqn,
+            logicalId: status.id,
+            resourceType: status.type,
+            status: status.status,
+            message: status.message ?? null,
+          });
+          if (status.message !== undefined)
+            options.onLine(`${status.id}: ${status.message}`);
+          return;
+        }
+      }
+    });
+  const program = Effect.gen(function* () {
+    const snapshot = yield* Alchemist.Stack.plan({
+      target: { entrypoint: options.entrypoint, stage: options.stage },
+      operation: 'deploy',
+      updateStateStore: true,
+    });
+    options.onEvent({
+      _tag: 'Planned',
+      resources: [
+        ...(
+          snapshot.resources as ReadonlyArray<{
+            fqn: string;
+            logicalId: string;
+            resourceType: string;
+            action: string;
+          }>
+        ).map(({ fqn, logicalId, resourceType, action }) => ({
+          fqn,
+          logicalId,
+          resourceType,
+          action,
+        })),
+        ...(
+          snapshot.actions as ReadonlyArray<{
+            fqn: string;
+            logicalId: string;
+            actionType: string;
+            action: string;
+          }>
+        ).map(({ fqn, logicalId, actionType, action }) => ({
+          fqn,
+          logicalId,
+          resourceType: actionType,
+          action,
+        })),
+      ],
+    });
+    options.onEvent({ _tag: 'Phase', phase: 'applying' });
+    return yield* Alchemist.Stack.apply(snapshot);
+  }).pipe(
+    Effect.provideService(Alchemist.Progress, report),
+    Effect.provideService(AuthProviders, {}),
+    Effect.provide(Alchemist.layer()),
+    Effect.scoped,
+  );
+  const exit = await Effect.runPromiseExit(program as never);
+  if (Exit.isFailure(exit))
+    throw new InspectFailure(
+      `The deploy failed: ${reasonOf(Cause, exit.cause)}`,
+    );
+  return outputsOf((exit as { value: unknown }).value);
 };

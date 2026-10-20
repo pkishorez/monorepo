@@ -1,4 +1,5 @@
 import { Context, Effect, Layer, Stream } from 'effect';
+import { Page } from '@kestack/kabuki/routing';
 import { RpcClient, type RpcClientError } from 'effect/rpc';
 import { Start } from '@kestack/kabuki/start/server';
 import { ConsoleApi } from '../shared/contracts/console-api/index.ts';
@@ -74,13 +75,41 @@ const loaders = router.loaders({
     Effect.gen(function* () {
       const { visitor, ask } = yield* Visit;
       if (visitor._tag !== 'SignedIn' || ask === null)
-        return { member: null, connections: null };
-      return {
-        member: visitor.member,
-        connections: yield* first(ask, (client) =>
-          client['Connections.list'](),
+        return { member: null, connections: null, projects: null };
+      const [connections, projects] = yield* Effect.all(
+        [
+          first(ask, (client) => client['Connections.list']()),
+          first(ask, (client) => client['Projects.list']()),
+        ],
+        { concurrency: 2 },
+      );
+      return { member: visitor.member, connections, projects };
+    }),
+  'Console.NewProject': () =>
+    Effect.gen(function* () {
+      const { ask } = yield* Visit;
+      if (ask === null) return { repositories: null, credentials: null };
+      const [repositories, credentials] = yield* Effect.all(
+        [
+          first(ask, (client) => client['Repositories.list']()),
+          first(ask, (client) => client['Credentials.list']()),
+        ],
+        { concurrency: 2 },
+      );
+      return { repositories, credentials };
+    }),
+  'Console.Project': ({ projectId }) =>
+    Effect.gen(function* () {
+      const { ask } = yield* Visit;
+      if (ask === null) return null;
+      const head = yield* ask((client) =>
+        Stream.runHead(client['Projects.get']({ projectId })).pipe(
+          // Not the member's, or no such project: the same to them.
+          Effect.catchTag('ProjectError', () => Effect.succeedNone),
         ),
-      };
+      );
+      if (head._tag === 'None') return yield* Effect.fail(Page.notFound());
+      return head.value;
     }),
   'Console.Settings': () =>
     Effect.gen(function* () {

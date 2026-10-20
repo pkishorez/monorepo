@@ -9,7 +9,7 @@ import type {
   RunSpec,
 } from '../shared/contracts/run/index.ts';
 import { RunnerApi } from '../shared/contracts/runner-api/index.ts';
-import { InspectFailure, inspect } from './alchemy.ts';
+import { deploy, InspectFailure, inspect } from './alchemy.ts';
 import { makeOutbox, type Outbox } from './outbox.ts';
 import { CommandFailed } from './processes.ts';
 import { checkout, setup } from './workspace.ts';
@@ -61,8 +61,13 @@ const messageOf = (error: unknown) =>
         ? `The runner failed: ${error.message}`
         : 'The runner failed.';
 
-/** What the run does once its spec is in hand. */
-const perform = (spec: RunSpec, outbox: Outbox, workdir: string) =>
+/** What the run does once its spec is in hand; `credentials` asks for the provider environment it deploys with. */
+const perform = (
+  spec: RunSpec,
+  outbox: Outbox,
+  workdir: string,
+  credentials: Effect.Effect<Readonly<Record<string, string>>, unknown>,
+) =>
   Effect.gen(function* () {
     // Whatever the project's commands run gets this environment: Console's
     // run variables are never in it.
@@ -87,7 +92,40 @@ const perform = (spec: RunSpec, outbox: Outbox, workdir: string) =>
       catch: (error) => error,
     });
     yield* outbox.event({ _tag: 'Inspected', result });
-    return { _tag: 'Succeeded', inspect: result } satisfies RunResult;
+    if (spec.kind === 'inspect')
+      return { _tag: 'Succeeded', inspect: result } satisfies RunResult;
+    if (spec.kind !== 'deploy')
+      return yield* Effect.fail(
+        new InspectFailure(`This runner can’t ${spec.kind} yet.`),
+      );
+    if (result.stateStore !== 'cloudflare')
+      return yield* Effect.fail(
+        new InspectFailure(
+          'Console deploys stacks that keep their state in Cloudflare: use `Cloudflare.state()`.',
+        ),
+      );
+    // Only now, after the project's own commands ran, does the process
+    // hold the provider keys: the stack's providers read them from here.
+    const keys = yield* answered(credentials);
+    for (const value of Object.values(keys)) outbox.redact(value);
+    Object.assign(process.env, keys);
+    yield* outbox.event({ _tag: 'Phase', phase: 'planning' });
+    const outputs = yield* Effect.tryPromise({
+      try: () =>
+        deploy({
+          folder,
+          entrypoint: spec.entrypoint,
+          stage: spec.stage,
+          onEvent: (event) => Effect.runSync(outbox.event(event)),
+          onLine: outbox.line,
+        }),
+      catch: (error) => error,
+    });
+    return {
+      _tag: 'Deployed',
+      inspect: result,
+      outputs,
+    } satisfies RunResult;
   });
 
 /** Performs the run, start to end. */
@@ -132,7 +170,7 @@ export const run = (options: RunnerOptions) =>
     const workdir =
       options.workdir ?? path.join(tmpdir(), `console-run-${options.runId}`);
     const result: RunResult = yield* Effect.raceFirst(
-      perform(spec, outbox, workdir).pipe(
+      perform(spec, outbox, workdir, client.credentials()).pipe(
         Effect.catch((error) =>
           Effect.succeed({
             _tag: 'Failed',
