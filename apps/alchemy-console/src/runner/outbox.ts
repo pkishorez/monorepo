@@ -7,7 +7,8 @@ import type { RunnerEvent } from '../shared/contracts/run/index.ts';
  * is sent at a time, and sent again until it is acknowledged, so a dropped
  * socket loses nothing; the User Space keeps each `seq` once, so a message
  * sent twice counts once. Log lines are gathered for a moment and sent as
- * one batch.
+ * one batch. Nothing leaves with a secret in it: every line, event and
+ * result the outbox scrubs has each secret it knows replaced with `***`.
  */
 
 export interface Send {
@@ -71,6 +72,23 @@ export const makeOutbox = (
         }),
       );
 
+    /** `text` with every secret known so far replaced. */
+    const scrubText = (text: string) => {
+      let kept = text;
+      for (const secret of redact) {
+        kept = kept.replaceAll(secret, '***');
+        // As JSON writes it, should it hold a quote or a backslash.
+        const quoted = JSON.stringify(secret).slice(1, -1);
+        if (quoted !== secret) kept = kept.replaceAll(quoted, '***');
+      }
+      return kept;
+    };
+    /** `value`, any secret in any of its strings replaced. */
+    const scrub = <A>(value: A): A =>
+      redact.length === 0
+        ? value
+        : (JSON.parse(scrubText(JSON.stringify(value))) as A);
+
     const takeLines = () => {
       if (lines.length === 0) return;
       const batch = lines;
@@ -107,16 +125,21 @@ export const makeOutbox = (
       redact: (secret: string) => {
         if (secret.length >= MIN_SECRET) redact.push(secret);
       },
-      /** Sends `event` as the next step. */
+      /** `value` with every secret known so far replaced: what a result is sent as. */
+      scrub,
+      /** Sends `event` as the next step, scrubbed. */
       event: (event: RunnerEvent) =>
         Effect.sync(() => {
           takeLines();
-          Queue.offerUnsafe(queue, { _tag: 'Event', seq: ++eventSeq, event });
+          Queue.offerUnsafe(queue, {
+            _tag: 'Event',
+            seq: ++eventSeq,
+            event: scrub(event),
+          });
         }),
       /** Sends a line of output, soon, with the lines around it. */
       line: (line: string) => {
-        let kept = line;
-        for (const secret of redact) kept = kept.replaceAll(secret, '***');
+        const kept = scrubText(line);
         lines.push(
           kept.length > LINE_LIMIT ? `${kept.slice(0, LINE_LIMIT)}…` : kept,
         );

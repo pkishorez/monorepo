@@ -137,17 +137,21 @@ export const credentialsHandlers = Effect.gen(function* () {
     }: {
       readonly credentialId: string;
     }) =>
-      Effect.gen(function* () {
-        const using = yield* projectsUsing(storage, credentialId);
-        if (using.length > 0)
-          return yield* new CredentialError({
-            reason: 'in-use',
-            field: null,
-            message: `${using.map((name) => `“${name}”`).join(', ')} ${using.length === 1 ? 'deploys' : 'deploy'} with it. Pick another credential there first.`,
-          });
-        if (!(yield* storage.credentials.remove(credentialId)))
-          return yield* notFound;
-      }),
+      // Under the lock projects are made under, so none is made with it
+      // between the check and the removal.
+      storage.projects.exclusively(
+        Effect.gen(function* () {
+          const using = yield* projectsUsing(storage, credentialId);
+          if (using.length > 0)
+            return yield* new CredentialError({
+              reason: 'in-use',
+              field: null,
+              message: `${using.map((name) => `“${name}”`).join(', ')} ${using.length === 1 ? 'deploys' : 'deploy'} with it. Pick another credential there first.`,
+            });
+          if (!(yield* storage.credentials.remove(credentialId)))
+            return yield* notFound;
+        }),
+      ),
   };
 });
 

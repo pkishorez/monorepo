@@ -268,7 +268,17 @@ export const deploy = async (options: {
   readonly onLine: (line: string) => void;
 }): Promise<Record<string, string>> => {
   const { effect, Alchemist, AuthProviders } = await load(options.folder);
-  const { Cause, Effect, Exit } = effect;
+  const { Cause, Effect, Exit, Logger } = effect;
+  // Whatever the stack logs, Alchemy or its providers, joins the run's log,
+  // where the provider keys are scrubbed: nothing reaches stdout raw.
+  const toLog = (...parts: ReadonlyArray<unknown>) =>
+    options.onLine(
+      parts
+        .flatMap((part) => (Array.isArray(part) ? part : [part]))
+        .map((part) => (typeof part === 'string' ? part : textOf(part)))
+        .join(' '),
+    );
+  const logger = Logger.make(({ message }) => toLog(message));
   const report = (event: Progress) =>
     Effect.sync(() => {
       switch (event._tag) {
@@ -353,11 +363,19 @@ export const deploy = async (options: {
     Effect.provideService(AuthProviders, {}),
     Effect.provide(Alchemist.layer()),
     Effect.scoped,
+    Effect.provideService(Logger.CurrentLoggers, new Set([logger])),
   );
-  const exit = await Effect.runPromiseExit(program as never);
-  if (Exit.isFailure(exit))
-    throw new InspectFailure(
-      `The deploy failed: ${reasonOf(Cause, exit.cause)}`,
-    );
-  return outputsOf((exit as { value: unknown }).value);
+  const kept = { ...console };
+  for (const method of ['log', 'info', 'warn', 'error', 'debug'] as const)
+    console[method] = toLog;
+  try {
+    const exit = await Effect.runPromiseExit(program as never);
+    if (Exit.isFailure(exit))
+      throw new InspectFailure(
+        `The deploy failed: ${reasonOf(Cause, exit.cause)}`,
+      );
+    return outputsOf((exit as { value: unknown }).value);
+  } finally {
+    Object.assign(console, kept);
+  }
 };

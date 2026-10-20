@@ -180,9 +180,11 @@ export const run = (options: RunnerOptions) =>
       ),
       cancelled,
     );
-    if (result._tag === 'Failed') outbox.line(result.message);
+    // An error or an output may quote a key: it leaves scrubbed.
+    const told = outbox.scrub(result);
+    if (told._tag === 'Failed') outbox.line(told.message);
     yield* outbox.flush;
-    yield* answered(client.finish({ result })).pipe(
+    yield* answered(client.finish({ result: told })).pipe(
       Effect.catch((error) =>
         isRunError(error) ? Effect.void : Effect.fail(error),
       ),

@@ -336,19 +336,6 @@ export function RunBody({
       </header>
       <Outcome run={run} />
       <Steps run={run} phases={phases} />
-      {run.kind !== 'inspect' && (
-        <div className="flex flex-col gap-3">
-          <div className="flex items-baseline justify-between gap-3">
-            <h3 className="font-medium">Resources</h3>
-            {changing !== undefined && changing.length > 0 && (
-              <span className="text-sm text-muted-foreground tabular-nums">
-                {done} of {changing.length} done
-              </span>
-            )}
-          </div>
-          <ResourceRows resources={resources} />
-        </div>
-      )}
       <Collapsible open={logOpen} onOpenChange={onLogToggled}>
         <CollapsibleTrigger
           render={<Button variant="ghost" className="-ml-2.5 gap-1.5" />}
@@ -368,6 +355,20 @@ export function RunBody({
           </pre>
         </CollapsibleContent>
       </Collapsible>
+      {/* Last, so a plan of any length moves nothing below it. */}
+      {run.kind !== 'inspect' && (
+        <div className="flex flex-col gap-3">
+          <div className="flex items-baseline justify-between gap-3">
+            <h3 className="font-medium">Resources</h3>
+            {changing !== undefined && changing.length > 0 && (
+              <span className="text-sm text-muted-foreground tabular-nums">
+                {done} of {changing.length} done
+              </span>
+            )}
+          </div>
+          <ResourceRows resources={resources} />
+        </div>
+      )}
     </section>
   );
 }

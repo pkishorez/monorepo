@@ -106,8 +106,16 @@ export const createProject = (input: NewProject) =>
       branch: productionBranch,
     });
 
+    // Made together, to the end, even if the tab that asked goes away: a
+    // project never exists without its stage and its first run.
     const made = yield* storage.projects.exclusively(
       Effect.gen(function* () {
+        // Checked again under the lock a removal takes too.
+        for (const credentialId of Object.values(credentials))
+          if ((yield* storage.credentials.get(credentialId)) === null)
+            return yield* invalid(
+              'A credential you picked was just removed. Pick another.',
+            );
         const taken = (yield* storage.projects.all).find(
           (each) => each.repo.id === repository.id && each.folder === folder,
         );
@@ -152,7 +160,7 @@ export const createProject = (input: NewProject) =>
           runId,
         });
         return { projectId, runId };
-      }),
+      }).pipe(Effect.uninterruptible),
     );
     // A run that ended before its stage was written (its container never
     // started) settles the stage now.

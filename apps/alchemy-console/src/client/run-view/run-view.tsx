@@ -5,6 +5,7 @@ import {
   isFinished,
   Run,
   RunEvent,
+  type RunError,
   RunLog,
   RunUpdate,
 } from '../../shared/contracts/run/index.ts';
@@ -35,21 +36,26 @@ export const RunView = Actor.define('RunView', {
     events: Schema.Array(RunEvent),
     logs: Schema.Array(RunLog),
     logOpen: Schema.Boolean,
+    /** Why the run can't be watched: there is no such run. */
+    missing: Schema.NullOr(Schema.String),
   }),
   message: Schema.TaggedUnion({
     Heard: { update: RunUpdate },
+    Missing: { message: Schema.String },
     LogToggled: { open: Schema.Boolean },
   }),
 });
 
 export const RunViewLive = Actor.build(RunView, {
   init: () => ({
-    model: { run: null, events: [], logs: [], logOpen: false },
+    model: { run: null, events: [], logs: [], logOpen: false, missing: null },
   }),
   // 1. Follow
   workers: {
     watch: {
-      while: ({ model }) => model.run === null || !isFinished(model.run.status),
+      while: ({ model }) =>
+        model.missing === null &&
+        (model.run === null || !isFinished(model.run.status)),
       run: (self) =>
         Effect.gen(function* () {
           const api = yield* Api;
@@ -65,7 +71,17 @@ export const RunViewLive = Actor.build(RunView, {
                 self.send({ _tag: 'Heard', update }),
               ),
             );
-        }).pipe(Effect.retry(Schedule.spaced('2 seconds')), Effect.orDie),
+        }).pipe(
+          // The run refused: there is none to watch. Anything else is the
+          // connection, and is tried again.
+          Effect.catchIf(
+            (error): error is RunError =>
+              (error as { readonly _tag?: unknown })._tag === 'RunError',
+            ({ message }) => self.send({ _tag: 'Missing', message }),
+          ),
+          Effect.retry(Schedule.spaced('2 seconds')),
+          Effect.orDie,
+        ),
     },
   },
   on: {
@@ -87,6 +103,9 @@ export const RunViewLive = Actor.build(RunView, {
           };
       }
     },
+    Missing: ({ message }, { model }) => ({
+      model: { ...model, missing: message },
+    }),
     LogToggled: ({ open }, { model }) => ({
       model: { ...model, logOpen: open },
     }),
@@ -96,7 +115,11 @@ export const RunViewLive = Actor.build(RunView, {
 // 3. Draw
 export const RunViewView = View.make(RunViewLive, ({ model, send, root }) => (
   <div {...root}>
-    {model.run === null ? (
+    {model.missing !== null ? (
+      <p role="alert" className="text-sm text-muted-foreground">
+        {model.missing}
+      </p>
+    ) : model.run === null ? (
       <RunSkeleton />
     ) : (
       <RunBody

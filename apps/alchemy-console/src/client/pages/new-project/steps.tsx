@@ -235,37 +235,40 @@ export function ChooseFolderStep({
         holding an alchemy.run.ts. Console reads the stack in the one you
         choose.
       </p>
-      {folders === null && problem === null ? (
-        <RowsSkeleton rows={1} />
-      ) : folders !== null && folders.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-border px-4 py-6 text-sm text-muted-foreground">
-          No folder of {repo} holds an alchemy.run.ts on its default branch.
-          Pick another repository.
-        </p>
-      ) : folders !== null ? (
-        <RadioGroup
-          aria-label="Folder"
-          value={folder ?? ''}
-          onValueChange={(value) => onPick(String(value))}
-          className={`${LIST} gap-0`}
-        >
-          {folders.map((each) => (
-            <Label
-              key={each}
-              className={`${ROW} cursor-pointer font-normal hover:bg-muted/50`}
-            >
-              <RadioGroupItem value={each} />
-              <FolderIcon
-                aria-hidden
-                className="size-4 shrink-0 text-muted-foreground"
-              />
-              <span className="min-w-0 flex-1 truncate font-mono text-sm">
-                {each === '.' ? `${repo.split('/')[1]} (root)` : each}
-              </span>
-            </Label>
-          ))}
-        </RadioGroup>
-      ) : null}
+      {/* Three rows high whatever comes, so the step's actions stay put. */}
+      <div className="h-43 overflow-y-auto">
+        {folders === null && problem === null ? (
+          <RowsSkeleton rows={1} />
+        ) : folders !== null && folders.length === 0 ? (
+          <p className="rounded-lg border border-dashed border-border px-4 py-6 text-sm text-muted-foreground">
+            No folder of {repo} holds an alchemy.run.ts on its default branch.
+            Pick another repository.
+          </p>
+        ) : folders !== null ? (
+          <RadioGroup
+            aria-label="Folder"
+            value={folder ?? ''}
+            onValueChange={(value) => onPick(String(value))}
+            className={`${LIST} gap-0`}
+          >
+            {folders.map((each) => (
+              <Label
+                key={each}
+                className={`${ROW} cursor-pointer font-normal hover:bg-muted/50`}
+              >
+                <RadioGroupItem value={each} />
+                <FolderIcon
+                  aria-hidden
+                  className="size-4 shrink-0 text-muted-foreground"
+                />
+                <span className="min-w-0 flex-1 truncate font-mono text-sm">
+                  {each === '.' ? `${repo.split('/')[1]} (root)` : each}
+                </span>
+              </Label>
+            ))}
+          </RadioGroup>
+        ) : null}
+      </div>
       <Problem problem={problem} />
       <div className="flex items-center justify-between gap-3">
         <Back onBack={onBack} />

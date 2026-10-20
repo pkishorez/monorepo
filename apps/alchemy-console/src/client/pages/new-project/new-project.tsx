@@ -89,7 +89,13 @@ const LINES = 300;
 
 export const NewProjectLive = Page.build(NewProject, {
   init: () => ({
-    model: { repositories: null, credentials: null, query: '', ...fresh },
+    model: {
+      repositories: null,
+      credentials: null,
+      query: '',
+      attempt: 0,
+      ...fresh,
+    },
     state: { _tag: 'PickRepo' },
   }),
   // 1. Follow
@@ -195,6 +201,7 @@ export const NewProjectLive = Page.build(NewProject, {
             : {
                 model: {
                   ...model,
+                  attempt: model.attempt + 1,
                   busy: true,
                   problem: null,
                   phase: null,
@@ -208,6 +215,7 @@ export const NewProjectLive = Page.build(NewProject, {
                   runId: null,
                 },
                 command: startInspect({
+                  attempt: model.attempt + 1,
                   connectionId: state.target.connectionId,
                   repo: state.target.repo,
                   folder: model.folder,
@@ -244,13 +252,18 @@ export const NewProjectLive = Page.build(NewProject, {
         },
       },
       on: {
-        InspectStarted: ({ runId }, { model, state }) =>
-          state.runId !== null
+        // An answer to an Inspect asked for before Back or Try again is old.
+        InspectStarted: ({ attempt, runId }, { model, state }) =>
+          attempt !== model.attempt || state.runId !== null
             ? {}
             : {
                 model: { ...model, busy: false },
                 state: { ...state, runId },
               },
+        InspectRefused: ({ attempt, message }, { model }) =>
+          attempt !== model.attempt
+            ? {}
+            : { model: { ...model, busy: false, problem: message } },
         InspectHeard: ({ update }, { model, state }) => {
           if (update._tag === 'Events') {
             const fresh = update.events.filter(
@@ -324,6 +337,7 @@ export const NewProjectLive = Page.build(NewProject, {
             : {
                 model: {
                   ...model,
+                  attempt: model.attempt + 1,
                   busy: true,
                   problem: null,
                   phase: null,
@@ -332,13 +346,20 @@ export const NewProjectLive = Page.build(NewProject, {
                 },
                 state: { ...state, runId: null },
                 command: startInspect({
+                  attempt: model.attempt + 1,
                   connectionId: state.target.connectionId,
                   repo: state.target.repo,
                   folder: state.folder,
                 }),
               },
         BackChosen: (_, { model, state }) => ({
-          model: { ...model, busy: false, problem: null },
+          // An Inspect still being asked for is forgotten.
+          model: {
+            ...model,
+            attempt: model.attempt + 1,
+            busy: false,
+            problem: null,
+          },
           state: { _tag: 'ChooseFolder', target: state.target },
         }),
       },

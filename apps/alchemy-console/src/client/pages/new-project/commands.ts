@@ -31,17 +31,26 @@ export const findFolders = Command.make('findFolders', {
 
 export const startInspect = Command.make('startInspect', {
   args: Schema.Struct({
+    attempt: Schema.Number,
     connectionId: Schema.String,
     repo: Schema.String,
     folder: Schema.String,
   }),
-  run: (args) =>
+  run: ({ attempt, ...args }) =>
     Effect.gen(function* () {
       const runId = yield* (yield* Api).call((client) =>
         client['Runs.inspect']({ ...args, setupCommand: null, ref: null }),
       );
-      return { _tag: 'InspectStarted' as const, runId };
-    }).pipe(Effect.catch(failed)),
+      return { _tag: 'InspectStarted' as const, attempt, runId };
+    }).pipe(
+      Effect.catch((error) =>
+        Effect.map(failed(error), ({ message }) => ({
+          _tag: 'InspectRefused' as const,
+          attempt,
+          message,
+        })),
+      ),
+    ),
 });
 
 export const createProject = Command.make('createProject', {

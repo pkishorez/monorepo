@@ -80,6 +80,8 @@ export const NewProject = Page.define({
     /** The Inspect's latest step, and the lines it wrote. */
     phase: Schema.NullOr(RunPhase),
     lines: Schema.Array(Schema.String),
+    /** Counts the Inspects asked for, so an answer names the one it is for. */
+    attempt: Schema.Number,
     /** The highest event and log `seq` heard of the Inspect. */
     heard: Schema.Struct({ events: Schema.Number, logs: Schema.Number }),
     /** Provider → the credential picked for Production. */
@@ -99,7 +101,8 @@ export const NewProject = Page.define({
     FoldersFound: { repo: Schema.String, folders: Schema.Array(Schema.String) },
     FolderChosen: { folder: Schema.String },
     InspectChosen: {},
-    InspectStarted: { runId: Schema.String },
+    InspectStarted: { attempt: Schema.Number, runId: Schema.String },
+    InspectRefused: { attempt: Schema.Number, message: Schema.String },
     InspectHeard: { update: RunUpdate },
     CredentialChosen: { provider: Schema.String, credentialId: Schema.String },
     AddCredentialChosen: { provider: Provider },
