@@ -123,48 +123,48 @@ const taken = (state: string | null, kind: 'install' | 'authorize') =>
     return { issued, fresh };
   });
 
-/** Drops the connection to `installationId` and its index row; under the connections' lock. */
+/**
+ * Drops the connection to `installationId` and its index row; under the
+ * connections' lock. The row goes first, so a failure leaves the connection
+ * there to be removed again.
+ */
 const dropped = (userId: string, installationId: number) =>
   Effect.gen(function* () {
     const storage = yield* Storage;
+    yield* (yield* ConnectionIndex).release(installationId, userId);
     const found = yield* storage.connections.byInstallation(installationId);
     if (found !== null) yield* storage.connections.remove(found.connectionId);
-    yield* (yield* ConnectionIndex).release(installationId, userId);
   });
 
 /**
- * Keeps `record` as this member's connection to its installation, unless
- * someone else owns it: under the connections' lock, so two returns for one
- * installation keep one connection. The index row comes first, then GitHub
- * is asked whether it still has the installation: a deletion before that is
- * seen here, and one after it is delivered to this member, to be forgotten
- * once this is done.
+ * Keeps this member's connection to `installationId`, unless someone else
+ * owns it: under the connections' lock, so two returns for one installation
+ * keep one connection. The index row comes first, then GitHub is asked for
+ * the installation and its repositories: a change before that is seen here,
+ * and one after it is delivered to this member, to be taken in once this is
+ * done.
  */
-const keep = (
-  userId: string,
-  record: Omit<Stored, 'connectionId' | 'createdAt' | 'updatedAt'>,
-) =>
+const keep = (userId: string, installationId: number) =>
   Effect.gen(function* () {
     const storage = yield* Storage;
     const index = yield* ConnectionIndex;
     const github = yield* GitHub;
     return yield* storage.connections.exclusively(
       Effect.gen(function* () {
-        const existing = yield* storage.connections.byInstallation(
-          record.installationId,
-        );
-        if (!(yield* index.claim(record.installationId, userId)))
+        const existing =
+          yield* storage.connections.byInstallation(installationId);
+        if (!(yield* index.claim(installationId, userId)))
           return 'taken' as GitHubReturn;
-        const still = yield* github
-          .installation(record.installationId)
-          .pipe(Effect.result);
-        if (still._tag === 'Failure') {
-          if (existing === null) yield* dropped(userId, record.installationId);
-          return outcomeOf(still.failure);
+        const record = yield* fetched(github, installationId).pipe(
+          Effect.result,
+        );
+        if (record._tag === 'Failure') {
+          if (existing === null) yield* dropped(userId, installationId);
+          return outcomeOf(record.failure);
         }
         const now = Date.now();
         yield* storage.connections.put({
-          ...record,
+          ...record.success,
           connectionId: existing?.connectionId ?? (yield* nextUlid),
           createdAt: existing?.createdAt ?? now,
           updatedAt: now,
@@ -280,16 +280,17 @@ export const authorize = (input: AuthorizeInput) =>
     if (fresh === null || fresh.installationId === null)
       return answer('expired');
     if (input.code === null) return answer('unauthorized');
-    const record = yield* fetched(github, fresh.installationId).pipe(
-      Effect.result,
-    );
-    if (record._tag === 'Failure') return answer(outcomeOf(record.failure));
+    const installation = yield* github
+      .installation(fresh.installationId)
+      .pipe(Effect.result);
+    if (installation._tag === 'Failure')
+      return answer(outcomeOf(installation.failure));
     const manages = yield* github
-      .manages(input.code, input.authorizedUrl, record.success)
+      .manages(input.code, input.authorizedUrl, installation.success)
       .pipe(Effect.result);
     if (manages._tag === 'Failure') return answer(outcomeOf(manages.failure));
     if (!manages.success) return answer('unauthorized');
-    return answer(yield* keep(input.userId, record.success));
+    return answer(yield* keep(input.userId, fresh.installationId));
   });
 
 /** The handlers, for the composition root to serve under `ConsoleApi`. */
