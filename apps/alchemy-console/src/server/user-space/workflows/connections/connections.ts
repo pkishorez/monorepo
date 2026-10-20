@@ -1,5 +1,5 @@
 import { Auth } from '@kestack/auth-toolkit';
-import { Effect, Stream } from 'effect';
+import { Effect, Schedule, Stream } from 'effect';
 import { nextUlid } from '@kestack/std-toolkit/core';
 import {
   type GitHubConnection,
@@ -22,11 +22,13 @@ import { Storage } from '../../services/storage/index.ts';
  *               installation GitHub knows; then the member is sent to ask
  *               GitHub who they are, with an `authorize` state for it;
  * - authorize   GitHub's answer at `/github/authorized`: only when the
- *               member's GitHub user can reach the installation, and no
- *               other Console user owns it in the connection index, is the
- *               connection kept, with its repositories, and the index made
- *               to name this member its owner;
- * - refresh     reads an installation's account and repositories again;
+ *               member's GitHub user manages the installation's account
+ *               (is it, or owns the organization), no other Console user
+ *               owns it in the connection index, and GitHub still has it,
+ *               is the connection kept, with its repositories, and the
+ *               index made to name this member its owner;
+ * - refresh     reads an installation's account and repositories again,
+ *               retrying GitHub a few times, and fails when it can't;
  * - forget      drops a connection and its index row;
  * - list        every connection, now and after each change.
  *
@@ -124,7 +126,9 @@ const taken = (state: string | null, kind: 'install' | 'authorize') =>
 /**
  * Keeps `record` as this member's connection to its installation, unless
  * someone else owns it: under the connections' lock, so two returns for one
- * installation keep one connection.
+ * installation keep one connection, and only while GitHub still has it, so
+ * a return that was under way when the installation was deleted (and
+ * forgotten, under the same lock) can't bring it back.
  */
 const keep = (
   userId: string,
@@ -133,8 +137,13 @@ const keep = (
   Effect.gen(function* () {
     const storage = yield* Storage;
     const index = yield* ConnectionIndex;
+    const github = yield* GitHub;
     return yield* storage.connections.exclusively(
       Effect.gen(function* () {
+        const still = yield* github
+          .installation(record.installationId)
+          .pipe(Effect.result);
+        if (still._tag === 'Failure') return outcomeOf(still.failure);
         if (!(yield* index.claim(record.installationId, userId)))
           return 'taken' as const;
         const existing = yield* storage.connections.byInstallation(
@@ -147,10 +156,13 @@ const keep = (
           createdAt: existing?.createdAt ?? now,
           updatedAt: now,
         });
-        return 'connected' as const;
+        return 'connected' as GitHubReturn;
       }),
     );
   });
+
+// GitHub's own trouble passes; a few tries, within a webhook's ten seconds.
+const retrying = Schedule.exponential('250 millis');
 
 /** Drops the connection to `installationId`, if this member has one, and its index row. */
 export const forget = (userId: string, installationId: number) =>
@@ -167,18 +179,28 @@ export const forget = (userId: string, installationId: number) =>
     );
   });
 
-/** Reads a connected installation's account and repositories again; forgets it when GitHub no longer knows it. */
+/**
+ * Reads a connected installation's account and repositories again; forgets
+ * it when GitHub no longer knows it, and fails when GitHub can't be asked.
+ */
 export const refresh = (userId: string, installationId: number) =>
   Effect.gen(function* () {
     const storage = yield* Storage;
     const github = yield* GitHub;
     if ((yield* storage.connections.byInstallation(installationId)) === null)
       return;
-    const exit = yield* fetched(github, installationId).pipe(Effect.result);
+    const exit = yield* fetched(github, installationId).pipe(
+      Effect.retry({
+        schedule: retrying,
+        times: 3,
+        while: (error) => error.reason === 'unreachable',
+      }),
+      Effect.result,
+    );
     if (exit._tag === 'Failure') {
       if (exit.failure.reason === 'not-found')
-        yield* forget(userId, installationId);
-      return;
+        return yield* forget(userId, installationId);
+      return yield* exit.failure;
     }
     yield* storage.connections.exclusively(
       Effect.gen(function* () {
@@ -212,8 +234,14 @@ export const connect = (input: ConnectInput) =>
       input.installationId,
     );
     if (existing !== null) {
-      yield* refresh(input.userId, input.installationId);
-      return done('connected');
+      const refreshed = yield* refresh(input.userId, input.installationId).pipe(
+        Effect.result,
+      );
+      return done(
+        refreshed._tag === 'Failure'
+          ? outcomeOf(refreshed.failure)
+          : 'connected',
+      );
     }
     if (fresh === null) return done('expired');
     const known = yield* github
@@ -248,18 +276,15 @@ export const authorize = (input: AuthorizeInput) =>
     if (fresh === null || fresh.installationId === null)
       return answer('expired');
     if (input.code === null) return answer('unauthorized');
-    const installationId = fresh.installationId;
-
-    const reachable = yield* github
-      .userInstallations(input.code, input.authorizedUrl)
-      .pipe(Effect.result);
-    if (reachable._tag === 'Failure')
-      return answer(outcomeOf(reachable.failure));
-    if (!reachable.success.includes(installationId))
-      return answer('unauthorized');
-
-    const record = yield* fetched(github, installationId).pipe(Effect.result);
+    const record = yield* fetched(github, fresh.installationId).pipe(
+      Effect.result,
+    );
     if (record._tag === 'Failure') return answer(outcomeOf(record.failure));
+    const manages = yield* github
+      .manages(input.code, input.authorizedUrl, record.success)
+      .pipe(Effect.result);
+    if (manages._tag === 'Failure') return answer(outcomeOf(manages.failure));
+    if (!manages.success) return answer('unauthorized');
     return answer(yield* keep(input.userId, record.success));
   });
 

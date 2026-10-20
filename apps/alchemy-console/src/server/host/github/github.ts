@@ -119,6 +119,12 @@ export const webhook = async (
     ConnectionIndex.make(env.CONSOLE_INDEX).owner(installationId),
   );
   if (owner === null) return text(202, 'No one connected this installation');
-  await owning(env.USER_SPACE, owner).receive({ event, payload });
+  try {
+    await owning(env.USER_SPACE, owner).receive({ event, payload });
+  } catch {
+    // GitHub couldn't be asked about it: say so, so the delivery shows as
+    // failed on GitHub, where it can be sent again.
+    return text(503, 'Couldn’t read the installation from GitHub');
+  }
   return text(202, 'Accepted');
 };

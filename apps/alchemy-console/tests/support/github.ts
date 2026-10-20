@@ -5,7 +5,8 @@ import type { Outbound, TestApp } from './console.ts';
  * GitHub as the tests' Worker reaches it: one App, whose installations a
  * test adds and changes, answering only a JWT the App's key signed, or a
  * token it minted, as GitHub answers. A GitHub user is an OAuth code a test
- * hands out, reaching the installations it names. Deliveries are signed with the App's
+ * hands out: a login, and the organizations it is an owner or a plain
+ * member of. Deliveries are signed with the App's
  * webhook secret, as GitHub signs them.
  */
 
@@ -36,6 +37,14 @@ export interface FakeInstallation {
   >;
 }
 
+export interface GitHubUser {
+  readonly login: string;
+  /** Organizations it is an owner of. */
+  readonly owns?: ReadonlyArray<string>;
+  /** Organizations it is only a member of. */
+  readonly memberOf?: ReadonlyArray<string>;
+}
+
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), {
     status,
@@ -61,7 +70,9 @@ export const fakeGitHub = () => {
   const installations = new Map<number, FakeInstallation>();
   const created = new Map<number, number>();
   const tokenOf = (id: number) => `ghs_installation_${id}`;
-  const users = new Map<string, ReadonlyArray<number>>();
+  const users = new Map<string, GitHubUser>();
+  /** While true, GitHub's API answers 502, as when it is down. */
+  let down = false;
 
   const outbound: Outbound = async (request) => {
     const url = new URL(request.url);
@@ -81,6 +92,7 @@ export const fakeGitHub = () => {
     }
     if (url.host !== 'api.github.com')
       throw new TypeError(`The tests reach no ${url.host}.`);
+    if (down) return json(502, { message: 'Server Error' });
     const bearer = (request.headers.get('authorization') ?? '').replace(
       /^Bearer /,
       '',
@@ -111,14 +123,20 @@ export const fakeGitHub = () => {
         ).toISOString(),
       });
     }
-    if (url.pathname === '/user/installations') {
-      const reachable = users.get(bearer.replace(/^ghu_/, ''));
-      if (!bearer.startsWith('ghu_') || reachable === undefined)
-        return json(401, { message: 'Bad credentials' });
-      return json(200, {
-        total_count: reachable.length,
-        installations: reachable.map((id) => ({ id })),
-      });
+    if (bearer.startsWith('ghu_')) {
+      const user = users.get(bearer.replace(/^ghu_/, ''));
+      if (user === undefined) return json(401, { message: 'Bad credentials' });
+      if (url.pathname === '/user') return json(200, { login: user.login });
+      const org = url.pathname.match(/^\/user\/memberships\/orgs\/([^/]+)$/);
+      if (org) {
+        const name = decodeURIComponent(org[1]!);
+        if (user.owns?.includes(name))
+          return json(200, { state: 'active', role: 'admin' });
+        if (user.memberOf?.includes(name))
+          return json(200, { state: 'active', role: 'member' });
+        return json(404, { message: 'Not Found' });
+      }
+      return json(403, { message: 'Resource not accessible by integration' });
     }
     const installation = [...installations.values()].find(
       (each) => tokenOf(each.id) === bearer,
@@ -156,11 +174,15 @@ export const fakeGitHub = () => {
       return installation;
     },
     uninstall: (id: number) => installations.delete(id),
-    /** A GitHub user signing in, reaching `installationIds`: the code GitHub hands back for them. */
-    user: (installationIds: ReadonlyArray<number>) => {
+    /** A GitHub user signing in: the code GitHub hands back for them. */
+    user: (user: GitHubUser) => {
       const code = `code-${users.size + 1}`;
-      users.set(code, installationIds);
+      users.set(code, user);
       return code;
+    },
+    /** Takes GitHub's API down, or brings it back. */
+    setDown: (value: boolean) => {
+      down = value;
     },
   };
 };

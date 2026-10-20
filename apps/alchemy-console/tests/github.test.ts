@@ -6,6 +6,7 @@ import {
   delivery,
   type FakeInstallation,
   fakeGitHub,
+  type GitHubUser,
 } from './support/github.ts';
 
 /*
@@ -68,23 +69,25 @@ const returnFromInstall = (
   query: { installation_id: number; state: string | null },
 ) => visit(visitor, '/github/connected', { setup_action: 'install', ...query });
 
-/** GitHub answering who `visitor` is, as a user reaching `reachable`, at `asked`, the URL Console sent them to. */
-const signInToGitHub = (
-  visitor: Visitor,
-  asked: string,
-  reachable: ReadonlyArray<number>,
-) => {
+/** GitHub answering who `visitor` is, as GitHub user `as`, at `asked`, the URL Console sent them to. */
+const signInToGitHub = (visitor: Visitor, asked: string, as: GitHubUser) => {
   const url = new URL(asked);
   expect(`${url.origin}${url.pathname}`).toBe(
     'https://github.com/login/oauth/authorize',
   );
   return visit(visitor, '/github/authorized', {
-    code: github.user(reachable),
+    code: github.user(as),
     state: url.searchParams.get('state'),
   });
 };
 
-/** The whole round trip: install `installation`, return, and sign in to GitHub as a user who reaches it. */
+/** The GitHub user who manages `installation`'s account. */
+const managerOf = (installation: FakeInstallation): GitHubUser =>
+  installation.type === 'User'
+    ? { login: installation.login }
+    : { login: `${installation.login}-owner`, owns: [installation.login] };
+
+/** The whole round trip: install `installation`, return, and sign in to GitHub as the user who manages it. */
 const connect = async (
   visitor: Visitor,
   installation: FakeInstallation,
@@ -96,7 +99,7 @@ const connect = async (
     installation_id: installation.id,
     state,
   });
-  return signInToGitHub(visitor, asked, [installation.id]);
+  return signInToGitHub(visitor, asked, managerOf(installation));
 };
 
 const connectionsOf = (visitor: Visitor) =>
@@ -231,30 +234,48 @@ describe('Connect GitHub', () => {
       type: 'Organization',
       repositories: ['ada-org/app'],
     });
-    // Bob's GitHub user is in the organization too.
+    // Bob's GitHub user is an owner of the organization too.
     const { state } = await installUrl(bob);
     const asked = await returnFromInstall(bob, { installation_id: 301, state });
-    expect(await signInToGitHub(bob, asked, [301])).toBe('/?github=taken');
+    expect(
+      await signInToGitHub(bob, asked, { login: 'bob', owns: ['ada-org'] }),
+    ).toBe('/?github=taken');
     expect(await console_.indexOwner(301)).toBe(ada.id);
     expect(
       (await connectionsOf(bob)).map((c) => c.installationId),
     ).not.toContain(301);
   });
 
-  it('claims nothing for an installation the member’s GitHub user can’t reach', async () => {
-    // Someone else's installation, its ID put in a return by hand.
+  it('claims nothing for an installation the member’s GitHub user doesn’t manage', async () => {
+    // Someone else's installations, their IDs put in a return by hand.
     github.install({
       id: 303,
       login: 'someone',
       type: 'User',
       repositories: ['someone/private'],
     });
-    const { state } = await installUrl(cy);
-    const asked = await returnFromInstall(cy, { installation_id: 303, state });
-    expect(await signInToGitHub(cy, asked, [401])).toBe(
+    github.install({
+      id: 304,
+      login: 'big-org',
+      type: 'Organization',
+      repositories: ['big-org/private'],
+    });
+    const attempt = async (installationId: number, as: GitHubUser) => {
+      const { state } = await installUrl(cy);
+      const asked = await returnFromInstall(cy, {
+        installation_id: installationId,
+        state,
+      });
+      return signInToGitHub(cy, asked, as);
+    };
+    expect(await attempt(303, { login: 'cy' })).toBe('/?github=unauthorized');
+    // A collaborator, or a member who isn't an owner, doesn't manage it.
+    expect(await attempt(304, { login: 'cy', memberOf: ['big-org'] })).toBe(
       '/?github=unauthorized',
     );
+    expect(await attempt(304, { login: 'cy' })).toBe('/?github=unauthorized');
     expect(await console_.indexOwner(303)).toBe(null);
+    expect(await console_.indexOwner(304)).toBe(null);
     expect(
       (await connectionsOf(cy)).map((c) => c.installationId),
     ).not.toContain(303);
@@ -282,12 +303,12 @@ describe('Connect GitHub', () => {
     // The question's state, only for its own installation, and only once.
     const answered = new URL(asked).searchParams.get('state');
     await visit(bob, '/github/authorized', {
-      code: github.user([302]),
+      code: github.user({ login: 'x' }),
       state: answered,
     });
     expect(
       await visit(bob, '/github/authorized', {
-        code: github.user([302]),
+        code: github.user({ login: 'x' }),
         state: answered,
       }),
     ).toBe('/?github=expired');
@@ -381,6 +402,19 @@ describe('GitHub webhooks', () => {
       (await connectionsOf(ada)).find((c) => c.installationId === 501)
         ?.repositoryCount,
     ).toBe(2);
+  });
+
+  it('fails a delivery it couldn’t act on while GitHub is down, so it can be sent again', async () => {
+    github.setDown(true);
+    try {
+      const response = await deliver('installation_repositories', {
+        action: 'added',
+        installation: { id: 501 },
+      });
+      expect(response.status).toBe(503);
+    } finally {
+      github.setDown(false);
+    }
   });
 
   it('accepts a push for a connected installation and changes nothing', async () => {

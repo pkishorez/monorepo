@@ -16,9 +16,11 @@ import { appJwt, signingKey } from './jwt.ts';
  *   expires): its repositories, a folder listing, branches, a branch's
  *   head commit, and a comparison of two commits.
  * - As a GitHub user, once (their OAuth code, exchanged with
- *   `GH_APP_CLIENT_ID` and `GH_APP_CLIENT_SECRET`): which of the App's
- *   installations they can reach, the proof an installation is theirs.
- *   Their token is used for that one question and dropped.
+ *   `GH_APP_CLIENT_ID` and `GH_APP_CLIENT_SECRET`): whether they manage
+ *   an installation's account, the proof the installation is theirs. That
+ *   is the account itself for a user's, an active owner for an
+ *   organization's (which needs the App's Members: read permission; without
+ *   it no one does). Their token is used for that one question and dropped.
  *
  * Tokens stay in this object: no answer carries one, except
  * `installationToken`, which a run hands to its own container.
@@ -44,10 +46,9 @@ const UserToken = Schema.Union([
   Schema.Struct({ error: Schema.String }),
 ]);
 
-const InstallationPage = Schema.Struct({
-  total_count: Schema.Number,
-  installations: Schema.Array(Schema.Struct({ id: Schema.Number })),
-});
+const User = Schema.Struct({ login: Schema.String });
+
+const Membership = Schema.Struct({ state: Schema.String, role: Schema.String });
 
 const RepositoryPage = Schema.Struct({
   total_count: Schema.Number,
@@ -138,7 +139,7 @@ export interface AppConfig {
   readonly appId: string;
   readonly slug: string;
   readonly privateKey: string;
-  /** The App's OAuth client, for asking which installations a user reaches. */
+  /** The App's OAuth client, for asking GitHub who a member is there. */
   readonly clientId: string;
   readonly clientSecret: string;
 }
@@ -179,11 +180,12 @@ export class GitHub extends Context.Service<
     readonly installUrl: (state: string) => string;
     /** Where the browser asks GitHub who its user is, returning to `redirectUri` with a code and `state`. */
     readonly authorizeUrl: (state: string, redirectUri: string) => string;
-    /** The IDs of the App's installations the user who was given `code` can reach. */
-    readonly userInstallations: (
+    /** Whether the GitHub user who was given `code` manages `account`'s installations. */
+    readonly manages: (
       code: string,
       redirectUri: string,
-    ) => Effect.Effect<ReadonlyArray<number>, GitHubError>;
+      account: Pick<InstallationInfo, 'accountLogin' | 'accountType'>,
+    ) => Effect.Effect<boolean, GitHubError>;
     /** The installation, as the App sees it; fails as not found when GitHub knows none. */
     readonly installation: (
       installationId: number,
@@ -300,24 +302,32 @@ export class GitHub extends Context.Service<
             `https://github.com/apps/${encodeURIComponent(config.slug)}/installations/new?state=${encodeURIComponent(state)}`,
           authorizeUrl: (state, redirectUri) =>
             `https://github.com/login/oauth/authorize?client_id=${encodeURIComponent(config.clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${encodeURIComponent(state)}`,
-          userInstallations: (code, redirectUri) =>
+          manages: (code, redirectUri, account) =>
             Effect.gen(function* () {
               const token = yield* userToken(code, redirectUri);
-              const found: Array<number> = [];
-              for (let page = 1; page <= MAX_PAGES; page++) {
-                const { total_count, installations } = yield* call(
-                  fetch,
-                  token,
-                  `/user/installations?per_page=${PER_PAGE}&page=${page}`,
-                ).pipe(Effect.flatMap(decode(InstallationPage)));
-                found.push(...installations.map(({ id }) => id));
-                if (
-                  installations.length < PER_PAGE ||
-                  found.length >= total_count
-                )
-                  break;
-              }
-              return found;
+              const user = yield* call(fetch, token, '/user').pipe(
+                Effect.flatMap(decode(User)),
+              );
+              if (account.accountType === 'User')
+                return (
+                  user.login.toLowerCase() ===
+                  account.accountLogin.toLowerCase()
+                );
+              // An organization's: only one of its owners manages it.
+              const membership = yield* call(
+                fetch,
+                token,
+                `/user/memberships/orgs/${encodeURIComponent(account.accountLogin)}`,
+              ).pipe(
+                Effect.flatMap(decode(Membership)),
+                Effect.catchIf(
+                  (error) => error.reason !== 'unreachable',
+                  () => Effect.succeed(null),
+                ),
+              );
+              return (
+                membership?.state === 'active' && membership.role === 'admin'
+              );
             }),
           installation: (installationId) =>
             asApp(`/app/installations/${installationId}`).pipe(
