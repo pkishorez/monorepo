@@ -40,4 +40,4 @@ const AppView = View.make(Pages.AppLive, (self) => {
   );
 });
 
-export default Start.app(router, AppView, { document: Document });
+export default Start.app({ router, view: AppView, document: Document });

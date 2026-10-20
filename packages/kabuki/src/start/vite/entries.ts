@@ -22,13 +22,13 @@ const from = (file: string) => JSON.stringify(file.replace(/\\/g, '/'));
 /** Start's handler, made from the app's two files: what every platform serves. */
 export const handlerModule = (files: Files) =>
   [
-    `import { server } from '@kestack/kabuki/start/server';`,
+    `import { handler } from '@kestack/kabuki/start/server';`,
     `import app from ${from(files.app)};`,
     files.loaders
-      ? `import loaders from ${from(files.loaders)};`
-      : `const loaders = undefined;`,
+      ? `import server from ${from(files.loaders)};`
+      : `const server = undefined;`,
     `import build from '${BUILD}';`,
-    `export default server({ app, loaders, build });`,
+    `export default handler({ app, server, build });`,
   ].join('\n');
 
 /** The server's entry: the handler in the platform's adapter, its only export. */

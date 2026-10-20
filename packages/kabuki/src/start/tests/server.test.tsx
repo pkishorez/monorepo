@@ -5,7 +5,7 @@ import { loading as loaderRpc } from '../client/index.ts';
 import { View } from '../../react/index.ts';
 import { Start } from '../common/index.ts';
 import type { Build } from '../common/index.ts';
-import { Start as Server, server } from '../server/index.ts';
+import { Start as Server, handler } from '../server/index.ts';
 import started, { AppView } from './app/src/app.tsx';
 import Document from './app/src/document.tsx';
 import served, {
@@ -39,7 +39,7 @@ const build: Build = {
   head: [],
 };
 
-const worker = server({ app: started, loaders: served, build });
+const worker = handler({ app: started, server: served, build });
 const host = { env: { WORD: 'Read:' } };
 
 const get = (path: string, init?: RequestInit) =>
@@ -320,15 +320,17 @@ describe('other requests', () => {
 
   it('a page that fails to draw is a 500, logged', async () => {
     const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const broken = server({
-      app: Start.app(router, AppView, {
+    const broken = handler({
+      app: Start.app({
+        router,
+        view: AppView,
         document: () => {
           throw new Error('no document');
         },
       }),
-      loaders: Server.layers()
-        .instance(() => Layer.succeed(Greeting, { word: '' }))
-        .loaders(loaders),
+      server: Server.server({
+        layer: Layer.succeed(Greeting, { word: '' }),
+      }).loaders(loaders),
       build,
     });
     const response = await broken.fetch(
@@ -342,7 +344,7 @@ describe('other requests', () => {
   });
 });
 
-/** What a request Layer may be made from: an instance service. */
+/** What the visitor may be made from: a service the layer gives. */
 class Word extends Context.Service<Word, { readonly word: string }>()(
   'test/Word',
 ) {}
@@ -353,46 +355,72 @@ class Visitor extends Context.Service<Visitor, { readonly name: string }>()(
 
 describe('what an app writes', () => {
   const greeting = Layer.succeed(Greeting, { word: 'Hi' });
-  /** Greeting, made from Word, which only an instance tier gives. */
+  const seen = Layer.succeed(Visitor, { name: 'ada' });
+  /** Visitor, made from Word. */
   const fromWord = Layer.effect(
-    Greeting,
+    Visitor,
     Effect.gen(function* () {
-      return { word: (yield* Word).word };
+      return { name: (yield* Word).word };
     }),
   );
 
-  it('checks the Loaders against the tiers that give what they Require', () => {
-    // @ts-expect-error the Loaders Require Greeting, and no tier gives it
-    Server.layers().loaders(loaders);
-    const served = Server.layers()
-      .instance(() => greeting)
-      .loaders(loaders);
+  it('checks the Loaders against the Layers that give what they Require', () => {
+    // @ts-expect-error the Loaders Require Greeting, and no Layer gives it
+    Server.server().loaders(loaders);
+    const served = Server.server({ layer: greeting }).loaders(loaders);
     expect(served.loaders).toBe(loaders);
-    expect(served.tiers.instance?.(undefined)).toBe(greeting);
-    Server.layers()
-      .request(() => greeting)
-      .loaders(loaders);
-    // The env is typed as the platform gives it.
-    Server.layers<{ readonly WORD: string }>()
-      .instance((env) => Layer.succeed(Greeting, { word: env.WORD }))
-      .loaders(loaders);
+    expect(served.layers.layer).toBe(greeting);
+    // @ts-expect-error a static Loader Requires Greeting, which only the visitor gives
+    Server.server({ visitor: greeting }).loaders(loaders);
+    // A Layer written in place is typed as written.
+    Server.server({ layer: Layer.succeed(Greeting, { word: 'Hi' }) }).loaders(
+      loaders,
+    );
+    // The env is typed as the app says the platform gives it.
+    Server.server({
+      layer: Layer.effect(
+        Greeting,
+        Effect.map(Server.env<{ readonly WORD: string }>(), (env) => ({
+          word: env.WORD,
+        })),
+      ),
+    }).loaders(loaders);
   });
 
-  it('checks each tier against the tiers before it', () => {
-    Server.layers()
-      .instance(() => Layer.succeed(Word, { word: 'Hi' }))
-      .request(() => fromWord)
-      .loaders(loaders);
-    Server.layers()
-      // @ts-expect-error the request tier Requires Word, which no instance tier gives
-      .request(() => fromWord);
-    Server.layers()
-      // @ts-expect-error the instance tier is made first: it may Require nothing
-      .instance(() => fromWord);
+  it('takes Loaders that Require nothing alone', () => {
+    const Home = Page.define({ path: '/', data: Schema.String });
+    const plain = Router.define(Page.define({ pages: { Home } })).loaders({
+      Home: () => Effect.succeed('hi'),
+    });
+    const served = Server.server(plain);
+    expect(served.loaders).toBe(plain);
+    expect(served.layers).toEqual({});
+    // @ts-expect-error the Loaders Require Greeting: the Layer that gives it comes first
+    Server.server(loaders);
   });
 
-  it('keeps the visitor tier from static Loaders, whose pages everyone shares', () => {
-    const seen = Layer.succeed(Visitor, { name: 'ada' });
+  it('checks each Layer against what it may be made from', () => {
+    Server.server({
+      layer: Layer.merge(greeting, Layer.succeed(Word, { word: 'Hi' })),
+      visitor: fromWord,
+    }).loaders(loaders);
+    // @ts-expect-error the visitor Requires Word, which the layer does not give
+    Server.server({ layer: greeting, visitor: fromWord }).loaders(loaders);
+    // The visitor may read the request; the layer, made once, may not.
+    const fromRequest = Layer.effect(
+      Visitor,
+      Server.Request.use((request) =>
+        Effect.succeed({ name: new URL(request.url).hostname }),
+      ),
+    );
+    Server.server({ layer: greeting, visitor: fromRequest }).loaders(loaders);
+    Server.server({
+      // @ts-expect-error the layer is made once: it may read only the env
+      layer: Layer.merge(greeting, fromRequest),
+    });
+  });
+
+  it('keeps the visitor from static Loaders, whose pages everyone shares', () => {
     const visiting = router.loaders({
       ...loaders,
       // Account is dynamic: it may ask who is visiting.
@@ -401,10 +429,7 @@ describe('what an app writes', () => {
           return { name: (yield* Visitor).name };
         }),
     });
-    Server.layers()
-      .instance(() => greeting)
-      .visitor(() => seen)
-      .loaders(visiting);
+    Server.server({ layer: greeting, visitor: seen }).loaders(visiting);
     const leaking = router.loaders({
       ...loaders,
       // Blog is static: what it answers is kept for everyone.
@@ -414,40 +439,33 @@ describe('what an app writes', () => {
           return [];
         }),
     });
-    Server.layers()
-      .instance(() => greeting)
-      .visitor(() => seen)
-      // @ts-expect-error a static Loader Requires Visitor, which only the visitor tier gives
-      .loaders(leaking);
+    // @ts-expect-error a static Loader Requires Visitor, which only the visitor gives
+    Server.server({ layer: greeting, visitor: seen }).loaders(leaking);
     // A dynamic Loader may add headers to its response; a static one may not.
-    Server.layers()
-      .instance(() => greeting)
-      .loaders(
-        router.loaders({
-          ...loaders,
-          Account: () =>
-            Effect.as(
-              Server.ResponseHeaders.use((headers) => headers.append('x', 'y')),
-              { name: 'ada' },
-            ),
-        }),
-      );
-    Server.layers()
-      .instance(() => greeting)
-      .loaders(
-        // @ts-expect-error a static Loader's page is kept for everyone: no headers of its own
-        router.loaders({
-          ...loaders,
-          Blog: () =>
-            Effect.as(
-              Server.ResponseHeaders.use((headers) => headers.append('x', 'y')),
-              [],
-            ),
-        }),
-      );
+    Server.server({ layer: greeting }).loaders(
+      router.loaders({
+        ...loaders,
+        Account: () =>
+          Effect.as(
+            Server.ResponseHeaders.use((headers) => headers.append('x', 'y')),
+            { name: 'ada' },
+          ),
+      }),
+    );
+    Server.server({ layer: greeting }).loaders(
+      // @ts-expect-error a static Loader's page is kept for everyone: no headers of its own
+      router.loaders({
+        ...loaders,
+        Blog: () =>
+          Effect.as(
+            Server.ResponseHeaders.use((headers) => headers.append('x', 'y')),
+            [],
+          ),
+      }),
+    );
   });
 
-  it('lets every Loader use the visitor tier when no place with data is static', () => {
+  it('lets every Loader use the visitor when no place with data is static', () => {
     const Home = Page.define({ path: '/' });
     const Account = Page.define({
       path: '/account',
@@ -455,16 +473,14 @@ describe('what an app writes', () => {
       data: Schema.Struct({ name: Schema.String }),
     });
     const Dynamic = Router.define(Page.define({ pages: { Home, Account } }));
-    Server.layers()
-      .visitor(() => Layer.succeed(Visitor, { name: 'ada' }))
-      .loaders(
-        Dynamic.loaders({
-          Account: () =>
-            Effect.gen(function* () {
-              return { name: (yield* Visitor).name };
-            }),
-        }),
-      );
+    Server.server({ visitor: seen }).loaders(
+      Dynamic.loaders({
+        Account: () =>
+          Effect.gen(function* () {
+            return { name: (yield* Visitor).name };
+          }),
+      }),
+    );
   });
 
   it('checks the app’s Layer against what its Actors Require', () => {
@@ -476,27 +492,27 @@ describe('what an app writes', () => {
     );
     const greeter = Router.define(Greeter);
     // @ts-expect-error the app Requires Greeting in the browser
-    Start.app(greeter, GreeterView);
+    Start.app({ router: greeter, view: GreeterView });
     // @ts-expect-error a Document is not a Layer
-    Start.app(greeter, GreeterView, { document: Document });
-    expect(Start.app(greeter, GreeterView, { layer: greeting }).layer).toBe(
-      greeting,
-    );
-    expect(Start.app(router, AppView).document).toBeUndefined();
+    Start.app({ router: greeter, view: GreeterView, document: Document });
+    expect(
+      Start.app({ router: greeter, view: GreeterView, layer: greeting }).layer,
+    ).toBe(greeting);
+    expect(Start.app({ router, view: AppView }).document).toBeUndefined();
   });
 
   it('refuses a default export it cannot check', () => {
-    expect(() => server({ app: AppView as never, build })).toThrow(
-      'src/app must default-export Start.app(router, AppView, { … })',
+    expect(() => handler({ app: AppView as never, build })).toThrow(
+      'src/app must default-export Start.app({ router, view, … })',
     );
     expect(() =>
-      server({ app: started, loaders: loaders as never, build }),
-    ).toThrow('src/loaders.server must default-export Start.layers()');
+      handler({ app: started, server: loaders as never, build }),
+    ).toThrow('src/loaders.server must default-export Start.server(');
   });
 
   it('draws an app with no Document in the plainest one, with no Loaders', async () => {
-    const bare = server({
-      app: Start.app(router, AppView),
+    const bare = handler({
+      app: Start.app({ router, view: AppView }),
       build: { ...build, id: undefined },
     });
     const response = await bare.fetch(new Request('https://site.test/'), host);
@@ -508,53 +524,52 @@ describe('what an app writes', () => {
   });
 });
 
-describe('the Loaders’ tiers', () => {
-  /** A server whose tiers count how often each is made. */
+describe('the Loaders’ Layers', () => {
+  /** A server whose Layers count how often each is made. */
   const counted = (
     word: () => Effect.Effect<{ readonly word: string }> = () =>
       Effect.succeed({ word: 'Hi' }),
   ) => {
-    const made = { instance: 0, request: 0, visitor: 0 };
-    const worker = server({
+    const made = { layer: 0, visitor: 0 };
+    const worker = handler({
       app: started,
-      loaders: Server.layers()
-        .instance(() =>
-          Layer.effect(
-            Greeting,
-            Effect.suspend(() => {
-              made.instance++;
-              return word();
-            }),
-          ),
-        )
-        .request(() => Layer.effectDiscard(Effect.sync(() => made.request++)))
-        .visitor(() =>
-          Layer.effectDiscard(
-            Effect.andThen(
-              Effect.sync(() => made.visitor++),
-              Server.ResponseHeaders.use((headers) =>
-                headers.append('set-cookie', 'seen=1'),
-              ),
-            ),
-          ),
-        )
-        .loaders(loaders),
+      server: Server.server({
+        layer: Layer.effect(
+          Greeting,
+          Effect.suspend(() => {
+            made.layer++;
+            return word();
+          }),
+        ),
+        visitor: Layer.effectDiscard(
+          Effect.gen(function* () {
+            made.visitor++;
+            const { WORD } = yield* Server.env<{ readonly WORD: string }>();
+            const headers = yield* Server.ResponseHeaders;
+            yield* headers.append('set-cookie', 'seen=1');
+            yield* headers.append('x-word', WORD);
+          }),
+        ),
+      }).loaders(loaders),
       build: { ...build, id: undefined },
     });
-    const fetch = (path: string, init?: RequestInit) =>
-      worker.fetch(new Request(`https://site.test${path}`, init), host);
+    const fetch = (
+      path: string,
+      init?: RequestInit,
+      env: { readonly WORD: string } = host.env,
+    ) => worker.fetch(new Request(`https://site.test${path}`, init), { env });
     return { made, fetch };
   };
 
-  it('makes the instance tier once, and the request tier for each request that loads', async () => {
+  it('makes the layer once, for every request that loads', async () => {
     const { made, fetch } = counted();
     await fetch('/blog');
     await fetch('/blog/hello');
     await fetch('/');
-    expect(made).toEqual({ instance: 1, request: 2, visitor: 0 });
+    expect(made).toEqual({ layer: 1, visitor: 0 });
   });
 
-  it('makes the visitor tier only for a dynamic or client place, and sends the headers it adds', async () => {
+  it('makes the visitor only for a dynamic or client place, and sends the headers it adds', async () => {
     const { made, fetch } = counted();
     const page = await fetch('/account', { headers: { cookie: 'user=ada' } });
     expect(page.status).toBe(200);
@@ -569,7 +584,16 @@ describe('the Loaders’ tiers', () => {
     expect(made.visitor).toBe(2);
   });
 
-  it('makes the instance tier again if making it failed', async () => {
+  it('gives the visitor the env of the request it is made for', async () => {
+    const { fetch } = counted();
+    const signedIn = { headers: { cookie: 'user=ada' } };
+    const first = await fetch('/account', signedIn, { WORD: 'one' });
+    const second = await fetch('/account', signedIn, { WORD: 'two' });
+    expect(first.headers.get('x-word')).toBe('one');
+    expect(second.headers.get('x-word')).toBe('two');
+  });
+
+  it('makes the layer again if making it failed', async () => {
     const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
     let tries = 0;
     const { made, fetch } = counted(() =>
@@ -580,7 +604,7 @@ describe('the Loaders’ tiers', () => {
     expect((await fetch('/blog')).status).toBe(500);
     expect((await fetch('/blog')).status).toBe(200);
     expect((await fetch('/blog')).status).toBe(200);
-    expect(made.instance).toBe(2);
+    expect(made.layer).toBe(2);
     logged.mockRestore();
   });
 });

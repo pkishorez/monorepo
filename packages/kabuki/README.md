@@ -52,7 +52,8 @@ names at once, starts every page from what its Loader gave, and sends the HTML w
 Snapshot beside it, which the browser hydrates and carries on from. It never
 runs a Runtime on the server. An app writes three files: its pages, its app
 with its Document and what it needs in the browser, and its Loaders with what
-they need on the server, in three tiers; the plugin writes every entry. Each
+they need on the server, as a Layer made once and one made per visitor; the
+plugin writes every entry. Each
 platform is an adapter of its own subpath: Cloudflare Workers, or through
 Nitro any host it has a preset for, Node, Bun, Vercel and AWS Lambda among them. How it works is in
 [docs/start.md](./docs/start.md).
@@ -166,14 +167,14 @@ pnpm add @kestack/kabuki effect react
 
 ### `@kestack/kabuki/start`
 
-| Export             | What it does                                                                                                                                                     |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Start.app`        | Gives the app's router and its root page's View their Document and what the Actors Require in the browser, checked against them: what `src/app` default-exports. |
-| `Start.Document`   | The plainest Document, Start's parts in an English page: what an app that gives none is drawn in.                                                                |
-| `Start.Head`       | Draws, in the Document's `<head>`, the charset and viewport, the Metadata, and the styles and chunks the page needs.                                             |
-| `Start.Scripts`    | Draws, at the end of the Document's `<body>`, the saved History as JSON and the script that hydrates the page.                                                   |
-| `Start.useDrawn`   | Reads when and by which build the server drew the page, and whether the component asking was in that drawing or drawn later by the browser.                      |
-| `Start.useRuntime` | Reads the running app from the Document, for devtools drawn around it; `null` on the server.                                                                     |
+| Export             | What it does                                                                                                                                                 |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `Start.app`        | Takes the app's router, its root page's View, its Document and what the Actors Require in the browser, checked against them: what `src/app` default-exports. |
+| `Start.Document`   | The plainest Document, Start's parts in an English page: what an app that gives none is drawn in.                                                            |
+| `Start.Head`       | Draws, in the Document's `<head>`, the charset and viewport, the Metadata, and the styles and chunks the page needs.                                         |
+| `Start.Scripts`    | Draws, at the end of the Document's `<body>`, the saved History as JSON and the script that hydrates the page.                                               |
+| `Start.useDrawn`   | Reads when and by which build the server drew the page, and whether the component asking was in that drawing or drawn later by the browser.                  |
+| `Start.useRuntime` | Reads the running app from the Document, for devtools drawn around it; `null` on the server.                                                                 |
 
 ### `@kestack/kabuki/start/platform`
 
@@ -201,11 +202,14 @@ The port each platform's adapter fills, in types only: no runtime value.
 
 ### `@kestack/kabuki/start/server`
 
-| Export                  | What it does                                                                                                                                                                                                                          |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `server`                | Makes Start's handler, which knows no platform, from what the app's two files export: what the plugin's handler module runs; an app never calls it.                                                                                   |
-| `Start.layers`          | Gives the Loaders what they Require on the server, in three tiers, a call each (`instance`, `request`, `visitor`), each checked against the tiers before it, and the Loaders checked last: what `src/loaders.server` default-exports. |
-| `Start.ResponseHeaders` | The service a dynamic or client Loader, or the visitor tier, adds headers to its response with, as a refreshed session's `set-cookie`.                                                                                                |
+| Export                  | What it does                                                                                                                                                                                                                                    |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `handler`               | Makes Start's handler, which knows no platform, from what the app's two files export: what the plugin's handler module runs; an app calls it only in a test.                                                                                    |
+| `Start.server`          | Takes Loaders that Require nothing alone, or first what they Require on the server, a `layer` made once and a `visitor` made per request, then the Loaders with `.loaders(…)`, checked against both: what `src/loaders.server` default-exports. |
+| `Start.env`             | Reads the platform's env, typed as the app says it is, from `Start.Env`.                                                                                                                                                                        |
+| `Start.Env`             | The service holding the platform's env for this request: a Worker's bindings, or the process's.                                                                                                                                                 |
+| `Start.Request`         | The service holding the request being answered, for the visitor and the dynamic and client Loaders only.                                                                                                                                        |
+| `Start.ResponseHeaders` | The service a dynamic or client Loader, or the visitor, adds headers to its response with, as a refreshed session's `set-cookie`.                                                                                                               |
 
 ### `@kestack/kabuki/start/client`
 

@@ -4,10 +4,10 @@ import type { DocumentProps as Props, Drawn as DrawnBy } from './document.tsx';
 
 /*
  * Start, as `src/app` writes it, on both sides: what `@kestack/kabuki/start`
- * gives. The server's own, `Start.layers()` for `src/loaders.server`, is
+ * gives. The server's own, `Start.server()` for `src/loaders.server`, is
  * `@kestack/kabuki/start/server`'s.
  *
- *   src/app.tsx           Start.app(router, AppView, { document, layer })
+ *   src/app.tsx           Start.app({ router, view, document, layer })
  *   src/document.tsx      <Start.Head /> in its head, <Start.Scripts /> at the end of its body
  */
 

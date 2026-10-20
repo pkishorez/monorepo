@@ -9,10 +9,10 @@ import type { Handler, Host } from '../platform/index.ts';
 import { kept } from './cache.ts';
 import { drawer } from './draw.tsx';
 import type { At } from './draw.tsx';
-import { loadersOf } from './layers.ts';
-import type { StartLoaders } from './layers.ts';
+import { serverOf } from './layers.ts';
+import type { StartServer } from './layers.ts';
 import { answer } from './rpc.ts';
-import { tiers } from './tiers.ts';
+import { lifetimes } from './lifetimes.ts';
 import {
   PRIVATE,
   SHARED,
@@ -36,8 +36,8 @@ import {
  * 3. Split    the Route's places into those drawn here, static and dynamic,
  *             and those under the first client place, which the browser loads.
  * 4. Load     the Loaders of the places drawn here, all at once, with the
- *             request unless the place is static, and their Layers' tiers:
- *             the visitor's only if a place is not static; see `tiers.ts`.
+ *             request unless the place is static, and their two Layers:
+ *             the visitor only if a place is not static; see `lifetimes.ts`.
  *             A Redirect is a `302`, or a `308` if it says it is permanent,
  *             to its Route or the URL outside the app it names. Each other
  *             place starts from what its Loader came to: its data, or
@@ -52,11 +52,11 @@ import {
  *             Loader added go out with it.
  */
 
-export interface ServerOptions {
+export interface HandlerOptions {
   /** What `src/app` default-exports: `Start.app(…)`. */
   readonly app: StartApp;
-  /** What `src/loaders.server` default-exports: `Start.layers()…loaders(…)`; none if no place has an Input. */
-  readonly loaders?: StartLoaders;
+  /** What `src/loaders.server` default-exports: `Start.server({ loaders, … })`; none if no place has an Input. */
+  readonly server?: StartServer;
   /** What the Vite plugin knows of the build. */
   readonly build: Build;
 }
@@ -75,18 +75,18 @@ const drawnHere = (places: ReadonlyArray<Place>) => {
 /** The path of a URL, without its query. */
 const pathOf = (url: string, base: URL) => new URL(url, base).pathname;
 
-export const server = (options: ServerOptions): Handler => {
+export const handler = (options: HandlerOptions): Handler => {
   const { build } = options;
   const { app, document = Document } = appOf(options.app);
-  const { loaders, tiers: given } = loadersOf(options.loaders);
+  const { loaders, layers } = serverOf(options.server);
   const draw = drawer(app, document, build);
-  const layerFor = tiers(given);
+  const layerFor = lifetimes(layers);
   const modes = new Map<string, RenderMode>(
     app.routes.every.map((place) => [place.name, place.render]),
   );
 
   // 4. Load
-  /** What the Loaders of `wanted` run with: the memory Loading, handed this request, and their tiers. */
+  /** What the Loaders of `wanted` run with: the memory Loading, handed this request, and their Layers. */
   const loadingFor = (
     request: Request,
     env: unknown,

@@ -364,7 +364,7 @@ the Timeline, Sent to the Router.
 `Router.app(router, AppView)` makes the Router Actor from the router
 definition and the root page's View; `AppView` must draw a build of the
 router's root page, or it throws. Under Start an app writes
-`Start.app(router, AppView, { document, layer })`, which calls it. Its Model
+`Start.app({ router, view: AppView, document, layer })`, which calls it. Its Model
 is the history, `entries` and `at`, each entry a Route, the last `move`, the
 `pending` move it holds, and the data of every place on screen. Its one
 Child is the root page's build, named `App`; each page under it is named

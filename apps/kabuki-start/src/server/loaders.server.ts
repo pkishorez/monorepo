@@ -2,7 +2,6 @@ import { Effect } from 'effect';
 import type { Duration } from 'effect';
 import { Page } from '@kestack/kabuki/routing';
 import { Start } from '@kestack/kabuki/start/server';
-import type { WorkerEnv } from '../infra/index.ts';
 import { Backend } from './backend/index.ts';
 import { router } from '../shared/index.ts';
 
@@ -45,6 +44,4 @@ const loaders = router.loaders({
   'Preload.Slow': ({ n }) => read((db) => db.slow(n), '1500 millis'),
 });
 
-export default Start.layers<WorkerEnv>()
-  .instance(() => Backend.memory)
-  .loaders(loaders);
+export default Start.server({ layer: Backend.memory }).loaders(loaders);

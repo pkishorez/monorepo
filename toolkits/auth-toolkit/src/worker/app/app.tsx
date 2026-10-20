@@ -6,7 +6,9 @@ import { AppView } from './views/index.ts';
 import './styles.css';
 
 /** The Auth Worker's pages: drawn by the worker, carried on in the browser. */
-export default Start.app(router, AppView, {
+export default Start.app({
+  router,
+  view: AppView,
   document: Document,
   layer: apiLive,
 });

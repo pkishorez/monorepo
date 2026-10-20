@@ -1,5 +1,5 @@
 import { makeSignature } from 'better-auth/crypto';
-import { server } from '@kestack/kabuki/start/server';
+import { handler } from '@kestack/kabuki/start/server';
 import { describe, expect, it } from 'vitest';
 import { memory } from '../../database/sqlite/memory/index.js';
 import {
@@ -12,7 +12,7 @@ import {
 } from '../../worker/tests/fixture.js';
 import { makeAuthWorker } from '../../worker/worker.js';
 import app from '../app.tsx';
-import loaders from '../loaders.server.ts';
+import server from '../loaders.server.ts';
 
 /*
  * The pages drawn by the Auth Worker itself, from source: every page
@@ -20,9 +20,9 @@ import loaders from '../loaders.server.ts';
  * cookies, and no drawing or Loader answer ever carries a token.
  */
 
-const pages = server({
+const pages = handler({
   app,
-  loaders,
+  server,
   build: {
     id: undefined,
     base: '/',

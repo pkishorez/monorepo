@@ -16,8 +16,8 @@ for pages.
 ```
 src/
   pages/              Page.define and Page.build per page, its data and Render Mode; Router.define(App, { … })
-  app.tsx             default-exports Start.app(router, AppView, { … })
-  loaders.server.ts   default-exports Start.layers<Env>()…loaders(router.loaders({ … }))
+  app.tsx             default-exports Start.app({ router, view, document, layer })
+  loaders.server.ts   default-exports Start.server(loaders), or Start.server({ layer, visitor }).loaders(loaders)
 vite.config.ts        plugins: [react(), start({ platform: cloudflare() })]
 alchemy.run.ts        Cloudflare.Website.Vite('Site')
 ```
@@ -33,7 +33,9 @@ found by name, each overridable in `start({ … })`. Why is
 import { Start } from '@kestack/kabuki/start';
 
 export const AppView = View.make(AppLive, (self) => …); // the root page
-export default Start.app(router, AppView, {
+export default Start.app({
+  router,
+  view: AppView,
   document: Document,
   layer: LiveUpdatesLive,
 });
@@ -49,15 +51,14 @@ export const loaders = router.loaders({
   Account: () => CurrentUser.viewer, // or Page.redirect(…)
 });
 
-export default Start.layers<WorkerEnv>()
-  .instance((env) => PostsLive(env.DB))
-  .request((env) => PgLive(env.HYPERDRIVE))
-  .visitor(({ env, request }) => CurrentUserLive(request))
-  .loaders(loaders);
+export default Start.server({
+  layer: PostsLive, // reads env.DB with yield* Start.env<WorkerEnv>()
+  visitor: CurrentUserLive, // reads the request with yield* Start.Request
+}).loaders(loaders);
 ```
 
 Start reads only these, so every one is checked: a default export that is
-not `Start.app(…)`, or not `Start.layers()…loaders(…)`, fails when the
+not `Start.app(…)`, or not `Start.server(…)`, fails when the
 server starts. The bare `AppView` and `loaders` are exported too, for a test
 or a story to run with `Router.app(router, AppView)` and Layers of its own.
 `AppView` draws the build of the router's root page; `Start.app` refuses any
@@ -66,31 +67,33 @@ server too, since `app.tsx` is, but never built there: a Layer is a value,
 so only a module that touches the browser when it is imported must be kept
 out of it.
 
-### The Loaders' Layers, in three tiers
+### The Loaders' Layers: made once, and per visitor
 
-| Tier       | Made                                                  | From                    | Used by                         | For                                   |
-| ---------- | ----------------------------------------------------- | ----------------------- | ------------------------------- | ------------------------------------- |
-| `instance` | once, the first time a request loads                  | the env                 | every Loader                    | clients of bindings, config, caches   |
-| `request`  | for each request that loads                           | the env                 | every Loader                    | a database connection over Hyperdrive |
-| `visitor`  | for each request that loads a dynamic or client place | the env and the request | dynamic and client Loaders only | who is signed in                      |
+| Layer     | Made                                                  | May read                                         | Used by                         | For                                 |
+| --------- | ----------------------------------------------------- | ------------------------------------------------ | ------------------------------- | ----------------------------------- |
+| `layer`   | once, the first time a request loads                  | `Start.Env`                                      | every Loader                    | clients of bindings, config, caches |
+| `visitor` | for each request that loads a dynamic or client place | the layer, `Start.Env`, `Start.Request`, headers | dynamic and client Loaders only | who is signed in                    |
 
-Each tier is a call of its own, checked as it is given: the instance tier
-Requires nothing, the request tier only what the instance's gives, the
-visitor tier what either gives and `Start.ResponseHeaders`. `.loaders(…)`
-ends it and checks every Loader against the tiers it may use: a static
-place's answer is kept for everyone, so a static Loader that Requires a
-visitor service is a type error, and on a page whose places are all static
-the visitor tier is never made. The instance tier is made again if making
-it failed. `Start.layers<WorkerEnv>()` types the env every tier is made
-from. Why three, and a call each, is
-[ADR 0032](adr/0032-the-loaders-layers-come-in-three-tiers.md).
+Both are plain Layers, and both are optional: Loaders that Require nothing
+are given alone, `Start.server(loaders)`, which is a type error if any of
+them Requires something. The platform's env is a
+service, `Start.Env`, read typed with `yield* Start.env<WorkerEnv>()`; the
+request being answered is `Start.Request`, which only the visitor and the
+dynamic and client Loaders get. `.loaders(…)` checks every Loader against the
+Layers it may use, and the visitor against the layer: a static place's
+answer is kept for everyone, so a static Loader that Requires a visitor
+service is a type error, and on a page whose places are all static the
+visitor is never made. The layer is made again if making it failed. The
+Loaders are a call of their own so that a Layer written in place, as
+`Layer.succeed(…)`, is typed as written. Why two, and why the Loaders come
+last, is [ADR 0041](adr/0041-the-loaders-layers-are-made-once-and-per-visitor.md).
 
-`Start.ResponseHeaders` is how a dynamic or client Loader, or the visitor
-tier, adds headers to the response, as a refreshed session's `set-cookie`.
-On a page, both do. On `/_kabuki/load` only the tiers do: the answer starts
+`Start.ResponseHeaders` is how a dynamic or client Loader, or the visitor,
+adds headers to the response, as a refreshed session's `set-cookie`. On a
+page, both do. On `/_kabuki/load` only the visitor does: the answer starts
 before the Loaders run, so each place is sent as it is done, and a header a
-Loader adds there comes too late; a session is refreshed in the visitor
-tier. A static page has none: it is kept for everyone.
+Loader adds there comes too late; a session is refreshed in the visitor. A
+static page has none: it is kept for everyone.
 
 ```tsx
 // src/document.tsx: any file app.tsx imports
@@ -146,9 +149,8 @@ GET /blog/hello
    drawn loading, and their Metadata says what it can without their data.
 3. **Load.** The Loaders of the places loaded here run at once, each handed
    its params and query, and the request unless its place is static, with
-   the Loaders' tiers: the instance's, made once; the request's, made for
-   this request; and the visitor's only if a place loaded here is not
-   static. A Redirect is a `302`, since it depends on the request, or a
+   the Loaders' Layers: the layer, made once, and the visitor, made for
+   this request only if a place loaded here is not static. A Redirect is a `302`, since it depends on the request, or a
    `308` if the Loader says it is permanent; to its Route, or to the URL
    outside the app it names. Any other
    answer is what its page starts from: a page not found is drawn failed and
@@ -224,7 +226,7 @@ and Restore need every Actor.
 ```
 src/start/
   common/      both sides: Start.app, the Document's parts, the Page, the Loader RPC's wire   @kestack/kabuki/start
-  server/      the handler, the Loaders' tiers (Start.layers), the RPC's answer, the Cache   @kestack/kabuki/start/server
+  server/      the handler, the Loaders' Layers (Start.server), the RPC's answer, the Cache  @kestack/kabuki/start/server
   client/      hydrating, and the Loading that asks the RPC                                  @kestack/kabuki/start/client
   platform/    the port each platform fills                                                  @kestack/kabuki/start/platform
     cloudflare/  Cloudflare Workers                                                          @kestack/kabuki/start/platform/cloudflare

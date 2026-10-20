@@ -106,6 +106,11 @@ export const loaders = router.loaders({
 });
 
 /** What the Loaders Require, made once from the Worker's env. */
-export default Start.layers<{ readonly WORD?: string }>()
-  .instance((env) => Layer.succeed(Greeting, { word: env.WORD ?? 'Read:' }))
-  .loaders(loaders);
+export default Start.server({
+  layer: Layer.effect(
+    Greeting,
+    Effect.map(Start.env<{ readonly WORD?: string }>(), (env) => ({
+      word: env.WORD ?? 'Read:',
+    })),
+  ),
+}).loaders(loaders);
