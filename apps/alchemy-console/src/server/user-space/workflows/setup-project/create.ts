@@ -16,7 +16,8 @@ import { settleStage } from './stages.ts';
  * from that Inspect, never from the browser. Every provider the Inspect
  * found needs one of the owner's credentials for it, and the stack must keep
  * its state in Cloudflare. The project is made and its Production deployed
- * at once, at the head of its production branch.
+ * at once, at the very commit the Inspect read, so what was read is what
+ * deploys; a production branch other than the default must still be at it.
  */
 
 const invalid = (message: string) =>
@@ -100,11 +101,17 @@ export const createProject = (input: NewProject) =>
     });
     const productionBranch =
       input.productionBranch?.trim() || repository.defaultBranch;
-    const head = yield* github.headCommit({
-      installationId: connection.installationId,
-      repo: repository.fullName,
-      branch: productionBranch,
-    });
+    if (productionBranch !== repository.defaultBranch) {
+      const head = yield* github.headCommit({
+        installationId: connection.installationId,
+        repo: repository.fullName,
+        branch: productionBranch,
+      });
+      if (head.sha !== inspected.commit)
+        return yield* invalid(
+          `${productionBranch} isn’t at the commit Console inspected. Inspect it again.`,
+        );
+    }
 
     // Made together, to the end, even if the tab that asked goes away: a
     // project never exists without its stage and its first run.
@@ -141,7 +148,7 @@ export const createProject = (input: NewProject) =>
           projectId,
           stage: PRODUCTION_STAGE,
           kind: 'deploy',
-          commit: head.sha,
+          commit: inspected.commit,
           trigger: 'user',
           spec: {
             connectionId: connection.connectionId,

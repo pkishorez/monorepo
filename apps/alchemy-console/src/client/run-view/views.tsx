@@ -387,11 +387,11 @@ export function RunSkeleton() {
           <Skeleton key={key} className="h-5 w-44" />
         ))}
       </div>
+      <Skeleton className="h-9 w-36" />
       <div className="flex flex-col gap-3">
         <Skeleton className="h-6 w-24" />
         <ResourceRows resources={null} />
       </div>
-      <Skeleton className="h-9 w-36" />
     </div>
   );
 }

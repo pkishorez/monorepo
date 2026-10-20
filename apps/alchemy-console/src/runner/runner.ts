@@ -36,6 +36,9 @@ export interface RunnerOptions {
   readonly workdir?: string;
 }
 
+/** The provider variables that hold a secret: `CLOUDFLARE_API_TOKEN`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`. */
+const SECRET_NAME = /TOKEN|SECRET|PASSWORD/;
+
 const isRunError = (error: unknown): error is RunError =>
   typeof error === 'object' &&
   error !== null &&
@@ -107,7 +110,9 @@ const perform = (
     // Only now, after the project's own commands ran, does the process
     // hold the provider keys: the stack's providers read them from here.
     const keys = yield* answered(credentials);
-    for (const value of Object.values(keys)) outbox.redact(value);
+    // The secret ones: a region or an account ID is in many a URL.
+    for (const [name, value] of Object.entries(keys))
+      if (SECRET_NAME.test(name)) outbox.redact(value);
     Object.assign(process.env, keys);
     yield* outbox.event({ _tag: 'Phase', phase: 'planning' });
     const outputs = yield* Effect.tryPromise({

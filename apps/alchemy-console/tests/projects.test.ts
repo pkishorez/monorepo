@@ -306,7 +306,7 @@ describe('Projects', () => {
     });
   });
 
-  it('refuses a project before its folder is inspected, without a credential for each provider, or for a folder that is one already', async () => {
+  it('refuses a project before its folder is inspected, without a credential for each provider, on a branch moved past the Inspect, or for a folder that is one already', async () => {
     const api = await inspect('apps/api');
     const aws = await inspect('apps/web', inspected(['cloudflare', 'aws']));
     const errors = await run(
@@ -325,6 +325,11 @@ describe('Projects', () => {
             production: {
               credentials: { cloudflare: credentialId, aws: credentialId },
             },
+          }),
+          // A production branch that isn't at the commit inspected.
+          yield* create({
+            ...newProject('apps/api', api),
+            productionBranch: 'release',
           }),
           // The root is the first test's project.
           yield* create(
@@ -348,6 +353,12 @@ describe('Projects', () => {
         _tag: 'ProjectError',
         reason: 'invalid',
         message: 'Pick an AWS credential for Production.',
+      },
+      {
+        _tag: 'ProjectError',
+        reason: 'invalid',
+        message:
+          'release isn’t at the commit Console inspected. Inspect it again.',
       },
       {
         _tag: 'ProjectError',

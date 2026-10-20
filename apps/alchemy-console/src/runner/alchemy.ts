@@ -365,9 +365,33 @@ export const deploy = async (options: {
     Effect.scoped,
     Effect.provideService(Logger.CurrentLoggers, new Set([logger])),
   );
+  // console, and anything written to stdout or stderr straight, line by
+  // line: none of it reaches the container's own output while the keys are
+  // in this process.
   const kept = { ...console };
   for (const method of ['log', 'info', 'warn', 'error', 'debug'] as const)
     console[method] = toLog;
+  const writes = {
+    stdout: process.stdout.write,
+    stderr: process.stderr.write,
+  };
+  let partial = '';
+  const capture = ((chunk: unknown, ...rest: Array<unknown>) => {
+    const text =
+      typeof chunk === 'string'
+        ? chunk
+        : Buffer.from(chunk as Uint8Array).toString('utf8');
+    const lines = (partial + text).split('\n');
+    partial = lines.pop() ?? '';
+    for (const line of lines) options.onLine(line);
+    const done = rest.find((each) => typeof each === 'function') as
+      | (() => void)
+      | undefined;
+    done?.();
+    return true;
+  }) as typeof process.stdout.write;
+  process.stdout.write = capture;
+  process.stderr.write = capture;
   try {
     const exit = await Effect.runPromiseExit(program as never);
     if (Exit.isFailure(exit))
@@ -377,5 +401,8 @@ export const deploy = async (options: {
     return outputsOf((exit as { value: unknown }).value);
   } finally {
     Object.assign(console, kept);
+    process.stdout.write = writes.stdout;
+    process.stderr.write = writes.stderr;
+    if (partial !== '') options.onLine(partial);
   }
 };
