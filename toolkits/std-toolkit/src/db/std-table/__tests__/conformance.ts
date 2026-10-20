@@ -30,7 +30,7 @@ export const conformanceTable = StdTable.make('portable-conformance')
 const itemSchema = EntityESchema.make('Item', 'itemId', {
   category: Schema.String,
   label: Schema.String,
-  value: Schema.Number,
+  value: Schema.Finite,
 }).build();
 
 const item = conformanceTable
@@ -67,7 +67,7 @@ const compoundItem = conformanceTable
 
 const configSchema = ESchema.make('Config', {
   theme: Schema.String,
-  count: Schema.Number,
+  count: Schema.Finite,
 }).build();
 
 const config = conformanceTable
@@ -91,14 +91,14 @@ const migratedItem = conformanceTable
 
 const docSchema = EntityESchema.make('Doc', 'docId', {
   board: Schema.Struct({ id: Schema.String }),
-  rank: Schema.Number,
+  rank: Schema.Finite,
   dueAt: Schema.DateFromString,
   owner: Schema.Union([
     Schema.Struct({ kind: Schema.Literal('user'), userId: Schema.String }),
     Schema.Struct({
       kind: Schema.Literal('team'),
       teamId: Schema.String,
-      seat: Schema.Number,
+      seat: Schema.Finite,
     }),
   ]),
 }).build();
@@ -133,7 +133,7 @@ const richSchema = EntityESchema.make('Rich', 'richId', {
     Schema.Struct({ kind: Schema.Literal('none') }),
   ]),
 })
-  .evolve('v2', { rank: Schema.Number }, (v1) => ({
+  .evolve('v2', { rank: Schema.Finite }, (v1) => ({
     ...v1,
     rank: v1.createdAt.getUTCFullYear(),
   }))

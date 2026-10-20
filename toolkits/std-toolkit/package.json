@@ -76,6 +76,10 @@
       "types": "./dist/eschema/index.d.ts",
       "default": "./dist/eschema/index.js"
     },
+    "./eschema/testing": {
+      "types": "./dist/eschema/testing/index.d.ts",
+      "default": "./dist/eschema/testing/index.js"
+    },
     "./snapshot": {
       "types": "./dist/snapshot/index.d.ts",
       "default": "./dist/snapshot/index.js"

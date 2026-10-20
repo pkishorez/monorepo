@@ -10,7 +10,7 @@ describe('portable optimistic retry', () => {
   it('re-reads and re-runs the callback after a condition conflict', async () => {
     const table = StdTable.make('retry-test').primary('pk', 'sk').build();
     const schema = EntityESchema.make('Counter', 'counterId', {
-      count: Schema.Number,
+      count: Schema.Finite,
     }).build();
     const counter = table.entity(schema).primary().build();
     const deterministic = makeDeterministicContract(table.logicalName);

@@ -26,7 +26,7 @@ describe('ESchema', () => {
           const schema = EntityESchema.make('Test', 'id', {
             a: Schema.String,
           })
-            .evolve('v2', { b: Schema.Number }, (v) => ({ ...v, b: 0 }))
+            .evolve('v2', { b: Schema.Finite }, (v) => ({ ...v, b: 0 }))
             .build();
 
           const encoded = yield* writeEncoded(schema, {
@@ -59,7 +59,7 @@ describe('ESchema', () => {
         Effect.gen(function* () {
           const schema = EntityESchema.make('Test', 'id', {
             name: Schema.String,
-            count: Schema.Number,
+            count: Schema.Finite,
           }).build();
 
           const original = { id: 't1', name: 'test', count: 42 };
@@ -72,7 +72,7 @@ describe('ESchema', () => {
       it.effect('preserves data through decode → encode cycle', () =>
         Effect.gen(function* () {
           const schema = EntityESchema.make('Test', 'id', {
-            count: Schema.Number,
+            count: Schema.Finite,
           }).build();
 
           const raw = { _v: 'v1', id: 't1', count: 123 };

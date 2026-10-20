@@ -1,1 +1,1 @@
-export { renderSnapshotChanges } from './snapshot-renderer.js';
+export { changeLabel, renderSnapshotChanges } from './snapshot-renderer.js';

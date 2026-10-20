@@ -1,0 +1,222 @@
+{
+  "logicalName": "sync-store",
+  "topology": {
+    "primary": {
+      "pk": "pk",
+      "sk": "sk"
+    },
+    "localSecondaryIndexes": [
+      {
+        "name": "LSI1",
+        "pk": "pk",
+        "sk": "LSI1SK"
+      }
+    ],
+    "globalSecondaryIndexes": []
+  },
+  "entities": [
+    {
+      "name": "SyncStoredReplica",
+      "kind": "keyed",
+      "schema": "SyncStoredReplica",
+      "idField": "key",
+      "primary": {
+        "pk": [
+          "collection"
+        ],
+        "sk": [
+          "key"
+        ]
+      },
+      "accessPatterns": [
+        {
+          "name": "bySequence",
+          "kind": "lsi",
+          "index": "LSI1",
+          "pk": [
+            "collection"
+          ],
+          "sk": [
+            "seq"
+          ]
+        },
+        {
+          "name": "primary",
+          "kind": "primary",
+          "pk": [
+            "collection"
+          ],
+          "sk": [
+            "key"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "SyncStoredReplicaCursor",
+      "kind": "keyed",
+      "schema": "SyncStoredReplicaCursor",
+      "idField": "key",
+      "primary": {
+        "pk": [
+          "collection"
+        ],
+        "sk": [
+          "key"
+        ]
+      },
+      "accessPatterns": [
+        {
+          "name": "primary",
+          "kind": "primary",
+          "pk": [
+            "collection"
+          ],
+          "sk": [
+            "key"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "SyncStoredState",
+      "kind": "keyed",
+      "schema": "SyncStoredState",
+      "idField": "key",
+      "primary": {
+        "pk": [
+          "collection"
+        ],
+        "sk": [
+          "key"
+        ]
+      },
+      "accessPatterns": [
+        {
+          "name": "primary",
+          "kind": "primary",
+          "pk": [
+            "collection"
+          ],
+          "sk": [
+            "key"
+          ]
+        }
+      ]
+    }
+  ],
+  "schemas": [
+    {
+      "identity": "SyncStoredReplica",
+      "kind": "entity",
+      "idField": "key",
+      "versions": [
+        {
+          "version": "v1",
+          "shape": {
+            "type": "struct",
+            "fields": [
+              {
+                "name": "collection",
+                "type": {
+                  "type": "string"
+                }
+              },
+              {
+                "name": "entity",
+                "type": {
+                  "type": "unknown"
+                }
+              },
+              {
+                "name": "key",
+                "type": {
+                  "type": "string"
+                }
+              },
+              {
+                "name": "seq",
+                "type": {
+                  "type": "string"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "identity": "SyncStoredReplicaCursor",
+      "kind": "entity",
+      "idField": "key",
+      "versions": [
+        {
+          "version": "v1",
+          "shape": {
+            "type": "struct",
+            "fields": [
+              {
+                "name": "collection",
+                "type": {
+                  "type": "string"
+                }
+              },
+              {
+                "name": "key",
+                "type": {
+                  "type": "string"
+                }
+              },
+              {
+                "name": "position",
+                "type": {
+                  "type": "string"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "identity": "SyncStoredState",
+      "kind": "entity",
+      "idField": "key",
+      "versions": [
+        {
+          "version": "v1",
+          "shape": {
+            "type": "struct",
+            "fields": [
+              {
+                "name": "collection",
+                "type": {
+                  "type": "string"
+                }
+              },
+              {
+                "name": "key",
+                "type": {
+                  "type": "string"
+                }
+              },
+              {
+                "name": "strategy",
+                "type": {
+                  "type": "string"
+                }
+              },
+              {
+                "name": "value",
+                "type": {
+                  "type": "unknown"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "_v": "v1"
+}

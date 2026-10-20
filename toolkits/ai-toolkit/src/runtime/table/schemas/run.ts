@@ -5,11 +5,11 @@ import { HARNESS_IDS, RUN_STATUSES } from '../../protocol/index.js';
 const ClaudeRunDataSchema = Schema.Struct({
   type: Schema.Literal('claude'),
   model: Schema.String,
-  thinking: Schema.NullOr(Schema.Struct({ budgetTokens: Schema.Number })),
+  thinking: Schema.NullOr(Schema.Struct({ budgetTokens: Schema.Finite })),
   permissionMode: Schema.String,
   allowDangerouslySkipPermissions: Schema.Boolean,
-  maxTurns: Schema.NullOr(Schema.Number),
-  permissionTimeoutMs: Schema.NullOr(Schema.Number),
+  maxTurns: Schema.NullOr(Schema.Finite),
+  permissionTimeoutMs: Schema.NullOr(Schema.Finite),
   inputHash: Schema.String,
 });
 
@@ -19,7 +19,7 @@ const CodexRunDataSchema = Schema.Struct({
   reasoningEffort: Schema.NullOr(Schema.String),
   approvalPolicy: Schema.String,
   sandbox: Schema.String,
-  requestTimeoutMs: Schema.NullOr(Schema.Number),
+  requestTimeoutMs: Schema.NullOr(Schema.Finite),
   inputHash: Schema.String,
 });
 
@@ -28,8 +28,8 @@ export const RunSchema = EntityESchema.make('AiRun', 'id', {
   harness: Schema.Literals(HARNESS_IDS),
   status: Schema.Literals(RUN_STATUSES),
   hostId: Schema.String,
-  startedAt: Schema.Number,
-  finishedAt: Schema.NullOr(Schema.Number),
+  startedAt: Schema.Finite,
+  finishedAt: Schema.NullOr(Schema.Finite),
   data: Schema.Union([ClaudeRunDataSchema, CodexRunDataSchema]),
 }).build();
 

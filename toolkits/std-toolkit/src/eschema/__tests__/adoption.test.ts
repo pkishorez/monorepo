@@ -47,7 +47,7 @@ describe('ESchema', () => {
             const User = ESchema.make('User', { name: Schema.String })
               .evolve(
                 'v2',
-                { name: Schema.String, age: Schema.Number },
+                { name: Schema.String, age: Schema.Finite },
                 (p) => ({
                   ...p,
                   age: 0,

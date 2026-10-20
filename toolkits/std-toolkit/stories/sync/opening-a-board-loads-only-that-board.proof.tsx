@@ -14,7 +14,7 @@ const Task = EntityESchema.make('Task', 'taskId', {
   boardId: Schema.String,
   title: Schema.String,
   done: Schema.Boolean,
-  position: Schema.Number,
+  position: Schema.Finite,
 }).build();
 type Task = typeof Task.Type;
 

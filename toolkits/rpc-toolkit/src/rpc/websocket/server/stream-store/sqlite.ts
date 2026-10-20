@@ -29,7 +29,7 @@ const define = () => {
   /** The encoded RPC request, headers included, so replay re-runs per-call auth. */
   const Request = Schema.Struct({
     _tag: Schema.Literal('Request'),
-    id: Schema.Union([Schema.String, Schema.Number]),
+    id: Schema.Union([Schema.String, Schema.Finite]),
     tag: Schema.String,
     payload: Schema.Unknown,
     // Snapshots do not take tuples yet, so each [name, value] pair is an array.

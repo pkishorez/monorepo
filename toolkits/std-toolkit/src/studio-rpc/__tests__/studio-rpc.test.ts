@@ -398,7 +398,7 @@ describe('StudioRpc key paths', () => {
     .build();
   const TaskSchema = EntityESchema.make('Task', 'taskId', {
     board: Schema.Struct({ id: Schema.String }),
-    rank: Schema.Number,
+    rank: Schema.Finite,
     dueAt: Schema.DateFromString,
   }).build();
   const task = pathTable

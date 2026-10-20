@@ -107,6 +107,9 @@ function valueLabel(value: unknown): string {
   if (isRecord(value) && typeof value.type === 'string') {
     return inlineType(value as unknown as SnapshotType);
   }
+  if (isRecord(value) && typeof value.check === 'string') {
+    return checkLabel(value as unknown as SnapshotCheck);
+  }
   if (Array.isArray(value)) return value.map(valueLabel).join(', ') || '—';
   return literal(value);
 }
@@ -114,6 +117,11 @@ function valueLabel(value: unknown): string {
 function editLine(edit: SnapshotChange['edits'][number]): string {
   const location = edit.path.join('.') || 'contract';
   return `${location}: ${valueLabel(edit.before)} → ${valueLabel(edit.after)}`;
+}
+
+/** One line naming a change, such as `Task v1 edited`: the subject and the action. */
+export function changeLabel(change: SnapshotChange): string {
+  return `${subjectLabel(change)} ${change.action}`;
 }
 
 function changeLines(change: SnapshotChange): readonly string[] {

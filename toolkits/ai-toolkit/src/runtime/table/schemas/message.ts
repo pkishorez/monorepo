@@ -10,7 +10,7 @@ export const MessageSchema = EntityESchema.make('AiMessage', 'id', {
   threadId: Schema.String,
   runId: Schema.String,
   role: Schema.Literals(MESSAGE_ROLES),
-  createdAt: Schema.Number,
+  createdAt: Schema.Finite,
   data: Schema.Struct({
     parts: Schema.Array(AiMessagePartSchema),
     metadata: Schema.NullOr(Schema.Unknown),

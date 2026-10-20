@@ -11,6 +11,9 @@
       "@kestack/std-toolkit/alchemy": ["./src/alchemy/index.ts"],
       "@kestack/std-toolkit/core": ["./src/core/index.ts"],
       "@kestack/std-toolkit/eschema": ["./src/eschema/index.ts"],
+      "@kestack/std-toolkit/eschema/testing": [
+        "./src/eschema/testing/index.ts"
+      ],
       "@kestack/std-toolkit/snapshot": ["./src/snapshot/index.ts"],
       "@kestack/std-toolkit/snapshot/vitest": [
         "./src/snapshot/vitest/index.ts"

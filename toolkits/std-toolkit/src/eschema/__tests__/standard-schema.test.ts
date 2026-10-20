@@ -20,7 +20,7 @@ describe('ESchema', () => {
       it('validate() returns success result for valid input', () => {
         const schema = EntityESchema.make('User', 'id', {
           name: Schema.String,
-          age: Schema.Number,
+          age: Schema.Finite,
         }).build();
 
         const result = schema['~standard'].validate({

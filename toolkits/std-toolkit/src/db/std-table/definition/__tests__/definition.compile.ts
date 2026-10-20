@@ -7,7 +7,7 @@ import {
 } from '../index.js';
 
 const schema = EntityESchema.make('Person', 'id', {
-  count: Schema.Number,
+  count: Schema.Finite,
   organizationId: Schema.String,
 }).build();
 

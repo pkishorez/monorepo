@@ -19,7 +19,7 @@ describe('ESchema', () => {
     describe('Make', () => {
       it.effect('encodes values with a value envelope', () =>
         Effect.gen(function* () {
-          const schema = ValueESchema.make('Count', Schema.Number).build();
+          const schema = ValueESchema.make('Count', Schema.Finite).build();
 
           const encoded = yield* writeEncoded(schema, 42);
 
@@ -29,7 +29,7 @@ describe('ESchema', () => {
 
       it.effect('decodes value envelopes', () =>
         Effect.gen(function* () {
-          const schema = ValueESchema.make('Count', Schema.Number).build();
+          const schema = ValueESchema.make('Count', Schema.Finite).build();
 
           const decoded = yield* readEncoded(schema, {
             _v: 'v1',
@@ -43,7 +43,7 @@ describe('ESchema', () => {
       it.effect('treats bare values as earliest-version data', () =>
         Effect.gen(function* () {
           const schema = ValueESchema.make('Count', Schema.String)
-            .evolve('v2', Schema.Number, (value) => Number(value))
+            .evolve('v2', Schema.Finite, (value) => Number(value))
             .build();
 
           const decoded = yield* readEncoded(schema, '42');
@@ -127,7 +127,7 @@ describe('ESchema', () => {
 
       it.effect('refuses a payload that does not match its version', () =>
         Effect.gen(function* () {
-          const schema = ValueESchema.make('Count', Schema.Number).build();
+          const schema = ValueESchema.make('Count', Schema.Finite).build();
 
           const error = yield* Effect.flip(
             readEncoded(schema, { _v: 'v1', _value: 'not a number' }),
@@ -209,8 +209,8 @@ describe('ESchema', () => {
 
       it.effect('migrations receive decoded values from prior versions', () =>
         Effect.gen(function* () {
-          const schema = ValueESchema.make('Count', Schema.Number)
-            .evolve('v2', Schema.Number, (value) => value * 2)
+          const schema = ValueESchema.make('Count', Schema.Finite)
+            .evolve('v2', Schema.Finite, (value) => value * 2)
             .build();
 
           const decoded = yield* readEncoded(schema, {
@@ -225,7 +225,7 @@ describe('ESchema', () => {
       it.effect('turns a throwing migration into an ESchemaError', () =>
         Effect.gen(function* () {
           const schema = ValueESchema.make('Count', Schema.String)
-            .evolve('v2', Schema.Number, () => {
+            .evolve('v2', Schema.Finite, () => {
               throw new Error('boom');
             })
             .build();
@@ -233,7 +233,7 @@ describe('ESchema', () => {
           const error = yield* Effect.flip(readEncoded(schema, '42'));
 
           expect(error).toBeInstanceOf(ESchemaError);
-          expect(error.message).toBe('Migration to v2 failed');
+          expect(error.message).toBe('Migration to v2 failed: boom');
         }),
       );
     });
@@ -304,14 +304,14 @@ describe('ESchema', () => {
     describe('Views', () => {
       it('schema exposes the latest value schema', () => {
         const schema = ValueESchema.make('Count', Schema.String)
-          .evolve('v2', Schema.Number, (value) => Number(value))
+          .evolve('v2', Schema.Finite, (value) => Number(value))
           .build();
 
         expect(Schema.isSchema(schema.schema)).toBe(true);
       });
 
       it('getDescriptor describes the canonical envelope', () => {
-        const schema = ValueESchema.make('Count', Schema.Number).build();
+        const schema = ValueESchema.make('Count', Schema.Finite).build();
 
         const descriptor = schema.getDescriptor();
         const versionSchema = descriptor.properties._v as { enum?: string[] };
@@ -336,7 +336,7 @@ describe('ESchema', () => {
 
     describe('Type extractors', () => {
       it('extracts decoded and encoded value types', () => {
-        const schema = ValueESchema.make('Count', Schema.Number).build();
+        const schema = ValueESchema.make('Count', Schema.Finite).build();
 
         type Decoded = ESchemaType<typeof schema>;
         type Encoded = (typeof schema)['Encoded'];

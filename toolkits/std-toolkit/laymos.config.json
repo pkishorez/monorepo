@@ -48,6 +48,7 @@
       "src/eschema/domain/encoded",
       "src/eschema/domain/eschema-error",
       "src/eschema/domain/introspection",
+      "src/eschema/domain/portable-value",
       "src/eschema/domain/schema-model",
       "src/eschema/domain/snapshot-type"
     ],
@@ -61,6 +62,7 @@
     "src/eschema/eschema": ["src/eschema/domain"],
     "src/eschema/entity-eschema": ["src/eschema/domain"],
     "src/eschema/value-eschema": ["src/eschema/domain"],
+    "src/eschema/testing": ["src/eschema/domain"],
     "src/snapshot/domain": ["src/eschema"],
     "src/snapshot/capture": ["src/snapshot/domain"],
     "src/snapshot/capture/eschema-capture": [
@@ -81,6 +83,7 @@
       "src/snapshot/snapshot/snapshot-decoder"
     ],
     "src/snapshot/snapshot/snapshot-renderer": ["src/eschema"],
+    "src/snapshot/vitest": ["src/eschema/testing"],
     "src/db/std-table/definition": ["src/eschema"],
     "src/db/std-table/key": ["src/db/std-table/contract"],
     "src/db/std-table/entity": [

@@ -11,7 +11,7 @@ const Task = EntityESchema.make('Task', 'taskId', {
 // Another tool's idea of a Task v1: the title is a number.
 const ForeignTask = EntityESchema.make('Task', 'taskId', {
   boardId: Schema.String,
-  title: Schema.Number,
+  title: Schema.Finite,
 }).build();
 
 const anotherTool = StdTable.make('board').primary('pk', 'sk').build();

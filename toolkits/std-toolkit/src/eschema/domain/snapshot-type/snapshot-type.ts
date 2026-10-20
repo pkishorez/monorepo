@@ -3,6 +3,7 @@ import { inspectESchemaComposition } from '../introspection/index.js';
 import {
   CheckRefusal,
   describeChecks,
+  isFiniteNumber,
   SnapshotCheckSchema,
   type SnapshotCheck,
 } from './check-catalogue/index.js';
@@ -68,7 +69,7 @@ export const SnapshotTypeSchema: Schema.Codec<SnapshotType> = Schema.suspend(
       Schema.Struct({ type: Schema.Literal('unknown'), ...annotations }),
       Schema.Struct({
         type: Schema.Literal('literal'),
-        value: Schema.Union([Schema.String, Schema.Number, Schema.Boolean]),
+        value: Schema.Union([Schema.String, Schema.Finite, Schema.Boolean]),
         ...annotations,
       }),
       Schema.Struct({
@@ -102,7 +103,7 @@ export const SnapshotTypeSchema: Schema.Codec<SnapshotType> = Schema.suspend(
         type: Schema.Literal('recursive'),
         body: SnapshotTypeSchema,
       }),
-      Schema.Struct({ type: Schema.Literal('recurse'), depth: Schema.Number }),
+      Schema.Struct({ type: Schema.Literal('recurse'), depth: Schema.Int }),
     ]) as unknown as Schema.Codec<SnapshotType>,
 );
 
@@ -332,6 +333,14 @@ function describeNode(
     case 'String':
       return withChecks({ type: 'string' }, ast, path, walk);
     case 'Number':
+      // A conversion's encoded end is not the user's to check (DurationFromMillis
+      // stores a plain number); encoding refuses a non-finite one at write.
+      if (!walk.insideConversion && !isFiniteNumber(ast.checks)) {
+        return refuse(
+          path,
+          'a number may be NaN or Infinity, which JSON cannot store; use Schema.Finite or Schema.Int',
+        );
+      }
       return withChecks({ type: 'number' }, ast, path, walk);
     case 'Boolean':
       return withChecks({ type: 'boolean' }, ast, path, walk);
