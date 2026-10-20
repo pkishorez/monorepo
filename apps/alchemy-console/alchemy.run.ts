@@ -101,6 +101,16 @@ export const Worker = Cloudflare.Website.Vite(
         deployed,
         GITHUB_LOCAL,
       ),
+      GH_APP_CLIENT_ID: yield* required(
+        'GH_APP_CLIENT_ID',
+        deployed,
+        GITHUB_LOCAL,
+      ),
+      GH_APP_CLIENT_SECRET: yield* required(
+        'GH_APP_CLIENT_SECRET',
+        deployed,
+        GITHUB_LOCAL,
+      ),
     };
     const index = yield* Cloudflare.D1.Database('ConnectionIndex');
     yield* StdToolkit.D1.table('ConnectionIndexTable', {
@@ -118,7 +128,7 @@ export const Worker = Cloudflare.Website.Vite(
         CONSOLE_INVITES: invites,
         // The Vault's key, a Worker secret.
         CONSOLE_VAULT_KEY: vaultKey,
-        // The GitHub App's ID, slug, private key and webhook secret.
+        // The GitHub App's ID, slug, private key, webhook secret and OAuth client.
         ...app,
         // The connection index: installation → user.
         CONSOLE_INDEX: index,

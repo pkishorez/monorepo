@@ -42,6 +42,8 @@ describe.skipIf(!existsSync(file))('GitHub, live, as the dev App', () => {
               appId: env.GH_APP_ID!,
               slug: env.GH_APP_SLUG!,
               privateKey: env.GH_APP_PRIVATE_KEY!,
+              clientId: env.GH_APP_CLIENT_ID!,
+              clientSecret: env.GH_APP_CLIENT_SECRET!,
             },
             (input, init) => fetch(input, init),
           ),

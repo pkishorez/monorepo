@@ -14,40 +14,56 @@ import { Storage } from '../../services/storage/index.ts';
 /*
  * GitHub connections: how one is made, kept fresh, and forgotten.
  *
- * - installUrl  issues a one-time `state` and answers with the App's install
- *               URL carrying it;
- * - connect     GitHub's return to `/github/connected`, for this member:
- *               the state must be one this User Space issued, GitHub must
- *               know the installation, and no other user may own it in the
- *               connection index; then the connection is kept with its
- *               repositories, and the index names this member its owner;
+ * - installUrl  issues a one-time `install` state and answers with the App's
+ *               install URL carrying it;
+ * - connect     GitHub's return to `/github/connected`, for this member. An
+ *               installation they already have is read again. Any other
+ *               needs an `install` state this User Space issued and an
+ *               installation GitHub knows; then the member is sent to ask
+ *               GitHub who they are, with an `authorize` state for it;
+ * - authorize   GitHub's answer at `/github/authorized`: only when the
+ *               member's GitHub user can reach the installation, and no
+ *               other Console user owns it in the connection index, is the
+ *               connection kept, with its repositories, and the index made
+ *               to name this member its owner;
  * - refresh     reads an installation's account and repositories again;
  * - forget      drops a connection and its index row;
  * - list        every connection, now and after each change.
  *
- * Only a state issued here can claim an installation no one in Console has
- * connected yet, so a link someone else crafted can't. A return without one
- * (GitHub's "Configure" page sends none) only refreshes an installation
- * this member already has.
+ * A state proves the member started here; only GitHub, asked as their
+ * GitHub user, proves the installation is theirs. So a link someone crafted
+ * with another account's installation ID claims nothing.
  */
 
-/** How long an install URL may take to come back. */
+/** How long a state may take to come back. */
 const STATE_MINUTES = 60;
-// GitHub's clock and ours may disagree a little.
-const SKEW = 60 * 1000;
 
 export interface ConnectInput {
   readonly userId: string;
   readonly installationId: number;
-  /** GitHub's `setup_action`: `install` for a new installation, `update` for a changed one. */
-  readonly setupAction: string;
   readonly state: string | null;
+  /** Where GitHub sends the member back after asking who they are. */
+  readonly authorizedUrl: string;
+}
+
+export interface AuthorizeInput {
+  readonly userId: string;
+  /** GitHub's code; null when the member declined. */
+  readonly code: string | null;
+  readonly state: string | null;
+  /** The same `authorizedUrl` the question was asked with. */
+  readonly authorizedUrl: string;
 }
 
 export interface ConnectOutcome {
   readonly returnTo: ReturnTo;
   readonly github: GitHubReturn;
 }
+
+/** What `/github/connected` does next: land, or ask GitHub who the member is. */
+export type ConnectStep =
+  | ({ readonly _tag: 'Done' } & ConnectOutcome)
+  | { readonly _tag: 'Authorize'; readonly url: string };
 
 type Stored = Effect.Success<Storage['Service']['connections']['all']>[number];
 
@@ -69,36 +85,72 @@ const randomState = () => {
     .replace(/=+$/, '');
 };
 
-/** Reads the installation and its repositories again, keeping them on `connectionId`. */
-const fetched = (
-  github: GitHub['Service'],
-  installationId: number,
-  connectionId: string,
-  createdAt: number,
-) =>
-  Effect.gen(function* () {
-    const [installation, repositories] = yield* Effect.all(
-      [
-        github.installation(installationId),
-        github.repositories(installationId),
-      ],
-      { concurrency: 2 },
-    );
-    return {
-      connectionId,
+/** The installation's account and repositories, as GitHub says now. */
+const fetched = (github: GitHub['Service'], installationId: number) =>
+  Effect.all(
+    [github.installation(installationId), github.repositories(installationId)],
+    { concurrency: 2 },
+  ).pipe(
+    Effect.map(([installation, repositories]) => ({
       installationId,
       accountLogin: installation.accountLogin,
       accountType: installation.accountType,
       avatarUrl: installation.avatarUrl,
       repositories,
-      createdAt,
-      updatedAt: Date.now(),
-      installedAt: installation.createdAt,
-    };
-  });
+    })),
+  );
 
 const outcomeOf = (error: GitHubError): GitHubReturn =>
-  error.reason === 'not-found' ? 'not-found' : 'unreachable';
+  error.reason === 'not-found'
+    ? 'not-found'
+    : error.reason === 'refused'
+      ? 'unauthorized'
+      : 'unreachable';
+
+/** The state `state` names, used up; `fresh` only when it is of `kind` and not too old. */
+const taken = (state: string | null, kind: 'install' | 'authorize') =>
+  Effect.gen(function* () {
+    if (state === null) return { issued: null, fresh: null };
+    const issued = yield* (yield* Storage).installStates.take(state);
+    const fresh =
+      issued !== null &&
+      issued.kind === kind &&
+      issued.issuedAt > Date.now() - STATE_MINUTES * 60 * 1000
+        ? issued
+        : null;
+    return { issued, fresh };
+  });
+
+/**
+ * Keeps `record` as this member's connection to its installation, unless
+ * someone else owns it: under the connections' lock, so two returns for one
+ * installation keep one connection.
+ */
+const keep = (
+  userId: string,
+  record: Omit<Stored, 'connectionId' | 'createdAt' | 'updatedAt'>,
+) =>
+  Effect.gen(function* () {
+    const storage = yield* Storage;
+    const index = yield* ConnectionIndex;
+    return yield* storage.connections.exclusively(
+      Effect.gen(function* () {
+        if (!(yield* index.claim(record.installationId, userId)))
+          return 'taken' as const;
+        const existing = yield* storage.connections.byInstallation(
+          record.installationId,
+        );
+        const now = Date.now();
+        yield* storage.connections.put({
+          ...record,
+          connectionId: existing?.connectionId ?? (yield* nextUlid),
+          createdAt: existing?.createdAt ?? now,
+          updatedAt: now,
+        });
+        return 'connected' as const;
+      }),
+    );
+  });
 
 /** Drops the connection to `installationId`, if this member has one, and its index row. */
 export const forget = (userId: string, installationId: number) =>
@@ -120,25 +172,24 @@ export const refresh = (userId: string, installationId: number) =>
   Effect.gen(function* () {
     const storage = yield* Storage;
     const github = yield* GitHub;
-    const found = yield* storage.connections.byInstallation(installationId);
-    if (found === null) return;
-    const exit = yield* fetched(
-      github,
-      installationId,
-      found.connectionId,
-      found.createdAt,
-    ).pipe(Effect.result);
+    if ((yield* storage.connections.byInstallation(installationId)) === null)
+      return;
+    const exit = yield* fetched(github, installationId).pipe(Effect.result);
     if (exit._tag === 'Failure') {
       if (exit.failure.reason === 'not-found')
         yield* forget(userId, installationId);
       return;
     }
-    const { installedAt: _, ...record } = exit.success;
     yield* storage.connections.exclusively(
       Effect.gen(function* () {
         // Forgotten meanwhile: stays forgotten.
-        if ((yield* storage.connections.get(found.connectionId)) !== null)
-          yield* storage.connections.put(record);
+        const found = yield* storage.connections.byInstallation(installationId);
+        if (found !== null)
+          yield* storage.connections.put({
+            ...found,
+            ...exit.success,
+            updatedAt: Date.now(),
+          });
       }),
     );
   });
@@ -148,54 +199,68 @@ export const connect = (input: ConnectInput) =>
   Effect.gen(function* () {
     const storage = yield* Storage;
     const github = yield* GitHub;
-    const index = yield* ConnectionIndex;
-    const now = Date.now();
-    const issued =
-      input.state === null
-        ? null
-        : yield* storage.installStates.take(input.state);
-    const fresh =
-      issued !== null && issued.issuedAt > now - STATE_MINUTES * 60 * 1000
-        ? issued
-        : null;
-    const returnTo = fresh?.returnTo ?? issued?.returnTo ?? '/';
-    const answer = (github: GitHubReturn): ConnectOutcome => ({
-      returnTo,
+    const { issued, fresh } = yield* taken(input.state, 'install');
+    const done = (github: GitHubReturn): ConnectStep => ({
+      _tag: 'Done',
+      returnTo: issued?.returnTo ?? '/',
       github,
     });
 
+    // One this member already has: GitHub's Configure page comes back here
+    // too, without a state. Read it again.
     const existing = yield* storage.connections.byInstallation(
       input.installationId,
     );
-    if (existing === null && fresh === null) return answer('expired');
+    if (existing !== null) {
+      yield* refresh(input.userId, input.installationId);
+      return done('connected');
+    }
+    if (fresh === null) return done('expired');
+    const known = yield* github
+      .installation(input.installationId)
+      .pipe(Effect.result);
+    if (known._tag === 'Failure') return done(outcomeOf(known.failure));
 
-    const connectionId = existing?.connectionId ?? (yield* nextUlid);
-    const exit = yield* fetched(
+    const state = randomState();
+    yield* storage.installStates.issue({
+      state,
+      kind: 'authorize',
+      installationId: input.installationId,
+      returnTo: fresh.returnTo,
+      issuedAt: Date.now(),
+    });
+    const step: ConnectStep = {
+      _tag: 'Authorize',
+      url: github.authorizeUrl(state, input.authorizedUrl),
+    };
+    return step;
+  });
+
+/** GitHub's word on who the member is, for `input.userId`, whose User Space this is. */
+export const authorize = (input: AuthorizeInput) =>
+  Effect.gen(function* () {
+    const github = yield* GitHub;
+    const { issued, fresh } = yield* taken(input.state, 'authorize');
+    const answer = (github: GitHubReturn): ConnectOutcome => ({
+      returnTo: issued?.returnTo ?? '/',
       github,
-      input.installationId,
-      connectionId,
-      existing?.createdAt ?? now,
-    ).pipe(Effect.result);
-    if (exit._tag === 'Failure') return answer(outcomeOf(exit.failure));
-    const { installedAt, ...record } = exit.success;
-    // A new installation is newer than the URL that led to it, so an older
-    // one can't be claimed with a state issued for something else.
-    if (
-      existing === null &&
-      input.setupAction === 'install' &&
-      fresh !== null &&
-      installedAt < fresh.issuedAt - SKEW
-    )
+    });
+    if (fresh === null || fresh.installationId === null)
       return answer('expired');
+    if (input.code === null) return answer('unauthorized');
+    const installationId = fresh.installationId;
 
-    return yield* storage.connections.exclusively(
-      Effect.gen(function* () {
-        if (!(yield* index.claim(input.installationId, input.userId)))
-          return answer('taken');
-        yield* storage.connections.put(record);
-        return answer('connected');
-      }),
-    );
+    const reachable = yield* github
+      .userInstallations(input.code, input.authorizedUrl)
+      .pipe(Effect.result);
+    if (reachable._tag === 'Failure')
+      return answer(outcomeOf(reachable.failure));
+    if (!reachable.success.includes(installationId))
+      return answer('unauthorized');
+
+    const record = yield* fetched(github, installationId).pipe(Effect.result);
+    if (record._tag === 'Failure') return answer(outcomeOf(record.failure));
+    return answer(yield* keep(input.userId, record.success));
   });
 
 /** The handlers, for the composition root to serve under `ConsoleApi`. */
@@ -211,7 +276,13 @@ export const connectionsHandlers = Effect.gen(function* () {
         const now = Date.now();
         yield* storage.installStates.sweep(now - STATE_MINUTES * 60 * 1000);
         const state = randomState();
-        yield* storage.installStates.issue({ state, returnTo, issuedAt: now });
+        yield* storage.installStates.issue({
+          state,
+          kind: 'install',
+          installationId: null,
+          returnTo,
+          issuedAt: now,
+        });
         return github.installUrl(state);
       }),
     'Connections.remove': ({

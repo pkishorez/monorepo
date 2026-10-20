@@ -10,14 +10,18 @@ import { visitorOf } from '../visitor/index.ts';
 import { signedBy } from './signature.ts';
 
 /*
- * `/github/*`: the GitHub App's two doors into Console.
+ * `/github/*`: the GitHub App's doors into Console.
  *
- * - connected  GitHub's Setup URL, a top-level navigation back from
- *              installing the App, carrying the visitor's own session.
- *              An invited member's return goes to their User Space, which
- *              checks it and keeps the connection; the browser is sent on
- *              to where the install began, `?github=` saying how it went.
- * - webhook    GitHub's deliveries. Only a body signed with the webhook
+ * - connected   GitHub's Setup URL, a top-level navigation back from
+ *               installing the App, carrying the visitor's own session.
+ *               An invited member's return goes to their User Space, which
+ *               checks its state, then sends the browser to GitHub to say
+ *               who the member is there;
+ * - authorized  the App's OAuth callback, GitHub's answer to that: the User
+ *               Space keeps the connection only for an installation the
+ *               member's GitHub user can reach. The browser lands where the
+ *               install began, `?github=` saying how it went;
+ * - webhook     GitHub's deliveries. Only a body signed with the webhook
  *              secret is read; its installation's owner, from the
  *              connection index, gets it. One no one owns is dropped.
  */
@@ -42,6 +46,9 @@ const seeOther = (location: string, cookies: ReadonlyArray<string>) => {
 const landing = ({ returnTo, github }: ConnectOutcome) =>
   `${returnTo}?github=${github}`;
 
+/** Where GitHub answers who the member is: the App's OAuth callback on this host. */
+const authorizedUrl = (url: URL) => `${url.origin}/github/authorized`;
+
 export const connected = async (
   request: Request,
   env: GitHubEnv,
@@ -50,16 +57,33 @@ export const connected = async (
   const { visit, cookies } = await visitorOf(request, env.CONSOLE_INVITES);
   // Console's gate answers anyone else, at its own door.
   if (visit._tag !== 'Admitted') return seeOther('/', cookies);
-  const setupAction = url.searchParams.get('setup_action') ?? '';
-  if (setupAction === 'request')
+  if (url.searchParams.get('setup_action') === 'request')
     return seeOther(landing({ returnTo: '/', github: 'requested' }), cookies);
   const installationId = url.searchParams.get('installation_id') ?? '';
   if (!/^[0-9]{1,15}$/.test(installationId))
     return seeOther(landing({ returnTo: '/', github: 'not-found' }), cookies);
-  const outcome = await reach(env.USER_SPACE, visit).connectGitHub({
+  const step = await reach(env.USER_SPACE, visit).connectGitHub({
     installationId: Number(installationId),
-    setupAction,
     state: url.searchParams.get('state'),
+    authorizedUrl: authorizedUrl(url),
+  });
+  return seeOther(
+    step._tag === 'Authorize' ? step.url : landing(step),
+    cookies,
+  );
+};
+
+export const authorized = async (
+  request: Request,
+  env: GitHubEnv,
+): Promise<Response> => {
+  const url = new URL(request.url);
+  const { visit, cookies } = await visitorOf(request, env.CONSOLE_INVITES);
+  if (visit._tag !== 'Admitted') return seeOther('/', cookies);
+  const outcome = await reach(env.USER_SPACE, visit).authorizeGitHub({
+    code: url.searchParams.get('code'),
+    state: url.searchParams.get('state'),
+    authorizedUrl: authorizedUrl(url),
   });
   return seeOther(landing(outcome), cookies);
 };

@@ -96,6 +96,8 @@ export interface TestApp {
   /** PEM, PKCS#1, as GitHub hands it out. */
   readonly privateKey: string;
   readonly webhookSecret: string;
+  readonly clientId: string;
+  readonly clientSecret: string;
 }
 
 export const startConsole = async (options: {
@@ -125,6 +127,8 @@ export const startConsole = async (options: {
             GH_APP_SLUG: options.app.slug,
             GH_APP_PRIVATE_KEY: options.app.privateKey,
             GH_APP_WEBHOOK_SECRET: options.app.webhookSecret,
+            GH_APP_CLIENT_ID: options.app.clientId,
+            GH_APP_CLIENT_SECRET: options.app.clientSecret,
           }
         : {}),
     },

@@ -4,7 +4,8 @@ import type { Outbound, TestApp } from './console.ts';
 /*
  * GitHub as the tests' Worker reaches it: one App, whose installations a
  * test adds and changes, answering only a JWT the App's key signed, or a
- * token it minted, as GitHub answers. Deliveries are signed with the App's
+ * token it minted, as GitHub answers. A GitHub user is an OAuth code a test
+ * hands out, reaching the installations it names. Deliveries are signed with the App's
  * webhook secret, as GitHub signs them.
  */
 
@@ -17,6 +18,8 @@ export const APP: TestApp = {
   slug: 'alchemy-console-test',
   privateKey: privateKey.export({ type: 'pkcs1', format: 'pem' }).toString(),
   webhookSecret: 'webhook-secret-for-tests',
+  clientId: 'Iv1.testclient',
+  clientSecret: 'client-secret-for-tests',
 };
 
 export interface FakeInstallation {
@@ -58,9 +61,24 @@ export const fakeGitHub = () => {
   const installations = new Map<number, FakeInstallation>();
   const created = new Map<number, number>();
   const tokenOf = (id: number) => `ghs_installation_${id}`;
+  const users = new Map<string, ReadonlyArray<number>>();
 
-  const outbound: Outbound = (request) => {
+  const outbound: Outbound = async (request) => {
     const url = new URL(request.url);
+    if (
+      url.host === 'github.com' &&
+      url.pathname === '/login/oauth/access_token'
+    ) {
+      const body = JSON.parse(await request.text());
+      if (
+        body.client_id !== APP.clientId ||
+        body.client_secret !== APP.clientSecret
+      )
+        return json(200, { error: 'incorrect_client_credentials' });
+      return users.has(body.code)
+        ? json(200, { access_token: `ghu_${body.code}` })
+        : json(200, { error: 'bad_verification_code' });
+    }
     if (url.host !== 'api.github.com')
       throw new TypeError(`The tests reach no ${url.host}.`);
     const bearer = (request.headers.get('authorization') ?? '').replace(
@@ -91,6 +109,15 @@ export const fakeGitHub = () => {
         created_at: new Date(
           installation.createdAt ?? created.get(installation.id)!,
         ).toISOString(),
+      });
+    }
+    if (url.pathname === '/user/installations') {
+      const reachable = users.get(bearer.replace(/^ghu_/, ''));
+      if (!bearer.startsWith('ghu_') || reachable === undefined)
+        return json(401, { message: 'Bad credentials' });
+      return json(200, {
+        total_count: reachable.length,
+        installations: reachable.map((id) => ({ id })),
       });
     }
     const installation = [...installations.values()].find(
@@ -129,6 +156,12 @@ export const fakeGitHub = () => {
       return installation;
     },
     uninstall: (id: number) => installations.delete(id),
+    /** A GitHub user signing in, reaching `installationIds`: the code GitHub hands back for them. */
+    user: (installationIds: ReadonlyArray<number>) => {
+      const code = `code-${users.size + 1}`;
+      users.set(code, installationIds);
+      return code;
+    },
   };
 };
 

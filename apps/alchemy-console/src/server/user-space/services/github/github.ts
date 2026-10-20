@@ -15,6 +15,10 @@ import { appJwt, signingKey } from './jwt.ts';
  * - As an installation (its token, kept here until five minutes before it
  *   expires): its repositories, a folder listing, branches, a branch's
  *   head commit, and a comparison of two commits.
+ * - As a GitHub user, once (their OAuth code, exchanged with
+ *   `GH_APP_CLIENT_ID` and `GH_APP_CLIENT_SECRET`): which of the App's
+ *   installations they can reach, the proof an installation is theirs.
+ *   Their token is used for that one question and dropped.
  *
  * Tokens stay in this object: no answer carries one, except
  * `installationToken`, which a run hands to its own container.
@@ -33,6 +37,16 @@ const Installation = Schema.Struct({
 const Token = Schema.Struct({
   token: Schema.String,
   expires_at: Schema.String,
+});
+
+const UserToken = Schema.Union([
+  Schema.Struct({ access_token: Schema.String }),
+  Schema.Struct({ error: Schema.String }),
+]);
+
+const InstallationPage = Schema.Struct({
+  total_count: Schema.Number,
+  installations: Schema.Array(Schema.Struct({ id: Schema.Number })),
 });
 
 const RepositoryPage = Schema.Struct({
@@ -124,6 +138,9 @@ export interface AppConfig {
   readonly appId: string;
   readonly slug: string;
   readonly privateKey: string;
+  /** The App's OAuth client, for asking which installations a user reaches. */
+  readonly clientId: string;
+  readonly clientSecret: string;
 }
 
 // GitHub's pages hold 100; a thousand repositories is plenty to pick from.
@@ -160,6 +177,13 @@ export class GitHub extends Context.Service<
   {
     /** Where the browser installs the App, returning with `state`. */
     readonly installUrl: (state: string) => string;
+    /** Where the browser asks GitHub who its user is, returning to `redirectUri` with a code and `state`. */
+    readonly authorizeUrl: (state: string, redirectUri: string) => string;
+    /** The IDs of the App's installations the user who was given `code` can reach. */
+    readonly userInstallations: (
+      code: string,
+      redirectUri: string,
+    ) => Effect.Effect<ReadonlyArray<number>, GitHubError>;
     /** The installation, as the App sees it; fails as not found when GitHub knows none. */
     readonly installation: (
       installationId: number,
@@ -236,9 +260,65 @@ export class GitHub extends Context.Service<
             call(fetch, token, path),
           );
 
+        const userToken = (code: string, redirectUri: string) =>
+          Effect.gen(function* () {
+            const response = yield* Effect.tryPromise({
+              try: () =>
+                fetch('https://github.com/login/oauth/access_token', {
+                  method: 'POST',
+                  headers: {
+                    accept: 'application/json',
+                    'content-type': 'application/json',
+                    'user-agent': 'alchemy-console',
+                  },
+                  body: JSON.stringify({
+                    client_id: config.clientId,
+                    client_secret: config.clientSecret,
+                    code,
+                    redirect_uri: redirectUri,
+                  }),
+                }),
+              catch: () =>
+                new GitHubError({
+                  reason: 'unreachable',
+                  message: 'Couldn’t reach GitHub. Try again in a moment.',
+                }),
+            });
+            const answer = yield* Effect.promise(() =>
+              response.json().catch(() => null),
+            ).pipe(Effect.flatMap(decode(UserToken)));
+            if ('error' in answer)
+              return yield* new GitHubError({
+                reason: 'refused',
+                message: `GitHub didn’t confirm who you are (${answer.error}).`,
+              });
+            return answer.access_token;
+          });
+
         return GitHub.of({
           installUrl: (state) =>
             `https://github.com/apps/${encodeURIComponent(config.slug)}/installations/new?state=${encodeURIComponent(state)}`,
+          authorizeUrl: (state, redirectUri) =>
+            `https://github.com/login/oauth/authorize?client_id=${encodeURIComponent(config.clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${encodeURIComponent(state)}`,
+          userInstallations: (code, redirectUri) =>
+            Effect.gen(function* () {
+              const token = yield* userToken(code, redirectUri);
+              const found: Array<number> = [];
+              for (let page = 1; page <= MAX_PAGES; page++) {
+                const { total_count, installations } = yield* call(
+                  fetch,
+                  token,
+                  `/user/installations?per_page=${PER_PAGE}&page=${page}`,
+                ).pipe(Effect.flatMap(decode(InstallationPage)));
+                found.push(...installations.map(({ id }) => id));
+                if (
+                  installations.length < PER_PAGE ||
+                  found.length >= total_count
+                )
+                  break;
+              }
+              return found;
+            }),
           installation: (installationId) =>
             asApp(`/app/installations/${installationId}`).pipe(
               Effect.flatMap(decode(Installation)),

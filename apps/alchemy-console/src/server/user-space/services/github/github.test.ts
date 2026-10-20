@@ -39,7 +39,13 @@ const run = <A, E>(
     Effect.flatMap(GitHub, use).pipe(
       Effect.provide(
         GitHub.layer(
-          { appId: '42', slug: 'console-test', privateKey: pkcs1 },
+          {
+            appId: '42',
+            slug: 'console-test',
+            privateKey: pkcs1,
+            clientId: 'Iv1.test',
+            clientSecret: 'client-secret',
+          },
           async (input, init) => fetch(new URL(String(input)), init ?? {}),
         ),
       ),

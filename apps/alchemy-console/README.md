@@ -41,9 +41,12 @@ on disk and Local mode sign-in: type any email, and an invited one gets in. Set
 `CONSOLE_INVITES` and `CONSOLE_AUTH_URL` as `.env.example` describes, and put
 the Vault key, `CONSOLE_VAULT_KEY` (32 random bytes, base64), in
 `.env.vault-local`: it seals every credential a user adds. The dev GitHub
-App's keys (`GH_APP_ID`, `GH_APP_SLUG`, `GH_APP_PRIVATE_KEY`,
-`GH_APP_WEBHOOK_SECRET`) go in `.env.github-dev`; GitHub's webhooks can't
-reach a personal stage, so only the install round trip works there. `pnpm test`
+App's keys (`GH_APP_*`, as `.env.example` lists them) go in `.env.github-dev`.
+GitHub sends an install back only to the App's own Setup and Callback URLs,
+`https://<host>/github/connected` and `https://<host>/github/authorized` on
+console.kishore.app and dev-console.kishore.app, and delivers webhooks only
+there, so connecting GitHub works end to end on `dev` and `prod`, not on a
+personal stage or a preview. `pnpm test`
 builds the Worker as a deploy does and runs it in Miniflare; `pnpm lint` runs
 the checks, types and `laymos lint`.
 

@@ -79,8 +79,14 @@ export const gitHubConnection = userSpaceTable
   .primary({ pk: [] })
   .build();
 
-/** A one-time `state` an install URL carried, until GitHub brings it back. */
+/**
+ * A one-time `state` GitHub carries back: on an install URL, or on the
+ * question of who the member is on GitHub, for one installation.
+ */
 const InstallState = EntityESchema.make('InstallState', 'state', {
+  kind: Schema.Literals(['install', 'authorize']),
+  /** The installation an `authorize` state is for; null for `install`. */
+  installationId: Schema.NullOr(Schema.Number),
   returnTo: ReturnTo,
   /** In milliseconds since the epoch. */
   issuedAt: Schema.Number,

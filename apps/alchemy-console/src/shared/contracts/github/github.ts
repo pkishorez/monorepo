@@ -70,6 +70,8 @@ export const GitHubReturn = Schema.Literals([
   'expired',
   /** Another Console user already connected that account. */
   'taken',
+  /** GitHub didn't confirm the member's GitHub user can reach the installation. */
+  'unauthorized',
   /** GitHub knows no such installation of the App. */
   'not-found',
   'unreachable',

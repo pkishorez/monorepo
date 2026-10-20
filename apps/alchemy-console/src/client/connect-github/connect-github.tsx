@@ -49,6 +49,11 @@ const NOTICES: Record<
     description:
       'Another Console user already connected it. Ask them to remove it from their Settings, then connect it again.',
   },
+  unauthorized: {
+    title: 'GitHub didn’t confirm that account is yours',
+    description:
+      'Console connects an account only for a GitHub user who can manage its installation. Sign in to GitHub as that user, then connect GitHub again.',
+  },
   'not-found': {
     title: 'GitHub didn’t find that installation',
     description:
