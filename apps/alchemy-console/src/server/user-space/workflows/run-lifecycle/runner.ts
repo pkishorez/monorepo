@@ -103,6 +103,8 @@ export const runnerHandlers = Effect.gen(function* () {
         yield* lifecycle.heard(runId);
         const run = yield* lifecycle.active(runId);
         const env: Record<string, string> = {};
+        // An Inspect reads the stack and changes nothing: it gets no keys.
+        if (run.kind === 'inspect') return env;
         for (const credentialId of Object.values(run.credentials))
           Object.assign(
             env,
@@ -149,6 +151,7 @@ export const runnerHandlers = Effect.gen(function* () {
           'log',
         );
       }),
+    heartbeat: () => Effect.flatMap(caller, (runId) => lifecycle.heard(runId)),
     finish: ({ result }: { readonly result: RunResult }) =>
       Effect.gen(function* () {
         const runId = yield* caller;

@@ -117,6 +117,18 @@ export const run = (options: RunnerOptions) =>
         ),
         Effect.catch(() => Effect.never),
       );
+    // Heard from while a quiet command runs, so a healthy run is never Lost.
+    yield* Effect.forkScoped(
+      Effect.forever(
+        Effect.sleep('1 minute').pipe(
+          Effect.andThen(
+            client
+              .heartbeat()
+              .pipe(Effect.timeout('30 seconds'), Effect.ignore),
+          ),
+        ),
+      ),
+    );
     const workdir =
       options.workdir ?? path.join(tmpdir(), `console-run-${options.runId}`);
     const result: RunResult = yield* Effect.raceFirst(

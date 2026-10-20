@@ -8,11 +8,14 @@ import { RunError, RunnerEvent, RunResult, RunSpec } from '../run/index.ts';
  * run's token, that speaks for that one run only.
  *
  * - `spec`         the run to perform, with a GitHub token minted for it;
- * - `credentials`  the provider environment the run deploys with;
+ * - `credentials`  the provider environment the run deploys with; none for
+ *                  an Inspect;
  * - `report`       one numbered step; `log` numbered output lines. Each is
  *                  stored once per number: the runner sends them in order
  *                  and sends one again until it is acknowledged, so a
  *                  dropped socket leaves no gap and no duplicate;
+ * - `heartbeat`    still here, while a quiet command runs: a run unheard
+ *                  for five minutes is Lost;
  * - `finish`       how it ended, once every step is acknowledged;
  * - `cancel`       ends with a value when the run's owner asks it to stop.
  *
@@ -32,6 +35,7 @@ export const RunnerApi = RpcGroup.make(
     payload: { seq: Schema.Number, lines: Schema.Array(Schema.String) },
     error: RunError,
   }),
+  Rpc.make('heartbeat', { error: RunError }),
   Rpc.make('finish', { payload: { result: RunResult }, error: RunError }),
   Rpc.make('cancel', {
     success: Schema.Literal('cancel'),

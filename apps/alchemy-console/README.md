@@ -59,7 +59,7 @@ pnpm --filter alchemy-console test
 
 - `prod`, `dev` and `pr<N>` deploy only from CI, each with its own Vault key and GitHub App from the repository secrets (`DEV_CONSOLE_VAULT_KEY` and `DEV_GH_APP_*`, the `alchemy-console-dev` App, for `dev`; `CONSOLE_VAULT_KEY` and `GH_APP_*`, the `alchemy-console` App, otherwise): `main` to console.kishore.app, `console-next` to dev-console.kishore.app, each pull request to `pr<N>-console.kishore.app`.
 - `pnpm test` also runs `tests/github-live.test.ts` against the real dev App when its keys are on disk, at `.env.github-dev` or `CONSOLE_GITHUB_ENV`.
-- Runs need a container, so only deployed stages run them; a personal stage's runs fail to start, saying so. `CONSOLE_RUNNER_LIVE=1 pnpm --filter alchemy-console test tests/runner-live.test.ts` builds the runner image with local Docker and Inspects the sandbox repository through it, with the dev App's keys as above.
+- Runs need a container, so only deployed stages run them, and only with the repository variable `CONSOLE_RUNNERS=on` (the Cloudflare token must be allowed to deploy Containers); elsewhere a run fails to start, saying so. `CONSOLE_RUNNER_LIVE=1 pnpm --filter alchemy-console test tests/runner-live.test.ts` builds the runner image with local Docker and Inspects the sandbox repository through it, with the dev App's keys as above.
 
 ### Add a page
 

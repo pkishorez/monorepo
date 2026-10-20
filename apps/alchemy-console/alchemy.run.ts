@@ -41,8 +41,10 @@ import type { RunnerContainer, UserSpace } from './src/server/worker.ts';
  * `Dockerfile` built around the runner, bundled here into `.runner/` before
  * each deploy, and tells each container to call back at `CONSOLE_URL`, the
  * stage's own URL. A container is given only its run's ID, its run token and
- * that URL. A personal stage binds no runner: its runs fail to start, saying
- * so.
+ * that URL. Containers need the deploying Cloudflare token's Containers
+ * permission, so a deployed stage binds them only when `CONSOLE_RUNNERS` is
+ * `on` (the repository variable CI passes). Without them, as on a personal
+ * stage, runs fail to start, saying so.
  */
 
 const productionHost = 'console.kishore.app';
@@ -140,7 +142,13 @@ export const Worker = Cloudflare.Website.Vite(
       table: connectionIndexTable,
       database: index,
     });
-    if (deployed) yield* Effect.promise(() => buildRunner(RUNNER_CONTEXT));
+    const runners =
+      deployed &&
+      (yield* Config.String('CONSOLE_RUNNERS').pipe(
+        Config.withDefault(''),
+        Effect.orDie,
+      )) === 'on';
+    if (runners) yield* Effect.promise(() => buildRunner(RUNNER_CONTEXT));
     const port = Number(process.env.PORT);
     if (dev && (!Number.isInteger(port) || port < 1 || port > 65535)) {
       throw new Error('Run pnpm dev so Portless can assign PORT.');
@@ -157,7 +165,7 @@ export const Worker = Cloudflare.Website.Vite(
         // The connection index: installation → user.
         CONSOLE_INDEX: index,
         // Each run's container, and where it calls back.
-        ...(deployed
+        ...(runners
           ? { RUNNER: Runner, CONSOLE_URL: `https://${domainFor(stage)}` }
           : {}),
         // Inlined into the Worker and the browser alike; '' is Local mode.

@@ -1,4 +1,4 @@
-import { Clock, Context, Effect, Layer, Stream } from 'effect';
+import { Clock, Context, Effect, Layer, Queue, Stream } from 'effect';
 import { nextUlid } from '@kestack/std-toolkit/core';
 import {
   isFinished,
@@ -217,6 +217,9 @@ export class RunLifecycle extends Context.Service<
               startedAt: now,
               lastHeardAt: now,
             });
+            // Armed before the container is asked for, so a run whose start
+            // never answers is still found silent.
+            yield* wakeBy(dueAt(started));
             const failure = yield* host
               .start({ runId })
               .pipe(Effect.flip, Effect.option);
@@ -225,7 +228,6 @@ export class RunLifecycle extends Context.Service<
                 _tag: 'Failed',
                 message: `The run’s container didn’t start: ${failure.value.message}`,
               });
-            yield* wakeBy(dueAt(started));
             return [];
           });
 
@@ -256,8 +258,41 @@ export class RunLifecycle extends Context.Service<
         const touch = (run: StoredRun) =>
           Effect.gen(function* () {
             const now = yield* Clock.currentTimeMillis;
-            return yield* runs.put({ ...run, lastHeardAt: now });
+            const heard = yield* runs.put({ ...run, lastHeardAt: now });
+            yield* wakeBy(dueAt(heard));
+            return heard;
           });
+
+        /**
+         * Runs `effect` under the lock, to the end: a caller that goes away
+         * (a dropped socket) never leaves a run ended with its lane stuck.
+         */
+        const locked = <A, E>(effect: Effect.Effect<A, E>) =>
+          Effect.uninterruptible(runs.exclusively(effect));
+
+        /** Runs `effect` under the lock, then tells of the runs it ended, all to the end. */
+        const settle = <E>(
+          effect: Effect.Effect<ReadonlyArray<StoredRun>, E>,
+        ) =>
+          Effect.uninterruptible(
+            Effect.flatMap(runs.exclusively(effect), (ended) => tell(ended)),
+          );
+
+        /** Once now, then each time anything of `runId` is written: subscribed before the first. */
+        const wakes = (runId: string) =>
+          Stream.unwrap(
+            Effect.gen(function* () {
+              const queue = yield* Queue.unbounded<void>();
+              yield* Effect.forkScoped(
+                Stream.runForEach(runs.touched(runId), () =>
+                  Queue.offer(queue, undefined),
+                ),
+              );
+              yield* Effect.yieldNow;
+              yield* Queue.offer(queue, undefined);
+              return Stream.fromQueue(queue);
+            }),
+          );
 
         return RunLifecycle.of({
           enqueue: (input) =>
@@ -265,7 +300,7 @@ export class RunLifecycle extends Context.Service<
               const runId = yield* nextUlid;
               const now = yield* Clock.currentTimeMillis;
               const lane = laneOf(runId, input);
-              const ended = yield* runs.exclusively(
+              yield* settle(
                 Effect.gen(function* () {
                   yield* runs.put({
                     runId,
@@ -311,14 +346,13 @@ export class RunLifecycle extends Context.Service<
                   return replaced;
                 }),
               );
-              yield* tell(ended);
               return runId;
             }),
           onFinished: (handler) =>
             Effect.sync(() => void handlers.push(handler)),
           cancel: (runId) =>
             Effect.gen(function* () {
-              const ended = yield* runs.exclusively(
+              yield* settle(
                 Effect.gen(function* () {
                   const found = yield* runs.get(runId);
                   if (found === null) return yield* notFound;
@@ -331,7 +365,6 @@ export class RunLifecycle extends Context.Service<
                   return [];
                 }),
               );
-              yield* tell(ended);
             }),
           watch: (runId) =>
             Stream.unwrap(
@@ -371,10 +404,7 @@ export class RunLifecycle extends Context.Service<
                   sentRun = JSON.stringify(view);
                   return { updates, ended: isFinished(run.status) };
                 });
-                return Stream.concat(
-                  Stream.make(undefined),
-                  runs.touched(runId),
-                ).pipe(
+                return wakes(runId).pipe(
                   Stream.mapEffect(() => read),
                   Stream.takeUntil(({ ended }) => ended),
                   Stream.flatMap(({ updates }) => Stream.fromIterable(updates)),
@@ -383,7 +413,7 @@ export class RunLifecycle extends Context.Service<
             ),
           check: (now) =>
             Effect.gen(function* () {
-              const ended = yield* runs.exclusively(
+              yield* settle(
                 Effect.gen(function* () {
                   const ending: Array<StoredRun> = [];
                   let next = Infinity;
@@ -414,18 +444,17 @@ export class RunLifecycle extends Context.Service<
                   return ending;
                 }),
               );
-              yield* tell(ended);
             }),
           active,
           heard: (runId) =>
-            runs.exclusively(
+            locked(
               Effect.gen(function* () {
                 const run = yield* active(runId);
                 yield* touch(run);
               }),
             ),
           report: (runId, seq, write, kind) =>
-            runs.exclusively(
+            locked(
               Effect.gen(function* () {
                 const run = yield* active(runId);
                 const last =
@@ -450,22 +479,18 @@ export class RunLifecycle extends Context.Service<
             ),
           finish: (runId, result) =>
             Effect.gen(function* () {
-              const ended = yield* runs.exclusively(
+              yield* settle(
                 Effect.gen(function* () {
                   yield* active(runId);
                   return yield* end(runId, statusOf(result), result);
                 }),
               );
-              yield* tell(ended);
             }),
           cancelled: (runId) =>
             Stream.unwrap(
               Effect.gen(function* () {
                 yield* active(runId);
-                return Stream.concat(
-                  Stream.make(undefined),
-                  runs.touched(runId),
-                ).pipe(
+                return wakes(runId).pipe(
                   Stream.mapEffect(() => runs.get(runId)),
                   Stream.takeUntil(
                     (run) =>
