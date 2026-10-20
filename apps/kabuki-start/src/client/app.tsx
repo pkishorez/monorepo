@@ -1,41 +1,23 @@
-import { View } from '@kestack/kabuki/react';
+import { Layer } from 'effect';
+import { browser } from '@kestack/auth-toolkit/client/browser';
 import { Start } from '@kestack/kabuki/start';
-import { Pages, router } from '../shared/index.ts';
-import { Layout } from './components/index.ts';
+import { HelloHttp } from '../apis/hello-http/index.ts';
+import { HelloRpc } from '../apis/hello-rpc/index.ts';
+import { router } from '../shared/pages/index.ts';
 import Document from './document.tsx';
-import { BlogView } from './pages/blog/index.ts';
-import { FeedView } from './pages/feed/index.ts';
-import { HomeView } from './pages/home/index.ts';
-import { NotFound } from './pages/not-found/index.ts';
-import { PreloadView } from './pages/preload/index.ts';
-import { SearchView } from './pages/search/index.ts';
-import { TeamView } from './pages/teams/index.ts';
+import { AppView } from './views/index.ts';
 import './styles.css';
 
 /*
- * The root page's View: the layout, and the one page the URL names. A URL
- * that names no page draws the not-found page.
+ * The app as Start draws it, on the server and in the browser: the router,
+ * the root page's View, the Document, and the browser's Layer: Accounts
+ * from the Auth Worker, and a client per API Worker, each call going with
+ * the session cookie. Where the Auth Worker is comes from the site's
+ * `VITE_AUTH_URL`, which Alchemy sets and Vite inlines.
  */
 
-const AppView = View.make(Pages.AppLive, (self) => {
-  const { Home, Blog, Teams, Feed, Search, Preload } = self.children;
-  const notFound = self.props.route.notFound;
-  return (
-    <div {...self.root}>
-      <Layout live={self.model.live}>
-        {notFound !== null ? (
-          <NotFound path={notFound} />
-        ) : (
-          ((Home && <HomeView instance={Home} />) ??
-          (Blog && <BlogView instance={Blog} />) ??
-          (Teams && <TeamView instance={Teams} />) ??
-          (Feed && <FeedView instance={Feed} />) ??
-          (Search && <SearchView instance={Search} />) ??
-          (Preload && <PreloadView instance={Preload} />))
-        )}
-      </Layout>
-    </div>
-  );
-});
+const layer = Layer.mergeAll(HelloHttp.layer, HelloRpc.layer).pipe(
+  Layer.provideMerge(browser({ url: import.meta.env.VITE_AUTH_URL })),
+);
 
-export default Start.app({ router, view: AppView, document: Document });
+export default Start.app({ router, view: AppView, document: Document, layer });

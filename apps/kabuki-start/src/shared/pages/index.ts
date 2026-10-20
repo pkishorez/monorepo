@@ -1,9 +1,2 @@
-export { App, AppLive } from './app.ts';
-export { Blog, BlogLive, Post, PostLive } from './blog/index.ts';
-export { Feed, FeedLive } from './feed.ts';
-export { Home, HomeLive } from './home.ts';
-export { Preload, PreloadLive, Slow, SlowLive } from './preload/index.ts';
-export { Search, SearchLive } from './search.ts';
-export { Member, MemberLive, Teams, TeamsLive } from './teams/index.ts';
-export { router } from './routes.ts';
-export type { Place, Route } from './routes.ts';
+export { Pages, router } from './pages.ts';
+export type { Place } from './pages.ts';

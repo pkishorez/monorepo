@@ -1,31 +1,45 @@
 import type { ReactNode } from 'react';
-import { column } from './styles.ts';
-import { Footer } from './footer.tsx';
-import { Nav } from './nav.tsx';
-import { Progress } from './progress.tsx';
+import { Router, useRouter } from '@kestack/kabuki/routing';
+import { router } from '../../shared/pages/index.ts';
+import { ThemeToggle } from './theme-toggle.tsx';
 
 /*
- * What is around every page: a bar while the Router holds a move, the
- * nav, the page itself, and a footer that says when the server drew this
- * page and whether the Runtime has started.
+ * What is around every page: the site's name, one link per page, the
+ * switch between light and dark, then the page in a column.
  */
 
-export function Layout({
-  live,
-  children,
-}: {
-  /** The Time of the Runtime's last tick, or `null` before it starts. */
-  readonly live: number | null;
-  readonly children: ReactNode;
-}) {
+const NAV = [
+  { to: router.Static(), label: 'Rendering' },
+  { to: router.Items(), label: 'Preloading' },
+  { to: router.Apis(), label: 'APIs' },
+] as const;
+
+export function Layout({ children }: { readonly children: ReactNode }) {
+  const { route } = useRouter<typeof router.route.Type>();
   return (
     <div className="flex min-h-dvh flex-col">
-      <Progress />
       <header className="sticky top-0 z-40 border-b border-border bg-background">
-        <Nav />
+        <nav className="mx-auto flex h-14 w-full max-w-4xl items-center gap-6 px-5 text-sm">
+          <span className="font-semibold tracking-tight">Kabuki Start</span>
+          <ul className="flex flex-1 gap-1">
+            {NAV.map(({ to, label }) => (
+              <li key={label}>
+                <Router.Link
+                  to={to}
+                  aria-current={to._tag === route._tag ? 'page' : undefined}
+                  className="rounded-md px-2.5 py-1.5 text-muted-foreground transition-colors duration-150 hover:text-foreground aria-[current=page]:bg-muted aria-[current=page]:text-foreground"
+                >
+                  {label}
+                </Router.Link>
+              </li>
+            ))}
+          </ul>
+          <ThemeToggle />
+        </nav>
       </header>
-      <main className={`${column} flex-1 py-8 sm:py-12`}>{children}</main>
-      <Footer live={live} />
+      <main className="mx-auto w-full max-w-4xl flex-1 px-5 pt-12 pb-24">
+        {children}
+      </main>
     </div>
   );
 }

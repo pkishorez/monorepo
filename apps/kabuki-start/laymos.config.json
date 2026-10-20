@@ -1,23 +1,36 @@
 {
   "$schema": "../../devtools/laymos/schema.json",
   "sourceRoots": ["src"],
-  "ignoredPaths": ["src/client/styles.css"],
+  "ignoredPaths": ["src/client/styles.css", "src/env.d.ts"],
   "fileModules": [
     "src/client/app.tsx",
     "src/client/document.tsx",
     "src/server/loaders.server.ts"
   ],
   "rules": {
-    "src/client": ["src/shared"],
+    "src/shared/pages": [
+      "src/apis/access",
+      "src/apis/hello-http",
+      "src/apis/hello-rpc"
+    ],
+    "src/apis/hello-http": ["src/apis/access"],
+    "src/apis/hello-rpc": ["src/apis/access"],
+    "src/server/loaders.server.ts": ["src/shared/pages"],
     "src/client/app.tsx": [
-      "src/client/pages",
-      "src/client/components",
-      "src/client/document.tsx"
+      "src/apis/hello-http",
+      "src/apis/hello-rpc",
+      "src/shared/pages",
+      "src/client/document.tsx",
+      "src/client/views"
     ],
     "src/client/document.tsx": ["src/client/components"],
-    "src/client/pages": ["src/client/components"],
-    "src/server": ["src/shared"],
-    "src/server/loaders.server.ts": ["src/server/backend"],
-    "src/shared/pages": ["src/shared/data"]
+    "src/client/views": [
+      "src/apis/access",
+      "src/apis/hello-http",
+      "src/apis/hello-rpc",
+      "src/shared/pages",
+      "src/client/components"
+    ],
+    "src/client/components": ["src/shared/pages"]
   }
 }

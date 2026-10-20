@@ -1,47 +1,34 @@
-import { Effect } from 'effect';
-import type { Duration } from 'effect';
+import { Clock, Effect } from 'effect';
 import { Page } from '@kestack/kabuki/routing';
 import { Start } from '@kestack/kabuki/start/server';
-import { Backend } from './backend/index.ts';
-import { router } from '../shared/index.ts';
+import { router } from '../shared/pages/index.ts';
 
 /*
- * One Loader per page with data, most of them slow on purpose, so each case
- * has something to show: a post takes a second, a team longer than its
- * member, a slow page a second and a half, the feed most of a second.
+ * One Loader per page with data. The rendering pages say when they ran;
+ * the list of items is fixed; an item takes a second, so a preload has
+ * something to save, and an id with no item is not found. Nothing here Requires a Layer.
  */
 
-/** What `query` reads from the backend after `wait`, or not found if it finds nothing. */
-const read = <A extends object, E, R>(
-  query: (db: Backend['Service']) => Effect.Effect<A | undefined, E, R>,
-  wait: Duration.Input = 0,
-) =>
-  Effect.gen(function* () {
-    yield* Effect.sleep(wait);
-    const found = yield* query(yield* Backend);
-    if (found === undefined) return yield* Page.notFound();
-    return found;
-  });
+const ITEMS = [
+  { id: 1, name: 'Lantern' },
+  { id: 2, name: 'Compass' },
+  { id: 3, name: 'Telescope' },
+];
+
+const ran = Effect.map(Clock.currentTimeMillis, (at) => ({ at }));
 
 const loaders = router.loaders({
-  Blog: () => read((db) => db.posts),
-  'Blog.Post': ({ slug }) => {
-    if (slug === 'broken')
-      return Effect.sleep('1 second').pipe(
-        Effect.andThen(Effect.die(new Error('this post always breaks'))),
-      );
-    if (slug === 'moved')
-      return Effect.fail(
-        Page.redirect(router.Blog.Post({ slug: 'pages-are-actors' })),
-      );
-    return read((db) => db.post(slug), '1 second');
-  },
-  Teams: ({ team }) => read((db) => db.team(team), '1200 millis'),
-  'Teams.Member': ({ team, member }) =>
-    read((db) => db.member(team, member), '700 millis'),
-  Feed: () => read((db) => db.feed, '900 millis'),
-  Search: ({ q }) => read((db) => db.search(q ?? ''), '600 millis'),
-  'Preload.Slow': ({ n }) => read((db) => db.slow(n), '1500 millis'),
+  Static: () => ran,
+  'Static.Dynamic': () => ran,
+  'Static.Dynamic.Client': () => ran,
+  Items: () => Effect.succeed({ items: ITEMS }),
+  'Items.Item': ({ id }) =>
+    Effect.gen(function* () {
+      yield* Effect.sleep('1 second');
+      const item = ITEMS.find((each) => each.id === id);
+      if (item === undefined) return yield* Page.notFound();
+      return { ...item, at: yield* Clock.currentTimeMillis };
+    }),
 });
 
-export default Start.server({ layer: Backend.memory }).loaders(loaders);
+export default Start.server(loaders);

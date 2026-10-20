@@ -534,6 +534,9 @@ importers:
 
   apps/kabuki-start:
     dependencies:
+      '@kestack/auth-toolkit':
+        specifier: workspace:*
+        version: link:../../toolkits/auth-toolkit
       '@kestack/kabuki':
         specifier: workspace:*
         version: link:../../packages/kabuki
@@ -543,9 +546,6 @@ importers:
       '@kestack/std-toolkit':
         specifier: workspace:*
         version: link:../../toolkits/std-toolkit
-      '@kestack/use-gesture':
-        specifier: workspace:*
-        version: link:../../packages/use-gesture
       '@kestack/web-platform':
         specifier: workspace:*
         version: link:../../platforms/web-platform
