@@ -1,48 +1,17 @@
 /*
- * The pages' look: Tailwind, with the few tokens every surface uses (see
- * docs/design.md). Every colour is `light-dark(light, dark)`, so the Theme
- * is one `color-scheme` on the root, the one its `data-theme` names: the
- * saved Theme, or the system's until one is saved. The brand's accent, set as --brand-accent
- * on :root by the page, colours the primary button and the picked Account;
- * with none, both are ink. The focus ring stays ink, whatever the brand.
+ * The pages' look: Tailwind with @kestack/web-theme's tokens and Inter, the
+ * Theme every kstack app shares (its docs/design.md); no colour of their
+ * own. The brand's accent, set as --brand-accent on :root by the page, is
+ * the Theme's `primary`: the primary button and the picked Account; with
+ * none, both are ink. The focus ring stays ink, whatever the brand.
  */
 @import 'tailwindcss';
+@import '@kestack/web-theme/theme.css';
+@import '@kestack/web-theme/font-inter.css';
 
 @source './';
 
 @theme {
-  --font-sans:
-    system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
-    sans-serif;
-  --font-mono:
-    ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
-
-  --color-page: light-dark(oklch(0.982 0.002 265), oklch(0.155 0.004 265));
-  --color-surface: light-dark(oklch(1 0 0), oklch(0.195 0.005 265));
-  --color-fg: light-dark(oklch(0.22 0.008 265), oklch(0.95 0.003 265));
-  --color-muted-fg: light-dark(oklch(0.5 0.01 265), oklch(0.7 0.008 265));
-  --color-faint: light-dark(oklch(0.56 0.008 265), oklch(0.6 0.008 265));
-  --color-muted: light-dark(oklch(0.955 0.003 265), oklch(0.25 0.006 265));
-  --color-hover: light-dark(oklch(0.965 0.003 265), oklch(0.235 0.006 265));
-  --color-line: light-dark(rgb(15 20 35 / 0.09), oklch(0.285 0.006 265));
-  --color-accent: light-dark(var(--accent-light), var(--accent-dark));
-  --color-accent-fg: light-dark(white, black);
-  --color-accent-hover: light-dark(
-    color-mix(in oklch, var(--accent-light) 88%, black),
-    color-mix(in oklch, var(--accent-dark) 88%, white)
-  );
-  --color-ring: light-dark(
-    oklch(0.22 0.008 265 / 0.75),
-    oklch(0.95 0.003 265 / 0.75)
-  );
-  --color-danger: light-dark(oklch(0.52 0.18 25), oklch(0.75 0.14 25));
-  --color-danger-soft: light-dark(oklch(0.96 0.025 25), oklch(0.26 0.05 25));
-  --color-warning: light-dark(oklch(0.47 0.1 70), oklch(0.82 0.11 85));
-  --color-warning-soft: light-dark(oklch(0.965 0.035 85), oklch(0.26 0.04 80));
-  --color-success: light-dark(oklch(0.55 0.13 155), oklch(0.75 0.13 155));
-  --color-success-soft: light-dark(oklch(0.96 0.03 155), oklch(0.27 0.04 155));
-  --color-scrim: light-dark(rgb(0 0 0 / 0.3), rgb(0 0 0 / 0.55));
-
   --animate-toast-in: toast-in 200ms cubic-bezier(0.32, 0.72, 0, 1);
 }
 
@@ -53,52 +22,9 @@
   }
 }
 
-:root {
-  color-scheme: light dark;
-  --accent-light: var(--brand-accent, oklch(0.25 0.01 265));
-  /* A brand colour at full chroma vibrates on a dark page: calm it a little. */
-  --accent-dark: var(--brand-accent, oklch(0.94 0.004 265));
-
-  /* Depth: a hairline ring and a layered shadow in light; the ring alone in dark. */
-  --shadow-raised:
-    0 0 0 1px var(--color-line),
-    0 1px 2px light-dark(rgb(0 0 0 / 0.04), transparent),
-    0 4px 16px -4px light-dark(rgb(0 0 0 / 0.06), transparent);
-  --shadow-control:
-    0 0 0 1px var(--color-line),
-    0 1px 2px light-dark(rgb(0 0 0 / 0.04), transparent);
-  --shadow-overlay:
-    0 0 0 1px var(--color-line),
-    0 4px 8px -2px light-dark(rgb(0 0 0 / 0.06), rgb(0 0 0 / 0.3)),
-    0 12px 32px -8px light-dark(rgb(0 0 0 / 0.16), rgb(0 0 0 / 0.5));
-  --shadow-edge: inset 0 0 0 1px
-    light-dark(rgb(0 0 0 / 0.08), rgb(255 255 255 / 0.08));
-}
-
-/* The Theme the Document's script set, or the toggle switched to. */
-:root[data-theme='light'] {
-  color-scheme: light;
-}
-:root[data-theme='dark'] {
-  color-scheme: dark;
-}
-
-@supports (color: oklch(from red l c h)) {
-  :root {
-    --accent-dark: oklch(
-      from var(--brand-accent, oklch(0.94 0.004 265)) l calc(c * 0.82) h
-    );
-    /* Text on the accent: white on a dark one, ink on a light one. */
-    --color-accent-fg: light-dark(
-      oklch(from var(--accent-light) clamp(0, (0.68 - l) * 1000, 1) 0 0),
-      oklch(from var(--accent-dark) clamp(0, (0.68 - l) * 1000, 1) 0 0)
-    );
-  }
-}
-
 @layer base {
   body {
-    @apply min-h-svh bg-page font-sans text-fg antialiased;
+    @apply min-h-svh antialiased;
     font-size: 15px;
     line-height: 1.5;
     font-synthesis: none;

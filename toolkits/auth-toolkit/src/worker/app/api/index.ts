@@ -25,7 +25,6 @@ export {
   PagesData,
   Scope,
   SignIn,
-  Theme,
   pagesData,
   type AccountList,
   type ConsentRequest,

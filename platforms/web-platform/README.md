@@ -8,7 +8,7 @@ Every kstack web app used to wire the same things by hand: the root document, th
 
 The root door is `createApp`. It runs the app on the browser (IndexedDB with a Broadcaster per database every tab hears, the sign-in service's cookie, the window's network and tabs) and gives back the app with its root route, the Theme, `SignedIn` with the screens before an Account is open (the Gate Screens and Account Lost recipes), and the Local Sign-In dialog for the Local Backend. Every app is a PWA: `createApp` always adds the PWA's Root Plugin. The `server` door's `createServer` serves each `http` API on its cloud Backend and each `websocket` API in the caller's own Live Object (a Durable Object made with `liveObject`, one per user), and checks every call with the sign-in service. Underneath `createApp` is the Gate, built on auth-toolkit's `Accounts`: it keeps the app on one Backend, opens the Active Account's Session at launch at once from the Account last seen (Open First) and confirms it behind, follows every Account Switch, and holds the app on an Account Lost until the User acts. Each Session is written once with `defineSession`; closing it interrupts every call still in flight, so nothing of one Account reaches another's screen. Why the Web Platform may break while the Toolkits keep what persists is [ADR 0006](../../docs/adr/0006-platforms-may-break-toolkits-keep-what-persists.md).
 
-Underneath, it is laid out one layer per job and one subpath per layer, bottom to top: `theme`, `feedback`, `input`, `components`, `form`, `recipes`, `client`, then `pwa`; `server` stands beside them. These stay exported for screens and for the unusual app; [ADR 0003](../../docs/adr/0003-web-toolkit-and-the-gate.md) is the earlier design.
+Underneath, it is laid out one layer per job and one subpath per layer, bottom to top: `theme`, `feedback`, `input`, `components`, `form`, `recipes`, `client`, then `pwa`; `server` stands beside them. `theme` is [`@kestack/web-theme`](../../packages/web-theme), the look and Theme every app and the Auth Worker's pages share ([ADR 0010](../../docs/adr/0010-the-theme-is-a-package-below-the-web-platform.md)). These stay exported for screens and for the unusual app; [ADR 0003](../../docs/adr/0003-web-toolkit-and-the-gate.md) is the earlier design.
 
 It ships built `dist/` (from `vp pack`). Terms are in [CONTEXT.md](./CONTEXT.md); the PWA's decisions are in [docs/adr/](./docs/adr/).
 
@@ -59,23 +59,26 @@ What an app writes before `createApp`. It loads nothing of the browser app, so a
 
 ### `@kestack/web-platform/theme`
 
+The Theme is [`@kestack/web-theme`](../../packages/web-theme)'s, shared with the Auth Worker's pages; this subpath re-exports it. Its tokens, values and the way it switches are in [its design doc](../../packages/web-theme/docs/design.md).
+
 | Export             | What it does                                                                                                                                    |
 | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
 | `createTheme`      | Makes the app's Theme: `useTheme`, the head `Script` that sets it before paint, the `StatusBar` strip, and `manifest` colors for a given Theme. |
 | `FontPreload`      | Preloads Inter's Latin file from the head, the same file `font-inter.css` uses, so the first paint is already in Inter.                         |
-| `themeFromCookies` | Reads the Theme from a `Cookie` header string; dark when it is missing or unknown.                                                              |
+| `themeFromCookies` | Reads the saved Theme from a `Cookie` header string; undefined when none is saved, and the system's setting decides.                            |
 | `THEME_COOKIE`     | The cookie's name, `kui-theme`.                                                                                                                 |
+| `THEME_SCRIPT`     | The head script's source, for a page drawn without React, such as a Vite SPA's entry.                                                           |
 
 ### `@kestack/web-platform/theme/*.css`
 
-| Export           | What it does                                                                                                              |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `global.css`     | The one stylesheet to import: Tailwind, the tokens, the `dark`, `keyboard:` and `touch:` variants, and the rest.          |
-| `theme.css`      | The design tokens as Tailwind theme variables; included by `global.css`.                                                  |
-| `sources.css`    | Points Tailwind at the Package's built components, form, Recipes, client and PWA; included by `global.css`.               |
-| `typography.css` | The Tailwind typography plugin; included by `global.css`.                                                                 |
-| `shiki.css`      | Dark-theme colors and diff line marks for highlighted code; included by `global.css`.                                     |
-| `font-inter.css` | Inter and JetBrains Mono as variable fonts, and `Inter Fallback` sized to Inter's metrics; import it beside `global.css`. |
+| Export           | What it does                                                                                                                   |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `global.css`     | The one stylesheet to import: Tailwind, the tokens, the `dark`, `keyboard:` and `touch:` variants, and the rest.               |
+| `theme.css`      | `@kestack/web-theme`'s tokens as Tailwind theme variables, and the page's scrolling; included by `global.css`.                 |
+| `sources.css`    | Points Tailwind at the Package's built components, form, Recipes, client and PWA; included by `global.css`.                    |
+| `typography.css` | The Tailwind typography plugin; included by `global.css`.                                                                      |
+| `shiki.css`      | Dark-theme colors and diff line marks for highlighted code; included by `global.css`.                                          |
+| `font-inter.css` | `@kestack/web-theme`'s Inter and JetBrains Mono, and `Inter Fallback` sized to Inter's metrics; import it beside `global.css`. |
 
 ### `@kestack/web-platform/feedback`
 
@@ -349,9 +352,9 @@ Owned shadcn copies on Base UI, one subpath per file, such as `@kestack/web-plat
 
 ### `@kestack/web-platform/client/server`
 
-| Export     | What it does                                                                                     |
-| ---------- | ------------------------------------------------------------------------------------------------ |
-| `getTheme` | Reads the Theme from the request's cookie, for the app's own server function behind `loadTheme`. |
+| Export     | What it does                                                                                                                         |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `getTheme` | Reads the saved Theme from the request's cookie, for the app's own server function behind `loadTheme`; undefined when none is saved. |
 
 ### `@kestack/web-platform/pwa`
 
@@ -575,8 +578,8 @@ export default function Document({ children }: Start.DocumentProps) {
   late, text is set in `Inter Fallback`, Arial sized to Inter's metrics, which
   the Theme's sans family names next, so the swap changes the letters' shapes
   but moves nothing.
-- The Theme's script sets light or dark on `<html>` before the body paints,
-  and the device script sets `data-keyboard` and `data-touch` for the
+- The Theme's script sets `data-theme` on `<html>` before the body paints:
+  the saved Theme from the `kui-theme` cookie, else the system's. The device script sets `data-keyboard` and `data-touch` for the
   `keyboard:` and `touch:` variants.
 - `head` adds the app's own tags, such as icons, after the Web Platform's.
   The same rule holds for any other web font: preload the file the first

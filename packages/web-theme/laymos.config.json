@@ -1,0 +1,5 @@
+{
+  "$schema": "../../devtools/laymos/schema.json",
+  "sourceRoots": ["src"],
+  "ignoredPaths": ["src/css", "src/css.d.ts"]
+}

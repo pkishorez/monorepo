@@ -5,10 +5,7 @@ import { cx } from './cx.ts';
 export function Card({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cx(
-        'rounded-2xl bg-surface shadow-(--shadow-raised)',
-        className,
-      )}
+      className={cx('rounded-2xl bg-card shadow-(--shadow-raised)', className)}
       {...props}
     />
   );

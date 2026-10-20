@@ -13,10 +13,6 @@ export const Brand = Schema.Struct({
 });
 export type Brand = typeof Brand.Type;
 
-/** How the pages are drawn: light or dark. */
-export const Theme = Schema.Literals(['light', 'dark']);
-export type Theme = typeof Theme.Type;
-
 /** What every page loads on the server: the Auth Worker's pages context. */
 export const PagesData = Schema.Struct({
   brand: Brand,
@@ -27,9 +23,6 @@ export const PagesData = Schema.Struct({
   origin: Schema.String,
   /** Every Scope in words; null with the Authorization Server Role off. */
   scopes: Schema.NullOr(Schema.Record(Schema.String, Schema.String)),
-  /** The visitor's saved Theme, from its cookie; null before they pick one,
-   * when the browser draws the system's. */
-  theme: Schema.NullOr(Theme),
 });
 export type PagesData = typeof PagesData.Type;
 
@@ -46,7 +39,6 @@ export interface PagesEnv {
   readonly oauth?:
     | { readonly scopes: Readonly<Record<string, string>> }
     | undefined;
-  readonly theme?: Theme | undefined;
   /** This browser's data, read in-process by the Loaders: `BrowserReads`. */
   readonly reads: {
     readonly accounts: (request: Request) => Promise<AccountList>;
@@ -67,7 +59,6 @@ export const pagesData = (env: PagesEnv): PagesData => ({
   cookieDomain: env.cookieDomain,
   origin: env.origin,
   scopes: env.oauth ? { ...env.oauth.scopes } : null,
-  theme: env.theme ?? null,
 });
 
 export const Account = Schema.Struct({

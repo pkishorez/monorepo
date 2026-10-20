@@ -19,7 +19,7 @@ export function Notice({
       className={cx(
         'flex gap-2.5 rounded-lg px-3 py-2.5 text-sm text-pretty',
         tone === 'error'
-          ? 'bg-danger-soft text-danger'
+          ? 'bg-destructive-soft text-destructive'
           : 'bg-warning-soft text-warning',
         className,
       )}

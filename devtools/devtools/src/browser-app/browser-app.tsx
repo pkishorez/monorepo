@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import {
   createRootRoute,
   createRoute,
@@ -9,6 +8,7 @@ import {
   useMatchRoute,
 } from '@tanstack/react-router';
 import { Toaster } from '@kestack/web-platform/components/sonner';
+import { createTheme } from '@kestack/web-platform/theme';
 import { Button } from '@kestack/web-platform/components/button';
 import {
   ArrowRightIcon,
@@ -21,25 +21,16 @@ import { Monoverse, MonoverseHeader } from './ui/monoverse/index.js';
 
 type Theme = 'dark' | 'light';
 
-const readTheme = (): Theme => {
-  const stored = globalThis.localStorage?.getItem('devtools:theme');
-  if (stored === 'light' || stored === 'dark') return stored;
-  return 'dark';
-};
-
-function applyTheme(theme: Theme) {
-  document.documentElement.classList.toggle('dark', theme === 'dark');
-  globalThis.localStorage?.setItem('devtools:theme', theme);
-}
+// The Web Platform's Theme, as in every kstack app: the `kui-theme` cookie,
+// else the system's setting.
+const appTheme = createTheme();
 
 function Shell() {
-  const [theme, setTheme] = useState<Theme>(readTheme);
+  const { theme, toggleTheme } = appTheme.useTheme();
 
   const matchRoute = useMatchRoute();
   const onMonoverse = matchRoute({ to: '/monoverse' }) !== false;
   const onLotel = matchRoute({ to: '/lotel' }) !== false;
-
-  useEffect(() => applyTheme(theme), [theme]);
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-background text-foreground">
@@ -59,7 +50,7 @@ function Shell() {
         <div className="flex items-center justify-center">
           {onMonoverse ? <MonoverseHeader /> : null}
         </div>
-        <ThemeButton theme={theme} onToggle={() => setTheme(toggleTheme)} />
+        <ThemeButton theme={theme} onToggle={toggleTheme} />
       </header>
       <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border/50 px-2 md:hidden">
         {onMonoverse ? (
@@ -77,7 +68,7 @@ function Shell() {
         <ThemeButton
           theme={theme}
           className="size-11 shrink-0"
-          onToggle={() => setTheme(toggleTheme)}
+          onToggle={toggleTheme}
         />
       </header>
       <main className="min-h-0 flex-1 overflow-hidden">
@@ -93,10 +84,6 @@ function Shell() {
       <Toaster />
     </div>
   );
-}
-
-function toggleTheme(value: Theme): Theme {
-  return value === 'dark' ? 'light' : 'dark';
 }
 
 function ThemeButton({

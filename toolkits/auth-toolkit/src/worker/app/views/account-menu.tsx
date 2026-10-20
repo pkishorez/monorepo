@@ -21,11 +21,11 @@ import { useRoot } from './root.ts';
 
 // Items sit 6px inside the 12px-round popup, so they round at 6px.
 const item =
-  'flex min-h-11 w-full cursor-default select-none items-center gap-3 rounded-md px-2.5 py-1.5 text-left text-[15px] transition-colors duration-150 focus-visible:outline-offset-0 data-[highlighted]:bg-hover data-[disabled]:text-faint motion-reduce:transition-none';
+  'flex min-h-11 w-full cursor-default select-none items-center gap-3 rounded-md px-2.5 py-1.5 text-left text-[15px] transition-colors duration-150 focus-visible:outline-offset-0 data-[highlighted]:bg-accent data-[disabled]:text-faint motion-reduce:transition-none';
 
-const caption = 'px-2.5 pt-2 pb-1 text-xs font-medium text-muted-fg';
+const caption = 'px-2.5 pt-2 pb-1 text-xs font-medium text-muted-foreground';
 
-const rule = <Menu.Separator className="-mx-1.5 my-1.5 h-px bg-line" />;
+const rule = <Menu.Separator className="-mx-1.5 my-1.5 h-px bg-border" />;
 
 /** Name and email, each on one line, cut with … and whole in a title. */
 function Who({ account }: { account: Account }) {
@@ -38,7 +38,7 @@ function Who({ account }: { account: Account }) {
         {account.name || account.email}
       </span>
       <span
-        className="block truncate text-sm text-muted-fg"
+        className="block truncate text-sm text-muted-foreground"
         title={account.email}
       >
         {account.email}
@@ -90,8 +90,8 @@ export function AccountMenu({
           sideOffset={6}
           collisionPadding={12}
         >
-          <Menu.Popup className="w-[min(340px,calc(100vw-24px))] origin-[var(--transform-origin)] rounded-xl bg-surface shadow-(--shadow-overlay) outline-none transition-[opacity,scale] duration-150 ease-out data-[ending-style]:scale-[0.97] data-[ending-style]:opacity-0 data-[ending-style]:duration-100 data-[starting-style]:scale-[0.97] data-[starting-style]:opacity-0 motion-reduce:transition-none">
-            <Menu.Group className="rounded-t-xl border-b border-line bg-muted px-1.5 pt-1.5 pb-2">
+          <Menu.Popup className="w-[min(340px,calc(100vw-24px))] origin-[var(--transform-origin)] rounded-xl bg-popover shadow-(--shadow-overlay) outline-none transition-[opacity,scale] duration-150 ease-out data-[ending-style]:scale-[0.97] data-[ending-style]:opacity-0 data-[ending-style]:duration-100 data-[starting-style]:scale-[0.97] data-[starting-style]:opacity-0 motion-reduce:transition-none">
+            <Menu.Group className="rounded-t-xl border-b border-border bg-muted px-1.5 pt-1.5 pb-2">
               <Menu.GroupLabel className={caption}>
                 Signed in as
               </Menu.GroupLabel>
@@ -104,7 +104,7 @@ export function AccountMenu({
                   aria-busy={root.busy === active.id ? true : undefined}
                   aria-label={`Sign out of ${active.email}`}
                   onClick={() => root.signOut(active)}
-                  className="relative flex h-8 shrink-0 cursor-default select-none items-center gap-2 rounded-lg px-2.5 text-sm font-medium text-muted-fg transition-[background-color,color,box-shadow] duration-150 before:absolute before:inset-x-0 before:-inset-y-1.5 focus-visible:outline-offset-0 data-[highlighted]:bg-surface data-[highlighted]:text-fg data-[highlighted]:shadow-(--shadow-control) data-[disabled]:text-faint motion-reduce:transition-none"
+                  className="relative flex h-8 shrink-0 cursor-default select-none items-center gap-2 rounded-lg px-2.5 text-sm font-medium text-muted-foreground transition-[background-color,color,box-shadow] duration-150 before:absolute before:inset-x-0 before:-inset-y-1.5 focus-visible:outline-offset-0 data-[highlighted]:bg-card data-[highlighted]:text-foreground data-[highlighted]:shadow-(--shadow-control) data-[disabled]:text-faint motion-reduce:transition-none"
                 >
                   {root.busy === active.id ? (
                     <>
@@ -140,13 +140,13 @@ export function AccountMenu({
                           className={cx(
                             item,
                             switching &&
-                              'bg-hover text-fg data-[disabled]:text-fg',
+                              'bg-accent text-foreground data-[disabled]:text-foreground',
                           )}
                         >
                           <Avatar {...account} />
                           <Who account={account} />
                           {switching ? (
-                            <Spinner className="text-muted-fg" />
+                            <Spinner className="text-muted-foreground" />
                           ) : null}
                         </Menu.Item>
                       );
@@ -156,7 +156,7 @@ export function AccountMenu({
                 </>
               ) : null}
               {full ? (
-                <p className="flex min-h-11 items-center gap-3 px-2.5 py-1.5 text-sm text-muted-fg">
+                <p className="flex min-h-11 items-center gap-3 px-2.5 py-1.5 text-sm text-muted-foreground">
                   <UserPlus aria-hidden="true" className="size-4 shrink-0" />
                   This browser holds {maxAccounts} accounts, the most it can.
                   Sign out of one to add another.
@@ -169,7 +169,7 @@ export function AccountMenu({
                 >
                   <UserPlus
                     aria-hidden="true"
-                    className="size-4 shrink-0 text-muted-fg"
+                    className="size-4 shrink-0 text-muted-foreground"
                   />
                   Add another account
                 </Menu.LinkItem>
@@ -180,7 +180,7 @@ export function AccountMenu({
                   disabled={disabled}
                   aria-busy={root.busy === 'all' ? true : undefined}
                   onClick={root.signOutAll}
-                  className={cx(item, 'text-danger')}
+                  className={cx(item, 'text-destructive')}
                 >
                   {root.busy === 'all' ? (
                     <Spinner />

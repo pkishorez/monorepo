@@ -63,7 +63,7 @@ function Entering({
         aria-invalid={failure ? true : undefined}
         aria-describedby={failure ? 'device-code-error' : undefined}
         placeholder="ABCD-EFGH"
-        className="mt-2 h-12 rounded-lg bg-surface px-3.5 font-mono text-lg tracking-[0.12em] uppercase shadow-[0_0_0_1px_var(--color-line)] outline-none transition-shadow duration-150 placeholder:text-faint placeholder:normal-case hover:shadow-[0_0_0_1px_var(--color-faint)] focus-visible:shadow-[0_0_0_2px_var(--color-ring)] aria-[invalid]:shadow-[0_0_0_1px_var(--color-danger)] aria-[invalid]:focus-visible:shadow-[0_0_0_2px_var(--color-danger)] focus-visible:outline-none motion-reduce:transition-none"
+        className="mt-2 h-12 rounded-lg bg-card px-3.5 font-mono text-lg tracking-[0.12em] uppercase shadow-[0_0_0_1px_var(--color-border)] outline-none transition-shadow duration-150 placeholder:text-faint placeholder:normal-case hover:shadow-[0_0_0_1px_var(--color-faint)] focus-visible:shadow-[0_0_0_2px_var(--color-ring)] aria-[invalid]:shadow-[0_0_0_1px_var(--color-destructive)] aria-[invalid]:focus-visible:shadow-[0_0_0_2px_var(--color-destructive)] focus-visible:outline-none motion-reduce:transition-none"
       />
       {failure ? (
         <div id="device-code-error" className="mt-3">
@@ -189,7 +189,7 @@ export const DeviceView = View.make(DeviceLive, (self) => {
               lead={`${app} is asking to use your ${brand.name} account. Approve only if you started this yourself.`}
             />
             <div className="mt-8 rounded-xl bg-muted px-4 py-3">
-              <p className="text-sm text-muted-fg">
+              <p className="text-sm text-muted-foreground">
                 Check that your device shows this code
               </p>
               <p className="mt-1 font-mono text-2xl font-semibold tracking-[0.12em] tabular-nums select-all">
@@ -200,7 +200,7 @@ export const DeviceView = View.make(DeviceLive, (self) => {
               {failure ? <Notice>{failure}</Notice> : null}
               {none ? (
                 <>
-                  <p className="text-muted-fg text-pretty">
+                  <p className="text-muted-foreground text-pretty">
                     Sign in to approve. You'll come back here to finish.
                   </p>
                   <GoogleButton

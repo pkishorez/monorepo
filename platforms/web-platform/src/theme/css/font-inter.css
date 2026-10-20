@@ -1,17 +1,2 @@
-@import '@fontsource-variable/inter';
-
-/*
- * What text is set in until Inter arrives: the local Arial, sized to take
- * the room Inter takes, so a late swap moves nothing. The metrics are the
- * ones Next.js's font loader computes for Inter. The Theme's sans family
- * names it right after Inter; `FontPreload` makes the swap rare.
- */
-@font-face {
-  font-family: 'Inter Fallback';
-  src: local('Arial');
-  ascent-override: 90.44%;
-  descent-override: 22.52%;
-  line-gap-override: 0%;
-  size-adjust: 107.12%;
-}
-@import '@fontsource-variable/jetbrains-mono';
+/* Inter, JetBrains Mono and `Inter Fallback`: @kestack/web-theme's. */
+@import '@kestack/web-theme/font-inter.css';

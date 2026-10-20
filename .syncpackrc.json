@@ -23,7 +23,8 @@
         "@kestack/rpc-toolkit",
         "@kestack/std-toolkit",
         "use-effect-ts",
-        "@kestack/web-platform"
+        "@kestack/web-platform",
+        "@kestack/web-theme"
       ],
       "dependencyTypes": ["prod", "dev", "peer"],
       "pinVersion": "workspace:*"
@@ -91,7 +92,8 @@
         "@kestack/rpc-toolkit",
         "@kestack/std-toolkit",
         "use-effect-ts",
-        "@kestack/web-platform"
+        "@kestack/web-platform",
+        "@kestack/web-theme"
       ],
       "dependencyTypes": ["prod", "dev", "peer"],
       "isIgnored": true

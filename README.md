@@ -24,7 +24,7 @@ These packages are published under the `@kestack` npm scope (plus `laymos`
 and `use-effect-ts`). They release in two version groups, so keep each group
 on one version: the stack (ai-toolkit, auth-toolkit, rpc-toolkit, std-toolkit,
 web-platform and effect-webrtc) and DevTools (devtools, effect-tracer and
-laymos). kabuki, use-gesture, use-keys and `use-effect-ts` depend on nothing
+laymos). kabuki, use-gesture, use-keys, web-theme and `use-effect-ts` depend on nothing
 here and version on their own. See [ADR 0009](./docs/adr/0009-two-version-groups-the-stack-and-devtools.md).
 
 ### Toolkits
@@ -39,6 +39,7 @@ here and version on their own. See [ADR 0009](./docs/adr/0009-two-version-groups
 | [`packages/effect-webrtc`](./packages/effect-webrtc) | [`@kestack/effect-webrtc`](https://www.npmjs.com/package/@kestack/effect-webrtc) | Effect-native peer sessions and RPC over WebRTC data channels.                                                                                                                                                                                                                            |
 | [`packages/use-gesture`](./packages/use-gesture)     | [`@kestack/use-gesture`](https://www.npmjs.com/package/@kestack/use-gesture)     | Touch gestures: a platform-free core that reads every finger of a touch from any touch source. Its web side is in @kestack/web-platform's input, its native side in @kestack/expo-platform's.                                                                                             |
 | [`packages/use-keys`](./packages/use-keys)           | [`@kestack/use-keys`](https://www.npmjs.com/package/@kestack/use-keys)           | Keyboard shortcuts for React: every key the page hears, and the Shortcuts and Sequences built on it.                                                                                                                                                                                      |
+| [`packages/web-theme`](./packages/web-theme)         | [`@kestack/web-theme`](https://www.npmjs.com/package/@kestack/web-theme)         | The one look of every kstack web app: the colour tokens for Tailwind v4, Inter, and the light or dark Theme saved in a shared cookie and set before the first paint.                                                                                                                      |
 
 ### Developer tools
 

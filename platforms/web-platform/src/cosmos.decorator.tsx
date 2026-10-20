@@ -25,9 +25,9 @@ export default function CosmosDecorator({ children }: { children: ReactNode }) {
           width: 36,
           height: 36,
           borderRadius: '50%',
-          border: '1px solid #444',
-          background: theme === 'dark' ? '#1a1a1a' : '#f5f5f5',
-          color: theme === 'dark' ? '#fff' : '#000',
+          border: '1px solid var(--border)',
+          background: 'var(--card)',
+          color: 'var(--foreground)',
           cursor: 'pointer',
         }}
       >

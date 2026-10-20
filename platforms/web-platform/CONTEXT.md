@@ -89,7 +89,7 @@ _Avoid_: copy, cache (Cache is what only the device has), replica
 ### Theme and layout
 
 **Theme**:
-The shared light or dark appearance used by KUI-based applications. The preference is stored in a user-readable cookie shared by sibling application hosts; without that cookie, the Theme is dark.
+The shared light or dark appearance of every kstack app and the Auth Worker's pages, from `@kestack/web-theme`: one palette, Inter, and `data-theme` on the root set before the first paint. A choice is kept in the user-readable `kui-theme` cookie on the Shared Cookie Domain, so it holds in every app under it; until one is kept, the Theme is the system's setting, followed live.
 _Avoid_: color mode, system theme
 
 **Status Bar Surface**:

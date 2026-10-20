@@ -13,8 +13,8 @@ import {
 } from '../client/features/auth-boundary/index.ts';
 import appCss from '../styles.css?url';
 
-const getCurrentTheme = createServerFn({ method: 'GET' }).handler(() =>
-  getTheme(),
+const getCurrentTheme = createServerFn({ method: 'GET' }).handler(
+  () => getTheme() ?? null,
 );
 
 export const Route = createRootRoute({
@@ -49,17 +49,13 @@ export const Route = createRootRoute({
 });
 
 function RootDocument({ children }: { children: ReactNode }) {
-  const currentTheme = Route.useLoaderData() ?? 'dark';
+  // The saved Theme, when there is one; the Theme's script sets it, or the
+  // system's, before the first paint either way.
+  const saved = Route.useLoaderData() ?? undefined;
   return (
-    <html
-      lang="en"
-      className={currentTheme === 'dark' ? 'dark' : undefined}
-      data-theme={currentTheme}
-      style={{ colorScheme: currentTheme }}
-      suppressHydrationWarning
-    >
+    <html lang="en" data-theme={saved} suppressHydrationWarning>
       <head>
-        <appTheme.Script initialTheme={currentTheme} />
+        <appTheme.Script />
         <HeadContent />
       </head>
       <body>

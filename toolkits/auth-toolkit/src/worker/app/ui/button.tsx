@@ -15,10 +15,10 @@ const base =
 
 const tones: Record<Tone, string> = {
   primary:
-    'bg-accent text-accent-fg shadow-[inset_0_1px_0_rgb(255_255_255/0.12)] hover:bg-accent-hover disabled:not-aria-busy:bg-muted disabled:not-aria-busy:text-faint disabled:not-aria-busy:shadow-none',
+    'bg-primary text-primary-foreground shadow-[inset_0_1px_0_rgb(255_255_255/0.12)] hover:bg-primary-hover disabled:not-aria-busy:bg-muted disabled:not-aria-busy:text-faint disabled:not-aria-busy:shadow-none',
   secondary:
-    'bg-surface text-fg shadow-(--shadow-control) hover:bg-hover disabled:text-faint',
-  ghost: 'text-fg hover:bg-hover disabled:text-faint',
+    'bg-card text-foreground shadow-(--shadow-control) hover:bg-accent disabled:text-faint',
+  ghost: 'text-foreground hover:bg-accent disabled:text-faint',
 };
 
 // Every size is at least 44px to a thumb: `md` is 44px on a phone, 40px

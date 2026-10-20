@@ -36,7 +36,7 @@ export const ErrorView = View.make(ErrorPageLive, ({ props }) => {
           lead={reason}
         />
         {error ? (
-          <p className="mt-3 text-sm text-muted-fg">
+          <p className="mt-3 text-sm text-muted-foreground">
             Code: <code className="font-mono break-all">{error}</code>
           </p>
         ) : null}

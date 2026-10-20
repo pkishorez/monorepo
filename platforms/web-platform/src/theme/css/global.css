@@ -3,8 +3,6 @@
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
 
-@custom-variant dark (&:where(.dark, .dark *, [data-theme='dark'], [data-theme='dark'] *));
-
 /*
  * What the device can be driven by, from `<html>` (marked before the first
  * paint by the root document; see input's DEVICE_SCRIPT).

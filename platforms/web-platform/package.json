@@ -158,6 +158,7 @@
     "@codemirror/lang-json": "catalog:",
     "@fontsource-variable/inter": "catalog:",
     "@fontsource-variable/jetbrains-mono": "catalog:",
+    "@kestack/web-theme": "workspace:*",
     "@shadcn/react": "catalog:",
     "@shikijs/langs": "catalog:",
     "@shikijs/themes": "catalog:",

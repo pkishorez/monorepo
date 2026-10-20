@@ -3,7 +3,7 @@
 
 @layer base {
   body {
-    @apply bg-background font-sans text-foreground antialiased;
+    @apply antialiased;
   }
 }
 
@@ -20,7 +20,7 @@
       transparent
     ) !important;
   }
-  .dark .shiki span {
+  [data-theme='dark'] .shiki span {
     color: var(--shiki-dark) !important;
   }
 }

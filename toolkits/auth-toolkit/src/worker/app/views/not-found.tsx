@@ -18,7 +18,7 @@ export function NotFound({ path }: { path: string }) {
           lead={
             <>
               Nothing lives at{' '}
-              <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-sm text-fg break-all">
+              <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-sm text-foreground break-all">
                 {path}
               </code>
               . The link may be old or mistyped.

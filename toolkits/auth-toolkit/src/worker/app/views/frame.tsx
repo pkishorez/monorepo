@@ -30,7 +30,7 @@ function BrandMark({ brand }: { brand: Brand }) {
   ) : (
     <span
       aria-hidden="true"
-      className="grid size-6 shrink-0 select-none place-items-center rounded-md bg-accent text-xs font-semibold text-accent-fg"
+      className="grid size-6 shrink-0 select-none place-items-center rounded-md bg-primary text-xs font-semibold text-primary-foreground"
     >
       {brand.name.trim().charAt(0).toUpperCase()}
     </span>
@@ -82,12 +82,7 @@ export function Frame({
           <span />
         )}
         <div className="flex shrink-0 items-center gap-2">
-          {chrome ? (
-            <ThemeToggle
-              saved={chrome.theme}
-              cookieDomain={chrome.cookieDomain}
-            />
-          ) : null}
+          {chrome ? <ThemeToggle cookieDomain={chrome.cookieDomain} /> : null}
           {/* Signed in, the menu's slot is held while the page loads, so nothing moves. */}
           {active || (!data && chrome?.accounts.active) ? (
             <div className="grid size-11 place-items-center">

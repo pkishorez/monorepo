@@ -42,11 +42,12 @@ export interface WebRootOptions {
   readonly icon?: string;
   readonly plugins?: ReadonlyArray<RootPlugin>;
   /**
-   * The Theme the server renders the page in, as a server function of the
-   * app's reading the cookie (`getTheme`). Without it the page renders
-   * dark, and the Theme's script sets the right one before the first paint.
+   * The saved Theme, as a server function of the app's reading the cookie
+   * (`getTheme`), for the server to render `<html>` in. Without it, or with
+   * nothing saved, the Theme's script sets the saved or the system's Theme
+   * before the first paint.
    */
-  readonly loadTheme?: () => Promise<Theme>;
+  readonly loadTheme?: () => Promise<Theme | undefined>;
   /** What a page that does not exist shows; a plain 404 unless given. */
   readonly notFound?: () => ReactNode;
 }
@@ -56,7 +57,7 @@ const VIEWPORT =
 
 // The browser already shows the Theme its script set.
 const shownTheme = (): Theme =>
-  document.documentElement.dataset['theme'] === 'light' ? 'light' : 'dark';
+  document.documentElement.dataset['theme'] === 'dark' ? 'dark' : 'light';
 
 function NotFound() {
   return (
@@ -83,19 +84,14 @@ export const webRoot = (options: WebRootOptions) => {
   const { theme } = options;
 
   function RootDocument(props: { readonly children: ReactNode }) {
-    const initial =
-      (useLoaderData({ strict: false }) as Theme | undefined) ?? 'dark';
+    const saved =
+      (useLoaderData({ strict: false }) as Theme | null | undefined) ??
+      undefined;
     return (
-      <html
-        lang="en"
-        className={initial === 'dark' ? 'dark' : undefined}
-        data-theme={initial}
-        style={{ colorScheme: initial }}
-        suppressHydrationWarning
-      >
+      <html lang="en" data-theme={saved} suppressHydrationWarning>
         <head>
           <HeadContent />
-          <theme.Script initialTheme={initial} />
+          <theme.Script />
           {/* Before the first paint: what this device is driven by. */}
           <script dangerouslySetInnerHTML={{ __html: DEVICE_SCRIPT }} />
         </head>
@@ -118,10 +114,10 @@ export const webRoot = (options: WebRootOptions) => {
   }
 
   return {
-    loader: async (): Promise<Theme> =>
+    loader: async (): Promise<Theme | null> =>
       typeof document !== 'undefined'
         ? shownTheme()
-        : ((await options.loadTheme?.()) ?? 'dark'),
+        : ((await options.loadTheme?.()) ?? null),
     head: () => {
       const added = plugins.map((plugin) => plugin.head?.() ?? {});
       return {

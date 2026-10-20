@@ -62,7 +62,7 @@ function Section({
     >
       <div className="flex flex-col gap-1">
         <h2 className="text-[17px] font-semibold">{words(title)}</h2>
-        <p className="max-w-[65ch] text-sm text-muted-fg text-pretty">
+        <p className="max-w-[65ch] text-sm text-muted-foreground text-pretty">
           {words(lead)}
         </p>
       </div>
@@ -84,7 +84,7 @@ function Group({
   return (
     <div className="flex flex-col gap-2">
       <div className="flex min-h-8 flex-wrap items-center justify-between gap-x-4 gap-y-1">
-        <h3 className="text-sm font-medium text-muted-fg">{label}</h3>
+        <h3 className="text-sm font-medium text-muted-foreground">{label}</h3>
         {action}
       </div>
       {children}
@@ -95,7 +95,7 @@ function Group({
 function Rows({ children }: { children: ReactNode }) {
   return (
     <Card className="w-full overflow-hidden">
-      <ul className="divide-y divide-line">{children}</ul>
+      <ul className="divide-y divide-border">{children}</ul>
     </Card>
   );
 }
@@ -116,7 +116,9 @@ function Row({
       {icon}
       <div className="min-w-0 flex-1">
         <p className="font-medium break-words">{title}</p>
-        <p className="mt-0.5 text-sm text-muted-fg text-pretty">{detail}</p>
+        <p className="mt-0.5 text-sm text-muted-foreground text-pretty">
+          {detail}
+        </p>
       </div>
       {action}
     </li>
@@ -139,7 +141,7 @@ function Parts({ parts }: { parts: ReadonlyArray<ReactNode> }) {
 /** The quiet line a Group shows when it has no rows, as tall as one row. */
 function EmptyRow({ children }: { children: ReactNode }) {
   return (
-    <Card className="flex min-h-[68px] items-center px-4 py-3 text-sm text-muted-fg text-pretty">
+    <Card className="flex min-h-[68px] items-center px-4 py-3 text-sm text-muted-foreground text-pretty">
       {children}
     </Card>
   );
@@ -216,7 +218,7 @@ function HomePlaceholder() {
 const SignInIcon = ({ signIn }: { signIn: SignIn }) => {
   const Icon = KIND[signIn.kind];
   return (
-    <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-muted text-muted-fg">
+    <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
       <Icon aria-hidden="true" className="size-[18px]" />
     </span>
   );
@@ -259,10 +261,10 @@ export const HomeView = View.make(HomeLive, ({ props, model, send }) => {
         <Parts
           parts={[
             signIn.current ? (
-              <span className="inline-flex items-center gap-1.5 font-medium text-fg">
+              <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
                 <span
                   aria-hidden="true"
-                  className="size-2 rounded-full bg-success"
+                  className="size-2 rounded-full bg-positive"
                 />
                 You're using it now
               </span>
@@ -304,7 +306,10 @@ export const HomeView = View.make(HomeLive, ({ props, model, send }) => {
               >
                 {active.name || active.email}
               </h1>
-              <p title={active.email} className="truncate text-muted-fg">
+              <p
+                title={active.email}
+                className="truncate text-muted-foreground"
+              >
                 {active.email}
               </p>
             </div>

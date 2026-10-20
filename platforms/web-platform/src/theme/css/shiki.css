@@ -5,7 +5,6 @@
  * dark value. Scoped to `.shiki-token` so the surrounding gutter and layout
  * spans (which carry no `--shiki-dark`) keep their own colours.
  */
-.dark .shiki .shiki-token,
 [data-theme='dark'] .shiki .shiki-token {
   color: var(--shiki-dark) !important;
 }
@@ -60,12 +59,10 @@
   color: rgb(225 29 72);
 }
 
-.dark .source-line-add::after,
 [data-theme='dark'] .source-line-add::after {
   color: rgb(74 222 128);
 }
 
-.dark .source-line-remove::after,
 [data-theme='dark'] .source-line-remove::after {
   color: rgb(251 113 133);
 }

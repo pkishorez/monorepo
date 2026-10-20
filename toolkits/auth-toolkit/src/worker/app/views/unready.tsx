@@ -23,7 +23,11 @@ export function Unready({
         <Notice>
           <p>This page didn't load. Check your connection, then try again.</p>
           <Router.Retry
-            className={buttonClass('ghost', 'sm', '-ml-3 mt-1 text-danger')}
+            className={buttonClass(
+              'ghost',
+              'sm',
+              '-ml-3 mt-1 text-destructive',
+            )}
           >
             Try again
           </Router.Retry>

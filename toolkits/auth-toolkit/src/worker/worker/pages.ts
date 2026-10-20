@@ -13,21 +13,10 @@ export interface PagesContext {
   origin: string;
   /** With the Authorization Server Role on: every Scope, in words. */
   oauth?: { scopes: Readonly<Record<string, string>> } | undefined;
-  /** The visitor's Theme, read from its `theme` cookie; absent without one,
-   * when the browser draws the system's. */
-  theme?: Theme | undefined;
   /** This browser's Accounts, Sign-ins, Grants and requests, for the pages'
    * Loaders to draw each page with its data; never a token. */
   reads: BrowserReads;
 }
-
-export type Theme = 'light' | 'dark';
-
-/** The `theme` cookie the pages write on the Shared Cookie Domain. */
-const themeOf = (request: Request): Theme | undefined =>
-  /(?:^|;\s*)theme=(light|dark)(?:;|$)/.exec(
-    request.headers.get('cookie') ?? '',
-  )?.[1] as Theme | undefined;
 
 export type EmbeddedAsset =
   | { type: string; body: string }
@@ -58,5 +47,5 @@ export const servePages = (
   const asset = pages.assets[new URL(request.url).pathname];
   return asset
     ? Promise.resolve(assetResponse(asset))
-    : pages.fetch(request, { ...context, theme: themeOf(request) });
+    : pages.fetch(request, context);
 };

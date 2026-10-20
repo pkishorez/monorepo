@@ -21,12 +21,12 @@ export function AccountPicker({
   disabled?: boolean;
   onChoose: (userId: string) => void;
 }) {
-  const caption = 'text-sm font-medium text-muted-fg';
+  const caption = 'text-sm font-medium text-muted-foreground';
   if (accounts.length <= 1 && chosen) {
     return (
       <div className="flex flex-col gap-2">
         <p className={caption}>{label}</p>
-        <div className="flex min-h-[60px] items-center gap-3 rounded-xl px-3 py-2 shadow-[0_0_0_1px_var(--color-line)]">
+        <div className="flex min-h-[60px] items-center gap-3 rounded-xl px-3 py-2 shadow-[0_0_0_1px_var(--color-border)]">
           <Avatar {...chosen} />
           <Identity account={chosen} />
         </div>
@@ -44,8 +44,8 @@ export function AccountPicker({
             className={cx(
               'relative flex min-h-[60px] cursor-pointer items-center in-disabled:cursor-default gap-3 rounded-xl px-3 py-2 transition-[box-shadow,background-color] duration-150',
               picked
-                ? 'bg-surface shadow-[0_0_0_2px_var(--color-accent)]'
-                : 'bg-surface shadow-[0_0_0_1px_var(--color-line)] hover:bg-hover',
+                ? 'bg-card shadow-[0_0_0_2px_var(--color-primary)]'
+                : 'bg-card shadow-[0_0_0_1px_var(--color-border)] hover:bg-accent',
               'has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-ring',
             )}
           >
@@ -64,8 +64,8 @@ export function AccountPicker({
               className={cx(
                 'grid size-5 shrink-0 place-items-center rounded-full transition-colors duration-150',
                 picked
-                  ? 'bg-accent text-accent-fg'
-                  : 'shadow-[inset_0_0_0_1.5px_var(--color-line)]',
+                  ? 'bg-primary text-primary-foreground'
+                  : 'shadow-[inset_0_0_0_1.5px_var(--color-border)]',
               )}
             >
               {picked ? <Check className="size-3" strokeWidth={3} /> : null}
@@ -83,7 +83,7 @@ function Identity({ account }: { account: Account }) {
       <span className="block truncate font-medium">
         {account.name || account.email}
       </span>
-      <span className="block truncate text-sm text-muted-fg">
+      <span className="block truncate text-sm text-muted-foreground">
         {account.email}
       </span>
     </span>

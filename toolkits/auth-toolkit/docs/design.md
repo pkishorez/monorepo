@@ -8,34 +8,16 @@ exist. Adding one means adding it to the code and to this file together.
 
 ## Tokens
 
-Defined in `styles.css`. Every colour is `light-dark(light, dark)`, so the
-Theme is one `color-scheme` on the root. Use the Tailwind utility for the
-token (`bg-surface`, `text-muted-fg`); never a raw hex, an `oklch()`, a
-palette class (`gray-200`) or a `dark:` variant. A `dark:` override breaks the
-Theme: it follows the system, not the visitor's choice.
+The pages have no palette of their own: colours, depth, type and the Theme
+are `@kestack/web-theme`'s, the same as every kstack app's. Its
+[design doc](../../../packages/web-theme/docs/design.md) lists every token
+with its values and use. Use the Tailwind utility for the token
+(`bg-card`, `text-muted-foreground`); never a raw colour or a palette class.
+The page sets the brand's accent as `--brand-accent`, which is the Theme's
+`primary`: the primary button, the brand mark and the picked Account,
+nothing else. Depth is the Theme's shadow tokens through `shadow-(--token)`.
 
-| What            | Token                                               | Use                                                                                       |
-| --------------- | --------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| Page background | `page`                                              | `body` only                                                                               |
-| Raised surface  | `surface`                                           | Cards, popup, dialog, inputs, secondary buttons                                           |
-| Text            | `fg`                                                | Titles, body, row titles                                                                  |
-| Secondary text  | `muted-fg`                                          | Leads, details, captions, group labels                                                    |
-| Tertiary text   | `faint`                                             | Fine print, dates after a detail, disabled labels                                         |
-| Quiet fill      | `muted`                                             | Icon tiles, skeletons, the code box, the menu's Active band                               |
-| Hover fill      | `hover`                                             | Hover on rows, ghost buttons, menu rows                                                   |
-| Hairline        | `line`                                              | Dividers, 1px rings                                                                       |
-| The next step   | `accent`, `accent-fg`, `accent-hover`               | Primary button, brand mark, picked Account. Nothing else.                                 |
-| Focus           | `ring`                                              | Focus outline only; ink, never the brand                                                  |
-| States          | `danger(-soft)`, `warning(-soft)`, `success(-soft)` | Notices, status tiles, the "using it now" dot, consent checks, "Sign out of all accounts" |
-| Backdrop        | `scrim`                                             | Dialog backdrop                                                                           |
-
-Depth uses shadow tokens, through `shadow-(--token)`: `--shadow-raised`
-(Card), `--shadow-control` (secondary button), `--shadow-overlay`
-(popup, dialog), `--shadow-edge` (avatar picture edge). In dark each collapses
-to its 1px ring. Separation (row dividers, input edge) stays a `line`
-border or ring, never a shadow.
-
-Type: system UI font, `font-mono` for codes and paths only. Sizes are fixed:
+Type: Inter, the Theme's, `font-mono` for codes and paths only. Sizes are fixed:
 26px task title, 24px (`text-2xl`) Home title, 17px section title, 15px body
 and buttons, 14px (`text-sm`) details and captions, 12px (`text-xs`) the menu
 caption only. Inputs are 16px so iOS doesn't zoom. Weights: 400, 500
@@ -76,19 +58,19 @@ the product, so a task mark never repeats the brand.
 
 The **account page** opens with the Account (lg avatar, name as `h1`, email),
 then `Section`s 40px apart: 17px title, a one-line lead, then `Group`s. A
-`Group` is a 14px `muted-fg` caption, an optional action on the right of
+`Group` is a 14px `muted-foreground` caption, an optional action on the right of
 the caption, and its rows.
 
 ## Lists
 
 Rows live in `Rows` (a Card with dividers). Each `Row` is 68px minimum: a
 36px icon tile (or `ClientMark size="sm"`), title in `font-medium`, a detail
-line in `text-sm text-muted-fg`, one ghost `sm` action on the right. Build
+line in `text-sm text-muted-foreground`, one ghost `sm` action on the right. Build
 the detail with `Parts`, never a joined string: it breaks lines between
 parts, not inside "Signed in Oct 19".
 
 The thing the visitor is using right now is pinned first in its own Group
-("This browser") and says so in words with a `success` dot ("You're using
+("This browser") and says so in words with a `positive` dot ("You're using
 it now"). Never mark it with a tag inside a mixed list: a tag on one of six
 look-alike rows is missed. Everything else goes in the next Group, with its
 count in the caption.
@@ -135,7 +117,7 @@ disable. Never disable a button permanently without saying why next to it.
 
 Nothing on these pages destroys data: a sign-out or a removed Grant is undone
 by signing in or allowing again. So there is no danger tone (the Account
-menu's "Sign out of all accounts" is the one item in `text-danger`), and single
+menu's "Sign out of all accounts" is the one item in `text-destructive`), and single
 removals happen at once with a toast. `ConfirmDialog` (`ui/dialog.tsx`) is
 used once, for "Sign out everywhere else", because it ends several Sign-ins
 the visitor can't see. A confirmation's title is the question, its
@@ -153,7 +135,7 @@ first ("Keep them"), the confirm is `primary` and says the count ("Sign out
   or `warning` (read this before going on). Icon plus words, never colour
   alone; placed directly above the control it is about, or under the input
   it explains. A retry inside a Notice is a ghost `sm` button in
-  `text-danger`.
+  `text-destructive`.
 - **Loading**: a page arrives with its data, so a first visit has no
   loading state. Only a move or an Account Switch that outlasts the Router's
   150ms hold shows one: the page's single placeholder in `Unready`, never a
@@ -174,9 +156,9 @@ right of a signed-in page, after the Theme toggle. It is a Base UI `Menu`
 items, Escape closes, and focus goes back to the avatar. Top to bottom:
 
 1. **The Active Account**, on its own `muted` band across the top of the
-   popup, under a `border-b border-line`: caption "Signed in as", 32px
+   popup, under a `border-b border-border`: caption "Signed in as", 32px
    avatar, name, email, and a quiet "Sign out" text item (`text-sm`,
-   `muted-fg`; highlighted it lifts to `surface` with `--shadow-control`).
+   `muted-foreground`; highlighted it lifts to `card` with `--shadow-control`).
    It signs out this Account only. The band says who is active; there is no
    check.
 2. **"Switch account"**, only when there are other Accounts: each one a
@@ -185,7 +167,7 @@ items, Escape closes, and focus goes back to the avatar. Top to bottom:
    switch to it, then "Sign out".
 3. A rule, then **"Add another account"** (a link to the Login Screen), or,
    at the limit, the sentence saying why not; then **"Sign out of all
-   accounts"** in `text-danger`, the one place that token colours an action.
+   accounts"** in `text-destructive`, the one place that token colours an action.
    It is hidden with one Account, where "Sign out" already does it.
 
 An action keeps the menu open on its item until it is done: the row being
@@ -197,20 +179,14 @@ the menu, never in the header.
 
 ## Theme
 
-Light or dark, no "System" choice. `ThemeToggle` (`views/theme.tsx`) is one
-44px icon button in the header, before the Account menu, on every page
-signed in or out; nowhere else. Its icon shows the Theme it switches to
-(moon in light, sun in dark), its `aria-label` says it ("Switch to dark
-theme"), and its focus is the global ring. The icon follows the root's
-`data-theme` in CSS (`in-data-[theme=dark]:`), so it is right on the first
-paint.
-
-Until the visitor presses it there is no cookie, and the Document's head
-script sets `data-theme` on the root from `prefers-color-scheme` before the
-first paint. Pressing it writes `theme=light|dark` on the Shared Cookie
-Domain, which the Auth Worker reads into every page's data for the server's
-render, and sets `data-theme` at once. Switching holds every transition for
-one frame so nothing fades across. Check every change in both themes.
+Light or dark, no "System" choice; how it is saved, read and switched is
+the Theme's ([web-theme's design doc](../../../packages/web-theme/docs/design.md#light-or-dark)).
+`ThemeToggle` (`views/theme.tsx`) is one 44px icon button in the header,
+before the Account menu, on every page signed in or out; nowhere else. Its
+icon shows the Theme it switches to (moon in light, sun in dark), its
+`aria-label` says it ("Switch to dark theme"), and its focus is the global
+ring. The icon follows the root's `data-theme` in CSS (`dark:hidden`), so it
+is right on the first paint. Check every change in both themes.
 
 ## Copy
 

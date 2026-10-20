@@ -128,14 +128,15 @@ export const ConsentView = View.make(ConsentLive, (self) => {
               lead={
                 host ? (
                   <>
-                    From <span className="font-medium text-fg">{host}</span>
+                    From{' '}
+                    <span className="font-medium text-foreground">{host}</span>
                   </>
                 ) : undefined
               }
             />
             {scopes.length > 0 ? (
               <div className="mt-8">
-                <p className="text-sm font-medium text-muted-fg">
+                <p className="text-sm font-medium text-muted-foreground">
                   {client.name} will be able to
                 </p>
                 <ul className="mt-2 flex flex-col gap-2">
@@ -143,7 +144,7 @@ export const ConsentView = View.make(ConsentLive, (self) => {
                     <li key={scope.name} className="flex gap-2.5">
                       <Check
                         aria-hidden="true"
-                        className="mt-[3px] size-4 shrink-0 text-success"
+                        className="mt-[3px] size-4 shrink-0 text-positive"
                       />
                       <span>{scope.description}</span>
                     </li>
@@ -204,7 +205,7 @@ export const ConsentView = View.make(ConsentLive, (self) => {
                     You can remove its access any time from your{' '}
                     <a
                       href="/"
-                      className="underline underline-offset-2 hover:text-fg"
+                      className="underline underline-offset-2 hover:text-foreground"
                     >
                       {brand.name} account
                     </a>

@@ -55,7 +55,7 @@ export const AppView = View.make(
           {model.toasts.map((toast) => (
             <p
               key={toast.id}
-              className="max-w-sm rounded-xl bg-fg px-4 py-2.5 text-center text-sm font-medium text-page shadow-[0_8px_24px_-8px_rgb(0_0_0/0.35)] motion-safe:animate-toast-in"
+              className="max-w-sm rounded-xl bg-foreground px-4 py-2.5 text-center text-sm font-medium text-background shadow-[0_8px_24px_-8px_rgb(0_0_0/0.35)] motion-safe:animate-toast-in"
             >
               {toast.text}
             </p>

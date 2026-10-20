@@ -1,0 +1,63 @@
+{
+  "name": "@kestack/web-theme",
+  "version": "0.0.0",
+  "private": false,
+  "description": "The one look of every kstack web app: the colour tokens for Tailwind v4, Inter, and the light or dark Theme saved in a shared cookie and set before the first paint.",
+  "keywords": [
+    "theme",
+    "design-tokens",
+    "tailwind",
+    "dark-mode",
+    "oklch"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pkishorez/monorepo",
+    "directory": "packages/web-theme"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "files": [
+    "README.md",
+    "LICENSE",
+    "docs/",
+    "dist/",
+    "src/css/"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/theme/index.d.ts",
+      "default": "./dist/theme/index.js"
+    },
+    "./theme.css": "./src/css/theme.css",
+    "./font-inter.css": "./src/css/font-inter.css"
+  },
+  "scripts": {
+    "build": "rm -rf ./dist && tsc -p tsconfig.build.json",
+    "fmt": "vp fmt",
+    "lint": "vp check && tsc --noEmit && laymos lint",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@fontsource-variable/inter": "catalog:",
+    "@fontsource-variable/jetbrains-mono": "catalog:"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "catalog:",
+    "jsdom": "catalog:",
+    "laymos": "workspace:*",
+    "react": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}

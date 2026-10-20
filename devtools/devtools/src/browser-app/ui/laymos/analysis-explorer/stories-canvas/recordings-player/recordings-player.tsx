@@ -123,7 +123,8 @@ export function RecordingsPlayer({
               key="full-screen"
               role="dialog"
               aria-label="Recordings, full screen"
-              className="dark fixed inset-0 z-[100] flex flex-col bg-background text-foreground"
+              data-theme="dark"
+              className="fixed inset-0 z-[100] flex flex-col bg-background text-foreground"
               initial={
                 reducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.985 }
               }

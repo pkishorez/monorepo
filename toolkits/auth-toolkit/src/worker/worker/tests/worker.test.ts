@@ -216,26 +216,6 @@ describe('authWorker', () => {
     },
   );
 
-  it.each([
-    ['theme=dark', 'dark'],
-    ['other=1; theme=light', 'light'],
-    ['theme=sepia', undefined],
-    ['theme=system', undefined],
-  ] as const)(
-    'hands the pages the Theme from the cookie (%s)',
-    async (cookie, theme) => {
-      const { handler } = makeAuthWorker(config, {
-        assets: {},
-        fetch: async (_request: Request, context: PagesContext) =>
-          Response.json(context),
-      });
-      const page = await handler(
-        new Request('https://auth.example.com/', { headers: { cookie } }),
-      );
-      expect(((await page.json()) as { theme?: string }).theme).toBe(theme);
-    },
-  );
-
   it('gives the pages every Scope in words, OpenID included', async () => {
     const { handler } = makeAuthWorker(
       {

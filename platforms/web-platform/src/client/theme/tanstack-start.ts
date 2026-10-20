@@ -1,5 +1,5 @@
-import { getCookie } from '@tanstack/react-start/server';
-import { THEME_COOKIE, themeFromCookies } from '../../theme/index.ts';
+import { getRequestHeader } from '@tanstack/react-start/server';
+import { themeFromCookies } from '../../theme/index.ts';
 
-export const getTheme = () =>
-  themeFromCookies(`${THEME_COOKIE}=${getCookie(THEME_COOKIE) ?? ''}`);
+/** The saved Theme in the request's cookies; undefined before one is saved. */
+export const getTheme = () => themeFromCookies(getRequestHeader('cookie'));

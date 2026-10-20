@@ -2,8 +2,8 @@ import type { ReactNode } from 'react';
 import { Skeleton, SkeletonText, cx } from '../ui/index.ts';
 
 const tiles = {
-  neutral: 'bg-muted text-fg',
-  success: 'bg-success-soft text-success',
+  neutral: 'bg-muted text-foreground',
+  success: 'bg-positive-soft text-positive',
   warning: 'bg-warning-soft text-warning',
 };
 
@@ -37,7 +37,9 @@ export function TaskHeading({
       <h1 className="mt-6 text-[26px] leading-tight font-semibold tracking-[-0.01em]">
         {title}
       </h1>
-      {lead ? <p className="mt-2 text-muted-fg text-pretty">{lead}</p> : null}
+      {lead ? (
+        <p className="mt-2 text-muted-foreground text-pretty">{lead}</p>
+      ) : null}
     </div>
   );
 }
