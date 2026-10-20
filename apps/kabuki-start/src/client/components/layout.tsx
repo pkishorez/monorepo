@@ -6,7 +6,8 @@ import { ThemeToggle } from './theme-toggle.tsx';
 /*
  * What is around every page: the site's name, one link per page, the
  * switch between light and dark and the Account slot, then the page in a
- * column.
+ * column. On a narrow screen the links scroll sideways, and the name and
+ * the controls keep their place.
  */
 
 const NAV = [
@@ -27,11 +28,14 @@ export function Layout({
   return (
     <div className="flex min-h-dvh flex-col">
       <header className="sticky top-0 z-40 border-b border-border bg-background">
-        <nav className="mx-auto flex h-14 w-full max-w-4xl items-center gap-6 px-5 text-sm">
-          <span className="font-semibold tracking-tight">Kabuki Start</span>
-          <ul className="flex flex-1 gap-1">
+        <nav className="mx-auto flex h-14 w-full max-w-4xl items-center gap-3 px-5 text-sm sm:gap-6">
+          <span className="shrink-0 font-semibold tracking-tight">
+            Kabuki Start
+          </span>
+          {/* On a narrow screen the links scroll, so the controls stay in view. */}
+          <ul className="flex min-w-0 flex-1 gap-1 overflow-x-auto py-1.5 [scrollbar-width:thin]">
             {NAV.map(({ to, label }) => (
-              <li key={label}>
+              <li key={label} className="shrink-0">
                 <Router.Link
                   to={to}
                   aria-current={to._tag === route._tag ? 'page' : undefined}

@@ -296,16 +296,17 @@ export const AccountSwitcherLive: ActorType<
 });
 
 /**
- * The slot at the top right of the header, the width of the "Sign in"
- * button in every state: "Sign in" when signed out, the Account menu when
- * signed in, and while checking, the avatar of the Account last seen here,
- * or nothing. A server draws it checking; the browser fills it in.
+ * The slot at the top right of the header: "Sign in" when signed out, the
+ * Account menu when signed in, and while checking, the avatar of the
+ * Account last seen here, or nothing. It is the avatar's width but when
+ * signed out, and glides between the two; see `Slot`. A server draws it
+ * checking; the browser fills it in.
  */
 export const AccountSwitcherView: ViewOf<typeof AccountSwitcherLive> =
   View.make(AccountSwitcherLive, ({ root, model, send }) => {
     const { account, switching } = model;
     return (
-      <Slot {...root}>
+      <Slot {...root} wide={account._tag === 'SignedOut'}>
         {account._tag === 'SignedOut' ? (
           <SignInButton onClick={() => send({ _tag: 'SignIn' })} />
         ) : account._tag === 'SignedIn' ? (

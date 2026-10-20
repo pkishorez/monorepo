@@ -38,14 +38,23 @@ interface Account {
 }
 
 /**
- * Always the width of the "Sign in" button and the height of the avatar's
- * 44px target, whatever it holds, so nothing beside it moves as it fills.
+ * The avatar's 44px target, checking or signed in, and the "Sign in"
+ * button's width only when signed out: no gap beside an avatar. Its width
+ * moves between the two with a short ease-out, so what sits beside it
+ * glides rather than jumps; at once under reduced motion. What it holds is
+ * right-aligned and clipped to it (with room for a focus ring), so the
+ * button is uncovered as the slot widens.
  */
-export function Slot({ className, ...props }: ComponentProps<'div'>) {
+export function Slot({
+  wide,
+  className,
+  ...props
+}: ComponentProps<'div'> & { readonly wide: boolean }) {
   return (
     <div
       className={cn(
-        'flex h-11 w-18 shrink-0 items-center justify-end',
+        'flex h-11 shrink-0 items-center justify-end [clip-path:inset(-6px)] transition-[width] duration-200 ease-out motion-reduce:transition-none',
+        wide ? 'w-18' : 'w-11',
         className,
       )}
       {...props}
@@ -57,7 +66,7 @@ export function SignInButton({ onClick }: { readonly onClick: () => void }) {
   return (
     <Button
       size="sm"
-      className="relative w-full before:absolute before:inset-x-0 before:-inset-y-1.5"
+      className="relative w-18 shrink-0 animate-in fade-in duration-200 before:absolute before:inset-x-0 before:-inset-y-1.5 motion-reduce:animate-none"
       onClick={onClick}
     >
       Sign in
