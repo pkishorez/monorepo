@@ -121,6 +121,7 @@ export const makeAuthWorker = (
     cookieDomain: resolved.domain,
     origin: resolved.origin,
     oauth: resolved.scopes ? { scopes: resolved.scopes } : undefined,
+    dev: config.dev,
     reads: browser.reads,
   };
 

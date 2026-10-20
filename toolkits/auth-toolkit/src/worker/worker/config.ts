@@ -44,6 +44,8 @@ export interface AuthWorkerConfig {
   dashApiKey?: string | undefined;
   /** Turns on the Authorization Server Role. */
   oauth?: { resources: OAuthResources } | undefined;
+  /** Shows Kabuki's devtools on the pages. For local development only. */
+  dev?: boolean | undefined;
 }
 
 export const DEFAULT_MAX_ACCOUNTS = 5;

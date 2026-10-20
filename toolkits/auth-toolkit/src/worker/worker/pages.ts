@@ -16,6 +16,8 @@ export interface PagesContext {
   /** The visitor's Theme, read from its `theme` cookie; absent without one,
    * when the browser draws the system's. */
   theme?: Theme | undefined;
+  /** Whether the pages show Kabuki's devtools. */
+  dev?: boolean | undefined;
   /** This browser's Accounts, Sign-ins, Grants and requests, for the pages'
    * Loaders to draw each page with its data; never a token. */
   reads: BrowserReads;
