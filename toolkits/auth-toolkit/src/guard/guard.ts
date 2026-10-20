@@ -1,16 +1,15 @@
-import { HttpApi } from '@kestack/rpc-toolkit/http-api';
-import { Rpc } from '@kestack/rpc-toolkit/rpc';
 import { Context, Effect } from 'effect';
 
-import { Failure, Failures, Forbidden } from './errors.js';
+import { Forbidden } from './errors.js';
 import type { Principal } from './principal.js';
 
 /** The verified Principal of one guarded call. Both kinds carry a `user`
  * with `id`, `email` and `name`, so a policy that reads only those works for
  * either. */
-export class User extends Context.Service<User, Principal>()(
-  '@kestack/auth-toolkit/User',
-) {}
+export class User
+  extends /*#__PURE__*/ Context.Service<User, Principal>()(
+    '@kestack/auth-toolkit/User',
+  ) {}
 
 /** What the Guard's value is: a rule the caller must pass. A Scope policy
  * also names its Scopes, for the challenge an OAuth Client reads. */
@@ -46,17 +45,3 @@ export const scope = (...required: [string, ...string[]]): Policy =>
     ),
     { scopes: required },
   );
-
-/** The Guard as an Rpc Middleware: its server half is `server/rpc`'s
- * `auth()`, its client half `signRpc`. */
-export const rpcMiddleware = Rpc.middleware<Policy>()(
-  '@kestack/auth-toolkit/rpc/Auth',
-  { provides: User, error: Failure },
-);
-
-/** The Guard as an HttpApi Middleware: its server half is `server/http`'s
- * `auth()`, its client half `signHttp`. */
-export const httpMiddleware = HttpApi.middleware<Policy>()(
-  '@kestack/auth-toolkit/http-api/Auth',
-  { provides: User, error: Failures },
-);

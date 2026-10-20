@@ -74,7 +74,7 @@ const run = <A, E>(
     ),
   );
 
-describe('Rpc.inProcess.client', () => {
+describe('rpc/in-process client', () => {
   it('reaches the handler', async () => {
     expect(await run((client) => client.Get({ id: 'a' }))).toBe('found a');
   });

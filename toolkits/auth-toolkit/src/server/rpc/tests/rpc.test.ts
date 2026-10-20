@@ -1,6 +1,7 @@
-import { Rpc as RpcToolkit } from '@kestack/rpc-toolkit/rpc';
+import { server as httpServer } from '@kestack/rpc-toolkit/rpc/http';
 import type { Session, User } from 'better-auth';
 import { Effect, Layer, Schema } from 'effect';
+import { Headers as HttpHeaders } from 'effect/http';
 import { Rpc, RpcClient, RpcGroup, RpcTest } from 'effect/rpc';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -13,9 +14,18 @@ vi.mock('better-auth/client', () => ({
   createAuthClient: mocks.createAuthClient,
 }));
 
-import { Auth, type PolicyGuard, type Principal } from '../../../auth/index.js';
+import {
+  Authz,
+  type PolicyGuard,
+  type Principal,
+} from '../../../auth/index.js';
 import { localToken, localUser } from '../../../contract/index.js';
-import { bearer, expectUser, signRpc } from '../../../guard/index.js';
+import {
+  bearer,
+  expectUser,
+  rpcMiddleware,
+  type Signature,
+} from '../../../guard/index.js';
 import { auth, authAs, testAuth } from '../index.js';
 
 const url = 'https://auth.example.com';
@@ -43,14 +53,14 @@ describe('server/rpc auth', () => {
     mocks.getSession.mockResolvedValue(sessionOf('u1'));
   });
 
-  it('authenticates and provides Auth.User under Auth.required', async () => {
+  it('authenticates and provides AuthUser under required', async () => {
     const WhoAmI = Rpc.make('WhoAmI', {
       payload: {},
       success: Schema.String,
-    }).pipe(Auth.required);
+    }).pipe(Authz.required);
     const Api = RpcGroup.make(WhoAmI);
     const Handlers = Api.toLayer({
-      WhoAmI: () => Effect.map(Auth.User, ({ user }) => user.id),
+      WhoAmI: () => Effect.map(Authz.User, ({ user }) => user.id),
     });
 
     const result = await Effect.runPromise(
@@ -64,7 +74,7 @@ describe('server/rpc auth', () => {
 
   it('fails Unauthenticated when no Sign-in is verified', async () => {
     mocks.getSession.mockResolvedValueOnce({ data: null });
-    const Api = Auth.required(
+    const Api = Authz.required(
       RpcGroup.make(Rpc.make('Private', { payload: {}, success: Schema.Void })),
     );
     const Handlers = Api.toLayer({ Private: () => Effect.void });
@@ -75,7 +85,7 @@ describe('server/rpc auth', () => {
       ),
     );
 
-    expect(error).toBeInstanceOf(Auth.Unauthenticated);
+    expect(error).toBeInstanceOf(Authz.Unauthenticated);
   });
 
   it('fails Unavailable when the Auth Worker cannot be asked', async () => {
@@ -83,7 +93,7 @@ describe('server/rpc auth', () => {
       data: null,
       error: { status: 503 },
     });
-    const Api = Auth.required(
+    const Api = Authz.required(
       RpcGroup.make(Rpc.make('Private', { payload: {}, success: Schema.Void })),
     );
     const Handlers = Api.toLayer({ Private: () => Effect.void });
@@ -94,14 +104,14 @@ describe('server/rpc auth', () => {
       ),
     );
 
-    expect(error).toBeInstanceOf(Auth.Unavailable);
+    expect(error).toBeInstanceOf(Authz.Unavailable);
   });
 
   it('returns Forbidden when the policy rejects the caller', async () => {
     const AdminOnly = Rpc.make('AdminOnly', {
       payload: {},
       success: Schema.Void,
-    }).pipe(Auth.policy(() => false, 'admin required'));
+    }).pipe(Authz.policy(() => false, 'admin required'));
     const Api = RpcGroup.make(AdminOnly);
     const Handlers = Api.toLayer({ AdminOnly: () => Effect.void });
 
@@ -113,7 +123,7 @@ describe('server/rpc auth', () => {
       ),
     );
 
-    expect(error).toBeInstanceOf(Auth.Forbidden);
+    expect(error).toBeInstanceOf(Authz.Forbidden);
     expect(error).toMatchObject({ reason: 'admin required' });
   });
 
@@ -121,12 +131,12 @@ describe('server/rpc auth', () => {
     const WhoAmI = Rpc.make('WhoAmI', {
       payload: {},
       success: Schema.String,
-    }).pipe(Auth.required);
+    }).pipe(Authz.required);
     const Api = RpcGroup.make(WhoAmI);
     let ran = 0;
     const Handlers = Api.toLayer({
       WhoAmI: () =>
-        Effect.map(Auth.User, ({ user }) => {
+        Effect.map(Authz.User, ({ user }) => {
           ran += 1;
           return user.id;
         }),
@@ -176,15 +186,12 @@ describe('server/rpc auth', () => {
 
     const One = Rpc.make('One', { payload: {}, success: Schema.String });
     const Two = Rpc.make('Two', { payload: {}, success: Schema.String });
-    const Api = Auth.required(RpcGroup.make(One, Two));
+    const Api = Authz.required(RpcGroup.make(One, Two));
     const Handlers = Api.toLayer({
-      One: () => Effect.map(Auth.User, ({ user }) => user.id),
-      Two: () => Effect.map(Auth.User, ({ user }) => user.id),
+      One: () => Effect.map(Authz.User, ({ user }) => user.id),
+      Two: () => Effect.map(Authz.User, ({ user }) => user.id),
     });
-    const answer = RpcToolkit.http.server(
-      Api,
-      Layer.mergeAll(Handlers, auth({ url })),
-    );
+    const answer = httpServer(Api, Layer.mergeAll(Handlers, auth({ url })));
     const message = (id: string, tag: string) =>
       JSON.stringify({ _tag: 'Request', id, tag, payload: {}, headers: [] });
 
@@ -215,14 +222,11 @@ describe('server/rpc auth', () => {
       ),
     );
     const One = Rpc.make('One', { payload: {}, success: Schema.String });
-    const Api = Auth.required(RpcGroup.make(One));
+    const Api = Authz.required(RpcGroup.make(One));
     const Handlers = Api.toLayer({
-      One: () => Effect.map(Auth.User, ({ user }) => user.id),
+      One: () => Effect.map(Authz.User, ({ user }) => user.id),
     });
-    const answer = RpcToolkit.http.server(
-      Api,
-      Layer.mergeAll(Handlers, auth({ url })),
-    );
+    const answer = httpServer(Api, Layer.mergeAll(Handlers, auth({ url })));
     const message = (id: string, token: string) =>
       JSON.stringify({
         _tag: 'Request',
@@ -261,24 +265,24 @@ describe('Scope policies', () => {
   };
   const call = (
     principal: Principal,
-    guard: ReturnType<typeof Auth.scope>,
+    guard: ReturnType<typeof Authz.scope>,
     inHandler: Effect.Effect<
       void,
-      InstanceType<typeof Auth.Forbidden>,
+      InstanceType<typeof Authz.Forbidden>,
       Effect.Services<PolicyGuard>
     >,
   ) => {
     const Write = Rpc.make('Write', {
       payload: {},
       success: Schema.String,
-      error: Auth.Forbidden,
+      error: Authz.Forbidden,
     }).pipe(guard);
     const Api = RpcGroup.make(Write);
     const Handlers = Api.toLayer({
       Write: () =>
         Effect.andThen(
           inHandler,
-          Effect.map(Auth.User, (principal) => principal.kind),
+          Effect.map(Authz.User, (principal) => principal.kind),
         ),
     });
     return Effect.runPromise(
@@ -295,26 +299,30 @@ describe('Scope policies', () => {
 
   it('allows a Token Principal carrying the Scope', async () => {
     expect(
-      await call(token, Auth.scope('notes:read'), Effect.void),
-    ).toMatchObject({ success: 'token' });
+      await call(token, Authz.scope('notes:read'), Effect.void),
+    ).toMatchObject({
+      success: 'token',
+    });
   });
 
   it('forbids a Token Principal missing the Scope', async () => {
     expect(
-      await call(token, Auth.scope('notes:write'), Effect.void),
-    ).toMatchObject({ failure: { _tag: 'Forbidden' } });
+      await call(token, Authz.scope('notes:write'), Effect.void),
+    ).toMatchObject({
+      failure: { _tag: 'Forbidden' },
+    });
   });
 
   it('forbids a Sign-in Principal, which has no Scopes', async () => {
     expect(
-      await call(session, Auth.scope('notes:read'), Effect.void),
+      await call(session, Authz.scope('notes:read'), Effect.void),
     ).toMatchObject({ failure: { _tag: 'Forbidden' } });
   });
 
   it('checks a Scope inside a handler with yield*', async () => {
-    const guard = Auth.scope('notes:read');
+    const guard = Authz.scope('notes:read');
     const inHandler = Effect.gen(function* () {
-      yield* Auth.scope('notes:write');
+      yield* Authz.scope('notes:write');
     });
     expect(await call(token, guard, inHandler)).toMatchObject({
       failure: { _tag: 'Forbidden', reason: 'Scope required: notes:write' },
@@ -324,21 +332,33 @@ describe('Scope policies', () => {
         token,
         guard,
         Effect.gen(function* () {
-          yield* Auth.scope('notes:read');
+          yield* Authz.scope('notes:read');
         }),
       ),
     ).toMatchObject({ success: 'token' });
   });
 });
 
+/** The Guard's client half for Effect RPC, signing every call with
+ * `signature`. */
+const signedWith = (signature: Signature<never>) =>
+  rpcMiddleware.client(({ request, next }) =>
+    Effect.flatMap(signature, (headers) =>
+      next({
+        ...request,
+        headers: HttpHeaders.setAll(request.headers, headers),
+      }),
+    ),
+  );
+
 describe('Local mode', () => {
   const WhoAmI = Rpc.make('WhoAmI', {
     payload: {},
     success: Schema.String,
-  }).pipe(Auth.required);
+  }).pipe(Authz.required);
   const Api = RpcGroup.make(WhoAmI);
   const Handlers = Api.toLayer({
-    WhoAmI: () => Effect.map(Auth.User, ({ user }) => user.email),
+    WhoAmI: () => Effect.map(Authz.User, ({ user }) => user.email),
   });
 
   const call = (token: Effect.Effect<string | null>) =>
@@ -352,11 +372,11 @@ describe('Local mode', () => {
           Layer.mergeAll(
             Handlers,
             auth({ local: true }),
-            signRpc(
+            signedWith(
               Effect.flatMap(token, (current) =>
                 current === null
                   ? Effect.fail(
-                      new Auth.Unauthenticated({ reason: 'No token yet' }),
+                      new Authz.Unauthenticated({ reason: 'No token yet' }),
                     )
                   : Effect.succeed(bearer(current)),
               ),
@@ -393,10 +413,10 @@ describe('server/rpc authAs', () => {
   const WhoAmI = Rpc.make('WhoAmI', {
     payload: {},
     success: Schema.String,
-  }).pipe(Auth.required);
+  }).pipe(Authz.required);
   const Api = RpcGroup.make(WhoAmI);
   const Handlers = Api.toLayer({
-    WhoAmI: () => Effect.map(Auth.User, ({ user }) => user.id),
+    WhoAmI: () => Effect.map(Authz.User, ({ user }) => user.id),
   });
   const ada = {
     kind: 'session',

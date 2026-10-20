@@ -1,10 +1,10 @@
 import type * as cf from '@cloudflare/workers-types';
 import { Effect, Option } from 'effect';
 import { describe, expect, it } from 'vitest';
-import { Rpc } from '../rpc/index.ts';
+import * as websocket from '../rpc/websocket/index.ts';
 import { socket, stores } from './harness.ts';
 
-const request = (id: string): Rpc.StreamRequest => ({
+const request = (id: string): websocket.StreamRequest => ({
   _tag: 'Request',
   id,
   tag: 'watch',
@@ -79,7 +79,7 @@ describe('sqlite Stream Store', () => {
   it('is built from a raw workerd DurableObjectState', () => {
     // Typechecked: workerd's `state.storage` is accepted as is.
     const fromRaw = (state: cf.DurableObjectState) =>
-      Rpc.websocket.streams.sqlite({ storage: state.storage });
+      websocket.sqliteStreamStore({ storage: state.storage });
     expect(typeof fromRaw).toBe('function');
   });
 
@@ -124,7 +124,7 @@ describe('sqlite Stream Store', () => {
   it('creates its table on a fresh database, under a chosen name', async () => {
     const { durableObjectStorage } = await import('./harness.ts');
     const { storage, database } = durableObjectStorage();
-    const streams = Rpc.websocket.streams.sqlite({
+    const streams = websocket.sqliteStreamStore({
       storage,
       tableName: 'my_streams',
     });

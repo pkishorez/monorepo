@@ -2,13 +2,14 @@ import { Context, Effect, Layer, Option, Schema, Stream } from 'effect';
 import { HttpServerResponse } from 'effect/http';
 import { Rpc as EffectRpc, RpcGroup } from 'effect/rpc';
 import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
-import { Rpc } from '../rpc/index.ts';
+import { middleware } from '../rpc/index.ts';
+import * as websocket from '../rpc/websocket/index.ts';
 import { accept, socket, stores, watch, type TestSocket } from './harness.ts';
 
 class Forbidden extends Schema.Error<Forbidden>('replay/Forbidden')({
   _tag: Schema.tag('Forbidden'),
 }) {}
-const Access = Rpc.middleware<boolean>()('replay/Access', {
+const Access = middleware<boolean>()('replay/Access', {
   error: Forbidden,
 });
 const Group = Access.with(true)(
@@ -27,7 +28,7 @@ afterEach(() => vi.unstubAllGlobals());
 
 const send = (
   server: {
-    message: (s: Rpc.HibernatingSocket, d: string) => Effect.Effect<void>;
+    message: (s: websocket.HibernatingSocket, d: string) => Effect.Effect<void>;
   },
   target: TestSocket,
   data: string,
@@ -37,14 +38,14 @@ describe.each(stores)('with the $name Stream Store', ({ make }) => {
   /** Boots a server instance: `live` are the sockets that survived hibernation. */
   const booter =
     <L extends Layer.Layer<any, any, never>>(
-      store: () => Rpc.StreamStore,
+      store: () => websocket.StreamStore,
       group: typeof Plain | typeof Group,
       handlers: L,
-      connection?: Rpc.ConnectionSlot<string>,
+      connection?: websocket.ConnectionSlot<string>,
     ) =>
     (live: TestSocket[], next?: TestSocket) =>
       Effect.runPromise(
-        Rpc.websocket.server(group as typeof Plain, handlers as never, {
+        websocket.server(group as typeof Plain, handlers as never, {
           state: {
             getWebSockets: () => Effect.succeed(live.map(({ port }) => port)),
             setWebSocketAutoResponse: () => Effect.void,
@@ -160,7 +161,7 @@ describe.each(stores)('with the $name Stream Store', ({ make }) => {
     const cursors: number[] = [];
     const middleware = Access.layer(({ headers }) =>
       Effect.gen(function* () {
-        const kind = yield* Rpc.websocket.InvocationKind;
+        const kind = yield* websocket.InvocationKind;
         calls.push({
           kind,
           identity: yield* Identity,
@@ -174,7 +175,7 @@ describe.each(stores)('with the $name Stream Store', ({ make }) => {
       watch: () =>
         Stream.unwrap(
           Effect.gen(function* () {
-            const checkpoint = yield* Rpc.websocket.checkpoint(
+            const checkpoint = yield* websocket.checkpoint(
               Schema.NumberFromString,
             );
             expectTypeOf(checkpoint.put).parameter(0).toEqualTypeOf<number>();
@@ -238,7 +239,7 @@ describe.each(stores)('with the $name Stream Store', ({ make }) => {
           Stream.unwrap(
             Effect.gen(function* () {
               starts++;
-              yield* (yield* Rpc.websocket.checkpoint(Schema.Number))
+              yield* (yield* websocket.checkpoint(Schema.Number))
                 .put(starts)
                 .pipe(Effect.orDie);
               return Stream.never;
@@ -286,7 +287,7 @@ describe.each(stores)('with the $name Stream Store', ({ make }) => {
     const woken = await boot([lost, resumed]);
     await vi.waitFor(() => expect(starts).toBe(2));
     expect(lost.closed).toEqual([
-      { code: Rpc.websocket.RESUME_LOST, reason: 'resume lost' },
+      { code: websocket.RESUME_LOST, reason: 'resume lost' },
     ]);
     expect(resumed.closed).toEqual([]);
 
@@ -306,7 +307,7 @@ describe('with the sqlite Stream Store', () => {
     const { store, rows } = sqlite.make();
     const boot = (live: TestSocket[], next?: TestSocket) =>
       Effect.runPromise(
-        Rpc.websocket.server(
+        websocket.server(
           Plain,
           Plain.toLayer({ watch: () => Stream.make(1, 2) }),
           {
@@ -345,22 +346,18 @@ describe('with the sqlite Stream Store', () => {
     const { store, rows } = sqlite.make();
     const boot = (live: TestSocket[], next?: TestSocket) =>
       Effect.runPromise(
-        Rpc.websocket.server(
-          Plain,
-          Plain.toLayer({ watch: () => Stream.never }),
-          {
-            state: {
-              getWebSockets: () => Effect.succeed(live.map(({ port }) => port)),
-              setWebSocketAutoResponse: () => Effect.void,
-            },
-            upgrade: () =>
-              Effect.succeed([
-                HttpServerResponse.empty(),
-                (next ?? live[0])!.port,
-              ] as const),
-            streams: store(),
+        websocket.server(Plain, Plain.toLayer({ watch: () => Stream.never }), {
+          state: {
+            getWebSockets: () => Effect.succeed(live.map(({ port }) => port)),
+            setWebSocketAutoResponse: () => Effect.void,
           },
-        ),
+          upgrade: () =>
+            Effect.succeed([
+              HttpServerResponse.empty(),
+              (next ?? live[0])!.port,
+            ] as const),
+          streams: store(),
+        }),
       );
     const [a, b] = [socket(), socket()];
     const first = await boot([], a);

@@ -10,7 +10,11 @@ import {
   HttpApiGroup,
   HttpApiTest,
 } from 'effect/http-api';
-import { Rpc as Rpcs } from '@kestack/rpc-toolkit/rpc';
+import {
+  client as httpClient,
+  server as httpServer,
+} from '@kestack/rpc-toolkit/rpc/http';
+import { client as inProcessClient } from '@kestack/rpc-toolkit/rpc/in-process';
 import { Rpc, RpcClient, RpcGroup } from 'effect/rpc';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -362,10 +366,7 @@ describe('browser signing', () => {
     }).pipe(
       Effect.scoped,
       Effect.provide(
-        Rpcs.inProcess.client(
-          Api,
-          Layer.mergeAll(Handlers, server(worker, seen)),
-        ),
+        inProcessClient(Api, Layer.mergeAll(Handlers, server(worker, seen))),
       ),
     );
 
@@ -401,7 +402,7 @@ describe('browser signing', () => {
 
   it('sends the cookie over http with no fetch options from the app', async () => {
     const worker = fakeAuthWorker();
-    const answer = Rpcs.http.server(
+    const answer = httpServer(
       Api,
       Layer.mergeAll(Handlers, server(worker, [])),
     );
@@ -417,7 +418,7 @@ describe('browser signing', () => {
         return yield* Effect.result(client.WhoAmI());
       }).pipe(
         Effect.scoped,
-        Effect.provide(Rpcs.http.client(Api, { url: 'https://api.test/rpc' })),
+        Effect.provide(httpClient(Api, { url: 'https://api.test/rpc' })),
         Effect.provideService(FetchHttpClient.Fetch, app),
       ),
     );

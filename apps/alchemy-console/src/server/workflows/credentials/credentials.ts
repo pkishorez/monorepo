@@ -1,5 +1,5 @@
 import { Effect } from 'effect';
-import { Auth } from '@kestack/auth-toolkit';
+import { Authz } from '@kestack/auth-toolkit';
 import { nextUlid } from '@kestack/std-toolkit/core';
 import type { DatabaseError } from '@kestack/std-toolkit/db';
 import {
@@ -47,7 +47,7 @@ const run = <A, R>(
     userId: string,
   ) => Effect.Effect<A, DatabaseError | ProviderFailure | CredentialError, R>,
 ) =>
-  Effect.flatMap(Auth.User, ({ user }) => operation(user.id)).pipe(
+  Effect.flatMap(Authz.User, ({ user }) => operation(user.id)).pipe(
     Effect.mapError(errorOf),
     Effect.tapError((error) =>
       Effect.logError(`Could not ${name} credential`, {

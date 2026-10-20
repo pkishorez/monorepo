@@ -5,7 +5,9 @@ import type {
   RpcClientError,
   RpcGroup,
 } from 'effect/rpc';
-import { Rpc } from '@kestack/rpc-toolkit/rpc';
+import { client as httpClient } from '@kestack/rpc-toolkit/rpc/http';
+import { client as inProcessClient } from '@kestack/rpc-toolkit/rpc/in-process';
+import { client as websocketClient } from '@kestack/rpc-toolkit/rpc/websocket';
 
 /** How an API is reached on the cloud Backend. On the Local Backend every
  * API is called in this process, whatever its Transport. */
@@ -85,11 +87,11 @@ export const cloudProtocol = (
 ): Layer.Layer<RpcClient.Protocol> => {
   const url = resolve(path, base);
   return transport === 'http'
-    ? Rpc.http.client(group, {
+    ? httpClient(group, {
         url,
         ...(!options.signed && { credentials: 'omit' as const }),
       })
-    : (Rpc.websocket.client(group, { url }) as Layer.Layer<
+    : (websocketClient(group, { url }) as Layer.Layer<
         RpcClient.Protocol,
         never,
         never
@@ -101,6 +103,6 @@ export const localProtocol = (
   { group }: Apis[string],
   handlers: LocalBackend<EffectRpc.Any>,
 ): Layer.Layer<RpcClient.Protocol> =>
-  Rpc.inProcess
-    .client(group, handlers as never)
-    .pipe(Layer.orDie) as Layer.Layer<RpcClient.Protocol>;
+  inProcessClient(group, handlers as never).pipe(
+    Layer.orDie,
+  ) as Layer.Layer<RpcClient.Protocol>;

@@ -5,7 +5,12 @@ import type { Rpc as EffectRpc } from 'effect/rpc';
 import type { Principal } from '@kestack/auth-toolkit';
 import { verify } from '@kestack/auth-toolkit/server/http';
 import { authAs, type OAuthOptions } from '@kestack/auth-toolkit/server/rpc';
-import { Rpc } from '@kestack/rpc-toolkit/rpc';
+import {
+  fromDurableObjectState,
+  server,
+  type HibernatingSocket,
+  type StreamStore,
+} from '@kestack/rpc-toolkit/rpc/websocket';
 import type { Api } from '../../define/index.ts';
 
 /** The shared sign-in service, as a cloud API checks each call with it.
@@ -35,7 +40,7 @@ const toWeb = (response: HttpServerResponse.HttpServerResponse): Response => {
 };
 
 // A socket the runtime hands the object, as the RPC server reads it.
-const socketOf = (ws: cf.WebSocket): Rpc.websocket.HibernatingSocket => ({
+const socketOf = (ws: cf.WebSocket): HibernatingSocket => ({
   ws,
   close: (code, reason) => Effect.sync(() => ws.close(code, reason)),
   serializeAttachment: (value) => ws.serializeAttachment(value),
@@ -179,7 +184,7 @@ export const liveObject = <Rpcs extends EffectRpc.Any, Env>(options: {
     storage: cf.DurableObjectStorage,
   ) => LiveBackend<Rpcs>;
   readonly auth: LiveAuth;
-  readonly streams?: (state: cf.DurableObjectState) => Rpc.StreamStore;
+  readonly streams?: (state: cf.DurableObjectState) => StreamStore;
 }): new (state: cf.DurableObjectState, env: Env) => LiveObject =>
   class implements LiveObject {
     readonly #served: Promise<{
@@ -200,8 +205,7 @@ export const liveObject = <Rpcs extends EffectRpc.Any, Env>(options: {
 
     constructor(state: cf.DurableObjectState, env: Env) {
       this.#storage = state.storage;
-      const { state: hibernation, upgrade } =
-        Rpc.websocket.fromDurableObjectState(state);
+      const { state: hibernation, upgrade } = fromDurableObjectState(state);
       // Who a call is from: the caller its own socket was opened for. A
       // failure, the sign-in service not answering, is the Guard's
       // Unavailable.
@@ -220,7 +224,7 @@ export const liveObject = <Rpcs extends EffectRpc.Any, Env>(options: {
       >;
       this.#served = Effect.runPromise(
         Effect.gen(function* () {
-          const rpc = yield* Rpc.websocket.server(options.api.group, handlers, {
+          const rpc = yield* server(options.api.group, handlers, {
             state: hibernation,
             upgrade,
             connection: {

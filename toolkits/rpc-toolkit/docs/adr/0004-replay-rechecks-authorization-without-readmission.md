@@ -1,6 +1,6 @@
 # Replay rechecks authorization without counting a new admission
 
-> Names changed in [ADR 0005](../../../../docs/adr/0005-three-toolkits-three-doors.md): Cannotation is now Middleware (`Rpc.middleware`, `HttpApi.middleware`, `clientLayer` is `client`), and the package has three doors, `rpc`, `http-api` and `alchemy`.
+> Names changed in [ADR 0005](../../../../docs/adr/0005-three-toolkits-three-doors.md): Cannotation is now Middleware (`Rpc.middleware`, `HttpApi.middleware`, `clientLayer` is `client`), and the package has three doors, `rpc`, `http-api` and `alchemy`. Since this toolkit's [ADR 0005](./0005-one-door-per-transport-named-exports.md) each Transport is its own door and every door exports plain names (`middleware`, not `Rpc.middleware`).
 
 Hibernation Replay passes through server Cannotation middleware again so its authorization implementation can check current permission; a rejected call terminates with its declared RPC error. Persisted Connection Identity identifies the caller but does not establish current authorization, and replay retains the original request headers rather than obtaining fresh client credentials.
 

@@ -1,12 +1,17 @@
-# Rpc.websocket client
+# rpc/websocket client
 
 ```ts
-import { Rpc } from '@kestack/rpc-toolkit/rpc';
+import {
+  client,
+  connection,
+  keepSubscribed,
+  status,
+} from '@kestack/rpc-toolkit/rpc/websocket';
 
-Rpc.websocket.client; // the Transport's client half
-Rpc.websocket.connection; // the RpcConnection service
-Rpc.websocket.status; // connecting, connected or reconnecting
-Rpc.websocket.keepSubscribed; // re-run a subscription after every reconnect
+client; // the Transport's client half
+connection; // the RpcConnection service
+status; // connecting, connected or reconnecting
+keepSubscribed; // re-run a subscription after every reconnect
 ```
 
 The browser half of the websocket Transport. Two jobs:
@@ -17,7 +22,7 @@ The browser half of the websocket Transport. Two jobs:
 2. **Track the connection** — expose whether you are connected, and re-run your
    subscriptions after every reconnect.
 
-Job 2 is what pairs with [`Rpc.websocket.server`](../server/README.md). The server
+Job 2 is what pairs with the websocket [`server`](../server/README.md). The server
 keeps stream state alive across hibernation; this keeps the client re-attached to it.
 
 ---
@@ -43,9 +48,9 @@ a new connection is established.
 import * as Layer from 'effect/Layer';
 import * as ManagedRuntime from 'effect/ManagedRuntime';
 import { RpcClient } from 'effect/rpc';
-import { Rpc } from '@kestack/rpc-toolkit/rpc';
+import { client } from '@kestack/rpc-toolkit/rpc/websocket';
 
-const protocol = Rpc.websocket.client(ChatRpcs, { url: '/rpc/chat' });
+const protocol = client(ChatRpcs, { url: '/rpc/chat' });
 
 export const runtime = ManagedRuntime.make(
   Layer.effect(ChatApi, RpcClient.make(ChatRpcs)).pipe(
@@ -59,14 +64,14 @@ Then, anywhere in that runtime:
 ```ts
 yield *
   Stream.runForEach(
-    Rpc.websocket.keepSubscribed(() => api.subscribeMessages({ '>': cursor })),
+    keepSubscribed(() => api.subscribeMessages({ '>': cursor })),
     applyBatch,
   );
 ```
 
 ### `Layer.provideMerge`, not `Layer.provide`
 
-`Rpc.websocket.client` outputs three services: `RpcClient.Protocol`,
+`client` outputs three services: `RpcClient.Protocol`,
 `RpcConnection`, and `RpcClient.ConnectionHooks`. Plain `Layer.provide` would satisfy the
 client and then **hide** `RpcConnection` from your own code, so `keepSubscribed` would
 not typecheck. Use `provideMerge`.
@@ -98,7 +103,7 @@ so a reconnect carries what changed since, such as a fresh token (a browser
 cannot set headers on a WebSocket):
 
 ```ts
-Rpc.websocket.client(ChatRpcs, {
+client(ChatRpcs, {
   url: Effect.map(currentToken, (token) => `/rpc/chat?access_token=${token}`),
 });
 ```
@@ -119,10 +124,7 @@ There is **no terminal state**. `RpcClient.ConnectionHooks` only reports connect
 disconnect; it has no "gave up" signal, so neither does this.
 
 ```ts
-yield *
-  Stream.runForEach(Rpc.websocket.status, (status) =>
-    Effect.sync(() => setStatus(status)),
-  );
+yield * Stream.runForEach(status, (now) => Effect.sync(() => setStatus(now)));
 ```
 
 The stream is deduplicated (`Stream.changes`) and emits the current value immediately on
@@ -141,7 +143,7 @@ consumed inside the runtime that provides it:
 ```ts
 yield *
   Stream.runForEach(
-    Rpc.websocket.keepSubscribed(() => api.streamHello()),
+    keepSubscribed(() => api.streamHello()),
     handle,
   );
 ```
@@ -151,8 +153,8 @@ it when the stream **escapes** the runtime, which is otherwise the one case wher
 up re-providing the service by hand:
 
 ```ts
-const connection = yield * Rpc.websocket.connection;
-return connection
+const rpc = yield * connection;
+return rpc
   .keepSubscribed(() => api.subscribeMessages({ '>': cursor }))
   .pipe(Stream.orDie); // hands a fully-provided stream to the caller
 ```
@@ -172,24 +174,24 @@ return connection
 ## API
 
 ```ts
-Rpc.websocket.client(group, options: {
+client(group, options: {
   url: string                    // relative or absolute
   retryTransientErrors?: boolean // default true
 }): Layer.Layer<RpcClient.Protocol | RpcConnection | RpcClient.ConnectionHooks>
 
-Rpc.websocket.connection         // the RpcConnection service:
+connection         // the RpcConnection service:
                                  //   connectionStatus, keepSubscribed, hooks
 
-Rpc.websocket.status: Stream<ConnectionStatus, never, RpcConnection>
-Rpc.websocket.keepSubscribed: <A, E, R>(
+status: Stream<ConnectionStatus, never, RpcConnection>
+keepSubscribed: <A, E, R>(
   subscribe: () => Stream<A, E, R>,
 ) => Stream<A, E, R | RpcConnection>
 
-type Rpc.ConnectionStatus
+type ConnectionStatus
 ```
 
 The connection layer and its constructor are deliberately **not** exported —
-`Rpc.websocket.client` is the only supported way to get an `RpcConnection`, so there is
+`client` is the only supported way to get an `RpcConnection`, so there is
 no way to end up with a tracker the transport is not driving. The serialization is not an
 option either: the client and server both speak JSON, so they always agree.
 
@@ -199,9 +201,9 @@ option either: the client and server both speak JSON, so they always agree.
 
 **Not Cloudflare-specific.** Nothing here knows about Durable Objects; it works against
 any Effect RPC server over a socket. It ships in this package because it is the client
-you want when the server is `Rpc.websocket.server`.
+you want when the server is the websocket `server`.
 
-**Browser-oriented.** `Rpc.websocket.client` uses the global `WebSocket` constructor and
+**Browser-oriented.** `client` uses the global `WebSocket` constructor and
 resolves relative URLs against `location`. Elsewhere, pass an absolute URL.
 
 **Each app still declares its own tagged client service.** The `Context.Service` wrapper

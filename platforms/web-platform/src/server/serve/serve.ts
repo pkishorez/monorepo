@@ -3,7 +3,7 @@ import type { Apis, RpcsOf } from '../../define/index.ts';
 import type { Rpc as EffectRpc } from 'effect/rpc';
 import type { Principal } from '@kestack/auth-toolkit';
 import { auth as guard } from '@kestack/auth-toolkit/server/rpc';
-import { Rpc } from '@kestack/rpc-toolkit/rpc';
+import { server } from '@kestack/rpc-toolkit/rpc/http';
 import { forOwner, type LiveAuth, liveCaller, refusal } from '../live/index.ts';
 import { webServer } from '../worker/index.ts';
 
@@ -94,7 +94,7 @@ export const createServer = <A extends Apis, Env>(
       const layer = (
         signed === null ? handlers : Layer.merge(signed, handlers)
       ) as never;
-      return Rpc.http.server(api.group, layer)(request);
+      return server(api.group, layer)(request);
     },
   });
 };

@@ -1,5 +1,5 @@
 export {
-  Auth,
+  Authz,
   type Guard,
   type Guarded,
   type Invariant,

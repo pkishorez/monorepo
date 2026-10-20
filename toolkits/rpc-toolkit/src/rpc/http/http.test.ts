@@ -37,7 +37,7 @@ const serveFetch = (answer: (request: Request) => Promise<Response>) => {
   return sent;
 };
 
-describe('Rpc.http', () => {
+describe('rpc/http', () => {
   it('calls the server through the client, a stream included', async () => {
     const answer = server(Api, Handlers, {
       services: (request) =>

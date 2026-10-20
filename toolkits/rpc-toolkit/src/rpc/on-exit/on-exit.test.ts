@@ -55,7 +55,7 @@ const calls = Effect.gen(function* () {
   return { found, missing, counted: Array.from(counted) };
 });
 
-describe('Rpc.onExit', () => {
+describe('onExit', () => {
   it('tells a Client Implementation how each call ended, in process', async () => {
     const { seen, layer } = watching();
     const result = await calls.pipe(

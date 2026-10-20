@@ -11,16 +11,20 @@ export {
   type ConnectionStatus,
 } from './client/index.ts';
 export {
+  attachmentStreamStore,
   checkpoint,
   fromDurableObjectState,
   InvocationKind,
   RESUME_LOST,
   server,
-  streams,
+  sqliteStreamStore,
   type ConnectionSlot,
   type HibernatingSocket,
+  type HibernationState,
   type SavedSocket,
   type SavedStream,
+  type SQLiteOptions,
   type StreamRequest,
   type StreamStore,
+  type Upgrade,
 } from './server/index.ts';

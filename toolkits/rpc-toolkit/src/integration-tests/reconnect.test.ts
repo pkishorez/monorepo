@@ -2,11 +2,12 @@ import { Effect, Fiber, Layer, Schema, Stream } from 'effect';
 import { Headers } from 'effect/http';
 import { Rpc as EffectRpc, RpcGroup, RpcTest } from 'effect/rpc';
 import { expect, it, vi } from 'vitest';
-import { Rpc } from '../rpc/index.ts';
+import { middleware } from '../rpc/index.ts';
+import * as websocket from '../rpc/websocket/index.ts';
 import { makeRpcConnection } from '../rpc/websocket/client/connection.ts';
 
 it('runs client Middleware again with current credentials when a subscription restarts', async () => {
-  const Credentials = Rpc.middleware<boolean>()('reconnect/Credentials', {
+  const Credentials = middleware<boolean>()('reconnect/Credentials', {
     client: true,
   });
   const Group = Credentials.with(true)(
@@ -24,7 +25,7 @@ it('runs client Middleware again with current credentials when a subscription re
       Effect.gen(function* () {
         calls.push({
           token: headers.authorization,
-          kind: yield* Rpc.websocket.InvocationKind,
+          kind: yield* websocket.InvocationKind,
         });
       }),
     ),

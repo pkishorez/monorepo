@@ -23,7 +23,8 @@ type InternalConnectionStatus =
   | { readonly _tag: 'Connected'; readonly generation: number }
   | { readonly _tag: 'Reconnecting'; readonly generation: number };
 
-class SubscriptionEnded extends Data.TaggedError('SubscriptionEnded') {}
+class SubscriptionEnded
+  extends /*#__PURE__*/ Data.TaggedError('SubscriptionEnded') {}
 
 /** The shape of the `RpcConnection` service. */
 export interface RpcConnectionService {
@@ -43,7 +44,7 @@ export interface RpcConnectionService {
 }
 
 /** The connection state behind one WebSocket client, driven by its hooks. */
-export const makeRpcConnection = Effect.gen(function* () {
+export const makeRpcConnection = /*#__PURE__*/ Effect.gen(function* () {
   const state = yield* SubscriptionRef.make<InternalConnectionStatus>({
     _tag: 'Connecting',
     generation: 0,

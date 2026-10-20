@@ -12,7 +12,7 @@ import {
 } from 'effect';
 import { type RpcClient, RpcClient as Client } from 'effect/rpc';
 import type { Account } from '@kestack/auth-toolkit/client';
-import { Rpc } from '@kestack/rpc-toolkit/rpc';
+import { connection as RpcConnection } from '@kestack/rpc-toolkit/rpc/websocket';
 import {
   createStdSync,
   type EffectRuntime,
@@ -53,7 +53,7 @@ type AnyCall = (...args: ReadonlyArray<unknown>) => unknown;
 // One API's client, and its WebSocket connection if it has one.
 interface Made {
   readonly client: object;
-  readonly connection: Option.Option<Rpc.websocket.connection['Service']>;
+  readonly connection: Option.Option<RpcConnection['Service']>;
 }
 
 // Done once a connection that was up goes down: a stream on it is stranded
@@ -110,7 +110,7 @@ export const openSession = <A extends Apis, S>(options: {
         keys.get(name)!,
         Effect.all({
           client: Client.make(apis[name]!.group),
-          connection: Effect.serviceOption(Rpc.websocket.connection),
+          connection: Effect.serviceOption(RpcConnection),
         }),
       ).pipe(Layer.provide([options.protocols[name]!, options.signing])),
     );

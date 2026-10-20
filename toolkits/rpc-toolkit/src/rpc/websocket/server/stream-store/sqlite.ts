@@ -84,9 +84,9 @@ const box = (value: unknown) => (value === undefined ? null : { value });
  * first use.
  *
  * ```ts
- * Rpc.websocket.server(Api, handlers, {
- *   ...Rpc.websocket.fromDurableObjectState(ctx),
- *   streams: Rpc.websocket.streams.sqlite({ storage: ctx.storage }),
+ * server(Api, handlers, {
+ *   ...fromDurableObjectState(ctx),
+ *   streams: sqliteStreamStore({ storage: ctx.storage }),
  * });
  * ```
  */

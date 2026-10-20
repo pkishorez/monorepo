@@ -16,22 +16,28 @@ import { resolveUrl } from './url.ts';
 export type { ConnectionStatus } from './connection.ts';
 
 // Retain the established service identity across the package migration.
-export class RpcConnection extends Context.Service<
-  RpcConnection,
-  RpcConnectionService
->()('@pkishorez/effect-cloudflare/RpcConnection') {}
+export class RpcConnection
+  extends /*#__PURE__*/ Context.Service<RpcConnection, RpcConnectionService>()(
+    '@pkishorez/effect-cloudflare/RpcConnection',
+  ) {}
 
-const connectionLayer = Layer.effect(RpcConnection, makeRpcConnection);
+const connectionLayer = /*#__PURE__*/ Layer.effect(
+  RpcConnection,
+  makeRpcConnection,
+);
 
 /** Bundled into `client`. */
-const rpcConnectionLayer = Layer.effect(
+const rpcConnectionLayer = /*#__PURE__*/ Layer.effect(
   RpcClient.ConnectionHooks,
-  Effect.map(RpcConnection, ({ hooks }) => hooks),
+  /*#__PURE__*/ Effect.map(RpcConnection, ({ hooks }) => hooks),
 ).pipe(Layer.provideMerge(connectionLayer));
 
 /** Stream of `connecting`, `connected` or `reconnecting`, primed with the current value. */
-export const status = Stream.unwrap(
-  Effect.map(RpcConnection, ({ connectionStatus }) => connectionStatus),
+export const status = /*#__PURE__*/ Stream.unwrap(
+  /*#__PURE__*/ Effect.map(
+    RpcConnection,
+    ({ connectionStatus }) => connectionStatus,
+  ),
 );
 
 /** Runs `subscribe()` while connected and re-runs it after every reconnect. */

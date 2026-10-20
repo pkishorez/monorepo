@@ -1,1 +1,7 @@
-export * as HttpApi from './http-api.ts';
+export {
+  middleware,
+  type Middleware,
+  type MiddlewareClient,
+  type MiddlewareServer,
+  type MiddlewareServerOptions,
+} from './http-api.ts';

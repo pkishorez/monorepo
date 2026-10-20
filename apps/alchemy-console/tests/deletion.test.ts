@@ -1,6 +1,6 @@
 import { Effect, Exit, Schema, Stream } from 'effect';
 import { FetchHttpClient, HttpClient } from 'effect/http';
-import { Auth } from '@kestack/auth-toolkit';
+import { Authz } from '@kestack/auth-toolkit';
 import { SQLite } from '@kestack/std-toolkit/db/sqlite';
 import { makeNodeSQLite } from '@kestack/std-toolkit/db/sqlite/node';
 import { expect, it, vi } from 'vite-plus/test';
@@ -129,7 +129,7 @@ const run = <A, E>(
       Effect.provide(table.layer),
       Effect.provide(FetchHttpClient.layer),
       Effect.provideService(FetchHttpClient.Fetch, fetch),
-      Effect.provideService(Auth.User, auth),
+      Effect.provideService(Authz.User, auth),
       Effect.ensuring(Effect.sync(() => database.close?.())),
     ),
   );

@@ -23,8 +23,11 @@ import {
   type StreamCheckpointService,
 } from './checkpoint.ts';
 import { fromDurableObjectState as fromState } from './durable-object-state.ts';
-import * as streams from './stream-store/index.ts';
-import type { SavedStream, StreamStore } from './stream-store/index.ts';
+import {
+  attachment,
+  type SavedStream,
+  type StreamStore,
+} from './stream-store/index.ts';
 import type {
   HibernatingSocket,
   HibernationState,
@@ -58,10 +61,9 @@ export interface ConnectionSlot<A> {
  * server restarts a saved streaming call after waking from hibernation.
  * Server-controlled; clients cannot select replay through request data.
  */
-export const InvocationKind = Context.Reference<'fresh' | 'replay'>(
-  '@kestack/rpc-toolkit/InvocationKind',
-  { defaultValue: () => 'fresh' },
-);
+export const InvocationKind = /*#__PURE__*/ Context.Reference<
+  'fresh' | 'replay'
+>('@kestack/rpc-toolkit/InvocationKind', { defaultValue: () => 'fresh' });
 
 const nextClientId = (used: ReadonlySet<number>): number => {
   const values = new Uint32Array(1);
@@ -76,7 +78,7 @@ const nextClientId = (used: ReadonlySet<number>): number => {
 /** Close code for a socket whose saved record is gone; the client reconnects and resubscribes. */
 export const RESUME_LOST = 4000;
 
-const serve = Effect.fnUntraced(function* <
+const serve = /*#__PURE__*/ Effect.fnUntraced(function* <
   Rpcs extends Rpc.Any,
   E,
   R = never,
@@ -96,7 +98,7 @@ const serve = Effect.fnUntraced(function* <
   readonly streams?: StreamStore | undefined;
 }) {
   const { state, upgrade, group, layer, connection } = options;
-  const store = options.streams ?? streams.attachment();
+  const store = options.streams ?? attachment();
   const serialization = yield* RpcSerialization.RpcSerialization;
   const sockets = new Map<number, HibernatingSocket>();
   const clientIds = new WeakMap<cf.WebSocket, number>();
@@ -373,13 +375,14 @@ const serve = Effect.fnUntraced(function* <
   };
 });
 
-const CheckpointStorage = Context.Reference<StreamCheckpointService>(
-  // Retain the established service identity across the package migration.
-  '@pkishorez/effect-cloudflare/StreamCheckpoint',
-  // Outside a WebSocket-server stream (in-process, http) nothing hibernates,
-  // so the checkpoint simply remembers nothing.
-  { defaultValue: () => forgetfulCheckpoint },
-);
+const CheckpointStorage =
+  /*#__PURE__*/ Context.Reference<StreamCheckpointService>(
+    // Retain the established service identity across the package migration.
+    '@pkishorez/effect-cloudflare/StreamCheckpoint',
+    // Outside a WebSocket-server stream (in-process, http) nothing hibernates,
+    // so the checkpoint simply remembers nothing.
+    { defaultValue: () => forgetfulCheckpoint },
+  );
 
 /**
  * Inside a streaming handler: this stream's checkpoint, bound to one schema
@@ -409,7 +412,7 @@ export const fromDurableObjectState = (state: cf.DurableObjectState) =>
  *
  * On wake, every saved streaming call is replayed through server middleware
  * with {@link InvocationKind} set to `replay`. `streams` chooses where that
- * state lives (default: the socket attachment, `streams.attachment()`).
+ * state lives (default: the socket attachment, `attachmentStreamStore()`).
  */
 export const server = <Rpcs extends Rpc.Any, E, R = never, A = never>(
   group: RpcGroup.RpcGroup<Rpcs>,
@@ -422,7 +425,7 @@ export const server = <Rpcs extends Rpc.Any, E, R = never, A = never>(
     readonly state: HibernationState<R>;
     readonly upgrade: Upgrade<R>;
     readonly connection?: ConnectionSlot<A> | undefined;
-    /** Where each socket's record and open streams are kept. @default streams.attachment() */
+    /** Where each socket's record and open streams are kept. @default attachmentStreamStore() */
     readonly streams?: StreamStore | undefined;
   },
 ) =>
@@ -431,15 +434,18 @@ export const server = <Rpcs extends Rpc.Any, E, R = never, A = never>(
   );
 
 /**
- * Stream Stores for the server's `streams` option: `attachment()` (the
- * default) or `sqlite({ storage })` on the Durable Object's own SQLite.
+ * Stream Stores for the server's `streams` option: `attachmentStreamStore()`
+ * (the default) or `sqliteStreamStore({ storage })` on the Durable Object's
+ * own SQLite.
  */
-export * as streams from './stream-store/index.ts';
-export type {
-  SavedSocket,
-  SavedStream,
-  StreamRequest,
-  StreamStore,
+export {
+  attachment as attachmentStreamStore,
+  sqlite as sqliteStreamStore,
+  type SavedSocket,
+  type SavedStream,
+  type SQLiteOptions,
+  type StreamRequest,
+  type StreamStore,
 } from './stream-store/index.ts';
 export type {
   HibernatingSocket,

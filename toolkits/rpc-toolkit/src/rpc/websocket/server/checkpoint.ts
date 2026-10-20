@@ -52,7 +52,7 @@ export const makeStreamCheckpoint = (options: {
  * resume from: reads find nothing and writes are dropped.
  */
 export const forgetfulCheckpoint: StreamCheckpointService =
-  makeStreamCheckpoint({
+  /*#__PURE__*/ makeStreamCheckpoint({
     get: Effect.succeedNone,
     put: () => Effect.void,
     clear: Effect.void,

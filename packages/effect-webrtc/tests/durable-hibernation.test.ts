@@ -1,6 +1,9 @@
 import { Effect } from 'effect';
 import { HttpServerResponse } from 'effect/http';
-import { Rpc } from '@kestack/rpc-toolkit/rpc';
+import {
+  server,
+  type HibernatingSocket,
+} from '@kestack/rpc-toolkit/rpc/websocket';
 import { afterEach, expect, it, vi } from 'vitest';
 import { DurableSignalingRpcs } from '../src/signaling/durable/rpc/index.js';
 import {
@@ -11,11 +14,11 @@ import {
 function socket(seed: unknown) {
   let attachment = structuredClone(seed);
   const sent: string[] = [];
-  const port: Rpc.HibernatingSocket = {
+  const port: HibernatingSocket = {
     ws: {
       send: (data: string) => sent.push(data),
       close: () => undefined,
-    } as unknown as Rpc.HibernatingSocket['ws'],
+    } as unknown as HibernatingSocket['ws'],
     close: () => Effect.void,
     serializeAttachment: (value) => {
       attachment = structuredClone(value);
@@ -40,7 +43,7 @@ it('replays the peer subscription after a hibernation wake', async () => {
     Effect.runPromise(
       Effect.gen(function* () {
         const layer = yield* durableSignalingHandlers;
-        return yield* Rpc.websocket.server(DurableSignalingRpcs, layer, {
+        return yield* server(DurableSignalingRpcs, layer, {
           state: {
             getWebSockets: () => Effect.succeed([target.port]),
             setWebSocketAutoResponse: () => Effect.void,

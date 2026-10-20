@@ -1,4 +1,4 @@
-import { Rpc } from '@kestack/rpc-toolkit/rpc';
+import { onExit } from '@kestack/rpc-toolkit/rpc';
 import { Effect, Exit, Layer, Option, Predicate } from 'effect';
 import {
   FetchHttpClient,
@@ -86,9 +86,7 @@ export const signing = ({
                 ...request,
                 headers: Headers.setAll(request.headers, headers),
               }),
-            ).pipe(
-              Rpc.onExit((exit) => (isRefused(exit) ? check : Effect.void)),
-            ),
+            ).pipe(onExit((exit) => (isRefused(exit) ? check : Effect.void))),
           ),
         ),
         httpMiddleware.client(({ request, next }) =>

@@ -3,7 +3,11 @@ import * as Cloudflare from 'alchemy/Cloudflare';
 import { Effect, Layer, Scope } from 'effect';
 import { HttpServerRequest } from 'effect/http';
 import type { Rpc as EffectRpc, RpcGroup } from 'effect/rpc';
-import { Rpc } from '../rpc/index.ts';
+import {
+  server,
+  type ConnectionSlot,
+  type StreamStore,
+} from '../rpc/websocket/index.ts';
 
 /** Effect RPC over an Alchemy Worker service binding: Alchemy's `Cloudflare.RpcWorker`. */
 export const RpcWorker = Cloudflare.RpcWorker;
@@ -31,18 +35,16 @@ export interface DurableRpcWorkerOptions<
   readonly init?: Effect.Effect<unknown>;
   /** Per-connection value resolved from the upgrade request and provided to every handler. */
   readonly connection?:
-    | Rpc.ConnectionSlot<A>
-    | ((
-        state: Cloudflare.DurableObjectState['Service'],
-      ) => Rpc.ConnectionSlot<A>);
+    | ConnectionSlot<A>
+    | ((state: Cloudflare.DurableObjectState['Service']) => ConnectionSlot<A>);
   /**
    * Where each socket's record and open streams are kept, e.g.
-   * `(state) => Rpc.websocket.streams.sqlite({ storage: state.raw.storage })`.
-   * @default the socket attachment (`Rpc.websocket.streams.attachment()`)
+   * `(state) => sqliteStreamStore({ storage: state.raw.storage })`.
+   * @default the socket attachment (`attachmentStreamStore()`)
    */
   readonly streams?:
-    | Rpc.StreamStore
-    | ((state: Cloudflare.DurableObjectState['Service']) => Rpc.StreamStore);
+    | StreamStore
+    | ((state: Cloudflare.DurableObjectState['Service']) => StreamStore);
   /** @default true — the worker's URL is how clients reach the RPC socket. */
   readonly workersDev?: boolean;
   readonly domain?: string;
@@ -77,7 +79,7 @@ export type DurableRpcHandlers<
  * The worker is the door: every request is forwarded to a single Durable
  * Object instance, which serves the RPC group over WebSocket (with
  * hibernation, attachments, and stream checkpoints from
- * `Rpc.websocket.server`). Clients connect straight to
+ * the `rpc/websocket` door's `server`). Clients connect straight to
  * `worker.url` — the local dev server under `alchemy dev`, the deployed
  * domain or workers.dev URL otherwise — so there is no cross-worker
  * binding and no dev/prod split.
@@ -119,7 +121,7 @@ export const DurableRpcWorker =
 
         return Effect.gen(function* () {
           const layer = yield* handlers;
-          const rpc = yield* Rpc.websocket.server(options.schema, layer, {
+          const rpc = yield* server(options.schema, layer, {
             state,
             upgrade: Cloudflare.upgrade,
             connection,

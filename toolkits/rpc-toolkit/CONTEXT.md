@@ -5,7 +5,7 @@ Opinionated abstractions over Effect RPC and Effect HttpApi that capture the pat
 ## Language
 
 **Middleware**:
-A declaration on an endpoint or a group about how it may be called (sign-in, a capability, a rate limit), with a server half and an optional client half. A more specific endpoint's value replaces the group's; an endpoint without one inherits the group's; values are never merged. Built with `Rpc.middleware` or `HttpApi.middleware`.
+A declaration on an endpoint or a group about how it may be called (sign-in, a capability, a rate limit), with a server half and an optional client half. A more specific endpoint's value replaces the group's; an endpoint without one inherits the group's; values are never merged. Built with `middleware` from the `rpc` door or the `http-api` door.
 _Avoid_: Cannotation (the former name), annotation, requirement, policy (reserved for the auth-specific value a Middleware may carry)
 
 **Declaration**:
@@ -21,7 +21,7 @@ The client-only half of a Middleware (`client`), present only when its Declarati
 _Avoid_: client middleware, clientLayer (the former name)
 
 **Exit Observer**:
-What a Client Implementation attaches to a call it sends with `Rpc.onExit`: run with that call's decoded Exit before the caller sees it, over every Transport. The way a Client Implementation reacts to an answer, since its `next` only sends.
+What a Client Implementation attaches to a call it sends with `onExit`: run with that call's decoded Exit before the caller sees it, over every Transport. The way a Client Implementation reacts to an answer, since its `next` only sends.
 _Avoid_: response hook, interceptor
 
 **Nearest Wins**:
