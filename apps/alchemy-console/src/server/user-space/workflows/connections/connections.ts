@@ -123,12 +123,22 @@ const taken = (state: string | null, kind: 'install' | 'authorize') =>
     return { issued, fresh };
   });
 
+/** Drops the connection to `installationId` and its index row; under the connections' lock. */
+const dropped = (userId: string, installationId: number) =>
+  Effect.gen(function* () {
+    const storage = yield* Storage;
+    const found = yield* storage.connections.byInstallation(installationId);
+    if (found !== null) yield* storage.connections.remove(found.connectionId);
+    yield* (yield* ConnectionIndex).release(installationId, userId);
+  });
+
 /**
  * Keeps `record` as this member's connection to its installation, unless
  * someone else owns it: under the connections' lock, so two returns for one
- * installation keep one connection, and only while GitHub still has it, so
- * a return that was under way when the installation was deleted (and
- * forgotten, under the same lock) can't bring it back.
+ * installation keep one connection. The index row comes first, then GitHub
+ * is asked whether it still has the installation: a deletion before that is
+ * seen here, and one after it is delivered to this member, to be forgotten
+ * once this is done.
  */
 const keep = (
   userId: string,
@@ -140,15 +150,18 @@ const keep = (
     const github = yield* GitHub;
     return yield* storage.connections.exclusively(
       Effect.gen(function* () {
-        const still = yield* github
-          .installation(record.installationId)
-          .pipe(Effect.result);
-        if (still._tag === 'Failure') return outcomeOf(still.failure);
-        if (!(yield* index.claim(record.installationId, userId)))
-          return 'taken' as const;
         const existing = yield* storage.connections.byInstallation(
           record.installationId,
         );
+        if (!(yield* index.claim(record.installationId, userId)))
+          return 'taken' as GitHubReturn;
+        const still = yield* github
+          .installation(record.installationId)
+          .pipe(Effect.result);
+        if (still._tag === 'Failure') {
+          if (existing === null) yield* dropped(userId, record.installationId);
+          return outcomeOf(still.failure);
+        }
         const now = Date.now();
         yield* storage.connections.put({
           ...record,
@@ -168,50 +181,41 @@ const retrying = Schedule.exponential('250 millis');
 export const forget = (userId: string, installationId: number) =>
   Effect.gen(function* () {
     const storage = yield* Storage;
-    const index = yield* ConnectionIndex;
-    yield* storage.connections.exclusively(
-      Effect.gen(function* () {
-        const found = yield* storage.connections.byInstallation(installationId);
-        if (found !== null)
-          yield* storage.connections.remove(found.connectionId);
-        yield* index.release(installationId, userId);
-      }),
-    );
+    yield* storage.connections.exclusively(dropped(userId, installationId));
   });
 
 /**
  * Reads a connected installation's account and repositories again; forgets
  * it when GitHub no longer knows it, and fails when GitHub can't be asked.
+ * Asked and kept under the connections' lock, so an older answer never
+ * lands after a newer one.
  */
 export const refresh = (userId: string, installationId: number) =>
   Effect.gen(function* () {
     const storage = yield* Storage;
     const github = yield* GitHub;
-    if ((yield* storage.connections.byInstallation(installationId)) === null)
-      return;
-    const exit = yield* fetched(github, installationId).pipe(
-      Effect.retry({
-        schedule: retrying,
-        times: 3,
-        while: (error) => error.reason === 'unreachable',
-      }),
-      Effect.result,
-    );
-    if (exit._tag === 'Failure') {
-      if (exit.failure.reason === 'not-found')
-        return yield* forget(userId, installationId);
-      return yield* exit.failure;
-    }
     yield* storage.connections.exclusively(
       Effect.gen(function* () {
-        // Forgotten meanwhile: stays forgotten.
         const found = yield* storage.connections.byInstallation(installationId);
-        if (found !== null)
-          yield* storage.connections.put({
-            ...found,
-            ...exit.success,
-            updatedAt: Date.now(),
-          });
+        if (found === null) return;
+        const exit = yield* fetched(github, installationId).pipe(
+          Effect.retry({
+            schedule: retrying,
+            times: 3,
+            while: (error) => error.reason === 'unreachable',
+          }),
+          Effect.result,
+        );
+        if (exit._tag === 'Failure') {
+          if (exit.failure.reason === 'not-found')
+            return yield* dropped(userId, installationId);
+          return yield* exit.failure;
+        }
+        yield* storage.connections.put({
+          ...found,
+          ...exit.success,
+          updatedAt: Date.now(),
+        });
       }),
     );
   });
