@@ -21,7 +21,7 @@ pnpm add -D @tailwindcss/vite
 
 An app that renders on the server adds `@kestack/web-platform` to `ssr.noExternal` in its Vite config, as `apps/docs` and `apps/alchemy-console` do. Its stylesheet imports `@kestack/web-platform/theme/global.css`, which also points Tailwind at the Package's own classes.
 
-- `@kestack/auth-toolkit`: its `browser()` gives the Accounts, by the sign-in service's cookie or, on the Local Backend, as Local Accounts, and signs every guarded call; `createServer` and the Local Backend check calls with its `auth()`.
+- `@kestack/auth-toolkit`: its `browser()` gives the Accounts the Gate and `./account-switcher` follow, by the sign-in service's cookie or, on the Local Backend, as Local Accounts, and signs every guarded call; `createServer` and the Local Backend check calls with its `auth()`.
 - `@kestack/rpc-toolkit`: each API is called with its `rpc/http`, `rpc/websocket` and `rpc/in-process` Transports; `createServer` answers each `http` API with `rpc/http`'s `server`, and `liveObject` each `websocket` one with `rpc/websocket`'s `server`.
 - `@kestack/std-toolkit`: the Gate's memory, the last-known Accounts, Local Accounts, the Cache and each user's Std Sync are kept in its IndexedDB adapters.
 - `react`, `react-dom`: every component, Recipe and the root document render with React 19.
@@ -33,7 +33,7 @@ An app that renders on the server adds `@kestack/web-platform` to `ssr.noExterna
 - `vite` (optional): needed by `./pwa/vite`.
 - `laymos` (optional): the file diff and change types the diff, git-changes and source-explorer viewers read.
 - `use-effect-ts` (optional): runs `./components/viewers/source-explorer`'s loaders inside React.
-- `@kestack/kabuki` (optional): the running app `./recipes/kabuki-devtools` inspects, and the Start parts `./start`'s Document draws.
+- `@kestack/kabuki` (optional): the running app `./recipes/kabuki-devtools` inspects, the Start parts `./start`'s Document draws, and the Actor and View `./account-switcher` is.
 - `@cloudflare/workers-types` (optional): the Durable Object types `./server`'s `liveObject` is declared with.
 
 ## Exports
@@ -328,12 +328,6 @@ Owned shadcn copies on Base UI, one subpath per file, such as `@kestack/web-plat
 | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | `GateScreens` | Every screen before an Account is open, in one card: checking, opening, signing out, signed out with the way to the other Backend, unopenable. |
 
-### `@kestack/web-platform/recipes/account-switcher`
-
-| Export            | What it does                                                                                       |
-| ----------------- | -------------------------------------------------------------------------------------------------- |
-| `AccountSwitcher` | A menu of the Signed-in Accounts: switch, add an account, sign out the Active Account or everyone. |
-
 ### `@kestack/web-platform/recipes/devtools-dock`
 
 | Export         | What it does                                                                                                                                                                                                                                                                                                                                         |
@@ -440,6 +434,16 @@ The Document for an app on Kabuki Start.
 | Export     | What it does                                                                                                                                                            |
 | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Document` | The HTML around a Kabuki Start app: Start's head and scripts, Inter preloaded, the Theme's script and the device marked before the first paint, and the app's own head. |
+
+### `@kestack/web-platform/account-switcher`
+
+The Account Switcher of a Kabuki app: a Child of the root page, its View in the header, and `CurrentAccount` for every page.
+
+| Export                | What it does                                                                                                                                                                                                |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AccountSwitcherLive` | The Child to place on the root page, given `maxAccounts`: follows auth-toolkit's `Accounts`, shows a switch once under way 150 ms and for at least 300 ms, and runs switch, add and sign-out one at a time. |
+| `AccountSwitcherView` | Its slot in the header, always the width of "Sign in": the button signed out, the Account menu signed in, the remembered avatar or nothing while checking.                                                  |
+| `CurrentAccount`      | The Capability the root page Provides with `CurrentAccount.layer`: who is signed in and the switch on screen as a stream, and Requests to sign in, switch and sign out.                                     |
 
 ### `@kestack/web-platform/server`
 

@@ -1,5 +1,6 @@
 import { View } from '@kestack/kabuki/react';
 import { Router } from '@kestack/kabuki/routing';
+import { AccountSwitcherView } from '@kestack/web-platform/account-switcher';
 import { Pages, router } from '../../shared/pages/index.ts';
 import { Layout, PageIntro } from '../components/index.ts';
 import { ApisView } from './apis.tsx';
@@ -7,13 +8,14 @@ import { ItemsView } from './items.tsx';
 import { StaticView } from './rendering.tsx';
 
 /*
- * The root page's View: the layout, and the one page the URL names. A URL
- * that names no page draws not found, and the server answers 404.
+ * The root page's View: the layout with the Account Switcher in its
+ * header, and the one page the URL names. A URL that names no page draws
+ * not found, and the server answers 404.
  */
 
 export const AppView = View.make(Pages.AppLive, ({ root, props, children }) => (
   <div {...root}>
-    <Layout>
+    <Layout account={<AccountSwitcherView instance={children.account} />}>
       {props.route.notFound !== null ? (
         <PageIntro title="Nothing here">
           No page at{' '}

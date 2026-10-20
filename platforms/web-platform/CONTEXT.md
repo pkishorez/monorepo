@@ -56,6 +56,14 @@ _Avoid_: kicked out, session expired, forced logout
 A message the Gate leaves for the app once, such as a sign-in that came back without signing anyone in. An Account Lost is not one: it holds the app until the User acts.
 _Avoid_: event, alert, login error (one kind of Gate Notice)
 
+**Account Switcher**:
+In a Kabuki app, the Child of the root page that follows auth-toolkit's Accounts and times an Account Switch: it shows once under way 150 ms and stays at least 300 ms, the Account before shown until then. The root page draws it in the header: "Sign in", or the Active Account's menu to switch, add and sign out. The Gate's apps have the Gate instead.
+_Avoid_: switcher (alone: the Map's own), account menu (what it draws), account bar
+
+**Current Account**:
+What the root page of a Kabuki app Provides its pages, `CurrentAccount`: who is signed in and the Account a switch on screen makes active, as the Account Switcher's Model has them, and Requests to it to sign in, switch and sign out.
+_Avoid_: session (the Gate's), user, viewer
+
 ### Sessions
 
 **Session**:

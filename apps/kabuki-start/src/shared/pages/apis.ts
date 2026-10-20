@@ -1,55 +1,33 @@
 import { Clock, Effect, Schema, Stream } from 'effect';
 import { Command } from '@kestack/kabuki';
 import { Page } from '@kestack/kabuki/routing';
-import { Accounts } from '@kestack/auth-toolkit/client';
+import { CurrentAccount } from '@kestack/web-platform/account-switcher';
 import { LEVELS } from '../../apis/access/index.ts';
 import { HelloHttp } from '../../apis/hello-http/index.ts';
 import { HelloRpc } from '../../apis/hello-rpc/index.ts';
 import { about } from './metadata.ts';
 
 /*
- * The APIs page: who is signed in, and one panel per API Worker, with one
- * call per level of access (public, authenticated, authorized) and what
- * each came back with. It has no data: an Account is the
- * browser's, so the server draws it checking and the browser carries on.
- * Signing in leaves for the Auth Worker's Login Screen and comes back.
+ * The APIs page: who the calls go as, and one panel per API Worker, with
+ * one call per level of access (public, authenticated, authorized) and
+ * what each came back with. It has no data: an Account is the browser's,
+ * so the server draws it checking and the browser carries on. Who is
+ * signed in comes from `CurrentAccount`, which the root page Provides; the
+ * header's Account Switcher signs in, switches and signs out.
  *
- * An Account Switch is timed as the Router times a move: under way past
- * `SWITCH_DELAY`, it shows (its button spinning, the panels dimmed, since
- * their answers are the Account before's); once shown it stays at least
- * `SWITCH_MINIMUM`. Then the new Account takes the old's place and the
- * panels start over, in one step. One that fails says why.
+ * While an Account Switch shows, the panels are dimmed and still, since
+ * their answers are the Account before's. Once the Account changes, they
+ * start over.
  */
-
-/** How long a switch is under way before it shows, as the Router's `delay`. */
-const SWITCH_DELAY = 150;
-/** How long a switch, once shown, stays shown at least, as the Router's `minimum`. */
-const SWITCH_MINIMUM = 300;
 
 const Api = Schema.Literals(['http', 'rpc']);
 const Level = Schema.Literals(LEVELS);
 
-const Account = Schema.Struct({
-  id: Schema.String,
-  name: Schema.String,
-  email: Schema.String,
-  image: Schema.NullOr(Schema.String),
-});
-
-/** Who is signed in, as the page shows it. */
-const Shown = Schema.TaggedUnion({
+/** Who the calls go as. */
+const Caller = Schema.TaggedUnion({
   Checking: {},
   SignedOut: {},
-  SignedIn: { active: Account, others: Schema.Array(Account) },
-});
-
-/** The Account Switch under way: to whom, since when, when it showed, and,
- * once answered while it must stay shown, who is signed in then. */
-const Switching = Schema.Struct({
-  id: Schema.String,
-  since: Schema.Number,
-  shownAt: Schema.NullOr(Schema.Number),
-  next: Schema.NullOr(Shown),
+  SignedIn: { id: Schema.String, email: Schema.String },
 });
 
 /** What a call came to, as the panel shows it. */
@@ -139,42 +117,19 @@ const send = Command.make('send', {
     }),
 });
 
-const signIn = Command.make('signIn', {
-  run: () => Effect.ignore(Effect.flatMap(Accounts, (a) => a.signIn())),
-});
-
-const signOut = Command.make('signOut', {
-  run: () => Effect.ignore(Effect.flatMap(Accounts, (a) => a.signOut())),
-});
-
-const switchTo = Command.make('switchTo', {
-  args: Schema.Struct({ id: Schema.String }),
-  run: ({ id }) =>
-    Effect.flatMap(Accounts, (a) => a.switchTo(id)).pipe(
-      Effect.as(undefined),
-      Effect.catch((error) =>
-        Effect.succeed({
-          _tag: 'SwitchFailed' as const,
-          message: error.message,
-        }),
-      ),
-    ),
-});
-
 const ApisModel = Schema.Struct({
-  account: Shown,
-  switching: Schema.NullOr(Switching),
-  /** Why the last switch failed, until the next. */
-  switchFailed: Schema.NullOr(Schema.String),
+  caller: Caller,
+  /** Whether an Account Switch shows: the answers are the Account before's. */
+  switching: Schema.Boolean,
   http: Calls,
   rpc: Calls,
 });
 
-type Model = typeof ApisModel.Type;
+type Caller = typeof Caller.Type;
 
 export const Apis = Page.define({
   path: '/apis',
-  requires: [Accounts, HelloHttp, HelloRpc],
+  requires: [CurrentAccount, HelloHttp, HelloRpc],
   metadata: about(
     '/apis',
     'APIs',
@@ -182,147 +137,57 @@ export const Apis = Page.define({
   ),
   model: ApisModel,
   message: Schema.TaggedUnion({
-    SignIn: {},
-    SignOut: {},
-    SwitchTo: { id: Schema.String },
-    SwitchShown: {},
-    SwitchDone: {},
-    SwitchFailed: { message: Schema.String },
-    Changed: {
-      account: Shown,
-      /** The Account a switch under way makes active. */
-      switchingTo: Schema.NullOr(Schema.String),
-    },
+    Changed: { caller: Caller, switching: Schema.Boolean },
     Send: { api: Api, level: Level },
     Answered: { api: Api, level: Level, answer: Answer },
   }),
 });
 
-const plain = ({ id, name, email, image }: typeof Account.Type) => ({
-  id,
-  name,
-  email,
-  image,
-});
-
-const activeOf = (account: typeof Shown.Type) =>
-  account._tag === 'SignedIn' ? account.active.id : account._tag;
-
-/** The switch is over: who is signed in now is shown, and the panels start
- * over if their Account is gone. */
-const switched = (model: Model, account: typeof Shown.Type): Model => ({
-  ...model,
-  account,
-  switching: null,
-  ...(activeOf(account) === activeOf(model.account)
-    ? {}
-    : { http: idle, rpc: idle }),
-});
+/** Who a caller is, as one key: a tag, or the Account's id. */
+const keyOf = (caller: Caller) =>
+  caller._tag === 'SignedIn' ? caller.id : caller._tag;
 
 export const ApisLive = Page.build(Apis, {
   init: () => ({
     model: {
-      account: { _tag: 'Checking' },
-      switching: null,
-      switchFailed: null,
+      caller: { _tag: 'Checking' },
+      switching: false,
       http: idle,
       rpc: idle,
     },
   }),
   workers: {
-    accounts: {
+    account: {
       run: (self) =>
-        Effect.flatMap(Accounts, ({ state }) =>
-          Stream.runForEach(state, (now) =>
+        Effect.flatMap(CurrentAccount, ({ state }) =>
+          Stream.runForEach(state, ({ account, switching }) =>
             self.send({
               _tag: 'Changed',
-              account:
-                now._tag === 'SignedIn'
+              caller:
+                account._tag === 'SignedIn'
                   ? {
                       _tag: 'SignedIn',
-                      active: plain(now.active),
-                      others: now.accounts
-                        .filter((each) => each.id !== now.active.id)
-                        .map(plain),
+                      id: account.active.id,
+                      email: account.active.email,
                     }
-                  : { _tag: now._tag },
-              switchingTo:
-                now._tag === 'SignedIn' ? (now.switchingTo?.id ?? null) : null,
+                  : { _tag: account._tag },
+              switching: switching !== null,
             }),
           ),
         ),
     },
-    // A switch still under way after the delay shows.
-    showSwitch: {
-      while: ({ model }) =>
-        model.switching !== null &&
-        model.switching.shownAt === null &&
-        model.switching.next === null,
-      run: (self) =>
-        Effect.gen(function* () {
-          const since = (yield* self.get).model.switching?.since ?? 0;
-          yield* Effect.sleep(
-            Math.max(0, since + SWITCH_DELAY - (yield* self.now)),
-          );
-          yield* self.send({ _tag: 'SwitchShown' });
-        }),
-    },
-    // One answered soon after it showed stays shown the minimum.
-    endSwitch: {
-      while: ({ model }) => model.switching?.next != null,
-      run: (self) =>
-        Effect.gen(function* () {
-          const shownAt = (yield* self.get).model.switching?.shownAt ?? 0;
-          yield* Effect.sleep(
-            Math.max(0, shownAt + SWITCH_MINIMUM - (yield* self.now)),
-          );
-          yield* self.send({ _tag: 'SwitchDone' });
-        }),
-    },
   },
   on: {
-    SignIn: (_, { model }) => (model.switching ? {} : { command: signIn() }),
-    SignOut: (_, { model }) => (model.switching ? {} : { command: signOut() }),
-    SwitchTo: ({ id }, { model }) =>
-      model.switching
-        ? {}
-        : {
-            model: { ...model, switchFailed: null },
-            command: switchTo({ id }),
-          },
-    Changed: ({ account, switchingTo }, { model, at }) => {
-      const { switching } = model;
-      // Under way: who was active stays shown, and so do the panels.
-      if (switchingTo !== null)
-        return {
-          model: {
-            ...model,
-            switching:
-              switching?.id === switchingTo
-                ? { ...switching, next: null }
-                : { id: switchingTo, since: at, shownAt: null, next: null },
-          },
-        };
-      if (switching === null)
-        return { model: { ...model, account, http: idle, rpc: idle } };
-      // Answered: shown a moment ago, it waits out the minimum first.
-      return switching.shownAt !== null &&
-        at < switching.shownAt + SWITCH_MINIMUM
-        ? { model: { ...model, switching: { ...switching, next: account } } }
-        : { model: switched(model, account) };
-    },
-    SwitchShown: (_, { model, at }) =>
-      model.switching
-        ? {
-            model: { ...model, switching: { ...model.switching, shownAt: at } },
-          }
-        : {},
-    SwitchDone: (_, { model }) =>
-      model.switching?.next
-        ? { model: switched(model, model.switching.next) }
-        : {},
-    SwitchFailed: ({ message }, { model }) => ({
-      model: { ...model, switchFailed: message },
+    // A new Account: the answers were someone else's.
+    Changed: ({ caller, switching }, { model }) => ({
+      model: {
+        ...model,
+        caller,
+        switching,
+        ...(keyOf(caller) === keyOf(model.caller)
+          ? {}
+          : { http: idle, rpc: idle }),
+      },
     }),
     Send: ({ api, level }, { model }) => ({
       model: {
@@ -332,7 +197,7 @@ export const ApisLive = Page.build(Apis, {
       command: send({
         api,
         level,
-        signedIn: model.account._tag === 'SignedIn',
+        signedIn: model.caller._tag === 'SignedIn',
       }),
     }),
     Answered: ({ api, level, answer }, { model }) => ({

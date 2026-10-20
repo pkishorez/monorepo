@@ -5,7 +5,8 @@ import { ThemeToggle } from './theme-toggle.tsx';
 
 /*
  * What is around every page: the site's name, one link per page, the
- * switch between light and dark, then the page in a column.
+ * switch between light and dark and the Account slot, then the page in a
+ * column.
  */
 
 const NAV = [
@@ -14,7 +15,14 @@ const NAV = [
   { to: router.Apis(), label: 'APIs' },
 ] as const;
 
-export function Layout({ children }: { readonly children: ReactNode }) {
+export function Layout({
+  account,
+  children,
+}: {
+  /** At the top right, after the Theme toggle: the Account Switcher. */
+  readonly account: ReactNode;
+  readonly children: ReactNode;
+}) {
   const { route } = useRouter<typeof router.route.Type>();
   return (
     <div className="flex min-h-dvh flex-col">
@@ -34,7 +42,10 @@ export function Layout({ children }: { readonly children: ReactNode }) {
               </li>
             ))}
           </ul>
-          <ThemeToggle />
+          <div className="flex shrink-0 items-center gap-2">
+            <ThemeToggle />
+            {account}
+          </div>
         </nav>
       </header>
       <main className="mx-auto w-full max-w-4xl flex-1 px-5 pt-12 pb-24">

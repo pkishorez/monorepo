@@ -20,10 +20,12 @@ drew it, when its Loader ran, how its data arrived and whether it is cached.
 **Preloading** (`/items`, `/items/:id`) is a list and the item it opens: each
 link shows its preload as it happens, read from the real `/_kabuki/load`
 request, and the item says whether it opened at once or after a wait; its
-copy stays fresh for 30 seconds, and `/items/9` is not found. **APIs**
-(`/apis`) signs in with the Auth Worker (auth-toolkit's cookie mode,
-[`toolkits/auth-toolkit/README.md`](../../toolkits/auth-toolkit/README.md))
-and calls two Workers, one serving an Effect `HttpApi` and one an Effect
+copy stays fresh for 30 seconds, and `/items/9` is not found. The header's
+Account Switcher (web-platform's `account-switcher`) signs in, switches and
+signs out with the Auth Worker (auth-toolkit's cookie mode,
+[`toolkits/auth-toolkit/README.md`](../../toolkits/auth-toolkit/README.md)),
+and every page reads who is signed in from it. **APIs** (`/apis`) says who
+its calls go as and calls two Workers, one serving an Effect `HttpApi` and one an Effect
 RPC group, showing each request and what came back. Each has three calls,
 one per level of access (`src/apis/access`): **public**, for anyone;
 **authenticated** (`Authz.required`), for any signed-in Account, refused

@@ -16,9 +16,11 @@ import { HelloRpc } from '../../../apis/hello-rpc/index.ts';
 import { Pages, router } from '../index.ts';
 
 /*
- * The APIs page's account bar through an Account Switch: it shows only once
- * under way a moment, keeps the panels' answers while it does, and swaps
- * in the new Account, the panels starting over, in one step.
+ * The APIs page through an Account Switch made in the header: it reads who
+ * the calls go as from `CurrentAccount`, keeps the panels' answers, dimmed,
+ * while the switch shows, and starts them over once the new Account is in.
+ * How a switch is timed is the Account Switcher's own, tested in
+ * web-platform.
  */
 
 const ada: Account = {
@@ -116,13 +118,16 @@ const walk = (at: Instance): ReadonlyArray<Instance> => [
 ];
 const apis = (app: Running<unknown>) =>
   walk(app.snapshot()).find((each) => each.actor === 'Apis')!;
+const switcher = (app: Running<unknown>) =>
+  walk(app.snapshot()).find((each) => each.actor === 'AccountSwitcher')!;
 const model = (app: Running<unknown>) =>
   apis(app).model as {
-    readonly account: { readonly _tag: string; readonly active?: Account };
-    readonly switching: { readonly shownAt: number | null } | null;
-    readonly switchFailed: string | null;
+    readonly caller: { readonly _tag: string; readonly id?: string };
+    readonly switching: boolean;
     readonly http: { readonly public: { readonly _tag: string } };
   };
+const switchTo = (app: Running<unknown>, id: string) =>
+  app.send(switcher(app).id, { _tag: 'SwitchTo', id } as never);
 
 const opened = Effect.gen(function* () {
   const accounts = yield* fakeAccounts;
@@ -137,53 +142,51 @@ const opened = Effect.gen(function* () {
   return { app, answer: accounts.answer };
 });
 
-describe('an Account Switch on the APIs page', () => {
-  it('shows after the delay, keeps the answers while shown, then swaps in the new Account after the minimum', () =>
+describe('an Account Switch, on the APIs page', () => {
+  it('calls go as the Active Account', () =>
+    run(
+      Effect.gen(function* () {
+        const { app } = yield* opened;
+        expect(model(app).caller).toEqual({
+          _tag: 'SignedIn',
+          id: 'ada',
+          email: 'ada@x.com',
+        });
+      }),
+    ));
+
+  it('dims the panels once it shows, keeps their answers, then starts them over for the new Account', () =>
     run(
       Effect.gen(function* () {
         const { app, answer } = yield* opened;
-        app.send(apis(app).id, { _tag: 'SwitchTo', id: 'bob' });
+        switchTo(app, 'bob');
         yield* wait(50);
-        expect(model(app).switching).toMatchObject({ shownAt: null });
+        expect(model(app).switching).toBe(false);
         yield* wait(150);
-        expect(model(app).switching?.shownAt).not.toBeNull();
+        expect(model(app).switching).toBe(true);
         yield* answer(true);
         yield* wait(50);
-        // Answered, but shown only a moment ago: the bar waits out the minimum.
-        expect(model(app).account.active?.id).toBe('ada');
+        // Answered, but shown only a moment ago: the minimum is waited out.
+        expect(model(app).caller.id).toBe('ada');
         expect(model(app).http.public._tag).toBe('Answered');
         yield* wait(350);
-        expect(model(app).switching).toBeNull();
-        expect(model(app).account.active?.id).toBe('bob');
+        expect(model(app).switching).toBe(false);
+        expect(model(app).caller.id).toBe('bob');
         expect(model(app).http.public._tag).toBe('Idle');
       }),
     ));
 
-  it('a quick one never shows', () =>
+  it('one that fails keeps the Account and its answers', () =>
     run(
       Effect.gen(function* () {
         const { app, answer } = yield* opened;
-        app.send(apis(app).id, { _tag: 'SwitchTo', id: 'bob' });
-        yield* wait(20);
-        yield* answer(true);
-        yield* wait(20);
-        expect(model(app).switching).toBeNull();
-        expect(model(app).account.active?.id).toBe('bob');
-      }),
-    ));
-
-  it('one that fails keeps the Account and its answers, and says why', () =>
-    run(
-      Effect.gen(function* () {
-        const { app, answer } = yield* opened;
-        app.send(apis(app).id, { _tag: 'SwitchTo', id: 'bob' });
+        switchTo(app, 'bob');
         yield* wait(20);
         yield* answer(false);
         yield* wait(20);
-        expect(model(app).switching).toBeNull();
-        expect(model(app).account.active?.id).toBe('ada');
+        expect(model(app).switching).toBe(false);
+        expect(model(app).caller.id).toBe('ada');
         expect(model(app).http.public._tag).toBe('Answered');
-        expect(model(app).switchFailed).toContain('https://auth.test');
       }),
     ));
 });

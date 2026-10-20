@@ -134,6 +134,10 @@
       "types": "./dist/start/index.d.ts",
       "default": "./dist/start/index.js"
     },
+    "./account-switcher": {
+      "types": "./dist/account-switcher/index.d.ts",
+      "default": "./dist/account-switcher/index.js"
+    },
     "./server": {
       "types": "./dist/server/index.d.ts",
       "default": "./dist/server/index.js"

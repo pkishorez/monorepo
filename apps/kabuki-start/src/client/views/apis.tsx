@@ -1,11 +1,6 @@
 import type { ReactNode } from 'react';
 import { View } from '@kestack/kabuki/react';
 import type { ViewProps } from '@kestack/kabuki/react';
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from '@kestack/web-platform/components/avatar';
 import { Badge } from '@kestack/web-platform/components/badge';
 import { Button } from '@kestack/web-platform/components/button';
 import {
@@ -20,22 +15,18 @@ import { Pages } from '../../shared/pages/index.ts';
 import { PageIntro } from '../components/index.ts';
 
 /*
- * Who is signed in, then one panel per API Worker: what it is and where it
- * is (the URL its client calls), then its three calls, one per level of
+ * Who the calls go as, then one panel per API Worker: what it is and where
+ * it is (the URL its client calls), then its three calls, one per level of
  * access, each with who may make it, the request a click sends, and what
  * came back, the refusal too. Both Workers check the same session cookie
- * with the same Auth Worker, and apply the same rule. While an Account
- * Switch shows, its button spins, the rest of the bar waits, and the panels
+ * with the same Auth Worker, and apply the same rule. Signing in and
+ * switching are the header's. While an Account Switch shows, the panels
  * are dimmed and still: what they show is the Account before's.
  */
 
 type Self = ViewProps<typeof Pages.ApisLive>;
 type Model = Self['model'];
 type Call = Model['http']['public'];
-
-/** The Account a switch under way makes active, once it shows. */
-const switchShown = (model: Model) =>
-  model.switching?.shownAt != null ? model.switching.id : null;
 
 const WORKERS = [
   {
@@ -80,13 +71,6 @@ const LEVEL: Readonly<
     ),
   },
 };
-
-const initials = (name: string) =>
-  name
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part.charAt(0).toUpperCase())
-    .join('');
 
 function Label({ children }: { readonly children: ReactNode }) {
   return (
@@ -138,90 +122,27 @@ function Response({ call }: { readonly call: Call }) {
   );
 }
 
-function Account({
-  model,
-  send,
-}: {
-  readonly model: Model;
-  readonly send: Self['send'];
-}) {
-  const { account } = model;
-  const switching = switchShown(model);
-  const waiting = switching !== null;
+/** Who the calls go as, in one line. */
+function Caller({ caller }: { readonly caller: Model['caller'] }) {
   return (
-    <section className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border bg-card p-5">
-      {account._tag === 'Checking' && (
-        <p className="flex items-center gap-2 text-sm text-muted-foreground">
+    <p
+      role="status"
+      className="flex min-h-5 items-center gap-2 text-sm text-muted-foreground"
+    >
+      {caller._tag === 'Checking' && (
+        <>
           <Spinner /> Checking who is signed in…
-        </p>
-      )}
-      {account._tag === 'SignedOut' && (
-        <>
-          <div className="space-y-0.5">
-            <p className="font-medium">You are signed out</p>
-            <p className="text-sm text-muted-foreground">
-              The public calls answer you; the others refuse until you sign in.
-            </p>
-          </div>
-          <Button onClick={() => send({ _tag: 'SignIn' })}>Sign in</Button>
         </>
       )}
-      {account._tag === 'SignedIn' && (
-        <>
-          <div className="flex items-center gap-3">
-            <Avatar size="lg">
-              {account.active.image && (
-                <AvatarImage src={account.active.image} alt="" />
-              )}
-              <AvatarFallback>{initials(account.active.name)}</AvatarFallback>
-            </Avatar>
-            <div className="min-w-0">
-              <p className="truncate font-medium">{account.active.name}</p>
-              <p className="truncate text-sm text-muted-foreground">
-                {account.active.email}
-              </p>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {account.others.map((other) => (
-              <Button
-                key={other.id}
-                variant="ghost"
-                size="sm"
-                disabled={waiting}
-                aria-busy={switching === other.id ? true : undefined}
-                className="aria-busy:opacity-100"
-                onClick={() => send({ _tag: 'SwitchTo', id: other.id })}
-              >
-                {switching === other.id && <Spinner data-icon="inline-start" />}
-                Switch to {other.name}
-              </Button>
-            ))}
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={waiting}
-              onClick={() => send({ _tag: 'SignIn' })}
-            >
-              Add an account
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={waiting}
-              onClick={() => send({ _tag: 'SignOut' })}
-            >
-              Sign out
-            </Button>
-          </div>
-        </>
+      {caller._tag === 'SignedOut' &&
+        'Signed out: only the public calls answer'}
+      {caller._tag === 'SignedIn' && (
+        <span className="min-w-0 truncate">
+          Calling as{' '}
+          <span className="font-medium text-foreground">{caller.email}</span>
+        </span>
       )}
-      {model.switchFailed !== null && (
-        <p role="alert" className="w-full text-sm text-destructive">
-          Couldn't switch accounts. {model.switchFailed}
-        </p>
-      )}
-    </section>
+    </p>
   );
 }
 
@@ -232,7 +153,7 @@ export const ApisView = View.make(Pages.ApisLive, ({ root, model, send }) => (
       an authorized one. Send them signed out, then sign in and send again: only{' '}
       {OWNER} gets the authorized answer.
     </PageIntro>
-    <Account model={model} send={send} />
+    <Caller caller={model.caller} />
     <Panels model={model} send={send} />
     <p className="text-sm text-muted-foreground">
       Each Worker checks the session with the Auth Worker at{' '}
@@ -252,7 +173,7 @@ function Panels({
   readonly model: Model;
   readonly send: Self['send'];
 }) {
-  const waiting = switchShown(model) !== null;
+  const waiting = model.switching;
   return (
     <div
       inert={waiting}
