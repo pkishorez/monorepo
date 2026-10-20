@@ -186,7 +186,10 @@ export class RunLifecycle extends Context.Service<
               result,
               finishedAt: now,
             });
-            if (found.status !== 'queued') yield* host.stop(runId);
+            // A stop that fails leaves the container to its own hard limit;
+            // the run still ends and its lane moves on.
+            if (found.status !== 'queued')
+              yield* host.stop(runId).pipe(Effect.ignoreCause({ log: true }));
             const ending: Array<StoredRun> = [ended];
             const lane = yield* runs.lanes.get(found.lane);
             if (lane?.current === runId) {
@@ -220,9 +223,16 @@ export class RunLifecycle extends Context.Service<
             // Armed before the container is asked for, so a run whose start
             // never answers is still found silent.
             yield* wakeBy(dueAt(started));
-            const failure = yield* host
-              .start({ runId })
-              .pipe(Effect.flip, Effect.option);
+            // Bounded: the lock is held meanwhile.
+            const failure = yield* host.start({ runId }).pipe(
+              Effect.timeoutOrElse({
+                duration: '1 minute',
+                orElse: () =>
+                  Effect.fail(new Error('it didn’t answer within a minute.')),
+              }),
+              Effect.flip,
+              Effect.option,
+            );
             if (failure._tag === 'Some')
               return yield* end(runId, 'failed', {
                 _tag: 'Failed',

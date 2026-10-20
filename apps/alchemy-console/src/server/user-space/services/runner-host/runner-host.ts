@@ -75,9 +75,9 @@ export class RunnerHost extends Context.Service<
         stop: (runId) =>
           config.namespace === undefined
             ? Effect.void
-            : Effect.promise(() =>
+            : Effect.tryPromise(() =>
                 config.namespace!.getByName(runId).stop(),
-              ).pipe(Effect.ignore),
+              ).pipe(Effect.ignoreCause({ log: true })),
       }),
     );
 }
