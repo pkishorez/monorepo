@@ -21,10 +21,23 @@ import {
 import { makeDeadlines } from './deadlines.ts';
 import { sessionBound } from './session-bound.ts';
 import { socketOf } from './socket.ts';
+import { ConnectionIndex } from '../connection-index/index.ts';
+import { GitHub } from './services/github/index.ts';
 import { Providers } from './services/providers/index.ts';
 import { Storage } from './services/storage/index.ts';
 import { Vault } from './services/vault/index.ts';
+import {
+  authorize,
+  type AuthorizeInput,
+  connect,
+  connectionsHandlers,
+  type ConnectInput,
+  type ConnectOutcome,
+  type ConnectStep,
+} from './workflows/connections/index.ts';
 import { credentialsHandlers } from './workflows/credentials/index.ts';
+import { type Delivery, receive } from './workflows/github-events/index.ts';
+import { repositoriesHandlers } from './workflows/repositories/index.ts';
 import { sessionHandlers } from './workflows/session/index.ts';
 
 /*
@@ -40,12 +53,27 @@ import { sessionHandlers } from './workflows/session/index.ts';
  * - a workflow is a nested module under `workflows/<name>/` exporting its
  *   handlers as an Effect (see `workflows/session`), spread into `handlers`
  *   below, beside a group merged into `ConsoleApi`.
+ *
+ * The Worker also calls it directly, never on a browser's behalf, through
+ * the object's own methods: `connectGitHub` and `authorizeGitHub` with
+ * GitHub's returns from an install and from asking who the member is
+ * (`reach(...)`), and `receiveGitHub` with a webhook
+ * delivery for an installation the user owns (`owning(...).receive`).
  */
 
 /** What the object reads from the Worker's env. */
 interface UserSpaceEnv {
   /** The key the Vault seals secrets with: 32 bytes, in base64. */
   readonly CONSOLE_VAULT_KEY?: string;
+  /** The GitHub App's ID, slug and private key (PEM). */
+  readonly GH_APP_ID?: string;
+  readonly GH_APP_SLUG?: string;
+  readonly GH_APP_PRIVATE_KEY?: string;
+  /** The App's OAuth client, for asking GitHub which installations a member reaches. */
+  readonly GH_APP_CLIENT_ID?: string;
+  readonly GH_APP_CLIENT_SECRET?: string;
+  /** The connection index's D1 database. */
+  readonly CONSOLE_INDEX: D1Database;
 }
 
 /** Every service, built once for the life of the object. */
@@ -54,6 +82,17 @@ const services = (state: cf.DurableObjectState, env: UserSpaceEnv) =>
     Storage.layer(state.storage),
     Vault.layer(env.CONSOLE_VAULT_KEY),
     Providers.layer((input, init) => fetch(input, init)),
+    GitHub.layer(
+      {
+        appId: env.GH_APP_ID ?? '',
+        slug: env.GH_APP_SLUG ?? '',
+        privateKey: env.GH_APP_PRIVATE_KEY ?? '',
+        clientId: env.GH_APP_CLIENT_ID ?? '',
+        clientSecret: env.GH_APP_CLIENT_SECRET ?? '',
+      },
+      (input, init) => fetch(input, init),
+    ),
+    ConnectionIndex.layer(env.CONSOLE_INDEX),
   );
 
 /** Every workflow's handlers, served as one `ConsoleApi`, each stream ending with its caller's session. */
@@ -64,6 +103,8 @@ const handlers = (deadlines: ReturnType<typeof makeDeadlines>) =>
         {
           ...(yield* sessionHandlers),
           ...(yield* credentialsHandlers),
+          ...(yield* connectionsHandlers),
+          ...(yield* repositoriesHandlers),
         },
         deadlines,
       );
@@ -144,6 +185,18 @@ const serve = (state: cf.DurableObjectState, env: UserSpaceEnv) =>
       close: (socket: cf.WebSocket, code: number, reason: string) =>
         Effect.runPromise(sockets.close(socketOf(socket), code, reason)),
       alarm: () => deadlines.ring(Date.now()),
+      // The Worker's own calls, never a browser's: GitHub's return from an
+      // install, and its webhook deliveries.
+      connectGitHub: (input: ConnectInput) =>
+        Effect.runPromise(connect(input).pipe(Effect.provideContext(built))),
+      authorizeGitHub: (input: AuthorizeInput) =>
+        Effect.runPromise(authorize(input).pipe(Effect.provideContext(built))),
+      githubEvents: {
+        receive: (userId: string, delivery: Delivery) =>
+          Effect.runPromise(
+            receive(userId, delivery).pipe(Effect.provideContext(built)),
+          ),
+      },
     };
   });
 
@@ -152,7 +205,7 @@ type Served = Effect.Success<ReturnType<typeof serve>>;
 export class UserSpace extends DurableObject {
   readonly #served: Promise<Served>;
 
-  constructor(state: DurableObjectState, env: Cloudflare.Env) {
+  constructor(state: DurableObjectState, env: UserSpaceEnv) {
     super(state, env);
     // Built once per activation, and lives as long as it does.
     const scope = Scope.makeUnsafe();
@@ -179,6 +232,21 @@ export class UserSpace extends DurableObject {
     await (await this.#served).alarm();
   }
 
+  /** GitHub's return from installing the App, for the member the Worker verified. */
+  async connectGitHub(input: ConnectInput): Promise<ConnectStep> {
+    return (await this.#served).connectGitHub(input);
+  }
+
+  /** GitHub's word on who the member is, after `connectGitHub` asked. */
+  async authorizeGitHub(input: AuthorizeInput): Promise<ConnectOutcome> {
+    return (await this.#served).authorizeGitHub(input);
+  }
+
+  /** A webhook delivery for an installation this member owns. */
+  async receiveGitHub(userId: string, delivery: Delivery): Promise<void> {
+    await (await this.#served).githubEvents.receive(userId, delivery);
+  }
+
   override async webSocketClose(
     socket: WebSocket,
     code: number,
@@ -200,6 +268,16 @@ export const reach = (
     /** Hands the browser's socket upgrade to it, as `caller`. */
     socket: (request: Request): Promise<Response> =>
       stub.fetch(sentBy(request, caller)),
+    /** Hands it GitHub's return from installing the App. */
+    connectGitHub: (
+      input: Omit<ConnectInput, 'userId'>,
+    ): Promise<ConnectStep> =>
+      stub.connectGitHub({ ...input, userId: caller.member.userId }),
+    /** Hands it GitHub's word on who the member is. */
+    authorizeGitHub: (
+      input: Omit<AuthorizeInput, 'userId'>,
+    ): Promise<ConnectOutcome> =>
+      stub.authorizeGitHub({ ...input, userId: caller.member.userId }),
     /** Calls its Console API over HTTP, as `caller`: `RpcClient.make(ConsoleApi)` on it. */
     api: Rpc.http
       .client(ConsoleApi, { url: 'https://user-space/rpc' })
@@ -212,3 +290,15 @@ export const reach = (
       ) satisfies Layer.Layer<RpcClient.Protocol>,
   };
 };
+
+/** The User Space of the user who owns a GitHub installation, as a webhook reaches it. */
+export const owning = (
+  namespace: DurableObjectNamespace<UserSpace>,
+  userId: string,
+) => ({
+  /** Hands it one webhook delivery. */
+  receive: (delivery: Delivery): Promise<void> =>
+    namespace.getByName(userId).receiveGitHub(userId, delivery),
+});
+
+export type { ConnectOutcome, ConnectStep, Delivery };

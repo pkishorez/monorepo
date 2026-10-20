@@ -44,6 +44,8 @@ export class Browser extends Context.Service<
     ) => Effect.Effect<void, { readonly message: string }>;
     /** Opens a socket to the Active Account's User Space. */
     readonly connect: Effect.Effect<Connection, never, Scope.Scope>;
+    /** Leaves Console for `url`, as a link does: GitHub's install page. */
+    readonly open: (url: string) => Effect.Effect<void>;
   }
 >()('alchemy-console/Browser') {}
 

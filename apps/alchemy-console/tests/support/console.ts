@@ -4,6 +4,8 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Effect, Layer, Queue, Stream } from 'effect';
+import { SQLite } from '@kestack/std-toolkit/db/sqlite';
+import { makeD1SQLite } from '@kestack/std-toolkit/db/sqlite/d1';
 import { RpcClient, RpcSerialization } from 'effect/rpc';
 import { Socket } from 'effect/socket';
 import { localTokenOf } from '@kestack/auth-toolkit/client/browser';
@@ -12,6 +14,10 @@ import {
   type Request as MiniflareRequest,
   Response as MiniflareResponse,
 } from 'miniflare';
+import {
+  ConnectionIndex,
+  connectionIndexTable,
+} from '../../src/server/connection-index/index.ts';
 import { ConsoleApi } from '../../src/shared/contracts/console-api/index.ts';
 import { LOCAL_SESSION_COOKIE } from '../../src/shared/contracts/local-session/index.ts';
 
@@ -83,9 +89,21 @@ const nowhere: Outbound = () => {
   throw new TypeError('The tests reach no network.');
 };
 
+/** The GitHub App the tests' Worker is: a fake one's ID, slug, key and webhook secret. */
+export interface TestApp {
+  readonly id: string;
+  readonly slug: string;
+  /** PEM, PKCS#1, as GitHub hands it out. */
+  readonly privateKey: string;
+  readonly webhookSecret: string;
+  readonly clientId: string;
+  readonly clientSecret: string;
+}
+
 export const startConsole = async (options: {
   readonly invites: string;
   readonly outbound?: Outbound;
+  readonly app?: TestApp;
 }) => {
   const out = await build();
   const server = path.join(out, 'ssr');
@@ -99,9 +117,20 @@ export const startConsole = async (options: {
     modulesRoot: server,
     durableObjects: { USER_SPACE: { className: 'UserSpace', useSQLite: true } },
     durableObjectsPersist: persist,
+    d1Databases: ['CONSOLE_INDEX'],
     bindings: {
       CONSOLE_INVITES: options.invites,
       CONSOLE_VAULT_KEY: TEST_VAULT_KEY,
+      ...(options.app
+        ? {
+            GH_APP_ID: options.app.id,
+            GH_APP_SLUG: options.app.slug,
+            GH_APP_PRIVATE_KEY: options.app.privateKey,
+            GH_APP_WEBHOOK_SECRET: options.app.webhookSecret,
+            GH_APP_CLIENT_ID: options.app.clientId,
+            GH_APP_CLIENT_SECRET: options.app.clientSecret,
+          }
+        : {}),
     },
     outboundService: async (request: MiniflareRequest) => {
       const answer = await outbound(
@@ -120,18 +149,36 @@ export const startConsole = async (options: {
     },
   });
   const url = await mf.ready;
+  // The connection index's table, as its deploy makes it.
+  const binding = (await mf.getD1Database('CONSOLE_INDEX')) as never;
+  await Effect.runPromise(
+    SQLite.setup(connectionIndexTable, {
+      database: makeD1SQLite({ database: binding }),
+    }),
+  );
+  const connections = ConnectionIndex.make(binding);
   return {
     url: url.href,
     /** Where the User Spaces keep their SQLite files. */
     persist,
-    /** A request to the Worker, from `visitor` when given. */
-    fetch: (pathname: string, visitor?: Visitor, headers = {}) =>
+    /** A request to the Worker, from `visitor` when given; a redirect is answered, not followed. */
+    fetch: (
+      pathname: string,
+      visitor?: Visitor,
+      headers = {},
+      init: { readonly method?: string; readonly body?: string } = {},
+    ) =>
       mf.dispatchFetch(new URL(pathname, url), {
+        ...init,
+        redirect: 'manual',
         headers: {
           ...headers,
           ...(visitor ? { cookie: cookieOf(visitor) } : {}),
         },
       }),
+    /** Who the connection index says owns `installationId`; null for no one. */
+    indexOwner: (installationId: number) =>
+      Effect.runPromise(connections.owner(installationId)),
     /** A Console API client over a socket opened as `visitor`, as a tab opens one. */
     socket: (visitor: Visitor) =>
       Effect.gen(function* () {

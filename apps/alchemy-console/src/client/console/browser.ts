@@ -97,6 +97,7 @@ const browserOf = (signInWith: (accounts: Accounts['Service']) => SignIn) =>
       Browser.of({
         signIn: signInWith(Context.get(signing, Accounts)),
         connect: connect(signing as Context.Context<never>),
+        open: (url) => Effect.sync(() => window.location.assign(url)),
       }),
     ),
   );

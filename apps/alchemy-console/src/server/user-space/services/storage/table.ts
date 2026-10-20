@@ -2,6 +2,10 @@ import { Schema } from 'effect';
 import { StdTable } from '@kestack/std-toolkit/db';
 import { EntityESchema, ESchema } from '@kestack/std-toolkit/eschema';
 import { Provider } from '../../../../shared/contracts/credential/index.ts';
+import {
+  AccountType,
+  ReturnTo,
+} from '../../../../shared/contracts/github/index.ts';
 import { Member } from '../../../../shared/contracts/member/index.ts';
 
 /*
@@ -43,5 +47,54 @@ export type StoredCredential = typeof Credential.Type;
 /** Every credential is the owner's, so they share one partition. */
 export const credential = userSpaceTable
   .entity(Credential)
+  .primary({ pk: [] })
+  .build();
+
+/** A repository a GitHub connection reaches, as last fetched. */
+const StoredRepository = Schema.Struct({
+  fullName: Schema.String,
+  private: Schema.Boolean,
+  defaultBranch: Schema.String,
+});
+
+/** A GitHub connection: one App installation, and the repositories it reaches. */
+const GitHubConnection = EntityESchema.make(
+  'GitHubConnection',
+  'connectionId',
+  {
+    installationId: Schema.Number,
+    accountLogin: Schema.String,
+    accountType: AccountType,
+    avatarUrl: Schema.String,
+    repositories: Schema.Array(StoredRepository),
+    createdAt: Schema.Number,
+    updatedAt: Schema.Number,
+  },
+).build();
+
+export type StoredConnection = typeof GitHubConnection.Type;
+
+export const gitHubConnection = userSpaceTable
+  .entity(GitHubConnection)
+  .primary({ pk: [] })
+  .build();
+
+/**
+ * A one-time `state` GitHub carries back: on an install URL, or on the
+ * question of who the member is on GitHub, for one installation.
+ */
+const InstallState = EntityESchema.make('InstallState', 'state', {
+  kind: Schema.Literals(['install', 'authorize']),
+  /** The installation an `authorize` state is for; null for `install`. */
+  installationId: Schema.NullOr(Schema.Number),
+  returnTo: ReturnTo,
+  /** In milliseconds since the epoch. */
+  issuedAt: Schema.Number,
+}).build();
+
+export type StoredInstallState = typeof InstallState.Type;
+
+export const installState = userSpaceTable
+  .entity(InstallState)
   .primary({ pk: [] })
   .build();

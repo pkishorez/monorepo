@@ -15,6 +15,7 @@ const counted = () => {
   let opened = 0;
   const browser = Layer.succeed(Browser, {
     signIn: () => Effect.void,
+    open: () => Effect.void,
     connect: Effect.sync(() => {
       opened++;
       return {

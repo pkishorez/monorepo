@@ -5,6 +5,8 @@ import * as Secrets from 'alchemy/Secrets';
 import * as Config from 'effect/Config';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
+import * as StdToolkit from '@kestack/std-toolkit/alchemy';
+import { connectionIndexTable } from './src/server/connection-index/index.ts';
 import type { UserSpace } from './src/server/worker.ts';
 
 /*
@@ -25,6 +27,12 @@ import type { UserSpace } from './src/server/worker.ts';
  * The Vault key, `CONSOLE_VAULT_KEY`, seals every secret a user hands
  * Console, and is bound as a Worker secret. CI passes each deployed stage's
  * own; a personal stage reads it from `.env.vault-local`.
+ *
+ * The GitHub App's keys, `GH_APP_*`, are Worker secrets too: `dev` is the
+ * `alchemy-console-dev` App's, `prod` and the previews the `alchemy-console`
+ * App's, passed by CI by the stage deployed; a personal stage reads the dev
+ * App's from `.env.github-dev`. The connection index, which user owns each
+ * installation, is a D1 database of the stage's own.
  */
 
 const productionHost = 'console.kishore.app';
@@ -35,6 +43,22 @@ const isDeployed = (stage: string) =>
 
 /** A personal stage's Vault key, kept out of `.env` so it is never shared by accident. */
 const VAULT_LOCAL = '.env.vault-local';
+/** A personal stage's GitHub App: the dev App's keys. */
+const GITHUB_LOCAL = '.env.github-dev';
+
+/** A secret the stage cannot run without, read as Alchemy reads its settings. */
+const required = (name: string, deployed: boolean, local: string) =>
+  Config.Redacted(name).pipe(
+    Effect.catch(() =>
+      Effect.die(
+        new Error(
+          deployed
+            ? `${name} is not set: CI passes it from the repository secrets.`
+            : `Put ${name} in ${local}.`,
+        ),
+      ),
+    ),
+  );
 
 const domainFor = (stage: string) =>
   stage === 'prod' ? productionHost : `${stage}-${productionHost}`;
@@ -59,17 +83,40 @@ export const Worker = Cloudflare.Website.Vite(
       Config.withDefault(''),
       Effect.orDie,
     );
-    const vaultKey = yield* Config.Redacted('CONSOLE_VAULT_KEY').pipe(
-      Effect.catch(() =>
-        Effect.die(
-          new Error(
-            deployed
-              ? 'CONSOLE_VAULT_KEY is not set: CI passes it from the repository secrets.'
-              : `Put CONSOLE_VAULT_KEY (32 random bytes, base64) in ${VAULT_LOCAL}.`,
-          ),
-        ),
-      ),
+    const vaultKey = yield* required(
+      'CONSOLE_VAULT_KEY',
+      deployed,
+      `${VAULT_LOCAL} (32 random bytes, base64)`,
     );
+    const app = {
+      GH_APP_ID: yield* required('GH_APP_ID', deployed, GITHUB_LOCAL),
+      GH_APP_SLUG: yield* required('GH_APP_SLUG', deployed, GITHUB_LOCAL),
+      GH_APP_PRIVATE_KEY: yield* required(
+        'GH_APP_PRIVATE_KEY',
+        deployed,
+        GITHUB_LOCAL,
+      ),
+      GH_APP_WEBHOOK_SECRET: yield* required(
+        'GH_APP_WEBHOOK_SECRET',
+        deployed,
+        GITHUB_LOCAL,
+      ),
+      GH_APP_CLIENT_ID: yield* required(
+        'GH_APP_CLIENT_ID',
+        deployed,
+        GITHUB_LOCAL,
+      ),
+      GH_APP_CLIENT_SECRET: yield* required(
+        'GH_APP_CLIENT_SECRET',
+        deployed,
+        GITHUB_LOCAL,
+      ),
+    };
+    const index = yield* Cloudflare.D1.Database('ConnectionIndex');
+    yield* StdToolkit.D1.table('ConnectionIndexTable', {
+      table: connectionIndexTable,
+      database: index,
+    });
     const port = Number(process.env.PORT);
     if (dev && (!Number.isInteger(port) || port < 1 || port > 65535)) {
       throw new Error('Run pnpm dev so Portless can assign PORT.');
@@ -81,6 +128,10 @@ export const Worker = Cloudflare.Website.Vite(
         CONSOLE_INVITES: invites,
         // The Vault's key, a Worker secret.
         CONSOLE_VAULT_KEY: vaultKey,
+        // The GitHub App's ID, slug, private key, webhook secret and OAuth client.
+        ...app,
+        // The connection index: installation → user.
+        CONSOLE_INDEX: index,
         // Inlined into the Worker and the browser alike; '' is Local mode.
         VITE_CONSOLE_AUTH_URL: deployed ? authWorker : localAuthUrl,
       },
@@ -104,18 +155,18 @@ const State = Layer.unwrap(
 export default Stack(
   'AlchemyConsole',
   {
-    providers: Cloudflare.providers(),
+    providers: Layer.merge(Cloudflare.providers(), StdToolkit.providers()),
     state: State,
     // Deployed stages read the CI environment only; a personal one also
-    // reads `.env` and the Vault key's file.
+    // reads `.env`, the Vault key's file and the dev App's.
     secrets: ({ stage }) =>
       isDeployed(stage)
         ? Secrets.ProcessEnv()
         : [
             Secrets.DotEnv(),
-            ...(existsSync(VAULT_LOCAL)
-              ? [Secrets.DotEnv({ path: VAULT_LOCAL })]
-              : []),
+            ...[VAULT_LOCAL, GITHUB_LOCAL]
+              .filter((path) => existsSync(path))
+              .map((path) => Secrets.DotEnv({ path })),
           ],
   },
   Worker,

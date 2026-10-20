@@ -1,45 +1,110 @@
 import { Effect, Schedule, Stream } from 'effect';
+import { Command } from '@kestack/kabuki';
 import { View } from '@kestack/kabuki/react';
 import { Page } from '@kestack/kabuki/routing';
 import { Button } from '@kestack/web-platform/components/button';
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from '@kestack/web-platform/components/empty';
 import { Skeleton } from '@kestack/web-platform/components/skeleton';
+import { Spinner } from '@kestack/web-platform/components/spinner';
 import { Api, Welcome } from '../../../shared/pages/index.ts';
+import { GitHubReturnNotice, goInstall } from '../../connect-github/index.ts';
 
 /*
  * Welcome, as it behaves. It shows the pattern every page reuses for live
- * data: one Worker, written at the top so it runs for as long as the page
- * is on screen, follows a Console API stream through `Api.follow` and sends
- * each emission as a Message; the Model keeps the latest, and the View
- * draws it. Leaving the page stops the Worker, which closes the stream; an
- * Account Switch begins it again as the new member. A dropped stream is
- * followed again after a pause, so a page never silently stops updating.
+ * data: Workers, written at the top so they run for as long as the page is
+ * on screen, follow Console API streams through `Api.follow` and send each
+ * emission as a Message; the Model keeps the latest, and the View draws it.
+ * Leaving the page stops the Workers, which closes the streams; an Account
+ * Switch begins them again as the new member. A dropped stream is followed
+ * again after a pause, so a page never silently stops updating.
+ *
+ * With no GitHub connection the one next step is Connect GitHub, which
+ * leaves for GitHub's install page; with one, it is the member's projects,
+ * none yet.
  */
 
+const retried = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+  effect.pipe(Effect.retry(Schedule.spaced('2 seconds')), Effect.orDie);
+
+const connect = Command.make('connect', {
+  run: () =>
+    goInstall('/').pipe(
+      // The page is on its way to GitHub: nothing more to say.
+      Effect.andThen(Effect.never),
+      Effect.catch(({ message }) =>
+        Effect.succeed({ _tag: 'ConnectFailed' as const, message }),
+      ),
+    ),
+});
+
 export const WelcomeLive = Page.build(Welcome, {
-  init: () => ({ model: { member: null } }),
+  init: () => ({
+    model: {
+      member: null,
+      connections: null,
+      connecting: false,
+      problem: null,
+    },
+  }),
   workers: {
     member: {
       run: (self) =>
-        Effect.gen(function* () {
-          const api = yield* Api;
-          yield* api
-            .follow((client) => client['Session.watch']())
-            .pipe(
-              Stream.runForEach((member) =>
-                self.send({ _tag: 'MemberSeen', member }),
-              ),
-            );
-        }).pipe(Effect.retry(Schedule.spaced('2 seconds')), Effect.orDie),
+        retried(
+          Effect.gen(function* () {
+            const api = yield* Api;
+            yield* api
+              .follow((client) => client['Session.watch']())
+              .pipe(
+                Stream.runForEach((member) =>
+                  self.send({ _tag: 'MemberSeen', member }),
+                ),
+              );
+          }),
+        ),
+    },
+    connections: {
+      run: (self) =>
+        retried(
+          Effect.gen(function* () {
+            const api = yield* Api;
+            yield* api
+              .follow((client) => client['Connections.list']())
+              .pipe(
+                Stream.runForEach((connections) =>
+                  self.send({ _tag: 'ConnectionsSeen', connections }),
+                ),
+              );
+          }),
+        ),
     },
   },
   on: {
-    MemberSeen: ({ member }) => ({ model: { member } }),
+    MemberSeen: ({ member }, { model }) => ({ model: { ...model, member } }),
+    ConnectionsSeen: ({ connections }, { model }) => ({
+      model: { ...model, connections },
+    }),
+    ConnectChosen: (_, { model }) =>
+      model.connecting
+        ? {}
+        : {
+            model: { ...model, connecting: true, problem: null },
+            command: connect(),
+          },
+    ConnectFailed: ({ message }, { model }) => ({
+      model: { ...model, connecting: false, problem: message },
+    }),
   },
 });
 
 const firstName = (name: string) => name.trim().split(/\s+/)[0] ?? name;
 
-/** The page while its member is on the way: shaped like it, so nothing moves when it comes. */
+/** The page while its data is on the way: shaped like it, so nothing moves when it comes. */
 function WelcomeSkeleton() {
   return (
     <div className="flex flex-col gap-6" aria-busy>
@@ -52,47 +117,114 @@ function WelcomeSkeleton() {
   );
 }
 
-export const WelcomeView = View.make(WelcomeLive, ({ props, model, root }) => {
-  // The live member once their User Space has spoken, as drawn until then.
-  const member =
-    model.member ??
-    (props.status._tag === 'Ready' ? props.status.data.member : null);
+function ConnectGitHub({
+  name,
+  connecting,
+  problem,
+  onConnect,
+}: {
+  readonly name: string;
+  readonly connecting: boolean;
+  readonly problem: string | null;
+  readonly onConnect: () => void;
+}) {
   return (
-    <section
-      {...root}
-      aria-labelledby="welcome-title"
-      className="flex max-w-xl flex-col gap-6 py-16 sm:py-24"
-    >
-      {member === null ? (
-        <WelcomeSkeleton />
-      ) : (
-        <>
-          <div className="flex flex-col gap-3">
-            <h1
-              id="welcome-title"
-              className="text-3xl font-semibold tracking-tight text-balance sm:text-4xl"
-            >
-              Welcome, {firstName(member.name)}
-            </h1>
-            <p className="text-base text-pretty text-muted-foreground">
-              Connect a GitHub account to deploy its Alchemy apps. Every push to
-              your production branch redeploys, and every pull request gets a
-              preview of its own.
-            </p>
-          </div>
-          <div className="flex flex-col items-start gap-2">
-            <Button size="lg" disabled aria-describedby="connect-github-soon">
-              Connect GitHub
-            </Button>
-            <p
-              id="connect-github-soon"
-              className="text-sm text-muted-foreground"
-            >
-              Connecting GitHub arrives in the next release.
-            </p>
-          </div>
-        </>
-      )}
-    </section>
+    <>
+      <div className="flex flex-col gap-3">
+        <h1
+          id="welcome-title"
+          className="text-3xl font-semibold tracking-tight text-balance sm:text-4xl"
+        >
+          Welcome, {firstName(name)}
+        </h1>
+        <p className="text-base text-pretty text-muted-foreground">
+          Connect a GitHub account to deploy its Alchemy apps. Every push to
+          your production branch redeploys, and every pull request gets a
+          preview of its own.
+        </p>
+      </div>
+      <div className="flex flex-col items-start gap-2">
+        <Button
+          size="lg"
+          onClick={onConnect}
+          disabled={connecting}
+          aria-describedby={problem === null ? undefined : 'connect-problem'}
+        >
+          {connecting && <Spinner aria-hidden />}
+          Connect GitHub
+        </Button>
+        {problem !== null && (
+          <p
+            id="connect-problem"
+            role="alert"
+            className="text-sm text-destructive"
+          >
+            {problem}
+          </p>
+        )}
+      </div>
+    </>
   );
-});
+}
+
+/** The member's projects, none yet. */
+function NoProjects() {
+  return (
+    <>
+      <h1
+        id="welcome-title"
+        className="text-2xl font-semibold tracking-tight sm:text-3xl"
+      >
+        Projects
+      </h1>
+      <Empty className="rounded-lg border border-dashed border-border">
+        <EmptyHeader>
+          <EmptyTitle>Create your first project</EmptyTitle>
+          <EmptyDescription>
+            Pick a repository folder with an alchemy.run.ts, and Console deploys
+            it to Production, then again on every push.
+          </EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent>
+          <Button disabled aria-describedby="new-project-soon">
+            Create project
+          </Button>
+          <p id="new-project-soon" className="text-sm text-muted-foreground">
+            Creating projects arrives in the next release.
+          </p>
+        </EmptyContent>
+      </Empty>
+    </>
+  );
+}
+
+export const WelcomeView = View.make(
+  WelcomeLive,
+  ({ props, model, send, root }) => {
+    const drawn = props.status._tag === 'Ready' ? props.status.data : null;
+    // The live word once the User Space has spoken, as drawn until then.
+    const member = model.member ?? drawn?.member ?? null;
+    const connections = model.connections ?? drawn?.connections ?? null;
+    return (
+      <section
+        {...root}
+        aria-labelledby="welcome-title"
+        className={`flex flex-col gap-6 ${connections?.length ? 'max-w-3xl py-10 sm:py-16' : 'max-w-xl py-16 sm:py-24'}`}
+      >
+        <GitHubReturnNotice github={props.query.github} />
+        {member === null || connections === null ? (
+          <WelcomeSkeleton />
+        ) : connections.length === 0 ? (
+          <ConnectGitHub
+            name={member.name}
+            connecting={model.connecting}
+            problem={model.problem}
+            onConnect={() => send({ _tag: 'ConnectChosen' })}
+          />
+        ) : (
+          <NoProjects />
+        )}
+      </section>
+    );
+  },
+);

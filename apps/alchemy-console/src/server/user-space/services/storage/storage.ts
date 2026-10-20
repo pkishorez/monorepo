@@ -8,8 +8,12 @@ import {
 import type { Member } from '../../../../shared/contracts/member/index.ts';
 import {
   credential,
+  gitHubConnection,
+  installState,
   owner,
+  type StoredConnection,
   type StoredCredential,
+  type StoredInstallState,
   userSpaceTable,
 } from './table.ts';
 
@@ -67,6 +71,39 @@ export class Storage extends Context.Service<
       /** Erases it, sealed secret and all; false when there was none. */
       readonly remove: (credentialId: string) => Effect.Effect<boolean>;
     };
+    /** The owner's GitHub connections, oldest first. */
+    readonly connections: {
+      /** Runs `effect` with no other `exclusively` effect in between, so
+       * two writes for one installation never make two connections. */
+      readonly exclusively: <A, E, R>(
+        effect: Effect.Effect<A, E, R>,
+      ) => Effect.Effect<A, E, R>;
+      readonly all: Effect.Effect<ReadonlyArray<StoredConnection>>;
+      /** All of them now, then again after each change. */
+      readonly changes: Stream.Stream<ReadonlyArray<StoredConnection>>;
+      readonly get: (
+        connectionId: string,
+      ) => Effect.Effect<StoredConnection | null>;
+      readonly byInstallation: (
+        installationId: number,
+      ) => Effect.Effect<StoredConnection | null>;
+      /** Keeps `record`, over any connection of the same ID. */
+      readonly put: (
+        record: StoredConnection,
+      ) => Effect.Effect<StoredConnection>;
+      /** False when there was none. */
+      readonly remove: (connectionId: string) => Effect.Effect<boolean>;
+    };
+    /** The one-time states of install URLs not yet come back. */
+    readonly installStates: {
+      readonly issue: (record: StoredInstallState) => Effect.Effect<void>;
+      /** The state, used up: null when it was never issued or was taken already. */
+      readonly take: (
+        state: string,
+      ) => Effect.Effect<StoredInstallState | null>;
+      /** Erases every state issued before `before`. */
+      readonly sweep: (before: number) => Effect.Effect<void>;
+    };
   }
 >()('alchemy-console/UserSpace/Storage') {
   /** The Storage of the Durable Object whose `storage` this is; its table is made on first use. */
@@ -89,22 +126,46 @@ export class Storage extends Context.Service<
         const read = run(owner.get()).pipe(Effect.map(({ value }) => value));
         const get = Effect.map(read, ({ member }) => member);
 
-        const all = Effect.gen(function* () {
-          const found: Array<StoredCredential> = [];
-          let after: Entity<StoredCredential> | undefined;
-          while (true) {
-            const page = yield* run(
-              credential.query(
-                'primary',
-                { pk: {}, '>=': null },
-                { excludeDeleted: true, ...(after ? { after } : {}) },
-              ),
-            );
-            found.push(...page.items.map(({ value }) => value));
-            after = page.items.at(-1);
-            if (!page.hasMore || after === undefined) return found;
-          }
+        /** Every record of one entity, page by page, oldest first. */
+        const everyPage = <T, E>(
+          page: (after: Entity<T> | undefined) => Effect.Effect<
+            {
+              readonly items: ReadonlyArray<Entity<T>>;
+              readonly hasMore: boolean;
+            },
+            E,
+            never
+          >,
+        ) =>
+          Effect.gen(function* () {
+            const found: Array<T> = [];
+            let after: Entity<T> | undefined;
+            while (true) {
+              const next = yield* page(after).pipe(Effect.orDie);
+              found.push(...next.items.map(({ value }) => value));
+              after = next.items.at(-1);
+              if (!next.hasMore || after === undefined) return found;
+            }
+          });
+        const everyFrom = { pk: {}, '>=': null } as const;
+        const paged = <T>(after: Entity<T> | undefined) => ({
+          excludeDeleted: true,
+          ...(after ? { after } : {}),
         });
+
+        const all = everyPage<StoredCredential, never>((after) =>
+          run(credential.query('primary', everyFrom, paged(after))),
+        );
+
+        const connectionLock = yield* Semaphore.make(1);
+        const connections = everyPage<StoredConnection, never>((after) =>
+          run(gitHubConnection.query('primary', everyFrom, paged(after))),
+        );
+        const states = everyPage<StoredInstallState, never>((after) =>
+          run(installState.query('primary', everyFrom, paged(after))),
+        );
+        const dropState = (state: string) =>
+          run(installState.hardDelete({ state }, 'I KNOW WHAT I AM DOING'));
 
         return Storage.of({
           owner: {
@@ -171,6 +232,75 @@ export class Storage extends Context.Service<
                   ),
                 );
                 return true;
+              }),
+          },
+          connections: {
+            exclusively: (effect) =>
+              Semaphore.withPermit(connectionLock, effect),
+            all: connections,
+            changes: Stream.concat(
+              Stream.fromEffect(connections),
+              gitHubConnection.subscribe().pipe(
+                Stream.provideContext(table),
+                Stream.mapEffect(() => connections),
+              ),
+            ),
+            get: (connectionId) =>
+              run(
+                gitHubConnection.get(
+                  { connectionId },
+                  { excludeDeleted: true },
+                ),
+              ).pipe(Effect.map((found) => found?.value ?? null)),
+            byInstallation: (installationId) =>
+              Effect.map(
+                connections,
+                (all) =>
+                  all.find((each) => each.installationId === installationId) ??
+                  null,
+              ),
+            put: (record) =>
+              Effect.gen(function* () {
+                const { connectionId, ...fields } = record;
+                const found = yield* run(
+                  gitHubConnection.get({ connectionId }),
+                );
+                const saved =
+                  found === null
+                    ? yield* run(gitHubConnection.insert(record))
+                    : yield* run(
+                        gitHubConnection.getAndUpdate({ connectionId }, fields),
+                      );
+                return saved.value;
+              }),
+            remove: (connectionId) =>
+              Effect.gen(function* () {
+                const found = yield* run(
+                  gitHubConnection.get({ connectionId }),
+                );
+                if (found === null) return false;
+                yield* run(
+                  gitHubConnection.hardDelete(
+                    { connectionId },
+                    'I KNOW WHAT I AM DOING',
+                  ),
+                );
+                return true;
+              }),
+          },
+          installStates: {
+            issue: (record) => Effect.asVoid(run(installState.insert(record))),
+            take: (state) =>
+              Effect.gen(function* () {
+                const found = yield* run(installState.get({ state }));
+                if (found === null) return null;
+                yield* dropState(state);
+                return found.value;
+              }),
+            sweep: (before) =>
+              Effect.gen(function* () {
+                for (const { state, issuedAt } of yield* states)
+                  if (issuedAt < before) yield* dropState(state);
               }),
           },
         });
