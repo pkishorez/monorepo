@@ -197,15 +197,15 @@ import {
   AiPlaygroundServerRpc,
   makePlaygroundSync,
 } from '@kestack/ai-toolkit/playground';
-import { Rpc } from '@kestack/rpc-toolkit/rpc';
+import { client, connection } from '@kestack/rpc-toolkit/rpc/websocket';
 
 const boot = Effect.gen(function* () {
   const context = yield* Layer.build(
-    Rpc.websocket.client(AiPlaygroundServerRpc, {
+    client(AiPlaygroundServerRpc, {
       url: 'ws://127.0.0.1:3001/rpc',
     }),
   );
-  const connection = Context.get(context, Rpc.websocket.connection);
+  const socket = Context.get(context, connection);
   const api = yield* RpcClient.make(AiPlaygroundServerRpc).pipe(
     Effect.provide(
       Layer.succeed(
@@ -216,7 +216,7 @@ const boot = Effect.gen(function* () {
   );
   const sync = makePlaygroundSync({
     api,
-    keepSubscribed: connection.keepSubscribed,
+    keepSubscribed: socket.keepSubscribed,
     name: 'ai-toolkit-playground',
   });
   return { api, sync };

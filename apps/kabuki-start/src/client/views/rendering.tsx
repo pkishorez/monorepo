@@ -64,12 +64,25 @@ function Fact({
   );
 }
 
+/**
+ * Whether the page is kept. Start keeps a whole page only when every layer
+ * the server draws is static, so the static layer is kept alone at `/`,
+ * and drawn afresh with the page once a dynamic layer is inside it.
+ */
+const keptOf = (mode: Mode, mixed: boolean) =>
+  mode === 'static' && mixed
+    ? 'No: a dynamic layer is inside it, so the page is drawn per visit'
+    : MODES[mode].kept;
+
 /** What a live layer says about itself. */
 function Facts({
   mode,
+  mixed,
   status,
 }: {
   readonly mode: Mode;
+  /** Whether a dynamic layer is drawn inside this one. */
+  readonly mixed: boolean;
   readonly status: Status<{ readonly at: number }>;
 }) {
   if (status._tag !== 'Ready')
@@ -104,7 +117,7 @@ function Facts({
           </span>
         )}
       </Fact>
-      <Fact label="Cached">{MODES[mode].kept}</Fact>
+      <Fact label="Cached">{keptOf(mode, mixed)}</Fact>
     </dl>
   );
 }
@@ -113,6 +126,7 @@ function Facts({
 function Live({
   root,
   mode,
+  mixed = false,
   status,
   remove,
   children,
@@ -120,6 +134,8 @@ function Live({
   /** The View's root, when the layer is the whole View. */
   readonly root?: Root;
   readonly mode: Mode;
+  /** Whether a dynamic layer is drawn inside this one. */
+  readonly mixed?: boolean;
   readonly status: Status<{ readonly at: number }>;
   /** A link that takes this layer away; none for the outermost. */
   readonly remove?: ReactNode;
@@ -139,7 +155,7 @@ function Live({
         </h2>
         {remove}
       </header>
-      <Facts mode={mode} status={status} />
+      <Facts mode={mode} mixed={mixed} status={status} />
       {children}
     </section>
   );
@@ -221,7 +237,11 @@ export const StaticView = View.make(
         One page can mix three Render Modes. Each layer below says who drew it
         and when; add the inner layers, then reload and watch the times.
       </PageIntro>
-      <Live mode="static" status={props.status}>
+      <Live
+        mode="static"
+        mixed={Boolean(children.Dynamic)}
+        status={props.status}
+      >
         {children.Dynamic ? (
           <DynamicView instance={children.Dynamic} />
         ) : (
@@ -241,8 +261,10 @@ export const StaticView = View.make(
           <RotateCwIcon /> Reload the page
         </Button>
         <p className="max-w-[60ch] text-sm text-muted-foreground">
-          Reload and compare the times. Deployed, the static layer is kept, so
-          its time stays; in dev every layer is drawn afresh.
+          Reload and compare the times. Deployed, the page at{' '}
+          <span className="font-mono text-[13px]">/</span> is kept whole, so its
+          time stays; once a dynamic layer is in it, the whole page is drawn
+          afresh, and in dev every page is.
         </p>
       </div>
     </div>

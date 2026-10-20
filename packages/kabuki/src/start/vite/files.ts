@@ -18,7 +18,8 @@ export interface FileOptions {
   readonly app?: string;
   /**
    * Default-exports the Loaders, with what they need on the server:
-   * `Start.server({ loaders, layer, visitor })`, from
+   * `Start.server(loaders)`, or `Start.server({ layer, visitor })
+   * .loaders(loaders)`, from
    * `@kestack/kabuki/start/server`; optional. By default
    * `src/loaders.server`.
    */

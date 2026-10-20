@@ -174,11 +174,12 @@ export function server<A = never, RA = never, V = never, RV = never>(
   layers?: ServerLayers<A, RA, V, RV>,
 ): ServerOf<A, V, RV>;
 export function server(
-  given: object = {},
+  given?: object,
 ): StartServer<AnyLoaders> | ServerOf<unknown, unknown, unknown> {
-  if (arguments.length > 0 && !isLayers(given))
+  // Nothing, or `undefined`, is no Layers: the Loaders come after.
+  if (given !== undefined && !isLayers(given))
     return served(given as AnyLoaders, {});
-  const layers = given as Layers;
+  const layers = (given ?? {}) as Layers;
   return { loaders: (loaders) => served(loaders, layers) };
 }
 

@@ -399,6 +399,16 @@ describe('what an app writes', () => {
     Server.server(loaders);
   });
 
+  it('takes no Layers, or `undefined`, before the Loaders', () => {
+    const Home = Page.define({ path: '/', data: Schema.String });
+    const plain = Router.define(Page.define({ pages: { Home } })).loaders({
+      Home: () => Effect.succeed('hi'),
+    });
+    expect(Server.server().loaders(plain).loaders).toBe(plain);
+    expect(Server.server(undefined).loaders(plain).loaders).toBe(plain);
+    expect(Server.server({}).loaders).toEqual({});
+  });
+
   it('checks each Layer against what it may be made from', () => {
     Server.server({
       layer: Layer.merge(greeting, Layer.succeed(Word, { word: 'Hi' })),
