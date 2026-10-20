@@ -30,8 +30,6 @@ export const PagesData = Schema.Struct({
   /** The visitor's saved Theme, from its cookie; null before they pick one,
    * when the browser draws the system's. */
   theme: Schema.NullOr(Theme),
-  /** Whether the pages show Kabuki's devtools. */
-  dev: Schema.Boolean,
 });
 export type PagesData = typeof PagesData.Type;
 
@@ -49,7 +47,6 @@ export interface PagesEnv {
     | { readonly scopes: Readonly<Record<string, string>> }
     | undefined;
   readonly theme?: Theme | undefined;
-  readonly dev?: boolean | undefined;
   /** This browser's data, read in-process by the Loaders: `BrowserReads`. */
   readonly reads: {
     readonly accounts: (request: Request) => Promise<AccountList>;
@@ -71,7 +68,6 @@ export const pagesData = (env: PagesEnv): PagesData => ({
   origin: env.origin,
   scopes: env.oauth ? { ...env.oauth.scopes } : null,
   theme: env.theme ?? null,
-  dev: env.dev ?? false,
 });
 
 export const Account = Schema.Struct({

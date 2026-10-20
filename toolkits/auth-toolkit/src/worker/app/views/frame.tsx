@@ -3,7 +3,6 @@ import { motion, useReducedMotion } from 'motion/react';
 import type { Brand, PageData } from '../api/index.ts';
 import { cx } from '../ui/index.ts';
 import { AccountMenu } from './account-menu.tsx';
-import { Devtools } from './devtools.tsx';
 import { useRoot } from './root.ts';
 import { ThemeToggle } from './theme.tsx';
 
@@ -62,7 +61,7 @@ export function Frame({
   const active = data?.accounts.list.find(
     (account) => account.id === data.accounts.active,
   );
-  const page = (
+  return (
     <div className="flex min-h-svh flex-col">
       {brand?.accent ? (
         <style>{`:root{--brand-accent:${safeColor(brand.accent)}}`}</style>
@@ -118,5 +117,4 @@ export function Frame({
       </main>
     </div>
   );
-  return chrome?.dev ? <Devtools>{page}</Devtools> : page;
 }
