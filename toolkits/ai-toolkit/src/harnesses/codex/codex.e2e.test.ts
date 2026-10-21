@@ -1,13 +1,23 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { Duration, Effect, Fiber, Stream, type Schema } from 'effect';
+import { dirname, join } from 'node:path';
+import { deflateSync } from 'node:zlib';
+import { Duration, Effect, Fiber, Layer, Stream, type Schema } from 'effect';
 import { afterAll, describe, expect, it } from 'vitest';
 import {
   HarnessBinaries,
   Titler,
   type HarnessSession,
+  type BackgroundJob,
   type RawOut,
+  type TurnInput,
 } from '../../harness/index.js';
 import type { Part, Projected } from '../../projection/index.js';
 import type { Raw } from '../../raw/index.js';
@@ -79,8 +89,13 @@ const chunksOf = (outs: ReadonlyArray<RawOut>) => {
   return chunks;
 };
 
-const collect = (session: HarnessSession, text: string, name: string) =>
-  session.turn({ text, images: [] }).pipe(
+const collect = (
+  session: HarnessSession,
+  text: string,
+  name: string,
+  more: Omit<TurnInput, 'text'> = { images: [] },
+) =>
+  session.turn({ text, ...more }).pipe(
     Stream.runCollect,
     Effect.map((outs) => [...outs]),
     Effect.tap((outs) =>
@@ -422,6 +437,453 @@ describe.runIf(process.env.AI_TOOLKIT_E2E === '1')(
         expect(ended[0]?.error).toMatch(
           /^The 'gpt-6\.1-sol' model is not supported/,
         );
+      },
+      TIMEOUT,
+    );
+  },
+);
+
+/** A 32×32 PNG in one solid colour, base64. */
+const solidPng = (rgb: readonly [number, number, number]): string => {
+  const size = 32;
+  const crcTable = Array.from({ length: 256 }, (_, n) => {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    return c >>> 0;
+  });
+  const crc = (bytes: Buffer) => {
+    let c = 0xffffffff;
+    for (const byte of bytes) c = crcTable[(c ^ byte) & 0xff]! ^ (c >>> 8);
+    return (c ^ 0xffffffff) >>> 0;
+  };
+  const chunk = (type: string, data: Buffer) => {
+    const body = Buffer.concat([Buffer.from(type), data]);
+    const length = Buffer.alloc(4);
+    length.writeUInt32BE(data.length);
+    const sum = Buffer.alloc(4);
+    sum.writeUInt32BE(crc(body));
+    return Buffer.concat([length, body, sum]);
+  };
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(size, 0);
+  header.writeUInt32BE(size, 4);
+  header.set([8, 2, 0, 0, 0], 8);
+  const row = Buffer.from([
+    0,
+    ...Array.from({ length: size }, () => rgb).flat(),
+  ]);
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunk('IHDR', header),
+    chunk(
+      'IDAT',
+      deflateSync(Buffer.concat(Array.from({ length: size }, () => row))),
+    ),
+    chunk('IEND', Buffer.alloc(0)),
+  ]).toString('base64');
+};
+
+/** The platform binary the bundled npm launcher would run. */
+const nativeCodex = (() => {
+  const triple =
+    process.platform === 'darwin'
+      ? `${process.arch === 'arm64' ? 'aarch64' : 'x86_64'}-apple-darwin`
+      : `${process.arch === 'arm64' ? 'aarch64' : 'x86_64'}-unknown-linux-musl`;
+  const launcher = createRequire(import.meta.url).resolve(
+    '@openai/codex/bin/codex.js',
+  );
+  const platformPackage = createRequire(launcher).resolve(
+    `@openai/codex-${process.platform}-${process.arch}/package.json`,
+  );
+  return join(dirname(platformPackage), 'vendor', triple, 'bin', 'codex');
+})();
+
+const binaries = (path: string | undefined) =>
+  Layer.succeed(HarnessBinaries, {
+    path: (harness) => Effect.succeed(harness === 'codex' ? path : undefined),
+  });
+
+/** Waits for the first Background Jobs snapshot that passes. */
+const jobsUntil = (
+  session: HarnessSession,
+  done: (jobs: ReadonlyArray<BackgroundJob>) => boolean,
+) =>
+  session.backgroundJobs.pipe(
+    Stream.filter(done),
+    Stream.runHead,
+    Effect.timeout(Duration.seconds(45)),
+  );
+
+const SKILL = 'e2e-codeword';
+const SKILL_WORD = 'PELICAN-7731';
+
+describe.runIf(process.env.AI_TOOLKIT_E2E === '1')(
+  'codex harness features (live)',
+  () => {
+    it(
+      'sees an image sent with a turn',
+      async () => {
+        await run(
+          Effect.gen(function* () {
+            const session = yield* open();
+            const outs = yield* collect(
+              session,
+              'What is the single colour that fills the attached image? Reply with one lowercase word, no tools.',
+              'image',
+              {
+                images: [
+                  {
+                    name: 'red.png',
+                    mime: 'image/png',
+                    data: solidPng([220, 20, 20]),
+                  },
+                ],
+              },
+            );
+            expect(assistantText(projectAll(outs)).toLowerCase()).toContain(
+              'red',
+            );
+          }),
+        );
+      },
+      TIMEOUT,
+    );
+
+    it(
+      "lists a folder's skills and runs one named as /name",
+      async () => {
+        const folder = mkdtempSync(join(tmpdir(), 'ai-toolkit-codex-skill-'));
+        mkdirSync(join(folder, '.agents', 'skills', SKILL), {
+          recursive: true,
+        });
+        writeFileSync(
+          join(folder, '.agents', 'skills', SKILL, 'SKILL.md'),
+          [
+            '---',
+            `name: ${SKILL}`,
+            'description: Answers with the e2e codeword.',
+            '---',
+            '',
+            `When this skill is used, reply with exactly ${SKILL_WORD} and nothing else. Use no tools.`,
+            '',
+          ].join('\n'),
+        );
+        try {
+          const skills = await run(codex.skills(folder));
+          expect(skills).toContainEqual({
+            name: SKILL,
+            description: 'Answers with the e2e codeword.',
+          });
+          const outs = await run(
+            Effect.gen(function* () {
+              const session = yield* codex.open({
+                cwd: folder,
+                model: MODEL,
+                settings: SETTINGS,
+              });
+              return yield* collect(session, `/${SKILL}`, 'skill');
+            }),
+          );
+          const messages = projectAll(outs);
+          expect(assistantText(messages)).toContain(SKILL_WORD);
+          // The skill item hands Codex the skill: it never reads SKILL.md itself.
+          expect(ofType(messages, 'toolCall')).toEqual([]);
+        } finally {
+          rmSync(folder, { recursive: true, force: true });
+        }
+      },
+      TIMEOUT,
+    );
+
+    it(
+      'forks at a finished turn: the fork remembers before it, not after',
+      async () => {
+        await run(
+          Effect.gen(function* () {
+            const session = yield* open();
+            yield* collect(
+              session,
+              'Remember the codeword ALPHA-ONE. Reply with one word: noted. No tools.',
+              'fork-1',
+            );
+            const first = yield* session.lastTurnNativeId;
+            expect(first).toBeTypeOf('string');
+            yield* collect(
+              session,
+              'Also remember the codeword BRAVO-TWO. Reply with one word: noted. No tools.',
+              'fork-2',
+            );
+            const second = yield* session.lastTurnNativeId;
+            expect(second).not.toBe(first);
+
+            const nativeId = (yield* session.nativeId)!;
+            const forked = yield* codex.fork({ cwd, nativeId, at: first! });
+            expect(forked.nativeId).not.toBe(nativeId);
+            const fork = yield* open(forked.nativeId);
+            const answer = assistantText(
+              projectAll(
+                yield* collect(
+                  fork,
+                  'Which codewords have I asked you to remember? Reply with them comma separated, nothing else. No tools.',
+                  'fork-3',
+                ),
+              ),
+            );
+            expect(answer).toContain('ALPHA-ONE');
+            expect(answer).not.toContain('BRAVO-TWO');
+
+            // Omitted `at` forks at the tip.
+            const tip = yield* codex.fork({ cwd, nativeId });
+            const tipAnswer = assistantText(
+              projectAll(
+                yield* collect(
+                  yield* open(tip.nativeId),
+                  'Which codewords have I asked you to remember? Reply with them comma separated, nothing else. No tools.',
+                  'fork-4',
+                ),
+              ),
+            );
+            expect(tipAnswer).toContain('BRAVO-TWO');
+          }),
+        );
+      },
+      TIMEOUT,
+    );
+
+    it(
+      'asks a session in text and in a schema, leaving it untouched',
+      async () => {
+        await run(
+          Effect.gen(function* () {
+            const session = yield* open();
+            yield* collect(
+              session,
+              'Remember the codeword CHARLIE-3. Reply with one word: noted. No tools.',
+              'ask-1',
+            );
+            const nativeId = (yield* session.nativeId)!;
+            const text = yield* codex.ask({
+              cwd,
+              nativeId,
+              model: MODEL,
+              question:
+                'What codeword did I tell you? Reply with just the codeword.',
+            });
+            expect(text._tag).toBe('Text');
+            expect(text._tag === 'Text' && text.text).toContain('CHARLIE-3');
+
+            const data = yield* codex.ask({
+              cwd,
+              nativeId,
+              model: MODEL,
+              question: 'What codeword did I tell you?',
+              schema: {
+                type: 'object',
+                properties: { codeword: { type: 'string' } },
+                required: ['codeword'],
+                additionalProperties: false,
+              },
+            });
+            expect(data).toEqual({
+              _tag: 'Data',
+              data: { codeword: 'CHARLIE-3' },
+            });
+
+            // The session's thread still has its one turn, on disk and live.
+            const reader = yield* start(cwd);
+            const turns = yield* reader.request('thread/turns/list', {
+              threadId: nativeId,
+              limit: 20,
+            });
+            expect(turns.data).toHaveLength(1);
+            const after = assistantText(
+              projectAll(
+                yield* collect(
+                  session,
+                  'How many messages have I sent you before this one? Reply with just the number. No tools.',
+                  'ask-2',
+                ),
+              ),
+            );
+            expect(after).toContain('1');
+          }),
+        );
+      },
+      TIMEOUT,
+    );
+
+    it(
+      'lists a background terminal, and stopping it removes it',
+      async () => {
+        await run(
+          Effect.gen(function* () {
+            const session = yield* open();
+            const appeared = yield* jobsUntil(session, (jobs) =>
+              jobs.some((job) => job.kind === 'shell'),
+            ).pipe(Effect.forkChild);
+            yield* collect(
+              session,
+              // A command still running when exec_command yields stays a
+              // background terminal; `&` would detach it from Codex instead.
+              'Call your exec_command tool once with cmd `sleep 45` (no `&`, no nohup) and yield_time_ms 1000, so the tool returns while the process keeps running in its session. Do not poll it, wait for it, write to it, or kill it. Then reply with one word: started.',
+              'background',
+            );
+            const jobs = yield* Fiber.join(appeared);
+            const shell =
+              jobs._tag === 'Some'
+                ? jobs.value.find((job) => job.kind === 'shell')
+                : undefined;
+            expect(shell?.title).toContain('sleep 45');
+            expect(shell?.startedAt).toBeTypeOf('number');
+            yield* session.stopBackgroundJob(shell!.id);
+            const gone = yield* jobsUntil(
+              session,
+              (now) => !now.some((job) => job.id === shell!.id),
+            );
+            expect(gone._tag).toBe('Some');
+          }),
+        );
+      },
+      TIMEOUT,
+    );
+
+    it(
+      'changes model and settings for a turn and the ones after it',
+      async () => {
+        await run(
+          Effect.gen(function* () {
+            const server = yield* start(cwd);
+            const settings: Array<{
+              model: string;
+              sandboxPolicy: { type: string };
+            }> = [];
+            server.listen({
+              notification: (notification) => {
+                if (notification.method === 'thread/settings/updated')
+                  settings.push(
+                    (
+                      notification.params as {
+                        threadSettings: (typeof settings)[number];
+                      }
+                    ).threadSettings,
+                  );
+              },
+              exit: () => {},
+            });
+            const session = yield* openSession(server, {
+              cwd,
+              model: MODEL,
+              sandbox: 'danger-full-access',
+              effort: 'low',
+            });
+            yield* collect(
+              session,
+              'Reply with one word: one. No tools.',
+              'model-1',
+            );
+            const outs = yield* collect(
+              session,
+              'Reply with one word: two. No tools.',
+              'model-2',
+              {
+                images: [],
+                model: 'gpt-5.6-terra',
+                settings: { reasoningEffort: 'low', sandbox: 'read-only' },
+              },
+            );
+            expect(ofType(projectAll(outs), 'turnEnded')).toEqual([
+              { type: 'turnEnded', status: 'done' },
+            ]);
+            expect(settings.at(-1)?.model).toBe('gpt-5.6-terra');
+            expect(settings.at(-1)?.sandboxPolicy.type).toBe('readOnly');
+          }),
+        );
+      },
+      TIMEOUT,
+    );
+
+    it(
+      'reports MCP server status and context usage',
+      async () => {
+        await run(
+          Effect.gen(function* () {
+            const session = yield* open();
+            yield* collect(
+              session,
+              'Reply with one word: hi. No tools.',
+              'usage',
+            );
+            const servers = yield* session.mcpStatus;
+            for (const server of servers) {
+              expect(server.name).toBeTypeOf('string');
+              expect([
+                'connected',
+                'failed',
+                'needs-auth',
+                'pending',
+                'disabled',
+              ]).toContain(server.status);
+            }
+            const usage = yield* session.contextUsage;
+            expect(usage.usedTokens).toBeGreaterThan(0);
+            expect(usage.maxTokens).toBeGreaterThan(usage.usedTokens!);
+            expect(usage.rateLimits.length).toBeGreaterThan(0);
+            for (const limit of usage.rateLimits) {
+              expect(limit.label).toBeTypeOf('string');
+              expect(limit.usedPercent).toBeGreaterThanOrEqual(0);
+            }
+            process.stderr.write(
+              `USAGE ${JSON.stringify({ servers, usage })}\n`,
+            );
+          }),
+        );
+      },
+      TIMEOUT,
+    );
+
+    it.runIf(existsSync(nativeCodex))(
+      'runs a configured Harness Binary, and says when one cannot run',
+      async () => {
+        const configured = await Effect.runPromise(
+          codex.binary.pipe(Effect.provide(binaries(nativeCodex))),
+        );
+        expect(configured).toEqual({
+          path: nativeCodex,
+          version: 'codex-cli 0.154.0',
+          error: null,
+          isDefault: false,
+        });
+        const bundled = await Effect.runPromise(
+          codex.binary.pipe(Effect.provide(binaries(undefined))),
+        );
+        expect(bundled).toMatchObject({
+          version: 'codex-cli 0.154.0',
+          error: null,
+          isDefault: true,
+        });
+        const missing = await Effect.runPromise(
+          codex.binary.pipe(Effect.provide(binaries('/nowhere/codex'))),
+        );
+        expect(missing).toEqual({
+          path: '/nowhere/codex',
+          version: null,
+          error: 'No file at /nowhere/codex',
+          isDefault: false,
+        });
+
+        const outs = await Effect.runPromise(
+          Effect.scoped(
+            Effect.gen(function* () {
+              const session = yield* open();
+              return yield* collect(
+                session,
+                'Reply with exactly: native-ok',
+                'native',
+              );
+            }),
+          ).pipe(Effect.provide(binaries(nativeCodex))),
+        );
+        expect(assistantText(projectAll(outs))).toContain('native-ok');
       },
       TIMEOUT,
     );

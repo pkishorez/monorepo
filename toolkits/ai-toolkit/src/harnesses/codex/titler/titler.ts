@@ -2,7 +2,11 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Duration, Effect, Layer, Stream } from 'effect';
-import { HarnessError, Titler } from '../../../harness/index.js';
+import {
+  HarnessBinaries,
+  HarnessError,
+  Titler,
+} from '../../../harness/index.js';
 import { start, type AppServer, type ThreadItem } from '../app-server/index.js';
 import { listModels } from '../catalog/index.js';
 import {
@@ -17,15 +21,38 @@ const TITLE_MODEL = 'gpt-6-luna';
 const TITLE_TIMEOUT = Duration.seconds(30);
 const MAX_WORDS = 6;
 
-const prompt = (text: string) =>
-  [
-    `Write a title of at most ${MAX_WORDS} words for a coding session that starts with the message below.`,
+/** Each message's share of the prompt, so a long paste cannot crowd the rest out. */
+const MESSAGE_CHARS = 2_000;
+
+/** Asks for a title that names what the session is about now: the latest message leads. */
+const prompt = (userMessages: ReadonlyArray<string>) => {
+  const messages = userMessages.map((message) =>
+    message.length > MESSAGE_CHARS
+      ? `${message.slice(0, MESSAGE_CHARS)}…`
+      : message,
+  );
+  const latest = messages.at(-1) ?? '';
+  const earlier = messages.slice(0, -1);
+  return [
+    `Write a title of at most ${MAX_WORDS} words for a coding session, from what its user asked.`,
+    earlier.length === 0
+      ? 'Name the task the message asks for.'
+      : 'Name what the session is about now: the latest message counts most; the earlier ones are context, and a topic they share with it counts too.',
     'Reply with the title only: no quotes, no punctuation at the end, no tools.',
+    ...(earlier.length === 0
+      ? []
+      : [
+          '',
+          '<earlier-messages>',
+          ...earlier.map((message) => `<message>\n${message}\n</message>`),
+          '</earlier-messages>',
+        ]),
     '',
-    '<message>',
-    text,
-    '</message>',
+    '<latest-message>',
+    latest,
+    '</latest-message>',
   ].join('\n');
+};
 
 /**
  * gpt-6-luna when the account lists it; otherwise the account's own luna
@@ -66,8 +93,18 @@ const tempFolder = Effect.acquireRelease(
 
 const title = (userMessages: ReadonlyArray<string>) =>
   Effect.gen(function* () {
+    // The configured Harness Binary when the caller provides one, else the default.
+    const binaries = yield* Effect.serviceOption(HarnessBinaries).pipe(
+      Effect.map((found) =>
+        found._tag === 'Some'
+          ? found.value
+          : { path: () => Effect.succeed(undefined) },
+      ),
+    );
     const cwd = yield* tempFolder;
-    const server = yield* start(cwd);
+    const server = yield* start(cwd).pipe(
+      Effect.provideService(HarnessBinaries, binaries),
+    );
     const session = yield* openSession(server, {
       cwd,
       model: yield* titleModel(server),
@@ -77,7 +114,7 @@ const title = (userMessages: ReadonlyArray<string>) =>
     });
     const chunks: Record<string, Array<string>> = {};
     const reply = yield* session
-      .turn({ text: prompt(userMessages.join('\n\n')), images: [] })
+      .turn({ text: prompt(userMessages), images: [] })
       .pipe(
         Stream.runFold(
           () => '',

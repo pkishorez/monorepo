@@ -1,9 +1,9 @@
 import { spawn } from 'node:child_process';
-import { createRequire } from 'node:module';
 import { createInterface } from 'node:readline';
 import { Effect, type Scope } from 'effect';
-import { HarnessError } from '../../../harness/index.js';
+import { HarnessError, type HarnessBinaries } from '../../../harness/index.js';
 import { answer } from './answers.js';
+import { launcher } from './launcher.js';
 import {
   DELTA_METHODS,
   type Notification,
@@ -41,21 +41,19 @@ interface Pending {
 
 const STDERR_TAIL_CHARS = 2_000;
 
-const codexEntry = (): string =>
-  createRequire(import.meta.url).resolve('@openai/codex/bin/codex.js');
-
 /**
- * Spawns `codex app-server` in `cwd` and initializes it. Closing the Scope
- * kills the process.
+ * Spawns `codex app-server` in `cwd`, from the configured Harness Binary,
+ * and initializes it. Closing the Scope kills the process.
  */
 export const start = (
   cwd: string,
-): Effect.Effect<AppServer, HarnessError, Scope.Scope> =>
+): Effect.Effect<AppServer, HarnessError, Scope.Scope | HarnessBinaries> =>
   Effect.gen(function* () {
+    const codex = yield* launcher;
     const child = yield* Effect.acquireRelease(
       Effect.try({
         try: () =>
-          spawn(process.execPath, [codexEntry(), 'app-server'], {
+          spawn(codex.command, [...codex.args, 'app-server'], {
             cwd,
             stdio: ['pipe', 'pipe', 'pipe'],
           }),
@@ -179,16 +177,26 @@ export const start = (
     return server;
   });
 
+export { launcher, type Launcher } from './launcher.js';
 export {
   isNotification,
+  type BackgroundTerminal,
+  type CollabAgentStatus,
   type CollabAgentTool,
+  type McpServerConnectionStatus,
+  type McpServerStatus,
   type Model,
   type Notification,
   type Notifications,
+  type RateLimitSnapshot,
   type ReasoningEffort,
   type SandboxMode,
+  type SandboxPolicy,
+  type SkillMetadata,
   type ThreadItem,
+  type ThreadTokenUsage,
   type TokenUsageBreakdown,
   type Turn,
   type TurnStatus,
+  type UserInput,
 } from './protocol.js';

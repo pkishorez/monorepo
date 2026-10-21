@@ -1,6 +1,10 @@
 import { tmpdir } from 'node:os';
 import { Duration, Effect } from 'effect';
-import { HarnessError, type AvailableModel } from '../../../harness/index.js';
+import {
+  HarnessError,
+  type AvailableModel,
+  type HarnessBinaries,
+} from '../../../harness/index.js';
 import { start, type AppServer, type Model } from '../app-server/index.js';
 
 /**
@@ -56,7 +60,8 @@ const ASK_TIMEOUT = Duration.seconds(15);
 /** Asks a short-lived `codex app-server` which models this login can run. */
 export const availableModels: Effect.Effect<
   ReadonlyArray<AvailableModel>,
-  HarnessError
+  HarnessError,
+  HarnessBinaries
 > = Effect.gen(function* () {
   const server = yield* start(tmpdir());
   return yield* listModels(server);

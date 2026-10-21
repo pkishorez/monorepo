@@ -15,6 +15,23 @@ export interface UserInputText {
   readonly text_elements: ReadonlyArray<never>;
 }
 
+/** What one user message sends: text, images, and the Skills it names. */
+export type UserInput =
+  | UserInputText
+  | { readonly type: 'image'; readonly url: string }
+  | { readonly type: 'skill'; readonly name: string; readonly path: string };
+
+export type SandboxPolicy =
+  | { readonly type: 'dangerFullAccess' }
+  | { readonly type: 'readOnly'; readonly networkAccess: boolean }
+  | {
+      readonly type: 'workspaceWrite';
+      readonly writableRoots: ReadonlyArray<string>;
+      readonly networkAccess: boolean;
+      readonly excludeTmpdirEnvVar: boolean;
+      readonly excludeSlashTmp: boolean;
+    };
+
 export interface TurnError {
   readonly message: string;
   readonly additionalDetails: string | null;
@@ -82,6 +99,8 @@ export type ThreadItem =
       readonly id: string;
       readonly command: string;
       readonly cwd: string;
+      /** The PTY process, when the command runs in one. */
+      readonly processId?: string | null;
       readonly status: 'inProgress' | 'completed' | 'failed' | 'declined';
       readonly aggregatedOutput: string | null;
       readonly exitCode: number | null;
@@ -123,7 +142,10 @@ export type ThreadItem =
       readonly agentsStates: Readonly<
         Record<
           string,
-          | { readonly status: string; readonly message: string | null }
+          | {
+              readonly status: CollabAgentStatus;
+              readonly message: string | null;
+            }
           | undefined
         >
       >;
@@ -157,6 +179,74 @@ export interface TokenUsageBreakdown {
   readonly cacheWriteInputTokens: number;
   readonly outputTokens: number;
   readonly reasoningOutputTokens: number;
+}
+
+export type CollabAgentStatus =
+  | 'pendingInit'
+  | 'running'
+  | 'interrupted'
+  | 'completed'
+  | 'errored'
+  | 'shutdown'
+  | 'notFound';
+
+export interface SkillMetadata {
+  readonly name: string;
+  readonly description: string;
+  readonly shortDescription?: string;
+  readonly interface?: { readonly shortDescription?: string };
+  readonly path: string;
+  readonly enabled: boolean;
+}
+
+/** A command still running in the background of a thread. */
+export interface BackgroundTerminal {
+  readonly itemId: string;
+  readonly processId: string;
+  readonly command: string;
+}
+
+export type McpServerConnectionStatus =
+  | 'notStarted'
+  | 'starting'
+  | 'connected'
+  | 'authenticationRequired'
+  | 'failed'
+  | 'cancelled'
+  | 'disabled';
+
+export interface McpServerStatus {
+  readonly name: string;
+  /** Null when no thread runtime is loaded for it. */
+  readonly runtimeStatus: McpServerConnectionStatus | null;
+  readonly tools: Readonly<Record<string, unknown>>;
+  readonly toolsError: string | null;
+  readonly authStatus:
+    | 'unknown'
+    | 'unsupported'
+    | 'notLoggedIn'
+    | 'bearerToken'
+    | 'oAuth';
+}
+
+export interface RateLimitWindow {
+  readonly usedPercent: number;
+  readonly windowDurationMins: number | null;
+  /** Unix seconds. */
+  readonly resetsAt: number | null;
+}
+
+export interface RateLimitSnapshot {
+  readonly limitId: string | null;
+  readonly limitName: string | null;
+  readonly primary: RateLimitWindow | null;
+  readonly secondary: RateLimitWindow | null;
+}
+
+export interface ThreadTokenUsage {
+  readonly total: TokenUsageBreakdown;
+  readonly last: TokenUsageBreakdown;
+  readonly modelContextWindow: number | null;
 }
 
 export interface Model {
@@ -194,6 +284,80 @@ export interface Requests {
     };
     readonly result: { readonly thread: { readonly id: string } };
   };
+  readonly 'thread/fork': {
+    readonly params: {
+      readonly threadId: string;
+      /** The last turn to keep, inclusive; omitted keeps every turn. */
+      readonly lastTurnId?: string;
+      readonly model?: string;
+      readonly cwd: string;
+      readonly sandbox?: SandboxMode;
+      readonly approvalPolicy?: 'never';
+      readonly developerInstructions?: string;
+      readonly ephemeral: boolean;
+      readonly excludeTurns: boolean;
+    };
+    readonly result: { readonly thread: { readonly id: string } };
+  };
+  readonly 'thread/unsubscribe': {
+    readonly params: { readonly threadId: string };
+    readonly result: unknown;
+  };
+  readonly 'thread/turns/list': {
+    readonly params: {
+      readonly threadId: string;
+      readonly limit?: number;
+      readonly sortDirection?: 'asc' | 'desc';
+      readonly itemsView?: 'notLoaded' | 'summary' | 'full';
+    };
+    readonly result: {
+      readonly data: ReadonlyArray<Turn>;
+      readonly nextCursor: string | null;
+    };
+  };
+  readonly 'thread/backgroundTerminals/list': {
+    readonly params: { readonly threadId: string; readonly cursor?: string };
+    readonly result: {
+      readonly data: ReadonlyArray<BackgroundTerminal>;
+      readonly nextCursor: string | null;
+    };
+  };
+  readonly 'thread/backgroundTerminals/terminate': {
+    readonly params: { readonly threadId: string; readonly processId: string };
+    readonly result: { readonly terminated: boolean };
+  };
+  readonly 'skills/list': {
+    readonly params: {
+      readonly cwds: ReadonlyArray<string>;
+      readonly forceReload?: boolean;
+    };
+    readonly result: {
+      readonly data: ReadonlyArray<{
+        readonly cwd: string;
+        readonly skills: ReadonlyArray<SkillMetadata>;
+      }>;
+    };
+  };
+  readonly 'mcpServerStatus/list': {
+    readonly params: {
+      readonly threadId?: string;
+      readonly detail: 'full' | 'toolsAndAuthOnly';
+      readonly cursor?: string;
+    };
+    readonly result: {
+      readonly data: ReadonlyArray<McpServerStatus>;
+      readonly nextCursor: string | null;
+    };
+  };
+  readonly 'account/rateLimits/read': {
+    readonly params: { readonly excludeResetCreditDetails: boolean };
+    readonly result: {
+      readonly rateLimits: RateLimitSnapshot;
+      readonly rateLimitsByLimitId: Readonly<
+        Record<string, RateLimitSnapshot | undefined>
+      > | null;
+    };
+  };
   readonly 'thread/resume': {
     readonly params: {
       readonly threadId: string;
@@ -208,8 +372,13 @@ export interface Requests {
   readonly 'turn/start': {
     readonly params: {
       readonly threadId: string;
-      readonly input: ReadonlyArray<UserInputText>;
-      readonly effort: ReasoningEffort;
+      readonly input: ReadonlyArray<UserInput>;
+      /** These three hold for this turn and the ones after it. */
+      readonly model?: string;
+      readonly effort?: ReasoningEffort;
+      readonly sandboxPolicy?: SandboxPolicy;
+      /** A JSON Schema the turn's final message must match. */
+      readonly outputSchema?: unknown;
     };
     readonly result: { readonly turn: Turn };
   };
@@ -217,7 +386,7 @@ export interface Requests {
     readonly params: {
       readonly threadId: string;
       readonly expectedTurnId: string;
-      readonly input: ReadonlyArray<UserInputText>;
+      readonly input: ReadonlyArray<UserInput>;
     };
     readonly result: { readonly turnId: string };
   };
@@ -264,11 +433,10 @@ export interface Notifications {
   readonly 'thread/tokenUsage/updated': {
     readonly threadId: string;
     readonly turnId: string;
-    readonly tokenUsage: {
-      readonly total: TokenUsageBreakdown;
-      readonly last: TokenUsageBreakdown;
-    };
+    readonly tokenUsage: ThreadTokenUsage;
   };
+  /** Skill files changed on disk: lists read before are stale. */
+  readonly 'skills/changed': Readonly<Record<string, never>>;
   readonly error: {
     readonly threadId: string;
     readonly turnId: string;

@@ -1,18 +1,39 @@
-import { Cause, Deferred, Duration, Effect, Queue, Stream } from 'effect';
+import {
+  Cause,
+  Deferred,
+  Duration,
+  Effect,
+  Queue,
+  Stream,
+  SubscriptionRef,
+  type Scope,
+} from 'effect';
 import {
   HarnessError,
+  type BackgroundJob,
   type HarnessSession,
+  type McpServerStatus,
   type RawOut,
+  type TurnInput,
 } from '../../../harness/index.js';
 import {
   isNotification,
   type AppServer,
+  type BackgroundTerminal,
   type Notification,
   type ReasoningEffort,
   type SandboxMode,
+  type SkillMetadata,
+  type ThreadTokenUsage,
 } from '../app-server/index.js';
+import { listSkills } from '../catalog/index.js';
+import { finishedTurnId } from './fork-point.js';
+import { mayNameSkill, toUserInput } from './input.js';
+import { makeSubAgents, terminalJobs, touchesTerminals } from './jobs.js';
 import { makeLineage, type Lineage } from './lineage.js';
 import { toRawOut } from './records.js';
+import { sandboxPolicy, threadOptions } from './settings.js';
+import { toContextUsage, toMcpStatus } from './status.js';
 import { makeStreams, type Streams } from './streams.js';
 
 export interface SessionConfig {
@@ -32,14 +53,16 @@ const CANCEL_GRACE = Duration.seconds(5);
 const INTERRUPT_WAIT = Duration.seconds(2);
 
 /**
+ * How often background terminals are listed while any runs or a turn does:
+ * Codex says nothing when one exits on its own.
+ */
+const TERMINALS_POLL = Duration.seconds(3);
+
+/**
  * Thread statuses that mean a sub-agent will not finish its turn. `idle` is
  * not one: Codex reports it just before the turn/completed still to come.
  */
 const GONE = new Set(['notLoaded', 'systemError']);
-
-const text = (value: string) => [
-  { type: 'text' as const, text: value, text_elements: [] },
-];
 
 /**
  * One running turn. It ends once the main thread's turn completes and no
@@ -183,20 +206,141 @@ const startThread = (server: AppServer, config: SessionConfig) =>
         excludeTurns: true,
       });
 
-/** Opens a Codex thread (new, or resumed by nativeId) on a running server. */
+/** Lists every page of a paged Codex request. */
+const allPages = <A>(
+  page: (
+    cursor: string | undefined,
+  ) => Effect.Effect<
+    { readonly data: ReadonlyArray<A>; readonly nextCursor: string | null },
+    HarnessError
+  >,
+): Effect.Effect<ReadonlyArray<A>, HarnessError> =>
+  Effect.gen(function* () {
+    const all: Array<A> = [];
+    let cursor: string | undefined;
+    do {
+      const next = yield* page(cursor);
+      all.push(...next.data);
+      cursor = next.nextCursor ?? undefined;
+    } while (cursor !== undefined);
+    return all;
+  });
+
+/**
+ * Opens a Codex thread (new, or resumed by nativeId) on a running server.
+ * Closing the Scope stops watching its Background Jobs.
+ */
 export const openSession = (
   server: AppServer,
   config: SessionConfig,
-): Effect.Effect<HarnessSession, HarnessError> =>
+): Effect.Effect<HarnessSession, HarnessError, Scope.Scope> =>
   Effect.gen(function* () {
     const { thread } = yield* startThread(server, config);
     const threadId = thread.id;
     const lineage: Lineage = makeLineage(threadId);
+    const subAgents = makeSubAgents(threadId);
     let running: Running | undefined;
+    let model = config.model;
+    let effort = config.effort;
+    let sandbox = config.sandbox;
+    let lastTurnId: string | undefined;
+    let tokenUsage: ThreadTokenUsage | undefined;
+    let skills: ReadonlyArray<SkillMetadata> | undefined;
+    let terminals: ReadonlyArray<BackgroundTerminal> = [];
+    const terminalsSeen = new Map<string, number>();
+    const jobs = yield* SubscriptionRef.make<ReadonlyArray<BackgroundJob>>([]);
+    const jobChanges = yield* Queue.sliding<'terminals' | 'agents'>(1);
 
-    // Lineage listens for the whole session, ahead of any turn's listener,
-    // so a child thread is known before its first record is routed.
-    server.listen({ notification: lineage.observe, exit: () => {} });
+    // This listener hears the whole session, ahead of any turn's listener:
+    // a child thread is known before its first record is routed, and a
+    // finished turn is a Fork Point before its stream ends.
+    server.listen({
+      notification: (notification) => {
+        lineage.observe(notification);
+        if (subAgents.observe(notification, Date.now()))
+          Queue.offerUnsafe(jobChanges, 'agents');
+        if (notification.method === 'skills/changed') skills = undefined;
+        const params = (notification.params ?? {}) as { threadId?: string };
+        if (params.threadId !== threadId) return;
+        if (touchesTerminals(notification))
+          Queue.offerUnsafe(jobChanges, 'terminals');
+        if (isNotification(notification, 'thread/tokenUsage/updated'))
+          tokenUsage = notification.params.tokenUsage;
+        lastTurnId = finishedTurnId(notification, threadId) ?? lastTurnId;
+      },
+      exit: () => {},
+    });
+
+    const listTerminals = allPages((cursor) =>
+      server.request('thread/backgroundTerminals/list', {
+        threadId,
+        ...(cursor === undefined ? {} : { cursor }),
+      }),
+    ).pipe(Effect.orElseSucceed(() => []));
+
+    // Keeps `jobs` current: on each change, and on a slow poll while a
+    // terminal or a turn runs.
+    yield* Effect.gen(function* () {
+      const change =
+        terminals.length > 0 || running !== undefined
+          ? yield* Queue.take(jobChanges).pipe(
+              Effect.timeoutOption(TERMINALS_POLL),
+              Effect.map((taken) =>
+                taken._tag === 'Some' ? taken.value : 'terminals',
+              ),
+            )
+          : yield* Queue.take(jobChanges);
+      if (change === 'terminals') terminals = yield* listTerminals;
+      const next = [
+        ...terminalJobs(terminals, terminalsSeen, Date.now()),
+        ...subAgents.jobs(),
+      ];
+      const current = yield* SubscriptionRef.get(jobs);
+      if (JSON.stringify(next) !== JSON.stringify(current))
+        yield* SubscriptionRef.set(jobs, next);
+    }).pipe(Effect.forever, Effect.forkScoped);
+
+    /** The Skills a message may name, read once and again when they change. */
+    const skillsFor = (text: string) =>
+      !mayNameSkill(text)
+        ? Effect.succeed([])
+        : skills !== undefined
+          ? Effect.succeed(skills)
+          : listSkills(server, config.cwd).pipe(
+              Effect.tap((listed) =>
+                Effect.sync(() => {
+                  skills = listed;
+                }),
+              ),
+              // A Skill that cannot be looked up is sent as the text typed.
+              Effect.orElseSucceed(() => []),
+            );
+
+    const userInput = (input: TurnInput) =>
+      skillsFor(input.text).pipe(
+        Effect.map((known) => toUserInput(input, known)),
+      );
+
+    /** The `turn/start` overrides a Turn's model and settings ask for. */
+    const overrides = (input: TurnInput) => {
+      const next =
+        input.settings === undefined
+          ? { effort, sandbox }
+          : threadOptions(input.settings);
+      const changes = {
+        ...(input.model === undefined || input.model === model
+          ? {}
+          : { model: input.model }),
+        effort: next.effort,
+        ...(next.sandbox === sandbox
+          ? {}
+          : { sandboxPolicy: sandboxPolicy(next.sandbox) }),
+      };
+      model = input.model ?? model;
+      effort = next.effort;
+      sandbox = next.sandbox;
+      return changes;
+    };
 
     // Codex may hold its answer until the turn has stopped; never wait long.
     const interrupt = (turnId: string, thread = threadId) =>
@@ -204,7 +348,7 @@ export const openSession = (
         .request('turn/interrupt', { threadId: thread, turnId })
         .pipe(Effect.timeoutOption(INTERRUPT_WAIT), Effect.ignore);
 
-    const turn = (input: string): Stream.Stream<RawOut, HarnessError> =>
+    const turn = (input: TurnInput): Stream.Stream<RawOut, HarnessError> =>
       Stream.callback<RawOut, HarnessError>((queue) =>
         Effect.gen(function* () {
           if (running !== undefined)
@@ -256,21 +400,22 @@ export const openSession = (
               : interrupt(current.knownTurnId);
           });
 
-          const started = yield* server
-            .request('turn/start', {
-              threadId,
-              input: text(input),
-              effort: config.effort,
-            })
-            .pipe(
-              Effect.tapError((error) => Deferred.fail(current.turnId, error)),
-            );
+          const started = yield* userInput(input).pipe(
+            Effect.flatMap((items) =>
+              server.request('turn/start', {
+                threadId,
+                input: items,
+                ...overrides(input),
+              }),
+            ),
+            Effect.tapError((error) => Deferred.fail(current.turnId, error)),
+          );
           current.knownTurnId = started.turn.id;
           Deferred.doneUnsafe(current.turnId, Effect.succeed(started.turn.id));
         }),
       );
 
-    const steer = (input: string) =>
+    const steer = (input: TurnInput) =>
       Effect.gen(function* () {
         const current = running;
         if (current === undefined || current.mainDone)
@@ -281,7 +426,7 @@ export const openSession = (
         yield* server.request('turn/steer', {
           threadId,
           expectedTurnId,
-          input: text(input),
+          input: yield* userInput(input),
         });
       });
 
@@ -303,22 +448,62 @@ export const openSession = (
       if (confirmed._tag === 'None') current.finish();
     });
 
-    const notYet = Effect.fail(new HarnessError({ message: 'not yet' }));
+    const stopBackgroundJob = (id: string) =>
+      Effect.gen(function* () {
+        if (terminals.some((terminal) => terminal.processId === id)) {
+          yield* server.request('thread/backgroundTerminals/terminate', {
+            threadId,
+            processId: id,
+          });
+          Queue.offerUnsafe(jobChanges, 'terminals');
+          return;
+        }
+        const agentTurnId = subAgents.turnOf(id);
+        if (agentTurnId === undefined)
+          return yield* new HarnessError({
+            message: `No running Codex background job ${id}`,
+          });
+        yield* interrupt(agentTurnId, id);
+      });
+
+    const mcpStatus: Effect.Effect<
+      ReadonlyArray<McpServerStatus>,
+      HarnessError
+    > = allPages((cursor) =>
+      server.request('mcpServerStatus/list', {
+        threadId,
+        detail: 'toolsAndAuthOnly',
+        ...(cursor === undefined ? {} : { cursor }),
+      }),
+    ).pipe(Effect.map((servers) => servers.map(toMcpStatus)));
+
+    // API-key logins have no rate limits to read.
+    const contextUsage = server
+      .request('account/rateLimits/read', { excludeResetCreditDetails: true })
+      .pipe(
+        Effect.orElseSucceed(() => ({
+          rateLimits: null,
+          rateLimitsByLimitId: null,
+        })),
+        Effect.map((limits) => toContextUsage(tokenUsage, limits)),
+      );
+
     return {
       nativeId: Effect.succeed(threadId),
-      turn: (input) => turn(input.text),
-      steer: (input) => steer(input.text),
+      turn,
+      steer,
       cancel,
-      lastTurnNativeId: Effect.succeed(undefined),
+      lastTurnNativeId: Effect.sync(() => lastTurnId),
       agentTurns: Stream.never,
-      backgroundJobs: Stream.make([]),
-      stopBackgroundJob: () => notYet,
-      mcpStatus: notYet,
-      contextUsage: notYet,
+      backgroundJobs: SubscriptionRef.changes(jobs),
+      stopBackgroundJob,
+      mcpStatus,
+      contextUsage,
     } satisfies HarnessSession;
   });
 
 export { isToolItem, type ToolItem } from './records.js';
+export { SETTINGS, threadOptions } from './settings.js';
 export {
   restore,
   TEXT_CHUNK,
