@@ -23,6 +23,11 @@
       "@kestack/std-toolkit/sync/paced": ["./src/sync/paced/index.ts"],
       "@kestack/std-toolkit/sync/idb": ["./src/sync/store/idb/index.ts"],
       "@kestack/std-toolkit/sync/memory": ["./src/sync/store/memory/index.ts"],
+      "@kestack/std-toolkit/replica": ["./src/replica/index.ts"],
+      "@kestack/std-toolkit/replica/idb": ["./src/replica/store/idb/index.ts"],
+      "@kestack/std-toolkit/replica/memory": [
+        "./src/replica/store/memory/index.ts"
+      ],
       "@kestack/std-toolkit/db": ["./src/db/index.ts"],
       "@kestack/std-toolkit/db/dynamodb": ["./src/db/dynamodb/index.ts"],
       "@kestack/std-toolkit/db/idb": ["./src/db/idb/index.ts"],

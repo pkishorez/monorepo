@@ -6,9 +6,9 @@ Single-table design toolkit: database-agnostic sync over single-table item colle
 
 Applications that store many entity types in one table, then mirror that data into a browser, end up writing the same three things by hand: a schema that can still read last year's rows, a storage layer that is bolted to one database, and a sync loop that keeps a client cache fresh. std-toolkit provides each as a separate subpath that shares one Entity model, so they compose without glue code.
 
-`core` defines the Entity envelope and metadata every other subpath speaks. `eschema` gives versioned schemas that migrate on read. `db` defines a StdTable once, and the DynamoDB, SQLite, IndexedDB, and Memory adapters realize it without changing application code. `sync` drives TanStack DB Collections from any backend and persists its replica through the same StdTable contract. `snapshot` captures the resulting storage contract as one document per table, and `studio-rpc` serves it to Std Studio. `alchemy` deploys a table and refuses a deploy that would break a stored version, keeping the accepted snapshot in Alchemy state. `@kestack/std-toolkit/snapshot/vitest` is the one test a table needs: it fails unless the table's snapshot has no breaking change against the committed file and every stored version of every entity upgrades. Snapshot never runs inside an adapter or at request time.
+`core` defines the Entity envelope and metadata every other subpath speaks. `eschema` gives versioned schemas that migrate on read. `db` defines a StdTable once, and the DynamoDB, SQLite, IndexedDB, and Memory adapters realize it without changing application code. `sync` drives TanStack DB Collections from any backend and persists its replica through the same StdTable contract; `replica` does the same for Kabuki apps, as actors. `snapshot` captures the resulting storage contract as one document per table, and `studio-rpc` serves it to Std Studio. `alchemy` deploys a table and refuses a deploy that would break a stored version, keeping the accepted snapshot in Alchemy state. `@kestack/std-toolkit/snapshot/vitest` is the one test a table needs: it fails unless the table's snapshot has no breaking change against the committed file and every stored version of every entity upgrades. Snapshot never runs inside an adapter or at request time.
 
-Each subpath owns its vocabulary in a `CONTEXT.md`: [core](src/core/CONTEXT.md), [eschema](src/eschema/CONTEXT.md), [snapshot](src/snapshot/CONTEXT.md), [db](src/db/CONTEXT.md), [sync](src/sync/CONTEXT.md). The [context map](CONTEXT-MAP.md) explains how they relate. Decisions live in [docs/adr/](docs/adr/), [src/db/docs/adr/](src/db/docs/adr/), and [src/sync/docs/adr/](src/sync/docs/adr/). Longer reads: [Evolving schema](docs/evolving-schema.md), [Sync guide](docs/sync-guide.md). The [stories](stories/) folder tells this package as a tree of Stories, each folder a `story.md` with runnable Proofs beside it: `evolving-schema` (with `migrations` and `snapshot`), `entities` (`keyed` and `single`), `adapters` (with `transactions`), and `sync`. Run them with `pnpm stories`.
+Each subpath owns its vocabulary in a `CONTEXT.md`: [core](src/core/CONTEXT.md), [eschema](src/eschema/CONTEXT.md), [snapshot](src/snapshot/CONTEXT.md), [db](src/db/CONTEXT.md), [sync](src/sync/CONTEXT.md), [replica](src/replica/CONTEXT.md). The [context map](CONTEXT-MAP.md) explains how they relate. Decisions live in [docs/adr/](docs/adr/), [src/db/docs/adr/](src/db/docs/adr/), and [src/sync/docs/adr/](src/sync/docs/adr/). Longer reads: [Evolving schema](docs/evolving-schema.md), [Sync guide](docs/sync-guide.md). The [stories](stories/) folder tells this package as a tree of Stories, each folder a `story.md` with runnable Proofs beside it: `evolving-schema` (with `migrations` and `snapshot`), `entities` (`keyed` and `single`), `adapters` (with `transactions`), and `sync`. Run them with `pnpm stories`.
 
 ## Install
 
@@ -21,6 +21,8 @@ Node 24 or later. Peer dependencies:
 - `effect` (required): every subpath is built on Effect Services, Layers, and Schema.
 - `@tanstack/react-db` (optional): `@kestack/std-toolkit/sync` creates and drives TanStack DB Collections.
 - `react` (optional): required by `@tanstack/react-db`; only needed when you use `@kestack/std-toolkit/sync`.
+- `@kestack/kabuki` (optional): `@kestack/std-toolkit/replica` runs as Kabuki actors and Commands.
+- `@tanstack/db` (optional): `@kestack/std-toolkit/replica` shows each Instance in TanStack DB Collections, without React.
 - `alchemy` (optional): only `@kestack/std-toolkit/alchemy` imports it, to deploy a table and guard its snapshot.
 
 ## Exports
@@ -111,6 +113,10 @@ See [src/db/sqlite/README.md](src/db/sqlite/README.md). It also covers the drive
 ### `@kestack/std-toolkit/sync`
 
 See [src/sync/README.md](src/sync/README.md). It also covers `./sync/paced` and the Sync adapters `./sync/idb` and `./sync/memory`.
+
+### `@kestack/std-toolkit/replica`
+
+See [src/replica/README.md](src/replica/README.md). It also covers the Stores `./replica/idb` and `./replica/memory`.
 
 ## Usage
 

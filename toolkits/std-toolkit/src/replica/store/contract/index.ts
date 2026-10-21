@@ -1,0 +1,15 @@
+export {
+  makeStore,
+  SPACE_TABLE,
+  spaceTable,
+  Store,
+  type Adapter,
+  type Cursor,
+  type Doorbell,
+  type Leader,
+  type Space,
+  type SpaceTable,
+  type StoreOptions,
+  type Wire,
+  type Written,
+} from './contract.js';

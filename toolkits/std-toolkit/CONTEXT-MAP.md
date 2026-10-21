@@ -27,7 +27,7 @@ std-toolkit is a cluster of bounded contexts. Each context owns its own ubiquito
 - **sync → core**: accepts [[core]] **Entities**, ignores an Entity from a newer version as an **Outdated Application**, exposes their latest values in Collections and to Mutation Callbacks, and interprets `_u` for convergence and the Settle Window.
 - **sync → db**: realizes its **Sync Store** through a compatible database adapter; the Sync adapter chooses which (Memory, IndexedDB, or SQLite), changing durability, not Sync behavior.
 
-- **replica → core, db**: like sync, it carries core **Entities** and keeps them through a db adapter. It shares no code with sync; sync stays for React apps.
+- **replica → core, eschema, db**: like sync, it carries core **Entities**, reads them through each ESchema's **entity schema**, and keeps them through a db adapter. It shares no code with sync; sync stays for React apps.
 
 ## Term collisions (same word, different context)
 

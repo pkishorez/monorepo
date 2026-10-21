@@ -18,6 +18,7 @@
     "src/eschema/__tests__",
     "src/eschema/play.ts",
     "src/eschema/tutorial",
+    "src/replica/__tests__",
     "src/snapshot/__tests__",
     "src/snapshot/vitest/__tests__",
     "src/studio-rpc/__tests__",
@@ -25,8 +26,8 @@
     "src/sync/domain/collection-item/__tests__",
     "src/sync/domain/identity/__tests__",
     "src/sync/paced/__tests__",
-    "src/sync/store/idb/__tests__",
     "src/sync/session/__tests__",
+    "src/sync/store/idb/__tests__",
     "src/sync/strategy/__tests__"
   ],
   "storiesPath": "stories",
@@ -190,7 +191,31 @@
     ],
     "src/eschema/domain/schema-model": ["src/core"],
     "src/sync/domain/entity-validation": ["src/core"],
-    "src/sync/strategy": ["src/core"]
+    "src/sync/strategy": ["src/core"],
+    "src/replica/definition": ["src/eschema", "src/core"],
+    "src/replica/strategy": ["src/core"],
+    "src/replica/store/contract": [
+      "src/db",
+      "src/eschema",
+      "src/core",
+      "src/replica/definition"
+    ],
+    "src/replica/store/idb": ["src/db/idb", "src/replica/store/contract"],
+    "src/replica/store/memory": ["src/db/memory", "src/replica/store/contract"],
+    "src/replica/instance": [
+      "src/core",
+      "src/eschema",
+      "src/replica/definition",
+      "src/replica/strategy",
+      "src/replica/store/contract"
+    ],
+    "src/replica/replicas": [
+      "src/replica/definition",
+      "src/replica/instance",
+      "src/replica/store/contract"
+    ],
+    "src/replica/query": ["src/replica/replicas"],
+    "src/replica/action": ["src/replica/definition", "src/replica/replicas"]
   },
   "exceptions": [
     {

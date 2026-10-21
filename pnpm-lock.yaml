@@ -126,6 +126,9 @@ catalogs:
     '@tanstack/ai':
       specifier: 0.54.0
       version: 0.54.0
+    '@tanstack/db':
+      specifier: 0.9.2
+      version: 0.9.2
     '@tanstack/react-db':
       specifier: 0.4.1
       version: 0.4.1
@@ -1377,6 +1380,12 @@ importers:
       '@effect/vitest':
         specifier: 'catalog:'
         version: 4.0.0(effect@4.0.0)(vitest@5.0.1)
+      '@kestack/kabuki':
+        specifier: workspace:*
+        version: link:../../packages/kabuki
+      '@tanstack/db':
+        specifier: 'catalog:'
+        version: 0.9.2(typescript@7.0.2)
       '@tanstack/react-db':
         specifier: 'catalog:'
         version: 0.4.1(react@19.2.8)(typescript@7.0.2)
