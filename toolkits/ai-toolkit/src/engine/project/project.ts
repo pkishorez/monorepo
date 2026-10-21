@@ -1,11 +1,13 @@
 import { Schema } from 'effect';
 import { Actor } from '@kestack/kabuki';
 import { ProjectSchema } from '../../records/index.js';
+import { Prompt } from '../attachments/index.js';
 import { Session, SessionInput } from './session/index.js';
 
 /*
  * A Project: a folder, and one Session child for each of its sessions. A
- * new session starts here, already running its first message.
+ * new session starts here, already running its first message; a Fork
+ * joins it idle, beside the Session it was forked from.
  */
 
 const ProjectRecord = Schema.Struct(ProjectSchema.fields);
@@ -25,9 +27,9 @@ export type ProjectInput = typeof ProjectInput.Type;
 const Message = Schema.TaggedUnion({
   StartSession: {
     session: SessionInput.fields.session,
-    text: Schema.String,
-    turnId: Schema.String,
+    first: Prompt,
   },
+  AddSession: { session: SessionInput.fields.session },
 });
 
 export const Project = Actor.build(
@@ -39,10 +41,13 @@ export const Project = Actor.build(
   {
     init: (input) => ({ model: input }),
     on: {
-      StartSession: ({ session, text, turnId }, { model }) => ({
+      StartSession: ({ session, first }, { model }) => ({
+        model: { ...model, sessions: [...model.sessions, { session, first }] },
+      }),
+      AddSession: ({ session }, { model }) => ({
         model: {
           ...model,
-          sessions: [...model.sessions, { session, first: { text, turnId } }],
+          sessions: [...model.sessions, { session, first: null }],
         },
       }),
     },

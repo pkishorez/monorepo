@@ -1,14 +1,20 @@
-import { Effect, Stream } from 'effect';
+import { Effect, Schema } from 'effect';
 import {
   AiApi,
+  AskFailed,
   FolderNotFound,
+  HarnessFailed,
+  InvalidBinary,
   ModelsUnavailable,
+  NotForkable,
   ProjectNotFound,
   SessionNotFound,
+  SkillsUnavailable,
   UnknownHarness,
 } from '../contract/index.js';
 import { Engine } from '../../engine/index.js';
 import { Harnesses } from '../../harness/index.js';
+import { JsonSchema } from '../../raw/index.js';
 import { Models } from './models/index.js';
 import * as Read from './read/index.js';
 
@@ -18,6 +24,18 @@ import * as Read from './read/index.js';
  * failures become the contract's errors of the same name.
  */
 
+/** An engine failure as the contract's error of the same name. */
+const wire = {
+  ProjectNotFound: (error: { readonly id: string }) =>
+    new ProjectNotFound({ id: error.id }),
+  SessionNotFound: (error: { readonly id: string }) =>
+    new SessionNotFound({ id: error.id }),
+  HarnessFailed: (error: { readonly message: string }) =>
+    new HarnessFailed({ message: error.message }),
+};
+
+const decodeSchema = Schema.decodeUnknownEffect(Schema.NullOr(JsonSchema));
+
 /** The handlers of `AiApi`, over the Engine, the Store and the harnesses. */
 export const AiApiLive = AiApi.toLayer(
   Effect.gen(function* () {
@@ -26,19 +44,27 @@ export const AiApiLive = AiApi.toLayer(
     const models = yield* Models;
     return {
       harnesses: () =>
-        Effect.forEach(
-          harnesses.all,
-          (harness) =>
-            Effect.map(models.defaultModel(harness), (defaultModel) => ({
-              name: harness.name,
-              label: harness.label,
-              settings: harness.settings,
-              defaultModel,
-              available: true,
-              unavailableReason: null,
-            })),
-          { concurrency: 'unbounded' },
-        ),
+        Effect.gen(function* () {
+          const binaries = yield* engine.harnessBinaries;
+          return yield* Effect.forEach(
+            harnesses.all,
+            (harness) =>
+              Effect.map(models.defaultModel(harness), (defaultModel) => {
+                const error =
+                  binaries.find((row) => row.harness === harness.name)?.resolved
+                    .error ?? null;
+                return {
+                  name: harness.name,
+                  label: harness.label,
+                  settings: harness.settings,
+                  defaultModel,
+                  available: error === null,
+                  unavailableReason: error,
+                };
+              }),
+            { concurrency: 'unbounded' },
+          );
+        }),
       models: ({ harness: name }) => {
         const harness = harnesses.all.find((each) => each.name === name);
         if (!harness) return Effect.succeed([]);
@@ -55,40 +81,107 @@ export const AiApiLive = AiApi.toLayer(
           .addProject(path)
           .pipe(Effect.mapError((error) => new FolderNotFound(error))),
       removeProject: ({ id }) =>
-        engine
-          .removeProject(id)
-          .pipe(Effect.mapError((error) => new ProjectNotFound(error))),
+        engine.removeProject(id).pipe(Effect.mapError(wire.ProjectNotFound)),
       startSession: (input) =>
         engine
           .startSession(input)
           .pipe(
             Effect.mapError((error) =>
               error._tag === 'ProjectNotFound'
-                ? new ProjectNotFound({ id: error.id })
+                ? wire.ProjectNotFound(error)
                 : new UnknownHarness({ harness: error.harness }),
             ),
           ),
-      send: ({ sessionId, text }) =>
+      send: ({ sessionId, ...message }) =>
         engine
-          .send(sessionId, text)
-          .pipe(Effect.mapError((error) => new SessionNotFound(error))),
+          .send(sessionId, message)
+          .pipe(Effect.mapError(wire.SessionNotFound)),
       cancel: ({ sessionId }) =>
+        engine.cancel(sessionId).pipe(Effect.mapError(wire.SessionNotFound)),
+      forkSession: ({ sessionId, afterTurnId }) =>
         engine
-          .cancel(sessionId)
-          .pipe(Effect.mapError((error) => new SessionNotFound(error))),
+          .forkSession(sessionId, afterTurnId)
+          .pipe(
+            Effect.mapError((error) =>
+              error._tag === 'SessionNotFound'
+                ? wire.SessionNotFound(error)
+                : new NotForkable({ reason: error.reason }),
+            ),
+          ),
+      ask: ({ sessionId, question, schema }) =>
+        Effect.gen(function* () {
+          const json = yield* decodeSchema(schema).pipe(
+            Effect.mapError(
+              () => new AskFailed({ message: 'The schema given is not JSON' }),
+            ),
+          );
+          return yield* engine
+            .ask(sessionId, question, json)
+            .pipe(
+              Effect.mapError((error) =>
+                error._tag === 'SessionNotFound'
+                  ? wire.SessionNotFound(error)
+                  : new AskFailed({ message: error.message }),
+              ),
+            );
+        }),
+      regenerateTitle: ({ sessionId }) =>
+        engine
+          .regenerateTitle(sessionId)
+          .pipe(Effect.mapError(wire.SessionNotFound)),
+      skills: ({ projectId, harness }) =>
+        engine
+          .skills(projectId, harness)
+          .pipe(
+            Effect.mapError((error) =>
+              error._tag === 'ProjectNotFound'
+                ? wire.ProjectNotFound(error)
+                : new SkillsUnavailable({ message: error.message }),
+            ),
+          ),
+      mcpStatus: ({ sessionId }) =>
+        engine
+          .mcpStatus(sessionId)
+          .pipe(
+            Effect.mapError((error) =>
+              error._tag === 'SessionNotFound'
+                ? wire.SessionNotFound(error)
+                : wire.HarnessFailed(error),
+            ),
+          ),
+      contextUsage: ({ sessionId }) =>
+        engine
+          .contextUsage(sessionId)
+          .pipe(
+            Effect.mapError((error) =>
+              error._tag === 'SessionNotFound'
+                ? wire.SessionNotFound(error)
+                : wire.HarnessFailed(error),
+            ),
+          ),
+      backgroundJobs: () => engine.backgroundJobs,
+      stopBackgroundJob: ({ sessionId, jobId }) =>
+        engine
+          .stopBackgroundJob(sessionId, jobId)
+          .pipe(
+            Effect.mapError((error) =>
+              error._tag === 'SessionNotFound'
+                ? wire.SessionNotFound(error)
+                : wire.HarnessFailed(error),
+            ),
+          ),
+      harnessBinaries: () => engine.harnessBinaries,
+      setHarnessBinary: ({ harness, path }) =>
+        engine
+          .setHarnessBinary(harness, path)
+          .pipe(
+            Effect.mapError(
+              (error) => new InvalidBinary({ message: error.message }),
+            ),
+          ),
       projects: ({ after }) => Read.projects(after),
       sessions: ({ after }) => Read.sessions(after),
       messages: ({ sessionId, after }) => Read.messages(sessionId, after),
-      forkSession: () => Effect.die('not yet'),
-      ask: () => Effect.die('not yet'),
-      regenerateTitle: () => Effect.die('not yet'),
-      skills: () => Effect.die('not yet'),
-      mcpStatus: () => Effect.die('not yet'),
-      contextUsage: () => Effect.die('not yet'),
-      backgroundJobs: () => Stream.die('not yet'),
-      stopBackgroundJob: () => Effect.die('not yet'),
-      harnessBinaries: () => Effect.die('not yet'),
-      setHarnessBinary: () => Effect.die('not yet'),
     };
   }),
 );

@@ -12,6 +12,8 @@ import {
   Exit,
   Fiber,
   Layer,
+  Option,
+  Schedule,
   Schema,
   Scope,
   Stream,
@@ -19,7 +21,7 @@ import {
 } from 'effect';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Ai, AiClient, AiLive, connection } from '../../client/index.js';
-import { makeFakeHarness } from '../../fake-harness/index.js';
+import { FAKE_SKILLS, makeFakeHarness } from '../../fake-harness/index.js';
 import { server } from './index.js';
 
 /*
@@ -252,6 +254,85 @@ describe('the server, through the client and Replica', () => {
             // The agent was resumed by its native id.
             expect(fake.opens.at(-1)?.nativeId).toBe('native-1');
             yield* stop(running);
+          }),
+        ),
+      ),
+    30_000,
+  );
+
+  it(
+    'answers the agent features over RPC: harnesses, binaries, skills, ask, fork and jobs',
+    () =>
+      Effect.runPromise(
+        Effect.scoped(
+          Effect.gen(function* () {
+            const port = yield* Effect.promise(freePort);
+            const db = join(folder(), 'ai.db');
+            const fake = makeFakeHarness();
+            yield* Layer.build(server({ port, db, harnesses: fake.layer }));
+            const client = yield* Layer.build(
+              AiClient.layer(`ws://127.0.0.1:${port}/rpc`),
+            );
+            const api = Context.get(client, AiClient);
+
+            expect(yield* api.harnesses()).toMatchObject([
+              { name: 'claude', available: true, unavailableReason: null },
+            ]);
+            const invalid = yield* Effect.flip(
+              api.setHarnessBinary({ harness: 'claude', path: '/no/such' }),
+            );
+            expect(invalid).toMatchObject({
+              _tag: 'InvalidBinary',
+              message: 'Nothing is at /no/such',
+            });
+            expect(yield* api.harnessBinaries()).toMatchObject([
+              { harness: 'claude', configuredPath: null },
+            ]);
+
+            const project = yield* api.addProject({ path: folder() });
+            expect(
+              yield* api.skills({ projectId: project.id, harness: 'claude' }),
+            ).toEqual(FAKE_SKILLS);
+
+            const session = yield* api.startSession({
+              projectId: project.id,
+              harness: 'claude',
+              model: 'claude-test',
+              settings: {},
+              text: 'hi',
+              attachments: [],
+            });
+            const fork = yield* api
+              .forkSession({ sessionId: session.id, afterTurnId: null })
+              .pipe(
+                Effect.retry({
+                  times: 100,
+                  schedule: Schedule.spaced('20 millis'),
+                }),
+              );
+            expect(fork).toMatchObject({
+              title: 'hi (fork)',
+              nativeId: 'native-1-fork',
+              forkedFrom: { sessionId: session.id },
+            });
+            expect(
+              yield* api.ask({
+                sessionId: session.id,
+                question: 'why?',
+                schema: null,
+              }),
+            ).toEqual({ _tag: 'Text', text: 'answer:why?' });
+            expect(
+              (yield* Effect.flip(
+                api.ask({ sessionId: 'nope', question: 'why?', schema: null }),
+              ))._tag,
+            ).toBe('SessionNotFound');
+            expect(
+              yield* api.contextUsage({ sessionId: session.id }),
+            ).toMatchObject({ usedTokens: 1000 });
+            expect(yield* api.backgroundJobs().pipe(Stream.runHead)).toEqual(
+              Option.some([]),
+            );
           }),
         ),
       ),

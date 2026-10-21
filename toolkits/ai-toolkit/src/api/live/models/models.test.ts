@@ -1,8 +1,12 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Effect } from 'effect';
-import { HarnessError, type Harness } from '../../../harness/index.js';
+import { Effect, Layer } from 'effect';
+import {
+  HarnessBinaries,
+  HarnessError,
+  type Harness,
+} from '../../../harness/index.js';
 import { afterEach, describe, expect, it } from 'vitest';
 import { makeFakeHarness } from '../../../fake-harness/index.js';
 import { Models } from './index.js';
@@ -38,7 +42,11 @@ const list = (
 ) =>
   Effect.runPromise(
     Effect.flatMap(Models, (models) => models.list(harness)).pipe(
-      Effect.provide(Models.layer({ cacheFile, fetch })),
+      Effect.provide(
+        Models.layer({ cacheFile, fetch }).pipe(
+          Layer.provide(HarnessBinaries.layerDefault),
+        ),
+      ),
     ),
   );
 
@@ -159,7 +167,7 @@ describe('Models', () => {
           Models.layer({
             cacheFile: tempFile(),
             fetch: () => Promise.resolve(catalog),
-          }),
+          }).pipe(Layer.provide(HarnessBinaries.layerDefault)),
         ),
       ),
     );

@@ -4,11 +4,13 @@ import { Broadcaster, type Entity } from '@kestack/std-toolkit/core';
 import { SQLite } from '@kestack/std-toolkit/db/sqlite';
 import { makeNodeSQLite } from '@kestack/std-toolkit/db/sqlite/node';
 import type { Raw } from '../raw/index.js';
-import type { Project, Session } from '../records/index.js';
-import { aiTable, projects, raws, sessions } from './table.js';
+import type { HarnessConfig, Project, Session } from '../records/index.js';
+import type { HarnessName } from '../raw/index.js';
+import { aiTable, harnessConfigs, projects, raws, sessions } from './table.js';
 
 /*
- * The one place records are kept: Raw, Projects and Sessions in one SQLite
+ * The one place records are kept: Raw, Projects, Sessions and Harness
+ * Configs in one SQLite
  * table. Every write goes through one permit, so writes land in `_u` order
  * and a reader that has seen a `_u` has seen everything older. Every write
  * is also published in this process, so a reader can subscribe before it
@@ -48,6 +50,11 @@ export interface StoreService {
   readonly allSessions: Effect.Effect<ReadonlyArray<Session>>;
   /** Writes a Session unless it is unchanged. */
   readonly saveSession: (session: Session) => Effect.Effect<void>;
+  /** The Harness Binary a harness is set to; null when it has never been set. */
+  readonly harnessConfig: (
+    harness: HarnessName,
+  ) => Effect.Effect<HarnessConfig | null>;
+  readonly saveHarnessConfig: (config: HarnessConfig) => Effect.Effect<void>;
 }
 
 const PAGE = 200;
@@ -210,6 +217,19 @@ const make = (path: string) =>
             if (found === null) yield* sessions.insert(session);
             else if (!same(found.value, session))
               yield* sessions.getAndUpdate({ id: session.id }, session);
+          }),
+        ),
+      harnessConfig: (harness) =>
+        run(harnessConfigs.get({ id: harness }, { excludeDeleted: true })).pipe(
+          Effect.map((found) => found?.value ?? null),
+        ),
+      saveHarnessConfig: (config) =>
+        write(
+          Effect.gen(function* () {
+            const found = yield* harnessConfigs.get({ id: config.id });
+            if (found === null) yield* harnessConfigs.insert(config);
+            else if (!same(found.value, config))
+              yield* harnessConfigs.getAndUpdate({ id: config.id }, config);
           }),
         ),
     };

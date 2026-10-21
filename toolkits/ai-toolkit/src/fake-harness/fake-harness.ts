@@ -53,6 +53,8 @@ export interface FakeHarness {
   readonly layer: Layer.Layer<Harnesses | Titler>;
   /** Every open, with what it was opened with. */
   readonly opens: Array<OpenConfig>;
+  /** The Harness Binary path each open was given; undefined for the default. */
+  readonly binaries: Array<string | undefined>;
   /** How many agents were closed. */
   readonly closes: () => number;
   /** Every turn and steer, with what it carried. */
@@ -63,6 +65,8 @@ export interface FakeHarness {
   readonly asks: Array<AskInput>;
   /** Every call to the Titler, with the messages it was given. */
   readonly titles: Array<ReadonlyArray<string>>;
+  /** Whether each Titler call had Harness Binaries to run with. */
+  readonly titleBinaries: Array<boolean>;
   /** Every Background Job stopped, by id. */
   readonly stoppedJobs: Array<string>;
   /** Ends the running turn with a `result`. */
@@ -95,10 +99,12 @@ export const makeFakeHarness = (
   } = {},
 ): FakeHarness => {
   const opens: Array<OpenConfig> = [];
+  const binaries: Array<string | undefined> = [];
   const inputs: Array<TurnInput> = [];
   const forks: Array<ForkInput> = [];
   const asks: Array<AskInput> = [];
   const titles: Array<ReadonlyArray<string>> = [];
+  const titleBinaries: Array<boolean> = [];
   const stoppedJobs: Array<string> = [];
   const agents = new Map<string, FakeAgent>();
   let closed = 0;
@@ -151,6 +157,7 @@ export const makeFakeHarness = (
     open: (config) =>
       Effect.gen(function* () {
         opens.push(config);
+        binaries.push(yield* (yield* HarnessBinaries).path('claude'));
         const nativeId = config.nativeId ?? `native-${opens.length}`;
         const agent: FakeAgent = {
           jobs: yield* SubscriptionRef.make<ReadonlyArray<BackgroundJob>>([]),
@@ -263,11 +270,13 @@ export const makeFakeHarness = (
     }),
     Layer.succeed(Titler, {
       title: (userMessages) =>
-        Effect.suspend(() => {
+        Effect.gen(function* () {
           titles.push(userMessages);
-          return options.title === undefined
-            ? Effect.fail(new HarnessError({ message: 'no titles here' }))
-            : Effect.succeed(options.title);
+          const given = yield* Effect.serviceOption(HarnessBinaries);
+          titleBinaries.push(given._tag === 'Some');
+          if (options.title === undefined)
+            return yield* new HarnessError({ message: 'no titles here' });
+          return options.title;
         }),
     }),
   );
@@ -278,11 +287,13 @@ export const makeFakeHarness = (
     harness,
     layer,
     opens,
+    binaries,
     closes: () => closed,
     inputs,
     forks,
     asks,
     titles,
+    titleBinaries,
     stoppedJobs,
     finish: Effect.sync(end),
     fail: (message) =>

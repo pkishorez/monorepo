@@ -20,7 +20,10 @@ afterEach(() => {
 
 const world = (fake: FakeHarness, path = ':memory:') => {
   const base = Layer.merge(Store.layer(path), fake.layer);
-  return Layer.merge(base, Engine.layer.pipe(Layer.provide(base)));
+  return Layer.merge(
+    base,
+    Engine.layer({ attachments: folder() }).pipe(Layer.provide(base)),
+  );
 };
 
 const run = <A, E>(
@@ -41,6 +44,8 @@ const rawsOf = (store: Store['Service'], sessionId: string) =>
     items.map(({ value }) => value),
   );
 
+const say = (text: string) => ({ text, attachments: [] });
+
 const brief = (raw: Raw) =>
   `${raw.harness} ${raw.kind} ${JSON.stringify(raw.payload)}`;
 
@@ -54,6 +59,7 @@ const started = Effect.gen(function* () {
     model: 'claude-test',
     settings: { effort: 'high' },
     text: 'hello there\nsecond line',
+    attachments: [],
   });
   const raws = () => rawsOf(store, session.id);
   const status = async () =>
@@ -78,6 +84,7 @@ describe('Engine', () => {
           'engine turn.started {"text":"hello there\\nsecond line","steered":false}',
           'claude text {"text":"echo:hello there\\nsecond line"}',
           'claude result {}',
+          'engine turn.ended {"status":"done","nativeTurnId":"native-1:turn-1","byHarness":true}',
         ]);
         expect(new Set(all.map((raw) => raw.turnId)).size).toBe(1);
         expect(fake.opens).toMatchObject([
@@ -110,7 +117,7 @@ describe('Engine', () => {
       Effect.gen(function* () {
         const { engine, session, raws, status } = yield* started;
         yield* eventually(async () => expect(await raws()).toHaveLength(2));
-        yield* engine.send(session.id, 'and more');
+        yield* engine.send(session.id, say('and more'));
         yield* eventually(async () => expect(await raws()).toHaveLength(4));
         yield* fake.finish;
         yield* eventually(async () => expect(await status()).toBe('idle'));
@@ -121,6 +128,7 @@ describe('Engine', () => {
           'engine turn.started {"text":"and more","steered":true}',
           'claude text {"text":"steer:and more"}',
           'claude result {}',
+          'engine turn.ended {"status":"done","nativeTurnId":"native-1:turn-1","byHarness":true}',
         ]);
         expect(new Set(all.map((raw) => raw.turnId)).size).toBe(1);
       }),
@@ -135,7 +143,7 @@ describe('Engine', () => {
         const { engine, session, raws } = yield* started;
         yield* eventually(async () => expect(await raws()).toHaveLength(2));
         yield* engine.cancel(session.id);
-        yield* engine.send(session.id, 'next');
+        yield* engine.send(session.id, say('next'));
         yield* eventually(async () => expect(await raws()).toHaveLength(5));
         const all = yield* Effect.promise(raws);
         expect(all.map(brief).slice(2)).toEqual([
@@ -155,8 +163,8 @@ describe('Engine', () => {
       Effect.gen(function* () {
         const { engine, session, raws, status } = yield* started;
         yield* eventually(async () => expect(await status()).toBe('idle'));
-        yield* engine.send(session.id, 'again');
-        yield* eventually(async () => expect(await raws()).toHaveLength(6));
+        yield* engine.send(session.id, say('again'));
+        yield* eventually(async () => expect(await raws()).toHaveLength(8));
         yield* eventually(async () => expect(await status()).toBe('idle'));
         const all = yield* Effect.promise(raws);
         expect(new Set(all.map((raw) => raw.turnId)).size).toBe(2);
@@ -178,7 +186,7 @@ describe('Engine', () => {
           'engine turn.ended {"status":"failed","error":"boom"}',
         );
         expect(fake.closes()).toBe(1);
-        yield* engine.send(session.id, 'retry');
+        yield* engine.send(session.id, say('retry'));
         yield* eventually(() => expect(fake.opens).toHaveLength(2));
         expect(fake.opens[1]?.nativeId).toBe('native-1');
       }),
@@ -210,7 +218,7 @@ describe('Engine', () => {
           engine.addProject('/no/such/folder/here'),
         );
         expect(missing._tag).toBe('FolderNotFound');
-        expect((yield* Effect.flip(engine.send('nope', 'x')))._tag).toBe(
+        expect((yield* Effect.flip(engine.send('nope', say('x'))))._tag).toBe(
           'SessionNotFound',
         );
         expect((yield* Effect.flip(engine.removeProject('nope')))._tag).toBe(
@@ -233,9 +241,9 @@ describe('Engine', () => {
         );
         yield* eventually(() => expect(fake.closes()).toBe(1));
         expect(yield* Effect.promise(raws)).toHaveLength(2);
-        expect((yield* Effect.flip(engine.send(session.id, 'x')))._tag).toBe(
-          'SessionNotFound',
-        );
+        expect(
+          (yield* Effect.flip(engine.send(session.id, say('x'))))._tag,
+        ).toBe('SessionNotFound');
       }),
       fake,
     );
@@ -243,16 +251,16 @@ describe('Engine', () => {
 
   it('on start, marks what the last run left running interrupted, and resumes by native id', async () => {
     const path = join(folder(), 'ai.db');
-    const fake = makeFakeHarness();
+    const fake = makeFakeHarness({ hold: true });
     // A session cut off mid-turn, as a crash leaves it.
     const cut = await run(
       Effect.gen(function* () {
-        const { session, status, store } = yield* started;
-        yield* eventually(async () => expect(await status()).toBe('idle'));
-        yield* store.saveSession({
-          ...(yield* store.session(session.id))!,
-          status: 'running',
-        });
+        const { session, store } = yield* started;
+        yield* eventually(async () =>
+          expect(
+            (await Effect.runPromise(store.session(session.id)))?.nativeId,
+          ).toBe('native-1'),
+        );
         return session;
       }),
       fake,
@@ -270,7 +278,7 @@ describe('Engine', () => {
         );
         expect(fake.opens).toHaveLength(1);
         expect(all.at(-1)?.turnId).toBe(all[0]?.turnId);
-        yield* engine.send(cut.id, 'back again');
+        yield* engine.send(cut.id, say('back again'));
         yield* eventually(() => expect(fake.opens).toHaveLength(2));
         expect(fake.opens[1]?.nativeId).toBe('native-1');
       }),

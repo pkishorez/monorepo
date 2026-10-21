@@ -6,13 +6,13 @@ import { RpcSerialization, RpcServer } from 'effect/rpc';
 import { NodeHttpServer } from '@effect/platform-node';
 import { AiApi } from '../../api/contract/index.js';
 import { AiApiLive, Models } from '../../api/live/index.js';
-import { Engine } from '../../engine/index.js';
+import { Engine, storedHarnessBinaries } from '../../engine/index.js';
 import type { Harnesses, Titler } from '../../harness/index.js';
 import { Store } from '../../store/index.js';
 
 /*
  * The whole server as one Layer: the Store on its SQLite file, the engine
- * over it and the harnesses, and the API at `/rpc` over WebSocket, open to
+ * over it and the harnesses, Attachments saved beside it, and the API at `/rpc` over WebSocket, open to
  * any origin. It runs until its Scope closes; then the engine stops every
  * turn, and the Store closes last.
  */
@@ -22,15 +22,20 @@ export interface ServerOptions {
   readonly host?: string;
   /** The SQLite file; the models.dev copy is kept beside it. */
   readonly db: string;
+  /** Where Attachments that are not images are saved; beside the database unless given. */
+  readonly attachments?: string;
   readonly harnesses: Layer.Layer<Harnesses | Titler>;
 }
 
 export const server = (options: ServerOptions) => {
   const base = Layer.merge(Store.layer(options.db), options.harnesses);
-  const engine = Engine.layer.pipe(Layer.provide(base));
+  const engine = Engine.layer({
+    attachments:
+      options.attachments ?? join(dirname(options.db), 'attachments'),
+  }).pipe(Layer.provide(base));
   const models = Models.layer({
     cacheFile: join(dirname(options.db), 'models.json'),
-  });
+  }).pipe(Layer.provide(storedHarnessBinaries), Layer.provide(base));
   const handlers = AiApiLive.pipe(
     Layer.provide(Layer.mergeAll(base, engine, models)),
   );

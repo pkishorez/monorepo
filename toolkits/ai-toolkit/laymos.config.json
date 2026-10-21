@@ -9,7 +9,11 @@
     "src/harness": ["src/harness-wire", "src/raw", "src/projection"],
     "src/harnesses": ["src/harness", "src/raw", "src/projection"],
     "src/harnesses/codex/catalog": ["src/harnesses/codex/app-server"],
-    "src/harnesses/codex/thread": ["src/harnesses/codex/app-server"],
+    "src/harnesses/codex/thread": [
+      "src/harnesses/codex/app-server",
+      "src/harnesses/codex/catalog"
+    ],
+    "src/harnesses/codex/fork": ["src/harnesses/codex/app-server"],
     "src/harnesses/codex/project": [
       "src/harnesses/codex/app-server",
       "src/harnesses/codex/thread"
@@ -29,7 +33,22 @@
       "src/records",
       "src/projection"
     ],
-    "src/engine/project": ["src/engine/engine-raw"],
+    "src/engine/project": [
+      "src/engine/engine-raw",
+      "src/engine/attachments",
+      "src/engine/live-agents"
+    ],
+    "src/engine/project/session/turn": ["src/engine/project/session/agent"],
+    "src/engine/project/session/background-jobs": [
+      "src/harness-wire",
+      "src/engine/project/session/agent"
+    ],
+    "src/engine/project/session/agent-turns": [
+      "src/engine/project/session/agent"
+    ],
+    "src/engine/attachments": ["src/engine/engine-raw"],
+    "src/engine/fork": ["src/engine/engine-raw"],
+    "src/engine/inquiry": ["src/engine/engine-raw", "src/engine/live-agents"],
     "src/api/contract": [
       "src/harness-wire",
       "src/projection",

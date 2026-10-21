@@ -12,12 +12,15 @@ import { server } from './server/index.js';
 /*
  * `ai-toolkit serve`: the composition root. Claude and Codex as the
  * harnesses, Codex writing titles, the database at ~/.ai-toolkit/ai.db
- * unless told otherwise, and the API at ws://127.0.0.1:<port>/rpc.
+ * unless told otherwise, Attachments under ~/.ai-toolkit/attachments, and
+ * the API at ws://127.0.0.1:<port>/rpc.
  */
 
 const HOST = '127.0.0.1';
 const DEFAULT_PORT = 4590;
-const DEFAULT_DB = join(homedir(), '.ai-toolkit', 'ai.db');
+const HOME = join(homedir(), '.ai-toolkit');
+const DEFAULT_DB = join(HOME, 'ai.db');
+const ATTACHMENTS = join(HOME, 'attachments');
 
 const { version } = JSON.parse(
   readFileSync(new URL('../../package.json', import.meta.url), 'utf8'),
@@ -55,7 +58,9 @@ const serve = Command.make(
     mkdirSync(dirname(db), { recursive: true });
     yield* Effect.log(`ai-toolkit ${version} on ws://${HOST}:${port}/rpc`);
     yield* Effect.log(`database ${db}`);
-    yield* Layer.launch(server({ port, host: HOST, db, harnesses }));
+    yield* Layer.launch(
+      server({ port, host: HOST, db, attachments: ATTACHMENTS, harnesses }),
+    );
   }),
 ).pipe(Command.withDescription('Run the ai-toolkit server'));
 

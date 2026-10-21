@@ -9,20 +9,27 @@ import {
   type SessionStatus,
 } from '../../../records/index.js';
 import { Store } from '../../../store/index.js';
-import { makeAgent } from './agent.js';
-import { Turn, TurnContext } from './turn/index.js';
+import { Prompt } from '../../attachments/index.js';
+import { LiveAgents } from '../../live-agents/index.js';
+import { AgentTurns } from './agent-turns/index.js';
+import { makeAgent, SessionAgent } from './agent/index.js';
+import { BackgroundJobs } from './background-jobs/index.js';
+import { Turn } from './turn/index.js';
 
 /*
  * A Session: one conversation with a Coding Harness in a Project's folder.
  *
- * - Idle     a message starts a Turn. It keeps how the last Turn ended,
- *            unless it was done: cancelled, failed or interrupted.
- * - Running  a message steers the Turn; a cancel asks it to stop; the Turn
- *            reports when it has ended, and the Session is idle again.
+ * - Idle     a message starts a Turn, and so does the agent starting one
+ *            on its own. It keeps how the last Turn ended, unless it was
+ *            done: cancelled, failed or interrupted.
+ * - Running  a message steers the Turn, or waits for the next one while
+ *            it is cancelling; a cancel asks it to stop; the Turn reports
+ *            when it has ended, and the Session is idle again.
  *
- * It keeps one live agent for its Turns (see agent.ts), saves itself
- * whenever its record changes, and asks the Titler for a title after its
- * first message.
+ * It keeps one live agent for its Turns (see agent/), with its Background
+ * Jobs beside it, saves itself whenever its record changes, takes a
+ * message's model and settings from that Turn on, and asks the Titler for
+ * a title after its first message.
  */
 
 /** How long the Titler may take before the first line stays the title. */
@@ -33,14 +40,12 @@ const Saved = Schema.Struct(SessionSchema.fields).mapFields(
   Struct.omit(['status']),
 );
 
-const First = Schema.Struct({ text: Schema.String, turnId: Schema.String });
-
 export const SessionInput = Schema.Struct({
   /** As stored: its status is how its last turn ended. */
   session: Schema.Struct(SessionSchema.fields),
   cwd: Schema.String,
   /** The message it was started with, if it was started just now. */
-  first: Schema.NullOr(First),
+  first: Schema.NullOr(Prompt),
 });
 export type SessionInput = typeof SessionInput.Type;
 
@@ -50,8 +55,7 @@ const Model = Schema.Struct({
   /** The first message, until the Titler has had its say. */
   untitled: Schema.NullOr(Schema.String),
 });
-
-const Steer = Schema.Struct({ id: Schema.String, text: Schema.String });
+type Model = typeof Model.Type;
 
 /** How a turn ended, as a Session keeps it: anything but done. */
 const Ended = Schema.Literals(['cancelled', 'failed', 'interrupted']);
@@ -60,11 +64,12 @@ const State = Schema.TaggedUnion({
   Idle: { ended: Schema.NullOr(Ended) },
   Running: {
     turnId: Schema.String,
-    text: Schema.String,
-    steers: Schema.Array(Steer),
+    /** The message the Turn runs; null when the agent started it. */
+    prompt: Schema.NullOr(Prompt),
+    steers: Schema.Array(Prompt),
     cancelling: Schema.Boolean,
     /** Sent while cancelling: they start the next turn once this one ends. */
-    queued: Schema.Array(Steer),
+    queued: Schema.Array(Prompt),
   },
 });
 
@@ -72,12 +77,12 @@ type State = typeof State.Type;
 
 /** A new turn for a message, the ones sent after it steering it. */
 const running = ([first, ...rest]: readonly [
-  typeof Steer.Type,
-  ...Array<typeof Steer.Type>,
+  Prompt,
+  ...Array<Prompt>,
 ]): State => ({
   _tag: 'Running',
   turnId: first.id,
-  text: first.text,
+  prompt: first,
   steers: rest,
   cancelling: false,
   queued: [],
@@ -85,30 +90,25 @@ const running = ([first, ...rest]: readonly [
 
 const Message = Schema.TaggedUnion({
   /** A user message: starts a Turn, or steers the running one. */
-  Send: { text: Schema.String, turnId: Schema.String },
+  Send: { prompt: Prompt },
   Cancel: {},
   TurnEnded: {
     turnId: Schema.String,
     status: Schema.Literals(TURN_END_STATUSES),
   },
   NativeId: { nativeId: Schema.String },
+  /** The agent started a Turn on its own. */
+  AgentTurn: { turnId: Schema.String },
   Titled: { title: Schema.String },
 });
 
-type SessionSelf = Self<
-  typeof Model.Type,
-  typeof State.Type,
-  typeof Message.Type
->;
+type SessionSelf = Self<Model, State, typeof Message.Type>;
 
 /** The first line of a message, as a title until a better one comes. */
 export const fallbackTitle = (text: string) =>
   text.trim().split('\n')[0]!.trim().slice(0, 60) || 'New session';
 
-const recordOf = (
-  model: typeof Model.Type,
-  state: typeof State.Type,
-): SessionRecord => ({
+const recordOf = (model: Model, state: State): SessionRecord => ({
   ...model.session,
   status: state._tag === 'Running' ? 'running' : (state.ended ?? 'idle'),
 });
@@ -119,12 +119,30 @@ const idleOf = (status: SessionStatus): State => ({
   ended: status === 'idle' || status === 'running' ? null : status,
 });
 
-/** The TurnContext every Turn of this Session gets: its harness and live agent. */
-const turnContext = (self: SessionSelf) =>
+/** A message's model and settings hold from its Turn on. */
+const choose = (model: Model, prompt: Prompt): Model =>
+  prompt.model === undefined && prompt.settings === undefined
+    ? model
+    : {
+        ...model,
+        session: {
+          ...model.session,
+          model: prompt.model ?? model.session.model,
+          settings: prompt.settings ?? model.session.settings,
+        },
+      };
+
+/**
+ * What the Session hands its children: its harness and live agent. The
+ * agent opens with the Session's model and settings as they are then, and
+ * is registered for the engine's calls that need an answer from it.
+ */
+const sessionAgent = (self: SessionSelf) =>
   Layer.effect(
-    TurnContext,
+    SessionAgent,
     Effect.gen(function* () {
       const harnesses = yield* Harnesses;
+      const binaries = yield* HarnessBinaries;
       const { model } = yield* self.get;
       const harness = harnesses.get(model.session.harness);
       const agent = yield* makeAgent(
@@ -137,13 +155,13 @@ const turnContext = (self: SessionSelf) =>
               ? {}
               : { nativeId: model.session.nativeId }),
           }),
-        ).pipe(Effect.provide(HarnessBinaries.layerDefault)),
+        ).pipe(Effect.provideService(HarnessBinaries, binaries)),
       );
+      yield* (yield* LiveAgents).register(model.session.id, agent);
       return {
         harness,
+        ...agent,
         agent: agent.get,
-        opened: agent.opened,
-        reset: agent.reset,
         report: (report) => self.send(report),
       };
     }),
@@ -169,8 +187,11 @@ const title = (self: SessionSelf) =>
   Effect.gen(function* () {
     const { model } = yield* self.get;
     const titler = yield* Titler;
+    const binaries = yield* HarnessBinaries;
     const text = model.untitled ?? '';
     const titled = yield* titler.title([text]).pipe(
+      // A Titler that runs a Harness Binary runs the one the user set.
+      Effect.provideService(HarnessBinaries, binaries),
       Effect.timeout(TITLE_TIMEOUT),
       Effect.map((title) => title.trim()),
       Effect.catch((error) =>
@@ -188,7 +209,7 @@ const title = (self: SessionSelf) =>
 
 export const Session = Actor.build(
   Actor.define('Session', {
-    requires: [Harnesses, Store, Titler],
+    requires: [Harnesses, HarnessBinaries, LiveAgents, Store, Titler],
     input: SessionInput,
     model: Model,
     state: State,
@@ -201,11 +222,9 @@ export const Session = Actor.build(
         cwd,
         untitled: first?.text ?? null,
       },
-      state: first
-        ? running([{ id: first.turnId, text: first.text }])
-        : idleOf(session.status),
+      state: first ? running([first]) : idleOf(session.status),
     }),
-    provides: (self) => turnContext(self),
+    provides: (self) => sessionAgent(self),
     on: {
       NativeId: ({ nativeId }, { model }) => ({
         model: { ...model, session: { ...model.session, nativeId } },
@@ -218,6 +237,9 @@ export const Session = Actor.build(
         },
       }),
     },
+    children: {
+      backgroundJobs: { actor: BackgroundJobs },
+    },
     workers: {
       persist: { run: (self) => persist(self) },
       title: {
@@ -228,29 +250,43 @@ export const Session = Actor.build(
     state: {
       Idle: {
         on: {
-          Send: ({ text, turnId }) => ({
-            state: running([{ id: turnId, text }]),
+          Send: ({ prompt }, { model }) => ({
+            model: choose(model, prompt),
+            state: running([prompt]),
           }),
+          AgentTurn: ({ turnId }) => ({
+            state: {
+              _tag: 'Running',
+              turnId,
+              prompt: null,
+              steers: [],
+              cancelling: false,
+              queued: [],
+            },
+          }),
+        },
+        children: {
+          agentTurns: { actor: AgentTurns },
         },
       },
       Running: {
         on: {
-          Send: ({ text, turnId }, { state }) => ({
-            state: {
-              ...state,
-              steers: [...state.steers, { id: turnId, text }],
-            },
+          Send: ({ prompt }, { model, state }) => ({
+            model: choose(model, prompt),
+            state: state.cancelling
+              ? { ...state, queued: [...state.queued, prompt] }
+              : { ...state, steers: [...state.steers, prompt] },
           }),
           Cancel: (_, { state }) => ({ state: { ...state, cancelling: true } }),
-          TurnEnded: ({ turnId, status }, { state }) =>
-            turnId === state.turnId
-              ? {
-                  state: {
-                    _tag: 'Idle',
-                    ended: status === 'done' ? null : status,
-                  },
-                }
-              : {},
+          TurnEnded: ({ turnId, status }, { state }) => {
+            if (turnId !== state.turnId) return {};
+            const [next, ...rest] = state.queued;
+            return {
+              state: next
+                ? running([next, ...rest])
+                : { _tag: 'Idle', ended: status === 'done' ? null : status },
+            };
+          },
         },
         children: {
           turn: {
@@ -259,7 +295,7 @@ export const Session = Actor.build(
             input: ({ model, state }) => ({
               sessionId: model.session.id,
               turnId: state.turnId,
-              text: state.text,
+              prompt: state.prompt,
             }),
             props: ({ state }) => ({
               steers: state.steers,

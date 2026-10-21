@@ -7,28 +7,72 @@ import type { Raw, RawSource } from '../../raw/index.js';
 
 /*
  * The Raw the engine writes itself, with `harness: 'engine'`: where a turn
- * starts (the user's text, and whether it steered a running turn), where it
- * ends when the harness could not say so, and a failure worth showing.
+ * starts (the user's text and Attachments, whether it steered a running
+ * turn, or that the agent started it), where it ends, and a failure worth
+ * showing.
+ *
+ * Every Turn ends with the engine's `turn.ended`, which carries the Turn's
+ * Fork Point as `nativeTurnId` when the agent gave one. When the harness's
+ * own record already ended the Turn, it is marked `byHarness` and projects
+ * to nothing, so a Turn never shows two ends.
  */
+
+/** A file sent with a user message, as Raw keeps it. */
+const Attachment = Schema.Struct({
+  name: Schema.String,
+  mime: Schema.String,
+  size: Schema.Finite,
+  data: Schema.optionalKey(Schema.String),
+  path: Schema.optionalKey(Schema.String),
+});
 
 const TurnStarted = Schema.Struct({
   text: Schema.String,
   steered: Schema.Boolean,
+  attachments: Schema.optionalKey(Schema.Array(Attachment)),
+  agentStarted: Schema.optionalKey(Schema.Boolean),
 });
+type TurnStarted = typeof TurnStarted.Type;
+
 const TurnEnded = Schema.Struct({
   status: Schema.Literals(TURN_END_STATUSES),
-  error: Schema.optional(Schema.String),
+  error: Schema.optionalKey(Schema.String),
+  nativeTurnId: Schema.optionalKey(Schema.String),
+  byHarness: Schema.optionalKey(Schema.Boolean),
 });
+type TurnEnded = typeof TurnEnded.Type;
+
 const Failure = Schema.Struct({ message: Schema.String });
 
-const turnStarted = (text: string, steered: boolean): RawOut => ({
+/** Writes only the keys that say something, so old and new payloads read alike. */
+const turnStarted = ({
+  text,
+  steered,
+  attachments = [],
+  agentStarted = false,
+}: TurnStarted): RawOut => ({
   kind: 'turn.started',
-  payload: { text, steered },
+  payload: {
+    text,
+    steered,
+    ...(attachments.length === 0 ? {} : { attachments }),
+    ...(agentStarted ? { agentStarted } : {}),
+  },
 });
 
-const turnEnded = (status: TurnEndStatus, error?: string): RawOut => ({
+const turnEnded = (
+  status: TurnEndStatus,
+  more: Omit<TurnEnded, 'status'> = {},
+): RawOut => ({
   kind: 'turn.ended',
-  payload: error === undefined ? { status } : { status, error },
+  payload: {
+    status,
+    ...(more.error === undefined ? {} : { error: more.error }),
+    ...(more.nativeTurnId === undefined
+      ? {}
+      : { nativeTurnId: more.nativeTurnId }),
+    ...(more.byHarness ? { byHarness: true } : {}),
+  },
 });
 
 const failure = (message: string): RawOut => ({
@@ -39,30 +83,58 @@ const failure = (message: string): RawOut => ({
 const read = <A>(schema: Schema.Codec<A, unknown>, payload: unknown) =>
   Schema.decodeUnknownOption(schema)(payload);
 
+const engineRecord = <A>(
+  schema: Schema.Codec<A, unknown>,
+  kind: string,
+  raw: Raw,
+): A | undefined =>
+  raw.harness === 'engine' && raw.kind === kind
+    ? Option.getOrUndefined(read(schema, raw.payload))
+    : undefined;
+
+/** A `turn.started` the engine wrote, read back; undefined for any other Raw. */
+const startedOf = (raw: Raw): TurnStarted | undefined =>
+  engineRecord(TurnStarted, 'turn.started', raw);
+
+/** A `turn.ended` the engine wrote, read back; undefined for any other Raw. */
+const endedOf = (raw: Raw): TurnEnded | undefined =>
+  engineRecord(TurnEnded, 'turn.ended', raw);
+
 /** One engine Raw to its projected form; null for a kind it does not know. */
 const project = (raw: Raw): Projected | null => {
   switch (raw.kind) {
     case 'turn.started':
       return Option.match(read(TurnStarted, raw.payload), {
         onNone: () => null,
-        onSome: ({ text, steered }) => ({
+        onSome: ({ text, steered, attachments, agentStarted }) => ({
           agentId: null,
           role: 'user',
-          parts: [{ type: 'turnStarted', text, steered }],
+          parts: [
+            {
+              type: 'turnStarted',
+              text,
+              steered,
+              ...(attachments === undefined ? {} : { attachments }),
+              ...(agentStarted === undefined ? {} : { agentStarted }),
+            },
+          ],
         }),
       });
     case 'turn.ended':
       return Option.match(read(TurnEnded, raw.payload), {
         onNone: () => null,
-        onSome: ({ status, error }) => ({
-          agentId: null,
-          role: 'system',
-          parts: [
-            error === undefined
-              ? { type: 'turnEnded', status }
-              : { type: 'turnEnded', status, error },
-          ],
-        }),
+        onSome: ({ status, error, byHarness }) =>
+          byHarness
+            ? null
+            : {
+                agentId: null,
+                role: 'system',
+                parts: [
+                  error === undefined
+                    ? { type: 'turnEnded', status }
+                    : { type: 'turnEnded', status, error },
+                ],
+              },
       });
     case 'error':
       return Option.match(read(Failure, raw.payload), {
@@ -102,7 +174,16 @@ const stamp = (context: RawContext, out: RawOut): Effect.Effect<Raw> =>
     };
   });
 
-export const EngineRaw = { turnStarted, turnEnded, failure, project, stamp };
+export const EngineRaw = {
+  Attachment,
+  turnStarted,
+  turnEnded,
+  failure,
+  startedOf,
+  endedOf,
+  project,
+  stamp,
+};
 
 /** How the read path makes Messages of the engine's own Raw. */
 export const projectEngineRaw = project;

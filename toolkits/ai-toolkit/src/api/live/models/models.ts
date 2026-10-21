@@ -110,6 +110,7 @@ const decode = Schema.decodeUnknownEffect(Catalog);
 
 const make = (options: ModelsOptions) =>
   Effect.gen(function* () {
+    const binaries = yield* HarnessBinaries;
     const lock = yield* Semaphore.make(1);
     let held: { readonly catalog: Catalog; readonly at: number } | undefined;
 
@@ -184,7 +185,7 @@ const make = (options: ModelsOptions) =>
             )
               return slot.held.models;
             const result = yield* Effect.result(
-              ask.pipe(Effect.provide(HarnessBinaries.layerDefault)),
+              ask.pipe(Effect.provideService(HarnessBinaries, binaries)),
             );
             if (result._tag === 'Success') {
               slot.held = { models: result.success, at: now };
@@ -229,6 +230,9 @@ export class Models extends Context.Service<
     readonly defaultModel: (harness: Harness) => Effect.Effect<string>;
   }
 >()('@kestack/ai-toolkit/Models') {
-  static readonly layer = (options: ModelsOptions): Layer.Layer<Models> =>
+  /** Harnesses are asked with the Harness Binaries the user set. */
+  static readonly layer = (
+    options: ModelsOptions,
+  ): Layer.Layer<Models, never, HarnessBinaries> =>
     Layer.effect(Models, make(options));
 }
