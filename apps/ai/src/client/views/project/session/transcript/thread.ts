@@ -13,6 +13,8 @@ import type { Message, Part, Usage } from '@kestack/ai-toolkit/api';
  *   subagent's own user words (Codex sends them), or else the call's
  *   `prompt` or `description` input (Claude's Agent tool). Its last words
  *   are dropped when they are its report, as Codex sends both;
+ * - a turn starts with your words and files, or, when the agent began it
+ *   on its own, with none; it ends at a Fork Point, its turnEnded;
  * - a turn's usage is its turnEnded's, or else the sum of its usage parts,
  *   which are never rows of their own; it ran from its turnStarted to its
  *   turnEnded;
@@ -26,12 +28,19 @@ type Of<T extends Part['type']> = Extract<Part, { readonly type: T }>;
 
 export type ToolState = 'running' | 'done' | 'failed' | 'stopped';
 
+export type TurnAttachment = NonNullable<
+  Of<'turnStarted'>['attachments']
+>[number];
+
 export type Row =
   | {
       readonly kind: 'turn';
       readonly id: string;
       readonly text: string;
       readonly steered: boolean;
+      readonly attachments: ReadonlyArray<TurnAttachment>;
+      /** Begun by the agent on its own, with no words from you. */
+      readonly agentStarted: boolean;
     }
   /** A user's words inside a subagent: the prompt it was given. */
   | { readonly kind: 'prompt'; readonly id: string; readonly text: string }
@@ -60,6 +69,8 @@ export type Row =
   | {
       readonly kind: 'ended';
       readonly id: string;
+      /** The Turn it ends: a Fork Point. */
+      readonly turnId: string;
       readonly status: Of<'turnEnded'>['status'];
       readonly usage: Usage | null;
       readonly error: string | null;
@@ -173,7 +184,14 @@ export const thread = (
         switch (part.type) {
           case 'turnStarted':
             return [
-              { kind: 'turn', id, text: part.text, steered: part.steered },
+              {
+                kind: 'turn',
+                id,
+                text: part.text,
+                steered: part.steered,
+                attachments: part.attachments ?? [],
+                agentStarted: part.agentStarted ?? false,
+              },
             ];
           case 'text':
             return part.text.trim() === ''
@@ -231,6 +249,7 @@ export const thread = (
               {
                 kind: 'ended',
                 id,
+                turnId: message.turnId,
                 status: part.status,
                 usage: part.usage ?? summed.get(message.turnId) ?? null,
                 error: part.error ?? null,

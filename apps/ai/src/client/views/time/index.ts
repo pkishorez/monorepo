@@ -1,1 +1,1 @@
-export { ago } from './time.ts';
+export { ago, elapsed } from './time.ts';

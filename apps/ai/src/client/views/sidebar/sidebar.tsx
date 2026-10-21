@@ -1,7 +1,11 @@
 import type { Project, Session } from '@kestack/ai-toolkit/api';
 import type { Handle } from '@kestack/kabuki/react';
 import { Router } from '@kestack/kabuki/routing';
-import { FolderIcon } from '@kestack/web-platform/components/lucide';
+import {
+  FolderIcon,
+  GitForkIcon,
+  SettingsIcon,
+} from '@kestack/web-platform/components/lucide';
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -16,19 +20,21 @@ import {
 import { Skeleton } from '@kestack/web-platform/components/skeleton';
 import { router, type Pages, type Route } from '../../../shared/pages/index.ts';
 import { AddProjectPopover } from '../add-project/index.ts';
-import { SessionStatus } from '../session-status/index.ts';
+import { JobCount, SessionStatus } from '../session-status/index.ts';
 import { useSettled } from '../settled/index.ts';
 
 /*
  * The sidebar's list: every project by name, and under the one open, its
- * sessions, newest first, each marked with how it stands. The plus beside the
- * label adds a folder, in a popover.
+ * sessions, newest first, each marked with how it stands, how many
+ * Background Jobs it runs, and, quietly, whether it is a fork. The plus
+ * beside the label adds a folder, in a popover. Settings sit at the foot.
  */
 
 export function Places({
   route,
   projects,
   sessions,
+  jobs,
   addProject,
 }: {
   readonly route: Route;
@@ -37,6 +43,8 @@ export function Places({
     readonly rows: ReadonlyArray<Project>;
   };
   readonly sessions: ReadonlyArray<Session>;
+  /** How many Background Jobs each session runs, by id. */
+  readonly jobs: ReadonlyMap<string, number>;
   readonly addProject: Handle<typeof Pages.AddProjectLive>;
 }) {
   const settled = useSettled();
@@ -105,9 +113,17 @@ export function Places({
                               />
                             }
                           >
+                            {session.forkedFrom !== null && (
+                              <GitForkIcon
+                                role="img"
+                                aria-label="Forked"
+                                className="size-3 shrink-0 text-muted-foreground/70"
+                              />
+                            )}
                             <span className="min-w-0 flex-1 truncate">
                               {session.title || 'Untitled session'}
                             </span>
+                            <JobCount count={jobs.get(session.id) ?? 0} />
                             <SessionStatus status={session.status} />
                           </SidebarMenuSubButton>
                         </SidebarMenuSubItem>
@@ -121,5 +137,22 @@ export function Places({
         </SidebarMenu>
       </SidebarGroupContent>
     </SidebarGroup>
+  );
+}
+
+/** The way to Settings, at the sidebar's foot. */
+export function SettingsLink({ route }: { readonly route: Route }) {
+  return (
+    <SidebarMenu>
+      <SidebarMenuItem>
+        <SidebarMenuButton
+          isActive={route._tag === 'Settings'}
+          render={<Router.Link to={router.Settings()} />}
+        >
+          <SettingsIcon aria-hidden className="text-muted-foreground" />
+          <span>Settings</span>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+    </SidebarMenu>
   );
 }

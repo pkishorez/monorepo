@@ -1,12 +1,17 @@
-import { useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import type { Message, Session } from '@kestack/ai-toolkit/api';
-import { useChild, View } from '@kestack/kabuki/react';
-import { TriangleAlertIcon } from '@kestack/web-platform/components/lucide';
+import { useChild, View, type ViewProps } from '@kestack/kabuki/react';
+import { Router } from '@kestack/kabuki/routing';
+import {
+  GitForkIcon,
+  TriangleAlertIcon,
+} from '@kestack/web-platform/components/lucide';
 import { Skeleton } from '@kestack/web-platform/components/skeleton';
-import { Pages } from '../../../../shared/pages/index.ts';
+import { btwQuestion, Pages, router } from '../../../../shared/pages/index.ts';
 import { RunningDot } from '../../running-dot/index.ts';
 import { useOffline, useSettled } from '../../settled/index.ts';
-import { Composer } from './composer.tsx';
+import { AskAnswer } from './ask.tsx';
+import { SessionComposer } from './composer.tsx';
 import { useFollow } from './follow.ts';
 import { Rows, thread } from './transcript/index.ts';
 
@@ -16,7 +21,9 @@ import { Rows, thread } from './transcript/index.ts';
  * agent and model are in the header. Its words can be selected, though the
  * App Shell turns selection off for its swipes. While the server is out of
  * reach, nothing can be sent, and a running turn's progress is unknown. A
- * session the server stopped mid-turn says so under its transcript.
+ * session the server stopped mid-turn says so under its transcript; a fork
+ * names the session it came from over it. The answer to a `/btw` floats
+ * over the composer.
  */
 
 export const SessionView = View.make(
@@ -25,6 +32,17 @@ export const SessionView = View.make(
     const found = useChild(children.session, ({ model }) => model);
     const messages = useChild(children.messages, ({ model }) => model);
     const session = found?.rows[0]?.row as Session | undefined;
+    const forkedFrom = session?.forkedFrom ?? null;
+    useEffect(() => {
+      if (session === undefined) return;
+      send({
+        _tag: 'Seen',
+        projectId: session.projectId,
+        harness: session.harness,
+        parentId: session.forkedFrom?.sessionId ?? null,
+      });
+    }, [session?.projectId, session?.harness, session?.forkedFrom?.sessionId]);
+    const dismiss = useCallback(() => send({ _tag: 'Dismiss' }), [send]);
     const running = session?.status === 'running';
     const rows = useMemo(
       () => thread((messages?.rows ?? []).map(({ row }) => row as Message)),
@@ -49,6 +67,25 @@ export const SessionView = View.make(
             ref={content}
             className="mx-auto flex w-full max-w-3xl flex-col gap-3 px-4 pt-8 pb-10 sm:px-6"
           >
+            {forkedFrom !== null && session !== undefined && (
+              <p className="-mt-2 -mb-4 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+                <GitForkIcon aria-hidden className="size-3.5 shrink-0" />
+                <span className="shrink-0">Forked from</span>
+                <Router.Link
+                  to={router.Project.Session({
+                    projectId: session.projectId,
+                    sessionId: forkedFrom.sessionId,
+                  })}
+                  className="focus-ring min-w-0 truncate rounded-sm text-foreground/80 underline decoration-border underline-offset-4 transition-colors duration-150 hover:text-foreground hover:decoration-foreground motion-reduce:transition-none"
+                >
+                  {children.parent ? (
+                    <ParentTitle instance={children.parent} />
+                  ) : (
+                    'Untitled session'
+                  )}
+                </Router.Link>
+              </p>
+            )}
             {missing ? (
               <p className="text-sm text-muted-foreground">
                 It may belong to a project that was removed.
@@ -61,7 +98,15 @@ export const SessionView = View.make(
                 <Skeleton className="h-4 w-3/4" />
               </div>
             ) : (
-              <Rows rows={rows} opening={opening} running={running} />
+              <Rows
+                rows={rows}
+                opening={opening}
+                running={running}
+                forking={{
+                  fork: (afterTurnId) => send({ _tag: 'Fork', afterTurnId }),
+                  pending: model.forking,
+                }}
+              />
             )}
             {session?.status === 'interrupted' &&
               messages?.status === 'ready' && (
@@ -96,13 +141,26 @@ export const SessionView = View.make(
         </div>
         <div className="shrink-0 pt-2 pb-4 sm:pb-5">
           <div className="mx-auto w-full max-w-3xl px-4 sm:px-6">
-            <Composer
+            <SessionComposer
               draft={model.draft}
+              attachments={model.attachments}
+              skills={model.skills ?? []}
               running={running}
+              asking={btwQuestion(model.draft) !== null}
               stopping={model.stopping}
               problem={model.problem}
               offline={offline}
+              above={
+                model.asked && (
+                  <AskAnswer
+                    key={model.asked.id}
+                    asked={model.asked}
+                    onDismiss={dismiss}
+                  />
+                )
+              }
               onType={(text) => send({ _tag: 'Typed', text })}
+              onAttach={(attachments) => send({ _tag: 'Attach', attachments })}
               onSend={() => send({ _tag: 'Send' })}
               onStop={() => send({ _tag: 'Stop' })}
             />
@@ -112,3 +170,18 @@ export const SessionView = View.make(
     );
   },
 );
+
+/** The title of the session this one was forked from, once its row is read. */
+function ParentTitle({
+  instance,
+}: {
+  readonly instance: NonNullable<
+    ViewProps<typeof Pages.SessionLive>['children']['parent']
+  >;
+}) {
+  const parent = useChild(
+    instance,
+    ({ model }) => model.rows[0]?.row as Session | undefined,
+  );
+  return parent?.title || 'Untitled session';
+}

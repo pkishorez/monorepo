@@ -19,7 +19,8 @@ import {
 
 /*
  * The two pickers a new session is set up with: a plain one for a few
- * choices, and a searchable one for the models, which are many.
+ * choices, and a searchable one for the models, which are many. A choice
+ * that cannot be picked now stays in the list, greyed out, saying why.
  */
 
 const trigger =
@@ -39,6 +40,8 @@ export function Choice({
   readonly choices: ReadonlyArray<{
     readonly value: string;
     readonly label: string;
+    /** Why it cannot be picked now; shown greyed out, the reason on hover. */
+    readonly unavailable?: string | null;
   }>;
   readonly onPick: (value: string) => void;
 }) {
@@ -53,11 +56,24 @@ export function Choice({
         <SelectValue className="text-foreground/90" />
       </SelectTrigger>
       <SelectContent>
-        {choices.map((choice) => (
-          <SelectItem key={choice.value} value={choice.value}>
-            {choice.label}
-          </SelectItem>
-        ))}
+        {choices.map((choice) =>
+          choice.unavailable ? (
+            <SelectItem
+              key={choice.value}
+              value={choice.value}
+              disabled
+              title={choice.unavailable}
+              className="data-disabled:pointer-events-auto"
+            >
+              {choice.label}
+              <span className="text-xs text-muted-foreground">Unavailable</span>
+            </SelectItem>
+          ) : (
+            <SelectItem key={choice.value} value={choice.value}>
+              {choice.label}
+            </SelectItem>
+          ),
+        )}
       </SelectContent>
     </Select>
   );

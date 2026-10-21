@@ -17,3 +17,14 @@ export const ago = (at: number, now = Date.now()) => {
       return relative.format(Math.round(seconds / size), unit);
   return 'just now';
 };
+
+const pad = (n: number) => String(n).padStart(2, '0');
+
+/** How long something has run, short and ticking: `8s`, `4m 05s`, `2h 03m`. */
+export const elapsed = (ms: number) => {
+  const seconds = Math.max(0, Math.floor(ms / 1000));
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ${pad(seconds % 60)}s`;
+  return `${Math.floor(minutes / 60)}h ${pad(minutes % 60)}m`;
+};

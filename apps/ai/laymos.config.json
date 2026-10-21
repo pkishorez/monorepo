@@ -47,6 +47,13 @@
     "src/shared/pages/project": [
       "src/shared/pages/ai",
       "src/shared/pages/places"
-    ]
+    ],
+    "src/client/views/background-jobs": ["src/client/views/time"],
+    "src/shared/pages/background-jobs": ["src/shared/pages/ai"],
+    "src/shared/pages/session-actions": [
+      "src/shared/pages/ai",
+      "src/shared/pages/places"
+    ],
+    "src/shared/pages/settings": ["src/shared/pages/ai"]
   }
 }

@@ -17,6 +17,7 @@ import {
   FilePenIcon,
   FilePlus2Icon,
   FileTextIcon,
+  GitForkIcon,
   GlobeIcon,
   ListTodoIcon,
   PlugIcon,
@@ -27,10 +28,12 @@ import {
   TriangleAlertIcon,
   WrenchIcon,
   XIcon,
+  ZapIcon,
 } from '@kestack/web-platform/components/lucide';
 import { Spinner } from '@kestack/web-platform/components/spinner';
 import { DiffViewer } from '@kestack/web-platform/components/viewers/diff-viewer';
 import { MarkdownViewer } from '@kestack/web-platform/components/viewers/markdown-viewer';
+import { Attachments } from './attachments.tsx';
 import type { Row, ToolState } from './thread.ts';
 import {
   commandOf,
@@ -49,7 +52,9 @@ import {
  * and its target, its state at the end and, when it failed, why under it;
  * a run of calls of one kind as one line that opens to them; a subagent as
  * its own thread under its prompt, indented along a guide line, its report
- * last; and the end of each turn, quietly, with how long it took.
+ * last; and the end of each turn, quietly, with how long it took and,
+ * on hover or focus, a way to fork the session there. A turn the agent
+ * began on its own opens with a quiet line instead of your words.
  *
  * Every word can be selected: a line opens on a click that selected
  * nothing, or from its chevron, which is the button a keyboard reaches.
@@ -78,6 +83,13 @@ const TOOL_ICON: Record<ToolKind, typeof FileTextIcon> = {
 export interface Opening {
   readonly isOpen: (id: string) => boolean;
   readonly toggle: (id: string) => void;
+}
+
+/** Forking the session after a finished turn. */
+export interface Forking {
+  readonly fork: (turnId: string) => void;
+  /** The turn a fork is being made after, while it is. */
+  readonly pending: string | null;
 }
 
 /** Output longer than this many lines shows its start until asked for all. */
@@ -628,14 +640,24 @@ function RowView({
   opening,
   running,
   nested,
+  forking,
 }: {
   readonly row: Row;
   readonly opening: Opening;
   readonly running: boolean;
   readonly nested: boolean;
+  readonly forking: Forking | undefined;
 }) {
   switch (row.kind) {
     case 'turn':
+      if (row.agentStarted)
+        return (
+          <div className="mt-6 flex items-center gap-2 text-xs text-muted-foreground first:mt-0">
+            <ZapIcon aria-hidden className="size-3.5 shrink-0" />
+            Background work finished; the agent carried on
+            <span aria-hidden className="h-px flex-1 bg-border" />
+          </div>
+        );
       return (
         <div
           className={`flex flex-col gap-1.5 first:mt-0 ${row.steered ? 'mt-1' : 'mt-6'}`}
@@ -646,8 +668,13 @@ function RowView({
               Steered
             </span>
           )}
-          <div className="rounded-lg border border-border bg-muted/40 px-4 py-3 text-base leading-7 whitespace-pre-wrap break-words">
-            {row.text}
+          <div className="flex flex-col gap-3 rounded-lg border border-border bg-muted/40 px-4 py-3">
+            {row.text !== '' && (
+              <div className="text-base leading-7 whitespace-pre-wrap break-words">
+                {row.text}
+              </div>
+            )}
+            <Attachments attachments={row.attachments} />
           </div>
         </div>
       );
@@ -780,7 +807,7 @@ function RowView({
     case 'ended':
       return (
         <div
-          className={`flex flex-wrap items-center gap-x-2 gap-y-1 pt-1 text-xs tabular-nums ${row.status === 'failed' ? 'text-destructive' : 'text-muted-foreground'}`}
+          className={`group/ended flex min-h-7 flex-wrap items-center gap-x-2 gap-y-1 pt-1 text-xs tabular-nums ${row.status === 'failed' ? 'text-destructive' : 'text-muted-foreground'}`}
         >
           {row.status === 'done' && (
             <span className="flex items-center gap-1.5">
@@ -813,6 +840,13 @@ function RowView({
           )}
           {row.usage && <span aria-hidden>·</span>}
           {row.usage && <span>{usageLine(row.usage)}</span>}
+          {forking && (
+            <ForkHere
+              pending={forking.pending === row.turnId}
+              busy={forking.pending !== null}
+              onFork={() => forking.fork(row.turnId)}
+            />
+          )}
         </div>
       );
     case 'error':
@@ -839,11 +873,39 @@ function RowView({
   }
 }
 
+/** Forks after this turn: shown on hover or focus of its end, always on a touch screen. */
+function ForkHere({
+  pending,
+  busy,
+  onFork,
+}: {
+  readonly pending: boolean;
+  readonly busy: boolean;
+  readonly onFork: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={busy}
+      onClick={onFork}
+      className={`focus-ring ml-auto inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-md px-2 font-medium text-muted-foreground transition-[opacity,color,background-color] duration-150 hover:bg-muted hover:text-foreground focus-visible:opacity-100 disabled:cursor-default group-hover/ended:opacity-100 motion-reduce:transition-none [@media(hover:none)]:opacity-100 ${pending ? 'opacity-100' : 'opacity-0'}`}
+    >
+      {pending ? (
+        <Spinner className="size-3.5" />
+      ) : (
+        <GitForkIcon aria-hidden className="size-3.5" />
+      )}
+      Fork from here
+    </button>
+  );
+}
+
 export function Rows({
   rows,
   opening,
   running,
   nested = false,
+  forking,
 }: {
   readonly rows: ReadonlyArray<Row>;
   readonly opening: Opening;
@@ -851,6 +913,8 @@ export function Rows({
   readonly running: boolean;
   /** Inside a subagent, whose words are a step smaller than the main agent's. */
   readonly nested?: boolean;
+  /** How to fork after a finished turn; a subagent's thread has no turns of its own. */
+  readonly forking?: Forking;
 }) {
   return grouped(rows).map((item) =>
     item.kind === 'group' ? (
@@ -868,6 +932,7 @@ export function Rows({
         opening={opening}
         running={running}
         nested={nested}
+        forking={forking}
       />
     ),
   );

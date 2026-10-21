@@ -1,1 +1,1 @@
-export { Places } from './sidebar.tsx';
+export { Places, SettingsLink } from './sidebar.tsx';

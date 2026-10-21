@@ -1,1 +1,1 @@
-export { Brand, Model, Offline, Title } from './header.tsx';
+export { Brand, Model, Offline, SessionMenu, Title } from './header.tsx';

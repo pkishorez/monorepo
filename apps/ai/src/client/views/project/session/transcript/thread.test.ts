@@ -253,3 +253,35 @@ describe('thread', () => {
     });
   });
 });
+
+describe('turns', () => {
+  it('carry their files, and say when the agent started them', () => {
+    const image = { name: 'a.png', mime: 'image/png', size: 3, data: 'AAA' };
+    const rows = thread([
+      message(
+        [
+          {
+            type: 'turnStarted',
+            text: 'look',
+            steered: false,
+            attachments: [image],
+          },
+        ],
+        { role: 'user', turnId: 't1' },
+      ),
+      message([{ type: 'turnEnded', status: 'done' }], {
+        role: 'system',
+        turnId: 't1',
+      }),
+      message(
+        [{ type: 'turnStarted', text: '', steered: false, agentStarted: true }],
+        { role: 'user', turnId: 't2' },
+      ),
+    ]);
+    expect(rows).toMatchObject([
+      { kind: 'turn', attachments: [image], agentStarted: false },
+      { kind: 'ended', turnId: 't1' },
+      { kind: 'turn', attachments: [], agentStarted: true },
+    ]);
+  });
+});

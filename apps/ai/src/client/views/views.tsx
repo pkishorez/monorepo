@@ -4,17 +4,24 @@ import { Router, useRouter } from '@kestack/kabuki/routing';
 import { AppShell } from '@kestack/web-platform/recipes/frame';
 import { Pages, router, type Route } from '../../shared/pages/index.ts';
 import { ThemeToggle } from '../components/index.ts';
-import { Brand, Model, Offline, Title } from './header/index.ts';
+import {
+  BackgroundJobsBubble,
+  jobsBySession,
+  Known,
+} from './background-jobs/index.ts';
+import { Brand, Model, Offline, SessionMenu, Title } from './header/index.ts';
 import { HomeView } from './home/index.ts';
 import { ProjectView } from './project/index.ts';
+import { SettingsView } from './settings/index.ts';
 import { Connection, Reached, useSettled } from './settled/index.ts';
-import { Places } from './sidebar/index.ts';
+import { Places, SettingsLink } from './sidebar/index.ts';
 
 /*
  * The root page's View, in the Web Platform's App Shell: the sidebar with
- * every project and the open one's sessions; the header with where you
- * are, the connection while it is down, and the theme; and the page the
- * URL names.
+ * every project and the open one's sessions, and Settings at its foot; the
+ * header with where you are, the session's menu, the connection while it
+ * is down, and the theme; the page the URL names; and over its top right,
+ * the Background Jobs running, while any are.
  */
 
 export const AppView = View.make(Pages.AppLive, ({ root, model, children }) => (
@@ -37,6 +44,10 @@ function Shell({
   const settled = useSettled();
   const projects = useChild(children.projects, ({ model }) => model);
   const rows = useChild(children.sessions, ({ model }) => model.rows);
+  const running = useChild(
+    children.backgroundJobs,
+    ({ model }) => model.sessions,
+  );
   const sessions = (rows ?? []).map(({ row }) => row as Session);
   const projectRows =
     projects?.status === 'ready'
@@ -57,9 +68,11 @@ function Shell({
               rows: projectRows ?? [],
             }}
             sessions={sessions}
+            jobs={jobsBySession(running ?? [])}
             addProject={children.addProject}
           />
         ),
+        footer: <SettingsLink route={route} />,
       }}
       header={{
         title: (
@@ -73,17 +86,23 @@ function Shell({
         actions: (
           <>
             <Model session={sessions.find(({ id }) => id === sessionId)} />
+            <SessionMenu instance={children.sessionActions} />
             <Offline />
             <ThemeToggle />
           </>
         ),
       }}
     >
-      <div className="flex h-full min-h-0 flex-col">
+      <div className="relative flex h-full min-h-0 flex-col">
+        <Known value={{ projects: projectRows ?? [], sessions }}>
+          <BackgroundJobsBubble instance={children.backgroundJobs} />
+        </Known>
         {children.Home ? (
           <HomeView instance={children.Home} />
         ) : children.Project ? (
           <ProjectView instance={children.Project} />
+        ) : children.Settings ? (
+          <SettingsView instance={children.Settings} />
         ) : (
           <p className="mx-auto w-full max-w-3xl px-6 py-10 text-sm text-muted-foreground">
             Nothing lives at this address.{' '}

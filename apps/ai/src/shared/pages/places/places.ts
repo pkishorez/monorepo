@@ -16,3 +16,5 @@ export const session = (projectId: string, sessionId: string) => ({
   projectId,
   page: { _tag: 'Session' as const, sessionId },
 });
+
+export const settings = () => ({ _tag: 'Settings' as const });

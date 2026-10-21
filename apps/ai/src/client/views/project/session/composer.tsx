@@ -1,54 +1,70 @@
+import type { Skill } from '@kestack/ai-toolkit/api';
 import { Button } from '@kestack/web-platform/components/button';
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupTextarea,
-} from '@kestack/web-platform/components/input-group';
 import {
   CircleAlertIcon,
   WifiOffIcon,
 } from '@kestack/web-platform/components/lucide';
 import { Spinner } from '@kestack/web-platform/components/spinner';
+import type { ReactNode } from 'react';
+import { Composer } from '../../../composer/index.ts';
 
 /*
  * The composer under the transcript. Enter sends, Shift+Enter is a new
  * line. Idle, the one button sends; while the agent runs it steers the
- * turn, and Stop beside it cancels. While the server is out of reach you
+ * turn, and Stop beside it cancels. `/btw` asks the session a question on
+ * the side, whose answer shows above. While the server is out of reach you
  * can still write, but not send or stop, and the line above says why.
  */
 
-export function Composer({
+interface Attached {
+  readonly name: string;
+  readonly mime: string;
+  readonly data: string;
+  readonly size: number;
+}
+
+const COMMANDS = [
+  {
+    name: 'btw',
+    description: 'Ask about this session without interrupting it',
+  },
+];
+
+export function SessionComposer({
   draft,
+  attachments,
+  skills,
   running,
+  asking,
   stopping,
   problem,
   offline,
+  above,
   onType,
+  onAttach,
   onSend,
   onStop,
 }: {
   readonly draft: string;
+  readonly attachments: ReadonlyArray<Attached>;
+  readonly skills: ReadonlyArray<Skill>;
   readonly running: boolean;
+  /** The draft is a `/btw` question, so sending asks it. */
+  readonly asking: boolean;
   readonly stopping: boolean;
   readonly problem: string | null;
   /** Why nothing can be sent now, or null when the server is reachable. */
   readonly offline: string | null;
+  /** Floats over the composer's top edge: the answer to a `/btw`. */
+  readonly above?: ReactNode;
   readonly onType: (text: string) => void;
+  readonly onAttach: (attachments: ReadonlyArray<Attached>) => void;
   readonly onSend: () => void;
   readonly onStop: () => void;
 }) {
   const blocked = offline !== null;
-  const send = () => {
-    if (!blocked) onSend();
-  };
   return (
-    <form
-      className="flex flex-col gap-2"
-      onSubmit={(event) => {
-        event.preventDefault();
-        send();
-      }}
-    >
+    <div className="flex flex-col gap-2">
       {blocked ? (
         <p
           id="composer-offline"
@@ -68,51 +84,52 @@ export function Composer({
           </p>
         )
       )}
-      <InputGroup className="rounded-xl bg-card shadow-xs dark:bg-card">
-        <InputGroupTextarea
-          aria-label={running ? 'Steer the agent' : 'Message'}
-          aria-describedby={blocked ? 'composer-offline' : undefined}
-          placeholder={running ? 'Steer the agent while it works…' : 'Reply…'}
-          rows={1}
-          value={draft}
-          className="max-h-60 min-h-11 px-3.5 pt-3 text-base leading-relaxed"
-          onChange={(event) => onType(event.currentTarget.value)}
-          onKeyDown={(event) => {
-            if (
-              event.key === 'Enter' &&
-              !event.shiftKey &&
-              !event.nativeEvent.isComposing
-            ) {
-              event.preventDefault();
-              send();
-            }
+      <div className="relative">
+        {above}
+        <Composer
+          label={running ? 'Steer the agent' : 'Message'}
+          placeholder={
+            running
+              ? 'Steer the agent while it works, or /btw to ask on the side…'
+              : 'Reply, or type / for skills…'
+          }
+          text={draft}
+          onTextChange={onType}
+          attachments={attachments}
+          onAttachmentsChange={onAttach}
+          onSubmit={() => {
+            if (!blocked) onSend();
           }}
+          skills={skills}
+          commands={COMMANDS}
+          describedBy={blocked ? 'composer-offline' : undefined}
+          actions={
+            <>
+              {running && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={stopping || blocked}
+                  onClick={onStop}
+                >
+                  {stopping && <Spinner />}
+                  Stop
+                </Button>
+              )}
+              <Button
+                type="submit"
+                size="sm"
+                disabled={
+                  blocked || (draft.trim() === '' && attachments.length === 0)
+                }
+              >
+                {asking ? 'Ask' : running ? 'Steer' : 'Send'}
+              </Button>
+            </>
+          }
         />
-        <InputGroupAddon
-          align="block-end"
-          className="cursor-default justify-end gap-1.5 px-2 pb-2"
-        >
-          {running && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={stopping || blocked}
-              onClick={onStop}
-            >
-              {stopping && <Spinner />}
-              Stop
-            </Button>
-          )}
-          <Button
-            type="submit"
-            size="sm"
-            disabled={blocked || draft.trim() === ''}
-          >
-            {running ? 'Steer' : 'Send'}
-          </Button>
-        </InputGroupAddon>
-      </InputGroup>
-    </form>
+      </div>
+    </div>
   );
 }

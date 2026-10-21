@@ -5,6 +5,7 @@ import { connection as RpcConnection } from '@kestack/rpc-toolkit/rpc/websocket'
 import { Replicas } from '@kestack/std-toolkit/replica';
 import { AddProjectLive } from './add-project/index.ts';
 import { Projects, Sessions } from './ai/index.ts';
+import { BackgroundJobsLive } from './background-jobs/index.ts';
 import { Home, HomeLive } from './home/index.ts';
 import {
   NewSessionLive,
@@ -12,13 +13,17 @@ import {
   ProjectLive,
   SessionLive,
 } from './project/index.ts';
+import { SessionActionsLive } from './session-actions/index.ts';
+import { Settings, SettingsLive } from './settings/index.ts';
 
 /*
  * The root page, drawn only in the browser: it runs the Replica of the
  * server's records for the whole app, reads every project and session for
- * the sidebar, holds the sidebar's add-a-folder form, and follows the
- * connection to the server, so the app can say when it is down, and
- * whether it has reached it yet: until then, an empty list means nothing.
+ * the sidebar, holds the sidebar's add-a-folder form, follows every
+ * session's Background Jobs, does what the header's session menu asks, and
+ * follows the connection to the server, so the app can say when it is
+ * down, and whether it has reached it yet: until then, an empty list means
+ * nothing.
  */
 
 const ConnectionStatus = Schema.Literals([
@@ -31,7 +36,7 @@ const App = Page.define({
   render: 'client',
   requires: [RpcConnection],
   metadata: { title: 'AI' },
-  pages: { Home, Project },
+  pages: { Home, Project, Settings },
   model: Schema.Struct({
     connection: ConnectionStatus,
     /** Connected at least once: until then, nothing synced says what is missing. */
@@ -46,13 +51,15 @@ const ReplicasLive = Replicas.child([AiLive]);
 
 const AppLive = Page.build(App, {
   init: () => ({ model: { connection: 'connecting', reached: false } }),
-  pages: { Home: HomeLive, Project: ProjectLive },
+  pages: { Home: HomeLive, Project: ProjectLive, Settings: SettingsLive },
   provides: () => Replicas.layer,
   children: {
     replicas: ReplicasLive,
     projects: { actor: Projects, props: () => ({}) },
     sessions: { actor: Sessions, props: () => ({}) },
     addProject: { actor: AddProjectLive },
+    backgroundJobs: { actor: BackgroundJobsLive },
+    sessionActions: { actor: SessionActionsLive },
   },
   workers: {
     connection: {
@@ -84,6 +91,9 @@ export const Pages = {
   SessionLive,
   NewSessionLive,
   AddProjectLive,
+  SettingsLive,
+  BackgroundJobsLive,
+  SessionActionsLive,
 };
 
 export type Route = typeof router.route.Type;

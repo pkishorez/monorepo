@@ -1,2 +1,2 @@
 export { thread } from './thread.ts';
-export { Folder, Rows, type Opening } from './transcript.tsx';
+export { Folder, Rows, type Forking, type Opening } from './transcript.tsx';

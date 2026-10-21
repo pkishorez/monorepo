@@ -3,4 +3,5 @@ export {
   pickedHarness,
   pickedModel,
   pickedSettings,
+  pickedSkills,
 } from './new-session.ts';

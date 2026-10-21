@@ -1,6 +1,9 @@
 import type { Project, Session } from '@kestack/ai-toolkit/api';
 import { Router } from '@kestack/kabuki/routing';
-import { ChevronRightIcon } from '@kestack/web-platform/components/lucide';
+import {
+  ChevronRightIcon,
+  GitForkIcon,
+} from '@kestack/web-platform/components/lucide';
 import { Skeleton } from '@kestack/web-platform/components/skeleton';
 import { router, type Route } from '../../../shared/pages/index.ts';
 import { SessionStatus } from '../session-status/index.ts';
@@ -9,8 +12,8 @@ import { useOffline } from '../settled/index.ts';
 /*
  * What the App Shell's header says: where you are, as a trail from the
  * project to the session; the open session's agent and model; and, while
- * the server is out of reach, a pill that says so. The header itself is the
- * Web Platform's.
+ * the server is out of reach, a pill that says so; and the session's menu
+ * (`session-menu.tsx`). The header itself is the Web Platform's.
  */
 
 const AGENT = { claude: 'Claude', codex: 'Codex' } as const;
@@ -54,7 +57,11 @@ export function Title({
   readonly settled: boolean;
 }) {
   if (route._tag !== 'Project')
-    return route._tag === 'Home' ? 'Projects' : 'Page not found';
+    return route._tag === 'Home'
+      ? 'Projects'
+      : route._tag === 'Settings'
+        ? 'Settings'
+        : 'Page not found';
   const project = projects?.find(({ id }) => id === route.projectId);
   if (project === undefined)
     return settled && projects !== null ? (
@@ -96,6 +103,13 @@ export function Title({
         )
       ) : (
         <>
+          {session.forkedFrom !== null && (
+            <GitForkIcon
+              role="img"
+              aria-label="Forked"
+              className="size-3.5 shrink-0 text-muted-foreground"
+            />
+          )}
           <span className="min-w-0 truncate" title={session.title || undefined}>
             {session.title || 'Untitled session'}
           </span>
@@ -134,3 +148,5 @@ export function Offline() {
     </span>
   );
 }
+
+export { SessionMenu } from './session-menu.tsx';
