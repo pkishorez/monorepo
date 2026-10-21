@@ -1,8 +1,8 @@
 import { Schema } from 'effect';
 
 /*
- * The accounts list: every signed-in Account, which one is active, whose
- * Pocket is shown, and each Account's Instance as Replicas shows it.
+ * The accounts list: every signed-in Account, which one is active, and
+ * whose Pocket is shown.
  *
  * The shown Account is the active one unless another was picked. A pick
  * holds through a switch, and goes when that Account becomes the active
@@ -18,17 +18,6 @@ export const Caller = Schema.TaggedUnion({
 });
 
 export type Caller = typeof Caller.Type;
-
-/** One running Instance, as `Replicas.state` shows it. */
-export const Running = Schema.Struct({
-  replica: Schema.String,
-  key: Schema.String,
-  role: Schema.Literals(['leading', 'following']),
-  gate: Schema.Boolean,
-  holders: Schema.Array(Schema.String),
-  /** When it stops, in ms since 1970, unless held again first. */
-  lingeringUntil: Schema.NullOr(Schema.Number),
-});
 
 /** Who is signed in, as the accounts list keeps it. */
 export const signedIn = ({

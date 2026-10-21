@@ -1,5 +1,5 @@
-import { Schema } from 'effect';
-import { Actor } from '@kestack/kabuki';
+import { Effect, Schema } from 'effect';
+import { Actor, Command } from '@kestack/kabuki';
 import { Replicas } from '@kestack/std-toolkit/replica';
 import { PocketRpc } from '../../../../apis/pocket/index.ts';
 import {
@@ -22,6 +22,12 @@ import { Entries, Wallets } from './queries.ts';
  * 2. End     an Action ends with a Message carrying the args it was asked
  *            with, so its id says which write ended. A refusal is kept
  *            beside where it was asked, for the Account it was for.
+ * 3. Watch   a wallet watched opens its Window: its entries sync, and the
+ *            Entries Query shows them. Unwatched, the Window is let go and
+ *            closes after the GC Time; what it stored stays.
+ * 4. Elsewhere  a deposit made straight at the Worker, as another device
+ *            would, never Confirmed here: its entry arrives only through
+ *            its wallet's Window, while it runs.
  */
 
 const Write = Schema.TaggedUnion({
@@ -66,10 +72,17 @@ const Refused = Schema.Struct({
   reason: Schema.String,
 });
 
+const Watched = Schema.Struct({
+  account: Schema.String,
+  wallet: Schema.String,
+});
+
 const Model = Schema.Struct({
   /** Asked and not ended. */
   writes: Schema.Array(Write),
   refused: Schema.Array(Refused),
+  /** The wallets whose entries sync, by Account. */
+  watching: Schema.Array(Watched),
 });
 
 type Model = typeof Model.Type;
@@ -92,6 +105,8 @@ export const PocketSection = Actor.define('Pocket', {
       amount: Schema.Int,
     },
     Remove: { id: Schema.String },
+    Watch: { wallet: Schema.String },
+    Elsewhere: { id: Schema.String, wallet: Schema.String },
     CreateWallet: CreateWallet.result,
     Post: Post.result,
     Transfer: Transfer.result,
@@ -120,12 +135,36 @@ const commandOf = (write: Write) => {
   }
 };
 
+// 4. Elsewhere
+const depositElsewhere = Command.make('DepositElsewhere', {
+  args: Schema.Struct({
+    account: Schema.String,
+    id: Schema.String,
+    walletId: Schema.String,
+  }),
+  run: ({ account, id, walletId }) =>
+    Effect.gen(function* () {
+      const rpc = yield* PocketRpc;
+      yield* rpc.post(account, {
+        id,
+        walletId,
+        amount: 100,
+        note: 'From another device',
+      });
+    }).pipe(
+      Effect.catch((error) =>
+        Effect.logWarning('A deposit made elsewhere was refused', error),
+      ),
+    ),
+});
+
 const sameSpot = (write: Write) => (refusal: typeof Refused.Type) =>
   refusal.account === write.account && refusal.at === atOf(write);
 
 // 1. Ask
 const ask = (model: Model, write: Write) => ({
   model: {
+    ...model,
     writes: [...model.writes, write],
     refused: model.refused.filter((each) => !sameSpot(write)(each)),
   },
@@ -145,6 +184,7 @@ const end = (
   if (done === undefined) return { model };
   return {
     model: {
+      ...model,
       writes: model.writes.filter((each) => each !== done),
       refused:
         failed === null
@@ -157,6 +197,24 @@ const end = (
   };
 };
 
+// 3. Watch
+/** The wallets `account` watches. */
+export const watchedBy = (model: Model, account: string) =>
+  model.watching
+    .filter((each) => each.account === account)
+    .map(({ wallet }) => wallet);
+
+const watch = (model: Model, account: string, wallet: string): Model => {
+  const at = (each: typeof Watched.Type) =>
+    each.account === account && each.wallet === wallet;
+  return {
+    ...model,
+    watching: model.watching.some(at)
+      ? model.watching.filter((each) => !at(each))
+      : [...model.watching, { account, wallet }],
+  };
+};
+
 /** The first name `Wallet n` none of `names` has. */
 export const nextWalletName = (names: ReadonlyArray<string>) => {
   let n = 1;
@@ -165,7 +223,7 @@ export const nextWalletName = (names: ReadonlyArray<string>) => {
 };
 
 export const PocketLive = Actor.build(PocketSection, {
-  init: () => ({ model: { writes: [], refused: [] } }),
+  init: () => ({ model: { writes: [], refused: [], watching: [] } }),
   children: {
     wallets: {
       actor: Wallets,
@@ -173,7 +231,11 @@ export const PocketLive = Actor.build(PocketSection, {
     },
     entries: {
       actor: Entries,
-      props: ({ props }) => ({ account: props.account }),
+      while: ({ model, props }) => watchedBy(model, props.account).length > 0,
+      props: ({ model, props }) => ({
+        account: props.account,
+        wallets: watchedBy(model, props.account),
+      }),
     },
   },
   on: {
@@ -207,6 +269,19 @@ export const PocketLive = Actor.build(PocketSection, {
     Remove: ({ id }, { model, props }) =>
       props.writable
         ? ask(model, { _tag: 'DeleteEntry', account: props.account, id })
+        : {},
+    Watch: ({ wallet }, { model, props }) => ({
+      model: watch(model, props.account, wallet),
+    }),
+    Elsewhere: ({ id, wallet }, { props }) =>
+      props.writable
+        ? {
+            command: depositElsewhere({
+              account: props.account,
+              id,
+              walletId: wallet,
+            }),
+          }
         : {},
     CreateWallet: ({ args, failed }, { model }) =>
       end(model, 'CreateWallet', args.id, failed),

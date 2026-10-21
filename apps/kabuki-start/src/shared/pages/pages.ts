@@ -23,15 +23,16 @@ import { PocketLive as PocketReplica } from '../../replicas/pocket/index.ts';
  * are checked against, the browser for every page's build its Views draw.
  * The root page also holds the Account Switcher, which its View draws in
  * the header, and Provides every page `CurrentAccount`. It runs Replicas
- * too, once for the whole app, so an Instance a page reads keeps running
- * for 5 seconds after it leaves, and another page reading it meanwhile
- * finds it running.
+ * too, once for the whole app, so an Instance a page leaves runs on for its
+ * GC Time, and another page reading it meanwhile finds it running.
  */
 
 const App = Page.define({
   metadata: { meta: [{ property: 'og:site_name', content: 'Kabuki Start' }] },
   pages: { Static, Items, Apis, Replica },
 });
+
+const ReplicasLive = Replicas.child([PocketReplica]);
 
 const AppLive = Page.build(App, {
   pages: {
@@ -40,15 +41,11 @@ const AppLive = Page.build(App, {
     Apis: ApisLive,
     Replica: ReplicaLive,
   },
-  provides: () =>
-    Layer.mergeAll(
-      CurrentAccount.layer,
-      Replicas.layer({ linger: '5 seconds' }),
-    ),
+  provides: () => Layer.mergeAll(CurrentAccount.layer, Replicas.layer),
   children: {
     // The Auth Worker's `maxAccounts`: its default, 5.
     account: { actor: AccountSwitcherLive, input: () => ({ maxAccounts: 5 }) },
-    replicas: Replicas.child([PocketReplica]),
+    replicas: ReplicasLive,
   },
 });
 
@@ -57,9 +54,10 @@ export const router = Router.define(App, {
   scrollRestoration: true,
 });
 
-/** Every page's build, and the actors the Replica page places, for their Views. */
+/** Every page's build, and the actors the Replica page places and reads, for their Views. */
 export const Pages = {
   AppLive,
+  ReplicasLive: ReplicasLive.actor,
   StaticLive,
   DynamicLive,
   ClientLive,

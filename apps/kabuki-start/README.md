@@ -39,6 +39,12 @@ accounts list shows every signed-in Account and how its Instance syncs,
 counting down once nothing reads it; picking one shows its Pocket. The
 active Account's writes in one click, optimistically, rolling back what
 the Worker refuses; any other is read from the device without fetching.
+Wallets sync whole; entries sync one Window per wallet: a wallet's
+**Sync entries** switch opens its Window, and the sync panel beside the
+accounts shows every Instance, its Collections and their Windows, each
+counting down for 8 seconds once let go. **+$1 from elsewhere** writes
+straight to the Worker, as another device would, so only a wallet whose
+Window runs brings its entry in.
 
 The folders are its boundaries. `src/shared/pages` is what both sides
 import: every page's definition and build, its data Schema, and the router.
@@ -61,7 +67,7 @@ src/
     app.tsx            Start.app: the router, the root View, the Document, the browser's Layer (Accounts, the API clients and the Replica Store)
     document.tsx       the <html> around the app: theme script, devtools, sign-in dialog
     views/             one View per page; views.tsx draws the root page, preload-link.tsx shows a preload live
-    views/replica/     the Replica page: the accounts list, the Pocket
+    views/replica/     the Replica page: the accounts list, the sync panel, the Pocket
     components/        layout, page intro, clock, devtools, theme
   server/
     loaders.server.ts  Start.server(loaders): one Loader per page with data

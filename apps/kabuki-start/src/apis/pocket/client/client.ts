@@ -76,6 +76,12 @@ const make = Effect.map(RpcClient.make(PocketRpcs), (rpc) => {
     /** Up to a page of `account`'s Entries changed after `after`, oldest change first. */
     entries: (account: string, after: Entity<Entry> | null) =>
       rpc.Entries({ '>': after }, as(account)),
+    /** Up to a page of the Entries of `account`'s Wallet `walletId` changed after `after`, oldest change first. */
+    walletEntries: (
+      account: string,
+      walletId: string,
+      after: Entity<Entry> | null,
+    ) => rpc.WalletEntries({ walletId, '>': after }, as(account)),
     createWallet: (
       account: string,
       input: Parameters<typeof rpc.CreateWallet>[0],

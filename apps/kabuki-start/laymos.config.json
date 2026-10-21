@@ -35,6 +35,7 @@
       "src/client/components"
     ],
     "src/client/components": ["src/shared/pages"],
+    "src/client/views/replica/sync": ["src/client/views/replica/accounts"],
     "src/infra": ["src/apis/pocket/storage"],
     "src/apis/pocket/contract": ["src/apis/pocket/domain"],
     "src/apis/pocket/storage": ["src/apis/pocket/domain"],

@@ -250,6 +250,34 @@ const deleteEntry = (userId: string, input: { id: string }) =>
     }),
   );
 
+/**
+ * Up to a page of Wallet `walletId`'s Entries changed after `after`, oldest
+ * change first. Entries are indexed by Account alone, so it reads the
+ * Account's pages on until it has a page of the Wallet's or none are left.
+ */
+const walletEntries = (
+  userId: string,
+  walletId: string,
+  after: Entity<Entry> | null,
+) =>
+  Effect.gen(function* () {
+    const found: Array<Entity<Entry>> = [];
+    let cursor = after;
+    while (found.length < PAGE) {
+      const { items, hasMore } = yield* entries.query(
+        'byUpdate',
+        { pk: { userId }, '>=': null },
+        page(cursor),
+      );
+      found.push(...items.filter(({ value }) => value.walletId === walletId));
+      const last = items.at(-1);
+      if (!hasMore || last === undefined) break;
+      cursor = last;
+    }
+    // Later ones come with the next read, after the last one answered.
+    return found.slice(0, PAGE);
+  }).pipe(Effect.orDie);
+
 /** What a read or a write does, for the User `userId`, over storage. */
 export const Ledger = {
   wallets: (userId: string, after: Entity<Wallet> | null) =>
@@ -262,6 +290,7 @@ export const Ledger = {
       Effect.map(({ items }) => items),
       Effect.orDie,
     ),
+  walletEntries,
   createWallet,
   renameWallet,
   post,

@@ -6,11 +6,15 @@ import { Entry, PocketRpc, Wallet } from '../../../apis/pocket/index.ts';
 import { Pocket } from '../shape/index.ts';
 
 /*
- * How each Pocket Instance syncs: wallets and entries each read from the
+ * How each Pocket Instance syncs: every wallet, and the entries of only the
+ * wallets a Query filters on, one Window per wallet. Each reads from the
  * Pocket Worker oldest change first, polled every 2 seconds, every call
  * made for the Instance's own Account. Its Gate is open only while that
  * Account is the active one: the cookie is the active Account's, so any
- * other Instance stays readable from the device, and fetches nothing.
+ * other Instance stays readable from the device, and fetches nothing. An
+ * Instance, or a Window, nothing uses runs on for 8 seconds, so another
+ * page reading it meanwhile finds it running, and the page can show it
+ * counting down.
  */
 
 /** Reads one Collection forward for an Account, with entities in encoded form both ways. */
@@ -40,6 +44,7 @@ const reading = <S extends typeof Wallet | typeof Entry>(
 };
 
 export const PocketLive = Replica.build(Pocket, {
+  gcTime: '8 seconds',
   gate: ({ key }) =>
     Stream.unwrap(
       Effect.gen(function* () {
@@ -58,9 +63,12 @@ export const PocketLive = Replica.build(Pocket, {
       ),
     },
     entries: {
-      strategy: reading(Entry, (rpc, account, after) =>
-        rpc.entries(account, after),
-      ),
+      windows: {
+        walletId: (walletId) =>
+          reading(Entry, (rpc, account, after) =>
+            rpc.walletEntries(account, walletId, after),
+          ),
+      },
     },
   },
 });

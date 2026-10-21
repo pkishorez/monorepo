@@ -31,6 +31,10 @@ const Handlers = PocketRpcs.toLayer({
     asCaller((userId) => Ledger.wallets(userId, ownCursor(after, userId))),
   Entries: ({ '>': after }) =>
     asCaller((userId) => Ledger.entries(userId, ownCursor(after, userId))),
+  WalletEntries: ({ walletId, '>': after }) =>
+    asCaller((userId) =>
+      Ledger.walletEntries(userId, walletId, ownCursor(after, userId)),
+    ),
   CreateWallet: (input) =>
     asCaller((userId) => Ledger.createWallet(userId, input)),
   RenameWallet: (input) =>

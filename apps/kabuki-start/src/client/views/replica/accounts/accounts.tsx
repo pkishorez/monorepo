@@ -1,4 +1,7 @@
-import { useSyncExternalStore } from 'react';
+import { createContext, use, useSyncExternalStore } from 'react';
+import { useChildren, View } from '@kestack/kabuki/react';
+import type { Handle } from '@kestack/kabuki/react';
+import { Pages } from '../../../../shared/pages/index.ts';
 
 /*
  * The accounts list: every signed-in Account, the active one marked, and
@@ -6,15 +9,18 @@ import { useSyncExternalStore } from 'react';
  * this device only otherwise, and counting down once nothing reads it.
  * Picking one shows its Pocket. A row down the side on a wide screen, a
  * strip above the Pocket on a narrow one.
+ *
+ * How an Account's Pocket syncs is read where it is kept: whether it runs
+ * and when it stops in the Replicas actor's Model, whether it leads and its
+ * Gate in its Instance's own. The root page's View hands Replicas down.
  */
 
-interface Running {
-  readonly replica: string;
-  readonly key: string;
-  readonly role: 'leading' | 'following';
-  readonly gate: boolean;
-  readonly lingeringUntil: number | null;
-}
+/** The Replicas actor the root page places, for the statuses to read. */
+export const ReplicasAt = createContext<
+  Handle<typeof Pages.ReplicasLive> | undefined
+>(undefined);
+
+const AccountAt = createContext('');
 
 const tick = (changed: () => void) => {
   const timer = setInterval(changed, 250);
@@ -22,7 +28,7 @@ const tick = (changed: () => void) => {
 };
 
 /** The time now, drawn again four times a second; 0 on the server and while hydrating. */
-const useNow = () => useSyncExternalStore(tick, Date.now, () => 0);
+export const useNow = () => useSyncExternalStore(tick, Date.now, () => 0);
 
 function Countdown({ until }: { readonly until: number }) {
   const now = useNow();
@@ -41,15 +47,24 @@ const DOT = {
   closed: 'border border-muted-foreground',
 } as const;
 
-function Status({ running }: { readonly running: Running | undefined }) {
+function Status({
+  gcAt,
+  gate,
+  leading,
+}: {
+  /** `undefined` while it is not running. */
+  readonly gcAt: number | null | undefined;
+  readonly gate: boolean;
+  readonly leading: boolean;
+}) {
   const [tone, text] =
-    running === undefined
+    gcAt === undefined
       ? (['closed', 'Not open'] as const)
-      : running.lingeringUntil !== null
-        ? (['stopping', <Countdown until={running.lingeringUntil} />] as const)
-        : !running.gate
+      : gcAt !== null
+        ? (['stopping', <Countdown until={gcAt} />] as const)
+        : !gate
           ? (['local', 'On this device only'] as const)
-          : running.role === 'leading'
+          : leading
             ? (['syncing', 'Syncing'] as const)
             : (['syncing', 'Syncing in another tab'] as const);
   return (
@@ -63,11 +78,39 @@ function Status({ running }: { readonly running: Running | undefined }) {
   );
 }
 
+/** One Account's Pocket as Replicas runs it. */
+const Running = View.make(Pages.ReplicasLive, ({ model, children }) => {
+  const account = use(AccountAt);
+  const own = useChildren(children.pocket).find(
+    (each) => each.model.key === account,
+  );
+  const running = model.instances.find(
+    (each) => each.replica === 'pocket' && each.key === account,
+  );
+  return (
+    <Status
+      gcAt={running?.gcAt}
+      gate={own?.model.gate ?? false}
+      leading={own?.state._tag === 'Leading'}
+    />
+  );
+});
+
+function AccountStatus({ account }: { readonly account: string }) {
+  const replicas = use(ReplicasAt);
+  if (replicas === undefined)
+    return <Status gcAt={undefined} gate={false} leading={false} />;
+  return (
+    <AccountAt value={account}>
+      <Running instance={replicas} />
+    </AccountAt>
+  );
+}
+
 export function AccountsList({
   accounts,
   active,
   shown,
-  instances,
   show,
   className = '',
 }: {
@@ -77,7 +120,6 @@ export function AccountsList({
   }>;
   readonly active: string;
   readonly shown: string;
-  readonly instances: ReadonlyArray<Running>;
   readonly show: (account: string) => void;
   readonly className?: string;
 }) {
@@ -95,7 +137,7 @@ export function AccountsList({
         </h2>
         <p className="max-w-[48ch] text-sm text-pretty text-muted-foreground">
           The active account syncs. Others read from this device. One nothing
-          reads stops after 5 seconds.
+          reads stops after 8 seconds.
         </p>
       </div>
       <ul className="-mx-5 flex snap-x gap-2 overflow-x-auto px-5 pb-1 [scrollbar-width:none] md:mx-0 md:flex-col md:overflow-visible md:px-0">
@@ -117,11 +159,7 @@ export function AccountsList({
                   </span>
                 )}
               </span>
-              <Status
-                running={instances.find(
-                  (each) => each.replica === 'pocket' && each.key === id,
-                )}
-              />
+              <AccountStatus account={id} />
             </button>
           </li>
         ))}

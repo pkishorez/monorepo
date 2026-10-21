@@ -3,7 +3,8 @@ import { createContext } from 'react';
 /*
  * What a Pocket's Queries draw with, handed down from the Pocket View: the
  * one-click writes, null while the Pocket is read-only, the refusal kept
- * beside each spot, and the wallets' names for the activity list.
+ * beside each spot, the wallets' names for the activity list, and which
+ * wallets are watched, so their entries sync.
  */
 
 export interface Writes {
@@ -11,6 +12,8 @@ export interface Writes {
   readonly change: (wallet: string, cents: number) => void;
   readonly move: (from: string, to: string, cents: number) => void;
   readonly remove: (entry: string) => void;
+  /** A $1 deposit made at the Worker, as another device would. */
+  readonly elsewhere: (wallet: string) => void;
 }
 
 export interface Ledger {
@@ -18,12 +21,17 @@ export interface Ledger {
   /** The refusal beside a wallet's id, `new`, or `activity`; null if none. */
   readonly refusedAt: (at: string) => string | null;
   readonly nameOf: (wallet: string) => string;
+  /** The wallets whose entries sync: one Window each. */
+  readonly watching: ReadonlyArray<string>;
+  readonly watch: (wallet: string) => void;
 }
 
 export const LedgerContext = createContext<Ledger>({
   writes: null,
   refusedAt: () => null,
   nameOf: () => 'a wallet',
+  watching: [],
+  watch: () => {},
 });
 
 /** An id that sorts by when it was made, so new rows sort last. */

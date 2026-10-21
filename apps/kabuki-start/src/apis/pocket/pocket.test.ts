@@ -182,6 +182,27 @@ describe('the Pocket Worker', () => {
     expect(pages).toEqual([100, ['w100']]);
   }, 30_000);
 
+  it("reads one Wallet's Entries alone, after the last one seen", async () => {
+    const ada = signIn('ada');
+    const [all, after] = await as(ada, (pocket, account) =>
+      Effect.gen(function* () {
+        yield* pocket.createWallet(account, { id: 'a', name: 'A' });
+        yield* pocket.createWallet(account, { id: 'b', name: 'B' });
+        for (const [id, walletId] of [
+          ['a1', 'a'],
+          ['b1', 'b'],
+          ['a2', 'a'],
+          ['b2', 'b'],
+        ] as const)
+          yield* pocket.post(account, { id, walletId, amount: 100, note: '' });
+        const all = yield* pocket.walletEntries(account, 'a', null);
+        return [all, yield* pocket.walletEntries(account, 'a', all[0]!)];
+      }),
+    );
+    expect(all.map(({ value }) => value.id)).toEqual(['a1', 'a2']);
+    expect(after.map(({ value }) => value.id)).toEqual(['a2']);
+  });
+
   it('moves balances with posts, transfers and deletions, and answers what changed', async () => {
     const ada = signIn('ada');
     const transferred = await as(ada, (pocket, account) =>

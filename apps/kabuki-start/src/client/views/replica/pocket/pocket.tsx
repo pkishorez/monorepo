@@ -1,15 +1,16 @@
 import { useChild, View } from '@kestack/kabuki/react';
 import type { ChildData } from '@kestack/kabuki/react';
-import { Pages } from '../../../../shared/pages/index.ts';
-import { EntriesView } from './activity.tsx';
+import { Pages, watchedBy } from '../../../../shared/pages/index.ts';
+import { EntriesView, Unwatched } from './activity.tsx';
 import { LedgerContext, newId } from './ledger.ts';
 import { WalletsView } from './wallets.tsx';
 
 /*
- * A Pocket: its wallets, then its activity. While it is the active
- * Account's, every button is a Message to the section, which asks its
- * Action: the change shows at once, and rolls back, with its reason
- * beside where it was asked, if the Worker refuses it.
+ * A Pocket: its wallets, then the activity of the ones watched. While it
+ * is the active Account's, every button is a Message to the section, which
+ * asks its Action: the change shows at once, and rolls back, with its
+ * reason beside where it was asked, if the Worker refuses it. Watching a
+ * wallet, in any Pocket, opens its Window.
  */
 
 /** The wallets' rows, for their names in the activity. */
@@ -28,6 +29,8 @@ export const PocketView = View.make(
         <LedgerContext.Provider
           value={{
             refusedAt,
+            watching: watchedBy(model, props.account),
+            watch: (wallet) => send({ _tag: 'Watch', wallet }),
             nameOf: (id) =>
               wallets.find(({ row }) => row.id === id)?.row.name ?? 'a wallet',
             writes: props.writable
@@ -39,12 +42,19 @@ export const PocketView = View.make(
                   move: (from, to, amount) =>
                     send({ _tag: 'Move', id: newId(), from, to, amount }),
                   remove: (id) => send({ _tag: 'Remove', id }),
+                  elsewhere: (wallet) =>
+                    send({ _tag: 'Elsewhere', id: newId(), wallet }),
                 }
               : null,
           }}
         >
           <WalletsView instance={children.wallets} />
-          {wallets.length > 0 && <EntriesView instance={children.entries} />}
+          {wallets.length > 0 &&
+            (children.entries ? (
+              <EntriesView instance={children.entries} />
+            ) : (
+              <Unwatched />
+            ))}
         </LedgerContext.Provider>
       </div>
     );

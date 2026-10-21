@@ -28,7 +28,8 @@ import { nextWalletName, Pages, router } from '../index.ts';
  * in memory that logs every call and which Account it was for. The Pocket
  * shown follows the active Account; picking another reads it from the
  * device without fetching it; the page shows each Instance, and one
- * nothing reads stopping.
+ * nothing reads stopping. A wallet watched opens its Window, which fetches
+ * its entries alone, and closes once it has gone unwatched for 8 seconds.
  */
 
 const ada: Account = {
@@ -107,7 +108,7 @@ const fakeWorker = () => {
         each.meta._e === 'Wallet' && each.value.id === id,
     )!;
   const read =
-    (call: string, _e: string) =>
+    (call: string, _e: string, walletId?: string) =>
     (
       account: string,
       after: { readonly meta: { readonly _u: string } } | null,
@@ -118,6 +119,8 @@ const fakeWorker = () => {
           .filter(
             (each) =>
               each.meta._e === _e &&
+              (walletId === undefined ||
+                (each.value as Entry).walletId === walletId) &&
               (after === null || each.meta._u > after.meta._u),
           )
           .sort((a, b) => a.meta._u.localeCompare(b.meta._u)) as never;
@@ -128,6 +131,21 @@ const fakeWorker = () => {
     put(account, {
       value: { id, userId: account, name, balance },
       meta: meta('Wallet'),
+    });
+
+  /** Seeds an entry, as if made on another device. */
+  const entry = (account: string, id: string, walletId: string) =>
+    put(account, {
+      value: {
+        id,
+        userId: account,
+        walletId,
+        amount: 100,
+        note: '',
+        kind: 'deposit',
+        transferId: null,
+      },
+      meta: meta('Entry'),
     });
 
   /** While set, a Post waits for it before it answers. */
@@ -143,6 +161,11 @@ const fakeWorker = () => {
   const service = {
     wallets: read('Wallets', 'Wallet'),
     entries: read('Entries', 'Entry'),
+    walletEntries: (
+      account: string,
+      walletId: string,
+      after: { readonly meta: { readonly _u: string } } | null,
+    ) => read(`WalletEntries ${walletId}`, 'Entry', walletId)(account, after),
     createWallet: (
       account: string,
       { id, name }: { id: string; name: string },
@@ -245,6 +268,7 @@ const fakeWorker = () => {
   };
   return {
     seed,
+    entry,
     calls,
     holdPosts,
     layer: Layer.succeed(PocketRpc, service as unknown as PocketRpc['Service']),
@@ -303,18 +327,56 @@ const walletsUnder = (app: Running<unknown>, parent: string) => {
 };
 const names = (rows: Rows | undefined) =>
   (rows?.rows ?? []).map(({ row }) => row.name).sort();
+/** Each running Instance, as Replicas holds it, with its role and Gate from its own State and Model. */
 const instances = (app: Running<unknown>) =>
   (
-    find(app, 'Replica')!.model as {
+    find(app, 'Replicas')!.model as {
       readonly instances: ReadonlyArray<{
         readonly key: string;
-        readonly role: string;
-        readonly gate: boolean;
         readonly holders: ReadonlyArray<string>;
-        readonly lingeringUntil: number | null;
+        readonly gcAt: number | null;
       }>;
     }
-  ).instances;
+  ).instances.map((running) => {
+    const own = all(app, 'pocket').find(
+      (each) => (each.model as { readonly key: string }).key === running.key,
+    );
+    return {
+      ...running,
+      role: own?.state._tag === 'Leading' ? 'leading' : 'following',
+      gate: (own?.model as { readonly gate: boolean } | undefined)?.gate,
+    };
+  });
+
+type Window = {
+  readonly value: string;
+  readonly users: number;
+  readonly here: boolean;
+  readonly gcAt: number | null;
+  readonly status: string;
+};
+/** The Windows of `account`'s entries, as its Instance's Model has them. */
+const windows = (app: Running<unknown>, account = 'ada') =>
+  (
+    all(app, 'pocket').find(
+      (each) => (each.model as { readonly key: string }).key === account,
+    )?.model as
+      | {
+          readonly collections: ReadonlyArray<{
+            readonly collection: string;
+            readonly windows: ReadonlyArray<Window>;
+          }>;
+        }
+      | undefined
+  )?.collections.find(({ collection }) => collection === 'entries')?.windows ??
+  [];
+/** The ids of the entries the Activity shows, if it is placed. */
+const shownEntries = (app: Running<unknown>) => {
+  const query = find(app, 'Entries');
+  return query === undefined
+    ? undefined
+    : (query.model as Rows).rows.map(({ row }) => row.id).sort();
+};
 
 const opened = (path = '/replica') =>
   Effect.gen(function* () {
@@ -322,6 +384,8 @@ const opened = (path = '/replica') =>
     worker.seed('ada', 'cash', 'Ada cash', 1000);
     worker.seed('ada', 'bank', 'Ada bank', 0);
     worker.seed('bob', 'jar', 'Bob jar', 500);
+    worker.entry('ada', 'c1', 'cash');
+    worker.entry('ada', 'b1', 'bank');
     const accounts = yield* fakeAccounts;
     const app = yield* Runtime.start(
       History.make(Root.actor, { input: Root.startAt(path) }),
@@ -467,7 +531,7 @@ describe('the Replica page', () => {
             (each) =>
               each.account !== 'ada' &&
               each.call !== 'Wallets' &&
-              each.call !== 'Entries',
+              !each.call.startsWith('WalletEntries'),
           ),
         ).toBe(false);
       }),
@@ -554,7 +618,7 @@ describe('the Replica page', () => {
           yield* eventually(
             () =>
               expect(instances(app).map((each) => each.key)).toEqual(['ada']),
-            7000,
+            10_000,
           );
 
           show(app, 'bob');
@@ -571,7 +635,7 @@ describe('the Replica page', () => {
               instances(app).find((each) => each.key === 'bob'),
             ).toMatchObject({
               gate: false,
-              lingeringUntil: null,
+              gcAt: null,
             }),
           );
           expect(
@@ -595,18 +659,18 @@ describe('the Replica page', () => {
           );
           expect(pocket(app).props).toEqual({ account: 'ada', writable: true });
           yield* eventually(() => {
-            const lingering = instances(app).find((each) => each.key === 'bob');
-            expect(lingering?.holders).toEqual([]);
-            expect(lingering?.lingeringUntil).toBeGreaterThan(Date.now());
+            const stopping = instances(app).find((each) => each.key === 'bob');
+            expect(stopping?.holders).toEqual([]);
+            expect(stopping?.gcAt).toBeGreaterThan(Date.now());
           });
           yield* eventually(
             () =>
               expect(instances(app).map((each) => each.key)).toEqual(['ada']),
-            7000,
+            10_000,
           );
         }),
       ),
-    25_000,
+    35_000,
   );
 
   it('a pick holds through a switch, and falls back to the active Account once it signs out', () =>
@@ -650,6 +714,108 @@ describe('the Replica page', () => {
             'Ada cash',
           ]),
         );
+      }),
+    ));
+
+  it(
+    'watching a wallet opens its Window, which fetches its entries alone; unwatched, it counts down and closes, its rows kept',
+    () =>
+      run(
+        Effect.gen(function* () {
+          const { app, worker } = yield* opened();
+          yield* eventually(() =>
+            expect(balances(app)).toEqual({ cash: 1000, bank: 0 }),
+          );
+          // Nothing watched: no Activity, no Window, no entries fetched.
+          expect(shownEntries(app)).toBeUndefined();
+          expect(windows(app)).toEqual([]);
+
+          ask(app, { _tag: 'Watch', wallet: 'cash' });
+          yield* eventually(() =>
+            expect(windows(app)).toMatchObject([
+              { value: 'cash', users: 1, here: true, gcAt: null },
+            ]),
+          );
+          yield* eventually(() =>
+            expect(windows(app)[0]?.status).toBe('running'),
+          );
+          yield* eventually(() => expect(shownEntries(app)).toEqual(['c1']));
+          expect(worker.calls).toContainEqual({
+            call: 'WalletEntries cash',
+            account: 'ada',
+          });
+          expect(worker.calls.map(({ call }) => call)).not.toContain(
+            'WalletEntries bank',
+          );
+
+          // A deposit made elsewhere arrives through the running Window.
+          ask(app, { _tag: 'Elsewhere', id: 'c2', wallet: 'cash' });
+          yield* eventually(() =>
+            expect(shownEntries(app)).toEqual(['c1', 'c2']),
+          );
+
+          // Unwatched: let go, counting down; watched again in time, kept.
+          ask(app, { _tag: 'Watch', wallet: 'cash' });
+          yield* eventually(() => {
+            expect(shownEntries(app)).toBeUndefined();
+            expect(windows(app)[0]?.users).toBe(0);
+            expect(windows(app)[0]?.gcAt).toBeGreaterThan(Date.now());
+          });
+          ask(app, { _tag: 'Watch', wallet: 'cash' });
+          yield* eventually(() =>
+            expect(windows(app)).toMatchObject([
+              { value: 'cash', users: 1, gcAt: null, status: 'running' },
+            ]),
+          );
+
+          // Let go for good: it closes after 8 seconds, and fetches no more.
+          ask(app, { _tag: 'Watch', wallet: 'cash' });
+          yield* eventually(() => expect(windows(app)).toEqual([]), 10_000);
+          worker.entry('ada', 'c3', 'cash');
+          const fetched = worker.calls.length;
+          yield* Effect.sleep('2500 millis');
+          expect(
+            worker.calls
+              .slice(fetched)
+              .some(({ call }) => call.startsWith('WalletEntries')),
+          ).toBe(false);
+          // Watched again, it shows what it stored at once, then catches up.
+          ask(app, { _tag: 'Watch', wallet: 'cash' });
+          yield* eventually(() =>
+            expect(shownEntries(app)).toEqual(['c1', 'c2', 'c3']),
+          );
+        }),
+      ),
+    30_000,
+  );
+
+  it('watching several wallets opens one Window each, and unwatching one lets go of it alone', () =>
+    run(
+      Effect.gen(function* () {
+        const { app } = yield* opened();
+        yield* eventually(() =>
+          expect(balances(app)).toEqual({ cash: 1000, bank: 0 }),
+        );
+        ask(app, { _tag: 'Watch', wallet: 'cash' });
+        ask(app, { _tag: 'Watch', wallet: 'bank' });
+        yield* eventually(() => {
+          expect(
+            windows(app).map(({ value, users }) => ({ value, users })),
+          ).toEqual([
+            { value: 'cash', users: 1 },
+            { value: 'bank', users: 1 },
+          ]);
+          expect(shownEntries(app)).toEqual(['b1', 'c1']);
+        });
+
+        ask(app, { _tag: 'Watch', wallet: 'bank' });
+        yield* eventually(() => {
+          expect(shownEntries(app)).toEqual(['c1']);
+          expect(windows(app)).toMatchObject([
+            { value: 'cash', users: 1, gcAt: null },
+            { value: 'bank', users: 0, gcAt: expect.any(Number) },
+          ]);
+        });
       }),
     ));
 });

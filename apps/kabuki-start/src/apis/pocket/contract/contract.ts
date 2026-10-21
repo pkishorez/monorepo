@@ -10,6 +10,7 @@ import { Entry, Wallet } from '../domain/index.ts';
  * Reads page through one kind of record in the order it last changed:
  * give the last Entity seen (null to start) and get up to a page of what
  * changed after it, ascending by `_u`, deletions included as tombstones.
+ * `WalletEntries` reads the Entries of one Wallet alone, the same way.
  *
  * Writes take ids the client made, so a retried write finds what the first
  * one did instead of doing it twice, and answer every record they changed,
@@ -56,6 +57,13 @@ export const PocketRpcs = Authz.required(
     }),
     Rpc.make('Entries', {
       payload: Schema.Struct({ '>': Schema.NullOr(Entry.entity) }),
+      success: Schema.Array(Entry.entity),
+    }),
+    Rpc.make('WalletEntries', {
+      payload: Schema.Struct({
+        walletId: Schema.String,
+        '>': Schema.NullOr(Entry.entity),
+      }),
       success: Schema.Array(Entry.entity),
     }),
     Rpc.make('CreateWallet', {
