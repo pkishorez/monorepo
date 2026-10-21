@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto';
+import { accessSync, constants } from 'node:fs';
+import { delimiter, join } from 'node:path';
 import {
   query,
   type CanUseTool,
@@ -24,6 +26,29 @@ export interface SdkSessionConfig {
   readonly effort: EffortLevel;
   readonly permissionMode: PermissionMode;
 }
+
+/**
+ * The Claude Code the user keeps updated: `AI_TOOLKIT_CLAUDE` or `claude` on
+ * PATH. The SDK's bundled one lags behind, and refuses models newer than it.
+ */
+const installedClaude = (): string | undefined => {
+  const candidates = [
+    process.env['AI_TOOLKIT_CLAUDE'],
+    ...(process.env['PATH'] ?? '')
+      .split(delimiter)
+      .filter((dir) => dir !== '')
+      .map((dir) => join(dir, 'claude')),
+  ];
+  return candidates.find((path) => {
+    if (path === undefined) return false;
+    try {
+      accessSync(path, constants.X_OK);
+      return true;
+    } catch {
+      return false;
+    }
+  });
+};
 
 /** How long a cancelled turn may take to report its result before its stream ends anyway. */
 const CANCEL_GRACE_MS = 15_000;
@@ -106,8 +131,12 @@ export const openSdkSession = (
 ): Effect.Effect<HarnessSession, HarnessError, Scope.Scope> =>
   Effect.gen(function* () {
     const input = userInput();
+    const executable = installedClaude();
     const options: Options = {
       cwd: config.cwd,
+      ...(executable === undefined
+        ? {}
+        : { pathToClaudeCodeExecutable: executable }),
       model: config.model,
       effort: config.effort,
       permissionMode: config.permissionMode,
