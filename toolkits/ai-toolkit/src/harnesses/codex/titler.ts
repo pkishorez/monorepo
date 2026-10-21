@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { Duration, Effect, Layer, Stream } from 'effect';
 import { HarnessError, Titler } from '../../harness/index.js';
 import { start, type AppServer, type ThreadItem } from './app-server/index.js';
+import { listModels } from './models.js';
 import { openSession } from './session.js';
 import { restore, TEXT_CHUNK, type TextChunk } from './streams.js';
 
@@ -28,18 +29,16 @@ const prompt = (text: string) =>
  * models outright.
  */
 const titleModel = (server: AppServer) =>
-  server.request('model/list', { includeHidden: false }).pipe(
-    Effect.map(({ data }) => {
-      const ids = data.filter((model) => !model.hidden);
-      return (
+  listModels(server).pipe(
+    Effect.map(
+      (models) =>
         (
-          ids.find((model) => model.id === TITLE_MODEL) ??
-          ids.find((model) => model.id.includes('luna')) ??
-          ids.find((model) => model.isDefault) ??
-          ids[0]
-        )?.id ?? TITLE_MODEL
-      );
-    }),
+          models.find((model) => model.id === TITLE_MODEL) ??
+          models.find((model) => model.id.includes('luna')) ??
+          models.find((model) => model.isDefault === true) ??
+          models[0]
+        )?.id ?? TITLE_MODEL,
+    ),
   );
 
 /** The first line of a reply, without quotes or markdown, cut to six words. */

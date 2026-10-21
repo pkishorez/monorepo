@@ -48,6 +48,14 @@ export interface HarnessSession {
   readonly cancel: Effect.Effect<void>;
 }
 
+/** A model this machine's login can run, as the harness lists it. */
+export interface AvailableModel {
+  readonly id: string;
+  readonly name?: string;
+  /** The model the harness picks when none is asked for. */
+  readonly isDefault?: boolean;
+}
+
 export interface Harness {
   readonly name: HarnessName;
   readonly label: string;
@@ -55,7 +63,16 @@ export interface Harness {
   readonly modelsProvider: 'anthropic' | 'openai';
   /** Whether a models.dev model id is one this harness accepts. */
   readonly acceptsModel: (modelId: string) => boolean;
+  /** Used when the account names no default, or cannot be asked. */
   readonly defaultModel: string;
+  /**
+   * The models this machine's login can actually run. Optional: without it
+   * the models.dev models `acceptsModel` allows are listed instead.
+   */
+  readonly availableModels?: Effect.Effect<
+    ReadonlyArray<AvailableModel>,
+    HarnessError
+  >;
   readonly settings: ReadonlyArray<Setting>;
   readonly open: (
     config: OpenConfig,

@@ -26,13 +26,16 @@ export const AiApiLive = AiApi.toLayer(
     const models = yield* Models;
     return {
       harnesses: () =>
-        Effect.succeed(
-          harnesses.all.map((harness) => ({
-            name: harness.name,
-            label: harness.label,
-            settings: harness.settings,
-            defaultModel: harness.defaultModel,
-          })),
+        Effect.forEach(
+          harnesses.all,
+          (harness) =>
+            Effect.map(models.defaultModel(harness), (defaultModel) => ({
+              name: harness.name,
+              label: harness.label,
+              settings: harness.settings,
+              defaultModel,
+            })),
+          { concurrency: 'unbounded' },
         ),
       models: ({ harness: name }) => {
         const harness = harnesses.all.find((each) => each.name === name);

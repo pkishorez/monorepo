@@ -1,7 +1,7 @@
 import { Effect } from 'effect';
 import type { Harness, Setting } from '../../harness/index.js';
 import { start, type SandboxMode } from './app-server/index.js';
-import { acceptsModel, DEFAULT_MODEL } from './models.js';
+import { acceptsModel, availableModels, DEFAULT_MODEL } from './models.js';
 import { project } from './project.js';
 import { openSession } from './session.js';
 
@@ -51,6 +51,7 @@ export const codex: Harness = {
   modelsProvider: 'openai',
   acceptsModel,
   defaultModel: DEFAULT_MODEL,
+  availableModels,
   settings: [reasoningEffort, sandbox],
   open: (config) =>
     Effect.gen(function* () {

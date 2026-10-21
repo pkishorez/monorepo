@@ -375,5 +375,45 @@ describe.runIf(process.env.AI_TOOLKIT_E2E === '1')(
       },
       TIMEOUT,
     );
+
+    // This machine's ChatGPT account runs gpt-5.6-luna but not gpt-6.1-sol.
+    it(
+      'lists only the models this login can run, one of them the default',
+      async () => {
+        const models = await Effect.runPromise(codex.availableModels!);
+        const ids = models.map((model) => model.id);
+        expect(ids).toContain(MODEL);
+        expect(ids).not.toContain('gpt-6.1-sol');
+        expect(models.filter((model) => model.isDefault)).toHaveLength(1);
+      },
+      TIMEOUT,
+    );
+
+    it(
+      "ends a turn on a model the login cannot run as failed, with the provider's message",
+      async () => {
+        const outs = await run(
+          Effect.gen(function* () {
+            const session = yield* codex.open({
+              cwd,
+              model: 'gpt-6.1-sol',
+              settings: SETTINGS,
+            });
+            return yield* collect(
+              session,
+              'Reply with one word: hi.',
+              'rejected',
+            );
+          }),
+        );
+        const ended = ofType(projectAll(outs), 'turnEnded');
+        expect(ended).toHaveLength(1);
+        expect(ended[0]?.status).toBe('failed');
+        expect(ended[0]?.error).toMatch(
+          /^The 'gpt-6\.1-sol' model is not supported/,
+        );
+      },
+      TIMEOUT,
+    );
   },
 );

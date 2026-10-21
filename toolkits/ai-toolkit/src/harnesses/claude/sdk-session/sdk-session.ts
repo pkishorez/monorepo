@@ -1,19 +1,22 @@
 import { randomUUID } from 'node:crypto';
 import { accessSync, constants } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
 import {
   query,
   type CanUseTool,
   type EffortLevel,
+  type ModelInfo,
   type Options,
   type PermissionMode,
   type SDKMessage,
   type SDKUserMessage,
 } from '@anthropic-ai/claude-agent-sdk';
-import { Effect, Queue, Schema, Stream } from 'effect';
+import { Duration, Effect, Queue, Schema, Stream } from 'effect';
 import type { Cause, Scope } from 'effect';
 import {
   HarnessError,
+  type AvailableModel,
   type HarnessSession,
   type RawOut,
 } from '../../../harness/index.js';
@@ -361,3 +364,83 @@ export const openSdkSession = (
     };
     return session;
   });
+
+const ASK_TIMEOUT = Duration.seconds(15);
+
+/**
+ * Claude Code's model rows as models: each by the id it resolves to, the
+ * `default` row only marking which one is the default.
+ */
+export const toAvailableModels = (
+  rows: ReadonlyArray<ModelInfo>,
+): ReadonlyArray<AvailableModel> => {
+  const fallback = rows.find((row) => row.value === 'default')?.resolvedModel;
+  const models = new Map<string, AvailableModel>();
+  for (const row of rows) {
+    const id = row.resolvedModel ?? row.value;
+    if (row.value === 'default' || models.has(id)) continue;
+    models.set(id, {
+      id,
+      name: row.displayName,
+      ...(id === fallback ? { isDefault: true } : {}),
+    });
+  }
+  return [...models.values()];
+};
+
+/**
+ * The models this login can run, as Claude Code offers them: a query that
+ * is never sent a message, asked, then closed. No API call is made.
+ */
+export const supportedModels: Effect.Effect<
+  ReadonlyArray<AvailableModel>,
+  HarnessError
+> = Effect.acquireRelease(
+  Effect.try({
+    try: () => {
+      const executable = installedClaude();
+      const input = userInput();
+      return {
+        input,
+        live: query({
+          prompt: input.iterable,
+          options: {
+            cwd: tmpdir(),
+            ...(executable === undefined
+              ? {}
+              : { pathToClaudeCodeExecutable: executable }),
+          },
+        }),
+      };
+    },
+    catch: (cause) =>
+      new HarnessError({ message: 'Claude Code did not start', cause }),
+  }),
+  ({ input, live }) =>
+    Effect.sync(() => {
+      input.close();
+      live.close();
+    }),
+).pipe(
+  Effect.flatMap(({ live }) =>
+    Effect.tryPromise({
+      try: () => live.supportedModels(),
+      catch: (cause) =>
+        new HarnessError({
+          message: 'Claude Code did not list its models',
+          cause,
+        }),
+    }),
+  ),
+  Effect.map(toAvailableModels),
+  Effect.scoped,
+  Effect.timeoutOrElse({
+    duration: ASK_TIMEOUT,
+    orElse: () =>
+      Effect.fail(
+        new HarnessError({
+          message: 'Claude Code took too long to list its models',
+        }),
+      ),
+  }),
+);

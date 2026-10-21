@@ -182,6 +182,7 @@ export const start = (
 export {
   isNotification,
   type CollabAgentTool,
+  type Model,
   type Notification,
   type Notifications,
   type ReasoningEffort,

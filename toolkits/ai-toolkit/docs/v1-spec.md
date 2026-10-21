@@ -100,6 +100,7 @@ interface Harness {
   settings: Setting[]        // agent-specific settings, each with a default
   open(config: { cwd, model, settings, nativeId? }) -> HarnessSession
   project(raw) -> Message | null
+  availableModels?: Effect<{ id, name?, isDefault? }[]>  // what this login runs
 }
 
 interface HarnessSession {
@@ -147,8 +148,11 @@ Commands: `harnesses`, `models { harness }`, `addProject { path }`,
 Feeds (streams, replay after a cursor, then live):
 `projects { after }`, `sessions { after }`, `messages { sessionId, after }`.
 
-`models` reads models.dev, cached on the server, filtered to what each
-harness accepts.
+`models` lists what each harness's login can run (Codex's `model/list`,
+Claude Code's `supportedModels()`, asked at most every few minutes), filled
+in with names and release dates from models.dev, newest first. When the
+login cannot be asked, it lists the models.dev models the harness accepts.
+`harnesses` gives the login's default model when it names one.
 
 Reconnect: the client reconnects with backoff and reopens every feed from
 its cursor, so nothing is missed or duplicated. Commands sent while

@@ -3,6 +3,7 @@ export {
   start,
   type AppServer,
   type CollabAgentTool,
+  type Model,
   type Notification,
   type Notifications,
   type ReasoningEffort,

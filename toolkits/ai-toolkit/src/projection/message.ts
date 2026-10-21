@@ -149,7 +149,7 @@ export type Message = typeof MessageSchema.Type;
  * harness's projection changes what it makes, so devices that kept
  * Messages throw them away and sync afresh.
  */
-export const PROJECTION_VERSION = 2;
+export const PROJECTION_VERSION = 3;
 
 /** What a harness's `project` decides; the engine adds the ids and time. */
 export type Projected = Pick<Message, 'agentId' | 'role' | 'parts'>;

@@ -9,6 +9,7 @@ export {
   HarnessError,
   Harnesses,
   Titler,
+  type AvailableModel,
   type Harness,
   type HarnessSession,
   type OpenConfig,

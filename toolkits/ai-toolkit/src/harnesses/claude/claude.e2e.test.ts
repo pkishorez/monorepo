@@ -179,6 +179,14 @@ describe.skipIf(!enabled)('claude harness against the real Claude Code', () => {
     if (scope !== undefined) await run(Scope.close(scope, Exit.void));
   });
 
+  it('lists the models this login can run by their full ids, one the default', async () => {
+    const models = await run(claude.availableModels!);
+    const ids = models.map((model) => model.id);
+    expect(ids).toContain(MODEL);
+    expect(ids).not.toContain('default');
+    expect(models.filter((model) => model.isDefault)).toHaveLength(1);
+  }, 60_000);
+
   it('reads a file: a Read tool call, its result, and a done turn', async () => {
     const outs = await run(
       runTurn(

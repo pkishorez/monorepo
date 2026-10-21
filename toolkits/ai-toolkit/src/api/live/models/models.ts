@@ -11,17 +11,21 @@ import {
   Semaphore,
 } from 'effect';
 import type { ModelInfo } from '../../contract/index.js';
-import type { Harness } from '../../../harness/index.js';
+import type { AvailableModel, Harness } from '../../../harness/index.js';
 
 /*
- * The models each harness accepts, from models.dev. The catalog is kept in
- * memory for an hour and on disk beside the database, so a server that
- * starts offline still lists what it saw last. A failed refresh falls back
- * to whatever copy is held.
+ * The models each harness can run. A harness that can ask its login which
+ * models it runs is asked (kept in memory for a few minutes), and its list
+ * is filled in from models.dev; one that cannot, or whose ask fails, lists
+ * the models.dev models it accepts. The catalog is kept in memory for an
+ * hour and on disk beside the database, so a server that starts offline
+ * still lists what it saw last. A failed refresh falls back to whatever
+ * copy is held.
  */
 
 const URL = 'https://models.dev/api.json';
 const FRESH_FOR = Duration.hours(1);
+const ACCOUNT_FRESH_FOR = Duration.minutes(5);
 
 const Catalog = Schema.Record(
   Schema.String,
@@ -39,6 +43,47 @@ const Catalog = Schema.Record(
   }),
 );
 type Catalog = typeof Catalog.Type;
+type CatalogModel = NonNullable<Catalog[string]['models']>[string];
+
+const newestFirst = (a: ModelInfo, b: ModelInfo) =>
+  (b.releaseDate ?? '').localeCompare(a.releaseDate ?? '');
+
+const toInfo = (model: CatalogModel, name?: string): ModelInfo => ({
+  id: model.id,
+  name: model.name ?? name ?? model.id,
+  releaseDate: model.release_date ?? null,
+});
+
+/** The models.dev models `harness` accepts, newest first. */
+export const fromCatalog = (
+  harness: Harness,
+  catalog: Catalog,
+): ReadonlyArray<ModelInfo> =>
+  Object.values(catalog[harness.modelsProvider]?.models ?? {})
+    .filter((model) => harness.acceptsModel(model.id))
+    .map((model) => toInfo(model))
+    .sort(newestFirst);
+
+/**
+ * The account's models, each filled in from models.dev when it lists the
+ * same id, newest first; ones models.dev lacks keep the account's name and
+ * come last, in the account's order.
+ */
+export const fromAccount = (
+  harness: Harness,
+  account: ReadonlyArray<AvailableModel>,
+  catalog: Catalog,
+): ReadonlyArray<ModelInfo> => {
+  const known = catalog[harness.modelsProvider]?.models ?? {};
+  return account
+    .map((model) =>
+      toInfo(
+        Object.hasOwn(known, model.id) ? known[model.id]! : model,
+        model.name,
+      ),
+    )
+    .sort(newestFirst);
+};
 
 export class ModelsError extends Data.TaggedError('ModelsError')<{
   readonly message: string;
@@ -104,20 +149,65 @@ const make = (options: ModelsOptions) =>
       }),
     );
 
+    const asked = new Map<
+      Harness,
+      {
+        readonly lock: Semaphore.Semaphore;
+        held?: {
+          readonly models: ReadonlyArray<AvailableModel>;
+          readonly at: number;
+        };
+      }
+    >();
+
+    /** The account's models, or None when the harness cannot say. */
+    const account = (harness: Harness) =>
+      Effect.gen(function* () {
+        const ask = harness.availableModels;
+        if (ask === undefined) return undefined;
+        let entry = asked.get(harness);
+        if (entry === undefined) {
+          entry = { lock: yield* Semaphore.make(1) };
+          asked.set(harness, entry);
+        }
+        const slot = entry;
+        return yield* slot.lock.withPermits(1)(
+          Effect.gen(function* () {
+            const now = yield* Clock.currentTimeMillis;
+            if (
+              slot.held &&
+              now - slot.held.at < Duration.toMillis(ACCOUNT_FRESH_FOR)
+            )
+              return slot.held.models;
+            const result = yield* Effect.result(ask);
+            if (result._tag === 'Success') {
+              slot.held = { models: result.success, at: now };
+              return result.success;
+            }
+            yield* Effect.logWarning(
+              `${harness.label} could not list this account's models; listing models.dev's instead`,
+              result.failure,
+            );
+            return slot.held?.models;
+          }),
+        );
+      });
+
     return {
-      /** What `harness` accepts, newest first. */
       list: (harness: Harness) =>
-        Effect.map(catalog, (all): ReadonlyArray<ModelInfo> =>
-          Object.values(all[harness.modelsProvider]?.models ?? {})
-            .filter((model) => harness.acceptsModel(model.id))
-            .map((model) => ({
-              id: model.id,
-              name: model.name ?? model.id,
-              releaseDate: model.release_date ?? null,
-            }))
-            .sort((a, b) =>
-              (b.releaseDate ?? '').localeCompare(a.releaseDate ?? ''),
-            ),
+        Effect.gen(function* () {
+          const models = yield* account(harness);
+          if (models === undefined || models.length === 0)
+            return fromCatalog(harness, yield* catalog);
+          const all = yield* Effect.orElseSucceed(catalog, (): Catalog => ({}));
+          return fromAccount(harness, models, all);
+        }),
+      defaultModel: (harness: Harness) =>
+        Effect.map(
+          account(harness),
+          (models) =>
+            models?.find((model) => model.isDefault === true)?.id ??
+            harness.defaultModel,
         ),
     };
   });
@@ -125,9 +215,12 @@ const make = (options: ModelsOptions) =>
 export class Models extends Context.Service<
   Models,
   {
+    /** The models `harness` can run here, newest first. */
     readonly list: (
       harness: Harness,
     ) => Effect.Effect<ReadonlyArray<ModelInfo>, ModelsError>;
+    /** The account's default model, else the harness's own. */
+    readonly defaultModel: (harness: Harness) => Effect.Effect<string>;
   }
 >()('@kestack/ai-toolkit/Models') {
   static readonly layer = (options: ModelsOptions): Layer.Layer<Models> =>

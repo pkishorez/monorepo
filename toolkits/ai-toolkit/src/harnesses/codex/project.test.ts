@@ -431,6 +431,39 @@ describe('project: single records', () => {
     ]);
   });
 
+  it("reads a provider's JSON rejection as its message", () => {
+    const rejection = JSON.stringify({
+      type: 'error',
+      status: 400,
+      error: {
+        type: 'invalid_request_error',
+        message:
+          "The 'gpt-6.1-sol' model is not supported when using Codex with a ChatGPT account.",
+      },
+    });
+    const readable =
+      "The 'gpt-6.1-sol' model is not supported when using Codex with a ChatGPT account.";
+    expect(
+      one('turn/completed', {
+        threadId: 'main',
+        turn: {
+          id: 't',
+          items: [],
+          status: 'failed',
+          error: { message: rejection, additionalDetails: null },
+        },
+      })?.parts,
+    ).toEqual([{ type: 'turnEnded', status: 'failed', error: readable }]);
+    expect(
+      one('error', {
+        threadId: 'main',
+        turnId: 't',
+        willRetry: false,
+        error: { message: rejection, additionalDetails: null },
+      })?.parts,
+    ).toEqual([{ type: 'error', message: readable }]);
+  });
+
   it("shows each token usage update as the last model call's usage", () => {
     const usage = {
       totalTokens: 0,

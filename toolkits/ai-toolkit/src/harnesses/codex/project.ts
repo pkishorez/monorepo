@@ -30,6 +30,22 @@ const TURN_END: Record<TurnStatus, TurnEndStatus> = {
 
 const json = (value: unknown): Schema.Json => (value ?? null) as Schema.Json;
 
+/**
+ * An error as a person reads it: Codex passes a provider's rejection on as
+ * its JSON body (`{"type":"error","status":400,"error":{"message":…}}`).
+ */
+export const readableError = (message: string): string => {
+  let body: unknown;
+  try {
+    body = JSON.parse(message);
+  } catch {
+    return message;
+  }
+  const inner = (body as { error?: { message?: unknown } } | null)?.error
+    ?.message;
+  return typeof inner === 'string' && inner !== '' ? inner : message;
+};
+
 const firstLine = (value: string): string => {
   const line = value.trim().split('\n')[0] ?? '';
   return line.length > TITLE_LIMIT
@@ -282,7 +298,10 @@ const turnCompleted = (
   const { turn } = params;
   if (raw.agentId !== null) {
     // A sub-agent finishing its turn is the result of the call that spawned it.
-    const output = turn.error?.message ?? lastAgentText(turn.items);
+    const output =
+      turn.error === null
+        ? lastAgentText(turn.items)
+        : readableError(turn.error.message);
     return message(raw, 'tool', [
       {
         type: 'toolResult',
@@ -297,7 +316,9 @@ const turnCompleted = (
     {
       type: 'turnEnded',
       status,
-      ...(turn.error === null ? {} : { error: turn.error.message }),
+      ...(turn.error === null
+        ? {}
+        : { error: readableError(turn.error.message) }),
     },
   ]);
 };
@@ -342,10 +363,11 @@ export const project = (raw: Raw): Projected | null => {
       );
     case 'error': {
       const { error, willRetry } = raw.payload as unknown as Payload<'error'>;
+      const text = readableError(error.message);
       return message(raw, 'system', [
         {
           type: 'error',
-          message: willRetry ? `${error.message} (retrying)` : error.message,
+          message: willRetry ? `${text} (retrying)` : text,
         },
       ]);
     }

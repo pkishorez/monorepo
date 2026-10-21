@@ -161,6 +161,7 @@ export interface TokenUsageBreakdown {
 
 export interface Model {
   readonly id: string;
+  readonly displayName: string;
   readonly hidden: boolean;
   readonly isDefault: boolean;
 }
@@ -225,7 +226,10 @@ export interface Requests {
     readonly result: unknown;
   };
   readonly 'model/list': {
-    readonly params: { readonly includeHidden: boolean };
+    readonly params: {
+      readonly includeHidden: boolean;
+      readonly cursor?: string;
+    };
     readonly result: {
       readonly data: ReadonlyArray<Model>;
       readonly nextCursor: string | null;
