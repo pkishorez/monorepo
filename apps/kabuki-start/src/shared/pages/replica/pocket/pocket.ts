@@ -17,8 +17,8 @@ import { Entries, Wallets } from './queries.ts';
  * every write is an Action whose args name it, so a write asked before a
  * switch lands in the Account it was asked for, or fails.
  *
- * What it keeps is small: the wallet picked, for which Account, and the
- * last write's refusal, until the next write.
+ * What it keeps is small: the wallet picked, for which Account, the writes
+ * under way, and the last refusal, for the Account and form it came from.
  */
 
 const Selected = Schema.Struct({
@@ -31,11 +31,16 @@ const Form = Schema.Literals(['wallet', 'rename', 'post', 'transfer', 'entry']);
 
 const Write = Schema.Struct({ id: Schema.String });
 
+/** A form and the Account its write is for. */
+const Asked = Schema.Struct({ form: Form, account: Schema.String });
+
 const Model = Schema.Struct({
   selected: Schema.NullOr(Selected),
-  refused: Schema.NullOr(Schema.Struct({ form: Form, reason: Schema.String })),
-  /** The form the write under way came from. */
-  writing: Schema.NullOr(Form),
+  refused: Schema.NullOr(
+    Schema.Struct({ ...Asked.fields, reason: Schema.String }),
+  ),
+  /** The writes under way, one per form: an Action's end says which. */
+  writing: Schema.Array(Asked),
 });
 
 type Model = typeof Model.Type;
@@ -70,25 +75,33 @@ export const PocketSection = Actor.define('Pocket', {
   }),
 });
 
-/** A write asked from `form`: its refusal, if any, goes once the next starts. */
-const asked = (model: Model, form: Model['writing']) => ({
+type Form = typeof Form.Type;
+
+/** A write asked from `form` for `account`: that form's refusal goes. */
+const asked = (model: Model, form: Form, account: string): Model => ({
   ...model,
-  refused: null,
-  writing: form,
+  refused: model.refused?.form === form ? null : model.refused,
+  writing: [
+    ...model.writing.filter((each) => each.form !== form),
+    { form, account },
+  ],
 });
 
-/** A write ended: a refusal shows beside the form it came from. */
-const ended = (model: Model, failed: string | null): Model => ({
-  ...model,
-  writing: null,
-  refused:
-    failed === null || model.writing === null
-      ? null
-      : { form: model.writing, reason: failed },
-});
+/** The write from `form` ended: a refusal shows beside that form, for its Account. */
+const ended = (model: Model, form: Form, failed: string | null): Model => {
+  const write = model.writing.find((each) => each.form === form);
+  return {
+    ...model,
+    writing: model.writing.filter((each) => each.form !== form),
+    refused:
+      failed === null || write === undefined
+        ? model.refused
+        : { ...write, reason: failed },
+  };
+};
 
 export const PocketLive = Actor.build(PocketSection, {
-  init: () => ({ model: { selected: null, refused: null, writing: null } }),
+  init: () => ({ model: { selected: null, refused: null, writing: [] } }),
   children: {
     wallets: {
       actor: Wallets,
@@ -109,31 +122,39 @@ export const PocketLive = Actor.build(PocketSection, {
     }),
     NewWallet: ({ id, name }, { model, props }) => ({
       model: {
-        ...asked(model, 'wallet'),
+        ...asked(model, 'wallet', props.account),
         selected: { account: props.account, wallet: id },
       },
       command: CreateWallet({ account: props.account, id, name }),
     }),
     Rename: ({ id, name }, { model, props }) => ({
-      model: asked(model, 'rename'),
+      model: asked(model, 'rename', props.account),
       command: RenameWallet({ account: props.account, id, name }),
     }),
     Move: ({ _tag, ...input }, { model, props }) => ({
-      model: asked(model, 'post'),
+      model: asked(model, 'post', props.account),
       command: Post({ account: props.account, ...input }),
     }),
     Send: ({ _tag, ...input }, { model, props }) => ({
-      model: asked(model, 'transfer'),
+      model: asked(model, 'transfer', props.account),
       command: Transfer({ account: props.account, ...input }),
     }),
     Remove: ({ id }, { model, props }) => ({
-      model: asked(model, 'entry'),
+      model: asked(model, 'entry', props.account),
       command: DeleteEntry({ account: props.account, id }),
     }),
-    CreateWallet: ({ failed }, { model }) => ({ model: ended(model, failed) }),
-    RenameWallet: ({ failed }, { model }) => ({ model: ended(model, failed) }),
-    Post: ({ failed }, { model }) => ({ model: ended(model, failed) }),
-    Transfer: ({ failed }, { model }) => ({ model: ended(model, failed) }),
-    DeleteEntry: ({ failed }, { model }) => ({ model: ended(model, failed) }),
+    CreateWallet: ({ failed }, { model }) => ({
+      model: ended(model, 'wallet', failed),
+    }),
+    RenameWallet: ({ failed }, { model }) => ({
+      model: ended(model, 'rename', failed),
+    }),
+    Post: ({ failed }, { model }) => ({ model: ended(model, 'post', failed) }),
+    Transfer: ({ failed }, { model }) => ({
+      model: ended(model, 'transfer', failed),
+    }),
+    DeleteEntry: ({ failed }, { model }) => ({
+      model: ended(model, 'entry', failed),
+    }),
   },
 });

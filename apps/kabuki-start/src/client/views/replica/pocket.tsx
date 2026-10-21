@@ -23,7 +23,8 @@ export const PocketView = View.make(
               <EntriesView instance={children.entries} />
             ),
             writes: {
-              refused: model.refused,
+              refused:
+                model.refused?.account === props.account ? model.refused : null,
               newWallet: (name) =>
                 send({ _tag: 'NewWallet', id: newId(), name }),
               rename: (id, name) => send({ _tag: 'Rename', id, name }),

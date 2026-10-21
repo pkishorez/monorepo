@@ -359,6 +359,7 @@ describe('the Replica page', () => {
           expect(pocket(app).model).toMatchObject({
             refused: {
               form: 'transfer',
+              account: 'ada',
               reason: 'Not enough money: 6.00 left',
             },
           }),
@@ -368,6 +369,27 @@ describe('the Replica page', () => {
           row.balance,
         ]);
         expect(Object.fromEntries(rows)).toEqual({ cash: 600, bank: 400 });
+
+        // Two writes at once: the refusal still shows beside the form it came from.
+        app.send(pocket(app).id, {
+          _tag: 'Send',
+          id: 't3',
+          from: 'cash',
+          to: 'bank',
+          amount: 5000,
+          note: 'too much',
+        } as never);
+        app.send(pocket(app).id, {
+          _tag: 'NewWallet',
+          id: 'jar',
+          name: 'Ada jar',
+        } as never);
+        yield* eventually(() =>
+          expect(pocket(app).model).toMatchObject({
+            writing: [],
+            refused: { form: 'transfer', account: 'ada' },
+          }),
+        );
       }),
     ));
 
