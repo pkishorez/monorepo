@@ -29,12 +29,28 @@ export type Usage = typeof UsageSchema.Type;
 export const TURN_END_STATUSES = ['done', 'failed', 'cancelled'] as const;
 export type TurnEndStatus = (typeof TURN_END_STATUSES)[number];
 
+/**
+ * Text or reasoning a harness did not stream. Streamed text reaches clients
+ * only as textChunks; its whole block stays in Raw.
+ */
 const Text = Schema.Struct({
   type: Schema.Literal('text'),
   text: Schema.String,
+  streamId: Schema.optionalKey(Schema.String),
 });
 const Reasoning = Schema.Struct({
   type: Schema.Literal('reasoning'),
+  text: Schema.String,
+  streamId: Schema.optionalKey(Schema.String),
+});
+/**
+ * A few sentences of a text or reasoning block, in order. The chunks of one
+ * `streamId`, joined, are the whole block; tools are never chunked.
+ */
+const TextChunk = Schema.Struct({
+  type: Schema.Literal('textChunk'),
+  streamId: Schema.String,
+  channel: Schema.Literals(['text', 'reasoning']),
   text: Schema.String,
 });
 const ToolCall = Schema.Struct({
@@ -96,6 +112,7 @@ const Other = Schema.Struct({
 export const PartSchema = Schema.Union([
   Text,
   Reasoning,
+  TextChunk,
   ToolCall,
   ToolResult,
   TurnStarted,
@@ -126,6 +143,13 @@ export const MessageSchema = EntityESchema.make('AiMessage', 'id', {
 }).build();
 
 export type Message = typeof MessageSchema.Type;
+
+/**
+ * Which `project` functions a Message came from. Bump it whenever a
+ * harness's projection changes what it makes, so devices that kept
+ * Messages throw them away and sync afresh.
+ */
+export const PROJECTION_VERSION = 2;
 
 /** What a harness's `project` decides; the engine adds the ids and time. */
 export type Projected = Pick<Message, 'agentId' | 'role' | 'parts'>;

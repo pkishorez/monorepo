@@ -1,0 +1,173 @@
+[
+  {
+    "kind": "item/completed",
+    "payload": {
+      "item": {
+        "type": "userMessage",
+        "id": "01a1601c-42e8-75f3-856d-d2feea78c98c",
+        "clientId": null,
+        "content": [
+          {
+            "type": "text",
+            "text": "Without using any tools, write eight full sentences, each about 30 words long, about how rivers shape valleys over time. Plain prose, one paragraph.",
+            "text_elements": []
+          }
+        ]
+      },
+      "threadId": "01a1601c-37b8-7350-9d43-bf657659a475",
+      "turnId": "01a1601c-3830-7cc0-bdc2-a9887f1d1fc2",
+      "completedAtMs": 1792613827304
+    }
+  },
+  {
+    "kind": "item/completed",
+    "payload": {
+      "item": {
+        "type": "reasoning",
+        "id": "rs_0ea6d27bb060c75b016ad91dc4c58c81919cb8749035eb9b50",
+        "summary": [],
+        "content": []
+      },
+      "threadId": "01a1601c-37b8-7350-9d43-bf657659a475",
+      "turnId": "01a1601c-3830-7cc0-bdc2-a9887f1d1fc2",
+      "completedAtMs": 1792613828797
+    }
+  },
+  {
+    "kind": "text.chunk",
+    "payload": {
+      "streamId": "msg_0ea6d27bb060c75b016ad91dc4cde88191884ba4ef19c3b4e5",
+      "channel": "text",
+      "text": "Rivers gradually carve valleys as flowing water erodes soil, gravel, and bedrock, deepening channels and creating pathways through landscapes that may initially appear solid and unchanging."
+    }
+  },
+  {
+    "kind": "text.chunk",
+    "payload": {
+      "streamId": "msg_0ea6d27bb060c75b016ad91dc4cde88191884ba4ef19c3b4e5",
+      "channel": "text",
+      "text": " During floods, rivers spread across their banks, depositing layers of sediment that build fertile floodplains and widen valley floors while continually reshaping surrounding terrain."
+    }
+  },
+  {
+    "kind": "text.chunk",
+    "payload": {
+      "streamId": "msg_0ea6d27bb060c75b016ad91dc4cde88191884ba4ef19c3b4e5",
+      "channel": "text",
+      "text": " In mountainous regions, swift currents cut narrow, steep-sided gorges, especially where resistant rock forces water to concentrate its energy within confined channels."
+    }
+  },
+  {
+    "kind": "text.chunk",
+    "payload": {
+      "streamId": "msg_0ea6d27bb060c75b016ad91dc4cde88191884ba4ef19c3b4e5",
+      "channel": "text",
+      "text": " Downstream, gentler slopes reduce water velocity, allowing rivers to meander, erode outer banks, deposit sediment inside bends, and create broad, winding valleys over centuries."
+    }
+  },
+  {
+    "kind": "text.chunk",
+    "payload": {
+      "streamId": "msg_0ea6d27bb060c75b016ad91dc4cde88191884ba4ef19c3b4e5",
+      "channel": "text",
+      "text": " Tributaries join larger rivers, extending erosion into neighboring hillsides and producing branching drainage patterns that gradually organize entire watersheds across continents."
+    }
+  },
+  {
+    "kind": "text.chunk",
+    "payload": {
+      "streamId": "msg_0ea6d27bb060c75b016ad91dc4cde88191884ba4ef19c3b4e5",
+      "channel": "text",
+      "text": " Seasonal changes in rainfall and snowmelt alter river power, causing alternating periods of incision, sediment accumulation, bank collapse, and renewed channel migration throughout valley systems."
+    }
+  },
+  {
+    "kind": "text.chunk",
+    "payload": {
+      "streamId": "msg_0ea6d27bb060c75b016ad91dc4cde88191884ba4ef19c3b4e5",
+      "channel": "text",
+      "text": " Vegetation stabilizes some banks by anchoring soil with roots, yet rivers can undermine those roots, topple trees, and redirect channels during powerful storms."
+    }
+  },
+  {
+    "kind": "text.chunk",
+    "payload": {
+      "streamId": "msg_0ea6d27bb060c75b016ad91dc4cde88191884ba4ef19c3b4e5",
+      "channel": "text",
+      "text": " Over immense spans of time, these combined processes transform rugged highlands into layered valleys, connecting uplands, plains, ecosystems, and human communities along flowing corridors."
+    }
+  },
+  {
+    "kind": "item/completed",
+    "payload": {
+      "item": {
+        "type": "agentMessage",
+        "id": "msg_0ea6d27bb060c75b016ad91dc4cde88191884ba4ef19c3b4e5",
+        "text": {
+          "$stream": "msg_0ea6d27bb060c75b016ad91dc4cde88191884ba4ef19c3b4e5"
+        },
+        "phase": "final_answer",
+        "memoryCitation": null,
+        "delivery": null,
+        "questions": null
+      },
+      "threadId": "01a1601c-37b8-7350-9d43-bf657659a475",
+      "turnId": "01a1601c-3830-7cc0-bdc2-a9887f1d1fc2",
+      "completedAtMs": 1792613831381
+    }
+  },
+  {
+    "kind": "thread/tokenUsage/updated",
+    "payload": {
+      "threadId": "01a1601c-37b8-7350-9d43-bf657659a475",
+      "turnId": "01a1601c-3830-7cc0-bdc2-a9887f1d1fc2",
+      "tokenUsage": {
+        "total": {
+          "totalTokens": 16863,
+          "inputTokens": 16576,
+          "cachedInputTokens": 9984,
+          "cacheWriteInputTokens": 0,
+          "outputTokens": 287,
+          "reasoningOutputTokens": 32
+        },
+        "last": {
+          "totalTokens": 16863,
+          "inputTokens": 16576,
+          "cachedInputTokens": 9984,
+          "cacheWriteInputTokens": 0,
+          "outputTokens": 287,
+          "reasoningOutputTokens": 32
+        },
+        "modelContextWindow": 258400
+      }
+    }
+  },
+  {
+    "kind": "turn/completed",
+    "payload": {
+      "threadId": "01a1601c-37b8-7350-9d43-bf657659a475",
+      "turn": {
+        "id": "01a1601c-3830-7cc0-bdc2-a9887f1d1fc2",
+        "items": [
+          {
+            "type": "agentMessage",
+            "id": "msg_0ea6d27bb060c75b016ad91dc4cde88191884ba4ef19c3b4e5",
+            "text": {
+              "$stream": "msg_0ea6d27bb060c75b016ad91dc4cde88191884ba4ef19c3b4e5"
+            },
+            "phase": "final_answer",
+            "memoryCitation": null,
+            "delivery": null,
+            "questions": null
+          }
+        ],
+        "itemsView": "summary",
+        "status": "completed",
+        "error": null,
+        "startedAt": 1792613824,
+        "completedAt": 1792613831,
+        "durationMs": 7013
+      }
+    }
+  }
+]

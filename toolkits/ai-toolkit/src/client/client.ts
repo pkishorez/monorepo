@@ -9,7 +9,7 @@ import {
 import type { Entity } from '@kestack/std-toolkit/core';
 import { oldToNew, Replica, Replicas } from '@kestack/std-toolkit/replica';
 import { AiApi, type WireEntity } from '../api/contract/index.js';
-import { MessageSchema } from '../projection/index.js';
+import { MessageSchema, PROJECTION_VERSION } from '../projection/index.js';
 import { ProjectSchema, SessionSchema } from '../records/index.js';
 
 /*
@@ -74,8 +74,23 @@ const resumable =
       }),
     );
 
+/*
+ * A device keeps Messages as the projection made them, so the Replica's
+ * name carries the projection's version: a new projection is a new Replica,
+ * synced afresh, and the old ones are `retired` for the Store to delete.
+ */
+const replicaName = (version: number) => `ai-p${version}`;
+
+/** Replicas of older projections, for `Store.idb({ retired })`. */
+export const retired: ReadonlyArray<string> = [
+  'ai',
+  ...Array.from({ length: PROJECTION_VERSION - 1 }, (_, at) =>
+    replicaName(at + 1),
+  ),
+];
+
 /** The server's records, one Instance per app. */
-export const Ai = Replica.make('ai', {
+export const Ai = Replica.make(replicaName(PROJECTION_VERSION), {
   collections: {
     projects: ProjectSchema,
     sessions: SessionSchema,

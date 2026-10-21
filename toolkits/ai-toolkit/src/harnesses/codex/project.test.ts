@@ -5,6 +5,7 @@ import type { RawOut } from '../../harness/index.js';
 import type { Part, Projected } from '../../projection/index.js';
 import type { Raw } from '../../raw/index.js';
 import { OUTPUT_LIMIT, project } from './project.js';
+import { restore } from './streams.js';
 
 // Records captured from live Codex 0.154 turns (codex.e2e.test.ts with
 // AI_TOOLKIT_CAPTURE set).
@@ -179,6 +180,94 @@ describe('project: steer and cancel', () => {
   it('ends an interrupted turn as cancelled', () => {
     const parts = partsOf(projectAll(fixture('cancel')));
     expect(parts.at(-1)).toEqual({ type: 'turnEnded', status: 'cancelled' });
+  });
+});
+
+// The shell, subagent, steer and cancel fixtures predate streaming: their
+// text is inline in item/completed, still projected for old sessions.
+describe('project: a streamed answer', () => {
+  const outs = fixture('stream');
+  const messages = projectAll(outs);
+  const chunks = partsOf(messages).filter(
+    (part): part is Extract<Part, { type: 'textChunk' }> =>
+      part.type === 'textChunk',
+  );
+  const answer = outs.findLast((out) => out.kind === 'item/completed')!;
+  const { item } = answer.payload as unknown as {
+    item: { id: string; text: unknown };
+  };
+
+  it('shows the text only as chunks, each its own assistant message', () => {
+    expect(chunks.length).toBeGreaterThan(2);
+    expect(
+      partsOf(messages).some(
+        (part) => part.type === 'text' || part.type === 'reasoning',
+      ),
+    ).toBe(false);
+    expect(
+      messages
+        .filter((message) => message.parts[0]?.type === 'textChunk')
+        .every(
+          (message) =>
+            message.role === 'assistant' && message.parts.length === 1,
+        ),
+    ).toBe(true);
+    expect(project(toRaw(answer))).toBeNull();
+  });
+
+  it('stores the text once: the item points at its chunks by item id', () => {
+    expect(item.text).toEqual({ $stream: item.id });
+    expect(chunks.every((chunk) => chunk.streamId === item.id)).toBe(true);
+    expect(chunks.every((chunk) => chunk.channel === 'text')).toBe(true);
+    const restored = restore(answer.payload, {
+      [item.id]: chunks.map((chunk) => chunk.text),
+    }) as unknown as { item: { text: string } };
+    expect(restored.item.text.length).toBeGreaterThan(500);
+    expect(restored.item.text).toBe(chunks.map((chunk) => chunk.text).join(''));
+  });
+
+  it("streams a sub-agent's text under its spawn call, and keeps its answer as the call's result", () => {
+    const streamed = projectAll(fixture('subagent-streamed'));
+    const spawnId = 'exec-1d8c28d4-5b63-425c-9efe-7774be73218f';
+    expect(
+      streamed
+        .filter((message) => message.agentId === spawnId)
+        .flatMap((message) => message.parts)
+        .filter((part) => part.type === 'textChunk'),
+    ).toEqual([
+      {
+        type: 'textChunk',
+        streamId: 'msg_0bf99a9431311bfb016ad91dd239cc8191a2bae91ecc3b3184',
+        channel: 'text',
+        text: '`from-child`',
+      },
+    ]);
+    expect(
+      partsOf(streamed).find(
+        (part) => part.type === 'toolResult' && part.toolCallId === spawnId,
+      ),
+    ).toMatchObject({ output: '`from-child`', isError: false });
+  });
+
+  it('keeps a sub-agent chunk on its agent', () => {
+    expect(
+      one(
+        'text.chunk',
+        { streamId: 'm:reasoning', channel: 'reasoning', text: 'Hm.' },
+        'call-1',
+      ),
+    ).toEqual({
+      agentId: 'call-1',
+      role: 'assistant',
+      parts: [
+        {
+          type: 'textChunk',
+          streamId: 'm:reasoning',
+          channel: 'reasoning',
+          text: 'Hm.',
+        },
+      ],
+    });
   });
 });
 

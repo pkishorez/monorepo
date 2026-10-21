@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Duration, Effect, Fiber, Stream } from 'effect';
+import { Duration, Effect, Fiber, Stream, type Schema } from 'effect';
 import { afterAll, describe, expect, it } from 'vitest';
 import {
   Titler,
@@ -10,7 +10,9 @@ import {
 } from '../../harness/index.js';
 import type { Part, Projected } from '../../projection/index.js';
 import type { Raw } from '../../raw/index.js';
-import { codex, codexTitler } from './index.js';
+import { isNotification, start } from './app-server/index.js';
+import { codex, codexTitler, restore } from './index.js';
+import { openSession } from './session.js';
 
 // Runs against the real, logged-in Codex on this machine. A cheap, fast model.
 const MODEL = 'gpt-5.6-luna';
@@ -54,8 +56,27 @@ const assistantText = (messages: ReadonlyArray<Projected>) =>
   messages
     .filter((message) => message.agentId === null)
     .flatMap((message) => message.parts)
-    .flatMap((part) => (part.type === 'text' ? [part.text] : []))
-    .join('\n');
+    .flatMap((part) =>
+      part.type === 'text' ||
+      (part.type === 'textChunk' && part.channel === 'text')
+        ? [part.text]
+        : [],
+    )
+    .join('');
+
+/** Each stream's chunk texts, in order, from a turn's records. */
+const chunksOf = (outs: ReadonlyArray<RawOut>) => {
+  const chunks: Record<string, Array<string>> = {};
+  for (const out of outs)
+    if (out.kind === 'text.chunk') {
+      const { streamId, text } = out.payload as {
+        streamId: string;
+        text: string;
+      };
+      (chunks[streamId] ??= []).push(text);
+    }
+  return chunks;
+};
 
 const collect = (session: HarnessSession, text: string, name: string) =>
   session.turn(text).pipe(
@@ -133,6 +154,71 @@ describe.runIf(process.env.AI_TOOLKIT_E2E === '1')(
               'resume',
             );
             expect(assistantText(projectAll(outs))).toContain('e2e-shell-ok');
+          }),
+        );
+      },
+      TIMEOUT,
+    );
+
+    it(
+      'streams a long answer in chunks that restore every finished item exactly',
+      async () => {
+        await run(
+          Effect.gen(function* () {
+            // Its own server, to see each finished item as Codex sent it.
+            const server = yield* start(cwd);
+            const sent: Array<Schema.Json> = [];
+            server.listen({
+              notification: (notification) => {
+                if (isNotification(notification, 'item/completed'))
+                  sent.push(notification.params as unknown as Schema.Json);
+              },
+              exit: () => {},
+            });
+            const session = yield* openSession(server, {
+              cwd,
+              model: MODEL,
+              sandbox: 'read-only',
+              effort: 'low',
+            });
+            const outs = yield* collect(
+              session,
+              'Without using any tools, write eight full sentences, each about 30 words long, about how rivers shape valleys over time. Plain prose, one paragraph.',
+              'stream',
+            );
+            const chunks = chunksOf(outs);
+            const stored = outs.filter((out) => out.kind === 'item/completed');
+            // Every stored item, restored from its chunks, is what Codex sent.
+            expect(stored.map((out) => restore(out.payload, chunks))).toEqual(
+              sent,
+            );
+            const answer = stored.findLast(
+              (out) =>
+                (out.payload as { item: { type: string } }).item.type ===
+                'agentMessage',
+            )!;
+            // Raw holds the answer once: in its chunks, pointed to by the item.
+            const { item } = answer.payload as {
+              item: { id: string; text: unknown };
+            };
+            expect(item.text).toEqual({ $stream: item.id });
+            expect(chunks[item.id]!.length).toBeGreaterThan(2);
+            expect(chunks[item.id]!.join('').length).toBeGreaterThan(500);
+            // Every chunk comes before the item, and the item projects to nothing.
+            const at = outs.indexOf(answer);
+            expect(
+              outs
+                .slice(at)
+                .some(
+                  (out) =>
+                    out.kind === 'text.chunk' &&
+                    (out.payload as { streamId: string }).streamId === item.id,
+                ),
+            ).toBe(false);
+            expect(codex.project(toRaw(answer, at))).toBeNull();
+            expect(assistantText(projectAll(outs))).toBe(
+              chunks[item.id]!.join(''),
+            );
           }),
         );
       },

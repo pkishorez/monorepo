@@ -75,12 +75,50 @@ describe('project, on a captured turn that reads a file', () => {
     );
   });
 
-  it('shows the final answer as assistant text', () => {
+  it('shows the final answer, stored before streaming, as assistant text', () => {
     const text = turn
       .flatMap((r) => partsOf(r.projected))
       .flatMap((p) => (p.type === 'text' ? [p.text] : []))
       .join('');
     expect(text).toContain('PINEAPPLE-42');
+  });
+});
+
+describe('project, on a captured turn that streams a long answer', () => {
+  const outs = fixture('stream');
+  const turn = projectAll(outs);
+  const chunks = turn.flatMap((r) =>
+    partsOf(r.projected).flatMap((p) => (p.type === 'textChunk' ? [p] : [])),
+  );
+  const whole = outs.find((o) => o.kind === 'assistant')?.payload as {
+    message: { id: string; content: ReadonlyArray<{ text: unknown }> };
+  };
+
+  it('shows each chunk as an assistant message of one textChunk', () => {
+    const shown = turn.filter((r) => r.kind === 'text.chunk');
+    expect(shown.length).toBeGreaterThan(1);
+    for (const { projected } of shown) {
+      expect(projected).toMatchObject({ agentId: null, role: 'assistant' });
+      expect(projected?.parts).toHaveLength(1);
+    }
+  });
+
+  it("names the chunks after the whole block's message id and index", () => {
+    expect(new Set(chunks.map((c) => c.streamId))).toEqual(
+      new Set([`${whole.message.id}:0`]),
+    );
+    expect(chunks.every((c) => c.channel === 'text')).toBe(true);
+  });
+
+  it('stores the whole text block as a pointer to the chunks', () => {
+    expect(whole.message.content[0]?.text).toEqual({
+      $stream: chunks[0]?.streamId,
+    });
+    expect(chunks.map((c) => c.text).join('').length).toBeGreaterThan(400);
+  });
+
+  it('shows nothing for the whole record: its chunks show the text', () => {
+    expect(turn.find((r) => r.kind === 'assistant')?.projected).toBeNull();
   });
 });
 
@@ -173,7 +211,7 @@ describe('project, on hand-made records', () => {
     );
   });
 
-  it('keeps reasoning with text and drops empty (redacted) thinking', () => {
+  it('keeps inline reasoning and text, and drops empty (redacted) thinking', () => {
     const projected = of(
       {
         type: 'assistant',
@@ -195,6 +233,47 @@ describe('project, on hand-made records', () => {
         { type: 'text', text: 'Hi' },
       ],
     });
+  });
+
+  it('shows nothing for blocks that point at their chunks', () => {
+    const pointer = (streamId: string) => ({ $stream: streamId });
+    expect(
+      of({
+        type: 'assistant',
+        message: {
+          content: [
+            { type: 'thinking', thinking: pointer('m:0'), signature: 's' },
+            { type: 'text', text: pointer('m:1') },
+          ],
+        },
+      }),
+    ).toBeNull();
+    const projected = of({
+      type: 'assistant',
+      message: {
+        content: [
+          { type: 'text', text: pointer('m:0') },
+          { type: 'tool_use', id: 'toolu_1', name: 'Read', input: {} },
+        ],
+      },
+    });
+    expect(projected?.parts.map((p) => p.type)).toEqual(['toolCall']);
+  });
+
+  it("shows a text.chunk as a textChunk, with its subagent's id", () => {
+    const chunk = { streamId: 'msg_1:0', channel: 'reasoning', text: 'Hmm.' };
+    expect(
+      project(raw({ kind: 'text.chunk', payload: chunk, agentId: 'toolu_1' })),
+    ).toEqual({
+      agentId: 'toolu_1',
+      role: 'assistant',
+      parts: [{ type: 'textChunk', ...chunk }],
+    });
+    expect(
+      project(
+        raw({ kind: 'text.chunk', payload: { ...chunk, channel: 'other' } }),
+      ),
+    ).toBeNull();
   });
 
   it('maps tool names to kinds and short titles', () => {

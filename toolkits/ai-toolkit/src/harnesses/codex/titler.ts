@@ -5,6 +5,7 @@ import { Duration, Effect, Layer, Stream } from 'effect';
 import { HarnessError, Titler } from '../../harness/index.js';
 import { start, type AppServer, type ThreadItem } from './app-server/index.js';
 import { openSession } from './session.js';
+import { restore, TEXT_CHUNK, type TextChunk } from './streams.js';
 
 /** The titling model the spec names; used whenever this account lists it. */
 const TITLE_MODEL = 'gpt-6-luna';
@@ -71,13 +72,21 @@ const title = (text: string) =>
       effort: 'low',
       ephemeral: true,
     });
+    const chunks: Record<string, Array<string>> = {};
     const reply = yield* session.turn(prompt(text)).pipe(
       Stream.runFold(
         () => '',
         (last, out) => {
-          if (out.kind !== 'item/completed' || out.agentId !== undefined)
+          if (out.agentId !== undefined) return last;
+          if (out.kind === TEXT_CHUNK) {
+            const chunk = out.payload as unknown as TextChunk;
+            (chunks[chunk.streamId] ??= []).push(chunk.text);
             return last;
-          const { item } = out.payload as unknown as { item: ThreadItem };
+          }
+          if (out.kind !== 'item/completed') return last;
+          const { item } = restore(out.payload, chunks) as unknown as {
+            item: ThreadItem;
+          };
           return item.type === 'agentMessage' ? item.text : last;
         },
       ),

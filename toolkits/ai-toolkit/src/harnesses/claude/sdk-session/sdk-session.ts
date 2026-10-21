@@ -17,6 +17,7 @@ import {
   type HarnessSession,
   type RawOut,
 } from '../../../harness/index.js';
+import { makeStreamChunks } from './stream-chunks/index.js';
 import { TurnEnd } from './turn-end/index.js';
 
 export interface SdkSessionConfig {
@@ -54,8 +55,10 @@ const installedClaude = (): string | undefined => {
 const CANCEL_GRACE_MS = 15_000;
 
 /**
- * Records we do not keep: token deltas, the CLI's queue bookkeeping, and
- * thinking-token counters. Everything else is a whole record.
+ * Records we do not keep: token deltas (kept as `text.chunk` records
+ * instead, which a whole record's streamed blocks point at), the CLI's
+ * queue bookkeeping, and thinking-token counters.
+ * Everything else is a whole record.
  */
 const skipped = (message: Record<string, unknown>): boolean =>
   message['type'] === 'stream_event' ||
@@ -140,6 +143,8 @@ export const openSdkSession = (
       model: config.model,
       effort: config.effort,
       permissionMode: config.permissionMode,
+      // Token deltas, batched into a few sentences per text.chunk record.
+      includePartialMessages: true,
       ...(config.permissionMode === 'bypassPermissions'
         ? { allowDangerouslySkipPermissions: true }
         : {}),
@@ -162,6 +167,34 @@ export const openSdkSession = (
     let nativeId = config.nativeId;
     let turn: Turn | undefined;
     let stopped: HarnessError | undefined;
+    const chunks = makeStreamChunks();
+    let timerSet = false;
+
+    const send = (outs: ReadonlyArray<RawOut>) =>
+      Effect.suspend(() =>
+        turn === undefined || outs.length === 0
+          ? Effect.void
+          : Queue.offerAll(turn.out, outs),
+      );
+
+    // Text left waiting in a slow stream is sent once it is due, even when
+    // no record arrives to send it with.
+    const armTimer: Effect.Effect<void> = Effect.suspend(() => {
+      const at = chunks.nextDue();
+      if (timerSet || at === undefined) return Effect.void;
+      timerSet = true;
+      return Effect.sleep(Math.max(0, at - Date.now())).pipe(
+        Effect.andThen(
+          Effect.suspend(() => {
+            timerSet = false;
+            return send(chunks.due(Date.now()));
+          }),
+        ),
+        Effect.andThen(armTimer),
+        Effect.forkIn(scope),
+        Effect.asVoid,
+      );
+    });
 
     const push = (text: string): string => {
       const uuid = randomUUID();
@@ -177,10 +210,14 @@ export const openSdkSession = (
       return uuid;
     };
 
+    // Text still waiting is sent before the turn ends, so a cancelled
+    // turn's chunks still add up to what was written.
     const finish = (current: Turn) =>
       Effect.suspend(() => {
         if (turn === current) turn = undefined;
-        return Queue.end(current.out);
+        return Queue.offerAll(current.out, chunks.closeAll()).pipe(
+          Effect.andThen(Queue.end(current.out)),
+        );
       });
 
     const interrupt = Effect.promise(() =>
@@ -199,6 +236,12 @@ export const openSdkSession = (
         ) {
           nativeId = record['session_id'];
         }
+        if (record['type'] === 'stream_event') {
+          yield* send(chunks.event(record, Date.now()));
+          yield* send(chunks.due(Date.now()));
+          yield* armTimer;
+          return;
+        }
         const current = turn;
         // Records between turns (late task notifications) have no turn to join.
         if (current === undefined) return;
@@ -216,6 +259,13 @@ export const openSdkSession = (
           return;
         }
         if (skipped(record)) return;
+        if (record['type'] === 'assistant') {
+          const whole = chunks.whole(record);
+          yield* send(whole.chunks);
+          yield* Queue.offer(current.out, toRawOut(whole.record));
+          return;
+        }
+        if (record['type'] === 'result') yield* send(chunks.closeAll());
         yield* Queue.offer(current.out, toRawOut(record));
         if (record['type'] !== 'result') return;
         const [state, step] = TurnEnd.result(current.state, record);
@@ -229,9 +279,12 @@ export const openSdkSession = (
         stopped = error;
         const current = turn;
         turn = undefined;
+        const rest = chunks.closeAll();
         return current === undefined
           ? Effect.void
-          : Queue.fail(current.out, error);
+          : Queue.offerAll(current.out, rest).pipe(
+              Effect.andThen(Queue.fail(current.out, error)),
+            );
       });
 
     yield* Stream.fromAsyncIterable(

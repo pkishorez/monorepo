@@ -271,6 +271,26 @@ export interface Notifications {
     readonly willRetry: boolean;
     readonly error: TurnError;
   };
+  readonly 'item/agentMessage/delta': {
+    readonly threadId: string;
+    readonly turnId: string;
+    readonly itemId: string;
+    readonly delta: string;
+  };
+  readonly 'item/reasoning/summaryTextDelta': {
+    readonly threadId: string;
+    readonly turnId: string;
+    readonly itemId: string;
+    readonly delta: string;
+    readonly summaryIndex: number;
+  };
+  readonly 'item/reasoning/textDelta': {
+    readonly threadId: string;
+    readonly turnId: string;
+    readonly itemId: string;
+    readonly delta: string;
+    readonly contentIndex: number;
+  };
 }
 
 /** Any notification the server sends, read or not. */
@@ -286,13 +306,13 @@ export const isNotification = <M extends keyof Notifications>(
 ): notification is { readonly method: M; readonly params: Notifications[M] } =>
   notification.method === method;
 
-/** Deltas this harness never reads; the server is asked not to send them. */
+/**
+ * Deltas this harness never reads; the server is asked not to send them.
+ * Message and reasoning text deltas are read, to stream text in chunks.
+ */
 export const DELTA_METHODS = [
-  'item/agentMessage/delta',
   'item/plan/delta',
-  'item/reasoning/summaryTextDelta',
   'item/reasoning/summaryPartAdded',
-  'item/reasoning/textDelta',
   'item/commandExecution/outputDelta',
   'item/fileChange/outputDelta',
   'command/exec/outputDelta',

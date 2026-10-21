@@ -13,6 +13,7 @@ import type {
   TurnStatus,
 } from './app-server/index.js';
 import { isToolItem, type ToolItem } from './records.js';
+import { TEXT_CHUNK, type Channel } from './streams.js';
 
 /** Tool output longer than this is cut in the projection; Raw keeps it all. */
 export const OUTPUT_LIMIT = 4_000;
@@ -222,13 +223,18 @@ const completedItem = (raw: Raw, item: ThreadItem): Projected | null => {
     ]);
   }
   switch (item.type) {
+    // Text that streamed is stored as pointers to its text.chunk records,
+    // which show it; only text that never streamed is shown from here.
     case 'agentMessage':
     case 'plan':
-      return item.text.trim() === ''
+      return typeof item.text !== 'string' || item.text.trim() === ''
         ? null
         : message(raw, 'assistant', [{ type: 'text', text: item.text }]);
     case 'reasoning': {
-      const text = [...item.summary, ...item.content].join('\n\n').trim();
+      const text = [...item.summary, ...item.content]
+        .filter((part) => typeof part === 'string')
+        .join('\n\n')
+        .trim();
       return text === ''
         ? null
         : message(raw, 'assistant', [{ type: 'reasoning', text }]);
@@ -310,6 +316,16 @@ export const project = (raw: Raw): Projected | null => {
         raw,
         (raw.payload as unknown as Payload<'item/completed'>).item,
       );
+    case TEXT_CHUNK: {
+      const { streamId, channel, text } = raw.payload as {
+        streamId: string;
+        channel: Channel;
+        text: string;
+      };
+      return message(raw, 'assistant', [
+        { type: 'textChunk', streamId, channel, text },
+      ]);
+    }
     case 'turn/plan/updated': {
       const { plan } = raw.payload as unknown as Payload<'turn/plan/updated'>;
       return message(raw, 'assistant', [

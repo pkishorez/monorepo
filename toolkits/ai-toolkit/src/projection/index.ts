@@ -1,6 +1,7 @@
 export {
   MessageSchema,
   PartSchema,
+  PROJECTION_VERSION,
   ROLES,
   TOOL_KINDS,
   TURN_END_STATUSES,

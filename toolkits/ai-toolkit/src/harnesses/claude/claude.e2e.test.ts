@@ -2,11 +2,46 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Effect, Exit, Fiber, Scope, Stream } from 'effect';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { HarnessSession, RawOut } from '../../harness/index.js';
 import type { Part, Projected } from '../../projection/index.js';
 import type { Raw } from '../../raw/index.js';
 import { claude } from './index.js';
+import { restore } from './sdk-session/index.js';
+
+/** Every message the Agent SDK's query yields, as the harness reads it. */
+const sdkMessages = vi.hoisted(() => [] as Array<Record<string, unknown>>);
+
+vi.mock('@anthropic-ai/claude-agent-sdk', async (importOriginal) => {
+  const sdk =
+    await importOriginal<typeof import('@anthropic-ai/claude-agent-sdk')>();
+  const query: typeof sdk.query = (params) => {
+    const live = sdk.query(params);
+    const tee: typeof live = new Proxy(live, {
+      get: (target, key) => {
+        if (key === Symbol.asyncIterator) return () => tee;
+        if (key === 'next') {
+          return async (...args: []) => {
+            const result = await target.next(...args);
+            if (result.done !== true) {
+              sdkMessages.push(
+                JSON.parse(JSON.stringify(result.value)) as Record<
+                  string,
+                  unknown
+                >,
+              );
+            }
+            return result;
+          };
+        }
+        const value: unknown = Reflect.get(target, key, target);
+        return typeof value === 'function' ? value.bind(target) : value;
+      },
+    });
+    return tee;
+  };
+  return { ...sdk, query };
+});
 
 /**
  * Runs the real local Claude Code. Opt in with AI_TOOLKIT_E2E=1; set
@@ -41,10 +76,39 @@ const parts = (messages: ReadonlyArray<Projected>): ReadonlyArray<Part> =>
 const toolCalls = (messages: ReadonlyArray<Projected>) =>
   parts(messages).flatMap((p) => (p.type === 'toolCall' ? [p] : []));
 
+/** The answer's text, whole or streamed in chunks. */
 const texts = (messages: ReadonlyArray<Projected>) =>
   parts(messages)
-    .flatMap((p) => (p.type === 'text' ? [p.text] : []))
+    .flatMap((p) =>
+      p.type === 'text' || (p.type === 'textChunk' && p.channel === 'text')
+        ? [p.text]
+        : [],
+    )
     .join('\n');
+
+/**
+ * Restores every stored assistant record from the turn's chunks and checks
+ * it against what the SDK sent: nothing is lost, though no text is kept twice.
+ */
+const expectRestorable = (outs: ReadonlyArray<RawOut>) => {
+  const chunks = new Map<string, string[]>();
+  for (const out of outs) {
+    if (out.kind !== 'text.chunk') continue;
+    const { streamId, text } = out.payload as {
+      streamId: string;
+      text: string;
+    };
+    chunks.set(streamId, [...(chunks.get(streamId) ?? []), text]);
+  }
+  const stored = outs.filter((o) => o.kind === 'assistant');
+  expect(stored.length).toBeGreaterThan(0);
+  for (const out of stored) {
+    const uuid = (out.payload as { uuid: string }).uuid;
+    const original = sdkMessages.find((m) => m['uuid'] === uuid);
+    expect(original).toBeDefined();
+    expect(restore(out.payload, chunks)).toEqual(original);
+  }
+};
 
 const lastTurnEnd = (messages: ReadonlyArray<Projected>) =>
   parts(messages)
@@ -137,6 +201,44 @@ describe.skipIf(!enabled)('claude harness against the real Claude Code', () => {
     expect(await run(session.nativeId)).toBeTypeOf('string');
   }, 120_000);
 
+  it('streams a long answer in chunks of a few sentences; the whole points at them', async () => {
+    const outs = await run(
+      runTurn(
+        session,
+        'Without using any tools, write about 8 sentences about octopuses ' +
+          'as one paragraph.',
+      ),
+    );
+    save('stream', outs);
+    const messages = projectAll(outs);
+    const chunks = parts(messages).flatMap((p) =>
+      p.type === 'textChunk' && p.channel === 'text' ? [p] : [],
+    );
+    const streamIds = [...new Set(chunks.map((c) => c.streamId))];
+    expect(streamIds).toHaveLength(1);
+    expect(chunks.length).toBeGreaterThan(1);
+    // The whole record comes after its chunks, holding a pointer to them.
+    const wholeAt = outs.findIndex((o) =>
+      JSON.stringify(o.payload).includes(`{"$stream":"${streamIds[0]}"}`),
+    );
+    expect(outs[wholeAt]?.kind).toBe('assistant');
+    expect(outs.findLastIndex((o) => o.kind === 'text.chunk')).toBeLessThan(
+      wholeAt,
+    );
+    // It shows no text twice: only the chunks show the answer.
+    expect(parts(messages).some((p) => p.type === 'text')).toBe(false);
+    const { uuid } = outs[wholeAt]!.payload as { uuid: string };
+    const sent = sdkMessages.find((m) => m['uuid'] === uuid) as {
+      message: { content: ReadonlyArray<{ text: string }> };
+    };
+    expect(sent.message.content[0]?.text.length).toBeGreaterThan(400);
+    expect(chunks.map((c) => c.text).join('')).toBe(
+      sent.message.content[0]?.text,
+    );
+    expectRestorable(outs);
+    expect(outs.at(-1)?.kind).toBe('result');
+  }, 120_000);
+
   it('runs a subagent whose records carry the spawning tool call id', async () => {
     const outs = await run(
       runTurn(
@@ -150,6 +252,7 @@ describe.skipIf(!enabled)('claude harness against the real Claude Code', () => {
       ),
     );
     save('subagent', outs);
+    expectRestorable(outs);
     const messages = projectAll(outs);
     const spawn = toolCalls(messages.filter((m) => m.agentId === null)).find(
       (c) => c.tool === 'subagent',
@@ -185,6 +288,7 @@ describe.skipIf(!enabled)('claude harness against the real Claude Code', () => {
       ),
     );
     save('steer', outs);
+    expectRestorable(outs);
     const messages = projectAll(outs);
     expect(texts(messages)).toContain('BANANA');
     expect(outs.at(-1)?.kind).toBe('result');

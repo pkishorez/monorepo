@@ -28,6 +28,11 @@ const blocks = (message: unknown): ReadonlyArray<Obj> => {
   return Array.isArray(content) ? content.filter(isObj) : [];
 };
 
+/**
+ * A streamed text or thinking block holds a pointer to its `text.chunk`
+ * records instead of its text, and shows nothing: its chunks show it. Only
+ * a block that did not stream still has its text inline.
+ */
 const assistantParts = (payload: Obj): ReadonlyArray<Part> =>
   blocks(payload['message']).flatMap((block): ReadonlyArray<Part> => {
     const text = str(block['text']);
@@ -145,9 +150,28 @@ const systemParts = (payload: Obj): ReadonlyArray<Part> => {
   return [{ type: 'claude.compaction', trigger: trigger ?? 'auto' }];
 };
 
+/** A `text.chunk` record the session wrote from the token stream. */
+const chunkParts = (payload: Obj): ReadonlyArray<Part> => {
+  const streamId = str(payload['streamId']);
+  const channel = payload['channel'];
+  const text = str(payload['text']);
+  if (
+    streamId === undefined ||
+    text === undefined ||
+    (channel !== 'text' && channel !== 'reasoning')
+  ) {
+    return [];
+  }
+  return [{ type: 'textChunk', streamId, channel, text }];
+};
+
 const roleAndParts = (
+  kind: string,
   payload: Obj,
 ): Pick<Projected, 'role' | 'parts'> | null => {
+  if (kind === 'text.chunk') {
+    return { role: 'assistant', parts: chunkParts(payload) };
+  }
   switch (payload['type']) {
     case 'assistant':
       return { role: 'assistant', parts: assistantParts(payload) };
@@ -167,7 +191,7 @@ const roleAndParts = (
 /** One Raw record Claude Code wrote, to what a client shows, or null. */
 export const project = (raw: Raw): Projected | null => {
   if (!isObj(raw.payload)) return null;
-  const projected = roleAndParts(raw.payload);
+  const projected = roleAndParts(raw.kind, raw.payload);
   if (projected === null || projected.parts.length === 0) return null;
   return { agentId: raw.agentId, ...projected };
 };

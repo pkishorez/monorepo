@@ -13,6 +13,7 @@ import {
 } from './app-server/index.js';
 import { makeLineage, type Lineage } from './lineage.js';
 import { toRawOut } from './records.js';
+import { makeStreams, type Streams } from './streams.js';
 
 export interface SessionConfig {
   readonly cwd: string;
@@ -63,6 +64,7 @@ interface Running {
 
 const makeRunning = (
   queue: Queue.Queue<RawOut, HarnessError | Cause.Done>,
+  streams: Streams,
 ): Running => {
   const ended = Deferred.makeUnsafe<void>();
   return {
@@ -74,6 +76,8 @@ const makeRunning = (
     mainDone: false,
     cancelled: false,
     finish: () => {
+      // Streamed text is all the client sees of it: send what still waits.
+      streams.flushAll();
       Deferred.doneUnsafe(ended, Effect.void);
       Queue.endUnsafe(queue);
     },
@@ -127,6 +131,40 @@ const trackSubAgents = (
   }
 };
 
+/**
+ * The notification as stored: an item's streamed text goes out as chunks
+ * first and is kept as pointers to them, in the item and in the main
+ * thread's finished turn. A sub-agent's finished turn keeps its text inline:
+ * its last message is the result of the spawn call.
+ */
+const stored = (
+  streams: Streams,
+  notification: Notification,
+  agentId: string | undefined,
+): Notification => {
+  if (isNotification(notification, 'item/completed'))
+    return {
+      method: notification.method,
+      params: {
+        ...notification.params,
+        item: streams.complete(notification.params.item),
+      },
+    };
+  if (isNotification(notification, 'turn/completed')) {
+    const { threadId, turn } = notification.params;
+    streams.endThread(threadId);
+    if (agentId !== undefined) return notification;
+    return {
+      method: notification.method,
+      params: {
+        ...notification.params,
+        turn: { ...turn, items: turn.items.map(streams.stored) },
+      },
+    };
+  }
+  return notification;
+};
+
 const startThread = (server: AppServer, config: SessionConfig) =>
   config.nativeId === undefined
     ? server.request('thread/start', {
@@ -173,7 +211,8 @@ export const openSession = (
             return yield* new HarnessError({
               message: 'A Codex turn is already running',
             });
-          const current = makeRunning(queue);
+          const streams = makeStreams((out) => Queue.offerUnsafe(queue, out));
+          const current = makeRunning(queue, streams);
           running = current;
 
           const unlisten = server.listen({
@@ -187,7 +226,11 @@ export const openSession = (
               if (params.threadId === undefined) return;
               const agentId = lineage.agentOf(params.threadId);
               if (agentId === undefined && isStale(current, params)) return;
-              const out = toRawOut(notification, agentId);
+              if (streams.delta(notification, agentId)) return;
+              const out = toRawOut(
+                stored(streams, notification, agentId),
+                agentId,
+              );
               if (out !== undefined) Queue.offerUnsafe(queue, out);
               if (
                 agentId === undefined &&
@@ -205,6 +248,7 @@ export const openSession = (
 
           yield* Effect.addFinalizer(() => {
             unlisten();
+            streams.close();
             running = undefined;
             // The reader stopped before Codex did: stop Codex too.
             return current.mainDone || current.knownTurnId === undefined
