@@ -29,13 +29,25 @@ const Optimism = Context.Reference<Optimism | null>(
   },
 );
 
-/** How an Action ends, as its Message's fields: `failed` says why, or is `null`. */
-const result = { failed: Schema.NullOr(Schema.String) };
-
-/** The Message an Action ends with, tagged with its name. */
-export type Ended<Name extends string> = {
+/**
+ * The Message an Action ends with, tagged with its name: the `args` it was
+ * asked with, so a caller with several under way knows which ended, and
+ * `failed`, why it failed, or `null`.
+ */
+export type Ended<Name extends string, Args> = {
   readonly _tag: Name;
+  readonly args: Args;
   readonly failed: string | null;
+};
+
+/** An Action: asked with its args, it is a Command; `result` is its ending Message's fields. */
+export type ActionOf<Name extends string, Args, R> = ((
+  args: Args,
+) => Command<Ended<Name, Args>, R>) & {
+  readonly result: {
+    readonly args: Schema.Codec<Args, unknown, never, never>;
+    readonly failed: Schema.NullOr<typeof Schema.String>;
+  };
 };
 
 const messageOf = (cause: Cause.Cause<unknown>) => {
@@ -61,27 +73,31 @@ const make = <const Name extends string, Args, A, E, R>(
     readonly args: Schema.Codec<Args, unknown, never, never>;
     readonly run: (args: Args) => Effect.Effect<A, E, R>;
   },
-): ((args: Args) => Command<Ended<Name>, Exclude<R, Scope.Scope>>) =>
-  Command.make(name, {
-    args: options.args,
-    run: (args) =>
-      Effect.gen(function* () {
-        const optimism: Optimism = { transaction: null };
-        return yield* options.run(args).pipe(
-          Effect.onExit((exit) => settle(optimism, exit)),
-          // 1. Hold
-          Effect.provideService(Holding, { holder: name, action: true }),
-          Effect.provideService(Optimism, optimism),
-        );
-      }).pipe(
-        Effect.scoped,
-        Effect.exit,
-        Effect.map((exit): Ended<Name> => ({
-          _tag: name,
-          failed: Exit.isSuccess(exit) ? null : messageOf(exit.cause),
-        })),
-      ),
-  });
+): ActionOf<Name, Args, Exclude<R, Scope.Scope>> =>
+  Object.assign(
+    Command.make(name, {
+      args: options.args,
+      run: (args) =>
+        Effect.gen(function* () {
+          const optimism: Optimism = { transaction: null };
+          return yield* options.run(args).pipe(
+            Effect.onExit((exit) => settle(optimism, exit)),
+            // 1. Hold
+            Effect.provideService(Holding, { holder: name, action: true }),
+            Effect.provideService(Optimism, optimism),
+          );
+        }).pipe(
+          Effect.scoped,
+          Effect.exit,
+          Effect.map((exit): Ended<Name, Args> => ({
+            _tag: name,
+            args,
+            failed: Exit.isSuccess(exit) ? null : messageOf(exit.cause),
+          })),
+        ),
+    }),
+    { result: { args: options.args, failed: Schema.NullOr(Schema.String) } },
+  );
 
 // 2. Change
 const optimistic = (change: () => void) =>
@@ -106,6 +122,7 @@ const optimistic = (change: () => void) =>
 /**
  * A named write. `make` mirrors `Command.make`: an Update asks for it with
  * its args, and it ends with one Message tagged with its name, whose fields
- * are `result`. `optimistic` makes Optimistic Changes inside its `run`.
+ * are the Action's `result`. `optimistic` makes Optimistic Changes inside
+ * its `run`.
  */
-export const Action = { make, optimistic, result };
+export const Action = { make, optimistic };

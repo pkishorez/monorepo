@@ -196,6 +196,8 @@ export const makeWorld = (options: WorldOptions = {}) => {
         theirs: Schema.String,
         shown: Schema.Boolean,
         ended: Schema.Array(Schema.NullOr(Schema.String)),
+        /** The wallet each ended Transfer was asked for, from its args. */
+        endedFor: Schema.Array(Schema.String),
       }),
       message: Schema.TaggedUnion({
         Switched: { mine: Schema.String },
@@ -207,12 +209,12 @@ export const makeWorld = (options: WorldOptions = {}) => {
           into: Schema.String,
           amount: Schema.Finite,
         },
-        Transfer: Action.result,
+        Transfer: Transfer.result,
       }),
     }),
     {
       init: () => ({
-        model: { mine: 'a', theirs: 'b', shown: true, ended: [] },
+        model: { mine: 'a', theirs: 'b', shown: true, ended: [], endedFor: [] },
       }),
       children: {
         mine: {
@@ -241,8 +243,12 @@ export const makeWorld = (options: WorldOptions = {}) => {
         Switched: ({ mine }, { model }) => ({ model: { ...model, mine } }),
         Shown: ({ shown }, { model }) => ({ model: { ...model, shown } }),
         Asked: ({ _tag, ...args }) => ({ command: Transfer(args) }),
-        Transfer: ({ failed }, { model }) => ({
-          model: { ...model, ended: [...model.ended, failed] },
+        Transfer: ({ args, failed }, { model }) => ({
+          model: {
+            ...model,
+            ended: [...model.ended, failed],
+            endedFor: [...model.endedFor, args.wallet],
+          },
         }),
       },
     },
@@ -295,6 +301,7 @@ type Page = {
   readonly model: {
     readonly mine: string;
     readonly ended: ReadonlyArray<string | null>;
+    readonly endedFor: ReadonlyArray<string>;
   };
   readonly children: {
     readonly mine?: { readonly model: QueryModel };

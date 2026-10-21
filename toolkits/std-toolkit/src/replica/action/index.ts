@@ -1,1 +1,1 @@
-export { Action, type Ended } from './action.js';
+export { Action, type ActionOf, type Ended } from './action.js';

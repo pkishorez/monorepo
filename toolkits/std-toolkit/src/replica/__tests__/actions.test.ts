@@ -110,6 +110,8 @@ describe('Action', () => {
         yield* eventually(() =>
           expect(read(app).page().model.ended).toEqual([null]),
         );
+        // The ending Message carries the args it was asked with.
+        expect(read(app).page().model.endedFor).toEqual([transfer.wallet]);
         yield* Effect.sleep('50 millis');
         stop();
 

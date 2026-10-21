@@ -28,7 +28,6 @@ See the [top README](../../README.md). This subpath needs the optional peers `@k
 | `Query.define`      | Defines a Query: an actor whose Model is rows from Collections of the Instances its Props pick.                                   |
 | `Action.make`       | Defines an Action as a Kabuki Command that ends with one Message tagged with its name.                                            |
 | `Action.optimistic` | Makes Optimistic Changes inside an Action, across Instances and Replicas, rolled back if the Action fails.                        |
-| `Action.result`     | The fields of the Message an Action ends with, for the caller's Message Schema.                                                   |
 | `oldToNew`          | A Strategy that reads from the oldest change forward, by pulling, by subscription, or both.                                       |
 | `newToOld`          | A Strategy that reads the newest page first on every open, fills in older pages, and keeps the top fresh.                         |
 | `Store`             | The Capability where Instances are kept: `list` them, `remove` one (stopping it everywhere first), or `open` an Instance's space. |
@@ -144,8 +143,9 @@ const Transfer = Action.make('Transfer', {
     }),
 });
 
-// The page Requires Replicas, and its Message Schema has `Transfer: Action.result`:
-// on: { Asked: (args) => ({ command: Transfer(args) }), Transfer: ({ failed }, { model }) => ... }
+// The page Requires Replicas, and its Message Schema has `Transfer: Transfer.result`.
+// The ending Message carries the args it was asked with, so several can run at once:
+// on: { Asked: (args) => ({ command: Transfer(args) }), Transfer: ({ args, failed }, { model }) => ... }
 ```
 
 - The Instance the Action gets runs until it ends and shows it as pending. Its args name the Key it writes.
