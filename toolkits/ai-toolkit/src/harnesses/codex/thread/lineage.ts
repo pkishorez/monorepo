@@ -1,4 +1,4 @@
-import { isNotification, type Notification } from './app-server/index.js';
+import { isNotification, type Notification } from '../app-server/index.js';
 
 /**
  * Which sub-agent each Codex thread is. A sub-agent runs as its own thread;

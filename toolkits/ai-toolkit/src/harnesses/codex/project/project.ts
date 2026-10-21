@@ -5,15 +5,19 @@ import type {
   Role,
   ToolKind,
   TurnEndStatus,
-} from '../../projection/index.js';
-import type { Raw } from '../../raw/index.js';
+} from '../../../projection/index.js';
+import type { Raw } from '../../../raw/index.js';
 import type {
   Notifications,
   ThreadItem,
   TurnStatus,
-} from './app-server/index.js';
-import { isToolItem, type ToolItem } from './records.js';
-import { TEXT_CHUNK, type Channel } from './streams.js';
+} from '../app-server/index.js';
+import {
+  isToolItem,
+  TEXT_CHUNK,
+  type Channel,
+  type ToolItem,
+} from '../thread/index.js';
 
 /** Tool output longer than this is cut in the projection; Raw keeps it all. */
 export const OUTPUT_LIMIT = 4_000;

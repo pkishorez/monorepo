@@ -2,11 +2,15 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Duration, Effect, Layer, Stream } from 'effect';
-import { HarnessError, Titler } from '../../harness/index.js';
-import { start, type AppServer, type ThreadItem } from './app-server/index.js';
-import { listModels } from './models.js';
-import { openSession } from './session.js';
-import { restore, TEXT_CHUNK, type TextChunk } from './streams.js';
+import { HarnessError, Titler } from '../../../harness/index.js';
+import { start, type AppServer, type ThreadItem } from '../app-server/index.js';
+import { listModels } from '../catalog/index.js';
+import {
+  openSession,
+  restore,
+  TEXT_CHUNK,
+  type TextChunk,
+} from '../thread/index.js';
 
 /** The titling model the spec names; used whenever this account lists it. */
 const TITLE_MODEL = 'gpt-6-luna';
@@ -60,7 +64,7 @@ const tempFolder = Effect.acquireRelease(
     Effect.promise(() => rm(folder, { recursive: true, force: true })),
 );
 
-const title = (text: string) =>
+const title = (userMessages: ReadonlyArray<string>) =>
   Effect.gen(function* () {
     const cwd = yield* tempFolder;
     const server = yield* start(cwd);
@@ -72,24 +76,26 @@ const title = (text: string) =>
       ephemeral: true,
     });
     const chunks: Record<string, Array<string>> = {};
-    const reply = yield* session.turn(prompt(text)).pipe(
-      Stream.runFold(
-        () => '',
-        (last, out) => {
-          if (out.agentId !== undefined) return last;
-          if (out.kind === TEXT_CHUNK) {
-            const chunk = out.payload as unknown as TextChunk;
-            (chunks[chunk.streamId] ??= []).push(chunk.text);
-            return last;
-          }
-          if (out.kind !== 'item/completed') return last;
-          const { item } = restore(out.payload, chunks) as unknown as {
-            item: ThreadItem;
-          };
-          return item.type === 'agentMessage' ? item.text : last;
-        },
-      ),
-    );
+    const reply = yield* session
+      .turn({ text: prompt(userMessages.join('\n\n')), images: [] })
+      .pipe(
+        Stream.runFold(
+          () => '',
+          (last, out) => {
+            if (out.agentId !== undefined) return last;
+            if (out.kind === TEXT_CHUNK) {
+              const chunk = out.payload as unknown as TextChunk;
+              (chunks[chunk.streamId] ??= []).push(chunk.text);
+              return last;
+            }
+            if (out.kind !== 'item/completed') return last;
+            const { item } = restore(out.payload, chunks) as unknown as {
+              item: ThreadItem;
+            };
+            return item.type === 'agentMessage' ? item.text : last;
+          },
+        ),
+      );
     const cleaned = clean(reply);
     if (cleaned === '')
       return yield* new HarnessError({ message: 'Codex wrote no title' });

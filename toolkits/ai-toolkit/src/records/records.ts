@@ -27,6 +27,11 @@ export const SESSION_STATUSES = [
 ] as const;
 export type SessionStatus = (typeof SESSION_STATUSES)[number];
 
+const ForkedFrom = Schema.Struct({
+  sessionId: Schema.String,
+  turnId: Schema.String,
+});
+
 /** One conversation with a Coding Harness in a Project's folder. */
 export const SessionSchema = EntityESchema.make('AiSession', 'id', {
   projectId: Schema.String,
@@ -39,6 +44,28 @@ export const SessionSchema = EntityESchema.make('AiSession', 'id', {
   /** The harness's own session id, to resume its context after a restart. */
   nativeId: Schema.NullOr(Schema.String),
   createdAt: Schema.Finite,
-}).build();
+})
+  .evolve(
+    'v2',
+    {
+      /** The Session and Turn this one was forked after; null when it was not. */
+      forkedFrom: Schema.NullOr(ForkedFrom),
+    },
+    (v1) => ({ ...v1, forkedFrom: null }),
+  )
+  .build();
 
 export type Session = typeof SessionSchema.Type;
+
+/**
+ * The Harness Binary one harness is set to run, by harness name. A harness
+ * with no record runs its default.
+ */
+export const HarnessConfigSchema = EntityESchema.make('AiHarnessConfig', 'id', {
+  harness: Schema.Literals(HARNESS_NAMES),
+  /** The executable to run; null for the harness's default. */
+  binaryPath: Schema.NullOr(Schema.String),
+  updatedAt: Schema.Finite,
+}).build();
+
+export type HarnessConfig = typeof HarnessConfigSchema.Type;

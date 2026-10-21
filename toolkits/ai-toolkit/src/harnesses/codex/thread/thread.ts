@@ -3,14 +3,14 @@ import {
   HarnessError,
   type HarnessSession,
   type RawOut,
-} from '../../harness/index.js';
+} from '../../../harness/index.js';
 import {
   isNotification,
   type AppServer,
   type Notification,
   type ReasoningEffort,
   type SandboxMode,
-} from './app-server/index.js';
+} from '../app-server/index.js';
 import { makeLineage, type Lineage } from './lineage.js';
 import { toRawOut } from './records.js';
 import { makeStreams, type Streams } from './streams.js';
@@ -303,10 +303,26 @@ export const openSession = (
       if (confirmed._tag === 'None') current.finish();
     });
 
+    const notYet = Effect.fail(new HarnessError({ message: 'not yet' }));
     return {
       nativeId: Effect.succeed(threadId),
-      turn,
-      steer,
+      turn: (input) => turn(input.text),
+      steer: (input) => steer(input.text),
       cancel,
+      lastTurnNativeId: Effect.succeed(undefined),
+      agentTurns: Stream.never,
+      backgroundJobs: Stream.make([]),
+      stopBackgroundJob: () => notYet,
+      mcpStatus: notYet,
+      contextUsage: notYet,
     } satisfies HarnessSession;
   });
+
+export { isToolItem, type ToolItem } from './records.js';
+export {
+  restore,
+  TEXT_CHUNK,
+  type Channel,
+  type StreamPointer,
+  type TextChunk,
+} from './streams.js';

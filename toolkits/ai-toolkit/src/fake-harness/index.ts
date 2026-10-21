@@ -1,1 +1,5 @@
-export { makeFakeHarness, type FakeHarness } from './fake-harness.js';
+export {
+  FAKE_SKILLS,
+  makeFakeHarness,
+  type FakeHarness,
+} from './fake-harness.js';

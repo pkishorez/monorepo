@@ -78,11 +78,25 @@ const ToolResult = Schema.Struct({
   truncated: Schema.Boolean,
   isError: Schema.Boolean,
 });
+/** A file sent with a user message, as a Message shows it. */
+const TurnAttachment = Schema.Struct({
+  name: Schema.String,
+  mime: Schema.String,
+  /** Bytes. */
+  size: Schema.Finite,
+  /** Base64, for images only. */
+  data: Schema.optionalKey(Schema.String),
+  /** Where the engine saved a file that is not an image. */
+  path: Schema.optionalKey(Schema.String),
+});
 const TurnStarted = Schema.Struct({
   type: Schema.Literal('turnStarted'),
   text: Schema.String,
   /** Sent while the turn was already running. */
   steered: Schema.Boolean,
+  attachments: Schema.optionalKey(Schema.Array(TurnAttachment)),
+  /** An Agent-started Turn: the agent began it, so `text` is empty. */
+  agentStarted: Schema.optionalKey(Schema.Boolean),
 });
 const TurnEnded = Schema.Struct({
   type: Schema.Literal('turnEnded'),

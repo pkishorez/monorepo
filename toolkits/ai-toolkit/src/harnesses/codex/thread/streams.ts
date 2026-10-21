@@ -4,12 +4,12 @@ import {
   makeChunker,
   type Chunker,
   type RawOut,
-} from '../../harness/index.js';
+} from '../../../harness/index.js';
 import {
   isNotification,
   type Notification,
   type ThreadItem,
-} from './app-server/index.js';
+} from '../app-server/index.js';
 
 export type Channel = 'text' | 'reasoning';
 

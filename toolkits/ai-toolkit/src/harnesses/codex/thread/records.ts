@@ -1,6 +1,6 @@
 import type { Schema } from 'effect';
-import type { RawOut } from '../../harness/index.js';
-import type { Notification, ThreadItem } from './app-server/index.js';
+import type { RawOut } from '../../../harness/index.js';
+import type { Notification, ThreadItem } from '../app-server/index.js';
 
 /** Items that are something the agent does; their start is worth showing. */
 const TOOL_ITEM_TYPES: ReadonlySet<string> = new Set([

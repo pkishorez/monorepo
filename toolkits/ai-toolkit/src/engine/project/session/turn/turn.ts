@@ -121,7 +121,10 @@ const run = (self: TurnSelf) =>
       const agent = yield* context.agent;
       if ((yield* self.get).props.cancelling) return;
       yield* self.send({ _tag: 'Streaming' });
-      yield* Stream.runForEach(agent.turn(model.text), keep);
+      yield* Stream.runForEach(
+        agent.turn({ text: model.text, images: [] }),
+        keep,
+      );
     });
 
     const finish = (failed: HarnessError | undefined) =>
@@ -166,7 +169,9 @@ const steer = (self: TurnSelf, id: string) =>
     const write = yield* writer(model);
     yield* write(EngineRaw.turnStarted(text, true));
     const steered = yield* Effect.result(
-      Effect.flatMap(context.agent, (agent) => agent.steer(text)),
+      Effect.flatMap(context.agent, (agent) =>
+        agent.steer({ text, images: [] }),
+      ),
     );
     if (steered._tag === 'Failure')
       yield* write(

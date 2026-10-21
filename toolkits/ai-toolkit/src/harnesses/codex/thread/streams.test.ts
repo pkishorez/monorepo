@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { CHUNK_MAX_WAIT_MS, type RawOut } from '../../harness/index.js';
-import type { ThreadItem } from './app-server/index.js';
+import { CHUNK_MAX_WAIT_MS, type RawOut } from '../../../harness/index.js';
+import type { ThreadItem } from '../app-server/index.js';
 import { makeStreams, restore, type TextChunk } from './streams.js';
 
 const message = (itemId: string, delta: string, threadId = 'main') => ({

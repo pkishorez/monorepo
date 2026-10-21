@@ -3,7 +3,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Effect, Exit, Fiber, Scope, Stream } from 'effect';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import type { HarnessSession, RawOut } from '../../harness/index.js';
+import {
+  HarnessBinaries,
+  type HarnessSession,
+  type RawOut,
+} from '../../harness/index.js';
 import type { Part, Projected } from '../../projection/index.js';
 import type { Raw } from '../../raw/index.js';
 import { claude } from './index.js';
@@ -136,7 +140,7 @@ const runTurn = (
   Effect.gen(function* () {
     const outs: RawOut[] = [];
     const forks: Array<Fiber.Fiber<void, unknown>> = [];
-    yield* session.turn(text).pipe(
+    yield* session.turn({ text, images: [] }).pipe(
       Stream.runForEach((out) =>
         Effect.gen(function* () {
           outs.push(out);
@@ -162,8 +166,10 @@ describe.skipIf(!enabled)('claude harness against the real Claude Code', () => {
   const cwd = mkdtempSync(join(tmpdir(), 'ai-toolkit-claude-e2e-'));
   let scope: Scope.Closeable;
   let session: HarnessSession;
-  const run = <A>(effect: Effect.Effect<A, unknown>) =>
-    Effect.runPromise(effect);
+  const run = <A>(effect: Effect.Effect<A, unknown, HarnessBinaries>) =>
+    Effect.runPromise(
+      effect.pipe(Effect.provide(HarnessBinaries.layerDefault)),
+    );
 
   beforeAll(async () => {
     writeFileSync(join(cwd, 'note.txt'), `The secret word is ${SECRET}.\n`);
@@ -289,9 +295,10 @@ describe.skipIf(!enabled)('claude harness against the real Claude Code', () => {
         'Run the Bash command `sleep 5; echo one`, then reply with the word DONE.',
         {
           when: hasToolCall('Bash'),
-          during: session.steer(
-            'Also, at the very end of your reply, add the word BANANA.',
-          ),
+          during: session.steer({
+            text: 'Also, at the very end of your reply, add the word BANANA.',
+            images: [],
+          }),
         },
       ),
     );

@@ -205,6 +205,7 @@ describe('the server, through the client and Replica', () => {
               model: 'claude-test',
               settings: {},
               text: 'hi',
+              attachments: [],
             });
             app.send('Root/page#1', { _tag: 'Open', sessionId: session.id });
             yield* eventually(() =>
@@ -233,7 +234,11 @@ describe('the server, through the client and Replica', () => {
             // The feed reopened from the newest message it had passed on.
             expect(asked).toContain(before);
 
-            yield* api.send({ sessionId: session.id, text: 'again' });
+            yield* api.send({
+              sessionId: session.id,
+              text: 'again',
+              attachments: [],
+            });
             yield* eventually(() =>
               expect(lines()).toEqual([
                 'turnStarted hi',

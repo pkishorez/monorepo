@@ -1,10 +1,14 @@
 import { StdTable } from '@kestack/std-toolkit/db';
 import { RawSchema } from '../raw/index.js';
-import { ProjectSchema, SessionSchema } from '../records/index.js';
+import {
+  HarnessConfigSchema,
+  ProjectSchema,
+  SessionSchema,
+} from '../records/index.js';
 
 /*
  * One table holds everything: GSI1 holds a session's Raw in write order,
- * GSI2 the global feeds of projects and sessions.
+ * GSI2 the global feeds of projects, sessions and harness configs.
  */
 export const aiTable = StdTable.make('ai-toolkit')
   .primary('pk', 'sk')
@@ -26,6 +30,12 @@ export const projects = aiTable
 
 export const sessions = aiTable
   .entity(SessionSchema)
+  .primary()
+  .index('GSI2', 'byUpdate', { pk: [], sk: ['_u'] })
+  .build();
+
+export const harnessConfigs = aiTable
+  .entity(HarnessConfigSchema)
   .primary()
   .index('GSI2', 'byUpdate', { pk: [], sk: ['_u'] })
   .build();

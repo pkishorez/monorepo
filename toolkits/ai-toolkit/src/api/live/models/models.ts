@@ -11,7 +11,11 @@ import {
   Semaphore,
 } from 'effect';
 import type { ModelInfo } from '../../contract/index.js';
-import type { AvailableModel, Harness } from '../../../harness/index.js';
+import {
+  HarnessBinaries,
+  type AvailableModel,
+  type Harness,
+} from '../../../harness/index.js';
 
 /*
  * The models each harness can run. A harness that can ask its login which
@@ -179,7 +183,9 @@ const make = (options: ModelsOptions) =>
               now - slot.held.at < Duration.toMillis(ACCOUNT_FRESH_FOR)
             )
               return slot.held.models;
-            const result = yield* Effect.result(ask);
+            const result = yield* Effect.result(
+              ask.pipe(Effect.provide(HarnessBinaries.layerDefault)),
+            );
             if (result._tag === 'Success') {
               slot.held = { models: result.success, at: now };
               return result.success;

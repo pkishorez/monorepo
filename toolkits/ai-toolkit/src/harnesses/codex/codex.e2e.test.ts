@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { Duration, Effect, Fiber, Stream, type Schema } from 'effect';
 import { afterAll, describe, expect, it } from 'vitest';
 import {
+  HarnessBinaries,
   Titler,
   type HarnessSession,
   type RawOut,
@@ -12,7 +13,7 @@ import type { Part, Projected } from '../../projection/index.js';
 import type { Raw } from '../../raw/index.js';
 import { isNotification, start } from './app-server/index.js';
 import { codex, codexTitler, restore } from './index.js';
-import { openSession } from './session.js';
+import { openSession } from './thread/index.js';
 
 // Runs against the real, logged-in Codex on this machine. A cheap, fast model.
 const MODEL = 'gpt-5.6-luna';
@@ -79,7 +80,7 @@ const chunksOf = (outs: ReadonlyArray<RawOut>) => {
 };
 
 const collect = (session: HarnessSession, text: string, name: string) =>
-  session.turn(text).pipe(
+  session.turn({ text, images: [] }).pipe(
     Stream.runCollect,
     Effect.map((outs) => [...outs]),
     Effect.tap((outs) =>
@@ -101,8 +102,12 @@ const open = (nativeId?: string) =>
     ...(nativeId === undefined ? {} : { nativeId }),
   });
 
-const run = <A, E>(effect: Effect.Effect<A, E, import('effect').Scope.Scope>) =>
-  Effect.runPromise(Effect.scoped(effect));
+const run = <A, E>(
+  effect: Effect.Effect<A, E, import('effect').Scope.Scope | HarnessBinaries>,
+) =>
+  Effect.runPromise(
+    Effect.scoped(effect).pipe(Effect.provide(HarnessBinaries.layerDefault)),
+  );
 
 describe.runIf(process.env.AI_TOOLKIT_E2E === '1')(
   'codex harness (live)',
@@ -312,9 +317,10 @@ describe.runIf(process.env.AI_TOOLKIT_E2E === '1')(
               'steer',
             ).pipe(Effect.forkChild);
             yield* Effect.sleep(Duration.seconds(4));
-            yield* session.steer(
-              'Also end your final reply with the word STEERED.',
-            );
+            yield* session.steer({
+              text: 'Also end your final reply with the word STEERED.',
+              images: [],
+            });
             const messages = projectAll(yield* Fiber.join(fiber));
             expect(assistantText(messages)).toContain('STEERED');
             expect(ofType(messages, 'turnEnded')).toEqual([
@@ -365,9 +371,9 @@ describe.runIf(process.env.AI_TOOLKIT_E2E === '1')(
       async () => {
         const title = await Effect.runPromise(
           Titler.use((titler) =>
-            titler.title(
+            titler.title([
               'Please add dark mode to the settings page of my React app, with a toggle.',
-            ),
+            ]),
           ).pipe(Effect.provide(codexTitler)),
         );
         expect(title.length).toBeGreaterThan(0);
@@ -380,7 +386,11 @@ describe.runIf(process.env.AI_TOOLKIT_E2E === '1')(
     it(
       'lists only the models this login can run, one of them the default',
       async () => {
-        const models = await Effect.runPromise(codex.availableModels!);
+        const models = await Effect.runPromise(
+          codex.availableModels!.pipe(
+            Effect.provide(HarnessBinaries.layerDefault),
+          ),
+        );
         const ids = models.map((model) => model.id);
         expect(ids).toContain(MODEL);
         expect(ids).not.toContain('gpt-6.1-sol');

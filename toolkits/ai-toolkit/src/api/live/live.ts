@@ -1,4 +1,4 @@
-import { Effect } from 'effect';
+import { Effect, Stream } from 'effect';
 import {
   AiApi,
   FolderNotFound,
@@ -34,6 +34,8 @@ export const AiApiLive = AiApi.toLayer(
               label: harness.label,
               settings: harness.settings,
               defaultModel,
+              available: true,
+              unavailableReason: null,
             })),
           { concurrency: 'unbounded' },
         ),
@@ -77,6 +79,16 @@ export const AiApiLive = AiApi.toLayer(
       projects: ({ after }) => Read.projects(after),
       sessions: ({ after }) => Read.sessions(after),
       messages: ({ sessionId, after }) => Read.messages(sessionId, after),
+      forkSession: () => Effect.die('not yet'),
+      ask: () => Effect.die('not yet'),
+      regenerateTitle: () => Effect.die('not yet'),
+      skills: () => Effect.die('not yet'),
+      mcpStatus: () => Effect.die('not yet'),
+      contextUsage: () => Effect.die('not yet'),
+      backgroundJobs: () => Stream.die('not yet'),
+      stopBackgroundJob: () => Effect.die('not yet'),
+      harnessBinaries: () => Effect.die('not yet'),
+      setHarnessBinary: () => Effect.die('not yet'),
     };
   }),
 );

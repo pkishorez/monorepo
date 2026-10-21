@@ -1,7 +1,7 @@
 import { tmpdir } from 'node:os';
 import { Duration, Effect } from 'effect';
-import { HarnessError, type AvailableModel } from '../../harness/index.js';
-import { start, type AppServer, type Model } from './app-server/index.js';
+import { HarnessError, type AvailableModel } from '../../../harness/index.js';
+import { start, type AppServer, type Model } from '../app-server/index.js';
 
 /**
  * The model new sessions use when the account cannot be asked: what Codex

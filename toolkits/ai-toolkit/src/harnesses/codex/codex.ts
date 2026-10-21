@@ -1,9 +1,19 @@
 import { Effect } from 'effect';
-import type { Harness, Setting } from '../../harness/index.js';
+import {
+  HarnessError,
+  type Harness,
+  type Setting,
+} from '../../harness/index.js';
 import { start, type SandboxMode } from './app-server/index.js';
-import { acceptsModel, availableModels, DEFAULT_MODEL } from './models.js';
-import { project } from './project.js';
-import { openSession } from './session.js';
+import {
+  acceptsModel,
+  availableModels,
+  DEFAULT_MODEL,
+} from './catalog/index.js';
+import { project } from './project/index.js';
+import { openSession } from './thread/index.js';
+
+const notYet = Effect.fail(new HarnessError({ message: 'not yet' }));
 
 const reasoningEffort = {
   key: 'reasoningEffort',
@@ -64,7 +74,17 @@ export const codex: Harness = {
         nativeId: config.nativeId,
       });
     }),
+  skills: () => notYet,
+  fork: () => notYet,
+  ask: () => notYet,
+  binary: Effect.succeed({
+    path: null,
+    version: null,
+    error: null,
+    isDefault: true,
+  }),
   project,
 };
 
-export { codexTitler } from './titler.js';
+export { codexTitler } from './titler/index.js';
+export { restore, type StreamPointer } from './thread/index.js';

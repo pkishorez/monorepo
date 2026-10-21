@@ -1,7 +1,10 @@
-import type { Harness } from '../../harness/index.js';
+import { Effect } from 'effect';
+import { HarnessError, type Harness } from '../../harness/index.js';
 import { project } from './project/index.js';
 import { openSdkSession, supportedModels } from './sdk-session/index.js';
 import { readSettings, SETTINGS } from './settings.js';
+
+const notYet = Effect.fail(new HarnessError({ message: 'not yet' }));
 
 /** A dated snapshot such as `claude-opus-4-5-20251101` repeats its alias. */
 const DATED = /-\d{8}$/;
@@ -26,5 +29,14 @@ export const claude: Harness = {
       ...readSettings(config.settings),
       ...(config.nativeId === undefined ? {} : { nativeId: config.nativeId }),
     }),
+  skills: () => notYet,
+  fork: () => notYet,
+  ask: () => notYet,
+  binary: Effect.succeed({
+    path: null,
+    version: null,
+    error: null,
+    isDefault: true,
+  }),
   project,
 };

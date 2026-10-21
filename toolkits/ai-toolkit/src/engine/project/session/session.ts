@@ -1,7 +1,7 @@
 import { Duration, Effect, Layer, Schema, Stream, Struct } from 'effect';
 import { Actor } from '@kestack/kabuki';
 import type { Self } from '@kestack/kabuki';
-import { Harnesses, Titler } from '../../../harness/index.js';
+import { HarnessBinaries, Harnesses, Titler } from '../../../harness/index.js';
 import { TURN_END_STATUSES } from '../../../projection/index.js';
 import {
   SessionSchema,
@@ -137,7 +137,7 @@ const turnContext = (self: SessionSelf) =>
               ? {}
               : { nativeId: model.session.nativeId }),
           }),
-        ),
+        ).pipe(Effect.provide(HarnessBinaries.layerDefault)),
       );
       return {
         harness,
@@ -170,7 +170,7 @@ const title = (self: SessionSelf) =>
     const { model } = yield* self.get;
     const titler = yield* Titler;
     const text = model.untitled ?? '';
-    const titled = yield* titler.title(text).pipe(
+    const titled = yield* titler.title([text]).pipe(
       Effect.timeout(TITLE_TIMEOUT),
       Effect.map((title) => title.trim()),
       Effect.catch((error) =>

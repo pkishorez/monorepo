@@ -5,8 +5,20 @@
   "fileModules": [],
   "rules": {
     "src/projection": ["src/raw"],
-    "src/harness": ["src/raw", "src/projection"],
+    "src/harness-wire": ["src/raw"],
+    "src/harness": ["src/harness-wire", "src/raw", "src/projection"],
     "src/harnesses": ["src/harness", "src/raw", "src/projection"],
+    "src/harnesses/codex/catalog": ["src/harnesses/codex/app-server"],
+    "src/harnesses/codex/thread": ["src/harnesses/codex/app-server"],
+    "src/harnesses/codex/project": [
+      "src/harnesses/codex/app-server",
+      "src/harnesses/codex/thread"
+    ],
+    "src/harnesses/codex/titler": [
+      "src/harnesses/codex/app-server",
+      "src/harnesses/codex/catalog",
+      "src/harnesses/codex/thread"
+    ],
     "src/records": ["src/raw"],
     "src/store": ["src/raw", "src/records"],
     "src/fake-harness": ["src/harness"],
@@ -18,7 +30,12 @@
       "src/projection"
     ],
     "src/engine/project": ["src/engine/engine-raw"],
-    "src/api/contract": ["src/projection", "src/records", "src/raw"],
+    "src/api/contract": [
+      "src/harness-wire",
+      "src/projection",
+      "src/records",
+      "src/raw"
+    ],
     "src/api/live": [
       "src/api/contract",
       "src/engine",

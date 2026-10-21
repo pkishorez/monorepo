@@ -138,6 +138,7 @@ const make = Effect.gen(function* () {
           status: 'running',
           nativeId: null,
           createdAt: yield* Clock.currentTimeMillis,
+          forkedFrom: null,
         };
         project.send({
           _tag: 'StartSession',

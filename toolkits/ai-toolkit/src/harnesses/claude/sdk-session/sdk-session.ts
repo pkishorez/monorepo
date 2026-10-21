@@ -312,7 +312,7 @@ export const openSdkSession = (
 
     const session: HarnessSession = {
       nativeId: Effect.sync(() => nativeId),
-      turn: (text) =>
+      turn: (input) =>
         Stream.unwrap(
           Effect.gen(function* () {
             if (stopped !== undefined) return yield* Effect.fail(stopped);
@@ -325,7 +325,10 @@ export const openSdkSession = (
               RawOut,
               HarnessError | Cause.Done
             >();
-            const current: Turn = { out, state: TurnEnd.start(push(text)) };
+            const current: Turn = {
+              out,
+              state: TurnEnd.start(push(input.text)),
+            };
             turn = current;
             return Stream.fromQueue(out).pipe(
               Stream.ensuring(
@@ -336,7 +339,7 @@ export const openSdkSession = (
             );
           }),
         ),
-      steer: (text) =>
+      steer: (input) =>
         Effect.suspend(() => {
           const current = turn;
           if (current === undefined) {
@@ -344,7 +347,7 @@ export const openSdkSession = (
               new HarnessError({ message: 'No turn is running to steer' }),
             );
           }
-          current.state = TurnEnd.sent(current.state, push(text));
+          current.state = TurnEnd.sent(current.state, push(input.text));
           return Effect.void;
         }),
       cancel: Effect.suspend(() => {
@@ -361,9 +364,17 @@ export const openSdkSession = (
           Effect.asVoid,
         );
       }),
+      lastTurnNativeId: Effect.succeed(undefined),
+      agentTurns: Stream.never,
+      backgroundJobs: Stream.make([]),
+      stopBackgroundJob: () => notYet,
+      mcpStatus: notYet,
+      contextUsage: notYet,
     };
     return session;
   });
+
+const notYet = Effect.fail(new HarnessError({ message: 'not yet' }));
 
 const ASK_TIMEOUT = Duration.seconds(15);
 

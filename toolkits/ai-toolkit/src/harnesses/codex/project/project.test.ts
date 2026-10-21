@@ -1,11 +1,11 @@
 import { readFileSync } from 'node:fs';
 import type { Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
-import type { RawOut } from '../../harness/index.js';
-import type { Part, Projected } from '../../projection/index.js';
-import type { Raw } from '../../raw/index.js';
+import type { RawOut } from '../../../harness/index.js';
+import type { Part, Projected } from '../../../projection/index.js';
+import type { Raw } from '../../../raw/index.js';
+import { restore } from '../thread/index.js';
 import { OUTPUT_LIMIT, project } from './project.js';
-import { restore } from './streams.js';
 
 // Records captured from live Codex 0.154 turns (codex.e2e.test.ts with
 // AI_TOOLKIT_CAPTURE set).
