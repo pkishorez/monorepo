@@ -5,7 +5,9 @@ import type { Message, Part, Usage } from '@kestack/ai-toolkit/api';
  * one record as it arrived, so the pairing happens here:
  *
  * - a toolCall is running until a toolResult with its id arrives; with no
- *   result once its turn has ended, it was stopped;
+ *   result once its turn has ended, it was stopped. A failed result that
+ *   came after the agent's last word in a cancelled turn is the agent
+ *   reporting the interrupt (Claude does), so it was stopped too;
  * - a toolCall to a subagent holds the Messages whose `agentId` is its id,
  *   drawn the same way, so subagents nest;
  * - a turn's usage is its turnEnded's, or else the sum of its usage parts,
@@ -80,17 +82,25 @@ export const thread = (
 ): ReadonlyArray<Row> => {
   const sorted = [...messages].sort((a, b) => a.id.localeCompare(b.id));
   const results = new Map<string, Of<'toolResult'>>();
+  const resultAt = new Map<string, string>();
   const byAgent = new Map<string | null, Message[]>();
   const ended = new Set<string>();
+  const cancelled = new Set<string>();
+  const lastWord = new Map<string, string>();
   const summed = new Map<string, Usage>();
   for (const message of sorted) {
     const list = byAgent.get(message.agentId) ?? [];
     list.push(message);
     byAgent.set(message.agentId, list);
+    if (message.role === 'assistant') lastWord.set(message.turnId, message.id);
     for (const part of message.parts) {
-      if (part.type === 'toolResult') results.set(part.toolCallId, part);
-      else if (part.type === 'turnEnded') ended.add(message.turnId);
-      else if (part.type === 'usage') {
+      if (part.type === 'toolResult') {
+        results.set(part.toolCallId, part);
+        resultAt.set(part.toolCallId, message.id);
+      } else if (part.type === 'turnEnded') {
+        ended.add(message.turnId);
+        if (part.status === 'cancelled') cancelled.add(message.turnId);
+      } else if (part.type === 'usage') {
         const before = summed.get(message.turnId);
         summed.set(
           message.turnId,
@@ -102,7 +112,13 @@ export const thread = (
 
   const stateOf = (call: Of<'toolCall'>, turnId: string): ToolState => {
     const result = results.get(call.id);
-    if (result) return result.isError ? 'failed' : 'done';
+    if (result && !result.isError) return 'done';
+    if (result) {
+      const interrupted =
+        cancelled.has(turnId) &&
+        (resultAt.get(call.id) ?? '') > (lastWord.get(turnId) ?? '');
+      return interrupted ? 'stopped' : 'failed';
+    }
     return ended.has(turnId) ? 'stopped' : 'running';
   };
 

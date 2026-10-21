@@ -249,7 +249,13 @@ function RowView({
           <Code label={row.call.name}>{inputText(row.call.input)}</Code>
           {row.result && (
             <Code
-              label={row.result.isError ? 'Error' : 'Output'}
+              label={
+                state === 'stopped'
+                  ? 'Stopped'
+                  : row.result.isError
+                    ? 'Error'
+                    : 'Output'
+              }
               note={row.result.truncated ? 'Output truncated' : undefined}
             >
               {row.result.output || '(no output)'}

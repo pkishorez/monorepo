@@ -74,6 +74,19 @@ describe('thread', () => {
     ]);
   });
 
+  it('stops a call whose failed result reports the interrupt of a cancelled turn', () => {
+    const rows = thread([
+      message([call('a'), call('b')]),
+      message([result('a', true)], { role: 'tool' }),
+      message([{ type: 'text', text: 'a failed, trying b' }]),
+      message([result('b', true)], { role: 'tool' }),
+      message([{ type: 'turnEnded', status: 'cancelled' }], { role: 'system' }),
+    ]);
+    expect(
+      rows.map((row) => (row.kind === 'tool' ? row.state : row.kind)),
+    ).toEqual(['failed', 'stopped', 'text', 'ended']);
+  });
+
   it('prefers the turnEnded usage', () => {
     const rows = thread([
       message([{ type: 'usage', usage: { inputTokens: 1, outputTokens: 1 } }], {
