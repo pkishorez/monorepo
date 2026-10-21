@@ -49,6 +49,8 @@ type Interrupt = (options?: { cancelQueued?: boolean }) => Promise<unknown>;
 interface Turn {
   readonly out: Queue.Queue<RawOut, HarnessError | Cause.Done>;
   readonly agentStarted: boolean;
+  /** When it began, in the agent's own order; set by `begin`. */
+  order: number;
   /** Ends with the turn, so a user turn can wait out an agent's. */
   readonly done: Deferred.Deferred<void>;
   state: TurnEnd.TurnEnd;
@@ -64,7 +66,7 @@ interface Turn {
  * emits until `TurnEnd` says every message we sent got its result. A turn
  * Claude Code starts on its own between ours (to report a finished
  * Background Job) streams the same way on `agentTurns`; a user turn waits
- * for it to end, so the two never interleave.
+ * for it to end, so the two never interleave, and a steer waits with it.
  */
 export const openSdkSession = (
   config: SdkSessionConfig,
@@ -89,7 +91,12 @@ export const openSdkSession = (
     };
     let nativeId = config.nativeId;
     let turn: Turn | undefined;
+    /** The user turn last asked for: done once it is the running turn. */
+    let asked: Deferred.Deferred<Turn, HarnessError> | undefined;
+    let begun = 0;
     let lastForkPoint: string | undefined;
+    /** The order of the turn `lastForkPoint` came from. */
+    let lastForkOrder = 0;
     let stopped: HarnessError | undefined;
     // What a background subagent wrote, and task notifications, while no
     // turn ran: the next turn opens with them.
@@ -112,6 +119,7 @@ export const openSdkSession = (
      */
     const begin = (current: Turn, then?: () => void): Effect.Effect<void> => {
       turn = current;
+      current.order = ++begun;
       then?.();
       const waiting = idle;
       idle = [];
@@ -142,6 +150,7 @@ export const openSdkSession = (
         const current: Turn = {
           out: yield* Queue.unbounded<RawOut, HarnessError | Cause.Done>(),
           agentStarted,
+          order: 0,
           done: yield* Deferred.make<void>(),
           state,
           forkPoint: undefined,
@@ -166,11 +175,15 @@ export const openSdkSession = (
     /**
      * A turn's Fork Point counts once its stream has been read to the end,
      * so a turn read later than it ran, such as a queued agent turn, still
-     * reads the one before it until then.
+     * reads the one before it until then. It never goes back to a turn
+     * that ran before the one it names.
      */
     const reached = (current: Turn) =>
       Effect.sync(() => {
-        lastForkPoint = current.forkPoint ?? lastForkPoint;
+        if (current.forkPoint === undefined || current.order < lastForkOrder)
+          return;
+        lastForkPoint = current.forkPoint;
+        lastForkOrder = current.order;
       });
 
     const interrupt = Effect.promise(() =>
@@ -349,10 +362,27 @@ export const openSdkSession = (
         );
       });
 
+    /**
+     * The turn a steer joins: the user turn last asked for, once it runs,
+     * else an agent's running turn. Fails once that turn has ended.
+     */
+    const steered: Effect.Effect<Turn, HarnessError> = Effect.gen(function* () {
+      const user = asked && (yield* Deferred.await(asked));
+      const current = user && !user.ended ? user : turn;
+      if (current === undefined || current.ended)
+        return yield* new HarnessError({
+          message: 'No turn is running to steer',
+        });
+      return current;
+    });
+
     const session: SdkSession = {
       nativeId: Effect.sync(() => nativeId),
-      turn: (message) =>
-        Stream.unwrap(
+      turn: (message) => {
+        // Asked for now, so a steer sent before the turn runs waits for it.
+        const claimed = Deferred.makeUnsafe<Turn, HarnessError>();
+        asked = claimed;
+        return Stream.unwrap(
           Effect.gen(function* () {
             yield* applyOptions(message.options);
             const uuid = randomUUID();
@@ -361,6 +391,7 @@ export const openSdkSession = (
             yield* claim(current, () =>
               input.push(uuid, userContent(message.text, message.images)),
             );
+            yield* Deferred.succeed(claimed, current);
             return Stream.fromQueue(current.out).pipe(
               Stream.onEnd(reached(current)),
               Stream.ensuring(
@@ -369,16 +400,19 @@ export const openSdkSession = (
                 }),
               ),
             );
-          }),
-        ),
+          }).pipe(
+            Effect.onExit(() =>
+              Deferred.fail(
+                claimed,
+                new HarnessError({ message: 'The turn did not start' }),
+              ),
+            ),
+          ),
+        );
+      },
       steer: (message) =>
         Effect.gen(function* () {
-          const current = turn;
-          if (current === undefined) {
-            return yield* Effect.fail(
-              new HarnessError({ message: 'No turn is running to steer' }),
-            );
-          }
+          const current = yield* steered;
           // Counted before the options apply, so the turn cannot end
           // before its steer is sent.
           const uuid = randomUUID();

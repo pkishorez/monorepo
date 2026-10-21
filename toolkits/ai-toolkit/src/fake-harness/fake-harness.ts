@@ -1,5 +1,6 @@
 import {
   Cause,
+  Deferred,
   Effect,
   Layer,
   Queue,
@@ -23,9 +24,11 @@ import {
 } from '../harness/index.js';
 
 /*
- * A harness for tests, named `claude`. Each turn emits `echo:<text>` at once.
- * By default it then ends with a `result`; held, it waits for `finish()`.
- * A steer emits `steer:<text>` into the running turn; a cancel ends the
+ * A harness for tests, named `claude`. Each turn emits `echo:<text>` at once,
+ * or, slow to start, once `begin()` says so. By default it then ends with a
+ * `result`; held, it waits for `finish()`. A steer joins the turn last asked
+ * for once that turn has started, and fails once it has ended; each steer's
+ * `steer:<text>` comes just before the turn's `result`. A cancel ends the
  * turn without a result, as an interrupted agent would. A finished turn's
  * native id is `<nativeId>:turn-<n>`.
  *
@@ -40,6 +43,19 @@ export const FAKE_SKILLS: ReadonlyArray<Skill> = [
   { name: 'review', description: 'Reviews the diff', argumentHint: '[focus]' },
   { name: 'explain', description: 'Explains the code' },
 ];
+
+/** One turn, from when it is asked for. */
+interface FakeTurn {
+  readonly agent: FakeAgent;
+  readonly id: string;
+  /** Opens when the turn may start: true to run, false when cancelled first. */
+  readonly gate: Deferred.Deferred<boolean, HarnessError>;
+  /** Done once the turn has started, so steers can join it. */
+  readonly started: Deferred.Deferred<void, HarnessError>;
+  queue: Queue.Queue<RawOut, HarnessError | Cause.Done> | undefined;
+  readonly steers: Array<string>;
+  ended: boolean;
+}
 
 /** One opened agent, as tests drive it. */
 interface FakeAgent {
@@ -69,10 +85,14 @@ export interface FakeHarness {
   readonly titleBinaries: Array<boolean>;
   /** Every Background Job stopped, by id. */
   readonly stoppedJobs: Array<string>;
+  /** Lets a turn that is slow to start emit its first record. */
+  readonly begin: Effect.Effect<void>;
   /** Ends the running turn with a `result`. */
   readonly finish: Effect.Effect<void>;
-  /** Fails the running turn. */
+  /** Fails the running turn, or the one waiting to start. */
   readonly fail: (message: string) => Effect.Effect<void>;
+  /** Emits a record into the running turn, as the agent would. */
+  readonly emit: (out: RawOut) => Effect.Effect<void>;
   /** Sets the Background Jobs of the agent opened as `nativeId`. */
   readonly setJobs: (
     nativeId: string,
@@ -96,6 +116,8 @@ export const makeFakeHarness = (
     readonly title?: string;
     /** The agent ignores a cancel. */
     readonly stubborn?: boolean;
+    /** Turns wait for `begin()` before their first record. */
+    readonly slowStart?: boolean;
   } = {},
 ): FakeHarness => {
   const opens: Array<OpenConfig> = [];
@@ -109,36 +131,69 @@ export const makeFakeHarness = (
   const agents = new Map<string, FakeAgent>();
   let closed = 0;
   let turns = 0;
-  let running:
-    | {
-        readonly queue: Queue.Queue<RawOut, HarnessError | Cause.Done>;
-        readonly agent: FakeAgent;
-        readonly id: string;
-      }
-    | undefined;
+  /** The turn last asked for, until the next one is. */
+  let running: FakeTurn | undefined;
 
   const end = () => {
-    if (!running) return;
-    if (!Queue.offerUnsafe(running.queue, { kind: 'result', payload: {} }))
-      return;
+    if (!running?.queue || running.ended) return;
+    running.ended = true;
+    for (const text of running.steers)
+      Queue.offerUnsafe(running.queue, {
+        kind: 'text',
+        payload: { text: `steer:${text}` },
+      });
+    Queue.offerUnsafe(running.queue, { kind: 'result', payload: {} });
     Queue.endUnsafe(running.queue);
     running.agent.lastTurn = running.id;
   };
 
-  /** One turn's records: `text` at once, then a result unless held. */
-  const turnOf = (agent: FakeAgent, nativeId: string, text: string) =>
-    Stream.unwrap(
+  /**
+   * One turn: the running one from now, `text` once it starts, then a
+   * result unless held.
+   */
+  const turnOf = (agent: FakeAgent, nativeId: string, text: string) => {
+    const turn: FakeTurn = {
+      agent,
+      id: `${nativeId}:turn-${++turns}`,
+      gate: Deferred.makeUnsafe(),
+      started: Deferred.makeUnsafe(),
+      queue: undefined,
+      steers: [],
+      ended: false,
+    };
+    running = turn;
+    if (!options.slowStart)
+      Deferred.doneUnsafe(turn.gate, Effect.succeed(true));
+    return Stream.unwrap(
       Effect.gen(function* () {
+        const go = yield* Deferred.await(turn.gate).pipe(
+          Effect.tapError((error) => {
+            turn.ended = true;
+            return Deferred.fail(turn.started, error);
+          }),
+        );
         const queue = yield* Queue.unbounded<
           RawOut,
           HarnessError | Cause.Done
         >();
-        running = { queue, agent, id: `${nativeId}:turn-${++turns}` };
-        Queue.offerUnsafe(queue, { kind: 'text', payload: { text } });
-        if (!options.hold) end();
-        return Stream.fromQueue(queue);
+        turn.queue = queue;
+        if (go) Queue.offerUnsafe(queue, { kind: 'text', payload: { text } });
+        else {
+          turn.ended = true;
+          Queue.endUnsafe(queue);
+        }
+        if (go && !options.hold) end();
+        yield* Deferred.succeed(turn.started, undefined);
+        return Stream.fromQueue(queue).pipe(
+          Stream.ensuring(
+            Effect.sync(() => {
+              turn.ended = true;
+            }),
+          ),
+        );
       }),
     );
+  };
 
   const harness: Harness = {
     name: 'claude',
@@ -179,16 +234,22 @@ export const makeFakeHarness = (
             return turnOf(agent, nativeId, `echo:${input.text}`);
           },
           steer: (input) =>
-            Effect.sync(() => {
+            Effect.gen(function* () {
+              const turn = running;
+              if (turn === undefined)
+                return yield* new HarnessError({ message: 'No turn to steer' });
+              yield* Deferred.await(turn.started);
+              if (turn.ended)
+                return yield* new HarnessError({ message: 'The turn ended' });
               inputs.push(input);
-              if (running)
-                Queue.offerUnsafe(running.queue, {
-                  kind: 'text',
-                  payload: { text: `steer:${input.text}` },
-                });
+              turn.steers.push(input.text);
             }),
           cancel: Effect.sync(() => {
-            if (running && !options.stubborn) Queue.endUnsafe(running.queue);
+            if (!running || running.ended || options.stubborn) return;
+            if (running.queue) {
+              running.ended = true;
+              Queue.endUnsafe(running.queue);
+            } else Deferred.doneUnsafe(running.gate, Effect.succeed(false));
           }),
           lastTurnNativeId: Effect.sync(() => agent.lastTurn),
           agentTurns: Stream.fromQueue(agent.agentTurns),
@@ -295,14 +356,25 @@ export const makeFakeHarness = (
     titles,
     titleBinaries,
     stoppedJobs,
+    begin: Effect.sync(() => {
+      if (running) Deferred.doneUnsafe(running.gate, Effect.succeed(true));
+    }),
     finish: Effect.sync(end),
     fail: (message) =>
       Effect.sync(() => {
-        if (running)
-          Queue.failCauseUnsafe(
-            running.queue,
-            Cause.fail(new HarnessError({ message })),
-          );
+        if (!running || running.ended) return;
+        const error = new HarnessError({ message });
+        if (!running.queue) {
+          Deferred.doneUnsafe(running.gate, Effect.fail(error));
+          return;
+        }
+        running.ended = true;
+        Queue.failCauseUnsafe(running.queue, Cause.fail(error));
+      }),
+    emit: (out) =>
+      Effect.sync(() => {
+        if (running?.queue && !running.ended)
+          Queue.offerUnsafe(running.queue, out);
       }),
     setJobs: (nativeId, jobs) =>
       Effect.flatMap(agentOf(nativeId), (agent) =>
@@ -313,7 +385,8 @@ export const makeFakeHarness = (
         agent
           ? Queue.offer(
               agent.agentTurns,
-              turnOf(agent, nativeId, `agent:${text}`),
+              // The agent's turn runs from when the engine takes it.
+              Stream.suspend(() => turnOf(agent, nativeId, `agent:${text}`)),
             ).pipe(Effect.asVoid)
           : Effect.void,
       ),

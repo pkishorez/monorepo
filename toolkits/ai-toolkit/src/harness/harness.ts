@@ -72,7 +72,12 @@ export interface HarnessSession {
   readonly nativeId: Effect.Effect<string | undefined>;
   /** Runs one turn: every whole record until the agent is idle again. */
   readonly turn: (input: TurnInput) => Stream.Stream<RawOut, HarnessError>;
-  /** A user message while a turn runs; it joins that turn. */
+  /**
+   * A user message for the turn last asked for with `turn`, else for the
+   * agent's own running turn: it waits until that turn has started, then
+   * joins it. It fails once that turn has ended; the engine then runs the
+   * message as the next turn.
+   */
   readonly steer: (input: TurnInput) => Effect.Effect<void, HarnessError>;
   /** Stops the running turn; its stream ends. */
   readonly cancel: Effect.Effect<void>;

@@ -113,6 +113,8 @@ export type AgentReport =
       readonly status: TurnEndStatus;
     }
   | { readonly _tag: 'NativeId'; readonly nativeId: string }
+  /** The agent took a steer of the running Turn. */
+  | { readonly _tag: 'Steered'; readonly turnId: string; readonly id: string }
   /** The agent started a Turn on its own; the Session runs it as `turnId`. */
   | { readonly _tag: 'AgentTurn'; readonly turnId: string };
 

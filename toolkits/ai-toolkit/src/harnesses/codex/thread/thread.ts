@@ -240,6 +240,8 @@ export const openSession = (
     const lineage: Lineage = makeLineage(threadId);
     const subAgents = makeSubAgents(threadId);
     let running: Running | undefined;
+    /** The turn last asked for: done once it is the running one. */
+    let asked: Deferred.Deferred<Running, HarnessError> | undefined;
     let model = config.model;
     let effort = config.effort;
     let sandbox = config.sandbox;
@@ -353,8 +355,11 @@ export const openSession = (
         .request('turn/interrupt', { threadId: thread, turnId })
         .pipe(Effect.timeoutOption(INTERRUPT_WAIT), Effect.ignore);
 
-    const turn = (input: TurnInput): Stream.Stream<RawOut, HarnessError> =>
-      Stream.callback<RawOut, HarnessError>((queue) =>
+    const turn = (input: TurnInput): Stream.Stream<RawOut, HarnessError> => {
+      // Asked for now, so a steer sent before the turn runs waits for it.
+      const claimed = Deferred.makeUnsafe<Running, HarnessError>();
+      asked = claimed;
+      return Stream.callback<RawOut, HarnessError>((queue) =>
         Effect.gen(function* () {
           if (running !== undefined)
             return yield* new HarnessError({
@@ -363,6 +368,7 @@ export const openSession = (
           const streams = makeStreams((out) => Queue.offerUnsafe(queue, out));
           const current = makeRunning(queue, streams);
           running = current;
+          Deferred.doneUnsafe(claimed, Effect.succeed(current));
 
           const unlisten = server.listen({
             notification: (notification) => {
@@ -417,17 +423,27 @@ export const openSession = (
           );
           current.knownTurnId = started.turn.id;
           Deferred.doneUnsafe(current.turnId, Effect.succeed(started.turn.id));
-        }),
+        }).pipe(
+          Effect.onExit(() =>
+            Deferred.fail(
+              claimed,
+              new HarnessError({ message: 'The Codex turn did not start' }),
+            ),
+          ),
+        ),
       );
+    };
 
+    /** Joins the turn last asked for once Codex has started it. */
     const steer = (input: TurnInput) =>
       Effect.gen(function* () {
-        const current = running;
-        if (current === undefined || current.mainDone)
-          return yield* new HarnessError({
-            message: 'No Codex turn is running to steer',
-          });
+        const gone = new HarnessError({
+          message: 'No Codex turn is running to steer',
+        });
+        if (asked === undefined) return yield* gone;
+        const current = yield* Deferred.await(asked);
         const expectedTurnId = yield* Deferred.await(current.turnId);
+        if (running !== current || current.mainDone) return yield* gone;
         yield* server.request('turn/steer', {
           threadId,
           expectedTurnId,

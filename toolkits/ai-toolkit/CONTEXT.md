@@ -29,7 +29,7 @@ How a Session stands: idle, running, or how its last Turn ended if not done: can
 _Avoid_: streaming flag
 
 **Turn**:
-One user message to the agent and everything it emits until it is idle again. Messages sent while it runs steer it; they do not start new Turns.
+One user message to the agent and everything it emits until it is idle again. Messages sent while it runs steer it; one the agent could not take before the Turn ended starts the next Turn instead.
 _Avoid_: run, request, iteration
 
 **Agent-started Turn**:

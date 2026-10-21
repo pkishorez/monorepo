@@ -21,8 +21,11 @@ import { SessionAgent } from '../agent/index.js';
  * - run     writes `turn.started`, streams the agent's records into Raw, and
  *           writes `turn.ended` with the Turn's Fork Point, if the agent
  *           gave it a new one.
- * - steer   each message sent while it runs: a `turn.started` that steered,
- *           then the agent is told.
+ * - steer   each message sent while it runs, once the agent has been asked
+ *           for the turn: the agent takes it when the turn has started,
+ *           then a `turn.started` that steered records it and the Session
+ *           hears. One the agent does not take, as when the turn ended
+ *           first, the Session runs as the next Turn.
  * - cancel  while cancelling: tells the agent to stop; if it does not end in
  *           time, the Turn is ended from here, which stops it.
  *
@@ -49,11 +52,11 @@ const Props = Schema.Struct({
 
 const Model = Schema.Struct({
   ...Input.fields,
-  /** The agent has sent the turn's first record, so it can be steered. */
-  streaming: Schema.Boolean,
+  /** The agent has been asked for the turn, so it takes steers. */
+  accepting: Schema.Boolean,
 });
 
-const Message = Schema.TaggedUnion({ Streaming: {} });
+const Message = Schema.TaggedUnion({ Accepting: {} });
 
 type TurnSelf = Self<
   typeof Model.Type,
@@ -78,17 +81,22 @@ const writer = (model: typeof Model.Type) =>
       ).pipe(Effect.flatMap(store.appendRaw));
   });
 
-/** How the harness's own projection of a record ends the turn, if it does. */
-const endedAs = (
+/** The harness's own projection of a record; null for one it cannot project. */
+const projected = (
   project: (raw: Raw) => Projected | null,
   raw: Raw,
-): TurnEndStatus | undefined => {
+): Projected | null => {
   try {
-    for (const part of project(raw)?.parts ?? [])
-      if (part.type === 'turnEnded') return part.status;
+    return project(raw);
   } catch {
-    // A record its harness cannot project ends nothing.
+    return null;
   }
+};
+
+/** How a projected record ends the turn, if it does. */
+const endedAs = (message: Projected | null): TurnEndStatus | undefined => {
+  for (const part of message?.parts ?? [])
+    if (part.type === 'turnEnded') return part.status;
   return undefined;
 };
 
@@ -115,14 +123,14 @@ const recordsOf = (
           ),
         ),
       )
-    : Effect.succeed(agent.turn(toTurnInput(prompt)));
+    : Effect.sync(() => agent.turn(toTurnInput(prompt)));
 
 const run = (self: TurnSelf) =>
   Effect.gen(function* () {
     const { model } = yield* self.get;
     const context = yield* SessionAgent;
     const write = yield* writer(model);
-    /** How the harness's own records ended the turn, if they did. */
+    /** How the harness's last record ended the turn, if it did. */
     let endedByHarness: TurnEndStatus | undefined;
     let ended: TurnEndStatus | undefined;
     let nativeId: string | undefined;
@@ -162,20 +170,17 @@ const run = (self: TurnSelf) =>
       yield* context.report({ _tag: 'NativeId', nativeId: now });
     });
 
-    /** Steers wait for the agent's first record: until then it may still be setting the turn up. */
-    let streaming = false;
-
     const keep = (out: RawOut) =>
       Effect.gen(function* () {
-        if (!streaming) {
-          streaming = true;
-          yield* self.send({ _tag: 'Streaming' });
-        }
         const saved = yield* write(out, 'harness');
-        // The last record that ends a Turn says how: the harness ends the
-        // stream there, after any it reported for a Background Job.
-        endedByHarness =
-          endedAs(context.harness.project, saved.value) ?? endedByHarness;
+        // Only the result that closes the Turn says how it ended: the
+        // harness ends the stream there. One for a Background Job's report
+        // says nothing once the main agent answers on.
+        const message = projected(context.harness.project, saved.value);
+        const status = endedAs(message);
+        if (status !== undefined) endedByHarness = status;
+        else if (message?.role === 'assistant' && message.agentId === null)
+          endedByHarness = undefined;
         yield* noteNativeId;
       });
 
@@ -184,6 +189,8 @@ const run = (self: TurnSelf) =>
       forkPointBefore = yield* agent.lastTurnNativeId;
       if ((yield* self.get).props.cancelling) return;
       const records = yield* recordsOf(agent, model.prompt);
+      // Asked for: the agent holds a steer until the turn has started.
+      yield* self.send({ _tag: 'Accepting' });
       yield* Stream.runForEach(records, keep);
     });
 
@@ -191,6 +198,8 @@ const run = (self: TurnSelf) =>
       Effect.gen(function* () {
         const { props } = yield* self.get;
         if (failed) {
+          // The agent failing outweighs any result it reported before.
+          endedByHarness = undefined;
           yield* end('failed', failed.message);
           yield* context.reset;
         } else yield* end(props.cancelling ? 'cancelled' : 'done');
@@ -229,6 +238,16 @@ const steer = (self: TurnSelf, id: string) =>
     if (prompt === undefined) return;
     const context = yield* SessionAgent;
     const write = yield* writer(model);
+    const steered = yield* Effect.result(
+      Effect.flatMap(context.agent, (agent) =>
+        agent.steer(toTurnInput(prompt)),
+      ),
+    );
+    if (steered._tag === 'Failure')
+      return yield* Effect.logInfo(
+        'The agent did not take a steer; it runs as the next turn',
+        steered.failure,
+      );
     yield* write(
       EngineRaw.turnStarted({
         text: prompt.text,
@@ -236,15 +255,7 @@ const steer = (self: TurnSelf, id: string) =>
         attachments: prompt.attachments,
       }),
     );
-    const steered = yield* Effect.result(
-      Effect.flatMap(context.agent, (agent) =>
-        agent.steer(toTurnInput(prompt)),
-      ),
-    );
-    if (steered._tag === 'Failure')
-      yield* write(
-        EngineRaw.failure(`Could not steer: ${steered.failure.message}`),
-      );
+    yield* context.report({ _tag: 'Steered', turnId: model.turnId, id });
   });
 
 const cancel = () =>
@@ -265,15 +276,15 @@ export const Turn = Actor.build(
     message: Message,
   }),
   {
-    init: (input) => ({ model: { ...input, streaming: false } }),
+    init: (input) => ({ model: { ...input, accepting: false } }),
     on: {
-      Streaming: (_, { model }) => ({ model: { ...model, streaming: true } }),
+      Accepting: (_, { model }) => ({ model: { ...model, accepting: true } }),
     },
     workers: {
       run: { run: (self) => run(self) },
       steer: {
         each: ({ model, props }) =>
-          model.streaming ? props.steers.map((each) => each.id) : [],
+          model.accepting ? props.steers.map((each) => each.id) : [],
         run: (self, id) => steer(self, id),
       },
       cancel: {

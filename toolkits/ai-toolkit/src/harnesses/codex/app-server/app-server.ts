@@ -4,6 +4,7 @@ import { Effect, type Scope } from 'effect';
 import { HarnessError, type HarnessBinaries } from '../../../harness/index.js';
 import { answer } from './answers.js';
 import { launcher } from './launcher.js';
+import { shutdown } from './shutdown.js';
 import {
   DELTA_METHODS,
   type Notification,
@@ -41,14 +42,10 @@ interface Pending {
 
 const STDERR_TAIL_CHARS = 2_000;
 
-/** How long Codex may take to exit once its input ends, before it is killed. */
-const EXIT_GRACE_MS = 5_000;
-
 /**
  * Spawns `codex app-server` in `cwd`, from the configured Harness Binary,
- * and initializes it. Closing the Scope ends its input, so Codex exits on
- * its own and stops the commands it started (a kill leaves them running);
- * one that does not exit in time is killed.
+ * in a process group of its own, and initializes it. Closing the Scope
+ * shuts it down (see shutdown.ts).
  */
 export const start = (
   cwd: string,
@@ -61,6 +58,10 @@ export const start = (
           spawn(codex.command, [...codex.args, 'app-server'], {
             cwd,
             stdio: ['pipe', 'pipe', 'pipe'],
+            // Its own process group, so a kill reaches the Codex binary
+            // behind the npm launcher. Our exit still stops it: its input
+            // ends.
+            detached: true,
           }),
         catch: (cause) =>
           new HarnessError({
@@ -68,17 +69,7 @@ export const start = (
             cause,
           }),
       }),
-      (child) =>
-        Effect.callback<void>((resume) => {
-          if (child.exitCode !== null || child.signalCode !== null)
-            return resume(Effect.void);
-          const timer = setTimeout(() => child.kill(), EXIT_GRACE_MS);
-          child.once('exit', () => {
-            clearTimeout(timer);
-            resume(Effect.void);
-          });
-          child.stdin.end();
-        }),
+      (child) => shutdown(child),
     );
 
     const pending = new Map<number, Pending>();

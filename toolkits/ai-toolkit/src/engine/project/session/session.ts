@@ -24,7 +24,9 @@ import { Turn } from './turn/index.js';
  *            done: cancelled, failed or interrupted.
  * - Running  a message steers the Turn, or waits for the next one while
  *            it is cancelling; a cancel asks it to stop; the Turn reports
- *            when it has ended, and the Session is idle again.
+ *            each steer the agent took, and when it has ended. Then a
+ *            message it never delivered, steer or waiting, starts the next
+ *            Turn; with none, the Session is idle again.
  *
  * It keeps one live agent for its Turns (see agent/), with its Background
  * Jobs beside it, saves itself whenever its record changes, takes a
@@ -66,6 +68,7 @@ const State = Schema.TaggedUnion({
     turnId: Schema.String,
     /** The message the Turn runs; null when the agent started it. */
     prompt: Schema.NullOr(Prompt),
+    /** Sent while it runs, until the agent takes them. */
     steers: Schema.Array(Prompt),
     cancelling: Schema.Boolean,
     /** Sent while cancelling: they start the next turn once this one ends. */
@@ -97,6 +100,8 @@ const Message = Schema.TaggedUnion({
     status: Schema.Literals(TURN_END_STATUSES),
   },
   NativeId: { nativeId: Schema.String },
+  /** The agent took a steer of the running Turn. */
+  Steered: { turnId: Schema.String, id: Schema.String },
   /** The agent started a Turn on its own. */
   AgentTurn: { turnId: Schema.String },
   Titled: { title: Schema.String },
@@ -279,9 +284,18 @@ export const Session = Actor.build(
               : { ...state, steers: [...state.steers, prompt] },
           }),
           Cancel: (_, { state }) => ({ state: { ...state, cancelling: true } }),
+          Steered: ({ turnId, id }, { state }) =>
+            turnId !== state.turnId
+              ? {}
+              : {
+                  state: {
+                    ...state,
+                    steers: state.steers.filter((each) => each.id !== id),
+                  },
+                },
           TurnEnded: ({ turnId, status }, { state }) => {
             if (turnId !== state.turnId) return {};
-            const [next, ...rest] = state.queued;
+            const [next, ...rest] = [...state.steers, ...state.queued];
             return {
               state: next
                 ? running([next, ...rest])

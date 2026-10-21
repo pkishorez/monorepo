@@ -306,7 +306,7 @@ describe.skipIf(!enabled)('claude harness against the real Claude Code', () => {
         {
           when: hasToolCall('Bash'),
           during: session.steer({
-            text: 'Also, at the very end of your reply, add the word BANANA.',
+            text: 'Change of plan: once the command finishes, reply with only the word BANANA instead of DONE.',
             images: [],
           }),
         },
@@ -315,8 +315,13 @@ describe.skipIf(!enabled)('claude harness against the real Claude Code', () => {
     save('steer', outs);
     expectRestorable(outs);
     const messages = projectAll(outs);
-    expect(texts(messages)).toContain('BANANA');
-    expect(outs.at(-1)?.kind).toBe('result');
+    // One result answers both messages: the steer joined the turn. Whether
+    // the model then does as it says is up to the model, which now and
+    // then still replies DONE, so its reply is not checked.
+    expect(outs.at(-1)).toMatchObject({
+      kind: 'result',
+      payload: { user_message_uuids: [expect.any(String), expect.any(String)] },
+    });
     expect(lastTurnEnd(messages)?.status).toBe('done');
   }, 120_000);
 
