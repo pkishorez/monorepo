@@ -292,7 +292,8 @@ function RowView({
       const open = !opening.isOpen(row.id);
       const state = row.state === 'running' && !running ? 'stopped' : row.state;
       const title = row.call.title || 'Subagent';
-      const started = row.rows.some((each) => each.kind !== 'prompt');
+      const started =
+        row.result !== null || row.rows.some((each) => each.kind !== 'prompt');
       return (
         <div className="flex flex-col">
           <button

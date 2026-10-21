@@ -57,11 +57,17 @@ const assistantParts = (payload: Obj): ReadonlyArray<Part> =>
     }
   });
 
+/** The note Claude Code adds after a subagent's report, for the model only. */
+const SUBAGENT_NOTE = /^agentId: \S+ \(use SendMessage/;
+
 const outputText = (content: unknown): string => {
   if (typeof content === 'string') return content;
   if (!Array.isArray(content))
     return content == null ? '' : JSON.stringify(content);
   return content
+    .filter(
+      (item) => !(isObj(item) && SUBAGENT_NOTE.test(str(item['text']) ?? '')),
+    )
     .map((item) => {
       if (isObj(item) && item['type'] === 'text')
         return str(item['text']) ?? '';

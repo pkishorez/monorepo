@@ -1,57 +1,46 @@
-# QA scenarios (draft)
+# QA scenarios
 
-Draft from the QA pass on 2026-10-22. The recordings will be redone after the UI redesign.
+QA pass on 2026-10-22, after the UI redesign. Every scenario was recorded at 1440x900 against a fresh database.
 
 ## Run it yourself
 
-```sh
-pnpm --filter @kestack/ai-toolkit build
-node toolkits/ai-toolkit/bin/ai-toolkit.mjs serve --port 4590 --db /tmp/ai-qa-db/ai.db
-pnpm --filter ai dev   # open the URL it prints
-```
-
-Test folders: `/tmp/ai-qa/demo` (README.md, math.ts, package.json) and `/tmp/ai-qa/other`.
-Models: Claude `claude-haiku-5-5` (effort Low), Codex `gpt-5.6-luna` (reasoning effort Low).
+Build and start the server with `pnpm --filter @kestack/ai-toolkit build`, then `node toolkits/ai-toolkit/bin/ai-toolkit.mjs serve --port 4590 --db /tmp/ai-qa2-db/ai.db`. In another terminal run `pnpm --filter ai dev` and open the URL it prints.
+Test folders: `/tmp/ai-qa/demo` (README.md, a math.ts with only `add`, package.json) and `/tmp/ai-qa/other` (README.md, notes.txt).
+Models: Claude `claude-haiku-5-5` (effort Low), Codex `gpt-5.6-luna` (reasoning effort Low). Scenario 02b uses Claude's default, `claude-opus-5-5`.
 
 ## Results
 
-| #   | Scenario                | What to watch for                                                                                                      | Result                                                                                | Video                           |
-| --- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- | ------------------------------- |
-| 01  | Add a folder            | Relative path refused, missing folder error, then /tmp/ai-qa/demo opens its project page                               | pass                                                                                  | videos/01-add-folder.mp4        |
-| 02  | New Claude session      | Agent and model pickers, search "haiku", settings, tool rows spin then show ✓, ls row expanded, auto title, usage line | pass (Haiku is fast, so the spinners show for about a second)                         | videos/02-claude-session.mp4    |
-| 03  | Claude subagent         | Subagent block nests its `wc -l` call and "What it reported"; collapse and expand                                      | pass                                                                                  | videos/03-claude-subagent.mp4   |
-| 04  | Claude steer            | Stop and Steer buttons while running, "Steered" marker, answer includes the math.ts line count                         | pass                                                                                  | videos/04-claude-steer.mp4      |
-| 05  | Claude stop             | `sleep 30` stopped: turn and tool both say Stopped; the next message answers "ready"                                   | pass after a fix (the first, stopped turn in the transcript is from the pre-fix take) | videos/05-claude-stop.mp4       |
-| 06  | New Codex session       | GPT-5.6 Luna, Low effort, shell rows, math.ts edit with diff, usage                                                    | pass (subtract was added to math.ts)                                                  | videos/06-codex-session.mp4     |
-| 07  | Codex subagent          | Sub-agent block nests its prompt, its `ls -la` and its report                                                          | pass                                                                                  | videos/07-codex-subagent.mp4    |
-| 08  | Codex steer and stop    | Steered marker, answer covers the steer; `sleep 30` stopped; next message works                                        | pass                                                                                  | videos/08-codex-steer-stop.mp4  |
-| 09  | Projects                | Add "other" from the sidebar, switch projects and sessions, "Keep it", then remove; folder listing shown at the end    | pass                                                                                  | videos/09-projects.mp4          |
-| 10  | Reload                  | Scroll to top, reload, transcript comes back scrolled to the bottom                                                    | pass                                                                                  | videos/10-reload.mp4            |
-| 11a | Server restart (idle)   | "Reconnecting to the server..." in the sidebar, reconnects by itself, agent remembers the first question               | pass                                                                                  | videos/11a-server-restart.mp4   |
-| 11b | Server restart mid-turn | `sleep 40` running, server killed and restarted, turn shows Stopped, next message works                                | pass                                                                                  | videos/11b-restart-mid-turn.mp4 |
-| 12  | Theme and long scroll   | Light and dark on session, project and home pages; smooth scroll through two long transcripts                          | pass                                                                                  | videos/12-theme-scroll.mp4      |
+| #   | Scenario                 | What to watch for                                                                                                                                  | Result                                                                | Video                               |
+| --- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- | ----------------------------------- |
+| 01  | Add a folder             | A relative path is refused, a missing folder is refused, then /tmp/ai-qa/demo opens its project page                                               | pass                                                                  | videos/01-add-folder.mp4            |
+| 02  | New Claude session       | Agent picker, model search "haiku", effort and permissions, ls and Read rows, ls row expanded, auto title, usage line                              | pass (Haiku is fast, so the spinners show for about a second)         | videos/02-claude-session.mp4        |
+| 02b | Claude default model     | A session on the default `claude-opus-5-5` answers, with its title and usage                                                                       | pass                                                                  | videos/02b-claude-default-model.mp4 |
+| 03  | Claude subagent          | The subagent block starts with its Prompt row, nests its `wc -w` call, and "What it reported" holds only the report; collapse and expand the block | pass after a fix (the turn above it shows the same block for `wc -l`) | videos/03-claude-subagent.mp4       |
+| 04  | Claude steer             | Stop and Steer while running, the "Steered" marker, the answer covers the steer (math.ts line count)                                               | pass                                                                  | videos/04-claude-steer.mp4          |
+| 05  | Claude stop              | `sleep 30` stopped: the tool row and the turn say Stopped; the next message answers "ready"                                                        | pass                                                                  | videos/05-claude-stop.mp4           |
+| 06  | New Codex session        | Codex picker, search "luna", Low effort, shell rows, the math.ts edit row expanded with its diff, usage                                            | pass (subtract was added to math.ts)                                  | videos/06-codex-session.mp4         |
+| 07  | Codex sub-agent          | The sub-agent block nests its prompt, its `ls -la` and its report, shown once                                                                      | pass after a fix                                                      | videos/07-codex-subagent.mp4        |
+| 08  | Codex steer and stop     | "Steered" marker and an answer that covers it; `sleep 30` stopped; the next message answers "ready"; the view stays at the bottom throughout       | pass after a fix                                                      | videos/08-codex-steer-stop.mp4      |
+| 09  | Projects                 | Add "other" from the sidebar, switch projects and sessions, "Keep it", then remove; the video ends on the folder listing, files still there        | pass                                                                  | videos/09-projects.mp4              |
+| 10  | Reload                   | Scroll to the top, reload, the transcript comes back at the bottom                                                                                 | pass                                                                  | videos/10-reload.mp4                |
+| 11a | Server restart (idle)    | "Reconnecting…" pill, "Sending is paused" under the composer, Send disabled; reconnects by itself in about 4 s; the agent remembers PELICAN        | pass                                                                  | videos/11a-server-restart.mp4       |
+| 11b | Server restart mid-turn  | `sleep 40` running, server killed: "Last seen working", Stop and Steer disabled; after restart the tool and turn say Stopped; next message works   | pass                                                                  | videos/11b-restart-mid-turn.mp4     |
+| 12  | Theme, scroll and narrow | Dark and light on session, project and home pages; smooth scroll through two long transcripts; 420 px wide, sidebar as a sheet                     | pass, with a known issue at narrow width (below)                      | videos/12-theme-scroll.mp4          |
 
-Final-state screenshots are in `screenshots/` with the same names.
+Final-state screenshots are in `screenshots/` with the same names. The `design-*.png` screenshots are from the design pass.
 
-Folder check after removing "other" (scenario 09, terminal):
-
-```
-$ ls -la /tmp/ai-qa/other
--rw-r--r--  1 kishorepolamarasetty  wheel   17 22 Oct 00:19 notes.txt
--rw-r--r--  1 kishorepolamarasetty  wheel    8 22 Oct 00:19 README.md
-```
+The demo project's sidebar shows three sessions no scenario made ("Testing Session" twice, "Hello World Greeting"). They came from someone else testing on the same server during the pass.
 
 ## Fixed during QA
 
-- A Claude tool stopped by Stop showed "Failed" with Claude's "The user doesn't want to proceed..." text. Claude answers an interrupt with an error tool result, so the row now counts as stopped when the turn was cancelled and that result came after the agent's last message. When expanded, the output is labelled "Stopped". Files: `src/client/views/project/session/transcript/thread.ts`, `thread.test.ts` (new test), `transcript.tsx`.
-
-## Fixed in the design pass
-
-- The connection: while the server is out of reach, the header shows a "Reconnecting…" pill, the composer says sending is paused, and Send, Steer, Stop and Start session are disabled. A running turn says "Last seen working" instead of "Working…". Screenshots: `screenshots/design-disconnected.png`, `screenshots/design-narrow-disconnected.png`.
-- Claude's subagent block now starts with its prompt, from the Agent call's `prompt` input, as Codex's does.
+- A Claude subagent's "What it reported" ended with Claude Code's note for the model (`agentId: … (use SendMessage …) <usage>…</usage>`). The Claude projection now drops that text block. Files: `toolkits/ai-toolkit/src/harnesses/claude/project/project.ts`, `project.test.ts` (new test).
+- A Codex sub-agent's report showed twice: as its last message inside the block and again under "What it reported". The block now drops its last words when they equal the report. Files: `apps/ai/src/client/views/project/session/transcript/thread.ts`, `thread.test.ts` (new test), `transcript.tsx`.
+- The transcript stopped following new messages after a send. Sending moves the scroller up once while the rows redraw, and that counted as the reader scrolling away. Now only a reader's own gesture (wheel, touch, pointer, keys) lets go. File: `apps/ai/src/client/views/project/session/follow.ts`.
 
 ## Known issues
 
-- Claude sessions load your global Claude config (MCP servers, SessionStart hooks). In scenario 03 the agent talked about MCP servers needing attention. Codex also reads your global skills (scenario 07 read the orchestrate skill).
-- Stopping the server logs a stack trace for each open WebSocket (`InterruptError: All fibers interrupted without error`, INFO level, status 503). This is shutdown noise, not a failure. No other errors appeared in the server log.
-- For Claude, a turn's cost includes subagents but its token counts do not.
+- Narrow width, from the shared App Shell (`@kestack/web-platform`): resizing a wide window to 420 px keeps the sidebar open as a sheet over the page; it opens closed after a reload. Escape does not close the sheet; clicking outside does. Both show in scenario 12.
+- Claude sessions load your global Claude config (MCP servers, hooks), and Codex reads your global skills.
+- Stopping the server logs a stack trace for each open WebSocket (`InterruptError: All fibers interrupted without error`, INFO level, status 499 or 503). This is shutdown noise. No other errors appeared in the server log.
+- For Claude, a turn's cost includes subagents but its token counts do not. A turn served from cache can show `$0.000`.
+- A Claude Read row shows the full path (`/private/tmp/ai-qa/demo/math.ts`), and a Codex edit row's input is raw JSON above the diff.

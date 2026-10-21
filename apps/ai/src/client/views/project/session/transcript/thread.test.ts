@@ -157,4 +157,15 @@ describe('thread', () => {
       },
     ]);
   });
+
+  it("drops a subagent's last words when they are its report", () => {
+    const rows = thread([
+      message([call('sub', 'subagent')]),
+      message([{ type: 'text', text: 'ok\n' }], { agentId: 'sub' }),
+      message([result('sub')], { role: 'tool' }),
+    ]);
+    expect(rows).toMatchObject([
+      { kind: 'subagent', rows: [], result: { output: 'ok' } },
+    ]);
+  });
 });

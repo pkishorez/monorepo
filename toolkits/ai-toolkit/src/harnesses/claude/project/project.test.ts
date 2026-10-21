@@ -113,6 +113,15 @@ describe('project, on a captured turn with a subagent inside a subagent', () => 
     expect(turn[prompt]?.projected).toBeNull();
   });
 
+  it("shows the subagent's report without Claude Code's agentId note", () => {
+    const report = turn
+      .flatMap((r) => partsOf(r.projected))
+      .find((p) => p.type === 'toolResult' && p.toolCallId === outer?.call.id);
+    expect(report?.type === 'toolResult' && report.output).toBeTruthy();
+    expect(JSON.stringify(report)).not.toContain('SendMessage');
+    expect(JSON.stringify(report)).not.toContain('<usage>');
+  });
+
   it('shows nothing for task progress frames', () => {
     for (const r of turn.filter((r) => r.kind.startsWith('system/task'))) {
       expect(r.projected).toBeNull();

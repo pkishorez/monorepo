@@ -11,7 +11,8 @@ import type { Message, Part, Usage } from '@kestack/ai-toolkit/api';
  * - a toolCall to a subagent holds the Messages whose `agentId` is its id,
  *   drawn the same way, so subagents nest. Its prompt comes first: the
  *   subagent's own user words (Codex sends them), or else the call's
- *   `prompt` or `description` input (Claude's Agent tool);
+ *   `prompt` or `description` input (Claude's Agent tool). Its last words
+ *   are dropped when they are its report, as Codex sends both;
  * - a turn's usage is its turnEnded's, or else the sum of its usage parts,
  *   which are never rows of their own.
  */
@@ -160,7 +161,14 @@ export const thread = (
             const state = stateOf(part, message.turnId);
             if (part.tool !== 'subagent' || seen.has(part.id))
               return [{ kind: 'tool', id, call: part, result, state }];
-            const own = rowsOf(part.id, new Set(seen).add(part.id));
+            const all = rowsOf(part.id, new Set(seen).add(part.id));
+            const last = all.at(-1);
+            const own =
+              last?.kind === 'text' &&
+              result !== null &&
+              last.text.trim() === result.output.trim()
+                ? all.slice(0, -1)
+                : all;
             const prompt = promptOf(part);
             const rows: Row[] =
               prompt === null || own.some((row) => row.kind === 'prompt')
