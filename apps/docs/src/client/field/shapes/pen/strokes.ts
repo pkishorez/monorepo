@@ -217,3 +217,94 @@ export function dust(
     ]);
   }
 }
+
+/**
+ * Ink: strokes drawn at one even density per unit of length, so every
+ * line in every shape has the same weight. A share of the Cloud per unit.
+ */
+const INK = 0.024;
+
+/** A straight line of ink. */
+export function line(
+  c: Cloud,
+  from: V3,
+  to: V3,
+  bright = 0.9,
+  motion?: (u: number) => Motion,
+): void {
+  stroke(
+    c,
+    c.n * INK * length3(sub3(to, from)),
+    segment(from, to),
+    bright,
+    motion,
+    0.0015,
+  );
+}
+
+/** A ring of ink in the xy plane. */
+export function ring(
+  c: Cloud,
+  center: V3,
+  r: number,
+  bright = 0.9,
+  motion?: (u: number) => Motion,
+): void {
+  stroke(
+    c,
+    c.n * INK * TAU * r,
+    circle(center, r, 'xy'),
+    bright,
+    motion,
+    0.0015,
+  );
+}
+
+/** A rounded box of ink in the xy plane, `r` its corners. */
+export function box(
+  c: Cloud,
+  center: V3,
+  w: number,
+  h: number,
+  r: number,
+  bright = 0.9,
+  motion?: (u: number) => Motion,
+): void {
+  const perimeter = 2 * (w + h) - (8 - 2 * Math.PI) * r;
+  stroke(
+    c,
+    c.n * INK * perimeter,
+    roundRect(center, w, h, r),
+    bright,
+    motion,
+    0.0015,
+  );
+}
+
+/**
+ * A line of ink along `path` (about `len` long) ending in an arrowhead
+ * that points the way it goes.
+ */
+export function arrow(
+  c: Cloud,
+  path: Path,
+  len: number,
+  bright = 0.9,
+  motion?: (u: number) => Motion,
+): void {
+  stroke(c, c.n * INK * len, path, bright, motion, 0.0015);
+  const tip = path(1);
+  const back = path(0.97);
+  const d = sub3(tip, back);
+  const l = Math.max(length3(d), 1e-6);
+  const [dx, dy] = [d[0] / l, d[1] / l];
+  const size = 0.05;
+  for (const side of [-1, 1]) {
+    const wing: V3 = [
+      tip[0] - dx * size - dy * size * 0.6 * side,
+      tip[1] - dy * size + dx * size * 0.6 * side,
+      tip[2],
+    ];
+    line(c, wing, tip, bright, motion && (() => motion(1)));
+  }
+}

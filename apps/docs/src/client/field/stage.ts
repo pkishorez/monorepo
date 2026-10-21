@@ -15,6 +15,9 @@ export type Scene = {
   readonly a: Pose;
   readonly b: Pose;
   readonly blend: number;
+  /** The two shapes' names, and whether they are one Chapter, held. */
+  readonly shapes: readonly [ShapeName, ShapeName];
+  readonly held: boolean;
 };
 
 /** Field of view: tan(fov/2) = 1/distance, so depth 0 spans the screen. */
@@ -88,5 +91,7 @@ export function scene(input: {
     a: pose(from, 0, bell(f)),
     b: pose(to, 1, bell(1 - f)),
     blend: blendOf(f),
+    shapes: [chapters[from]!.shape, chapters[to]!.shape],
+    held: from === to,
   };
 }

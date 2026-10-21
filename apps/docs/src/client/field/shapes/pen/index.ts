@@ -19,5 +19,11 @@ export {
   stroke,
   sub3,
   turnY,
+  arrow,
+  box,
+  line,
+  ring,
 } from './strokes.ts';
 export type { Path } from './strokes.ts';
+export { loopOf, revealed, slid, smooth, windowOf } from './clock.ts';
+export type { Clock, Label } from './clock.ts';

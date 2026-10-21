@@ -1,97 +1,64 @@
-import { Kind } from '../pen/index.ts';
-import type { Cloud, V3 } from '../pen/index.ts';
-import { ball, circle, roundRect, segment, stroke } from '../pen/index.ts';
+import { Kind, arrow, ball, bend, box, line, ring } from '../pen/index.ts';
+import type { Cloud, Label, V3 } from '../pen/index.ts';
 
 /*
- * actor: the building block. An Actor's Model, a dense core ringed by its
- * state, above the View it draws, a flat panel. A loop joins them:
- * Messages climb from the View to the Actor on the left, and the update
- * flows back down to the View on the right.
+ * actor: the building block. On the left a View, a small card with a
+ * counter, `− 3 +`; on the right the Actor, holding its Model. Over the top
+ * a Message travels from the View to the Actor; underneath, the Actor's
+ * update comes back and the View draws it. Pulses only ever run the way the
+ * arrows point.
  */
 
-const CORE: V3 = [0, 0.42, 0];
-const VIEW: V3 = [0, -0.46, 0];
-
-/** The loop, from the View's left, up round the Actor, down to its right. */
-function side(from: number, to: number) {
-  return (u: number): V3 => {
-    const a = from + (to - from) * u;
-    return [Math.cos(a) * 0.66, 0.07 + Math.sin(a) * 0.36, 0];
-  };
-}
-
-/** A small chevron at `at`, pointing up or down. */
-function chevron(c: Cloud, at: V3, up: boolean): void {
-  const tip: V3 = [at[0], at[1] + (up ? 0.035 : -0.035), at[2]];
-  for (const dx of [-0.04, 0.04]) {
-    const base: V3 = [at[0] + dx, at[1] + (up ? -0.02 : 0.02), at[2]];
-    stroke(c, c.n * 0.0025, segment(base, tip), 1.2);
-  }
-}
+const VIEW: V3 = [-0.56, 0, 0];
+const ACTOR: V3 = [0.56, 0, 0];
+const W = 0.5;
+const H = 0.46;
 
 export function actor(c: Cloud): void {
   const { n } = c;
 
-  // The Model: a dense core, its state ring, a bead riding the ring.
-  ball(c, n * 0.05, CORE, 0.09, 1);
-  stroke(c, n * 0.035, circle(CORE, 0.17, 'xz'), 0.8);
-  ball(c, n * 0.004, [CORE[0] + 0.17, CORE[1], CORE[2]], 0.014, 1.8, [
-    Kind.orbit,
-    0,
-    0.6,
-    0,
-    0,
-  ]);
-
-  // The View: a panel with a heading, lines, a button.
-  stroke(c, n * 0.08, roundRect(VIEW, 0.78, 0.36, 0.04), 1);
-  const left = VIEW[0] - 0.31;
-  stroke(
+  // The View: a card, a title bar, the counter's two buttons.
+  box(c, VIEW, W, H, 0.05);
+  line(
     c,
-    n * 0.012,
-    segment([left, VIEW[1] + 0.09, 0], [left + 0.3, VIEW[1] + 0.09, 0]),
-    1.2,
+    [VIEW[0] - W / 2 + 0.04, VIEW[1] + 0.13, 0],
+    [VIEW[0] + W / 2 - 0.04, VIEW[1] + 0.13, 0],
+    0.35,
   );
-  for (const [y, w] of [
-    [0.02, 0.56],
-    [-0.035, 0.44],
-  ] as const) {
-    stroke(
-      c,
-      n * 0.012,
-      segment([left, VIEW[1] + y, 0], [left + w, VIEW[1] + y, 0]),
-      0.5,
-    );
+  for (const dx of [-0.15, 0.15]) {
+    const at: V3 = [VIEW[0] + dx, VIEW[1] - 0.04, 0];
+    box(c, at, 0.1, 0.1, 0.025, 0.7);
+    line(c, [at[0] - 0.025, at[1], 0], [at[0] + 0.025, at[1], 0], 1.1);
+    if (dx > 0)
+      line(c, [at[0], at[1] - 0.025, 0], [at[0], at[1] + 0.025, 0], 1.1);
   }
-  stroke(
-    c,
-    n * 0.02,
-    roundRect([VIEW[0] + 0.22, VIEW[1] - 0.1, 0], 0.18, 0.07, 0.03),
-    0.9,
-  );
 
-  // The loop: Messages up the left, small and quick; the update down the
-  // right, one broad wave.
-  const up = side(-Math.PI * 0.62, -Math.PI * 1.38);
-  const down = side(Math.PI * 0.38, -Math.PI * 0.38);
-  for (const phase of [0, 0.33, 0.66]) {
-    stroke(
-      c,
-      n * 0.07,
-      up,
-      0.5,
-      (u) => [Kind.pulse, phase, u, 0.45, 0.035],
-      0.003,
-    );
-  }
-  stroke(
-    c,
-    n * 0.12,
-    down,
-    0.55,
-    (u) => [Kind.pulse, 0.2, u, 0.3, 0.09],
-    0.003,
+  // The Actor: a box, and in it the Model, a ring round a bright heart.
+  box(c, ACTOR, W, H, 0.08, 1);
+  ring(c, [ACTOR[0], ACTOR[1] + 0.03, 0], 0.07, 0.8);
+  ball(c, n * 0.004, [ACTOR[0], ACTOR[1] + 0.03, 0], 0.018, 1.6);
+
+  // The Message over the top, the update back underneath.
+  const gap = W / 2 + 0.04;
+  const over = bend(
+    [VIEW[0] + gap, 0.1, 0],
+    [0, 0.3, 0],
+    [ACTOR[0] - gap, 0.1, 0],
   );
-  chevron(c, up(0.5), true);
-  chevron(c, down(0.5), false);
+  const under = bend(
+    [ACTOR[0] - gap, -0.1, 0],
+    [0, -0.3, 0],
+    [VIEW[0] + gap, -0.1, 0],
+  );
+  arrow(c, over, 0.5, 0.55, (u) => [Kind.pulse, 0, u, 0.45, 0.07]);
+  arrow(c, under, 0.5, 0.55, (u) => [Kind.pulse, 0.5, u, 0.45, 0.07]);
 }
+
+export const actorLabels: readonly Label[] = [
+  { text: 'View', at: [VIEW[0], H / 2 + 0.09, 0] },
+  { text: 'Actor', at: [ACTOR[0], H / 2 + 0.09, 0] },
+  { text: 'Increment', kind: 'message', at: [0, 0.34, 0] },
+  { text: 'Model { count: 3 }', at: [ACTOR[0], -H / 2 - 0.15, 0] },
+  { text: '3', at: [VIEW[0], -0.04, 0] },
+  { text: 'draws', kind: 'note', at: [0, -0.33, 0] },
+];

@@ -1,50 +1,52 @@
-import { Kind } from '../pen/index.ts';
-import type { Cloud, V3 } from '../pen/index.ts';
-import { ball, bend, circle, shell, stroke } from '../pen/index.ts';
+import { Kind, ball, bend, ring, stroke } from '../pen/index.ts';
+import type { Cloud, Label, V3 } from '../pen/index.ts';
 
 /*
- * lineage: what kabuki grew from. Six ideas round the left, Elm, Foldkit,
- * statecharts, the actor model, Effect and React, each sending a stream
- * that bends in towards one bright node on the right: kabuki.
+ * lineage: what kabuki grew from. Six ideas down the left, Elm, Foldkit,
+ * statecharts, the actor model, Effect and React, each a curve bending in
+ * to one node on the right: kabuki, where they meet.
  */
 
-const SOURCES: ReadonlyArray<readonly [x: number, y: number, size: number]> = [
-  [-0.62, 0.78, 1],
-  [-0.86, 0.42, 0.75],
-  [-0.92, 0.02, 1.1],
-  [-0.84, -0.38, 0.85],
-  [-0.6, -0.74, 1],
-  [-0.22, -0.92, 0.7],
+const SOURCES = [
+  'Elm',
+  'Foldkit',
+  'statecharts',
+  'actor model',
+  'Effect',
+  'React',
 ];
-const HOME: V3 = [0.62, -0.02, 0];
+const X = -0.5;
+const HOME: V3 = [0.62, 0, 0];
+
+const at = (k: number): V3 => [X, 0.72 - (k * 1.44) / (SOURCES.length - 1), 0];
 
 export function lineage(c: Cloud): void {
-  const { n, random } = c;
-  SOURCES.forEach(([x, y, size], k) => {
-    const at: V3 = [x, y, (k % 2 ? -1 : 1) * 0.08];
-    ball(c, n * 0.012 * size, at, 0.035 * size, 1.1);
-    stroke(c, n * 0.012 * size, circle(at, 0.075 * size, 'xy'), 0.6);
-    // Its stream: bending in, a few pulses on the way.
-    const via: V3 = [0.05, y * 0.35, 0];
-    const phase = random();
+  const { n } = c;
+  SOURCES.forEach((_, k) => {
+    const from = at(k);
+    ring(c, from, 0.035, 0.9);
+    ball(c, n * 0.002, from, 0.01, 1.3);
+    const start: V3 = [from[0] + 0.05, from[1], 0];
+    const end: V3 = [HOME[0] - 0.13, HOME[1] + from[1] * 0.12, 0];
+    const path = bend(start, [0.15, from[1] * 0.85, 0], end);
     stroke(
       c,
-      n * 0.075,
-      bend(at, via, HOME),
-      0.32,
-      (u) => [Kind.pulse, phase, u, 0.18, 0.05],
-      0.004,
+      n * 0.024 * 1.25,
+      path,
+      0.45,
+      (u) => [Kind.pulse, k / SOURCES.length, u, 0.2, 0.05],
+      0.0015,
     );
   });
-  // kabuki: where they meet, brightest.
-  ball(c, n * 0.04, HOME, 0.07, 1.3);
-  stroke(c, n * 0.03, circle(HOME, 0.14, 'xy'), 0.9);
-  shell(c, n * 0.025, HOME, 0.24, 0.3);
-  stroke(c, n * 0.02, circle(HOME, 0.34, 'xy'), 0.25, () => [
-    Kind.orbit,
-    0,
-    0.1,
-    0,
-    0,
-  ]);
+  ring(c, HOME, 0.1, 1);
+  ring(c, HOME, 0.17, 0.35);
+  ball(c, n * 0.01, HOME, 0.03, 1.4);
 }
+
+export const lineageLabels: readonly Label[] = [
+  { text: 'kabuki', at: [HOME[0], HOME[1] - 0.27, 0] },
+  ...SOURCES.map((text, k): Label => ({
+    text,
+    at: [X - 0.08 - text.length * 0.018, at(k)[1], 0],
+  })),
+];
