@@ -1,7 +1,1 @@
-export {
-  CreateWallet,
-  DeleteEntry,
-  Post,
-  RenameWallet,
-  Transfer,
-} from './actions.ts';
+export { CreateWallet, DeleteEntry, Post, Transfer } from './actions.ts';

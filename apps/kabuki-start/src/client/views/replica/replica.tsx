@@ -1,81 +1,74 @@
 import { View } from '@kestack/kabuki/react';
-import { Router, useRouter } from '@kestack/kabuki/routing';
 import { Spinner } from '@kestack/web-platform/components/spinner';
-import { Pages, router } from '../../../shared/pages/index.ts';
+import { Pages } from '../../../shared/pages/index.ts';
 import { PageIntro } from '../../components/index.ts';
-import { PeekView } from './peek.tsx';
-import { PocketView } from './pocket.tsx';
-import { SyncView } from './sync.tsx';
+import { AccountsList } from './accounts/index.ts';
+import { PocketView } from './pocket/index.ts';
 
 /*
- * The Replica page: Your Pocket or Peek, one at a time under two tabs, and
- * the Sync panel beside both.
+ * The Replica page, read top to bottom: what a Replica is here, the
+ * accounts and how each syncs, and the Pocket of the one picked, which
+ * says whether it writes or is read from this device.
  */
 
-const tab =
-  'rounded-md px-2.5 py-1.5 text-sm text-muted-foreground transition-colors duration-150 hover:text-foreground aria-[current=page]:bg-muted aria-[current=page]:text-foreground';
-
-function Tabs() {
-  const { route } = useRouter<typeof router.route.Type>();
-  // Peek is a page under Replica: both routes are tagged `Replica`.
-  const peeking =
-    route._tag === 'Replica' && 'page' in route && route.page?._tag === 'Peek';
-  return (
-    <nav aria-label="Replica" className="mb-6 flex gap-1">
-      <Router.Link
-        to={router.Replica()}
-        aria-current={peeking ? undefined : 'page'}
-        className={tab}
-      >
-        Your Pocket
-      </Router.Link>
-      <Router.Link
-        to={router.Replica.Peek()}
-        aria-current={peeking ? 'page' : undefined}
-        className={tab}
-      >
-        Peek
-      </Router.Link>
-    </nav>
-  );
-}
+const note = 'text-sm text-muted-foreground';
 
 export const ReplicaView = View.make(
   Pages.ReplicaLive,
-  ({ root, model, children }) => (
-    <div {...root}>
-      <PageIntro title="Replica">
-        Your wallets are kept on this device: they show at once, change at once,
-        and sync in the background.
-      </PageIntro>
-      <Tabs />
-      <div className="grid gap-10 md:grid-cols-[1fr_15rem]">
-        <div className="min-w-0">
-          {children.Peek ? (
-            <PeekView instance={children.Peek} />
-          ) : model.caller._tag === 'Checking' ? (
-            <p className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Spinner /> Checking who is signed in…
-            </p>
-          ) : model.caller._tag === 'SignedOut' || !children.pocket ? (
-            <p className="text-sm text-muted-foreground">
-              Sign in to open your Pocket.
-            </p>
-          ) : (
-            <div className="space-y-6">
-              <p className="text-sm text-muted-foreground">
-                Pocket for{' '}
-                <span className="font-medium text-foreground">
-                  {model.caller.email}
-                </span>
-                . It follows the account you switch to.
-              </p>
+  ({ root, model, children, send }) => {
+    const { caller } = model;
+    const shown =
+      caller._tag === 'SignedIn' ? (model.picked ?? caller.active) : null;
+    const email =
+      caller._tag === 'SignedIn'
+        ? caller.accounts.find(({ id }) => id === shown)?.email
+        : undefined;
+    return (
+      <div {...root}>
+        <PageIntro title="Replica">
+          Each account's wallets are kept on this device, so they open and
+          change at once, then sync in the background.
+        </PageIntro>
+        {caller._tag === 'Checking' ? (
+          <p className={`flex items-center gap-2 ${note}`}>
+            <Spinner /> Checking who is signed in…
+          </p>
+        ) : caller._tag === 'SignedOut' ||
+          !children.pocket ||
+          shown === null ? (
+          <p className={note}>Sign in to open your Pocket.</p>
+        ) : (
+          <div className="grid gap-8 md:grid-cols-[minmax(0,1fr)_15rem] md:gap-12">
+            <AccountsList
+              accounts={caller.accounts}
+              active={caller.active}
+              shown={shown}
+              instances={model.instances}
+              show={(account) => send({ _tag: 'Show', account })}
+              className="md:sticky md:top-20 md:col-start-2 md:row-start-1 md:self-start"
+            />
+            <section
+              aria-labelledby="replica-pocket"
+              className="min-w-0 space-y-6"
+            >
+              <header className="space-y-1">
+                <h2
+                  id="replica-pocket"
+                  className="truncate text-lg font-semibold tracking-tight"
+                >
+                  {email ?? 'Pocket'}
+                </h2>
+                <p className={note}>
+                  {shown === caller.active
+                    ? 'Active: every change shows at once, and syncs.'
+                    : 'Read from this device. Only the active account syncs.'}
+                </p>
+              </header>
               <PocketView instance={children.pocket} />
-            </div>
-          )}
-        </div>
-        <SyncView instance={children.sync} />
+            </section>
+          </div>
+        )}
       </div>
-    </div>
-  ),
+    );
+  },
 );

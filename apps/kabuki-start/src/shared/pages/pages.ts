@@ -10,11 +10,9 @@ import { ItemLive, Items, ItemsLive } from './items.ts';
 import { ClientLive, DynamicLive, Static, StaticLive } from './rendering.ts';
 import {
   Entries,
-  PeekLive,
   PocketLive,
   Replica,
   ReplicaLive,
-  SyncLive,
   Wallets,
 } from './replica/index.ts';
 import { PocketLive as PocketReplica } from '../../replicas/pocket/index.ts';
@@ -70,8 +68,6 @@ export const Pages = {
   ApisLive,
   ReplicaLive,
   PocketLive,
-  PeekLive,
-  SyncLive,
   Wallets,
   Entries,
 };

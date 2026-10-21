@@ -1,64 +1,71 @@
 import { Effect, Schema, Stream } from 'effect';
 import { Page } from '@kestack/kabuki/routing';
+import { Replicas } from '@kestack/std-toolkit/replica';
 import { CurrentAccount } from '@kestack/web-platform/account-switcher';
 import { about } from '../metadata/index.ts';
-import { Peek, PeekLive } from './peek/index.ts';
+import {
+  Caller,
+  follow,
+  Running,
+  show,
+  shown,
+  signedIn,
+} from './accounts/index.ts';
 import { PocketLive } from './pocket/index.ts';
-import { SyncLive } from './sync/index.ts';
 
 /*
  * The Replica page: a Pocket of wallets and entries per Account, kept on
  * this device and synced by `@kestack/std-toolkit/replica`.
  *
- * 1. Your Pocket  the active Account's, which follows a switch: the page
- *                 keeps who is active, and hands it to the section as
- *                 Props, so its Queries move to the new Account's Instance.
- * 2. Peek         `/replica/peek`, another signed-in Account's, read from
- *                 the device and never fetched.
- * 3. Sync         the Instances running, beside both.
+ * 1. Accounts  every signed-in Account, with its Instance as Replicas
+ *              shows it; picking one shows its Pocket.
+ * 2. Pocket    the shown Account's, handed as Props, so its Queries move
+ *              to that Account's Instance. The active Account's writes;
+ *              any other is read from the device, its Gate closed.
  *
  * Like the APIs page it has no data: an Account is the browser's, so the
  * server draws it checking and the browser carries on.
  */
 
-const Caller = Schema.TaggedUnion({
-  Checking: {},
-  SignedOut: {},
-  SignedIn: { id: Schema.String, email: Schema.String },
-});
-
 export const Replica = Page.define({
   path: '/replica',
-  requires: [CurrentAccount],
+  requires: [CurrentAccount, Replicas],
   metadata: about(
     '/replica',
     'Replica',
-    'Wallets kept on this device, shown at once, synced while you are the active account.',
+    'Wallets kept on this device: they open at once, change at once, and sync while you are the active account.',
   ),
-  model: Schema.Struct({ caller: Caller }),
-  message: Schema.TaggedUnion({ Changed: { caller: Caller } }),
-  pages: { Peek },
+  model: Schema.Struct({
+    caller: Caller,
+    /** The Account picked to show, when it is not the active one. */
+    picked: Schema.NullOr(Schema.String),
+    instances: Schema.Array(Running),
+  }),
+  message: Schema.TaggedUnion({
+    Changed: { caller: Caller },
+    Show: { account: Schema.String },
+    Running: { instances: Schema.Array(Running) },
+  }),
 });
 
 export const ReplicaLive = Page.build(Replica, {
-  init: () => ({ model: { caller: { _tag: 'Checking' } } }),
-  pages: { Peek: PeekLive },
+  init: () => ({
+    model: { caller: { _tag: 'Checking' }, picked: null, instances: [] },
+  }),
   workers: {
     account: {
       run: (self) =>
         Effect.flatMap(CurrentAccount, ({ state }) =>
-          Stream.runForEach(state, ({ account }) =>
-            self.send({
-              _tag: 'Changed',
-              caller:
-                account._tag === 'SignedIn'
-                  ? {
-                      _tag: 'SignedIn',
-                      id: account.active.id,
-                      email: account.active.email,
-                    }
-                  : { _tag: account._tag },
-            }),
+          Stream.runForEach(state, (current) =>
+            self.send({ _tag: 'Changed', caller: signedIn(current) }),
+          ),
+        ),
+    },
+    replicas: {
+      run: (self) =>
+        Effect.flatMap(Replicas, ({ state }) =>
+          Stream.runForEach(state, (instances) =>
+            self.send({ _tag: 'Running', instances }),
           ),
         ),
     },
@@ -68,12 +75,22 @@ export const ReplicaLive = Page.build(Replica, {
       actor: PocketLive,
       while: ({ model }) => model.caller._tag === 'SignedIn',
       props: ({ model }) => ({
-        account: model.caller._tag === 'SignedIn' ? model.caller.id : '',
+        account: shown(model) ?? '',
+        writable:
+          model.caller._tag === 'SignedIn' &&
+          shown(model) === model.caller.active,
       }),
     },
-    sync: { actor: SyncLive },
   },
   on: {
-    Changed: ({ caller }) => ({ model: { caller } }),
+    Changed: ({ caller }, { model }) => ({
+      model: { ...model, ...follow(model, caller) },
+    }),
+    Show: ({ account }, { model }) => ({
+      model: { ...model, ...show(model, account) },
+    }),
+    Running: ({ instances }, { model }) => ({
+      model: { ...model, instances },
+    }),
   },
 });

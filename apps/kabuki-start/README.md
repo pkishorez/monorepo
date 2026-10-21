@@ -34,11 +34,11 @@ one per level of access (`src/apis/access`): **public**, for anyone;
 **Replica** (`/replica`) is a Pocket of wallets and entries per Account,
 kept on the device with `@kestack/std-toolkit/replica`
 ([README](../../toolkits/std-toolkit/src/replica/README.md)) and synced
-from a third Worker, Pocket, which keeps them in D1. Your Pocket follows
-the active Account and writes optimistically, rolling back what the Worker
-refuses; Peek (`/replica/peek`) reads another signed-in Account from the
-device without fetching it; and the Sync panel shows each Instance
-running, who holds it, and when it stops.
+from a third Worker, Pocket, which keeps them in D1. One page: the
+accounts list shows every signed-in Account and how its Instance syncs,
+counting down once nothing reads it; picking one shows its Pocket. The
+active Account's writes in one click, optimistically, rolling back what
+the Worker refuses; any other is read from the device without fetching.
 
 The folders are its boundaries. `src/shared/pages` is what both sides
 import: every page's definition and build, its data Schema, and the router.
@@ -56,12 +56,12 @@ which Alchemy sets from the Workers it declares and Vite inlines.
 
 ```
 src/
-  shared/pages/        both sides: one file per page, its data Schema beside it (replica/ a folder: the page, Your Pocket, Peek, Sync); pages.ts holds the root page and the router
+  shared/pages/        both sides: one file per page, its data Schema beside it (replica/ a folder: the page, the accounts list, the Pocket); pages.ts holds the root page and the router
   client/
     app.tsx            Start.app: the router, the root View, the Document, the browser's Layer (Accounts, the API clients and the Replica Store)
     document.tsx       the <html> around the app: theme script, devtools, sign-in dialog
     views/             one View per page; views.tsx draws the root page, preload-link.tsx shows a preload live
-    views/replica/     the Replica page: Your Pocket, Peek, the Sync panel
+    views/replica/     the Replica page: the accounts list, the Pocket
     components/        layout, page intro, clock, devtools, theme
   server/
     loaders.server.ts  Start.server(loaders): one Loader per page with data

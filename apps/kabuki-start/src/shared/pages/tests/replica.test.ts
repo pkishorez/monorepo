@@ -21,13 +21,14 @@ import {
   transferEntryIds,
   type Wallet,
 } from '../../../apis/pocket/index.ts';
-import { Pages, router } from '../index.ts';
+import { nextWalletName, Pages, router } from '../index.ts';
 
 /*
  * The Replica page with two signed-in Accounts, over a Pocket Worker kept
- * in memory that logs every call and which Account it was for. Your Pocket
- * follows the active Account; Peek reads the other from the device without
- * fetching it; Sync shows each Instance, and one nobody reads stopping.
+ * in memory that logs every call and which Account it was for. The Pocket
+ * shown follows the active Account; picking another reads it from the
+ * device without fetching it; the page shows each Instance, and one
+ * nothing reads stopping.
  */
 
 const ada: Account = {
@@ -48,7 +49,16 @@ const fakeAccounts = Effect.gen(function* () {
   const ref = yield* SubscriptionRef.make<AccountsState>(
     AccountsState.SignedIn({ active: ada, accounts: [ada, bob] }),
   );
-  return Layer.succeed(
+  /** Signs `account` out, leaving Ada active. */
+  const signOut = (account: string) =>
+    SubscriptionRef.set(
+      ref,
+      AccountsState.SignedIn({
+        active: ada,
+        accounts: [ada, bob].filter(({ id }) => id !== account),
+      }),
+    );
+  const layer = Layer.succeed(
     Accounts,
     Accounts.of({
       state: SubscriptionRef.changes(ref),
@@ -67,6 +77,7 @@ const fakeAccounts = Effect.gen(function* () {
         ),
     }),
   );
+  return { layer, signOut };
 });
 
 type Stored = Entity<Wallet> | Entity<Entry>;
@@ -129,6 +140,41 @@ const fakeWorker = () => {
       Effect.sync(() => {
         calls.push({ call: 'CreateWallet', account });
         return { wallets: [seed(account, id, name, 0)], entries: [] };
+      }),
+    post: (
+      account: string,
+      input: { id: string; walletId: string; amount: number; note: string },
+    ) =>
+      Effect.gen(function* () {
+        calls.push({ call: 'Post', account });
+        const at = wallet(account, input.walletId);
+        if (at.value.balance + input.amount < 0)
+          return yield* new Overdraft({
+            walletId: input.walletId,
+            balance: at.value.balance,
+            amount: input.amount,
+          });
+        return {
+          wallets: [
+            seed(
+              account,
+              at.value.id,
+              at.value.name,
+              at.value.balance + input.amount,
+            ),
+          ],
+          entries: [
+            put(account, {
+              value: {
+                ...input,
+                userId: account,
+                kind: input.amount < 0 ? 'withdrawal' : 'deposit',
+                transferId: null,
+              },
+              meta: meta('Entry'),
+            }) as Entity<Entry>,
+          ],
+        };
       }),
     transfer: (
       account: string,
@@ -247,7 +293,7 @@ const names = (rows: Rows | undefined) =>
   (rows?.rows ?? []).map(({ row }) => row.name).sort();
 const instances = (app: Running<unknown>) =>
   (
-    find(app, 'Sync')!.model as {
+    find(app, 'Replica')!.model as {
       readonly instances: ReadonlyArray<{
         readonly key: string;
         readonly role: string;
@@ -264,22 +310,62 @@ const opened = (path = '/replica') =>
     worker.seed('ada', 'cash', 'Ada cash', 1000);
     worker.seed('ada', 'bank', 'Ada bank', 0);
     worker.seed('bob', 'jar', 'Bob jar', 500);
+    const accounts = yield* fakeAccounts;
     const app = yield* Runtime.start(
       History.make(Root.actor, { input: Root.startAt(path) }),
       Layer.mergeAll(
         loading,
-        yield* fakeAccounts,
+        accounts.layer,
         workers,
         worker.layer,
         Store.memory(),
       ),
     );
-    return { app, worker };
+    return { app, worker, signOut: accounts.signOut };
   });
 
 const switchTo = (app: Running<unknown>, id: string) =>
   app.send(find(app, 'AccountSwitcher')!.id, { _tag: 'SwitchTo', id } as never);
 const pocket = (app: Running<unknown>) => find(app, 'Pocket')!;
+const ask = (app: Running<unknown>, message: object) =>
+  app.send(pocket(app).id, message as never);
+const show = (app: Running<unknown>, account: string) =>
+  app.send(find(app, 'Replica')!.id, { _tag: 'Show', account } as never);
+const balances = (app: Running<unknown>) =>
+  Object.fromEntries(
+    (walletsUnder(app, 'pocket')?.rows ?? []).map(({ row }) => [
+      row.id,
+      row.balance,
+    ]),
+  );
+const callsFor = (
+  worker: { calls: ReadonlyArray<{ account: string }> },
+  account: string,
+) => worker.calls.filter((each) => each.account === account).length;
+
+/** Opens the page with Bob's Pocket kept on the device: he was active once. */
+const keptBoth = Effect.gen(function* () {
+  const opened_ = yield* opened();
+  const { app } = opened_;
+  yield* eventually(() =>
+    expect(names(walletsUnder(app, 'pocket'))).toEqual([
+      'Ada bank',
+      'Ada cash',
+    ]),
+  );
+  switchTo(app, 'bob');
+  yield* eventually(() =>
+    expect(names(walletsUnder(app, 'pocket'))).toEqual(['Bob jar']),
+  );
+  switchTo(app, 'ada');
+  yield* eventually(() =>
+    expect(names(walletsUnder(app, 'pocket'))).toEqual([
+      'Ada bank',
+      'Ada cash',
+    ]),
+  );
+  return opened_;
+});
 
 describe('the Replica page', () => {
   it("shows the active Account's Pocket, and moves to the next Account's on a switch, old rows gone first", () =>
@@ -320,110 +406,128 @@ describe('the Replica page', () => {
       }),
     ));
 
-  it('writes name the Account they are for, and an overdraft rolls back with its reason', () =>
+  it('one-click writes name the Account, and + Wallet names the next free Wallet n', () =>
     run(
       Effect.gen(function* () {
         const { app, worker } = yield* opened();
         yield* eventually(() =>
           expect(names(walletsUnder(app, 'pocket'))).toHaveLength(2),
         );
-        app.send(pocket(app).id, {
-          _tag: 'Send',
-          id: 't1',
-          from: 'cash',
-          to: 'bank',
-          amount: 400,
-          note: 'save',
-        } as never);
-        yield* eventually(() => {
-          const rows = walletsUnder(app, 'pocket')!.rows.map(({ row }) => [
-            row.id,
-            row.balance,
-          ]);
-          expect(Object.fromEntries(rows)).toEqual({ cash: 600, bank: 400 });
-        });
-        expect(worker.calls).toContainEqual({
-          call: 'Transfer',
-          account: 'ada',
-        });
-
-        app.send(pocket(app).id, {
-          _tag: 'Send',
-          id: 't2',
-          from: 'cash',
-          to: 'bank',
-          amount: 5000,
-          note: 'too much',
-        } as never);
-        yield* eventually(() =>
-          expect(pocket(app).model).toMatchObject({
-            refused: {
-              form: 'transfer',
-              account: 'ada',
-              reason: 'Not enough money: 6.00 left',
-            },
-          }),
-        );
-        const rows = walletsUnder(app, 'pocket')!.rows.map(({ row }) => [
-          row.id,
-          row.balance,
+        for (const id of ['w1', 'w2']) {
+          const name = nextWalletName(
+            names(walletsUnder(app, 'pocket')) as string[],
+          );
+          ask(app, { _tag: 'AddWallet', id, name });
+          yield* eventually(() =>
+            expect(names(walletsUnder(app, 'pocket'))).toContain(name),
+          );
+        }
+        expect(names(walletsUnder(app, 'pocket'))).toEqual([
+          'Ada bank',
+          'Ada cash',
+          'Wallet 1',
+          'Wallet 2',
         ]);
-        expect(Object.fromEntries(rows)).toEqual({ cash: 600, bank: 400 });
+        expect(nextWalletName(['Wallet 2'])).toBe('Wallet 1');
 
-        // Two writes at once: the refusal still shows beside the form it came from.
-        app.send(pocket(app).id, {
-          _tag: 'Send',
-          id: 't3',
+        ask(app, { _tag: 'Change', id: 'd1', wallet: 'w1', amount: 1000 });
+        ask(app, {
+          _tag: 'Move',
+          id: 'm1',
           from: 'cash',
           to: 'bank',
-          amount: 5000,
-          note: 'too much',
-        } as never);
-        app.send(pocket(app).id, {
-          _tag: 'NewWallet',
-          id: 'jar',
-          name: 'Ada jar',
-        } as never);
+          amount: 500,
+        });
         yield* eventually(() =>
-          expect(pocket(app).model).toMatchObject({
-            writing: [],
-            refused: { form: 'transfer', account: 'ada' },
+          expect(balances(app)).toMatchObject({
+            w1: 1000,
+            cash: 500,
+            bank: 500,
           }),
         );
+        yield* eventually(() =>
+          expect(pocket(app).model).toMatchObject({ writes: [], refused: [] }),
+        );
+        for (const call of ['CreateWallet', 'Post', 'Transfer'])
+          expect(worker.calls).toContainEqual({ call, account: 'ada' });
+        expect(
+          worker.calls.some(
+            (each) =>
+              each.account !== 'ada' &&
+              each.call !== 'Wallets' &&
+              each.call !== 'Entries',
+          ),
+        ).toBe(false);
+      }),
+    ));
+
+  it('an overdraft shows at once, then rolls back with its reason beside its own wallet', () =>
+    run(
+      Effect.gen(function* () {
+        const { app } = yield* opened();
+        yield* eventually(() =>
+          expect(balances(app)).toEqual({ cash: 1000, bank: 0 }),
+        );
+        const seen: Array<Record<string, unknown>> = [];
+        const unsubscribe = app.subscribe(() => seen.push(balances(app)));
+        // Two at once, on two wallets: only the bank's is refused.
+        ask(app, { _tag: 'Change', id: 'o1', wallet: 'bank', amount: -500 });
+        ask(app, { _tag: 'Change', id: 'o2', wallet: 'cash', amount: -500 });
+        yield* eventually(() =>
+          expect(pocket(app).model).toMatchObject({
+            writes: [],
+            refused: [
+              { account: 'ada', at: 'bank', reason: 'Not enough money' },
+            ],
+          }),
+        );
+        unsubscribe();
+        expect(seen.some((each) => each.bank === -500)).toBe(true);
+        expect(balances(app)).toEqual({ cash: 500, bank: 0 });
+
+        // Moving from the bank is refused beside the bank; a deposit there clears it.
+        ask(app, {
+          _tag: 'Move',
+          id: 'o3',
+          from: 'bank',
+          to: 'cash',
+          amount: 500,
+        });
+        yield* eventually(() =>
+          expect(pocket(app).model).toMatchObject({
+            writes: [],
+            refused: [{ account: 'ada', at: 'bank' }],
+          }),
+        );
+        ask(app, { _tag: 'Change', id: 'o4', wallet: 'bank', amount: 1000 });
+        yield* eventually(() =>
+          expect(pocket(app).model).toMatchObject({ writes: [], refused: [] }),
+        );
+        expect(balances(app)).toEqual({ cash: 500, bank: 1000 });
       }),
     ));
 
   it(
-    'Peek reads another Account from the device without fetching it, and its Instance stops once Peek is left',
+    'another Account is read from the device without fetching, and once left its Instance counts down and stops',
     () =>
       run(
         Effect.gen(function* () {
-          const { app, worker } = yield* opened();
-          // Bob is active once, so his Pocket is kept on this device.
-          switchTo(app, 'bob');
+          const { app, worker } = yield* keptBoth;
+          yield* eventually(
+            () =>
+              expect(instances(app).map((each) => each.key)).toEqual(['ada']),
+            7000,
+          );
+
+          show(app, 'bob');
           yield* eventually(() =>
             expect(names(walletsUnder(app, 'pocket'))).toEqual(['Bob jar']),
           );
-          switchTo(app, 'ada');
-          yield* eventually(() =>
-            expect(names(walletsUnder(app, 'pocket'))).toEqual([
-              'Ada bank',
-              'Ada cash',
-            ]),
-          );
-
-          app.send('Router', { _tag: 'Pushed', route: router.Replica.Peek() });
-          yield* eventually(() => expect(find(app, 'Peek')).toBeDefined());
-          app.send(find(app, 'Peek')!.id, {
-            _tag: 'Pick',
+          expect(pocket(app).props).toEqual({
             account: 'bob',
-          } as never);
-          yield* eventually(() =>
-            expect(names(walletsUnder(app, 'Peek'))).toEqual(['Bob jar']),
-          );
-          const fetched = worker.calls.filter(
-            (each) => each.account === 'bob',
-          ).length;
+            writable: false,
+          });
+          const fetched = callsFor(worker, 'bob');
           yield* eventually(() =>
             expect(
               instances(app).find((each) => each.key === 'bob'),
@@ -438,12 +542,20 @@ describe('the Replica page', () => {
             gate: true,
             role: 'leading',
           });
+          // Read-only: a write asked here is not made.
+          ask(app, { _tag: 'Change', id: 'r1', wallet: 'jar', amount: 1000 });
           yield* Effect.sleep('2500 millis');
-          expect(
-            worker.calls.filter((each) => each.account === 'bob'),
-          ).toHaveLength(fetched);
+          expect(callsFor(worker, 'bob')).toBe(fetched);
+          expect(pocket(app).model).toMatchObject({ writes: [] });
 
-          app.send('Router', { _tag: 'Pushed', route: router.Replica() });
+          show(app, 'ada');
+          yield* eventually(() =>
+            expect(names(walletsUnder(app, 'pocket'))).toEqual([
+              'Ada bank',
+              'Ada cash',
+            ]),
+          );
+          expect(pocket(app).props).toEqual({ account: 'ada', writable: true });
           yield* eventually(() => {
             const lingering = instances(app).find((each) => each.key === 'bob');
             expect(lingering?.holders).toEqual([]);
@@ -456,6 +568,50 @@ describe('the Replica page', () => {
           );
         }),
       ),
-    15_000,
+    25_000,
   );
+
+  it('a pick holds through a switch, and falls back to the active Account once it signs out', () =>
+    run(
+      Effect.gen(function* () {
+        const { app, signOut } = yield* keptBoth;
+        const page = () =>
+          find(app, 'Replica')!.model as { picked: string | null };
+
+        // Picking the active Account is the default.
+        show(app, 'ada');
+        expect(page().picked).toBeNull();
+
+        show(app, 'bob');
+        yield* eventually(() =>
+          expect(pocket(app).props).toMatchObject({ account: 'bob' }),
+        );
+        // Bob becomes the active one: still shown, now writable.
+        switchTo(app, 'bob');
+        yield* eventually(() =>
+          expect(pocket(app).props).toEqual({ account: 'bob', writable: true }),
+        );
+        expect(page().picked).toBeNull();
+        // Then the shown Account follows the active one.
+        switchTo(app, 'ada');
+        yield* eventually(() =>
+          expect(pocket(app).props).toEqual({ account: 'ada', writable: true }),
+        );
+
+        show(app, 'bob');
+        yield* eventually(() =>
+          expect(pocket(app).props).toMatchObject({ account: 'bob' }),
+        );
+        yield* signOut('bob');
+        yield* eventually(() =>
+          expect(pocket(app).props).toEqual({ account: 'ada', writable: true }),
+        );
+        yield* eventually(() =>
+          expect(names(walletsUnder(app, 'pocket'))).toEqual([
+            'Ada bank',
+            'Ada cash',
+          ]),
+        );
+      }),
+    ));
 });

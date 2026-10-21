@@ -43,23 +43,19 @@ const confirm = (
     yield* pocket.confirm([...wallets, ...entries] as Entity<unknown>[]);
   });
 
-const money = (cents: number) => (cents / 100).toFixed(2);
-
 /** A refusal as the one line the page shows. */
 const explain = (error: { readonly _tag: string }) => {
   switch (error._tag) {
-    case 'Overdraft': {
-      const { balance } = error as unknown as { balance: number };
-      return new Error(`Not enough money: ${money(balance)} left`);
-    }
+    case 'Overdraft':
+      return new Error('Not enough money');
     case 'NotFound':
-      return new Error('That is gone: it was deleted elsewhere');
+      return new Error('Already deleted elsewhere');
     case 'Invalid':
       return new Error((error as unknown as { reason: string }).reason);
     case 'AccountChanged':
-      return new Error('The account changed before this was saved');
+      return new Error('The account changed first');
     case 'Unauthenticated':
-      return new Error('Signed out before this was saved');
+      return new Error('Signed out first');
     default:
       return new Error(`Not saved: ${error._tag}`);
   }
@@ -91,20 +87,6 @@ export const CreateWallet = Action.make('CreateWallet', {
         pocket.wallets.insert({ id, userId: account, name, balance: 0 }),
       );
       yield* save(pocket, (rpc) => rpc.createWallet(account, { id, name }));
-    }),
-});
-
-export const RenameWallet = Action.make('RenameWallet', {
-  args: Schema.Struct({ ...Account, id: Schema.String, name: Schema.String }),
-  run: ({ account, id, name }) =>
-    Effect.gen(function* () {
-      const pocket = yield* Pocket.get(account);
-      yield* Action.optimistic(() =>
-        pocket.wallets.update(id, (draft) => {
-          draft.name = name;
-        }),
-      );
-      yield* save(pocket, (rpc) => rpc.renameWallet(account, { id, name }));
     }),
 });
 

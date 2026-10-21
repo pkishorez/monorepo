@@ -6,102 +6,166 @@ import {
   CreateWallet,
   DeleteEntry,
   Post,
-  RenameWallet,
   Transfer,
 } from '../../../../replicas/pocket/index.ts';
 import { Entries, Wallets } from './queries.ts';
 
 /*
- * Your Pocket: the active Account's wallets, the entries of the one picked,
- * and the forms that write them. The Account comes as Props from the page;
- * every write is an Action whose args name it, so a write asked before a
- * switch lands in the Account it was asked for, or fails.
+ * A Pocket: one Account's wallets and entries, and, while that Account is
+ * the active one, the one-click writes. The Account comes as Props from
+ * the page, so showing another moves the Queries to its Instance; every
+ * write is an Action whose args name the Account it was asked for, so one
+ * asked before a switch lands there, or fails.
  *
- * What it keeps is small: the wallet picked, for which Account, the writes
- * under way, and the last refusal, for the Account and form it came from.
+ * 1. Ask     a write joins the queue for its Action, and runs at once
+ *            unless one of that Action is under way.
+ * 2. End     an Action ends with a Message naming only the Action, so one
+ *            of each runs at a time: the one under way is the one that
+ *            ended. A refusal is kept beside where it was asked, for the
+ *            Account it was for; the next of that Action runs.
  */
 
-const Selected = Schema.Struct({
-  account: Schema.String,
-  wallet: Schema.String,
+const Write = Schema.TaggedUnion({
+  CreateWallet: {
+    account: Schema.String,
+    id: Schema.String,
+    name: Schema.String,
+  },
+  Post: {
+    account: Schema.String,
+    id: Schema.String,
+    walletId: Schema.String,
+    amount: Schema.Int,
+    note: Schema.String,
+  },
+  Transfer: {
+    account: Schema.String,
+    id: Schema.String,
+    from: Schema.String,
+    to: Schema.String,
+    amount: Schema.Int,
+    note: Schema.String,
+  },
+  DeleteEntry: { account: Schema.String, id: Schema.String },
 });
 
-/** Which write a refusal belongs to, so it shows beside its form. */
-const Form = Schema.Literals(['wallet', 'rename', 'post', 'transfer', 'entry']);
+type Write = typeof Write.Type;
 
-const Write = Schema.Struct({ id: Schema.String });
+/** Where a refusal shows: a wallet's id, `new` for adding one, `activity` for a delete. */
+const atOf = (write: Write) =>
+  write._tag === 'Post'
+    ? write.walletId
+    : write._tag === 'Transfer'
+      ? write.from
+      : write._tag === 'CreateWallet'
+        ? 'new'
+        : 'activity';
 
-/** A form and the Account its write is for. */
-const Asked = Schema.Struct({ form: Form, account: Schema.String });
+const Refused = Schema.Struct({
+  account: Schema.String,
+  at: Schema.String,
+  reason: Schema.String,
+});
 
 const Model = Schema.Struct({
-  selected: Schema.NullOr(Selected),
-  refused: Schema.NullOr(
-    Schema.Struct({ ...Asked.fields, reason: Schema.String }),
-  ),
-  /** The writes under way, one per form: an Action's end says which. */
-  writing: Schema.Array(Asked),
+  /** Asked and not ended, in order; the first of each Action is under way. */
+  writes: Schema.Array(Write),
+  refused: Schema.Array(Refused),
 });
 
 type Model = typeof Model.Type;
 
 export const PocketSection = Actor.define('Pocket', {
   requires: [Replicas, PocketRpc],
-  props: Schema.Struct({ account: Schema.String }),
+  props: Schema.Struct({
+    account: Schema.String,
+    /** Only the active Account's Pocket writes: the cookie is its. */
+    writable: Schema.Boolean,
+  }),
   model: Model,
   message: Schema.TaggedUnion({
-    Select: { wallet: Schema.String },
-    NewWallet: { ...Write.fields, name: Schema.String },
-    Rename: { ...Write.fields, name: Schema.String },
+    AddWallet: { id: Schema.String, name: Schema.String },
+    Change: { id: Schema.String, wallet: Schema.String, amount: Schema.Int },
     Move: {
-      ...Write.fields,
-      walletId: Schema.String,
-      amount: Schema.Int,
-      note: Schema.String,
-    },
-    Send: {
-      ...Write.fields,
+      id: Schema.String,
       from: Schema.String,
       to: Schema.String,
       amount: Schema.Int,
-      note: Schema.String,
     },
-    Remove: Write.fields,
+    Remove: { id: Schema.String },
     CreateWallet: Action.result,
-    RenameWallet: Action.result,
     Post: Action.result,
     Transfer: Action.result,
     DeleteEntry: Action.result,
   }),
 });
 
-type Form = typeof Form.Type;
+const commandOf = (write: Write) => {
+  switch (write._tag) {
+    case 'CreateWallet': {
+      const { _tag, ...args } = write;
+      return CreateWallet(args);
+    }
+    case 'Post': {
+      const { _tag, ...args } = write;
+      return Post(args);
+    }
+    case 'Transfer': {
+      const { _tag, ...args } = write;
+      return Transfer(args);
+    }
+    case 'DeleteEntry': {
+      const { _tag, ...args } = write;
+      return DeleteEntry(args);
+    }
+  }
+};
 
-/** A write asked from `form` for `account`: that form's refusal goes. */
-const asked = (model: Model, form: Form, account: string): Model => ({
-  ...model,
-  refused: model.refused?.form === form ? null : model.refused,
-  writing: [
-    ...model.writing.filter((each) => each.form !== form),
-    { form, account },
-  ],
-});
+const sameSpot = (write: Write) => (refusal: typeof Refused.Type) =>
+  refusal.account === write.account && refusal.at === atOf(write);
 
-/** The write from `form` ended: a refusal shows beside that form, for its Account. */
-const ended = (model: Model, form: Form, failed: string | null): Model => {
-  const write = model.writing.find((each) => each.form === form);
+// 1. Ask
+const ask = (model: Model, write: Write) => {
+  const busy = model.writes.some(({ _tag }) => _tag === write._tag);
   return {
-    ...model,
-    writing: model.writing.filter((each) => each.form !== form),
-    refused:
-      failed === null || write === undefined
-        ? model.refused
-        : { ...write, reason: failed },
+    model: {
+      writes: [...model.writes, write],
+      refused: model.refused.filter((each) => !sameSpot(write)(each)),
+    },
+    ...(busy ? {} : { command: commandOf(write) }),
   };
 };
 
+// 2. End
+const end = (model: Model, action: Write['_tag'], failed: string | null) => {
+  const done = model.writes.find(({ _tag }) => _tag === action);
+  if (done === undefined) return { model };
+  const writes = model.writes.filter((each) => each !== done);
+  const next = writes.find(({ _tag }) => _tag === action);
+  return {
+    model: {
+      writes,
+      refused:
+        failed === null
+          ? model.refused
+          : [
+              ...model.refused.filter((each) => !sameSpot(done)(each)),
+              { account: done.account, at: atOf(done), reason: failed },
+            ],
+    },
+    ...(next ? { command: commandOf(next) } : {}),
+  };
+};
+
+/** The first name `Wallet n` none of `names` has. */
+export const nextWalletName = (names: ReadonlyArray<string>) => {
+  let n = 1;
+  while (names.includes(`Wallet ${n}`)) n++;
+  return `Wallet ${n}`;
+};
+
 export const PocketLive = Actor.build(PocketSection, {
-  init: () => ({ model: { selected: null, refused: null, writing: [] } }),
+  init: () => ({ model: { writes: [], refused: [] } }),
   children: {
     wallets: {
       actor: Wallets,
@@ -109,52 +173,44 @@ export const PocketLive = Actor.build(PocketSection, {
     },
     entries: {
       actor: Entries,
-      while: ({ model, props }) => model.selected?.account === props.account,
-      props: ({ model, props }) => ({
-        account: props.account,
-        wallet: model.selected?.wallet ?? '',
-      }),
+      props: ({ props }) => ({ account: props.account }),
     },
   },
   on: {
-    Select: ({ wallet }, { model, props }) => ({
-      model: { ...model, selected: { account: props.account, wallet } },
-    }),
-    NewWallet: ({ id, name }, { model, props }) => ({
-      model: {
-        ...asked(model, 'wallet', props.account),
-        selected: { account: props.account, wallet: id },
-      },
-      command: CreateWallet({ account: props.account, id, name }),
-    }),
-    Rename: ({ id, name }, { model, props }) => ({
-      model: asked(model, 'rename', props.account),
-      command: RenameWallet({ account: props.account, id, name }),
-    }),
-    Move: ({ _tag, ...input }, { model, props }) => ({
-      model: asked(model, 'post', props.account),
-      command: Post({ account: props.account, ...input }),
-    }),
-    Send: ({ _tag, ...input }, { model, props }) => ({
-      model: asked(model, 'transfer', props.account),
-      command: Transfer({ account: props.account, ...input }),
-    }),
-    Remove: ({ id }, { model, props }) => ({
-      model: asked(model, 'entry', props.account),
-      command: DeleteEntry({ account: props.account, id }),
-    }),
-    CreateWallet: ({ failed }, { model }) => ({
-      model: ended(model, 'wallet', failed),
-    }),
-    RenameWallet: ({ failed }, { model }) => ({
-      model: ended(model, 'rename', failed),
-    }),
-    Post: ({ failed }, { model }) => ({ model: ended(model, 'post', failed) }),
-    Transfer: ({ failed }, { model }) => ({
-      model: ended(model, 'transfer', failed),
-    }),
-    DeleteEntry: ({ failed }, { model }) => ({
-      model: ended(model, 'entry', failed),
-    }),
+    AddWallet: ({ id, name }, { model, props }) =>
+      props.writable
+        ? ask(model, { _tag: 'CreateWallet', account: props.account, id, name })
+        : {},
+    Change: ({ id, wallet, amount }, { model, props }) =>
+      props.writable
+        ? ask(model, {
+            _tag: 'Post',
+            account: props.account,
+            id,
+            walletId: wallet,
+            amount,
+            note: '',
+          })
+        : {},
+    Move: ({ id, from, to, amount }, { model, props }) =>
+      props.writable
+        ? ask(model, {
+            _tag: 'Transfer',
+            account: props.account,
+            id,
+            from,
+            to,
+            amount,
+            note: '',
+          })
+        : {},
+    Remove: ({ id }, { model, props }) =>
+      props.writable
+        ? ask(model, { _tag: 'DeleteEntry', account: props.account, id })
+        : {},
+    CreateWallet: ({ failed }, { model }) => end(model, 'CreateWallet', failed),
+    Post: ({ failed }, { model }) => end(model, 'Post', failed),
+    Transfer: ({ failed }, { model }) => end(model, 'Transfer', failed),
+    DeleteEntry: ({ failed }, { model }) => end(model, 'DeleteEntry', failed),
   },
 });
