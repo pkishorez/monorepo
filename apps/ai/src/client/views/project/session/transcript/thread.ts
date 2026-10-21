@@ -128,7 +128,8 @@ export const thread = (
           startedAt.set(message.turnId, message.at);
       } else if (part.type === 'turnEnded') {
         ended.add(message.turnId);
-        if (part.status === 'cancelled') cancelled.add(message.turnId);
+        if (part.status === 'cancelled' || part.status === 'interrupted')
+          cancelled.add(message.turnId);
       } else if (part.type === 'textChunk') {
         const stream = streams.get(part.streamId);
         streams.set(part.streamId, {

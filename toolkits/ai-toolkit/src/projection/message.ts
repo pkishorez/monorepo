@@ -26,7 +26,13 @@ export const UsageSchema = Schema.Struct({
 });
 export type Usage = typeof UsageSchema.Type;
 
-export const TURN_END_STATUSES = ['done', 'failed', 'cancelled'] as const;
+/** `interrupted`: the server stopped while the turn ran, found at the next start. */
+export const TURN_END_STATUSES = [
+  'done',
+  'failed',
+  'cancelled',
+  'interrupted',
+] as const;
 export type TurnEndStatus = (typeof TURN_END_STATUSES)[number];
 
 /**

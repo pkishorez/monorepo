@@ -1,4 +1,5 @@
 import { Context, type Effect } from 'effect';
+import type { TurnEndStatus } from '../../../../projection/index.js';
 import type {
   Harness,
   HarnessError,
@@ -7,7 +8,11 @@ import type {
 
 /** What a Turn tells the Session that runs it. */
 export type TurnReport =
-  | { readonly _tag: 'TurnEnded'; readonly turnId: string }
+  | {
+      readonly _tag: 'TurnEnded';
+      readonly turnId: string;
+      readonly status: TurnEndStatus;
+    }
   | { readonly _tag: 'NativeId'; readonly nativeId: string };
 
 /** What the Session hands every Turn it runs. */

@@ -23,7 +23,7 @@ import { Trash2Icon } from '@kestack/web-platform/components/lucide';
 import { Skeleton } from '@kestack/web-platform/components/skeleton';
 import { Spinner } from '@kestack/web-platform/components/spinner';
 import { Pages, router } from '../../../shared/pages/index.ts';
-import { RunningDot } from '../running-dot/index.ts';
+import { SessionStatus } from '../session-status/index.ts';
 import { useSettled } from '../settled/index.ts';
 import { ago } from '../time/index.ts';
 import { NewSessionView } from './new-session/index.ts';
@@ -125,7 +125,7 @@ export const ProjectView = View.make(
                           <span className="truncate">
                             {session.title || 'Untitled session'}
                           </span>
-                          {session.status === 'running' && <RunningDot />}
+                          <SessionStatus status={session.status} />
                         </ItemTitle>
                       </ItemContent>
                       <ItemActions className="text-xs text-muted-foreground tabular-nums">

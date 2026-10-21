@@ -24,6 +24,7 @@ import {
   SquareIcon,
   SquareTerminalIcon,
   Trash2Icon,
+  TriangleAlertIcon,
   WrenchIcon,
   XIcon,
 } from '@kestack/web-platform/components/lucide';
@@ -793,6 +794,12 @@ function RowView({
               {row.duration === null
                 ? 'Stopped'
                 : `Stopped after ${took(row.duration)}`}
+            </span>
+          )}
+          {row.status === 'interrupted' && (
+            <span className="flex items-center gap-1.5 font-medium text-warning">
+              <TriangleAlertIcon aria-hidden className="size-3.5" />
+              Interrupted: the server stopped while this ran
             </span>
           )}
           {row.status === 'failed' && (

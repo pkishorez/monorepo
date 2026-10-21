@@ -88,14 +88,14 @@ describe('Engine', () => {
     );
   });
 
-  it('writes turn.ended done when the harness does not end the turn itself', async () => {
+  it('a cancel ends the turn cancelled, and the session stays cancelled', async () => {
     const fake = makeFakeHarness({ hold: true });
     await run(
       Effect.gen(function* () {
         const { raws, status, session, engine } = yield* started;
         yield* eventually(async () => expect(await raws()).toHaveLength(2));
         yield* engine.cancel(session.id);
-        yield* eventually(async () => expect(await status()).toBe('idle'));
+        yield* eventually(async () => expect(await status()).toBe('cancelled'));
         expect((yield* Effect.promise(raws)).map(brief).at(-1)).toBe(
           'engine turn.ended {"status":"cancelled"}',
         );
@@ -173,7 +173,7 @@ describe('Engine', () => {
         const { engine, session, raws, status } = yield* started;
         yield* eventually(async () => expect(await raws()).toHaveLength(2));
         yield* fake.fail('boom');
-        yield* eventually(async () => expect(await status()).toBe('idle'));
+        yield* eventually(async () => expect(await status()).toBe('failed'));
         expect((yield* Effect.promise(raws)).map(brief).at(-1)).toBe(
           'engine turn.ended {"status":"failed","error":"boom"}',
         );
@@ -231,17 +231,8 @@ describe('Engine', () => {
         yield* eventually(async () =>
           expect(await Effect.runPromise(store.project(project.id))).toBeNull(),
         );
-        yield* eventually(async () =>
-          expect((await raws()).map(brief).at(-1)).toBe(
-            'engine turn.ended {"status":"cancelled"}',
-          ),
-        );
-        expect(fake.closes()).toBe(1);
-        yield* eventually(async () =>
-          expect(
-            (await Effect.runPromise(store.session(session.id)))?.status,
-          ).toBe('idle'),
-        );
+        yield* eventually(() => expect(fake.closes()).toBe(1));
+        expect(yield* Effect.promise(raws)).toHaveLength(2);
         expect((yield* Effect.flip(engine.send(session.id, 'x')))._tag).toBe(
           'SessionNotFound',
         );
@@ -250,7 +241,7 @@ describe('Engine', () => {
     );
   });
 
-  it('on start, ends what the last run left running, and resumes by native id', async () => {
+  it('on start, marks what the last run left running interrupted, and resumes by native id', async () => {
     const path = join(folder(), 'ai.db');
     const fake = makeFakeHarness();
     // A session cut off mid-turn, as a crash leaves it.
@@ -272,15 +263,45 @@ describe('Engine', () => {
         const engine = yield* Engine;
         const store = yield* Store;
         const saved = yield* store.session(cut.id);
-        expect(saved?.status).toBe('idle');
+        expect(saved?.status).toBe('interrupted');
         const all = yield* Effect.promise(() => rawsOf(store, cut.id));
         expect(all.map(brief).at(-1)).toBe(
-          'engine turn.ended {"status":"cancelled"}',
+          'engine turn.ended {"status":"interrupted"}',
         );
+        expect(fake.opens).toHaveLength(1);
         expect(all.at(-1)?.turnId).toBe(all[0]?.turnId);
         yield* engine.send(cut.id, 'back again');
         yield* eventually(() => expect(fake.opens).toHaveLength(2));
         expect(fake.opens[1]?.nativeId).toBe('native-1');
+      }),
+      fake,
+      path,
+    );
+  });
+
+  it('a server stopping mid-turn writes nothing; the next start finds it interrupted', async () => {
+    const path = join(folder(), 'ai.db');
+    const fake = makeFakeHarness({ hold: true });
+    const cut = await run(
+      Effect.gen(function* () {
+        const { session, raws } = yield* started;
+        yield* eventually(async () => expect(await raws()).toHaveLength(2));
+        return session;
+      }),
+      fake,
+      path,
+    );
+    expect(fake.closes()).toBe(1);
+    await run(
+      Effect.gen(function* () {
+        const store = yield* Store;
+        expect((yield* store.session(cut.id))?.status).toBe('interrupted');
+        const all = yield* Effect.promise(() => rawsOf(store, cut.id));
+        expect(all.map(brief).slice(1)).toEqual([
+          'claude text {"text":"echo:hello there\\nsecond line"}',
+          'engine turn.ended {"status":"interrupted"}',
+        ]);
+        expect(fake.opens).toHaveLength(1);
       }),
       fake,
       path,

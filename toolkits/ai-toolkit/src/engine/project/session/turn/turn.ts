@@ -2,7 +2,8 @@ import { Duration, Effect, Schema, Stream } from 'effect';
 import { Actor } from '@kestack/kabuki';
 import type { Self } from '@kestack/kabuki';
 import type { HarnessError, RawOut } from '../../../../harness/index.js';
-import type { TurnEndStatus } from '../../../../projection/index.js';
+import type { Projected, TurnEndStatus } from '../../../../projection/index.js';
+import type { Raw } from '../../../../raw/index.js';
 import { Store } from '../../../../store/index.js';
 import { EngineRaw } from '../../../engine-raw/index.js';
 import { TurnContext } from './context.js';
@@ -17,6 +18,11 @@ import { TurnContext } from './context.js';
  *           then the agent is told.
  * - cancel  while cancelling: tells the agent to stop; if it does not end in
  *           time, the Turn is ended from here, which stops it.
+ *
+ * A Turn stopped without a cancel, by the server stopping or its project
+ * being removed, stops the agent and writes nothing: a stop may not get the
+ * chance to, so the next start finds the turn cut off and ends it
+ * `interrupted` (see bootstrap.ts).
  */
 
 /** How long an agent may take to stop after a cancel before the Turn is ended anyway. */
@@ -66,20 +72,18 @@ const writer = (model: typeof Model.Type) =>
       ).pipe(Effect.flatMap(store.appendRaw));
   });
 
-/** Whether the harness's own projection of a record ends the turn. */
-const endsTurn = (
-  project: (raw: Parameters<typeof EngineRaw.project>[0]) => {
-    readonly parts: ReadonlyArray<{ readonly type: string }>;
-  } | null,
-  raw: Parameters<typeof EngineRaw.project>[0],
-) => {
+/** How the harness's own projection of a record ends the turn, if it does. */
+const endedAs = (
+  project: (raw: Raw) => Projected | null,
+  raw: Raw,
+): TurnEndStatus | undefined => {
   try {
-    return (
-      project(raw)?.parts.some((part) => part.type === 'turnEnded') ?? false
-    );
+    for (const part of project(raw)?.parts ?? [])
+      if (part.type === 'turnEnded') return part.status;
   } catch {
-    return false;
+    // A record its harness cannot project ends nothing.
   }
+  return undefined;
 };
 
 const run = (self: TurnSelf) =>
@@ -87,13 +91,13 @@ const run = (self: TurnSelf) =>
     const { model } = yield* self.get;
     const context = yield* TurnContext;
     const write = yield* writer(model);
-    let ended = false;
+    let ended: TurnEndStatus | undefined;
     let nativeId: string | undefined;
 
     const end = (status: TurnEndStatus, error?: string) =>
       Effect.suspend(() => {
         if (ended) return Effect.void;
-        ended = true;
+        ended = status;
         return Effect.asVoid(write(EngineRaw.turnEnded(status, error)));
       });
 
@@ -109,7 +113,7 @@ const run = (self: TurnSelf) =>
     const keep = (out: RawOut) =>
       Effect.gen(function* () {
         const saved = yield* write(out, 'harness');
-        if (endsTurn(context.harness.project, saved.value)) ended = true;
+        ended ??= endedAs(context.harness.project, saved.value);
         yield* noteNativeId;
       });
 
@@ -134,14 +138,19 @@ const run = (self: TurnSelf) =>
       yield* write(EngineRaw.turnStarted(model.text, false));
       const result = yield* Effect.result(stream);
       yield* finish(result._tag === 'Failure' ? result.failure : undefined);
-      yield* context.report({ _tag: 'TurnEnded', turnId: model.turnId });
+      yield* context.report({
+        _tag: 'TurnEnded',
+        turnId: model.turnId,
+        status: ended ?? 'done',
+      });
     });
 
-    // Stopped from outside, by a forced cancel or the Session stopping.
+    // Stopped from outside: by a forced cancel, which ends it cancelled, or
+    // by the Session stopping, which leaves it for the next start to find.
     const stopped = Effect.gen(function* () {
       const agent = yield* context.opened;
       if (agent) yield* agent.cancel;
-      yield* end('cancelled');
+      if ((yield* self.get).props.cancelling) yield* end('cancelled');
       yield* context.reset;
     });
 
@@ -201,7 +210,11 @@ export const Turn = Actor.build(
             Effect.andThen(
               Effect.flatMap(self.get, ({ model }) =>
                 Effect.flatMap(TurnContext, (context) =>
-                  context.report({ _tag: 'TurnEnded', turnId: model.turnId }),
+                  context.report({
+                    _tag: 'TurnEnded',
+                    turnId: model.turnId,
+                    status: 'cancelled',
+                  }),
                 ),
               ),
             ),

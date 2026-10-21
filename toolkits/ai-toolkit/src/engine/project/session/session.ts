@@ -2,9 +2,11 @@ import { Duration, Effect, Layer, Schema, Stream, Struct } from 'effect';
 import { Actor } from '@kestack/kabuki';
 import type { Self } from '@kestack/kabuki';
 import { Harnesses, Titler } from '../../../harness/index.js';
+import { TURN_END_STATUSES } from '../../../projection/index.js';
 import {
   SessionSchema,
   type Session as SessionRecord,
+  type SessionStatus,
 } from '../../../records/index.js';
 import { Store } from '../../../store/index.js';
 import { makeAgent } from './agent.js';
@@ -13,7 +15,8 @@ import { Turn, TurnContext } from './turn/index.js';
 /*
  * A Session: one conversation with a Coding Harness in a Project's folder.
  *
- * - Idle     a message starts a Turn.
+ * - Idle     a message starts a Turn. It keeps how the last Turn ended,
+ *            unless it was done: cancelled, failed or interrupted.
  * - Running  a message steers the Turn; a cancel asks it to stop; the Turn
  *            reports when it has ended, and the Session is idle again.
  *
@@ -33,7 +36,8 @@ const Saved = Schema.Struct(SessionSchema.fields).mapFields(
 const First = Schema.Struct({ text: Schema.String, turnId: Schema.String });
 
 export const SessionInput = Schema.Struct({
-  session: Saved,
+  /** As stored: its status is how its last turn ended. */
+  session: Schema.Struct(SessionSchema.fields),
   cwd: Schema.String,
   /** The message it was started with, if it was started just now. */
   first: Schema.NullOr(First),
@@ -49,8 +53,11 @@ const Model = Schema.Struct({
 
 const Steer = Schema.Struct({ id: Schema.String, text: Schema.String });
 
+/** How a turn ended, as a Session keeps it: anything but done. */
+const Ended = Schema.Literals(['cancelled', 'failed', 'interrupted']);
+
 const State = Schema.TaggedUnion({
-  Idle: {},
+  Idle: { ended: Schema.NullOr(Ended) },
   Running: {
     turnId: Schema.String,
     text: Schema.String,
@@ -80,7 +87,10 @@ const Message = Schema.TaggedUnion({
   /** A user message: starts a Turn, or steers the running one. */
   Send: { text: Schema.String, turnId: Schema.String },
   Cancel: {},
-  TurnEnded: { turnId: Schema.String },
+  TurnEnded: {
+    turnId: Schema.String,
+    status: Schema.Literals(TURN_END_STATUSES),
+  },
   NativeId: { nativeId: Schema.String },
   Titled: { title: Schema.String },
 });
@@ -100,7 +110,13 @@ const recordOf = (
   state: typeof State.Type,
 ): SessionRecord => ({
   ...model.session,
-  status: state._tag === 'Running' ? 'running' : 'idle',
+  status: state._tag === 'Running' ? 'running' : (state.ended ?? 'idle'),
+});
+
+/** The Idle a stored status stands for; a stored `running` was swept before. */
+const idleOf = (status: SessionStatus): State => ({
+  _tag: 'Idle',
+  ended: status === 'idle' || status === 'running' ? null : status,
 });
 
 /** The TurnContext every Turn of this Session gets: its harness and live agent. */
@@ -135,25 +151,17 @@ const turnContext = (self: SessionSelf) =>
 
 /**
  * Saves the Session's record every time it changes, in order. A Session
- * that stops, with its project removed or the server stopping, stopped its
- * turn too: it is saved idle.
+ * that stops, with its project removed or the server stopping, saves
+ * nothing more: one stopped running is still `running` in the Store, and
+ * the next start marks it interrupted.
  */
 const persist = (self: SessionSelf) =>
   Effect.gen(function* () {
     const store = yield* Store;
-    let last: SessionRecord | undefined;
     yield* self.changes.pipe(
       Stream.map(({ model, state }) => recordOf(model, state)),
       Stream.changesWith((a, b) => JSON.stringify(a) === JSON.stringify(b)),
-      Stream.runForEach((record) => {
-        last = record;
-        return store.saveSession(record);
-      }),
-      Effect.onInterrupt(() =>
-        last?.status === 'running'
-          ? store.saveSession({ ...last, status: 'idle' })
-          : Effect.void,
-      ),
+      Stream.runForEach(store.saveSession),
     );
   });
 
@@ -188,10 +196,14 @@ export const Session = Actor.build(
   }),
   {
     init: ({ session, cwd, first }) => ({
-      model: { session, cwd, untitled: first?.text ?? null },
+      model: {
+        session: Struct.omit(session, ['status']),
+        cwd,
+        untitled: first?.text ?? null,
+      },
       state: first
         ? running([{ id: first.turnId, text: first.text }])
-        : { _tag: 'Idle' },
+        : idleOf(session.status),
     }),
     provides: (self) => turnContext(self),
     on: {
@@ -230,8 +242,15 @@ export const Session = Actor.build(
             },
           }),
           Cancel: (_, { state }) => ({ state: { ...state, cancelling: true } }),
-          TurnEnded: ({ turnId }, { state }) =>
-            turnId === state.turnId ? { state: { _tag: 'Idle' } } : {},
+          TurnEnded: ({ turnId, status }, { state }) =>
+            turnId === state.turnId
+              ? {
+                  state: {
+                    _tag: 'Idle',
+                    ended: status === 'done' ? null : status,
+                  },
+                }
+              : {},
         },
         children: {
           turn: {

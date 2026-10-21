@@ -16,12 +16,12 @@ import {
 import { Skeleton } from '@kestack/web-platform/components/skeleton';
 import { router, type Pages, type Route } from '../../../shared/pages/index.ts';
 import { AddProjectPopover } from '../add-project/index.ts';
-import { RunningDot } from '../running-dot/index.ts';
+import { SessionStatus } from '../session-status/index.ts';
 import { useSettled } from '../settled/index.ts';
 
 /*
  * The sidebar's list: every project by name, and under the one open, its
- * sessions, newest first, a dot on the ones running. The plus beside the
+ * sessions, newest first, each marked with how it stands. The plus beside the
  * label adds a folder, in a popover.
  */
 
@@ -108,7 +108,7 @@ export function Places({
                             <span className="min-w-0 flex-1 truncate">
                               {session.title || 'Untitled session'}
                             </span>
-                            {session.status === 'running' && <RunningDot />}
+                            <SessionStatus status={session.status} />
                           </SidebarMenuSubButton>
                         </SidebarMenuSubItem>
                       ))}

@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import type { Message, Session } from '@kestack/ai-toolkit/api';
 import { useChild, View } from '@kestack/kabuki/react';
+import { TriangleAlertIcon } from '@kestack/web-platform/components/lucide';
 import { Skeleton } from '@kestack/web-platform/components/skeleton';
 import { Pages } from '../../../../shared/pages/index.ts';
 import { RunningDot } from '../../running-dot/index.ts';
@@ -14,7 +15,8 @@ import { Rows, thread } from './transcript/index.ts';
  * while you are at its bottom, and the composer pinned under it. Its title,
  * agent and model are in the header. Its words can be selected, though the
  * App Shell turns selection off for its swipes. While the server is out of
- * reach, nothing can be sent, and a running turn's progress is unknown.
+ * reach, nothing can be sent, and a running turn's progress is unknown. A
+ * session the server stopped mid-turn says so under its transcript.
  */
 
 export const SessionView = View.make(
@@ -61,6 +63,21 @@ export const SessionView = View.make(
             ) : (
               <Rows rows={rows} opening={opening} running={running} />
             )}
+            {session?.status === 'interrupted' &&
+              messages?.status === 'ready' && (
+                <p
+                  role="status"
+                  className="flex items-center gap-2 pt-1 text-xs text-muted-foreground"
+                >
+                  <TriangleAlertIcon
+                    aria-hidden
+                    className="size-3.5 shrink-0 text-warning"
+                  />
+                  The server stopped mid-turn, so some work may be half done.
+                  Send a message to carry on; the agent remembers the
+                  conversation.
+                </p>
+              )}
             {running && messages?.status === 'ready' && (
               <p
                 role="status"

@@ -3,7 +3,7 @@ import { Router } from '@kestack/kabuki/routing';
 import { ChevronRightIcon } from '@kestack/web-platform/components/lucide';
 import { Skeleton } from '@kestack/web-platform/components/skeleton';
 import { router, type Route } from '../../../shared/pages/index.ts';
-import { RunningDot } from '../running-dot/index.ts';
+import { SessionStatus } from '../session-status/index.ts';
 import { useOffline } from '../settled/index.ts';
 
 /*
@@ -99,7 +99,7 @@ export function Title({
           <span className="min-w-0 truncate" title={session.title || undefined}>
             {session.title || 'Untitled session'}
           </span>
-          {session.status === 'running' && <RunningDot />}
+          <SessionStatus status={session.status} />
         </>
       )}
     </span>

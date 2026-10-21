@@ -11,7 +11,20 @@ export const ProjectSchema = EntityESchema.make('AiProject', 'id', {
 
 export type Project = typeof ProjectSchema.Type;
 
-export const SESSION_STATUSES = ['idle', 'running'] as const;
+/**
+ * - idle         its last turn finished, or it has none.
+ * - running      a turn is under way.
+ * - cancelled    its last turn was stopped by the user.
+ * - failed       its last turn ended in an error.
+ * - interrupted  its last turn was cut off by the server stopping.
+ */
+export const SESSION_STATUSES = [
+  'idle',
+  'running',
+  'cancelled',
+  'failed',
+  'interrupted',
+] as const;
 export type SessionStatus = (typeof SESSION_STATUSES)[number];
 
 /** One conversation with a Coding Harness in a Project's folder. */

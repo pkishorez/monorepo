@@ -139,10 +139,9 @@ const make = Effect.gen(function* () {
           nativeId: null,
           createdAt: yield* Clock.currentTimeMillis,
         };
-        const { status: _, ...record } = session;
         project.send({
           _tag: 'StartSession',
-          session: record,
+          session,
           text: input.text,
           turnId: yield* nextUlid,
         });
