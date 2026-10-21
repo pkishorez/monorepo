@@ -33,6 +33,15 @@ const deployedHost = (stage: string, api?: string) =>
 const devHost = (api?: string) =>
   api ? `${api}-start.kishore.computer` : 'kabuki-start.kishore.computer';
 
+/**
+ * A Worker's URL under `alchemy dev`. The site's is the one Portless gave
+ * it, which in a linked git worktree starts with the branch:
+ * `replica.kabuki-start.kishore.computer`. The API Workers' are aliased
+ * without one, so every worktree calls the same names.
+ */
+const devUrl = (api?: string) =>
+  (api ? undefined : process.env.PORTLESS_URL) ?? `https://${devHost(api)}`;
+
 /** Where the stage being run serves things, once it is checked it may be run. */
 export const where = Effect.gen(function* () {
   const stage = yield* Stage;
@@ -46,7 +55,7 @@ export const where = Effect.gen(function* () {
     /** Each Worker's URL as the browser calls it, if it is known before it is made. */
     url: (api?: string) =>
       dev
-        ? `https://${devHost(api)}`
+        ? devUrl(api)
         : deployed
           ? `https://${deployedHost(stage, api)}`
           : undefined,
