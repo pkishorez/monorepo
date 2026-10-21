@@ -1,8 +1,8 @@
-import { Effect, Layer, Schema } from 'effect';
+import { Deferred, Effect, Layer, Schema } from 'effect';
 import { FetchHttpClient, Headers } from 'effect/http';
 import { RpcMiddleware } from 'effect/rpc';
 import { Miniflare } from 'miniflare';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { Principal } from '@kestack/auth-toolkit';
 import { testAuth } from '@kestack/auth-toolkit/server/rpc';
 import { StdTable } from '@kestack/std-toolkit/db';
@@ -10,7 +10,7 @@ import { SQLite } from '@kestack/std-toolkit/db/sqlite';
 import { makeD1SQLite } from '@kestack/std-toolkit/db/sqlite/d1';
 import { EntityESchema } from '@kestack/std-toolkit/eschema';
 import { PocketRpc, PocketRpcs, transferEntryIds } from './index.ts';
-import { pocketTable } from './storage/index.ts';
+import { pocketTable, wallets } from './storage/index.ts';
 import { serve } from './worker.server.ts';
 
 /*
@@ -262,6 +262,90 @@ describe('the Pocket Worker', () => {
       }),
     );
     expect(await balances(ada)).toEqual({ w: 200, w2: 100 });
+  });
+
+  it('returns the existing wallet when two creates race on its id', async () => {
+    const ada = signIn('create-race');
+    const insert = wallets.insert;
+    const both = Deferred.makeUnsafe<void>();
+    let calls = 0;
+    const spy = vi.spyOn(wallets, 'insert').mockImplementation((value) =>
+      Effect.gen(function* () {
+        if (++calls === 2) yield* Deferred.succeed(both, undefined);
+        yield* Deferred.await(both);
+        return yield* insert(value);
+      }),
+    );
+    try {
+      const created = await as(ada, (pocket, account) =>
+        Effect.all(
+          [
+            pocket.createWallet(account, { id: 'w', name: 'Cash' }),
+            pocket.createWallet(account, { id: 'w', name: 'Cash' }),
+          ],
+          { concurrency: 'unbounded' },
+        ),
+      );
+      expect(created.map(({ wallets }) => wallets[0]?.value)).toEqual([
+        { id: 'w', userId: ada.id, name: 'Cash', balance: 0 },
+        { id: 'w', userId: ada.id, name: 'Cash', balance: 0 },
+      ]);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('reverses a withdrawal only once when two deletions race', async () => {
+    const ada = signIn('delete-race');
+    await as(ada, (pocket, account) =>
+      Effect.gen(function* () {
+        yield* pocket.createWallet(account, { id: 'w', name: 'Cash' });
+        yield* pocket.post(account, {
+          id: 'in',
+          walletId: 'w',
+          amount: 100,
+          note: '',
+        });
+        yield* pocket.post(account, {
+          id: 'out',
+          walletId: 'w',
+          amount: -25,
+          note: '',
+        });
+      }),
+    );
+    const transact = pocketTable.transact;
+    const both = Deferred.makeUnsafe<void>();
+    const first = Deferred.makeUnsafe<void>();
+    let calls = 0;
+    const spy = vi.spyOn(pocketTable, 'transact').mockImplementation(
+      (ops) =>
+        Effect.gen(function* () {
+          if (++calls === 1) {
+            yield* Deferred.await(both);
+            return yield* transact(ops).pipe(
+              Effect.tap(() => Deferred.succeed(first, undefined)),
+            );
+          }
+          yield* Deferred.succeed(both, undefined);
+          yield* Deferred.await(first);
+          return yield* transact(ops);
+        }) as ReturnType<typeof transact>,
+    );
+    try {
+      await as(ada, (pocket, account) =>
+        Effect.all(
+          [
+            pocket.deleteEntry(account, { id: 'out' }),
+            pocket.deleteEntry(account, { id: 'out' }),
+          ],
+          { concurrency: 'unbounded' },
+        ),
+      );
+      expect(await balances(ada)).toEqual({ w: 100 });
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it('refuses an overdraft and writes nothing', async () => {

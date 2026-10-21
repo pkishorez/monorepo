@@ -85,7 +85,9 @@ const settle = <A, E, R>(
     Effect.retry({
       times: 3,
       while: (error) =>
-        isDatabaseError(error) && error.reason._tag === 'TransactFailed',
+        isDatabaseError(error) &&
+        (error.reason._tag === 'TransactFailed' ||
+          error.reason._tag === 'ItemAlreadyExists'),
     }),
     Effect.catch((error) =>
       isDatabaseError(error)
@@ -222,10 +224,27 @@ const deleteEntry = (userId: string, input: { id: string }) =>
         );
       }
       const ops = yield* Effect.forEach(live, (side) =>
-        Effect.all([
-          entries.deleteOp({ userId, id: side.value.id }),
-          move(userId, side.value.walletId, -side.value.amount),
-        ]),
+        Effect.gen(function* () {
+          const remove = yield* entries.deleteOp({ userId, id: side.value.id });
+          return [
+            {
+              ...remove,
+              // Reverse only the live Entry we read, even if the transaction reads a later tombstone.
+              apply: (...args: Parameters<typeof remove.apply>) =>
+                Effect.map(remove.apply(...args), (applied) => ({
+                  ...applied,
+                  write: {
+                    ...applied.write,
+                    condition: {
+                      kind: 'updated' as const,
+                      value: side.meta._u,
+                    },
+                  },
+                })),
+            },
+            yield* move(userId, side.value.walletId, -side.value.amount),
+          ];
+        }),
       );
       return changes(yield* pocketTable.transact(ops.flat()));
     }),
