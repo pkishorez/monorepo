@@ -1,0 +1,44 @@
+import type { ReactNode } from 'react';
+import { Stop } from '../../../field/index.ts';
+
+/*
+ * One stop on the page, a Stop on the field as the home page's chapters
+ * are: its number and label, its title, and its words. The shape always
+ * takes the right half of a wide screen, the words the left.
+ */
+
+export function Chapter({
+  shape,
+  number,
+  label,
+  id,
+  title,
+  children,
+}: {
+  readonly shape: string;
+  /** Counted stops show their number before the label. */
+  readonly number?: number;
+  readonly label: string;
+  readonly id: string;
+  readonly title: ReactNode;
+  readonly children: ReactNode;
+}) {
+  return (
+    <Stop shape={shape} aria-labelledby={id}>
+      <p className="flex items-center gap-3 font-mono text-xs text-muted-foreground">
+        {number !== undefined && (
+          <span className="tabular-nums">{`${number}`.padStart(2, '0')}</span>
+        )}
+        <span aria-hidden className="h-px w-8 bg-border" />
+        {label}
+      </p>
+      <h2
+        id={id}
+        className="mt-4 text-4xl font-semibold tracking-tight text-balance sm:mt-5 sm:text-5xl"
+      >
+        {title}
+      </h2>
+      {children}
+    </Stop>
+  );
+}

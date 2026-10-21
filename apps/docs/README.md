@@ -6,10 +6,12 @@ The docs for every ke stack toolkit, a kabuki start app published at docs.kishor
 
 A kabuki start app, built the way
 [`apps/kabuki-start`](../kabuki-start/README.md) is: every page is an Actor,
-drawn by one Cloudflare Worker and hydrated in the browser. The home page is
-one line for the stack and a door per toolkit. kabuki, the only toolkit so
-far, has a landing page and its docs under `/kabuki/<slug>`, with a sidebar,
-"On this page" and a pager.
+drawn by one Cloudflare Worker and hydrated in the browser. The home page
+tells the whole stack as one scroll story, a chapter per package, over a
+WebGL particle field that takes a shape for each; `?v=journey` adds a comet
+that follows the scroll. kabuki, the only toolkit with docs so far, has a
+landing page told the same way, and its docs under `/kabuki/<slug>`, with a
+sidebar, "On this page" and a pager.
 
 The table of contents is TypeScript, in `src/shared/content`: the toolkits,
 and kabuki's sections and pages. Only written pages are in it. A page's slug
@@ -42,6 +44,7 @@ src/
     docs/         every page: its MDX, its pictures and its live app
     pages/        one View per page: home, kabuki's landing, a docs page, the demo
     components/   the header, sidebar, theme, how MDX is drawn, the Playground and picture parts
+    field/        the particle field behind the home and kabuki landing pages, and the Stops its stories are told in
     demos/        the full-screen demo
   infra/        the Worker and its domain, declared with Alchemy
 ```
