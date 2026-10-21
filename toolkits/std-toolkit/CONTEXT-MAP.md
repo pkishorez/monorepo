@@ -13,6 +13,7 @@ std-toolkit is a cluster of bounded contexts. Each context owns its own ubiquito
   - [db/idb](./src/db/idb/CONTEXT.md) — in-browser IndexedDB adapter specifics.
   - [db/memory](./src/db/memory/CONTEXT.md) — ephemeral, runtime-independent Memory adapter specifics.
 - [sync](./src/sync/CONTEXT.md) — the sync engine, its TanStack DB integration, Sync Strategies, and Sync adapters.
+- [replica](./src/replica/CONTEXT.md) — Kabuki-native sync: Replicas, their Instances, Queries and Actions.
 
 ## Relationships
 
@@ -26,6 +27,9 @@ std-toolkit is a cluster of bounded contexts. Each context owns its own ubiquito
 - **sync → core**: accepts [[core]] **Entities**, ignores an Entity from a newer version as an **Outdated Application**, exposes their latest values in Collections and to Mutation Callbacks, and interprets `_u` for convergence and the Settle Window.
 - **sync → db**: realizes its **Sync Store** through a compatible database adapter; the Sync adapter chooses which (Memory, IndexedDB, or SQLite), changing durability, not Sync behavior.
 
+- **replica → core, db**: like sync, it carries core **Entities** and keeps them through a db adapter. It shares no code with sync; sync stays for React apps.
+
 ## Term collisions (same word, different context)
 
 - **Partition** is a [db](./src/db/CONTEXT.md) word only: a physical single-table slice (an **item collection** sharing one **partition key**). Sync's lazily loaded subset is a **Window** in [sync](./src/sync/CONTEXT.md).
+- **Collection**, **Strategy**, **Leadership**/**Leader** and **Doorbell** mean the same idea in [sync](./src/sync/CONTEXT.md) and [replica](./src/replica/CONTEXT.md), but each context owns its own definition. **Std Sync** is a sync word only; replica says **Replica** and **Instance**.
