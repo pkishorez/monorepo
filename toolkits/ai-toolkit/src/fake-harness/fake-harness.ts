@@ -21,16 +21,18 @@ import {
   type RawOut,
   type Skill,
   type TurnInput,
+  type TurnOut,
+  type TurnStream,
 } from '../harness/index.js';
 
 /*
  * A harness for tests, named `claude`. Each turn emits `echo:<text>` at once,
  * or, slow to start, once `begin()` says so. By default it then ends with a
- * `result`; held, it waits for `finish()`. A steer joins the turn last asked
- * for once that turn has started, and fails once it has ended; each steer's
- * `steer:<text>` comes just before the turn's `result`. A cancel ends the
- * turn without a result, as an interrupted agent would. A finished turn's
- * native id is `<nativeId>:turn-<n>`.
+ * `result` and its `TurnEnd`; held, it waits for `finish()`. A steer joins
+ * the turn last asked for once that turn has started: its `TurnSteered`,
+ * then `steer:<text>`; it fails once the turn has ended. A cancel ends the
+ * turn without a result or `TurnEnd`, as an interrupted agent would. A
+ * turn's Fork Point is `<nativeId>:turn-<n>`.
  *
  * The rest answers at once and the same way every time: a fork is
  * `<nativeId>-fork`, an Ask echoes its question, Background Jobs and
@@ -52,16 +54,14 @@ interface FakeTurn {
   readonly gate: Deferred.Deferred<boolean, HarnessError>;
   /** Done once the turn has started, so steers can join it. */
   readonly started: Deferred.Deferred<void, HarnessError>;
-  queue: Queue.Queue<RawOut, HarnessError | Cause.Done> | undefined;
-  readonly steers: Array<string>;
+  queue: Queue.Queue<TurnOut, HarnessError | Cause.Done> | undefined;
   ended: boolean;
 }
 
 /** One opened agent, as tests drive it. */
 interface FakeAgent {
   readonly jobs: SubscriptionRef.SubscriptionRef<ReadonlyArray<BackgroundJob>>;
-  readonly agentTurns: Queue.Queue<Stream.Stream<RawOut, HarnessError>>;
-  lastTurn: string | undefined;
+  readonly agentTurns: Queue.Queue<TurnStream>;
 }
 
 export interface FakeHarness {
@@ -118,6 +118,8 @@ export const makeFakeHarness = (
     readonly stubborn?: boolean;
     /** Turns wait for `begin()` before their first record. */
     readonly slowStart?: boolean;
+    /** A steer returns a while after the agent took it. */
+    readonly slowSteer?: boolean;
   } = {},
 ): FakeHarness => {
   const opens: Array<OpenConfig> = [];
@@ -137,14 +139,14 @@ export const makeFakeHarness = (
   const end = () => {
     if (!running?.queue || running.ended) return;
     running.ended = true;
-    for (const text of running.steers)
-      Queue.offerUnsafe(running.queue, {
-        kind: 'text',
-        payload: { text: `steer:${text}` },
-      });
     Queue.offerUnsafe(running.queue, { kind: 'result', payload: {} });
+    Queue.offerUnsafe(running.queue, {
+      _tag: 'TurnEnd',
+      status: 'done',
+      forkPoint: running.id,
+      shown: true,
+    });
     Queue.endUnsafe(running.queue);
-    running.agent.lastTurn = running.id;
   };
 
   /**
@@ -158,7 +160,6 @@ export const makeFakeHarness = (
       gate: Deferred.makeUnsafe(),
       started: Deferred.makeUnsafe(),
       queue: undefined,
-      steers: [],
       ended: false,
     };
     running = turn;
@@ -173,7 +174,7 @@ export const makeFakeHarness = (
           }),
         );
         const queue = yield* Queue.unbounded<
-          RawOut,
+          TurnOut,
           HarnessError | Cause.Done
         >();
         turn.queue = queue;
@@ -216,9 +217,7 @@ export const makeFakeHarness = (
         const nativeId = config.nativeId ?? `native-${opens.length}`;
         const agent: FakeAgent = {
           jobs: yield* SubscriptionRef.make<ReadonlyArray<BackgroundJob>>([]),
-          agentTurns:
-            yield* Queue.unbounded<Stream.Stream<RawOut, HarnessError>>(),
-          lastTurn: undefined,
+          agentTurns: yield* Queue.unbounded<TurnStream>(),
         };
         agents.set(nativeId, agent);
         yield* Effect.addFinalizer(() =>
@@ -233,16 +232,21 @@ export const makeFakeHarness = (
             inputs.push(input);
             return turnOf(agent, nativeId, `echo:${input.text}`);
           },
-          steer: (input) =>
+          steer: (id, input) =>
             Effect.gen(function* () {
               const turn = running;
               if (turn === undefined)
                 return yield* new HarnessError({ message: 'No turn to steer' });
               yield* Deferred.await(turn.started);
-              if (turn.ended)
+              if (turn.ended || !turn.queue)
                 return yield* new HarnessError({ message: 'The turn ended' });
               inputs.push(input);
-              turn.steers.push(input.text);
+              Queue.offerUnsafe(turn.queue, { _tag: 'TurnSteered', id });
+              Queue.offerUnsafe(turn.queue, {
+                kind: 'text',
+                payload: { text: `steer:${input.text}` },
+              });
+              if (options.slowSteer) yield* Effect.sleep('50 millis');
             }),
           cancel: Effect.sync(() => {
             if (!running || running.ended || options.stubborn) return;
@@ -251,7 +255,6 @@ export const makeFakeHarness = (
               Queue.endUnsafe(running.queue);
             } else Deferred.doneUnsafe(running.gate, Effect.succeed(false));
           }),
-          lastTurnNativeId: Effect.sync(() => agent.lastTurn),
           agentTurns: Stream.fromQueue(agent.agentTurns),
           backgroundJobs: SubscriptionRef.changes(agent.jobs),
           stopBackgroundJob: (id) =>

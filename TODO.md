@@ -16,8 +16,10 @@
       Jobs clear, but the engine only finds the agent gone on the next Turn
       (which then fails and reopens it). Let a `HarnessSession` say it ended
       so the Session drops it at once.
-- [ ] ai-toolkit: steers sent before a Turn's first record wait for it; if the
-      Turn ends without one, they are dropped instead of starting the next Turn.
+- [ ] ai-toolkit: when the server dies without shutting Codex down, Codex
+      exits as its input ends, but a command it started and does not stop
+      (one that ignores SIGTERM, or left its process group) keeps running.
+      Track what each Session's agents started and sweep it on the next start.
 - [ ] ai-toolkit: `docs/turn-flow.md` and ADRs 0001–0010 describe the old Run
       and AI Table design. Mark the ADRs superseded and rewrite or drop the
       turn flow doc.

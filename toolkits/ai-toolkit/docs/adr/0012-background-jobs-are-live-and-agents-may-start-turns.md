@@ -2,7 +2,7 @@
 
 A Background Job (a shell process or subagent that outlives its Turn) exists only while the server runs. Each live agent reports its jobs as a stream of whole snapshots (`HarnessSession.backgroundJobs`), the engine keeps the latest per Session in memory, and the API streams them to clients; none of it is stored, and a restart clears them, since the processes behind them die with their agent. A job can be stopped by id.
 
-When a job finishes, Claude Code may start a Turn on its own. The harness reports these on `HarnessSession.agentTurns`, one stream per Turn, and only between user Turns. The engine runs each as an ordinary Turn whose `turn.started` Raw has `agentStarted: true` and empty text, so it is stored, projected, cancelled and forked like any other.
+When a job finishes, Claude Code may start a Turn on its own. The harness reports these on `HarnessSession.agentTurns`, one stream per Turn that ends with its own end and Fork Point like a user Turn's (ADR 0013), and only between user Turns. The engine runs each as an ordinary Turn whose `turn.started` Raw has `agentStarted: true` and empty text, so it is stored, projected, cancelled and forked like any other.
 
 ## Considered options
 

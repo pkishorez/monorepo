@@ -5,6 +5,7 @@ import { Duration, Effect, Layer, Stream } from 'effect';
 import {
   HarnessBinaries,
   HarnessError,
+  isRecord,
   Titler,
 } from '../../../harness/index.js';
 import { start, type AppServer, type ThreadItem } from '../app-server/index.js';
@@ -124,7 +125,7 @@ const title = (userMessages: ReadonlyArray<string>) =>
         Stream.runFold(
           () => '',
           (last, out) => {
-            if (out.agentId !== undefined) return last;
+            if (!isRecord(out) || out.agentId !== undefined) return last;
             if (out.kind === TEXT_CHUNK) {
               const chunk = out.payload as unknown as TextChunk;
               (chunks[chunk.streamId] ??= []).push(chunk.text);

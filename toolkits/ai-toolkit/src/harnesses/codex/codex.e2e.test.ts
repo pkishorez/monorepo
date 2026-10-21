@@ -13,10 +13,12 @@ import { Duration, Effect, Fiber, Layer, Stream, type Schema } from 'effect';
 import { afterAll, describe, expect, it } from 'vitest';
 import {
   HarnessBinaries,
+  isRecord,
   Titler,
   type HarnessSession,
   type BackgroundJob,
   type RawOut,
+  type TurnEnd,
   type TurnInput,
 } from '../../harness/index.js';
 import type { Part, Projected } from '../../projection/index.js';
@@ -89,7 +91,8 @@ const chunksOf = (outs: ReadonlyArray<RawOut>) => {
   return chunks;
 };
 
-const collect = (
+/** One turn's records, the steers Codex took, and how the turn ended. */
+const collectAll = (
   session: HarnessSession,
   text: string,
   name: string,
@@ -97,8 +100,17 @@ const collect = (
 ) =>
   session.turn({ text, ...more }).pipe(
     Stream.runCollect,
-    Effect.map((outs) => [...outs]),
-    Effect.tap((outs) =>
+    Effect.map((all) => {
+      const outs: RawOut[] = [];
+      const steered: string[] = [];
+      let end: TurnEnd | undefined;
+      for (const out of all)
+        if (isRecord(out)) outs.push(out);
+        else if (out._tag === 'TurnEnd') end = out;
+        else steered.push(out.id);
+      return { outs, steered, end };
+    }),
+    Effect.tap(({ outs }) =>
       Effect.sync(() => {
         if (CAPTURE !== undefined)
           writeFileSync(
@@ -326,21 +338,24 @@ describe.runIf(process.env.AI_TOOLKIT_E2E === '1')(
         await run(
           Effect.gen(function* () {
             const session = yield* open();
-            const fiber = yield* collect(
+            const fiber = yield* collectAll(
               session,
               'Use your shell tool to run `sleep 8 && echo slept`, then reply with its output.',
               'steer',
             ).pipe(Effect.forkChild);
             yield* Effect.sleep(Duration.seconds(4));
-            yield* session.steer({
+            yield* session.steer('steer-1', {
               text: 'Also end your final reply with the word STEERED.',
               images: [],
             });
-            const messages = projectAll(yield* Fiber.join(fiber));
+            const { outs, steered, end } = yield* Fiber.join(fiber);
+            const messages = projectAll(outs);
             expect(assistantText(messages)).toContain('STEERED');
             expect(ofType(messages, 'turnEnded')).toEqual([
               { type: 'turnEnded', status: 'done' },
             ]);
+            expect(steered).toEqual(['steer-1']);
+            expect(end).toMatchObject({ status: 'done', shown: true });
           }),
         );
       },
@@ -442,6 +457,9 @@ describe.runIf(process.env.AI_TOOLKIT_E2E === '1')(
     );
   },
 );
+
+const collect = (...args: Parameters<typeof collectAll>) =>
+  Effect.map(collectAll(...args), ({ outs }) => outs);
 
 /** A 32×32 PNG in one solid colour, base64. */
 const solidPng = (rgb: readonly [number, number, number]): string => {
@@ -601,19 +619,18 @@ describe.runIf(process.env.AI_TOOLKIT_E2E === '1')(
         await run(
           Effect.gen(function* () {
             const session = yield* open();
-            yield* collect(
+            const first = (yield* collectAll(
               session,
               'Remember the codeword ALPHA-ONE. Reply with one word: noted. No tools.',
               'fork-1',
-            );
-            const first = yield* session.lastTurnNativeId;
+            )).end?.forkPoint;
             expect(first).toBeTypeOf('string');
-            yield* collect(
+            const second = (yield* collectAll(
               session,
               'Also remember the codeword BRAVO-TWO. Reply with one word: noted. No tools.',
               'fork-2',
-            );
-            const second = yield* session.lastTurnNativeId;
+            )).end?.forkPoint;
+            expect(second).toBeTypeOf('string');
             expect(second).not.toBe(first);
 
             const nativeId = (yield* session.nativeId)!;

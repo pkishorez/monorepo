@@ -545,7 +545,7 @@ describe('Agent-started Turns', () => {
         );
         yield* eventually(async () => expect(await raws()).toHaveLength(6));
         yield* engine.send(session.id, say('thanks'));
-        yield* eventually(async () => expect(await raws()).toHaveLength(7));
+        yield* eventually(async () => expect(await raws()).toHaveLength(8));
         yield* fake.finish;
         yield* idle();
 

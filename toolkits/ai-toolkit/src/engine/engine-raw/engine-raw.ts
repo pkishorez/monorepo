@@ -12,9 +12,9 @@ import type { Raw, RawSource } from '../../raw/index.js';
  * showing.
  *
  * Every Turn ends with the engine's `turn.ended`, which carries the Turn's
- * Fork Point as `nativeTurnId` when the agent gave one. When the harness's
- * own record already ended the Turn, it is marked `byHarness` and projects
- * to nothing, so a Turn never shows two ends.
+ * Fork Point as `nativeTurnId` when the agent gave one. When the harness
+ * says its own record already shows the end (`TurnEnd.shown`), it is marked
+ * `byHarness` and projects to nothing, so a Turn never shows two ends.
  */
 
 /** A file sent with a user message, as Raw keeps it. */

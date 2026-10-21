@@ -1,6 +1,6 @@
 import { Effect, Fiber, Stream, type Scope } from 'effect';
 import { describe, expect, it, vi } from 'vitest';
-import type { RawOut } from '../../../harness/index.js';
+import type { TurnOut } from '../../../harness/index.js';
 import { openSdkSession, type SdkSession } from './sdk-session.js';
 
 /*
@@ -90,10 +90,18 @@ const withSession = <A, E>(
     ),
   );
 
-const kinds = (outs: ReadonlyArray<RawOut>) => outs.map((out) => out.kind);
+/** Each element's kind: a record's own, or what the turn's stream says. */
+const kinds = (outs: Iterable<TurnOut>) =>
+  [...outs].map((out) =>
+    '_tag' in out
+      ? out._tag === 'TurnEnd'
+        ? `end ${out.status} ${out.forkPoint}`
+        : `steered ${out.id}`
+      : out.kind,
+  );
 
 describe('openSdkSession', () => {
-  it('keeps the Fork Point of a user turn that ran after an agent turn read later', () =>
+  it("ends each turn with its own Fork Point, an agent turn read after a user turn's included", () =>
     withSession((session) =>
       Effect.gen(function* () {
         // The agent starts and ends a turn of its own; nobody reads it yet.
@@ -112,11 +120,19 @@ describe('openSdkSession', () => {
         live.emit(init);
         live.emit(said('user-1'));
         live.emit(result([uuid!]));
-        yield* Fiber.join(userTurn);
-        expect(yield* session.lastTurnNativeId).toBe('user-1');
+        expect(kinds(yield* Fiber.join(userTurn))).toEqual([
+          'system/init',
+          'assistant',
+          'result',
+          'end done user-1',
+        ]);
 
-        yield* Stream.runDrain(agentTurn[0]!);
-        expect(yield* session.lastTurnNativeId).toBe('user-1');
+        expect(kinds(yield* Stream.runCollect(agentTurn[0]!))).toEqual([
+          'system/init',
+          'assistant',
+          'result',
+          'end done agent-1',
+        ]);
       }),
     ));
 
@@ -138,7 +154,7 @@ describe('openSdkSession', () => {
           ),
         );
         const steer = yield* Effect.forkChild(
-          session.steer({ text: 'also', images: [], options: {} }),
+          session.steer('steer-1', { text: 'also', images: [], options: {} }),
         );
         yield* Effect.sleep('20 millis');
         expect(live.sent).toHaveLength(0);
@@ -148,6 +164,7 @@ describe('openSdkSession', () => {
           'system/init',
           'assistant',
           'result',
+          'end done agent-1',
         ]);
         yield* Fiber.join(steer);
         const [turnId, steerId] = yield* sentNow(2);
@@ -160,9 +177,38 @@ describe('openSdkSession', () => {
         expect(userTurn.pollUnsafe()).toBeUndefined();
         live.emit(result([steerId!]));
         expect(kinds(yield* Fiber.join(userTurn))).toEqual([
+          'steered steer-1',
           'system/init',
           'result',
           'result',
+          `end done ${turnId}`,
+        ]);
+      }),
+    ));
+
+  it("ends a cancelled turn cancelled, a Background Job's result before it notwithstanding", () =>
+    withSession((session) =>
+      Effect.gen(function* () {
+        const userTurn = yield* Effect.forkChild(
+          Stream.runCollect(
+            session.turn({ text: 'hi', images: [], options: {} }),
+          ),
+        );
+        const [uuid] = yield* sentNow(1);
+        live.emit(init);
+        live.emit(result([]));
+        yield* session.cancel;
+        live.emit({
+          type: 'result',
+          subtype: 'error_during_execution',
+          terminal_reason: 'aborted_streaming',
+          user_message_uuids: [uuid],
+        });
+        expect(kinds(yield* Fiber.join(userTurn))).toEqual([
+          'system/init',
+          'result',
+          'result',
+          `end cancelled ${uuid}`,
         ]);
       }),
     ));
@@ -180,7 +226,7 @@ describe('openSdkSession', () => {
         live.emit(result([uuid!]));
         yield* Fiber.join(userTurn);
         const refused = yield* Effect.flip(
-          session.steer({ text: 'late', images: [], options: {} }),
+          session.steer('late', { text: 'late', images: [], options: {} }),
         );
         expect(refused.message).toBe('No turn is running to steer');
       }),

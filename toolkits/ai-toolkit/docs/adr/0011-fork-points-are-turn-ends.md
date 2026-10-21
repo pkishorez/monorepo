@@ -1,6 +1,6 @@
 # Fork Points are Turn ends
 
-A Fork copies a Session's context up to the end of a finished Turn, never to a point inside one. Claude Code can resume at any message (`resumeSessionAt` takes a message uuid), but Codex forks a thread only at a turn boundary, so the common contract offers the boundary both can honour. When a Turn ends, the engine asks the live agent for `lastTurnNativeId` (Claude: the uuid of the Turn's last transcript entry; Codex: the turn id) and writes it into that Turn's `turn.ended` Raw as `nativeTurnId`. `Harness.fork({ cwd, nativeId, at })` takes that id and returns the new Session's Native Id; the new Session records `forkedFrom: { sessionId, turnId }`.
+A Fork copies a Session's context up to the end of a finished Turn, never to a point inside one. Claude Code can resume at any message (`resumeSessionAt` takes a message uuid), but Codex forks a thread only at a turn boundary, so the common contract offers the boundary both can honour. Each Turn's stream ends with its own Fork Point (Claude: the uuid of the Turn's last transcript entry; Codex: the turn id; see ADR 0013), and the engine writes it into that Turn's `turn.ended` Raw as `nativeTurnId`. `Harness.fork({ cwd, nativeId, at })` takes that id and returns the new Session's Native Id; the new Session records `forkedFrom: { sessionId, turnId }`.
 
 ## Considered options
 

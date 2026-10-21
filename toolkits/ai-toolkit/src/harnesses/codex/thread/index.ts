@@ -10,3 +10,4 @@ export {
   type TextChunk,
   type ToolItem,
 } from './thread.js';
+export { readableError, TURN_END } from './turn-end.js';

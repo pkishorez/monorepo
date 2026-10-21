@@ -10,7 +10,7 @@ The API, `AiApi`, has commands and feeds. Commands add and remove Projects, star
 
 The client side builds on [`@kestack/rpc-toolkit`](../rpc-toolkit/README.md) for the reconnecting WebSocket and on [`@kestack/std-toolkit`](../std-toolkit/README.md) for the `Ai` Replica, which keeps Projects, Sessions and open Sessions' Messages in step with the server. The engine itself is a tree of [`@kestack/kabuki`](../../packages/kabuki/README.md) Actors over a SQLite store.
 
-The words are in [CONTEXT.md](CONTEXT.md). How the server thinks, Raw records and their projection to Messages, is in [docs/v1-spec.md](docs/v1-spec.md). Decisions are in [docs/adr/](docs/adr/); 0011 (Fork Points are Turn ends) and 0012 (Background Jobs are live, and agents may start Turns) are current, and the earlier ones record the design this package replaced.
+The words are in [CONTEXT.md](CONTEXT.md). How the server thinks, Raw records and their projection to Messages, is in [docs/v1-spec.md](docs/v1-spec.md). Decisions are in [docs/adr/](docs/adr/); 0011 (Fork Points are Turn ends), 0012 (Background Jobs are live, and agents may start Turns) and 0013 (A Turn's facts travel in its stream) are current, and the earlier ones record the design this package replaced.
 
 ## Install
 

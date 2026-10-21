@@ -12,9 +12,12 @@ import { Duration, Effect, Exit, Fiber, Option, Scope, Stream } from 'effect';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import {
   HarnessBinaries,
+  isRecord,
   type HarnessSession,
   type RawOut,
+  type TurnEnd,
   type TurnInput,
+  type TurnStream,
 } from '../../harness/index.js';
 import type { Part, Projected } from '../../projection/index.js';
 import type { Raw } from '../../raw/index.js';
@@ -135,9 +138,10 @@ const save = (name: string, outs: ReadonlyArray<RawOut>) => {
 
 /**
  * Runs one turn, calling `during` once with the first record that matches
- * `when` (to steer or cancel mid-turn), and collects every record.
+ * `when` (to steer or cancel mid-turn), and collects every record, the
+ * steers the agent took, and how the turn ended.
  */
-const runTurn = (
+const fullTurn = (
   session: HarnessSession,
   text: string,
   options?: {
@@ -148,10 +152,17 @@ const runTurn = (
 ) =>
   Effect.gen(function* () {
     const outs: RawOut[] = [];
+    const steered: string[] = [];
+    let end: TurnEnd | undefined;
     const forks: Array<Fiber.Fiber<void, unknown>> = [];
     yield* session.turn({ text, images: [], ...input }).pipe(
       Stream.runForEach((out) =>
         Effect.gen(function* () {
+          if (!isRecord(out)) {
+            if (out._tag === 'TurnEnd') end = out;
+            else steered.push(out.id);
+            return;
+          }
           outs.push(out);
           if (
             options !== undefined &&
@@ -164,7 +175,24 @@ const runTurn = (
       ),
     );
     for (const fork of forks) yield* Fiber.join(fork);
-    return outs;
+    return { outs, steered, end };
+  });
+
+const runTurn = (...args: Parameters<typeof fullTurn>) =>
+  Effect.map(fullTurn(...args), ({ outs }) => outs);
+
+/** An agent turn's records, and how it ended. */
+const collect = (turn: TurnStream) =>
+  Effect.map(Stream.runCollect(turn), (all) => {
+    const outs = Array.from(all);
+    const end = outs.at(-1);
+    return {
+      outs: outs.filter(isRecord),
+      end:
+        end !== undefined && !isRecord(end) && end._tag === 'TurnEnd'
+          ? end
+          : undefined,
+    };
   });
 
 const hasToolCall = (name: string) => (out: RawOut) =>
@@ -299,13 +327,13 @@ describe.skipIf(!enabled)('claude harness against the real Claude Code', () => {
   }, 300_000);
 
   it('steers mid-turn: the steer joins the turn, which ends once', async () => {
-    const outs = await run(
-      runTurn(
+    const { outs, steered, end } = await run(
+      fullTurn(
         session,
         'Run the Bash command `sleep 5; echo one`, then reply with the word DONE.',
         {
           when: hasToolCall('Bash'),
-          during: session.steer({
+          during: session.steer('steer-1', {
             text: 'Change of plan: once the command finishes, reply with only the word BANANA instead of DONE.',
             images: [],
           }),
@@ -323,6 +351,8 @@ describe.skipIf(!enabled)('claude harness against the real Claude Code', () => {
       payload: { user_message_uuids: [expect.any(String), expect.any(String)] },
     });
     expect(lastTurnEnd(messages)?.status).toBe('done');
+    expect(steered).toEqual(['steer-1']);
+    expect(end).toMatchObject({ status: 'done', shown: true });
   }, 120_000);
 
   it('cancels mid-turn, and the next turn still works', async () => {
@@ -499,16 +529,17 @@ describe.skipIf(!enabled)(
       const { nativeId, forkPoint } = await run(
         Effect.gen(function* () {
           const session = yield* open();
-          yield* runTurn(
+          const first = yield* fullTurn(
             session,
             NO_TOOLS + 'Remember the first code word: ALPHA. Reply OK.',
           );
-          const forkPoint = yield* session.lastTurnNativeId;
-          yield* runTurn(
+          const forkPoint = first.end?.forkPoint;
+          const second = yield* fullTurn(
             session,
             NO_TOOLS + 'Remember the second code word: BRAVO. Reply OK.',
           );
-          expect(yield* session.lastTurnNativeId).not.toBe(forkPoint);
+          expect(second.end?.forkPoint).toBeTypeOf('string');
+          expect(second.end?.forkPoint).not.toBe(forkPoint);
           return { nativeId: yield* session.nativeId, forkPoint };
         }),
       );
@@ -622,7 +653,7 @@ describe.skipIf(!enabled)(
     }, 180_000);
 
     it('streams the turn the agent starts when a background job ends', async () => {
-      const { user, agent } = await run(
+      const { user, agent, agentEnd } = await run(
         Effect.gen(function* () {
           const session = yield* open();
           const first = yield* session.agentTurns.pipe(
@@ -638,13 +669,14 @@ describe.skipIf(!enabled)(
           const turn = Option.getOrThrow(
             yield* Fiber.join(first).pipe(Effect.timeout(Duration.seconds(60))),
           );
-          const agent = Array.from(yield* Stream.runCollect(turn));
+          const agent = yield* collect(turn);
           // The session is free for a user turn again.
           yield* runTurn(session, NO_TOOLS + 'Reply OK.');
-          expect(yield* session.lastTurnNativeId).toBeTypeOf('string');
-          return { user, agent };
+          return { user, agent: agent.outs, agentEnd: agent.end };
         }),
       );
+      expect(agentEnd).toMatchObject({ status: 'done', shown: true });
+      expect(agentEnd?.forkPoint).toBeTypeOf('string');
       expect(user.at(-1)?.kind).toBe('result');
       expect(agent[0]?.kind).toBe('system/task_notification');
       expect(agent.at(-1)?.kind).toBe('result');
@@ -658,9 +690,7 @@ describe.skipIf(!enabled)(
           const agents: RawOut[][] = [];
           yield* session.agentTurns.pipe(
             Stream.runForEach((turn) =>
-              Stream.runCollect(turn).pipe(
-                Effect.map((outs) => agents.push(Array.from(outs))),
-              ),
+              collect(turn).pipe(Effect.map(({ outs }) => agents.push(outs))),
             ),
             Effect.forkChild,
           );
@@ -717,7 +747,7 @@ describe.skipIf(!enabled)(
           const turn = Option.getOrThrow(
             yield* Fiber.join(first).pipe(Effect.timeout(Duration.seconds(60))),
           );
-          return { user, agent: Array.from(yield* Stream.runCollect(turn)) };
+          return { user, agent: (yield* collect(turn)).outs };
         }),
       );
       const messages = projectAll(user);
@@ -754,7 +784,7 @@ describe.skipIf(!enabled)(
           const turn = Option.getOrThrow(
             yield* Fiber.join(first).pipe(Effect.timeout(Duration.seconds(90))),
           );
-          return { user, agent: Array.from(yield* Stream.runCollect(turn)) };
+          return { user, agent: (yield* collect(turn)).outs };
         }),
       );
       const spawn = toolCalls(projectAll(user)).find(

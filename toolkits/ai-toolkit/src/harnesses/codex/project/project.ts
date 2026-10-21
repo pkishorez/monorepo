@@ -4,17 +4,14 @@ import type {
   Projected,
   Role,
   ToolKind,
-  TurnEndStatus,
 } from '../../../projection/index.js';
 import type { Raw } from '../../../raw/index.js';
-import type {
-  Notifications,
-  ThreadItem,
-  TurnStatus,
-} from '../app-server/index.js';
+import type { Notifications, ThreadItem } from '../app-server/index.js';
 import {
   isToolItem,
+  readableError,
   TEXT_CHUNK,
+  TURN_END,
   type Channel,
   type ToolItem,
 } from '../thread/index.js';
@@ -25,30 +22,7 @@ const TITLE_LIMIT = 80;
 
 type Payload<M extends keyof Notifications> = Notifications[M];
 
-const TURN_END: Record<TurnStatus, TurnEndStatus> = {
-  completed: 'done',
-  interrupted: 'cancelled',
-  failed: 'failed',
-  inProgress: 'failed',
-};
-
 const json = (value: unknown): Schema.Json => (value ?? null) as Schema.Json;
-
-/**
- * An error as a person reads it: Codex passes a provider's rejection on as
- * its JSON body (`{"type":"error","status":400,"error":{"message":…}}`).
- */
-export const readableError = (message: string): string => {
-  let body: unknown;
-  try {
-    body = JSON.parse(message);
-  } catch {
-    return message;
-  }
-  const inner = (body as { error?: { message?: unknown } } | null)?.error
-    ?.message;
-  return typeof inner === 'string' && inner !== '' ? inner : message;
-};
 
 const firstLine = (value: string): string => {
   const line = value.trim().split('\n')[0] ?? '';

@@ -7,7 +7,11 @@ import {
   type Attachment,
   type HarnessSession,
   type RawOut,
+  type TurnEnd as TurnEndOut,
+  type TurnOut,
+  type TurnStream,
 } from '../../../harness/index.js';
+import { resultEnd } from '../project/index.js';
 import { makeBackgroundJobs } from './background-jobs/index.js';
 import { userContent } from './content.js';
 import { queryOptions, type SdkSessionConfig } from './options.js';
@@ -36,8 +40,11 @@ export interface SdkTurn {
 }
 
 export type SdkSession = Omit<HarnessSession, 'turn' | 'steer'> & {
-  readonly turn: (input: SdkTurn) => Stream.Stream<RawOut, HarnessError>;
-  readonly steer: (input: SdkTurn) => Effect.Effect<void, HarnessError>;
+  readonly turn: (input: SdkTurn) => TurnStream;
+  readonly steer: (
+    id: string,
+    input: SdkTurn,
+  ) => Effect.Effect<void, HarnessError>;
 };
 
 /** How long a cancelled turn may take to report its result before its stream ends anyway. */
@@ -47,15 +54,15 @@ const CANCEL_GRACE_MS = 15_000;
 type Interrupt = (options?: { cancelQueued?: boolean }) => Promise<unknown>;
 
 interface Turn {
-  readonly out: Queue.Queue<RawOut, HarnessError | Cause.Done>;
+  readonly out: Queue.Queue<TurnOut, HarnessError | Cause.Done>;
   readonly agentStarted: boolean;
-  /** When it began, in the agent's own order; set by `begin`. */
-  order: number;
   /** Ends with the turn, so a user turn can wait out an agent's. */
   readonly done: Deferred.Deferred<void>;
   state: TurnEnd.TurnEnd;
-  /** The turn's last transcript entry so far. */
+  /** The turn's last transcript entry so far: its Fork Point once it ends. */
   forkPoint: string | undefined;
+  /** How the last result that answered one of its messages ended. */
+  answered: Pick<TurnEndOut, 'status' | 'error'> | undefined;
   /** Its stream has ended; a late end, such as a cancel's, does nothing. */
   ended: boolean;
 }
@@ -63,7 +70,9 @@ interface Turn {
 /**
  * One Agent SDK `query` in streaming-input mode, alive for the Scope.
  * Each turn pushes a user message and streams every whole record the query
- * emits until `TurnEnd` says every message we sent got its result. A turn
+ * emits until `TurnEnd` says every message we sent got its result, then
+ * how it ended, with the turn's own last transcript entry as its Fork
+ * Point. A steer is in the stream where it was pushed. A turn
  * Claude Code starts on its own between ours (to report a finished
  * Background Job) streams the same way on `agentTurns`; a user turn waits
  * for it to end, so the two never interleave, and a steer waits with it.
@@ -82,8 +91,7 @@ export const openSdkSession = (
 
     const scope = yield* Effect.scope;
     const jobs = yield* makeBackgroundJobs((id) => live.stopTask(id));
-    const agentTurns =
-      yield* Queue.unbounded<Stream.Stream<RawOut, HarnessError>>();
+    const agentTurns = yield* Queue.unbounded<TurnStream>();
     let options: TurnOptions = {
       model: config.model,
       effort: config.effort,
@@ -93,10 +101,6 @@ export const openSdkSession = (
     let turn: Turn | undefined;
     /** The user turn last asked for: done once it is the running turn. */
     let asked: Deferred.Deferred<Turn, HarnessError> | undefined;
-    let begun = 0;
-    let lastForkPoint: string | undefined;
-    /** The order of the turn `lastForkPoint` came from. */
-    let lastForkOrder = 0;
     let stopped: HarnessError | undefined;
     // What a background subagent wrote, and task notifications, while no
     // turn ran: the next turn opens with them.
@@ -119,7 +123,6 @@ export const openSdkSession = (
      */
     const begin = (current: Turn, then?: () => void): Effect.Effect<void> => {
       turn = current;
-      current.order = ++begun;
       then?.();
       const waiting = idle;
       idle = [];
@@ -148,42 +151,47 @@ export const openSdkSession = (
     const newTurn = (agentStarted: boolean, state: TurnEnd.TurnEnd) =>
       Effect.gen(function* () {
         const current: Turn = {
-          out: yield* Queue.unbounded<RawOut, HarnessError | Cause.Done>(),
+          out: yield* Queue.unbounded<TurnOut, HarnessError | Cause.Done>(),
           agentStarted,
-          order: 0,
           done: yield* Deferred.make<void>(),
           state,
           forkPoint: undefined,
+          answered: undefined,
           ended: false,
         };
         return current;
       });
 
     // Text still waiting is sent before the turn ends, so a cancelled
-    // turn's chunks still add up to what was written.
-    const finish = (current: Turn) =>
+    // turn's chunks still add up to what was written; how it ended comes
+    // last.
+    const finish = (
+      current: Turn,
+      end: Omit<TurnEndOut, '_tag' | 'forkPoint'> | undefined,
+    ) =>
       Effect.suspend(() => {
         if (current.ended) return Effect.void;
         current.ended = true;
         if (turn === current) turn = undefined;
-        return Queue.offerAll(current.out, chunks.flushAll()).pipe(
+        const last: ReadonlyArray<TurnOut> =
+          end === undefined
+            ? []
+            : [
+                {
+                  _tag: 'TurnEnd',
+                  ...end,
+                  ...(current.forkPoint === undefined
+                    ? {}
+                    : { forkPoint: current.forkPoint }),
+                },
+              ];
+        return Queue.offerAll(current.out, [
+          ...chunks.flushAll(),
+          ...last,
+        ]).pipe(
           Effect.andThen(Queue.end(current.out)),
           Effect.andThen(Deferred.succeed(current.done, undefined)),
         );
-      });
-
-    /**
-     * A turn's Fork Point counts once its stream has been read to the end,
-     * so a turn read later than it ran, such as a queued agent turn, still
-     * reads the one before it until then. It never goes back to a turn
-     * that ran before the one it names.
-     */
-    const reached = (current: Turn) =>
-      Effect.sync(() => {
-        if (current.forkPoint === undefined || current.order < lastForkOrder)
-          return;
-        lastForkPoint = current.forkPoint;
-        lastForkOrder = current.order;
       });
 
     const interrupt = Effect.promise(() =>
@@ -204,7 +212,6 @@ export const openSdkSession = (
                 Queue.offer(
                   agentTurns,
                   Stream.fromQueue(current.out).pipe(
-                    Stream.onEnd(reached(current)),
                     Stream.ensuring(finishIfCurrent(current)),
                   ),
                 ),
@@ -214,8 +221,20 @@ export const openSdkSession = (
       );
     });
 
+    /**
+     * Ends a turn whose last waiting message will get no result: as its
+     * last answer did, or cancelled when none came.
+     */
+    const finishDropped = (current: Turn) =>
+      finish(current, {
+        ...(current.answered ?? { status: 'cancelled' }),
+        shown: false,
+      });
+
     const finishIfCurrent = (current: Turn) =>
-      Effect.suspend(() => (turn === current ? finish(current) : Effect.void));
+      Effect.suspend(() =>
+        turn === current ? finish(current, undefined) : Effect.void,
+      );
 
     /**
      * The turn a record joins: the running one, or one the agent starts.
@@ -263,7 +282,7 @@ export const openSdkSession = (
             record['command_uuid'],
           );
           current.state = state;
-          if (step === 'end') yield* finish(current);
+          if (step === 'end') yield* finishDropped(current);
           return;
         }
         if (skipped(record)) return;
@@ -278,8 +297,11 @@ export const openSdkSession = (
         yield* Queue.offer(current.out, toRawOut(record));
         if (record['type'] !== 'result') return;
         const [state, step] = TurnEnd.result(current.state, record);
+        if (state.pending.length < current.state.pending.length)
+          current.answered = resultEnd(record);
         current.state = state;
-        if (step === 'end') yield* finish(current);
+        if (step === 'end')
+          yield* finish(current, { ...resultEnd(record), shown: true });
         if (step === 'interrupt') yield* interrupt;
       });
 
@@ -393,7 +415,6 @@ export const openSdkSession = (
             );
             yield* Deferred.succeed(claimed, current);
             return Stream.fromQueue(current.out).pipe(
-              Stream.onEnd(reached(current)),
               Stream.ensuring(
                 Effect.sync(() => {
                   if (turn === current) turn = undefined;
@@ -410,21 +431,30 @@ export const openSdkSession = (
           ),
         );
       },
-      steer: (message) =>
+      steer: (id, message) =>
         Effect.gen(function* () {
           const current = yield* steered;
-          // Counted before the options apply, so the turn cannot end
-          // before its steer is sent.
+          // Counted before the options apply, so the turn cannot end on a
+          // result before its steer is sent.
           const uuid = randomUUID();
           current.state = TurnEnd.sent(current.state, uuid);
           yield* applyOptions(message.options).pipe(
             Effect.tapError(() => {
               const [state, step] = TurnEnd.dropped(current.state, uuid);
               current.state = state;
-              return step === 'end' ? finish(current) : Effect.void;
+              return step === 'end' ? finishDropped(current) : Effect.void;
             }),
           );
+          // A cancel or Claude Code exiting may have ended it meanwhile.
+          if (current.ended)
+            return yield* new HarnessError({
+              message: 'The turn ended before its steer was sent',
+            });
+          // Sent and marked at once: the steer is in the turn's stream
+          // right where Claude Code got it, after the text before it.
+          Queue.offerAllUnsafe(current.out, chunks.flushAll());
           input.push(uuid, userContent(message.text, message.images));
+          Queue.offerUnsafe(current.out, { _tag: 'TurnSteered', id });
         }),
       cancel: Effect.suspend(() => {
         const current = turn;
@@ -433,14 +463,15 @@ export const openSdkSession = (
         return interrupt.pipe(
           Effect.andThen(
             Effect.sleep(CANCEL_GRACE_MS).pipe(
-              Effect.andThen(finish(current)),
+              Effect.andThen(
+                finish(current, { status: 'cancelled', shown: false }),
+              ),
               Effect.forkIn(scope),
             ),
           ),
           Effect.asVoid,
         );
       }),
-      lastTurnNativeId: Effect.sync(() => lastForkPoint),
       agentTurns: Stream.fromQueue(agentTurns),
       backgroundJobs: jobs.changes,
       stopBackgroundJob: jobs.stop,

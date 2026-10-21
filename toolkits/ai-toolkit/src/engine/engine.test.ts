@@ -118,7 +118,7 @@ describe('Engine', () => {
         const { engine, session, raws, status } = yield* started;
         yield* eventually(async () => expect(await raws()).toHaveLength(2));
         yield* engine.send(session.id, say('and more'));
-        yield* eventually(async () => expect(await raws()).toHaveLength(3));
+        yield* eventually(async () => expect(await raws()).toHaveLength(4));
         yield* fake.finish;
         yield* eventually(async () => expect(await status()).toBe('idle'));
         const all = yield* Effect.promise(raws);
@@ -167,16 +167,13 @@ describe('Engine', () => {
         yield* Effect.sleep('50 millis');
         expect(yield* Effect.promise(raws)).toHaveLength(1);
         yield* fake.begin;
-        yield* eventually(async () => expect(await raws()).toHaveLength(3));
+        yield* eventually(async () => expect(await raws()).toHaveLength(4));
         yield* fake.finish;
         yield* eventually(async () => expect(await status()).toBe('idle'));
         const all = yield* Effect.promise(raws);
-        // The steer and the agent's first record race to be written.
-        expect(all.map(brief).slice(1, 3).sort()).toEqual([
+        expect(all.map(brief).slice(1)).toEqual([
           'claude text {"text":"echo:hello there\\nsecond line"}',
           'engine turn.started {"text":"and more","steered":true}',
-        ]);
-        expect(all.map(brief).slice(3)).toEqual([
           'claude text {"text":"steer:and more"}',
           'claude result {}',
           'engine turn.ended {"status":"done","nativeTurnId":"native-1:turn-1","byHarness":true}',
@@ -198,7 +195,7 @@ describe('Engine', () => {
         yield* fake.fail('setup broke');
         yield* eventually(async () => expect(await raws()).toHaveLength(3));
         yield* fake.begin;
-        yield* eventually(async () => expect(await raws()).toHaveLength(5));
+        yield* eventually(async () => expect(await raws()).toHaveLength(6));
         yield* fake.finish;
         yield* eventually(async () => expect(await status()).toBe('idle'));
         const all = yield* Effect.promise(raws);
@@ -206,11 +203,9 @@ describe('Engine', () => {
           'engine turn.ended {"status":"failed","error":"setup broke"}',
           'engine turn.started {"text":"one","steered":false}',
         ]);
-        expect(all.map(brief).slice(3, 5).sort()).toEqual([
+        expect(all.map(brief).slice(3)).toEqual([
           'claude text {"text":"echo:one"}',
           'engine turn.started {"text":"two","steered":true}',
-        ]);
-        expect(all.map(brief).slice(5)).toEqual([
           'claude text {"text":"steer:two"}',
           'claude result {}',
           'engine turn.ended {"status":"done","nativeTurnId":"native-2:turn-2","byHarness":true}',
@@ -292,20 +287,57 @@ describe('Engine', () => {
     );
   });
 
-  it('a result the agent went on past does not end the turn', async () => {
+  it('a cancel after a result for a Background Job ends the turn cancelled', async () => {
     const fake = makeFakeHarness({ hold: true });
     await run(
       Effect.gen(function* () {
         const { engine, session, raws, status } = yield* started;
         yield* eventually(async () => expect(await raws()).toHaveLength(2));
         yield* fake.emit({ kind: 'result', payload: {} });
-        yield* fake.emit({ kind: 'text', payload: { text: 'more' } });
-        yield* eventually(async () => expect(await raws()).toHaveLength(4));
+        yield* eventually(async () => expect(await raws()).toHaveLength(3));
         yield* engine.cancel(session.id);
         yield* eventually(async () => expect(await status()).toBe('cancelled'));
         expect((yield* Effect.promise(raws)).map(brief).at(-1)).toBe(
           'engine turn.ended {"status":"cancelled"}',
         );
+      }),
+      fake,
+    );
+  });
+
+  it('a steer the agent took runs once, though its turn ended before the steer returned', async () => {
+    const fake = makeFakeHarness({ hold: true, slowSteer: true });
+    await run(
+      Effect.gen(function* () {
+        const { engine, session, raws, status } = yield* started;
+        yield* eventually(async () => expect(await raws()).toHaveLength(2));
+        yield* engine.send(session.id, say('follow-up'));
+        yield* eventually(() => expect(fake.inputs).toHaveLength(2));
+        yield* fake.finish;
+        yield* eventually(async () => expect(await status()).toBe('idle'));
+        yield* Effect.sleep('100 millis');
+        expect(fake.inputs.map((input) => input.text)).toEqual([
+          'hello there\nsecond line',
+          'follow-up',
+        ]);
+        expect(yield* Effect.promise(raws)).toHaveLength(6);
+      }),
+      fake,
+    );
+  });
+
+  it("a steer comes before the agent's answer to it", async () => {
+    const fake = makeFakeHarness({ hold: true, slowSteer: true });
+    await run(
+      Effect.gen(function* () {
+        const { engine, session, raws } = yield* started;
+        yield* eventually(async () => expect(await raws()).toHaveLength(2));
+        yield* engine.send(session.id, say('and more'));
+        yield* eventually(async () => expect(await raws()).toHaveLength(4));
+        expect((yield* Effect.promise(raws)).map(brief).slice(2)).toEqual([
+          'engine turn.started {"text":"and more","steered":true}',
+          'claude text {"text":"steer:and more"}',
+        ]);
       }),
       fake,
     );

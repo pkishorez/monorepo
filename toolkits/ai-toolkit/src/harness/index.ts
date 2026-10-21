@@ -9,6 +9,7 @@ export {
   HarnessBinaries,
   HarnessError,
   Harnesses,
+  isRecord,
   Titler,
   type AskAnswer,
   type AskInput,
@@ -25,5 +26,9 @@ export {
   type RawOut,
   type Setting,
   type Skill,
+  type TurnEnd,
   type TurnInput,
+  type TurnOut,
+  type TurnSteered,
+  type TurnStream,
 } from './harness.js';

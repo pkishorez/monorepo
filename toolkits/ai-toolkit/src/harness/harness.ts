@@ -9,7 +9,7 @@ import type {
   McpServerStatus,
   Skill,
 } from '../harness-wire/index.js';
-import type { Projected } from '../projection/index.js';
+import type { Projected, TurnEndStatus } from '../projection/index.js';
 import type { HarnessName, Json, Raw } from '../raw/index.js';
 
 export type {
@@ -66,31 +66,64 @@ export interface TurnInput {
   readonly settings?: Readonly<Record<string, string>>;
 }
 
+/** The agent took a steer: it joins the turn here, in the turn's order. */
+export interface TurnSteered {
+  readonly _tag: 'TurnSteered';
+  /** The id the steer was sent with. */
+  readonly id: string;
+}
+
+/** How the turn ended: always its stream's last element, when it has one. */
+export interface TurnEnd {
+  readonly _tag: 'TurnEnd';
+  readonly status: TurnEndStatus;
+  readonly error?: string;
+  /** This turn's Fork Point, as the harness's `fork` takes it. */
+  readonly forkPoint?: string;
+  /** The record just before already shows this end, so the engine's does not. */
+  readonly shown: boolean;
+}
+
+/**
+ * What a turn's stream carries, in order: the agent's records, each steer
+ * where the agent took it, and its end (ADR 0013).
+ */
+export type TurnOut = RawOut | TurnSteered | TurnEnd;
+
+/** A turn's stream: whatever ends it, a stream that fails failed. */
+export type TurnStream = Stream.Stream<TurnOut, HarnessError>;
+
+/** A record of the agent's, not a fact about the turn. */
+export const isRecord = (out: TurnOut): out is RawOut => !('_tag' in out);
+
 /** A live agent session in one folder. Closing its Scope stops the agent. */
 export interface HarnessSession {
   /** The harness's own session id, once it has one. */
   readonly nativeId: Effect.Effect<string | undefined>;
-  /** Runs one turn: every whole record until the agent is idle again. */
-  readonly turn: (input: TurnInput) => Stream.Stream<RawOut, HarnessError>;
   /**
-   * A user message for the turn last asked for with `turn`, else for the
-   * agent's own running turn: it waits until that turn has started, then
-   * joins it. It fails once that turn has ended; the engine then runs the
-   * message as the next turn.
+   * Runs one turn: every whole record until the agent is idle again, then
+   * its `TurnEnd`. A stream that ends without one was cancelled.
    */
-  readonly steer: (input: TurnInput) => Effect.Effect<void, HarnessError>;
+  readonly turn: (input: TurnInput) => TurnStream;
+  /**
+   * A user message, by the engine's `id`, for the turn last asked for with
+   * `turn`, else for the agent's own running turn: it waits until that turn
+   * has started, then the agent takes it and the turn's stream says so with
+   * a `TurnSteered`, before anything the agent does with it and before the
+   * stream can end. A steer whose `TurnSteered` never came was not taken,
+   * whether or not this fails; the engine runs it as the next turn.
+   */
+  readonly steer: (
+    id: string,
+    input: TurnInput,
+  ) => Effect.Effect<void, HarnessError>;
   /** Stops the running turn; its stream ends. */
   readonly cancel: Effect.Effect<void>;
-  /**
-   * The Native Id of the last finished Turn's Fork Point, read when a Turn
-   * ends; undefined before any Turn finished.
-   */
-  readonly lastTurnNativeId: Effect.Effect<string | undefined>;
   /**
    * Agent-started Turns, each a stream like `turn`'s. The harness emits one
    * only while no user Turn runs.
    */
-  readonly agentTurns: Stream.Stream<Stream.Stream<RawOut, HarnessError>>;
+  readonly agentTurns: Stream.Stream<TurnStream>;
   /** The agent's Background Jobs, the current list first, then each change. */
   readonly backgroundJobs: Stream.Stream<ReadonlyArray<BackgroundJob>>;
   readonly stopBackgroundJob: (id: string) => Effect.Effect<void, HarnessError>;

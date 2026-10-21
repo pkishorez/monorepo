@@ -59,7 +59,7 @@ export const claude: Harness = {
       const harnessSession: HarnessSession = {
         ...session,
         turn: (input) => session.turn(toSdkTurn(input)),
-        steer: (input) => session.steer(toSdkTurn(input)),
+        steer: (id, input) => session.steer(id, toSdkTurn(input)),
       };
       return harnessSession;
     }),

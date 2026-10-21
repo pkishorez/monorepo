@@ -115,7 +115,10 @@ const usageOf = (payload: Obj): Usage | undefined => {
   };
 };
 
-const turnEnded = (payload: Obj): Part => {
+/** How a `result` record ends its turn, and why, when it failed. */
+export const resultEnd = (
+  payload: Readonly<Record<string, unknown>>,
+): { readonly status: TurnEndStatus; readonly error?: string } => {
   const reason = str(payload['terminal_reason']);
   const failed =
     payload['subtype'] !== 'success' || payload['is_error'] === true;
@@ -134,12 +137,15 @@ const turnEnded = (payload: Obj): Part => {
       : errors.length > 0
         ? errors.join('\n')
         : (str(payload['result']) ?? str(payload['subtype']));
+  return error === undefined ? { status } : { status, error };
+};
+
+const turnEnded = (payload: Obj): Part => {
   const usage = usageOf(payload);
   return {
     type: 'turnEnded',
-    status,
+    ...resultEnd(payload),
     ...(usage === undefined ? {} : { usage }),
-    ...(error === undefined ? {} : { error }),
   };
 };
 

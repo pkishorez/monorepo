@@ -13,8 +13,10 @@ import {
   type BackgroundJob,
   type HarnessSession,
   type McpServerStatus,
-  type RawOut,
+  type TurnEnd,
   type TurnInput,
+  type TurnOut,
+  type TurnStream,
 } from '../../../harness/index.js';
 import {
   isNotification,
@@ -27,7 +29,6 @@ import {
   type ThreadTokenUsage,
 } from '../app-server/index.js';
 import { listSkills } from '../catalog/index.js';
-import { finishedTurnId } from './fork-point.js';
 import { mayNameSkill, toUserInput } from './input.js';
 import { makeSubAgents, terminalJobs, touchesTerminals } from './jobs.js';
 import { makeLineage, type Lineage } from './lineage.js';
@@ -35,6 +36,7 @@ import { toRawOut } from './records.js';
 import { sandboxPolicy, threadOptions } from './settings.js';
 import { toContextUsage, toMcpStatus } from './status.js';
 import { makeStreams, type Streams } from './streams.js';
+import { turnEndOf } from './turn-end.js';
 
 export interface SessionConfig {
   readonly cwd: string;
@@ -65,10 +67,12 @@ const TERMINALS_POLL = Duration.seconds(3);
 const GONE = new Set(['notLoaded', 'systemError']);
 
 /**
- * One running turn. It ends once the main thread's turn completes and no
- * sub-agent thread is still working, so a sub-agent left running when the
- * main agent stops still lands in this turn. A cancel ends it as soon as
- * the main thread confirms, without waiting for sub-agents.
+ * One running turn. It ends once the main thread's turn completes, no
+ * sub-agent thread is still working and no steer is still being sent, so a
+ * sub-agent left running when the main agent stops still lands in this
+ * turn. A cancel ends it as soon as the main thread confirms, without
+ * waiting for sub-agents. Its stream ends with how the main thread's turn
+ * ended, or cancelled when Codex never said.
  */
 interface Running {
   readonly turnId: Deferred.Deferred<string, HarnessError>;
@@ -80,36 +84,57 @@ interface Running {
   /** The main thread's turn id, once `turn/start` answers. */
   knownTurnId: string | undefined;
   mainDone: boolean;
+  /** How the main thread's turn ended, from its `turn/completed`. */
+  end: TurnEnd | undefined;
   cancelled: boolean;
-  /** Ends the stream. */
+  /** Steers sent and not yet answered. */
+  steering: number;
+  /** Adds to the turn's stream while it is open. */
+  readonly emit: (out: TurnOut) => void;
+  /** Ends the stream, with how the turn ended. */
   readonly finish: () => void;
 }
 
 const makeRunning = (
-  queue: Queue.Queue<RawOut, HarnessError | Cause.Done>,
+  queue: Queue.Queue<TurnOut, HarnessError | Cause.Done>,
   streams: Streams,
 ): Running => {
   const ended = Deferred.makeUnsafe<void>();
-  return {
+  const running: Running = {
     turnId: Deferred.makeUnsafe(),
     ended,
     busy: new Map(),
     started: new Set(),
     knownTurnId: undefined,
     mainDone: false,
+    end: undefined,
     cancelled: false,
+    steering: 0,
+    emit: (out) => {
+      Queue.offerUnsafe(queue, out);
+    },
     finish: () => {
+      if (Deferred.isDoneUnsafe(ended)) return;
       // Streamed text is all the client sees of it: send what still waits.
       streams.flushAll();
+      Queue.offerUnsafe(
+        queue,
+        running.end ?? { _tag: 'TurnEnd', status: 'cancelled', shown: false },
+      );
       Deferred.doneUnsafe(ended, Effect.void);
       Queue.endUnsafe(queue);
     },
   };
+  return running;
 };
 
 /** Ends the turn once nothing it waits for is still working. */
 const settle = (running: Running) => {
-  if (running.mainDone && (running.cancelled || running.busy.size === 0))
+  if (
+    running.mainDone &&
+    running.steering === 0 &&
+    (running.cancelled || running.busy.size === 0)
+  )
     running.finish();
 };
 
@@ -245,7 +270,6 @@ export const openSession = (
     let model = config.model;
     let effort = config.effort;
     let sandbox = config.sandbox;
-    let lastTurnId: string | undefined;
     let tokenUsage: ThreadTokenUsage | undefined;
     let skills: ReadonlyArray<SkillMetadata> | undefined;
     let terminals: ReadonlyArray<BackgroundTerminal> = [];
@@ -268,7 +292,6 @@ export const openSession = (
           Queue.offerUnsafe(jobChanges, 'terminals');
         if (isNotification(notification, 'thread/tokenUsage/updated'))
           tokenUsage = notification.params.tokenUsage;
-        lastTurnId = finishedTurnId(notification, threadId) ?? lastTurnId;
       },
       exit: () => {},
     });
@@ -355,11 +378,11 @@ export const openSession = (
         .request('turn/interrupt', { threadId: thread, turnId })
         .pipe(Effect.timeoutOption(INTERRUPT_WAIT), Effect.ignore);
 
-    const turn = (input: TurnInput): Stream.Stream<RawOut, HarnessError> => {
+    const turn = (input: TurnInput): TurnStream => {
       // Asked for now, so a steer sent before the turn runs waits for it.
       const claimed = Deferred.makeUnsafe<Running, HarnessError>();
       asked = claimed;
-      return Stream.callback<RawOut, HarnessError>((queue) =>
+      return Stream.callback<TurnOut, HarnessError>((queue) =>
         Effect.gen(function* () {
           if (running !== undefined)
             return yield* new HarnessError({
@@ -387,11 +410,14 @@ export const openSession = (
                 agentId,
               );
               if (out !== undefined) Queue.offerUnsafe(queue, out);
-              if (
-                agentId === undefined &&
-                isNotification(notification, 'turn/completed')
-              )
+              const end =
+                agentId === undefined
+                  ? turnEndOf(notification, threadId)
+                  : undefined;
+              if (end !== undefined) {
+                current.end = end;
                 current.mainDone = true;
+              }
               settle(current);
             },
             exit: (error) => {
@@ -434,8 +460,12 @@ export const openSession = (
       );
     };
 
-    /** Joins the turn last asked for once Codex has started it. */
-    const steer = (input: TurnInput) =>
+    /**
+     * Joins the turn last asked for once Codex has started it. The turn
+     * stays open until Codex answers, and its stream marks the steer where
+     * Codex accepted it.
+     */
+    const steer = (id: string, input: TurnInput) =>
       Effect.gen(function* () {
         const gone = new HarnessError({
           message: 'No Codex turn is running to steer',
@@ -444,11 +474,25 @@ export const openSession = (
         const current = yield* Deferred.await(asked);
         const expectedTurnId = yield* Deferred.await(current.turnId);
         if (running !== current || current.mainDone) return yield* gone;
-        yield* server.request('turn/steer', {
-          threadId,
-          expectedTurnId,
-          input: yield* userInput(input),
-        });
+        current.steering++;
+        yield* userInput(input).pipe(
+          Effect.flatMap((items) =>
+            server.request('turn/steer', {
+              threadId,
+              expectedTurnId,
+              input: items,
+            }),
+          ),
+          Effect.tap(() =>
+            Effect.sync(() => current.emit({ _tag: 'TurnSteered', id })),
+          ),
+          Effect.ensuring(
+            Effect.sync(() => {
+              current.steering--;
+              settle(current);
+            }),
+          ),
+        );
       });
 
     const cancel = Effect.gen(function* () {
@@ -514,7 +558,6 @@ export const openSession = (
       turn,
       steer,
       cancel,
-      lastTurnNativeId: Effect.sync(() => lastTurnId),
       agentTurns: Stream.never,
       backgroundJobs: SubscriptionRef.changes(jobs),
       stopBackgroundJob,

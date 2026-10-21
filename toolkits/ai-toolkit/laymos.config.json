@@ -8,6 +8,7 @@
     "src/harness-wire": ["src/raw"],
     "src/harness": ["src/harness-wire", "src/raw", "src/projection"],
     "src/harnesses": ["src/harness", "src/raw", "src/projection"],
+    "src/harnesses/claude/sdk-session": ["src/harnesses/claude/project"],
     "src/harnesses/codex/catalog": ["src/harnesses/codex/app-server"],
     "src/harnesses/codex/thread": [
       "src/harnesses/codex/app-server",
