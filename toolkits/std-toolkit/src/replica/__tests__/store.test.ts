@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import { Effect, Layer } from 'effect';
 import { describe, expect, it } from 'vitest';
-import { Store } from '../index.js';
+import { ReplicaError, Store } from '../index.js';
 import { Store as Idb } from '../store/idb/index.js';
 import { Store as Memory } from '../store/memory/index.js';
 import {
@@ -21,6 +21,82 @@ const list = (store: Layer.Layer<Store>) =>
   Effect.flatMap(Store, (kept) => kept.list).pipe(Effect.provide(store));
 
 describe('Store', () => {
+  it('fails a Query when its Instance cannot read the Store', () =>
+    run(
+      Effect.gen(function* () {
+        const store = Layer.effect(
+          Store,
+          Effect.map(Store, (kept) => ({
+            ...kept,
+            open: (name: string) =>
+              Effect.map(kept.open(name), (space) => ({
+                ...space,
+                read: () =>
+                  Effect.fail(
+                    new ReplicaError({ message: 'Cannot read this Store' }),
+                  ),
+              })),
+          })),
+        ).pipe(Layer.provide(Memory.memory()));
+        const app = yield* start(makeWorld(), store);
+        yield* eventually(() =>
+          expect(read(app).mine()).toMatchObject({
+            status: 'failed',
+            problem: 'Cannot read this Store',
+            rows: [],
+          }),
+        );
+      }),
+    ));
+
+  it.each(['memory', 'idb'])(
+    'hears a write between its first read and opening its Collections (%s)',
+    (adapter) =>
+      run(
+        Effect.gen(function* () {
+          const world = makeWorld({ gate: false });
+          const entity = world.backend.put(Wallet, {
+            id: 'w1',
+            account: 'a',
+            name: 'Cash',
+            balance: 100,
+          });
+          let wrote = false;
+          const store = Layer.effect(
+            Store,
+            Effect.map(Store, (kept) => ({
+              ...kept,
+              open: (name: string) =>
+                Effect.map(kept.open(name), (space) => ({
+                  ...space,
+                  read: (collection: string, after: string | null) =>
+                    Effect.gen(function* () {
+                      const snapshot = yield* space.read(collection, after);
+                      if (
+                        name === 'pocket·a' &&
+                        collection === 'wallets' &&
+                        !wrote
+                      ) {
+                        wrote = true;
+                        yield* space.write([
+                          { collection, records: [{ id: 'w1', entity }] },
+                        ]);
+                      }
+                      return snapshot;
+                    }),
+                })),
+            })),
+          ).pipe(
+            Layer.provide(adapter === 'memory' ? Memory.memory() : Idb.idb()),
+          );
+          const app = yield* start(world, store);
+          yield* eventually(() =>
+            expect(balances(read(app).mine())).toEqual({ w1: 100 }),
+          );
+        }),
+      ),
+  );
+
   it('stops an Instance it removes before deleting it', () =>
     run(
       Effect.gen(function* () {

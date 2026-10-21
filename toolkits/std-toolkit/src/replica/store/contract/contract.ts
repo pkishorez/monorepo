@@ -42,7 +42,8 @@ export type Leader = <A, E, R>(
 /** Tells other participants a topic changed. It carries nothing: they read the Store again. */
 export interface Doorbell {
   readonly ring: (topic: string) => Effect.Effect<void>;
-  readonly listen: (topic: string) => Stream.Stream<void>;
+  /** `initial` rings once after subscribing, so a read before subscribing cannot miss a write. */
+  readonly listen: (topic: string, initial?: boolean) => Stream.Stream<void>;
 }
 
 /** Where an adapter keeps spaces, and how participants share them. */
@@ -164,7 +165,7 @@ export const makeStore = (
             Effect.mapError(failed(`write ${name}`)),
             Effect.flatMap((wrote) => (wrote ? changed : Effect.void)),
           ),
-        changes: adapter.doorbell.listen(name),
+        changes: adapter.doorbell.listen(name, true),
         lead: (effect) => adapter.leader(name, effect),
         removed: Effect.raceFirst(
           Deferred.await(opener.removed),

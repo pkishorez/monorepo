@@ -66,9 +66,10 @@ export class Hosting extends Context.Service<
   Hosting,
   {
     readonly up: (opened: Opened) => Effect.Effect<void>;
+    readonly failed: (name: string, error: ReplicaError) => Effect.Effect<void>;
     readonly down: (name: string) => Effect.Effect<void>;
     /** The open Instance of this name, once it is up. */
-    readonly opened: (name: string) => Effect.Effect<Opened>;
+    readonly opened: (name: string) => Effect.Effect<Opened, ReplicaError>;
     readonly report: (name: string, status: Status) => Effect.Effect<void>;
     readonly removed: (name: string) => Effect.Effect<void>;
   }
@@ -131,7 +132,9 @@ const build = <
   const keyOfModel = ({ model }: { readonly model: Model }) =>
     definition.keyOf(model.key);
   const opened = (data: { readonly model: Model }) =>
-    Effect.flatMap(Hosting, (hosting) => hosting.opened(nameOfModel(data)));
+    Effect.flatMap(Hosting, (hosting) =>
+      hosting.opened(nameOfModel(data)),
+    ).pipe(Effect.orDie);
   // The Gate and the Strategies need what the app gives them, `R`, which
   // the actor's type carries up to the app's Layer. Kabuki checks an actor's
   // own work against the Capabilities it lists, and `R` is only a type, so
@@ -227,10 +230,19 @@ const build = <
               );
             }).pipe(
               Effect.catch((error) =>
-                Effect.logError(
-                  '[@kestack/std-toolkit/replica] an Instance could not open',
-                  error,
-                ),
+                Effect.gen(function* () {
+                  const hosting = yield* Hosting;
+                  const name = nameOfModel(yield* self.get);
+                  yield* Effect.acquireRelease(
+                    hosting.failed(name, error),
+                    () => hosting.down(name),
+                  );
+                  yield* Effect.logError(
+                    '[@kestack/std-toolkit/replica] an Instance could not open',
+                    error,
+                  );
+                  yield* Effect.never;
+                }),
               ),
             ),
         },
@@ -238,11 +250,13 @@ const build = <
         lead: {
           run: (self) =>
             Effect.gen(function* () {
-              const { space } = yield* opened(yield* self.get);
+              const { space } = yield* (yield* Hosting).opened(
+                nameOfModel(yield* self.get),
+              );
               yield* space.lead(
                 Effect.andThen(self.send({ _tag: 'Led' }), Effect.never),
               );
-            }),
+            }).pipe(Effect.ignore),
         },
         // 3. Gate
         ...(gate && {

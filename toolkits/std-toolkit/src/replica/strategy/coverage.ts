@@ -14,7 +14,7 @@ export const cover = (slices: ReadonlyArray<Slice>, added: Slice): Slice[] => {
   for (const slice of ordered) {
     const previous = merged.at(-1);
     if (previous && u(slice.low) <= u(previous.high)) {
-      if (u(slice.high) > u(previous.high))
+      if (u(slice.high) >= u(previous.high))
         merged[merged.length - 1] = { low: previous.low, high: slice.high };
     } else {
       merged.push(slice);

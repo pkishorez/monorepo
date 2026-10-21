@@ -83,13 +83,13 @@ const layer = (options: LayerOptions): Layer.Layer<Replicas | Hosting | Link> =>
       const shown = yield* SubscriptionRef.make<ReadonlyArray<Running>>([]);
       const asked = yield* Queue.unbounded<Request>();
       const replicas = yield* Deferred.make<ReadonlySet<string>>();
-      const up = new Map<string, Deferred.Deferred<Opened>>();
+      const up = new Map<string, Deferred.Deferred<Opened, ReplicaError>>();
       const ask = (request: Request) =>
         Effect.asVoid(Queue.offer(asked, request));
       const waiting = (name: string) => {
         let found = up.get(name);
         if (found === undefined) {
-          found = Deferred.makeUnsafe<Opened>();
+          found = Deferred.makeUnsafe<Opened, ReplicaError>();
           up.set(name, found);
         }
         return found;
@@ -132,6 +132,8 @@ const layer = (options: LayerOptions): Layer.Layer<Replicas | Hosting | Link> =>
         Context.add(Hosting, {
           up: (opened) =>
             Effect.asVoid(Deferred.succeed(waiting(opened.live.name), opened)),
+          failed: (name, error) =>
+            Effect.asVoid(Deferred.fail(waiting(name), error)),
           down: (name) => Effect.sync(() => up.delete(name)),
           opened: (name) => Effect.suspend(() => Deferred.await(waiting(name))),
           report: (name, status) =>

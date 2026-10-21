@@ -39,13 +39,14 @@ const inProcessDoorbell = (): Doorbell => {
         for (const queue of listeners.get(topic) ?? [])
           Queue.offerUnsafe(queue, undefined);
       }),
-    listen: (topic) =>
+    listen: (topic, initial = false) =>
       Stream.callback<void>(
         (queue) =>
           Effect.acquireRelease(
             Effect.sync(() => {
               const here = listeners.get(topic) ?? new Set();
               listeners.set(topic, here.add(queue));
+              if (initial) Queue.offerUnsafe(queue, undefined);
             }),
             () => Effect.sync(() => listeners.get(topic)?.delete(queue)),
           ),

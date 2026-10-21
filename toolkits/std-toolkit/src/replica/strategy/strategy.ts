@@ -5,6 +5,7 @@ import {
   newestOf,
   oldestOf,
   readForward,
+  samePosition,
   type ForwardOptions,
   type Wire,
 } from './forward.js';
@@ -54,7 +55,7 @@ const oldToNew = <K, R = never>(
     return readForward(options, key, () => saved).pipe(
       Stream.map((batch) => {
         const newest = newestOf(batch);
-        if (saved === null || newest.meta._u > saved.meta._u) saved = newest;
+        if (saved === null || newest.meta._u >= saved.meta._u) saved = newest;
         return { entities: batch, state: { cursor: saved } };
       }),
     );
@@ -108,19 +109,18 @@ const newToOld = <K, R = never>(
 
         // The newest page first, on every open. Above the saved top it is a
         // slice of its own; walking back closes the hole between them.
-        if (!(state.slices.length === 0 && state.reachedOldest)) {
-          const page = yield* options.fetchOlder({ key, before: null });
-          if (page.length > 0)
-            yield* commit(page, (s) => ({
-              ...s,
-              slices: cover(s.slices, {
-                low: oldestOf(page),
-                high: newestOf(page),
-              }),
-            }));
-          else if (state.slices.length === 0)
-            yield* commit([], (s) => ({ ...s, reachedOldest: true }));
-        }
+        const page = yield* options.fetchOlder({ key, before: null });
+        if (page.length > 0)
+          yield* commit(page, (s) => ({
+            ...s,
+            reachedOldest: s.reachedOldest && s.slices.length > 0,
+            slices: cover(s.slices, {
+              low: page.at(-1)!,
+              high: page[0]!,
+            }),
+          }));
+        else if (state.slices.length === 0)
+          yield* commit([], (s) => ({ ...s, reachedOldest: true }));
 
         // Walks down from the top slice until it meets the one below, then
         // from the bottom until the Backend has nothing older.
@@ -133,25 +133,46 @@ const newToOld = <K, R = never>(
             if (lower === undefined && reachedOldest) return;
             const page = yield* options.fetchOlder({ key, before: upper.low });
             if (page.length === 0) {
-              yield* commit([], (s) =>
-                lower === undefined
+              yield* commit([], (s) => {
+                const upper = s.slices.at(-1)!;
+                const lower = s.slices.at(-2);
+                return lower === undefined
                   ? { ...s, reachedOldest: true }
                   : {
                       ...s,
-                      slices: cover(s.slices, {
-                        low: lower.high,
-                        high: upper.low,
-                      }),
-                    },
-              );
+                      slices: [
+                        ...s.slices.slice(0, -2),
+                        { low: lower.low, high: upper.high },
+                      ],
+                    };
+              });
               continue;
             }
-            const floor = oldestOf(page);
-            if (floor.meta._u >= upper.low.meta._u) return;
-            yield* commit(page, (s) => ({
-              ...s,
-              slices: cover(s.slices, { low: floor, high: upper.low }),
-            }));
+            const floor = page.at(-1)!;
+            if (
+              floor.meta._u > upper.low.meta._u ||
+              samePosition(floor, upper.low)
+            )
+              return;
+            yield* commit(page, (s) => {
+              const upper = s.slices.at(-1)!;
+              const lower = s.slices.at(-2);
+              return {
+                ...s,
+                slices:
+                  lower !== undefined &&
+                  (floor.meta._u < lower.high.meta._u ||
+                    page.some((entity) => samePosition(entity, lower.high)))
+                    ? [
+                        ...s.slices.slice(0, -2),
+                        { low: lower.low, high: upper.high },
+                      ]
+                    : [
+                        ...s.slices.slice(0, -1),
+                        { low: floor, high: upper.high },
+                      ],
+              };
+            });
           }
         });
 
@@ -169,7 +190,7 @@ const newToOld = <K, R = never>(
                   ...s,
                   slices: [{ low: oldestOf(batch), high: newest }],
                 };
-              if (newest.meta._u <= upper.high.meta._u) return s;
+              if (newest.meta._u < upper.high.meta._u) return s;
               return {
                 ...s,
                 slices: cover(s.slices, { low: upper.high, high: newest }),

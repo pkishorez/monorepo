@@ -33,7 +33,7 @@ export const broadcastChannelDoorbell = (
       channel.postMessage(topic);
       channel.close();
     }),
-  listen: (topic) =>
+  listen: (topic, initial = false) =>
     Stream.callback<void>(
       (queue) =>
         Effect.acquireRelease(
@@ -43,6 +43,7 @@ export const broadcastChannelDoorbell = (
               if (event.data === topic) Queue.offerUnsafe(queue, undefined);
             };
             channel.addEventListener('message', listener);
+            if (initial) Queue.offerUnsafe(queue, undefined);
             return { channel, listener };
           }),
           ({ channel, listener }) =>

@@ -4,6 +4,11 @@ import type { Entity } from '../../core/index.js';
 /** An Entity as the Backend sends it: its value in encoded form. */
 export type Wire = Entity<unknown>;
 
+/** Tied update versions still name different positions in a paged response. */
+export const samePosition = (left: Wire, right: Wire) =>
+  left.meta._u === right.meta._u &&
+  JSON.stringify(left) === JSON.stringify(right);
+
 export type Fetch<K, R> = (input: {
   readonly key: K;
   readonly after: Wire | null;
@@ -37,7 +42,7 @@ const isBatch = (batch: ReadonlyArray<Wire>): batch is Batch =>
 
 export const newestOf = (batch: ReadonlyArray<Wire>): Wire =>
   batch.reduce((newest, entity) =>
-    entity.meta._u > newest.meta._u ? entity : newest,
+    entity.meta._u >= newest.meta._u ? entity : newest,
   );
 
 export const oldestOf = (batch: ReadonlyArray<Wire>): Wire =>
@@ -62,7 +67,7 @@ export const readForward = <K, R>(
   let reading: Wire | null = null;
   const advance = (batch: Batch) => {
     const newest = newestOf(batch);
-    if (reading === null || newest.meta._u > reading.meta._u) reading = newest;
+    if (reading === null || newest.meta._u >= reading.meta._u) reading = newest;
     return batch;
   };
 
@@ -74,7 +79,9 @@ export const readForward = <K, R>(
           const next = newestOf(page);
           // A Backend whose cursor is inclusive returns the last page forever,
           // so stop as soon as the cursor stops moving.
-          const stuck = cursor !== null && next.meta._u <= cursor.meta._u;
+          const stuck =
+            cursor !== null &&
+            (next.meta._u < cursor.meta._u || samePosition(next, cursor));
           return [[page], stuck ? Option.none() : Option.some(next)] as const;
         }),
       ),
