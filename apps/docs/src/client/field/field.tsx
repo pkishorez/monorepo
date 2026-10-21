@@ -12,12 +12,13 @@ import { comet } from './follower.ts';
 import { loop } from './loop.ts';
 import { watchMotion } from './motion.ts';
 import { painter } from './painter.ts';
-import { WIDE, place } from './placement.ts';
+import { WIDE, place, room } from './placement.ts';
 import type { Spot } from './placement.ts';
 import { trackPointer } from './pointer.ts';
 import { progress } from './scroll.ts';
 import { smoothScroll } from './smooth.ts';
 import { DISTANCE, scene } from './stage.ts';
+import { formedOf, labelLayer } from './labels.ts';
 import type { Baked } from './shapes/index.ts';
 import { watchTheme } from './theme.ts';
 
@@ -144,8 +145,10 @@ function run(canvas: HTMLCanvasElement, journey: () => boolean): () => void {
   let cssWidth = 0;
   let cssHeight = 0;
   let alive = true;
+  const words = labelLayer(canvas.parentElement ?? canvas, log.on);
   const remeasure = () => {
     if (!alive) return;
+    words.remeasure();
     const w = canvas.clientWidth;
     const h = canvas.clientHeight;
     // A phone's toolbar sliding away changes only the height: ignore it.
@@ -181,6 +184,7 @@ function run(canvas: HTMLCanvasElement, journey: () => boolean): () => void {
     paint = painter(gl, { ...plan, layers });
   } catch (e) {
     log.error('the field could not start; it is off.', e);
+    words.dispose();
     resizes.disconnect();
     window.removeEventListener('resize', remeasure);
     return () => {};
@@ -278,7 +282,7 @@ function run(canvas: HTMLCanvasElement, journey: () => boolean): () => void {
       canvas.height = height;
     }
 
-    const { a, b, blend } = scene({
+    const { a, b, blend, shapes, held } = scene({
       chapters,
       spots,
       t: at,
@@ -305,6 +309,22 @@ function run(canvas: HTMLCanvasElement, journey: () => boolean): () => void {
       comet: tail.head,
       ribbon: tail.ribbon,
       ribbonCount: tail.ribbonCount,
+    });
+    // The words, pinned to the shapes by the same transform.
+    const [leaving, reaching] = formedOf(blend);
+    words.draw({
+      shapes: held
+        ? [{ name: shapes[0], pose: a, formed: intro }]
+        : [
+            { name: shapes[0], pose: a, formed: leaving * intro },
+            { name: shapes[1], pose: b, formed: reaching * intro },
+          ],
+      clock: { time, motion: still },
+      width: cssWidth,
+      height: cssHeight,
+      aspect,
+      distance: DISTANCE,
+      room: cssWidth < WIDE ? room(cssHeight) : undefined,
     });
     if (!shown) {
       shown = true;
@@ -352,6 +372,7 @@ function run(canvas: HTMLCanvasElement, journey: () => boolean): () => void {
     theme.dispose();
     motion.dispose();
     paint.dispose();
+    words.dispose();
     gl.getExtension('WEBGL_lose_context')?.loseContext();
   };
 }

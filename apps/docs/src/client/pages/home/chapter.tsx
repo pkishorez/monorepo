@@ -5,9 +5,7 @@ import type { Chapter as Story } from './chapters.ts';
 
 /*
  * One chapter of the story, a Stop on the field: its number and act, the
- * package's name and pitch, what it does, and whether it is out yet. On a
- * phone the small parts are only named, so their card stays clear of the
- * shape.
+ * package's name and pitch, what it does, and whether it is out yet.
  */
 
 function Status({ status }: { readonly status: Story['status'] }) {
@@ -54,34 +52,13 @@ export function Chapter({
       <p className="mt-3 text-pretty text-muted-foreground sm:mt-4 sm:text-lg">
         {chapter.pitch}
       </p>
-      {chapter.parts ? (
-        <dl className="mt-5 grid grid-cols-2 gap-x-4 text-sm sm:mt-6 sm:grid-cols-1">
-          {chapter.parts.map((part) => (
-            <div
-              key={part.name}
-              className="grid gap-x-4 border-t border-border py-2 sm:grid-cols-[8.5rem_1fr] sm:py-2.5"
-            >
-              <dt className="font-mono text-[13px] text-foreground">
-                {part.name}
-              </dt>
-              <dd className="text-muted-foreground max-sm:sr-only">
-                {part.line}
-              </dd>
-            </div>
-          ))}
-        </dl>
-      ) : (
-        <ul className="mt-5 text-sm text-muted-foreground sm:mt-6">
-          {chapter.specifics.map((specific) => (
-            <li
-              key={specific}
-              className="border-t border-border py-2 sm:py-2.5"
-            >
-              {specific}
-            </li>
-          ))}
-        </ul>
-      )}
+      <ul className="mt-5 text-sm text-muted-foreground sm:mt-6">
+        {chapter.specifics.map((specific) => (
+          <li key={specific} className="border-t border-border py-2 sm:py-2.5">
+            {specific}
+          </li>
+        ))}
+      </ul>
       <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-3">
         <Status status={chapter.status} />
         {chapter.status === 'alpha' && (

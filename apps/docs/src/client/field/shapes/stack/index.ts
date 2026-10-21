@@ -1,12 +1,5 @@
-export { ai } from './ai.ts';
-export { auth } from './auth.ts';
+export { auth, authLabels } from './auth.ts';
 export { hero } from './hero.ts';
-export { kabuki } from './kabuki.ts';
-export { laymos } from './laymos.ts';
-export { lotel } from './lotel.ts';
-export { monoverse } from './monoverse.ts';
+export { kabuki, kabukiLabels } from './kabuki.ts';
 export { outro } from './outro.ts';
-export { parts } from './parts.ts';
-export { rpc } from './rpc.ts';
-export { std } from './std.ts';
-export { web } from './web.ts';
+export { std, stdLabels } from './std.ts';
