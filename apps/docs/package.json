@@ -17,6 +17,7 @@
     "@kestack/kabuki": "workspace:*",
     "@kestack/web-platform": "workspace:*",
     "effect": "catalog:",
+    "lenis": "catalog:",
     "lucide-react": "catalog:",
     "motion": "catalog:",
     "react": "catalog:",
