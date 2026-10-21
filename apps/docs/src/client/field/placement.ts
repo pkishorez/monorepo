@@ -15,20 +15,26 @@ export type Spot = {
 
 export const WIDE = 1024;
 
+/**
+ * On a narrow screen, the room a shape has, in CSS pixels from the top:
+ * between the header and the top of the words, which take about the same
+ * height on any phone, so on a short one the shape gets less.
+ */
+export function room(height: number): { top: number; bottom: number } {
+  return {
+    top: 64,
+    bottom: Math.max(0.36 * height, Math.min(0.5 * height, height - 420)),
+  };
+}
+
 export function place(side: Side, width: number, height: number): Spot {
   const aspect = width / height;
   if (width < WIDE) {
-    // The space between the header and the top of the words, which take
-    // about the same height on any phone: on a short one the shape gets less.
-    const top = 64;
-    const bottom = Math.max(
-      0.36 * height,
-      Math.min(0.5 * height, height - 420),
-    );
+    const { top, bottom } = room(height);
     return {
       x: 0,
       y: 1 - (top + bottom) / height,
-      scale: Math.min(0.42, aspect * 0.66, ((bottom - top) / height) * 0.9),
+      scale: Math.min(0.42, aspect * 0.8, ((bottom - top) / height) * 0.9),
     };
   }
   if (side === 'center') {

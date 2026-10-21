@@ -83,7 +83,7 @@ void motion(inout vec3 p, inout float bright, vec4 aux, float seed) {
   float phase = fract(aux.x);
   float t = uTime;
   // The story clock; still, for a reader who asked for less motion, at a
-  // moment where every story is told.
+  // moment where every story is told. As loopOf in shapes/pen/clock.ts.
   float story = mix(0.7, fract(t / ${f(STORY)}), uMotion);
   if (kind == ${f(Kind.pulse)}) {
     float head = fract(t * aux.z + phase);
@@ -110,7 +110,8 @@ void motion(inout vec3 p, inout float bright, vec4 aux, float seed) {
   } else if (kind == ${f(Kind.twinkle)}) {
     bright *= mix(1.0, 0.55 + 0.45 * sin(t * aux.y + phase * 6.2832), uMotion);
   } else if (kind == ${f(Kind.cycle)}) {
-    float loop = fract(t / aux.w);
+    // As loopOf in shapes/pen/clock.ts.
+    float loop = mix(0.7, fract(t / aux.w), uMotion);
     if (phase < 0.25) {
       bright *= mix(0.38, 1.5, window(loop, aux.y, aux.z, 0.05));
     } else if (phase < 0.75) {

@@ -1,5 +1,5 @@
 import { Kind } from '../pen/index.ts';
-import type { Cloud, V3 } from '../pen/index.ts';
+import type { Cloud, Label, V3 } from '../pen/index.ts';
 import {
   TAU,
   circle,
@@ -133,3 +133,8 @@ export function auth(c: Cloud): void {
     c.add([Math.cos(a) * 0.95, Math.sin(a) * 0.95, 0], 0.6);
   }
 }
+
+export const authLabels: readonly Label[] = [
+  { text: 'guard', at: [0, BODY_Y - BODY_H / 2 - 0.1, 0] },
+  { text: 'sign-in service', at: [0, -0.98, 0] },
+];

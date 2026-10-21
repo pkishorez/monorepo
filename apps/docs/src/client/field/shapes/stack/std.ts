@@ -1,5 +1,5 @@
 import { Kind, moved } from '../pen/index.ts';
-import type { Cloud, V3 } from '../pen/index.ts';
+import type { Cloud, Label, V3 } from '../pen/index.ts';
 import { add3, lattice, segment, stroke, sub3, turnY } from '../pen/index.ts';
 
 /*
@@ -74,3 +74,10 @@ export function std(c: Cloud): void {
     c.add(from, 1.1, [Kind.flow, random(), ...sub3(to, from)]);
   }
 }
+
+export const stdLabels: readonly Label[] = [
+  { text: 'server table', at: at(-1, [0, H / 2 + 0.1, 0]) },
+  { text: 'client table', at: at(1, [0, H / 2 + 0.1, 0]) },
+  // Between the streams, where no row flows.
+  { text: 'sync', kind: 'message', at: [0, H / 2 - 4.5 * (H / ROWS), 0] },
+];

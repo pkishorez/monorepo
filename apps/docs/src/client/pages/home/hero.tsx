@@ -33,8 +33,10 @@ export function Hero() {
           .
         </h1>
         <p className="mt-6 max-w-lg text-lg text-pretty text-muted-foreground">
-          Toolkits, dev tools and a few small packages, all open source. Here is
-          how they fit together into one app.
+          All open source. Three of its packages make an app: kabuki draws it,{' '}
+          <span className="whitespace-nowrap">std-toolkit</span> keeps its data,{' '}
+          <span className="whitespace-nowrap">auth-toolkit</span> signs people
+          in.
         </p>
         <p
           aria-hidden
