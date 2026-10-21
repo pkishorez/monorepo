@@ -3,8 +3,8 @@ import type { EntityMeta } from '../../core/index.js';
 import type { AnyEntityESchema } from '../../eschema/index.js';
 
 /*
- * A Replica's Definition: its name, its Key and its Collections, as shapes
- * only. It runs nothing, so a Query, an Action and a Build can all import it.
+ * A Replica's Shape: its name, its Key and its Collections, and nothing
+ * more. It runs nothing, so a Query, an Action and a Build can all import it.
  * It also names each Instance: the Replica's name and the Key, never a place
  * in the tree, so the same Key finds the same stored data in every tab.
  */
@@ -23,7 +23,7 @@ export type Row<S extends AnyEntityESchema> = S['Type'] & {
   readonly _meta?: EntityMeta;
 };
 
-export interface Definition<
+export interface Shape<
   Name extends string = string,
   K = any,
   C extends CollectionSchemas = CollectionSchemas,
@@ -38,7 +38,7 @@ export interface Definition<
   readonly keyOf: (text: string) => K;
 }
 
-export type AnyDefinition = Definition<string, any, CollectionSchemas>;
+export type AnyShape = Shape<string, any, CollectionSchemas>;
 
 /** Between a Replica's name and its Key, in an Instance's name. */
 const SEPARATOR = '·';
@@ -55,35 +55,31 @@ export const partsOf = (name: string) => {
     : { replica: name.slice(0, at), key: name.slice(at + SEPARATOR.length) };
 };
 
-function define<const Name extends string, const C extends CollectionSchemas>(
+function make<const Name extends string, const C extends CollectionSchemas>(
   name: Name,
-  shape: { readonly key?: never; readonly collections: C },
-): Definition<Name, void, C>;
-function define<
-  const Name extends string,
-  K,
-  const C extends CollectionSchemas,
->(
+  parts: { readonly key?: never; readonly collections: C },
+): Shape<Name, void, C>;
+function make<const Name extends string, K, const C extends CollectionSchemas>(
   name: Name,
-  shape: { readonly key: KeySchema<K>; readonly collections: C },
-): Definition<Name, K, C>;
-function define(
+  parts: { readonly key: KeySchema<K>; readonly collections: C },
+): Shape<Name, K, C>;
+function make(
   name: string,
-  shape: {
+  parts: {
     readonly key?: KeySchema<unknown>;
     readonly collections: CollectionSchemas;
   },
-): AnyDefinition {
+): AnyShape {
   if (name === '' || name.includes(SEPARATOR))
     throw new Error(
       `[@kestack/std-toolkit/replica] a Replica's name must be text without "${SEPARATOR}": "${name}"`,
     );
-  const { key } = shape;
+  const { key } = parts;
   const keyText = key ? Schema.encodeSync(key) : () => '';
   const keyOf = key ? Schema.decodeSync(key) : () => undefined;
   return {
     name,
-    collections: shape.collections,
+    collections: parts.collections,
     keyText,
     keyOf,
     instanceName: (value) => nameOf(name, keyText(value)),
@@ -91,6 +87,6 @@ function define(
 }
 
 /** A Replica's shapes: its name, its Key, if it has one, and its Collections. */
-export const Definition = { define };
+export const Shape = { make };
 
 export { ReplicaError } from './error.js';

@@ -12,13 +12,13 @@ import {
   SubscriptionRef,
 } from 'effect';
 import type { Scope } from 'effect';
-import { nameOf, partsOf, ReplicaError } from '../definition/index.js';
+import { nameOf, partsOf, ReplicaError } from '../shape/index.js';
 import {
   Hosting,
   type Build,
   type Live,
   type Opened,
-} from '../instance/index.js';
+} from './instance/index.js';
 import type { Store } from '../store/contract/index.js';
 import {
   dropped,
@@ -161,7 +161,7 @@ type ReplicasActor<B extends Build> = ActorType<
 const child = <const B extends ReadonlyArray<Build>>(
   builds: B,
 ): { readonly actor: ReplicasActor<B[number]> } => {
-  const names = new Set(builds.map(({ definition }) => definition.name));
+  const names = new Set(builds.map(({ shape }) => shape.name));
   const actor = Actor.build(
     Actor.define('Replicas', {
       requires: [Link],
@@ -171,13 +171,13 @@ const child = <const B extends ReadonlyArray<Build>>(
     {
       init: () => ({ model: { linger: 0, keep: [], instances: [] } }),
       children: Object.fromEntries(
-        builds.map(({ definition, actor }) => [
-          definition.name,
+        builds.map(({ shape, actor }) => [
+          shape.name,
           {
             actor,
             each: ({ model }: { readonly model: Model }) =>
               model.instances
-                .filter((running) => running.replica === definition.name)
+                .filter((running) => running.replica === shape.name)
                 .map((running) => running.key),
             input: (_: unknown, key: string) => ({ key }),
           },

@@ -2,7 +2,7 @@ import { createTransaction, type Transaction } from '@tanstack/db';
 import { Command } from '@kestack/kabuki';
 import { Cause, Context, Effect, Exit, Schema } from 'effect';
 import type { Scope } from 'effect';
-import { ReplicaError } from '../definition/index.js';
+import { ReplicaError } from '../shape/index.js';
 import { Holding } from '../replicas/index.js';
 
 /*

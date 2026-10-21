@@ -70,7 +70,7 @@ const entriesOf = <Row>(
   return { added, updated, removed };
 };
 
-const define = <
+const make = <
   const Name extends string,
   P,
   I extends Instances,
@@ -217,4 +217,4 @@ const define = <
 };
 
 /** A reader of rows from Collections of any Instances, as an actor. */
-export const Query = { define };
+export const Query = { make };

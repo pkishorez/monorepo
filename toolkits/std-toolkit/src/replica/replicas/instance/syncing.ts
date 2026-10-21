@@ -1,5 +1,5 @@
 import { Duration, Effect, Option, Schedule, Schema, Stream } from 'effect';
-import type { Strategy } from '../strategy/index.js';
+import type { Strategy } from './strategy/index.js';
 import type { Message } from './model.js';
 import type { Opened } from './opened.js';
 

@@ -7,7 +7,7 @@ import {
   transferEntryIds,
   Wallet,
 } from '../../../apis/pocket/index.ts';
-import { Pocket } from '../definition/index.ts';
+import { Pocket } from '../shape/index.ts';
 
 /*
  * Pocket's writes, each an Action: the change shows at once in the

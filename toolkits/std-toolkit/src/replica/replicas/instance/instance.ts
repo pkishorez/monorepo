@@ -2,17 +2,17 @@ import type { Collection } from '@tanstack/db';
 import { Actor } from '@kestack/kabuki';
 import type { ActorType } from '@kestack/kabuki';
 import { Context, Effect, Stream } from 'effect';
-import type { Entity } from '../../core/index.js';
+import type { Entity } from '../../../core/index.js';
 import {
   nameOf,
-  type AnyDefinition,
+  type AnyShape,
   type CollectionSchemas,
-  type Definition,
+  type Shape,
   type ReplicaError,
   type Row,
-} from '../definition/index.js';
-import type { Strategy } from '../strategy/index.js';
-import { Store } from '../store/contract/index.js';
+} from '../../shape/index.js';
+import type { Strategy } from './strategy/index.js';
+import { Store } from '../../store/contract/index.js';
 import { Input, Message, Model, State, withoutOne } from './model.js';
 import { openInstance, type Live, type Opened } from './opened.js';
 import { runStrategy } from './syncing.js';
@@ -32,10 +32,10 @@ import { runStrategy } from './syncing.js';
  * 5. Report  its State and Gate, for the state Replicas shows.
  */
 
-type KeyOf<D> = D extends Definition<string, infer K, any> ? K : never;
+type KeyOf<D> = D extends Shape<string, infer K, any> ? K : never;
 
 /** A running Instance, as `Replica.get` gives it: its Key, its Collections, and Confirm. */
-export type Instance<D extends AnyDefinition> = {
+export type Instance<D extends AnyShape> = {
   readonly name: string;
   readonly key: KeyOf<D>;
   /** Puts the Entities the Backend returned, in encoded form, in the Store, in place of the Optimistic Changes they answer. */
@@ -85,9 +85,9 @@ export interface BuildOptions<K, C extends CollectionSchemas, R> {
   };
 }
 
-/** A Replica's Build: its Definition and the actor each of its Instances runs. */
-export interface Build<D extends AnyDefinition = AnyDefinition, R = any> {
-  readonly definition: D;
+/** A Replica's Build: its Shape and the actor each of its Instances runs. */
+export interface Build<D extends AnyShape = AnyShape, R = any> {
+  readonly shape: D;
   readonly actor: ActorType<
     D['name'],
     typeof Input.Type,
@@ -123,14 +123,14 @@ const build = <
   const Name extends string,
   const O extends BuildOptions<K, C, any>,
 >(
-  definition: Definition<Name, K, C>,
+  shape: Shape<Name, K, C>,
   options: O,
-): Build<Definition<Name, K, C>, NeedsOf<O>> => {
+): Build<Shape<Name, K, C>, NeedsOf<O>> => {
   type R = NeedsOf<O>;
   const nameOfModel = ({ model }: { readonly model: Model }) =>
-    nameOf(definition.name, model.key);
+    nameOf(shape.name, model.key);
   const keyOfModel = ({ model }: { readonly model: Model }) =>
-    definition.keyOf(model.key);
+    shape.keyOf(model.key);
   const opened = (data: { readonly model: Model }) =>
     Effect.flatMap(Hosting, (hosting) =>
       hosting.opened(nameOfModel(data)),
@@ -174,7 +174,7 @@ const build = <
   );
 
   const actor = Actor.build(
-    Actor.define(definition.name, {
+    Actor.define(shape.name, {
       requires: [Store, Hosting],
       input: Input,
       model: Model,
@@ -202,7 +202,7 @@ const build = <
               const hosting = yield* Hosting;
               const space = yield* (yield* Store).open(name);
               const instance = yield* openInstance(
-                definition,
+                shape,
                 keyOfModel(data),
                 space,
               );
@@ -328,10 +328,10 @@ const build = <
     },
   );
   return {
-    definition,
+    shape,
     // Written out: the type `Actor.build` infers names Kabuki's internals,
     // and what it needs gains `R`, which the Gate and the Strategies use.
-    actor: actor as Build<Definition<Name, K, C>, R>['actor'],
+    actor: actor as Build<Shape<Name, K, C>, R>['actor'],
   };
 };
 

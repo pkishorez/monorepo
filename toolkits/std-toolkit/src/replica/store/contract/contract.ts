@@ -1,10 +1,6 @@
 import { Context, Deferred, Effect, Layer, Stream } from 'effect';
 import type { Scope } from 'effect';
-import {
-  partsOf,
-  ReplicaError,
-  type Definition,
-} from '../../definition/index.js';
+import { partsOf, ReplicaError, type Shape } from '../../shape/index.js';
 import {
   cursorOf,
   readAfter,
@@ -95,7 +91,7 @@ export interface StoreShape {
   >;
   /** Stops every Instance of this Replica and Key, here and in other tabs, then deletes it. */
   readonly remove: <K>(
-    replica: Definition<string, K, any>,
+    replica: Shape<string, K, any>,
     ...key: KeyArgs<K>
   ) => Effect.Effect<void, ReplicaError>;
 }

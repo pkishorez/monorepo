@@ -1,10 +1,10 @@
 export {
-  Definition,
+  Shape,
   ReplicaError,
   nameOf,
   partsOf,
-  type AnyDefinition,
+  type AnyShape,
   type CollectionSchemas,
   type KeySchema,
   type Row,
-} from './definition.js';
+} from './shape.js';

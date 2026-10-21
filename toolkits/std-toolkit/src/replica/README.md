@@ -4,7 +4,7 @@ Kabuki-native sync: local copies of the Backend kept fresh on the device, where 
 
 ## Big picture
 
-A Replica is one domain's local copy of the Backend, written like a Kabuki actor in two steps: `Replica.define` says its Key and Collections, `Replica.build` its Gate and a Strategy per Collection. Each Key gets its own Instance, an actor that loads what the Store holds into plain `@tanstack/db` Collections, so it reads at once, and fetches only while it leads and its Gate is open. One `Replicas` actor near the root runs the Instances in use, lets each linger after its last holder leaves, and shows them all as `state`, so time travel and the Inspector see sync like any other Message.
+A Replica is one domain's local copy of the Backend, made in two steps, as the toolkit makes things: `Replica.make` says its Key and Collections, `Replica.build` its Gate and a Strategy per Collection. Each Key gets its own Instance, an actor that loads what the Store holds into plain `@tanstack/db` Collections, so it reads at once, and fetches only while it leads and its Gate is open. One `Replicas` actor near the root runs the Instances in use, lets each linger after its last holder leaves, and shows them all as `state`, so time travel and the Inspector see sync like any other Message.
 
 On the device the Store is the truth: `Store.idb()` keeps one IndexedDB database per Instance, shared by the browser's tabs through a Web Lock (the Leader) and a BroadcastChannel (the Doorbell); `Store.memory()` does the same in one process. Entities travel and are stored in encoded form and show in Collections at their latest version, with their meta under `_meta`. A Query reads rows from any Instances as an actor's Model, one Message per change; an Action makes Optimistic Changes, calls the Backend, and Confirms what came back, or rolls everything back.
 
@@ -20,12 +20,12 @@ See the [top README](../../README.md). This subpath needs the optional peers `@k
 
 | Export              | What it does                                                                                                                      |
 | ------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `Replica.define`    | Says what a Replica is: its name, its Key Schema if it has one, and its Collections as entity ESchemas; it gets `get`.            |
+| `Replica.make`      | Says what a Replica is: its name, its Key Schema if it has one, and its Collections as entity ESchemas; it gets `get`.            |
 | `Replica.build`     | Says how each Instance of a Replica syncs: its Gate, and a Strategy per Collection.                                               |
 | `Replicas`          | The Capability that shows every running Instance as `state`, and what `get` holds Instances through.                              |
 | `Replicas.layer`    | The Layer a page Provides, with how long an Instance lingers and which Replicas are kept.                                         |
 | `Replicas.child`    | The Child the same page places once, running the Builds it is given.                                                              |
-| `Query.define`      | Defines a Query: an actor whose Model is rows from Collections of the Instances its Props pick.                                   |
+| `Query.make`        | Makes a Query: an actor whose Model is rows from Collections of the Instances its Props pick.                                     |
 | `Action.make`       | Defines an Action as a Kabuki Command that ends with one Message tagged with its name.                                            |
 | `Action.optimistic` | Makes Optimistic Changes inside an Action, across Instances and Replicas, rolled back if the Action fails.                        |
 | `oldToNew`          | A Strategy that reads from the oldest change forward, by pulling, by subscription, or both.                                       |
@@ -52,7 +52,7 @@ See the [top README](../../README.md). This subpath needs the optional peers `@k
 A Pocket holds an account's wallets and entries. Its Build reads both from the Backend while the account is signed in; the root page Provides `Replicas` and places its runner once.
 
 ```ts
-const Pocket = Replica.define('pocket', {
+const Pocket = Replica.make('pocket', {
   key: Schema.String,
   collections: { wallets: Wallet, entries: Entry },
 });
@@ -96,7 +96,7 @@ const App = toReact(Root, RootView, Store.idb());
 A Query is an actor: place it as a Child, hand it Props, and draw its Model with `View.make` like any other.
 
 ```ts
-const Wallets = Query.define('Wallets', {
+const Wallets = Query.make('Wallets', {
   props: Schema.Struct({ account: Schema.String }),
   from: ({ props }) => Effect.all({ pocket: Pocket.get(props.account) }),
   query: (_, { pocket }) => (q) => q.from({ w: pocket.wallets }),

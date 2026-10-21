@@ -3,7 +3,7 @@ import type { Entity } from '@kestack/std-toolkit/core';
 import { oldToNew, Replica } from '@kestack/std-toolkit/replica';
 import { CurrentAccount } from '@kestack/web-platform/account-switcher';
 import { Entry, PocketRpc, Wallet } from '../../../apis/pocket/index.ts';
-import { Pocket } from '../definition/index.ts';
+import { Pocket } from '../shape/index.ts';
 
 /*
  * How each Pocket Instance syncs: wallets and entries each read from the

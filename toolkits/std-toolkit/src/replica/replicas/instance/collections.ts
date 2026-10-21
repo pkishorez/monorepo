@@ -4,13 +4,13 @@ import {
   type SyncConfig,
 } from '@tanstack/db';
 import { Effect, Result, Schema } from 'effect';
-import type { EntityMeta } from '../../core/index.js';
+import type { EntityMeta } from '../../../core/index.js';
 import {
   findOutdatedVersion,
   type AnyEntityESchema,
-} from '../../eschema/index.js';
-import type { AnyDefinition } from '../definition/index.js';
-import type { Wire } from '../store/contract/index.js';
+} from '../../../eschema/index.js';
+import type { AnyShape } from '../../shape/index.js';
+import type { Wire } from '../../store/contract/index.js';
 
 /*
  * The TanStack DB Collections of one Instance. They show what the Store
@@ -61,11 +61,11 @@ type Sync = Parameters<SyncConfig<object, string>['sync']>[0];
 let made = 0;
 
 /** The Collections of an Instance, and how what the Store holds reaches them. */
-export const showCollections = (definition: AnyDefinition, name: string) => {
+export const showCollections = (shape: AnyShape, name: string) => {
   const syncs = new Map<string, Sync>();
   const shown = new Map<string, Set<string>>();
   const collections: Record<string, Collection<object, string>> = {};
-  for (const [collection, schema] of Object.entries(definition.collections)) {
+  for (const [collection, schema] of Object.entries(shape.collections)) {
     shown.set(collection, new Set());
     collections[collection] = createCollection<object, string>({
       id: `${name}/${collection}#${++made}`,

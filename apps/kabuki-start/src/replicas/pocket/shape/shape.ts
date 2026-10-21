@@ -8,7 +8,7 @@ import { Entry, Wallet } from '../../../apis/pocket/index.ts';
  * stores them.
  */
 
-export const Pocket = Replica.define('pocket', {
+export const Pocket = Replica.make('pocket', {
   key: Schema.String,
   collections: { wallets: Wallet, entries: Entry },
 });

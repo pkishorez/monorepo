@@ -10,7 +10,7 @@ import { Pocket } from '../../../../replicas/pocket/index.ts';
 
 const Shown = Schema.Struct({ account: Schema.String });
 
-export const Wallets = Query.define('Wallets', {
+export const Wallets = Query.make('Wallets', {
   props: Shown,
   from: ({ props }) => Effect.all({ pocket: Pocket.get(props.account) }),
   query:
@@ -19,7 +19,7 @@ export const Wallets = Query.define('Wallets', {
       q.from({ wallet: pocket.wallets }),
 });
 
-export const Entries = Query.define('Entries', {
+export const Entries = Query.make('Entries', {
   props: Shown,
   from: ({ props }) => Effect.all({ pocket: Pocket.get(props.account) }),
   query:

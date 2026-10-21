@@ -8,12 +8,12 @@ Backend or a Store carries [[core]] **Entities**.
 
 ## Language
 
-### Definitions
+### Shapes
 
 **Replica**:
 One domain's local copy of the Backend: a Key and a set of Collections, with
-one responsibility, like one single-table database. Written in two steps like
-any Kabuki actor: a **Definition** (the Key and Collection schemas) and a
+one responsibility, like one single-table database. Written in two steps:
+`make` gives its **Shape** (the Key and Collection schemas), `build` its
 **Build** (Strategies and Gate).
 _Avoid_: Std Sync, Mirror, Dataset.
 

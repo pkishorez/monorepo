@@ -26,7 +26,7 @@ export const Entry = EntityESchema.make('Entry', 'id', {
   amount: Schema.Finite,
 }).build();
 
-export const Pocket = Replica.define('pocket', {
+export const Pocket = Replica.make('pocket', {
   key: Schema.String,
   collections: { wallets: Wallet, entries: Entry },
 });
@@ -123,7 +123,7 @@ export const makeWorld = (options: WorldOptions = {}) => {
     },
   });
 
-  const Wallets = Query.define('Wallets', {
+  const Wallets = Query.make('Wallets', {
     props: Schema.Struct({ account: Schema.String }),
     from: ({ props }) => Effect.all({ pocket: Pocket.get(props.account) }),
     query:

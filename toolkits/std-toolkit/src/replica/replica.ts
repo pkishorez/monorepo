@@ -1,30 +1,30 @@
 import { Effect } from 'effect';
 import type { Scope } from 'effect';
 import {
-  Definition,
+  Shape,
   type CollectionSchemas,
   type KeySchema,
   type ReplicaError,
-} from './definition/index.js';
-import { Instances, type Instance } from './instance/index.js';
+} from './shape/index.js';
+import { Instances, type Instance } from './replicas/instance/index.js';
 import { Replicas } from './replicas/index.js';
-import { Strategies } from './strategy/index.js';
+import { Strategies } from './replicas/instance/strategy/index.js';
 
 /*
  * Replica: Kabuki-native sync. This is where the pieces meet, so the low
- * ones stay low: a Definition is only shapes, and it gets `get` here, from
+ * ones stay low: a Shape runs nothing, and it gets `get` here, from
  * Replicas, which runs the Instances. A Build says how each Instance syncs.
  * Queries read, Actions write, and the Store in the app's Layer keeps it all.
  */
 
 type KeyArgs<K> = [K] extends [void] ? [] : [key: K];
 
-/** A Replica's Definition, with `get`. */
+/** A Replica's Shape, with `get`. */
 export type Replica<
   Name extends string,
   K,
   C extends CollectionSchemas,
-> = Definition<Name, K, C> & {
+> = Shape<Name, K, C> & {
   /**
    * The running Instance of a Key, held until the Scope closes: inside a
    * Query's `from`, an Action or a Worker, that is as long as it runs.
@@ -32,46 +32,42 @@ export type Replica<
   readonly get: (
     ...key: KeyArgs<K>
   ) => Effect.Effect<
-    Instance<Definition<Name, K, C>>,
+    Instance<Shape<Name, K, C>>,
     ReplicaError,
     Replicas | Scope.Scope
   >;
 };
 
-function define<const Name extends string, const C extends CollectionSchemas>(
+function make<const Name extends string, const C extends CollectionSchemas>(
   name: Name,
-  shape: { readonly key?: never; readonly collections: C },
+  parts: { readonly key?: never; readonly collections: C },
 ): Replica<Name, void, C>;
-function define<
-  const Name extends string,
-  K,
-  const C extends CollectionSchemas,
->(
+function make<const Name extends string, K, const C extends CollectionSchemas>(
   name: Name,
-  shape: { readonly key: KeySchema<K>; readonly collections: C },
+  parts: { readonly key: KeySchema<K>; readonly collections: C },
 ): Replica<Name, K, C>;
-function define(
+function make(
   name: string,
-  shape: {
+  parts: {
     readonly key?: KeySchema<unknown>;
     readonly collections: CollectionSchemas;
   },
 ): Replica<string, any, CollectionSchemas> {
-  const definition = Definition.define(
+  const shape = Shape.make(
     name,
-    shape as {
+    parts as {
       readonly key: KeySchema<unknown>;
       readonly collections: CollectionSchemas;
     },
   );
   return {
-    ...definition,
+    ...shape,
     get: (...key: ReadonlyArray<unknown>) =>
       Effect.flatMap(Replicas, (replicas) =>
-        replicas.hold(name, definition.keyText(key[0])),
+        replicas.hold(name, shape.keyText(key[0])),
       ).pipe(
         // The Live behind an Instance carries its Collections by name, as
-        // the Definition names them: this is where it is typed so.
+        // the Shape names them: this is where it is typed so.
         Effect.map(
           (live) =>
             ({
@@ -81,15 +77,15 @@ function define(
               confirm: live.confirm,
               stopped: live.stopped,
             }) as unknown as Instance<
-              Definition<string, unknown, CollectionSchemas>
+              Shape<string, unknown, CollectionSchemas>
             >,
         ),
       ),
   };
 }
 
-/** A domain's local copy of the Backend: `define` its shapes, `build` how each Instance syncs. */
-export const Replica = { define, build: Instances.build };
+/** A domain's local copy of the Backend: `make` its shapes, `build` how each Instance syncs. */
+export const Replica = { make, build: Instances.build };
 
 /** Reads the Backend from the oldest change forward, by pulling, by subscription, or both. */
 export const oldToNew = Strategies.oldToNew;
@@ -100,5 +96,5 @@ export const newToOld = Strategies.newToOld;
 export { Action } from './action/index.js';
 export { Query } from './query/index.js';
 export { Replicas } from './replicas/index.js';
-export { ReplicaError } from './definition/index.js';
+export { ReplicaError } from './shape/index.js';
 export { Store } from './store/contract/index.js';

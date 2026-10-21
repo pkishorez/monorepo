@@ -48,14 +48,14 @@
       "src/apis/pocket/domain"
     ],
     "src/shared/pages/replica": ["src/shared/pages/metadata"],
-    "src/replicas/pocket/definition": ["src/apis/pocket"],
+    "src/replicas/pocket/shape": ["src/apis/pocket"],
     "src/replicas/pocket/build": [
       "src/apis/pocket",
-      "src/replicas/pocket/definition"
+      "src/replicas/pocket/shape"
     ],
     "src/replicas/pocket/actions": [
       "src/apis/pocket",
-      "src/replicas/pocket/definition"
+      "src/replicas/pocket/shape"
     ]
   }
 }

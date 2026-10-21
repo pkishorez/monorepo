@@ -1,5 +1,5 @@
 import { Effect, Queue, Schema, Stream, SynchronizedRef } from 'effect';
-import { EntityMetaSchema } from '../../core/index.js';
+import { EntityMetaSchema } from '../../../../core/index.js';
 import { cover, type Slice } from './coverage.js';
 import {
   newestOf,

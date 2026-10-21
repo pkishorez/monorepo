@@ -1,8 +1,8 @@
 import type { Collection } from '@tanstack/db';
 import { Deferred, Effect, Queue, Semaphore, Stream } from 'effect';
 import type { Scope } from 'effect';
-import { ReplicaError, type AnyDefinition } from '../definition/index.js';
-import type { Space, Wire, Written } from '../store/contract/index.js';
+import { ReplicaError, type AnyShape } from '../../shape/index.js';
+import type { Space, Wire, Written } from '../../store/contract/index.js';
 import { reader, showCollections, type Read } from './collections.js';
 import type { Message } from './model.js';
 
@@ -64,25 +64,25 @@ const warn = (name: string, read: ReadonlyArray<Read>) =>
   );
 
 export const openInstance = (
-  definition: AnyDefinition,
+  shape: AnyShape,
   key: unknown,
   space: Space,
 ): Effect.Effect<Opened, ReplicaError, Scope.Scope> =>
   Effect.gen(function* () {
     const { name } = space;
     const readers = Object.fromEntries(
-      Object.entries(definition.collections).map(([collection, schema]) => [
+      Object.entries(shape.collections).map(([collection, schema]) => [
         collection,
         reader(schema),
       ]),
     );
     const byEntity = new Map(
-      Object.entries(definition.collections).map(([collection, schema]) => [
+      Object.entries(shape.collections).map(([collection, schema]) => [
         schema.name,
         collection,
       ]),
     );
-    const shown = showCollections(definition, name);
+    const shown = showCollections(shape, name);
     const positions = new Map<string, string>();
     const reading = yield* Semaphore.make(1);
     const messages = yield* Queue.unbounded<Message>();
@@ -94,7 +94,7 @@ export const openInstance = (
     // 2. Refresh
     const refresh = reading.withPermit(
       Effect.forEach(
-        Object.keys(definition.collections),
+        Object.keys(shape.collections),
         (collection) =>
           Effect.gen(function* () {
             const after = positions.get(collection) ?? null;
