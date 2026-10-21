@@ -1,6 +1,6 @@
 # kabuki-start
 
-The smallest Kabuki Start app, the one to copy: static, dynamic and client pages layered on one screen, links that preload on hover, and two API Workers with a public, an authenticated and an authorized call each, published at start.kishore.app.
+The smallest Kabuki Start app, the one to copy: static, dynamic and client pages layered on one screen, links that preload on hover, two API Workers with a public, an authenticated and an authorized call each, and a Pocket of wallets kept on the device with Replica, published at start.kishore.app.
 
 ## Big picture
 
@@ -11,7 +11,7 @@ declared with Alchemy. How Start works is in
 pages, Places, Loaders and Render Modes in
 [`packages/kabuki/docs/routing.md`](../../packages/kabuki/docs/routing.md).
 
-Three screens. **Rendering** (`/`) is a static page; `/dynamic` adds a
+Four screens. **Rendering** (`/`) is a static page; `/dynamic` adds a
 dynamic layer inside it, and `/dynamic/client` a client layer inside that,
 so all three Render Modes share one screen. A URL names one page per level,
 so nesting is how they do; `/` alone stays all static, which is what lets a
@@ -31,6 +31,14 @@ one per level of access (`src/apis/access`): **public**, for anyone;
 **authenticated** (`Authz.required`), for any signed-in Account, refused
 401 Unauthenticated otherwise; and **authorized** (`Authz.policy`), for
 `kishore.iiitn@gmail.com` alone, refused 403 Forbidden to anyone else.
+**Replica** (`/replica`) is a Pocket of wallets and entries per Account,
+kept on the device with `@kestack/std-toolkit/replica`
+([README](../../toolkits/std-toolkit/src/replica/README.md)) and synced
+from a third Worker, Pocket, which keeps them in D1. Your Pocket follows
+the active Account and writes optimistically, rolling back what the Worker
+refuses; Peek (`/replica/peek`) reads another signed-in Account from the
+device without fetching it; and the Sync panel shows each Instance
+running, who holds it, and when it stops.
 
 The folders are its boundaries. `src/shared/pages` is what both sides
 import: every page's definition and build, its data Schema, and the router.
@@ -48,11 +56,12 @@ which Alchemy sets from the Workers it declares and Vite inlines.
 
 ```
 src/
-  shared/pages/        both sides: one file per page, its data Schema beside it; pages.ts holds the root page and the router
+  shared/pages/        both sides: one file per page, its data Schema beside it (replica/ a folder: the page, Your Pocket, Peek, Sync); pages.ts holds the root page and the router
   client/
-    app.tsx            Start.app: the router, the root View, the Document, the browser's Layer (Accounts and both API clients)
+    app.tsx            Start.app: the router, the root View, the Document, the browser's Layer (Accounts, the API clients and the Replica Store)
     document.tsx       the <html> around the app: theme script, devtools, sign-in dialog
     views/             one View per page; views.tsx draws the root page, preload-link.tsx shows a preload live
+    views/replica/     the Replica page: Your Pocket, Peek, the Sync panel
     components/        layout, page intro, clock, devtools, theme
   server/
     loaders.server.ts  Start.server(loaders): one Loader per page with data
@@ -61,6 +70,8 @@ src/
     hello-rpc/         the RPC API Worker, the same shape
     access/            who may call what: the three levels, the owner, its Policy
     pocket/            the Pocket Worker: each Account's wallets and entries in a D1 std Table, and the browser's client
+  replicas/
+    pocket/            the Pocket Replica: definition (key, collections), build (Strategies, Gate), actions (each write)
   infra/               the site, the API Workers and their domains, declared with Alchemy
 ```
 

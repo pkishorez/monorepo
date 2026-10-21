@@ -13,6 +13,8 @@ import {
 import { describe, expect, it } from 'vitest';
 import { HelloHttp } from '../../../apis/hello-http/index.ts';
 import { HelloRpc } from '../../../apis/hello-rpc/index.ts';
+import { PocketRpc } from '../../../apis/pocket/index.ts';
+import { Store } from '@kestack/std-toolkit/replica/memory';
 import { Pages, router } from '../index.ts';
 
 /*
@@ -88,6 +90,9 @@ const hello = { public: Effect.succeed('Hello') } as const;
 const workers = Layer.mergeAll(
   Layer.succeed(HelloHttp, hello as unknown as HelloHttp['Service']),
   Layer.succeed(HelloRpc, hello as unknown as HelloRpc['Service']),
+  // The root page runs Replicas; this page reads none.
+  Layer.succeed(PocketRpc, {} as PocketRpc['Service']),
+  Store.memory(),
 );
 
 const Root = Router.app(

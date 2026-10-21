@@ -11,7 +11,9 @@
     "src/shared/pages": [
       "src/apis/access",
       "src/apis/hello-http",
-      "src/apis/hello-rpc"
+      "src/apis/hello-rpc",
+      "src/apis/pocket",
+      "src/replicas/pocket"
     ],
     "src/apis/hello-http": ["src/apis/access"],
     "src/apis/hello-rpc": ["src/apis/access"],
@@ -19,6 +21,7 @@
     "src/client/app.tsx": [
       "src/apis/hello-http",
       "src/apis/hello-rpc",
+      "src/apis/pocket",
       "src/shared/pages",
       "src/client/document.tsx",
       "src/client/views"
@@ -43,6 +46,17 @@
     "src/apis/pocket/client": [
       "src/apis/pocket/contract",
       "src/apis/pocket/domain"
+    ],
+    "src/shared/pages/replica": ["src/shared/pages/metadata"],
+    "src/shared/pages/replica/peek": ["src/shared/pages/replica/pocket"],
+    "src/replicas/pocket/definition": ["src/apis/pocket"],
+    "src/replicas/pocket/build": [
+      "src/apis/pocket",
+      "src/replicas/pocket/definition"
+    ],
+    "src/replicas/pocket/actions": [
+      "src/apis/pocket",
+      "src/replicas/pocket/definition"
     ]
   }
 }

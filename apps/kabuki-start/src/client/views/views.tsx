@@ -5,6 +5,7 @@ import { Pages, router } from '../../shared/pages/index.ts';
 import { Layout, PageIntro } from '../components/index.ts';
 import { ApisView } from './apis.tsx';
 import { ItemsView } from './items.tsx';
+import { ReplicaView } from './replica/index.ts';
 import { StaticView } from './rendering.tsx';
 
 /*
@@ -33,7 +34,8 @@ export const AppView = View.make(Pages.AppLive, ({ root, props, children }) => (
       ) : (
         ((children.Static && <StaticView instance={children.Static} />) ??
         (children.Items && <ItemsView instance={children.Items} />) ??
-        (children.Apis && <ApisView instance={children.Apis} />))
+        (children.Apis && <ApisView instance={children.Apis} />) ??
+        (children.Replica && <ReplicaView instance={children.Replica} />))
       )}
     </Layout>
   </div>

@@ -1,6 +1,6 @@
 import { Schema } from 'effect';
 import { Page } from '@kestack/kabuki/routing';
-import { about } from './metadata.ts';
+import { about } from './metadata/index.ts';
 
 /*
  * A list of items and the item it opens, side by side: `/items`, then

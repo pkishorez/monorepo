@@ -5,7 +5,7 @@ import { CurrentAccount } from '@kestack/web-platform/account-switcher';
 import { LEVELS } from '../../apis/access/index.ts';
 import { HelloHttp } from '../../apis/hello-http/index.ts';
 import { HelloRpc } from '../../apis/hello-rpc/index.ts';
-import { about } from './metadata.ts';
+import { about } from './metadata/index.ts';
 
 /*
  * The APIs page: who the calls go as, and one panel per API Worker, with

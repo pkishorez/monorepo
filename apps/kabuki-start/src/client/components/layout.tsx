@@ -14,6 +14,7 @@ const NAV = [
   { to: router.Static(), label: 'Rendering' },
   { to: router.Items(), label: 'Preloading' },
   { to: router.Apis(), label: 'APIs' },
+  { to: router.Replica(), label: 'Replica' },
 ] as const;
 
 export function Layout({
@@ -38,7 +39,12 @@ export function Layout({
               <li key={label} className="shrink-0">
                 <Router.Link
                   to={to}
-                  aria-current={to._tag === route._tag ? 'page' : undefined}
+                  aria-current={
+                    route._tag === to._tag ||
+                    route._tag.startsWith(`${to._tag}.`)
+                      ? 'page'
+                      : undefined
+                  }
                   className="rounded-md px-2.5 py-1.5 text-muted-foreground transition-colors duration-150 hover:text-foreground aria-[current=page]:bg-muted aria-[current=page]:text-foreground"
                 >
                   {label}

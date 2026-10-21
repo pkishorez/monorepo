@@ -1,4 +1,6 @@
+import { Layer } from 'effect';
 import { Page, Router } from '@kestack/kabuki/routing';
+import { Replicas } from '@kestack/std-toolkit/replica';
 import {
   AccountSwitcherLive,
   CurrentAccount,
@@ -6,26 +8,49 @@ import {
 import { Apis, ApisLive } from './apis.ts';
 import { ItemLive, Items, ItemsLive } from './items.ts';
 import { ClientLive, DynamicLive, Static, StaticLive } from './rendering.ts';
+import {
+  Entries,
+  PeekLive,
+  PocketLive,
+  Replica,
+  ReplicaLive,
+  SyncLive,
+  Wallets,
+} from './replica/index.ts';
+import { PocketLive as PocketReplica } from '../../replicas/pocket/index.ts';
 
 /*
- * The root page, with the three pages under it, and the router read down
+ * The root page, with the four pages under it, and the router read down
  * from it. Both sides import this: the server for the router its Loaders
  * are checked against, the browser for every page's build its Views draw.
  * The root page also holds the Account Switcher, which its View draws in
- * the header, and Provides every page `CurrentAccount`.
+ * the header, and Provides every page `CurrentAccount`. It runs Replicas
+ * too, once for the whole app, so an Instance a page reads keeps running
+ * for 5 seconds after it leaves, and another page reading it meanwhile
+ * finds it running.
  */
 
 const App = Page.define({
   metadata: { meta: [{ property: 'og:site_name', content: 'Kabuki Start' }] },
-  pages: { Static, Items, Apis },
+  pages: { Static, Items, Apis, Replica },
 });
 
 const AppLive = Page.build(App, {
-  pages: { Static: StaticLive, Items: ItemsLive, Apis: ApisLive },
-  provides: () => CurrentAccount.layer,
+  pages: {
+    Static: StaticLive,
+    Items: ItemsLive,
+    Apis: ApisLive,
+    Replica: ReplicaLive,
+  },
+  provides: () =>
+    Layer.mergeAll(
+      CurrentAccount.layer,
+      Replicas.layer({ linger: '5 seconds' }),
+    ),
   children: {
     // The Auth Worker's `maxAccounts`: its default, 5.
     account: { actor: AccountSwitcherLive, input: () => ({ maxAccounts: 5 }) },
+    replicas: Replicas.child([PocketReplica]),
   },
 });
 
@@ -34,7 +59,7 @@ export const router = Router.define(App, {
   scrollRestoration: true,
 });
 
-/** Every page's build, for its View. */
+/** Every page's build, and the actors the Replica page places, for their Views. */
 export const Pages = {
   AppLive,
   StaticLive,
@@ -43,6 +68,12 @@ export const Pages = {
   ItemsLive,
   ItemLive,
   ApisLive,
+  ReplicaLive,
+  PocketLive,
+  PeekLive,
+  SyncLive,
+  Wallets,
+  Entries,
 };
 
 /** A place's dotted name, as the router writes it: `Static.Dynamic`. */

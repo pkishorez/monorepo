@@ -552,6 +552,9 @@ importers:
       '@kestack/web-platform':
         specifier: workspace:*
         version: link:../../platforms/web-platform
+      '@tanstack/db':
+        specifier: 'catalog:'
+        version: 0.9.2(typescript@7.0.2)
       effect:
         specifier: 'catalog:'
         version: 4.0.0

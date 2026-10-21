@@ -1,6 +1,6 @@
 import { Schema } from 'effect';
 import { Page } from '@kestack/kabuki/routing';
-import { about } from './metadata.ts';
+import { about } from './metadata/index.ts';
 
 /*
  * The three Render Modes, one page inside the next, each adding a segment
