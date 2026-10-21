@@ -60,6 +60,7 @@ src/
     hello-http/        the HTTP API Worker: contract.ts, worker.server.ts, hello-http.ts (the browser's client)
     hello-rpc/         the RPC API Worker, the same shape
     access/            who may call what: the three levels, the owner, its Policy
+    pocket/            the Pocket Worker: each Account's wallets and entries in a D1 std Table, and the browser's client
   infra/               the site, the API Workers and their domains, declared with Alchemy
 ```
 
@@ -71,15 +72,16 @@ src/
 ```bash
 pnpm --filter kabuki-start dev     # builds its workspace packages, then alchemy dev through Portless
 pnpm --filter kabuki-start lint    # tsc --noEmit + laymos lint
-pnpm --filter kabuki-start test    # each API Worker answered in-process
+pnpm --filter kabuki-start test    # each API Worker answered in-process, Pocket on D1 in Miniflare
 pnpm --filter kabuki-start build   # client and Worker -> dist/client, dist/ssr
 ```
 
 `pnpm dev` runs `alchemy dev` through Portless: the site in workerd under
 Vite, with HMR, at `https://kabuki-start.kishore.computer` (`portless.json`),
-and the API Workers on ports 4581 and 4582, which the script names to
-Portless as `https://hello-http-start.kishore.computer` and
-`https://hello-rpc-start.kishore.computer`. Sign-in needs every host under
+and the API Workers on ports 4581, 4582 and 4583, which the script names to
+Portless as `https://hello-http-start.kishore.computer`,
+`https://hello-rpc-start.kishore.computer` and
+`https://pocket-start.kishore.computer`. Sign-in needs every host under
 the session cookie's domain, so in dev it uses the Auth Worker at
 `https://auth.kishore.computer`, which must be running; deployed, everything
 is under `.kishore.app` and signs in with `https://auth.kishore.app`

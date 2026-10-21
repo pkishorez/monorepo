@@ -5,7 +5,7 @@
   "type": "module",
   "sideEffects": false,
   "scripts": {
-    "dev": "vp run --filter 'kabuki-start^...' build && portless alias hello-http-start.kishore 4581 --force && portless alias hello-rpc-start.kishore 4582 --force && portless run --force alchemy dev",
+    "dev": "vp run --filter 'kabuki-start^...' build && portless alias hello-http-start.kishore 4581 --force && portless alias hello-rpc-start.kishore 4582 --force && portless alias pocket-start.kishore 4583 --force && portless run --force alchemy dev",
     "build": "vp build",
     "lint": "tsc --noEmit && pnpm lint:laymos",
     "lint:laymos": "laymos lint",
@@ -32,6 +32,7 @@
     "@vitejs/plugin-react": "catalog:",
     "alchemy": "catalog:",
     "laymos": "workspace:*",
+    "miniflare": "catalog:",
     "tailwindcss": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",

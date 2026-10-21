@@ -31,6 +31,18 @@
       "src/shared/pages",
       "src/client/components"
     ],
-    "src/client/components": ["src/shared/pages"]
+    "src/client/components": ["src/shared/pages"],
+    "src/infra": ["src/apis/pocket/storage"],
+    "src/apis/pocket/contract": ["src/apis/pocket/domain"],
+    "src/apis/pocket/storage": ["src/apis/pocket/domain"],
+    "src/apis/pocket/ledger": [
+      "src/apis/pocket/contract",
+      "src/apis/pocket/domain",
+      "src/apis/pocket/storage"
+    ],
+    "src/apis/pocket/client": [
+      "src/apis/pocket/contract",
+      "src/apis/pocket/domain"
+    ]
   }
 }

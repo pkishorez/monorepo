@@ -1,0 +1,243 @@
+{
+  "logicalName": "pocket",
+  "topology": {
+    "primary": {
+      "pk": "pk",
+      "sk": "sk"
+    },
+    "localSecondaryIndexes": [
+      {
+        "name": "LSI1",
+        "pk": "pk",
+        "sk": "LSI1SK"
+      }
+    ],
+    "globalSecondaryIndexes": []
+  },
+  "entities": [
+    {
+      "name": "Entry",
+      "kind": "keyed",
+      "schema": "Entry",
+      "idField": "id",
+      "primary": {
+        "pk": ["userId"],
+        "sk": ["id"]
+      },
+      "accessPatterns": [
+        {
+          "name": "byUpdate",
+          "kind": "lsi",
+          "index": "LSI1",
+          "pk": ["userId"],
+          "sk": ["_u"]
+        },
+        {
+          "name": "primary",
+          "kind": "primary",
+          "pk": ["userId"],
+          "sk": ["id"]
+        }
+      ]
+    },
+    {
+      "name": "Wallet",
+      "kind": "keyed",
+      "schema": "Wallet",
+      "idField": "id",
+      "primary": {
+        "pk": ["userId"],
+        "sk": ["id"]
+      },
+      "accessPatterns": [
+        {
+          "name": "byUpdate",
+          "kind": "lsi",
+          "index": "LSI1",
+          "pk": ["userId"],
+          "sk": ["_u"]
+        },
+        {
+          "name": "primary",
+          "kind": "primary",
+          "pk": ["userId"],
+          "sk": ["id"]
+        }
+      ]
+    }
+  ],
+  "schemas": [
+    {
+      "identity": "Entry",
+      "kind": "entity",
+      "idField": "id",
+      "versions": [
+        {
+          "version": "v1",
+          "shape": {
+            "type": "struct",
+            "fields": [
+              {
+                "name": "amount",
+                "type": {
+                  "type": "number",
+                  "checks": [
+                    {
+                      "check": "int"
+                    }
+                  ]
+                }
+              },
+              {
+                "name": "id",
+                "type": {
+                  "type": "string"
+                }
+              },
+              {
+                "name": "note",
+                "type": {
+                  "type": "string"
+                }
+              },
+              {
+                "name": "userId",
+                "type": {
+                  "type": "string"
+                }
+              },
+              {
+                "name": "walletId",
+                "type": {
+                  "type": "string"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "version": "v2",
+          "shape": {
+            "type": "struct",
+            "fields": [
+              {
+                "name": "amount",
+                "type": {
+                  "type": "number",
+                  "checks": [
+                    {
+                      "check": "int"
+                    }
+                  ]
+                }
+              },
+              {
+                "name": "id",
+                "type": {
+                  "type": "string"
+                }
+              },
+              {
+                "name": "kind",
+                "type": {
+                  "type": "union",
+                  "members": [
+                    {
+                      "type": "literal",
+                      "value": "deposit"
+                    },
+                    {
+                      "type": "literal",
+                      "value": "withdrawal"
+                    },
+                    {
+                      "type": "literal",
+                      "value": "transfer"
+                    }
+                  ]
+                }
+              },
+              {
+                "name": "note",
+                "type": {
+                  "type": "string"
+                }
+              },
+              {
+                "name": "transferId",
+                "type": {
+                  "type": "union",
+                  "members": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              {
+                "name": "userId",
+                "type": {
+                  "type": "string"
+                }
+              },
+              {
+                "name": "walletId",
+                "type": {
+                  "type": "string"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "identity": "Wallet",
+      "kind": "entity",
+      "idField": "id",
+      "versions": [
+        {
+          "version": "v1",
+          "shape": {
+            "type": "struct",
+            "fields": [
+              {
+                "name": "balance",
+                "type": {
+                  "type": "number",
+                  "checks": [
+                    {
+                      "check": "int"
+                    }
+                  ]
+                }
+              },
+              {
+                "name": "id",
+                "type": {
+                  "type": "string"
+                }
+              },
+              {
+                "name": "name",
+                "type": {
+                  "type": "string"
+                }
+              },
+              {
+                "name": "userId",
+                "type": {
+                  "type": "string"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "_v": "v1"
+}

@@ -5,4 +5,5 @@ interface ImportMetaEnv {
   readonly VITE_AUTH_URL: string;
   readonly VITE_HELLO_HTTP_URL: string;
   readonly VITE_HELLO_RPC_URL: string;
+  readonly VITE_POCKET_URL: string;
 }
