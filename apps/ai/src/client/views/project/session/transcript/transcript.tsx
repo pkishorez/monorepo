@@ -8,11 +8,13 @@ import {
   CircleDashedIcon,
   CircleDotIcon,
   CircleIcon,
+  CornerDownRightIcon,
   FilePenIcon,
   FilePlus2Icon,
   FileTextIcon,
   GlobeIcon,
   ListTodoIcon,
+  MessageSquareTextIcon,
   PlugIcon,
   SearchIcon,
   SquareIcon,
@@ -52,6 +54,10 @@ export interface Opening {
   readonly toggle: (id: string) => void;
 }
 
+/** A line that opens: quiet until hovered, pressed or focused. */
+const opener =
+  'group focus-ring -mx-2 flex min-h-8 items-center gap-2 rounded-md px-2 text-left text-sm transition-colors duration-150 hover:bg-muted/60 active:bg-muted motion-reduce:transition-none';
+
 const compact = new Intl.NumberFormat('en', {
   notation: 'compact',
   maximumFractionDigits: 1,
@@ -59,7 +65,7 @@ const compact = new Intl.NumberFormat('en', {
 
 /** The agent's words: prose, inline code as a quiet chip without the backticks prose adds. */
 const prose =
-  'prose-sm leading-relaxed prose-p:my-2 prose-pre:my-2 prose-code:rounded-[4px] prose-code:bg-muted prose-code:px-1 prose-code:py-px prose-code:text-[0.85em] prose-code:font-normal prose-code:before:content-none prose-code:after:content-none';
+  'prose-sm leading-7 prose-p:my-2 prose-pre:my-2 prose-code:rounded-[4px] prose-code:bg-muted prose-code:px-1 prose-code:py-px prose-code:text-[0.85em] prose-code:font-normal prose-code:before:content-none prose-code:after:content-none';
 
 /** A web link opens in a new tab; any other, as a file the agent named, goes nowhere. */
 const onLinkClick = (href: string) => {
@@ -111,9 +117,12 @@ function Line({
   title,
   end,
   mono,
+  hint,
   children,
 }: {
   readonly id: string;
+  /** The whole title, shown on hover when the line cuts it short. */
+  readonly hint?: string;
   readonly opening: Opening;
   readonly icon: ReactNode;
   readonly title: ReactNode;
@@ -127,8 +136,9 @@ function Line({
       <button
         type="button"
         aria-expanded={open}
+        title={hint}
         onClick={() => opening.toggle(id)}
-        className="group -mx-2 flex min-h-8 items-center gap-2 rounded-md px-2 text-left text-sm text-muted-foreground transition-colors duration-150 outline-none hover:bg-muted/60 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+        className={`${opener} text-muted-foreground hover:text-foreground`}
       >
         <span className="flex size-4 shrink-0 items-center justify-center [&_svg]:size-3.5">
           {icon}
@@ -141,7 +151,7 @@ function Line({
         {end}
         <ChevronRightIcon
           aria-hidden
-          className={`size-3.5 shrink-0 opacity-0 transition-[opacity,rotate] duration-150 group-hover:opacity-100 group-focus-visible:opacity-100 ${open ? 'rotate-90 opacity-100' : ''}`}
+          className={`size-3.5 shrink-0 opacity-0 transition-[opacity,rotate] duration-150 group-hover:opacity-100 group-focus-visible:opacity-100 motion-reduce:transition-none ${open ? 'rotate-90 opacity-100' : ''}`}
         />
       </button>
       {open && (
@@ -162,8 +172,8 @@ function Code({
 }) {
   return (
     <div className="flex flex-col gap-1">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <pre className="max-h-80 overflow-auto rounded-md border border-border bg-muted/40 px-3 py-2 font-mono text-xs leading-relaxed whitespace-pre-wrap break-words">
+      <span className="text-xs font-medium text-muted-foreground">{label}</span>
+      <pre className="max-h-80 overflow-auto rounded-lg border border-border bg-muted/40 px-3 py-2.5 font-mono text-xs leading-5 whitespace-pre-wrap break-words">
         {children}
       </pre>
       {note && <span className="text-xs text-muted-foreground">{note}</span>}
@@ -171,30 +181,37 @@ function Code({
   );
 }
 
-const inputText = (input: unknown) =>
-  typeof input === 'string' ? input : JSON.stringify(input, null, 2);
+/** A call's input as text: a shell call's command alone, anything else as JSON. */
+const inputText = (input: unknown) => {
+  if (typeof input === 'string') return input;
+  const command = (input as { command?: unknown } | null)?.command;
+  return typeof command === 'string' ? command : JSON.stringify(input, null, 2);
+};
 
 function RowView({
   row,
   opening,
   running,
+  nested,
 }: {
   readonly row: Row;
   readonly opening: Opening;
   readonly running: boolean;
+  readonly nested: boolean;
 }) {
   switch (row.kind) {
     case 'turn':
       return (
         <div
-          className={`flex flex-col gap-1 first:mt-0 ${row.steered ? 'mt-1' : 'mt-6'}`}
+          className={`flex flex-col gap-1.5 first:mt-0 ${row.steered ? 'mt-1' : 'mt-6'}`}
         >
           {row.steered && (
-            <span className="text-xs font-medium text-signal">Steered</span>
+            <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+              <CornerDownRightIcon aria-hidden className="size-3.5" />
+              Steered
+            </span>
           )}
-          <div
-            className={`rounded-lg bg-muted/70 px-4 py-3 text-[15px] leading-relaxed whitespace-pre-wrap break-words ${row.steered ? 'border-l-2 border-signal' : ''}`}
-          >
+          <div className="rounded-lg border border-border bg-muted/40 px-4 py-3 text-base leading-7 whitespace-pre-wrap break-words">
             {row.text}
           </div>
         </div>
@@ -204,10 +221,16 @@ function RowView({
         <Line
           id={row.id}
           opening={opening}
-          icon={<CircleIcon aria-hidden />}
-          title={<>Prompt: {row.text.split('\n')[0]}</>}
+          icon={<MessageSquareTextIcon aria-hidden />}
+          title={
+            <>
+              <span className="font-medium text-foreground/80">Prompt</span>{' '}
+              {row.text.split('\n')[0]}
+            </>
+          }
+          hint={row.text.length > 300 ? undefined : row.text}
         >
-          <p className="text-sm whitespace-pre-wrap text-muted-foreground">
+          <p className="text-sm leading-6 whitespace-pre-wrap text-muted-foreground">
             {row.text}
           </p>
         </Line>
@@ -215,7 +238,7 @@ function RowView({
     case 'text':
       return (
         <MarkdownViewer
-          className={`${prose} text-[15px]`}
+          className={`${prose} ${nested ? 'text-sm' : 'text-base'}`}
           onLinkClick={onLinkClick}
         >
           {row.text}
@@ -229,7 +252,7 @@ function RowView({
           icon={<CircleDashedIcon aria-hidden />}
           title={<span className="italic">Thinking</span>}
         >
-          <p className="text-sm leading-relaxed whitespace-pre-wrap text-muted-foreground">
+          <p className="text-sm leading-6 whitespace-pre-wrap text-muted-foreground">
             {row.text}
           </p>
         </Line>
@@ -243,6 +266,7 @@ function RowView({
           opening={opening}
           icon={<Icon aria-hidden />}
           title={row.call.title || row.call.name}
+          hint={row.call.title || row.call.name}
           mono={row.call.tool === 'bash'}
           end={<State state={state} />}
         >
@@ -267,35 +291,40 @@ function RowView({
     case 'subagent': {
       const open = !opening.isOpen(row.id);
       const state = row.state === 'running' && !running ? 'stopped' : row.state;
+      const title = row.call.title || 'Subagent';
+      const started = row.rows.some((each) => each.kind !== 'prompt');
       return (
         <div className="flex flex-col">
           <button
             type="button"
             aria-expanded={open}
+            title={title}
             onClick={() => opening.toggle(row.id)}
-            className="group -mx-2 flex min-h-8 items-center gap-2 rounded-md px-2 text-left text-sm transition-colors duration-150 outline-none hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring"
+            className={opener}
           >
             <BotIcon
               aria-hidden
               className="size-3.5 shrink-0 text-muted-foreground"
             />
-            <span className="min-w-0 flex-1 truncate font-medium">
-              {row.call.title || 'Subagent'}
-            </span>
+            <span className="min-w-0 flex-1 truncate font-medium">{title}</span>
             <State state={state} />
             <ChevronRightIcon
               aria-hidden
-              className={`size-3.5 shrink-0 text-muted-foreground transition-[rotate] duration-150 ${open ? 'rotate-90' : ''}`}
+              className={`size-3.5 shrink-0 text-muted-foreground transition-[rotate] duration-150 motion-reduce:transition-none ${open ? 'rotate-90' : ''}`}
             />
           </button>
           {open && (
             <div className="mt-1 ml-[7px] flex flex-col gap-2 border-l border-border pl-4">
-              {row.rows.length === 0 ? (
+              <Rows
+                rows={row.rows}
+                opening={opening}
+                running={running}
+                nested
+              />
+              {!started && (
                 <p className="py-1 text-sm text-muted-foreground">
                   {state === 'running' ? 'Starting…' : 'Nothing was recorded'}
                 </p>
-              ) : (
-                <Rows rows={row.rows} opening={opening} running={running} />
               )}
               {row.result && (
                 <Line
@@ -344,11 +373,9 @@ function RowView({
               {row.error && <span className="font-normal">: {row.error}</span>}
             </span>
           )}
+          {row.usage && row.status !== 'done' && <span aria-hidden>·</span>}
           {row.usage && (
-            <span className="tabular-nums">
-              {row.status !== 'done' && '· '}
-              {usageLine(row.usage)}
-            </span>
+            <span className="tabular-nums">{usageLine(row.usage)}</span>
           )}
         </div>
       );
@@ -376,7 +403,7 @@ function RowView({
                 step.status === 'in_progress' ? (
                 <CircleDotIcon
                   aria-hidden
-                  className="mt-0.5 size-3.5 shrink-0 text-signal"
+                  className="mt-0.5 size-3.5 shrink-0 text-foreground"
                 />
               ) : (
                 <CircleIcon
@@ -406,13 +433,22 @@ export function Rows({
   rows,
   opening,
   running,
+  nested = false,
 }: {
   readonly rows: ReadonlyArray<Row>;
   readonly opening: Opening;
   /** Whether the session runs: a call left without a result while it does not was stopped. */
   readonly running: boolean;
+  /** Inside a subagent, whose words are a step smaller than the main agent's. */
+  readonly nested?: boolean;
 }) {
   return rows.map((row) => (
-    <RowView key={row.id} row={row} opening={opening} running={running} />
+    <RowView
+      key={row.id}
+      row={row}
+      opening={opening}
+      running={running}
+      nested={nested}
+    />
   ));
 }

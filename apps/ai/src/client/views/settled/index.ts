@@ -1,1 +1,1 @@
-export { Reached, useSettled } from './settled.ts';
+export { Connection, Reached, useOffline, useSettled } from './settled.ts';

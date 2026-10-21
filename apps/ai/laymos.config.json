@@ -11,6 +11,10 @@
     ],
     "src/client/document.tsx": ["src/client/components"],
     "src/client/views": ["src/shared/pages", "src/client/components"],
+    "src/client/views/header": [
+      "src/client/views/running-dot",
+      "src/client/views/settled"
+    ],
     "src/client/views/sidebar": [
       "src/client/views/add-project",
       "src/client/views/running-dot",
@@ -18,11 +22,9 @@
     ],
     "src/client/views/home": [
       "src/client/views/add-project",
-      "src/client/views/page-bar",
       "src/client/views/settled"
     ],
     "src/client/views/project": [
-      "src/client/views/page-bar",
       "src/client/views/running-dot",
       "src/client/views/time",
       "src/client/views/settled"

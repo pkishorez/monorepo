@@ -3,20 +3,18 @@ import type { Message, Session } from '@kestack/ai-toolkit/api';
 import { useChild, View } from '@kestack/kabuki/react';
 import { Skeleton } from '@kestack/web-platform/components/skeleton';
 import { Pages } from '../../../../shared/pages/index.ts';
-import { PageBar } from '../../page-bar/index.ts';
 import { RunningDot } from '../../running-dot/index.ts';
-import { useSettled } from '../../settled/index.ts';
+import { useOffline, useSettled } from '../../settled/index.ts';
 import { Composer } from './composer.tsx';
 import { useFollow } from './follow.ts';
 import { Rows, thread } from './transcript/index.ts';
 
 /*
- * A session: its title, agent and model at the top, the transcript in a
- * centred column that follows new messages while you are at its bottom,
- * and the composer pinned under it.
+ * A session: the transcript in a centred column that follows new messages
+ * while you are at its bottom, and the composer pinned under it. Its title,
+ * agent and model are in the header. While the server is out of reach,
+ * nothing can be sent, and a running turn's progress is unknown.
  */
-
-const AGENT = { claude: 'Claude', codex: 'Codex' } as const;
 
 export const SessionView = View.make(
   Pages.SessionLive,
@@ -31,6 +29,7 @@ export const SessionView = View.make(
     );
     const { scroller, content } = useFollow();
     const settled = useSettled();
+    const offline = useOffline();
     const opening = {
       isOpen: (id: string) => model.open.includes(id),
       toggle: (id: string) => send({ _tag: 'Toggle', id }),
@@ -39,30 +38,13 @@ export const SessionView = View.make(
       settled && found?.status === 'ready' && session === undefined;
     return (
       <div {...root} className="flex min-h-0 flex-1 flex-col">
-        <PageBar
-          title={
-            missing ? (
-              'Session not found'
-            ) : session ? (
-              <span className="flex items-center gap-2">
-                <span className="truncate">
-                  {session.title || 'Untitled session'}
-                </span>
-                {running && <RunningDot />}
-              </span>
-            ) : (
-              <Skeleton className="h-4 w-40" />
-            )
-          }
-          detail={session && `${AGENT[session.harness]} · ${session.model}`}
-        />
         <div
           ref={scroller}
           className="min-h-0 flex-1 overflow-y-auto [overflow-anchor:none]"
         >
           <div
             ref={content}
-            className="mx-auto flex w-full max-w-[720px] flex-col gap-3 px-6 pt-8 pb-10"
+            className="mx-auto flex w-full max-w-3xl flex-col gap-3 px-4 pt-8 pb-10 sm:px-6"
           >
             {missing ? (
               <p className="text-sm text-muted-foreground">
@@ -79,19 +61,29 @@ export const SessionView = View.make(
               <Rows rows={rows} opening={opening} running={running} />
             )}
             {running && messages?.status === 'ready' && (
-              <p className="flex items-center gap-2 pt-1 text-xs text-muted-foreground">
-                <RunningDot /> Working…
+              <p
+                role="status"
+                className="flex items-center gap-2 pt-1 text-xs text-muted-foreground"
+              >
+                {offline === null ? (
+                  <>
+                    <RunningDot /> Working…
+                  </>
+                ) : (
+                  'Last seen working. Updates resume when the server is back.'
+                )}
               </p>
             )}
           </div>
         </div>
-        <div className="shrink-0 pb-5">
-          <div className="mx-auto w-full max-w-[720px] px-6">
+        <div className="shrink-0 pt-2 pb-4 sm:pb-5">
+          <div className="mx-auto w-full max-w-3xl px-4 sm:px-6">
             <Composer
               draft={model.draft}
               running={running}
               stopping={model.stopping}
               problem={model.problem}
+              offline={offline}
               onType={(text) => send({ _tag: 'Typed', text })}
               onSend={() => send({ _tag: 'Send' })}
               onStop={() => send({ _tag: 'Stop' })}

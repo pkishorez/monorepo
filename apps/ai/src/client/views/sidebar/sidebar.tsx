@@ -65,7 +65,7 @@ export function Places({
             ))
           ) : sorted.length === 0 ? (
             <li className="px-2 py-1.5 text-sm text-muted-foreground">
-              No projects yet
+              No projects yet. Add a folder with the plus.
             </li>
           ) : (
             sorted.map((project) => {
@@ -101,6 +101,7 @@ export function Places({
                                   projectId: project.id,
                                   sessionId: session.id,
                                 })}
+                                title={session.title || undefined}
                               />
                             }
                           >

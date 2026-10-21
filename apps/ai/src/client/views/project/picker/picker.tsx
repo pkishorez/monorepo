@@ -90,7 +90,9 @@ export function ModelPicker({
         aria-label="Model"
         className={`inline-flex items-center ${trigger}`}
       >
-        <ComboboxValue />
+        <span className="text-foreground/90">
+          <ComboboxValue />
+        </span>
       </ComboboxTrigger>
       <ComboboxContent className="w-72">
         <ComboboxInput placeholder="Search models" showTrigger={false} />

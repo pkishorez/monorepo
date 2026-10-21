@@ -5,7 +5,10 @@ import {
   InputGroupAddon,
   InputGroupTextarea,
 } from '@kestack/web-platform/components/input-group';
-import { CircleAlertIcon } from '@kestack/web-platform/components/lucide';
+import {
+  CircleAlertIcon,
+  WifiOffIcon,
+} from '@kestack/web-platform/components/lucide';
 import { Skeleton } from '@kestack/web-platform/components/skeleton';
 import { Spinner } from '@kestack/web-platform/components/spinner';
 import {
@@ -14,11 +17,13 @@ import {
   pickedModel,
   pickedSettings,
 } from '../../../../shared/pages/index.ts';
+import { useOffline } from '../../settled/index.ts';
 import { Choice, ModelPicker } from '../picker/index.ts';
 
 /*
  * A new session: the first message, and under it the agent, its model and
- * its own settings, each at its default until picked. Enter starts it.
+ * its own settings, each at its default until picked. Enter starts it,
+ * once the server is in reach.
  */
 
 export const NewSessionView = View.make(
@@ -30,7 +35,10 @@ export const NewSessionView = View.make(
     const models = model.models.find((each) => each.harness === model.harness);
     const problem =
       model.problem ?? model.harnessProblem ?? models?.problem ?? null;
-    const start = () => send({ _tag: 'Start' });
+    const offline = useOffline();
+    const start = () => {
+      if (offline === null) send({ _tag: 'Start' });
+    };
     return (
       <form
         {...root}
@@ -47,7 +55,7 @@ export const NewSessionView = View.make(
             rows={3}
             value={model.text}
             disabled={model.starting}
-            className="max-h-64 min-h-20 px-3.5 pt-3 text-[15px] leading-relaxed"
+            className="max-h-64 min-h-20 px-3.5 pt-3 text-base leading-relaxed"
             onChange={(event) =>
               send({ _tag: 'Typed', text: event.currentTarget.value })
             }
@@ -112,7 +120,10 @@ export const NewSessionView = View.make(
               size="sm"
               className="ml-auto shrink-0 self-end"
               disabled={
-                model.starting || chosen === null || model.text.trim() === ''
+                offline !== null ||
+                model.starting ||
+                chosen === null ||
+                model.text.trim() === ''
               }
             >
               {model.starting && <Spinner />}
@@ -120,10 +131,19 @@ export const NewSessionView = View.make(
             </Button>
           </InputGroupAddon>
         </InputGroup>
+        {offline !== null && (
+          <p className="flex items-center gap-2 px-1 text-sm text-muted-foreground">
+            <WifiOffIcon
+              aria-hidden
+              className="size-3.5 shrink-0 text-warning"
+            />
+            {offline} to the server. You can start once it is back.
+          </p>
+        )}
         {problem !== null && (
           <p
             role="alert"
-            className="flex items-center gap-1.5 text-sm text-destructive"
+            className="flex items-center gap-2 px-1 text-sm text-destructive"
           >
             <CircleAlertIcon aria-hidden className="size-3.5 shrink-0" />
             {problem}

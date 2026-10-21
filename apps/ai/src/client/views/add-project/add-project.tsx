@@ -61,7 +61,7 @@ function Form({
           onChange={(event) =>
             send({ _tag: 'Typed', path: event.currentTarget.value })
           }
-          className="min-w-0 flex-1 font-mono text-[13px]"
+          className="min-w-0 flex-1 font-mono text-base md:text-[13px]"
         />
         <Button type="submit" disabled={model.adding} className="shrink-0">
           {model.adding ? <Spinner /> : <FolderPlusIcon aria-hidden />}

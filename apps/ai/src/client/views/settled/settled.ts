@@ -10,6 +10,22 @@ import { createContext, useContext, useEffect, useState } from 'react';
 /** Whether the app has reached the server since it loaded. */
 export const Reached = createContext(false);
 
+/** The connection to the server now: while it is not up, nothing can be sent. */
+export const Connection = createContext<
+  'connecting' | 'connected' | 'reconnecting'
+>('connecting');
+
+/** What the app is doing while the server is out of reach, or null when it is in reach. */
+export const useOffline = () => {
+  const connection = useContext(Connection);
+  return connection === 'connected'
+    ? null
+    : connection === 'connecting'
+      ? 'Connecting'
+      : 'Reconnecting';
+};
+
+/** Whether an empty list or a missing row can be believed: a moment after the server is reached. */
 export function useSettled(ms = 1200) {
   const reached = useContext(Reached);
   const [settled, setSettled] = useState(false);

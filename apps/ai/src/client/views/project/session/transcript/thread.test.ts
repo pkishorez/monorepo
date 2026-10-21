@@ -132,4 +132,29 @@ describe('thread', () => {
       },
     ]);
   });
+
+  it("puts a subagent's prompt from its call first when it sent none of its own", () => {
+    const rows = thread([
+      message([
+        {
+          type: 'toolCall',
+          id: 'sub',
+          tool: 'subagent',
+          name: 'Agent',
+          title: 'Count lines',
+          input: { description: 'Count lines', prompt: 'Run wc -l' },
+        },
+      ]),
+      message([{ type: 'text', text: 'six' }], { agentId: 'sub' }),
+    ]);
+    expect(rows).toMatchObject([
+      {
+        kind: 'subagent',
+        rows: [
+          { kind: 'prompt', text: 'Run wc -l' },
+          { kind: 'text', text: 'six' },
+        ],
+      },
+    ]);
+  });
 });

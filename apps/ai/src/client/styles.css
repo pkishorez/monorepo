@@ -2,55 +2,21 @@
 @import '@kestack/web-platform/theme/font-inter.css';
 
 /*
- * Cool neutrals, tinted a little towards the one accent's opposite, and the
- * accent itself, a warm clay, used only for what is alive: a running
- * session, a steer, the focus ring.
+ * The Web Platform's Theme as it is, the docs' own, plus one colour it does
+ * not have: amber, for a connection that is down for now.
  */
 [data-theme='light'],
 :root {
-  --background: oklch(0.995 0.002 250);
-  --foreground: oklch(0.2 0.01 255);
-  --card: oklch(1 0 0);
-  --popover: oklch(1 0 0);
-  --primary: oklch(0.24 0.012 255);
-  --primary-foreground: oklch(0.985 0.002 250);
-  --secondary: oklch(0.965 0.004 250);
-  --muted: oklch(0.965 0.004 250);
-  --muted-foreground: oklch(0.52 0.012 255);
-  --accent: oklch(0.955 0.005 250);
-  --border: oklch(0.25 0.02 255 / 9%);
-  --input: oklch(0.25 0.02 255 / 14%);
-  --ring: oklch(0.64 0.13 42);
-  --signal: oklch(0.62 0.15 42);
-  --sidebar: oklch(0.982 0.003 250);
-  --sidebar-accent: oklch(0.25 0.02 255 / 6%);
-  --sidebar-border: oklch(0.25 0.02 255 / 8%);
+  --warning: oklch(0.7 0.15 70);
 }
 
 [data-theme='dark'],
 .dark {
-  --background: oklch(0.16 0.006 255);
-  --foreground: oklch(0.96 0.003 250);
-  --card: oklch(0.2 0.007 255);
-  --popover: oklch(0.235 0.008 255);
-  --dialog: oklch(0.21 0.008 255);
-  --primary: oklch(0.93 0.004 250);
-  --primary-foreground: oklch(0.2 0.01 255);
-  --secondary: oklch(0.26 0.008 255);
-  --muted: oklch(0.24 0.008 255);
-  --muted-foreground: oklch(0.68 0.01 255);
-  --accent: oklch(0.26 0.008 255);
-  --border: oklch(0.3 0.008 255);
-  --input: oklch(0.34 0.008 255);
-  --ring: oklch(0.7 0.12 45);
-  --signal: oklch(0.72 0.13 45);
-  --sidebar: oklch(0.185 0.007 255);
-  --sidebar-accent: oklch(0.25 0.008 255);
-  --sidebar-border: oklch(0.27 0.008 255);
+  --warning: oklch(0.78 0.13 75);
 }
 
 @theme inline {
-  --color-signal: var(--signal);
+  --color-warning: var(--warning);
 }
 
 @layer base {

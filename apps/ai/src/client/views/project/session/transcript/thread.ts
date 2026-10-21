@@ -9,7 +9,9 @@ import type { Message, Part, Usage } from '@kestack/ai-toolkit/api';
  *   came after the agent's last word in a cancelled turn is the agent
  *   reporting the interrupt (Claude does), so it was stopped too;
  * - a toolCall to a subagent holds the Messages whose `agentId` is its id,
- *   drawn the same way, so subagents nest;
+ *   drawn the same way, so subagents nest. Its prompt comes first: the
+ *   subagent's own user words (Codex sends them), or else the call's
+ *   `prompt` or `description` input (Claude's Agent tool);
  * - a turn's usage is its turnEnded's, or else the sum of its usage parts,
  *   which are never rows of their own.
  */
@@ -74,6 +76,15 @@ const add = (a: Usage, b: Usage): Usage => {
       Object.entries(optional).filter(([, value]) => value !== undefined),
     ),
   };
+};
+
+/** The prompt a subagent's call gave it, from its input. */
+const promptOf = (call: Of<'toolCall'>): string | null => {
+  if (typeof call.input !== 'object' || call.input === null) return null;
+  const { prompt, description } = call.input as Record<string, unknown>;
+  for (const text of [prompt, description])
+    if (typeof text === 'string' && text.trim() !== '') return text;
+  return null;
 };
 
 /** Every row of the main agent, oldest first, each subagent nested in its call. */
@@ -149,7 +160,15 @@ export const thread = (
             const state = stateOf(part, message.turnId);
             if (part.tool !== 'subagent' || seen.has(part.id))
               return [{ kind: 'tool', id, call: part, result, state }];
-            const rows = rowsOf(part.id, new Set(seen).add(part.id));
+            const own = rowsOf(part.id, new Set(seen).add(part.id));
+            const prompt = promptOf(part);
+            const rows: Row[] =
+              prompt === null || own.some((row) => row.kind === 'prompt')
+                ? own
+                : [
+                    { kind: 'prompt', id: `${id}:prompt`, text: prompt },
+                    ...own,
+                  ];
             return [{ kind: 'subagent', id, call: part, result, state, rows }];
           }
           case 'turnEnded':

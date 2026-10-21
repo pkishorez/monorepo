@@ -45,10 +45,13 @@ $ ls -la /tmp/ai-qa/other
 
 - A Claude tool stopped by Stop showed "Failed" with Claude's "The user doesn't want to proceed..." text. Claude answers an interrupt with an error tool result, so the row now counts as stopped when the turn was cancelled and that result came after the agent's last message. When expanded, the output is labelled "Stopped". Files: `src/client/views/project/session/transcript/thread.ts`, `thread.test.ts` (new test), `transcript.tsx`.
 
+## Fixed in the design pass
+
+- The connection: while the server is out of reach, the header shows a "Reconnecting…" pill, the composer says sending is paused, and Send, Steer, Stop and Start session are disabled. A running turn says "Last seen working" instead of "Working…". Screenshots: `screenshots/design-disconnected.png`, `screenshots/design-narrow-disconnected.png`.
+- Claude's subagent block now starts with its prompt, from the Agent call's `prompt` input, as Codex's does.
+
 ## Known issues
 
 - Claude sessions load your global Claude config (MCP servers, SessionStart hooks). In scenario 03 the agent talked about MCP servers needing attention. Codex also reads your global skills (scenario 07 read the orchestrate skill).
-- "Reconnecting to the server..." is small grey text at the bottom of the sidebar, easy to miss. While disconnected, the session still shows "Working..." with Steer and Stop enabled.
 - Stopping the server logs a stack trace for each open WebSocket (`InterruptError: All fibers interrupted without error`, INFO level, status 503). This is shutdown noise, not a failure. No other errors appeared in the server log.
 - For Claude, a turn's cost includes subagents but its token counts do not.
-- Claude's subagent block shows no prompt row (Codex's does).

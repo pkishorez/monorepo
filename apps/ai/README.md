@@ -21,13 +21,13 @@ server's records arrive only through the `Ai` Replica
 ([`@kestack/std-toolkit/replica`](../../toolkits/std-toolkit/src/replica/README.md)),
 read by Queries and kept in memory: projects and sessions whole, and a
 session's messages while its page is open. Every write is a Command an actor
-asks for through `AiClient`. The root page follows the connection, so the
-sidebar says when it is connecting or reconnecting.
+asks for through `AiClient`. The root page follows the connection: while
+the server is out of reach, the header says so and nothing can be sent.
 
 The transcript pairs Messages as it draws them (`thread.ts`): a tool call
 runs until its result arrives, and is stopped if its turn ended first; a
-subagent's call holds the Messages whose `agentId` is its id, nested; a
-turn's usage is its `turnEnded` usage, or the sum of its usage parts.
+subagent's call holds the Messages whose `agentId` is its id, nested,
+under its prompt; a turn's usage is its `turnEnded` usage, or the sum of its usage parts.
 
 ## Usage
 
