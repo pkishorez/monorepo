@@ -18,7 +18,6 @@
       "@kestack/std-toolkit/snapshot/vitest": [
         "./src/snapshot/vitest/index.ts"
       ],
-      "@kestack/std-toolkit/studio-rpc": ["./src/studio-rpc/index.ts"],
       "@kestack/std-toolkit/sync": ["./src/sync/index.ts"],
       "@kestack/std-toolkit/sync/paced": ["./src/sync/paced/index.ts"],
       "@kestack/std-toolkit/sync/idb": ["./src/sync/store/idb/index.ts"],

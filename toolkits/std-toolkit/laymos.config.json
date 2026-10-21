@@ -21,7 +21,6 @@
     "src/replica/__tests__",
     "src/snapshot/__tests__",
     "src/snapshot/vitest/__tests__",
-    "src/studio-rpc/__tests__",
     "src/sync/__tests__",
     "src/sync/domain/collection-item/__tests__",
     "src/sync/domain/identity/__tests__",
@@ -138,15 +137,6 @@
       "src/db/sqlite/database",
       "src/db/sqlite/item-schema",
       "src/db/sqlite/statement"
-    ],
-    "src/studio-rpc": [
-      "src/core",
-      "src/db/std-table/contract",
-      "src/db/std-table/definition",
-      "src/db/std-table/entity",
-      "src/db/std-table/error",
-      "src/db/std-table/table",
-      "src/snapshot"
     ],
     "src/alchemy/snapshot-guard": ["src/snapshot"],
     "src/alchemy/d1": [

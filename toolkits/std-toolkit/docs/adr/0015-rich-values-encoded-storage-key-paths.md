@@ -23,7 +23,7 @@ The DynamoDB native API, including expression updates, is removed. It was writte
 
 ## Consequences
 
-Studio's generic RPC cannot know application types, so it shows encoded values, including the order-preserving strings of number key parts. Places that compared values with `===`, such as detecting a changed primary key on update and `subscribe` filters, must compare derived keys or encoded values so that two equal `Date`s count as equal.
+Places that compared values with `===`, such as detecting a changed primary key on update and `subscribe` filters, must compare derived keys or encoded values so that two equal `Date`s count as equal.
 
 ## Amendment (2026-09-26)
 
