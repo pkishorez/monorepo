@@ -17,7 +17,9 @@ const tab =
 
 function Tabs() {
   const { route } = useRouter<typeof router.route.Type>();
-  const peeking = route._tag === router.Replica.Peek()._tag;
+  // Peek is a page under Replica: both routes are tagged `Replica`.
+  const peeking =
+    route._tag === 'Replica' && 'page' in route && route.page?._tag === 'Peek';
   return (
     <nav aria-label="Replica" className="mb-6 flex gap-1">
       <Router.Link
