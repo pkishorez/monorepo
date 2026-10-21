@@ -16,6 +16,7 @@ import { WIDE, place } from './placement.ts';
 import type { Spot } from './placement.ts';
 import { trackPointer } from './pointer.ts';
 import { progress } from './scroll.ts';
+import { smoothScroll } from './smooth.ts';
 import { DISTANCE, scene } from './stage.ts';
 import type { Baked } from './shapes/index.ts';
 import { watchTheme } from './theme.ts';
@@ -28,6 +29,8 @@ import { watchTheme } from './theme.ts';
  * drawn on the server, empty and transparent; in the browser it bakes the
  * shapes in a Worker, watches the scroll, pointer and theme, and draws
  * every frame.
+ * While it is mounted the page's scroll glides (smooth.ts), so the words
+ * and the shapes move together.
  * With `follower`, a comet travels down the page with the reader.
  * Without WebGL2 it draws nothing and the page reads the same.
  */
@@ -47,8 +50,11 @@ export function Field({ follower }: { readonly follower: boolean }) {
     canvas.className =
       'block h-full w-full opacity-0 transition-opacity duration-700 ease-out';
     el.appendChild(canvas);
+    // The scroll glides first, so each frame the field reads where it is.
+    const unsmooth = smoothScroll();
     const stop = run(canvas, () => journey.current);
     return () => {
+      unsmooth();
       stop();
       canvas.remove();
     };
@@ -202,7 +208,7 @@ function run(canvas: HTMLCanvasElement, journey: () => boolean): () => void {
   const sharpness = governor(plan.dpr);
 
   // The loop: everything eased, nothing read from the layout.
-  const t = spring(progress(chapters, window.scrollY, viewHeight), 0.15);
+  const t = spring(progress(chapters, window.scrollY, viewHeight), 0.06);
   let time = 0;
   let still = motion.calm() ? 0 : 1;
   let intro = motion.calm() ? 1 : 0;
