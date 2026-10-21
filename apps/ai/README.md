@@ -19,15 +19,21 @@ and lists the project's sessions, `/p/:projectId/s/:sessionId` is a session.
 All state lives in the pages' actors; the Views only draw and send. The
 server's records arrive only through the `Ai` Replica
 ([`@kestack/std-toolkit/replica`](../../toolkits/std-toolkit/src/replica/README.md)),
-read by Queries and kept in memory: projects and sessions whole, and a
-session's messages while its page is open. Every write is a Command an actor
+read by Queries and kept in IndexedDB, so a reload shows what this device
+last saw at once: projects and sessions whole, and a session's messages
+once its page has been open. Every write is a Command an actor
 asks for through `AiClient`. The root page follows the connection: while
 the server is out of reach, the header says so and nothing can be sent.
 
 The transcript pairs Messages as it draws them (`thread.ts`): a tool call
 runs until its result arrives, and is stopped if its turn ended first; a
 subagent's call holds the Messages whose `agentId` is its id, nested,
-under its prompt; a turn's usage is its `turnEnded` usage, or the sum of its usage parts.
+under its prompt; a turn's usage is its `turnEnded` usage, or the sum of its usage parts;
+streamed text and reasoning arrive a few sentences at a time as `textChunk`s,
+joined by `streamId` into one block where the first chunk is. Each tool call
+reads as a verb and its target, with paths relative to the project's folder
+and an edit drawn as its diff (`tools.ts`); a run of calls of one kind folds
+into one line.
 
 ## Usage
 

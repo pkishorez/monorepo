@@ -27,7 +27,7 @@ import { RunningDot } from '../running-dot/index.ts';
 import { useSettled } from '../settled/index.ts';
 import { ago } from '../time/index.ts';
 import { NewSessionView } from './new-session/index.ts';
-import { SessionView } from './session/index.ts';
+import { Folder, SessionView } from './session/index.ts';
 
 /*
  * A project: the session open in it, or, with none open, the form that
@@ -45,7 +45,9 @@ export const ProjectView = View.make(
     if (children.Session)
       return (
         <div {...root} className="flex min-h-0 flex-1 flex-col">
-          <SessionView instance={children.Session} />
+          <Folder value={project?.path ?? null}>
+            <SessionView instance={children.Session} />
+          </Folder>
         </div>
       );
     if (settled && found?.status === 'ready' && project === undefined)

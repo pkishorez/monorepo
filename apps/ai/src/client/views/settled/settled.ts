@@ -2,9 +2,11 @@ import { createContext, useContext, useEffect, useState } from 'react';
 
 /*
  * Whether what the Replica shows can be trusted to be whole. The Store
- * starts empty on every load and fills once the app reaches the server,
- * so an empty list, or a row not found, means something only a moment
- * after that: until then a page draws its skeleton.
+ * keeps in IndexedDB what this device last saw, so rows it has draw at
+ * once; but on a new device, or for rows added elsewhere since, it fills
+ * only once the app reaches the server. So an empty list, or a row not
+ * found, means something only a moment after that: until then a page
+ * draws its skeleton.
  */
 
 /** Whether the app has reached the server since it loaded. */

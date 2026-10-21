@@ -87,6 +87,22 @@ describe('thread', () => {
     ).toEqual(['failed', 'stopped', 'text', 'ended']);
   });
 
+  it('times a turn from its start to its end', () => {
+    const start = message(
+      [{ type: 'turnStarted', text: 'hi', steered: false }],
+      {
+        role: 'user',
+      },
+    );
+    const end = message([{ type: 'turnEnded', status: 'done' }], {
+      role: 'system',
+    });
+    expect(thread([start, end]).at(-1)).toMatchObject({
+      kind: 'ended',
+      duration: end.at - start.at,
+    });
+  });
+
   it('prefers the turnEnded usage', () => {
     const rows = thread([
       message([{ type: 'usage', usage: { inputTokens: 1, outputTokens: 1 } }], {
@@ -167,5 +183,73 @@ describe('thread', () => {
     expect(rows).toMatchObject([
       { kind: 'subagent', rows: [], result: { output: 'ok' } },
     ]);
+  });
+
+  describe('streamed chunks', () => {
+    const chunk = (
+      streamId: string,
+      text: string,
+      channel: 'text' | 'reasoning' = 'text',
+    ): Part => ({ type: 'textChunk', streamId, channel, text });
+
+    it('joins a stream in order where its first chunk is, writing until something follows', () => {
+      const first = message([chunk('r', 'Hmm. ', 'reasoning')]);
+      const rows = thread([
+        first,
+        message([chunk('r', 'Ok.', 'reasoning')]),
+        message([chunk('s', 'One. ')]),
+        message([call('a')]),
+        message([chunk('s', 'Two. ')]),
+        message([chunk('s', 'Three.')]),
+      ]);
+      expect(rows).toEqual([
+        {
+          kind: 'reasoning',
+          id: `${first.id}:0`,
+          text: 'Hmm. Ok.',
+          writing: false,
+        },
+        expect.objectContaining({
+          kind: 'text',
+          text: 'One. Two. Three.',
+          writing: true,
+        }),
+        expect.objectContaining({ kind: 'tool', state: 'running' }),
+      ]);
+    });
+
+    it('stops writing once the turn ends, a cancelled one keeping its chunks', () => {
+      const rows = thread([
+        message([chunk('s', 'Half ')]),
+        message([chunk('s', 'a thought')]),
+        message([{ type: 'turnEnded', status: 'cancelled' }], {
+          role: 'system',
+        }),
+      ]);
+      expect(rows).toMatchObject([
+        { kind: 'text', text: 'Half a thought', writing: false },
+        { kind: 'ended', status: 'cancelled' },
+      ]);
+    });
+
+    it("keeps a subagent's streams in it, and drops its streamed report", () => {
+      const rows = thread([
+        message([call('sub', 'subagent')]),
+        message([chunk('m', 'Main ')]),
+        message([chunk('x', 'Looking ')], { agentId: 'sub' }),
+        message([chunk('m', 'goes on.')]),
+        message([chunk('x', 'around.')], { agentId: 'sub' }),
+        message([chunk('y', 'o')], { agentId: 'sub' }),
+        message([chunk('y', 'k')], { agentId: 'sub' }),
+        message([result('sub')], { role: 'tool' }),
+      ]);
+      expect(rows).toMatchObject([
+        {
+          kind: 'subagent',
+          rows: [{ kind: 'text', text: 'Looking around.', writing: false }],
+        },
+        { kind: 'text', text: 'Main goes on.', writing: false },
+      ]);
+    });
   });
 });

@@ -14,7 +14,12 @@ import type { Message, Part, Usage } from '@kestack/ai-toolkit/api';
  *   `prompt` or `description` input (Claude's Agent tool). Its last words
  *   are dropped when they are its report, as Codex sends both;
  * - a turn's usage is its turnEnded's, or else the sum of its usage parts,
- *   which are never rows of their own.
+ *   which are never rows of their own; it ran from its turnStarted to its
+ *   turnEnded;
+ * - streamed text and reasoning arrive as textChunks, one per Message: the
+ *   chunks of one stream join, in order, into one row where the first one
+ *   is. It is being written while its turn runs and its agent has said
+ *   nothing since; a stopped turn keeps what it got.
  */
 
 type Of<T extends Part['type']> = Extract<Part, { readonly type: T }>;
@@ -30,8 +35,13 @@ export type Row =
     }
   /** A user's words inside a subagent: the prompt it was given. */
   | { readonly kind: 'prompt'; readonly id: string; readonly text: string }
-  | { readonly kind: 'text'; readonly id: string; readonly text: string }
-  | { readonly kind: 'reasoning'; readonly id: string; readonly text: string }
+  | {
+      readonly kind: 'text' | 'reasoning';
+      readonly id: string;
+      readonly text: string;
+      /** Streamed and still arriving: more of it is on its way. */
+      readonly writing: boolean;
+    }
   | {
       readonly kind: 'tool';
       readonly id: string;
@@ -53,6 +63,8 @@ export type Row =
       readonly status: Of<'turnEnded'>['status'];
       readonly usage: Usage | null;
       readonly error: string | null;
+      /** How long the turn ran, in ms, when its start is known. */
+      readonly duration: number | null;
     }
   | { readonly kind: 'error'; readonly id: string; readonly message: string }
   | {
@@ -100,6 +112,8 @@ export const thread = (
   const cancelled = new Set<string>();
   const lastWord = new Map<string, string>();
   const summed = new Map<string, Usage>();
+  const streams = new Map<string, { text: string; last: string }>();
+  const startedAt = new Map<string, number>();
   for (const message of sorted) {
     const list = byAgent.get(message.agentId) ?? [];
     list.push(message);
@@ -109,9 +123,18 @@ export const thread = (
       if (part.type === 'toolResult') {
         results.set(part.toolCallId, part);
         resultAt.set(part.toolCallId, message.id);
+      } else if (part.type === 'turnStarted' && !part.steered) {
+        if (!startedAt.has(message.turnId))
+          startedAt.set(message.turnId, message.at);
       } else if (part.type === 'turnEnded') {
         ended.add(message.turnId);
         if (part.status === 'cancelled') cancelled.add(message.turnId);
+      } else if (part.type === 'textChunk') {
+        const stream = streams.get(part.streamId);
+        streams.set(part.streamId, {
+          text: (stream?.text ?? '') + part.text,
+          last: message.id,
+        });
       } else if (part.type === 'usage') {
         const before = summed.get(message.turnId);
         summed.set(
@@ -134,8 +157,16 @@ export const thread = (
     return ended.has(turnId) ? 'stopped' : 'running';
   };
 
-  const rowsOf = (agentId: string | null, seen: Set<string>): Row[] =>
-    (byAgent.get(agentId) ?? []).flatMap((message) =>
+  /** Whether a stream is still arriving: its turn runs and its agent's last Message holds it. */
+  const writing = (
+    agentId: string | null,
+    turnId: string,
+    last: string,
+  ): boolean => !ended.has(turnId) && byAgent.get(agentId)?.at(-1)?.id === last;
+
+  const rowsOf = (agentId: string | null, seen: Set<string>): Row[] => {
+    const drawn = new Set<string>();
+    return (byAgent.get(agentId) ?? []).flatMap((message) =>
       message.parts.flatMap((part, at): Row[] => {
         const id = `${message.id}:${at}`;
         switch (part.type) {
@@ -147,7 +178,7 @@ export const thread = (
             return part.text.trim() === ''
               ? []
               : message.role !== 'user'
-                ? [{ kind: 'text', id, text: part.text }]
+                ? [{ kind: 'text', id, text: part.text, writing: false }]
                 : // The main agent's own words come as turnStarted.
                   agentId === null
                   ? []
@@ -155,7 +186,22 @@ export const thread = (
           case 'reasoning':
             return part.text.trim() === ''
               ? []
-              : [{ kind: 'reasoning', id, text: part.text }];
+              : [{ kind: 'reasoning', id, text: part.text, writing: false }];
+          case 'textChunk': {
+            const stream = streams.get(part.streamId);
+            if (drawn.has(part.streamId) || !stream) return [];
+            drawn.add(part.streamId);
+            return stream.text.trim() === ''
+              ? []
+              : [
+                  {
+                    kind: part.channel,
+                    id,
+                    text: stream.text,
+                    writing: writing(agentId, message.turnId, stream.last),
+                  },
+                ];
+          }
           case 'toolCall': {
             const result = results.get(part.id) ?? null;
             const state = stateOf(part, message.turnId);
@@ -187,6 +233,9 @@ export const thread = (
                 status: part.status,
                 usage: part.usage ?? summed.get(message.turnId) ?? null,
                 error: part.error ?? null,
+                duration: startedAt.has(message.turnId)
+                  ? message.at - startedAt.get(message.turnId)!
+                  : null,
               },
             ];
           case 'error':
@@ -207,6 +256,7 @@ export const thread = (
         }
       }),
     );
+  };
 
   return rowsOf(null, new Set());
 };

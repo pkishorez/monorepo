@@ -12,8 +12,9 @@ import { Rows, thread } from './transcript/index.ts';
 /*
  * A session: the transcript in a centred column that follows new messages
  * while you are at its bottom, and the composer pinned under it. Its title,
- * agent and model are in the header. While the server is out of reach,
- * nothing can be sent, and a running turn's progress is unknown.
+ * agent and model are in the header. Its words can be selected, though the
+ * App Shell turns selection off for its swipes. While the server is out of
+ * reach, nothing can be sent, and a running turn's progress is unknown.
  */
 
 export const SessionView = View.make(
@@ -40,7 +41,7 @@ export const SessionView = View.make(
       <div {...root} className="flex min-h-0 flex-1 flex-col">
         <div
           ref={scroller}
-          className="min-h-0 flex-1 overflow-y-auto [overflow-anchor:none]"
+          className="min-h-0 flex-1 overflow-y-auto select-text [overflow-anchor:none]"
         >
           <div
             ref={content}
