@@ -36,9 +36,21 @@ catalogs:
     '@cloudflare/workers-types':
       specifier: 5.20260904.1
       version: 5.20260904.1
+    '@codemirror/autocomplete':
+      specifier: 6.20.3
+      version: 6.20.3
+    '@codemirror/commands':
+      specifier: 6.10.4
+      version: 6.10.4
     '@codemirror/lang-json':
       specifier: 6.0.2
       version: 6.0.2
+    '@codemirror/state':
+      specifier: 6.7.1
+      version: 6.7.1
+    '@codemirror/view':
+      specifier: 6.43.6
+      version: 6.43.6
     '@distilled.cloud/aws':
       specifier: 1.0.0-rc.13
       version: 1.0.0-rc.13
@@ -373,6 +385,18 @@ importers:
 
   apps/ai:
     dependencies:
+      '@codemirror/autocomplete':
+        specifier: 'catalog:'
+        version: 6.20.3
+      '@codemirror/commands':
+        specifier: 'catalog:'
+        version: 6.10.4
+      '@codemirror/state':
+        specifier: 'catalog:'
+        version: 6.7.1
+      '@codemirror/view':
+        specifier: 'catalog:'
+        version: 6.43.6
       '@kestack/ai-toolkit':
         specifier: workspace:*
         version: link:../../toolkits/ai-toolkit

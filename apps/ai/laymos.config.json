@@ -10,7 +10,11 @@
       "src/client/views"
     ],
     "src/client/document.tsx": ["src/client/components"],
-    "src/client/views": ["src/shared/pages", "src/client/components"],
+    "src/client/views": [
+      "src/shared/pages",
+      "src/client/components",
+      "src/client/composer"
+    ],
     "src/client/views/header": [
       "src/client/views/session-status",
       "src/client/views/settled"

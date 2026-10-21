@@ -13,6 +13,10 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@codemirror/autocomplete": "catalog:",
+    "@codemirror/commands": "catalog:",
+    "@codemirror/state": "catalog:",
+    "@codemirror/view": "catalog:",
     "@kestack/ai-toolkit": "workspace:*",
     "@kestack/kabuki": "workspace:*",
     "@kestack/rpc-toolkit": "workspace:*",
