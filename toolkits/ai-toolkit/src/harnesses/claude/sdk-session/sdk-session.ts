@@ -1,184 +1,119 @@
 import { randomUUID } from 'node:crypto';
-import { accessSync, constants } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { delimiter, join } from 'node:path';
-import {
-  query,
-  type CanUseTool,
-  type EffortLevel,
-  type ModelInfo,
-  type Options,
-  type PermissionMode,
-  type SDKMessage,
-  type SDKUserMessage,
-} from '@anthropic-ai/claude-agent-sdk';
-import { Duration, Effect, Queue, Schema, Stream } from 'effect';
+import { query, type SDKMessage } from '@anthropic-ai/claude-agent-sdk';
+import { Deferred, Effect, Queue, Stream } from 'effect';
 import type { Cause, Scope } from 'effect';
 import {
   HarnessError,
-  type AvailableModel,
+  type Attachment,
   type HarnessSession,
   type RawOut,
 } from '../../../harness/index.js';
+import { makeBackgroundJobs } from './background-jobs/index.js';
+import { userContent } from './content.js';
+import { queryOptions, type SdkSessionConfig } from './options.js';
+import {
+  forkPointOf,
+  keptWhileIdle,
+  opensTurn,
+  skipped,
+  toRawOut,
+  type SdkRecord,
+} from './records.js';
+import { contextUsage, mcpStatus } from './status/index.js';
 import { makeStreamChunks } from './stream-chunks/index.js';
 import { TurnEnd } from './turn-end/index.js';
+import { apply, changed, type TurnOptions } from './turn-options.js';
+import { userInput } from './user-input.js';
 
-export interface SdkSessionConfig {
-  readonly cwd: string;
-  readonly model: string;
-  readonly nativeId?: string;
-  readonly effort: EffortLevel;
-  readonly permissionMode: PermissionMode;
+/** Puts a stored record's streamed text back from its chunks. */
+export { restore } from './stream-chunks/index.js';
+
+/** One user message, and the options it changes from here on. */
+export interface SdkTurn {
+  readonly text: string;
+  readonly images: ReadonlyArray<Attachment>;
+  readonly options: Partial<TurnOptions>;
 }
 
-/**
- * The Claude Code the user keeps updated: `AI_TOOLKIT_CLAUDE` or `claude` on
- * PATH. The SDK's bundled one lags behind, and refuses models newer than it.
- */
-const installedClaude = (): string | undefined => {
-  const candidates = [
-    process.env['AI_TOOLKIT_CLAUDE'],
-    ...(process.env['PATH'] ?? '')
-      .split(delimiter)
-      .filter((dir) => dir !== '')
-      .map((dir) => join(dir, 'claude')),
-  ];
-  return candidates.find((path) => {
-    if (path === undefined) return false;
-    try {
-      accessSync(path, constants.X_OK);
-      return true;
-    } catch {
-      return false;
-    }
-  });
+export type SdkSession = Omit<HarnessSession, 'turn' | 'steer'> & {
+  readonly turn: (input: SdkTurn) => Stream.Stream<RawOut, HarnessError>;
+  readonly steer: (input: SdkTurn) => Effect.Effect<void, HarnessError>;
 };
 
 /** How long a cancelled turn may take to report its result before its stream ends anyway. */
 const CANCEL_GRACE_MS = 15_000;
-
-/**
- * Records we do not keep: token deltas (kept as `text.chunk` records
- * instead, which a whole record's streamed blocks point at), the CLI's
- * queue bookkeeping, and thinking-token counters.
- * Everything else is a whole record.
- */
-const skipped = (message: Record<string, unknown>): boolean =>
-  message['type'] === 'stream_event' ||
-  message['type'] === 'command_lifecycle' ||
-  (message['type'] === 'system' && message['subtype'] === 'thinking_tokens');
-
-const kindOf = (message: Record<string, unknown>): string =>
-  message['type'] === 'system' && typeof message['subtype'] === 'string'
-    ? `system/${message['subtype']}`
-    : String(message['type']);
-
-const toJson = (message: unknown): Schema.Json =>
-  JSON.parse(JSON.stringify(message)) as Schema.Json;
-
-const toRawOut = (message: Record<string, unknown>): RawOut => {
-  const parent = message['parent_tool_use_id'];
-  return {
-    kind: kindOf(message),
-    payload: toJson(message),
-    ...(typeof parent === 'string' ? { agentId: parent } : {}),
-  };
-};
-
-const canUseTool: CanUseTool = async (toolName, input) =>
-  toolName === 'AskUserQuestion'
-    ? { behavior: 'deny', message: 'Questions are not supported here.' }
-    : { behavior: 'allow', updatedInput: input };
-
-/** The user messages fed to the query, one at a time, as they are pushed. */
-const userInput = () => {
-  const waiting: SDKUserMessage[] = [];
-  let wake: (() => void) | undefined;
-  let closed = false;
-  const iterable = async function* (): AsyncGenerator<SDKUserMessage> {
-    while (!closed) {
-      const next = waiting.shift();
-      if (next !== undefined) yield next;
-      else await new Promise<void>((resolve) => (wake = resolve));
-    }
-  };
-  const poke = () => {
-    wake?.();
-    wake = undefined;
-  };
-  return {
-    iterable: iterable(),
-    push: (message: SDKUserMessage) => {
-      waiting.push(message);
-      poke();
-    },
-    close: () => {
-      closed = true;
-      poke();
-    },
-  };
-};
 
 /** Claude Code's runtime takes `{ cancelQueued }`; its typings do not say so yet. */
 type Interrupt = (options?: { cancelQueued?: boolean }) => Promise<unknown>;
 
 interface Turn {
   readonly out: Queue.Queue<RawOut, HarnessError | Cause.Done>;
+  readonly agentStarted: boolean;
+  /** Ends with the turn, so a user turn can wait out an agent's. */
+  readonly done: Deferred.Deferred<void>;
   state: TurnEnd.TurnEnd;
+  /** The turn's last transcript entry so far. */
+  forkPoint: string | undefined;
 }
 
 /**
  * One Agent SDK `query` in streaming-input mode, alive for the Scope.
  * Each turn pushes a user message and streams every whole record the query
- * emits until `TurnEnd` says every message we sent got its result.
+ * emits until `TurnEnd` says every message we sent got its result. A turn
+ * Claude Code starts on its own between ours (to report a finished
+ * Background Job) streams the same way on `agentTurns`; a user turn waits
+ * for it to end, so the two never interleave.
  */
 export const openSdkSession = (
   config: SdkSessionConfig,
-): Effect.Effect<HarnessSession, HarnessError, Scope.Scope> =>
+): Effect.Effect<SdkSession, HarnessError, Scope.Scope> =>
   Effect.gen(function* () {
     const input = userInput();
-    const executable = installedClaude();
-    const options: Options = {
-      cwd: config.cwd,
-      ...(executable === undefined
-        ? {}
-        : { pathToClaudeCodeExecutable: executable }),
-      model: config.model,
-      effort: config.effort,
-      permissionMode: config.permissionMode,
-      // Token deltas, batched into a few sentences per text.chunk record.
-      includePartialMessages: true,
-      ...(config.permissionMode === 'bypassPermissions'
-        ? { allowDangerouslySkipPermissions: true }
-        : {}),
-      ...(config.nativeId === undefined ? {} : { resume: config.nativeId }),
-      // A turn lasts until the agent is idle: subagents and shell commands
-      // run in the foreground, so none outlives its turn.
-      env: { ...process.env, CLAUDE_CODE_DISABLE_BACKGROUND_TASKS: '1' },
-      disallowedTools: ['AskUserQuestion'],
-      // Bypass approves every call without asking, so the SDK warns that a
-      // canUseTool would never run; the other modes ask it.
-      ...(config.permissionMode === 'bypassPermissions' ? {} : { canUseTool }),
-    };
     const live = yield* Effect.try({
-      try: () => query({ prompt: input.iterable, options }),
+      try: () =>
+        query({ prompt: input.iterable, options: queryOptions(config) }),
       catch: (cause) =>
         new HarnessError({ message: 'Claude Code did not start', cause }),
     });
 
     const scope = yield* Effect.scope;
+    const jobs = yield* makeBackgroundJobs((id) => live.stopTask(id));
+    const agentTurns =
+      yield* Queue.unbounded<Stream.Stream<RawOut, HarnessError>>();
+    let options: TurnOptions = {
+      model: config.model,
+      effort: config.effort,
+      permissionMode: config.permissionMode,
+    };
     let nativeId = config.nativeId;
     let turn: Turn | undefined;
+    let lastForkPoint: string | undefined;
     let stopped: HarnessError | undefined;
+    // What a background subagent wrote, and task notifications, while no
+    // turn ran: the next turn opens with them.
+    let idle: RawOut[] = [];
     const chunks = makeStreamChunks();
     let timerSet = false;
 
     const send = (outs: ReadonlyArray<RawOut>) =>
-      Effect.suspend(() =>
-        turn === undefined || outs.length === 0
-          ? Effect.void
-          : Queue.offerAll(turn.out, outs),
-      );
+      Effect.suspend(() => {
+        if (outs.length === 0) return Effect.void;
+        if (turn !== undefined) return Queue.offerAll(turn.out, outs);
+        idle.push(...outs);
+        return Effect.void;
+      });
+
+    /**
+     * Makes a turn the running one, its stream opening with what came while
+     * no turn ran. Synchronous, so nothing runs between a check that no
+     * turn runs and this.
+     */
+    const begin = (current: Turn): Effect.Effect<void> => {
+      turn = current;
+      const waiting = idle;
+      idle = [];
+      return Queue.offerAll(current.out, waiting).pipe(Effect.asVoid);
+    };
 
     // Text left waiting in a slow stream is sent once it is due, even when
     // no record arrives to send it with.
@@ -199,27 +134,27 @@ export const openSdkSession = (
       );
     });
 
-    const push = (text: string): string => {
-      const uuid = randomUUID();
-      input.push({
-        type: 'user',
-        message: { role: 'user', content: text },
-        parent_tool_use_id: null,
-        // `next` folds the message into the running turn at its next tool
-        // boundary; `now` would abort the turn's work in flight.
-        priority: 'next',
-        uuid: uuid as SDKUserMessage['uuid'] & string,
+    const newTurn = (agentStarted: boolean, state: TurnEnd.TurnEnd) =>
+      Effect.gen(function* () {
+        const current: Turn = {
+          out: yield* Queue.unbounded<RawOut, HarnessError | Cause.Done>(),
+          agentStarted,
+          done: yield* Deferred.make<void>(),
+          state,
+          forkPoint: undefined,
+        };
+        return current;
       });
-      return uuid;
-    };
 
     // Text still waiting is sent before the turn ends, so a cancelled
     // turn's chunks still add up to what was written.
     const finish = (current: Turn) =>
       Effect.suspend(() => {
         if (turn === current) turn = undefined;
-        return Queue.offerAll(current.out, chunks.closeAll()).pipe(
+        lastForkPoint = current.forkPoint ?? lastForkPoint;
+        return Queue.offerAll(current.out, chunks.flushAll()).pipe(
           Effect.andThen(Queue.end(current.out)),
+          Effect.andThen(Deferred.succeed(current.done, undefined)),
         );
       });
 
@@ -229,25 +164,66 @@ export const openSdkSession = (
       ),
     );
 
+    const startAgentTurn: Effect.Effect<Turn> = Effect.gen(function* () {
+      const current = yield* newTurn(true, TurnEnd.agentStarted);
+      // A user turn may have begun while this one was made; the record
+      // joins it instead.
+      return yield* Effect.suspend(() =>
+        turn !== undefined
+          ? Effect.succeed(turn)
+          : begin(current).pipe(
+              Effect.andThen(
+                Queue.offer(
+                  agentTurns,
+                  Stream.fromQueue(current.out).pipe(
+                    Stream.ensuring(finishIfCurrent(current)),
+                  ),
+                ),
+              ),
+              Effect.as(current),
+            ),
+      );
+    });
+
+    const finishIfCurrent = (current: Turn) =>
+      Effect.suspend(() => (turn === current ? finish(current) : Effect.void));
+
+    /**
+     * The turn a record joins: the running one, or one the agent starts.
+     * Between turns only a background subagent's records and task
+     * notifications are kept, for the next turn; the rest is bookkeeping.
+     */
+    const turnFor = (record: SdkRecord) =>
+      Effect.suspend((): Effect.Effect<Turn | 'idle' | undefined> => {
+        if (turn !== undefined) return Effect.succeed(turn);
+        if (opensTurn(record)) return startAgentTurn;
+        return Effect.succeed(keptWhileIdle(record) ? 'idle' : undefined);
+      });
+
     const onMessage = (message: SDKMessage) =>
       Effect.gen(function* () {
-        const record = message as unknown as Record<string, unknown>;
-        if (
-          record['type'] === 'system' &&
-          record['subtype'] === 'init' &&
-          typeof record['session_id'] === 'string'
-        ) {
+        const record = message as unknown as SdkRecord;
+        if (opensTurn(record) && typeof record['session_id'] === 'string') {
           nativeId = record['session_id'];
         }
+        yield* jobs.observe(record);
         if (record['type'] === 'stream_event') {
           yield* send(chunks.event(record, Date.now()));
           yield* send(chunks.due(Date.now()));
           yield* armTimer;
           return;
         }
-        const current = turn;
-        // Records between turns (late task notifications) have no turn to join.
-        if (current === undefined) return;
+        const joined = yield* turnFor(record);
+        if (joined === undefined) return;
+        if (joined === 'idle') {
+          if (skipped(record)) return;
+          const whole =
+            record['type'] === 'assistant'
+              ? chunks.whole(record)
+              : { chunks: [], record };
+          return yield* send([...whole.chunks, toRawOut(whole.record)]);
+        }
+        const current = joined;
         if (
           record['type'] === 'command_lifecycle' &&
           record['state'] === 'cancelled' &&
@@ -262,13 +238,14 @@ export const openSdkSession = (
           return;
         }
         if (skipped(record)) return;
+        current.forkPoint = forkPointOf(record) ?? current.forkPoint;
         if (record['type'] === 'assistant') {
           const whole = chunks.whole(record);
           yield* send(whole.chunks);
           yield* Queue.offer(current.out, toRawOut(whole.record));
           return;
         }
-        if (record['type'] === 'result') yield* send(chunks.closeAll());
+        if (record['type'] === 'result') yield* send(chunks.flushAll());
         yield* Queue.offer(current.out, toRawOut(record));
         if (record['type'] !== 'result') return;
         const [state, step] = TurnEnd.result(current.state, record);
@@ -287,6 +264,7 @@ export const openSdkSession = (
           ? Effect.void
           : Queue.offerAll(current.out, rest).pipe(
               Effect.andThen(Queue.fail(current.out, error)),
+              Effect.andThen(Deferred.succeed(current.done, undefined)),
             );
       });
 
@@ -310,27 +288,55 @@ export const openSdkSession = (
       }),
     );
 
-    const session: HarnessSession = {
+    /** Applies what a message changes, before the message is sent. */
+    const applyOptions = (wanted: Partial<TurnOptions>) =>
+      Effect.suspend(() => {
+        const changes = changed(options, wanted);
+        if (Object.keys(changes).length === 0) return Effect.void;
+        return Effect.tryPromise({
+          try: () => apply(live, changes),
+          catch: (cause) =>
+            new HarnessError({
+              message: 'Claude Code did not take the new model or settings',
+              cause,
+            }),
+        }).pipe(
+          Effect.andThen(
+            Effect.sync(() => {
+              options = { ...options, ...changes };
+            }),
+          ),
+        );
+      });
+
+    /** Waits out agent turns, then makes a user turn the running one. */
+    const claim = (current: Turn): Effect.Effect<void, HarnessError> =>
+      Effect.suspend(() => {
+        if (stopped !== undefined) return Effect.fail(stopped);
+        const running = turn;
+        if (running === undefined) return begin(current);
+        if (!running.agentStarted) {
+          return Effect.fail(
+            new HarnessError({ message: 'A turn is already running' }),
+          );
+        }
+        return Deferred.await(running.done).pipe(
+          Effect.andThen(claim(current)),
+        );
+      });
+
+    const session: SdkSession = {
       nativeId: Effect.sync(() => nativeId),
-      turn: (input) =>
+      turn: (message) =>
         Stream.unwrap(
           Effect.gen(function* () {
-            if (stopped !== undefined) return yield* Effect.fail(stopped);
-            if (turn !== undefined) {
-              return yield* Effect.fail(
-                new HarnessError({ message: 'A turn is already running' }),
-              );
-            }
-            const out = yield* Queue.unbounded<
-              RawOut,
-              HarnessError | Cause.Done
-            >();
-            const current: Turn = {
-              out,
-              state: TurnEnd.start(push(input.text)),
-            };
-            turn = current;
-            return Stream.fromQueue(out).pipe(
+            yield* applyOptions(message.options);
+            const uuid = randomUUID();
+            const current = yield* newTurn(false, TurnEnd.start(uuid));
+            current.forkPoint = uuid;
+            yield* claim(current);
+            input.push(uuid, userContent(message.text, message.images));
+            return Stream.fromQueue(current.out).pipe(
               Stream.ensuring(
                 Effect.sync(() => {
                   if (turn === current) turn = undefined;
@@ -339,16 +345,26 @@ export const openSdkSession = (
             );
           }),
         ),
-      steer: (input) =>
-        Effect.suspend(() => {
+      steer: (message) =>
+        Effect.gen(function* () {
           const current = turn;
           if (current === undefined) {
-            return Effect.fail(
+            return yield* Effect.fail(
               new HarnessError({ message: 'No turn is running to steer' }),
             );
           }
-          current.state = TurnEnd.sent(current.state, push(input.text));
-          return Effect.void;
+          // Counted before the options apply, so the turn cannot end
+          // before its steer is sent.
+          const uuid = randomUUID();
+          current.state = TurnEnd.sent(current.state, uuid);
+          yield* applyOptions(message.options).pipe(
+            Effect.tapError(() => {
+              const [state, step] = TurnEnd.dropped(current.state, uuid);
+              current.state = state;
+              return step === 'end' ? finish(current) : Effect.void;
+            }),
+          );
+          input.push(uuid, userContent(message.text, message.images));
         }),
       cancel: Effect.suspend(() => {
         const current = turn;
@@ -364,94 +380,12 @@ export const openSdkSession = (
           Effect.asVoid,
         );
       }),
-      lastTurnNativeId: Effect.succeed(undefined),
-      agentTurns: Stream.never,
-      backgroundJobs: Stream.make([]),
-      stopBackgroundJob: () => notYet,
-      mcpStatus: notYet,
-      contextUsage: notYet,
+      lastTurnNativeId: Effect.sync(() => lastForkPoint),
+      agentTurns: Stream.fromQueue(agentTurns),
+      backgroundJobs: jobs.changes,
+      stopBackgroundJob: jobs.stop,
+      mcpStatus: mcpStatus(live),
+      contextUsage: contextUsage(live),
     };
     return session;
   });
-
-const notYet = Effect.fail(new HarnessError({ message: 'not yet' }));
-
-const ASK_TIMEOUT = Duration.seconds(15);
-
-/**
- * Claude Code's model rows as models: each by the id it resolves to, the
- * `default` row only marking which one is the default.
- */
-export const toAvailableModels = (
-  rows: ReadonlyArray<ModelInfo>,
-): ReadonlyArray<AvailableModel> => {
-  const fallback = rows.find((row) => row.value === 'default')?.resolvedModel;
-  const models = new Map<string, AvailableModel>();
-  for (const row of rows) {
-    const id = row.resolvedModel ?? row.value;
-    if (row.value === 'default' || models.has(id)) continue;
-    models.set(id, {
-      id,
-      name: row.displayName,
-      ...(id === fallback ? { isDefault: true } : {}),
-    });
-  }
-  return [...models.values()];
-};
-
-/**
- * The models this login can run, as Claude Code offers them: a query that
- * is never sent a message, asked, then closed. No API call is made.
- */
-export const supportedModels: Effect.Effect<
-  ReadonlyArray<AvailableModel>,
-  HarnessError
-> = Effect.acquireRelease(
-  Effect.try({
-    try: () => {
-      const executable = installedClaude();
-      const input = userInput();
-      return {
-        input,
-        live: query({
-          prompt: input.iterable,
-          options: {
-            cwd: tmpdir(),
-            ...(executable === undefined
-              ? {}
-              : { pathToClaudeCodeExecutable: executable }),
-          },
-        }),
-      };
-    },
-    catch: (cause) =>
-      new HarnessError({ message: 'Claude Code did not start', cause }),
-  }),
-  ({ input, live }) =>
-    Effect.sync(() => {
-      input.close();
-      live.close();
-    }),
-).pipe(
-  Effect.flatMap(({ live }) =>
-    Effect.tryPromise({
-      try: () => live.supportedModels(),
-      catch: (cause) =>
-        new HarnessError({
-          message: 'Claude Code did not list its models',
-          cause,
-        }),
-    }),
-  ),
-  Effect.map(toAvailableModels),
-  Effect.scoped,
-  Effect.timeoutOrElse({
-    duration: ASK_TIMEOUT,
-    orElse: () =>
-      Effect.fail(
-        new HarnessError({
-          message: 'Claude Code took too long to list its models',
-        }),
-      ),
-  }),
-);

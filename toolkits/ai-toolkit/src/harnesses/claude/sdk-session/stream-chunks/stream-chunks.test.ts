@@ -205,6 +205,31 @@ describe('stream chunks, timing and agents', () => {
     expect(chunks.closeAll()).toEqual([]);
   });
 
+  it('flushes waiting text at a turn end and still points a later whole at it', () => {
+    const chunks = makeStreamChunks();
+    for (const record of start('toolu_1')) chunks.event(record, 0);
+    chunks.event(delta('Still ', 'toolu_1'), 0);
+    const flushed = chunks.flushAll();
+    expect(flushed.map((o) => payloadOf(o).text)).toEqual(['Still ']);
+    const later = chunks.event(delta('going.', 'toolu_1'), 0);
+    const sent = {
+      type: 'assistant',
+      parent_tool_use_id: 'toolu_1',
+      message: {
+        id: 'msg_1',
+        content: [{ type: 'thinking', thinking: 'Still going.' }],
+      },
+    };
+    const whole = chunks.whole(sent);
+    expect(contentOf(whole.record)?.thinking).toEqual({ [POINTER]: 'msg_1:0' });
+    expect(
+      restore(
+        whole.record,
+        byStreamId([...flushed, ...later, ...whole.chunks]),
+      ),
+    ).toEqual(sent);
+  });
+
   it("closes only the whole record's own agent's blocks", () => {
     const chunks = makeStreamChunks();
     for (const record of [...start(), ...start('toolu_1')]) {

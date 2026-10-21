@@ -38,12 +38,39 @@ describe('TurnEnd', () => {
     expect(TurnEnd.result(afterFirst, {})[1]).toBe('end');
   });
 
-  it('ignores uuids it never sent', () => {
+  it('runs on past a result that answers only messages it never sent', () => {
     const [state, step] = TurnEnd.result(TurnEnd.start('a'), {
       user_message_uuids: ['someone-else'],
     });
-    expect(step).toBe('end');
-    expect(state.pending).toEqual([]);
+    expect(step).toBe('continue');
+    expect(state.pending).toEqual(['a']);
+  });
+
+  it('runs on past the turn Claude Code ran to report a background task first', () => {
+    // A task notification and the user's message were dequeued together:
+    // the notification's turn ends first, naming its origin, not a message.
+    const [state, step] = TurnEnd.result(TurnEnd.start('a'), {
+      origin: { kind: 'task-notification' },
+    });
+    expect(step).toBe('continue');
+    expect(TurnEnd.result(state, { user_message_uuids: ['a'] })[1]).toBe('end');
+  });
+
+  it('ends an agent-started turn at its own result', () => {
+    expect(
+      TurnEnd.result(TurnEnd.agentStarted, {
+        origin: { kind: 'task-notification' },
+      })[1],
+    ).toBe('end');
+  });
+
+  it('keeps an agent-started turn a steer joined until the steer is answered', () => {
+    const [state, step] = TurnEnd.result(
+      TurnEnd.sent(TurnEnd.agentStarted, 's'),
+      { origin: { kind: 'task-notification' } },
+    );
+    expect(step).toBe('continue');
+    expect(TurnEnd.result(state, { user_message_uuids: ['s'] })[1]).toBe('end');
   });
 
   it('interrupts again after a cancel while a steer is still waiting', () => {

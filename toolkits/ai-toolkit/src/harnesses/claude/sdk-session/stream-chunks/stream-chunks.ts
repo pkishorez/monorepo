@@ -19,7 +19,8 @@
  * sent as they complete; text left waiting is sent once it has waited
  * `CHUNK_MAX_WAIT_MS` since the block last sent; the rest is sent at
  * `content_block_stop`, or before the agent's next whole record, or when
- * the turn ends or the stream stops, whichever comes first.
+ * the turn ends or the stream stops, whichever comes first. A turn's end
+ * leaves blocks open, since a background subagent's outlive it.
  */
 import {
   CHUNK_MAX_WAIT_MS,
@@ -65,6 +66,11 @@ export interface StreamChunks {
   readonly due: (now: number) => ReadonlyArray<RawOut>;
   /** When the next chunk falls due, if any text is waiting. */
   readonly nextDue: () => number | undefined;
+  /**
+   * Sends the text waiting in every block, leaving the blocks open: a
+   * background subagent streams on after the turn that started it ends.
+   */
+  readonly flushAll: () => ReadonlyArray<RawOut>;
   /** Closes every block, returning the text still waiting in them. */
   readonly closeAll: () => ReadonlyArray<RawOut>;
 }
@@ -235,6 +241,11 @@ export const makeStreamChunks = (): StreamChunks => {
         .map((block) => block.lastSent + CHUNK_MAX_WAIT_MS);
       return waiting.length === 0 ? undefined : Math.min(...waiting);
     },
+    flushAll: () =>
+      [...blocks.values()].flatMap((block) => {
+        const rest = block.chunker.flush();
+        return rest === null ? [] : send(block, [rest], Date.now());
+      }),
     closeAll: () => {
       messages.clear();
       return [...blocks.keys()].flatMap(close);

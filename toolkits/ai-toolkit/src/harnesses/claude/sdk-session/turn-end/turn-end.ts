@@ -11,8 +11,11 @@
  *
  * - `sent` adds the uuid to `pending`.
  * - a `result` removes every uuid it lists (`user_message_uuids`, else
- *   `user_message_uuid`); a result that lists none of ours removes the
- *   oldest pending one, so older CLIs still finish.
+ *   `user_message_uuid`). A result that lists none, and names an `origin`,
+ *   answered no user message: a turn Claude Code ran to report a finished
+ *   background task, just before ours. It removes nothing, so ours runs on
+ *   to its own result. A result with neither removes the oldest pending
+ *   one, so older CLIs still finish.
  * - a `command_lifecycle` frame saying a message was `cancelled` removes it:
  *   it will never get a result.
  *
@@ -29,12 +32,19 @@ export type TurnEndStep = 'continue' | 'end' | 'interrupt';
 export interface ResultIds {
   readonly user_message_uuid?: unknown;
   readonly user_message_uuids?: unknown;
+  readonly origin?: unknown;
 }
 
 export const start = (uuid: string): TurnEnd => ({
   pending: [uuid],
   cancelling: false,
 });
+
+/**
+ * A turn Claude Code started on its own: none of our messages waits, so its
+ * first result ends it.
+ */
+export const agentStarted: TurnEnd = { pending: [], cancelling: false };
 
 export const sent = (state: TurnEnd, uuid: string): TurnEnd => ({
   ...state,
@@ -46,15 +56,17 @@ export const cancel = (state: TurnEnd): TurnEnd => ({
   cancelling: true,
 });
 
-const listed = (result: ResultIds): ReadonlyArray<string> => {
+/** The user messages a result answers; undefined when it does not say. */
+const listed = (result: ResultIds): ReadonlyArray<string> | undefined => {
   if (Array.isArray(result.user_message_uuids)) {
     return result.user_message_uuids.filter(
       (id): id is string => typeof id === 'string',
     );
   }
-  return typeof result.user_message_uuid === 'string'
-    ? [result.user_message_uuid]
-    : [];
+  if (typeof result.user_message_uuid === 'string') {
+    return [result.user_message_uuid];
+  }
+  return result.origin === undefined ? undefined : [];
 };
 
 const step = (state: TurnEnd): TurnEndStep => {
@@ -66,11 +78,11 @@ export const result = (
   state: TurnEnd,
   ids: ResultIds,
 ): readonly [TurnEnd, TurnEndStep] => {
-  const ours = listed(ids).filter((id) => state.pending.includes(id));
+  const answered = listed(ids);
   const pending =
-    ours.length > 0
-      ? state.pending.filter((id) => !ours.includes(id))
-      : state.pending.slice(1);
+    answered === undefined
+      ? state.pending.slice(1)
+      : state.pending.filter((id) => !answered.includes(id));
   const next = { ...state, pending };
   return [next, step(next)];
 };
