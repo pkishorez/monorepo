@@ -97,6 +97,42 @@ describe('Store', () => {
       ),
   );
 
+  it('keeps a full chunk of records and their cursor in one write', () =>
+    run(
+      Effect.gen(function* () {
+        const backend = makeBackend();
+        const records = Array.from({ length: 99 }, (_, index) => {
+          const id = `w${index}`;
+          const entity = backend.put(Wallet, {
+            id,
+            account: 'a',
+            name: id,
+            balance: index,
+          });
+          return { id, entity };
+        });
+        const space = yield* Effect.flatMap(Store, (kept) =>
+          kept.open('pocket·a'),
+        );
+        yield* space.write([
+          {
+            collection: 'wallets',
+            records,
+            cursor: {
+              scope: 'strategy',
+              strategy: 'old-to-new',
+              state: { cursor: records.at(-1)!.entity },
+            },
+          },
+        ]);
+        const read = yield* space.read('wallets', null);
+        expect(read.records).toHaveLength(99);
+        expect(yield* space.cursor('wallets', 'strategy')).toMatchObject({
+          strategy: 'old-to-new',
+        });
+      }).pipe(Effect.scoped, Effect.provide(Memory.memory())),
+    ));
+
   it('stops an Instance it removes before deleting it', () =>
     run(
       Effect.gen(function* () {

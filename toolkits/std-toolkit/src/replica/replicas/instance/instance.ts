@@ -1,8 +1,9 @@
 import type { Collection } from '@tanstack/db';
 import { Actor } from '@kestack/kabuki';
 import type { ActorType } from '@kestack/kabuki';
-import { Context, Effect, Stream } from 'effect';
+import { Clock, Context, Duration, Effect, Semaphore, Stream } from 'effect';
 import type { Entity } from '../../../core/index.js';
+import type { AnyEntityESchema } from '../../../eschema/index.js';
 import {
   nameOf,
   type AnyShape,
@@ -12,24 +13,41 @@ import {
   type Row,
 } from '../../shape/index.js';
 import type { Strategy } from './strategy/index.js';
-import { Store } from '../../store/contract/index.js';
-import { Input, Message, Model, State, withoutOne } from './model.js';
+import { Store, type Opening } from '../../store/contract/index.js';
+import {
+  announced,
+  closed,
+  Input,
+  Message,
+  Model,
+  opened,
+  released,
+  reported,
+  resettled,
+  State,
+  withoutOne,
+  type Synced,
+} from './model.js';
 import { openInstance, type Live, type Opened } from './opened.js';
 import { runStrategy } from './syncing.js';
+import { workerKey, type WindowAt, type WindowMap } from './windows.js';
 
 /*
  * An Instance: one Replica for one Key, as a Kabuki actor. It is Invoked by
  * Replicas, keyed by its Key, and lives as long as something holds it.
  *
- * 1. Open    its space in the Store and its Collections, and say it is up,
- *            so whoever holds it gets it. The Doorbell refreshes them.
- * 2. Lead    when the Store makes this participant its Leader: the State
- *            goes from Following to Leading.
- * 3. Gate    follows the Gate's Stream into the Model, as Messages.
- * 4. Sync    one Worker per Collection with a Strategy, only while Leading
- *            and the Gate is open. A closed Gate stops fetching, never
- *            reading.
- * 5. Report  its State and Gate, for the state Replicas shows.
+ * 1. Open     its space in the Store and its Collections, and say it is up,
+ *             so whoever holds it gets it. The Doorbell refreshes them.
+ * 2. Lead     when the Store makes this participant its Leader: the State
+ *             goes from Following to Leading.
+ * 3. Gate     follows the Gate's Stream into the Model, as Messages.
+ * 4. Window   a Query's `where` opens Windows and its end lets them go, as
+ *             Messages; one nothing uses closes once its GC Time passes.
+ *             Each participant records the Windows it has open, so the
+ *             Leader runs them all.
+ * 5. Sync     one Worker per Strategy: the whole Collection's, and each
+ *             open Window's, only while Leading and the Gate is open. A
+ *             closed Gate stops fetching, never reading.
  */
 
 type KeyOf<D> = D extends Shape<string, infer K, any> ? K : never;
@@ -51,16 +69,10 @@ export type Instance<D extends AnyShape> = {
   >;
 };
 
-/** Leading or following, and the Gate, as Replicas shows them. */
-export interface Status {
-  readonly role: 'leading' | 'following';
-  readonly gate: boolean;
-}
-
 /**
  * Between the Instances and Replicas, which Invokes them: an Instance says
- * here when it is up and down, how it is doing, and that the Store asked
- * for it to stop. Replicas gives it.
+ * here when it is up and down, and that the Store asked for it to stop.
+ * Replicas gives it.
  */
 export class Hosting extends Context.Service<
   Hosting,
@@ -70,24 +82,37 @@ export class Hosting extends Context.Service<
     readonly down: (name: string) => Effect.Effect<void>;
     /** The open Instance of this name, once it is up. */
     readonly opened: (name: string) => Effect.Effect<Opened, ReplicaError>;
-    readonly report: (name: string, status: Status) => Effect.Effect<void>;
     readonly removed: (name: string) => Effect.Effect<void>;
   }
 >()('@kestack/std-toolkit/replica/Hosting') {}
+
+/** How one Collection syncs: a Strategy for all of it, one per Window, or both. */
+export interface CollectionBuild<K, S extends AnyEntityESchema, R> {
+  readonly strategy?: Strategy<K, any, R>;
+  /** Each runs while a Query filters on its field: `walletId: (walletId) => oldToNew(...)`. */
+  readonly windows?: WindowMap<K, S, R>;
+}
 
 export interface BuildOptions<K, C extends CollectionSchemas, R> {
   /** Whether the Instance of a Key may fetch now; open unless given. */
   readonly gate?: (input: {
     readonly key: K;
   }) => Stream.Stream<boolean, never, R>;
+  /**
+   * How long an Instance, or one of its Windows, runs on once nothing uses
+   * it; `Infinity` keeps it running until the Store removes it.
+   */
+  readonly gcTime: Duration.Input;
   readonly collections: {
-    readonly [N in keyof C]?: { readonly strategy?: Strategy<K, any, R> };
+    readonly [N in keyof C]?: CollectionBuild<K, C[N], R>;
   };
 }
 
-/** A Replica's Build: its Shape and the actor each of its Instances runs. */
+/** A Replica's Build: its Shape, its GC Time, and the actor each of its Instances runs. */
 export interface Build<D extends AnyShape = AnyShape, R = any> {
   readonly shape: D;
+  /** In milliseconds; `Infinity` never stops. */
+  readonly gcTime: number;
   readonly actor: ActorType<
     D['name'],
     typeof Input.Type,
@@ -100,6 +125,8 @@ export interface Build<D extends AnyShape = AnyShape, R = any> {
   >;
 }
 
+type StrategyNeeds<S> = S extends Strategy<any, any, infer R> ? R : never;
+
 /** What a Build's Gate and Strategies need, each read on its own so they add up. */
 type NeedsOf<O> =
   | (O extends {
@@ -109,13 +136,50 @@ type NeedsOf<O> =
       : never)
   | (O extends { readonly collections: infer Written }
       ? {
-          [N in keyof Written]: Written[N] extends {
-            readonly strategy: Strategy<any, any, infer R>;
-          }
-            ? R
-            : never;
+          [N in keyof Written]:
+            | (Written[N] extends { readonly strategy: infer S }
+                ? StrategyNeeds<S>
+                : never)
+            | (Written[N] extends { readonly windows: infer W }
+                ? {
+                    [P in keyof W]: W[P] extends (value: any) => infer S
+                      ? StrategyNeeds<S>
+                      : never;
+                  }[keyof W]
+                : never);
         }[keyof Written]
       : never);
+
+type Data = { readonly model: Model; readonly state: State };
+
+/** One Strategy the Model says may run: the whole Collection's, or one Window's. */
+const scopesOf = (model: Model) =>
+  model.collections.flatMap((synced) => [
+    ...(synced.strategy && synced.strategy.status !== 'outdated'
+      ? [{ collection: synced.collection, window: null }]
+      : []),
+    ...synced.windows
+      .filter((window) => window.status !== 'outdated')
+      .map((window) => ({
+        collection: synced.collection,
+        window: { path: window.path, value: window.value } as WindowAt | null,
+      })),
+  ]);
+
+/** The Windows open here, as the Store records them. */
+const openHere = (model: Model): ReadonlyArray<Opening> =>
+  model.collections.flatMap((synced) =>
+    synced.windows
+      .filter((window) => window.here)
+      .map(({ path, value }) => ({
+        collection: synced.collection,
+        path,
+        value,
+      })),
+  );
+
+const same = <A>(left: A, right: A) =>
+  JSON.stringify(left) === JSON.stringify(right);
 
 const build = <
   K,
@@ -131,47 +195,117 @@ const build = <
     nameOf(shape.name, model.key);
   const keyOfModel = ({ model }: { readonly model: Model }) =>
     shape.keyOf(model.key);
-  const opened = (data: { readonly model: Model }) =>
-    Effect.flatMap(Hosting, (hosting) =>
-      hosting.opened(nameOfModel(data)),
-    ).pipe(Effect.orDie);
+  // An Instance that could not open said so already: its other Workers
+  // wait for nothing then.
+  const spaceOf = (data: { readonly model: Model }) =>
+    Effect.flatMap(Hosting, (hosting) => hosting.opened(nameOfModel(data)));
+  const openedOf = (data: { readonly model: Model }) =>
+    Effect.orDie(spaceOf(data));
+  const warn = (what: string) => (error: unknown) =>
+    Effect.logWarning(`[@kestack/std-toolkit/replica] ${what}`, error);
   // The Gate and the Strategies need what the app gives them, `R`, which
   // the actor's type carries up to the app's Layer. Kabuki checks an actor's
   // own work against the Capabilities it lists, and `R` is only a type, so
   // they are read here as needing anything: the Runtime runs every Worker
   // with the whole app's Context.
   const { gate, collections }: BuildOptions<K, C, any> = options;
-
-  // 4. Sync
-  const syncing = Object.fromEntries(
-    Object.entries(collections).flatMap(([collection, written]) => {
-      const strategy = written?.strategy;
-      if (!strategy) return [];
-      return [
-        [
-          `sync ${collection}`,
+  const gcTime = Duration.toMillis(Duration.fromInputUnsafe(options.gcTime));
+  const written = Object.entries(collections).flatMap(([collection, each]) =>
+    each && (each.strategy || each.windows)
+      ? [
           {
-            while: ({ model }: { readonly model: Model }) =>
-              model.gate && !model.outdated.includes(collection),
-            run: (self: {
-              readonly get: Effect.Effect<{ readonly model: Model }>;
-              readonly send: (message: Message) => Effect.Effect<void>;
-            }) =>
-              Effect.gen(function* () {
-                const data = yield* self.get;
-                yield* runStrategy({
-                  collection,
-                  strategy,
-                  key: keyOfModel(data),
-                  opened: yield* opened(data),
-                  send: self.send,
-                });
-              }),
+            collection,
+            strategy: each.strategy as Strategy<K, any, any> | undefined,
+            windows: (each.windows ?? {}) as Readonly<
+              Record<
+                string,
+                ((value: unknown) => Strategy<K, any, any>) | undefined
+              >
+            >,
           },
-        ],
-      ];
+        ]
+      : [],
+  );
+  const windowPaths = Object.fromEntries(
+    written.flatMap(({ collection, windows }) => {
+      const paths = Object.keys(windows);
+      return paths.length === 0 ? [] : [[collection, paths]];
     }),
   );
+  const strategyOf = (collection: string, window: WindowAt | null) => {
+    const found = written.find((each) => each.collection === collection);
+    return window === null
+      ? found?.strategy
+      : found?.windows[window.path]?.(window.value);
+  };
+  const leading = ({ state }: Data) => state._tag === 'Leading';
+
+  // 5. Sync
+  const syncing = {
+    sync: {
+      each: ({ model }: Data) =>
+        model.gate
+          ? scopesOf(model).map(({ collection, window }) =>
+              workerKey(collection, window),
+            )
+          : [],
+      run: (
+        self: {
+          readonly get: Effect.Effect<Data>;
+          readonly send: (message: Message) => Effect.Effect<void>;
+        },
+        key: string,
+      ) =>
+        Effect.gen(function* () {
+          const data = yield* self.get;
+          const scope = scopesOf(data.model).find(
+            ({ collection, window }) => workerKey(collection, window) === key,
+          );
+          const strategy = scope && strategyOf(scope.collection, scope.window);
+          if (!scope || !strategy) return;
+          yield* runStrategy({
+            ...scope,
+            strategy,
+            key: keyOfModel(data),
+            opened: yield* openedOf(data),
+            send: self.send,
+          });
+        }),
+    },
+    // 4. Window: what other participants have open, read anew each time
+    // one records it. A new Leader first clears every record and asks for
+    // them again, so one left by a participant that crashed goes now.
+    openings: {
+      run: (self: {
+        readonly get: Effect.Effect<Data>;
+        readonly send: (message: Message) => Effect.Effect<void>;
+      }) =>
+        Effect.gen(function* () {
+          const { space } = yield* spaceOf(yield* self.get);
+          yield* space.recall.pipe(
+            Effect.catch(warn(`${space.name}: could not ask for open Windows`)),
+          );
+          let last: ReadonlyArray<Opening> = [];
+          yield* Stream.runForEach(space.announced, () =>
+            space.openings.pipe(
+              Effect.map((all) =>
+                all.filter(({ collection, path }) =>
+                  windowPaths[collection]?.includes(path),
+                ),
+              ),
+              Effect.flatMap((windows) => {
+                if (same(windows, last)) return Effect.void;
+                last = windows;
+                return self.send({ _tag: 'Announced', windows });
+              }),
+              Effect.catch(
+                warn(`${space.name}: could not read the open Windows`),
+              ),
+            ),
+          );
+        }).pipe(Effect.ignore),
+    },
+  };
 
   const actor = Actor.build(
     Actor.define(shape.name, {
@@ -187,8 +321,11 @@ const build = <
           key,
           gate: gate === undefined,
           pending: [],
-          outdated: [],
-          failing: [],
+          collections: written.map(({ collection, strategy }): Synced => ({
+            collection,
+            strategy: strategy ? { status: 'idle', problem: null } : null,
+            windows: [],
+          })),
         },
         state: { _tag: 'Following' },
       }),
@@ -205,6 +342,7 @@ const build = <
                 shape,
                 keyOfModel(data),
                 space,
+                windowPaths,
               );
               yield* Effect.acquireRelease(hosting.up(instance), () =>
                 hosting.down(name),
@@ -212,12 +350,7 @@ const build = <
               // What another participant wrote, read again when it rings.
               const follow = Stream.runForEach(space.changes, () =>
                 instance.refresh.pipe(
-                  Effect.catch((error) =>
-                    Effect.logWarning(
-                      `[@kestack/std-toolkit/replica] ${name}: could not read the Store again`,
-                      error,
-                    ),
-                  ),
+                  Effect.catch(warn(`${name}: could not read the Store again`)),
                 ),
               );
               yield* Effect.all(
@@ -273,68 +406,141 @@ const build = <
               }),
           },
         }),
-        // 5. Report
-        report: {
+        // 4. Window: one nothing here uses closes once its GC Time passes.
+        collect: {
+          each: ({ model }) =>
+            model.collections.flatMap((synced) =>
+              synced.windows
+                .filter((window) => window.gcAt !== null)
+                .map((window) => workerKey(synced.collection, window)),
+            ),
+          run: (self, key) =>
+            Effect.gen(function* () {
+              const { model } = yield* self.get;
+              const found = model.collections
+                .flatMap((synced) =>
+                  synced.windows.map((window) => ({
+                    collection: synced.collection,
+                    window,
+                  })),
+                )
+                .find(
+                  ({ collection, window }) =>
+                    workerKey(collection, window) === key,
+                );
+              const until = found?.window.gcAt;
+              if (!found || until == null) return;
+              const { path, value } = found.window;
+              const now = yield* Clock.currentTimeMillis;
+              yield* Effect.sleep(Math.max(0, until - now));
+              yield* self.send({
+                _tag: 'WindowClosed',
+                collection: found.collection,
+                path,
+                value,
+                until,
+              });
+            }),
+        },
+        // 4. Window: the ones open here, recorded for the Leader, and
+        // recorded again when a new Leader asks.
+        announce: {
           run: (self) =>
             Effect.gen(function* () {
-              const hosting = yield* Hosting;
-              const name = nameOfModel(yield* self.get);
-              yield* self.changes.pipe(
-                Stream.map(({ model, state }): Status => ({
-                  role: state._tag === 'Leading' ? 'leading' : 'following',
-                  gate: model.gate,
-                })),
-                Stream.changesWith(
-                  (a, b) => a.role === b.role && a.gate === b.gate,
+              if (Object.keys(windowPaths).length === 0) return;
+              const { space } = yield* spaceOf(yield* self.get);
+              const writing = yield* Semaphore.make(1);
+              let latest: ReadonlyArray<Opening> = [];
+              const record = writing.withPermit(
+                Effect.suspend(() => space.announce(latest)).pipe(
+                  Effect.catch(
+                    warn(`${space.name}: could not record its open Windows`),
+                  ),
                 ),
-                Stream.runForEach((status) => hosting.report(name, status)),
               );
-            }),
+              yield* Effect.all(
+                [
+                  self.changes.pipe(
+                    Stream.map(({ model }) => openHere(model)),
+                    Stream.changesWith(same),
+                    Stream.runForEach((windows) =>
+                      Effect.andThen(
+                        Effect.sync(() => {
+                          latest = windows;
+                        }),
+                        record,
+                      ),
+                    ),
+                  ),
+                  Stream.runForEach(space.recalled, () => record),
+                ],
+                { concurrency: 'unbounded', discard: true },
+              );
+            }).pipe(Effect.ignore),
         },
       },
       on: {
-        Gated: ({ open }, { model }) => ({ model: { ...model, gate: open } }),
+        Gated: ({ open }, data) => ({
+          model: resettled({ ...data.model, gate: open }, leading(data)),
+        }),
         ActionBegan: ({ action }, { model }) => ({
           model: { ...model, pending: [...model.pending, action] },
         }),
         ActionEnded: ({ action }, { model }) => ({
           model: { ...model, pending: withoutOne(model.pending, action) },
         }),
-        Outdated: ({ collection }, { model }) => ({
-          model: { ...model, outdated: [...model.outdated, collection] },
+        WindowOpened: ({ _tag, ...where }, data) => ({
+          model: opened(data.model, where, leading(data)),
         }),
-        Failed: ({ collection, message }, { model }) => ({
-          model: {
-            ...model,
-            failing: [
-              ...model.failing.filter((each) => each.collection !== collection),
-              { collection, message },
-            ],
-          },
+        WindowReleased: ({ _tag, at, ...where }, { model }) => ({
+          model: released(model, where, at, gcTime),
         }),
-        Recovered: ({ collection }, { model }) => ({
-          model: {
-            ...model,
-            failing: model.failing.filter(
-              (each) => each.collection !== collection,
-            ),
-          },
+        WindowClosed: ({ _tag, until, ...where }, { model }) => ({
+          model: closed(model, where, until),
+        }),
+        Announced: ({ windows }, data) => ({
+          model: announced(data.model, windows, leading(data)),
+        }),
+        Outdated: ({ _tag, ...scope }, { model }) => ({
+          model: reported(model, scope, { status: 'outdated', problem: null }),
+        }),
+        Failed: ({ _tag, message, ...scope }, { model }) => ({
+          model: reported(model, scope, {
+            status: 'failing',
+            problem: message,
+          }),
+        }),
+        Recovered: ({ _tag, ...scope }, { model }) => ({
+          model: reported(model, scope, { status: 'running', problem: null }),
         }),
       },
       state: {
-        Following: { on: { Led: () => ({ state: { _tag: 'Leading' } }) } },
-        Leading: { workers: syncing },
+        Following: {
+          on: {
+            Led: (_, { model }) => ({
+              model: resettled(model, true),
+              state: { _tag: 'Leading' },
+            }),
+          },
+        },
+        Leading: {
+          workers:
+            Object.keys(windowPaths).length > 0
+              ? syncing
+              : { sync: syncing.sync },
+        },
       },
     },
   );
   return {
     shape,
+    gcTime,
     // Written out: the type `Actor.build` infers names Kabuki's internals,
     // and what it needs gains `R`, which the Gate and the Strategies use.
     actor: actor as Build<Shape<Name, K, C>, R>['actor'],
   };
 };
 
-/** How each Instance of a Replica syncs: its Gate and a Strategy per Collection. */
+/** How each Instance of a Replica syncs: its Gate, its GC Time, and the Strategies of its Collections and their Windows. */
 export const Instances = { build };
-export type { Live, Opened };
+export type { Live, Opened, WindowMap };

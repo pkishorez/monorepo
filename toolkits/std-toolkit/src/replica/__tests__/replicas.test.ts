@@ -65,10 +65,10 @@ describe('two participants', () => {
 });
 
 describe('Replicas', () => {
-  it('lets an Instance linger once no one holds it, then stops it', () =>
+  it('runs an Instance on for its GC Time once no one holds it, then stops it', () =>
     run(
       Effect.gen(function* () {
-        const world = makeWorld({ linger: 100 });
+        const world = makeWorld({ gcTime: 100 });
         const app = yield* start(world, Store.memory());
         const seen = read(app);
         yield* eventually(() =>
@@ -79,23 +79,23 @@ describe('Replicas', () => {
         yield* eventually(() =>
           expect(seen.instance('a')).toMatchObject({
             holders: [],
-            lingeringUntil: expect.any(Number),
+            gcAt: expect.any(Number),
           }),
         );
-        // Held again while it lingers, it carries on.
+        // Held again before its GC Time runs out, it carries on.
         app.send('Root/page#1', { _tag: 'Shown', shown: true });
         yield* eventually(() =>
-          expect(seen.instance('a')).toMatchObject({ lingeringUntil: null }),
+          expect(seen.instance('a')).toMatchObject({ gcAt: null }),
         );
         app.send('Root/page#1', { _tag: 'Shown', shown: false });
         yield* eventually(() => expect(seen.instances()).toEqual([]));
       }),
     ));
 
-  it('keeps the Instances of a kept Replica running with no one holding them', () =>
+  it('keeps an Instance running with no one holding it when its GC Time is Infinity', () =>
     run(
       Effect.gen(function* () {
-        const world = makeWorld({ linger: 20, keep: true });
+        const world = makeWorld({ gcTime: Infinity });
         const app = yield* start(world, Store.memory());
         const seen = read(app);
         yield* eventually(() =>
@@ -107,10 +107,7 @@ describe('Replicas', () => {
           expect(seen.instance('a')?.holders).toEqual([]),
         );
         yield* Effect.sleep('80 millis');
-        expect(seen.instance('a')).toMatchObject({
-          holders: [],
-          lingeringUntil: null,
-        });
+        expect(seen.instance('a')).toMatchObject({ holders: [], gcAt: null });
       }),
     ));
 });

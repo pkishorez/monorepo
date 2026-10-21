@@ -192,7 +192,7 @@
     "src/replica/store/idb": ["src/db/idb", "src/replica/store/contract"],
     "src/replica/store/memory": ["src/db/memory", "src/replica/store/contract"],
     "src/replica/replicas": ["src/replica/shape", "src/replica/store/contract"],
-    "src/replica/replicas/instance": ["src/core", "src/eschema"],
+    "src/replica/replicas/instance": ["src/core", "src/eschema", "src/db"],
     "src/replica/query": ["src/replica/replicas"],
     "src/replica/action": ["src/replica/shape", "src/replica/replicas"]
   },

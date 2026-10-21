@@ -1,18 +1,24 @@
 import { Context, Deferred, Effect, Layer, Stream } from 'effect';
 import type { Scope } from 'effect';
+import type { StdTableService } from '../../../db/index.js';
 import { partsOf, ReplicaError, type Shape } from '../../shape/index.js';
+import type { SPACE_TABLE } from './layout.js';
 import {
+  announce,
   cursorOf,
+  forget,
+  openingsOf,
   readAfter,
   write,
   type Cursor,
+  type Opening,
   type SpaceTable,
   type Wire,
   type Written,
 } from './space.js';
 
 export { SPACE_TABLE, space as spaceTable } from './layout.js';
-export type { Cursor, SpaceTable, Wire, Written };
+export type { Cursor, Opening, SpaceTable, Wire, Written };
 
 /*
  * The Store: where Instances are kept on this device, the only truth there.
@@ -22,6 +28,10 @@ export type { Cursor, SpaceTable, Wire, Written };
  *
  * 1. Open    a space, for as long as a Scope lasts: read it, write it,
  *            hear when it changed, lead it, learn it is being removed.
+ *            Each opener records the Windows it has open, so the Leader
+ *            runs them all; its record goes when its Scope closes, and a
+ *            new Leader clears every record and asks for them again, so
+ *            one left by a participant that crashed goes then.
  * 2. Remove  an Instance: everyone who opened it is told to stop, and it
  *            is deleted once the ones here have.
  * 3. Retire  Replicas no app reads any more: deleted as the Store starts.
@@ -63,8 +73,12 @@ export interface Space {
     { readonly records: ReadonlyArray<Wire>; readonly position: string },
     ReplicaError
   >;
+  /** Who opened it: unique to this open, so its record of open Windows is its own. */
+  readonly participant: string;
+  /** The cursor of one scope of a Collection: the whole Collection, or one Window. */
   readonly cursor: (
     collection: string,
+    scope: string,
   ) => Effect.Effect<Cursor | null, ReplicaError>;
   /** Keeps the newer `_u` of each record and the cursors, then rings the Doorbell if anything changed. */
   readonly write: (
@@ -78,6 +92,18 @@ export interface Space {
   ) => Effect.Effect<A, E, R>;
   /** Waits until the Store is asked to remove this space. */
   readonly removed: Effect.Effect<void>;
+  /** Records the Windows open here, for the Leader to run; it goes when the Scope closes. */
+  readonly announce: (
+    windows: ReadonlyArray<Opening>,
+  ) => Effect.Effect<void, ReplicaError>;
+  /** The Windows every other participant recorded. */
+  readonly openings: Effect.Effect<ReadonlyArray<Opening>, ReplicaError>;
+  /** A ring once at first, then each time a participant's record changed. */
+  readonly announced: Stream.Stream<void>;
+  /** For a new Leader: clears every other participant's record, then asks each to record its Windows again. */
+  readonly recall: Effect.Effect<void, ReplicaError>;
+  /** A ring each time a new Leader asks for every record again. */
+  readonly recalled: Stream.Stream<void>;
 }
 
 type KeyArgs<K> = [K] extends [void] ? [] : [key: K];
@@ -101,10 +127,14 @@ export class Store extends Context.Service<Store, StoreShape>()(
   '@kestack/std-toolkit/replica/Store',
 ) {}
 
+type StdTableOf = StdTableService<typeof SPACE_TABLE>;
+
 const failed = (what: string) => (cause: unknown) =>
   new ReplicaError({ message: `The Store failed to ${what}`, cause });
 
 const removedTopic = (name: string) => `${name}#removed`;
+const announcedTopic = (name: string) => `${name}#announced`;
+const recalledTopic = (name: string) => `${name}#recalled`;
 
 /** Someone who opened a space here: told when it is removed, and done once their Scope closes. */
 interface Opener {
@@ -142,19 +172,31 @@ export const makeStore = (
             Effect.andThen(Deferred.succeed(opener.closed, undefined)),
           ),
       );
+      const participant = crypto.randomUUID();
       const changed = adapter.doorbell.ring(name);
+      const announced = adapter.doorbell.ring(announcedTopic(name));
+      const inTable = <A, E>(
+        what: string,
+        effect: Effect.Effect<A, E, StdTableOf>,
+      ) => effect.pipe(Effect.provide(table), Effect.mapError(failed(what)));
+      // Its record of open Windows goes with it. One that cannot go waits
+      // for the next Leader, who clears it.
+      yield* Effect.addFinalizer(() =>
+        inTable(`clear the Windows of ${name}`, forget(participant)).pipe(
+          Effect.andThen(announced),
+          Effect.ignore,
+        ),
+      );
       return {
         name,
+        participant,
         read: (collection, after) =>
           readAfter(collection, after).pipe(
             Effect.provide(table),
             Effect.mapError(failed(`read ${name}`)),
           ),
-        cursor: (collection) =>
-          cursorOf(collection).pipe(
-            Effect.provide(table),
-            Effect.mapError(failed(`read a cursor of ${name}`)),
-          ),
+        cursor: (collection, scope) =>
+          inTable(`read a cursor of ${name}`, cursorOf(collection, scope)),
         write: (written) =>
           write(written).pipe(
             Effect.provide(table),
@@ -167,6 +209,31 @@ export const makeStore = (
           Deferred.await(opener.removed),
           Stream.runHead(adapter.doorbell.listen(removedTopic(name))),
         ).pipe(Effect.asVoid),
+        announce: (windows) =>
+          inTable(
+            `record the Windows of ${name}`,
+            announce(participant, windows),
+          ).pipe(Effect.andThen(announced)),
+        openings: inTable(
+          `read the Windows of ${name}`,
+          Effect.map(openingsOf, (all) =>
+            [...all].flatMap(([owner, windows]) =>
+              owner === participant ? [] : windows,
+            ),
+          ),
+        ),
+        announced: adapter.doorbell.listen(announcedTopic(name), true),
+        recall: inTable(
+          `clear the Windows of ${name}`,
+          Effect.flatMap(openingsOf, (all) =>
+            Effect.forEach(
+              [...all.keys()].filter((owner) => owner !== participant),
+              forget,
+              { discard: true },
+            ),
+          ),
+        ).pipe(Effect.andThen(adapter.doorbell.ring(recalledTopic(name)))),
+        recalled: adapter.doorbell.listen(recalledTopic(name)),
       } satisfies Space;
     });
 

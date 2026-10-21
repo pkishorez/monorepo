@@ -1,5 +1,5 @@
 import { Duration, Effect, Option, Schedule, Stream } from 'effect';
-import type { Entity } from '../../../../core/index.js';
+import { uTime, type Entity } from '../../../../core/index.js';
 
 /** An Entity as the Backend sends it: its value in encoded form. */
 export type Wire = Entity<unknown>;
@@ -20,7 +20,14 @@ export type Subscribe<K, R> = (input: {
 }) => Stream.Stream<ReadonlyArray<Wire>, unknown, R>;
 
 /** How a Strategy reads forward: pull with `fetch`, be pushed by `subscribe`, or both. */
-export type ForwardOptions<K, R> =
+export type ForwardOptions<K, R> = {
+  /**
+   * How long the Backend may take to make a write readable: each read starts
+   * that far back from the newest change read, so a write that became
+   * readable late is not skipped. Off unless given.
+   */
+  readonly settleWindow?: Duration.Input;
+} & (
   | {
       readonly fetch: Fetch<K, R>;
       readonly pollEvery?: Duration.Input;
@@ -30,7 +37,8 @@ export type ForwardOptions<K, R> =
       readonly fetch?: Fetch<K, R>;
       readonly subscribe: Subscribe<K, R>;
       readonly pollEvery?: never;
-    };
+    }
+);
 
 type Batch = readonly [Wire, ...Wire[]];
 
@@ -49,6 +57,48 @@ export const oldestOf = (batch: ReadonlyArray<Wire>): Wire =>
   batch.reduce((oldest, entity) =>
     entity.meta._u < oldest.meta._u ? entity : oldest,
   );
+
+/**
+ * The newest Entity read so far that a cursor may stop at: none newer than
+ * the newest `_u` read less `window`, measured on `_u`, never on this
+ * device's clock. It remembers across batches, so pages shorter than the
+ * window still settle as newer ones arrive. An Entity whose `_u` is neither
+ * a ULID nor a time cannot be measured, so it settles at once.
+ */
+export const settledOf = (window: Duration.Input | undefined) => {
+  const millis =
+    window === undefined
+      ? 0
+      : Duration.toMillis(Duration.fromInputUnsafe(window));
+  let top = -Infinity;
+  let pending: Wire[] = [];
+  let settled: Wire | null = null;
+  const keep = (entity: Wire) => {
+    // Of records tied on `_u`, the one read last: reading resumes after it.
+    if (settled === null || entity.meta._u >= settled.meta._u) settled = entity;
+  };
+  return (batch: ReadonlyArray<Wire>): Wire | null => {
+    if (batch.length === 0) return settled;
+    if (millis <= 0) {
+      keep(newestOf(batch));
+      return settled;
+    }
+    for (const entity of batch) {
+      const time = uTime(entity.meta._u);
+      if (time === null) keep(entity);
+      else {
+        top = Math.max(top, time);
+        pending.push(entity);
+      }
+    }
+    pending = pending.filter((entity) => {
+      if (uTime(entity.meta._u)! > top - millis) return true;
+      keep(entity);
+      return false;
+    });
+    return settled;
+  };
+};
 
 /**
  * Reads forward for one Key from a cursor and yields every non-empty batch.

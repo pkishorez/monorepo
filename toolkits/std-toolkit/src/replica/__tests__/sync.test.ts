@@ -89,9 +89,9 @@ describe('Query', () => {
         );
         expect(seen.mine()?.keys).toEqual(['pocket·c']);
 
-        // Each Instance keeps its Key: `a` lingers, `c` is another Instance.
+        // Each Instance keeps its Key: `a` runs out its GC Time, `c` is another Instance.
         expect(seen.instance('a')).toMatchObject({ holders: [] });
-        expect(seen.instance('a')?.lingeringUntil).toEqual(expect.any(Number));
+        expect(seen.instance('a')?.gcAt).toEqual(expect.any(Number));
         expect(seen.instance('c')?.holders).toEqual(['Root/page#1/mine#1']);
       }),
     ));
@@ -143,6 +143,7 @@ describe('Entities', () => {
           expect(messagesAt(app, 'Root/replicas#1/pocket[a]')).toContainEqual({
             _tag: 'Outdated',
             collection: 'wallets',
+            window: null,
           }),
         );
         // It stops reading that Collection until a reload.

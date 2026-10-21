@@ -4,7 +4,10 @@ import { DatabaseError, type StdTableService } from '../../../db/index.js';
 import {
   COLLECTION_ROW,
   collections,
+  cursors,
   nextSequence,
+  OPENING,
+  openings,
   records,
   space,
   START,
@@ -15,7 +18,9 @@ import {
  * Reading and writing one space. Every write keeps the newer `_u` of each
  * Entity and gives each record it keeps the next number in its Collection,
  * so a reader asks only for what was written after the number it last read.
- * A cursor is written with the last records of its batch, never before them.
+ * A cursor is written with the last records of its batch, never before them,
+ * and each Strategy scope keeps its own. Each participant's open Windows are
+ * one row of their own, which the participant alone writes.
  */
 
 /** An Entity in encoded form, as the Store keeps it. */
@@ -27,21 +32,29 @@ export interface Cursor {
   readonly state: unknown;
 }
 
-/** One Collection's part of a write: its records by id, and the cursor that follows them. */
+/** One Collection's part of a write: its records by id, and the cursor of the scope that read them. */
 export interface Written {
   readonly collection: string;
   readonly records: ReadonlyArray<{
     readonly id: string;
     readonly entity: Wire;
   }>;
-  readonly cursor?: Cursor;
+  readonly cursor?: Cursor & { readonly scope: string };
+}
+
+/** A Window a participant has open. */
+export interface Opening {
+  readonly collection: string;
+  readonly path: string;
+  readonly value: string | number | boolean;
 }
 
 export type SpaceTable = Layer.Layer<StdTableService<typeof SPACE_TABLE>>;
 
 // Each transaction holds the Collection's row beside its records; the
-// StdTable contract takes 100 operations at most.
-const CHUNK = 99;
+// StdTable contract takes 100 operations at most: a chunk's records, its
+// Collection row, and on the last chunk a cursor row.
+const CHUNK = 98;
 const PAGE = 500;
 const READS = 12;
 const RETRIES = 10;
@@ -65,6 +78,9 @@ const writeCollection = (written: Written) =>
   Effect.gen(function* () {
     const { collection } = written;
     const row = yield* collections.get(rowKey(collection));
+    const saved = written.cursor
+      ? yield* cursors.get({ collection, scope: written.cursor.scope })
+      : null;
     const candidates = newestById(written.records);
     const stored = yield* Effect.forEach(
       candidates,
@@ -110,27 +126,26 @@ const writeCollection = (written: Written) =>
               ),
         );
       }
-      const cursor =
-        index === chunks.length - 1 && written.cursor
-          ? {
-              strategy: written.cursor.strategy,
-              cursor: written.cursor.state as {} | null,
-            }
-          : {};
+      if (index === chunks.length - 1 && written.cursor) {
+        const { scope, strategy, state } = written.cursor;
+        const cursor = state as {} | null;
+        ops.push(
+          saved
+            ? yield* cursors.getAndUpdateOp(
+                { collection, scope },
+                { strategy, cursor },
+              )
+            : yield* cursors.insertOp({ collection, scope, strategy, cursor }),
+        );
+      }
       ops.push(
         exists
           ? yield* collections.getAndUpdateOp(
               rowKey(collection),
-              { position, ...cursor },
+              { position },
               { check: (current) => current.position === observed },
             )
-          : yield* collections.insertOp({
-              ...rowKey(collection),
-              position,
-              strategy: null,
-              cursor: null,
-              ...cursor,
-            }),
+          : yield* collections.insertOp({ ...rowKey(collection), position }),
       );
       yield* space.transact(ops);
       exists = true;
@@ -171,14 +186,74 @@ export const readAfter = (collection: string, after: string | null) =>
     }
   });
 
-/** A Collection's saved cursor, if a Strategy saved one. */
-export const cursorOf = (collection: string) =>
-  collections
-    .get(rowKey(collection))
+/** The cursor a scope's Strategy saved, if it saved one. */
+export const cursorOf = (collection: string, scope: string) =>
+  cursors
+    .get({ collection, scope })
     .pipe(
       Effect.map((row): Cursor | null =>
-        row?.value.strategy == null
+        row === null
           ? null
           : { strategy: row.value.strategy, state: row.value.cursor },
       ),
     );
+
+const openingKey = (participant: string) => ({ kind: OPENING, participant });
+
+const firstOpenings = openings.query(
+  'primary',
+  { pk: { kind: OPENING }, '>=': null },
+  { limit: PAGE },
+);
+
+type OpeningRow = Effect.Success<typeof firstOpenings>['items'][number];
+
+const openingsAfter = (after: OpeningRow) =>
+  openings.query(
+    'primary',
+    { pk: { kind: OPENING }, '>=': null },
+    { limit: PAGE, after },
+  );
+
+/** Every participant's open Windows, by participant. */
+export const openingsOf = Effect.gen(function* () {
+  const read = new Map<string, ReadonlyArray<Opening>>();
+  let found = yield* firstOpenings;
+  while (true) {
+    for (const item of found.items)
+      // The Store wrote it, so it is a list of Openings.
+      read.set(item.value.participant, item.value.windows as Opening[]);
+    if (!found.hasMore || found.items.length === 0) return read;
+    found = yield* openingsAfter(found.items.at(-1)!);
+  }
+});
+
+/** Writes the Windows one participant has open; none takes its row away. */
+export const announce = (
+  participant: string,
+  windows: ReadonlyArray<Opening>,
+) =>
+  Effect.gen(function* () {
+    const row = yield* openings.get(openingKey(participant));
+    const written = windows as unknown as {};
+    if (windows.length === 0) {
+      if (row !== null) yield* forget(participant);
+      return;
+    }
+    if (row === null)
+      yield* openings.insert({ ...openingKey(participant), windows: written });
+    else
+      yield* openings.getAndUpdate(openingKey(participant), {
+        windows: written,
+      });
+  });
+
+/** Takes a participant's row away, if it has one. */
+export const forget = (participant: string) =>
+  openings.hardDelete(openingKey(participant), 'I KNOW WHAT I AM DOING').pipe(
+    Effect.asVoid,
+    Effect.catchIf(
+      (error) => error.reason._tag === 'NoItemToUpdate',
+      () => Effect.void,
+    ),
+  );

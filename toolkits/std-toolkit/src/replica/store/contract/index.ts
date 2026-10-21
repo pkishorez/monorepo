@@ -7,6 +7,7 @@ export {
   type Cursor,
   type Doorbell,
   type Leader,
+  type Opening,
   type Space,
   type SpaceTable,
   type StoreOptions,

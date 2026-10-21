@@ -16,6 +16,7 @@ class SignedIn extends Context.Service<SignedIn, Stream.Stream<boolean>>()(
 
 it("needs what the Gate and the Strategies use from the app's Layer", () => {
   const PocketLive = Replica.build(Pocket, {
+    gcTime: '1 second',
     gate: () => Stream.unwrap(Effect.map(SignedIn, (signedIn) => signedIn)),
     collections: {
       wallets: {
@@ -27,7 +28,7 @@ it("needs what the Gate and the Strategies use from the app's Layer", () => {
     },
   });
   const Root = Actor.build(Actor.define('Root', {}), {
-    provides: () => Replicas.layer({ linger: '1 second' }),
+    provides: () => Replicas.layer,
     children: { replicas: Replicas.child([PocketLive]) },
   });
   const covered = Runtime.start(

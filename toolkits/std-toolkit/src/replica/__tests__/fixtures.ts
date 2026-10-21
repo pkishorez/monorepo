@@ -1,6 +1,8 @@
+import { eq, inArray } from '@tanstack/db';
 import { Actor, History, Runtime } from '@kestack/kabuki';
 import type { Running as App } from '@kestack/kabuki';
 import { Deferred, Effect, Layer, Schema, SubscriptionRef } from 'effect';
+import type { Duration } from 'effect';
 import type { Scope } from 'effect';
 import { expect, vi } from 'vitest';
 import type { Entity } from '../../core/index.js';
@@ -11,7 +13,7 @@ import { Action, oldToNew, Query, Replica, Replicas, Store } from '../index.js';
  * One small world to test Replica in: a Pocket of wallets and entries per
  * account, a Backend that serves them and counts every read, and an app
  * whose root Provides Replicas, with a page under it that reads two
- * accounts and asks for Transfers.
+ * accounts, the entries of the wallets it picks, and asks for Transfers.
  */
 
 export const Wallet = EntityESchema.make('Wallet', 'id', {
@@ -41,6 +43,8 @@ export const makeBackend = () => {
     readonly entity: string;
     readonly key: string;
     readonly after: string | null;
+    /** The wallet a Window's read was for. */
+    readonly wallet?: string;
   }> = [];
   const nextU = () => String(++clock).padStart(10, '0');
 
@@ -68,16 +72,27 @@ export const makeBackend = () => {
   };
 
   const fetch =
-    (entity: string) =>
+    (entity: string, wallet?: string) =>
     ({ key, after }: { readonly key: string; readonly after: Wire | null }) =>
       Effect.sync(() => {
-        reads.push({ entity, key, after: after?.meta._u ?? null });
-        return held.filter(
-          (each) =>
+        reads.push({
+          entity,
+          key,
+          after: after?.meta._u ?? null,
+          ...(wallet === undefined ? {} : { wallet }),
+        });
+        return held.filter((each) => {
+          const value = each.value as {
+            readonly account: string;
+            readonly wallet?: string;
+          };
+          return (
             each.meta._e === entity &&
-            (each.value as { readonly account: string }).account === key &&
-            (after === null || each.meta._u > after.meta._u),
-        );
+            value.account === key &&
+            (wallet === undefined || value.wallet === wallet) &&
+            (after === null || each.meta._u > after.meta._u)
+          );
+        });
       });
 
   return { put, fetch, reads, nextU };
@@ -86,8 +101,13 @@ export const makeBackend = () => {
 export type Backend = ReturnType<typeof makeBackend>;
 
 export interface WorldOptions {
-  readonly linger?: number;
-  readonly keep?: boolean;
+  /** How long an Instance or a Window runs on once nothing uses it; 50 milliseconds unless given. */
+  readonly gcTime?: Duration.Input;
+  /**
+   * How entries sync: all of an account's, the default; one Window per
+   * wallet a Query picks; or both.
+   */
+  readonly entries?: 'whole' | 'windows' | 'both';
   /** Whether each Key's Gate starts open. */
   readonly gate?: boolean;
   readonly backend?: Backend;
@@ -105,8 +125,10 @@ export const makeWorld = (options: WorldOptions = {}) => {
   Deferred.doneUnsafe(answer, Effect.succeed('ok'));
   let captured: Replicas['Service'] | undefined;
 
+  const entries = options.entries ?? 'whole';
   const PocketLive = Replica.build(Pocket, {
     gate: () => SubscriptionRef.changes(gate),
+    gcTime: options.gcTime ?? 50,
     collections: {
       wallets: {
         strategy: oldToNew({
@@ -115,9 +137,20 @@ export const makeWorld = (options: WorldOptions = {}) => {
         }),
       },
       entries: {
-        strategy: oldToNew({
-          fetch: backend.fetch('Entry'),
-          pollEvery: '20 millis',
+        ...(entries !== 'windows' && {
+          strategy: oldToNew({
+            fetch: backend.fetch('Entry'),
+            pollEvery: '20 millis',
+          }),
+        }),
+        ...(entries !== 'whole' && {
+          windows: {
+            wallet: (wallet) =>
+              oldToNew({
+                fetch: backend.fetch('Entry', wallet),
+                pollEvery: '20 millis',
+              }),
+          },
         }),
       },
     },
@@ -130,6 +163,25 @@ export const makeWorld = (options: WorldOptions = {}) => {
       (_, { pocket }) =>
       (q) =>
         q.from({ w: pocket.wallets }),
+  });
+
+  /** The entries of the wallets picked: an `eq` for one, an `inArray` for more. */
+  const WalletEntries = Query.make('WalletEntries', {
+    props: Schema.Struct({
+      account: Schema.String,
+      wallets: Schema.Array(Schema.String),
+    }),
+    from: ({ props }) => Effect.all({ pocket: Pocket.get(props.account) }),
+    query:
+      ({ props }, { pocket }) =>
+      (q) =>
+        q
+          .from({ e: pocket.entries })
+          .where(({ e }) =>
+            props.wallets.length === 1
+              ? eq(e.wallet, props.wallets[0]!)
+              : inArray(e.wallet, [...props.wallets]),
+          ),
   });
 
   const Transfer = Action.make('Transfer', {
@@ -195,6 +247,8 @@ export const makeWorld = (options: WorldOptions = {}) => {
         mine: Schema.String,
         theirs: Schema.String,
         shown: Schema.Boolean,
+        /** The wallets of `mine` whose entries show; none shows no entries. */
+        wallets: Schema.Array(Schema.String),
         ended: Schema.Array(Schema.NullOr(Schema.String)),
         /** The wallet each ended Transfer was asked for, from its args. */
         endedFor: Schema.Array(Schema.String),
@@ -202,6 +256,7 @@ export const makeWorld = (options: WorldOptions = {}) => {
       message: Schema.TaggedUnion({
         Switched: { mine: Schema.String },
         Shown: { shown: Schema.Boolean },
+        Picked: { wallets: Schema.Array(Schema.String) },
         Asked: {
           from: Schema.String,
           to: Schema.String,
@@ -214,7 +269,14 @@ export const makeWorld = (options: WorldOptions = {}) => {
     }),
     {
       init: () => ({
-        model: { mine: 'a', theirs: 'b', shown: true, ended: [], endedFor: [] },
+        model: {
+          mine: 'a',
+          theirs: 'b',
+          shown: true,
+          wallets: [],
+          ended: [],
+          endedFor: [],
+        },
       }),
       children: {
         mine: {
@@ -226,6 +288,14 @@ export const makeWorld = (options: WorldOptions = {}) => {
           actor: Wallets,
           while: ({ model }) => model.shown,
           props: ({ model }) => ({ account: model.theirs }),
+        },
+        entries: {
+          actor: WalletEntries,
+          while: ({ model }) => model.wallets.length > 0,
+          props: ({ model }) => ({
+            account: model.mine,
+            wallets: model.wallets,
+          }),
         },
       },
       workers: {
@@ -242,6 +312,7 @@ export const makeWorld = (options: WorldOptions = {}) => {
       on: {
         Switched: ({ mine }, { model }) => ({ model: { ...model, mine } }),
         Shown: ({ shown }, { model }) => ({ model: { ...model, shown } }),
+        Picked: ({ wallets }, { model }) => ({ model: { ...model, wallets } }),
         Asked: ({ _tag, ...args }) => ({ command: Transfer(args) }),
         Transfer: ({ args, failed }, { model }) => ({
           model: {
@@ -255,11 +326,7 @@ export const makeWorld = (options: WorldOptions = {}) => {
   );
 
   const Root = Actor.build(Actor.define('Root', {}), {
-    provides: () =>
-      Replicas.layer({
-        linger: options.linger ?? 50,
-        ...(options.keep ? { keep: [Pocket] } : {}),
-      }),
+    provides: () => Replicas.layer,
     children: {
       replicas: Replicas.child([PocketLive]),
       page: { actor: Page },
@@ -306,6 +373,7 @@ type Page = {
   readonly children: {
     readonly mine?: { readonly model: QueryModel };
     readonly theirs?: { readonly model: QueryModel };
+    readonly entries?: { readonly model: QueryModel };
   };
 };
 
@@ -324,27 +392,81 @@ export type QueryModel = {
   }>;
 };
 
-export type RunningInstance = Effect.Success<
-  Replicas['Service']['current']
->[number];
+/** One running Instance as Replicas holds it, with its own Model and State beside. */
+type Reached = {
+  readonly key?: string;
+  readonly model: InstanceModel;
+  readonly state: { readonly _tag: 'Following' | 'Leading' };
+  readonly workers: ReadonlyArray<{
+    readonly name: string;
+    readonly key: string;
+  }>;
+};
 
-/** What the test reads of a running app: the page, and Replicas' Model. */
+export type InstanceModel = {
+  readonly gate: boolean;
+  readonly collections: ReadonlyArray<{
+    readonly collection: string;
+    readonly strategy: { readonly status: string } | null;
+    readonly windows: ReadonlyArray<{
+      readonly path: string;
+      readonly value: unknown;
+      readonly users: number;
+      readonly here: boolean;
+      readonly gcAt: number | null;
+      readonly elsewhere: boolean;
+      readonly status: string;
+    }>;
+  }>;
+};
+
+type Running = {
+  readonly replica: string;
+  readonly key: string;
+  readonly holders: ReadonlyArray<string>;
+  readonly gcAt: number | null;
+};
+
+/** What the test reads of a running app: the page, Replicas' Model, and each Instance's own. */
 export const read = (app: App<World['Root']>) => {
   const root = app.instance({ from: 'test' }) as unknown as {
     readonly children: {
       readonly page: Page;
       readonly replicas: {
-        readonly model: { readonly instances: ReadonlyArray<RunningInstance> };
+        readonly model: { readonly instances: ReadonlyArray<Running> };
+        readonly children: { readonly pocket: ReadonlyArray<Reached> };
       };
     };
   };
+  const reached = (key: string) =>
+    root.children.replicas.children.pocket.find((each) => each.key === key);
   return {
     page: () => root.children.page,
     mine: () => root.children.page.children.mine?.model,
     theirs: () => root.children.page.children.theirs?.model,
+    entries: () => root.children.page.children.entries?.model,
     instances: () => root.children.replicas.model.instances,
-    instance: (key: string) =>
-      root.children.replicas.model.instances.find((each) => each.key === key),
+    /** An Instance as Replicas holds it, and its role and Gate, as its own State and Model say. */
+    instance: (key: string) => {
+      const running = root.children.replicas.model.instances.find(
+        (each) => each.key === key,
+      );
+      const own = reached(key);
+      return (
+        running && {
+          ...running,
+          role: own?.state._tag === 'Leading' ? 'leading' : 'following',
+          gate: own?.model.gate,
+        }
+      );
+    },
+    /** An Instance's own Model and Workers. */
+    reached,
+    /** The Windows of the entries of an Instance, by wallet. */
+    windows: (key: string) =>
+      reached(key)?.model.collections.find(
+        (each) => each.collection === 'entries',
+      )?.windows ?? [],
   };
 };
 
@@ -386,11 +508,12 @@ export const seed = (
     ),
   ).pipe(Effect.provide(store));
 
-/** Everything an Instance's space holds of a Collection, tombstones too, and its cursor. */
+/** Everything an Instance's space holds of a Collection, tombstones too, and the cursor of one scope: the whole Collection's unless given. */
 export const stored = (
   store: Layer.Layer<Store>,
   name: string,
   collection: string,
+  scope = 'strategy',
 ) =>
   Effect.flatMap(Store, (kept) =>
     Effect.scoped(
@@ -400,7 +523,7 @@ export const stored = (
             space.read(collection, null),
             ({ records }) => records,
           ),
-          cursor: space.cursor(collection),
+          cursor: space.cursor(collection, scope),
         }),
       ),
     ),

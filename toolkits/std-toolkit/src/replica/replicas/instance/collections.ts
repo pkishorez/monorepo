@@ -11,12 +11,17 @@ import {
 } from '../../../eschema/index.js';
 import type { AnyShape } from '../../shape/index.js';
 import type { Wire } from '../../store/contract/index.js';
+import { windowsOf, type WindowAt } from './windows.js';
 
 /*
  * The TanStack DB Collections of one Instance. They show what the Store
  * holds: each Entity decoded through its ESchema's `entity` schema to its
  * latest value, its meta under `_meta`. A tombstone takes its row away.
  * Optimistic Changes sit on top of them, as TanStack DB keeps them.
+ *
+ * A Collection with Windows loads on demand: each Query's `where` says
+ * which Windows it opens, and its end lets them go. Every row the Store
+ * holds is shown already, so a Query reads at once and waits for no fetch.
  */
 
 /** An Entity read through its ESchema: kept, newer than this app knows, or not one of them at all. */
@@ -60,23 +65,48 @@ type Sync = Parameters<SyncConfig<object, string>['sync']>[0];
 
 let made = 0;
 
+/** A Collection's Windows: the fields it opens them on, and who hears a Query open and let go of one. */
+export interface Windowed {
+  readonly paths: ReadonlyArray<string>;
+  readonly open: (window: WindowAt) => void;
+  readonly release: (window: WindowAt) => void;
+}
+
 /** The Collections of an Instance, and how what the Store holds reaches them. */
-export const showCollections = (shape: AnyShape, name: string) => {
+export const showCollections = (
+  shape: AnyShape,
+  name: string,
+  windowed: Readonly<Record<string, Windowed>>,
+) => {
   const syncs = new Map<string, Sync>();
   const shown = new Map<string, Set<string>>();
   const collections: Record<string, Collection<object, string>> = {};
   for (const [collection, schema] of Object.entries(shape.collections)) {
     shown.set(collection, new Set());
+    const windows = windowed[collection];
     collections[collection] = createCollection<object, string>({
       id: `${name}/${collection}#${++made}`,
       getKey: (row) => String((row as Record<string, unknown>)[schema.idField]),
       // Its rows live as long as the Instance, never collected under it.
       gcTime: 0,
       startSync: true,
+      ...(windows && { syncMode: 'on-demand' as const }),
       sync: {
         sync: (sync) => {
           syncs.set(collection, sync);
           sync.markReady();
+          if (!windows) return;
+          return {
+            loadSubset: (options) => {
+              for (const window of windowsOf(options, windows.paths))
+                windows.open(window);
+              return true;
+            },
+            unloadSubset: (options) => {
+              for (const window of windowsOf(options, windows.paths))
+                windows.release(window);
+            },
+          };
         },
       },
     });

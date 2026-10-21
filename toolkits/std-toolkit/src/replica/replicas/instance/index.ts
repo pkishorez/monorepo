@@ -6,5 +6,5 @@ export {
   type Instance,
   type Live,
   type Opened,
-  type Status,
+  type WindowMap,
 } from './instance.js';

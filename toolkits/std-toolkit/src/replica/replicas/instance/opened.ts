@@ -1,10 +1,11 @@
 import type { Collection } from '@tanstack/db';
-import { Deferred, Effect, Queue, Semaphore, Stream } from 'effect';
+import { Clock, Deferred, Effect, Queue, Semaphore, Stream } from 'effect';
 import type { Scope } from 'effect';
 import { ReplicaError, type AnyShape } from '../../shape/index.js';
 import type { Space, Wire, Written } from '../../store/contract/index.js';
 import { reader, showCollections, type Read } from './collections.js';
 import type { Message } from './model.js';
+import type { WindowAt } from './windows.js';
 
 /*
  * One Instance, open on this participant: its space in the Store and the
@@ -16,6 +17,8 @@ import type { Message } from './model.js';
  *             participant writes, and each time the Doorbell rings.
  * 3. Keep     what a Strategy read or the Backend confirmed: checked
  *             against the ESchemas, written to the Store, then shown.
+ * 4. Say      what its own work tells the Instance actor: Actions under
+ *             way, and Windows a Query opened and let go of.
  */
 
 /** What a Query, a Worker or an Action holds of a running Instance. */
@@ -37,13 +40,13 @@ export interface Opened {
   readonly live: Live;
   readonly space: Space;
   readonly refresh: Effect.Effect<void, ReplicaError>;
-  /** What a Strategy read for one Collection: checked, and kept with its cursor. */
+  /** What a Strategy read for one Collection: checked, and kept with its scope's cursor. */
   readonly keep: (
     collection: string,
     entities: ReadonlyArray<Wire>,
-    cursor: Written['cursor'],
+    cursor: NonNullable<Written['cursor']>,
   ) => Effect.Effect<'kept' | 'outdated', ReplicaError>;
-  /** The Messages the Instance's own work sends it: Actions beginning and ending. */
+  /** The Messages the Instance's own work sends it: Actions beginning and ending, Windows opening and let go. */
   readonly messages: Stream.Stream<Message>;
 }
 
@@ -63,10 +66,21 @@ const warn = (name: string, read: ReadonlyArray<Read>) =>
     { discard: true },
   );
 
+/** What the Instance's own work says, before a let-go Window is stamped with the time. */
+type Said =
+  | Message
+  | {
+      readonly _tag: 'LetGo';
+      readonly collection: string;
+      readonly window: WindowAt;
+    };
+
 export const openInstance = (
   shape: AnyShape,
   key: unknown,
   space: Space,
+  /** The fields each Collection with Windows opens them on. */
+  windowPaths: Readonly<Record<string, ReadonlyArray<string>>>,
 ): Effect.Effect<Opened, ReplicaError, Scope.Scope> =>
   Effect.gen(function* () {
     const { name } = space;
@@ -82,10 +96,29 @@ export const openInstance = (
         collection,
       ]),
     );
-    const shown = showCollections(shape, name);
+    const said = yield* Queue.unbounded<Said>();
+    const shown = showCollections(
+      shape,
+      name,
+      Object.fromEntries(
+        Object.entries(windowPaths).map(([collection, paths]) => [
+          collection,
+          {
+            paths,
+            open: (window: WindowAt) =>
+              Queue.offerUnsafe(said, {
+                _tag: 'WindowOpened',
+                collection,
+                ...window,
+              }),
+            release: (window: WindowAt) =>
+              Queue.offerUnsafe(said, { _tag: 'LetGo', collection, window }),
+          },
+        ]),
+      ),
+    );
     const positions = new Map<string, string>();
     const reading = yield* Semaphore.make(1);
-    const messages = yield* Queue.unbounded<Message>();
     const stopped = yield* Deferred.make<void>();
     yield* Effect.addFinalizer(() =>
       Effect.andThen(Deferred.succeed(stopped, undefined), shown.cleanup),
@@ -125,7 +158,7 @@ export const openInstance = (
         const records = read.flatMap((each) =>
           each._tag === 'Read' ? [{ id: each.id, entity: each.entity }] : [],
         );
-        yield* write([{ collection, records, ...(cursor ? { cursor } : {}) }]);
+        yield* write([{ collection, records, cursor }]);
         return 'kept';
       });
 
@@ -160,11 +193,25 @@ export const openInstance = (
         );
       });
 
+    // 4. Say
     const track: Live['track'] = (action) =>
       Effect.acquireRelease(
-        Queue.offer(messages, { _tag: 'ActionBegan', action }),
-        () => Queue.offer(messages, { _tag: 'ActionEnded', action }),
+        Queue.offer(said, { _tag: 'ActionBegan', action }),
+        () => Queue.offer(said, { _tag: 'ActionEnded', action }),
       ).pipe(Effect.asVoid);
+
+    const messages = Stream.fromQueue(said).pipe(
+      Stream.mapEffect((each): Effect.Effect<Message> =>
+        each._tag === 'LetGo'
+          ? Effect.map(Clock.currentTimeMillis, (at) => ({
+              _tag: 'WindowReleased',
+              collection: each.collection,
+              ...each.window,
+              at,
+            }))
+          : Effect.succeed(each),
+      ),
+    );
 
     return {
       live: {
@@ -178,6 +225,6 @@ export const openInstance = (
       space,
       refresh,
       keep,
-      messages: Stream.fromQueue(messages),
+      messages,
     };
   });

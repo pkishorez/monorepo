@@ -2,10 +2,10 @@ import { Effect, Queue, Schema, Stream, SynchronizedRef } from 'effect';
 import { EntityMetaSchema } from '../../../../core/index.js';
 import { cover, type Slice } from './coverage.js';
 import {
-  newestOf,
   oldestOf,
   readForward,
   samePosition,
+  settledOf,
   type ForwardOptions,
   type Wire,
 } from './forward.js';
@@ -43,7 +43,11 @@ const WireSchema: Schema.Codec<Wire, unknown> = Schema.Struct({
 
 type OldToNewState = { readonly cursor: Wire | null };
 
-/** Reads the Backend from the oldest change forward and keeps the newest Entity read as its cursor. */
+/**
+ * Reads the Backend from the oldest change forward and keeps the newest
+ * Entity read as its cursor, or, with a Settle Window, the newest one older
+ * than it.
+ */
 const oldToNew = <K, R = never>(
   options: ForwardOptions<K, R>,
 ): Strategy<K, OldToNewState, R> => ({
@@ -51,11 +55,13 @@ const oldToNew = <K, R = never>(
   state: Schema.Struct({ cursor: Schema.NullOr(WireSchema) }),
   initial: { cursor: null },
   run: ({ key, state }) => {
+    const settle = settledOf(options.settleWindow);
     let saved = state.cursor;
     return readForward(options, key, () => saved).pipe(
       Stream.map((batch) => {
-        const newest = newestOf(batch);
-        if (saved === null || newest.meta._u >= saved.meta._u) saved = newest;
+        const settled = settle(batch);
+        if (settled && (saved === null || settled.meta._u >= saved.meta._u))
+          saved = settled;
         return { entities: batch, state: { cursor: saved } };
       }),
     );
@@ -78,7 +84,8 @@ export type NewToOldOptions<K, R> = ForwardOptions<K, R> & {
 /**
  * Shows the newest Entities first on every open, then fills in older ones
  * while reading forward keeps the top fresh. Its cursor is the stretches read
- * so far; they merge into one as the gaps between them close.
+ * so far; they merge into one as the gaps between them close. A Settle
+ * Window holds the top back as `oldToNew` holds its cursor.
  */
 const newToOld = <K, R = never>(
   options: NewToOldOptions<K, R>,
@@ -92,6 +99,7 @@ const newToOld = <K, R = never>(
   run: ({ key, state }) =>
     Stream.callback<Pulled<NewToOldState>, unknown, R>((queue) =>
       Effect.gen(function* () {
+        const settle = settledOf(options.settleWindow);
         const ref = yield* SynchronizedRef.make(state);
         // Every change of state and its yield happen in one step, so the
         // yields arrive in the order the state changed.
@@ -109,17 +117,17 @@ const newToOld = <K, R = never>(
 
         // The newest page first, on every open. Above the saved top it is a
         // slice of its own; walking back closes the hole between them.
+        // With a Settle Window its top is held back as forward reads are,
+        // or to its oldest Entity while the whole page is still settling.
         const page = yield* options.fetchOlder({ key, before: null });
-        if (page.length > 0)
+        if (page.length > 0) {
+          const high = settle(page) ?? page.at(-1)!;
           yield* commit(page, (s) => ({
             ...s,
             reachedOldest: s.reachedOldest && s.slices.length > 0,
-            slices: cover(s.slices, {
-              low: page.at(-1)!,
-              high: page[0]!,
-            }),
+            slices: cover(s.slices, { low: page.at(-1)!, high }),
           }));
-        else if (state.slices.length === 0)
+        } else if (state.slices.length === 0)
           yield* commit([], (s) => ({ ...s, reachedOldest: true }));
 
         // Walks down from the top slice until it meets the one below, then
@@ -184,16 +192,17 @@ const newToOld = <K, R = never>(
           Stream.runForEach((batch) =>
             commit(batch, (s) => {
               const upper = top(s);
-              const newest = newestOf(batch);
+              const settled = settle(batch);
+              if (settled === null) return s;
               if (upper === undefined)
                 return {
                   ...s,
-                  slices: [{ low: oldestOf(batch), high: newest }],
+                  slices: [{ low: oldestOf(batch), high: settled }],
                 };
-              if (newest.meta._u < upper.high.meta._u) return s;
+              if (settled.meta._u < upper.high.meta._u) return s;
               return {
                 ...s,
-                slices: cover(s.slices, { low: upper.high, high: newest }),
+                slices: cover(s.slices, { low: upper.high, high: settled }),
               };
             }),
           ),

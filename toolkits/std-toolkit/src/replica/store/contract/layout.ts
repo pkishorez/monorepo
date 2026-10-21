@@ -4,8 +4,10 @@ import { EntityESchema, ESchema } from '../../../eschema/index.js';
 
 /*
  * How one Instance's space is laid out, as a StdTable: one row per Entity a
- * Collection holds, numbered in the order it was written, and one row per
- * Collection holding the last number given and the Strategy's cursor.
+ * Collection holds, numbered in the order it was written; one row per
+ * Collection holding the last number given; one row per Strategy scope, the
+ * whole Collection or one Window, holding its cursor; and one row per
+ * participant naming the Windows it has open.
  */
 
 export const SPACE_TABLE = 'replica';
@@ -36,9 +38,6 @@ const CollectionSchema = EntityESchema.make('ReplicaCollection', 'key', {
   collection: Schema.String,
   /** The last `seq` given in this Collection. */
   position: Schema.String,
-  /** The Strategy the cursor belongs to; `null` until one saved it. */
-  strategy: Schema.NullOr(Schema.String),
-  cursor: ESchema.fromType<Opaque>(),
 }).build();
 
 export const collections = space
@@ -48,6 +47,33 @@ export const collections = space
 
 /** The one row of each Collection, under its own key. */
 export const COLLECTION_ROW = 'collection';
+
+/** Its id is the scope: the whole Collection, or one Window of it. */
+const CursorSchema = EntityESchema.make('ReplicaCursor', 'scope', {
+  collection: Schema.String,
+  /** The Strategy the cursor belongs to. */
+  strategy: Schema.String,
+  cursor: ESchema.fromType<Opaque>(),
+}).build();
+
+export const cursors = space
+  .entity(CursorSchema)
+  .primary({ pk: ['collection'] })
+  .build();
+
+const OpeningSchema = EntityESchema.make('ReplicaOpening', 'participant', {
+  /** Always `opening`: every participant's row sits in one partition. */
+  kind: Schema.String,
+  /** Its open Windows: `{ collection, path, value }` each. */
+  windows: ESchema.fromType<Opaque>(),
+}).build();
+
+export const openings = space
+  .entity(OpeningSchema)
+  .primary({ pk: ['kind'] })
+  .build();
+
+export const OPENING = 'opening';
 
 const SEQUENCE_WIDTH = 16;
 

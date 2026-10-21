@@ -1,0 +1,5 @@
+---
+'@kestack/std-toolkit': patch
+---
+
+`@kestack/std-toolkit/replica`: a Collection syncs by Windows. `Replica.build(Pocket, { gcTime, collections: { entries: { strategy?, windows?: { walletId: (walletId) => oldToNew(...) } } } })`: a Query whose `where` has an `eq` on a Window's field opens that Window, an `inArray` one per value, and its Strategy runs while it is open, in whichever tab leads; the rows the Store holds still show at once. Each Strategy scope, the whole Collection or one Window, keeps its own cursor. `gcTime` in the Build replaces `linger` and `keep` (`Infinity` keeps an Instance running), and `Replicas.layer` is now a Layer, not a function. `Replicas.state` and `Replicas.current` are gone: what runs is in the Model of the Replicas actor and each Instance's own, where every Strategy's status is `idle`, `gated`, `running`, `failing` or `outdated`. `oldToNew` and `newToOld` take an optional `settleWindow`, re-reading that stretch back from the newest change read and never saving the cursor inside it.

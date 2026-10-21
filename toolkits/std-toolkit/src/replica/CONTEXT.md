@@ -34,9 +34,25 @@ holds, plus Optimistic Changes on top.
 ### Syncing
 
 **Strategy**:
-How a Collection reads the Backend for one Key, resuming from its saved
-cursor.
+How a Collection reads the Backend for one Key, or for one Window of it,
+resuming from its saved cursor.
 _Avoid_: Source, Feed, Reader.
+
+**Window**:
+The records of one Collection whose field reads one value, such as the
+entries of wallet 7. A Query that filters on that field opens it, and its
+Strategy runs while it is open; its records stay in the Store after it closes.
+_Avoid_: Partition (a [[db]] word for a physical slice of a table).
+
+**GC Time**:
+How long an Instance or a Window keeps running after the last thing using it
+lets go. Its stored records stay.
+_Avoid_: Linger, keep-alive.
+
+**Settle Window**:
+How long, back from the newest change read, a Backend may take to make a
+write readable. A Strategy that honors it re-reads that stretch each time.
+_Avoid_: Cadence Repair, lookback.
 
 **Gate**:
 Whether an Instance may fetch now, decided per Key. While it is closed the
@@ -49,8 +65,9 @@ truth there. It lists and deletes Instances, and keeps tabs in agreement.
 _Avoid_: Sync Store, cache, persistence.
 
 **Leader**:
-The one participant that runs an Instance's Strategies; every other
-participant with the same Instance follows through the Store.
+The one participant that runs an Instance's Strategies, those of the Windows
+any participant has open included; every other participant with the same
+Instance follows through the Store.
 _Avoid_: primary tab.
 
 **Doorbell**:
