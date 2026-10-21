@@ -14,8 +14,10 @@ subagents, and how each turn ended. It is local only, with no sign-in.
 
 It is a Kabuki Start app, every page drawn in the browser
 ([`packages/kabuki/docs/routing.md`](../../packages/kabuki/docs/routing.md)).
-Three places: `/` picks or adds a project, `/p/:projectId` starts a session
-and lists the project's sessions, `/p/:projectId/s/:sessionId` is a session.
+Four places: `/` picks or adds a project, `/p/:projectId` starts a session
+and lists the project's sessions, `/p/:projectId/s/:sessionId` is a session,
+and `/settings` sets the program each agent runs as (its Harness Binary). An
+agent whose program does not run is greyed out where sessions start.
 All state lives in the pages' actors; the Views only draw and send. The
 server's records arrive only through the `Ai` Replica
 ([`@kestack/std-toolkit/replica`](../../toolkits/std-toolkit/src/replica/README.md)),
@@ -24,6 +26,16 @@ last saw at once: projects and sessions whole, and a session's messages
 once its page has been open. Every write is a Command an actor
 asks for through `AiClient`. The root page follows the connection: while
 the server is out of reach, the header says so and nothing can be sent.
+
+A message is written in the composer (`src/client/composer/`), a
+CodeMirror editor: `/` opens the agent's Skills and puts `/name` at the
+cursor, and files come by paste, drop, or the paperclip. In a session,
+`/btw <question>` asks the session on the side and shows the answer in a
+popover; nothing is kept. Each finished turn can be forked from, which opens
+a new session that remembers the conversation up to that turn, and the
+session menu regenerates its title. Background Jobs the agents left running
+show in a bubble at the top right, grouped by session, each with a Stop
+button.
 
 The transcript pairs Messages as it draws them (`thread.ts`): a tool call
 runs until its result arrives, and is stopped if its turn ended first; a

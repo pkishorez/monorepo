@@ -1,247 +1,174 @@
 # @kestack/ai-toolkit
 
-Effect-native runtime for stateful coding-agent harnesses whose Messages live in a StdTable
+Effect-native engine that runs Claude Code and Codex sessions in local folders, keeps every Raw record, and serves one projected Message form over WebSocket
 
 ## Big picture
 
-Claude Code and Codex turns run for minutes, pause for questions and approvals, and must outlive the browser tab that started them. Streaming the answer back over the request that started it ties the Run to one connection. ai-toolkit removes that coupling: a client starts a Run over RPC and gets nothing back but `void`; every fact about the Run lands as an immutable Message row in the AI Table, and clients read the table through whatever feed they already have.
+Claude Code and Codex sessions run for minutes, start work that outlives a Turn, and must outlive the browser tab that started them. ai-toolkit is a long-running server on this machine that owns them. It adds folders as Projects, runs Sessions in them on either Coding Harness, stores every whole record the harness emits, and lets any app follow and steer them over one WebSocket API. It is local only, with no sign-in. [`apps/ai`](../../apps/ai/README.md) is the first app on it.
 
-The package builds on `@kestack/std-toolkit`. The AI Table is a `StdTable` with `threads`, `runs`, and `messages` entities, so any std-toolkit database adapter (memory, SQLite, DynamoDB, IndexedDB) can store it, and `@kestack/std-toolkit/sync` can mirror it into a browser. The playground uses `@kestack/rpc-toolkit/rpc/websocket-client` to keep its subscriptions alive; a production app can pair the same RPC with its own transport and feed.
+The API, `AiApi`, has commands and feeds. Commands add and remove Projects, start a Session, and `send` to it: text plus Attachments, and a model or settings that hold from that Turn on. Images go to the agent as images; other files are saved under `~/.ai-toolkit/attachments/<sessionId>/` and named in the message text. `forkSession` makes a Fork after any finished Turn, `ask` puts an Ask to a Session and leaves it untouched, and `regenerateTitle` writes its Title again. `skills`, `mcpStatus` and `contextUsage` say what a harness offers and how a Session stands. `backgroundJobs` streams every Session's Background Jobs and `stopBackgroundJob` stops one. `harnesses` says which harnesses run here (`available`, `unavailableReason`), and `harnessBinaries` and `setHarnessBinary` read and set each Harness Binary. The `projects`, `sessions` and `messages` feeds replay every change after a cursor, then stay live.
 
-Vocabulary is in [CONTEXT.md](CONTEXT.md), the decisions are in [docs/adr/](docs/adr/), and the lifecycle of one turn, the table layout, and the harness SDK boundaries are in [docs/turn-flow.md](docs/turn-flow.md).
+The client side builds on [`@kestack/rpc-toolkit`](../rpc-toolkit/README.md) for the reconnecting WebSocket and on [`@kestack/std-toolkit`](../std-toolkit/README.md) for the `Ai` Replica, which keeps Projects, Sessions and open Sessions' Messages in step with the server. The engine itself is a tree of [`@kestack/kabuki`](../../packages/kabuki/README.md) Actors over a SQLite store.
+
+The words are in [CONTEXT.md](CONTEXT.md). How the server thinks, Raw records and their projection to Messages, is in [docs/v1-spec.md](docs/v1-spec.md). Decisions are in [docs/adr/](docs/adr/); 0011 (Fork Points are Turn ends) and 0012 (Background Jobs are live, and agents may start Turns) are current, and the earlier ones record the design this package replaced.
 
 ## Install
 
 ```sh
-pnpm add @kestack/ai-toolkit effect
+pnpm add @kestack/ai-toolkit effect @kestack/rpc-toolkit @kestack/std-toolkit @kestack/kabuki @tanstack/db
 ```
 
-- `effect` (peer, required): the RPC contract, layers, schemas, and the StdTable service all come from Effect.
+- `effect`: the API, its schemas and errors, and the client Layer are Effect values.
+- `@kestack/rpc-toolkit`: the WebSocket Transport `AiClient` connects through, and `connection`.
+- `@kestack/std-toolkit`: entity schemas, the SQLite store, and the Replica behind `Ai` and `AiLive`.
+- `@kestack/kabuki`: the engine runs Projects, Sessions and Turns as Actors.
+- `@tanstack/db`: the collections the `Ai` Replica fills and Queries read.
 
-`@kestack/std-toolkit`, `@anthropic-ai/claude-agent-sdk`, `@openai/codex`, and `@effect/platform-node` are regular dependencies and install with the package. Node 24 or newer is required.
+`@anthropic-ai/claude-agent-sdk`, `@openai/codex` and `@effect/platform-node` are regular dependencies. Node 24 or newer is required. The package also installs the `ai-toolkit` binary.
 
 ## Exports
 
-### `@kestack/ai-toolkit/rpc`
+### `@kestack/ai-toolkit/api`
 
-| Export                             | What it does                                                                                                |
-| ---------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `AiRpc`                            | The public RPC group: `cancelRun`, `claudeStart`, `claudeRespond`, `codexStart`, `codexRespond`.            |
-| `CommonRpc`                        | Group holding `cancelRun` alone.                                                                            |
-| `ClaudeRpc`                        | Group holding `claudeStart` and `claudeRespond`.                                                            |
-| `CodexRpc`                         | Group holding `codexStart` and `codexRespond`.                                                              |
-| `AiRpcError`                       | Schema union of every error the RPC group can return.                                                       |
-| `RunConflict`                      | Error: a Run with this `runId` already exists with different input.                                         |
-| `ThreadBusy`                       | Error: the Thread already has an Active Run.                                                                |
-| `ThreadNotFound`                   | Error: no Thread with this id.                                                                              |
-| `RunNotFound`                      | Error: no Run with this id.                                                                                 |
-| `RequestNotFound`                  | Error: the Run has no pending Interaction Request with this id.                                             |
-| `HarnessFailed`                    | Error: the harness could not start or ended abnormally.                                                     |
-| `CLAUDE_MODELS`                    | Tuple of Claude model ids accepted by `claudeStart`.                                                        |
-| `CODEX_MODELS`                     | Tuple of Codex model ids accepted by `codexStart`.                                                          |
-| `RUN_STATUSES`                     | Tuple of Run statuses: `running`, `waiting`, `completed`, `failed`, `cancelled`.                            |
-| `THREAD_STATUSES`                  | Tuple of Thread statuses: `idle`, `running`, `waiting-question`, `waiting-approval`, `cancelled`, `failed`. |
-| `COMMON_PARTS`                     | Names of custom parts shared by every harness.                                                              |
-| `COMMON_PARTS.ERROR`               | Part name `agent.error`, an error surfaced during the Run.                                                  |
-| `COMMON_PARTS.PERMISSION_REQUEST`  | Part name `agent.permission.request`, an approval the harness is waiting on.                                |
-| `COMMON_PARTS.PERMISSION_RESOLVED` | Part name `agent.permission.resolved`, the Resolution to an approval.                                       |
-| `COMMON_PARTS.QUESTION`            | Part name `agent.question`, a question the harness asked the user.                                          |
-| `COMMON_PARTS.FILE_CHANGED`        | Part name `agent.file.changed`, a file the harness edited.                                                  |
-| `CLAUDE_PARTS`                     | Names of Claude-only custom parts.                                                                          |
-| `CLAUDE_PARTS.SUBAGENT`            | Part name `claude.subagent`, a subagent's activity.                                                         |
-| `CLAUDE_PARTS.COMPACTION`          | Part name `claude.compaction`, a context compaction event.                                                  |
-| `CODEX_PARTS`                      | Names of Codex-only custom parts.                                                                           |
-| `CODEX_PARTS.PLAN`                 | Part name `codex.plan`, a plan update.                                                                      |
-| `CODEX_PARTS.COMMAND`              | Part name `codex.command`, a shell command Codex ran or wants to run.                                       |
-| `CODEX_PARTS.MCP`                  | Part name `codex.mcp`, an MCP tool call.                                                                    |
-| `CODEX_PARTS.REQUEST_RESOLVED`     | Part name `codex.request.resolved`, the Resolution to a Codex request.                                      |
-| `CUSTOM_PART_NAMES`                | Tuple of every custom part name across the three maps above.                                                |
-
-### `@kestack/ai-toolkit/rpc/live`
-
-| Export              | What it does                                                                                                                            |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `AiRpcLive`         | Server-side handler bundle for `AiRpc`.                                                                                                 |
-| `AiRpcLive.layer`   | Layer of `AiRpc` handlers; takes an optional `HarnessHostConfig` and requires the AI Table's `StdTableService<'ai-toolkit'>`.           |
-| `HarnessHost`       | Service with `start`, `cancel`, `resolveClaude`, and `resolveCodex`, for callers that skip RPC.                                         |
-| `HarnessHost.layer` | Layer that builds the host, runs the Bootstrap Sweep, and cancels live Runs on shutdown; accepts a config and optional harness runners. |
-
-### `@kestack/ai-toolkit/table`
-
-| Export          | What it does                                                                             |
-| --------------- | ---------------------------------------------------------------------------------------- |
-| `aiTable`       | The `StdTable` named `@kestack/ai-toolkit` with its primary key and GSI1 to GSI5.        |
-| `threads`       | Thread entity with a `byUpdate` feed on GSI2.                                            |
-| `runs`          | Run entity keyed under its Thread, with `byThreadUpdate` on GSI1 and `byUpdate` on GSI2. |
-| `messages`      | Message entity keyed under its Run, with `byThreadUpdate` on GSI1.                       |
-| `ThreadSchema`  | Entity schema for a Thread row.                                                          |
-| `RunSchema`     | Entity schema for a Run row.                                                             |
-| `MessageSchema` | Entity schema for a Message row.                                                         |
-| `MESSAGE_ROLES` | Tuple of Message roles: `system`, `user`, `assistant`.                                   |
+| Export                  | What it does                                                                                         |
+| ----------------------- | ---------------------------------------------------------------------------------------------------- |
+| `AiApi`                 | The RPC group every app speaks: the commands above and the `projects`, `sessions`, `messages` feeds. |
+| `WireEntity`            | An entity in encoded form with its meta, as feeds send it and take it back as a cursor.              |
+| `Harness`               | Schema of a harness name: `claude` or `codex`.                                                       |
+| `HarnessInfo`           | Schema of one harness: label, settings, default model, and whether its Harness Binary runs.          |
+| `SettingInfo`           | Schema of one harness setting and the choices a picker offers.                                       |
+| `ModelInfo`             | Schema of one Language Model: id, name, and release date.                                            |
+| `ProjectSchema`         | Entity schema of a Project.                                                                          |
+| `ProjectValue`          | Plain struct of a Project's fields, as `addProject` returns it.                                      |
+| `SessionSchema`         | Entity schema of a Session.                                                                          |
+| `SessionValue`          | Plain struct of a Session's fields, as `startSession` and `forkSession` return it.                   |
+| `MessageSchema`         | Entity schema of a Message, the projected form a client reads.                                       |
+| `PartSchema`            | Schema of one Message part: text, thinking, tool call, attachment, turn start or end, and more.      |
+| `HarnessConfigSchema`   | Entity schema of the Harness Binary path stored for one harness.                                     |
+| `HarnessBinary`         | Schema of a harness's Harness Binary: the path set for it and what it resolved to.                   |
+| `BinaryInfoSchema`      | Schema of a resolved binary: its path and what `--version` printed.                                  |
+| `AttachmentSchema`      | Schema of an Attachment: name, mime type, and base64 data.                                           |
+| `SkillSchema`           | Schema of a Skill: name, description, and an optional argument hint.                                 |
+| `AskAnswerSchema`       | Schema of an Ask's answer: `Text`, or `Data` shaped by the given JSON Schema.                        |
+| `BackgroundJobSchema`   | Schema of one Background Job.                                                                        |
+| `BACKGROUND_JOB_KINDS`  | Tuple of Background Job kinds: `shell`, `agent`.                                                     |
+| `SessionJobs`           | Schema of one Session's Background Jobs, as the `backgroundJobs` stream sends them.                  |
+| `McpServerStatusSchema` | Schema of one MCP server a Session's agent is connected to.                                          |
+| `MCP_SERVER_STATES`     | Tuple of MCP server states, such as `connected`, `failed`, `needs-auth`, `pending`.                  |
+| `ContextUsageSchema`    | Schema of Context Usage: tokens used, the window size, and rate limits.                              |
+| `FolderNotFound`        | Error: no folder at the path given to `addProject`.                                                  |
+| `ProjectNotFound`       | Error: no Project with this id.                                                                      |
+| `SessionNotFound`       | Error: no Session with this id.                                                                      |
+| `UnknownHarness`        | Error: this server does not run that harness.                                                        |
+| `ModelsUnavailable`     | Error: the harness could not list its models.                                                        |
+| `NotForkable`           | Error: the Session cannot be forked after the Turn asked for.                                        |
+| `AskFailed`             | Error: the harness could not answer the Ask.                                                         |
+| `SkillsUnavailable`     | Error: the harness could not list its Skills.                                                        |
+| `InvalidBinary`         | Error: the path is missing, not executable, or its `--version` failed.                               |
+| `HarnessFailed`         | Error: a harness failed to answer for a live Session.                                                |
 
 ### `@kestack/ai-toolkit/client`
 
-| Export             | What it does                                                                                                                       |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `toUiMessages`     | Folds ordered Message rows of one Run and role into turns and joins streamed text and thinking.                                    |
-| `toUiConversation` | Folds rows into turns, pairs each question with its Resolution and tool activity, and groups non-prose parts into activity blocks. |
-
-### `@kestack/ai-toolkit/playground`
-
-| Export                  | What it does                                                                                                   |
-| ----------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `AiPlaygroundRpc`       | Demo-only group: `createThread`, `subscribeThreads`, `subscribeMessages`.                                      |
-| `AiPlaygroundServerRpc` | `AiRpc` merged with `AiPlaygroundRpc`; the group the Playground Server serves.                                 |
-| `PlaygroundFailed`      | Error returned by the playground calls.                                                                        |
-| `makePlaygroundSync`    | Builds `threads` and `messages` synced collections over a playground client using `@kestack/std-toolkit/sync`. |
-
-The `@kestack/ai-toolkit` binary exposes `ai-toolkit serve --port 3001`, which runs the Playground Server against the current directory.
+| Export           | What it does                                                                                         |
+| ---------------- | ---------------------------------------------------------------------------------------------------- |
+| `AiClient`       | Service holding the `AiApi` client over one reconnecting WebSocket.                                  |
+| `AiClient.layer` | Layer of `AiClient` for a `ws(s)://…/rpc` URL, or a path in a browser.                               |
+| `connection`     | Stream of the connection status now and on each change: `connecting`, `connected` or `reconnecting`. |
+| `Ai`             | The Replica of the server's records: `projects`, `sessions` and `messages` collections.              |
+| `AiLive`         | How `Ai` syncs: every Project and Session, and a Session's Messages while a Query filters on its id. |
+| `retired`        | Names of Replicas from older projections, for `Store.idb({ retired })` to delete.                    |
 
 ## Usage
 
-### Serve the AI RPC over HTTP with in-memory storage
+### Serve the engine
 
-`AiRpcLive.layer()` needs one thing from the application: the AI Table's StdTable service, built from `aiTable` with any std-toolkit adapter. Trimmed from `src/cli/playground-server.ts`.
+The `ai-toolkit` binary runs the server on this machine. It keeps its database in SQLite and listens on `127.0.0.1` only.
 
-```ts
-import { createServer } from 'node:http';
-import { Layer } from 'effect';
-import { HttpRouter } from 'effect/http';
-import { RpcSerialization, RpcServer } from 'effect/rpc';
-import { NodeHttpServer, NodeServices } from '@effect/platform-node';
-import { defaultBroadcaster } from '@kestack/std-toolkit/core';
-import { Memory } from '@kestack/std-toolkit/db/memory';
-import { AiRpc } from '@kestack/ai-toolkit/rpc';
-import { AiRpcLive } from '@kestack/ai-toolkit/rpc/live';
-import { aiTable } from '@kestack/ai-toolkit/table';
-
-const storage = Layer.merge(Memory.make(aiTable).layer, defaultBroadcaster);
-
-const handlers = AiRpcLive.layer({ hostId: 'my-host' }).pipe(
-  Layer.provide(storage),
-);
-
-const rpc = RpcServer.layerHttp({ group: AiRpc, path: '/rpc' }).pipe(
-  Layer.provide(handlers),
-  Layer.provide(RpcSerialization.layerJson),
-);
-
-export const server = HttpRouter.serve(rpc).pipe(
-  Layer.provide(NodeHttpServer.layer(createServer, { port: 3001 })),
-  Layer.provide(NodeServices.layer),
-);
+```sh
+pnpm --filter @kestack/ai-toolkit build
+node toolkits/ai-toolkit/bin/ai-toolkit.mjs serve --port 4590 --db ~/.ai-toolkit/ai.db
+# ai-toolkit 0.0.2 on ws://127.0.0.1:4590/rpc
 ```
 
-- Every RPC returns `void`. Threads, Runs, and Messages appear in the table; nothing is observed through the RPC.
-- Thread creation stays with the application: insert into `threads` yourself. The playground adds `createThread` only for the demo.
-- Building the layer runs the Bootstrap Sweep, and closing its scope cancels every live Run.
-- Codex needs the `codex` binary on `PATH`, or `HarnessHostConfig.codexCommand`.
+- `--port` falls back to `PORT`, then 4590. `--db` defaults to `~/.ai-toolkit/ai.db`.
+- Attachments that are not images are saved under `~/.ai-toolkit/attachments/<sessionId>/`.
+- At start the Bootstrap Sweep ends any Turn the last server left running as interrupted.
+- A harness whose Harness Binary does not run shows as unavailable in `harnesses`; `setHarnessBinary` points it at another path.
 
-### Run a turn and read its Messages from the table
+### Talk to it from a program
 
-`HarnessHost` can be driven without RPC. Insert a Thread, start a Run, then read what the Transcript persisted. Lifted from `src/runtime/host/host.test.ts`.
+`AiClient.layer` connects to a running server. Every command is an Effect. Trimmed from `src/cli/server/server.test.ts`.
 
 ```ts
-import { Effect, Layer } from 'effect';
-import { defaultBroadcaster } from '@kestack/std-toolkit/core';
-import { Memory } from '@kestack/std-toolkit/db/memory';
-import { HarnessHost } from '@kestack/ai-toolkit/rpc/live';
-import { aiTable, messages, runs, threads } from '@kestack/ai-toolkit/table';
-
-const storage = Layer.merge(Memory.make(aiTable).layer, defaultBroadcaster);
-const host = HarnessHost.layer({ hostId: 'test' }).pipe(
-  Layer.provideMerge(storage),
-);
+import { Context, Effect, Layer } from 'effect';
+import { AiClient } from '@kestack/ai-toolkit/client';
 
 const program = Effect.gen(function* () {
-  const harness = yield* HarnessHost;
-  yield* threads.insert({
-    id: 't1',
+  const client = yield* Layer.build(AiClient.layer('ws://127.0.0.1:4590/rpc'));
+  const api = Context.get(client, AiClient);
+
+  const project = yield* api.addProject({ path: '/path/to/folder' });
+  const session = yield* api.startSession({
+    projectId: project.id,
     harness: 'claude',
-    cwd: '/tmp',
-    status: 'idle',
-    activeRunId: null,
-    data: { type: 'claude', sessionId: null },
-  });
-  yield* harness.start({
-    harness: 'claude',
-    threadId: 't1',
-    runId: 'r1',
-    message: { id: 'u1', content: 'hi' },
     model: 'claude-sonnet-4-6',
-    options: {},
+    settings: {},
+    text: 'hi',
+    attachments: [],
   });
-  const run = yield* runs.get({ threadId: 't1', id: 'r1' });
-  const stored = yield* messages.query(
-    'byThreadUpdate',
-    { pk: { threadId: 't1' }, '>=': null },
-    { limit: 10 },
-  );
-  return { run: run?.value, rows: stored.items.map((item) => item.value) };
-}).pipe(Effect.provide(host), Effect.scoped);
-```
 
-- `start` returns as soon as the Run and user Message are inserted; poll `runs.get` until `finishedAt` is set, or watch `messages.byThreadUpdate`.
-- Run configuration (model, thinking, permission mode) is stored on each Run, so later turns on the same Thread may pick different settings.
-- The test swaps the real runners for a stub through `HarnessHost.layer(config, { claude, codex })`.
-
-### Mirror the playground into a browser and render turns
-
-The docs demo connects over WebSocket, syncs `threads` and `messages` into live collections, and folds rows into a conversation. Trimmed from `apps/docs/src/demos/ai-toolkit/client/client.ts`.
-
-```ts
-import { Context, Effect, Layer, Scope } from 'effect';
-import { RpcClient } from 'effect/rpc';
-import { toUiConversation } from '@kestack/ai-toolkit/client';
-import {
-  AiPlaygroundServerRpc,
-  makePlaygroundSync,
-} from '@kestack/ai-toolkit/playground';
-import { client, connection } from '@kestack/rpc-toolkit/rpc/websocket';
-
-const boot = Effect.gen(function* () {
-  const context = yield* Layer.build(
-    client(AiPlaygroundServerRpc, {
-      url: 'ws://127.0.0.1:3001/rpc',
-    }),
-  );
-  const socket = Context.get(context, connection);
-  const api = yield* RpcClient.make(AiPlaygroundServerRpc).pipe(
-    Effect.provide(
-      Layer.succeed(
-        RpcClient.Protocol,
-        Context.get(context, RpcClient.Protocol),
-      ),
-    ),
-  );
-  const sync = makePlaygroundSync({
-    api,
-    keepSubscribed: socket.keepSubscribed,
-    name: 'ai-toolkit-playground',
+  yield* api.send({ sessionId: session.id, text: 'again', attachments: [] });
+  const fork = yield* api.forkSession({
+    sessionId: session.id,
+    afterTurnId: null,
   });
-  return { api, sync };
+  const answer = yield* api.ask({
+    sessionId: session.id,
+    question: 'why?',
+    schema: null,
+  });
+  return { fork, answer };
 });
 
-const { api, sync } = await Effect.runPromise(
-  boot.pipe(Effect.provideService(Scope.Scope, Scope.makeUnsafe())),
-);
-
-const runId = crypto.randomUUID();
-await Effect.runPromise(
-  api.claudeStart({
-    threadId,
-    runId,
-    message: { id: crypto.randomUUID(), content: 'hello' },
-    model: 'claude-sonnet-4-6',
-    options: {},
-  }),
-);
-
-// later, with rows from sync.messages ordered by createdAt
-const conversation = toUiConversation(rows);
+Effect.runPromise(Effect.scoped(program));
 ```
 
-- `subscribeThreads` and `subscribeMessages` page from a cursor, so a reconnect resumes where the collection left off.
-- `keepSubscribed` from rpc-toolkit's websocket Transport restarts each subscription after the socket reconnects.
-- `toUiConversation` joins streamed text split across rows and pairs questions with their Resolutions; `sync.messages` rows must be ordered by `createdAt` first.
-- `sync.dispose()` tears the collections down.
+- `startSession` returns the Session already running its first message. `send` starts a Turn, or steers the running one.
+- `forkSession` with `afterTurnId: null` forks after the latest finished Turn; it fails with `NotForkable` while none has finished.
+- `ask` answers from the Session's context without adding to it. With a JSON Schema in `schema`, the answer is `Data` of that shape.
+- Commands sent while the socket is down wait for it to come back.
+
+### Keep the server's records in an app
+
+An app places `AiLive` under its Replicas and reads `Ai` through Queries. Lifted from `apps/ai/src/client/app.tsx` and `apps/ai/src/shared/pages`.
+
+```ts
+import { eq } from '@tanstack/db';
+import { Effect, Layer, Schema } from 'effect';
+import { Ai, AiClient, AiLive, retired } from '@kestack/ai-toolkit/client';
+import { Query, Replicas } from '@kestack/std-toolkit/replica';
+import { Store } from '@kestack/std-toolkit/replica/idb';
+
+const layer = Layer.mergeAll(
+  AiClient.layer('http://127.0.0.1:4590/rpc'),
+  Layer.unwrap(Effect.sync(() => Store.idb({ retired }))),
+);
+
+const ReplicasLive = Replicas.child([AiLive]);
+
+export const Messages = Query.make('Messages', {
+  props: Schema.Struct({ sessionId: Schema.String }),
+  from: () => Effect.all({ ai: Ai.get() }),
+  query:
+    ({ props }, { ai }) =>
+    (q) =>
+      q
+        .from({ m: ai.messages })
+        .where(({ m }) => eq(m.sessionId, props.sessionId)),
+});
+```
+
+- `layer` goes to the app's runtime; `ReplicasLive` is a child of its root Actor, which provides `Replicas.layer`.
+- Projects and Sessions sync whole while the app runs. A Session's Messages sync only while a Query filters on its `sessionId`.
+- Each feed reopens after a reconnect from the newest entity it passed on, so nothing is missed or sent twice.
+- The Replica's name carries the projection's version; `retired` lets the IndexedDB Store delete older ones.

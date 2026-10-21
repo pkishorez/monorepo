@@ -644,6 +644,24 @@ describe.runIf(process.env.AI_TOOLKIT_E2E === '1')(
               ),
             );
             expect(tipAnswer).toContain('BRAVO-TWO');
+
+            // A fork of the fork may name a Fork Point from the original thread.
+            const again = yield* codex.fork({
+              cwd,
+              nativeId: tip.nativeId,
+              at: first!,
+            });
+            const againAnswer = assistantText(
+              projectAll(
+                yield* collect(
+                  yield* open(again.nativeId),
+                  'Which codewords have I asked you to remember? Reply with them comma separated, nothing else. No tools.',
+                  'fork-5',
+                ),
+              ),
+            );
+            expect(againAnswer).toContain('ALPHA-ONE');
+            expect(againAnswer).not.toContain('BRAVO-TWO');
           }),
         );
       },

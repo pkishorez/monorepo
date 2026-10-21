@@ -13,6 +13,21 @@ import {
 
 const LIST_TIMEOUT = Duration.seconds(15);
 
+/**
+ * One Skill per name, the first Codex lists: the same Skill may sit in
+ * more than one folder Codex reads, and `/name` can only mean one.
+ */
+export const firstByName = (
+  skills: ReadonlyArray<SkillMetadata>,
+): ReadonlyArray<SkillMetadata> => {
+  const seen = new Set<string>();
+  return skills.filter((skill) => {
+    if (seen.has(skill.name)) return false;
+    seen.add(skill.name);
+    return true;
+  });
+};
+
 /** The enabled Skills Codex finds for `cwd`, as Codex describes them. */
 export const listSkills = (
   server: AppServer,
@@ -23,7 +38,11 @@ export const listSkills = (
     .request('skills/list', { cwds: [cwd], forceReload })
     .pipe(
       Effect.map(({ data }) =>
-        data.flatMap((entry) => entry.skills.filter((skill) => skill.enabled)),
+        firstByName(
+          data.flatMap((entry) =>
+            entry.skills.filter((skill) => skill.enabled),
+          ),
+        ),
       ),
     );
 

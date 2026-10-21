@@ -72,9 +72,14 @@ const titleModel = (server: AppServer) =>
     ),
   );
 
-/** The first line of a reply, without quotes or markdown, cut to six words. */
-const clean = (reply: string): string =>
+/**
+ * The first line of a reply, without quotes, markdown, or characters that
+ * print as nothing (control, private-use and unassigned ones a model may
+ * emit), cut to six words.
+ */
+export const clean = (reply: string): string =>
   (reply.trim().split('\n')[0] ?? '')
+    .replace(/\p{C}/gu, '')
     .replace(/^[#*\s"'`“”]+|[*\s"'`“”.:!]+$/g, '')
     .split(/\s+/)
     .filter((word) => word !== '')

@@ -54,6 +54,8 @@ interface Turn {
   state: TurnEnd.TurnEnd;
   /** The turn's last transcript entry so far. */
   forkPoint: string | undefined;
+  /** Its stream has ended; a late end, such as a cancel's, does nothing. */
+  ended: boolean;
 }
 
 /**
@@ -105,11 +107,12 @@ export const openSdkSession = (
 
     /**
      * Makes a turn the running one, its stream opening with what came while
-     * no turn ran. Synchronous, so nothing runs between a check that no
-     * turn runs and this.
+     * no turn ran, and runs `then`, such as sending its message. Synchronous,
+     * so nothing runs between a check that no turn runs and this.
      */
-    const begin = (current: Turn): Effect.Effect<void> => {
+    const begin = (current: Turn, then?: () => void): Effect.Effect<void> => {
       turn = current;
+      then?.();
       const waiting = idle;
       idle = [];
       return Queue.offerAll(current.out, waiting).pipe(Effect.asVoid);
@@ -142,6 +145,7 @@ export const openSdkSession = (
           done: yield* Deferred.make<void>(),
           state,
           forkPoint: undefined,
+          ended: false,
         };
         return current;
       });
@@ -150,12 +154,23 @@ export const openSdkSession = (
     // turn's chunks still add up to what was written.
     const finish = (current: Turn) =>
       Effect.suspend(() => {
+        if (current.ended) return Effect.void;
+        current.ended = true;
         if (turn === current) turn = undefined;
-        lastForkPoint = current.forkPoint ?? lastForkPoint;
         return Queue.offerAll(current.out, chunks.flushAll()).pipe(
           Effect.andThen(Queue.end(current.out)),
           Effect.andThen(Deferred.succeed(current.done, undefined)),
         );
+      });
+
+    /**
+     * A turn's Fork Point counts once its stream has been read to the end,
+     * so a turn read later than it ran, such as a queued agent turn, still
+     * reads the one before it until then.
+     */
+    const reached = (current: Turn) =>
+      Effect.sync(() => {
+        lastForkPoint = current.forkPoint ?? lastForkPoint;
       });
 
     const interrupt = Effect.promise(() =>
@@ -176,6 +191,7 @@ export const openSdkSession = (
                 Queue.offer(
                   agentTurns,
                   Stream.fromQueue(current.out).pipe(
+                    Stream.onEnd(reached(current)),
                     Stream.ensuring(finishIfCurrent(current)),
                   ),
                 ),
@@ -260,12 +276,14 @@ export const openSdkSession = (
         const current = turn;
         turn = undefined;
         const rest = chunks.closeAll();
-        return current === undefined
-          ? Effect.void
-          : Queue.offerAll(current.out, rest).pipe(
-              Effect.andThen(Queue.fail(current.out, error)),
-              Effect.andThen(Deferred.succeed(current.done, undefined)),
-            );
+        // Its Background Jobs went with it.
+        if (current === undefined) return jobs.clear;
+        current.ended = true;
+        return Queue.offerAll(current.out, rest).pipe(
+          Effect.andThen(jobs.clear),
+          Effect.andThen(Queue.fail(current.out, error)),
+          Effect.andThen(Deferred.succeed(current.done, undefined)),
+        );
       });
 
     yield* Stream.fromAsyncIterable(
@@ -309,19 +327,25 @@ export const openSdkSession = (
         );
       });
 
-    /** Waits out agent turns, then makes a user turn the running one. */
-    const claim = (current: Turn): Effect.Effect<void, HarnessError> =>
+    /**
+     * Waits out agent turns, then makes a user turn the running one and
+     * sends its message, so a steer always follows it.
+     */
+    const claim = (
+      current: Turn,
+      send: () => void,
+    ): Effect.Effect<void, HarnessError> =>
       Effect.suspend(() => {
         if (stopped !== undefined) return Effect.fail(stopped);
         const running = turn;
-        if (running === undefined) return begin(current);
+        if (running === undefined) return begin(current, send);
         if (!running.agentStarted) {
           return Effect.fail(
             new HarnessError({ message: 'A turn is already running' }),
           );
         }
         return Deferred.await(running.done).pipe(
-          Effect.andThen(claim(current)),
+          Effect.andThen(claim(current, send)),
         );
       });
 
@@ -334,9 +358,11 @@ export const openSdkSession = (
             const uuid = randomUUID();
             const current = yield* newTurn(false, TurnEnd.start(uuid));
             current.forkPoint = uuid;
-            yield* claim(current);
-            input.push(uuid, userContent(message.text, message.images));
+            yield* claim(current, () =>
+              input.push(uuid, userContent(message.text, message.images)),
+            );
             return Stream.fromQueue(current.out).pipe(
+              Stream.onEnd(reached(current)),
               Stream.ensuring(
                 Effect.sync(() => {
                   if (turn === current) turn = undefined;

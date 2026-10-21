@@ -10,6 +10,8 @@ export interface BackgroundJobs {
   /** The current list first, then each change. */
   readonly changes: Stream.Stream<ReadonlyArray<BackgroundJob>>;
   readonly stop: (id: string) => Effect.Effect<void, HarnessError>;
+  /** Empties the list, as when Claude Code has exited. */
+  readonly clear: Effect.Effect<void>;
 }
 
 /**
@@ -26,6 +28,7 @@ export const makeBackgroundJobs = (
       observe: (record) =>
         SubscriptionRef.update(jobs, (list) => next(list, record, Date.now())),
       changes: SubscriptionRef.changes(jobs),
+      clear: SubscriptionRef.set(jobs, []),
       stop: (id) =>
         Effect.tryPromise({
           try: () => stopTask(id),

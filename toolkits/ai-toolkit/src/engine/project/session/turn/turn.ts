@@ -49,7 +49,7 @@ const Props = Schema.Struct({
 
 const Model = Schema.Struct({
   ...Input.fields,
-  /** The agent has started the turn, so it can be steered. */
+  /** The agent has sent the turn's first record, so it can be steered. */
   streaming: Schema.Boolean,
 });
 
@@ -162,10 +162,20 @@ const run = (self: TurnSelf) =>
       yield* context.report({ _tag: 'NativeId', nativeId: now });
     });
 
+    /** Steers wait for the agent's first record: until then it may still be setting the turn up. */
+    let streaming = false;
+
     const keep = (out: RawOut) =>
       Effect.gen(function* () {
+        if (!streaming) {
+          streaming = true;
+          yield* self.send({ _tag: 'Streaming' });
+        }
         const saved = yield* write(out, 'harness');
-        endedByHarness ??= endedAs(context.harness.project, saved.value);
+        // The last record that ends a Turn says how: the harness ends the
+        // stream there, after any it reported for a Background Job.
+        endedByHarness =
+          endedAs(context.harness.project, saved.value) ?? endedByHarness;
         yield* noteNativeId;
       });
 
@@ -174,7 +184,6 @@ const run = (self: TurnSelf) =>
       forkPointBefore = yield* agent.lastTurnNativeId;
       if ((yield* self.get).props.cancelling) return;
       const records = yield* recordsOf(agent, model.prompt);
-      yield* self.send({ _tag: 'Streaming' });
       yield* Stream.runForEach(records, keep);
     });
 

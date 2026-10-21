@@ -111,6 +111,19 @@ describe('a Turn', () => {
           model: 'claude-other',
           settings: { effort: 'low' },
         });
+
+        // Settings a message leaves out keep their value.
+        yield* idle();
+        yield* engine.send(session.id, {
+          ...say('plan'),
+          settings: { permissionMode: 'plan' },
+        });
+        yield* eventually(async () =>
+          expect((await saved())?.settings).toEqual({
+            effort: 'low',
+            permissionMode: 'plan',
+          }),
+        );
       }),
       fake,
     );

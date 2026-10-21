@@ -128,7 +128,8 @@ const choose = (model: Model, prompt: Prompt): Model =>
         session: {
           ...model.session,
           model: prompt.model ?? model.session.model,
-          settings: prompt.settings ?? model.session.settings,
+          // Settings a message leaves out keep their value.
+          settings: { ...model.session.settings, ...prompt.settings },
         },
       };
 

@@ -75,6 +75,8 @@ export const Session = Page.define({
     seen: Schema.NullOr(Seen),
     skills: Schema.NullOr(Schema.Array(SkillSchema)),
     asked: Schema.NullOr(Asked),
+    /** The last question's id: a late answer to a dismissed one is told apart. */
+    asks: Schema.Finite,
     /** The turn a fork is being made after. */
     forking: Schema.NullOr(Schema.String),
   }),
@@ -112,6 +114,7 @@ export const SessionLive = Page.build(Session, {
       seen: null,
       skills: null,
       asked: null,
+      asks: 0,
       forking: null,
     },
   }),
@@ -175,13 +178,14 @@ export const SessionLive = Page.build(Session, {
           model: { ...model, problem: 'Write a question after /btw' },
         };
       if (question !== null) {
-        const id = (model.asked?.id ?? 0) + 1;
+        const id = model.asks + 1;
         return {
           model: {
             ...model,
             draft: '',
             problem: null,
             asked: { id, question, answer: null, problem: null },
+            asks: id,
           },
           command: ask({ id, sessionId: props.params.sessionId, question }),
         };

@@ -41,9 +41,14 @@ interface Pending {
 
 const STDERR_TAIL_CHARS = 2_000;
 
+/** How long Codex may take to exit once its input ends, before it is killed. */
+const EXIT_GRACE_MS = 5_000;
+
 /**
  * Spawns `codex app-server` in `cwd`, from the configured Harness Binary,
- * and initializes it. Closing the Scope kills the process.
+ * and initializes it. Closing the Scope ends its input, so Codex exits on
+ * its own and stops the commands it started (a kill leaves them running);
+ * one that does not exit in time is killed.
  */
 export const start = (
   cwd: string,
@@ -64,9 +69,15 @@ export const start = (
           }),
       }),
       (child) =>
-        Effect.sync(() => {
+        Effect.callback<void>((resume) => {
+          if (child.exitCode !== null || child.signalCode !== null)
+            return resume(Effect.void);
+          const timer = setTimeout(() => child.kill(), EXIT_GRACE_MS);
+          child.once('exit', () => {
+            clearTimeout(timer);
+            resume(Effect.void);
+          });
           child.stdin.end();
-          child.kill();
         }),
     );
 

@@ -323,10 +323,15 @@ export const openSession = (
 
     /** The `turn/start` overrides a Turn's model and settings ask for. */
     const overrides = (input: TurnInput) => {
+      // Setting values a Turn leaves out keep their current value.
       const next =
         input.settings === undefined
           ? { effort, sandbox }
-          : threadOptions(input.settings);
+          : threadOptions({
+              reasoningEffort: effort,
+              sandbox,
+              ...input.settings,
+            });
       const changes = {
         ...(input.model === undefined || input.model === model
           ? {}

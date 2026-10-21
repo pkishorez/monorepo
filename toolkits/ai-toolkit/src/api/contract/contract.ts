@@ -11,11 +11,7 @@ import {
   SkillSchema,
 } from '../../harness-wire/index.js';
 import { HARNESS_NAMES } from '../../raw/index.js';
-import {
-  HarnessConfigSchema,
-  ProjectSchema,
-  SessionSchema,
-} from '../../records/index.js';
+import { ProjectSchema, SessionSchema } from '../../records/index.js';
 
 /*
  * The one API every app speaks, over WebSocket: commands that ask the engine

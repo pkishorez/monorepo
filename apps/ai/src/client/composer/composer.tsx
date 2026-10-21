@@ -60,7 +60,10 @@ export function Composer({
   readonly autoFocus?: boolean;
   /** The id of a line that explains the editor's state, such as being offline. */
   readonly describedBy?: string;
-  /** Controls on the left of the bottom row, after the paperclip and `/`. */
+  /**
+   * Controls on the left of the bottom row, after the paperclip and `/`.
+   * Each is its own item, so a narrow row wraps between them.
+   */
   readonly toolbar?: ReactNode;
   /** Buttons on the right of the bottom row; a `type="submit"` one sends. */
   readonly actions?: ReactNode;
@@ -122,7 +125,7 @@ export function Composer({
         />
         <div ref={editor.parent} className="min-h-11" />
         <div
-          className="flex items-center gap-1 px-2 pt-1 pb-2"
+          className="flex flex-wrap items-center gap-1 px-2 pt-1 pb-2"
           onMouseDown={(event) => {
             if (event.target !== event.currentTarget) return;
             event.preventDefault();
@@ -149,13 +152,9 @@ export function Composer({
           >
             <SquareSlashIcon aria-hidden />
           </Button>
-          {toolbar !== undefined && (
-            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-0.5">
-              {toolbar}
-            </div>
-          )}
+          {toolbar !== undefined && <div className="contents">{toolbar}</div>}
           {actions !== undefined && (
-            <div className="ml-auto flex shrink-0 items-center gap-1.5 self-end">
+            <div className="ml-auto flex shrink-0 items-center gap-1.5">
               {actions}
             </div>
           )}
