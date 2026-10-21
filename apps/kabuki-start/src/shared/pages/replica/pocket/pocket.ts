@@ -1,6 +1,6 @@
 import { Schema } from 'effect';
 import { Actor } from '@kestack/kabuki';
-import { Action, Replicas } from '@kestack/std-toolkit/replica';
+import { Replicas } from '@kestack/std-toolkit/replica';
 import { PocketRpc } from '../../../../apis/pocket/index.ts';
 import {
   CreateWallet,
@@ -17,12 +17,11 @@ import { Entries, Wallets } from './queries.ts';
  * write is an Action whose args name the Account it was asked for, so one
  * asked before a switch lands there, or fails.
  *
- * 1. Ask     a write joins the queue for its Action, and runs at once
- *            unless one of that Action is under way.
- * 2. End     an Action ends with a Message naming only the Action, so one
- *            of each runs at a time: the one under way is the one that
- *            ended. A refusal is kept beside where it was asked, for the
- *            Account it was for; the next of that Action runs.
+ * 1. Ask     a write runs at once, its Optimistic Changes showing before
+ *            the Backend answers, however many are under way.
+ * 2. End     an Action ends with a Message carrying the args it was asked
+ *            with, so its id says which write ended. A refusal is kept
+ *            beside where it was asked, for the Account it was for.
  */
 
 const Write = Schema.TaggedUnion({
@@ -68,7 +67,7 @@ const Refused = Schema.Struct({
 });
 
 const Model = Schema.Struct({
-  /** Asked and not ended, in order; the first of each Action is under way. */
+  /** Asked and not ended. */
   writes: Schema.Array(Write),
   refused: Schema.Array(Refused),
 });
@@ -93,10 +92,10 @@ export const PocketSection = Actor.define('Pocket', {
       amount: Schema.Int,
     },
     Remove: { id: Schema.String },
-    CreateWallet: Action.result,
-    Post: Action.result,
-    Transfer: Action.result,
-    DeleteEntry: Action.result,
+    CreateWallet: CreateWallet.result,
+    Post: Post.result,
+    Transfer: Transfer.result,
+    DeleteEntry: DeleteEntry.result,
   }),
 });
 
@@ -125,26 +124,28 @@ const sameSpot = (write: Write) => (refusal: typeof Refused.Type) =>
   refusal.account === write.account && refusal.at === atOf(write);
 
 // 1. Ask
-const ask = (model: Model, write: Write) => {
-  const busy = model.writes.some(({ _tag }) => _tag === write._tag);
-  return {
-    model: {
-      writes: [...model.writes, write],
-      refused: model.refused.filter((each) => !sameSpot(write)(each)),
-    },
-    ...(busy ? {} : { command: commandOf(write) }),
-  };
-};
+const ask = (model: Model, write: Write) => ({
+  model: {
+    writes: [...model.writes, write],
+    refused: model.refused.filter((each) => !sameSpot(write)(each)),
+  },
+  command: commandOf(write),
+});
 
 // 2. End
-const end = (model: Model, action: Write['_tag'], failed: string | null) => {
-  const done = model.writes.find(({ _tag }) => _tag === action);
+const end = (
+  model: Model,
+  action: Write['_tag'],
+  id: string,
+  failed: string | null,
+) => {
+  const done = model.writes.find(
+    (each) => each._tag === action && each.id === id,
+  );
   if (done === undefined) return { model };
-  const writes = model.writes.filter((each) => each !== done);
-  const next = writes.find(({ _tag }) => _tag === action);
   return {
     model: {
-      writes,
+      writes: model.writes.filter((each) => each !== done),
       refused:
         failed === null
           ? model.refused
@@ -153,7 +154,6 @@ const end = (model: Model, action: Write['_tag'], failed: string | null) => {
               { account: done.account, at: atOf(done), reason: failed },
             ],
     },
-    ...(next ? { command: commandOf(next) } : {}),
   };
 };
 
@@ -208,9 +208,12 @@ export const PocketLive = Actor.build(PocketSection, {
       props.writable
         ? ask(model, { _tag: 'DeleteEntry', account: props.account, id })
         : {},
-    CreateWallet: ({ failed }, { model }) => end(model, 'CreateWallet', failed),
-    Post: ({ failed }, { model }) => end(model, 'Post', failed),
-    Transfer: ({ failed }, { model }) => end(model, 'Transfer', failed),
-    DeleteEntry: ({ failed }, { model }) => end(model, 'DeleteEntry', failed),
+    CreateWallet: ({ args, failed }, { model }) =>
+      end(model, 'CreateWallet', args.id, failed),
+    Post: ({ args, failed }, { model }) => end(model, 'Post', args.id, failed),
+    Transfer: ({ args, failed }, { model }) =>
+      end(model, 'Transfer', args.id, failed),
+    DeleteEntry: ({ args, failed }, { model }) =>
+      end(model, 'DeleteEntry', args.id, failed),
   },
 });

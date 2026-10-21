@@ -1,4 +1,4 @@
-import { Effect, Layer, SubscriptionRef } from 'effect';
+import { Deferred, Effect, Layer, SubscriptionRef } from 'effect';
 import type { Scope } from 'effect';
 import { History, Runtime } from '@kestack/kabuki';
 import type { Instance, Running } from '@kestack/kabuki';
@@ -130,6 +130,16 @@ const fakeWorker = () => {
       meta: meta('Wallet'),
     });
 
+  /** While set, a Post waits for it before it answers. */
+  let answers: Deferred.Deferred<void> | null = null;
+  const holdPosts = Effect.gen(function* () {
+    const held = yield* Deferred.make<void>();
+    answers = held;
+    return Effect.sync(() => {
+      answers = null;
+    }).pipe(Effect.andThen(Deferred.succeed(held, undefined)));
+  });
+
   const service = {
     wallets: read('Wallets', 'Wallet'),
     entries: read('Entries', 'Entry'),
@@ -147,6 +157,7 @@ const fakeWorker = () => {
     ) =>
       Effect.gen(function* () {
         calls.push({ call: 'Post', account });
+        if (answers !== null) yield* Deferred.await(answers);
         const at = wallet(account, input.walletId);
         if (at.value.balance + input.amount < 0)
           return yield* new Overdraft({
@@ -235,6 +246,7 @@ const fakeWorker = () => {
   return {
     seed,
     calls,
+    holdPosts,
     layer: Layer.succeed(PocketRpc, service as unknown as PocketRpc['Service']),
   };
 };
@@ -458,6 +470,32 @@ describe('the Replica page', () => {
               each.call !== 'Entries',
           ),
         ).toBe(false);
+      }),
+    ));
+
+  it('taps in a row each show at once, with none waiting for the one before', () =>
+    run(
+      Effect.gen(function* () {
+        const { app, worker } = yield* opened();
+        yield* eventually(() =>
+          expect(balances(app)).toEqual({ cash: 1000, bank: 0 }),
+        );
+        const answer = yield* worker.holdPosts;
+        for (const id of ['d1', 'd2', 'd3'])
+          ask(app, { _tag: 'Change', id, wallet: 'bank', amount: 1000 });
+        // All three are under way, and all show before the Worker answers.
+        yield* eventually(() =>
+          expect(balances(app)).toMatchObject({ bank: 3000 }),
+        );
+        expect(pocket(app).model).toMatchObject({
+          writes: [{ id: 'd1' }, { id: 'd2' }, { id: 'd3' }],
+        });
+
+        yield* answer;
+        yield* eventually(() =>
+          expect(pocket(app).model).toMatchObject({ writes: [], refused: [] }),
+        );
+        expect(balances(app)).toMatchObject({ bank: 3000 });
       }),
     ));
 
