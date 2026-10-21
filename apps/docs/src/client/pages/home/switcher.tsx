@@ -3,8 +3,8 @@ import type { Variant } from './variant.ts';
 
 /*
  * A small pill for the owner to flip between the page's two versions:
- * bottom right on a wide screen; on a phone, top right under the header,
- * clear of the words at the bottom.
+ * bottom right on a wide screen; on a phone, top right of the first
+ * screen, scrolling away with it so it never sits over a shape.
  */
 
 export function Switcher({
@@ -18,7 +18,7 @@ export function Switcher({
     <div
       role="group"
       aria-label="Page version"
-      className="fixed top-[4.25rem] right-3 z-30 flex gap-0.5 rounded-full border border-border bg-background p-0.5 lg:top-auto lg:right-6 lg:bottom-6 lg:p-1"
+      className="absolute top-[4.25rem] right-3 z-30 flex gap-0.5 rounded-full border border-border bg-background p-0.5 lg:fixed lg:top-auto lg:right-6 lg:bottom-6 lg:p-1"
     >
       {VARIANTS.map((option) => (
         <button

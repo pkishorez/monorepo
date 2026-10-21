@@ -1,5 +1,5 @@
 import { Kind } from '../pen/index.ts';
-import type { Cloud, V3 } from '../pen/index.ts';
+import type { Cloud, Label, V3 } from '../pen/index.ts';
 import {
   TAU,
   ball,
@@ -94,3 +94,18 @@ export function kabuki(c: Cloud): void {
     );
   }
 }
+
+/** The root and its children named, over their places in the tree. */
+export const kabukiLabels: readonly Label[] = (() => {
+  const actors = tree();
+  const root = actors[0]!;
+  const kids = actors.filter((a) => a.parent === 0);
+  const names = ['Session', 'Sync', 'Files'];
+  return [
+    { text: 'App', at: [root.at[0], root.at[1] + 0.17, root.at[2]] },
+    ...kids.map((kid, k): Label => ({
+      text: names[k]!,
+      at: [kid.at[0], kid.at[1] + 0.17, kid.at[2]],
+    })),
+  ];
+})();

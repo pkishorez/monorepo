@@ -1,28 +1,30 @@
 import { cloud } from './pen/index.ts';
-import type { Baked, Cloud, V3 } from './pen/index.ts';
+import type { Baked, Cloud, Label, V3 } from './pen/index.ts';
 import {
   actor,
+  actorLabels,
   compose,
+  composeLabels,
   drift,
   lineage,
+  lineageLabels,
   mark,
   renders,
+  rendersLabels,
   rewind,
+  rewindLabels,
   states,
+  statesLabels,
 } from './kabuki/index.ts';
 import {
-  ai,
   auth,
+  authLabels,
   hero,
   kabuki,
-  laymos,
-  lotel,
-  monoverse,
+  kabukiLabels,
   outro,
-  parts,
-  rpc,
   std,
-  web,
+  stdLabels,
 } from './stack/index.ts';
 import { dust } from './pen/index.ts';
 
@@ -52,7 +54,14 @@ export type Look = {
   readonly haze: number;
 };
 
-type Shape = { readonly draw: (c: Cloud) => void; readonly look: Look };
+type Shape = {
+  readonly draw: (c: Cloud) => void;
+  readonly look: Look;
+  /** Words pinned to it, most important first. */
+  readonly labels?: readonly Label[];
+  /** How many of them a small screen shows; 5 if not said. */
+  readonly most?: number;
+};
 
 const look = (l: Partial<Look>): Look => ({
   spin: 0,
@@ -65,66 +74,50 @@ const look = (l: Partial<Look>): Look => ({
   ...l,
 });
 
+/** A diagram's look: barely turning, faint dust, so it reads flat-on. */
+const diagram = look({ sway: 0.12, tilt: 0.06, dust: 0.12, haze: 0.08 });
+
 const SHAPES = {
-  // The stack, one shape per package.
+  // The stack's home: the whole, then the packages it tells.
   hero: {
     draw: hero,
     look: look({ spin: 0.08, sway: 0, tilt: 0.4, roll: -0.16, dust: 0.22 }),
   },
   kabuki: {
     draw: kabuki,
+    labels: kabukiLabels,
     look: look({ spin: 0.12, sway: 0, tilt: 0.24, tint: [1, 0.96, 0.9] }),
   },
   std: {
     draw: std,
-    look: look({ sway: 0.32, tilt: 0.12, tint: [0.92, 0.98, 1] }),
-  },
-  rpc: {
-    draw: rpc,
-    look: look({ sway: 0.45, tilt: 0.2, tint: [0.92, 0.95, 1] }),
+    labels: stdLabels,
+    look: look({ sway: 0.26, tilt: 0.12, tint: [0.92, 0.98, 1] }),
   },
   auth: {
     draw: auth,
-    look: look({ sway: 0.38, tilt: 0.08, tint: [1, 0.97, 0.9] }),
-  },
-  ai: {
-    draw: ai,
-    look: look({ sway: 0.4, tilt: 0.18, tint: [0.93, 1, 0.97] }),
-  },
-  web: {
-    draw: web,
-    look: look({ sway: 0.3, tilt: 0.06, tint: [0.94, 0.97, 1] }),
-  },
-  lotel: {
-    draw: lotel,
-    look: look({ sway: 0.22, tilt: 0.12, tint: [1, 0.95, 0.9] }),
-  },
-  laymos: {
-    draw: laymos,
-    look: look({ spin: 0.09, sway: 0, tilt: 0.46, tint: [0.94, 0.97, 1] }),
-  },
-  monoverse: {
-    draw: monoverse,
-    look: look({ spin: 0.06, sway: 0, tilt: 0.22, dust: 0.26 }),
-  },
-  parts: {
-    draw: parts,
-    look: look({ sway: 0.25, tilt: 0.08, tint: [0.96, 1, 0.94] }),
+    labels: authLabels,
+    look: look({ sway: 0.3, tilt: 0.08, tint: [1, 0.97, 0.9] }),
   },
   outro: {
     draw: outro,
     look: look({ sway: 0.12, tilt: 0.3, dust: 0.1, haze: 0.3 }),
   },
 
-  // kabuki, one shape per idea.
+  // kabuki, one diagram per idea: held nearly flat, so its words read.
   drift: { draw: drift, look: look({ sway: 0, tilt: 0, haze: 0 }) },
-  actor: { draw: actor, look: look({ sway: 0.35, tilt: 0.14 }) },
-  states: { draw: states, look: look({ sway: 0.3, tilt: 0.1 }) },
-  compose: { draw: compose, look: look({ sway: 0.32, tilt: 0.08 }) },
-  renders: { draw: renders, look: look({ sway: 0.28, tilt: 0.16 }) },
-  rewind: { draw: rewind, look: look({ sway: 0.25, tilt: 0.12 }) },
-  lineage: { draw: lineage, look: look({ sway: 0.3, tilt: 0.06 }) },
-  mark: { draw: mark, look: look({ sway: 0.22, tilt: 0.05, haze: 0.1 }) },
+  actor: { draw: actor, labels: actorLabels, look: diagram },
+  states: { draw: states, labels: statesLabels, look: diagram },
+  compose: { draw: compose, labels: composeLabels, look: diagram },
+  renders: { draw: renders, labels: rendersLabels, look: diagram },
+  rewind: { draw: rewind, labels: rewindLabels, look: diagram },
+  lineage: {
+    draw: lineage,
+    labels: lineageLabels,
+    // Seven short names, well apart: all of them, even on a phone.
+    most: 7,
+    look: diagram,
+  },
+  mark: { draw: mark, look: look({ sway: 0.16, tilt: 0.05, haze: 0.1 }) },
 } as const satisfies Record<string, Shape>;
 
 export type ShapeName = keyof typeof SHAPES;
@@ -139,6 +132,18 @@ export function shapeOf(name: string | undefined): ShapeName {
 
 export function lookOf(name: ShapeName): Look {
   return SHAPES[name].look;
+}
+
+/**
+ * The words pinned to a shape, most important first, and how many of them
+ * a small screen shows.
+ */
+export function labelsOf(name: ShapeName): {
+  readonly labels: readonly Label[];
+  readonly most: number;
+} {
+  const shape: Shape = SHAPES[name];
+  return { labels: shape.labels ?? [], most: shape.most ?? 5 };
 }
 
 /**
