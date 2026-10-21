@@ -1,0 +1,193 @@
+import { spawn } from 'node:child_process';
+import { createRequire } from 'node:module';
+import { createInterface } from 'node:readline';
+import { Effect, type Scope } from 'effect';
+import { HarnessError } from '../../../harness/index.js';
+import { answer } from './answers.js';
+import {
+  DELTA_METHODS,
+  type Notification,
+  type RequestMethod,
+  type Requests,
+} from './protocol.js';
+
+/** A live `codex app-server` process, spoken to over JSON-RPC on stdio. */
+export interface AppServer {
+  readonly request: <M extends RequestMethod>(
+    method: M,
+    params: Requests[M]['params'],
+  ) => Effect.Effect<Requests[M]['result'], HarnessError>;
+  /** Hears every notification, and the process exiting; returns the unlisten. */
+  readonly listen: (listener: Listener) => () => void;
+}
+
+export interface Listener {
+  readonly notification: (notification: Notification) => void;
+  readonly exit: (error: HarnessError) => void;
+}
+
+interface Envelope {
+  readonly id?: number | string | null;
+  readonly method?: string;
+  readonly params?: unknown;
+  readonly result?: unknown;
+  readonly error?: unknown;
+}
+
+interface Pending {
+  readonly resolve: (value: unknown) => void;
+  readonly reject: (error: HarnessError) => void;
+}
+
+const STDERR_TAIL_CHARS = 2_000;
+
+const codexEntry = (): string =>
+  createRequire(import.meta.url).resolve('@openai/codex/bin/codex.js');
+
+/**
+ * Spawns `codex app-server` in `cwd` and initializes it. Closing the Scope
+ * kills the process.
+ */
+export const start = (
+  cwd: string,
+): Effect.Effect<AppServer, HarnessError, Scope.Scope> =>
+  Effect.gen(function* () {
+    const child = yield* Effect.acquireRelease(
+      Effect.try({
+        try: () =>
+          spawn(process.execPath, [codexEntry(), 'app-server'], {
+            cwd,
+            stdio: ['pipe', 'pipe', 'pipe'],
+          }),
+        catch: (cause) =>
+          new HarnessError({
+            message: 'Could not start codex app-server',
+            cause,
+          }),
+      }),
+      (child) =>
+        Effect.sync(() => {
+          child.stdin.end();
+          child.kill();
+        }),
+    );
+
+    const pending = new Map<number, Pending>();
+    const listeners = new Set<Listener>();
+    let nextId = 1;
+    let stderr = '';
+    let exited: HarnessError | undefined;
+
+    const write = (value: unknown) => {
+      if (exited === undefined && child.stdin.writable)
+        child.stdin.write(`${JSON.stringify(value)}\n`);
+    };
+
+    const exit = (error: HarnessError) => {
+      if (exited !== undefined) return;
+      exited = error;
+      for (const call of pending.values()) call.reject(error);
+      pending.clear();
+      for (const listener of listeners) listener.exit(error);
+    };
+
+    child.stderr.on('data', (chunk: Buffer) => {
+      stderr = (stderr + chunk.toString()).slice(-STDERR_TAIL_CHARS);
+    });
+    child.once('error', (cause) =>
+      exit(new HarnessError({ message: 'codex app-server failed', cause })),
+    );
+    child.once('exit', (code, signal) =>
+      exit(
+        new HarnessError({
+          message: `codex app-server exited (${signal ?? code})${stderr === '' ? '' : `: ${stderr.trim()}`}`,
+        }),
+      ),
+    );
+
+    createInterface({ input: child.stdout }).on('line', (line) => {
+      let envelope: Envelope;
+      try {
+        envelope = JSON.parse(line) as Envelope;
+      } catch {
+        return;
+      }
+      const { id, method } = envelope;
+      if (method === undefined && typeof id === 'number') {
+        const call = pending.get(id);
+        pending.delete(id);
+        if (envelope.error === undefined) call?.resolve(envelope.result);
+        else
+          call?.reject(
+            new HarnessError({
+              message: `codex ${JSON.stringify(envelope.error)}`,
+              cause: envelope.error,
+            }),
+          );
+        return;
+      }
+      if (method === undefined) return;
+      if (id !== undefined && id !== null) {
+        write({ id, ...answer(method, envelope.params) });
+        return;
+      }
+      const notification = { method, params: envelope.params };
+      for (const listener of listeners) listener.notification(notification);
+    });
+
+    const request = <M extends RequestMethod>(
+      method: M,
+      params: Requests[M]['params'],
+    ) =>
+      Effect.callback<Requests[M]['result'], HarnessError>((resume) => {
+        if (exited !== undefined) return resume(Effect.fail(exited));
+        const id = nextId++;
+        pending.set(id, {
+          resolve: (value) =>
+            resume(Effect.succeed(value as Requests[M]['result'])),
+          reject: (error) =>
+            resume(
+              Effect.fail(
+                new HarnessError({
+                  message: `${method}: ${error.message}`,
+                  cause: error.cause,
+                }),
+              ),
+            ),
+        });
+        write({ id, method, params });
+      });
+
+    const server: AppServer = {
+      request,
+      listen: (listener) => {
+        listeners.add(listener);
+        if (exited !== undefined) listener.exit(exited);
+        return () => listeners.delete(listener);
+      },
+    };
+
+    yield* request('initialize', {
+      clientInfo: { name: 'ai-toolkit', title: 'AI Toolkit', version: '0.0.0' },
+      capabilities: {
+        experimentalApi: true,
+        requestAttestation: false,
+        optOutNotificationMethods: DELTA_METHODS,
+      },
+    });
+    write({ method: 'initialized', params: {} });
+    return server;
+  });
+
+export {
+  isNotification,
+  type CollabAgentTool,
+  type Notification,
+  type Notifications,
+  type ReasoningEffort,
+  type SandboxMode,
+  type ThreadItem,
+  type TokenUsageBreakdown,
+  type Turn,
+  type TurnStatus,
+} from './protocol.js';

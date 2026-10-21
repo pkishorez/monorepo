@@ -1,0 +1,514 @@
+[
+  {
+    "kind": "system/init",
+    "payload": {
+      "type": "system",
+      "subtype": "init",
+      "cwd": "/private/var/folders/pz/hmz20bpd067fdqmt3d9nzgy40000gn/T/ai-toolkit-claude-e2e-dcpdzw",
+      "session_id": "c80c5750-ead1-49d2-b16e-8603b1272040",
+      "tools": [
+        "Task",
+        "Bash",
+        "Edit",
+        "EnterWorktree",
+        "ExitWorktree",
+        "ListAgents",
+        "Monitor",
+        "PushNotification",
+        "Read",
+        "RemoteTrigger",
+        "ReportFindings",
+        "ScheduleWakeup",
+        "SendMessage",
+        "Skill",
+        "TaskOutput",
+        "TaskStop",
+        "ToolSearch",
+        "WebFetch",
+        "WebSearch",
+        "Workflow",
+        "Write",
+        "mcp__claude_ai_Claude_Docs__batch",
+        "mcp__claude_ai_Claude_Docs__create",
+        "mcp__claude_ai_Claude_Docs__delete",
+        "mcp__claude_ai_Claude_Docs__export",
+        "mcp__claude_ai_Claude_Docs__guide",
+        "mcp__claude_ai_Claude_Docs__query",
+        "mcp__claude_ai_Claude_Docs__read",
+        "mcp__claude_ai_Claude_Docs__update"
+      ],
+      "mcp_servers": [
+        {
+          "name": "executor",
+          "status": "needs-auth"
+        },
+        {
+          "name": "claude.ai Claude Docs",
+          "status": "connected"
+        },
+        {
+          "name": "claude.ai My MCP",
+          "status": "failed"
+        }
+      ],
+      "model": "claude-haiku-5-5",
+      "permissionMode": "bypassPermissions",
+      "slash_commands": [
+        "agent-browser",
+        "configure-syncpack",
+        "deep-module",
+        "domain-modeling",
+        "emil-animations",
+        "emil-ask-emil",
+        "emil-ask-lapse",
+        "emil-build-a-tool",
+        "emil-color",
+        "emil-component-design",
+        "emil-design-foundations",
+        "emil-design-system-docs",
+        "emil-design-vocabulary",
+        "emil-engineering-vocabulary",
+        "emil-forms-and-inputs",
+        "emil-get-creative",
+        "emil-marketing-pages",
+        "emil-performance",
+        "emil-prototype",
+        "emil-surfaces",
+        "emil-touch-and-accessibility",
+        "emil-typography",
+        "emil-ui-polish",
+        "emil-ui-review",
+        "emil-unslop-code",
+        "emil-unslop-design",
+        "emil-unslop-writing",
+        "emil-writing-skills",
+        "git-commit",
+        "grill-me",
+        "grill-with-docs",
+        "grilling",
+        "kui-prototype",
+        "laymos",
+        "laymos-init",
+        "orchestrate",
+        "ponytail",
+        "ponytail-audit",
+        "ponytail-debt",
+        "ponytail-gain",
+        "ponytail-help",
+        "ponytail-review",
+        "prototype",
+        "teach",
+        "to-issues",
+        "to-laymos",
+        "to-spec",
+        "wait-what",
+        "writing-for-agents",
+        "deep-research",
+        "codex:adversarial-review",
+        "codex:cancel",
+        "codex:rescue",
+        "codex:result",
+        "codex:review",
+        "codex:setup",
+        "codex:status",
+        "codex:transfer",
+        "design",
+        "design-sync",
+        "dataviz",
+        "update-config",
+        "verify",
+        "debug",
+        "code-review",
+        "simplify",
+        "batch",
+        "fewer-permission-prompts",
+        "doctor",
+        "loop",
+        "schedule",
+        "claude-api",
+        "workflow-authoring",
+        "run",
+        "run-skill-generator",
+        "plugin-authoring",
+        "advisor",
+        "agents",
+        "auto-mode-setup",
+        "autocompact",
+        "clear",
+        "color",
+        "compact",
+        "config",
+        "output-style",
+        "context",
+        "effort",
+        "fast",
+        "heapdump",
+        "init",
+        "mcp",
+        "import",
+        "model",
+        "__remote-workflow",
+        "workflow-launch-exec",
+        "plugin-types",
+        "reload-plugins",
+        "reload-skills",
+        "rename",
+        "ultrareview",
+        "security-review",
+        "usage-credits",
+        "extra-usage",
+        "usage",
+        "insights",
+        "recap",
+        "skill-doctor",
+        "goal",
+        "design-consent",
+        "design-revoke",
+        "list-agents",
+        "team-onboarding",
+        "anthropic-skills:built-in-browser",
+        "anthropic-skills:chrome-browser",
+        "anthropic-skills:computer-use",
+        "anthropic-skills:deep-research",
+        "anthropic-skills:docs",
+        "anthropic-skills:docx",
+        "anthropic-skills:google-workspace",
+        "anthropic-skills:grill-me",
+        "anthropic-skills:pdf",
+        "anthropic-skills:pptx",
+        "anthropic-skills:xlsx"
+      ],
+      "terminal_slash_commands": ["doctor", "color", "reload-plugins"],
+      "apiKeySource": "none",
+      "claude_code_version": "2.1.270",
+      "output_style": "default",
+      "agents": [
+        "claude",
+        "codex:codex-rescue",
+        "Explore",
+        "general-purpose",
+        "Plan",
+        "statusline-setup"
+      ],
+      "skills": [
+        "agent-browser",
+        "configure-syncpack",
+        "deep-module",
+        "domain-modeling",
+        "emil-animations",
+        "emil-ask-emil",
+        "emil-ask-lapse",
+        "emil-build-a-tool",
+        "emil-color",
+        "emil-component-design",
+        "emil-design-foundations",
+        "emil-design-system-docs",
+        "emil-design-vocabulary",
+        "emil-engineering-vocabulary",
+        "emil-forms-and-inputs",
+        "emil-get-creative",
+        "emil-marketing-pages",
+        "emil-performance",
+        "emil-prototype",
+        "emil-surfaces",
+        "emil-touch-and-accessibility",
+        "emil-typography",
+        "emil-ui-polish",
+        "emil-ui-review",
+        "emil-unslop-code",
+        "emil-unslop-design",
+        "emil-unslop-writing",
+        "emil-writing-skills",
+        "git-commit",
+        "grill-me",
+        "grill-with-docs",
+        "grilling",
+        "kui-prototype",
+        "laymos",
+        "laymos-init",
+        "orchestrate",
+        "ponytail",
+        "ponytail-audit",
+        "ponytail-debt",
+        "ponytail-gain",
+        "ponytail-help",
+        "ponytail-review",
+        "prototype",
+        "teach",
+        "to-issues",
+        "to-laymos",
+        "to-spec",
+        "wait-what",
+        "writing-for-agents",
+        "deep-research",
+        "codex:adversarial-review",
+        "codex:cancel",
+        "codex:result",
+        "codex:review",
+        "codex:status",
+        "codex:transfer",
+        "design",
+        "design-sync",
+        "dataviz",
+        "update-config",
+        "verify",
+        "debug",
+        "code-review",
+        "simplify",
+        "batch",
+        "fewer-permission-prompts",
+        "doctor",
+        "loop",
+        "schedule",
+        "claude-api",
+        "workflow-authoring",
+        "run",
+        "run-skill-generator",
+        "plugin-authoring",
+        "anthropic-skills:built-in-browser",
+        "anthropic-skills:chrome-browser",
+        "anthropic-skills:computer-use",
+        "anthropic-skills:deep-research",
+        "anthropic-skills:docs",
+        "anthropic-skills:docx",
+        "anthropic-skills:google-workspace",
+        "anthropic-skills:grill-me",
+        "anthropic-skills:pdf",
+        "anthropic-skills:pptx",
+        "anthropic-skills:xlsx"
+      ],
+      "plugins": [
+        {
+          "name": "codex",
+          "path": "/Users/kishorepolamarasetty/.claude/plugins/cache/openai-codex/codex/1.0.5",
+          "source": "codex@openai-codex",
+          "version": "1.0.5"
+        },
+        {
+          "name": "plugin-authoring",
+          "path": "builtin",
+          "source": "plugin-authoring@builtin"
+        }
+      ],
+      "capabilities": [
+        "interrupt_receipt_v1",
+        "interrupt_cancel_queued_v1",
+        "msg_lifecycle_v1"
+      ],
+      "analytics_disabled": false,
+      "product_feedback_disabled": false,
+      "uuid": "b8f7f960-e852-41cf-b6c7-cc655b6dfcce",
+      "messaging_socket_path": "/tmp/cc-socks/8378.sock",
+      "fast_mode_state": "off",
+      "fast_mode_disabled_reason": "sdk_opt_in_required"
+    }
+  },
+  {
+    "kind": "assistant",
+    "payload": {
+      "type": "assistant",
+      "message": {
+        "model": "claude-haiku-5-5",
+        "id": "msg_011CgFpikioJH54KLd14fDfj",
+        "type": "message",
+        "role": "assistant",
+        "content": [
+          {
+            "type": "tool_use",
+            "id": "toolu_01XqSCMo6CmXbsgK8w66FgbN",
+            "name": "Bash",
+            "input": {
+              "command": "sleep 60",
+              "description": "Sleep for 60 seconds"
+            },
+            "caller": {
+              "type": "direct"
+            }
+          }
+        ],
+        "container": null,
+        "stop_reason": null,
+        "stop_sequence": null,
+        "stop_details": null,
+        "usage": {
+          "input_tokens": 2,
+          "cache_creation_input_tokens": 142,
+          "cache_read_input_tokens": 22514,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 142
+          },
+          "output_tokens": 16,
+          "service_tier": "standard",
+          "inference_geo": "global",
+          "speed": "standard"
+        },
+        "diagnostics": null,
+        "context_management": null
+      },
+      "parent_tool_use_id": null,
+      "session_id": "c80c5750-ead1-49d2-b16e-8603b1272040",
+      "uuid": "9775a361-adf4-4cd1-996e-90df6a0be0d9",
+      "timestamp": "2026-10-21T18:04:01.128Z",
+      "request_id": "req_011CgFpikSS3t9hWZmgRT4gQ",
+      "wire_tool_inputs": {
+        "toolu_01XqSCMo6CmXbsgK8w66FgbN": {
+          "command": "sleep 60",
+          "description": "Sleep for 60 seconds"
+        }
+      },
+      "user_message_uuid": "a2a9e8db-aeb1-4029-904a-8f1a7b33f13d",
+      "user_message_uuids": ["a2a9e8db-aeb1-4029-904a-8f1a7b33f13d"]
+    }
+  },
+  {
+    "kind": "user",
+    "payload": {
+      "type": "user",
+      "message": {
+        "role": "user",
+        "content": [
+          {
+            "type": "tool_result",
+            "content": "The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed.",
+            "is_error": true,
+            "tool_use_id": "toolu_01XqSCMo6CmXbsgK8w66FgbN"
+          }
+        ]
+      },
+      "parent_tool_use_id": null,
+      "session_id": "c80c5750-ead1-49d2-b16e-8603b1272040",
+      "uuid": "02dcfefc-c50f-4e84-80cc-a965e5cdaeb6",
+      "timestamp": "2026-10-21T18:04:01.134Z",
+      "tool_use_result": "User rejected tool use",
+      "tool_result_meta": [
+        {
+          "id": "toolu_01XqSCMo6CmXbsgK8w66FgbN",
+          "non_execution_kind": "user-rejected"
+        }
+      ]
+    }
+  },
+  {
+    "kind": "user",
+    "payload": {
+      "type": "user",
+      "message": {
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "[Request interrupted by user]"
+          }
+        ]
+      },
+      "parent_tool_use_id": null,
+      "session_id": "c80c5750-ead1-49d2-b16e-8603b1272040",
+      "uuid": "950df8fa-a46f-47ed-b910-50da7dc1e1a7",
+      "timestamp": "2026-10-21T18:04:01.135Z"
+    }
+  },
+  {
+    "kind": "result",
+    "payload": {
+      "duration_api_ms": 17232,
+      "stop_reason": null,
+      "session_id": "c80c5750-ead1-49d2-b16e-8603b1272040",
+      "total_cost_usd": 0.22821549999999996,
+      "usage": {
+        "output_tokens_details": {
+          "thinking_tokens": 0
+        },
+        "input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 0,
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 0,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "",
+        "iterations": [],
+        "speed": "standard"
+      },
+      "modelUsage": {
+        "claude-haiku-4-5-20251001": {
+          "inputTokens": 909,
+          "outputTokens": 12,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 0,
+          "webSearchRequests": 0,
+          "costUSD": 0.000969,
+          "contextWindow": 200000,
+          "maxOutputTokens": 32000,
+          "thinkingTokens": 0,
+          "canonicalModel": "claude-haiku-4-5",
+          "provider": "firstParty",
+          "costBasis": "list"
+        },
+        "claude-haiku-5-5": {
+          "inputTokens": 16,
+          "outputTokens": 1191,
+          "cacheReadInputTokens": 149348,
+          "cacheCreationInputTokens": 14692,
+          "webSearchRequests": 0,
+          "costUSD": 0.22724649999999996,
+          "contextWindow": 200000,
+          "maxOutputTokens": 128000,
+          "thinkingTokens": 564,
+          "canonicalModel": "claude-haiku-5-5",
+          "provider": "firstParty",
+          "costBasis": "unknown"
+        }
+      },
+      "permission_denials": [],
+      "terminal_reason": "aborted_streaming",
+      "fast_mode_state": "off",
+      "fast_mode_disabled_reason": "sdk_opt_in_required",
+      "subagent_stats": {
+        "spawned": 1,
+        "requested": {
+          "background": 0,
+          "foreground": 0,
+          "unset": 1
+        },
+        "started_in_background": 0,
+        "max_depth": 1,
+        "spawned_by_subagents": 0,
+        "completed": 1,
+        "failed": 0,
+        "killed": {
+          "parent": 0,
+          "user": 0,
+          "system": 0
+        },
+        "refused": {
+          "depth_limit": 0,
+          "concurrency_limit": 0,
+          "budget": 0
+        },
+        "by_type": {
+          "general-purpose": 1
+        }
+      },
+      "is_error": true,
+      "num_turns": 3,
+      "subtype": "error_during_execution",
+      "errors": [
+        "[ede_diagnostic] result_type=user last_content_type=n/a stop_reason=null"
+      ],
+      "user_message_uuid": "a2a9e8db-aeb1-4029-904a-8f1a7b33f13d",
+      "type": "result",
+      "duration_ms": 2351,
+      "uuid": "b6eb94ed-0aff-4bd6-8219-c419193f7f38",
+      "user_message_uuids": ["a2a9e8db-aeb1-4029-904a-8f1a7b33f13d"],
+      "queued_turn_count": 0,
+      "result_index": 3
+    }
+  }
+]

@@ -2,33 +2,40 @@
   "$schema": "../../devtools/laymos/schema.json",
   "sourceRoots": ["src"],
   "ignoredPaths": [],
-  "fileModules": ["src/runtime/constants.ts"],
+  "fileModules": [],
   "rules": {
-    "src/runtime/table": ["src/runtime/protocol"],
-    "src/runtime/transcript": [
-      "src/runtime/protocol",
-      "src/runtime/table",
-      "src/runtime/constants.ts"
+    "src/projection": ["src/raw"],
+    "src/harness": ["src/raw", "src/projection"],
+    "src/harnesses": ["src/harness", "src/raw", "src/projection"],
+    "src/records": ["src/raw"],
+    "src/store": ["src/raw", "src/records"],
+    "src/fake-harness": ["src/harness"],
+    "src/engine": [
+      "src/store",
+      "src/harness",
+      "src/raw",
+      "src/records",
+      "src/projection"
     ],
-    "src/runtime/harnesses": [
-      "src/runtime/protocol",
-      "src/runtime/interaction-mailbox",
-      "src/runtime/constants.ts"
+    "src/engine/project": ["src/engine/engine-raw"],
+    "src/api/contract": ["src/projection", "src/records", "src/raw"],
+    "src/api/live": [
+      "src/api/contract",
+      "src/engine",
+      "src/store",
+      "src/harness",
+      "src/projection",
+      "src/raw",
+      "src/records"
     ],
-    "src/runtime/host": [
-      "src/runtime/protocol",
-      "src/runtime/table",
-      "src/runtime/transcript",
-      "src/runtime/interaction-mailbox",
-      "src/runtime/harnesses",
-      "src/runtime/constants.ts"
-    ],
-    "src/rpc": ["src/runtime"],
-    "src/rpc/live": ["src/rpc/contract"],
-    "src/playground": ["src/runtime", "src/rpc"],
-    "src/playground/live": ["src/playground/contract"],
-    "src/playground/sync": ["src/playground/contract"],
-    "src/client": ["src/runtime"],
-    "src/cli": ["src/runtime", "src/rpc", "src/playground"]
+    "src/client": ["src/api/contract", "src/projection", "src/records"],
+    "src/cli": [
+      "src/store",
+      "src/engine",
+      "src/api/contract",
+      "src/api/live",
+      "src/harnesses",
+      "src/harness"
+    ]
   }
 }

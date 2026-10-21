@@ -1,0 +1,123 @@
+[
+  {
+    "kind": "item/completed",
+    "payload": {
+      "item": {
+        "type": "userMessage",
+        "id": "01a15fb4-cccb-7c12-ba29-80466a61d547",
+        "clientId": null,
+        "content": [
+          {
+            "type": "text",
+            "text": "Use your shell tool to run `sleep 60`, then reply with: finished.",
+            "text_elements": []
+          }
+        ]
+      },
+      "threadId": "01a15fb4-c174-7f90-8561-9c38301f3005",
+      "turnId": "01a15fb4-c1f9-7222-967b-046fdfe09a70",
+      "completedAtMs": 1792607046859
+    }
+  },
+  {
+    "kind": "item/completed",
+    "payload": {
+      "item": {
+        "type": "reasoning",
+        "id": "rs_0fe7a8022fa920a7016ad903482abc8191afbdcb9b3141f5ba",
+        "summary": [],
+        "content": []
+      },
+      "threadId": "01a15fb4-c174-7f90-8561-9c38301f3005",
+      "turnId": "01a15fb4-c1f9-7222-967b-046fdfe09a70",
+      "completedAtMs": 1792607048206
+    }
+  },
+  {
+    "kind": "item/completed",
+    "payload": {
+      "item": {
+        "type": "agentMessage",
+        "id": "msg_0fe7a8022fa920a7016ad903483b14819182f2dd3b844b5eb9",
+        "text": "I’m running the requested 60-second wait now.",
+        "phase": "commentary",
+        "memoryCitation": null,
+        "delivery": null,
+        "questions": null
+      },
+      "threadId": "01a15fb4-c174-7f90-8561-9c38301f3005",
+      "turnId": "01a15fb4-c1f9-7222-967b-046fdfe09a70",
+      "completedAtMs": 1792607048406
+    }
+  },
+  {
+    "kind": "item/started",
+    "payload": {
+      "item": {
+        "type": "commandExecution",
+        "id": "exec-7d378b3d-5833-4e65-97c4-fbf8b5e50957",
+        "pluginId": null,
+        "scriptPath": null,
+        "command": "/bin/zsh -lc 'sleep 60'",
+        "cwd": "/var/folders/pz/hmz20bpd067fdqmt3d9nzgy40000gn/T/ai-toolkit-codex-e2e-b0osMM",
+        "processId": "72940",
+        "source": "unifiedExecStartup",
+        "status": "inProgress",
+        "commandActions": [
+          {
+            "type": "unknown",
+            "command": "sleep 60"
+          }
+        ],
+        "aggregatedOutput": null,
+        "exitCode": null,
+        "durationMs": null
+      },
+      "threadId": "01a15fb4-c174-7f90-8561-9c38301f3005",
+      "turnId": "01a15fb4-c1f9-7222-967b-046fdfe09a70",
+      "startedAtMs": 1792607048786
+    }
+  },
+  {
+    "kind": "thread/tokenUsage/updated",
+    "payload": {
+      "threadId": "01a15fb4-c174-7f90-8561-9c38301f3005",
+      "turnId": "01a15fb4-c1f9-7222-967b-046fdfe09a70",
+      "tokenUsage": {
+        "total": {
+          "totalTokens": 16650,
+          "inputTokens": 16552,
+          "cachedInputTokens": 16384,
+          "cacheWriteInputTokens": 0,
+          "outputTokens": 98,
+          "reasoningOutputTokens": 36
+        },
+        "last": {
+          "totalTokens": 16650,
+          "inputTokens": 16552,
+          "cachedInputTokens": 16384,
+          "cacheWriteInputTokens": 0,
+          "outputTokens": 98,
+          "reasoningOutputTokens": 36
+        },
+        "modelContextWindow": 258400
+      }
+    }
+  },
+  {
+    "kind": "turn/completed",
+    "payload": {
+      "threadId": "01a15fb4-c174-7f90-8561-9c38301f3005",
+      "turn": {
+        "id": "01a15fb4-c1f9-7222-967b-046fdfe09a70",
+        "items": [],
+        "itemsView": "notLoaded",
+        "status": "interrupted",
+        "error": null,
+        "startedAt": 1792607044,
+        "completedAt": 1792607050,
+        "durationMs": 6004
+      }
+    }
+  }
+]

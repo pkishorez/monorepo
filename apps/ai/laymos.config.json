@@ -1,0 +1,44 @@
+{
+  "$schema": "../../devtools/laymos/schema.json",
+  "sourceRoots": ["src"],
+  "ignoredPaths": ["src/client/styles.css", "src/env.d.ts"],
+  "fileModules": ["src/client/app.tsx", "src/client/document.tsx"],
+  "rules": {
+    "src/client/app.tsx": [
+      "src/shared/pages",
+      "src/client/document.tsx",
+      "src/client/views"
+    ],
+    "src/client/document.tsx": ["src/client/components"],
+    "src/client/views": ["src/shared/pages", "src/client/components"],
+    "src/client/views/sidebar": [
+      "src/client/views/add-project",
+      "src/client/views/running-dot",
+      "src/client/views/settled"
+    ],
+    "src/client/views/home": [
+      "src/client/views/add-project",
+      "src/client/views/page-bar",
+      "src/client/views/settled"
+    ],
+    "src/client/views/project": [
+      "src/client/views/page-bar",
+      "src/client/views/running-dot",
+      "src/client/views/time",
+      "src/client/views/settled"
+    ],
+    "src/client/views/project/new-session": ["src/client/views/project/picker"],
+    "src/shared/pages/add-project": [
+      "src/shared/pages/ai",
+      "src/shared/pages/places"
+    ],
+    "src/shared/pages/home": [
+      "src/shared/pages/add-project",
+      "src/shared/pages/ai"
+    ],
+    "src/shared/pages/project": [
+      "src/shared/pages/ai",
+      "src/shared/pages/places"
+    ]
+  }
+}
