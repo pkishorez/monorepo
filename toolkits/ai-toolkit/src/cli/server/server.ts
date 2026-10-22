@@ -16,6 +16,7 @@ import { Engine, storedHarnessBinaries } from '../../engine/index.js';
 import { Folders } from '../../folders/index.js';
 import type { Harnesses, Titler } from '../../harness/index.js';
 import { Store } from '../../store/index.js';
+import { keyGuard, selectProtocol } from './machine-key.js';
 import { allowsOrigin } from './origins.js';
 
 /*
@@ -23,8 +24,9 @@ import { allowsOrigin } from './origins.js';
  * over it and the harnesses, Attachments saved beside it, Folders under the
  * home folder, and the API at `/rpc` over WebSocket. A browser page is
  * served only from an origin given (see origins.ts); a request from any
- * other gets 403. It runs until its Scope closes; then the engine stops
- * every turn, and the Store closes last.
+ * other gets 403. Given a Machine Key, `/rpc` also asks every caller for it
+ * (see machine-key.ts). It runs until its Scope closes; then the engine
+ * stops every turn, and the Store closes last.
  */
 
 /** This machine, and the app's own address as portless serves it in development. */
@@ -36,6 +38,7 @@ export const DEFAULT_ORIGINS: ReadonlyArray<string> = [
   'https://*.localhost:*',
   'https://code.kishore.computer',
   'https://*.code.kishore.computer',
+  'https://code.kishore.app',
 ];
 
 export interface ServerOptions {
@@ -54,6 +57,11 @@ export interface ServerOptions {
    * unless given. A request without an Origin is not from a page and is let in.
    */
   readonly origins?: ReadonlyArray<string>;
+  /**
+   * The Machine Key (ADR 0015): when given, a WebSocket to `/rpc` must offer
+   * the subprotocol `key.<key>`, page or not; `/health` stays open.
+   */
+  readonly key?: string | undefined;
 }
 
 /** Turns away any request from a page whose origin is not allowed. */
@@ -101,14 +109,17 @@ export const server = (options: ServerOptions) => {
     '/health',
     HttpServerResponse.json({ ok: true }),
   );
-  return HttpRouter.serve(
-    Layer.mergeAll(rpc, cors, originGuard(allowed), health),
-  ).pipe(
+  const guards =
+    options.key === undefined
+      ? originGuard(allowed)
+      : Layer.merge(originGuard(allowed), keyGuard(options.key));
+  return HttpRouter.serve(Layer.mergeAll(rpc, cors, guards, health)).pipe(
     Layer.provide(
       NodeHttpServer.layer(createServer, {
         port: options.port,
         host: options.host ?? '127.0.0.1',
         gracefulShutdownTimeout: Duration.seconds(1),
+        websocket: { handleProtocols: selectProtocol },
       }),
     ),
   );

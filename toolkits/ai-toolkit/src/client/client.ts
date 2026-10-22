@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Stream } from 'effect';
+import { Context, Effect, Layer, Schema, Stream } from 'effect';
 import { RpcClient, type RpcClientError } from 'effect/rpc';
 import {
   client,
@@ -13,9 +13,14 @@ import { MessageSchema, PROJECTION_VERSION } from '../projection/index.js';
 import { ProjectSchema, SessionSchema } from '../records/index.js';
 
 /*
- * What an app needs to talk to an ai-toolkit server: the API over one
- * WebSocket, and a Replica that keeps its projects, sessions and the
- * messages of each open session in step with the server.
+ * What an app needs to talk to an ai-toolkit server, a Machine: the API over
+ * one WebSocket, and a Replica that keeps its projects, sessions and the
+ * messages of each open session in step with the server, one Instance per
+ * Machine.
+ *
+ * A browser can set no header on a WebSocket but `Sec-WebSocket-Protocol`,
+ * so the Machine Key rides there: the socket offers `ai-toolkit` and
+ * `key.<key>`, and the server selects `ai-toolkit` once the key checks out.
  *
  * The socket reconnects on its own. A feed open when it dropped goes quiet,
  * so each one is opened again on every reconnect, from the newest entity it
@@ -28,10 +33,24 @@ export class AiClient extends Context.Service<
   AiClient,
   RpcClient.FromGroup<typeof AiApi, RpcClientError.RpcClientError>
 >()('@kestack/ai-toolkit/AiClient') {
-  /** The API at `url`, an absolute `ws(s)://…/rpc` or a path in a browser. */
-  static readonly layer = (url: string) =>
+  /**
+   * The API at `url`, an absolute `ws(s)://…/rpc` or a path in a browser,
+   * proving itself with the Machine's `key` when given one.
+   */
+  static readonly layer = (
+    url: string,
+    options?: { readonly key?: string | undefined },
+  ) =>
     Layer.effect(AiClient, RpcClient.make(AiApi)).pipe(
-      Layer.provideMerge(client(AiApi, { url })),
+      Layer.provideMerge(
+        client(AiApi, {
+          url,
+          protocols:
+            options?.key === undefined
+              ? undefined
+              : ['ai-toolkit', `key.${options.key}`],
+        }),
+      ),
     );
 }
 
@@ -78,19 +97,27 @@ const resumable =
  * A device keeps Messages as the projection made them, so the Replica's
  * name carries the projection's version: a new projection is a new Replica,
  * synced afresh, and the old ones are `retired` for the Store to delete.
+ * `ai-m…` is keyed by Machine; the `ai` and `ai-p…` before it held one
+ * server's records, unkeyed, and are all retired.
  */
-const replicaName = (version: number) => `ai-p${version}`;
+const replicaName = (version: number) => `ai-m${version}`;
+const unkeyedVersions = 3;
 
-/** Replicas of older projections, for `Store.idb({ retired })`. */
+/** Replicas no longer read, for `Store.idb({ retired })`. */
 export const retired: ReadonlyArray<string> = [
   'ai',
+  ...Array.from({ length: unkeyedVersions }, (_, at) => `ai-p${at + 1}`),
   ...Array.from({ length: PROJECTION_VERSION - 1 }, (_, at) =>
     replicaName(at + 1),
   ),
 ];
 
-/** The server's records, one Instance per app. */
+/**
+ * The records of each Machine: `Ai.get(machineId)` is the Instance of one
+ * Machine, kept in its own IndexedDB database.
+ */
 export const Ai = Replica.make(replicaName(PROJECTION_VERSION), {
+  key: Schema.String,
   collections: {
     projects: ProjectSchema,
     sessions: SessionSchema,
@@ -108,7 +135,9 @@ export type AiBuild = Parameters<typeof Replicas.child>[0][number];
 /**
  * How `Ai` syncs: every project and session while the app runs, and the
  * messages of a session while a Query filters on its `sessionId`. Place it
- * with `Replicas.child([AiLive])`, and give the app `AiClient.layer(url)`.
+ * with `Replicas.child([AiLive])`, and give the app the `AiClient.layer` of
+ * the Machine it is on: every Instance syncs through that one client, so
+ * only the Instance of that Machine should be held.
  */
 export const AiLive: AiBuild = Replica.build(Ai, {
   gcTime: '30 seconds',

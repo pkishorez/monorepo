@@ -1,0 +1,23 @@
+import { Effect } from 'effect';
+import { cloudflaredBinary } from './binary.js';
+import { checkTunnel } from './check.js';
+import { quickTunnel } from './quick-tunnel.js';
+
+/*
+ * A Machine's public address: a Cloudflare quick tunnel to the server on
+ * this machine, and the check that it still leads there. Opening another
+ * gives a new address, which is how a broken one is restarted.
+ */
+
+/**
+ * A quick tunnel to the server on `port`, open for as long as the Scope:
+ * its `https://*.trycloudflare.com` URL, and an Effect that completes if
+ * cloudflared exits on its own.
+ */
+export const openTunnel = (port: number) =>
+  Effect.andThen(cloudflaredBinary, () =>
+    quickTunnel(`http://127.0.0.1:${port}`),
+  );
+
+/** Whether the server answers at `url`, through its tunnel: a Tunnel Check. */
+export const checkAt = checkTunnel;

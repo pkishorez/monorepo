@@ -1,0 +1,5 @@
+---
+'@kestack/ai-toolkit': patch
+---
+
+`ai-toolkit serve` runs the server as a Machine. It asks the Machines Backend (`--backend`, else `AI_TOOLKIT_BACKEND`, else `https://api-code.kishore.app`) how to sign in: by Device Login through its Auth Worker, the Sign-in kept in the database file, or in Local mode as `--as <email>`. One database file is one Machine of one User, with a random id, a Machine Key that never changes and a name (`--name`, else the host's); another User is refused. `server({ key })` makes a WebSocket to `/rpc` offer `key.<key>` beside `ai-toolkit` (401 without it, 403 when wrong) and answers `ai-toolkit`; `/health` stays open, and `https://code.kishore.app` is a default origin. A Cloudflare quick tunnel makes the Machine public, and a Heartbeat every `--heartbeat` seconds (15) checks it and reports to the Backend; three failed checks restart cloudflared. A forgotten Machine signs out and stops; a revoked Sign-in closes the tunnel and asks to sign in again. `ai-toolkit logout` signs out and forgets the Machine, keeping its Projects and Sessions.

@@ -1,0 +1,197 @@
+{
+  "logicalName": "machines",
+  "topology": {
+    "primary": {
+      "pk": "pk",
+      "sk": "sk"
+    },
+    "localSecondaryIndexes": [],
+    "globalSecondaryIndexes": [
+      {
+        "name": "GSI1",
+        "pk": "GSI1PK",
+        "sk": "GSI1SK"
+      }
+    ]
+  },
+  "entities": [
+    {
+      "name": "Machine",
+      "kind": "keyed",
+      "schema": "Machine",
+      "idField": "id",
+      "primary": {
+        "pk": ["id"],
+        "sk": ["id"]
+      },
+      "accessPatterns": [
+        {
+          "name": "byOwner",
+          "kind": "gsi",
+          "index": "GSI1",
+          "pk": ["userId"],
+          "sk": ["id"]
+        },
+        {
+          "name": "primary",
+          "kind": "primary",
+          "pk": ["id"],
+          "sk": ["id"]
+        }
+      ]
+    }
+  ],
+  "schemas": [
+    {
+      "identity": "Machine",
+      "kind": "entity",
+      "idField": "id",
+      "versions": [
+        {
+          "version": "v1",
+          "shape": {
+            "type": "struct",
+            "fields": [
+              {
+                "name": "forgottenAt",
+                "type": {
+                  "type": "union",
+                  "members": [
+                    {
+                      "type": "number",
+                      "checks": [
+                        {
+                          "check": "finite"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              {
+                "name": "id",
+                "type": {
+                  "type": "string"
+                }
+              },
+              {
+                "name": "key",
+                "type": {
+                  "type": "string"
+                }
+              },
+              {
+                "name": "lastSeen",
+                "type": {
+                  "type": "number",
+                  "checks": [
+                    {
+                      "check": "finite"
+                    }
+                  ]
+                }
+              },
+              {
+                "name": "name",
+                "type": {
+                  "type": "string"
+                }
+              },
+              {
+                "name": "signInId",
+                "type": {
+                  "type": "union",
+                  "members": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              {
+                "name": "tunnel",
+                "type": {
+                  "type": "union",
+                  "members": [
+                    {
+                      "type": "struct",
+                      "fields": [
+                        {
+                          "name": "at",
+                          "type": {
+                            "type": "number",
+                            "checks": [
+                              {
+                                "check": "finite"
+                              }
+                            ]
+                          }
+                        },
+                        {
+                          "name": "ok",
+                          "type": {
+                            "type": "boolean"
+                          }
+                        },
+                        {
+                          "name": "problem",
+                          "type": {
+                            "type": "union",
+                            "members": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              {
+                "name": "url",
+                "type": {
+                  "type": "union",
+                  "members": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              {
+                "name": "userId",
+                "type": {
+                  "type": "string"
+                }
+              },
+              {
+                "name": "version",
+                "type": {
+                  "type": "string"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "_v": "v1"
+}

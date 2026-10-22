@@ -74,8 +74,12 @@
       "src/api/contract",
       "src/api/live",
       "src/harnesses",
-      "src/harness"
+      "src/harness",
+      "src/machine"
     ],
-    "src/machines/client": ["src/machines/contract"]
+    "src/machine": ["src/machines/contract", "src/machines/client"],
+    "src/machines/client": ["src/machines/contract"],
+    "src/machines/backend": ["src/machines/contract"],
+    "src/machines/backend/registry": ["src/machines/backend/storage"]
   }
 }

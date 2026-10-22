@@ -108,6 +108,22 @@ client(ChatRpcs, {
 });
 ```
 
+### Protocols, the one header a browser can set
+
+A browser cannot set headers on a WebSocket, except `Sec-WebSocket-Protocol`.
+`protocols` offers subprotocols there, which is how a client can hand over a
+secret without putting it in the URL. Like `url`, it may be an Effect, run
+before every connect:
+
+```ts
+client(ChatRpcs, {
+  url: 'wss://example.com/rpc',
+  protocols: ['chat', `key.${key}`],
+});
+```
+
+The server must select one of them, or the browser drops the connection.
+
 ---
 
 ## Connection status
@@ -175,7 +191,8 @@ return rpc
 
 ```ts
 client(group, options: {
-  url: string                    // relative or absolute
+  url: string | Effect<string>   // relative or absolute
+  protocols?: ReadonlyArray<string> | Effect<ReadonlyArray<string>>
   retryTransientErrors?: boolean // default true
 }): Layer.Layer<RpcClient.Protocol | RpcConnection | RpcClient.ConnectionHooks>
 

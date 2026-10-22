@@ -34,6 +34,10 @@
     "./machines/client": {
       "types": "./dist/machines/client/index.d.ts",
       "default": "./dist/machines/client/index.js"
+    },
+    "./machines/backend": {
+      "types": "./dist/machines/backend/index.d.ts",
+      "default": "./dist/machines/backend/index.js"
     }
   },
   "scripts": {
@@ -48,7 +52,8 @@
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "catalog:",
     "@effect/platform-node": "catalog:",
-    "@openai/codex": "catalog:"
+    "@openai/codex": "catalog:",
+    "cloudflared": "catalog:"
   },
   "peerDependencies": {
     "@kestack/auth-toolkit": "workspace:*",

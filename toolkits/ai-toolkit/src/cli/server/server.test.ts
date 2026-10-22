@@ -64,7 +64,7 @@ const eventually = (assertion: () => void) =>
 
 const Projects = Query.make('Projects', {
   props: Schema.Struct({}),
-  from: () => Effect.all({ ai: Ai.get() }),
+  from: () => Effect.all({ ai: Ai.get('test-machine') }),
   query:
     (_, { ai }) =>
     (q) =>
@@ -73,7 +73,7 @@ const Projects = Query.make('Projects', {
 
 const Messages = Query.make('Messages', {
   props: Schema.Struct({ sessionId: Schema.String }),
-  from: () => Effect.all({ ai: Ai.get() }),
+  from: () => Effect.all({ ai: Ai.get('test-machine') }),
   query:
     ({ props }, { ai }) =>
     (q) =>
@@ -126,7 +126,11 @@ const line = ({ row }: Rows[number]) => {
 };
 
 /** How the server answers a WebSocket upgrade from `origin`: 101, or its refusal. */
-const upgrade = (port: number, origin: string | undefined) =>
+const upgrade = (
+  port: number,
+  origin: string | undefined,
+  protocols?: string,
+) =>
   new Promise<number>((resolve, reject) => {
     const asking = request({
       host: '127.0.0.1',
@@ -139,6 +143,9 @@ const upgrade = (port: number, origin: string | undefined) =>
         'sec-websocket-version': '13',
         'sec-websocket-key': Buffer.from('0123456789abcdef').toString('base64'),
         ...(origin === undefined ? {} : { origin }),
+        ...(protocols === undefined
+          ? {}
+          : { 'sec-websocket-protocol': protocols }),
       },
     });
     asking.on('upgrade', (_, socket) => {
@@ -153,7 +160,67 @@ const upgrade = (port: number, origin: string | undefined) =>
     asking.end();
   });
 
+/** A real WebSocket offering `protocols`: the subprotocol it opened with, or how it failed. */
+const socket = (port: number, protocols: ReadonlyArray<string>) =>
+  new Promise<string>((resolve) => {
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/rpc`, [...protocols]);
+    ws.addEventListener('open', () => {
+      resolve(`open:${ws.protocol}`);
+      ws.close();
+    });
+    ws.addEventListener('error', () => resolve('error'));
+  });
+
 describe('the server, through the client and Replica', () => {
+  it('asks for the Machine Key on /rpc only, and selects ai-toolkit, never the key', () =>
+    Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const port = yield* Effect.promise(freePort);
+          const key = 'k3y_-secret';
+          yield* Layer.build(
+            server({
+              port,
+              db: join(folder(), 'ai.db'),
+              harnesses: makeFakeHarness().layer,
+              key,
+            }),
+          );
+          const status = (origin: string | undefined, protocols?: string) =>
+            Effect.promise(() => upgrade(port, origin, protocols));
+          expect(yield* status(undefined)).toBe(401);
+          expect(yield* status(undefined, 'ai-toolkit')).toBe(401);
+          expect(yield* status(undefined, 'ai-toolkit, key.wrong')).toBe(403);
+          expect(yield* status(undefined, `ai-toolkit, key.${key}`)).toBe(101);
+          expect(
+            yield* status('https://code.kishore.app', `ai-toolkit, key.${key}`),
+          ).toBe(101);
+          expect(
+            yield* status('https://evil.com', `ai-toolkit, key.${key}`),
+          ).toBe(403);
+
+          const open = (protocols: ReadonlyArray<string>) =>
+            Effect.promise(() => socket(port, protocols));
+          expect(yield* open(['ai-toolkit', `key.${key}`])).toBe(
+            'open:ai-toolkit',
+          );
+          expect(yield* open(['ai-toolkit', 'key.wrong'])).toBe('error');
+          expect(yield* open([])).toBe('error');
+
+          const health = yield* Effect.promise(() =>
+            fetch(`http://127.0.0.1:${port}/health`),
+          );
+          expect(health.status).toBe(200);
+
+          const client = yield* Layer.build(
+            AiClient.layer(`ws://127.0.0.1:${port}/rpc`, { key }),
+          );
+          const api = Context.get(client, AiClient);
+          expect(yield* api.harnesses()).toMatchObject([{ name: 'claude' }]);
+        }),
+      ),
+    ));
+
   it('lets in only the origins it was given, and programs that send none', () =>
     Effect.runPromise(
       Effect.scoped(
