@@ -89,11 +89,12 @@ folder becomes a Project.
 
 The Machine Switcher, where the logo was at the top of the sidebar, names
 the Machine the app is on, with a dot while it is out of reach; clicking it
-lists your Machines, the most recently seen first, and asks the Backend
-again. Settings lists them with when each was last seen and how its tunnel
-stands; Forget asks first, then the Backend forgets it and this device
-deletes its records. Outside Local mode, a link goes to the Auth Worker's
-Home Page to revoke a Machine's Sign-in outright.
+lists your Machines, those online by name and then the rest the most
+recently seen first, and asks the Backend again. Settings lists them with
+when each was last seen and how its tunnel stands; Forget asks first, then
+the Backend forgets it and this device deletes its records. Outside Local
+mode, a link goes to the Auth Worker's Home Page to revoke a Machine's
+Sign-in outright.
 
 Ctrl+P opens the Project Picker: recent projects, the most recently
 active first, then "Open folder…". Choosing a project opens it, a new

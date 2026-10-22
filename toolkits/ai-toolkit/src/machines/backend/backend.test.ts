@@ -6,7 +6,7 @@ import { testAuth } from '@kestack/auth-toolkit/server/rpc';
 import { SQLite } from '@kestack/std-toolkit/db/sqlite';
 import { makeNodeSQLite } from '@kestack/std-toolkit/db/sqlite/node';
 import { MachinesClient } from '../client/index.js';
-import type { MachineReport } from '../contract/index.js';
+import type { AuthInfo, MachineReport } from '../contract/index.js';
 import { machinesTable, serveOver } from './index.js';
 
 /*
@@ -48,20 +48,24 @@ const anotherSignIn = (user: ReturnType<typeof signIn>, n: number) => ({
   } as unknown as Principal,
 });
 
-const answerAs = (principal: Principal | null) =>
+const answerAs = (
+  principal: Principal | null,
+  authInfo: AuthInfo = AUTH_INFO,
+) =>
   serveOver({
     guard: testAuth(principal),
-    authInfo: AUTH_INFO,
+    authInfo,
     site: SITE,
     driver,
   });
 
-/** Runs `program` with the Backend's client, signed as `user` (nobody for null). */
+/** Runs `program` with the Backend's client, signed as `user` (nobody for null), on a Backend signing in as `authInfo` says. */
 const as = <A, E>(
   user: { readonly principal: Principal } | null,
   program: (machines: MachinesClient['Service']) => Effect.Effect<A, E>,
+  authInfo: AuthInfo = AUTH_INFO,
 ) => {
-  const answer = answerAs(user?.principal ?? null);
+  const answer = answerAs(user?.principal ?? null, authInfo);
   const fetch = (input: RequestInfo | URL, init?: RequestInit) =>
     answer(new Request(input, init));
   return Effect.runPromise(
@@ -140,6 +144,27 @@ describe('the Machines Backend', () => {
     expect(
       await as(elsewhere, (m) => Effect.flip(m.Report(reportOf('gone')))),
     ).toMatchObject({ _tag: 'MachineForgotten' });
+  });
+
+  it("in Local mode, where a User's Machines share one Sign-in, forgets only the Machine's id", async () => {
+    const ada = signIn('ada');
+    const local = { local: true } as const;
+    await as(ada, (m) => m.Report(reportOf('local-gone')), local);
+    await as(ada, (m) => m.Report(reportOf('local-kept')), local);
+    await as(ada, (m) => m.Forget({ id: 'local-gone' }), local);
+    expect(
+      await as(
+        ada,
+        (m) => Effect.flip(m.Report(reportOf('local-gone'))),
+        local,
+      ),
+    ).toMatchObject({ _tag: 'MachineForgotten', id: 'local-gone' });
+    expect(
+      await as(ada, (m) => m.Report(reportOf('local-kept')), local),
+    ).toMatchObject({ id: 'local-kept' });
+    expect(
+      await as(ada, (m) => m.Report(reportOf('local-fresh')), local),
+    ).toMatchObject({ id: 'local-fresh' });
   });
 
   it("leaves another User's Machine alone when asked to forget it", async () => {

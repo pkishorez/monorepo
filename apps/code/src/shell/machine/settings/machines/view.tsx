@@ -1,6 +1,4 @@
 import type { Machine as MachineSchema } from '@kestack/ai-toolkit/machines';
-
-type Machine = typeof MachineSchema.Type;
 import { View } from '@kestack/kabuki/react';
 import { Button } from '@kestack/web-platform/components/button';
 import { Skeleton } from '@kestack/web-platform/components/skeleton';
@@ -10,6 +8,8 @@ import { ago } from '../../../../ui/time/index.ts';
 import { DOWN_AFTER, tunnelOf } from '../../../machines/index.ts';
 import { authHome } from '../../../sign-in/index.ts';
 import { MachineSettingsLive } from './actor.ts';
+
+type Machine = typeof MachineSchema.Type;
 
 /*
  * Settings → Machines: one row per Machine, with when it was last seen and
@@ -82,6 +82,7 @@ export const MachineSettingsView = View.make(
                   variant="ghost"
                   size="sm"
                   className="text-destructive"
+                  aria-label={`Forget ${machine.name}`}
                   onClick={() =>
                     open(() => send({ _tag: 'Ask', id: machine.id }))
                   }

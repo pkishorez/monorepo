@@ -43,15 +43,17 @@ import { machinesTable } from './storage/index.js';
  * The table itself is made at deploy, by `D1.table(machinesTable)`.
  */
 
-const Handlers = MachinesApi.toLayer({
-  Report: (input) =>
-    Effect.flatMap(Authz.User, (principal) =>
-      Registry.report(principal, input),
-    ),
-  List: () => Effect.flatMap(Authz.User, Registry.list),
-  Forget: ({ id }) =>
-    Effect.flatMap(Authz.User, (principal) => Registry.forget(principal, id)),
-});
+/** The calls' handlers, for callers signing in as `authInfo` says. */
+const handlers = (authInfo: AuthInfo) =>
+  MachinesApi.toLayer({
+    Report: (input) =>
+      Effect.flatMap(Authz.User, (principal) =>
+        Registry.report(principal, input, { local: 'local' in authInfo }),
+      ),
+    List: () => Effect.flatMap(Authz.User, Registry.list),
+    Forget: ({ id }) =>
+      Effect.flatMap(Authz.User, (principal) => Registry.forget(principal, id)),
+  });
 
 /** The CORS headers for `request`: its origin is echoed only when it is the site's. */
 const corsFor = (request: Request, site: string): Record<string, string> =>
@@ -82,7 +84,10 @@ export const serveOver = (options: {
   const table = SQLite.make(machinesTable, { database: options.driver });
   const answer = server(
     MachinesApi,
-    Layer.mergeAll(Handlers.pipe(Layer.provide(table.layer)), options.guard),
+    Layer.mergeAll(
+      handlers(options.authInfo).pipe(Layer.provide(table.layer)),
+      options.guard,
+    ),
   );
   const authBody = JSON.stringify(options.authInfo);
   return async (request: Request): Promise<Response> => {

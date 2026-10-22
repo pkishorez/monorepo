@@ -65,3 +65,28 @@ Hacks, shortcuts, observations and future improvements from building Machines (`
 - Deleting local data on sign-out is best effort: it only covers Machines in that Account's saved list. A Machine forgotten from another device keeps its local data here.
 - The Machine Switcher has no keyboard shortcut yet.
 - There's no test of the Machine page or root page as a whole (they'd need a router-level test). The browser run covers them.
+
+## End-to-end run (Local auth, two Machines, real tunnels)
+
+All 9 scenarios pass: sign-in, Machine List and Switcher, project and a real Claude session over the tunnel, switching with separate data per Machine, the key check (401 with no key, 403 with a wrong one, 101 with the right one), a Machine going down and coming back, forget and logout, a second account, and reopening from the saved list with the Backend unreachable. Screenshots are in `/tmp/qa/` (they won't survive a reboot).
+
+Fixed during the run:
+
+- Forget in Local mode stopped every Machine of that email, because all of them share one Local Token. In Local mode the Backend now refuses only the forgotten Machine id (ADR 0016 updated).
+- "last seen just now" was shown for stale Machines; "just now" now means under 10s.
+- The "No Machine yet" screen had no way to sign out or switch accounts; it now has the account menu.
+- The Switcher re-sorted on every heartbeat, so rows jumped. Online Machines now sort by name, the rest by most recently seen.
+- Forget buttons are labelled per Machine for screen readers.
+
+Seen but not fixed:
+
+- With a valid key, any Origin is accepted on the socket. The key is the only gate.
+- A forgotten Machine restarted on the same database briefly listens on its local port before the first Heartbeat refuses it. Fix: report once before opening the server.
+- While a restarted Machine's tunnel is starting, the header says "tunnel is broken: It has no address". "Starting" would be more accurate.
+- With the Backend unreachable, the saved list still says "Online" until the down threshold passes.
+- The Switcher's footer shows "mod+Enter done", which means nothing in a single-choice list.
+- Settings → Machines doesn't mark the Machine you're on.
+- In the Project Picker, an empty folder says "No folder by that name" even with no search typed (this predates Machines).
+- Signing out and back in deletes and fully re-syncs that Account's local Machine data.
+- The dev D1 still has tombstones carrying the shared Local token from before the fix; they're ignored now.
+- After a restart, the app took about 60s to reconnect: about 37s for the tunnel, then the next List refresh. Pushing the new address (or refreshing List when a socket keeps failing) would cut that.

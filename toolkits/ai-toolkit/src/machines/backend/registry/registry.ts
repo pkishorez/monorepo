@@ -15,13 +15,16 @@ import { type MachineRecord, machines } from '../storage/index.js';
  * refused MachineTaken. A forgotten Machine stays forgotten (ADR 0016): a
  * Report from its id, or from the Sign-in it last reported with, is refused
  * MachineForgotten, so a Machine that comes back under a new id on the same
- * Sign-in is refused too. Storage failing is a defect.
+ * Sign-in is refused too. In Local mode a Sign-in is the Local Token its
+ * email makes, shared by every Machine of that User, so it names no one
+ * Machine and is not kept. Storage failing is a defect.
  */
 
-/** Who is calling: their User id, and their Sign-in when they have one. */
-const callerOf = (principal: Principal) => ({
+/** Who is calling: their User id, and their Sign-in when they have one of their own (never in Local mode). */
+const callerOf = (principal: Principal, local = false) => ({
   userId: principal.user.id,
-  signInId: principal.kind === 'session' ? principal.session.id : null,
+  signInId:
+    principal.kind === 'session' && !local ? principal.session.id : null,
 });
 
 /** A stored Machine as its User sees it. */
@@ -64,9 +67,13 @@ const raced = (error: unknown) => {
   );
 };
 
-const report = (principal: Principal, input: MachineReport) =>
+const report = (
+  principal: Principal,
+  input: MachineReport,
+  options: { readonly local: boolean },
+) =>
   Effect.gen(function* () {
-    const { userId, signInId } = callerOf(principal);
+    const { userId, signInId } = callerOf(principal, options.local);
     const existing = yield* machines.get({ id: input.id });
     if (existing !== null && existing.value.userId !== userId)
       return yield* new MachineTaken({ id: input.id });

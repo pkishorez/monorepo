@@ -15,3 +15,4 @@ A User forgets a Machine from the app, from anywhere, for example because it was
 
 - A Machine that ignores the answer keeps a valid Sign-in at the Auth Worker, but the Backend never lists it again, so no app finds its address or key.
 - Running `serve` again on a forgotten Machine's database signs in afresh and is refused while it keeps the same Machine id; `ai-toolkit logout` forgets the id along with the Sign-in, so the next start is a new Machine.
+- In Local mode every Machine of a User signs in with the same Local Token, so a Sign-in names no one Machine: the Backend keeps no Sign-in there and refuses only the forgotten id. Otherwise forgetting one Machine would refuse all of that User's Machines.

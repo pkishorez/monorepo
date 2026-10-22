@@ -11,12 +11,22 @@ import { DOWN_AFTER, Machines } from '../../machines/index.ts';
  * The Machine Switcher: the signed-in Account's Machines, in place of the
  * logo, the one the app is on checked.
  *
- * 1. Read    the Machines the Machine page holds, the most recently seen
- *            first, each with when it was last seen; opening it asks the
- *            Backend again.
+ * 1. Read    the Machines the Machine page holds, each with when it was
+ *            last seen: those online by name, so the rows hold still as
+ *            Heartbeats come in, then the rest the most recently seen
+ *            first; opening it asks the Backend again.
  * 2. Pick    another Machine goes to its home: a new Machine page, with
  *            its own socket and records. The one open changes nothing.
  */
+
+/** Online Machines by name, then the rest the most recently seen first. */
+const byPlace =
+  (now: number) => (a: typeof Machine.Type, b: typeof Machine.Type) => {
+    const online = (each: typeof Machine.Type) =>
+      now - each.lastSeen <= DOWN_AFTER;
+    if (online(a) !== online(b)) return online(a) ? -1 : 1;
+    return online(a) ? a.name.localeCompare(b.name) : b.lastSeen - a.lastSeen;
+  };
 
 const Machines_ = Picker.make('MachineSwitcher', {
   props: Schema.Struct({
@@ -30,7 +40,7 @@ const Machines_ = Picker.make('MachineSwitcher', {
       empty: () => 'No machine by that name',
       rows: ({ props }) => ({
         rows: [...(props.machines ?? [])]
-          .sort((a, b) => b.lastSeen - a.lastSeen)
+          .sort(byPlace(props.now))
           .map((each) => ({
             value: each.id,
             label: each.name,

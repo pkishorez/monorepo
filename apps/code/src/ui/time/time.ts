@@ -9,12 +9,14 @@ const units: ReadonlyArray<[Intl.RelativeTimeFormatUnit, number]> = [
 
 const relative = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
 
-/** How long ago `at` was, in words: `5 minutes ago`, `yesterday`, `just now`. */
+/** How long ago `at` was, in words: `5 minutes ago`, `40 seconds ago`, `just now` under 10 seconds. */
 export const ago = (at: number, now = Date.now()) => {
   const seconds = (at - now) / 1000;
   for (const [unit, size] of units)
     if (Math.abs(seconds) >= size)
       return relative.format(Math.round(seconds / size), unit);
+  if (Math.abs(seconds) >= 10)
+    return relative.format(Math.round(seconds), 'second');
   return 'just now';
 };
 

@@ -6,14 +6,20 @@ import { ShellLive } from './actor.ts';
 import { Keyboard } from './keyboard.tsx';
 import * as Machine from './machine/index.ts';
 import * as MachineList from './machines/index.ts';
-import { AccountSlot, LocalSignInDialog, SignedOut } from './sign-in/index.ts';
+import {
+  Account,
+  AccountSlot,
+  LocalSignInDialog,
+  SignedOut,
+} from './sign-in/index.ts';
 
 /*
  * The root page's View: the keyboard over everything, with Vim Mode and
  * the Bindings from Device State, and the Account Switcher handed down to
  * the headers. Then the chain as far as it has got: nothing while Device
  * State is read; signing in while nobody is; at the root, the Account's
- * Machines being found, or how to start one; on a Machine, its page.
+ * Machines being found, or how to start one, with the Account Switcher in
+ * the corner to sign out or switch; on a Machine, its page.
  */
 
 export const ShellView = View.make(
@@ -52,7 +58,12 @@ export const ShellView = View.make(
               </p>
             ) : (
               children.machines && (
-                <MachineList.View instance={children.machines} />
+                <>
+                  <div className="fixed top-2 right-2">
+                    <Account />
+                  </div>
+                  <MachineList.View instance={children.machines} />
+                </>
               )
             )}
           </AccountSlot>
