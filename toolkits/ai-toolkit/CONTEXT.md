@@ -28,6 +28,10 @@ _Avoid_: thread, chat, conversation
 How a Session stands: idle, running, or how its last Turn ended if not done: cancelled, failed, or interrupted.
 _Avoid_: streaming flag
 
+**Settled**:
+A Session the user is done with: kept, but out of the way. Settling never stops a running Turn; sending the Session a message un-settles it.
+_Avoid_: archived, done, hidden, closed
+
 **Turn**:
 One user message to the agent and everything it emits until it is idle again. Messages sent while it runs steer it; one the agent could not take before the Turn ended starts the next Turn instead.
 _Avoid_: run, request, iteration
@@ -65,7 +69,7 @@ A named, reusable instruction set a Coding Harness offers in a folder, invoked f
 _Avoid_: command, prompt, plugin
 
 **Fork**:
-A new Session in the same harness that starts with a copy of another Session's context up to a Fork Point. The original is untouched.
+A new Session in the same harness that carries on another Session's conversation from a Fork Point. What came before that point stays the original's and is read from there, never copied; the Fork is listed as a Session of its own, not under the original. The original is untouched.
 _Avoid_: branch, clone, copy
 
 **Fork Point**:

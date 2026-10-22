@@ -1,4 +1,4 @@
-import { Effect } from 'effect';
+import { Clock, Effect } from 'effect';
 import { Actor } from '@kestack/kabuki';
 import { nextUlid } from '@kestack/std-toolkit/core';
 import { SessionAgent } from '../agent/index.js';
@@ -21,6 +21,7 @@ export const AgentTurns = Actor.build(
             yield* context.report({
               _tag: 'AgentTurn',
               turnId: yield* nextUlid,
+              at: yield* Clock.currentTimeMillis,
             });
           }),
       },

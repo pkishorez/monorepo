@@ -6,6 +6,22 @@ export const firstElement = (elements: Iterable<HTMLElement>) =>
       a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1,
     )[0];
 
+const FOCUSABLE =
+  'input, textarea, select, button, a[href], [tabindex], [contenteditable]:not([contenteditable="false"])';
+
+/**
+ * What focusing a Focus Spot focuses: the spot itself when it takes focus,
+ * else the first element in it that does, such as an editor's own field.
+ */
+export const focusTarget = (spot: HTMLElement) =>
+  spot.matches(FOCUSABLE)
+    ? spot
+    : (spot.querySelector<HTMLElement>(FOCUSABLE) ?? spot);
+
+/** Whether DOM focus is on nothing: the page itself, as when its element went away. */
+export const focusLost = () =>
+  document.activeElement === null || document.activeElement === document.body;
+
 /** Whether DOM focus is in one of `elements`. */
 export const focusIn = (elements: Iterable<HTMLElement>) => {
   const focused = document.activeElement;

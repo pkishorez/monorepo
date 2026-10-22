@@ -312,11 +312,11 @@ Owned shadcn copies on Base UI, one subpath per file, such as `@kestack/web-plat
 
 ### `@kestack/web-platform/recipes/keyboard`
 
-| Export          | What it does                                                                                                                                                          |
-| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `KeysStatusBar` | The Vim window's status line for an app's `keys`: the Mode, the path of Surfaces the user can be in, the Sequence under way, help, and a button to turn Vim Mode off. |
-| `KeysHelp`      | A help sheet of every Action that works where the user is, drawn while its Isolated Surface is Active; Escape closes it.                                              |
-| `SurfaceScrim`  | A scrim behind an Isolated Surface the app draws itself.                                                                                                              |
+| Export          | What it does                                                                                                                                                                |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `KeysStatusBar` | The Vim window's status line for an app's `keys`: the Mode, the path of Surfaces the user can be in, the Sequence under way, help, and a button to turn Vim Mode off.       |
+| `KeysHelp`      | A help sheet of every Action that works where the user is, drawn while its Isolated Surface is Active; Escape closes it, and `finalFocus={false}` leaves focus to use-keys. |
+| `SurfaceScrim`  | A scrim behind an Isolated Surface the app draws itself.                                                                                                                    |
 
 ### `@kestack/web-platform/recipes/local-sign-in`
 

@@ -44,6 +44,13 @@ entries of wallet 7. A Query that filters on that field opens it, and its
 Strategy runs while it is open; its records stay in the Store after it closes.
 _Avoid_: Partition (a [[db]] word for a physical slice of a table).
 
+**Caught Up**:
+A Collection, or a Window of one, whose Strategy has had its first answer
+from the Backend since it started running, whatever that answer held. Until
+then an empty read may only mean not read yet; rows already stored show at
+once either way.
+_Avoid_: Settled, Synced, Loaded, Ready.
+
 **GC Time**:
 How long an Instance or a Window keeps running after the last thing using it
 lets go. Its stored records stay.

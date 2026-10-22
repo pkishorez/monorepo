@@ -1,4 +1,5 @@
 import { mkdtempSync, rmSync } from 'node:fs';
+import { request } from 'node:http';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -124,7 +125,101 @@ const line = ({ row }: Rows[number]) => {
   return part.text === undefined ? part.type : `${part.type} ${part.text}`;
 };
 
+/** How the server answers a WebSocket upgrade from `origin`: 101, or its refusal. */
+const upgrade = (port: number, origin: string | undefined) =>
+  new Promise<number>((resolve, reject) => {
+    const asking = request({
+      host: '127.0.0.1',
+      port,
+      path: '/rpc',
+      agent: false,
+      headers: {
+        connection: 'Upgrade',
+        upgrade: 'websocket',
+        'sec-websocket-version': '13',
+        'sec-websocket-key': Buffer.from('0123456789abcdef').toString('base64'),
+        ...(origin === undefined ? {} : { origin }),
+      },
+    });
+    asking.on('upgrade', (_, socket) => {
+      socket.destroy();
+      resolve(101);
+    });
+    asking.on('response', (response) => {
+      response.resume();
+      resolve(response.statusCode ?? 0);
+    });
+    asking.on('error', reject);
+    asking.end();
+  });
+
 describe('the server, through the client and Replica', () => {
+  it('lets in only the origins it was given, and programs that send none', () =>
+    Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const port = yield* Effect.promise(freePort);
+          const db = join(folder(), 'ai.db');
+          yield* Layer.build(
+            server({
+              port,
+              db,
+              harnesses: makeFakeHarness().layer,
+              origins: ['http://localhost:*', 'https://*.app.test'],
+            }),
+          );
+          const status = (origin: string | undefined) =>
+            Effect.promise(() => upgrade(port, origin));
+          expect(yield* status(undefined)).toBe(101);
+          expect(yield* status('http://localhost:5173')).toBe(101);
+          expect(yield* status('https://dev.app.test')).toBe(101);
+          expect(yield* status('https://app.test.evil.com')).toBe(403);
+          expect(yield* status('https://evil.com')).toBe(403);
+          const health = yield* Effect.promise(() =>
+            fetch(`http://127.0.0.1:${port}/health`, {
+              headers: { origin: 'https://evil.com' },
+            }),
+          );
+          expect(health.status).toBe(403);
+        }),
+      ),
+    ));
+
+  it('lists and makes folders under the home it was given', () =>
+    Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const port = yield* Effect.promise(freePort);
+          const home = folder();
+          yield* Layer.build(
+            server({
+              port,
+              db: join(folder(), 'ai.db'),
+              harnesses: makeFakeHarness().layer,
+              home,
+            }),
+          );
+          const client = yield* Layer.build(
+            AiClient.layer(`ws://127.0.0.1:${port}/rpc`),
+          );
+          const api = Context.get(client, AiClient);
+          const created = yield* api.createFolder({ parent: '~', name: 'new' });
+          expect(created.path).toMatch(/\/new$/);
+          expect(yield* api.listFolder({ path: '~' })).toMatchObject({
+            parent: null,
+            folders: [{ name: 'new', hidden: false, link: false }],
+            truncated: false,
+          });
+          expect(
+            yield* Effect.flip(api.listFolder({ path: '/' })),
+          ).toMatchObject({ _tag: 'OutsideHome' });
+          expect(
+            yield* Effect.flip(api.createFolder({ parent: '~', name: 'new' })),
+          ).toMatchObject({ _tag: 'FolderExists' });
+        }),
+      ),
+    ));
+
   it(
     'syncs a session live, and resumes every feed from its cursor after a restart',
     () =>
@@ -311,7 +406,7 @@ describe('the server, through the client and Replica', () => {
                 }),
               );
             expect(fork).toMatchObject({
-              title: 'hi (fork)',
+              title: 'hi',
               nativeId: 'native-1-fork',
               forkedFrom: { sessionId: session.id },
             });
@@ -333,6 +428,13 @@ describe('the server, through the client and Replica', () => {
             expect(yield* api.backgroundJobs().pipe(Stream.runHead)).toEqual(
               Option.some([]),
             );
+
+            yield* api.settleSession({ sessionId: fork.id });
+            yield* api.unsettleSession({ sessionId: fork.id });
+            expect(
+              (yield* Effect.flip(api.settleSession({ sessionId: 'nope' })))
+                ._tag,
+            ).toBe('SessionNotFound');
           }),
         ),
       ),

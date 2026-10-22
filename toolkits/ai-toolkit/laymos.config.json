@@ -59,6 +59,7 @@
     "src/api/live": [
       "src/api/contract",
       "src/engine",
+      "src/folders",
       "src/store",
       "src/harness",
       "src/projection",
@@ -69,6 +70,7 @@
     "src/cli": [
       "src/store",
       "src/engine",
+      "src/folders",
       "src/api/contract",
       "src/api/live",
       "src/harnesses",

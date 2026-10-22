@@ -135,6 +135,39 @@ describe('the messages feed', () => {
     ));
 });
 
+describe('the first answer', () => {
+  it('goes out empty when there is nothing to replay, and no empty batch follows', () =>
+    run(
+      Effect.gen(function* () {
+        const store = yield* Store;
+        const batches: Array<ReadonlyArray<WireEntity>> = [];
+        yield* Effect.forkScoped(
+          Stream.runForEach(messages('s1', null), (batch) =>
+            Effect.sync(() => void batches.push(batch)),
+          ),
+        );
+        yield* eventually(() => expect(batches).toEqual([[]]));
+        yield* store.appendRaw(raw({ kind: 'hidden', payload: {} }));
+        yield* store.appendRaw(text('later'));
+        yield* eventually(() => expect(batches).toHaveLength(2));
+        expect(texts(batches[1]!)).toEqual(['later']);
+      }),
+    ));
+
+  it('goes out empty for projects too', () =>
+    run(
+      Effect.gen(function* () {
+        const batches: Array<ReadonlyArray<WireEntity>> = [];
+        yield* Effect.forkScoped(
+          Stream.runForEach(projects(null), (batch) =>
+            Effect.sync(() => void batches.push(batch)),
+          ),
+        );
+        yield* eventually(() => expect(batches).toEqual([[]]));
+      }),
+    ));
+});
+
 describe('the projects feed', () => {
   it('replays, then sends each change, tombstones too', () =>
     run(

@@ -1,16 +1,21 @@
 import { Data, Effect } from 'effect';
-import { nextUlid } from '@kestack/std-toolkit/core';
 import type { Raw } from '../../raw/index.js';
+import type { Session } from '../../records/index.js';
 import { Store } from '../../store/index.js';
 import { EngineRaw } from '../engine-raw/index.js';
 
 /*
- * Where a Fork starts, and the transcript it starts with. A Fork Point is
- * the end of a finished Turn: the engine's `turn.ended` for it, carrying
- * the agent's `nativeTurnId` (ADR 0011). The Fork's transcript is a copy of
- * the parent's Raw up to and including that `turn.ended`, each under a new
- * id in the Fork, so its Messages read as the parent's did. Raw, not
- * Messages, is copied: Messages are only ever projected from Raw.
+ * Where a Fork starts. A Fork Point is the end of a finished Turn: the
+ * engine's `turn.ended` for it, carrying the agent's `nativeTurnId`
+ * (ADR 0011). Nothing is copied into the Fork (ADR 0014): it names the
+ * Session it was forked from, and reads what came before from there. The
+ * agent is forked from the Session whose Raw holds that `turn.ended`.
+ *
+ * A Fork's own Raw starts after its Fork Point, so a Turn it inherited is
+ * found up its `forkedFrom` chain, in each original only up to the Turn
+ * the Fork was made after. That bound only ever tightens: a Fork made
+ * after a Turn it inherited itself reads its original's original only up
+ * to that Turn, never up to where its original was forked.
  */
 
 export class NotForkable extends Data.TaggedError('NotForkable')<{
@@ -33,62 +38,72 @@ const rawsOf = (sessionId: string) =>
     }
   });
 
-/** The Fork Point a Fork asks for: a Turn's end, and the Raw up to it. */
+/** The Fork Point a Fork asks for: a Turn's end, in the Session that ran it. */
 export interface ForkPoint {
+  /** The Session whose Raw holds the Turn: the asked one or an original. */
+  readonly sessionId: string;
   readonly turnId: string;
   readonly nativeTurnId: string;
-  /** The parent's Raw up to and including the Turn's end. */
-  readonly transcript: ReadonlyArray<Raw>;
 }
+
+const refuse = (reason: string) => Effect.fail(new NotForkable({ reason }));
+
+/** The index of `turnId`'s `turn.ended` in `raws`; -1 when it has none. */
+const endOf = (raws: ReadonlyArray<Raw>, turnId: string | null) =>
+  raws.findLastIndex(
+    (raw) =>
+      EngineRaw.endedOf(raw) !== undefined &&
+      (turnId === null || raw.turnId === turnId),
+  );
 
 /**
  * The Fork Point after `turnId`, or after the latest finished Turn when
- * null; the Turn `running` is never one.
+ * null, in `sessionId` or up its `forkedFrom` chain; the Turn `running` is
+ * never one.
  */
 export const forkPoint = (input: {
   readonly sessionId: string;
   readonly turnId: string | null;
   readonly running: string | null;
+  /** Where a Session was forked from; null when it was not. */
+  readonly forkedFrom: (sessionId: string) => Session['forkedFrom'];
 }): Effect.Effect<ForkPoint, NotForkable, Store> =>
   Effect.gen(function* () {
-    const refuse = (reason: string) => Effect.fail(new NotForkable({ reason }));
     if (input.turnId !== null && input.turnId === input.running)
       return yield* refuse('That Turn is still running');
-    const raws = yield* rawsOf(input.sessionId);
-    const at = raws.findLastIndex(
-      (raw) =>
-        EngineRaw.endedOf(raw) !== undefined &&
-        (input.turnId === null || raw.turnId === input.turnId),
-    );
-    if (at === -1) {
-      if (input.turnId === null)
-        return yield* refuse('No Turn has finished yet');
-      return yield* refuse(
-        raws.some((raw) => raw.turnId === input.turnId)
-          ? 'That Turn has not finished'
-          : 'This Session has no such Turn',
-      );
+    const seen = new Set<string>();
+    let sessionId = input.sessionId;
+    let turnId = input.turnId;
+    // Up to and including this Turn's end in `sessionId`; null for all of it.
+    let upTo: string | null = null;
+    while (!seen.has(sessionId)) {
+      seen.add(sessionId);
+      const all = yield* rawsOf(sessionId);
+      // Its own Raw holds the bound, or, inherited, nothing below it.
+      const bound = upTo === null ? all.length - 1 : endOf(all, upTo);
+      const raws = all.slice(0, bound + 1);
+      const at = endOf(raws, turnId);
+      if (at !== -1) {
+        const end = raws[at]!;
+        const nativeTurnId = EngineRaw.endedOf(end)?.nativeTurnId;
+        if (nativeTurnId === undefined)
+          return yield* refuse(
+            'That Turn ended without a Fork Point, so it cannot be forked after',
+          );
+        return { sessionId, turnId: end.turnId, nativeTurnId };
+      }
+      if (turnId !== null && raws.some((raw) => raw.turnId === turnId))
+        return yield* refuse('That Turn has not finished');
+      const from = input.forkedFrom(sessionId);
+      if (from === null) break;
+      sessionId = from.sessionId;
+      turnId = turnId ?? from.turnId;
+      // A bound this Session inherited stays: it is before `from.turnId`.
+      if (upTo === null || bound !== -1) upTo = from.turnId;
     }
-    const end = raws[at]!;
-    const nativeTurnId = EngineRaw.endedOf(end)?.nativeTurnId;
-    if (nativeTurnId === undefined)
-      return yield* refuse(
-        'That Turn ended without a Fork Point, so it cannot be forked after',
-      );
-    return {
-      turnId: end.turnId,
-      nativeTurnId,
-      transcript: raws.slice(0, at + 1),
-    };
-  });
-
-/** Writes a copy of `transcript` into the Session `sessionId`, in order. */
-export const copyTranscript = (
-  transcript: ReadonlyArray<Raw>,
-  sessionId: string,
-) =>
-  Effect.gen(function* () {
-    const store = yield* Store;
-    for (const raw of transcript)
-      yield* store.appendRaw({ ...raw, id: yield* nextUlid, sessionId });
+    return yield* refuse(
+      input.turnId === null
+        ? 'No Turn has finished yet'
+        : 'This Session has no such Turn',
+    );
   });

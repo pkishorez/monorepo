@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, type ReactNode, useState } from 'react';
+import { act, type ReactNode, useLayoutEffect, useRef, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { describe as said } from '../../core/index.ts';
@@ -500,6 +500,26 @@ describe('keys', () => {
     expect(calls).toEqual(['app.j', 'app.j']);
   });
 
+  it('say an Action’s keys as bound now, wherever the user is', () => {
+    let bound: ReadonlyArray<string> = [];
+    function Title() {
+      bound = keys.useKeysOf('app.palette').map(said);
+      return null;
+    }
+    render(
+      <Mail>
+        <Title />
+      </Mail>,
+    );
+    expect(bound).toEqual(['mod+k']);
+    render(
+      <Mail bindings={{ 'app.palette': ['ctrl+p', 'g p'] }}>
+        <Title />
+      </Mail>,
+    );
+    expect(bound).toEqual(['ctrl+p', 'g p']);
+  });
+
   it('repeat at an Action’s own pace', () => {
     render(<Mail>{handle('list.down')}</Mail>);
     point('list');
@@ -631,6 +651,205 @@ describe('Escape', () => {
     act(() => keyboard.enter('palette'));
     tap('Escape');
     expect(keyboard.active).toBe('list');
+  });
+});
+
+describe('Focus Spots', () => {
+  function Spot(props: {
+    readonly name: string;
+    readonly isDefault?: boolean;
+  }) {
+    const ref = keys.useFocusSpot('list', props.name, {
+      default: props.isDefault === true,
+    });
+    return <textarea ref={ref} data-field={props.name} />;
+  }
+  const spots = (
+    <>
+      <Spot name="composer" isDefault />
+      <Spot name="search" />
+    </>
+  );
+  const field = (name: string) =>
+    host.querySelector(`[data-field="${name}"]`) as HTMLElement;
+
+  it('take focus back to the default spot, then the one last in, with Vim Mode off too', async () => {
+    render(<Mail on={false}>{spots}</Mail>);
+    act(() => keyboard.enter('list'));
+    await settle();
+    expect(document.activeElement).toBe(field('composer'));
+    await focus('[data-field="search"]');
+    act(() => keyboard.enter('sidebar'));
+    await act(async () => (document.activeElement as HTMLElement).blur());
+    act(() => keyboard.enter('list'));
+    await settle();
+    expect(document.activeElement).toBe(field('search'));
+  });
+
+  it('enter their Surface when focused, wherever they are drawn', async () => {
+    render(<Mail>{spots}</Mail>);
+    await focus('[data-field="search"]');
+    expect(keyboard.active).toBe('list');
+    expect(keyboard.mode).toBe('insert');
+  });
+
+  it('take focus back when an Isolated Surface closes', async () => {
+    function Palette() {
+      if (!keys.useSurface('palette').active) return null;
+      return (
+        <keys.Surface id="palette">
+          <input data-field="palette" />
+        </keys.Surface>
+      );
+    }
+    render(
+      <Mail>
+        {spots}
+        <Palette />
+      </Mail>,
+    );
+    await focus('[data-field="composer"]');
+    tap('k', { ctrlKey: true });
+    await focus('[data-field="palette"]');
+    tap('Escape');
+    await settle();
+    expect(keyboard.active).toBe('list');
+    expect(document.activeElement).toBe(field('composer'));
+  });
+
+  it('take focus out of an Isolated Surface as it is left, before its popup closes', async () => {
+    function Popup() {
+      const { active } = keys.useSurface('palette');
+      const popup = useRef<HTMLDivElement>(null);
+      // As a dialog does as it closes, when focus inside it is lost.
+      useLayoutEffect(() => {
+        const at = document.activeElement;
+        if (!active && (at === document.body || popup.current?.contains(at)))
+          popup.current?.focus();
+      }, [active]);
+      return (
+        <div ref={popup} tabIndex={-1} data-pane="popup">
+          {active && (
+            <keys.Surface id="palette">
+              <input data-field="palette" />
+            </keys.Surface>
+          )}
+        </div>
+      );
+    }
+    render(
+      <Mail>
+        {spots}
+        <Popup />
+      </Mail>,
+    );
+    await focus('[data-field="composer"]');
+    tap('k', { ctrlKey: true });
+    await focus('[data-field="palette"]');
+    tap('Escape');
+    await settle();
+    expect(keyboard.active).toBe('list');
+    expect(document.activeElement).toBe(field('composer'));
+  });
+
+  it('take focus back when remounted, though focus rested outside every Surface meanwhile', async () => {
+    function Session(props: { readonly id: string }) {
+      return <Spot key={props.id} name="composer" isDefault />;
+    }
+    const outside = document.createElement('button');
+    document.body.append(outside);
+    render(
+      <Mail>
+        <Session id="one" />
+      </Mail>,
+    );
+    await focus('[data-field="composer"]');
+    // As a closing popup takes focus when the field it was in goes.
+    await act(async () => outside.focus());
+    render(
+      <Mail>
+        <Session id="two" />
+      </Mail>,
+    );
+    await act(async () => outside.remove());
+    await settle();
+    expect(document.activeElement).toBe(field('composer'));
+  });
+
+  it('take focus back when remounted while their Surface is Active, never out of another', async () => {
+    function Session(props: { readonly id: string }) {
+      return <Spot key={props.id} name="composer" isDefault />;
+    }
+    render(
+      <Mail>
+        <Session id="one" />
+      </Mail>,
+    );
+    await focus('[data-field="composer"]');
+    const old = field('composer');
+    render(
+      <Mail>
+        <Session id="two" />
+      </Mail>,
+    );
+    await settle();
+    expect(field('composer')).not.toBe(old);
+    expect(document.activeElement).toBe(field('composer'));
+    point('sidebar');
+    render(
+      <Mail>
+        <Session id="three" />
+      </Mail>,
+    );
+    await settle();
+    expect(keyboard.active).toBe('sidebar');
+    expect(document.activeElement).not.toBe(field('composer'));
+  });
+
+  it('give way to the Surface itself after Escape leaves the field', async () => {
+    render(<Mail>{spots}</Mail>);
+    await focus('[data-field="composer"]');
+    tap('Escape');
+    expect(document.activeElement).toBe(pane('list'));
+    act(() => keyboard.enter('sidebar'));
+    await settle();
+    act(() => keyboard.enter('list'));
+    await settle();
+    expect(document.activeElement).toBe(pane('list'));
+  });
+});
+
+describe('checkBindings', () => {
+  it('says which Actions are Shadowed by a nearer Surface, and never climbs out of an Isolated one', () => {
+    expect(keys.checkBindings({}, { mac: false })).toEqual({
+      conflicts: [],
+      shadowed: [
+        { id: 'app.x', by: 'sidebar.x', keys: 'x' },
+        { id: 'app.e', by: 'list.e', keys: 'e' },
+      ],
+      invalid: [],
+    });
+  });
+
+  it('says which Actions would Conflict on one Surface, as the platform reads mod', () => {
+    expect(
+      keys.checkBindings({ 'app.x': 'e' }, { mac: false }).conflicts,
+    ).toEqual([{ id: 'app.x', with: 'app.e', surface: 'app', keys: 'e' }]);
+    const ctrlK = { 'app.ctrl': 'ctrl+k' } as const;
+    expect(keys.checkBindings(ctrlK, { mac: false }).conflicts).toEqual([
+      { id: 'app.ctrl', with: 'app.palette', surface: 'app', keys: 'ctrl+k' },
+    ]);
+    expect(keys.checkBindings(ctrlK, { mac: true }).conflicts).toEqual([]);
+  });
+
+  it('reports what cannot work instead of throwing', () => {
+    const check = keys.checkBindings(
+      // @ts-expect-error: no such Action
+      { 'app.nope': 'x', 'app.j': 'cmd+j', 'app.x': 'j' },
+      { mac: false },
+    );
+    expect(check.invalid.map((each) => each.id)).toEqual(['app.nope', 'app.j']);
+    expect(check.conflicts).toEqual([]);
   });
 });
 

@@ -31,7 +31,9 @@ import { Turn } from './turn/index.js';
  * It keeps one live agent for its Turns (see agent/), with its Background
  * Jobs beside it, saves itself whenever its record changes, takes a
  * message's model and settings from that Turn on, and asks the Titler for
- * a title after its first message.
+ * a title after its first message. Each Turn that starts marks it active,
+ * and each that ends marks when;
+ * Settling it changes nothing else, and any message un-settles it.
  */
 
 /** How long the Titler may take before the first line stays the title. */
@@ -91,20 +93,27 @@ const running = ([first, ...rest]: readonly [
   queued: [],
 });
 
+/*
+ * `at` on a message is when it was sent, so a Turn it starts marks the
+ * Session active then.
+ */
 const Message = Schema.TaggedUnion({
   /** A user message: starts a Turn, or steers the running one. */
-  Send: { prompt: Prompt },
+  Send: { prompt: Prompt, at: Schema.Finite },
   Cancel: {},
   TurnEnded: {
     turnId: Schema.String,
     status: Schema.Literals(TURN_END_STATUSES),
+    at: Schema.Finite,
   },
   NativeId: { nativeId: Schema.String },
   /** The agent took a steer of the running Turn. */
   Steered: { turnId: Schema.String, id: Schema.String },
   /** The agent started a Turn on its own. */
-  AgentTurn: { turnId: Schema.String },
+  AgentTurn: { turnId: Schema.String, at: Schema.Finite },
   Titled: { title: Schema.String },
+  Settle: { at: Schema.Finite },
+  Unsettle: {},
 });
 
 type SessionSelf = Self<Model, State, typeof Message.Type>;
@@ -123,6 +132,18 @@ const idleOf = (status: SessionStatus): State => ({
   _tag: 'Idle',
   ended: status === 'idle' || status === 'running' ? null : status,
 });
+
+/** The Session with what a Turn starting at `at` changes: it is active then. */
+const active = (model: Model, at: number): Model => ({
+  ...model,
+  session: { ...model.session, activeAt: at },
+});
+
+/** A user message un-settles the Session. */
+const unsettled = (model: Model): Model =>
+  model.session.settledAt === null
+    ? model
+    : { ...model, session: { ...model.session, settledAt: null } };
 
 /** A message's model and settings hold from its Turn on. */
 const choose = (model: Model, prompt: Prompt): Model =>
@@ -242,6 +263,13 @@ export const Session = Actor.build(
           session: { ...model.session, title },
         },
       }),
+      Settle: ({ at }, { model }) =>
+        model.session.settledAt !== null
+          ? {}
+          : {
+              model: { ...model, session: { ...model.session, settledAt: at } },
+            },
+      Unsettle: (_, { model }) => ({ model: unsettled(model) }),
     },
     children: {
       backgroundJobs: { actor: BackgroundJobs },
@@ -256,11 +284,12 @@ export const Session = Actor.build(
     state: {
       Idle: {
         on: {
-          Send: ({ prompt }, { model }) => ({
-            model: choose(model, prompt),
+          Send: ({ prompt, at }, { model }) => ({
+            model: active(unsettled(choose(model, prompt)), at),
             state: running([prompt]),
           }),
-          AgentTurn: ({ turnId }) => ({
+          AgentTurn: ({ turnId, at }, { model }) => ({
+            model: active(model, at),
             state: {
               _tag: 'Running',
               turnId,
@@ -278,7 +307,7 @@ export const Session = Actor.build(
       Running: {
         on: {
           Send: ({ prompt }, { model, state }) => ({
-            model: choose(model, prompt),
+            model: unsettled(choose(model, prompt)),
             state: state.cancelling
               ? { ...state, queued: [...state.queued, prompt] }
               : { ...state, steers: [...state.steers, prompt] },
@@ -293,14 +322,22 @@ export const Session = Actor.build(
                     steers: state.steers.filter((each) => each.id !== id),
                   },
                 },
-          TurnEnded: ({ turnId, status }, { state }) => {
+          TurnEnded: ({ turnId, status, at }, { model, state }) => {
             if (turnId !== state.turnId) return {};
-            const [next, ...rest] = [...state.steers, ...state.queued];
-            return {
-              state: next
-                ? running([next, ...rest])
-                : { _tag: 'Idle', ended: status === 'done' ? null : status },
+            const ended = {
+              ...model,
+              session: { ...model.session, endedAt: at },
             };
+            const [next, ...rest] = [...state.steers, ...state.queued];
+            return next
+              ? { model: active(ended, at), state: running([next, ...rest]) }
+              : {
+                  model: ended,
+                  state: {
+                    _tag: 'Idle',
+                    ended: status === 'done' ? null : status,
+                  },
+                };
           },
         },
         children: {

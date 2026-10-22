@@ -1,6 +1,6 @@
 import type { Definition, Keys, SurfaceName } from '@kestack/use-keys/surfaces';
 import { X } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { type ComponentProps, useEffect, useMemo, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -101,8 +101,13 @@ export function KeysStatusBar<D extends Definition>(props: {
 export function KeysHelp<D extends Definition>(props: {
   readonly keys: Keys<D>;
   readonly surface: SurfaceName<D>;
+  /**
+   * Where focus goes as it closes, as Base UI's dialog takes it: `false`
+   * leaves it to the keyboard, which puts it back as the Surface is left.
+   */
+  readonly finalFocus?: ComponentProps<typeof DialogContent>['finalFocus'];
 }) {
-  const { keys, surface } = props;
+  const { keys, surface, finalFocus } = props;
   const { active } = keys.useSurface(surface);
   const { path, names, leave } = keys.useKeyboard();
   const actions = keys.useAvailableActions();
@@ -140,7 +145,10 @@ export function KeysHelp<D extends Definition>(props: {
       }}
     >
       <keys.Surface id={surface} asChild>
-        <DialogContent className="max-h-[80dvh] overflow-y-auto sm:max-w-lg">
+        <DialogContent
+          {...(finalFocus === undefined ? {} : { finalFocus })}
+          className="max-h-[80dvh] overflow-y-auto sm:max-w-lg"
+        >
           <DialogHeader>
             <DialogTitle>Keys</DialogTitle>
           </DialogHeader>

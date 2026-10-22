@@ -1,11 +1,12 @@
 import { Schema } from 'effect';
+import { workerKey } from './windows.js';
 
 /*
  * What an Instance actor keeps, for its View and the Inspector: its Key,
  * whether its Gate is open, the Actions under way on it, and per Collection
  * how its Strategies are doing: the whole Collection's, and each open
- * Window's, with who uses it and when it closes. Its State says whether it
- * leads.
+ * Window's, with who uses it and when it closes, and which are Caught Up.
+ * Its State says whether it leads.
  */
 
 export const Input = Schema.Struct({
@@ -76,6 +77,11 @@ export const Model = Schema.Struct({
   pending: Schema.Array(Schema.String),
   /** The Collections with a Strategy or Windows. */
   collections: Schema.Array(Synced),
+  /**
+   * The Strategy scopes Caught Up, by Worker key, as `entries/wallet="w1"`:
+   * its own while it leads, what the Leader told while it follows.
+   */
+  caughtUp: Schema.Array(Schema.String),
 });
 
 export const State = Schema.TaggedUnion({
@@ -116,6 +122,10 @@ export const Message = Schema.TaggedUnion({
   Outdated: Scope,
   Failed: { ...Scope, message: Schema.String },
   Recovered: Scope,
+  /** A Strategy this participant runs had its first answer from the Backend. */
+  Answered: Scope,
+  /** The scopes the Leader says are Caught Up, once what they read shows here. */
+  Told: { scopes: Schema.Array(Schema.String) },
 });
 
 export type Model = typeof Model.Type;
@@ -305,3 +315,46 @@ export const reported = (
           ),
         };
   });
+
+/** A scope whose Strategy runs, or ran to its end, keeps its Caught Up; one stopped loses it. */
+const answering = (status: Status) =>
+  status === 'running' || status === 'failing' || status === 'outdated';
+
+/** The Worker key of each scope whose Strategy may be answering. */
+const answeringKeys = (model: Model) =>
+  new Set(
+    model.collections.flatMap((synced) => [
+      ...(synced.strategy && answering(synced.strategy.status)
+        ? [workerKey(synced.collection, null)]
+        : []),
+      ...synced.windows
+        .filter((window) => answering(window.status))
+        .map((window) => workerKey(synced.collection, window)),
+    ]),
+  );
+
+/** While it leads: only the scopes whose Strategy still runs stay Caught Up. */
+export const stillCaughtUp = (model: Model): Model => {
+  const keys = answeringKeys(model);
+  const caughtUp = model.caughtUp.filter((key) => keys.has(key));
+  return caughtUp.length === model.caughtUp.length
+    ? model
+    : { ...model, caughtUp };
+};
+
+/** A Strategy that runs had its first answer: its scope is Caught Up. */
+export const answered = (
+  model: Model,
+  scope: {
+    readonly collection: string;
+    readonly window: {
+      readonly path: string;
+      readonly value: WindowValue;
+    } | null;
+  },
+): Model => {
+  const key = workerKey(scope.collection, scope.window);
+  return model.caughtUp.includes(key) || !answeringKeys(model).has(key)
+    ? model
+    : { ...model, caughtUp: [...model.caughtUp, key] };
+};

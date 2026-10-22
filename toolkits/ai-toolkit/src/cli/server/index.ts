@@ -1,1 +1,1 @@
-export { server, type ServerOptions } from './server.js';
+export { DEFAULT_ORIGINS, server, type ServerOptions } from './server.js';

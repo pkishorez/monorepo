@@ -7,13 +7,14 @@ import { NodeRuntime, NodeServices } from '@effect/platform-node';
 import { Harnesses } from '../harness/index.js';
 import { claude } from '../harnesses/claude/index.js';
 import { codex, codexTitler } from '../harnesses/codex/index.js';
-import { server } from './server/index.js';
+import { DEFAULT_ORIGINS, server } from './server/index.js';
 
 /*
  * `ai-toolkit serve`: the composition root. Claude and Codex as the
  * harnesses, Codex writing titles, the database at ~/.ai-toolkit/ai.db
  * unless told otherwise, Attachments under ~/.ai-toolkit/attachments, and
- * the API at ws://127.0.0.1:<port>/rpc.
+ * the API at ws://127.0.0.1:<port>/rpc for pages on this machine and the
+ * app's own address, plus any `--origin` given.
  */
 
 const HOST = '127.0.0.1';
@@ -51,15 +52,29 @@ const db = Flag.String('db').pipe(
   Flag.withDefault(DEFAULT_DB),
 );
 
+const origin = Flag.String('origin').pipe(
+  Flag.withDescription(
+    'Another origin a browser page may call from, such as https://*.example.ts.net:*; repeatable',
+  ),
+  Flag.atLeast(0),
+);
+
 const serve = Command.make(
   'serve',
-  { port, db },
-  Effect.fn(function* ({ port, db }) {
+  { port, db, origin },
+  Effect.fn(function* ({ port, db, origin }) {
     mkdirSync(dirname(db), { recursive: true });
     yield* Effect.log(`ai-toolkit ${version} on ws://${HOST}:${port}/rpc`);
     yield* Effect.log(`database ${db}`);
     yield* Layer.launch(
-      server({ port, host: HOST, db, attachments: ATTACHMENTS, harnesses }),
+      server({
+        port,
+        host: HOST,
+        db,
+        attachments: ATTACHMENTS,
+        harnesses,
+        origins: [...DEFAULT_ORIGINS, ...origin],
+      }),
     );
   }),
 ).pipe(Command.withDescription('Run the ai-toolkit server'));

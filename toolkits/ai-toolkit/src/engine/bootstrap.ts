@@ -1,4 +1,4 @@
-import { Effect, Schema } from 'effect';
+import { Clock, Effect, Schema } from 'effect';
 import type { ProjectInput } from './project/index.js';
 import { TURN_END_STATUSES } from '../projection/index.js';
 import type { Raw } from '../raw/index.js';
@@ -31,22 +31,28 @@ const sweep = (session: Session) =>
     const last = yield* store.lastRaw(session.id);
     // Ended already, and stopped before the session was saved idle.
     const ended = endedBy(last);
-    if (ended !== null) {
+    if (last !== null && ended !== null) {
       const swept: Session = {
         ...session,
         status: ended === 'done' ? 'idle' : ended,
+        endedAt: last.at,
       };
       yield* store.saveSession(swept);
       return swept;
     }
-    if (last !== null) {
-      const raw = yield* EngineRaw.stamp(
-        { sessionId: session.id, turnId: last.turnId, harness: 'engine' },
-        EngineRaw.turnEnded('interrupted'),
-      );
-      yield* store.appendRaw(raw);
-    }
-    const swept: Session = { ...session, status: 'interrupted' };
+    const raw =
+      last === null
+        ? null
+        : yield* EngineRaw.stamp(
+            { sessionId: session.id, turnId: last.turnId, harness: 'engine' },
+            EngineRaw.turnEnded('interrupted'),
+          );
+    if (raw !== null) yield* store.appendRaw(raw);
+    const swept: Session = {
+      ...session,
+      status: 'interrupted',
+      endedAt: raw?.at ?? (yield* Clock.currentTimeMillis),
+    };
     yield* store.saveSession(swept);
     yield* Effect.logWarning(
       `Session ${session.id} was cut off by the server stopping; marked interrupted`,

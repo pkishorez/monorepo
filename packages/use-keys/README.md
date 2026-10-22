@@ -21,7 +21,9 @@ Surface looks. The keys tree is the only hierarchy: the provider holds the
 Active Surface on it, and the UI follows. A click or focus enters a Surface,
 an Action `enters` one, Escape leaves it, and a key climbs from it outward
 until an Action takes it. Vim Mode, which the app keeps, turns on every
-Action; with it off only the Actions marked `always` work.
+Action; with it off only the Actions marked `always` work. Each Surface
+remembers the Focus Spot focus was last in, by name, and coming back to it
+puts focus there again, even after a remount.
 
 It is the keyboard counterpart of
 [`@kestack/use-gesture`](../use-gesture) and shares its ideas, but not its
@@ -47,14 +49,16 @@ pnpm add @kestack/use-keys react react-dom
 
 ### `@kestack/use-keys`
 
-| Export         | What it does                                                                                                        |
-| -------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `KeysProvider` | Hears every key on the page for the hooks inside it, sets the Repeat and Sequence timing, and holds Vim Mode.       |
-| `useKeys`      | Reports every key from the first going down until the last lifts in a ref, re-rendering only as they start and end. |
-| `useKeysState` | Renders the keys in a `useKeys` ref, re-rendering on every key that goes down or lifts.                             |
-| `shortcut`     | Writes a Shortcut from a string, `'mod+k'`, or an object, `{ key: 'k', mod: true }`.                                |
-| `sequence`     | Writes a Sequence from a string, `'g g'`, or a list of its steps.                                                   |
-| `describe`     | Writes a Shortcut or Sequence back as people write it, for a cheat sheet.                                           |
+| Export         | What it does                                                                                                         |
+| -------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `KeysProvider` | Hears every key on the page for the hooks inside it, sets the Repeat and Sequence timing, and holds Vim Mode.        |
+| `useKeys`      | Reports every key from the first going down until the last lifts in a ref, re-rendering only as they start and end.  |
+| `useKeysState` | Renders the keys in a `useKeys` ref, re-rendering on every key that goes down or lifts.                              |
+| `shortcut`     | Writes a Shortcut from a string, `'mod+k'`, or an object, `{ key: 'k', mod: true }`.                                 |
+| `sequence`     | Writes a Sequence from a string, `'g g'`, or a list of its steps.                                                    |
+| `describe`     | Writes a Shortcut or Sequence back as people write it, for a cheat sheet.                                            |
+| `bindingOf`    | Reads keys written at runtime, such as a user's stored Bindings, as a Shortcut or Sequence; throws on anything else. |
+| `shortcutOf`   | Records the Shortcut one key going down presses, named as keys are matched, or null for a modifier alone.            |
 
 ### `@kestack/use-keys/recognizers`
 
@@ -75,6 +79,9 @@ pnpm add @kestack/use-keys react react-dom
 | `keys.useActive`           | Gives the Active Surface's name.                                                                                           |
 | `keys.useKeyboard`         | Gives the path to the Active Surface, the Mode and the Sequence under way, `enter`, `leave`, and Vim Mode.                 |
 | `keys.useAvailableActions` | Lists every Action that works now, nearest Surface first, and whether each is Shadowed.                                    |
+| `keys.useKeysOf`           | Gives an Action's keys as bound now, the user's own over its defaults, wherever the user is, such as for a button's title. |
+| `keys.useFocusSpot`        | Marks an element as a named Focus Spot of a Surface, where focus goes back when the user comes back to it.                 |
+| `keys.checkBindings`       | Says, without throwing, which Actions the user's own keys would make Conflict and which they would leave Shadowed.         |
 | `revealInView`             | Scrolls an element just into view at once, for a cursor moved from the keyboard.                                           |
 
 ## Usage
@@ -186,6 +193,11 @@ function Messages() {
   });
   return <List at={at} />;
 }
+
+function Composer() {
+  const spot = keys.useFocusSpot('session', 'editor', { default: true });
+  return <Editor ref={spot} />;
+}
 ```
 
 - The composer is drawn beside the session, not in it, and is still its
@@ -209,6 +221,20 @@ function Messages() {
 - `useKeyboard` gives a status bar the path, the Mode, the Sequence under
   way and Vim Mode; `useAvailableActions` fills a help sheet or a palette,
   each with its `run`.
+- The editor is the session's default Focus Spot. Closing the palette,
+  coming back from another Surface, or remounting the editor while the
+  session is Active puts focus back in the spot focus was last in, by name,
+  else the default, with Vim Mode on or off. Escape leaving a field is
+  remembered as the Surface itself. A popup library's own focus return is
+  turned off, as Base UI's `finalFocus={false}`, and a popup it closes
+  itself calls `leave`.
+- `keys.checkBindings(next)` checks the user's keys without throwing, for a
+  settings screen: `conflicts` on one Surface (offer Swap), `shadowed` by a
+  nearer Surface (allowed, with a note), and `invalid` ones.
+  To record a new key, a settings row enters an Isolated Surface with no
+  Actions, so no key of the app works, and its element turns the next key
+  going down into a Shortcut with `shortcutOf(event)`, using the key itself;
+  Escape leaves the Surface, which cancels.
 
 ### Every key
 

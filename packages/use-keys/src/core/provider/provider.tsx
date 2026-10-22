@@ -9,7 +9,7 @@ import {
   useSyncExternalStore,
 } from 'react';
 import type { Binding } from '../binding/index.ts';
-import type { Key, Keys } from '../key/index.ts';
+import { isApple, type Key, type Keys } from '../key/index.ts';
 import { createKeyInput } from '../key-input/index.ts';
 import type { Cancel, Progress } from '../keymap/index.ts';
 import { development } from './development.ts';
@@ -75,10 +75,6 @@ export function KeysProvider(props: KeysProviderProps) {
   }, [ignored]);
   return outer === undefined ? <Provider {...props} /> : props.children;
 }
-
-const isApple = () =>
-  typeof navigator !== 'undefined' &&
-  /Mac|iPhone|iPad|iPod/.test(navigator.platform);
 
 function Provider(props: KeysProviderProps) {
   const latest = useLatest(props);

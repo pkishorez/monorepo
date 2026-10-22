@@ -44,16 +44,18 @@ export const SessionSchema = EntityESchema.make('AiSession', 'id', {
   /** The harness's own session id, to resume its context after a restart. */
   nativeId: Schema.NullOr(Schema.String),
   createdAt: Schema.Finite,
-})
-  .evolve(
-    'v2',
-    {
-      /** The Session and Turn this one was forked after; null when it was not. */
-      forkedFrom: Schema.NullOr(ForkedFrom),
-    },
-    (v1) => ({ ...v1, forkedFrom: null }),
-  )
-  .build();
+  /**
+   * The Session and Turn this one was forked after; null when it was not.
+   * That Session's Messages hold the Turn, up to its `turnEnded`.
+   */
+  forkedFrom: Schema.NullOr(ForkedFrom),
+  /** When the user Settled it; null while it is not Settled. */
+  settledAt: Schema.NullOr(Schema.Finite),
+  /** When a Turn last started in it, or when it was made. */
+  activeAt: Schema.Finite,
+  /** When its last Turn ended, however it ended; null until one has. */
+  endedAt: Schema.NullOr(Schema.Finite),
+}).build();
 
 export type Session = typeof SessionSchema.Type;
 

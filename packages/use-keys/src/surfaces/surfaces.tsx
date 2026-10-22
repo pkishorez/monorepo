@@ -15,6 +15,7 @@ import {
   useSyncExternalStore,
 } from 'react';
 import type { Binding } from '../core/binding/index.ts';
+import { isApple } from '../core/key/index.ts';
 import {
   development,
   KeysProvider,
@@ -30,6 +31,7 @@ import {
 } from './definition/index.ts';
 import { composeRefs, mergeProps } from './slot.ts';
 import {
+  checkBindings,
   createStore,
   type Mode,
   type State,
@@ -111,6 +113,41 @@ export type AvailableAction<D> = {
   readonly run: () => void;
 };
 
+/** The user's own keys, by Action id: each replaces that Action's defaults. */
+export type Bindings<D> = {
+  readonly [Id in ActionId<D>]?: string | ReadonlyArray<string>;
+};
+
+/** What a set of Bindings would do, from `keys.checkBindings`. */
+export type BindingsCheck<D> = {
+  /**
+   * Two Actions on one Surface whose keys Conflict: `id`, written later,
+   * would lose `keys` to `with`. A settings screen offers to Swap them.
+   */
+  readonly conflicts: ReadonlyArray<{
+    readonly id: ActionId<D>;
+    readonly with: ActionId<D>;
+    readonly surface: SurfaceName<D>;
+    readonly keys: string;
+  }>;
+  /** An Action whose `keys` do nothing where `by`, on a nearer Surface, works. */
+  readonly shadowed: ReadonlyArray<{
+    readonly id: ActionId<D>;
+    readonly by: ActionId<D>;
+    readonly keys: string;
+  }>;
+  /** Bindings naming no Action, or keys that are no Shortcut or Sequence. */
+  readonly invalid: ReadonlyArray<{
+    readonly id: string;
+    readonly reason: string;
+  }>;
+};
+
+export type FocusSpotOptions = {
+  /** Where focus goes in its Surface before any spot there was focused. */
+  readonly default?: boolean;
+};
+
 export type ProviderProps<D> = {
   /**
    * Whether Vim Mode is on: a preference the app keeps, such as in
@@ -126,9 +163,7 @@ export type ProviderProps<D> = {
    * The user's own keys, by Action id. Each replaces that Action's
    * defaults, and a change works at once.
    */
-  readonly bindings?: {
-    readonly [Id in ActionId<D>]?: string | ReadonlyArray<string>;
-  };
+  readonly bindings?: Bindings<D>;
   readonly children?: ReactNode;
 };
 
@@ -169,6 +204,32 @@ export type Keys<D extends Definition> = {
   readonly useActive: () => SurfaceName<D>;
   readonly useKeyboard: () => Keyboard<D>;
   readonly useAvailableActions: () => ReadonlyArray<AvailableAction<D>>;
+  /**
+   * An Action's keys as bound now, the user's Bindings over its defaults,
+   * wherever the user is: for a button's title, which names the keys
+   * whether or not the Action works from where it is drawn.
+   */
+  readonly useKeysOf: (id: ActionId<D>) => ReadonlyArray<Binding>;
+  /**
+   * Marks an element as the Focus Spot `name` of a Surface: a place focus
+   * goes back to when the user comes back to it, by name, so it survives a
+   * remount. Give the returned ref to the element, or to one around the
+   * field it should focus.
+   */
+  readonly useFocusSpot: (
+    surface: SurfaceName<D>,
+    name: string,
+    options?: FocusSpotOptions,
+  ) => (element: HTMLElement | null) => (() => void) | undefined;
+  /**
+   * Checks the user's own Bindings without throwing: which Actions would
+   * Conflict on one Surface, and which would only be Shadowed by a nearer
+   * one. `mac` decides what `mod` is: this platform's by default.
+   */
+  readonly checkBindings: (
+    bindings: Bindings<D>,
+    options?: { readonly mac?: boolean },
+  ) => BindingsCheck<D>;
 };
 
 const DEFAULT_REPEAT = { delay: 200, interval: 40 };
@@ -400,6 +461,39 @@ function make(definition: Definition): Keys<Definition> {
     ) as ReadonlyArray<never>;
   };
 
+  const useKeysOf: Keys<Definition>['useKeysOf'] = (id) => {
+    const store = useStore('keys.useKeysOf');
+    const read = () => store.keysOf(id);
+    return useSyncExternalStore(store.subscribe, read, read);
+  };
+
+  const useFocusSpot: Keys<Definition>['useFocusSpot'] = (
+    surface,
+    name,
+    options = {},
+  ) => {
+    if (!flat.surfaces.has(surface)) {
+      throw new Error(`use-keys: "${surface}" is no Surface of this keys.`);
+    }
+    const store = useStore('keys.useFocusSpot');
+    const isDefault = options.default === true;
+    return useCallback(
+      (element: HTMLElement | null) =>
+        element === null
+          ? undefined
+          : store.spot(surface, name, isDefault, element),
+      [store, surface, name, isDefault],
+    );
+  };
+
+  const check: Keys<Definition>['checkBindings'] = (bindings, options = {}) =>
+    // Its ids and names are the definition's, which `createKeys` types.
+    checkBindings(
+      flat,
+      bindings,
+      options.mac ?? isApple(),
+    ) as BindingsCheck<Definition>;
+
   return {
     definition,
     Provider,
@@ -409,6 +503,9 @@ function make(definition: Definition): Keys<Definition> {
     useActive,
     useKeyboard,
     useAvailableActions,
+    useKeysOf,
+    useFocusSpot,
+    checkBindings: check,
   };
 }
 

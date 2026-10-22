@@ -213,7 +213,7 @@ describe('a Turn', () => {
 });
 
 describe('a Fork', () => {
-  it('copies the transcript up to the Turn it forks after, and records where it came from', async () => {
+  it('copies nothing, and records the Turn it forks after', async () => {
     const fake = makeFakeHarness();
     await run(
       Effect.gen(function* () {
@@ -235,7 +235,7 @@ describe('a Fork', () => {
           harness: 'claude',
           model: 'claude-test',
           settings: { effort: 'high' },
-          title: 'hello (fork)',
+          title: 'hello',
           status: 'idle',
           nativeId: 'native-1-fork',
           forkedFrom: { sessionId: session.id, turnId: firstTurn },
@@ -243,13 +243,9 @@ describe('a Fork', () => {
         yield* eventually(async () =>
           expect(await saved(fork.id)).toMatchObject({ status: 'idle' }),
         );
-        const parent = yield* Effect.promise(() => raws());
-        const copied = yield* Effect.promise(() => raws(fork.id));
-        expect(copied.map(brief)).toEqual(parent.slice(0, 4).map(brief));
-        expect(copied.every((raw) => raw.turnId === firstTurn)).toBe(true);
-        expect(copied.some((raw) => parent.some((p) => p.id === raw.id))).toBe(
-          false,
-        );
+        expect(yield* Effect.promise(() => raws(fork.id))).toEqual([]);
+        expect(fork.activeAt).toBe(fork.createdAt);
+        expect(fork.settledAt).toBeNull();
 
         // Null forks after the latest finished Turn.
         yield* engine.forkSession(session.id, null);
@@ -260,6 +256,89 @@ describe('a Fork', () => {
         yield* eventually(() =>
           expect(fake.opens.at(-1)?.nativeId).toBe('native-1-fork'),
         );
+      }),
+      fake,
+    );
+  });
+
+  it('forks a Fork after a Turn it inherited: the agent from the Session that ran it, named as the Fork', async () => {
+    const fake = makeFakeHarness();
+    await run(
+      Effect.gen(function* () {
+        const { engine, session, raws, idle } = yield* started();
+        yield* idle();
+        const firstTurn = (yield* Effect.promise(() => raws()))[0]!.turnId;
+        yield* engine.send(session.id, say('second'));
+        yield* eventually(async () => expect(await raws()).toHaveLength(8));
+        yield* idle();
+        const secondTurn = (yield* Effect.promise(() => raws()))[4]!.turnId;
+        const fork = yield* engine.forkSession(session.id, firstTurn);
+
+        // With no Turn of its own, the latest is the one it was forked after.
+        const again = yield* engine.forkSession(fork.id, null);
+        expect(again.forkedFrom).toEqual({
+          sessionId: fork.id,
+          turnId: firstTurn,
+        });
+        // A Fork of that one finds the Turn up the whole chain.
+        const third = yield* engine.forkSession(again.id, firstTurn);
+        expect(third.forkedFrom).toEqual({
+          sessionId: again.id,
+          turnId: firstTurn,
+        });
+        expect(fake.forks.at(-1)).toMatchObject({
+          nativeId: 'native-1',
+          at: 'native-1:turn-1',
+        });
+        // A Turn of the original after the Fork Point is not the Fork's.
+        const refused = yield* Effect.flip(
+          engine.forkSession(fork.id, secondTurn),
+        );
+        expect(refused).toMatchObject({
+          _tag: 'NotForkable',
+          reason: 'This Session has no such Turn',
+        });
+
+        // After a Turn of its own, the Fork is what holds it.
+        yield* engine.send(fork.id, say('in the fork'));
+        yield* idle(fork.id);
+        const own = (yield* Effect.promise(() => raws(fork.id)))[0]!.turnId;
+        const ofFork = yield* engine.forkSession(fork.id, null);
+        expect(ofFork.forkedFrom).toEqual({ sessionId: fork.id, turnId: own });
+        expect(fake.forks.at(-1)?.nativeId).toBe('native-1-fork');
+      }),
+      fake,
+    );
+  });
+
+  it('never reads an original past the tightest Fork Point up the chain', async () => {
+    const fake = makeFakeHarness();
+    await run(
+      Effect.gen(function* () {
+        const { engine, session, raws, idle } = yield* started();
+        yield* idle();
+        const firstTurn = (yield* Effect.promise(() => raws()))[0]!.turnId;
+        yield* engine.send(session.id, say('second'));
+        yield* eventually(async () => expect(await raws()).toHaveLength(8));
+        yield* idle();
+        const secondTurn = (yield* Effect.promise(() => raws()))[4]!.turnId;
+
+        // `fork` holds both Turns; `nested` was made after the first only.
+        const fork = yield* engine.forkSession(session.id, secondTurn);
+        const nested = yield* engine.forkSession(fork.id, firstTurn);
+        expect(
+          yield* Effect.flip(engine.forkSession(nested.id, secondTurn)),
+        ).toMatchObject({
+          _tag: 'NotForkable',
+          reason: 'This Session has no such Turn',
+        });
+        // Its latest is still the Turn it was made after.
+        const latest = yield* engine.forkSession(nested.id, null);
+        expect(latest.forkedFrom).toEqual({
+          sessionId: nested.id,
+          turnId: firstTurn,
+        });
+        expect(fake.forks.at(-1)?.at).toBe('native-1:turn-1');
       }),
       fake,
     );
@@ -320,6 +399,9 @@ describe('a Fork', () => {
             nativeId: null,
             createdAt: 1,
             forkedFrom: null,
+            settledAt: null,
+            activeAt: 1,
+            endedAt: null,
           });
           return { sessionId: 's1' };
         }),
@@ -344,6 +426,70 @@ describe('a Fork', () => {
       }),
       fake,
       { path },
+    );
+  });
+});
+
+describe('Settling a Session', () => {
+  it('keeps it out of the way until a message un-settles it, and never stops its Turn', async () => {
+    const fake = makeFakeHarness({ hold: true });
+    await run(
+      Effect.gen(function* () {
+        const { engine, session, saved, raws, idle } = yield* started();
+        expect(session).toMatchObject({
+          settledAt: null,
+          activeAt: session.createdAt,
+        });
+        yield* eventually(async () => expect(await raws()).toHaveLength(2));
+
+        yield* engine.settleSession(session.id);
+        yield* eventually(async () =>
+          expect((await saved())?.settledAt).toBeTypeOf('number'),
+        );
+        const settledAt = (yield* Effect.promise(() => saved()))!.settledAt;
+        // Settling again keeps when it was; the Turn runs on.
+        yield* engine.settleSession(session.id);
+        expect(yield* Effect.promise(() => saved())).toMatchObject({
+          settledAt,
+          status: 'running',
+        });
+
+        yield* engine.unsettleSession(session.id);
+        yield* eventually(async () =>
+          expect((await saved())?.settledAt).toBeNull(),
+        );
+
+        // A steer un-settles it, and does not start a Turn.
+        yield* engine.settleSession(session.id);
+        yield* eventually(async () =>
+          expect((await saved())?.settledAt).not.toBeNull(),
+        );
+        yield* engine.send(session.id, say('steer'));
+        yield* eventually(async () =>
+          expect((await saved())?.settledAt).toBeNull(),
+        );
+        expect((yield* Effect.promise(() => saved()))?.activeAt).toBe(
+          session.activeAt,
+        );
+        yield* fake.finish;
+        yield* idle();
+
+        // A new Turn marks it active.
+        // Past the millisecond the first Turn started in.
+        yield* Effect.sleep('2 millis');
+        yield* engine.send(session.id, say('next'));
+        yield* eventually(async () =>
+          expect((await saved())?.activeAt).toBeGreaterThan(session.activeAt),
+        );
+
+        expect((yield* Effect.flip(engine.settleSession('nope')))._tag).toBe(
+          'SessionNotFound',
+        );
+        expect((yield* Effect.flip(engine.unsettleSession('nope')))._tag).toBe(
+          'SessionNotFound',
+        );
+      }),
+      fake,
     );
   });
 });

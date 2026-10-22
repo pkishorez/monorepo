@@ -381,6 +381,7 @@ export type QueryModel = {
   readonly keys: ReadonlyArray<string>;
   readonly status: string;
   readonly problem: string | null;
+  readonly caughtUp: boolean;
   readonly rows: ReadonlyArray<{
     readonly id: string | number;
     readonly row: {
@@ -405,6 +406,7 @@ type Reached = {
 
 export type InstanceModel = {
   readonly gate: boolean;
+  readonly caughtUp: ReadonlyArray<string>;
   readonly collections: ReadonlyArray<{
     readonly collection: string;
     readonly strategy: { readonly status: string } | null;

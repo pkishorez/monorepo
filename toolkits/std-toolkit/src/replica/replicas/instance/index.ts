@@ -1,6 +1,8 @@
 export {
+  CaughtUp,
   Hosting,
   Instances,
+  readsOf,
   type Build,
   type BuildOptions,
   type Instance,

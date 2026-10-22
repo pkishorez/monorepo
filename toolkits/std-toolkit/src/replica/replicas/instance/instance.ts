@@ -16,6 +16,7 @@ import type { Strategy } from './strategy/index.js';
 import { Store, type Opening } from '../../store/contract/index.js';
 import {
   announced,
+  answered,
   closed,
   Input,
   Message,
@@ -25,6 +26,7 @@ import {
   reported,
   resettled,
   State,
+  stillCaughtUp,
   withoutOne,
   type Synced,
 } from './model.js';
@@ -48,14 +50,24 @@ import { workerKey, type WindowAt, type WindowMap } from './windows.js';
  * 5. Sync     one Worker per Strategy: the whole Collection's, and each
  *             open Window's, only while Leading and the Gate is open. A
  *             closed Gate stops fetching, never reading.
+ * 6. Caught Up a scope is, once its Strategy answered, until it stops. The
+ *             Leader tells the others through the Store; each tells the
+ *             Queries that read it.
  */
 
 type KeyOf<D> = D extends Shape<string, infer K, any> ? K : never;
+
+/** Where a Query finds, on an Instance, whether what it reads is Caught Up: never a Collection's name. */
+export const CaughtUp: unique symbol = Symbol.for(
+  '@kestack/std-toolkit/replica/CaughtUp',
+);
 
 /** A running Instance, as `Replica.get` gives it: its Key, its Collections, and Confirm. */
 export type Instance<D extends AnyShape> = {
   readonly name: string;
   readonly key: KeyOf<D>;
+  /** Whether what a Query reads of it is Caught Up, for Query alone. */
+  readonly [CaughtUp]: Live['caughtUp'];
   /** Puts the Entities the Backend returned, in encoded form, in the Store, in place of the Optimistic Changes they answer. */
   readonly confirm: (
     entities: ReadonlyArray<Entity<unknown>>,
@@ -226,6 +238,11 @@ const build = <
         ]
       : [],
   );
+  const whole = new Set(
+    written.flatMap(({ collection, strategy }) =>
+      strategy ? [collection] : [],
+    ),
+  );
   const windowPaths = Object.fromEntries(
     written.flatMap(({ collection, windows }) => {
       const paths = Object.keys(windows);
@@ -239,6 +256,9 @@ const build = <
       : found?.windows[window.path]?.(window.value);
   };
   const leading = ({ state }: Data) => state._tag === 'Leading';
+  /** While it leads, a scope whose Strategy stopped is no longer Caught Up. */
+  const whileLeading = (data: Data, model: Model) =>
+    leading(data) ? stillCaughtUp(model) : model;
 
   // 5. Sync
   const syncing = {
@@ -271,6 +291,45 @@ const build = <
             send: self.send,
           });
         }),
+    },
+    // 6. Caught Up: what it is, told to the others whenever it changes, and
+    // again when one asks. Its first word, as it leads, clears what the last
+    // Leader told.
+    tell: {
+      run: (self: {
+        readonly get: Effect.Effect<Data>;
+        readonly changes: Stream.Stream<Data>;
+      }) =>
+        Effect.gen(function* () {
+          const { space } = yield* spaceOf(yield* self.get);
+          const telling = yield* Semaphore.make(1);
+          let latest: ReadonlyArray<string> = [];
+          const tell = telling.withPermit(
+            Effect.suspend(() => space.tell(latest)).pipe(
+              Effect.catch(
+                warn(`${space.name}: could not tell what is Caught Up`),
+              ),
+            ),
+          );
+          yield* Effect.all(
+            [
+              self.changes.pipe(
+                Stream.map(({ model }) => model.caughtUp),
+                Stream.changesWith(same),
+                Stream.runForEach((scopes) =>
+                  Effect.andThen(
+                    Effect.sync(() => {
+                      latest = scopes;
+                    }),
+                    tell,
+                  ),
+                ),
+              ),
+              Stream.runForEach(space.asked, () => tell),
+            ],
+            { concurrency: 'unbounded', discard: true },
+          );
+        }).pipe(Effect.ignore),
     },
     // 4. Window: what other participants have open, read anew each time
     // one records it. A new Leader first clears every record and asks for
@@ -321,6 +380,7 @@ const build = <
           key,
           gate: gate === undefined,
           pending: [],
+          caughtUp: [],
           collections: written.map(({ collection, strategy }): Synced => ({
             collection,
             strategy: strategy ? { status: 'idle', problem: null } : null,
@@ -343,6 +403,7 @@ const build = <
                 keyOfModel(data),
                 space,
                 windowPaths,
+                whole,
               );
               yield* Effect.acquireRelease(hosting.up(instance), () =>
                 hosting.down(name),
@@ -378,6 +439,18 @@ const build = <
                 }),
               ),
             ),
+        },
+        // 6. Caught Up: what the Model says, for the Queries that read it.
+        report: {
+          run: (self) =>
+            Effect.gen(function* () {
+              const opened = yield* spaceOf(yield* self.get);
+              yield* self.changes.pipe(
+                Stream.map(({ model }) => model.caughtUp),
+                Stream.changesWith(same),
+                Stream.runForEach(opened.report),
+              );
+            }).pipe(Effect.ignore),
         },
         // 2. Lead
         lead: {
@@ -481,7 +554,10 @@ const build = <
       },
       on: {
         Gated: ({ open }, data) => ({
-          model: resettled({ ...data.model, gate: open }, leading(data)),
+          model: whileLeading(
+            data,
+            resettled({ ...data.model, gate: open }, leading(data)),
+          ),
         }),
         ActionBegan: ({ action }, { model }) => ({
           model: { ...model, pending: [...model.pending, action] },
@@ -495,11 +571,14 @@ const build = <
         WindowReleased: ({ _tag, at, ...where }, { model }) => ({
           model: released(model, where, at, gcTime),
         }),
-        WindowClosed: ({ _tag, until, ...where }, { model }) => ({
-          model: closed(model, where, until),
+        WindowClosed: ({ _tag, until, ...where }, data) => ({
+          model: whileLeading(data, closed(data.model, where, until)),
         }),
         Announced: ({ windows }, data) => ({
-          model: announced(data.model, windows, leading(data)),
+          model: whileLeading(
+            data,
+            announced(data.model, windows, leading(data)),
+          ),
         }),
         Outdated: ({ _tag, ...scope }, { model }) => ({
           model: reported(model, scope, { status: 'outdated', problem: null }),
@@ -517,17 +596,47 @@ const build = <
       state: {
         Following: {
           on: {
+            // Its own Strategies start now: none has answered yet.
             Led: (_, { model }) => ({
-              model: resettled(model, true),
+              model: { ...resettled(model, true), caughtUp: [] },
               state: { _tag: 'Leading' },
             }),
+            Told: ({ scopes }, { model }) => ({
+              model: { ...model, caughtUp: scopes },
+            }),
+          },
+          workers: {
+            // 6. Caught Up: what the Leader tells, once what it read shows here.
+            hear: {
+              run: (self) =>
+                Effect.gen(function* () {
+                  const opened = yield* spaceOf(yield* self.get);
+                  const { space } = opened;
+                  yield* Stream.runForEach(space.told, () =>
+                    Effect.gen(function* () {
+                      const scopes = yield* space.caughtUp;
+                      yield* opened.refresh;
+                      yield* self.send({ _tag: 'Told', scopes });
+                    }).pipe(
+                      Effect.catch(
+                        warn(`${space.name}: could not hear what is Caught Up`),
+                      ),
+                    ),
+                  );
+                }).pipe(Effect.ignore),
+            },
           },
         },
         Leading: {
+          on: {
+            Answered: ({ _tag, ...scope }, { model }) => ({
+              model: answered(model, scope),
+            }),
+          },
           workers:
             Object.keys(windowPaths).length > 0
               ? syncing
-              : { sync: syncing.sync },
+              : { sync: syncing.sync, tell: syncing.tell },
         },
       },
     },
@@ -544,3 +653,5 @@ const build = <
 /** How each Instance of a Replica syncs: its Gate, its GC Time, and the Strategies of its Collections and their Windows. */
 export const Instances = { build };
 export type { Live, Opened, WindowMap };
+/** Makes a query, naming what it reads of each Instance as it is made. */
+export { readsOf } from './collections.js';

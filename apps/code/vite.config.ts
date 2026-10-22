@@ -14,6 +14,6 @@ export default defineConfig({
   plugins: [
     tailwindcss(),
     react(),
-    start({ platform: cloudflare(), app: 'src/client/app' }),
+    start({ platform: cloudflare(), app: 'src/app' }),
   ],
 });

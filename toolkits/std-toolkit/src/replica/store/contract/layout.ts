@@ -6,8 +6,9 @@ import { EntityESchema, ESchema } from '../../../eschema/index.js';
  * How one Instance's space is laid out, as a StdTable: one row per Entity a
  * Collection holds, numbered in the order it was written; one row per
  * Collection holding the last number given; one row per Strategy scope, the
- * whole Collection or one Window, holding its cursor; and one row per
- * participant naming the Windows it has open.
+ * whole Collection or one Window, holding its cursor; one row per
+ * participant naming the Windows it has open; and one row of the scopes the
+ * Leader last told are Caught Up.
  */
 
 export const SPACE_TABLE = 'replica';
@@ -74,6 +75,20 @@ export const openings = space
   .build();
 
 export const OPENING = 'opening';
+
+const ToldSchema = EntityESchema.make('ReplicaTold', 'of', {
+  /** Always `told`, as its id is always `leader`: there is one row. */
+  kind: Schema.String,
+  /** The scopes Caught Up, by Worker key, as `entries/wallet="w1"`. */
+  scopes: ESchema.fromType<Opaque>(),
+}).build();
+
+export const told = space
+  .entity(ToldSchema)
+  .primary({ pk: ['kind'] })
+  .build();
+
+export const TOLD = { kind: 'told', of: 'leader' } as const;
 
 const SEQUENCE_WIDTH = 16;
 

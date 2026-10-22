@@ -105,6 +105,18 @@ export function sequence(written: string | SequenceSteps | Sequence) {
   return { type: 'sequence', steps } satisfies Sequence;
 }
 
+/**
+ * A Shortcut or Sequence from keys written at runtime, such as a user's
+ * stored Bindings: `'mod+k'`, or steps one space apart, `'g g'`. Throws on
+ * text that is neither.
+ */
+export const bindingOf = (written: string): Binding => {
+  const steps = written.split(' ').map(parse);
+  const [first] = steps;
+  if (steps.length === 1 && first !== undefined) return first;
+  return { type: 'sequence', steps };
+};
+
 /** The steps of a Binding: one for a Shortcut. */
 export const stepsOf = (binding: Binding): ReadonlyArray<Shortcut> =>
   binding.type === 'shortcut' ? [binding] : binding.steps;
@@ -123,3 +135,4 @@ export const describe = (binding: Binding) =>
   stepsOf(binding).map(describeStep).join(' ');
 
 export { conflicts, exact, type Exact } from './exact.ts';
+export { shortcutOf } from './record.ts';

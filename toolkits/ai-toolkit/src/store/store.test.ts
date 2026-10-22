@@ -31,6 +31,9 @@ const session: Session = {
   nativeId: null,
   createdAt: 1,
   forkedFrom: null,
+  settledAt: null,
+  activeAt: 1,
+  endedAt: null,
 };
 
 describe('Store', () => {

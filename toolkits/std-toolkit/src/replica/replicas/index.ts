@@ -1,1 +1,7 @@
-export { Holding, Replicas, type Running } from './replicas.js';
+export {
+  CaughtUp,
+  Holding,
+  readsOf,
+  Replicas,
+  type Running,
+} from './replicas.js';

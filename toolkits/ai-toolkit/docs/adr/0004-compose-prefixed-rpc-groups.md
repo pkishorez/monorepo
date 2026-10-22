@@ -1,5 +1,14 @@
-# Compose camel-cased RPC groups
+# The API is one RpcGroup merged from groups by area
 
-> **Status:** current. The common group now holds only `cancelRun`; observation moved to the AI Table (ADR-0010).
+`AiApi` is one Effect RpcGroup merged from six, each in its own file under `src/api/contract/`: `harnesses` (what each Coding Harness offers, and its Harness Binary), `projects`, `sessions` (started, forked, Settled, asked, and how they stand), `turns` (messages sent and the Messages they emit), `jobs` (Background Jobs) and `folders` (the home folder's sub-folders, listed and made). Procedures keep plain verb-first names (`listFolder`, `settleSession`), unique across the groups, so the client stays one flat object (`api.listFolder`) and one handler Layer serves them all.
 
-The public Effect RPC contract is one `AiRpc` formed by merging a common lifecycle group with Claude and Codex groups. Harness-specific procedures use camel-cased prefixes such as `claudeStart` and `codexRespond`; common procedures use verb-first names such as `watchRun`. Dotted tags were rejected because Effect's generated client would require bracket access rather than producing a nested client object. Harness-specific start and response procedures preserve narrowed options and native interaction semantics without a growing discriminated union in common RPC.
+## Considered options
+
+- **One RpcGroup in one file.** Rejected: at two dozen procedures the contract is hard to read, and every change touches the same file.
+- **Separate RpcGroups served and joined apart.** Rejected: an app would hold one client per group over one WebSocket, and a handler Layer per group buys nothing while the Engine serves them all.
+- **Prefixed or dotted names (`claudeStart`, `folders.list`).** Rejected: a dotted tag makes Effect's client use bracket access, and a prefix repeats the group. This ADR first chose camel-cased harness prefixes (`claudeStart`, `codexRespond`) for harness-specific procedures; those went when every harness came to share one set of commands.
+
+## Consequences
+
+- A procedure name is unique across all six groups; the merge would let a later one replace an earlier one.
+- Adding a group is a file and one line in `contract.ts`; clients see its procedures beside the rest.

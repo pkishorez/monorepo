@@ -111,12 +111,18 @@ export type AgentReport =
       readonly _tag: 'TurnEnded';
       readonly turnId: string;
       readonly status: TurnEndStatus;
+      /** When it ended: a message waiting starts the next Turn then. */
+      readonly at: number;
     }
   | { readonly _tag: 'NativeId'; readonly nativeId: string }
   /** The agent took a steer of the running Turn. */
   | { readonly _tag: 'Steered'; readonly turnId: string; readonly id: string }
   /** The agent started a Turn on its own; the Session runs it as `turnId`. */
-  | { readonly _tag: 'AgentTurn'; readonly turnId: string };
+  | {
+      readonly _tag: 'AgentTurn';
+      readonly turnId: string;
+      readonly at: number;
+    };
 
 /** What a Session hands its children: its harness and its live agent. */
 export class SessionAgent extends Context.Service<

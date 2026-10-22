@@ -101,8 +101,10 @@ export const settledOf = (window: Duration.Input | undefined) => {
 };
 
 /**
- * Reads forward for one Key from a cursor and yields every non-empty batch.
- * `from` is read again at the start of every cycle.
+ * Reads forward for one Key from a cursor and yields every non-empty batch,
+ * and the first answer of each cycle even when it is empty, so a Strategy
+ * can say the Backend answered. `from` is read again at the start of every
+ * cycle.
  *
  * - `fetch` only: catch up, then poll every `pollEvery`, or end without it.
  * - `subscribe` only: the Backend replays everything after the cursor, then
@@ -113,19 +115,30 @@ export const readForward = <K, R>(
   options: ForwardOptions<K, R>,
   key: K,
   from: () => Wire | null,
-): Stream.Stream<Batch, unknown, R> => {
+): Stream.Stream<ReadonlyArray<Wire>, unknown, R> => {
   let reading: Wire | null = null;
-  const advance = (batch: Batch) => {
+  // Whether this cycle has had its first answer yet.
+  let answered = false;
+  const advance = (batch: ReadonlyArray<Wire>) => {
+    if (!isBatch(batch)) return batch;
     const newest = newestOf(batch);
     if (reading === null || newest.meta._u >= reading.meta._u) reading = newest;
     return batch;
+  };
+  /** Whether this is the cycle's first answer, and from now on it is not. */
+  const first = () => {
+    const was = !answered;
+    answered = true;
+    return was;
   };
 
   const catchUp = (fetch: Fetch<K, R>) =>
     Stream.paginate(reading, (cursor) =>
       fetch({ key, after: cursor }).pipe(
         Effect.map((page) => {
-          if (!isBatch(page)) return [[], Option.none()] as const;
+          const firstAnswer = first();
+          if (!isBatch(page))
+            return [firstAnswer ? [page] : [], Option.none()] as const;
           const next = newestOf(page);
           // A Backend whose cursor is inclusive returns the last page forever,
           // so stop as soon as the cursor stops moving.
@@ -137,15 +150,18 @@ export const readForward = <K, R>(
       ),
     ).pipe(Stream.map(advance));
 
+  // A feed's first batch is its answer: one with nothing to replay says so
+  // with an empty batch.
   const live = (subscribe: Subscribe<K, R>) =>
     Stream.suspend(() => subscribe({ key, after: reading })).pipe(
-      Stream.filter(isBatch),
+      Stream.filter((batch) => first() || isBatch(batch)),
       Stream.map(advance),
     );
 
-  const cycle = (body: () => Stream.Stream<Batch, unknown, R>) =>
+  const cycle = (body: () => Stream.Stream<ReadonlyArray<Wire>, unknown, R>) =>
     Stream.suspend(() => {
       reading = from();
+      answered = false;
       return body();
     });
 

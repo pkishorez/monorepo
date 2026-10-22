@@ -1,9 +1,11 @@
 export {
+  bindingOf,
   conflicts,
   describe,
   exact,
   sequence,
   shortcut,
+  shortcutOf,
   stepsOf,
 } from './binding.ts';
 export type {

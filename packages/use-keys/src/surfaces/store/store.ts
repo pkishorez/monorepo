@@ -8,7 +8,13 @@ import {
 import { bindingsOf, type Flat } from '../definition/index.ts';
 import { conflictsOf, isEscape, type Live, resolve } from './actions.ts';
 import { createDeclarations } from './declarations.ts';
-import { firstElement, focusIn, watchPage } from './focus.ts';
+import {
+  firstElement,
+  focusIn,
+  focusLost,
+  focusTarget,
+  watchPage,
+} from './focus.ts';
 import {
   inside,
   isolationOf,
@@ -54,6 +60,16 @@ export type Status = {
   readonly pending: string | null;
 };
 
+/** A named place in a Surface where focus can rest, such as its composer. */
+type Spot = {
+  readonly surface: string;
+  readonly name: string;
+  readonly default: boolean;
+};
+
+// A Surface remembering its own element, not one of its Focus Spots.
+const ITSELF = Symbol('itself');
+
 const warn = (message: string) => {
   if (development()) console.warn(`use-keys: ${message}`);
 };
@@ -71,6 +87,8 @@ const up = (element: Element) => {
  * Surface. After every change it tells the Keys Provider which keys work,
  * and its subscribers that it changed. Escape goes through it first.
  */
+const NO_KEYS: ReadonlyArray<Binding> = [];
+
 export const createStore = (flat: Flat, dispatcher: Dispatcher, vim: Vim) => {
   const tree = flat.surfaces;
   const defaults = new Map(
@@ -87,10 +105,17 @@ export const createStore = (flat: Flat, dispatcher: Dispatcher, vim: Vim) => {
   const elements = new Map<string, Set<HTMLElement>>();
   const owners = new WeakMap<Element, string>();
   const exits = new Map<string, Set<{ current: (() => void) | undefined }>>();
+  // Each Surface's Focus Spots, and the spot or element focus was last in.
+  const spots = new Map<string, Map<HTMLElement, Spot>>();
+  const spotOf = new WeakMap<Element, Spot>();
+  const memory = new Map<string, string | typeof ITSELF>();
   // The innermost Surface DOM focus is in, and whether that is Text Entry.
   let focused: string | null = null;
   let textEntry = false;
-  // The Surface entered by key whose element should take focus.
+  // The Surface DOM focus last went into; kept when focus goes to nothing,
+  // or to an element of no Surface.
+  let lastIn: string | null = null;
+  // The Surface come back to whose Focus Spot, or element, should take focus.
   let owed: string | null = null;
   let attached = false;
   let lost = new Set<string>();
@@ -164,28 +189,83 @@ export const createStore = (flat: Flat, dispatcher: Dispatcher, vim: Vim) => {
     changed();
   };
 
-  // With Vim Mode on, focus follows a Surface entered by key to its first
-  // element, unless it is already in one; an element mounting later takes it.
+  const spotsOf = (name: string) =>
+    [...(spots.get(name) ?? [])].filter(([element]) => element.isConnected);
+
+  // Where focus goes back to in a Surface: the Focus Spot it was last in,
+  // else its default one, else, in Vim Mode, its first element. A Surface
+  // last focused on its own element goes back to it.
+  const placeOf = (name: string) => {
+    const first = () => firstElement(elements.get(name) ?? []);
+    const remembered = memory.get(name);
+    if (remembered === ITSELF) return first();
+    const mine = spotsOf(name);
+    const spot =
+      mine.findLast(([, each]) => each.name === remembered) ??
+      mine.findLast(([, each]) => each.default);
+    if (spot !== undefined) return focusTarget(spot[0]);
+    return vim.on() ? first() : undefined;
+  };
+
+  // Focus goes back to the Surface come back to, unless it is already in
+  // it; a Focus Spot or element mounting later takes it.
   const settleFocus = () => {
     if (owed === null) return;
-    if (owed !== active || !vim.on()) {
+    if (owed !== active) {
       owed = null;
       return;
     }
-    const mine = elements.get(active) ?? [];
+    const mine = [
+      ...(elements.get(active) ?? []),
+      ...spotsOf(active).map(([element]) => element),
+    ];
     if (focusIn(mine)) {
       owed = null;
       return;
     }
-    const first = firstElement(mine);
-    if (first === undefined) return;
+    const place = placeOf(active);
+    if (place === undefined) return;
     owed = null;
-    first.focus({ preventScroll: true });
+    place.focus({ preventScroll: true });
   };
-  const moveFocus = () => {
-    if (!vim.on() || typeof document === 'undefined') return;
+  // `always`: a route back to a Surface, which restores focus with Vim Mode
+  // off too; otherwise only with it on.
+  // At once when the place is there, so focus is out of a Surface left
+  // before it is drawn closed; else once React has committed.
+  const moveFocus = (always: boolean) => {
+    if (typeof document === 'undefined' || (!always && !vim.on())) return;
+    owed = active;
+    settleFocus();
+    if (owed !== null) queueMicrotask(settleFocus);
+  };
+  // A Focus Spot or element of the Active Surface mounted: if focus was in
+  // that Surface and fell to nothing, or out of every Surface, as when its
+  // element was remounted, it goes back.
+  const mounted = (name: string) => {
+    if (owed === name) {
+      queueMicrotask(settleFocus);
+      return;
+    }
+    if (!attached || name !== active || !inside(tree, lastIn, active)) return;
+    // Lost, or resting outside every Surface, as on a closing popup.
+    if (!focusLost() && ownerOf(document.activeElement) !== null) return;
     owed = active;
     queueMicrotask(settleFocus);
+  };
+
+  // Remembers the Focus Spot focus went into, or the Surface's own element.
+  const remember = (target: Element) => {
+    for (let at: Element | null = target; at !== null; at = up(at)) {
+      const spot = spotOf.get(at);
+      if (spot !== undefined) {
+        memory.set(spot.surface, spot.name);
+        return;
+      }
+      const owner = owners.get(at);
+      if (owner === undefined) continue;
+      if (at === target) memory.set(owner, ITSELF);
+      return;
+    }
   };
 
   const enter = (
@@ -210,7 +290,7 @@ export const createStore = (flat: Flat, dispatcher: Dispatcher, vim: Vim) => {
       active = target;
       changed();
     }
-    if (how.move) moveFocus();
+    if (how.move) moveFocus(true);
   };
 
   // Leaves the Active Surface, as Escape does: runs every onExit of it,
@@ -228,7 +308,7 @@ export const createStore = (flat: Flat, dispatcher: Dispatcher, vim: Vim) => {
     from.delete(left);
     active = target;
     changed();
-    moveFocus();
+    moveFocus(true);
     return true;
   };
 
@@ -266,9 +346,10 @@ export const createStore = (flat: Flat, dispatcher: Dispatcher, vim: Vim) => {
     return on || surface.isolated ? leave() : false;
   };
 
+  // The innermost Surface an element is in: a Focus Spot is in its own.
   const ownerOf = (target: Element | null) => {
     for (let at = target; at !== null; at = up(at)) {
-      const name = owners.get(at);
+      const name = owners.get(at) ?? spotOf.get(at)?.surface;
       if (name !== undefined) return name;
     }
     return null;
@@ -298,6 +379,14 @@ export const createStore = (flat: Flat, dispatcher: Dispatcher, vim: Vim) => {
               focused: (target) => {
                 textEntry = isTextEntry(target);
                 focused = ownerOf(target);
+                // Focus resting in no Surface, such as on a closing popup's
+                // own element, is passing: it pays nothing owed, and the
+                // Surface it was last in is kept.
+                if (target !== null && focused !== null) {
+                  owed = null;
+                  lastIn = focused;
+                }
+                if (target !== null) remember(target);
                 changed();
                 if (focused !== null) {
                   enter(focused, { move: false, guarded: true });
@@ -307,10 +396,10 @@ export const createStore = (flat: Flat, dispatcher: Dispatcher, vim: Vim) => {
       const stopEscape = dispatcher.onEscape(escape);
       const stopVim = vim.subscribe(() => {
         changed();
-        moveFocus();
+        moveFocus(false);
       });
       liveChanged();
-      moveFocus();
+      moveFocus(false);
       return () => {
         attached = false;
         liveSaid = '';
@@ -363,10 +452,31 @@ export const createStore = (flat: Flat, dispatcher: Dispatcher, vim: Vim) => {
       const mine = elements.get(name) ?? new Set();
       elements.set(name, mine.add(element));
       owners.set(element, name);
-      if (owed === name) queueMicrotask(settleFocus);
+      mounted(name);
       return () => {
         mine.delete(element);
         owners.delete(element);
+      };
+    },
+
+    /**
+     * Shows `element` as the Focus Spot `name` of `surface`, its default
+     * one with `isDefault`.
+     */
+    spot: (
+      surface: string,
+      name: string,
+      isDefault: boolean,
+      element: HTMLElement,
+    ) => {
+      const mine = spots.get(surface) ?? new Map<HTMLElement, Spot>();
+      const spot: Spot = { surface, name, default: isDefault };
+      spots.set(surface, mine.set(element, spot));
+      spotOf.set(element, spot);
+      mounted(surface);
+      return () => {
+        mine.delete(element);
+        spotOf.delete(element);
       };
     },
 
@@ -397,6 +507,10 @@ export const createStore = (flat: Flat, dispatcher: Dispatcher, vim: Vim) => {
 
     /** The Active Surface. */
     active: () => active,
+
+    /** An Action's keys as bound now: the user's own, else its defaults. */
+    keysOf: (id: string): ReadonlyArray<Binding> =>
+      custom.get(id) ?? defaults.get(id) ?? NO_KEYS,
 
     status: (): Status => {
       const path = pathOf(tree, active);

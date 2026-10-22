@@ -7,7 +7,8 @@ import { scopeOf, type WindowAt } from './windows.js';
 /*
  * One Strategy, for a whole Collection or one Window of it, run while its
  * Instance leads and its Gate is open: from the cursor the Store holds for
- * its scope, keeping each yield in one write. A failure tries again from the
+ * its scope, keeping each yield in one write. Its first answer makes its
+ * scope Caught Up, once what it held is kept. A failure tries again from the
  * saved cursor, waiting longer each time; an Entity newer than this app
  * knows stops it until a reload.
  */
@@ -38,6 +39,7 @@ export const runStrategy = <K, R>(options: {
   const decode = Schema.decodeUnknownOption(strategy.state);
   const encode = Schema.encodeSync(strategy.state);
   let failing = false;
+  let answered = false;
 
   // A cursor saved by another Strategy, or one that no longer fits, starts over.
   const start = opened.space
@@ -56,27 +58,42 @@ export const runStrategy = <K, R>(options: {
     return send({ _tag: 'Recovered', ...at });
   });
 
+  const answer = Effect.suspend(() => {
+    if (answered) return Effect.void;
+    answered = true;
+    return send({ _tag: 'Answered', ...at });
+  });
+
   const once = Effect.gen(function* () {
     const state = yield* start;
+    // An answer with nothing new and the same cursor has nothing to write.
+    let written = JSON.stringify(encode(state));
     yield* strategy.run({ key, state }).pipe(
-      Stream.runForEach((pulled) =>
-        opened
-          .keep(collection, pulled.entities, {
-            scope,
-            strategy: strategy.name,
-            state: encode(pulled.state),
-          })
-          .pipe(
-            Effect.flatMap((result) =>
-              result === 'outdated'
-                ? Effect.andThen(
-                    send({ _tag: 'Outdated', ...at }),
-                    Effect.fail(new Outdated()),
-                  )
-                : kept,
-            ),
+      Stream.runForEach((pulled) => {
+        const cursor = encode(pulled.state);
+        const text = JSON.stringify(cursor);
+        const unchanged = pulled.entities.length === 0 && text === written;
+        written = text;
+        return (
+          unchanged
+            ? Effect.succeed('kept' as const)
+            : opened.keep(collection, pulled.entities, {
+                scope,
+                strategy: strategy.name,
+                state: cursor,
+              })
+        ).pipe(
+          Effect.tap(() => answer),
+          Effect.flatMap((result) =>
+            result === 'outdated'
+              ? Effect.andThen(
+                  send({ _tag: 'Outdated', ...at }),
+                  Effect.fail(new Outdated()),
+                )
+              : kept,
           ),
-      ),
+        );
+      }),
     );
   });
 

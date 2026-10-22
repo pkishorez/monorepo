@@ -9,6 +9,8 @@ import {
   forget,
   openingsOf,
   readAfter,
+  tell,
+  toldOf,
   write,
   type Cursor,
   type Opening,
@@ -31,7 +33,10 @@ export type { Cursor, Opening, SpaceTable, Wire, Written };
  *            Each opener records the Windows it has open, so the Leader
  *            runs them all; its record goes when its Scope closes, and a
  *            new Leader clears every record and asks for them again, so
- *            one left by a participant that crashed goes then.
+ *            one left by a participant that crashed goes then. The Leader
+ *            tells which scopes are Caught Up; a follower trusts the record
+ *            only once a Leader told it since it opened, so one left by a
+ *            Leader that crashed is never read as fresh.
  * 2. Remove  an Instance: everyone who opened it is told to stop, and it
  *            is deleted once the ones here have.
  * 3. Retire  Replicas no app reads any more: deleted as the Store starts.
@@ -104,6 +109,16 @@ export interface Space {
   readonly recall: Effect.Effect<void, ReplicaError>;
   /** A ring each time a new Leader asks for every record again. */
   readonly recalled: Stream.Stream<void>;
+  /** For the Leader: records the scopes Caught Up, by Worker key, in place of the last, and tells every participant. */
+  readonly tell: (
+    scopes: ReadonlyArray<string>,
+  ) => Effect.Effect<void, ReplicaError>;
+  /** The scopes the Leader last told are Caught Up. */
+  readonly caughtUp: Effect.Effect<ReadonlyArray<string>, ReplicaError>;
+  /** For a follower: asks the Leader to tell again, then rings each time it tells. */
+  readonly told: Stream.Stream<void>;
+  /** For the Leader: a ring each time a participant asks it to tell again. */
+  readonly asked: Stream.Stream<void>;
 }
 
 type KeyArgs<K> = [K] extends [void] ? [] : [key: K];
@@ -135,6 +150,8 @@ const failed = (what: string) => (cause: unknown) =>
 const removedTopic = (name: string) => `${name}#removed`;
 const announcedTopic = (name: string) => `${name}#announced`;
 const recalledTopic = (name: string) => `${name}#recalled`;
+const toldTopic = (name: string) => `${name}#told`;
+const askedTopic = (name: string) => `${name}#asked`;
 
 /** Someone who opened a space here: told when it is removed, and done once their Scope closes. */
 interface Opener {
@@ -234,6 +251,26 @@ export const makeStore = (
           ),
         ).pipe(Effect.andThen(adapter.doorbell.ring(recalledTopic(name)))),
         recalled: adapter.doorbell.listen(recalledTopic(name)),
+        tell: (scopes) =>
+          inTable(`record what of ${name} is Caught Up`, tell(scopes)).pipe(
+            Effect.andThen(adapter.doorbell.ring(toldTopic(name))),
+          ),
+        caughtUp: inTable(`read what of ${name} is Caught Up`, toldOf),
+        // The first ring is its own, once it listens: it asks then, so the
+        // Leader's answer cannot pass it by, and is not passed on.
+        told: adapter.doorbell.listen(toldTopic(name), true).pipe(
+          Stream.mapAccumEffect(
+            () => false,
+            (asked: boolean) =>
+              asked
+                ? Effect.succeed([true, [undefined]] as const)
+                : Effect.as(adapter.doorbell.ring(askedTopic(name)), [
+                    true,
+                    [],
+                  ] as const),
+          ),
+        ),
+        asked: adapter.doorbell.listen(askedTopic(name)),
       } satisfies Space;
     });
 

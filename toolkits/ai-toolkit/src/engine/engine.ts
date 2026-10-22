@@ -1,4 +1,4 @@
-import { stat } from 'node:fs/promises';
+import { realpath, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { basename, resolve } from 'node:path';
 import { Clock, Context, Data, Effect, Layer, Stream } from 'effect';
@@ -20,7 +20,7 @@ import type { Project, Session } from '../records/index.js';
 import { Store } from '../store/index.js';
 import { promptOf } from './attachments/index.js';
 import { bootstrap } from './bootstrap.js';
-import { copyTranscript, forkPoint, NotForkable } from './fork/index.js';
+import { forkPoint, NotForkable } from './fork/index.js';
 import {
   binaryRow,
   InvalidBinary,
@@ -49,7 +49,8 @@ import { fallbackTitle } from './project/session/index.js';
  * Message: the actors do the rest. Nothing here runs a turn.
  *
  * A call that needs an answer goes around the actors, since a Message
- * answers nothing: a Fork is made here and joins its Project as a Message;
+ * answers nothing: a Fork is made here, from whichever Session up the
+ * chain ran its Fork Point, and joins its Project as a Message;
  * an Ask, the Skills, and what a Session's agent says of itself are asked
  * of the harness or the agent directly (see inquiry/); Harness Binaries are
  * read and set in the Store (see harness-config/).
@@ -107,7 +108,10 @@ export interface EngineOptions {
 }
 
 export interface EngineService {
-  /** Adds a folder as a Project; the one already added for it, if any. */
+  /**
+   * Adds a folder as a Project, its symlinks resolved so one folder is one
+   * Project; the one already added for it, if any.
+   */
   readonly addProject: (path: string) => Effect.Effect<Project, FolderNotFound>;
   /** Removes a Project and stops its sessions; its folder is never touched. */
   readonly removeProject: (id: string) => Effect.Effect<void, ProjectNotFound>;
@@ -121,7 +125,17 @@ export interface EngineService {
     message: Send,
   ) => Effect.Effect<void, SessionNotFound>;
   readonly cancel: (sessionId: string) => Effect.Effect<void, SessionNotFound>;
-  /** A new idle Session with the context up to a finished Turn's end; null takes the latest. */
+  /** Settles a Session; one already Settled keeps when it was. */
+  readonly settleSession: (
+    sessionId: string,
+  ) => Effect.Effect<void, SessionNotFound>;
+  readonly unsettleSession: (
+    sessionId: string,
+  ) => Effect.Effect<void, SessionNotFound>;
+  /**
+   * A new idle Session with the context up to a finished Turn's end, its
+   * own or one it inherited; null takes the latest.
+   */
   readonly forkSession: (
     sessionId: string,
     afterTurnId: string | null,
@@ -171,11 +185,12 @@ const expand = (path: string) =>
     path === '~' || path.startsWith('~/') ? homedir() + path.slice(1) : path,
   );
 
-const isFolder = (path: string) =>
+/** The folder at `path` with its symlinks resolved; null when there is none. */
+const folderAt = (path: string) =>
   Effect.promise(() =>
-    stat(path).then(
-      (found) => found.isDirectory(),
-      () => false,
+    realpath(path).then(
+      (real) => stat(real).then((found) => (found.isDirectory() ? real : null)),
+      () => null,
     ),
   );
 
@@ -229,7 +244,11 @@ const make = (options: EngineOptions) =>
           sessionId,
           id: yield* nextUlid,
         });
-        session.send({ _tag: 'Send', prompt });
+        session.send({
+          _tag: 'Send',
+          prompt,
+          at: yield* Clock.currentTimeMillis,
+        });
       });
 
     const forkSession: EngineService['forkSession'] = (
@@ -238,8 +257,8 @@ const make = (options: EngineOptions) =>
     ) =>
       Effect.gen(function* () {
         const { project, session } = yield* toSession(sessionId);
-        const parent = session.model.session;
-        if (parent.nativeId === null)
+        const asked = session.model.session;
+        if (asked.nativeId === null)
           return yield* new NotForkable({
             reason: 'This session has no agent context to fork yet',
           });
@@ -247,12 +266,16 @@ const make = (options: EngineOptions) =>
           sessionId,
           turnId: afterTurnId,
           running: session._tag === 'Running' ? session.state.turnId : null,
+          forkedFrom: (id) =>
+            sessionAt(id)?.session.model.session.forkedFrom ?? null,
         });
+        // The Session that ran the Turn holds the agent's context at its end.
+        const { session: owner } = yield* toSession(point.sessionId);
         const forked = yield* harnesses
-          .get(parent.harness)
+          .get(asked.harness)
           .fork({
-            cwd: session.model.cwd,
-            nativeId: parent.nativeId,
+            cwd: owner.model.cwd,
+            nativeId: owner.model.session.nativeId ?? asked.nativeId,
             at: point.nativeTurnId,
           })
           .pipe(
@@ -264,17 +287,21 @@ const make = (options: EngineOptions) =>
                 }),
             ),
           );
+        const now = yield* Clock.currentTimeMillis;
         const fork: Session = {
-          ...parent,
+          ...asked,
           id: yield* nextUlid,
-          settings: { ...parent.settings },
-          title: `${parent.title} (fork)`,
+          settings: { ...asked.settings },
           status: 'idle',
           nativeId: forked.nativeId,
-          createdAt: yield* Clock.currentTimeMillis,
+          createdAt: now,
+          // The Session forked, even when the Turn was one it inherited:
+          // "Forked from" names what the user forked.
           forkedFrom: { sessionId, turnId: point.turnId },
+          settledAt: null,
+          activeAt: now,
+          endedAt: null,
         };
-        yield* copyTranscript(point.transcript, fork.id);
         project.send({ _tag: 'AddSession', session: fork });
         return fork;
       }).pipe(withServices);
@@ -305,9 +332,8 @@ const make = (options: EngineOptions) =>
     const service: EngineService = {
       addProject: (given) =>
         Effect.gen(function* () {
-          const path = expand(given);
-          if (!(yield* isFolder(path)))
-            return yield* new FolderNotFound({ path: given });
+          const path = yield* folderAt(expand(given));
+          if (path === null) return yield* new FolderNotFound({ path: given });
           const known = host.children.projects.find(
             (project) => project.model.project.path === path,
           );
@@ -336,6 +362,7 @@ const make = (options: EngineOptions) =>
             return yield* new ProjectNotFound({ id: input.projectId });
           if (!harnesses.all.some((harness) => harness.name === input.harness))
             return yield* new UnknownHarness({ harness: input.harness });
+          const now = yield* Clock.currentTimeMillis;
           const session: Session = {
             id: yield* nextUlid,
             projectId: input.projectId,
@@ -345,8 +372,11 @@ const make = (options: EngineOptions) =>
             title: fallbackTitle(input.text),
             status: 'running',
             nativeId: null,
-            createdAt: yield* Clock.currentTimeMillis,
+            createdAt: now,
             forkedFrom: null,
+            settledAt: null,
+            activeAt: now,
+            endedAt: null,
           };
           const first = yield* promptOf({
             root: options.attachments,
@@ -364,6 +394,17 @@ const make = (options: EngineOptions) =>
       cancel: (sessionId) =>
         Effect.map(toSession(sessionId), ({ session }) =>
           session.send({ _tag: 'Cancel' }),
+        ),
+
+      settleSession: (sessionId) =>
+        Effect.gen(function* () {
+          const { session } = yield* toSession(sessionId);
+          session.send({ _tag: 'Settle', at: yield* Clock.currentTimeMillis });
+        }),
+
+      unsettleSession: (sessionId) =>
+        Effect.map(toSession(sessionId), ({ session }) =>
+          session.send({ _tag: 'Unsettle' }),
         ),
 
       forkSession,

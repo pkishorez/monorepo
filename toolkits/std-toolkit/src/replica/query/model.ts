@@ -2,8 +2,9 @@ import { Schema } from 'effect';
 
 /*
  * What a Query keeps: the Instances its rows come from, the rows, each with
- * the key TanStack DB gives it, and where they are. Every change arrives as
- * a Message carrying only the rows added, updated and removed.
+ * the key TanStack DB gives it, where they are, and whether what it reads is
+ * Caught Up. Every change arrives as a Message carrying only the rows added,
+ * updated and removed.
  */
 
 /** One row, under its key in the query's result. */
@@ -16,6 +17,11 @@ export type Model<Row> = {
   readonly status: 'loading' | 'ready' | 'failed';
   /** What went wrong, once it failed. */
   readonly problem: string | null;
+  /**
+   * Whether every Collection and Window it reads is Caught Up: until then
+   * no rows may only mean none read yet. Rows the Store holds show either way.
+   */
+  readonly caughtUp: boolean;
 };
 
 export type Message<Row> =
@@ -25,6 +31,7 @@ export type Message<Row> =
       readonly _tag: 'Loaded';
       readonly keys: ReadonlyArray<string>;
       readonly rows: ReadonlyArray<Entry<Row>>;
+      readonly caughtUp: boolean;
     }
   | {
       readonly _tag: 'Changed';
@@ -32,6 +39,8 @@ export type Message<Row> =
       readonly updated: ReadonlyArray<Entry<Row>>;
       readonly removed: ReadonlyArray<string | number>;
     }
+  /** What it reads became Caught Up, or stopped being. */
+  | { readonly _tag: 'CaughtUp'; readonly caughtUp: boolean }
   | { readonly _tag: 'Failed'; readonly message: string };
 
 // Rows are whatever the query selects, so their Schema checks only that
@@ -44,6 +53,7 @@ export const ModelSchema = Schema.Struct({
   rows: Schema.Array(EntrySchema),
   status: Schema.Literals(['loading', 'ready', 'failed']),
   problem: Schema.NullOr(Schema.String),
+  caughtUp: Schema.Boolean,
 });
 
 export const MessageSchema = Schema.TaggedUnion({
@@ -51,12 +61,14 @@ export const MessageSchema = Schema.TaggedUnion({
   Loaded: {
     keys: Schema.Array(Schema.String),
     rows: Schema.Array(EntrySchema),
+    caughtUp: Schema.Boolean,
   },
   Changed: {
     added: Schema.Array(EntrySchema),
     updated: Schema.Array(EntrySchema),
     removed: Schema.Array(Id),
   },
+  CaughtUp: { caughtUp: Schema.Boolean },
   Failed: { message: Schema.String },
 });
 
@@ -65,6 +77,7 @@ export const empty: Model<never> = {
   rows: [],
   status: 'loading',
   problem: null,
+  caughtUp: false,
 };
 
 /** The rows after one change: removed ones gone, updated ones in place, added ones last. */

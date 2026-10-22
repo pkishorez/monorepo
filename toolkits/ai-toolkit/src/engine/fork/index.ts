@@ -1,1 +1,1 @@
-export { copyTranscript, forkPoint, NotForkable } from './fork.js';
+export { forkPoint, NotForkable } from './fork.js';

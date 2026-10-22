@@ -22,6 +22,11 @@ import { windowsOf, type WindowAt } from './windows.js';
  * A Collection with Windows loads on demand: each Query's `where` says
  * which Windows it opens, and its end lets them go. Every row the Store
  * holds is shown already, so a Query reads at once and waits for no fetch.
+ *
+ * TanStack DB subscribes a query to its Collections, and asks for their
+ * Windows, as the query is made, in the same call: `readsOf` names what
+ * the query it makes reads, so a Query knows what it waits on to be
+ * Caught Up.
  */
 
 /** An Entity read through its ESchema: kept, newer than this app knows, or not one of them at all. */
@@ -65,6 +70,28 @@ type Sync = Parameters<SyncConfig<object, string>['sync']>[0];
 
 let made = 0;
 
+/** What a query reads of one Instance: a Collection, with no Window, or one Window of it. */
+export interface Reading {
+  readonly instance: string;
+  readonly collection: string;
+  readonly window: WindowAt | null;
+}
+
+/** Who hears what the query being made reads, while it is made. */
+let listener: ((reading: Reading) => void) | null = null;
+
+/** Makes a query with `make`, and names every Collection and Window it read as it was made. */
+export const readsOf = <A>(make: () => A) => {
+  const reads: Reading[] = [];
+  const outer = listener;
+  listener = (reading) => reads.push(reading);
+  try {
+    return { made: make(), reads };
+  } finally {
+    listener = outer;
+  }
+};
+
 /** A Collection's Windows: the fields it opens them on, and who hears a Query open and let go of one. */
 export interface Windowed {
   readonly paths: ReadonlyArray<string>;
@@ -98,8 +125,10 @@ export const showCollections = (
           if (!windows) return;
           return {
             loadSubset: (options) => {
-              for (const window of windowsOf(options, windows.paths))
+              for (const window of windowsOf(options, windows.paths)) {
                 windows.open(window);
+                listener?.({ instance: name, collection, window });
+              }
               return true;
             },
             unloadSubset: (options) => {
@@ -109,6 +138,10 @@ export const showCollections = (
           };
         },
       },
+    });
+    collections[collection].on('subscribers:change', (change) => {
+      if (change.subscriberCount > change.previousSubscriberCount)
+        listener?.({ instance: name, collection, window: null });
     });
   }
 

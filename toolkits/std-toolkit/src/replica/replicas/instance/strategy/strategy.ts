@@ -18,7 +18,11 @@ import {
  * Entities too, so they never need a migration.
  */
 
-/** One yield of a Strategy: what it read, and the cursor that follows it. */
+/**
+ * One yield of a Strategy: what it read, and the cursor that follows it. Its
+ * first yield is its first answer from the Backend, so one with nothing new
+ * yields no Entities rather than nothing.
+ */
 export type Pulled<State> = {
   readonly entities: ReadonlyArray<Wire>;
   readonly state: State;
@@ -129,6 +133,8 @@ const newToOld = <K, R = never>(
           }));
         } else if (state.slices.length === 0)
           yield* commit([], (s) => ({ ...s, reachedOldest: true }));
+        // Nothing newer than what is kept: still an answer.
+        else yield* commit([], (s) => s);
 
         // Walks down from the top slice until it meets the one below, then
         // from the bottom until the Backend has nothing older.
@@ -191,6 +197,7 @@ const newToOld = <K, R = never>(
         ).pipe(
           Stream.runForEach((batch) =>
             commit(batch, (s) => {
+              if (batch.length === 0) return s;
               const upper = top(s);
               const settled = settle(batch);
               if (settled === null) return s;

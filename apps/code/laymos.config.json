@@ -1,66 +1,30 @@
 {
   "$schema": "../../devtools/laymos/schema.json",
   "sourceRoots": ["src"],
-  "ignoredPaths": ["src/client/styles.css", "src/env.d.ts"],
-  "fileModules": [
-    "src/client/app.tsx",
-    "src/client/document.tsx",
-    "src/client/keys.ts"
-  ],
+  "ignoredPaths": ["src/styles.css", "src/env.d.ts"],
+  "fileModules": ["src/app.tsx", "src/document.tsx", "src/keys.ts"],
   "rules": {
-    "src/client/app.tsx": [
-      "src/shared/pages",
-      "src/client/document.tsx",
-      "src/client/views"
+    "src/app.tsx": ["src/shell", "src/document.tsx"],
+    "src/document.tsx": ["src/ui/theme"],
+    "src/shell": [
+      "src/places",
+      "src/replica",
+      "src/refusal",
+      "src/ui",
+      "src/keys.ts"
     ],
-    "src/client/document.tsx": ["src/client/components"],
-    "src/client/views": [
-      "src/shared/pages",
-      "src/client/components",
-      "src/client/composer",
-      "src/client/keys.ts"
-    ],
-    "src/client/composer": ["src/client/keys.ts"],
-    "src/client/views/header": [
-      "src/client/views/session-status",
-      "src/client/views/settled"
-    ],
-    "src/client/views/sidebar": [
-      "src/client/views/add-project",
-      "src/client/views/session-status",
-      "src/client/views/settled"
-    ],
-    "src/client/views/session-status": ["src/client/views/running-dot"],
-    "src/client/views/home": [
-      "src/client/views/add-project",
-      "src/client/views/settled"
-    ],
-    "src/client/views/project": [
-      "src/client/views/running-dot",
-      "src/client/views/session-status",
-      "src/client/views/time",
-      "src/client/views/settled"
-    ],
-    "src/client/views/project/new-session": ["src/client/views/project/picker"],
-    "src/client/views/project/session": ["src/client/views/project/picker"],
-    "src/shared/pages/add-project": [
-      "src/shared/pages/ai",
-      "src/shared/pages/places"
-    ],
-    "src/shared/pages/home": [
-      "src/shared/pages/add-project",
-      "src/shared/pages/ai"
-    ],
-    "src/shared/pages/project": [
-      "src/shared/pages/ai",
-      "src/shared/pages/places"
-    ],
-    "src/client/views/background-jobs": ["src/client/views/time"],
-    "src/shared/pages/background-jobs": ["src/shared/pages/ai"],
-    "src/shared/pages/session-actions": [
-      "src/shared/pages/ai",
-      "src/shared/pages/places"
-    ],
-    "src/shared/pages/settings": ["src/shared/pages/ai"]
+    "src/ui/session-status": ["src/ui/running-dot"],
+    "src/ui/picker": ["src/keys.ts"],
+    "src/ui/confirm": ["src/keys.ts"],
+    "src/shell/header": ["src/shell/connection"],
+    "src/shell/settings/shortcuts": ["src/shell/device-state"],
+    "src/shell/project": ["src/shell/connection"],
+    "src/shell/project/model-picker": ["src/shell/project/catalog"],
+    "src/shell/project/session": [
+      "src/shell/device-state",
+      "src/shell/project/catalog",
+      "src/shell/project/composer",
+      "src/shell/project/model-picker"
+    ]
   }
 }

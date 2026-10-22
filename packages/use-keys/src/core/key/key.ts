@@ -59,3 +59,8 @@ export const nameOf = (event: {
   if (key === 'Unidentified' || key === '') return code;
   return key;
 };
+
+/** Whether `mod` is Cmd here, as on Apple platforms, rather than Ctrl. */
+export const isApple = () =>
+  typeof navigator !== 'undefined' &&
+  /Mac|iPhone|iPad|iPod/.test(navigator.platform);

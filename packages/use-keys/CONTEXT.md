@@ -93,8 +93,12 @@ The Keys Provider holds the Active Surface, and the UI follows it, never the oth
 A Surface that can be the Active Surface. Every Surface is, unless it says otherwise; one that is not only holds Actions for the Surfaces inside it, and Escape passes over it.
 
 **Active Surface**:
-The one Focusable Surface the user is in right now, held by the Keys Provider: at first the Initial one, else the first Focusable one in the definition. A pointer going down or focus moving inside an element enters the innermost Surface drawn there, or the nearest Focusable one above it; focus can move the user in, never out. An Action, the app, or Escape can move it too. Entering one with Vim Mode on moves focus to its first element, unless focus is already in one.
+The one Focusable Surface the user is in right now, held by the Keys Provider: at first the Initial one, else the first Focusable one in the definition. A pointer going down or focus moving inside an element enters the innermost Surface drawn there, or the nearest Focusable one above it; focus can move the user in, never out. An Action, the app, or Escape can move it too. Coming back to one puts focus back where it was in it, as its Focus Spots say.
 _Avoid_: current surface, focus, selected pane
+
+**Focus Spot**:
+A named place in a Surface where focus can rest, such as the page's composer, marked by the app on an element drawn anywhere; the element is in the Surface the spot names. A Surface remembers the spot focus was last in by its name, never by its element, so the memory outlives a remount; focus landing on the Surface's own element, as Escape leaving a field does, is remembered too. A Surface can name one spot its default. Coming back to a Surface, by an Action, the app, Escape or an Isolated Surface closing, puts focus in the spot it remembers, else its default one, else, with Vim Mode on, its first element; with Vim Mode on or off, and only when focus is not in it already. A spot or element mounting while its Surface is Active takes focus back when focus was in that Surface and fell to nothing. Focus resting in no Surface on the way, such as a closing popup's own element, does not stop it going back. Focus is never taken from another Surface.
+_Avoid_: focus target, autofocus, anchor, last focused element
 
 **State**:
 How a Surface is drawn, from the Keys tree only: **Active** for the Active Surface, **Parent** for each Surface above it, **Inactive** for every other, and **Off** for all of them while Vim Mode is off.
@@ -120,7 +124,7 @@ The Surface an Action enters once its Handler, if any, has run, such as `mod+k` 
 _Avoid_: opens, navigates
 
 **Bindings**:
-The user's own keys, by Action id, handed to the Keys Provider. Each replaces all of that Action's keys from the definition, with the same Conflict checks.
+The user's own keys, by Action id, handed to the Keys Provider. Each replaces all of that Action's keys from the definition, with the same Conflict checks. They can be checked first, without throwing, for the Conflicts they would make and the Actions they would leave Shadowed, every Action counted as if it had a Handler. A Shortcut for them can be recorded from one key going down, named as keys are matched, so the same key presses it again.
 
 **Vim Mode**:
 Whether the app's keyboard is on: a preference the app keeps and hands to the Keys Provider. With it off, only Always Actions work, and every Surface is Off; clicks and focus still move the Active Surface, so the Always Actions work where the user is.

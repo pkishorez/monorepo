@@ -106,6 +106,9 @@ export const messages = (sessionId: string, after: WireEntity | null) =>
                   },
                 ],
         );
+      // The first batch goes out even when every Raw in it projects to
+      // nothing: it is the answer that tells the reader it is Caught Up.
+      let first = true;
       return follow(store.raws(sessionId), cursorOf(after)).pipe(
         Stream.mapEffect((batch) =>
           Effect.flatMap(
@@ -113,7 +116,11 @@ export const messages = (sessionId: string, after: WireEntity | null) =>
             (made) => encodeAll(encodeMessage, made),
           ),
         ),
-        Stream.filter((batch) => batch.length > 0),
+        Stream.filter((batch) => {
+          const keep = first || batch.length > 0;
+          first = false;
+          return keep;
+        }),
       );
     }),
   );

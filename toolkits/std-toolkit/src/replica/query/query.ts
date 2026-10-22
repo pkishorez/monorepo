@@ -7,9 +7,10 @@ import {
 } from '@tanstack/db';
 import { Actor } from '@kestack/kabuki';
 import type { ActorType } from '@kestack/kabuki';
-import { Effect, Queue, Schema, Stream } from 'effect';
+import { Effect, Option, Queue, Schema, Stream } from 'effect';
 import type { Scope } from 'effect';
-import { Holding } from '../replicas/index.js';
+import { CaughtUp, Holding, readsOf } from '../replicas/index.js';
+import type { Live } from '../replicas/instance/index.js';
 import {
   applied,
   empty,
@@ -27,17 +28,23 @@ import {
  * DB query over their Collections.
  *
  * 1. Open     new Props clear the rows shown, before any new row shows.
- * 2. Load     `from`, then the query's rows, as one Message.
- * 3. Follow   every change after, as a Message of only what changed,
- *             until an Instance it reads stops under it, as the Store
- *             removing it does: then it fails.
+ * 2. Load     `from`, then the query's rows, and whether every Collection
+ *             and Window it reads is Caught Up, as one Message.
+ * 3. Follow   every change after, as a Message of only what changed, and
+ *             Caught Up each time it changes, until an Instance it reads
+ *             stops under it, as the Store removing it does: then it fails.
  */
 
 /** What `from` gives: Instances, by any names the query reads them under. */
 type Instances = Readonly<
   Record<
     string,
-    { readonly name: string; readonly stopped: Effect.Effect<void> }
+    {
+      readonly name: string;
+      readonly stopped: Effect.Effect<void>;
+      /** On an Instance `Replica.get` gave; anything else waits on nothing. */
+      readonly [CaughtUp]?: Live['caughtUp'];
+    }
   >
 >;
 
@@ -125,13 +132,16 @@ const make = <
                 }),
               );
               const read = Object.values(instances);
-              const live = createLiveQueryCollection({
-                query: options.query({ props }, instances) as (
-                  q: InitialQueryBuilder,
-                ) => QueryBuilder<any>,
-                startSync: true,
-                gcTime: 0,
-              });
+              // What it reads of each Instance is named as the query is made.
+              const { made: live, reads } = readsOf(() =>
+                createLiveQueryCollection({
+                  query: options.query({ props }, instances) as (
+                    q: InitialQueryBuilder,
+                  ) => QueryBuilder<any>,
+                  startSync: true,
+                  gcTime: 0,
+                }),
+              );
               yield* Effect.addFinalizer(() =>
                 Effect.promise(() => live.cleanup()),
               );
@@ -159,10 +169,28 @@ const make = <
               yield* Effect.addFinalizer(() =>
                 Effect.sync(() => subscription.unsubscribe()),
               );
+              // With no Instance there is nothing to wait on.
+              const caughtUp = Stream.zipLatestAll(
+                Stream.succeed(true),
+                ...read.map(
+                  (instance) =>
+                    instance[CaughtUp]?.(
+                      reads.filter((each) => each.instance === instance.name),
+                    ) ?? Stream.succeed(true),
+                ),
+              ).pipe(
+                Stream.map((each) => each.every(Boolean)),
+                Stream.changes,
+              );
+              let last = Option.getOrElse(
+                yield* Stream.runHead(caughtUp),
+                () => true,
+              );
               yield* self.send({
                 _tag: 'Loaded',
                 keys: read.map(({ name }) => name),
                 rows,
+                caughtUp: last,
               });
               const follow = Stream.fromQueue(changes).pipe(
                 Stream.map((batch) => entriesOf<Row>(batch)),
@@ -190,7 +218,18 @@ const make = <
                   }),
                 ),
               );
-              yield* Effect.raceFirst(follow, stopped);
+              const catching = Stream.runForEach(caughtUp, (now) => {
+                if (now === last) return Effect.void;
+                last = now;
+                return self.send({ _tag: 'CaughtUp', caughtUp: now });
+              });
+              yield* Effect.raceFirst(
+                Effect.all([follow, catching], {
+                  concurrency: 'unbounded',
+                  discard: true,
+                }),
+                stopped,
+              );
             }).pipe(
               Effect.catch((cause) =>
                 self.send({ _tag: 'Failed', message: messageOf(cause) }),
@@ -200,14 +239,23 @@ const make = <
       },
       on: {
         Opened: () => ({ model: empty }),
-        Loaded: ({ keys, rows }) => ({
-          model: { keys, rows, status: 'ready', problem: null },
+        Loaded: ({ keys, rows, caughtUp }) => ({
+          model: { keys, rows, status: 'ready', problem: null, caughtUp },
         }),
         Changed: (change, { model }) => ({
           model: { ...model, rows: applied(model.rows, change) },
         }),
+        CaughtUp: ({ caughtUp }, { model }) => ({
+          model: { ...model, caughtUp },
+        }),
         Failed: ({ message }, { model }) => ({
-          model: { ...model, rows: [], status: 'failed', problem: message },
+          model: {
+            ...model,
+            rows: [],
+            status: 'failed',
+            problem: message,
+            caughtUp: false,
+          },
         }),
       },
     },

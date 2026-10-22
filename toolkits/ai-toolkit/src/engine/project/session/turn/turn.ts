@@ -1,4 +1,4 @@
-import { Duration, Effect, Option, Schema, Stream } from 'effect';
+import { Clock, Duration, Effect, Option, Schema, Stream } from 'effect';
 import { Actor } from '@kestack/kabuki';
 import type { Self } from '@kestack/kabuki';
 import {
@@ -241,6 +241,7 @@ const run = (self: TurnSelf) =>
       _tag: 'TurnEnded',
       turnId: model.turnId,
       status: ended ?? 'done',
+      at: yield* Clock.currentTimeMillis,
     });
   });
 
@@ -269,15 +270,16 @@ export const Turn = Actor.build(
         run: (self) =>
           cancel().pipe(
             Effect.andThen(
-              Effect.flatMap(self.get, ({ model }) =>
-                Effect.flatMap(SessionAgent, (context) =>
-                  context.report({
-                    _tag: 'TurnEnded',
-                    turnId: model.turnId,
-                    status: 'cancelled',
-                  }),
-                ),
-              ),
+              Effect.gen(function* () {
+                const { model } = yield* self.get;
+                const context = yield* SessionAgent;
+                yield* context.report({
+                  _tag: 'TurnEnded',
+                  turnId: model.turnId,
+                  status: 'cancelled',
+                  at: yield* Clock.currentTimeMillis,
+                });
+              }),
             ),
           ),
       },

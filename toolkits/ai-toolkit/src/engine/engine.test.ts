@@ -90,6 +90,10 @@ describe('Engine', () => {
         expect(fake.opens).toMatchObject([
           { model: 'claude-test', settings: { effort: 'high' } },
         ]);
+        // It keeps when its last Turn ended, once its end is written.
+        expect(session.endedAt).toBeNull();
+        const saved = yield* store.session(session.id);
+        expect(saved?.endedAt).toBeGreaterThanOrEqual(all.at(-1)?.at ?? NaN);
       }),
       fake,
     );
@@ -99,13 +103,17 @@ describe('Engine', () => {
     const fake = makeFakeHarness({ hold: true });
     await run(
       Effect.gen(function* () {
-        const { raws, status, session, engine } = yield* started;
+        const { raws, status, session, engine, store } = yield* started;
         yield* eventually(async () => expect(await raws()).toHaveLength(2));
         yield* engine.cancel(session.id);
         yield* eventually(async () => expect(await status()).toBe('cancelled'));
-        expect((yield* Effect.promise(raws)).map(brief).at(-1)).toBe(
+        const all = yield* Effect.promise(raws);
+        expect(all.map(brief).at(-1)).toBe(
           'engine turn.ended {"status":"cancelled"}',
         );
+        expect(
+          (yield* store.session(session.id))?.endedAt,
+        ).toBeGreaterThanOrEqual(all.at(-1)?.at ?? NaN);
       }),
       fake,
     );
@@ -462,6 +470,7 @@ describe('Engine', () => {
         expect(all.map(brief).at(-1)).toBe(
           'engine turn.ended {"status":"interrupted"}',
         );
+        expect(saved?.endedAt).toBe(all.at(-1)?.at);
         expect(fake.opens).toHaveLength(1);
         expect(all.at(-1)?.turnId).toBe(all[0]?.turnId);
         yield* engine.send(cut.id, say('back again'));

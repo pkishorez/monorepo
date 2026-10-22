@@ -9,6 +9,50 @@ const entity = (id: string): Wire => ({
 });
 
 describe('Strategies', () => {
+  it('yields its first answer even when it held nothing, so the scope is Caught Up', async () => {
+    const pulled = await Effect.runPromise(
+      Stream.runCollect(
+        oldToNew({ fetch: () => Effect.succeed([]) }).run({
+          key: undefined,
+          state: { cursor: null },
+        }),
+      ),
+    );
+    expect(pulled).toEqual([{ entities: [], state: { cursor: null } }]);
+
+    // A feed with nothing to replay says so with an empty batch; later
+    // empty ones are not answers.
+    const live = await Effect.runPromise(
+      Stream.runCollect(
+        oldToNew({
+          subscribe: () => Stream.make([], [], [entity('a')]),
+        })
+          .run({ key: undefined, state: { cursor: null } })
+          .pipe(Stream.take(2)),
+      ),
+    );
+    expect(live.map(({ entities }) => entities)).toEqual([[], [entity('a')]]);
+
+    // Kept stretches and a newest page with nothing newer: still an answer.
+    const kept = { low: entity('a'), high: entity('a') };
+    const older = await Effect.runPromise(
+      Stream.runCollect(
+        newToOld({
+          fetch: () => Effect.succeed([]),
+          fetchOlder: () => Effect.succeed([]),
+        })
+          .run({
+            key: undefined,
+            state: { slices: [kept], reachedOldest: true },
+          })
+          .pipe(Stream.take(1)),
+      ),
+    );
+    expect(older).toEqual([
+      { entities: [], state: { slices: [kept], reachedOldest: true } },
+    ]);
+  });
+
   it('pages through all records tied on _u and resumes after the last one', async () => {
     const records = ['a', 'b', 'c', 'd', 'e'].map(entity);
     const strategy = oldToNew({

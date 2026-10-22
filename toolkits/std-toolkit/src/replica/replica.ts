@@ -6,7 +6,11 @@ import {
   type KeySchema,
   type ReplicaError,
 } from './shape/index.js';
-import { Instances, type Instance } from './replicas/instance/index.js';
+import {
+  CaughtUp,
+  Instances,
+  type Instance,
+} from './replicas/instance/index.js';
 import { Replicas } from './replicas/index.js';
 import { Strategies } from './replicas/instance/strategy/index.js';
 
@@ -76,6 +80,7 @@ function make(
               key: live.key,
               confirm: live.confirm,
               stopped: live.stopped,
+              [CaughtUp]: live.caughtUp,
             }) as unknown as Instance<
               Shape<string, unknown, CollectionSchemas>
             >,

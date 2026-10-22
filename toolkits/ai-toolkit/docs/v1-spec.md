@@ -160,5 +160,10 @@ disconnected wait for the connection.
 
 ## Not in v1
 
-Token streaming, questions and approvals, auth, deployment, forking or
-editing, importing existing sessions, sync priority between feeds.
+Token streaming, questions and approvals, auth, deployment, editing,
+importing existing sessions, sync priority between feeds.
+
+Forking came after v1, without breaking the rule above: a Fork stores only
+`forkedFrom: { sessionId, turnId }` and none of the original's Raw. Its
+transcript is the original's Messages up to that Turn's `turnEnded`, then
+its own (ADR 0011, ADR 0014).

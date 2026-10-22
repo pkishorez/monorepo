@@ -11,6 +11,8 @@ import {
   records,
   space,
   START,
+  TOLD,
+  told,
   type SPACE_TABLE,
 } from './layout.js';
 
@@ -20,7 +22,8 @@ import {
  * so a reader asks only for what was written after the number it last read.
  * A cursor is written with the last records of its batch, never before them,
  * and each Strategy scope keeps its own. Each participant's open Windows are
- * one row of their own, which the participant alone writes.
+ * one row of their own, which the participant alone writes; what the Leader
+ * tells is Caught Up is one row, which only the Leader writes.
  */
 
 /** An Entity in encoded form, as the Store keeps it. */
@@ -257,3 +260,20 @@ export const forget = (participant: string) =>
       () => Effect.void,
     ),
   );
+
+/** The scopes the Leader last told are Caught Up; none before it first told. */
+export const toldOf = told.get(TOLD).pipe(
+  Effect.map((row): ReadonlyArray<string> =>
+    // The Store wrote it, so it is a list of scopes.
+    row === null ? [] : (row.value.scopes as ReadonlyArray<string>),
+  ),
+);
+
+/** Writes the scopes the Leader tells are Caught Up, in place of the last. */
+export const tell = (scopes: ReadonlyArray<string>) =>
+  Effect.gen(function* () {
+    const written = scopes as unknown as {};
+    const row = yield* told.get(TOLD);
+    if (row === null) yield* told.insert({ ...TOLD, scopes: written });
+    else yield* told.getAndUpdate(TOLD, { scopes: written });
+  });

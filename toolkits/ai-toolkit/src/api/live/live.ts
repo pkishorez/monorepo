@@ -2,17 +2,23 @@ import { Effect, Schema } from 'effect';
 import {
   AiApi,
   AskFailed,
+  FolderExists,
   FolderNotFound,
+  FolderUnreadable,
   HarnessFailed,
   InvalidBinary,
+  InvalidFolderName,
   ModelsUnavailable,
   NotForkable,
+  OutsideHome,
+  PermissionDenied,
   ProjectNotFound,
   SessionNotFound,
   SkillsUnavailable,
   UnknownHarness,
 } from '../contract/index.js';
 import { Engine } from '../../engine/index.js';
+import { Folders } from '../../folders/index.js';
 import { Harnesses } from '../../harness/index.js';
 import { JsonSchema } from '../../raw/index.js';
 import { Models } from './models/index.js';
@@ -20,9 +26,41 @@ import * as Read from './read/index.js';
 
 /*
  * The API's handlers. Commands go to the Engine, which hands them to its
- * actors; feeds read the Store; neither decides anything itself. Engine
- * failures become the contract's errors of the same name.
+ * actors, or to Folders; feeds read the Store; none decides anything
+ * itself. Their failures become the contract's errors of the same name.
  */
+
+type Listed = Effect.Error<ReturnType<Folders['Service']['list']>>;
+type Created = Effect.Error<ReturnType<Folders['Service']['create']>>;
+
+/** A Folders failure as the contract's error of the same name. */
+function folderError(
+  error: Listed,
+): FolderNotFound | PermissionDenied | OutsideHome | FolderUnreadable;
+function folderError(
+  error: Created,
+):
+  | FolderNotFound
+  | PermissionDenied
+  | OutsideHome
+  | FolderExists
+  | InvalidFolderName;
+function folderError(error: Listed | Created) {
+  switch (error._tag) {
+    case 'FolderNotFound':
+      return new FolderNotFound({ path: error.path });
+    case 'PermissionDenied':
+      return new PermissionDenied({ path: error.path });
+    case 'FolderExists':
+      return new FolderExists({ path: error.path });
+    case 'InvalidFolderName':
+      return new InvalidFolderName({ name: error.name, reason: error.reason });
+    case 'OutsideHome':
+      return new OutsideHome({ path: error.path });
+    case 'FolderUnreadable':
+      return new FolderUnreadable({ path: error.path, message: error.message });
+  }
+}
 
 /** An engine failure as the contract's error of the same name. */
 const wire = {
@@ -42,6 +80,7 @@ export const AiApiLive = AiApi.toLayer(
     const engine = yield* Engine;
     const harnesses = yield* Harnesses;
     const models = yield* Models;
+    const folders = yield* Folders;
     return {
       harnesses: () =>
         Effect.gen(function* () {
@@ -98,6 +137,14 @@ export const AiApiLive = AiApi.toLayer(
           .pipe(Effect.mapError(wire.SessionNotFound)),
       cancel: ({ sessionId }) =>
         engine.cancel(sessionId).pipe(Effect.mapError(wire.SessionNotFound)),
+      settleSession: ({ sessionId }) =>
+        engine
+          .settleSession(sessionId)
+          .pipe(Effect.mapError(wire.SessionNotFound)),
+      unsettleSession: ({ sessionId }) =>
+        engine
+          .unsettleSession(sessionId)
+          .pipe(Effect.mapError(wire.SessionNotFound)),
       forkSession: ({ sessionId, afterTurnId }) =>
         engine
           .forkSession(sessionId, afterTurnId)
@@ -179,6 +226,14 @@ export const AiApiLive = AiApi.toLayer(
               (error) => new InvalidBinary({ message: error.message }),
             ),
           ),
+      listFolder: (input) =>
+        folders
+          .list(input)
+          .pipe(Effect.mapError((error) => folderError(error))),
+      createFolder: (input) =>
+        folders
+          .create(input)
+          .pipe(Effect.mapError((error) => folderError(error))),
       projects: ({ after }) => Read.projects(after),
       sessions: ({ after }) => Read.sessions(after),
       messages: ({ sessionId, after }) => Read.messages(sessionId, after),

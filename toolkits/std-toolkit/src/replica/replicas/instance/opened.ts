@@ -1,11 +1,24 @@
 import type { Collection } from '@tanstack/db';
-import { Clock, Deferred, Effect, Queue, Semaphore, Stream } from 'effect';
+import {
+  Clock,
+  Deferred,
+  Effect,
+  Queue,
+  Semaphore,
+  Stream,
+  SubscriptionRef,
+} from 'effect';
 import type { Scope } from 'effect';
 import { ReplicaError, type AnyShape } from '../../shape/index.js';
 import type { Space, Wire, Written } from '../../store/contract/index.js';
-import { reader, showCollections, type Read } from './collections.js';
+import {
+  reader,
+  showCollections,
+  type Read,
+  type Reading,
+} from './collections.js';
 import type { Message } from './model.js';
-import type { WindowAt } from './windows.js';
+import { workerKey, type WindowAt } from './windows.js';
 
 /*
  * One Instance, open on this participant: its space in the Store and the
@@ -19,6 +32,8 @@ import type { WindowAt } from './windows.js';
  *             against the ESchemas, written to the Store, then shown.
  * 4. Say      what its own work tells the Instance actor: Actions under
  *             way, and Windows a Query opened and let go of.
+ * 5. Hear     which scopes the Instance actor says are Caught Up, for the
+ *             Queries that read them.
  */
 
 /** What a Query, a Worker or an Action holds of a running Instance. */
@@ -34,6 +49,14 @@ export interface Live {
   readonly stopped: Effect.Effect<void>;
   /** Counts an Action as under way on this Instance until the Scope closes. */
   readonly track: (action: string) => Effect.Effect<void, never, Scope.Scope>;
+  /**
+   * Whether every Collection and Window read is Caught Up, now and each time
+   * that changes. A Collection waits on its whole Strategy, if it has one;
+   * one with none waits on nothing.
+   */
+  readonly caughtUp: (
+    reads: ReadonlyArray<Omit<Reading, 'instance'>>,
+  ) => Stream.Stream<boolean>;
 }
 
 export interface Opened {
@@ -48,6 +71,8 @@ export interface Opened {
   ) => Effect.Effect<'kept' | 'outdated', ReplicaError>;
   /** The Messages the Instance's own work sends it: Actions beginning and ending, Windows opening and let go. */
   readonly messages: Stream.Stream<Message>;
+  /** The scopes Caught Up now, by Worker key, as the Instance actor's Model says. */
+  readonly report: (caughtUp: ReadonlyArray<string>) => Effect.Effect<void>;
 }
 
 const warn = (name: string, read: ReadonlyArray<Read>) =>
@@ -81,6 +106,8 @@ export const openInstance = (
   space: Space,
   /** The fields each Collection with Windows opens them on. */
   windowPaths: Readonly<Record<string, ReadonlyArray<string>>>,
+  /** The Collections with a Strategy for all of it. */
+  whole: ReadonlySet<string>,
 ): Effect.Effect<Opened, ReplicaError, Scope.Scope> =>
   Effect.gen(function* () {
     const { name } = space;
@@ -200,6 +227,28 @@ export const openInstance = (
         () => Queue.offer(said, { _tag: 'ActionEnded', action }),
       ).pipe(Effect.asVoid);
 
+    // 5. Hear
+    const reported = yield* SubscriptionRef.make<ReadonlySet<string>>(
+      new Set(),
+    );
+    const caughtUp: Live['caughtUp'] = (reads) => {
+      const needed = [
+        ...new Set(
+          reads.flatMap(({ collection, window }) =>
+            window !== null || whole.has(collection)
+              ? [workerKey(collection, window)]
+              : [],
+          ),
+        ),
+      ];
+      return SubscriptionRef.changes(reported).pipe(
+        Stream.map((scopes) => needed.every((key) => scopes.has(key))),
+        Stream.changes,
+      );
+    };
+    const report: Opened['report'] = (scopes) =>
+      SubscriptionRef.set(reported, new Set(scopes));
+
     const messages = Stream.fromQueue(said).pipe(
       Stream.mapEffect((each): Effect.Effect<Message> =>
         each._tag === 'LetGo'
@@ -221,10 +270,12 @@ export const openInstance = (
         confirm,
         stopped: Deferred.await(stopped),
         track,
+        caughtUp,
       },
       space,
       refresh,
       keep,
       messages,
+      report,
     };
   });
