@@ -96,34 +96,40 @@ export type TurnStream = Stream.Stream<TurnOut, HarnessError>;
 /** A record of the agent's, not a fact about the turn. */
 export const isRecord = (out: TurnOut): out is RawOut => !('_tag' in out);
 
-/** A live agent session in one folder. Closing its Scope stops the agent. */
-export interface HarnessSession {
-  /** The harness's own session id, once it has one. */
-  readonly nativeId: Effect.Effect<string | undefined>;
+/** One turn: its stream, and the way to steer it and nothing else. */
+export interface TurnHandle {
   /**
-   * Runs one turn: every whole record until the agent is idle again, then
-   * its `TurnEnd`. A stream that ends without one was cancelled.
+   * Every whole record until the agent is idle again, then the turn's
+   * `TurnEnd`. A stream that ends without one was cancelled.
    */
-  readonly turn: (input: TurnInput) => TurnStream;
+  readonly out: TurnStream;
   /**
-   * A user message, by the engine's `id`, for the turn last asked for with
-   * `turn`, else for the agent's own running turn: it waits until that turn
-   * has started, then the agent takes it and the turn's stream says so with
-   * a `TurnSteered`, before anything the agent does with it and before the
-   * stream can end. A steer whose `TurnSteered` never came was not taken,
-   * whether or not this fails; the engine runs it as the next turn.
+   * A user message for this turn, by the engine's `id`: it waits until the
+   * turn has started, then the agent takes it and `out` says so with a
+   * `TurnSteered`, before anything the agent does with it and before `out`
+   * ends. It is refused once this turn has ended, or while the agent runs
+   * another. A steer whose `TurnSteered` never came was not taken, whether
+   * or not this fails; the engine runs it as the next turn.
    */
   readonly steer: (
     id: string,
     input: TurnInput,
   ) => Effect.Effect<void, HarnessError>;
+}
+
+/** A live agent session in one folder. Closing its Scope stops the agent. */
+export interface HarnessSession {
+  /** The harness's own session id, once it has one. */
+  readonly nativeId: Effect.Effect<string | undefined>;
+  /** Asks for one turn; it runs as its `out` is read. */
+  readonly turn: (input: TurnInput) => TurnHandle;
   /** Stops the running turn; its stream ends. */
   readonly cancel: Effect.Effect<void>;
   /**
-   * Agent-started Turns, each a stream like `turn`'s. The harness emits one
+   * Agent-started Turns, each a handle like `turn`'s. The harness emits one
    * only while no user Turn runs.
    */
-  readonly agentTurns: Stream.Stream<TurnStream>;
+  readonly agentTurns: Stream.Stream<TurnHandle>;
   /** The agent's Background Jobs, the current list first, then each change. */
   readonly backgroundJobs: Stream.Stream<ReadonlyArray<BackgroundJob>>;
   readonly stopBackgroundJob: (id: string) => Effect.Effect<void, HarnessError>;

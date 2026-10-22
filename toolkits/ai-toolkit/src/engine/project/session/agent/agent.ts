@@ -13,7 +13,7 @@ import type {
   Harness,
   HarnessError,
   HarnessSession,
-  TurnStream,
+  TurnHandle,
 } from '../../../../harness/index.js';
 import type { TurnEndStatus } from '../../../../projection/index.js';
 
@@ -29,7 +29,7 @@ import type { TurnEndStatus } from '../../../../projection/index.js';
  * both: its jobs die with it.
  */
 
-type AgentTurn = TurnStream;
+type AgentTurn = TurnHandle;
 
 export const makeAgent = (
   open: Effect.Effect<HarnessSession, HarnessError, Scope.Scope>,

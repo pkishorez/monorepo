@@ -121,7 +121,7 @@ const title = (userMessages: ReadonlyArray<string>) =>
     const chunks: Record<string, Array<string>> = {};
     const reply = yield* session
       .turn({ text: prompt(userMessages), images: [] })
-      .pipe(
+      .out.pipe(
         Stream.runFold(
           () => '',
           (last, out) => {

@@ -27,6 +27,7 @@ export {
   type Setting,
   type Skill,
   type TurnEnd,
+  type TurnHandle,
   type TurnInput,
   type TurnOut,
   type TurnSteered,

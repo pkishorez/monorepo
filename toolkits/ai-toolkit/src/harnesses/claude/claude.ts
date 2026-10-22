@@ -1,7 +1,8 @@
-import { Effect } from 'effect';
+import { Effect, Stream } from 'effect';
 import type {
   Harness,
   HarnessSession,
+  TurnHandle,
   TurnInput,
 } from '../../harness/index.js';
 import {
@@ -11,7 +12,11 @@ import {
   skills,
 } from './catalog/index.js';
 import { project } from './project/index.js';
-import { openSdkSession, type SdkTurn } from './sdk-session/index.js';
+import {
+  openSdkSession,
+  type SdkTurn,
+  type SdkTurnHandle,
+} from './sdk-session/index.js';
 import { ask, fork } from './session-files/index.js';
 import { readSettings, SETTINGS } from './settings.js';
 
@@ -56,10 +61,14 @@ export const claude: Harness = {
         ...readSettings(config.settings),
         ...(config.nativeId === undefined ? {} : { nativeId: config.nativeId }),
       });
+      const handleOf = (handle: SdkTurnHandle): TurnHandle => ({
+        out: handle.out,
+        steer: (id, input) => handle.steer(id, toSdkTurn(input)),
+      });
       const harnessSession: HarnessSession = {
         ...session,
-        turn: (input) => session.turn(toSdkTurn(input)),
-        steer: (id, input) => session.steer(id, toSdkTurn(input)),
+        turn: (input) => handleOf(session.turn(toSdkTurn(input))),
+        agentTurns: Stream.map(session.agentTurns, handleOf),
       };
       return harnessSession;
     }),

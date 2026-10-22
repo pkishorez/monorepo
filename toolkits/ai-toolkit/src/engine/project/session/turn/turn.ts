@@ -2,13 +2,13 @@ import { Duration, Effect, Option, Schema, Stream } from 'effect';
 import { Actor } from '@kestack/kabuki';
 import type { Self } from '@kestack/kabuki';
 import {
+  HarnessError,
   isRecord,
-  type HarnessError,
   type HarnessSession,
   type RawOut,
   type TurnEnd,
+  type TurnHandle,
   type TurnOut,
-  type TurnStream,
 } from '../../../../harness/index.js';
 import type { TurnEndStatus } from '../../../../projection/index.js';
 import { Store } from '../../../../store/index.js';
@@ -27,9 +27,9 @@ import { SessionAgent } from '../agent/index.js';
  *           hears of it, and the stream's `TurnEnd` gives `turn.ended` its
  *           status and Fork Point. A stream that ends without one ended
  *           cancelled, or failed when nobody cancelled it.
- * - steer   each message sent while it runs, once the agent has been asked
- *           for the turn: hands it to the agent. One whose `TurnSteered`
- *           never comes the Session runs as the next Turn.
+ *           Each message sent while it runs goes to the agent through
+ *           this turn's own handle, so it can join no other; one whose
+ *           `TurnSteered` never comes the Session runs as the next Turn.
  * - cancel  while cancelling: tells the agent to stop; if it does not end in
  *           time, the Turn is ended from here, which stops it.
  *
@@ -54,23 +54,15 @@ const Props = Schema.Struct({
   cancelling: Schema.Boolean,
 });
 
-const Model = Schema.Struct({
-  ...Input.fields,
-  /** The agent has been asked for the turn, so it takes steers. */
-  accepting: Schema.Boolean,
-});
-
-const Message = Schema.TaggedUnion({ Accepting: {} });
-
 type TurnSelf = Self<
-  typeof Model.Type,
+  typeof Input.Type,
   { readonly _tag: 'Single' },
-  typeof Message.Type,
+  never,
   typeof Props.Type
 >;
 
 /** Writes what a writer emitted into Raw, as part of this turn. */
-const writer = (model: typeof Model.Type) =>
+const writer = (model: typeof Input.Type) =>
   Effect.gen(function* () {
     const store = yield* Store;
     const { harness } = yield* SessionAgent;
@@ -94,21 +86,53 @@ const started = (prompt: Prompt | null) =>
         attachments: prompt.attachments,
       });
 
-/** The records of the Turn: the user's, or the one the agent started. */
-const recordsOf = (
+/** An agent turn that is gone before it was taken: nothing to run. */
+const noTurn: TurnHandle = {
+  out: Stream.empty,
+  steer: () => Effect.fail(new HarnessError({ message: 'No turn to steer' })),
+};
+
+/** The Turn: the user's, or the one the agent started. */
+const handleOf = (
   agent: HarnessSession,
   prompt: Prompt | null,
-): Effect.Effect<TurnStream, never, SessionAgent> =>
+): Effect.Effect<TurnHandle, never, SessionAgent> =>
   prompt === null
-    ? Effect.map(SessionAgent, (context) =>
-        Stream.unwrap(
-          Effect.map(
-            context.takeAgentTurn,
-            Option.getOrElse(() => Stream.empty),
-          ),
+    ? Effect.flatMap(SessionAgent, (context) =>
+        Effect.map(
+          context.takeAgentTurn,
+          Option.getOrElse(() => noTurn),
         ),
       )
     : Effect.sync(() => agent.turn(toTurnInput(prompt)));
+
+/**
+ * Hands each message sent while the Turn runs to its handle, once; the
+ * turn's stream says which the agent took.
+ */
+const steerAll = (self: TurnSelf, handle: TurnHandle) => {
+  const handed = new Set<string>();
+  return self.changes.pipe(
+    Stream.runForEach(({ props }) =>
+      Effect.forEach(
+        props.steers.filter((each) => !handed.has(each.id)),
+        (prompt) => {
+          handed.add(prompt.id);
+          return handle.steer(prompt.id, toTurnInput(prompt)).pipe(
+            Effect.catch((error) =>
+              Effect.logInfo(
+                'The agent did not take a steer; it runs as the next turn',
+                error,
+              ),
+            ),
+            Effect.forkChild,
+          );
+        },
+        { discard: true },
+      ),
+    ),
+  );
+};
 
 const run = (self: TurnSelf) =>
   Effect.gen(function* () {
@@ -176,10 +200,9 @@ const run = (self: TurnSelf) =>
     const stream = Effect.gen(function* () {
       const agent = yield* context.agent;
       if ((yield* self.get).props.cancelling) return;
-      const records = yield* recordsOf(agent, model.prompt);
-      // Asked for: the agent holds a steer until the turn has started.
-      yield* self.send({ _tag: 'Accepting' });
-      yield* Stream.runForEach(records, keep);
+      const handle = yield* handleOf(agent, model.prompt);
+      yield* Effect.forkChild(steerAll(self, handle));
+      yield* Stream.runForEach(handle.out, keep);
     });
 
     const finish = (failed: HarnessError | undefined) =>
@@ -221,25 +244,6 @@ const run = (self: TurnSelf) =>
     });
   });
 
-/** Hands a steer to the agent; the turn's stream says whether it took it. */
-const steer = (self: TurnSelf, id: string) =>
-  Effect.gen(function* () {
-    const { props } = yield* self.get;
-    const prompt = props.steers.find((each) => each.id === id);
-    if (prompt === undefined) return;
-    const context = yield* SessionAgent;
-    yield* Effect.flatMap(context.agent, (agent) =>
-      agent.steer(id, toTurnInput(prompt)),
-    ).pipe(
-      Effect.catch((error) =>
-        Effect.logInfo(
-          'The agent did not take a steer; it runs as the next turn',
-          error,
-        ),
-      ),
-    );
-  });
-
 const cancel = () =>
   Effect.gen(function* () {
     const context = yield* SessionAgent;
@@ -254,21 +258,12 @@ export const Turn = Actor.build(
     requires: [SessionAgent, Store],
     input: Input,
     props: Props,
-    model: Model,
-    message: Message,
+    model: Input,
   }),
   {
-    init: (input) => ({ model: { ...input, accepting: false } }),
-    on: {
-      Accepting: (_, { model }) => ({ model: { ...model, accepting: true } }),
-    },
+    init: (input) => ({ model: input }),
     workers: {
       run: { run: (self) => run(self) },
-      steer: {
-        each: ({ model, props }) =>
-          model.accepting ? props.steers.map((each) => each.id) : [],
-        run: (self, id) => steer(self, id),
-      },
       cancel: {
         while: ({ props }) => props.cancelling,
         run: (self) =>

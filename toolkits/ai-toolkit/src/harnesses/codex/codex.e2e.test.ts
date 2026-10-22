@@ -19,6 +19,7 @@ import {
   type BackgroundJob,
   type RawOut,
   type TurnEnd,
+  type TurnHandle,
   type TurnInput,
 } from '../../harness/index.js';
 import type { Part, Projected } from '../../projection/index.js';
@@ -92,13 +93,8 @@ const chunksOf = (outs: ReadonlyArray<RawOut>) => {
 };
 
 /** One turn's records, the steers Codex took, and how the turn ended. */
-const collectAll = (
-  session: HarnessSession,
-  text: string,
-  name: string,
-  more: Omit<TurnInput, 'text'> = { images: [] },
-) =>
-  session.turn({ text, ...more }).pipe(
+const readTurn = (turn: TurnHandle, name: string) =>
+  turn.out.pipe(
     Stream.runCollect,
     Effect.map((all) => {
       const outs: RawOut[] = [];
@@ -338,13 +334,13 @@ describe.runIf(process.env.AI_TOOLKIT_E2E === '1')(
         await run(
           Effect.gen(function* () {
             const session = yield* open();
-            const fiber = yield* collectAll(
-              session,
-              'Use your shell tool to run `sleep 8 && echo slept`, then reply with its output.',
-              'steer',
-            ).pipe(Effect.forkChild);
+            const turn = session.turn({
+              text: 'Use your shell tool to run `sleep 8 && echo slept`, then reply with its output.',
+              images: [],
+            });
+            const fiber = yield* readTurn(turn, 'steer').pipe(Effect.forkChild);
             yield* Effect.sleep(Duration.seconds(4));
-            yield* session.steer('steer-1', {
+            yield* turn.steer('steer-1', {
               text: 'Also end your final reply with the word STEERED.',
               images: [],
             });
@@ -457,6 +453,13 @@ describe.runIf(process.env.AI_TOOLKIT_E2E === '1')(
     );
   },
 );
+
+const collectAll = (
+  session: HarnessSession,
+  text: string,
+  name: string,
+  more: Omit<TurnInput, 'text'> = { images: [] },
+) => readTurn(session.turn({ text, ...more }), name);
 
 const collect = (...args: Parameters<typeof collectAll>) =>
   Effect.map(collectAll(...args), ({ outs }) => outs);

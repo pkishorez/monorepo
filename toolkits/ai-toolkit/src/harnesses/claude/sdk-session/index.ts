@@ -1,1 +1,6 @@
-export { openSdkSession, restore, type SdkTurn } from './sdk-session.js';
+export {
+  openSdkSession,
+  restore,
+  type SdkTurn,
+  type SdkTurnHandle,
+} from './sdk-session.js';

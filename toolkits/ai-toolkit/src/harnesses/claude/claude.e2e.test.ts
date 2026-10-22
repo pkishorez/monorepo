@@ -16,8 +16,8 @@ import {
   type HarnessSession,
   type RawOut,
   type TurnEnd,
+  type TurnHandle,
   type TurnInput,
-  type TurnStream,
 } from '../../harness/index.js';
 import type { Part, Projected } from '../../projection/index.js';
 import type { Raw } from '../../raw/index.js';
@@ -146,7 +146,7 @@ const fullTurn = (
   text: string,
   options?: {
     readonly when: (out: RawOut) => boolean;
-    readonly during: Effect.Effect<void, unknown>;
+    readonly during: (turn: TurnHandle) => Effect.Effect<void, unknown>;
   },
   input?: Partial<TurnInput>,
 ) =>
@@ -155,7 +155,8 @@ const fullTurn = (
     const steered: string[] = [];
     let end: TurnEnd | undefined;
     const forks: Array<Fiber.Fiber<void, unknown>> = [];
-    yield* session.turn({ text, images: [], ...input }).pipe(
+    const turn = session.turn({ text, images: [], ...input });
+    yield* turn.out.pipe(
       Stream.runForEach((out) =>
         Effect.gen(function* () {
           if (!isRecord(out)) {
@@ -169,7 +170,7 @@ const fullTurn = (
             forks.length === 0 &&
             options.when(out)
           ) {
-            forks.push(yield* Effect.forkChild(options.during));
+            forks.push(yield* Effect.forkChild(options.during(turn)));
           }
         }),
       ),
@@ -182,8 +183,8 @@ const runTurn = (...args: Parameters<typeof fullTurn>) =>
   Effect.map(fullTurn(...args), ({ outs }) => outs);
 
 /** An agent turn's records, and how it ended. */
-const collect = (turn: TurnStream) =>
-  Effect.map(Stream.runCollect(turn), (all) => {
+const collect = (turn: TurnHandle) =>
+  Effect.map(Stream.runCollect(turn.out), (all) => {
     const outs = Array.from(all);
     const end = outs.at(-1);
     return {
@@ -333,10 +334,11 @@ describe.skipIf(!enabled)('claude harness against the real Claude Code', () => {
         'Run the Bash command `sleep 5; echo one`, then reply with the word DONE.',
         {
           when: hasToolCall('Bash'),
-          during: session.steer('steer-1', {
-            text: 'Change of plan: once the command finishes, reply with only the word BANANA instead of DONE.',
-            images: [],
-          }),
+          during: (turn) =>
+            turn.steer('steer-1', {
+              text: 'Change of plan: once the command finishes, reply with only the word BANANA instead of DONE.',
+              images: [],
+            }),
         },
       ),
     );
@@ -361,7 +363,7 @@ describe.skipIf(!enabled)('claude harness against the real Claude Code', () => {
       runTurn(
         session,
         'Run the Bash command `sleep 60`, then reply with the word FINISHED.',
-        { when: hasToolCall('Bash'), during: session.cancel },
+        { when: hasToolCall('Bash'), during: () => session.cancel },
       ),
     );
     save('cancel', outs);

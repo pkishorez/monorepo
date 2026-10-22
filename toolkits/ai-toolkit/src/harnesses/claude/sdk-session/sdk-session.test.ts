@@ -12,8 +12,11 @@ const live = vi.hoisted(() => {
   let records: Array<unknown> = [];
   let wake: (() => void) | undefined;
   const sent: Array<{ uuid: string; text: unknown }> = [];
+  /** Settles the model change the query is making, if any. */
+  let modelChange: ((ok: boolean) => void) | undefined;
   return {
     sent,
+    settleModelChange: (ok: boolean) => modelChange?.(ok),
     emit: (record: unknown) => {
       records.push(record);
       wake?.();
@@ -45,6 +48,11 @@ const live = vi.hoisted(() => {
           wake?.();
         },
         stopTask: async () => {},
+        setModel: () =>
+          new Promise<void>((resolve, reject) => {
+            modelChange = (ok) =>
+              ok ? resolve() : reject(new Error('no such model'));
+          }),
       };
     },
   };
@@ -113,7 +121,7 @@ describe('openSdkSession', () => {
 
         const userTurn = yield* Effect.forkChild(
           Stream.runCollect(
-            session.turn({ text: 'hi', images: [], options: {} }),
+            session.turn({ text: 'hi', images: [], options: {} }).out,
           ),
         );
         const [uuid] = yield* sentNow(1);
@@ -127,7 +135,7 @@ describe('openSdkSession', () => {
           'end done user-1',
         ]);
 
-        expect(kinds(yield* Stream.runCollect(agentTurn[0]!))).toEqual([
+        expect(kinds(yield* Stream.runCollect(agentTurn[0]!.out))).toEqual([
           'system/init',
           'assistant',
           'result',
@@ -145,16 +153,13 @@ describe('openSdkSession', () => {
         const agentTurns = yield* Stream.toPull(session.agentTurns);
         const agentTurn = yield* agentTurns;
         const agentRead = yield* Effect.forkChild(
-          Stream.runCollect(agentTurn[0]!),
+          Stream.runCollect(agentTurn[0]!.out),
         );
 
-        const userTurn = yield* Effect.forkChild(
-          Stream.runCollect(
-            session.turn({ text: 'hi', images: [], options: {} }),
-          ),
-        );
+        const user = session.turn({ text: 'hi', images: [], options: {} });
+        const userTurn = yield* Effect.forkChild(Stream.runCollect(user.out));
         const steer = yield* Effect.forkChild(
-          session.steer('steer-1', { text: 'also', images: [], options: {} }),
+          user.steer('steer-1', { text: 'also', images: [], options: {} }),
         );
         yield* Effect.sleep('20 millis');
         expect(live.sent).toHaveLength(0);
@@ -191,7 +196,7 @@ describe('openSdkSession', () => {
       Effect.gen(function* () {
         const userTurn = yield* Effect.forkChild(
           Stream.runCollect(
-            session.turn({ text: 'hi', images: [], options: {} }),
+            session.turn({ text: 'hi', images: [], options: {} }).out,
           ),
         );
         const [uuid] = yield* sentNow(1);
@@ -216,19 +221,83 @@ describe('openSdkSession', () => {
   it('refuses a steer once its turn has ended', () =>
     withSession((session) =>
       Effect.gen(function* () {
-        const userTurn = yield* Effect.forkChild(
-          Stream.runCollect(
-            session.turn({ text: 'hi', images: [], options: {} }),
-          ),
-        );
+        const user = session.turn({ text: 'hi', images: [], options: {} });
+        const userTurn = yield* Effect.forkChild(Stream.runCollect(user.out));
         const [uuid] = yield* sentNow(1);
         live.emit(init);
         live.emit(result([uuid!]));
         yield* Fiber.join(userTurn);
         const refused = yield* Effect.flip(
-          session.steer('late', { text: 'late', images: [], options: {} }),
+          user.steer('late', { text: 'late', images: [], options: {} }),
         );
-        expect(refused.message).toBe('No turn is running to steer');
+        expect(refused.message).toBe('Its turn is not the one running');
+      }),
+    ));
+
+  it("steers only the turn it was given, not the agent's next one", () =>
+    withSession((session) =>
+      Effect.gen(function* () {
+        // The agent ends one turn of its own and starts another before
+        // either is read.
+        live.emit(init);
+        live.emit(said('agent-1'));
+        live.emit(result([]));
+        live.emit(init);
+        live.emit(said('agent-2'));
+        const [first, second] = yield* Stream.runCollect(
+          Stream.take(session.agentTurns, 2),
+        );
+
+        const refused = yield* Effect.flip(
+          first!.steer('s1', { text: 'late', images: [], options: {} }),
+        );
+        expect(refused.message).toBe('Its turn is not the one running');
+        expect(kinds(yield* Stream.runCollect(first!.out))).toEqual([
+          'system/init',
+          'assistant',
+          'result',
+          'end done agent-1',
+        ]);
+
+        yield* second!.steer('s2', { text: 'now', images: [], options: {} });
+        const [steerId] = yield* sentNow(1);
+        live.emit(result([steerId!]));
+        expect(kinds(yield* Stream.runCollect(second!.out))).toEqual([
+          'system/init',
+          'assistant',
+          'steered s2',
+          'result',
+          'end done agent-2',
+        ]);
+      }),
+    ));
+
+  it('ends a turn whose steer could not change the model as its last result did, shown once', () =>
+    withSession((session) =>
+      Effect.gen(function* () {
+        const user = session.turn({ text: 'hi', images: [], options: {} });
+        const userTurn = yield* Effect.forkChild(Stream.runCollect(user.out));
+        const [uuid] = yield* sentNow(1);
+        live.emit(init);
+        const steer = yield* Effect.forkChild(
+          user.steer('s1', {
+            text: 'also',
+            images: [],
+            options: { model: 'claude-other' },
+          }),
+        );
+        yield* Effect.sleep('20 millis');
+        live.emit(result([uuid!]));
+        yield* Effect.sleep('20 millis');
+        live.settleModelChange(false);
+        expect((yield* Fiber.await(steer))._tag).toBe('Failure');
+        const outs = [...(yield* Fiber.join(userTurn))];
+        expect(kinds(outs)).toEqual([
+          'system/init',
+          'result',
+          `end done ${uuid}`,
+        ]);
+        expect(outs.at(-1)).toMatchObject({ shown: true });
       }),
     ));
 });

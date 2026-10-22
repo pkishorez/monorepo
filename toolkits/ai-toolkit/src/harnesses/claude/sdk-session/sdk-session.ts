@@ -39,12 +39,18 @@ export interface SdkTurn {
   readonly options: Partial<TurnOptions>;
 }
 
-export type SdkSession = Omit<HarnessSession, 'turn' | 'steer'> & {
-  readonly turn: (input: SdkTurn) => TurnStream;
+/** One turn, as a `TurnHandle` that steers with `SdkTurn`s. */
+export interface SdkTurnHandle {
+  readonly out: TurnStream;
   readonly steer: (
     id: string,
     input: SdkTurn,
   ) => Effect.Effect<void, HarnessError>;
+}
+
+export type SdkSession = Omit<HarnessSession, 'turn' | 'agentTurns'> & {
+  readonly turn: (input: SdkTurn) => SdkTurnHandle;
+  readonly agentTurns: Stream.Stream<SdkTurnHandle>;
 };
 
 /** How long a cancelled turn may take to report its result before its stream ends anyway. */
@@ -91,7 +97,7 @@ export const openSdkSession = (
 
     const scope = yield* Effect.scope;
     const jobs = yield* makeBackgroundJobs((id) => live.stopTask(id));
-    const agentTurns = yield* Queue.unbounded<TurnStream>();
+    const agentTurns = yield* Queue.unbounded<SdkTurnHandle>();
     let options: TurnOptions = {
       model: config.model,
       effort: config.effort,
@@ -99,8 +105,6 @@ export const openSdkSession = (
     };
     let nativeId = config.nativeId;
     let turn: Turn | undefined;
-    /** The user turn last asked for: done once it is the running turn. */
-    let asked: Deferred.Deferred<Turn, HarnessError> | undefined;
     let stopped: HarnessError | undefined;
     // What a background subagent wrote, and task notifications, while no
     // turn ran: the next turn opens with them.
@@ -209,12 +213,13 @@ export const openSdkSession = (
           ? Effect.succeed(turn)
           : begin(current).pipe(
               Effect.andThen(
-                Queue.offer(
-                  agentTurns,
-                  Stream.fromQueue(current.out).pipe(
+                Queue.offer(agentTurns, {
+                  out: Stream.fromQueue(current.out).pipe(
                     Stream.ensuring(finishIfCurrent(current)),
                   ),
-                ),
+                  steer: (id, message) =>
+                    steerInto(Effect.succeed(current), id, message),
+                }),
               ),
               Effect.as(current),
             ),
@@ -223,13 +228,16 @@ export const openSdkSession = (
 
     /**
      * Ends a turn whose last waiting message will get no result: as its
-     * last answer did, or cancelled when none came.
+     * last answer did, which its stream already shows, or cancelled when
+     * none came.
      */
     const finishDropped = (current: Turn) =>
-      finish(current, {
-        ...(current.answered ?? { status: 'cancelled' }),
-        shown: false,
-      });
+      finish(
+        current,
+        current.answered === undefined
+          ? { status: 'cancelled', shown: false }
+          : { ...current.answered, shown: true },
+      );
 
     const finishIfCurrent = (current: Turn) =>
       Effect.suspend(() =>
@@ -385,26 +393,49 @@ export const openSdkSession = (
       });
 
     /**
-     * The turn a steer joins: the user turn last asked for, once it runs,
-     * else an agent's running turn. Fails once that turn has ended.
+     * Sends a steer into its own turn once that turn runs: refused once it
+     * has ended, or while Claude Code runs another.
      */
-    const steered: Effect.Effect<Turn, HarnessError> = Effect.gen(function* () {
-      const user = asked && (yield* Deferred.await(asked));
-      const current = user && !user.ended ? user : turn;
-      if (current === undefined || current.ended)
-        return yield* new HarnessError({
-          message: 'No turn is running to steer',
-        });
-      return current;
-    });
+    const steerInto = (
+      target: Effect.Effect<Turn, HarnessError>,
+      id: string,
+      message: SdkTurn,
+    ) =>
+      Effect.gen(function* () {
+        const current = yield* target;
+        if (current.ended || turn !== current)
+          return yield* new HarnessError({
+            message: 'Its turn is not the one running',
+          });
+        // Counted before the options apply, so the turn cannot end on a
+        // result before its steer is sent.
+        const uuid = randomUUID();
+        current.state = TurnEnd.sent(current.state, uuid);
+        yield* applyOptions(message.options).pipe(
+          Effect.tapError(() => {
+            const [state, step] = TurnEnd.dropped(current.state, uuid);
+            current.state = state;
+            return step === 'end' ? finishDropped(current) : Effect.void;
+          }),
+        );
+        // A cancel or Claude Code exiting may have ended it meanwhile.
+        if (current.ended)
+          return yield* new HarnessError({
+            message: 'The turn ended before its steer was sent',
+          });
+        // Sent and marked at once: the steer is in the turn's stream
+        // right where Claude Code got it, after the text before it.
+        Queue.offerAllUnsafe(current.out, chunks.flushAll());
+        input.push(uuid, userContent(message.text, message.images));
+        Queue.offerUnsafe(current.out, { _tag: 'TurnSteered', id });
+      });
 
     const session: SdkSession = {
       nativeId: Effect.sync(() => nativeId),
       turn: (message) => {
         // Asked for now, so a steer sent before the turn runs waits for it.
         const claimed = Deferred.makeUnsafe<Turn, HarnessError>();
-        asked = claimed;
-        return Stream.unwrap(
+        const out = Stream.unwrap(
           Effect.gen(function* () {
             yield* applyOptions(message.options);
             const uuid = randomUUID();
@@ -430,32 +461,11 @@ export const openSdkSession = (
             ),
           ),
         );
+        return {
+          out,
+          steer: (id, steer) => steerInto(Deferred.await(claimed), id, steer),
+        };
       },
-      steer: (id, message) =>
-        Effect.gen(function* () {
-          const current = yield* steered;
-          // Counted before the options apply, so the turn cannot end on a
-          // result before its steer is sent.
-          const uuid = randomUUID();
-          current.state = TurnEnd.sent(current.state, uuid);
-          yield* applyOptions(message.options).pipe(
-            Effect.tapError(() => {
-              const [state, step] = TurnEnd.dropped(current.state, uuid);
-              current.state = state;
-              return step === 'end' ? finishDropped(current) : Effect.void;
-            }),
-          );
-          // A cancel or Claude Code exiting may have ended it meanwhile.
-          if (current.ended)
-            return yield* new HarnessError({
-              message: 'The turn ended before its steer was sent',
-            });
-          // Sent and marked at once: the steer is in the turn's stream
-          // right where Claude Code got it, after the text before it.
-          Queue.offerAllUnsafe(current.out, chunks.flushAll());
-          input.push(uuid, userContent(message.text, message.images));
-          Queue.offerUnsafe(current.out, { _tag: 'TurnSteered', id });
-        }),
       cancel: Effect.suspend(() => {
         const current = turn;
         if (current === undefined) return Effect.void;
