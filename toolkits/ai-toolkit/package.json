@@ -26,6 +26,14 @@
     "./client": {
       "types": "./dist/client/index.d.ts",
       "default": "./dist/client/index.js"
+    },
+    "./machines": {
+      "types": "./dist/machines/contract/index.d.ts",
+      "default": "./dist/machines/contract/index.js"
+    },
+    "./machines/client": {
+      "types": "./dist/machines/client/index.d.ts",
+      "default": "./dist/machines/client/index.js"
     }
   },
   "scripts": {
@@ -43,6 +51,7 @@
     "@openai/codex": "catalog:"
   },
   "peerDependencies": {
+    "@kestack/auth-toolkit": "workspace:*",
     "@kestack/kabuki": "workspace:*",
     "@kestack/rpc-toolkit": "workspace:*",
     "@kestack/std-toolkit": "workspace:*",
@@ -50,6 +59,7 @@
     "effect": "^4.0.0"
   },
   "devDependencies": {
+    "@kestack/auth-toolkit": "workspace:*",
     "@kestack/kabuki": "workspace:*",
     "@kestack/rpc-toolkit": "workspace:*",
     "@kestack/std-toolkit": "workspace:*",

@@ -75,6 +75,7 @@
       "src/api/live",
       "src/harnesses",
       "src/harness"
-    ]
+    ],
+    "src/machines/client": ["src/machines/contract"]
   }
 }

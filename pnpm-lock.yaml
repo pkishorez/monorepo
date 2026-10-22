@@ -1261,6 +1261,9 @@ importers:
         specifier: 'catalog:'
         version: 0.154.0
     devDependencies:
+      '@kestack/auth-toolkit':
+        specifier: workspace:*
+        version: link:../auth-toolkit
       '@kestack/kabuki':
         specifier: workspace:*
         version: link:../../packages/kabuki
