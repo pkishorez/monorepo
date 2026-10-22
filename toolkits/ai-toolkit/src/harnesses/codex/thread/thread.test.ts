@@ -13,6 +13,7 @@ import { openSession } from './thread.js';
 const fakeServer = () => {
   const listeners = new Set<Listener>();
   const steers: Array<(ok: boolean) => void> = [];
+  const skills: Array<() => void> = [];
   const answers: Record<string, unknown> = {
     'thread/start': { thread: { id: 'main' } },
     'turn/start': { turn: { id: 't1' } },
@@ -21,6 +22,9 @@ const fakeServer = () => {
   };
   const request = ((method: string) =>
     Effect.callback<unknown>((resume) => {
+      // Skills are listed when the test says: a steer naming one waits.
+      if (method === 'skills/list')
+        return void skills.push(() => resume(Effect.succeed({ data: [] })));
       if (method === 'turn/steer')
         steers.push((ok) =>
           resume(ok ? Effect.succeed({}) : Effect.die('refused')),
@@ -37,6 +41,7 @@ const fakeServer = () => {
   return {
     server,
     steers,
+    skills,
     notify: (method: string, params: unknown) => {
       for (const listener of listeners)
         listener.notification({ method, params } as never);
@@ -132,6 +137,32 @@ describe('a Codex turn', () => {
             'item/completed',
             'end cancelled',
           ]);
+        }),
+      ),
+    15_000,
+  );
+
+  it(
+    'leaves a steer still being prepared when a cancel times out for the next turn',
+    () =>
+      withSession((session, fake) =>
+        Effect.gen(function* () {
+          const turn = session.turn({ text: 'hi', images: [] });
+          const read = yield* Effect.forkChild(Stream.runCollect(turn.out));
+          yield* Effect.sleep(20);
+          const steer = yield* Effect.forkChild(
+            turn.steer('s1', { text: '/review this', images: [] }),
+          );
+          yield* Effect.sleep(20);
+          yield* session.cancel;
+          expect(kinds(yield* Fiber.join(read))).toEqual(['end cancelled']);
+          // Prepared after its turn ended: refused, so it runs next, unsent.
+          fake.skills[0]!();
+          const refused = yield* Effect.flip(Fiber.join(steer));
+          expect(refused.message).toBe(
+            'Its Codex turn ended before the steer was sent',
+          );
+          expect(fake.steers).toHaveLength(0);
         }),
       ),
     15_000,

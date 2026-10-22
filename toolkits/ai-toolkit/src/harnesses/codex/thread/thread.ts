@@ -407,36 +407,39 @@ export const openSession = (
       Effect.gen(function* () {
         const current = yield* Deferred.await(claimed);
         const expectedTurnId = yield* Deferred.await(current.turnId);
-        if (
-          running !== current ||
-          current.mainDone ||
-          Deferred.isDoneUnsafe(current.ended)
-        )
+        const runs = () =>
+          running === current &&
+          !current.mainDone &&
+          !Deferred.isDoneUnsafe(current.ended);
+        if (!runs())
           return yield* new HarnessError({
             message: 'Its Codex turn is not the one running',
           });
+        const items = yield* userInput(input);
+        // Looking up Skills may take a while: the turn may be over by now.
+        if (!runs())
+          return yield* new HarnessError({
+            message: 'Its Codex turn ended before the steer was sent',
+          });
+        // Counted from the moment it is sent: only a sent steer may be
+        // marked taken by a turn that ends before Codex answers.
         current.steering.add(id);
-        yield* userInput(input).pipe(
-          Effect.flatMap((items) =>
-            server.request('turn/steer', {
-              threadId,
-              expectedTurnId,
-              input: items,
-            }),
-          ),
-          Effect.tap(() =>
-            Effect.sync(() => {
-              if (current.steering.delete(id))
-                current.emit({ _tag: 'TurnSteered', id });
-            }),
-          ),
-          Effect.ensuring(
-            Effect.sync(() => {
-              current.steering.delete(id);
-              if (current.steering.size === 0) current.release(true);
-            }),
-          ),
-        );
+        yield* server
+          .request('turn/steer', { threadId, expectedTurnId, input: items })
+          .pipe(
+            Effect.tap(() =>
+              Effect.sync(() => {
+                if (current.steering.delete(id))
+                  current.emit({ _tag: 'TurnSteered', id });
+              }),
+            ),
+            Effect.ensuring(
+              Effect.sync(() => {
+                current.steering.delete(id);
+                if (current.steering.size === 0) current.release(true);
+              }),
+            ),
+          );
       });
 
     const turn = (input: TurnInput): TurnHandle => {
