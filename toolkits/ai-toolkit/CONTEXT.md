@@ -99,3 +99,19 @@ _Avoid_: name, label
 **Bootstrap Sweep**:
 The startup step that finds Turns the last server left running and ends them interrupted.
 _Avoid_: recovery, orphan reaper
+
+**Machine**:
+One running server and the computer it runs on, signed in as one User, who alone may reach it. It keeps the same id across restarts and has a name the User can change. A Machine's Projects and Sessions are its own; another Machine of the same User has others.
+_Avoid_: connection, environment, server, host, device (auth-toolkit's word for how it signs in)
+
+**Machine Key**:
+The secret a Machine asks of anyone who connects to it. It is made once and never changes; whoever holds it can reach the Machine.
+_Avoid_: token (that proves a Sign-in), password, API key
+
+**Heartbeat**:
+A Machine's regular report of how it stands, carrying two signals: that it is running, shown by when it last reported, and whether it could reach itself at its public address. A Machine that stops reporting is down; one that reports but cannot reach itself is up with its tunnel broken.
+_Avoid_: poll, ping, health check (the route it calls, not the concept)
+
+**Last Seen**:
+When a Machine last sent a Heartbeat. The only way to tell a Machine that stopped from one that is running.
+_Avoid_: last active, updated at, online
