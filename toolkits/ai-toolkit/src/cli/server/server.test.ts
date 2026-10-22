@@ -125,17 +125,18 @@ const line = ({ row }: Rows[number]) => {
   return part.text === undefined ? part.type : `${part.type} ${part.text}`;
 };
 
-/** How the server answers a WebSocket upgrade from `origin`: 101, or its refusal. */
+/** How the server answers a WebSocket upgrade from `origin` at `path`: 101, or its refusal. */
 const upgrade = (
   port: number,
   origin: string | undefined,
   protocols?: string,
+  path = '/rpc',
 ) =>
   new Promise<number>((resolve, reject) => {
     const asking = request({
       host: '127.0.0.1',
       port,
-      path: '/rpc',
+      path,
       agent: false,
       headers: {
         connection: 'Upgrade',
@@ -172,7 +173,7 @@ const socket = (port: number, protocols: ReadonlyArray<string>) =>
   });
 
 describe('the server, through the client and Replica', () => {
-  it('asks for the Machine Key on /rpc only, and selects ai-toolkit, never the key', () =>
+  it('asks for the Machine Key everywhere but /health, and selects ai-toolkit, never the key', () =>
     Effect.runPromise(
       Effect.scoped(
         Effect.gen(function* () {
@@ -192,6 +193,19 @@ describe('the server, through the client and Replica', () => {
           expect(yield* status(undefined, 'ai-toolkit')).toBe(401);
           expect(yield* status(undefined, 'ai-toolkit, key.wrong')).toBe(403);
           expect(yield* status(undefined, `ai-toolkit, key.${key}`)).toBe(101);
+          // The router answers other spellings of /rpc too; none skips the key.
+          for (const path of [
+            '/RPC',
+            '//rpc',
+            '/%72pc',
+            '/Rpc/',
+            'http://x/rpc',
+          ])
+            expect(
+              yield* Effect.promise(() =>
+                upgrade(port, undefined, 'ai-toolkit', path),
+              ),
+            ).toBe(401);
           expect(
             yield* status('https://code.kishore.app', `ai-toolkit, key.${key}`),
           ).toBe(101);
