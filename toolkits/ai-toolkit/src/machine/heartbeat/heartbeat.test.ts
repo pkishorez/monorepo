@@ -1,4 +1,4 @@
-import { Effect, Fiber } from 'effect';
+import { type Duration, Effect, Fiber } from 'effect';
 import { describe, expect, it, vi } from 'vitest';
 import type { TunnelCheck } from '../../machines/contract/index.js';
 import { heartbeat } from './index.js';
@@ -22,11 +22,12 @@ const fake = (options: {
   readonly healthy: (url: string) => boolean;
   readonly answer?: (report: Report, count: number) => Answer;
   readonly signInAgain?: Effect.Effect<void, string>;
+  readonly backoff?: Duration.Input;
 }) => {
   const opened: Array<string> = [];
   const closed: Array<string> = [];
   const reports: Array<Report> = [];
-  let signIns = 0;
+  const signIns: Array<number> = [];
   const host = {
     every: '10 millis',
     open: Effect.acquireRelease(
@@ -52,12 +53,20 @@ const fake = (options: {
           }
         );
       }),
+    backoff: options.backoff ?? '10 millis',
     signInAgain: Effect.suspend(() => {
-      signIns++;
+      signIns.push(Date.now());
       return options.signInAgain ?? Effect.void;
     }),
   } satisfies Parameters<typeof heartbeat>[0];
-  return { host, opened, closed, reports, signIns: () => signIns };
+  return {
+    host,
+    opened,
+    closed,
+    reports,
+    signIns: () => signIns.length,
+    signedInAt: signIns,
+  };
 };
 
 const eventually = (assertion: () => void) =>
@@ -156,6 +165,54 @@ describe('the Heartbeat', () => {
           expect(signIns()).toBe(1);
           expect(opened).toEqual(['https://t1.example', 'https://t2.example']);
           expect(closed).toContain('https://t1.example');
+          yield* Fiber.interrupt(running);
+        }),
+      ),
+    ));
+
+  it('backs off, longer each time, while the Backend refuses every new Sign-in', () =>
+    Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const { host, signedInAt } = fake({
+            healthy: () => true,
+            answer: () => ({ _tag: 'SignedOut' }),
+            backoff: '20 millis',
+          });
+          const running = yield* Effect.forkScoped(heartbeat(host));
+          // Waits of 0, 20, 40, 80 and 160 ms: five Sign-ins by 300 ms.
+          yield* eventually(() => expect(signedInAt.length).toBe(5));
+          yield* Effect.sleep('100 millis');
+          expect(signedInAt.length).toBe(5);
+          const gaps = signedInAt.slice(1).map((at, i) => at - signedInAt[i]!);
+          expect(gaps[3]!).toBeGreaterThanOrEqual(160);
+          expect(gaps[3]!).toBeGreaterThan(gaps[1]! * 2);
+          yield* Fiber.interrupt(running);
+        }),
+      ),
+    ));
+
+  it('signs in again at once after a Report was taken since the last refusal', () =>
+    Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          // Refused, taken from the second tunnel, then refused again.
+          let refusals = 0;
+          let taken = false;
+          const { host, signIns } = fake({
+            healthy: () => true,
+            answer: ({ url }) => {
+              if (refusals === 0 || (taken && refusals === 1)) {
+                refusals++;
+                return { _tag: 'SignedOut' };
+              }
+              if (url === 'https://t2.example') taken = true;
+              return { _tag: 'Reported' };
+            },
+            backoff: '1 minute',
+          });
+          const running = yield* Effect.forkScoped(heartbeat(host));
+          yield* eventually(() => expect(signIns()).toBe(2));
           yield* Fiber.interrupt(running);
         }),
       ),

@@ -3,11 +3,11 @@ import { Machine } from '@kestack/ai-toolkit/machines';
 import { MachinesClient } from '@kestack/ai-toolkit/machines/client';
 import { Actor } from '@kestack/kabuki';
 import { Navigation, Page, Router } from '@kestack/kabuki/routing';
-import { Store } from '@kestack/std-toolkit/replica';
 import { home, root } from '../../places/index.ts';
 import { forget, list, save } from './api.ts';
 import { choose, HEARTBEAT } from './health.ts';
 import { Link, nobody } from './link.ts';
+import { Records } from './records.ts';
 import { Saved } from './saved.ts';
 
 /*
@@ -22,7 +22,8 @@ import { Saved } from './saved.ts';
  * 3. Open     at the root, once there is a list, the Machine this device
  *             was last on for the Account, else the one seen last.
  * 4. Forget   a Machine, asked from Settings: the Backend forgets it, then
- *             its records here go; the Machine open goes back to the root.
+ *             its records here go; the Machine open goes back to the root
+ *             first, and its records once its page has closed.
  * 5. Share    what it holds is what `Machines` says to every page.
  */
 
@@ -35,7 +36,7 @@ export const Open = Page.define({ path: '/', metadata: { title: 'code' } });
 export const OpenLive = Page.build(Open);
 
 export const MachineList = Actor.define('MachineList', {
-  requires: [MachinesClient, Saved, Store, Link, Navigation],
+  requires: [MachinesClient, Saved, Records, Link, Navigation],
   input: Schema.Struct({ accountId: Schema.String }),
   props: Schema.Struct({
     /** Whether the app is at the root, on no Machine. */
@@ -228,8 +229,9 @@ export const MachineListLive = Actor.build(MachineList, {
 
 // What the rest of the app reads of Machines: the Capability every page
 // is Provided, what a Machine's record says, where this device keeps each
-// Account's list, and what signing out deletes.
+// Account's list and each Machine's records, and what signing out deletes.
 export { signedOut } from './api.ts';
+export { Records } from './records.ts';
 export { DOWN_AFTER, health, socketUrl, tunnelOf } from './health.ts';
 export { Machines } from './link.ts';
 export { idb as savedIdb, memory as savedMemory, Saved } from './saved.ts';

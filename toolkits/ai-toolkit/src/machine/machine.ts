@@ -2,8 +2,8 @@ import { Context, Data, Effect, Layer } from 'effect';
 import { MachinesClient } from '../machines/client/index.js';
 import type { TunnelCheck } from '../machines/contract/index.js';
 import { heartbeat } from './heartbeat/index.js';
-import { claim, forget } from './identity/index.js';
-import { signIn, signOut } from './sign-in/index.js';
+import { claim, forget, found } from './identity/index.js';
+import { signIn, stored } from './sign-in/index.js';
 import { checkAt, openTunnel } from './tunnel/index.js';
 
 /*
@@ -14,6 +14,9 @@ import { checkAt, openTunnel } from './tunnel/index.js';
  * `identify` comes first, since the server needs the Machine Key before it
  * listens; `online` then opens the tunnel and beats; `logout` undoes both.
  */
+
+/** Wait before signing in again once a new Sign-in was refused too; it doubles after, up to a minute. */
+const FIRST_BACKOFF = '1 second';
 
 /** The Machine cannot go on serving; `message` says why and what to do. */
 export class MachineStopped extends Data.TaggedError('MachineStopped')<{
@@ -49,6 +52,13 @@ export const identify = (
 
 type Identified = Effect.Success<ReturnType<typeof identify>>;
 
+/** The Machines Backend at `backend`, its calls signed by `signing`, for as long as the Scope. */
+const clientAt = (backend: string, signing: Layer.Layer<unknown>) =>
+  Effect.map(
+    Layer.build(MachinesClient.layer(backend).pipe(Layer.provide(signing))),
+    (context) => Context.get(context, MachinesClient),
+  );
+
 /** How a Report's failure stands for the Heartbeat. */
 const outcomeOf = (error: unknown) => {
   const tag = (error as { readonly _tag?: string })._tag;
@@ -83,12 +93,7 @@ export const online = (
 ) =>
   Effect.gen(function* () {
     const { machine, session, backend, version } = identified;
-    const client = Context.get(
-      yield* Layer.build(
-        MachinesClient.layer(backend).pipe(Layer.provide(session.signing)),
-      ),
-      MachinesClient,
-    );
+    const client = yield* clientAt(backend, session.signing);
     const report = (now: {
       readonly url: string | null;
       readonly tunnel: TunnelCheck | null;
@@ -121,6 +126,7 @@ export const online = (
       open: openTunnel(options.port),
       check: checkAt,
       report,
+      backoff: FIRST_BACKOFF,
       signInAgain,
     });
     if (ended._tag === 'Forgotten') {
@@ -134,9 +140,32 @@ export const online = (
     });
   });
 
-/** Signs out, revoking the Sign-in, and forgets the Machine, keeping its Projects and Sessions: the next start is a new Machine. */
+/**
+ * Asks the Backend to forget the Machine, signs out, revoking the
+ * Sign-in, and forgets the Machine here, keeping its Projects and
+ * Sessions: the next start is a new Machine. A Backend that cannot be
+ * told is only logged: the Sign-in revoked, it can never Report again.
+ */
 export const logout = (options: Where) =>
-  Effect.gen(function* () {
-    yield* signOut(options);
-    yield* forget(options.db);
-  });
+  Effect.scoped(
+    Effect.gen(function* () {
+      const machine = yield* found(options.db);
+      // In Local mode the Machine's owner is who it signed in as.
+      const session = yield* stored({ ...options, as: machine?.owner.email });
+      if (machine !== null && session.signing !== null) {
+        const client = yield* clientAt(options.backend, session.signing);
+        yield* client
+          .Forget({ id: machine.id })
+          .pipe(
+            Effect.catch((error) =>
+              Effect.logWarning(
+                `${options.backend} could not be told to forget ${machine.name}; Forget it from the app`,
+                error,
+              ),
+            ),
+          );
+      }
+      yield* session.signOut;
+      yield* forget(options.db);
+    }),
+  );

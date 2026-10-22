@@ -17,9 +17,15 @@ export const HEARTBEAT = 15_000;
 /** A Machine not seen for this long is down. */
 export const DOWN_AFTER = 3 * HEARTBEAT;
 
-/** The socket of a Machine at its public `https://` address: `wss://…/rpc`. */
-export const socketUrl = (url: string) =>
-  `${url.replace(/^http/, 'ws').replace(/\/+$/, '')}/rpc`;
+/**
+ * The socket of a Machine at its public `https://` address, `wss://…/rpc`;
+ * null for any other address, which is never dialled: the Machine Key
+ * would cross in clear.
+ */
+export const socketUrl = (url: string | null) =>
+  url?.startsWith('https://') === true
+    ? `wss://${url.slice('https://'.length).replace(/\/+$/, '')}/rpc`
+    : null;
 
 /** The Machine to open: the one last used here, if still listed, else the one seen last; null with none. */
 export const choose = (

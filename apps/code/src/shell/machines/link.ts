@@ -8,6 +8,7 @@ import {
   SubscriptionRef,
 } from 'effect';
 import type { Machine as MachineSchema } from '@kestack/ai-toolkit/machines';
+import { socketUrl } from './health.ts';
 
 type Machine = typeof MachineSchema.Type;
 
@@ -67,8 +68,12 @@ export class Machines extends Context.Service<
     readonly current: Effect.Effect<Known>;
     /** The Machine as listed now, then each change; null while it is not. */
     readonly machine: (id: string) => Stream.Stream<Machine | null>;
-    /** The Machine once it is listed with an address; waits until it is. */
-    readonly reachable: (id: string) => Effect.Effect<Machine>;
+    /** Waits until the Machine is in the signed-in Account's list. */
+    readonly listed: (id: string) => Effect.Effect<void>;
+    /** Where to dial the Machine, `wss://…/rpc`, and its Key, once it is listed at an `https://` address; waits until it is. */
+    readonly reachable: (
+      id: string,
+    ) => Effect.Effect<{ readonly socket: string; readonly key: string }>;
     readonly refresh: Effect.Effect<void>;
     /** Forgets the Machine for good, and its records on this device. */
     readonly forget: (id: string) => Effect.Effect<void>;
@@ -90,22 +95,30 @@ export class Machines extends Context.Service<
           ),
           Stream.changes,
         );
+      /** The first `found` of the Machine as listed; waits for one, for ever if need be. */
+      const first = <A>(id: string, found: (machine: Machine) => A | null) =>
+        machine(id).pipe(
+          Stream.map((each) => (each === null ? null : found(each))),
+          Stream.filter((each): each is A => each !== null),
+          Stream.runHead,
+          Effect.flatMap(
+            Option.match({
+              onNone: () => Effect.never,
+              onSome: Effect.succeed,
+            }),
+          ),
+        );
       return Context.make(Link, { known, asked }).pipe(
         Context.add(Machines, {
           state,
           current: SubscriptionRef.get(known),
           machine,
+          listed: (id) => Effect.asVoid(first(id, () => true)),
           reachable: (id) =>
-            machine(id).pipe(
-              Stream.filter((each) => each !== null && each.url !== null),
-              Stream.runHead,
-              Effect.flatMap(
-                Option.match({
-                  onNone: () => Effect.never,
-                  onSome: (each) => Effect.succeed(each as Machine),
-                }),
-              ),
-            ),
+            first(id, ({ url, key }) => {
+              const socket = socketUrl(url);
+              return socket === null ? null : { socket, key };
+            }),
           refresh: ask({ _tag: 'Refresh' }),
           forget: (id) => ask({ _tag: 'Forget', id }),
           keepForgetting: ask({ _tag: 'KeepForgetting' }),

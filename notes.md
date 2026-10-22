@@ -90,3 +90,23 @@ Seen but not fixed:
 - Signing out and back in deletes and fully re-syncs that Account's local Machine data.
 - The dev D1 still has tombstones carrying the shared Local token from before the fix; they're ignored now.
 - After a restart, the app took about 60s to reconnect: about 37s for the tunnel, then the next List refresh. Pushing the new address (or refreshing List when a socket keeps failing) would cut that.
+
+## Review fixes
+
+An independent review found a critical hole and six smaller ones. All are fixed:
+
+- **Critical:** the key check named only `/rpc`, but the router also answers `/RPC`, `//rpc`, `/%72pc` and an absolute URL. All of those reached the API with no key. Every path but exactly `/health` now needs the key, with a test per spelling.
+- The Backend refuses cookie calls whose Origin isn't the site (a sibling page under `.kishore.app` could otherwise Report a fake Machine into your list).
+- The Machine page opens nothing until the Machine is in the signed-in Account's list, so another Account on a shared browser can't read it.
+- Forget and sign-out delete a Machine's local data only after its page has closed (`apps/code/src/shell/machines/records.ts`).
+- After the Backend refuses its Sign-in, the Machine never reuses the stored one, and backs off (1s doubling to 1 min) before trying again.
+- `logout` tells the Backend to Forget the Machine before signing out.
+- A Report's `url` must be `https://` (≤256 chars), and name, id, key and version are length-capped. The app only dials `https` addresses.
+
+Left from the fixes:
+
+- The app checks List against the stricter schema, so one old stored row with a bad URL or long name would break that User's whole List. Dev D1 rows are fine; worth a lenient read later.
+- `Records` deletes from a detached background task, because Kabuki closes a page's `provides` before its Children. It relies on the Store waiting for open copies to stop. It only tracks this tab's page; other tabs are told to stop by the Store.
+- If the Auth Worker can't be reached right after the Backend refuses the Sign-in, the Machine stops rather than retrying.
+- The backoff tests depend on timing (they passed 3 runs in a row).
+- `logout`'s Forget call has no test (there's no fake for Device sign-in).

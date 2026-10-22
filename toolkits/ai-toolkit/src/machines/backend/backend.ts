@@ -28,7 +28,10 @@ import { machinesTable } from './storage/index.js';
  *   with no Sign-in is refused Unauthenticated.
  * - The app is on another origin of the same site: its origin, and only its,
  *   may call `/rpc` with credentials, and its preflight is answered here,
- *   since the RPC server answers POST alone.
+ *   since the RPC server answers POST alone. A call from any other origin
+ *   is refused 403 before it is read: another page of the same site would
+ *   send the User's cookie with a simple POST. A call with no Origin, as
+ *   `serve` makes, is no browser's and goes ahead.
  *
  * The app's Worker is a few lines over `serve`, reading its env:
  *
@@ -102,6 +105,12 @@ export const serveOver = (options: {
       });
     if (pathname !== RPC_PATH)
       return new Response('Not found', { status: 404 });
+    const origin = request.headers.get('origin');
+    if (origin !== null && origin !== options.site)
+      return new Response('Forbidden', {
+        status: 403,
+        headers: { vary: 'Origin' },
+      });
     const cors = corsFor(request, options.site);
     if (request.method === 'OPTIONS')
       return new Response(null, { status: 204, headers: cors });

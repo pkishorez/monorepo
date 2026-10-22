@@ -1,1 +1,1 @@
-export { claim, forget, MachineOwnedByAnother } from './identity.js';
+export { claim, forget, found, MachineOwnedByAnother } from './identity.js';

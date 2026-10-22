@@ -1,4 +1,4 @@
-import { Effect } from 'effect';
+import { Effect, Schema } from 'effect';
 import { FetchHttpClient } from 'effect/http';
 import { beforeAll, describe, expect, it } from 'vitest';
 import type { Principal } from '@kestack/auth-toolkit';
@@ -6,7 +6,7 @@ import { testAuth } from '@kestack/auth-toolkit/server/rpc';
 import { SQLite } from '@kestack/std-toolkit/db/sqlite';
 import { makeNodeSQLite } from '@kestack/std-toolkit/db/sqlite/node';
 import { MachinesClient } from '../client/index.js';
-import type { AuthInfo, MachineReport } from '../contract/index.js';
+import { type AuthInfo, MachineReport } from '../contract/index.js';
 import { machinesTable, serveOver } from './index.js';
 
 /*
@@ -59,15 +59,23 @@ const answerAs = (
     driver,
   });
 
-/** Runs `program` with the Backend's client, signed as `user` (nobody for null), on a Backend signing in as `authInfo` says. */
+/**
+ * Runs `program` with the Backend's client, signed as `user` (nobody for
+ * null), on a Backend signing in as `authInfo` says; from a page at
+ * `origin` when given, else as `serve` calls, with no Origin.
+ */
 const as = <A, E>(
   user: { readonly principal: Principal } | null,
   program: (machines: MachinesClient['Service']) => Effect.Effect<A, E>,
   authInfo: AuthInfo = AUTH_INFO,
+  origin?: string,
 ) => {
   const answer = answerAs(user?.principal ?? null, authInfo);
-  const fetch = (input: RequestInfo | URL, init?: RequestInit) =>
-    answer(new Request(input, init));
+  const fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+    const request = new Request(input, init);
+    if (origin !== undefined) request.headers.set('origin', origin);
+    return answer(request);
+  };
   return Effect.runPromise(
     Effect.gen(function* () {
       return yield* program(yield* MachinesClient);
@@ -181,6 +189,56 @@ describe('the Machines Backend', () => {
     expect(await as(null, (m) => Effect.flip(m.List({})))).toMatchObject({
       _tag: 'Unauthenticated',
     });
+  });
+
+  it("takes the site's calls, and refuses another origin's 403 before reading them", async () => {
+    const ada = signIn('ada');
+    await as(ada, (m) => m.Report(reportOf('from-site')), AUTH_INFO, SITE);
+    const answer = answerAs(ada.principal);
+    // A simple POST, as a page of the same site could send with the cookie.
+    const forged = await answer(
+      new Request(`${BACKEND}/rpc`, {
+        method: 'POST',
+        headers: {
+          origin: 'https://pr1-code.test',
+          'content-type': 'text/plain',
+        },
+        body: JSON.stringify({ _tag: 'Request', tag: 'Report' }),
+      }),
+    );
+    expect(forged.status).toBe(403);
+    expect(
+      await as(
+        ada,
+        (m) => Effect.flip(m.Report(reportOf('forged'))),
+        AUTH_INFO,
+        'https://elsewhere.test',
+      ),
+    ).toBeDefined();
+    expect((await as(ada, (m) => m.List({}))).map(({ id }) => id)).toEqual([
+      'from-site',
+    ]);
+  });
+
+  it('takes a Report only with an https:// address, or none, and every field bounded', async () => {
+    // Client and Backend both check the payload against the contract.
+    const valid = Schema.is(MachineReport);
+    const base = reportOf('bounded');
+    expect(valid(base)).toBe(true);
+    expect(valid({ ...base, url: null })).toBe(true);
+    expect(valid({ ...base, url: 'http://bounded.tunnel.test' })).toBe(false);
+    expect(valid({ ...base, url: 'wss://bounded.tunnel.test' })).toBe(false);
+    expect(valid({ ...base, url: 'https://' })).toBe(false);
+    expect(valid({ ...base, url: `https://${'a'.repeat(250)}.test` })).toBe(
+      false,
+    );
+    expect(valid({ ...base, name: 'n'.repeat(65) })).toBe(false);
+    expect(valid({ ...base, version: 'v'.repeat(33) })).toBe(false);
+    expect(valid({ ...base, key: 'k'.repeat(129) })).toBe(false);
+    const ada = signIn('ada');
+    expect(
+      await as(ada, (m) => m.Report({ ...base, url: null })),
+    ).toMatchObject({ id: 'bounded', url: null });
   });
 
   it('answers /auth with how a Machine signs in, to anyone', async () => {

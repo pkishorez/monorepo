@@ -36,16 +36,26 @@ export const TunnelCheck = Schema.Struct({
 });
 export type TunnelCheck = typeof TunnelCheck.Type;
 
-/** What a Machine says of itself on each Heartbeat. */
+/** A non-empty string of at most `max` characters. */
+const Bounded = (max: number) =>
+  Schema.NonEmptyString.check(Schema.isMaxLength(max));
+
+/**
+ * What a Machine says of itself on each Heartbeat. Every field is bounded,
+ * and its address is `https://` alone: the app dials it with the Machine
+ * Key, which must never cross in clear.
+ */
 export const MachineReport = Schema.Struct({
-  id: Schema.NonEmptyString,
-  name: Schema.NonEmptyString,
+  id: Bounded(64),
+  name: Bounded(64),
   /** Its public address, `https://…`; null while it has none. */
-  url: Schema.NullOr(Schema.String),
+  url: Schema.NullOr(
+    Bounded(256).check(Schema.isPattern(/^https:\/\/[^/?#\s]+/)),
+  ),
   /** Its Machine Key (ADR 0015). */
-  key: Schema.NonEmptyString,
+  key: Bounded(128),
   /** The ai-toolkit version it runs. */
-  version: Schema.String,
+  version: Schema.String.check(Schema.isMaxLength(32)),
   tunnel: Schema.NullOr(TunnelCheck),
 });
 export type MachineReport = typeof MachineReport.Type;

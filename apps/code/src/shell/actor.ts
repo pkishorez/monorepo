@@ -22,7 +22,8 @@ import * as MachineList from './machines/index.ts';
  * 2. Accounts      who is signed in, from auth-toolkit's `Accounts`, and
  *                  the Account Switcher. Signed out, only signing in is
  *                  drawn. An Account signed out of this device takes the
- *                  records of its Machines with it.
+ *                  records of its Machines with it, the open one's once
+ *                  its page has closed.
  * 3. Machines      the Machine List of the Account signed in: its Machines,
  *                  shared with every page as `Machines`. At the root it
  *                  opens the Machine last used here, else the one seen last.
@@ -50,7 +51,14 @@ type Signed = typeof Signed.Type;
 
 export const Shell = Page.define({
   render: 'client',
-  requires: [Navigation, DeviceState.Store, Accounts, Store, MachineList.Saved],
+  requires: [
+    Navigation,
+    DeviceState.Store,
+    Accounts,
+    Store,
+    MachineList.Saved,
+    MachineList.Records,
+  ],
   metadata: { title: 'code' },
   pages: { Open: MachineList.OpenPage, Machine: Machine.Page },
   model: Schema.Struct({

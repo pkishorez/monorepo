@@ -4,7 +4,7 @@ import type { TunnelCheck } from '../../machines/contract/index.js';
 /*
  * What the Heartbeat stands on, so it can be run against a fake tunnel and
  * a fake Backend: how often to beat, opening a tunnel, checking one, sending
- * a Report, and signing in again.
+ * a Report, and signing in again, and how long to back off before that.
  */
 
 /** How the Backend took a Report. */
@@ -36,7 +36,9 @@ export class HeartbeatHost extends Context.Service<
       readonly url: string | null;
       readonly tunnel: TunnelCheck | null;
     }) => Effect.Effect<Reported>;
-    /** Signs in again after the Sign-in was revoked; fails with why the Machine must stop. */
+    /** The first wait before signing in again once a new Sign-in was refused too; it doubles after, up to a minute. */
+    readonly backoff: Duration.Input;
+    /** Signs in again, never with the Sign-in refused, after the Backend refused it; fails with why the Machine must stop. */
     readonly signInAgain: Effect.Effect<void, string>;
   }
 >()('@kestack/ai-toolkit/HeartbeatHost') {}

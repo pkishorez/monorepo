@@ -32,8 +32,11 @@ const APP = 'ai-toolkit';
 const activeOf = (state: AccountsState) =>
   state._tag === 'SignedIn' ? state.active : null;
 
-/** auth-toolkit's Device, signed in to the Auth Worker at `url`. */
-const asDevice = (options: SignInOptions, url: string) =>
+/** auth-toolkit's Device for the Auth Worker at `url`, its one Sign-in kept in the database file: its Context, and its Accounts. */
+const deviceAt = (
+  options: Pick<SignInOptions, 'db' | 'version'>,
+  url: string,
+) =>
   Effect.gen(function* () {
     const storage = yield* signInStore(options.db);
     const context = yield* Layer.build(
@@ -45,16 +48,16 @@ const asDevice = (options: SignInOptions, url: string) =>
         maxAccounts: 1,
       }),
     );
-    const accounts = Context.get(context, Accounts);
+    return { context, accounts: Context.get(context, Accounts) };
+  });
 
-    /** The signed-in User, signing in first when the stored Sign-in is gone. */
-    const ensure = Effect.gen(function* () {
-      // An Auth Worker that cannot be asked leaves the stored Sign-in trusted.
-      const checked = yield* accounts.check.pipe(
-        Effect.catch(() => accounts.current),
-      );
-      const known = activeOf(checked);
-      if (known) return known;
+/** auth-toolkit's Device, signed in to the Auth Worker at `url`. */
+const asDevice = (options: SignInOptions, url: string) =>
+  Effect.gen(function* () {
+    const { context, accounts } = yield* deviceAt(options, url);
+
+    /** A new Sign-in, through the Auth Worker, and its User. */
+    const fresh = Effect.gen(function* () {
       yield* Effect.log(`Sign in to ${options.backend} through ${url}`);
       yield* accounts.signIn();
       const signed = activeOf(yield* accounts.current);
@@ -65,12 +68,25 @@ const asDevice = (options: SignInOptions, url: string) =>
       return signed;
     });
 
+    /** The signed-in User, signing in first when the stored Sign-in is gone. */
+    const ensure = Effect.gen(function* () {
+      // An Auth Worker that cannot be asked leaves the stored Sign-in trusted.
+      const checked = yield* accounts.check.pipe(
+        Effect.catch(() => accounts.current),
+      );
+      return activeOf(checked) ?? (yield* fresh);
+    });
+
     const user = yield* ensure;
     return {
       user,
       signing: Layer.succeedContext(context) as Layer.Layer<unknown>,
       signOut: Effect.ignore(accounts.signOutAll),
-      signInAgain: ensure,
+      // The Backend refused the stored Sign-in, whatever the Auth Worker
+      // says of it: it goes, and only a new one is trusted.
+      signInAgain: Effect.ignore(accounts.signOutAll).pipe(
+        Effect.andThen(fresh),
+      ),
     };
   });
 
@@ -88,7 +104,8 @@ const asLocal = (as: string) => {
 /**
  * Signs this Machine in to `backend`, as long as the Scope lasts: the User,
  * the Layer that signs every Machines call, signing out (which revokes a
- * Device's Sign-in), and signing in again once a Sign-in was revoked.
+ * Device's Sign-in), and signing in again once the Backend refused the
+ * Sign-in: always a new one, never the one stored.
  */
 export const signIn = (options: SignInOptions) =>
   Effect.gen(function* () {
@@ -107,22 +124,25 @@ export const signIn = (options: SignInOptions) =>
     return asLocal(options.as);
   });
 
-/** Signs this Machine out of `backend`, revoking a Device's Sign-in; nothing in Local mode. */
-export const signOut = (options: Omit<SignInOptions, 'as'>) =>
-  Effect.scoped(
-    Effect.gen(function* () {
-      const info = yield* authInfo(options.backend);
-      if (!('url' in info)) return;
-      const storage = yield* signInStore(options.db);
-      const context = yield* Layer.build(
-        device({
-          url: info.url,
-          app: APP,
-          version: options.version,
-          storage,
-          maxAccounts: 1,
-        }),
-      );
-      yield* Effect.ignore(Context.get(context, Accounts).signOutAll);
-    }),
-  );
+/**
+ * The Sign-in kept for `backend`, never signing in, as long as the Scope
+ * lasts: the Layer that signs Machines calls with it (null when there is
+ * none), and signing out, which revokes a Device's Sign-in. In Local mode
+ * it is `as`'s Local Token.
+ */
+export const stored = (options: SignInOptions) =>
+  Effect.gen(function* () {
+    const info = yield* authInfo(options.backend);
+    if (!('url' in info))
+      return {
+        signing: options.as === undefined ? null : asLocal(options.as).signing,
+        signOut: Effect.void,
+      };
+    const { context, accounts } = yield* deviceAt(options, info.url);
+    return {
+      signing: activeOf(yield* accounts.current)
+        ? (Layer.succeedContext(context) as Layer.Layer<unknown>)
+        : null,
+      signOut: Effect.ignore(accounts.signOutAll),
+    };
+  });

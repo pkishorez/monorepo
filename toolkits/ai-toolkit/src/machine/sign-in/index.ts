@@ -1,1 +1,1 @@
-export { signIn, SignInRefused, signOut } from './sign-in.js';
+export { signIn, SignInRefused, stored } from './sign-in.js';

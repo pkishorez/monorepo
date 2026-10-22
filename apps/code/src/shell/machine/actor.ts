@@ -8,7 +8,7 @@ import { home, project, session, settings } from '../../places/index.ts';
 import { Refused } from '../../refusal/index.ts';
 import { Projects, Sessions } from '../../replica/index.ts';
 import { DeviceState } from '../device-state/index.ts';
-import { Machines } from '../machines/index.ts';
+import { Machines, Records } from '../machines/index.ts';
 import * as BackgroundJobs from './background-jobs/index.ts';
 import * as Socket from './connection/index.ts';
 import * as Home from './home/index.ts';
@@ -29,7 +29,10 @@ import { Unsettled, UnsettlerLive } from './unsettle.ts';
  *
  * 1. Provide  the Machine's socket, its Replicas and `CurrentMachine` to
  *             everything under it (`socket.ts`): the pages, the sidebar's
- *             Queries, the Pickers. Nothing above reaches the Machine.
+ *             Queries, the Pickers. Nothing above reaches the Machine,
+ *             and its records are opened only once it is in the
+ *             Account's list: until then, or if the list says it is gone,
+ *             the page shows that and reads nothing.
  * 2. Hold     the Replica, with every project and session for the
  *             sidebar, the socket's state for the header, every session's
  *             Background Jobs, the Machine Switcher, and the three Pickers
@@ -57,7 +60,7 @@ const Back = Schema.Struct({
 export const Machine = Page.define({
   path: '/m/:machineId',
   params: { machineId: Schema.String },
-  requires: [Navigation, DeviceState.Store, Machines],
+  requires: [Navigation, DeviceState.Store, Machines, Records],
   metadata: { title: 'code' },
   pages: { Home: Home.Page, Project: Project.Page, Settings: Settings.Page },
   model: Schema.Struct({

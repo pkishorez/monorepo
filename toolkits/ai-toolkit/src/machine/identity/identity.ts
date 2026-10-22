@@ -63,11 +63,12 @@ export const claim = (options: {
           owner: found.owner.email,
           user: options.owner.email,
         });
+      // A Report carries at most 64 characters of name.
       const machine: MachineRecord = found
-        ? { ...found, name: options.name ?? found.name }
+        ? { ...found, name: (options.name ?? found.name).slice(0, 64) }
         : {
             id: newMachineId(),
-            name: options.name ?? hostname(),
+            name: (options.name ?? hostname()).slice(0, 64),
             key: newMachineKey(),
             owner: options.owner,
           };
@@ -76,6 +77,9 @@ export const claim = (options: {
       return { id: machine.id, name: machine.name, key: machine.key };
     }),
   );
+
+/** The Machine the file at `db` is, and its owner, without making one; null when it is none yet. */
+export const found = (db: string) => onFile(db, read);
 
 /** Forgets the Machine the file at `db` was, so the next start makes a new one. */
 export const forget = (db: string) => onFile(db, write(null));

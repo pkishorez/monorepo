@@ -1,6 +1,5 @@
 import 'fake-indexeddb/auto';
-import { Deferred, Effect, Layer, Schema } from 'effect';
-import type { Scope } from 'effect';
+import { Deferred, Effect, Exit, Layer, Schema, Scope } from 'effect';
 import type { Machine as MachineSchema } from '@kestack/ai-toolkit/machines';
 import { MachinesClient } from '@kestack/ai-toolkit/machines/client';
 import { Actor, type Instance, Runtime, type Running } from '@kestack/kabuki';
@@ -8,7 +7,13 @@ import { Navigation } from '@kestack/kabuki/routing';
 import { Store } from '@kestack/std-toolkit/replica';
 import { describe, expect, it } from 'vitest';
 import { home, root } from '../../places/index.ts';
-import { MachineListLive, Machines, Saved, savedMemory } from './actor.ts';
+import {
+  MachineListLive,
+  Machines,
+  Records,
+  Saved,
+  savedMemory,
+} from './actor.ts';
 import { choose, health, socketUrl } from './health.ts';
 
 /*
@@ -69,22 +74,27 @@ const world = (listed: Effect.Effect<ReadonlyArray<Machine>>) => {
   const moves: Array<unknown> = [];
   const forgotten: Array<string> = [];
   const removed: Array<string> = [];
+  const store = Layer.mock(Store)({
+    remove: (_: unknown, key: string) =>
+      Effect.sync(() => void removed.push(key)),
+  } as never);
+  // One `Records` for the app and the test, which holds a Machine as its page would.
+  const records = Effect.runSync(
+    Effect.provide(Records, Records.layer.pipe(Layer.provide(store))),
+  );
   const layer = Layer.mergeAll(
     Layer.mock(MachinesClient)({
       List: () => listed,
       Forget: ({ id }: { readonly id: string }) =>
         Effect.sync(() => void forgotten.push(id)),
     } as never),
-    Layer.mock(Store)({
-      remove: (_: unknown, key: string) =>
-        Effect.sync(() => void removed.push(key)),
-    } as never),
+    Layer.succeed(Records, records),
     Layer.mock(Navigation)({
       push: (to) => Effect.sync(() => void moves.push(to)),
       replace: (to) => Effect.sync(() => void moves.push(to)),
     }),
   );
-  return { layer, moves, forgotten, removed };
+  return { layer, moves, forgotten, removed, records };
 };
 
 const wait = (ms = 20) =>
@@ -184,6 +194,36 @@ describe('Machine List', () => {
     );
   });
 
+  it('deletes the records of a Machine whose page is open only once it closes', async () => {
+    const { layer, forgotten, removed, moves, records } = world(
+      Effect.succeed([machine('m1', 5), machine('m2', 1)]),
+    );
+    await run(
+      Effect.gen(function* () {
+        const page = yield* Scope.make();
+        yield* Scope.provide(records.hold('m1'), page);
+        const app = yield* start(OwnerLive, layer);
+        yield* wait();
+        app.send(walk(app.snapshot())[0]!.id, { _tag: 'Moved', on: 'm1' });
+        app.send(list(app).id, { _tag: 'Forget', id: 'm1' });
+        yield* wait();
+        expect(forgotten).toEqual(['m1']);
+        // Back to the root first, the records kept while the page is open.
+        expect(moves.at(-1)).toEqual(root());
+        expect(removed).toEqual([]);
+        yield* Scope.close(page, Exit.void);
+        yield* wait();
+        expect(removed).toEqual(['m1']);
+      }),
+    );
+  });
+
+  it('deletes at once the records of a Machine no page holds', async () => {
+    const { removed, records } = world(Effect.succeed([]));
+    await Effect.runPromise(records.remove('m3'));
+    expect(removed).toEqual(['m3']);
+  });
+
   it('shares what it holds as `Machines`, which waits for an address', async () => {
     const OwnerReading = Actor.build(
       Actor.define('Reader', {
@@ -199,8 +239,8 @@ describe('Machine List', () => {
               Effect.flatMap(Machines, (machines) =>
                 machines.reachable('m1'),
               ).pipe(
-                Effect.flatMap(({ url }) =>
-                  self.send({ _tag: 'Reached', url: url ?? '' }),
+                Effect.flatMap(({ socket }) =>
+                  self.send({ _tag: 'Reached', url: socket }),
                 ),
               ),
           },
@@ -232,7 +272,7 @@ describe('Machine List', () => {
         listed = [machine('m1', 2)];
         app.send(list(app).id, { _tag: 'Refresh' });
         yield* wait();
-        expect(reader().reached).toBe('https://m1.trycloudflare.com');
+        expect(reader().reached).toBe('wss://m1.trycloudflare.com/rpc');
       }),
     );
   });
@@ -273,9 +313,12 @@ describe('a Machine’s record', () => {
     );
   });
 
-  it('is reached at its address over `wss`', () => {
+  it('is reached at its `https://` address over `wss`, and at no other', () => {
     expect(socketUrl('https://a-b.trycloudflare.com/')).toBe(
       'wss://a-b.trycloudflare.com/rpc',
     );
+    expect(socketUrl('http://a-b.trycloudflare.com')).toBeNull();
+    expect(socketUrl('ws://a-b.trycloudflare.com')).toBeNull();
+    expect(socketUrl(null)).toBeNull();
   });
 });
