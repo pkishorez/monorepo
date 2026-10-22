@@ -35,7 +35,9 @@ Hacks, shortcuts, observations and future improvements from building Machines (`
 - `pnpm --filter code dev` uses real auth (`auth.kishore.computer`); `pnpm --filter code dev:local` uses Local mode (`AUTH=local`). Local mode on any deployed stage throws.
 - The Machines Worker is at port 4591, `api-code.kishore.computer` in dev, `api-code.kishore.app` in prod, `pr<N>-api-code.kishore.app` on PR stages. D1 database: `code-machines-<stage>`.
 - In a worktree the site's dev host is branch-prefixed (`<branch>.code.kishore.computer`). It's still under `.kishore.computer`, so the cookie and serve's `*.code.kishore.computer` origin rule both cover it.
-- vite.config.ts: under `alchemy dev` the site's server code runs in workerd, and a dev-only build of micromark crashed there. The server side now resolves packages the way the production build does.
+- vite.config.ts aliases `debug` to its browser build. Under `alchemy dev` the site's server code runs in workerd, where `debug`'s Node build (pulled in by micromark's dev build, via the markdown viewer) reads `process.stderr.fd` and throws. Changing the SSR resolve conditions didn't help, because the Cloudflare plugin's dep optimizer still used the `development` condition. A cleaner fix belongs in Kabuki Start or web-platform.
+- After changing the vite config, delete `apps/code/node_modules/.vite`; stale pre-bundles kept the old crash.
+- QUIC (UDP 7844) is blocked on this network, so `serve` tunnels over HTTP/2. A tunnel took about 35s to connect here.
 - There is no CI deploy workflow for code yet (kabuki-start has `deploy-kabuki-start.yml`).
 - alchemy beta.83 is out; the repo pins beta.80.
 - While testing, the infra agent ran `pkill -f "alchemy dev"`, which may have stopped `alchemy dev` processes in other worktrees. Restart any that are gone.
