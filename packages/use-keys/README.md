@@ -1,6 +1,6 @@
 # @kestack/use-keys
 
-Keyboard shortcuts for React: every key the page hears, the Shortcuts and Sequences built on it, and an app's whole keyboard in one place.
+Keyboard shortcuts for React: every key the page hears, the Shortcuts and Sequences built on it, and the Surfaces an app's keyboard is made of.
 
 ## Big picture
 
@@ -13,11 +13,15 @@ and `useSequence` act on the keys they declare. `shortcut('mod+k')` and
 `sequence('g g')` write those keys the same way everywhere, as plain values
 an app can store.
 
-For a whole app, `createKeys` names every Surface, the Actions each offers,
-their descriptions and their default keys, in one place. The app says which
-Surface is Active and gives each Action its Handler from the component that
-has what it needs; the nearest Surface's Action wins a key, and the user's
-own Bindings replace the defaults at once.
+For a whole app, `createKeys` is the map: one typed definition of every
+Surface, as they nest, and the Actions on each. `keys.Surface` puts the map
+on screen, as many elements as draw a Surface, anywhere in the page.
+`keys.useAction` says what an Action does, and `appearance` says how each
+Surface looks. The keys tree is the only hierarchy: the provider holds the
+Active Surface on it, and the UI follows. A click or focus enters a Surface,
+an Action `enters` one, Escape leaves it, and a key climbs from it outward
+until an Action takes it. Vim Mode, which the app keeps, turns on every
+Action; with it off only the Actions marked `always` work.
 
 It is the keyboard counterpart of
 [`@kestack/use-gesture`](../use-gesture) and shares its ideas, but not its
@@ -45,7 +49,7 @@ pnpm add @kestack/use-keys react react-dom
 
 | Export         | What it does                                                                                                        |
 | -------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `KeysProvider` | Hears every key on the page for the hooks inside it, and sets the Repeat and Sequence timing.                       |
+| `KeysProvider` | Hears every key on the page for the hooks inside it, sets the Repeat and Sequence timing, and holds Vim Mode.       |
 | `useKeys`      | Reports every key from the first going down until the last lifts in a ref, re-rendering only as they start and end. |
 | `useKeysState` | Renders the keys in a `useKeys` ref, re-rendering on every key that goes down or lifts.                             |
 | `shortcut`     | Writes a Shortcut from a string, `'mod+k'`, or an object, `{ key: 'k', mod: true }`.                                |
@@ -61,9 +65,17 @@ pnpm add @kestack/use-keys react react-dom
 
 ### `@kestack/use-keys/surfaces`
 
-| Export       | What it does                                                                                                              |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------- |
-| `createKeys` | Makes an app's keyboard from one definition: its Provider, and typed `useSurface`, `useAction`, `useStatus` and `useRun`. |
+| Export                     | What it does                                                                                                               |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `createKeys`               | Makes an app's keyboard from one typed definition of its Surfaces and Actions, and gives the parts below, typed by it.     |
+| `keys.Provider`            | Holds the Active Surface and Vim Mode, the timing, the appearance and the user's own keys, and makes the Active keys work. |
+| `keys.Surface`             | Draws a Surface: a `div`, or its one child with `asChild`, carrying its state and the class names for it.                  |
+| `keys.useAction`           | Says what an Action does while the calling component is mounted.                                                           |
+| `keys.useSurface`          | Says whether a Surface is Active, its state for styling, and its Mode.                                                     |
+| `keys.useActive`           | Gives the Active Surface's name.                                                                                           |
+| `keys.useKeyboard`         | Gives the path to the Active Surface, the Mode and the Sequence under way, `enter`, `leave`, and Vim Mode.                 |
+| `keys.useAvailableActions` | Lists every Action that works now, nearest Surface first, and whether each is Shadowed.                                    |
+| `revealInView`             | Scrolls an element just into view at once, for a cursor moved from the keyboard.                                           |
 
 ## Usage
 
@@ -115,89 +127,88 @@ function Inbox() {
 
 ### One keyboard for the app
 
-The inbox and its reply box are Surfaces, and the palette works everywhere.
-`Escape` in the reply box discards the draft instead of closing everything.
-The app keeps the Active Surface in its own state.
+A session holds a list driven by `j` and a composer. `mod+k` opens an
+isolated palette from anywhere, even while typing. The app keeps Vim Mode
+in localStorage.
 
 ```tsx
-import { sequence, shortcut } from '@kestack/use-keys';
-import { createKeys } from '@kestack/use-keys/surfaces';
+import { createKeys, revealInView } from '@kestack/use-keys/surfaces';
 
 export const keys = createKeys({
-  actions: {
-    palette: {
-      keys: [shortcut('mod+k')],
-      description: 'Open the palette',
-      inTextEntry: true,
-    },
-    close: { keys: [shortcut('Escape')], description: 'Close everything' },
-  },
-  surfaces: {
-    inbox: {
-      actions: {
-        next: {
-          keys: [shortcut('j')],
-          description: 'Next thread',
-          repeat: true,
-        },
-        top: { keys: [sequence('g g')], description: 'First thread' },
-        sidebar: {
-          keys: [shortcut('ctrl+h')],
-          description: 'Go to the sidebar',
-        },
-      },
-      surfaces: {
-        reply: {
-          actions: {
-            discard: { keys: [shortcut('Escape')], description: 'Discard' },
-          },
-        },
+  app: {
+    focusable: false,
+    actions: {
+      palette: {
+        keys: 'mod+k',
+        label: 'Palette',
+        always: true,
+        enters: 'palette',
       },
     },
-    sidebar: {
-      actions: {
-        open: { keys: [shortcut('Enter')], description: 'Open folder' },
+    surfaces: {
+      session: {
+        initial: true,
+        actions: { next: { keys: 'j', label: 'Next message', repeat: true } },
+        surfaces: { composer: { label: 'Composer' } },
+      },
+      palette: {
+        isolated: true,
+        actions: { clear: { keys: 'Escape', label: 'Clear', always: true } },
       },
     },
   },
 });
 
 function App() {
-  const [surface, setSurface] = useState<Surface | null>('inbox');
+  const [vim, setVim] = useLocalStorage('vim', false);
   return (
-    <keys.Provider
-      surface={surface}
-      onSurfaceChange={setSurface}
-      bindings={saved}
-    >
-      <Inbox />
+    <keys.Provider vim={vim} onVimChange={setVim}>
+      <keys.Surface id="session" className="pane">
+        <Messages />
+      </keys.Surface>
+      <keys.Surface id="composer" asChild>
+        <Composer />
+      </keys.Surface>
+      <PaletteWhenActive />
     </keys.Provider>
   );
 }
 
-function Inbox() {
-  const { setSurface } = keys.useSurface();
-  keys.useAction('inbox.next', () => move(1));
-  keys.useAction('inbox.sidebar', () => setSurface('sidebar'));
-  const { sequence: under } = keys.useStatus();
-  return under.type === 'possible' ? <Hint next={under.next} /> : null;
+function PaletteWhenActive() {
+  return keys.useSurface('palette').active ? <Palette /> : null;
+}
+
+function Messages() {
+  const [at, setAt] = useState(0);
+  keys.useAction('session.next', () => {
+    setAt(at + 1);
+    revealInView(document.getElementById(`message-${at + 1}`));
+  });
+  return <List at={at} />;
 }
 ```
 
-- An Action works while its Surface is Active or around the Active one, and
-  it has a Handler. Global Actions work always, even with no Active Surface.
-- The nearest Action wins a key: `inbox.reply.discard` Shadows `close`. An
-  Action with no Handler Shadows nothing.
-- A Surface with `isolated: true`, such as a dialog, stops the Surfaces
-  around it while it is Active; `globals: false` stops the Global Actions.
-- `bindings` holds the user's own, by Action id, as `shortcut()` and
-  `sequence()` values; each replaces all of that Action's defaults.
-- `useSurface` gives the Active Surface and `setSurface`. A dialog uses
-  `openSurface('palette')`, which remembers where it came from, and
-  `closeSurface('palette')`, which goes back there, so it opens and closes
-  itself without knowing who opened it.
-- `useStatus` lists every Action and where it stands, and the Sequence under
-  way; `useRun` runs an Action by id, as a command palette does.
+- The composer is drawn beside the session, not in it, and is still its
+  child: the keys tree decides, never the React or DOM tree. A key climbs
+  from the Active Surface outward; the nearest Action with a Handler wins,
+  and `{ enabled: false }` Shadows nothing. Two Actions with the same keys on
+  one Surface throw in development.
+- `mod+k` has no Handler: it `enters` the palette, which is Active at once,
+  drawn or not. The app draws it while `useSurface('palette').active`.
+  Escape runs its `clear` Action while one is Enabled, then leaves it, which
+  closes it and goes back to where it was opened. No key climbs out of an
+  Isolated Surface.
+- Every Action is Vim only unless `always`. In a text field plain keys type;
+  `mod` keys still work, and plain keys only with `inField`. Escape leaves a
+  text field first.
+- Each element carries `data-surface` (the name), `data-state` (`active`,
+  `parent`, `inactive`, or `off` with Vim Mode off) and, while Active,
+  `data-mode`. `appearance={{ active, parent, inactive }}` adds class names
+  by state, on the Provider or one Surface. `bindings={{ 'session.next': 'n' }}`
+  replaces an Action's keys with the user's own.
+- `useKeyboard` gives a status bar the path, the Mode, the Sequence under
+  way and Vim Mode; `useAvailableActions` fills a help sheet or a palette,
+  each with its `run`.
 
 ### Every key
 

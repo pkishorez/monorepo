@@ -95,7 +95,11 @@ export function useSidebar(options: SidebarOptions): Sidebar {
     moving.current = undefined;
     target.current = next;
     animation.current?.stop();
-    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+    // Reduced motion, and use-keys' Vim Mode (`data-vim` on <html>), jump.
+    if (
+      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ||
+      document.documentElement.hasAttribute('data-vim')
+    ) {
       position.jump(at(next ? width : 0));
       return;
     }

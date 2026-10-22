@@ -34,9 +34,17 @@ export type Declared = {
   readonly commit: () => void;
   readonly possible: (progress: ReadonlyArray<Progress>) => void;
   readonly cancel: (reason: Cancel) => void;
-  /** Whether it Commits again while its key stays down. */
-  readonly repeat: () => boolean;
+  /**
+   * Whether it Commits again while its key stays down; an object sets its
+   * own delay or interval over the Keys Provider's.
+   */
+  readonly repeat: () => Repeat;
 };
+
+/** Whether a Shortcut or Sequence Repeats, and at what pace. */
+export type Repeat =
+  | boolean
+  | { readonly delay?: number; readonly interval?: number };
 
 type Slot = Declared & { readonly entry: Entry; id: number | undefined };
 
@@ -70,6 +78,9 @@ export const createDispatcher = (options: {
   let startAt = 0;
   let stopRepeat = () => {};
   let stopDeadline = () => {};
+  let escape: KeySink['escape'] | undefined;
+  // What a layer built on the core keeps once per provider, by its own key.
+  const shared = new Map<unknown, unknown>();
 
   const dispatch = (outcomes: ReadonlyArray<Outcome>) => {
     for (const outcome of outcomes) {
@@ -96,16 +107,20 @@ export const createDispatcher = (options: {
 
   // Commits `id` again after the delay, then at the interval, until any
   // key goes down or lifts.
-  const repeat = (id: number) => {
+  const repeat = (id: number, pace: Repeat) => {
+    const timing = () => ({
+      ...options.timing(),
+      ...(typeof pace === 'object' ? pace : {}),
+    });
     const again = (ms: number) => {
       stopRepeat = clock.schedule(() => {
         const listener = declared.get(id);
         if (listener === undefined) return;
         listener.commit();
-        again(options.timing().interval);
+        again(timing().interval);
       }, ms);
     };
-    again(options.timing().delay);
+    again(timing().delay);
   };
 
   // Adds a slot to the keymap, or returns the id it conflicts with.
@@ -172,13 +187,16 @@ export const createDispatcher = (options: {
       });
       dispatch(outcomes);
       watchDeadline();
-      const repeats = outcomes.find(
-        (outcome) =>
-          outcome.type === 'commit' && declared.get(outcome.id)?.repeat(),
-      );
-      if (repeats !== undefined) repeat(repeats.id);
+      for (const outcome of outcomes) {
+        if (outcome.type !== 'commit') continue;
+        const pace = declared.get(outcome.id)?.repeat() ?? false;
+        if (pace === false) continue;
+        repeat(outcome.id, pace);
+        break;
+      }
       return taken;
     },
+    escape: (element, textEntry) => escape?.(element, textEntry) ?? false,
     interrupt,
   };
 
@@ -223,6 +241,21 @@ export const createDispatcher = (options: {
         entry.bindings.map(describe),
       ),
     keys: () => keys,
+    /**
+     * Hears a bare Escape no element used, before anything else: it
+     * returns whether it used it. One at a time; the last one set wins.
+     */
+    onEscape: (handler: KeySink['escape']) => {
+      escape = handler;
+      return () => {
+        if (escape === handler) escape = undefined;
+      };
+    },
+    /** One value per provider for `key`, made by `create` the first time. */
+    shared: <T>(key: unknown, create: () => T): T => {
+      if (!shared.has(key)) shared.set(key, create());
+      return shared.get(key) as T;
+    },
     /** Whether `mod` is Cmd here, as on Apple platforms, or Ctrl. */
     mac: options.mac,
   };

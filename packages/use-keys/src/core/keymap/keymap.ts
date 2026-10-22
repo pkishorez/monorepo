@@ -33,6 +33,8 @@ export type Entry = {
   readonly bindings: ReadonlyArray<Binding>;
   /** Whether a step holding Ctrl, Alt or Cmd may be pressed in Text Entry. */
   readonly inTextEntry: boolean;
+  /** Whether any step may be pressed in Text Entry, plain keys too. */
+  readonly inField?: boolean;
 };
 
 type Press = {
@@ -111,7 +113,9 @@ export const createKeymap = (options: {
 
   const pressable = (entry: Stored, step: Exact, press: Press) =>
     presses(step, press.name, press.keys) &&
-    (!press.textEntry || (entry.inTextEntry && commands(step)));
+    (!press.textEntry ||
+      entry.inField === true ||
+      (entry.inTextEntry && commands(step)));
 
   // Moves every Sequence under way on by the key, if any can take it.
   const advance = (press: Press): Outcome[] | undefined => {

@@ -26,7 +26,7 @@ An app that renders on the server adds `@kestack/web-platform` to `ssr.noExterna
 - `@kestack/std-toolkit`: the Gate's memory, the last-known Accounts, Local Accounts, the Cache and each user's Std Sync are kept in its IndexedDB adapters.
 - `react`, `react-dom`: every component, Recipe and the root document render with React 19.
 - `@kestack/use-gesture`: the platform-free gesture core that `./input`'s web gestures and the Thumb Picker run on.
-- `@kestack/use-keys` (optional): the Binding and Shortcut types `./recipes/key-bindings` shows.
+- `@kestack/use-keys` (optional): the Binding and Shortcut types `./recipes/key-bindings` shows, and the `createKeys` keyboard `./recipes/keyboard` shows. `./theme/global.css` draws every `keys.Surface` from its data attributes, so a `keys.Provider` needs no `appearance` (also alone as `./theme/keys.css`).
 - `@tanstack/react-router` (optional): `./client`'s `webRoot` is a root route.
 - `@tanstack/react-start` (optional): `./client/server` reads the Theme cookie with it, and `./server` hands pages to its server entry.
 - `effect` (optional): the root door, the PWA subpaths, `./server`, and the diff and source viewers are built on it.
@@ -282,14 +282,14 @@ Owned shadcn copies on Base UI, one subpath per file, such as `@kestack/web-plat
 
 ### `@kestack/web-platform/recipes/frame`
 
-| Export                                                         | What it does                                                                                                                                                 |
-| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `AppShell`                                                     | The Frame: an optional Sidebar, an optional header with title and actions, and the page; on a phone the page moves aside under a finger to show the Sidebar. |
-| `useAppShell`                                                  | `open`, `setOpen`, `toggle` and `isMobile`, inside an `AppShell`.                                                                                            |
-| `SidebarGroup`, `SidebarGroupContent`, `SidebarGroupLabel`     | Labeled groups for custom Sidebar content.                                                                                                                   |
-| `SidebarMenu`, `SidebarMenuItem`, `SidebarMenuButton`          | Menu rows; a button shuts the Sidebar when tapped on a phone.                                                                                                |
-| `SidebarMenuSub`, `SidebarMenuSubItem`, `SidebarMenuSubButton` | Nested menu rows.                                                                                                                                            |
-| `SidebarInput`, `SidebarMenuSkeleton`                          | A search input and a loading row for the Sidebar.                                                                                                            |
+| Export                                                         | What it does                                                                                                                                                                                                                                                                                                             |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `AppShell`                                                     | The Frame: an optional Sidebar, an optional header with title and actions, the page, with `vim` as a floating window, the same in Vim Mode or out of it, with a status line while it is on, and `column` to wrap the header and page in one element; on a phone the page moves aside under a finger to show the Sidebar. |
+| `useAppShell`                                                  | `open`, `setOpen`, `toggle` and `isMobile`, inside an `AppShell`.                                                                                                                                                                                                                                                        |
+| `SidebarGroup`, `SidebarGroupContent`, `SidebarGroupLabel`     | Labeled groups for custom Sidebar content.                                                                                                                                                                                                                                                                               |
+| `SidebarMenu`, `SidebarMenuItem`, `SidebarMenuButton`          | Menu rows; a button shuts the Sidebar when tapped on a phone.                                                                                                                                                                                                                                                            |
+| `SidebarMenuSub`, `SidebarMenuSubItem`, `SidebarMenuSubButton` | Nested menu rows.                                                                                                                                                                                                                                                                                                        |
+| `SidebarInput`, `SidebarMenuSkeleton`                          | A search input and a loading row for the Sidebar.                                                                                                                                                                                                                                                                        |
 
 ### `@kestack/web-platform/recipes/thumb-picker`
 
@@ -309,6 +309,14 @@ Owned shadcn copies on Base UI, one subpath per file, such as `@kestack/web-plat
 | ------------- | ----------------------------------------------------------------------------------------------------- |
 | `BindingKeys` | A Binding's keys step by step, such as `⌘` `K`, shown only where there is a keyboard unless `always`. |
 | `recorded`    | Turns one recorded key press into a Shortcut, with Cmd on a Mac and Ctrl elsewhere as `mod`.          |
+
+### `@kestack/web-platform/recipes/keyboard`
+
+| Export          | What it does                                                                                                                                                          |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `KeysStatusBar` | The Vim window's status line for an app's `keys`: the Mode, the path of Surfaces the user can be in, the Sequence under way, help, and a button to turn Vim Mode off. |
+| `KeysHelp`      | A help sheet of every Action that works where the user is, drawn while its Isolated Surface is Active; Escape closes it.                                              |
+| `SurfaceScrim`  | A scrim behind an Isolated Surface the app draws itself.                                                                                                              |
 
 ### `@kestack/web-platform/recipes/local-sign-in`
 

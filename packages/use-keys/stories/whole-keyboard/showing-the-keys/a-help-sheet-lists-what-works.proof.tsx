@@ -2,81 +2,67 @@ import { useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Effect } from 'effect';
 import { Proof } from 'laymos/story';
-import { describe, sequence, shortcut } from '@kestack/use-keys';
+import { describe } from '@kestack/use-keys';
 import { createKeys } from '@kestack/use-keys/surfaces';
 
-const css = `
-  body { margin: 0; background: #f4f4f5; color: #18181b; font: 17px/1.5 ui-sans-serif, system-ui, -apple-system, sans-serif; }
-  main { max-width: 980px; margin: 32px auto; padding: 0 24px; }
-  h1 { font-size: 28px; margin: 0 0 4px; }
-  p { color: #52525b; margin: 0 0 14px; }
-  kbd { font: 600 13px Menlo, Consolas, monospace; padding: 2px 7px; border: 1px solid #d4d4d8; border-bottom-width: 3px; border-radius: 6px; background: #fff; color: #18181b; white-space: nowrap; }
-  .row { display: flex; gap: 16px; align-items: flex-start; }
-  .app { flex: 1; padding: 18px; background: #fff; border: 1px solid #e4e4e7; border-radius: 16px; }
-  .surface { display: inline-block; margin-bottom: 12px; padding: 5px 14px; border-radius: 999px; background: #18181b; color: #fff; font-weight: 600; }
-  .compose { padding: 14px; border: 2px solid #2563eb; border-radius: 12px; color: #1e3a8a; }
-  .help { width: 470px; padding: 14px 16px; background: #fff; border-radius: 16px; box-shadow: 0 20px 50px rgba(0,0,0,0.15); }
-  .help h2 { margin: 0 0 8px; font-size: 18px; }
-  table { width: 100%; border-collapse: collapse; font-size: 15px; }
-  td { padding: 5px 6px; border-top: 1px solid #f4f4f5; }
-  td:last-child { text-align: right; }
-  tr.inactive, tr.unhandled { color: #a1a1aa; }
-  .state { padding: 1px 9px; border-radius: 999px; font-size: 13px; font-weight: 600; background: #f4f4f5; }
-  .state.active { background: #dcfce7; color: #166534; }
-`;
-
 const keys = createKeys({
-  actions: {
-    help: { keys: [shortcut('?')], description: 'Show these keys' },
-  },
-  surfaces: {
-    inbox: {
-      actions: {
-        next: {
-          keys: [shortcut('j'), shortcut('ArrowDown')],
-          description: 'Next thread',
+  mail: {
+    actions: { help: { keys: '?', label: 'Show these keys' } },
+    surfaces: {
+      inbox: {
+        initial: true,
+        actions: {
+          next: { keys: ['j', 'ArrowDown'], label: 'Next thread' },
+          first: { keys: 'g g', label: 'First thread' },
+          compose: { keys: 'c', label: 'Compose', enters: 'compose' },
         },
-        top: { keys: [sequence('g g')], description: 'First thread' },
-        write: { keys: [shortcut('c')], description: 'Compose' },
-        snooze: { keys: [shortcut('b')], description: 'Snooze (coming soon)' },
-      },
-    },
-    compose: {
-      isolated: true,
-      actions: {
-        send: {
-          keys: [shortcut('mod+Enter')],
-          description: 'Send',
-          inTextEntry: true,
+        surfaces: {
+          compose: {
+            isolated: true,
+            actions: {
+              send: { keys: 'mod+Enter', label: 'Send' },
+              discard: { keys: 'Escape', label: 'Discard' },
+            },
+          },
         },
-        discard: { keys: [shortcut('Escape')], description: 'Discard' },
       },
     },
   },
 });
 
+const css = `
+  body { margin: 0; background: #f4f4f5; color: #18181b; font: 17px/1.5 ui-sans-serif, system-ui, -apple-system, sans-serif; }
+  main { max-width: 980px; margin: 32px auto; padding: 0 24px; outline: none; }
+  h1 { font-size: 28px; margin: 0 0 4px; }
+  p { color: #52525b; margin: 0 0 14px; }
+  kbd { font: 600 13px Menlo, Consolas, monospace; padding: 2px 7px; border: 1px solid #d4d4d8; border-bottom-width: 3px; border-radius: 6px; background: #fff; color: #18181b; white-space: nowrap; }
+  .row { display: flex; gap: 16px; align-items: flex-start; }
+  .app { flex: 1; padding: 18px; background: #fff; border: 1px solid #e4e4e7; border-radius: 16px; outline: none; }
+  .surface { display: inline-block; margin-bottom: 12px; padding: 5px 14px; border-radius: 999px; background: #18181b; color: #fff; font-weight: 600; }
+  .compose { padding: 14px; border: 2px solid #2563eb; border-radius: 12px; color: #1e3a8a; outline: none; }
+  .help { width: 420px; padding: 14px 16px; background: #fff; border-radius: 16px; box-shadow: 0 20px 50px rgba(0,0,0,0.15); }
+  .help h2 { margin: 0 0 8px; font-size: 18px; }
+  table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  td { padding: 5px 6px; border-top: 1px solid #f4f4f5; }
+  td:last-child { text-align: right; color: #71717a; }
+`;
+
 function Help() {
-  const status = keys.useStatus();
+  const actions = keys.useAvailableActions();
   return (
     <div className="help" id="help">
-      <h2>Keyboard shortcuts</h2>
+      <h2>Keys that work here</h2>
       <table>
         <tbody>
-          {status.actions.map((action) => (
-            <tr
-              key={action.id}
-              className={action.state}
-              data-action={action.id}
-            >
+          {actions.map((action) => (
+            <tr key={action.id}>
               <td>
-                {action.bindings.map(({ binding }) => (
+                {action.keys.map((binding) => (
                   <kbd key={describe(binding)}>{describe(binding)}</kbd>
                 ))}
               </td>
-              <td>{action.description}</td>
-              <td>
-                <span className={`state ${action.state}`}>{action.state}</span>
-              </td>
+              <td>{action.label}</td>
+              <td>{action.surface}</td>
             </tr>
           ))}
         </tbody>
@@ -85,43 +71,61 @@ function Help() {
   );
 }
 
-function Mail() {
-  const { surface, openSurface, closeSurface } = keys.useSurface();
-  const [help, setHelp] = useState(false);
-  const [at, setAt] = useState(0);
-  keys.useAction('help', () => setHelp((now) => !now));
-  keys.useAction('inbox.next', () => setAt((now) => now + 1));
-  keys.useAction('inbox.top', () => setAt(0));
-  keys.useAction('inbox.write', () => openSurface('compose'));
-  keys.useAction('compose.send', () => closeSurface('compose'));
-  keys.useAction('compose.discard', () => closeSurface('compose'));
+function Compose() {
+  const { leave } = keys.useKeyboard();
+  keys.useAction('compose.send', () => leave('compose'));
+  keys.useAction('compose.discard', () => leave('compose'));
   return (
-    <main>
-      <h1>Mail</h1>
-      <p>
-        <kbd>?</kbd> shows every key and whether it works right now.
-      </p>
-      <div className="row">
-        <div className="app">
-          <span className="surface" id="surface">
-            Active Surface: {surface ?? 'none'}
-          </span>
-          {surface === 'compose' ? (
-            <div className="compose">New message to Grace…</div>
-          ) : (
-            <div>Thread {at + 1} of 12 selected</div>
-          )}
+    <keys.Surface id="compose" className="compose">
+      New message to Grace…
+    </keys.Surface>
+  );
+}
+
+function Status() {
+  const active = keys.useActive();
+  return (
+    <span className="surface" id="surface">
+      Active Surface: {active}
+    </span>
+  );
+}
+
+function Inbox() {
+  const [, setAt] = useState(0);
+  keys.useAction('inbox.next', () => setAt((now) => now + 1));
+  keys.useAction('inbox.first', () => setAt(0));
+  const composing = keys.useSurface('compose').active;
+  return (
+    <keys.Surface id="inbox" className="app">
+      <Status />
+      {composing ? <Compose /> : <div>Grace — Lunch on Friday?</div>}
+    </keys.Surface>
+  );
+}
+
+function Mail() {
+  const [help, setHelp] = useState(false);
+  keys.useAction('mail.help', () => setHelp((now) => !now));
+  return (
+    <keys.Surface id="mail" asChild>
+      <main>
+        <h1>Mail</h1>
+        <p>
+          <kbd>?</kbd> shows every key that works right now.
+        </p>
+        <div className="row">
+          <Inbox />
+          {help ? <Help /> : null}
         </div>
-        {help ? <Help /> : null}
-      </div>
-    </main>
+      </main>
+    </keys.Surface>
   );
 }
 
 function App() {
-  const [surface, setSurface] = useState<'inbox' | 'compose' | null>('inbox');
   return (
-    <keys.Provider surface={surface} onSurfaceChange={setSurface}>
+    <keys.Provider vim>
       <style>{css}</style>
       <Mail />
     </keys.Provider>
@@ -129,9 +133,9 @@ function App() {
 }
 
 export default Proof.browser({
-  title: 'The help sheet lists every key, and which ones work right now',
+  title: 'The help sheet lists the keys that work right now',
   description:
-    '`useStatus` lists every Action with `describe`d keys and its state. It follows the Active Surface: composing makes the inbox inactive. An Action with no Handler is listed as unhandled.',
+    '`useAvailableActions` lists every Action that works where the user is, nearest Surface first, with keys written by `describe`. In the inbox it shows the inbox keys and the ? from the mail around it; while composing, the isolated compose Surface cuts off the rest, so only its keys are listed.',
   page: (root) => {
     const app = createRoot(root);
     app.render(<App />);
@@ -148,39 +152,44 @@ export default Proof.browser({
     }),
   act: (tab) =>
     Effect.gen(function* () {
-      const states = tab.evaluate(() =>
-        Object.fromEntries(
-          [...document.querySelectorAll('tr[data-action]')].map((row) => [
-            row.getAttribute('data-action'),
-            `${row.querySelector('td')?.textContent} ${row.querySelector('.state')?.textContent}`,
-          ]),
+      const rows = tab.evaluate(() =>
+        [...document.querySelectorAll('#help tr')].map((row) =>
+          [...row.querySelectorAll('td')]
+            .map((cell) =>
+              cell.querySelector('kbd') === null
+                ? cell.textContent
+                : [...cell.querySelectorAll('kbd')]
+                    .map((each) => each.textContent)
+                    .join(' or '),
+            )
+            .join(' | '),
         ),
       );
       yield* tab.press('Show the keys with ?', '?');
-      const inInbox = yield* states;
+      const inInbox = yield* rows;
       yield* tab.press('Compose with c', 'c');
-      const composing = yield* states;
+      const composing = yield* rows;
       return { inInbox, composing };
     }),
   verify: ({ inInbox, composing }) =>
     Effect.gen(function* () {
       yield* Proof.assert(
-        'in the inbox, its keys and the global ? are active, written as people write them',
-        inInbox['help'] === '? active' &&
-          inInbox['inbox.next'] === 'jArrowDown active' &&
-          inInbox['inbox.top'] === 'g g active' &&
-          inInbox['compose.send'] === 'mod+Enter inactive',
+        'in the inbox: its keys first, then the ? of the mail around it',
+        JSON.stringify(inInbox) ===
+          JSON.stringify([
+            'j or ArrowDown | Next thread | inbox',
+            'g g | First thread | inbox',
+            'c | Compose | inbox',
+            '? | Show these keys | mail',
+          ]),
       );
       yield* Proof.assert(
-        'snooze, with no Handler, is listed as unhandled',
-        inInbox['inbox.snooze'] === 'b unhandled',
-      );
-      yield* Proof.assert(
-        'while composing, compose keys are active and the inbox keys are inactive',
-        composing['compose.send'] === 'mod+Enter active' &&
-          composing['compose.discard'] === 'Escape active' &&
-          composing['inbox.next'] === 'jArrowDown inactive' &&
-          composing['help'] === '? active',
+        'while composing: only the compose keys',
+        JSON.stringify(composing) ===
+          JSON.stringify([
+            'mod+Enter | Send | compose',
+            'Escape | Discard | compose',
+          ]),
       );
     }),
 });

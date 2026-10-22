@@ -13,6 +13,6 @@ useSequence('g g', () => toTop());
 
 Start with [Shortcuts](use-keys/shortcuts): one key, with or without modifiers. [Sequences](use-keys/sequences) add keys pressed one after another, like `g g`. Neither gets in the way of [text fields](use-keys/text-fields): a field keeps the keys you type, and Escape steps out of it. When you need more than a Shortcut, you can hear [every key](use-keys/every-key) as it goes down and up. Two Shortcuts that want the same key are a [conflict](use-keys/conflicts) you hear about in development, not a bug your users find.
 
-As the app grows, you write [its whole keyboard](use-keys/whole-keyboard) in one place: where each key works, what it is called, and which keys your users picked.
+As the app grows, you build [its whole keyboard](use-keys/whole-keyboard) out of Surfaces: `createKeys` maps the parts of the screen and their labelled keys, the Active Surface decides what a key does, and Vim Mode decides whether plain letters work at all.
 
 Here it all is on one page: [a list you drive from the keyboard](use-keys/a-list-you-drive-from-the-keyboard).

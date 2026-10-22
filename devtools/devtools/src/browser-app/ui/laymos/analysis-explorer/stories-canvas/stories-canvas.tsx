@@ -99,12 +99,9 @@ export function StoriesCanvas(props: StoriesCanvasProps) {
   return <Keyboard key={props.tree.id} {...props} />;
 }
 
-type Surface = Parameters<typeof storiesKeys.Provider>[0]['surface'];
-
 function Keyboard(props: StoriesCanvasProps) {
-  const [surface, setSurface] = useState<Surface>('stories');
   return (
-    <storiesKeys.Provider surface={surface} onSurfaceChange={setSurface}>
+    <storiesKeys.Provider>
       <Canvas {...props} />
     </storiesKeys.Provider>
   );
@@ -178,13 +175,13 @@ function Canvas({
     ending?.then(settle, settle);
   };
   const cards = useCardMotion();
-  const { openSurface, closeSurface } = storiesKeys.useSurface();
+  const { enter: openSurface } = storiesKeys.useKeyboard();
   const hints = storiesKeys
-    .useStatus()
-    .actions.filter((action) => /^stories\.[^.]+$/.test(action.id))
+    .useAvailableActions()
+    .filter((action) => action.surface === 'stories')
     .map(
       (action) =>
-        `${action.bindings.map(({ binding }) => keyLabel(binding)).join(' ')} ${action.description}`,
+        `${action.keys.map((binding) => keyLabel(binding)).join(' ')} ${action.label}`,
     );
 
   const sizes = useRef(new Map<string, Size>());
@@ -503,9 +500,10 @@ function Canvas({
 
   const closePanel = () => {
     setShownProof(undefined);
-    closeSurface(panelSurface);
+    // Back to the space from the panel, or from the player inside it.
+    openSurface('stories');
   };
-  storiesKeys.useAction('stories.proof-panel.close', closePanel);
+  storiesKeys.useAction('proof-panel.close', closePanel);
 
   // The focused card holds the keys: focus follows it when the keys were on
   // a card or nowhere, and comes back to it when the Proof panel closes.

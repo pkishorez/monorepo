@@ -1,6 +1,8 @@
 import { isModifier, type Modifier, nameOf } from '../key/index.ts';
 import { isTextEntry } from './text-entry.ts';
 
+export { isTextEntry } from './text-entry.ts';
+
 /**
  * Marks an element and everything in it: `enabled` sends its keys to
  * Shortcuts and Sequences before the element, even in Text Entry; `disabled`
@@ -19,6 +21,12 @@ export type KeySink = {
    * a Shortcut's or a Sequence's. Returns whether one Took it.
    */
   readonly press: (name: string, textEntry: boolean) => boolean;
+  /**
+   * Escape went down, with no modifier, and no element used it. Returns
+   * whether something used it; if not, it leaves Text Entry, or goes on
+   * like any other key.
+   */
+  readonly escape: (element: Element | null, textEntry: boolean) => boolean;
   /** The page lost focus: every key lifted. */
   readonly interrupt: () => void;
 };
@@ -35,6 +43,14 @@ const elementOf = (event: Event) => {
 const markOf = (element: Element | null) =>
   element?.closest(`[${KEYS_ATTRIBUTE}]`)?.getAttribute(KEYS_ATTRIBUTE);
 
+const bareEscape = (event: KeyboardEvent, name: string) =>
+  name === 'Escape' &&
+  !event.repeat &&
+  !event.ctrlKey &&
+  !event.altKey &&
+  !event.metaKey &&
+  !event.shiftKey;
+
 // Text being composed in another script is the browser's.
 const composing = (event: KeyboardEvent) =>
   event.isComposing || event.keyCode === 229;
@@ -42,9 +58,10 @@ const composing = (event: KeyboardEvent) =>
 /**
  * Listens to every key on the page and gives the sink only what the page
  * may hear. It keeps from it a key typed while composing text, one a
- * component already used, one in Text Entry without Ctrl, Alt or Cmd, and
- * anything in a `disabled` element; it hears an `enabled` element's keys
- * before the element does. Escape in Text Entry leaves it. Modifiers are
+ * component already used, and anything in a `disabled` element; a key in
+ * Text Entry goes to it marked so, and no listener hears it; it hears an `enabled` element's keys
+ * before the element does. Escape goes to the sink's `escape` first; if
+ * nothing used it, Escape in Text Entry leaves it. Modifiers are
  * always heard. Every key it reports down it reports up exactly once, even
  * when the browser loses the release, and it never reports the browser's
  * own repeats.
@@ -115,6 +132,11 @@ export const createKeyInput = (
     sync(event);
     const element = elementOf(event);
     if (markOf(element) !== 'enabled') return;
+    if (bareEscape(event, name) && sink.escape(element, isTextEntry(element))) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
     if (press(event, name, !isTextEntry(element), false)) {
       event.stopPropagation();
     }
@@ -128,13 +150,22 @@ export const createKeyInput = (
     if (mark === 'disabled') return;
     const name = nameOf(event);
     const textEntry = isTextEntry(element);
+    // Capture already had these, and an `enabled` element's Escape.
+    if (isModifier(name)) return;
+    if (
+      mark !== 'enabled' &&
+      bareEscape(event, name) &&
+      sink.escape(element, textEntry)
+    ) {
+      event.preventDefault();
+      return;
+    }
     if (textEntry && name === 'Escape') {
       element.blur();
       return;
     }
-    // Capture already had these.
-    if (isModifier(name) || mark === 'enabled') return;
-    if (textEntry && !event.ctrlKey && !event.altKey && !event.metaKey) return;
+    if (mark === 'enabled') return;
+    // A plain key in Text Entry types, unless an entry asks for it there.
     press(event, name, !textEntry, textEntry);
   };
 

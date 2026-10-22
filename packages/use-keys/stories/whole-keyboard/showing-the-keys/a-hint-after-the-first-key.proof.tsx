@@ -2,12 +2,22 @@ import { useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Effect } from 'effect';
 import { Proof } from 'laymos/story';
-import { describe, sequence } from '@kestack/use-keys';
+import { describe } from '@kestack/use-keys';
 import { createKeys } from '@kestack/use-keys/surfaces';
+
+const keys = createKeys({
+  mail: {
+    actions: {
+      inbox: { keys: 'g i', label: 'Go to Inbox' },
+      sent: { keys: 'g s', label: 'Go to Sent' },
+      drafts: { keys: 'g d', label: 'Go to Drafts' },
+    },
+  },
+});
 
 const css = `
   body { margin: 0; background: #f4f4f5; color: #18181b; font: 18px/1.5 ui-sans-serif, system-ui, -apple-system, sans-serif; }
-  main { max-width: 760px; margin: 40px auto; padding: 0 24px; }
+  main { max-width: 760px; margin: 40px auto; padding: 0 24px; outline: none; }
   h1 { font-size: 30px; margin: 0 0 6px; }
   p { color: #52525b; margin: 0 0 16px; }
   kbd { font: 600 14px Menlo, Consolas, monospace; padding: 2px 8px; border: 1px solid #d4d4d8; border-bottom-width: 3px; border-radius: 6px; background: #fff; color: #18181b; }
@@ -21,34 +31,32 @@ const css = `
   .idle { color: #a1a1aa; }
 `;
 
-const keys = createKeys({
-  surfaces: {
-    mail: {
-      actions: {
-        inbox: { keys: [sequence('g i')], description: 'Go to Inbox' },
-        sent: { keys: [sequence('g s')], description: 'Go to Sent' },
-        drafts: { keys: [sequence('g d')], description: 'Go to Drafts' },
-      },
-    },
-  },
-});
-
 function Hint() {
-  const { sequence: under } = keys.useStatus();
-  if (under.type === 'idle') {
+  const { pending } = keys.useKeyboard();
+  const actions = keys.useAvailableActions();
+  if (pending === null) {
     return (
       <p className="idle" id="hint">
         Press <kbd>g</kbd> to go somewhere
       </p>
     );
   }
+  const next = actions.flatMap((action) =>
+    action.keys
+      .map(describe)
+      .filter((keys) => keys.startsWith(`${pending} `))
+      .map((keys) => ({
+        step: keys.slice(pending.length + 1),
+        label: action.label,
+      })),
+  );
   return (
     <div className="hint" id="hint">
-      <b>{under.pressed.map(describe).join(' ')}</b> … then
+      <b>{pending}</b> … then
       <ul>
-        {under.next.map((option) => (
-          <li key={option.id}>
-            <kbd>{describe(option.step)}</kbd> {option.description}
+        {next.map((option) => (
+          <li key={option.step}>
+            <kbd>{option.step}</kbd> {option.label}
           </li>
         ))}
       </ul>
@@ -58,39 +66,42 @@ function Hint() {
 
 const folders = ['Inbox', 'Sent', 'Drafts'] as const;
 
-function Mail() {
+function Folders() {
   const [folder, setFolder] = useState<(typeof folders)[number]>('Inbox');
   keys.useAction('mail.inbox', () => setFolder('Inbox'));
   keys.useAction('mail.sent', () => setFolder('Sent'));
   keys.useAction('mail.drafts', () => setFolder('Drafts'));
   return (
-    <main>
-      <h1>Mail</h1>
-      <p>
-        After the first key of a Sequence, the app shows every way to finish it.
-      </p>
-      <nav>
-        {folders.map((each) => (
-          <span key={each} aria-current={each === folder}>
-            {each}
-          </span>
-        ))}
-      </nav>
-      <Hint />
-    </main>
+    <nav>
+      {folders.map((each) => (
+        <span key={each} aria-current={each === folder}>
+          {each}
+        </span>
+      ))}
+    </nav>
   );
 }
 
 export default Proof.browser({
   title: 'After g, the app shows every way to finish the Sequence',
   description:
-    "`useStatus().sequence` is `possible` after the first step, with the keys pressed and each next step and its Action's description. It goes back to idle once a Sequence commits.",
+    '`useKeyboard().pending` is the Sequence under way, "g" after the first key, and null once it finishes. With the keys from `useAvailableActions`, the hint lists each next step and its Action.',
   page: (root) => {
     const app = createRoot(root);
     app.render(
-      <keys.Provider surface="mail" sequence={{ timeout: 2000 }}>
+      <keys.Provider vim timing={{ sequence: 2000 }}>
         <style>{css}</style>
-        <Mail />
+        <keys.Surface id="mail" asChild>
+          <main>
+            <h1>Mail</h1>
+            <p>
+              After the first key of a Sequence, the app shows every way to
+              finish it.
+            </p>
+            <Folders />
+            <Hint />
+          </main>
+        </keys.Surface>
       </keys.Provider>,
     );
     return () => app.unmount();

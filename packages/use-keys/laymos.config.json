@@ -14,6 +14,6 @@
     ],
     "src/recognizers": ["src/core"],
     "src/surfaces": ["src/core"],
-    "src/surfaces/create-keys": ["src/surfaces/surface-tree"]
+    "src/surfaces/store": ["src/surfaces/definition"]
   }
 }

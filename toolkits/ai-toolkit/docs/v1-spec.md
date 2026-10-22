@@ -2,7 +2,7 @@
 
 ai-toolkit is a local, long-running server that runs Claude Code and Codex
 sessions in project folders. Any app talks to it over one WebSocket RPC API.
-`apps/ai` (ai.kishore.computer) is the first such app. Local only, no auth.
+`apps/code` (code.kishore.computer) is the first such app. Local only, no auth.
 
 ## The mental model
 

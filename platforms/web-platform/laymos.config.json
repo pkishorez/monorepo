@@ -246,6 +246,7 @@
       "src/recipes/kabuki-devtools/scene"
     ],
     "src/recipes/kabuki-devtools/timeline": ["src/recipes/kabuki-devtools/ink"],
-    "src/recipes/kabuki-devtools/sheet": ["src/recipes/kabuki-devtools/ink"]
+    "src/recipes/kabuki-devtools/sheet": ["src/recipes/kabuki-devtools/ink"],
+    "src/recipes/keyboard": ["src/recipes/key-bindings"]
   }
 }

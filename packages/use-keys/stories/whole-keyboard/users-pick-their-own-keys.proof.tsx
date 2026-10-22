@@ -2,12 +2,18 @@ import { useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Effect } from 'effect';
 import { Proof } from 'laymos/story';
-import { describe, shortcut } from '@kestack/use-keys';
+import { describe } from '@kestack/use-keys';
 import { createKeys } from '@kestack/use-keys/surfaces';
+
+const keys = createKeys({
+  inbox: {
+    actions: { next: { keys: ['j', 'ArrowDown'], label: 'Next thread' } },
+  },
+});
 
 const css = `
   body { margin: 0; background: #f4f4f5; color: #18181b; font: 18px/1.5 ui-sans-serif, system-ui, -apple-system, sans-serif; }
-  main { max-width: 760px; margin: 40px auto; padding: 0 24px; }
+  main { max-width: 760px; margin: 40px auto; padding: 0 24px; outline: none; }
   h1 { font-size: 30px; margin: 0 0 6px; }
   p { color: #52525b; margin: 0 0 16px; }
   kbd { font: 600 14px Menlo, Consolas, monospace; padding: 2px 8px; border: 1px solid #d4d4d8; border-bottom-width: 3px; border-radius: 6px; background: #fff; color: #18181b; }
@@ -17,22 +23,6 @@ const css = `
   li { padding: 10px 16px; border-radius: 10px; }
   li[aria-current="true"] { background: #18181b; color: #fff; }
 `;
-
-const keys = createKeys({
-  surfaces: {
-    inbox: {
-      actions: {
-        next: {
-          keys: [shortcut('j'), shortcut('ArrowDown')],
-          description: 'Next thread',
-        },
-      },
-    },
-  },
-});
-
-const mine = { 'inbox.next': [shortcut('n')] };
-const none = {};
 
 const threads = [
   'Quarterly report',
@@ -46,14 +36,14 @@ function Inbox(props: { readonly onCustomize: () => void }) {
   keys.useAction('inbox.next', () =>
     setAt((now) => Math.min(threads.length - 1, now + 1)),
   );
-  const next = keys.useStatus().actions.find(({ id }) => id === 'inbox.next');
+  const next = keys.useAvailableActions().find(({ id }) => id === 'inbox.next');
   return (
     <>
       <div className="settings">
         <span>
           Next thread:{' '}
           <span id="next-keys">
-            {next?.bindings.map(({ binding }) => (
+            {next?.keys.map((binding) => (
               <kbd key={describe(binding)}>{describe(binding)}</kbd>
             ))}
           </span>
@@ -71,16 +61,21 @@ function Inbox(props: { readonly onCustomize: () => void }) {
   );
 }
 
+type Bindings = NonNullable<Parameters<typeof keys.Provider>[0]['bindings']>;
+
 function App() {
-  const [custom, setCustom] = useState(false);
+  // In an app, the user's choice would live in their settings.
+  const [bindings, setBindings] = useState<Bindings>({});
   return (
-    <keys.Provider surface="inbox" bindings={custom ? mine : none}>
+    <keys.Provider vim bindings={bindings}>
       <style>{css}</style>
-      <main>
-        <h1>Inbox</h1>
-        <p>The user's own keys replace all of an Action's defaults at once.</p>
-        <Inbox onCustomize={() => setCustom(true)} />
-      </main>
+      <keys.Surface id="inbox" asChild>
+        <main>
+          <h1>Inbox</h1>
+          <p>The user's own keys replace an Action's defaults.</p>
+          <Inbox onCustomize={() => setBindings({ 'inbox.next': 'n' })} />
+        </main>
+      </keys.Surface>
     </keys.Provider>
   );
 }
@@ -88,7 +83,7 @@ function App() {
 export default Proof.browser({
   title: 'A key the user picks replaces every default at once, with no reload',
   description:
-    'Next thread defaults to j and ↓. Once the user picks n, j and ↓ do nothing and n moves, with no reload.',
+    'The provider takes the user’s own keys by Action id, in `bindings`. Next thread starts on j and ↓; once the user picks n, j and ↓ do nothing and n moves, with no reload.',
   page: (root) => {
     const app = createRoot(root);
     app.render(<App />);

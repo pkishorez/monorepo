@@ -4,7 +4,7 @@ Effect-native engine that runs Claude Code and Codex sessions in local folders, 
 
 ## Big picture
 
-Claude Code and Codex sessions run for minutes, start work that outlives a Turn, and must outlive the browser tab that started them. ai-toolkit is a long-running server on this machine that owns them. It adds folders as Projects, runs Sessions in them on either Coding Harness, stores every whole record the harness emits, and lets any app follow and steer them over one WebSocket API. It is local only, with no sign-in. [`apps/ai`](../../apps/ai/README.md) is the first app on it.
+Claude Code and Codex sessions run for minutes, start work that outlives a Turn, and must outlive the browser tab that started them. ai-toolkit is a long-running server on this machine that owns them. It adds folders as Projects, runs Sessions in them on either Coding Harness, stores every whole record the harness emits, and lets any app follow and steer them over one WebSocket API. It is local only, with no sign-in. [`apps/code`](../../apps/code/README.md) is the first app on it.
 
 The API, `AiApi`, has commands and feeds. Commands add and remove Projects, start a Session, and `send` to it: text plus Attachments, and a model or settings that hold from that Turn on. Images go to the agent as images; other files are saved under `~/.ai-toolkit/attachments/<sessionId>/` and named in the message text. `forkSession` makes a Fork after any finished Turn, `ask` puts an Ask to a Session and leaves it untouched, and `regenerateTitle` writes its Title again. `skills`, `mcpStatus` and `contextUsage` say what a harness offers and how a Session stands. `backgroundJobs` streams every Session's Background Jobs and `stopBackgroundJob` stops one. `harnesses` says which harnesses run here (`available`, `unavailableReason`), and `harnessBinaries` and `setHarnessBinary` read and set each Harness Binary. The `projects`, `sessions` and `messages` feeds replay every change after a cursor, then stay live.
 
@@ -140,7 +140,7 @@ Effect.runPromise(Effect.scoped(program));
 
 ### Keep the server's records in an app
 
-An app places `AiLive` under its Replicas and reads `Ai` through Queries. Lifted from `apps/ai/src/client/app.tsx` and `apps/ai/src/shared/pages`.
+An app places `AiLive` under its Replicas and reads `Ai` through Queries. Lifted from `apps/code/src/client/app.tsx` and `apps/code/src/shared/pages`.
 
 ```ts
 import { eq } from '@tanstack/db';
