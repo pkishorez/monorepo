@@ -20,6 +20,10 @@ _Avoid_: add project, open project
 The Picker over the signed-in User's Machines, in place of the logo, showing which one the app is on. Nothing below it opens until a Machine is chosen. A Machine that stops answering stays open with what was last synced, marked by its Last Seen.
 _Avoid_: machine gate, environment picker, connection list
 
+**Machine List**:
+The signed-in Account's Machines as this device last had them, kept per Account so the app opens on the last Machine even while the Backend is out of reach, then asked again every Heartbeat while the app is visible.
+_Avoid_: machine registry, device list
+
 **Session Switcher**:
 The Picker over Sessions to go back to one, the most recently active first.
 _Avoid_: session picker, quick open
@@ -29,11 +33,11 @@ The Picker over what can be done to the open Session, such as Settling it, un-Se
 _Avoid_: command palette, session menu
 
 **Unseen**:
-A Session whose last Turn ended since it was last open on this device; opening it clears that. The device keeps an Unseen mark for each Session opened on it, the end time of the last Turn it saw, so a Session never opened here is never Unseen. The sidebar draws it bold.
+A Session whose last Turn ended since it was last open on this device; opening it clears that. The device keeps an Unseen mark for each Session opened on it, per Machine, the end time of the last Turn it saw, so a Session never opened here is never Unseen. The sidebar draws it bold.
 _Avoid_: unread, new, notification
 
 **Device State**:
-What this browser keeps for itself and no other device sees: the user's Bindings, Vim Mode and Unseen marks. The app draws nothing until it has been read.
+What this browser keeps for itself and no other device sees: the user's Bindings, Vim Mode, Unseen marks, and the Machine each Account was last on. The app draws nothing until it has been read.
 _Avoid_: preferences, local settings, localStorage
 
 **Settled List**:

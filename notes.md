@@ -51,3 +51,15 @@ Hacks, shortcuts, observations and future improvements from building Machines (`
 - If the Auth Worker can't be reached at start, the stored sign-in is trusted.
 - A tunnel restarts after 3 failed checks at the default 15s interval, so about 45s.
 - Unlike `ws`'s default (echo the first offered protocol), the server answers only `ai-toolkit`. It never echoes the key, and refuses before the handshake: 401 with no key, 403 with a wrong one.
+
+## code app (sign-in, Machine List, Machine Switcher)
+
+- Kabuki pages are top-level Children of their parent page, so a root State can't Provide a Machine's connection to them. So the Machine is its own page, `/m/:machineId`, and every place URL now starts with the Machine id. `/` is an Open page that opens the last Machine. A new Machine id is a new page, so its socket, Replicas and `Ai` copy close together. This is explained in `shell/machine/socket.ts`, but no test proves it yet.
+- `socket.ts` repeats AiClient's `['ai-toolkit', 'key.<key>']` handshake so the URL and key are read again on every connect, which picks up a new tunnel URL. Better: let `AiClient.layer` take an Effect for the URL and key, and drop the copy.
+- A page's own Commands can't use what the page Provides. So Un-settle moved into a child actor (`machine/unsettle.ts`), and so did the socket status (`connection/actor.ts`).
+- The saved Machine List is stored as JSON text, because the record store rejects the `Schema.Number` fields in `Machine`. Switching the contract to `Schema.Finite` would let it be stored as a record.
+- Unseen marks from before Machines are no longer read; every Session starts as seen.
+- "Machine down" compares the Backend's Last Seen with the browser's clock, so clock skew can mislabel a Machine. Fix: have the Backend return its `now` with List.
+- Deleting local data on sign-out is best effort: it only covers Machines in that Account's saved list. A Machine forgotten from another device keeps its local data here.
+- The Machine Switcher has no keyboard shortcut yet.
+- There's no test of the Machine page or root page as a whole (they'd need a router-level test). The browser run covers them.

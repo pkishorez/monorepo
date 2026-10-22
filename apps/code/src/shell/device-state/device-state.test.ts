@@ -35,6 +35,7 @@ describe('Device State', () => {
       vim: true,
       bindings: { 'picker.finish': ['ctrl+Enter'] },
       unseen: {},
+      machines: {},
     });
   });
 
@@ -76,17 +77,43 @@ describe('Device State', () => {
     const read = await run(
       Effect.gen(function* () {
         const device = yield* store;
-        yield* device.markSeen('s1', 20);
-        yield* device.markSeen('s1', 10);
-        yield* device.markSeen('s2', 0);
+        yield* device.markSeen('m1', 's1', 20);
+        yield* device.markSeen('m1', 's1', 10);
+        yield* device.markSeen('m1', 's2', 0);
         return yield* device.read;
       }),
     );
-    expect(read.unseen).toEqual({ s1: 20, s2: 0 });
-    expect(DeviceState.isUnseen(read.unseen, 's1', 30)).toBe(true);
-    expect(DeviceState.isUnseen(read.unseen, 's1', 20)).toBe(false);
-    expect(DeviceState.isUnseen(read.unseen, 's2', null)).toBe(false);
-    expect(DeviceState.isUnseen(read.unseen, 'never-opened', 30)).toBe(false);
+    const marks = read.unseen['m1'] ?? {};
+    expect(read.unseen).toEqual({ m1: { s1: 20, s2: 0 } });
+    expect(DeviceState.isUnseen(marks, 's1', 30)).toBe(true);
+    expect(DeviceState.isUnseen(marks, 's1', 20)).toBe(false);
+    expect(DeviceState.isUnseen(marks, 's2', null)).toBe(false);
+    expect(DeviceState.isUnseen(marks, 'never-opened', 30)).toBe(false);
+  });
+
+  it('keeps Unseen marks per Machine', async () => {
+    const read = await run(
+      Effect.gen(function* () {
+        const device = yield* store;
+        yield* device.markSeen('m1', 's1', 20);
+        yield* device.markSeen('m2', 's1', 5);
+        return yield* device.read;
+      }),
+    );
+    expect(read.unseen).toEqual({ m1: { s1: 20 }, m2: { s1: 5 } });
+  });
+
+  it('keeps the Machine each Account was last on', async () => {
+    const read = await run(
+      Effect.gen(function* () {
+        const device = yield* store;
+        yield* device.setLastMachine('a1', 'm1');
+        yield* device.setLastMachine('a2', 'm2');
+        yield* device.setLastMachine('a1', 'm3');
+        return yield* device.read;
+      }),
+    );
+    expect(read.machines).toEqual({ a1: 'm3', a2: 'm2' });
   });
 
   it('is heard after every write', async () => {
@@ -121,14 +148,16 @@ describe('Device State across tabs', () => {
     const read = await Effect.runPromise(
       Effect.gen(function* () {
         yield* tab(
-          Effect.flatMap(store, (device) => device.markSeen(sessionId, 100)),
+          Effect.flatMap(store, (device) =>
+            device.markSeen('m1', sessionId, 100),
+          ),
         );
         // Both read 100; whichever writes last must not take the mark back.
         yield* Effect.all(
           [one, two].map((seen) =>
             tab(
               Effect.flatMap(store, (device) =>
-                device.markSeen(sessionId, seen!),
+                device.markSeen('m1', sessionId, seen!),
               ),
             ),
           ),
@@ -137,6 +166,6 @@ describe('Device State across tabs', () => {
         return yield* tab(DeviceState.read);
       }),
     );
-    expect(read.unseen[sessionId]).toBe(300);
+    expect(read.unseen['m1']?.[sessionId]).toBe(300);
   });
 });

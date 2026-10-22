@@ -11,12 +11,22 @@ import { IDB } from '@kestack/std-toolkit/db/idb';
 import { Memory } from '@kestack/std-toolkit/db/memory';
 import { broadcast, type Doorbell } from './doorbell.ts';
 import { fitted } from './fit.ts';
-import { DEVICE_TABLE, keyboard, type Mark, marks, table } from './layout.ts';
+import {
+  DEVICE_TABLE,
+  keyboard,
+  type LastMachine,
+  lastMachines,
+  type Mark,
+  markOf,
+  marks,
+  table,
+} from './layout.ts';
 
 /*
  * Device State: what this browser keeps for itself and no other device
  * sees, in one IndexedDB database of its own: Vim Mode, the user's own
- * Bindings, and the Unseen marks. It is local only, so it is a StdTable on
+ * Bindings, the Unseen marks of each Machine, and the Machine each Account
+ * was last on. It is local only, so it is a StdTable on
  * std-toolkit's IndexedDB adapter rather than a Replica, which mirrors a
  * server; the adapter makes its store on first open.
  *
@@ -27,21 +37,29 @@ import { DEVICE_TABLE, keyboard, type Mark, marks, table } from './layout.ts';
  * 3. Follow  every write, in this tab or another, as a change to read
  *            again: the store is the truth, and actors only mirror it.
  *
- * An Unseen mark is a Session id with the end time of the last Turn seen
- * on this device. A Session is Unseen when its last Turn ended after that;
- * one never opened here has no mark, and is never Unseen.
+ * An Unseen mark is a Machine's Session with the end time of the last
+ * Turn seen on this device. A Session is Unseen when its last Turn ended
+ * after that; one never opened here has no mark, and is never Unseen.
  */
 
-/** Device State as read: Vim Mode, Bindings by Action id, and Unseen marks by Session id. */
+/** One Machine's Unseen marks, by Session id. */
+const Marks = Schema.Record(Schema.String, Schema.Finite);
+type Marks = typeof Marks.Type;
+
+/**
+ * Device State as read: Vim Mode, Bindings by Action id, Unseen marks by
+ * Machine id and then Session id, and the Machine last on by Account id.
+ */
 const Device = Schema.Struct({
   vim: Schema.Boolean,
   bindings: Schema.Record(Schema.String, Schema.Array(Schema.String)),
-  unseen: Schema.Record(Schema.String, Schema.Finite),
+  unseen: Schema.Record(Schema.String, Marks),
+  machines: Schema.Record(Schema.String, Schema.String),
 });
 type Device = typeof Device.Type;
 
-/** What a browser that keeps nothing reads: Vim Mode off, the default keys, no marks. */
-const nothing: Device = { vim: false, bindings: {}, unseen: {} };
+/** What a browser that keeps nothing reads: Vim Mode off, the default keys, no marks, no Machine. */
+const nothing: Device = { vim: false, bindings: {}, unseen: {}, machines: {} };
 
 /** The Capability that reads and writes Device State, and says when it changed. */
 class Store extends Context.Service<
@@ -53,8 +71,13 @@ class Store extends Context.Service<
       bindings: Device['bindings'],
     ) => Effect.Effect<void, DatabaseError>;
     readonly markSeen: (
+      machineId: string,
       sessionId: string,
       seen: number,
+    ) => Effect.Effect<void, DatabaseError>;
+    readonly setLastMachine: (
+      accountId: string,
+      machineId: string,
     ) => Effect.Effect<void, DatabaseError>;
     /** Once per write, here or in another tab; rings while busy fold into one. */
     readonly changes: Stream.Stream<void>;
@@ -79,7 +102,7 @@ const make = (
 
   // 1. Read
   const readMarks = Effect.gen(function* () {
-    const unseen: Record<string, number> = {};
+    const unseen: Record<string, Record<string, number>> = {};
     let options: QueryOptions<Mark> = { limit: PAGE };
     while (true) {
       const page: QueryPage<Entity<Mark>> = yield* marks.query(
@@ -87,9 +110,27 @@ const make = (
         { pk: {}, '>=': null },
         options,
       );
-      for (const { value } of page.items) unseen[value.sessionId] = value.seen;
+      for (const { value } of page.items)
+        (unseen[value.machineId] ??= {})[value.sessionId] = value.seen;
       const last = page.items.at(-1);
       if (!page.hasMore || last === undefined) return unseen;
+      options = { limit: PAGE, after: last };
+    }
+  });
+
+  const readMachines = Effect.gen(function* () {
+    const machines: Record<string, string> = {};
+    let options: QueryOptions<LastMachine> = { limit: PAGE };
+    while (true) {
+      const page: QueryPage<Entity<LastMachine>> = yield* lastMachines.query(
+        'primary',
+        { pk: {}, '>=': null },
+        options,
+      );
+      for (const { value } of page.items)
+        machines[value.accountId] = value.machineId;
+      const last = page.items.at(-1);
+      if (!page.hasMore || last === undefined) return machines;
       options = { limit: PAGE, after: last };
     }
   });
@@ -97,21 +138,29 @@ const make = (
   const read = Effect.gen(function* () {
     const { value } = yield* keyboard.get();
     const unseen = yield* readMarks;
-    return { vim: value.vim, bindings: fitted(value.bindings), unseen };
+    const machines = yield* readMachines;
+    return {
+      vim: value.vim,
+      bindings: fitted(value.bindings),
+      unseen,
+      machines,
+    };
   }).pipe(Effect.provide(layer));
 
   // 2. Write
-  const markSeen = (sessionId: string, seen: number) =>
+  const markSeen = (machineId: string, sessionId: string, seen: number) =>
     write(
       Effect.gen(function* () {
-        const mark = yield* marks.get({ sessionId });
-        if (mark === null) return yield* marks.insert({ sessionId, seen });
+        const id = { mark: markOf(machineId, sessionId) };
+        const mark = yield* marks.get(id);
+        if (mark === null)
+          return yield* marks.insert({ ...id, machineId, sessionId, seen });
         // A mark only moves forward: an older Turn seen late changes nothing.
         if (mark.value.seen >= seen) return mark;
         // Judged again on the mark as written, since another tab may have
         // moved it on after it was read here.
         return yield* marks.getAndUpdate(
-          { sessionId },
+          id,
           (current) => ({ seen: Math.max(current.seen, seen) }),
           { retries: RETRIES },
         );
@@ -125,6 +174,20 @@ const make = (
     setBindings: (bindings) =>
       write(keyboard.getAndUpdate(() => ({ bindings }), { retries: RETRIES })),
     markSeen,
+    setLastMachine: (accountId, machineId) =>
+      write(
+        Effect.gen(function* () {
+          const last = yield* lastMachines.get({ accountId });
+          if (last === null)
+            return yield* lastMachines.insert({ accountId, machineId });
+          if (last.value.machineId === machineId) return last;
+          return yield* lastMachines.getAndUpdate(
+            { accountId },
+            () => ({ machineId }),
+            { retries: RETRIES },
+          );
+        }).pipe(Effect.retry({ times: RETRIES })),
+      ),
     // 3. Follow
     changes: doorbell.rings,
   });
@@ -172,16 +235,26 @@ const setBindings = Command.make('SetBindings', {
 });
 
 const markSeen = Command.make('MarkSeen', {
-  args: Schema.Struct({ sessionId: Schema.String, seen: Schema.Finite }),
-  run: ({ sessionId, seen }) =>
-    Effect.flatMap(Store, (store) => store.markSeen(sessionId, seen)).pipe(
-      Effect.ignore,
-    ),
+  args: Schema.Struct({
+    machineId: Schema.String,
+    sessionId: Schema.String,
+    seen: Schema.Finite,
+  }),
+  run: ({ machineId, sessionId, seen }) =>
+    Effect.flatMap(Store, (store) =>
+      store.markSeen(machineId, sessionId, seen),
+    ).pipe(Effect.ignore),
 });
 
-/** Whether a Session is Unseen: its last Turn ended after the mark this device keeps for it. */
+/** Remembers the Machine an Account is on, to open it first next time. */
+const setLastMachine = (accountId: string, machineId: string) =>
+  Effect.flatMap(Store, (store) =>
+    store.setLastMachine(accountId, machineId),
+  ).pipe(Effect.ignore);
+
+/** Whether a Session is Unseen: its last Turn ended after the mark this device keeps for it, among its Machine's marks. */
 const isUnseen = (
-  unseen: Device['unseen'],
+  unseen: Marks,
   sessionId: string,
   lastEnded: number | null,
 ) => {
@@ -200,5 +273,6 @@ export const DeviceState = {
   setVim,
   setBindings,
   markSeen,
+  setLastMachine,
   isUnseen,
 } as const;

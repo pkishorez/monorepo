@@ -1,12 +1,14 @@
 import { eq } from '@tanstack/db';
-import { Effect, Queue, Schema, Stream } from 'effect';
+import { Context, Effect, Layer, Queue, Schema, Stream } from 'effect';
 import type { Project, Session } from '@kestack/ai-toolkit/api';
 import { Ai } from '@kestack/ai-toolkit/client';
 import { Query } from '@kestack/std-toolkit/replica';
 
 /*
- * What the pages read from the server, as Queries over the one `Ai`
- * Instance. Projects and sessions sync whole while the app runs; a
+ * What the pages read from the Machine the app is on, as Queries over its
+ * `Ai` Instance, `Ai.get(machineId)`, the one `CurrentMachine` names.
+ * Machine page Provides it with the Machine's own `AiClient` and Replicas,
+ * so nothing here can read another Machine's records. Projects and sessions sync whole while the app runs; a
  * session's messages sync only while `Messages` filters on its id, which
  * opens that session's Window. `everything` follows every project and
  * session for a Worker, which hands them to a Picker while it is open, and
@@ -18,7 +20,18 @@ const None = Schema.Struct({});
 const OfProject = Schema.Struct({ projectId: Schema.String });
 const OfSession = Schema.Struct({ sessionId: Schema.String });
 
-const ai = () => Effect.all({ ai: Ai.get() });
+/** The Machine the app is on: the Machine page Provides it, one per Machine. */
+export class CurrentMachine extends Context.Service<
+  CurrentMachine,
+  { readonly id: string }
+>()('code/CurrentMachine') {
+  static readonly layer = (id: string) => Layer.succeed(CurrentMachine, { id });
+}
+
+/** The `Ai` Instance of the Machine the app is on. */
+const current = Effect.flatMap(CurrentMachine, ({ id }) => Ai.get(id));
+
+const ai = () => Effect.all({ ai: current });
 
 export const Projects = Query.make('Projects', {
   props: None,
@@ -87,7 +100,7 @@ export const Messages = Query.make('Messages', {
  * change to either, for a Worker: the Instance is held while it runs.
  */
 export const everything = Stream.unwrap(
-  Effect.map(Ai.get(), (ai) =>
+  Effect.map(current, (ai) =>
     Stream.callback<{
       readonly projects: ReadonlyArray<Project>;
       readonly sessions: ReadonlyArray<Session>;
@@ -125,7 +138,7 @@ export const everything = Stream.unwrap(
  */
 export const lineage = (sessionId: string) =>
   Stream.unwrap(
-    Effect.map(Ai.get(), (ai) =>
+    Effect.map(current, (ai) =>
       Stream.callback<ReadonlyArray<Session>>(
         (queue) =>
           Effect.acquireRelease(

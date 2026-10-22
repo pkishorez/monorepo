@@ -5,20 +5,24 @@ The local app for running Claude Code and Codex sessions in project folders, on 
 ## Big picture
 
 `code` is the first app on [`@kestack/ai-toolkit`](../../toolkits/ai-toolkit/README.md):
-a server on this machine that runs Claude Code and Codex in folders and
-serves one projected Message form over WebSocket. How the server thinks is in
-its [v1 spec](../../toolkits/ai-toolkit/docs/v1-spec.md). The app adds a
-folder as a project, starts sessions in it with either agent, and follows
-each one live: what you asked, the agent's words, its tool calls and
-subagents, and how each turn ended. It is local only, with no sign-in.
+a server on each of your Machines that runs Claude Code and Codex in
+folders and serves one projected Message form over WebSocket, reached
+through the Machine's tunnel. How the server thinks is in its
+[v1 spec](../../toolkits/ai-toolkit/docs/v1-spec.md). The app adds a folder
+as a project, starts sessions in it with either agent, and follows each one
+live: what you asked, the agent's words, its tool calls and subagents, and
+how each turn ended. You sign in (auth-toolkit's `Accounts`, or a Local
+Account by email under `dev:local`), and the Machines Backend lists the
+Machines signed in as you; the app is on one at a time.
 
 It is a Kabuki Start app, every page drawn in the browser
 ([`packages/kabuki/docs/routing.md`](../../packages/kabuki/docs/routing.md)).
-Four places: `/` picks a project, `/p/:projectId` is a new session in
-the project, its composer waiting for the first message,
-`/p/:projectId/s/:sessionId` is a session,
-and `/settings` sets the program each agent runs as (its Harness Binary). An
-agent whose program does not run is greyed out where sessions start.
+`/` opens a Machine; every other place is on one, under `/m/:machineId`:
+its home picks a project, `/p/:projectId` is a new session in the project,
+its composer waiting for the first message, `/p/:projectId/s/:sessionId` is
+a session, and `/settings` lists your Machines, to Forget one, and sets the
+program each agent runs as on this Machine (its Harness Binary). An agent
+whose program does not run is greyed out where sessions start.
 All state lives in the pages' actors; the Views only draw and send. The
 server's records arrive only through the `Ai` Replica
 ([`@kestack/std-toolkit/replica`](../../toolkits/std-toolkit/src/replica/README.md)),
@@ -28,27 +32,43 @@ once its page has been open. With nothing stored, a page draws a skeleton
 until its Query is Caught Up; only then is an empty list or a missing row
 believed. Every write is a Command an actor asks for through `AiClient`.
 
-The app is one chain, in the root page's actor (`src/shell/actor.ts`).
-First it reads Device State, what this browser keeps for itself in
-IndexedDB (`shell/device-state/`): the user's Bindings, Vim Mode and
-Unseen marks; nothing is drawn until it has. Then it holds the connection
-to the server, so while the server is out of reach the header says so and
-nothing can be sent, the Replica with every project and session for the
-sidebar, and the three Pickers the app's keys open from anywhere. Last come the pages, which Kabuki keeps whatever the root's
-State: what they read from the Replica waits for it, and they are drawn
-only once Device State is read. Device State is the truth: an actor that
-shows it reads it again after every write, from this tab or another.
+The app is one chain. The root page (`src/shell/actor.ts`) first reads
+Device State, what this browser keeps for itself in IndexedDB
+(`shell/device-state/`): the user's Bindings, Vim Mode, the Unseen marks of
+each Machine and the Machine each Account was last on; nothing is drawn
+until it has. Then who is signed in (`shell/sign-in/`), with the Account
+Switcher in every header; signed out, only signing in is drawn, and an
+Account signed out of this device takes its Machines' records with it.
+Then the Machine List of the Account (`shell/machines/`): the list saved
+here shows first, then the Backend's, asked again every 15 seconds while
+the page is visible; it is shared with every page as `Machines`, and at `/`
+it opens the Machine last used here, else the one seen last, or says how
+to start one. Last the Machine page (`shell/machine/`), which Provides
+everything under it its own socket, its own Replicas and `CurrentMachine`,
+which names its `Ai` Instance: switching Machine is a new page, so the old
+socket, Replicas and Instance close together and no Machine's socket ever
+feeds another's records. It holds the Replica with every project and
+session for the sidebar, the socket's state, and the Pickers. While the
+Machine is out of reach the header says why, from its record: on its way,
+its tunnel broken (seen lately, its tunnel check failing), or down (not
+seen for three Heartbeats), with when it was last seen; what it synced
+stays readable and nothing can be sent. Device State is the truth: an
+actor that shows it reads it again after every write, from this tab or
+another.
 
 `src/` is a feature map, checked by Laymos (`laymos.config.json`). Each
 page is a folder nested under the page it sits in: `shell/` is the root
-page, with `home/`, `settings/` and `project/` under it, and `session/`
-under `project/`. Each other feature sits in the folder of the page that
-draws it: in `shell/`, `header/`, `sidebar/`, `background-jobs/`, and the
-Project Picker (`project-picker/`, with the folder Steps it walks in
-`folder-picker/`), the Session Switcher (`session-switcher/`) and Session
-Actions (`session-actions/`); in `project/` the composer, the model
-Picker and the catalog, the agents, models and Skills the project page
-reads once and shares with its pages.
+page, with `machine/` under it, `home/`, `settings/` and `project/` under
+that, and `session/` under `project/`. Each other feature sits in the
+folder of the page that draws it: in `shell/`, `sign-in/` and the Machine
+List (`machines/`, whose `/` page is the root's own); in `machine/`, the
+socket's state (`connection/`), `header/`, `sidebar/`, `background-jobs/`,
+the Machine Switcher (`machine-switcher/`), the Project Picker
+(`project-picker/`, with the folder Steps it walks in `folder-picker/`),
+the Session Switcher (`session-switcher/`) and Session Actions
+(`session-actions/`); in `settings/`, `machines/` and `shortcuts/`; in
+`project/` the composer, the model Picker and the catalog, the agents,
+models and Skills the project page reads once and shares with its pages.
 Each makes its own server calls, in an `api.ts` beside its actor;
 `refusal/` is the one way they end when refused. `replica/` holds the
 Queries, `places/` the address of every place, which every View links
@@ -66,6 +86,14 @@ its `actor.ts`. `folder-picker/` holds no actor: its Steps are part of
 the Project Picker's one stack, so Ctrl+H from the home folder goes back
 to the recent projects, and it exports them with how they load and how a
 folder becomes a Project.
+
+The Machine Switcher, where the logo was at the top of the sidebar, names
+the Machine the app is on, with a dot while it is out of reach; clicking it
+lists your Machines, the most recently seen first, and asks the Backend
+again. Settings lists them with when each was last seen and how its tunnel
+stands; Forget asks first, then the Backend forgets it and this device
+deletes its records. Outside Local mode, a link goes to the Auth Worker's
+Home Page to revoke a Machine's Sign-in outright.
 
 Ctrl+P opens the Project Picker: recent projects, the most recently
 active first, then "Open folder…". Choosing a project opens it, a new
@@ -169,20 +197,43 @@ holds it, shut at first on a phone and open on a wide screen.
 
 ## Usage
 
-### Run the server and the app
+### Run a Machine and the app
 
-Build ai-toolkit and start its server on port 4590, then start the app.
+Start the app (below), sign in, then make this computer a Machine: it
+signs in as you, reports itself to the Backend every 15 seconds, and
+shows up in the app.
 
 ```sh
-pnpm --filter @kestack/ai-toolkit build
-node toolkits/ai-toolkit/bin/ai-toolkit.mjs serve --port 4590 --db /tmp/ai-dev/ai.db
-pnpm --filter code dev
+pnpm --filter code dev:local
+npx @kestack/ai-toolkit serve --as you@example.com --backend https://api-code.kishore.computer
 ```
 
-- `dev` builds the workspace packages the app uses, then serves it through
-  portless as `code.kishore`; open the URL it prints.
-- The app reaches the server at `VITE_AI_URL`, `http://127.0.0.1:4590/rpc`
-  unless set; `http` becomes `ws` on its own.
-- Without `--db` the server keeps its database at `~/.ai-toolkit/ai.db`.
+- Under `dev:local` sign in by typing the same email `--as` names: the same
+  email is the same User. Signing in through the Auth Worker, `serve`
+  alone signs in from its Device Screen.
+- With no Machine, the app says what to run; it opens the Machine last
+  used on this device, else the one seen last.
 - `pnpm --filter code lint` checks types and the Laymos Rules; `pnpm --filter
 code test` runs the tests. Videos recorded under `qa/` stay local.
+
+### Run with the Machines Backend, and deploy
+
+`pnpm dev` runs `alchemy dev` (`alchemy.run.ts`, `src/infra/`) through
+Portless: the site at `https://code.kishore.computer` and the Machines
+Worker, the Backend from `@kestack/ai-toolkit/machines/backend` over a D1
+database of its own, on port 4591, aliased as
+`https://api-code.kishore.computer`.
+
+```sh
+pnpm --filter code dev:local     # AUTH=local: sign in by name, no Auth Worker
+pnpm --filter code dev           # signs in with https://auth.kishore.computer, which must be running
+pnpm --filter code deploy        # your own stage, at its workers.dev URLs
+pnpm --filter code deploy:prod   # ALLOW_DEPLOY=true: code.kishore.app and api-code.kishore.app
+```
+
+- The site gets `VITE_MACHINES_URL` and either `VITE_AUTH_URL` or
+  `VITE_AUTH_LOCAL=true`; the Worker gets `AUTH_URL` or `AUTH_LOCAL=true`,
+  `SITE_ORIGIN` (the one origin it lets call with credentials) and `DB`.
+- `AUTH=local` works only under `alchemy dev`; any deploy with it throws.
+- A deployed stage (`prod`, `demo`, `pr<N>`) needs `ALLOW_DEPLOY=true` and
+  keeps its state in Cloudflare; a personal stage keeps it in `.alchemy/`.

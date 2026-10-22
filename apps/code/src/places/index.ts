@@ -1,2 +1,13 @@
-export { home, project, session, settings } from './places.ts';
-export type { Place } from './places.ts';
+export {
+  home,
+  machine,
+  machineIn,
+  machineOf,
+  placeOf,
+  project,
+  root,
+  session,
+  settings,
+  type Place,
+  type Route,
+} from './places.ts';

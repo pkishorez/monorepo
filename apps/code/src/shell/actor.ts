@@ -1,81 +1,62 @@
-import { Effect, Schema, Stream } from 'effect';
-import { AiLive, connection } from '@kestack/ai-toolkit/client';
+import { Effect, Layer, Schema, Stream } from 'effect';
+import { Accounts } from '@kestack/auth-toolkit/client';
+import { Command } from '@kestack/kabuki';
 import { Navigation, Page, Router } from '@kestack/kabuki/routing';
-import { connection as RpcConnection } from '@kestack/rpc-toolkit/rpc/websocket';
-import { Replicas } from '@kestack/std-toolkit/replica';
-import { AiClient } from '@kestack/ai-toolkit/client';
-import { home, project, session, settings } from '../places/index.ts';
-import { Refused } from '../refusal/index.ts';
-import { Projects, Sessions } from '../replica/index.ts';
-import { unsettle } from './api.ts';
-import * as BackgroundJobs from './background-jobs/index.ts';
+import { Store } from '@kestack/std-toolkit/replica';
+import {
+  AccountSwitcherLive,
+  CurrentAccount,
+} from '@kestack/web-platform/account-switcher';
+import { root } from '../places/index.ts';
 import { DeviceState } from './device-state/index.ts';
-import * as Home from './home/index.ts';
-import * as Project from './project/index.ts';
-import * as ProjectPicker from './project-picker/index.ts';
-import * as SessionActions from './session-actions/index.ts';
-import * as SessionSwitcher from './session-switcher/index.ts';
-import * as Settings from './settings/index.ts';
+import * as Machine from './machine/index.ts';
+import * as MachineList from './machines/index.ts';
 
 /*
  * The root page, drawn only in the browser. The app is one chain, each link
  * started by the one before:
  *
  * 1. Device State  `Reading` reads what this browser keeps, its Bindings,
- *                  Vim Mode and Unseen marks, before anything is drawn.
- * 2. Server        `Ready` holds it, following every write to it, and
- *                  starts the rest: the connection to the server, so the
- *                  app can say when it is down, and the Replica of its
- *                  records, with every project and session for the
- *                  sidebar, every session's Background Jobs, and the three
- *                  Pickers the app's keys open anywhere: the Project
- *                  Picker, the Session Switcher and Session Actions.
- * 3. Pages         the page the URL names. Kabuki keeps a page whatever
- *                  the root's State, so a page reading the Replica waits
- *                  for it; the View draws pages only once `Ready`.
+ *                  Vim Mode, Unseen marks and each Account's last Machine,
+ *                  before anything is drawn; `Ready` follows every write.
+ * 2. Accounts      who is signed in, from auth-toolkit's `Accounts`, and
+ *                  the Account Switcher. Signed out, only signing in is
+ *                  drawn. An Account signed out of this device takes the
+ *                  records of its Machines with it.
+ * 3. Machines      the Machine List of the Account signed in: its Machines,
+ *                  shared with every page as `Machines`. At the root it
+ *                  opens the Machine last used here, else the one seen last.
+ * 4. Machine       the Machine page, `/m/:machineId`, which Provides its own
+ *                  socket and records to the pages under it. Another
+ *                  Account, or none, goes back to the root, closing it.
  *
- * It also opens a session the keyboard steps to, a new session in the
- * project open, and Settings, remembering where it was opened from, so
- * the same key goes back there; and Un-settles a session from the
- * sidebar's Settled List, one at a time, keeping why if the server
- * refuses.
+ * Kabuki keeps a page whatever the root's State, so the Machine page and
+ * what it holds wait for what they need; the View draws it only once
+ * signed in.
  */
 
-const ConnectionStatus = Schema.Literals([
-  'connecting',
-  'connected',
-  'reconnecting',
-]);
-
-/** Where Settings were opened from: a project, a session in it, or home. */
-const Back = Schema.Struct({
-  projectId: Schema.NullOr(Schema.String),
-  sessionId: Schema.NullOr(Schema.String),
+/** Who is signed in, as the root keeps it. */
+const Signed = Schema.TaggedUnion({
+  Checking: {},
+  SignedOut: {},
+  SignedIn: {
+    id: Schema.String,
+    email: Schema.String,
+    /** Every Account signed in on this device, by id. */
+    accounts: Schema.Array(Schema.String),
+  },
 });
-
-const placeOf = ({ projectId, sessionId }: typeof Back.Type) =>
-  projectId === null
-    ? home()
-    : sessionId === null
-      ? project(projectId)
-      : session(projectId, sessionId);
+type Signed = typeof Signed.Type;
 
 export const Shell = Page.define({
   render: 'client',
-  requires: [RpcConnection, Navigation, DeviceState.Store, AiClient],
+  requires: [Navigation, DeviceState.Store, Accounts, Store, MachineList.Saved],
   metadata: { title: 'code' },
-  pages: { Home: Home.Page, Project: Project.Page, Settings: Settings.Page },
+  pages: { Open: MachineList.OpenPage, Machine: Machine.Page },
   model: Schema.Struct({
-    connection: ConnectionStatus,
-    /** Where Settings were opened from, while they are open. */
-    back: Schema.NullOr(Back),
-    /** The Session being Un-settled, and why the server refused, if it did. */
-    unsettling: Schema.NullOr(
-      Schema.Struct({
-        sessionId: Schema.String,
-        problem: Schema.NullOr(Schema.String),
-      }),
-    ),
+    account: Signed,
+    /** Why signing in failed, until it is tried again. */
+    signInProblem: Schema.NullOr(Schema.String),
   }),
   state: Schema.TaggedUnion({
     Reading: {},
@@ -83,32 +64,84 @@ export const Shell = Page.define({
   }),
   message: Schema.TaggedUnion({
     Read: { device: DeviceState.Device },
-    Connection: { status: ConnectionStatus },
-    OpenSession: { projectId: Schema.String, sessionId: Schema.String },
-    OpenProject: { projectId: Schema.String },
-    /** Settings, from where the app is; null: back from Settings. */
-    Settings: { from: Schema.NullOr(Back) },
     SetVim: { on: Schema.Boolean },
-    Unsettle: { sessionId: Schema.String },
-    Unsettled: { sessionId: Schema.String },
-    Refused,
+    Signed: { account: Signed },
+    SignIn: {},
+    SignInFailed: { problem: Schema.String },
   }),
 });
-
-const ReplicasLive = Replicas.child([AiLive]);
 
 const ready = (device: typeof DeviceState.Device.Type) => ({
   state: { _tag: 'Ready' as const, device },
 });
 
+const signIn = Command.make('SignIn', {
+  run: () =>
+    Effect.flatMap(Accounts, (accounts) => accounts.signIn()).pipe(
+      Effect.catch((error) =>
+        Effect.succeed({
+          _tag: 'SignInFailed' as const,
+          problem: error.message,
+        }),
+      ),
+    ),
+});
+
+/** auth-toolkit's state, as the root keeps it. */
+const signedOf = Accounts.pipe(
+  Effect.map(({ state }) =>
+    Stream.map(state, (now): Signed =>
+      now._tag === 'SignedIn'
+        ? {
+            _tag: 'SignedIn',
+            id: now.active.id,
+            email: now.active.email,
+            accounts: now.accounts.map(({ id }) => id),
+          }
+        : now._tag === 'SignedOut'
+          ? { _tag: 'SignedOut' }
+          : { _tag: 'Checking' },
+    ),
+  ),
+  Stream.unwrap,
+);
+
+const idOf = (account: Signed) =>
+  account._tag === 'SignedIn' ? account.id : null;
+
+/** The Accounts signed out of this device between two states. */
+const goneFrom = (before: Signed, after: Signed) =>
+  before._tag !== 'SignedIn'
+    ? []
+    : after._tag === 'Checking'
+      ? []
+      : before.accounts.filter(
+          (id) => after._tag !== 'SignedIn' || !after.accounts.includes(id),
+        );
+
 export const ShellLive = Page.build(Shell, {
   init: () => ({
-    model: { connection: 'connecting', back: null, unsettling: null },
+    model: { account: { _tag: 'Checking' }, signInProblem: null },
     state: { _tag: 'Reading' },
   }),
-  pages: { Home: Home.Live, Project: Project.Live, Settings: Settings.Live },
-  // At the top, as the pages are: what they hold waits for the Replica.
-  provides: () => Replicas.layer,
+  pages: { Open: MachineList.OpenLive, Machine: Machine.Live },
+  // At the top, as the pages are: what they read of the Account and its
+  // Machines is shared from here.
+  provides: () =>
+    Layer.mergeAll(CurrentAccount.layer, MachineList.Machines.layer),
+  children: {
+    // The Auth Worker's `maxAccounts`: its default, 5.
+    account: { actor: AccountSwitcherLive, input: () => ({ maxAccounts: 5 }) },
+  },
+  workers: {
+    // 2. Accounts
+    accounts: {
+      run: (self) =>
+        Stream.runForEach(signedOf, (account) =>
+          self.send({ _tag: 'Signed', account }),
+        ),
+    },
+  },
   state: {
     // 1. Device State
     Reading: {
@@ -122,18 +155,25 @@ export const ShellLive = Page.build(Shell, {
       },
       on: { Read: ({ device }) => ready(device) },
     },
-    // 2. Server
     Ready: {
+      // 3. Machines, one Machine List per Account signed in.
       children: {
-        replicas: ReplicasLive,
-        projects: { actor: Projects, props: () => ({}) },
-        sessions: { actor: Sessions, props: () => ({}) },
-        backgroundJobs: { actor: BackgroundJobs.Live },
-        projectPicker: { actor: ProjectPicker.Live },
-        sessionSwitcher: { actor: SessionSwitcher.Live },
-        sessionActions: {
-          actor: SessionActions.Live,
-          props: ({ state }) => ({ bindings: state.device.bindings }),
+        machines: {
+          actor: MachineList.Live,
+          while: ({ model }) => model.account._tag === 'SignedIn',
+          key: ({ model }) => idOf(model.account) ?? '',
+          input: ({ model }) => ({ accountId: idOf(model.account) ?? '' }),
+          props: ({ model, state, props }) => {
+            const id = idOf(model.account) ?? '';
+            const page = props.route.page;
+            return {
+              atRoot: page?._tag === 'Open',
+              last: state.device.machines[id] ?? null,
+              on: page?._tag === 'Machine' ? page.machineId : null,
+              email:
+                model.account._tag === 'SignedIn' ? model.account.email : null,
+            };
+          },
         },
       },
       workers: {
@@ -144,12 +184,6 @@ export const ShellLive = Page.build(Shell, {
               Effect.flatMap(DeviceState.read, (device) =>
                 self.send({ _tag: 'Read', device }),
               ),
-            ),
-        },
-        connection: {
-          run: (self) =>
-            Stream.runForEach(connection, (status) =>
-              self.send({ _tag: 'Connection', status }),
             ),
         },
       },
@@ -164,44 +198,31 @@ export const ShellLive = Page.build(Shell, {
     },
   },
   on: {
-    Connection: ({ status }, { model }) => ({
-      model: { ...model, connection: status },
+    Signed: ({ account }, { model, props }) => {
+      const gone = goneFrom(model.account, account);
+      // 4. Another Account, or none: the Machine open closes.
+      const moved =
+        model.account._tag === 'SignedIn' &&
+        account._tag !== 'Checking' &&
+        idOf(account) !== model.account.id &&
+        props.route.page?._tag === 'Machine';
+      return {
+        model: { ...model, account },
+        command: [
+          ...(gone.length > 0
+            ? [MachineList.signedOut({ accountIds: gone })]
+            : []),
+          ...(moved ? [Router.replace(root())] : []),
+        ],
+      };
+    },
+    SignIn: (_, { model }) => ({
+      model: { ...model, signInProblem: null },
+      command: signIn(),
     }),
-    OpenSession: ({ projectId, sessionId }) => ({
-      command: Router.push(session(projectId, sessionId)),
+    SignInFailed: ({ problem }, { model }) => ({
+      model: { ...model, signInProblem: problem },
     }),
-    OpenProject: ({ projectId }) => ({
-      command: Router.push(project(projectId)),
-    }),
-    Settings: ({ from }, { model }) =>
-      from === null
-        ? {
-            model: { ...model, back: null },
-            command: Router.push(
-              placeOf(model.back ?? { projectId: null, sessionId: null }),
-            ),
-          }
-        : { model: { ...model, back: from }, command: Router.push(settings()) },
-    Unsettle: ({ sessionId }, { model }) =>
-      model.unsettling !== null && model.unsettling.problem === null
-        ? {}
-        : {
-            model: { ...model, unsettling: { sessionId, problem: null } },
-            command: unsettle({ sessionId }),
-          },
-    Unsettled: ({ sessionId }, { model }) =>
-      model.unsettling?.sessionId === sessionId
-        ? { model: { ...model, unsettling: null } }
-        : {},
-    Refused: ({ reason }, { model }) =>
-      model.unsettling === null
-        ? {}
-        : {
-            model: {
-              ...model,
-              unsettling: { ...model.unsettling, problem: reason },
-            },
-          },
   },
 });
 
