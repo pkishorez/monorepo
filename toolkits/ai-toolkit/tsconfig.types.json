@@ -6,5 +6,11 @@
     "emitDeclarationOnly": true
   },
   "include": [],
-  "files": ["src/api/contract/index.ts", "src/client/index.ts"]
+  "files": [
+    "src/api/contract/index.ts",
+    "src/client/index.ts",
+    "src/machines/contract/index.ts",
+    "src/machines/client/index.ts",
+    "src/machines/backend/index.ts"
+  ]
 }

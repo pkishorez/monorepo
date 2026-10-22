@@ -1,6 +1,6 @@
 import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
-import { Authz } from '@kestack/auth-toolkit';
+import { Authz, type Guarded } from '@kestack/auth-toolkit';
 
 /*
  * What the Machines Backend answers, shared by the Backend, `ai-toolkit
@@ -70,20 +70,21 @@ export class MachineTaken extends Schema.TaggedError<MachineTaken>()(
   { id: Schema.String },
 ) {}
 
-export const MachinesApi = Authz.required(
-  RpcGroup.make(
-    Rpc.make('Report', {
-      payload: MachineReport,
-      success: Machine,
-      error: Schema.Union([MachineForgotten, MachineTaken]),
-    }),
-    Rpc.make('List', {
-      payload: Schema.Struct({}),
-      success: Schema.Array(Machine),
-    }),
-    Rpc.make('Forget', {
-      payload: Schema.Struct({ id: Schema.NonEmptyString }),
-      success: Schema.Void,
-    }),
-  ),
+const Rpcs = RpcGroup.make(
+  Rpc.make('Report', {
+    payload: MachineReport,
+    success: Machine,
+    error: Schema.Union([MachineForgotten, MachineTaken]),
+  }),
+  Rpc.make('List', {
+    payload: Schema.Struct({}),
+    success: Schema.Array(Machine),
+  }),
+  Rpc.make('Forget', {
+    payload: Schema.Struct({ id: Schema.NonEmptyString }),
+    success: Schema.Void,
+  }),
 );
+
+/** Every call needs a Sign-in; named so its type is published as is. */
+export const MachinesApi: Guarded<typeof Rpcs> = Authz.required(Rpcs);

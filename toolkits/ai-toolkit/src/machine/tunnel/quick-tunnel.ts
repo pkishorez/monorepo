@@ -4,7 +4,9 @@ import { Tunnel } from 'cloudflared';
 /*
  * A Cloudflare quick tunnel: `cloudflared tunnel --url <local>` gives a
  * random `https://*.trycloudflare.com` address, with no account, for as
- * long as the process runs.
+ * long as the process runs. It speaks HTTP/2 to the edge rather than
+ * QUIC, since many networks block QUIC's UDP port 7844 and cloudflared
+ * takes long to fall back on its own.
  */
 
 const STARTUP = Duration.seconds(60);
@@ -22,7 +24,10 @@ export const quickTunnel = (local: string) =>
     const exited = yield* Deferred.make<void>();
     yield* Effect.acquireRelease(
       Effect.sync(() => {
-        const made = Tunnel.quick(local, { '--no-autoupdate': true });
+        const made = Tunnel.quick(local, {
+          '--no-autoupdate': true,
+          '--protocol': 'http2',
+        });
         made.once('url', (at) => Deferred.doneUnsafe(url, Effect.succeed(at)));
         made.once('connected', () =>
           Deferred.doneUnsafe(connected, Effect.void),
@@ -50,7 +55,7 @@ export const quickTunnel = (local: string) =>
         orElse: () =>
           Effect.fail(
             new Error(
-              'cloudflared did not connect within a minute; is outbound port 7844 open?',
+              'cloudflared did not connect within a minute; is outbound TCP port 7844 open?',
             ),
           ),
       }),
