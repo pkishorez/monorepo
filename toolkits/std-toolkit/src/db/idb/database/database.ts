@@ -29,12 +29,17 @@ export interface IDBConnection {
   readonly readContract: (
     storeName: string,
   ) => Effect.Effect<IDBStoredContract | undefined, unknown>;
-  readonly writeContract: (
+  /**
+   * Records a table store's contract, and with `wipe` removes every record
+   * from it, in one transaction, only while the stored contract is still the
+   * one read (`undefined` for none). False when another setup moved it.
+   */
+  readonly swapContract: (
     storeName: string,
+    read: Pick<IDBStoredContract, 'mode' | 'hash'> | undefined,
     contract: IDBStoredContract,
-  ) => Effect.Effect<void, unknown>;
-  /** Removes every record from a table store. */
-  readonly clear: (storeName: string) => Effect.Effect<void, unknown>;
+    options: { readonly wipe: boolean },
+  ) => Effect.Effect<boolean, unknown>;
 }
 
 const completed = (transaction: IDBTransaction) =>
@@ -186,22 +191,33 @@ const makeConnection = (configuration: IDBDatabaseConfig): IDBConnection => {
           snapshot: record.snapshot,
         };
       }),
-    writeContract: (storeName, contract) =>
+    swapContract: (storeName, read, contract, { wipe }) =>
       attempt(async () => {
         const database = await getCurrent();
-        const transaction = database.transaction(CONTRACT_STORE, 'readwrite');
-        transaction
-          .objectStore(CONTRACT_STORE)
-          .put({ store: storeName, ...contract });
+        const stores =
+          wipe && database.objectStoreNames.contains(storeName)
+            ? [CONTRACT_STORE, storeName]
+            : [CONTRACT_STORE];
+        const transaction = database.transaction(stores, 'readwrite');
+        const contracts = transaction.objectStore(CONTRACT_STORE);
+        let swapped = false;
+        // Decided inside the transaction, so no other tab writes in between.
+        const current = contracts.get(storeName);
+        current.onsuccess = () => {
+          const stored = current.result as IDBStoredContract | undefined;
+          const unmoved =
+            read === undefined
+              ? stored === undefined
+              : stored !== undefined &&
+                stored.mode === read.mode &&
+                stored.hash === read.hash;
+          if (!unmoved) return;
+          swapped = true;
+          if (stores.length === 2) transaction.objectStore(storeName).clear();
+          contracts.put({ store: storeName, ...contract });
+        };
         await completed(transaction);
-      }),
-    clear: (storeName) =>
-      attempt(async () => {
-        const database = await getCurrent();
-        if (!database.objectStoreNames.contains(storeName)) return;
-        const transaction = database.transaction(storeName, 'readwrite');
-        transaction.objectStore(storeName).clear();
-        await completed(transaction);
+        return swapped;
       }),
   };
 };

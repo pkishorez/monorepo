@@ -184,7 +184,7 @@ const makeDropTableStatement = (tableName: string) => ({
 export const CONTRACT_TABLE = '_std_contract';
 
 const makeCreateContractTableStatement = () => ({
-  sql: `CREATE TABLE IF NOT EXISTS ${quoteIdentifier(CONTRACT_TABLE)} (table_name TEXT PRIMARY KEY NOT NULL, mode TEXT NOT NULL, hash TEXT NOT NULL, snapshot TEXT NOT NULL)`,
+  sql: `CREATE TABLE IF NOT EXISTS ${quoteIdentifier(CONTRACT_TABLE)} (table_name TEXT PRIMARY KEY NOT NULL COLLATE NOCASE, mode TEXT NOT NULL, hash TEXT NOT NULL, snapshot TEXT NOT NULL)`,
 });
 
 const makeReadContractStatement = (tableName: string) => ({
@@ -197,16 +197,36 @@ const makeReadContractSnapshotStatement = (tableName: string) => ({
   parameters: [tableName] as const,
 });
 
-const makeWriteContractStatement = (
+type ContractRow = { mode: string; hash: string; snapshot: string };
+
+/** Records a first contract; changes nothing when another setup got there first. */
+const makeInsertContractStatement = (
   tableName: string,
-  contract: { mode: string; hash: string; snapshot: string },
+  contract: ContractRow,
 ) => ({
-  sql: `INSERT INTO ${quoteIdentifier(CONTRACT_TABLE)} (table_name, mode, hash, snapshot) VALUES (?, ?, ?, ?) ON CONFLICT (table_name) DO UPDATE SET mode = excluded.mode, hash = excluded.hash, snapshot = excluded.snapshot`,
+  sql: `INSERT INTO ${quoteIdentifier(CONTRACT_TABLE)} (table_name, mode, hash, snapshot) VALUES (?, ?, ?, ?) ON CONFLICT (table_name) DO NOTHING`,
   parameters: [
     tableName,
     contract.mode,
     contract.hash,
     contract.snapshot,
+  ] as const,
+});
+
+/** Replaces the contract only while it is still the one setup read. */
+const makeSwapContractStatement = (
+  tableName: string,
+  read: { mode: string; hash: string },
+  contract: ContractRow,
+) => ({
+  sql: `UPDATE ${quoteIdentifier(CONTRACT_TABLE)} SET mode = ?, hash = ?, snapshot = ? WHERE table_name = ? AND mode = ? AND hash = ?`,
+  parameters: [
+    contract.mode,
+    contract.hash,
+    contract.snapshot,
+    tableName,
+    read.mode,
+    read.hash,
   ] as const,
 });
 
@@ -257,8 +277,9 @@ export const Statement = {
   dropIndex: makeDropIndexStatement,
   dropTable: makeDropTableStatement,
   readContract: makeReadContractStatement,
+  insertContract: makeInsertContractStatement,
   readContractSnapshot: makeReadContractSnapshotStatement,
-  writeContract: makeWriteContractStatement,
+  swapContract: makeSwapContractStatement,
   tableInfo: makeTableInfoStatement,
   write: makeWriteStatement,
 } as const;

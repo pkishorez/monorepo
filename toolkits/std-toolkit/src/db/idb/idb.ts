@@ -10,6 +10,7 @@ import {
   captureContract,
   planSetup,
   type BackfillChoice,
+  type CurrentContract,
   type TableMode,
 } from '../stored-contract/index.js';
 import {
@@ -64,21 +65,38 @@ const isReindexConflict = (error: unknown) =>
   'reason' in error &&
   (error.reason as { _tag?: string } | undefined)?._tag === 'ReindexConflict';
 
-// A conflict means another tab wrote the row meanwhile, and a write derives
-// its keys afresh, so the row needs nothing more.
+// A row another tab wrote meanwhile fails with a conflict. That tab may run
+// an older definition, so the row is read again on the next pass rather than
+// trusted to carry the new keys.
+const PASSES = 5;
+
 const reindexAll = <Name extends string>(
   table: IDBTableSource<Name>,
   connection: IDBConnection,
   storeName: string,
 ) =>
-  Stream.runForEach(table.scan(), (item) =>
-    table.drift(item).pipe(
-      Effect.flatMap(({ drifted, currentForm }) =>
-        drifted ? table.reindex(currentForm) : Effect.void,
-      ),
-      Effect.catchIf(isReindexConflict, () => Effect.void),
-    ),
-  ).pipe(
+  Effect.gen(function* () {
+    for (let pass = 1; ; pass++) {
+      let conflicts = 0;
+      yield* Stream.runForEach(table.scan(), (item) =>
+        table.drift(item).pipe(
+          Effect.flatMap(({ drifted, currentForm }) =>
+            drifted ? table.reindex(currentForm) : Effect.void,
+          ),
+          Effect.catchIf(isReindexConflict, () =>
+            Effect.sync(() => void conflicts++),
+          ),
+        ),
+      );
+      if (conflicts === 0) return;
+      if (pass === PASSES)
+        return yield* Effect.fail(
+          new Error(
+            `IndexedDB Store "${storeName}" kept changing while it was reindexed`,
+          ),
+        );
+    }
+  }).pipe(
     Effect.provide(
       contractLayer(
         table.logicalName,
@@ -87,22 +105,16 @@ const reindexAll = <Name extends string>(
     ),
   );
 
-/**
- * Prepares the store under its Stored contract, kept in the same database:
- * a persistent store refuses a breaking change and is never wiped; a
- * disposable one is wiped on any change its stored rows cannot take. Then it
- * creates the store and its indexes, reindexes stored rows when a change
- * needs it, and records the new contract. An unchanged contract is one read
- * and skips the comparison; the store is still checked.
- */
-const prepareStore = <Name extends string>(
+class ContractMoved extends Error {}
+
+const prepareOnce = <Name extends string>(
   table: IDBTableSource<Name>,
   config: IDBConfig,
   storeName: string,
+  contract: CurrentContract,
 ) =>
   Effect.gen(function* () {
     const connection = config.database;
-    const contract = yield* captureContract(table, config.mode);
     const stored = yield* connection.readContract(storeName);
     const backfill =
       config.mode === 'persistent'
@@ -114,20 +126,69 @@ const prepareStore = <Name extends string>(
       loadStoredSnapshot: Effect.succeed(stored?.snapshot),
       backfill,
     });
+    // Every write of the contract holds only while it is the one read above,
+    // so a setup deciding on a stale read never wipes or overwrites.
+    const record = (wipe: boolean) =>
+      connection
+        .swapContract(storeName, stored, contract.record, { wipe })
+        .pipe(
+          Effect.flatMap((swapped) =>
+            swapped ? Effect.void : Effect.fail(new ContractMoved()),
+          ),
+        );
     const wipe = Effect.logWarning(
       `std-toolkit: wiped disposable IndexedDB store "${storeName}" for a change its stored rows cannot take`,
-    ).pipe(Effect.andThen(connection.clear(storeName)));
+    ).pipe(Effect.andThen(record(true)));
     if (plan.kind === 'wipe') yield* wipe;
     yield* reconcileIDBStore(connection, table, storeName);
-    if (plan.kind === 'unchanged') return;
-    if (plan.kind === 'apply' && plan.backfill.length > 0) {
+    if (plan.kind !== 'apply') return;
+    if (plan.backfill.length > 0) {
       const reindexed = reindexAll(table, connection, storeName);
       // Disposable rows that cannot be reindexed are thrown away instead.
-      yield* config.mode === 'persistent'
-        ? reindexed
-        : reindexed.pipe(Effect.catch(() => wipe));
+      if (config.mode === 'persistent') yield* reindexed;
+      else {
+        const result = yield* Effect.result(reindexed);
+        if (result._tag === 'Failure') return yield* wipe;
+      }
     }
-    yield* connection.writeContract(storeName, contract.record);
+    yield* record(false);
+  });
+
+const ATTEMPTS = 3;
+
+/**
+ * Prepares the store under its Stored contract, kept in the same database:
+ * a persistent store refuses a breaking change and is never wiped; a
+ * disposable one is wiped on any change its stored rows cannot take. Then it
+ * creates the store and its indexes, reindexes stored rows when a change
+ * needs it, and records the new contract. An unchanged contract is one read
+ * and skips the comparison; the store is still checked. A setup that loses a
+ * race with another tab starts over from the contract that tab recorded.
+ */
+const prepareStore = <Name extends string>(
+  table: IDBTableSource<Name>,
+  config: IDBConfig,
+  storeName: string,
+) =>
+  Effect.gen(function* () {
+    const contract = yield* captureContract(table, config.mode);
+    for (let attempt = 1; ; attempt++) {
+      const result = yield* prepareOnce(
+        table,
+        config,
+        storeName,
+        contract,
+      ).pipe(Effect.result);
+      if (result._tag === 'Success') return;
+      if (!(result.failure instanceof ContractMoved))
+        return yield* Effect.fail(result.failure);
+      if (attempt === ATTEMPTS)
+        return yield* Effect.fail(
+          new Error(
+            `IndexedDB setup for Store "${storeName}" kept racing another tab`,
+          ),
+        );
+    }
   });
 
 /**

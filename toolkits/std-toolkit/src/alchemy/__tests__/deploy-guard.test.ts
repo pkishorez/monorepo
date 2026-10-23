@@ -4,13 +4,25 @@ import { StdTable } from '../../db/index.js';
 import { SetupRefused } from '../../db/stored-contract/index.js';
 import { type AnyEntityESchema, EntityESchema } from '../../eschema/index.js';
 import { TableSnapshot } from '../../snapshot/index.js';
-import { checkDeploy } from '../deploy-guard/deploy-guard.js';
+import { checkDeploy, diffContract } from '../deploy-guard/deploy-guard.js';
 
 const stored = (schema: AnyEntityESchema) => {
   const table = StdTable.make('tasks').primary('pk', 'sk').build();
   table.entity(schema).primary().build();
   return Effect.runSync(TableSnapshot.serialize(TableSnapshot.capture(table)));
 };
+
+const withLocalIndex = (() => {
+  const table = StdTable.make('tasks')
+    .primary('pk', 'sk')
+    .lsi('LSI1', 'LSI1SK')
+    .build();
+  table
+    .entity(EntityESchema.make('Task', 'id', { title: Schema.String }).build())
+    .primary()
+    .build();
+  return Effect.runSync(TableSnapshot.serialize(TableSnapshot.capture(table)));
+})();
 
 const v1 = stored(
   EntityESchema.make('Task', 'id', { title: Schema.String }).build(),
@@ -92,5 +104,38 @@ describe('deploy guard', () => {
       snapshot: v1,
     });
     expect(Exit.isSuccess(exit) && exit.value.mode).toBe('persistent');
+  });
+
+  it('refuses a persistent DynamoDB table a new local index, which would replace it', () => {
+    const fixed = { fixedLocalIndexes: true } as const;
+    const error = refusal(
+      deploy(deployed({ mode: 'persistent', snapshot: v1, ...fixed }), {
+        mode: 'persistent',
+        snapshot: withLocalIndex,
+        ...fixed,
+      }),
+    );
+    expect((error as SetupRefused).reason).toBe('replaces-table');
+  });
+
+  it('replaces a disposable DynamoDB table for a new local index', () => {
+    const fixed = { fixedLocalIndexes: true } as const;
+    const exit = deploy(
+      deployed({ mode: 'disposable', snapshot: v1, ...fixed }),
+      { mode: 'disposable', snapshot: withLocalIndex, ...fixed },
+    );
+    expect(Exit.isSuccess(exit) && exit.value.generation).toBe(1);
+  });
+
+  it('starts a fresh contract for a new physical table', () => {
+    const props = {
+      mode: 'persistent',
+      snapshot: v1,
+      target: 'tasks',
+    } as const;
+    expect(diffContract(props, { ...props, target: 'tasks-2' })).toEqual({
+      action: 'replace',
+    });
+    expect(diffContract(props, props)).toEqual({ action: 'noop' });
   });
 });

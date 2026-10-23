@@ -130,6 +130,26 @@ describe('a persistent SQLite table', () => {
     ).toMatch(/has no mode/);
   });
 
+  it('is the same table under another letter case', async () => {
+    const database = makeNodeSQLite({ path: ':memory:' });
+    const before = tasks();
+    await setup(database, before.table, 'persistent');
+    await insertTask(database, before);
+
+    const exit = await Effect.runPromise(
+      Effect.exit(
+        SQLite.setup(tasks(TaskEdited).table, {
+          database,
+          mode: 'disposable',
+          tableName: 'TASKS',
+        }),
+      ),
+    );
+
+    expect(refusal(exit)?.reason).toBe('mode-change');
+    expect(await rowCount(database)).toBe(1);
+  });
+
   it('reserves the contract table name', async () => {
     const database = makeNodeSQLite({ path: ':memory:' });
     const exit = await Effect.runPromise(
@@ -142,6 +162,55 @@ describe('a persistent SQLite table', () => {
       ),
     );
     expect(Exit.isFailure(exit)).toBe(true);
+  });
+});
+
+describe('setups that race', () => {
+  it('never wipe a table another setup made persistent meanwhile', async () => {
+    const database = makeNodeSQLite({ path: ':memory:' });
+    const before = tasks();
+    await setup(database, before.table, 'disposable');
+    await insertTask(database, before);
+
+    // Right after the stale setup reads the contract, a newer one promotes
+    // the table and writes a row the stale setup has never seen.
+    let raced = false;
+    const racing = {
+      ...database,
+      all: (sql: string, parameters?: Parameters<typeof database.all>[1]) =>
+        database.all(sql, parameters).pipe(
+          Effect.tap(() =>
+            raced || !sql.startsWith('SELECT mode, hash')
+              ? Effect.void
+              : Effect.promise(async () => {
+                  raced = true;
+                  await setup(database, before.table, 'persistent');
+                  await Effect.runPromise(
+                    before.task
+                      .insert({ taskId: 't2', title: 'Second' })
+                      .pipe(
+                        Effect.provide(
+                          SQLite.make(before.table, { database }).layer,
+                        ),
+                      ),
+                  );
+                }),
+          ),
+        ),
+    };
+
+    const exit = await Effect.runPromise(
+      Effect.exit(
+        SQLite.setup(tasks(TaskEdited).table, {
+          database: racing,
+          mode: 'disposable',
+        }),
+      ),
+    );
+
+    expect(raced).toBe(true);
+    expect(refusal(exit)?.reason).toBe('mode-change');
+    expect(await rowCount(database)).toBe(2);
   });
 });
 

@@ -1,6 +1,7 @@
 import { Effect } from 'effect';
 import { isResolved, Resource } from 'alchemy';
 import * as Cloudflare from 'alchemy/Cloudflare';
+import * as Output from 'alchemy/Output';
 import * as Provider from 'alchemy/Provider';
 import {
   setUpFromSnapshot,
@@ -110,6 +111,9 @@ const table = (id: string, options: D1TableOptions) =>
             `${id}DeployGuard`,
             options.table,
             'persistent',
+            {
+              target: Output.interpolate`${options.database.databaseId}/${tableName}`,
+            },
           )).snapshot
         : yield* TableSnapshot.serialize(
             TableSnapshot.capture(options.table),

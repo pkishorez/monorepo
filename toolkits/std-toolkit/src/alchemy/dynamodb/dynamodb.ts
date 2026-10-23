@@ -100,6 +100,7 @@ const table = (id: string, options: DynamoDBTableOptions) =>
       `${id}Contract`,
       options.table,
       options.mode,
+      { target: options.tableName, fixedLocalIndexes: true },
     );
     const tableNameAfterGuard = Output.map(guard.generation, (generation) =>
       physicalName(options.tableName, generation),

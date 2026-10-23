@@ -24,7 +24,7 @@ The adapter's **item schema**: one table-parameterized two-way Effect Schema bet
 _Avoid_: item codec, encodeItem/decodeItem pairs.
 
 **Create-if-missing setup**:
-`DynamoDB.createTable`, an adapter-native operation for DynamoDB Local and tests: `CreateTable` from the declared topology when the table is missing, then a wait until it is active. An existing table is left as it is. Deployed tables come from `DynamoDB.table` in `@kestack/std-toolkit/alchemy`, whose resource creates and reconciles every index. A DynamoDB table keeps no [[db]] **Stored contract**: its **Deploy guard** is its only check, and a **Disposable table** is replaced by a new physical table on a change its rows cannot take.
+`DynamoDB.createTable`, an adapter-native operation for DynamoDB Local and tests: `CreateTable` from the declared topology when the table is missing, then a wait until it is active. An existing table is left as it is. Deployed tables come from `DynamoDB.table` in `@kestack/std-toolkit/alchemy`, whose resource creates and reconciles every index. A DynamoDB table keeps no [[db]] **Stored contract**: its **Deploy guard** is its only check, and a **Disposable table** is replaced by a new physical table on a change its rows cannot take. A **Persistent table** refuses any local secondary index change, since DynamoDB can make one only by replacing the table.
 _Avoid_: Create-only setup, adapter setup (for this adapter; `make` returns only the layer).
 
 **Primary index**:

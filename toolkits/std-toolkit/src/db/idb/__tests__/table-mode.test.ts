@@ -181,3 +181,109 @@ describe('a disposable IndexedDB store', () => {
     expect(await titles(factory, before, 'disposable')).toEqual(['Write']);
   });
 });
+
+describe('IndexedDB setups that race', () => {
+  it('never wipe a store another tab made persistent meanwhile', async () => {
+    const factory = new IDBFactory();
+    const before = tasks();
+    await insertTask(factory, before, 'disposable');
+
+    // Right after the stale tab reads the contract, a newer tab promotes the
+    // store and writes a row the stale tab has never seen.
+    const connection = connect(factory);
+    let raced = false;
+    const racing = {
+      ...connection,
+      readContract: (storeName: string) =>
+        connection.readContract(storeName).pipe(
+          Effect.tap(() =>
+            raced
+              ? Effect.void
+              : Effect.promise(async () => {
+                  raced = true;
+                  await setup(factory, before.table, 'persistent');
+                  await Effect.runPromise(
+                    before.task
+                      .insert({ taskId: 't2', title: 'Second' })
+                      .pipe(
+                        Effect.provide(
+                          IDB.make(before.table, config(factory, 'persistent'))
+                            .layer,
+                        ),
+                      ),
+                  );
+                }),
+          ),
+        ),
+    };
+
+    const exit = await Effect.runPromise(
+      Effect.exit(
+        IDB.setup(tasks(TaskEdited).table, {
+          database: racing,
+          mode: 'disposable',
+        }),
+      ),
+    );
+
+    expect(raced).toBe(true);
+    expect(refusal(exit)?.reason).toBe('mode-change');
+    expect(await titles(factory, before, 'persistent')).toEqual(['Write']);
+  });
+
+  it('reindexes a row an older tab rewrote during the backfill', async () => {
+    const factory = new IDBFactory();
+    const before = tasks();
+    await insertTask(factory, before, 'persistent');
+
+    // The first drift is stale: an older tab rewrites the row, without the
+    // new index keys, before this setup reindexes it.
+    const after = indexedTasks();
+    let rewritten = false;
+    const racing = {
+      ...after.table,
+      scan: () => after.table.scan(),
+      reindex: (currentForm: Parameters<typeof after.table.reindex>[0]) =>
+        after.table.reindex(currentForm),
+      drift: (item: Parameters<typeof after.table.drift>[0]) =>
+        (rewritten
+          ? Effect.void
+          : Effect.promise(async () => {
+              rewritten = true;
+              await Effect.runPromise(
+                before.task
+                  .getAndUpdate({ taskId: 't1' }, { title: 'Write' })
+                  .pipe(
+                    Effect.provide(
+                      IDB.make(before.table, {
+                        database: connect(factory),
+                        mode: 'persistent',
+                      }).layer,
+                    ),
+                  ),
+              );
+            })
+        ).pipe(Effect.andThen(after.table.drift(item))),
+    };
+
+    expect(
+      Exit.isSuccess(
+        await Effect.runPromise(
+          Effect.exit(IDB.setup(racing, config(factory, 'persistent'))),
+        ),
+      ),
+    ).toBe(true);
+    expect(rewritten).toBe(true);
+    const found = await Effect.runPromise(
+      after.task
+        .query('byTitle', { pk: { title: 'Write' }, '>': { taskId: '' } })
+        .pipe(
+          Effect.map(({ items }) => items.length),
+          Effect.provide(
+            IDB.make(after.table, config(factory, 'persistent')).layer,
+          ),
+        ),
+    );
+    expect(found).toBe(1);
+  });
+});
