@@ -9,7 +9,8 @@ import { MACHINES_DEV_PORT, where } from './stage.ts';
 /*
  * The Machines Worker: the Machines Backend from
  * `@kestack/ai-toolkit/machines/backend`, served at `api-code.kishore.app`
- * (`api-code.kishore.computer` under `alchemy dev`). It is handed how the
+ * (`api-code.kishore.computer` under `alchemy dev`, with the branch in
+ * front in a worktree). It is handed how the
  * stage signs in (`AUTH_URL`, or `AUTH_LOCAL=true` in Local mode), the one
  * origin it lets call with credentials, the site's, and a D1 database of
  * its own holding the `machines` std Table. The table goes through

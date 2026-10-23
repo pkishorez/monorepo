@@ -6,7 +6,7 @@
   "type": "module",
   "sideEffects": false,
   "scripts": {
-    "dev": "vp run --filter 'code^...' build && portless alias api-code.kishore 4591 --force && portless run --force alchemy dev",
+    "dev": "vp run --filter 'code^...' build && MACHINES_URL=$(portless get api-code.kishore) && portless alias \"$(echo $MACHINES_URL | sed -E 's#^https://##; s#\\.computer$##')\" 4591 --force && MACHINES_URL=$MACHINES_URL portless run --force alchemy dev",
     "dev:local": "AUTH=local pnpm dev",
     "build": "vp build",
     "lint": "tsc --noEmit && pnpm lint:laymos",

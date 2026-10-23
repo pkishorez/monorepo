@@ -135,9 +135,16 @@ node toolkits/ai-toolkit/bin/ai-toolkit.mjs serve --port 4590 --db ~/.ai-toolkit
 node toolkits/ai-toolkit/bin/ai-toolkit.mjs logout --db ~/.ai-toolkit/ai.db
 ```
 
+In this repo, `pnpm dev` serves against `apps/code`'s dev Backend, asking portless for its address, with the database `~/.ai-toolkit/dev.db`; `pnpm dev:local` does the same for a Backend in Local mode, as `dev@kishore.computer`. Any flag after them is passed on, such as `pnpm dev --name studio`.
+
+```sh
+pnpm --filter code dev                  # the app and its Backend, signing in with auth.kishore.computer
+pnpm --filter @kestack/ai-toolkit dev   # this Machine, against that Backend
+```
+
 - `--backend` falls back to `AI_TOOLKIT_BACKEND`, then `https://api-code.kishore.app`. `serve` asks it how to sign in: through its Auth Worker, by Device Login the first time (the link and code are printed; `o` opens the browser), the Sign-in kept in the database file for later runs; or, for a Backend in Local mode, as the User `--as <email>` names. `--as` is refused by a Backend with an Auth Worker, and a Local mode Backend needs it.
 - One database file is one Machine of one User. The first run makes the Machine: a random id, a Machine Key that never changes, and the host's name, which `--name` replaces and keeps. Another User signing in on the file is refused: use another `--db`.
-- With a Machine Key, a WebSocket to `/rpc` must offer the subprotocols `ai-toolkit` and `key.<key>`, page or program; without the key it gets 401, with a wrong one 403. The server answers with `ai-toolkit`, never the key. `/health` stays open.
+- With a Machine Key, every request but `/health` must offer the subprotocols `ai-toolkit` and `key.<key>`, page or program; without the key it gets 401, with a wrong one 403. The server answers with `ai-toolkit`, never the key.
 - The tunnel is `cloudflared tunnel --url http://127.0.0.1:<port>`; the binary is downloaded on first use. Every `--heartbeat` seconds (15 unless given) the Machine checks `<tunnel>/health` and reports its id, name, address, key, version and that check to the Backend. Three failed checks in a row restart cloudflared, and the new address is reported at once.
 - A Machine forgotten from the app signs out, which revokes its Sign-in, and stops. A revoked Sign-in closes the tunnel and asks to sign in again in the terminal.
 - `logout` asks the Backend to Forget the Machine (a failure is only logged), signs out and forgets the Machine here, keeping its Projects and Sessions: the next `serve` is a new Machine.

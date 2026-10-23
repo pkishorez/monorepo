@@ -42,14 +42,22 @@ const deployedHost = (stage: string, api?: string) =>
   `${[isProdStage(stage) ? undefined : stage, api, 'code'].filter(Boolean).join('-')}.kishore.app`;
 
 /**
- * A Worker's URL under `alchemy dev`. The site's is the one Portless gave
- * it (its `portless.json` name, `code.kishore`, with the branch in front in
- * a linked git worktree). An API Worker's is aliased without one, so every
- * worktree calls the same name: `api-code.kishore.computer`.
+ * A Worker's URL under `alchemy dev`, as Portless names it, with the branch
+ * in front in a linked git worktree: the site's is the one Portless gave it
+ * (its `portless.json` name, `code.kishore`), and the Machines Worker's the
+ * one `pnpm dev` asked Portless for and aliased, `api-code.kishore`, handed
+ * in as `MACHINES_URL`. ai-toolkit's `pnpm dev` asks Portless the same, so
+ * a Machine finds this worktree's Backend.
  */
-const devUrl = (api?: string) =>
-  (api ? undefined : process.env.PORTLESS_URL) ??
-  `https://${api ? `${api}-code` : 'code'}.kishore.computer`;
+const devUrl = (api?: string) => {
+  const url = api ? process.env.MACHINES_URL : process.env.PORTLESS_URL;
+  if (url === undefined || url === '') {
+    throw new Error(
+      `${api ? 'MACHINES_URL' : 'PORTLESS_URL'} must be set by portless. Start the app with \`pnpm dev\`.`,
+    );
+  }
+  return url;
+};
 
 /** Where the stage being run serves things, once it is checked it may be run. */
 export const where = Effect.gen(function* () {
@@ -90,5 +98,5 @@ export const portlessPort = (): number => {
   return port;
 };
 
-/** The Machines Worker's port under `alchemy dev`, aliased by `pnpm dev` as `api-code.kishore`. */
+/** The Machines Worker's port under `alchemy dev`, aliased by `pnpm dev` as `api-code.kishore` (with the branch in front in a worktree). */
 export const MACHINES_DEV_PORT = 4591;

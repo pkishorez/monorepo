@@ -33,7 +33,7 @@ Hacks, shortcuts, observations and future improvements from building Machines (`
 ## code app deployment (Alchemy)
 
 - `pnpm --filter code dev` uses real auth (`auth.kishore.computer`); `pnpm --filter code dev:local` uses Local mode (`AUTH=local`). Local mode on any deployed stage throws.
-- The Machines Worker is at port 4591, `api-code.kishore.computer` in dev, `api-code.kishore.app` in prod, `pr<N>-api-code.kishore.app` on PR stages. D1 database: `code-machines-<stage>`.
+- The Machines Worker is at port 4591, `api-code.kishore.computer` in dev (`<branch>.api-code.kishore.computer` in a worktree, which ai-toolkit's `pnpm dev` finds with `portless get api-code.kishore`; two worktrees can't both run it, since the port is fixed), `api-code.kishore.app` in prod, `pr<N>-api-code.kishore.app` on PR stages. D1 database: `code-machines-<stage>`.
 - In a worktree the site's dev host is branch-prefixed (`<branch>.code.kishore.computer`). It's still under `.kishore.computer`, so the cookie and serve's `*.code.kishore.computer` origin rule both cover it.
 - vite.config.ts aliases `debug` to its browser build. Under `alchemy dev` the site's server code runs in workerd, where `debug`'s Node build (pulled in by micromark's dev build, via the markdown viewer) reads `process.stderr.fd` and throws. Changing the SSR resolve conditions didn't help, because the Cloudflare plugin's dep optimizer still used the `development` condition. A cleaner fix belongs in Kabuki Start or web-platform.
 - After changing the vite config, delete `apps/code/node_modules/.vite`; stale pre-bundles kept the old crash.

@@ -42,10 +42,11 @@
   },
   "scripts": {
     "build": "rm -rf dist && tsc -p tsconfig.build.json && tsc -p tsconfig.types.json",
+    "dev": "pnpm build && node bin/ai-toolkit.mjs serve --backend \"$(portless get api-code.kishore)\" --db ~/.ai-toolkit/dev.db",
+    "dev:local": "pnpm build && node bin/ai-toolkit.mjs serve --backend \"$(portless get api-code.kishore)\" --db ~/.ai-toolkit/dev.db --as dev@kishore.computer",
     "fmt": "vp fmt",
     "lint": "vp check && pnpm lint:tsc && laymos lint",
     "lint:tsc": "tsc --noEmit",
-    "serve": "pnpm build && portless run --force node bin/ai-toolkit.mjs serve",
     "test": "vitest run --exclude \"**/*.e2e.test.ts\"",
     "test:e2e": "AI_TOOLKIT_E2E=1 vitest run --include \"**/*.e2e.test.ts\""
   },

@@ -205,13 +205,19 @@ signs in as you, reports itself to the Backend every 15 seconds, and
 shows up in the app.
 
 ```sh
-pnpm --filter code dev:local
-npx @kestack/ai-toolkit serve --as you@example.com --backend https://api-code.kishore.computer
+pnpm --filter code dev                  # signs in with https://auth.kishore.computer
+pnpm --filter @kestack/ai-toolkit dev   # opens the Device Screen once, then is a Machine
+
+pnpm --filter code dev:local            # or: sign in by name, no Auth Worker
+pnpm --filter @kestack/ai-toolkit dev:local
 ```
 
-- Under `dev:local` sign in by typing the same email `--as` names: the same
-  email is the same User. Signing in through the Auth Worker, `serve`
-  alone signs in from its Device Screen.
+- ai-toolkit's `dev` asks portless where this app's Backend is
+  (`api-code.kishore`, the name `dev` gives it), so the two always meet.
+- Under `dev:local` the Machine signs in as `dev@kishore.computer`: sign in
+  to the app by typing that email, since the same email is the same User.
+  Signing in through the Auth Worker, the Machine signs in from its Device
+  Screen the first time and keeps the Sign-in.
 - With no Machine, the app says what to run; it opens the Machine last
   used on this device, else the one seen last.
 - `pnpm --filter code lint` checks types and the Laymos Rules; `pnpm --filter
@@ -223,7 +229,10 @@ code test` runs the tests. Videos recorded under `qa/` stay local.
 Portless: the site at `https://code.kishore.computer` and the Machines
 Worker, the Backend from `@kestack/ai-toolkit/machines/backend` over a D1
 database of its own, on port 4591, aliased as
-`https://api-code.kishore.computer`.
+`https://api-code.kishore.computer`. In a linked git worktree both have
+the branch in front, `https://<branch>.api-code.kishore.computer`, so each
+worktree has its own Backend; only one can run at a time, since the port
+is fixed.
 
 ```sh
 pnpm --filter code dev:local     # AUTH=local: sign in by name, no Auth Worker
