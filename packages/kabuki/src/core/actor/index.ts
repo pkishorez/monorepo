@@ -3,8 +3,11 @@ export { Command } from './command.ts';
 export { RUN } from './types.ts';
 export type { Defined } from './actor.ts';
 export type {
+  /** The Actor interface, by a name that does not clash with the `Actor` value: for code that builds Actors on top of `Actor.build`, and what a declaration file names an Actor by. */
+  Actor as ActorType,
+  /** A Command, as a declaration file names it. */
+  Command as CommandType,
   ActorOf,
-  ActorType,
   AnyActor,
   Behavior,
   ChildAs,
@@ -22,6 +25,7 @@ export type {
   QueryDefinition,
   Requires,
   Self,
+  Single,
   SlotDefinition,
   Tagged,
   Types,
