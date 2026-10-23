@@ -99,12 +99,23 @@ const hash = (text: string) => {
   return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
 };
 
+// The type requires a mode; this catches a caller the types do not reach.
+const requireMode = (table: string, mode: unknown) =>
+  mode === 'persistent' || mode === 'disposable'
+    ? Effect.void
+    : Effect.die(
+        new Error(
+          `std-toolkit: table "${table}" has no mode. Declare it 'persistent' or 'disposable'.`,
+        ),
+      );
+
 /** Captures the table's contract as setup records it. */
 export const captureContract = (
   table: TableSource,
   mode: TableMode,
 ): Effect.Effect<CurrentContract> =>
   Effect.gen(function* () {
+    yield* requireMode(table.logicalName, mode);
     const snapshot = TableSnapshot.capture(table);
     const serialized = yield* TableSnapshot.serialize(snapshot).pipe(
       Effect.orDie,
@@ -127,6 +138,7 @@ export const contractFromSnapshot = (
 ): Effect.Effect<CurrentContract, unknown> =>
   Effect.gen(function* () {
     const snapshot = yield* TableSnapshot.parse(serialized);
+    yield* requireMode(snapshot.logicalName, mode);
     return {
       logicalName: snapshot.logicalName,
       snapshot,
