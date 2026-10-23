@@ -115,6 +115,21 @@ describe('a persistent SQLite table', () => {
     expect(await rowCount(database)).toBe(1);
   });
 
+  it('refuses a caller the types do not reach that declares no mode', async () => {
+    const database = makeNodeSQLite({ path: ':memory:' });
+    const exit = await Effect.runPromise(
+      Effect.exit(
+        SQLite.setup(tasks().table, {
+          database,
+          mode: undefined as unknown as TableMode,
+        }),
+      ),
+    );
+    expect(
+      Exit.isFailure(exit) && String(Exit.isFailure(exit) && exit.cause),
+    ).toMatch(/has no mode/);
+  });
+
   it('reserves the contract table name', async () => {
     const database = makeNodeSQLite({ path: ':memory:' });
     const exit = await Effect.runPromise(
