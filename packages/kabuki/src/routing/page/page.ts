@@ -244,7 +244,9 @@ export type BuiltPage<D, B> = D extends {
         },
         | OpenOfBehavior<RequiresOf<T>, B>
         | Exclude<PagesOpen<PagesIn<B>>, ProvidedOf<B>>,
-        QueriesByState<T['state'], B>
+        {
+          readonly [S in T['state']['_tag']]: QueriesByState<T['state'], B>[S];
+        }
       >,
       PagesIn<B>
     >

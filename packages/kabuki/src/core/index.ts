@@ -2,6 +2,7 @@ export { Actor, Command } from './actor/index.ts';
 export type {
   ActorOf,
   ActorType,
+  CommandType,
   AnyActor,
   Behavior,
   ChildAs,
@@ -15,6 +16,7 @@ export type {
   QueriesByState,
   Requires,
   Self,
+  Single,
   Tagged,
   Types,
 } from './actor/index.ts';
