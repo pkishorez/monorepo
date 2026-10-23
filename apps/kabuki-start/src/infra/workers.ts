@@ -54,6 +54,7 @@ export const PocketWorker = Cloudflare.Worker(
     const table = yield* D1.table('PocketTable', {
       table: pocketTable,
       database,
+      mode: 'persistent',
     });
     return {
       main: './src/apis/pocket/worker.server.ts',

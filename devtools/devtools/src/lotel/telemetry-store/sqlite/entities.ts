@@ -34,6 +34,11 @@ export const makeSqliteEntities = (database: SQLiteDriver) => {
     spans,
     logs,
     layer: configured.layer,
-    setup: SQLite.setup(table, { database, tableName: 'lotel_data' }),
+    // Local telemetry: a schema change may drop it.
+    setup: SQLite.setup(table, {
+      database,
+      tableName: 'lotel_data',
+      mode: 'disposable',
+    }),
   };
 };
