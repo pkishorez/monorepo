@@ -379,7 +379,9 @@ export type OpenOfBehavior<R extends Requires, B> =
  * every hover, error and declaration file that names the Actor, once per
  * level it is kept at, so its size grows with each level of Children.
  * `extends infer R ? R : never` resolves each one to its plain shape, so it
- * is printed as that, never as an alias of the behavior.
+ * is printed as that, never as an alias of the behavior. `KidsByState` and
+ * `QueriesByState` stay plain mapped types, indexable while their arguments
+ * are generic; `BuiltOf` maps over them in place so their alias is not kept.
  */
 
 /** A Child as an Actor's type keeps it: its Actor, and whether it is one of `each` or there `while` a test holds. */
@@ -401,9 +403,7 @@ type SlotsOf<C> = { readonly [K in keyof C]: SlotOf<C[K]> } extends infer R
 /** The Children per State tag, top-level ones in every State, for Views. */
 export type KidsByState<State extends Tagged, B> = {
   readonly [T in State['_tag']]: SlotsOf<KidsOf<B> & KidsOf<BlockOf<B, T>>>;
-} extends infer R
-  ? R
-  : never;
+};
 
 /** An Actor's Children in one State, as written: its slots by name. */
 export type KidsIn<A, T> = T extends keyof Types<A>['children']
@@ -436,9 +436,7 @@ export type QueriesByState<State extends Tagged, B> = {
   readonly [T in State['_tag']]: AsksOf<
     QueriesOf<B> & QueriesOf<BlockOf<B, T>>
   >;
-} extends infer R
-  ? R
-  : never;
+};
 
 /** An Actor's Queries in one State, as written: by name. */
 export type QueriesIn<A, T> = T extends keyof Types<A>['queries']

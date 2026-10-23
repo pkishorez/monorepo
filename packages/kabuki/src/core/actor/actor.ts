@@ -110,9 +110,11 @@ export type BuiltOf<D, B> =
         Model,
         State,
         Msg,
-        KidsByState<State, B>,
+        // Mapped here, not named, so the Actor's type prints each as its plain
+        // shape, never as an alias of `B`.
+        { readonly [T in State['_tag']]: KidsByState<State, B>[T] },
         OpenOfBehavior<R, B>,
-        QueriesByState<State, B>
+        { readonly [T in State['_tag']]: QueriesByState<State, B>[T] }
       >
     : never;
 

@@ -239,17 +239,14 @@ export type BuiltPage<D, B> = D extends {
         T['state'],
         T['message'],
         {
-          readonly [S in T['state']['_tag']]: (KidsByState<
-            T['state'],
-            B
-          > extends infer K
-            ? K[S & keyof K]
-            : never) &
+          readonly [S in T['state']['_tag']]: KidsByState<T['state'], B>[S] &
             PageKids<PagesIn<B>>;
         },
         | OpenOfBehavior<RequiresOf<T>, B>
         | Exclude<PagesOpen<PagesIn<B>>, ProvidedOf<B>>,
-        QueriesByState<T['state'], B>
+        {
+          readonly [S in T['state']['_tag']]: QueriesByState<T['state'], B>[S];
+        }
       >,
       PagesIn<B>
     >
