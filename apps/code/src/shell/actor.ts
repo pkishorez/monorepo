@@ -58,8 +58,9 @@ import { reach } from './services/index.ts';
  * 5. Pages     home, Settings, and a project of one Machine,
  *              `/m/:machineId/p/:projectId`, and its sessions.
  *
- * It also starts a new session in the project open, and opens Settings,
- * remembering where it was opened from, so the same key goes back there.
+ * It also starts a new session in the project open, opens Settings,
+ * remembering where it was opened from, so the same key goes back there,
+ * and goes home when another Account, or none, is signed in.
  */
 
 /** Who is signed in, as the root keeps it. */
@@ -275,11 +276,18 @@ export const ShellLive = Page.build(Shell, {
   on: {
     Signed: ({ account }, { model }) => {
       const gone = goneFrom(model.account, account);
+      // Another Account, or none: home, in place of the page, so nothing of
+      // the last Account's stays on screen and Back does not return to it.
+      const switched =
+        model.account._tag === 'SignedIn' &&
+        account._tag !== 'Checking' &&
+        idOf(account) !== model.account.id;
       return {
-        model: { ...model, account },
-        ...(gone.length > 0
-          ? { command: signedOut({ accountIds: gone }) }
-          : {}),
+        model: { ...model, account, back: switched ? null : model.back },
+        command: [
+          ...(gone.length > 0 ? [signedOut({ accountIds: gone })] : []),
+          ...(switched ? [Router.replace(home())] : []),
+        ],
       };
     },
     SignInAsked: (_, { model }) => ({
