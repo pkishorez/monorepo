@@ -10,6 +10,10 @@ export const signInStore = (db: string) =>
       Effect.sync(() => makeNodeSQLite({ path: db })),
       (database) => Effect.sync(() => database.close?.()),
     );
-    yield* SQLite.setup(deviceAccountsTable, { database }).pipe(Effect.orDie);
+    // Remembered sign-ins: losing them costs a sign-in, never data.
+    yield* SQLite.setup(deviceAccountsTable, {
+      database,
+      mode: 'disposable',
+    }).pipe(Effect.orDie);
     return SQLite.make(deviceAccountsTable, { database }).layer;
   });

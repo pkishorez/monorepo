@@ -43,6 +43,7 @@ export const Worker = Cloudflare.Website.Vite(
     const table = yield* D1.table('ConsoleTableV2', {
       table: consoleTable,
       database,
+      mode: 'persistent',
     });
 
     return {

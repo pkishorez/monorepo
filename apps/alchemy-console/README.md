@@ -60,7 +60,7 @@ reach a deployed stage.
 `pr<N>-console.kishore.app` for each pull request. It needs
 `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` secrets, runs
 `alchemy provider cloudflare bootstrap` once, then `alchemy deploy --stage <stage>`.
-The `D1.table` resource checks the console table snapshot and sets up the
+The `D1.table` resource guards the persistent console table and sets up the
 `alchemy-console` table in the new `alchemy-console-v3-<stage>` database. The
 previous database is removed during the deployment; its records are not
 copied. PR stages are removed by

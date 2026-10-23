@@ -27,7 +27,7 @@ const onFile = <A, E, R>(db: string, use: Effect.Effect<A, E, R>) =>
   Effect.acquireUseRelease(
     Effect.sync(() => makeNodeSQLite({ path: db })),
     (database) =>
-      SQLite.setup(machineTable, { database }).pipe(
+      SQLite.setup(machineTable, { database, mode: 'persistent' }).pipe(
         Effect.orDie,
         Effect.andThen(use),
         Effect.provide(SQLite.make(machineTable, { database }).layer),

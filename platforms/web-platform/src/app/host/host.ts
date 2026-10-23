@@ -5,6 +5,7 @@ import {
   defaultBroadcaster,
 } from '@kestack/std-toolkit/core';
 import type { StdTableService, TableDefinition } from '@kestack/std-toolkit/db';
+import type { IDBTableSource } from '@kestack/std-toolkit/db/idb';
 import { Memory } from '@kestack/std-toolkit/db/memory';
 import { Sync, type SyncStore } from '@kestack/std-toolkit/sync';
 
@@ -32,11 +33,9 @@ export const backendNamed = (
       ? null
       : (FORMER[name] ?? null);
 
-/** A table as a Host needs it to keep it. */
-export type TableSource<Name extends string> = Pick<
-  TableDefinition<Name>,
-  'logicalName' | 'primary' | 'localSecondaryIndexes' | 'globalSecondaryIndexes'
->;
+/** A table as a Host needs it to keep it: the whole StdTable, since setup
+ * checks its contract before keeping it. */
+export type TableSource<Name extends string> = IDBTableSource<Name>;
 
 /** What one tab tells the device's other tabs: look again at the Backend
  * chosen and the account lost. `quiet` are accounts it signed out itself,
@@ -146,7 +145,7 @@ export const memoryHost = (
     const key = `${database}/${source.logicalName}`;
     let kept = tables.get(key);
     if (kept === undefined) {
-      kept = Memory.make(source as TableDefinition<Name>).layer as never;
+      kept = Memory.make(source).layer as never;
       tables.set(key, kept);
     }
     return kept as Layer.Layer<StdTableService<Name>>;

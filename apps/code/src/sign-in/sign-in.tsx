@@ -42,6 +42,7 @@ const table = <T extends Parameters<typeof IDB.make>[0]>(of: T) =>
       () =>
         IDB.make(of, {
           database: IDB.database({ databaseName: 'code:accounts' }),
+          mode: 'disposable',
         }).layer,
     ),
   );

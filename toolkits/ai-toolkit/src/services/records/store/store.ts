@@ -87,7 +87,9 @@ const make = (path: string) =>
     );
     const { database, layer } = storage(path, pubsub);
     yield* Effect.addFinalizer(() => Effect.sync(() => database.close?.()));
-    yield* SQLite.setup(aiTable, { database }).pipe(Effect.orDie);
+    yield* SQLite.setup(aiTable, { database, mode: 'persistent' }).pipe(
+      Effect.orDie,
+    );
     const context = yield* Layer.build(layer);
     const permit = yield* Semaphore.make(1);
     const run = <A, E>(
