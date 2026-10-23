@@ -51,6 +51,13 @@ then an empty read may only mean not read yet; rows already stored show at
 once either way.
 _Avoid_: Settled, Synced, Loaded, Ready.
 
+**Never Synced**:
+A Collection, or a Window of one, whose Strategy has never answered on this
+device: the Store holds no cursor for it. Only then is an empty read not
+known yet; once it has answered, even with nothing, what the Store holds is
+what was last synced, across reloads and while no Strategy runs.
+_Avoid_: Empty, Unloaded, First Load.
+
 **GC Time**:
 How long an Instance or a Window keeps running after the last thing using it
 lets go. Its stored records stay.
@@ -84,8 +91,9 @@ carries no records.
 ### Reading and writing
 
 **Query**:
-A reader whose Model is rows from Collections of any Instances, joins
-included. Its rows always say which Instances they came from.
+A reader whose Model is rows from Collections of any Instances, joins and
+unions included. Its rows always say which Instances they came from, and it
+names the Instances holding what it reads that is Never Synced.
 _Avoid_: live query actor, selector.
 
 **Action**:

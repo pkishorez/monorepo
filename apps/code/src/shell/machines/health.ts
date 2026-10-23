@@ -8,8 +8,7 @@ type Machine = typeof MachineSchema.Type;
 
 /*
  * What can be said of a Machine from its record alone: where its socket
- * is, which Machine to open first, and, while its socket is not up, why
- * not. A Machine reports itself on every Heartbeat, every 15 seconds; one
+ * is and, while its socket is not up, why not. A Machine reports itself on every Heartbeat, every 15 seconds; one
  * whose Last Seen is older than three of them is down. One seen lately
  * says in its Machine Status how far its tunnel got: cloudflared
  * downloading, the tunnel opening or failed to open, or up and whether its
@@ -31,18 +30,6 @@ export const socketUrl = (url: string | null) =>
   url?.startsWith('https://') === true
     ? `wss://${url.slice('https://'.length).replace(/\/+$/, '')}/rpc`
     : null;
-
-/** The Machine to open: the one last used here, if still listed, else the one seen last; null with none. */
-export const choose = (
-  machines: ReadonlyArray<Machine>,
-  last: string | null,
-): Machine | null =>
-  machines.find(({ id }) => id === last) ??
-  machines.reduce<Machine | null>(
-    (best, each) =>
-      best === null || each.lastSeen > best.lastSeen ? each : best,
-    null,
-  );
 
 /** The socket to the Machine now. */
 export type Connection = 'connecting' | 'connected' | 'reconnecting';
@@ -72,6 +59,19 @@ export const health = (
   if (now - lastSeen > DOWN_AFTER) return { _tag: 'Down', lastSeen };
   return { _tag: 'Seen', lastSeen, status };
 };
+
+/**
+ * Whether a Machine is out of reach rather than on its way: down, or seen
+ * with its tunnel not up. Unchecked and Reachable are a socket still
+ * connecting.
+ */
+export const outOfReach = (
+  health: Health,
+): health is Extract<Health, { readonly lastSeen: number }> =>
+  health._tag === 'Down' ||
+  (health._tag === 'Seen' &&
+    health.status._tag !== 'Unchecked' &&
+    health.status._tag !== 'Reachable');
 
 /** The Machine Status as Settings says it. */
 export const statusOf = (status: MachineStatus) => {

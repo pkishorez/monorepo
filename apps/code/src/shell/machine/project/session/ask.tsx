@@ -11,7 +11,7 @@ import { Spinner } from '@kestack/web-platform/components/spinner';
 import { MarkdownViewer } from '@kestack/web-platform/components/viewers/markdown-viewer';
 
 /*
- * The answer to a `/btw` question, in a card over the composer's top edge:
+ * The answer to a `/btw` question, in a card over the Status Line's top edge:
  * the question, then a spinner while the session's context is asked, the
  * answer, or why it failed. It is never part of the transcript, and the
  * session goes on as it was. It is part of the page: the cross closes it,
@@ -46,7 +46,7 @@ export function AskAnswer({
   return (
     <section
       aria-label="Answer on the side"
-      className="absolute inset-x-0 bottom-full z-10 mb-2 flex max-h-[min(24rem,55dvh)] origin-bottom flex-col rounded-xl bg-popover text-popover-foreground shadow-lg ring-1 ring-edge duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] animate-in fade-in-0 zoom-in-[0.98] slide-in-from-bottom-1 motion-reduce:animate-none in-data-vim:animate-none dark:shadow-black/60"
+      className="absolute inset-x-0 bottom-full z-10 mb-2 flex max-h-[min(24rem,55dvh)] origin-bottom flex-col rounded-xl bg-popover text-popover-foreground shadow-lg ring-1 ring-edge duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] animate-in fade-in-0 zoom-in-[0.98] slide-in-from-bottom-1 motion-reduce:animate-none dark:shadow-black/60"
     >
       <header className="flex items-start gap-2 border-b border-border py-2.5 pr-2 pl-3.5">
         <MessageCircleQuestionIcon

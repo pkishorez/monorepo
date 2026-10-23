@@ -382,6 +382,7 @@ export type QueryModel = {
   readonly status: string;
   readonly problem: string | null;
   readonly caughtUp: boolean;
+  readonly neverSynced: ReadonlyArray<string>;
   readonly rows: ReadonlyArray<{
     readonly id: string | number;
     readonly row: {

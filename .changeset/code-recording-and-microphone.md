@@ -1,0 +1,5 @@
+---
+'code': patch
+---
+
+A Dictation shows in the line over the Draft while it records, in place of "Draft": a slowly breathing red dot, the time, a small level meter, the microphone's name, and the keys to stop it or change microphone, with the card's border tinted red; "Transcribing…" while its text is written out. The corner badge shows only where no Draft is on screen, restyled to match, and still says why one could not start. The level and time now redraw only the meter and the clock, so the page no longer draws again many times a second while recording, which made code blocks in the transcript flicker. `d`, or the chevron beside the Status Line's mic, opens the Microphone Picker: this browser's microphones, the system default first, the one chosen checked, asking to use the microphone first so their names show. The choice is kept in Device State; a Dictation records from it, falls back to the default with a notice when it is not connected, and switches to one chosen mid-recording in the same clip.

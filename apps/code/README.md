@@ -13,63 +13,75 @@ as a project, starts sessions in it with either agent, and follows each one
 live: what you asked, the agent's words, its tool calls and subagents, and
 how each turn ended. You sign in (auth-toolkit's `Accounts`, or a Local
 Account by email under `dev:local`), and the Machines Backend lists the
-Machines signed in as you; the app is on one at a time.
+Machines signed in as you; the app is on all of them at once
+([ADR 0018](../../toolkits/ai-toolkit/docs/adr/0018-an-app-is-on-every-machine-at-once.md)).
 
 It is a Kabuki Start app, every page drawn in the browser
 ([`packages/kabuki/docs/routing.md`](../../packages/kabuki/docs/routing.md)).
-`/` opens a Machine; every other place is on one, under `/m/:machineId`:
-its home picks a project, `/p/:projectId` is a new session in the project,
-its composer waiting for the first message, `/p/:projectId/s/:sessionId` is
-a session, and `/settings` lists your Machines, to Forget one, and sets the
-program each agent runs as on this Machine (its Harness Binary). An agent
-whose program does not run is greyed out where sessions start.
+`/` picks a project of any Machine, and `/settings` lists your Machines,
+to Forget one, each with its own settings: the program each agent runs
+as there (its Harness Binary) and its Speech to Text switch
+([ADR 0017](../../toolkits/ai-toolkit/docs/adr/0017-speech-to-text-runs-on-the-machine.md)). Only what is on one Machine names it, under
+`/m/:machineId`: `/p/:projectId` is a new session in the project, its
+Draft waiting for the first message, and `/p/:projectId/s/:sessionId` is
+a session. An agent whose program does not run is greyed out where
+sessions start.
 All state lives in the pages' actors; the Views only draw and send. The
-server's records arrive only through the `Ai` Replica
+Machines' records arrive only through the `Ai` Replica
 ([`@kestack/std-toolkit/replica`](../../toolkits/std-toolkit/src/replica/README.md)),
-read by Queries and kept in IndexedDB, so a reload shows what this device
-last saw at once: projects and sessions whole, and a session's messages
-once its page has been open. With nothing stored, a page draws a skeleton
-until its Query is Caught Up; only then is an empty list or a missing row
-believed. Every write is a Command an actor asks for through `AiClient`.
+one Instance per Machine, each syncing over its own Machine's socket, read
+by Queries across every Machine, each row with its Machine, and kept in
+IndexedDB, so a reload shows what this device last saw at once, even of a
+Machine that does not answer: projects and sessions whole, and a
+session's messages once its page has been open. A page draws a quiet
+skeleton only for what this device has never synced (a Query's
+`neverSynced`); a missing row is believed only once its Query is Caught
+Up. Every write is a Command an actor asks for of one Machine, through
+`AiClients`.
 
 The app is one chain. The root page (`src/shell/actor.ts`) first reads
 Device State, what this browser keeps for itself in IndexedDB
-(`shell/device-state/`): the user's Bindings, Vim Mode, the Unseen marks of
-each Machine and the Machine each Account was last on; nothing is drawn
-until it has. Then who is signed in (`shell/sign-in/`), with the Account
+(`shell/device-state/`): the user's Bindings, the Microphone chosen and the
+Unseen marks of each Machine; nothing is drawn until it has. Then who is signed in (`shell/sign-in/`), with the Account
 Switcher in every header; signed out, only signing in is drawn, and an
 Account signed out of this device takes its Machines' records with it.
 Then the Machine List of the Account (`shell/machines/`): the list saved
 here shows first, then the Backend's, asked again every 15 seconds while
-the page is visible; it is shared with every page as `Machines`, and at `/`
-it opens the Machine last used here, else the one seen last, or says how
-to start one. Last the Machine page (`shell/machine/`), which Provides
-everything under it its own socket, its own Replicas and `CurrentMachine`,
-which names its `Ai` Instance: switching Machine is a new page, so the old
-socket, Replicas and Instance close together and no Machine's socket ever
-feeds another's records. It holds the Replica with every project and
-session for the sidebar, the socket's state, and the Pickers. While the
-Machine is out of reach the header says why, from its Machine Status:
-downloading cloudflared, opening its tunnel, the tunnel failed to open,
-its tunnel broken (its last check failing), or down (not seen for three
-Heartbeats), with when it was last seen; what it synced
-stays readable and nothing can be sent. Device State is the truth: an
+the page is visible; it is shared with every page as `Machines`, and with
+no Machine, home says how to start one. Then the root holds every listed
+Machine at once: its Replicas, whose `Ai` Instances open only for a
+Machine in the list, each Machine's socket, dialled at its listed address
+(`AiClients`, over `MachineAddress`), and Queries of every Machine's
+projects and sessions, so a Machine added opens its Instance and one
+forgotten lets go of it, then its database is deleted. It holds each
+socket's state (`shell/connection/`), every Machine's Background Jobs,
+the Pickers, and the Dictation (`shell/dictation/`), which records from
+the microphone (`shell/recorder/`) and carries on wherever the app goes. The Machine page (`shell/machine/`) is only the address
+of what is on one Machine: it Provides that Machine's `AiClient` to its
+project and session pages. A Machine that does not answer keeps what it
+synced, readable, its projects marked by its Last Seen in the sidebar;
+on its pages the header says why, from its Machine Status: downloading
+cloudflared, opening its tunnel, the tunnel failed to open, its tunnel
+broken (its last check failing), or down (not seen for three Heartbeats),
+and nothing can be sent. Device State is the truth: an
 actor that shows it reads it again after every write, from this tab or
 another.
 
 `src/` is a feature map, checked by Laymos (`laymos.config.json`). Each
 page is a folder nested under the page it sits in: `shell/` is the root
-page, with `machine/` under it, `home/`, `settings/` and `project/` under
-that, and `session/` under `project/`. Each other feature sits in the
-folder of the page that draws it: in `shell/`, `sign-in/` and the Machine
-List (`machines/`, whose `/` page is the root's own); in `machine/`, the
-socket's state (`connection/`), `header/`, `sidebar/`, `background-jobs/`,
-the Machine Switcher (`machine-switcher/`), the Project Picker
+page, with `home/`, `settings/` and `machine/` under it, `project/` under
+`machine/`, and `session/` under `project/`. Each other feature sits in the
+folder of the page that draws it: in `shell/`, `sign-in/`, the Machine
+List (`machines/`), each Machine's socket state (`connection/`),
+`header/`, `sidebar/`, `background-jobs/`, the Dictation (`dictation/`)
+and the microphone it records (`recorder/`), the Microphone Picker
+(`microphone-picker/`), the Project Picker
 (`project-picker/`, with the folder Steps it walks in `folder-picker/`),
 the Session Switcher (`session-switcher/`) and Session Actions
-(`session-actions/`); in `settings/`, `machines/` and `shortcuts/`; in
-`project/` the composer, the model Picker and the catalog, the agents,
-models and Skills the project page reads once and shares with its pages.
+(`session-actions/`); in `settings/`, `machines/` (with each Machine's
+`harness-binaries/` and `speech-to-text/`) and `shortcuts/`; in `project/` the Draft, the model
+Picker and the catalog, the agents, models and Skills the project page
+reads once and shares with its pages.
 Each makes its own server calls, in an `api.ts` beside its actor;
 `refusal/` is the one way they end when refused. `replica/` holds the
 Queries, `places/` the address of every place, which every View links
@@ -82,25 +94,28 @@ short names (`Live`, `View`, `Page`) for the importer to read as
 `Home.Live`, `Home.View`. A feature that makes a Picker with `Picker.make`
 keeps it in its main file and exports it as one object, as
 `ModelPicker.Live`, `ModelPicker.View`; one that owns its Picker, as the
-three of `shell/` do, is a folder that holds an actor, with the Picker in
+four of `shell/` do, is a folder that holds an actor, with the Picker in
 its `actor.ts`. `folder-picker/` holds no actor: its Steps are part of
 the Project Picker's one stack, so Ctrl+H from the home folder goes back
 to the recent projects, and it exports them with how they load and how a
 folder becomes a Project.
 
-The Machine Switcher, where the logo was at the top of the sidebar, names
-the Machine the app is on, with a dot while it is out of reach; clicking it
-lists your Machines, those online by name and then the rest the most
-recently seen first, and asks the Backend again. Settings lists them with
-when each was last seen and how its tunnel stands; Forget asks first, then
-the Backend forgets it and this device deletes its records. Outside Local
-mode, a link goes to the Auth Worker's Home Page to revoke a Machine's
-Sign-in outright.
+Settings lists your Machines from the Backend alone, at once, each in its
+own section with when it was last seen and how its tunnel stands, then
+its own settings, read from the Machine itself on their own: one that does
+not answer says so in its section. Its Speech to Text switch follows the
+Machine live: off; downloading, with how much of the model is in; ready;
+or failed, saying why, with a retry. On, the Machine downloads the model
+and keeps the wish; off deletes the model. Forget asks first, then the Backend
+forgets it, it leaves the list, and this device deletes its records.
+Outside Local mode, a link goes to the Auth Worker's Home Page to revoke
+a Machine's Sign-in outright.
 
-Ctrl+P opens the Project Picker: recent projects, the most recently
-active first, then "Open folder…". Choosing a project opens it, a new
-session with the composer focused; text that names no project, then
-Enter, walks the folders under home searching it. Each folder gone into
+`o` opens the Project Picker: first the Machine, a Step skipped while
+there is only one, then its recent projects, the most recently active
+first, then "Open folder…". Choosing a project opens it, a new
+session with its Draft; text that names no project, then
+Enter, walks the folders under the Machine's home searching it. Each folder gone into
 is a Step: Enter or Ctrl+L goes in, Ctrl+H or Backspace back out, a path
 typed (`~/code/fo`) goes to `~/code` and searches `fo`, hidden folders
 show only for a search starting with `.`, and a listing cut short at 100
@@ -108,37 +123,86 @@ asks the server again as the search narrows. Mod+Enter chooses the folder
 open; a search that names no folder offers to create it there with a git
 repository. Either becomes a Project, or opens the one it already is,
 while the Picker waits and says why if the server refuses; a folder whose
-`git init` failed opens with a warning over the page. Ctrl+J opens the
-Session Switcher, every unsettled session across projects, the most
-recently active first, then the Settled ones, quieter, each with its
-project and how it stands. Ctrl+K opens Session Actions for the session
+`git init` failed opens with a warning over the page. `s` opens the
+Session Switcher, every unsettled session across projects and Machines,
+the most recently active first, then the Settled ones, quieter, each with
+its project, its Machine while there is more than one, and how it
+stands. `a` opens Session Actions for the session
 open, also by the header's button: Settle or Un-settle, Fork from the
 latest turn, Go to the original for a fork, Regenerate the title, and
 Stop the turn while one runs, each with its keys as bound.
 
-The sidebar (`src/shell/sidebar/`) lists every project, the most
-recently active first (a turn started or a session made, never viewing,
-so the order holds while you browse), each a small muted heading over
-its unsettled sessions, flat and dense. The project open shows all its
+The sidebar (`src/shell/sidebar/`) lists every project of every Machine
+as one list, the most recently active first (a turn started or a session
+made, never viewing, so the order holds while you browse), each a small
+muted heading over its unsettled sessions, flat and dense; after a
+project's name, its Machine's name in small text, while there is more than
+one Machine, and, while that Machine does not answer, when it was last
+seen. The project open shows all its
 sessions, any other its three most recent and "+N", which shows the rest
 in place. A session row is its title, bold while Unseen (its last turn
-ended since it was last open on this device; opening it, or a turn
-ending while it is open, marks it seen), a fork glyph for a fork, and a
+ended since it was last open on this device, kept per Machine; opening
+it, or a turn ending while it is open, marks it seen), a fork glyph for a fork, and a
 6px dot only when it needs attention: breathing while it runs, red when
 its last turn failed, amber when the server's stopping cut it off.
 "Settled · N" at its foot opens the Settled List (`settled-list/`) in
 place of the projects, the most recently Settled first, each row opening
 its session or Un-settling it.
 
-A message is written in the composer (`src/shell/project/composer/`), a
-CodeMirror editor pinned at the bottom of both pages. A `/` at the start of
-a word, or the Skills button over the text, opens the skills Picker; the
-one picked goes in as a `/name` chip the cursor steps over and Backspace
-removes whole. Files come by paste, drop, or the paperclip. Under the text,
-the model Picker goes from the agent to its model and then each of its
-settings; once a session has started it keeps its agent and opens at the
-model, and only its model and settings change, from the next message on. A
-Picker (`src/ui/picker/`) is a stack of Steps drawn by cmdk: opened by keys
+A message is written in the Draft (`src/shell/machine/project/draft/`), a
+CodeMirror editor in one card with the Status Line, pinned to the foot of
+the page while the transcript scrolls above it; the same card is on the
+new-session page. It is read only: it can be scrolled, clicked to place the cursor and
+dragged to select. `i`, or a tap, makes it the Composer in place, and
+Escape makes it read only again, keeping its text, cursor and selection;
+Enter sends it from the page, and in the Composer Enter or Mod+Enter
+sends and Shift+Enter is a new line. A paste or a drop anywhere on the
+page, and a Skill picked, go in at its cursor, over the selection: each is
+an Insert the page hands back, numbered, for the editor to put in once.
+The cursor sits after it, the page scrolls it into view, and it fades
+from a highlight in about a second, not at all with reduced motion; `u`,
+or Mod+Z in the Composer, takes the last one back out. Files are attached instead, drawn under its
+text. `/` from the page, a `/` typed at the start of a word in the
+Composer, or the Skills button opens the skills Picker; the one picked
+goes in as a `/name` chip the cursor steps over and Backspace removes
+whole. The Status Line at the page's foot holds the model Picker, the
+Skills button, the paperclip, the mic and the send button. The model
+Picker goes from the agent to its model and then each of its settings;
+once a session has started it keeps its agent and opens at the model, and only its model
+and settings change, from the next message on; `p` and `e` open it at the
+permissions or the effort alone.
+
+A Dictation is the other way in. Space from the page or the sidebar,
+Ctrl+Space anywhere, a Picker and the Composer included, or the Status
+Line's mic button start it and stop it. The browser records raw PCM
+through an AudioWorklet, one channel at 16 kHz, 16-bit, and keeps the
+whole clip in memory until the next one; at five minutes it stops itself.
+While it records, the line over every Draft on screen shows it in place
+of "Draft": a slowly breathing red dot, the time, a small level meter, the
+Microphone's name and the keys to stop it or change Microphone, and the
+card's border takes a red tint. With no Draft on screen, at home or in
+Settings, a badge in the bottom right corner shows the same. Only the
+meter and the clock read the level and the time, so nothing else on the
+page draws again as they move. When one cannot start, because the
+microphone is blocked or missing or no Machine has Speech to Text on, or
+the Microphone chosen is not connected and the default records instead,
+the badge says so for a few seconds. `d`, or the chevron beside the Status
+Line's mic, opens the Microphone Picker: this browser's microphones, the
+system default first, the one chosen checked, asking to use the microphone
+first so their names show, and following one plugged in or out while it
+is open. The one chosen is kept in Device State, and one chosen while a
+Dictation records is switched to at once, into the same clip. Its text
+goes to the Draft open when it stops: the line over that Draft says
+"Transcribing…", and a "transcribing…" placeholder sits at its cursor, not
+part of the text, until the text goes in there as any insert does, so `u`
+takes it out again; stopped with no Draft open, it goes to the next one
+drawn. The clip is sent whole in one `transcribe` to the open
+session's Machine when its Speech to Text is ready and it answers, else to
+any listed Machine that is; refused, the placeholder reads "couldn't
+transcribe — retry", which sends the same clip again. Escape never touches
+a Dictation.
+
+A Picker (`src/ui/picker/`) is a stack of Steps drawn by cmdk: opened by keys
 it is a centred list, by pointer a popover by its button, and a trail shows
 the choices so far ([CONTEXT.md](./CONTEXT.md)). In a session,
 `/btw <question>` asks the session on the side and shows the answer in a
@@ -147,8 +211,8 @@ opens a new session that remembers the conversation up to that turn. A
 fork copies nothing: its page reads the sessions up its chain, one
 Window each, and draws what came before its own turns as one line,
 "Earlier in ‹title› · N turns", that opens to them (`earlier.ts`). Background Jobs the agents left
-running show in a bubble at the top right, grouped by session, each with a
-Stop button.
+running on any Machine show in a bubble at the top right, grouped by
+session, each with a Stop button.
 
 The transcript pairs Messages as it draws them (`thread.ts`): a tool call
 runs until its result arrives, and is stopped if its turn ended first; a
@@ -161,40 +225,40 @@ and an edit drawn as its diff (`tools.ts`); a run of calls of one kind folds
 into one line.
 
 The keyboard comes from `@kestack/use-keys`, defined in one file
-(`src/keys.ts`): the sidebar and the page are the two Surfaces you work
-in, the composer is part of the page, and every Picker and the help sheet
-are isolated Surfaces over them, open while Active. Each Surface puts focus
-back where it last was when you come back to it, and the composer's editor
-is the page's default spot, so closing a Picker or moving to another
-session leaves you writing; no popup moves focus as it closes. In a
-Picker, Enter picks, Ctrl+L goes into the row's next Step, Mod+Enter
+(`src/keys.ts`), and is always on: the sidebar and the page are the two
+Surfaces you work in, the Draft is part of the page, and every Picker and
+the help sheet are isolated Surfaces over them, open while Active. Each
+Surface puts focus back where it last was when you come back to it, the
+page's own column at first; no popup moves focus as it closes. Plain keys work from the page's or the sidebar's Normal Mode:
+`h` and `l` go to the sidebar and the page, `j` and `k` move through the
+sidebar's rows and scroll the page, `g g` and `Shift+G` go to the top and
+the bottom, Enter opens the sidebar's row or sends the Draft, `i` edits
+the Draft, `u` undoes the last thing put in it, `/` puts a Skill in it,
+`m`, `p` and `e` open the model Picker at the model, the permissions and
+the effort, Space starts or stops a Dictation, `d` opens the Microphone
+Picker, `o`, `s` and `a` open the
+Project Picker, the Session Switcher and Session Actions, `n` starts a new session in the project
+open, `b` shows or hides the sidebar, `[` and `]` open the previous and
+next unsettled session in the sidebar's order, showing one hidden behind
+"+N" and scrolling it into view without taking focus, `?` lists every
+key, and Escape in the sidebar goes back to the page. Even while typing,
+`Ctrl+,` goes to Settings and, again or by Escape, back where you were,
+`Mod+.` stops a turn, Ctrl+Space starts or stops a Dictation, in a
+Picker too, and Page Up and Page Down scroll the transcript; the
+Composer's editor hands these to the page before its own macOS Ctrl keys.
+In a Picker, Enter picks, Ctrl+L goes into the row's next Step, Mod+Enter
 finishes on the row highlighted, Ctrl+H or Backspace in an empty search
 goes back a Step, Escape clears the search and then closes, and the
 arrows or Ctrl+N and Ctrl+P move; each is an Action of the `picker`
 Surface, taken before cmdk hears it. A Picker opened over another takes
-the Surface from it. Settings lists every Action of `keys.ts` by Surface, with a search: clicking a row's keys
-records the next key pressed in their place, on an isolated Surface where
-no app key works, and Escape keeps them. A key another Action on the same
-Surface has names it and offers to Swap; one a nearer Surface has is
-allowed, with a note; a key that would type, for an Action that works
-while typing, is refused. The keys are kept in Device State, handed to the
-Keys Provider, listed by `?`, and named in every title and hint, as
-bound. `Mod+Alt+V` or
-Settings turns Vim Mode on, kept in Device State; the app then floats as a
-window whose status line says where you are, `?` lists every key, `Space e`
-goes to the sidebar, `j`/`k`
-move through the sidebar and the page, Enter opens the sidebar's row, Escape in the sidebar
-goes back to the page, and `i` writes.
-Always, even while typing: `Ctrl+P`, `Ctrl+J` and `Ctrl+K` open the
-Project Picker, the Session Switcher and Session Actions, `Ctrl+N` starts
-a new session in the project open, `Ctrl+B` shows or hides the sidebar,
-`Ctrl+H` and `Ctrl+L` go to the sidebar and the page, `Ctrl+,` goes to Settings and, again or by Escape, back where you were,
-`Ctrl+[`/`Ctrl+]` open the previous and next unsettled session in the
-sidebar's order, showing one hidden behind "+N" and scrolling it into
-view without taking focus, `Ctrl+M` opens the
-model Picker, `Mod+.` stops a turn, and Page Up and Page Down scroll the
-transcript. The composer's editor hands these to the page before its own
-macOS Ctrl keys. Whether the sidebar is shown is not kept: the App Shell
+the Surface from it. Settings lists every Action of `keys.ts` by Surface,
+with a search: clicking a row's keys records the next key pressed in
+their place, on an isolated Surface where no app key works, and Escape
+keeps them. A key another Action on the same Surface has names it and
+offers to Swap; one a nearer Surface has is allowed, with a note; a key
+that would type, for an Action that works while typing, is refused. The
+keys are kept in Device State, handed to the Keys Provider, listed by
+`?`, and named in every title and hint, as bound. Whether the sidebar is shown is not kept: the App Shell
 holds it, shut at first on a phone and open on a wide screen.
 
 ## Usage
@@ -219,8 +283,8 @@ pnpm --filter @kestack/ai-toolkit dev:local
   to the app by typing that email, since the same email is the same User.
   Signing in through the Auth Worker, the Machine signs in from its Device
   Screen the first time and keeps the Sign-in.
-- With no Machine, the app says what to run; it opens the Machine last
-  used on this device, else the one seen last.
+- With no Machine, home says what to run; each Machine that signs in
+  shows up beside the others.
 - `pnpm --filter code lint` checks types and the Laymos Rules; `pnpm --filter
 code test` runs the tests. Videos recorded under `qa/` stay local.
 

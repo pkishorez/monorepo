@@ -18,6 +18,7 @@
     "src/api/live": [
       "src/api/contract",
       "src/kabuki/engine",
+      "src/kabuki/speech",
       "src/services/harness/contract",
       "src/services/records/entities",
       "src/services/records/projection",
@@ -29,10 +30,13 @@
       "src/api/live",
       "src/kabuki/engine",
       "src/kabuki/machine",
+      "src/kabuki/speech",
       "src/services/harness/claude",
       "src/services/harness/codex",
       "src/services/harness/contract",
-      "src/services/records/store"
+      "src/services/records/store",
+      "src/services/speech/contract",
+      "src/services/speech/sherpa"
     ],
     "src/kabuki/engine": [
       "src/services/harness/contract",
@@ -65,6 +69,8 @@
       "src/kabuki/machine/backend/client",
       "src/kabuki/machine/backend/contract"
     ],
+    "src/kabuki/speech": ["src/services/speech/contract"],
+    "src/kabuki/speech/actor-speech-model": ["src/kabuki/speech/capabilities"],
     "src/services/harness/claude": [
       "src/services/harness/contract",
       "src/services/records/projection",
@@ -109,6 +115,8 @@
     "src/services/records/store": [
       "src/services/records/entities",
       "src/services/records/raw"
-    ]
+    ],
+    "src/services/speech/fake": ["src/services/speech/contract"],
+    "src/services/speech/sherpa": ["src/services/speech/contract"]
   }
 }

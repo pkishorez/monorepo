@@ -8,29 +8,35 @@ import { useCallback, useRef } from 'react';
 
 /*
  * The app's whole keyboard: every Surface, as they nest, and every key.
- * Two Surfaces are places to work: the sidebar and the page beside it. The
- * page is one Surface for every place, and its composer is part of it: `i`
- * writes in the composer, and Escape leaves it for the page's Normal Mode.
- * A session gives the page the transcript's keys while it is open. From
- * anywhere, even while typing, Ctrl and a letter open the Project Picker,
- * the Session Switcher and Session Actions, start a new session, show or
- * hide the sidebar, go to the sidebar or the page, and go to Settings and
- * back; Escape in the sidebar goes back to the page. Every Picker, those three,
- * the skills and the model, is drawn on the one isolated `picker`
- * Surface, and the help sheet on `help`: drawn while Active, they close when
- * left and go back to where they were opened from, focus too. A Picker's
- * keys are its Surface's Actions, taken before cmdk hears them. Settings has
- * no keys of its own: recording a new key for an Action enters the isolated
- * `record` Surface, which has none, so no key works until it is pressed;
- * Escape leaves it, which cancels. A confirmation, such as removing a
- * project, is drawn on the isolated `confirm` Surface, and the Background
- * Jobs on `jobs`, so leaving either puts focus back where it was.
+ * It is always on: plain keys work in Normal Mode, and only the Actions
+ * marked `inField` work while typing in the Composer or a Picker's search.
+ * Two Surfaces are places to work: the sidebar and the page beside it, `h`
+ * and `l` going between them. The page is one Surface for every place, and
+ * its Draft is part of it: `i` makes it the Composer, and Escape leaves the
+ * Composer for the page's Normal Mode, where Enter sends the Draft, `u`
+ * undoes the last thing put in it, and `/` puts a Skill in at its cursor.
+ * A session gives the page the transcript's keys while it is open. `o`,
+ * `s` and `a` open the Project Picker, the Session Switcher and Session
+ * Actions; `m`, `p` and `e` the model Picker at the model, the permissions
+ * and the effort. Space starts or stops a Dictation, and `d` opens the
+ * Microphone Picker, to choose what it records from. Only `Ctrl+,`,
+ * Settings and back, Mod+., stopping the turn, Ctrl+Space, a Dictation
+ * again, and Page Up and Page Down work while typing too; Ctrl+Space works
+ * in a Picker as well, and Escape never touches a Dictation. Escape in
+ * the sidebar goes back to the page. Every Picker, those three, the skills,
+ * the model and the microphone, is drawn on the one isolated `picker` Surface, and the help
+ * sheet on `help`: drawn while Active, they close when left and go back to
+ * where they were opened from, focus too. A Picker's keys are its
+ * Surface's Actions, taken before cmdk hears them. Settings has no keys of
+ * its own: recording a new key for an Action enters the isolated `record`
+ * Surface, which has none, so no key works until it is pressed; Escape
+ * leaves it, which cancels. A confirmation, such as removing a project, is
+ * drawn on the isolated `confirm` Surface, and the Background Jobs on
+ * `jobs`, so leaving either puts focus back where it was.
  *
- * Everything is Vim Mode only unless `always`. While typing in the
- * composer only `mod` keys and `inField` Actions reach the page; the
- * editor's own keys that would clash are taken out of it.
- * Actions without `enters` work only while a component gives them a
- * Handler.
+ * The Composer's editor takes its own keys first, so it hands the page the
+ * `inField` ones. Actions without `enters` work only while a component
+ * gives them a Handler.
  */
 
 export const keys = createKeys({
@@ -38,66 +44,25 @@ export const keys = createKeys({
     label: 'anywhere',
     focusable: false,
     actions: {
-      vim: {
-        keys: 'mod+alt+v',
-        label: 'Turn Vim Mode on or off',
-        always: true,
-      },
       help: { keys: '?', label: 'Show the keys', enters: 'help' },
-      side: {
-        keys: 'ctrl+h',
-        label: 'Go to the sidebar',
-        always: true,
-        inField: true,
-        enters: 'sidebar',
-      },
-      // Its own Action: a plain key working while typing would type.
-      sideByLeader: {
-        keys: 'Space e',
-        label: 'Go to the sidebar, in Vim Mode',
-        enters: 'sidebar',
-      },
-      page: {
-        keys: 'ctrl+l',
-        label: 'Go to the page',
-        always: true,
-        inField: true,
-        enters: 'content',
-      },
-      projects: {
-        keys: 'ctrl+p',
-        label: 'Open a project',
-        always: true,
-        inField: true,
-      },
-      sessions: {
-        keys: 'ctrl+j',
-        label: 'Switch session',
-        always: true,
-        inField: true,
-      },
-      actions: {
-        keys: 'ctrl+k',
-        label: 'Session actions',
-        always: true,
-        inField: true,
-      },
-      newSession: {
-        keys: 'ctrl+n',
-        label: 'New session in this project',
-        always: true,
-        inField: true,
-      },
-      sidebar: {
-        keys: 'ctrl+b',
-        label: 'Show or hide the sidebar',
+      side: { keys: 'h', label: 'Go to the sidebar', enters: 'sidebar' },
+      page: { keys: 'l', label: 'Go to the page', enters: 'content' },
+      projects: { keys: 'o', label: 'Open a project' },
+      sessions: { keys: 's', label: 'Switch session' },
+      actions: { keys: 'a', label: 'Session actions' },
+      newSession: { keys: 'n', label: 'New session in this project' },
+      sidebar: { keys: 'b', label: 'Show or hide the sidebar' },
+      dictate: { keys: 'Space', label: 'Start or stop a Dictation' },
+      microphone: { keys: 'd', label: 'Choose the microphone' },
+      dictateAnywhere: {
+        keys: 'ctrl+Space',
+        label: 'Start or stop a Dictation, even while typing',
         always: true,
         inField: true,
       },
       settings: {
         keys: 'ctrl+,',
         label: 'Settings, or back from them',
-        always: true,
         inField: true,
       },
     },
@@ -112,7 +77,6 @@ export const keys = createKeys({
           back: {
             keys: 'Escape',
             label: 'Back to the page',
-            always: true,
             enters: 'content',
           },
         },
@@ -128,43 +92,33 @@ export const keys = createKeys({
           pageDown: {
             keys: 'PageDown',
             label: 'A page down',
-            always: true,
             inField: true,
             repeat: true,
           },
           pageUp: {
             keys: 'PageUp',
             label: 'A page up',
-            always: true,
             inField: true,
             repeat: true,
           },
           top: { keys: 'g g', label: 'To the top' },
           bottom: { keys: 'shift+g', label: 'To the bottom, following' },
-          write: { keys: 'i', label: 'Write a message' },
+          write: { keys: 'i', label: 'Edit the Draft' },
+          send: { keys: 'Enter', label: 'Send the Draft' },
+          undo: { keys: 'u', label: 'Undo the last thing put in the Draft' },
+          skills: { keys: '/', label: 'Put a skill in the Draft' },
+          model: { keys: 'm', label: 'Pick the model' },
+          permissions: { keys: 'p', label: 'Pick the permissions' },
+          effort: { keys: 'e', label: 'Pick the effort' },
           previousSession: {
-            keys: 'ctrl+[',
+            keys: '[',
             label: 'Previous session in the sidebar',
-            always: true,
-            inField: true,
           },
-          nextSession: {
-            keys: 'ctrl+]',
-            label: 'Next session in the sidebar',
-            always: true,
-            inField: true,
-          },
-          model: {
-            keys: 'ctrl+m',
-            label: 'Pick the model',
-            always: true,
-            inField: true,
-          },
-          stop: { keys: 'mod+.', label: 'Stop the turn', always: true },
+          nextSession: { keys: ']', label: 'Next session in the sidebar' },
+          stop: { keys: 'mod+.', label: 'Stop the turn', inField: true },
           close: {
             keys: 'Escape',
             label: 'Close the answer, or leave Settings',
-            always: true,
           },
         },
         surfaces: {
@@ -177,42 +131,34 @@ export const keys = createKeys({
         label: 'picker',
         isolated: true,
         actions: {
-          clear: { keys: 'Escape', label: 'Clear the search', always: true },
+          clear: { keys: 'Escape', label: 'Clear the search' },
+          dictate: {
+            keys: 'ctrl+Space',
+            label: 'Start or stop a Dictation',
+            always: true,
+            inField: true,
+          },
           back: {
             keys: ['ctrl+h', 'Backspace'],
             label: 'Back a step',
-            always: true,
             inField: true,
           },
-          pick: {
-            keys: 'Enter',
-            label: 'Pick the row',
-            always: true,
-            inField: true,
-          },
-          into: {
-            keys: 'ctrl+l',
-            label: 'Go into the row',
-            always: true,
-            inField: true,
-          },
+          pick: { keys: 'Enter', label: 'Pick the row', inField: true },
+          into: { keys: 'ctrl+l', label: 'Go into the row', inField: true },
           finish: {
             keys: 'mod+Enter',
             label: 'Done, on the row highlighted',
-            always: true,
             inField: true,
           },
           next: {
             keys: ['ctrl+n', 'ArrowDown'],
             label: 'Next row',
-            always: true,
             inField: true,
             repeat: true,
           },
           previous: {
             keys: ['ctrl+p', 'ArrowUp'],
             label: 'Previous row',
-            always: true,
             inField: true,
             repeat: true,
           },
@@ -273,7 +219,7 @@ export const boundIn = (
 };
 
 /**
- * For a text editor with keys of its own, such as the composer's: runs the
+ * For a text editor with keys of its own, such as the Composer's: runs the
  * Action that works now while typing whose keys, as bound now, are the
  * keys pressed, as people write them, and says whether there was one. The
  * editor takes the key before the page could, so it hands it on.

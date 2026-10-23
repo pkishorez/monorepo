@@ -84,3 +84,15 @@ export class HarnessFailed extends Schema.TaggedError<HarnessFailed>()(
   'HarnessFailed',
   { message: Schema.String },
 ) {}
+
+/** Speech to Text is not ready on this Machine; `state` says how it stands. */
+export class SpeechToTextNotReady extends Schema.TaggedError<SpeechToTextNotReady>()(
+  'SpeechToTextNotReady',
+  { state: Schema.Literals(['Off', 'Downloading', 'Failed']) },
+) {}
+
+/** The model would not load, or could not make out the audio. */
+export class TranscriptionFailed extends Schema.TaggedError<TranscriptionFailed>()(
+  'TranscriptionFailed',
+  { message: Schema.String },
+) {}

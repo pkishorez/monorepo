@@ -55,7 +55,8 @@
     "@anthropic-ai/claude-agent-sdk": "catalog:",
     "@effect/platform-node": "catalog:",
     "@openai/codex": "catalog:",
-    "cloudflared": "catalog:"
+    "cloudflared": "catalog:",
+    "sherpa-onnx-node": "catalog:"
   },
   "peerDependencies": {
     "@kestack/auth-toolkit": "workspace:*",

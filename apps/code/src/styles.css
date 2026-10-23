@@ -48,20 +48,22 @@
 }
 
 /*
- * The composer in Vim Mode is part of the page's Surface. While it is
- * written in, the page is in Insert Mode, and the box's own border takes
- * the Surface's light with a soft halo, instead of its usual focus ring;
- * at once, as every keyboard move in Vim Mode. Unlayered, so it wins over
- * the composer's own focus classes.
+ * What was just put into the Draft fades from a highlight in about a
+ * second; with reduced motion it is not drawn at all. The Draft's editor
+ * takes the mark off when the fade ends.
  */
-[data-vim] [data-slot='composer'] {
-  transition: none;
+.cm-inserted {
+  animation: inserted 1s ease-out;
 }
 
-[data-vim]
-  [data-surface='content'][data-mode='insert']
-  [data-slot='composer']:has(.cm-focused):not([data-dragging]) {
-  border-color: color-mix(in oklab, var(--surface-ring) 50%, var(--input));
-  --tw-ring-shadow: 0 0 0 3px
-    color-mix(in oklab, var(--surface-ring) 12%, transparent);
+@keyframes inserted {
+  from {
+    background-color: color-mix(in oklch, var(--ring) 35%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cm-inserted {
+    animation: none;
+  }
 }

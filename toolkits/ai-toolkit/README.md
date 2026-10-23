@@ -6,11 +6,11 @@ Effect-native engine that runs Claude Code and Codex sessions in local folders, 
 
 Claude Code and Codex sessions run for minutes, start work that outlives a Turn, and must outlive the browser tab that started them. ai-toolkit is a long-running server on this machine that owns them. It adds folders as Projects, runs Sessions in them on either Coding Harness, stores every whole record the harness emits, and lets any app follow and steer them over one WebSocket API. It runs as a Machine: signed in to the Machines Backend as one User, reached through a tunnel by whoever holds its Machine Key, and called by a browser page only from an origin it allows. [`apps/code`](../../apps/code/README.md) is the first app on it.
 
-The API, `AiApi`, has commands and feeds, in six groups merged into one: harnesses, projects, sessions, turns, jobs and folders. Commands add and remove Projects, start a Session, and `send` to it: text plus Attachments, and a model or settings that hold from that Turn on. Images go to the agent as images; other files are saved under `~/.ai-toolkit/attachments/<sessionId>/` and named in the message text. `forkSession` makes a Fork after any finished Turn, its own or one it inherited, copying nothing: its `forkedFrom` names the Session forked and the Turn. `settleSession` and `unsettleSession` Settle a Session and take it back, and sending to it un-settles it; a Session's `activeAt` is when a Turn last started in it, and its `endedAt` when one last ended. `ask` puts an Ask to a Session and leaves it untouched, and `regenerateTitle` writes its Title again. `listFolder` and `createFolder` walk the home folder and make a folder in it, with `git init`, to add as a Project. `skills`, `mcpStatus` and `contextUsage` say what a harness offers and how a Session stands. `backgroundJobs` streams every Session's Background Jobs and `stopBackgroundJob` stops one. `harnesses` says which harnesses run here (`available`, `unavailableReason`), and `harnessBinaries` and `setHarnessBinary` read and set each Harness Binary. The `projects`, `sessions` and `messages` feeds replay every change after a cursor, then stay live.
+The API, `AiApi`, has commands and feeds, in seven groups merged into one: harnesses, projects, sessions, turns, jobs, folders and speech. Commands add and remove Projects, start a Session, and `send` to it: text plus Attachments, and a model or settings that hold from that Turn on. Images go to the agent as images; other files are saved under `~/.ai-toolkit/attachments/<sessionId>/` and named in the message text. `forkSession` makes a Fork after any finished Turn, its own or one it inherited, copying nothing: its `forkedFrom` names the Session forked and the Turn. `settleSession` and `unsettleSession` Settle a Session and take it back, and sending to it un-settles it; a Session's `activeAt` is when a Turn last started in it, and its `endedAt` when one last ended. `ask` puts an Ask to a Session and leaves it untouched, and `regenerateTitle` writes its Title again. `listFolder` and `createFolder` walk the home folder and make a folder in it, with `git init`, to add as a Project. `skills`, `mcpStatus` and `contextUsage` say what a harness offers and how a Session stands. `backgroundJobs` streams every Session's Background Jobs and `stopBackgroundJob` stops one. `harnesses` says which harnesses run here (`available`, `unavailableReason`), and `harnessBinaries` and `setHarnessBinary` read and set each Harness Binary. `enableSpeechToText` switches Speech to Text on for this Machine, which downloads its model, and `disableSpeechToText` deletes it; `watchSpeechToText` streams how it stands, and `transcribe` turns a clip of audio into text on the Machine itself. The `projects`, `sessions` and `messages` feeds replay every change after a cursor, then stay live.
 
 The client side builds on [`@kestack/rpc-toolkit`](../rpc-toolkit/README.md) for the reconnecting WebSocket and on [`@kestack/std-toolkit`](../std-toolkit/README.md) for the `Ai` Replica, which keeps Projects, Sessions and open Sessions' Messages in step with the server. The engine itself is a tree of [`@kestack/kabuki`](../../packages/kabuki/README.md) Actors over a SQLite store; [docs/kabuki-tree.md](docs/kabuki-tree.md) says what the tree is and why.
 
-The words are in [CONTEXT.md](CONTEXT.md). How the server thinks, Raw records and their projection to Messages, is in [docs/v1-spec.md](docs/v1-spec.md). Decisions are in [docs/adr/](docs/adr/); 0004 (The API is one RpcGroup merged from groups by area), 0011 (Fork Points are Turn ends), 0012 (Background Jobs are live, and agents may start Turns), 0013 (A Turn's facts travel in its stream) and 0014 (A Fork reads its history from the original) are current, and the others record the design this package replaced.
+The words are in [CONTEXT.md](CONTEXT.md). How the server thinks, Raw records and their projection to Messages, is in [docs/v1-spec.md](docs/v1-spec.md). Decisions are in [docs/adr/](docs/adr/); 0004 (The API is one RpcGroup merged from groups by area), 0011 (Fork Points are Turn ends), 0012 (Background Jobs are live, and agents may start Turns), 0013 (A Turn's facts travel in its stream), 0014 (A Fork reads its history from the original) and 0017 (Speech to Text runs on the Machine) are current, and the others record the design this package replaced.
 
 ## Install
 
@@ -19,13 +19,13 @@ pnpm add @kestack/ai-toolkit effect @kestack/rpc-toolkit @kestack/std-toolkit @k
 ```
 
 - `effect`: the API, its schemas and errors, and the client Layer are Effect values.
-- `@kestack/rpc-toolkit`: the WebSocket Transport `AiClient` connects through, and `connection`.
+- `@kestack/rpc-toolkit`: the WebSocket Transport each Machine's `AiClient` connects through, and `connection`.
 - `@kestack/std-toolkit`: entity schemas, the SQLite store, and the Replica behind `Ai` and `AiLive`.
 - `@kestack/kabuki`: the engine runs Projects, Sessions and Turns as Actors.
 - `@kestack/auth-toolkit`: Machines sign in to the Machines Backend, which checks every call with its Guard.
 - `@tanstack/db`: the collections the `Ai` Replica fills and Queries read.
 
-`@anthropic-ai/claude-agent-sdk`, `@openai/codex` and `@effect/platform-node` are regular dependencies. Node 24 or newer is required. The package also installs the `ai-toolkit` binary.
+`@anthropic-ai/claude-agent-sdk`, `@openai/codex`, `@effect/platform-node` and `sherpa-onnx-node` (Speech to Text) are regular dependencies. Node 24 or newer is required, and a `tar` that reads bzip2 to unpack the Speech to Text model. The package also installs the `ai-toolkit` binary.
 
 ## Exports
 
@@ -75,17 +75,28 @@ pnpm add @kestack/ai-toolkit effect @kestack/rpc-toolkit @kestack/std-toolkit @k
 | `SkillsUnavailable`     | Error: the harness could not list its Skills.                                                            |
 | `InvalidBinary`         | Error: the path is missing, not executable, or its `--version` failed.                                   |
 | `HarnessFailed`         | Error: a harness failed to answer for a live Session.                                                    |
+| `SpeechToTextState`     | Schema of how Speech to Text stands: `Off`, `Downloading` with bytes of total, `Ready`, or `Failed`.     |
+| `SpeechToTextNotReady`  | Error: Speech to Text is off, still downloading, or failed on this Machine.                              |
+| `TranscriptionFailed`   | Error: the model would not load, or the audio is not 16-bit PCM.                                         |
 
 ### `@kestack/ai-toolkit/client`
 
-| Export           | What it does                                                                                          |
-| ---------------- | ----------------------------------------------------------------------------------------------------- |
-| `AiClient`       | Service holding the `AiApi` client over one reconnecting WebSocket.                                   |
-| `AiClient.layer` | Layer of `AiClient` for a `ws(s)://…/rpc` URL, or a path in a browser, with the Machine Key if given. |
-| `connection`     | Stream of the connection status now and on each change: `connecting`, `connected` or `reconnecting`.  |
-| `Ai`             | The Replica of each Machine's records, keyed by Machine id: `projects`, `sessions` and `messages`.    |
-| `AiLive`         | How `Ai` syncs: every Project and Session, and a Session's Messages while a Query filters on its id.  |
-| `retired`        | Names of Replicas no longer read, for `Store.idb({ retired })` to delete.                             |
+| Export                 | What it does                                                                                                                                      |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AiClient`             | Service holding one Machine's `AiApi` client over its reconnecting WebSocket.                                                                     |
+| `AiClient.layer`       | Layer of `AiClient` for a `ws(s)://…/rpc` URL, or a path in a browser, with the Machine Key if given.                                             |
+| `MachineAddress`       | Service the app gives: where a Machine's socket is, by Machine id, and its Machine Key, on each connect.                                          |
+| `AiClients`            | Service holding every Machine's client by Machine id, one socket each, shared by whatever holds it.                                               |
+| `AiClients.layer`      | Layer of `AiClients` opening each Machine's socket at the address `MachineAddress` gives.                                                         |
+| `AiClients.make`       | Layer of `AiClients` opening each Machine with a given Layer, for one server or a test.                                                           |
+| `AiClients.machine`    | Layer of one Machine's `AiClient` and connection, for everything under it.                                                                        |
+| `AiClients.on`         | Runs an Effect that needs `AiClient` against one Machine, by its id.                                                                              |
+| `AiClients.stream`     | Runs a Stream that needs `AiClient` against one Machine, its socket held while it runs.                                                           |
+| `AiClients.connection` | Stream of one Machine's connection status now and on each change.                                                                                 |
+| `connection`           | Stream of the connection status of the `AiClient` in context: `connecting`, `connected` or `reconnecting`.                                        |
+| `Ai`                   | The Replica of each Machine's records, keyed by Machine id: `projects`, `sessions` and `messages`.                                                |
+| `AiLive`               | How `Ai` syncs: every Project and Session, and a Session's Messages while a Query filters on its id, each Instance over its own Machine's socket. |
+| `retired`              | Names of Replicas no longer read, for `Store.idb({ retired })` to delete.                                                                         |
 
 ### `@kestack/ai-toolkit/machines`
 
@@ -156,6 +167,7 @@ pnpm --filter @kestack/ai-toolkit dev   # this Machine, against that Backend
 - Attachments that are not images are saved under `~/.ai-toolkit/attachments/<sessionId>/`.
 - At start the Bootstrap Sweep ends any Turn the last server left running as interrupted.
 - A harness whose Harness Binary does not run shows as unavailable in `harnesses`; `setHarnessBinary` points it at another path.
+- Speech to Text lives in `speech-to-text/` beside the database: the wish `on` while it is switched on, and the model in `model/`, sherpa-onnx's Parakeet TDT 0.6b v2 int8, about 660 MB, fetched file by file from its Hugging Face copy, else as the 480 MB tarball of its GitHub release. A start with the wish kept and the model not whole downloads it again, carrying on from what is there; switching it off deletes the folder. `server({ speech })` gives another SpeechToText.
 
 ### Talk to it from a program
 
@@ -201,6 +213,7 @@ Effect.runPromise(Effect.scoped(program));
 - `forkSession` with `afterTurnId: null` forks after the latest finished Turn; it fails with `NotForkable` while none has finished.
 - A Fork's own `messages` start after its Fork Point. Before them comes the history up to the end of `forkedFrom.turnId`, read from `forkedFrom.sessionId`: if that Session's own Messages hold the Message of that Turn with a `turnEnded` part, its history and then its own Messages up to that one, ordered by id; if not, the Turn was one it inherited, so the same is read from its own `forkedFrom.sessionId` instead.
 - `ask` answers from the Session's context without adding to it. With a JSON Schema in `schema`, the answer is `Data` of that shape.
+- `transcribe({ audio })` takes one whole clip as a `Uint8Array` of 16 kHz mono PCM, each sample 16-bit signed little-endian, and answers its text. It fails `SpeechToTextNotReady` unless `watchSpeechToText` says `Ready`; the model loads on the first clip and stays loaded.
 - Commands sent while the socket is down wait for it to come back.
 - With `key`, the socket offers the subprotocols `ai-toolkit` and `key.<key>`, since a browser can set no other header on a WebSocket; the server selects `ai-toolkit` once the Machine Key checks out.
 
@@ -236,17 +249,29 @@ export default {
 
 ### Keep the server's records in an app
 
-An app places `AiLive` under its Replicas and reads `Ai` through Queries. Lifted from `apps/code/src/app.tsx`, `apps/code/src/shell` and `apps/code/src/replica`.
+An app on every Machine at once places `AiLive` under its Replicas, says where each Machine is, and reads `Ai` through Queries. Lifted from `apps/code/src/app.tsx`, `apps/code/src/shell` and `apps/code/src/replica`.
 
 ```ts
 import { eq } from '@tanstack/db';
 import { Effect, Layer, Schema } from 'effect';
-import { Ai, AiClient, AiLive, retired } from '@kestack/ai-toolkit/client';
+import {
+  Ai,
+  AiClients,
+  AiLive,
+  MachineAddress,
+  retired,
+} from '@kestack/ai-toolkit/client';
 import { Query, Replicas } from '@kestack/std-toolkit/replica';
 import { Store } from '@kestack/std-toolkit/replica/idb';
 
 const layer = Layer.mergeAll(
-  AiClient.layer('https://machine.example.com/rpc', { key: machineKey }),
+  AiClients.layer.pipe(
+    Layer.provide(
+      Layer.succeed(MachineAddress, {
+        of: (machineId) => Effect.succeed(addressOf(machineId)),
+      }),
+    ),
+  ),
   Layer.unwrap(Effect.sync(() => Store.idb({ retired }))),
 );
 
@@ -267,5 +292,6 @@ export const Messages = Query.make('Messages', {
 - `layer` goes to the app's runtime; `ReplicasLive` is a child of its root Actor, which provides `Replicas.layer`.
 - Projects and Sessions sync whole while the app runs. A Session's Messages sync only while a Query filters on its `sessionId`.
 - Each feed reopens after a reconnect from the newest entity it passed on, so nothing is missed or sent twice.
-- `Ai.get(machineId)` is the Instance of one Machine, with its own IndexedDB database. Every Instance syncs through the one `AiClient` in the layer, so hold only the Instance of the Machine that client reaches.
+- `Ai.get(machineId)` is the Instance of one Machine, with its own IndexedDB database. It syncs over that Machine's own socket, which `AiClients` opens at the address `MachineAddress` gives, so any number of Machines' Instances can be held at once ([ADR 0018](docs/adr/0018-an-app-is-on-every-machine-at-once.md)).
+- `AiClients.on(machineId, AiClient.use((api) => api.harnessBinaries()))` makes any other call to one Machine over the same socket.
 - The Replica's name carries the projection's version; `retired` lets the IndexedDB Store delete older ones, and the unkeyed ones from before Machines.

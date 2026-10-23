@@ -21,11 +21,19 @@ import {
   SubscriptionRef,
 } from 'effect';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { Ai, AiClient, AiLive, connection } from '../../api/client/index.js';
+import {
+  Ai,
+  AiClient,
+  AiClients,
+  AiLive,
+  connection,
+  MachineAddress,
+} from '../../api/client/index.js';
 import {
   FAKE_SKILLS,
   makeFakeHarness,
 } from '../../services/harness/fake/index.js';
+import { makeFakeSpeech } from '../../services/speech/fake/index.js';
 import { server } from './index.js';
 
 /*
@@ -109,6 +117,26 @@ const Root = Actor.build(Actor.define('Root', {}), {
   children: {
     replicas: Replicas.child([AiLive]),
     page: { actor: Page },
+  },
+});
+
+/** One Machine's projects, by its id. */
+const MachineProjects = Query.make('MachineProjects', {
+  props: Schema.Struct({ machineId: Schema.String }),
+  from: ({ props }) => Effect.all({ ai: Ai.get(props.machineId) }),
+  query:
+    (_, { ai }) =>
+    (q) =>
+      q.from({ p: ai.projects }),
+});
+
+/** An app on two Machines at once, each Instance syncing on its own. */
+const TwoMachines = Actor.build(Actor.define('TwoMachines', {}), {
+  provides: () => Replicas.layer,
+  children: {
+    replicas: Replicas.child([AiLive]),
+    one: { actor: MachineProjects, props: () => ({ machineId: 'one' }) },
+    two: { actor: MachineProjects, props: () => ({ machineId: 'two' }) },
   },
 });
 
@@ -269,6 +297,55 @@ describe('the server, through the client and Replica', () => {
       ),
     ));
 
+  it('switches Speech to Text on, streams how it stands, transcribes PCM and switches it off', () =>
+    Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const port = yield* Effect.promise(freePort);
+          const db = join(folder(), 'ai.db');
+          yield* Layer.build(
+            server({
+              port,
+              db,
+              harnesses: makeFakeHarness().layer,
+              speech: makeFakeSpeech().layer,
+            }),
+          );
+          const client = yield* Layer.build(
+            AiClient.layer(`ws://127.0.0.1:${port}/rpc`),
+          );
+          const api = Context.get(client, AiClient);
+          const states: Array<{ readonly _tag: string }> = [];
+          yield* Effect.forkScoped(
+            Stream.runForEach(api.watchSpeechToText(), (state) =>
+              Effect.sync(() => void states.push(state)),
+            ),
+          );
+          yield* eventually(() => expect(states).toEqual([{ _tag: 'Off' }]));
+          // Two seconds of 16 kHz 16-bit PCM.
+          const audio = new Uint8Array(64_000);
+          expect(yield* Effect.flip(api.transcribe({ audio }))).toMatchObject({
+            _tag: 'SpeechToTextNotReady',
+            state: 'Off',
+          });
+
+          yield* api.enableSpeechToText();
+          yield* eventually(() =>
+            expect(states.at(-1)).toEqual({ _tag: 'Ready' }),
+          );
+          expect(yield* api.transcribe({ audio })).toBe('heard 32000 samples');
+          expect(
+            yield* Effect.flip(api.transcribe({ audio: new Uint8Array(3) })),
+          ).toMatchObject({ _tag: 'TranscriptionFailed' });
+
+          yield* api.disableSpeechToText();
+          yield* eventually(() =>
+            expect(states.at(-1)).toEqual({ _tag: 'Off' }),
+          );
+        }),
+      ),
+    ));
+
   it('lists and makes folders under the home it was given', () =>
     Effect.runPromise(
       Effect.scoped(
@@ -356,7 +433,9 @@ describe('the server, through the client and Replica', () => {
               Root,
               Layer.mergeAll(
                 ReplicaStore.memory(),
-                Layer.succeedContext(Context.add(client, AiClient, watched)),
+                AiClients.make(() =>
+                  Layer.succeedContext(Context.add(client, AiClient, watched)),
+                ),
               ),
             );
             const page = () =>
@@ -433,6 +512,81 @@ describe('the server, through the client and Replica', () => {
             // The agent was resumed by its native id.
             expect(fake.opens.at(-1)?.nativeId).toBe('native-1');
             yield* stop(running);
+          }),
+        ),
+      ),
+    30_000,
+  );
+
+  it(
+    'syncs each Machine through its own socket, found by its id',
+    () =>
+      Effect.runPromise(
+        Effect.scoped(
+          Effect.gen(function* () {
+            const ports = {
+              one: yield* Effect.promise(freePort),
+              two: yield* Effect.promise(freePort),
+            };
+            for (const port of Object.values(ports))
+              yield* Layer.build(
+                server({
+                  port,
+                  db: join(folder(), 'ai.db'),
+                  harnesses: makeFakeHarness().layer,
+                }),
+              );
+            const dialled: Array<string> = [];
+            const app = yield* Runtime.start(
+              TwoMachines,
+              Layer.mergeAll(
+                ReplicaStore.memory(),
+                AiClients.layer.pipe(
+                  Layer.provide(
+                    Layer.succeed(MachineAddress, {
+                      of: (machineId) =>
+                        Effect.sync(() => {
+                          dialled.push(machineId);
+                          return {
+                            url: `ws://127.0.0.1:${ports[machineId as keyof typeof ports]}/rpc`,
+                          };
+                        }),
+                    }),
+                  ),
+                ),
+              ),
+            );
+            const rows = (machine: 'one' | 'two') =>
+              (
+                app.instance({ from: 'test' }).children[machine] as unknown as {
+                  readonly model: {
+                    readonly rows: ReadonlyArray<{
+                      readonly row: { readonly id: string };
+                    }>;
+                    readonly neverSynced: ReadonlyArray<string>;
+                  };
+                }
+              ).model;
+            yield* eventually(() => {
+              expect(rows('one').neverSynced).toEqual([]);
+              expect(rows('two').neverSynced).toEqual([]);
+            });
+
+            const path = folder();
+            const one = yield* Layer.build(
+              AiClient.layer(`ws://127.0.0.1:${ports.one}/rpc`),
+            );
+            const added = yield* Context.get(one, AiClient).addProject({
+              path: folder(),
+            });
+            yield* eventually(() =>
+              expect(rows('one').rows.map(({ row }) => row.id)).toEqual([
+                added.id,
+              ]),
+            );
+            expect(rows('two').rows).toEqual([]);
+            // One socket each, however many feeds its Instance opened.
+            expect([...new Set(dialled)].sort()).toEqual(['one', 'two']);
           }),
         ),
       ),

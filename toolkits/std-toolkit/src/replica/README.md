@@ -6,7 +6,7 @@ Kabuki-native sync: local copies of the Backend kept fresh on the device, where 
 
 A Replica is one domain's local copy of the Backend, made in two steps, as the toolkit makes things: `Replica.make` says its Key and Collections, `Replica.build` its Gate, its GC Time, and how each Collection syncs: a Strategy for all of it, a Strategy per Window, or both. A Window is the records whose field reads one value, such as the entries of one wallet; a Query whose `where` filters on that field opens it, and its Strategy runs while it is open. Each Key gets its own Instance, an actor that loads what the Store holds into plain `@tanstack/db` Collections, so it reads at once, and fetches only while it leads and its Gate is open. One `Replicas` actor near the root runs the Instances in use and stops each once its GC Time passes with no one holding it. Its Model and each Instance's are the whole record of what runs, so time travel and the Inspector see sync like any other Message.
 
-On the device the Store is the truth: `Store.idb()` keeps one IndexedDB database per Instance, shared by the browser's tabs through a Web Lock (the Leader) and a BroadcastChannel (the Doorbell); `Store.memory()` does the same in one process. Each tab records the Windows it has open there, so the Leader runs every tab's, and tells every tab which of them are Caught Up. Entities travel and are stored in encoded form and show in Collections at their latest version, with their meta under `_meta`. A Query reads rows from any Instances as an actor's Model, one Message per change, and says whether everything it reads is Caught Up; an Action makes Optimistic Changes, calls the Backend, and Confirms what came back, or rolls everything back.
+On the device the Store is the truth: `Store.idb()` keeps one IndexedDB database per Instance, shared by the browser's tabs through a Web Lock (the Leader) and a BroadcastChannel (the Doorbell); `Store.memory()` does the same in one process. Each tab records the Windows it has open there, so the Leader runs every tab's, and tells every tab which of them are Caught Up; each scope's saved cursor says it has synced once on this device. Entities travel and are stored in encoded form and show in Collections at their latest version, with their meta under `_meta`. A Query reads rows from any Instances as an actor's Model, one Message per change, says whether everything it reads is Caught Up, and names the Instances whose part of it has never synced here; an Action makes Optimistic Changes, calls the Backend, and Confirms what came back, or rolls everything back.
 
 It replaces [`sync`](../sync/README.md) for Kabuki apps and shares no code with it. Vocabulary is in [CONTEXT.md](CONTEXT.md); Kabuki's is in [@kestack/kabuki](../../../../packages/kabuki/CONTEXT.md).
 
@@ -121,11 +121,11 @@ const WalletEntries = Query.make('WalletEntries', {
 // In the page's Build:
 // children: { wallets: { actor: Wallets, props: ({ model }) => ({ account: model.account }) } }
 
-// Stored rows show at once; with none, a skeleton until it is Caught Up.
+// Stored rows show at once; with none, a skeleton only until it first syncs here.
 const WalletsView = View.make(Wallets, ({ model, root }) =>
   model.status === 'failed' ? (
     <p {...root}>{model.problem}</p>
-  ) : model.rows.length === 0 && !model.caughtUp ? (
+  ) : model.rows.length === 0 && model.neverSynced.length > 0 ? (
     <Skeleton {...root} />
   ) : model.rows.length === 0 ? (
     <p {...root}>No wallets yet.</p>
@@ -143,6 +143,7 @@ const WalletsView = View.make(Wallets, ({ model, root }) =>
 - Props that pick another Instance clear the rows at once, then load the new ones; the Instance the old Props held runs on for its GC Time. Each change after arrives as one Message of the rows added, updated and removed.
 - An `eq` on a Window's field opens one Window, an `inArray` one per value, any other filter none. The rows the Store holds show at once; the Window only decides what is fetched. Props that pick another wallet let go of the old Window, which closes once its GC Time passes.
 - `model.caughtUp` says whether every Collection and Window the query reads is Caught Up: each Collection's whole Strategy, if it has one, and each Window its `where` opened. Until then no rows may only mean none read yet; after, an empty list can be believed. It goes back to `false` while a Strategy it waits on stops, as a closed Gate stops it. In a tab that follows, it is what the Leader tells.
+- `model.neverSynced` names the Instances holding a Collection or Window the query reads that has never synced on this device. A Strategy's first answer saves its cursor even when it holds nothing, so after a reload, or while the Gate is shut, an Instance not named here shows what it last synced, an empty list included, without waiting to be Caught Up. Draw a skeleton only for the Instances it names.
 
 ### Write with an Action
 

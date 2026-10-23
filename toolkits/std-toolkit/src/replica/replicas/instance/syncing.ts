@@ -8,7 +8,9 @@ import { scopeOf, type WindowAt } from './windows.js';
  * One Strategy, for a whole Collection or one Window of it, run while its
  * Instance leads and its Gate is open: from the cursor the Store holds for
  * its scope, keeping each yield in one write. Its first answer makes its
- * scope Caught Up, once what it held is kept. A failure tries again from the
+ * scope Caught Up, once what it held is kept; with no cursor saved yet, that
+ * answer saves one even when it holds nothing, so the Store remembers the
+ * scope was synced once and is not Never Synced. A failure tries again from the
  * saved cursor, waiting longer each time; an Entity newer than this app
  * knows stops it until a reload.
  */
@@ -41,16 +43,18 @@ export const runStrategy = <K, R>(options: {
   let failing = false;
   let answered = false;
 
-  // A cursor saved by another Strategy, or one that no longer fits, starts over.
-  const start = opened.space
-    .cursor(collection, scope)
-    .pipe(
-      Effect.map((saved) =>
+  // A cursor saved by another Strategy, or one that no longer fits, starts
+  // over. Whether one was saved at all is kept too: until one is, the first
+  // answer is written whatever it holds.
+  const start = opened.space.cursor(collection, scope).pipe(
+    Effect.map((saved) => ({
+      saved: saved !== null,
+      state:
         saved?.strategy === strategy.name
           ? Option.getOrElse(decode(saved.state), () => strategy.initial)
           : strategy.initial,
-      ),
-    );
+    })),
+  );
 
   const kept = Effect.suspend(() => {
     if (!failing) return Effect.void;
@@ -65,9 +69,10 @@ export const runStrategy = <K, R>(options: {
   });
 
   const once = Effect.gen(function* () {
-    const state = yield* start;
-    // An answer with nothing new and the same cursor has nothing to write.
-    let written = JSON.stringify(encode(state));
+    const { saved, state } = yield* start;
+    // An answer with nothing new and the same cursor has nothing to write,
+    // once a cursor is saved.
+    let written = saved ? JSON.stringify(encode(state)) : null;
     yield* strategy.run({ key, state }).pipe(
       Stream.runForEach((pulled) => {
         const cursor = encode(pulled.state);

@@ -15,9 +15,12 @@ import {
   ProjectNotFound,
   SessionNotFound,
   SkillsUnavailable,
+  SpeechToTextNotReady,
+  TranscriptionFailed,
   UnknownHarness,
 } from '../contract/index.js';
 import { Engine } from '../../kabuki/engine/index.js';
+import { Speech } from '../../kabuki/speech/index.js';
 import { Harnesses } from '../../services/harness/contract/index.js';
 import { JsonSchema } from '../../services/records/raw/index.js';
 import { Models } from './models/index.js';
@@ -25,8 +28,8 @@ import * as Read from './read/index.js';
 
 /*
  * The API's handlers. Commands go to the Engine, which hands them to its
- * actors; feeds read the Store; none decides anything
- * itself. Their failures become the contract's errors of the same name.
+ * actors, and Speech to Text's to Speech; feeds read the Store; none
+ * decides anything itself. Their failures become the contract's errors of the same name.
  */
 
 type Listed = Effect.Error<ReturnType<Engine['Service']['listFolder']>>;
@@ -73,10 +76,11 @@ const wire = {
 
 const decodeSchema = Schema.decodeUnknownEffect(Schema.NullOr(JsonSchema));
 
-/** The handlers of `AiApi`, over the Engine, the Store and the harnesses. */
+/** The handlers of `AiApi`, over the Engine, Speech, the Store and the harnesses. */
 export const AiApiLive = AiApi.toLayer(
   Effect.gen(function* () {
     const engine = yield* Engine;
+    const speech = yield* Speech;
     const harnesses = yield* Harnesses;
     const models = yield* Models;
     return {
@@ -232,6 +236,19 @@ export const AiApiLive = AiApi.toLayer(
         engine
           .createFolder(input)
           .pipe(Effect.mapError((error) => folderError(error))),
+      enableSpeechToText: () => speech.enable,
+      disableSpeechToText: () => speech.disable,
+      watchSpeechToText: () => speech.watch,
+      transcribe: ({ audio }) =>
+        speech
+          .transcribe(audio)
+          .pipe(
+            Effect.mapError((error) =>
+              error._tag === 'SpeechToTextNotReady'
+                ? new SpeechToTextNotReady({ state: error.state })
+                : new TranscriptionFailed({ message: error.message }),
+            ),
+          ),
       projects: ({ after }) => Read.projects(after),
       sessions: ({ after }) => Read.sessions(after),
       messages: ({ sessionId, after }) => Read.messages(sessionId, after),

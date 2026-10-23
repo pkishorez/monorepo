@@ -2,6 +2,7 @@ export {
   CaughtUp,
   Hosting,
   Instances,
+  NeverSynced,
   readsOf,
   type Build,
   type BuildOptions,

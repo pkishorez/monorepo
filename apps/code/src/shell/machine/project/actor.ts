@@ -7,7 +7,7 @@ import { ProjectRow } from '../../../replica/index.ts';
 import * as Picker from '../../../ui/picker/index.ts';
 import { removeProject, startSession } from './api.ts';
 import * as Catalog from './catalog/index.ts';
-import { Attached, SkillPicker, wire, withSkill } from './composer/index.ts';
+import { Attached, Insert, SkillPicker, wire } from './draft/index.ts';
 import { ModelPicker } from './model-picker/index.ts';
 import * as Session from './session/index.ts';
 
@@ -20,9 +20,10 @@ import * as Session from './session/index.ts';
  *             (`catalog/`); until one is picked, the first agent that runs.
  * 2. Pick     the model Picker sets the agent, its model and settings, each
  *             its default until picked; a new agent starts from its own.
- *             The skills Picker puts a `/name` in the message. One is open
- *             at a time, each a fresh one; opening the skills Picker reads
- *             again Skills that could not be read.
+ *             The skills Picker puts a `/name` in the Draft, as anything
+ *             else put in is: an Insert, numbered, its editor puts in at
+ *             its cursor. One is open at a time, each a fresh one; opening
+ *             the skills Picker reads again Skills that could not be read.
  * 3. Start    the session starts already running the first message, and
  *             the app moves to it.
  * 4. Remove   asks first, then forgets the project; its folder is never
@@ -30,8 +31,9 @@ import * as Session from './session/index.ts';
  */
 
 const Picking = Schema.TaggedUnion({
-  Skills: { how: Picker.How, at: Schema.Finite, typed: Schema.Boolean },
-  Model: { how: Picker.How, at: Schema.Literals(['model', 'settings']) },
+  /** `typed`: opened by a `/` typed in the Composer, which the skill takes the place of. */
+  Skills: { how: Picker.How, typed: Schema.Boolean },
+  Model: { how: Picker.How, at: ModelPicker.At },
 });
 
 const Chosen = Schema.Struct({
@@ -50,6 +52,8 @@ const Model = Schema.Struct({
   settings: Schema.Record(Schema.String, Schema.String),
   text: Schema.String,
   attachments: Schema.Array(Attached),
+  /** The last thing put into the Draft, for its editor to put in at its cursor. */
+  insert: Schema.NullOr(Insert.Schema),
   /** The Picker open, if one is. */
   picking: Schema.NullOr(Picking),
   /** How many Pickers were opened, so each is a fresh one. */
@@ -78,6 +82,7 @@ export const Project = Page.define({
     Unpicked: {},
     Chose: { chosen: Chosen },
     ChoseSkill: { name: Schema.String },
+    Insert: { what: Insert.What },
     Typed: { text: Schema.String },
     Attach: { attachments: Schema.Array(Attached) },
     Start: {},
@@ -148,6 +153,7 @@ export const ProjectLive = Page.build(Project, {
       settings: {},
       text: '',
       attachments: [],
+      insert: null,
       picking: null,
       opened: 0,
       starting: false,
@@ -210,7 +216,10 @@ export const ProjectLive = Page.build(Project, {
   children: {
     project: {
       actor: ProjectRow,
-      props: ({ props }) => ({ projectId: props.params.projectId }),
+      props: ({ props }) => ({
+        machineId: machineIn(props.route.params),
+        projectId: props.params.projectId,
+      }),
     },
     // 2. Pick
     skills: {
@@ -265,9 +274,16 @@ export const ProjectLive = Page.build(Project, {
             model: {
               ...model,
               picking: null,
-              text: withSkill(model.text, name, model.picking),
+              insert: Insert.next(model.insert, {
+                _tag: 'Skill',
+                name,
+                typed: model.picking.typed,
+              }),
             },
           },
+    Insert: ({ what }, { model }) => ({
+      model: { ...model, insert: Insert.next(model.insert, what) },
+    }),
     Chose: ({ chosen }, { model }) => {
       const harness = Catalog.harnessOf(model.catalog, chosen.harness);
       const fresh =
@@ -351,12 +367,12 @@ export const ProjectLive = Page.build(Project, {
             },
             command: removeProject({ id: props.params.projectId }),
           },
-    Removed: (_, { model, props }) => ({
+    Removed: (_, { model }) => ({
       model: {
         ...model,
         removal: { confirming: false, removing: false, problem: null },
       },
-      command: Router.push(home(machineIn(props.route.params))),
+      command: Router.push(home()),
     }),
     RemoveRefused: ({ reason }, { model }) => ({
       model: {

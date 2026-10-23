@@ -98,12 +98,17 @@ const heartbeat = Flag.Int('heartbeat').pipe(
   Flag.withDefault(DEFAULT_HEARTBEAT),
 );
 
+/** What went wrong, down every cause, such as a port already in use under a failed serve. */
+const reasonOf = (error: unknown): string => {
+  if (!(error instanceof Error)) return String(error);
+  const cause = error.cause === undefined ? '' : reasonOf(error.cause);
+  return [error.message, cause].filter((part) => part !== '').join(': ');
+};
+
 /** Ends the program with `error`'s message alone, and a failing exit code. */
 const exitWith = (error: unknown) =>
   Effect.sync(() => {
-    process.stderr.write(
-      `${error instanceof Error ? error.message : String(error)}\n`,
-    );
+    process.stderr.write(`${reasonOf(error)}\n`);
     process.exitCode = 1;
   });
 

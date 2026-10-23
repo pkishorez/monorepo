@@ -18,7 +18,7 @@ import {
   type Reading,
 } from './collections.js';
 import type { Message } from './model.js';
-import { workerKey, type WindowAt } from './windows.js';
+import { scopeOf, workerKey, type WindowAt } from './windows.js';
 
 /*
  * One Instance, open on this participant: its space in the Store and the
@@ -34,6 +34,8 @@ import { workerKey, type WindowAt } from './windows.js';
  *             way, and Windows a Query opened and let go of.
  * 5. Hear     which scopes the Instance actor says are Caught Up, for the
  *             Queries that read them.
+ * 6. Recall   whether each scope a Query reads was ever synced here: a
+ *             cursor in the Store says so, and Caught Up from then on.
  */
 
 /** What a Query, a Worker or an Action holds of a running Instance. */
@@ -55,6 +57,14 @@ export interface Live {
    * one with none waits on nothing.
    */
   readonly caughtUp: (
+    reads: ReadonlyArray<Omit<Reading, 'instance'>>,
+  ) => Stream.Stream<boolean>;
+  /**
+   * Whether no Collection or Window read is Never Synced: false at first if
+   * one is, then true once it is Caught Up. It waits on what `caughtUp`
+   * waits on, and ends once true.
+   */
+  readonly synced: (
     reads: ReadonlyArray<Omit<Reading, 'instance'>>,
   ) => Stream.Stream<boolean>;
 }
@@ -231,16 +241,18 @@ export const openInstance = (
     const reported = yield* SubscriptionRef.make<ReadonlySet<string>>(
       new Set(),
     );
-    const caughtUp: Live['caughtUp'] = (reads) => {
-      const needed = [
-        ...new Set(
-          reads.flatMap(({ collection, window }) =>
-            window !== null || whole.has(collection)
-              ? [workerKey(collection, window)]
-              : [],
-          ),
+    /** The scopes a query's reads wait on: a Window, or a Collection's whole Strategy. */
+    const scopesOf = (reads: ReadonlyArray<Omit<Reading, 'instance'>>) => [
+      ...new Map(
+        reads.flatMap(({ collection, window }) =>
+          window !== null || whole.has(collection)
+            ? [[workerKey(collection, window), { collection, window }] as const]
+            : [],
         ),
-      ];
+      ),
+    ];
+    const caughtUp: Live['caughtUp'] = (reads) => {
+      const needed = scopesOf(reads).map(([key]) => key);
       return SubscriptionRef.changes(reported).pipe(
         Stream.map((scopes) => needed.every((key) => scopes.has(key))),
         Stream.changes,
@@ -248,6 +260,27 @@ export const openInstance = (
     };
     const report: Opened['report'] = (scopes) =>
       SubscriptionRef.set(reported, new Set(scopes));
+
+    // 6. Recall: a scope's first answer saves its cursor, so one saved is
+    // one synced here once, in this tab or another, before or since.
+    const synced: Live['synced'] = (reads) =>
+      Stream.unwrap(
+        Effect.forEach(scopesOf(reads), ([, { collection, window }]) =>
+          space.cursor(collection, scopeOf(window)),
+        ).pipe(
+          Effect.map((cursors) => cursors.every((cursor) => cursor !== null)),
+          // A Store that cannot say has not shown it synced.
+          Effect.orElseSucceed(() => false),
+          Effect.map((saved) =>
+            saved
+              ? Stream.succeed(true)
+              : Stream.concat(
+                  Stream.succeed(false),
+                  caughtUp(reads).pipe(Stream.filter(Boolean), Stream.take(1)),
+                ),
+          ),
+        ),
+      );
 
     const messages = Stream.fromQueue(said).pipe(
       Stream.mapEffect((each): Effect.Effect<Message> =>
@@ -271,6 +304,7 @@ export const openInstance = (
         stopped: Deferred.await(stopped),
         track,
         caughtUp,
+        synced,
       },
       space,
       refresh,

@@ -5,7 +5,8 @@ import { keys } from '../../keys.ts';
 import { DeviceState } from './device-state.ts';
 
 /*
- * Device State in memory: what is written reads back, Bindings that no
+ * Device State in memory: what is written reads back, the microphone
+ * chosen too, Bindings that no
  * longer fit the keys are left out, a mark only moves forward, and every
  * write is heard. In IndexedDB, as two tabs share it: a mark only moves
  * forward however their writes interleave.
@@ -22,21 +23,32 @@ describe('Device State', () => {
     expect(await run(DeviceState.read)).toEqual(DeviceState.nothing);
   });
 
-  it('keeps Vim Mode and Bindings', async () => {
+  it('keeps Bindings', async () => {
     const read = await run(
       Effect.gen(function* () {
         const device = yield* store;
-        yield* device.setVim(true);
         yield* device.setBindings({ 'picker.finish': ['ctrl+Enter'] });
         return yield* device.read;
       }),
     );
     expect(read).toEqual({
-      vim: true,
       bindings: { 'picker.finish': ['ctrl+Enter'] },
+      microphone: null,
       unseen: {},
-      machines: {},
     });
+  });
+
+  it('keeps the microphone chosen, and the system default again', async () => {
+    const read = await run(
+      Effect.gen(function* () {
+        const device = yield* store;
+        yield* device.setMicrophone('usb-mic');
+        const chosen = (yield* device.read).microphone;
+        yield* device.setMicrophone(null);
+        return [chosen, (yield* device.read).microphone];
+      }),
+    );
+    expect(read).toEqual(['usb-mic', null]);
   });
 
   it('leaves out Bindings that no longer fit the keys', async () => {
@@ -60,11 +72,11 @@ describe('Device State', () => {
     const read = await run(
       Effect.gen(function* () {
         const device = yield* store;
-        // Left by a Reset of Projects after Swaps: its Ctrl+P is Actions'
-        // too; Actions dropped, its Ctrl+K would be Sessions' too.
+        // Left by a Reset of Projects after Swaps: its O is Actions' too;
+        // Actions dropped, its A would be Sessions' too.
         yield* device.setBindings({
-          'app.sessions': ['ctrl+k'],
-          'app.actions': ['ctrl+p'],
+          'app.sessions': ['a'],
+          'app.actions': ['o'],
         });
         return yield* device.read;
       }),
@@ -103,19 +115,6 @@ describe('Device State', () => {
     expect(read.unseen).toEqual({ m1: { s1: 20 }, m2: { s1: 5 } });
   });
 
-  it('keeps the Machine each Account was last on', async () => {
-    const read = await run(
-      Effect.gen(function* () {
-        const device = yield* store;
-        yield* device.setLastMachine('a1', 'm1');
-        yield* device.setLastMachine('a2', 'm2');
-        yield* device.setLastMachine('a1', 'm3');
-        return yield* device.read;
-      }),
-    );
-    expect(read.machines).toEqual({ a1: 'm3', a2: 'm2' });
-  });
-
   it('is heard after every write', async () => {
     const heard = await run(
       Effect.gen(function* () {
@@ -126,7 +125,7 @@ describe('Device State', () => {
           Effect.forkChild,
         );
         yield* Effect.sleep('10 millis');
-        yield* device.setVim(true);
+        yield* device.setBindings({});
         return yield* Fiber.join(listening);
       }),
     );

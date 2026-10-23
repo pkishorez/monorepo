@@ -13,10 +13,13 @@ import { NodeHttpServer } from '@effect/platform-node';
 import { AiApi } from '../../api/contract/index.js';
 import { AiApiLive, Models } from '../../api/live/index.js';
 import { Engine, storedHarnessBinaries } from '../../kabuki/engine/index.js';
+import { Speech } from '../../kabuki/speech/index.js';
 import type {
   Harnesses,
   Titler,
 } from '../../services/harness/contract/index.js';
+import type { SpeechToText } from '../../services/speech/contract/index.js';
+import { sherpa } from '../../services/speech/sherpa/index.js';
 import { Store } from '../../services/records/store/index.js';
 import { keyGuard, selectProtocol } from './machine-key.js';
 import { allowsOrigin } from './origins.js';
@@ -24,7 +27,8 @@ import { allowsOrigin } from './origins.js';
 /*
  * The whole server as one Layer: the Store on its SQLite file, the engine
  * over it and the harnesses, Attachments saved beside it and Folders under
- * the home folder, and the API at `/rpc` over WebSocket. A browser page is
+ * the home folder, Speech to Text in `speech-to-text/` beside it, and the
+ * API at `/rpc` over WebSocket. A browser page is
  * served only from an origin given (see origins.ts); a request from any
  * other gets 403. Given a Machine Key, `/rpc` also asks every caller for it
  * (see machine-key.ts). It runs until its Scope closes; then the engine
@@ -51,6 +55,8 @@ export interface ServerOptions {
   /** Where Attachments that are not images are saved; beside the database unless given. */
   readonly attachments?: string;
   readonly harnesses: Layer.Layer<Harnesses | Titler>;
+  /** Speech to Text; sherpa-onnx with Parakeet unless given. */
+  readonly speech?: Layer.Layer<SpeechToText>;
   /** The folder `listFolder` and `createFolder` never leave; the user's home unless given. */
   readonly home?: string;
   /**
@@ -93,8 +99,11 @@ export const server = (options: ServerOptions) => {
   const models = Models.layer({
     cacheFile: join(dirname(options.db), 'models.json'),
   }).pipe(Layer.provide(storedHarnessBinaries), Layer.provide(base));
+  const speech = Speech.layer({
+    folder: join(dirname(options.db), 'speech-to-text'),
+  }).pipe(Layer.provide(options.speech ?? sherpa()));
   const handlers = AiApiLive.pipe(
-    Layer.provide(Layer.mergeAll(base, engine, models)),
+    Layer.provide(Layer.mergeAll(base, engine, models, speech)),
   );
   const allowed = allowsOrigin(options.origins ?? DEFAULT_ORIGINS);
   const rpc = RpcServer.layerHttp({

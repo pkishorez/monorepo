@@ -9,7 +9,7 @@ import { Actor } from '@kestack/kabuki';
 import type { ActorType } from '@kestack/kabuki';
 import { Effect, Option, Queue, Schema, Stream } from 'effect';
 import type { Scope } from 'effect';
-import { CaughtUp, Holding, readsOf } from '../replicas/index.js';
+import { CaughtUp, Holding, NeverSynced, readsOf } from '../replicas/index.js';
 import type { Live } from '../replicas/instance/index.js';
 import {
   applied,
@@ -28,11 +28,13 @@ import {
  * DB query over their Collections.
  *
  * 1. Open     new Props clear the rows shown, before any new row shows.
- * 2. Load     `from`, then the query's rows, and whether every Collection
- *             and Window it reads is Caught Up, as one Message.
+ * 2. Load     `from`, then the query's rows, whether every Collection and
+ *             Window it reads is Caught Up, and which Instances hold one
+ *             that is Never Synced, as one Message.
  * 3. Follow   every change after, as a Message of only what changed, and
- *             Caught Up each time it changes, until an Instance it reads
- *             stops under it, as the Store removing it does: then it fails.
+ *             Caught Up and Never Synced each time they change, until an
+ *             Instance it reads stops under it, as the Store removing it
+ *             does: then it fails.
  */
 
 /** What `from` gives: Instances, by any names the query reads them under. */
@@ -44,6 +46,8 @@ type Instances = Readonly<
       readonly stopped: Effect.Effect<void>;
       /** On an Instance `Replica.get` gave; anything else waits on nothing. */
       readonly [CaughtUp]?: Live['caughtUp'];
+      /** On an Instance `Replica.get` gave; anything else is never Never Synced. */
+      readonly [NeverSynced]?: Live['synced'];
     }
   >
 >;
@@ -58,6 +62,10 @@ type QueryActor<Name extends string, P, Row, R> = ActorType<
   { readonly Single: {} },
   Exclude<R, Scope.Scope>
 >;
+
+const sameNames = (left: ReadonlyArray<string>, right: ReadonlyArray<string>) =>
+  left.length === right.length &&
+  left.every((name, index) => name === right[index]);
 
 const messageOf = (cause: unknown) =>
   cause instanceof Error ? cause.message : String(cause);
@@ -186,11 +194,34 @@ const make = <
                 yield* Stream.runHead(caughtUp),
                 () => true,
               );
+              // The Instances holding a scope it reads that is Never Synced.
+              const neverSynced = Stream.zipLatestAll(
+                Stream.succeed(null),
+                ...read.map((instance) =>
+                  (
+                    instance[NeverSynced]?.(
+                      reads.filter((each) => each.instance === instance.name),
+                    ) ?? Stream.succeed(true)
+                  ).pipe(
+                    Stream.map((synced) => (synced ? null : instance.name)),
+                  ),
+                ),
+              ).pipe(
+                Stream.map((each) =>
+                  each.filter((name): name is string => name !== null),
+                ),
+                Stream.changesWith(sameNames),
+              );
+              let lastNever = Option.getOrElse(
+                yield* Stream.runHead(neverSynced),
+                (): ReadonlyArray<string> => [],
+              );
               yield* self.send({
                 _tag: 'Loaded',
                 keys: read.map(({ name }) => name),
                 rows,
                 caughtUp: last,
+                neverSynced: lastNever,
               });
               const follow = Stream.fromQueue(changes).pipe(
                 Stream.map((batch) => entriesOf<Row>(batch)),
@@ -223,8 +254,13 @@ const make = <
                 last = now;
                 return self.send({ _tag: 'CaughtUp', caughtUp: now });
               });
+              const syncing = Stream.runForEach(neverSynced, (now) => {
+                if (sameNames(now, lastNever)) return Effect.void;
+                lastNever = now;
+                return self.send({ _tag: 'Synced', neverSynced: now });
+              });
               yield* Effect.raceFirst(
-                Effect.all([follow, catching], {
+                Effect.all([follow, catching, syncing], {
                   concurrency: 'unbounded',
                   discard: true,
                 }),
@@ -239,14 +275,24 @@ const make = <
       },
       on: {
         Opened: () => ({ model: empty }),
-        Loaded: ({ keys, rows, caughtUp }) => ({
-          model: { keys, rows, status: 'ready', problem: null, caughtUp },
+        Loaded: ({ keys, rows, caughtUp, neverSynced }) => ({
+          model: {
+            keys,
+            rows,
+            status: 'ready',
+            problem: null,
+            caughtUp,
+            neverSynced,
+          },
         }),
         Changed: (change, { model }) => ({
           model: { ...model, rows: applied(model.rows, change) },
         }),
         CaughtUp: ({ caughtUp }, { model }) => ({
           model: { ...model, caughtUp },
+        }),
+        Synced: ({ neverSynced }, { model }) => ({
+          model: { ...model, neverSynced },
         }),
         Failed: ({ message }, { model }) => ({
           model: {

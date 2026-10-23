@@ -1,11 +1,14 @@
 # ai-toolkit actor trees
 
-ai-toolkit is one server on one computer. It has two Kabuki trees that never
-touch, both under `src/kabuki/`. The engine tree runs Projects, Sessions and Turns for the user and keeps
-every record in the Store. The machine tree keeps the Machine online: a tunnel
-to this server, and a Heartbeat to the Machines Backend. Both roots run with
-`Runtime.start`. The engine Layer gives `Store`, `Harnesses`, `Titler`,
-`HarnessBinaries` and `Desks`. The machine Layer gives `HeartbeatHost`.
+ai-toolkit is one server on one computer. It has three Kabuki trees that
+never touch, all under `src/kabuki/`. The engine tree runs Projects, Sessions
+and Turns for the user and keeps every record in the Store. The machine tree
+keeps the Machine online: a tunnel to this server, and a Heartbeat to the
+Machines Backend. The speech tree keeps the Speech to Text model on this
+computer: it downloads it, deletes it, and turns audio into text with it.
+Every root runs with `Runtime.start`. The engine Layer gives `Store`,
+`Harnesses`, `Titler`, `HarnessBinaries` and `Desks`. The machine Layer gives
+`HeartbeatHost`. The speech Layer gives `SpeechHost`.
 Changed through `/kabukifi`; edit by hand and it drifts.
 
 ## Tree
@@ -26,13 +29,21 @@ src/kabuki/machine/
   capabilities/              HeartbeatHost
   actor-heartbeat/           root; States: Online | SigningIn | Forgotten | Stopped
   backend/                   the Machines Backend it reports to: contract, client, serve
+
+src/kabuki/speech/
+  speech.ts                  the front door: enable, disable, watch, transcribe; builds SpeechHost
+  capabilities/              SpeechHost
+  actor-speech-model/        root; States: Loading | Off | Downloading | Ready | Failed
 ```
 
 Around the trees, `src/services/` holds what the server's Layer gives them:
-`harness/` (the contract, the wire shapes, Claude, Codex and the fake) and
-`records/` (Raw, the entities, their projection to Messages, and the Store).
-`src/api/` is the contract, its handlers and the browser client. `src/cli/`
-assembles it all.
+`harness/` (the contract, the wire shapes, Claude, Codex and the fake),
+`records/` (Raw, the entities, their projection to Messages, and the Store)
+and `speech/` (the SpeechToText contract, sherpa-onnx with Parakeet, and the
+fake).
+`src/api/` is the contract, its handlers and the browser client, which
+opens one socket per Machine and syncs each Machine's `Ai` Instance over
+its own. `src/cli/` assembles it all.
 
 ## How it connects
 
@@ -43,6 +54,7 @@ engine Layer ─ Store, Harnesses, Titler, HarnessBinaries, Desks ─▶ actor-p
 actor-projects ─ each id; Input: project, sessions ──────────────▶ actor-project
 actor-project  ─ each id; Input: session, first, cwd ────────────▶ actor-session
 machine Layer  ─ HeartbeatHost ──────────────────────────────────▶ actor-heartbeat
+speech Layer   ─ SpeechHost ─────────────────────────────────────▶ actor-speech-model
 ```
 
 Up, from the leaves:
@@ -57,11 +69,16 @@ actor-session   ─ Worker title, while untitled ───▶ Sends Titled
 actor-session   ─ Worker persist, always ─────────▶ saves the record
 actor-projects  ─ Worker load, in Loading ────────▶ Sends Loaded
 actor-heartbeat ─ Workers tunnel, beat, signIn ───▶ Sends TunnelUp, TunnelLost, Checked, …
+actor-speech-model ─ Worker load, in Loading ─────▶ Sends Loaded
+actor-speech-model ─ Worker remove, in Off ───────▶ deletes the model and the wish
+actor-speech-model ─ Worker download, in Downloading ▶ Sends Fetched, Downloaded, DownloadFailed
 ```
 
-The front door follows three rules. Everything the user does is a Message to
-one actor. Everything the user reads is the tree's state. A question for a
-Session's agent is asked at the Session's Desk.
+The engine's front door follows three rules. Everything the user does is a
+Message to one actor. Everything the user reads is the tree's state. A
+question for a Session's agent is asked at the Session's Desk. The speech
+front door follows the first two; a transcription is a Query of the speech
+model.
 
 ## actor-projects
 
@@ -193,3 +210,59 @@ sign-in/ and machines/client.
 - **Folders is a Service of the engine, behind the front door**, because
   picking a folder to become a Project is the engine's domain, and the API
   then talks to the Engine alone. Caveat: the engine takes `home` as an option.
+
+## actor-speech-model
+
+**Does**: keeps the Speech to Text model on disk while it is switched on, and
+transcribes with it.
+**Input**: none.
+**Model**: none.
+**States**: Loading: nothing. Off: nothing. Downloading: done, total: the
+bytes of the model on disk, of the total once the server says it. Ready:
+nothing. Failed: reason. Loaded moves Loading to Off, Downloading or Ready.
+Enable moves Off and Failed to Downloading. Downloaded moves Downloading to
+Ready; DownloadFailed moves it to Failed. Disable moves every State to Off.
+**Messages**: Enable, Disable: the front door. Loaded: the load Worker.
+Fetched, Downloaded, DownloadFailed: the download Worker.
+**Commands**: none.
+**Workers**: load: in Loading; reads the wish and the files; Sends Loaded.
+remove: in Off; forgets the loaded model and deletes the folder. download:
+in Downloading; keeps the wish, fetches the model; Sends Fetched about 200
+times, then Downloaded or DownloadFailed.
+**Requires**: SpeechHost: all three Workers and the transcribe Query.
+**Provides**: none.
+**Services**: none in the tree: speech.ts builds SpeechHost from SpeechToText
+and the data folder.
+**Children**: none.
+**View**: none.
+
+### Decisions
+
+- **Speech to Text is a third tree, not a Child in the engine or machine
+  tree**, because it knows nothing of Sessions or Coding Harnesses, and the
+  machine tree runs only while the Machine is online and ends when it is
+  Forgotten, while Speech to Text answers whenever the server listens.
+  Caveat: the server Layer starts two Runtimes, the engine's and this one.
+- **The State is what is on disk, not a Model field beside a status**,
+  because each State holds different data and owns the Worker that makes the
+  disk match it: Off deletes, Downloading fetches. Caveat: Off deletes the
+  folder each time it starts, at every start of a Machine with Speech to
+  Text off too; there is nothing to delete then.
+- **Deleting is a Worker of Off, not a Command of Disable**, because a
+  restart with the wish gone must find nothing on disk, and a Worker starts
+  from the State alone. Caveat: SpeechHost makes the delete wait for a fetch
+  that Disable stopped to let go of the folder.
+- **The root loads itself in a Loading State, not from Input**, as
+  actor-projects does. Caveat: the front door waits for the State after
+  Loading before it opens.
+- **A transcription is a Query of Ready, not a Message**, because the caller
+  needs the text, and a Query is askable only while Ready. Leaving Ready
+  interrupts it. Caveat: the front door answers SpeechToTextNotReady itself
+  in every other State.
+- **The loaded model is kept in SpeechHost, not by a Worker in Ready**,
+  because a Query cannot reach what a Worker holds, and loading on the first
+  transcription is the host's job. Caveat: remove forgets it, so it lives
+  as long as the files do, not as long as Ready.
+- **The SpeechToText contract and sherpa-onnx live in src/services/speech,
+  not in the tree**, because the server's Layer, not the tree, picks the
+  model, as the CLI picks the harnesses, and tests give the fake.

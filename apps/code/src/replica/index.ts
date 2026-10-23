@@ -1,11 +1,13 @@
 export {
-  CurrentMachine,
+  across,
   everything,
+  instanceOf,
   lineage,
   Messages,
   ProjectRow,
   Projects,
-  ProjectSessions,
   SessionRow,
   Sessions,
+  type Everything,
+  type OnMachine,
 } from './replica.ts';

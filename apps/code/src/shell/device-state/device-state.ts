@@ -14,19 +14,18 @@ import { fitted } from './fit.ts';
 import {
   DEVICE_TABLE,
   keyboard,
-  type LastMachine,
-  lastMachines,
   type Mark,
   markOf,
   marks,
+  microphone,
   table,
 } from './layout.ts';
 
 /*
  * Device State: what this browser keeps for itself and no other device
- * sees, in one IndexedDB database of its own: Vim Mode, the user's own
- * Bindings, the Unseen marks of each Machine, and the Machine each Account
- * was last on. It is local only, so it is a StdTable on
+ * sees, in one IndexedDB database of its own: the user's own Bindings,
+ * the microphone a Dictation records from, and the Unseen marks of each
+ * Machine. It is local only, so it is a StdTable on
  * std-toolkit's IndexedDB adapter rather than a Replica, which mirrors a
  * server; the adapter makes its store on first open.
  *
@@ -47,37 +46,35 @@ const Marks = Schema.Record(Schema.String, Schema.Finite);
 type Marks = typeof Marks.Type;
 
 /**
- * Device State as read: Vim Mode, Bindings by Action id, Unseen marks by
- * Machine id and then Session id, and the Machine last on by Account id.
+ * Device State as read: Bindings by Action id; the microphone chosen, by
+ * the browser's `deviceId`, null for the system default; Unseen marks by
+ * Machine id and then Session id.
  */
 const Device = Schema.Struct({
-  vim: Schema.Boolean,
   bindings: Schema.Record(Schema.String, Schema.Array(Schema.String)),
+  microphone: Schema.NullOr(Schema.String),
   unseen: Schema.Record(Schema.String, Marks),
-  machines: Schema.Record(Schema.String, Schema.String),
 });
 type Device = typeof Device.Type;
 
-/** What a browser that keeps nothing reads: Vim Mode off, the default keys, no marks, no Machine. */
-const nothing: Device = { vim: false, bindings: {}, unseen: {}, machines: {} };
+/** What a browser that keeps nothing reads: the default keys and microphone, no marks. */
+const nothing: Device = { bindings: {}, microphone: null, unseen: {} };
 
 /** The Capability that reads and writes Device State, and says when it changed. */
 class Store extends Context.Service<
   Store,
   {
     readonly read: Effect.Effect<Device, DatabaseError>;
-    readonly setVim: (on: boolean) => Effect.Effect<void, DatabaseError>;
     readonly setBindings: (
       bindings: Device['bindings'],
+    ) => Effect.Effect<void, DatabaseError>;
+    readonly setMicrophone: (
+      deviceId: string | null,
     ) => Effect.Effect<void, DatabaseError>;
     readonly markSeen: (
       machineId: string,
       sessionId: string,
       seen: number,
-    ) => Effect.Effect<void, DatabaseError>;
-    readonly setLastMachine: (
-      accountId: string,
-      machineId: string,
     ) => Effect.Effect<void, DatabaseError>;
     /** Once per write, here or in another tab; rings while busy fold into one. */
     readonly changes: Stream.Stream<void>;
@@ -118,32 +115,14 @@ const make = (
     }
   });
 
-  const readMachines = Effect.gen(function* () {
-    const machines: Record<string, string> = {};
-    let options: QueryOptions<LastMachine> = { limit: PAGE };
-    while (true) {
-      const page: QueryPage<Entity<LastMachine>> = yield* lastMachines.query(
-        'primary',
-        { pk: {}, '>=': null },
-        options,
-      );
-      for (const { value } of page.items)
-        machines[value.accountId] = value.machineId;
-      const last = page.items.at(-1);
-      if (!page.hasMore || last === undefined) return machines;
-      options = { limit: PAGE, after: last };
-    }
-  });
-
   const read = Effect.gen(function* () {
     const { value } = yield* keyboard.get();
+    const chosen = yield* microphone.get();
     const unseen = yield* readMarks;
-    const machines = yield* readMachines;
     return {
-      vim: value.vim,
       bindings: fitted(value.bindings),
+      microphone: chosen.value.deviceId,
       unseen,
-      machines,
     };
   }).pipe(Effect.provide(layer));
 
@@ -169,25 +148,13 @@ const make = (
 
   return Store.of({
     read,
-    setVim: (on) =>
-      write(keyboard.getAndUpdate(() => ({ vim: on }), { retries: RETRIES })),
     setBindings: (bindings) =>
       write(keyboard.getAndUpdate(() => ({ bindings }), { retries: RETRIES })),
-    markSeen,
-    setLastMachine: (accountId, machineId) =>
+    setMicrophone: (deviceId) =>
       write(
-        Effect.gen(function* () {
-          const last = yield* lastMachines.get({ accountId });
-          if (last === null)
-            return yield* lastMachines.insert({ accountId, machineId });
-          if (last.value.machineId === machineId) return last;
-          return yield* lastMachines.getAndUpdate(
-            { accountId },
-            () => ({ machineId }),
-            { retries: RETRIES },
-          );
-        }).pipe(Effect.retry({ times: RETRIES })),
+        microphone.getAndUpdate(() => ({ deviceId }), { retries: RETRIES }),
       ),
+    markSeen,
     // 3. Follow
     changes: doorbell.rings,
   });
@@ -220,16 +187,18 @@ const readOrNothing = Effect.flatMap(Store, (store) =>
 // Commands: what an actor asks for, each ending in no Message. A write
 // that fails is lost, and what is read stays as it was.
 
-const setVim = Command.make('SetVimMode', {
-  args: Schema.Struct({ on: Schema.Boolean }),
-  run: ({ on }) =>
-    Effect.flatMap(Store, (store) => store.setVim(on)).pipe(Effect.ignore),
-});
-
 const setBindings = Command.make('SetBindings', {
   args: Schema.Struct({ bindings: Device.fields.bindings }),
   run: ({ bindings }) =>
     Effect.flatMap(Store, (store) => store.setBindings(bindings)).pipe(
+      Effect.ignore,
+    ),
+});
+
+const setMicrophone = Command.make('SetMicrophone', {
+  args: Schema.Struct({ microphone: Device.fields.microphone }),
+  run: ({ microphone }) =>
+    Effect.flatMap(Store, (store) => store.setMicrophone(microphone)).pipe(
       Effect.ignore,
     ),
 });
@@ -245,12 +214,6 @@ const markSeen = Command.make('MarkSeen', {
       store.markSeen(machineId, sessionId, seen),
     ).pipe(Effect.ignore),
 });
-
-/** Remembers the Machine an Account is on, to open it first next time. */
-const setLastMachine = (accountId: string, machineId: string) =>
-  Effect.flatMap(Store, (store) =>
-    store.setLastMachine(accountId, machineId),
-  ).pipe(Effect.ignore);
 
 /** Whether a Session is Unseen: its last Turn ended after the mark this device keeps for it, among its Machine's marks. */
 const isUnseen = (
@@ -270,9 +233,8 @@ export const DeviceState = {
   nothing,
   read: readOrNothing,
   changes: Stream.unwrap(Effect.map(Store, (store) => store.changes)),
-  setVim,
   setBindings,
+  setMicrophone,
   markSeen,
-  setLastMachine,
   isUnseen,
 } as const;

@@ -162,7 +162,7 @@ let send: (message: typeof OwnerMessage.Type) => void = () => {};
 let pings = 0;
 
 function Page({ children }: { readonly children: ReactNode }) {
-  const spot = keys.useFocusSpot('content', 'composer', { default: true });
+  const spot = keys.useFocusSpot('content', 'page', { default: true });
   const open = useOpen();
   return (
     <keys.Surface id="content">
@@ -185,7 +185,7 @@ const OwnerView = View.make(OwnerLive, ({ model, children, send: own }) => {
   send = own;
   pings = model.pings;
   return (
-    <keys.Provider>
+    <keys.Provider vim>
       <Page>
         <Frame how={model.first} label="First">
           {children.first && <Places.View instance={children.first} />}

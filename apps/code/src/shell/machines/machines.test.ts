@@ -1,28 +1,30 @@
 import 'fake-indexeddb/auto';
-import { Deferred, Effect, Exit, Layer, Schema, Scope } from 'effect';
+import {
+  Deferred,
+  Effect,
+  Fiber,
+  Layer,
+  Schema,
+  Scope,
+  SubscriptionRef,
+} from 'effect';
 import type { Machine as MachineSchema } from '@kestack/ai-toolkit/machines';
 import { MachinesClient } from '@kestack/ai-toolkit/machines/client';
 import { Actor, type Instance, Runtime, type Running } from '@kestack/kabuki';
-import { Navigation } from '@kestack/kabuki/routing';
-import { Store } from '@kestack/std-toolkit/replica';
+import { Replicas, Store } from '@kestack/std-toolkit/replica';
 import { describe, expect, it } from 'vitest';
-import { home, root } from '../../places/index.ts';
-import {
-  MachineListLive,
-  Machines,
-  Records,
-  Saved,
-  savedMemory,
-} from './actor.ts';
-import { choose, health, socketUrl } from './health.ts';
+import { MachineListLive, Machines, Saved, savedMemory } from './actor.ts';
+import { health, socketUrl } from './health.ts';
+import { Link, nobody } from './link.ts';
+import { listedOnly } from './reach.ts';
 
 /*
- * The Machine List with the Backend, the Store and the router stood in
- * for: what was saved shows first and the Backend's answer replaces it and
- * is kept; at the root it opens the Machine last used, else the one seen
- * last; Forget asks the Backend and then deletes the Machine's records;
- * and `Machines` says all of it to the pages, waiting for a Machine with an
- * address. Then what a Machine's record says of it.
+ * The Machine List with the Backend and the Store stood in for: what was
+ * saved shows first and the Backend's answer replaces it and is kept;
+ * Forget asks the Backend, takes the Machine out of the list and then
+ * deletes its records; `Machines` says all of it to the pages, waiting for
+ * a Machine with an address; and no Machine's Instance opens until it is
+ * listed. Then what a Machine's record says of it.
  */
 
 type Machine = typeof MachineSchema.Type;
@@ -43,60 +45,33 @@ const machine = (
   lastSeen,
 });
 
-const Owner = Actor.define('Owner', {
-  model: Schema.Struct({
-    atRoot: Schema.Boolean,
-    on: Schema.NullOr(Schema.String),
-  }),
-  message: Schema.TaggedUnion({ Moved: { on: Schema.NullOr(Schema.String) } }),
-});
-
-const OwnerLive = Actor.build(Owner, {
-  init: () => ({ model: { atRoot: true, on: null } }),
+const OwnerLive = Actor.build(Actor.define('Owner', {}), {
   provides: () => Machines.layer,
   children: {
     machines: {
       actor: MachineListLive,
       input: () => ({ accountId: 'a1' }),
-      props: ({ model }) => ({
-        atRoot: model.atRoot,
-        last: 'm2',
-        on: model.on,
-        email: 'me@example.com',
-      }),
+      props: () => ({ email: 'me@example.com' }),
     },
-  },
-  on: {
-    Moved: ({ on }) => ({ model: { atRoot: on === null, on } }),
   },
 });
 
 /** A test's stand-ins, and what they were asked. */
 const world = (listed: Effect.Effect<ReadonlyArray<Machine>>) => {
-  const moves: Array<unknown> = [];
   const forgotten: Array<string> = [];
   const removed: Array<string> = [];
-  const store = Layer.mock(Store)({
-    remove: (_: unknown, key: string) =>
-      Effect.sync(() => void removed.push(key)),
-  } as never);
-  // One `Records` for the app and the test, which holds a Machine as its page would.
-  const records = Effect.runSync(
-    Effect.provide(Records, Records.layer.pipe(Layer.provide(store))),
-  );
   const layer = Layer.mergeAll(
     Layer.mock(MachinesClient)({
       List: () => listed,
       Forget: ({ id }: { readonly id: string }) =>
         Effect.sync(() => void forgotten.push(id)),
     } as never),
-    Layer.succeed(Records, records),
-    Layer.mock(Navigation)({
-      push: (to) => Effect.sync(() => void moves.push(to)),
-      replace: (to) => Effect.sync(() => void moves.push(to)),
-    }),
+    Layer.mock(Store)({
+      remove: (_: unknown, key: string) =>
+        Effect.sync(() => void removed.push(key)),
+    } as never),
   );
-  return { layer, moves, forgotten, removed, records };
+  return { layer, forgotten, removed };
 };
 
 const wait = (ms = 20) =>
@@ -163,67 +138,21 @@ describe('Machine List', () => {
     );
   });
 
-  it('opens the Machine last used here at the root', async () => {
-    const { layer, moves } = world(
-      Effect.succeed([machine('m1', 5), machine('m2', 1)]),
-    );
-    await run(
-      Effect.gen(function* () {
-        yield* start(OwnerLive, layer);
-        yield* wait();
-        expect(moves).toEqual([home('m2')]);
-      }),
-    );
-  });
-
-  it('forgets a Machine at the Backend, then deletes its records here', async () => {
-    const { layer, forgotten, removed, moves } = world(
+  it('forgets a Machine at the Backend, takes it out of the list, then deletes its records here', async () => {
+    const { layer, forgotten, removed } = world(
       Effect.succeed([machine('m1', 5), machine('m2', 1)]),
     );
     await run(
       Effect.gen(function* () {
         const app = yield* start(OwnerLive, layer);
         yield* wait();
-        app.send(walk(app.snapshot())[0]!.id, { _tag: 'Moved', on: 'm1' });
         app.send(list(app).id, { _tag: 'Forget', id: 'm1' });
         yield* wait();
         expect(forgotten).toEqual(['m1']);
         expect(removed).toEqual(['m1']);
         expect(listModel(app).machines?.map(({ id }) => id)).toEqual(['m2']);
-        // The Machine open was the one forgotten: back to the root.
-        expect(moves.at(-1)).toEqual(root());
       }),
     );
-  });
-
-  it('deletes the records of a Machine whose page is open only once it closes', async () => {
-    const { layer, forgotten, removed, moves, records } = world(
-      Effect.succeed([machine('m1', 5), machine('m2', 1)]),
-    );
-    await run(
-      Effect.gen(function* () {
-        const page = yield* Scope.make();
-        yield* Scope.provide(records.hold('m1'), page);
-        const app = yield* start(OwnerLive, layer);
-        yield* wait();
-        app.send(walk(app.snapshot())[0]!.id, { _tag: 'Moved', on: 'm1' });
-        app.send(list(app).id, { _tag: 'Forget', id: 'm1' });
-        yield* wait();
-        expect(forgotten).toEqual(['m1']);
-        // Back to the root first, the records kept while the page is open.
-        expect(moves.at(-1)).toEqual(root());
-        expect(removed).toEqual([]);
-        yield* Scope.close(page, Exit.void);
-        yield* wait();
-        expect(removed).toEqual(['m1']);
-      }),
-    );
-  });
-
-  it('deletes at once the records of a Machine no page holds', async () => {
-    const { removed, records } = world(Effect.succeed([]));
-    await Effect.runPromise(records.remove('m3'));
-    expect(removed).toEqual(['m3']);
   });
 
   it('shares what it holds as `Machines`, which waits for an address', async () => {
@@ -256,7 +185,7 @@ describe('Machine List', () => {
         machines: {
           actor: MachineListLive,
           input: () => ({ accountId: 'a1' }),
-          props: () => ({ atRoot: false, last: null, on: null, email: null }),
+          props: () => ({ email: null }),
         },
         reader: { actor: OwnerReading },
       },
@@ -280,15 +209,56 @@ describe('Machine List', () => {
   });
 });
 
+describe('the Replicas of every Machine', () => {
+  it("open nothing of a Machine until it is in the Account's list", async () => {
+    const held: Array<string> = [];
+    const below = Layer.succeed(
+      Replicas,
+      Replicas.of({
+        hold: (_, key) =>
+          Effect.sync(() => {
+            held.push(key);
+            return null as never;
+          }),
+      }),
+    );
+    await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const { known } = yield* Link;
+          const replicas = yield* Replicas;
+          const listed = (machines: ReadonlyArray<Machine>) =>
+            SubscriptionRef.set(known, {
+              ...nobody,
+              accountId: 'b',
+              machines,
+              fetchedAt: 1,
+            });
+          // Account B's list, and an address naming Account A's Machine.
+          yield* listed([machine('mine', 1)]);
+          const opening = yield* Effect.forkScoped(
+            replicas.hold('Ai', 'theirs'),
+          );
+          yield* wait();
+          expect(held).toEqual([]);
+          // Listed (as once Account A is signed in): it opens.
+          yield* listed([machine('mine', 1), machine('theirs', 1)]);
+          yield* Fiber.join(opening);
+          expect(held).toEqual(['theirs']);
+        }).pipe(
+          Effect.provide(
+            listedOnly.pipe(
+              Layer.provideMerge(Layer.merge(below, Machines.layer)),
+            ),
+          ),
+        ),
+      ),
+    );
+  });
+});
+
 describe('a Machine’s record', () => {
   const now = 1_000_000;
-
-  it('opens the one last used, else the one seen last', () => {
-    const list = [machine('a', 10), machine('b', 30), machine('c', 20)];
-    expect(choose(list, 'c')?.id).toBe('c');
-    expect(choose(list, 'gone')?.id).toBe('b');
-    expect(choose([], null)).toBeNull();
-  });
 
   it('says why its socket is not up', () => {
     expect(health(machine('m', now), 'connected', now)._tag).toBe('Connected');

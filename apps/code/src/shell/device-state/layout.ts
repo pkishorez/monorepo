@@ -4,9 +4,10 @@ import { EntityESchema, ESchema } from '@kestack/std-toolkit/eschema';
 
 /*
  * How Device State is laid out, as one StdTable: one row for the keyboard,
- * Vim Mode and the user's own Bindings; one row per Unseen mark, each the
+ * the user's own Bindings; one for the microphone a Dictation records
+ * from; one row per Unseen mark, each the
  * end time of the last Turn of a Session of one Machine seen on this
- * device; and one row per Account, the Machine it was last on here.
+ * device.
  *
  * The marks of before Machines (`UnseenMark`, by Session id alone) are no
  * longer read: no Machine can claim them.
@@ -17,14 +18,22 @@ export const DEVICE_TABLE = 'device';
 export const table = StdTable.make(DEVICE_TABLE).primary('pk', 'sk').build();
 
 const KeyboardSchema = ESchema.make('DeviceKeyboard', {
-  vim: Schema.Boolean,
   /** Each Action's own keys, by Action id, as people write them. */
   bindings: Schema.Record(Schema.String, Schema.Array(Schema.String)),
 }).build();
 
 export const keyboard = table
   .singleEntity(KeyboardSchema)
-  .default({ vim: false, bindings: {} });
+  .default({ bindings: {} });
+
+const MicrophoneSchema = ESchema.make('DeviceMicrophone', {
+  /** The audio input chosen, by the browser's `deviceId`; null for the system default. */
+  deviceId: Schema.NullOr(Schema.String),
+}).build();
+
+export const microphone = table
+  .singleEntity(MicrophoneSchema)
+  .default({ deviceId: null });
 
 const MarkSchema = EntityESchema.make('MachineUnseenMark', 'mark', {
   machineId: Schema.String,
@@ -40,11 +49,3 @@ export const markOf = (machineId: string, sessionId: string) =>
   `${machineId} ${sessionId}`;
 
 export const marks = table.entity(MarkSchema).primary().build();
-
-const LastMachineSchema = EntityESchema.make('LastMachine', 'accountId', {
-  machineId: Schema.String,
-}).build();
-
-export type LastMachine = typeof LastMachineSchema.Type;
-
-export const lastMachines = table.entity(LastMachineSchema).primary().build();

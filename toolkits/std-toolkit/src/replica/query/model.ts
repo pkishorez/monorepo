@@ -22,6 +22,12 @@ export type Model<Row> = {
    * no rows may only mean none read yet. Rows the Store holds show either way.
    */
   readonly caughtUp: boolean;
+  /**
+   * The Instances, by name, holding a Collection or Window it reads that is
+   * Never Synced: for them no rows means nothing is known yet. Empty once
+   * each has synced once on this device, Caught Up or not since.
+   */
+  readonly neverSynced: ReadonlyArray<string>;
 };
 
 export type Message<Row> =
@@ -32,6 +38,7 @@ export type Message<Row> =
       readonly keys: ReadonlyArray<string>;
       readonly rows: ReadonlyArray<Entry<Row>>;
       readonly caughtUp: boolean;
+      readonly neverSynced: ReadonlyArray<string>;
     }
   | {
       readonly _tag: 'Changed';
@@ -41,6 +48,8 @@ export type Message<Row> =
     }
   /** What it reads became Caught Up, or stopped being. */
   | { readonly _tag: 'CaughtUp'; readonly caughtUp: boolean }
+  /** An Instance it reads synced for the first time on this device. */
+  | { readonly _tag: 'Synced'; readonly neverSynced: ReadonlyArray<string> }
   | { readonly _tag: 'Failed'; readonly message: string };
 
 // Rows are whatever the query selects, so their Schema checks only that
@@ -54,6 +63,7 @@ export const ModelSchema = Schema.Struct({
   status: Schema.Literals(['loading', 'ready', 'failed']),
   problem: Schema.NullOr(Schema.String),
   caughtUp: Schema.Boolean,
+  neverSynced: Schema.Array(Schema.String),
 });
 
 export const MessageSchema = Schema.TaggedUnion({
@@ -62,6 +72,7 @@ export const MessageSchema = Schema.TaggedUnion({
     keys: Schema.Array(Schema.String),
     rows: Schema.Array(EntrySchema),
     caughtUp: Schema.Boolean,
+    neverSynced: Schema.Array(Schema.String),
   },
   Changed: {
     added: Schema.Array(EntrySchema),
@@ -69,6 +80,7 @@ export const MessageSchema = Schema.TaggedUnion({
     removed: Schema.Array(Id),
   },
   CaughtUp: { caughtUp: Schema.Boolean },
+  Synced: { neverSynced: Schema.Array(Schema.String) },
   Failed: { message: Schema.String },
 });
 
@@ -78,6 +90,7 @@ export const empty: Model<never> = {
   status: 'loading',
   problem: null,
   caughtUp: false,
+  neverSynced: [],
 };
 
 /** The rows after one change: removed ones gone, updated ones in place, added ones last. */

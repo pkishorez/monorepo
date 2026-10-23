@@ -52,6 +52,10 @@ _Avoid_: cancelled, failed
 A Turn the Coding Harness itself ended in an error.
 _Avoid_: cancelled, interrupted
 
+**Speech to Text**:
+A Machine turning spoken audio into text, on the Machine itself. It knows nothing of Sessions or Coding Harnesses.
+_Avoid_: transcription service, STT, voice
+
 **Native Id**:
 The harness's own identity for a Session or Turn, used to resume and to fork its context.
 _Avoid_: session id, resume token

@@ -1,4 +1,4 @@
-import { Layer, Schema, Stream } from 'effect';
+import { Effect, Layer, Schema, Stream } from 'effect';
 import { AiClient } from '@kestack/ai-toolkit/client';
 import { Page, Router } from '@kestack/kabuki/routing';
 import {
@@ -8,22 +8,17 @@ import {
 import { Replicas } from '@kestack/std-toolkit/replica';
 import { machineIn, session } from '../../../../places/index.ts';
 import { Refused } from '../../../../refusal/index.ts';
-import {
-  CurrentMachine,
-  lineage,
-  Messages,
-  SessionRow,
-} from '../../../../replica/index.ts';
+import { lineage, Messages, SessionRow } from '../../../../replica/index.ts';
 import { DeviceState } from '../../../device-state/index.ts';
 import * as Picker from '../../../../ui/picker/index.ts';
 import * as Catalog from '../catalog/index.ts';
-import { Attached, SkillPicker, wire, withSkill } from '../composer/index.ts';
+import { Attached, Insert, SkillPicker, wire } from '../draft/index.ts';
 import { ModelPicker } from '../model-picker/index.ts';
 import { ask, cancel, forkSession, send } from './api.ts';
 import { btwQuestion } from './btw.ts';
 
 /*
- * A session: its row, its messages, and the composer.
+ * A session: its row, its messages, and its Draft.
  *
  * 1. Read     the row says whether it runs; its messages sync while the
  *             page is open, through the session's Window. A Worker follows
@@ -36,8 +31,11 @@ import { btwQuestion } from './btw.ts';
  * 2. Skills   the agent's, from the catalog the project shares, for the
  *             skills Picker; nothing waits for them. When they cannot be
  *             read the Picker says why, and opening it again tries again.
+ *             The one picked is put into the Draft, as anything else put
+ *             in is: an Insert, numbered, its editor puts in at its cursor.
  * 3. Models   the agent's models and settings, from the catalog, for the
- *             model Picker, which opens at the model: the agent is kept. A
+ *             model Picker, which opens at the model, or at the settings,
+ *             the permissions or the effort: the agent is kept. A
  *             model or setting picked here goes with every message after
  *             it; until then the session's own. One Picker is open at a
  *             time, each a fresh one.
@@ -46,7 +44,7 @@ import { btwQuestion } from './btw.ts';
  *             otherwise. The draft clears at once; refused, it comes back,
  *             each send kept apart until the server has answered it.
  * 5. Ask      a draft that starts with `/btw` is a question on the side: its
- *             answer shows over the composer, never in the transcript, and
+ *             answer shows over the Status Line, never in the transcript, and
  *             the session goes on as it was. A newer question replaces it.
  * 6. Fork     a new session from this one's context up to a turn's end;
  *             the app moves to it.
@@ -118,8 +116,9 @@ const readOf = ([own, ...up]: ReadonlyArray<SessionRecord>) =>
       };
 
 const Picking = Schema.TaggedUnion({
-  Skills: { how: Picker.How, at: Schema.Finite, typed: Schema.Boolean },
-  Model: { how: Picker.How, at: Schema.Literals(['model', 'settings']) },
+  /** `typed`: opened by a `/` typed in the Composer, which the skill takes the place of. */
+  Skills: { how: Picker.How, typed: Schema.Boolean },
+  Model: { how: Picker.How, at: ModelPicker.At },
 });
 
 const Chosen = Schema.Struct({
@@ -141,6 +140,8 @@ const COMMANDS = [
 const Model = Schema.Struct({
   draft: Schema.String,
   attachments: Schema.Array(Attached),
+  /** The last thing put into the Draft, for its editor to put in at its cursor. */
+  insert: Schema.NullOr(Insert.Schema),
   /** Sent and not yet answered, oldest first: brought back if refused. */
   unsent: Schema.Array(Unsent),
   /** How many were sent: each send's id. */
@@ -171,13 +172,7 @@ export const Session = Page.define({
   path: '/s/:sessionId',
   params: { sessionId: Schema.String },
   metadata: { title: 'Session · code' },
-  requires: [
-    AiClient,
-    Catalog.Shared,
-    Replicas,
-    DeviceState.Store,
-    CurrentMachine,
-  ],
+  requires: [AiClient, Catalog.Shared, Replicas, DeviceState.Store],
   model: Model,
   message: Schema.TaggedUnion({
     Read: Read.fields,
@@ -186,6 +181,7 @@ export const Session = Page.define({
     Unpicked: {},
     Chose: { chosen: Chosen },
     ChoseSkill: { name: Schema.String },
+    Insert: { what: Insert.What },
     Typed: { text: Schema.String },
     Attach: { attachments: Schema.Array(Attached) },
     Send: {},
@@ -229,6 +225,7 @@ export const SessionLive = Page.build(Session, {
     model: {
       draft: '',
       attachments: [],
+      insert: null,
       unsent: [],
       sends: 0,
       stopping: false,
@@ -250,16 +247,26 @@ export const SessionLive = Page.build(Session, {
   children: {
     session: {
       actor: SessionRow,
-      props: ({ props }) => ({ sessionId: props.params.sessionId }),
+      props: ({ props }) => ({
+        machineId: machineIn(props.route.params),
+        sessionId: props.params.sessionId,
+      }),
     },
     messages: {
       actor: Messages,
-      props: ({ props }) => ({ sessionId: props.params.sessionId }),
+      props: ({ props }) => ({
+        machineId: machineIn(props.route.params),
+        sessionId: props.params.sessionId,
+      }),
     },
+    // A Fork is on its original's Machine.
     earlier: {
       actor: Messages,
       each: ({ model }) => model.lineage.map(({ id }) => id),
-      props: (_, sessionId) => ({ sessionId }),
+      props: ({ props }, sessionId) => ({
+        machineId: machineIn(props.route.params),
+        sessionId,
+      }),
     },
     // 2. Skills
     skills: {
@@ -312,11 +319,13 @@ export const SessionLive = Page.build(Session, {
     row: {
       each: ({ props }) => [props.params.sessionId],
       run: (self, sessionId) =>
-        lineage(sessionId).pipe(
-          Stream.map(readOf),
-          Stream.filter((read) => read !== null),
-          Stream.changesWith(sameRead),
-          Stream.runForEach((read) => self.send({ _tag: 'Read', ...read })),
+        Effect.flatMap(self.get, ({ props }) =>
+          lineage(machineIn(props.route.params), sessionId).pipe(
+            Stream.map(readOf),
+            Stream.filter((read) => read !== null),
+            Stream.changesWith(sameRead),
+            Stream.runForEach((read) => self.send({ _tag: 'Read', ...read })),
+          ),
         ),
     },
     // 2. Skills, 3. Models: the catalog, as the project shares it.
@@ -359,9 +368,16 @@ export const SessionLive = Page.build(Session, {
             model: {
               ...model,
               picking: null,
-              draft: withSkill(model.draft, name, model.picking),
+              insert: Insert.next(model.insert, {
+                _tag: 'Skill',
+                name,
+                typed: model.picking.typed,
+              }),
             },
           },
+    Insert: ({ what }, { model }) => ({
+      model: { ...model, insert: Insert.next(model.insert, what) },
+    }),
     Chose: ({ chosen }, { model }) => ({
       model: {
         ...model,

@@ -15,9 +15,10 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 /*
  * The model Picker on a page that keeps the agent, model and settings, as
  * the new-session page does, with an editor as the page's default Focus
- * Spot. Ctrl+M opens it at the agent; each choice opens the next Step, and
- * Mod+Enter finishes on the row highlighted. Focus comes back to the
- * editor.
+ * Spot. `m` opens it at the agent; each choice opens the next Step, and
+ * Mod+Enter finishes on the row highlighted. `p` and `e` open it at the
+ * permissions or the effort alone, where choosing finishes. Focus comes
+ * back to the editor.
  */
 
 const setting = {
@@ -30,13 +31,23 @@ const setting = {
   default: 'low',
 };
 
+const permissions = {
+  key: 'permissionMode',
+  label: 'Permissions',
+  choices: [
+    { value: 'bypassPermissions', label: 'Bypass permissions' },
+    { value: 'plan', label: 'Plan only' },
+  ],
+  default: 'bypassPermissions',
+};
+
 const catalog = {
   ...Catalog.empty,
   harnesses: [
     {
       name: 'claude' as const,
       label: 'Claude',
-      settings: [setting],
+      settings: [setting, permissions],
       defaultModel: 'sonnet',
       available: true,
       unavailableReason: null,
@@ -77,20 +88,14 @@ const Page = Actor.define('Page', {
   model: Schema.Struct({
     current: Chosen,
     picking: Schema.NullOr(
-      Schema.Struct({
-        how: Picker.How,
-        at: Schema.Literals(['model', 'settings']),
-      }),
+      Schema.Struct({ how: Picker.How, at: ModelPicker.At }),
     ),
     opened: Schema.Finite,
     pings: Schema.Finite,
   }),
   message: Schema.TaggedUnion({
     Ping: {},
-    Open: {
-      how: Picker.How,
-      at: Schema.Literals(['model', 'settings']),
-    },
+    Open: { how: Picker.How, at: ModelPicker.At },
     Done: {
       chosen: Schema.NullOr(
         Schema.Struct({
@@ -152,14 +157,21 @@ const PageLive = Actor.build(Page, {
   },
 });
 
-let page = { current: { harness: '', model: null as string | null }, pings: 0 };
+let page = {
+  current: {
+    harness: '',
+    model: null as string | null,
+    settings: {} as Readonly<Record<string, string>>,
+  },
+  pings: 0,
+};
 let ping = () => {};
 
 const PageView = View.make(PageLive, ({ model, children, send }) => {
   page = { current: model.current, pings: model.pings };
   ping = () => send({ _tag: 'Ping' });
   return (
-    <keys.Provider>
+    <keys.Provider vim>
       <Editor />
       <Triggers
         catalog={catalog}
@@ -175,7 +187,7 @@ const PageView = View.make(PageLive, ({ model, children, send }) => {
 });
 
 function Editor() {
-  const spot = keys.useFocusSpot('content', 'composer', { default: true });
+  const spot = keys.useFocusSpot('content', 'page', { default: true });
   return (
     <keys.Surface id="content">
       <div ref={spot} tabIndex={0} data-testid="editor" />
@@ -245,8 +257,8 @@ afterEach(async () => {
 });
 
 describe('ModelPicker', () => {
-  it('opens on Ctrl+M at the agent, what is in effect checked', async () => {
-    await key('m', { ctrlKey: true });
+  it('opens on `m` at the agent, what is in effect checked', async () => {
+    await key('m');
     expect(document.activeElement).toBe(search());
     expect(rows()).toEqual([
       { text: 'Claude', checked: true },
@@ -255,7 +267,7 @@ describe('ModelPicker', () => {
   });
 
   it('goes agent, model, setting, and gives focus back to the editor', async () => {
-    await key('m', { ctrlKey: true });
+    await key('m');
     await key('Enter');
     expect(rows()).toEqual([
       { text: 'Opus2026-05', checked: false },
@@ -265,18 +277,22 @@ describe('ModelPicker', () => {
     expect(document.querySelector('nav')?.textContent).toBe('ClaudeOpusEffort');
     await key('ArrowDown');
     await key('Enter');
+    expect(document.querySelector('nav')?.textContent).toBe(
+      'ClaudeOpusHighPermissions',
+    );
+    await key('Enter', { ctrlKey: true });
     await flush();
     expect(search()).toBeNull();
     expect(page.current).toEqual({
       harness: 'claude',
       model: 'opus',
-      settings: { effort: 'high' },
+      settings: { effort: 'high', permissionMode: 'bypassPermissions' },
     });
     expect(document.activeElement).toBe(editor());
   });
 
   it('skips the settings with Mod+Enter on a model', async () => {
-    await key('m', { ctrlKey: true });
+    await key('m');
     await key('ArrowDown');
     await key('Enter');
     expect(search()?.placeholder).toBe('Search Codex models');
@@ -305,5 +321,36 @@ describe('ModelPicker', () => {
     ]);
     await key('Backspace');
     expect(search()?.placeholder).toBe('Search effort');
+  });
+
+  it('opens on `p` at the permissions alone, and finishes on the choice', async () => {
+    await key('p');
+    expect(document.querySelector('nav')?.textContent).toBe(
+      'ClaudeSonnetPermissions',
+    );
+    expect(rows()).toEqual([
+      { text: 'Bypass permissions', checked: true },
+      { text: 'Plan only', checked: false },
+    ]);
+    await key('ArrowDown');
+    await key('Enter');
+    await flush();
+    expect(search()).toBeNull();
+    expect(page.current).toEqual({
+      harness: 'claude',
+      model: 'sonnet',
+      settings: { permissionMode: 'plan' },
+    });
+    expect(document.activeElement).toBe(editor());
+  });
+
+  it('opens on `e` at the effort alone, and finishes on the choice', async () => {
+    await key('e');
+    expect(search()?.placeholder).toBe('Search effort');
+    await key('ArrowDown');
+    await key('Enter');
+    await flush();
+    expect(search()).toBeNull();
+    expect(page.current.settings).toEqual({ effort: 'high' });
   });
 });

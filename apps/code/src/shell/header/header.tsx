@@ -1,0 +1,196 @@
+import type { Project, Session } from '@kestack/ai-toolkit/api';
+import { Router } from '@kestack/kabuki/routing';
+import {
+  ChevronRightIcon,
+  GitForkIcon,
+} from '@kestack/web-platform/components/lucide';
+import { Skeleton } from '@kestack/web-platform/components/skeleton';
+import * as places from '../../places/index.ts';
+import type { Place } from '../../places/index.ts';
+import { ago } from '../../ui/time/index.ts';
+import { SessionStatus } from '../../ui/session-status/index.ts';
+import { instanceOf, type OnMachine } from '../../replica/index.ts';
+import { useHealth, useMachineName } from '../connection/index.ts';
+
+/*
+ * What the App Shell's header says: where you are, as a trail from the
+ * project to the session; the open session's agent and model; and, while
+ * the Machine is out of reach, a quiet pill that says why: on its way,
+ * its tunnel broken, or the Machine down, with when it was last seen.
+ * Session Actions sit beside them (`session-actions/`). The header itself
+ * is the Web Platform's.
+ */
+
+const AGENT = { claude: 'Claude', codex: 'Codex' } as const;
+
+/** The place the route names, found in what the sidebar already reads. */
+export function Title({
+  route,
+  projects,
+  sessions,
+  neverSynced,
+}: {
+  readonly route: Place;
+  readonly projects: ReadonlyArray<OnMachine<Project>>;
+  readonly sessions: ReadonlyArray<OnMachine<Session>>;
+  /** The Instances whose lists this device has never synced: a row missing from them may only be not read yet. */
+  readonly neverSynced: ReadonlyArray<string>;
+}) {
+  const machineId = route._tag === 'Project' ? route.machineId : '';
+  const machine = useMachineName(machineId);
+  if (route._tag !== 'Project')
+    return route._tag === 'Home'
+      ? 'Projects'
+      : route._tag === 'Settings'
+        ? 'Settings'
+        : 'Page not found';
+  const unknown = neverSynced.includes(instanceOf(machineId));
+  const project = projects.find(
+    (each) => each.machineId === machineId && each.id === route.projectId,
+  );
+  if (project === undefined)
+    return unknown ? <Skeleton className="h-4 w-32" /> : 'Project not found';
+  const sessionId = route.page?.sessionId;
+  if (sessionId === undefined)
+    return (
+      <span className="flex min-w-0 items-baseline gap-2.5">
+        <span className="shrink-0">{project.name}</span>
+        {machine !== null && (
+          <span className="shrink-0 text-xs font-normal text-muted-foreground">
+            {machine}
+          </span>
+        )}
+        <span
+          title={project.path}
+          className="hidden min-w-0 truncate font-mono text-xs font-normal text-muted-foreground sm:block"
+        >
+          {project.path}
+        </span>
+      </span>
+    );
+  const session = sessions.find(
+    (each) => each.machineId === machineId && each.id === sessionId,
+  );
+  return (
+    <span className="flex min-w-0 items-center gap-1.5">
+      <Router.Link
+        to={places.project(machineId, project.id)}
+        className="focus-ring hidden shrink-0 rounded-sm font-normal text-muted-foreground transition-colors duration-150 hover:text-foreground sm:block"
+      >
+        {project.name}
+      </Router.Link>
+      <ChevronRightIcon
+        aria-hidden
+        className="hidden size-3.5 shrink-0 text-muted-foreground/60 sm:block"
+      />
+      {session === undefined ? (
+        unknown ? (
+          <Skeleton className="h-4 w-40" />
+        ) : (
+          'Session not found'
+        )
+      ) : (
+        <>
+          {session.forkedFrom !== null && (
+            <GitForkIcon
+              role="img"
+              aria-label="Forked"
+              className="size-3.5 shrink-0 text-muted-foreground"
+            />
+          )}
+          <span className="min-w-0 truncate" title={session.title || undefined}>
+            {session.title || 'Untitled session'}
+          </span>
+          <SessionStatus status={session.status} />
+        </>
+      )}
+    </span>
+  );
+}
+
+/** The open session's agent and model, quiet, from the `md` width. */
+export function Model({ session }: { readonly session: Session | undefined }) {
+  if (session === undefined) return null;
+  return (
+    <span className="hidden truncate pr-1 text-xs text-muted-foreground md:block">
+      {AGENT[session.harness]} · {session.model}
+    </span>
+  );
+}
+
+type Pill = readonly [label: string, title: string, tone: string];
+
+/** What the pill says, more of it on hover, and its colour, while the Machine is out of reach. */
+const pillOf = (health: ReturnType<typeof useHealth>): Pill | null => {
+  switch (health._tag) {
+    case 'Connected':
+      return null;
+    case 'Unknown':
+      return ['Connecting…', 'Connecting to the Machine…', 'bg-warning'];
+    case 'Down':
+      return [
+        `Machine down · last seen ${ago(health.lastSeen)}`,
+        'The Machine has not reported for a while: it may be off or asleep. What it last synced stays readable.',
+        'bg-destructive',
+      ];
+  }
+  const { status, lastSeen } = health;
+  switch (status._tag) {
+    case 'Installing':
+      return [
+        'Downloading cloudflared…',
+        'The Machine is downloading cloudflared, once, to open its tunnel. On a slow network this takes a few minutes.',
+        'bg-warning',
+      ];
+    case 'Opening':
+      return [
+        'Opening tunnel…',
+        'The Machine is opening its tunnel to Cloudflare.',
+        'bg-warning',
+      ];
+    case 'OpenFailed':
+      return [
+        'Tunnel failed · retrying',
+        `The Machine could not open its tunnel: ${status.problem}. It tries again shortly.`,
+        'bg-warning',
+      ];
+    case 'Unreachable':
+      return [
+        `Out of reach · seen ${ago(lastSeen)}`,
+        `The Machine is up, but its tunnel is broken: ${status.problem}. Reconnecting…`,
+        'bg-warning',
+      ];
+    case 'Unchecked':
+    case 'Reachable':
+      return [
+        'Connecting…',
+        `Connecting to the Machine, last seen ${ago(lastSeen)}…`,
+        'bg-warning',
+      ];
+  }
+};
+
+/** While the Machine is out of reach, a pill that says why; nothing otherwise. */
+export function Offline({ machineId }: { readonly machineId: string }) {
+  const health = useHealth(machineId);
+  const pill = pillOf(health);
+  if (pill === null) return null;
+  const [label, title, tone] = pill;
+  return (
+    <span
+      role="status"
+      title={title}
+      className="inline-flex h-7 shrink-0 items-center gap-2 rounded-full border border-border bg-muted/50 px-3 text-xs font-medium"
+    >
+      <span className="relative inline-flex size-2 shrink-0">
+        {health._tag !== 'Down' && (
+          <span
+            className={`absolute inset-0 animate-ping rounded-full opacity-50 motion-reduce:hidden ${tone}`}
+          />
+        )}
+        <span className={`relative size-2 rounded-full ${tone}`} />
+      </span>
+      {label}
+    </span>
+  );
+}

@@ -15,6 +15,8 @@ import type {
   ProjectNotFound,
   SessionNotFound,
   SkillsUnavailable,
+  SpeechToTextNotReady,
+  TranscriptionFailed,
   UnknownHarness,
 } from '@kestack/ai-toolkit/api';
 
@@ -41,6 +43,8 @@ type Failure =
   | ProjectNotFound
   | SessionNotFound
   | SkillsUnavailable
+  | SpeechToTextNotReady
+  | TranscriptionFailed
   | UnknownHarness
   | RpcClientError.RpcClientError;
 
@@ -72,6 +76,14 @@ export const reasonOf = (cause: Failure): string => {
       return 'Could not load the models';
     case 'NotForkable':
       return `It cannot be forked there: ${cause.reason}`;
+    case 'SpeechToTextNotReady':
+      return cause.state === 'Downloading'
+        ? 'Speech to Text is still downloading on that Machine'
+        : cause.state === 'Failed'
+          ? "Speech to Text couldn't be set up on that Machine"
+          : 'Speech to Text is off on that Machine';
+    case 'TranscriptionFailed':
+      return cause.message || "Couldn't make out the audio";
     case 'AskFailed':
     case 'InvalidBinary':
     case 'HarnessFailed':

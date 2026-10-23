@@ -13,16 +13,12 @@ One list in a Picker, searched by typing, such as the agents, a model's settings
 _Avoid_: page, screen, level
 
 **Project Picker**:
-The Picker for where to work next: recent Projects, then folders under home, where choosing a Project starts a new Session in it and a folder not yet added becomes a Project.
+The Picker for where to work next: first the Machine, a Step skipped while there is only one, then that Machine's recent Projects and the folders under its home, where choosing a Project starts a new Session in it and a folder not yet added becomes a Project.
 _Avoid_: add project, open project
 
-**Machine Switcher**:
-The Picker over the signed-in User's Machines, in place of the logo, showing which one the app is on. Nothing below it opens until a Machine is chosen. A Machine that stops answering stays open with what was last synced, marked by its Last Seen.
-_Avoid_: machine gate, environment picker, connection list
-
 **Machine List**:
-The signed-in Account's Machines as this device last had them, kept per Account so the app opens on the last Machine even while the Backend is out of reach, then asked again every Heartbeat while the app is visible.
-_Avoid_: machine registry, device list
+The signed-in Account's Machines as this device last had them, kept per Account so the app opens with all of them even while the Backend is out of reach, then asked again every Heartbeat while the app is visible. The app is on every Machine in it at once, and shows their Projects and Sessions together. A Machine that stops answering keeps what was last synced, marked by its Last Seen.
+_Avoid_: machine registry, device list, machine switcher
 
 **Session Switcher**:
 The Picker over Sessions to go back to one, the most recently active first.
@@ -37,8 +33,32 @@ A Session whose last Turn ended since it was last open on this device; opening i
 _Avoid_: unread, new, notification
 
 **Device State**:
-What this browser keeps for itself and no other device sees: the user's Bindings, Vim Mode, Unseen marks, and the Machine each Account was last on. The app draws nothing until it has been read.
+What this browser keeps for itself and no other device sees: the user's Bindings, the Microphone chosen and the Unseen marks. The app draws nothing until it has been read.
 _Avoid_: preferences, local settings, localStorage
+
+**Draft**:
+The open Session's next message, kept at the foot of the page with the Status Line while the transcript scrolls above it, always visible. It can be read, scrolled and clicked to place a cursor or select, but not typed into. Everything the user adds, such as a Dictation, a paste, a file or a Skill, goes in at its cursor, replacing any selection, and the page brings that spot into view. Sending it makes it the Session's next message.
+_Avoid_: input, insert bar, prompt box, composer (that is the Draft while editable)
+
+**Composer**:
+The Draft while the user is editing it: the same place, now typed into. Leaving it makes the Draft read-only again.
+_Avoid_: input, editor
+
+**Dictation**:
+Speech from the moment the user starts talking to the moment they stop, turned into text and put in at the Draft's cursor as if typed, replacing any selection. Once in, it is plain text like any other. It carries on while the user goes elsewhere in the app, and its text goes to the Session open when it stops. The sound itself is never sent to the agent, so a Dictation is not an Attachment.
+_Avoid_: voice message, voice note, recording, transcript
+
+**Microphone**:
+The audio input of this browser a Dictation records from: the system default, or one chosen in the Microphone Picker and kept in Device State. One chosen that is not connected leaves the default to record.
+_Avoid_: input device, audio device, mic setting
+
+**Microphone Picker**:
+The Picker over this browser's Microphones, the system default first, the one chosen checked. Choosing one while a Dictation records records the rest of it from the new one.
+_Avoid_: device picker, mic menu
+
+**Status Line**:
+The one line at the foot of the page: the model and permissions in effect, and the ways to add to the Draft and send it.
+_Avoid_: footer, toolbar
 
 **Settled List**:
 Where the sidebar keeps Settled Sessions, ungrouped, the most recently Settled first.

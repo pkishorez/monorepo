@@ -2,14 +2,14 @@ import type { RefObject } from 'react';
 import { keys } from '../../../../keys.ts';
 
 /*
- * The session's keys, on the page's Surface while it is open. In Vim Mode,
- * j and k scroll the transcript a line, Ctrl+D and Ctrl+U half a page, g g
- * goes to the top and Shift+G back to the bottom, following again. Page Up
- * and Page Down scroll it always, even while typing, and Mod+. stops the
- * running turn. Escape closes the `/btw` answer while it is shown: with
- * Vim Mode on, from the page's Normal Mode, so the first Escape in the
- * composer only leaves it. Every scroll is instant; scrolling up lets the
- * transcript stop following new messages.
+ * The session's keys, on the page's Surface while it is open. j and k
+ * scroll the transcript a line, Ctrl+D and Ctrl+U half a page, g g goes to
+ * the top and Shift+G back to the bottom, following again. Page Up and
+ * Page Down scroll it even while typing, and Mod+. stops the running turn.
+ * Escape closes the `/btw` answer while it is shown, from the page's
+ * Normal Mode, so the first Escape in the Composer only leaves it. Every
+ * scroll is instant; scrolling up lets the transcript stop following new
+ * messages.
  */
 
 const LINE = 48;

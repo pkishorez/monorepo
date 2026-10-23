@@ -1,11 +1,9 @@
 export {
   home,
-  machine,
   machineIn,
-  machineOf,
   placeOf,
   project,
-  root,
+  projectIn,
   session,
   settings,
   type Place,

@@ -9,6 +9,7 @@ import {
 import {
   CaughtUp,
   Instances,
+  NeverSynced,
   type Instance,
 } from './replicas/instance/index.js';
 import { Replicas } from './replicas/index.js';
@@ -81,6 +82,7 @@ function make(
               confirm: live.confirm,
               stopped: live.stopped,
               [CaughtUp]: live.caughtUp,
+              [NeverSynced]: live.synced,
             }) as unknown as Instance<
               Shape<string, unknown, CollectionSchemas>
             >,

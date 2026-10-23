@@ -16,12 +16,13 @@ import * as Catalog from '../catalog/index.ts';
  * such as effort and permissions, one Step each. Mod+Enter finishes on the
  * row highlighted, so the settings can be left as they are. A session that
  * has started keeps its agent, so its Picker opens at the model; the
- * settings button opens it at the first setting. What is in effect now is
- * checked in every Step.
+ * settings button opens it at the first setting. `p` and `e` open it at
+ * the agent's permissions or effort alone, so choosing there finishes.
+ * What is in effect now is checked in every Step.
  *
- * Under the composer sit its two triggers, the model and the settings,
- * which give up their words as the row narrows. Ctrl+M opens it from the
- * page, even while typing.
+ * In the Status Line sit its two triggers, the model and the settings,
+ * which give up their words as the line narrows. `m` opens it at the model
+ * from the page's Normal Mode.
  */
 
 const trigger =
@@ -64,6 +65,29 @@ const settingFor = (
     ?.default ??
   null;
 
+/** Where it opens: at the agent or model, the first setting, or one setting alone. */
+const At = Schema.Literals(['model', 'settings', 'permissions', 'effort']);
+type At = typeof At.Type;
+
+/**
+ * The keys an agent may name its permissions or its effort by: the
+ * catalog says what each setting is called, never what it is for.
+ */
+const ASPECTS = {
+  permissions: ['permissionMode', 'sandbox'],
+  effort: ['effort', 'reasoningEffort'],
+} as const;
+
+/** The agent's setting for `aspect`, or null when it has none. */
+const aspectOf = (
+  catalog: Catalog,
+  agent: string | null,
+  aspect: keyof typeof ASPECTS,
+) =>
+  Catalog.harnessOf(catalog, agent)?.settings.find((each) =>
+    (ASPECTS[aspect] as ReadonlyArray<string>).includes(each.key),
+  ) ?? null;
+
 /** The setting after `key`, or the first: the Step a choice opens next. */
 const settingAfter = (
   catalog: Catalog,
@@ -76,6 +100,32 @@ const settingAfter = (
   const next = settings[at];
   return next === undefined ? null : { id: 'setting', key: next.key };
 };
+
+/** An agent's setting by its key. */
+const settingNamed = (catalog: Catalog, agent: string | null, key: string) =>
+  Catalog.harnessOf(catalog, agent)?.settings.find((each) => each.key === key);
+
+/** One setting's choices, the one in effect checked. */
+const settingRows = (
+  catalog: Catalog,
+  current: Current,
+  agent: string,
+  key: string,
+) => {
+  const now = settingFor(catalog, current, agent, key);
+  return {
+    rows: (settingNamed(catalog, agent, key)?.choices ?? []).map(
+      ({ value, label }) => ({ value, label, checked: value === now }),
+    ),
+  };
+};
+
+const settingPlaceholder = (
+  catalog: Catalog,
+  agent: string | null,
+  key: string,
+) =>
+  `Search ${settingNamed(catalog, agent, key)?.label.toLowerCase() ?? 'choices'}`;
 
 const Models = Picker.make('ModelPicker', {
   props: Schema.Struct({ catalog: Catalog.Model, current: Current }),
@@ -124,31 +174,22 @@ const Models = Picker.make('ModelPicker', {
     },
     setting: {
       placeholder: ({ key, props, choices }) =>
-        `Search ${
-          Catalog.harnessOf(props.catalog, agentOf(choices))
-            ?.settings.find((each) => each.key === key)
-            ?.label.toLowerCase() ?? 'choices'
-        }`,
+        settingPlaceholder(props.catalog, agentOf(choices), key),
       title: ({ key, props, choices }) =>
-        Catalog.harnessOf(props.catalog, agentOf(choices))?.settings.find(
-          (each) => each.key === key,
-        )?.label ?? key,
-      rows: ({ key, props: { catalog, current }, choices }) => {
-        const agent = agentOf(choices) ?? current.harness;
-        const now = settingFor(catalog, current, agent, key);
-        const setting = Catalog.harnessOf(catalog, agent)?.settings.find(
-          (each) => each.key === key,
-        );
-        return {
-          rows: (setting?.choices ?? []).map(({ value, label }) => ({
-            value,
-            label,
-            checked: value === now,
-          })),
-        };
-      },
+        settingNamed(props.catalog, agentOf(choices), key)?.label ?? key,
+      rows: ({ key, props: { catalog, current }, choices }) =>
+        settingRows(catalog, current, agentOf(choices) ?? current.harness, key),
       next: (_, { key, props, choices }) =>
         settingAfter(props.catalog, agentOf(choices), key),
+    },
+    // One setting alone, opened by its keys: choosing it finishes.
+    alone: {
+      placeholder: ({ key, props, choices }) =>
+        settingPlaceholder(props.catalog, agentOf(choices), key),
+      title: ({ key, props, choices }) =>
+        settingNamed(props.catalog, agentOf(choices), key)?.label ?? key,
+      rows: ({ key, props: { catalog, current }, choices }) =>
+        settingRows(catalog, current, agentOf(choices) ?? current.harness, key),
     },
   },
 });
@@ -159,7 +200,9 @@ const chosenOf = (choices: Choices) => ({
   model: choices.find(({ step }) => step === 'model')?.value ?? null,
   settings: Object.fromEntries(
     choices.flatMap((choice) =>
-      choice.step === 'setting' ? [[choice.key, choice.value]] : [],
+      choice.step === 'setting' || choice.step === 'alone'
+        ? [[choice.key, choice.value]]
+        : [],
     ),
   ),
 });
@@ -167,9 +210,12 @@ const chosenOf = (choices: Choices) => ({
 export const ModelPicker = {
   Live: Models.Live,
   View: Models.View,
+  /** Where it opens, for an owner's Model. */
+  At,
   /**
    * The Input it opens with: at the agent, or at the model once the
-   * session has started, or at the first setting.
+   * session has started, at the first setting, or at the permissions or
+   * the effort alone; at the model or the agent when it has no such one.
    */
   opening: ({
     how,
@@ -179,7 +225,7 @@ export const ModelPicker = {
     current,
   }: {
     readonly how: typeof Picker.How.Type;
-    readonly at: 'model' | 'settings';
+    readonly at: At;
     readonly started: boolean;
     readonly catalog: Catalog;
     readonly current: Current;
@@ -196,16 +242,19 @@ export const ModelPicker = {
       Catalog.modelsOf(catalog, current.harness)?.list.find(
         ({ id }) => id === model,
       )?.name ?? model;
+    const chosen = [
+      agent,
+      { step: 'model', key: current.harness, value: model, label: named },
+    ];
     const first = settingAfter(catalog, current.harness, null);
     if (at === 'settings' && first !== null)
-      return {
-        how,
-        step: first,
-        choices: [
-          agent,
-          { step: 'model', key: current.harness, value: model, label: named },
-        ],
-      };
+      return { how, step: first, choices: chosen };
+    const alone =
+      at === 'permissions' || at === 'effort'
+        ? aspectOf(catalog, current.harness, at)
+        : null;
+    if (alone !== null)
+      return { how, step: { id: 'alone', key: alone.key }, choices: chosen };
     return started
       ? { how, step: { id: 'model', key: current.harness }, choices: [agent] }
       : { how, step: { id: 'agent', key: '' }, choices: [] };
@@ -226,8 +275,9 @@ export const ModelPicker = {
 };
 
 /**
- * The model and settings triggers under a composer, and the Picker drawn
- * by the one it was opened from. Ctrl+M opens it at the model.
+ * The model and settings triggers in the Status Line, and the Picker drawn
+ * by the one it was opened from. `m` opens it at the model, `p` and `e` at
+ * the permissions and the effort, drawn by the settings trigger.
  */
 export function Triggers({
   catalog,
@@ -243,21 +293,27 @@ export function Triggers({
   readonly started: boolean;
   /** How the Picker is open, and from which trigger; null while it is not. */
   readonly how: {
-    readonly at: 'model' | 'settings';
+    readonly at: At;
     readonly how: typeof Picker.How.Type;
   } | null;
-  readonly onOpen: (
-    at: 'model' | 'settings',
-    how: typeof Picker.How.Type,
-  ) => void;
+  readonly onOpen: (at: At, how: typeof Picker.How.Type) => void;
   /** The Picker's View, while it is open. */
   readonly children: ReactNode;
 }) {
   const open = Picker.useOpen();
   const modelKeys = useBound('content.model');
   const harness = Catalog.harnessOf(catalog, current?.harness ?? null);
+  const agent = harness?.name ?? null;
   keys.useAction('content.model', () => open(() => onOpen('model', 'keys')), {
     enabled: harness !== null,
+  });
+  keys.useAction(
+    'content.permissions',
+    () => open(() => onOpen('permissions', 'keys')),
+    { enabled: aspectOf(catalog, agent, 'permissions') !== null },
+  );
+  keys.useAction('content.effort', () => open(() => onOpen('effort', 'keys')), {
+    enabled: aspectOf(catalog, agent, 'effort') !== null,
   });
   if (current === null || harness === null)
     return (
@@ -279,8 +335,14 @@ export function Triggers({
       );
     })
     .join(' · ');
+  // The permissions or the effort alone are drawn by the settings trigger.
+  const drawnBy = (opened: At) =>
+    opened === 'model' ||
+    (opened !== 'settings' && aspectOf(catalog, agent, opened) === null)
+      ? 'model'
+      : 'settings';
   const at = (which: 'model' | 'settings') =>
-    how?.at === which ? how.how : null;
+    how !== null && drawnBy(how.at) === which ? how.how : null;
   return (
     <>
       <Picker.Frame
@@ -296,7 +358,7 @@ export function Triggers({
             className={trigger}
           >
             {!started && (
-              <span className="hidden shrink-0 text-muted-foreground/80 @sm/composer:inline">
+              <span className="hidden shrink-0 text-muted-foreground/80 @sm/status:inline">
                 {harness.label}
               </span>
             )}
@@ -321,13 +383,13 @@ export function Triggers({
               type="button"
               aria-label={`Settings: ${summary}`}
               title={summary}
-              className={cn(trigger, 'shrink-0 @md/composer:shrink')}
+              className={cn(trigger, 'shrink-0 @md/status:shrink')}
             >
               <SlidersHorizontalIcon
                 aria-hidden
                 className="size-3.5 shrink-0"
               />
-              <span className="hidden truncate text-foreground/90 @md/composer:inline">
+              <span className="hidden truncate text-foreground/90 @md/status:inline">
                 {summary}
               </span>
             </button>

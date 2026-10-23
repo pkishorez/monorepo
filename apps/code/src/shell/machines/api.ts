@@ -1,16 +1,22 @@
 import { Effect, Schema } from 'effect';
+import { Ai } from '@kestack/ai-toolkit/client';
 import { Machine } from '@kestack/ai-toolkit/machines';
 import { MachinesClient } from '@kestack/ai-toolkit/machines/client';
 import { Command } from '@kestack/kabuki';
-import { Records } from './records.ts';
+import { Store } from '@kestack/std-toolkit/replica';
 import { Saved } from './saved.ts';
 
 /*
  * What the Machine List asks of the Machines Backend, over HTTP and signed
  * by the Account signed in, and what it keeps on this device: each ends in
- * one Message. Forgetting a Machine deletes its records here too, once its
- * page has closed (`records.ts`).
+ * one Message. A Machine forgotten, or of an Account signed out, takes its
+ * records here with it: the Store stops its Instance, in every tab, and
+ * deletes its database.
  */
+
+/** Deletes a Machine's records on this device: best effort. */
+const removeRecords = (machineId: string) =>
+  Effect.flatMap(Store, (store) => Effect.ignore(store.remove(Ai, machineId)));
 
 const problemOf = (error: unknown) =>
   typeof error === 'object' && error !== null && 'message' in error
@@ -42,7 +48,6 @@ export const forget = Command.make('ForgetMachine', {
   args: Schema.Struct({ id: Schema.String }),
   run: ({ id }) =>
     MachinesClient.use((client) => client.Forget({ id })).pipe(
-      Effect.andThen(Records.use((records) => records.remove(id))),
       Effect.as({ _tag: 'Forgot' as const, id }),
       Effect.catch((error) =>
         Effect.succeed({
@@ -54,21 +59,26 @@ export const forget = Command.make('ForgetMachine', {
     ),
 });
 
+/** A forgotten Machine's records go, once it has left the list. */
+export const drop = Command.make('DropMachineRecords', {
+  args: Schema.Struct({ id: Schema.String }),
+  run: ({ id }) => removeRecords(id),
+});
+
 /**
  * Signing an Account out of this device deletes the records of every
- * Machine it was last given here, the one open once its page has closed,
- * and empties that list: best effort.
+ * Machine it was last given here, and empties that list: best effort.
  */
 export const signedOut = Command.make('MachinesSignedOut', {
   args: Schema.Struct({ accountIds: Schema.Array(Schema.String) }),
   run: ({ accountIds }) =>
-    Effect.flatMap(Effect.all([Saved, Records]), ([saved, records]) =>
+    Effect.flatMap(Saved, (saved) =>
       Effect.forEach(
         accountIds,
         (accountId) =>
           saved.read(accountId).pipe(
             Effect.flatMap((machines) =>
-              Effect.forEach(machines ?? [], ({ id }) => records.remove(id), {
+              Effect.forEach(machines ?? [], ({ id }) => removeRecords(id), {
                 discard: true,
               }),
             ),

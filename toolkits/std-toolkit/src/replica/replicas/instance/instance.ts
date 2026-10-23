@@ -62,12 +62,19 @@ export const CaughtUp: unique symbol = Symbol.for(
   '@kestack/std-toolkit/replica/CaughtUp',
 );
 
+/** Where a Query finds, on an Instance, whether what it reads is Never Synced: never a Collection's name. */
+export const NeverSynced: unique symbol = Symbol.for(
+  '@kestack/std-toolkit/replica/Synced',
+);
+
 /** A running Instance, as `Replica.get` gives it: its Key, its Collections, and Confirm. */
 export type Instance<D extends AnyShape> = {
   readonly name: string;
   readonly key: KeyOf<D>;
   /** Whether what a Query reads of it is Caught Up, for Query alone. */
   readonly [CaughtUp]: Live['caughtUp'];
+  /** Whether what a Query reads of it was ever synced on this device, for Query alone. */
+  readonly [NeverSynced]: Live['synced'];
   /** Puts the Entities the Backend returned, in encoded form, in the Store, in place of the Optimistic Changes they answer. */
   readonly confirm: (
     entities: ReadonlyArray<Entity<unknown>>,

@@ -21,23 +21,33 @@
     "src/ui/session-status": ["src/ui/running-dot"],
     "src/ui/picker": ["src/keys.ts"],
     "src/ui/confirm": ["src/keys.ts"],
-    "src/shell/machine": [
-      "src/shell/device-state",
+    "src/shell/connection": ["src/shell/machines"],
+    "src/shell/header": ["src/shell/connection"],
+    "src/shell/home": ["src/shell/connection", "src/shell/machines"],
+    "src/shell/sidebar": ["src/shell/connection"],
+    "src/shell/settings": [
+      "src/shell/connection",
       "src/shell/machines",
-      "src/shell/sign-in"
+      "src/shell/sign-in",
+      "src/shell/device-state"
     ],
-    "src/shell/machine/header": ["src/shell/machine/connection"],
-    "src/shell/machine/home": ["src/shell/machine/connection"],
-    "src/shell/machine/sidebar": ["src/shell/machine/connection"],
-    "src/shell/machine/background-jobs": ["src/shell/machine/connection"],
-    "src/shell/machine/machine-switcher": ["src/shell/machine/connection"],
-    "src/shell/machine/project": ["src/shell/machine/connection"],
+    "src/shell/dictation": ["src/shell/recorder"],
+    "src/shell/microphone-picker": [
+      "src/shell/device-state",
+      "src/shell/recorder"
+    ],
+    "src/shell/machine": [
+      "src/shell/connection",
+      "src/shell/machines",
+      "src/shell/device-state",
+      "src/shell/dictation"
+    ],
     "src/shell/machine/project/model-picker": [
       "src/shell/machine/project/catalog"
     ],
     "src/shell/machine/project/session": [
       "src/shell/machine/project/catalog",
-      "src/shell/machine/project/composer",
+      "src/shell/machine/project/draft",
       "src/shell/machine/project/model-picker"
     ]
   }

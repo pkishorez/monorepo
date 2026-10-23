@@ -3,12 +3,13 @@ import { HarnessesRpc } from './harnesses.js';
 import { JobsRpc } from './jobs.js';
 import { ProjectsRpc } from './projects.js';
 import { SessionsRpc } from './sessions.js';
+import { SpeechRpc } from './speech.js';
 import { TurnsRpc } from './turns.js';
 
 /*
  * The one API every app speaks, over WebSocket: commands that ask the engine
  * to do something, and feeds that replay every change after a cursor, then
- * stay live. It is six groups, each in its own file, merged into one, so a
+ * stay live. It is seven groups, each in its own file, merged into one, so a
  * client reaches every procedure by its own name (`api.listFolder`):
  *
  * - harnesses  what each Coding Harness offers, and its Harness Binary.
@@ -17,6 +18,7 @@ import { TurnsRpc } from './turns.js';
  * - turns      messages sent to a Session, and the Messages it emits.
  * - jobs       Background Jobs.
  * - folders    the home folder's sub-folders, listed and made.
+ * - speech     Speech to Text, switched on and off, and audio turned into text.
  */
 
 export class AiApi extends HarnessesRpc.merge(
@@ -25,6 +27,7 @@ export class AiApi extends HarnessesRpc.merge(
   TurnsRpc,
   JobsRpc,
   FoldersRpc,
+  SpeechRpc,
 ) {}
 
 export * from './errors.js';
@@ -38,6 +41,7 @@ export {
 export { SessionJobs } from './jobs.js';
 export { ProjectValue } from './projects.js';
 export { SessionValue } from './sessions.js';
+export { SpeechToTextState } from './speech.js';
 export { Harness, WireEntity } from './wire.js';
 
 // The records the API speaks of, as clients read them.

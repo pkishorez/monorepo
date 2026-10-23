@@ -13,8 +13,8 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 /*
  * A Picker under an owner, on the app's own keyboard: a fruit, then its
  * size, which the owner loads. The page has an editor as its default Focus
- * Spot, as the composer is; every way the Picker closes puts focus back in
- * it, and the owner hears the choices once.
+ * Spot; every way the Picker closes puts focus back in it, and the owner
+ * hears the choices once.
  */
 
 const Fruit = make('FruitPicker', {
@@ -111,7 +111,7 @@ function Page({
   readonly children: ReactNode;
 }) {
   const { enter } = keys.useKeyboard();
-  const spot = keys.useFocusSpot('content', 'composer', { default: true });
+  const spot = keys.useFocusSpot('content', 'page', { default: true });
   return (
     <keys.Surface id="content">
       <div ref={spot} tabIndex={0} data-testid="editor" />
@@ -154,7 +154,7 @@ const OwnerView = View.make(OwnerLive, ({ model, children, send }) => {
   drop = () => send({ _tag: 'Drop' });
   pings = model.pings;
   return (
-    <keys.Provider bindings={bindings}>
+    <keys.Provider vim bindings={bindings}>
       <Page how={model.picking} onOpen={(how) => send({ _tag: 'Open', how })}>
         {children.picker && <Fruit.View instance={children.picker} />}
       </Page>
@@ -227,7 +227,7 @@ const started = async () => {
   expect(pings).toBeGreaterThan(0);
 };
 
-/** Opens the Picker by keys, as a `/` in the composer does. */
+/** Opens the Picker by keys, as a `/` in the Composer does. */
 const openByKeys = async () => {
   await click(by('slash'));
   expect(search()).not.toBeNull();

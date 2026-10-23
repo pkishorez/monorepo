@@ -1,14 +1,12 @@
 import { View } from '@kestack/kabuki/react';
 import { Button } from '@kestack/web-platform/components/button';
-import { Spinner } from '@kestack/web-platform/components/spinner';
 import type { ReactNode } from 'react';
 import { MachineListLive } from './actor.ts';
 
 /*
- * What the root shows while it is on no Machine: finding the Account's
- * Machines, the Backend out of reach with nothing saved, or no Machine at
- * all, with how to start one. With a list, the Machine List opens one, and
- * this shows only a moment.
+ * What home shows in place of the projects while there is no Machine to
+ * show them from: the Backend out of reach with nothing saved, or no
+ * Machine at all, with how to start one. Nothing otherwise.
  */
 
 const local = import.meta.env.VITE_AUTH_LOCAL === 'true';
@@ -23,17 +21,8 @@ export const serveCommand = (email: string | null) =>
 export const MachineListView = View.make(
   MachineListLive,
   ({ root, model, props, send }) => {
-    if (model.machines === null && model.problem === null)
-      return (
-        <Screen root={root}>
-          <p
-            role="status"
-            className="flex items-center gap-2 text-sm text-muted-foreground"
-          >
-            <Spinner /> Finding your Machines…
-          </p>
-        </Screen>
-      );
+    // Never listed on this device: the page draws its skeleton meanwhile.
+    if (model.machines === null && model.problem === null) return null;
     if (model.machines === null)
       return (
         <Screen root={root}>
@@ -50,17 +39,7 @@ export const MachineListView = View.make(
           </Button>
         </Screen>
       );
-    if (model.machines.length > 0)
-      return (
-        <Screen root={root}>
-          <p
-            role="status"
-            className="flex items-center gap-2 text-sm text-muted-foreground"
-          >
-            <Spinner /> Opening your Machine…
-          </p>
-        </Screen>
-      );
+    if (model.machines.length > 0) return null;
     return (
       <Screen root={root}>
         <h1 className="text-lg font-semibold">No Machine yet</h1>
@@ -93,7 +72,7 @@ function Screen({
   return (
     <main
       {...root}
-      className="mx-auto flex min-h-dvh w-full max-w-lg flex-col items-start justify-center gap-4 px-6"
+      className="mx-auto flex w-full max-w-lg flex-col items-start gap-4 px-6 py-10"
     >
       {children}
     </main>

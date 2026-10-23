@@ -1,59 +1,121 @@
 import { eq } from '@tanstack/db';
-import { Context, Effect, Layer, Queue, Schema, Stream } from 'effect';
+import { Effect, Queue, Schema, Stream } from 'effect';
 import type { Project, Session } from '@kestack/ai-toolkit/api';
 import { Ai } from '@kestack/ai-toolkit/client';
 import { Query } from '@kestack/std-toolkit/replica';
 
 /*
- * What the pages read from the Machine the app is on, as Queries over its
- * `Ai` Instance, `Ai.get(machineId)`, the one `CurrentMachine` names.
- * Machine page Provides it with the Machine's own `AiClient` and Replicas,
- * so nothing here can read another Machine's records. Projects and sessions sync whole while the app runs; a
- * session's messages sync only while `Messages` filters on its id, which
- * opens that session's Window. `everything` follows every project and
- * session for a Worker, which hands them to a Picker while it is open, and
- * `lineage` one session and the ones it was forked from, for a page's
- * Worker.
+ * What the pages read of the Machines, as Queries over their `Ai`
+ * Instances, `Ai.get(machineId)`, one per Machine, each syncing over its
+ * own Machine's socket. `Projects` and `Sessions` read every Machine named
+ * at once, and each row says which Machine it is from; a row, or a
+ * session's messages, are read from the one Machine its address names.
+ * Projects and sessions sync whole while the app runs; a session's
+ * messages sync only while `Messages` filters on its id, which opens that
+ * session's Window. `everything` follows every project and session for a
+ * Worker, which hands them to a Picker while it is open, and `lineage` one
+ * session and the ones it was forked from, for a page's Worker.
  */
 
-const None = Schema.Struct({});
-const OfProject = Schema.Struct({ projectId: Schema.String });
-const OfSession = Schema.Struct({ sessionId: Schema.String });
+/** A record as read from one Machine: its own fields, and the Machine's id. */
+export type OnMachine<A> = A & { readonly machineId: string };
 
-/** The Machine the app is on: the Machine page Provides it, one per Machine. */
-export class CurrentMachine extends Context.Service<
-  CurrentMachine,
-  { readonly id: string }
->()('code/CurrentMachine') {
-  static readonly layer = (id: string) => Layer.succeed(CurrentMachine, { id });
-}
-
-/** The `Ai` Instance of the Machine the app is on. */
-const current = Effect.flatMap(CurrentMachine, ({ id }) => Ai.get(id));
-
-const ai = () => Effect.all({ ai: current });
-
-export const Projects = Query.make('Projects', {
-  props: None,
-  from: ai,
-  query:
-    (_, { ai }) =>
-    (q) =>
-      q.from({ project: ai.projects }),
+const OfMachines = Schema.Struct({
+  machineIds: Schema.NonEmptyArray(Schema.String),
+});
+const OfProject = Schema.Struct({
+  machineId: Schema.String,
+  projectId: Schema.String,
+});
+const OfSession = Schema.Struct({
+  machineId: Schema.String,
+  sessionId: Schema.String,
 });
 
-export const Sessions = Query.make('Sessions', {
-  props: None,
-  from: ai,
+const Ids = Schema.fromJsonString(Schema.NonEmptyArray(Schema.String));
+const encodeIds = Schema.encodeSync(Ids);
+const decodeIds = Schema.decodeSync(Ids);
+
+/**
+ * A Query across Machines, placed as an `each` Child: one key while there
+ * are Machines, naming them, and none without, so it reads from no
+ * Machines never.
+ */
+export const across = {
+  each: (machineIds: ReadonlyArray<string>) => {
+    const [first, ...rest] = machineIds;
+    return first === undefined ? [] : [encodeIds([first, ...rest])];
+  },
+  props: (key: string) => ({ machineIds: decodeIds(key) }),
+};
+
+/** The Instance of each Machine named, by Machine id. */
+const instancesOf = (machineIds: ReadonlyArray<string>) =>
+  Effect.map(
+    Effect.forEach(machineIds, (machineId) =>
+      Effect.map(Ai.get(machineId), (ai) => [machineId, ai] as const),
+    ),
+    (pairs) => Object.fromEntries(pairs),
+  );
+
+type Instances = Effect.Success<ReturnType<typeof instancesOf>>;
+
+/** One Machine's Instance, as a Query reads it. */
+const one = ({ props }: { readonly props: { readonly machineId: string } }) =>
+  Effect.all({ ai: Ai.get(props.machineId) });
+
+/** The Instance of a Machine read: `from` held every one named. */
+const held = (instances: Instances, machineId: string) => {
+  const found = instances[machineId];
+  if (found === undefined)
+    throw new Error(`[code] Machine ${machineId} is not held by this Query`);
+  return found;
+};
+
+/** The name a Query's `neverSynced` gives a Machine's Instance. */
+export const instanceOf = (machineId: string) => Ai.instanceName(machineId);
+
+/** Every project of every Machine named, each with its Machine. */
+export const Projects = Query.make('Projects', {
+  props: OfMachines,
+  from: ({ props }) => instancesOf(props.machineIds),
   query:
-    (_, { ai }) =>
-    (q) =>
-      q.from({ session: ai.sessions }),
+    ({ props }, instances) =>
+    (q) => {
+      const branch = (machineId: string, at: number) =>
+        q
+          .from({ [`m${at}`]: held(instances, machineId).projects })
+          .select((refs) => ({ ...refs[`m${at}`], machineId }));
+      const [first, ...rest] = props.machineIds;
+      return q.unionAll(
+        branch(first, 0),
+        ...rest.map((machineId, at) => branch(machineId, at + 1)),
+      );
+    },
+});
+
+/** Every session of every Machine named, each with its Machine. */
+export const Sessions = Query.make('Sessions', {
+  props: OfMachines,
+  from: ({ props }) => instancesOf(props.machineIds),
+  query:
+    ({ props }, instances) =>
+    (q) => {
+      const branch = (machineId: string, at: number) =>
+        q
+          .from({ [`m${at}`]: held(instances, machineId).sessions })
+          .select((refs) => ({ ...refs[`m${at}`], machineId }));
+      const [first, ...rest] = props.machineIds;
+      return q.unionAll(
+        branch(first, 0),
+        ...rest.map((machineId, at) => branch(machineId, at + 1)),
+      );
+    },
 });
 
 export const ProjectRow = Query.make('ProjectRow', {
   props: OfProject,
-  from: ai,
+  from: one,
   query:
     ({ props }, { ai }) =>
     (q) =>
@@ -62,20 +124,9 @@ export const ProjectRow = Query.make('ProjectRow', {
         .where(({ project }) => eq(project.id, props.projectId)),
 });
 
-export const ProjectSessions = Query.make('ProjectSessions', {
-  props: OfProject,
-  from: ai,
-  query:
-    ({ props }, { ai }) =>
-    (q) =>
-      q
-        .from({ session: ai.sessions })
-        .where(({ session }) => eq(session.projectId, props.projectId)),
-});
-
 export const SessionRow = Query.make('SessionRow', {
   props: OfSession,
-  from: ai,
+  from: one,
   query:
     ({ props }, { ai }) =>
     (q) =>
@@ -86,7 +137,7 @@ export const SessionRow = Query.make('SessionRow', {
 
 export const Messages = Query.make('Messages', {
   props: OfSession,
-  from: ai,
+  from: one,
   query:
     ({ props }, { ai }) =>
     (q) =>
@@ -95,50 +146,67 @@ export const Messages = Query.make('Messages', {
         .where(({ message }) => eq(message.sessionId, props.sessionId)),
 });
 
-/**
- * Every Project and Session the device holds now, then again after each
- * change to either, for a Worker: the Instance is held while it runs.
- */
-export const everything = Stream.unwrap(
-  Effect.map(current, (ai) =>
-    Stream.callback<{
-      readonly projects: ReadonlyArray<Project>;
-      readonly sessions: ReadonlyArray<Session>;
-    }>(
-      (queue) =>
-        Effect.acquireRelease(
-          Effect.sync(() => {
-            const offer = () =>
-              Queue.offerUnsafe(queue, {
-                projects: [...ai.projects.values()],
-                sessions: [...ai.sessions.values()],
-              });
-            offer();
-            return [
-              ai.projects.subscribeChanges(offer),
-              ai.sessions.subscribeChanges(offer),
-            ];
-          }),
-          (subscriptions) =>
-            Effect.sync(() => {
-              for (const each of subscriptions) each.unsubscribe();
-            }),
-        ),
-      // Changes while a reader is busy fold into the latest.
-      { bufferSize: 1, strategy: 'sliding' },
-    ),
-  ),
-).pipe(Stream.orDie);
+/** Every project and session the device holds of the Machines named. */
+export interface Everything {
+  readonly projects: ReadonlyArray<OnMachine<Project>>;
+  readonly sessions: ReadonlyArray<OnMachine<Session>>;
+}
 
 /**
- * A Session and every Session it was forked from, nearest first, as the
- * device holds them now, then again after each change to them, for a
- * Worker; empty while it holds none. The chain ends at a Session not
- * forked, or one the device does not hold.
+ * Every Project and Session the device holds of the Machines named now,
+ * then again after each change to any, for a Worker: the Instances are
+ * held while it runs.
  */
-export const lineage = (sessionId: string) =>
+export const everything = (machineIds: ReadonlyArray<string>) =>
   Stream.unwrap(
-    Effect.map(current, (ai) =>
+    Effect.map(instancesOf(machineIds), (instances) =>
+      Stream.callback<Everything>(
+        (queue) =>
+          Effect.acquireRelease(
+            Effect.sync(() => {
+              const all = Object.entries(instances);
+              const offer = () =>
+                Queue.offerUnsafe(queue, {
+                  projects: all.flatMap(([machineId, ai]) =>
+                    [...ai.projects.values()].map((each) => ({
+                      ...each,
+                      machineId,
+                    })),
+                  ),
+                  sessions: all.flatMap(([machineId, ai]) =>
+                    [...ai.sessions.values()].map((each) => ({
+                      ...each,
+                      machineId,
+                    })),
+                  ),
+                });
+              offer();
+              return all.flatMap(([, ai]) => [
+                ai.projects.subscribeChanges(offer),
+                ai.sessions.subscribeChanges(offer),
+              ]);
+            }),
+            (subscriptions) =>
+              Effect.sync(() => {
+                for (const each of subscriptions) each.unsubscribe();
+              }),
+          ),
+        // Changes while a reader is busy fold into the latest.
+        { bufferSize: 1, strategy: 'sliding' },
+      ),
+    ),
+  ).pipe(Stream.orDie);
+
+/**
+ * A Session of one Machine and every Session it was forked from, nearest
+ * first, as the device holds them now, then again after each change to
+ * them, for a Worker; empty while it holds none. The chain ends at a
+ * Session not forked, or one the device does not hold. A Fork is always
+ * on its original's Machine.
+ */
+export const lineage = (machineId: string, sessionId: string) =>
+  Stream.unwrap(
+    Effect.map(Ai.get(machineId), (ai) =>
       Stream.callback<ReadonlyArray<Session>>(
         (queue) =>
           Effect.acquireRelease(

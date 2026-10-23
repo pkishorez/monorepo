@@ -246,4 +246,4 @@ export class Replicas extends Context.Service<
 
 export type { Running };
 /** What a Query reads of an Instance, and whether it is Caught Up. */
-export { CaughtUp, readsOf } from './instance/index.js';
+export { CaughtUp, NeverSynced, readsOf } from './instance/index.js';

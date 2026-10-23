@@ -8,7 +8,7 @@ import { Dialog, useOpen } from './confirm.tsx';
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
 /*
- * A confirmation opened from a button on the page, with Vim Mode off.
+ * A confirmation opened from a button on the page.
  * Focus starts on keeping things, and comes back to the button however
  * it closes: kept, by Escape, or done.
  */
@@ -77,7 +77,7 @@ beforeEach(async () => {
   root = createRoot(document.body.appendChild(document.createElement('div')));
   await act(async () =>
     root!.render(
-      <keys.Provider>
+      <keys.Provider vim>
         <Page />
       </keys.Provider>,
     ),

@@ -2,12 +2,10 @@ import { Effect, Queue, Schema, Stream, SubscriptionRef } from 'effect';
 import { Machine } from '@kestack/ai-toolkit/machines';
 import { MachinesClient } from '@kestack/ai-toolkit/machines/client';
 import { Actor } from '@kestack/kabuki';
-import { Navigation, Page, Router } from '@kestack/kabuki/routing';
-import { home, root } from '../../places/index.ts';
-import { forget, list, save } from './api.ts';
-import { choose, HEARTBEAT } from './health.ts';
+import { Store } from '@kestack/std-toolkit/replica';
+import { drop, forget, list, save } from './api.ts';
+import { HEARTBEAT } from './health.ts';
 import { Link, nobody } from './link.ts';
-import { Records } from './records.ts';
 import { Saved } from './saved.ts';
 
 /*
@@ -15,36 +13,20 @@ import { Saved } from './saved.ts';
  * for as long as that Account is signed in.
  *
  * 1. Saved    the list last kept for the Account shows first, so the app
- *             opens on its Machine even while the Backend is out of reach.
+ *             opens on its Machines even while the Backend is out of reach.
  * 2. Fetch    then the Backend's list, again every 15 seconds while the
  *             page is visible, on becoming visible, and when asked; each
  *             answer is kept for next time.
- * 3. Open     at the root, once there is a list, the Machine this device
- *             was last on for the Account, else the one seen last.
- * 4. Forget   a Machine, asked from Settings: the Backend forgets it, then
- *             its records here go; the Machine open goes back to the root
- *             first, and its records once its page has closed.
- * 5. Share    what it holds is what `Machines` says to every page.
+ * 3. Forget   a Machine, asked from Settings: the Backend forgets it, it
+ *             leaves the list, so nothing reads its Instance any more, and
+ *             then its records here go.
+ * 4. Share    what it holds is what `Machines` says to every page.
  */
-
-/**
- * The root's own place, `/`: on no Machine yet. The Machine List opens
- * one from here; the root draws the list's View while it does.
- */
-export const Open = Page.define({ path: '/', metadata: { title: 'code' } });
-
-export const OpenLive = Page.build(Open);
 
 export const MachineList = Actor.define('MachineList', {
-  requires: [MachinesClient, Saved, Records, Link, Navigation],
+  requires: [MachinesClient, Saved, Store, Link],
   input: Schema.Struct({ accountId: Schema.String }),
   props: Schema.Struct({
-    /** Whether the app is at the root, on no Machine. */
-    atRoot: Schema.Boolean,
-    /** The Machine this device was last on for the Account. */
-    last: Schema.NullOr(Schema.String),
-    /** The Machine the app is on. */
-    on: Schema.NullOr(Schema.String),
     /** The Account's email, for the command that adds a Machine. */
     email: Schema.NullOr(Schema.String),
   }),
@@ -68,7 +50,6 @@ export const MachineList = Actor.define('MachineList', {
     Failed: { problem: Schema.String },
     Refresh: {},
     Visible: { visible: Schema.Boolean },
-    Open: { machineId: Schema.String },
     Forget: { id: Schema.String },
     Forgot: { id: Schema.String },
     ForgetFailed: { id: Schema.String, problem: Schema.String },
@@ -137,16 +118,7 @@ export const MachineListLive = Actor.build(MachineList, {
           self.send({ _tag: 'Visible', visible }),
         ),
     },
-    // 3. Open, once per Machine chosen while at the root.
-    open: {
-      each: ({ model, props }) => {
-        if (!props.atRoot || model.machines === null) return [];
-        const chosen = choose(model.machines, props.last);
-        return chosen === null ? [] : [chosen.id];
-      },
-      run: (self, machineId) => self.send({ _tag: 'Open', machineId }),
-    },
-    // 5. Share
+    // 4. Share
     publish: {
       run: (self) =>
         Effect.flatMap(Link, ({ known }) =>
@@ -197,9 +169,7 @@ export const MachineListLive = Actor.build(MachineList, {
         fetching: model.fetching || (visible && !model.visible),
       },
     }),
-    Open: ({ machineId }, { props }) =>
-      props.atRoot ? { command: Router.replace(home(machineId)) } : {},
-    // 4. Forget
+    // 3. Forget
     Forget: ({ id }, { model }) =>
       model.forgetting !== null && model.forgetting.problem === null
         ? {}
@@ -207,14 +177,12 @@ export const MachineListLive = Actor.build(MachineList, {
             model: { ...model, forgetting: { id, problem: null } },
             command: forget({ id }),
           },
-    Forgot: ({ id }, { model, props }) => {
+    // Out of the list first, so no Query reads its Instance as it goes.
+    Forgot: ({ id }, { model }) => {
       const machines = (model.machines ?? []).filter((each) => each.id !== id);
       return {
         model: { ...model, machines, forgetting: null },
-        command: [
-          save({ accountId: model.accountId, machines }),
-          ...(props.on === id ? [Router.replace(root())] : []),
-        ],
+        command: [save({ accountId: model.accountId, machines }), drop({ id })],
       };
     },
     ForgetFailed: ({ id, problem }, { model }) =>
@@ -228,10 +196,17 @@ export const MachineListLive = Actor.build(MachineList, {
 });
 
 // What the rest of the app reads of Machines: the Capability every page
-// is Provided, what a Machine's record says, where this device keeps each
-// Account's list and each Machine's records, and what signing out deletes.
+// is Provided, how every Machine of it is reached, what a Machine's record
+// says, where this device keeps each Account's list, and what signing out
+// deletes.
 export { signedOut } from './api.ts';
-export { Records } from './records.ts';
-export { DOWN_AFTER, health, socketUrl, statusOf } from './health.ts';
+export {
+  DOWN_AFTER,
+  health,
+  outOfReach,
+  socketUrl,
+  statusOf,
+} from './health.ts';
 export { Machines } from './link.ts';
+export { reach } from './reach.ts';
 export { idb as savedIdb, memory as savedMemory, Saved } from './saved.ts';
