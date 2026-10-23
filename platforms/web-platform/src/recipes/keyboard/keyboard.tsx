@@ -22,7 +22,9 @@ const holdersOf = (definition: Definition, found = new Set<string>()) => {
 /**
  * The status line of the Vim window, like Vim's own: the Mode, where the
  * user is, the Sequence under way, help, and a button that turns Vim Mode
- * off. Where the user is leaves out the Surfaces that are not Focusable,
+ * off. The Mode is drawn as a coloured label, Normal in the primary colour
+ * and Insert in a green of its own, `--vim-insert`, so it reads at a glance. Where the user
+ * is leaves out the Surfaces that are not Focusable,
  * such as the app's own. Put it in `AppShell`'s `vim.statusLine`, which shows it only while
  * Vim Mode is on. While it is on, `<html>` carries `data-vim`, so dialogs,
  * menus and the frame open and close at once.
@@ -49,21 +51,22 @@ export function KeysStatusBar<D extends Definition>(props: {
     <div
       role="status"
       data-slot="keys-status-bar"
+      data-mode={insert ? 'insert' : 'normal'}
       className={cn(
-        'flex h-7 items-center gap-2 border-t border-border bg-sidebar px-3 font-mono text-[11px] text-sidebar-foreground',
+        'flex h-9 items-center gap-3 border-t border-border bg-sidebar px-2 font-mono text-xs text-sidebar-foreground',
         props.className,
       )}
     >
+      {/* The Mode, in a colour of its own: Normal the primary's, Insert green (`--vim-insert`). */}
       <span
         className={cn(
-          'font-semibold tracking-wide',
-          insert && 'text-sidebar-active-foreground',
+          'rounded-md px-2 py-1 leading-none font-semibold tracking-wider',
+          insert
+            ? 'bg-(--vim-insert) text-(--vim-insert-foreground)'
+            : 'bg-primary text-primary-foreground',
         )}
       >
         {insert ? 'INSERT' : 'NORMAL'}
-      </span>
-      <span aria-hidden="true" className="text-muted-foreground">
-        ·
       </span>
       <span className="min-w-0 truncate text-muted-foreground">
         {where.join(' › ')}
@@ -84,9 +87,9 @@ export function KeysStatusBar<D extends Definition>(props: {
         aria-label="Turn Vim Mode off"
         title="Turn Vim Mode off"
         onClick={() => vim.set(false)}
-        className="grid size-5 place-items-center rounded-sm text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
+        className="grid size-6 place-items-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
       >
-        <X className="size-3.5" />
+        <X className="size-4" />
       </button>
     </div>
   );

@@ -32,6 +32,10 @@
   );
   --surface-dim: 0.6;
 
+  /* The status bar's Insert label: a deep green under white. */
+  --vim-insert: oklch(0.48 0.14 150);
+  --vim-insert-foreground: oklch(0.99 0 0);
+
   /* The Vim window, floating over its backdrop. */
   --vim-window-backdrop-color: color-mix(in oklab, var(--background), black 7%);
   --vim-window-backdrop: radial-gradient(
@@ -59,6 +63,10 @@
     transparent
   );
   --surface-dim: 0.58;
+
+  /* A bright green under near-black, so it stands out in the dark. */
+  --vim-insert: oklch(0.78 0.17 150);
+  --vim-insert-foreground: oklch(0.2 0.04 150);
 
   --vim-window-backdrop-color: color-mix(
     in oklab,
