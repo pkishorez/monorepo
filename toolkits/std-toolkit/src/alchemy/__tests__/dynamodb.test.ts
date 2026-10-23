@@ -38,6 +38,7 @@ it('guards the table before projecting its topology onto the resource', async ()
   expect(guard).toHaveBeenCalledWith('TasksContract', stdTable, 'persistent', {
     target: 'tasks-prod',
     inPlaceOnly: true,
+    localIndexOrder: ['byAlternate'],
   });
   expect(guard.mock.invocationCallOrder[0]).toBeLessThan(
     table.mock.invocationCallOrder[0]!,
@@ -92,6 +93,7 @@ it('guards a disposable table in place only too', async () => {
   expect(guard).toHaveBeenCalledWith('PrefsContract', stdTable, 'disposable', {
     target: 'prefs-prod',
     inPlaceOnly: true,
+    localIndexOrder: [],
   });
   expect(Object.keys(Output.upstreamAny(table.mock.calls[0]![1]))).toEqual([
     'TasksContract',
