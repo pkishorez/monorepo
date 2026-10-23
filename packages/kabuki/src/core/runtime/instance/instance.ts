@@ -31,7 +31,8 @@ import type { WorkerStatus } from './worker.ts';
  * Asked a Query, it answers from where it is now, and cancels every Query
  * being answered at a level when that level ends: a State's when it is
  * left, the Instance's when it stops, and all of them when a Restore starts
- * the app over.
+ * the app over. A level that ends cancels the Queries of every Instance
+ * below it too, before any Scope closes.
  */
 
 export interface ActorInstance {
@@ -69,6 +70,8 @@ interface Living {
     name: string,
     args: unknown,
   ) => Effect.Effect<unknown, unknown>;
+  /** Cancels every Query being answered here and anywhere below. */
+  readonly cancel: () => void;
   readonly stop: () => Effect.Effect<void>;
 }
 
@@ -103,15 +106,21 @@ const start = (
         own,
       );
       const asked = new Asked();
+      const held = children(
+        slotsAt(definition, instance, 'state'),
+        instance,
+        place,
+      );
+      const cancel = () => {
+        asked.cancel();
+        held.cancel();
+      };
       return {
-        children: children(
-          slotsAt(definition, instance, 'state'),
-          instance,
-          place,
-        ),
+        children: held,
         asked,
+        cancel,
         stop: () => {
-          asked.cancel();
+          cancel();
           Effect.runFork(Scope.close(place.scope, Exit.void));
         },
       };
@@ -156,11 +165,15 @@ const start = (
               : [all, asked, state.asked];
           return ask(own, query, name, args, current.state, at);
         }),
+      cancel: () => {
+        asked.cancel();
+        top.cancel();
+        state.cancel();
+      },
       // 4. Stop
       stop: () =>
         Effect.suspend(() => {
-          asked.cancel();
-          state.asked.cancel();
+          living.cancel();
           return Scope.close(inside.scope, Exit.void);
         }),
     };
@@ -230,6 +243,7 @@ const start = (
       },
       find: (id: string) =>
         [...alive].find(([kid]) => within(kid, id))?.[1].find(id),
+      cancel: () => alive.forEach((kid) => kid.cancel()),
     };
   };
 

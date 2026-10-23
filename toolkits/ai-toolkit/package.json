@@ -49,7 +49,7 @@
     "lint": "vp check && pnpm lint:tsc && laymos lint",
     "lint:tsc": "tsc --noEmit",
     "test": "vitest run --exclude \"**/*.e2e.test.ts\"",
-    "test:e2e": "AI_TOOLKIT_E2E=1 vitest run --include \"**/*.e2e.test.ts\""
+    "test:e2e": "AI_TOOLKIT_E2E=1 vitest run .e2e.test.ts"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "catalog:",

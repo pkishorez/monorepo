@@ -1,4 +1,4 @@
-import { Data, Deferred, Effect, Scope } from 'effect';
+import { Data, Deferred, Effect } from 'effect';
 import type { QueryDefinition, Tagged } from '../../actor/index.ts';
 import type { Own } from './self.ts';
 

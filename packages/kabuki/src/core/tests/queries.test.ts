@@ -215,6 +215,69 @@ describe('a Query', () => {
       }),
     ));
 
+  describe('below an Instance that stops', () => {
+    class Wait extends Context.Service<
+      Wait,
+      { readonly answer: Effect.Effect<string> }
+    >()('test/Wait') {}
+
+    const Bulb = Actor.build(Actor.define('Bulb', { requires: [Wait] }), {
+      queries: { glow: { run: () => Effect.flatMap(Wait, (w) => w.answer) } },
+    });
+    const Lamp = Actor.build(Actor.define('Lamp', { requires: [Wait] }), {
+      children: { bulb: { actor: Bulb } },
+    });
+    const Room = Actor.build(
+      Actor.define('Room', {
+        requires: [Wait],
+        model: Schema.Struct({ lit: Schema.Boolean }),
+        message: Schema.TaggedUnion({ Switched: {} }),
+      }),
+      {
+        init: () => ({ model: { lit: true } }),
+        children: { lamp: { actor: Lamp, while: ({ model }) => model.lit } },
+        on: { Switched: (_, { model }) => ({ model: { lit: !model.lit } }) },
+      },
+    );
+
+    /** A Room whose Bulb is answering `glow`, held until `hold` is done. */
+    const asking = Effect.gen(function* () {
+      const hold = yield* Deferred.make<string>();
+      const running = yield* Runtime.start(
+        Room,
+        Layer.succeed(Wait, { answer: Deferred.await(hold) }),
+      );
+      const fiber = yield* Effect.forkChild(
+        Effect.flip(running.query('Room/lamp#1/bulb#1', 'glow', undefined)),
+      );
+      yield* settle;
+      expect(fiber.pollUnsafe()).toBeUndefined();
+      return { hold, running, fiber };
+    });
+
+    it('fails as Stopped when the Runtime stops', () =>
+      run(
+        Effect.gen(function* () {
+          const { hold, running, fiber } = yield* asking;
+          yield* running.stop();
+          yield* Deferred.succeed(hold, 'late');
+          expect(yield* Fiber.join(fiber)).toBeInstanceOf(Stopped);
+        }),
+      ));
+
+    it('fails as Stopped when an ancestor is removed', () =>
+      run(
+        Effect.gen(function* () {
+          const { hold, running, fiber } = yield* asking;
+          running.send('Room', { _tag: 'Switched' });
+          yield* settle;
+          expect(running.snapshot().children).toEqual({});
+          yield* Deferred.succeed(hold, 'late');
+          expect(yield* Fiber.join(fiber)).toBeInstanceOf(Stopped);
+        }),
+      ));
+  });
+
   it('passes its own failure through', () =>
     run(
       Effect.gen(function* () {
