@@ -94,7 +94,7 @@ const table = (id: string, options: DynamoDBTableOptions) =>
   Effect.gen(function* () {
     const topology = DynamoDBAdapter.getTableDefinition(options.table);
     const guard = yield* guardContract(
-      `${id}Contract`,
+      `${id}Snapshot`,
       options.table,
       options.mode,
       {

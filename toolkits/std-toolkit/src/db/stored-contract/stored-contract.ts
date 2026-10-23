@@ -44,7 +44,8 @@ export type SetupRefusedReason =
   | 'breaking'
   | 'mode-change'
   | 'unreadable'
-  | 'replaces-table';
+  | 'replaces-table'
+  | 'renames-table';
 
 /**
  * Setup refused to touch a persistent table. It never wipes: the fix is a
@@ -82,11 +83,13 @@ const refusalMessage = (
       return `std-toolkit: table "${table}" is persistent and cannot become disposable. Nothing was changed. Use a new physical table name to start a disposable table.`;
     case 'replaces-table':
       return [
-        `std-toolkit: table "${table}" cannot take this change in place: the database can only make it by replacing the table, which deletes its data. Nothing was changed. Add a global secondary index instead, or use a new physical table name.`,
+        `std-toolkit: table "${table}" cannot take this change in place: the database can only make it by replacing the table, which deletes its data. Nothing was changed. Add a global secondary index instead, or declare a new DynamoDB.table resource, with its own id and table name.`,
         ...(changes.length === 0
           ? []
           : ['', TableSnapshot.renderChanges(changes)]),
       ].join('\n');
+    case 'renames-table':
+      return `std-toolkit: DynamoDB table "${table}" cannot get a new physical name under the same resource: Alchemy would replace it and delete the old table. Nothing was changed. Declare a new DynamoDB.table resource, with its own id, for the new name.`;
     case 'unreadable':
       return `std-toolkit: persistent table "${table}" has a stored contract this version of std-toolkit cannot read, so its data cannot be checked. Nothing was changed.`;
   }
