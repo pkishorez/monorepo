@@ -135,7 +135,7 @@ node toolkits/ai-toolkit/bin/ai-toolkit.mjs serve --port 4590 --db ~/.ai-toolkit
 node toolkits/ai-toolkit/bin/ai-toolkit.mjs logout --db ~/.ai-toolkit/ai.db
 ```
 
-In this repo, `pnpm dev` serves against `apps/code`'s dev Backend, asking portless for its address, with the database `~/.ai-toolkit/dev.db`; `pnpm dev:local` does the same for a Backend in Local mode, as `dev@kishore.computer`. Any flag after them is passed on, such as `pnpm dev --name studio`.
+In this repo, `pnpm dev` serves against `apps/code`'s dev Backend, asking portless for its address, with the database `~/.ai-toolkit/dev.db`; `pnpm dev:local` does the same for a Backend in Local mode, as `dev@kishore.computer`, with `~/.ai-toolkit/dev-local.db`, since one database file is one User's. Any flag after them is passed on, such as `pnpm dev --name studio`.
 
 ```sh
 pnpm --filter code dev                  # the app and its Backend, signing in with auth.kishore.computer

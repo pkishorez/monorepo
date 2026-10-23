@@ -43,7 +43,7 @@
   "scripts": {
     "build": "rm -rf dist && tsc -p tsconfig.build.json && tsc -p tsconfig.types.json",
     "dev": "pnpm build && node bin/ai-toolkit.mjs serve --backend \"$(portless get api-code.kishore)\" --db ~/.ai-toolkit/dev.db",
-    "dev:local": "pnpm build && node bin/ai-toolkit.mjs serve --backend \"$(portless get api-code.kishore)\" --db ~/.ai-toolkit/dev.db --as dev@kishore.computer",
+    "dev:local": "pnpm build && node bin/ai-toolkit.mjs serve --backend \"$(portless get api-code.kishore)\" --db ~/.ai-toolkit/dev-local.db --as dev@kishore.computer",
     "fmt": "vp fmt",
     "lint": "vp check && pnpm lint:tsc && laymos lint",
     "lint:tsc": "tsc --noEmit",
