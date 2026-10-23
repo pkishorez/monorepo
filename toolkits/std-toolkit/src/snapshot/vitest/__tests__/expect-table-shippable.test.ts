@@ -98,9 +98,9 @@ describe('expectTableShippable', () => {
   });
 
   describe('a breaking change', () => {
-    it('fails, naming the change and how a person accepts it', async () => {
+    it('fails, naming the change and that nothing accepts it', async () => {
       await expect(expectTableShippable(tightened(), file)).rejects.toThrow(
-        /Breaking changes against .*board\.snapshot\.json[\s\S]*Task v1[\s\S]*-u does not accept a breaking change[\s\S]*acceptBreaking: \["Task v1 edited","Task v2 edited"\]/,
+        /Breaking changes against .*board\.snapshot\.json[\s\S]*Task v1[\s\S]*-u does not accept a breaking change, and nothing else does/,
       );
     });
 
@@ -112,24 +112,6 @@ describe('expectTableShippable', () => {
         ),
       );
       expect(await readFile(fixture, 'utf8')).toBe(source);
-    });
-
-    it('reaches the file comparison once a person names it in acceptBreaking', async () => {
-      await expect(
-        expectTableShippable(tightened(), file, {
-          acceptBreaking: ['Task v1 edited', 'Task v2 edited'],
-        }),
-      ).rejects.toThrow(
-        /no longer matches its snapshot file[\s\S]*includes breaking changes named in acceptBreaking[\s\S]*Run vitest with -u/,
-      );
-    });
-
-    it('fails on an acceptBreaking entry that names no change, so none lingers', async () => {
-      await expect(
-        expectTableShippable(board, file, {
-          acceptBreaking: ['Task v1 edited'],
-        }),
-      ).rejects.toThrow(/acceptBreaking names \["Task v1 edited"\].*Remove it/);
     });
   });
 

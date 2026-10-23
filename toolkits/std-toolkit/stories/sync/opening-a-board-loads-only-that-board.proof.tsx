@@ -55,6 +55,7 @@ export default Proof.browser({
       .primary({ pk: ['boardId'] })
       .build();
     const backend = IDB.make(table, {
+      mode: 'disposable',
       database: IDB.database({ databaseName: 'backend' }),
     });
     const onBoard = (boardId: string, after: Entity<Task> | null) =>

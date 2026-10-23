@@ -1,6 +1,11 @@
 import type { Effect } from 'effect';
 import type { TableDefinition } from '../../std-table/definition/index.js';
-import { inspectUpgrade, upgradeDatabase } from './upgrade.js';
+import {
+  CONTRACT_STORE,
+  inspectContractStore,
+  inspectUpgrade,
+  upgradeDatabase,
+} from './upgrade.js';
 
 interface IDBIndexDefinition {
   readonly name: string;
@@ -46,18 +51,14 @@ export const makeIDBSetup = (connection: {
 }) => {
   let queue: Promise<void> = Promise.resolve();
 
-  return (
-    storeName: string,
-    indexes: readonly IDBIndexDefinition[],
+  // Upgrades run one at a time, each until its inspection finds nothing left.
+  const upgradeUntil = (
+    inspect: (database: IDBDatabase) => ReturnType<typeof inspectUpgrade>,
   ): Promise<void> => {
-    if (indexes.some(({ name }) => name === '_entity'))
-      return Promise.reject(
-        new Error('IndexedDB index slot name "_entity" is reserved'),
-      );
-    const setup = queue.then(async () => {
+    const run = queue.then(async () => {
       for (;;) {
         const database = await connection.open();
-        const plan = inspectUpgrade(database, storeName, indexes);
+        const plan = inspect(database);
         if (plan === null) return;
         const nextVersion = database.version + 1;
         database.close();
@@ -66,7 +67,27 @@ export const makeIDBSetup = (connection: {
         );
       }
     });
-    queue = setup.catch(() => undefined);
-    return setup;
+    queue = run.catch(() => undefined);
+    return run;
+  };
+
+  return {
+    setup: (
+      storeName: string,
+      indexes: readonly IDBIndexDefinition[],
+    ): Promise<void> => {
+      if (indexes.some(({ name }) => name === '_entity'))
+        return Promise.reject(
+          new Error('IndexedDB index slot name "_entity" is reserved'),
+        );
+      if (storeName === CONTRACT_STORE)
+        return Promise.reject(
+          new Error(`IndexedDB Store name "${CONTRACT_STORE}" is reserved`),
+        );
+      return upgradeUntil((database) =>
+        inspectUpgrade(database, storeName, indexes),
+      );
+    },
+    prepareContract: (): Promise<void> => upgradeUntil(inspectContractStore),
   };
 };

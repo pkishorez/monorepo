@@ -10,14 +10,7 @@ import {
 import { TableSnapshot } from '../index.js';
 import type { SnapshotChange, TableSource } from '../index.js';
 
-export interface ShippableOptions extends UpgradeCheckOptions {
-  /**
-   * Breaking changes a person has confirmed no deployed data depends on, each
-   * named as the failure prints it (`'Task v1 edited'`). Remove each entry once
-   * the file is updated: an entry that names no change in the run fails it.
-   */
-  readonly acceptBreaking?: readonly string[];
-}
+export type ShippableOptions = UpgradeCheckOptions;
 
 // A file the toolkit cannot read is never replaced, not even under `-u`: it is
 // the baseline breaking changes are judged against, so replacing it would
@@ -66,18 +59,11 @@ const isBreaking = ({ impact }: SnapshotChange) =>
 
 /** Why the table cannot ship, as sections of the failure; empty when it can. */
 const refusals = (
-  table: TableSource,
   file: string,
   changes: readonly SnapshotChange[],
   upgrades: readonly string[],
-  accepted: readonly string[],
 ): readonly string[] => {
-  const breaking = changes.filter(isBreaking);
-  const labels = new Set(breaking.map(TableSnapshot.changeLabel));
-  const blocked = breaking.filter(
-    (change) => !accepted.includes(TableSnapshot.changeLabel(change)),
-  );
-  const stale = accepted.filter((label) => !labels.has(label));
+  const blocked = changes.filter(isBreaking);
   return [
     ...(upgrades.length === 0
       ? []
@@ -98,20 +84,15 @@ const refusals = (
             '',
             TableSnapshot.renderChanges(blocked),
             '',
-            'Running vitest with -u does not accept a breaking change. A stored version is frozen once shipped: undo the edit and add the change as a new version instead.',
-            `Only a person who has confirmed that no deployed data depends on it may accept it, by naming it in acceptBreaking: ${JSON.stringify(blocked.map(TableSnapshot.changeLabel))}.`,
+            'Running vitest with -u does not accept a breaking change, and nothing else does: setup and the deploy guard refuse it too. A stored version is frozen once shipped: undo the edit and add the change as a new version instead, or move the data to a new physical table name.',
           ].join('\n'),
-        ]),
-    ...(stale.length === 0
-      ? []
-      : [
-          `acceptBreaking names ${JSON.stringify(stale)}, which is not a breaking change of table "${table.logicalName}" in this run. Remove it.`,
         ]),
   ];
 };
 
 /**
- * The one test a table needs. It fails unless the table is safe to ship:
+ * The one test a persistent table needs; a table kept only in disposable
+ * physical tables needs none. It fails unless the table is safe to ship:
  *
  * - every stored version of every schema the table reaches upgrades to the
  *   latest, and a keyed row keeps its id and partition key;
@@ -119,8 +100,7 @@ const refusals = (
  * - the committed file is up to date.
  *
  * `vitest -u` writes the file only for changes that are safe or need a
- * backfill. It never accepts a breaking change or a failing upgrade; a
- * breaking change ships only when a person names it in `acceptBreaking`.
+ * backfill. It never accepts a breaking change or a failing upgrade.
  */
 export async function expectTableShippable(
   table: TableSource,
@@ -132,7 +112,6 @@ export async function expectTableShippable(
       `Table "${table.logicalName}" has no registered entities; import the modules that define them before checking it.`,
     );
   }
-  const { acceptBreaking = [], ...upgradeOptions } = options;
   const state = expect.getState();
   const path =
     state.testPath === undefined
@@ -142,9 +121,9 @@ export async function expectTableShippable(
   const current = TableSnapshot.capture(table);
   const changes = prior === undefined ? [] : TableSnapshot.diff(prior, current);
   const upgrades = await Effect.runPromise(
-    findUpgradeFailures(upgradeRoots(table), upgradeOptions),
+    findUpgradeFailures(upgradeRoots(table), options),
   );
-  const refused = refusals(table, file, changes, upgrades, acceptBreaking);
+  const refused = refusals(file, changes, upgrades);
   if (refused.length > 0) {
     throw new Error(
       [`Table "${table.logicalName}" is not safe to ship.`, ...refused].join(
@@ -161,9 +140,7 @@ export async function expectTableShippable(
           '',
           TableSnapshot.renderChanges(changes),
           '',
-          changes.some(isBreaking)
-            ? `This includes breaking changes named in acceptBreaking. Run vitest with -u to accept them into ${file}, then remove the entries.`
-            : `These changes keep every stored row readable. Run vitest with -u to accept them into ${file}.`,
+          `These changes keep every stored row readable. Run vitest with -u to accept them into ${file}.`,
         ].join('\n');
   await expect(await serialize(current), message).toMatchFileSnapshot(path);
 }

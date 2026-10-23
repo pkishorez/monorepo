@@ -14,6 +14,6 @@ runConformanceSuite({
     const database = IDB.database({
       databaseName: `portable-conformance-${++databaseNumber}`,
     });
-    return IDB.make(conformanceTable, { database }).layer;
+    return IDB.make(conformanceTable, { mode: 'disposable', database }).layer;
   },
 });

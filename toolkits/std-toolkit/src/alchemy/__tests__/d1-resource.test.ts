@@ -8,7 +8,7 @@ import { TableSnapshot } from '../../snapshot/index.js';
 import type { TableSource } from '../../snapshot/index.js';
 
 const { guard } = vi.hoisted(() => ({ guard: vi.fn() }));
-vi.mock('../snapshot-guard/index.js', () => ({ guardTable: guard }));
+vi.mock('../deploy-guard/index.js', () => ({ guardContract: guard }));
 vi.mock('alchemy', async (importOriginal) => {
   const actual = await importOriginal<typeof import('alchemy')>();
   const { Effect } = await import('effect');
@@ -23,7 +23,7 @@ import { D1, setUpD1Table } from '../d1/d1.js';
 const stored = (table: TableSource) =>
   Effect.runSync(TableSnapshot.serialize(TableSnapshot.capture(table)));
 
-it('guards the table and feeds the guarded snapshot to the D1 table', async () => {
+it('guards a persistent table and feeds the guarded snapshot to the D1 table', async () => {
   const table = StdTable.make('tasks').primary('pk', 'sk').build();
   const guardedSnapshot = Output.literal('guarded');
   guard.mockImplementation(() => Effect.succeed({ snapshot: guardedSnapshot }));
@@ -35,19 +35,41 @@ it('guards the table and feeds the guarded snapshot to the D1 table', async () =
       table,
       database,
       tableName: 'physical-tasks',
+      mode: 'persistent',
     }) as Effect.Effect<unknown>,
   )) as { LogicalId: string; Props: Record<string, unknown> };
 
-  expect(guard).toHaveBeenCalledWith('TasksV2Snapshot', {
-    table,
-    target: expect.anything(),
-  });
+  expect(guard).toHaveBeenCalledWith('TasksV2DeployGuard', table, 'persistent');
   expect(resource.LogicalId).toBe('TasksV2');
   expect(resource.Props).toEqual({
     databaseId,
     tableName: 'physical-tasks',
+    mode: 'persistent',
     snapshot: guardedSnapshot,
   });
+});
+
+it('gives a disposable table no deploy guard', async () => {
+  guard.mockClear();
+  const table = StdTable.make('prefs').primary('pk', 'sk').build();
+  const database = {
+    databaseId: Output.literal('db-1'),
+  } as unknown as Cloudflare.D1.Database;
+
+  const resource = (await Effect.runPromise(
+    D1.table('Prefs', {
+      table,
+      database,
+      mode: 'disposable',
+    }) as Effect.Effect<unknown>,
+  )) as { Props: Record<string, unknown> };
+
+  expect(guard).not.toHaveBeenCalled();
+  expect(resource.Props).toMatchObject({
+    mode: 'disposable',
+    tableName: 'prefs',
+  });
+  expect(resource.Props.snapshot).toEqual(stored(table));
 });
 
 it('creates the table and indexes from the snapshot', async () => {
@@ -58,6 +80,7 @@ it('creates the table and indexes from the snapshot', async () => {
       setUpD1Table(
         {
           databaseId: 'db-1',
+          mode: 'persistent',
           tableName: 'physical-tasks',
           snapshot: stored(table),
         },

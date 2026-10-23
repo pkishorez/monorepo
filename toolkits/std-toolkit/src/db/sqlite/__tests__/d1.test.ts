@@ -35,6 +35,7 @@ runConformanceSuite({
   name: 'SQLite D1',
   makeLayer: () => {
     const config = {
+      mode: 'persistent' as const,
       database: driver,
       tableName: `conformance_${++tableSequence}`,
     };
@@ -152,7 +153,11 @@ describe('D1 SQLite driver', () => {
   });
 
   it('reconciles setup repeatedly using the caller-owned binding', async () => {
-    const config = { database: driver, tableName: 'repeated_setup' };
+    const config = {
+      database: driver,
+      tableName: 'repeated_setup',
+      mode: 'persistent' as const,
+    };
     await Effect.runPromise(SQLite.setup(conformanceTable, config));
     await Effect.runPromise(SQLite.setup(conformanceTable, config));
     expect(

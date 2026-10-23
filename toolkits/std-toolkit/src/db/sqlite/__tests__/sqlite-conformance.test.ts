@@ -8,7 +8,9 @@ import {
 } from '../../std-table/__tests__/conformance.js';
 
 const makeLayer = (database: ReturnType<typeof makeNodeSQLite>) => {
-  Effect.runSync(SQLite.setup(conformanceTable, { database }));
+  Effect.runSync(
+    SQLite.setup(conformanceTable, { mode: 'persistent', database }),
+  );
   return SQLite.make(conformanceTable, { database }).layer;
 };
 

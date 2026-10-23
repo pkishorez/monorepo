@@ -30,6 +30,14 @@ Primary, LSI, and GSI access patterns observe the latest committed IndexedDB sta
 The setup discipline where the adapter owns the database's version number, bumping it only when a declared **Store** or **Sparse index** is missing or incompatible. The upgrade creates additive topology but does not migrate legacy Records or backfill index keys on existing Records. A database name given to this adapter belongs to it; no other code may version that database.
 _Avoid_: migration, manual upgrade.
 
+**Contract store**:
+The `_std_contract` object store in the same database, holding each **Store**'s [[db]] **Stored contract** by Store name. Setup reads it on the table's first open, before it changes any Store; the name is reserved.
+_Avoid_: Metadata store, schema store.
+
+**Backfill choice**:
+What setup does with a change that needs a backfill on this adapter, the only one that backfills: reindex the stored **Records** in place, or wipe them. A **Persistent table** always reindexes; a **Disposable table** chooses, reindexing by default. A disposable Store whose Records cannot be reindexed is wiped instead.
+_Avoid_: Migration, backfill job.
+
 **Buffered transaction**:
 The atomicity model for `transact()`: operations are validated into plain descriptors first, then applied together in one native IndexedDB transaction. There is no interactive begin/commit — IndexedDB transactions cannot span foreign async work.
 _Avoid_: begin/commit/rollback, session.

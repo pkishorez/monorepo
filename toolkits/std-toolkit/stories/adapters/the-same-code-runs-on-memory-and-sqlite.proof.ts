@@ -71,7 +71,7 @@ export default Proof.make({
     const memory = Memory.make(table);
     const database = makeNodeSQLite({ path: ':memory:' });
     yield* Effect.addFinalizer(() => Effect.sync(() => database.close?.()));
-    yield* SQLite.setup(table, { database });
+    yield* SQLite.setup(table, { mode: 'persistent', database });
     const sqlite = SQLite.make(table, { database });
     yield* Proof.assert(
       'the SQLite table is ready',

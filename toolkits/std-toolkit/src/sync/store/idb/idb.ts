@@ -47,6 +47,8 @@ const make = (options: IdbOptions = {}): SyncStore => {
     table: (syncName) =>
       IDB.make(syncStore, {
         database: IDB.database({ databaseName: databaseName(syncName) }),
+        // A local copy of the Backend: refetched when a change wipes it.
+        mode: 'disposable',
       }).layer,
     leadership: locks ? webLockLeadership(locks) : noLeadership,
     doorbell: Channel ? broadcastChannelDoorbell(Channel) : noDoorbell,

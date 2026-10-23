@@ -55,7 +55,7 @@ export default Proof.make({
   prepare: Effect.gen(function* () {
     const database = makeNodeSQLite({ path: ':memory:' });
     yield* Effect.addFinalizer(() => Effect.sync(() => database.close?.()));
-    yield* SQLite.setup(lastRelease, { database });
+    yield* SQLite.setup(lastRelease, { mode: 'persistent', database });
     yield* Effect.forEach(
       [
         { boardId: 'work', taskId: 't1', title: 'Write the plan', open: true },

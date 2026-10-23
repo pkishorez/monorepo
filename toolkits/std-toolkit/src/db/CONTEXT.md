@@ -33,12 +33,24 @@ The adapter-specific information needed to reach a database, such as DynamoDB cl
 _Avoid_: Adapter configuration (long form), table definition, shared database configuration.
 
 **Adapter table**:
-The result of `<Adapter>.make(stdTable, config)` — `DynamoDBTable`, `SQLiteTable`, `IDBTable` — or the config-free `Memory.make(stdTable)` result, `MemoryTable`: the StdTable realized on one database. It closes over one StdTable's physical configuration when the adapter has any and exposes its typed `layer`. It never prepares the physical table and never reads a snapshot.
+The result of `<Adapter>.make(stdTable, config)` — `DynamoDBTable`, `SQLiteTable`, `IDBTable` — or the config-free `Memory.make(stdTable)` result, `MemoryTable`: the StdTable realized on one database. It closes over one StdTable's physical configuration when the adapter has any and exposes its typed `layer`. It never prepares the physical table; that is **Adapter setup**.
 _Avoid_: Configured adapter (retired term), instance, storage, public binding.
 
 **Adapter setup**:
-An adapter-native function that creates a physical table and its indexes where nothing else does: `SQLite.setup` and `IDB.setup`, and `DynamoDB.createTable` for DynamoDB Local. It is separate from `make`, and it never checks a snapshot. In production an alchemy target calls it at deploy (D1), or the cloud resource replaces it (DynamoDB). IndexedDB also prepares its store on the table's first open, so a page calls `IDB.setup` only to choose when the version change happens. Memory needs none.
-_Avoid_: Automatic setup, layer initialization, verifySnapshot, table-level enforcement (retired: the snapshot guard is a deploy concern, not an adapter one).
+The adapter-native step that prepares one physical table under its **Table mode**: it compares the current table snapshot with the **Stored contract**, then refuses (a **Persistent table**) or wipes the whole table (a **Disposable table**) on a change that is not safe, applies the topology, and records the new Stored contract. Its options are the adapter's own; IndexedDB's lets a disposable table reindex or wipe on a change that needs a backfill. It runs where nothing per request pays for it: at deploy inside an Alchemy resource (D1), at runtime start (SQLite files, IndexedDB on app open), or on an object's first access (Durable Objects). DynamoDB has none: Alchemy creates its table, and its **Deploy guard** is its only check. Memory has none and takes no mode, since nothing outlives it. It is separate from `make`.
+_Avoid_: Automatic setup, layer initialization, verifySnapshot.
+
+**Table mode**:
+Whether one physical table is a **Persistent table** or a **Disposable table**, declared for each physical table rather than on the StdTable, since one StdTable may be persistent on a server and disposable in a browser. A disposable table may become persistent; a persistent table never becomes disposable, so that change is an error, and the only way past it is a new physical table name.
+_Avoid_: Durability, retention, storage class.
+
+**Persistent table**:
+A physical table whose data must never be lost or stranded by a schema change. A breaking or unverifiable change to it is refused before it reaches the data, with no override, and a failed setup never wipes it. A change that needs a backfill passes with a warning, leaving the backfill to the user. Any adapter may hold one, the browser included.
+_Avoid_: Durable table (collides with Durable Objects), server table, production table.
+
+**Disposable table**:
+A physical table whose data may be thrown away when a schema change is not safe, such as preferences or a local copy that can be fetched again. It is still stored; it is only disposable. A disposable table is not frozen by version history: its schemas may change freely.
+_Avoid_: Ephemeral table (Memory's and Sync's "ephemeral" means never stored), cache table, semi-ephemeral.
 
 **Stored item**:
 The portable database form of an **Entity** as it crosses the **StdTable contract**: derived pk/sk, the entity metadata, the eschema **encoded form** of the value, and derived secondary-index keys (`StoredItem`, with `StoredKey` for a key pair alone). Everything is in encoded form before an adapter sees it, and its flat layout mirrors the physical row so adapters translate native value representations, not structure.

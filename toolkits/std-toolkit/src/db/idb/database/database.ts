@@ -1,5 +1,5 @@
 import { Effect } from 'effect';
-import { makeIDBSetup } from '../upgrade/index.js';
+import { CONTRACT_STORE, makeIDBSetup } from '../upgrade/index.js';
 
 export interface IDBDatabaseConfig {
   readonly databaseName: string;
@@ -11,6 +11,13 @@ export interface IDBIndexDefinition {
   readonly keyPath: string | readonly [string, string];
 }
 
+/** One table store's Stored contract, as the contract store keeps it. */
+export interface IDBStoredContract {
+  readonly mode: 'persistent' | 'disposable';
+  readonly hash: string;
+  readonly snapshot: unknown;
+}
+
 export interface IDBConnection {
   readonly compare: (left: IDBValidKey, right: IDBValidKey) => number;
   readonly open: () => Promise<IDBDatabase>;
@@ -18,7 +25,30 @@ export interface IDBConnection {
     storeName: string,
     indexes: readonly IDBIndexDefinition[],
   ) => Effect.Effect<void, unknown>;
+  /** Reads a table store's Stored contract, creating the contract store when missing. */
+  readonly readContract: (
+    storeName: string,
+  ) => Effect.Effect<IDBStoredContract | undefined, unknown>;
+  readonly writeContract: (
+    storeName: string,
+    contract: IDBStoredContract,
+  ) => Effect.Effect<void, unknown>;
+  /** Removes every record from a table store. */
+  readonly clear: (storeName: string) => Effect.Effect<void, unknown>;
 }
+
+const completed = (transaction: IDBTransaction) =>
+  new Promise<void>((resolve, reject) => {
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+    transaction.onabort = () => reject(transaction.error);
+  });
+
+const requested = <A>(request: IDBRequest<A>) =>
+  new Promise<A>((resolve, reject) => {
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
 
 const connections = new WeakMap<IDBFactory, Map<string, IDBConnection>>();
 const defaultConnections = new Map<string, IDBConnection>();
@@ -131,13 +161,47 @@ const makeConnection = (configuration: IDBDatabaseConfig): IDBConnection => {
     },
   });
 
+  const attempt = <A>(run: () => Promise<A>) =>
+    Effect.tryPromise({ try: run, catch: (cause) => cause });
+
   return {
     compare: (left, right) => resolveFactory(configuration).cmp(left, right),
     open: getCurrent,
     setup: (storeName, indexes) =>
-      Effect.tryPromise({
-        try: () => setup(storeName, indexes),
-        catch: (cause) => cause,
+      attempt(() => setup.setup(storeName, indexes)),
+    readContract: (storeName) =>
+      attempt(async () => {
+        await setup.prepareContract();
+        const database = await getCurrent();
+        const record = (await requested(
+          database
+            .transaction(CONTRACT_STORE, 'readonly')
+            .objectStore(CONTRACT_STORE)
+            .get(storeName),
+        )) as (IDBStoredContract & { readonly store: string }) | undefined;
+        if (record === undefined) return undefined;
+        return {
+          mode: record.mode,
+          hash: record.hash,
+          snapshot: record.snapshot,
+        };
+      }),
+    writeContract: (storeName, contract) =>
+      attempt(async () => {
+        const database = await getCurrent();
+        const transaction = database.transaction(CONTRACT_STORE, 'readwrite');
+        transaction
+          .objectStore(CONTRACT_STORE)
+          .put({ store: storeName, ...contract });
+        await completed(transaction);
+      }),
+    clear: (storeName) =>
+      attempt(async () => {
+        const database = await getCurrent();
+        if (!database.objectStoreNames.contains(storeName)) return;
+        const transaction = database.transaction(storeName, 'readwrite');
+        transaction.objectStore(storeName).clear();
+        await completed(transaction);
       }),
   };
 };

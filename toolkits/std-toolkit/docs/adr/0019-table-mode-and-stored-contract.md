@@ -1,0 +1,22 @@
+# Every physical table has a mode, and setup checks a contract stored with the data
+
+Every physical table is declared `persistent` or `disposable`, and adapter setup compares the table's contract with the **Stored contract** kept beside the data before it changes anything. This supersedes ADR 0012's "nothing is stored inside the table" and "setup never checks a snapshot", and ADR 0018's `acceptBreaking`.
+
+ADR 0012 kept the only baseline in Alchemy state. That cannot protect a table Alchemy never sees. Each browser's IndexedDB and each Durable Object holds its own data at its own version: a device that last opened the app at v3 meets v5 directly, while the deploy guard only ever compared v3→v4 and v4→v5. A baseline in Alchemy state also outlives nothing it protects: lose the state and the guard starts fresh while the data remains. The baseline has to live exactly as long as the data does, so it lives with the data. The cold-start objection in ADR 0012 no longer applies, because setup runs only where no request pays for it: at deploy for D1, at process start for a SQLite file, on app open for IndexedDB, and on first access for a Durable Object. A hash beside the contract makes an unchanged contract one read with no comparison.
+
+**The two modes.** A persistent table refuses a breaking or unverifiable change and never wipes; the fix is a code change or a new physical table name. A change that needs a backfill passes with a warning, since stored rows still read and the user decides when to backfill. A disposable table is wiped, whole, on any change its stored rows cannot take. Its schemas change freely, so it needs no `expectTableShippable`. A table may become persistent; a persistent table becoming disposable is refused, because otherwise one deploy could wipe it. The mode is declared per physical table, not on the StdTable, because one StdTable can be persistent in DynamoDB and disposable as a browser's copy.
+
+**Per adapter.** SQLite (every driver, D1 and Durable Objects included) keeps the contract in a `_std_contract` table and IndexedDB in a `_std_contract` store in the same database. Only IndexedDB backfills, because its data is local and small: a persistent store always reindexes, and a disposable one chooses `reindex` or `wipe`. DynamoDB keeps no Stored contract: Alchemy creates its table, and a contract would need to be split across items to fit the 400 KB item limit. Its deploy guard is its only check, and a disposable DynamoDB table is replaced under a new physical name. Memory takes no mode, since nothing outlives it.
+
+**The deploy guard stays, as an earlier check.** The Alchemy resource, renamed from snapshot guard to deploy guard, keeps the **Deployed contract** and refuses a persistent table's breaking change before it reaches any device or object. D1 and DynamoDB tables include it; `DeployGuard.table(table)` declares one for a table Alchemy does not create, named after the StdTable, with no mode, since declaring it says the table is persistent.
+
+## Considered Options
+
+- **The baseline only in Alchemy state** (ADR 0012): rejected for the device and Durable Object cases above.
+- **A dummy D1 database recording a Durable Object's schema**: rejected. Only each object knows the state of its own data, and the guard-only resource already gives the deploy-time check.
+- **`acceptBreaking`**: removed. An agent could write the entry, and a persistent table that takes a breaking change is what the whole mechanism exists to prevent.
+- **A third, semi-disposable mode**: rejected as a distinction nothing acts on.
+
+## Consequences
+
+`@kestack/std-toolkit/db/sqlite` and `/db/idb` now import snapshot, so removing snapshot no longer leaves the runtime compiling, and a Worker bundle that sets up a SQLite table carries the snapshot code. Existing tables are adopted: a table with no Stored contract records its first one and keeps its rows. Deploy guards get new resource ids, so each records a fresh Deployed contract on its first deploy after this change; the Stored contract is unaffected. A deleted deploy guard removes only the early check, since setup still refuses against the Stored contract.

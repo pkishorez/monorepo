@@ -1,24 +1,30 @@
 import { Effect } from 'effect';
 import { isResolved, Resource } from 'alchemy';
 import * as Cloudflare from 'alchemy/Cloudflare';
-import * as Output from 'alchemy/Output';
 import * as Provider from 'alchemy/Provider';
-import { SQLite, type SQLiteDriver } from '../../db/sqlite/index.js';
+import {
+  setUpFromSnapshot,
+  type SQLiteDriver,
+  type TableMode,
+} from '../../db/sqlite/index.js';
 import { makeD1SQLite } from '../../db/sqlite/drivers/d1/index.js';
 import { TableSnapshot } from '../../snapshot/index.js';
 import type { TableSource } from '../../snapshot/index.js';
-import { guardTable, type Providers } from '../snapshot-guard/index.js';
+import { guardContract, type Providers } from '../deploy-guard/index.js';
 
 interface D1TableOptions {
   readonly table: TableSource;
   readonly database: Cloudflare.D1.Database;
   /** Physical table name inside the database. Defaults to the logical name. */
   readonly tableName?: string;
+  /** Required: whether this table's data must survive every schema change. */
+  readonly mode: TableMode;
 }
 
 interface D1TableProps {
   readonly databaseId: string;
   readonly tableName: string;
+  readonly mode: TableMode;
   readonly snapshot: unknown;
 }
 
@@ -55,9 +61,10 @@ export const setUpD1Table = <R>(
 ) =>
   Effect.gen(function* () {
     const snapshot = yield* TableSnapshot.parse(props.snapshot);
-    yield* SQLite.setup(topologyFromSnapshot(snapshot), {
+    yield* setUpFromSnapshot(topologyFromSnapshot(snapshot), props.snapshot, {
       database: yield* database,
       tableName: props.tableName,
+      mode: props.mode,
     });
     return props;
   });
@@ -88,17 +95,30 @@ export const D1TableProvider = () =>
     read: ({ output }) => Effect.succeed(output),
   });
 
+/**
+ * Creates or updates the table in D1 at deploy, under its Stored contract
+ * kept in the same database: setup refuses a persistent table's breaking
+ * change and wipes a disposable one's. A persistent table also gets a deploy
+ * guard, which refuses the change before setup runs.
+ */
 const table = (id: string, options: D1TableOptions) =>
   Effect.gen(function* () {
     const tableName = options.tableName ?? options.table.logicalName;
-    const guard = yield* guardTable(`${id}Snapshot`, {
-      table: options.table,
-      target: Output.interpolate`${options.database.databaseId}/${tableName}`,
-    });
+    const snapshot =
+      options.mode === 'persistent'
+        ? (yield* guardContract(
+            `${id}DeployGuard`,
+            options.table,
+            'persistent',
+          )).snapshot
+        : yield* TableSnapshot.serialize(
+            TableSnapshot.capture(options.table),
+          ).pipe(Effect.orDie);
     return yield* D1Table(id, {
       databaseId: options.database.databaseId,
       tableName,
-      snapshot: guard.snapshot,
+      mode: options.mode,
+      snapshot,
     });
   });
 

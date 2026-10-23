@@ -154,7 +154,7 @@ describe('IndexedDB setup', () => {
       .primary({ pk: ['email'] })
       .index('LSI1', 'byLabel', { sk: ['label'] })
       .build();
-    const layer = IDB.make(table, { database }).layer;
+    const layer = IDB.make(table, { mode: 'disposable', database }).layer;
     await Effect.runPromise(setup(table, database));
 
     const connection = await database.open();
