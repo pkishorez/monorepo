@@ -123,6 +123,34 @@ export type Workers<
   Props = void,
 > = Readonly<Record<string, Worker<Model, State, Msg, R, Props>>>;
 
+// Queries -------------------------------------------------------------------------
+
+/** What a Query reads of its Instance: a Worker's Self, without `send`. */
+export type QuerySelf<Model, State, Props = void> = Omit<
+  Self<Model, State, never, Props>,
+  'send'
+>;
+
+/**
+ * A question an Instance answers from what it holds and what its Services
+ * know, without changing anything: it reads its Instance and the
+ * Capabilities the Actor Requires, and never Sends. Written at the top it
+ * is askable for as long as the Instance lives; in a State's block, only
+ * while that State lasts. Its `args`, answer and failure are its own; the
+ * Runtime adds `Stopped` to the failure for the caller outside the tree.
+ */
+export type Query<Model, State, R extends Requires, Props = void> = {
+  readonly run: (
+    self: QuerySelf<Model, State, Props>,
+    args: any,
+  ) => Effect.Effect<unknown, unknown, IdsOf<R>>;
+};
+
+/** Every Query of one level, by name. */
+export type Queries<Model, State, R extends Requires, Props = void> = Readonly<
+  Record<string, Query<Model, State, R, Props>>
+>;
+
 // Children ------------------------------------------------------------------------
 
 /**
@@ -250,6 +278,8 @@ type Level<
   /** The Updates: per Message, the next Model and State and the Commands. */
   readonly on?: Rules<Model, State, Props, Msg, R, Next>;
   readonly workers?: Workers<Model, State, Msg, R, Props>;
+  /** The questions this level answers from outside the tree, by name. */
+  readonly queries?: Queries<Model, State, R, Props>;
 };
 
 type ModelInit<Model> = {} extends Model
@@ -317,7 +347,7 @@ export type ProvidedOf<L> = L extends {
   : never;
 
 type OpenOf<A> =
-  A extends Actor<any, any, any, any, any, any, any, infer O> ? O : never;
+  A extends Actor<any, any, any, any, any, any, any, infer O, any> ? O : never;
 
 /** What the Children of a level still need from above. */
 type KidsOpen<C> = { [K in keyof C]: OpenOf<ActorOf<C[K]>> }[keyof C];
@@ -355,6 +385,34 @@ export type ChildAs<C, N> = C extends { readonly each: Function }
   : C extends { readonly while: Function }
     ? N | undefined
     : N;
+
+/** The Queries of a level, as written. */
+type QueriesOf<L> = L extends { readonly queries: infer Q } ? Q : {};
+
+/** The Queries per State tag, top-level ones in every State, for code outside the tree. */
+export type QueriesByState<State extends Tagged, B> = {
+  readonly [T in State['_tag']]: QueriesOf<B> & QueriesOf<BlockOf<B, T>>;
+};
+
+/** An Actor's Queries in one State, as written: by name. */
+export type QueriesIn<A, T> = T extends keyof Types<A>['queries']
+  ? Types<A>['queries'][T]
+  : {};
+
+/**
+ * A Query as code outside the tree asks it: its args, if its `run` takes
+ * any, to an Effect with its answer, failing with its own failure or
+ * `Stopped`, and needing nothing, since the Instance supplies its
+ * Capabilities. `S` is the Runtime's `Stopped`.
+ */
+export type QueryAs<Q, S> = Q extends {
+  readonly run: (...params: infer P) => Effect.Effect<infer A, infer E, any>;
+}
+  ? (...args: ArgsOf<P>) => Effect.Effect<A, E | S>
+  : never;
+
+/** A Query's `run` parameters without `self`, optional ones kept so. */
+type ArgsOf<P> = P extends [any, ...infer Args] ? Args : [];
 
 // What the engine reads ------------------------------------------------------------
 
@@ -406,6 +464,13 @@ export interface WorkerDefinition {
   readonly run: Function;
 }
 
+/** One Query, as the engine sees it: the State it is askable in, if not every one, and what answers. */
+export interface QueryDefinition {
+  /** The State whose block it is written in; none for a top-level Query. */
+  readonly state?: string;
+  readonly run: Function;
+}
+
 /** The plain definition the engine works from; an Actor without States is keyed by its one State. */
 export interface ActorDefinition {
   readonly name: string;
@@ -436,6 +501,7 @@ export interface ActorDefinition {
     Record<string, Readonly<Record<string, Function | undefined>> | undefined>
   >;
   readonly workers: Readonly<Record<string, WorkerDefinition>>;
+  readonly queries: Readonly<Record<string, QueryDefinition>>;
   /** The top-level Provide, built once when the Instance starts. */
   readonly provides: Function | undefined;
   /** Each State's Provide, built each time it is entered. */
@@ -459,6 +525,7 @@ export interface Actor<
   out Msg extends Tagged,
   out Kids,
   out Needs,
+  out Qs = {},
 > {
   readonly name: Name;
   readonly definition: ActorDefinition;
@@ -470,10 +537,11 @@ export interface Actor<
     readonly message: Msg;
     readonly children: Kids;
     readonly open: Needs;
+    readonly queries: Qs;
   };
 }
 
-export type AnyActor = Actor<string, any, any, any, any, any, any, any>;
+export type AnyActor = Actor<string, any, any, any, any, any, any, any, any>;
 
 /** The Actor interface, by a name that does not clash with the `Actor` value: for code that builds Actors on top of `Actor.build`. */
 export type ActorType<
@@ -485,7 +553,8 @@ export type ActorType<
   Msg extends Tagged,
   Kids,
   Needs,
-> = Actor<Name, Input, Props, Model, State, Msg, Kids, Needs>;
+  Qs = {},
+> = Actor<Name, Input, Props, Model, State, Msg, Kids, Needs, Qs>;
 
 /** Everything an Actor's types say, for the Runtime and Views. */
 export type Types<A> =
@@ -497,7 +566,8 @@ export type Types<A> =
     infer State,
     infer Msg,
     infer Kids,
-    infer Needs
+    infer Needs,
+    infer Qs
   >
     ? {
         input: Input;
@@ -508,5 +578,7 @@ export type Types<A> =
         /** Slots per State tag. */
         children: Kids;
         open: Needs;
+        /** Queries per State tag. */
+        queries: Qs;
       }
     : never;

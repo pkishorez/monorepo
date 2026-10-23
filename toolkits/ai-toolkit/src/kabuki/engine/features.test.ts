@@ -577,13 +577,27 @@ describe('asking a Session', () => {
     );
   });
 
-  it('reads MCP Server Status and Context Usage from the agent, opening it if it is closed', async () => {
+  it('reads MCP Server Status and Context Usage from the open agent, and never opens it', async () => {
     const path = join(folder(), 'ai.db');
     const fake = makeFakeHarness();
     const sessionId = await run(
       Effect.gen(function* () {
-        const { session, idle } = yield* started();
+        const { engine, session, idle } = yield* started();
         yield* idle();
+        // The agent stays open between Turns: it answers.
+        expect(fake.opens).toHaveLength(1);
+        expect(yield* engine.mcpStatus(session.id)).toEqual([
+          { name: 'fake-mcp', status: 'connected', tools: 1 },
+        ]);
+        expect(yield* engine.contextUsage(session.id)).toEqual({
+          usedTokens: 1000,
+          maxTokens: 200000,
+          rateLimits: [],
+        });
+        expect(fake.opens).toHaveLength(1);
+        expect((yield* Effect.flip(engine.mcpStatus('nope')))._tag).toBe(
+          'SessionNotFound',
+        );
         return session.id;
       }),
       fake,
@@ -592,21 +606,13 @@ describe('asking a Session', () => {
     await run(
       Effect.gen(function* () {
         const engine = yield* Engine;
-        expect(fake.opens).toHaveLength(1);
-        expect(yield* engine.mcpStatus(sessionId)).toEqual([
-          { name: 'fake-mcp', status: 'connected', tools: 1 },
-        ]);
-        expect(fake.opens).toHaveLength(2);
-        expect(fake.opens[1]?.nativeId).toBe('native-1');
-        expect(yield* engine.contextUsage(sessionId)).toEqual({
-          usedTokens: 1000,
-          maxTokens: 200000,
-          rateLimits: [],
+        // After a restart the agent is closed until the next Turn: a Query says so, and opens nothing.
+        const refused = yield* Effect.flip(engine.mcpStatus(sessionId));
+        expect(refused).toMatchObject({
+          _tag: 'HarnessFailed',
+          message: "The session's agent is not running",
         });
-        expect(fake.opens).toHaveLength(2);
-        expect((yield* Effect.flip(engine.mcpStatus('nope')))._tag).toBe(
-          'SessionNotFound',
-        );
+        expect(fake.opens).toHaveLength(1);
       }),
       fake,
       { path },
@@ -642,13 +648,40 @@ describe('Background Jobs', () => {
         );
 
         yield* engine.stopBackgroundJob(session.id, 'j1');
-        expect(fake.stoppedJobs).toEqual(['j1']);
+        yield* eventually(() => expect(fake.stoppedJobs).toEqual(['j1']));
         yield* eventually(() => expect(seen.at(-1)).toEqual([row([agent])]));
 
         yield* engine.removeProject(project.id);
         yield* eventually(() => expect(seen.at(-1)).toEqual([]));
         yield* eventually(() => expect(fake.closes()).toBe(1));
         yield* Fiber.interrupt(watching);
+      }),
+      fake,
+    );
+  });
+
+  it('report a stop the harness refuses, and keep the job', async () => {
+    const fake = makeFakeHarness({ refuseStops: true });
+    await run(
+      Effect.gen(function* () {
+        const { engine, session, idle } = yield* started();
+        yield* idle();
+        const build = { id: 'j1', kind: 'shell' as const, title: 'pnpm build' };
+        yield* fake.setJobs('native-1', [build]);
+        yield* eventually(async () =>
+          expect(
+            await Effect.runPromise(Stream.runHead(engine.backgroundJobs)),
+          ).toMatchObject({ _tag: 'Some' }),
+        );
+        const refused = yield* Effect.flip(
+          engine.stopBackgroundJob(session.id, 'j1'),
+        );
+        expect(refused).toMatchObject({
+          _tag: 'HarnessFailed',
+          message: 'job j1 cannot be stopped',
+        });
+        // A job the agent does not list is already gone.
+        yield* engine.stopBackgroundJob(session.id, 'nope');
       }),
       fake,
     );

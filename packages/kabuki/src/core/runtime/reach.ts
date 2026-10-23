@@ -1,3 +1,4 @@
+import { Effect } from 'effect';
 import type {
   ActorDefinition,
   ActorOf,
@@ -5,11 +6,14 @@ import type {
   ChildAs,
   KidsIn,
   Only,
+  QueriesIn,
+  QueryAs,
   Tagged,
   Types,
 } from '../actor/index.ts';
 import { instanceAt, isMany } from '../snapshot/index.ts';
 import type { Instance, Snapshot, Source } from '../snapshot/index.ts';
+import { Stopped } from './instance/index.ts';
 import type { WorkerStatus } from './instance/index.ts';
 
 /*
@@ -19,8 +23,8 @@ import type { WorkerStatus } from './instance/index.ts';
  * so it is always live. One that has stopped, or was reached before the
  * app last started over, by a start or a Restore, reads what it held when
  * last read. It can
- * Send, always from outside under the name it was reached with, and change
- * nothing else.
+ * Send, always from outside under the name it was reached with, ask the
+ * Queries its Actor answers in its current State, and change nothing else.
  */
 
 /**
@@ -51,6 +55,17 @@ type Typed<A> = {
     };
     /** What its Workers are doing now. Empty once it has stopped. */
     readonly workers: ReadonlyArray<WorkerStatus>;
+    /**
+     * The Queries it answers now: the ones written at its top, and the ones
+     * of the State `_tag` narrows it to. Each fails with `Stopped` once it
+     * has stopped or left that State.
+     */
+    readonly queries: {
+      readonly [K in keyof QueriesIn<A, T>]: QueryAs<
+        QueriesIn<A, T>[K],
+        Stopped
+      >;
+    };
     /** Whether it has stopped, or the app has started over since it was reached, by a start or a Restore: nothing Sent to it arrives. Reach the app again after either. */
     readonly stopped: boolean;
     /**
@@ -72,6 +87,9 @@ interface Untyped {
   readonly props: unknown;
   readonly children: Readonly<Record<string, Untyped | ReadonlyArray<Untyped>>>;
   readonly workers: ReadonlyArray<WorkerStatus>;
+  readonly queries: Readonly<
+    Record<string, (args?: unknown) => Effect.Effect<unknown, unknown>>
+  >;
   readonly stopped: boolean;
   send(message: Tagged): boolean;
 }
@@ -82,6 +100,11 @@ export interface Reachable {
   readonly running: () => boolean;
   readonly send: (id: string, message: Tagged, source: Source) => void;
   readonly workers: (id: string) => ReadonlyArray<WorkerStatus>;
+  readonly query: (
+    id: string,
+    name: string,
+    args: unknown,
+  ) => Effect.Effect<unknown, unknown>;
   /** How many times the app has started over, by a start or a Restore. */
   readonly run: () => number;
 }
@@ -142,6 +165,24 @@ const live = (
     },
     get workers() {
       return stopped() ? [] : app.workers(id);
+    },
+    get queries() {
+      const tag = now().state._tag;
+      return Object.fromEntries(
+        Object.entries(definition.queries)
+          .filter(
+            ([, query]) => query.state === undefined || query.state === tag,
+          )
+          .map(([name]) => [
+            name,
+            (args?: unknown) =>
+              Effect.suspend(() =>
+                stopped()
+                  ? Effect.fail(new Stopped({ instance: id, query: name }))
+                  : app.query(id, name, args),
+              ),
+          ]),
+      );
     },
     get stopped() {
       return stopped();

@@ -1,1 +1,1 @@
-export { fallbackTitle, Session, SessionInput } from './actor.js';
+export { AgentClosed, fallbackTitle, Session, SessionInput } from './actor.js';

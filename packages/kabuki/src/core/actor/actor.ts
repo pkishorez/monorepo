@@ -9,6 +9,8 @@ import type {
   Encoding,
   KidsByState,
   OpenOfBehavior,
+  QueriesByState,
+  QueryDefinition,
   Requires,
   Single,
   SlotDefinition,
@@ -109,7 +111,8 @@ export type BuiltOf<D, B> =
         State,
         Msg,
         KidsByState<State, B>,
-        OpenOfBehavior<R, B>
+        OpenOfBehavior<R, B>,
+        QueriesByState<State, B>
       >
     : never;
 
@@ -129,6 +132,7 @@ type Block = {
   readonly children?: Record<string, AnyChild>;
   readonly on?: Record<string, Function>;
   readonly workers?: Record<string, any>;
+  readonly queries?: Record<string, QueryDefinition>;
 };
 
 /** The plain definition the engine works from, out of the Schemas and the levels. */
@@ -159,8 +163,20 @@ const definitionOf = (
     }
   };
 
+  const queries: Record<string, QueryDefinition> = {};
+  const addQueries = (from: Block, state: string | undefined) => {
+    for (const [query, { run }] of Object.entries(from.queries ?? {})) {
+      if (queries[query])
+        throw new Error(
+          `[@kestack/kabuki] ${name}: Query "${query}" is written twice`,
+        );
+      queries[query] = state === undefined ? { run } : { state, run };
+    }
+  };
+
   if (behavior.on) update['*'] = behavior.on as Record<string, Function>;
   addWorkers(behavior, undefined);
+  addQueries(behavior, undefined);
   for (const tag of states) {
     const block = blocks[tag] ?? {};
     const own = slots(block.children);
@@ -173,6 +189,7 @@ const definitionOf = (
     if (block.on) update[tag] = block.on as Record<string, Function>;
     stateProvides[tag] = block.provides;
     addWorkers(block, tag);
+    addQueries(block, tag);
   }
   // TypeScript cannot see this: a rule that destructures its Message hides
   // its whole `on` from inference. So it is checked once here, and warned.
@@ -204,6 +221,7 @@ const definitionOf = (
     init: behavior.init ?? (() => ({})),
     update,
     workers,
+    queries,
     provides: behavior.provides,
     stateProvides,
     children,
@@ -337,6 +355,6 @@ const workerOf = (worker: any, state: string | undefined): WorkerDefinition => {
  * Requires, which fix every type. `build` takes a definition and how it
  * behaves, at the top for as long as the Instance lives and in one block per
  * State for as long as that State lasts: its Provides, Children, Updates
- * under `on`, and Workers.
+ * under `on`, Workers, and the Queries it answers from outside.
  */
 export const Actor = { define, build };

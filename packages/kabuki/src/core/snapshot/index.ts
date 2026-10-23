@@ -3,5 +3,4 @@ export type { Envelope, Instance, Snapshot, Source } from './snapshot.ts';
 export { handle } from './handle.ts';
 export type { Handled } from './handle.ts';
 export { actorAt, instanceAt, isMany, within } from './tree.ts';
-export { RESTORE, isRestore, restore } from './restore.ts';
-export type { Restore } from './restore.ts';
+export { isRestore, restore } from './restore.ts';

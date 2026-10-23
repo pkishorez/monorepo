@@ -79,29 +79,29 @@ pnpm add @kestack/kabuki effect react
 
 ### `@kestack/kabuki`
 
-| Export             | What it does                                                                                                                                                               |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Actor.define`     | Says what an Actor is: its name, Requires and Schemas, which fix every type. It runs nothing.                                                                              |
-| `Actor.build`      | Says how a defined Actor behaves, at the top and in one block per State: the build is what runs and is drawn.                                                              |
-| `Command.make`     | Defines a Command from its name, the Schema of its args and the Effect it runs; an Update calls it with the args.                                                          |
-| `Runtime.start`    | Runs an Actor, or carries a History on, inside a Scope, with the app's Layer; gives back `send`, `start` and `stop`. Started from an Actor, its History keeps no Messages. |
-| `running.changes`  | The live Snapshot as an Effect Stream: now, then whenever the app settles; a slow reader gets only the latest.                                                             |
-| `running.instance` | The root Instance, typed and live, for code outside the tree: reads any Instance's data, Children and Workers, and Sends to it from outside under a name.                  |
-| `History.make`     | A new, empty History for an Actor, with the root's Input.                                                                                                                  |
-| `History.load`     | A History carrying on from one saved before, read with the Actor's code as it is now.                                                                                      |
-| `History.restored` | The lightest History an app can be saved as: one Restore of a Snapshot at a Time, right after init.                                                                        |
-| `history.changes`  | The History as plain JSON in an Effect Stream: now, then after every change, so saving it is `Stream.debounce` and `Stream.runForEach`.                                    |
-| `history.keep`     | Sets the History's Window, how many entries it keeps; older ones Compact into a Restore. Works while it runs.                                                              |
-| `Replay.make`      | Plays Branches of one app from init, remembering Snapshots so playing again starts from the nearest one.                                                                   |
-| `Replay.fold`      | The Snapshot right after a Branch, played now from init with the root's Input, with no yielding.                                                                           |
-| `restore`          | The Restore Message: given to the root, it replaces the whole Snapshot with a saved one, checked against the Actors.                                                       |
-| `isRestore`        | Tells a Restore from any other Message.                                                                                                                                    |
-| `RESTORE`          | The Restore Message's tag.                                                                                                                                                 |
-| `init`             | The Snapshot right after init: the root and every Child its State Invokes.                                                                                                 |
-| `handle`           | Applies one Envelope to a Snapshot and gives the next one, purely.                                                                                                         |
-| `outcomeOf`        | Works out what came of one Envelope on a Snapshot: handled, ignored or dropped. The History never keeps it.                                                                |
-| `instanceAt`       | Finds the Instance with an ID in a Snapshot.                                                                                                                               |
-| `isMany`           | Tells the list of an `each` Child from one Instance in an Instance's Children.                                                                                             |
+| Export             | What it does                                                                                                                                                                |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Actor.define`     | Says what an Actor is: its name, Requires and Schemas, which fix every type. It runs nothing.                                                                               |
+| `Actor.build`      | Says how a defined Actor behaves, at the top and in one block per State: the build is what runs and is drawn.                                                               |
+| `Command.make`     | Defines a Command from its name, the Schema of its args and the Effect it runs; an Update calls it with the args.                                                           |
+| `Runtime.start`    | Runs an Actor, or carries a History on, inside a Scope, with the app's Layer; gives back `send`, `start` and `stop`. Started from an Actor, its History keeps no Messages.  |
+| `running.changes`  | The live Snapshot as an Effect Stream: now, then whenever the app settles; a slow reader gets only the latest.                                                              |
+| `running.instance` | The root Instance, typed and live, for code outside the tree: reads any Instance's data, Children and Workers, asks its Queries, and Sends to it from outside under a name. |
+| `History.make`     | A new, empty History for an Actor, with the root's Input.                                                                                                                   |
+| `History.load`     | A History carrying on from one saved before, read with the Actor's code as it is now.                                                                                       |
+| `History.restored` | The lightest History an app can be saved as: one Restore of a Snapshot at a Time, right after init.                                                                         |
+| `history.changes`  | The History as plain JSON in an Effect Stream: now, then after every change, so saving it is `Stream.debounce` and `Stream.runForEach`.                                     |
+| `history.keep`     | Sets the History's Window, how many entries it keeps; older ones Compact into a Restore. Works while it runs.                                                               |
+| `Replay.make`      | Plays Branches of one app from init, remembering Snapshots so playing again starts from the nearest one.                                                                    |
+| `Replay.fold`      | The Snapshot right after a Branch, played now from init with the root's Input, with no yielding.                                                                            |
+| `restore`          | The Restore Message: given to the root, it replaces the whole Snapshot with a saved one, checked against the Actors.                                                        |
+| `isRestore`        | Tells a Restore from any other Message.                                                                                                                                     |
+| `RESTORE`          | The Restore Message's tag.                                                                                                                                                  |
+| `init`             | The Snapshot right after init: the root and every Child its State Invokes.                                                                                                  |
+| `handle`           | Applies one Envelope to a Snapshot and gives the next one, purely.                                                                                                          |
+| `outcomeOf`        | Works out what came of one Envelope on a Snapshot: handled, ignored or dropped. The History never keeps it.                                                                 |
+| `instanceAt`       | Finds the Instance with an ID in a Snapshot.                                                                                                                                |
+| `isMany`           | Tells the list of an `each` Child from one Instance in an Instance's Children.                                                                                              |
 
 ### `@kestack/kabuki/react`
 
@@ -283,11 +283,12 @@ export const AuthLive = Actor.build(Auth, {
 ```
 
 - `Actor.define` takes only the name, the Requires and the Schemas, which fix every type, and imports nothing but other definitions. `Actor.build` is checked against them: an Update that returns a State the Schema does not have, or a `state.user` read where there is none, does not compile. The definition is `Auth`, the build `AuthLive`, side by side in one file.
-- A build has two Levels. What is written at the top holds for as long as the Instance lives; what is written in a State's block holds while that State lasts. Each Level can hold `provides`, `children`, `on` and `workers`.
+- A build has two Levels. What is written at the top holds for as long as the Instance lives; what is written in a State's block holds while that State lasts. Each Level can hold `provides`, `children`, `on`, `workers` and `queries`.
 - An Update that returns a different `_tag` is a Transition: the old State's Children, Workers and Capabilities stop, the new State's start. A Child written at the top lasts through it.
 - A Worker is a named, scoped Effect given `self`: `send` to its own Instance, `get` and `changes` for its current data, and `now` for the app's Time. Written in the `Checking` block, `check` runs while that State lasts.
 - Provides is one Layer per Level, built each time its Level starts. A Capability that reads the Model reads it through `self`, so it never goes stale. It cancels out what the Children below it need; a need nothing cancels bubbles up to the app's Layer.
 - Requires caps the Actor's own code: a Worker, Command or Provide that reaches for anything else does not compile. Update and init never see Capabilities.
+- A Query is a question code outside the tree asks an Instance, `queries: { peers: { run: (self, args) => Effect } }`: it reads `self` and the Actor's Requires, and never Sends. Written in a State's block it is askable only in that State, and the live Instance has it on its type only once `_tag` has narrowed to it. Asked of an Instance that has stopped or left the State, it fails with `Stopped`.
 
 ### A list of Actors, a Command, and a Worker per key
 

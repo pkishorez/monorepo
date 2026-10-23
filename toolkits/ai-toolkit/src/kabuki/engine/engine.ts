@@ -1,8 +1,8 @@
 import { realpath, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { basename, resolve } from 'node:path';
-import { Clock, Context, Data, Duration, Effect, Layer, Stream } from 'effect';
-import { Runtime } from '@kestack/kabuki';
+import { Clock, Context, Data, Effect, Layer, Option, Stream } from 'effect';
+import { Runtime, type Stopped } from '@kestack/kabuki';
 import { nextUlid } from '@kestack/std-toolkit/core';
 import {
   HarnessBinaries,
@@ -13,7 +13,6 @@ import {
   type BackgroundJob,
   type ContextUsage,
   type HarnessError,
-  type HarnessSession,
   type McpServerStatus,
   type Skill,
 } from '../../services/harness/contract/index.js';
@@ -23,14 +22,12 @@ import type {
   Session,
 } from '../../services/records/entities/index.js';
 import { Store } from '../../services/records/store/index.js';
-import { fallbackTitle } from './actor-projects/actor-project/actor-session/index.js';
-import { Projects } from './actor-projects/index.js';
 import {
-  AskFailed,
-  Desks,
-  NotForkable,
-  type Desk,
-} from './capabilities/index.js';
+  fallbackTitle,
+  type AgentClosed,
+} from './actor-projects/actor-project/actor-session/index.js';
+import { Projects } from './actor-projects/index.js';
+import { AskFailed, Desks, NotForkable } from './capabilities/index.js';
 import { promptOf } from './prompt/index.js';
 import {
   binaryRow,
@@ -55,12 +52,13 @@ import {
  *    ids its reply needs, finds the Instance it is for, and Sends. Nothing
  *    here runs a turn or decides anything.
  * 2. Everything the user reads is the tree's state, read through the root
- *    Instance.
- * 3. A question for a Session's agent is asked at the Session's Desk (see
- *    capabilities/desks.ts): a Fork, a new Title, an Ask, what the agent
- *    says of itself. A question for a harness alone, its Skills or its
- *    Harness Binary, is asked of the harness; one about the folders under
- *    home, of Folders (see services/folders/).
+ *    Instance; what only a Session's agent knows, its MCP Server Status and
+ *    Context Usage, is a Query on the Session Instance.
+ * 3. What a Session must do with an answer, a Fork, a new Title, an Ask, is
+ *    asked at the Session's Desk (see capabilities/desks.ts). A question for
+ *    a harness alone, its Skills or its Harness Binary, is asked of the
+ *    harness; one about the folders under home, of Folders (see
+ *    services/folders/).
  */
 
 export class ProjectNotFound extends Data.TaggedError('ProjectNotFound')<{
@@ -185,6 +183,7 @@ export interface EngineService {
   ) => Effect.Effect<ContextUsage, SessionNotFound | HarnessFailed>;
   /** Every Session with Background Jobs, now, then again on each change. */
   readonly backgroundJobs: Stream.Stream<ReadonlyArray<SessionJobs>>;
+  /** Asks the Session to stop one of its agent's Background Jobs, and waits until it is gone, or the harness refused. */
   readonly stopBackgroundJob: (
     sessionId: string,
     jobId: string,
@@ -196,9 +195,6 @@ export interface EngineService {
     path: string | null,
   ) => Effect.Effect<HarnessBinaryRow, InvalidBinary>;
 }
-
-/** How long a Session's Desk may take to come out before it counts as gone. */
-const DESK_WAIT = Duration.seconds(5);
 
 const expand = (path: string) =>
   resolve(
@@ -219,8 +215,16 @@ const sameJobs = (
   b: ReadonlyArray<SessionJobs>,
 ) => JSON.stringify(a) === JSON.stringify(b);
 
-const failed = (error: HarnessError) =>
-  new HarnessFailed({ message: error.message });
+/** What a Query of the agent fails with, as one HarnessFailed. */
+const failed = (error: HarnessError | AgentClosed | Stopped) =>
+  new HarnessFailed({
+    message:
+      error._tag === 'AgentClosed'
+        ? "The session's agent is not running"
+        : error._tag === 'Stopped'
+          ? 'The session has stopped'
+          : error.message,
+  });
 
 const make = (options: EngineOptions) =>
   Effect.gen(function* () {
@@ -269,31 +273,6 @@ const make = (options: EngineOptions) =>
     /** The Session's Desk; a Session that is there puts one out as it starts. */
     const deskOf = (sessionId: string) =>
       Effect.andThen(toSession(sessionId), atDesks.of(sessionId));
-
-    /** The Desk, or HarnessFailed when it is not out in time. */
-    const deskNow = (sessionId: string) =>
-      deskOf(sessionId).pipe(
-        Effect.timeoutOrElse({
-          duration: DESK_WAIT,
-          orElse: () =>
-            Effect.fail(
-              new HarnessFailed({
-                message: "The session's agent is not running",
-              }),
-            ),
-        }),
-      );
-
-    /** Asks a Session's agent, opening it if it is not open. */
-    const fromAgent = <A>(
-      sessionId: string,
-      read: (agent: HarnessSession) => Effect.Effect<A, HarnessError>,
-    ) =>
-      Effect.gen(function* () {
-        const desk: Desk = yield* deskNow(sessionId);
-        const agent = yield* Effect.mapError(desk.agent, failed);
-        return yield* Effect.mapError(read(agent), failed);
-      });
 
     const send: EngineService['send'] = (sessionId, message) =>
       Effect.gen(function* () {
@@ -425,10 +404,14 @@ const make = (options: EngineOptions) =>
         }),
 
       mcpStatus: (sessionId) =>
-        fromAgent(sessionId, (agent) => agent.mcpStatus),
+        Effect.flatMap(toSession(sessionId), ({ session }) =>
+          Effect.mapError(session.queries.mcpStatus(), failed),
+        ),
 
       contextUsage: (sessionId) =>
-        fromAgent(sessionId, (agent) => agent.contextUsage),
+        Effect.flatMap(toSession(sessionId), ({ session }) =>
+          Effect.mapError(session.queries.contextUsage(), failed),
+        ),
 
       backgroundJobs: running.changes.pipe(
         Stream.map(() =>
@@ -444,13 +427,27 @@ const make = (options: EngineOptions) =>
         Stream.changesWith(sameJobs),
       ),
 
-      // An agent not open has no jobs to stop.
       stopBackgroundJob: (sessionId, jobId) =>
         Effect.gen(function* () {
-          const desk = yield* deskNow(sessionId);
-          const agent = yield* desk.opened;
-          if (agent)
-            yield* Effect.mapError(agent.stopBackgroundJob(jobId), failed);
+          const { session } = yield* toSession(sessionId);
+          session.send({ _tag: 'StopJob', jobId });
+          // Gone from the agent's jobs, or refused: the Session's Model says which first.
+          const outcome = yield* running.changes.pipe(
+            Stream.map(() => {
+              const refused = session.model.refusedStops.find(
+                (each) => each.jobId === jobId,
+              );
+              if (refused) return refused.reason;
+              return session.model.jobs.some((job) => job.id === jobId)
+                ? undefined
+                : null;
+            }),
+            Stream.filter((found) => found !== undefined),
+            Stream.runHead,
+          );
+          const reason = Option.getOrElse(outcome, () => null);
+          if (reason !== null)
+            return yield* new HarnessFailed({ message: reason });
         }),
 
       harnessBinaries: Effect.forEach(harnesses.all, binaryRow, {

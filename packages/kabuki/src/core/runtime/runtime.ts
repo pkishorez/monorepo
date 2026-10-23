@@ -4,7 +4,7 @@ import type { AnyActor, Tagged, Types } from '../actor/index.ts';
 import { actorAt, isRestore } from '../snapshot/index.ts';
 import type { Snapshot, Source } from '../snapshot/index.ts';
 import { History, isHistory } from '../history/index.ts';
-import { ActorInstance } from './instance/index.ts';
+import { ActorInstance, Stopped } from './instance/index.ts';
 import type { WorkerStatus } from './instance/index.ts';
 import { makeMailbox } from './mailbox.ts';
 import { reach } from './reach.ts';
@@ -59,6 +59,12 @@ export interface Running<A> {
   readonly changes: Stream.Stream<Snapshot>;
   /** What an Instance's Workers are doing now. Empty while stopped. */
   readonly workers: (instance: string) => ReadonlyArray<WorkerStatus>;
+  /** Ask one of an Instance's Queries by name, untyped; `instance().queries` is the typed way. `Stopped` while stopped. */
+  readonly query: (
+    instance: string,
+    name: string,
+    args: unknown,
+  ) => Effect.Effect<unknown, unknown>;
   /** Start at the Head, or move the Head to an entry first (`null`: init). Stops first if running. */
   readonly start: (from?: number | null) => Effect.Effect<void>;
   readonly stop: () => Effect.Effect<void>;
@@ -200,6 +206,12 @@ const start = <A extends AnyActor>(
         { bufferSize: 1, strategy: 'sliding' },
       ),
       workers: (id) => instance?.workers(id) ?? [],
+      query: (id, name, args) =>
+        Effect.suspend(
+          () =>
+            instance?.query(id, name, args) ??
+            Effect.fail(new Stopped({ instance: id, query: name })),
+        ),
       start: (from) => latest(restart(from)),
       stop: () => latest(halt),
     };

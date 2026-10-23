@@ -121,6 +121,8 @@ export const makeFakeHarness = (
     readonly slowStart?: boolean;
     /** A steer returns a while after the agent took it. */
     readonly slowSteer?: boolean;
+    /** The agent refuses to stop any Background Job. */
+    readonly refuseStops?: boolean;
   } = {},
 ): FakeHarness => {
   const opens: Array<OpenConfig> = [];
@@ -265,6 +267,10 @@ export const makeFakeHarness = (
           backgroundJobs: SubscriptionRef.changes(agent.jobs),
           stopBackgroundJob: (id) =>
             Effect.suspend(() => {
+              if (options.refuseStops)
+                return Effect.fail(
+                  new HarnessError({ message: `job ${id} cannot be stopped` }),
+                );
               stoppedJobs.push(id);
               return SubscriptionRef.update(agent.jobs, (jobs) =>
                 jobs.filter((job) => job.id !== id),

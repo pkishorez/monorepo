@@ -18,11 +18,13 @@ import type { Session } from '../../../services/records/entities/index.js';
 
 /*
  * Every Session's Desk, by Session id. A Message answers nothing, so what
- * the engine must ask a Session, it asks at its Desk: its live agent, a
- * Fork, a new Title, an Ask. The Session puts its Desk out while it lives,
- * and its own Workers share the agent through the same Desk, since a
- * Provide reaches only Children. A Desk not out yet is waited for; every
- * Session puts one out as it starts. The implementation is services/desks.ts.
+ * the engine must ask a Session and have an answer that does something, a
+ * Fork, a new Title, an Ask, it asks at its Desk. What the agent says of
+ * itself is a Query on the Session Instance instead (see the Session's
+ * actor.ts). The Session puts its Desk out while it lives, and its own
+ * Workers and Queries share the agent through the same Desk, since a Provide
+ * reaches only Children. A Desk not out yet is waited for; every Session
+ * puts one out as it starts. The implementation is services/desks.ts.
  */
 
 export class NotForkable extends Data.TaggedError('NotForkable')<{

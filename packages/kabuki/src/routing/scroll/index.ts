@@ -4,10 +4,5 @@ export {
   restores,
   useElementScrollRestoration,
 } from './scroll.tsx';
-export type {
-  HashScroll,
-  ScrollLocation,
-  ScrollRestorationOptions,
-  ScrollingProps,
-} from './scroll.tsx';
+export type { ScrollRestorationOptions } from './scroll.tsx';
 export { scriptFor } from './script.ts';

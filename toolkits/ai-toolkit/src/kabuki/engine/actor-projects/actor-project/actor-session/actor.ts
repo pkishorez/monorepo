@@ -1,4 +1,4 @@
-import { Clock, Effect, Schema, Stream, Struct } from 'effect';
+import { Clock, Data, Effect, Schema, Stream, Struct } from 'effect';
 import { Actor } from '@kestack/kabuki';
 import type { Self } from '@kestack/kabuki';
 import { nextUlid } from '@kestack/std-toolkit/core';
@@ -7,6 +7,8 @@ import {
   HarnessBinaries,
   Harnesses,
   Titler,
+  type HarnessError,
+  type HarnessSession,
 } from '../../../../../services/harness/contract/index.js';
 import { TURN_END_STATUSES } from '../../../../../services/records/projection/index.js';
 import {
@@ -17,6 +19,7 @@ import {
 import { Store } from '../../../../../services/records/store/index.js';
 import { Desks } from '../../../capabilities/index.js';
 import { Prompt } from '../../../prompt/index.js';
+import { StopJob } from './commands.js';
 import { desk } from './desk.js';
 import { fallbackTitle, title } from './title.js';
 import { cancel, run } from './turn.js';
@@ -36,12 +39,20 @@ import { cancel, run } from './turn.js';
  *
  * Across both it keeps one live agent for its Turns, out at its Desk (see
  * desk.ts) for the engine's questions and its own Workers; follows the
- * Background Jobs the agent reports; saves itself whenever its record
- * changes; takes a message's model and settings from that Turn on; and asks
- * the Titler for a title after its first message (see title.ts). Each Turn
- * that starts marks it active, and each that ends marks when; Settling it
- * changes nothing else, and any message un-settles it.
+ * Background Jobs the agent reports, stops one on a StopJob (see
+ * commands.ts) and keeps the reason when the harness refuses; saves itself whenever its record changes; takes a message's
+ * model and settings from that Turn on; and asks the Titler for a title
+ * after its first message (see title.ts). Each Turn that starts marks it
+ * active, and each that ends marks when; Settling it changes nothing else,
+ * and any message un-settles it.
+ *
+ * What the agent says of itself, its MCP Server Status and Context Usage,
+ * it answers as Queries, from the agent while it is open: a Query never
+ * opens it, so a closed agent answers AgentClosed.
  */
+
+/** A Query was asked of the agent while it is closed; the next Turn opens it. */
+export class AgentClosed extends Data.TaggedError('AgentClosed')<{}> {}
 
 /** What a Session keeps of its record; its status is its State. */
 const Saved = Schema.Struct(SessionSchema.fields).mapFields(
@@ -64,6 +75,10 @@ const Model = Schema.Struct({
   untitled: Schema.NullOr(Schema.String),
   /** The agent's Background Jobs as it last listed them; in memory only. */
   jobs: Schema.Array(BackgroundJobSchema),
+  /** Stops the harness refused, for jobs still listed; in memory only. */
+  refusedStops: Schema.Array(
+    Schema.Struct({ jobId: Schema.String, reason: Schema.String }),
+  ),
 });
 type Model = typeof Model.Type;
 
@@ -117,6 +132,10 @@ const Message = Schema.TaggedUnion({
   /** The agent started a Turn on its own. */
   AgentTurn: { turnId: Schema.String, at: Schema.Finite },
   Jobs: { jobs: Schema.Array(BackgroundJobSchema) },
+  /** Stop one of the agent's Background Jobs. */
+  StopJob: { jobId: Schema.String },
+  /** The harness refused to stop a job. */
+  JobStopFailed: { jobId: Schema.String, reason: Schema.String },
   Titled: { title: Schema.String },
   Settle: { at: Schema.Finite },
   Unsettle: {},
@@ -187,6 +206,19 @@ const jobs = (self: SessionSelf) =>
     );
   });
 
+/** Asks the open agent `read`; AgentClosed while it is closed. */
+const fromAgent = <A>(
+  self: Pick<SessionSelf, 'get'>,
+  read: (agent: HarnessSession) => Effect.Effect<A, HarnessError>,
+) =>
+  Effect.gen(function* () {
+    const { model } = yield* self.get;
+    const out = yield* (yield* Desks).of(model.session.id);
+    const agent = yield* out.opened;
+    if (!agent) return yield* new AgentClosed();
+    return yield* read(agent);
+  });
+
 /**
  * Waits, while idle, for the agent to start a Turn on its own; then runs
  * it. A Turn the agent starts while another runs waits until idle again.
@@ -218,6 +250,7 @@ export const Session = Actor.build(
         cwd,
         untitled: first?.text ?? null,
         jobs: [],
+        refusedStops: [],
       },
       state: first ? running([first]) : idleOf(session.status),
     }),
@@ -225,7 +258,32 @@ export const Session = Actor.build(
       NativeId: ({ nativeId }, { model }) => ({
         model: { ...model, session: { ...model.session, nativeId } },
       }),
-      Jobs: ({ jobs }, { model }) => ({ model: { ...model, jobs } }),
+      Jobs: ({ jobs }, { model }) => ({
+        model: {
+          ...model,
+          jobs,
+          refusedStops: model.refusedStops.filter((refused) =>
+            jobs.some((job) => job.id === refused.jobId),
+          ),
+        },
+      }),
+      StopJob: ({ jobId }, { model }) => ({
+        model: {
+          ...model,
+          refusedStops: model.refusedStops.filter((r) => r.jobId !== jobId),
+        },
+        command: StopJob({ sessionId: model.session.id, jobId }),
+      }),
+      // A refusal for a job the agent no longer lists is moot.
+      JobStopFailed: ({ jobId, reason }, { model }) =>
+        model.jobs.some((job) => job.id === jobId)
+          ? {
+              model: {
+                ...model,
+                refusedStops: [...model.refusedStops, { jobId, reason }],
+              },
+            }
+          : {},
       Titled: ({ title }, { model }) => ({
         model: {
           ...model,
@@ -248,6 +306,12 @@ export const Session = Actor.build(
       title: {
         while: ({ model }) => model.untitled !== null,
         run: (self) => title(self),
+      },
+    },
+    queries: {
+      mcpStatus: { run: (self) => fromAgent(self, (agent) => agent.mcpStatus) },
+      contextUsage: {
+        run: (self) => fromAgent(self, (agent) => agent.contextUsage),
       },
     },
     state: {

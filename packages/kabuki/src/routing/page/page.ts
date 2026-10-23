@@ -8,6 +8,7 @@ import type {
   KidsByState,
   OpenOfBehavior,
   ProvidedOf,
+  QueriesByState,
   Requires,
   Tagged,
   Types,
@@ -242,7 +243,8 @@ export type BuiltPage<D, B> = D extends {
             PageKids<PagesIn<B>>;
         },
         | OpenOfBehavior<RequiresOf<T>, B>
-        | Exclude<PagesOpen<PagesIn<B>>, ProvidedOf<B>>
+        | Exclude<PagesOpen<PagesIn<B>>, ProvidedOf<B>>,
+        QueriesByState<T['state'], B>
       >,
       PagesIn<B>
     >
