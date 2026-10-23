@@ -378,10 +378,10 @@ export type OpenOfBehavior<R extends Requires, B> =
  * and, through each Child, its whole subtree's: kept, it is printed again in
  * every hover, error and declaration file that names the Actor, once per
  * level it is kept at, so its size grows with each level of Children.
- * `extends infer R ? R : never` resolves each one to its plain shape, so it
- * is printed as that, never as an alias of the behavior. `KidsByState` and
- * `QueriesByState` stay plain mapped types, indexable while their arguments
- * are generic; `BuiltOf` maps over them in place so their alias is not kept.
+ * Each map is written in place rather than named, so it is printed as its
+ * plain shape, never as an alias of the behavior, and stays indexable while
+ * its arguments are generic; `BuiltOf` maps over `KidsByState` and
+ * `QueriesByState` in place for the same reason.
  */
 
 /** A Child as an Actor's type keeps it: its Actor, and whether it is one of `each` or there `while` a test holds. */
@@ -396,13 +396,13 @@ type SlotOf<C> = C extends {
       ? { readonly actor: A }
       : never;
 
-type SlotsOf<C> = { readonly [K in keyof C]: SlotOf<C[K]> } extends infer R
-  ? R
-  : never;
-
 /** The Children per State tag, top-level ones in every State, for Views. */
 export type KidsByState<State extends Tagged, B> = {
-  readonly [T in State['_tag']]: SlotsOf<KidsOf<B> & KidsOf<BlockOf<B, T>>>;
+  readonly [T in State['_tag']]: {
+    readonly [K in keyof (KidsOf<B> & KidsOf<BlockOf<B, T>>)]: SlotOf<
+      (KidsOf<B> & KidsOf<BlockOf<B, T>>)[K]
+    >;
+  };
 };
 
 /** An Actor's Children in one State, as written: its slots by name. */
@@ -427,15 +427,13 @@ type AskOf<Q> = Q extends {
   ? { readonly run: (self: never, ...args: ArgsOf<P>) => Effect.Effect<A, E> }
   : never;
 
-type AsksOf<Q> = { readonly [K in keyof Q]: AskOf<Q[K]> } extends infer R
-  ? R
-  : never;
-
 /** The Queries per State tag, top-level ones in every State, for code outside the tree. */
 export type QueriesByState<State extends Tagged, B> = {
-  readonly [T in State['_tag']]: AsksOf<
-    QueriesOf<B> & QueriesOf<BlockOf<B, T>>
-  >;
+  readonly [T in State['_tag']]: {
+    readonly [K in keyof (QueriesOf<B> & QueriesOf<BlockOf<B, T>>)]: AskOf<
+      (QueriesOf<B> & QueriesOf<BlockOf<B, T>>)[K]
+    >;
+  };
 };
 
 /** An Actor's Queries in one State, as written: by name. */
