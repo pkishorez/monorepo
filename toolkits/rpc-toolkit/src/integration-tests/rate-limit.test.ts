@@ -1,7 +1,9 @@
 import { Effect, Layer, Option, Schema } from 'effect';
 import { Rpc as EffectRpc, RpcClient, RpcGroup } from 'effect/rpc';
 import { expect, it } from 'vitest';
-import { Rpc } from '../rpc/index.ts';
+import { middleware } from '../rpc/index.ts';
+import * as websocket from '../rpc/websocket/index.ts';
+import * as inProcess from '../rpc/in-process/index.ts';
 
 // contract.ts: imported by client and server
 class TooManyCalls extends Schema.Error<TooManyCalls>('app/TooManyCalls')({
@@ -9,7 +11,7 @@ class TooManyCalls extends Schema.Error<TooManyCalls>('app/TooManyCalls')({
 }) {}
 
 /** How many calls one endpoint accepts. */
-const RateLimit = Rpc.middleware<number>()('app/RateLimit', {
+const RateLimit = middleware<number>()('app/RateLimit', {
   error: TooManyCalls,
 });
 
@@ -25,7 +27,7 @@ const RateLimitLive = RateLimit.layer(
     const calls = new Map<string, number>();
     return ({ rpc, value }) =>
       Effect.gen(function* () {
-        if ((yield* Rpc.websocket.InvocationKind) === 'replay') return;
+        if ((yield* websocket.InvocationKind) === 'replay') return;
         const count = (calls.get(rpc._tag) ?? 0) + 1;
         calls.set(rpc._tag, count);
         if (count > Option.getOrElse(value, () => Infinity)) {
@@ -51,9 +53,7 @@ it('stops a call past its endpoint limit, the nearest limit winning', async () =
     );
   }).pipe(
     Effect.scoped,
-    Effect.provide(
-      Rpc.inProcess.client(Api, Layer.merge(Handlers, RateLimitLive)),
-    ),
+    Effect.provide(inProcess.client(Api, Layer.merge(Handlers, RateLimitLive))),
     Effect.runPromise,
   );
 

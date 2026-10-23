@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { ESchema, EntityESchema, findOutdatedVersion } from '../index.js';
 
 const counter = EntityESchema.make('Counter', 'id', {
-  count: Schema.Number,
+  count: Schema.Finite,
 })
   .evolve('v2', { label: Schema.String }, (previous) => ({
     ...previous,

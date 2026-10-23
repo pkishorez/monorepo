@@ -13,7 +13,10 @@ import {
   serializeTableSnapshot,
 } from './snapshot-decoder/index.js';
 import { diffTableSnapshot } from './snapshot-diff/index.js';
-import { renderSnapshotChanges } from './snapshot-renderer/index.js';
+import {
+  changeLabel,
+  renderSnapshotChanges,
+} from './snapshot-renderer/index.js';
 
 export type TableSnapshot = TableSnapshotDocument;
 
@@ -31,4 +34,5 @@ export const TableSnapshot = {
   ): readonly SnapshotChange[] => diffTableSnapshot(previous, current),
   renderChanges: (changes: readonly SnapshotChange[]): string =>
     renderSnapshotChanges(changes),
+  changeLabel: (change: SnapshotChange): string => changeLabel(change),
 } as const;

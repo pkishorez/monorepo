@@ -4,7 +4,7 @@ import { EntityESchema } from '../../../../eschema/index.js';
 import { changedFields, makeCollectionItemSchema } from '../index.js';
 
 const schema = EntityESchema.make('Todo', 'id', {
-  count: Schema.Number,
+  count: Schema.Finite,
 }).build();
 
 describe('CollectionItem schema', () => {

@@ -24,6 +24,7 @@
 @import './typography.css';
 @import './theme.css';
 @import './shiki.css';
+@import './keys.css';
 
 @layer base {
   html {

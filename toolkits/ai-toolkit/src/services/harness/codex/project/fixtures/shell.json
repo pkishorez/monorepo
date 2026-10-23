@@ -1,0 +1,274 @@
+[
+  {
+    "kind": "item/completed",
+    "payload": {
+      "item": {
+        "type": "userMessage",
+        "id": "01a15fb4-3714-7122-87ee-04f92f9c0a00",
+        "clientId": null,
+        "content": [
+          {
+            "type": "text",
+            "text": "Use your shell tool to run exactly `echo e2e-shell-ok`. Then create a file note.txt containing the word hi with your file editing tool (apply_patch), not the shell. Then reply with one word: done.",
+            "text_elements": []
+          }
+        ]
+      },
+      "threadId": "01a15fb4-2bc4-74b2-93ab-1a7257193d5a",
+      "turnId": "01a15fb4-2c6f-7182-af04-63ab89d9cba4",
+      "completedAtMs": 1792607008532
+    }
+  },
+  {
+    "kind": "item/completed",
+    "payload": {
+      "item": {
+        "type": "reasoning",
+        "id": "rs_0b240b8c9115760d016ad90321ce90819193a8134ffbc902a9",
+        "summary": [],
+        "content": []
+      },
+      "threadId": "01a15fb4-2bc4-74b2-93ab-1a7257193d5a",
+      "turnId": "01a15fb4-2c6f-7182-af04-63ab89d9cba4",
+      "completedAtMs": 1792607009827
+    }
+  },
+  {
+    "kind": "item/completed",
+    "payload": {
+      "item": {
+        "type": "agentMessage",
+        "id": "msg_0b240b8c9115760d016ad90321e6588191a6bf1c01fecdf231",
+        "text": "",
+        "phase": "commentary",
+        "memoryCitation": null,
+        "delivery": null,
+        "questions": null
+      },
+      "threadId": "01a15fb4-2bc4-74b2-93ab-1a7257193d5a",
+      "turnId": "01a15fb4-2c6f-7182-af04-63ab89d9cba4",
+      "completedAtMs": 1792607009969
+    }
+  },
+  {
+    "kind": "item/started",
+    "payload": {
+      "item": {
+        "type": "commandExecution",
+        "id": "exec-9f02ad9d-aa79-47c6-aaa2-17c8d7ff1323",
+        "pluginId": null,
+        "scriptPath": null,
+        "command": "/bin/zsh -lc 'echo e2e-shell-ok'",
+        "cwd": "/var/folders/pz/hmz20bpd067fdqmt3d9nzgy40000gn/T/ai-toolkit-codex-e2e-b0osMM",
+        "processId": "45751",
+        "source": "unifiedExecStartup",
+        "status": "inProgress",
+        "commandActions": [
+          {
+            "type": "unknown",
+            "command": "echo e2e-shell-ok"
+          }
+        ],
+        "aggregatedOutput": null,
+        "exitCode": null,
+        "durationMs": null
+      },
+      "threadId": "01a15fb4-2bc4-74b2-93ab-1a7257193d5a",
+      "turnId": "01a15fb4-2c6f-7182-af04-63ab89d9cba4",
+      "startedAtMs": 1792607010605
+    }
+  },
+  {
+    "kind": "item/completed",
+    "payload": {
+      "item": {
+        "type": "commandExecution",
+        "id": "exec-9f02ad9d-aa79-47c6-aaa2-17c8d7ff1323",
+        "pluginId": null,
+        "scriptPath": null,
+        "command": "/bin/zsh -lc 'echo e2e-shell-ok'",
+        "cwd": "/var/folders/pz/hmz20bpd067fdqmt3d9nzgy40000gn/T/ai-toolkit-codex-e2e-b0osMM",
+        "processId": "45751",
+        "source": "unifiedExecStartup",
+        "status": "completed",
+        "commandActions": [
+          {
+            "type": "unknown",
+            "command": "echo e2e-shell-ok"
+          }
+        ],
+        "aggregatedOutput": "e2e-shell-ok\n",
+        "exitCode": 0,
+        "durationMs": 0
+      },
+      "threadId": "01a15fb4-2bc4-74b2-93ab-1a7257193d5a",
+      "turnId": "01a15fb4-2c6f-7182-af04-63ab89d9cba4",
+      "completedAtMs": 1792607010606
+    }
+  },
+  {
+    "kind": "thread/tokenUsage/updated",
+    "payload": {
+      "threadId": "01a15fb4-2bc4-74b2-93ab-1a7257193d5a",
+      "turnId": "01a15fb4-2c6f-7182-af04-63ab89d9cba4",
+      "tokenUsage": {
+        "total": {
+          "totalTokens": 16697,
+          "inputTokens": 16581,
+          "cachedInputTokens": 9984,
+          "cacheWriteInputTokens": 0,
+          "outputTokens": 116,
+          "reasoningOutputTokens": 21
+        },
+        "last": {
+          "totalTokens": 16697,
+          "inputTokens": 16581,
+          "cachedInputTokens": 9984,
+          "cacheWriteInputTokens": 0,
+          "outputTokens": 116,
+          "reasoningOutputTokens": 21
+        },
+        "modelContextWindow": 258400
+      }
+    }
+  },
+  {
+    "kind": "item/started",
+    "payload": {
+      "item": {
+        "type": "fileChange",
+        "id": "exec-1b0a7f85-009b-4937-8409-ee6d126e9c3d",
+        "changes": [
+          {
+            "path": "/var/folders/pz/hmz20bpd067fdqmt3d9nzgy40000gn/T/ai-toolkit-codex-e2e-b0osMM/note.txt",
+            "kind": {
+              "type": "add"
+            },
+            "diff": "hi\n"
+          }
+        ],
+        "status": "inProgress"
+      },
+      "threadId": "01a15fb4-2bc4-74b2-93ab-1a7257193d5a",
+      "turnId": "01a15fb4-2c6f-7182-af04-63ab89d9cba4",
+      "startedAtMs": 1792607012666
+    }
+  },
+  {
+    "kind": "item/completed",
+    "payload": {
+      "item": {
+        "type": "fileChange",
+        "id": "exec-1b0a7f85-009b-4937-8409-ee6d126e9c3d",
+        "changes": [
+          {
+            "path": "/var/folders/pz/hmz20bpd067fdqmt3d9nzgy40000gn/T/ai-toolkit-codex-e2e-b0osMM/note.txt",
+            "kind": {
+              "type": "add"
+            },
+            "diff": "hi\n"
+          }
+        ],
+        "status": "completed"
+      },
+      "threadId": "01a15fb4-2bc4-74b2-93ab-1a7257193d5a",
+      "turnId": "01a15fb4-2c6f-7182-af04-63ab89d9cba4",
+      "completedAtMs": 1792607012667
+    }
+  },
+  {
+    "kind": "thread/tokenUsage/updated",
+    "payload": {
+      "threadId": "01a15fb4-2bc4-74b2-93ab-1a7257193d5a",
+      "turnId": "01a15fb4-2c6f-7182-af04-63ab89d9cba4",
+      "tokenUsage": {
+        "total": {
+          "totalTokens": 33501,
+          "inputTokens": 33307,
+          "cachedInputTokens": 26368,
+          "cacheWriteInputTokens": 0,
+          "outputTokens": 194,
+          "reasoningOutputTokens": 21
+        },
+        "last": {
+          "totalTokens": 16804,
+          "inputTokens": 16726,
+          "cachedInputTokens": 16384,
+          "cacheWriteInputTokens": 0,
+          "outputTokens": 78,
+          "reasoningOutputTokens": 0
+        },
+        "modelContextWindow": 258400
+      }
+    }
+  },
+  {
+    "kind": "item/completed",
+    "payload": {
+      "item": {
+        "type": "agentMessage",
+        "id": "msg_0b240b8c9115760d016ad9032620fc819185535e907548afd1",
+        "text": "done",
+        "phase": "final_answer",
+        "memoryCitation": null,
+        "delivery": null,
+        "questions": null
+      },
+      "threadId": "01a15fb4-2bc4-74b2-93ab-1a7257193d5a",
+      "turnId": "01a15fb4-2c6f-7182-af04-63ab89d9cba4",
+      "completedAtMs": 1792607014813
+    }
+  },
+  {
+    "kind": "thread/tokenUsage/updated",
+    "payload": {
+      "threadId": "01a15fb4-2bc4-74b2-93ab-1a7257193d5a",
+      "turnId": "01a15fb4-2c6f-7182-af04-63ab89d9cba4",
+      "tokenUsage": {
+        "total": {
+          "totalTokens": 50334,
+          "inputTokens": 50135,
+          "cachedInputTokens": 42880,
+          "cacheWriteInputTokens": 0,
+          "outputTokens": 199,
+          "reasoningOutputTokens": 21
+        },
+        "last": {
+          "totalTokens": 16833,
+          "inputTokens": 16828,
+          "cachedInputTokens": 16512,
+          "cacheWriteInputTokens": 0,
+          "outputTokens": 5,
+          "reasoningOutputTokens": 0
+        },
+        "modelContextWindow": 258400
+      }
+    }
+  },
+  {
+    "kind": "turn/completed",
+    "payload": {
+      "threadId": "01a15fb4-2bc4-74b2-93ab-1a7257193d5a",
+      "turn": {
+        "id": "01a15fb4-2c6f-7182-af04-63ab89d9cba4",
+        "items": [
+          {
+            "type": "agentMessage",
+            "id": "msg_0b240b8c9115760d016ad9032620fc819185535e907548afd1",
+            "text": "done",
+            "phase": "final_answer",
+            "memoryCitation": null,
+            "delivery": null,
+            "questions": null
+          }
+        ],
+        "itemsView": "summary",
+        "status": "completed",
+        "error": null,
+        "startedAt": 1792607005,
+        "completedAt": 1792607015,
+        "durationMs": 9254
+      }
+    }
+  }
+]

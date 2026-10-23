@@ -19,7 +19,7 @@ import { ESchema } from '../index.js';
 // string, but your code works with a number. encode/decode convert both ways.
 const StringToNumber = Schema.String.pipe(
   Schema.decodeTo(
-    Schema.Number,
+    Schema.Finite,
     SchemaTransformation.transform({
       decode: (s) => parseInt(s, 10),
       encode: (n) => String(n),

@@ -1,5 +1,7 @@
 # The app sets the Active Surface; keys never move between Surfaces
 
+Superseded by [0005](./0005-surfaces-are-components.md): Surfaces are components, and the Keys Provider holds the Active Surface.
+
 Surfaces look like the states of a state machine, so the obvious design gives them transitions: Ctrl+H moves from the inbox to the sidebar. We decided against it. The app already knows where the user is, through its router, its own state machine, or a mouse click that focused a pane, and a second copy of that kept by the keyboard drifts from it. So Surfaces only say what keys can do in each place, and the app names the Active Surface to the provider. Moving to another Surface is something an Action's Handler does, like anything else the app does.
 
 ## Considered Options

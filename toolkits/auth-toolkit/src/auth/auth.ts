@@ -1,4 +1,4 @@
-import { Effect, Effectable } from 'effect';
+import type { Effect } from 'effect';
 import {
   HttpApiEndpoint,
   HttpApiGroup,
@@ -16,6 +16,7 @@ import {
   Unauthenticated,
   Unavailable,
   User,
+  withEffect,
   type Invariant,
   type Policy,
 } from '../guard/index.js';
@@ -60,42 +61,62 @@ const guard =
       ? httpMiddleware.with(policy)(target)
       : rpcMiddleware.with(policy)(target)) as never;
 
-// A Guard that is also an Effect, the way a Context.Service is a class
-// that is also an Effect: the function's prototype is an Effect's.
-const policyGuard = (policy: Policy): PolicyGuard =>
-  Object.setPrototypeOf(
-    guard(policy),
-    Effectable.Prototype<Effect.Effect<void, Forbidden, User>>({
-      label: 'Auth.policy',
-      evaluate: () => Effect.flatMap(User, policy),
-    }),
-  );
+/** Guards an Rpc, RpcGroup, HttpApiEndpoint or HttpApiGroup: it runs only
+ * for a known caller. The nearest declaration wins. */
+const required: Guard = /*#__PURE__*/ guard();
+
+/** Guards it for an Access Token carrying every named Scope; `yield*` it
+ * to check inside a handler. */
+const scope = (...names: [string, ...string[]]): PolicyGuard => {
+  const policy = makeScope(...names);
+  return withEffect(guard(policy), policy) as PolicyGuard;
+};
+
+/** Guards it with `invariant`, failing Forbidden with `reason`; `yield*` it
+ * to check inside a handler. */
+const policy = (invariant: Invariant, reason: string): PolicyGuard => {
+  const made = makePolicy(invariant, reason);
+  return withEffect(guard(made), made) as PolicyGuard;
+};
 
 /**
  * The Guard, the contract both sides import, the same for Effect RPC and
- * Effect HttpApi; the nearest declaration wins.
- *
- * - `Auth.required`: the call runs only for a known caller.
- * - `Auth.scope(...names)`: only for an Access Token carrying every Scope.
- * - `Auth.policy(invariant, reason)`: only when `invariant` holds.
- *
- * `Auth.scope` and `Auth.policy` are also Effects: `yield* Auth.scope('x')`
- * checks inside a handler. `Auth.User` is who called. The server half is
- * `auth()` from `server/rpc` or `server/http`; the client half comes with
- * the `client/browser` and `client/device` Layers.
+ * Effect HttpApi: `Authz.required`, `Authz.scope` and `Authz.policy` guard
+ * a call, `Authz.User` is who called, and the errors are what a guarded
+ * call fails with. The server half is `auth()` from `server/rpc` or
+ * `server/http`; the client half comes with the `client/browser` and
+ * `client/device` Layers.
  */
-export const Auth = {
-  required: guard(),
-  scope: (...names: [string, ...string[]]): PolicyGuard =>
-    policyGuard(makeScope(...names)),
-  policy: (invariant: Invariant, reason: string): PolicyGuard =>
-    policyGuard(makePolicy(invariant, reason)),
+export const Authz = {
+  required,
+  scope,
+  policy,
   User,
   Unauthenticated,
   Forbidden,
   Unavailable,
   AccountChanged,
 };
+
+/** The types of `Authz`'s classes, so `Authz.Unauthenticated` names the error too. */
+type UserService = User;
+type UnauthenticatedError = Unauthenticated;
+type ForbiddenError = Forbidden;
+type UnavailableError = Unavailable;
+type AccountChangedError = AccountChanged;
+
+export declare namespace Authz {
+  /** The Service a guarded handler reads the caller from. */
+  export type User = UserService;
+  /** A guarded call nobody signed: 401. */
+  export type Unauthenticated = UnauthenticatedError;
+  /** A call its Policy refused: 403. */
+  export type Forbidden = ForbiddenError;
+  /** The Auth Worker could not be asked: 503. */
+  export type Unavailable = UnavailableError;
+  /** A Browser call whose `expect-user` is not the cookie's Active Account: 409. */
+  export type AccountChanged = AccountChangedError;
+}
 
 export type {
   Invariant,

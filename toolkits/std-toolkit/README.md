@@ -6,9 +6,9 @@ Single-table design toolkit: database-agnostic sync over single-table item colle
 
 Applications that store many entity types in one table, then mirror that data into a browser, end up writing the same three things by hand: a schema that can still read last year's rows, a storage layer that is bolted to one database, and a sync loop that keeps a client cache fresh. std-toolkit provides each as a separate subpath that shares one Entity model, so they compose without glue code.
 
-`core` defines the Entity envelope and metadata every other subpath speaks. `eschema` gives versioned schemas that migrate on read. `db` defines a StdTable once, and the DynamoDB, SQLite, IndexedDB, and Memory adapters realize it without changing application code. `sync` drives TanStack DB Collections from any backend and persists its replica through the same StdTable contract. `snapshot` captures the resulting storage contract as one document per table, and `studio-rpc` serves it to Std Studio. `alchemy` deploys a table and refuses a deploy that would break a stored version, keeping the accepted snapshot in Alchemy state. `@kestack/std-toolkit/snapshot/vitest` is the one test a table needs. Snapshot never runs inside an adapter or at request time.
+`core` defines the Entity envelope and metadata every other subpath speaks. `eschema` gives versioned schemas that migrate on read. `db` defines a StdTable once, and the DynamoDB, SQLite, IndexedDB, and Memory adapters realize it without changing application code. `sync` drives TanStack DB Collections from any backend and persists its replica through the same StdTable contract; `replica` does the same for Kabuki apps, as actors. `snapshot` captures the resulting storage contract as one document per table. `alchemy` deploys a table and refuses a deploy that would break a stored version, keeping the accepted snapshot in Alchemy state. `@kestack/std-toolkit/snapshot/vitest` is the one test a table needs: it fails unless the table's snapshot has no breaking change against the committed file and every stored version of every entity upgrades. Snapshot never runs inside an adapter or at request time.
 
-Each subpath owns its vocabulary in a `CONTEXT.md`: [core](src/core/CONTEXT.md), [eschema](src/eschema/CONTEXT.md), [snapshot](src/snapshot/CONTEXT.md), [db](src/db/CONTEXT.md), [sync](src/sync/CONTEXT.md). The [context map](CONTEXT-MAP.md) explains how they relate. Decisions live in [docs/adr/](docs/adr/), [src/db/docs/adr/](src/db/docs/adr/), and [src/sync/docs/adr/](src/sync/docs/adr/). Longer reads: [Evolving schema](docs/evolving-schema.md), [Sync guide](docs/sync-guide.md). The [stories](stories/) folder tells this package as a tree of Stories, each folder a `story.md` with runnable Proofs beside it: `evolving-schema` (with `migrations` and `snapshot`), `entities` (`keyed` and `single`), `adapters` (with `transactions`), and `sync`. Run them with `pnpm stories`.
+Each subpath owns its vocabulary in a `CONTEXT.md`: [core](src/core/CONTEXT.md), [eschema](src/eschema/CONTEXT.md), [snapshot](src/snapshot/CONTEXT.md), [db](src/db/CONTEXT.md), [sync](src/sync/CONTEXT.md), [replica](src/replica/CONTEXT.md). The [context map](CONTEXT-MAP.md) explains how they relate. Decisions live in [docs/adr/](docs/adr/), [src/db/docs/adr/](src/db/docs/adr/), and [src/sync/docs/adr/](src/sync/docs/adr/). Longer reads: [Evolving schema](docs/evolving-schema.md), [Sync guide](docs/sync-guide.md). The [stories](stories/) folder tells this package as a tree of Stories, each folder a `story.md` with runnable Proofs beside it: `evolving-schema` (with `migrations` and `snapshot`), `entities` (`keyed` and `single`), `adapters` (with `transactions`), and `sync`. Run them with `pnpm stories`.
 
 ## Install
 
@@ -21,6 +21,8 @@ Node 24 or later. Peer dependencies:
 - `effect` (required): every subpath is built on Effect Services, Layers, and Schema.
 - `@tanstack/react-db` (optional): `@kestack/std-toolkit/sync` creates and drives TanStack DB Collections.
 - `react` (optional): required by `@tanstack/react-db`; only needed when you use `@kestack/std-toolkit/sync`.
+- `@kestack/kabuki` (optional): `@kestack/std-toolkit/replica` runs as Kabuki actors and Commands.
+- `@tanstack/db` (optional): `@kestack/std-toolkit/replica` shows each Instance in TanStack DB Collections, without React.
 - `alchemy` (optional): only `@kestack/std-toolkit/alchemy` imports it, to deploy a table and guard its snapshot.
 
 ## Exports
@@ -33,6 +35,10 @@ See [src/core/README.md](src/core/README.md).
 
 See [src/eschema/README.md](src/eschema/README.md).
 
+### `@kestack/std-toolkit/eschema/testing`
+
+See [src/eschema/README.md](src/eschema/README.md#kestackstd-toolkiteschematesting).
+
 ### `@kestack/std-toolkit/snapshot`
 
 | Export                        | What it does                                                                             |
@@ -41,28 +47,29 @@ See [src/eschema/README.md](src/eschema/README.md).
 | `TableSnapshot.parse`         | Reads a stored document, migrating older formats forward and validating its references.  |
 | `TableSnapshot.diff`          | Compares a previous and a current snapshot into classified semantic changes.             |
 | `TableSnapshot.renderChanges` | Renders a list of changes as human-readable text, grouped by impact.                     |
+| `TableSnapshot.changeLabel`   | Names one change in a line, such as `Task v1 edited`, as `acceptBreaking` expects it.    |
 | `TableSnapshotESchema`        | The ESchema of the stored table snapshot document.                                       |
 | `SnapshotIncompatible`        | Error raised when a new snapshot is not upgradable from the accepted one.                |
 
 ### `@kestack/std-toolkit/snapshot/vitest`
 
-The recommended test for a table, in one call. It needs `vitest` as a peer.
+The one test a table needs. It needs `vitest` as a peer.
 
 ```ts
-import { expectTableSnapshot } from '@kestack/std-toolkit/snapshot/vitest';
+import { expectTableShippable } from '@kestack/std-toolkit/snapshot/vitest';
 import { it } from 'vitest';
 import { table } from '../src/table.js';
 
-it('keeps the table in step with its committed snapshot', async () => {
-  await expectTableSnapshot(table, './fixtures/table.snapshot.json');
+it('keeps the table safe to ship', async () => {
+  await expectTableShippable(table, './fixtures/table.snapshot.json');
 });
 ```
 
-The file holds the table snapshot: topology, entities, and every version of every schema the table reaches. It is compared as parsed data, so formatting never fails the test. On a mismatch the failure lists every change with its classification. `vitest -u` accepts the current document, like any file snapshot.
+The file holds the table snapshot: topology, entities, and every version of every schema the table reaches, compared as parsed data so formatting never fails the test. The test fails, listing every reason, when a stored version of any schema the table reaches does not upgrade or a migration changes a row's id or partition key, when the snapshot has a breaking change against the file, or when the file is out of date. `vitest -u` writes the file only for changes that keep stored rows readable. It never accepts a breaking change or a failing upgrade: a breaking change is accepted only when a person names it in `acceptBreaking` (`{ acceptBreaking: ['Task v1 edited'] }`), and an entry that no longer names a change fails the test until it is removed. A committed file that cannot be read fails too, even under `-u`, since it is the baseline breaking changes are judged against. The deploy guard still compares against what is deployed, so a hand-edited file cannot ship a breaking change.
 
-| Export                | What it does                                                           |
-| --------------------- | ---------------------------------------------------------------------- |
-| `expectTableSnapshot` | Captures the table's snapshot and compares it with the committed file. |
+| Export                 | What it does                                                                                         |
+| ---------------------- | ---------------------------------------------------------------------------------------------------- |
+| `expectTableShippable` | Fails unless every stored version upgrades and the table snapshot has no unaccepted breaking change. |
 
 ### `@kestack/std-toolkit/alchemy`
 
@@ -73,10 +80,6 @@ Deploys a StdTable with Alchemy. Each target keeps the last accepted table snaps
 | `DynamoDB.table` | Guards the snapshot, then creates or updates the DynamoDB table and its indexes.  |
 | `D1.table`       | Guards the snapshot, then creates or updates the table and its indexes in D1.     |
 | `providers`      | Every provider std-toolkit's resources need, to merge into a stack's `providers`. |
-
-### `@kestack/std-toolkit/studio-rpc`
-
-See [src/studio-rpc/README.md](src/studio-rpc/README.md).
 
 ### `@kestack/std-toolkit/db`
 
@@ -106,6 +109,10 @@ See [src/db/sqlite/README.md](src/db/sqlite/README.md). It also covers the drive
 ### `@kestack/std-toolkit/sync`
 
 See [src/sync/README.md](src/sync/README.md). It also covers `./sync/paced` and the Sync adapters `./sync/idb` and `./sync/memory`.
+
+### `@kestack/std-toolkit/replica`
+
+See [src/replica/README.md](src/replica/README.md). It also covers the Stores `./replica/idb` and `./replica/memory`.
 
 ## Usage
 

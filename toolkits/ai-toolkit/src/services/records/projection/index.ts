@@ -1,0 +1,16 @@
+export {
+  MessageSchema,
+  PartSchema,
+  PROJECTION_VERSION,
+  ROLES,
+  TOOL_KINDS,
+  TURN_END_STATUSES,
+  UsageSchema,
+  type Message,
+  type Part,
+  type Projected,
+  type Role,
+  type ToolKind,
+  type TurnEndStatus,
+  type Usage,
+} from './message.js';

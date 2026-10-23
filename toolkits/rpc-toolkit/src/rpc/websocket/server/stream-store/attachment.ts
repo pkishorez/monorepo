@@ -4,7 +4,7 @@ import * as Schema from 'effect/Schema';
 import type { HibernatingSocket } from '../durable-object-state.ts';
 import type { StreamStore } from './stream-store.ts';
 
-const HandlerRequest = Schema.Struct({
+const HandlerRequest = /*#__PURE__*/ Schema.Struct({
   _tag: Schema.Literal('Request'),
   id: Schema.Union([Schema.String, Schema.Number]),
   tag: Schema.String,
@@ -17,12 +17,11 @@ const HandlerRequest = Schema.Struct({
   sampled: Schema.optionalKey(Schema.Boolean),
 });
 
-export class PersistedHandler extends Schema.Class<PersistedHandler>(
-  'PersistedHandler',
-)({
-  request: HandlerRequest,
-  state: Schema.optionalKey(Schema.Unknown),
-}) {}
+export class PersistedHandler
+  extends /*#__PURE__*/ Schema.Class<PersistedHandler>('PersistedHandler')({
+    request: HandlerRequest,
+    state: Schema.optionalKey(Schema.Unknown),
+  }) {}
 
 /**
  * Everything that survives hibernation, per socket.
@@ -30,15 +29,16 @@ export class PersistedHandler extends Schema.Class<PersistedHandler>(
  * `connection` holds the *encoded* connection value. The attachment schema
  * treats it as opaque — only the caller's schema (if any) knows its shape.
  */
-export class ConnectionAttachment extends Schema.Class<ConnectionAttachment>(
-  'ConnectionAttachment',
-)({
-  clientId: Schema.Number,
-  handlers: Schema.Array(PersistedHandler),
-  connection: Schema.optionalKey(Schema.Unknown),
-}) {}
+export class ConnectionAttachment
+  extends /*#__PURE__*/ Schema.Class<ConnectionAttachment>(
+    'ConnectionAttachment',
+  )({
+    clientId: Schema.Number,
+    handlers: Schema.Array(PersistedHandler),
+    connection: Schema.optionalKey(Schema.Unknown),
+  }) {}
 
-const decode = Schema.decodeUnknownOption(ConnectionAttachment);
+const decode = /*#__PURE__*/ Schema.decodeUnknownOption(ConnectionAttachment);
 
 /** The socket's attachment, or `None` when it is absent or cannot be decoded. */
 export const decodeConnectionAttachment = (

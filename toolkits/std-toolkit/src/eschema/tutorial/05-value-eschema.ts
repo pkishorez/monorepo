@@ -55,7 +55,7 @@ console.log('bare legacy value:', Effect.runSync(readEncoded(Status, 'draft')));
 // Migrations can also TRANSFORM the value's type across versions. Here v1 is a
 // string and v2 is a number; the migration converts.
 const Quantity = ValueESchema.make('Quantity', Schema.String)
-  .evolve('v2', Schema.Number, (value) => Number(value))
+  .evolve('v2', Schema.Finite, (value) => Number(value))
   .build();
 
 console.log(

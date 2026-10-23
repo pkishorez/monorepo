@@ -3,4 +3,4 @@ import { Start } from '../../../common/index.ts';
 import { AppView } from '../../app/src/app.tsx';
 import { router } from '../../app/src/routes.ts';
 
-export default Start.app(router, AppView);
+export default Start.app({ router, view: AppView });

@@ -37,6 +37,11 @@ export class DecodeFailed extends Data.TaggedError('DecodeFailed')<{
   readonly entity: string;
   readonly cause: Error;
 }> {}
+/** A value could not be written in its encoded form, so nothing was stored. */
+export class EncodeFailed extends Data.TaggedError('EncodeFailed')<{
+  readonly entity: string;
+  readonly cause: Error;
+}> {}
 // Structural stand-in for the submitted op: `error` sits below `entity`, so it
 // cannot name `AnyTransactOp` without a cycle. The op itself is passed through,
 // so reference identity with what the caller handed to `transact` holds.
@@ -94,6 +99,7 @@ export type DatabaseErrorReason =
   | ForeignTransactionItem
   | TransactFailed
   | DecodeFailed
+  | EncodeFailed
   | OperationFailed
   | EntityNotFound
   | PrimaryKeyDrift

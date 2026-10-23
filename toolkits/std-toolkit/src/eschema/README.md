@@ -29,6 +29,15 @@ See the [top README](../../README.md).
 | `checkAnnotation`     | Names a check the built-in catalogue does not know, so a snapshot can list it.                    |
 | `SnapshotTypeSchema`  | Effect Schema for the snapshot type language that describes a field's stored shape.               |
 
+### `@kestack/std-toolkit/eschema/testing`
+
+Test helpers, for any test runner.
+
+| Export                | What it does                                                                                                                                                               |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `expectUpgradable`    | Generates rows every version of a schema and its nested schemas could store, and fails if any does not read at the latest version, or a path named in `unchanged` changes. |
+| `findUpgradeFailures` | The same check as an Effect over several schemas, returning one report entry per failing version.                                                                          |
+
 Every built schema exposes `name`, `latestVersion`, `schema`, `getDescriptor`, the `Type` and `Encoded` type carriers, and the Standard Schema `~standard` interface, which checks a latest value. `schema` is the Effect Schema that reads any known version, migrates it, and writes the latest with `_v`; nest it inside another schema or use it at a boundary. `ESchema` and `EntityESchema` add `fields` and `entity`, the Effect Schema for a whole `{ value, meta }` Entity with `_v` in its meta. `EntityESchema` adds `idField`; `ESchema` adds `singleEntity`, the same for a singleton Entity.
 
 ## Usage
@@ -75,8 +84,9 @@ const written = await Effect.runPromise(Schema.encodeEffect(stored)(task));
 - Versions must be appended in sequence (`v2` after `v1`); the type system rejects gaps.
 - Removing a field is `evolve('v3', { colour: null }, ...)`; renaming is a remove plus an add in the same step.
 - A field may convert between a rich value and what is stored, such as `Schema.DateFromString`: code gets a `Date`, storage keeps the ISO string, and migrations receive values. Only the stored side is versioned and captured by a snapshot.
-- Optional fields, `_`-prefixed keys, constructor defaults, and fields whose stored side is not plain JSON (such as `Schema.Date`) are refused at build time, so a snapshot can always describe what is stored.
-- A check from the built-in catalogue (`isMinLength`, `isPattern`, `isInt`, `isBetween`, …) is recorded by itself. Any other filter needs `checkAnnotation({ name })`. Checks are shown in Studio but never compared, so adding or removing one is never a breaking change.
+- Optional fields, `_`-prefixed keys, constructor defaults, and fields whose stored side is not plain JSON (such as `Schema.Date`, or a plain `Schema.Number` that allows `NaN`; use `Schema.Finite` or `Schema.Int`) are refused at build time, so a snapshot can always describe what is stored. Every encode also refuses a value JSON cannot hold unchanged, naming the field.
+- `await expectUpgradable(Task)` in a test generates rows each version could have stored and reads them at the latest version, so a migration that throws, breaks a check, or changes the id fails in CI instead of on a user's row.
+- A check from the built-in catalogue (`isMinLength`, `isPattern`, `isInt`, `isBetween`, …) is recorded by itself. Any other filter needs `checkAnnotation({ name })`. On a shipped version a check may be removed or loosened, never added or tightened, since a stored row that fails it would stop reading. Add a check in a new version instead, with a migration that satisfies it. A check on the value side of a conversion belongs to the conversion: neither is recorded, so never change either on a shipped version.
 
 ### Try a new field before committing to a version
 

@@ -1,5 +1,7 @@
 # An Actor is a folder, and Capabilities sit under their Provider
 
+Superseded by [ADR 0042](0042-an-actor-folder-is-named-by-kind-and-holds-its-services.md).
+
 A Kabuki app is laid out as one folder per Actor, each Child's folder nested inside its parent's, so the folder tree is the Actor tree and each folder is a Laymos Module. A folder's `index.ts` exports one object, `<Name>`, with `actor` and `view`, and nothing else. The Capabilities an Actor Provides live in a `capabilities/` Nested Module inside its folder, one file per Capability under a bare name; a Child reaches that folder as a sibling, under one Laymos Rule from the Child's folder, which also covers every descendant whose need bubbles up through it. Capabilities the app Layer gives live in a `capabilities/` Module beside the root Actor's folder. The `grill-with-kabuki` skill models and builds apps in this shape.
 
 ## Considered Options

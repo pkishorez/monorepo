@@ -1,6 +1,9 @@
 import { Context, Effect, Layer, Option, PubSub, Stream } from 'effect';
 import { RpcClient } from 'effect/rpc';
-import { Rpc } from '@kestack/rpc-toolkit/rpc';
+import {
+  client as websocketClient,
+  connection as RpcConnection,
+} from '@kestack/rpc-toolkit/rpc/websocket';
 import type { Scope } from 'effect/Scope';
 import type { PeerId } from '../../peer-identity/index.js';
 import {
@@ -50,7 +53,7 @@ export const connect = (
     url.searchParams.set('name', options.name);
     url.searchParams.set('mode', options.mode);
 
-    const protocol = Rpc.websocket.client(DurableSignalingRpcs, {
+    const protocol = websocketClient(DurableSignalingRpcs, {
       url: url.toString(),
     });
     const context = yield* Layer.build(protocol);
@@ -59,7 +62,7 @@ export const connect = (
     );
     const runtime = {
       client,
-      connection: Context.get(context, Rpc.websocket.connection),
+      connection: Context.get(context, RpcConnection),
     };
 
     const peers = runtime.connection

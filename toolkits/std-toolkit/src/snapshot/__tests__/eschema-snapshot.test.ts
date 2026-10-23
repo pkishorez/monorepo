@@ -25,7 +25,7 @@ const fieldOf = (eschema: object, name: string): SnapshotType => {
 
 describe('ESchema semantic snapshots', () => {
   it('captures every version and all three variants', async () => {
-    const plain = ESchema.make('Payment', { amount: Schema.Number })
+    const plain = ESchema.make('Payment', { amount: Schema.Finite })
       .evolve('v2', { createdAt: Schema.String }, (value) => ({
         ...value,
         createdAt: 'unknown',
@@ -43,7 +43,10 @@ describe('ESchema semantic snapshots', () => {
     expect(shapeOf(plain, 1)).toEqual({
       type: 'struct',
       fields: [
-        { name: 'amount', type: { type: 'number' } },
+        {
+          name: 'amount',
+          type: { type: 'number', checks: [{ check: 'finite' }] },
+        },
         { name: 'createdAt', type: { type: 'string' } },
       ],
     });
@@ -77,12 +80,12 @@ describe('ESchema semantic snapshots', () => {
     }
     const shapes = ESchema.make('Shapes', {
       text: Schema.String,
-      count: Schema.Number,
+      count: Schema.Finite,
       flag: Schema.Boolean,
       nothing: Schema.Null,
       maybe: Schema.NullOr(Schema.Literals(['x', 'y'])),
       status: Schema.Enum(Status),
-      counts: Schema.Record(Schema.String, Schema.Number),
+      counts: Schema.Record(Schema.String, Schema.Finite),
       opaque: ESchema.fromType<{ readonly any: true }>(),
       nested: Schema.Struct({ note: Schema.optionalKey(Schema.String) }),
     }).build();
@@ -105,7 +108,7 @@ describe('ESchema semantic snapshots', () => {
     });
     expect(fieldOf(shapes, 'counts')).toEqual({
       type: 'record',
-      value: { type: 'number' },
+      value: { type: 'number', checks: [{ check: 'finite' }] },
     });
     expect(fieldOf(shapes, 'opaque')).toEqual({ type: 'unknown' });
     expect(fieldOf(shapes, 'nested')).toEqual({
@@ -179,12 +182,20 @@ describe('ESchema semantic snapshots', () => {
     ).toThrow(/builtInDate.*declared type/i);
     expect(() =>
       ESchema.make('Limitations', {
-        pair: Schema.Tuple([Schema.String, Schema.Number]),
+        pair: Schema.Tuple([Schema.String, Schema.Finite]),
       }).build(),
     ).toThrow(/pair.*tuple/i);
     expect(() =>
       ESchema.make('Limitations', { big: Schema.BigInt }).build(),
     ).toThrow(/big.*BigInt/);
+    expect(() =>
+      ESchema.make('Limitations', { amount: Schema.Number }).build(),
+    ).toThrow(/amount.*NaN or Infinity/);
+    expect(() =>
+      ESchema.make('Limitations', {
+        amount: Schema.Number.check(Schema.isGreaterThan(0)),
+      }).build(),
+    ).toThrow(/amount.*NaN or Infinity/);
     expect(() =>
       ESchema.make('Limitations', {
         filtered: Schema.String.check(
@@ -309,7 +320,7 @@ describe('ESchema semantic snapshots', () => {
 
   it('sorts definitions and fields without sorting meaningful schema order', () => {
     const alpha = ESchema.make('Alpha', { value: Schema.String }).build();
-    const zulu = ESchema.make('Zulu', { value: Schema.Number }).build();
+    const zulu = ESchema.make('Zulu', { value: Schema.Finite }).build();
     const firstSchema = ESchema.make('Root', {
       zulu: zulu.schema,
       alpha: alpha.schema,
@@ -317,7 +328,7 @@ describe('ESchema semantic snapshots', () => {
     const first = snapshotOf(firstSchema);
 
     const alphaAgain = ESchema.make('Alpha', { value: Schema.String }).build();
-    const zuluAgain = ESchema.make('Zulu', { value: Schema.Number }).build();
+    const zuluAgain = ESchema.make('Zulu', { value: Schema.Finite }).build();
     const reorderedSchema = ESchema.make('Root', {
       alpha: alphaAgain.schema,
       zulu: zuluAgain.schema,

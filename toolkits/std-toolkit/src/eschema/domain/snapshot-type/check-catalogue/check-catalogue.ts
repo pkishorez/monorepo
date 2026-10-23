@@ -17,16 +17,16 @@ const Custom = Schema.Struct({
 export const SnapshotCheckSchema = Schema.Union([
   Schema.Struct({
     check: Schema.Literal('minLength'),
-    minLength: Schema.Number,
+    minLength: Schema.Finite,
   }),
   Schema.Struct({
     check: Schema.Literal('maxLength'),
-    maxLength: Schema.Number,
+    maxLength: Schema.Finite,
   }),
   Schema.Struct({
     check: Schema.Literal('lengthBetween'),
-    minimum: Schema.Number,
-    maximum: Schema.Number,
+    minimum: Schema.Finite,
+    maximum: Schema.Finite,
   }),
   Schema.Struct({
     check: Schema.Literal('pattern'),
@@ -35,30 +35,30 @@ export const SnapshotCheckSchema = Schema.Union([
   }),
   Schema.Struct({
     check: Schema.Literal('uuid'),
-    version: Schema.optionalKey(Schema.Number),
+    version: Schema.optionalKey(Schema.Int),
   }),
   Schema.Struct({ check: Schema.Literal('int') }),
   Schema.Struct({ check: Schema.Literal('finite') }),
   Schema.Struct({
     check: Schema.Literal('greaterThan'),
-    exclusiveMinimum: Schema.Number,
+    exclusiveMinimum: Schema.Finite,
   }),
   Schema.Struct({
     check: Schema.Literal('greaterThanOrEqualTo'),
-    minimum: Schema.Number,
+    minimum: Schema.Finite,
   }),
   Schema.Struct({
     check: Schema.Literal('lessThan'),
-    exclusiveMaximum: Schema.Number,
+    exclusiveMaximum: Schema.Finite,
   }),
   Schema.Struct({
     check: Schema.Literal('lessThanOrEqualTo'),
-    maximum: Schema.Number,
+    maximum: Schema.Finite,
   }),
   Schema.Struct({
     check: Schema.Literal('between'),
-    minimum: Schema.Number,
-    maximum: Schema.Number,
+    minimum: Schema.Finite,
+    maximum: Schema.Finite,
     exclusiveMinimum: Schema.optionalKey(Schema.Boolean),
     exclusiveMaximum: Schema.optionalKey(Schema.Boolean),
   }),
@@ -215,6 +215,41 @@ function describeCheck(check: SchemaAST.Check<any>): readonly SnapshotCheck[] {
   throw new CheckRefusal(
     `check ${unknownCheckLabel(check)} is not in the check catalogue; name it with checkAnnotation({ name })`,
   );
+}
+
+const FINITE_CHECKS = new Set([
+  'effect/schema/isFinite',
+  'effect/schema/isInt',
+]);
+
+function excludesNonFinite(check: SchemaAST.Check<any>): boolean {
+  const annotations = check.annotations as Record<string, unknown> | undefined;
+  const representation = annotations?.representation;
+  if (isRecord(representation) && typeof representation.id === 'string') {
+    if (FINITE_CHECKS.has(representation.id)) return true;
+    if (representation.id === 'effect/schema/isBetween') {
+      const payload = isRecord(representation.payload)
+        ? representation.payload
+        : {};
+      return (
+        Number.isFinite(payload.minimum) && Number.isFinite(payload.maximum)
+      );
+    }
+  }
+  return (
+    check._tag === 'FilterGroup' &&
+    check.checks.some((member) => excludesNonFinite(member))
+  );
+}
+
+/**
+ * Whether a number node's checks keep `NaN` and `±Infinity` out. JSON has no
+ * form for them: a JSON store writes `null`, and the row no longer reads.
+ */
+export function isFiniteNumber(
+  checks: readonly SchemaAST.Check<any>[] | undefined,
+): boolean {
+  return (checks ?? []).some(excludesNonFinite);
 }
 
 /** The name a check is listed under; unique on its node. */

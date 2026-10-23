@@ -40,9 +40,9 @@ describe('optional and undefined are forbidden at the type level', () => {
   it('rejects optional fields introduced by evolve', () => {
     const base = ESchema.make('C1', { x: Schema.String });
     // @ts-expect-error optional delta fields are forbidden
-    base.evolve('v2', { y: Schema.optional(Schema.Number) }, (prev) => prev);
+    base.evolve('v2', { y: Schema.optional(Schema.Finite) }, (prev) => prev);
     const evolved = base
-      .evolve('v2', { y: Schema.NullOr(Schema.Number) }, (prev) => ({
+      .evolve('v2', { y: Schema.NullOr(Schema.Finite) }, (prev) => ({
         ...prev,
         y: null,
       }))

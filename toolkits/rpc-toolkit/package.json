@@ -28,6 +28,18 @@
       "types": "./dist/rpc/index.d.ts",
       "default": "./dist/rpc/index.js"
     },
+    "./rpc/http": {
+      "types": "./dist/rpc/http/index.d.ts",
+      "default": "./dist/rpc/http/index.js"
+    },
+    "./rpc/websocket": {
+      "types": "./dist/rpc/websocket/index.d.ts",
+      "default": "./dist/rpc/websocket/index.js"
+    },
+    "./rpc/in-process": {
+      "types": "./dist/rpc/in-process/index.d.ts",
+      "default": "./dist/rpc/in-process/index.js"
+    },
     "./http-api": {
       "types": "./dist/http-api/index.d.ts",
       "default": "./dist/http-api/index.js"

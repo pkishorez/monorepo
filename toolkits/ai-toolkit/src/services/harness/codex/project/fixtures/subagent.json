@@ -1,0 +1,497 @@
+[
+  {
+    "kind": "item/completed",
+    "payload": {
+      "item": {
+        "type": "userMessage",
+        "id": "01a15fb4-5af7-79c0-aa82-491e915fa2a0",
+        "clientId": null,
+        "content": [
+          {
+            "type": "text",
+            "text": "Spawn exactly one sub-agent with your spawn agent tool. Tell it to run the shell command `echo from-child` and report the output. Wait for it, then reply with what it reported.",
+            "text_elements": []
+          }
+        ]
+      },
+      "threadId": "01a15fb4-50ed-78f2-ab56-afd05e949a01",
+      "turnId": "01a15fb4-514d-7a53-b124-c9756b471dce",
+      "completedAtMs": 1792607017720
+    }
+  },
+  {
+    "kind": "item/completed",
+    "payload": {
+      "item": {
+        "type": "reasoning",
+        "id": "rs_0517b005e8c211ed016ad9032b36688191bc8eacaf3af2cb40",
+        "summary": [],
+        "content": []
+      },
+      "threadId": "01a15fb4-50ed-78f2-ab56-afd05e949a01",
+      "turnId": "01a15fb4-514d-7a53-b124-c9756b471dce",
+      "completedAtMs": 1792607019269
+    }
+  },
+  {
+    "kind": "thread/tokenUsage/updated",
+    "payload": {
+      "threadId": "01a15fb4-50ed-78f2-ab56-afd05e949a01",
+      "turnId": "01a15fb4-514d-7a53-b124-c9756b471dce",
+      "tokenUsage": {
+        "total": {
+          "totalTokens": 16636,
+          "inputTokens": 16574,
+          "cachedInputTokens": 16128,
+          "cacheWriteInputTokens": 0,
+          "outputTokens": 62,
+          "reasoningOutputTokens": 24
+        },
+        "last": {
+          "totalTokens": 16636,
+          "inputTokens": 16574,
+          "cachedInputTokens": 16128,
+          "cacheWriteInputTokens": 0,
+          "outputTokens": 62,
+          "reasoningOutputTokens": 24
+        },
+        "modelContextWindow": 258400
+      }
+    }
+  },
+  {
+    "kind": "item/completed",
+    "payload": {
+      "item": {
+        "type": "reasoning",
+        "id": "rs_0517b005e8c211ed016ad9032caf708191bc7e163c24ce893f",
+        "summary": [],
+        "content": []
+      },
+      "threadId": "01a15fb4-50ed-78f2-ab56-afd05e949a01",
+      "turnId": "01a15fb4-514d-7a53-b124-c9756b471dce",
+      "completedAtMs": 1792607020755
+    }
+  },
+  {
+    "kind": "item/completed",
+    "payload": {
+      "item": {
+        "type": "agentMessage",
+        "id": "msg_0517b005e8c211ed016ad9032cb21481919a5320e193ba4c2f",
+        "text": "I’m spawning one sub-agent to run the requested command and report back.",
+        "phase": "commentary",
+        "memoryCitation": null,
+        "delivery": null,
+        "questions": null
+      },
+      "threadId": "01a15fb4-50ed-78f2-ab56-afd05e949a01",
+      "turnId": "01a15fb4-514d-7a53-b124-c9756b471dce",
+      "completedAtMs": 1792607020804
+    }
+  },
+  {
+    "kind": "item/started",
+    "payload": {
+      "item": {
+        "type": "collabAgentToolCall",
+        "id": "exec-f8db9fcd-65e9-4e2e-9a45-9ff5567a2777",
+        "tool": "spawnAgent",
+        "status": "inProgress",
+        "senderThreadId": "01a15fb4-50ed-78f2-ab56-afd05e949a01",
+        "receiverThreadIds": [],
+        "prompt": "Run the shell command `echo from-child` and report the output.",
+        "model": "",
+        "reasoningEffort": "medium",
+        "agentsStates": {}
+      },
+      "threadId": "01a15fb4-50ed-78f2-ab56-afd05e949a01",
+      "turnId": "01a15fb4-514d-7a53-b124-c9756b471dce",
+      "startedAtMs": 1792607021088
+    }
+  },
+  {
+    "kind": "item/completed",
+    "payload": {
+      "item": {
+        "type": "collabAgentToolCall",
+        "id": "exec-f8db9fcd-65e9-4e2e-9a45-9ff5567a2777",
+        "tool": "spawnAgent",
+        "status": "completed",
+        "senderThreadId": "01a15fb4-50ed-78f2-ab56-afd05e949a01",
+        "receiverThreadIds": ["01a15fb4-6822-7021-923b-c593af4e1fcc"],
+        "prompt": "Run the shell command `echo from-child` and report the output.",
+        "model": "gpt-5.6-luna",
+        "reasoningEffort": "low",
+        "agentsStates": {
+          "01a15fb4-6822-7021-923b-c593af4e1fcc": {
+            "status": "pendingInit",
+            "message": null
+          }
+        }
+      },
+      "threadId": "01a15fb4-50ed-78f2-ab56-afd05e949a01",
+      "turnId": "01a15fb4-514d-7a53-b124-c9756b471dce",
+      "completedAtMs": 1792607021156
+    }
+  },
+  {
+    "kind": "thread/tokenUsage/updated",
+    "payload": {
+      "threadId": "01a15fb4-50ed-78f2-ab56-afd05e949a01",
+      "turnId": "01a15fb4-514d-7a53-b124-c9756b471dce",
+      "tokenUsage": {
+        "total": {
+          "totalTokens": 42747,
+          "inputTokens": 42599,
+          "cachedInputTokens": 32512,
+          "cacheWriteInputTokens": 0,
+          "outputTokens": 148,
+          "reasoningOutputTokens": 39
+        },
+        "last": {
+          "totalTokens": 26111,
+          "inputTokens": 26025,
+          "cachedInputTokens": 16384,
+          "cacheWriteInputTokens": 0,
+          "outputTokens": 86,
+          "reasoningOutputTokens": 15
+        },
+        "modelContextWindow": 258400
+      }
+    }
+  },
+  {
+    "kind": "item/started",
+    "payload": {
+      "item": {
+        "type": "collabAgentToolCall",
+        "id": "exec-90214790-1000-4c26-a5e4-5106436e33f6",
+        "tool": "wait",
+        "status": "inProgress",
+        "senderThreadId": "01a15fb4-50ed-78f2-ab56-afd05e949a01",
+        "receiverThreadIds": ["01a15fb4-6822-7021-923b-c593af4e1fcc"],
+        "prompt": null,
+        "model": null,
+        "reasoningEffort": null,
+        "agentsStates": {}
+      },
+      "threadId": "01a15fb4-50ed-78f2-ab56-afd05e949a01",
+      "turnId": "01a15fb4-514d-7a53-b124-c9756b471dce",
+      "startedAtMs": 1792607022838
+    }
+  },
+  {
+    "kind": "item/completed",
+    "payload": {
+      "item": {
+        "type": "userMessage",
+        "id": "01a15fb4-7146-7cb2-91d5-86e598a7fa22",
+        "clientId": null,
+        "content": [
+          {
+            "type": "text",
+            "text": "Run the shell command `echo from-child` and report the output.",
+            "text_elements": []
+          }
+        ]
+      },
+      "threadId": "01a15fb4-6822-7021-923b-c593af4e1fcc",
+      "turnId": "01a15fb4-6862-7fd3-8ade-0304a2996f72",
+      "completedAtMs": 1792607023430
+    },
+    "agentId": "exec-f8db9fcd-65e9-4e2e-9a45-9ff5567a2777"
+  },
+  {
+    "kind": "item/completed",
+    "payload": {
+      "item": {
+        "type": "reasoning",
+        "id": "rs_0a05e939659c5fa7016ad90330ad7c819197782b8e3ffe2068",
+        "summary": [],
+        "content": []
+      },
+      "threadId": "01a15fb4-6822-7021-923b-c593af4e1fcc",
+      "turnId": "01a15fb4-6862-7fd3-8ade-0304a2996f72",
+      "completedAtMs": 1792607024710
+    },
+    "agentId": "exec-f8db9fcd-65e9-4e2e-9a45-9ff5567a2777"
+  },
+  {
+    "kind": "item/started",
+    "payload": {
+      "item": {
+        "type": "commandExecution",
+        "id": "exec-ab56785b-8ec6-4e44-a611-d4a64c7234f6",
+        "pluginId": null,
+        "scriptPath": null,
+        "command": "/bin/zsh -lc 'echo from-child'",
+        "cwd": "/var/folders/pz/hmz20bpd067fdqmt3d9nzgy40000gn/T/ai-toolkit-codex-e2e-b0osMM",
+        "processId": "23412",
+        "source": "unifiedExecStartup",
+        "status": "inProgress",
+        "commandActions": [
+          {
+            "type": "unknown",
+            "command": "echo from-child"
+          }
+        ],
+        "aggregatedOutput": null,
+        "exitCode": null,
+        "durationMs": null
+      },
+      "threadId": "01a15fb4-6822-7021-923b-c593af4e1fcc",
+      "turnId": "01a15fb4-6862-7fd3-8ade-0304a2996f72",
+      "startedAtMs": 1792607025289
+    },
+    "agentId": "exec-f8db9fcd-65e9-4e2e-9a45-9ff5567a2777"
+  },
+  {
+    "kind": "item/completed",
+    "payload": {
+      "item": {
+        "type": "commandExecution",
+        "id": "exec-ab56785b-8ec6-4e44-a611-d4a64c7234f6",
+        "pluginId": null,
+        "scriptPath": null,
+        "command": "/bin/zsh -lc 'echo from-child'",
+        "cwd": "/var/folders/pz/hmz20bpd067fdqmt3d9nzgy40000gn/T/ai-toolkit-codex-e2e-b0osMM",
+        "processId": "23412",
+        "source": "unifiedExecStartup",
+        "status": "completed",
+        "commandActions": [
+          {
+            "type": "unknown",
+            "command": "echo from-child"
+          }
+        ],
+        "aggregatedOutput": "from-child\n",
+        "exitCode": 0,
+        "durationMs": 0
+      },
+      "threadId": "01a15fb4-6822-7021-923b-c593af4e1fcc",
+      "turnId": "01a15fb4-6862-7fd3-8ade-0304a2996f72",
+      "completedAtMs": 1792607025289
+    },
+    "agentId": "exec-f8db9fcd-65e9-4e2e-9a45-9ff5567a2777"
+  },
+  {
+    "kind": "thread/tokenUsage/updated",
+    "payload": {
+      "threadId": "01a15fb4-6822-7021-923b-c593af4e1fcc",
+      "turnId": "01a15fb4-6862-7fd3-8ade-0304a2996f72",
+      "tokenUsage": {
+        "total": {
+          "totalTokens": 16642,
+          "inputTokens": 16549,
+          "cachedInputTokens": 16384,
+          "cacheWriteInputTokens": 0,
+          "outputTokens": 93,
+          "reasoningOutputTokens": 8
+        },
+        "last": {
+          "totalTokens": 16642,
+          "inputTokens": 16549,
+          "cachedInputTokens": 16384,
+          "cacheWriteInputTokens": 0,
+          "outputTokens": 93,
+          "reasoningOutputTokens": 8
+        },
+        "modelContextWindow": 258400
+      }
+    },
+    "agentId": "exec-f8db9fcd-65e9-4e2e-9a45-9ff5567a2777"
+  },
+  {
+    "kind": "item/completed",
+    "payload": {
+      "item": {
+        "type": "agentMessage",
+        "id": "msg_0a05e939659c5fa7016ad9033283348191ac673cf0142d615b",
+        "text": "`from-child`",
+        "phase": "final_answer",
+        "memoryCitation": null,
+        "delivery": null,
+        "questions": null
+      },
+      "threadId": "01a15fb4-6822-7021-923b-c593af4e1fcc",
+      "turnId": "01a15fb4-6862-7fd3-8ade-0304a2996f72",
+      "completedAtMs": 1792607026599
+    },
+    "agentId": "exec-f8db9fcd-65e9-4e2e-9a45-9ff5567a2777"
+  },
+  {
+    "kind": "thread/tokenUsage/updated",
+    "payload": {
+      "threadId": "01a15fb4-6822-7021-923b-c593af4e1fcc",
+      "turnId": "01a15fb4-6862-7fd3-8ade-0304a2996f72",
+      "tokenUsage": {
+        "total": {
+          "totalTokens": 33318,
+          "inputTokens": 33217,
+          "cachedInputTokens": 32768,
+          "cacheWriteInputTokens": 0,
+          "outputTokens": 101,
+          "reasoningOutputTokens": 8
+        },
+        "last": {
+          "totalTokens": 16676,
+          "inputTokens": 16668,
+          "cachedInputTokens": 16384,
+          "cacheWriteInputTokens": 0,
+          "outputTokens": 8,
+          "reasoningOutputTokens": 0
+        },
+        "modelContextWindow": 258400
+      }
+    },
+    "agentId": "exec-f8db9fcd-65e9-4e2e-9a45-9ff5567a2777"
+  },
+  {
+    "kind": "turn/completed",
+    "payload": {
+      "threadId": "01a15fb4-6822-7021-923b-c593af4e1fcc",
+      "turn": {
+        "id": "01a15fb4-6862-7fd3-8ade-0304a2996f72",
+        "items": [
+          {
+            "type": "agentMessage",
+            "id": "msg_0a05e939659c5fa7016ad9033283348191ac673cf0142d615b",
+            "text": "`from-child`",
+            "phase": "final_answer",
+            "memoryCitation": null,
+            "delivery": null,
+            "questions": null
+          }
+        ],
+        "itemsView": "summary",
+        "status": "completed",
+        "error": null,
+        "startedAt": 1792607021,
+        "completedAt": 1792607026,
+        "durationMs": 5618
+      }
+    },
+    "agentId": "exec-f8db9fcd-65e9-4e2e-9a45-9ff5567a2777"
+  },
+  {
+    "kind": "item/completed",
+    "payload": {
+      "item": {
+        "type": "collabAgentToolCall",
+        "id": "exec-90214790-1000-4c26-a5e4-5106436e33f6",
+        "tool": "wait",
+        "status": "completed",
+        "senderThreadId": "01a15fb4-50ed-78f2-ab56-afd05e949a01",
+        "receiverThreadIds": ["01a15fb4-6822-7021-923b-c593af4e1fcc"],
+        "prompt": null,
+        "model": null,
+        "reasoningEffort": null,
+        "agentsStates": {
+          "01a15fb4-6822-7021-923b-c593af4e1fcc": {
+            "status": "completed",
+            "message": "`from-child`"
+          }
+        }
+      },
+      "threadId": "01a15fb4-50ed-78f2-ab56-afd05e949a01",
+      "turnId": "01a15fb4-514d-7a53-b124-c9756b471dce",
+      "completedAtMs": 1792607026775
+    }
+  },
+  {
+    "kind": "thread/tokenUsage/updated",
+    "payload": {
+      "threadId": "01a15fb4-50ed-78f2-ab56-afd05e949a01",
+      "turnId": "01a15fb4-514d-7a53-b124-c9756b471dce",
+      "tokenUsage": {
+        "total": {
+          "totalTokens": 68973,
+          "inputTokens": 68766,
+          "cachedInputTokens": 58368,
+          "cacheWriteInputTokens": 0,
+          "outputTokens": 207,
+          "reasoningOutputTokens": 39
+        },
+        "last": {
+          "totalTokens": 26226,
+          "inputTokens": 26167,
+          "cachedInputTokens": 25856,
+          "cacheWriteInputTokens": 0,
+          "outputTokens": 59,
+          "reasoningOutputTokens": 0
+        },
+        "modelContextWindow": 258400
+      }
+    }
+  },
+  {
+    "kind": "item/completed",
+    "payload": {
+      "item": {
+        "type": "agentMessage",
+        "id": "msg_0517b005e8c211ed016ad9033444188191a62c63bb10fa8803",
+        "text": "The sub-agent reported: `from-child`",
+        "phase": "final_answer",
+        "memoryCitation": null,
+        "delivery": null,
+        "questions": null
+      },
+      "threadId": "01a15fb4-50ed-78f2-ab56-afd05e949a01",
+      "turnId": "01a15fb4-514d-7a53-b124-c9756b471dce",
+      "completedAtMs": 1792607028610
+    }
+  },
+  {
+    "kind": "thread/tokenUsage/updated",
+    "payload": {
+      "threadId": "01a15fb4-50ed-78f2-ab56-afd05e949a01",
+      "turnId": "01a15fb4-514d-7a53-b124-c9756b471dce",
+      "tokenUsage": {
+        "total": {
+          "totalTokens": 95324,
+          "inputTokens": 95104,
+          "cachedInputTokens": 84352,
+          "cacheWriteInputTokens": 0,
+          "outputTokens": 220,
+          "reasoningOutputTokens": 39
+        },
+        "last": {
+          "totalTokens": 26351,
+          "inputTokens": 26338,
+          "cachedInputTokens": 25984,
+          "cacheWriteInputTokens": 0,
+          "outputTokens": 13,
+          "reasoningOutputTokens": 0
+        },
+        "modelContextWindow": 258400
+      }
+    }
+  },
+  {
+    "kind": "turn/completed",
+    "payload": {
+      "threadId": "01a15fb4-50ed-78f2-ab56-afd05e949a01",
+      "turn": {
+        "id": "01a15fb4-514d-7a53-b124-c9756b471dce",
+        "items": [
+          {
+            "type": "agentMessage",
+            "id": "msg_0517b005e8c211ed016ad9033444188191a62c63bb10fa8803",
+            "text": "The sub-agent reported: `from-child`",
+            "phase": "final_answer",
+            "memoryCitation": null,
+            "delivery": null,
+            "questions": null
+          }
+        ],
+        "itemsView": "summary",
+        "status": "completed",
+        "error": null,
+        "startedAt": 1792607015,
+        "completedAt": 1792607028,
+        "durationMs": 13556
+      }
+    }
+  }
+]

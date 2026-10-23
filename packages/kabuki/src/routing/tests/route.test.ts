@@ -1,6 +1,6 @@
 import { Context, Effect, Layer, Schema } from 'effect';
-import { describe, expect, it } from 'vitest';
-import type { Types } from '../../core/index.ts';
+import { describe, expect, expectTypeOf, it } from 'vitest';
+import type { LiveInstance, Stopped, Types } from '../../core/index.ts';
 import { View } from '../../react/index.ts';
 import { Navigation, Page, Router } from '../index.ts';
 import { tagsOf } from '../route/index.ts';
@@ -342,6 +342,18 @@ describe('a place with data', () => {
       Site.Account.Activity({ team: 'core', since: 'mon' }),
     );
     expect(a!.key).toBe(b!.key);
+  });
+});
+
+describe('a page with Queries', () => {
+  it('carries them to its live Instance, typed', () => {
+    const Asked = Page.define({ path: '/asked' });
+    const AskedLive = Page.build(Asked, {
+      queries: { answer: { run: () => Effect.succeed(42) } },
+    });
+    expectTypeOf<
+      LiveInstance<typeof AskedLive>['queries']['answer']
+    >().returns.toEqualTypeOf<Effect.Effect<number, Stopped>>();
   });
 });
 

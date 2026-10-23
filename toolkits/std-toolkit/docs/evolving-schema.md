@@ -26,7 +26,7 @@ migration until it reaches the latest shape.
 const User = ESchema.make('User', {
   name: Schema.String,
 })
-  .evolve('v2', { age: Schema.Number }, (previous) => ({
+  .evolve('v2', { age: Schema.Finite }, (previous) => ({
     ...previous,
     age: 0,
   }))
@@ -136,7 +136,7 @@ besides `_v` and `_value` is refused with `ESchemaError`. A value with no
 
 ```ts
 const Rating = ValueESchema.make('Rating', Schema.String)
-  .evolve('v2', Schema.Number, (previous) => Number(previous))
+  .evolve('v2', Schema.Finite, (previous) => Number(previous))
   .build();
 ```
 
@@ -184,9 +184,9 @@ sharp edges worth knowing before you rely on it.
   shipped migrations are contracts with the rows already written, but nothing
   in the types detects that you changed v1's fields or rewrote the v1→v2 step
   after rows were written. Two things catch a changed version: the per-table
-  test (`expectTableSnapshot`) in CI, and the snapshot guard at deploy. See
-  "Shipping" below. A rewritten migration is not caught: it is code, and it
-  gets the same review as any other function.
+  test (`expectTableShippable`) in CI, and the snapshot guard at deploy. See
+  "Shipping" below. A rewritten migration is not caught by a snapshot: it is
+  code. `expectUpgradable` (below) is the test that exercises it.
 - **Migrations only run on read.** A row written at v1 stays a v1 row on disk
   until something decodes and re-encodes it. If you delete the v1→v2 migration
   from your code, unread v1 rows become undecodable.
@@ -209,13 +209,38 @@ sharp edges worth knowing before you rely on it.
   previous version could decode. Handle nulls, empty strings, and the weird
   legacy cases — a throw inside a migration fails the whole decode with an
   `ESchemaError`.
+- **Test that every version upgrades.** `expectUpgradable(Task)` from
+  `@kestack/std-toolkit/eschema/testing` generates rows each version could
+  have stored, for the schema and every ESchema it nests, and reads each one at
+  the latest version. It fails when a migration throws, returns a value the
+  latest version refuses, or changes the id, and when a saved value does not
+  read back unchanged. It names the version and prints the smallest row that
+  shows the failure.
+- **Store numbers as `Schema.Finite` or `Schema.Int`.** JSON has no `NaN` or
+  `Infinity`; a JSON store writes `null` and the row stops reading. A plain
+  `Schema.Number` field is refused when the schema is built, and every encode
+  refuses a value JSON cannot hold unchanged (a non-finite number, `undefined`,
+  a `Date` or `Map` inside an opaque field, a circular reference), naming the
+  field.
 - **Keep migrations pure.** No clocks, no randomness, no IO. The same stored
   row must decode to the same value today, tomorrow, and on every replica.
 - **Model absence with `Schema.NullOr`,** never optional fields — the builder
   forbids optionals so that every version has exactly one canonical shape.
-- **Commit a table snapshot.** One `expectTableSnapshot` test per table keeps
-  every version under review; appended versions classify as `safe`, edits to
-  approved versions as `breaking`.
+- **One test per table.** `expectTableShippable(table, file)` checks the
+  committed snapshot and runs `expectUpgradable` over every schema the table
+  reaches, keeping each keyed row's id and partition key. `vitest -u` accepts
+  appended versions and other safe changes; it never accepts an edit to a
+  shipped version or a failing upgrade. A breaking change is accepted only
+  when a person names it in `acceptBreaking`.
+- **Checks only loosen on a shipped version.** Removing a check or widening a
+  bound is safe; adding or tightening one is breaking, because a stored row
+  that fails it stops reading. Put a new check in a new version, with a
+  migration that makes old values pass it.
+- **Never change a shipped field's conversion.** Only the stored side is
+  versioned. A conversion (`Schema.DateFromString`, your own `decodeTo`), and
+  any check after it on the value side, is not in the snapshot, so no test
+  sees an edit to it. Give the new conversion to a new version's field; `v1`
+  rows keep reading with `v1`'s.
 
 ## Shipping
 

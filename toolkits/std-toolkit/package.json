@@ -76,6 +76,10 @@
       "types": "./dist/eschema/index.d.ts",
       "default": "./dist/eschema/index.js"
     },
+    "./eschema/testing": {
+      "types": "./dist/eschema/testing/index.d.ts",
+      "default": "./dist/eschema/testing/index.js"
+    },
     "./snapshot": {
       "types": "./dist/snapshot/index.d.ts",
       "default": "./dist/snapshot/index.js"
@@ -83,10 +87,6 @@
     "./snapshot/vitest": {
       "types": "./dist/snapshot/vitest/index.d.ts",
       "default": "./dist/snapshot/vitest/index.js"
-    },
-    "./studio-rpc": {
-      "types": "./dist/studio-rpc/index.d.ts",
-      "default": "./dist/studio-rpc/index.js"
     },
     "./sync": {
       "types": "./dist/sync/index.d.ts",
@@ -103,6 +103,18 @@
     "./sync/memory": {
       "types": "./dist/sync/store/memory/index.d.ts",
       "default": "./dist/sync/store/memory/index.js"
+    },
+    "./replica": {
+      "types": "./dist/replica/index.d.ts",
+      "default": "./dist/replica/index.js"
+    },
+    "./replica/idb": {
+      "types": "./dist/replica/store/idb/index.d.ts",
+      "default": "./dist/replica/store/idb/index.js"
+    },
+    "./replica/memory": {
+      "types": "./dist/replica/store/memory/index.d.ts",
+      "default": "./dist/replica/store/memory/index.js"
     },
     "./alchemy": {
       "types": "./dist/alchemy/index.d.ts",
@@ -134,6 +146,8 @@
   "devDependencies": {
     "@cloudflare/workers-types": "catalog:",
     "@effect/vitest": "catalog:",
+    "@kestack/kabuki": "workspace:*",
+    "@tanstack/db": "catalog:",
     "@tanstack/react-db": "catalog:",
     "@tsconfig/node22": "catalog:",
     "@types/better-sqlite3": "catalog:",
@@ -155,6 +169,8 @@
     "vitest": "catalog:"
   },
   "peerDependencies": {
+    "@kestack/kabuki": "workspace:*",
+    "@tanstack/db": "0.9.2",
     "@tanstack/react-db": "0.4.1",
     "alchemy": "2.0.0-beta.80",
     "effect": "^4.0.0",
@@ -172,6 +188,12 @@
       "optional": true
     },
     "vitest": {
+      "optional": true
+    },
+    "@kestack/kabuki": {
+      "optional": true
+    },
+    "@tanstack/db": {
       "optional": true
     }
   },

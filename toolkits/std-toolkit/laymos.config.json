@@ -18,15 +18,15 @@
     "src/eschema/__tests__",
     "src/eschema/play.ts",
     "src/eschema/tutorial",
+    "src/replica/__tests__",
     "src/snapshot/__tests__",
     "src/snapshot/vitest/__tests__",
-    "src/studio-rpc/__tests__",
     "src/sync/__tests__",
     "src/sync/domain/collection-item/__tests__",
     "src/sync/domain/identity/__tests__",
     "src/sync/paced/__tests__",
-    "src/sync/store/idb/__tests__",
     "src/sync/session/__tests__",
+    "src/sync/store/idb/__tests__",
     "src/sync/strategy/__tests__"
   ],
   "storiesPath": "stories",
@@ -48,6 +48,7 @@
       "src/eschema/domain/encoded",
       "src/eschema/domain/eschema-error",
       "src/eschema/domain/introspection",
+      "src/eschema/domain/portable-value",
       "src/eschema/domain/schema-model",
       "src/eschema/domain/snapshot-type"
     ],
@@ -61,6 +62,7 @@
     "src/eschema/eschema": ["src/eschema/domain"],
     "src/eschema/entity-eschema": ["src/eschema/domain"],
     "src/eschema/value-eschema": ["src/eschema/domain"],
+    "src/eschema/testing": ["src/eschema/domain"],
     "src/snapshot/domain": ["src/eschema"],
     "src/snapshot/capture": ["src/snapshot/domain"],
     "src/snapshot/capture/eschema-capture": [
@@ -81,6 +83,7 @@
       "src/snapshot/snapshot/snapshot-decoder"
     ],
     "src/snapshot/snapshot/snapshot-renderer": ["src/eschema"],
+    "src/snapshot/vitest": ["src/eschema/testing"],
     "src/db/std-table/definition": ["src/eschema"],
     "src/db/std-table/key": ["src/db/std-table/contract"],
     "src/db/std-table/entity": [
@@ -135,15 +138,6 @@
       "src/db/sqlite/item-schema",
       "src/db/sqlite/statement"
     ],
-    "src/studio-rpc": [
-      "src/core",
-      "src/db/std-table/contract",
-      "src/db/std-table/definition",
-      "src/db/std-table/entity",
-      "src/db/std-table/error",
-      "src/db/std-table/table",
-      "src/snapshot"
-    ],
     "src/alchemy/snapshot-guard": ["src/snapshot"],
     "src/alchemy/d1": [
       "src/alchemy/snapshot-guard",
@@ -187,7 +181,20 @@
     ],
     "src/eschema/domain/schema-model": ["src/core"],
     "src/sync/domain/entity-validation": ["src/core"],
-    "src/sync/strategy": ["src/core"]
+    "src/sync/strategy": ["src/core"],
+    "src/replica/shape": ["src/eschema", "src/core"],
+    "src/replica/store/contract": [
+      "src/db",
+      "src/eschema",
+      "src/core",
+      "src/replica/shape"
+    ],
+    "src/replica/store/idb": ["src/db/idb", "src/replica/store/contract"],
+    "src/replica/store/memory": ["src/db/memory", "src/replica/store/contract"],
+    "src/replica/replicas": ["src/replica/shape", "src/replica/store/contract"],
+    "src/replica/replicas/instance": ["src/core", "src/eschema", "src/db"],
+    "src/replica/query": ["src/replica/replicas"],
+    "src/replica/action": ["src/replica/shape", "src/replica/replicas"]
   },
   "exceptions": [
     {

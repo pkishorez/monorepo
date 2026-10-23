@@ -13,8 +13,12 @@ One semantically coherent difference between two **table snapshots**, with its o
 _Avoid_: Overall status, snapshot result.
 
 **snapshot verification**:
-A comparison of a current **table snapshot** with an earlier one, yielding **snapshot changes** that each keep their own safety classification. The new snapshot is upgradable when no change is `breaking` or `unverifiable`. Snapshot provides only the comparison; the baseline it compares against belongs to the caller. The one baseline the toolkit keeps is the alchemy **snapshot guard**'s, in Alchemy state. A committed file snapshot in a test suite is a recommended reviewing aid.
+A comparison of a current **table snapshot** with an earlier one, yielding **snapshot changes** that each keep their own safety classification. The new snapshot is upgradable when no change is `breaking` or `unverifiable`. Snapshot provides only the comparison; the baseline it compares against belongs to the caller. The one baseline the toolkit keeps is the alchemy **snapshot guard**'s, in Alchemy state. A committed file snapshot, checked by `expectTableShippable`, catches a change before review; the guard is what refuses it.
 _Avoid_: Safety assessment, snapshot approval, approved snapshot file, contract file, enforcement baseline (retired: nothing is stored inside the table).
+
+**Accepted breaking change**:
+A breaking **snapshot change** a person has confirmed no deployed data depends on, named in `expectTableShippable`'s `acceptBreaking` by its one-line label (`Task v1 edited`). `vitest -u` writes a committed file only for changes that are not breaking, or are accepted; an accepted change that no longer appears fails the test until its entry is removed, so none lingers. It changes only the committed file: the **snapshot guard** still refuses the change against what is deployed.
+_Avoid_: Approval, override, force-update.
 
 **Snapshot guard**:
 The Alchemy resource in `@kestack/std-toolkit/alchemy` that keeps the last accepted **table snapshot** for one physical table in Alchemy state. On each deploy it runs **snapshot verification** against that snapshot and fails the deploy when the new one is not upgradable; a `requires-backfill` change is accepted with a warning. A new physical target starts a fresh baseline. It runs only at deploy, never in a layer or a request.
@@ -29,7 +33,7 @@ One node of the toolkit's own language for describing a data shape inside a **ta
 _Avoid_: Representation (Effect's term), serialized schema, IR, AST.
 
 **Check**:
-A validation attached to a **snapshot type**, recorded for display only: a built-in check from a fixed catalogue with its arguments, or a custom check described by the user's own name. A check that is neither cannot be captured. Each check is unique on its node, and only checks the user wrote on the stored side are recorded. Checks are never compared: adding, removing, or changing one is never a **snapshot change**, because a check only narrows which values are accepted and can always be relaxed again, while a data shape change cannot be undone once rows are written.
+A validation attached to a **snapshot type**: a built-in check from a fixed catalogue with its arguments, or a custom check described by the user's own name. A check that is neither cannot be captured. Each check is unique on its node, and only checks the user wrote on the stored side are recorded. Every stored row passed the checks of its version, so on an approved version a check may be removed or loosened (a wider bound) as a safe **snapshot change**, and adding or tightening one is breaking: a row that fails it no longer reads. Adding `finite` to a number is safe, since JSON cannot hold a non-finite number in a form that reads back.
 _Avoid_: Filter (Effect's term), constraint, validation rule.
 
 **snapshot identity**:

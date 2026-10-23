@@ -68,13 +68,13 @@ export function RecordingsPlayer({
   const { toggle } = props.playback;
 
   // The player's keys work while it shows, around the Proof panel's own.
-  // `useSurface` gives new functions on every move, so only the first opens.
-  const surfaces = storiesKeys.useSurface();
-  const surfacesRef = useRef(surfaces);
-  surfacesRef.current = surfaces;
+  // `useKeyboard` gives a new object on every move, so only the first enters.
+  const keyboard = storiesKeys.useKeyboard();
+  const keyboardRef = useRef(keyboard);
+  keyboardRef.current = keyboard;
   useEffect(() => {
-    surfacesRef.current.openSurface(playerSurface);
-    return () => surfacesRef.current.closeSurface(playerSurface);
+    keyboardRef.current.enter(playerSurface);
+    return () => keyboardRef.current.leave(playerSurface);
   }, []);
   // A focused control keeps Space for itself.
   const active = useActiveElement();
@@ -83,18 +83,16 @@ export function RecordingsPlayer({
     document.body,
     `${nativeControls}, [role="button"]`,
   );
-  storiesKeys.useAction('stories.proof-panel.player.playPause', toggle, {
+  storiesKeys.useAction('player.playPause', toggle, {
     enabled: !controlFocused,
   });
-  storiesKeys.useAction('stories.proof-panel.player.fullScreen', () =>
+  storiesKeys.useAction('player.fullScreen', () =>
     setFullScreen((current) => !current),
   );
   // Without a Handler it shadows nothing: Escape closes the panel instead.
-  storiesKeys.useAction(
-    'stories.proof-panel.player.exitFullScreen',
-    () => setFullScreen(false),
-    { enabled: fullScreen },
-  );
+  storiesKeys.useAction('player.exitFullScreen', () => setFullScreen(false), {
+    enabled: fullScreen,
+  });
 
   return (
     <>

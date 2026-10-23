@@ -47,7 +47,7 @@ const wrapSocket = (ws: cf.WebSocket): HibernatingSocket => ({
 /**
  * Adapter for callers not using alchemy: wraps a raw workerd
  * `DurableObjectState` into the `state`/`upgrade` pair
- * `Rpc.websocket.server` expects.
+ * the websocket `server` expects.
  */
 export const fromDurableObjectState = (
   state: cf.DurableObjectState,

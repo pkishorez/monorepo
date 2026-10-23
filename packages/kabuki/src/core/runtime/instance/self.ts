@@ -83,6 +83,8 @@ export const makeOwn = (instance: Instance, host: Host, above: Services) => {
 
   return {
     self,
+    /** The Capabilities from above, once built: what Workers, Commands and Queries run with. */
+    above,
     set: (next: Instance) =>
       Effect.runSyncWith(host.services)(
         SubscriptionRef.set(data, dataOf(next)),

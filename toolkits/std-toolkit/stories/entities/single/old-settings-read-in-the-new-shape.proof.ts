@@ -11,7 +11,7 @@ const SettingsV1 = ESchema.make('Settings', {
 const Settings = ESchema.make('Settings', {
   theme: Schema.Literals(['light', 'dark']),
 })
-  .evolve('v2', { fontSize: Schema.Number }, (v1) => ({ ...v1, fontSize: 14 }))
+  .evolve('v2', { fontSize: Schema.Finite }, (v1) => ({ ...v1, fontSize: 14 }))
   .build();
 
 // Two builds of the app over the same logical table.

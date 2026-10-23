@@ -1,8 +1,9 @@
 import { cn } from 'cn';
-import type { CSSProperties, ReactNode } from 'react';
+import type { CSSProperties, ReactElement, ReactNode } from 'react';
 import { Frame, useFrame } from './frame/index.ts';
 import { Header, type HeaderConfig } from './header.tsx';
 import { type SidebarConfig, SidebarContents } from './sidebar/index.ts';
+import { VimWindow } from './vim-window.tsx';
 
 export { useSidebarWidth } from './sidebar/index.ts';
 
@@ -35,6 +36,19 @@ export function AppShell(props: {
   readonly swipe?: 'anywhere' | 'edge' | 'off';
   /** Drawn outside the moving page, told whether the sidebar is open. */
   readonly statusBar?: (open: boolean) => ReactNode;
+  /**
+   * use-keys' Vim Mode: given at all, the whole shell floats as a window
+   * inset from the viewport, the same whether Vim Mode is on or off; with
+   * `on`, `statusLine`, such as a `KeysStatusBar`, eases in as its bottom
+   * edge.
+   */
+  readonly vim?: { readonly on: boolean; readonly statusLine?: ReactNode };
+  /**
+   * Wraps the page's column, the header with the page under it, in one
+   * element, such as a use-keys `keys.Surface asChild`, so the header is
+   * part of it. It must render the column it is given.
+   */
+  readonly column?: (column: ReactElement) => ReactNode;
   readonly className?: string;
   readonly style?: CSSProperties;
   /** The page. */
@@ -42,30 +56,47 @@ export function AppShell(props: {
 }) {
   const { sidebar, header } = props;
   return (
-    <Frame
-      sidebar={
-        sidebar === undefined ? undefined : <SidebarContents config={sidebar} />
-      }
-      sidebarWidth={sidebar?.width}
-      swipe={props.swipe ?? 'anywhere'}
-      statusBar={props.statusBar}
-      className={props.className}
-      style={props.style}
+    <VimWindow
+      floating={props.vim !== undefined}
+      on={props.vim?.on === true}
+      statusLine={props.vim?.statusLine}
     >
-      {header === undefined ? null : <Header config={header} />}
-      <div
-        data-slot="app-shell-scroller"
-        className={cn(
-          'min-h-0 flex-1 overflow-y-auto overscroll-contain',
-          // Without a header, the page itself keeps clear of the status bar.
-          header === undefined && 'pt-[env(safe-area-inset-top)]',
-        )}
+      <Frame
+        sidebar={
+          sidebar === undefined ? undefined : (
+            <SidebarContents config={sidebar} />
+          )
+        }
+        sidebarWidth={sidebar?.width}
+        swipe={props.swipe ?? 'anywhere'}
+        statusBar={props.statusBar}
+        className={props.className}
+        style={props.style}
       >
-        {props.children}
-      </div>
-    </Frame>
+        {(props.column ?? same)(
+          <div
+            data-slot="app-shell-column"
+            className="flex min-h-0 flex-1 flex-col rounded-[inherit]"
+          >
+            {header === undefined ? null : <Header config={header} />}
+            <div
+              data-slot="app-shell-scroller"
+              className={cn(
+                'min-h-0 flex-1 overflow-y-auto overscroll-contain',
+                // Without a header, the page itself keeps clear of the status bar.
+                header === undefined && 'pt-[env(safe-area-inset-top)]',
+              )}
+            >
+              {props.children}
+            </div>
+          </div>,
+        )}
+      </Frame>
+    </VimWindow>
   );
 }
+
+const same = (column: ReactElement) => column;
 
 /** Whether the sidebar is open, to open or shut it, and whether it's a phone. */
 export function useAppShell() {

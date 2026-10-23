@@ -78,7 +78,7 @@ const run = <A, E, R>(use: Effect.Effect<A, E, R>) =>
     ) as Effect.Effect<A, E>,
   );
 
-describe('HttpApi.middleware', () => {
+describe('http-api middleware', () => {
   it('reads the nearest value: group value inherited, endpoint value kept', () => {
     expect(Role.get(Users.endpoints.whoAmI)).toEqual(Option.some('user'));
     expect(Role.get(Users.endpoints.ban)).toEqual(Option.some('admin'));

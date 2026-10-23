@@ -15,7 +15,8 @@ credential is the Auth Worker's cookie, which page code never reads. A
 **Device** (a CLI, a TV or phone app) keeps its own Sign-in token. An
 **OAuth** caller is someone else's program, such as an MCP client, holding an
 Access Token after consent; the toolkit ships nothing for that side. The
-root door is the contract both sides import, `Auth`. `server/rpc` and
+root door is the contract both sides import: `Authz`, whose `required`,
+`scope` and `policy` are the same for RPC and HttpApi, with `User` and the errors. `server/rpc` and
 `server/http` are its server half, one `auth()` value per backend.
 `client/browser` and `client/device` each provide the same `Accounts`
 service, so app code does not care which one it runs on.
@@ -29,7 +30,9 @@ bundled into the `worker` door.
 
 The words are in [`CONTEXT.md`](./CONTEXT.md), the decisions in
 [`docs/adr/`](./docs/adr/) (the doors are
-[ADR 0018](./docs/adr/0018-three-caller-kinds-four-doors.md), the Browser
+[ADR 0018](./docs/adr/0018-three-caller-kinds-four-doors.md), the one Guard
+for both protocols
+[ADR 0020](./docs/adr/0020-one-guard-for-both-protocols-as-authz.md), the Browser
 rules [ADR 0019](./docs/adr/0019-browser-callers-are-same-site-and-never-hold-tokens.md)).
 Every `authWorker` option is in
 [`docs/auth-worker-configuration.md`](./docs/auth-worker-configuration.md),
@@ -46,7 +49,7 @@ pnpm add @kestack/auth-toolkit
 Peer dependencies, all optional; install the ones your doors need:
 
 - `effect`: the root, `server/*` and `client/*` doors are Effect values.
-- `@kestack/rpc-toolkit`: the Guard is its Middleware, and the clients re-check through its `Rpc.onExit`.
+- `@kestack/rpc-toolkit`: the Guard is its Middleware, and the clients re-check through its `onExit`.
 - `@kestack/std-toolkit`: `client/browser` and `client/device` keep Accounts in its StdTable adapters.
 - `better-sqlite3`: `worker/memory` runs SQLite in-process for tests.
 - `alchemy`: `worker/alchemy` declares the D1 database in `alchemy.run.ts`.
@@ -56,16 +59,16 @@ Peer dependencies, all optional; install the ones your doors need:
 
 ### `@kestack/auth-toolkit`
 
-| Export                 | What it does                                                                                 |
-| ---------------------- | -------------------------------------------------------------------------------------------- |
-| `Auth.required`        | Guards an Rpc, RpcGroup, HttpApiEndpoint or HttpApiGroup: it runs only for a known caller.   |
-| `Auth.scope`           | Guards it for an Access Token carrying every named Scope; `yield*` it to check in a handler. |
-| `Auth.policy`          | Guards it with an invariant and the reason it fails with; `yield*` it to check in a handler. |
-| `Auth.User`            | The Service a guarded handler reads the caller's Principal from.                             |
-| `Auth.Unauthenticated` | Error for a guarded call nobody signed (401).                                                |
-| `Auth.Forbidden`       | Error for a call its policy refused (403).                                                   |
-| `Auth.Unavailable`     | Error when the Auth Worker could not be asked (503).                                         |
-| `Auth.AccountChanged`  | Error for a Browser call whose `expect-user` is not the cookie's Active Account (409).       |
+| Export                  | What it does                                                                                          |
+| ----------------------- | ----------------------------------------------------------------------------------------------------- |
+| `Authz.required`        | Guards an Rpc, RpcGroup, HttpApiEndpoint or HttpApiGroup: it runs only for a known caller.            |
+| `Authz.scope`           | Guards it for an Access Token carrying every named Scope; `yield*` it to check in a handler.          |
+| `Authz.policy`          | Guards it with an invariant and the reason it fails with; `yield*` it to check in a handler.          |
+| `Authz.User`            | The Service a guarded handler reads the caller's Principal from.                                      |
+| `Authz.Unauthenticated` | Error for a guarded call nobody signed (401); also its type.                                          |
+| `Authz.Forbidden`       | Error for a call its policy refused (403); also its type.                                             |
+| `Authz.Unavailable`     | Error when the Auth Worker could not be asked (503); also its type.                                   |
+| `Authz.AccountChanged`  | Error for a Browser call whose `expect-user` is not the cookie's Active Account (409); also its type. |
 
 ### `@kestack/auth-toolkit/worker`
 
@@ -106,7 +109,7 @@ Peer dependencies, all optional; install the ones your doors need:
 | Export                      | What it does                                                                             |
 | --------------------------- | ---------------------------------------------------------------------------------------- |
 | `Accounts`                  | The Service for who is signed in on this client: state, sign in, switch, sign out.       |
-| `AccountsState`             | The `Checking`, `SignedIn` and `SignedOut` states, with their constructors and `$match`. |
+| `AccountsState`             | The `Checking`, `SignedIn` (and its `switchingTo`) and `SignedOut` states, and `$match`. |
 | `AuthWorkerUnreachable`     | Error when the Auth Worker could not be reached at all.                                  |
 | `AuthWorkerUnavailable`     | Error when the Auth Worker answered with a server error.                                 |
 | `AuthWorkerRejected`        | Error when the Auth Worker refused the request, with its reason.                         |
@@ -141,42 +144,45 @@ and calls it. Lifted from `src/server/rpc/tests/rpc.test.ts` and
 
 ```ts
 // api.ts, imported by both sides
+import { Authz } from '@kestack/auth-toolkit';
 const WhoAmI = Rpc.make('WhoAmI', { success: Schema.String }).pipe(
-  Auth.required,
+  Authz.required,
 );
 export const Api = RpcGroup.make(WhoAmI);
 export const Handlers = Api.toLayer({
-  WhoAmI: () => Effect.map(Auth.User, ({ user }) => user.email),
+  WhoAmI: () => Effect.map(Authz.User, ({ user }) => user.email),
 });
 
 // server.ts
-import { Rpc as Rpcs } from '@kestack/rpc-toolkit/rpc';
+import { server } from '@kestack/rpc-toolkit/rpc/http';
 import { auth } from '@kestack/auth-toolkit/server/rpc';
 const url = 'https://auth.example.com';
 export default {
-  fetch: Rpcs.http.server(Api, Layer.mergeAll(Handlers, auth({ url }))),
+  fetch: server(Api, Layer.mergeAll(Handlers, auth({ url }))),
 };
 
 // app.ts
+import { client } from '@kestack/rpc-toolkit/rpc/http';
 import { Accounts } from '@kestack/auth-toolkit/client';
 import { browser } from '@kestack/auth-toolkit/client/browser';
 const whoAmI = Effect.gen(function* () {
   const state = yield* (yield* Accounts).check;
   if (state._tag === 'SignedOut') return yield* (yield* Accounts).signIn();
-  const client = yield* RpcClient.make(Api);
-  return yield* client.WhoAmI();
+  const api = yield* RpcClient.make(Api);
+  return yield* api.WhoAmI();
 }).pipe(
   Effect.scoped,
-  Effect.provide(Rpcs.http.client(Api, { url: 'https://api.example.com/rpc' })),
+  Effect.provide(client(Api, { url: 'https://api.example.com/rpc' })),
   Effect.provide(browser({ url })),
 );
 ```
 
 - The Auth Worker is `authWorker({ url, secret, google, database: d1(env.DB), cookieDomain: '.example.com', brand })`; every origin under `cookieDomain` is trusted and no other is.
 - `browser` sends the cookie (`credentials: 'include'`) and an `expect-user` header naming the Active Account on every guarded call; the transport needs no options.
-- When another tab switched Accounts, the backend fails the call `Auth.AccountChanged` before the handler runs, and `Accounts` checks again by itself.
+- When another tab switched Accounts, the backend fails the call `AccountChanged` before the handler runs, and `Accounts` checks again by itself.
 - A Batched RPC Request is verified once, and the cookies the Auth Worker refreshed go on its response.
 - `signIn()` leaves the page for the Login Screen and never completes in place.
+- `switchTo(userId)` is a round trip: until it is confirmed the state is `SignedIn` with `switchingTo`, and calls still act as the Account before; one that fails leaves the state as it was and fails ([ADR 0021](./docs/adr/0021-an-account-switch-under-way-is-state.md)).
 
 ### A CLI signing in as a Device
 
@@ -185,6 +191,7 @@ chooses; here SQLite, so the Accounts last between runs. Lifted from
 `src/client/device/tests/device.test.ts`.
 
 ```ts
+import { client } from '@kestack/rpc-toolkit/rpc/http';
 import { Accounts } from '@kestack/auth-toolkit/client';
 import {
   device,
@@ -206,11 +213,11 @@ const login = Effect.flatMap(Accounts, (accounts) =>
 );
 
 const whoAmI = Effect.gen(function* () {
-  const client = yield* RpcClient.make(Api);
-  return yield* client.WhoAmI();
+  const api = yield* RpcClient.make(Api);
+  return yield* api.WhoAmI();
 }).pipe(
   Effect.scoped,
-  Effect.provide(Rpcs.http.client(Api, { url: 'https://api.example.com/rpc' })),
+  Effect.provide(client(Api, { url: 'https://api.example.com/rpc' })),
 );
 
 await Effect.runPromise(SQLite.setup(deviceAccountsTable, { database }));
@@ -243,22 +250,22 @@ authWorker({
 });
 
 // the MCP server
-import { Auth } from '@kestack/auth-toolkit';
+import { Authz } from '@kestack/auth-toolkit';
 import { auth } from '@kestack/auth-toolkit/server/http';
 
 const resource = 'https://mcp.example.com/mcp';
 const Mcp = HttpApiEndpoint.post('mcp', '/mcp', {
   success: Schema.String,
-  error: Auth.Forbidden,
-}).pipe(Auth.required);
+  error: Authz.Forbidden,
+}).pipe(Authz.required);
 class Api extends HttpApi.make('mcp-api').add(
   HttpApiGroup.make('mcp').add(Mcp),
 ) {}
 const Handlers = HttpApiBuilder.group(Api, 'mcp', (handlers) =>
   handlers.handle('mcp', () =>
     Effect.gen(function* () {
-      yield* Auth.scope('notes:read');
-      return (yield* Auth.User).user.email;
+      yield* Authz.scope('notes:read');
+      return (yield* Authz.User).user.email;
     }),
   ),
 );

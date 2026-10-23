@@ -3,6 +3,7 @@ export {
   checkName,
   CheckRefusal,
   describeChecks,
+  isFiniteNumber,
   SnapshotCheckSchema,
   type CheckDescription,
   type SnapshotCheck,

@@ -1,4 +1,5 @@
 export {
+  attachmentStreamStore,
   checkpoint,
   client,
   connection,
@@ -7,13 +8,16 @@ export {
   keepSubscribed,
   RESUME_LOST,
   server,
-  streams,
+  sqliteStreamStore,
   status,
   type ConnectionSlot,
   type ConnectionStatus,
   type HibernatingSocket,
+  type HibernationState,
   type SavedSocket,
   type SavedStream,
+  type SQLiteOptions,
   type StreamRequest,
   type StreamStore,
+  type Upgrade,
 } from './websocket.ts';

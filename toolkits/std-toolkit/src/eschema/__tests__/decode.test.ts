@@ -11,7 +11,7 @@ describe('ESchema', () => {
         Effect.gen(function* () {
           const schema = EntityESchema.make('Test', 'id', {
             name: Schema.String,
-            count: Schema.Number,
+            count: Schema.Finite,
           }).build();
 
           const decoded = yield* readEncoded(schema, {
@@ -27,7 +27,7 @@ describe('ESchema', () => {
       it.effect('decodes and migrates v1 to v2', () =>
         Effect.gen(function* () {
           const schema = EntityESchema.make('Test', 'id', {
-            a: Schema.Number,
+            a: Schema.Finite,
           })
             .evolve('v2', { b: Schema.String }, (v) => ({ ...v, b: 'added' }))
             .build();

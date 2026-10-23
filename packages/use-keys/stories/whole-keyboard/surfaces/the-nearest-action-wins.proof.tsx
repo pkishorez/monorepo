@@ -2,70 +2,59 @@ import { useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Effect } from 'effect';
 import { Proof } from 'laymos/story';
-import { describe, shortcut } from '@kestack/use-keys';
+import { describe } from '@kestack/use-keys';
 import { createKeys } from '@kestack/use-keys/surfaces';
 
-const css = `
-  body { margin: 0; background: #f4f4f5; color: #18181b; font: 18px/1.5 ui-sans-serif, system-ui, -apple-system, sans-serif; }
-  main { max-width: 860px; margin: 32px auto; padding: 0 24px; }
-  h1 { font-size: 30px; margin: 0 0 6px; }
-  p { color: #52525b; margin: 0 0 16px; }
-  kbd { font: 600 14px Menlo, Consolas, monospace; padding: 2px 8px; border: 1px solid #d4d4d8; border-bottom-width: 3px; border-radius: 6px; background: #fff; color: #18181b; }
-  .row { display: flex; gap: 16px; align-items: flex-start; }
-  .app { flex: 1; min-height: 200px; padding: 18px; background: #fff; border: 1px solid #e4e4e7; border-radius: 16px; }
-  .app.closed { display: grid; place-items: center; color: #71717a; font-size: 22px; font-weight: 600; background: #e4e4e7; }
-  .reply { margin-top: 14px; padding: 14px 16px; border: 2px solid #2563eb; border-radius: 12px; }
-  .reply b { color: #2563eb; }
-  .surface { display: inline-block; margin-bottom: 14px; padding: 6px 16px; border-radius: 999px; background: #18181b; color: #fff; font-weight: 600; }
-  table { width: 360px; border-collapse: separate; border-spacing: 0; padding: 4px; background: #fff; border: 1px solid #e4e4e7; border-radius: 16px; font-size: 16px; }
-  tr:first-child td { border-top: 0; }
-  td { padding: 10px 12px; border-top: 1px solid #f4f4f5; }
-  td:last-child { text-align: right; }
-  .state { padding: 2px 10px; border-radius: 999px; font-size: 14px; font-weight: 600; background: #e4e4e7; color: #52525b; }
-  .state.active { background: #dcfce7; color: #166534; }
-  .state.shadowed { background: #fef3c7; color: #92400e; }
-`;
-
 const keys = createKeys({
-  actions: {
-    close: { keys: [shortcut('Escape')], description: 'Close the inbox' },
-  },
-  surfaces: {
-    inbox: {
-      actions: {
-        respond: { keys: [shortcut('r')], description: 'Reply' },
-      },
-      surfaces: {
-        reply: {
-          actions: {
-            discard: {
-              keys: [shortcut('Escape')],
-              description: 'Discard the draft',
-            },
-          },
-        },
-      },
+  inbox: {
+    initial: true,
+    actions: {
+      archive: { keys: 'e', label: 'Archive the thread' },
+      star: { keys: 's', label: 'Star the thread' },
+    },
+    surfaces: {
+      draft: { actions: { edit: { keys: 'e', label: 'Edit the draft' } } },
     },
   },
 });
 
+const css = `
+  body { margin: 0; background: #f4f4f5; color: #18181b; font: 18px/1.5 ui-sans-serif, system-ui, -apple-system, sans-serif; }
+  main { max-width: 900px; margin: 32px auto; padding: 0 24px; }
+  h1 { font-size: 30px; margin: 0 0 6px; }
+  p { color: #52525b; margin: 0 0 16px; }
+  kbd { font: 600 14px Menlo, Consolas, monospace; padding: 2px 8px; border: 1px solid #d4d4d8; border-bottom-width: 3px; border-radius: 6px; background: #fff; color: #18181b; }
+  .row { display: flex; gap: 16px; align-items: flex-start; }
+  .inbox { flex: 1; padding: 18px; background: #fff; border: 2px solid #e4e4e7; border-radius: 16px; outline: none; }
+  .draft { margin-top: 14px; padding: 14px 16px; border: 2px dashed #d4d4d8; border-radius: 12px; outline: none; cursor: text; }
+  [data-state="active"] { border-color: #2563eb; border-style: solid; }
+  .surface { display: inline-block; margin-bottom: 14px; padding: 6px 16px; border-radius: 999px; background: #18181b; color: #fff; font-weight: 600; }
+  .log { margin-top: 14px; color: #166534; font-weight: 600; }
+  table { width: 380px; border-collapse: separate; border-spacing: 0; padding: 4px; background: #fff; border: 1px solid #e4e4e7; border-radius: 16px; font-size: 16px; }
+  tr:first-child td { border-top: 0; }
+  td { padding: 10px 12px; border-top: 1px solid #f4f4f5; }
+  td:last-child { text-align: right; }
+  .state { padding: 2px 10px; border-radius: 999px; font-size: 14px; font-weight: 600; background: #dcfce7; color: #166534; }
+  .state.shadowed { background: #fef3c7; color: #92400e; }
+`;
+
 function Keyboard() {
-  const status = keys.useStatus();
+  const actions = keys.useAvailableActions();
   return (
     <table>
       <tbody>
-        {status.actions.map((action) => (
-          <tr key={action.id} data-action={action.id}>
+        {actions.map((action) => (
+          <tr key={action.id} data-label={action.label}>
             <td>
-              <kbd>
-                {action.bindings
-                  .map(({ binding }) => describe(binding))
-                  .join(', ')}
-              </kbd>
+              <kbd>{action.keys.map(describe).join(', ')}</kbd>
             </td>
-            <td>{action.description}</td>
             <td>
-              <span className={`state ${action.state}`}>{action.state}</span>
+              {action.label} <small>({action.surface})</small>
+            </td>
+            <td>
+              <span className={action.shadowed ? 'state shadowed' : 'state'}>
+                {action.shadowed ? 'shadowed' : 'works'}
+              </span>
             </td>
           </tr>
         ))}
@@ -74,55 +63,44 @@ function Keyboard() {
   );
 }
 
-function Inbox() {
-  const { surface, setSurface, openSurface, closeSurface } = keys.useSurface();
-  const [draft, setDraft] = useState<string | null>(null);
-  const [closed, setClosed] = useState(false);
-  keys.useAction('close', () => {
-    setClosed(true);
-    setSurface(null);
-  });
-  keys.useAction('inbox.respond', () => {
-    setDraft('Thanks, see you on Friday!');
-    openSurface('inbox.reply');
-  });
-  keys.useAction('inbox.reply.discard', () => {
-    setDraft(null);
-    closeSurface('inbox.reply');
-  });
-  if (closed)
-    return (
-      <div className="app closed" id="app">
-        Inbox closed
-      </div>
-    );
+function Status() {
+  const active = keys.useActive();
   return (
-    <div className="app" id="app">
-      <span className="surface" id="surface">
-        Active Surface: {surface ?? 'none'}
-      </span>
+    <span className="surface" id="surface">
+      Active Surface: {active}
+    </span>
+  );
+}
+
+function Inbox() {
+  const [done, setDone] = useState<ReadonlyArray<string>>([]);
+  const log = (what: string) => setDone((now) => [...now, what]);
+  keys.useAction('inbox.archive', () => log('Archived the thread'));
+  keys.useAction('inbox.star', () => log('Starred the thread'));
+  keys.useAction('draft.edit', () => log('Editing the draft'));
+  return (
+    <keys.Surface id="inbox" className="inbox">
+      <Status />
       <div>Lunch on Friday? — from Grace</div>
-      {draft === null ? null : (
-        <div className="reply" id="draft">
-          <b>Draft:</b> {draft}
-        </div>
-      )}
-    </div>
+      <keys.Surface id="draft" className="draft">
+        <span id="draft">Draft: Thanks, see you on Friday!</span>
+      </keys.Surface>
+      <div className="log" id="log">
+        {done.join(', ')}
+      </div>
+    </keys.Surface>
   );
 }
 
 function App() {
-  const [surface, setSurface] = useState<'inbox' | 'inbox.reply' | null>(
-    'inbox',
-  );
   return (
-    <keys.Provider surface={surface} onSurfaceChange={setSurface}>
+    <keys.Provider vim>
       <style>{css}</style>
       <main>
         <h1>Mail</h1>
         <p>
-          <kbd>Esc</kbd> closes the inbox, but while replying the reply’s own{' '}
-          <kbd>Esc</kbd> discards the draft instead.
+          The inbox binds <kbd>e</kbd> to archive; the draft inside it binds{' '}
+          <kbd>e</kbd> to edit. In the draft, the nearer one wins.
         </p>
         <div className="row">
           <Inbox />
@@ -134,9 +112,9 @@ function App() {
 }
 
 export default Proof.browser({
-  title: 'While replying, Escape discards the draft and leaves the inbox open',
+  title: 'In the draft, e edits it instead of archiving the thread',
   description:
-    'Escape is bound twice: globally to close the inbox, and in the reply Surface to discard. The nearer Action wins and the global one is Shadowed, as the keyboard table shows.',
+    'The inbox and the draft inside it both bind e. A key climbs from the Active Surface outward and the nearest Action wins, so the inbox’s e is Shadowed; s, which only the inbox binds, still climbs to it.',
   critical: true,
   page: (root) => {
     const app = createRoot(root);
@@ -147,41 +125,36 @@ export default Proof.browser({
     Effect.gen(function* () {
       const tab = yield* browser.open('desktop');
       yield* Proof.assert(
-        'the inbox is open, and Escape closes it',
+        'the inbox is Active, and its e works',
         (yield* tab.text('#surface')) === 'Active Surface: inbox' &&
-          (yield* tab.text('[data-action="close"] .state')) === 'active',
+          (yield* tab.text('[data-label="Archive the thread"] .state')) ===
+            'works',
       );
       return tab;
     }),
   act: (tab) =>
     Effect.gen(function* () {
-      yield* tab.press('Reply with r', 'r');
-      const replying = {
+      yield* tab.click('Click into the draft', '#draft');
+      const inDraft = {
         surface: yield* tab.text('#surface'),
-        close: yield* tab.text('[data-action="close"] .state'),
+        archive: yield* tab.text('[data-label="Archive the thread"] .state'),
+        edit: yield* tab.text('[data-label="Edit the draft"] .state'),
       };
-      yield* tab.press('Press Escape while replying', 'Escape');
-      const afterFirst = {
-        app: yield* tab.text('#app'),
-        drafts: yield* tab.count('#draft'),
-      };
-      yield* tab.press('Press Escape in the inbox', 'Escape');
-      return { replying, afterFirst, afterSecond: yield* tab.text('#app') };
+      yield* tab.press('Press e in the draft', 'e');
+      yield* tab.press('Press s in the draft', 's');
+      return { inDraft, log: yield* tab.text('#log') };
     }),
-  verify: ({ replying, afterFirst, afterSecond }) =>
+  verify: ({ inDraft, log }) =>
     Effect.gen(function* () {
       yield* Proof.assert(
-        'while replying, the global close is Shadowed',
-        replying.surface === 'Active Surface: inbox.reply' &&
-          replying.close === 'shadowed',
+        'in the draft, the inbox’s e is Shadowed by the draft’s',
+        inDraft.surface === 'Active Surface: draft' &&
+          inDraft.archive === 'shadowed' &&
+          inDraft.edit === 'works',
       );
       yield* Proof.assert(
-        'the first Escape discarded the draft and left the inbox open',
-        afterFirst.drafts === 0 && afterFirst.app !== 'Inbox closed',
-      );
-      yield* Proof.assert(
-        'the next Escape, back in the inbox, closed it',
-        afterSecond === 'Inbox closed',
+        'e edited the draft and archived nothing; s climbed to the inbox',
+        log === 'Editing the draft, Starred the thread',
       );
     }),
 });

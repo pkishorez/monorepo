@@ -218,13 +218,13 @@ describe('portable Table definition', () => {
   it('accepts string and number key paths, nested and through union branches', () => {
     const Doc = EntityESchema.make('Doc', 'docId', {
       boardId: Schema.String,
-      rank: Schema.Number,
+      rank: Schema.Finite,
       owner: Schema.Union([
         Schema.Struct({ kind: Schema.Literal('user'), userId: Schema.String }),
         Schema.Struct({
           kind: Schema.Literal('team'),
           teamId: Schema.String,
-          seat: Schema.Number,
+          seat: Schema.Finite,
         }),
       ]),
       assignee: Schema.NullOr(Schema.Struct({ id: Schema.String })),
@@ -295,7 +295,7 @@ describe('portable Table definition', () => {
       tags: Schema.Array(Schema.Struct({ name: Schema.String })),
       scores: Schema.Record(Schema.String, Schema.String),
       done: Schema.Boolean,
-      mixed: Schema.Union([Schema.String, Schema.Number]),
+      mixed: Schema.Union([Schema.String, Schema.Finite]),
     }).build();
     const index = (component: string) => () =>
       makeTable()
@@ -347,7 +347,7 @@ describe('portable Table definition', () => {
       value: Schema.String,
     }).build();
     const two = EntityESchema.make('Conflict', 'id', {
-      value: Schema.Number,
+      value: Schema.Finite,
     }).build();
     const conflictTable = makeTable();
     conflictTable

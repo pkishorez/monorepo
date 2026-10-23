@@ -1,0 +1,163 @@
+/*
+ * use-keys Surfaces, drawn from the data attributes every `keys.Surface`
+ * carries: `data-state` is `active`, `parent`, `inactive`, or `off` with
+ * Vim Mode off, and `data-mode` is `normal` or `insert` on the Active one.
+ * This is the default appearance, so a `keys.Provider` needs none. It sits
+ * in the components layer at no specificity, so an `appearance` class from
+ * Tailwind always wins over it.
+ *
+ * The Active Surface is lit by a layer over it, its `::after`: a faint edge
+ * and a soft glow inward, drawn above its children so their backgrounds
+ * never hide it, and inside its own box so its border stays as it is and
+ * nothing moves. Inactive Surfaces dim; Parent ones stay plain. The light
+ * and the dim fade in 100ms, the one thing in Vim Mode that eases.
+ */
+:root {
+  /* The light's colour; an app may set its own. */
+  --surface-ring: var(--primary);
+  --surface-fade: 100ms;
+  /* Normal Mode: an edge and a glow inward. */
+  --surface-edge: color-mix(in oklab, var(--surface-ring) 22%, transparent);
+  --surface-glow: color-mix(in oklab, var(--surface-ring) 9%, transparent);
+  /* Insert Mode, typing: brighter, so it reads as live. */
+  --surface-edge-insert: color-mix(
+    in oklab,
+    var(--surface-ring) 40%,
+    transparent
+  );
+  --surface-glow-insert: color-mix(
+    in oklab,
+    var(--surface-ring) 10%,
+    transparent
+  );
+  --surface-dim: 0.6;
+
+  /* The Vim window, floating over its backdrop. */
+  --vim-window-backdrop-color: color-mix(in oklab, var(--background), black 7%);
+  --vim-window-backdrop: radial-gradient(
+    120% 90% at 50% 0%,
+    color-mix(in oklab, var(--background), black 2%) 0%,
+    transparent 70%
+  );
+  --vim-window-shadow:
+    0 0 0 1px rgb(0 0 0 / 0.07), 0 1px 2px rgb(0 0 0 / 0.05),
+    0 8px 24px -8px rgb(0 0 0 / 0.14), 0 32px 72px -24px rgb(0 0 0 / 0.22);
+}
+
+.dark,
+[data-theme='dark'] {
+  --surface-edge: color-mix(in oklab, var(--surface-ring) 18%, transparent);
+  --surface-glow: color-mix(in oklab, var(--surface-ring) 7%, transparent);
+  --surface-edge-insert: color-mix(
+    in oklab,
+    var(--surface-ring) 34%,
+    transparent
+  );
+  --surface-glow-insert: color-mix(
+    in oklab,
+    var(--surface-ring) 8%,
+    transparent
+  );
+  --surface-dim: 0.58;
+
+  --vim-window-backdrop-color: color-mix(
+    in oklab,
+    var(--background),
+    black 55%
+  );
+  --vim-window-backdrop: radial-gradient(
+    120% 90% at 50% 0%,
+    color-mix(in oklab, var(--background), white 4%) 0%,
+    transparent 70%
+  );
+  --vim-window-shadow:
+    0 0 0 1px rgb(255 255 255 / 0.09), 0 1px 2px rgb(0 0 0 / 0.3),
+    0 8px 24px -8px rgb(0 0 0 / 0.5), 0 32px 72px -24px rgb(0 0 0 / 0.7);
+}
+
+@layer components {
+  /* An element takes focus only so keys reach it; the light shows where. */
+  :where([data-surface]) {
+    outline: none;
+  }
+
+  /* Positioned for its light. A position class, such as `absolute`, wins. */
+  :where([data-surface]:not([data-state='off'])) {
+    position: relative;
+  }
+
+  /* `--surface-inset` moves the light, say to -1px to lie on a border. */
+  :where([data-surface]:not([data-state='off']))::after {
+    content: '';
+    position: absolute;
+    inset: var(--surface-inset, 0);
+    z-index: 30;
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: 0;
+    box-shadow:
+      inset 0 0 0 1px var(--surface-edge),
+      inset 0 0 28px -4px var(--surface-glow);
+    transition: opacity var(--surface-fade) ease-out;
+  }
+
+  :where([data-surface][data-state='active'])::after {
+    opacity: 1;
+  }
+
+  :where([data-surface][data-state='active'][data-mode='insert'])::after {
+    box-shadow:
+      inset 0 0 0 1px var(--surface-edge-insert),
+      inset 0 0 32px -4px var(--surface-glow-insert);
+  }
+
+  /* A dialog or popover is plainly where the keys are: it stays unlit. */
+  :where([role='dialog'] [data-surface], [data-surface][role='dialog'])::after {
+    content: none;
+  }
+
+  /* Dimmed once: an Inactive Surface inside another is not dimmed again. */
+  :where([data-surface][data-state='inactive']):not(
+    :where([data-surface][data-state='inactive'] *)
+  ) {
+    opacity: var(--surface-dim);
+  }
+
+  /* Behind an Isolated Surface the app draws itself, such as a palette. */
+  :where([data-slot='surface-scrim']) {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    background: color-mix(in oklab, black 25%, transparent);
+  }
+}
+
+/* With Vim Mode on, dialogs, popovers, menus and the frame open and close
+   at once, and Surfaces change at once but for their 100ms light and dim.
+   Spinners keep turning. The Vim window itself is not here: turning Vim
+   Mode on and off is the one thing that eases. */
+[data-vim] [data-surface] {
+  animation: none !important;
+  transition: opacity var(--surface-fade) ease-out !important;
+}
+
+[data-vim]
+  :is(
+    [data-slot$='-overlay'],
+    [data-slot$='-content'],
+    [data-slot$='-popup'],
+    [data-slot$='-backdrop'],
+    [data-slot$='-positioner'],
+    [data-slot^='app-shell'],
+    [data-slot='surface-scrim']
+  ):not([data-surface]) {
+  animation: none !important;
+  transition: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-vim] [data-surface],
+  [data-surface]::after {
+    transition: none !important;
+  }
+}

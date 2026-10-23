@@ -3,7 +3,7 @@ import { Rpc, RpcClient, RpcGroup, RpcTest } from 'effect/rpc';
 import { describe, expect, it } from 'vitest';
 
 import { testAuth } from '../../server/rpc/index.js';
-import { Auth, type PolicyGuard } from '../index.js';
+import { Authz, type PolicyGuard } from '../index.js';
 
 const signedIn = testAuth({
   kind: 'token',
@@ -28,18 +28,18 @@ const runRpc = <A extends Rpc.Any, B, E>(
   );
 
 const recording = (calls: string[], name: string) =>
-  Auth.policy(() => {
+  Authz.policy(() => {
     calls.push(name);
     return true;
   }, name);
 
-describe('Auth', () => {
+describe('the Guard', () => {
   it('uses the nearest policy and inherits a group policy otherwise', async () => {
     const calls: string[] = [];
     const Inherited = Rpc.make('Inherited', {
       payload: {},
       success: Schema.Void,
-    }).pipe(Auth.required);
+    }).pipe(Authz.required);
     const Overridden = Rpc.make('Overridden', {
       payload: {},
       success: Schema.Void,
@@ -82,7 +82,7 @@ describe('Auth', () => {
     expect(calls).toEqual(['inner', 'outer']);
   });
 
-  it('checks a policy as an Effect against Auth.User', async () => {
+  it('checks a policy as an Effect against User', async () => {
     const principal = {
       kind: 'token' as const,
       user: { id: 'u1', email: 'ada@example.com', name: 'Ada' },
@@ -91,17 +91,17 @@ describe('Auth', () => {
     };
     const run = (check: PolicyGuard) =>
       Effect.runPromise(
-        Effect.result(Effect.provideService(check, Auth.User, principal)),
+        Effect.result(Effect.provideService(check, Authz.User, principal)),
       );
 
-    expect(await run(Auth.scope('notes:read'))).toMatchObject({
+    expect(await run(Authz.scope('notes:read'))).toMatchObject({
       _tag: 'Success',
     });
-    expect(await run(Auth.scope('notes:read', 'notes:write'))).toMatchObject({
+    expect(await run(Authz.scope('notes:read', 'notes:write'))).toMatchObject({
       failure: { _tag: 'Forbidden' },
     });
     expect(
-      await run(Auth.policy((p) => p.user.id === 'u2', 'not u2')),
+      await run(Authz.policy((p) => p.user.id === 'u2', 'not u2')),
     ).toMatchObject({ failure: { _tag: 'Forbidden', reason: 'not u2' } });
   });
 });

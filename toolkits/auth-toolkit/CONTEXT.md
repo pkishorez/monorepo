@@ -65,7 +65,7 @@ The Account a Device Login or a Grant is approved for, picked on the Device Scre
 _Avoid_: switching to approve, acting account, account selector
 
 **Account Switch**:
-Making a different Account the Active Account. Happens on the Auth Worker's pages or from a First-Party web app, and takes effect in every First-Party web app on the Shared Cookie Domain at once. Signing out an Account removes it entirely; there is no "signed out but remembered" state.
+Making a different Account the Active Account. Happens on the Auth Worker's pages or from a First-Party web app, and takes effect in every First-Party web app on the Shared Cookie Domain at once. It is never instant: until the Auth Worker confirms it, `Accounts` says it is under way (`SignedIn` with `switchingTo`) and the Account before stays active; one that fails leaves everything as it was. Signing out an Account removes it entirely; there is no "signed out but remembered" state.
 _Avoid_: switch user, set active (the endpoint, not the concept)
 
 **Login Screen**:
@@ -129,7 +129,7 @@ How an OAuth Client becomes known to the Authorization Server Role before its fi
 _Avoid_: DCR (fine in protocol prose, not for the concept), client onboarding, app registration
 
 **Principal**:
-Who one request is from, as `Auth.User` gives it. Always names a User; how the User was established (a Sign-in or an Access Token) is part of the Principal, never hidden from it.
+Who one request is from, as `User` gives it. Always names a User; how the User was established (a Sign-in or an Access Token) is part of the Principal, never hidden from it.
 _Avoid_: caller, subject
 
 **Sign-in Principal**:
@@ -197,7 +197,7 @@ What Server-Side Verification returns to a Consumer Backend: the validated sessi
 _Avoid_: response (too generic)
 
 **Current**:
-The verified Principal available while handling one guarded call in a Consumer Backend: `Auth.User`.
+The verified Principal available while handling one guarded call in a Consumer Backend: `User`.
 _Avoid_: CurrentAuth (the former name), current user (omits how the User was established), auth context (easily confused with Effect's Context)
 
 **Resolver**:
@@ -205,7 +205,7 @@ The part of a backend's `auth()` that finds out who a request is from: against t
 _Avoid_: `authz.cloud`, `authz.device` (the former names), auth provider, RPC verifier
 
 **Unavailable**:
-The Consumer Backend could not find out who called because Server-Side Verification was unavailable: `Auth.Unavailable`, a 503. Different from a call nobody signed (`Auth.Unauthenticated`).
+The Consumer Backend could not find out who called because Server-Side Verification was unavailable: `Unavailable`, a 503. Different from a call nobody signed (`Unauthenticated`).
 _Avoid_: VerificationUnavailable (the former name), unauthenticated request, invalid session
 
 **Account Changed**:
@@ -213,8 +213,8 @@ A Browser call refused because the cookie's Active Account is not the User the c
 _Avoid_: stale session, wrong user, conflict
 
 **Guard**:
-auth-toolkit's Middleware (see rpc-toolkit), `Auth`, the same for Effect RPC and Effect HttpApi, imported by both sides from the toolkit's root. `Auth.required` is an Authentication Requirement; `Auth.scope` and `Auth.policy` carry an Authorization Policy. Which value applies follows rpc-toolkit's Nearest Wins. Its server half is the backend's one `auth()` value; its client half comes with the `client/browser` and `client/device` Layers, which sign every guarded call without the app asking.
-_Avoid_: `Authz`, `AuthzHttp`, Auth Cannotation (the former names), auth middleware
+auth-toolkit's Middleware (see rpc-toolkit), the same for Effect RPC and Effect HttpApi, imported by both sides from the toolkit's root as `Authz`. `Authz.required` is an Authentication Requirement; `Authz.scope` and `Authz.policy` carry an Authorization Policy. Which value applies follows rpc-toolkit's Nearest Wins. Its server half is the backend's one `auth()` value; its client half comes with the `client/browser` and `client/device` Layers, which sign every guarded call without the app asking.
+_Avoid_: `Auth`, `AuthzHttp`, Auth Cannotation (the former names), auth middleware
 
 **Authentication Requirement**:
 A Guard without a value: the endpoint may run only for a known caller. It establishes identity but imposes no additional permission rule.

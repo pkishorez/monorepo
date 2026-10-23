@@ -1,60 +1,84 @@
 # kabuki-start
 
-A small site served by Kabuki Start that shows every routing case: loading, nested and parallel pages, failures, redirects, preloads and reloads, published at start.kishore.app.
+The smallest Kabuki Start app, the one to copy: static, dynamic and client pages layered on one screen, links that preload on hover, two API Workers with a public, an authenticated and an authorized call each, and a Pocket of wallets kept on the device with Replica, published at start.kishore.app.
 
 ## Big picture
 
-The example app for `@kestack/kabuki/start`: a Kabuki app that one Cloudflare
-Worker draws and serves, with no entry, route table or RPC written by the app.
-How Start works is in
+The blueprint for an app on `@kestack/kabuki/start`: a Kabuki app that one
+Cloudflare Worker draws and serves, beside API Workers of its own, each
+declared with Alchemy. How Start works is in
 [`packages/kabuki/docs/start.md`](../../packages/kabuki/docs/start.md), and
 pages, Places, Loaders and Render Modes in
 [`packages/kabuki/docs/routing.md`](../../packages/kabuki/docs/routing.md).
 
-Every page is an Actor, defined with `Page.define` and built with `Page.build`,
-and draws its own data from `status`: loading, failed or ready. Its Loaders
-are slow on purpose, so each case has something to show, one URL each,
-listed on the home page:
+Four screens. **Rendering** (`/`) is a static page; `/dynamic` adds a
+dynamic layer inside it, and `/dynamic/client` a client layer inside that,
+so all three Render Modes share one screen. A URL names one page per level,
+so nesting is how they do; `/` alone stays all static, which is what lets a
+build keep it for everyone. Each layer says, from its `status.info`, who
+drew it, when its Loader ran, how its data arrived and whether it is cached.
+**Preloading** (`/items`, `/items/:id`) is a list and the item it opens: each
+link shows its preload as it happens, read from the real `/_kabuki/load`
+request, and the item says whether it opened at once or after a wait; its
+copy stays fresh for 30 seconds, and `/items/9` is not found. The header's
+Account Switcher (web-platform's `account-switcher`) signs in, switches and
+signs out with the Auth Worker (auth-toolkit's cookie mode,
+[`toolkits/auth-toolkit/README.md`](../../toolkits/auth-toolkit/README.md)),
+and every page reads who is signed in from it. **APIs** (`/apis`) says who
+its calls go as and calls two Workers, one serving an Effect `HttpApi` and one an Effect
+RPC group, showing each request and what came back. Each has three calls,
+one per level of access (`src/apis/access`): **public**, for anyone;
+**authenticated** (`Authz.required`), for any signed-in Account, refused
+401 Unauthenticated otherwise; and **authorized** (`Authz.policy`), for
+`kishore.iiitn@gmail.com` alone, refused 403 Forbidden to anyone else.
+**Replica** (`/replica`) is a Pocket of wallets and entries per Account,
+kept on the device with `@kestack/std-toolkit/replica`
+([README](../../toolkits/std-toolkit/src/replica/README.md)) and synced
+from a third Worker, Pocket, which keeps them in D1. One page: the
+accounts list shows every signed-in Account and how its Instance syncs,
+counting down once nothing reads it; picking one shows its Pocket. The
+active Account's writes in one click, optimistically, rolling back what
+the Worker refuses; any other is read from the device without fetching.
+Wallets sync whole; entries sync one Window per wallet: a wallet's
+**Sync entries** switch opens its Window, and the sync panel beside the
+accounts shows every Instance, its Collections and their Windows, each
+counting down for 8 seconds once let go. **+$1 from elsewhere** writes
+straight to the Worker, as another device would, so only a wallet whose
+Window runs brings its entry in.
 
-| URL                                                   | What it shows                                                  |
-| ----------------------------------------------------- | -------------------------------------------------------------- |
-| `/blog/pages-are-actors`, `/blog/scroll-entry#part-5` | Static, nested pages in two panes, each keeping its scroll.    |
-| `/teams/core/ada`                                     | Dynamic: a team and its member load side by side.              |
-| `/feed`                                               | Client: loaded in the browser; Back puts the window back.      |
-| `/search?q=scroll`                                    | A query its Loader reads; Reload keeps what you typed.         |
-| `/preload`                                            | Links that preload; their data stays fresh for 30 seconds.     |
-| `/blog/broken`, `/blog/missing`, `/nowhere`           | A Loader that breaks, one that finds nothing, a URL with none. |
-| `/blog/moved`, `/posts/no-waterfall`                  | Redirects: a Loader's `302`, and the router's `308`.           |
-
-Each page is drawn in a card, nested as its pages are. Its header names the
-page and shows badges, read from its `status.info`: its Render Mode, where
-its data is, who drew it, whether its data came with the page, was loaded by
-the browser or came from the cache, how long that took, and its Stale time
-if it has one. A slow page counts how many times its Loader ran,
-so a return while its data is fresh visibly loads nothing. Kabuki's devtools
-open from the button in the bottom-right corner, or Ctrl+/. The backend is
-pretend.
+The folders are its boundaries. `src/shared/pages` is what both sides
+import: every page's definition and build, its data Schema, and the router.
+`src/client` is the browser's (drawn by the server too), `src/server` the
+server's alone, and each `src/apis/<name>` one API Worker: its contract, its
+entry (`worker.server.ts`, which the browser can never import) and the
+client the browser calls it with; `src/apis/access` is the rule both Workers
+apply. `laymos.config.json` says who may import
+whom. The browser learns each Worker's URL from the site's `VITE_*` env,
+which Alchemy sets from the Workers it declares and Vite inlines.
 
 ## Usage
 
 ### Find your way around
 
-The code is split by where it runs:
-
 ```
 src/
-  shared/       both sides
-    data/         the Schema of each page's data, and the Metadata helper
-    pages/        one page per file, its definition and build, nested as the URL is; routes.ts reads them into the router
-  client/       the Views: drawn by the server, then run by the browser
-    app.tsx       the root page's View, in the layout and the Document (Start's `app`)
-    document.tsx  the <html> around the app
-    pages/        one View per page, nested as the pages are
-    components/   what the pages are drawn with: the Place frame, layout, nav, status, theme
-  server/       the server only
-    loaders.server.ts  one Loader per page with data, slow on purpose (Start's `loaders`)
-    backend/      the pretend database, in the Worker's memory
-  infra/        the Worker and its domain, declared with Alchemy
+  shared/pages/        both sides: one file per page, its data Schema beside it (replica/ a folder: the page, the accounts list, the Pocket); pages.ts holds the root page and the router
+  client/
+    app.tsx            Start.app: the router, the root View, the Document, the browser's Layer (Accounts, the API clients and the Replica Store)
+    document.tsx       the <html> around the app: theme script, devtools, sign-in dialog
+    views/             one View per page; views.tsx draws the root page, preload-link.tsx shows a preload live
+    views/replica/     the Replica page: the accounts list, the sync panel, the Pocket
+    components/        layout, page intro, clock, devtools, theme
+  server/
+    loaders.server.ts  Start.server(loaders): one Loader per page with data
+  apis/
+    hello-http/        the HTTP API Worker: contract.ts, worker.server.ts, hello-http.ts (the browser's client)
+    hello-rpc/         the RPC API Worker, the same shape
+    access/            who may call what: the three levels, the owner, its Policy
+    pocket/            the Pocket Worker: each Account's wallets and entries in a D1 std Table, and the browser's client
+  replicas/
+    pocket/            the Pocket Replica: definition (key, collections), build (Strategies, Gate), actions (each write)
+  infra/               the site, the API Workers and their domains, declared with Alchemy
 ```
 
 `vite.config.ts` names the platform and the two files Start reads:
@@ -63,30 +87,39 @@ src/
 ### Run locally
 
 ```bash
-pnpm --filter kabuki-start dev     # builds its workspace packages, then vp dev through Portless
+pnpm --filter kabuki-start dev     # builds its workspace packages, then alchemy dev through Portless
 pnpm --filter kabuki-start lint    # tsc --noEmit + laymos lint
+pnpm --filter kabuki-start test    # each API Worker answered in-process, Pocket on D1 in Miniflare
 pnpm --filter kabuki-start build   # client and Worker -> dist/client, dist/ssr
 ```
 
-`pnpm dev` runs the Worker's `fetch` in Vite's Node server, with HMR and no
-Cloudflare account. Portless gives it the name `kabuki-start.kishore`
-(`portless.json`), served at `https://kabuki-start.kishore.computer`. Static
-pages are cached only in a build: in dev every page is drawn.
+`pnpm dev` runs `alchemy dev` through Portless: the site in workerd under
+Vite, with HMR, at `https://kabuki-start.kishore.computer` (`portless.json`),
+and the API Workers on ports 4581, 4582 and 4583, which the script names to
+Portless as `https://hello-http-start.kishore.computer`,
+`https://hello-rpc-start.kishore.computer` and
+`https://pocket-start.kishore.computer`. Sign-in needs every host under
+the session cookie's domain, so in dev it uses the Auth Worker at
+`https://auth.kishore.computer`, which must be running; deployed, everything
+is under `.kishore.app` and signs in with `https://auth.kishore.app`
+(`src/infra/stage.ts`). Each API Worker lets only the site's origin call it
+with credentials. A personal stage keeps its state in `.alchemy/state`.
+Static pages are kept only in a deployed build: in dev every page is drawn.
 
 ### Deploy
 
 ```bash
-pnpm --filter kabuki-start deploy        # your own stage, at its workers.dev URL
+pnpm --filter kabuki-start deploy        # your own stage, at its workers.dev URLs
 pnpm --filter kabuki-start deploy:prod   # ALLOW_DEPLOY=true alchemy deploy --stage prod
 ```
 
 Every pull request gets its own stage, `pr<N>`, deployed by
-`.github/workflows/deploy-kabuki-start.yml` to `https://pr<N>-start.kishore.app`
-and destroyed by `cleanup-kabuki-start.yml` when it closes; a push to `main`
-deploys `prod` to `https://start.kishore.app`. The deployed stages (`prod`,
-`demo`, `pr<N>`) refuse to deploy unless `ALLOW_DEPLOY=true`; any other stage
-is served at its `workers.dev` URL. Alchemy keeps what each stage has deployed in
-the Cloudflare state store for `prod`, `demo` and `pr<N>`, shared by CI and
-anyone deploying them, and on disk in `.alchemy/state` for a personal stage
-(`src/infra/state.ts`). Deploying needs Cloudflare credentials for
-the account that owns the `kishore.app` zone.
+`.github/workflows/deploy-kabuki-start.yml` to `https://pr<N>-start.kishore.app`,
+with its Workers at `https://pr<N>-hello-http-start.kishore.app` and
+`https://pr<N>-hello-rpc-start.kishore.app`, and destroyed by
+`cleanup-kabuki-start.yml` when it closes; a push to `main` deploys `prod` to
+`https://start.kishore.app`. The deployed stages (`prod`, `demo`, `pr<N>`)
+refuse to deploy unless `ALLOW_DEPLOY=true`. A personal stage deployed to
+`workers.dev` is served, but signs nobody in. Their state is in the
+Cloudflare state store (`src/infra/state.ts`). Deploying needs Cloudflare
+credentials for the account that owns the `kishore.app` zone.

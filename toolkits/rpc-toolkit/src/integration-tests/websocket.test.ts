@@ -2,11 +2,12 @@ import { Effect, Fiber, Layer, Schema, Stream } from 'effect';
 import { Headers, HttpServerRequest, HttpServerResponse } from 'effect/http';
 import { Rpc as EffectRpc, RpcClient, RpcGroup } from 'effect/rpc';
 import { expect, it, vi } from 'vitest';
-import { Rpc } from '../rpc/index.ts';
+import { middleware } from '../rpc/index.ts';
+import * as websocket from '../rpc/websocket/index.ts';
 
 it('connects the socket client to the hibernating server and refreshes Middleware credentials on reconnect', async () => {
   vi.stubGlobal('WebSocketRequestResponsePair', class {});
-  const Access = Rpc.middleware<boolean>()('wire/Access', { client: true });
+  const Access = middleware<boolean>()('wire/Access', { client: true });
   const Group = Access.with(true)(
     RpcGroup.make(
       EffectRpc.make('watch', { success: Schema.Number, stream: true }),
@@ -18,14 +19,14 @@ it('connects the socket client to the hibernating server and refreshes Middlewar
   const sockets: TestWebSocket[] = [];
   const errors: unknown[] = [];
   const server = await Effect.runPromise(
-    Rpc.websocket.server(
+    websocket.server(
       Group,
       Layer.merge(
         Access.layer(({ headers }) =>
           Effect.gen(function* () {
             calls.push({
               token: headers.authorization,
-              kind: yield* Rpc.websocket.InvocationKind,
+              kind: yield* websocket.InvocationKind,
             });
           }),
         ),
@@ -33,9 +34,7 @@ it('connects the socket client to the hibernating server and refreshes Middlewar
           watch: () =>
             Stream.unwrap(
               Effect.gen(function* () {
-                const checkpoint = yield* Rpc.websocket.checkpoint(
-                  Schema.Number,
-                );
+                const checkpoint = yield* websocket.checkpoint(Schema.Number);
                 yield* checkpoint.put(++starts).pipe(Effect.orDie);
                 return Stream.make(starts).pipe(Stream.concat(Stream.never));
               }),
@@ -59,7 +58,7 @@ it('connects the socket client to the hibernating server and refreshes Middlewar
   class TestWebSocket extends EventTarget {
     readyState = 1;
     attachment: unknown = null;
-    readonly port: Rpc.HibernatingSocket;
+    readonly port: websocket.HibernatingSocket;
     readonly accepted: Promise<unknown>;
     constructor() {
       super();
@@ -69,7 +68,7 @@ it('connects the socket client to the hibernating server and refreshes Middlewar
           send: (data: string) =>
             this.dispatchEvent(new MessageEvent('message', { data })),
           close: () => this.close(),
-        } as unknown as Rpc.HibernatingSocket['ws'],
+        } as unknown as websocket.HibernatingSocket['ws'],
         close: () => Effect.sync(() => this.close()),
         serializeAttachment: (value) => {
           this.attachment = structuredClone(value);
@@ -114,7 +113,7 @@ it('connects the socket client to the hibernating server and refreshes Middlewar
   const fiber = Effect.runFork(
     Effect.gen(function* () {
       const client = yield* RpcClient.make(Group);
-      yield* Rpc.websocket
+      yield* websocket
         .keepSubscribed(() => client.watch())
         .pipe(
           Stream.runForEach((value) =>
@@ -126,7 +125,7 @@ it('connects the socket client to the hibernating server and refreshes Middlewar
     }).pipe(
       Effect.provide(
         Layer.merge(
-          Rpc.websocket.client(Group, { url: 'ws://test/rpc' }),
+          websocket.client(Group, { url: 'ws://test/rpc' }),
           Access.client(({ request, next }) =>
             next({
               ...request,

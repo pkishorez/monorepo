@@ -1,5 +1,12 @@
 import { describe as group, expect, it } from 'vitest';
-import { conflicts, describe, sequence, shortcut } from '../index.ts';
+import {
+  bindingOf,
+  conflicts,
+  describe,
+  sequence,
+  shortcut,
+  shortcutOf,
+} from '../index.ts';
 
 const none = { mod: false, ctrl: false, alt: false, shift: false, meta: false };
 
@@ -82,3 +89,80 @@ export const typed = () => {
   sequence('g cmd+k');
   sequence('mod+k mod+s');
 };
+
+group('bindingOf', () => {
+  it('reads keys written at runtime as a Shortcut or a Sequence', () => {
+    expect(bindingOf('mod+k')).toEqual(shortcut('mod+k'));
+    expect(bindingOf('g g')).toEqual(sequence('g g'));
+    expect(bindingOf('mod++')).toEqual(shortcut('mod++'));
+  });
+
+  it('throws on text that is neither', () => {
+    expect(() => bindingOf('cmd+k')).toThrow('no modifier "cmd"');
+  });
+});
+
+group('shortcutOf', () => {
+  const press = (
+    key: string,
+    code: string,
+    held: Partial<KeyboardEvent> = {},
+  ) => ({
+    key,
+    code,
+    shiftKey: false,
+    ctrlKey: false,
+    altKey: false,
+    metaKey: false,
+    ...held,
+  });
+
+  it('records Ctrl as ctrl, and Cmd as mod on a Mac', () => {
+    const ctrl = shortcutOf(press('k', 'KeyK', { ctrlKey: true }), {
+      mac: true,
+    });
+    expect(describe(ctrl!)).toBe('ctrl+k');
+    const cmd = shortcutOf(press('k', 'KeyK', { metaKey: true }), {
+      mac: true,
+    });
+    expect(describe(cmd!)).toBe('mod+k');
+    const both = shortcutOf(
+      press('k', 'KeyK', { ctrlKey: true, metaKey: true }),
+      {
+        mac: true,
+      },
+    );
+    expect(describe(both!)).toBe('ctrl+meta+k');
+    const elsewhere = shortcutOf(press('k', 'KeyK', { ctrlKey: true }), {
+      mac: false,
+    });
+    expect(describe(elsewhere!)).toBe('ctrl+k');
+  });
+
+  it('names keys as they are matched: a letter in lowercase, a symbol as typed', () => {
+    expect(describe(shortcutOf(press('K', 'KeyK', { shiftKey: true }))!)).toBe(
+      'shift+k',
+    );
+    expect(describe(shortcutOf(press('?', 'Slash', { shiftKey: true }))!)).toBe(
+      '?',
+    );
+    expect(describe(shortcutOf(press(' ', 'Space'))!)).toBe('Space');
+    expect(
+      describe(shortcutOf(press('Enter', 'Enter', { shiftKey: true }))!),
+    ).toBe('shift+Enter');
+  });
+
+  it('gives nothing for a modifier alone or a key no Shortcut names', () => {
+    expect(
+      shortcutOf(press('Control', 'ControlLeft', { ctrlKey: true })),
+    ).toBeNull();
+    expect(shortcutOf(press('CapsLock', 'CapsLock'))).toBeNull();
+  });
+
+  it('records what a Shortcut it names is pressed by', () => {
+    const recorded = shortcutOf(press('[', 'BracketLeft', { ctrlKey: true }), {
+      mac: false,
+    });
+    expect(conflicts(recorded!, shortcut('ctrl+['), false)).toBe(true);
+  });
+});

@@ -1,4 +1,4 @@
-import type { SnapshotType } from '../../../eschema/index.js';
+import type { SnapshotCheck, SnapshotType } from '../../../eschema/index.js';
 import type {
   ESchemaDefinition,
   ESchemaVersion,
@@ -135,6 +135,164 @@ function shapeEdits(
   });
 }
 
+type Bound = { readonly value: number; readonly exclusive: boolean };
+
+/** Whether a lower bound accepts at least what `before` accepted. */
+const lowerLoosens = (before: Bound, after: Bound) =>
+  after.value < before.value ||
+  (after.value === before.value && (!after.exclusive || before.exclusive));
+
+/** Whether an upper bound accepts at least what `before` accepted. */
+const upperLoosens = (before: Bound, after: Bound) =>
+  after.value > before.value ||
+  (after.value === before.value && (!after.exclusive || before.exclusive));
+
+const inclusive = (value: number): Bound => ({ value, exclusive: false });
+const exclusive = (value: number): Bound => ({ value, exclusive: true });
+
+/**
+ * Whether `after` accepts every value `before` did, for one check kind. Only
+ * bounds can loosen; any other check must stay exactly as it was.
+ */
+function loosens(before: SnapshotCheck, after: SnapshotCheck): boolean {
+  switch (before.check) {
+    case 'minLength':
+      return after.check === 'minLength' && after.minLength <= before.minLength;
+    case 'maxLength':
+      return after.check === 'maxLength' && after.maxLength >= before.maxLength;
+    case 'lengthBetween':
+      return (
+        after.check === 'lengthBetween' &&
+        after.minimum <= before.minimum &&
+        after.maximum >= before.maximum
+      );
+    case 'greaterThan':
+    case 'greaterThanOrEqualTo': {
+      const prior =
+        before.check === 'greaterThan'
+          ? exclusive(before.exclusiveMinimum)
+          : inclusive(before.minimum);
+      if (after.check === 'greaterThan')
+        return lowerLoosens(prior, exclusive(after.exclusiveMinimum));
+      if (after.check === 'greaterThanOrEqualTo')
+        return lowerLoosens(prior, inclusive(after.minimum));
+      return false;
+    }
+    case 'lessThan':
+    case 'lessThanOrEqualTo': {
+      const prior =
+        before.check === 'lessThan'
+          ? exclusive(before.exclusiveMaximum)
+          : inclusive(before.maximum);
+      if (after.check === 'lessThan')
+        return upperLoosens(prior, exclusive(after.exclusiveMaximum));
+      if (after.check === 'lessThanOrEqualTo')
+        return upperLoosens(prior, inclusive(after.maximum));
+      return false;
+    }
+    case 'between':
+      return (
+        after.check === 'between' &&
+        lowerLoosens(
+          {
+            value: before.minimum,
+            exclusive: before.exclusiveMinimum ?? false,
+          },
+          { value: after.minimum, exclusive: after.exclusiveMinimum ?? false },
+        ) &&
+        upperLoosens(
+          {
+            value: before.maximum,
+            exclusive: before.exclusiveMaximum ?? false,
+          },
+          { value: after.maximum, exclusive: after.exclusiveMaximum ?? false },
+        )
+      );
+    default:
+      return false;
+  }
+}
+
+interface CheckEdit {
+  readonly edit: SnapshotEdit;
+  readonly impact: 'safe' | 'breaking';
+}
+
+/**
+ * Check changes between two versions of one shape whose stored structure is
+ * the same. A stored row was accepted by the old checks, so a check may be
+ * removed or loosened but never added or tightened: a row that fails it no
+ * longer reads. Adding `finite` to a number is the exception, since JSON
+ * cannot have stored a non-finite one in a form that reads back.
+ */
+function checkEdits(
+  before: SnapshotType,
+  after: SnapshotType,
+  path: readonly string[] = [],
+): readonly CheckEdit[] {
+  const prior = ('checks' in before ? before.checks : undefined) ?? [];
+  const next = ('checks' in after ? after.checks : undefined) ?? [];
+  const same = (a: SnapshotCheck) => (b: SnapshotCheck) =>
+    stable(a) === stable(b);
+  const removed = prior.filter((check) => !next.some(same(check)));
+  const added = next.filter((check) => !prior.some(same(check)));
+  const tightened = added.filter(
+    (check) =>
+      !(check.check === 'finite' && after.type === 'number') &&
+      !removed.some((old) => loosens(old, check)),
+  );
+  const own: CheckEdit[] =
+    removed.length === 0 && added.length === 0
+      ? []
+      : [
+          {
+            edit: edit([...path, 'checks'], prior, next),
+            impact: tightened.length > 0 ? 'breaking' : 'safe',
+          },
+        ];
+  const nested = (): readonly CheckEdit[] => {
+    if (before.type === 'struct' && after.type === 'struct') {
+      const fields = new Map(after.fields.map((field) => [field.name, field]));
+      return before.fields.flatMap((field) => {
+        const match = fields.get(field.name);
+        return match === undefined
+          ? []
+          : checkEdits(field.type, match.type, [...path, field.name]);
+      });
+    }
+    if (before.type === 'array' && after.type === 'array')
+      return checkEdits(before.element, after.element, [...path, '[]']);
+    if (before.type === 'record' && after.type === 'record')
+      return checkEdits(before.value, after.value, [...path, '{}']);
+    if (before.type === 'recursive' && after.type === 'recursive')
+      return checkEdits(before.body, after.body, path);
+    if (before.type === 'union' && after.type === 'union') {
+      // A branch that is unchanged, checks included, may have moved; only the
+      // branches left over are compared in order.
+      const unmatched = [...after.members.keys()];
+      const pending = before.members.flatMap((member, index) => {
+        const same = unmatched.findIndex(
+          (other) => stable(after.members[other]) === stable(member),
+        );
+        if (same === -1) return [index];
+        unmatched.splice(same, 1);
+        return [];
+      });
+      return pending.flatMap((index, position) => {
+        const other = unmatched[position];
+        return other === undefined
+          ? []
+          : checkEdits(before.members[index]!, after.members[other]!, [
+              ...path,
+              String(index),
+            ]);
+      });
+    }
+    return [];
+  };
+  return [...own, ...nested()];
+}
+
 function versionSubject(identity: string, version: string): SnapshotSubject {
   return { kind: 'version', name: identity, version };
 }
@@ -154,9 +312,21 @@ function diffVersion(
     contractOf(before.shape, true),
     contractOf(after.shape, true),
   );
-  return references.length === 0
-    ? []
-    : [change(subject, 'edited', 'safe', references)];
+  const checks = checkEdits(before.shape, after.shape);
+  const tightened = checks
+    .filter(({ impact }) => impact === 'breaking')
+    .map(({ edit }) => edit);
+  const loosened = checks
+    .filter(({ impact }) => impact === 'safe')
+    .map(({ edit }) => edit);
+  return [
+    ...(tightened.length === 0
+      ? []
+      : [change(subject, 'edited', 'breaking', tightened)]),
+    ...(references.length + loosened.length === 0
+      ? []
+      : [change(subject, 'edited', 'safe', [...references, ...loosened])]),
+  ];
 }
 
 function definitionEdits(

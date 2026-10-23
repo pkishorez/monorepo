@@ -1,5 +1,5 @@
-export { Loading, memory, outcomeOf } from './loading.ts';
-export type { Answer, RoutesWithPlaces, Wanted } from './loading.ts';
+export { Loading, memory } from './loading.ts';
+export type { Answer } from './loading.ts';
 export { cached } from './cache.ts';
 export {
   Navigation,
@@ -13,9 +13,4 @@ export {
   reloadOptions,
   replace,
 } from './navigation.ts';
-export type {
-  AnyRoute,
-  HashScrollOptions,
-  MoveOptions,
-  ReloadOptions,
-} from './navigation.ts';
+export type { AnyRoute, MoveOptions, ReloadOptions } from './navigation.ts';

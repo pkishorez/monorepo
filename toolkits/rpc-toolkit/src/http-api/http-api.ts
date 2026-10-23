@@ -1,15 +1,13 @@
-import { make } from './middleware/index.ts';
-
 /**
- * Declares a Middleware for Effect HttpApi: the same shape as
- * `Rpc.middleware` over `HttpApiEndpoint` and `HttpApiGroup`, plus a
+ * Declares a Middleware for Effect HttpApi: the same shape as the `rpc`
+ * door's `middleware` over `HttpApiEndpoint` and `HttpApiGroup`, plus a
  * `security` option that feeds OpenAPI and hands the credential to the
  * server half.
  *
  * Curried so the value type can be given while the rest is inferred:
- * `HttpApi.middleware<Role>()('app/Role', { provides: CurrentUser })`.
+ * `middleware<Role>()('app/Role', { provides: CurrentUser })`.
  */
-export const middleware = make;
+export { make as middleware } from './middleware/index.ts';
 
 export type {
   ClientImpl as MiddlewareClient,

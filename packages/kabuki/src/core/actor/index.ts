@@ -1,13 +1,12 @@
 export { Actor } from './actor.ts';
 export { Command } from './command.ts';
 export { RUN } from './types.ts';
-export type { AnyDefined, Defined } from './actor.ts';
+export type { Defined } from './actor.ts';
 export type {
   ActorOf,
   ActorType,
   AnyActor,
   Behavior,
-  Child,
   ChildAs,
   Data,
   ActorDefinition,
@@ -17,12 +16,14 @@ export type {
   Only,
   OpenOfBehavior,
   ProvidedOf,
+  QueriesByState,
+  QueriesIn,
+  QueryAs,
+  QueryDefinition,
   Requires,
   Self,
   SlotDefinition,
   Tagged,
   Types,
-  Worker,
   WorkerDefinition,
-  Workers,
 } from './types.ts';

@@ -83,6 +83,12 @@
     "src/pwa/vite/vite.ts"
   ],
   "rules": {
+    "src/account-switcher": [
+      "src/components/ui/avatar.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/dropdown-menu.tsx",
+      "src/components/ui/spinner.tsx"
+    ],
     "src/app": ["src/client", "src/pwa", "src/recipes", "src/theme"],
     "src/app/app.tsx": [
       "src/app/web-host.ts",
@@ -229,17 +235,18 @@
       "src/feedback",
       "src/input"
     ],
-    "src/recipes/account-switcher": ["src/recipes/parts/email-privacy"],
     "src/recipes/kabuki-devtools": ["src/components/viewers"],
     "src/recipes/frame/sidebar": ["src/recipes/frame/frame"],
     "src/recipes/local-sign-in": ["src/recipes/parts/email-privacy"],
     "src/server": ["src/define"],
+    "src/start": ["src/input/device", "src/theme"],
     "src/server/serve": ["src/server/live", "src/server/worker"],
     "src/recipes/kabuki-devtools/map": [
       "src/recipes/kabuki-devtools/ink",
       "src/recipes/kabuki-devtools/scene"
     ],
     "src/recipes/kabuki-devtools/timeline": ["src/recipes/kabuki-devtools/ink"],
-    "src/recipes/kabuki-devtools/sheet": ["src/recipes/kabuki-devtools/ink"]
+    "src/recipes/kabuki-devtools/sheet": ["src/recipes/kabuki-devtools/ink"],
+    "src/recipes/keyboard": ["src/recipes/key-bindings"]
   }
 }

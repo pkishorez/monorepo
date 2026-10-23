@@ -100,3 +100,45 @@ export function inspectESchemaComposition(
 export function isESchemaCompositionPlumbing(value: object): boolean {
   return compositionPlumbing.has(value);
 }
+
+/** Every ESchema composed anywhere inside `ast`, on either side of a transformation. */
+export function findNestedESchemas(
+  ast: SchemaAST.AST,
+): readonly { readonly eschema: object; readonly identity: string }[] {
+  const found = new Map<object, { eschema: object; identity: string }>();
+  const seen = new WeakSet<object>();
+  const walk = (node: SchemaAST.AST): void => {
+    if (seen.has(node)) return;
+    seen.add(node);
+    const composition = compositions.get(node);
+    if (composition !== undefined) {
+      found.set(composition.eschema, composition);
+      return;
+    }
+    for (const link of node.encoding ?? []) walk(link.to);
+    switch (node._tag) {
+      case 'Objects':
+        node.propertySignatures.forEach((property) => walk(property.type));
+        node.indexSignatures.forEach((signature) => {
+          walk(signature.parameter);
+          walk(signature.type);
+        });
+        return;
+      case 'Arrays':
+        node.elements.forEach(walk);
+        node.rest.forEach(walk);
+        return;
+      case 'Union':
+        node.types.forEach(walk);
+        return;
+      case 'Declaration':
+        node.typeParameters.forEach(walk);
+        return;
+      case 'Suspend':
+        walk(node.thunk());
+        return;
+    }
+  };
+  walk(ast);
+  return [...found.values()];
+}

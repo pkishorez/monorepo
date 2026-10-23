@@ -9,7 +9,7 @@ import {
   useSyncExternalStore,
 } from 'react';
 import type { Binding } from '../binding/index.ts';
-import type { Key, Keys } from '../key/index.ts';
+import { isApple, type Key, type Keys } from '../key/index.ts';
 import { createKeyInput } from '../key-input/index.ts';
 import type { Cancel, Progress } from '../keymap/index.ts';
 import { development } from './development.ts';
@@ -20,11 +20,15 @@ import {
   type Timing,
 } from './dispatcher.ts';
 import { createKeysRef, type KeysRef } from './keys-ref.ts';
+import { createVim, type Vim } from './vim.ts';
 
 export type { Key } from '../key/index.ts';
 export type { Cancel, Progress } from '../keymap/index.ts';
+export type { Dispatcher, Repeat } from './dispatcher.ts';
+export type { Vim } from './vim.ts';
 
 const ProviderContext = createContext<Dispatcher | undefined>(undefined);
+const VimContext = createContext<Vim | undefined>(undefined);
 
 const DEFAULT_TIMING: Timing = { delay: 200, interval: 40, timeout: 1000 };
 
@@ -38,6 +42,13 @@ export type KeysProviderProps = {
   readonly repeat?: { readonly delay?: number; readonly interval?: number };
   /** How long, in ms, a Sequence waits for its next step: 1000 by default. */
   readonly sequence?: { readonly timeout?: number };
+  /**
+   * Whether Vim Mode is on: a preference the app keeps, such as in
+   * localStorage. Without it, the provider keeps it, off at first.
+   */
+  readonly vim?: boolean;
+  /** Asked to turn Vim Mode on or off, as from the status bar. */
+  readonly onVimChange?: (on: boolean) => void;
   readonly children?: ReactNode;
 };
 
@@ -52,21 +63,18 @@ export function KeysProvider(props: KeysProviderProps) {
   const nested =
     props.enabled !== undefined ||
     props.repeat !== undefined ||
-    props.sequence !== undefined;
+    props.sequence !== undefined ||
+    props.vim !== undefined;
   const ignored = outer !== undefined && nested;
   useEffect(() => {
     if (ignored && development()) {
       console.warn(
-        'use-keys: a KeysProvider inside another ignores its own enabled, repeat and sequence.',
+        'use-keys: a KeysProvider inside another ignores its own enabled, repeat, sequence and vim.',
       );
     }
   }, [ignored]);
   return outer === undefined ? <Provider {...props} /> : props.children;
 }
-
-const isApple = () =>
-  typeof navigator !== 'undefined' &&
-  /Mac|iPhone|iPad|iPod/.test(navigator.platform);
 
 function Provider(props: KeysProviderProps) {
   const latest = useLatest(props);
@@ -103,7 +111,21 @@ function Provider(props: KeysProviderProps) {
 
   useEffect(() => devtools(dispatcher), [dispatcher]);
 
-  return <ProviderContext value={dispatcher}>{props.children}</ProviderContext>;
+  const [own, setOwn] = useState(false);
+  const on = props.vim ?? own;
+  const [vim] = useState(() => createVim(on));
+  useLayoutEffect(() => {
+    vim.sync(on, (next) => {
+      if (latest.current.vim === undefined) setOwn(next);
+      latest.current.onVimChange?.(next);
+    });
+  });
+
+  return (
+    <ProviderContext value={dispatcher}>
+      <VimContext value={vim}>{props.children}</VimContext>
+    </ProviderContext>
+  );
 }
 
 // In development, lists each provider's Keys and declared keys on
@@ -116,8 +138,11 @@ const devtools = (dispatcher: Dispatcher) => {
   return () => global.__USE_KEYS__?.delete(shown);
 };
 
-// The nearest Keys Provider; hooks throw a clear error outside one.
-const useDispatcher = (user: string) => {
+/**
+ * The nearest Keys Provider, for the layers built on the core; hooks throw
+ * a clear error outside one.
+ */
+export const useDispatcher = (user: string) => {
   const dispatcher = useContext(ProviderContext);
   if (dispatcher === undefined) {
     throw new Error(`${user} must be used inside a KeysProvider`);
@@ -240,3 +265,10 @@ export function useDeclare(
 
 /** Whether `mod` is Cmd in the nearest Keys Provider, as on Apple platforms. */
 export const useMac = (user: string) => useDispatcher(user).mac;
+
+/** Vim Mode in the nearest Keys Provider: read it, or ask to change it. */
+export const useVimMode = (user: string) => {
+  useDispatcher(user);
+  const vim = useContext(VimContext) as Vim;
+  return vim;
+};

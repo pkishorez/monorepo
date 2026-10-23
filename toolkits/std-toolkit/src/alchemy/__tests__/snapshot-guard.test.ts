@@ -23,7 +23,7 @@ const appended = stored(
     .build(),
 );
 const edited = stored(
-  EntityESchema.make('Task', 'id', { title: Schema.Number }).build(),
+  EntityESchema.make('Task', 'id', { title: Schema.Finite }).build(),
 );
 
 describe('snapshot guard', () => {

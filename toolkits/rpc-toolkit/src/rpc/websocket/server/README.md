@@ -1,22 +1,30 @@
-# Rpc.websocket server
+# rpc/websocket server
 
 ```ts
-import { Rpc } from '@kestack/rpc-toolkit/rpc';
+import {
+  attachmentStreamStore,
+  checkpoint,
+  fromDurableObjectState,
+  InvocationKind,
+  RESUME_LOST,
+  server,
+  sqliteStreamStore,
+} from '@kestack/rpc-toolkit/rpc/websocket';
 
-Rpc.websocket.server; // serve an Api over hibernatable sockets
-Rpc.websocket.checkpoint; // "where was I?" inside a streaming handler
-Rpc.websocket.InvocationKind; // fresh or replay
-Rpc.websocket.fromDurableObjectState; // the ports, without alchemy
-Rpc.websocket.streams.attachment; // default home for stream state
-Rpc.websocket.streams.sqlite; // stream state in the Durable Object's SQLite
-Rpc.websocket.RESUME_LOST; // close code 4000: "resubscribe, nothing was kept"
+server; // serve an Api over hibernatable sockets
+checkpoint; // "where was I?" inside a streaming handler
+InvocationKind; // fresh or replay
+fromDurableObjectState; // the ports, without alchemy
+attachmentStreamStore; // default home for stream state
+sqliteStreamStore; // stream state in the Durable Object's SQLite
+RESUME_LOST; // close code 4000: "resubscribe, nothing was kept"
 ```
 
 An Effect `RpcServer` that runs over **hibernatable** Durable Object WebSockets, so your
 streams survive the Durable Object being evicted from memory.
 
 The browser half of this lives in
-[`Rpc.websocket.client`](../client/README.md) — it re-subscribes your
+the websocket [`client`](../client/README.md) — it re-subscribes your
 streams when the socket reconnects.
 
 ---
@@ -71,7 +79,7 @@ socket map — is internal and never surfaces.
 2. Sticky notes are **small**. In the socket attachment (the default) Cloudflare gives ~2 KB
    per socket, shared by the connection value _and_ every in-flight stream on that socket.
    Store a cursor, never a payload — or move them to SQLite (see _Where stream state lives_).
-3. `Rpc.websocket.checkpoint` only remembers inside a WebSocket-server stream. Anywhere else
+3. `checkpoint` only remembers inside a WebSocket-server stream. Anywhere else
    (in-process, http, a non-streaming handler) it simply remembers nothing: `get` finds
    `None` and `put`/`clear` do nothing, so the same handler runs on every Transport.
 
@@ -113,7 +121,7 @@ Wire the Durable Object:
 ```ts
 import * as Cloudflare from 'alchemy/Cloudflare';
 import * as Effect from 'effect/Effect';
-import { Rpc } from '@kestack/rpc-toolkit/rpc';
+import { server } from '@kestack/rpc-toolkit/rpc/websocket';
 
 const CounterObject = Cloudflare.DurableObject(
   'CounterObject',
@@ -121,11 +129,10 @@ const CounterObject = Cloudflare.DurableObject(
     const state = yield* Cloudflare.DurableObjectState;
 
     return Effect.gen(function* () {
-      const rpc = yield* Rpc.websocket.server(
-        CounterRpcs,
-        makeCounterHandlers(),
-        { state, upgrade: Cloudflare.upgrade },
-      );
+      const rpc = yield* server(CounterRpcs, makeCounterHandlers(), {
+        state,
+        upgrade: Cloudflare.upgrade,
+      });
 
       return {
         fetch: rpc.accept,
@@ -139,14 +146,14 @@ const CounterObject = Cloudflare.DurableObject(
 
 Note the shape: you return **three** entry points, not one `fetch`. You no longer own a
 connection for its lifetime — you own callbacks that get handed sockets you don't remember.
-The server speaks JSON, as `Rpc.websocket.client` does; there is nothing to configure.
+The server speaks JSON, as the websocket `client` does; there is nothing to configure.
 
 `@kestack/rpc-toolkit/alchemy`'s `DurableRpcWorker` does this wiring for you, with a
 Worker in front that forwards every request to one Durable Object instance.
 
 ---
 
-## `Rpc.websocket.checkpoint` — "where was I?"
+## `checkpoint` — "where was I?"
 
 ### Before and after
 
@@ -168,17 +175,17 @@ The fix is a read-resume-write sandwich around code that otherwise doesn't chang
 
 ```ts
 // ✅ survives hibernation
-import { Rpc } from '@kestack/rpc-toolkit/rpc';
+import { checkpoint } from '@kestack/rpc-toolkit/rpc/websocket';
 
 const Cursor = Schema.Struct({ cursor: Schema.Number });
 
 watch: () =>
   Stream.unwrap(
     Effect.gen(function* () {
-      const checkpoint = yield* Rpc.websocket.checkpoint(Cursor);
+      const progress = yield* checkpoint(Cursor);
 
       // 1. have I been here before?
-      const saved = yield* checkpoint.get().pipe(Effect.orDie);
+      const saved = yield* progress.get().pipe(Effect.orDie);
       let cursor = Option.match(saved, {
         onNone: () => 0,
         onSome: ({ cursor }) => cursor,
@@ -190,7 +197,7 @@ watch: () =>
             Effect.tap((batch) => {
               // 2. note where I am, every time I advance
               cursor = batch.at(-1)?.id ?? cursor;
-              return checkpoint.put({ cursor }).pipe(Effect.orDie);
+              return progress.put({ cursor }).pipe(Effect.orDie);
             }),
           ),
         ),
@@ -208,8 +215,8 @@ from the client's original request:
 subscribe: ({ since }) =>
   Stream.unwrap(
     Effect.gen(function* () {
-      const checkpoint = yield* Rpc.websocket.checkpoint(Cursor);
-      const saved = yield* checkpoint.get().pipe(Effect.orDie);
+      const progress = yield* checkpoint(Cursor);
+      const saved = yield* progress.get().pipe(Effect.orDie);
       const cursor = Option.match(saved, {
         onNone: () => since, // first subscribe — trust the client
         onSome: ({ cursor }) => cursor, // resumed — trust ourselves
@@ -225,9 +232,9 @@ Pass `Schema.Unknown` when structured-cloneable values should round-trip as-is:
 
 ```ts
 Effect.gen(function* () {
-  const checkpoint = yield* Rpc.websocket.checkpoint(Schema.Unknown);
-  yield* checkpoint.put({ page: 3 });
-  const saved = yield* checkpoint.get(); // Option<unknown>
+  const progress = yield* checkpoint(Schema.Unknown);
+  yield* progress.put({ page: 3 });
+  const saved = yield* progress.get(); // Option<unknown>
 });
 ```
 
@@ -241,8 +248,8 @@ replayed on the next wake:
 
 ```ts
 Effect.gen(function* () {
-  const checkpoint = yield* Rpc.websocket.checkpoint(Cursor);
-  yield* checkpoint.clear;
+  const progress = yield* checkpoint(Cursor);
+  yield* progress.clear;
 });
 ```
 
@@ -281,7 +288,7 @@ export const Identity = Context.Reference<typeof IdentitySchema.Type>(
 Effect.gen(function* () {
   const auth = yield* AuthService;
 
-  const rpc = yield* Rpc.websocket.server(ChatRpcs, handlers, {
+  const rpc = yield* server(ChatRpcs, handlers, {
     state,
     upgrade,
     connection: {
@@ -347,7 +354,7 @@ Connections that carry no state just leave `connection` out:
 
 ```ts
 Effect.gen(function* () {
-  const rpc = yield* Rpc.websocket.server(group, handlers, { state, upgrade });
+  const rpc = yield* server(group, handlers, { state, upgrade });
 });
 ```
 
@@ -362,22 +369,26 @@ package **does not provide the tag at all**, so your `Context.Reference`'s own
 
 The sticky notes live in a **Stream Store**, chosen with the server's `streams` option.
 
-| store                                       | where                                                                            | limit            |
-| ------------------------------------------- | -------------------------------------------------------------------------------- | ---------------- |
-| `Rpc.websocket.streams.attachment()`        | the socket attachment (default; nothing to configure)                            | ~2 KB per socket |
-| `Rpc.websocket.streams.sqlite({ storage })` | rows in the Durable Object's own SQLite; the attachment keeps only the client id | the DO's storage |
+| store                            | where                                                                            | limit            |
+| -------------------------------- | -------------------------------------------------------------------------------- | ---------------- |
+| `attachmentStreamStore()`        | the socket attachment (default; nothing to configure)                            | ~2 KB per socket |
+| `sqliteStreamStore({ storage })` | rows in the Durable Object's own SQLite; the attachment keeps only the client id | the DO's storage |
 
 A few streams carrying a JWT in their headers already overflow 2 KB. Then use SQLite:
 
 ```ts
-import { Rpc } from '@kestack/rpc-toolkit/rpc';
+import {
+  fromDurableObjectState,
+  server,
+  sqliteStreamStore,
+} from '@kestack/rpc-toolkit/rpc/websocket';
 
 // raw workerd, inside the Durable Object class
 const rpc =
   yield *
-  Rpc.websocket.server(Api, handlers, {
-    ...Rpc.websocket.fromDurableObjectState(ctx),
-    streams: Rpc.websocket.streams.sqlite({ storage: ctx.storage }),
+  server(Api, handlers, {
+    ...fromDurableObjectState(ctx),
+    streams: sqliteStreamStore({ storage: ctx.storage }),
   });
 
 // DurableRpcWorker
@@ -386,8 +397,7 @@ DurableRpcWorker<Self>()(
   {
     main: import.meta.filename,
     schema: Api,
-    streams: (state) =>
-      Rpc.websocket.streams.sqlite({ storage: state.raw.storage }),
+    streams: (state) => sqliteStreamStore({ storage: state.raw.storage }),
   },
   handlers,
 );
@@ -403,7 +413,7 @@ DurableRpcWorker<Self>()(
   no longer live (a close that never arrived, e.g. during a deploy). No timers.
 
 Either store follows one rule: **a live socket without a record is closed** with
-`Rpc.websocket.RESUME_LOST` (4000, `resume lost`). Its streams are not replayed; the client
+`RESUME_LOST` (4000, `resume lost`). Its streams are not replayed; the client
 reconnects and resubscribes from its own cursor. The record is written in `accept`, before
 the 101 goes back, so a new socket always has one. For the attachment store, an attachment
 that cannot be decoded counts as missing.
@@ -468,7 +478,7 @@ runs the alchemy path, so that adapter has no coverage yet.
 ## API
 
 ```ts
-Rpc.websocket.server<Rpcs, E, R, A>(
+server<Rpcs, E, R, A>(
   group: RpcGroup.RpcGroup<Rpcs>,
   handlers: Layer.Layer<Rpc.ToHandler<Rpcs> | Rpc.Middleware<Rpcs> | Rpc.ServicesServer<Rpcs>, E, never>,
   options: {
@@ -479,7 +489,7 @@ Rpc.websocket.server<Rpcs, E, R, A>(
       initial: (request: HttpServerRequest) => Effect<A, HttpServerResponse>
       schema?: Schema.Codec<A, unknown>
     }
-    streams?: StreamStore // default: Rpc.websocket.streams.attachment()
+    streams?: StreamStore // default: attachmentStreamStore()
   },
 ): Effect<{
   accept: Effect<HttpServerResponse>
@@ -487,23 +497,23 @@ Rpc.websocket.server<Rpcs, E, R, A>(
   close: (socket: HibernatingSocket, code: number, reason: string) => Effect<void>
 }>
 
-Rpc.websocket.checkpoint<S extends Schema.Top>(schema: S): Effect<{
+checkpoint<S extends Schema.Top>(schema: S): Effect<{
   get: () => Effect<Option<S['Type']>, SchemaError, S['DecodingServices']>
   put: (value: S['Type']) => Effect<void, SchemaError, S['EncodingServices']>
   clear: Effect<void>
 }>
 
-Rpc.websocket.InvocationKind: Context.Reference<'fresh' | 'replay'>
+InvocationKind: Context.Reference<'fresh' | 'replay'>
 
-Rpc.websocket.fromDurableObjectState(state: DurableObjectState): {
+fromDurableObjectState(state: DurableObjectState): {
   state: HibernationState
   upgrade: Upgrade
 }
 
-Rpc.websocket.RESUME_LOST: 4000
+RESUME_LOST: 4000
 
-Rpc.websocket.streams.attachment(): StreamStore
-Rpc.websocket.streams.sqlite(options: {
+attachmentStreamStore(): StreamStore
+sqliteStreamStore(options: {
   storage: DurableObjectStorage // ctx.storage, or alchemy's state.raw.storage
   tableName?: string            // default "rpc_stream_store"
 }): StreamStore

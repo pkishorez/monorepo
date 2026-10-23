@@ -1,6 +1,6 @@
 import { Context, Effect, Layer, ManagedRuntime } from 'effect';
 import { RpcClient } from 'effect/rpc';
-import { Rpc as Transport } from '@kestack/rpc-toolkit/rpc';
+import { client } from '@kestack/rpc-toolkit/rpc/http';
 
 import { ConsoleApi } from '../../../shared/api/console-api/index.ts';
 import { telemetryLayer } from '../../telemetry/index.ts';
@@ -20,10 +20,7 @@ export const makeRpcRuntime = <A = never>(
 ) =>
   ManagedRuntime.make(
     Layer.effect(Rpc, makeClient).pipe(
-      Layer.provide([
-        Transport.http.client(ConsoleApi, { url }),
-        Layer.succeedContext(auth),
-      ]),
+      Layer.provide([client(ConsoleApi, { url }), Layer.succeedContext(auth)]),
       Layer.provideMerge(telemetryLayer()),
     ),
   );

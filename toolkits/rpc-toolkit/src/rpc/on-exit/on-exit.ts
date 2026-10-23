@@ -6,7 +6,7 @@ export type ExitObserver = (
   exit: Exit.Exit<unknown, unknown>,
 ) => Effect.Effect<void>;
 
-const Observers = Context.Reference<ReadonlyArray<ExitObserver>>(
+const Observers = /*#__PURE__*/ Context.Reference<ReadonlyArray<ExitObserver>>(
   '@kestack/rpc-toolkit/rpc/ExitObservers',
   { defaultValue: () => [] },
 );
@@ -14,7 +14,7 @@ const Observers = Context.Reference<ReadonlyArray<ExitObserver>>(
 /**
  * Runs `observer` with the Exit of each call sent from within `send`, before
  * the caller sees it. A Client Implementation's `next` only sends, so this is
- * how it reacts to the answer: `next(request).pipe(Rpc.onExit(...))`.
+ * how it reacts to the answer: `next(request).pipe(onExit(...))`.
  *
  * Works over every Transport's client. Over websocket the connection's other
  * answers wait for `observer`, so keep it short.

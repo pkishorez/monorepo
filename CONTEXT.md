@@ -69,7 +69,7 @@ Whether the open Account has been confirmed by its Sign-in since the Session ope
 _Avoid_: auth state, loading, confirmed (the word for the Account, not the status)
 
 **API**:
-One of an app's named ways to call a Backend: a group and the Transport it is reached by, such as `ledger: Rpc.http(LedgerApi, { path: '/rpc' })`. A path is resolved against the cloud address; a full URL is left alone. Every API is signed by the one auth; which calls need it is the Guard's business.
+One of an app's named ways to call a Backend: a group and the Transport it is reached by, such as `ledger: Api.http(LedgerApi, { path: '/rpc' })`. A path is resolved against the cloud address; a full URL is left alone. Every API is signed by the one auth; which calls need it is the Guard's business.
 _Avoid_: endpoint, service, client
 
 **Open First**:

@@ -1,81 +1,121 @@
 # AI Toolkit
 
-Server-side execution of coding agents whose conversations outlive individual client connections. The context owns application threads and runs while preserving each coding harness's native identity and interaction semantics.
+Server-side execution of coding agents whose conversations outlive individual client connections. The context owns Projects and Sessions and runs each Session on a Coding Harness while keeping that harness's native identity.
 
 ## Language
 
 **Coding Harness**:
-A provider-native coding agent, such as Claude Code or Codex, that executes work and may pause for input during a turn.
+A provider-native coding agent, such as Claude Code or Codex, that executes work in a folder.
 _Avoid_: model, provider, agent SDK
 
+**Harness Binary**:
+The executable a Coding Harness runs as on this machine. Each harness has a default; the user may point it at another path.
+_Avoid_: CLI path, executable setting
+
 **Language Model**:
-A named model offered through a Coding Harness, such as a particular Claude or Codex model. Selecting a Language Model narrows the options accepted by that harness.
-_Avoid_: harness, run model, provider
+A named model offered through a Coding Harness. A Session has one, and any Turn may change it within the same harness.
+_Avoid_: harness, provider
 
-**Harness Host**:
-The server-side owner of live Runs. It selects a Coding Harness, holds waiting processes and interaction state, and coordinates persisted Run State.
-_Avoid_: RPC server, model, registry
+**Project**:
+A folder on this machine that Sessions run in.
+_Avoid_: workspace, repo
 
-**Thread**:
-The application-owned conversation identity and stable execution context for one Coding Harness, including its working directory and harness-specific native data. A Thread has at most one active Run.
-_Avoid_: session, harness thread
+**Session**:
+One conversation with one Coding Harness in a Project's folder. Its harness never changes.
+_Avoid_: thread, chat, conversation
 
-**Run**:
-One user turn, from the initial request through all questions and approvals to one terminal outcome. Its identity is minted by the client, and it owns that turn's Language Model, reasoning, access, and harness-specific configuration. A Run carries its own lifecycle status: running, waiting, completed, failed, or cancelled.
-_Avoid_: continuation run, iteration, request
+**Session Status**:
+How a Session stands: idle, running, or how its last Turn ended if not done: cancelled, failed, or interrupted.
+_Avoid_: streaming flag
 
-**Thread Status**:
-The live state of a Thread, updated on every Run transition: idle, running, waiting-question, waiting-approval, cancelled, or failed. A finished Run returns the Thread to idle; a cancelled or failed Run leaves that outcome on the Thread until the next Run starts.
-_Avoid_: interrupted, streaming flag, message status
+**Settled**:
+A Session the user is done with: kept, but out of the way. Settling never stops a running Turn; sending the Session a message un-settles it.
+_Avoid_: archived, done, hidden, closed
+
+**Turn**:
+One user message to the agent and everything it emits until it is idle again. Messages sent while it runs steer it; one the agent could not take before the Turn ended starts the next Turn instead.
+_Avoid_: run, request, iteration
+
+**Agent-started Turn**:
+A Turn the Coding Harness begins on its own, without a user message, such as when a Background Job finishes.
+_Avoid_: automatic turn, wake-up
 
 **Cancelled**:
-A Run stopped from outside the Coding Harness while otherwise healthy: a user cancel, a server shutdown, or the bootstrap sweep finding an orphaned Run.
-_Avoid_: interrupted, aborted, failed
+A Turn the user stopped.
+_Avoid_: interrupted, aborted
+
+**Interrupted**:
+A Turn cut off because the server stopped while it ran, found at the next start.
+_Avoid_: cancelled, failed
 
 **Failed**:
-A Run the Coding Harness itself ended abnormally: an SDK error, a dead process, or a timeout.
-_Avoid_: cancelled, error state
+A Turn the Coding Harness itself ended in an error.
+_Avoid_: cancelled, interrupted
+
+**Native Id**:
+The harness's own identity for a Session or Turn, used to resume and to fork its context.
+_Avoid_: session id, resume token
 
 **Message**:
-An immutable record of one flush from a Run's Transcript: a role and the parts collected since the previous flush, such as text, thinking, tool calls, tool results, and typed interactions. A long turn is several Messages; consumers fold consecutive Messages of one Run and role into a rendered turn. The same Message shape is stored, synced, and rendered.
-_Avoid_: chunk, event, delta, AG-UI event, turn
+An immutable record of what a Turn emitted since the last flush: a role and its parts, such as text, thinking, tool calls, and attachments. A long Turn is several Messages.
+_Avoid_: chunk, event, delta
 
-**Transcript**:
-The single writing surface a Coding Harness has during a Run. A harness appends text, thinking, tool calls, tool results, and harness-specific parts to it; the Transcript batches those writes by time and size and persists each batch as one Message. A harness never touches storage directly.
-_Avoid_: stream, assembly, processor, run log
+**Attachment**:
+A file sent with a user message: an image, video, audio clip, or other file.
+_Avoid_: upload, media, blob
 
-**Harness Thread**:
-The opaque, harness-owned conversation identity used to resume native context. It is distinct from the application-owned Thread and may participate in provider-specific session lineage.
-_Avoid_: session ID, application thread, resume token
+**Skill**:
+A named, reusable instruction set a Coding Harness offers in a folder, invoked from a user message. Each harness lists its own.
+_Avoid_: command, prompt, plugin
 
-**Harness Turn**:
-A harness-owned execution identity corresponding to a Run when the Coding Harness exposes one.
-_Avoid_: run ID
+**Fork**:
+A new Session in the same harness that carries on another Session's conversation from a Fork Point. What came before that point stays the original's and is read from there, never copied; the Fork is listed as a Session of its own, not under the original. The original is untouched.
+_Avoid_: branch, clone, copy
 
-**Interaction Request**:
-A request emitted by a Run when it needs external input before it can proceed, such as an answer or approval.
-_Avoid_: interrupt, boolean prompt
+**Fork Point**:
+The end of a finished Turn; a Fork keeps that Turn and everything before it.
+_Avoid_: checkpoint, message index
 
-**Resolution**:
-The typed response to an Interaction Request. Common Resolutions exist only where harnesses share the same semantics; otherwise the Resolution remains harness-specific.
-_Avoid_: answer boolean, continuation
+**Ask**:
+A question put to a Session's context that leaves the Session untouched, answered as text or as data shaped by a given schema. The answer is not kept.
+_Avoid_: side question, btw, query, summarize
 
-**Active Run**:
-The sole non-terminal Run belonging to a Thread. It is either executing or waiting for a Resolution.
-_Avoid_: current request
+**Background Job**:
+Work a Session's agent started that runs beyond the Turn that started it, such as a shell process or a subagent. Background Jobs live only while the server runs and are never stored.
+_Avoid_: task, process, daemon
 
-**Run State**:
-The facts describing Threads and Runs, including configuration, native identities, execution status, and terminal outcomes. Pending Interaction Requests belong to live runtime state.
-_Avoid_: model, database model, agent state
+**MCP Server Status**:
+Which MCP servers a Session's agent is connected to, and how each stands.
+_Avoid_: tool status, plugin status
 
-**Playground Server**:
-A local, ephemeral Harness Host used to exercise the public RPC from a browser demo against the directory in which the server was started.
-_Avoid_: production host, docs server
+**Context Usage**:
+How much of a Session's context window is filled, and the account's remaining rate limits.
+_Avoid_: tokens left, quota
 
-**Playground RPC**:
-Demo-only operations for creating and querying Playground Server state. It is separate from the execution-focused public AI RPC.
-_Avoid_: AI RPC, admin API
+**Title**:
+A short name for a Session, written from its user messages; it can be regenerated at any time.
+_Avoid_: name, label
+
+**Desk**:
+What a Session puts out for the server to ask it: its live agent, a Fork, a new Title, an Ask. A Session's Desk is out for as long as the Session is; a question to a Session that is gone finds no Desk.
+_Avoid_: registry, handle, API (for this)
 
 **Bootstrap Sweep**:
-The startup step of the Harness Host that reads every Run still running or waiting, marks each cancelled, and sets its Thread Status to cancelled.
-_Avoid_: recovery, orphan reaper, garbage collection
+The startup step that finds Turns the last server left running and ends them interrupted.
+_Avoid_: recovery, orphan reaper
+
+**Machine**:
+One running server and the computer it runs on, signed in as one User, who alone may reach it. It keeps the same id across restarts and has a name the User can change. A Machine's Projects and Sessions are its own; another Machine of the same User has others.
+_Avoid_: connection, environment, server, host, device (auth-toolkit's word for how it signs in)
+
+**Machine Key**:
+The secret a Machine asks of anyone who connects to it. It is made once and never changes; whoever holds it can reach the Machine.
+_Avoid_: token (that proves a Sign-in), password, API key
+
+**Heartbeat**:
+A Machine's regular report of how it stands, carrying two signals: that it is running, shown by when it last reported, and whether it could reach itself at its public address. A Machine that stops reporting is down; one that reports but cannot reach itself is up with its tunnel broken.
+_Avoid_: poll, ping, health check (the route it calls, not the concept)
+
+**Last Seen**:
+When a Machine last sent a Heartbeat. The only way to tell a Machine that stopped from one that is running.
+_Avoid_: last active, updated at, online

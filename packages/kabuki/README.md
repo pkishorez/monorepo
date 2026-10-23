@@ -52,7 +52,8 @@ names at once, starts every page from what its Loader gave, and sends the HTML w
 Snapshot beside it, which the browser hydrates and carries on from. It never
 runs a Runtime on the server. An app writes three files: its pages, its app
 with its Document and what it needs in the browser, and its Loaders with what
-they need on the server, in three tiers; the plugin writes every entry. Each
+they need on the server, as a Layer made once and one made per visitor; the
+plugin writes every entry. Each
 platform is an adapter of its own subpath: Cloudflare Workers, or through
 Nitro any host it has a preset for, Node, Bun, Vercel and AWS Lambda among them. How it works is in
 [docs/start.md](./docs/start.md).
@@ -78,29 +79,29 @@ pnpm add @kestack/kabuki effect react
 
 ### `@kestack/kabuki`
 
-| Export             | What it does                                                                                                                                                               |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Actor.define`     | Says what an Actor is: its name, Requires and Schemas, which fix every type. It runs nothing.                                                                              |
-| `Actor.build`      | Says how a defined Actor behaves, at the top and in one block per State: the build is what runs and is drawn.                                                              |
-| `Command.make`     | Defines a Command from its name, the Schema of its args and the Effect it runs; an Update calls it with the args.                                                          |
-| `Runtime.start`    | Runs an Actor, or carries a History on, inside a Scope, with the app's Layer; gives back `send`, `start` and `stop`. Started from an Actor, its History keeps no Messages. |
-| `running.changes`  | The live Snapshot as an Effect Stream: now, then whenever the app settles; a slow reader gets only the latest.                                                             |
-| `running.instance` | The root Instance, typed and live, for code outside the tree: reads any Instance's data, Children and Workers, and Sends to it from outside under a name.                  |
-| `History.make`     | A new, empty History for an Actor, with the root's Input.                                                                                                                  |
-| `History.load`     | A History carrying on from one saved before, read with the Actor's code as it is now.                                                                                      |
-| `History.restored` | The lightest History an app can be saved as: one Restore of a Snapshot at a Time, right after init.                                                                        |
-| `history.changes`  | The History as plain JSON in an Effect Stream: now, then after every change, so saving it is `Stream.debounce` and `Stream.runForEach`.                                    |
-| `history.keep`     | Sets the History's Window, how many entries it keeps; older ones Compact into a Restore. Works while it runs.                                                              |
-| `Replay.make`      | Plays Branches of one app from init, remembering Snapshots so playing again starts from the nearest one.                                                                   |
-| `Replay.fold`      | The Snapshot right after a Branch, played now from init with the root's Input, with no yielding.                                                                           |
-| `restore`          | The Restore Message: given to the root, it replaces the whole Snapshot with a saved one, checked against the Actors.                                                       |
-| `isRestore`        | Tells a Restore from any other Message.                                                                                                                                    |
-| `RESTORE`          | The Restore Message's tag.                                                                                                                                                 |
-| `init`             | The Snapshot right after init: the root and every Child its State Invokes.                                                                                                 |
-| `handle`           | Applies one Envelope to a Snapshot and gives the next one, purely.                                                                                                         |
-| `outcomeOf`        | Works out what came of one Envelope on a Snapshot: handled, ignored or dropped. The History never keeps it.                                                                |
-| `instanceAt`       | Finds the Instance with an ID in a Snapshot.                                                                                                                               |
-| `isMany`           | Tells the list of an `each` Child from one Instance in an Instance's Children.                                                                                             |
+| Export             | What it does                                                                                                                                                                |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Actor.define`     | Says what an Actor is: its name, Requires and Schemas, which fix every type. It runs nothing.                                                                               |
+| `Actor.build`      | Says how a defined Actor behaves, at the top and in one block per State: the build is what runs and is drawn.                                                               |
+| `Command.make`     | Defines a Command from its name, the Schema of its args and the Effect it runs; an Update calls it with the args.                                                           |
+| `Runtime.start`    | Runs an Actor, or carries a History on, inside a Scope, with the app's Layer; gives back `send`, `start` and `stop`. Started from an Actor, its History keeps no Messages.  |
+| `running.changes`  | The live Snapshot as an Effect Stream: now, then whenever the app settles; a slow reader gets only the latest.                                                              |
+| `running.instance` | The root Instance, typed and live, for code outside the tree: reads any Instance's data, Children and Workers, asks its Queries, and Sends to it from outside under a name. |
+| `History.make`     | A new, empty History for an Actor, with the root's Input.                                                                                                                   |
+| `History.load`     | A History carrying on from one saved before, read with the Actor's code as it is now.                                                                                       |
+| `History.restored` | The lightest History an app can be saved as: one Restore of a Snapshot at a Time, right after init.                                                                         |
+| `history.changes`  | The History as plain JSON in an Effect Stream: now, then after every change, so saving it is `Stream.debounce` and `Stream.runForEach`.                                     |
+| `history.keep`     | Sets the History's Window, how many entries it keeps; older ones Compact into a Restore. Works while it runs.                                                               |
+| `Replay.make`      | Plays Branches of one app from init, remembering Snapshots so playing again starts from the nearest one.                                                                    |
+| `Replay.fold`      | The Snapshot right after a Branch, played now from init with the root's Input, with no yielding.                                                                            |
+| `restore`          | The Restore Message: given to the root, it replaces the whole Snapshot with a saved one, checked against the Actors.                                                        |
+| `isRestore`        | Tells a Restore from any other Message.                                                                                                                                     |
+| `RESTORE`          | The Restore Message's tag.                                                                                                                                                  |
+| `init`             | The Snapshot right after init: the root and every Child its State Invokes.                                                                                                  |
+| `handle`           | Applies one Envelope to a Snapshot and gives the next one, purely.                                                                                                          |
+| `outcomeOf`        | Works out what came of one Envelope on a Snapshot: handled, ignored or dropped. The History never keeps it.                                                                 |
+| `instanceAt`       | Finds the Instance with an ID in a Snapshot.                                                                                                                                |
+| `isMany`           | Tells the list of an `each` Child from one Instance in an Instance's Children.                                                                                              |
 
 ### `@kestack/kabuki/react`
 
@@ -137,7 +138,7 @@ pnpm add @kestack/kabuki effect react
 | `Router.back`                 | A Command that goes Back.                                                                                                                                                                                                                                                                                                                                                    |
 | `Router.forward`              | A Command that goes Forward.                                                                                                                                                                                                                                                                                                                                                 |
 | `Router.backTo`               | A Command that goes Back when the app came from a Route, and replaces the entry with it otherwise: closing a dialog with a Route of its own.                                                                                                                                                                                                                                 |
-| `Router.reload`               | A Command that loads every page on screen again, as after a save; the pages and their Models stay. `Router.reload({ anew: true })`, when what the data belongs to changed, as the signed-in account: the data shown goes, held and then loading as on a move.                                                                                                                |
+| `Router.reload`               | A Command that loads every page on screen again, as after a save; the pages and their Models stay. `Router.reload({ anew: true })`, when what the data belongs to changed, as the signed-in account: the data shown goes, held and then loading as on a move; with `hold: true`, held until the new data comes, the Command ending once it lands.                            |
 | `Router.preload`              | A Command that warms the Data cache, and the code of the lazy Views, for a Route.                                                                                                                                                                                                                                                                                            |
 | `Navigation`                  | The Capability the Router Provides to every page, which an Actor under a page that moves the app lists in its Requires.                                                                                                                                                                                                                                                      |
 | `Loading`                     | The Capability the Router uses, if the Layer has it, to load the data of places.                                                                                                                                                                                                                                                                                             |
@@ -166,14 +167,14 @@ pnpm add @kestack/kabuki effect react
 
 ### `@kestack/kabuki/start`
 
-| Export             | What it does                                                                                                                                                     |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Start.app`        | Gives the app's router and its root page's View their Document and what the Actors Require in the browser, checked against them: what `src/app` default-exports. |
-| `Start.Document`   | The plainest Document, Start's parts in an English page: what an app that gives none is drawn in.                                                                |
-| `Start.Head`       | Draws, in the Document's `<head>`, the charset and viewport, the Metadata, and the styles and chunks the page needs.                                             |
-| `Start.Scripts`    | Draws, at the end of the Document's `<body>`, the saved History as JSON and the script that hydrates the page.                                                   |
-| `Start.useDrawn`   | Reads when and by which build the server drew the page, and whether the component asking was in that drawing or drawn later by the browser.                      |
-| `Start.useRuntime` | Reads the running app from the Document, for devtools drawn around it; `null` on the server.                                                                     |
+| Export             | What it does                                                                                                                                                 |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `Start.app`        | Takes the app's router, its root page's View, its Document and what the Actors Require in the browser, checked against them: what `src/app` default-exports. |
+| `Start.Document`   | The plainest Document, Start's parts in an English page: what an app that gives none is drawn in.                                                            |
+| `Start.Head`       | Draws, in the Document's `<head>`, the charset and viewport, the Metadata, and the styles and chunks the page needs.                                         |
+| `Start.Scripts`    | Draws, at the end of the Document's `<body>`, the saved History as JSON and the script that hydrates the page.                                               |
+| `Start.useDrawn`   | Reads when and by which build the server drew the page, and whether the component asking was in that drawing or drawn later by the browser.                  |
+| `Start.useRuntime` | Reads the running app from the Document, for devtools drawn around it; `null` on the server.                                                                 |
 
 ### `@kestack/kabuki/start/platform`
 
@@ -201,11 +202,14 @@ The port each platform's adapter fills, in types only: no runtime value.
 
 ### `@kestack/kabuki/start/server`
 
-| Export                  | What it does                                                                                                                                                                                                                          |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `server`                | Makes Start's handler, which knows no platform, from what the app's two files export: what the plugin's handler module runs; an app never calls it.                                                                                   |
-| `Start.layers`          | Gives the Loaders what they Require on the server, in three tiers, a call each (`instance`, `request`, `visitor`), each checked against the tiers before it, and the Loaders checked last: what `src/loaders.server` default-exports. |
-| `Start.ResponseHeaders` | The service a dynamic or client Loader, or the visitor tier, adds headers to its response with, as a refreshed session's `set-cookie`.                                                                                                |
+| Export                  | What it does                                                                                                                                                                                                                                    |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `handler`               | Makes Start's handler, which knows no platform, from what the app's two files export: what the plugin's handler module runs; an app calls it only in a test.                                                                                    |
+| `Start.server`          | Takes Loaders that Require nothing alone, or first what they Require on the server, a `layer` made once and a `visitor` made per request, then the Loaders with `.loaders(…)`, checked against both: what `src/loaders.server` default-exports. |
+| `Start.env`             | Reads the platform's env, typed as the app says it is, from `Start.Env`.                                                                                                                                                                        |
+| `Start.Env`             | The service holding the platform's env for this request: a Worker's bindings, or the process's.                                                                                                                                                 |
+| `Start.Request`         | The service holding the request being answered, for the visitor and the dynamic and client Loaders only.                                                                                                                                        |
+| `Start.ResponseHeaders` | The service a dynamic or client Loader, or the visitor, adds headers to its response with, as a refreshed session's `set-cookie`.                                                                                                               |
 
 ### `@kestack/kabuki/start/client`
 
@@ -279,11 +283,12 @@ export const AuthLive = Actor.build(Auth, {
 ```
 
 - `Actor.define` takes only the name, the Requires and the Schemas, which fix every type, and imports nothing but other definitions. `Actor.build` is checked against them: an Update that returns a State the Schema does not have, or a `state.user` read where there is none, does not compile. The definition is `Auth`, the build `AuthLive`, side by side in one file.
-- A build has two Levels. What is written at the top holds for as long as the Instance lives; what is written in a State's block holds while that State lasts. Each Level can hold `provides`, `children`, `on` and `workers`.
+- A build has two Levels. What is written at the top holds for as long as the Instance lives; what is written in a State's block holds while that State lasts. Each Level can hold `provides`, `children`, `on`, `workers` and `queries`.
 - An Update that returns a different `_tag` is a Transition: the old State's Children, Workers and Capabilities stop, the new State's start. A Child written at the top lasts through it.
 - A Worker is a named, scoped Effect given `self`: `send` to its own Instance, `get` and `changes` for its current data, and `now` for the app's Time. Written in the `Checking` block, `check` runs while that State lasts.
 - Provides is one Layer per Level, built each time its Level starts. A Capability that reads the Model reads it through `self`, so it never goes stale. It cancels out what the Children below it need; a need nothing cancels bubbles up to the app's Layer.
 - Requires caps the Actor's own code: a Worker, Command or Provide that reaches for anything else does not compile. Update and init never see Capabilities.
+- A Query is a question code outside the tree asks an Instance, `queries: { peers: { run: (self, args) => Effect } }`: it reads `self` and the Actor's Requires, and never Sends. Written in a State's block it is askable only in that State, and the live Instance has it on its type only once `_tag` has narrowed to it. Asked of an Instance that has stopped or left the State, it fails with `Stopped`.
 
 ### A list of Actors, a Command, and a Worker per key
 

@@ -8,7 +8,7 @@ describe('ESchema', () => {
       it('returns JSON Schema for encoded type including id field', () => {
         const schema = EntityESchema.make('User', 'id', {
           name: Schema.String,
-          age: Schema.Number,
+          age: Schema.Finite,
         }).build();
 
         const descriptor = schema.getDescriptor();
@@ -33,7 +33,7 @@ describe('ESchema', () => {
         const schema = EntityESchema.make('Test', 'id', {
           a: Schema.String,
         })
-          .evolve('v2', { b: Schema.Number }, (v) => ({ ...v, b: 0 }))
+          .evolve('v2', { b: Schema.Finite }, (v) => ({ ...v, b: 0 }))
           .build();
 
         const descriptor = schema.getDescriptor();

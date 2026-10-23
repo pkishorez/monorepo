@@ -25,7 +25,7 @@ describe('ESchema', () => {
       it.effect('supports complex field types', () =>
         Effect.gen(function* () {
           const schema = EntityESchema.make('Complex', 'id', {
-            count: Schema.Number,
+            count: Schema.Finite,
             tag: Schema.Literals(['a', 'b']),
             nullable: Schema.NullOr(Schema.String),
           }).build();
@@ -68,7 +68,7 @@ describe('ESchema', () => {
         const schema = EntityESchema.make('Test', 'id', {
           a: Schema.String,
         })
-          .evolve('v2', { b: Schema.Number }, (v) => ({ ...v, b: 0 }))
+          .evolve('v2', { b: Schema.Finite }, (v) => ({ ...v, b: 0 }))
           .build();
 
         expect(Object.keys(schema.fields).sort()).toEqual(['a', 'b', 'id']);

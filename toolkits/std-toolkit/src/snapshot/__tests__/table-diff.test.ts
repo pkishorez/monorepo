@@ -277,7 +277,7 @@ describe('table snapshot diff', () => {
       value: Schema.String,
     }).build();
     const childV2 = EntityESchema.make('Child', 'id', { value: Schema.String })
-      .evolve('v2', { count: Schema.Number }, (value) => ({
+      .evolve('v2', { count: Schema.Finite }, (value) => ({
         ...value,
         count: 0,
       }))

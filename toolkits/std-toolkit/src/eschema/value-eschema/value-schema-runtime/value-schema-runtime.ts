@@ -17,6 +17,7 @@ import {
 import { registerEncoded } from '../../domain/encoded/index.js';
 import { registerESchemaIntrospection } from '../../domain/introspection/index.js';
 import { findUndescribableField } from '../../domain/snapshot-type/index.js';
+import { findNonPortableValue } from '../../domain/portable-value/index.js';
 
 const EnvelopeSchema = Schema.Struct({
   _v: Schema.String,
@@ -127,7 +128,7 @@ export function makeValueSchemaRuntime<
           try: () => migration.migration!(data),
           catch: (cause) =>
             new ESchemaError({
-              message: `Migration to ${migration.version} failed`,
+              message: `Migration to ${migration.version} failed: ${cause instanceof Error ? cause.message : String(cause)}`,
               cause,
             }),
         });
@@ -147,6 +148,13 @@ export function makeValueSchemaRuntime<
           (cause) => new ESchemaError({ message: 'Encode failed', cause }),
         ),
       );
+      const nonPortable = findNonPortableValue(encoded);
+      if (nonPortable !== undefined) {
+        return yield* new ESchemaError({
+          message: `Encode failed: ${input.name} value "${nonPortable.path}": ${nonPortable.detail}`,
+          data: value,
+        });
+      }
       return {
         _v: input.latestVersion,
         _value: encoded,

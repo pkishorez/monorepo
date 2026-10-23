@@ -2,7 +2,7 @@ import type * as cf from '@cloudflare/workers-types';
 import { Effect, Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { Auth, type Principal } from '@kestack/auth-toolkit';
+import { Authz, type Principal } from '@kestack/auth-toolkit';
 import { Api } from '../../../define/index.ts';
 import { forOwner, liveObject, refusal } from '../live.ts';
 
@@ -48,8 +48,8 @@ const grantedTo = (scope: string): Principal =>
 
 const Group = RpcGroup.make(
   Rpc.make('Ping', { success: Schema.String }),
-  Rpc.make('WhoAmI', { success: Schema.String }).pipe(Auth.required),
-  Rpc.make('Write', { success: Schema.String }).pipe(Auth.scope('write')),
+  Rpc.make('WhoAmI', { success: Schema.String }).pipe(Authz.required),
+  Rpc.make('Write', { success: Schema.String }).pipe(Authz.scope('write')),
 );
 
 // A server socket as the runtime hands it over: what it was sent, and its
@@ -104,7 +104,7 @@ const Live = liveObject({
   backend: () =>
     Group.toLayer({
       Ping: () => Effect.succeed('pong'),
-      WhoAmI: () => Effect.map(Auth.User, ({ user }) => user.id),
+      WhoAmI: () => Effect.map(Authz.User, ({ user }) => user.id),
       Write: () => Effect.succeed('written'),
     }),
   auth: { url: 'https://auth.invalid' },

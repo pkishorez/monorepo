@@ -16,7 +16,7 @@ const Address = ESchema.make('Address', {
 
 const LineItem = EntityESchema.make('LineItem', 'id', {
   name: Schema.String,
-  price: Schema.Number,
+  price: Schema.Finite,
 }).build();
 
 const Order = EntityESchema.make('Order', 'orderId', {
@@ -110,9 +110,9 @@ describe('ESchema', () => {
       describe('independent versioning', () => {
         const LineItemV2 = EntityESchema.make('LineItem', 'id', {
           name: Schema.String,
-          price: Schema.Number,
+          price: Schema.Finite,
         })
-          .evolve('v2', { taxRate: Schema.Number }, (prev) => ({
+          .evolve('v2', { taxRate: Schema.Finite }, (prev) => ({
             ...prev,
             taxRate: 0,
           }))
@@ -255,7 +255,7 @@ describe('ESchema', () => {
       });
 
       describe('all three variants compose', () => {
-        const plain = ESchema.make('Plain', { x: Schema.Number }).build();
+        const plain = ESchema.make('Plain', { x: Schema.Finite }).build();
         const named = ESchema.make('Config', {
           y: Schema.String,
         }).build();
@@ -339,7 +339,7 @@ describe('ESchema', () => {
 
       describe('schema identifier', () => {
         const plainNamed = ESchema.make('Order', {
-          x: Schema.Number,
+          x: Schema.Finite,
         }).build();
         const namedEntity = EntityESchema.make('Item', 'id', {
           z: Schema.Boolean,

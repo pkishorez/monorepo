@@ -30,10 +30,21 @@ export interface ReloadOptions {
    * a move, up to its delay, then each page shows it is loading.
    */
   readonly anew?: boolean;
+  /**
+   * With `anew`: the Router holds the data shown until the new data comes,
+   * however long, and no page shows it is loading; the new data then takes
+   * its place in one step. Whoever asked shows that it is under way: the
+   * reload, as a Command, ends once it lands, or once a move takes its
+   * place.
+   */
+  readonly hold?: boolean;
 }
 
 /** The Schema of a reload's options, for the Message that carries them. */
-export const reloadOptions = { anew: Schema.optionalKey(Schema.Boolean) };
+export const reloadOptions = {
+  anew: Schema.optionalKey(Schema.Boolean),
+  hold: Schema.optionalKey(Schema.Boolean),
+};
 
 const position = Schema.optionalKey(
   Schema.Literals(['start', 'center', 'end', 'nearest']),
@@ -78,7 +89,8 @@ export class Navigation extends Context.Service<
     /**
      * Load every place on screen again, its data shown meanwhile, and drop
      * every other copy the Data cache keeps; `{ anew: true }` drops the data
-     * shown too, and loads it as a move does.
+     * shown too, and loads it as a move does. `{ anew: true, hold: true }`
+     * holds it until the new data comes, and ends once that lands.
      */
     readonly reload: (options?: ReloadOptions) => Effect.Effect<void>;
     /** Warm the Data cache, and the code of the lazy Views, for a Route the app may move to. */
@@ -134,6 +146,8 @@ export const backTo = (to: AnyRoute) => backingTo({ route: to });
  * Load every place on screen again, as after a save: the data shown stays
  * until the new data comes. `{ anew: true }`, when what the data belongs to
  * changed, as the signed-in account: the data shown goes, as on a move.
+ * `{ anew: true, hold: true }` keeps it shown until the new data comes, and
+ * the Command ends once that lands: the Update that asked shows the wait.
  */
 export const reload = (options: ReloadOptions = {}) => reloading(options);
 /** Warm the Data cache for a Route the app may move to next. */

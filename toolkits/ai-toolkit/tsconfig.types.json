@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.build.json",
+  "compilerOptions": {
+    "declaration": true,
+    "declarationMap": true,
+    "emitDeclarationOnly": true
+  },
+  "include": [],
+  "files": [
+    "src/api/contract/index.ts",
+    "src/api/client/index.ts",
+    "src/kabuki/machine/backend/contract/index.ts",
+    "src/kabuki/machine/backend/client/index.ts",
+    "src/kabuki/machine/backend/serve/index.ts"
+  ]
+}

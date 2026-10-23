@@ -7,7 +7,7 @@ describe('snapshot compatibility', () => {
   it('keeps canonical JSON stable', () => {
     const child = ESchema.make('Child', { value: Schema.String }).build();
     const parent = ESchema.make('Parent', { child: child.schema })
-      .evolve('v2', { count: Schema.Number }, (previous) => ({
+      .evolve('v2', { count: Schema.Finite }, (previous) => ({
         ...previous,
         count: 0,
       }))
@@ -50,7 +50,10 @@ describe('snapshot compatibility', () => {
                 type: 'struct',
                 fields: [
                   { name: 'child', type: { type: 'ref', identity: 'Child' } },
-                  { name: 'count', type: { type: 'number' } },
+                  {
+                    name: 'count',
+                    type: { type: 'number', checks: [{ check: 'finite' }] },
+                  },
                 ],
               },
             },

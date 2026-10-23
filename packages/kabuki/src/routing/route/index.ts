@@ -1,42 +1,33 @@
 export { routesOf } from './route.ts';
-export type { RoutesApi, RoutesOptions } from './route.ts';
-export { dotted } from './node.ts';
+export type { RoutesApi } from './route.ts';
 export type {
-  AnyNode,
   Children,
   ChildrenOf,
   Codec,
-  DataOf,
   Fields,
   How,
   LevelOf,
   MetadataOf,
   Node,
-  NotFound,
   Place,
   PlaceData,
   PlaceSchema,
-  PlacesOf,
   Read,
   Redirects,
   RouteOf,
   Simplify,
   Tree,
   Value,
-  ValueOf,
 } from './node.ts';
-export { levelSchema, paramsKey, pick, valueAt } from './values.ts';
-export { nodesOn } from './places.ts';
+export { levelSchema, paramsKey, pick } from './values.ts';
 export { wholeQuery } from './url.ts';
 export { NotFoundError, RedirectError } from './loader.ts';
 export type {
   LoadError,
-  Loaders,
   Outcome,
-  PlaceType,
   RedirectTo,
   RenderMode,
   StaticOf,
 } from './loader.ts';
-export { MANAGED, merge, tagsOf } from './metadata.ts';
+export { MANAGED, tagsOf } from './metadata.ts';
 export type { Metadata, Tag } from './metadata.ts';

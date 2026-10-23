@@ -73,7 +73,7 @@ const run = <A, E, R>(
     ) as Effect.Effect<A, E>,
   );
 
-describe('Rpc.middleware', () => {
+describe('rpc middleware', () => {
   it('reads the nearest value: group value inherited, rpc value kept', () => {
     expect(Role.get(Users.requests.get('WhoAmI')!)).toEqual(
       Option.some('user'),

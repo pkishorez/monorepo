@@ -16,22 +16,28 @@ import { resolveUrl } from './url.ts';
 export type { ConnectionStatus } from './connection.ts';
 
 // Retain the established service identity across the package migration.
-export class RpcConnection extends Context.Service<
-  RpcConnection,
-  RpcConnectionService
->()('@pkishorez/effect-cloudflare/RpcConnection') {}
+export class RpcConnection
+  extends /*#__PURE__*/ Context.Service<RpcConnection, RpcConnectionService>()(
+    '@pkishorez/effect-cloudflare/RpcConnection',
+  ) {}
 
-const connectionLayer = Layer.effect(RpcConnection, makeRpcConnection);
+const connectionLayer = /*#__PURE__*/ Layer.effect(
+  RpcConnection,
+  makeRpcConnection,
+);
 
 /** Bundled into `client`. */
-const rpcConnectionLayer = Layer.effect(
+const rpcConnectionLayer = /*#__PURE__*/ Layer.effect(
   RpcClient.ConnectionHooks,
-  Effect.map(RpcConnection, ({ hooks }) => hooks),
+  /*#__PURE__*/ Effect.map(RpcConnection, ({ hooks }) => hooks),
 ).pipe(Layer.provideMerge(connectionLayer));
 
 /** Stream of `connecting`, `connected` or `reconnecting`, primed with the current value. */
-export const status = Stream.unwrap(
-  Effect.map(RpcConnection, ({ connectionStatus }) => connectionStatus),
+export const status = /*#__PURE__*/ Stream.unwrap(
+  /*#__PURE__*/ Effect.map(
+    RpcConnection,
+    ({ connectionStatus }) => connectionStatus,
+  ),
 );
 
 /** Runs `subscribe()` while connected and re-runs it after every reconnect. */
@@ -43,6 +49,41 @@ export const keepSubscribed = <A, E, R>(
       keepSubscribed(subscribe),
     ),
   );
+
+/*
+ * Effect's WebSocket takes its protocols once, but its URL as an Effect run
+ * on every connect. So protocols given as an Effect are read alongside the
+ * URL and handed to the constructor that the same connect calls next.
+ */
+const socketLayer = (
+  url: string | Effect.Effect<string>,
+  protocols:
+    | ReadonlyArray<string>
+    | Effect.Effect<ReadonlyArray<string>>
+    | undefined,
+) => {
+  const resolved =
+    typeof url === 'string'
+      ? Effect.succeed(resolveUrl(url))
+      : Effect.map(url, resolveUrl);
+  let offered: Array<string> | undefined =
+    protocols === undefined || Effect.isEffect(protocols)
+      ? undefined
+      : [...protocols];
+  const dial = Effect.isEffect(protocols)
+    ? Effect.zipWith(resolved, protocols, (at, list) => {
+        offered = [...list];
+        return at;
+      })
+    : resolved;
+  return Socket.layerWebSocket(dial).pipe(
+    Layer.provide(
+      Layer.succeed(Socket.WebSocketConstructor)(
+        (at) => new globalThis.WebSocket(at, offered),
+      ),
+    ),
+  );
+};
 
 /**
  * The `RpcClient.Protocol` for `group` over a WebSocket, with JSON
@@ -64,6 +105,13 @@ export const client = <Rpcs extends Rpc.Any>(
     /** Where to connect. An Effect is run again before every connect, so a
      * reconnect can carry what has changed since, such as a fresh token. */
     readonly url: string | Effect.Effect<string>;
+    /** Subprotocols offered in `Sec-WebSocket-Protocol`, the one header a
+     * browser lets a WebSocket set. An Effect is run before every connect,
+     * as `url` is. */
+    readonly protocols?:
+      | ReadonlyArray<string>
+      | Effect.Effect<ReadonlyArray<string>>
+      | undefined;
     /** Default `true` — ride out drops instead of failing the client. */
     readonly retryTransientErrors?: boolean | undefined;
   },
@@ -77,11 +125,7 @@ export const client = <Rpcs extends Rpc.Any>(
       }).pipe(
         Layer.provide(
           Layer.mergeAll(
-            Socket.layerWebSocket(
-              typeof options.url === 'string'
-                ? resolveUrl(options.url)
-                : Effect.map(options.url, resolveUrl),
-            ).pipe(Layer.provide(Socket.layerWebSocketConstructorGlobal)),
+            socketLayer(options.url, options.protocols),
             RpcSerialization.layerJson,
           ),
         ),

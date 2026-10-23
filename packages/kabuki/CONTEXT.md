@@ -134,6 +134,10 @@ _Avoid_: trigger, guard, dependency, cancel, handle
 What a Worker does as its Scope closes, whether it finished or its Condition stopped: close the outside world. It never Sends; the Update that changed the Condition already recorded why, with its Time.
 _Avoid_: cleanup hook, teardown, on exit
 
+**Query**:
+A question an Instance answers from what it holds and what its Services know, without changing anything: a named function written in an Actor's Build, at the top or in a State, given its Instance's Model, State and Props and the Capabilities the Actor Requires, and returning an Effect with a typed answer or failure. It never Sends and never changes the Model or the world, so asking twice with nothing in between answers the same. Written in a State, it exists only while that State lasts. Asked only from outside the tree, through a live Instance; a Parent, a View and a descendant never ask. Never in the History, never replayed, not checked against a Schema. Asked of an Instance that has stopped, it fails rather than answers.
+_Avoid_: ask, probe, inquiry, request (Kabuki's Request is another thing), RPC, call, getter
+
 ### Capabilities
 
 **Capability**:
@@ -147,6 +151,10 @@ _Avoid_: inject, consume, depends on
 **Provides**:
 The Capabilities an Actor gives its descendants, as one Layer written at the top, one written in each State, or both: written at the top, it is built once when the Instance starts and reaches the Children of every State; written in a State's block, it is built each time that State is entered, torn down when it is left, and reaches only that State's Children. It cancels out what the Children below it need. A Capability that follows the Model watches its Instance's changes itself. The nearest Provider wins. Most belong at the top; a State Provides only what can exist only in it.
 _Avoid_: exposes, exports
+
+**Service**:
+The implementation behind a Capability that wraps an outside thing: a table, an agent process, a socket, a client. Kept by the Actor whose Provides or Workers use it. A Capability that is a projection of its Provider's own Model and State has no Service.
+_Avoid_: adapter, client (as a kind), capability (for this)
 
 **Request**:
 A function on a Capability that sends a Message to the Instance that Provides it, so a descendant can ask an ancestor for a change without knowing where it is. Called from a Command or a Worker, never from a View.

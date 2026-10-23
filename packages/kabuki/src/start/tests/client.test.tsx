@@ -6,12 +6,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { registry } from '../../react/registry.ts';
 import { client } from '../client/index.ts';
 import type { Build } from '../common/index.ts';
-import { server } from '../server/index.ts';
+import { handler } from '../server/index.ts';
 import { Start } from '../common/index.ts';
 import started, { AppView } from './app/src/app.tsx';
 import { router } from './app/src/routes.ts';
 import Document from './app/src/document.tsx';
-import served, { reset, runs } from './app/src/loaders.server.ts';
+import server, { reset, runs } from './app/src/loaders.server.ts';
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
@@ -29,7 +29,7 @@ const build: Build = {
   head: [],
 };
 const host = { env: { WORD: 'Read:' } };
-const worker = server({ app: started, loaders: served, build });
+const worker = handler({ app: started, server, build });
 
 let root: Root | undefined;
 let redraw: ((app: Parameters<typeof client>[0]) => void) | undefined;
@@ -168,7 +168,9 @@ describe('hydrating a page Start drew', () => {
     await until(() => document.querySelector('h1')?.textContent === 'Hello');
     await act(async () =>
       redraw!(
-        Start.app(router, AppView, {
+        Start.app({
+          router,
+          view: AppView,
           document: ({ children }) => (
             <Document>
               <Running />
@@ -189,7 +191,9 @@ describe('hydrating a page Start drew', () => {
     await until(() => document.querySelector('h1')?.textContent === 'Hello');
     await act(async () =>
       redraw!(
-        Start.app(router, AppView, {
+        Start.app({
+          router,
+          view: AppView,
           document: ({ children }) => (
             <Document>
               <p id="new">new code</p>

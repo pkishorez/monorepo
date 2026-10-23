@@ -11,7 +11,7 @@ import {
 } from 'effect';
 import type * as Cloudflare from 'alchemy/Cloudflare';
 import { verify } from '@kestack/auth-toolkit/server/http';
-import type { Rpc } from '@kestack/rpc-toolkit/rpc';
+import type { ConnectionSlot } from '@kestack/rpc-toolkit/rpc/websocket';
 import { HttpServerRequest, HttpServerResponse } from 'effect/http';
 import {
   ConnectionMetadata,
@@ -73,7 +73,7 @@ export const durableSignalingConnection = (
     readonly cookieDomain: RequestValue<string>;
   },
   state: Cloudflare.DurableObjectState['Service'],
-): Rpc.ConnectionSlot<DurableConnection> => ({
+): ConnectionSlot<DurableConnection> => ({
   tag: ConnectionContext,
   schema: DurableConnectionSchema,
   initial: (serverRequest) =>

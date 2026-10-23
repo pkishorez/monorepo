@@ -155,6 +155,7 @@ const loaders = router.loaders({
   Error: (_, request) => visit(request),
 });
 
-export default Start.layers<PagesEnv>()
-  .request((env) => Layer.succeed(Pages, env))
-  .loaders(loaders);
+// The worker hands each request its own pages context, as its env.
+export default Start.server({
+  visitor: Layer.effect(Pages, Start.env<PagesEnv>()),
+}).loaders(loaders);

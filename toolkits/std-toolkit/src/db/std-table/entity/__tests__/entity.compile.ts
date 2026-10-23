@@ -9,7 +9,7 @@ const record = table
   .entity(
     EntityESchema.make('Record', 'recordId', {
       category: Schema.String,
-      value: Schema.Number,
+      value: Schema.Finite,
     }).build(),
   )
   .primary({ pk: ['category'] })

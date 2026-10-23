@@ -53,7 +53,7 @@ const base = ESchema.make('Base', { a: Schema.String }).build();
 const entity = EntityESchema.make('User', 'id', {
   a: Schema.String,
 }).build();
-const value = ValueESchema.make('Count', Schema.Number).build();
+const value = ValueESchema.make('Count', Schema.Finite).build();
 
 describe('ESchema', () => {
   describe('Types', () => {

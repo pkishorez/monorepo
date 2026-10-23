@@ -1,6 +1,6 @@
 import { Context, Deferred, Effect, Exit, Layer, Scope } from 'effect';
 import type { ActorDefinition, SlotDefinition } from '../../actor/index.ts';
-import { handle, isMany, within } from '../../snapshot/index.ts';
+import { handle, isMany, isRestore, within } from '../../snapshot/index.ts';
 import type {
   Envelope,
   Handled,
@@ -8,6 +8,7 @@ import type {
   Snapshot,
 } from '../../snapshot/index.ts';
 import { runCommands } from './command.ts';
+import { Asked, ask, Stopped } from './query.ts';
 import { dataOf, forkIn, makeOwn } from './self.ts';
 import type { Host, Own, Services } from './self.ts';
 import { makeWorkers } from './worker.ts';
@@ -26,6 +27,12 @@ import type { WorkerStatus } from './worker.ts';
  *             new; new data reaches its Self and its Workers; its Children
  *             follow theirs.
  * 4. Stop     close its Scope, and everything in it ends, Children first.
+ *
+ * Asked a Query, it answers from where it is now, and cancels every Query
+ * being answered at a level when that level ends: a State's when it is
+ * left, the Instance's when it stops, and all of them when a Restore starts
+ * the app over. A level that ends cancels the Queries of every Instance
+ * below it too, before any Scope closes.
  */
 
 export interface ActorInstance {
@@ -35,6 +42,12 @@ export interface ActorInstance {
     heard?: (handled: Handled) => void,
   ) => Handled;
   readonly workers: (instance: string) => ReadonlyArray<WorkerStatus>;
+  /** Ask one of an Instance's Queries by name; `Stopped` for an Instance that is gone or a Query not askable now. */
+  readonly query: (
+    instance: string,
+    name: string,
+    args: unknown,
+  ) => Effect.Effect<unknown, unknown>;
   readonly stop: () => Effect.Effect<void>;
 }
 
@@ -53,6 +66,12 @@ interface Living {
   readonly find: (id: string) => Living | undefined;
   readonly command: (commands: ReadonlyArray<unknown>) => void;
   readonly workers: () => ReadonlyArray<WorkerStatus>;
+  readonly query: (
+    name: string,
+    args: unknown,
+  ) => Effect.Effect<unknown, unknown>;
+  /** Cancels every Query being answered here and anywhere below. */
+  readonly cancel: () => void;
   readonly stop: () => Effect.Effect<void>;
 }
 
@@ -70,6 +89,7 @@ const start = (
   ): Living => {
     const own = makeOwn(instance, host, parent.services);
     const inside = open(parent, definition.provides, own);
+    const asked = new Asked();
     const workers = makeWorkers(definition.workers, own, inside.scope);
     workers.sync(dataOf(instance));
     const top = children(
@@ -85,13 +105,24 @@ const start = (
         definition.stateProvides[instance.state._tag],
         own,
       );
+      const asked = new Asked();
+      const held = children(
+        slotsAt(definition, instance, 'state'),
+        instance,
+        place,
+      );
+      const cancel = () => {
+        asked.cancel();
+        held.cancel();
+      };
       return {
-        children: children(
-          slotsAt(definition, instance, 'state'),
-          instance,
-          place,
-        ),
-        stop: () => Effect.runFork(Scope.close(place.scope, Exit.void)),
+        children: held,
+        asked,
+        cancel,
+        stop: () => {
+          cancel();
+          Effect.runFork(Scope.close(place.scope, Exit.void));
+        },
       };
     };
     let state = enter(instance);
@@ -119,8 +150,32 @@ const start = (
         id === instance.id ? living : (top.find(id) ?? state.children.find(id)),
       command: (commands) => runCommands(commands, own, inside.scope),
       workers: workers.statuses,
+      query: (name, args) =>
+        Effect.suspend(() => {
+          const query = definition.queries[name];
+          if (!query)
+            return Effect.die(
+              new Error(
+                `[@kestack/kabuki] ${definition.name} has no Query "${name}"`,
+              ),
+            );
+          const at =
+            query.state === undefined
+              ? [all, asked]
+              : [all, asked, state.asked];
+          return ask(own, query, name, args, current.state, at);
+        }),
+      cancel: () => {
+        asked.cancel();
+        top.cancel();
+        state.cancel();
+      },
       // 4. Stop
-      stop: () => Scope.close(inside.scope, Exit.void),
+      stop: () =>
+        Effect.suspend(() => {
+          living.cancel();
+          return Scope.close(inside.scope, Exit.void);
+        }),
     };
     return living;
   };
@@ -188,9 +243,12 @@ const start = (
       },
       find: (id: string) =>
         [...alive].find(([kid]) => within(kid, id))?.[1].find(id),
+      cancel: () => alive.forEach((kid) => kid.cancel()),
     };
   };
 
+  /** Every Query being answered anywhere in the tree: a Restore cancels them all. */
+  const all = new Asked();
   const services = Deferred.makeUnsafe<Context.Context<never>>();
   Deferred.doneUnsafe(services, Effect.succeed(host.services));
   const root = live(definition, snapshot, { scope, services });
@@ -202,11 +260,19 @@ const start = (
       const handled = handle(definition, current, envelope);
       current = handled.snapshot;
       heard?.(handled);
+      if (isRestore(envelope.message) && handled.outcome === 'handled')
+        all.cancel();
       root.follow(current);
       root.find(envelope.destination)?.command(handled.commands);
       return handled;
     },
     workers: (id) => root.find(id)?.workers() ?? [],
+    query: (id, name, args) =>
+      Effect.suspend(
+        () =>
+          root.find(id)?.query(name, args) ??
+          Effect.fail(new Stopped({ instance: id, query: name })),
+      ),
     stop: root.stop,
   };
 };

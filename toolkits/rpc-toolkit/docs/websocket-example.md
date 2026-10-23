@@ -8,13 +8,13 @@ client-supplied identity or roles as trusted authorization.
 // contract.ts — imported by the server and browser
 import { Schema } from 'effect';
 import { Rpc as EffectRpc, RpcGroup } from 'effect/rpc';
-import { Rpc } from '@kestack/rpc-toolkit/rpc';
+import { middleware } from '@kestack/rpc-toolkit/rpc';
 
 export class Forbidden extends Schema.Error<Forbidden>('example/Forbidden')({
   _tag: Schema.tag('Forbidden'),
 }) {}
 
-export const Access = Rpc.middleware<boolean>()('example/Access', {
+export const Access = middleware<boolean>()('example/Access', {
   error: Forbidden,
   client: true,
 });
@@ -29,7 +29,7 @@ export const Counter = Access.with(true)(
 ```ts
 // server.ts — server only
 import { Effect, Layer, Option, Schema, Stream } from 'effect';
-import { Rpc } from '@kestack/rpc-toolkit/rpc';
+import { checkpoint, InvocationKind } from '@kestack/rpc-toolkit/rpc/websocket';
 import { Access, Counter, Forbidden } from './contract.js';
 
 export const makeHandlers = (options: {
@@ -41,7 +41,7 @@ export const makeHandlers = (options: {
       Effect.gen(function* () {
         // Revalidate on both fresh calls and replay. Do not cache permissions here.
         yield* options.authorize(headers.authorization);
-        if ((yield* Rpc.websocket.InvocationKind) === 'fresh') {
+        if ((yield* InvocationKind) === 'fresh') {
           yield* options.checkRateLimit(headers.authorization);
         }
       }),
@@ -50,15 +50,15 @@ export const makeHandlers = (options: {
       watch: () =>
         Stream.unwrap(
           Effect.gen(function* () {
-            const checkpoint = yield* Rpc.websocket.checkpoint(Schema.Number);
+            const progress = yield* checkpoint(Schema.Number);
             let cursor = Option.getOrElse(
-              yield* checkpoint.get().pipe(Effect.orDie),
+              yield* progress.get().pipe(Effect.orDie),
               () => 0,
             );
             return Stream.repeatEffect(
               Effect.gen(function* () {
                 yield* Effect.sleep('1 second');
-                yield* checkpoint.put(++cursor).pipe(Effect.orDie);
+                yield* progress.put(++cursor).pipe(Effect.orDie);
                 return cursor;
               }),
             );
@@ -130,19 +130,18 @@ Without Alchemy, build the runtime directly instead:
 
 ```ts
 // durable-server.ts — host composition without Alchemy
-import { Rpc } from '@kestack/rpc-toolkit/rpc';
+import {
+  fromDurableObjectState,
+  server,
+} from '@kestack/rpc-toolkit/rpc/websocket';
 import { Counter } from './contract.js';
 import { makeHandlers } from './server.js';
 
 export const makeServer = (
-  state: Parameters<typeof Rpc.websocket.fromDurableObjectState>[0],
+  state: Parameters<typeof fromDurableObjectState>[0],
   authorization: Parameters<typeof makeHandlers>[0],
 ) =>
-  Rpc.websocket.server(
-    Counter,
-    makeHandlers(authorization),
-    Rpc.websocket.fromDurableObjectState(state),
-  );
+  server(Counter, makeHandlers(authorization), fromDurableObjectState(state));
 ```
 
 The host wires `accept`, `message`, and `close` to its fetch, WebSocket message,
@@ -153,7 +152,10 @@ and WebSocket close callbacks, running them through its Effect integration.
 import { Effect, Layer, Stream } from 'effect';
 import { Headers } from 'effect/http';
 import { RpcClient } from 'effect/rpc';
-import { Rpc } from '@kestack/rpc-toolkit/rpc';
+import {
+  client as websocketClient,
+  keepSubscribed,
+} from '@kestack/rpc-toolkit/rpc/websocket';
 import { Access, Counter } from './contract.js';
 
 export const watchCounter = (
@@ -163,13 +165,13 @@ export const watchCounter = (
 ) =>
   Effect.gen(function* () {
     const client = yield* RpcClient.make(Counter);
-    yield* Rpc.websocket
-      .keepSubscribed(() => client.watch())
-      .pipe(Stream.runForEach((value) => Effect.sync(() => onValue(value))));
+    yield* keepSubscribed(() => client.watch()).pipe(
+      Stream.runForEach((value) => Effect.sync(() => onValue(value))),
+    );
   }).pipe(
     Effect.provide(
       Layer.merge(
-        Rpc.websocket.client(Counter, { url }),
+        websocketClient(Counter, { url }),
         Access.client(({ request, next }) =>
           next({
             ...request,

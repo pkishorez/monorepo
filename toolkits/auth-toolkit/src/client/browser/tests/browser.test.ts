@@ -10,7 +10,11 @@ import {
   HttpApiGroup,
   HttpApiTest,
 } from 'effect/http-api';
-import { Rpc as Rpcs } from '@kestack/rpc-toolkit/rpc';
+import {
+  client as httpClient,
+  server as httpServer,
+} from '@kestack/rpc-toolkit/rpc/http';
+import { client as inProcessClient } from '@kestack/rpc-toolkit/rpc/in-process';
 import { Rpc, RpcClient, RpcGroup } from 'effect/rpc';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -213,6 +217,31 @@ describe('browser', () => {
     ]);
   });
 
+  it('shows a switch under way, then the Account it made active', async () => {
+    const seen = await run(
+      fakeAuthWorker(),
+      Effect.gen(function* () {
+        const accounts = yield* Accounts;
+        yield* settled;
+        const states = yield* Effect.forkChild(
+          accounts.state.pipe(Stream.take(3), Stream.runCollect),
+        );
+        yield* Effect.yieldNow;
+        yield* accounts.switchTo('ada');
+        return yield* Fiber.join(states);
+      }),
+    );
+    expect(seen).toEqual([
+      AccountsState.SignedIn({ active: bob, accounts: [ada, bob] }),
+      AccountsState.SignedIn({
+        active: bob,
+        accounts: [ada, bob],
+        switchingTo: ada,
+      }),
+      AccountsState.SignedIn({ active: ada, accounts: [ada, bob] }),
+    ]);
+  });
+
   it('says what the Auth Worker refused, and tells unavailable from unreachable', async () => {
     const refused = await runExit(
       fakeAuthWorker(),
@@ -362,10 +391,7 @@ describe('browser signing', () => {
     }).pipe(
       Effect.scoped,
       Effect.provide(
-        Rpcs.inProcess.client(
-          Api,
-          Layer.mergeAll(Handlers, server(worker, seen)),
-        ),
+        inProcessClient(Api, Layer.mergeAll(Handlers, server(worker, seen))),
       ),
     );
 
@@ -401,7 +427,7 @@ describe('browser signing', () => {
 
   it('sends the cookie over http with no fetch options from the app', async () => {
     const worker = fakeAuthWorker();
-    const answer = Rpcs.http.server(
+    const answer = httpServer(
       Api,
       Layer.mergeAll(Handlers, server(worker, [])),
     );
@@ -417,7 +443,7 @@ describe('browser signing', () => {
         return yield* Effect.result(client.WhoAmI());
       }).pipe(
         Effect.scoped,
-        Effect.provide(Rpcs.http.client(Api, { url: 'https://api.test/rpc' })),
+        Effect.provide(httpClient(Api, { url: 'https://api.test/rpc' })),
         Effect.provideService(FetchHttpClient.Fetch, app),
       ),
     );

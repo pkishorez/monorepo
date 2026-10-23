@@ -171,10 +171,20 @@ export const harness = (server: Server) => {
       return { active, accounts: list };
     }),
     switchTo: (userId) =>
-      Effect.sync(() => {
-        server.active = userId;
-        return { active: userId };
-      }),
+      Effect.andThen(waitFor('switchTo'), () =>
+        server.accounts.some(({ id }) => id === userId)
+          ? Effect.sync(() => {
+              server.active = userId;
+              return { active: userId };
+            })
+          : Effect.fail(
+              new ApiError({
+                status: 403,
+                code: 'not_signed_in',
+                message: 'That account is not signed in on this browser.',
+              }),
+            ),
+      ),
     signOut: (userId) =>
       Effect.sync(() => {
         server.accounts = server.accounts.filter(({ id }) => id !== userId);

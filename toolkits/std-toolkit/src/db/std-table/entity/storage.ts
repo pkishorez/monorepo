@@ -8,7 +8,7 @@ import type {
   AnyEntityESchema,
   AnyUnkeyedESchema,
 } from '../../../eschema/index.js';
-import { DatabaseError, DecodeFailed } from '../error/index.js';
+import { DatabaseError, DecodeFailed, EncodeFailed } from '../error/index.js';
 import { type StoredData, type StoredItem } from '../contract/index.js';
 import {
   deriveStorageIndexes,
@@ -70,6 +70,9 @@ const unversioned = (item: StoredItem) => {
 const decodeFailed = (entity: string) => (cause: Error) =>
   new DatabaseError({ reason: new DecodeFailed({ entity, cause }) });
 
+const encodeFailed = (entity: string) => (cause: Error) =>
+  new DatabaseError({ reason: new EncodeFailed({ entity, cause }) });
+
 export const toStored = <S extends AnyEntityESchema>(
   schema: S,
   value: S['Type'],
@@ -79,7 +82,7 @@ export const toStored = <S extends AnyEntityESchema>(
   Schema.encodeEffect(schema.entity)({
     value,
     meta: { ...meta, _v: schema.latestVersion },
-  }).pipe(Effect.map(versioned), Effect.mapError(decodeFailed(entity)));
+  }).pipe(Effect.map(versioned), Effect.mapError(encodeFailed(entity)));
 
 export const fromStored = <S extends AnyEntityESchema>(
   schema: S,
@@ -101,7 +104,7 @@ export const toStoredSingle = <S extends AnyUnkeyedESchema>(
   Schema.encodeEffect(schema.singleEntity)({
     value,
     meta: { ...meta, _v: schema.latestVersion },
-  }).pipe(Effect.map(versioned), Effect.mapError(decodeFailed(entity)));
+  }).pipe(Effect.map(versioned), Effect.mapError(encodeFailed(entity)));
 
 export const fromStoredSingle = <S extends AnyUnkeyedESchema>(
   schema: S,

@@ -9,7 +9,7 @@ import { registry } from '../../react/registry.ts';
 import { KEY } from '../adapter/index.ts';
 import { browser } from '../adapter/browser/index.ts';
 import { Page, Router } from '../index.ts';
-import type { ScrollRestorationOptions } from '../index.ts';
+import type { ScrollRestorationOptions } from '../scroll/index.ts';
 import { scriptFor } from '../scroll/index.ts';
 import { selectorOf } from '../scroll/selector.ts';
 

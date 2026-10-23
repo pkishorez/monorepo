@@ -11,15 +11,22 @@
       "@kestack/std-toolkit/alchemy": ["./src/alchemy/index.ts"],
       "@kestack/std-toolkit/core": ["./src/core/index.ts"],
       "@kestack/std-toolkit/eschema": ["./src/eschema/index.ts"],
+      "@kestack/std-toolkit/eschema/testing": [
+        "./src/eschema/testing/index.ts"
+      ],
       "@kestack/std-toolkit/snapshot": ["./src/snapshot/index.ts"],
       "@kestack/std-toolkit/snapshot/vitest": [
         "./src/snapshot/vitest/index.ts"
       ],
-      "@kestack/std-toolkit/studio-rpc": ["./src/studio-rpc/index.ts"],
       "@kestack/std-toolkit/sync": ["./src/sync/index.ts"],
       "@kestack/std-toolkit/sync/paced": ["./src/sync/paced/index.ts"],
       "@kestack/std-toolkit/sync/idb": ["./src/sync/store/idb/index.ts"],
       "@kestack/std-toolkit/sync/memory": ["./src/sync/store/memory/index.ts"],
+      "@kestack/std-toolkit/replica": ["./src/replica/index.ts"],
+      "@kestack/std-toolkit/replica/idb": ["./src/replica/store/idb/index.ts"],
+      "@kestack/std-toolkit/replica/memory": [
+        "./src/replica/store/memory/index.ts"
+      ],
       "@kestack/std-toolkit/db": ["./src/db/index.ts"],
       "@kestack/std-toolkit/db/dynamodb": ["./src/db/dynamodb/index.ts"],
       "@kestack/std-toolkit/db/idb": ["./src/db/idb/index.ts"],

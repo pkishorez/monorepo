@@ -1,0 +1,543 @@
+[
+  {
+    "kind": "system/init",
+    "payload": {
+      "type": "system",
+      "subtype": "init",
+      "cwd": "/private/var/folders/pz/hmz20bpd067fdqmt3d9nzgy40000gn/T/ai-toolkit-claude-e2e-dcpdzw",
+      "session_id": "c80c5750-ead1-49d2-b16e-8603b1272040",
+      "tools": [
+        "Task",
+        "Bash",
+        "Edit",
+        "EnterWorktree",
+        "ExitWorktree",
+        "ListAgents",
+        "Monitor",
+        "PushNotification",
+        "Read",
+        "RemoteTrigger",
+        "ReportFindings",
+        "ScheduleWakeup",
+        "SendMessage",
+        "Skill",
+        "TaskOutput",
+        "TaskStop",
+        "ToolSearch",
+        "WebFetch",
+        "WebSearch",
+        "Workflow",
+        "Write"
+      ],
+      "mcp_servers": [
+        {
+          "name": "executor",
+          "status": "needs-auth"
+        },
+        {
+          "name": "claude.ai Claude Docs",
+          "status": "pending"
+        },
+        {
+          "name": "claude.ai My MCP",
+          "status": "pending"
+        }
+      ],
+      "model": "claude-haiku-5-5",
+      "permissionMode": "bypassPermissions",
+      "slash_commands": [
+        "agent-browser",
+        "configure-syncpack",
+        "deep-module",
+        "domain-modeling",
+        "emil-animations",
+        "emil-ask-emil",
+        "emil-ask-lapse",
+        "emil-build-a-tool",
+        "emil-color",
+        "emil-component-design",
+        "emil-design-foundations",
+        "emil-design-system-docs",
+        "emil-design-vocabulary",
+        "emil-engineering-vocabulary",
+        "emil-forms-and-inputs",
+        "emil-get-creative",
+        "emil-marketing-pages",
+        "emil-performance",
+        "emil-prototype",
+        "emil-surfaces",
+        "emil-touch-and-accessibility",
+        "emil-typography",
+        "emil-ui-polish",
+        "emil-ui-review",
+        "emil-unslop-code",
+        "emil-unslop-design",
+        "emil-unslop-writing",
+        "emil-writing-skills",
+        "git-commit",
+        "grill-me",
+        "grill-with-docs",
+        "grilling",
+        "kui-prototype",
+        "laymos",
+        "laymos-init",
+        "orchestrate",
+        "ponytail",
+        "ponytail-audit",
+        "ponytail-debt",
+        "ponytail-gain",
+        "ponytail-help",
+        "ponytail-review",
+        "prototype",
+        "teach",
+        "to-issues",
+        "to-laymos",
+        "to-spec",
+        "wait-what",
+        "writing-for-agents",
+        "deep-research",
+        "codex:adversarial-review",
+        "codex:cancel",
+        "codex:rescue",
+        "codex:result",
+        "codex:review",
+        "codex:setup",
+        "codex:status",
+        "codex:transfer",
+        "design",
+        "design-sync",
+        "dataviz",
+        "update-config",
+        "verify",
+        "debug",
+        "code-review",
+        "simplify",
+        "batch",
+        "fewer-permission-prompts",
+        "doctor",
+        "loop",
+        "schedule",
+        "claude-api",
+        "workflow-authoring",
+        "run",
+        "run-skill-generator",
+        "plugin-authoring",
+        "advisor",
+        "agents",
+        "auto-mode-setup",
+        "autocompact",
+        "clear",
+        "color",
+        "compact",
+        "config",
+        "output-style",
+        "context",
+        "effort",
+        "fast",
+        "heapdump",
+        "init",
+        "mcp",
+        "import",
+        "model",
+        "__remote-workflow",
+        "workflow-launch-exec",
+        "plugin-types",
+        "reload-plugins",
+        "reload-skills",
+        "rename",
+        "ultrareview",
+        "security-review",
+        "usage-credits",
+        "extra-usage",
+        "usage",
+        "insights",
+        "recap",
+        "skill-doctor",
+        "goal",
+        "design-consent",
+        "design-revoke",
+        "list-agents",
+        "team-onboarding",
+        "anthropic-skills:built-in-browser",
+        "anthropic-skills:chrome-browser",
+        "anthropic-skills:computer-use",
+        "anthropic-skills:deep-research",
+        "anthropic-skills:docs",
+        "anthropic-skills:docx",
+        "anthropic-skills:google-workspace",
+        "anthropic-skills:grill-me",
+        "anthropic-skills:pdf",
+        "anthropic-skills:pptx",
+        "anthropic-skills:xlsx"
+      ],
+      "terminal_slash_commands": ["doctor", "color", "reload-plugins"],
+      "apiKeySource": "none",
+      "claude_code_version": "2.1.270",
+      "output_style": "default",
+      "agents": [
+        "claude",
+        "codex:codex-rescue",
+        "Explore",
+        "general-purpose",
+        "Plan",
+        "statusline-setup"
+      ],
+      "skills": [
+        "agent-browser",
+        "configure-syncpack",
+        "deep-module",
+        "domain-modeling",
+        "emil-animations",
+        "emil-ask-emil",
+        "emil-ask-lapse",
+        "emil-build-a-tool",
+        "emil-color",
+        "emil-component-design",
+        "emil-design-foundations",
+        "emil-design-system-docs",
+        "emil-design-vocabulary",
+        "emil-engineering-vocabulary",
+        "emil-forms-and-inputs",
+        "emil-get-creative",
+        "emil-marketing-pages",
+        "emil-performance",
+        "emil-prototype",
+        "emil-surfaces",
+        "emil-touch-and-accessibility",
+        "emil-typography",
+        "emil-ui-polish",
+        "emil-ui-review",
+        "emil-unslop-code",
+        "emil-unslop-design",
+        "emil-unslop-writing",
+        "emil-writing-skills",
+        "git-commit",
+        "grill-me",
+        "grill-with-docs",
+        "grilling",
+        "kui-prototype",
+        "laymos",
+        "laymos-init",
+        "orchestrate",
+        "ponytail",
+        "ponytail-audit",
+        "ponytail-debt",
+        "ponytail-gain",
+        "ponytail-help",
+        "ponytail-review",
+        "prototype",
+        "teach",
+        "to-issues",
+        "to-laymos",
+        "to-spec",
+        "wait-what",
+        "writing-for-agents",
+        "deep-research",
+        "codex:adversarial-review",
+        "codex:cancel",
+        "codex:result",
+        "codex:review",
+        "codex:status",
+        "codex:transfer",
+        "design",
+        "design-sync",
+        "dataviz",
+        "update-config",
+        "verify",
+        "debug",
+        "code-review",
+        "simplify",
+        "batch",
+        "fewer-permission-prompts",
+        "doctor",
+        "loop",
+        "schedule",
+        "claude-api",
+        "workflow-authoring",
+        "run",
+        "run-skill-generator",
+        "plugin-authoring",
+        "anthropic-skills:built-in-browser",
+        "anthropic-skills:chrome-browser",
+        "anthropic-skills:computer-use",
+        "anthropic-skills:deep-research",
+        "anthropic-skills:docs",
+        "anthropic-skills:docx",
+        "anthropic-skills:google-workspace",
+        "anthropic-skills:grill-me",
+        "anthropic-skills:pdf",
+        "anthropic-skills:pptx",
+        "anthropic-skills:xlsx"
+      ],
+      "plugins": [
+        {
+          "name": "codex",
+          "path": "/Users/kishorepolamarasetty/.claude/plugins/cache/openai-codex/codex/1.0.5",
+          "source": "codex@openai-codex",
+          "version": "1.0.5"
+        },
+        {
+          "name": "plugin-authoring",
+          "path": "builtin",
+          "source": "plugin-authoring@builtin"
+        }
+      ],
+      "capabilities": [
+        "interrupt_receipt_v1",
+        "interrupt_cancel_queued_v1",
+        "msg_lifecycle_v1"
+      ],
+      "analytics_disabled": false,
+      "product_feedback_disabled": false,
+      "uuid": "f0ece96c-a9d6-485c-b9a2-419b6c7145b0",
+      "messaging_socket_path": "/tmp/cc-socks/8378.sock",
+      "fast_mode_state": "off",
+      "fast_mode_disabled_reason": "sdk_opt_in_required"
+    }
+  },
+  {
+    "kind": "assistant",
+    "payload": {
+      "type": "assistant",
+      "message": {
+        "model": "claude-haiku-5-5",
+        "id": "msg_011CgFph33mgDrPLjh6knfp2",
+        "type": "message",
+        "role": "assistant",
+        "content": [
+          {
+            "type": "tool_use",
+            "id": "toolu_01FaSnM5NLC731kXNVTYxirb",
+            "name": "Read",
+            "input": {
+              "file_path": "/private/var/folders/pz/hmz20bpd067fdqmt3d9nzgy40000gn/T/ai-toolkit-claude-e2e-dcpdzw/note.txt"
+            },
+            "caller": {
+              "type": "direct"
+            }
+          }
+        ],
+        "container": null,
+        "stop_reason": null,
+        "stop_sequence": null,
+        "stop_details": null,
+        "usage": {
+          "input_tokens": 2,
+          "cache_creation_input_tokens": 4786,
+          "cache_read_input_tokens": 14276,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 4786
+          },
+          "output_tokens": 16,
+          "service_tier": "standard",
+          "inference_geo": "global",
+          "speed": "standard"
+        },
+        "diagnostics": null,
+        "context_management": null
+      },
+      "parent_tool_use_id": null,
+      "session_id": "c80c5750-ead1-49d2-b16e-8603b1272040",
+      "uuid": "c86faf2a-f7df-4e1c-9004-a9c030527b4f",
+      "timestamp": "2026-10-21T18:03:37.380Z",
+      "request_id": "req_011CgFph2q86AQWhXnKAyipp",
+      "wire_tool_inputs": {
+        "toolu_01FaSnM5NLC731kXNVTYxirb": {
+          "file_path": "/private/var/folders/pz/hmz20bpd067fdqmt3d9nzgy40000gn/T/ai-toolkit-claude-e2e-dcpdzw/note.txt"
+        }
+      },
+      "user_message_uuid": "9447626f-9c39-44c9-9701-56f37cd9714c",
+      "user_message_uuids": ["9447626f-9c39-44c9-9701-56f37cd9714c"]
+    }
+  },
+  {
+    "kind": "user",
+    "payload": {
+      "type": "user",
+      "message": {
+        "role": "user",
+        "content": [
+          {
+            "tool_use_id": "toolu_01FaSnM5NLC731kXNVTYxirb",
+            "type": "tool_result",
+            "content": "1\tThe secret word is PINEAPPLE-42.\n2\t"
+          }
+        ]
+      },
+      "parent_tool_use_id": null,
+      "session_id": "c80c5750-ead1-49d2-b16e-8603b1272040",
+      "uuid": "7a4dc561-06f6-4eb2-bad9-63cebe56fc2f",
+      "timestamp": "2026-10-21T18:03:37.520Z",
+      "tool_use_result": {
+        "type": "text",
+        "file": {
+          "filePath": "/private/var/folders/pz/hmz20bpd067fdqmt3d9nzgy40000gn/T/ai-toolkit-claude-e2e-dcpdzw/note.txt",
+          "content": "The secret word is PINEAPPLE-42.\n",
+          "numLines": 2,
+          "startLine": 1,
+          "totalLines": 2
+        }
+      }
+    }
+  },
+  {
+    "kind": "assistant",
+    "payload": {
+      "type": "assistant",
+      "message": {
+        "model": "claude-haiku-5-5",
+        "id": "msg_011CgFphBGckNJK146SHkXo6",
+        "type": "message",
+        "role": "assistant",
+        "content": [
+          {
+            "type": "text",
+            "text": "The secret word is **PINEAPPLE-42**."
+          }
+        ],
+        "container": null,
+        "stop_reason": null,
+        "stop_sequence": null,
+        "stop_details": null,
+        "usage": {
+          "input_tokens": 2,
+          "cache_creation_input_tokens": 2229,
+          "cache_read_input_tokens": 19062,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 2229
+          },
+          "output_tokens": 6,
+          "service_tier": "standard",
+          "inference_geo": "global",
+          "speed": "standard"
+        },
+        "diagnostics": null,
+        "context_management": null
+      },
+      "parent_tool_use_id": null,
+      "session_id": "c80c5750-ead1-49d2-b16e-8603b1272040",
+      "uuid": "e020d187-89b8-4a8f-b01d-07e6b359418c",
+      "timestamp": "2026-10-21T18:03:39.103Z",
+      "request_id": "req_011CgFphAzkp9RXLAv9whXGp"
+    }
+  },
+  {
+    "kind": "result",
+    "payload": {
+      "duration_api_ms": 4638,
+      "stop_reason": "end_turn",
+      "session_id": "c80c5750-ead1-49d2-b16e-8603b1272040",
+      "total_cost_usd": 0.091083,
+      "usage": {
+        "input_tokens": 4,
+        "cache_creation_input_tokens": 7015,
+        "cache_read_input_tokens": 33338,
+        "output_tokens": 131,
+        "output_tokens_details": {
+          "thinking_tokens": 0
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 7015,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "global",
+        "iterations": [
+          {
+            "input_tokens": 2,
+            "output_tokens": 20,
+            "cache_read_input_tokens": 19062,
+            "cache_creation_input_tokens": 2229,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 2229
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard"
+      },
+      "modelUsage": {
+        "claude-haiku-4-5-20251001": {
+          "inputTokens": 909,
+          "outputTokens": 12,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 0,
+          "webSearchRequests": 0,
+          "costUSD": 0.000969,
+          "contextWindow": 200000,
+          "maxOutputTokens": 32000,
+          "thinkingTokens": 0,
+          "canonicalModel": "claude-haiku-4-5",
+          "provider": "firstParty",
+          "costBasis": "list"
+        },
+        "claude-haiku-5-5": {
+          "inputTokens": 4,
+          "outputTokens": 131,
+          "cacheReadInputTokens": 33338,
+          "cacheCreationInputTokens": 7015,
+          "webSearchRequests": 0,
+          "costUSD": 0.090114,
+          "contextWindow": 200000,
+          "maxOutputTokens": 128000,
+          "thinkingTokens": 0,
+          "canonicalModel": "claude-haiku-5-5",
+          "provider": "firstParty",
+          "costBasis": "unknown"
+        }
+      },
+      "permission_denials": [],
+      "terminal_reason": "completed",
+      "fast_mode_state": "off",
+      "fast_mode_disabled_reason": "sdk_opt_in_required",
+      "subagent_stats": {
+        "spawned": 0,
+        "requested": {
+          "background": 0,
+          "foreground": 0,
+          "unset": 0
+        },
+        "started_in_background": 0,
+        "max_depth": 0,
+        "spawned_by_subagents": 0,
+        "completed": 0,
+        "failed": 0,
+        "killed": {
+          "parent": 0,
+          "user": 0,
+          "system": 0
+        },
+        "refused": {
+          "depth_limit": 0,
+          "concurrency_limit": 0,
+          "budget": 0
+        },
+        "by_type": {}
+      },
+      "is_error": false,
+      "num_turns": 2,
+      "subtype": "success",
+      "api_error_status": null,
+      "result": "The secret word is **PINEAPPLE-42**.",
+      "ttft_ms": 2035,
+      "type": "result",
+      "duration_ms": 3916,
+      "uuid": "d3338db6-656f-43a0-b310-87759579c581",
+      "ttft_stream_ms": 1770,
+      "time_to_request_ms": 168,
+      "first_content_frame_ms": 1770,
+      "user_message_uuid": "9447626f-9c39-44c9-9701-56f37cd9714c",
+      "user_message_uuids": ["9447626f-9c39-44c9-9701-56f37cd9714c"],
+      "request_sent_wall_ms": 1792605815514,
+      "queued_turn_count": 0,
+      "result_index": 0
+    }
+  }
+]

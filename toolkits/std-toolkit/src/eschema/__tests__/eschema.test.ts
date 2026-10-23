@@ -22,7 +22,7 @@ describe('ESchema', () => {
         Effect.gen(function* () {
           const schema = ESchema.make('Counter', {
             name: Schema.String,
-            count: Schema.Number,
+            count: Schema.Finite,
           }).build();
 
           const decoded = yield* readEncoded(schema, {
@@ -60,7 +60,7 @@ describe('ESchema', () => {
       it.effect('migrates v1 → v2', () =>
         Effect.gen(function* () {
           const schema = ESchema.make('Item', { a: Schema.String })
-            .evolve('v2', { b: Schema.Number }, (v) => ({ ...v, b: 42 }))
+            .evolve('v2', { b: Schema.Finite }, (v) => ({ ...v, b: 42 }))
             .build();
 
           const decoded = yield* readEncoded(schema, {
@@ -75,7 +75,7 @@ describe('ESchema', () => {
         Effect.gen(function* () {
           const schema = ESchema.make('Item', { a: Schema.String })
             .evolve('v2', { b: Schema.String }, (v) => ({ ...v, b: 'added' }))
-            .evolve('v3', { c: Schema.Number }, (v) => ({ ...v, c: 0 }))
+            .evolve('v3', { c: Schema.Finite }, (v) => ({ ...v, c: 0 }))
             .build();
 
           const fromV1 = yield* readEncoded(schema, { _v: 'v1', a: 'x' });
@@ -121,7 +121,7 @@ describe('ESchema', () => {
       it('fields returns the latest schema fields', () => {
         const schema = ESchema.make('Pair', {
           a: Schema.String,
-          b: Schema.Number,
+          b: Schema.Finite,
         }).build();
         expect(Object.keys(schema.fields).sort()).toEqual(['a', 'b']);
       });
@@ -146,7 +146,7 @@ describe('ESchema', () => {
         Effect.gen(function* () {
           const schema = ESchema.make('Counter', {
             name: Schema.String,
-            count: Schema.Number,
+            count: Schema.Finite,
           }).build();
 
           const encoded = yield* writeEncoded(schema, {

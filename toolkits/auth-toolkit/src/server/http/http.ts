@@ -73,7 +73,7 @@ type AuthLayer = ReturnType<typeof layerWith>;
  *   accepts Access Tokens for `resource`, checked against the Auth Worker's
  *   keys; serves the Protected Resource Metadata; and answers a 401 or 403
  *   with the `WWW-Authenticate` challenge an MCP client follows. An MCP
- *   server is this, with `Auth.scope` inside its tools.
+ *   server is this, with `scope` inside its tools.
  * - `auth({ local: true })`: Local mode; reads Local Tokens, asks no one.
  *
  * The Sign-in cookies refreshed while verifying go on the response. A

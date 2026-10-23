@@ -8,7 +8,7 @@ const Settings = ESchema.make('Settings', {
   theme: Schema.Literals(['light', 'dark']),
 }).build();
 const Counter = ESchema.make('Counter', {
-  saves: Schema.Number,
+  saves: Schema.Finite,
 }).build();
 
 const table = StdTable.make('app').primary('pk', 'sk').build();

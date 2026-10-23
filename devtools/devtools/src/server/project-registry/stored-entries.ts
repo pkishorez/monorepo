@@ -15,7 +15,7 @@ export const ProjectEntryEntitySchema = EntityESchema.make(
     tool: Schema.Literals(['monoverse', 'laymos']),
     path: Schema.String,
     label: Schema.NullOr(Schema.String),
-    addedAt: Schema.Number,
+    addedAt: Schema.Finite,
   },
 ).build();
 

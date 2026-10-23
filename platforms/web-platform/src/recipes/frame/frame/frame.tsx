@@ -59,7 +59,8 @@ interface FrameProps {
  * it sits beside the page, a card. Crossing between the two morphs.
  */
 export function Frame(props: FrameProps) {
-  const root = cn('h-dvh', props.className);
+  // It fills the window it is drawn in, as a column.
+  const root = cn('flex min-h-0 flex-1 flex-col', props.className);
   if (props.sidebar === undefined) {
     return (
       <div className={root} style={props.style}>
@@ -99,7 +100,7 @@ function Page(props: {
       {props.statusBar?.(false)}
       <main
         data-slot="app-shell-page"
-        className="flex h-full flex-col bg-background"
+        className="flex min-h-0 flex-1 flex-col bg-background"
       >
         {props.children}
       </main>
@@ -133,7 +134,7 @@ function WithSidebar(props: FrameProps & { readonly sidebar: ReactNode }) {
         data-slot="app-shell"
         data-state={shown ? 'open' : 'closed'}
         className={cn(
-          'relative flex size-full overflow-hidden bg-sidebar',
+          'relative flex min-h-0 w-full flex-1 overflow-hidden bg-sidebar',
           FIRST_PAINT,
         )}
         style={

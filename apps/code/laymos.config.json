@@ -1,0 +1,44 @@
+{
+  "$schema": "../../devtools/laymos/schema.json",
+  "sourceRoots": ["src"],
+  "ignoredPaths": ["src/styles.css", "src/env.d.ts"],
+  "fileModules": [
+    "src/app.tsx",
+    "src/document.tsx",
+    "src/keys.ts",
+    "src/apis/machines/worker.server.ts"
+  ],
+  "rules": {
+    "src/app.tsx": ["src/shell", "src/document.tsx"],
+    "src/document.tsx": ["src/ui/theme"],
+    "src/shell": [
+      "src/places",
+      "src/replica",
+      "src/refusal",
+      "src/ui",
+      "src/keys.ts"
+    ],
+    "src/ui/session-status": ["src/ui/running-dot"],
+    "src/ui/picker": ["src/keys.ts"],
+    "src/ui/confirm": ["src/keys.ts"],
+    "src/shell/machine": [
+      "src/shell/device-state",
+      "src/shell/machines",
+      "src/shell/sign-in"
+    ],
+    "src/shell/machine/header": ["src/shell/machine/connection"],
+    "src/shell/machine/home": ["src/shell/machine/connection"],
+    "src/shell/machine/sidebar": ["src/shell/machine/connection"],
+    "src/shell/machine/background-jobs": ["src/shell/machine/connection"],
+    "src/shell/machine/machine-switcher": ["src/shell/machine/connection"],
+    "src/shell/machine/project": ["src/shell/machine/connection"],
+    "src/shell/machine/project/model-picker": [
+      "src/shell/machine/project/catalog"
+    ],
+    "src/shell/machine/project/session": [
+      "src/shell/machine/project/catalog",
+      "src/shell/machine/project/composer",
+      "src/shell/machine/project/model-picker"
+    ]
+  }
+}

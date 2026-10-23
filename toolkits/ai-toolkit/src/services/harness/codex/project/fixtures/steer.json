@@ -1,0 +1,224 @@
+[
+  {
+    "kind": "item/completed",
+    "payload": {
+      "item": {
+        "type": "userMessage",
+        "id": "01a15fb4-90a3-7963-bf84-13f5402939c6",
+        "clientId": null,
+        "content": [
+          {
+            "type": "text",
+            "text": "Use your shell tool to run `sleep 8 && echo slept`, then reply with its output.",
+            "text_elements": []
+          }
+        ]
+      },
+      "threadId": "01a15fb4-8696-7552-bdf5-1890666eff1c",
+      "turnId": "01a15fb4-86f4-7300-bdfa-48bdc5c33db1",
+      "completedAtMs": 1792607031459
+    }
+  },
+  {
+    "kind": "item/completed",
+    "payload": {
+      "item": {
+        "type": "reasoning",
+        "id": "rs_06d53e033386a5b6016ad9033901cc81918548ed98e8031686",
+        "summary": [],
+        "content": []
+      },
+      "threadId": "01a15fb4-8696-7552-bdf5-1890666eff1c",
+      "turnId": "01a15fb4-86f4-7300-bdfa-48bdc5c33db1",
+      "completedAtMs": 1792607033132
+    }
+  },
+  {
+    "kind": "item/completed",
+    "payload": {
+      "item": {
+        "type": "agentMessage",
+        "id": "msg_06d53e033386a5b6016ad903391c3c81918d4c19e421c2c8a9",
+        "text": "Running the requested shell command now.",
+        "phase": "commentary",
+        "memoryCitation": null,
+        "delivery": null,
+        "questions": null
+      },
+      "threadId": "01a15fb4-8696-7552-bdf5-1890666eff1c",
+      "turnId": "01a15fb4-86f4-7300-bdfa-48bdc5c33db1",
+      "completedAtMs": 1792607033314
+    }
+  },
+  {
+    "kind": "item/started",
+    "payload": {
+      "item": {
+        "type": "commandExecution",
+        "id": "exec-240a6eaf-d811-4aa0-9b37-e770a30d2c5f",
+        "pluginId": null,
+        "scriptPath": null,
+        "command": "/bin/zsh -lc 'sleep 8 && echo slept'",
+        "cwd": "/var/folders/pz/hmz20bpd067fdqmt3d9nzgy40000gn/T/ai-toolkit-codex-e2e-b0osMM",
+        "processId": "91730",
+        "source": "unifiedExecStartup",
+        "status": "inProgress",
+        "commandActions": [
+          {
+            "type": "unknown",
+            "command": "sleep 8 && echo slept"
+          }
+        ],
+        "aggregatedOutput": null,
+        "exitCode": null,
+        "durationMs": null
+      },
+      "threadId": "01a15fb4-8696-7552-bdf5-1890666eff1c",
+      "turnId": "01a15fb4-86f4-7300-bdfa-48bdc5c33db1",
+      "startedAtMs": 1792607033878
+    }
+  },
+  {
+    "kind": "item/completed",
+    "payload": {
+      "item": {
+        "type": "commandExecution",
+        "id": "exec-240a6eaf-d811-4aa0-9b37-e770a30d2c5f",
+        "pluginId": null,
+        "scriptPath": null,
+        "command": "/bin/zsh -lc 'sleep 8 && echo slept'",
+        "cwd": "/var/folders/pz/hmz20bpd067fdqmt3d9nzgy40000gn/T/ai-toolkit-codex-e2e-b0osMM",
+        "processId": "91730",
+        "source": "unifiedExecStartup",
+        "status": "completed",
+        "commandActions": [
+          {
+            "type": "unknown",
+            "command": "sleep 8 && echo slept"
+          }
+        ],
+        "aggregatedOutput": "slept\n",
+        "exitCode": 0,
+        "durationMs": 7926
+      },
+      "threadId": "01a15fb4-8696-7552-bdf5-1890666eff1c",
+      "turnId": "01a15fb4-86f4-7300-bdfa-48bdc5c33db1",
+      "completedAtMs": 1792607041805
+    }
+  },
+  {
+    "kind": "thread/tokenUsage/updated",
+    "payload": {
+      "threadId": "01a15fb4-8696-7552-bdf5-1890666eff1c",
+      "turnId": "01a15fb4-86f4-7300-bdfa-48bdc5c33db1",
+      "tokenUsage": {
+        "total": {
+          "totalTokens": 16671,
+          "inputTokens": 16555,
+          "cachedInputTokens": 0,
+          "cacheWriteInputTokens": 0,
+          "outputTokens": 116,
+          "reasoningOutputTokens": 14
+        },
+        "last": {
+          "totalTokens": 16671,
+          "inputTokens": 16555,
+          "cachedInputTokens": 0,
+          "cacheWriteInputTokens": 0,
+          "outputTokens": 116,
+          "reasoningOutputTokens": 14
+        },
+        "modelContextWindow": 258400
+      }
+    }
+  },
+  {
+    "kind": "item/completed",
+    "payload": {
+      "item": {
+        "type": "userMessage",
+        "id": "01a15fb4-ba3c-7a53-9c08-b447d35a96e0",
+        "clientId": null,
+        "content": [
+          {
+            "type": "text",
+            "text": "Also end your final reply with the word STEERED.",
+            "text_elements": []
+          }
+        ]
+      },
+      "threadId": "01a15fb4-8696-7552-bdf5-1890666eff1c",
+      "turnId": "01a15fb4-86f4-7300-bdfa-48bdc5c33db1",
+      "completedAtMs": 1792607042108
+    }
+  },
+  {
+    "kind": "item/completed",
+    "payload": {
+      "item": {
+        "type": "agentMessage",
+        "id": "msg_06d53e033386a5b6016ad9034322448191848c74b67a9067fb",
+        "text": "slept STEERED",
+        "phase": "final_answer",
+        "memoryCitation": null,
+        "delivery": null,
+        "questions": null
+      },
+      "threadId": "01a15fb4-8696-7552-bdf5-1890666eff1c",
+      "turnId": "01a15fb4-86f4-7300-bdfa-48bdc5c33db1",
+      "completedAtMs": 1792607043272
+    }
+  },
+  {
+    "kind": "thread/tokenUsage/updated",
+    "payload": {
+      "threadId": "01a15fb4-8696-7552-bdf5-1890666eff1c",
+      "turnId": "01a15fb4-86f4-7300-bdfa-48bdc5c33db1",
+      "tokenUsage": {
+        "total": {
+          "totalTokens": 33393,
+          "inputTokens": 33268,
+          "cachedInputTokens": 16384,
+          "cacheWriteInputTokens": 0,
+          "outputTokens": 125,
+          "reasoningOutputTokens": 14
+        },
+        "last": {
+          "totalTokens": 16722,
+          "inputTokens": 16713,
+          "cachedInputTokens": 16384,
+          "cacheWriteInputTokens": 0,
+          "outputTokens": 9,
+          "reasoningOutputTokens": 0
+        },
+        "modelContextWindow": 258400
+      }
+    }
+  },
+  {
+    "kind": "turn/completed",
+    "payload": {
+      "threadId": "01a15fb4-8696-7552-bdf5-1890666eff1c",
+      "turn": {
+        "id": "01a15fb4-86f4-7300-bdfa-48bdc5c33db1",
+        "items": [
+          {
+            "type": "agentMessage",
+            "id": "msg_06d53e033386a5b6016ad9034322448191848c74b67a9067fb",
+            "text": "slept STEERED",
+            "phase": "final_answer",
+            "memoryCitation": null,
+            "delivery": null,
+            "questions": null
+          }
+        ],
+        "itemsView": "summary",
+        "status": "completed",
+        "error": null,
+        "startedAt": 1792607028,
+        "completedAt": 1792607043,
+        "durationMs": 14462
+      }
+    }
+  }
+]

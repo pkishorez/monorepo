@@ -6,7 +6,7 @@ import { EntityESchema } from '@kestack/std-toolkit/eschema';
 const Task = EntityESchema.make('Task', 'taskId', {
   estimate: Schema.String,
 })
-  .evolve('v2', { estimate: Schema.Number }, (v1) => {
+  .evolve('v2', { estimate: Schema.Finite }, (v1) => {
     const hours = Number(v1.estimate);
     if (Number.isNaN(hours)) throw new Error(`not a number: ${v1.estimate}`);
     return { ...v1, estimate: hours };

@@ -3,6 +3,7 @@ export {
   ConditionFailed,
   DatabaseError,
   DecodeFailed,
+  EncodeFailed,
   DuplicateTransactionTarget,
   EntityNotFound,
   ForeignTransactionItem,

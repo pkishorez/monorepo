@@ -21,6 +21,7 @@ import {
   type ESchemaKind,
 } from '../introspection/index.js';
 import { findUndescribableField } from '../snapshot-type/index.js';
+import { findNonPortableValue } from '../portable-value/index.js';
 
 export function makeObjectSchemaRuntime<
   TVersion extends string,
@@ -105,7 +106,7 @@ export function makeObjectSchemaRuntime<
           try: () => migration.migration!(data),
           catch: (cause) =>
             new ESchemaError({
-              message: `Migration to ${migration.version} failed`,
+              message: `Migration to ${migration.version} failed: ${cause instanceof Error ? cause.message : String(cause)}`,
               cause,
             }),
         });
@@ -128,6 +129,13 @@ export function makeObjectSchemaRuntime<
           (cause) => new ESchemaError({ message: 'Encode failed', cause }),
         ),
       );
+      const nonPortable = findNonPortableValue(data);
+      if (nonPortable !== undefined) {
+        return yield* new ESchemaError({
+          message: `Encode failed: ${input.name} field "${nonPortable.path}": ${nonPortable.detail}`,
+          data: value,
+        });
+      }
       return {
         ...data,
         _v: input.latestVersion,

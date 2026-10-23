@@ -364,7 +364,7 @@ the Timeline, Sent to the Router.
 `Router.app(router, AppView)` makes the Router Actor from the router
 definition and the root page's View; `AppView` must draw a build of the
 router's root page, or it throws. Under Start an app writes
-`Start.app(router, AppView, { document, layer })`, which calls it. Its Model
+`Start.app({ router, view: AppView, document, layer })`, which calls it. Its Model
 is the history, `entries` and `at`, each entry a Route, the last `move`, the
 `pending` move it holds, and the data of every place on screen. Its one
 Child is the root page's build, named `App`; each page under it is named
@@ -453,6 +453,15 @@ button, loads every page on screen again: their data stays shown,
 `refreshing`, and the pages, their Models and States, are kept. A failed
 page goes back to loading. Every other copy in the Data cache is dropped. A
 link to the page shown does the same.
+
+`Router.reload({ anew: true })` is for when what the data belongs to
+changed, as the signed-in account: the data shown is no one's any more, so
+it is never loaded behind. The Router holds it as a move, up to its delay,
+then each page shows it is loading. `{ anew: true, hold: true }` holds it
+until the new data comes, however long, so no page shows it is loading and
+the new data takes the old's place in one step. The Command ends once it
+lands, or once a move takes its place, so the Update that asked shows the
+wait, as an Account Switch dims the page it holds.
 
 ### Preload
 

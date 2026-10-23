@@ -11,7 +11,7 @@ describe('Snapshot.diff', () => {
       ESchema.make('Parent', { child: childV1.schema }).build(),
     );
     const childV2 = ESchema.make('Child', { value: Schema.String })
-      .evolve('v2', { count: Schema.Number }, (value) => ({
+      .evolve('v2', { count: Schema.Finite }, (value) => ({
         ...value,
         count: 0,
       }))
@@ -43,7 +43,7 @@ describe('Snapshot.diff', () => {
     const edited = snapshotOf(
       ESchema.make('Item', {
         value: Schema.String,
-        extra: Schema.Number,
+        extra: Schema.Finite,
       }).build(),
     );
 
@@ -109,27 +109,81 @@ describe('Snapshot.diff', () => {
     ]);
   });
 
-  it('never compares checks', () => {
-    const plain = snapshotOf(
-      ESchema.make('Item', { value: Schema.String }).build(),
-    );
-    const checked = snapshotOf(
-      ESchema.make('Item', {
-        value: Schema.String.check(
-          Schema.isMinLength(1),
-          Schema.isMaxLength(9),
-        ),
-      }).build(),
-    );
-    const loosened = snapshotOf(
-      ESchema.make('Item', {
-        value: Schema.String.check(Schema.isMaxLength(99)),
-      }).build(),
-    );
+  describe('checks on a stored version', () => {
+    const item = (value: Schema.Top) =>
+      snapshotOf(ESchema.make('Item', { value } as never).build());
+    const impacts = (before: Schema.Top, after: Schema.Top) =>
+      TableSnapshot.diff(item(before), item(after)).map(({ impact }) => impact);
 
-    expect(TableSnapshot.diff(plain, checked)).toEqual([]);
-    expect(TableSnapshot.diff(checked, loosened)).toEqual([]);
-    expect(TableSnapshot.diff(checked, plain)).toEqual([]);
+    it('refuses an added check: a stored row may not pass it', () => {
+      expect(
+        impacts(Schema.String, Schema.String.check(Schema.isMinLength(1))),
+      ).toEqual(['breaking']);
+    });
+
+    it('refuses a tightened bound', () => {
+      expect(
+        impacts(
+          Schema.String.check(Schema.isMaxLength(99)),
+          Schema.String.check(Schema.isMaxLength(9)),
+        ),
+      ).toEqual(['breaking']);
+      expect(
+        impacts(
+          Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0)),
+          Schema.Finite.check(Schema.isGreaterThan(0)),
+        ),
+      ).toEqual(['breaking']);
+    });
+
+    it('accepts a removed or loosened check as safe', () => {
+      const checked = Schema.String.check(
+        Schema.isMinLength(1),
+        Schema.isMaxLength(9),
+      );
+      expect(impacts(checked, Schema.String)).toEqual(['safe']);
+      expect(
+        impacts(checked, Schema.String.check(Schema.isMaxLength(99))),
+      ).toEqual(['safe']);
+      expect(
+        impacts(
+          Schema.Finite.check(Schema.isBetween({ minimum: 0, maximum: 10 })),
+          Schema.Finite.check(Schema.isBetween({ minimum: -5, maximum: 10 })),
+        ),
+      ).toEqual(['safe']);
+    });
+
+    it('accepts finite on a number, which no readable row can break', () => {
+      const bounded = Schema.isBetween({ minimum: 0, maximum: 10 });
+      expect(
+        impacts(Schema.Number.check(bounded), Schema.Finite.check(bounded)),
+      ).toEqual(['safe']);
+    });
+
+    it('matches union branches by content, so a reorder is no change', () => {
+      const short = Schema.String.check(Schema.isMaxLength(1));
+      const long = Schema.String.check(Schema.isMinLength(2));
+      expect(
+        impacts(Schema.Union([long, short]), Schema.Union([short, long])),
+      ).toEqual([]);
+      expect(
+        impacts(
+          Schema.Union([long, short]),
+          Schema.Union([short, Schema.String.check(Schema.isMinLength(3))]),
+        ),
+      ).toEqual(['breaking']);
+    });
+
+    it('finds a check deep inside the shape and names its path', () => {
+      const before = Schema.Struct({ tags: Schema.Array(Schema.String) });
+      const after = Schema.Struct({
+        tags: Schema.Array(Schema.String.check(Schema.isMinLength(2))),
+      });
+      const [change] = TableSnapshot.diff(item(before), item(after));
+      expect(change?.impact).toBe('breaking');
+      expect(change?.edits[0]?.path).toEqual(['value', 'tags', '[]', 'checks']);
+      expect(TableSnapshot.renderChanges([change!])).toContain('minLength(2)');
+    });
   });
 
   it('reports a retargeted entity reference as safe', () => {
@@ -221,13 +275,13 @@ describe('Snapshot.diff', () => {
 
   it('reports deletion and ignores migration-only and cosmetic edits', () => {
     const v2 = ESchema.make('Item', { value: Schema.String })
-      .evolve('v2', { count: Schema.Number }, (value) => ({
+      .evolve('v2', { count: Schema.Finite }, (value) => ({
         ...value,
         count: 0,
       }))
       .build();
     const changedMigration = ESchema.make('Item', { value: Schema.String })
-      .evolve('v2', { count: Schema.Number }, (value) => ({
+      .evolve('v2', { count: Schema.Finite }, (value) => ({
         ...value,
         count: 99,
       }))

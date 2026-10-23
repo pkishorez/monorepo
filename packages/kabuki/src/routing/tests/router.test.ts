@@ -1,11 +1,11 @@
 import { Effect, Layer, Schema } from 'effect';
 import type { Scope } from 'effect';
 import { describe, expect, it } from 'vitest';
-import { History, Runtime } from '../../core/index.ts';
+import { Command, History, Runtime } from '../../core/index.ts';
 import type { Instance, Running, Types } from '../../core/index.ts';
 import { View } from '../../react/index.ts';
 import { Adapter } from '../adapter/index.ts';
-import { Loading, Page, Router } from '../index.ts';
+import { Loading, Navigation, Page, Router } from '../index.ts';
 
 /*
  * The Router and the Places, running in memory: each page's data is loaded
@@ -1061,6 +1061,80 @@ describe('a reload anew', () => {
         expect(calls['Blog']).toBe(2);
       }),
     ));
+
+  it('held, keeps the data shown past the delay and swaps in the new data in one step', () =>
+    run(
+      Effect.gen(function* () {
+        const app = yield* atStats;
+        const open = hold('Stats');
+        send(app, { _tag: 'Reloaded', anew: true, hold: true });
+        yield* wait(500);
+        expect(router(app).pending).toEqual(
+          expect.objectContaining({ how: 'reload', hold: true }),
+        );
+        expect(status(app, 'Stats')).toEqual(arrived({ visits: 1 }, false));
+        open();
+        yield* settle;
+        expect(router(app).pending).toBeNull();
+        expect(status(app, 'Stats')).toEqual(arrived({ visits: 2 }, false));
+        expect(calls['Stats']).toBe(2);
+      }),
+    ));
+
+  it('held, ends the Command that asked once it lands', () => {
+    const Shown = Page.define({
+      path: '/',
+      render: 'client',
+      data: Schema.Struct({ visits: Schema.Number }),
+      model: Schema.Struct({ landed: Schema.Boolean }),
+      message: Schema.TaggedUnion({ Renew: {}, Landed: {} }),
+    });
+    const ShownLive = Page.build(Shown, {
+      init: () => ({ model: { landed: false } }),
+      on: {
+        Renew: () => ({
+          model: { landed: false },
+          command: Command.make('renew', {
+            run: () =>
+              Navigation.use((navigation) =>
+                navigation.reload({ anew: true, hold: true }),
+              ).pipe(Effect.as({ _tag: 'Landed' as const })),
+          })(),
+        }),
+        Landed: () => ({ model: { landed: true } }),
+      },
+    });
+    const Top = Page.define({ pages: { Shown } });
+    const Held = Router.define(Top);
+    let visits = 0;
+    const heldLoading = Router.memory(
+      Held,
+      Held.loaders({
+        Shown: () =>
+          counted('Shown').pipe(Effect.map(() => ({ visits: (visits += 1) }))),
+      }),
+    );
+    const HeldRoot = Router.app(
+      Held,
+      View.make(Page.build(Top, { pages: { Shown: ShownLive } }), () => null),
+    );
+    return run(
+      Effect.gen(function* () {
+        const app = yield* Runtime.start(HeldRoot.actor, heldLoading);
+        // Past the minimum its first loading screen stays.
+        yield* wait(400);
+        const open = hold('Shown');
+        app.send(find(app, 'Shown')!.id, { _tag: 'Renew' });
+        yield* wait(500);
+        expect(find(app, 'Shown')!.model).toEqual({ landed: false });
+        expect(status(app, 'Shown')).toEqual(arrived({ visits: 1 }, true));
+        open();
+        yield* settle;
+        expect(status(app, 'Shown')).toEqual(arrived({ visits: 2 }, false));
+        expect(find(app, 'Shown')!.model).toEqual({ landed: true });
+      }),
+    );
+  });
 
   it('is the Command Router.reload({ anew: true })', () => {
     expect(Router.reload({ anew: true })).toEqual(

@@ -6,7 +6,7 @@ import { ESchema, EntityESchema, type AnyESchema } from './index.js';
 
 const AppConfig = ESchema.make('AppConfig', {
   theme: Schema.String,
-  maxRetries: Schema.Number,
+  maxRetries: Schema.Finite,
 }).build();
 
 // ─── EntityESchema (named + ID field) ────────────────────────────────────────
@@ -15,7 +15,7 @@ const User = EntityESchema.make('User', 'id', {
   name: Schema.String,
   email: Schema.String,
 })
-  .evolve('v2', { age: Schema.Number }, (prev) => ({ ...prev, age: 0 }))
+  .evolve('v2', { age: Schema.Finite }, (prev) => ({ ...prev, age: 0 }))
   .build();
 
 // ─── Type hierarchy: EntityESchema assignable to AnyESchema ──────────────────

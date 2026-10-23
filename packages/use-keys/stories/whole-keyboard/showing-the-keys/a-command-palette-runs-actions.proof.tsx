@@ -2,12 +2,29 @@ import { useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Effect } from 'effect';
 import { Proof } from 'laymos/story';
-import { describe, shortcut } from '@kestack/use-keys';
+import { describe } from '@kestack/use-keys';
 import { createKeys } from '@kestack/use-keys/surfaces';
+
+const keys = createKeys({
+  inbox: {
+    actions: {
+      palette: {
+        keys: 'mod+k',
+        label: 'Open the command palette',
+        always: true,
+        enters: 'palette',
+      },
+      next: { keys: 'j', label: 'Next thread' },
+      archive: { keys: 'e', label: 'Archive the thread' },
+      star: { keys: 's', label: 'Star the thread' },
+    },
+  },
+  palette: { isolated: true },
+});
 
 const css = `
   body { margin: 0; background: #f4f4f5; color: #18181b; font: 18px/1.5 ui-sans-serif, system-ui, -apple-system, sans-serif; }
-  main { position: relative; max-width: 760px; margin: 40px auto; padding: 0 24px; }
+  main { position: relative; max-width: 760px; margin: 40px auto; padding: 0 24px; outline: none; }
   h1 { font-size: 30px; margin: 0 0 6px; }
   p { color: #52525b; margin: 0 0 16px; }
   kbd { font: 600 13px Menlo, Consolas, monospace; padding: 2px 7px; border: 1px solid #d4d4d8; border-bottom-width: 3px; border-radius: 6px; background: #fff; color: #18181b; }
@@ -16,67 +33,48 @@ const css = `
   .threads li[aria-current="true"] { background: #18181b; color: #fff; }
   .toast { display: inline-block; margin-bottom: 16px; padding: 8px 18px; border-radius: 999px; background: #e4e4e7; font-weight: 600; }
   .toast.done { background: #16a34a; color: #fff; }
-  .palette { position: absolute; top: 90px; left: 50%; transform: translateX(-50%); width: 520px; background: #fff; border-radius: 16px; box-shadow: 0 30px 70px rgba(0,0,0,0.25); overflow: hidden; }
+  .palette { position: absolute; top: 90px; left: 50%; transform: translateX(-50%); width: 520px; background: #fff; border-radius: 16px; box-shadow: 0 30px 70px rgba(0,0,0,0.25); overflow: hidden; outline: none; }
   .palette input { box-sizing: border-box; width: 100%; padding: 16px 20px; font: inherit; font-size: 20px; border: 0; border-bottom: 1px solid #e4e4e7; outline: none; }
   .palette ul { list-style: none; margin: 0; padding: 8px; }
   .palette li { display: flex; justify-content: space-between; padding: 10px 14px; border-radius: 10px; }
   .palette li:first-child { background: #eff6ff; color: #1e3a8a; }
 `;
 
-const keys = createKeys({
-  actions: {
-    commands: {
-      keys: [shortcut('mod+k')],
-      description: 'Open the command palette',
-      inTextEntry: true,
-    },
-  },
-  surfaces: {
-    inbox: {
-      actions: {
-        next: { keys: [shortcut('j')], description: 'Next thread' },
-        archive: { keys: [shortcut('e')], description: 'Archive the thread' },
-        star: { keys: [shortcut('s')], description: 'Star the thread' },
-      },
-    },
-  },
-});
+type Available = ReturnType<typeof keys.useAvailableActions>;
 
-function Palette(props: { readonly onClose: () => void }) {
-  const status = keys.useStatus();
-  const run = keys.useRun();
+function Palette(props: { readonly actions: Available }) {
+  const { leave } = keys.useKeyboard();
   const [query, setQuery] = useState('');
-  const found = status.actions.filter(
-    (action) =>
-      action.id !== 'commands' &&
-      (action.state === 'active' || action.state === 'shadowed') &&
-      action.description.toLowerCase().includes(query.toLowerCase()),
+  const found = props.actions.filter((action) =>
+    action.label.toLowerCase().includes(query.toLowerCase()),
   );
   return (
-    <div className="palette" id="palette">
-      <input
-        autoFocus
-        aria-label="Command"
-        placeholder="Type a command"
-        value={query}
-        onChange={(event) => setQuery(event.target.value)}
-        onKeyDown={(event) => {
-          const first = found[0];
-          if (event.key === 'Enter' && first !== undefined) {
-            run(first.id);
-            props.onClose();
-          }
-        }}
-      />
-      <ul>
-        {found.map((action) => (
-          <li key={action.id}>
-            {action.description}
-            <kbd>{describe(action.bindings[0]!.binding)}</kbd>
-          </li>
-        ))}
-      </ul>
-    </div>
+    <keys.Surface id="palette" className="palette" asChild>
+      <div id="palette">
+        <input
+          autoFocus
+          aria-label="Command"
+          placeholder="Type a command"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          onKeyDown={(event) => {
+            const first = found[0];
+            if (event.key === 'Enter' && first !== undefined) {
+              leave('palette');
+              first.run();
+            }
+          }}
+        />
+        <ul>
+          {found.map((action) => (
+            <li key={action.id}>
+              {action.label}
+              <kbd>{describe(action.keys[0]!)}</kbd>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </keys.Surface>
   );
 }
 
@@ -87,58 +85,72 @@ const threads = [
   'Invoice #2041',
 ];
 
-function Inbox() {
+function Inbox(props: { readonly onDone: (what: string) => void }) {
   const [list, setList] = useState<ReadonlyArray<string>>(threads);
   const [at, setAt] = useState(0);
-  const [done, setDone] = useState<string | null>(null);
-  const [palette, setPalette] = useState(false);
-  keys.useAction('commands', () => setPalette(true));
   keys.useAction('inbox.next', () =>
     setAt((now) => Math.min(list.length - 1, now + 1)),
   );
   keys.useAction('inbox.archive', () => {
-    setDone(`Archived “${list[at]}”`);
+    props.onDone(`Archived “${list[at]}”`);
     setList((now) => now.filter((_, index) => index !== at));
   });
-  keys.useAction('inbox.star', () => setDone(`Starred “${list[at]}”`));
+  keys.useAction('inbox.star', () => props.onDone(`Starred “${list[at]}”`));
   return (
-    <main>
-      <h1>Inbox</h1>
-      <p>
-        <kbd>mod</kbd> <kbd>k</kbd> finds any Action that works here and runs
-        it.
-      </p>
-      <span className={done === null ? 'toast' : 'toast done'} id="done">
-        {done ?? 'Nothing done yet'}
-      </span>
-      <ul className="threads">
-        {list.map((each, index) => (
-          <li key={each} aria-current={index === at}>
-            {each}
-          </li>
-        ))}
-      </ul>
-      {palette ? <Palette onClose={() => setPalette(false)} /> : null}
-    </main>
+    <ul className="threads">
+      {list.map((each, index) => (
+        <li key={each} aria-current={index === at}>
+          {each}
+        </li>
+      ))}
+    </ul>
   );
 }
 
 function App() {
+  const available = keys.useAvailableActions();
+  const [done, setDone] = useState<string | null>(null);
+  // What worked where the palette was opened: once open, it is isolated.
+  const [listed, setListed] = useState<Available>([]);
+  keys.useAction('inbox.palette', () =>
+    setListed(
+      available.filter(
+        (action) => !action.shadowed && action.id !== 'inbox.palette',
+      ),
+    ),
+  );
+  // Drawn while its Surface is Active: leaving it closes it.
+  const open = keys.useSurface('palette').active;
   return (
-    <keys.Provider surface="inbox">
-      <style>{css}</style>
-      <Inbox />
-    </keys.Provider>
+    <keys.Surface id="inbox" asChild>
+      <main>
+        <h1>Inbox</h1>
+        <p>
+          <kbd>mod</kbd> <kbd>k</kbd> finds any Action that works here and runs
+          it.
+        </p>
+        <span className={done === null ? 'toast' : 'toast done'} id="done">
+          {done ?? 'Nothing done yet'}
+        </span>
+        <Inbox onDone={setDone} />
+        {open ? <Palette actions={listed} /> : null}
+      </main>
+    </keys.Surface>
   );
 }
 
 export default Proof.browser({
   title: 'A command palette runs an Action by name, just as its keys would',
   description:
-    'The palette lists the Actions that work from `useStatus` and runs the chosen one with `useRun`: typing "arch" and Enter archives the selected thread without pressing e.',
+    'mod+k runs its Handler, which keeps the Actions `useAvailableActions` listed in the inbox, then enters the palette; picking one leaves the palette and calls its `run`. Typing "arch" and Enter archives the selected thread without pressing e.',
   page: (root) => {
     const app = createRoot(root);
-    app.render(<App />);
+    app.render(
+      <keys.Provider vim>
+        <style>{css}</style>
+        <App />
+      </keys.Provider>,
+    );
     return () => app.unmount();
   },
   prepare: (browser) =>

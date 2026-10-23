@@ -1,11 +1,11 @@
 {
   "name": "kabuki-start",
-  "description": "A small site served by Kabuki Start that shows every routing case: loading, nested and parallel pages, failures, redirects, preloads and reloads, published at start.kishore.app.",
+  "description": "The smallest Kabuki Start app, the one to copy: static, dynamic and client pages layered on one screen, links that preload on hover, two API Workers with a public, an authenticated and an authorized call each, and a Pocket of wallets kept on the device with Replica, published at start.kishore.app.",
   "private": true,
   "type": "module",
   "sideEffects": false,
   "scripts": {
-    "dev": "vp run --filter 'kabuki-start^...' build && portless run --force vp dev",
+    "dev": "vp run --filter 'kabuki-start^...' build && portless alias hello-http-start.kishore 4581 --force && portless alias hello-rpc-start.kishore 4582 --force && portless alias pocket-start.kishore 4583 --force && portless run --force alchemy dev",
     "build": "vp build",
     "lint": "tsc --noEmit && pnpm lint:laymos",
     "lint:laymos": "laymos lint",
@@ -14,11 +14,12 @@
     "deploy:prod": "ALLOW_DEPLOY=true alchemy deploy --stage prod"
   },
   "dependencies": {
+    "@kestack/auth-toolkit": "workspace:*",
     "@kestack/kabuki": "workspace:*",
     "@kestack/rpc-toolkit": "workspace:*",
     "@kestack/std-toolkit": "workspace:*",
-    "@kestack/use-gesture": "workspace:*",
     "@kestack/web-platform": "workspace:*",
+    "@tanstack/db": "catalog:",
     "effect": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:"
@@ -32,6 +33,7 @@
     "@vitejs/plugin-react": "catalog:",
     "alchemy": "catalog:",
     "laymos": "workspace:*",
+    "miniflare": "catalog:",
     "tailwindcss": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",

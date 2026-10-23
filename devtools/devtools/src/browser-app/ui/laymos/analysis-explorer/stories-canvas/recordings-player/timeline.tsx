@@ -30,16 +30,12 @@ export function Timeline({
   const span = Math.max(1, range.end - range.start);
   // The arrows seek while the clock has focus.
   const [focused, setFocused] = useState(false);
-  storiesKeys.useAction(
-    'stories.proof-panel.player.seekBack',
-    () => onSeek(time - span / 50),
-    { enabled: focused },
-  );
-  storiesKeys.useAction(
-    'stories.proof-panel.player.seekForward',
-    () => onSeek(time + span / 50),
-    { enabled: focused },
-  );
+  storiesKeys.useAction('player.seekBack', () => onSeek(time - span / 50), {
+    enabled: focused,
+  });
+  storiesKeys.useAction('player.seekForward', () => onSeek(time + span / 50), {
+    enabled: focused,
+  });
   const percent = (at: number) =>
     `${((Math.min(range.end, Math.max(range.start, at)) - range.start) / span) * 100}%`;
 

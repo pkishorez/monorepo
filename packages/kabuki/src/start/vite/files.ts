@@ -12,13 +12,14 @@ import path from 'node:path';
 export interface FileOptions {
   /**
    * Default-exports the app, with its Document and what it needs in the
-   * browser: `Start.app(router, AppView, { … })`, from
+   * browser: `Start.app({ router, view, … })`, from
    * `@kestack/kabuki/start`. By default `src/app`.
    */
   readonly app?: string;
   /**
    * Default-exports the Loaders, with what they need on the server:
-   * `Start.layers()…loaders(Routes.loaders({ … }))`, from
+   * `Start.server(loaders)`, or `Start.server({ layer, visitor })
+   * .loaders(loaders)`, from
    * `@kestack/kabuki/start/server`; optional. By default
    * `src/loaders.server`.
    */

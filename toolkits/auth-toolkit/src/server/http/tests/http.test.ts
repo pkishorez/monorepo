@@ -29,7 +29,7 @@ vi.mock('better-auth/client', () => ({
   createAuthClient: mocks.createAuthClient,
 }));
 
-import { Auth, type Principal } from '../../../auth/index.js';
+import { Authz, type Principal } from '../../../auth/index.js';
 import { localToken, localUser } from '../../../contract/index.js';
 import { auth, testAuth } from '../index.js';
 
@@ -81,15 +81,15 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('server/http auth', () => {
-  it('provides Auth.User to a guarded handler', async () => {
+  it('provides AuthUser to a guarded handler', async () => {
     const WhoAmI = HttpApiEndpoint.get('whoAmI', '/me', {
       success: Schema.String,
-    }).pipe(Auth.required);
+    }).pipe(Authz.required);
     const Private = HttpApiGroup.make('private').add(WhoAmI);
     class Api extends HttpApi.make('current-auth-api').add(Private) {}
     const Handlers = HttpApiBuilder.group(Api, 'private', (handlers) =>
       handlers.handle('whoAmI', () =>
-        Effect.map(Auth.User, ({ user }) => user.id),
+        Effect.map(Authz.User, ({ user }) => user.id),
       ),
     );
 
@@ -108,10 +108,10 @@ describe('server/http auth', () => {
   });
 
   const Private = HttpApiEndpoint.get('private', '/private').pipe(
-    Auth.required,
+    Authz.required,
   );
   const Admin = HttpApiEndpoint.get('admin', '/admin').pipe(
-    Auth.policy(() => false, 'Administrator required'),
+    Authz.policy(() => false, 'Administrator required'),
   );
   const Group = HttpApiGroup.make('protected').add(Private, Admin);
   class FailuresApi extends HttpApi.make('failures-api').add(Group) {}
@@ -169,7 +169,7 @@ describe('server/http auth', () => {
     const calls: string[] = [];
     const Inherited = HttpApiEndpoint.get('inherited', '/inherited');
     const Overridden = HttpApiEndpoint.get('overridden', '/overridden').pipe(
-      Auth.policy(() => {
+      Authz.policy(() => {
         calls.push('endpoint');
         return true;
       }, 'never'),
@@ -177,7 +177,7 @@ describe('server/http auth', () => {
     const Policies = HttpApiGroup.make('policies')
       .add(Inherited, Overridden)
       .pipe(
-        Auth.policy(() => {
+        Authz.policy(() => {
           calls.push('group');
           return true;
         }, 'never'),
@@ -237,11 +237,11 @@ describe('server/http auth', () => {
     const WhoAmI = HttpApiEndpoint.get('whoAmI', '/me', {
       success: Schema.String,
     });
-    const Group = Auth.required(HttpApiGroup.make('local').add(WhoAmI));
+    const Group = Authz.required(HttpApiGroup.make('local').add(WhoAmI));
     class Api extends HttpApi.make('local-api').add(Group) {}
     const Handlers = HttpApiBuilder.group(Api, 'local', (handlers) =>
       handlers.handle('whoAmI', () =>
-        Effect.map(Auth.User, ({ user }) => user.email),
+        Effect.map(Authz.User, ({ user }) => user.email),
       ),
     );
     const call = (headers: Record<string, string>) =>
@@ -311,19 +311,19 @@ describe('server/http auth with oauth', () => {
   // An MCP server: one endpoint, its tools checking Scopes inside.
   const Mcp = HttpApiEndpoint.post('mcp', '/mcp', {
     success: Schema.Struct({ user: Schema.String, client: Schema.String }),
-    error: Auth.Forbidden,
-  }).pipe(Auth.required);
+    error: Authz.Forbidden,
+  }).pipe(Authz.required);
   const Notes = HttpApiEndpoint.get('notes', '/notes', {
     success: Schema.String,
-  }).pipe(Auth.scope('notes:write'));
+  }).pipe(Authz.scope('notes:write'));
   const Group = HttpApiGroup.make('mcp').add(Mcp, Notes);
   class Api extends HttpApi.make('mcp-api').add(Group) {}
   const Handlers = HttpApiBuilder.group(Api, 'mcp', (handlers) =>
     handlers
       .handle('mcp', () =>
         Effect.gen(function* () {
-          yield* Auth.scope('notes:read');
-          const principal = yield* Auth.User;
+          yield* Authz.scope('notes:read');
+          const principal = yield* Authz.User;
           return {
             user: principal.user.email,
             client: principal.kind === 'token' ? principal.client.id : '',

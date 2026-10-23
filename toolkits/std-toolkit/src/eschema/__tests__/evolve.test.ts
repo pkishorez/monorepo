@@ -13,7 +13,7 @@ describe('ESchema', () => {
             a: Schema.String,
           })
             .evolve('v2', { b: Schema.String }, (v) => ({ ...v, b: 'from-v1' }))
-            .evolve('v3', { c: Schema.Number }, (v) => ({ ...v, c: 100 }))
+            .evolve('v3', { c: Schema.Finite }, (v) => ({ ...v, c: 100 }))
             .build();
 
           const fromV1 = yield* readEncoded(schema, {
@@ -116,7 +116,7 @@ describe('ESchema', () => {
           );
 
           expect(error).toBeInstanceOf(ESchemaError);
-          expect(error.message).toBe('Migration to v2 failed');
+          expect(error.message).toBe('Migration to v2 failed: boom');
         }),
       );
     });

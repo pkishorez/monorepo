@@ -1,23 +1,16 @@
-import { Start } from '@kestack/kabuki/start';
+import type { Start } from '@kestack/kabuki/start';
+import { Document as WebDocument } from '@kestack/web-platform/start';
 import { Devtools, Theme } from './components/index.ts';
 
 /**
- * The HTML around the app. The Theme's script runs before the body is
- * painted, and changes `<html>` before React hydrates it, which React is
- * told to expect. Kabuki's devtools sit around the app, from the button in
- * the corner.
+ * The HTML around the app: the Web Platform's Document, which sets Inter,
+ * the Theme and the device before the first paint, with Kabuki's devtools
+ * around every page, from the button in the corner.
  */
 export default function Document({ children }: Start.DocumentProps) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <head>
-        <Start.Head />
-        <Theme.Script />
-      </head>
-      <body>
-        <Devtools>{children}</Devtools>
-        <Start.Scripts />
-      </body>
-    </html>
+    <WebDocument theme={Theme}>
+      <Devtools>{children}</Devtools>
+    </WebDocument>
   );
 }

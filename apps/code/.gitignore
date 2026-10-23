@@ -1,0 +1,4 @@
+qa/**/*.webm
+qa/**/*.mp4
+qa/**/*.png
+.alchemy

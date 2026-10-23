@@ -1,7 +1,7 @@
 import { Effect, Layer, Schema, SubscriptionRef } from 'effect';
 import { Rpc, RpcClient, RpcGroup, type RpcMessage } from 'effect/rpc';
 import { describe, expect, it, vi } from 'vitest';
-import { Auth } from '@kestack/auth-toolkit';
+import { Authz } from '@kestack/auth-toolkit';
 import { Accounts, AccountsState } from '@kestack/auth-toolkit/client';
 import {
   browser,
@@ -57,9 +57,9 @@ describe('syncs', () => {
 });
 
 const WhoAmI = Rpc.make('WhoAmI', { success: Schema.String }).pipe(
-  Auth.required,
+  Authz.required,
 );
-const Slow = Rpc.make('Slow', { success: Schema.String }).pipe(Auth.required);
+const Slow = Rpc.make('Slow', { success: Schema.String }).pipe(Authz.required);
 const Hello = Rpc.make('Hello', { success: Schema.String });
 const Ledger = RpcGroup.make(WhoAmI, Slow);
 const Public = RpcGroup.make(Hello);
@@ -106,7 +106,7 @@ const adaSignedIn = AccountsState.SignedIn({ active: ada, accounts: [ada] });
 const answer = { slow: Promise.withResolvers<string>() };
 const local = () => ({
   ledger: Ledger.toLayer({
-    WhoAmI: () => Effect.map(Auth.User, ({ user }) => user.email),
+    WhoAmI: () => Effect.map(Authz.User, ({ user }) => user.email),
     Slow: () => Effect.promise(() => answer.slow.promise),
   }),
   public: Public.toLayer({ Hello: () => Effect.succeed('hello') }),

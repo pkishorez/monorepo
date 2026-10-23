@@ -4,7 +4,7 @@ import { StdTable } from '../table/index.js';
 
 const table = StdTable.make('write-options').primary('pk', 'sk').build();
 const schema = EntityESchema.make('Probe', 'probeId', {
-  n: Schema.Number,
+  n: Schema.Finite,
 }).build();
 const probe = table.entity(schema).primary().build();
 const key = { probeId: 'a' };
