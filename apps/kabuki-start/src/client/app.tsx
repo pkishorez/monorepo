@@ -31,6 +31,7 @@ const remembered = Layer.unwrap(
     () =>
       IDB.make(browserAccountsTable, {
         database: IDB.database({ databaseName: 'kabuki-start' }),
+        mode: 'disposable',
       }).layer,
   ),
 );

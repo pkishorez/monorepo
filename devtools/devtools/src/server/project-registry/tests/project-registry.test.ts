@@ -45,7 +45,11 @@ describe('ProjectRegistry', () => {
     await Effect.runPromise(
       Effect.scoped(
         Effect.gen(function* () {
-          yield* SQLite.setup(table, { database, tableName });
+          yield* SQLite.setup(table, {
+            database,
+            tableName,
+            mode: 'persistent',
+          });
           yield* entries
             .insert({
               id: 'old',

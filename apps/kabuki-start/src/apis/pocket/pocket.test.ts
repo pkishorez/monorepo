@@ -35,6 +35,7 @@ beforeAll(async () => {
   await Effect.runPromise(
     SQLite.setup(pocketTable, {
       database: makeD1SQLite({ database: binding }),
+      mode: 'persistent',
     }),
   );
 }, 30_000);
