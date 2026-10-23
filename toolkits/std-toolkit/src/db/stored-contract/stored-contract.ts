@@ -81,7 +81,12 @@ const refusalMessage = (
     case 'mode-change':
       return `std-toolkit: table "${table}" is persistent and cannot become disposable. Nothing was changed. Use a new physical table name to start a disposable table.`;
     case 'replaces-table':
-      return `std-toolkit: persistent table "${table}" cannot change its local secondary indexes: the database can only do that by replacing the table, which deletes its data. Nothing was changed. Use a global secondary index, or a new physical table name.`;
+      return [
+        `std-toolkit: table "${table}" cannot take this change in place: the database can only make it by replacing the table, which deletes its data. Nothing was changed. Add a global secondary index instead, or use a new physical table name.`,
+        ...(changes.length === 0
+          ? []
+          : ['', TableSnapshot.renderChanges(changes)]),
+      ].join('\n');
     case 'unreadable':
       return `std-toolkit: persistent table "${table}" has a stored contract this version of std-toolkit cannot read, so its data cannot be checked. Nothing was changed.`;
   }
@@ -173,7 +178,12 @@ export const planSetup = <R>(options: {
   readonly current: CurrentContract;
   readonly stored: Pick<StoredContract, 'mode' | 'hash'> | undefined;
   readonly loadStoredSnapshot: Effect.Effect<unknown, unknown, R>;
-  readonly backfill?: BackfillChoice;
+  /**
+   * What a change that needs a backfill does; by default a disposable table
+   * is wiped and a persistent one is kept. `keep` keeps either, for a target
+   * that can neither wipe nor reindex.
+   */
+  readonly backfill?: BackfillChoice | 'keep';
 }): Effect.Effect<SetupPlan, SetupRefused | unknown, R> =>
   Effect.gen(function* () {
     const { current, stored } = options;
@@ -215,11 +225,12 @@ export const planSetup = <R>(options: {
       return { kind: 'wipe', changes: rejected };
     }
     if (backfill.length > 0) {
-      if (dataIsDisposable && options.backfill !== 'reindex')
+      const choice = options.backfill ?? (dataIsDisposable ? 'wipe' : 'keep');
+      if (dataIsDisposable && choice === 'wipe')
         return { kind: 'wipe', changes: backfill };
-      if (options.backfill !== 'reindex')
+      if (choice !== 'reindex')
         yield* Effect.logWarning(
-          `std-toolkit: persistent table "${name}" has changes that need a backfill. Rows stored before them are missing from the new access patterns until they are reindexed:\n${TableSnapshot.renderChanges(backfill)}`,
+          `std-toolkit: table "${name}" has changes that need a backfill. Rows stored before them are missing from the new access patterns until they are reindexed:\n${TableSnapshot.renderChanges(backfill)}`,
         );
     }
     return { kind: 'apply', backfill };

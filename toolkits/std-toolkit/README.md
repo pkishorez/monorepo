@@ -77,7 +77,7 @@ Deploys a StdTable with Alchemy. Each table resource takes a required `mode`. A 
 
 | Export              | What it does                                                                                                                         |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `DynamoDB.table`    | Guards the contract, then creates or updates the DynamoDB table; a disposable table is replaced as `<tableName>-<generation>`.       |
+| `DynamoDB.table`    | Guards the contract, then creates or updates the DynamoDB table; refuses any change that would replace or wipe it.                   |
 | `D1.table`          | Guards a persistent table, then runs SQLite setup in D1 at deploy against the Stored contract kept in the database.                  |
 | `DeployGuard.table` | Guards a persistent StdTable Alchemy does not create, such as an IndexedDB or Durable Object table; one guard covers all its tables. |
 | `providers`         | Every provider std-toolkit's resources need, to merge into a stack's `providers`.                                                    |
