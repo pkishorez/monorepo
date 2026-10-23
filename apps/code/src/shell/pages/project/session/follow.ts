@@ -6,14 +6,17 @@ import { useEffect, useRef } from 'react';
  * scrolling up lets go (wheel, touch, a drag, a key in the scroller, or a
  * scroll Action through `letGo`), never a scroll the page made by itself,
  * such as content shrinking for a moment as it redraws; reaching the
- * bottom again, or `holdOn`, holds on. It opens at the bottom.
+ * bottom again, or `holdOn`, holds on. It opens at the bottom, and opens
+ * there again for each new `key`, such as another session in the same
+ * page. The scroller itself changing size, as the Draft under it grows
+ * when it is written in, keeps a reader at the bottom there too.
  */
 
 const NEAR = 48;
 /** How long after a reader's gesture a scroll still counts as theirs. */
 const GESTURE_MS = 1000;
 
-export function useFollow() {
+export function useFollow(key: string) {
   const scroller = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
   const stuck = useRef(true);
@@ -51,6 +54,7 @@ export function useFollow() {
     // The browser's own keys, while the scroller itself has focus.
     outer.addEventListener('keydown', onGesture);
     grown.observe(inner);
+    grown.observe(outer);
     return () => {
       outer.removeEventListener('scroll', onScroll);
       outer.removeEventListener('wheel', onGesture);
@@ -59,7 +63,7 @@ export function useFollow() {
       outer.removeEventListener('keydown', onGesture);
       grown.disconnect();
     };
-  }, []);
+  }, [key]);
   return {
     scroller,
     content,

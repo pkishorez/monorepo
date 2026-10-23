@@ -1,5 +1,6 @@
-import { useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 import { useChild, useChildren, View } from '@kestack/kabuki/react';
+import type { Session } from '@kestack/ai-toolkit/api';
 import { Router } from '@kestack/kabuki/routing';
 import {
   GitForkIcon,
@@ -18,7 +19,14 @@ import { AskAnswer } from './ask.tsx';
 import { SessionStatusLine } from './status-line.tsx';
 import { useFollow } from './follow.ts';
 import { useSessionKeys } from './keys.ts';
-import { EarlierRows, earlierOf, Rows, thread } from './transcript/index.ts';
+import {
+  EarlierRows,
+  earlierOf,
+  type Forking,
+  type Opening,
+  Rows,
+  thread,
+} from './transcript/index.ts';
 
 /*
  * A session: the transcript in a centred column that follows new messages
@@ -74,17 +82,25 @@ export const SessionView = View.make(
       () => thread((messages?.rows ?? []).map(({ row }) => row)),
       [messages?.rows],
     );
-    const follow = useFollow();
+    const follow = useFollow(props.params.sessionId);
     const { scroller, content } = follow;
     const offline = useOffline(machineId);
-    const opening = {
-      isOpen: (id: string) => model.open.includes(id),
-      toggle: (id: string) => send({ _tag: 'Toggle', id }),
-    };
-    const forking = {
-      fork: (afterTurnId: string) => send({ _tag: 'Fork', afterTurnId }),
-      pending: model.forking,
-    };
+    // Kept the same while they are, so the transcript is not drawn again
+    // as the Draft changes.
+    const opening = useMemo(
+      () => ({
+        isOpen: (id: string) => model.open.includes(id),
+        toggle: (id: string) => send({ _tag: 'Toggle', id }),
+      }),
+      [model.open, send],
+    );
+    const forking = useMemo(
+      () => ({
+        fork: (afterTurnId: string) => send({ _tag: 'Fork', afterTurnId }),
+        pending: model.forking,
+      }),
+      [model.forking, send],
+    );
     // Rows the device holds draw at once, even while the Machine does not
     // answer; a missing row is believed only once its Machine has answered.
     // A skeleton only for what this device has never had: the row, or the
@@ -148,85 +164,22 @@ export const SessionView = View.make(
           tabIndex={-1}
           className="min-h-0 flex-1 overflow-y-auto outline-none select-text [overflow-anchor:none]"
         >
-          <div
-            ref={content}
-            className="mx-auto flex w-full max-w-3xl flex-col gap-3 px-4 pt-8 pb-10 sm:px-6"
-          >
-            {forkedFrom !== null && session !== undefined && (
-              <p className="-mt-2 -mb-4 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
-                <GitForkIcon aria-hidden className="size-3.5 shrink-0" />
-                <span className="shrink-0">Forked from</span>
-                <Router.Link
-                  to={places.session(
-                    machineId,
-                    session.projectId,
-                    forkedFrom.sessionId,
-                  )}
-                  className="focus-ring min-w-0 truncate rounded-sm text-foreground/80 underline decoration-border underline-offset-4 transition-colors duration-150 hover:text-foreground hover:decoration-foreground motion-reduce:transition-none"
-                >
-                  {original}
-                </Router.Link>
-              </p>
-            )}
-            {missing ? (
-              <p className="text-sm text-muted-foreground">
-                It may belong to a project that was removed.
-              </p>
-            ) : reading ? null : waiting ? (
-              <div className="flex flex-col gap-3" aria-busy>
-                <Skeleton className="h-12 w-full rounded-lg" />
-                <Skeleton className="h-4 w-5/6" />
-                <Skeleton className="h-4 w-2/3" />
-                <Skeleton className="h-4 w-3/4" />
-              </div>
-            ) : (
-              <>
-                {earlier !== null && (
-                  <EarlierRows
-                    title={original}
-                    earlier={earlier}
-                    opening={opening}
-                    forking={forking}
-                  />
-                )}
-                <Rows
-                  rows={rows}
-                  opening={opening}
-                  running={running}
-                  forking={forking}
-                />
-              </>
-            )}
-            {session?.status === 'interrupted' &&
-              messages?.status === 'ready' && (
-                <p
-                  role="status"
-                  className="flex items-center gap-2 pt-1 text-xs text-muted-foreground"
-                >
-                  <TriangleAlertIcon
-                    aria-hidden
-                    className="size-3.5 shrink-0 text-warning"
-                  />
-                  The server stopped mid-turn, so some work may be half done.
-                  Send a message to carry on; the agent remembers the
-                  conversation.
-                </p>
-              )}
-            {running && messages?.status === 'ready' && (
-              <p
-                role="status"
-                className="flex items-center gap-2 pt-1 text-xs text-muted-foreground"
-              >
-                {offline === null ? (
-                  <>
-                    <RunningDot /> Working…
-                  </>
-                ) : (
-                  'Last seen working. Updates resume when the server is back.'
-                )}
-              </p>
-            )}
-          </div>
+          <Transcript
+            content={content}
+            machineId={machineId}
+            session={session}
+            original={original}
+            missing={missing}
+            reading={reading}
+            waiting={waiting}
+            earlier={earlier}
+            rows={rows}
+            opening={opening}
+            forking={forking}
+            running={running}
+            ready={messages?.status === 'ready'}
+            offline={offline}
+          />
         </div>
         {!missing && (
           <div className="relative shrink-0 bg-background pt-2 pb-3 before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-6 before:bg-gradient-to-t before:from-background before:to-transparent">
@@ -270,3 +223,119 @@ export const SessionView = View.make(
     );
   },
 );
+
+/**
+ * The transcript, drawn again only as what it shows changes: never as the
+ * Draft is typed into, or a Dictation starts or stops.
+ */
+const Transcript = memo(function Transcript({
+  content,
+  machineId,
+  session,
+  original,
+  missing,
+  reading,
+  waiting,
+  earlier,
+  rows,
+  opening,
+  forking,
+  running,
+  ready,
+  offline,
+}: {
+  readonly content: ReturnType<typeof useFollow>['content'];
+  readonly machineId: string;
+  readonly session: Session | undefined;
+  readonly original: string;
+  readonly missing: boolean;
+  readonly reading: boolean;
+  readonly waiting: boolean;
+  readonly earlier: ReturnType<typeof earlierOf> | null;
+  readonly rows: ReturnType<typeof thread>;
+  readonly opening: Opening;
+  readonly forking: Forking;
+  readonly running: boolean;
+  readonly ready: boolean;
+  readonly offline: string | null;
+}) {
+  return (
+    <div
+      ref={content}
+      className="mx-auto flex w-full max-w-3xl flex-col gap-3 px-4 pt-8 pb-10 sm:px-6"
+    >
+      {session !== undefined && session.forkedFrom !== null && (
+        <p className="-mt-2 -mb-4 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+          <GitForkIcon aria-hidden className="size-3.5 shrink-0" />
+          <span className="shrink-0">Forked from</span>
+          <Router.Link
+            to={places.session(
+              machineId,
+              session.projectId,
+              session.forkedFrom.sessionId,
+            )}
+            className="focus-ring min-w-0 truncate rounded-sm text-foreground/80 underline decoration-border underline-offset-4 transition-colors duration-150 hover:text-foreground hover:decoration-foreground motion-reduce:transition-none"
+          >
+            {original}
+          </Router.Link>
+        </p>
+      )}
+      {missing ? (
+        <p className="text-sm text-muted-foreground">
+          It may belong to a project that was removed.
+        </p>
+      ) : reading ? null : waiting ? (
+        <div className="flex flex-col gap-3" aria-busy>
+          <Skeleton className="h-12 w-full rounded-lg" />
+          <Skeleton className="h-4 w-5/6" />
+          <Skeleton className="h-4 w-2/3" />
+          <Skeleton className="h-4 w-3/4" />
+        </div>
+      ) : (
+        <>
+          {earlier !== null && (
+            <EarlierRows
+              title={original}
+              earlier={earlier}
+              opening={opening}
+              forking={forking}
+            />
+          )}
+          <Rows
+            rows={rows}
+            opening={opening}
+            running={running}
+            forking={forking}
+          />
+        </>
+      )}
+      {session?.status === 'interrupted' && ready && (
+        <p
+          role="status"
+          className="flex items-center gap-2 pt-1 text-xs text-muted-foreground"
+        >
+          <TriangleAlertIcon
+            aria-hidden
+            className="size-3.5 shrink-0 text-warning"
+          />
+          The server stopped mid-turn, so some work may be half done. Send a
+          message to carry on; the agent remembers the conversation.
+        </p>
+      )}
+      {running && ready && (
+        <p
+          role="status"
+          className="flex items-center gap-2 pt-1 text-xs text-muted-foreground"
+        >
+          {offline === null ? (
+            <>
+              <RunningDot /> Working…
+            </>
+          ) : (
+            'Last seen working. Updates resume when the server is back.'
+          )}
+        </p>
+      )}
+    </div>
+  );
+});
