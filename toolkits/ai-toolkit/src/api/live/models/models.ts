@@ -15,7 +15,7 @@ import {
   HarnessBinaries,
   type AvailableModel,
   type Harness,
-} from '../../../harness/index.js';
+} from '../../../services/harness/contract/index.js';
 
 /*
  * The models each harness can run. A harness that can ask its login which

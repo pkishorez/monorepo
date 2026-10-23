@@ -1,9 +1,12 @@
 import { Effect, Fiber, Layer, Schema, Stream } from 'effect';
 import { describe, expect, it, vi } from 'vitest';
-import type { RawOut } from '../../../harness/index.js';
-import { makeFakeHarness } from '../../../fake-harness/index.js';
-import { MessageSchema, type Message } from '../../../projection/index.js';
-import { Store } from '../../../store/index.js';
+import type { RawOut } from '../../../services/harness/contract/index.js';
+import { makeFakeHarness } from '../../../services/harness/fake/index.js';
+import {
+  MessageSchema,
+  type Message,
+} from '../../../services/records/projection/index.js';
+import { Store } from '../../../services/records/store/index.js';
 import type { WireEntity } from '../../contract/index.js';
 import { messages, projects } from './index.js';
 

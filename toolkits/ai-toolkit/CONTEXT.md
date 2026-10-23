@@ -96,6 +96,10 @@ _Avoid_: tokens left, quota
 A short name for a Session, written from its user messages; it can be regenerated at any time.
 _Avoid_: name, label
 
+**Desk**:
+What a Session puts out for the server to ask it: its live agent, a Fork, a new Title, an Ask. A Session's Desk is out for as long as the Session is; a question to a Session that is gone finds no Desk.
+_Avoid_: registry, handle, API (for this)
+
 **Bootstrap Sweep**:
 The startup step that finds Turns the last server left running and ends them interrupted.
 _Avoid_: recovery, orphan reaper

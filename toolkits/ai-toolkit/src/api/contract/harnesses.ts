@@ -1,6 +1,9 @@
 import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
-import { BinaryInfoSchema, SkillSchema } from '../../harness-wire/index.js';
+import {
+  BinaryInfoSchema,
+  SkillSchema,
+} from '../../services/harness/wire/index.js';
 import {
   InvalidBinary,
   ModelsUnavailable,

@@ -17,21 +17,20 @@ import {
   SkillsUnavailable,
   UnknownHarness,
 } from '../contract/index.js';
-import { Engine } from '../../engine/index.js';
-import { Folders } from '../../folders/index.js';
-import { Harnesses } from '../../harness/index.js';
-import { JsonSchema } from '../../raw/index.js';
+import { Engine } from '../../kabuki/engine/index.js';
+import { Harnesses } from '../../services/harness/contract/index.js';
+import { JsonSchema } from '../../services/records/raw/index.js';
 import { Models } from './models/index.js';
 import * as Read from './read/index.js';
 
 /*
  * The API's handlers. Commands go to the Engine, which hands them to its
- * actors, or to Folders; feeds read the Store; none decides anything
+ * actors; feeds read the Store; none decides anything
  * itself. Their failures become the contract's errors of the same name.
  */
 
-type Listed = Effect.Error<ReturnType<Folders['Service']['list']>>;
-type Created = Effect.Error<ReturnType<Folders['Service']['create']>>;
+type Listed = Effect.Error<ReturnType<Engine['Service']['listFolder']>>;
+type Created = Effect.Error<ReturnType<Engine['Service']['createFolder']>>;
 
 /** A Folders failure as the contract's error of the same name. */
 function folderError(
@@ -80,7 +79,6 @@ export const AiApiLive = AiApi.toLayer(
     const engine = yield* Engine;
     const harnesses = yield* Harnesses;
     const models = yield* Models;
-    const folders = yield* Folders;
     return {
       harnesses: () =>
         Effect.gen(function* () {
@@ -227,12 +225,12 @@ export const AiApiLive = AiApi.toLayer(
             ),
           ),
       listFolder: (input) =>
-        folders
-          .list(input)
+        engine
+          .listFolder(input)
           .pipe(Effect.mapError((error) => folderError(error))),
       createFolder: (input) =>
-        folders
-          .create(input)
+        engine
+          .createFolder(input)
           .pipe(Effect.mapError((error) => folderError(error))),
       projects: ({ after }) => Read.projects(after),
       sessions: ({ after }) => Read.sessions(after),

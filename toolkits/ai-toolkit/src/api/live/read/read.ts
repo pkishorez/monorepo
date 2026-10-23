@@ -1,12 +1,18 @@
 import { Effect, Schema, Stream } from 'effect';
 import type { Entity } from '@kestack/std-toolkit/core';
 import type { WireEntity } from '../../contract/index.js';
-import { projectEngineRaw } from '../../../engine/index.js';
-import { Harnesses } from '../../../harness/index.js';
-import { MessageSchema, type Message } from '../../../projection/index.js';
-import type { Raw } from '../../../raw/index.js';
-import { ProjectSchema, SessionSchema } from '../../../records/index.js';
-import { Store } from '../../../store/index.js';
+import { projectEngineRaw } from '../../../kabuki/engine/index.js';
+import { Harnesses } from '../../../services/harness/contract/index.js';
+import {
+  MessageSchema,
+  type Message,
+} from '../../../services/records/projection/index.js';
+import type { Raw } from '../../../services/records/raw/index.js';
+import {
+  ProjectSchema,
+  SessionSchema,
+} from '../../../services/records/entities/index.js';
+import { Store } from '../../../services/records/store/index.js';
 import { follow } from './follow.js';
 
 /*

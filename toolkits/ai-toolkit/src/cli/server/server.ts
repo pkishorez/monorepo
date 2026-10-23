@@ -12,17 +12,19 @@ import { RpcSerialization, RpcServer } from 'effect/rpc';
 import { NodeHttpServer } from '@effect/platform-node';
 import { AiApi } from '../../api/contract/index.js';
 import { AiApiLive, Models } from '../../api/live/index.js';
-import { Engine, storedHarnessBinaries } from '../../engine/index.js';
-import { Folders } from '../../folders/index.js';
-import type { Harnesses, Titler } from '../../harness/index.js';
-import { Store } from '../../store/index.js';
+import { Engine, storedHarnessBinaries } from '../../kabuki/engine/index.js';
+import type {
+  Harnesses,
+  Titler,
+} from '../../services/harness/contract/index.js';
+import { Store } from '../../services/records/store/index.js';
 import { keyGuard, selectProtocol } from './machine-key.js';
 import { allowsOrigin } from './origins.js';
 
 /*
  * The whole server as one Layer: the Store on its SQLite file, the engine
- * over it and the harnesses, Attachments saved beside it, Folders under the
- * home folder, and the API at `/rpc` over WebSocket. A browser page is
+ * over it and the harnesses, Attachments saved beside it and Folders under
+ * the home folder, and the API at `/rpc` over WebSocket. A browser page is
  * served only from an origin given (see origins.ts); a request from any
  * other gets 403. Given a Machine Key, `/rpc` also asks every caller for it
  * (see machine-key.ts). It runs until its Scope closes; then the engine
@@ -86,13 +88,13 @@ export const server = (options: ServerOptions) => {
   const engine = Engine.layer({
     attachments:
       options.attachments ?? join(dirname(options.db), 'attachments'),
+    home: options.home ?? homedir(),
   }).pipe(Layer.provide(base));
   const models = Models.layer({
     cacheFile: join(dirname(options.db), 'models.json'),
   }).pipe(Layer.provide(storedHarnessBinaries), Layer.provide(base));
-  const folders = Folders.layer({ home: options.home ?? homedir() });
   const handlers = AiApiLive.pipe(
-    Layer.provide(Layer.mergeAll(base, engine, models, folders)),
+    Layer.provide(Layer.mergeAll(base, engine, models)),
   );
   const allowed = allowsOrigin(options.origins ?? DEFAULT_ORIGINS);
   const rpc = RpcServer.layerHttp({

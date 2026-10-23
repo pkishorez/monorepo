@@ -5,8 +5,8 @@ import {
   AttachmentSchema,
   ContextUsageSchema,
   McpServerStatusSchema,
-} from '../../harness-wire/index.js';
-import { SessionSchema } from '../../records/index.js';
+} from '../../services/harness/wire/index.js';
+import { SessionSchema } from '../../services/records/entities/index.js';
 import {
   AskFailed,
   HarnessFailed,

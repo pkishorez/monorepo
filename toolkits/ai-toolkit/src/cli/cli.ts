@@ -4,10 +4,14 @@ import { dirname, join } from 'node:path';
 import { Config, Effect, Layer, Option } from 'effect';
 import { Command, Flag } from 'effect/cli';
 import { NodeRuntime, NodeServices } from '@effect/platform-node';
-import { Harnesses } from '../harness/index.js';
-import { claude } from '../harnesses/claude/index.js';
-import { codex, codexTitler } from '../harnesses/codex/index.js';
-import { identify, logout as forgetMachine, online } from '../machine/index.js';
+import { Harnesses } from '../services/harness/contract/index.js';
+import { claude } from '../services/harness/claude/index.js';
+import { codex, codexTitler } from '../services/harness/codex/index.js';
+import {
+  identify,
+  logout as forgetMachine,
+  online,
+} from '../kabuki/machine/index.js';
 import { DEFAULT_ORIGINS, server } from './server/index.js';
 
 /*

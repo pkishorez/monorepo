@@ -24,20 +24,20 @@
       "default": "./dist/api/contract/index.js"
     },
     "./client": {
-      "types": "./dist/client/index.d.ts",
-      "default": "./dist/client/index.js"
+      "types": "./dist/api/client/index.d.ts",
+      "default": "./dist/api/client/index.js"
     },
     "./machines": {
-      "types": "./dist/machines/contract/index.d.ts",
-      "default": "./dist/machines/contract/index.js"
+      "types": "./dist/kabuki/machine/backend/contract/index.d.ts",
+      "default": "./dist/kabuki/machine/backend/contract/index.js"
     },
     "./machines/client": {
-      "types": "./dist/machines/client/index.d.ts",
-      "default": "./dist/machines/client/index.js"
+      "types": "./dist/kabuki/machine/backend/client/index.d.ts",
+      "default": "./dist/kabuki/machine/backend/client/index.js"
     },
     "./machines/backend": {
-      "types": "./dist/machines/backend/index.d.ts",
-      "default": "./dist/machines/backend/index.js"
+      "types": "./dist/kabuki/machine/backend/serve/index.d.ts",
+      "default": "./dist/kabuki/machine/backend/serve/index.js"
     }
   },
   "scripts": {

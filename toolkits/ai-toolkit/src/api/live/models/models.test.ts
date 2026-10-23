@@ -6,9 +6,9 @@ import {
   HarnessBinaries,
   HarnessError,
   type Harness,
-} from '../../../harness/index.js';
+} from '../../../services/harness/contract/index.js';
 import { afterEach, describe, expect, it } from 'vitest';
-import { makeFakeHarness } from '../../../fake-harness/index.js';
+import { makeFakeHarness } from '../../../services/harness/fake/index.js';
 import { Models } from './index.js';
 
 const catalog = {

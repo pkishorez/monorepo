@@ -21,8 +21,11 @@ import {
   SubscriptionRef,
 } from 'effect';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { Ai, AiClient, AiLive, connection } from '../../client/index.js';
-import { FAKE_SKILLS, makeFakeHarness } from '../../fake-harness/index.js';
+import { Ai, AiClient, AiLive, connection } from '../../api/client/index.js';
+import {
+  FAKE_SKILLS,
+  makeFakeHarness,
+} from '../../services/harness/fake/index.js';
 import { server } from './index.js';
 
 /*

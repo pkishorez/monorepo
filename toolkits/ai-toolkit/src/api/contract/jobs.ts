@@ -1,6 +1,6 @@
 import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
-import { BackgroundJobSchema } from '../../harness-wire/index.js';
+import { BackgroundJobSchema } from '../../services/harness/wire/index.js';
 import { HarnessFailed, SessionNotFound } from './errors.js';
 
 /* Background Jobs: live only while the server runs, never stored. */

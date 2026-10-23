@@ -1,6 +1,6 @@
 import { Schema } from 'effect';
 import { EntityMetaSchema } from '@kestack/std-toolkit/core';
-import { HARNESS_NAMES } from '../../raw/index.js';
+import { HARNESS_NAMES } from '../../services/records/raw/index.js';
 
 /*
  * What every group's feeds and payloads share. Feeds carry entities in

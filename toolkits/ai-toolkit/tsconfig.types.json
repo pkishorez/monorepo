@@ -8,9 +8,9 @@
   "include": [],
   "files": [
     "src/api/contract/index.ts",
-    "src/client/index.ts",
-    "src/machines/contract/index.ts",
-    "src/machines/client/index.ts",
-    "src/machines/backend/index.ts"
+    "src/api/client/index.ts",
+    "src/kabuki/machine/backend/contract/index.ts",
+    "src/kabuki/machine/backend/client/index.ts",
+    "src/kabuki/machine/backend/serve/index.ts"
   ]
 }

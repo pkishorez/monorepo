@@ -8,7 +8,7 @@ Claude Code and Codex sessions run for minutes, start work that outlives a Turn,
 
 The API, `AiApi`, has commands and feeds, in six groups merged into one: harnesses, projects, sessions, turns, jobs and folders. Commands add and remove Projects, start a Session, and `send` to it: text plus Attachments, and a model or settings that hold from that Turn on. Images go to the agent as images; other files are saved under `~/.ai-toolkit/attachments/<sessionId>/` and named in the message text. `forkSession` makes a Fork after any finished Turn, its own or one it inherited, copying nothing: its `forkedFrom` names the Session forked and the Turn. `settleSession` and `unsettleSession` Settle a Session and take it back, and sending to it un-settles it; a Session's `activeAt` is when a Turn last started in it, and its `endedAt` when one last ended. `ask` puts an Ask to a Session and leaves it untouched, and `regenerateTitle` writes its Title again. `listFolder` and `createFolder` walk the home folder and make a folder in it, with `git init`, to add as a Project. `skills`, `mcpStatus` and `contextUsage` say what a harness offers and how a Session stands. `backgroundJobs` streams every Session's Background Jobs and `stopBackgroundJob` stops one. `harnesses` says which harnesses run here (`available`, `unavailableReason`), and `harnessBinaries` and `setHarnessBinary` read and set each Harness Binary. The `projects`, `sessions` and `messages` feeds replay every change after a cursor, then stay live.
 
-The client side builds on [`@kestack/rpc-toolkit`](../rpc-toolkit/README.md) for the reconnecting WebSocket and on [`@kestack/std-toolkit`](../std-toolkit/README.md) for the `Ai` Replica, which keeps Projects, Sessions and open Sessions' Messages in step with the server. The engine itself is a tree of [`@kestack/kabuki`](../../packages/kabuki/README.md) Actors over a SQLite store.
+The client side builds on [`@kestack/rpc-toolkit`](../rpc-toolkit/README.md) for the reconnecting WebSocket and on [`@kestack/std-toolkit`](../std-toolkit/README.md) for the `Ai` Replica, which keeps Projects, Sessions and open Sessions' Messages in step with the server. The engine itself is a tree of [`@kestack/kabuki`](../../packages/kabuki/README.md) Actors over a SQLite store; [docs/kabuki-tree.md](docs/kabuki-tree.md) says what the tree is and why.
 
 The words are in [CONTEXT.md](CONTEXT.md). How the server thinks, Raw records and their projection to Messages, is in [docs/v1-spec.md](docs/v1-spec.md). Decisions are in [docs/adr/](docs/adr/); 0004 (The API is one RpcGroup merged from groups by area), 0011 (Fork Points are Turn ends), 0012 (Background Jobs are live, and agents may start Turns), 0013 (A Turn's facts travel in its stream) and 0014 (A Fork reads its history from the original) are current, and the others record the design this package replaced.
 
@@ -204,7 +204,7 @@ Effect.runPromise(Effect.scoped(program));
 
 ### Run the Machines Backend on a Worker
 
-The app's Worker reads its env and hands it to `serve`; Alchemy makes the `machines` table with `D1.table(machinesTable)` at deploy. Trimmed from `src/machines/backend/backend.ts`.
+The app's Worker reads its env and hands it to `serve`; Alchemy makes the `machines` table with `D1.table(machinesTable)` at deploy. Trimmed from `src/kabuki/machine/backend/serve/backend.ts`.
 
 ```ts
 import { serve } from '@kestack/ai-toolkit/machines/backend';

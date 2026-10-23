@@ -50,7 +50,7 @@ export {
   type ToolKind,
   type TurnEndStatus,
   type Usage,
-} from '../../projection/index.js';
+} from '../../services/records/projection/index.js';
 export {
   HarnessConfigSchema,
   ProjectSchema,
@@ -59,7 +59,7 @@ export {
   type Project,
   type Session,
   type SessionStatus,
-} from '../../records/index.js';
+} from '../../services/records/entities/index.js';
 export {
   AskAnswerSchema,
   AttachmentSchema,
@@ -79,6 +79,6 @@ export {
   type McpServerState,
   type McpServerStatus,
   type Skill,
-} from '../../harness-wire/index.js';
-export type { Json } from '../../raw/index.js';
-export type { HarnessName } from '../../raw/index.js';
+} from '../../services/harness/wire/index.js';
+export type { Json } from '../../services/records/raw/index.js';
+export type { HarnessName } from '../../services/records/raw/index.js';

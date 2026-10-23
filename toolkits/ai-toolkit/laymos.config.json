@@ -4,82 +4,111 @@
   "ignoredPaths": [],
   "fileModules": [],
   "rules": {
-    "src/projection": ["src/raw"],
-    "src/harness-wire": ["src/raw"],
-    "src/harness": ["src/harness-wire", "src/raw", "src/projection"],
-    "src/harnesses": ["src/harness", "src/raw", "src/projection"],
-    "src/harnesses/claude/sdk-session": ["src/harnesses/claude/project"],
-    "src/harnesses/codex/catalog": ["src/harnesses/codex/app-server"],
-    "src/harnesses/codex/thread": [
-      "src/harnesses/codex/app-server",
-      "src/harnesses/codex/catalog"
+    "src/api/client": [
+      "src/api/contract",
+      "src/services/records/entities",
+      "src/services/records/projection"
     ],
-    "src/harnesses/codex/fork": ["src/harnesses/codex/app-server"],
-    "src/harnesses/codex/project": [
-      "src/harnesses/codex/app-server",
-      "src/harnesses/codex/thread"
-    ],
-    "src/harnesses/codex/titler": [
-      "src/harnesses/codex/app-server",
-      "src/harnesses/codex/catalog",
-      "src/harnesses/codex/thread"
-    ],
-    "src/records": ["src/raw"],
-    "src/store": ["src/raw", "src/records"],
-    "src/fake-harness": ["src/harness"],
-    "src/engine": [
-      "src/store",
-      "src/harness",
-      "src/raw",
-      "src/records",
-      "src/projection"
-    ],
-    "src/engine/project": [
-      "src/engine/engine-raw",
-      "src/engine/attachments",
-      "src/engine/live-agents"
-    ],
-    "src/engine/project/session/turn": ["src/engine/project/session/agent"],
-    "src/engine/project/session/background-jobs": [
-      "src/harness-wire",
-      "src/engine/project/session/agent"
-    ],
-    "src/engine/project/session/agent-turns": [
-      "src/engine/project/session/agent"
-    ],
-    "src/engine/attachments": ["src/engine/engine-raw"],
-    "src/engine/fork": ["src/engine/engine-raw"],
-    "src/engine/inquiry": ["src/engine/engine-raw", "src/engine/live-agents"],
     "src/api/contract": [
-      "src/harness-wire",
-      "src/projection",
-      "src/records",
-      "src/raw"
+      "src/services/harness/wire",
+      "src/services/records/entities",
+      "src/services/records/projection",
+      "src/services/records/raw"
     ],
     "src/api/live": [
       "src/api/contract",
-      "src/engine",
-      "src/folders",
-      "src/store",
-      "src/harness",
-      "src/projection",
-      "src/raw",
-      "src/records"
+      "src/kabuki/engine",
+      "src/services/harness/contract",
+      "src/services/records/entities",
+      "src/services/records/projection",
+      "src/services/records/raw",
+      "src/services/records/store"
     ],
-    "src/client": ["src/api/contract", "src/projection", "src/records"],
     "src/cli": [
-      "src/store",
-      "src/engine",
-      "src/folders",
       "src/api/contract",
       "src/api/live",
-      "src/harnesses",
-      "src/harness",
-      "src/machine"
+      "src/kabuki/engine",
+      "src/kabuki/machine",
+      "src/services/harness/claude",
+      "src/services/harness/codex",
+      "src/services/harness/contract",
+      "src/services/records/store"
     ],
-    "src/machine": ["src/machines/contract", "src/machines/client"],
-    "src/machines/client": ["src/machines/contract"],
-    "src/machines/backend": ["src/machines/contract"],
-    "src/machines/backend/registry": ["src/machines/backend/storage"]
+    "src/kabuki/engine": [
+      "src/services/harness/contract",
+      "src/services/records/entities",
+      "src/services/records/projection",
+      "src/services/records/raw",
+      "src/services/records/store"
+    ],
+    "src/kabuki/engine/actor-projects": [
+      "src/kabuki/engine/capabilities",
+      "src/kabuki/engine/engine-raw",
+      "src/kabuki/engine/prompt",
+      "src/services/harness/wire"
+    ],
+    "src/kabuki/engine/prompt": ["src/kabuki/engine/engine-raw"],
+    "src/kabuki/engine/services": ["src/kabuki/engine/capabilities"],
+    "src/kabuki/machine/actor-heartbeat": [
+      "src/kabuki/machine/backend/contract",
+      "src/kabuki/machine/capabilities"
+    ],
+    "src/kabuki/machine/backend/client": [
+      "src/kabuki/machine/backend/contract"
+    ],
+    "src/kabuki/machine/backend/serve": ["src/kabuki/machine/backend/contract"],
+    "src/kabuki/machine/backend/serve/registry": [
+      "src/kabuki/machine/backend/serve/storage"
+    ],
+    "src/kabuki/machine/capabilities": ["src/kabuki/machine/backend/contract"],
+    "src/kabuki/machine/sign-in": [
+      "src/kabuki/machine/backend/client",
+      "src/kabuki/machine/backend/contract"
+    ],
+    "src/services/harness/claude": [
+      "src/services/harness/contract",
+      "src/services/records/projection",
+      "src/services/records/raw"
+    ],
+    "src/services/harness/claude/sdk-session": [
+      "src/services/harness/claude/project"
+    ],
+    "src/services/harness/codex": [
+      "src/services/harness/contract",
+      "src/services/records/projection",
+      "src/services/records/raw"
+    ],
+    "src/services/harness/codex/catalog": [
+      "src/services/harness/codex/app-server"
+    ],
+    "src/services/harness/codex/fork": [
+      "src/services/harness/codex/app-server"
+    ],
+    "src/services/harness/codex/project": [
+      "src/services/harness/codex/app-server",
+      "src/services/harness/codex/thread"
+    ],
+    "src/services/harness/codex/thread": [
+      "src/services/harness/codex/app-server",
+      "src/services/harness/codex/catalog"
+    ],
+    "src/services/harness/codex/titler": [
+      "src/services/harness/codex/app-server",
+      "src/services/harness/codex/catalog",
+      "src/services/harness/codex/thread"
+    ],
+    "src/services/harness/contract": [
+      "src/services/harness/wire",
+      "src/services/records/projection",
+      "src/services/records/raw"
+    ],
+    "src/services/harness/fake": ["src/services/harness/contract"],
+    "src/services/harness/wire": ["src/services/records/raw"],
+    "src/services/records/entities": ["src/services/records/raw"],
+    "src/services/records/projection": ["src/services/records/raw"],
+    "src/services/records/store": [
+      "src/services/records/entities",
+      "src/services/records/raw"
+    ]
   }
 }

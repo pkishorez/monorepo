@@ -1,6 +1,6 @@
 import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
-import { AttachmentSchema } from '../../harness-wire/index.js';
+import { AttachmentSchema } from '../../services/harness/wire/index.js';
 import { SessionNotFound } from './errors.js';
 import { Batch, Cursor } from './wire.js';
 
