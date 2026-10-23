@@ -63,7 +63,12 @@ export const webHost = (options: {
     const key = `${database}/${source.logicalName}`;
     const opened =
       (tables.get(key) as IDBTable<Name> | undefined) ??
-      IDB.make(source, { database: IDB.database({ databaseName: database }) });
+      // Everything the Web Platform keeps on a device may be lost without
+      // harm (ADR 0006), so every table it keeps is disposable.
+      IDB.make(source, {
+        database: IDB.database({ databaseName: database }),
+        mode: 'disposable',
+      });
     tables.set(key, opened);
     return opened.layer;
   };

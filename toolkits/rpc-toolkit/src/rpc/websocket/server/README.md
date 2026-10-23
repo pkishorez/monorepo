@@ -405,7 +405,8 @@ DurableRpcWorker<Self>()(
 
 - It is built on `@kestack/std-toolkit` (a peer) and needs a SQLite-backed Durable Object class.
 - It creates its table (`rpc_stream_store`, or `tableName`) on first use with std-toolkit's
-  `SQLite.setup`, which is idempotent; no migration step.
+  `SQLite.setup`, as a disposable table: a schema change its rows cannot take wipes them, which
+  only drops pending resumes. No migration step.
 - Each socket's record and each open stream (request with headers, plus checkpoint) is a row,
   partitioned by client id. Checkpoints must be JSON values.
 - Rows are hard-deleted, never soft-deleted: a stream's row when it ends (exit, interrupt, or

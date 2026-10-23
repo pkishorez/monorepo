@@ -97,6 +97,8 @@ export const sqlite = (options: SQLiteOptions): StreamStore => {
   const config = {
     database,
     tableName: options.tableName ?? table.logicalName,
+    // Sockets and pending replies for replay: losing them only drops a resume.
+    mode: 'disposable' as const,
   };
   const { layer } = SQLite.make(table, config);
 

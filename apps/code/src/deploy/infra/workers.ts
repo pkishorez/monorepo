@@ -35,6 +35,7 @@ export const MachinesWorker = Cloudflare.Worker(
     const table = yield* D1.table('MachinesTable', {
       table: machinesTable,
       database,
+      mode: 'persistent',
     });
     return {
       main: './src/deploy/machines-api/worker.server.ts',

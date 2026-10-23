@@ -24,47 +24,51 @@ const run = <A, E>(
 ) => {
   const database = makeNodeSQLite({ path: ':memory:' });
   const table = SQLite.make(consoleTable, { database });
+  // Set up before the captured logs: they are the explorer's own.
   return Effect.runPromise(
-    Effect.gen(function* () {
-      yield* SQLite.setup(consoleTable, { database });
-      yield* stores.insert({
-        id: 'store',
-        userId: 'alice',
-        name: 'Store',
-        state: {
-          provider: 'cloudflare',
-          credentialId: 'cf',
-          url,
-          authToken: token,
-        },
-        grants: [],
-        createdAt: 'now',
-        updatedAt: 'now',
-      });
-      const client = yield* makeClient();
-      return yield* use(client);
-    }).pipe(
-      Effect.scoped,
-      Effect.provide(
-        Logger.layer([
-          Logger.make((event) => {
-            logs.push(event.message);
-          }),
-        ]),
-      ),
-      Effect.provide(
-        ConsoleHandlers.pipe(
-          Layer.provide(table.layer),
-          Layer.provide(FetchHttpClient.layer),
+    SQLite.setup(consoleTable, { database, mode: 'persistent' }),
+  ).then(() =>
+    Effect.runPromise(
+      Effect.gen(function* () {
+        yield* stores.insert({
+          id: 'store',
+          userId: 'alice',
+          name: 'Store',
+          state: {
+            provider: 'cloudflare',
+            credentialId: 'cf',
+            url,
+            authToken: token,
+          },
+          grants: [],
+          createdAt: 'now',
+          updatedAt: 'now',
+        });
+        const client = yield* makeClient();
+        return yield* use(client);
+      }).pipe(
+        Effect.scoped,
+        Effect.provide(
+          Logger.layer([
+            Logger.make((event) => {
+              logs.push(event.message);
+            }),
+          ]),
         ),
+        Effect.provide(
+          ConsoleHandlers.pipe(
+            Layer.provide(table.layer),
+            Layer.provide(FetchHttpClient.layer),
+          ),
+        ),
+        Effect.provide(auth({ local: true })),
+        Effect.provide(table.layer),
+        Effect.provideService(FetchHttpClient.Fetch, fetch),
+        Effect.provideService(FetchHttpClient.RequestInit, {
+          redirect: 'manual',
+        }),
+        Effect.ensuring(Effect.sync(() => database.close?.())),
       ),
-      Effect.provide(auth({ local: true })),
-      Effect.provide(table.layer),
-      Effect.provideService(FetchHttpClient.Fetch, fetch),
-      Effect.provideService(FetchHttpClient.RequestInit, {
-        redirect: 'manual',
-      }),
-      Effect.ensuring(Effect.sync(() => database.close?.())),
     ),
   );
 };

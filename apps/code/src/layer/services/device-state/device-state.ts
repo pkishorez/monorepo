@@ -134,6 +134,7 @@ const idb = Layer.unwrap(
       make(
         IDB.make(table, {
           database: IDB.database({ databaseName: 'code:device' }),
+          mode: 'disposable',
         }).layer,
         broadcast(),
       ),

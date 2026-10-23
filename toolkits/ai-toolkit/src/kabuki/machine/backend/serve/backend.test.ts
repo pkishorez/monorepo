@@ -22,7 +22,9 @@ const AUTH_INFO = { url: 'https://auth.test' };
 const driver = makeNodeSQLite({ path: ':memory:' });
 
 beforeAll(() =>
-  Effect.runPromise(SQLite.setup(machinesTable, { database: driver })),
+  Effect.runPromise(
+    SQLite.setup(machinesTable, { database: driver, mode: 'persistent' }),
+  ),
 );
 
 let users = 0;
