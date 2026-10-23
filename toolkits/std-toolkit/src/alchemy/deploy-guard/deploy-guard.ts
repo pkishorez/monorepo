@@ -22,10 +22,29 @@ interface ContractProps {
    * refused in either mode: the way past one is a new physical table name.
    */
   readonly inPlaceOnly?: boolean;
+  /**
+   * The order the target was given its local secondary indexes in. The
+   * snapshot sorts them by name, but DynamoDB replaces a table whose order
+   * changes, so an in-place-only target refuses a new order.
+   */
+  readonly localIndexOrder?: readonly string[];
+}
+
+/** The contract last accepted for one physical target. */
+interface TargetContract {
+  readonly mode: TableMode;
+  readonly hash: string;
+  readonly snapshot: unknown;
+  readonly localIndexOrder?: readonly string[];
 }
 
 interface ContractOutput extends ContractProps {
   readonly hash: string;
+  /**
+   * Every target's own contract, by target. A move to a new target keeps
+   * the old one's, so moving back is still checked against its data.
+   */
+  readonly targets: Readonly<Record<string, TargetContract>>;
 }
 
 export type DeployGuard = Resource<
@@ -67,16 +86,18 @@ const replacesTable = (previous: TableSnapshot, current: TableSnapshot) =>
  * Checks a deploy against the Deployed contract: a persistent table refuses
  * a breaking change and a switch to disposable. A target that is changed in
  * place only also refuses every change that would replace or wipe it.
- * A new physical target starts a fresh contract.
+ * Each physical target is checked against its own last contract, so a new
+ * target starts fresh and an old one is never forgotten.
  */
 export const checkDeploy = (
   deployed: ContractOutput | undefined,
   current: ContractProps,
 ): Effect.Effect<ContractOutput, unknown> =>
   Effect.gen(function* () {
-    // Compared once both are known, at deploy: a target still unresolved
+    // Looked up at deploy, once the target is known: one still unresolved
     // when Alchemy planned is resolved here.
-    const previous = deployed?.target === current.target ? deployed : undefined;
+    const target = current.target ?? '';
+    const previous = deployed?.targets[target];
     const contract = yield* contractFromSnapshot(
       current.snapshot,
       current.mode,
@@ -90,6 +111,8 @@ export const checkDeploy = (
     if (current.inPlaceOnly === true && previous !== undefined) {
       const refused =
         plan.kind === 'wipe' ||
+        JSON.stringify(previous.localIndexOrder ?? []) !==
+          JSON.stringify(current.localIndexOrder ?? []) ||
         (plan.kind === 'apply' &&
           replacesTable(
             yield* TableSnapshot.parse(previous.snapshot),
@@ -104,7 +127,19 @@ export const checkDeploy = (
           ),
         );
     }
-    return { ...current, hash: contract.record.hash };
+    const accepted: TargetContract = {
+      mode: current.mode,
+      hash: contract.record.hash,
+      snapshot: current.snapshot,
+      ...(current.localIndexOrder === undefined
+        ? {}
+        : { localIndexOrder: current.localIndexOrder }),
+    };
+    return {
+      ...current,
+      hash: contract.record.hash,
+      targets: { ...deployed?.targets, [target]: accepted },
+    };
   });
 
 export const diffContract = (
@@ -142,6 +177,7 @@ export const guardContract = (
   physical: {
     readonly target?: Input<string>;
     readonly inPlaceOnly?: boolean;
+    readonly localIndexOrder?: readonly string[];
   } = {},
 ) =>
   Effect.gen(function* () {

@@ -92,18 +92,22 @@ const tableProps = (topology: DynamoTableTopology, tableName: string) => {
  */
 const table = (id: string, options: DynamoDBTableOptions) =>
   Effect.gen(function* () {
+    const topology = DynamoDBAdapter.getTableDefinition(options.table);
     const guard = yield* guardContract(
       `${id}Contract`,
       options.table,
       options.mode,
-      { target: options.tableName, inPlaceOnly: true },
+      {
+        target: options.tableName,
+        inPlaceOnly: true,
+        localIndexOrder: (topology.LocalSecondaryIndexes ?? []).map(
+          (index) => index.IndexName,
+        ),
+      },
     );
     const tableNameAfterGuard = Output.map(guard.hash, () => options.tableName);
     return yield* DynamoDBResource.Table(id, {
-      ...tableProps(
-        DynamoDBAdapter.getTableDefinition(options.table),
-        options.tableName,
-      ),
+      ...tableProps(topology, options.tableName),
       tableName: tableNameAfterGuard,
     });
   });

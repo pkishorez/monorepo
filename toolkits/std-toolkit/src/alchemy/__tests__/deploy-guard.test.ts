@@ -148,6 +148,41 @@ describe('deploy guard for a table changed in place only (DynamoDB)', () => {
     });
   }
 
+  it('refuses a new order of local secondary indexes, which DynamoDB replaces on', () => {
+    const exit = deploy(
+      deployed({
+        mode: 'persistent',
+        snapshot: withLocalIndex,
+        inPlaceOnly: true,
+        localIndexOrder: ['A', 'B'],
+      }),
+      {
+        mode: 'persistent',
+        snapshot: withLocalIndex,
+        inPlaceOnly: true,
+        localIndexOrder: ['B', 'A'],
+      },
+    );
+    expect((refusal(exit) as SetupRefused).reason).toBe('replaces-table');
+  });
+
+  it('still checks a table against its own contract after a move that never finished', () => {
+    const atA = deployed({ mode: 'persistent', snapshot: v1, target: 'A' });
+    // A deploy to B is accepted, then stops before the table moves.
+    const toB = deploy(atA, {
+      mode: 'persistent',
+      snapshot: edited,
+      target: 'B',
+    });
+    if (!Exit.isSuccess(toB)) throw new Error('the move to B failed');
+    const backToA = deploy(toB.value, {
+      mode: 'persistent',
+      snapshot: edited,
+      target: 'A',
+    });
+    expect((refusal(backToA) as SetupRefused).reason).toBe('breaking');
+  });
+
   it('refuses a disposable table a breaking change instead of wiping it', () => {
     const error = refusal(inPlace('disposable', v1, edited)) as SetupRefused;
     expect(error.reason).toBe('replaces-table');
