@@ -9,8 +9,10 @@ import { orRefused, reasonOf } from '../../../../refusal/index.ts';
  * turn, fork after a turn, and ask a question on the side.
  */
 
+/** A message to the session; `id` tells its answer apart from other sends'. */
 export const send = Command.make('Send', {
   args: Schema.Struct({
+    id: Schema.Finite,
     sessionId: Schema.String,
     text: Schema.String,
     attachments: Schema.Array(AttachmentSchema),
@@ -18,12 +20,16 @@ export const send = Command.make('Send', {
     model: Schema.optionalKey(Schema.String),
     settings: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)),
   }),
-  run: (args) =>
-    orRefused(
-      AiClient.use((api) => api.send(args)),
-      () => ({
-        _tag: 'Sent' as const,
-      }),
+  run: ({ id, ...args }) =>
+    AiClient.use((api) => api.send(args)).pipe(
+      Effect.map(() => ({ _tag: 'Sent' as const, id })),
+      Effect.catch((cause) =>
+        Effect.succeed({
+          _tag: 'SendRefused' as const,
+          id,
+          reason: reasonOf(cause),
+        }),
+      ),
     ),
 });
 

@@ -13,6 +13,7 @@ import { openSession } from './thread.js';
 const fakeServer = () => {
   const listeners = new Set<Listener>();
   const steers: Array<(ok: boolean) => void> = [];
+  const starts: Array<Record<string, unknown>> = [];
   const skills: Array<() => void> = [];
   const answers: Record<string, unknown> = {
     'thread/start': { thread: { id: 'main' } },
@@ -20,8 +21,9 @@ const fakeServer = () => {
     'turn/interrupt': {},
     'thread/backgroundTerminals/list': { data: [], nextCursor: null },
   };
-  const request = ((method: string) =>
+  const request = ((method: string, params: Record<string, unknown>) =>
     Effect.callback<unknown>((resume) => {
+      if (method === 'turn/start') starts.push(params);
       // Skills are listed when the test says: a steer naming one waits.
       if (method === 'skills/list')
         return void skills.push(() => resume(Effect.succeed({ data: [] })));
@@ -41,6 +43,7 @@ const fakeServer = () => {
   return {
     server,
     steers,
+    starts,
     skills,
     notify: (method: string, params: unknown) => {
       for (const listener of listeners)
@@ -167,6 +170,36 @@ describe('a Codex turn', () => {
       ),
     15_000,
   );
+
+  it('sends what a steer asked for, which turn/steer cannot carry, with the next turn/start', () =>
+    withSession((session, fake) =>
+      Effect.gen(function* () {
+        const turn = session.turn({ text: 'hi', images: [] });
+        const read = yield* Effect.forkChild(Stream.runCollect(turn.out));
+        const steer = yield* Effect.forkChild(
+          turn.steer('s1', {
+            text: 'also',
+            images: [],
+            model: 'gpt-next',
+            settings: { sandbox: 'danger-full-access' },
+          }),
+        );
+        yield* until(() => fake.steers.length === 1);
+        fake.steers[0]!(true);
+        yield* Fiber.join(steer);
+        fake.notify('turn/completed', completed);
+        yield* Fiber.join(read);
+        const next = session.turn({ text: 'then', images: [] });
+        const reading = yield* Effect.forkChild(Stream.runCollect(next.out));
+        yield* until(() => fake.starts.length === 2);
+        expect(fake.starts[1]).toMatchObject({
+          model: 'gpt-next',
+          sandboxPolicy: { type: 'dangerFullAccess' },
+        });
+        fake.notify('turn/completed', completed);
+        yield* Fiber.join(reading);
+      }),
+    ));
 
   it('refuses a steer once its turn has ended', () =>
     withSession((session, fake) =>

@@ -51,6 +51,22 @@ describe('the history a Fork carries on from', () => {
     expect(earlier).toMatchObject({ turns: 1 });
   });
 
+  it('ends a Turn at the last end its agent reported: one per steer answered', () => {
+    const steered = [
+      said('01', 'a', 't1'),
+      ended('02', 'a', 't1'),
+      said('03', 'a', 't1'),
+      ended('04', 'a', 't1'),
+      said('05', 'a', 't2'),
+    ];
+    const earlier = earlierOf(
+      { sessionId: 'a', turnId: 't1' },
+      [{ id: 'a', forkedFrom: null }],
+      windows({ a: steered }),
+    );
+    expect(ids(earlier)).toEqual(['01', '02', '03', '04']);
+  });
+
   it('reads up the chain: each one’s history, then its own Messages, by id', () => {
     const earlier = earlierOf(
       { sessionId: 'b', turnId: 't3' },

@@ -1,7 +1,6 @@
 import { Clock, Duration, Effect, Option, Stream } from 'effect';
 import {
   HarnessError,
-  Harnesses,
   isRecord,
   type HarnessSession,
   type RawOut,
@@ -207,12 +206,15 @@ export const run = (self: SessionSelf, turnId: string) =>
       yield* finish(result._tag === 'Failure' ? result.failure : undefined);
     });
 
-    // Stopped from outside: by a forced cancel, which ends it cancelled, or
-    // by the Session stopping, which leaves it for the next start to find.
+    // Stopped from outside: by a forced cancel, which has moved the Session
+    // on from this Turn and ends it cancelled, or by the Session stopping,
+    // which leaves it for the next start to find.
     const stopped = Effect.gen(function* () {
       const agent = yield* desk.opened;
-      if (agent) yield* agent.cancel;
-      if ((yield* ofTurn(self, turnId)).cancelling) yield* end('cancelled');
+      if (agent) yield* agent.cancel.pipe(Effect.timeoutOption(CANCEL_GRACE));
+      const { state } = yield* self.get;
+      const own = state._tag === 'Running' && state.turnId === turnId;
+      if (!own || state.cancelling) yield* end('cancelled');
       yield* desk.reset;
     });
 
@@ -234,8 +236,17 @@ export const cancel = (self: SessionSelf) =>
     if (state._tag !== 'Running') return;
     const desk = yield* (yield* Desks).of(model.session.id);
     const agent = yield* desk.opened;
-    if (agent) yield* agent.cancel;
-    yield* Effect.sleep(CANCEL_GRACE);
+    // The grace counts from the ask: an agent that never answers it, as one
+    // whose turn never started may not, does not hold the Turn open either.
+    yield* Effect.all(
+      [
+        agent
+          ? agent.cancel.pipe(Effect.timeoutOption(CANCEL_GRACE))
+          : Effect.void,
+        Effect.sleep(CANCEL_GRACE),
+      ],
+      { concurrency: 'unbounded', discard: true },
+    );
     yield* Effect.logWarning('The agent did not stop in time; ending the turn');
     yield* self.send({
       _tag: 'TurnEnded',

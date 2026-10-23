@@ -108,6 +108,41 @@ describe('Strategies', () => {
     expect(batches.at(-1)?.state.reachedOldest).toBe(true);
   });
 
+  it('reopened, fills the gap below a newest page whose records share _u with what it kept', async () => {
+    let records = ['b', 'a'].map(entity);
+    const strategy = newToOld({
+      fetch: () => Effect.succeed([]),
+      fetchOlder: ({ before }) =>
+        Effect.succeed(
+          records
+            .slice(
+              before === null
+                ? 0
+                : records.findIndex(
+                    (row) =>
+                      (row.value as { id: string }).id ===
+                      (before.value as { id: string }).id,
+                  ) + 1,
+            )
+            .slice(0, 2),
+        ),
+    });
+    const first = await Effect.runPromise(
+      Stream.runCollect(
+        strategy.run({ key: undefined, state: strategy.initial }),
+      ),
+    );
+    expect(first.flatMap(({ entities }) => entities)).toEqual(records);
+    records = ['e', 'd', 'c', 'b', 'a'].map(entity);
+    const reopened = await Effect.runPromise(
+      Stream.runCollect(
+        strategy.run({ key: undefined, state: first.at(-1)!.state }),
+      ),
+    );
+    expect(reopened.flatMap(({ entities }) => entities)).toEqual(records);
+    expect(reopened.at(-1)?.state.slices).toHaveLength(1);
+  });
+
   it('fetches the newest page again after a previously empty run', async () => {
     let records: Wire[] = [];
     let reads = 0;

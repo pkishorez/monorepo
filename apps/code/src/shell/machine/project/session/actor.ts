@@ -43,7 +43,8 @@ import { btwQuestion } from './btw.ts';
  *             time, each a fresh one.
  * 4. Send     the draft and its files go to the server, which starts a turn
  *             when the session is idle, and steers the running one
- *             otherwise. The draft clears at once; refused, it comes back.
+ *             otherwise. The draft clears at once; refused, it comes back,
+ *             each send kept apart until the server has answered it.
  * 5. Ask      a draft that starts with `/btw` is a question on the side: its
  *             answer shows over the composer, never in the transcript, and
  *             the session goes on as it was. A newer question replaces it.
@@ -53,7 +54,9 @@ import { btwQuestion } from './btw.ts';
  * 8. Open     which tool calls, thoughts and subagents are shown open.
  */
 
-const Draft = Schema.Struct({
+/** A draft sent, kept until the server answers, to come back if refused. */
+const Unsent = Schema.Struct({
+  id: Schema.Finite,
   text: Schema.String,
   attachments: Schema.Array(Attached),
 });
@@ -138,8 +141,10 @@ const COMMANDS = [
 const Model = Schema.Struct({
   draft: Schema.String,
   attachments: Schema.Array(Attached),
-  /** Sent and not yet answered: brought back if the server refuses it. */
-  unsent: Schema.NullOr(Draft),
+  /** Sent and not yet answered, oldest first: brought back if refused. */
+  unsent: Schema.Array(Unsent),
+  /** How many were sent: each send's id. */
+  sends: Schema.Finite,
   stopping: Schema.Boolean,
   problem: Schema.NullOr(Schema.String),
   open: Schema.Array(Schema.String),
@@ -186,7 +191,8 @@ export const Session = Page.define({
     Send: {},
     Stop: {},
     Toggle: { id: Schema.String },
-    Sent: {},
+    Sent: { id: Schema.Finite },
+    SendRefused: { id: Schema.Finite, reason: Schema.String },
     Stopped: {},
     Answered: { id: Schema.Finite, answer: Schema.String },
     AskRefused: { id: Schema.Finite, reason: Schema.String },
@@ -223,7 +229,8 @@ export const SessionLive = Page.build(Session, {
     model: {
       draft: '',
       attachments: [],
-      unsent: null,
+      unsent: [],
+      sends: 0,
       stopping: false,
       problem: null,
       open: [],
@@ -390,15 +397,21 @@ export const SessionLive = Page.build(Session, {
       // 4. Send
       const text = model.draft.trim();
       if (text === '' && model.attachments.length === 0) return {};
+      const id = model.sends + 1;
       return {
         model: {
           ...model,
           draft: '',
           attachments: [],
-          unsent: { text, attachments: model.attachments },
+          unsent: [
+            ...model.unsent,
+            { id, text, attachments: model.attachments },
+          ],
+          sends: id,
           problem: null,
         },
         command: send({
+          id,
           sessionId: props.params.sessionId,
           text,
           attachments: wire(model.attachments),
@@ -409,7 +422,28 @@ export const SessionLive = Page.build(Session, {
         }),
       };
     },
-    Sent: (_, { model }) => ({ model: { ...model, unsent: null } }),
+    Sent: ({ id }, { model }) => ({
+      model: {
+        ...model,
+        unsent: model.unsent.filter((each) => each.id !== id),
+      },
+    }),
+    SendRefused: ({ id, reason }, { model }) => {
+      const refused = model.unsent.find((each) => each.id === id);
+      const back =
+        refused && model.draft === '' && model.attachments.length === 0
+          ? refused
+          : null;
+      return {
+        model: {
+          ...model,
+          problem: reason,
+          draft: back?.text ?? model.draft,
+          attachments: back?.attachments ?? model.attachments,
+          unsent: model.unsent.filter((each) => each.id !== id),
+        },
+      };
+    },
     Answered: ({ id, answer }, { model }) =>
       model.asked?.id === id
         ? { model: { ...model, asked: { ...model.asked, answer } } }
@@ -445,23 +479,9 @@ export const SessionLive = Page.build(Session, {
             command: cancel({ sessionId: props.params.sessionId }),
           },
     Stopped: (_, { model }) => ({ model: { ...model, stopping: false } }),
-    Refused: ({ reason }, { model }) => {
-      const back =
-        model.draft === '' && model.attachments.length === 0
-          ? model.unsent
-          : null;
-      return {
-        model: {
-          ...model,
-          problem: reason,
-          stopping: false,
-          forking: null,
-          draft: back?.text ?? model.draft,
-          attachments: back?.attachments ?? model.attachments,
-          unsent: null,
-        },
-      };
-    },
+    Refused: ({ reason }, { model }) => ({
+      model: { ...model, problem: reason, stopping: false, forking: null },
+    }),
     // 8. Open
     Toggle: ({ id }, { model }) => ({
       model: {

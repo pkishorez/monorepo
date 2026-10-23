@@ -46,9 +46,13 @@ export type Earlier =
 const byId = (a: Message, b: Message) =>
   a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 
-/** The index of the Message that ended `turnId`; -1 when none did. */
+/**
+ * The index of the Message that ended `turnId`; -1 when none did. An agent
+ * may report an end for each steer it answered within one Turn: the last
+ * is the Turn's.
+ */
 const endOf = (messages: ReadonlyArray<Message>, turnId: string) =>
-  messages.findIndex(
+  messages.findLastIndex(
     (message) =>
       message.turnId === turnId &&
       message.parts.some(({ type }) => type === 'turnEnded'),

@@ -287,6 +287,11 @@ export const openSession = (
     let model = config.model;
     let effort = config.effort;
     let sandbox = config.sandbox;
+    /**
+     * Changes a steer asked for: `turn/steer` cannot carry them, so they
+     * go with the next `turn/start`.
+     */
+    let asked: Pick<TurnInput, 'model' | 'settings'> = {};
     let tokenUsage: ThreadTokenUsage | undefined;
     let skills: ReadonlyArray<SkillMetadata> | undefined;
     let terminals: ReadonlyArray<BackgroundTerminal> = [];
@@ -363,27 +368,45 @@ export const openSession = (
         Effect.map((known) => toUserInput(input, known)),
       );
 
-    /** The `turn/start` overrides a Turn's model and settings ask for. */
+    /** Remembers what a steer asks for, until the next `turn/start`. */
+    const remember = ({ model, settings }: TurnInput) => {
+      asked = {
+        ...asked,
+        ...(model === undefined ? {} : { model }),
+        ...(settings === undefined
+          ? {}
+          : { settings: { ...asked.settings, ...settings } }),
+      };
+    };
+
+    /**
+     * The `turn/start` overrides a Turn's model and settings ask for, with
+     * what the steers before it asked for.
+     */
     const overrides = (input: TurnInput) => {
+      const wanted = input.model ?? asked.model;
+      const settings =
+        input.settings === undefined && asked.settings === undefined
+          ? undefined
+          : { ...asked.settings, ...input.settings };
+      asked = {};
       // Setting values a Turn leaves out keep their current value.
       const next =
-        input.settings === undefined
+        settings === undefined
           ? { effort, sandbox }
           : threadOptions({
               reasoningEffort: effort,
               sandbox,
-              ...input.settings,
+              ...settings,
             });
       const changes = {
-        ...(input.model === undefined || input.model === model
-          ? {}
-          : { model: input.model }),
+        ...(wanted === undefined || wanted === model ? {} : { model: wanted }),
         effort: next.effort,
         ...(next.sandbox === sandbox
           ? {}
           : { sandboxPolicy: sandboxPolicy(next.sandbox) }),
       };
-      model = input.model ?? model;
+      model = wanted ?? model;
       effort = next.effort;
       sandbox = next.sandbox;
       return changes;
@@ -424,6 +447,7 @@ export const openSession = (
         // Counted from the moment it is sent: only a sent steer may be
         // marked taken by a turn that ends before Codex answers.
         current.steering.add(id);
+        remember(input);
         yield* server
           .request('turn/steer', { threadId, expectedTurnId, input: items })
           .pipe(
