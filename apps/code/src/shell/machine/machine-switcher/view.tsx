@@ -18,8 +18,7 @@ import { MachineSwitcherLive, MachinesView } from './actor.ts';
 const DOT = {
   Connected: null,
   Unknown: 'bg-muted-foreground',
-  Connecting: 'bg-warning',
-  TunnelBroken: 'bg-warning',
+  Seen: 'bg-warning',
   Down: 'bg-destructive',
 } as const;
 

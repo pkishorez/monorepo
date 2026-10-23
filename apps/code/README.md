@@ -49,9 +49,10 @@ which names its `Ai` Instance: switching Machine is a new page, so the old
 socket, Replicas and Instance close together and no Machine's socket ever
 feeds another's records. It holds the Replica with every project and
 session for the sidebar, the socket's state, and the Pickers. While the
-Machine is out of reach the header says why, from its record: on its way,
-its tunnel broken (seen lately, its tunnel check failing), or down (not
-seen for three Heartbeats), with when it was last seen; what it synced
+Machine is out of reach the header says why, from its Machine Status:
+downloading cloudflared, opening its tunnel, the tunnel failed to open,
+its tunnel broken (its last check failing), or down (not seen for three
+Heartbeats), with when it was last seen; what it synced
 stays readable and nothing can be sent. Device State is the truth: an
 actor that shows it reads it again after every write, from this tab or
 another.

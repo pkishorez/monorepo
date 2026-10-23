@@ -5,7 +5,7 @@ import { Skeleton } from '@kestack/web-platform/components/skeleton';
 import { useEffect, useState } from 'react';
 import * as Confirm from '../../../../ui/confirm/index.ts';
 import { ago } from '../../../../ui/time/index.ts';
-import { DOWN_AFTER, tunnelOf } from '../../../machines/index.ts';
+import { DOWN_AFTER, statusOf } from '../../../machines/index.ts';
 import { authHome } from '../../../sign-in/index.ts';
 import { MachineSettingsLive } from './actor.ts';
 
@@ -13,7 +13,7 @@ type Machine = typeof MachineSchema.Type;
 
 /*
  * Settings → Machines: one row per Machine, with when it was last seen and
- * how its tunnel stands, and Forget, which asks first. Below, outside
+ * its Machine Status, and Forget, which asks first. Below, outside
  * Local mode, the way to the Auth Worker's Home Page, where a Machine's
  * Sign-in is revoked outright.
  */
@@ -74,8 +74,8 @@ export const MachineSettingsView = View.make(
                     {machine.name}
                   </span>
                   <span className="truncate text-xs text-muted-foreground">
-                    {lastSeen(machine, now)} · {tunnelOf(machine)} · ai-toolkit{' '}
-                    {machine.version}
+                    {lastSeen(machine, now)} · {statusOf(machine.status)} ·
+                    ai-toolkit {machine.version}
                   </span>
                 </div>
                 <Button
@@ -113,7 +113,7 @@ export const MachineSettingsView = View.make(
           description={
             asked === undefined
               ? ''
-              : `${lastSeen(asked, now)} · ${tunnelOf(asked)}. It is signed out and stops; its sessions stay on it, but this device deletes what it kept of them.`
+              : `${lastSeen(asked, now)} · ${statusOf(asked.status)}. It is signed out and stops; its sessions stay on it, but this device deletes what it kept of them.`
           }
           problem={forgetting?.problem ?? null}
           busy={forgetting !== null && forgetting.problem === null}

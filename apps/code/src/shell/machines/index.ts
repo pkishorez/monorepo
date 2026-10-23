@@ -11,6 +11,6 @@ export {
   savedMemory,
   signedOut,
   socketUrl,
-  tunnelOf,
+  statusOf,
 } from './actor.ts';
 export { MachineListView as View } from './view.tsx';

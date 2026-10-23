@@ -26,11 +26,11 @@ export const AuthInfo = Schema.Union([
 ]);
 export type AuthInfo = typeof AuthInfo.Type;
 
-/** Whether a Machine could reach itself at its public address, as its last Heartbeat found. */
+/** Whether a Machine could reach itself at its public address: a Tunnel Check. */
 export const TunnelCheck = Schema.Struct({
   ok: Schema.Boolean,
   /** When it was checked, epoch ms. */
-  at: Schema.Number,
+  at: Schema.Finite,
   /** Why it failed, when it did. */
   problem: Schema.NullOr(Schema.String),
 });
@@ -40,6 +40,34 @@ export type TunnelCheck = typeof TunnelCheck.Type;
 const Bounded = (max: number) =>
   Schema.NonEmptyString.check(Schema.isMaxLength(max));
 
+/** A Machine's public address, `https://…` alone. */
+const Address = Bounded(256).check(Schema.isPattern(/^https:\/\/[^/?#\s]+/));
+
+/**
+ * Where a Machine's tunnel stands, as its last Heartbeat said: on its way
+ * (Installing, then Opening), failed to open and about to try again, or up
+ * at an address, with what its last Tunnel Check found there.
+ */
+export const MachineStatus = Schema.TaggedUnion({
+  /** Downloading cloudflared, once per computer. */
+  Installing: {},
+  /** cloudflared is starting and connecting to Cloudflare. */
+  Opening: {},
+  /** The tunnel could not open; another is tried shortly. */
+  OpenFailed: { at: Schema.Finite, problem: Schema.String },
+  /** Up at `url`, not checked yet. */
+  Unchecked: { url: Address },
+  /** Up at `url`, and the last Tunnel Check reached it. */
+  Reachable: { url: Address, at: Schema.Finite },
+  /** Up at `url`, but the last Tunnel Check did not reach it. */
+  Unreachable: { url: Address, at: Schema.Finite, problem: Schema.String },
+});
+export type MachineStatus = typeof MachineStatus.Type;
+
+/** The address a status is up at; null while there is none. */
+export const addressOf = (status: MachineStatus) =>
+  'url' in status ? status.url : null;
+
 /**
  * What a Machine says of itself on each Heartbeat. Every field is bounded,
  * and its address is `https://` alone: the app dials it with the Machine
@@ -48,15 +76,11 @@ const Bounded = (max: number) =>
 export const MachineReport = Schema.Struct({
   id: Bounded(64),
   name: Bounded(64),
-  /** Its public address, `https://…`; null while it has none. */
-  url: Schema.NullOr(
-    Bounded(256).check(Schema.isPattern(/^https:\/\/[^/?#\s]+/)),
-  ),
   /** Its Machine Key (ADR 0015). */
   key: Bounded(128),
   /** The ai-toolkit version it runs. */
   version: Schema.String.check(Schema.isMaxLength(32)),
-  tunnel: Schema.NullOr(TunnelCheck),
+  status: MachineStatus,
 });
 export type MachineReport = typeof MachineReport.Type;
 

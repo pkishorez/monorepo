@@ -1,15 +1,22 @@
-import { Duration, Effect, Schedule, Schema } from 'effect';
+import { Clock, Duration, Effect, Schedule, Schema } from 'effect';
 import { Actor, type Self } from '@kestack/kabuki';
-import { TunnelCheck } from '../backend/contract/index.js';
+import {
+  addressOf,
+  MachineStatus,
+  TunnelCheck,
+} from '../backend/contract/index.js';
 import { HeartbeatHost } from '../capabilities/index.js';
 
 /*
  * The Heartbeat as an Actor. While Online, one Worker keeps a tunnel open,
  * keyed by its generation, so a new generation is a restarted tunnel; another
  * beats on a fixed interval: it checks the tunnel, then Reports to the
- * Backend. Three failed checks in a row start a new generation. A revoked
- * Sign-in takes it to SigningIn, which closes the tunnel until signed in
- * again; a forgotten or refused Machine ends it.
+ * Backend. Each Report carries the Machine Status: the tunnel Installing
+ * cloudflared, Opening, failed to open, or up and how its last check went.
+ * A change the app waits on, a download begun or a tunnel up or failed, is
+ * Reported at once. Three failed checks in a row start a new generation. A
+ * revoked Sign-in takes it to SigningIn, which closes the tunnel until
+ * signed in again; a forgotten or refused Machine ends it.
  *
  * A Backend that refuses Sign-in after Sign-in would have it sign in and
  * open a tunnel over and over: from the second refusal in a row it waits
@@ -42,10 +49,9 @@ export const backoffAfter = (refusals: number, first: Duration.Input) =>
 const Model = Schema.Struct({
   /** Which tunnel this is; a new one is a restart. */
   generation: Schema.Number,
-  url: Schema.NullOr(Schema.String),
+  status: MachineStatus,
   /** Failed Tunnel Checks in a row. */
   failures: Schema.Number,
-  tunnel: Schema.NullOr(TunnelCheck),
   /** Sign-ins the Backend refused in a row, since a Report was last taken. */
   refusals: Schema.Number,
 });
@@ -60,6 +66,13 @@ const State = Schema.TaggedUnion({
 type State = typeof State.Type;
 
 const Message = Schema.TaggedUnion({
+  Installing: { generation: Schema.Number },
+  Opening: { generation: Schema.Number },
+  OpenFailed: {
+    generation: Schema.Number,
+    at: Schema.Number,
+    problem: Schema.String,
+  },
   TunnelUp: { generation: Schema.Number, url: Schema.String },
   TunnelLost: { generation: Schema.Number },
   Checked: { generation: Schema.Number, check: TunnelCheck },
@@ -76,17 +89,27 @@ type HeartbeatSelf = Self<Model, State, typeof Message.Type>;
 const restarted = (model: Model): Model => ({
   ...model,
   generation: model.generation + 1,
-  url: null,
+  status: { _tag: 'Opening' },
   failures: 0,
-  tunnel: null,
 });
+
+/** The status of a tunnel at `url` that `check` found reachable or not. */
+const checked = (url: string, check: TunnelCheck): MachineStatus =>
+  check.ok
+    ? { _tag: 'Reachable', url, at: check.at }
+    : {
+        _tag: 'Unreachable',
+        url,
+        at: check.at,
+        problem: check.problem ?? 'Unknown',
+      };
 
 /** Sends a Report of how things stand now, and acts on the answer. */
 const report = (self: HeartbeatSelf) =>
   Effect.gen(function* () {
     const host = yield* HeartbeatHost;
     const { model } = yield* self.get;
-    const answer = yield* host.report({ url: model.url, tunnel: model.tunnel });
+    const answer = yield* host.report(model.status);
     switch (answer._tag) {
       case 'Reported':
         return yield* self.send({ _tag: 'Reported' });
@@ -108,8 +131,9 @@ const beat = (self: HeartbeatSelf) =>
   Effect.gen(function* () {
     const host = yield* HeartbeatHost;
     const { model } = yield* self.get;
-    if (model.url !== null) {
-      const check = yield* host.check(model.url);
+    const url = addressOf(model.status);
+    if (url !== null) {
+      const check = yield* host.check(url);
       if (!check.ok)
         yield* Effect.logWarning(
           `Tunnel check ${model.failures + 1}/${FAILURES_BEFORE_RESTART} failed: ${check.problem}`,
@@ -128,13 +152,36 @@ const beat = (self: HeartbeatSelf) =>
     yield* report(self);
   });
 
-/** Keeps the tunnel of one generation open, and Reports its new address at once. */
+/** Downloads cloudflared if it is missing, Reporting while it does. */
+const install = (self: HeartbeatSelf, generation: number) =>
+  Effect.gen(function* () {
+    const host = yield* HeartbeatHost;
+    if (yield* host.installed) return;
+    yield* Effect.log('Downloading cloudflared');
+    yield* self.send({ _tag: 'Installing', generation });
+    yield* report(self);
+    yield* host.install;
+    yield* self.send({ _tag: 'Opening', generation });
+    yield* report(self);
+  });
+
+/** Keeps the tunnel of one generation open, and Reports its new address, or why it has none, at once. */
 const keepTunnel = (self: HeartbeatSelf, generation: number) =>
   Effect.gen(function* () {
     const host = yield* HeartbeatHost;
-    const opened = yield* Effect.result(host.open);
+    const opened = yield* Effect.result(
+      Effect.andThen(install(self, generation), host.open),
+    );
     if (opened._tag === 'Failure') {
       yield* Effect.logWarning('Could not open a tunnel', opened.failure);
+      const { failure } = opened;
+      yield* self.send({
+        _tag: 'OpenFailed',
+        generation,
+        at: yield* Clock.currentTimeMillis,
+        problem: failure instanceof Error ? failure.message : String(failure),
+      });
+      yield* report(self);
       yield* Effect.sleep(REOPEN_AFTER);
       return yield* self.send({ _tag: 'TunnelLost', generation });
     }
@@ -158,9 +205,8 @@ export const Heartbeat = Actor.build(
     init: () => ({
       model: {
         generation: 0,
-        url: null,
+        status: { _tag: 'Opening' },
         failures: 0,
-        tunnel: null,
         refusals: 0,
       },
       state: { _tag: 'Online' },
@@ -172,20 +218,44 @@ export const Heartbeat = Actor.build(
     state: {
       Online: {
         on: {
+          Installing: ({ generation }, { model }) =>
+            generation === model.generation
+              ? { model: { ...model, status: { _tag: 'Installing' } } }
+              : {},
+          Opening: ({ generation }, { model }) =>
+            generation === model.generation
+              ? { model: { ...model, status: { _tag: 'Opening' } } }
+              : {},
+          OpenFailed: ({ generation, at, problem }, { model }) =>
+            generation === model.generation
+              ? {
+                  model: {
+                    ...model,
+                    status: { _tag: 'OpenFailed', at, problem },
+                  },
+                }
+              : {},
           TunnelUp: ({ generation, url }, { model }) =>
             generation === model.generation
-              ? { model: { ...model, url, failures: 0, tunnel: null } }
+              ? {
+                  model: {
+                    ...model,
+                    status: { _tag: 'Unchecked', url },
+                    failures: 0,
+                  },
+                }
               : {},
           TunnelLost: ({ generation }, { model }) =>
             generation === model.generation ? { model: restarted(model) } : {},
           Checked: ({ generation, check }, { model }) => {
-            if (generation !== model.generation) return {};
+            const url = addressOf(model.status);
+            if (generation !== model.generation || url === null) return {};
             const failures = check.ok ? 0 : model.failures + 1;
             return {
               model:
                 failures >= FAILURES_BEFORE_RESTART
                   ? restarted(model)
-                  : { ...model, failures, tunnel: check },
+                  : { ...model, failures, status: checked(url, check) },
             };
           },
           Reported: (_, { model }) =>

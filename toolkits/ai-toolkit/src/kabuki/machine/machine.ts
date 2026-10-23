@@ -1,10 +1,15 @@
 import { Context, Data, Effect, Layer } from 'effect';
 import { MachinesClient } from './backend/client/index.js';
-import type { TunnelCheck } from './backend/contract/index.js';
+import type { MachineStatus } from './backend/contract/index.js';
 import { heartbeat } from './heartbeat.js';
 import { claim, forget, found } from './identity/index.js';
 import { signIn, stored } from './sign-in/index.js';
-import { checkAt, openTunnel } from './tunnel/index.js';
+import {
+  checkAt,
+  cloudflaredInstalled,
+  installCloudflared,
+  openTunnel,
+} from './tunnel/index.js';
 
 /*
  * This server as a Machine: signed in to its Backend as one User, the one
@@ -94,16 +99,11 @@ export const online = (
   Effect.gen(function* () {
     const { machine, session, backend, version } = identified;
     const client = yield* clientAt(backend, session.signing);
-    const report = (now: {
-      readonly url: string | null;
-      readonly tunnel: TunnelCheck | null;
-    }) =>
-      client
-        .Report({ ...machine, version, url: now.url, tunnel: now.tunnel })
-        .pipe(
-          Effect.as({ _tag: 'Reported' } as const),
-          Effect.catch((error) => Effect.succeed(outcomeOf(error))),
-        );
+    const report = (status: MachineStatus) =>
+      client.Report({ ...machine, version, status }).pipe(
+        Effect.as({ _tag: 'Reported' } as const),
+        Effect.catch((error) => Effect.succeed(outcomeOf(error))),
+      );
     const again: Effect.Effect<
       { readonly id: string; readonly email: string },
       unknown
@@ -123,6 +123,8 @@ export const online = (
 
     const ended = yield* heartbeat({
       every: `${options.every} seconds`,
+      installed: cloudflaredInstalled,
+      install: installCloudflared,
       open: openTunnel(options.port),
       check: checkAt,
       report,

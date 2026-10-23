@@ -92,10 +92,9 @@ const as = <A, E>(
 const reportOf = (id: string, name = 'laptop'): MachineReport => ({
   id,
   name,
-  url: `https://${id}.tunnel.test`,
   key: `key-${id}`,
   version: '0.0.2',
-  tunnel: { ok: true, at: 1, problem: null },
+  status: { _tag: 'Reachable', url: `https://${id}.tunnel.test`, at: 1 },
 });
 
 describe('the Machines Backend', () => {
@@ -225,20 +224,24 @@ describe('the Machines Backend', () => {
     const valid = Schema.is(MachineReport);
     const base = reportOf('bounded');
     expect(valid(base)).toBe(true);
-    expect(valid({ ...base, url: null })).toBe(true);
-    expect(valid({ ...base, url: 'http://bounded.tunnel.test' })).toBe(false);
-    expect(valid({ ...base, url: 'wss://bounded.tunnel.test' })).toBe(false);
-    expect(valid({ ...base, url: 'https://' })).toBe(false);
-    expect(valid({ ...base, url: `https://${'a'.repeat(250)}.test` })).toBe(
-      false,
-    );
+    const at = (url: string) => ({
+      ...base,
+      status: { _tag: 'Unchecked', url },
+    });
+    expect(valid({ ...base, status: { _tag: 'Opening' } })).toBe(true);
+    expect(valid(at('http://bounded.tunnel.test'))).toBe(false);
+    expect(valid(at('wss://bounded.tunnel.test'))).toBe(false);
+    expect(valid(at('https://'))).toBe(false);
+    expect(valid(at(`https://${'a'.repeat(250)}.test`))).toBe(false);
     expect(valid({ ...base, name: 'n'.repeat(65) })).toBe(false);
     expect(valid({ ...base, version: 'v'.repeat(33) })).toBe(false);
     expect(valid({ ...base, key: 'k'.repeat(129) })).toBe(false);
     const ada = signIn('ada');
     expect(
-      await as(ada, (m) => m.Report({ ...base, url: null })),
-    ).toMatchObject({ id: 'bounded', url: null });
+      await as(ada, (m) =>
+        m.Report({ ...base, status: { _tag: 'Installing' } }),
+      ),
+    ).toMatchObject({ id: 'bounded', status: { _tag: 'Installing' } });
   });
 
   it('answers /auth with how a Machine signs in, to anyone', async () => {

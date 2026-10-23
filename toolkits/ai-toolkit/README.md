@@ -92,8 +92,10 @@ pnpm add @kestack/ai-toolkit effect @kestack/rpc-toolkit @kestack/std-toolkit @k
 | Export             | What it does                                                                                    |
 | ------------------ | ----------------------------------------------------------------------------------------------- |
 | `MachinesApi`      | The RPC group the Machines Backend answers: `Report`, `List` and `Forget`, for the caller only. |
-| `MachineReport`    | Schema of what a Machine says of itself on each Heartbeat: id, name, address, Machine Key.      |
+| `MachineReport`    | Schema of what a Machine says of itself on each Heartbeat: id, name, Machine Key, status.       |
 | `Machine`          | Schema of a Machine as its User sees it: its last Report and its Last Seen.                     |
+| `MachineStatus`    | Schema of how far a Machine's tunnel got: downloading cloudflared, opening, failed, or up.      |
+| `addressOf`        | The public address a Machine Status is up at, or null.                                          |
 | `TunnelCheck`      | Schema of whether a Machine could reach itself at its public address, and when it checked.      |
 | `AuthInfo`         | Schema of how a Machine signs in to the Backend: the Auth Worker's URL, or Local mode.          |
 | `MachineForgotten` | Error: the Machine, or its Sign-in, was forgotten; it must sign out and stop.                   |
@@ -145,7 +147,7 @@ pnpm --filter @kestack/ai-toolkit dev   # this Machine, against that Backend
 - `--backend` falls back to `AI_TOOLKIT_BACKEND`, then `https://api-code.kishore.app`. `serve` asks it how to sign in: through its Auth Worker, by Device Login the first time (the link and code are printed; `o` opens the browser), the Sign-in kept in the database file for later runs; or, for a Backend in Local mode, as the User `--as <email>` names. `--as` is refused by a Backend with an Auth Worker, and a Local mode Backend needs it.
 - One database file is one Machine of one User. The first run makes the Machine: a random id, a Machine Key that never changes, and the host's name, which `--name` replaces and keeps. Another User signing in on the file is refused: use another `--db`.
 - With a Machine Key, every request but `/health` must offer the subprotocols `ai-toolkit` and `key.<key>`, page or program; without the key it gets 401, with a wrong one 403. The server answers with `ai-toolkit`, never the key.
-- The tunnel is `cloudflared tunnel --url http://127.0.0.1:<port>`; the binary is downloaded on first use. Every `--heartbeat` seconds (15 unless given) the Machine checks `<tunnel>/health` and reports its id, name, address, key, version and that check to the Backend. Three failed checks in a row restart cloudflared, and the new address is reported at once.
+- The tunnel is `cloudflared tunnel --url http://127.0.0.1:<port>`; the binary is downloaded on first use to `~/.ai-toolkit/bin`, and a download that takes over ten minutes fails and is tried again. Every `--heartbeat` seconds (15 unless given) the Machine checks `<tunnel>/health` and reports its id, name, key, version and Machine Status to the Backend: downloading cloudflared, opening the tunnel, failed to open and why, or up at its address and whether the last check reached it. Three failed checks in a row restart cloudflared. A download begun, a tunnel up and a tunnel that failed to open are reported at once.
 - A Machine forgotten from the app signs out, which revokes its Sign-in, and stops. A revoked Sign-in closes the tunnel and asks to sign in again in the terminal.
 - `logout` asks the Backend to Forget the Machine (a failure is only logged), signs out and forgets the Machine here, keeping its Projects and Sessions: the next `serve` is a new Machine.
 - `--port` falls back to `PORT`, then 4590. `--db` defaults to `~/.ai-toolkit/ai.db`.

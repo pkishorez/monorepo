@@ -232,6 +232,6 @@ export const MachineListLive = Actor.build(MachineList, {
 // Account's list and each Machine's records, and what signing out deletes.
 export { signedOut } from './api.ts';
 export { Records } from './records.ts';
-export { DOWN_AFTER, health, socketUrl, tunnelOf } from './health.ts';
+export { DOWN_AFTER, health, socketUrl, statusOf } from './health.ts';
 export { Machines } from './link.ts';
 export { idb as savedIdb, memory as savedMemory, Saved } from './saved.ts';

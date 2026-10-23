@@ -1,6 +1,6 @@
 import { type Duration, Effect, Fiber } from 'effect';
 import { describe, expect, it, vi } from 'vitest';
-import type { TunnelCheck } from './backend/contract/index.js';
+import { addressOf, type MachineStatus } from './backend/contract/index.js';
 import { heartbeat } from './heartbeat.js';
 
 /*
@@ -8,10 +8,7 @@ import { heartbeat } from './heartbeat.js';
  * many times one was opened, and a fake Backend that records each Report.
  */
 
-type Report = {
-  readonly url: string | null;
-  readonly tunnel: TunnelCheck | null;
-};
+type Report = MachineStatus;
 type Answer = Parameters<typeof heartbeat>[0]['report'] extends (
   ...args: never
 ) => Effect.Effect<infer A>
@@ -23,13 +20,22 @@ const fake = (options: {
   readonly answer?: (report: Report, count: number) => Answer;
   readonly signInAgain?: Effect.Effect<void, string>;
   readonly backoff?: Duration.Input;
+  /** Whether cloudflared is there at first; the fake download installs it. */
+  readonly installed?: boolean;
+  readonly install?: Effect.Effect<void, Error>;
 }) => {
+  let installed = options.installed ?? true;
   const opened: Array<string> = [];
   const closed: Array<string> = [];
   const reports: Array<Report> = [];
   const signIns: Array<number> = [];
   const host = {
     every: '10 millis',
+    installed: Effect.sync(() => installed),
+    install: Effect.andThen(
+      options.install ?? Effect.void,
+      Effect.sync(() => void (installed = true)),
+    ),
     open: Effect.acquireRelease(
       Effect.sync(() => {
         const url = `https://t${opened.length + 1}.example`;
@@ -73,6 +79,50 @@ const eventually = (assertion: () => void) =>
   Effect.promise(() => vi.waitFor(assertion, { timeout: 5_000, interval: 10 }));
 
 describe('the Heartbeat', () => {
+  it('reports cloudflared downloading, then the tunnel opening, then up', () =>
+    Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const { host, reports } = fake({
+            healthy: () => true,
+            installed: false,
+            install: Effect.sleep('30 millis'),
+          });
+          const running = yield* Effect.forkScoped(heartbeat(host));
+          yield* eventually(() =>
+            expect(reports.at(-1)?._tag).toBe('Reachable'),
+          );
+          // Opening at first, until the tunnel finds cloudflared missing.
+          const tags = reports.map(({ _tag }) => _tag).join(',');
+          expect(tags).toMatch(/Installing,(Installing,)*Opening,.*Reachable$/);
+          yield* Fiber.interrupt(running);
+        }),
+      ),
+    ));
+
+  it('reports why the tunnel could not open', () =>
+    Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const { host, reports } = fake({
+            healthy: () => true,
+            installed: false,
+            install: Effect.fail(new Error('download timed out')),
+          });
+          const running = yield* Effect.forkScoped(heartbeat(host));
+          yield* eventually(() =>
+            expect(reports).toContainEqual(
+              expect.objectContaining({
+                _tag: 'OpenFailed',
+                problem: 'download timed out',
+              }),
+            ),
+          );
+          yield* Fiber.interrupt(running);
+        }),
+      ),
+    ));
+
   it('restarts the tunnel after three failed checks in a row, and reports the new address', () =>
     Effect.runPromise(
       Effect.scoped(
@@ -83,21 +133,26 @@ describe('the Heartbeat', () => {
           const running = yield* Effect.forkScoped(heartbeat(host));
           yield* eventually(() =>
             expect(
-              reports.some(({ url }) => url === 'https://t2.example'),
+              reports.some(
+                (report) => addressOf(report) === 'https://t2.example',
+              ),
             ).toBe(true),
           );
           expect(opened).toEqual(['https://t1.example', 'https://t2.example']);
           expect(closed).toEqual(['https://t1.example']);
           // Reports of the first tunnel carried one, then two failed checks.
           const failures = reports.filter(
-            ({ url, tunnel }) =>
-              url === 'https://t1.example' && tunnel?.ok === false,
+            (report) =>
+              report._tag === 'Unreachable' &&
+              report.url === 'https://t1.example',
           );
           expect(failures.length).toBe(2);
           yield* eventually(() =>
             expect(
               reports.some(
-                ({ url, tunnel }) => url === 'https://t2.example' && tunnel?.ok,
+                (report) =>
+                  report._tag === 'Reachable' &&
+                  report.url === 'https://t2.example',
               ),
             ).toBe(true),
           );
@@ -148,8 +203,8 @@ describe('the Heartbeat', () => {
           let signedOut = false;
           const { host, opened, closed, reports, signIns } = fake({
             healthy: () => true,
-            answer: ({ url }) => {
-              if (url === 'https://t1.example' && !signedOut) {
+            answer: (report) => {
+              if (addressOf(report) === 'https://t1.example' && !signedOut) {
                 signedOut = true;
                 return { _tag: 'SignedOut' };
               }
@@ -159,7 +214,9 @@ describe('the Heartbeat', () => {
           const running = yield* Effect.forkScoped(heartbeat(host));
           yield* eventually(() =>
             expect(
-              reports.some(({ url }) => url === 'https://t2.example'),
+              reports.some(
+                (report) => addressOf(report) === 'https://t2.example',
+              ),
             ).toBe(true),
           );
           expect(signIns()).toBe(1);
@@ -201,12 +258,12 @@ describe('the Heartbeat', () => {
           let taken = false;
           const { host, signIns } = fake({
             healthy: () => true,
-            answer: ({ url }) => {
+            answer: (report) => {
               if (refusals === 0 || (taken && refusals === 1)) {
                 refusals++;
                 return { _tag: 'SignedOut' };
               }
-              if (url === 'https://t2.example') taken = true;
+              if (addressOf(report) === 'https://t2.example') taken = true;
               return { _tag: 'Reported' };
             },
             backoff: '1 minute',

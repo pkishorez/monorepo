@@ -18,10 +18,9 @@ type Machine = typeof MachineSchema.Type;
 const machine = (id: string): Machine => ({
   id,
   name: id,
-  url: `https://${id}.trycloudflare.com`,
   key: `key-${id}`,
   version: '0.0.1',
-  tunnel: null,
+  status: { _tag: 'Unchecked', url: `https://${id}.trycloudflare.com` },
   lastSeen: 1,
 });
 

@@ -1,4 +1,8 @@
-import type { Machine as MachineSchema } from '@kestack/ai-toolkit/machines';
+import {
+  addressOf,
+  type Machine as MachineSchema,
+  type MachineStatus,
+} from '@kestack/ai-toolkit/machines';
 
 type Machine = typeof MachineSchema.Type;
 
@@ -7,8 +11,9 @@ type Machine = typeof MachineSchema.Type;
  * is, which Machine to open first, and, while its socket is not up, why
  * not. A Machine reports itself on every Heartbeat, every 15 seconds; one
  * whose Last Seen is older than three of them is down. One seen lately
- * whose tunnel check failed, or that has no address, is up but out of
- * reach: its tunnel is broken.
+ * says in its Machine Status how far its tunnel got: cloudflared
+ * downloading, the tunnel opening or failed to open, or up and whether its
+ * last check reached it.
  */
 
 /** How often a Machine reports itself, and the list is asked again. */
@@ -47,13 +52,11 @@ export type Health =
   | { readonly _tag: 'Connected' }
   /** Not listed yet: nothing known of it. */
   | { readonly _tag: 'Unknown' }
-  /** Seen lately and its tunnel works: the socket is on its way. */
-  | { readonly _tag: 'Connecting'; readonly lastSeen: number }
-  /** Seen lately, but out of reach at its address. */
+  /** Seen lately: its status says how far its tunnel got. */
   | {
-      readonly _tag: 'TunnelBroken';
+      readonly _tag: 'Seen';
       readonly lastSeen: number;
-      readonly problem: string | null;
+      readonly status: MachineStatus;
     }
   /** Not seen for three Heartbeats. */
   | { readonly _tag: 'Down'; readonly lastSeen: number };
@@ -65,21 +68,27 @@ export const health = (
 ): Health => {
   if (connection === 'connected') return { _tag: 'Connected' };
   if (machine === null) return { _tag: 'Unknown' };
-  const { lastSeen, url, tunnel } = machine;
+  const { lastSeen, status } = machine;
   if (now - lastSeen > DOWN_AFTER) return { _tag: 'Down', lastSeen };
-  if (url === null)
-    return { _tag: 'TunnelBroken', lastSeen, problem: 'It has no address' };
-  if (tunnel !== null && !tunnel.ok)
-    return { _tag: 'TunnelBroken', lastSeen, problem: tunnel.problem };
-  return { _tag: 'Connecting', lastSeen };
+  return { _tag: 'Seen', lastSeen, status };
 };
 
-/** The tunnel as Settings says it: working, broken and why, or not checked yet. */
-export const tunnelOf = (machine: Machine) =>
-  machine.url === null
-    ? 'No address'
-    : machine.tunnel === null
-      ? 'Not checked yet'
-      : machine.tunnel.ok
-        ? 'Tunnel working'
-        : `Tunnel broken${machine.tunnel.problem === null ? '' : `: ${machine.tunnel.problem}`}`;
+/** The Machine Status as Settings says it. */
+export const statusOf = (status: MachineStatus) => {
+  switch (status._tag) {
+    case 'Installing':
+      return 'Downloading cloudflared';
+    case 'Opening':
+      return 'Opening its tunnel';
+    case 'OpenFailed':
+      return `Tunnel failed to open: ${status.problem}`;
+    case 'Unchecked':
+      return 'Tunnel not checked yet';
+    case 'Reachable':
+      return 'Tunnel working';
+    case 'Unreachable':
+      return `Tunnel broken: ${status.problem}`;
+  }
+};
+
+export { addressOf };

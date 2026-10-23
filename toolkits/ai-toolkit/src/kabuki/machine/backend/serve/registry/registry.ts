@@ -31,10 +31,9 @@ const callerOf = (principal: Principal, local = false) => ({
 const toMachine = (record: MachineRecord): Machine => ({
   id: record.id,
   name: record.name,
-  url: record.url,
   key: record.key,
   version: record.version,
-  tunnel: record.tunnel,
+  status: record.status,
   lastSeen: record.lastSeen,
 });
 

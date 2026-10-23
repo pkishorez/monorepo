@@ -34,10 +34,12 @@ const machine = (
 ): Machine => ({
   id,
   name: id,
-  url,
   key: `key-${id}`,
   version: '0.0.1',
-  tunnel: { ok: true, at: lastSeen, problem: null },
+  status:
+    url === null
+      ? { _tag: 'Opening' }
+      : { _tag: 'Reachable', url, at: lastSeen },
   lastSeen,
 });
 
@@ -291,23 +293,19 @@ describe('a Machine’s record', () => {
   it('says why its socket is not up', () => {
     expect(health(machine('m', now), 'connected', now)._tag).toBe('Connected');
     expect(health(null, 'connecting', now)._tag).toBe('Unknown');
-    expect(health(machine('m', now - 10_000), 'reconnecting', now)._tag).toBe(
-      'Connecting',
-    );
+    const broken = {
+      _tag: 'Unreachable',
+      url: 'https://m.trycloudflare.com',
+      at: now,
+      problem: 'no route',
+    } as const;
     expect(
       health(
-        {
-          ...machine('m', now - 10_000),
-          tunnel: { ok: false, at: now, problem: 'no route' },
-        },
+        { ...machine('m', now - 10_000), status: broken },
         'reconnecting',
         now,
       ),
-    ).toEqual({
-      _tag: 'TunnelBroken',
-      lastSeen: now - 10_000,
-      problem: 'no route',
-    });
+    ).toEqual({ _tag: 'Seen', lastSeen: now - 10_000, status: broken });
     expect(health(machine('m', now - 46_000), 'reconnecting', now)._tag).toBe(
       'Down',
     );

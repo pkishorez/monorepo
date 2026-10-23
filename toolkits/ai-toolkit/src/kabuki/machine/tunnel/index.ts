@@ -1,1 +1,6 @@
-export { checkAt, openTunnel } from './tunnel.js';
+export {
+  checkAt,
+  cloudflaredInstalled,
+  installCloudflared,
+  openTunnel,
+} from './tunnel.js';

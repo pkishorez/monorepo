@@ -110,30 +110,64 @@ export function Model({ session }: { readonly session: Session | undefined }) {
   );
 }
 
+type Pill = readonly [label: string, title: string, tone: string];
+
+/** What the pill says, more of it on hover, and its colour, while the Machine is out of reach. */
+const pillOf = (health: ReturnType<typeof useHealth>): Pill | null => {
+  switch (health._tag) {
+    case 'Connected':
+      return null;
+    case 'Unknown':
+      return ['Connecting…', 'Connecting to the Machine…', 'bg-warning'];
+    case 'Down':
+      return [
+        `Machine down · last seen ${ago(health.lastSeen)}`,
+        'The Machine has not reported for a while: it may be off or asleep. What it last synced stays readable.',
+        'bg-destructive',
+      ];
+  }
+  const { status, lastSeen } = health;
+  switch (status._tag) {
+    case 'Installing':
+      return [
+        'Downloading cloudflared…',
+        'The Machine is downloading cloudflared, once, to open its tunnel. On a slow network this takes a few minutes.',
+        'bg-warning',
+      ];
+    case 'Opening':
+      return [
+        'Opening tunnel…',
+        'The Machine is opening its tunnel to Cloudflare.',
+        'bg-warning',
+      ];
+    case 'OpenFailed':
+      return [
+        'Tunnel failed · retrying',
+        `The Machine could not open its tunnel: ${status.problem}. It tries again shortly.`,
+        'bg-warning',
+      ];
+    case 'Unreachable':
+      return [
+        `Out of reach · seen ${ago(lastSeen)}`,
+        `The Machine is up, but its tunnel is broken: ${status.problem}. Reconnecting…`,
+        'bg-warning',
+      ];
+    case 'Unchecked':
+    case 'Reachable':
+      return [
+        'Connecting…',
+        `Connecting to the Machine, last seen ${ago(lastSeen)}…`,
+        'bg-warning',
+      ];
+  }
+};
+
 /** While the Machine is out of reach, a pill that says why; nothing otherwise. */
 export function Offline() {
   const health = useHealth();
-  if (health._tag === 'Connected') return null;
-  const [label, title, tone] =
-    health._tag === 'Down'
-      ? [
-          `Machine down · last seen ${ago(health.lastSeen)}`,
-          'The Machine has not reported for a while: it may be off or asleep. What it last synced stays readable.',
-          'bg-destructive',
-        ]
-      : health._tag === 'TunnelBroken'
-        ? [
-            `Out of reach · seen ${ago(health.lastSeen)}`,
-            `The Machine is up, but its tunnel is broken${health.problem === null ? '' : `: ${health.problem}`}. Reconnecting…`,
-            'bg-warning',
-          ]
-        : health._tag === 'Connecting'
-          ? [
-              'Connecting…',
-              `Connecting to the Machine, last seen ${ago(health.lastSeen)}…`,
-              'bg-warning',
-            ]
-          : ['Connecting…', 'Connecting to the Machine…', 'bg-warning'];
+  const pill = pillOf(health);
+  if (pill === null) return null;
+  const [label, title, tone] = pill;
   return (
     <span
       role="status"

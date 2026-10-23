@@ -8,7 +8,7 @@ import {
   SubscriptionRef,
 } from 'effect';
 import type { Machine as MachineSchema } from '@kestack/ai-toolkit/machines';
-import { socketUrl } from './health.ts';
+import { addressOf, socketUrl } from './health.ts';
 
 type Machine = typeof MachineSchema.Type;
 
@@ -115,8 +115,8 @@ export class Machines extends Context.Service<
           machine,
           listed: (id) => Effect.asVoid(first(id, () => true)),
           reachable: (id) =>
-            first(id, ({ url, key }) => {
-              const socket = socketUrl(url);
+            first(id, ({ status, key }) => {
+              const socket = socketUrl(addressOf(status));
               return socket === null ? null : { socket, key };
             }),
           refresh: ask({ _tag: 'Refresh' }),
