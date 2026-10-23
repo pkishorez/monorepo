@@ -25,11 +25,6 @@ interface DynamoDBTableOptions {
   readonly mode: TableMode;
 }
 
-// A disposable table that took a change its rows cannot is replaced: a new
-// physical name makes Alchemy create the new table and delete the old one.
-export const physicalName = (tableName: string, generation: number) =>
-  generation === 0 ? tableName : `${tableName}-${generation}`;
-
 const tableProps = (topology: DynamoTableTopology, tableName: string) => {
   const attributes = Object.fromEntries(
     topology.AttributeDefinitions.map((attribute) => [
@@ -90,9 +85,10 @@ const tableProps = (topology: DynamoTableTopology, tableName: string) => {
 
 /**
  * Creates or updates the DynamoDB table. DynamoDB keeps no Stored contract,
- * so its deploy guard is its only check: a persistent table's breaking
- * change fails the deploy, and a disposable table is replaced by a new one
- * (named `<tableName>-<generation>`) on a change its rows cannot take.
+ * so its deploy guard is its only check. Nothing here replaces or wipes the
+ * table: in either mode, a breaking change, or an index change other than
+ * adding a global secondary index, fails the deploy, and the way past it is
+ * a new physical table name.
  */
 const table = (id: string, options: DynamoDBTableOptions) =>
   Effect.gen(function* () {
@@ -100,11 +96,9 @@ const table = (id: string, options: DynamoDBTableOptions) =>
       `${id}Contract`,
       options.table,
       options.mode,
-      { target: options.tableName, fixedLocalIndexes: true },
+      { target: options.tableName, inPlaceOnly: true },
     );
-    const tableNameAfterGuard = Output.map(guard.generation, (generation) =>
-      physicalName(options.tableName, generation),
-    );
+    const tableNameAfterGuard = Output.map(guard.hash, () => options.tableName);
     return yield* DynamoDBResource.Table(id, {
       ...tableProps(
         DynamoDBAdapter.getTableDefinition(options.table),

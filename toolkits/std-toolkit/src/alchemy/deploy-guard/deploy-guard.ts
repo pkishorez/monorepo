@@ -17,19 +17,15 @@ interface ContractProps {
   /** The physical table, when there is one. A new target starts a fresh contract. */
   readonly target?: string;
   /**
-   * The target cannot change local secondary indexes in place (DynamoDB):
-   * Alchemy would replace the table, so a persistent one refuses the change.
+   * The target has no setup to wipe it, and Alchemy changes it in place or
+   * replaces it (DynamoDB). Every change that would replace or wipe it is
+   * refused in either mode: the way past one is a new physical table name.
    */
-  readonly fixedLocalIndexes?: boolean;
+  readonly inPlaceOnly?: boolean;
 }
 
 interface ContractOutput extends ContractProps {
   readonly hash: string;
-  /**
-   * Bumped each time a disposable table takes a change its stored rows
-   * cannot, so a target that has no setup of its own replaces the table.
-   */
-  readonly generation: number;
 }
 
 export type DeployGuard = Resource<
@@ -48,68 +44,78 @@ export class Providers extends Provider.ProviderCollection<Providers>()(
   'StdToolkit',
 ) {}
 
-const localIndexesMoved = (deployed: unknown, current: TableSnapshot) =>
-  TableSnapshot.parse(deployed).pipe(
-    Effect.map(
-      (previous) =>
-        JSON.stringify(previous.topology.localSecondaryIndexes) !==
-        JSON.stringify(current.topology.localSecondaryIndexes),
-    ),
+const sameIndexes = (
+  left: TableSnapshot['topology']['localSecondaryIndexes'],
+  right: TableSnapshot['topology']['localSecondaryIndexes'],
+) => JSON.stringify(left) === JSON.stringify(right);
+
+// DynamoDB adds a global secondary index in place; any other index change
+// is made by replacing the table.
+const replacesTable = (previous: TableSnapshot, current: TableSnapshot) =>
+  !sameIndexes(
+    previous.topology.localSecondaryIndexes,
+    current.topology.localSecondaryIndexes,
+  ) ||
+  previous.topology.globalSecondaryIndexes.some(
+    (index) =>
+      !current.topology.globalSecondaryIndexes.some((next) =>
+        sameIndexes([index], [next]),
+      ),
   );
 
 /**
  * Checks a deploy against the Deployed contract: a persistent table refuses
- * a breaking change and a switch to disposable; a disposable one moves to
- * the next generation on a change its rows cannot take.
+ * a breaking change and a switch to disposable. A target that is changed in
+ * place only also refuses every change that would replace or wipe it.
+ * A new physical target starts a fresh contract.
  */
 export const checkDeploy = (
   deployed: ContractOutput | undefined,
   current: ContractProps,
 ): Effect.Effect<ContractOutput, unknown> =>
   Effect.gen(function* () {
+    // Compared once both are known, at deploy: a target still unresolved
+    // when Alchemy planned is resolved here.
+    const previous = deployed?.target === current.target ? deployed : undefined;
     const contract = yield* contractFromSnapshot(
       current.snapshot,
       current.mode,
     );
     const plan = yield* planSetup({
       current: contract,
-      stored: deployed,
-      loadStoredSnapshot: Effect.succeed(deployed?.snapshot),
+      stored: previous,
+      loadStoredSnapshot: Effect.succeed(previous?.snapshot),
+      ...(current.inPlaceOnly === true ? { backfill: 'keep' as const } : {}),
     });
-    const replaces =
-      current.fixedLocalIndexes === true &&
-      deployed !== undefined &&
-      plan.kind !== 'unchanged' &&
-      (yield* localIndexesMoved(deployed.snapshot, contract.snapshot));
-    if (
-      replaces &&
-      current.mode === 'persistent' &&
-      deployed.mode === 'persistent'
-    )
-      return yield* Effect.fail(
-        new SetupRefused(contract.logicalName, 'replaces-table'),
-      );
-    const generation = deployed?.generation ?? 0;
-    return {
-      ...current,
-      hash: contract.record.hash,
-      generation:
-        plan.kind === 'wipe' || replaces ? generation + 1 : generation,
-    };
+    if (current.inPlaceOnly === true && previous !== undefined) {
+      const refused =
+        plan.kind === 'wipe' ||
+        (plan.kind === 'apply' &&
+          replacesTable(
+            yield* TableSnapshot.parse(previous.snapshot),
+            contract.snapshot,
+          ));
+      if (refused)
+        return yield* Effect.fail(
+          new SetupRefused(
+            contract.logicalName,
+            'replaces-table',
+            plan.kind === 'wipe' ? plan.changes : [],
+          ),
+        );
+    }
+    return { ...current, hash: contract.record.hash };
   });
 
-/** A new physical target replaces the guard, so it starts a fresh contract. */
 export const diffContract = (
   previous: ContractProps,
   current: Input<ContractProps>,
 ) =>
   !isResolved(current)
     ? undefined
-    : previous.target !== current.target
-      ? { action: 'replace' as const }
-      : JSON.stringify(previous) !== JSON.stringify(current)
-        ? { action: 'update' as const }
-        : { action: 'noop' as const };
+    : JSON.stringify(previous) !== JSON.stringify(current)
+      ? { action: 'update' as const }
+      : { action: 'noop' as const };
 
 export const DeployGuardProvider = () =>
   Provider.succeed(DeployGuardResource, {
@@ -135,7 +141,7 @@ export const guardContract = (
   mode: TableMode,
   physical: {
     readonly target?: Input<string>;
-    readonly fixedLocalIndexes?: boolean;
+    readonly inPlaceOnly?: boolean;
   } = {},
 ) =>
   Effect.gen(function* () {

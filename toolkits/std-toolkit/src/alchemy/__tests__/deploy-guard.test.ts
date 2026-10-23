@@ -4,7 +4,7 @@ import { StdTable } from '../../db/index.js';
 import { SetupRefused } from '../../db/stored-contract/index.js';
 import { type AnyEntityESchema, EntityESchema } from '../../eschema/index.js';
 import { TableSnapshot } from '../../snapshot/index.js';
-import { checkDeploy, diffContract } from '../deploy-guard/deploy-guard.js';
+import { checkDeploy } from '../deploy-guard/deploy-guard.js';
 
 const stored = (schema: AnyEntityESchema) => {
   const table = StdTable.make('tasks').primary('pk', 'sk').build();
@@ -12,17 +12,20 @@ const stored = (schema: AnyEntityESchema) => {
   return Effect.runSync(TableSnapshot.serialize(TableSnapshot.capture(table)));
 };
 
-const withLocalIndex = (() => {
-  const table = StdTable.make('tasks')
-    .primary('pk', 'sk')
-    .lsi('LSI1', 'LSI1SK')
-    .build();
-  table
-    .entity(EntityESchema.make('Task', 'id', { title: Schema.String }).build())
-    .primary()
-    .build();
-  return Effect.runSync(TableSnapshot.serialize(TableSnapshot.capture(table)));
-})();
+const Task = EntityESchema.make('Task', 'id', { title: Schema.String }).build();
+
+const capture = (
+  table: ReturnType<ReturnType<typeof StdTable.make>['primary']>,
+) => {
+  const built = table.build();
+  built.entity(Task).primary().build();
+  return Effect.runSync(TableSnapshot.serialize(TableSnapshot.capture(built)));
+};
+
+const tasksTable = () => StdTable.make('tasks').primary('pk', 'sk');
+const plain = capture(tasksTable());
+const withLocalIndex = capture(tasksTable().lsi('LSI1', 'LSI1SK'));
+const withGlobalIndex = capture(tasksTable().gsi('GSI1', 'GSI1PK', 'GSI1SK'));
 
 const v1 = stored(
   EntityESchema.make('Task', 'id', { title: Schema.String }).build(),
@@ -57,7 +60,7 @@ const refusal = (exit: ReturnType<typeof deploy>) =>
 
 describe('deploy guard', () => {
   it('records the first contract at generation 0', () => {
-    expect(deployed({ mode: 'persistent', snapshot: v1 }).generation).toBe(0);
+    expect(deployed({ mode: 'persistent', snapshot: v1 }).snapshot).toBe(v1);
   });
 
   it('accepts an appended version', () => {
@@ -90,12 +93,12 @@ describe('deploy guard', () => {
     expect((error as SetupRefused).reason).toBe('mode-change');
   });
 
-  it('moves a disposable table to its next generation on an edited version', () => {
+  it('lets a disposable table with its own setup take an edited version', () => {
     const exit = deploy(deployed({ mode: 'disposable', snapshot: v1 }), {
       mode: 'disposable',
       snapshot: edited,
     });
-    expect(Exit.isSuccess(exit) && exit.value.generation).toBe(1);
+    expect(Exit.isSuccess(exit)).toBe(true);
   });
 
   it('lets a disposable table become persistent', () => {
@@ -106,36 +109,48 @@ describe('deploy guard', () => {
     expect(Exit.isSuccess(exit) && exit.value.mode).toBe('persistent');
   });
 
-  it('refuses a persistent DynamoDB table a new local index, which would replace it', () => {
-    const fixed = { fixedLocalIndexes: true } as const;
-    const error = refusal(
-      deploy(deployed({ mode: 'persistent', snapshot: v1, ...fixed }), {
-        mode: 'persistent',
-        snapshot: withLocalIndex,
-        ...fixed,
-      }),
-    );
-    expect((error as SetupRefused).reason).toBe('replaces-table');
-  });
-
-  it('replaces a disposable DynamoDB table for a new local index', () => {
-    const fixed = { fixedLocalIndexes: true } as const;
-    const exit = deploy(
-      deployed({ mode: 'disposable', snapshot: v1, ...fixed }),
-      { mode: 'disposable', snapshot: withLocalIndex, ...fixed },
-    );
-    expect(Exit.isSuccess(exit) && exit.value.generation).toBe(1);
-  });
-
   it('starts a fresh contract for a new physical table', () => {
-    const props = {
-      mode: 'persistent',
-      snapshot: v1,
-      target: 'tasks',
-    } as const;
-    expect(diffContract(props, { ...props, target: 'tasks-2' })).toEqual({
-      action: 'replace',
+    const exit = deploy(
+      deployed({ mode: 'persistent', snapshot: v1, target: 'db-1/tasks' }),
+      { mode: 'persistent', snapshot: edited, target: 'db-2/tasks' },
+    );
+    expect(Exit.isSuccess(exit)).toBe(true);
+  });
+});
+
+describe('deploy guard for a table changed in place only (DynamoDB)', () => {
+  const inPlace = (
+    mode: 'persistent' | 'disposable',
+    from: unknown,
+    to: unknown,
+  ) =>
+    deploy(deployed({ mode, snapshot: from, inPlaceOnly: true }), {
+      mode,
+      snapshot: to,
+      inPlaceOnly: true,
     });
-    expect(diffContract(props, props)).toEqual({ action: 'noop' });
+
+  for (const mode of ['persistent', 'disposable'] as const) {
+    it(`lets a ${mode} table add a global secondary index`, () => {
+      expect(Exit.isSuccess(inPlace(mode, plain, withGlobalIndex))).toBe(true);
+    });
+
+    it(`refuses a ${mode} table a new local secondary index`, () => {
+      expect(
+        (refusal(inPlace(mode, plain, withLocalIndex)) as SetupRefused).reason,
+      ).toBe('replaces-table');
+    });
+
+    it(`refuses a ${mode} table removing a global secondary index`, () => {
+      expect(
+        (refusal(inPlace(mode, withGlobalIndex, plain)) as SetupRefused).reason,
+      ).toBe('replaces-table');
+    });
+  }
+
+  it('refuses a disposable table a breaking change instead of wiping it', () => {
+    const error = refusal(inPlace('disposable', v1, edited)) as SetupRefused;
+    expect(error.reason).toBe('replaces-table');
+    expect(error.message).toMatch(/new physical table name/);
   });
 });
