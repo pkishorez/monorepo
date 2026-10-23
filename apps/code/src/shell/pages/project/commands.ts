@@ -1,37 +1,12 @@
 import { Effect, Schema } from 'effect';
-import { AttachmentSchema, HarnessInfo } from '@kestack/ai-toolkit/api';
 import { AiClient, AiClients } from '@kestack/ai-toolkit/client';
 import { Command } from '@kestack/kabuki';
-import { orRefused, reasonOf } from '../../refusal/index.ts';
+import { reasonOf } from '../../refusal/index.ts';
 
 /*
  * What the project page asks of its Machine, over that Machine's own
- * socket: start a session in it, or forget it.
+ * socket: forget the project.
  */
-
-/** Starts a session already running its first message. */
-export const startSession = Command.make('StartSession', {
-  args: Schema.Struct({
-    machineId: Schema.String,
-    projectId: Schema.String,
-    harness: HarnessInfo.fields.name,
-    model: Schema.String,
-    settings: Schema.Record(Schema.String, Schema.String),
-    text: Schema.String,
-    attachments: Schema.Array(AttachmentSchema),
-  }),
-  run: ({ machineId, ...args }) =>
-    orRefused(
-      AiClients.on(
-        machineId,
-        AiClient.use((api) => api.startSession(args)),
-      ),
-      (session) => ({
-        _tag: 'Started' as const,
-        sessionId: session.id,
-      }),
-    ),
-});
 
 /** Forgets a project; its folder is never touched. */
 export const removeProject = Command.make('RemoveProject', {

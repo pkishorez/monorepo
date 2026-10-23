@@ -1,38 +1,19 @@
 import { useChild, View, type ViewProps } from '@kestack/kabuki/react';
 import { Router } from '@kestack/kabuki/routing';
 import { Button } from '@kestack/web-platform/components/button';
-import {
-  ArrowUpIcon,
-  CircleAlertIcon,
-  Trash2Icon,
-  WifiOffIcon,
-} from '@kestack/web-platform/components/lucide';
-import { Spinner } from '@kestack/web-platform/components/spinner';
-import { keys, useBound } from '../../../keys.ts';
+import { Trash2Icon } from '@kestack/web-platform/components/lucide';
+import { keys } from '../../../keys.ts';
 import * as places from '../../places/index.ts';
 import * as Confirm from '../../../ui/confirm/index.ts';
-import { OnMachine, useMachineId, useOffline } from '../../connection/index.ts';
-import { Dictation } from '../../actors/dictation/index.ts';
-import {
-  current,
-  pickedHarness,
-  pickedModel,
-  ProjectLive,
-  skillsOf,
-} from './actor.ts';
-import * as Catalog from './catalog/index.ts';
-import { Draft, SkillPicker, StatusLine, useDraft } from './draft/index.ts';
-import { ModelPicker, Triggers } from './model-picker/index.ts';
+import { OnMachine } from '../../connection/index.ts';
+import { ProjectLive } from './actor.ts';
+import { Draft } from './draft/index.ts';
 import { Session as SessionPage } from './session/index.ts';
 
 /*
- * A project: the session open in it, or, with none open, a new one: its
- * Draft where the first message goes, and in the Status Line under it the
- * agent and its model, and the agent's own settings, each at its default
- * until picked in the model Picker. An agent whose binary does not run is
- * greyed out there, saying why. Sending the Draft starts it, once the
- * server is in reach; what went wrong shows over the Status Line. Its
- * sessions are in the sidebar and the Session Switcher, not here.
+ * A project: the session open in it, or, with none open, a new one, its
+ * Draft (`draft/`) where the first message goes. Its sessions are in the
+ * sidebar and the Session Switcher, not here.
  * Removing the project sits quietly above, and asks first. Its name and
  * path are in the header.
  */
@@ -62,11 +43,9 @@ export const ProjectView = View.make(ProjectLive, (self) => (
   </OnMachine>
 ));
 
-function ProjectScreen({ root, model, props, children, send }: Self) {
-  const machineId = useMachineId();
+function ProjectScreen({ root, model, children, send }: Self) {
   const found = useChild(children.project, ({ model }) => model);
   const project = found?.rows[0]?.row;
-  const offline = useOffline(machineId);
   if (children.Session)
     return (
       <div {...root} className="flex min-h-0 flex-1 flex-col">
@@ -97,12 +76,6 @@ function ProjectScreen({ root, model, props, children, send }: Self) {
         children={children}
         send={send}
         project={project ?? null}
-        offline={offline}
-        target={{
-          machineId,
-          projectId: props.params.projectId,
-          sessionId: null,
-        }}
       />
     </div>
   );
@@ -111,69 +84,22 @@ function ProjectScreen({ root, model, props, children, send }: Self) {
 type Self = ViewProps<typeof ProjectLive>;
 
 /**
- * A new session: its own component, so its Draft's keys are given only
- * while no session is open over it.
+ * A new session: the page over its Draft, with how to start one and
+ * Remove; the Draft at its foot starts it.
  */
 function NewSession({
   model,
   children,
   send,
   project,
-  offline,
-  target,
 }: Pick<Self, 'model' | 'children' | 'send'> & {
   readonly project: { readonly name: string; readonly path: string } | null;
-  readonly offline: string | null;
-  /** This Draft, as a Dictation names where its text goes. */
-  readonly target: Parameters<typeof Dictation.useDictation>[0];
 }) {
-  const dictation = Dictation.useDictation(target);
-  const harness = pickedHarness(model);
-  const chosen = pickedModel(model);
-  const models = Catalog.modelsOf(model.catalog, harness?.name ?? null);
-  const skills = skillsOf(model);
-  const unavailable =
-    harness?.available === false
-      ? (harness.unavailableReason ?? 'This agent cannot run on this machine')
-      : null;
-  const problem =
-    model.problem ??
-    model.catalog.problem ??
-    models?.problem ??
-    unavailable ??
-    null;
-  const { picking, removal } = model;
-  const draft = useDraft({
-    label: 'First message',
-    placeholder: 'What should the agent do? Type / for skills',
-    text: model.text,
-    onTextChange: (text) => send({ _tag: 'Typed', text }),
-    attachments: model.attachments,
-    onAttachmentsChange: (attachments) => send({ _tag: 'Attach', attachments }),
-    insert: model.insert,
-    onInsert: (what) => send({ _tag: 'Insert', what }),
-    onSend: () => {
-      if (offline === null) send({ _tag: 'Start' });
-    },
-    known: SkillPicker.known(skills),
-    skills: {
-      how: picking?._tag === 'Skills' ? picking.how : null,
-      offered: SkillPicker.offers(skills),
-      onOpen: (how, typed) =>
-        send({ _tag: 'Open', picking: { _tag: 'Skills', how, typed } }),
-      picker: children.skills && (
-        <SkillPicker.View instance={children.skills} />
-      ),
-    },
-    dictation,
-    disabled: model.starting,
-    ...(offline === null ? {} : { describedBy: 'new-session-offline' }),
-  });
-  const startKeys = useBound('content.send');
+  const page = keys.useFocusSpot('content', 'page', { default: true });
   return (
     <>
       <div
-        ref={draft.page}
+        ref={page}
         tabIndex={-1}
         className="flex min-h-0 flex-1 flex-col justify-end overflow-y-auto outline-none"
       >
@@ -192,9 +118,9 @@ function NewSession({
           {project && (
             <RemoveProject
               name={project.name}
-              removal={removal}
-              onConfirm={(open) => send({ _tag: 'Confirm', open })}
-              onRemove={() => send({ _tag: 'Remove' })}
+              removal={model.removal}
+              onConfirm={(open) => send({ _tag: 'ConfirmToggled', open })}
+              onRemove={() => send({ _tag: 'RemoveAsked' })}
             />
           )}
         </div>
@@ -203,90 +129,8 @@ function NewSession({
         aria-label="New session"
         className="relative shrink-0 bg-background pt-2 pb-3 before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-6 before:bg-gradient-to-t before:from-background before:to-transparent"
       >
-        <div className="mx-auto flex w-full max-w-3xl flex-col gap-2 px-4 sm:px-6">
-          {offline !== null && (
-            <p
-              id="new-session-offline"
-              className="flex items-center gap-2 px-1 text-sm text-muted-foreground"
-            >
-              <WifiOffIcon
-                aria-hidden
-                className="size-3.5 shrink-0 text-warning"
-              />
-              {offline} to the server. You can start once it is back.
-            </p>
-          )}
-          {problem !== null && (
-            <p
-              role="alert"
-              className="flex items-center gap-2 px-1 text-sm text-destructive"
-            >
-              <CircleAlertIcon aria-hidden className="size-3.5 shrink-0" />
-              {problem}
-              {problem === unavailable && (
-                <Router.Link
-                  to={places.settings()}
-                  className="focus-ring shrink-0 rounded-sm text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground"
-                >
-                  Open Settings
-                </Router.Link>
-              )}
-              {(model.catalog.problem !== null || models?.problem) && (
-                <Button
-                  variant="link"
-                  size="xs"
-                  type="button"
-                  onClick={() => send({ _tag: 'Retry' })}
-                >
-                  Try again
-                </Button>
-              )}
-            </p>
-          )}
-          <Draft draft={draft}>
-            <StatusLine
-              draft={draft}
-              actions={
-                <Button
-                  type="button"
-                  size="sm"
-                  aria-label="Start session"
-                  title={
-                    startKeys === null
-                      ? 'Start session'
-                      : `Start session (${startKeys})`
-                  }
-                  disabled={
-                    offline !== null ||
-                    model.starting ||
-                    chosen === null ||
-                    unavailable !== null ||
-                    !draft.filled
-                  }
-                  onClick={draft.send}
-                >
-                  {model.starting ? <Spinner /> : <ArrowUpIcon aria-hidden />}
-                  <span className="hidden @sm/status:inline">
-                    Start session
-                  </span>
-                </Button>
-              }
-            >
-              <Triggers
-                catalog={model.catalog}
-                current={current(model)}
-                started={false}
-                how={picking?._tag === 'Model' ? picking : null}
-                onOpen={(at, how) =>
-                  send({ _tag: 'Open', picking: { _tag: 'Model', how, at } })
-                }
-              >
-                {children.models && (
-                  <ModelPicker.View instance={children.models} />
-                )}
-              </Triggers>
-            </StatusLine>
-          </Draft>
+        <div className="mx-auto w-full max-w-3xl px-4 sm:px-6">
+          {children.draft && <Draft.view instance={children.draft} />}
         </div>
       </section>
     </>

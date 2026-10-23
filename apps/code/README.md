@@ -81,7 +81,7 @@ them, and `machine-health/`, what a Machine's record says of it; an Actor
 that Provides a key of its own keeps it in its own `capabilities/`, as the
 project page does its catalog. Code shared by Actors that is not one is a
 plain Module in the lowest folder that holds every user: in `pages/project/`
-the Draft, the model Picker and the catalog; in `src/shell/` `refusal/`,
+the catalog; in `src/shell/` `refusal/`,
 the one way a server call ends when refused, `replica/`, the Queries,
 `places/`, the address of every place, which every View links through
 (`src/pages.ts` defines the router), and `connection/`, every Machine as
@@ -148,7 +148,9 @@ its last turn failed, amber when the server's stopping cut it off.
 place of the projects, the most recently Settled first, each row opening
 its session or Un-settling it.
 
-A message is written in the Draft (`src/shell/pages/project/draft/`), a
+A message is written in the Draft (`src/shell/pages/project/draft/`), an
+Actor of its own, a Child of the new-session page and of each session, so
+typing into it draws nothing else; a
 CodeMirror editor in one card with the Status Line, pinned to the foot of
 the page while the transcript scrolls above it; the same card is on the
 new-session page. It is read only: it can be scrolled, clicked to place the cursor and

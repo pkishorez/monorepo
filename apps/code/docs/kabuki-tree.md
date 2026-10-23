@@ -46,7 +46,9 @@ shell                                   root; Provides CurrentAccount, Replicas,
 │   │   └── speech-to-text              each: listed Machine id
 │   └── shortcuts                       always
 └── pages/project                       /m/:machineId/p/:projectId; Provides AiClient, SharedCatalog, Picker Owners
-    └── session                         /s/:sessionId; Provides Picker Owners
+    ├── draft                           while no session is open: the new session's
+    └── session                         /s/:sessionId
+        └── draft                       key: the session id
 ```
 
 Every Picker made by `Picker.make`, every Replica Query and the Account
@@ -187,12 +189,33 @@ Home and Machine Settings follow `Machines`. Each per-Machine Child gets its Mac
 ## project · session
 
 **Does**: The new session's Draft and its start / the open Session: its transcript, Draft, send, `/btw`, fork and stop.
-**Provides**: AiClient of `:machineId`, from AiClients, and SharedCatalog, from self (`project/capabilities/`), both project only; SkillPicker and ModelPicker Owners (both)
-**Requires**: AiClients, Machines, Navigation / AiClient, SharedCatalog, Replicas, DeviceState
+**Provides**: AiClient of `:machineId`, from AiClients, and SharedCatalog, from self (`project/capabilities/`), both project only
+**Requires**: AiClients, Machines, Navigation / AiClient, Replicas, DeviceState
 **Workers** (project): machine: always, Sends MachineKnown, so a Machine no longer listed says so in place of the page; harnesses, models, skills: the catalog, read over `AiClients` on its own Machine
-**Children**: ProjectRow / SessionRow, Messages, earlier Messages each up the fork chain; both: the skills and model Pickers, while picking, key: opened
+**Children**: ProjectRow, and a draft while no session is open / SessionRow, Messages, earlier Messages each up the fork chain, and a draft keyed by the session, handed its agent and whether it runs
 
 ### Decisions
 
-- **The Draft is in both pages' Models, not one Actor**, because the Session's row, which only session reads, decides its model Picker and its send. Caveat: the two Models repeat text, attachments, insert and picking.
+- **The Draft is one Actor, a Child of each page that has one**, because typing, picking and dictating then change only its own Model, and only it draws again. Caveat: its folder is in `project/`, and the session page reaches it by a Laymos Rule.
 - **Code shared by Actors and not an Actor is a plain Module with no prefix**, in the lowest Actor folder that holds every user (`project/draft/`, `project/model-picker/`, `shell/connection/`, `shell/places/`), or in `src/` when the entry file or a service uses it too. Caveat: its users below reach it by a Laymos Rule, an import upward.
+
+## project/draft
+
+**Does**: Holds the next message of a page, a new session's first or a Session's next, and sends it.
+**Input**: none
+**Props**: machineId, projectId, to: NewSession, or Session with its id, its agent once read, and whether it runs
+**Model**: text, attachments, insert: the last Insert; catalog, as the project shares it; chosen: the agent, model and settings picked; picking, opened; problem; starting; unsent, sends; asked, asks
+**States**: none
+**Messages**: Typed, AttachmentsChanged, InsertAsked, PickerOpened, SendAsked, AnswerDismissed, CatalogRetryAsked: its View; PickerClosed, SkillChosen, ModelChosen: its Pickers' Owners; CatalogRead: its Worker; Started, StartRefused, Sent, SendRefused, Answered, AskRefused: its Commands
+**Commands**: startSession: ends with Started or StartRefused; send: ends with Sent or SendRefused; ask: ends with Answered or AskRefused; retryCatalog; Router.push
+**Workers**: catalog: always, Sends CatalogRead
+**Requires**: AiClient, SharedCatalog, Navigation
+**Provides**: SkillPicker and ModelPicker Owners, at the top, from self
+**Services**: none
+**Children**: skills, models: Pickers, while picking, key: opened
+**View**: why nothing can be sent or what went wrong, the `/btw` answer, the card and its Status Line; the page adds Stop and its own problem through `Slots`
+
+### Decisions
+
+- **A Session's Draft is keyed by its session**, because the session page stays as the URL moves between sessions. Caveat: a Draft not sent is gone when another session opens.
+- **Stop is the session's, handed to the Draft's View through `Slots`**, because stopping a turn is not the Draft's errand. Caveat: a React context, not Props, since it carries a button.

@@ -7,7 +7,9 @@ import { toReact, View, type ViewProps } from '@kestack/kabuki/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { keys } from '../../../../keys.ts';
 import * as Picker from '../../../../ui/picker/index.ts';
-import { Draft, Insert, SkillPicker, StatusLine, useDraft } from './draft.tsx';
+import { Card, StatusLine, useDraft } from './card.tsx';
+import { Insert } from './message.ts';
+import { SkillPicker } from './skills.ts';
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
@@ -177,6 +179,7 @@ function OnPage({
 }: Pick<ViewProps<typeof PageLive>, 'model' | 'send'> & {
   readonly picker: ViewProps<typeof PageLive>['children']['skills'];
 }) {
+  const page = keys.useFocusSpot('content', 'page', { default: true });
   const draft = useDraft({
     label: 'Message',
     placeholder: 'Reply',
@@ -211,8 +214,8 @@ function OnPage({
     },
   });
   return (
-    <div ref={draft.page} tabIndex={-1} data-testid="page">
-      <Draft draft={draft} />
+    <div ref={page} tabIndex={-1} data-testid="page">
+      <Card draft={draft} />
       <StatusLine draft={draft} />
     </div>
   );

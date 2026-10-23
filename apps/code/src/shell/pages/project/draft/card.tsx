@@ -1,6 +1,3 @@
-import { Schema } from 'effect';
-import type { Effect } from 'effect';
-import { AttachmentSchema, SkillSchema } from '@kestack/ai-toolkit/api';
 import { Button } from '@kestack/web-platform/components/button';
 import {
   MicIcon,
@@ -16,13 +13,14 @@ import {
   type Attachment,
 } from './attachments/index.ts';
 import { slashAtoms, useEditor } from './editor/index.ts';
+import type { Insert } from './message.ts';
 import { useTransfers } from './transfer.ts';
 
 /*
- * The Draft: the open Session's next message, drawn at the end of the
- * transcript as it will look once sent, faded. Its text and files belong
- * to the page that draws it, which also decides what sending means; its
- * cursor, selection and history are its editor's.
+ * The Draft's card and its editing: the message as it will be sent, at
+ * the page's foot. Its text and files are the Draft Actor's
+ * (`actor.ts`), which also decides what sending means; its cursor,
+ * selection and history are its editor's.
  *
  * 1. Read     it can be scrolled, clicked to place the cursor and dragged
  *             to select, but not typed into; Enter sends it, from the
@@ -36,7 +34,7 @@ import { useTransfers } from './transfer.ts';
  *             a paste or a drop anywhere on the page (`transfer.ts`), and a
  *             Skill from the skills Picker, opened by `/` from Normal Mode,
  *             by a `/` typed at the start of a word in the Composer, or by
- *             its button. Each is a message to the page, which hands back
+ *             its button. Each is a message to the Draft, which hands back
  *             the Insert, numbered, for the editor to put in once; files are
  *             attached instead. After each the cursor is after it, the page
  *             scrolls it into view, and it fades from a highlight.
@@ -50,109 +48,9 @@ import { useTransfers } from './transfer.ts';
  *             retry.
  * 5. Undo     `u`, or Mod+Z in the Composer, takes the last step back.
  *
- * Under the page is its Status Line: the model and its settings the page
- * hands it, the skills, the paperclip and the mic, and the page's send
- * buttons.
+ * Under it is its Status Line: the model and its settings, the skills,
+ * the paperclip and the mic, and the send buttons.
  */
-
-/** A file on a message being written: what is sent, and its size to show. */
-export const Attached = Schema.Struct({
-  ...AttachmentSchema.fields,
-  size: Schema.Finite,
-});
-
-/** Files as they are sent: without the sizes only the Draft shows. */
-export const wire = (attached: ReadonlyArray<typeof Attached.Type>) =>
-  attached.map(({ name, mime, data }) => ({ name, mime, data }));
-
-/** What goes into the Draft: text, or a Skill, on a `/` typed there or not. */
-const What = Schema.TaggedUnion({
-  Text: { text: Schema.String },
-  Skill: { name: Schema.String, typed: Schema.Boolean },
-});
-
-/**
- * The last thing put into the Draft, for its editor to put in at its
- * cursor; `id` counts them, so each goes in once.
- */
-export const Insert = {
-  Schema: Schema.Struct({ id: Schema.Finite, what: What }),
-  What,
-  /** The Insert after `last`, of `what`. */
-  next: (
-    last: { readonly id: number } | null,
-    what: typeof What.Type,
-  ): { readonly id: number; readonly what: typeof What.Type } => ({
-    id: (last?.id ?? 0) + 1,
-    what,
-  }),
-};
-
-const Listing = Schema.Struct({
-  /** `/` entries that are not skills, such as `btw`. */
-  commands: Schema.Array(SkillSchema),
-  skills: Schema.Array(SkillSchema),
-  /** The skills are still being read. */
-  loading: Schema.Boolean,
-  /** Why the skills could not be read. */
-  problem: Schema.NullOr(Schema.String),
-});
-type Listing = typeof Listing.Type;
-
-const Skills = Picker.make('SkillPicker', {
-  props: Listing,
-  steps: {
-    skill: {
-      placeholder: () => 'Search skills and commands',
-      empty: () => 'No skill or command by that name',
-      rows: ({ props }) => ({
-        rows: [
-          ...props.commands.map(rowOf('Commands')),
-          ...props.skills.map(rowOf('Skills')),
-        ],
-        loading: props.loading,
-        problem:
-          props.problem === null
-            ? null
-            : `Couldn't load skills: ${props.problem}`,
-      }),
-    },
-  },
-});
-
-const rowOf =
-  (group: string) =>
-  ({ name, description, argumentHint }: typeof SkillSchema.Type) => ({
-    value: name,
-    label: `/${name}`,
-    group,
-    ...(description ? { detail: description } : {}),
-    ...(argumentHint ? { hint: argumentHint } : {}),
-  });
-
-/**
- * The skills Picker the page keeps while it is open: one Step of skills
- * and commands. `done` hears the name picked, or null.
- */
-export const SkillPicker = {
-  Live: Skills.Live,
-  View: Skills.View,
-  opening: (how: typeof Picker.How.Type) => ({
-    how,
-    step: { id: 'skill', key: '' },
-    choices: [],
-  }),
-  owner: (done: (name: string | null) => Effect.Effect<void>) =>
-    Skills.owner({ done: (choices) => done(choices?.at(-1)?.value ?? null) }),
-  /** Whether it has anything to offer, or to say: rows, loading, or why not. */
-  offers: (listing: Listing) =>
-    listing.loading ||
-    listing.problem !== null ||
-    listing.commands.length + listing.skills.length > 0,
-  /** The names a `/name` is drawn as a chip for. */
-  known: (listing: Listing) =>
-    [...listing.commands, ...listing.skills].map(({ name }) => name),
-};
 
 interface DraftOptions {
   /** What the editor is called to a screen reader. */
@@ -168,7 +66,7 @@ interface DraftOptions {
   /** The last Insert the page handed back, or null before any. */
   readonly insert: typeof Insert.Schema.Type | null;
   /** Asks the page to put `what` in: it hands back the next Insert. */
-  readonly onInsert: (what: typeof What.Type) => void;
+  readonly onInsert: (what: typeof Insert.What.Type) => void;
   /** Called only when there is text or a file to send. */
   readonly onSend: () => void;
   /** The skills and commands a `/name` in the text is drawn as a chip for. */
@@ -226,10 +124,8 @@ interface DraftOptions {
 }
 
 /**
- * The Draft of a page, for `Draft` and `StatusLine` to draw: its editor,
- * its keys, and what is pasted or dropped on the page. `page` marks the
- * page's scrolling column as the page's own Focus Spot, where its Normal
- * Mode comes back to.
+ * The Draft's editing, for `Card` and `StatusLine` to draw: its editor,
+ * its keys, and what is pasted or dropped on the page.
  */
 export function useDraft(options: DraftOptions) {
   const {
@@ -247,7 +143,6 @@ export function useDraft(options: DraftOptions) {
   const atoms = useMemo(() => slashAtoms(new Set(names.split('\n'))), [names]);
   const open = Picker.useOpen();
   const composer = keys.useFocusSpot('content', 'composer');
-  const page = keys.useFocusSpot('content', 'page', { default: true });
   const typingKeys = useTypingKeys();
   const [writing, setWriting] = useState(false);
   const surface = keys.useSurface('content');
@@ -350,7 +245,6 @@ export function useDraft(options: DraftOptions) {
 
   return {
     parent: editor.parent,
-    page,
     writing,
     dragging,
     disabled,
@@ -376,7 +270,7 @@ type Draft = ReturnType<typeof useDraft>;
  * While a Dictation records, its border is tinted and that line shows the
  * Dictation instead; while one is written out for it, it says so.
  */
-export function Draft({
+export function Card({
   draft,
   children,
 }: {

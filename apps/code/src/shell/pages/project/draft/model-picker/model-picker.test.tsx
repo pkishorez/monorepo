@@ -5,9 +5,9 @@ import { Layer, Schema } from 'effect';
 import { Actor } from '@kestack/kabuki';
 import { toReact, View } from '@kestack/kabuki/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { keys } from '../../../../keys.ts';
-import * as Picker from '../../../../ui/picker/index.ts';
-import * as Catalog from '../catalog/index.ts';
+import { keys } from '../../../../../keys.ts';
+import * as Picker from '../../../../../ui/picker/index.ts';
+import * as Catalog from '../../catalog/index.ts';
 import { ModelPicker, Triggers } from './model-picker.tsx';
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });

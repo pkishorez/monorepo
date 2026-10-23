@@ -7,9 +7,9 @@ import {
 import { Skeleton } from '@kestack/web-platform/components/skeleton';
 import { cn } from '@kestack/web-platform/components/utils';
 import type { ReactNode } from 'react';
-import { keys, useBound } from '../../../../keys.ts';
-import * as Picker from '../../../../ui/picker/index.ts';
-import * as Catalog from '../catalog/index.ts';
+import { keys, useBound } from '../../../../../keys.ts';
+import * as Picker from '../../../../../ui/picker/index.ts';
+import * as Catalog from '../../catalog/index.ts';
 
 /*
  * The model Picker: the agent, then its model, then each of its settings,

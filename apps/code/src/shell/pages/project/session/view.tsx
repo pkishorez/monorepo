@@ -6,17 +6,15 @@ import {
   GitForkIcon,
   TriangleAlertIcon,
 } from '@kestack/web-platform/components/lucide';
+import { Button } from '@kestack/web-platform/components/button';
 import { Skeleton } from '@kestack/web-platform/components/skeleton';
+import { Spinner } from '@kestack/web-platform/components/spinner';
 import * as places from '../../../places/index.ts';
 import { RunningDot } from '../../../../ui/running-dot/index.ts';
+import { keys, useBound } from '../../../../keys.ts';
 import { useMachineId, useOffline } from '../../../connection/index.ts';
-import { Dictation } from '../../../actors/dictation/index.ts';
-import { SkillPicker, useDraft } from '../draft/index.ts';
-import { ModelPicker, Triggers } from '../model-picker/index.ts';
-import { current, SessionLive, skillsOf } from './actor.ts';
-import { btwQuestion } from './btw.ts';
-import { AskAnswer } from './ask.tsx';
-import { SessionStatusLine } from './status-line.tsx';
+import { Draft } from '../draft/index.ts';
+import { SessionLive } from './actor.ts';
 import { useFollow } from './follow.ts';
 import { useSessionKeys } from './keys.ts';
 import {
@@ -31,24 +29,20 @@ import {
 /*
  * A session: the transcript in a centred column that follows new messages
  * while you are at its bottom, and under it, pinned to the page's foot,
- * its Draft with the Status Line in one card. Its title, agent and model are in the header. Its words can be selected, though the
- * App Shell turns selection off for its swipes. While the server is out of
+ * its Draft (`draft/`), with Stop beside its send button while a turn
+ * runs. Its title, agent and model are in the header. Its words can be
+ * selected, though the App Shell turns selection off for its swipes. While the server is out of
  * reach, nothing can be sent, and a running turn's progress is unknown. A
  * session the server stopped mid-turn says so under its transcript; a fork
  * names the session it came from over it, and draws what it carries on
- * from as one folded line before its own turns. The answer to a `/btw`
- * floats over the Status Line.
+ * from as one folded line before its own turns. Typing in the Draft draws
+ * only the Draft.
  */
 
 export const SessionView = View.make(
   SessionLive,
   ({ root, model, props, children, send }) => {
     const machineId = useMachineId();
-    const dictation = Dictation.useDictation({
-      machineId,
-      projectId: places.projectIn(props.route.params),
-      sessionId: props.params.sessionId,
-    });
     const found = useChild(children.session, ({ model }) => model);
     const messages = useChild(children.messages, ({ model }) => model);
     const session = found?.rows[0]?.row;
@@ -76,7 +70,6 @@ export const SessionView = View.make(
     const original =
       model.lineage.find(({ id }) => id === forkedFrom?.sessionId)?.title ||
       'Untitled session';
-    const dismiss = useCallback(() => send({ _tag: 'Dismiss' }), [send]);
     const running = session?.status === 'running';
     const rows = useMemo(
       () => thread((messages?.rows ?? []).map(({ row }) => row)),
@@ -84,19 +77,20 @@ export const SessionView = View.make(
     );
     const follow = useFollow(props.params.sessionId);
     const { scroller, content } = follow;
+    const page = keys.useFocusSpot('content', 'page', { default: true });
     const offline = useOffline(machineId);
     // Kept the same while they are, so the transcript is not drawn again
-    // as the Draft changes.
+    // as Stop or a fork changes.
     const opening = useMemo(
       () => ({
         isOpen: (id: string) => model.open.includes(id),
-        toggle: (id: string) => send({ _tag: 'Toggle', id }),
+        toggle: (id: string) => send({ _tag: 'Toggled', id }),
       }),
       [model.open, send],
     );
     const forking = useMemo(
       () => ({
-        fork: (afterTurnId: string) => send({ _tag: 'Fork', afterTurnId }),
+        fork: (afterTurnId: string) => send({ _tag: 'ForkAsked', afterTurnId }),
         pending: model.forking,
       }),
       [model.forking, send],
@@ -115,51 +109,41 @@ export const SessionView = View.make(
     const waiting =
       session === undefined ||
       (messages?.rows.length === 0 && messages.neverSynced.length > 0);
-    const skills = skillsOf(model);
-    const { picking } = model;
-    const stop = () => send({ _tag: 'Stop' });
+    const stop = useCallback(() => send({ _tag: 'StopAsked' }), [send]);
     const canStop = running && !model.stopping && offline === null;
-    const draft = useDraft({
-      label: running ? 'Steer the agent' : 'Message',
-      placeholder: running
-        ? 'Steer the agent while it works, or /btw to ask on the side…'
-        : 'Reply, or type / for skills…',
-      text: model.draft,
-      onTextChange: (text) => send({ _tag: 'Typed', text }),
-      attachments: model.attachments,
-      onAttachmentsChange: (attachments) =>
-        send({ _tag: 'Attach', attachments }),
-      insert: model.insert,
-      onInsert: (what) => send({ _tag: 'Insert', what }),
-      onSend: () => {
-        if (offline === null) send({ _tag: 'Send' });
-      },
-      known: SkillPicker.known(skills),
-      skills: {
-        how: picking?._tag === 'Skills' ? picking.how : null,
-        offered: SkillPicker.offers(skills),
-        onOpen: (how, typed) =>
-          send({ _tag: 'Open', picking: { _tag: 'Skills', how, typed } }),
-        picker: children.skills && (
-          <SkillPicker.View instance={children.skills} />
+    useSessionKeys({ scroller, follow, stop, canStop });
+    const stopKeys = useBound('content.stop');
+    // What the session adds to its Draft's foot: Stop, and why a stop or a
+    // fork was refused.
+    const slots = useMemo(
+      () => ({
+        problem: model.problem,
+        actions: running && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={model.stopping || offline !== null}
+            title={
+              stopKeys === null
+                ? 'Stop the turn'
+                : `Stop the turn (${stopKeys})`
+            }
+            onClick={stop}
+          >
+            {model.stopping && <Spinner />}
+            Stop
+          </Button>
         ),
-      },
-      dictation,
-      ...(offline === null ? {} : { describedBy: 'draft-offline' }),
-    });
-    useSessionKeys({
-      scroller,
-      follow,
-      stop,
-      canStop,
-      closeAnswer: model.asked === null ? null : dismiss,
-    });
+      }),
+      [model.problem, model.stopping, running, offline, stopKeys, stop],
+    );
     return (
       <div {...root} className="flex min-h-0 flex-1 flex-col">
         <div
           ref={(element) => {
             scroller.current = element;
-            return element === null ? undefined : draft.page(element);
+            return element === null ? undefined : page(element);
           }}
           tabIndex={-1}
           className="min-h-0 flex-1 overflow-y-auto outline-none select-text [overflow-anchor:none]"
@@ -184,38 +168,9 @@ export const SessionView = View.make(
         {!missing && (
           <div className="relative shrink-0 bg-background pt-2 pb-3 before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-6 before:bg-gradient-to-t before:from-background before:to-transparent">
             <div className="mx-auto w-full max-w-3xl px-4 sm:px-6">
-              <SessionStatusLine
-                draft={draft}
-                running={running}
-                asking={btwQuestion(model.draft) !== null}
-                stopping={model.stopping}
-                problem={model.problem}
-                offline={offline}
-                above={
-                  model.asked && (
-                    <AskAnswer
-                      key={model.asked.id}
-                      asked={model.asked}
-                      onDismiss={dismiss}
-                    />
-                  )
-                }
-                onStop={stop}
-              >
-                <Triggers
-                  catalog={model.catalog}
-                  current={current(model)}
-                  started
-                  how={picking?._tag === 'Model' ? picking : null}
-                  onOpen={(at, how) =>
-                    send({ _tag: 'Open', picking: { _tag: 'Model', how, at } })
-                  }
-                >
-                  {children.models && (
-                    <ModelPicker.View instance={children.models} />
-                  )}
-                </Triggers>
-              </SessionStatusLine>
+              <Draft.Slots value={slots}>
+                <Draft.view instance={children.draft} />
+              </Draft.Slots>
             </div>
           </div>
         )}

@@ -1,4 +1,4 @@
-import { Effect, Layer, Schema, Stream } from 'effect';
+import { Effect, Schema, Stream } from 'effect';
 import { AiClient } from '@kestack/ai-toolkit/client';
 import { Page, Router } from '@kestack/kabuki/routing';
 import {
@@ -6,27 +6,15 @@ import {
   type Session as SessionRecord,
 } from '@kestack/ai-toolkit/api';
 import { Replicas } from '@kestack/std-toolkit/replica';
-import { machineIn, session } from '../../../places/index.ts';
+import { machineIn, projectIn, session } from '../../../places/index.ts';
 import { Refused } from '../../../refusal/index.ts';
 import { lineage, Messages, SessionRow } from '../../../replica/index.ts';
 import { DeviceState } from '../../../../layer/capabilities/index.ts';
-import * as Picker from '../../../../ui/picker/index.ts';
-import { SharedCatalog } from '../capabilities/index.ts';
-import * as Catalog from '../catalog/index.ts';
-import { Attached, Insert, SkillPicker, wire } from '../draft/index.ts';
-import { ModelPicker } from '../model-picker/index.ts';
-import {
-  ask,
-  cancel,
-  forkSession,
-  markSeen,
-  retryCatalog,
-  send,
-} from './commands.ts';
-import { btwQuestion } from './btw.ts';
+import { Draft } from '../draft/index.ts';
+import { cancel, forkSession, markSeen } from './commands.ts';
 
 /*
- * A session: its row, its messages, and its Draft.
+ * A session: its row, its messages, and its Draft (`draft/`).
  *
  * 1. Read     the row says whether it runs; its messages sync while the
  *             page is open, through the session's Window. A Worker follows
@@ -36,44 +24,13 @@ import { btwQuestion } from './btw.ts';
  *             history it carries on from can be drawn before its own.
  *             Reading it marks it seen on this device, up to the end of
  *             its last turn, and so does each turn ending while it is open.
- * 2. Skills   the agent's, from the catalog the project shares, for the
- *             skills Picker; nothing waits for them. When they cannot be
- *             read the Picker says why, and opening it again tries again.
- *             The one picked is put into the Draft, as anything else put
- *             in is: an Insert, numbered, its editor puts in at its cursor.
- * 3. Models   the agent's models and settings, from the catalog, for the
- *             model Picker, which opens at the model, or at the settings,
- *             the permissions or the effort: the agent is kept. A
- *             model or setting picked here goes with every message after
- *             it; until then the session's own. One Picker is open at a
- *             time, each a fresh one.
- * 4. Send     the draft and its files go to the server, which starts a turn
- *             when the session is idle, and steers the running one
- *             otherwise. The draft clears at once; refused, it comes back,
- *             each send kept apart until the server has answered it.
- * 5. Ask      a draft that starts with `/btw` is a question on the side: its
- *             answer shows over the Status Line, never in the transcript, and
- *             the session goes on as it was. A newer question replaces it.
- * 6. Fork     a new session from this one's context up to a turn's end;
+ * 2. Draft    the next message, a Child of its own, fresh for each session,
+ *             handed the session's agent and whether it runs.
+ * 3. Fork     a new session from this one's context up to a turn's end;
  *             the app moves to it.
- * 7. Stop     cancels the running turn.
- * 8. Open     which tool calls, thoughts and subagents are shown open.
+ * 4. Stop     cancels the running turn.
+ * 5. Open     which tool calls, thoughts and subagents are shown open.
  */
-
-/** A draft sent, kept until the server answers, to come back if refused. */
-const Unsent = Schema.Struct({
-  id: Schema.Finite,
-  text: Schema.String,
-  attachments: Schema.Array(Attached),
-});
-
-const Asked = Schema.Struct({
-  id: Schema.Finite,
-  question: Schema.String,
-  /** null while it is being answered, or when it failed. */
-  answer: Schema.NullOr(Schema.String),
-  problem: Schema.NullOr(Schema.String),
-});
 
 const ForkedFrom = Schema.NullOr(
   Schema.Struct({ sessionId: Schema.String, turnId: Schema.String }),
@@ -87,6 +44,7 @@ const Row = Schema.Struct({
   /** The model and settings it runs with now. */
   model: Schema.String,
   settings: Schema.Record(Schema.String, Schema.String),
+  running: Schema.Boolean,
   forkedFrom: ForkedFrom,
   /** When its last turn ended; null until one has. */
   endedAt: Schema.NullOr(Schema.Finite),
@@ -113,6 +71,7 @@ const readOf = ([own, ...up]: ReadonlyArray<SessionRecord>) =>
           harness: own.harness,
           model: own.model,
           settings: own.settings,
+          running: own.status === 'running',
           forkedFrom: own.forkedFrom,
           endedAt: own.endedAt,
         },
@@ -123,136 +82,48 @@ const readOf = ([own, ...up]: ReadonlyArray<SessionRecord>) =>
         })),
       };
 
-const Picking = Schema.TaggedUnion({
-  /** `typed`: opened by a `/` typed in the Composer, which the skill takes the place of. */
-  Skills: { how: Picker.How, typed: Schema.Boolean },
-  Model: { how: Picker.How, at: ModelPicker.At },
-});
-
-const Chosen = Schema.Struct({
-  model: Schema.NullOr(Schema.String),
-  settings: Schema.Record(Schema.String, Schema.String),
-});
-
-/** What the model Picker is handed before the row is seen, which it never opens for. */
-const NOBODY = { harness: '', model: null, settings: {} };
-
-/** `/` entries that are not skills. */
-const COMMANDS = [
-  {
-    name: 'btw',
-    description: 'Ask about this session without interrupting it',
-  },
-];
-
 const Model = Schema.Struct({
-  draft: Schema.String,
-  attachments: Schema.Array(Attached),
-  /** The last thing put into the Draft, for its editor to put in at its cursor. */
-  insert: Schema.NullOr(Insert.Schema),
-  /** Sent and not yet answered, oldest first: brought back if refused. */
-  unsent: Schema.Array(Unsent),
-  /** How many were sent: each send's id. */
-  sends: Schema.Finite,
   stopping: Schema.Boolean,
+  /** Why a stop or a fork was refused, until the next. */
   problem: Schema.NullOr(Schema.String),
   open: Schema.Array(Schema.String),
   row: Schema.NullOr(Row),
   /** The sessions it was forked from, nearest first: none for one not forked. */
   lineage: Schema.Array(Ancestor),
-  catalog: Catalog.Model,
-  /** The Picker open, if one is. */
-  picking: Schema.NullOr(Picking),
-  /** How many Pickers were opened, so each is a fresh one. */
-  opened: Schema.Finite,
-  /** Picked here, sent with each message; null keeps the session's. */
-  model: Schema.NullOr(Schema.String),
-  settings: Schema.Record(Schema.String, Schema.String),
-  asked: Schema.NullOr(Asked),
-  /** The last question's id: a late answer to a dismissed one is told apart. */
-  asks: Schema.Finite,
   /** The turn a fork is being made after. */
   forking: Schema.NullOr(Schema.String),
 });
-type Model = typeof Model.Type;
 
 export const Session = Page.define({
   path: '/s/:sessionId',
   params: { sessionId: Schema.String },
   metadata: { title: 'Session · code' },
-  requires: [AiClient, SharedCatalog, Replicas, DeviceState],
+  requires: [AiClient, Replicas, DeviceState],
   model: Model,
   message: Schema.TaggedUnion({
     Read: Read.fields,
-    Catalog: { catalog: Catalog.Model },
-    Open: { picking: Picking },
-    Unpicked: {},
-    Chose: { chosen: Chosen },
-    ChoseSkill: { name: Schema.String },
-    Insert: { what: Insert.What },
-    Typed: { text: Schema.String },
-    Attach: { attachments: Schema.Array(Attached) },
-    Send: {},
-    Stop: {},
-    Toggle: { id: Schema.String },
-    Sent: { id: Schema.Finite },
-    SendRefused: { id: Schema.Finite, reason: Schema.String },
+    StopAsked: {},
     Stopped: {},
-    Answered: { id: Schema.Finite, answer: Schema.String },
-    AskRefused: { id: Schema.Finite, reason: Schema.String },
-    Dismiss: {},
-    Fork: { afterTurnId: Schema.String },
+    Toggled: { id: Schema.String },
+    ForkAsked: { afterTurnId: Schema.String },
     Forked: { projectId: Schema.String, sessionId: Schema.String },
     Refused,
   }),
 });
 
-/** The agent, model and settings in effect, for the model Picker; null until the row is seen. */
-export const current = (model: Model) =>
-  model.row === null
-    ? null
-    : {
-        harness: model.row.harness,
-        model: model.model ?? model.row.model,
-        settings: { ...model.row.settings, ...model.settings },
-      };
-
-/** The agent's Skills and the commands, as the skills Picker lists them. */
-export const skillsOf = (model: Model) => {
-  const read = Catalog.skillsOf(model.catalog, model.row?.harness ?? null);
-  return {
-    commands: COMMANDS,
-    skills: read?.list ?? [],
-    loading: read === undefined,
-    problem: read?.problem ?? null,
-  };
-};
-
 export const SessionLive = Page.build(Session, {
   init: () => ({
     model: {
-      draft: '',
-      attachments: [],
-      insert: null,
-      unsent: [],
-      sends: 0,
       stopping: false,
       problem: null,
       open: [],
       row: null,
       lineage: [],
-      catalog: Catalog.empty,
-      picking: null,
-      opened: 0,
-      model: null,
-      settings: {},
-      asked: null,
-      asks: 0,
       forking: null,
     },
   }),
-  // 1. Read
   children: {
+    // 1. Read
     session: {
       actor: SessionRow,
       props: ({ props }) => ({
@@ -276,52 +147,32 @@ export const SessionLive = Page.build(Session, {
         sessionId,
       }),
     },
-    // 2. Skills
-    skills: {
-      actor: SkillPicker.Live,
-      while: ({ model }) => model.picking?._tag === 'Skills',
-      key: ({ model }) => String(model.opened),
-      input: ({ model }) => SkillPicker.opening(model.picking?.how ?? 'keys'),
-      props: ({ model }) => skillsOf(model),
-    },
-    // 3. Models
-    models: {
-      actor: ModelPicker.Live,
-      while: ({ model }) =>
-        model.picking?._tag === 'Model' && current(model) !== null,
-      key: ({ model }) => String(model.opened),
-      input: ({ model }) =>
-        ModelPicker.opening({
-          how: model.picking?.how ?? 'keys',
-          at: model.picking?._tag === 'Model' ? model.picking.at : 'model',
-          started: true,
-          catalog: model.catalog,
-          current: current(model) ?? NOBODY,
-        }),
-      props: ({ model }) => ({
-        catalog: model.catalog,
-        current: current(model) ?? NOBODY,
-      }),
+    // 2. Draft: once its row is this session's, the agent it runs.
+    draft: {
+      actor: Draft.actor,
+      key: ({ props }) => props.params.sessionId,
+      props: ({ model, props }) => {
+        const row = model.row?.id === props.params.sessionId ? model.row : null;
+        return {
+          machineId: machineIn(props.route.params),
+          projectId: projectIn(props.route.params),
+          to: {
+            _tag: 'Session' as const,
+            sessionId: props.params.sessionId,
+            agent:
+              row === null
+                ? null
+                : {
+                    harness: row.harness,
+                    model: row.model,
+                    settings: row.settings,
+                  },
+            running: row?.running ?? false,
+          },
+        };
+      },
     },
   },
-  provides: (self) =>
-    Layer.mergeAll(
-      SkillPicker.owner((name) =>
-        self.send(
-          name === null ? { _tag: 'Unpicked' } : { _tag: 'ChoseSkill', name },
-        ),
-      ),
-      ModelPicker.owner((chosen) =>
-        self.send(
-          chosen === null
-            ? { _tag: 'Unpicked' }
-            : {
-                _tag: 'Chose',
-                chosen: { model: chosen.model, settings: chosen.settings },
-              },
-        ),
-      ),
-    ),
   workers: {
     // 1. Read
     row: {
@@ -334,14 +185,6 @@ export const SessionLive = Page.build(Session, {
             Stream.changesWith(sameRead),
             Stream.runForEach((read) => self.send({ _tag: 'Read', ...read })),
           ),
-        ),
-    },
-    // 2. Skills, 3. Models: the catalog, as the project shares it.
-    catalog: {
-      run: (self) =>
-        Stream.runForEach(
-          Stream.unwrap(Effect.map(SharedCatalog, ({ changes }) => changes)),
-          (catalog) => self.send({ _tag: 'Catalog', catalog }),
         ),
     },
   },
@@ -359,127 +202,8 @@ export const SessionLive = Page.build(Session, {
             }),
           }),
     }),
-    Catalog: ({ catalog }, { model }) => ({ model: { ...model, catalog } }),
-    Open: ({ picking }, { model }) =>
-      model.picking !== null
-        ? {}
-        : {
-            model: { ...model, picking, opened: model.opened + 1 },
-            ...(picking._tag === 'Skills' && skillsOf(model).problem !== null
-              ? { command: retryCatalog() }
-              : {}),
-          },
-    Unpicked: (_, { model }) => ({ model: { ...model, picking: null } }),
-    ChoseSkill: ({ name }, { model }) =>
-      model.picking?._tag !== 'Skills'
-        ? {}
-        : {
-            model: {
-              ...model,
-              picking: null,
-              insert: Insert.next(model.insert, {
-                _tag: 'Skill',
-                name,
-                typed: model.picking.typed,
-              }),
-            },
-          },
-    Insert: ({ what }, { model }) => ({
-      model: { ...model, insert: Insert.next(model.insert, what) },
-    }),
-    Chose: ({ chosen }, { model }) => ({
-      model: {
-        ...model,
-        picking: null,
-        model: chosen.model ?? model.model,
-        settings: { ...model.settings, ...chosen.settings },
-      },
-    }),
-    Typed: ({ text }, { model }) => ({ model: { ...model, draft: text } }),
-    Attach: ({ attachments }, { model }) => ({
-      model: { ...model, attachments },
-    }),
-    Send: (_, { model, props }) => {
-      // 5. Ask
-      const question = btwQuestion(model.draft);
-      if (question === '')
-        return {
-          model: { ...model, problem: 'Write a question after /btw' },
-        };
-      if (question !== null) {
-        const id = model.asks + 1;
-        return {
-          model: {
-            ...model,
-            draft: '',
-            problem: null,
-            asked: { id, question, answer: null, problem: null },
-            asks: id,
-          },
-          command: ask({ id, sessionId: props.params.sessionId, question }),
-        };
-      }
-      // 4. Send
-      const text = model.draft.trim();
-      if (text === '' && model.attachments.length === 0) return {};
-      const id = model.sends + 1;
-      return {
-        model: {
-          ...model,
-          draft: '',
-          attachments: [],
-          unsent: [
-            ...model.unsent,
-            { id, text, attachments: model.attachments },
-          ],
-          sends: id,
-          problem: null,
-        },
-        command: send({
-          id,
-          sessionId: props.params.sessionId,
-          text,
-          attachments: wire(model.attachments),
-          ...(model.model === null ? {} : { model: model.model }),
-          ...(Object.keys(model.settings).length === 0
-            ? {}
-            : { settings: model.settings }),
-        }),
-      };
-    },
-    Sent: ({ id }, { model }) => ({
-      model: {
-        ...model,
-        unsent: model.unsent.filter((each) => each.id !== id),
-      },
-    }),
-    SendRefused: ({ id, reason }, { model }) => {
-      const refused = model.unsent.find((each) => each.id === id);
-      const back =
-        refused && model.draft === '' && model.attachments.length === 0
-          ? refused
-          : null;
-      return {
-        model: {
-          ...model,
-          problem: reason,
-          draft: back?.text ?? model.draft,
-          attachments: back?.attachments ?? model.attachments,
-          unsent: model.unsent.filter((each) => each.id !== id),
-        },
-      };
-    },
-    Answered: ({ id, answer }, { model }) =>
-      model.asked?.id === id
-        ? { model: { ...model, asked: { ...model.asked, answer } } }
-        : {},
-    AskRefused: ({ id, reason }, { model }) =>
-      model.asked?.id === id
-        ? { model: { ...model, asked: { ...model.asked, problem: reason } } }
-        : {},
-    Dismiss: (_, { model }) => ({ model: { ...model, asked: null } }),
-    // 6. Fork
-    Fork: ({ afterTurnId }, { model, props }) =>
+    // 3. Fork
+    ForkAsked: ({ afterTurnId }, { model, props }) =>
       model.forking !== null
         ? {}
         : {
@@ -495,8 +219,8 @@ export const SessionLive = Page.build(Session, {
         session(machineIn(props.route.params), projectId, sessionId),
       ),
     }),
-    // 7. Stop
-    Stop: (_, { model, props }) =>
+    // 4. Stop
+    StopAsked: (_, { model, props }) =>
       model.stopping
         ? {}
         : {
@@ -507,8 +231,8 @@ export const SessionLive = Page.build(Session, {
     Refused: ({ reason }, { model }) => ({
       model: { ...model, problem: reason, stopping: false, forking: null },
     }),
-    // 8. Open
-    Toggle: ({ id }, { model }) => ({
+    // 5. Open
+    Toggled: ({ id }, { model }) => ({
       model: {
         ...model,
         open: model.open.includes(id)

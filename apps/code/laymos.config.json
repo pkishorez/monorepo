@@ -48,13 +48,11 @@
       "src/shell/connection",
       "src/shell/actors/dictation"
     ],
-    "src/shell/pages/project/model-picker": ["src/shell/pages/project/catalog"],
     "src/shell/pages/project/capabilities": ["src/shell/pages/project/catalog"],
-    "src/shell/pages/project/session": [
+    "src/shell/pages/project/session": ["src/shell/pages/project/draft"],
+    "src/shell/pages/project/draft": [
       "src/shell/pages/project/capabilities",
-      "src/shell/pages/project/catalog",
-      "src/shell/pages/project/draft",
-      "src/shell/pages/project/model-picker"
+      "src/shell/pages/project/catalog"
     ]
   }
 }

@@ -5,9 +5,8 @@ import { keys } from '../../../../keys.ts';
  * The session's keys, on the page's Surface while it is open. j and k
  * scroll the transcript a line, Ctrl+D and Ctrl+U half a page, g g goes to
  * the top and Shift+G back to the bottom, following again. Page Up and
- * Page Down scroll it even while typing, and Mod+. stops the running turn.
- * Escape closes the `/btw` answer while it is shown, from the page's
- * Normal Mode, so the first Escape in the Composer only leaves it. Every
+ * Page Down scroll it even while typing, and Mod+. stops the running turn
+ * (the Draft closes its own `/btw` answer). Every
  * scroll is instant; scrolling up lets the transcript stop following new
  * messages.
  */
@@ -19,14 +18,11 @@ export function useSessionKeys({
   follow,
   stop,
   canStop,
-  closeAnswer,
 }: {
   readonly scroller: RefObject<HTMLDivElement | null>;
   readonly follow: { readonly letGo: () => void; readonly holdOn: () => void };
   readonly stop: () => void;
   readonly canStop: boolean;
-  /** Closes the answer; null while none is shown. */
-  readonly closeAnswer: (() => void) | null;
 }) {
   const by = (top: number) => {
     if (top < 0) follow.letGo();
@@ -45,7 +41,4 @@ export function useSessionKeys({
   });
   keys.useAction('content.bottom', follow.holdOn);
   keys.useAction('content.stop', stop, { enabled: canStop });
-  keys.useAction('content.close', () => closeAnswer?.(), {
-    enabled: closeAnswer !== null,
-  });
 }
