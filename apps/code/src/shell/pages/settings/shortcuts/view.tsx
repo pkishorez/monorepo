@@ -13,8 +13,10 @@ import { ShortcutsLive } from './actor.ts';
 import { actionOf, keysOf, search, shadowsOf, swapped } from './bindings.ts';
 
 /*
- * Every Action and its keys, grouped by Surface, under a search field. A
- * row's keys are a button: clicking it records one key press in its place,
+ * Every Action and its keys as the key table lists them (`keys.ts`): one
+ * row per thing done, in sections, its keys in either Mode beside its
+ * Vim Mode ones, quieter while Vim Mode is off, under a search field.
+ * Each Action's keys are a button: clicking it records one key press in its place,
  * on the isolated `record` Surface, where no key of the app works; the
  * element itself takes the key, so the browser does nothing with it
  * either. Escape, or a click away, leaves the Surface, which stops
@@ -28,11 +30,9 @@ type Bindings = NonNullable<Model['bindings']>;
 
 const list = new Intl.ListFormat('en', { type: 'conjunction' });
 
-const capital = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
-
 function Keys({ written }: { readonly written: ReadonlyArray<string> }) {
   return (
-    <span className="flex flex-wrap justify-end gap-1.5">
+    <span className="flex flex-wrap gap-1.5">
       {written.map((each) => (
         <BindingKeys key={each} binding={bindingOf(each)} always />
       ))}
@@ -81,7 +81,67 @@ function Recorder({
   );
 }
 
-function Row({
+function Key({
+  id,
+  model,
+  bindings,
+  send,
+}: {
+  readonly id: string;
+  readonly model: Model;
+  readonly bindings: Bindings;
+  readonly send: Self['send'];
+}) {
+  const { enter } = keys.useKeyboard();
+  const spot = keys.useFocusSpot('content', `shortcut ${id}`);
+  const action = actionOf(id);
+  if (action === undefined) return null;
+  const written = keysOf(bindings, id);
+  const custom = bindings[id] !== undefined;
+  return (
+    <span className="inline-flex items-center gap-1">
+      {custom && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="xs"
+          aria-label={`Reset ${action.label} to its default keys`}
+          onClick={() => send({ _tag: 'Reset', id })}
+          className="text-muted-foreground"
+        >
+          Reset
+        </Button>
+      )}
+      {model.recording === id ? (
+        <Recorder label={action.label} send={send} />
+      ) : action.recordable ? (
+        <button
+          ref={spot}
+          type="button"
+          aria-label={`Change the keys for ${action.label}`}
+          title={`${action.label}: click, then press the new key`}
+          onClick={() => {
+            send({ _tag: 'Record', id });
+            enter('record');
+          }}
+          className="focus-ring -my-1 rounded-md px-1.5 py-1 transition-colors hover:bg-muted active:bg-muted"
+        >
+          <Keys written={written} />
+        </button>
+      ) : (
+        <span
+          title="Keys pressed in turn keep their defaults"
+          className="px-1.5"
+        >
+          <Keys written={written} />
+        </span>
+      )}
+    </span>
+  );
+}
+
+/** What is said under a row of one of its Actions: a clash, a key that types, what was reset with it, what a nearer Surface does with its keys. */
+function Notes({
   id,
   model,
   bindings,
@@ -94,57 +154,12 @@ function Row({
   readonly shadow: { readonly by: string; readonly keys: string } | undefined;
   readonly send: Self['send'];
 }) {
-  const { enter } = keys.useKeyboard();
-  const spot = keys.useFocusSpot('content', `shortcut ${id}`);
-  const action = actionOf(id);
-  if (action === undefined) return null;
-  const written = keysOf(bindings, id);
-  const custom = bindings[id] !== undefined;
   const clash = model.clash?.id === id ? model.clash : null;
   const holder = clash === null ? undefined : actionOf(clash.holder);
   const canSwap = clash !== null && swapped(bindings, clash) !== null;
   const by = shadow === undefined ? undefined : actionOf(shadow.by);
   return (
-    <li className="flex flex-col gap-1.5 rounded-md px-2 py-1.5">
-      <div className="flex min-h-8 items-center gap-3">
-        <span className="min-w-0 flex-1 text-sm">{action.label}</span>
-        {custom && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="xs"
-            aria-label={`Reset ${action.label} to its default keys`}
-            onClick={() => send({ _tag: 'Reset', id })}
-            className="text-muted-foreground"
-          >
-            Reset
-          </Button>
-        )}
-        {model.recording === id ? (
-          <Recorder label={action.label} send={send} />
-        ) : action.recordable ? (
-          <button
-            ref={spot}
-            type="button"
-            aria-label={`Change the keys for ${action.label}`}
-            title="Click, then press the new key"
-            onClick={() => {
-              send({ _tag: 'Record', id });
-              enter('record');
-            }}
-            className="focus-ring -my-1 rounded-md px-1.5 py-1 transition-colors hover:bg-muted active:bg-muted"
-          >
-            <Keys written={written} />
-          </button>
-        ) : (
-          <span
-            title="Keys pressed in turn keep their defaults"
-            className="px-1.5"
-          >
-            <Keys written={written} />
-          </span>
-        )}
-      </div>
+    <>
       {clash !== null && (
         <div
           role="alert"
@@ -211,7 +226,7 @@ function Row({
           does “{by.label}” instead.
         </p>
       )}
-    </li>
+    </>
   );
 }
 
@@ -273,14 +288,14 @@ export const ShortcutsView = View.make(
             ))}
           </div>
         ) : (
-          <Groups model={model} bindings={bindings} send={send} />
+          <Table model={model} bindings={bindings} send={send} />
         )}
       </section>
     );
   },
 );
 
-function Groups({
+function Table({
   model,
   bindings,
   send,
@@ -289,6 +304,7 @@ function Groups({
   readonly bindings: Bindings;
   readonly send: Self['send'];
 }) {
+  const { vim } = keys.useKeyboard();
   const found = search(bindings, model.query);
   const shadows = shadowsOf(bindings);
   if (found.length === 0)
@@ -297,31 +313,98 @@ function Groups({
         No action or key matches “{model.query.trim()}”.
       </p>
     );
-  return found.map((group) => (
-    <div
-      key={group.surface}
-      role="group"
-      aria-labelledby={`shortcuts-${group.surface}`}
-      className="flex flex-col gap-0.5"
-    >
-      <h3
-        id={`shortcuts-${group.surface}`}
-        className="px-2 text-xs font-medium text-muted-foreground"
+  return (
+    <div className="flex flex-col">
+      <div
+        aria-hidden
+        className={`${COLUMNS} border-b border-border px-2 pb-1.5 text-xs font-medium text-muted-foreground`}
       >
-        {capital(group.name)}
-      </h3>
-      <ul className="flex flex-col">
-        {group.actions.map((action) => (
-          <Row
-            key={action.id}
-            id={action.id}
-            model={model}
-            bindings={bindings}
-            shadow={shadows.get(action.id)}
-            send={send}
-          />
-        ))}
-      </ul>
+        <span>Action</span>
+        <span>Always</span>
+        <span>Vim Mode{vim.on ? '' : ', off'}</span>
+      </div>
+      {found.map((section) => (
+        <div
+          key={section.title}
+          role="group"
+          aria-labelledby={`shortcuts-${section.title}`}
+          className="flex flex-col"
+        >
+          <h3
+            id={`shortcuts-${section.title}`}
+            className="px-2 pt-4 pb-1 text-[11px] font-medium tracking-wider text-muted-foreground uppercase"
+          >
+            {section.title}
+          </h3>
+          <ul className="flex flex-col">
+            {section.rows.map((row) => (
+              <li
+                key={row.label}
+                className="flex flex-col gap-1.5 border-b border-border/50 px-2 py-1.5 last:border-b-0"
+              >
+                <div className={`${COLUMNS} min-h-8`}>
+                  <span className="text-sm">{row.label}</span>
+                  <Cell
+                    ids={row.always}
+                    model={model}
+                    bindings={bindings}
+                    send={send}
+                  />
+                  <Cell
+                    ids={row.vim}
+                    model={model}
+                    bindings={bindings}
+                    send={send}
+                    off={!vim.on}
+                  />
+                </div>
+                {[...row.always, ...row.vim].map((id) => (
+                  <Notes
+                    key={id}
+                    id={id}
+                    model={model}
+                    bindings={bindings}
+                    shadow={shadows.get(id)}
+                    send={send}
+                  />
+                ))}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
     </div>
-  ));
+  );
+}
+
+/** The table's three columns: what is done, then its keys in either Mode, then in Vim Mode. */
+const COLUMNS =
+  'grid grid-cols-[minmax(0,1fr)_minmax(0,9rem)_minmax(0,9rem)] items-center gap-3 sm:grid-cols-[minmax(0,1fr)_12rem_12rem]';
+
+/** One column of a row: each Action's keys, a button that records new ones; a dash for none. */
+function Cell({
+  ids,
+  model,
+  bindings,
+  send,
+  off = false,
+}: {
+  readonly ids: ReadonlyArray<string>;
+  readonly model: Model;
+  readonly bindings: Bindings;
+  readonly send: Self['send'];
+  /** Vim Mode is off: its keys are drawn quieter, as they do nothing now. */
+  readonly off?: boolean;
+}) {
+  if (ids.length === 0)
+    return <span className="text-sm text-muted-foreground/60">–</span>;
+  return (
+    <span
+      className={`flex min-w-0 flex-wrap items-center gap-1 ${off ? 'opacity-50' : ''}`}
+    >
+      {ids.map((id) => (
+        <Key key={id} id={id} model={model} bindings={bindings} send={send} />
+      ))}
+    </span>
+  );
 }

@@ -22,10 +22,11 @@ import { useTransfers } from './transfer.ts';
  * (`actor.ts`), which also decides what sending means; its cursor,
  * selection and history are its editor's.
  *
- * 1. Read     it can be scrolled, clicked to place the cursor and dragged
- *             to select, but not typed into; Enter sends it, from the
- *             page's Normal Mode. In an untouched Draft the cursor is at
- *             the end.
+ * 1. Read     in Vim Mode it can be scrolled, clicked to place the cursor
+ *             and dragged to select, but not typed into; Enter sends it,
+ *             from the page's Normal Mode. Out of Vim Mode it is always
+ *             the Composer, as a text box is. In an untouched Draft the
+ *             cursor is at the end.
  * 2. Write    `i`, or a tap, makes it the Composer in place: typed into,
  *             Enter or Mod+Enter sending, Shift+Enter a new line. Escape,
  *             as any move to the page's Normal Mode, makes it read only
@@ -144,8 +145,11 @@ export function useDraft(options: DraftOptions) {
   const open = Picker.useOpen();
   const composer = keys.useFocusSpot('content', 'composer');
   const typingKeys = useTypingKeys();
-  const [writing, setWriting] = useState(false);
+  const [composing, setWriting] = useState(false);
   const surface = keys.useSurface('content');
+  // Out of Vim Mode it is always the Composer, as any text box is.
+  const { vim } = keys.useKeyboard();
+  const writing = composing || !vim.on;
   const files = useAttachments({
     attachments,
     onChange: options.onAttachmentsChange,
@@ -161,10 +165,10 @@ export function useDraft(options: DraftOptions) {
   };
 
   const writeKeys = useBound('content.write');
-  const skillKeys = useBound('content.skills');
+  // In Vim Mode, read only, it says how to write in it.
   const reading =
-    (writeKeys === null ? 'Write a message' : `Press ${writeKeys} to write`) +
-    (skills.offered && skillKeys !== null ? `, ${skillKeys} for a skill` : '');
+    writeKeys === null ? 'Write a message' : `Press ${writeKeys} to write`;
+  const placeholder = writing ? options.placeholder : reading;
 
   const latest = useRef(dictation);
   latest.current = dictation;
@@ -174,7 +178,7 @@ export function useDraft(options: DraftOptions) {
     onSend: send,
     label: options.label,
     describedBy: options.describedBy,
-    placeholder: writing ? options.placeholder : reading,
+    placeholder,
     disabled,
     writing,
     spot: composer,
@@ -189,8 +193,9 @@ export function useDraft(options: DraftOptions) {
 
   // 2. Write: back in the page's Normal Mode, it is read only again.
   useEffect(() => {
-    if (surface.active && surface.mode === 'normal') setWriting(false);
-  }, [surface.active, surface.mode]);
+    if (vim.on && surface.active && surface.mode === 'normal')
+      setWriting(false);
+  }, [vim.on, surface.active, surface.mode]);
 
   const write = () => {
     if (disabled) return;
@@ -245,6 +250,10 @@ export function useDraft(options: DraftOptions) {
 
   return {
     parent: editor.parent,
+    vim: vim.on,
+    placeholder,
+    /** Nothing in it yet, nor a Dictation coming: its placeholder shows. */
+    empty: text === '' && dictation.pending === null,
     writing,
     dragging,
     disabled,
@@ -283,10 +292,11 @@ export function Card({
     <div
       data-slot="draft"
       data-recording={recording !== null || undefined}
-      data-writing={draft.writing || undefined}
+      data-writing={(draft.vim && draft.writing) || undefined}
+      data-plain={!draft.vim || undefined}
       data-dragging={draft.dragging || undefined}
       data-disabled={draft.disabled || undefined}
-      className="group/draft relative flex flex-col rounded-xl border border-dashed border-border bg-muted/30 transition-[border-color,background-color,box-shadow] duration-150 ease-out motion-reduce:transition-none data-dragging:border-solid data-dragging:border-ring data-writing:border-solid data-writing:border-primary/60 data-writing:bg-card data-writing:shadow-[0_1px_2px_rgb(0_0_0/0.06),0_4px_12px_rgb(0_0_0/0.08),0_16px_40px_rgb(0_0_0/0.12)] data-writing:ring-4 data-writing:ring-primary/10 data-recording:not-data-writing:border-solid data-recording:not-data-writing:border-destructive/35"
+      className="group/draft relative flex flex-col rounded-xl border border-dashed border-border bg-muted/30 transition-[border-color,background-color,box-shadow] duration-150 ease-out motion-reduce:transition-none data-dragging:border-solid data-dragging:border-ring data-writing:border-solid data-writing:border-primary/60 data-writing:bg-card data-writing:shadow-[0_1px_2px_rgb(0_0_0/0.06),0_4px_12px_rgb(0_0_0/0.08),0_16px_40px_rgb(0_0_0/0.12)] data-writing:ring-4 data-writing:ring-primary/10 data-recording:not-data-writing:border-solid data-recording:not-data-writing:border-destructive/35 data-plain:border-solid data-plain:bg-card data-plain:focus-within:border-primary/60 data-plain:focus-within:ring-4 data-plain:focus-within:ring-primary/10"
     >
       <Heading draft={draft} />
       <div
@@ -296,10 +306,21 @@ export function Card({
         }}
         className="flex flex-col gap-3 px-4 pt-1.5 pb-1 text-muted-foreground transition-colors duration-150 group-data-writing/draft:text-foreground group-data-disabled/draft:opacity-40 motion-reduce:transition-none"
       >
-        <div
-          ref={draft.parent}
-          className="max-h-[min(40dvh,20rem)] min-h-7 overflow-y-auto"
-        />
+        {/*
+         * The placeholder sits behind the editor, never in its text, so the
+         * cursor of an empty Draft is at its start, as in any text box.
+         */}
+        <div className="relative max-h-[min(40dvh,20rem)] min-h-7 overflow-y-auto">
+          {draft.empty && (
+            <p
+              aria-hidden
+              className="pointer-events-none absolute inset-x-0 top-0 truncate text-base leading-[1.75] text-muted-foreground/70"
+            >
+              {draft.placeholder}
+            </p>
+          )}
+          <div ref={draft.parent} className="relative" />
+        </div>
         <AttachmentStrip
           attachments={draft.attachments}
           refused={draft.files.refused}
@@ -385,6 +406,15 @@ function Heading({ draft }: { readonly draft: Draft }) {
         <span role="status" className="font-normal tracking-normal normal-case">
           Transcribing…
         </span>
+      </div>
+    );
+  // Out of Vim Mode it is a plain message box: no Mode to say.
+  if (!draft.vim)
+    return (
+      <div aria-hidden className={HEADING}>
+        <span className="size-1.5 shrink-0 rounded-full bg-muted-foreground/40" />
+        <span>Message</span>
+        <span className={HINT}>Shift+Enter for a new line</span>
       </div>
     );
   return (

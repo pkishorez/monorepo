@@ -3,8 +3,9 @@ import type { DatabaseError } from '@kestack/std-toolkit/db';
 
 /*
  * Device State: what this browser keeps for itself and no other device
- * sees: the user's own Bindings, the microphone a Dictation records from,
- * and the Unseen marks of each Machine. The store is the truth; an actor
+ * sees: the user's own Bindings and whether Vim Mode is on, the
+ * microphone a Dictation records from, the Machine the sidebar shows, and
+ * the Unseen marks of each Machine. The store is the truth; an actor
  * that shows it reads it again after every write, from this tab or
  * another. The app Layer gives it, from `services/device-state/`.
  *
@@ -18,22 +19,25 @@ export const Marks = Schema.Record(Schema.String, Schema.Finite);
 export type Marks = typeof Marks.Type;
 
 /**
- * Device State as read: Bindings by Action id; the microphone chosen, by
- * the browser's `deviceId`, null for the system default; the Machine the
+ * Device State as read: Bindings by Action id; whether Vim Mode is on; the
+ * microphone chosen, by the browser's `deviceId`, null for the system
+ * default; the Machine the
  * sidebar shows, null for every Machine; Unseen marks by Machine id and
  * then Session id.
  */
 export const Device = Schema.Struct({
   bindings: Schema.Record(Schema.String, Schema.Array(Schema.String)),
+  vim: Schema.Boolean,
   microphone: Schema.NullOr(Schema.String),
   sidebarMachine: Schema.NullOr(Schema.String),
   unseen: Schema.Record(Schema.String, Marks),
 });
 export type Device = typeof Device.Type;
 
-/** What a browser that keeps nothing reads: the default keys and microphone, every Machine, no marks. */
+/** What a browser that keeps nothing reads: the default keys, Vim Mode off, the default microphone, every Machine, no marks. */
 export const nothing: Device = {
   bindings: {},
+  vim: false,
   microphone: null,
   sidebarMachine: null,
   unseen: {},
@@ -47,6 +51,7 @@ export class DeviceState extends Context.Service<
     readonly setBindings: (
       bindings: Device['bindings'],
     ) => Effect.Effect<void, DatabaseError>;
+    readonly setVim: (on: boolean) => Effect.Effect<void, DatabaseError>;
     readonly setMicrophone: (
       deviceId: string | null,
     ) => Effect.Effect<void, DatabaseError>;

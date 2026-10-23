@@ -146,6 +146,7 @@ const world = (options: {
         microphone,
       })),
       setBindings: () => Effect.void,
+      setVim: () => Effect.void,
       setMicrophone: (microphone) => SubscriptionRef.set(chosen, microphone),
       setSidebarMachine: () => Effect.void,
       markSeen: () => Effect.void,

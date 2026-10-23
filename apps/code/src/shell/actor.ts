@@ -30,7 +30,7 @@ import { ProjectPicker } from './actors/project-picker/index.ts';
 import { SessionActions } from './actors/session-actions/index.ts';
 import { SessionSwitcher } from './actors/session-switcher/index.ts';
 import { Sidebar } from './actors/sidebar/index.ts';
-import { askDictation, signedOut, signIn } from './commands.ts';
+import { askDictation, setVim, signedOut, signIn } from './commands.ts';
 import { Home } from './pages/home/index.ts';
 import { Project } from './pages/project/index.ts';
 import { Settings } from './pages/settings/index.ts';
@@ -42,9 +42,11 @@ import { reach } from './services/index.ts';
  * and where Settings were opened from; each Child reads the rest for
  * itself, so a change to one draws only what shows it.
  *
- * 1. Keys      `Reading` reads the user's Bindings from Device State
- *              before anything is drawn; `Ready` follows them as they
- *              change, and nothing else of Device State.
+ * 1. Keys      `Reading` reads the keyboard from Device State, the user's
+ *              Bindings and whether Vim Mode is on, before anything is
+ *              drawn; `Ready` follows them as they change, and nothing else
+ *              of Device State. Vim Mode turned on or off shows at once,
+ *              and is kept.
  * 2. Accounts  who is signed in, from auth-toolkit's `Accounts`, and the
  *              Account Switcher. Signed out, only signing in is drawn. An
  *              Account signed out of this device takes the records of its
@@ -60,7 +62,8 @@ import { reach } from './services/index.ts';
  *
  * It also starts a new session in the project open, opens Settings,
  * remembering where it was opened from, so the same key goes back there,
- * and goes home when another Account, or none, is signed in.
+ * goes Back and Forward through the pages, and goes home when another
+ * Account, or none, is signed in.
  */
 
 /** Who is signed in, as the root keeps it. */
@@ -85,8 +88,12 @@ const Back = Schema.NullOr(
   }),
 );
 
-const Bindings = DeviceState.Device.fields.bindings;
-const sameBindings = Schema.toEquivalence(Bindings);
+/** The keyboard as this browser keeps it: the Bindings, and Vim Mode. */
+const Keys = Schema.Struct({
+  bindings: DeviceState.Device.fields.bindings,
+  vim: Schema.Boolean,
+});
+const sameKeys = Schema.toEquivalence(Keys);
 
 const Model = Schema.Struct({
   account: Signed,
@@ -112,10 +119,12 @@ export const Shell = Page.define({
   model: Model,
   state: Schema.TaggedUnion({
     Reading: {},
-    Ready: { bindings: Bindings },
+    Ready: { keyboard: Keys },
   }),
   message: Schema.TaggedUnion({
-    BindingsRead: { bindings: Bindings },
+    KeyboardRead: { keyboard: Keys },
+    /** Vim Mode turned on or off, by its keys or in Settings. */
+    VimChanged: { on: Schema.Boolean },
     Signed: { account: Signed },
     SignInAsked: {},
     SignInFailed: { problem: Schema.String },
@@ -125,11 +134,14 @@ export const Shell = Page.define({
     SettingsToggled: { from: Back, back: Schema.Boolean },
     /** Space, Ctrl+Space, the mic button, or a Draft: for the Dictation. */
     DictationAsked: { ask: Ask },
+    /** Ctrl+O and Ctrl+I: Back and Forward through the pages. */
+    BackAsked: {},
+    ForwardAsked: {},
   }),
 });
 
-const ready = (bindings: typeof Bindings.Type) => ({
-  state: { _tag: 'Ready' as const, bindings },
+const ready = (keyboard: typeof Keys.Type) => ({
+  state: { _tag: 'Ready' as const, keyboard },
 });
 
 /** auth-toolkit's state, as the root keeps it. */
@@ -176,15 +188,15 @@ const draftAt = (route: Route | undefined) => {
     : null;
 };
 
-/** The Bindings, now and after each change to them, here or in another tab. */
-const bindings = Stream.concat(
+/** The keyboard, now and after each change to it, here or in another tab. */
+const keyboard = Stream.concat(
   Stream.make(undefined),
   DeviceState.changes,
 ).pipe(
   Stream.mapEffect(() =>
-    Effect.map(DeviceState.read, ({ bindings }) => bindings),
+    Effect.map(DeviceState.read, ({ bindings, vim }) => ({ bindings, vim })),
   ),
-  Stream.changesWith(sameBindings),
+  Stream.changesWith(sameKeys),
 );
 
 export const ShellLive = Page.build(Shell, {
@@ -220,12 +232,12 @@ export const ShellLive = Page.build(Shell, {
       workers: {
         read: {
           run: (self) =>
-            Effect.flatMap(DeviceState.read, ({ bindings }) =>
-              self.send({ _tag: 'BindingsRead', bindings }),
+            Effect.flatMap(DeviceState.read, ({ bindings, vim }) =>
+              self.send({ _tag: 'KeyboardRead', keyboard: { bindings, vim } }),
             ),
         },
       },
-      on: { BindingsRead: ({ bindings }) => ready(bindings) },
+      on: { KeyboardRead: ({ keyboard }) => ready(keyboard) },
     },
     Ready: {
       children: {
@@ -250,7 +262,7 @@ export const ShellLive = Page.build(Shell, {
         sessionSwitcher: { actor: SessionSwitcher.actor },
         sessionActions: {
           actor: SessionActions.actor,
-          props: ({ state }) => ({ bindings: state.bindings }),
+          props: ({ state }) => ({ bindings: state.keyboard.bindings }),
         },
         microphonePicker: { actor: MicrophonePicker.actor },
         dictation: {
@@ -260,16 +272,21 @@ export const ShellLive = Page.build(Shell, {
       },
       workers: {
         // A change here or in another tab is read again.
-        bindings: {
+        keyboard: {
           run: (self) =>
-            Stream.runForEach(bindings, (bindings) =>
-              self.send({ _tag: 'BindingsRead', bindings }),
+            Stream.runForEach(keyboard, (keyboard) =>
+              self.send({ _tag: 'KeyboardRead', keyboard }),
             ),
         },
       },
       on: {
-        BindingsRead: ({ bindings }, { state }) =>
-          sameBindings(bindings, state.bindings) ? {} : ready(bindings),
+        KeyboardRead: ({ keyboard }, { state }) =>
+          sameKeys(keyboard, state.keyboard) ? {} : ready(keyboard),
+        // Shown at once, and kept.
+        VimChanged: ({ on }, { state }) => ({
+          ...ready({ ...state.keyboard, vim: on }),
+          command: setVim({ on }),
+        }),
       },
     },
   },
@@ -319,5 +336,7 @@ export const ShellLive = Page.build(Shell, {
       };
     },
     DictationAsked: ({ ask }) => ({ command: askDictation(ask) }),
+    BackAsked: () => ({ command: Router.back() }),
+    ForwardAsked: () => ({ command: Router.forward() }),
   },
 });

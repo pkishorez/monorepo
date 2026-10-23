@@ -1,7 +1,7 @@
 import { memo, useCallback, useMemo } from 'react';
 import { useChild, useChildren, View } from '@kestack/kabuki/react';
 import type { Session } from '@kestack/ai-toolkit/api';
-import { Router } from '@kestack/kabuki/routing';
+import { Router, useElementScrollRestoration } from '@kestack/kabuki/routing';
 import {
   GitForkIcon,
   TriangleAlertIcon,
@@ -39,6 +39,9 @@ import {
  * only the Draft.
  */
 
+/** The transcript's name, under which its scroll is kept per history entry. */
+const TRANSCRIPT = 'transcript';
+
 export const SessionView = View.make(
   SessionLive,
   ({ root, model, props, children, send }) => {
@@ -75,7 +78,10 @@ export const SessionView = View.make(
       () => thread((messages?.rows ?? []).map(({ row }) => row)),
       [messages?.rows],
     );
-    const follow = useFollow(props.params.sessionId);
+    const follow = useFollow(
+      props.params.sessionId,
+      useElementScrollRestoration({ id: TRANSCRIPT }),
+    );
     const { scroller, content } = follow;
     const page = keys.useFocusSpot('content', 'page', { default: true });
     const offline = useOffline(machineId);
@@ -146,6 +152,7 @@ export const SessionView = View.make(
             return element === null ? undefined : page(element);
           }}
           tabIndex={-1}
+          data-scroll-restoration-id={TRANSCRIPT}
           className="min-h-0 flex-1 overflow-y-auto outline-none select-text [overflow-anchor:none]"
         >
           <Transcript

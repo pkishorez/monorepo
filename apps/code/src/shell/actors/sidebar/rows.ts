@@ -132,8 +132,9 @@ export function rowsOf(
 /**
  * The Session `by` places from where you are in the sidebar's order, shown
  * or not, across Projects: from a Session, or from a Project, as if just
- * above its first Session; from nowhere, the first or the last. Undefined
- * past either end.
+ * above its first Session; from nowhere, the first or the last. Past
+ * either end it goes round to the other; undefined only when there is no
+ * other Session.
  */
 export function sessionBeside(
   groups: ReturnType<typeof groupsOf>,
@@ -160,11 +161,10 @@ export function sessionBeside(
               session.id === from.sessionId,
         );
   const start = at !== -1 ? at : by === 1 ? -1 : order.length;
-  for (
-    let index = start + by;
-    index >= 0 && index < order.length;
-    index += by
-  ) {
+  for (let step = 1; step <= order.length; step++) {
+    const index =
+      (((start + by * step) % order.length) + order.length) % order.length;
+    if (index === at) break;
     const { session } = order[index]!;
     if (session !== null) return session;
   }

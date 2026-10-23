@@ -3,11 +3,16 @@ import { Ai } from '@kestack/ai-toolkit/client';
 import { Accounts } from '@kestack/auth-toolkit/client';
 import { Command } from '@kestack/kabuki';
 import { Store } from '@kestack/std-toolkit/replica';
-import { Ask, Dictations, SavedMachines } from '../layer/capabilities/index.ts';
+import {
+  Ask,
+  DeviceState,
+  Dictations,
+  SavedMachines,
+} from '../layer/capabilities/index.ts';
 
 /*
  * The root page's errands: signing in, what signing out of this device
- * deletes, and handing an ask on to the Dictation.
+ * deletes, handing an ask on to the Dictation, and keeping Vim Mode.
  */
 
 export const signIn = Command.make('SignIn', {
@@ -56,5 +61,14 @@ export const askDictation = Command.make('AskDictation', {
   run: (ask) =>
     Effect.flatMap(Dictations, ({ asked }) =>
       Effect.asVoid(Queue.offer(asked, ask)),
+    ),
+});
+
+/** Keeps Vim Mode on or off in Device State; a write that fails is lost. */
+export const setVim = Command.make('SetVim', {
+  args: Schema.Struct({ on: Schema.Boolean }),
+  run: ({ on }) =>
+    Effect.flatMap(DeviceState, (store) => store.setVim(on)).pipe(
+      Effect.ignore,
     ),
 });

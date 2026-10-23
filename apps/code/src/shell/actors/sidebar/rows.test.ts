@@ -77,8 +77,19 @@ describe('the sidebar rows', () => {
     expect(beside({ projectId: 'b', sessionId: 'b1' }, 1)).toBe('a4');
     expect(beside({ projectId: 'a', sessionId: 'a4' }, -1)).toBe('b1');
     expect(beside({ projectId: 'a', sessionId: 'a2' }, 1)).toBe('a1');
-    expect(beside({ projectId: 'a', sessionId: 'a5' }, 1)).toBeUndefined();
-    expect(beside({ projectId: 'b', sessionId: 'b1' }, -1)).toBeUndefined();
+  });
+
+  it('go round past either end, to the first from the last and the last from the first', () => {
+    expect(beside({ projectId: 'a', sessionId: 'a5' }, 1)).toBe('b1');
+    expect(beside({ projectId: 'b', sessionId: 'b1' }, -1)).toBe('a5');
+    const one = groupsOf([project('a', 1)], [session('s', 'a', 10, null)]);
+    expect(
+      sessionBeside(
+        one,
+        { machineId: 'm1', projectId: 'a', sessionId: 's' },
+        1,
+      ),
+    ).toBeUndefined();
   });
 
   it('start from a project as above its first session, or at either end from nowhere', () => {

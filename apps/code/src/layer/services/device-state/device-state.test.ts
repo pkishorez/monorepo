@@ -33,6 +33,7 @@ describe('Device State', () => {
     );
     expect(read).toEqual({
       bindings: { 'picker.finish': ['ctrl+Enter'] },
+      vim: false,
       microphone: null,
       sidebarMachine: null,
       unseen: {},
@@ -50,6 +51,18 @@ describe('Device State', () => {
       }),
     );
     expect(read).toEqual(['usb-mic', null]);
+  });
+
+  it('keeps Vim Mode, off until it is turned on', async () => {
+    const read = await run(
+      Effect.gen(function* () {
+        const device = yield* store;
+        const before = (yield* device.read).vim;
+        yield* device.setVim(true);
+        return [before, (yield* device.read).vim];
+      }),
+    );
+    expect(read).toEqual([false, true]);
   });
 
   it('keeps the Machine the sidebar shows, and every Machine again', async () => {

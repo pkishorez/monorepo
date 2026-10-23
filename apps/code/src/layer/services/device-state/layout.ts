@@ -4,7 +4,8 @@ import { EntityESchema, ESchema } from '@kestack/std-toolkit/eschema';
 
 /*
  * How Device State is laid out, as one StdTable: one row for the keyboard,
- * the user's own Bindings; one for the microphone a Dictation records
+ * the user's own Bindings; one for whether Vim Mode is on, off until it is
+ * turned on; one for the microphone a Dictation records
  * from; one for the Machine the sidebar shows; one row per Unseen mark, each the
  * end time of the last Turn of a Session of one Machine seen on this
  * device.
@@ -25,6 +26,13 @@ const KeyboardSchema = ESchema.make('DeviceKeyboard', {
 export const keyboard = table
   .singleEntity(KeyboardSchema)
   .default({ bindings: {} });
+
+const VimSchema = ESchema.make('DeviceVim', {
+  /** Whether Vim Mode is on: plain keys as shortcuts, and the Draft read until `i`. */
+  on: Schema.Boolean,
+}).build();
+
+export const vim = table.singleEntity(VimSchema).default({ on: false });
 
 const MicrophoneSchema = ESchema.make('DeviceMicrophone', {
   /** The audio input chosen, by the browser's `deviceId`; null for the system default. */

@@ -21,9 +21,9 @@ export const ProjectPickerView = View.make(
   ProjectPickerLive,
   ({ model, children, send }) => {
     const open = Picker.useOpen();
-    keys.useAction('app.projects', () =>
-      open(() => send({ _tag: 'Open', how: 'keys' })),
-    );
+    const picker = () => open(() => send({ _tag: 'Open', how: 'keys' }));
+    keys.useAction('app.projects', picker);
+    keys.useAction('app.projectsAnywhere', picker);
     return (
       <Picker.Frame
         how={model.picking === 'keys' ? 'keys' : null}

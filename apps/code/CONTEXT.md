@@ -44,16 +44,20 @@ _Avoid_: command palette, session menu
 A Session whose last Turn ended since it was last open on this device; opening it clears that. The device keeps an Unseen mark for each Session opened on it, per Machine, the end time of the last Turn it saw, so a Session never opened here is never Unseen. The sidebar draws it bold.
 _Avoid_: unread, new, notification
 
+**Vim Mode**:
+The keyboard-first way of working the app, off until turned on in this browser: plain keys are shortcuts in the page's Normal Mode, the Draft is read until `i` makes it the Composer, and the app floats as a window with the keys' status line at its foot. Off, the Draft is a text box as any other, and only keys holding Ctrl, Alt or Cmd are shortcuts.
+_Avoid_: keyboard mode, power mode
+
 **Device State**:
-What this browser keeps for itself and no other device sees: the user's Bindings, the Microphone chosen, the Machine Filter and the Unseen marks. The app draws nothing until the Bindings have been read.
+What this browser keeps for itself and no other device sees: the user's Bindings, whether Vim Mode is on, the Microphone chosen, the Machine Filter and the Unseen marks. The app draws nothing until the Bindings have been read.
 _Avoid_: preferences, local settings, localStorage
 
 **Draft**:
-The open Session's next message, kept at the foot of the page with the Status Line while the transcript scrolls above it, always visible. It can be read, scrolled and clicked to place a cursor or select, but not typed into. Everything the user adds, such as a Dictation, a paste, a file or a Skill, goes in at its cursor, replacing any selection, and the page brings that spot into view. Sending it makes it the Session's next message.
+The open Session's next message, kept at the foot of the page with the Status Line while the transcript scrolls above it, always visible. Out of Vim Mode it is typed into as any text box is; in Vim Mode it can be read, scrolled and clicked to place a cursor or select, but not typed into until it is the Composer. Everything the user adds, such as a Dictation, a paste, a file or a Skill, goes in at its cursor, replacing any selection, and the page brings that spot into view. Sending it makes it the Session's next message.
 _Avoid_: input, insert bar, prompt box, composer (that is the Draft while editable)
 
 **Composer**:
-The Draft while the user is editing it: the same place, now typed into. Leaving it makes the Draft read-only again.
+The Draft while the user is editing it: the same place, now typed into. Out of Vim Mode the Draft always is; in Vim Mode, leaving it makes the Draft read-only again.
 _Avoid_: input, editor
 
 **Dictation**:

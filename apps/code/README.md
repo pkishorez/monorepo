@@ -153,7 +153,8 @@ Actor of its own, a Child of the new-session page and of each session, so
 typing into it draws nothing else; a
 CodeMirror editor in one card with the Status Line, pinned to the foot of
 the page while the transcript scrolls above it; the same card is on the
-new-session page. It is read only: it can be scrolled, clicked to place the cursor and
+new-session page. Out of Vim Mode it is typed into as any text box is. In
+Vim Mode it is read only: it can be scrolled, clicked to place the cursor and
 dragged to select. `i`, or a tap, makes it the Composer in place, and
 Escape makes it read only again, keeping its text, cursor and selection;
 Enter sends it from the page, and in the Composer Enter or Mod+Enter
@@ -224,8 +225,17 @@ and an edit drawn as its diff (`tools.ts`); a run of calls of one kind folds
 into one line.
 
 The keyboard comes from `@kestack/use-keys`, defined in one file
-(`src/keys.ts`), and is always on: the sidebar and the page are the two
-Surfaces you work in, the Draft is part of the page, and every Picker and
+(`src/keys.ts`). Out of Vim Mode, as a browser starts, the app is worked
+as any other: the Draft is a text box, Enter sends and Shift+Enter is a
+new line, and only keys holding Ctrl, Alt or Cmd are shortcuts: Ctrl+P,
+Ctrl+J and Ctrl+K open the Project Picker, the Session Switcher and
+Session Actions, Ctrl+N starts a new session, Ctrl+B shows or hides the
+sidebar, Ctrl+/ shows the keys, and the keys below that work while typing
+work here too.
+Mod+Alt+V, or the switch in Settings, turns Vim Mode on, kept in Device
+State: the app floats as a window with the keys' status line at its foot,
+and dialogs and Pickers open at once. In Vim Mode the sidebar and the
+page are the two Surfaces you work in, the Draft is part of the page, and every Picker and
 the help sheet are isolated Surfaces over them, open while Active. Each
 Surface puts focus back where it last was when you come back to it, the
 page's own column at first; no popup moves focus as it closes. Plain keys work from the page's or the sidebar's Normal Mode:
@@ -235,13 +245,17 @@ the bottom, Enter opens the sidebar's row or sends the Draft, `i` edits
 the Draft, `u` undoes the last thing put in it, `/` puts a Skill in it,
 `m`, `p` and `e` open the model Picker at the model, the permissions and
 the effort, Space starts or stops a Dictation, `d` opens the Microphone
-Picker, `o`, `s` and `a` open the
+Picker, `t` switches the theme, `o`, `s` and `a` open the
 Project Picker, the Session Switcher and Session Actions, `n` starts a new session in the project
 open, `b` shows or hides the sidebar, `[` and `]` open the previous and
-next unsettled session in the sidebar's order, showing one hidden behind
+next unsettled session in the sidebar's order, round past either end, showing one hidden behind
 "+N" and scrolling it into view without taking focus, `?` lists every
 key, and Escape in the sidebar goes back to the page. Even while typing,
 `Ctrl+,` goes to Settings and, again or by Escape, back where you were,
+Ctrl+H and Ctrl+L go to the sidebar and the page, Ctrl+[ and Ctrl+]
+open the previous and next session in the sidebar, going round past
+either end as `[` and `]` do, Ctrl+O and Ctrl+I go
+Back and Forward,
 `Mod+.` stops a turn, Ctrl+Space starts or stops a Dictation, in a
 Picker too, and Page Up and Page Down scroll the transcript; the
 Composer's editor hands these to the page before its own macOS Ctrl keys.
@@ -250,8 +264,11 @@ finishes on the row highlighted, Ctrl+H or Backspace in an empty search
 goes back a Step, Escape clears the search and then closes, and the
 arrows or Ctrl+N and Ctrl+P move; each is an Action of the `picker`
 Surface, taken before cmdk hears it. A Picker opened over another takes
-the Surface from it. Settings lists every Action of `keys.ts` by Surface,
-with a search: clicking a row's keys records the next key pressed in
+the Surface from it. Settings and the keys sheet (`?`, or Ctrl+/) list every Action of
+`keys.ts` as its key table does: in sections by what is done (Open, Move
+around, The Draft, The session, Inside a Picker, The app), one row per
+thing, its keys that work in either Mode beside its Vim Mode ones, quieter
+while Vim Mode is off. Settings has a search: clicking an Action's keys records the next key pressed in
 their place, on an isolated Surface where no app key works, and Escape
 keeps them. A key another Action on the same Surface has names it and
 offers to Swap; one a nearer Surface has is allowed, with a note; a key

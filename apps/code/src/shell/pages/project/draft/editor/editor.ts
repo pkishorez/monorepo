@@ -13,12 +13,7 @@ import {
   type Extension,
 } from '@codemirror/state';
 import { describe, shortcutOf } from '@kestack/use-keys';
-import {
-  drawSelection,
-  EditorView,
-  keymap,
-  placeholder,
-} from '@codemirror/view';
+import { drawSelection, EditorView, keymap } from '@codemirror/view';
 import { useEffect, useRef, type RefObject } from 'react';
 import {
   awaitedIn,
@@ -55,6 +50,7 @@ interface EditorOptions {
   readonly onSend: () => void;
   readonly label: string;
   readonly describedBy: string | undefined;
+  /** What an empty Draft says, as a screen reader hears it; the card draws it. */
   readonly placeholder: string;
   readonly disabled: boolean;
   /** Whether it is the Composer, typed into, rather than read only. */
@@ -117,7 +113,6 @@ export function useEditor(options: EditorOptions): {
   const parts = useRef({
     attributes: new Compartment(),
     editable: new Compartment(),
-    placeholder: new Compartment(),
     atoms: new Compartment(),
   }).current;
 
@@ -154,7 +149,6 @@ export function useEditor(options: EditorOptions): {
           slashTrigger((at) => latest.current.onSlash(at)),
           parts.attributes.of(attributes(options)),
           parts.editable.of(editable(options)),
-          parts.placeholder.of(placeholder(options.placeholder)),
           parts.atoms.of(options.atoms),
           EditorView.updateListener.of((update) => {
             if (
@@ -188,21 +182,17 @@ export function useEditor(options: EditorOptions): {
     });
   }, [options.text]);
 
-  const { label, describedBy, disabled, writing } = options;
+  const { label, describedBy, placeholder, disabled, writing } = options;
   useEffect(() => {
     view.current?.dispatch({
       effects: [
-        parts.attributes.reconfigure(attributes({ label, describedBy })),
+        parts.attributes.reconfigure(
+          attributes({ label, describedBy, placeholder }),
+        ),
         parts.editable.reconfigure(editable({ disabled, writing })),
       ],
     });
-  }, [parts, label, describedBy, disabled, writing]);
-
-  useEffect(() => {
-    view.current?.dispatch({
-      effects: parts.placeholder.reconfigure(placeholder(options.placeholder)),
-    });
-  }, [parts, options.placeholder]);
+  }, [parts, label, describedBy, placeholder, disabled, writing]);
 
   useEffect(() => {
     view.current?.dispatch({
@@ -277,12 +267,16 @@ function difference(now: string, next: string) {
   };
 }
 
+// The placeholder is drawn by the Draft's card, behind the editor, so the
+// cursor of an empty Draft sits where it always does; here it is only said.
 function attributes({
   label,
   describedBy,
-}: Pick<EditorOptions, 'label' | 'describedBy'>): Extension {
+  placeholder,
+}: Pick<EditorOptions, 'label' | 'describedBy' | 'placeholder'>): Extension {
   return EditorView.contentAttributes.of({
     'aria-label': label,
+    'aria-placeholder': placeholder,
     'aria-multiline': 'true',
     ...(describedBy === undefined ? {} : { 'aria-describedby': describedBy }),
   });

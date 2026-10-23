@@ -19,9 +19,10 @@ export const SessionSwitcherView = View.make(
       route._tag === 'Project' && route.page !== undefined
         ? { machineId: route.machineId, id: route.page.sessionId }
         : null;
-    keys.useAction('app.sessions', () =>
-      open(() => send({ _tag: 'Open', how: 'keys', open: here })),
-    );
+    const switcher = () =>
+      open(() => send({ _tag: 'Open', how: 'keys', open: here }));
+    keys.useAction('app.sessions', switcher);
+    keys.useAction('app.sessionsAnywhere', switcher);
     return (
       <Picker.Frame how={model.picking} label="Switch session">
         {children.picker && <SessionsView instance={children.picker} />}

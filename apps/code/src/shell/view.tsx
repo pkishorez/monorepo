@@ -2,6 +2,7 @@ import { useChild, View, type ViewProps } from '@kestack/kabuki/react';
 import { Router, useRouter } from '@kestack/kabuki/routing';
 import { AccountSwitcherView } from '@kestack/web-platform/account-switcher';
 import { AppShell, useAppShell } from '@kestack/web-platform/recipes/frame';
+import { KeysStatusBar } from '@kestack/web-platform/recipes/keyboard';
 import { useMemo, type ComponentProps, type ReactNode } from 'react';
 import type { Ask } from '../layer/capabilities/index.ts';
 import { keys } from '../keys.ts';
@@ -13,7 +14,7 @@ import {
   LocalSignInDialog,
   SignedOut,
 } from '../sign-in/index.ts';
-import { ThemeToggle } from '../ui/theme/index.ts';
+import { Theme, ThemeToggle } from '../ui/theme/index.ts';
 import { Dictation } from './actors/dictation/index.ts';
 import { Header } from './actors/header/index.ts';
 import { MachineList } from './actors/machine-list/index.ts';
@@ -44,19 +45,24 @@ import { Settings } from './pages/settings/index.ts';
  * its data, so a change to one draws only it. The sidebar and the page
  * are Surfaces of the root's keyboard. From anywhere, `n` starts a session
  * in the project open, `b` shows or hides the sidebar, Space and
- * Ctrl+Space start and stop a Dictation, `d` chooses its microphone, and
- * Ctrl+, goes to Settings and, again or by Escape, back.
+ * Ctrl+Space start and stop a Dictation, `d` chooses its microphone,
+ * Ctrl+, goes to Settings and, again or by Escape, back, and Ctrl+O and
+ * Ctrl+I go Back and Forward, and in Vim Mode `t` switches the theme.
  */
 
 export const ShellView = View.make(
   ShellLive,
   ({ _tag, root, model, state, children, send }) => {
-    // Nothing is drawn while the Bindings are read.
+    // Nothing is drawn while the keyboard is read.
     if (_tag === 'Reading') return <div {...root} />;
     const { account } = model;
     return (
       <div {...root}>
-        <Keyboard bindings={state.bindings}>
+        <Keyboard
+          vim={state.keyboard.vim}
+          bindings={state.keyboard.bindings}
+          onVimChange={(on) => send({ _tag: 'VimChanged', on })}
+        >
           <AccountSlot
             value={<AccountSwitcherView instance={children.account} />}
           >
@@ -143,20 +149,25 @@ function Signed({
           },
     );
   keys.useAction('app.settings', settings);
+  keys.useAction('app.theme', Theme.useTheme().toggleTheme);
+  keys.useAction('app.back', () => send({ _tag: 'BackAsked' }));
+  keys.useAction('app.forward', () => send({ _tag: 'ForwardAsked' }));
   keys.useAction('content.close', settings, { enabled: inSettings });
-  keys.useAction(
-    'app.newSession',
-    () => {
-      if (route._tag !== 'Project') return;
-      send({
-        _tag: 'NewSessionAsked',
-        machineId: route.machineId,
-        projectId: route.projectId,
-      });
-      enter('content');
-    },
-    { enabled: route._tag === 'Project' },
-  );
+  const newSession = () => {
+    if (route._tag !== 'Project') return;
+    send({
+      _tag: 'NewSessionAsked',
+      machineId: route.machineId,
+      projectId: route.projectId,
+    });
+    enter('content');
+  };
+  keys.useAction('app.newSession', newSession, {
+    enabled: route._tag === 'Project',
+  });
+  keys.useAction('app.newSessionAnywhere', newSession, {
+    enabled: route._tag === 'Project',
+  });
   const drafts = Dictation.useDraftsShown();
   // The Dictation itself is handed down, never its State, which moves
   // with every level heard: what reads it draws again, nothing else.
@@ -252,11 +263,15 @@ function Screen({
   readonly header: ComponentProps<typeof AppShell>['header'];
   readonly children: ReactNode;
 }) {
+  const { vim, enter } = keys.useKeyboard();
   return (
     <AppShell
-      // Given, so the shell floats as a window; with no status line of
-      // the keys' own, since the page draws the Status Line.
-      vim={{ on: false }}
+      // In Vim Mode the shell floats as a window, with the keys' own
+      // status line at its foot, saying the Mode and where the keys are.
+      vim={{
+        on: vim.on,
+        statusLine: <KeysStatusBar keys={keys} onHelp={() => enter('help')} />,
+      }}
       sidebar={{
         width: 260,
         content: (
@@ -280,7 +295,10 @@ function Screen({
         </keys.Surface>
       )}
     >
-      <div className="relative flex h-full min-h-0 flex-col overflow-y-auto">
+      <div
+        data-scroll-restoration-id="page"
+        className="relative flex h-full min-h-0 flex-col overflow-y-auto"
+      >
         {children}
       </div>
     </AppShell>
@@ -296,9 +314,11 @@ function Screen({
 function SidebarSwitch() {
   const shell = useAppShell();
   const { active, enter } = keys.useKeyboard();
-  keys.useAction('app.sidebar', () => {
+  const toggle = () => {
     if (shell.open && active === 'sidebar') enter('content');
     shell.toggle();
-  });
+  };
+  keys.useAction('app.sidebar', toggle);
+  keys.useAction('app.sidebarAnywhere', toggle);
   return null;
 }

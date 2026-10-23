@@ -24,7 +24,6 @@ export const theme = EditorView.theme({
     minHeight: '1.75rem',
   },
   '.cm-line': { padding: '0' },
-  '.cm-placeholder': { color: 'var(--muted-foreground)' },
   '.cm-cursorLayer .cm-cursor': {
     display: 'block',
     borderLeftColor: 'var(--foreground)',

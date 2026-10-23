@@ -19,11 +19,13 @@ import {
   microphone,
   sidebar,
   table,
+  vim,
 } from './layout.ts';
 
 /*
  * Device State: what this browser keeps for itself and no other device
- * sees, in one IndexedDB database of its own: the user's own Bindings,
+ * sees, in one IndexedDB database of its own: the user's own Bindings and
+ * whether Vim Mode is on,
  * the microphone a Dictation records from, the Machine the sidebar shows,
  * and the Unseen marks of each Machine. It is local only, so it is a StdTable on
  * std-toolkit's IndexedDB adapter rather than a Replica, which mirrors a
@@ -73,11 +75,13 @@ const make = (
 
   const read = Effect.gen(function* () {
     const { value } = yield* keyboard.get();
+    const mode = yield* vim.get();
     const chosen = yield* microphone.get();
     const shown = yield* sidebar.get();
     const unseen = yield* readMarks;
     return {
       bindings: fitted(value.bindings),
+      vim: mode.value.on,
       microphone: chosen.value.deviceId,
       sidebarMachine: shown.value.machineId,
       unseen,
@@ -108,6 +112,8 @@ const make = (
     read,
     setBindings: (bindings) =>
       write(keyboard.getAndUpdate(() => ({ bindings }), { retries: RETRIES })),
+    setVim: (on) =>
+      write(vim.getAndUpdate(() => ({ on }), { retries: RETRIES })),
     setMicrophone: (deviceId) =>
       write(
         microphone.getAndUpdate(() => ({ deviceId }), { retries: RETRIES }),

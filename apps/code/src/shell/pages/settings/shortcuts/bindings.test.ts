@@ -99,15 +99,11 @@ describe('Shortcut bindings', () => {
     });
   });
 
-  it('searches labels, Surfaces and keys', () => {
-    const found = search({}, 'picker done');
-    expect(found.flatMap((group) => group.actions.map(({ id }) => id))).toEqual(
-      ['picker.finish'],
-    );
-    expect(
-      search({}, 'ctrl+d').flatMap((group) =>
-        group.actions.map(({ id }) => id),
-      ),
-    ).toEqual(['content.halfDown']);
+  it('searches the table by section, row, label and keys', () => {
+    const labels = (query: string) =>
+      search({}, query).flatMap(({ rows }) => rows.map(({ label }) => label));
+    expect(labels('picker done')).toEqual(['Done, on the row highlighted']);
+    expect(labels('ctrl+d')).toEqual(['Scroll the page']);
+    expect(labels('ctrl+p')).toEqual(['Open a project', 'Next, previous row']);
   });
 });

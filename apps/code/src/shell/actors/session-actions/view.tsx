@@ -22,13 +22,11 @@ export const SessionActionsView = View.make(
       route._tag === 'Project' && route.page !== undefined
         ? { machineId: route.machineId, sessionId: route.page.sessionId }
         : null;
-    keys.useAction(
-      'app.actions',
-      () => {
-        if (at !== null) open(() => send({ _tag: 'Open', how: 'keys', ...at }));
-      },
-      { enabled: at !== null },
-    );
+    const actions = () => {
+      if (at !== null) open(() => send({ _tag: 'Open', how: 'keys', ...at }));
+    };
+    keys.useAction('app.actions', actions, { enabled: at !== null });
+    keys.useAction('app.actionsAnywhere', actions, { enabled: at !== null });
     if (at === null) return null;
     return (
       <Picker.Frame

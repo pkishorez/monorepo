@@ -1,12 +1,14 @@
 import type { Definition } from '@kestack/use-keys/surfaces';
 import { describe, expect, it } from 'vitest';
-import { boundIn, keys, worksWhileTyping } from './keys.ts';
+import { boundIn, keys, keyTable, worksWhileTyping } from './keys.ts';
 
 /*
  * The app's keys as the definition writes them: a plain key for each
- * Action of the page and the sidebar, and only Settings, stopping the turn,
- * Ctrl+Space for a Dictation and paging working while typing, besides the
- * Picker's own keys. A Dictation is never Escape's.
+ * Action of the page and the sidebar, in Vim Mode, a Ctrl key that works
+ * in either Mode for what opens or moves, and only Settings, stopping the turn,
+ * Ctrl+Space for a Dictation, paging, and the Ctrl moves between the
+ * sidebar and the page, between sessions, and Back and Forward working
+ * while typing, besides the Picker's own keys. A Dictation is never Escape's.
  */
 
 const keysOf = (id: Parameters<typeof boundIn>[1]) => boundIn({}, id);
@@ -50,6 +52,12 @@ describe('keys', () => {
       dictateAnywhere: keysOf('app.dictateAnywhere'),
       dictateInPicker: keysOf('picker.dictate'),
       microphone: keysOf('app.microphone'),
+      sideAnywhere: keysOf('app.sideAnywhere'),
+      pageAnywhere: keysOf('app.pageAnywhere'),
+      previousSessionAnywhere: keysOf('app.previousSession'),
+      nextSessionAnywhere: keysOf('app.nextSession'),
+      back: keysOf('app.back'),
+      forward: keysOf('app.forward'),
     }).toEqual({
       side: 'h',
       page: 'l',
@@ -78,12 +86,24 @@ describe('keys', () => {
       dictateAnywhere: 'ctrl+Space',
       dictateInPicker: 'ctrl+Space',
       microphone: 'd',
+      sideAnywhere: 'ctrl+h',
+      pageAnywhere: 'ctrl+l',
+      previousSessionAnywhere: 'ctrl+[',
+      nextSessionAnywhere: 'ctrl+]',
+      back: 'ctrl+o',
+      forward: 'ctrl+i',
     });
   });
 
-  it('works while typing only for Settings, stopping, Ctrl+Space, paging and the Picker', () => {
+  it('works while typing only for Settings, stopping, Ctrl+Space, paging, the Ctrl moves and the Picker', () => {
     const ids = [
       'app.side',
+      'app.sideAnywhere',
+      'app.pageAnywhere',
+      'app.previousSession',
+      'app.nextSession',
+      'app.back',
+      'app.forward',
       'app.projects',
       'app.dictate',
       'app.dictateAnywhere',
@@ -97,6 +117,12 @@ describe('keys', () => {
       'picker.dictate',
     ];
     expect(ids.filter(worksWhileTyping)).toEqual([
+      'app.sideAnywhere',
+      'app.pageAnywhere',
+      'app.previousSession',
+      'app.nextSession',
+      'app.back',
+      'app.forward',
       'app.dictateAnywhere',
       'app.settings',
       'content.stop',
@@ -106,13 +132,66 @@ describe('keys', () => {
     ]);
   });
 
-  it('has no Vim Mode switch, no Ctrl copies of the plain keys, and no leader', () => {
+  it('turns Vim Mode on and off by Mod+Alt+V, and opens with Ctrl keys in either Mode', () => {
+    expect(keysOf('app.vim')).toBe('mod+alt+v');
+    expect({
+      projects: keysOf('app.projectsAnywhere'),
+      sessions: keysOf('app.sessionsAnywhere'),
+      actions: keysOf('app.actionsAnywhere'),
+      newSession: keysOf('app.newSessionAnywhere'),
+      sidebar: keysOf('app.sidebarAnywhere'),
+    }).toEqual({
+      projects: 'ctrl+p',
+      sessions: 'ctrl+j',
+      actions: 'ctrl+k',
+      newSession: 'ctrl+n',
+      sidebar: 'ctrl+b',
+    });
     const all = keysIn(keys.definition);
-    expect(all).not.toContain('mod+alt+v');
     expect(all).not.toContain('Space e');
-    for (const gone of ['ctrl+j', 'ctrl+k', 'ctrl+b', 'ctrl+m'])
-      expect(all).not.toContain(gone);
     expect(keys.checkBindings({}).conflicts).toEqual([]);
+  });
+
+  it('works out of Vim Mode for every key that works while typing', () => {
+    const typing = (surfaces: Definition): ReadonlyArray<string> =>
+      Object.entries(surfaces).flatMap(([name, surface]) => [
+        ...Object.entries(surface.actions ?? {}).flatMap(
+          ([action, { inField, always }]) =>
+            inField === true && always !== true ? [`${name}.${action}`] : [],
+        ),
+        ...typing(surface.surfaces ?? {}),
+      ]);
+    expect(typing(keys.definition)).toEqual([]);
+  });
+
+  it('lists every Action once in the table people read, each where its Mode says', () => {
+    const ids = (surfaces: Definition): ReadonlyArray<string> =>
+      Object.entries(surfaces).flatMap(([name, surface]) => [
+        ...Object.keys(surface.actions ?? {}).map(
+          (action) => `${name}.${action}`,
+        ),
+        ...ids(surface.surfaces ?? {}),
+      ]);
+    const listed = keyTable.flatMap(({ rows }) =>
+      rows.flatMap(({ always, vim }) => [...always, ...vim]),
+    );
+    expect([...listed].sort()).toEqual([...ids(keys.definition)].sort());
+    // A row's Always keys work out of Vim Mode, its Vim keys only in it.
+    const always = new Map<string, boolean>();
+    const walk = (surfaces: Definition) => {
+      for (const [name, surface] of Object.entries(surfaces)) {
+        for (const [action, { always: on }] of Object.entries(
+          surface.actions ?? {},
+        ))
+          always.set(`${name}.${action}`, on === true);
+        walk(surface.surfaces ?? {});
+      }
+    };
+    walk(keys.definition);
+    for (const { always: both, vim } of keyTable.flatMap(({ rows }) => rows)) {
+      for (const id of both) expect([id, always.get(id)]).toEqual([id, true]);
+      for (const id of vim) expect([id, always.get(id)]).toEqual([id, false]);
+    }
   });
 
   it('gives Escape nothing of a Dictation', () => {

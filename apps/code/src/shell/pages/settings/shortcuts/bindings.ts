@@ -1,7 +1,7 @@
 import { Schema } from 'effect';
 import { bindingOf } from '@kestack/use-keys';
 import type { Definition } from '@kestack/use-keys/surfaces';
-import { keys, worksWhileTyping } from '../../../../keys.ts';
+import { keys, keyTable, worksWhileTyping } from '../../../../keys.ts';
 
 /*
  * The user's own keys as Settings changes them, from the typed keys
@@ -177,17 +177,27 @@ export const shadowsOf = (bindings: Bindings) => {
   return notes;
 };
 
-/** The groups with only the Actions whose label, keys or Surface match `query`. */
+/**
+ * The key table's sections with only the rows whose section, label, or an
+ * Action's label or keys, match `query`.
+ */
 export const search = (bindings: Bindings, query: string) => {
   const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
-  if (words.length === 0) return groups;
-  return groups.flatMap((group) => {
-    const found = group.actions.filter((action) => {
-      const text = [group.name, action.label, ...keysOf(bindings, action.id)]
+  if (words.length === 0) return keyTable;
+  return keyTable.flatMap((section) => {
+    const rows = section.rows.filter((row) => {
+      const text = [
+        section.title,
+        row.label,
+        ...[...row.always, ...row.vim].flatMap((id) => [
+          actionOf(id)?.label ?? '',
+          ...keysOf(bindings, id),
+        ]),
+      ]
         .join(' ')
         .toLowerCase();
       return words.every((word) => text.includes(word));
     });
-    return found.length === 0 ? [] : [{ ...group, actions: found }];
+    return rows.length === 0 ? [] : [{ ...section, rows }];
   });
 };

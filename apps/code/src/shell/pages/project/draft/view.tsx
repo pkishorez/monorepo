@@ -62,10 +62,10 @@ export const DraftView = View.make(
     const draft = useDraft({
       label: fresh ? 'First message' : running ? 'Steer the agent' : 'Message',
       placeholder: fresh
-        ? 'What should the agent do? Type / for skills'
+        ? 'What should the agent do?'
         : running
-          ? 'Steer the agent while it works, or /btw to ask on the side…'
-          : 'Reply, or type / for skills…',
+          ? 'Steer the agent while it works'
+          : 'Reply to the agent',
       text: model.text,
       onTextChange: (text) => send({ _tag: 'Typed', text }),
       attachments: model.attachments,

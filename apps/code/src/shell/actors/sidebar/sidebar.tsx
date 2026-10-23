@@ -66,7 +66,8 @@ import { SettledLine, SettledList, settledOf } from './settled-list/index.ts';
  * follows the place open, and entering the sidebar opens it if it was shut.
  *
  * From the page, [ and ] open the unsettled Session before and after the
- * open one in the sidebar's order, across Projects; one hidden behind "+N"
+ * open one in the sidebar's order, across Projects, and Ctrl+[ and Ctrl+]
+ * do so from anywhere, while typing too, going round past either end; one hidden behind "+N"
  * is shown first. The Session open is
  * scrolled into view whenever it changes, without taking focus.
  */
@@ -135,7 +136,9 @@ export function Places({
     { place: 'settled', opens: false },
   ];
 
-  const active = keys.useSurface('sidebar').state === 'active';
+  const surface = keys.useSurface('sidebar');
+  // Lit, with its cursor drawn, only in Vim Mode; the keys are in it either way.
+  const active = surface.state === 'active';
   const cursor = useCursor({
     stops,
     open,
@@ -144,10 +147,10 @@ export function Places({
   });
   const shell = useAppShell();
   const picks = useBound('app.projects');
-  // A sidebar entered from the keyboard is shown.
+  // A sidebar entered from the keyboard is shown, in either Mode.
   useEffect(() => {
-    if (active && !shell.open) shell.setOpen(true);
-  }, [active]);
+    if (surface.active && !shell.open) shell.setOpen(true);
+  }, [surface.active]);
   // Its keys go back to the page.
   keys.useAction('sidebar.back', () => {});
 
@@ -178,6 +181,13 @@ export function Places({
     enabled: before !== undefined,
   });
   keys.useAction('content.nextSession', () => go(after), {
+    enabled: after !== undefined,
+  });
+  // The same from anywhere, the sidebar and the Composer included.
+  keys.useAction('app.previousSession', () => go(before), {
+    enabled: before !== undefined,
+  });
+  keys.useAction('app.nextSession', () => go(after), {
     enabled: after !== undefined,
   });
 
