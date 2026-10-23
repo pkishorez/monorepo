@@ -139,8 +139,13 @@ export function Scrolling(props: ScrollingProps) {
     if (latest.current.props.attached && s.positions)
       session.write(s.positions);
   };
+  // The entry drawn now: in the render that lands a move, already the one
+  // it lands on, before 3. restore has run for it.
   const [frame] = useState<Frame>(() => ({
-    entry: (name) => positions()[s.key]?.[name],
+    entry: (name) =>
+      positions()[
+        keyOf(latest.current.props.options, latest.current.props.at)
+      ]?.[name],
   }));
 
   // 1. Track, and 4. save.

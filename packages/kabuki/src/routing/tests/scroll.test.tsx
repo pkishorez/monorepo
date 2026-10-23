@@ -8,7 +8,7 @@ import { View, toReact } from '../../react/index.ts';
 import { registry } from '../../react/registry.ts';
 import { KEY } from '../adapter/index.ts';
 import { browser } from '../adapter/browser/index.ts';
-import { Page, Router } from '../index.ts';
+import { Page, Router, useElementScrollRestoration } from '../index.ts';
 import type { ScrollRestorationOptions } from '../scroll/index.ts';
 import { scriptFor } from '../scroll/index.ts';
 import { selectorOf } from '../scroll/selector.ts';
@@ -105,15 +105,22 @@ const App = Page.define({ pages: { Folder, Settings, Slow } });
 const Routes = Router.define(App);
 
 const MessageLive = Page.build(Message);
-const MessageView = View.make(MessageLive, ({ props }) => (
-  <article id="pane">
-    message {props.params.id}
+/** What each message read of its pane's kept position, in each render, in order. */
+let readKept: Array<string> = [];
+const MessageView = View.make(MessageLive, ({ props }) => {
+  const kept = useElementScrollRestoration({ id: 'pane' });
+  readKept.push(`${props.params.id} ${kept?.scrollY ?? 'none'}`);
+  return <Pane id={props.params.id} />;
+});
+const Pane = ({ id }: { readonly id: string }) => (
+  <article id="pane" data-scroll-restoration-id="pane">
+    message {id}
     <h2 id="part-2">part two</h2>
     <Router.Link to={Routes.Folder.Message({ folder: 'inbox', id: 'b' })}>
       b
     </Router.Link>
   </article>
-));
+);
 
 const FolderLive = Page.build(Folder, { pages: { Message: MessageLive } });
 const FolderView = View.make(FolderLive, (self) => (
@@ -381,6 +388,18 @@ describe('an element', () => {
 
     await back();
     expect(top('#pane')).toBe(200);
+  });
+
+  it('reads what its entry kept in the render that lands the move', async () => {
+    await open('/f/inbox/a', {
+      scrollRestoration: true,
+      scrollToTopSelectors: ['#pane'],
+    });
+    await scroll(host.querySelector('#pane')!, 200);
+    await click('b');
+    readKept = [];
+    await back();
+    expect(readKept[0]).toBe('a 200');
   });
 
   it('is named by its data-scroll-restoration-id, else by its path', () => {
