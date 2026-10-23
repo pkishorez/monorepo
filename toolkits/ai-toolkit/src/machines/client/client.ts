@@ -30,6 +30,15 @@ export class MachinesClient extends Context.Service<
     );
 }
 
+/** Why a fetch failed, as plainly as it says: `fetch failed` hides the cause. */
+const reason = (cause: unknown): string => {
+  if (!(cause instanceof Error)) return String(cause);
+  const inner = cause.cause;
+  return inner instanceof Error
+    ? `${cause.message}: ${inner.message}`
+    : cause.message;
+};
+
 /** How a Machine signs in to the Backend at `backend`; fails when it cannot be asked. */
 export const authInfo = (backend: string) =>
   Effect.tryPromise({
@@ -40,7 +49,10 @@ export const authInfo = (backend: string) =>
       return (await response.json()) as unknown;
     },
     catch: (cause) =>
-      new Error(`Could not ask ${backend} how to sign in`, { cause }),
+      new Error(
+        `Could not ask ${backend} how to sign in (${reason(cause)}); is the Backend running?`,
+        { cause },
+      ),
   }).pipe(
     Effect.flatMap((body) =>
       Effect.mapError(
