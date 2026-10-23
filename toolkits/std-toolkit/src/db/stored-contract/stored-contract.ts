@@ -40,7 +40,11 @@ export type SetupPlan =
   /** Disposable only: throw every row away, then apply and record. */
   | { readonly kind: 'wipe'; readonly changes: readonly SnapshotChange[] };
 
-export type SetupRefusedReason = 'breaking' | 'mode-change' | 'unreadable';
+export type SetupRefusedReason =
+  | 'breaking'
+  | 'mode-change'
+  | 'unreadable'
+  | 'replaces-table';
 
 /**
  * Setup refused to touch a persistent table. It never wipes: the fix is a
@@ -76,6 +80,8 @@ const refusalMessage = (
       ].join('\n');
     case 'mode-change':
       return `std-toolkit: table "${table}" is persistent and cannot become disposable. Nothing was changed. Use a new physical table name to start a disposable table.`;
+    case 'replaces-table':
+      return `std-toolkit: persistent table "${table}" cannot change its local secondary indexes: the database can only do that by replacing the table, which deletes its data. Nothing was changed. Use a global secondary index, or a new physical table name.`;
     case 'unreadable':
       return `std-toolkit: persistent table "${table}" has a stored contract this version of std-toolkit cannot read, so its data cannot be checked. Nothing was changed.`;
   }

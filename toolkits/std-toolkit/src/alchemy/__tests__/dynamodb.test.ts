@@ -36,7 +36,10 @@ it('guards the table before projecting its topology onto the resource', async ()
   }) as Effect.Effect<unknown>;
   await Effect.runPromise(deploy);
 
-  expect(guard).toHaveBeenCalledWith('TasksContract', stdTable, 'persistent');
+  expect(guard).toHaveBeenCalledWith('TasksContract', stdTable, 'persistent', {
+    target: 'tasks-prod',
+    fixedLocalIndexes: true,
+  });
   expect(guard.mock.invocationCallOrder[0]).toBeLessThan(
     table.mock.invocationCallOrder[0]!,
   );
@@ -87,7 +90,10 @@ it('names a replaced disposable table by its generation', async () => {
     }) as Effect.Effect<unknown>,
   );
 
-  expect(guard).toHaveBeenCalledWith('PrefsContract', stdTable, 'disposable');
+  expect(guard).toHaveBeenCalledWith('PrefsContract', stdTable, 'disposable', {
+    target: 'prefs-prod',
+    fixedLocalIndexes: true,
+  });
   expect(Object.keys(Output.upstreamAny(table.mock.calls[0]![1]))).toEqual([
     'TasksContract',
   ]);
