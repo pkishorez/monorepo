@@ -269,7 +269,7 @@ the snapshot last shipped, in Alchemy state, and fails the deploy on a breaking
 change. `D1.table` and `DynamoDB.table` include it for persistent tables;
 `DeployGuard.table(table)` adds it for a table Alchemy does not create, such as
 an IndexedDB or Durable Object table. DynamoDB keeps no Stored contract, so its
-guard is its only check, and nothing replaces or wipes a DynamoDB table: in either mode, a breaking change, or any index change other than adding a global secondary index, fails the deploy, and the way past it is a new physical table name.
+guard is its only check, and nothing replaces or wipes a DynamoDB table: in either mode, a breaking change, or any index change other than adding a global secondary index, fails the deploy, and the way past it is a new `DynamoDB.table` resource, with its own id and table name: renaming the table under the same resource would make Alchemy replace it and delete the old one, so that is refused too.
 
 The only way past a persistent table's refusal is honest about the data: a new
 physical table name, leaving the old data in place. There is no override.

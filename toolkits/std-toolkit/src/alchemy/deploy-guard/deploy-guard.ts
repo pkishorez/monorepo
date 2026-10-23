@@ -38,6 +38,28 @@ interface TargetContract {
   readonly localIndexOrder?: readonly string[];
 }
 
+/** What a snapshot guard deployed before table modes recorded. */
+interface SnapshotGuardOutput {
+  readonly target?: string;
+  readonly snapshot: unknown;
+}
+
+/**
+ * The contract last accepted for one target. A snapshot guard's output has
+ * no mode or targets: its one contract was the persistent baseline of its
+ * target, so it is read as that.
+ */
+const lastContract = (
+  deployed: ContractOutput | SnapshotGuardOutput | undefined,
+  target: string,
+): TargetContract | undefined => {
+  if (deployed === undefined) return undefined;
+  if ('targets' in deployed) return deployed.targets[target];
+  return (deployed.target ?? '') === target
+    ? { mode: 'persistent', hash: '', snapshot: deployed.snapshot }
+    : undefined;
+};
+
 interface ContractOutput extends ContractProps {
   readonly hash: string;
   /**
@@ -47,8 +69,10 @@ interface ContractOutput extends ContractProps {
   readonly targets: Readonly<Record<string, TargetContract>>;
 }
 
+// The resource type keeps the snapshot guard's name, so a guard deployed
+// before table modes is read as this one and its contract is kept.
 export type DeployGuard = Resource<
-  'StdToolkit.DeployGuard',
+  'StdToolkit.SnapshotGuard',
   ContractProps,
   ContractOutput,
   never,
@@ -56,7 +80,7 @@ export type DeployGuard = Resource<
 >;
 
 export const DeployGuardResource = Resource<DeployGuard>(
-  'StdToolkit.DeployGuard',
+  'StdToolkit.SnapshotGuard',
 );
 
 export class Providers extends Provider.ProviderCollection<Providers>()(
@@ -90,14 +114,24 @@ const replacesTable = (previous: TableSnapshot, current: TableSnapshot) =>
  * target starts fresh and an old one is never forgotten.
  */
 export const checkDeploy = (
-  deployed: ContractOutput | undefined,
+  deployed: ContractOutput | SnapshotGuardOutput | undefined,
   current: ContractProps,
 ): Effect.Effect<ContractOutput, unknown> =>
   Effect.gen(function* () {
     // Looked up at deploy, once the target is known: one still unresolved
     // when Alchemy planned is resolved here.
     const target = current.target ?? '';
-    const previous = deployed?.targets[target];
+    const previous = lastContract(deployed, target);
+    // DynamoDB replaces a table whose name changes under the same resource,
+    // deleting the old one; a new name belongs to a new resource.
+    if (
+      current.inPlaceOnly === true &&
+      deployed !== undefined &&
+      (deployed.target ?? '') !== target
+    )
+      return yield* Effect.fail(
+        new SetupRefused(current.target ?? '', 'renames-table'),
+      );
     const contract = yield* contractFromSnapshot(
       current.snapshot,
       current.mode,
@@ -111,8 +145,10 @@ export const checkDeploy = (
     if (current.inPlaceOnly === true && previous !== undefined) {
       const refused =
         plan.kind === 'wipe' ||
-        JSON.stringify(previous.localIndexOrder ?? []) !==
-          JSON.stringify(current.localIndexOrder ?? []) ||
+        // A contract recorded before the order was kept cannot say it moved.
+        (previous.localIndexOrder !== undefined &&
+          JSON.stringify(previous.localIndexOrder) !==
+            JSON.stringify(current.localIndexOrder ?? [])) ||
         (plan.kind === 'apply' &&
           replacesTable(
             yield* TableSnapshot.parse(previous.snapshot),
@@ -138,7 +174,12 @@ export const checkDeploy = (
     return {
       ...current,
       hash: contract.record.hash,
-      targets: { ...deployed?.targets, [target]: accepted },
+      targets: {
+        ...(deployed !== undefined && 'targets' in deployed
+          ? deployed.targets
+          : {}),
+        [target]: accepted,
+      },
     };
   });
 

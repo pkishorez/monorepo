@@ -107,14 +107,9 @@ const table = (id: string, options: D1TableOptions) =>
     const tableName = options.tableName ?? options.table.logicalName;
     const snapshot =
       options.mode === 'persistent'
-        ? (yield* guardContract(
-            `${id}DeployGuard`,
-            options.table,
-            'persistent',
-            {
-              target: Output.interpolate`${options.database.databaseId}/${tableName}`,
-            },
-          )).snapshot
+        ? (yield* guardContract(`${id}Snapshot`, options.table, 'persistent', {
+            target: Output.interpolate`${options.database.databaseId}/${tableName}`,
+          })).snapshot
         : yield* TableSnapshot.serialize(
             TableSnapshot.capture(options.table),
           ).pipe(Effect.orDie);

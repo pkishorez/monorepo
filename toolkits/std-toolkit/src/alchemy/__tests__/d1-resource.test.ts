@@ -39,12 +39,9 @@ it('guards a persistent table and feeds the guarded snapshot to the D1 table', a
     }) as Effect.Effect<unknown>,
   )) as { LogicalId: string; Props: Record<string, unknown> };
 
-  expect(guard).toHaveBeenCalledWith(
-    'TasksV2DeployGuard',
-    table,
-    'persistent',
-    { target: expect.anything() },
-  );
+  expect(guard).toHaveBeenCalledWith('TasksV2Snapshot', table, 'persistent', {
+    target: expect.anything(),
+  });
   expect(resource.LogicalId).toBe('TasksV2');
   expect(resource.Props).toEqual({
     databaseId,
