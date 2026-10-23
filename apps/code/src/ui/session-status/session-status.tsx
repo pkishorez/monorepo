@@ -59,19 +59,3 @@ export function SessionStatus({
     </span>
   );
 }
-
-/** How many Background Jobs a session's agent runs; nothing when none. */
-export function JobCount({ count }: { readonly count: number }) {
-  if (count === 0) return null;
-  const label = `${count} background job${count === 1 ? '' : 's'} running`;
-  return (
-    <span
-      role="img"
-      aria-label={label}
-      title={label}
-      className="inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full bg-foreground/[0.07] px-1 text-[10px] leading-none font-medium text-muted-foreground tabular-nums dark:bg-foreground/10"
-    >
-      {count}
-    </span>
-  );
-}

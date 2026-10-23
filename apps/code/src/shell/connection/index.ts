@@ -1,4 +1,3 @@
-export { ConnectionsLive as Live } from './actor.ts';
 export {
   Connection,
   OnMachine,

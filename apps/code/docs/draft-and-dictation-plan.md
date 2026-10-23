@@ -18,8 +18,8 @@ Delete this file once every task is done.
 - Load the `laymos` and `deep-module` skills before moving or creating a
   module in apps/code. Every folder there is a deep module: a narrow
   `index.ts` over a mandatory main file, with the Page folder exception in
-  `apps/code/README.md`. apps/code is not yet laid out as Kabuki Actor
-  folders; do not start that move.
+  `apps/code/README.md`. apps/code is laid out as Kabuki Actor folders
+  ([`kabuki-tree.md`](kabuki-tree.md)); change it through `/kabukifi`.
 - In ai-toolkit's `src/kabuki/`, follow `~/.claude/skills/kabukifi/LAYOUT.md`
   and `CONCEPTS.md` (read them whole), and update
   `toolkits/ai-toolkit/docs/kabuki-tree.md` to match the tree after the

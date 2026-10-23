@@ -4,10 +4,16 @@ import { MachinesClient } from '@kestack/ai-toolkit/machines/client';
 import { Start } from '@kestack/kabuki/start';
 import { Store } from '@kestack/std-toolkit/replica/idb';
 import Document from './document.tsx';
-import { DeviceState } from './shell/device-state/index.ts';
-import * as Shell from './shell/index.ts';
-import { Machines, savedIdb } from './shell/machines/index.ts';
-import { accounts } from './shell/sign-in/index.ts';
+import { Shell } from './shell/index.ts';
+import { router } from './pages.ts';
+import {
+  deviceStateIdb,
+  dictations,
+  machines,
+  recorder,
+  savedMachinesIdb,
+} from './layer/services/index.ts';
+import { accounts } from './sign-in/index.ts';
 import './styles.css';
 
 /*
@@ -26,19 +32,19 @@ import './styles.css';
 
 const layer = Layer.mergeAll(
   MachinesClient.layer(import.meta.env.VITE_MACHINES_URL),
-  DeviceState.idb,
-  savedIdb,
-  Machines.layer,
-  Shell.Dictations.layer,
-  Shell.Recorder.browser,
+  deviceStateIdb,
+  savedMachinesIdb,
+  machines,
+  dictations,
+  recorder,
 ).pipe(
   Layer.provideMerge(Layer.unwrap(Effect.sync(() => Store.idb({ retired })))),
   Layer.provideMerge(accounts),
 );
 
 export default Start.app({
-  router: Shell.router,
-  view: Shell.View,
+  router,
+  view: Shell.view,
   document: Document,
   layer,
 });

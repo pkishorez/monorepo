@@ -1,0 +1,74 @@
+import { Context, Effect, Schema, Stream } from 'effect';
+import type { DatabaseError } from '@kestack/std-toolkit/db';
+
+/*
+ * Device State: what this browser keeps for itself and no other device
+ * sees: the user's own Bindings, the microphone a Dictation records from,
+ * and the Unseen marks of each Machine. The store is the truth; an actor
+ * that shows it reads it again after every write, from this tab or
+ * another. The app Layer gives it, from `services/device-state/`.
+ *
+ * An Unseen mark is a Machine's Session with the end time of the last
+ * Turn seen on this device. A Session is Unseen when its last Turn ended
+ * after that; one never opened here has no mark, and is never Unseen.
+ */
+
+/** One Machine's Unseen marks, by Session id. */
+export const Marks = Schema.Record(Schema.String, Schema.Finite);
+export type Marks = typeof Marks.Type;
+
+/**
+ * Device State as read: Bindings by Action id; the microphone chosen, by
+ * the browser's `deviceId`, null for the system default; the Machine the
+ * sidebar shows, null for every Machine; Unseen marks by Machine id and
+ * then Session id.
+ */
+export const Device = Schema.Struct({
+  bindings: Schema.Record(Schema.String, Schema.Array(Schema.String)),
+  microphone: Schema.NullOr(Schema.String),
+  sidebarMachine: Schema.NullOr(Schema.String),
+  unseen: Schema.Record(Schema.String, Marks),
+});
+export type Device = typeof Device.Type;
+
+/** What a browser that keeps nothing reads: the default keys and microphone, every Machine, no marks. */
+export const nothing: Device = {
+  bindings: {},
+  microphone: null,
+  sidebarMachine: null,
+  unseen: {},
+};
+
+/** The Capability that reads and writes Device State, and says when it changed. */
+export class DeviceState extends Context.Service<
+  DeviceState,
+  {
+    readonly read: Effect.Effect<Device, DatabaseError>;
+    readonly setBindings: (
+      bindings: Device['bindings'],
+    ) => Effect.Effect<void, DatabaseError>;
+    readonly setMicrophone: (
+      deviceId: string | null,
+    ) => Effect.Effect<void, DatabaseError>;
+    readonly setSidebarMachine: (
+      machineId: string | null,
+    ) => Effect.Effect<void, DatabaseError>;
+    readonly markSeen: (
+      machineId: string,
+      sessionId: string,
+      seen: number,
+    ) => Effect.Effect<void, DatabaseError>;
+    /** Once per write, here or in another tab; rings while busy fold into one. */
+    readonly changes: Stream.Stream<void>;
+  }
+>()('code/DeviceState') {
+  static readonly Device = Device;
+  /** Reads Device State; a browser that cannot keep it reads as keeping nothing. */
+  static readonly read = Effect.flatMap(DeviceState, (store) =>
+    store.read.pipe(Effect.orElseSucceed(() => nothing)),
+  );
+  /** Once per write, here or in another tab. */
+  static readonly changes = Stream.unwrap(
+    Effect.map(DeviceState, (store) => store.changes),
+  );
+}

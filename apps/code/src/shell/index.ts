@@ -1,4 +1,4 @@
-export { router } from './actor.ts';
-export { ShellView as View } from './view.tsx';
-export { Dictations } from './dictation/index.ts';
-export { Recorder } from './recorder/index.ts';
+import { Shell as page, ShellLive } from './actor.ts';
+import { ShellView } from './view.tsx';
+
+export const Shell = { page, actor: ShellLive, view: ShellView };

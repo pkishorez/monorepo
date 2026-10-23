@@ -21,10 +21,10 @@ It is a Kabuki Start app, every page drawn in the browser
 `/` picks a project of any Machine, and `/settings` lists your Machines,
 to Forget one, each with its own settings: the program each agent runs
 as there (its Harness Binary) and its Speech to Text switch
-([ADR 0017](../../toolkits/ai-toolkit/docs/adr/0017-speech-to-text-runs-on-the-machine.md)). Only what is on one Machine names it, under
-`/m/:machineId`: `/p/:projectId` is a new session in the project, its
-Draft waiting for the first message, and `/p/:projectId/s/:sessionId` is
-a session. An agent whose program does not run is greyed out where
+([ADR 0017](../../toolkits/ai-toolkit/docs/adr/0017-speech-to-text-runs-on-the-machine.md)). Only what is on one Machine names it:
+`/m/:machineId/p/:projectId` is a new session in the project, its Draft
+waiting for the first message, and `/m/:machineId/p/:projectId/s/:sessionId`
+is a session. An agent whose program does not run is greyed out where
 sessions start.
 All state lives in the pages' actors; the Views only draw and send. The
 Machines' records arrive only through the `Ai` Replica
@@ -39,66 +39,63 @@ skeleton only for what this device has never synced (a Query's
 Up. Every write is a Command an actor asks for of one Machine, through
 `AiClients`.
 
-The app is one chain. The root page (`src/shell/actor.ts`) first reads
-Device State, what this browser keeps for itself in IndexedDB
-(`shell/device-state/`): the user's Bindings, the Microphone chosen and the
-Unseen marks of each Machine; nothing is drawn until it has. Then who is signed in (`shell/sign-in/`), with the Account
+The app is one tree of Kabuki Actors, drawn in [docs/kabuki-tree.md](docs/kabuki-tree.md):
+each part reads only what it shows, so a change draws only that part. The
+root page (`src/shell/`) first reads the user's Bindings from Device
+State, what this browser keeps for itself in IndexedDB
+(`src/layer/`); nothing is drawn
+until it has. Then who is signed in (`src/sign-in/`), with the Account
 Switcher in every header; signed out, only signing in is drawn, and an
 Account signed out of this device takes its Machines' records with it.
-Then the Machine List of the Account (`shell/machines/`): the list saved
-here shows first, then the Backend's, asked again every 15 seconds while
-the page is visible; it is shared with every page as `Machines`, and with
-no Machine, home says how to start one. Then the root holds every listed
-Machine at once: its Replicas, whose `Ai` Instances open only for a
-Machine in the list, each Machine's socket, dialled at its listed address
-(`AiClients`, over `MachineAddress`), and Queries of every Machine's
-projects and sessions, so a Machine added opens its Instance and one
-forgotten lets go of it, then its database is deleted. It holds each
-socket's state (`shell/connection/`), every Machine's Background Jobs,
-the Pickers, and the Dictation (`shell/dictation/`), which records from
-the microphone (`shell/recorder/`) and carries on wherever the app goes. The Machine page (`shell/machine/`) is only the address
-of what is on one Machine: it Provides that Machine's `AiClient` to its
-project and session pages. A Machine that does not answer keeps what it
-synced, readable, its projects marked by its Last Seen in the sidebar;
-on its pages the header says why, from its Machine Status: downloading
+Then the Machine List of the Account (`actors/machine-list/`): the list
+saved here shows first, then the Backend's, asked again on Reload and,
+while a Machine's Line is not up, every 3 seconds for the first minute and
+every 30 after, until every Line is up. It holds a Line to each Machine
+and watches its Speech to Text, and shares all of it as `Machines`; with
+no Machine, home says how to start one. The root Provides every listed
+Machine's Replicas, whose `Ai` Instances open only for a Machine in the
+list, and each Machine's socket, dialled at its listed address
+(`AiClients`, over `MachineAddress`), so a Machine added opens its
+Instance and one forgotten lets go of it, then its database is deleted.
+Under it: the sidebar (`actors/sidebar/`), the header (`actors/header/`),
+the Pickers, and the Dictation (`actors/dictation/`), which records from
+the microphone (`src/layer/services/recorder/`) and carries on wherever
+the app goes. The project page (`pages/project/`) names its Machine: it
+Provides that Machine's `AiClient` to its session page. A Machine that does not answer keeps what it synced,
+readable, its projects marked by its Last Seen in the sidebar; on its
+pages the header says why, from its Machine Status: downloading
 cloudflared, opening its tunnel, the tunnel failed to open, its tunnel
 broken (its last check failing), or down (not seen for three Heartbeats),
-and nothing can be sent. Device State is the truth: an
-actor that shows it reads it again after every write, from this tab or
-another.
+and nothing can be sent. Device State is the truth: an actor that shows
+it reads it again after every write, from this tab or another.
 
-`src/` is a feature map, checked by Laymos (`laymos.config.json`). Each
-page is a folder nested under the page it sits in: `shell/` is the root
-page, with `home/`, `settings/` and `machine/` under it, `project/` under
-`machine/`, and `session/` under `project/`. Each other feature sits in the
-folder of the page that draws it: in `shell/`, `sign-in/`, the Machine
-List (`machines/`), each Machine's socket state (`connection/`),
-`header/`, `sidebar/`, `background-jobs/`, the Dictation (`dictation/`)
-and the microphone it records (`recorder/`), the Microphone Picker
-(`microphone-picker/`), the Project Picker
-(`project-picker/`, with the folder Steps it walks in `folder-picker/`),
-the Session Switcher (`session-switcher/`) and Session Actions
-(`session-actions/`); in `settings/`, `machines/` (with each Machine's
-`harness-binaries/` and `speech-to-text/`) and `shortcuts/`; in `project/` the Draft, the model
-Picker and the catalog, the agents, models and Skills the project page
-reads once and shares with its pages.
-Each makes its own server calls, in an `api.ts` beside its actor;
-`refusal/` is the one way they end when refused. `replica/` holds the
-Queries, `places/` the address of every place, which every View links
-through (only `shell/` imports the router), and `ui/` the small parts any
-feature draws, the Picker and the confirmation among them. Every folder is a deep module, a
-narrow `index.ts` over its main file, but for one exception: a folder that
-holds an actor, a page above all, has `actor.ts` (its define and build) and
-`view.tsx` in place of a main file, and its `index.ts` exports them under
-short names (`Live`, `View`, `Page`) for the importer to read as
-`Home.Live`, `Home.View`. A feature that makes a Picker with `Picker.make`
-keeps it in its main file and exports it as one object, as
-`ModelPicker.Live`, `ModelPicker.View`; one that owns its Picker, as the
-four of `shell/` do, is a folder that holds an actor, with the Picker in
-its `actor.ts`. `folder-picker/` holds no actor: its Steps are part of
-the Project Picker's one stack, so Ctrl+H from the home folder goes back
-to the recent projects, and it exports them with how they load and how a
-folder becomes a Project.
+`src/` is laid out as the Actor tree, checked by Laymos
+(`laymos.config.json`). `src/shell/` is the root page, with the Actors on
+every page in `actors/` and the pages in `pages/`, a child page in its
+parent's folder (`pages/project/session/`). Each Actor folder has
+`actor.ts` (its define and build), `commands.ts` when it has Commands,
+`view.tsx` when it has a View, and an `index.ts` that exports one object,
+as `Home.actor`, `Home.view`, `Home.page`. `src/layer/` is what the app
+Layer gives the tree: `capabilities/`, the keys, `services/`, what backs
+them, and `machine-health/`, what a Machine's record says of it; an Actor
+that Provides a key of its own keeps it in its own `capabilities/`, as the
+project page does its catalog. Code shared by Actors that is not one is a
+plain Module in the lowest folder that holds every user: in `pages/project/`
+the Draft, the model Picker and the catalog; in `src/shell/` `refusal/`,
+the one way a server call ends when refused, `replica/`, the Queries,
+`places/`, the address of every place, which every View links through
+(`src/pages.ts` defines the router), and `connection/`, every Machine as
+the Views see it; and in `src/`, used by the entry files too, `sign-in/`
+and `ui/`, the small parts any feature draws, the Picker and the
+confirmation among them. `src/deploy/` is the server: the infrastructure
+and the Machines API's Worker. A feature that makes a
+Picker with `Picker.make` keeps it in its main file and exports it as one
+object, as `ModelPicker.Live`, `ModelPicker.View`; one that owns its
+Picker, as the four of `shell/actors/` do, is an Actor folder with the
+Picker in its `actor.ts`. `folder-picker/` holds no actor: its Steps are
+part of the Project Picker's one stack, so Ctrl+H from the home folder
+goes back to the recent projects, and it exports them with how they load
+and how a folder becomes a Project.
 
 Settings lists your Machines from the Backend alone, at once, each in its
 own section with when it was last seen and how its tunnel stands, then
@@ -132,8 +129,10 @@ open, also by the header's button: Settle or Un-settle, Fork from the
 latest turn, Go to the original for a fork, Regenerate the title, and
 Stop the turn while one runs, each with its keys as bound.
 
-The sidebar (`src/shell/sidebar/`) lists every project of every Machine
-as one list, the most recently active first (a turn started or a session
+At its top the sidebar (`src/shell/actors/sidebar/`) has the Machine
+Filter, every Machine or one, kept in this browser, and Reload, which asks
+the Backend for the Machines again; only the Machines shown are synced
+there. It lists their projects as one list, the most recently active first (a turn started or a session
 made, never viewing, so the order holds while you browse), each a small
 muted heading over its unsettled sessions, flat and dense; after a
 project's name, its Machine's name in small text, while there is more than
@@ -149,7 +148,7 @@ its last turn failed, amber when the server's stopping cut it off.
 place of the projects, the most recently Settled first, each row opening
 its session or Un-settling it.
 
-A message is written in the Draft (`src/shell/machine/project/draft/`), a
+A message is written in the Draft (`src/shell/pages/project/draft/`), a
 CodeMirror editor in one card with the Status Line, pinned to the foot of
 the page while the transcript scrolls above it; the same card is on the
 new-session page. It is read only: it can be scrolled, clicked to place the cursor and
@@ -210,9 +209,7 @@ popover; nothing is kept. Each finished turn can be forked from, which
 opens a new session that remembers the conversation up to that turn. A
 fork copies nothing: its page reads the sessions up its chain, one
 Window each, and draws what came before its own turns as one line,
-"Earlier in ‹title› · N turns", that opens to them (`earlier.ts`). Background Jobs the agents left
-running on any Machine show in a bubble at the top right, grouped by
-session, each with a Stop button.
+"Earlier in ‹title› · N turns", that opens to them (`earlier.ts`).
 
 The transcript pairs Messages as it draws them (`thread.ts`): a tool call
 runs until its result arrives, and is stopped if its turn ended first; a
@@ -290,7 +287,7 @@ code test` runs the tests. Videos recorded under `qa/` stay local.
 
 ### Run with the Machines Backend, and deploy
 
-`pnpm dev` runs `alchemy dev` (`alchemy.run.ts`, `src/infra/`) through
+`pnpm dev` runs `alchemy dev` (`alchemy.run.ts`, `src/deploy/infra/`) through
 Portless: the site at `https://code.kishore.computer` and the Machines
 Worker, the Backend from `@kestack/ai-toolkit/machines/backend` over a D1
 database of its own, on port 4591, aliased as

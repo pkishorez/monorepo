@@ -17,8 +17,20 @@ The Picker for where to work next: first the Machine, a Step skipped while there
 _Avoid_: add project, open project
 
 **Machine List**:
-The signed-in Account's Machines as this device last had them, kept per Account so the app opens with all of them even while the Backend is out of reach, then asked again every Heartbeat while the app is visible. The app is on every Machine in it at once, and shows their Projects and Sessions together. A Machine that stops answering keeps what was last synced, marked by its Last Seen.
+The signed-in Account's Machines as this device last had them, kept per Account so the app opens with all of them even while the Backend is out of reach, then asked again once, on Reload, and on each Recheck. The app holds a Line to every Machine in it at once, and shows their Projects and Sessions together. A Machine that stops answering keeps what was last synced, marked by its Last Seen.
 _Avoid_: machine registry, device list, machine switcher
+
+**Line**:
+The app's socket to one Machine, as it stands: connecting, connected, or reconnecting. Nothing can be sent to a Machine whose Line is not connected.
+_Avoid_: connection, link
+
+**Recheck**:
+The Machine List asked again because a Machine's Line is not up: every 3 seconds for the first minute, then every 30 seconds, until every Line is up; a Line that drops starts it again. Reload starts it over at once.
+_Avoid_: poll, heartbeat (that is the Machine's own report)
+
+**Machine Filter**:
+The sidebar's choice of whose Projects it lists: every Machine, or one, kept in Device State. Only the Machines it shows are synced for the sidebar. Reload sits beside it.
+_Avoid_: machine switcher, machine picker
 
 **Session Switcher**:
 The Picker over Sessions to go back to one, the most recently active first.
@@ -33,7 +45,7 @@ A Session whose last Turn ended since it was last open on this device; opening i
 _Avoid_: unread, new, notification
 
 **Device State**:
-What this browser keeps for itself and no other device sees: the user's Bindings, the Microphone chosen and the Unseen marks. The app draws nothing until it has been read.
+What this browser keeps for itself and no other device sees: the user's Bindings, the Microphone chosen, the Machine Filter and the Unseen marks. The app draws nothing until the Bindings have been read.
 _Avoid_: preferences, local settings, localStorage
 
 **Draft**:

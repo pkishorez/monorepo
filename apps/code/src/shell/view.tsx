@@ -1,70 +1,62 @@
-import {
-  useChild,
-  useChildren,
-  View,
-  type ViewProps,
-} from '@kestack/kabuki/react';
+import { useChild, View, type ViewProps } from '@kestack/kabuki/react';
 import { Router, useRouter } from '@kestack/kabuki/routing';
 import { AccountSwitcherView } from '@kestack/web-platform/account-switcher';
 import { AppShell, useAppShell } from '@kestack/web-platform/recipes/frame';
 import { useMemo, type ComponentProps, type ReactNode } from 'react';
+import type { Ask } from '../layer/capabilities/index.ts';
 import { keys } from '../keys.ts';
-import * as places from '../places/index.ts';
-import type { Place, Route } from '../places/index.ts';
-import { ThemeToggle } from '../ui/theme/index.ts';
-import { machineIdsOf, ShellLive } from './actor.ts';
-import * as BackgroundJobs from './background-jobs/index.ts';
-import { Connection } from './connection/index.ts';
-import { DeviceState } from './device-state/index.ts';
-import * as Dictation from './dictation/index.ts';
-import { Model, Offline, Title } from './header/index.ts';
-import * as Home from './home/index.ts';
-import { Keyboard } from './keyboard.tsx';
-import * as Machine from './machine/index.ts';
-import * as MachineList from './machines/index.ts';
-import * as MicrophonePicker from './microphone-picker/index.ts';
-import * as ProjectPicker from './project-picker/index.ts';
-import * as SessionActions from './session-actions/index.ts';
-import * as SessionSwitcher from './session-switcher/index.ts';
-import * as Settings from './settings/index.ts';
+import * as places from './places/index.ts';
+import type { Place, Route } from './places/index.ts';
 import {
   Account,
   AccountSlot,
   LocalSignInDialog,
   SignedOut,
-} from './sign-in/index.ts';
-import { Places, SettingsLink } from './sidebar/index.ts';
+} from '../sign-in/index.ts';
+import { ThemeToggle } from '../ui/theme/index.ts';
+import { Dictation } from './actors/dictation/index.ts';
+import { Header } from './actors/header/index.ts';
+import { MachineList } from './actors/machine-list/index.ts';
+import { MicrophonePicker } from './actors/microphone-picker/index.ts';
+import { ProjectPicker } from './actors/project-picker/index.ts';
+import { SessionActions } from './actors/session-actions/index.ts';
+import { SessionSwitcher } from './actors/session-switcher/index.ts';
+import { Sidebar } from './actors/sidebar/index.ts';
+import { ShellLive } from './actor.ts';
+import { Connection } from './connection/index.ts';
+import { Keyboard } from './keyboard.tsx';
+import { Home } from './pages/home/index.ts';
+import { Project } from './pages/project/index.ts';
+import { Settings } from './pages/settings/index.ts';
 
 /*
  * The root page's View: the keyboard over everything, with the Bindings
  * from Device State, and the Account Switcher handed down to the header.
- * Nothing while Device State is read; signing in while nobody is; then
+ * Nothing while the Bindings are read; signing in while nobody is; then
  * the app, on every Machine at once, in the Web Platform's App Shell: the
- * sidebar with every Machine's projects and their unsettled sessions,
- * Unseen ones bold, the Project Picker's plus, the Settled List, and
- * Settings at its foot; the header with where you are, Session Actions,
- * the Machine of the page while it is out of reach, the Account and the
- * theme, and the Project Picker and Session Switcher opened by keys, kept
- * there whatever the sidebar shows; the page the URL names; and over its
- * top right, every Machine's Background Jobs running, while any are; over
+ * sidebar (`actors/sidebar/`), the header with where you are
+ * (`actors/header/`), Session Actions, the Machine of the page while it is
+ * out of reach, the Account and the theme, and the Project Picker and
+ * Session Switcher opened by keys; the page the URL names; over
  * everything, in the bottom right corner, the Dictation's badge, and the
  * Dictation handed down to every Draft, with the Microphone Picker's
- * button for the Status Line. The sidebar and the page are
- * Surfaces of the root's keyboard. From anywhere, `n` starts a session in
- * the project open, `b` shows or hides the sidebar, Space and Ctrl+Space
- * start and stop a Dictation, `d` chooses its microphone, and Ctrl+, goes to Settings and, again or
- * by Escape, back.
+ * button for the Status Line. Each part is handed its own Instance, never
+ * its data, so a change to one draws only it. The sidebar and the page
+ * are Surfaces of the root's keyboard. From anywhere, `n` starts a session
+ * in the project open, `b` shows or hides the sidebar, Space and
+ * Ctrl+Space start and stop a Dictation, `d` chooses its microphone, and
+ * Ctrl+, goes to Settings and, again or by Escape, back.
  */
 
 export const ShellView = View.make(
   ShellLive,
   ({ _tag, root, model, state, children, send }) => {
-    // Nothing is drawn while Device State is read.
+    // Nothing is drawn while the Bindings are read.
     if (_tag === 'Reading') return <div {...root} />;
     const { account } = model;
     return (
       <div {...root}>
-        <Keyboard bindings={state.device.bindings}>
+        <Keyboard bindings={state.bindings}>
           <AccountSlot
             value={<AccountSwitcherView instance={children.account} />}
           >
@@ -72,15 +64,12 @@ export const ShellView = View.make(
               <SignedOut
                 checking={account._tag === 'Checking'}
                 problem={model.signInProblem}
-                onSignIn={() => send({ _tag: 'SignIn' })}
+                onSignIn={() => send({ _tag: 'SignInAsked' })}
               />
             ) : (
-              <Signed
-                model={model}
-                unseen={state.device.unseen}
-                actors={children}
-                send={send}
-              />
+              <Machines machines={children.machines}>
+                <Signed actors={children} send={send} />
+              </Machines>
             )}
           </AccountSlot>
           <LocalSignInDialog />
@@ -92,38 +81,56 @@ export const ShellView = View.make(
 
 type Self = Extract<ViewProps<typeof ShellLive>, { readonly _tag: 'Ready' }>;
 
-interface Signed {
-  readonly model: Self['model'];
-  /** This device's Unseen marks, by Machine id and then Session id. */
-  readonly unseen: Readonly<Record<string, Readonly<Record<string, number>>>>;
+/**
+ * Every Machine as the Views see it, as listed and with its line now. Only
+ * this provider draws again as they change, and what reads them.
+ */
+function Machines({
+  machines,
+  children,
+}: {
+  readonly machines: Self['children']['machines'];
+  readonly children: ReactNode;
+}) {
+  if (machines === undefined)
+    return (
+      <Connection value={{ machines: null, status: {} }}>{children}</Connection>
+    );
+  return <Listed machines={machines}>{children}</Listed>;
+}
+
+function Listed({
+  machines,
+  children,
+}: {
+  readonly machines: NonNullable<Self['children']['machines']>;
+  readonly children: ReactNode;
+}) {
+  const known = useChild(machines, ({ model }) => model);
+  const value = useMemo(
+    () => ({ machines: known?.machines ?? null, status: known?.lines ?? {} }),
+    [known?.machines, known?.lines],
+  );
+  return <Connection value={value}>{children}</Connection>;
+}
+
+/** The app, signed in. */
+function Signed({
+  actors: children,
+  send,
+}: {
   readonly actors: Self['children'];
   readonly send: Self['send'];
-}
-
-/** The app, signed in: every Machine's, inside the connections' provider. */
-function Signed(self: Signed) {
-  const { model, actors: children } = self;
-  const status = useChild(children.connections, ({ model }) => model.status);
-  const listed = new Set(machineIdsOf(model));
-  const machines =
-    model.known.machines?.filter(({ id }) => listed.has(id)) ?? null;
-  return (
-    <Connection value={{ machines, status: status ?? {} }}>
-      <Shell {...self} />
-    </Connection>
-  );
-}
-
-function Shell({ model, unseen, actors: children, send }: Signed) {
+}) {
   const route = places.placeOf(useRouter<Route>().route);
   const { enter } = keys.useKeyboard();
   const inSettings = route._tag === 'Settings';
   const settings = () =>
     send(
       inSettings
-        ? { _tag: 'Settings', from: null, back: true }
+        ? { _tag: 'SettingsToggled', from: null, back: true }
         : {
-            _tag: 'Settings',
+            _tag: 'SettingsToggled',
             back: false,
             from:
               route._tag === 'Project'
@@ -142,7 +149,7 @@ function Shell({ model, unseen, actors: children, send }: Signed) {
     () => {
       if (route._tag !== 'Project') return;
       send({
-        _tag: 'OpenProject',
+        _tag: 'NewSessionAsked',
         machineId: route.machineId,
         projectId: route.projectId,
       });
@@ -156,88 +163,41 @@ function Shell({ model, unseen, actors: children, send }: Signed) {
   const dictating = useMemo(
     () => ({
       dictation: children.dictation,
-      ask: (ask: typeof Dictation.Ask.Type) => send({ _tag: 'Dictate', ask }),
+      ask: (ask: typeof Ask.Type) => send({ _tag: 'DictationAsked', ask }),
       microphones: (
-        <MicrophonePicker.Button instance={children.microphonePicker} />
+        <MicrophonePicker.button instance={children.microphonePicker} />
       ),
       shown: drafts.shown,
     }),
     [children.dictation, children.microphonePicker, send, drafts.shown],
   );
   Dictation.useDictationKeys(dictating.ask);
-  const [projects] = useChildren(children.projects, ({ model }) => model);
-  const [found] = useChildren(children.sessions, ({ model }) => model);
-  const running = useChild(
-    children.backgroundJobs,
-    ({ model }) => model.sessions,
+  const slots = useMemo(
+    () => ({
+      projectPicker: <ProjectPicker.button instance={children.projectPicker} />,
+    }),
+    [children.projectPicker],
   );
-  const sessions = (found?.rows ?? []).map(({ row }) => row);
-  const projectRows = (projects?.rows ?? []).map(({ row }) => row);
-  const sessionId =
-    route._tag === 'Project' ? route.page?.sessionId : undefined;
-  // Never listed on this device yet: the sidebar is a skeleton meanwhile.
-  const neverListed =
-    model.known.machines === null && model.known.problem === null;
   return (
     <Dictation.Dictating value={dictating}>
       <Screen
         route={route}
         sidebar={
-          <Places
-            route={route}
-            projects={{
-              rows: projectRows,
-              loading: neverListed || (projects?.neverSynced.length ?? 0) > 0,
-            }}
-            sessions={sessions}
-            jobs={BackgroundJobs.bySession(running ?? [])}
-            isUnseen={(each) =>
-              DeviceState.isUnseen(
-                unseen[each.machineId] ?? {},
-                each.id,
-                each.endedAt,
-              )
-            }
-            unsettling={model.unsettling}
-            projectPicker={
-              <ProjectPicker.Button instance={children.projectPicker} />
-            }
-            onOpenSession={(machineId, projectId, sessionId) =>
-              send({ _tag: 'OpenSession', machineId, projectId, sessionId })
-            }
-            onUnsettle={(machineId, sessionId) =>
-              send({ _tag: 'Unsettle', machineId, sessionId })
-            }
-          />
+          <Sidebar.Slots value={slots}>
+            <Sidebar.view instance={children.sidebar} />
+          </Sidebar.Slots>
         }
         header={{
-          title: (
-            <Title
-              route={route}
-              projects={projectRows}
-              sessions={sessions}
-              neverSynced={[
-                ...(projects?.neverSynced ?? []),
-                ...(found?.neverSynced ?? []),
-              ]}
-            />
-          ),
+          title: <Header.view instance={children.header} />,
           actions: (
             <>
-              <Model
-                session={sessions.find(
-                  (each) =>
-                    route._tag === 'Project' &&
-                    each.machineId === route.machineId &&
-                    each.id === sessionId,
-                )}
-              />
-              <SessionActions.View instance={children.sessionActions} />
-              <SessionSwitcher.View instance={children.sessionSwitcher} />
-              <ProjectPicker.View instance={children.projectPicker} />
-              <MicrophonePicker.View instance={children.microphonePicker} />
+              <Header.model instance={children.header} />
+              <SessionActions.view instance={children.sessionActions} />
+              <SessionSwitcher.view instance={children.sessionSwitcher} />
+              <ProjectPicker.view instance={children.projectPicker} />
+              <MicrophonePicker.view instance={children.microphonePicker} />
               {route._tag === 'Project' && (
-                <Offline machineId={route.machineId} />
+                <Header.Offline machineId={route.machineId} />
               )}
               <ThemeToggle />
               <Account />
@@ -245,21 +205,18 @@ function Shell({ model, unseen, actors: children, send }: Signed) {
           ),
         }}
       >
-        <BackgroundJobs.Known value={{ projects: projectRows, sessions }}>
-          <BackgroundJobs.Bubble instance={children.backgroundJobs} />
-        </BackgroundJobs.Known>
-        <ProjectPicker.Notice instance={children.projectPicker} />
+        <ProjectPicker.notice instance={children.projectPicker} />
         {children.Home ? (
           <>
             {children.machines && (
-              <MachineList.View instance={children.machines} />
+              <MachineList.view instance={children.machines} />
             )}
-            <Home.View instance={children.Home} />
+            <Home.view instance={children.Home} />
           </>
-        ) : children.Machine ? (
-          <Machine.View instance={children.Machine} />
+        ) : children.Project ? (
+          <Project.view instance={children.Project} />
         ) : children.Settings ? (
-          <Settings.View instance={children.Settings} />
+          <Settings.view instance={children.Settings} />
         ) : (
           <p className="mx-auto w-full max-w-3xl px-6 py-10 text-sm text-muted-foreground">
             Nothing lives at this address.{' '}
@@ -273,7 +230,7 @@ function Shell({ model, unseen, actors: children, send }: Signed) {
         )}
       </Screen>
       <Dictation.DraftsShown value={drafts.count}>
-        <Dictation.Badge instance={children.dictation} />
+        <Dictation.view instance={children.dictation} />
       </Dictation.DraftsShown>
     </Dictation.Dictating>
   );
@@ -310,7 +267,7 @@ function Screen({
                 {sidebar}
               </div>
               <div className="flex flex-col gap-2 p-2">
-                <SettingsLink route={route} />
+                <Sidebar.SettingsLink route={route} />
               </div>
             </div>
           </keys.Surface>

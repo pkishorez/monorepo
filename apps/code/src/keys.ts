@@ -31,8 +31,8 @@ import { useCallback, useRef } from 'react';
  * its own: recording a new key for an Action enters the isolated `record`
  * Surface, which has none, so no key works until it is pressed; Escape
  * leaves it, which cancels. A confirmation, such as removing a project, is
- * drawn on the isolated `confirm` Surface, and the Background Jobs on
- * `jobs`, so leaving either puts focus back where it was.
+ * drawn on the isolated `confirm` Surface, so leaving it puts focus back
+ * where it was.
  *
  * The Composer's editor takes its own keys first, so it hands the page the
  * `inField` ones. Actions without `enters` work only while a component
@@ -124,7 +124,6 @@ export const keys = createKeys({
         surfaces: {
           record: { label: 'recording a key', isolated: true },
           confirm: { label: 'confirming', isolated: true },
-          jobs: { label: 'background jobs', isolated: true },
         },
       },
       picker: {

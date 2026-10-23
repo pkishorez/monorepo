@@ -1,8 +1,8 @@
 import type { Machine as MachineSchema } from '@kestack/ai-toolkit/machines';
 import { createContext, use, useEffect, useState } from 'react';
-import { health } from '../machines/index.ts';
+import { health } from '../../layer/machine-health/index.ts';
 
-export { outOfReach } from '../machines/index.ts';
+export { outOfReach } from '../../layer/machine-health/index.ts';
 
 type Machine = typeof MachineSchema.Type;
 

@@ -1,1 +1,1 @@
-export { JobCount, SessionStatus } from './session-status.tsx';
+export { SessionStatus } from './session-status.tsx';
