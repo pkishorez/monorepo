@@ -47,7 +47,7 @@ export default Proof.make({
   prepare: Effect.gen(function* () {
     const database = makeNodeSQLite({ path: ':memory:' });
     yield* Effect.addFinalizer(() => Effect.sync(() => database.close?.()));
-    yield* SQLite.setup(table, { database });
+    yield* SQLite.setup(table, { mode: 'persistent', database });
     // Both releases open the same database.
     const lastReleaseDb = SQLite.make(lastRelease, { database });
     const db = SQLite.make(table, { database });

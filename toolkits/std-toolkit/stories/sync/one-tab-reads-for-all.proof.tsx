@@ -65,6 +65,7 @@ export default Proof.browser({
       .primary({ pk: ['boardId'] })
       .build();
     const backend = IDB.make(table, {
+      mode: 'disposable',
       database: IDB.database({ databaseName: 'backend' }),
     });
     // The backend sits one second of network away; offline, a request fails after that second.

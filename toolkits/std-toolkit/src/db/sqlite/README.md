@@ -4,7 +4,7 @@ SQLite adapter that realizes a StdTable over a driver for Node, Bun, better-sqli
 
 ## Big picture
 
-One adapter, several runtimes. `SQLite.make` takes a `SQLiteDriver` and returns the layer; it never changes the schema. `SQLite.setup` creates the physical table and adds missing index columns and indexes. On D1, `D1.table` in [`@kestack/std-toolkit/alchemy`](../../../README.md#std-toolkitalchemy) calls it at deploy after the snapshot guard accepts the table. Each driver entrypoint is a separate subpath so its platform dependency is only loaded where it is used. Divergences from the DynamoDB topology, read-consistency, and transaction rules are in [CONTEXT.md](CONTEXT.md); shared vocabulary is in [db/CONTEXT.md](../CONTEXT.md).
+One adapter, several runtimes. `SQLite.make` takes a `SQLiteDriver` and returns the layer; it never changes the schema. `SQLite.setup` prepares the physical table under a required `mode`. It first compares the table's contract with the Stored contract kept in the same database, in the reserved `_std_contract` table. A `persistent` table refuses a breaking change with `SetupRefused` and is never wiped. A `disposable` table is dropped and recreated on any change its rows cannot take, including one that needs a backfill, since SQLite has no backfill. A persistent table never becomes disposable. Then setup creates the table if missing, adds missing index columns and indexes, and records the new contract. Run it where no request pays for it: on D1, `D1.table` in [`@kestack/std-toolkit/alchemy`](../../../README.md#std-toolkitalchemy) calls it at deploy; on Node or Bun, at process start; in a Durable Object, on the object's first access. Each driver entrypoint is a separate subpath so its platform dependency is only loaded where it is used. Divergences from the DynamoDB topology, read-consistency, and transaction rules are in [CONTEXT.md](CONTEXT.md); shared vocabulary is in [db/CONTEXT.md](../CONTEXT.md).
 
 ## Install
 
@@ -14,10 +14,12 @@ See the [top README](../../../README.md). Install the driver's own dependency wh
 
 ### `@kestack/std-toolkit/db/sqlite`
 
-| Export         | What it does                                                                      |
-| -------------- | --------------------------------------------------------------------------------- |
-| `SQLite.make`  | Realizes a StdTable on a driver; returns `tableName` and `layer`.                 |
-| `SQLite.setup` | Creates the physical table if missing and adds missing index columns and indexes. |
+| Export              | What it does                                                                                                        |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `SQLite.make`       | Realizes a StdTable on a driver; returns `tableName` and `layer`.                                                   |
+| `SQLite.setup`      | Checks the Stored contract under the table's `mode`, then creates or updates the table.                             |
+| `setUpFromSnapshot` | `setup` from a serialized table snapshot, for a deploy target that carries the snapshot instead.                    |
+| `SetupRefused`      | Error raised when setup refuses a persistent table: a breaking change, a mode change, or a contract it cannot read. |
 
 ### `@kestack/std-toolkit/db/sqlite/node`
 
@@ -67,7 +69,7 @@ const database = makeNodeSQLite({ path: ':memory:' });
 const sqlite = SQLite.make(table, { database });
 
 const program = Effect.gen(function* () {
-  yield* SQLite.setup(table, { database });
+  yield* SQLite.setup(table, { database, mode: 'persistent' });
   return yield* saveAndRead.pipe(
     Effect.provide(sqlite.layer),
     Effect.ensuring(Effect.sync(() => database.close?.())),
@@ -75,7 +77,8 @@ const program = Effect.gen(function* () {
 });
 ```
 
-- One driver can serve several StdTables; `tableName` defaults to the logical name.
+- One driver can serve several StdTables; `tableName` defaults to the logical name, and `_std_contract` is reserved.
+- An unchanged contract skips the comparison; the physical table is still checked.
 - Drivers that open a file themselves expose `close`; drivers wrapping a caller-owned database do not close it.
 
 ### Run on Cloudflare D1
@@ -89,7 +92,8 @@ import { makeD1SQLite } from '@kestack/std-toolkit/db/sqlite/d1';
 const database = makeD1SQLite({ database: env.DB });
 const peopleD1 = SQLite.make(people, { database });
 
-// The table already exists: `D1.table` from @kestack/std-toolkit/alchemy set it up at deploy.
+// The table already exists: `D1.table` from @kestack/std-toolkit/alchemy set it up at deploy,
+// so the Worker never runs setup.
 await Effect.runPromise(program.pipe(Effect.provide(peopleD1.layer)));
 ```
 

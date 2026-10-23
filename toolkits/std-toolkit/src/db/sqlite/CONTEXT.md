@@ -25,4 +25,8 @@ Primary, LSI, and GSI access patterns observe the latest committed SQLite state.
 The platform binding implementing the `SQLiteDriver` interface beneath this adapter. Drivers target Node, better-sqlite3, Bun, Cloudflare Durable Objects, or Cloudflare D1.
 _Avoid_: adapter, backend, database runtime.
 
+**Contract table**:
+The `_std_contract` table in the same database, one row per physical table holding its [[db]] **Stored contract**. The name is reserved. SQLite has no backfill, so a **Disposable table** is dropped and recreated on any change its rows cannot take, including one that needs a backfill.
+_Avoid_: Metadata table, schema version table, migrations table.
+
 SQLite driver failures are normalized into the shared [[db]] `DatabaseError` as an `OperationFailed` reason whose `cause` retains the driver error.

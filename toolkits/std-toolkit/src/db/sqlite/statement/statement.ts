@@ -176,6 +176,40 @@ const makeDropIndexStatement = (indexName: string) => ({
   sql: `DROP INDEX IF EXISTS ${quoteIdentifier(indexName)}`,
 });
 
+const makeDropTableStatement = (tableName: string) => ({
+  sql: `DROP TABLE IF EXISTS ${quoteIdentifier(tableName)}`,
+});
+
+/** The table holding each physical table's Stored contract, beside the data. */
+export const CONTRACT_TABLE = '_std_contract';
+
+const makeCreateContractTableStatement = () => ({
+  sql: `CREATE TABLE IF NOT EXISTS ${quoteIdentifier(CONTRACT_TABLE)} (table_name TEXT PRIMARY KEY NOT NULL, mode TEXT NOT NULL, hash TEXT NOT NULL, snapshot TEXT NOT NULL)`,
+});
+
+const makeReadContractStatement = (tableName: string) => ({
+  sql: `SELECT mode, hash FROM ${quoteIdentifier(CONTRACT_TABLE)} WHERE table_name = ?`,
+  parameters: [tableName] as const,
+});
+
+const makeReadContractSnapshotStatement = (tableName: string) => ({
+  sql: `SELECT snapshot FROM ${quoteIdentifier(CONTRACT_TABLE)} WHERE table_name = ?`,
+  parameters: [tableName] as const,
+});
+
+const makeWriteContractStatement = (
+  tableName: string,
+  contract: { mode: string; hash: string; snapshot: string },
+) => ({
+  sql: `INSERT INTO ${quoteIdentifier(CONTRACT_TABLE)} (table_name, mode, hash, snapshot) VALUES (?, ?, ?, ?) ON CONFLICT (table_name) DO UPDATE SET mode = excluded.mode, hash = excluded.hash, snapshot = excluded.snapshot`,
+  parameters: [
+    tableName,
+    contract.mode,
+    contract.hash,
+    contract.snapshot,
+  ] as const,
+});
+
 const findMissingColumnDefinitions = (
   table: SQLiteTable,
   rows: readonly SQLiteRow[],
@@ -207,6 +241,7 @@ export const Statement = {
   addColumn: makeAddColumnStatement,
   check: makeCheckStatement,
   createIndexes: makeCreateIndexStatements,
+  createContractTable: makeCreateContractTableStatement,
   createTable: makeCreateTableStatement,
   deleteAll: makeDeleteAllStatement,
   deleteEntity: makeDeleteEntityStatement,
@@ -220,6 +255,10 @@ export const Statement = {
   query: makeQueryStatement,
   scan: makeScanStatement,
   dropIndex: makeDropIndexStatement,
+  dropTable: makeDropTableStatement,
+  readContract: makeReadContractStatement,
+  readContractSnapshot: makeReadContractSnapshotStatement,
+  writeContract: makeWriteContractStatement,
   tableInfo: makeTableInfoStatement,
   write: makeWriteStatement,
 } as const;

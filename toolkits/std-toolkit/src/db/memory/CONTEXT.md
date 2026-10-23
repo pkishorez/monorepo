@@ -9,7 +9,7 @@ The result of `Memory.make` (`MemoryTable`): one isolated, immediately usable in
 _Avoid_: InMemoryTable, test database, global memory store.
 
 **Memory lifetime**:
-The lifetime of a **Memory adapter table** within one JavaScript runtime. Its state is never persisted and becomes unreachable with the adapter table; Effect layer construction does not reset or recreate it.
+The lifetime of a **Memory adapter table** within one JavaScript runtime. Its state is never persisted and becomes unreachable with the adapter table; Effect layer construction does not reset or recreate it. Nothing outlives it, so a Memory table has no [[db]] **Table mode** and no setup.
 _Avoid_: Session, process-global database, layer lifetime.
 
 **Memory read consistency**:

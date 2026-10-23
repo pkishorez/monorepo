@@ -6,7 +6,7 @@ Single-table design toolkit: database-agnostic sync over single-table item colle
 
 Applications that store many entity types in one table, then mirror that data into a browser, end up writing the same three things by hand: a schema that can still read last year's rows, a storage layer that is bolted to one database, and a sync loop that keeps a client cache fresh. std-toolkit provides each as a separate subpath that shares one Entity model, so they compose without glue code.
 
-`core` defines the Entity envelope and metadata every other subpath speaks. `eschema` gives versioned schemas that migrate on read. `db` defines a StdTable once, and the DynamoDB, SQLite, IndexedDB, and Memory adapters realize it without changing application code. `sync` drives TanStack DB Collections from any backend and persists its replica through the same StdTable contract; `replica` does the same for Kabuki apps, as actors. `snapshot` captures the resulting storage contract as one document per table. `alchemy` deploys a table and refuses a deploy that would break a stored version, keeping the accepted snapshot in Alchemy state. `@kestack/std-toolkit/snapshot/vitest` is the one test a table needs: it fails unless the table's snapshot has no breaking change against the committed file and every stored version of every entity upgrades. Snapshot never runs inside an adapter or at request time.
+`core` defines the Entity envelope and metadata every other subpath speaks. `eschema` gives versioned schemas that migrate on read. `db` defines a StdTable once, and the DynamoDB, SQLite, IndexedDB, and Memory adapters realize it without changing application code. `sync` drives TanStack DB Collections from any backend and persists its replica through the same StdTable contract; `replica` does the same for Kabuki apps, as actors. `snapshot` captures the resulting storage contract as one document per table. Every physical table declares a mode: `persistent` data must survive every schema change, `disposable` data may be thrown away when a change is not safe. Each adapter's setup compares the table with the Stored contract kept beside its data, then refuses a persistent table's breaking change or wipes a disposable one. `alchemy` deploys a table and adds a deploy guard that refuses a breaking change to a persistent table before it ships, keeping the Deployed contract in Alchemy state. `@kestack/std-toolkit/snapshot/vitest` is the one test a persistent table needs: it fails unless the table's snapshot has no breaking change against the committed file and every stored version of every entity upgrades. Snapshot never runs at request time.
 
 Each subpath owns its vocabulary in a `CONTEXT.md`: [core](src/core/CONTEXT.md), [eschema](src/eschema/CONTEXT.md), [snapshot](src/snapshot/CONTEXT.md), [db](src/db/CONTEXT.md), [sync](src/sync/CONTEXT.md), [replica](src/replica/CONTEXT.md). The [context map](CONTEXT-MAP.md) explains how they relate. Decisions live in [docs/adr/](docs/adr/), [src/db/docs/adr/](src/db/docs/adr/), and [src/sync/docs/adr/](src/sync/docs/adr/). Longer reads: [Evolving schema](docs/evolving-schema.md), [Sync guide](docs/sync-guide.md). The [stories](stories/) folder tells this package as a tree of Stories, each folder a `story.md` with runnable Proofs beside it: `evolving-schema` (with `migrations` and `snapshot`), `entities` (`keyed` and `single`), `adapters` (with `transactions`), and `sync`. Run them with `pnpm stories`.
 
@@ -23,7 +23,7 @@ Node 24 or later. Peer dependencies:
 - `react` (optional): required by `@tanstack/react-db`; only needed when you use `@kestack/std-toolkit/sync`.
 - `@kestack/kabuki` (optional): `@kestack/std-toolkit/replica` runs as Kabuki actors and Commands.
 - `@tanstack/db` (optional): `@kestack/std-toolkit/replica` shows each Instance in TanStack DB Collections, without React.
-- `alchemy` (optional): only `@kestack/std-toolkit/alchemy` imports it, to deploy a table and guard its snapshot.
+- `alchemy` (optional): only `@kestack/std-toolkit/alchemy` imports it, to deploy a table and guard its contract.
 
 ## Exports
 
@@ -47,13 +47,13 @@ See [src/eschema/README.md](src/eschema/README.md#kestackstd-toolkiteschematesti
 | `TableSnapshot.parse`         | Reads a stored document, migrating older formats forward and validating its references.  |
 | `TableSnapshot.diff`          | Compares a previous and a current snapshot into classified semantic changes.             |
 | `TableSnapshot.renderChanges` | Renders a list of changes as human-readable text, grouped by impact.                     |
-| `TableSnapshot.changeLabel`   | Names one change in a line, such as `Task v1 edited`, as `acceptBreaking` expects it.    |
+| `TableSnapshot.changeLabel`   | Names one change in a line, such as `Task v1 edited`.                                    |
 | `TableSnapshotESchema`        | The ESchema of the stored table snapshot document.                                       |
 | `SnapshotIncompatible`        | Error raised when a new snapshot is not upgradable from the accepted one.                |
 
 ### `@kestack/std-toolkit/snapshot/vitest`
 
-The one test a table needs. It needs `vitest` as a peer.
+The one test a persistent table needs; a StdTable kept only in disposable tables needs none. It needs `vitest` as a peer.
 
 ```ts
 import { expectTableShippable } from '@kestack/std-toolkit/snapshot/vitest';
@@ -65,21 +65,22 @@ it('keeps the table safe to ship', async () => {
 });
 ```
 
-The file holds the table snapshot: topology, entities, and every version of every schema the table reaches, compared as parsed data so formatting never fails the test. The test fails, listing every reason, when a stored version of any schema the table reaches does not upgrade or a migration changes a row's id or partition key, when the snapshot has a breaking change against the file, or when the file is out of date. `vitest -u` writes the file only for changes that keep stored rows readable. It never accepts a breaking change or a failing upgrade: a breaking change is accepted only when a person names it in `acceptBreaking` (`{ acceptBreaking: ['Task v1 edited'] }`), and an entry that no longer names a change fails the test until it is removed. A committed file that cannot be read fails too, even under `-u`, since it is the baseline breaking changes are judged against. The deploy guard still compares against what is deployed, so a hand-edited file cannot ship a breaking change.
+The file holds the table snapshot: topology, entities, and every version of every schema the table reaches, compared as parsed data so formatting never fails the test. The test fails, listing every reason, when a stored version of any schema the table reaches does not upgrade or a migration changes a row's id or partition key, when the snapshot has a breaking change against the file, or when the file is out of date. `vitest -u` writes the file only for changes that keep stored rows readable. Nothing accepts a breaking change or a failing upgrade: undo the edit and add a new version, or move the data to a new physical table name. A committed file that cannot be read fails too, even under `-u`, since it is the baseline breaking changes are judged against. The test cannot be enforced, so it is the earliest check, not the only one: the deploy guard and setup against the Stored contract refuse a breaking change too, so a hand-edited or deleted file cannot ship one.
 
-| Export                 | What it does                                                                                         |
-| ---------------------- | ---------------------------------------------------------------------------------------------------- |
-| `expectTableShippable` | Fails unless every stored version upgrades and the table snapshot has no unaccepted breaking change. |
+| Export                 | What it does                                                                              |
+| ---------------------- | ----------------------------------------------------------------------------------------- |
+| `expectTableShippable` | Fails unless every stored version upgrades and the table snapshot has no breaking change. |
 
 ### `@kestack/std-toolkit/alchemy`
 
-Deploys a StdTable with Alchemy. Each target keeps the last accepted table snapshot in Alchemy state and fails the deploy when the new one is not upgradable from it. Add `providers()` to the stack's providers.
+Deploys a StdTable with Alchemy. Each table resource takes a required `mode`. A persistent table gets a deploy guard: it keeps the Deployed contract in Alchemy state and fails the deploy when the new snapshot breaks it. Add `providers()` to the stack's providers.
 
-| Export           | What it does                                                                      |
-| ---------------- | --------------------------------------------------------------------------------- |
-| `DynamoDB.table` | Guards the snapshot, then creates or updates the DynamoDB table and its indexes.  |
-| `D1.table`       | Guards the snapshot, then creates or updates the table and its indexes in D1.     |
-| `providers`      | Every provider std-toolkit's resources need, to merge into a stack's `providers`. |
+| Export              | What it does                                                                                                                         |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `DynamoDB.table`    | Guards the contract, then creates or updates the DynamoDB table; a disposable table is replaced as `<tableName>-<generation>`.       |
+| `D1.table`          | Guards a persistent table, then runs SQLite setup in D1 at deploy against the Stored contract kept in the database.                  |
+| `DeployGuard.table` | Guards a persistent StdTable Alchemy does not create, such as an IndexedDB or Durable Object table; one guard covers all its tables. |
+| `providers`         | Every provider std-toolkit's resources need, to merge into a stack's `providers`.                                                    |
 
 ### `@kestack/std-toolkit/db`
 
@@ -189,7 +190,7 @@ const screen = createLiveQueryCollection({
 
 ### Deploy a table and refuse a breaking change
 
-An application deploys its table through `@kestack/std-toolkit/alchemy`. The first deploy records the table snapshot in Alchemy state. Every later deploy compares the new snapshot with the accepted one and fails before the table is touched if a stored version was edited or removed, or the key layout moved. Lifted from `apps/alchemy-console/alchemy.run.ts`.
+An application deploys its table through `@kestack/std-toolkit/alchemy`. For a persistent table, every deploy compares the new snapshot with the one last shipped, and with the Stored contract in the database, and fails before the table is touched if a stored version was edited or removed, or the key layout moved. Lifted from `apps/alchemy-console/alchemy.run.ts`.
 
 ```ts
 import { Stack, Stage } from 'alchemy';
@@ -215,7 +216,11 @@ export const Worker = Cloudflare.Website.Vite(
   'Worker',
   Effect.gen(function* () {
     const database = yield* Database;
-    yield* D1.table('ConsoleTable', { table: consoleTable, database });
+    yield* D1.table('ConsoleTable', {
+      table: consoleTable,
+      database,
+      mode: 'persistent',
+    });
     return { env: { DB: Database } };
   }),
 );
@@ -230,7 +235,7 @@ export default Stack(
 );
 ```
 
-- `D1.table` registers one resource. Its provider checks the accepted snapshot before creating the physical table or reconciling indexes. Snapshot, database, and physical table name changes trigger a deploy update; a new physical target starts a fresh baseline.
-- `DynamoDB.table` does the same for DynamoDB; the table resource creates the indexes itself, so no setup action follows.
-- At runtime the application provides an adapter layer, `SQLite.make(table, { database }).layer`, and never touches snapshot.
-- The guard is only as durable as the Alchemy state store behind the stack.
+- For a persistent table, `D1.table` registers a deploy guard, then a table resource whose provider runs SQLite setup in D1. The guard refuses a breaking change against the last shipped snapshot first; setup then checks the Stored contract kept in the database, which is the baseline, before creating the table or reconciling indexes.
+- A disposable D1 table gets no guard; setup wipes it at deploy on a change its rows cannot take. A persistent table never becomes disposable.
+- `DynamoDB.table` keeps no Stored contract, so its guard is its only check; the table resource creates the indexes itself.
+- At runtime the application provides an adapter layer, `SQLite.make(table, { database }).layer`, and runs no setup.

@@ -9,6 +9,16 @@ interface UpgradePlan {
   readonly indexes: readonly IDBIndexDefinition[];
 }
 
+/** The store holding each table store's Stored contract, beside the data. */
+export const CONTRACT_STORE = '_std_contract';
+
+export const inspectContractStore = (
+  database: IDBDatabase,
+): UpgradePlan | null =>
+  database.objectStoreNames.contains(CONTRACT_STORE)
+    ? null
+    : { storeName: CONTRACT_STORE, createStore: true, indexes: [] };
+
 export const inspectUpgrade = (
   database: IDBDatabase,
   storeName: string,
@@ -51,6 +61,10 @@ export const upgradeDatabase = (
   transaction: IDBTransaction,
   plan: UpgradePlan,
 ) => {
+  if (plan.storeName === CONTRACT_STORE) {
+    database.createObjectStore(CONTRACT_STORE, { keyPath: 'store' });
+    return;
+  }
   const store = plan.createStore
     ? database.createObjectStore(plan.storeName, { keyPath: ['pk', 'sk'] })
     : transaction.objectStore(plan.storeName);

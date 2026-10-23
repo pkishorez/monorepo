@@ -183,9 +183,9 @@ sharp edges worth knowing before you rely on it.
 - **The types will not stop you editing history.** Shipped versions and
   shipped migrations are contracts with the rows already written, but nothing
   in the types detects that you changed v1's fields or rewrote the v1→v2 step
-  after rows were written. Two things catch a changed version: the per-table
-  test (`expectTableShippable`) in CI, and the snapshot guard at deploy. See
-  "Shipping" below. A rewritten migration is not caught by a snapshot: it is
+  after rows were written. On a persistent table, three things catch a changed
+  version: the per-table test (`expectTableShippable`) in CI, the deploy guard,
+  and setup against the Stored contract. See "Shipping" below. A rewritten migration is not caught by a snapshot: it is
   code. `expectUpgradable` (below) is the test that exercises it.
 - **Migrations only run on read.** A row written at v1 stays a v1 row on disk
   until something decodes and re-encodes it. If you delete the v1→v2 migration
@@ -226,12 +226,12 @@ sharp edges worth knowing before you rely on it.
   row must decode to the same value today, tomorrow, and on every replica.
 - **Model absence with `Schema.NullOr`,** never optional fields — the builder
   forbids optionals so that every version has exactly one canonical shape.
-- **One test per table.** `expectTableShippable(table, file)` checks the
-  committed snapshot and runs `expectUpgradable` over every schema the table
-  reaches, keeping each keyed row's id and partition key. `vitest -u` accepts
-  appended versions and other safe changes; it never accepts an edit to a
-  shipped version or a failing upgrade. A breaking change is accepted only
-  when a person names it in `acceptBreaking`.
+- **One test per persistent table.** `expectTableShippable(table, file)`
+  checks the committed snapshot and runs `expectUpgradable` over every schema
+  the table reaches, keeping each keyed row's id and partition key. `vitest -u`
+  accepts appended versions and other safe changes; nothing accepts an edit to
+  a shipped version or a failing upgrade. A StdTable kept only in disposable
+  tables needs no test: its schemas may change freely.
 - **Checks only loosen on a shipped version.** Removing a check or widening a
   bound is safe; adding or tightening one is breaking, because a stored row
   that fails it stops reading. Put a new check in a new version, with a
@@ -244,23 +244,36 @@ sharp edges worth knowing before you rely on it.
 
 ## Shipping
 
-The contract is checked at deploy, never at runtime. Deploy the table through
-`@kestack/std-toolkit/alchemy` (`DynamoDB.table` or `D1.table`). Each target runs the
-**snapshot guard**: an Alchemy resource that keeps the last accepted table
-snapshot in Alchemy state. The first deploy records it. Every later deploy
-diffs the new snapshot against it; a `breaking` or `unverifiable` change fails
-the deploy with `SnapshotIncompatible` before the table is touched, and a
-`requires-backfill` change is accepted with a warning. Nothing is stored in the
-table, and no adapter or layer reads a snapshot.
+Every physical table declares a **mode**. A `persistent` table's data must
+survive every schema change. A `disposable` table's data may be thrown away
+when a change is not safe, such as preferences or a local copy the Backend can
+send again. A disposable table may become persistent; a persistent table never
+becomes disposable.
 
-The two ways past a refusal are both honest about the data:
+The baseline is the **Stored contract**: the table snapshot the data was last
+set up under, kept beside the data. Setup (`SQLite.setup`, `IDB.make` on first
+open, `D1.table` at deploy) diffs the current snapshot against it:
 
-- **A new logical table.** Declare the new shape under a new name and move the
-  rows across yourself.
-- **A new physical target.** A new table name or database starts a fresh
-  baseline, so the guard accepts the first snapshot it sees there.
+- On a persistent table, a `breaking` or `unverifiable` change fails with
+  `SetupRefused` and changes nothing. A `requires-backfill` change passes with
+  a warning; IndexedDB reindexes the stored rows.
+- On a disposable table, a change the rows cannot take wipes the table. For a
+  change that needs a backfill, IndexedDB reindexes or wipes as `onBackfill`
+  says; the other adapters wipe.
 
-The guard is only as durable as the Alchemy state store behind the stack.
+Because each database keeps its own contract, a browser or Durable Object that
+skipped releases is compared from where its data actually is.
+
+The **deploy guard** stops a change earlier. It keeps the Deployed contract,
+the snapshot last shipped, in Alchemy state, and fails the deploy on a breaking
+change. `D1.table` and `DynamoDB.table` include it for persistent tables;
+`DeployGuard.table(table)` adds it for a table Alchemy does not create, such as
+an IndexedDB or Durable Object table. DynamoDB keeps no Stored contract, so its
+guard is its only check, and a disposable DynamoDB table is replaced by a new
+one on a change its rows cannot take.
+
+The only way past a persistent table's refusal is honest about the data: a new
+physical table name, leaving the old data in place. There is no override.
 
 Every edge case above is a runnable Story under
 [`stories/evolving-schema/`](../stories/evolving-schema/),

@@ -19,7 +19,9 @@ describe('mixed Table bindings', () => {
     const database = makeNodeSQLite({ path: ':memory:' });
     const sqlite = SQLite.make(localTable, { database });
     const deterministic = makeDeterministicContract(remoteTable.logicalName);
-    await Effect.runPromise(SQLite.setup(localTable, { database }));
+    await Effect.runPromise(
+      SQLite.setup(localTable, { mode: 'persistent', database }),
+    );
 
     const result = await Effect.runPromise(
       Effect.all([

@@ -13,16 +13,20 @@ One semantically coherent difference between two **table snapshots**, with its o
 _Avoid_: Overall status, snapshot result.
 
 **snapshot verification**:
-A comparison of a current **table snapshot** with an earlier one, yielding **snapshot changes** that each keep their own safety classification. The new snapshot is upgradable when no change is `breaking` or `unverifiable`. Snapshot provides only the comparison; the baseline it compares against belongs to the caller. The one baseline the toolkit keeps is the alchemy **snapshot guard**'s, in Alchemy state. A committed file snapshot, checked by `expectTableShippable`, catches a change before review; the guard is what refuses it.
-_Avoid_: Safety assessment, snapshot approval, approved snapshot file, contract file, enforcement baseline (retired: nothing is stored inside the table).
+A comparison of a current **table snapshot** with an earlier one, yielding **snapshot changes** that each keep their own safety classification. The new snapshot is upgradable when no change is `breaking` or `unverifiable`. Snapshot provides only the comparison; the baseline it compares against belongs to the caller. The toolkit keeps two: the **Stored contract**, with the data, and the **Deployed contract**, in Alchemy state. For a **Persistent table**, a committed file snapshot, checked by `expectTableShippable`, catches a change before review; setup and the **Deploy guard** are what refuse it.
+_Avoid_: Safety assessment, snapshot approval, approved snapshot file, contract file, enforcement baseline.
 
-**Accepted breaking change**:
-A breaking **snapshot change** a person has confirmed no deployed data depends on, named in `expectTableShippable`'s `acceptBreaking` by its one-line label (`Task v1 edited`). `vitest -u` writes a committed file only for changes that are not breaking, or are accepted; an accepted change that no longer appears fails the test until its entry is removed, so none lingers. It changes only the committed file: the **snapshot guard** still refuses the change against what is deployed.
-_Avoid_: Approval, override, force-update.
+**Deploy guard**:
+The Alchemy resource in `@kestack/std-toolkit/alchemy` that keeps the **Deployed contract** for one StdTable in Alchemy state, named after the StdTable's logical name. Declaring one says the table is persistent, so it takes no mode; one guard covers every physical table of that StdTable, since they share the contract the code ships. On each deploy it runs **snapshot verification** against it and fails the deploy when the new snapshot is not upgradable; a `requires-backfill` change is accepted with a warning. It is on by default for every **Persistent table** Alchemy deploys, and is DynamoDB's only guard, since a DynamoDB table keeps no **Stored contract**. It runs only at deploy, never in a layer or a request.
+_Avoid_: Snapshot guard (retired), enforcement, deploy gate, contract resource.
 
-**Snapshot guard**:
-The Alchemy resource in `@kestack/std-toolkit/alchemy` that keeps the last accepted **table snapshot** for one physical table in Alchemy state. On each deploy it runs **snapshot verification** against that snapshot and fails the deploy when the new one is not upgradable; a `requires-backfill` change is accepted with a warning. A new physical target starts a fresh baseline. It runs only at deploy, never in a layer or a request.
-_Avoid_: Enforcement, deploy gate, contract resource.
+**Stored contract**:
+The **table snapshot** the data in one physical table was last set up under, kept with that data, together with the table's **Table mode**. It is the baseline: setup compares the current snapshot with it, so a device or object that skipped releases is compared from where its own data actually is.
+_Avoid_: Baseline item, schema version row, enforcement baseline.
+
+**Deployed contract**:
+The **table snapshot** last shipped for one persistent StdTable, kept in Alchemy state. Checking it at deploy stops a change before it reaches any device or object. It is a guard ahead of the **Stored contract**, never a replacement for it.
+_Avoid_: Approved snapshot, baseline.
 
 **Snapshot document format**:
 The versioned shape of a stored snapshot itself, distinct from the **versions** of the schemas it describes. A snapshot written under an older format is read forward into the current one, so a stored snapshot never becomes unreadable because the toolkit moved on.

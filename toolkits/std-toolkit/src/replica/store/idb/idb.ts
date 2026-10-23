@@ -63,6 +63,8 @@ const idb = (options: StoreOptions = {}) => {
       table: (name) =>
         IDB.make(spaceTable, {
           database: IDB.database({ databaseName: `${PREFIX}${name}` }),
+          // A local copy of the Backend: refetched when a change wipes it.
+          mode: 'disposable',
         }).layer,
       names,
       destroy,

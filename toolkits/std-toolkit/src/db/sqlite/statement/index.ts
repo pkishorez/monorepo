@@ -1,1 +1,1 @@
-export { Statement } from './statement.js';
+export { CONTRACT_TABLE, Statement } from './statement.js';
