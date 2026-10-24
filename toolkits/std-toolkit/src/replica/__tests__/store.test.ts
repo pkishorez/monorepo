@@ -1,5 +1,5 @@
 import 'fake-indexeddb/auto';
-import { Effect, Layer } from 'effect';
+import { Deferred, Effect, Fiber, Layer } from 'effect';
 import { describe, expect, it } from 'vitest';
 import { ReplicaError, Store } from '../index.js';
 import { Store as Idb } from '../store/idb/index.js';
@@ -222,6 +222,69 @@ describe('Store', () => {
             problem: 'Instance pocket·a stopped',
           }),
         );
+      }),
+    ));
+
+  it('prunes an Instance opened here and not yet written, for good', () =>
+    run(
+      Effect.gen(function* () {
+        const store = Idb.idb({ prefix: 'replica:pending:' });
+        const opened = yield* Deferred.make<void>();
+        const holder = yield* Effect.forkChild(
+          Effect.scoped(
+            Effect.gen(function* () {
+              const space = yield* (yield* Store).open('pocket·p');
+              yield* Deferred.succeed(opened, undefined);
+              yield* space.removed;
+            }),
+          ).pipe(Effect.provide(store)),
+        );
+        yield* Deferred.await(opened);
+
+        const pruned = yield* Effect.flatMap(Store, (kept) =>
+          kept.prune([]),
+        ).pipe(Effect.provide(store));
+
+        expect(pruned).toEqual(['pocket·p']);
+        yield* Fiber.join(holder);
+        expect(yield* list(store)).toEqual([]);
+      }),
+    ));
+
+  it('never makes again a space another tab pruned', () =>
+    run(
+      Effect.gen(function* () {
+        const backend = makeBackend();
+        const entity = backend.put(Wallet, {
+          id: 'w1',
+          account: 'r',
+          name: 'Cash',
+          balance: 1,
+        });
+        const here = Idb.idb({ prefix: 'replica:tabs:' });
+        const there = Idb.idb({ prefix: 'replica:tabs:' });
+        yield* seed(there, 'pocket·r', 'wallets', [{ id: 'w1', entity }]);
+        const opened = yield* Deferred.make<void>();
+        // The other tab lets go only after the space is deleted.
+        const other = yield* Effect.forkChild(
+          Effect.scoped(
+            Effect.gen(function* () {
+              const space = yield* (yield* Store).open('pocket·r');
+              yield* space.announce([]);
+              yield* Deferred.succeed(opened, undefined);
+              yield* space.removed;
+              yield* Effect.sleep('50 millis');
+            }),
+          ).pipe(Effect.provide(there)),
+        );
+        yield* Deferred.await(opened);
+
+        yield* Effect.flatMap(Store, (kept) => kept.prune([])).pipe(
+          Effect.provide(here),
+        );
+        yield* Fiber.join(other);
+
+        expect(yield* list(here)).toEqual([]);
       }),
     ));
 
