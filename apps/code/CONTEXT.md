@@ -5,8 +5,12 @@ The local app for running Coding Harness Sessions in Projects. Its records and t
 ## Language
 
 **Picker**:
-One way to choose something, made of Steps: choosing a row finishes it or opens the next Step, and going back drops one. The same Picker is drawn as a fuzzy list when opened by keys and next to its button when opened by pointer.
+One way to choose something, made of Steps: choosing a row finishes it or opens the next Step, and going back drops one. The same Picker is drawn as a fuzzy list when opened by keys, next to its button when opened by pointer, and in its Picker Mode on a device with no keyboard.
 _Avoid_: palette, finder, chooser, menu, dropdown
+
+**Picker Mode**:
+How a Picker is drawn on a device with no keyboard, chosen by whoever opens it: a Drawer, rising from the bottom with a few choices and no search; or a Dialog, at the top with its search box above the list, typed into only once tapped. A Dialog appears and goes without motion.
+_Avoid_: tray, shade, sheet, bottom sheet
 
 **Step**:
 One list in a Picker, searched by typing, such as the agents, a model's settings, or one folder's folders.
@@ -45,7 +49,7 @@ A Session whose last Turn ended since it was last open on this device; opening i
 _Avoid_: unread, new, notification
 
 **Vim Mode**:
-The keyboard-first way of working the app, off until turned on in this browser: plain keys are shortcuts in the page's Normal Mode, the Draft is read until `i` makes it the Composer, and the app floats as a window with the keys' status line at its foot. Off, the Draft is a text box as any other, and only keys holding Ctrl, Alt or Cmd are shortcuts.
+The keyboard-first way of working the app, off until turned on in this browser, and off with its status line on a device with no keyboard, however wide its screen: plain keys are shortcuts in the page's Normal Mode, the Draft is read until `i` makes it the Composer, and the app floats as a window with the keys' status line at its foot. Off, the Draft is a text box as any other, and only keys holding Ctrl, Alt or Cmd are shortcuts.
 _Avoid_: keyboard mode, power mode
 
 **Device State**:
@@ -53,11 +57,11 @@ What this browser keeps for itself and no other device sees: the user's Bindings
 _Avoid_: preferences, local settings, localStorage
 
 **Draft**:
-The open Session's next message, kept at the foot of the page with the Status Line while the transcript scrolls above it, always visible. Out of Vim Mode it is typed into as any text box is; in Vim Mode it can be read, scrolled and clicked to place a cursor or select, but not typed into until it is the Composer. Everything the user adds, such as a Dictation, a paste, a file or a Skill, goes in at its cursor, replacing any selection, and the page brings that spot into view. Sending it makes it the Session's next message.
+The open Session's next message, kept at the foot of the page with the Status Line while the transcript scrolls above it, always visible. With a keyboard and out of Vim Mode it is typed into as any text box is; in Vim Mode it can be read, scrolled and clicked to place a cursor or select, but not typed into until it is the Composer. On a device with no keyboard it shows two lines, or all of itself once expanded, and becomes the Composer only through its edit button. A Dictation, while it is turned into text, shows as transcribing where its text will go. Everything the user adds, such as a Dictation, a paste, a file or a Skill, goes in at its cursor, replacing any selection, and the page brings that spot into view. Sending it makes it the Session's next message.
 _Avoid_: input, insert bar, prompt box, composer (that is the Draft while editable)
 
 **Composer**:
-The Draft while the user is editing it: the same place, now typed into. Out of Vim Mode the Draft always is; in Vim Mode, leaving it makes the Draft read-only again.
+The Draft while the user is editing it: the same place, now typed into. With a keyboard and out of Vim Mode the Draft always is; in Vim Mode, or on a device with no keyboard, leaving it makes the Draft read-only again.
 _Avoid_: input, editor
 
 **Dictation**:

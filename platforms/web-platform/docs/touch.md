@@ -1,0 +1,59 @@
+# Touch guidelines
+
+How a Web Platform app behaves on a device with no keyboard. Words are the
+glossary's: see [CONTEXT.md](../CONTEXT.md) and, for Code, `apps/code/CONTEXT.md`.
+
+## Which test decides what
+
+- **Behaviour follows input.** A device with no keyboard (`useDevice().keyboard`
+  is false) gets gestures, Picker Modes and no auto-focus. Vim Mode and the keys'
+  status line are off there, however wide the screen.
+- **Layout follows width.** Below the `md` breakpoint the Sidebar shows in its
+  Sidebar Mode; above it, beside the page.
+- Never use `useIsMobile` to decide behaviour, only layout.
+
+## Focus
+
+- Nothing takes focus on its own. The keyboard rises only when the user taps a
+  field or a button made to start typing.
+- A component may opt in to focusing a field as it opens. It then appears at
+  once, with no animation, and focuses after it is on screen. iOS moves a
+  layer that is still animating when a field inside it takes focus.
+- While a field has focus, nothing animates: open, close and resize jump.
+
+## Choosing from a list
+
+Whoever opens a Picker chooses its Picker Mode for touch:
+
+- **Drawer** for a few choices with nothing to type: effort, permissions,
+  Session Actions, the Draft's `+` menu. It rises from the bottom, animated,
+  and closes on swipe down, a tap outside, or a choice that finishes it.
+- **Dialog** for a list worth searching: projects, folders, models, Sessions,
+  Skills. It sits at the top with the search box above the list, so the
+  keyboard never covers a row. It appears and goes with no animation. Its
+  search box is not focused unless the Picker opts in. A tap outside with the
+  search box focused only takes focus away; a tap outside with nothing focused
+  closes it. No swipe closes it.
+
+With a keyboard, Pickers keep their keyboard shapes: a fuzzy list when opened
+by keys, a popover by its button when opened by pointer, search focused.
+
+## Gestures
+
+- Swipe right opens the Sidebar, swipe left closes it, in either Sidebar Mode.
+- Swipe a Session row left to right to Settle it; on a Settled row, to
+  un-Settle it. It commits past about 40% of the row or on a fast flick, slides
+  out with a spring, and offers Undo for 5 seconds.
+- Pull down at the top of the Sidebar to Reload.
+- Swipe down closes a Drawer.
+- Every gesture follows the finger and settles with a spring (`motion/react`),
+  and jumps instead under `prefers-reduced-motion`.
+
+## Size and style
+
+- Every control is at least 44px on touch; the main action of a screen, such as
+  the Draft's microphone, is the largest thing on it.
+- Fewer, larger buttons over rows of small ones. Anything secondary goes in a
+  Drawer behind one button.
+- Fields are 16px or larger, so iOS does not zoom.
+- Respect the safe areas: `env(safe-area-inset-*)` at every screen edge.
