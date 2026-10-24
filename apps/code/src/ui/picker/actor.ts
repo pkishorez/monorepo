@@ -193,6 +193,11 @@ export interface Spec<P> {
    * back to where the Picker was opened from.
    */
   readonly lands?: (choices: ReadonlyArray<Choice>) => boolean;
+  /**
+   * Its search takes focus as it opens on a device with no keyboard too,
+   * raising the on-screen one. Without it, there it waits to be tapped.
+   */
+  readonly focusOnTouch?: boolean;
 }
 
 /** What the owner gives the Picker: where its choices go, and the rows it loads. */
