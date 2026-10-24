@@ -291,10 +291,10 @@ once there is, and a stop while a Dictation records; a narrow Draft folds
 Skills, the paperclip and the microphone behind a "+".
 
 The app is a PWA ([`@kestack/web-platform/pwa`](../../platforms/web-platform/README.md)):
-"Code" installs with its Mark as the icon (`public/`), each page works
-offline as its Render Mode says (a page never opened there boots from the
-App Shell), and a new version waits for "Reload" instead of reloading
-under you.
+"Code" installs with its Mark as the icon (`public/`), opens on iOS to a
+Splash of the Mark and its name, each page works offline as its Render
+Mode says (a page never opened there boots from the App Shell), and a new
+version waits for "Reload" instead of reloading under you.
 
 ## Usage
 
@@ -322,6 +322,8 @@ pnpm --filter @kestack/ai-toolkit dev:local
   shows up beside the others.
 - `pnpm --filter code lint` checks types and the Laymos Rules; `pnpm --filter
   code test` runs the tests. Videos recorded under `qa/` stay local.
+- `pnpm --filter code draw:install` redraws the iOS Splash and the
+  manifest's screenshots into `public/`, after a build of the packages.
 
 ### Run with the Machines Backend, and deploy
 
