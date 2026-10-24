@@ -288,6 +288,36 @@ describe('Store', () => {
       }),
     ));
 
+  it('hears a removal rung the moment it opens', () =>
+    run(
+      Effect.gen(function* () {
+        const here = Idb.idb({ prefix: 'replica:soon:' });
+        const there = Idb.idb({ prefix: 'replica:soon:' });
+        const opened = yield* Deferred.make<void>();
+        const other = yield* Effect.forkChild(
+          Effect.scoped(
+            Effect.gen(function* () {
+              const space = yield* (yield* Store).open('pocket·s');
+              yield* Deferred.succeed(opened, undefined);
+              yield* space.removed;
+            }),
+          ).pipe(Effect.provide(there)),
+        );
+        yield* Deferred.await(opened);
+
+        yield* Effect.flatMap(Store, (kept) => kept.remove(Pocket, 's')).pipe(
+          Effect.provide(here),
+        );
+
+        expect(
+          yield* Fiber.join(other).pipe(
+            Effect.timeout('1 second'),
+            Effect.exit,
+          ),
+        ).toMatchObject({ _tag: 'Success' });
+      }),
+    ));
+
   it('keeps each prefix to itself', () =>
     run(
       Effect.gen(function* () {

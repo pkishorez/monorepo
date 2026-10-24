@@ -203,17 +203,30 @@ export const makeStore = (adapter: Adapter): Layer.Layer<Store> => {
             Effect.andThen(Deferred.succeed(opener.closed, undefined)),
           ),
       );
-      // Removed here or in another tab: heard from the moment it opens.
+      // Removed here or in another tab: heard from the moment it opens, so
+      // the Space is handed out only once it listens. The first ring is its
+      // own, rung once listening.
+      const listening = yield* Deferred.make<void>();
       yield* Effect.forkScoped(
-        Stream.runHead(adapter.doorbell.listen(removedTopic(name))).pipe(
-          Effect.andThen(Deferred.succeed(opener.removed, undefined)),
+        adapter.doorbell.listen(removedTopic(name), true).pipe(
+          Stream.take(2),
+          Stream.runForEach(() =>
+            Effect.flatMap(Deferred.isDone(listening), (heard) =>
+              heard
+                ? Deferred.succeed(opener.removed, undefined)
+                : Deferred.succeed(listening, undefined),
+            ),
+          ),
         ),
       );
+      yield* Deferred.await(listening);
       const participant = crypto.randomUUID();
       const changed = adapter.doorbell.ring(name);
       const announced = adapter.doorbell.ring(announcedTopic(name));
       // Once removed it touches its space no more: a read or write after
-      // the space is deleted would make it again.
+      // the space is deleted would make it again. One already under way
+      // when another tab deletes it may still leave it, empty, for the
+      // next prune.
       const inTable = <A, E>(
         what: string,
         effect: Effect.Effect<A, E, StdTableOf>,
