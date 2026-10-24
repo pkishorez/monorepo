@@ -37,9 +37,5 @@ export function createTheme(
     useTheme,
     Script,
     StatusBar,
-    manifest: (theme: Theme) => ({
-      theme_color: THEME_COLORS[theme],
-      background_color: THEME_COLORS[theme],
-    }),
   };
 }

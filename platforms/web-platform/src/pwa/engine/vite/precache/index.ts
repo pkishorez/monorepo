@@ -1,6 +1,1 @@
-export {
-  type OutputFile,
-  selectAssets,
-  selectDocuments,
-  type Selection,
-} from './precache.js';
+export { type OutputFile, selectAssets, type Selection } from './precache.js';

@@ -39,13 +39,15 @@ export const devPlugin = (config: ResolvedPwaConfig): Plugin => ({
     server.watcher.on('all', () => {
       script = null;
     });
-    const manifest = config.manifest
-      ? JSON.stringify(withManifestDefaults(config.manifest), null, 2)
-      : null;
+    const manifest = JSON.stringify(
+      withManifestDefaults(config.manifest),
+      null,
+      2,
+    );
 
     server.middlewares.use((req, res, next) => {
       const path = (req.url ?? '').split('?')[0];
-      if (manifest !== null && path === MANIFEST_URL) {
+      if (path === MANIFEST_URL) {
         res.setHeader('Content-Type', 'application/manifest+json');
         res.setHeader('Cache-Control', 'no-cache');
         res.end(manifest);

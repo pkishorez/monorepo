@@ -59,9 +59,7 @@ export const headTags = (
     ...metaOf(COMMIT_META_NAME, version.commit),
   ],
   links: [
-    ...(info.manifestUrl === null
-      ? []
-      : [{ rel: 'manifest', href: info.manifestUrl }]),
+    { rel: 'manifest', href: info.manifestUrl },
     ...(info.appleTouchIconUrl === null
       ? []
       : [{ rel: 'apple-touch-icon', href: info.appleTouchIconUrl }]),

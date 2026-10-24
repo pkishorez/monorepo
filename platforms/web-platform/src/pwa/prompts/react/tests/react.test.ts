@@ -18,6 +18,7 @@ const info: ClientBuildInfo = {
   buildId: null,
   builtAt: null,
   commit: null,
+  name: 'App',
   manifestUrl: '/manifest.webmanifest',
   appleTouchIconUrl: '/icons/apple-touch-icon.png',
 };
@@ -59,10 +60,12 @@ describe('pwaHead', () => {
 
   it('omits what the build does not have', () => {
     const bare = headTags(
-      { ...info, manifestUrl: null, appleTouchIconUrl: null },
+      { ...info, appleTouchIconUrl: null },
       { buildId: null, builtAt: null, commit: null },
     );
-    expect(bare.links).toEqual([]);
+    expect(bare.links).toEqual([
+      { rel: 'manifest', href: '/manifest.webmanifest' },
+    ]);
     expect(bare.meta.map((m) => m.name)).toEqual(['mobile-web-app-capable']);
   });
 

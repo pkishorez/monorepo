@@ -7,7 +7,7 @@ const now = new Date('2026-09-27T10:00:00.000Z');
 describe('resolveBuildVersion', () => {
   it('reads the commit from git and stamps the build time', () => {
     const version = resolveBuildVersion(
-      resolvePwaConfig({}),
+      resolvePwaConfig({ name: 'App' }),
       process.cwd(),
       now,
     );
@@ -17,12 +17,13 @@ describe('resolveBuildVersion', () => {
 
   it('has no commit outside a git checkout', () => {
     expect(
-      resolveBuildVersion(resolvePwaConfig({}), '/', now).commit,
+      resolveBuildVersion(resolvePwaConfig({ name: 'App' }), '/', now).commit,
     ).toBeNull();
   });
 
   it('prefers the version options', () => {
     const config = resolvePwaConfig({
+      name: 'App',
       version: { commit: 'release-7', builtAt: '2026-01-01T00:00:00.000Z' },
     });
     expect(resolveBuildVersion(config, process.cwd(), now)).toEqual({

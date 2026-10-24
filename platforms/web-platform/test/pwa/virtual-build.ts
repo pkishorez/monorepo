@@ -8,11 +8,8 @@ import {
 
 const info: WorkerBuildInfo = {
   buildId: BuildId.make('test-build'),
-  precache: [
-    { url: '/_shell', revision: 'shell-1' },
-    { url: '/offline', revision: 'offline-1' },
-  ],
-  config: workerConfigOf(resolvePwaConfig({})),
+  precache: [{ url: '/assets/app.js', revision: 'app-1' }],
+  config: workerConfigOf(resolvePwaConfig({ name: 'App' })),
 };
 
 export default info;

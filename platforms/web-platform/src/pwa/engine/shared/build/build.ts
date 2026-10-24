@@ -47,8 +47,9 @@ export const runtimeCacheName = (cacheName: string): string =>
   `${RUNTIME_PREFIX}${cacheName}`;
 
 /**
- * Runtime Cache for navigations when `navigation.cachePages` is on. Saved
- * pages point at their build's hashed assets, so the cache belongs to one
+ * Runtime Cache for the pages visited that the Precache does not hold:
+ * dynamic pages, and static pages with params. Saved pages point at their
+ * build's hashed assets, so the cache belongs to one
  * build and is deleted when another activates.
  */
 export const pagesCacheName = (buildId: BuildId): string =>

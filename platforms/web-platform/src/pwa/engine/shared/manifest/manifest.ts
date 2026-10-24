@@ -78,6 +78,19 @@ export const WebAppManifest = Schema.Struct({
 });
 export type WebAppManifest = typeof WebAppManifest.Type;
 
+/** The icons an app's manifest lists unless it gives its own: files in its `public/`. */
+export const DEFAULT_ICONS: NonNullable<WebAppManifest['icons']> = [
+  { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+  { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+  {
+    src: '/icon-maskable-512.png',
+    sizes: '512x512',
+    type: 'image/png',
+    purpose: 'maskable',
+  },
+  { src: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
+];
+
 /** The manifest as emitted: `start_url` and `scope` `/`, `display` `standalone`, `id` = `start_url`. */
 export const withManifestDefaults = (
   manifest: WebAppManifest,

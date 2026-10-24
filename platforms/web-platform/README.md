@@ -38,12 +38,12 @@ An app that renders on the server adds `@kestack/web-platform` to `ssr.noExterna
 
 ### `@kestack/web-platform/ui/theme`
 
-| Export             | What it does                                                                                                                                    |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `createTheme`      | Makes the app's Theme: `useTheme`, the head `Script` that sets it before paint, the `StatusBar` strip, and `manifest` colors for a given Theme. |
-| `FontPreload`      | Preloads Inter's Latin file from the head, the same file `font-inter.css` uses, so the first paint is already in Inter.                         |
-| `themeFromCookies` | Reads the Theme from a `Cookie` header string; dark when it is missing or unknown.                                                              |
-| `THEME_COOKIE`     | The cookie's name, `kui-theme`.                                                                                                                 |
+| Export             | What it does                                                                                                            |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| `createTheme`      | Makes the app's Theme: `useTheme`, the head `Script` that sets it before paint, and the `StatusBar` strip.              |
+| `FontPreload`      | Preloads Inter's Latin file from the head, the same file `font-inter.css` uses, so the first paint is already in Inter. |
+| `themeFromCookies` | Reads the Theme from a `Cookie` header string; dark when it is missing or unknown.                                      |
+| `THEME_COOKIE`     | The cookie's name, `kui-theme`.                                                                                         |
 
 ### `@kestack/web-platform/ui/theme/*.css`
 
@@ -287,9 +287,9 @@ The PWA on the page.
 
 ### `@kestack/web-platform/pwa/vite`
 
-| Export | What it does                                                                                                                                                |
-| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pwa`  | Vite plugins that emit the manifest, pick the Precache, compute the Build ID, build the worker (or the Kill Switch) and add `no-cache` rules to `_headers`. |
+| Export | What it does                                                                                                                                                                      |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pwa`  | Vite plugins that emit the manifest from the app's `name`, pick the Precache, compute the Build ID, build the worker (or the Kill Switch) and add `no-cache` rules to `_headers`. |
 
 ### `@kestack/web-platform/pwa/worker`
 
@@ -397,26 +397,24 @@ plugins: [
   tailwindcss(),
   react(),
   start({ platform: cloudflare(), app: 'src/app' }),
-  pwa({
-    manifest: { name: 'Code', short_name: 'Code', theme_color: '#0a0a0a', background_color: '#0a0a0a', icons },
-  }),
+  pwa({ name: 'Code' }),
 ],
 
 // src/document.tsx
 export default function Document({ children }: Start.DocumentProps) {
   return (
     <WebDocument theme={Theme} head={<PwaHead />}>
-      <Pwa installTitle="Install Code">{children}</Pwa>
+      <Pwa>{children}</Pwa>
     </WebDocument>
   );
 }
 ```
 
 - Start builds the client and the Worker; `pwa()` then writes `sw.js`, `manifest.webmanifest` and a `_headers` block with `Cache-Control: no-cache` for both into the client's folder. The worker entry is the app's `src/sw.ts` if it has one, or a built-in one.
-- Start draws every page on request and prerenders none, so there is no App Shell: the worker saves each page visited, per Build ID, and sends one never visited to the Offline Fallback, the app's own `public/offline.html`, as `/offline?from=<page>`. Its "Try again" should only go back to a same-origin `from`. The build warns when the file is missing.
-- `@kestack/web-platform/ui/theme` loads Inter's file, which Node cannot import, so `vite.config.ts` writes the manifest's colors itself.
+- `name` is all the manifest needs: its colors are the default Theme's, and its icons are `icon-192.png`, `icon-512.png`, `icon-maskable-512.png` and `apple-touch-icon.png` in `public/`; the build warns about any that is missing. `manifest` overrides any field. The Install Prompt is titled with the name.
+- How each page works offline follows from its Render Mode, as Kabuki Start's Pages (`/_kabuki/pages`) say. On install the worker saves the Pages, the App Shell and every static page that is one URL ([ADR 0010](../../docs/adr/0010-kabuki-start-serves-the-web-platform-decides.md)). A client page is the App Shell, at once. A static page is this build's copy, saved on install or on first visit. A dynamic page, or one Start does not name, is the network within `navigation.networkTimeoutMs`, kept per Build ID; offline, the copy kept last, else the App Shell. With no Pages (an app not on Start), every page is dynamic and there is no App Shell.
 - In `vite dev` the worker is off unless `pwa({ dev: true })`. `pwa({ enabled: false })` builds the Kill Switch. Paths under `neverCache` (default `/api/auth/`), non-GET requests and `navigation.denylist` never reach the caches.
-- While an update waits, this build's saved page answers navigations, so every page stays on one Build ID until the user accepts ([ADR 0006](./docs/adr/0006-pending-update-pins-navigations-to-the-active-build.md)).
+- While an update waits, this build's copy of a page, else its App Shell, answers navigations, so every page stays on one Build ID until the user accepts ([ADR 0006](./docs/adr/0006-pending-update-pins-navigations-to-the-active-build.md)).
 
 ### A Kabuki Start app's Document
 

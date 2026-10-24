@@ -13,10 +13,12 @@ const root = fileURLToPath(new URL('./fixture', import.meta.url));
 const temp = await mkdtemp(join(tmpdir(), 'pwa-toolkit-vite-'));
 afterAll(() => rm(temp, { recursive: true, force: true }));
 
-const manifest = {
+const app = {
   name: 'Fixture',
-  theme_color: '#123456',
-  icons: [{ src: '/icon-192.png', sizes: '192x192', type: 'image/png' }],
+  manifest: {
+    theme_color: '#123456',
+    icons: [{ src: '/icon-192.png', sizes: '192x192', type: 'image/png' }],
+  },
 } as const;
 
 const buildFixture = async (
@@ -90,7 +92,7 @@ describe('pwa() build', () => {
       configFile: false,
       root: installedRoot,
       logLevel: 'silent',
-      plugins: [pwa({ enabled: false })],
+      plugins: [pwa({ name: 'Fixture', enabled: false })],
       build: {
         ssr: 'server.js',
         outDir: join(installedRoot, 'dist'),
@@ -103,7 +105,7 @@ describe('pwa() build', () => {
   });
 
   it('writes the worker, manifest, headers and Precache', async () => {
-    const out = await buildFixture('app', { manifest, worker: 'src/sw.js' });
+    const out = await buildFixture('app', { ...app, worker: 'src/sw.js' });
     const info = (await out.runWorker())['__PWA_INFO__'] as WorkerBuildInfo;
 
     const urls = info.precache.map((entry) => entry.url).sort();
@@ -116,13 +118,11 @@ describe('pwa() build', () => {
         expect.stringMatching(/^\/assets\/index-.*\.js$/),
       ]),
     );
-    // No App Shell: the presets leave it off, as Kabuki Start prerenders none.
+    // No page: the worker asks Start for its App Shell and pages on install.
     expect(urls.filter((url) => !url.startsWith('/assets/'))).toEqual([
       '/icon-192.png',
-      '/offline',
     ]);
     expect(info.buildId).toMatch(/^[0-9a-f]{16}$/);
-    expect(info.config.navigation.shellPath).toBe('/_shell');
 
     expect(JSON.parse(await out.read('manifest.webmanifest'))).toMatchObject({
       name: 'Fixture',
@@ -145,15 +145,25 @@ describe('pwa() build', () => {
   });
 
   it('gives the same Build ID to the same build', async () => {
-    const a = await buildFixture('same-a', { worker: 'src/sw.js' });
-    const b = await buildFixture('same-b', { worker: 'src/sw.js' });
+    const a = await buildFixture('same-a', {
+      name: 'Fixture',
+      worker: 'src/sw.js',
+    });
+    const b = await buildFixture('same-b', {
+      name: 'Fixture',
+      worker: 'src/sw.js',
+    });
     const id = async (out: typeof a) =>
       ((await out.runWorker())['__PWA_INFO__'] as WorkerBuildInfo).buildId;
     expect(await id(a)).toBe(await id(b));
   });
 
   it('hands the Build ID to the server environment', async () => {
-    const out = await buildFixture('ssr', { worker: 'src/sw.js' }, true);
+    const out = await buildFixture(
+      'ssr',
+      { name: 'Fixture', worker: 'src/sw.js' },
+      true,
+    );
     const { buildId } = (await out.runWorker())[
       '__PWA_INFO__'
     ] as WorkerBuildInfo;
@@ -165,12 +175,12 @@ describe('pwa() build', () => {
   });
 
   it('bundles the built-in entry when the app has no src/sw.ts', async () => {
-    const out = await buildFixture('default', {});
+    const out = await buildFixture('default', { name: 'Fixture' });
     expect((await out.runWorker())['__PWA_DEFAULT_ENTRY__']).toBe(true);
   });
 
   it('ships the Kill Switch when disabled', async () => {
-    const out = await buildFixture('kill', { enabled: false, manifest });
+    const out = await buildFixture('kill', { ...app, enabled: false });
     const script = await out.read('sw.js');
     expect(script).toContain('pwa-toolkit Kill Switch');
     expect(script).toContain('"pwa-toolkit:"');

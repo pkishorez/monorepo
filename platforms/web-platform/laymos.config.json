@@ -80,7 +80,8 @@
     "src/ui/components/toast.tsx",
     "src/ui/components/toggle-group.tsx",
     "src/ui/components/toggle.tsx",
-    "src/ui/components/tooltip.tsx"
+    "src/ui/components/tooltip.tsx",
+    "src/ui/theme/model.ts"
   ],
   "rules": {
     "src/app/document": ["src/ui/input/device", "src/ui/theme"],
@@ -95,7 +96,8 @@
     "src/pwa/engine/shared/config": [
       "src/pwa/engine/shared/build",
       "src/pwa/engine/shared/manifest",
-      "src/pwa/engine/shared/strategy"
+      "src/pwa/engine/shared/strategy",
+      "src/ui/theme/model.ts"
     ],
     "src/pwa/engine/shared/worker-host": ["src/pwa/engine/shared/build"],
     "src/pwa/engine/vite": ["src/pwa/engine/shared"],

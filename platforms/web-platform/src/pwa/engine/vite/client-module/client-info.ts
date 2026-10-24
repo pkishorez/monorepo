@@ -50,9 +50,8 @@ export const clientBuildInfo = (
     buildId: server && active ? serverBuildId : null,
     builtAt: server ? context.version.builtAt : null,
     commit: server ? context.version.commit : null,
-    manifestUrl: config.manifest ? MANIFEST_URL : null,
-    appleTouchIconUrl: config.manifest
-      ? appleTouchIconOf(config.manifest)
-      : null,
+    name: config.manifest.name,
+    manifestUrl: MANIFEST_URL,
+    appleTouchIconUrl: appleTouchIconOf(config.manifest),
   };
 };
