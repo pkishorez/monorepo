@@ -48,15 +48,22 @@ export const SpeechToTextView = View.make(
             </p>
           </div>
           {state !== null && (
-            <Switch
-              id={id}
-              checked={on}
-              disabled={model.switching}
-              onCheckedChange={(checked) =>
-                send({ _tag: 'Switch', on: checked })
-              }
-              className="mt-0.5"
-            />
+            // A finger's 44px to tap with no keyboard; with one, the
+            // switch alone.
+            <label
+              htmlFor={id}
+              className="-my-3 grid size-11 shrink-0 place-items-center keyboard:contents"
+            >
+              <Switch
+                id={id}
+                checked={on}
+                disabled={model.switching}
+                onCheckedChange={(checked) =>
+                  send({ _tag: 'Switch', on: checked })
+                }
+                className="keyboard:mt-0.5"
+              />
+            </label>
           )}
         </div>
         {state === null ? (

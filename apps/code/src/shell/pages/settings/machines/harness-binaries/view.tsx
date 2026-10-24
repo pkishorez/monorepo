@@ -101,10 +101,14 @@ function Binary({
             onChange={(event) =>
               send({ _tag: 'Typed', harness, path: event.currentTarget.value })
             }
-            className="min-w-0 flex-1 basis-64 font-mono text-base md:text-[13px]"
+            className="h-11 min-w-0 flex-1 basis-64 font-mono text-base keyboard:h-9 md:text-base keyboard:md:text-[13px]"
           />
           <div className="flex gap-2">
-            <Button type="submit" disabled={model.saving !== null || !changed}>
+            <Button
+              type="submit"
+              className="h-11 keyboard:h-9"
+              disabled={model.saving !== null || !changed}
+            >
               {saving && model.drafts[harness] !== undefined && <Spinner />}
               Save
             </Button>
@@ -112,6 +116,7 @@ function Binary({
               <Button
                 type="button"
                 variant="ghost"
+                className="h-11 keyboard:h-9"
                 disabled={model.saving !== null}
                 onClick={() => send({ _tag: 'UseDefault', harness })}
               >
