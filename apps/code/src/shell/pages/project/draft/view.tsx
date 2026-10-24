@@ -1,12 +1,12 @@
 import { View } from '@kestack/kabuki/react';
 import { Router } from '@kestack/kabuki/routing';
-import { Button } from '@kestack/web-platform/components/button';
+import { Button } from '@kestack/web-platform/ui/components/button';
 import {
   ArrowUpIcon,
   CircleAlertIcon,
   WifiOffIcon,
-} from '@kestack/web-platform/components/lucide';
-import { Spinner } from '@kestack/web-platform/components/spinner';
+} from '@kestack/web-platform/ui/components/lucide';
+import { Spinner } from '@kestack/web-platform/ui/components/spinner';
 import { createContext, type ReactNode, use } from 'react';
 import { keys, useBound } from '../../../../keys.ts';
 import { Dictation } from '../../../actors/dictation/index.ts';

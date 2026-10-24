@@ -2,7 +2,7 @@ import { Router, useRouter } from '@kestack/kabuki/routing';
 import {
   ArrowLeftIcon,
   ArrowUpRightIcon,
-} from '@kestack/web-platform/components/lucide';
+} from '@kestack/web-platform/ui/components/lucide';
 import { DEMO, SECTIONS, numberOf, router } from '../../shared/index.ts';
 import type { Route, Slug } from '../../shared/index.ts';
 

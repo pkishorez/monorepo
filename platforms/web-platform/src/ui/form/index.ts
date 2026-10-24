@@ -6,7 +6,7 @@
  *
  * @example
  * ```tsx
- * import { useAppForm } from "@kestack/web-platform/form"
+ * import { useAppForm } from "@kestack/web-platform/ui/form"
  * import { z } from "zod" // Or any Standard Schema compliant library
  *
  * function ContactForm() {

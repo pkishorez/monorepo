@@ -2,8 +2,8 @@ import {
   BUILD_ID_META_NAME,
   BUILT_AT_META_NAME,
   COMMIT_META_NAME,
-} from '../shared/build/index.js';
-import type { ClientBuildInfo } from '../shared/config/index.js';
+} from '../../engine/shared/build/index.js';
+import type { ClientBuildInfo } from '../../engine/shared/config/index.js';
 
 export interface HeadTags {
   readonly meta: Array<{ readonly name: string; readonly content: string }>;

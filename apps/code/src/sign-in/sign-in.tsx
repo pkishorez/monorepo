@@ -9,8 +9,8 @@ import {
   fakeChooser,
 } from '@kestack/auth-toolkit/fake';
 import { IDB } from '@kestack/std-toolkit/db/idb';
-import { Button } from '@kestack/web-platform/components/button';
-import { Spinner } from '@kestack/web-platform/components/spinner';
+import { Button } from '@kestack/web-platform/ui/components/button';
+import { Spinner } from '@kestack/web-platform/ui/components/spinner';
 import { LocalSignIn } from '@kestack/web-platform/recipes/local-sign-in';
 import {
   createContext,

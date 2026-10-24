@@ -5,7 +5,10 @@ import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { MotionConfig, motion } from 'motion/react';
 import { View } from '@kestack/kabuki/react';
-import { CheckIcon, PlusIcon } from '@kestack/web-platform/components/lucide';
+import {
+  CheckIcon,
+  PlusIcon,
+} from '@kestack/web-platform/ui/components/lucide';
 import { FILTERS, TodoLive, TodosLive } from './story.ts';
 
 /*

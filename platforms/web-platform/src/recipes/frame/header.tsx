@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { ChevronLeftIcon, PanelLeftIcon } from 'lucide-react';
-import { Button } from '#components/ui/button';
-import { Separator } from '#components/ui/separator';
+import { Button } from '#components/button';
+import { Separator } from '#components/separator';
 import { useFrame } from './frame/index.ts';
 
 /** What an app puts in its header. */

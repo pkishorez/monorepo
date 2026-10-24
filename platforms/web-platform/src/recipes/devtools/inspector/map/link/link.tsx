@@ -1,5 +1,5 @@
 import { motion } from 'motion/react';
-import { cn } from '../../../../components/lib/utils.ts';
+import { cn } from '../../../../../ui/components/lib/utils.ts';
 import { ink } from '../../ink/index.ts';
 
 /*

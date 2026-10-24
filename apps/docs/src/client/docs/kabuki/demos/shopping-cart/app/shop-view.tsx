@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { View } from '@kestack/kabuki/react';
 import type { Handle } from '@kestack/kabuki/react';
-import { Button } from '@kestack/web-platform/components/button';
-import { CircleCheckIcon } from '@kestack/web-platform/components/lucide';
+import { Button } from '@kestack/web-platform/ui/components/button';
+import { CircleCheckIcon } from '@kestack/web-platform/ui/components/lucide';
 import type { CartLive } from './cart.ts';
 import { CartView } from './cart-view.tsx';
 import type { ProductLive } from './product.ts';

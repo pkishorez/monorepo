@@ -1,5 +1,5 @@
 import type { Start } from '@kestack/kabuki/start';
-import { Document as WebDocument } from '@kestack/web-platform/start';
+import { Document as WebDocument } from '@kestack/web-platform/app/document';
 import { Devtools, Theme } from './components/index.ts';
 
 /**

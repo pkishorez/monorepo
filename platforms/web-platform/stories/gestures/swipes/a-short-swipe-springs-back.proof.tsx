@@ -4,12 +4,12 @@ import {
   useMotionValue,
   useMotionValueEvent,
   useTransform,
-} from '@kestack/web-platform/components/motion';
+} from '@kestack/web-platform/ui/components/motion';
 import {
   GestureProvider,
   GestureZone,
   useSwipe,
-} from '@kestack/web-platform/input';
+} from '@kestack/web-platform/ui/input';
 import { Effect } from 'effect';
 import { Gesture, Proof } from 'laymos/story';
 import { useState } from 'react';
@@ -86,7 +86,7 @@ export default Proof.browser({
     'useSwipe judges the release against its CommitRule: a slow 70px drag Cancels as `short` and the mail springs home; a 220px swipe Commits.',
   page: (root) => {
     const app = createRoot(root);
-    void import('@kestack/web-platform/theme/global.css').then(() =>
+    void import('@kestack/web-platform/ui/theme/global.css').then(() =>
       app.render(
         <GestureProvider>
           <GestureZone className="h-dvh bg-background p-4 text-foreground">

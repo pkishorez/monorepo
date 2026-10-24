@@ -1,6 +1,6 @@
 import { View } from '@kestack/kabuki/react';
 import { Router } from '@kestack/kabuki/routing';
-import { AccountSwitcherView } from '@kestack/web-platform/account-switcher';
+import { AccountSwitcherView } from '@kestack/web-platform/recipes/account-switcher';
 import { Pages, router } from '../../shared/pages/index.ts';
 import { Layout, PageIntro } from '../components/index.ts';
 import { ApisView } from './apis.tsx';

@@ -1,12 +1,12 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
-import { Button } from '@kestack/web-platform/components/button';
-import { Input } from '@kestack/web-platform/components/input';
-import { Label } from '@kestack/web-platform/components/label';
+import { Button } from '@kestack/web-platform/ui/components/button';
+import { Input } from '@kestack/web-platform/ui/components/input';
+import { Label } from '@kestack/web-platform/ui/components/label';
 import {
   RadioGroup,
   RadioGroupItem,
-} from '@kestack/web-platform/components/radio-group';
-import { CircleAlertIcon } from '@kestack/web-platform/components/lucide';
+} from '@kestack/web-platform/ui/components/radio-group';
+import { CircleAlertIcon } from '@kestack/web-platform/ui/components/lucide';
 import { PRICE, priceOf, type Format } from './checkout.ts';
 
 /*

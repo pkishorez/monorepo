@@ -6,21 +6,21 @@ import { useComponentLifecycle } from 'use-effect-ts';
 import { DiffViewer } from '../diff-viewer';
 import { FileTree, expandAll, expandTo } from '../file-tree';
 import { SourceViewer, type SourceViewerLine } from '../source-viewer';
-import { Button } from '#components/ui/button';
+import { Button } from '#components/button';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '#components/ui/dialog';
+} from '#components/dialog';
 import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
-} from '#components/ui/resizable';
-import { Spinner } from '#components/ui/spinner';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '#components/ui/tabs';
+} from '#components/resizable';
+import { Spinner } from '#components/spinner';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '#components/tabs';
 import {
   ArrowLeft,
   ChevronsDownUp,

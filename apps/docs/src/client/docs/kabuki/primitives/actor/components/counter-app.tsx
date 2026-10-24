@@ -1,6 +1,6 @@
 import { Layer } from 'effect';
 import { View, toReact } from '@kestack/kabuki/react';
-import { Button } from '@kestack/web-platform/components/button';
+import { Button } from '@kestack/web-platform/ui/components/button';
 import { CounterLive } from './counter.ts';
 
 const AMOUNTS = [1, 5, 10];

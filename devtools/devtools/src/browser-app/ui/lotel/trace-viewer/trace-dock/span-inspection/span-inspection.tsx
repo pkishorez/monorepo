@@ -2,7 +2,7 @@ import { useMemo, type ComponentProps } from 'react';
 
 import { XIcon } from 'lucide-react';
 
-import { Button } from '@kestack/web-platform/components/button';
+import { Button } from '@kestack/web-platform/ui/components/button';
 
 import { StatusDot } from '../../trace-presentation';
 import type { OtelSpan } from '../../trace-model';

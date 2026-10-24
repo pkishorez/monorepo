@@ -1,4 +1,4 @@
-import { type Pointer, useGesture } from '../../input/index.ts';
+import { type Pointer, useGesture } from '../../ui/input/index.ts';
 import { useRef } from 'react';
 import type { TreeWalk } from '@kestack/use-gesture';
 

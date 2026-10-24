@@ -7,8 +7,8 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@kestack/web-platform/components/alert-dialog';
-import { Spinner } from '@kestack/web-platform/components/spinner';
+} from '@kestack/web-platform/ui/components/alert-dialog';
+import { Spinner } from '@kestack/web-platform/ui/components/spinner';
 import { type ReactNode, useEffect } from 'react';
 import { keys } from '../../keys.ts';
 

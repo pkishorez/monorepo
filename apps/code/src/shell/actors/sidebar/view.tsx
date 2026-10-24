@@ -1,14 +1,14 @@
 import { useChildren, View } from '@kestack/kabuki/react';
 import { useRouter } from '@kestack/kabuki/routing';
-import { Button } from '@kestack/web-platform/components/button';
-import { RefreshCwIcon } from '@kestack/web-platform/components/lucide';
+import { Button } from '@kestack/web-platform/ui/components/button';
+import { RefreshCwIcon } from '@kestack/web-platform/ui/components/lucide';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@kestack/web-platform/components/select';
+} from '@kestack/web-platform/ui/components/select';
 import { createContext, type ReactNode, use } from 'react';
 import { placeOf, type Route } from '../../places/index.ts';
 import { shownOf, SidebarLive } from './actor.ts';

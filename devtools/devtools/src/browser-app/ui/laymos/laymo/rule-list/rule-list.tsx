@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useRef, type ReactNode } from 'react';
 
-import { ArrowRight } from '@kestack/web-platform/components/lucide';
-import { cn } from '@kestack/web-platform/components/utils';
+import { ArrowRight } from '@kestack/web-platform/ui/components/lucide';
+import { cn } from '@kestack/web-platform/ui/components/utils';
 
 import type { RuleEntry } from '../laymo-edges';
 

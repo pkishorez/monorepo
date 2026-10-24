@@ -1,4 +1,4 @@
-import { GestureProvider, GestureZone } from '../../../input/index.ts';
+import { GestureProvider, GestureZone } from '../../../ui/input/index.ts';
 import { cn } from 'cn';
 import { motion, type MotionStyle } from 'motion/react';
 import {

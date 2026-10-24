@@ -1,5 +1,5 @@
 import { View } from '@kestack/kabuki/react';
-import { Switch } from '@kestack/web-platform/components/switch';
+import { Switch } from '@kestack/web-platform/ui/components/switch';
 import { keys, useBound } from '../../../keys.ts';
 import { SettingsLive } from './actor.ts';
 import { MachineSettings } from './machines/index.ts';

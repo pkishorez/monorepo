@@ -12,9 +12,9 @@ import {
   Network,
   PackageIcon,
   TriangleAlert,
-} from '@kestack/web-platform/components/lucide';
-import { Badge } from '@kestack/web-platform/components/badge';
-import { Button } from '@kestack/web-platform/components/button';
+} from '@kestack/web-platform/ui/components/lucide';
+import { Badge } from '@kestack/web-platform/ui/components/badge';
+import { Button } from '@kestack/web-platform/ui/components/button';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -22,23 +22,23 @@ import {
   DropdownMenuGroup,
   DropdownMenuLabel,
   DropdownMenuTrigger,
-} from '@kestack/web-platform/components/dropdown-menu';
+} from '@kestack/web-platform/ui/components/dropdown-menu';
 import {
   Empty,
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-} from '@kestack/web-platform/components/empty';
-import { Spinner } from '@kestack/web-platform/components/spinner';
-import { cn } from '@kestack/web-platform/components/utils';
+} from '@kestack/web-platform/ui/components/empty';
+import { Spinner } from '@kestack/web-platform/ui/components/spinner';
+import { cn } from '@kestack/web-platform/ui/components/utils';
 import {
   ChangesMenu,
   defaultGitOptions,
   uncommittedBaseRef,
   type GitOptions,
-} from '@kestack/web-platform/components/viewers/git-changes';
-import type { LoadFileDiff } from '@kestack/web-platform/components/viewers/source-explorer';
+} from '@kestack/web-platform/ui/viewers/git-changes';
+import type { LoadFileDiff } from '@kestack/web-platform/ui/viewers/source-explorer';
 
 import { FileList } from '../../laymos/file-list';
 import { Laymo } from '../../laymos/laymo';

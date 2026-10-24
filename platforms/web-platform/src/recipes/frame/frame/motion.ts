@@ -1,4 +1,4 @@
-import { useSidebar as useSwipeSidebar } from '../../../input/index.ts';
+import { useSidebar as useSwipeSidebar } from '../../../ui/input/index.ts';
 import { animate, type MotionValue, motionValue } from 'motion/react';
 import { useCallback, useState, useSyncExternalStore } from 'react';
 import { MOBILE_QUERY } from '#hooks/use-mobile';

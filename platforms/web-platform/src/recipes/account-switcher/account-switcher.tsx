@@ -58,7 +58,7 @@ class Link extends Context.Service<
     readonly shown: SubscriptionRef.SubscriptionRef<Current>;
     readonly asked: Queue.Queue<Request>;
   }
->()('@kestack/web-platform/account-switcher/Link') {}
+>()('@kestack/web-platform/recipes/account-switcher/Link') {}
 
 /**
  * Who is signed in to the app, for any page under the root: `state` is the

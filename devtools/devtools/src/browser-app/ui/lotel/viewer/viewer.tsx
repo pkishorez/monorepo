@@ -9,9 +9,9 @@ import {
 } from '../trace-viewer/index.js';
 import type { OtelEvent } from '../trace-viewer/trace-model/index.js';
 import type { TraceView } from '../trace-viewer/trace-presentation/index.js';
-import { SearchIcon } from '@kestack/web-platform/components/lucide';
-import { scrollbarStyles } from '@kestack/web-platform/components/scroll-styles';
-import { cn } from '@kestack/web-platform/components/utils';
+import { SearchIcon } from '@kestack/web-platform/ui/components/lucide';
+import { scrollbarStyles } from '@kestack/web-platform/ui/components/scroll-styles';
+import { cn } from '@kestack/web-platform/ui/components/utils';
 import type {
   LogRecord,
   SpanRecord,

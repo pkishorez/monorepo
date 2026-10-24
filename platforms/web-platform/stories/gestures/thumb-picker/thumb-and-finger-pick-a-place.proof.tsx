@@ -1,5 +1,5 @@
-import { play } from '@kestack/web-platform/feedback';
-import { GestureProvider, GestureZone } from '@kestack/web-platform/input';
+import { play } from '@kestack/web-platform/ui/input';
+import { GestureProvider, GestureZone } from '@kestack/web-platform/ui/input';
 import {
   type Choice,
   ThumbPicker,
@@ -72,7 +72,7 @@ export default Proof.browser({
     'web-platform’s ThumbPicker over use-gesture’s Tree Walk: the left thumb rests, another finger swipes down a Step, right to open Accounts, down to Bank, and lifts to go there. Each move ticks and buzzes.',
   page: (root) => {
     const app = createRoot(root);
-    void import('@kestack/web-platform/theme/global.css').then(() =>
+    void import('@kestack/web-platform/ui/theme/global.css').then(() =>
       app.render(
         <GestureProvider>
           <GestureZone className="h-dvh bg-background p-4 text-foreground">

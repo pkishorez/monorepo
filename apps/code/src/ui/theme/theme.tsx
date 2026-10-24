@@ -1,6 +1,6 @@
-import { Button } from '@kestack/web-platform/components/button';
-import { MoonIcon, SunIcon } from '@kestack/web-platform/components/lucide';
-import { createTheme } from '@kestack/web-platform/theme';
+import { Button } from '@kestack/web-platform/ui/components/button';
+import { MoonIcon, SunIcon } from '@kestack/web-platform/ui/components/lucide';
+import { createTheme } from '@kestack/web-platform/ui/theme';
 
 /* Light or dark, kept in a cookie for this host alone: the app is local. */
 export const Theme = createTheme({ cookieDomain: undefined });

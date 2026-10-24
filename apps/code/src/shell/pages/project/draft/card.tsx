@@ -1,10 +1,10 @@
-import { Button } from '@kestack/web-platform/components/button';
+import { Button } from '@kestack/web-platform/ui/components/button';
 import {
   MicIcon,
   PlusIcon,
   SquareIcon,
   SquareSlashIcon,
-} from '@kestack/web-platform/components/lucide';
+} from '@kestack/web-platform/ui/components/lucide';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { keys, useBound, useTypingKeys } from '../../../../keys.ts';
 import * as Picker from '../../../../ui/picker/index.ts';

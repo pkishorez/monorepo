@@ -7,8 +7,8 @@ import {
   Folder,
   Lock,
   Package,
-} from '@kestack/web-platform/components/lucide';
-import { cn } from '@kestack/web-platform/components/utils';
+} from '@kestack/web-platform/ui/components/lucide';
+import { cn } from '@kestack/web-platform/ui/components/utils';
 
 import type { LaymoNode } from '../laymo-tree';
 

@@ -1,10 +1,10 @@
 import { View } from '@kestack/kabuki/react';
-import { Button } from '@kestack/web-platform/components/button';
+import { Button } from '@kestack/web-platform/ui/components/button';
 import {
   PlusIcon,
   TriangleAlertIcon,
   XIcon,
-} from '@kestack/web-platform/components/lucide';
+} from '@kestack/web-platform/ui/components/lucide';
 import { keys, useBound } from '../../../keys.ts';
 import * as Picker from '../../../ui/picker/index.ts';
 import { ProjectPickerLive, ProjectsView } from './actor.ts';

@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 
-import { Play } from '@kestack/web-platform/components/lucide';
-import { cn } from '@kestack/web-platform/components/utils';
+import { Play } from '@kestack/web-platform/ui/components/lucide';
+import { cn } from '@kestack/web-platform/ui/components/utils';
 
 /**
  * A thin bar along a card's top edge while its Proofs run: filled as far as

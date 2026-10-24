@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDownIcon } from 'lucide-react';
 
-import { Button } from '@kestack/web-platform/components/button';
-import { scrollbarStyles } from '@kestack/web-platform/components/scroll-styles';
-import { cn } from '@kestack/web-platform/components/utils';
+import { Button } from '@kestack/web-platform/ui/components/button';
+import { scrollbarStyles } from '@kestack/web-platform/ui/components/scroll-styles';
+import { cn } from '@kestack/web-platform/ui/components/utils';
 
 import { StatusDot } from '../trace-presentation';
 import { Gantt } from '../waterfall-view';

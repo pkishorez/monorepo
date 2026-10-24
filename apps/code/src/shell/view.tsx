@@ -1,8 +1,8 @@
 import { useChild, View, type ViewProps } from '@kestack/kabuki/react';
 import { Router, useRouter } from '@kestack/kabuki/routing';
-import { AccountSwitcherView } from '@kestack/web-platform/account-switcher';
+import { AccountSwitcherView } from '@kestack/web-platform/recipes/account-switcher';
 import { AppShell, useAppShell } from '@kestack/web-platform/recipes/frame';
-import { useDevice } from '@kestack/web-platform/input';
+import { useDevice } from '@kestack/web-platform/ui/input';
 import { KeysStatusBar } from '@kestack/web-platform/recipes/keyboard';
 import { useEffect, useMemo, type ComponentProps, type ReactNode } from 'react';
 import type { Ask } from '../layer/capabilities/index.ts';

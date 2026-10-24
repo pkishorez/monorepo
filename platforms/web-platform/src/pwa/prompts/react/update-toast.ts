@@ -1,6 +1,6 @@
-import type { createToastManager } from '#components/ui/toast';
+import type { createToastManager } from '#components/toast';
 import { useEffect, useRef } from 'react';
-import type { PwaStatus } from '../client/index.js';
+import type { PwaStatus } from '../../engine/client/index.js';
 
 type ToastManager = ReturnType<typeof createToastManager>;
 

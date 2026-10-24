@@ -2,7 +2,7 @@ import { Eye, EyeOff } from 'lucide-react';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-import { Button } from '#components/ui/button';
+import { Button } from '#components/button';
 import { cn } from '#lib/utils';
 
 interface EmailPrivacy {

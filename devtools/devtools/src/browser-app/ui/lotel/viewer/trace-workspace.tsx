@@ -1,14 +1,14 @@
 import { TraceDock } from '../trace-viewer/index.js';
 import type { TraceGroup } from '../trace-viewer/trace-model/index.js';
 import type { TraceView } from '../trace-viewer/trace-presentation/index.js';
-import { Button } from '@kestack/web-platform/components/button';
+import { Button } from '@kestack/web-platform/ui/components/button';
 import {
   AlertTriangleIcon,
   BookOpenText,
   ChartNoAxesGantt,
   XIcon,
-} from '@kestack/web-platform/components/lucide';
-import { cn } from '@kestack/web-platform/components/utils';
+} from '@kestack/web-platform/ui/components/lucide';
+import { cn } from '@kestack/web-platform/ui/components/utils';
 import { useLotelStore } from './state';
 
 export function TraceWorkspace({

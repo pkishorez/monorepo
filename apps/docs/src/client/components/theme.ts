@@ -1,4 +1,4 @@
-import { createTheme } from '@kestack/web-platform/theme';
+import { createTheme } from '@kestack/web-platform/ui/theme';
 
 /*
  * Light or dark, the Web Platform's Theme: kept in the `kui-theme` cookie

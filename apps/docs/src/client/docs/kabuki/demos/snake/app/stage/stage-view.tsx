@@ -1,7 +1,7 @@
 import { AnimatePresence, MotionConfig, motion } from 'motion/react';
 import { View } from '@kestack/kabuki/react';
-import { Button } from '@kestack/web-platform/components/button';
-import { Kbd } from '@kestack/web-platform/components/kbd';
+import { Button } from '@kestack/web-platform/ui/components/button';
+import { Kbd } from '@kestack/web-platform/ui/components/kbd';
 import { LIVES, walk } from '../rules.ts';
 import { GameView } from '../game/game-view.tsx';
 import { StageLive } from './stage.ts';

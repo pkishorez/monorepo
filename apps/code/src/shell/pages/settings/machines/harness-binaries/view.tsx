@@ -1,14 +1,14 @@
 import type { HarnessBinary } from '@kestack/ai-toolkit/api';
 import { View, type ViewProps } from '@kestack/kabuki/react';
-import { Badge } from '@kestack/web-platform/components/badge';
-import { Button } from '@kestack/web-platform/components/button';
-import { Input } from '@kestack/web-platform/components/input';
+import { Badge } from '@kestack/web-platform/ui/components/badge';
+import { Button } from '@kestack/web-platform/ui/components/button';
+import { Input } from '@kestack/web-platform/ui/components/input';
 import {
   CircleAlertIcon,
   CircleCheckIcon,
-} from '@kestack/web-platform/components/lucide';
-import { Skeleton } from '@kestack/web-platform/components/skeleton';
-import { Spinner } from '@kestack/web-platform/components/spinner';
+} from '@kestack/web-platform/ui/components/lucide';
+import { Skeleton } from '@kestack/web-platform/ui/components/skeleton';
+import { Spinner } from '@kestack/web-platform/ui/components/spinner';
 import { ago } from '../../../../../ui/time/index.ts';
 import { outOfReach, useHealth } from '../../../../connection/index.ts';
 import { HarnessBinariesLive } from './actor.ts';

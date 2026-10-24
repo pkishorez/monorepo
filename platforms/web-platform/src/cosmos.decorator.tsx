@@ -1,7 +1,7 @@
 import { Moon, Sun } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { createTheme } from './theme';
-import './theme/css/global.css';
+import { createTheme } from './ui/theme';
+import './ui/theme/css/global.css';
 
 const themeController = createTheme();
 

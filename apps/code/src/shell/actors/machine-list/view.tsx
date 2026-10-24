@@ -1,5 +1,5 @@
 import { View } from '@kestack/kabuki/react';
-import { Button } from '@kestack/web-platform/components/button';
+import { Button } from '@kestack/web-platform/ui/components/button';
 import type { ReactNode } from 'react';
 import { MachineListLive } from './actor.ts';
 

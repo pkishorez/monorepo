@@ -7,8 +7,8 @@ import {
   type MouseEvent,
   useState,
 } from 'react';
-import { Input } from '#components/ui/input';
-import { Skeleton } from '#components/ui/skeleton';
+import { Input } from '#components/input';
+import { Skeleton } from '#components/skeleton';
 import { useFrame } from '../frame/index.ts';
 
 /*

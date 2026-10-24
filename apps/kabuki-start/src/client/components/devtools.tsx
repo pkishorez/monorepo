@@ -1,7 +1,7 @@
 import { Suspense, lazy } from 'react';
 import type { ReactNode } from 'react';
 import { Start } from '@kestack/kabuki/start';
-import { DevtoolsDock } from '@kestack/web-platform/recipes/devtools-dock';
+import { DevtoolsDock } from '@kestack/web-platform/recipes/devtools';
 
 /*
  * Kabuki's devtools around the page, from the button in the bottom-right
@@ -12,7 +12,7 @@ import { DevtoolsDock } from '@kestack/web-platform/recipes/devtools-dock';
  */
 
 const KabukiDevtools = lazy(() =>
-  import('@kestack/web-platform/recipes/kabuki-devtools').then((module) => ({
+  import('@kestack/web-platform/recipes/devtools').then((module) => ({
     default: module.KabukiDevtools,
   })),
 );

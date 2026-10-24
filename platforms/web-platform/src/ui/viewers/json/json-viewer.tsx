@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Button } from '#components/ui/button';
+import { Button } from '#components/button';
 import { CheckIcon, CopyIcon } from '#lib/lucide';
 import { JsonEditor } from './json-editor';
 

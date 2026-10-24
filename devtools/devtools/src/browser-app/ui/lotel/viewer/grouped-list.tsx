@@ -1,10 +1,10 @@
-import { ChevronRightIcon } from '@kestack/web-platform/components/lucide';
+import { ChevronRightIcon } from '@kestack/web-platform/ui/components/lucide';
 import { NewTracesRow, TraceList } from '../trace-viewer/index.js';
 import type {
   OtelSpan,
   TraceGroup,
 } from '../trace-viewer/trace-model/index.js';
-import { cn } from '@kestack/web-platform/components/utils';
+import { cn } from '@kestack/web-platform/ui/components/utils';
 import type { ColumnWidths, TraceListSettings } from './state';
 import { groupTracesBy } from './filtering';
 

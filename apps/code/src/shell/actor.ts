@@ -6,7 +6,7 @@ import { Replicas, Store } from '@kestack/std-toolkit/replica';
 import {
   AccountSwitcherLive,
   CurrentAccount,
-} from '@kestack/web-platform/account-switcher';
+} from '@kestack/web-platform/recipes/account-switcher';
 import {
   Ask,
   DeviceState,

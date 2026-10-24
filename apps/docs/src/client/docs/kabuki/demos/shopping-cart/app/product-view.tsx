@@ -1,5 +1,5 @@
 import { View } from '@kestack/kabuki/react';
-import { Button } from '@kestack/web-platform/components/button';
+import { Button } from '@kestack/web-platform/ui/components/button';
 import {
   CoffeeIcon,
   LampDeskIcon,
@@ -7,7 +7,7 @@ import {
   PlusIcon,
   ShoppingBagIcon,
   SproutIcon,
-} from '@kestack/web-platform/components/lucide';
+} from '@kestack/web-platform/ui/components/lucide';
 import { ProductLive } from './product.ts';
 import { PRODUCTS, formatPrice } from './products.ts';
 

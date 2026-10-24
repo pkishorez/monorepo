@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Start } from '@kestack/kabuki/start';
-import { DEVICE_SCRIPT } from '../input/device/index.ts';
-import { FontPreload, type createTheme } from '../theme/index.ts';
+import { DEVICE_SCRIPT } from '../../ui/input/device/index.ts';
+import { FontPreload, type createTheme } from '../../ui/theme/index.ts';
 
 // Drawn under the notch and home bar, which the App Shell pads for; the
 // on-screen keyboard shrinks the page rather than covering it.

@@ -1,4 +1,4 @@
-import { Kbd, KbdGroup } from '#components/ui/kbd';
+import { Kbd, KbdGroup } from '#components/kbd';
 import { cn } from '#lib/utils';
 import type { Binding, Shortcut } from '@kestack/use-keys';
 

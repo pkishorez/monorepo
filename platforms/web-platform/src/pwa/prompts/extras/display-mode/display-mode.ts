@@ -2,8 +2,8 @@ import * as Context from 'effect/Context';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
 import * as SubscriptionRef from 'effect/SubscriptionRef';
-import { isBrowser, listen } from '../../browser/dom-events.js';
-import { useSubscriptionRef } from '../../browser/subscription-ref.js';
+import { isBrowser, listen } from '../../../engine/browser/dom-events.js';
+import { useSubscriptionRef } from '../../../engine/browser/subscription-ref.js';
 import { lazyService } from '../lazy-service/index.js';
 
 export type DisplayModeValue =

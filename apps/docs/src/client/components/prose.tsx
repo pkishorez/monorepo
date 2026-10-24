@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { ComponentProps, ReactNode } from 'react';
 import { Router } from '@kestack/kabuki/routing';
-import { ArrowUpRightIcon } from '@kestack/web-platform/components/lucide';
+import { ArrowUpRightIcon } from '@kestack/web-platform/ui/components/lucide';
 import type { MDXComponents } from 'mdx/types';
 import { DEMO, SLUGS, router } from '../../shared/index.ts';
 import type { Route, Slug } from '../../shared/index.ts';

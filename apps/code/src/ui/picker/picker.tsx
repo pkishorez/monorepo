@@ -3,14 +3,14 @@ import {
   Dialog,
   DialogContent,
   DialogTitle,
-} from '@kestack/web-platform/components/dialog';
+} from '@kestack/web-platform/ui/components/dialog';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@kestack/web-platform/components/popover';
-import { useIsMobile } from '@kestack/web-platform/components/hooks/use-mobile';
-import { cn } from '@kestack/web-platform/components/utils';
+} from '@kestack/web-platform/ui/components/popover';
+import { useIsMobile } from '@kestack/web-platform/ui/components/hooks/use-mobile';
+import { cn } from '@kestack/web-platform/ui/components/utils';
 import type { ReactElement, ReactNode } from 'react';
 import { keys } from '../../keys.ts';
 import { build, How, type Spec } from './actor.ts';

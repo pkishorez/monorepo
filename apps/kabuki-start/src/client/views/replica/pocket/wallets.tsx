@@ -1,12 +1,12 @@
 import { useContext } from 'react';
 import { View } from '@kestack/kabuki/react';
-import { Button } from '@kestack/web-platform/components/button';
+import { Button } from '@kestack/web-platform/ui/components/button';
 import {
   ArrowRightIcon,
   PlusIcon,
-} from '@kestack/web-platform/components/lucide';
-import { Spinner } from '@kestack/web-platform/components/spinner';
-import { Switch } from '@kestack/web-platform/components/switch';
+} from '@kestack/web-platform/ui/components/lucide';
+import { Spinner } from '@kestack/web-platform/ui/components/spinner';
+import { Switch } from '@kestack/web-platform/ui/components/switch';
 import { nextWalletName, Pages } from '../../../../shared/pages/index.ts';
 import { LedgerContext, money } from './ledger.ts';
 import { Refusal } from './refusal.tsx';

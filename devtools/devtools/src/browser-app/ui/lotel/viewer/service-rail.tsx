@@ -4,13 +4,13 @@ import {
   PanelLeftCloseIcon,
   PanelLeftOpenIcon,
   SearchIcon,
-} from '@kestack/web-platform/components/lucide';
+} from '@kestack/web-platform/ui/components/lucide';
 import {
   AnimatePresence,
   motion,
-} from '@kestack/web-platform/components/motion';
-import { cn } from '@kestack/web-platform/components/utils';
-import { scrollbarStyles } from '@kestack/web-platform/components/scroll-styles';
+} from '@kestack/web-platform/ui/components/motion';
+import { cn } from '@kestack/web-platform/ui/components/utils';
+import { scrollbarStyles } from '@kestack/web-platform/ui/components/scroll-styles';
 import {
   formatRelativeTime,
   formatServiceName,

@@ -1,5 +1,5 @@
 import { View } from '@kestack/kabuki/react';
-import { ArrowRightIcon } from '@kestack/web-platform/components/lucide';
+import { ArrowRightIcon } from '@kestack/web-platform/ui/components/lucide';
 import { Pages, TOOLKITS } from '../../../shared/index.ts';
 import type { Toolkit } from '../../../shared/index.ts';
 import { ToolkitLink, column } from '../../components/index.ts';

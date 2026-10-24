@@ -2,7 +2,7 @@ import {
   GestureProvider,
   GestureZone,
   useGesture,
-} from '@kestack/web-platform/input';
+} from '@kestack/web-platform/ui/input';
 import { Effect } from 'effect';
 import { Gesture, Proof } from 'laymos/story';
 import { useRef, useState } from 'react';
@@ -107,7 +107,7 @@ export default Proof.browser({
     'A useGesture that only watches times each touch: lifted quickly it is a tap, still for 450 ms it is a long press.',
   page: (root) => {
     const app = createRoot(root);
-    void import('@kestack/web-platform/theme/global.css').then(() =>
+    void import('@kestack/web-platform/ui/theme/global.css').then(() =>
       app.render(
         <GestureProvider>
           <main className="h-dvh bg-background p-4 text-foreground">

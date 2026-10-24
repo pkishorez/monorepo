@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button } from '@kestack/web-platform/components/button';
+import { Button } from '@kestack/web-platform/ui/components/button';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -10,9 +10,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from '@kestack/web-platform/components/alert-dialog';
-import { Trash2Icon } from '@kestack/web-platform/components/lucide';
-import { toast } from '@kestack/web-platform/components/sonner';
+} from '@kestack/web-platform/ui/components/alert-dialog';
+import { Trash2Icon } from '@kestack/web-platform/ui/components/lucide';
+import { toast } from '@kestack/web-platform/ui/components/sonner';
 
 /** Telemetry toolbar actions. The DevTools URL is owned by the route shell. */
 export function Header({ onClear }: { onClear: () => Promise<number> }) {

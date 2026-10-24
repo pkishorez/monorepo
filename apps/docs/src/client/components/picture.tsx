@@ -8,8 +8,8 @@ import {
 } from 'react';
 import type { ReactNode, RefObject } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { Button } from '@kestack/web-platform/components/button';
-import { RotateCcwIcon } from '@kestack/web-platform/components/lucide';
+import { Button } from '@kestack/web-platform/ui/components/button';
+import { RotateCcwIcon } from '@kestack/web-platform/ui/components/lucide';
 
 /*
  * What every picture is made of, on the landing page and in the docs. A
