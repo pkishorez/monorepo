@@ -141,19 +141,25 @@ const make = <
               );
               const read = Object.values(instances);
               // What it reads of each Instance is named as the query is made.
-              const { made: live, reads } = readsOf(() =>
-                createLiveQueryCollection({
+              // TanStack DB subscribes a query to its Collections only once
+              // it is preloaded, so the preload starts in the same call.
+              const {
+                made: { live, preloaded },
+                reads,
+              } = readsOf(() => {
+                const live = createLiveQueryCollection({
                   query: options.query({ props }, instances) as (
                     q: InitialQueryBuilder,
                   ) => QueryBuilder<any>,
                   startSync: true,
                   gcTime: 0,
-                }),
-              );
+                });
+                return { live, preloaded: live.preload() };
+              });
               yield* Effect.addFinalizer(() =>
                 Effect.promise(() => live.cleanup()),
               );
-              yield* Effect.promise(() => live.preload());
+              yield* Effect.promise(() => preloaded);
 
               // 3. Follow: what it holds now, then every change after. A
               // subscription is told of a row's update or removal only once

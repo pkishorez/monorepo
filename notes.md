@@ -39,7 +39,6 @@ Hacks, shortcuts, observations and future improvements from building Machines (`
 - After changing the vite config, delete `apps/code/node_modules/.vite`; stale pre-bundles kept the old crash.
 - QUIC (UDP 7844) is blocked on this network, so `serve` tunnels over HTTP/2. A tunnel took about 35s to connect here.
 - There is no CI deploy workflow for code yet (kabuki-start has `deploy-kabuki-start.yml`).
-- alchemy beta.83 is out; the repo pins beta.80.
 - While testing, the infra agent ran `pkill -f "alchemy dev"`, which may have stopped `alchemy dev` processes in other worktrees. Restart any that are gone.
 
 ## `ai-toolkit serve` (Machine, tunnel, Heartbeat)
