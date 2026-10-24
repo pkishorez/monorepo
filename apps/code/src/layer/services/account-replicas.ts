@@ -21,10 +21,11 @@ import { AccountReplicas } from '../capabilities/index.ts';
  * 2. Machines  an Account's Store pruned to its Machines: those gone, and
  *              Replicas no longer read, are deleted, in every tab. One
  *              Machine dropped: its records alone.
- * 3. Accounts  kept: every other Account's Store this tab made emptied,
- *              then every database under `replica:` not of an Account kept
- *              deleted, Accounts never opened in this tab and the records
- *              from before they were kept per Account alike.
+ * 3. Accounts  kept: every other Account with records here has its Store
+ *              emptied, as Store prune does, so a tab still reading one
+ *              stops first; then every database left under `replica:` not
+ *              of an Account kept, the records from before they were kept
+ *              per Account, is deleted.
  */
 
 type StoreShape = Store['Service'];
@@ -34,8 +35,26 @@ const PREFIX = 'replica:';
 const warn = (what: string) => (error: unknown) =>
   Effect.logWarning(`[code] could not ${what}`, error);
 
+/** The Accounts with records in this browser, by the segment after `replica:`. */
+const storedInIdb = Effect.tryPromise({
+  try: () => indexedDB.databases(),
+  catch: (cause) => cause,
+}).pipe(
+  Effect.map((databases) => [
+    ...new Set(
+      databases.flatMap(({ name }) => {
+        if (name === undefined || !name.startsWith(PREFIX)) return [];
+        const rest = name.slice(PREFIX.length);
+        const at = rest.indexOf(':');
+        return at === -1 ? [] : [rest.slice(0, at)];
+      }),
+    ),
+  ]),
+);
+
 const make = (
   storeLayerOf: (accountId: string) => Layer.Layer<Store>,
+  stored: Effect.Effect<ReadonlyArray<string>, unknown>,
   pruneOthers: (keep: ReadonlyArray<string>) => Effect.Effect<unknown, unknown>,
 ) =>
   Layer.effectContext(
@@ -107,8 +126,12 @@ const make = (
             ),
           // 3. Accounts
           keepAccounts: (accountIds) =>
-            empty(
-              [...stores.keys()].filter((id) => !accountIds.includes(id)),
+            Effect.flatMap(stored, (found) =>
+              empty(
+                [...new Set([...stores.keys(), ...found])].filter(
+                  (id) => !accountIds.includes(id),
+                ),
+              ),
             ).pipe(
               Effect.andThen(pruneOthers(accountIds)),
               Effect.catch(warn('delete the records of Accounts signed out')),
@@ -122,6 +145,7 @@ const make = (
 /** Each Account's records in this browser's IndexedDB. */
 export const idb = make(
   (accountId) => IdbStore.idb({ prefix: `${PREFIX}${accountId}:` }),
+  storedInIdb,
   (keep) => IDB.prune({ prefix: PREFIX, keep }),
 );
 
@@ -129,5 +153,6 @@ export const idb = make(
 export const memory = () =>
   make(
     () => MemoryStore.memory(),
+    Effect.succeed([]),
     () => Effect.void,
   );

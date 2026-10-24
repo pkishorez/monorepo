@@ -1,8 +1,9 @@
 import 'fake-indexeddb/auto';
-import { Effect, Layer } from 'effect';
+import { Deferred, Effect, Fiber, Layer } from 'effect';
 import { Ai } from '@kestack/ai-toolkit/client';
 import { Accounts, AccountsState } from '@kestack/auth-toolkit/client';
 import { Store } from '@kestack/std-toolkit/replica';
+import { Store as IdbStore } from '@kestack/std-toolkit/replica/idb';
 import { describe, expect, it } from 'vitest';
 import { AccountReplicas } from '../capabilities/index.ts';
 import { accountReplicasIdb } from './index.ts';
@@ -89,6 +90,32 @@ describe('Account Replicas', () => {
       `replica:a1:${Ai.instanceName('m1')}`,
       `replica:a2:${Ai.instanceName('m3')}`,
     ]);
+  });
+
+  it('stops another tab still reading an Account it deletes', async () => {
+    const name = Ai.instanceName('m7');
+    await create(`replica:a7:${name}`);
+    await run(
+      Effect.gen(function* () {
+        const opened = yield* Deferred.make<void>();
+        // Another tab, on an Account this one never opened.
+        const other = yield* Effect.forkChild(
+          Effect.scoped(
+            Effect.gen(function* () {
+              const space = yield* (yield* Store).open(name);
+              yield* Deferred.succeed(opened, undefined);
+              yield* space.removed;
+            }),
+          ).pipe(Effect.provide(IdbStore.idb({ prefix: 'replica:a7:' }))),
+        );
+        yield* Deferred.await(opened);
+        yield* Effect.flatMap(AccountReplicas, (replicas) =>
+          replicas.keepAccounts(['a1', 'a2']),
+        );
+        yield* Fiber.join(other).pipe(Effect.timeout('1 second'));
+      }),
+    );
+    expect(await names()).not.toContain(`replica:a7:${name}`);
   });
 
   it('drops one Machine’s records and no other', async () => {
