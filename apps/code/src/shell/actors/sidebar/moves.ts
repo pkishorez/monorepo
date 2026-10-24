@@ -3,21 +3,24 @@ import type { OnMachine } from '../../replica/index.ts';
 
 /*
  * Sessions swiped to Settle or un-Settle them, as the sidebar draws them:
- * already where the last swipe put them, before their Machine has said so.
+ * where the last swipe put them, before their Machine has said so. Each
+ * Session's Move is its own, with its own window and its own call.
  *
- * 1. Asked     a swipe, or its Undo: the Session shows where it goes, and
- *              that is one more result the synced Session must show.
- * 2. Done      its Machine took the last swipe.
- * 3. Synced    the Session as synced shows the next result it owes, in the
- *              order swiped. A result already there, or left from before
- *              an earlier swipe landed, is not taken for it: a Settle and
- *              its Undo owe "Settled", then "not Settled".
- *
- * A Move is dropped once its last swipe is done and every result it owes
- * has shown, so a late update from an earlier swipe never moves the row.
+ * 1. Swipe   the row moves at once, and nothing is asked of its Machine
+ *            while the Undo window, WINDOW, is open.
+ * 2. Undo    inside it, the swipe is taken back: nothing is asked at all,
+ *            so nothing synced can move the row.
+ * 3. Commit  the window closed, or the page hidden or the sidebar gone,
+ *            the last swipe is asked of its Machine: one call at a time,
+ *            and a swipe made meanwhile after it, if it still differs.
+ * 4. Drop    nothing waiting nor asked, and the Session as synced where
+ *            the last swipe put it: the Move is done.
  */
 
-/** A Session swiped, where its last swipe puts it, and what it waits for. */
+/** How long a swipe can be undone before it is asked of its Machine, in ms. */
+export const WINDOW = 5000;
+
+/** A Session swiped: where it goes, and what its Machine has been asked. */
 export interface Move {
   /** Its last swipe's place in the order swiped. */
   readonly n: number;
@@ -25,78 +28,122 @@ export interface Move {
   readonly sessionId: string;
   /** Where its last swipe puts it. */
   readonly settled: boolean;
-  /** Whether its Machine took the last swipe. */
-  readonly done: boolean;
-  /** The results the synced Session has still to show, in order. */
-  readonly awaiting: ReadonlyArray<boolean>;
+  /** Where its Machine has it, as far as this sidebar knows. */
+  readonly base: boolean;
+  /** What its Machine is being asked now, if anything. */
+  readonly asking: boolean | null;
+  /** When the last swipe is to be asked, while it waits to be. */
+  readonly due: number | null;
 }
 
-/** Where a swipe puts a Session. */
+/** A Session, and where a swipe or its Machine puts it. */
 interface Swiped {
   readonly machineId: string;
   readonly sessionId: string;
   readonly settled: boolean;
 }
 
+type Key = Omit<Swiped, 'settled'>;
+
 const isOf =
-  ({ machineId, sessionId }: Omit<Swiped, 'settled'>) =>
+  ({ machineId, sessionId }: Key) =>
   (move: Move) =>
     move.machineId === machineId && move.sessionId === sessionId;
 
-const moveOf = (
+const update = (
   moving: ReadonlyArray<Move>,
-  { machineId, id }: OnMachine<Session>,
-) => moving.find(isOf({ machineId, sessionId: id }));
+  key: Key,
+  change: (move: Move) => Move | null,
+) =>
+  moving.flatMap((move) => {
+    if (!isOf(key)(move)) return [move];
+    const next = change(move);
+    return next === null ? [] : [next];
+  });
 
-// Kept while there is something left to hear.
-const kept = (move: Move) => !move.done || move.awaiting.length > 0;
+// What its Machine will have once what it is asked lands.
+const landing = (move: Move) => move.asking ?? move.base;
 
-/** 1. Asked: the swipe numbered `n`, after whatever this Session awaits. */
-export const askedOf = (
+/** 1. Swipe, or 2. its Undo: the swipe numbered `n`, made at `now`. */
+export const swipedOf = (
   moving: ReadonlyArray<Move>,
-  swiped: Swiped,
+  { machineId, sessionId, settled }: Swiped,
   n: number,
+  now: number,
 ): ReadonlyArray<Move> => {
-  const { machineId, sessionId, settled } = swiped;
-  const before = moving.find(isOf(swiped));
+  const was = moving.find(isOf({ machineId, sessionId }));
+  const move: Move = {
+    n,
+    machineId,
+    sessionId,
+    settled,
+    base: was?.base ?? !settled,
+    asking: was?.asking ?? null,
+    due: null,
+  };
   return [
-    ...moving.filter((move) => !isOf(swiped)(move)),
-    {
-      machineId,
-      sessionId,
-      settled,
-      n,
-      done: false,
-      awaiting: [...(before?.awaiting ?? []), settled],
-    },
+    ...moving.filter((each) => each !== was),
+    { ...move, due: settled === landing(move) ? null : now + WINDOW },
   ];
 };
 
-/** 2. Done: its Machine took a swipe; only the last one counts. */
-export const doneOf = (
-  moving: ReadonlyArray<Move>,
-  swiped: Swiped,
-): ReadonlyArray<Move> =>
-  moving
-    .map((move) =>
-      isOf(swiped)(move) && move.settled === swiped.settled
-        ? { ...move, done: true }
-        : move,
-    )
-    .filter(kept);
+/** 3. The Moves whose last swipe is due now and not being asked yet. */
+export const dueOf = (moving: ReadonlyArray<Move>, now: number) =>
+  moving.filter(
+    ({ due, asking }) => due !== null && due <= now && asking === null,
+  );
 
-/** 3. Synced: the Session as synced shows `settled`, the next result owed. */
-export const syncedOf = (
+/** 3. Every swipe waiting is due at once, as the page is hidden. */
+export const flushedOf = (moving: ReadonlyArray<Move>) =>
+  moving.map((move) => (move.due === null ? move : { ...move, due: 0 }));
+
+/** 3. Its Machine is being asked to put it where the last swipe did. */
+export const askingOf = (moving: ReadonlyArray<Move>, asked: Swiped) =>
+  update(moving, asked, (move) => ({
+    ...move,
+    asking: asked.settled,
+    due: null,
+  }));
+
+/** 3. Its Machine took what it was asked; a later swipe the same way waits for nothing. */
+export const answeredOf = (moving: ReadonlyArray<Move>, answered: Swiped) =>
+  update(moving, answered, (move) => ({
+    ...move,
+    base: answered.settled,
+    asking: null,
+    due: move.settled === answered.settled ? null : move.due,
+  }));
+
+/** Its Machine refused: the Move is dropped, and the row goes back. */
+export const refusedOf = (moving: ReadonlyArray<Move>, key: Key) =>
+  update(moving, key, () => null);
+
+/** 4. The Moves with nothing waiting nor asked, whose Session as synced agrees. */
+export const doneOf = (
+  sessions: ReadonlyArray<OnMachine<Session>>,
   moving: ReadonlyArray<Move>,
-  swiped: Swiped,
-): ReadonlyArray<Move> =>
-  moving
-    .map((move) =>
-      isOf(swiped)(move) && move.awaiting[0] === swiped.settled
-        ? { ...move, awaiting: move.awaiting.slice(1) }
-        : move,
-    )
-    .filter(kept);
+): ReadonlyArray<Key> =>
+  moving.flatMap((move) => {
+    if (move.due !== null || move.asking !== null) return [];
+    const session = sessions.find(
+      ({ machineId, id }) =>
+        machineId === move.machineId && id === move.sessionId,
+    );
+    const agrees =
+      session === undefined || (session.settledAt !== null) === move.settled;
+    const { machineId, sessionId } = move;
+    return agrees ? [{ machineId, sessionId }] : [];
+  });
+
+/** 4. Drops a Move, if it still has nothing waiting nor asked. */
+export const droppedOf = (moving: ReadonlyArray<Move>, key: Key) =>
+  update(moving, key, (move) =>
+    move.due === null && move.asking === null ? null : move,
+  );
+
+/** Whether anything is waiting to be asked, or being asked. */
+export const busy = (moving: ReadonlyArray<Move>) =>
+  moving.some(({ due, asking }) => due !== null || asking !== null);
 
 /** When a Session swiped to Settle was Settled: after any real time. */
 const PENDING = Number.MAX_SAFE_INTEGER - 2 ** 32;
@@ -112,7 +159,9 @@ export const movedOf = (
   moving.length === 0
     ? sessions
     : sessions.map((session) => {
-        const move = moveOf(moving, session);
+        const move = moving.find(
+          isOf({ machineId: session.machineId, sessionId: session.id }),
+        );
         if (move === undefined || move.settled === (session.settledAt !== null))
           return session;
         return {
@@ -120,23 +169,3 @@ export const movedOf = (
           settledAt: move.settled ? PENDING + move.n : null,
         };
       });
-
-/**
- * The results the Sessions as synced show that their Moves wait for next.
- * A Session no longer synced owes nothing more.
- */
-export const seenOf = (
-  sessions: ReadonlyArray<OnMachine<Session>>,
-  moving: ReadonlyArray<Move>,
-): ReadonlyArray<Swiped> =>
-  moving.flatMap((move) => {
-    const session = sessions.find(
-      ({ machineId, id }) =>
-        machineId === move.machineId && id === move.sessionId,
-    );
-    const next = move.awaiting[0];
-    if (next === undefined) return [];
-    const shown = session === undefined ? next : session.settledAt !== null;
-    const { machineId, sessionId } = move;
-    return shown === next ? [{ machineId, sessionId, settled: next }] : [];
-  });

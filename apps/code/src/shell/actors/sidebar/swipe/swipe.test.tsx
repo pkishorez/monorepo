@@ -59,7 +59,7 @@ const render = (settled: boolean) =>
           <SwipeToMove
             settled={settled}
             onMove={(to) =>
-              moveWithUndo('A session', to, (where) => moves.push(where))
+              moveWithUndo('A session', to, (where) => moves.push(where), 5)
             }
           >
             <div data-testid="row">A session</div>
