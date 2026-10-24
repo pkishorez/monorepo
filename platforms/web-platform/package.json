@@ -78,6 +78,10 @@
       "types": "./dist/pwa/prompts/index.d.ts",
       "default": "./dist/pwa/prompts/index.js"
     },
+    "./pwa/splash": {
+      "types": "./dist/pwa/prompts/splash/index.d.ts",
+      "default": "./dist/pwa/prompts/splash/index.js"
+    },
     "./pwa/vite": {
       "types": "./dist/pwa/engine/vite/index.d.ts",
       "default": "./dist/pwa/engine/vite/index.js"

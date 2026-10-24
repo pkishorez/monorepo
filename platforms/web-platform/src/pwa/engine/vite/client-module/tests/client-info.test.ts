@@ -29,6 +29,8 @@ describe('clientBuildInfo', () => {
       enabled: true,
       buildId: 'abc',
       name: 'x',
+      title: 'x',
+      splash: false,
       manifestUrl: '/manifest.webmanifest',
       appleTouchIconUrl: '/any.png',
     });
@@ -62,6 +64,22 @@ describe('clientBuildInfo', () => {
       manifestUrl: '/manifest.webmanifest',
       appleTouchIconUrl: '/apple-touch-icon.png',
     });
+  });
+
+  it('titles the home-screen icon with the short name, and passes the Splash on', () => {
+    const short = resolvePwaConfig({
+      name: 'Code on touch',
+      splash: true,
+      manifest: { short_name: 'Code' },
+    });
+    expect(
+      clientBuildInfo(short, {
+        serving: false,
+        consumer: 'client',
+        buildId: null,
+        version,
+      }),
+    ).toMatchObject({ name: 'Code on touch', title: 'Code', splash: true });
   });
 
   it('is off for the Kill Switch', () => {
