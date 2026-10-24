@@ -58,8 +58,8 @@ export const Intent = Schema.Struct({
   idle: Schema.Boolean,
 });
 
-/** What its Machine refused, and why. */
-export interface Refusal {
+/** What a Session's Machine refused, and why. */
+export interface Refusal extends Session {
   readonly settled: boolean;
   readonly reason: string;
 }
@@ -172,7 +172,12 @@ const make = Effect.gen(function* () {
         const waiting = (yield* Ref.get(entries)).get(key)?.plan.waiting;
         yield* change(key, (plan) => answered(plan, took));
         if (ended._tag === 'Refused' && waiting === false)
-          yield* PubSub.publish(refusals, { settled, reason: ended.reason });
+          yield* PubSub.publish(refusals, {
+            machineId: entry.machineId,
+            sessionId: entry.sessionId,
+            settled,
+            reason: ended.reason,
+          });
         yield* show;
       }
     });
