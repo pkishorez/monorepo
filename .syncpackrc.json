@@ -61,7 +61,7 @@
       "label": "Playwright peers accept any Playwright release from the one tested",
       "dependencies": ["playwright-core"],
       "dependencyTypes": ["peer"],
-      "pinVersion": "^1.63.0"
+      "pinVersion": "^1.64.1"
     },
     {
       "label": "Synchronize remaining dependencies",
@@ -124,6 +124,18 @@
     {
       "label": "Aliased TypeScript 6 catalog updates are manual",
       "dependencyTypes": ["pnpmCatalog:typescript6"],
+      "isIgnored": true
+    },
+    {
+      "label": "OpenTelemetry stays on the 2.x SDK line @effect/opentelemetry accepts",
+      "dependencyTypes": ["pnpmCatalog"],
+      "dependencies": ["@opentelemetry/**"],
+      "target": "patch"
+    },
+    {
+      "label": "Drizzle follows the exact build alchemy's peer pins",
+      "dependencyTypes": ["pnpmCatalog"],
+      "dependencies": ["drizzle-kit", "drizzle-orm"],
       "isIgnored": true
     },
     {

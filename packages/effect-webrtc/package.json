@@ -85,7 +85,7 @@
   "peerDependencies": {
     "@kestack/auth-toolkit": "workspace:*",
     "@kestack/rpc-toolkit": "workspace:*",
-    "alchemy": "2.0.0-beta.80",
+    "alchemy": "2.0.0-beta.83",
     "effect": "^4.0.0"
   },
   "peerDependenciesMeta": {

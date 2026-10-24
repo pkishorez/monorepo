@@ -192,8 +192,8 @@
     "use-effect-ts": "workspace:*",
     "vite": "^8.0.0",
     "@tailwindcss/vite": "4.3.3",
-    "@vitejs/plugin-react": "6.1.1",
-    "alchemy": "2.0.0-beta.80"
+    "@vitejs/plugin-react": "6.1.2",
+    "alchemy": "2.0.0-beta.83"
   },
   "peerDependenciesMeta": {
     "@kestack/use-keys": {

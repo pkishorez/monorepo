@@ -7,13 +7,6 @@ packages:
 
 # Hold new releases for 24 hours (in minutes) so compromised versions have time to be reported.
 minimumReleaseAge: 1440
-# TEMPORARY: alchemy 2.0.0-beta.80 (2026-10-02 12:05 UTC) and distilled
-# 1.0.0-rc.13 (08:35 UTC) add Effect 4 stable support. Remove after
-# 2026-10-03 12:06 UTC, once both clear the hold above.
-minimumReleaseAgeExclude:
-  - alchemy
-  - '@alchemy.run/*'
-  - '@distilled.cloud/*'
 
 # Refuse a version published with weaker trust than earlier versions (for
 # example without provenance): the usual sign of a stolen publish token.
@@ -30,10 +23,12 @@ overrides:
 
 peerDependencyRules:
   allowedVersions:
-    # The Vite+ core alias reports 1.0.0 but bundles Vite 8.3.1.
-    vite: '1.0.0'
+    # The Vite+ core alias reports 1.4.0 but bundles Vite 8.3.5.
+    vite: '1.4.0'
     # bun-ffi-structs works with the workspace's TypeScript 7 toolchain.
     'bun-ffi-structs>typescript': '7'
+    # capnp-es, through alchemy's Cloudflare runtime, works with TypeScript 7 too.
+    'capnp-es>typescript': '7'
 
 # pnpm 11 requires an explicit decision for every detected dependency build script.
 # Only better-sqlite3 needs its native install step; keep every other script denied.
@@ -52,143 +47,145 @@ allowBuilds:
   '@prisma/client': false
 
 catalog:
-  '@anthropic-ai/claude-agent-sdk': 0.3.304
-  '@openai/codex': 0.154.0
+  '@anthropic-ai/claude-agent-sdk': 0.3.309
+  '@openai/codex': 0.164.0
   cloudflared: 0.7.3
   sherpa-onnx-node: 1.13.8
-  '@tanstack/ai': 0.54.0
-  '@distilled.cloud/aws': 1.0.0-rc.13
-  '@distilled.cloud/cloudflare': 1.0.0-rc.13
-  '@better-auth/cimd': 1.7.2
-  '@better-auth/core': 1.7.2
-  '@better-auth/drizzle-adapter': 1.7.2
-  '@better-auth/oauth-provider': 1.7.2
-  '@better-auth/infra': 0.4.5
-  jose: 6.2.12
-  zod: 4.4.3
-  '@base-ui/react': 1.8.0
-  '@ast-grep/napi': 0.45.3
-  '@vitest/utils': 5.0.1
-  '@changesets/changelog-github': 1.0.0
-  '@changesets/cli': 3.0.0
-  '@cloudflare/workers-types': 5.20260904.1
-  '@codemirror/autocomplete': 6.20.3
-  '@codemirror/commands': 6.10.4
+  '@tanstack/ai': 1.0.0
+  '@distilled.cloud/aws': 1.0.0-rc.16
+  '@distilled.cloud/cloudflare': 1.0.0-rc.16
+  '@better-auth/cimd': 1.7.12
+  '@better-auth/core': 1.7.12
+  '@better-auth/drizzle-adapter': 1.7.12
+  '@better-auth/oauth-provider': 1.7.12
+  '@better-auth/infra': 0.4.22
+  jose: 6.2.13
+  zod: 4.6.7
+  '@base-ui/react': 1.9.0
+  '@ast-grep/napi': 0.51.0
+  '@vitest/utils': 5.0.5
+  '@changesets/changelog-github': 1.0.1
+  '@changesets/cli': 3.0.3
+  '@cloudflare/workers-types': 5.20261023.1
+  '@codemirror/autocomplete': 6.20.4
+  '@codemirror/commands': 6.11.1
   '@codemirror/lang-json': 6.0.2
-  '@codemirror/state': 6.7.1
-  '@codemirror/view': 6.43.6
-  '@effect/opentelemetry': 4.0.0
-  '@effect/vitest': 4.0.0
-  '@effect/platform-node': 4.0.0
-  '@effect/platform-node-shared': 4.0.0
+  '@codemirror/state': 6.7.6
+  '@codemirror/view': 6.43.15
+  '@effect/opentelemetry': 4.0.6
+  '@effect/vitest': 4.0.6
+  '@effect/platform-node': 4.0.6
+  '@effect/platform-node-shared': 4.0.6
   '@fontsource-variable/inter': 5.3.0
   '@fontsource-variable/jetbrains-mono': 5.3.0
   '@mdx-js/rollup': 3.1.1
   '@opentelemetry/api': 1.9.1
-  '@opentelemetry/api-logs': 0.222.0
-  '@opentelemetry/exporter-logs-otlp-http': 0.222.0
-  '@opentelemetry/exporter-metrics-otlp-http': 0.222.0
-  '@opentelemetry/exporter-trace-otlp-http': 0.222.0
-  '@opentelemetry/resources': 2.11.0
-  '@opentelemetry/sdk-logs': 0.222.0
-  '@opentelemetry/sdk-metrics': 2.11.0
-  '@opentelemetry/sdk-trace-base': 2.11.0
-  '@opentelemetry/sdk-trace-node': 2.11.0
+  '@opentelemetry/api-logs': 0.223.0
+  '@opentelemetry/exporter-logs-otlp-http': 0.223.0
+  '@opentelemetry/exporter-metrics-otlp-http': 0.223.0
+  '@opentelemetry/exporter-trace-otlp-http': 0.223.0
+  '@opentelemetry/resources': 2.12.0
+  '@opentelemetry/sdk-logs': 0.223.0
+  '@opentelemetry/sdk-metrics': 2.12.0
+  '@opentelemetry/sdk-trace-base': 2.12.0
+  '@opentelemetry/sdk-trace-node': 2.12.0
   '@opentelemetry/semantic-conventions': 1.43.0
   '@shadcn/react': 0.3.1
-  '@shikijs/langs': 4.4.3
-  '@shikijs/rehype': 4.4.3
-  '@shikijs/themes': 4.4.3
+  '@shikijs/langs': 4.5.0
+  '@shikijs/rehype': 4.5.0
+  '@shikijs/themes': 4.5.0
   '@standard-schema/spec': 1.1.0
   '@tailwindcss/typography': 0.5.20
   '@tailwindcss/vite': 4.3.3
   # The one @tanstack/react-db brings: std-toolkit's Replica uses it without React.
-  '@tanstack/db': 0.9.2
-  # Brings @tanstack/db 0.9.2 (verified 2026-09-27). Before upgrading, run
-  # toolkits/std-toolkit/src/sync/__tests__/tanstack-rollback.test.ts and
-  # pnpm stories; DB 0.8.1–0.8.7 failed that test.
-  '@tanstack/react-db': 0.4.1
+  '@tanstack/db': 0.15.2
+  # Brings @tanstack/db 0.15.2 (verified 2026-10-24). Before upgrading, run
+  # toolkits/std-toolkit/src/sync/__tests__/tanstack-rollback.test.ts, the
+  # std-toolkit Replica tests (caught-up, never-synced) and pnpm stories.
+  # DB 0.8.1–0.8.7 failed the rollback test; from 0.15 a live query subscribes
+  # its sources only on preload, which std-toolkit's Query relies on.
+  '@tanstack/react-db': 0.5.12
   '@tanstack/react-form': 1.33.5
-  '@tanstack/react-query': 5.102.8
-  '@tanstack/react-router': 1.170.32
-  '@tanstack/react-router-devtools': 1.167.1
-  '@tanstack/react-start': 1.168.49
+  '@tanstack/react-query': 5.104.5
+  '@tanstack/react-router': 1.170.46
+  '@tanstack/react-router-devtools': 1.167.2
+  '@tanstack/react-start': 1.169.4
   '@tsconfig/node22': 22.0.6
   '@types/better-sqlite3': 9.6.0
-  '@types/bun': 1.4.1
+  '@types/bun': 1.4.4
   '@types/mdx': 2.0.14
-  '@types/node': 26.4.1
-  '@types/react': 19.2.18
-  '@types/react-dom': 19.2.7
+  '@types/node': 26.6.5
+  '@types/react': 19.3.0
+  '@types/react-dom': 19.3.0
   '@typescript/native': npm:typescript@7.0.2
-  '@uiw/codemirror-theme-xcode': 4.25.11
-  '@uiw/react-codemirror': 4.25.11
-  '@uiw/react-json-view': 2.0.0-alpha.43
-  '@vitejs/plugin-react': 6.1.1
-  alchemy: 2.0.0-beta.80
-  auth: 1.7.2
+  '@uiw/codemirror-theme-xcode': 4.25.12
+  '@uiw/react-codemirror': 4.25.12
+  '@uiw/react-json-view': 2.0.0-alpha.44
+  '@vitejs/plugin-react': 6.1.2
+  alchemy: 2.0.0-beta.83
+  auth: 1.7.12
   aws4fetch: 1.0.20
-  better-auth: 1.7.2
+  better-auth: 1.7.12
   better-sqlite3: 13.0.3
   class-variance-authority: 0.7.1
   clsx: 2.1.1
   cmdk: 1.1.1
-  cn: 0.2.6
-  del-cli: 7.0.0
-  drizzle-kit: 1.0.0-rc.4
-  drizzle-orm: 1.0.0-rc.4
-  effect: 4.0.0
+  cn: 0.5.0
+  del-cli: 8.0.1
+  drizzle-kit: 1.0.0-rc.5-ab785fc
+  drizzle-orm: 1.0.0-rc.5-ab785fc
+  effect: 4.0.6
   embla-carousel-react: 8.6.0
   env-paths: 4.0.0
-  fake-indexeddb: 6.2.5
-  fumadocs-core: 16.15.7
-  fumadocs-mdx: 15.4.0
-  fumadocs-ui: 16.15.7
-  idb: 8.0.3
+  fake-indexeddb: 6.2.6
+  fumadocs-core: 16.17.8
+  fumadocs-mdx: 15.4.10
+  fumadocs-ui: 16.17.8
+  idb: 8.0.4
   input-otp: 1.5.0
-  jsdom: 29.1.1
+  jsdom: 30.1.3
   kleur: 4.1.5
-  lucide-react: 1.41.0
+  lucide-react: 1.61.0
   esbuild: 0.28.2
   miniflare: 4.20260730.0
-  motion: 13.2.0
+  motion: 14.6.0
   next-themes: 0.4.6
   nostr-tools: 2.25.2
   nitro: 3.0.260903-beta
-  oxc-parser: 0.148.0
+  oxc-parser: 0.155.0
   oxc-resolver: 11.24.2
-  playwright-core: 1.63.0
-  react: 19.2.8
+  playwright-core: 1.64.1
+  react: 19.3.1
   react-cosmos: 7.4.1
   react-cosmos-plugin-vite: 7.4.0
-  react-day-picker: 10.0.1
-  react-dom: 19.2.8
+  react-day-picker: 10.0.2
+  react-dom: 19.3.1
   react-markdown: 10.1.0
-  react-resizable-panels: 4.12.3
+  react-resizable-panels: 4.14.8
   recharts: 3.10.1
   remark-gfm: 4.0.1
-  shadcn: 4.21.0
-  sharp: 0.35.4
-  shiki: 4.4.3
-  skott: 0.35.11
+  shadcn: 4.22.1
+  sharp: 0.35.5
+  shiki: 4.5.0
+  skott: 0.35.12
   sonner: 2.0.8
   syncpack: 15.3.3
-  tailwind-merge: 3.6.0
+  tailwind-merge: 3.7.0
   tailwindcss: 4.3.3
-  tsx: 4.23.13
+  tsx: 4.23.15
   tw-animate-css: 1.4.0
-  type-fest: 5.9.0
+  type-fest: 5.10.0
   typescript: 7.0.2
   ulidx: 2.4.1
-  use-sync-external-store: 1.6.0
-  werift: 0.24.4
-  vite: npm:@voidzero-dev/vite-plus-core@1.0.0
-  vite-plus: 1.0.0
-  vitest: 5.0.1
-  wrangler: 4.129.0
-  yaml: 2.9.0
+  use-sync-external-store: 1.7.0
+  werift: 0.25.1
+  vite: npm:@voidzero-dev/vite-plus-core@1.4.0
+  vite-plus: 1.4.0
+  vitest: 5.0.5
+  wrangler: 4.152.0
+  yaml: 2.9.1
   yoctocolors: 2.2.0
-  zustand: 5.0.15
+  zustand: 5.0.16
 
 catalogs:
   typescript6:

@@ -81,7 +81,7 @@
   "peerDependencies": {
     "@kestack/rpc-toolkit": "workspace:*",
     "@kestack/std-toolkit": "workspace:*",
-    "alchemy": "2.0.0-beta.80",
+    "alchemy": "2.0.0-beta.83",
     "better-sqlite3": "13.0.3",
     "effect": "^4.0.0",
     "react": "^19.0.0"
