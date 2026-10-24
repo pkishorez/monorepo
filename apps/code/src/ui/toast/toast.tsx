@@ -72,7 +72,8 @@ function List() {
           <ToastTitle />
           <ToastDescription className="truncate" />
         </div>
-        <ToastAction className="h-9 rounded-full px-4" />
+        {/* A finger's height, but compact with a keyboard. */}
+        <ToastAction className="h-11 rounded-full px-4 keyboard:h-9" />
       </ToastContent>
     </Toast>
   ));
