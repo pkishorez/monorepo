@@ -19,6 +19,11 @@ glossary's: see [CONTEXT.md](../CONTEXT.md) and, for Code, `apps/code/CONTEXT.md
 - A component may opt in to focusing a field as it opens. It then appears at
   once, with no animation, and focuses after it is on screen. iOS moves a
   layer that is still animating when a field inside it takes focus.
+- iOS raises its keyboard only for focus given in a tap, and such a layer is
+  on screen only after it. So the tap that opens it calls `raiseKeyboard`
+  (`recipes/touch-layers`): a stand-in field out of sight takes focus in the
+  tap, and the layer's field takes it from there once on screen, the keyboard
+  staying up.
 - While a field has focus, nothing animates: open, close and resize jump.
 
 ## Choosing from a list
@@ -44,15 +49,21 @@ by keys, a popover by its button when opened by pointer, search focused.
 - Swipe a Session row left to right to Settle it; on a Settled row, to
   un-Settle it. It commits past about 40% of the row or on a fast flick, slides
   out with a spring, and offers Undo for 5 seconds.
-- Pull down at the top of the Sidebar to Reload.
+- Pull down at the top of the Sidebar to Reload. Scrolled down, the Sidebar
+  scrolls instead, wherever the finger lands, a Session row included.
 - Swipe down closes a Drawer.
 - Every gesture follows the finger and settles with a spring (`motion/react`),
-  and jumps instead under `prefers-reduced-motion`.
+  and jumps instead under `prefers-reduced-motion`, where a busy spinner holds
+  still.
 
 ## Size and style
 
 - Every control is at least 44px on touch; the main action of a screen, such as
-  the Draft's microphone, is the largest thing on it.
+  the Draft's microphone, is the largest thing on it. With no keyboard that
+  holds at any width, a tablet's included: compact sizes are for a keyboard
+  (the `keyboard:` variant), not for a wide screen.
+- What a swipe does must also be reachable without one: a screen reader cannot
+  swipe, so the button a keyboard sees stays there for it, out of sight.
 - Fewer, larger buttons over rows of small ones. Anything secondary goes in a
   Drawer behind one button.
 - Fields are 16px or larger, so iOS does not zoom.
