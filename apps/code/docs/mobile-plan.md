@@ -7,7 +7,7 @@ and [web-platform's CONTEXT.md](../../../platforms/web-platform/CONTEXT.md)
 (Sidebar Mode). Desktop behaviour does not change except where a shared piece
 changes under it.
 
-Each step is one stacked PR, testable on a phone on its own.
+All five steps ship together in one PR, each step its own commits.
 
 ## 1. Input decides behaviour
 
@@ -71,6 +71,7 @@ Each step is one stacked PR, testable on a phone on its own.
 - iOS splash screens (`pwa/prompts/splash`): the Code logo at the top,
   "Powered by kestack" at the bottom. They need `apple-mobile-web-app-capable`,
   which `pwa/prompts/react/head.ts` leaves out for the status bar on theme
-  switch; `splash.ts` says the Status Bar Surface covers it. Turn it on and
-  check a theme switch on an installed iPhone app; record the result.
+  switch; `splash.ts` says the Status Bar Surface covers it. Turn it on. A
+  theme switch on an installed iPhone app needs a device: it is checked on
+  one before merge, and the result recorded in the PR.
 - Manifest screenshots, so Android shows its richer install sheet.
