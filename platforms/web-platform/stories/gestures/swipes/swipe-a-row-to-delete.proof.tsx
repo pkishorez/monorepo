@@ -20,7 +20,7 @@ function Spending() {
         {rows.map((row) => (
           <li key={row.id} data-testid={`row-${row.id}`}>
             <SwipeRow
-              onDelete={() => {
+              onSwipe={() => {
                 setRows((all) => all.filter((each) => each.id !== row.id));
                 setDeleted(`Deleted ${row.label}`);
               }}
@@ -50,7 +50,7 @@ function Spending() {
 export default Proof.browser({
   title: 'Swiping a row left deletes it',
   description:
-    'web-platform’s SwipeRow recipe: each row is a Gesture Zone with a useSwipe left. Past 112px Delete arms; letting go slides the row away and deletes it.',
+    'web-platform’s SwipeRow recipe: each row is a Gesture Zone with a useSwipe left. Past 40% of the row, or on a flick, Delete arms; letting go slides the row away, closes its gap and deletes it.',
   page: (root) => {
     const app = createRoot(root);
     void import('@kestack/web-platform/ui/theme/global.css').then(() =>

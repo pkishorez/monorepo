@@ -370,9 +370,9 @@ The Account Switcher of a Kabuki app: a Child of the root page, its View in the 
 
 ### `@kestack/web-platform/recipes/swipe-row`
 
-| Export     | What it does                                                                                          |
-| ---------- | ----------------------------------------------------------------------------------------------------- |
-| `SwipeRow` | A row one finger swipes left to delete, arming past a distance with a click; a mouse never swipes it. |
+| Export     | What it does                                                                                                                                                                 |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SwipeRow` | A row one finger swipes aside, left or right, showing what it does behind it; past 40% of its width or on a flick it slides out and closes its gap. A mouse never swipes it. |
 
 ### `@kestack/web-platform/app/vite`
 
