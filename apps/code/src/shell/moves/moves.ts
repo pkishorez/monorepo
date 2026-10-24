@@ -19,11 +19,11 @@ import { answered, asking, idle, next, type Plan, put } from './plan.ts';
  * Session's is its own.
  *
  * 1. Put     where the user put it, asked of its Machine at once.
- * 2. Ask     one call at a time for each Session, in order; one put while
- *            a call is in flight is asked once it returns, if it still
- *            differs from what the Machine last took. Each answer is that
- *            call's: a refusal of an earlier put changes nothing, one of
- *            the last drops the Move and says why.
+ * 2. Ask     one call at a time for each Session, in order; the last put
+ *            while a call is in flight is asked once it returns, always:
+ *            asking again is harmless. Each answer is that call's: a
+ *            refusal with a later put waiting changes nothing, one of the
+ *            last drops the Move and says why.
  * 3. Agree   a Move with nothing left to ask goes once the Session as
  *            synced is where the user put it, or HOLD after its last call
  *            returned, whichever is first.
@@ -169,9 +169,9 @@ const make = Effect.gen(function* () {
           _tag: 'Took' as const,
         })).pipe(Effect.provide(clients));
         const took = ended._tag === 'Took';
-        const last = (yield* Ref.get(entries)).get(key)?.plan.settled;
-        yield* change(key, (plan) => answered(plan, settled, took));
-        if (ended._tag === 'Refused' && last === settled)
+        const waiting = (yield* Ref.get(entries)).get(key)?.plan.waiting;
+        yield* change(key, (plan) => answered(plan, took));
+        if (ended._tag === 'Refused' && waiting === false)
           yield* PubSub.publish(refusals, { settled, reason: ended.reason });
         yield* show;
       }
