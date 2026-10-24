@@ -22,6 +22,7 @@ import {
   SignedOut,
 } from '../sign-in/index.ts';
 import { Theme, ThemeToggle } from '../ui/theme/index.ts';
+import { Toasts } from '../ui/toast/index.ts';
 import { Dictation } from './actors/dictation/index.ts';
 import { Header } from './actors/header/index.ts';
 import { MachineList } from './actors/machine-list/index.ts';
@@ -223,9 +224,6 @@ function Signed({
                   <Header.model instance={children.header} />
                 </div>
                 <SessionActions.view instance={children.sessionActions} />
-                <SessionSwitcher.view instance={children.sessionSwitcher} />
-                <ProjectPicker.view instance={children.projectPicker} />
-                <MicrophonePicker.view instance={children.microphonePicker} />
                 {route._tag === 'Project' && (
                   <Header.Offline machineId={route.machineId} />
                 )}
@@ -237,6 +235,10 @@ function Signed({
             ),
           }}
         >
+          {/* Opened by keys, or from elsewhere: no button of their own here. */}
+          <SessionSwitcher.view instance={children.sessionSwitcher} />
+          <ProjectPicker.view instance={children.projectPicker} />
+          <MicrophonePicker.view instance={children.microphonePicker} />
           <ProjectPicker.notice instance={children.projectPicker} />
           {children.Home ? (
             <>
@@ -264,6 +266,7 @@ function Signed({
         <Dictation.DraftsShown value={drafts.count}>
           <Dictation.view instance={children.dictation} />
         </Dictation.DraftsShown>
+        <Toasts />
       </MicrophonePicker.Opener>
     </Dictation.Dictating>
   );
@@ -304,15 +307,18 @@ function Screen({
           <keys.Surface id="sidebar" asChild>
             <div className="flex min-h-0 flex-1 flex-col rounded-xl pt-2 md:mx-2">
               <SidebarSwitch home={route._tag === 'Home'} />
-              <div className="no-scrollbar flex min-h-0 flex-1 flex-col gap-2 overflow-auto">
-                {sidebar}
-              </div>
-              <div className="flex items-center gap-2 p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:pb-2">
+              <Sidebar.PullToReload>
+                <div className="no-scrollbar flex min-h-0 flex-1 flex-col gap-2 overflow-auto">
+                  {sidebar}
+                </div>
+              </Sidebar.PullToReload>
+              {/* The App Shell keeps it above the home indicator. */}
+              <div className="flex items-center gap-2 p-2">
                 <div className="min-w-0 flex-1">
                   <Sidebar.SettingsLink route={route} />
                 </div>
                 {/* The header's, on a phone, where the header has no room. */}
-                <div className="flex items-center gap-1 md:hidden">
+                <div className="flex items-center gap-1 md:hidden [&_[data-slot=avatar]]:size-9">
                   <ThemeToggle />
                   <Account />
                 </div>
