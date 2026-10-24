@@ -67,7 +67,7 @@ export function Title({
     <span className="flex min-w-0 items-center gap-1.5">
       <Router.Link
         to={places.project(machineId, project.id)}
-        className="focus-ring hidden shrink-0 items-center rounded-sm font-normal text-muted-foreground transition-colors duration-150 hover:text-foreground sm:flex sm:min-h-11 keyboard:sm:min-h-0"
+        className="focus-ring hidden shrink-0 items-center rounded-sm font-normal text-muted-foreground transition-colors duration-150 hover:text-foreground sm:flex sm:min-h-11 sm:min-w-11 keyboard:sm:min-h-0 keyboard:sm:min-w-0"
       >
         {project.name}
       </Router.Link>
