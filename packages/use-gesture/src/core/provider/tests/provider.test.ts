@@ -382,7 +382,10 @@ describe('createGestureProvider: a plain touch source', () => {
     tracker.sink.down(at(screen, 1, 0, 0, 0));
     tracker.sink.move({ ...at(screen, 1, 0, 30, 10), undecided: true });
     expect(heard.direction).not.toHaveBeenCalled();
-    expect(tracker.sink.pick('down')).toBe('directions');
+    expect(tracker.sink.pick('down')).toEqual({
+      zone: screen,
+      how: 'directions',
+    });
     tracker.sink.settle('down');
     expect(heard.direction).toHaveBeenCalledWith('down');
     expect(tracker.sink.direction()).toBe('down');

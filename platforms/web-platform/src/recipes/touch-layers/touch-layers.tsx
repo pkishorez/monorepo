@@ -10,7 +10,7 @@ import {
   use,
   useRef,
 } from 'react';
-import { useFieldAtPress, useFocusOnOpen } from './focus.ts';
+import { raiseKeyboard, useFieldAtPress, useFocusOnOpen } from './focus.ts';
 import { useLastLook } from './last-look.ts';
 import { useVisibleViewport } from './visible-viewport.ts';
 
@@ -28,7 +28,9 @@ import { useVisibleViewport } from './visible-viewport.ts';
  *                takes focus from a field in it first, and only closes it
  *                once nothing in it has focus. A field marked
  *                `data-autofocus` takes focus a frame after it is on
- *                screen, never as it appears.
+ *                screen, never as it appears; the tap that opens it calls
+ *                `raiseKeyboard`, so the on-screen keyboard rises in the
+ *                tap, as iOS needs, and is up for it.
  *
  * `LayerHeader` heads either: the title, a way back when there is one,
  * and, in a Top Dialog, a way to close it.
@@ -139,6 +141,8 @@ export function TopDialog({ open, onOpenChange, label, children }: Layer) {
     </DialogPrimitive.Root>
   );
 }
+
+export { raiseKeyboard };
 
 function FocusOnOpen({
   layer,

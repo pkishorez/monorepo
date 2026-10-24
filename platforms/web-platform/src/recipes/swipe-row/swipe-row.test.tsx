@@ -103,6 +103,18 @@ describe('SwipeRow', () => {
     expect(onSwipe).not.toHaveBeenCalled();
   });
 
+  it('jumps home under reduced motion, rather than springing', async () => {
+    MotionGlobalConfig.instantAnimations = false;
+    render({ direction: 'right', onSwipe: () => {}, sounds: false });
+    const moved = () =>
+      (host.querySelector('[data-testid="row"]')!.parentElement as HTMLElement)
+        .style.transform;
+    swipe(200, { steps: 40 });
+    // One frame after letting go: a spring would still be on its way.
+    await act(async () => vi.advanceTimersByTimeAsync(20));
+    expect(moved()).toBe('none');
+  });
+
   it('goes on a fast flick, however short', async () => {
     const onSwipe = vi.fn();
     render({ direction: 'right', onSwipe, sounds: false });
