@@ -23,7 +23,7 @@ Node 24 or later. Peer dependencies:
 - `react` (optional): required by `@tanstack/react-db`; only needed when you use `@kestack/std-toolkit/sync`.
 - `@kestack/kabuki` (optional): `@kestack/std-toolkit/replica` runs as Kabuki actors and Commands.
 - `@tanstack/db` (optional): `@kestack/std-toolkit/replica` shows each Instance in TanStack DB Collections, without React.
-- `alchemy` (optional): only `@kestack/std-toolkit/alchemy` imports it, to deploy a table and guard its contract.
+- `alchemy`, `@alchemy.run/cloudflare` and `@alchemy.run/aws` (optional): only `@kestack/std-toolkit/alchemy` imports them, to deploy a table (D1 on Cloudflare, DynamoDB on AWS) and guard its contract.
 
 ## Exports
 
@@ -73,7 +73,7 @@ The file holds the table snapshot: topology, entities, and every version of ever
 
 ### `@kestack/std-toolkit/alchemy`
 
-Deploys a StdTable with Alchemy. Each table resource takes a required `mode`. A persistent table gets a deploy guard: it keeps the Deployed contract in Alchemy state and fails the deploy when the new snapshot breaks it. Add `providers()` to the stack's providers.
+Deploys a StdTable with Alchemy. Each table resource takes a required `mode`. A persistent table gets a deploy guard: it keeps the Deployed contract in Alchemy state and fails the deploy when the new snapshot breaks it. Add `providers()` to the stack's providers, over Cloudflare's, which its D1 table runs on.
 
 | Export              | What it does                                                                                                                         |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |

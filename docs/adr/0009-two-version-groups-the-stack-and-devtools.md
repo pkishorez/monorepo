@@ -4,7 +4,7 @@ Status: accepted. Narrows [ADR 0008](0008-one-version-for-the-packages-that-depe
 
 The changeset `fixed` config holds two groups instead of one.
 
-- **The stack**: ai-toolkit, auth-toolkit, rpc-toolkit, std-toolkit, the Web Platform and effect-webrtc. They read each other, and an app installs them together, so they release under one version. They start at `0.0.1`.
+- **The stack**: ai-toolkit, auth-toolkit, rpc-toolkit, std-toolkit and the Web Platform. They read each other, and an app installs them together, so they release under one version. They start at `0.0.1`.
 - **DevTools**: `@kestack/devtools`, `@kestack/effect-tracer` and `laymos`. devtools runs laymos and effect-tracer and reads their shapes, and laymos depends on effect-tracer, so a change in one is a release of all three. They continue from laymos's version.
 
 kabuki, use-gesture, use-keys and `use-effect-ts` depend on nothing in the repo and keep their own versions.

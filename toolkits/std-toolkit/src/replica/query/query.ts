@@ -147,14 +147,14 @@ const make = <
                 made: { live, preloaded },
                 reads,
               } = readsOf(() => {
-                const live = createLiveQueryCollection({
+                const collection = createLiveQueryCollection({
                   query: options.query({ props }, instances) as (
                     q: InitialQueryBuilder,
                   ) => QueryBuilder<any>,
                   startSync: true,
                   gcTime: 0,
                 });
-                return { live, preloaded: live.preload() };
+                return { live: collection, preloaded: collection.preload() };
               });
               yield* Effect.addFinalizer(() =>
                 Effect.promise(() => live.cleanup()),
