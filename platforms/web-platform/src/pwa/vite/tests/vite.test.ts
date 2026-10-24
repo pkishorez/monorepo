@@ -116,8 +116,8 @@ describe('pwa() build', () => {
         expect.stringMatching(/^\/assets\/index-.*\.js$/),
       ]),
     );
+    // No App Shell: the presets leave it off, as Kabuki Start prerenders none.
     expect(urls.filter((url) => !url.startsWith('/assets/'))).toEqual([
-      '/_shell',
       '/icon-192.png',
       '/offline',
     ]);

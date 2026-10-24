@@ -171,7 +171,7 @@ pnpm add @kestack/kabuki effect react
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `Start.app`        | Takes the app's router, its root page's View, its Document and what the Actors Require in the browser, checked against them: what `src/app` default-exports. |
 | `Start.Document`   | The plainest Document, Start's parts in an English page: what an app that gives none is drawn in.                                                            |
-| `Start.Head`       | Draws, in the Document's `<head>`, the charset and viewport, the Metadata, and the styles and chunks the page needs.                                         |
+| `Start.Head`       | Draws, in the Document's `<head>`, the charset and viewport (its own with `viewport`), the Metadata, and the styles and chunks the page needs.               |
 | `Start.Scripts`    | Draws, at the end of the Document's `<body>`, the saved History as JSON and the script that hydrates the page.                                               |
 | `Start.useDrawn`   | Reads when and by which build the server drew the page, and whether the component asking was in that drawing or drawn later by the browser.                  |
 | `Start.useRuntime` | Reads the running app from the Document, for devtools drawn around it; `null` on the server.                                                                 |

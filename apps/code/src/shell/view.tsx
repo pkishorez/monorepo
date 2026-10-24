@@ -2,8 +2,9 @@ import { useChild, View, type ViewProps } from '@kestack/kabuki/react';
 import { Router, useRouter } from '@kestack/kabuki/routing';
 import { AccountSwitcherView } from '@kestack/web-platform/account-switcher';
 import { AppShell, useAppShell } from '@kestack/web-platform/recipes/frame';
+import { useDevice } from '@kestack/web-platform/input';
 import { KeysStatusBar } from '@kestack/web-platform/recipes/keyboard';
-import { useMemo, type ComponentProps, type ReactNode } from 'react';
+import { useEffect, useMemo, type ComponentProps, type ReactNode } from 'react';
 import type { Ask } from '../layer/capabilities/index.ts';
 import { keys } from '../keys.ts';
 import * as places from './places/index.ts';
@@ -195,6 +196,12 @@ function Signed({
         route={route}
         sidebar={
           <Sidebar.Slots value={slots}>
+            {/* On a phone the sidebar is home, so it says what home would. */}
+            {children.machines && (
+              <div className="md:hidden">
+                <MachineList.view instance={children.machines} />
+              </div>
+            )}
             <Sidebar.view instance={children.sidebar} />
           </Sidebar.Slots>
         }
@@ -202,7 +209,10 @@ function Signed({
           title: <Header.view instance={children.header} />,
           actions: (
             <>
-              <Header.model instance={children.header} />
+              {/* A phone keeps the header to where you are and Session Actions. */}
+              <div className="hidden md:contents">
+                <Header.model instance={children.header} />
+              </div>
               <SessionActions.view instance={children.sessionActions} />
               <SessionSwitcher.view instance={children.sessionSwitcher} />
               <ProjectPicker.view instance={children.projectPicker} />
@@ -210,8 +220,10 @@ function Signed({
               {route._tag === 'Project' && (
                 <Header.Offline machineId={route.machineId} />
               )}
-              <ThemeToggle />
-              <Account />
+              <div className="hidden md:contents">
+                <ThemeToggle />
+                <Account />
+              </div>
             </>
           ),
         }}
@@ -264,25 +276,36 @@ function Screen({
   readonly children: ReactNode;
 }) {
   const { vim, enter } = keys.useKeyboard();
+  // A touch screen with no keyboard has no use for the keys' status line.
+  const { keyboard } = useDevice();
   return (
     <AppShell
       // In Vim Mode the shell floats as a window, with the keys' own
       // status line at its foot, saying the Mode and where the keys are.
       vim={{
-        on: vim.on,
+        on: vim.on && keyboard,
         statusLine: <KeysStatusBar keys={keys} onHelp={() => enter('help')} />,
       }}
+      // On a phone the sidebar is a page of its own: home.
+      phone="page"
       sidebar={{
         width: 260,
         content: (
           <keys.Surface id="sidebar" asChild>
             <div className="flex min-h-0 flex-1 flex-col rounded-xl pt-2 md:mx-2">
-              <SidebarSwitch />
+              <SidebarSwitch home={route._tag === 'Home'} />
               <div className="no-scrollbar flex min-h-0 flex-1 flex-col gap-2 overflow-auto">
                 {sidebar}
               </div>
-              <div className="flex flex-col gap-2 p-2">
-                <Sidebar.SettingsLink route={route} />
+              <div className="flex items-center gap-2 p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:pb-2">
+                <div className="min-w-0 flex-1">
+                  <Sidebar.SettingsLink route={route} />
+                </div>
+                {/* The header's, on a phone, where the header has no room. */}
+                <div className="flex items-center gap-1 md:hidden">
+                  <ThemeToggle />
+                  <Account />
+                </div>
               </div>
             </div>
           </keys.Surface>
@@ -308,12 +331,19 @@ function Screen({
 /**
  * `b` shows or hides the sidebar. Hiding it while
  * the keyboard is in it goes to the page, so focus is never left in what
- * is hidden. Not kept: the App Shell holds whether it is open, shut at
- * first on a phone and open on a wide screen.
+ * is hidden. Not kept: the App Shell holds whether it is open, open on a
+ * wide screen, and on a phone, where it is the whole screen, open at home
+ * and shut on any other page, which the header's back arrow opens it from.
  */
-function SidebarSwitch() {
+
+function SidebarSwitch({ home }: { readonly home: boolean }) {
   const shell = useAppShell();
   const { active, enter } = keys.useKeyboard();
+  // On a phone the sidebar is home: open there, and shut anywhere else.
+  const { isMobile, setOpen } = shell;
+  useEffect(() => {
+    if (isMobile) setOpen(home);
+  }, [isMobile, home, setOpen]);
   const toggle = () => {
     if (shell.open && active === 'sidebar') enter('content');
     shell.toggle();

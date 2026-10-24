@@ -242,7 +242,7 @@ export const DictationBadge = View.make(
       <div
         {...root}
         role="status"
-        className="pointer-events-none fixed right-4 bottom-4 z-100 flex flex-col items-end gap-2"
+        className="pointer-events-none fixed right-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-100 flex flex-col items-end gap-2"
       >
         {notice}
         {recording}

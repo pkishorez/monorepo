@@ -22,14 +22,15 @@ import {
 } from './actor.ts';
 import { AskAnswer } from './ask.tsx';
 import { btwQuestion } from './btw.ts';
-import { Card, StatusLine, useDraft } from './card.tsx';
+import { Card, PRIMARY, StatusLine, useDraft } from './card.tsx';
 import { ModelPicker, Triggers } from './model-picker/index.ts';
 import { SkillPicker } from './skills.ts';
 
 /*
  * The Draft at the page's foot: the line that says why nothing can be
  * sent or what went wrong, the Draft's card, and under it the Status Line
- * with the model Picker's triggers and the send button. A new session's
+ * with the model Picker's triggers and the send button, which takes the
+ * mic's place once there is something to send. A new session's
  * says Start session; a Session's says Send, Steer while the agent runs, or
  * Ask for a `/btw`, whose answer floats over it until Escape closes it.
  * What the page adds, such as a Session's Stop, comes through `Slots`.
@@ -187,31 +188,20 @@ export const DraftView = View.make(
         <Card draft={draft}>
           <StatusLine
             draft={draft}
-            actions={
-              <>
-                {slots.actions}
-                <Button
-                  type="button"
-                  size="sm"
-                  aria-label={label}
-                  title={title}
-                  disabled={blocked}
-                  onClick={draft.send}
-                >
-                  {fresh ? (
-                    <>
-                      {model.starting ? (
-                        <Spinner />
-                      ) : (
-                        <ArrowUpIcon aria-hidden />
-                      )}
-                      <span className="hidden @sm/status:inline">{label}</span>
-                    </>
-                  ) : (
-                    label
-                  )}
-                </Button>
-              </>
+            actions={slots.actions}
+            send={
+              <Button
+                type="button"
+                size="icon"
+                aria-label={label}
+                title={title}
+                disabled={blocked}
+                onClick={draft.send}
+                className={`${PRIMARY} @sm/status:w-auto @sm/status:px-3.5 pointer-coarse:@sm/status:w-auto`}
+              >
+                {model.starting ? <Spinner /> : <ArrowUpIcon aria-hidden />}
+                <span className="hidden @sm/status:inline">{label}</span>
+              </Button>
             }
           >
             <Triggers

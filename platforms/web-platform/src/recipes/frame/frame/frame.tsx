@@ -27,6 +27,8 @@ interface FrameState {
   readonly toggle: () => void;
   readonly isMobile: boolean;
   readonly hasSidebar: boolean;
+  /** How the sidebar shows on a phone: a drawer beside the page, or a page of its own. */
+  readonly phone: 'drawer' | 'page';
 }
 
 const FrameContext = createContext<FrameState | null>(null);
@@ -45,6 +47,8 @@ interface FrameProps {
   /** The page. */
   readonly children: ReactNode;
   readonly swipe: 'anywhere' | 'edge' | 'off';
+  /** How the sidebar shows on a phone. */
+  readonly phone: 'drawer' | 'page';
   /** The sidebar's width on a wide screen, in px. */
   readonly sidebarWidth?: number;
   /** Drawn outside the moving page, told whether the sidebar is open. */
@@ -92,6 +96,7 @@ function Page(props: {
       toggle: noop,
       isMobile,
       hasSidebar: false,
+      phone: 'drawer',
     }),
     [isMobile],
   );
@@ -116,14 +121,26 @@ function WithSidebar(props: FrameProps & { readonly sidebar: ReactNode }) {
   // The two values everything is drawn from. The server can't know either,
   // so until hydration ends the classes give both by the breakpoint.
   const values = {
-    '--sidebar-open': useOpenProgress({ open, setOpen, swipe: props.swipe }),
+    '--sidebar-open': useOpenProgress({
+      open,
+      setOpen,
+      swipe: props.swipe,
+      page: props.phone === 'page',
+    }),
     '--sidebar-mobile': useMobileProgress(),
   };
   const hydrated = useHydrated();
 
   const state = useMemo<FrameState>(
-    () => ({ open: shown, setOpen, toggle, isMobile, hasSidebar: true }),
-    [shown, setOpen, toggle, isMobile],
+    () => ({
+      open: shown,
+      setOpen,
+      toggle,
+      isMobile,
+      hasSidebar: true,
+      phone: props.phone,
+    }),
+    [shown, setOpen, toggle, isMobile, props.phone],
   );
   // On a phone the open sidebar covers the page, which is inert till it shuts.
   const covered = isMobile && shown;
@@ -143,7 +160,9 @@ function WithSidebar(props: FrameProps & { readonly sidebar: ReactNode }) {
               props.sidebarWidth === undefined
                 ? '16rem'
                 : `${props.sidebarWidth}px`,
-            '--sidebar-width-mobile': '18rem',
+            // A page of its own pushes the page off the whole screen.
+            '--sidebar-width-mobile':
+              props.phone === 'page' ? '100vw' : '18rem',
           } as CSSProperties
         }
         // The page is inert while covered, so a tap on it lands here: that

@@ -14,11 +14,6 @@ import type { BuildState } from './build-state.js';
 import { mergeHeaders } from './headers.js';
 import { bundleFiles, overlay, readTree } from './output-files.js';
 import { selectAssets, selectDocuments } from '../precache/index.js';
-import {
-  assertAfterStart,
-  missingDocumentsMessage,
-  subfolderIndexMessage,
-} from './start-setup.js';
 import { workerScript } from '../worker-bundle/index.js';
 
 const NAME = 'pwa-toolkit:build';
@@ -37,8 +32,7 @@ const readOptional = (path: string): Promise<string | null> =>
 /**
  * The production pipeline. In the client environment's `generateBundle`:
  * emit the manifest, pick the non-HTML Precache entries and compute the
- * Build ID. In a post `buildApp` hook, after every environment and Start's
- * prerender: add the App Shell and Offline Fallback, write the worker (or
+ * Build ID. In a post `buildApp` hook, after every environment: add the App Shell and Offline Fallback, write the worker (or
  * the Kill Switch) to the client outDir, and merge `_headers`.
  */
 export const buildPlugin = (
@@ -91,11 +85,13 @@ export const buildPlugin = (
       ...(navigation.shell ? [navigation.shellPath] : []),
       navigation.offlineFallback,
     ]);
-    if (documents.missing.length > 0) {
-      vite.logger.warn(missingDocumentsMessage(navigation, documents.missing));
-    }
-    if (documents.subfolderIndex.length > 0) {
-      vite.logger.warn(subfolderIndexMessage(documents.subfolderIndex));
+    // Kabuki Start draws every page on request, so these are the app's
+    // own static files: `public/offline.html`, and `public/_shell.html`
+    // when it turns the App Shell on.
+    for (const path of documents.missing) {
+      vite.logger.warn(
+        `pwa-toolkit: not in the Precache, no ${path.slice(1)}.html in the app's public/ folder`,
+      );
     }
     const bytes = assets.bytes + documents.bytes;
     if (bytes > config.precache.warnAboveBytes) {
@@ -117,7 +113,6 @@ export const buildPlugin = (
     sharedDuringBuild: true,
     configResolved(resolved) {
       vite = resolved;
-      assertAfterStart(resolved.plugins, NAME);
     },
     async generateBundle(_options, bundle) {
       if (this.environment.name !== 'client') return;

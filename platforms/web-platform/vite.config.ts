@@ -28,15 +28,9 @@ export default defineConfig({
     dts: { sourcemap: true },
     sourcemap: true,
     publint: false,
-    // Cloudflare's types stay an import, never copied into ours; a file
-    // imported `?url` stays an import, for the app's bundler to ship.
+    // A file imported `?url` stays an import, for the app's bundler to ship.
     deps: {
-      neverBundle: [
-        /^virtual:/,
-        /^node:/,
-        /^@cloudflare\/workers-types/,
-        /\?url$/,
-      ],
+      neverBundle: [/^virtual:/, /^node:/, /\?url$/],
     },
   },
   test: {

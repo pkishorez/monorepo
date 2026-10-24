@@ -164,7 +164,7 @@ export function List<P>({
         onKeyDown={(event) => {
           if (CMDK_KEYS.has(event.key)) event.preventDefault();
         }}
-        className="rounded-none! bg-transparent"
+        className="rounded-none! bg-transparent max-md:min-h-0 max-md:flex-1"
       >
         {trail.length > 0 && (
           <nav
@@ -206,8 +206,13 @@ export function List<P>({
           value={query}
           onValueChange={(next) => send({ _tag: 'Typed', query: next })}
           placeholder={shown.placeholder}
+          // 16px on a phone, or iOS zooms in as it is focused.
+          className="max-md:text-base"
         />
-        <CommandList ref={list} className="max-h-[min(22rem,55dvh)]">
+        <CommandList
+          ref={list}
+          className="max-h-[min(22rem,55dvh)] max-md:max-h-none max-md:flex-1"
+        >
           <CommandEmpty
             className={
               shown.problem !== null ? 'px-4 text-destructive' : undefined
@@ -268,7 +273,7 @@ export function List<P>({
         </CommandList>
         <p
           aria-hidden
-          className="flex gap-3 border-t border-border px-3 py-1.5 text-[11px] text-muted-foreground"
+          className="flex gap-3 border-t border-border px-3 py-1.5 text-[11px] text-muted-foreground touch:hidden keyboard:flex"
         >
           <span>{hint('picker.pick')} pick</span>
           <span>{hint('picker.finish')} done</span>

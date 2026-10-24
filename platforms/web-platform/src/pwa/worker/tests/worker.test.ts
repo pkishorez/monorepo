@@ -31,7 +31,14 @@ const build = (
     { url: '/_shell', revision: 's1' },
     { url: '/offline', revision: 'o1' },
   ],
-  config: workerConfigOf(resolvePwaConfig({ preset: 'app', ...options })),
+  // With the App Shell and without saved pages unless a test says so.
+  config: workerConfigOf(
+    resolvePwaConfig({
+      preset: 'app',
+      ...options,
+      navigation: { shell: true, cachePages: false, ...options.navigation },
+    }),
+  ),
 });
 
 const start = (
@@ -279,6 +286,19 @@ describe('navigation', () => {
     expect(await text(missing.fetchEvent('/page', { mode: 'navigate' }))).toBe(
       'newer-build',
     );
+  });
+
+  it("serves this build's saved page without the network while an update waits", async () => {
+    const fake = start(
+      build({ navigation: { cachePages: true, shell: false } }),
+      { waiting: true },
+    );
+    fake.caches.seed(pagesCacheName(BUILD), { '/page': 'page-v1' });
+    fake.setNetwork(() => new Response('newer-build'));
+    expect(await text(fake.fetchEvent('/page', { mode: 'navigate' }))).toBe(
+      'page-v1',
+    );
+    expect(fake.requests).toEqual([]);
   });
 
   it("doesn't save pages while an update waits", async () => {
