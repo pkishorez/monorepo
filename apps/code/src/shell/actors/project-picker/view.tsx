@@ -50,6 +50,9 @@ export const ProjectPickerButton = View.make(
         onOpen={() => send({ _tag: 'Open', how: 'pointer' })}
         side="bottom"
         className="w-96"
+        // On a phone it floats at the bottom right. Wider, it sits in the
+        // Projects heading, 24px drawn, but a finger's 44px to tap unless
+        // there is a keyboard.
         trigger={
           <Button
             variant="ghost"
@@ -58,7 +61,7 @@ export const ProjectPickerButton = View.make(
             title={
               bound === null ? 'Open a project' : `Open a project (${bound})`
             }
-            className="text-muted-foreground max-md:fixed max-md:right-[max(1.25rem,env(safe-area-inset-right))] max-md:bottom-[max(4.5rem,calc(env(safe-area-inset-bottom)+4rem))] max-md:z-20 max-md:size-14 max-md:rounded-full max-md:bg-primary max-md:text-primary-foreground max-md:shadow-lg max-md:hover:bg-primary/90 max-md:active:scale-95 max-md:[&_svg]:size-6!"
+            className="relative text-muted-foreground before:absolute before:-inset-2.5 before:content-[''] keyboard:md:before:content-none max-md:fixed max-md:right-[max(1.25rem,env(safe-area-inset-right))] max-md:bottom-[max(4.5rem,calc(env(safe-area-inset-bottom)+4rem))] max-md:z-20 max-md:size-14 max-md:rounded-full max-md:bg-primary max-md:text-primary-foreground max-md:shadow-lg max-md:hover:bg-primary/90 max-md:active:scale-95 max-md:[&_svg]:size-6!"
           >
             <PlusIcon aria-hidden />
           </Button>

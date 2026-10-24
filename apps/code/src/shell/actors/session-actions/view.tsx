@@ -47,7 +47,7 @@ export const SessionActionsView = View.make(
             title={
               bound === null ? 'Session actions' : `Session actions (${bound})`
             }
-            className="shrink-0 text-muted-foreground max-md:order-last max-md:size-11 max-md:rounded-full max-md:[&_svg]:size-5"
+            className="size-11 shrink-0 text-muted-foreground keyboard:md:size-8 max-md:order-last max-md:rounded-full [&_svg]:size-5 keyboard:md:[&_svg]:size-4"
           >
             <EllipsisIcon aria-hidden />
           </Button>

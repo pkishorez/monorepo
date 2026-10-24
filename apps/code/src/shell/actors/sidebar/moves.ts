@@ -22,9 +22,12 @@ const moveOf = (
 ) =>
   moving.find((move) => move.machineId === machineId && move.sessionId === id);
 
+/** When a Session swiped to Settle was Settled: after any real time. */
+const PENDING = Number.MAX_SAFE_INTEGER - 2 ** 32;
+
 /**
  * The Sessions as they show: one swiped to Settle is Settled, the most
- * recently of all, and one swiped back is not.
+ * recently of all, a later swipe later still, and one swiped back is not.
  */
 export const movedOf = (
   sessions: ReadonlyArray<OnMachine<Session>>,
@@ -38,7 +41,7 @@ export const movedOf = (
           return session;
         return {
           ...session,
-          settledAt: move.settled ? Number.MAX_SAFE_INTEGER - move.n : null,
+          settledAt: move.settled ? PENDING + move.n : null,
         };
       });
 

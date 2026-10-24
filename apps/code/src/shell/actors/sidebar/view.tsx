@@ -140,7 +140,7 @@ function MachineFilter({
           <SelectTrigger
             size="sm"
             aria-label="Machine"
-            className="min-w-0 flex-1 border-none shadow-none max-md:h-11 max-md:text-base max-md:font-semibold"
+            className="min-w-0 flex-1 border-none shadow-none data-[size=sm]:h-11 keyboard:md:data-[size=sm]:h-8 max-md:text-base max-md:font-semibold"
           >
             <SelectValue />
           </SelectTrigger>
@@ -160,7 +160,7 @@ function MachineFilter({
         aria-label="Reload the Machines"
         title="Reload the Machines"
         onClick={onReload}
-        className="max-md:-mr-1 max-md:text-muted-foreground max-md:size-11 max-md:rounded-full"
+        className="size-11 keyboard:md:size-8 max-md:-mr-1 max-md:rounded-full max-md:text-muted-foreground"
       >
         <RefreshCwIcon />
       </Button>
