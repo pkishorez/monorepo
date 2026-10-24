@@ -8,7 +8,8 @@ import { MicrophonePickerLive, MicrophonesView } from './actor.ts';
 /*
  * The Microphone Picker: `d` opens it centred from anywhere, drawn by the
  * View the shell keeps; the Button, the small chevron beside the Status
- * Line's mic, opens it by pointer as a popover by it.
+ * Line's mic, opens it by pointer as a popover by it, and by a tap in a
+ * Drawer.
  */
 
 const LABEL = 'Choose the microphone';
@@ -23,6 +24,7 @@ export const MicrophonePickerView = View.make(
     return (
       <Picker.Frame
         how={model.picking === 'keys' ? 'keys' : null}
+        mode="drawer"
         label={LABEL}
       >
         {children.picker && <MicrophonesView instance={children.picker} />}
@@ -38,6 +40,7 @@ export const MicrophonePickerButton = View.make(
     return (
       <Picker.Frame
         how={model.picking === 'pointer' ? 'pointer' : null}
+        mode="drawer"
         label={LABEL}
         onOpen={() => send({ _tag: 'Open', how: 'pointer' })}
         side="top"

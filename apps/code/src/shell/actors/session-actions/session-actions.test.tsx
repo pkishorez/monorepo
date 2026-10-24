@@ -69,7 +69,7 @@ const Actions = View.make(SessionActionsLive, ({ model, children, send }) => {
       },
     });
   return (
-    <Picker.Frame how={model.picking} label="Session actions">
+    <Picker.Frame how={model.picking} mode="drawer" label="Session actions">
       {children.picker && <ActionsView instance={children.picker} />}
     </Picker.Frame>
   );

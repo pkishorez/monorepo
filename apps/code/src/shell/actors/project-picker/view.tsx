@@ -14,8 +14,9 @@ import { ProjectPickerLive, ProjectsView } from './actor.ts';
  * View the shell keeps whatever the sidebar shows;
  * the Button, the plus beside the sidebar's Projects, opens it by pointer
  * as a popover by it. On a phone, where the sidebar is the whole screen,
- * the plus floats in its bottom right corner, under the thumb. A folder made without its git repository says so
- * over the page until dismissed.
+ * the plus floats in its bottom right corner, under the thumb. A tap opens
+ * it in a Dialog, its folders too. A folder made without its git repository
+ * says so over the page until dismissed.
  */
 
 export const ProjectPickerView = View.make(
@@ -28,6 +29,7 @@ export const ProjectPickerView = View.make(
     return (
       <Picker.Frame
         how={model.picking === 'keys' ? 'keys' : null}
+        mode="dialog"
         label="Open a project"
       >
         {children.picker && <ProjectsView instance={children.picker} />}
@@ -43,6 +45,7 @@ export const ProjectPickerButton = View.make(
     return (
       <Picker.Frame
         how={model.picking === 'pointer' ? 'pointer' : null}
+        mode="dialog"
         label="Open a project"
         onOpen={() => send({ _tag: 'Open', how: 'pointer' })}
         side="bottom"
