@@ -1,0 +1,38 @@
+{
+  "name": "hands",
+  "description": "A playground for hand gestures in the browser: MediaPipe reads your hands from the camera, on the GPU, and a checklist lights up each gesture as you make it, published at hands.kishore.app.",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "scripts": {
+    "dev": "vp run --filter 'hands^...' build && portless run --force alchemy dev",
+    "build": "vp build",
+    "lint": "tsc --noEmit && pnpm lint:laymos",
+    "lint:laymos": "laymos lint",
+    "test": "vitest run",
+    "deploy": "alchemy deploy",
+    "deploy:prod": "ALLOW_DEPLOY=true alchemy deploy --stage prod"
+  },
+  "dependencies": {
+    "@kestack/kabuki": "workspace:*",
+    "@kestack/web-platform": "workspace:*",
+    "@mediapipe/tasks-vision": "catalog:",
+    "effect": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "catalog:",
+    "@tailwindcss/vite": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "alchemy": "catalog:",
+    "laymos": "workspace:*",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}
