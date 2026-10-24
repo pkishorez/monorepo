@@ -2,6 +2,7 @@
 '@kestack/web-platform': patch
 ---
 
-`AppShell`'s `phone="page"` makes the sidebar a page of its own on a phone:
-it fills the screen, the page slides off it, and the header's button is a
-back arrow to it. `drawer`, the default, is the sidebar as it was.
+`AppShell`'s `sidebarMode` sets how the Sidebar shows on a narrow screen.
+`fullscreen` makes it a page of its own: it fills the screen, the page slides
+off it, and the header's button is a back arrow to it. `slide`, the default,
+is the Sidebar as it was, beside the page.
