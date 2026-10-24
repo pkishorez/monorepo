@@ -150,6 +150,7 @@ const world = (options: {
       setMicrophone: (microphone) => SubscriptionRef.set(chosen, microphone),
       setSidebarMachine: () => Effect.void,
       markSeen: () => Effect.void,
+      setMove: () => Effect.void,
       changes: SubscriptionRef.changes(chosen).pipe(
         Stream.drop(1),
         Stream.map(() => undefined),
