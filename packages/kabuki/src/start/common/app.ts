@@ -38,6 +38,8 @@ export interface ServedApp {
   readonly routes: {
     readonly route: Codec<any>;
     readonly path: (route: any) => string;
+    /** Every place's path, as written from the root, by dotted name. */
+    readonly paths: () => Readonly<Record<string, string>>;
     readonly metadata: (of: any, data?: PlaceData) => Metadata;
     readonly places: (of: any) => ReadonlyArray<Place>;
     readonly every: ReadonlyArray<PlaceSchema>;

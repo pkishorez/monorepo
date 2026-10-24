@@ -771,3 +771,88 @@ describe('the Loader RPC', () => {
     expect(response.status).toBe(400);
   });
 });
+
+describe('the Pages', () => {
+  it('names every page with its path and how its first drawing is made', async () => {
+    const response = await get(Start.pages);
+    expect(response.headers.get('content-type')).toBe('application/json');
+    const pages = (await response.json()) as Start.Pages;
+    expect(pages.build).toBe('build-1');
+    expect(pages.shell).toBe('/_kabuki/shell');
+    const by = Object.fromEntries(pages.pages.map((one) => [one.name, one]));
+    expect(by['Home']).toEqual({
+      name: 'Home',
+      path: '/',
+      params: false,
+      render: 'static',
+    });
+    expect(by['Blog.Post']).toMatchObject({
+      path: '/blog/:slug',
+      params: true,
+      render: 'static',
+    });
+    expect(by['Account']?.render).toBe('dynamic');
+    // A client place under a dynamic one: the server still draws the dynamic one.
+    expect(by['Account.Activity']?.render).toBe('dynamic');
+    expect(by['Dashboard']?.render).toBe('client');
+    expect(by['Sketch']?.render).toBe('client');
+  });
+
+  it('says no build in dev', async () => {
+    const dev = handler({
+      app: started,
+      server: served,
+      build: { ...build, id: undefined },
+    });
+    const response = await dev.fetch(
+      new Request(`https://site.test${Start.pages}`),
+      host,
+    );
+    expect(((await response.json()) as Start.Pages).build).toBeNull();
+  });
+
+  it('answers nothing but a GET or a HEAD', async () => {
+    expect((await get(Start.pages, { method: 'POST' })).status).toBe(405);
+    const head = await get(Start.pages, { method: 'HEAD' });
+    expect(head.status).toBe(200);
+    expect(await head.text()).toBe('');
+  });
+});
+
+describe('the App Shell', () => {
+  it('is the Document with its files and no app, which the browser draws', async () => {
+    const { response, html } = await page('/_kabuki/shell');
+    expect(response.status).toBe(200);
+    expect(html.startsWith('<!DOCTYPE html>')).toBe(true);
+    expect(html).toContain('<link rel="stylesheet" href="/assets/entry.css"/>');
+    expect(html).toContain(
+      '<script type="module" src="/assets/entry.js"></script>',
+    );
+    expect(html).not.toContain('<p>home</p>');
+    expect(html).not.toContain('<title>');
+    const shell = saved(html);
+    expect(shell.saved).toBeUndefined();
+    expect(shell.drawn.build).toBe('build-1');
+    expect(runs).toEqual([]);
+  });
+
+  it('is kept as a static page is, once per build', async () => {
+    const kept = new Map<string, Response>();
+    const cache = {
+      match: async (key: Request) => kept.get(key.url)?.clone(),
+      put: async (key: Request, response: Response) => {
+        kept.set(key.url, response);
+      },
+    };
+    const response = await worker.fetch(
+      new Request('https://site.test/_kabuki/shell'),
+      { ...host, cache },
+    );
+    expect(response.headers.get('cache-control')).toBe(
+      'public, max-age=0, s-maxage=31536000, no-transform',
+    );
+    expect([...kept.keys()]).toEqual([
+      'https://site.test/_kabuki/cache/build-1/_kabuki/shell',
+    ]);
+  });
+});

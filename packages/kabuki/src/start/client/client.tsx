@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import type { ComponentType } from 'react';
 import { hydrateRoot } from 'react-dom/client';
 import type { Root } from 'react-dom/client';
@@ -9,6 +10,7 @@ import { Router } from '../../routing/index.ts';
 import { browser } from '../../routing/adapter/browser/index.ts';
 import {
   Document as Plain,
+  NOT_HERE,
   PageContext,
   RuntimeContext,
   appOf,
@@ -31,6 +33,10 @@ import { loading } from './rpc.ts';
  *             loading, the client ones, load their data.
  * 4. Redraw   with new code, after a hot reload: the new App carries on from
  *             the History the old one leaves, replayed with the new code.
+ *
+ * In the App Shell the server drew no app: the Document is hydrated, and
+ * the app is drawn in the boundary the server left, at the browser's URL,
+ * every place loading.
  */
 
 /** The page once hydrated: its React root, and how to draw it again with new code. */
@@ -54,6 +60,7 @@ export const client = async (exported: StartApp): Promise<Hydrated> => {
       link.getAttribute('data-kabuki-view')!,
     ),
   );
+  const { saved } = drawn.page;
   const page = (next: StartApp) => {
     const { app, document: Document = Plain, layer } = appOf(next);
     const App = toReact(
@@ -69,14 +76,26 @@ export const client = async (exported: StartApp): Promise<Hydrated> => {
       <PageContext value={drawn}>
         <RuntimeContext value={(App as unknown as Runs).useRuntime}>
           <Document>
-            <App saved={drawn.page.saved} />
+            {saved ? (
+              <App saved={saved} />
+            ) : (
+              <Suspense fallback={null}>
+                <App />
+              </Suspense>
+            )}
           </Document>
         </RuntimeContext>
       </PageContext>
     );
   };
   // 3. Hydrate
-  const root = hydrateRoot(document, page(exported));
+  const root = hydrateRoot(document, page(exported), {
+    // The App Shell's boundary, which the server left for the browser on purpose.
+    onRecoverableError: (error) => {
+      if ((error as { digest?: string } | null)?.digest === NOT_HERE) return;
+      reportError(error);
+    },
+  });
   // 4. Redraw
   return { root, redraw: (next) => root.render(page(next)) };
 };

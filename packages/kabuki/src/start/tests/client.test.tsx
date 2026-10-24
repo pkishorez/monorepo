@@ -209,3 +209,36 @@ describe('hydrating a page Start drew', () => {
     expect(errors).toEqual([]);
   });
 });
+
+describe('the App Shell', () => {
+  /** Opens the App Shell at `path`, as a service worker answers a page with it, and hydrates it. */
+  const openShell = async (path: string) => {
+    history.replaceState(null, '', path);
+    const html = await (
+      await worker.fetch(
+        new Request(new URL('/_kabuki/shell', location.href)),
+        host,
+      )
+    ).text();
+    document.open();
+    document.write(html);
+    document.close();
+    await act(async () => {
+      ({ root, redraw } = await client(started));
+    });
+  };
+
+  it('draws the app at its own URL, every place loading, with no error', async () => {
+    await openShell('/blog/hello');
+    await until(() => document.querySelector('h1')?.textContent === 'Hello');
+    expect(runs.sort()).toEqual(['Blog', 'Blog.Post:hello']);
+    expect(errors).toEqual([]);
+  });
+
+  it('draws a client page as the page itself would', async () => {
+    await openShell('/dashboard');
+    await until(() => document.body.textContent!.includes('visits'));
+    expect(runs).toEqual(['Dashboard']);
+    expect(errors).toEqual([]);
+  });
+});
