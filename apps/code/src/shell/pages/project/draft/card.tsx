@@ -270,6 +270,8 @@ export function useDraft(options: DraftOptions) {
 
   return {
     parent: editor.parent,
+    /** The ref for the element the editor is drawn in. */
+    mount: editor.mount,
     view: editor.view,
     vim: vim.on,
     /** No keyboard: it is drawn for touch (`touch.tsx`). */
@@ -345,7 +347,7 @@ export function Card({
               {draft.placeholder}
             </p>
           )}
-          <div ref={draft.parent} className="relative" />
+          <div ref={draft.mount} className="relative" />
         </div>
         <AttachmentStrip
           attachments={draft.attachments}

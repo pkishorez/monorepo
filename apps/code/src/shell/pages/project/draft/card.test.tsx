@@ -4,6 +4,7 @@ import { createRoot, type Root as ReactRoot } from 'react-dom/client';
 import { Layer, Schema } from 'effect';
 import { Actor } from '@kestack/kabuki';
 import { toReact, View, type ViewProps } from '@kestack/kabuki/react';
+import { undoDepth } from '@codemirror/commands';
 import { EditorView } from '@codemirror/view';
 import {
   afterAll,
@@ -235,7 +236,8 @@ function OnPage({
       onShown: showing,
     },
   });
-  if (touch)
+  // As the page draws it: by what the device can be driven by, live.
+  if (draft.touch)
     return (
       <div ref={page} tabIndex={-1} data-testid="page">
         <TouchCard
@@ -580,6 +582,69 @@ describe('Draft, on a device with no keyboard', () => {
     expect(page.text).toBe('Please look ');
     expect(placeholder()).toBeNull();
     expect(marked()?.textContent).toBe(' look');
+  });
+
+  it('opens the `+` Drawer from a tap while it is the Composer, the same `+` as at rest', async () => {
+    await tap(button('Edit the message')!);
+    const add = button('Add to the message')!;
+    // Pressed, it keeps focus in the Composer, so the row stays as it is
+    // under the finger until the tap lands.
+    const down = new MouseEvent('mousedown', {
+      bubbles: true,
+      cancelable: true,
+    });
+    await act(async () => void add.dispatchEvent(down));
+    expect(down.defaultPrevented).toBe(true);
+    await tap(add);
+    // Then the Composer lets go, and `+` is the same button at rest.
+    expect(card().dataset['writing']).toBeUndefined();
+    expect(document.activeElement).not.toBe(editor());
+    expect(button('Add to the message')).toBe(add);
+    expect(add.getAttribute('aria-expanded')).toBe('true');
+    expect(document.querySelector('[role="dialog"]')?.textContent).toContain(
+      'Attach a file',
+    );
+  });
+
+  it("takes a tap on a failed Dictation's retry at rest, though its words take none", async () => {
+    await act(async () =>
+      dictate({ _tag: 'Failed', id: 6, reason: 'The model would not load' }),
+    );
+    await flush();
+    expect(card().dataset['writing']).toBeUndefined();
+    const retry = placeholder()!.querySelector('button')!;
+    // Its words' box takes no tap, but lets its buttons take theirs.
+    const words = retry.closest<HTMLElement>('.pointer-events-none')!;
+    expect(words.className).toContain('[&_button]:pointer-events-auto');
+    await tap(retry);
+    expect(page.retried).toEqual([6]);
+    expect(card().dataset['writing']).toBeUndefined();
+  });
+
+  it('keeps the same editor, its text, selection and history, when a keyboard turns up', async () => {
+    await tap(button('Edit the message')!);
+    const view = EditorView.findFromDOM(editor())!;
+    await act(async () =>
+      view.dispatch({
+        changes: { from: 7, insert: 'look' },
+        selection: { anchor: 2, head: 5 },
+      }),
+    );
+    await leave();
+    // A key pressed outside a text field: a hardware keyboard.
+    await act(async () =>
+      document.body.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Shift', bubbles: true }),
+      ),
+    );
+    await flush();
+    expect(card().dataset['touch']).toBeUndefined();
+    expect(editor().isConnected).toBe(true);
+    expect(card().contains(editor())).toBe(true);
+    expect(EditorView.findFromDOM(editor())).toBe(view);
+    expect(view.state.doc.toString()).toBe('Please look');
+    expect(view.state.selection.main).toMatchObject({ anchor: 2, head: 5 });
+    expect(undoDepth(view.state)).toBe(1);
   });
 
   it('puts a Dictation at the end of an untouched Draft', async () => {

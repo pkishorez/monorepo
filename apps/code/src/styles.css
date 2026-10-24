@@ -103,11 +103,6 @@
 @media (prefers-reduced-motion: reduce) {
   .cm-inserted,
   [data-slot='draft'][data-touch] .cm-inserted,
-  /* At rest it is read, not written: no cursor. */
-[data-slot='draft'][data-touch]:not([data-writing]) .cm-cursorLayer {
-    display: none;
-  }
-
   [data-slot='draft'][data-touch] .cm-dictation:not([data-failed]) {
     animation: none;
   }
