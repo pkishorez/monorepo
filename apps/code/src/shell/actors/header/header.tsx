@@ -100,11 +100,15 @@ export function Title({
   );
 }
 
-/** The open session's agent and model, quiet, from the `md` width. */
+/**
+ * The open session's agent and model, quiet, from the `md` width with a
+ * keyboard. With none, the Draft's model chip says it, and the title keeps
+ * the room.
+ */
 export function Model({ session }: { readonly session: Session | undefined }) {
   if (session === undefined) return null;
   return (
-    <span className="hidden truncate pr-1 text-xs text-muted-foreground md:block">
+    <span className="hidden truncate pr-1 text-xs text-muted-foreground keyboard:md:block">
       {AGENT[session.harness]} · {session.model}
     </span>
   );
