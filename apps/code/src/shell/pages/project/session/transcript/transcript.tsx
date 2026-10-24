@@ -973,7 +973,7 @@ export function EarlierRows({
         aria-expanded={open}
         disabled={earlier._tag !== 'Read'}
         onClick={() => opening.toggle(id)}
-        className="focus-ring group -mx-2 flex min-h-8 cursor-pointer items-center gap-2 rounded-md px-2 text-left text-sm text-muted-foreground transition-colors duration-150 hover:bg-muted/60 hover:text-foreground disabled:cursor-default disabled:hover:bg-transparent disabled:hover:text-muted-foreground motion-reduce:transition-none"
+        className="focus-ring group -mx-2 flex min-h-11 cursor-pointer keyboard:min-h-8 items-center gap-2 rounded-md px-2 text-left text-sm text-muted-foreground transition-colors duration-150 hover:bg-muted/60 hover:text-foreground disabled:cursor-default disabled:hover:bg-transparent disabled:hover:text-muted-foreground motion-reduce:transition-none"
       >
         <span className="flex size-4 shrink-0 items-center justify-center">
           {earlier._tag === 'Reading' ? (
