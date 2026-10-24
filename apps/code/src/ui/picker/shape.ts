@@ -33,11 +33,15 @@ export const shapeOf = (
   return how === 'keys' ? 'list' : 'popover';
 };
 
-/** What the List needs of its Frame: the shape, and what the Picker is called. */
+/**
+ * What the List needs of its Frame: the shape, what the Picker is called,
+ * and whether its search takes focus in a Dialog.
+ */
 const Drawn = createContext<{
   readonly shape: Shape;
   readonly label: string;
-}>({ shape: 'list', label: '' });
+  readonly focusOnTouch: boolean;
+}>({ shape: 'list', label: '', focusOnTouch: false });
 
 export const DrawnIn = Drawn.Provider;
 
