@@ -23,7 +23,9 @@ import { SwipeToMove } from '../swipe/index.ts';
 /*
  * The Settled List: every Settled Session, flat, the most recently Settled
  * first, each with its Project's name. A row opens its Session; its button
- * Un-settles it, which puts it back among its Project's Sessions. The one
+ * Un-settles it, which puts it back among its Project's Sessions. With no
+ * keyboard a row swipes to un-Settle instead, and its button is only
+ * heard, by a screen reader, which cannot swipe it. The one
  * line at the sidebar's foot, "Settled · N", opens and closes it in place
  * of the Projects.
  */
@@ -48,9 +50,11 @@ export const settledOf = (
 
 type Listed = ReturnType<typeof settledOf>[number];
 
-const row = 'h-11 gap-2 px-2 py-0 md:h-7 data-active:font-normal';
-/** A Session's row: on a phone, a little taller than a finger, to swipe. */
-const sessionRow = `${row} max-md:h-12`;
+/** A row: a finger's height, but 28px with a keyboard on a wide screen. */
+const row = 'h-11 gap-2 px-2 py-0 keyboard:md:h-7 data-active:font-normal';
+/** A Session's row: a little taller than a finger, to swipe, alike. */
+const sessionRow =
+  'h-12 gap-2 px-2 py-0 keyboard:md:h-7 data-active:font-normal';
 const cursorRing = 'data-cursor:ring-2 data-cursor:ring-inset';
 
 export function SettledList({
@@ -79,8 +83,8 @@ export function SettledList({
   readonly onClose: () => void;
 }) {
   const settle = useBound('app.actions');
-  // On a touch screen a row swipes to un-Settle; it needs no button.
-  const { touch } = useDevice();
+  // With no keyboard a row swipes to un-Settle; its button is only heard.
+  const { keyboard } = useDevice();
   return (
     <SidebarGroup className="px-2 py-1">
       <SidebarGroupLabel className="h-7 justify-between pr-0">
@@ -98,7 +102,7 @@ export function SettledList({
       <SidebarGroupContent>
         {listed.length === 0 ? (
           <p className="px-2 py-1.5 text-xs text-muted-foreground">
-            {touch
+            {!keyboard
               ? 'Nothing is Settled. Swipe a session you are done with to the right to Settle it.'
               : `Nothing is Settled. Settle a session you are done with from Session Actions${settle === null ? '' : ` (${settle})`}.`}
           </p>
@@ -122,7 +126,7 @@ export function SettledList({
                         open?.machineId === session.machineId &&
                         open.id === session.id
                       }
-                      className={`${sessionRow} ${cursorRing} ${touch ? '' : 'pr-9'}`}
+                      className={`${sessionRow} ${cursorRing} ${keyboard ? 'pr-9' : ''}`}
                       render={
                         <Router.Link
                           to={places.session(
@@ -144,22 +148,24 @@ export function SettledList({
                       )}
                     </SidebarMenuButton>
                   </SwipeToMove>
-                  {!touch && (
-                    <button
-                      type="button"
-                      disabled={busy && problem === null}
-                      aria-label={`Un-settle ${session.title || 'Untitled session'}`}
-                      title="Un-settle"
-                      onClick={() => onUnsettle(session.machineId, session.id)}
-                      className="focus-ring absolute top-2.5 right-1 grid size-6 place-items-center rounded-md text-muted-foreground/70 opacity-0 transition-[opacity,color,background-color] duration-150 group-hover/settled:opacity-100 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:opacity-100 disabled:opacity-100 motion-reduce:transition-none md:top-0.5 [@media(hover:none)]:opacity-100"
-                    >
-                      {busy && problem === null ? (
-                        <Spinner className="size-3.5" />
-                      ) : (
-                        <ArchiveRestoreIcon aria-hidden className="size-3.5" />
-                      )}
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    disabled={busy && problem === null}
+                    aria-label={`Un-settle ${session.title || 'Untitled session'}`}
+                    title="Un-settle"
+                    onClick={() => onUnsettle(session.machineId, session.id)}
+                    className={
+                      keyboard
+                        ? 'focus-ring absolute top-3 right-1 grid size-6 place-items-center rounded-md text-muted-foreground/70 opacity-0 transition-[opacity,color,background-color] duration-150 group-hover/settled:opacity-100 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:opacity-100 disabled:opacity-100 motion-reduce:transition-none md:top-0.5 [@media(hover:none)]:opacity-100'
+                        : 'sr-only'
+                    }
+                  >
+                    {busy && problem === null ? (
+                      <Spinner className="size-3.5" />
+                    ) : (
+                      <ArchiveRestoreIcon aria-hidden className="size-3.5" />
+                    )}
+                  </button>
                   {problem !== null && (
                     <p
                       role="alert"

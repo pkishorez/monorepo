@@ -271,10 +271,14 @@ export function Places({
   );
 }
 
-/** A row: 28px on a wide screen, a finger's height on a phone. */
-const row = 'h-11 gap-2 px-2 py-0 md:h-7 data-active:font-normal';
-/** A Session's row: on a phone, a little taller than a finger, to swipe. */
-const sessionRow = `${row} max-md:h-12`;
+/**
+ * A row: a finger's height, but 28px with a keyboard on a wide screen,
+ * so a tablet with no keyboard keeps rows a finger can hit.
+ */
+const row = 'h-11 gap-2 px-2 py-0 keyboard:md:h-7 data-active:font-normal';
+/** A Session's row: a little taller than a finger, to swipe, alike. */
+const sessionRow =
+  'h-12 gap-2 px-2 py-0 keyboard:md:h-7 data-active:font-normal';
 const cursorRing = 'data-cursor:ring-2 data-cursor:ring-inset';
 
 /** One Project's heading, its Sessions shown, and its "+N". */

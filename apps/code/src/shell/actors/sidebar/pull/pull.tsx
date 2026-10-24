@@ -25,8 +25,10 @@ import {
  * reloads the Machine List, as Reload beside the Machine Filter does. A
  * small arrow comes down over the list with the pull, turning as it goes;
  * let go past the mark and it spins until the list is asked again, then
- * springs back up. The list itself stays still, and what floats over it,
- * such as the Project Picker's plus, with it. The sidebar's View says how to Reload through `useReload`.
+ * springs back up; under reduced motion it jumps, and holds still while it
+ * waits. The list itself stays still, and what floats over it, such as the
+ * Project Picker's plus, with it. The sidebar's View says how to Reload
+ * through `useReload`.
  * With no touch screen the sidebar is drawn as it is.
  */
 
@@ -90,10 +92,13 @@ function Pulled({
         className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center"
       >
         <span
-          className={`grid size-8 place-items-center rounded-full border border-border bg-popover shadow-sm transition-colors duration-150 ${pull.state === 'armed' || refreshing ? 'text-foreground' : 'text-muted-foreground'}`}
+          className={`grid size-8 place-items-center rounded-full border border-border bg-popover shadow-sm transition-colors duration-150 motion-reduce:transition-none ${pull.state === 'armed' || refreshing ? 'text-foreground' : 'text-muted-foreground'}`}
         >
           {refreshing ? (
-            <Loader2Icon aria-hidden className="size-4 animate-spin" />
+            <Loader2Icon
+              aria-hidden
+              className="size-4 animate-spin motion-reduce:animate-none"
+            />
           ) : (
             <motion.span style={{ rotate: turn }} className="grid">
               <RefreshCwIcon aria-hidden className="size-4" />
