@@ -79,6 +79,7 @@ const OwnerView = View.make(OwnerLive, ({ model, children, send }) => {
         dictation: children.dictation,
         ask: (asked) => send({ _tag: 'Ask', ask: asked }),
         microphones: null,
+        chooseMicrophone: () => {},
         shown: () => () => {},
       }}
     >

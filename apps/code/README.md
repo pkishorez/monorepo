@@ -288,7 +288,11 @@ on a device with no keyboard whatever is kept, however wide its screen, and
 nothing takes focus as it opens there, a Picker's search included. The Draft's
 one round button is the microphone while there is nothing to send, Send
 once there is, and a stop while a Dictation records; a narrow Draft folds
-Skills, the paperclip and the microphone behind a "+".
+Skills, the paperclip and the microphone behind a "+". With no keyboard the
+Draft is read only and two lines tall until its edit button makes it the
+Composer; under it the microphone sits in the middle, largest, beside a `+`
+Drawer (a file, a photo, the microphone), a model chip whose Drawer changes
+effort and permissions in place, Skills, and Send.
 
 The app is a PWA ([`@kestack/web-platform/pwa`](../../platforms/web-platform/README.md)):
 "Code" installs with its Mark as the icon (`public/`), opens on iOS to a
