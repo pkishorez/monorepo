@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { loginHref, type Account } from '../api/index.ts';
 import { Avatar, Spinner, cx } from '../ui/index.ts';
 import { useRoot } from './root.ts';
+import { TestLabel } from './test-label.tsx';
 
 /*
  * The Account menu: at the top right of a signed-in page, after the Theme
@@ -31,11 +32,14 @@ const rule = <Menu.Separator className="-mx-1.5 my-1.5 h-px bg-line" />;
 function Who({ account }: { account: Account }) {
   return (
     <span className="min-w-0 flex-1">
-      <span
-        className="block truncate font-medium"
-        title={account.name || account.email}
-      >
-        {account.name || account.email}
+      <span className="flex items-center gap-1.5">
+        <span
+          className="truncate font-medium"
+          title={account.name || account.email}
+        >
+          {account.name || account.email}
+        </span>
+        <TestLabel email={account.email} />
       </span>
       <span
         className="block truncate text-sm text-muted-fg"

@@ -34,7 +34,10 @@ interface Call {
   readonly accept?: ReadonlyArray<number>;
 }
 
-const Refusal = Schema.Struct({ message: Schema.optionalKey(Schema.String) });
+const Refusal = Schema.Struct({
+  message: Schema.optionalKey(Schema.String),
+  code: Schema.optionalKey(Schema.String),
+});
 
 /** JSON calls to an Auth Worker's API (`${url}/api/auth`), each failure
  * named: unreachable, unavailable (5xx), rejected (4xx) or unreadable. */
@@ -47,14 +50,14 @@ export const authWorker = (url: string, options: Options = {}) =>
     const rejected = (response: HttpClientResponse.HttpClientResponse) =>
       response.json.pipe(
         Effect.flatMap(Schema.decodeUnknownEffect(Refusal)),
-        Effect.map(({ message }) => message),
-        Effect.orElseSucceed(() => undefined),
-        Effect.flatMap((reason) =>
+        Effect.orElseSucceed((): typeof Refusal.Type => ({})),
+        Effect.flatMap(({ message, code }) =>
           Effect.fail(
             new AuthWorkerRejected({
               url,
               status: response.status,
-              ...(reason ? { reason } : {}),
+              ...(message ? { reason: message } : {}),
+              ...(code ? { code } : {}),
             }),
           ),
         ),

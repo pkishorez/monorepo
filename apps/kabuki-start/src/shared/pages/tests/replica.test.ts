@@ -37,12 +37,14 @@ const ada: Account = {
   email: 'ada@x.com',
   name: 'Ada',
   image: null,
+  test: false,
 };
 const bob: Account = {
   id: 'bob',
   email: 'bob@x.com',
   name: 'Bob',
   image: null,
+  test: false,
 };
 
 /** `Accounts` with Ada active and Bob signed in; a switch lands at once. */

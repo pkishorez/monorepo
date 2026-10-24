@@ -75,6 +75,7 @@ const auth = {
     createdAt: new Date(),
     updatedAt: new Date(),
   },
+  test: false,
 };
 
 const collect = <A extends { kind: string }, E, R>(

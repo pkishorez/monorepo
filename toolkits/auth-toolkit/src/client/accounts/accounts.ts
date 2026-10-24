@@ -8,6 +8,8 @@ export {
   AuthWorkerUnreachable,
   DeviceLoginFailed,
   InvalidAuthWorkerResponse,
+  TestSignInRefused,
+  TestSignInUnsupported,
   type AccountsError,
 } from './errors.js';
 
@@ -17,6 +19,8 @@ export interface Account {
   readonly email: string;
   readonly name: string;
   readonly image: string | null;
+  /** Whether this is a Test User: their email ends in `.test`. */
+  readonly test: boolean;
 }
 
 /** Who is signed in on this client.
@@ -40,9 +44,14 @@ export type AccountsState = Data.TaggedEnum<{
 
 export const AccountsState = /*#__PURE__*/ Data.taggedEnum<AccountsState>();
 
-/** How to sign one more Account in. A Browser uses `returnTo`; a Device uses
- * `account` and `open`. Each ignores the others. */
+/** How to sign one more Account in. A Browser uses `returnTo` or `test`; a
+ * Device uses `account` and `open`, and fails TestSignInUnsupported for
+ * `test`. Each ignores the rest. */
 export interface SignInOptions {
+  /** Signs this Test User in at once, without the Login Screen: `email`
+   * ends in `.test`, and `key` is the Auth Worker's Test User key when it
+   * asks for one. Fails TestSignInRefused when the Auth Worker says no. */
+  readonly test?: { readonly email: string; readonly key?: string };
   /** Browser: where the Login Screen comes back to; the current page unless
    * given. */
   readonly returnTo?: string;
@@ -68,8 +77,9 @@ export class Accounts
       /** Asks again who is signed in, and answers the new state. */
       readonly check: Effect.Effect<AccountsState, AccountsError>;
       /** Signs one more Account in and makes it active. A Browser leaves the
-       * page for the Login Screen, so it never completes; a Device completes
-       * once its Device Login is approved. */
+       * page for the Login Screen, so it never completes, unless it signs a
+       * Test User in (`test`), which completes once the Auth Worker answers;
+       * a Device completes once its Device Login is approved. */
       readonly signIn: (
         options?: SignInOptions,
       ) => Effect.Effect<void, AccountsError>;

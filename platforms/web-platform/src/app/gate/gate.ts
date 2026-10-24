@@ -13,7 +13,7 @@ import {
   Accounts,
   type AccountsState,
 } from '@kestack/auth-toolkit/client';
-import { localChooser } from '@kestack/auth-toolkit/client/browser';
+import { fakeChooser } from '@kestack/auth-toolkit/fake';
 import { type Backend, backendNamed, type Host } from '../host/index.ts';
 import { makeStatus, type StatusCell } from '../session/index.ts';
 import { gateMemory, gateTable, type LostAccount } from './memory.ts';
@@ -134,7 +134,7 @@ export const createGate = <S, B>(config: GateConfig<S, B>) => {
   const quiet = new Set<string>();
 
   // Asks who signs in on the Local Backend; the Local Sign-In answers.
-  const chooser = localChooser();
+  const chooser = fakeChooser();
   const loadLocal = config.local;
 
   // A Backend this app does not have stands for the cloud.
@@ -154,7 +154,12 @@ export const createGate = <S, B>(config: GateConfig<S, B>) => {
     if (r.signingOut) return { kind: 'signingOut' };
     const signedIn = signedInOf(r.state);
     if (r.lost !== null) {
-      const { account } = r.lost;
+      // Kept without `test`, which its email tells: a Test User's ends in
+      // `.test`.
+      const account = {
+        ...r.lost.account,
+        test: r.lost.account.email.trim().toLowerCase().endsWith('.test'),
+      };
       return {
         kind: 'accountLost',
         account,

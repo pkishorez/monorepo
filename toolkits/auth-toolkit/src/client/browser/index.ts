@@ -1,6 +1,1 @@
-export {
-  browser,
-  browserAccountsTable,
-  localAccountsTable,
-  localChooser,
-} from './browser.js';
+export { browser, browserAccountsTable } from './browser.js';

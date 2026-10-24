@@ -1,5 +1,6 @@
 export {
   AccountSchema,
+  acting,
   makeAccounts,
   signedOut,
   signing,
@@ -7,4 +8,6 @@ export {
   type Snapshot,
   SnapshotSchema,
   type Source,
+  type SourceAccount,
+  watchTabs,
 } from './accounts-layer.js';

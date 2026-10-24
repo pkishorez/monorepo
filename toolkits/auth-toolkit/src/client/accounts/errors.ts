@@ -19,11 +19,12 @@ export class AuthWorkerUnavailable extends Data.TaggedError(
 }
 
 /** The Auth Worker refused the request; `reason` is what it said, if
- * anything. */
+ * anything, and `code` the error code it named. */
 export class AuthWorkerRejected extends Data.TaggedError('AuthWorkerRejected')<{
   readonly url: string;
   readonly status: number;
   readonly reason?: string;
+  readonly code?: string;
 }> {
   override get message() {
     return (
@@ -62,6 +63,28 @@ export class AccountLimitReached extends Data.TaggedError(
   }
 }
 
+/** The Auth Worker refused a Test User sign-in. `code` is its reason:
+ * `NOT_A_TEST_EMAIL`, `WRONG_KEY`, `NOT_ALLOWED`, `TOO_MANY_ACCOUNTS`,
+ * `TEST_USERS_OFF` (the
+ * Auth Worker has Test Users off), or another the Auth Worker names. */
+export class TestSignInRefused extends Data.TaggedError('TestSignInRefused')<{
+  readonly code: string;
+  readonly reason?: string;
+}> {
+  override get message() {
+    return this.reason ?? `Test User sign-in was refused (${this.code}).`;
+  }
+}
+
+/** This client cannot sign a Test User in: only a Browser can. */
+export class TestSignInUnsupported extends Data.TaggedError(
+  'TestSignInUnsupported',
+)<{ readonly client: string }> {
+  override get message() {
+    return `A ${this.client} cannot sign a Test User in; sign in from a Browser.`;
+  }
+}
+
 /** Why an `Accounts` action failed. */
 export type AccountsError =
   | AuthWorkerUnreachable
@@ -69,4 +92,6 @@ export type AccountsError =
   | AuthWorkerRejected
   | InvalidAuthWorkerResponse
   | DeviceLoginFailed
-  | AccountLimitReached;
+  | AccountLimitReached
+  | TestSignInRefused
+  | TestSignInUnsupported;

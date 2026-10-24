@@ -1,4 +1,4 @@
-// A Local Token naming `id`, so a test backend on `auth({ local: true })`
+// A Local Token naming `id`, so a test backend on `fakeGuard.rpc()`
 // sees that User with no Auth Worker. `invalid` names nobody.
 const localToken = (id: string) =>
   `local.${Buffer.from(

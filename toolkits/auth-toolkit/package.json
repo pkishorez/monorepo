@@ -59,6 +59,10 @@
     "./client/device": {
       "types": "./dist/client/device/index.d.ts",
       "default": "./dist/client/device/index.js"
+    },
+    "./fake": {
+      "types": "./dist/fake/index.d.ts",
+      "default": "./dist/fake/index.js"
     }
   },
   "scripts": {

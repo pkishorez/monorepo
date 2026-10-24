@@ -4,7 +4,7 @@ import { HttpServerRequest, HttpServerResponse } from 'effect/http';
 import type { Rpc as EffectRpc } from 'effect/rpc';
 import type { Principal } from '@kestack/auth-toolkit';
 import { verify } from '@kestack/auth-toolkit/server/http';
-import { authAs, type OAuthOptions } from '@kestack/auth-toolkit/server/rpc';
+import { type AuthOptions, authAs } from '@kestack/auth-toolkit/server/rpc';
 import {
   fromDurableObjectState,
   server,
@@ -14,11 +14,9 @@ import {
 import type { Api } from '../../define/index.ts';
 
 /** The shared sign-in service, as a cloud API checks each call with it.
- * `oauth` lets in Access Tokens for that Resource Server too. */
-export interface LiveAuth {
-  readonly url: string;
-  readonly oauth?: OAuthOptions | undefined;
-}
+ * `oauth` lets in Access Tokens for that Resource Server too, and
+ * `testUsers: true` admits Test Users. */
+export type LiveAuth = AuthOptions;
 
 /** One API's handlers in a Live Object, with the services they stand on
  * given: made once each time the object wakes, from its own storage. Who
@@ -215,7 +213,7 @@ export const liveObject = <Rpcs extends EffectRpc.Any, Env>(options: {
           : Effect.tryPromise(() => this.#callerOf(id)),
       );
       const handlers = Layer.merge(
-        authAs(caller),
+        authAs(caller, { testUsers: options.auth.testUsers }),
         options.backend(env, state.storage),
       ) as Layer.Layer<
         | EffectRpc.ToHandler<Rpcs>

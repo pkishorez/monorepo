@@ -1,7 +1,7 @@
 import { Effect, Layer, Logger } from 'effect';
 import { RpcTest } from 'effect/rpc';
 import { FetchHttpClient } from 'effect/http';
-import { auth } from '@kestack/auth-toolkit/server/rpc';
+import { fakeGuard } from '@kestack/auth-toolkit/fake';
 import { SQLite } from '@kestack/std-toolkit/db/sqlite';
 import { makeNodeSQLite } from '@kestack/std-toolkit/db/sqlite/node';
 import { expect, it, vi } from 'vite-plus/test';
@@ -61,7 +61,7 @@ const run = <A, E>(
             Layer.provide(FetchHttpClient.layer),
           ),
         ),
-        Effect.provide(auth({ local: true })),
+        Effect.provide(fakeGuard.rpc()),
         Effect.provide(table.layer),
         Effect.provideService(FetchHttpClient.Fetch, fetch),
         Effect.provideService(FetchHttpClient.RequestInit, {

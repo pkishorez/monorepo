@@ -1,7 +1,7 @@
 import { Effect, Layer, Schema } from 'effect';
 import { RpcTest } from 'effect/rpc';
 import { FetchHttpClient } from 'effect/http';
-import { auth } from '@kestack/auth-toolkit/server/rpc';
+import { fakeGuard } from '@kestack/auth-toolkit/fake';
 import { SQLite } from '@kestack/std-toolkit/db/sqlite';
 import { makeNodeSQLite } from '@kestack/std-toolkit/db/sqlite/node';
 import { expect, it } from 'vite-plus/test';
@@ -84,7 +84,7 @@ const run = <A, E>(
     }).pipe(
       Effect.scoped,
       Effect.provide(ConsoleHandlers.pipe(Layer.provide(table.layer))),
-      Effect.provide(auth({ local: true })),
+      Effect.provide(fakeGuard.rpc()),
       Effect.provide(FetchHttpClient.layer),
       Effect.provideService(FetchHttpClient.Fetch, fetch),
       Effect.provideService(FetchHttpClient.RequestInit, {
@@ -439,7 +439,7 @@ it('persists raw secrets at schema v1 and removes the actual rows on delete', as
     }).pipe(
       Effect.scoped,
       Effect.provide(ConsoleHandlers.pipe(Layer.provide(table.layer))),
-      Effect.provide(auth({ local: true })),
+      Effect.provide(fakeGuard.rpc()),
       Effect.provide(FetchHttpClient.layer),
       Effect.provideService(FetchHttpClient.Fetch, providerFetch),
       Effect.provideService(FetchHttpClient.RequestInit, {

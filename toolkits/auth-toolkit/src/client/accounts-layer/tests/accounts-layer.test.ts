@@ -3,8 +3,20 @@ import { describe, expect, it } from 'vitest';
 import { AccountsState, AuthWorkerUnreachable } from '../../accounts/index.js';
 import { makeAccounts, type Snapshot, type Source } from '../index.js';
 
-const ada = { id: 'ada', email: 'ada@x.com', name: 'Ada', image: null };
-const bob = { id: 'bob', email: 'bob@x.com', name: 'Bob', image: null };
+const ada = {
+  id: 'ada',
+  email: 'ada@x.com',
+  name: 'Ada',
+  image: null,
+  test: false,
+};
+const bob = {
+  id: 'bob',
+  email: 'bob@x.com',
+  name: 'Bob',
+  image: null,
+  test: false,
+};
 
 const fakeSource = (initial: Snapshot) => {
   let snapshot = initial;
@@ -50,6 +62,32 @@ describe('makeAccounts', () => {
       AccountsState.Checking({ last: ada }),
       AccountsState.SignedIn({ active: bob, accounts: [ada, bob] }),
     ]);
+  });
+
+  it('marks an Account whose email ends in .test as a Test User', async () => {
+    const tess = {
+      id: 'tess',
+      email: 'Tess@Example.TEST',
+      name: 'Tess',
+      image: null,
+    };
+    const { source } = fakeSource({ active: tess.id, accounts: [tess, ada] });
+    const state = await run(
+      Effect.gen(function* () {
+        const { accounts } = yield* makeAccounts({
+          source,
+          last: null,
+          checkOnStart: false,
+        });
+        return yield* accounts.check;
+      }),
+    );
+    expect(state).toEqual(
+      AccountsState.SignedIn({
+        active: { ...tess, test: true },
+        accounts: [{ ...tess, test: true }, ada],
+      }),
+    );
   });
 
   it('starts Checking with nothing when it knew nothing', async () => {
@@ -370,6 +408,7 @@ describe('makeAccounts', () => {
       email: 'carol@x.com',
       name: 'Carol',
       image: null,
+      test: false,
     };
     const three = { active: ada.id, accounts: [ada, bob, carol] };
     const [during, after] = await run(

@@ -1,6 +1,7 @@
 import { Effect, Layer } from 'effect';
 import { Authz } from '@kestack/auth-toolkit';
-import { auth } from '@kestack/auth-toolkit/server/rpc';
+import { fakeGuard } from '@kestack/auth-toolkit/fake';
+import { auth, type AuthOptions } from '@kestack/auth-toolkit/server/rpc';
 import { server } from '@kestack/rpc-toolkit/rpc/http';
 import { SQLite, type SQLiteDriver } from '@kestack/std-toolkit/db/sqlite';
 import {
@@ -24,8 +25,8 @@ import { machinesTable } from './storage/index.js';
  * - `GET /auth` answers the AuthInfo it was given, to anyone: how a Machine
  *   signs in here.
  * - `POST /rpc` is the RPC. The caller is checked by auth-toolkit's Guard,
- *   asking the Auth Worker, or reading Local Tokens in Local mode; a call
- *   with no Sign-in is refused Unauthenticated.
+ *   asking the Auth Worker, or reading Local Tokens in Local mode (its
+ *   `fakeGuard`); a call with no Sign-in is refused Unauthenticated.
  * - The app is on another origin of the same site: its origin, and only its,
  *   may call `/rpc` with credentials, and its preflight is answered here,
  *   since the RPC server answers POST alone. A call from any other origin
@@ -123,19 +124,27 @@ export const serveOver = (options: {
 
 /**
  * The Machines Backend on a Worker's D1 binding `database`: callers sign in
- * as `auth` says (the Auth Worker's URL, or Local mode), and the app at
- * origin `site` may call with credentials.
+ * as `auth` says (auth-toolkit's `auth` options for the Auth Worker, or
+ * Local mode), and the app at origin `site` may call with credentials.
  */
 export const serve = <Statement extends D1Statement<Statement>>(options: {
-  readonly auth: AuthInfo;
+  readonly auth: AuthOptions | { readonly local: true };
   readonly site: string;
   readonly database: D1SQLiteConfig<Statement>['database'];
-}) =>
-  serveOver({
-    guard: auth(options.auth),
-    authInfo: options.auth,
+}) => {
+  // Only exactly `{ local: true }` is Local mode: anything else goes to the
+  // real Guard, which refuses a `local` it is given, so a mistyped config
+  // never lets anyone be anyone.
+  const { url, local } = options.auth as { url?: unknown; local?: unknown };
+  const fake = local === true && url === undefined;
+  return serveOver({
+    guard: fake ? fakeGuard.rpc() : auth(options.auth as AuthOptions),
+    authInfo: fake
+      ? { local: true }
+      : { url: (options.auth as AuthOptions).url },
     site: options.site,
     driver: makeD1SQLite({ database: options.database }),
   });
+};
 
 export { machinesTable } from './storage/index.js';

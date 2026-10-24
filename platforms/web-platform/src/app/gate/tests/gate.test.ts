@@ -18,6 +18,7 @@ const user = (id: string): Account => ({
   name: id,
   email: `${id}@example.com`,
   image: null,
+  test: false,
 });
 const ada = user('ada');
 const mary = user('mary');

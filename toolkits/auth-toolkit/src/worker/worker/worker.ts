@@ -1,4 +1,5 @@
 import { betterAuth, type Auth, type BetterAuthOptions } from 'better-auth';
+import { APIError } from 'better-auth/api';
 import { dash } from '@better-auth/infra';
 import { authModelOptions, authorizationServerOptions } from './auth-model.js';
 import { browserApi, type AuthApi } from './browser-api.js';
@@ -10,8 +11,13 @@ import {
   type AuthWorkerConfig,
   type Resolved,
 } from './config.js';
-import { AUTH_API_PATH } from '../../contract/index.js';
+import {
+  AUTH_API_PATH,
+  TEST_SIGN_IN_PATH,
+  isTestEmail,
+} from '../../contract/index.js';
 import { withoutSessionTokens } from './no-tokens.js';
+import { TEST_SIGN_IN_METHOD, testSignIn } from './plugins/index.js';
 import { servePages, type PagesApp, type PagesContext } from './pages.js';
 import { d1 } from '../database/sqlite/d1/database/index.js';
 
@@ -33,14 +39,35 @@ const NOT_ADMITTED = {
   errorDescription: 'This account cannot sign in here.',
 };
 
+// `admit` judges real users only: Test Sign-In's Test Users skip it, and a
+// `.test` email from anywhere else, as Google, is refused.
 const admission = (
   admit: NonNullable<AuthWorkerConfig['admit']>,
 ): ValidateUserInfo => {
-  return async ({ user }) => {
+  return async ({ user, source }) => {
     const email = typeof user.email === 'string' ? user.email : '';
     const name = typeof user.name === 'string' ? user.name : '';
+    if (isTestEmail(email)) {
+      return source.method === TEST_SIGN_IN_METHOD ? undefined : NOT_ADMITTED;
+    }
     return (await admit({ email, name })) === true ? undefined : NOT_ADMITTED;
   };
+};
+
+/** A Test User is created by Test Sign-In alone, with `admit` or without. */
+const onlyTestSignInCreatesTestUsers: BetterAuthOptions['databaseHooks'] = {
+  user: {
+    create: {
+      before: async (user, context) => {
+        if (isTestEmail(user.email) && context?.path !== TEST_SIGN_IN_PATH) {
+          throw new APIError('FORBIDDEN', {
+            code: NOT_ADMITTED.error,
+            message: NOT_ADMITTED.errorDescription,
+          });
+        }
+      },
+    },
+  },
 };
 
 const REGISTRATION_PATH = '/oauth2/register';
@@ -103,9 +130,18 @@ export const makeAuthWorker = (
     user: config.admit
       ? { validateUserInfo: admission(config.admit) }
       : undefined,
+    databaseHooks: onlyTestSignInCreatesTestUsers,
     plugins: [
       ...(model.plugins ?? []),
       ...(authorizationServer?.plugins ?? []),
+      ...(config.testUsers
+        ? [
+            testSignIn({
+              ...config.testUsers,
+              maxAccounts: resolved.maxAccounts,
+            }),
+          ]
+        : []),
       ...(dashApiKey ? [dash({ apiKey: dashApiKey })] : []),
     ],
     disabledPaths: authorizationServer?.disabledPaths,
@@ -121,6 +157,9 @@ export const makeAuthWorker = (
     cookieDomain: resolved.domain,
     origin: resolved.origin,
     oauth: resolved.scopes ? { scopes: resolved.scopes } : undefined,
+    testUsers: config.testUsers
+      ? { key: config.testUsers.key !== undefined }
+      : undefined,
     reads: browser.reads,
   };
 

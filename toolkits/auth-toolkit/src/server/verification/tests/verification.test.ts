@@ -1,4 +1,4 @@
-import { Effect } from 'effect';
+import { Effect, Option } from 'effect';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
@@ -11,9 +11,9 @@ vi.mock('../access-token.js', () => ({
   verifyAccessToken: mocks.verifyAccessToken,
 }));
 
-import { localToken, localUser } from '../../../contract/index.js';
+import type { Principal } from '../../../guard/index.js';
 import type { AuthOptions } from '../options.js';
-import { resolver, verify } from '../verification.js';
+import { admit, resolver, verify, type Resolution } from '../verification.js';
 
 const url = 'https://auth.example.com';
 const resource = 'https://api.example.com';
@@ -44,7 +44,7 @@ describe('resolver', () => {
 
   it('resolves a Sign-in Principal from a cookie', async () => {
     expect(await resolveWith({ url }, { cookie: 'session=abc' })).toEqual({
-      principal: { kind: 'session', session, user },
+      principal: { kind: 'session', session, user, test: false },
       refreshedCookies: ['a=1'],
     });
     expect(mocks.verifyAccessToken).not.toHaveBeenCalled();
@@ -61,6 +61,7 @@ describe('resolver', () => {
         user,
         client: { id: 'cli' },
         scopes: ['notes:read'],
+        test: false,
       },
       refreshedCookies: [],
     });
@@ -99,7 +100,12 @@ describe('resolver', () => {
       const resolved = await resolveWith(options, {
         authorization: 'Bearer opaque-session-token',
       });
-      expect(resolved?.principal).toEqual({ kind: 'session', session, user });
+      expect(resolved?.principal).toEqual({
+        kind: 'session',
+        session,
+        user,
+        test: false,
+      });
     }
     expect(mocks.verifyAccessToken).toHaveBeenCalledOnce();
     expect(mocks.verifySignIn).toHaveBeenCalledTimes(2);
@@ -113,66 +119,110 @@ describe('resolver', () => {
   });
 });
 
-describe('Local mode', () => {
-  const ada = localUser({ email: 'ada@demo', name: 'Ada' });
-  const token = localToken.make(ada);
+describe('Test Users', () => {
+  const tess = { id: 't1', email: 'Tess@Example.TEST', name: 'Tess' };
 
-  it('resolves the User a Local Token names, asking no one', async () => {
-    const resolved = await resolveWith(
-      { local: true },
-      { authorization: `Bearer ${token}` },
-    );
-    expect(resolved).toMatchObject({
-      principal: {
-        kind: 'session',
-        user: ada,
-        session: { token, userId: ada.id },
-      },
+  beforeEach(() => {
+    mocks.verifySignIn.mockReset();
+    mocks.verifyAccessToken.mockReset();
+    mocks.verifySignIn.mockResolvedValue({
+      session,
+      user: tess,
       refreshedCookies: [],
     });
-    expect(mocks.verifySignIn).not.toHaveBeenCalled();
+    mocks.verifyAccessToken.mockResolvedValue({
+      user: tess,
+      client: { id: 'cli' },
+      scopes: [],
+    });
   });
 
-  it('is unauthenticated without a Local Token', async () => {
-    expect(await resolveWith({ local: true }, {})).toBeNull();
-    expect(
-      await resolveWith({ local: true }, { cookie: `session=${token}` }),
-    ).toBeNull();
-    expect(
-      await resolveWith(
-        { local: true },
-        { authorization: 'Bearer real-session-token' },
-      ),
-    ).toBeNull();
+  it('marks a Test User on every credential by their email', async () => {
+    const cookie = await resolveWith({ url }, { cookie: 'session=abc' });
+    expect(cookie?.principal).toMatchObject({ kind: 'session', test: true });
+
+    mocks.verifyAccessToken.mockResolvedValueOnce(null);
+    const device = await resolveWith(
+      { url, oauth: { resource } },
+      { authorization: 'Bearer opaque-session-token' },
+    );
+    expect(device?.principal).toMatchObject({ kind: 'session', test: true });
+
+    const token = await resolveWith(
+      { url, oauth: { resource } },
+      { authorization: `Bearer ${jwt}` },
+    );
+    expect(token?.principal).toMatchObject({ kind: 'token', test: true });
+  });
+
+  it('is nobody to verify unless testUsers admits them', async () => {
+    const request = new Request('https://api.example.com/ws', {
+      headers: { cookie: 'session=abc' },
+    });
+    expect(await verify(request, { url })).toBeNull();
+    expect(await verify(request, { url, testUsers: true })).toMatchObject({
+      test: true,
+    });
+  });
+
+  describe('admit', () => {
+    const resolution = (test: boolean): Resolution => ({
+      principal: {
+        kind: 'session',
+        session,
+        user: tess,
+        test,
+      } as unknown as Principal,
+      refreshedCookies: [],
+    });
+    const run = (resolved: Resolution, testUsers: boolean) =>
+      Effect.runPromise(
+        Effect.result(
+          admit(
+            resolved,
+            new Request('https://api.example.com'),
+            Option.none(),
+            {},
+            testUsers,
+          ),
+        ),
+      );
+
+    it('refuses a Test User Forbidden, unless testUsers', async () => {
+      expect(await run(resolution(true), false)).toMatchObject({
+        failure: { _tag: 'Forbidden', reason: 'Test Users are not accepted' },
+      });
+      expect(await run(resolution(true), true)).toMatchObject({
+        success: { test: true },
+      });
+    });
+
+    it('admits anyone else either way', async () => {
+      for (const testUsers of [false, true]) {
+        expect(await run(resolution(false), testUsers)).toMatchObject({
+          success: { test: false },
+        });
+      }
+    });
   });
 });
 
-describe('which mode the options name', () => {
-  const ada = localUser({ email: 'ada@demo', name: 'Ada' });
-  const token = localToken.make(ada);
-
-  it('is not Local mode for `local: false`', () => {
-    expect(() => resolver({ local: false } as never)).toThrow(/local/);
+describe('which options are refused', () => {
+  it('refuses options without a url', async () => {
+    expect(() => resolver({} as never)).toThrow(/url/);
+    expect(() => resolver({ url: '  ' })).toThrow(/url/);
+    await expect(
+      verify(new Request('https://api.example.com'), {} as never),
+    ).rejects.toThrow(/url/);
   });
 
-  it('refuses options naming both a url and Local mode', async () => {
-    for (const local of [true, false]) {
-      const options = { url, local } as never;
-      expect(() => resolver(options)).toThrow(/not both/);
-      await expect(
-        verify(
-          new Request('https://api.example.com', {
-            headers: { authorization: `Bearer ${token}` },
-          }),
-          options,
-        ),
-      ).rejects.toThrow(/not both/);
+  it('tells Local mode where it went, url or not', () => {
+    for (const options of [{ local: true }, { url, local: true }]) {
+      expect(() => resolver(options as never)).toThrow(
+        /`local` was removed.*fakeGuard.*@kestack\/auth-toolkit\/fake/,
+      );
     }
     expect(mocks.verifySignIn).not.toHaveBeenCalled();
-  });
-
-  it('refuses options naming neither', () => {
-    expect(() => resolver({} as never)).toThrow(/url/);
   });
 });
 
@@ -194,7 +244,7 @@ describe('verify', () => {
         }),
         { url },
       ),
-    ).toEqual({ kind: 'session', session, user });
+    ).toEqual({ kind: 'session', session, user, test: false });
   });
 
   it('resolves null for nobody and rejects when the Auth Worker is down', async () => {

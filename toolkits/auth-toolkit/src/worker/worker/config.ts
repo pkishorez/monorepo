@@ -1,4 +1,7 @@
 import type { BetterAuthOptions } from 'better-auth';
+import type { TestUsers } from './plugins/index.js';
+
+export type { TestUsers };
 
 type Awaitable<T> = T | Promise<T>;
 
@@ -44,6 +47,8 @@ export interface AuthWorkerConfig {
   dashApiKey?: string | undefined;
   /** Turns on the Authorization Server Role. */
   oauth?: { resources: OAuthResources } | undefined;
+  /** Turns on Test Sign-In. Off when omitted. `admit` does not apply. */
+  testUsers?: TestUsers | undefined;
 }
 
 export const DEFAULT_MAX_ACCOUNTS = 5;
@@ -104,6 +109,25 @@ export const resolveConfig = (config: AuthWorkerConfig): Resolved => {
   const maxAccounts = config.maxAccounts ?? DEFAULT_MAX_ACCOUNTS;
   if (!Number.isSafeInteger(maxAccounts) || maxAccounts < 1) {
     fail('maxAccounts must be a positive integer.');
+  }
+
+  const { testUsers } = config;
+  if (testUsers !== undefined) {
+    if (testUsers === null || typeof testUsers !== 'object') {
+      fail('testUsers must be an object.');
+    }
+    if (
+      testUsers.key !== undefined &&
+      (typeof testUsers.key !== 'string' || !testUsers.key)
+    ) {
+      fail('testUsers.key must be a non-empty string.');
+    }
+    if (
+      testUsers.allow !== undefined &&
+      typeof testUsers.allow !== 'function'
+    ) {
+      fail('testUsers.allow must be a function.');
+    }
   }
 
   let scopes: Record<string, string> | undefined;

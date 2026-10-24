@@ -4,6 +4,7 @@ export type {
   Brand,
   Candidate,
   OAuthResources,
+  TestUsers,
 } from './config.js';
 export type {
   AccountView,

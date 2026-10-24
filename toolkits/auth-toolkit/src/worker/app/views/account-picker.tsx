@@ -1,6 +1,7 @@
 import { Check } from 'lucide-react';
 import type { Account } from '../api/index.ts';
 import { Avatar, Skeleton, cx } from '../ui/index.ts';
+import { TestLabel } from './test-label.tsx';
 
 /*
  * The Approving Account: which of this browser's Accounts answers. Picking
@@ -80,8 +81,11 @@ export function AccountPicker({
 function Identity({ account }: { account: Account }) {
   return (
     <span className="min-w-0 flex-1">
-      <span className="block truncate font-medium">
-        {account.name || account.email}
+      <span className="flex items-center gap-1.5">
+        <span className="truncate font-medium">
+          {account.name || account.email}
+        </span>
+        <TestLabel email={account.email} />
       </span>
       <span className="block truncate text-sm text-muted-fg">
         {account.email}

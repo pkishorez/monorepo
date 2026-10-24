@@ -9,6 +9,10 @@ export const AUTH_PAGES = {
   error: '/error',
 } as const;
 
+/** Where Test Sign-In is answered, below the Better Auth API: a POST of
+ * `{ email, key? }` that signs the browser in as that Test User. */
+export const TEST_SIGN_IN_PATH = '/test/sign-in';
+
 /** The User as every program sees it, whatever credential proved them. */
 export interface User {
   readonly id: string;

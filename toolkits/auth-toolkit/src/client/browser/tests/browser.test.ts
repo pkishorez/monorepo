@@ -29,9 +29,30 @@ import { Accounts, AccountsState } from '../../accounts/index.js';
 import { browser, browserAccountsTable } from '../index.js';
 
 const url = 'https://auth.example.com';
-const ada = { id: 'ada', email: 'ada@x.com', name: 'Ada', image: null };
-const bob = { id: 'bob', email: 'bob@x.com', name: 'Bob', image: 'b.png' };
-type Account = typeof ada | typeof bob;
+const ada = {
+  id: 'ada',
+  email: 'ada@x.com',
+  name: 'Ada',
+  image: null,
+  test: false,
+};
+const bob = {
+  id: 'bob',
+  email: 'bob@x.com',
+  name: 'Bob',
+  image: 'b.png',
+  test: false,
+};
+type Account = {
+  readonly id: string;
+  readonly email: string;
+  readonly name: string;
+  readonly image: string | null;
+  readonly test: boolean;
+};
+
+// The Test User keys the fake Auth Worker below accepts.
+const TEST_KEY = 'open-sesame';
 
 /** The Auth Worker's pages-facing endpoints over one browser's cookie. */
 const fakeAuthWorker = (
@@ -51,7 +72,11 @@ const fakeAuthWorker = (
     const path = new URL(request.url).pathname.replace('/api/auth', '');
     const body =
       request.method === 'POST'
-        ? ((await request.json()) as { userId?: string })
+        ? ((await request.json()) as {
+            userId?: string;
+            email?: string;
+            key?: string;
+          })
         : undefined;
     calls.push({
       method: request.method,
@@ -63,7 +88,35 @@ const fakeAuthWorker = (
       cookie.accounts.some(({ id }) => id === userId);
     switch (`${request.method} ${path}`) {
       case 'GET /accounts':
-        return json(cookie);
+        // The Auth Worker never says which Accounts are Test Users.
+        return json({
+          active: cookie.active,
+          accounts: cookie.accounts.map(({ id, email, name, image }) => ({
+            id,
+            email,
+            name,
+            image,
+          })),
+        });
+      case 'POST /test/sign-in': {
+        const email = body?.email ?? '';
+        if (!email.endsWith('.test')) {
+          return json(
+            { code: 'NOT_A_TEST_EMAIL', message: 'Not a Test User email.' },
+            400,
+          );
+        }
+        if (body?.key !== TEST_KEY) {
+          return json({ code: 'WRONG_KEY', message: 'Wrong key.' }, 403);
+        }
+        const id = `test-${email}`;
+        cookie.accounts = [
+          ...cookie.accounts.filter((account) => account.id !== id),
+          { id, email, name: email.split('@')[0]!, image: null, test: true },
+        ];
+        cookie.active = id;
+        return json({ user: { id, email } });
+      }
       case 'POST /accounts/switch':
         if (!has(body?.userId)) {
           return json(
@@ -308,6 +361,97 @@ describe('browser', () => {
       `${url}/login?return_to=${encodeURIComponent('https://app.example.com/notes?id=1')}&add_account=1`,
       `${url}/login?return_to=${encodeURIComponent('https://app.example.com/notes?id=1')}`,
     ]);
+  });
+
+  it('signs a Test User in at once, with the cookie, and checks again', async () => {
+    const worker = fakeAuthWorker();
+    const state = await run(
+      worker,
+      Effect.gen(function* () {
+        const accounts = yield* Accounts;
+        yield* settled;
+        yield* accounts.signIn({
+          test: { email: 'tess@example.test', key: TEST_KEY },
+        });
+        return yield* accounts.current;
+      }),
+    );
+    const tess = {
+      id: 'test-tess@example.test',
+      email: 'tess@example.test',
+      name: 'tess',
+      image: null,
+      test: true,
+    };
+    expect(state).toEqual(
+      AccountsState.SignedIn({ active: tess, accounts: [ada, bob, tess] }),
+    );
+    expect(worker.calls.slice(1)).toEqual([
+      {
+        method: 'POST',
+        path: '/test/sign-in',
+        body: { email: 'tess@example.test', key: TEST_KEY },
+        credentials: 'include',
+      },
+      { method: 'GET', path: '/accounts', credentials: 'include' },
+    ]);
+  });
+
+  it('says why a Test User sign-in was refused, changing nothing', async () => {
+    const signIn = (test: { email: string; key?: string }) =>
+      Effect.gen(function* () {
+        const accounts = yield* Accounts;
+        yield* settled;
+        const exit = yield* Effect.exit(accounts.signIn({ test }));
+        return [exit, yield* accounts.current] as const;
+      });
+
+    const [notTest, unchanged] = await run(
+      fakeAuthWorker(),
+      signIn({ email: 'ada@x.com', key: TEST_KEY }),
+    );
+    expect(notTest).toMatchObject(
+      Exit.fail({
+        _tag: 'TestSignInRefused',
+        code: 'NOT_A_TEST_EMAIL',
+        reason: 'Not a Test User email.',
+      }),
+    );
+    expect(unchanged).toEqual(
+      AccountsState.SignedIn({ active: bob, accounts: [ada, bob] }),
+    );
+
+    const [wrongKey] = await run(
+      fakeAuthWorker(),
+      signIn({ email: 'tess@example.test' }),
+    );
+    expect(wrongKey).toMatchObject(
+      Exit.fail({ _tag: 'TestSignInRefused', code: 'WRONG_KEY' }),
+    );
+
+    const off = {
+      fetch: (async (input, init) => {
+        const request = new Request(input, init);
+        return request.method === 'GET'
+          ? Response.json({ active: null, accounts: [] })
+          : new Response(null, { status: 404 });
+      }) satisfies typeof globalThis.fetch,
+    };
+    const [testUsersOff] = await run(
+      off,
+      signIn({ email: 'tess@example.test', key: TEST_KEY }),
+    );
+    expect(testUsersOff).toMatchObject(
+      Exit.fail({ _tag: 'TestSignInRefused', code: 'TEST_USERS_OFF' }),
+    );
+  });
+
+  it('refuses options without a url, and tells Local mode where it went', () => {
+    expect(() => browser({} as never)).toThrow(/url/);
+    expect(() => browser({ url: ' ' })).toThrow(/url/);
+    expect(() =>
+      browser({ local: { choose: Effect.succeed(null) } } as never),
+    ).toThrow(/fakeAccounts.*@kestack\/auth-toolkit\/fake/);
   });
 
   it('checks again when the tab becomes visible', async () => {

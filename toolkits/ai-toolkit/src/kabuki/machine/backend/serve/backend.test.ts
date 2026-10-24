@@ -7,7 +7,7 @@ import { SQLite } from '@kestack/std-toolkit/db/sqlite';
 import { makeNodeSQLite } from '@kestack/std-toolkit/db/sqlite/node';
 import { MachinesClient } from '../client/index.js';
 import { type AuthInfo, MachineReport } from '../contract/index.js';
-import { machinesTable, serveOver } from './index.js';
+import { machinesTable, serve, serveOver } from './index.js';
 
 /*
  * The Machines Backend over an in-memory SQLite database, called through
@@ -37,6 +37,7 @@ const signIn = (name: string) => {
       kind: 'session',
       user: { id, name, email: `${id}@demo.test` },
       session: { id: `s-${id}` },
+      test: true,
     } as unknown as Principal,
   };
 };
@@ -276,5 +277,27 @@ describe('the Machines Backend', () => {
       }),
     );
     expect(elsewhere.headers.get('access-control-allow-origin')).toBeNull();
+  });
+});
+
+describe('serve', () => {
+  const database = {} as never;
+  const site = 'https://code.example.com';
+
+  it('is Local mode only for exactly `{ local: true }`', async () => {
+    const answer = serve({ auth: { local: true }, site, database });
+    const info = await (await answer(new Request(`${site}/auth`))).json();
+    expect(info).toEqual({ local: true });
+  });
+
+  it('never falls into Local mode from a mistyped config', () => {
+    for (const auth of [
+      { url: 'https://auth.example.com', local: true },
+      { url: 'https://auth.example.com', local: false },
+    ]) {
+      expect(() => serve({ auth: auth as never, site, database })).toThrow(
+        /local/,
+      );
+    }
   });
 });

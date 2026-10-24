@@ -7,6 +7,8 @@ export {
   AuthWorkerUnreachable,
   DeviceLoginFailed,
   InvalidAuthWorkerResponse,
+  TestSignInRefused,
+  TestSignInUnsupported,
   type Account,
   type AccountsError,
   type SignInOptions,

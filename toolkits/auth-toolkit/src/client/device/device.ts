@@ -7,6 +7,7 @@ import {
   Accounts,
   InvalidAuthWorkerResponse,
   type SignInOptions,
+  TestSignInUnsupported,
 } from '../accounts/index.js';
 import { makeAccounts, signing } from '../accounts-layer/index.js';
 import { authWorker } from '../auth-worker/index.js';
@@ -81,7 +82,7 @@ const without = (current: Stored, userId: string): Stored => {
  * Each Account keeps its own Sign-in token in the Sign-in Store; every
  * guarded RPC or HttpApi call carries the Active Account's as a bearer, and
  * one refused Unauthenticated checks again before failing. `signIn` is a
- * Device Login. Nothing is asked of the Auth Worker on start: the stored
+ * Device Login; a Test User sign-in (`test`) fails TestSignInUnsupported. Nothing is asked of the Auth Worker on start: the stored
  * Accounts are trusted until `check` or a refused call.
  */
 export const device = ({
@@ -139,6 +140,9 @@ export const device = ({
 
       const signIn = (options: SignInOptions) =>
         Effect.gen(function* () {
+          if (options.test) {
+            return yield* new TestSignInUnsupported({ client: 'Device' });
+          }
           const code = yield* login.requestCode;
           const token = yield* Effect.scoped(
             Effect.gen(function* () {

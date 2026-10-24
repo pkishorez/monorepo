@@ -1,10 +1,10 @@
 import { Data, Duration, Effect, Schedule, Schema } from 'effect';
 import {
-  type Account,
   AuthWorkerRejected,
   DeviceLoginFailed,
   InvalidAuthWorkerResponse,
 } from '../accounts/index.js';
+import type { SourceAccount } from '../accounts-layer/index.js';
 import type { AuthWorker } from '../auth-worker/index.js';
 
 class Pending extends Data.TaggedError('Pending') {}
@@ -110,7 +110,7 @@ export const deviceLogin = (worker: AuthWorker, app: string, url: string) => {
   /** The Account a Sign-in token names; null once its Sign-in is gone. */
   const whoIs = (token: string) =>
     worker.get('/get-session', Session, { bearer: token }).pipe(
-      Effect.map((session): Account | null =>
+      Effect.map((session): SourceAccount | null =>
         session
           ? {
               id: session.user.id,

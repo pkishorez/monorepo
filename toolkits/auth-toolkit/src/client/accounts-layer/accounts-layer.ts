@@ -1,11 +1,4 @@
-import {
-  Effect,
-  Option,
-  Schema,
-  type Scope,
-  Semaphore,
-  SubscriptionRef,
-} from 'effect';
+import { Effect, Option, type Scope, Semaphore, SubscriptionRef } from 'effect';
 import {
   type Account,
   Accounts,
@@ -13,31 +6,29 @@ import {
   AccountsState,
   type SignInOptions,
 } from '../accounts/index.js';
+import { isTestEmail } from '../../contract/index.js';
+import { acting } from './acting.js';
 import { signing } from './signing.js';
+import {
+  AccountSchema,
+  type Snapshot,
+  SnapshotSchema,
+  type SourceAccount,
+} from './snapshot.js';
+import { watchTabs } from './tabs.js';
 
-export { signing };
-
-export const AccountSchema = Schema.Struct({
-  id: Schema.String,
-  email: Schema.String,
-  name: Schema.String,
-  image: Schema.NullOr(Schema.String),
-}) satisfies Schema.Codec<Account, unknown>;
-
-export const SnapshotSchema = Schema.Struct({
-  active: Schema.NullOr(Schema.String),
-  accounts: Schema.Array(AccountSchema),
-});
-
-/** Who is signed in, as a Source answers it: the Active Account's User id
- * (null when signed out) and every Account in sign-in order. */
-export interface Snapshot {
-  readonly active: string | null;
-  readonly accounts: ReadonlyArray<Account>;
-}
+export {
+  AccountSchema,
+  acting,
+  signing,
+  type Snapshot,
+  SnapshotSchema,
+  type SourceAccount,
+  watchTabs,
+};
 
 /** Where the Accounts really live: the Auth Worker, a Sign-in Store, or the
- * Local Accounts table. Every action answers who is signed in after it. */
+ * fake's table. Every action answers who is signed in after it. */
 export interface Source {
   readonly read: Effect.Effect<Snapshot, AccountsError>;
   readonly signIn: (
@@ -77,15 +68,26 @@ const alone: Connection = { announce: () => Effect.void };
 
 export const signedOut: Snapshot = { active: null, accounts: [] };
 
-const stateOf = ({ active, accounts }: Snapshot): AccountsState => {
-  const account = accounts.find(({ id }) => id === active);
+const accountOf = ({ id, email, name, image }: SourceAccount): Account => ({
+  id,
+  email,
+  name,
+  image,
+  test: isTestEmail(email),
+});
+
+const stateOf = (snapshot: Snapshot): AccountsState => {
+  const accounts = snapshot.accounts.map(accountOf);
+  const account = accounts.find(({ id }) => id === snapshot.active);
   return account
     ? AccountsState.SignedIn({ active: account, accounts })
     : AccountsState.SignedOut();
 };
 
-const activeOf = (snapshot: Snapshot | null) =>
-  snapshot?.accounts.find(({ id }) => id === snapshot.active);
+const activeOf = (snapshot: Snapshot | null) => {
+  const account = snapshot?.accounts.find(({ id }) => id === snapshot.active);
+  return account && accountOf(account);
+};
 
 /** The `Accounts` service over a Source: its state, kept as each action
  * answers and told to its peers when it changes, and `settle`, which checks

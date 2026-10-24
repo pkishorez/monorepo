@@ -162,6 +162,13 @@ describe('authWorker', () => {
     expect(pluginIds(2)).not.toContain('dash');
   });
 
+  it('installs Test Sign-In only with testUsers', () => {
+    authWorker(config);
+    expect(pluginIds(0)).not.toContain('test-sign-in');
+    authWorker({ ...config, testUsers: {} });
+    expect(pluginIds(1)).toContain('test-sign-in');
+  });
+
   it('turns the Authorization Server Role on with self-registration only', () => {
     authWorker({
       ...config,
@@ -264,26 +271,75 @@ describe('authWorker', () => {
   describe('the User Admission Policy', () => {
     const validate = () => options().user.validateUserInfo;
 
+    const google = { method: 'oauth', oauth: { providerId: 'google' } };
+
     it('admits on true and refuses on false', async () => {
       const admit = vi.fn(({ email }: { email: string }) =>
         email.endsWith('@example.com'),
       );
       authWorker({ ...config, admit });
       expect(
-        await validate()({ user: { email: 'ada@example.com', name: 'Ada' } }),
+        await validate()({
+          user: { email: 'ada@example.com', name: 'Ada' },
+          source: google,
+        }),
       ).toBeUndefined();
       expect(admit).toHaveBeenCalledWith({
         email: 'ada@example.com',
         name: 'Ada',
       });
       expect(
-        await validate()({ user: { email: 'eve@evil.test', name: 'Eve' } }),
+        await validate()({
+          user: { email: 'eve@evil.com', name: 'Eve' },
+          source: google,
+        }),
       ).toMatchObject({ error: 'not_admitted' });
     });
 
     it('is absent unless configured', () => {
       authWorker(config);
       expect(options().user).toBeUndefined();
+    });
+
+    it('refuses a .test email from Google, with admit', async () => {
+      authWorker({ ...config, admit: () => true });
+      expect(
+        await validate()({
+          user: { email: 'eve@example.TEST', name: 'Eve' },
+          source: google,
+        }),
+      ).toMatchObject({ error: 'not_admitted' });
+    });
+
+    it.each([{}, { admit: () => true }])(
+      'creates a Test User only through Test Sign-In, with %j',
+      async (overrides) => {
+        authWorker({ ...config, ...overrides });
+        const create = options().databaseHooks.user.create.before;
+        const eve = { email: 'eve@example.test', name: 'Eve' };
+        await expect(
+          create(eve, { path: '/callback/google' }),
+        ).rejects.toMatchObject({ body: { code: 'not_admitted' } });
+        await expect(create(eve, null)).rejects.toBeDefined();
+        await expect(
+          create(eve, { path: '/test/sign-in' }),
+        ).resolves.toBeUndefined();
+        await expect(
+          create({ email: 'ada@example.com', name: 'Ada' }, null),
+        ).resolves.toBeUndefined();
+      },
+    );
+
+    it('leaves Test Sign-In’s Test Users to it, without asking admit', async () => {
+      const admit = vi.fn(() => false);
+      authWorker({ ...config, admit, testUsers: {} });
+      expect(
+        await validate()({
+          user: { email: 'ada@example.test', name: 'ada' },
+          source: { method: 'test-sign-in' },
+        }),
+      ).toBeUndefined();
+      expect(admit).not.toHaveBeenCalled();
     });
   });
 
@@ -296,6 +352,10 @@ describe('authWorker', () => {
       [{ brand: { name: ' ' } }, /brand.name/],
       [{ maxAccounts: 0 }, /maxAccounts/],
       [{ maxAccounts: 1.5 }, /maxAccounts/],
+      [{ testUsers: { key: '' } }, /testUsers.key must be a non-empty string/],
+      [{ testUsers: { key: 42 } }, /testUsers.key must be a non-empty string/],
+      [{ testUsers: { allow: true } }, /testUsers.allow must be a function/],
+      [{ testUsers: 'yes' }, /testUsers must be an object/],
       [{ oauth: { resources: { 'not a url': {} } } }, /absolute URL/],
       [
         { oauth: { resources: { 'https://a.example.com': { 'a b': 'x' } } } },
@@ -313,7 +373,15 @@ describe('authWorker', () => {
         /two different descriptions/,
       ],
     ])('refuses %j', (overrides, message) => {
-      expect(() => authWorker({ ...config, ...overrides })).toThrow(message);
+      expect(() => authWorker({ ...config, ...(overrides as object) })).toThrow(
+        message,
+      );
+    });
+
+    it('accepts testUsers with or without a key and allow', () => {
+      for (const testUsers of [{}, { key: 'k', allow: () => true }]) {
+        expect(() => authWorker({ ...config, testUsers })).not.toThrow();
+      }
     });
   });
 });

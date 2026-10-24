@@ -13,6 +13,8 @@ export interface PagesContext {
   origin: string;
   /** With the Authorization Server Role on: every Scope, in words. */
   oauth?: { scopes: Readonly<Record<string, string>> } | undefined;
+  /** With Test Sign-In on: whether it asks for a key. */
+  testUsers?: { key: boolean } | undefined;
   /** The visitor's Theme, read from its `theme` cookie; absent without one,
    * when the browser draws the system's. */
   theme?: Theme | undefined;

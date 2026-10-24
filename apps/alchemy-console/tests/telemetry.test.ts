@@ -52,7 +52,7 @@ it('preserves authenticated RPC and exports linked spans with safe correlated lo
       }
       if (url.hostname === new URL(authWorkerUrl).hostname) {
         return Response.json({
-          user: { id: 'alice' },
+          user: { id: 'alice', email: 'alice@example.com' },
           session: { id: 'session', userId: 'alice' },
         });
       }

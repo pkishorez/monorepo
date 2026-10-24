@@ -1,18 +1,18 @@
 import { Effect, Option } from 'effect';
 
+import { isTestEmail } from '../../contract/index.js';
 import {
   AccountChanged,
   bearerToken,
   EXPECT_USER,
-  type Forbidden,
+  Forbidden,
   Unauthenticated,
   Unavailable,
   type Policy,
   type Principal,
 } from '../../guard/index.js';
 import { verifyAccessToken } from './access-token.js';
-import { localPrincipal } from './local.js';
-import { isLocal, type AuthOptions } from './options.js';
+import { checkOptions, type AuthOptions } from './options.js';
 import { cookieChanges } from './refreshed-cookies.js';
 import { verifySignIn } from './session.js';
 
@@ -29,17 +29,12 @@ export type Resolve = (
   request: Request,
 ) => Effect.Effect<Resolution | null, unknown>;
 
-// `options` were checked by `isLocal` first.
+// `options` were checked by `checkOptions` first.
 const resolveWith = async (
   options: AuthOptions,
   request: Request,
 ): Promise<Resolution | null> => {
   const token = bearerToken(request.headers);
-  if (options.local === true) {
-    const principal = token === null ? null : localPrincipal(token);
-    return principal === null ? null : { principal, refreshedCookies: [] };
-  }
-
   if (token !== null && options.oauth !== undefined) {
     const identity = await verifyAccessToken(
       options.url,
@@ -48,7 +43,11 @@ const resolveWith = async (
     );
     if (identity !== null) {
       return {
-        principal: { kind: 'token', ...identity },
+        principal: {
+          kind: 'token',
+          ...identity,
+          test: isTestEmail(identity.user.email),
+        },
         refreshedCookies: [],
       };
     }
@@ -64,15 +63,16 @@ const resolveWith = async (
           kind: 'session',
           session: verified.session,
           user: verified.user,
+          test: isTestEmail(verified.user.email),
         },
         refreshedCookies: verified.refreshedCookies,
       };
 };
 
-/** The Resolver `options` describe; throws for options naming no one
- * mode. */
+/** The Resolver `options` describe; throws for options naming no
+ * `url`. */
 export const resolver = (options: AuthOptions): Resolve => {
-  isLocal(options);
+  checkOptions(options);
   return (request) => Effect.tryPromise(() => resolveWith(options, request));
 };
 
@@ -86,15 +86,17 @@ export const fixedResolver =
 
 /**
  * Who `request` is from, for code outside Effect's servers: a raw WebSocket
- * upgrade, a plain fetch handler. Resolves null for nobody; rejects when the
- * Auth Worker could not be asked.
+ * upgrade, a plain fetch handler. Resolves null for nobody, and for a Test
+ * User unless `testUsers` admits them; rejects when the Auth Worker could
+ * not be asked.
  */
 export const verify = async (
   request: Request,
   options: AuthOptions,
 ): Promise<Principal | null> => {
-  isLocal(options);
-  return (await resolveWith(options, request))?.principal ?? null;
+  checkOptions(options);
+  const principal = (await resolveWith(options, request))?.principal ?? null;
+  return principal?.test && options.testUsers !== true ? null : principal;
 };
 
 /** A request carrying only `headers`, as the Resolver reads it. */
@@ -154,13 +156,15 @@ export const identify = (
 /**
  * Applies the Guard to one call's caller: Unauthenticated for nobody,
  * AccountChanged when a cookie caller's User is not the one its
- * `expect-user` names (a bearer caller's is ignored), then the policy.
+ * `expect-user` names (a bearer caller's is ignored), Forbidden for a Test
+ * User unless `testUsers`, then the policy.
  */
 export const admit = (
   resolved: Resolution | null,
   request: Request,
   policy: Option.Option<Policy>,
   attributes: Attributes,
+  testUsers: boolean,
 ): Effect.Effect<Principal, Unauthenticated | AccountChanged | Forbidden> =>
   Effect.gen(function* () {
     if (resolved === null) {
@@ -180,6 +184,11 @@ export const admit = (
       return yield* new AccountChanged({
         reason: 'The Active Account is not the expected User',
       });
+    }
+
+    if (principal.test && !testUsers) {
+      yield* Effect.logInfo('Test User refused');
+      return yield* new Forbidden({ reason: 'Test Users are not accepted' });
     }
 
     if (Option.isSome(policy)) {

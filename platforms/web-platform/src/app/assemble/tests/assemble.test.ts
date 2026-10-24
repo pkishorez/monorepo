@@ -4,10 +4,10 @@ import { describe, expect, it, vi } from 'vitest';
 import { Authz } from '@kestack/auth-toolkit';
 import { Accounts, AccountsState } from '@kestack/auth-toolkit/client';
 import {
-  browser,
-  localAccountsTable,
-} from '@kestack/auth-toolkit/client/browser';
-import { auth } from '@kestack/auth-toolkit/server/rpc';
+  fakeAccounts,
+  fakeAccountsTable,
+  fakeGuard,
+} from '@kestack/auth-toolkit/fake';
 import { Api } from '../../apis/index.ts';
 import { type AccountsLayer, memoryHost } from '../../host/index.ts';
 import {
@@ -69,7 +69,13 @@ const apis = {
   public: Api.http(Public, { path: '/public' }),
 };
 
-const ada = { id: 'ada', name: 'Ada', email: 'ada@example.com', image: null };
+const ada = {
+  id: 'ada',
+  name: 'Ada',
+  email: 'ada@example.com',
+  image: null,
+  test: false,
+};
 
 /** The cloud's Accounts, as `browser()` gives them: checking from the
  * account `last` seen here, until `answer` says who is signed in. */
@@ -112,9 +118,9 @@ const local = () => ({
   public: Public.toLayer({ Hello: () => Effect.succeed('hello') }),
 });
 
-// Each API's handlers behind Local mode, as the Web Platform runs them.
+// Each API's handlers behind the fake guard, as the Web Platform runs them.
 const guarded = (handlers: ReturnType<typeof local>) => ({
-  ledger: Layer.merge(auth({ local: true }), handlers.ledger),
+  ledger: Layer.merge(fakeGuard.rpc(), handlers.ledger),
   public: handlers.public,
 });
 
@@ -253,11 +259,9 @@ describe('createApp', () => {
         yield* accounts.signIn();
       }).pipe(
         Effect.provide(
-          browser({
-            local: {
-              choose: Effect.succeed({ email: 'ada@demo' }),
-              storage: host.storage.table(localAccountsTable, 'device'),
-            },
+          fakeAccounts({
+            choose: Effect.succeed({ email: 'ada@demo' }),
+            storage: host.storage.table(fakeAccountsTable, 'device'),
           }),
         ),
       ),
