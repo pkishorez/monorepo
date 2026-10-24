@@ -117,6 +117,8 @@ export const createStore = (flat: Flat, dispatcher: Dispatcher, vim: Vim) => {
   let lastIn: string | null = null;
   // The Surface come back to whose Focus Spot, or element, should take focus.
   let owed: string | null = null;
+  // Whether focus follows the Active Surface at all; off, only the user moves it.
+  let autoFocus = true;
   let attached = false;
   let lost = new Set<string>();
   let liveSaid = '';
@@ -233,7 +235,8 @@ export const createStore = (flat: Flat, dispatcher: Dispatcher, vim: Vim) => {
   // At once when the place is there, so focus is out of a Surface left
   // before it is drawn closed; else once React has committed.
   const moveFocus = (always: boolean) => {
-    if (typeof document === 'undefined' || (!always && !vim.on())) return;
+    if (typeof document === 'undefined' || !autoFocus) return;
+    if (!always && !vim.on()) return;
     owed = active;
     settleFocus();
     if (owed !== null) queueMicrotask(settleFocus);
@@ -363,6 +366,14 @@ export const createStore = (flat: Flat, dispatcher: Dispatcher, vim: Vim) => {
     subscribe: (listener: () => void) => {
       listeners.add(listener);
       return () => listeners.delete(listener);
+    },
+
+    /**
+     * Whether focus follows the Active Surface on its own, into a Surface
+     * entered and back to one returned to. Off, only the user moves it.
+     */
+    autoFocus: (on: boolean) => {
+      autoFocus = on;
     },
 
     /** Starts hearing the page and Escape, and declaring keys. */

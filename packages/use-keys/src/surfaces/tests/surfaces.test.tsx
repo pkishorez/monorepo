@@ -155,6 +155,7 @@ function Reply() {
 
 function Mail(props: {
   readonly on?: boolean;
+  readonly autoFocus?: boolean;
   readonly replyOutside?: boolean;
   readonly bindings?: Parameters<typeof keys.Provider>[0]['bindings'];
   readonly appearance?: Parameters<typeof keys.Provider>[0]['appearance'];
@@ -164,6 +165,7 @@ function Mail(props: {
   return (
     <keys.Provider
       vim={props.on ?? true}
+      {...(props.autoFocus !== undefined && { autoFocus: props.autoFocus })}
       {...(props.bindings && { bindings: props.bindings })}
       {...(props.appearance && { appearance: props.appearance })}
     >
@@ -684,6 +686,19 @@ describe('Focus Spots', () => {
     act(() => keyboard.enter('list'));
     await settle();
     expect(document.activeElement).toBe(field('search'));
+  });
+
+  it('take no focus on their own with autoFocus off, only where the user puts it', async () => {
+    render(<Mail autoFocus={false}>{spots}</Mail>);
+    act(() => keyboard.enter('list'));
+    await settle();
+    expect(document.activeElement).toBe(document.body);
+    await focus('[data-field="search"]');
+    act(() => keyboard.enter('sidebar'));
+    await act(async () => (document.activeElement as HTMLElement).blur());
+    act(() => keyboard.enter('list'));
+    await settle();
+    expect(document.activeElement).toBe(document.body);
   });
 
   it('enter their Surface when focused, wherever they are drawn', async () => {

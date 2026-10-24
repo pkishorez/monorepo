@@ -228,6 +228,8 @@ function Composer() {
   remembered as the Surface itself. A popup library's own focus return is
   turned off, as Base UI's `finalFocus={false}`, and a popup it closes
   itself calls `leave`.
+  `autoFocus={false}` on the Provider stops all of it, for a device with no
+  keyboard, where a focused field raises the on-screen one.
 - `keys.checkBindings(next)` checks the user's keys without throwing, for a
   settings screen: `conflicts` on one Surface (offer Swap), `shadowed` by a
   nearer Surface (allowed, with a note), and `invalid` ones.
