@@ -320,7 +320,7 @@ pnpm --filter @kestack/ai-toolkit dev:local
 - With no Machine, home says what to run; each Machine that signs in
   shows up beside the others.
 - `pnpm --filter code lint` checks types and the Laymos Rules; `pnpm --filter
-code test` runs the tests. Videos recorded under `qa/` stay local.
+  code test` runs the tests. Videos recorded under `qa/` stay local.
 
 ### Run with the Machines Backend, and deploy
 
