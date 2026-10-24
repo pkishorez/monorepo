@@ -287,7 +287,7 @@ function Screen({
         statusLine: <KeysStatusBar keys={keys} onHelp={() => enter('help')} />,
       }}
       // On a phone the sidebar is a page of its own: home.
-      phone="page"
+      sidebarMode="fullscreen"
       sidebar={{
         width: 260,
         content: (

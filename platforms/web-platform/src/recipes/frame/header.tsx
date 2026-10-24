@@ -17,9 +17,9 @@ export interface HeaderConfig {
  * then where you are, then the actions. Under the status bar on a phone.
  */
 export function Header(props: { readonly config: HeaderConfig }) {
-  const { open, toggle, hasSidebar, isMobile, phone } = useFrame();
+  const { open, toggle, hasSidebar, isMobile, sidebarMode } = useFrame();
   // A phone's sidebar that is a page of its own is gone back to, not toggled.
-  const back = isMobile && phone === 'page';
+  const back = isMobile && sidebarMode === 'fullscreen';
   return (
     <header
       data-slot="app-shell-header"

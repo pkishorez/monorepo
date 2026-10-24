@@ -38,13 +38,13 @@ export function useOpenProgress(options: {
   readonly setOpen: (open: boolean) => void;
   readonly swipe: 'anywhere' | 'edge' | 'off';
   /** The sidebar is a page of its own on a phone, the screen's width. */
-  readonly page: boolean;
+  readonly fullscreen: boolean;
 }): MotionValue<number> {
   const touch = useIsTouch();
   return useSwipeSidebar({
     side: 'left',
     width:
-      options.page && typeof window !== 'undefined'
+      options.fullscreen && typeof window !== 'undefined'
         ? window.innerWidth
         : PHONE_SIDEBAR_WIDTH,
     edge: options.swipe === 'edge' ? EDGE : undefined,
