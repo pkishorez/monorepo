@@ -1,5 +1,4 @@
 import {
-  Clock,
   Context,
   Effect,
   Layer,
@@ -7,45 +6,40 @@ import {
   Queue,
   Ref,
   Schema,
-  Semaphore,
   Stream,
   SubscriptionRef,
 } from 'effect';
 import { AiClient, AiClients } from '@kestack/ai-toolkit/client';
-import { DeviceState } from '../../layer/capabilities/index.ts';
 import { orRefused } from '../refusal/index.ts';
-import {
-  answered,
-  asking,
-  hurried,
-  idle,
-  kept,
-  next,
-  type Plan,
-  put,
-  WINDOW,
-} from './plan.ts';
+import { answered, asking, idle, next, type Plan, put } from './plan.ts';
 
 /*
- * Moves: every Settle and un-Settle the user asks for, whatever asked it,
- * on its way to the Session's Machine. Each Session's is its own.
+ * Moves: every Settle and un-Settle the user asks for, whatever asked it:
+ * a swipe, its Undo, the Settled List's Un-settle or Session Actions. Each
+ * Session's is its own.
  *
- * 1. Put      a swipe, or its Undo, waits WINDOW before its Machine is
- *             asked, so an Undo inside it asks nothing; a button or Session
- *             Actions is asked at once. Either replaces what was waiting.
- *             Kept in Device State as a Pending Move before it returns.
- * 2. Ask      one call at a time for each Session; one put meanwhile is
- *             asked after it lands, if it still differs. A refusal drops
- *             the Move and says why.
- * 3. Hurry    as the page goes, everything waiting is asked at once.
- * 4. Replay   as it starts, every Pending Move kept is asked again: a page
- *             closed or discarded first loses none.
- * 5. Agree    a Move with nothing left to ask goes once the Session as
- *             synced is where the user put it.
+ * 1. Put     where the user put it, asked of its Machine at once.
+ * 2. Ask     one call at a time for each Session, in order; one put while
+ *            a call is in flight is asked once it returns, if it still
+ *            differs from what the Machine last took. Each answer is that
+ *            call's: a refusal of an earlier put changes nothing, one of
+ *            the last drops the Move and says why.
+ * 3. Agree   a Move with nothing left to ask goes once the Session as
+ *            synced is where the user put it, or HOLD after its last call
+ *            returned, whichever is first.
  *
  * `intents` is every Move there is, newest put highest, for the sidebar to
  * draw each Session where it goes.
  */
+
+/**
+ * How long a Move with nothing left to ask still draws its Session where
+ * it was put, waiting for the synced Session to agree, in ms. Past it the
+ * synced Session is drawn as it is: one whose update is late shows where
+ * it was for a moment, then where it went, a brief flicker, rather than a
+ * row held wrong forever when an update never comes.
+ */
+export const HOLD = 3000;
 
 /** A Session of a Machine. */
 interface Session {
@@ -60,7 +54,7 @@ export const Intent = Schema.Struct({
   settled: Schema.Boolean,
   /** Its place in the order put, newest highest. */
   n: Schema.Finite,
-  /** Nothing waits nor is asked: it goes once the synced Session agrees. */
+  /** Nothing in flight nor left to ask: it goes once the synced Session agrees. */
   idle: Schema.Boolean,
 });
 
@@ -75,13 +69,9 @@ export class Moves extends Context.Service<
   {
     readonly intents: Stream.Stream<ReadonlyArray<typeof Intent.Type>>;
     readonly refusals: Stream.Stream<Refusal>;
-    /** 1. A swipe, or its Undo: asked once its window closes. */
-    readonly swipe: (session: Session, settled: boolean) => Effect.Effect<void>;
-    /** 1. A button, or Session Actions: asked at once. */
-    readonly set: (session: Session, settled: boolean) => Effect.Effect<void>;
-    /** 3. The page is going. */
-    readonly hurry: Effect.Effect<void>;
-    /** 5. The Session as synced is `settled`. */
+    /** 1. The user put the Session `settled`, or not. */
+    readonly put: (session: Session, settled: boolean) => Effect.Effect<void>;
+    /** 3. The Session as synced is `settled`. */
     readonly agreed: (
       session: Session,
       settled: boolean,
@@ -92,10 +82,9 @@ export class Moves extends Context.Service<
 const keyOf = ({ machineId, sessionId }: Session) =>
   `${machineId} ${sessionId}`;
 
-/** A Session's Plan, and whether a fiber is working through it. */
+/** A Session's Plan; while there is one, its fiber is working through it. */
 interface Entry extends Session {
   readonly plan: Plan;
-  readonly driving: boolean;
   /** Rung to look again, as the Plan changed while it waited. */
   readonly wake: Queue.Queue<void>;
 }
@@ -113,13 +102,11 @@ const ask = ({ machineId, sessionId }: Session, settled: boolean) =>
 const make = Effect.gen(function* () {
   const scope = yield* Effect.scope;
   const clients = yield* Effect.context<AiClients>();
-  const store = yield* DeviceState;
   const entries = yield* Ref.make(new Map<string, Entry>());
   const intents = yield* SubscriptionRef.make<
     ReadonlyArray<typeof Intent.Type>
   >([]);
   const refusals = yield* PubSub.unbounded<Refusal>();
-  const writing = yield* Semaphore.make(1);
   let count = 0;
 
   const show = Effect.flatMap(Ref.get(entries), (now) =>
@@ -135,158 +122,105 @@ const make = Effect.gen(function* () {
     ),
   );
 
-  // Device State keeps what the Plan says now, one write at a time, so a
-  // later write never lands before an earlier one.
-  const keep = (session: Session) =>
-    writing.withPermit(
-      Effect.flatMap(Ref.get(entries), (now) =>
-        store
-          .setMove(
-            session.machineId,
-            session.sessionId,
-            kept(now.get(keyOf(session))?.plan),
-          )
-          .pipe(Effect.ignore),
-      ),
-    );
-
-  const change = (key: string, plan: (entry: Entry) => Plan) =>
-    Ref.update(entries, (now) => {
-      const entry = now.get(key);
-      if (entry === undefined) return now;
-      return new Map(now).set(key, { ...entry, plan: plan(entry) });
+  // Changes a Session's Plan; null drops its Move.
+  const change = (key: string, plan: (plan: Plan) => Plan | null) =>
+    Ref.update(entries, (all) => {
+      const entry = all.get(key);
+      if (entry === undefined) return all;
+      const changed = plan(entry.plan);
+      const next = new Map(all);
+      if (changed === null) next.delete(key);
+      else next.set(key, { ...entry, plan: changed });
+      return next;
     });
 
-  // 2. Ask: one fiber per Session works its Plan through, waiting while it
-  // is due later, until nothing is left to ask.
+  // Drops the Move and stops, if it is still idle and `done` says so.
+  const finish = (key: string, done: (entry: Entry) => boolean) =>
+    Ref.modify(entries, (all) => {
+      const entry = all.get(key);
+      if (entry === undefined) return [true, all] as const;
+      if (!idle(entry.plan) || !done(entry)) return [false, all] as const;
+      const without = new Map(all);
+      without.delete(key);
+      return [true, without] as const;
+    });
+
+  // 2. Ask, 3. Agree: one fiber per Session works its Plan through, the
+  // only one that drops its Move.
   const drive = (key: string): Effect.Effect<void> =>
     Effect.gen(function* () {
       while (true) {
         const entry = (yield* Ref.get(entries)).get(key);
         if (entry === undefined) return;
-        const now = yield* Clock.currentTimeMillis;
-        const step = next(entry.plan, now);
-        if (step === 'idle' || step === 'asking') {
-          // Done, unless the Plan changed since it was read.
-          const done = yield* Ref.modify(entries, (all) => {
-            const current = all.get(key);
-            if (current === undefined) return [true, all];
-            if (!idle(current.plan)) return [false, all];
-            return [
-              true,
-              new Map(all).set(key, { ...current, driving: false }),
-            ] as const;
-          });
-          if (done) return;
-          continue;
-        }
-        if (step !== 'ask') {
-          yield* Effect.raceFirst(
-            Effect.sleep(step.ms),
-            Queue.take(entry.wake),
+        const step = next(entry.plan);
+        if (step === 'idle') {
+          if (yield* finish(key, ({ plan }) => plan.agreed)) return yield* show;
+          const woken = yield* Effect.raceFirst(
+            Effect.as(Effect.sleep(HOLD), false),
+            Effect.as(Queue.take(entry.wake), true),
           );
+          if (!woken && (yield* finish(key, () => true))) return yield* show;
           continue;
         }
         const settled = entry.plan.settled;
-        yield* change(key, (current) => asking(current.plan));
+        yield* change(key, asking);
         yield* show;
         const ended = yield* orRefused(ask(entry, settled), () => ({
-          _tag: 'Asked' as const,
+          _tag: 'Took' as const,
         })).pipe(Effect.provide(clients));
-        if (ended._tag === 'Refused') {
-          yield* Ref.update(entries, (all) => {
-            const without = new Map(all);
-            without.delete(key);
-            return without;
-          });
+        const took = ended._tag === 'Took';
+        const last = (yield* Ref.get(entries)).get(key)?.plan.settled;
+        yield* change(key, (plan) => answered(plan, settled, took));
+        if (ended._tag === 'Refused' && last === settled)
           yield* PubSub.publish(refusals, { settled, reason: ended.reason });
-        } else {
-          yield* change(key, (current) => answered(current.plan, settled));
-        }
-        yield* keep(entry);
         yield* show;
       }
     });
 
-  // 1. Put: the Plan changes, is kept, and its fiber looks again, or starts.
-  const putting =
-    (wait: number) =>
-    (session: Session, settled: boolean): Effect.Effect<void> =>
-      Effect.gen(function* () {
-        const key = keyOf(session);
-        const now = yield* Clock.currentTimeMillis;
-        const wake = yield* Queue.unbounded<void>();
-        const n = ++count;
-        const start = yield* Ref.modify(entries, (all) => {
-          const was = all.get(key);
-          const entry: Entry = {
-            ...session,
-            plan: put(was?.plan, settled, n, now, wait),
-            driving: true,
-            wake: was?.wake ?? wake,
-          };
-          return [was?.driving !== true, new Map(all).set(key, entry)] as const;
-        });
-        yield* keep(session);
-        yield* show;
-        const entry = (yield* Ref.get(entries)).get(key)!;
-        if (start) yield* Effect.forkIn(drive(key), scope);
-        else yield* Queue.offer(entry.wake, undefined);
+  // 1. Put: the Plan changes, and its fiber looks again, or starts.
+  const putting = (session: Session, settled: boolean): Effect.Effect<void> =>
+    Effect.gen(function* () {
+      const key = keyOf(session);
+      const fresh = yield* Queue.unbounded<void>();
+      const n = ++count;
+      const start = yield* Ref.modify(entries, (all) => {
+        const was = all.get(key);
+        const entry: Entry = {
+          ...session,
+          plan: put(was?.plan, settled, n),
+          wake: was?.wake ?? fresh,
+        };
+        return [was === undefined, new Map(all).set(key, entry)] as const;
       });
+      yield* show;
+      const entry = (yield* Ref.get(entries)).get(key)!;
+      if (start) yield* Effect.forkIn(drive(key), scope);
+      else yield* Queue.offer(entry.wake, undefined);
+    });
 
-  // 3. Hurry
-  const hurry = Effect.gen(function* () {
-    yield* Ref.update(
-      entries,
-      (all) =>
-        new Map(
-          [...all].map(([key, entry]) => [
-            key,
-            { ...entry, plan: hurried(entry.plan) },
-          ]),
-        ),
-    );
-    for (const entry of (yield* Ref.get(entries)).values())
-      yield* Queue.offer(entry.wake, undefined);
-  });
-
-  // 5. Agree
+  // 3. Agree
   const agreed = (session: Session, settled: boolean) =>
-    Effect.andThen(
-      Ref.update(entries, (all) => {
-        const entry = all.get(keyOf(session));
-        if (
-          entry === undefined ||
-          entry.driving ||
-          !idle(entry.plan) ||
-          entry.plan.settled !== settled
-        )
-          return all;
-        const without = new Map(all);
-        without.delete(keyOf(session));
-        return without;
-      }),
-      show,
-    );
-
-  // 4. Replay: what Device State kept is asked at once.
-  const { moves } = yield* DeviceState.read;
-  for (const [machineId, sessions] of Object.entries(moves))
-    for (const [sessionId, settled] of Object.entries(sessions))
-      yield* putting(0)({ machineId, sessionId }, settled);
+    Effect.gen(function* () {
+      const key = keyOf(session);
+      yield* change(key, (plan) =>
+        idle(plan) && plan.settled === settled
+          ? { ...plan, agreed: true }
+          : plan,
+      );
+      const entry = (yield* Ref.get(entries)).get(key);
+      if (entry !== undefined) yield* Queue.offer(entry.wake, undefined);
+    });
 
   return Moves.of({
     intents: SubscriptionRef.changes(intents),
     refusals: Stream.fromPubSub(refusals),
-    swipe: putting(WINDOW),
-    set: putting(0),
-    hurry,
+    put: putting,
     agreed,
   });
 });
 
-/** The Moves of the Machines reached here, kept in Device State. */
-export const layer: Layer.Layer<Moves, never, AiClients | DeviceState> =
-  Layer.effect(Moves, make);
-
-export { WINDOW };
+/** The Moves of the Machines reached here. */
+export const layer: Layer.Layer<Moves, never, AiClients> = Layer.effect(
+  Moves,
+  make,
+);

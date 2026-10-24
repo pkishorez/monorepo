@@ -14,7 +14,6 @@ import { notify } from '../../../ui/toast/index.ts';
 import { placeOf, type Route } from '../../places/index.ts';
 import { shownOf, SidebarLive } from './actor.ts';
 import { Places } from './sidebar.tsx';
-import { WINDOW } from '../../moves/index.ts';
 import { doneOf, movedOf } from './moves.ts';
 import { useReload } from './pull/index.ts';
 import { sayMoved } from './swipe/index.ts';
@@ -56,8 +55,7 @@ export const SidebarView = View.make(
         )
         .join(),
     ]);
-    // A swipe, once kept, is said with its Undo, which waits as a swipe
-    // does: undone while the toast shows, nothing is asked of its Machine.
+    // A swipe is said with its Undo, for five seconds, which puts it back.
     const { told } = model;
     useEffect(() => {
       if (told === null) return;
@@ -72,24 +70,10 @@ export const SidebarView = View.make(
             sessionId,
             settled: !settled,
             title: null,
-            now: false,
           }),
-        WINDOW / 1000,
+        5,
       );
     }, [told?.n]);
-    // The page going away asks every swipe still waiting for its window.
-    useEffect(() => {
-      const flush = () => send({ _tag: 'MovesFlushed' });
-      const hidden = () => {
-        if (document.visibilityState === 'hidden') flush();
-      };
-      document.addEventListener('visibilitychange', hidden);
-      window.addEventListener('pagehide', flush);
-      return () => {
-        document.removeEventListener('visibilitychange', hidden);
-        window.removeEventListener('pagehide', flush);
-      };
-    }, [send]);
     // A swipe its Machine refused is back where it was; this says why.
     const { refused } = model;
     useEffect(() => {
@@ -130,7 +114,6 @@ export const SidebarView = View.make(
               sessionId,
               settled: false,
               title: null,
-              now: true,
             })
           }
           onMove={({ machineId, id, title }, settled) =>
@@ -140,7 +123,6 @@ export const SidebarView = View.make(
               sessionId: id,
               settled,
               title: title || 'Untitled session',
-              now: false,
             })
           }
         />

@@ -5,13 +5,7 @@ import { DeviceState, Machines } from '../../../layer/capabilities/index.ts';
 import { session } from '../../places/index.ts';
 import { across, Projects, Sessions } from '../../replica/index.ts';
 import { Intent, Moves } from '../../moves/index.ts';
-import {
-  agreed,
-  hurry,
-  putMove,
-  reload,
-  setSidebarMachine,
-} from './commands.ts';
+import { agreed, putMove, reload, setSidebarMachine } from './commands.ts';
 
 /*
  * The sidebar: the Projects and Sessions of the Machine chosen, or of every
@@ -27,15 +21,15 @@ import {
  * 4. Open      a Session the keyboard steps to.
  * 5. Move      a Session swiped to Settle or un-Settle it, its Undo, or
  *              the Settled List's Un-settle: each put through `Moves`,
- *              which asks its Machine, a swipe only once its Undo window
- *              closes. Every Session is drawn where `Moves` says it goes
- *              until the Session as synced agrees; a swipe, once kept, is
- *              said with its Undo, and a refusal says why.
+ *              which asks its Machine at once. Every Session is drawn
+ *              where `Moves` says it goes until the Session as synced
+ *              agrees; a swipe is said with its Undo, which asks the
+ *              Machine back, and a refusal says why.
  */
 
 const Listed = Schema.Struct({ id: Schema.String, name: Schema.String });
 
-/** A swipe kept, to say with its Undo, numbered so each is said once. */
+/** A swipe, to say with its Undo, numbered so each is said once. */
 const Told = Schema.Struct({
   n: Schema.Finite,
   machineId: Schema.String,
@@ -58,7 +52,7 @@ const Model = Schema.Struct({
   ),
   /** Where each Session put is going, as `Moves` says, until synced. */
   moving: Schema.Array(Intent),
-  /** The last swipe kept. */
+  /** The last swipe. */
   told: Schema.NullOr(Told),
   /** The last Move refused, numbered so each is said once. */
   refused: Schema.NullOr(
@@ -91,21 +85,14 @@ const Sidebar = Actor.define('Sidebar', {
       sessionId: Schema.String,
     },
     /**
-     * A Session put: by a swipe, which titles it, or its Undo, which waits
-     * as a swipe does, or `now`, by the Settled List's Un-settle.
+     * A Session put: by a swipe, which titles it to say with its Undo, or
+     * by its Undo or the Settled List's Un-settle, which do not.
      */
     MoveAsked: {
       machineId: Schema.String,
       sessionId: Schema.String,
       settled: Schema.Boolean,
       title: Schema.NullOr(Schema.String),
-      now: Schema.Boolean,
-    },
-    MoveKept: {
-      machineId: Schema.String,
-      sessionId: Schema.String,
-      settled: Schema.Boolean,
-      title: Schema.String,
     },
     MovesShown: { moving: Schema.Array(Intent) },
     MoveRefused: { settled: Schema.Boolean, reason: Schema.String },
@@ -115,8 +102,6 @@ const Sidebar = Actor.define('Sidebar', {
       sessionId: Schema.String,
       settled: Schema.Boolean,
     },
-    /** The page is going: every swipe waiting is asked now. */
-    MovesFlushed: {},
   }),
 });
 
@@ -210,11 +195,22 @@ export const SidebarLive = Actor.build(Sidebar, {
   },
   on: {
     // 5. Move
-    MoveAsked: ({ machineId, sessionId, settled, title, now }) => ({
-      command: putMove({ machineId, sessionId, settled, title, now }),
-    }),
-    MoveKept: (kept, { model }) => ({
-      model: { ...model, told: { n: (model.told?.n ?? 0) + 1, ...kept } },
+    MoveAsked: ({ machineId, sessionId, settled, title }, { model }) => ({
+      ...(title === null
+        ? {}
+        : {
+            model: {
+              ...model,
+              told: {
+                n: (model.told?.n ?? 0) + 1,
+                machineId,
+                sessionId,
+                settled,
+                title,
+              },
+            },
+          }),
+      command: putMove({ machineId, sessionId, settled }),
     }),
     MovesShown: ({ moving }, { model }) => ({ model: { ...model, moving } }),
     MoveRefused: ({ settled, reason }, { model }) => ({
@@ -224,7 +220,6 @@ export const SidebarLive = Actor.build(Sidebar, {
       },
     }),
     MoveSeen: (seen) => ({ command: agreed(seen) }),
-    MovesFlushed: () => ({ command: hurry() }),
     MachinesKnown: ({ machines, problem }, { model }) => ({
       model: { ...model, machines, problem },
     }),
