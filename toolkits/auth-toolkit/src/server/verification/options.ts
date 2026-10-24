@@ -6,33 +6,26 @@ export interface OAuthOptions {
   readonly resource: string;
 }
 
-/** Who a backend asks about its callers: the Auth Worker at `url`, or, in
- * Local mode, nobody (a Local Token names its User). */
-export type AuthOptions<OAuth extends OAuthOptions = OAuthOptions> =
-  | {
-      /** The Auth Worker's deployed URL, e.g. `https://auth.example.com`. */
-      readonly url: string;
-      readonly oauth?: OAuth | undefined;
-      readonly local?: undefined;
-    }
-  | { readonly local: true; readonly url?: undefined };
+/** Who a backend asks about its callers: the Auth Worker at `url`. */
+export interface AuthOptions<OAuth extends OAuthOptions = OAuthOptions> {
+  /** The Auth Worker's deployed URL, e.g. `https://auth.example.com`. */
+  readonly url: string;
+  readonly oauth?: OAuth | undefined;
+  /** Admit Test Users, whose email ends in `.test`. Refused (Forbidden)
+   * unless `true`, whatever their credential. */
+  readonly testUsers?: boolean | undefined;
+}
 
-/** Whether `options` are Local mode. Only `local: true` is; options that
- * name both a `url` and `local`, or neither, are refused, so a mistyped
- * config never turns on Local mode, where anyone may be anyone. */
-export const isLocal = <OAuth extends OAuthOptions>(
-  options: AuthOptions<OAuth>,
-): options is Extract<AuthOptions<OAuth>, { readonly local: true }> => {
+/** Throws unless `options` name the Auth Worker's `url`; `local` is refused
+ * by name, so an app still on Local mode is told where it went. */
+export const checkOptions = (options: AuthOptions): void => {
   const { url, local } = options as { url?: unknown; local?: unknown };
-  if (local !== undefined && url !== undefined) {
-    throw new Error('auth: give `url` or `local: true`, not both.');
-  }
   if (local !== undefined) {
-    if (local === true) return true;
-    throw new Error('auth: `local` must be `true`; leave it out otherwise.');
+    throw new Error(
+      "auth: `local` was removed; the browser environment's guard is `fakeGuard` from @kestack/auth-toolkit/fake.",
+    );
   }
-  if (typeof url !== 'string' || url === '') {
-    throw new Error("auth: give the Auth Worker's `url`, or `local: true`.");
+  if (typeof url !== 'string' || url.trim() === '') {
+    throw new Error("auth: give the Auth Worker's `url`.");
   }
-  return false;
 };

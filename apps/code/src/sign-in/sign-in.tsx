@@ -2,9 +2,12 @@ import { Effect, Layer } from 'effect';
 import {
   browser,
   browserAccountsTable,
-  localAccountsTable,
-  localChooser,
 } from '@kestack/auth-toolkit/client/browser';
+import {
+  fakeAccounts,
+  fakeAccountsTable,
+  fakeChooser,
+} from '@kestack/auth-toolkit/fake';
 import { IDB } from '@kestack/std-toolkit/db/idb';
 import { Button } from '@kestack/web-platform/components/button';
 import { Spinner } from '@kestack/web-platform/components/spinner';
@@ -34,7 +37,7 @@ import { Mark } from '../ui/mark/index.ts';
 const local = import.meta.env.VITE_AUTH_LOCAL === 'true';
 
 /** Who answers the Local Sign-In: one per app. */
-const chooser = localChooser();
+const chooser = fakeChooser();
 
 const table = <T extends Parameters<typeof IDB.make>[0]>(of: T) =>
   Layer.unwrap(
@@ -52,11 +55,9 @@ const table = <T extends Parameters<typeof IDB.make>[0]>(of: T) =>
 export const accounts = Layer.unwrap(
   Effect.sync(() =>
     local
-      ? browser({
-          local: {
-            choose: chooser.choose,
-            storage: table(localAccountsTable),
-          },
+      ? fakeAccounts({
+          choose: chooser.choose,
+          storage: table(fakeAccountsTable),
         })
       : browser({
           url: import.meta.env.VITE_AUTH_URL ?? '',

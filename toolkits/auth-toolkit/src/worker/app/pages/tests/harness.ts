@@ -4,7 +4,13 @@ import { History, Runtime } from '@kestack/kabuki';
 import type { Instance, Running } from '@kestack/kabuki';
 import { View } from '@kestack/kabuki/react';
 import { Page, Router } from '@kestack/kabuki/routing';
-import { Api, ApiError, pagesData, signedOAuthQuery } from '../../api/index.ts';
+import {
+  Api,
+  ApiError,
+  isTestEmail,
+  pagesData,
+  signedOAuthQuery,
+} from '../../api/index.ts';
 import type { Account, DeviceRequest, Grant, SignIn } from '../../api/index.ts';
 import { AppLive, router } from '../index.ts';
 
@@ -58,15 +64,19 @@ export const twoAccounts = (): Server => ({
   devices: {},
 });
 
-const env = pagesData({
-  brand: { name: 'Acme' },
-  maxAccounts: 5,
-  cookieDomain: 'acme.localhost',
-  origin: 'http://auth.acme.localhost',
-  reads: undefined as never,
-});
-
-export const harness = (server: Server) => {
+/** With `testKey`, Test Sign-In is on, asking for that key if it is a string. */
+export const harness = (
+  server: Server,
+  { testKey }: { testKey?: string | null } = {},
+) => {
+  const env = pagesData({
+    brand: { name: 'Acme' },
+    maxAccounts: 5,
+    cookieDomain: 'acme.localhost',
+    origin: 'http://auth.acme.localhost',
+    ...(testKey !== undefined ? { testUsers: { key: testKey !== null } } : {}),
+    reads: undefined as never,
+  });
   const calls: Record<string, number> = {};
   const gates: Record<string, Promise<void>> = {};
   const listeners = new Set<() => void>();
@@ -241,6 +251,32 @@ export const harness = (server: Server) => {
       }),
     consentAnswer: () => Effect.succeed('https://client.example/callback'),
     google: () => Effect.succeed('https://accounts.google.com/o/oauth2'),
+    testSignIn: ({ email, key, oauthQuery }) =>
+      Effect.suspend(() => {
+        if (!isTestEmail(email))
+          return Effect.fail(
+            new ApiError({
+              status: 400,
+              code: 'not_a_test_email',
+              message: 'Not a test email.',
+            }),
+          );
+        if (testKey && key !== testKey)
+          return Effect.fail(
+            new ApiError({
+              status: 401,
+              code: 'wrong_key',
+              message: 'That test key is not right.',
+            }),
+          );
+        const id = email.split('@')[0]!;
+        if (!server.accounts.some((account) => account.id === id))
+          server.accounts.push({ id, email, name: id, image: null });
+        server.active = id;
+        return Effect.succeed(
+          oauthQuery ? 'https://auth.acme.localhost/consent' : undefined,
+        );
+      }),
     location: Effect.sync(() => location),
     leave: (url) => Effect.sync(() => void left.push(url)),
     onShown: (listener) => {

@@ -7,8 +7,8 @@ import { describe, expect, it } from 'vitest';
 /*
  * What an app does not ship for using auth-toolkit's Guard: neither the
  * contract (the root, used on RPC or HttpApi targets) nor the RPC server
- * half brings Effect's HttpApiBuilder, and the contract brings none of
- * rpc-toolkit's Transports. Each case bundles a small entry with Vite,
+ * half brings Effect's HttpApiBuilder, the contract brings none of
+ * rpc-toolkit's Transports, and no real door brings the fake. Each case bundles a small entry with Vite,
  * nothing external, importing the package by the names consumers use:
  * every `exports` entry is resolved to the source file its `dist` file is
  * built from, and rpc-toolkit is its built `dist`, as consumers get it.
@@ -80,6 +80,8 @@ const bundle = async (code: string) => {
 
 // Effect HttpApi's server builder, and rpc-toolkit's Transports.
 const HTTP_API_BUILDER = '/effect/dist/http-api/HttpApiBuilder.';
+// The browser environment's fake, which no real door may carry.
+const FAKE = '/auth-toolkit/src/fake/';
 const TRANSPORTS = [
   '/rpc-toolkit/dist/rpc/http/',
   '/rpc-toolkit/dist/rpc/websocket/',
@@ -87,6 +89,16 @@ const TRANSPORTS = [
 ];
 
 describe('what the Guard leaves out', () => {
+  it('the fake, bundled the way an app imports it, really is in the bundle', async () => {
+    const { has } = await bundle(
+      `import { fakeAccounts, fakeGuard } from '@kestack/auth-toolkit/fake';
+       import { Effect } from 'effect';
+       export const layer = fakeAccounts({ choose: Effect.succeed(null) });
+       export const guard = fakeGuard.rpc();`,
+    );
+    expect(has(FAKE)).toBe(true);
+  }, 60_000);
+
   it('the contract, on RPC and HttpApi targets: no HttpApiBuilder, no Transport', async () => {
     const { code, has } = await bundle(
       `import { Authz } from '@kestack/auth-toolkit';
@@ -115,6 +127,7 @@ describe('what the Guard leaves out', () => {
     expect(code).toContain('@kestack/auth-toolkit/rpc/Auth');
     expect(code).toContain('@kestack/auth-toolkit/http-api/Auth');
     expect(has(HTTP_API_BUILDER)).toBe(false);
+    expect(has(FAKE)).toBe(false);
     for (const transport of TRANSPORTS) expect(has(transport)).toBe(false);
   }, 60_000);
 
@@ -134,6 +147,7 @@ describe('what the Guard leaves out', () => {
     );
     expect(has('/rpc-toolkit/dist/rpc/http/')).toBe(true);
     expect(has(HTTP_API_BUILDER)).toBe(false);
+    expect(has(FAKE)).toBe(false);
   }, 60_000);
 
   it('an HttpApi server with `server/http`: no RPC Transport', async () => {
@@ -154,6 +168,7 @@ describe('what the Guard leaves out', () => {
        );`,
     );
     expect(has(HTTP_API_BUILDER)).toBe(true);
+    expect(has(FAKE)).toBe(false);
     for (const transport of TRANSPORTS) expect(has(transport)).toBe(false);
   }, 60_000);
 });

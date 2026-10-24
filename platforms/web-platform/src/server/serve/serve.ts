@@ -43,7 +43,7 @@ export interface ServerConfig<A extends Apis, Env> {
    * checked for the Account its cookie (or a Device's token) names, and the
    * sign-in cookies refreshed while checking go back on the answer. `oauth`
    * lets in Access Tokens for that Resource Server too, such as an MCP
-   * client's. */
+   * client's; `testUsers: true` admits Test Users. */
   readonly auth?: LiveAuth;
 }
 

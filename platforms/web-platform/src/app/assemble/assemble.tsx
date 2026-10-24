@@ -7,9 +7,10 @@ import {
   type AccountsState,
 } from '@kestack/auth-toolkit/client';
 import {
-  browser,
-  localAccountsTable,
-} from '@kestack/auth-toolkit/client/browser';
+  fakeAccounts,
+  fakeAccountsTable,
+  fakeGuard,
+} from '@kestack/auth-toolkit/fake';
 import { Sync, type SyncStore } from '@kestack/std-toolkit/sync';
 import {
   type ApiClients,
@@ -148,18 +149,16 @@ const makeCore = <A extends Apis, C>(
         cloudProtocol(apis[name]!, host().cloud.url, { signed }),
       ]),
     );
-  // The Local Backend's handlers, each behind auth-toolkit's Local mode,
+  // The Local Backend's handlers, each behind auth-toolkit's fake guard,
   // which reads who signed a call from its Local Token. Loaded the first
-  // time it is chosen, with the server half of auth.
+  // time it is chosen.
   let loaded:
     | Promise<Record<string, Layer.Layer<RpcClient.Protocol>>>
     | undefined;
   const localProtocols = () =>
-    (loaded ??= Promise.all([
-      config.local!(host().storage),
-      import('@kestack/auth-toolkit/server/rpc'),
-    ]).then(([handlers, { auth }]) => {
-      const guard = auth({ local: true });
+    (loaded ??= (async () => {
+      const handlers = await config.local!(host().storage);
+      const guard = fakeGuard.rpc();
       return Object.fromEntries(
         names.map((name) => [
           name,
@@ -169,7 +168,7 @@ const makeCore = <A extends Apis, C>(
           ),
         ]),
       );
-    }));
+    })());
   const protocolOf = async (backend: Backend, name: string) =>
     backend === 'local'
       ? (await localProtocols())[name]!
@@ -304,13 +303,11 @@ const authApp = <A extends Apis, S, C>(
       local: async (choose) => {
         const protocols = await core.localProtocols();
         return Layer.mergeAll(
-          browser({
-            local: {
-              choose,
-              // In the database named `device`, where devices have kept
-              // their Local Accounts since this Backend was called that.
-              storage: host().storage.table(localAccountsTable, 'device'),
-            },
+          fakeAccounts({
+            choose,
+            // In the database named `device`, where devices have kept
+            // their Local Accounts since this Backend was called that.
+            storage: host().storage.table(fakeAccountsTable, 'device'),
           }),
           Layer.succeed(Link, {
             protocols: () => protocols,

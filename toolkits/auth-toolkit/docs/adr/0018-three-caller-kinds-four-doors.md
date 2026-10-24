@@ -4,7 +4,7 @@ Date: 2026-10-19
 
 ## Status
 
-Accepted. Replaces the door list in the monorepo's [ADR 0005](../../../../docs/adr/0005-three-toolkits-three-doors.md) for auth-toolkit. The root's `Auth` object is plain named exports since [ADR 0020](./0020-one-guard-for-both-protocols-as-authz.md).
+Accepted. Replaces the door list in the monorepo's [ADR 0005](../../../../docs/adr/0005-three-toolkits-three-doors.md) for auth-toolkit. The root's `Auth` object is plain named exports since [ADR 0020](./0020-one-guard-for-both-protocols-as-authz.md). The `local: true` mode is gone since [ADR 0022](./0022-test-users-at-the-auth-worker-local-mode-becomes-the-fake.md): running without the Auth Worker is the `fake` door.
 
 ## Context
 

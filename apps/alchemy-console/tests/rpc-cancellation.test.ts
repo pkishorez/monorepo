@@ -39,7 +39,7 @@ it('cancels server work when the query fiber is interrupted', async () => {
       if (new URL(request.url).hostname === authWorkerHost) {
         return Promise.resolve(
           Response.json({
-            user: { id: 'alice' },
+            user: { id: 'alice', email: 'alice@example.com' },
             session: { id: 'session', userId: 'alice' },
           }),
         );
@@ -126,7 +126,7 @@ it('streams deletion progress through the real RPC host before completion', asyn
       if (host === authWorkerHost)
         return Promise.resolve(
           Response.json({
-            user: { id: 'alice' },
+            user: { id: 'alice', email: 'alice@example.com' },
             session: { id: 'session', userId: 'alice' },
           }),
         );
@@ -210,7 +210,7 @@ it('streams preview analysis and the failing resource through the real RPC host'
       if (host === authWorkerHost)
         return Promise.resolve(
           Response.json({
-            user: { id: 'alice' },
+            user: { id: 'alice', email: 'alice@example.com' },
             session: { id: 'session', userId: 'alice' },
           }),
         );

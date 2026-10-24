@@ -7,10 +7,10 @@ import { MachinesApi } from '../backend/contract/index.js';
  * Local mode: the Backend trusts whoever a Local Token names, so a Machine
  * signs every call with one made from `--as`.
  *
- * auth-toolkit keeps `localToken` and `localUser` in a module its package
- * does not export, so their two lines are repeated here. The format is
- * fixed on its side: a Local Token's prefix and a Local Account's id are
- * kept on devices and never change.
+ * auth-toolkit keeps its `fakeToken` and `fakeUser` in a module its package
+ * does not export, so their two lines are repeated here; its `fakeGuard`
+ * reads the token. The format is fixed on its side: a Local Token's prefix
+ * and a Local Account's id are kept on devices and never change.
  */
 
 const toBase64Url = (text: string) =>

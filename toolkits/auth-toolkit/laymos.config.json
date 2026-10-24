@@ -27,8 +27,16 @@
     "src/guard": ["src/contract"],
     "src/auth": ["src/guard"],
     "src/server": ["src/contract", "src/guard"],
-    "src/server/rpc": ["src/server/verification"],
-    "src/server/http": ["src/server/verification"],
+    "src/server/guard-layers": ["src/server/verification"],
+    "src/server/rpc": ["src/server/verification", "src/server/guard-layers"],
+    "src/server/http": ["src/server/verification", "src/server/guard-layers"],
+    "src/fake": [
+      "src/contract",
+      "src/guard",
+      "src/client/accounts",
+      "src/client/accounts-layer",
+      "src/server/guard-layers"
+    ],
     "src/worker/database/sqlite/d1/database": [
       "src/worker/database/sqlite/schema"
     ],
@@ -43,6 +51,7 @@
       "src/contract",
       "src/worker/database/sqlite/d1/database"
     ],
+    "src/worker/app/api": ["src/contract"],
     "src/worker/app/pages": ["src/worker/app/api"],
     "src/worker/app/views": [
       "src/worker/app/api",

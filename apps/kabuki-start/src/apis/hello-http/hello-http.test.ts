@@ -18,6 +18,7 @@ const ada = {
   kind: 'session',
   user: { id: 'u1', name: 'Ada', email: 'ada@demo.test' },
   session: { id: 's1' },
+  test: true,
 } as unknown as Principal;
 
 /** The owner, signed in. */
@@ -25,6 +26,7 @@ const owner = {
   kind: 'session',
   user: { id: 'u2', name: 'Kishore', email: OWNER },
   session: { id: 's2' },
+  test: false,
 } as unknown as Principal;
 
 const get = (path: string, caller: Principal | null) =>

@@ -30,7 +30,6 @@ vi.mock('better-auth/client', () => ({
 }));
 
 import { Authz, type Principal } from '../../../auth/index.js';
-import { localToken, localUser } from '../../../contract/index.js';
 import { auth, testAuth } from '../index.js';
 
 const url = 'https://auth.example.com';
@@ -39,7 +38,8 @@ const issuer = `${url}/api/auth`;
 const signedIn = (id = 'u1'): Principal => ({
   kind: 'session',
   session: { id: `session-${id}` } as Session,
-  user: { id } as User,
+  user: { id, email: `${id}@example.com` } as User,
+  test: false,
 });
 
 const TestServices = Layer.mergeAll(
@@ -74,7 +74,10 @@ beforeEach(() => {
   mocks.createAuthClient.mockReset();
   mocks.createAuthClient.mockReturnValue({ getSession: mocks.getSession });
   mocks.getSession.mockResolvedValue({
-    data: { session: { id: 's1' }, user: { id: 'u1' } },
+    data: {
+      session: { id: 's1' },
+      user: { id: 'u1', email: 'u1@example.com' },
+    },
   });
 });
 
@@ -212,7 +215,10 @@ describe('server/http auth', () => {
       headers.append('set-cookie', 'session_cache_1=NEW; Path=/; HttpOnly');
       fetchOptions.onSuccess({ response: new Response(null, { headers }) });
       return Promise.resolve({
-        data: { session: { id: 's1' }, user: { id: 'u1' } },
+        data: {
+          session: { id: 's1' },
+          user: { id: 'u1', email: 'u1@example.com' },
+        },
       });
     });
 
@@ -232,39 +238,58 @@ describe('server/http auth', () => {
     ]);
   });
 
-  it('reads Local Tokens in Local mode', async () => {
-    const token = localToken.make(localUser({ email: 'ada@example.com' }));
+  it('refuses a Test User by cookie or Device token unless the backend admits them', async () => {
+    mocks.getSession.mockResolvedValue({
+      data: {
+        session: { id: 's-tess' },
+        user: { id: 'tess', email: 'tess@example.test' },
+      },
+    });
     const WhoAmI = HttpApiEndpoint.get('whoAmI', '/me', {
       success: Schema.String,
     });
-    const Group = Authz.required(HttpApiGroup.make('local').add(WhoAmI));
-    class Api extends HttpApi.make('local-api').add(Group) {}
-    const Handlers = HttpApiBuilder.group(Api, 'local', (handlers) =>
+    const Group = Authz.required(HttpApiGroup.make('test').add(WhoAmI));
+    class Api extends HttpApi.make('test-users-api').add(Group) {}
+    const Handlers = HttpApiBuilder.group(Api, 'test', (handlers) =>
       handlers.handle('whoAmI', () =>
         Effect.map(Authz.User, ({ user }) => user.email),
       ),
     );
-    const call = (headers: Record<string, string>) =>
+    const call = (
+      server: Layer.Layer<any, never, any>,
+      headers: Record<string, string>,
+    ) =>
       serve(
         Api,
         Handlers,
-        auth({ local: true }),
+        server,
         new Request('http://localhost/me', { headers }),
       );
 
-    const signed = await call({ authorization: `Bearer ${token}` });
-    expect(signed.response.status).toBe(200);
-    expect(JSON.parse(signed.body)).toBe('ada@example.com');
-    expect((await call({ cookie: 'session=abc' })).response.status).toBe(401);
-    expect(mocks.createAuthClient).not.toHaveBeenCalled();
+    for (const headers of [
+      { cookie: 'session=abc' },
+      { authorization: 'Bearer device-token' },
+    ]) {
+      const refused = await call(auth({ url }), headers);
+      expect(refused.response.status).toBe(403);
+      expect(JSON.parse(refused.body)).toMatchObject({
+        _tag: 'Forbidden',
+        reason: 'Test Users are not accepted',
+      });
+      const admitted = await call(auth({ url, testUsers: true }), headers);
+      expect(admitted.response.status).toBe(200);
+      expect(JSON.parse(admitted.body)).toBe('tess@example.test');
+    }
   });
 });
 
 describe('server/http auth options', () => {
-  it('refuses a url with Local mode, and `local: false`', () => {
-    expect(() => auth({ url, local: true } as never)).toThrow(/not both/);
-    expect(() => auth({ url, local: false } as never)).toThrow(/not both/);
-    expect(() => auth({ local: false } as never)).toThrow(/local/);
+  it('needs a url, and tells Local mode where it went', () => {
+    expect(() => auth({} as never)).toThrow(/url/);
+    expect(() => auth({ local: true } as never)).toThrow(
+      /fakeGuard.*@kestack\/auth-toolkit\/fake/,
+    );
+    expect(() => auth({ url, local: true } as never)).toThrow(/removed/);
   });
 });
 
@@ -332,16 +357,17 @@ describe('server/http auth with oauth', () => {
       )
       .handle('notes', () => Effect.succeed('ok')),
   );
-  const call = (request: Request) =>
+  const call = (request: Request, testUsers = false) =>
     serve(
       Api,
       Handlers,
-      auth({ url, oauth: { resource, scopes: ['notes:read'] } }),
+      auth({ url, oauth: { resource, scopes: ['notes:read'] }, testUsers }),
       request,
     );
-  const post = (headers: Record<string, string> = {}) =>
+  const post = (headers: Record<string, string> = {}, testUsers = false) =>
     call(
       new Request('https://mcp.example.com/mcp', { method: 'POST', headers }),
+      testUsers,
     );
 
   it('publishes Protected Resource Metadata at both RFC 9728 paths', async () => {
@@ -435,5 +461,27 @@ describe('server/http auth with oauth', () => {
   it('forbids a browser Sign-in a Scope check', async () => {
     const { response } = await post({ cookie: 'session=abc' });
     expect(response.status).toBe(403);
+  });
+
+  it('refuses a Test User’s Access Token, challenged, unless the backend admits them', async () => {
+    stubJwks();
+    const headers = {
+      authorization: `Bearer ${await mint({ email: 'tess@example.test' })}`,
+    };
+    const refused = await post(headers);
+    expect(refused.response.status).toBe(403);
+    expect(JSON.parse(refused.body)).toMatchObject({
+      reason: 'Test Users are not accepted',
+    });
+    expect(refused.response.headers.get('www-authenticate')).toContain(
+      'resource_metadata=',
+    );
+
+    const admitted = await post(headers, true);
+    expect(admitted.response.status).toBe(200);
+    expect(JSON.parse(admitted.body)).toEqual({
+      user: 'tess@example.test',
+      client: 'inspector',
+    });
   });
 });

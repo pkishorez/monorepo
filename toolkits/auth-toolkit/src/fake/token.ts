@@ -1,7 +1,7 @@
-import type { User } from './contract.js';
+import { normalizeEmail, type User } from '../contract/index.js';
 
-// A Local Token's prefix and a Local Account's id prefix are kept on
-// devices, so they never change.
+// A fake token's prefix and a fake user's id prefix are kept on devices,
+// and toolkits/ai-toolkit copies the token, so they never change.
 const PREFIX = 'local.';
 
 const toBase64Url = (text: string): string =>
@@ -25,14 +25,14 @@ const isUser = (value: unknown): value is User =>
   typeof (value as User).email === 'string' &&
   typeof (value as User).name === 'string';
 
-/** The token a Local Account holds. It carries its User, so a backend in
- * Local mode reads them without asking anyone. */
-export const localToken = {
+/** The token a fake Account holds. It carries its User, so the fake guard
+ * reads them without asking anyone. */
+export const fakeToken = {
   make: (user: User): string =>
     `${PREFIX}${toBase64Url(
       JSON.stringify({ id: user.id, email: user.email, name: user.name }),
     )}`,
-  /** The User a Local Token names, or null for anything else. */
+  /** The User a fake token names, or null for anything else. */
   read: (token: string): User | null => {
     if (!token.startsWith(PREFIX)) return null;
     try {
@@ -48,10 +48,13 @@ export const localToken = {
   },
 };
 
-/** The Local Account an email names: the same email is always the same
- * User. The name defaults to the part before the `@`. */
-export const localUser = (input: { email: string; name?: string }): User => {
-  const email = input.email.trim().toLowerCase();
+/** The fake User an email names: the same email is always the same User.
+ * Any email will do. The name defaults to the part before the `@`. */
+export const fakeUser = (input: {
+  readonly email: string;
+  readonly name?: string | undefined;
+}): User => {
+  const email = normalizeEmail(input.email);
   return {
     id: `local_${toBase64Url(email)}`,
     email,

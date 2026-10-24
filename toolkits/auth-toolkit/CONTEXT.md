@@ -80,13 +80,25 @@ _Avoid_: consent page, authorize page
 The Auth Worker's page at `/device`, where the User approves a Device Login as an Approving Account. The Device's link carries the code; typing it in is only for a visit by hand.
 _Avoid_: device page, verification page
 
-**Local Account**:
-An Account signed in by naming it, with no Auth Worker and no identity provider involved, when the client and the backend both run in local mode (`local: true`). The same email is always the same User. Switching and signing out work as they would with a real sign-in.
-_Avoid_: Named Account (the former name), test account, fake user, demo user
+**Test User**:
+A User whose email ends in `.test`, a reserved top-level domain no Google account can have. The email is the only mark; nothing else is stored. Every backend refuses one (Forbidden) until its guard opts in with `testUsers: true`; once admitted, a Test User is any User, and `test` on its Principal and Account says which it is.
+_Avoid_: test account, demo user, fake user (the Fake's are Fake Accounts)
 
-**Local Token**:
-The token a Local Account holds, which carries the User it names. A backend in local mode reads the User straight out of it without asking anyone, so the client and the backend never share state, wherever either runs. Any Local Token is accepted, and signing out revokes nothing.
-_Avoid_: Name Token (the former name), fake token, test token
+**Test Sign-In**:
+The Auth Worker's second way to sign in, beside Google: naming a Test User's email, with the Worker's key when it sets one. Off unless the deployment sets `testUsers`. Gives a normal Sign-in, so everything after it works as it would for a Google sign-in. `admit` does not apply to it.
+_Avoid_: Test Login, dev login, magic login, backdoor
+
+**Fake**:
+auth-toolkit's stand-in for the browser environment, where the whole backend runs in the tab and no Auth Worker can be reached: the `fake` door. `fakeAccounts` takes the place of `browser()` and `fakeGuard` of `auth()`. Anyone may be anyone, so it never guards real data.
+_Avoid_: Local mode (the former name), mock auth, sandbox
+
+**Fake Account**:
+An Account the Fake signs in by naming any email, with no Auth Worker and no identity provider. The same email is always the same User. Switching and signing out work as they would with a real sign-in.
+_Avoid_: Local Account, Named Account (the former names), test account (a Test User is a real User at a real Auth Worker)
+
+**Fake Token**:
+The token a Fake Account signs each call with, which carries the User it names. `fakeGuard` reads the User straight out of it without asking anyone, so the two sides never share state. Any Fake Token is accepted, and signing out revokes nothing.
+_Avoid_: Local Token, Name Token (the former names), test token
 
 **Theme**:
 How the Auth Worker's pages are drawn: Light or Dark. Until the visitor picks one, it is the system's. Switched from the toggle in the header of any of its pages, and then kept for that browser across the Shared Cookie Domain.
@@ -181,7 +193,7 @@ A User granted the `admin` role and therefore allowed to manage users and sessio
 _Avoid_: dashboard user, admin user
 
 **User Admission Policy**:
-An optional rule that accepts or rejects an identity when it first registers, links an account, or starts a fresh provider sign-in. It does not continuously re-evaluate existing sessions; banning handles an already-admitted User.
+An optional rule that accepts or rejects an identity when it first registers, links an account, or starts a fresh provider sign-in. It does not continuously re-evaluate existing sessions; banning handles an already-admitted User. It does not apply to Test Users.
 _Avoid_: invariant, user validation
 
 **Direct Sign-in Check**:
@@ -201,7 +213,7 @@ The verified Principal available while handling one guarded call in a Consumer B
 _Avoid_: CurrentAuth (the former name), current user (omits how the User was established), auth context (easily confused with Effect's Context)
 
 **Resolver**:
-The part of a backend's `auth()` that finds out who a request is from: against the Auth Worker (Server-Side Verification for a cookie or Device token, a local check for an Access Token), or in local mode by reading a Local Token. Handlers' tests use `testAuth`, which has a fixed Principal behind every call.
+The part of a backend's guard that finds out who a request is from: `auth()` asks the Auth Worker (Server-Side Verification for a cookie or Device token, a local check for an Access Token), and the Fake's `fakeGuard` reads a Fake Token. Handlers' tests use `testAuth`, which has a fixed Principal behind every call.
 _Avoid_: `authz.cloud`, `authz.device` (the former names), auth provider, RPC verifier
 
 **Unavailable**:

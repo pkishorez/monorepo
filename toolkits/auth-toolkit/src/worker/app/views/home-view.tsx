@@ -14,6 +14,7 @@ import {
 import { ClientMark } from './consent-view.tsx';
 import { Frame } from './frame.tsx';
 import { useRoot } from './root.ts';
+import { TestLabel } from './test-label.tsx';
 import { ago, onDay } from './time.ts';
 import { Unready } from './unready.tsx';
 
@@ -304,8 +305,11 @@ export const HomeView = View.make(HomeLive, ({ props, model, send }) => {
               >
                 {active.name || active.email}
               </h1>
-              <p title={active.email} className="truncate text-muted-fg">
-                {active.email}
+              <p className="flex items-center gap-2 text-muted-fg">
+                <span title={active.email} className="truncate">
+                  {active.email}
+                </span>
+                <TestLabel email={active.email} />
               </p>
             </div>
           </div>

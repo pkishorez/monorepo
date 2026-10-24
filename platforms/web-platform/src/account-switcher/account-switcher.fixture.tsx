@@ -20,18 +20,26 @@ import {
  */
 
 const people: ReadonlyArray<Account> = [
-  { id: 'ada', name: 'Ada Lovelace', email: 'ada@example.com', image: null },
+  {
+    id: 'ada',
+    name: 'Ada Lovelace',
+    email: 'ada@example.com',
+    image: null,
+    test: false,
+  },
   {
     id: 'grace',
     name: 'Grace Hopper',
     email: 'grace@example.com',
     image: null,
+    test: false,
   },
   {
     id: 'mary',
     name: 'Mary Somerville',
     email: 'mary.somerville@example.com',
     image: null,
+    test: false,
   },
 ];
 

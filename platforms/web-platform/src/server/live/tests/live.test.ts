@@ -36,6 +36,7 @@ const signedBy = (id: string): Principal =>
       token: `${id}-token`,
       expiresAt: new Date(signIn.expiresAt),
     },
+    test: false,
   }) as unknown as Principal;
 
 const grantedTo = (scope: string): Principal =>
@@ -44,6 +45,7 @@ const grantedTo = (scope: string): Principal =>
     user: { id: 'ada', email: 'ada@example.com', name: 'ada' },
     client: { id: 'client' },
     scopes: [scope],
+    test: false,
   }) as unknown as Principal;
 
 const Group = RpcGroup.make(

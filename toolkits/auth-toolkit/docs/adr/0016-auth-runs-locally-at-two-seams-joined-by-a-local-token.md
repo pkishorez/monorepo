@@ -6,7 +6,7 @@ Date: 2026-10-06
 
 ## Status
 
-Accepted. Amended by [ADR 0018](./0018-three-caller-kinds-four-doors.md): the two seams are one `local` option on the same doors, `browser({ local: { choose } })` on the client and `auth({ local: true })` on the backend, and the Name Token is a Local Token again.
+Accepted. Amended by [ADR 0018](./0018-three-caller-kinds-four-doors.md): the two seams are one `local` option on the same doors, `browser({ local: { choose } })` on the client and `auth({ local: true })` on the backend, and the Name Token is a Local Token again. Superseded in part by [ADR 0022](./0022-test-users-at-the-auth-worker-local-mode-becomes-the-fake.md): the local Layers leave the real doors for the fake (`fakeAccounts`, `fakeGuard`), and Test Login on the real Auth Worker is no longer rejected; it is Test Sign-In.
 
 ## Context
 

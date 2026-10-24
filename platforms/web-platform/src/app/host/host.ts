@@ -1,10 +1,11 @@
 import { Effect, Layer, Schema, Scope } from 'effect';
-import { browser } from '@kestack/auth-toolkit/client/browser';
+import type { browser } from '@kestack/auth-toolkit/client/browser';
+import { fakeAccounts } from '@kestack/auth-toolkit/fake';
 import {
   type Broadcaster,
   defaultBroadcaster,
 } from '@kestack/std-toolkit/core';
-import type { StdTableService, TableDefinition } from '@kestack/std-toolkit/db';
+import type { StdTableService } from '@kestack/std-toolkit/db';
 import type { IDBTableSource } from '@kestack/std-toolkit/db/idb';
 import { Memory } from '@kestack/std-toolkit/db/memory';
 import { Sync, type SyncStore } from '@kestack/std-toolkit/sync';
@@ -160,8 +161,7 @@ export const memoryHost = (
     cloud: {
       url: options.url ?? 'http://localhost',
       accounts:
-        options.accounts ??
-        browser({ local: { choose: Effect.succeed(null) } }),
+        options.accounts ?? fakeAccounts({ choose: Effect.succeed(null) }),
       manageAccounts: async () => {},
     },
     lifecycle: {

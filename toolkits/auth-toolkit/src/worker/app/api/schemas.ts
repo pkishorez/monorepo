@@ -27,6 +27,8 @@ export const PagesData = Schema.Struct({
   origin: Schema.String,
   /** Every Scope in words; null with the Authorization Server Role off. */
   scopes: Schema.NullOr(Schema.Record(Schema.String, Schema.String)),
+  /** Test Sign-In, and whether it asks for a key; null when it is off. */
+  testUsers: Schema.NullOr(Schema.Struct({ key: Schema.Boolean })),
   /** The visitor's saved Theme, from its cookie; null before they pick one,
    * when the browser draws the system's. */
   theme: Schema.NullOr(Theme),
@@ -46,6 +48,7 @@ export interface PagesEnv {
   readonly oauth?:
     | { readonly scopes: Readonly<Record<string, string>> }
     | undefined;
+  readonly testUsers?: { readonly key: boolean } | undefined;
   readonly theme?: Theme | undefined;
   /** This browser's data, read in-process by the Loaders: `BrowserReads`. */
   readonly reads: {
@@ -67,6 +70,7 @@ export const pagesData = (env: PagesEnv): PagesData => ({
   cookieDomain: env.cookieDomain,
   origin: env.origin,
   scopes: env.oauth ? { ...env.oauth.scopes } : null,
+  testUsers: env.testUsers ? { key: env.testUsers.key } : null,
   theme: env.theme ?? null,
 });
 

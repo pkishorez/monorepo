@@ -1,4 +1,10 @@
-export { Api, ApiError, apiLive, type GoogleSignIn } from './api.ts';
+export {
+  Api,
+  ApiError,
+  apiLive,
+  type GoogleSignIn,
+  type TestSignIn,
+} from './api.ts';
 export {
   ADD_ACCOUNT,
   RETURN_TO,
@@ -33,3 +39,4 @@ export {
   type PagesEnv,
 } from './schemas.ts';
 export { deviceCodeFailure, signInFailure } from './words.ts';
+export { isTestEmail } from '../../../contract/index.ts';
