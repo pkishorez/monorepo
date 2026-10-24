@@ -22,6 +22,8 @@
     "react-dom": "catalog:"
   },
   "devDependencies": {
+    "@alchemy.run/aws": "catalog:",
+    "@alchemy.run/cloudflare": "catalog:",
     "@cloudflare/workers-types": "catalog:",
     "@mdx-js/rollup": "catalog:",
     "@shikijs/rehype": "catalog:",

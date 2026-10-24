@@ -6,9 +6,9 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from '#components/ui/dialog';
+} from '#components/dialog';
 import { cn } from '#lib/utils';
-import { BindingKeys } from '../key-bindings/index.ts';
+import { BindingKeys } from '../../ui/input/keys/index.ts';
 
 // The Surfaces that only hold Actions: never somewhere the user is.
 const holdersOf = (definition: Definition, found = new Set<string>()) => {

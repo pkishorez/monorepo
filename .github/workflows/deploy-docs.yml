@@ -67,7 +67,7 @@ jobs:
       AWS_REGION: ${{ vars.AWS_REGION }}
       # Lets Alchemy skip the STS account lookup.
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
-      # Opt-in required by the accident guard in apps/docs/src/infra/stage.ts.
+      # Opt-in required by the accident guard in @kestack/web-platform/app/alchemy.
       ALLOW_DEPLOY: 'true'
       STAGE: ${{ inputs.stage || (github.event_name == 'pull_request' && format('pr{0}', github.event.number)) || 'prod' }}
     permissions:
@@ -105,7 +105,7 @@ jobs:
         run: pnpm --filter 'docs^...' run build
 
       - name: Bootstrap Alchemy state store
-        run: pnpm -C apps/docs exec alchemy provider cloudflare bootstrap
+        run: pnpm -C apps/docs exec alchemy state bootstrap --backend cloudflare
 
       - name: Deploy docs
         run: pnpm -C apps/docs exec alchemy deploy --stage "$STAGE" --yes

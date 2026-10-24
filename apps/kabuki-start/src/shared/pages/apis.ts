@@ -1,7 +1,7 @@
 import { Clock, Effect, Schema, Stream } from 'effect';
 import { Command } from '@kestack/kabuki';
 import { Page } from '@kestack/kabuki/routing';
-import { CurrentAccount } from '@kestack/web-platform/account-switcher';
+import { CurrentAccount } from '@kestack/web-platform/recipes/account-switcher';
 import { LEVELS } from '../../apis/access/index.ts';
 import { HelloHttp } from '../../apis/hello-http/index.ts';
 import { HelloRpc } from '../../apis/hello-rpc/index.ts';

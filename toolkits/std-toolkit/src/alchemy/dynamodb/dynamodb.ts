@@ -1,5 +1,5 @@
 import { Effect } from 'effect';
-import * as DynamoDBResource from 'alchemy/AWS/DynamoDB';
+import * as DynamoDBResource from '@alchemy.run/aws/DynamoDB';
 import * as Output from 'alchemy/Output';
 import {
   DynamoDB as DynamoDBAdapter,

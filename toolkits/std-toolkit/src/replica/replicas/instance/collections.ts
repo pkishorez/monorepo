@@ -24,9 +24,9 @@ import { windowsOf, type WindowAt } from './windows.js';
  * holds is shown already, so a Query reads at once and waits for no fetch.
  *
  * TanStack DB subscribes a query to its Collections, and asks for their
- * Windows, as the query is made, in the same call: `readsOf` names what
- * the query it makes reads, so a Query knows what it waits on to be
- * Caught Up.
+ * Windows, as the query is preloaded, in the same call: `readsOf` names
+ * what the query it makes and preloads reads, so a Query knows what it
+ * waits on to be Caught Up.
  */
 
 /** An Entity read through its ESchema: kept, newer than this app knows, or not one of them at all. */

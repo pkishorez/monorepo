@@ -57,11 +57,13 @@
     "test": "vitest run"
   },
   "peerDependencies": {
+    "@alchemy.run/cloudflare": "2.0.0-beta.84",
     "@kestack/std-toolkit": "workspace:*",
     "effect": "^4.0.0",
-    "alchemy": "2.0.0-beta.80"
+    "alchemy": "2.0.0-beta.84"
   },
   "devDependencies": {
+    "@alchemy.run/cloudflare": "catalog:",
     "@effect/platform-node": "catalog:",
     "@kestack/std-toolkit": "workspace:*",
     "@tsconfig/node22": "catalog:",
@@ -78,6 +80,9 @@
     "@cloudflare/workers-types": "catalog:"
   },
   "peerDependenciesMeta": {
+    "@alchemy.run/cloudflare": {
+      "optional": true
+    },
     "alchemy": {
       "optional": true
     }

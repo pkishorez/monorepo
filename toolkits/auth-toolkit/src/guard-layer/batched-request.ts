@@ -1,5 +1,5 @@
 import { Effect } from 'effect';
-import { HttpEffect, type HttpServerRequest } from 'effect/http';
+import { HttpEffect, HttpServerRequest } from 'effect/http';
 
 import type { identify } from './admission.js';
 import { appendRefreshedCookies } from './refreshed-cookies.js';
@@ -30,22 +30,21 @@ export const batchedRequests = () => {
   // The state of the HTTP request running this call, made on its first
   // call, which also puts the refreshed cookies on its response. None for a
   // websocket upgrade, whose request lives as long as the socket.
-  return (http: HttpServerRequest.HttpServerRequest) => {
-    if (http.method !== 'POST') return undefined;
-    let state = states.get(http);
-    if (state === undefined) {
+  return (http: HttpServerRequest.HttpServerRequest) =>
+    Effect.gen(function* () {
+      if (http.method !== 'POST') return undefined;
+      const known = states.get(http);
+      if (known !== undefined) return known;
       const created: RequestState = {
         verifications: new Map(),
         refreshedCookies: [],
       };
       states.set(http, created);
-      HttpEffect.appendPreResponseHandlerUnsafe(http, (_request, response) =>
+      yield* HttpEffect.appendPreResponseHandler((_request, response) =>
         Effect.succeed(
           appendRefreshedCookies(response, created.refreshedCookies),
         ),
       );
-      state = created;
-    }
-    return state;
-  };
+      return created;
+    }).pipe(Effect.provideService(HttpServerRequest.HttpServerRequest, http));
 };

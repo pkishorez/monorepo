@@ -30,10 +30,10 @@ import {
   WrenchIcon,
   XIcon,
   ZapIcon,
-} from '@kestack/web-platform/components/lucide';
-import { Spinner } from '@kestack/web-platform/components/spinner';
-import { DiffViewer } from '@kestack/web-platform/components/viewers/diff-viewer';
-import { MarkdownViewer } from '@kestack/web-platform/components/viewers/markdown-viewer';
+} from '@kestack/web-platform/ui/components/lucide';
+import { Spinner } from '@kestack/web-platform/ui/components/spinner';
+import { DiffViewer } from '@kestack/web-platform/ui/viewers/diff-viewer';
+import { MarkdownViewer } from '@kestack/web-platform/ui/viewers/markdown-viewer';
 import { Attachments } from './attachments.tsx';
 import type { Earlier } from './earlier.ts';
 import { thread, type Row, type ToolState } from './thread.ts';

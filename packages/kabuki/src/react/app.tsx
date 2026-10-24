@@ -252,10 +252,14 @@ export const toReact = <A extends AnyActor, Provided>(
     return (draw.first = first);
   };
 
-  /** Before the Runtime starts, wait for the first Snapshot: React shows the fallback until it is replayed. */
+  /**
+   * Wait for the first Snapshot: React shows the fallback until it is
+   * replayed. Called on every draw, even once replayed or with the Runtime
+   * started, since React wants a draw that suspended on use() to call it
+   * again; the thenable is fulfilled by then, so it returns at once.
+   */
   const waitForFirstDraw = (draw: Draw<A>) => {
-    const { snapshot, replaying } = firstDraw(draw);
-    if (!snapshot) use(replaying);
+    use(firstDraw(draw).replaying);
   };
 
   // 2. Mount
@@ -352,7 +356,7 @@ export const toReact = <A extends AnyActor, Provided>(
     });
 
   const Drawn = ({ draw }: { readonly draw: Draw<A> }) => {
-    if (!runtime || draw !== mine) waitForFirstDraw(draw);
+    waitForFirstDraw(draw);
     return (
       <AppContext value={draw.drawn}>
         <RootView instance={root} />

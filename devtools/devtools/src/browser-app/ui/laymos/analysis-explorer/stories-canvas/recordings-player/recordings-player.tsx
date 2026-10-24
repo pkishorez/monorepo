@@ -6,8 +6,8 @@ import {
   Minimize2,
   Pause,
   Play,
-} from '@kestack/web-platform/components/lucide';
-import { cn } from '@kestack/web-platform/components/utils';
+} from '@kestack/web-platform/ui/components/lucide';
+import { cn } from '@kestack/web-platform/ui/components/utils';
 import type { PhaseReport, Recording, Step } from 'laymos/story/schema';
 
 import {

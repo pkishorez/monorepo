@@ -1,11 +1,11 @@
 import { Layer } from 'effect';
 import { View, toReact } from '@kestack/kabuki/react';
-import { Button } from '@kestack/web-platform/components/button';
+import { Button } from '@kestack/web-platform/ui/components/button';
 import {
   DoorClosedIcon,
   DoorOpenIcon,
   LockIcon,
-} from '@kestack/web-platform/components/lucide';
+} from '@kestack/web-platform/ui/components/lucide';
 import { DoorLive } from './door.ts';
 
 const ICONS = { Locked: LockIcon, Closed: DoorClosedIcon, Open: DoorOpenIcon };

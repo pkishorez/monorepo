@@ -179,8 +179,8 @@ place's. `Router.define` walks its `pages` down, from definitions alone: it
 never imports a build or a View.
 
 - `router.Projects.Task({ id: 4, task: 'a' })` is a Route value, `{ _tag:
-'Projects', id: 4, page: { _tag: 'Task', task: 'a' } }`; `router.Projects({
-id: 4 })` ends at the project. Params are checked by type. The type of any
+  'Projects', id: 4, page: { _tag: 'Task', task: 'a' } }`; `router.Projects({
+  id: 4 })` ends at the project. Params are checked by type. The type of any
   Route is `typeof router.route.Type`.
 - `router.read(url)` and `router.path(route)` turn a URL into a Route and
   back. A URL that names no place, or a param that does not read, is

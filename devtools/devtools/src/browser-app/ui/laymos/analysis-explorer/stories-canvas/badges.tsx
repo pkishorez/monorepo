@@ -2,8 +2,8 @@ import {
   Globe,
   ShieldAlert,
   Terminal,
-} from '@kestack/web-platform/components/lucide';
-import { cn } from '@kestack/web-platform/components/utils';
+} from '@kestack/web-platform/ui/components/lucide';
+import { cn } from '@kestack/web-platform/ui/components/utils';
 import type { Venue } from 'laymos/story/schema';
 
 import { stateStyles } from './state-style';

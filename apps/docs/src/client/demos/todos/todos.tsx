@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react';
 import { Layer } from 'effect';
 import { toReact } from '@kestack/kabuki/react';
-import { LockIcon } from '@kestack/web-platform/components/lucide';
-import { DevtoolsDock } from '@kestack/web-platform/recipes/devtools-dock';
-import { KabukiDevtools } from '@kestack/web-platform/recipes/kabuki-devtools';
+import { LockIcon } from '@kestack/web-platform/ui/components/lucide';
+import { DevtoolsDock } from '@kestack/web-platform/recipes/devtools';
+import { KabukiDevtools } from '@kestack/web-platform/recipes/devtools';
 import { TodosLive } from './story.ts';
 import { TodosView } from './views.tsx';
 

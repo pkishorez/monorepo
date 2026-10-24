@@ -1,9 +1,9 @@
-import { useSidebar as useSwipeSidebar } from '../../../input/index.ts';
+import { useSidebar as useSwipeSidebar } from '../../../ui/input/index.ts';
 import { animate, type MotionValue, motionValue } from 'motion/react';
 import { useCallback, useState, useSyncExternalStore } from 'react';
 import { MOBILE_QUERY } from '#hooks/use-mobile';
 
-/** How far a phone's sidebar opens, in px: the `18rem` of `--sidebar-width-mobile`. */
+/** How far a phone's drawer opens, in px: the `18rem` of `--sidebar-width-mobile`. */
 const PHONE_SIDEBAR_WIDTH = 288;
 /** The strip along the left edge that opens it, when swipes open from the edge. */
 const EDGE = 24;
@@ -37,11 +37,16 @@ export function useOpenProgress(options: {
   readonly open: boolean;
   readonly setOpen: (open: boolean) => void;
   readonly swipe: 'anywhere' | 'edge' | 'off';
+  /** The sidebar is a page of its own on a phone, the screen's width. */
+  readonly page: boolean;
 }): MotionValue<number> {
   const touch = useIsTouch();
   return useSwipeSidebar({
     side: 'left',
-    width: PHONE_SIDEBAR_WIDTH,
+    width:
+      options.page && typeof window !== 'undefined'
+        ? window.innerWidth
+        : PHONE_SIDEBAR_WIDTH,
     edge: options.swipe === 'edge' ? EDGE : undefined,
     enabled: touch && options.swipe !== 'off',
     open: options.open,

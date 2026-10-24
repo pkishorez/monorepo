@@ -18,27 +18,34 @@ import { ID, PageContext, RuntimeContext, usePage } from './page.ts';
  * drawn on the server only: in the browser the Router writes it after every
  * move, so React leaves the tags the server drew alone.
  */
-function Head() {
+function Head({
+  viewport = 'width=device-width, initial-scale=1',
+}: {
+  /** The viewport tag's content, as an app that draws under the notch wants it. */
+  readonly viewport?: string;
+}) {
   const { page, metadata } = usePage('<Start.Head />');
+  const hydrated = useHydrated();
   return (
     <>
       <meta charSet="utf-8" />
-      <meta name="viewport" content="width=device-width, initial-scale=1" />
+      <meta name="viewport" content={viewport} />
       {metadata?.title !== undefined && <title>{metadata.title}</title>}
       {metadata?.tags.map(({ tag: Tag, attributes }, at) => (
         <Tag key={at} {...attributes} />
       ))}
-      {page.head.map((script, at) =>
-        script.src !== undefined ? (
-          <script key={`h${at}`} type="module" src={script.src} />
-        ) : (
-          <script
-            key={`h${at}`}
-            type="module"
-            dangerouslySetInnerHTML={{ __html: script.code ?? '' }}
-          />
-        ),
-      )}
+      {hydrated &&
+        page.head.map((script, at) =>
+          script.src !== undefined ? (
+            <script key={`h${at}`} type="module" src={script.src} />
+          ) : (
+            <script
+              key={`h${at}`}
+              type="module"
+              dangerouslySetInnerHTML={{ __html: script.code ?? '' }}
+            />
+          ),
+        )}
       {page.entry.styles.map((href) => (
         <link key={href} rel="stylesheet" href={href} />
       ))}
@@ -52,10 +59,11 @@ function Head() {
 /** The Page as JSON, which the browser starts from, and the client entry that does it. */
 function Scripts() {
   const { page, json } = usePage('<Start.Scripts />');
+  const hydrated = useHydrated();
   return (
     <>
       {/* Before the app hydrates, its scroll is put back: a reload never paints at the top first. */}
-      {page.scroll && (
+      {hydrated && page.scroll && (
         <script dangerouslySetInnerHTML={{ __html: page.scroll }} />
       )}
       <script
@@ -63,12 +71,29 @@ function Scripts() {
         id={ID}
         dangerouslySetInnerHTML={{ __html: json }}
       />
-      <script type="module" src={page.entry.script} />
+      {hydrated && <script type="module" src={page.entry.script} />}
     </>
   );
 }
 
 const never = () => () => {};
+
+/**
+ * Whether the component asking was drawn by the server, or is being drawn
+ * there, rather than drawn by the browser later. Kept while it is mounted.
+ * A script only runs when the server drew it, so one the browser would draw
+ * (the Document's parts moved, say) is left out.
+ */
+function useHydrated(): boolean {
+  // A server's snapshot is read on the server and while hydrating what it drew.
+  const hydrating = useSyncExternalStore(
+    never,
+    () => false,
+    () => true,
+  );
+  const [hydrated] = useState(hydrating);
+  return hydrated;
+}
 
 /**
  * When the server drew this page, and by which build; and whether the
@@ -79,13 +104,7 @@ const never = () => () => {};
  */
 function useDrawn(): Drawn | null {
   const drawn = use(PageContext);
-  // A server's snapshot is read on the server and while hydrating what it drew.
-  const hydrating = useSyncExternalStore(
-    never,
-    () => false,
-    () => true,
-  );
-  const [hydrated] = useState(hydrating);
+  const hydrated = useHydrated();
   if (!drawn) return null;
   return { ...drawn.page.drawn, hydrated };
 }

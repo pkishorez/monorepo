@@ -1,7 +1,0 @@
-/* Paths resolve inside the installed package, including in node_modules. */
-@source "../../components";
-@source "../../form";
-@source "../../recipes";
-@source "../../account-switcher";
-@source "../../client";
-@source "../../pwa";

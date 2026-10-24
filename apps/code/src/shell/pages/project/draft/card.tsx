@@ -1,8 +1,10 @@
-import { Button } from '@kestack/web-platform/components/button';
+import { Button } from '@kestack/web-platform/ui/components/button';
 import {
   MicIcon,
+  PlusIcon,
+  SquareIcon,
   SquareSlashIcon,
-} from '@kestack/web-platform/components/lucide';
+} from '@kestack/web-platform/ui/components/lucide';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { keys, useBound, useTypingKeys } from '../../../../keys.ts';
 import * as Picker from '../../../../ui/picker/index.ts';
@@ -343,7 +345,9 @@ export function Card({
 
 const HEADING =
   'flex min-w-0 items-center gap-1.5 px-4 pt-2.5 text-[11px] leading-4 font-medium tracking-[0.08em] text-muted-foreground uppercase';
-const HINT = 'ml-auto shrink-0 pl-2 font-normal tracking-normal normal-case';
+// Keys mean nothing on a touch screen with no keyboard.
+const HINT =
+  'ml-auto shrink-0 pl-2 font-normal tracking-normal normal-case touch:hidden';
 
 /**
  * The line over the Draft: which it is, Draft or Editing, and the key that
@@ -436,31 +440,63 @@ function Heading({ draft }: { readonly draft: Draft }) {
 
 /**
  * The Status Line, the one line at the foot of the Draft: the model and its
- * settings in `children`, the skills, the paperclip and the mic, which
- * starts or stops a Dictation, with the button beside it that chooses
- * the microphone, and on the right
- * the page's `actions`, such as its send button. It never wraps: it is a
- * container, and its controls give up their words before their place as
- * it narrows.
+ * settings in `children`; its tools, the skills, the paperclip, the mic
+ * and the button beside it that chooses the microphone; and on the right
+ * the page's `actions`, such as Stop, then one round primary button. That
+ * is the mic while there is nothing to send, Send once there is, and stops
+ * a Dictation while one records. On a narrow line, as on a phone, the
+ * tools fold behind a plus that opens them in a row over it; on a wide one
+ * they sit after the model. It is a container, and its controls give up
+ * their words before their place as it narrows. On a touch screen every
+ * button in it is big enough for a finger.
  */
 export function StatusLine({
   draft,
   children,
   actions,
+  send,
 }: {
   readonly draft: Draft;
   /** The model and its settings: they share what width is left. */
   readonly children?: ReactNode;
   readonly actions?: ReactNode;
+  /** The send button, drawn once there is something to send. */
+  readonly send?: ReactNode;
 }) {
   const skillKeys = useBound('content.skills');
   const dictateKeys = useBound('app.dictate');
   const { recording, onToggle, microphones } = draft.dictation;
+  const [tools, setTools] = useState(false);
   const dictate = recording !== null ? 'Stop the Dictation' : 'Dictate';
+  const dictateTitle =
+    dictateKeys === null ? dictate : `${dictate} (${dictateKeys})`;
+  // The mic is the primary button while it would be the only thing to do.
+  const micFirst = recording !== null || !draft.filled || send === undefined;
   return (
-    <div className="@container/status flex min-w-0 items-center gap-1">
-      <div className="flex min-w-0 flex-1 items-center gap-0.5">
+    <div className="@container/status grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-1 @md/status:grid-cols-[minmax(0,max-content)_auto_1fr_auto]">
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        aria-label="Tools"
+        aria-expanded={tools}
+        title="Skills, files and the microphone"
+        onClick={() => setTools(!tools)}
+        className="col-start-1 row-start-2 shrink-0 text-muted-foreground pointer-coarse:size-11 @md/status:hidden"
+      >
+        <PlusIcon
+          aria-hidden
+          className="transition-transform duration-150 ease-out motion-reduce:transition-none data-open:rotate-45"
+          data-open={tools || undefined}
+        />
+      </Button>
+      <div className="col-start-2 row-start-2 flex min-w-0 items-center gap-0.5 @md/status:col-start-1 @md/status:row-start-1">
         {children}
+      </div>
+      <div
+        data-open={tools || undefined}
+        className="col-span-3 row-start-1 hidden min-w-0 items-center gap-0.5 pb-1 data-open:flex pointer-coarse:*:size-11 @md/status:col-span-1 @md/status:col-start-2 @md/status:flex @md/status:pb-0"
+      >
         <Picker.Frame
           how={draft.skills.how}
           label="Skills and commands"
@@ -491,25 +527,48 @@ export function StatusLine({
           disabled={draft.disabled}
           onFiles={(picked) => void draft.files.add(picked)}
         />
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label={dictate}
-          title={dictateKeys === null ? dictate : `${dictate} (${dictateKeys})`}
-          onClick={onToggle}
-          data-recording={recording !== null || undefined}
-          className="shrink-0 text-muted-foreground data-recording:text-destructive"
-        >
-          <MicIcon aria-hidden />
-        </Button>
+        {!micFirst && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label={dictate}
+            title={dictateTitle}
+            onClick={onToggle}
+            className="shrink-0 text-muted-foreground"
+          >
+            <MicIcon aria-hidden />
+          </Button>
+        )}
         {microphones}
       </div>
-      {actions !== undefined && (
-        <div className="ml-auto flex shrink-0 items-center gap-1.5">
-          {actions}
-        </div>
-      )}
+      <div className="col-start-3 row-start-2 flex shrink-0 items-center gap-1.5 justify-self-end @md/status:col-start-4 @md/status:row-start-1">
+        {actions}
+        {micFirst ? (
+          <Button
+            type="button"
+            variant={recording !== null ? 'destructive' : 'default'}
+            size="icon"
+            aria-label={dictate}
+            title={dictateTitle}
+            onClick={onToggle}
+            data-slot="dictate"
+            className={PRIMARY}
+          >
+            {recording !== null ? (
+              <SquareIcon aria-hidden className="fill-current" />
+            ) : (
+              <MicIcon aria-hidden />
+            )}
+          </Button>
+        ) : (
+          send
+        )}
+      </div>
     </div>
   );
 }
+
+/** The Status Line's primary button: round, and on a touch screen big enough to hit without looking. */
+export const PRIMARY =
+  'shrink-0 rounded-full pointer-coarse:size-12 pointer-coarse:[&_svg:not([class*=size-])]:size-5';

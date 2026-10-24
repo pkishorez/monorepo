@@ -1,7 +1,7 @@
 import { useChild, View, type ViewProps } from '@kestack/kabuki/react';
 import { Router } from '@kestack/kabuki/routing';
-import { Button } from '@kestack/web-platform/components/button';
-import { Trash2Icon } from '@kestack/web-platform/components/lucide';
+import { Button } from '@kestack/web-platform/ui/components/button';
+import { Trash2Icon } from '@kestack/web-platform/ui/components/lucide';
 import { keys } from '../../../keys.ts';
 import * as places from '../../places/index.ts';
 import * as Confirm from '../../../ui/confirm/index.ts';
@@ -127,7 +127,7 @@ function NewSession({
       </div>
       <section
         aria-label="New session"
-        className="relative shrink-0 bg-background pt-2 pb-3 before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-6 before:bg-gradient-to-t before:from-background before:to-transparent"
+        className="relative shrink-0 bg-background pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-6 before:bg-gradient-to-t before:from-background before:to-transparent"
       >
         <div className="mx-auto w-full max-w-3xl px-4 sm:px-6">
           {children.draft && <Draft.view instance={children.draft} />}

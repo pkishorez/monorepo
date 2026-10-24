@@ -111,11 +111,17 @@ describe('a lazy View', () => {
   });
 
   it('not loaded yet, a browser draws the fallback until it is', async () => {
-    const TickerView = lazyTicker();
+    // Loads only once let through, so the fallback is seen first.
+    let letThrough!: () => void;
+    const held = new Promise<void>((resolve) => (letThrough = resolve));
+    const TickerView = View.lazy(Ticker, () =>
+      held.then(() => import('./lazy/ticker-view.tsx')),
+    );
     const App = pageWith(TickerView);
     root = createRoot(host);
-    act(() => root!.render(<App fallback="loading" />));
+    await act(async () => root!.render(<App fallback="loading" />));
     expect(host.textContent).toBe('loading');
+    letThrough();
     await act(() => TickerView.preload());
     expect(host.querySelector('[data-ticker]')?.textContent).toBe('0');
   });

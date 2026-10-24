@@ -8,8 +8,8 @@ import {
   EmptyDescription,
   EmptyHeader,
   EmptyTitle,
-} from '@kestack/web-platform/components/empty';
-import { toast } from '@kestack/web-platform/components/sonner';
+} from '@kestack/web-platform/ui/components/empty';
+import { toast } from '@kestack/web-platform/ui/components/sonner';
 import { Laymos as AnalysisExplorer } from './analysis-explorer/index.js';
 import {
   DevtoolsClient,

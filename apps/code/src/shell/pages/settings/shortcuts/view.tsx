@@ -1,13 +1,13 @@
 import { View, type ViewProps } from '@kestack/kabuki/react';
 import { bindingOf, describe, shortcutOf } from '@kestack/use-keys';
-import { Button } from '@kestack/web-platform/components/button';
-import { Input } from '@kestack/web-platform/components/input';
+import { Button } from '@kestack/web-platform/ui/components/button';
+import { Input } from '@kestack/web-platform/ui/components/input';
 import {
   CircleAlertIcon,
   SearchIcon,
-} from '@kestack/web-platform/components/lucide';
-import { Skeleton } from '@kestack/web-platform/components/skeleton';
-import { BindingKeys } from '@kestack/web-platform/recipes/key-bindings';
+} from '@kestack/web-platform/ui/components/lucide';
+import { Skeleton } from '@kestack/web-platform/ui/components/skeleton';
+import { BindingKeys } from '@kestack/web-platform/ui/input';
 import { keys } from '../../../../keys.ts';
 import { ShortcutsLive } from './actor.ts';
 import { actionOf, keysOf, search, shadowsOf, swapped } from './bindings.ts';

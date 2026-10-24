@@ -17,7 +17,7 @@ nest; the core decides which zones hear a Gesture and which one takes it,
 reads its Direction, and holds the rules a Swipe is judged by and the Tree
 Walk a picker moves through.
 
-The platforms build on it. `@kestack/web-platform/input` is the browser's
+The platforms build on it. `@kestack/web-platform/ui/input` is the browser's
 touch source and React bindings: a `GestureProvider`, `GestureZone`s that are
 DOM elements, `useGesture` with every finger as Motion values, the `useSwipe`
 Recognizer, and the `useSidebar` and `usePullToRefresh` Patterns. The web side started as ui-toolkit's gestures block and lived here as

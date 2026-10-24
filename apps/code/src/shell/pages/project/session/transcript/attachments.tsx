@@ -4,13 +4,13 @@ import {
   AttachmentDescription,
   AttachmentMedia,
   AttachmentTitle,
-} from '@kestack/web-platform/components/attachment';
+} from '@kestack/web-platform/ui/components/attachment';
 import {
   FileAudioIcon,
   FileIcon,
   FileTextIcon,
   FileVideoCameraIcon,
-} from '@kestack/web-platform/components/lucide';
+} from '@kestack/web-platform/ui/components/lucide';
 import type { TurnAttachment } from './thread.ts';
 
 /*

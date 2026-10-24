@@ -1,6 +1,6 @@
 import { Trash2 } from '#lib/lucide';
 import { cn } from '#lib/utils';
-import { GestureZone, useSwipe } from '../../input/index.ts';
+import { GestureZone, useSwipe } from '../../ui/input/index.ts';
 import {
   animate,
   motion,
@@ -9,7 +9,7 @@ import {
   useTransform,
 } from 'motion/react';
 import { type ReactNode, useRef, useState } from 'react';
-import { play } from '../../feedback/index.ts';
+import { play } from '../../ui/input/sound/index.ts';
 
 // How far, in px, the row goes left before letting go deletes it.
 const DELETE_AT = 112;

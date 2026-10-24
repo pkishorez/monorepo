@@ -104,7 +104,7 @@ for that pattern.
 ```ts
 // alchemy.run.ts — infrastructure entry point
 import { Stack } from 'alchemy';
-import * as Cloudflare from 'alchemy/Cloudflare';
+import * as Cloudflare from '@alchemy.run/cloudflare';
 import { Effect } from 'effect';
 import CounterWorker from './counter-worker.js';
 
@@ -118,13 +118,13 @@ export default Stack(
 );
 ```
 
-Install the toolkit's declared Alchemy peer version and configure your Alchemy
-Cloudflare credentials. Run `pnpm exec alchemy dev` locally, or
-`pnpm exec alchemy deploy` to provision the stack. Pass the stack's `url` output
-to `watchCounter` through your application's browser configuration; the socket
-client converts an HTTP(S) URL to WS(S). Keep infrastructure imports out of the
-browser. Preserve existing resource IDs and object names when migrating an
-already deployed Worker.
+Install the toolkit's declared `alchemy` and `@alchemy.run/cloudflare` peer
+versions and configure your Alchemy Cloudflare credentials. Run
+`pnpm exec alchemy dev` locally, or `pnpm exec alchemy deploy` to provision the
+stack. Pass the stack's `url` output to `watchCounter` through your
+application's browser configuration; the socket client converts an HTTP(S) URL
+to WS(S). Keep infrastructure imports out of the browser. Preserve existing
+resource IDs and object names when migrating an already deployed Worker.
 
 Without Alchemy, build the runtime directly instead:
 

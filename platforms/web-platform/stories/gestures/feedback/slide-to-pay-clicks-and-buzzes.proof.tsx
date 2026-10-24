@@ -4,13 +4,13 @@ import {
   useMotionValue,
   useMotionValueEvent,
   useTransform,
-} from '@kestack/web-platform/components/motion';
-import { play } from '@kestack/web-platform/feedback';
+} from '@kestack/web-platform/ui/components/motion';
+import { play } from '@kestack/web-platform/ui/input';
 import {
   GestureProvider,
   GestureZone,
   useSwipe,
-} from '@kestack/web-platform/input';
+} from '@kestack/web-platform/ui/input';
 import { Effect } from 'effect';
 import { Gesture, Proof } from 'laymos/story';
 import { useState } from 'react';
@@ -107,7 +107,7 @@ export default Proof.browser({
     'useSwipe’s willCommit flips as the knob reaches the end: the app plays web-platform’s `arm` sound and asks for an 8ms buzz, then `confirm` as it Commits. Headless Chromium plays no audio, so the screen shows each decision.',
   page: (root) => {
     const app = createRoot(root);
-    void import('@kestack/web-platform/theme/global.css').then(() =>
+    void import('@kestack/web-platform/ui/theme/global.css').then(() =>
       app.render(
         <GestureProvider>
           <main className="h-dvh bg-background p-4 text-foreground">

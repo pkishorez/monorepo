@@ -12,7 +12,7 @@ Changed through `/kabukifi`; edit by hand and it drifts.
 
 ```
 src/
-  app.tsx  pages.ts  document.tsx  keys.ts      entry files
+  app.tsx  pages.ts  keys.ts                    entry files
   shell/                                        the root page
     actors/   machine-list · sidebar · header · dictation · project-picker ·
               session-switcher · session-actions · microphone-picker

@@ -1,7 +1,7 @@
 import { useContext } from 'react';
 import { View } from '@kestack/kabuki/react';
-import { Button } from '@kestack/web-platform/components/button';
-import { XIcon } from '@kestack/web-platform/components/lucide';
+import { Button } from '@kestack/web-platform/ui/components/button';
+import { XIcon } from '@kestack/web-platform/ui/components/lucide';
 import { Pages } from '../../../../shared/pages/index.ts';
 import { LedgerContext, money, signed } from './ledger.ts';
 import { Refusal } from './refusal.tsx';

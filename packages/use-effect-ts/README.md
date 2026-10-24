@@ -8,7 +8,7 @@ Running an Effect from a React component raises two questions: who owns the fibe
 
 The root export covers imperative runs: fire-and-forget, latest-wins, and one-at-a-time queues, plus a lifecycle hook for a long-lived Effect and a scope hook for custom runners. The `query` subpath wraps TanStack Query so a read-only Effect gets caching, background refresh, and cancellation without a second cache layer. TanStack is a dependency of this Package, and its client, provider, and hook are re-exported so the app has one import path.
 
-The query design and its agreed trade-offs are in [docs/read-query-design.md](./docs/read-query-design.md). Version history is in [CHANGELOG.md](./CHANGELOG.md). `apps/alchemy-console` is the first consumer and shows every hook in a real app.
+The query design and its agreed trade-offs are in [docs/read-query-design.md](./docs/read-query-design.md). Version history is in [CHANGELOG.md](./CHANGELOG.md). Its first consumer, the former `apps/alchemy-console`, shows every hook in a real app; it is kept at the tag `alchemy-console-old`.
 
 ## Install
 
@@ -48,7 +48,7 @@ Peer dependencies:
 
 ### Own a connection for the life of a provider
 
-Lifted from `apps/alchemy-console`. The RPC runtime is acquired when the provider mounts and disposed when it unmounts, and errors land in component state.
+Lifted from the former `apps/alchemy-console` (tag `alchemy-console-old`). The RPC runtime is acquired when the provider mounts and disposed when it unmounts, and errors land in component state.
 
 ```tsx
 import { Cause, Effect } from 'effect';

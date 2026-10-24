@@ -8,9 +8,9 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from '@kestack/web-platform/components/command';
-import { Kbd } from '@kestack/web-platform/components/kbd';
-import { SearchIcon } from '@kestack/web-platform/components/lucide';
+} from '@kestack/web-platform/ui/components/command';
+import { Kbd } from '@kestack/web-platform/ui/components/kbd';
+import { SearchIcon } from '@kestack/web-platform/ui/components/lucide';
 import { SECTIONS, router } from '../../shared/index.ts';
 
 /*

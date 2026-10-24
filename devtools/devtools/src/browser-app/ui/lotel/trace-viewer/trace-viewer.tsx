@@ -14,17 +14,17 @@ import {
   type ComponentProps,
 } from 'react';
 
-import { Button } from '@kestack/web-platform/components/button';
+import { Button } from '@kestack/web-platform/ui/components/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@kestack/web-platform/components/dropdown-menu';
-import { scrollbarStyles } from '@kestack/web-platform/components/scroll-styles';
-import { cn } from '@kestack/web-platform/components/utils';
+} from '@kestack/web-platform/ui/components/dropdown-menu';
+import { scrollbarStyles } from '@kestack/web-platform/ui/components/scroll-styles';
+import { cn } from '@kestack/web-platform/ui/components/utils';
 
-import { JsonTree as JsonTreeView } from '@kestack/web-platform/components/viewers/json';
+import { JsonTree as JsonTreeView } from '@kestack/web-platform/ui/viewers/json';
 import {
   attachCapturedLogs as attachLogsFromCapture,
   attachLogs as attachTraceLogs,

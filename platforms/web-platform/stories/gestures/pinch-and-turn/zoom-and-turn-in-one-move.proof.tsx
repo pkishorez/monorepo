@@ -2,13 +2,13 @@ import {
   motion,
   useMotionValue,
   useTransform,
-} from '@kestack/web-platform/components/motion';
+} from '@kestack/web-platform/ui/components/motion';
 import {
   GestureProvider,
   GestureZone,
   type Pointer,
   useGesture,
-} from '@kestack/web-platform/input';
+} from '@kestack/web-platform/ui/input';
 import { Effect } from 'effect';
 import { Gesture, Proof } from 'laymos/story';
 import { useRef } from 'react';
@@ -98,7 +98,7 @@ export default Proof.browser({
     'Each finger follows its own path: they spread apart and swing round together, and useGesture reads both the spread and the angle from the same two Pointers.',
   page: (root) => {
     const app = createRoot(root);
-    void import('@kestack/web-platform/theme/global.css').then(() =>
+    void import('@kestack/web-platform/ui/theme/global.css').then(() =>
       app.render(
         <GestureProvider>
           <GestureZone className="flex h-dvh flex-col bg-background p-6 text-foreground">

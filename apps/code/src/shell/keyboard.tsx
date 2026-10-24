@@ -3,8 +3,9 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from '@kestack/web-platform/components/dialog';
-import { BindingKeys } from '@kestack/web-platform/recipes/key-bindings';
+} from '@kestack/web-platform/ui/components/dialog';
+import { useIsMobile } from '@kestack/web-platform/ui/components/hooks/use-mobile';
+import { BindingKeys } from '@kestack/web-platform/ui/input';
 import type { ReactNode } from 'react';
 import { keys, keyTable } from '../keys.ts';
 
@@ -12,7 +13,9 @@ import { keys, keyTable } from '../keys.ts';
  * The app's keyboard, from `keys.ts`, with Vim Mode and the user's own
  * Bindings from Device State, which the root page read before drawing
  * this. Vim Mode is off until turned on, by Mod+Alt+V from anywhere or in
- * Settings, which asks the root page to keep it. The keys sheet is drawn
+ * Settings, which asks the root page to keep it. On a phone, where the
+ * sidebar is the whole screen, it is off whatever is kept, and cannot be
+ * turned on; the kept choice holds again once the screen is wide. The keys sheet is drawn
  * while its Surface is Active, opened by `?` in Vim Mode or Ctrl+/ in
  * either: the key table as Settings lists it, the keys as bound now, the
  * Vim Mode ones quieter while it is off.
@@ -29,8 +32,15 @@ export function Keyboard({
   readonly onVimChange: (on: boolean) => void;
   readonly children: ReactNode;
 }) {
+  const phone = useIsMobile();
   return (
-    <keys.Provider vim={vim} onVimChange={onVimChange} bindings={bindings}>
+    <keys.Provider
+      vim={vim && !phone}
+      onVimChange={(on) => {
+        if (!phone) onVimChange(on);
+      }}
+      bindings={bindings}
+    >
       <VimSwitch />
       {children}
       <KeysSheet />

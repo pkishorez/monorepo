@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 import { Layer } from 'effect';
 import { View, toReact } from '@kestack/kabuki/react';
-import { Button } from '@kestack/web-platform/components/button';
+import { Button } from '@kestack/web-platform/ui/components/button';
 import { BoardLive, CardLive } from './board.ts';
 
 /** How many times the View around it has drawn. */

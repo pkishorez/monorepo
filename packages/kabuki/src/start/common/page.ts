@@ -46,11 +46,12 @@ export interface Drawing {
   readonly build: string | undefined;
 }
 
-/** What the browser needs to draw the Document as the server did: its files, the History the app is drawn from, and when it was drawn. */
+/** What the browser needs to draw the Document as the server did: its files, the History the app is drawn from, and when it was drawn. In the App Shell the app is not drawn: the browser draws it. */
 export interface Page {
   readonly entry: Assets;
   readonly head: ReadonlyArray<Script>;
-  readonly saved: SavedHistory;
+  /** None in the App Shell, which the browser starts at its own URL. */
+  readonly saved?: SavedHistory;
   readonly drawn: Drawing;
   /** The script that puts the page's scroll back before the app hydrates, if the Router restores it here. */
   readonly scroll?: string;

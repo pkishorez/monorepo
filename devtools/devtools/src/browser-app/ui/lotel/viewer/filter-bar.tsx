@@ -7,8 +7,8 @@ import {
   LayersIcon,
   PlusIcon,
   XIcon,
-} from '@kestack/web-platform/components/lucide';
-import { Button } from '@kestack/web-platform/components/button';
+} from '@kestack/web-platform/ui/components/lucide';
+import { Button } from '@kestack/web-platform/ui/components/button';
 import {
   Command,
   CommandEmpty,
@@ -16,14 +16,14 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from '@kestack/web-platform/components/command';
+} from '@kestack/web-platform/ui/components/command';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@kestack/web-platform/components/popover';
+} from '@kestack/web-platform/ui/components/popover';
 import { serviceColor } from '../trace-viewer/index.js';
-import { cn } from '@kestack/web-platform/components/utils';
+import { cn } from '@kestack/web-platform/ui/components/utils';
 import {
   formatServiceName,
   GROUP_BY_TRACE_NAME,

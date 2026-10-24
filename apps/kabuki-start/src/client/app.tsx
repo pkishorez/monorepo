@@ -6,11 +6,12 @@ import {
 import { IDB } from '@kestack/std-toolkit/db/idb';
 import { Store } from '@kestack/std-toolkit/replica/idb';
 import { Start } from '@kestack/kabuki/start';
+import { document } from '@kestack/web-platform/app/document';
 import { HelloHttp } from '../apis/hello-http/index.ts';
 import { HelloRpc } from '../apis/hello-rpc/index.ts';
 import { PocketRpc } from '../apis/pocket/index.ts';
 import { router } from '../shared/pages/index.ts';
-import Document from './document.tsx';
+import { Devtools, Theme } from './components/index.ts';
 import { AppView } from './views/index.ts';
 import './styles.css';
 
@@ -49,4 +50,15 @@ const layer = Layer.mergeAll(
   ),
 );
 
-export default Start.app({ router, view: AppView, document: Document, layer });
+export default Start.app({
+  router,
+  view: AppView,
+  // The Web Platform's Document, with Kabuki's devtools around every page,
+  // from the button in the corner.
+  document: document({
+    theme: Theme,
+    head: <link rel="icon" type="image/svg+xml" href="/favicon.svg" />,
+    around: (app) => <Devtools>{app}</Devtools>,
+  }),
+  layer,
+});

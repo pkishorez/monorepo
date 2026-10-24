@@ -8,13 +8,13 @@ import {
   RouterProvider,
   useMatchRoute,
 } from '@tanstack/react-router';
-import { Toaster } from '@kestack/web-platform/components/sonner';
-import { Button } from '@kestack/web-platform/components/button';
+import { Toaster } from '@kestack/web-platform/ui/components/sonner';
+import { Button } from '@kestack/web-platform/ui/components/button';
 import {
   ArrowRightIcon,
   MoonIcon,
   SunIcon,
-} from '@kestack/web-platform/components/lucide';
+} from '@kestack/web-platform/ui/components/lucide';
 import { DevtoolsRpcProvider } from './devtools-rpc/index.js';
 import { Lotel } from './ui/lotel/index.js';
 import { Monoverse, MonoverseHeader } from './ui/monoverse/index.js';

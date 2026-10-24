@@ -1,4 +1,5 @@
-import type { ComponentType } from 'react';
+import { Suspense } from 'react';
+import type { ComponentType, ReactNode } from 'react';
 import { renderToReadableStream } from 'react-dom/server';
 import { Layer } from 'effect';
 import { History } from '../../core/index.ts';
@@ -7,11 +8,12 @@ import { toReact } from '../../react/index.ts';
 import type { LazyView } from '../../react/index.ts';
 import type { Known } from '../../routing/page/index.ts';
 import { tagsOf } from '../../routing/route/index.ts';
-import { PageContext, serialize } from '../common/index.ts';
+import { NOT_HERE, NotHere, PageContext, serialize } from '../common/index.ts';
 import type {
   Assets,
   Build,
   DocumentType,
+  Drawn,
   Page,
   ServedApp,
 } from '../common/index.ts';
@@ -22,6 +24,9 @@ import type {
  * around the App drawn from it, every lazy View resolved; then the files of
  * the lazy Views it drew added to the head, each marked with its id so the
  * browser preloads it before it hydrates.
+ *
+ * The App Shell is the Document alone: where the app goes, a boundary the
+ * server leaves for the browser, which draws the app there at its own URL.
  */
 
 type DrawnApp = ComponentType<{
@@ -80,7 +85,7 @@ const scrollOf = (app: ServedApp, route: unknown) => {
   return scroll ? { scroll } : {};
 };
 
-/** Draws the app at a Route as a whole HTML page; throws if anything in it fails to draw. */
+/** Draws the app's pages, and its App Shell. */
 export const drawer = (
   app: ServedApp,
   Document: DocumentType,
@@ -92,49 +97,82 @@ export const drawer = (
     Layer.empty as never,
   ) as unknown as DrawnApp;
 
-  return async (at: At): Promise<string> => {
-    const history = History.make(app.actor, { input: at });
-    const saved = History.restored(
-      app.actor,
-      history.snapshotAt(null),
-      0,
-    ).save();
-    const metadata = app.routes.metadata(at.route, dataOf(at.known));
-    const page: Page = {
-      entry: build.entry,
-      head: build.head,
-      saved,
-      drawn: { at: Date.now(), build: build.id },
-      ...scrollOf(app, at.route),
-    };
-    const views = new Set<string>();
+  /** The Document around `inside`, drawn whole, and the ids of the lazy Views it drew. */
+  const html = async (
+    drawn: Drawn,
+    inside: ReactNode,
+    views: ReadonlySet<string>,
+  ): Promise<string> => {
     const failures: Array<unknown> = [];
     const stream = await renderToReadableStream(
-      <PageContext
-        value={{
-          ...serialize(page),
-          metadata: { title: metadata.title, tags: tagsOf(metadata) },
-        }}
-      >
-        <Document>
-          <App
-            saved={saved}
-            onLazyView={(view) => {
-              if (view.id !== undefined) views.add(view.id);
-            }}
-          />
-        </Document>
+      <PageContext value={drawn}>
+        <Document>{inside}</Document>
       </PageContext>,
-      { onError: (error) => void failures.push(error) },
+      {
+        onError: (error) => {
+          if (error instanceof NotHere) return NOT_HERE;
+          failures.push(error);
+          return undefined;
+        },
+      },
     );
     await stream.allReady;
-    const html = await new Response(stream).text();
+    const text = await new Response(stream).text();
     if (failures.length > 0) throw failures[0];
-    const head = html.indexOf('</head>');
+    const head = text.indexOf('</head>');
     const whole =
       head < 0
-        ? html
-        : `${html.slice(0, head)}${lazyTags(build, views)}${html.slice(head)}`;
+        ? text
+        : `${text.slice(0, head)}${lazyTags(build, views)}${text.slice(head)}`;
     return whole.startsWith('<!DOCTYPE') ? whole : `<!DOCTYPE html>${whole}`;
+  };
+
+  return {
+    /** The app at a Route as a whole HTML page; throws if anything in it fails to draw. */
+    page: async (at: At): Promise<string> => {
+      const history = History.make(app.actor, { input: at });
+      const saved = History.restored(
+        app.actor,
+        history.snapshotAt(null),
+        0,
+      ).save();
+      const metadata = app.routes.metadata(at.route, dataOf(at.known));
+      const page: Page = {
+        entry: build.entry,
+        head: build.head,
+        saved,
+        drawn: { at: Date.now(), build: build.id },
+        ...scrollOf(app, at.route),
+      };
+      const views = new Set<string>();
+      return html(
+        {
+          ...serialize(page),
+          metadata: { title: metadata.title, tags: tagsOf(metadata) },
+        },
+        <App
+          saved={saved}
+          onLazyView={(view) => {
+            if (view.id !== undefined) views.add(view.id);
+          }}
+        />,
+        views,
+      );
+    },
+    /** The App Shell: the Document, with the app left for the browser to draw. */
+    shell: (): Promise<string> => {
+      const page: Page = {
+        entry: build.entry,
+        head: build.head,
+        drawn: { at: Date.now(), build: build.id },
+      };
+      return html(
+        serialize(page),
+        <Suspense fallback={null}>
+          <NotHere.Draw />
+        </Suspense>,
+        new Set(),
+      );
+    },
   };
 };

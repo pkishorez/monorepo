@@ -2,11 +2,11 @@
 // document and navigator.
 import * as Effect from 'effect/Effect';
 import { vi } from 'vitest';
-import { BUILD_ID_META_NAME } from '../../src/pwa/shared/build/index.js';
+import { BUILD_ID_META_NAME } from '../../src/pwa/engine/shared/build/index.js';
 import {
   commandReply,
   type CommandReply,
-} from '../../src/pwa/shared/commands/index.js';
+} from '../../src/pwa/engine/shared/commands/index.js';
 
 export class FakeWorker extends EventTarget {
   state: ServiceWorkerState = 'installed';

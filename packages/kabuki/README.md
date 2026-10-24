@@ -55,7 +55,10 @@ with its Document and what it needs in the browser, and its Loaders with what
 they need on the server, as a Layer made once and one made per visitor; the
 plugin writes every entry. Each
 platform is an adapter of its own subpath: Cloudflare Workers, or through
-Nitro any host it has a preset for, Node, Bun, Vercel and AWS Lambda among them. How it works is in
+Nitro any host it has a preset for, Node, Bun, Vercel and AWS Lambda among them. For what stands in
+front of the app, such as a service worker, Start serves its Pages, each with
+how its first drawing is made, and its App Shell, which the browser draws the
+app in at its own URL; it knows nothing of what uses them. How it works is in
 [docs/start.md](./docs/start.md).
 
 Read the language in [CONTEXT.md](./CONTEXT.md), the decisions in
@@ -167,14 +170,15 @@ pnpm add @kestack/kabuki effect react
 
 ### `@kestack/kabuki/start`
 
-| Export             | What it does                                                                                                                                                 |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `Start.app`        | Takes the app's router, its root page's View, its Document and what the Actors Require in the browser, checked against them: what `src/app` default-exports. |
-| `Start.Document`   | The plainest Document, Start's parts in an English page: what an app that gives none is drawn in.                                                            |
-| `Start.Head`       | Draws, in the Document's `<head>`, the charset and viewport, the Metadata, and the styles and chunks the page needs.                                         |
-| `Start.Scripts`    | Draws, at the end of the Document's `<body>`, the saved History as JSON and the script that hydrates the page.                                               |
-| `Start.useDrawn`   | Reads when and by which build the server drew the page, and whether the component asking was in that drawing or drawn later by the browser.                  |
-| `Start.useRuntime` | Reads the running app from the Document, for devtools drawn around it; `null` on the server.                                                                 |
+| Export             | What it does                                                                                                                                                             |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `Start.app`        | Takes the app's router, its root page's View, its Document and what the Actors Require in the browser, checked against them: what `src/app` default-exports.             |
+| `Start.Document`   | The plainest Document, Start's parts in an English page: what an app that gives none is drawn in.                                                                        |
+| `Start.Head`       | Draws, in the Document's `<head>`, the charset and viewport (its own with `viewport`), the Metadata, and the styles and chunks the page needs.                           |
+| `Start.Scripts`    | Draws, at the end of the Document's `<body>`, the saved History as JSON and the script that hydrates the page.                                                           |
+| `Start.useDrawn`   | Reads when and by which build the server drew the page, and whether the component asking was in that drawing or drawn later by the browser.                              |
+| `Start.useRuntime` | Reads the running app from the Document, for devtools drawn around it; `null` on the server.                                                                             |
+| `Start.pages`      | Where the server answers the Pages as JSON (`Start.Pages`): the build, where the App Shell is, and every page with its path, whether it has params, and its Render Mode. |
 
 ### `@kestack/kabuki/start/platform`
 

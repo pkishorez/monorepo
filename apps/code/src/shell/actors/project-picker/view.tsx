@@ -1,10 +1,10 @@
 import { View } from '@kestack/kabuki/react';
-import { Button } from '@kestack/web-platform/components/button';
+import { Button } from '@kestack/web-platform/ui/components/button';
 import {
   PlusIcon,
   TriangleAlertIcon,
   XIcon,
-} from '@kestack/web-platform/components/lucide';
+} from '@kestack/web-platform/ui/components/lucide';
 import { keys, useBound } from '../../../keys.ts';
 import * as Picker from '../../../ui/picker/index.ts';
 import { ProjectPickerLive, ProjectsView } from './actor.ts';
@@ -13,7 +13,8 @@ import { ProjectPickerLive, ProjectsView } from './actor.ts';
  * The Project Picker: `o` opens it centred from anywhere, drawn by the
  * View the shell keeps whatever the sidebar shows;
  * the Button, the plus beside the sidebar's Projects, opens it by pointer
- * as a popover by it. A folder made without its git repository says so
+ * as a popover by it. On a phone, where the sidebar is the whole screen,
+ * the plus floats in its bottom right corner, under the thumb. A folder made without its git repository says so
  * over the page until dismissed.
  */
 
@@ -54,7 +55,7 @@ export const ProjectPickerButton = View.make(
             title={
               bound === null ? 'Open a project' : `Open a project (${bound})`
             }
-            className="text-muted-foreground"
+            className="text-muted-foreground max-md:fixed max-md:right-[max(1.25rem,env(safe-area-inset-right))] max-md:bottom-[max(4.5rem,calc(env(safe-area-inset-bottom)+4rem))] max-md:z-20 max-md:size-14 max-md:rounded-full max-md:bg-primary max-md:text-primary-foreground max-md:shadow-lg max-md:hover:bg-primary/90 max-md:active:scale-95 max-md:[&_svg]:size-6!"
           >
             <PlusIcon aria-hidden />
           </Button>

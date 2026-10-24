@@ -2,7 +2,7 @@
   "name": "@kestack/web-platform",
   "version": "0.0.2",
   "private": false,
-  "description": "The way to build a kstack app: one config made into a PWA on TanStack Start with its Theme, its APIs on a cloud or a Local Backend, several Accounts with one Session each, the screens before sign-in, and the server; plus the components, input, forms and Recipes to build screens with.",
+  "description": "The way to build a kstack app on Kabuki Start in one go: its UI, its PWA, Recipes for whole features, and the app's Document and deploy.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -23,129 +23,97 @@
     "LICENSE"
   ],
   "imports": {
-    "#components/*": "./src/components/*.tsx",
-    "#lib/shadow-dom": "./src/components/lib/shadow-dom.tsx",
-    "#lib/*": "./src/components/lib/*.ts",
-    "#hooks/*": "./src/components/hooks/*.ts"
+    "#components/*": "./src/ui/components/*.tsx",
+    "#lib/shadow-dom": "./src/ui/components/lib/shadow-dom.tsx",
+    "#lib/*": "./src/ui/components/lib/*.ts",
+    "#hooks/*": "./src/ui/components/hooks/*.ts"
   },
   "exports": {
-    ".": {
-      "types": "./dist/app/index.d.ts",
-      "default": "./dist/app/index.js"
+    "./ui/theme": {
+      "types": "./dist/ui/theme/index.d.ts",
+      "default": "./dist/ui/theme/index.js"
     },
-    "./define": {
-      "types": "./dist/define/index.d.ts",
-      "default": "./dist/define/index.js"
+    "./ui/theme/*.css": "./dist/ui/theme/css/*.css",
+    "./ui/components/utils": {
+      "types": "./dist/ui/components/lib/utils.d.ts",
+      "default": "./dist/ui/components/lib/utils.js"
     },
-    "./theme": {
-      "types": "./dist/theme/index.d.ts",
-      "default": "./dist/theme/index.js"
+    "./ui/components/lucide": {
+      "types": "./dist/ui/components/lib/lucide.d.ts",
+      "default": "./dist/ui/components/lib/lucide.js"
     },
-    "./theme/*.css": "./dist/theme/css/*.css",
-    "./feedback": {
-      "types": "./dist/feedback/index.d.ts",
-      "default": "./dist/feedback/index.js"
+    "./ui/components/motion": {
+      "types": "./dist/ui/components/lib/motion.d.ts",
+      "default": "./dist/ui/components/lib/motion.js"
     },
-    "./input": {
-      "types": "./dist/input/index.d.ts",
-      "default": "./dist/input/index.js"
+    "./ui/components/scroll-styles": {
+      "types": "./dist/ui/components/lib/scrollStyles.d.ts",
+      "default": "./dist/ui/components/lib/scrollStyles.js"
     },
-    "./components/*": {
-      "types": "./dist/components/ui/*.d.ts",
-      "default": "./dist/components/ui/*.js"
+    "./ui/components/shadow-dom": {
+      "types": "./dist/ui/components/lib/shadow-dom.d.ts",
+      "default": "./dist/ui/components/lib/shadow-dom.js"
     },
-    "./components/viewers/*": {
-      "types": "./dist/components/viewers/*/index.d.ts",
-      "default": "./dist/components/viewers/*/index.js"
+    "./ui/components/hooks/*": {
+      "types": "./dist/ui/components/hooks/*.d.ts",
+      "default": "./dist/ui/components/hooks/*.js"
     },
-    "./components/hooks/*": {
-      "types": "./dist/components/hooks/*.d.ts",
-      "default": "./dist/components/hooks/*.js"
+    "./ui/components/*": {
+      "types": "./dist/ui/components/*.d.ts",
+      "default": "./dist/ui/components/*.js"
     },
-    "./components/utils": {
-      "types": "./dist/components/lib/utils.d.ts",
-      "default": "./dist/components/lib/utils.js"
+    "./ui/viewers/*": {
+      "types": "./dist/ui/viewers/*/index.d.ts",
+      "default": "./dist/ui/viewers/*/index.js"
     },
-    "./components/lucide": {
-      "types": "./dist/components/lib/lucide.d.ts",
-      "default": "./dist/components/lib/lucide.js"
+    "./ui/form": {
+      "types": "./dist/ui/form/index.d.ts",
+      "default": "./dist/ui/form/index.js"
     },
-    "./components/motion": {
-      "types": "./dist/components/lib/motion.d.ts",
-      "default": "./dist/components/lib/motion.js"
+    "./ui/input": {
+      "types": "./dist/ui/input/index.d.ts",
+      "default": "./dist/ui/input/index.js"
     },
-    "./components/scroll-styles": {
-      "types": "./dist/components/lib/scrollStyles.d.ts",
-      "default": "./dist/components/lib/scrollStyles.js"
+    "./pwa": {
+      "types": "./dist/pwa/prompts/index.d.ts",
+      "default": "./dist/pwa/prompts/index.js"
     },
-    "./components/shadow-dom": {
-      "types": "./dist/components/lib/shadow-dom.d.ts",
-      "default": "./dist/components/lib/shadow-dom.js"
+    "./pwa/vite": {
+      "types": "./dist/pwa/engine/vite/index.d.ts",
+      "default": "./dist/pwa/engine/vite/index.js"
     },
-    "./form": {
-      "types": "./dist/form/index.d.ts",
-      "default": "./dist/form/index.js"
+    "./pwa/worker": {
+      "types": "./dist/pwa/engine/worker/index.d.ts",
+      "default": "./dist/pwa/engine/worker/index.js"
+    },
+    "./pwa/rpc/worker": {
+      "types": "./dist/pwa/engine/rpc/worker/index.d.ts",
+      "default": "./dist/pwa/engine/rpc/worker/index.js"
+    },
+    "./pwa/rpc/client": {
+      "types": "./dist/pwa/engine/rpc/client/index.d.ts",
+      "default": "./dist/pwa/engine/rpc/client/index.js"
     },
     "./recipes/*": {
       "types": "./dist/recipes/*/index.d.ts",
       "default": "./dist/recipes/*/index.js"
     },
-    "./client": {
-      "types": "./dist/client/index.d.ts",
-      "default": "./dist/client/index.js"
+    "./app/document": {
+      "types": "./dist/app/document/index.d.ts",
+      "default": "./dist/app/document/index.js"
     },
-    "./client/server": {
-      "types": "./dist/client/server.d.ts",
-      "default": "./dist/client/server.js"
+    "./app/vite": {
+      "types": "./dist/app/vite/index.d.ts",
+      "default": "./dist/app/vite/index.js"
     },
-    "./pwa": {
-      "types": "./dist/pwa/index.d.ts",
-      "default": "./dist/pwa/index.js"
-    },
-    "./pwa/vite": {
-      "types": "./dist/pwa/vite/index.d.ts",
-      "default": "./dist/pwa/vite/index.js"
-    },
-    "./pwa/splash": {
-      "types": "./dist/pwa/splash/index.d.ts",
-      "default": "./dist/pwa/splash/index.js"
-    },
-    "./pwa/worker": {
-      "types": "./dist/pwa/worker/index.d.ts",
-      "default": "./dist/pwa/worker/index.js"
-    },
-    "./pwa/client": {
-      "types": "./dist/pwa/client/index.d.ts",
-      "default": "./dist/pwa/client/index.js"
-    },
-    "./pwa/extras": {
-      "types": "./dist/pwa/extras/index.d.ts",
-      "default": "./dist/pwa/extras/index.js"
-    },
-    "./pwa/rpc/worker": {
-      "types": "./dist/pwa/rpc/worker/index.d.ts",
-      "default": "./dist/pwa/rpc/worker/index.js"
-    },
-    "./pwa/rpc/client": {
-      "types": "./dist/pwa/rpc/client/index.d.ts",
-      "default": "./dist/pwa/rpc/client/index.js"
-    },
-    "./start": {
-      "types": "./dist/start/index.d.ts",
-      "default": "./dist/start/index.js"
-    },
-    "./account-switcher": {
-      "types": "./dist/account-switcher/index.d.ts",
-      "default": "./dist/account-switcher/index.js"
-    },
-    "./server": {
-      "types": "./dist/server/index.d.ts",
-      "default": "./dist/server/index.js"
+    "./app/alchemy": {
+      "types": "./dist/app/alchemy/index.d.ts",
+      "default": "./dist/app/alchemy/index.js"
     }
   },
   "scripts": {
     "addcomp": "./scripts/addcomp.sh",
-    "build": "vp pack && cp -R src/theme/css dist/theme/",
+    "build": "vp pack && cp -R src/ui/theme/css dist/ui/theme/",
     "dev": "cosmos",
     "fmt": "vp fmt",
     "lint": "vp check && tsc --noEmit && pnpm lint:laymos",
@@ -188,23 +156,21 @@
     "zustand": "catalog:"
   },
   "devDependencies": {
+    "@alchemy.run/cloudflare": "catalog:",
     "@cloudflare/workers-types": "catalog:",
     "@kestack/auth-toolkit": "workspace:*",
-    "@kestack/rpc-toolkit": "workspace:*",
-    "@kestack/std-toolkit": "workspace:*",
+    "@kestack/kabuki": "workspace:*",
     "@kestack/use-gesture": "workspace:*",
     "@kestack/use-keys": "workspace:*",
     "@tailwindcss/vite": "catalog:",
-    "@tanstack/react-router": "catalog:",
-    "@tanstack/react-start": "catalog:",
     "@tsconfig/node22": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@typescript/native": "catalog:",
     "@vitejs/plugin-react": "catalog:",
+    "alchemy": "catalog:",
     "effect": "catalog:",
-    "@kestack/kabuki": "workspace:*",
     "laymos": "workspace:*",
     "react": "catalog:",
     "react-cosmos": "catalog:",
@@ -216,33 +182,26 @@
     "vitest": "catalog:"
   },
   "peerDependencies": {
-    "@cloudflare/workers-types": "5.20260904.1",
+    "@alchemy.run/cloudflare": "2.0.0-beta.84",
     "@kestack/auth-toolkit": "workspace:*",
-    "@kestack/rpc-toolkit": "workspace:*",
-    "@kestack/std-toolkit": "workspace:*",
     "@kestack/use-gesture": "workspace:*",
     "@kestack/use-keys": "workspace:*",
-    "@tanstack/react-router": "1.170.32",
-    "@tanstack/react-start": "1.168.49",
     "effect": "^4.0.0",
     "@kestack/kabuki": "workspace:*",
     "laymos": "workspace:*",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "use-effect-ts": "workspace:*",
-    "vite": "^8.0.0"
+    "vite": "^8.0.0",
+    "@tailwindcss/vite": "4.3.3",
+    "@vitejs/plugin-react": "6.1.2",
+    "alchemy": "2.0.0-beta.84"
   },
   "peerDependenciesMeta": {
-    "@cloudflare/workers-types": {
+    "@alchemy.run/cloudflare": {
       "optional": true
     },
     "@kestack/use-keys": {
-      "optional": true
-    },
-    "@tanstack/react-router": {
-      "optional": true
-    },
-    "@tanstack/react-start": {
       "optional": true
     },
     "effect": {
@@ -258,6 +217,15 @@
       "optional": true
     },
     "vite": {
+      "optional": true
+    },
+    "@tailwindcss/vite": {
+      "optional": true
+    },
+    "@vitejs/plugin-react": {
+      "optional": true
+    },
+    "alchemy": {
       "optional": true
     }
   }

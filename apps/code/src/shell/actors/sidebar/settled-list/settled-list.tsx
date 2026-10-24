@@ -4,8 +4,8 @@ import {
   ArchiveIcon,
   ArchiveRestoreIcon,
   XIcon,
-} from '@kestack/web-platform/components/lucide';
-import { Spinner } from '@kestack/web-platform/components/spinner';
+} from '@kestack/web-platform/ui/components/lucide';
+import { Spinner } from '@kestack/web-platform/ui/components/spinner';
 import {
   SidebarGroup,
   SidebarGroupContent,

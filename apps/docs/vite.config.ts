@@ -1,10 +1,8 @@
 import { basename } from 'node:path';
 import mdx from '@mdx-js/rollup';
 import { cloudflare } from '@kestack/kabuki/start/platform/cloudflare';
-import { start } from '@kestack/kabuki/start/vite';
 import rehypeShiki from '@shikijs/rehype';
-import tailwindcss from '@tailwindcss/vite';
-import react from '@vitejs/plugin-react';
+import { app } from '@kestack/web-platform/app/vite';
 import { defineConfig } from 'vite';
 import { remarkDocs } from './mdx/remark-docs.ts';
 
@@ -13,10 +11,7 @@ export default defineConfig({
     // Accept the Host headers the portless proxy and its Tailscale share forward during dev.
     allowedHosts: ['.docs.kishore.computer', '.ts.net'],
   },
-  // Its components are ESM with CSS-only side effects: bundle them for the server too.
-  ssr: { noExternal: ['@kestack/web-platform'] },
   plugins: [
-    tailwindcss(),
     // Before React's plugin, so it sees each page as the JSX MDX compiles it to.
     {
       enforce: 'pre',
@@ -46,7 +41,13 @@ export default defineConfig({
         ],
       }),
     },
-    react({ include: /\.(mdx|tsx|ts)$/ }),
-    start({ platform: cloudflare(), app: 'src/client/app' }),
+    // Kabuki Start on Cloudflare, and a PWA whose icons are the ones
+    // public/ holds by name.
+    app({
+      name: 'ke stack',
+      platform: cloudflare(),
+      app: 'src/client/app',
+      react: { include: /\.(mdx|tsx|ts)$/ },
+    }),
   ],
 });

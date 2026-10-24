@@ -5,7 +5,10 @@ import { Layer } from 'effect';
 import { isMany } from '@kestack/kabuki';
 import type { Instance } from '@kestack/kabuki';
 import { View, toReact } from '@kestack/kabuki/react';
-import { CheckIcon, PlusIcon } from '@kestack/web-platform/components/lucide';
+import {
+  CheckIcon,
+  PlusIcon,
+} from '@kestack/web-platform/ui/components/lucide';
 import { FILTERS, ROWS, TodoLive, TodosLive } from './todos.ts';
 
 /*

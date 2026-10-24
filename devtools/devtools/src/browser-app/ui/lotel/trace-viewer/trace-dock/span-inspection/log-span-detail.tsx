@@ -1,9 +1,9 @@
-import { cn } from '@kestack/web-platform/components/utils';
+import { cn } from '@kestack/web-platform/ui/components/utils';
 
 import { detectLogSeverity } from '../../trace-presentation';
 import type { OtelEvent, OtelSpan } from '../../trace-model';
 import { formatDuration } from '../../trace-model';
-import { JsonTree } from '@kestack/web-platform/components/viewers/json';
+import { JsonTree } from '@kestack/web-platform/ui/viewers/json';
 
 const BODY_KEYS = ['body', 'message', 'log.message'] as const;
 const META_KEYS = new Set([

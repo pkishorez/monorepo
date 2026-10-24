@@ -16,7 +16,6 @@
         "@kestack/auth-toolkit",
         "@kestack/devtools",
         "@kestack/effect-tracer",
-        "@kestack/effect-webrtc",
         "laymos",
         "@kestack/use-gesture",
         "@kestack/use-keys",
@@ -61,7 +60,7 @@
       "label": "Playwright peers accept any Playwright release from the one tested",
       "dependencies": ["playwright-core"],
       "dependencyTypes": ["peer"],
-      "pinVersion": "^1.63.0"
+      "pinVersion": "^1.64.1"
     },
     {
       "label": "Synchronize remaining dependencies",
@@ -84,7 +83,6 @@
         "@kestack/auth-toolkit",
         "@kestack/devtools",
         "@kestack/effect-tracer",
-        "@kestack/effect-webrtc",
         "laymos",
         "@kestack/use-gesture",
         "@kestack/use-keys",
@@ -124,6 +122,29 @@
     {
       "label": "Aliased TypeScript 6 catalog updates are manual",
       "dependencyTypes": ["pnpmCatalog:typescript6"],
+      "isIgnored": true
+    },
+    {
+      "label": "OpenTelemetry's 0.x packages and api stay where its 2.x SDK accepts them: 0.300 and api 1.10 go with SDK 3",
+      "dependencyTypes": ["pnpmCatalog"],
+      "dependencies": [
+        "@opentelemetry/api",
+        "@opentelemetry/api-logs",
+        "@opentelemetry/exporter-*",
+        "@opentelemetry/sdk-logs"
+      ],
+      "target": "patch"
+    },
+    {
+      "label": "OpenTelemetry's SDK stays on 2.x, the line @effect/opentelemetry accepts",
+      "dependencyTypes": ["pnpmCatalog"],
+      "dependencies": ["@opentelemetry/**"],
+      "target": "minor"
+    },
+    {
+      "label": "Syncpack ranks drizzle's branch builds (1.0.0-rc.5-<sha>) above its releases, so drizzle is updated by hand from its rc dist-tag",
+      "dependencyTypes": ["pnpmCatalog"],
+      "dependencies": ["drizzle-kit", "drizzle-orm"],
       "isIgnored": true
     },
     {

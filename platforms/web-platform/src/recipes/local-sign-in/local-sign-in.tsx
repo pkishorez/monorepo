@@ -1,19 +1,19 @@
 import { useId, useState, type FormEvent } from 'react';
 
-import { Avatar, AvatarFallback } from '#components/ui/avatar';
-import { Button } from '#components/ui/button';
+import { Avatar, AvatarFallback } from '#components/avatar';
+import { Button } from '#components/button';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '#components/ui/dialog';
-import { Input } from '#components/ui/input';
-import { Label } from '#components/ui/label';
+} from '#components/dialog';
+import { Input } from '#components/input';
+import { Label } from '#components/label';
 import { cn } from '#lib/utils';
 
-import { MaskedEmail } from '../parts/email-privacy';
+import { MaskedEmail } from './email-privacy';
 
 /** Who to sign in as, when sign-in is local. */
 export interface LocalSignInChoice {

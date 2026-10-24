@@ -7,7 +7,7 @@ import {
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-} from '@kestack/web-platform/components/empty';
+} from '@kestack/web-platform/ui/components/empty';
 import {
   Item,
   ItemActions,
@@ -16,15 +16,15 @@ import {
   ItemGroup,
   ItemMedia,
   ItemTitle,
-} from '@kestack/web-platform/components/item';
-import { Button } from '@kestack/web-platform/components/button';
+} from '@kestack/web-platform/ui/components/item';
+import { Button } from '@kestack/web-platform/ui/components/button';
 import {
   ChevronRightIcon,
   FolderIcon,
   FolderOpenIcon,
   FolderPlusIcon,
-} from '@kestack/web-platform/components/lucide';
-import { Skeleton } from '@kestack/web-platform/components/skeleton';
+} from '@kestack/web-platform/ui/components/lucide';
+import { Skeleton } from '@kestack/web-platform/ui/components/skeleton';
 import type { Project } from '@kestack/ai-toolkit/api';
 import { keys, useBound } from '../../../keys.ts';
 import * as places from '../../places/index.ts';

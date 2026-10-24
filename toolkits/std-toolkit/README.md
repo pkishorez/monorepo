@@ -23,7 +23,7 @@ Node 24 or later. Peer dependencies:
 - `react` (optional): required by `@tanstack/react-db`; only needed when you use `@kestack/std-toolkit/sync`.
 - `@kestack/kabuki` (optional): `@kestack/std-toolkit/replica` runs as Kabuki actors and Commands.
 - `@tanstack/db` (optional): `@kestack/std-toolkit/replica` shows each Instance in TanStack DB Collections, without React.
-- `alchemy` (optional): only `@kestack/std-toolkit/alchemy` imports it, to deploy a table and guard its contract.
+- `alchemy`, `@alchemy.run/cloudflare` and `@alchemy.run/aws` (optional): only `@kestack/std-toolkit/alchemy` imports them, to deploy a table (D1 on Cloudflare, DynamoDB on AWS) and guard its contract.
 
 ## Exports
 
@@ -73,7 +73,7 @@ The file holds the table snapshot: topology, entities, and every version of ever
 
 ### `@kestack/std-toolkit/alchemy`
 
-Deploys a StdTable with Alchemy. Each table resource takes a required `mode`. A persistent table gets a deploy guard: it keeps the Deployed contract in Alchemy state and fails the deploy when the new snapshot breaks it. Add `providers()` to the stack's providers.
+Deploys a StdTable with Alchemy. Each table resource takes a required `mode`. A persistent table gets a deploy guard: it keeps the Deployed contract in Alchemy state and fails the deploy when the new snapshot breaks it. Add `providers()` to the stack's providers, over Cloudflare's, which its D1 table runs on.
 
 | Export              | What it does                                                                                                                         |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
@@ -190,11 +190,11 @@ const screen = createLiveQueryCollection({
 
 ### Deploy a table and refuse a breaking change
 
-An application deploys its table through `@kestack/std-toolkit/alchemy`. For a persistent table, every deploy compares the new snapshot with the one last shipped, and with the Stored contract in the database, and fails before the table is touched if a stored version was edited or removed, or the key layout moved. Lifted from `apps/alchemy-console/alchemy.run.ts`.
+An application deploys its table through `@kestack/std-toolkit/alchemy`. For a persistent table, every deploy compares the new snapshot with the one last shipped, and with the Stored contract in the database, and fails before the table is touched if a stored version was edited or removed, or the key layout moved. Lifted from the former `apps/alchemy-console/alchemy.run.ts` (tag `alchemy-console-old`).
 
 ```ts
 import { Stack, Stage } from 'alchemy';
-import * as Cloudflare from 'alchemy/Cloudflare';
+import * as Cloudflare from '@alchemy.run/cloudflare';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
 import {
@@ -228,7 +228,10 @@ export const Worker = Cloudflare.Website.Vite(
 export default Stack(
   'AlchemyConsole',
   {
-    providers: Layer.merge(Cloudflare.providers(), stdToolkitProviders()),
+    // The D1 table runs on Cloudflare's providers, so they are given to it.
+    providers: stdToolkitProviders().pipe(
+      Layer.provideMerge(Cloudflare.providers()),
+    ),
     state: Cloudflare.state(),
   },
   Worker,

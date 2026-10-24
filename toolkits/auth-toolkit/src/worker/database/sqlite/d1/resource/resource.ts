@@ -1,4 +1,4 @@
-import * as Cloudflare from 'alchemy/Cloudflare';
+import * as Cloudflare from '@alchemy.run/cloudflare';
 import {
   AUTH_MIGRATIONS_TABLE,
   authMigrationsDir,

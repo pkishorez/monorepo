@@ -4,7 +4,7 @@ import { Replicas } from '@kestack/std-toolkit/replica';
 import {
   AccountSwitcherLive,
   CurrentAccount,
-} from '@kestack/web-platform/account-switcher';
+} from '@kestack/web-platform/recipes/account-switcher';
 import { Apis, ApisLive } from './apis.ts';
 import { ItemLive, Items, ItemsLive } from './items.ts';
 import { ClientLive, DynamicLive, Static, StaticLive } from './rendering.ts';

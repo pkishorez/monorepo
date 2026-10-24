@@ -2,13 +2,13 @@ import {
   motion,
   useMotionValue,
   useTransform,
-} from '@kestack/web-platform/components/motion';
+} from '@kestack/web-platform/ui/components/motion';
 import {
   GestureProvider,
   GestureZone,
   type Pointer,
   useGesture,
-} from '@kestack/web-platform/input';
+} from '@kestack/web-platform/ui/input';
 import { Effect } from 'effect';
 import { Gesture, Proof } from 'laymos/story';
 import { useRef } from 'react';
@@ -80,7 +80,7 @@ export default Proof.browser({
     'useGesture follows both fingers; the dial turns by the angle between them, unwrapped so a turn past 180° keeps counting.',
   page: (root) => {
     const app = createRoot(root);
-    void import('@kestack/web-platform/theme/global.css').then(() =>
+    void import('@kestack/web-platform/ui/theme/global.css').then(() =>
       app.render(
         <GestureProvider>
           <GestureZone className="flex h-dvh flex-col bg-background p-6 text-foreground">

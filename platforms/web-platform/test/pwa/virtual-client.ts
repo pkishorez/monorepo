@@ -1,5 +1,5 @@
 // Stands in for `virtual:pwa-toolkit/client` in unit tests.
-import type { ClientBuildInfo } from '../../src/pwa/shared/config/index.js';
+import type { ClientBuildInfo } from '../../src/pwa/engine/shared/config/index.js';
 
 const info: ClientBuildInfo = {
   enabled: true,
@@ -9,8 +9,11 @@ const info: ClientBuildInfo = {
   buildId: null,
   builtAt: null,
   commit: null,
+  name: 'App',
   manifestUrl: '/manifest.webmanifest',
   appleTouchIconUrl: null,
 };
 
 export default info;
+
+export const included = true;

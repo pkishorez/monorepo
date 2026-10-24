@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'motion/react';
 import { View } from '@kestack/kabuki/react';
-import { Input } from '@kestack/web-platform/components/input';
+import { Input } from '@kestack/web-platform/ui/components/input';
 import { TodoLive } from './todos.ts';
 
 // Draws one to-do's text, struck through when its Prop says done: the line

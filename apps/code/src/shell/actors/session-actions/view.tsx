@@ -1,7 +1,7 @@
 import { View } from '@kestack/kabuki/react';
 import { useRouter } from '@kestack/kabuki/routing';
-import { Button } from '@kestack/web-platform/components/button';
-import { EllipsisIcon } from '@kestack/web-platform/components/lucide';
+import { Button } from '@kestack/web-platform/ui/components/button';
+import { EllipsisIcon } from '@kestack/web-platform/ui/components/lucide';
 import { keys, useBound } from '../../../keys.ts';
 import { placeOf, type Route } from '../../places/index.ts';
 import * as Picker from '../../../ui/picker/index.ts';

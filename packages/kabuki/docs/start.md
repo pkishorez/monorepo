@@ -121,10 +121,10 @@ paint, like a theme bootstrap, is the Document's own. So is the font: a web
 font loaded with `font-display: swap` and nothing preloaded paints the first
 frame in another font, then reflows every line when it arrives. Preload the
 file the first paint needs, and give it a fallback whose metrics match, so
-the page never moves. An app on the Web Platform gets both by writing its
-Document as `@kestack/web-platform/start`'s `Document`, which preloads Inter
-and sets its fallback, with the Theme and the device marked before the
-first paint.
+the page never moves. An app on the Web Platform gets both by passing
+`document({ theme })` from `@kestack/web-platform/app/document`, which
+preloads Inter and sets its fallback, with the Theme and the device marked
+before the first paint.
 
 `Start.useDrawn()` reads, from any component, when the server drew the page
 (after its Loaders answered) and by which build, and whether that component
@@ -216,6 +216,27 @@ each answered as it comes, says it directly; a Loader needs the very
 a request that gets no answer breaks the pages it asked for, and each can
 retry.
 
+## The Pages and the App Shell
+
+Start knows nothing of service workers, but it tells whatever stands in
+front of the app what it needs to know, from the Routes, so it cannot
+disagree with them. `GET /_kabuki/pages` (`Start.pages`) answers:
+
+```
+{ "build": "…", "shell": "/_kabuki/shell",
+  "pages": [{ "name": "Blog.Post", "path": "/blog/:slug", "params": true, "render": "static" }, …] }
+```
+
+A page's `render` is how its first drawing is made: `static` when every
+place the server draws is static, `client` when it draws none of them,
+`dynamic` otherwise. `build` is `null` in dev.
+
+`GET /_kabuki/shell` is the App Shell: the Document, its files and no app,
+kept per build as a static page is. The server leaves a Suspense boundary
+where the app goes; the browser hydrates the Document and draws the app in
+it at its own URL, every place loading. A service worker can answer a
+client page with it, which is that page exactly, and any page offline.
+
 ## Lazy Views
 
 `View.lazy(ChartLive, () => import('./chart-view.tsx'))` is a View of
@@ -289,7 +310,8 @@ export default defineConfig({
 ```
 
 ```ts
-// alchemy.run.ts, or src/infra/ as apps/docs does
+// alchemy.run.ts, or src/infra/; the Web Platform's `Site` in
+// `@kestack/web-platform/app/alchemy` is this with each Stage's domain
 export const Site = Cloudflare.Website.Vite('Site', {
   compatibility: { date: '2025-07-04', flags: ['nodejs_compat'] },
   bindings: { DB: Database },

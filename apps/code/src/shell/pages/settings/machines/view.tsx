@@ -1,7 +1,7 @@
 import type { Machine as MachineSchema } from '@kestack/ai-toolkit/machines';
 import { View } from '@kestack/kabuki/react';
-import { Button } from '@kestack/web-platform/components/button';
-import { Skeleton } from '@kestack/web-platform/components/skeleton';
+import { Button } from '@kestack/web-platform/ui/components/button';
+import { Skeleton } from '@kestack/web-platform/ui/components/skeleton';
 import { useEffect, useState } from 'react';
 import * as Confirm from '../../../../ui/confirm/index.ts';
 import { ago } from '../../../../ui/time/index.ts';

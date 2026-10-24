@@ -2,8 +2,8 @@
 import * as Effect from 'effect/Effect';
 import * as SubscriptionRef from 'effect/SubscriptionRef';
 import * as TestClock from 'effect/testing/TestClock';
-import { Pwa } from '../../src/pwa/client/index.js';
-import type { ClientBuildInfo } from '../../src/pwa/shared/config/index.js';
+import { Pwa } from '../../src/pwa/engine/client/index.js';
+import type { ClientBuildInfo } from '../../src/pwa/engine/shared/config/index.js';
 
 export const config = (
   overrides: Partial<ClientBuildInfo> = {},
@@ -15,6 +15,7 @@ export const config = (
   buildId: null,
   builtAt: null,
   commit: null,
+  name: 'App',
   manifestUrl: '/manifest.webmanifest',
   appleTouchIconUrl: null,
   ...overrides,
