@@ -29,9 +29,10 @@ export class AccountReplicas extends Context.Service<
     readonly keepAccounts: (
       accountIds: ReadonlyArray<string>,
     ) => Effect.Effect<void>;
-    /** Deletes the records of these Accounts, signed out of this device: best effort. */
-    readonly dropAccounts: (
-      accountIds: ReadonlyArray<string>,
+    /** Deletes the records of one Machine of the Account, and no other: best effort. */
+    readonly dropMachine: (
+      accountId: string,
+      machineId: string,
     ) => Effect.Effect<void>;
   }
 >()('code/AccountReplicas') {}

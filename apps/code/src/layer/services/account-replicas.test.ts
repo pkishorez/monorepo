@@ -91,16 +91,16 @@ describe('Account Replicas', () => {
     ]);
   });
 
-  it('drops only the Accounts signed out', async () => {
-    await create(`replica:a4:${Ai.instanceName('m5')}`);
+  it('drops one Machine’s records and no other', async () => {
+    await create(`replica:a5:${Ai.instanceName('m5')}`);
     await create(`replica:a5:${Ai.instanceName('m6')}`);
     await run(
       Effect.flatMap(AccountReplicas, (replicas) =>
-        replicas.dropAccounts(['a4']),
+        replicas.dropMachine('a5', 'm5'),
       ),
     );
     const left = await names();
-    expect(left).not.toContain(`replica:a4:${Ai.instanceName('m5')}`);
+    expect(left).not.toContain(`replica:a5:${Ai.instanceName('m5')}`);
     expect(left).toContain(`replica:a5:${Ai.instanceName('m6')}`);
   });
 

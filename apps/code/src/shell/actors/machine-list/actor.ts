@@ -11,7 +11,7 @@ import {
   SavedMachines,
 } from '../../../layer/capabilities/index.ts';
 import { list, speechOn } from './api.ts';
-import { forget, keep, save } from './commands.ts';
+import { drop, forget, keep, save } from './commands.ts';
 
 /*
  * The Machine List: the Machines of one Account, a Child of the root page for as long as
@@ -35,8 +35,8 @@ import { forget, keep, save } from './commands.ts';
  *             it stops; a line that drops starts it again.
  * 5. Forget   a Machine, asked from Settings: the Backend forgets it, it
  *             leaves the list, so nothing reads its Instance any more, and
- *             then its records here go: at once once the Backend has
- *             answered, else with its first answer, as in 2.
+ *             then its records here go, and no other's: another tab
+ *             may list a Machine this one has not heard of yet.
  * 6. Share    what it holds is what `Machines` says to every Actor, and
  *             what they ask through it comes here.
  */
@@ -91,12 +91,6 @@ export const MachineList = Actor.define('MachineList', {
 });
 
 const idsOf = (model: Model) => (model.machines ?? []).map(({ id }) => id);
-
-/** Only the records of the Machines listed are kept for the Account. */
-const keepListed = (
-  accountId: string,
-  machines: ReadonlyArray<typeof Machine.Type>,
-) => keep({ accountId, machineIds: machines.map(({ id }) => id) });
 
 /** Whether a listed Machine's line is not up, so the Backend is asked again. */
 export const anyDown = (model: Model) =>
@@ -202,7 +196,12 @@ export const MachineListLive = Actor.build(MachineList, {
       command: [
         save({ accountId: model.accountId, machines }),
         ...(model.fetchedAt === null
-          ? [keepListed(model.accountId, machines)]
+          ? [
+              keep({
+                accountId: model.accountId,
+                machineIds: machines.map(({ id }) => id),
+              }),
+            ]
           : []),
       ],
     }),
@@ -238,9 +237,7 @@ export const MachineListLive = Actor.build(MachineList, {
         model: { ...model, machines, forgetting: null },
         command: [
           save({ accountId: model.accountId, machines }),
-          ...(model.fetchedAt === null
-            ? []
-            : [keepListed(model.accountId, machines)]),
+          drop({ accountId: model.accountId, id }),
         ],
       };
     },
