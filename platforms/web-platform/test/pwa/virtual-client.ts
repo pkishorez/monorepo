@@ -15,3 +15,5 @@ const info: ClientBuildInfo = {
 };
 
 export default info;
+
+export const included = true;

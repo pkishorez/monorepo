@@ -38,8 +38,7 @@ src/
     content/      the toolkits, kabuki's table of contents, and each page's Metadata
     pages/        the page definitions; routes.ts reads them into the router
   client/       the Views: drawn by the server, then run by the browser
-    app.tsx       the root page's View, in the layout and the Document
-    document.tsx  the <html> around the app
+    app.tsx       the root page's View, in the layout and the Web Platform's Document
     docs/         every page: its MDX, its pictures and its live app
     pages/        one View per page: home, kabuki's landing, a docs page, the demo
     components/   the header, sidebar, theme, how MDX is drawn, the Playground and picture parts
@@ -101,7 +100,8 @@ First-time setup, once per Cloudflare account:
    The deploy also needs AWS credentials; see `deploy-docs.yml` for the
    full list.
 2. Run the first deploy. It creates the Worker and the state store, and uploads the assets.
-3. The custom domain is declared in `src/infra/stage.ts` (`domainFor`), so the
+3. The custom domain is declared by the Web Platform's `Site`
+   (`@kestack/web-platform/app/alchemy`) in `src/infra/website.ts`, so the
    deploy binds it. Cloudflare provisions the DNS record and TLS cert because
    the `kishore.app` zone already exists in the account. No dashboard steps.
 4. Verify in a browser once DNS and TLS propagate (usually under a minute):

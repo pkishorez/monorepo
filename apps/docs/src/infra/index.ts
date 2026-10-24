@@ -1,1 +1,1 @@
-export { Website, type WorkerEnv } from './website.ts';
+export { Website } from './website.ts';

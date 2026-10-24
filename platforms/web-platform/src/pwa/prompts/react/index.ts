@@ -2,6 +2,7 @@ export {
   clearRuntimeCache,
   PwaProvider,
   pwaHead,
+  pwaIncluded,
   pwaName,
   usePwa,
 } from './react.js';

@@ -2,15 +2,10 @@
   "$schema": "../../devtools/laymos/schema.json",
   "sourceRoots": ["src"],
   "ignoredPaths": ["src/client/styles.css"],
-  "fileModules": ["src/client/app.tsx", "src/client/document.tsx"],
+  "fileModules": ["src/client/app.tsx"],
   "rules": {
     "src/client": ["src/shared"],
-    "src/client/app.tsx": [
-      "src/client/pages",
-      "src/client/components",
-      "src/client/document.tsx"
-    ],
-    "src/client/document.tsx": ["src/client/components"],
+    "src/client/app.tsx": ["src/client/pages", "src/client/components"],
     "src/client/pages": [
       "src/client/components",
       "src/client/demos",

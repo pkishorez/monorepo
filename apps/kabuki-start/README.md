@@ -64,8 +64,7 @@ which Alchemy sets from the Workers it declares and Vite inlines.
 src/
   shared/pages/        both sides: one file per page, its data Schema beside it (replica/ a folder: the page, the accounts list, the Pocket); pages.ts holds the root page and the router
   client/
-    app.tsx            Start.app: the router, the root View, the Document, the browser's Layer (Accounts, the API clients and the Replica Store)
-    document.tsx       the <html> around the app: theme script, devtools, sign-in dialog
+    app.tsx            Start.app: the router, the root View, the Web Platform's Document with devtools around it, the browser's Layer (Accounts, the API clients and the Replica Store)
     views/             one View per page; views.tsx draws the root page, preload-link.tsx shows a preload live
     views/replica/     the Replica page: the accounts list, the sync panel, the Pocket
     components/        layout, page intro, clock, devtools, theme
@@ -81,8 +80,9 @@ src/
   infra/               the site, the API Workers and their domains, declared with Alchemy
 ```
 
-`vite.config.ts` names the platform and the two files Start reads:
-`start({ platform: cloudflare(), app: 'src/client/app', loaders: 'src/server/loaders.server' })`.
+`vite.config.ts` names the platform and the two files Start reads, through
+the Web Platform's one plugin, which also makes the app a PWA:
+`app({ name: 'Kabuki Start', platform: cloudflare(), app: 'src/client/app', loaders: 'src/server/loaders.server' })`.
 
 ### Run locally
 
@@ -121,5 +121,5 @@ with its Workers at `https://pr<N>-hello-http-start.kishore.app` and
 `https://start.kishore.app`. The deployed stages (`prod`, `demo`, `pr<N>`)
 refuse to deploy unless `ALLOW_DEPLOY=true`. A personal stage deployed to
 `workers.dev` is served, but signs nobody in. Their state is in the
-Cloudflare state store (`src/infra/state.ts`). Deploying needs Cloudflare
+Cloudflare state store (the Web Platform's `State`). Deploying needs Cloudflare
 credentials for the account that owns the `kishore.app` zone.

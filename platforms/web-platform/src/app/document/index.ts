@@ -1,3 +1,3 @@
-// The Document for an app on Kabuki Start, with Inter, the Theme and the
-// device marked before the first paint.
-export { Document, type DocumentProps } from './document.tsx';
+// The Document for an app on Kabuki Start, with Inter, the Theme, the
+// device and the PWA ready before the first paint.
+export { document, type DocumentOptions } from './document.tsx';

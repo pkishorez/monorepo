@@ -1,5 +1,6 @@
-import type { ReactNode } from 'react';
+import type { ComponentType, ReactNode } from 'react';
 import { Start } from '@kestack/kabuki/start';
+import { Pwa, PwaHead } from '../../pwa/prompts/index.ts';
 import { DEVICE_SCRIPT } from '../../ui/input/device/index.ts';
 import { FontPreload, type createTheme } from '../../ui/theme/index.ts';
 
@@ -20,42 +21,50 @@ const VIEWPORT =
  *            `data-touch`, for the `keyboard:` and `touch:` variants.
  * 4. Screen  the viewport drawn under the notch and home bar, which the
  *            App Shell pads for.
+ * 5. PWA     the manifest and the Build ID in the head, and around the
+ *            app the worker, the Update Prompt and the Install Prompt;
+ *            nothing in a build `app({ pwa: false })` made.
  *
  * Start's own parts sit where Start wants them: `<Start.Head />` first in
  * the head, `<Start.Scripts />` last in the body.
  */
 
-export interface DocumentProps {
+export interface DocumentOptions {
   /** The app's Theme, from `createTheme`. */
   readonly theme: ReturnType<typeof createTheme>;
-  /** More for the head, after the Web Platform's: icons, or `<PwaHead />`. */
+  /** More for the head, after the Web Platform's, such as the favicon. */
   readonly head?: ReactNode;
   /** Default: `en`. */
   readonly lang?: string;
-  /** The app, as Start draws it; wrap it in what sits around every page. */
-  readonly children: ReactNode;
+  /** What sits around every page, inside the PWA, such as devtools. */
+  readonly around?: (app: ReactNode) => ReactNode;
 }
 
-/** The HTML around a Kabuki Start app: write `src/document.tsx` as one of these. */
-export function Document({
+/**
+ * The HTML around a Kabuki Start app, for `Start.app({ document })`:
+ * `document({ theme: Theme })`.
+ */
+export const document = ({
   theme,
   head,
   lang = 'en',
-  children,
-}: DocumentProps) {
-  return (
-    <html lang={lang} suppressHydrationWarning>
-      <head>
-        <Start.Head viewport={VIEWPORT} />
-        <FontPreload />
-        <theme.Script />
-        <script dangerouslySetInnerHTML={{ __html: DEVICE_SCRIPT }} />
-        {head}
-      </head>
-      <body>
-        {children}
-        <Start.Scripts />
-      </body>
-    </html>
-  );
-}
+  around = (app) => app,
+}: DocumentOptions): ComponentType<Start.DocumentProps> =>
+  function Document({ children }) {
+    return (
+      <html lang={lang} suppressHydrationWarning>
+        <head>
+          <Start.Head viewport={VIEWPORT} />
+          <FontPreload />
+          <theme.Script />
+          <script dangerouslySetInnerHTML={{ __html: DEVICE_SCRIPT }} />
+          <PwaHead />
+          {head}
+        </head>
+        <body>
+          <Pwa>{around(children)}</Pwa>
+          <Start.Scripts />
+        </body>
+      </html>
+    );
+  };

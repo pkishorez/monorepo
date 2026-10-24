@@ -2,11 +2,7 @@
   "$schema": "../../devtools/laymos/schema.json",
   "sourceRoots": ["src"],
   "ignoredPaths": ["src/client/styles.css", "src/env.d.ts"],
-  "fileModules": [
-    "src/client/app.tsx",
-    "src/client/document.tsx",
-    "src/server/loaders.server.ts"
-  ],
+  "fileModules": ["src/client/app.tsx", "src/server/loaders.server.ts"],
   "rules": {
     "src/shared/pages": [
       "src/apis/access",
@@ -23,10 +19,9 @@
       "src/apis/hello-rpc",
       "src/apis/pocket",
       "src/shared/pages",
-      "src/client/document.tsx",
+      "src/client/components",
       "src/client/views"
     ],
-    "src/client/document.tsx": ["src/client/components"],
     "src/client/views": [
       "src/apis/access",
       "src/apis/hello-http",

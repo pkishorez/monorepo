@@ -60,4 +60,3 @@ jobs:
         run: |
           node --test .github/scripts/test-summary.test.mjs
           node .github/scripts/test.mjs
-

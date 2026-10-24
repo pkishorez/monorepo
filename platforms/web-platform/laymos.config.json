@@ -84,7 +84,12 @@
     "src/ui/theme/model.ts"
   ],
   "rules": {
-    "src/app/document": ["src/ui/input/device", "src/ui/theme"],
+    "src/app/vite": ["src/pwa/engine/vite"],
+    "src/app/document": [
+      "src/pwa/prompts",
+      "src/ui/input/device",
+      "src/ui/theme"
+    ],
     "src/pwa/engine/client": [
       "src/pwa/engine/browser",
       "src/pwa/engine/shared"

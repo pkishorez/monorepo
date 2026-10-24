@@ -102,6 +102,10 @@
       "types": "./dist/app/document/index.d.ts",
       "default": "./dist/app/document/index.js"
     },
+    "./app/vite": {
+      "types": "./dist/app/vite/index.d.ts",
+      "default": "./dist/app/vite/index.js"
+    },
     "./app/alchemy": {
       "types": "./dist/app/alchemy/index.d.ts",
       "default": "./dist/app/alchemy/index.js"
@@ -152,7 +156,9 @@
     "zustand": "catalog:"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "catalog:",
     "@kestack/auth-toolkit": "workspace:*",
+    "@kestack/kabuki": "workspace:*",
     "@kestack/use-gesture": "workspace:*",
     "@kestack/use-keys": "workspace:*",
     "@tailwindcss/vite": "catalog:",
@@ -162,8 +168,8 @@
     "@types/react-dom": "catalog:",
     "@typescript/native": "catalog:",
     "@vitejs/plugin-react": "catalog:",
+    "alchemy": "catalog:",
     "effect": "catalog:",
-    "@kestack/kabuki": "workspace:*",
     "laymos": "workspace:*",
     "react": "catalog:",
     "react-cosmos": "catalog:",
@@ -184,7 +190,10 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "use-effect-ts": "workspace:*",
-    "vite": "^8.0.0"
+    "vite": "^8.0.0",
+    "@tailwindcss/vite": "4.3.3",
+    "@vitejs/plugin-react": "6.1.1",
+    "alchemy": "2.0.0-beta.80"
   },
   "peerDependenciesMeta": {
     "@kestack/use-keys": {
@@ -203,6 +212,15 @@
       "optional": true
     },
     "vite": {
+      "optional": true
+    },
+    "@tailwindcss/vite": {
+      "optional": true
+    },
+    "@vitejs/plugin-react": {
+      "optional": true
+    },
+    "alchemy": {
       "optional": true
     }
   }
