@@ -1,61 +1,37 @@
 # @kestack/web-platform
 
-The way to build a kstack app: one config made into a PWA on TanStack Start with its Theme, its APIs on a cloud or a Local Backend, several Accounts with one Session each, the screens before sign-in, and the server; plus the components, input, forms and Recipes to build screens with.
+The way to build a kstack app on Kabuki Start: its Document with the Theme, the PWA, the components, input, forms and Recipes to build screens with.
 
 ## Big picture
 
-Every kstack web app used to wire the same things by hand: the root document, the Theme, the PWA, sign-in and its screens, the browser as a Host, and the server for its APIs. This Package holds all of it, so a new app writes only its APIs, its Backend, its Session, its Cache and its screens ([ADR 0004](../../docs/adr/0004-an-app-is-api-backend-and-stores.md)). It replaces `@kestack/ui-toolkit` and `@kestack/pwa-toolkit`.
+Every kstack web app used to wire the same things by hand: the Document, the Theme, the PWA, and the screens. This Package holds them for apps on Kabuki Start, so a new app writes only its pages. It replaces `@kestack/ui-toolkit` and `@kestack/pwa-toolkit`.
 
-The root door is `createApp`. It runs the app on the browser (IndexedDB with a Broadcaster per database every tab hears, the sign-in service's cookie, the window's network and tabs) and gives back the app with its root route, the Theme, `SignedIn` with the screens before an Account is open (the Gate Screens and Account Lost recipes), and the Local Sign-In dialog for the Local Backend. Every app is a PWA: `createApp` always adds the PWA's Root Plugin. The `server` door's `createServer` serves each `http` API on its cloud Backend and each `websocket` API in the caller's own Live Object (a Durable Object made with `liveObject`, one per user), and checks every call with the sign-in service. Underneath `createApp` is the Gate, built on auth-toolkit's `Accounts`: it keeps the app on one Backend, opens the Active Account's Session at launch at once from the Account last seen (Open First) and confirms it behind, follows every Account Switch, and holds the app on an Account Lost until the User acts. Each Session is written once with `defineSession`; closing it interrupts every call still in flight, so nothing of one Account reaches another's screen. Why the Web Platform may break while the Toolkits keep what persists is [ADR 0006](../../docs/adr/0006-platforms-may-break-toolkits-keep-what-persists.md).
+The way in is `./start`'s `Document`, which an app's `src/document.tsx` draws: Inter and the Theme set before the first paint, the device marked, and the viewport drawn under the notch and home bar. `./pwa`'s `PwaHead` and `Pwa` make the app a PWA inside it, and `./pwa/vite`'s `pwa()` builds its worker and manifest beside Start's. Why the Web Platform may break while the Toolkits keep what persists is [ADR 0006](../../docs/adr/0006-platforms-may-break-toolkits-keep-what-persists.md).
 
-Underneath, it is laid out one layer per job and one subpath per layer, bottom to top: `theme`, `feedback`, `input`, `components`, `form`, `recipes`, `client`, then `pwa`; `server` stands beside them. These stay exported for screens and for the unusual app; [ADR 0003](../../docs/adr/0003-web-toolkit-and-the-gate.md) is the earlier design.
+Underneath, it is laid out one layer per job and one subpath per layer, bottom to top: `theme`, `feedback`, `input`, `components`, `form`, `recipes`, then `pwa` and `start`; `server` stands beside them. These stay exported for screens and for the unusual app; [ADR 0003](../../docs/adr/0003-web-toolkit-and-the-gate.md) is the earlier design.
 
 It ships built `dist/` (from `vp pack`). Terms are in [CONTEXT.md](./CONTEXT.md); the PWA's decisions are in [docs/adr/](./docs/adr/).
 
 ## Install
 
 ```sh
-pnpm add @kestack/web-platform @kestack/auth-toolkit @kestack/rpc-toolkit @kestack/std-toolkit react react-dom @kestack/use-gesture
+pnpm add @kestack/web-platform @kestack/auth-toolkit react react-dom @kestack/use-gesture
 pnpm add -D @tailwindcss/vite
 ```
 
-An app that renders on the server adds `@kestack/web-platform` to `ssr.noExternal` in its Vite config, as `apps/docs` and `apps/alchemy-console` do. Its stylesheet imports `@kestack/web-platform/theme/global.css`, which also points Tailwind at the Package's own classes.
+An app that renders on the server adds `@kestack/web-platform` to `ssr.noExternal` in its Vite config, as `apps/docs` and `apps/code` do. Its stylesheet imports `@kestack/web-platform/theme/global.css`, which also points Tailwind at the Package's own classes.
 
-- `@kestack/auth-toolkit`: its `browser()` gives the Accounts the Gate and `./account-switcher` follow, by the sign-in service's cookie or, on the Local Backend, as Local Accounts, and signs every guarded call; `createServer` and the Local Backend check calls with its `auth()`.
-- `@kestack/rpc-toolkit`: each API is called with its `rpc/http`, `rpc/websocket` and `rpc/in-process` Transports; `createServer` answers each `http` API with `rpc/http`'s `server`, and `liveObject` each `websocket` one with `rpc/websocket`'s `server`.
-- `@kestack/std-toolkit`: the Gate's memory, the last-known Accounts, Local Accounts, the Cache and each user's Std Sync are kept in its IndexedDB adapters.
+- `@kestack/auth-toolkit`: `./account-switcher` follows its `Accounts`, by the sign-in service's cookie or as Local Accounts.
 - `react`, `react-dom`: every component, Recipe and the root document render with React 19.
 - `@kestack/use-gesture`: the platform-free gesture core that `./input`'s web gestures and the Thumb Picker run on.
 - `@kestack/use-keys` (optional): the Binding and Shortcut types `./recipes/key-bindings` shows, and the `createKeys` keyboard `./recipes/keyboard` shows. `./theme/global.css` draws every `keys.Surface` from its data attributes, so a `keys.Provider` needs no `appearance` (also alone as `./theme/keys.css`).
-- `@tanstack/react-router` (optional): `./client`'s `webRoot` is a root route.
-- `@tanstack/react-start` (optional): `./client/server` reads the Theme cookie with it, and `./server` hands pages to its server entry.
-- `effect` (optional): the root door, the PWA subpaths, `./server`, and the diff and source viewers are built on it.
+- `effect` (optional): the PWA subpaths and the diff and source viewers are built on it.
 - `vite` (optional): needed by `./pwa/vite`.
 - `laymos` (optional): the file diff and change types the diff, git-changes and source-explorer viewers read.
 - `use-effect-ts` (optional): runs `./components/viewers/source-explorer`'s loaders inside React.
-- `@kestack/kabuki` (optional): the running app `./recipes/kabuki-devtools` inspects, the Start parts `./start`'s Document draws, and the Actor and View `./account-switcher` is.
-- `@cloudflare/workers-types` (optional): the Durable Object types `./server`'s `liveObject` is declared with.
+- `@kestack/kabuki` (optional): the running app `./recipes/kabuki-devtools` inspects, the Start parts `./start`'s Document draws, the Start app `./pwa/vite` builds beside, and the Actor and View `./account-switcher` is.
 
 ## Exports
-
-### `@kestack/web-platform`
-
-| Export      | What it does                                                                                                                                              |
-| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `createApp` | A web app from one config: its root route, Theme and PWA, its APIs, Local Backend and Cache, and with `auth` its Accounts and the screens before sign-in. |
-
-### `@kestack/web-platform/define`
-
-What an app writes before `createApp`. It loads nothing of the browser app, so a Worker and tests import it.
-
-| Export          | What it does                                                              |
-| --------------- | ------------------------------------------------------------------------- |
-| `Api.http`      | Declares an API reached over HTTP at a path or full URL.                  |
-| `Api.websocket` | Declares an API reached over a WebSocket at a path or full URL.           |
-| `defineSession` | Writes an app's Session once over its APIs, with its Service and hooks.   |
-| `SessionClosed` | Error a run rejects with when its Session closed first.                   |
-| `syncName`      | The name of one user's Std Sync on the device.                            |
-| `keepSyncs`     | Deletes every user's Std Sync on the device but the ones still signed in. |
 
 ### `@kestack/web-platform/theme`
 
@@ -85,16 +61,16 @@ What an app writes before `createApp`. It loads nothing of the browser app, so a
 
 ### `@kestack/web-platform/input`
 
-| Export             | What it does                                                                                                               |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------- |
-| `DEVICE_SCRIPT`    | Inline script that marks `<html>` with `data-keyboard` and `data-touch` before the first paint; `webRoot` already adds it. |
-| `useDevice`        | Whether this device has a keyboard, a touch screen or both, live; a key pressed outside a text field turns keyboard on.    |
-| `GestureProvider`  | Follows every touch and pen finger in the Gesture Zones inside it; put one at the app's root.                              |
-| `GestureZone`      | An area where the app may own touch; zones nest, and the browser scrolls when no listener takes the touch.                 |
-| `useGesture`       | Every finger its nearest Gesture Zone hears, with motion values that follow it; never says what the Gesture means.         |
-| `useSwipe`         | The Swipe Recognizer: fingers moving one way, Tracking with motion values, then a Commit or a Cancel.                      |
-| `useSidebar`       | A sidebar that follows a Swipe open from anywhere or an edge, and back, then settles open or closed.                       |
-| `usePullToRefresh` | Pull to refresh: a Swipe down at a list's top, followed with resistance, refreshing past a distance.                       |
+| Export             | What it does                                                                                                                          |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `DEVICE_SCRIPT`    | Inline script that marks `<html>` with `data-keyboard` and `data-touch` before the first paint; `./start`'s Document already adds it. |
+| `useDevice`        | Whether this device has a keyboard, a touch screen or both, live; a key pressed outside a text field turns keyboard on.               |
+| `GestureProvider`  | Follows every touch and pen finger in the Gesture Zones inside it; put one at the app's root.                                         |
+| `GestureZone`      | An area where the app may own touch; zones nest, and the browser scrolls when no listener takes the touch.                            |
+| `useGesture`       | Every finger its nearest Gesture Zone hears, with motion values that follow it; never says what the Gesture means.                    |
+| `useSwipe`         | The Swipe Recognizer: fingers moving one way, Tracking with motion values, then a Commit or a Cancel.                                 |
+| `useSidebar`       | A sidebar that follows a Swipe open from anywhere or an edge, and back, then settles open or closed.                                  |
+| `usePullToRefresh` | Pull to refresh: a Swipe down at a list's top, followed with resistance, refreshing past a distance.                                  |
 
 ### `@kestack/web-platform/components/*`
 
@@ -349,30 +325,19 @@ Owned shadcn copies on Base UI, one subpath per file, such as `@kestack/web-plat
 | `KabukiDevtools` | The Inspector on a running Kabuki app, from `App.useRuntime()`: picking a Step on its Timeline Time Travels the app, going live comes back.                                                              |
 | `Inspector`      | The Step shown, drawn as a Map, with the Sheet of what is picked and the Timeline under it; it lays itself out by its own width, and its Map as a packed tree or an outline, switched from its controls. |
 
-### `@kestack/web-platform/client`
-
-| Export    | What it does                                                                                                                                               |
-| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `webRoot` | The root route's options: the document in the Theme set before paint, the device marked, the shared head, a 404, and each Root Plugin's head and provider. |
-
-### `@kestack/web-platform/client/server`
-
-| Export     | What it does                                                                                     |
-| ---------- | ------------------------------------------------------------------------------------------------ |
-| `getTheme` | Reads the Theme from the request's cookie, for the app's own server function behind `loadTheme`. |
-
 ### `@kestack/web-platform/pwa`
 
-| Export              | What it does                                                                                                                         |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `pwaRoot`           | The Root Plugin that makes an app a PWA: manifest, icon, Build ID and splash tags, the provider, and the Update and Install Prompts. |
-| `PwaProvider`       | Registers the worker after mount and gives `usePwa` its Status; `pwaRoot` renders it.                                                |
-| `pwaHead`           | Head tags: manifest link, Apple icon, and meta tags for the Build ID, build time and commit.                                         |
-| `usePwa`            | The Status with `checkForUpdate` and `applyUpdate` (`Unsupported` before mount), and the page's `version`.                           |
-| `clearRuntimeCache` | Deletes every Runtime Cache; works outside `PwaProvider`, for example in sign-out.                                                   |
-| `UpdatePrompt`      | Persistent toast while an update is ready; accepting it reloads every page into it.                                                  |
-| `splashHead`        | The iOS startup image tags, one per screen iOS matches.                                                                              |
-| `splashScreens`     | Each splash image's size, its `/splash/<w>x<h>.png` path, and the screen it is for, for an app to draw them.                         |
+| Export              | What it does                                                                                                                      |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `PwaHead`           | The PWA's head tags for a Kabuki Start Document's `head`: the manifest link, the Apple icon and the Build ID.                     |
+| `Pwa`               | Around the app in the Document: registers the worker, shows the Update Prompt while a new version waits, and offers install once. |
+| `PwaProvider`       | Registers the worker after mount and gives `usePwa` its Status; `Pwa` renders it.                                                 |
+| `pwaHead`           | Head tags: manifest link, Apple icon, and meta tags for the Build ID, build time and commit.                                      |
+| `usePwa`            | The Status with `checkForUpdate` and `applyUpdate` (`Unsupported` before mount), and the page's `version`.                        |
+| `clearRuntimeCache` | Deletes every Runtime Cache; works outside `PwaProvider`, for example in sign-out.                                                |
+| `UpdatePrompt`      | Persistent toast while an update is ready; accepting it reloads every page into it.                                               |
+| `splashHead`        | The iOS startup image tags, one per screen iOS matches.                                                                           |
+| `splashScreens`     | Each splash image's size, its `/splash/<w>x<h>.png` path, and the screen it is for, for an app to draw them.                      |
 
 ### `@kestack/web-platform/pwa/vite`
 
@@ -455,100 +420,46 @@ The Account Switcher of a Kabuki app: a Child of the root page, its View in the 
 
 ### `@kestack/web-platform/server`
 
-| Export              | What it does                                                                                                                                                                                                                                                                                              |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `createServer`      | A web app's server from its APIs and its cloud Backend: each `http` API at its path, each `websocket` API's socket handed to the Live Object named for whoever the sign-in cookie on its upgrade names, each call checked with the sign-in service when the app has auth, everything else TanStack Start. |
-| `liveObject`        | A Durable Object class serving one `websocket` API, one object per user with its own storage, refusing sockets and calls from any other user; `streams` sets where open streams are kept while it sleeps.                                                                                                 |
-| `webServer`         | One fetch handler: `/rpc` goes to the app's API, everything else to TanStack Start; a Cloudflare Worker's default export as it is.                                                                                                                                                                        |
-| `isDeployedStage`   | Whether an alchemy stage reaches the world: `prod` or a pull request's `prN`.                                                                                                                                                                                                                             |
-| `assertStageIsSafe` | Refuses a deployed stage unless `ALLOW_DEPLOY=true`.                                                                                                                                                                                                                                                      |
-| `domainFor`         | Where a stage is served: the domain for `prod`, `prN-<domain>` for a pull request, nowhere for anyone's own stage.                                                                                                                                                                                        |
-| `devConfigFor`      | A local stage's dev server on the `PORT` portless gives it; throws when there is none.                                                                                                                                                                                                                    |
+| Export              | What it does                                                                                                       |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `isDeployedStage`   | Whether an alchemy stage reaches the world: `prod` or a pull request's `prN`.                                      |
+| `assertStageIsSafe` | Refuses a deployed stage unless `ALLOW_DEPLOY=true`.                                                               |
+| `domainFor`         | Where a stage is served: the domain for `prod`, `prN-<domain>` for a pull request, nowhere for anyone's own stage. |
+| `devConfigFor`      | A local stage's dev server on the `PORT` portless gives it; throws when there is none.                             |
 
 ## Usage
 
-### A web app from one config
-
-`app.ts` makes the app once; the root route and the Worker come from it.
-
-```tsx
-// src/app.ts
-import { createApp } from '@kestack/web-platform';
-export const app = createApp({
-  name: 'ledger',
-  title: 'Ledger',
-  description: 'Write down what you spend and earn, and see where it goes.',
-  mark: createElement(LedgerMark),
-  apis, // { ledger: Api.websocket(LedgerApi, { path: '/live' }) }, from ./define
-  local, // every API's handlers on the device's Storage
-  cache: ledgerCache,
-  auth: {
-    url: AUTH_URL,
-    session: ledgerSession, // defineSession(apis, ...)
-    presets: [{ email: 'ada@example.com', name: 'Ada Lovelace' }],
-  },
-  theme: { cookieDomain },
-  pwa: { installTitle: 'Install Ledger' },
-});
-export const { SignedIn, useAccounts, useGate, theme: appTheme } = app;
-
-// src/routes/__root.tsx
-export const Route = createRootRoute(app.root({ stylesheet: appCss }));
-
-// src/worker.ts
-import { createServer } from '@kestack/web-platform/server';
-export default createServer({
-  apis,
-  backend: (env: WorkerEnv) => ({
-    ledger: ledgerBackend.pipe(Layer.provide(tableCloud(env.DB))),
-  }),
-  live: (env: WorkerEnv) => ({ ledger: env.LedgerObject }), // a liveObject
-  auth: { url: AUTH_URL },
-}) satisfies ExportedHandler<WorkerEnv>;
-```
-
-- `app.root` is the root route: the document in the Theme, the PWA's head and prompts, and the Local Sign-In dialog when there is a Local Backend.
-- `SignedIn` renders its children while an Account is open, and otherwise the Gate Screens or Account Lost. Everything inside remounts on an Account Switch.
-- The Host is made the first time anything asks, so `app.ts` loads on the server too. The Local Backend's code loads the first time someone chooses it; `?backend=local` in the address starts on it (`device`, its former name, still works).
-- `createServer` serves each `http` API at its path and everything else from TanStack Start. Point `tanstackStart({ server: { entry } })` at this file.
-- A `websocket` API is served by `live` instead of `backend`: each `(env) => ({ [api]: namespace })` names a Durable Object binding, and a socket opens at `getByName(userId)` once the sign-in cookie on its upgrade checks out (401 without one, 503 when the sign-in service can't be asked). The binding's class is made with `liveObject`, and opens sockets only for the user it is named for; every call on one is that user's.
-- With `auth`, each call is checked by auth-toolkit's `auth()` for the sign-in cookie (or a Device's bearer), and refreshed cookies go back on the answer; handlers need nothing of auth's. `oauth: { resource }` lets in Access Tokens for that Resource Server too, such as an MCP client's. The app's pages and Worker must sit under the sign-in service's cookie domain.
-
 ### Building the PWA
 
-`createApp` adds the PWA to the root route; `pwa()` in the Vite plugins builds its worker and manifest.
+A Kabuki Start app becomes a PWA with `pwa()` in its Vite plugins and `PwaHead` and `Pwa` in its Document. Lifted from `apps/code`.
 
-```ts
+```tsx
 // vite.config.ts
 ssr: { noExternal: ['@kestack/web-platform'] },
 plugins: [
   tailwindcss(),
-  tanstackStart({
-    // App Shell and Offline Fallback, both precached by pwa().
-    spa: { enabled: true, prerender: { outputPath: '/_shell' } },
-    pages: [
-      {
-        path: '/offline',
-        prerender: { enabled: true, crawlLinks: false, autoSubfolderIndex: false },
-      },
-    ],
-    prerender: { autoStaticPathsDiscovery: false },
-  }),
   react(),
-  // After tanstackStart(): the worker builds after prerendering.
+  start({ platform: cloudflare(), app: 'src/app' }),
   pwa({
-    dev: process.env['PWA_DEV'] === 'true',
-    manifest: { name: 'Ledger', short_name: 'Ledger', ...createTheme().manifest('dark'), icons },
+    manifest: { name: 'Code', short_name: 'Code', theme_color: '#0a0a0a', background_color: '#0a0a0a', icons },
   }),
 ],
+
+// src/document.tsx
+export default function Document({ children }: Start.DocumentProps) {
+  return (
+    <WebDocument theme={Theme} head={<PwaHead />}>
+      <Pwa installTitle="Install Code">{children}</Pwa>
+    </WebDocument>
+  );
+}
 ```
 
-- `pwa()` must come after `tanstackStart()`, because the worker builds in a post `buildApp` hook that runs after prerendering; the wrong order throws at config time. When `/_shell` or `/offline` is missing from the build, the build warns and prints the exact Start options.
-- The app writes its own `/offline` route; the worker redirects there as `/offline?from=<page>`, so "Try again" should only go back to a same-origin `from`.
-- The build writes `sw.js`, `manifest.webmanifest`, `_shell.html`, `offline.html` and a `_headers` block with `Cache-Control: no-cache` for the worker and the manifest. The worker entry is the app's `src/sw.ts` if it has one, or a built-in one.
-- In `vite dev` the worker is off unless `pwa({ dev: true })`. `pwa({ enabled: false })` builds the Kill Switch.
-- The `app` preset (the default) answers any route offline from the App Shell; `content` saves visited pages and sends unvisited ones to the Offline Fallback. Paths under `neverCache` (default `/api/auth/`), non-GET requests and `navigation.denylist` never reach the caches.
-- While an update waits, the App Shell of the active build answers navigations, so every page stays on one Build ID until the user accepts ([ADR 0006](./docs/adr/0006-pending-update-pins-navigations-to-the-active-build.md)).
+- Start builds the client and the Worker; `pwa()` then writes `sw.js`, `manifest.webmanifest` and a `_headers` block with `Cache-Control: no-cache` for both into the client's folder. The worker entry is the app's `src/sw.ts` if it has one, or a built-in one.
+- Start draws every page on request and prerenders none, so there is no App Shell: the worker saves each page visited, per Build ID, and sends one never visited to the Offline Fallback, the app's own `public/offline.html`, as `/offline?from=<page>`. Its "Try again" should only go back to a same-origin `from`. The build warns when the file is missing.
+- `@kestack/web-platform/theme` loads Inter's file, which Node cannot import, so `vite.config.ts` writes the manifest's colors itself.
+- In `vite dev` the worker is off unless `pwa({ dev: true })`. `pwa({ enabled: false })` builds the Kill Switch. Paths under `neverCache` (default `/api/auth/`), non-GET requests and `navigation.denylist` never reach the caches.
+- While an update waits, this build's saved page answers navigations, so every page stays on one Build ID until the user accepts ([ADR 0006](./docs/adr/0006-pending-update-pins-navigations-to-the-active-build.md)).
 
 ### A Kabuki Start app's Document
 

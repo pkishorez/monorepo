@@ -129,6 +129,7 @@ export const SessionView = View.make(
             type="button"
             variant="outline"
             size="sm"
+            className="rounded-full pointer-coarse:h-11 pointer-coarse:px-4"
             disabled={model.stopping || offline !== null}
             title={
               stopKeys === null
@@ -173,7 +174,7 @@ export const SessionView = View.make(
           />
         </div>
         {!missing && (
-          <div className="relative shrink-0 bg-background pt-2 pb-3 before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-6 before:bg-gradient-to-t before:from-background before:to-transparent">
+          <div className="relative shrink-0 bg-background pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-6 before:bg-gradient-to-t before:from-background before:to-transparent">
             <div className="mx-auto w-full max-w-3xl px-4 sm:px-6">
               <Draft.Slots value={slots}>
                 <Draft.view instance={children.draft} />

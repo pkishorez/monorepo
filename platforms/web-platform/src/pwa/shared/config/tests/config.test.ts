@@ -58,11 +58,11 @@ describe('resolvePwaConfig', () => {
       manifest: null,
       precache: { include: [], exclude: [], warnAboveBytes: 5 * 1024 * 1024 },
       navigation: {
-        shell: true,
+        shell: false,
         shellPath: '/_shell',
         offlineFallback: '/offline',
         networkTimeoutMs: 3000,
-        cachePages: false,
+        cachePages: true,
         denylist: [],
       },
       neverCache: ['/api/auth/'],

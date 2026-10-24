@@ -275,7 +275,25 @@ offers to Swap; one a nearer Surface has is allowed, with a note; a key
 that would type, for an Action that works while typing, is refused. The
 keys are kept in Device State, handed to the Keys Provider, listed by
 `?`, and named in every title and hint, as bound. Whether the sidebar is shown is not kept: the App Shell
-holds it, shut at first on a phone and open on a wide screen.
+holds it, open on a wide screen.
+
+On a phone the sidebar is home: the App Shell's `phone="page"` makes it
+the whole screen, with the Project Picker's plus floating in its bottom
+right corner and the theme and the Account at its foot. Opening a session
+slides it away, and the header's back arrow, or a swipe from the left
+edge, brings it back. Pickers fill the screen, the header keeps only where
+you are and Session Actions, and a touch screen with no keyboard is shown
+no keys: no hints, no Vim status line, no keyboard settings. Vim Mode is off
+on a phone whatever is kept, and back as kept once the screen is wide. The Draft's
+one round button is the microphone while there is nothing to send, Send
+once there is, and a stop while a Dictation records; a narrow Draft folds
+Skills, the paperclip and the microphone behind a "+".
+
+The app is a PWA ([`@kestack/web-platform/pwa`](../../platforms/web-platform/README.md)):
+"Code" installs with its Mark as the icon (`public/`), the pages opened on
+a device open again offline, a page never opened there goes to
+`public/offline.html`, and a new version waits for "Reload" instead of
+reloading under you.
 
 ## Usage
 

@@ -1,0 +1,5 @@
+---
+'code': patch
+---
+
+Code works on a phone and installs as an app. On a phone the sidebar is home, the whole screen, with the Project Picker's plus floating in its bottom right corner and the theme and the account at its foot; opening a session slides it away, and the header's back arrow brings it back. Pickers fill the screen on a phone, and the header keeps only where you are and Session Actions. The Draft's one round button on the right is the microphone while there is nothing to send, Send once there is, and a stop while a Dictation records, larger on a touch screen; a narrow Draft folds Skills, the paperclip and the microphone behind a "+". Keys' hints and the Vim status line stay away from a touch screen with no keyboard. Vim Mode is off on a phone, whatever this browser keeps, and comes back as kept once the screen is wide. As a PWA, "Code" installs with its Mark as the icon, opens pages already visited offline, and offers a new version with "Reload" instead of reloading under you.

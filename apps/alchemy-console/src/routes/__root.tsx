@@ -5,7 +5,8 @@ import {
   createRootRoute,
 } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
-import { getTheme } from '@kestack/web-platform/client/server';
+import { getCookie } from '@tanstack/react-start/server';
+import { THEME_COOKIE, themeFromCookies } from '@kestack/web-platform/theme';
 import type { ReactNode } from 'react';
 import {
   appTheme,
@@ -13,8 +14,9 @@ import {
 } from '../client/features/auth-boundary/index.ts';
 import appCss from '../styles.css?url';
 
+// The Theme from the request's cookie, so the first paint is in it.
 const getCurrentTheme = createServerFn({ method: 'GET' }).handler(() =>
-  getTheme(),
+  themeFromCookies(`${THEME_COOKIE}=${getCookie(THEME_COOKIE) ?? ''}`),
 );
 
 export const Route = createRootRoute({
