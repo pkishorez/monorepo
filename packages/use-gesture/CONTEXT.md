@@ -19,7 +19,7 @@ A Gesture Zone whose Gestures go no further: the zones around it do not hear wha
 _Avoid_: isolated, captured, exclusive
 
 **Native Scroll**:
-An element inside a Gesture Zone that can scroll right now, whose scrolling the browser keeps. The choice is made at a touch's first movement: when it is one finger and an element under it can still scroll that way, the browser keeps the touch until every finger lifts, even when it reaches the end, and the Gesture it started ends as interrupted. At its end that way, the touch is decided as if nothing scrolled there. Only elements between the finger and the innermost zone around it count. An element where the zone is turned on always gives its scrolling up to the zone.
+An element inside a Gesture Zone that can scroll right now, whose scrolling the browser keeps. The choice is made at a touch's first movement: when it is one finger and an element under it can still scroll that way, the browser keeps the touch until every finger lifts, even when it reaches the end, and the Gesture it started ends as interrupted. At its end that way, the touch is decided as if nothing scrolled there. Only elements between the finger and the zone that would take the touch count, through any zone inside it that would not, such as a list's swiped rows under its pull to refresh; when no zone would take it, up to the innermost zone around it. An element where the zone is turned on always gives its scrolling up to the zone.
 _Avoid_: scroller, scroll container, overflow
 
 **Capture**:

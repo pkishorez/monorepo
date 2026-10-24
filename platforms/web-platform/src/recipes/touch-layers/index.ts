@@ -1,1 +1,6 @@
-export { Drawer, LayerHeader, TopDialog } from './touch-layers.tsx';
+export {
+  Drawer,
+  LayerHeader,
+  raiseKeyboard,
+  TopDialog,
+} from './touch-layers.tsx';

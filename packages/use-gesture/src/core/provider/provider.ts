@@ -85,7 +85,7 @@ export type GestureListener<Target> = {
  * as the browser's touch events do, marks its moves `undecided` and calls
  * `pick` and `settle` at the touch's first movement.
  */
-export type PointerSink<Target> = {
+export type PointerSink<Target, Zone = unknown> = {
   /** Whether a Gesture is under way. */
   readonly active: () => boolean;
   /** A finger landed; returns whether it is now tracked. */
@@ -105,13 +105,17 @@ export type PointerSink<Target> = {
   /** The Direction of the Gesture under way, once it is read. */
   readonly direction: () => Direction | undefined;
   /**
-   * How a zone would take the Gesture under way if it first moved in
-   * `direction`: a listener captures where its first finger landed, or one
-   * wants that Direction. None when no listener would take it.
+   * The zone that would take the Gesture under way if it first moved in
+   * `direction`, and how: a listener there captures where its first finger
+   * landed, or one wants that Direction. None when no listener would take
+   * it.
    */
-  readonly pick: (
-    direction: Direction | undefined,
-  ) => 'captures' | 'directions' | undefined;
+  readonly pick: (direction: Direction | undefined) =>
+    | {
+        readonly zone: Zone;
+        readonly how: 'captures' | 'directions';
+      }
+    | undefined;
   /**
    * The Gesture first moved in `direction`: tell every listener, and leave
    * it with the zone that takes it. Once per Gesture.
@@ -223,7 +227,7 @@ export const createGestureProvider = <Zone, Target>(
     for (const { listener } of dropped) listener.end(fingers.pointers(), end);
   };
 
-  const sink: PointerSink<Target> = {
+  const sink: PointerSink<Target, Zone> = {
     active: fingers.active,
     down: (sample) => {
       const starting = !fingers.active();
@@ -275,7 +279,7 @@ export const createGestureProvider = <Zone, Target>(
       return fingers.active() ? true : finish(false);
     },
     direction: () => direction,
-    pick: (way) => pick(way)?.how,
+    pick,
     settle,
     claimsEdge: (point, inward) =>
       taking.some(

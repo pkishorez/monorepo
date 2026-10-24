@@ -51,8 +51,13 @@ export function usePullToRefresh(options: PullToRefreshOptions): PullToRefresh {
   const pulling = useRef(false);
   const animation = useRef<AnimationPlaybackControls | undefined>(undefined);
 
+  // Under reduced motion it jumps where it would spring.
   const to = (value: number) => {
     animation.current?.stop();
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      y.jump(value);
+      return;
+    }
     animation.current = animate(y, value, SPRING);
   };
 
