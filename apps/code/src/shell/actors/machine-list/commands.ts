@@ -10,10 +10,9 @@ import { problemOf } from './api.ts';
 
 /*
  * What the Machines actor asks of the Machines Backend, and what it keeps
- * on this device: each ends in one Message, but for `keep`. Only the
- * records of the Machines listed are kept: one forgotten, or gone from the
- * Backend's list, has its Instance stopped, in every tab, and its database
- * deleted.
+ * on this device: each ends in one Message, but for `drop` and `keep`. A
+ * Machine forgotten, or gone from the Backend's first list, has its
+ * Instance stopped, in every tab, and its database deleted.
  */
 
 export const save = Command.make('SaveMachines', {
@@ -37,6 +36,15 @@ export const forget = Command.make('ForgetMachine', {
           problem: problemOf(error),
         }),
       ),
+    ),
+});
+
+/** A forgotten Machine's records go, and no other's, once it has left the list. */
+export const drop = Command.make('DropMachineRecords', {
+  args: Schema.Struct({ accountId: Schema.String, id: Schema.String }),
+  run: ({ accountId, id }) =>
+    Effect.flatMap(AccountReplicas, (replicas) =>
+      replicas.dropMachine(accountId, id),
     ),
 });
 

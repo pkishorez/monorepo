@@ -19,12 +19,12 @@ import { AccountReplicas } from '../capabilities/index.ts';
  *              Store, which reads nothing of the last one's, since Machine
  *              ids are never shared between Accounts, and is pruned away.
  * 2. Machines  an Account's Store pruned to its Machines: those gone, and
- *              Replicas no longer read, are deleted, in every tab.
+ *              Replicas no longer read, are deleted, in every tab. One
+ *              Machine dropped: its records alone.
  * 3. Accounts  kept: every other Account's Store this tab made emptied,
  *              then every database under `replica:` not of an Account kept
  *              deleted, Accounts never opened in this tab and the records
- *              from before they were kept per Account alike. Dropped: each
- *              one's Store emptied, made for it if need be.
+ *              from before they were kept per Account alike.
  */
 
 type StoreShape = Store['Service'];
@@ -78,7 +78,7 @@ const make = (
       };
 
       // 3. Accounts: each emptied on its own, so one that fails keeps no other.
-      const drop = (accountIds: ReadonlyArray<string>) =>
+      const empty = (accountIds: ReadonlyArray<string>) =>
         Effect.forEach(
           accountIds,
           (accountId) =>
@@ -99,16 +99,21 @@ const make = (
               Effect.catch(warn(`prune the records of Account ${accountId}`)),
               Effect.asVoid,
             ),
+          dropMachine: (accountId, machineId) =>
+            Effect.flatMap(storeOf(accountId), (each) =>
+              each.remove(Ai, machineId),
+            ).pipe(
+              Effect.catch(warn(`delete the records of Machine ${machineId}`)),
+            ),
           // 3. Accounts
           keepAccounts: (accountIds) =>
-            drop(
+            empty(
               [...stores.keys()].filter((id) => !accountIds.includes(id)),
             ).pipe(
               Effect.andThen(pruneOthers(accountIds)),
               Effect.catch(warn('delete the records of Accounts signed out')),
               Effect.asVoid,
             ),
-          dropAccounts: drop,
         }),
       );
     }),

@@ -30,8 +30,7 @@ import { MachineListLive, RECHECK } from './actor.ts';
  * The Machine List with the Backend and the records stood in for: what
  * was saved shows first and the Backend's answer replaces it and is kept,
  * with only the records of the Machines on it; Forget asks the Backend,
- * takes the Machine out of the list and then keeps only the rest's
- * records; `Machines` says all of it to the pages, waiting for
+ * takes the Machine out of the list and then deletes its records alone; `Machines` says all of it to the pages, waiting for
  * a Machine with an address; and while a Machine's line is not up the
  * Backend is asked again, every few seconds, until every line is.
  */
@@ -75,6 +74,7 @@ const world = (
   const forgotten: Array<string> = [];
   const kept: Array<{ accountId: string; machineIds: ReadonlyArray<string> }> =
     [];
+  const dropped: Array<string> = [];
   let lists = 0;
   const line = (machineId: string) =>
     down === null
@@ -117,10 +117,11 @@ const world = (
       keepMachines: (accountId, machineIds) =>
         Effect.sync(() => void kept.push({ accountId, machineIds })),
       keepAccounts: () => Effect.void,
-      dropAccounts: () => Effect.void,
+      dropMachine: (_, machineId) =>
+        Effect.sync(() => void dropped.push(machineId)),
     }),
   );
-  return { layer, forgotten, kept, lists: () => lists };
+  return { layer, forgotten, kept, dropped, lists: () => lists };
 };
 
 const wait = (ms = 20) =>
@@ -224,7 +225,7 @@ describe('Machine List', () => {
   });
 
   it('forgets a Machine at the Backend, takes it out of the list, then deletes its records here', async () => {
-    const { layer, forgotten, kept } = world(
+    const { layer, forgotten, kept, dropped } = world(
       Effect.succeed([machine('m1', 5), machine('m2', 1)]),
     );
     await run(
@@ -234,7 +235,9 @@ describe('Machine List', () => {
         app.send(list(app).id, { _tag: 'ForgetAsked', id: 'm1' });
         yield* wait();
         expect(forgotten).toEqual(['m1']);
-        expect(kept.at(-1)).toEqual({ accountId: 'a1', machineIds: ['m2'] });
+        // Its records alone: another tab may list a Machine not heard of here.
+        expect(dropped).toEqual(['m1']);
+        expect(kept).toHaveLength(1);
         expect(listModel(app).machines?.map(({ id }) => id)).toEqual(['m2']);
       }),
     );

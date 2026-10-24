@@ -203,13 +203,28 @@ export const makeStore = (adapter: Adapter): Layer.Layer<Store> => {
             Effect.andThen(Deferred.succeed(opener.closed, undefined)),
           ),
       );
+      // Removed here or in another tab: heard from the moment it opens.
+      yield* Effect.forkScoped(
+        Stream.runHead(adapter.doorbell.listen(removedTopic(name))).pipe(
+          Effect.andThen(Deferred.succeed(opener.removed, undefined)),
+        ),
+      );
       const participant = crypto.randomUUID();
       const changed = adapter.doorbell.ring(name);
       const announced = adapter.doorbell.ring(announcedTopic(name));
+      // Once removed it touches its space no more: a read or write after
+      // the space is deleted would make it again.
       const inTable = <A, E>(
         what: string,
         effect: Effect.Effect<A, E, StdTableOf>,
-      ) => effect.pipe(Effect.provide(table), Effect.mapError(failed(what)));
+      ) =>
+        Effect.flatMap(Deferred.isDone(opener.removed), (gone) =>
+          gone
+            ? Effect.fail(
+                new ReplicaError({ message: `Instance ${name} was removed` }),
+              )
+            : effect.pipe(Effect.provide(table), Effect.mapError(failed(what))),
+        );
       // Its record of open Windows goes with it. One that cannot go waits
       // for the next Leader, who clears it.
       yield* Effect.addFinalizer(() =>
@@ -222,24 +237,16 @@ export const makeStore = (adapter: Adapter): Layer.Layer<Store> => {
         name,
         participant,
         read: (collection, after) =>
-          readAfter(collection, after).pipe(
-            Effect.provide(table),
-            Effect.mapError(failed(`read ${name}`)),
-          ),
+          inTable(`read ${name}`, readAfter(collection, after)),
         cursor: (collection, scope) =>
           inTable(`read a cursor of ${name}`, cursorOf(collection, scope)),
         write: (written) =>
-          write(written).pipe(
-            Effect.provide(table),
-            Effect.mapError(failed(`write ${name}`)),
+          inTable(`write ${name}`, write(written)).pipe(
             Effect.flatMap((wrote) => (wrote ? changed : Effect.void)),
           ),
         changes: adapter.doorbell.listen(name, true),
         lead: (effect) => adapter.leader(name, effect),
-        removed: Effect.raceFirst(
-          Deferred.await(opener.removed),
-          Stream.runHead(adapter.doorbell.listen(removedTopic(name))),
-        ).pipe(Effect.asVoid),
+        removed: Deferred.await(opener.removed),
         announce: (windows) =>
           inTable(
             `record the Windows of ${name}`,
@@ -320,13 +327,16 @@ export const makeStore = (adapter: Adapter): Layer.Layer<Store> => {
             : keys.map((key) => replica.instanceName(key)),
         ),
       );
-      const names = yield* adapter.names.pipe(
+      const stored = yield* adapter.names.pipe(
         Effect.mapError(failed('list what it keeps')),
       );
+      // One opened here and not yet written is held too.
+      const names = new Set(stored);
+      for (const [name, here] of openers) if (here.size > 0) names.add(name);
       // One that cannot go does not keep the rest: each is tried, and the
       // first failure is answered once all have been.
       const exits = yield* Effect.forEach(
-        names.filter((name) => !kept.has(name)),
+        [...names].filter((name) => !kept.has(name)),
         (name) => Effect.exit(Effect.as(destroy(name), name)),
       );
       const failure = exits.find(Exit.isFailure);

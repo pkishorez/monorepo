@@ -27,24 +27,22 @@ export const signIn = Command.make('SignIn', {
 });
 
 /**
- * Which Accounts' records this device keeps: an Account signed out of it
- * takes its records and its list of Machines with it, and once Accounts
- * are signed in, `signedIn`, only theirs are kept. Best effort.
+ * Keeps the records of the Accounts signed in on this device and deletes
+ * every other's; an Account signed out also has its list of Machines
+ * emptied. Best effort.
  */
 export const keepAccounts = Command.make('KeepAccounts', {
   args: Schema.Struct({
-    signedIn: Schema.NullOr(Schema.Array(Schema.String)),
+    accountIds: Schema.Array(Schema.String),
     signedOut: Schema.Array(Schema.String),
   }),
-  run: ({ signedIn, signedOut }) =>
+  run: ({ accountIds, signedOut }) =>
     Effect.gen(function* () {
       const saved = yield* SavedMachines;
-      const replicas = yield* AccountReplicas;
       yield* Effect.forEach(signedOut, (id) => saved.write(id, []), {
         discard: true,
       });
-      yield* replicas.dropAccounts(signedOut);
-      if (signedIn !== null) yield* replicas.keepAccounts(signedIn);
+      yield* (yield* AccountReplicas).keepAccounts(accountIds);
     }),
 });
 
