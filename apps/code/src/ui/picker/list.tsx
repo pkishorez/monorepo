@@ -52,7 +52,7 @@ import { useDrawn } from './shape.ts';
  * the Step, with a button back to the one under it; the keys' hints are
  * gone, and so is the highlight. A Drawer has no search, nor has a Step
  * in a Dialog that says it has none. The keyboard moves no focus there:
- * the search waits to be tapped, unless the Picker opts in with
+ * the search waits to be tapped, unless its Frame opts in with
  * `focusOnTouch`, when the Dialog focuses it once it is on screen. With no
  * Mod+Enter to finish with, a Step that finishes on itself has a button
  * at the foot that does.
@@ -77,7 +77,7 @@ export function List<P>({
   const { query, highlighted } = model.step;
   const { enter, leave } = keys.useKeyboard();
   const search = keys.useFocusSpot('picker', 'search', { default: true });
-  const { shape, label } = useDrawn();
+  const { shape, label, focusOnTouch } = useDrawn();
   const touch = shape === 'drawer' || shape === 'dialog';
   const searched = shape !== 'drawer' && (!touch || shown.search);
   const close = (choices: ReadonlyArray<Choice>) => {
@@ -236,9 +236,7 @@ export function List<P>({
             onValueChange={(next) => send({ _tag: 'Typed', query: next })}
             placeholder={shown.placeholder}
             // Opted in, a Dialog focuses it once it is on screen.
-            data-autofocus={
-              (shape === 'dialog' && spec.focusOnTouch === true) || undefined
-            }
+            data-autofocus={(shape === 'dialog' && focusOnTouch) || undefined}
           />
         )}
         <CommandList

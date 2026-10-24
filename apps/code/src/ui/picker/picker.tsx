@@ -1,4 +1,5 @@
 import { View } from '@kestack/kabuki/react';
+import { raiseKeyboard } from '@kestack/web-platform/recipes/touch-layers';
 import { useDevice } from '@kestack/web-platform/ui/input';
 import type { ReactElement, ReactNode } from 'react';
 import { keys } from '../../keys.ts';
@@ -22,9 +23,10 @@ import { Touch } from './touch-frame.tsx';
  *
  * It is drawn in a `Frame`. With a keyboard: opened by keys, a centred
  * list; by pointer, a popover by its trigger. With none, in the Picker
- * Mode its opener chose: a Drawer, or a Dialog at the top. Focus moves as
- * the Surface says, and a Picker closed by a tap or click outside, or a
- * swipe, leaves the Surface too.
+ * Mode its opener chose: a Drawer, or a Dialog at the top, whose search
+ * waits to be tapped unless the opener opts in. Focus moves as the Surface
+ * says, and a Picker closed by a tap or click outside, or a swipe, leaves
+ * the Surface too.
  */
 
 /** A Picker, from its Steps: its actor and View, and the Layer its owner Provides. */
@@ -59,7 +61,9 @@ export const useOpen = () => {
  * Where a Picker is drawn, around its trigger: with a keyboard, a popover
  * by it when opened by pointer, a centred list when opened by keys; with
  * none, its Picker Mode, `mode`. Nothing while `how` is null. The trigger
- * opens it, by pointer or touch.
+ * opens it, by pointer or touch; opted in with `focusOnTouch`, a tap on it
+ * raises the on-screen keyboard there and then, as iOS needs, for the
+ * Dialog's search to take once it is on screen.
  */
 export function Frame({
   how,
@@ -70,6 +74,7 @@ export function Frame({
   side = 'top',
   align = 'start',
   className,
+  focusOnTouch = false,
   children,
 }: {
   readonly how: typeof How.Type | null;
@@ -85,6 +90,12 @@ export function Frame({
   readonly align?: 'start' | 'center' | 'end';
   /** The popover's size. */
   readonly className?: string;
+  /**
+   * On a device with no keyboard, its Dialog's search takes focus as it
+   * opens, raising the on-screen keyboard. Without it, it waits to be
+   * tapped.
+   */
+  readonly focusOnTouch?: boolean;
   /** The Picker's View. */
   readonly children: ReactNode;
 }) {
@@ -101,11 +112,14 @@ export function Frame({
       return;
     }
     if (!open) leave('picker');
-    else if (how === null && onOpen !== undefined) openPicker(onOpen);
+    else if (how === null && onOpen !== undefined) {
+      if (!keyboard && mode === 'dialog' && focusOnTouch) raiseKeyboard();
+      openPicker(onOpen);
+    }
   };
   const drawn = (as: typeof shape) => (shape === as ? children : null);
   return (
-    <DrawnIn value={{ shape: shape ?? 'list', label }}>
+    <DrawnIn value={{ shape: shape ?? 'list', label, focusOnTouch }}>
       {trigger !== undefined && (
         <ByTrigger
           open={shape === 'popover' && active}
