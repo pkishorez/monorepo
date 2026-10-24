@@ -5,16 +5,23 @@ import {
   type HttpServerResponse,
 } from 'effect/http';
 
-import { httpMiddleware, rpcMiddleware } from '../../guard/index.js';
+import {
+  httpMiddleware,
+  rpcMiddleware,
+  type HttpGuard,
+  type RpcGuard,
+} from '../guard/index.js';
 import {
   admit,
-  appendRefreshedCookies,
   identify,
   requestOf,
   type Resolution,
   type Resolve,
-} from '../verification/index.js';
+} from './admission.js';
+import { appendRefreshedCookies } from './refreshed-cookies.js';
 import { batchedRequests, credentialOf } from './batched-request.js';
+
+export type { Resolution, Resolve };
 
 interface GuardOptions {
   /** Admit Test Users rather than refuse them Forbidden. */
@@ -41,7 +48,7 @@ interface HttpGuardOptions extends GuardOptions {
 export const rpcGuardLayer = (
   resolve: Resolve,
   { testUsers }: GuardOptions,
-) => {
+): RpcGuard => {
   const stateOf = batchedRequests();
 
   return rpcMiddleware.layer<never, never>(({ headers, rpc, value: policy }) =>
@@ -92,7 +99,7 @@ export const rpcGuardLayer = (
 export const httpGuardLayer = (
   resolve: Resolve,
   { testUsers, challenge }: HttpGuardOptions,
-) =>
+): HttpGuard =>
   httpMiddleware.layer<never, never>(
     ({ endpoint, request: http, value: policy }) =>
       Effect.gen(function* () {

@@ -1,14 +1,20 @@
 import { Effect, Layer } from 'effect';
 import { Memory } from '@kestack/std-toolkit/db/memory';
-import { bearer, bearerToken } from '../guard/index.js';
-import { Accounts } from '../client/accounts/index.js';
+import {
+  bearer,
+  bearerToken,
+  type HttpGuard,
+  type Principal,
+  type RpcGuard,
+} from '../guard/index.js';
+import { Accounts, type AccountsLayer } from '../client/accounts/index.js';
 import {
   acting,
   makeAccounts,
   signing,
   watchTabs,
-} from '../client/accounts-layer/index.js';
-import { httpGuardLayer, rpcGuardLayer } from '../server/guard-layers/index.js';
+} from '../client/engine/index.js';
+import { httpGuardLayer, rpcGuardLayer } from '../guard-layer/index.js';
 import { type FakeChoice, makeChooser } from './chooser.js';
 import { fakePrincipal } from './principal.js';
 import {
@@ -40,7 +46,7 @@ export const fakeAccounts = ({
   readonly choose: Effect.Effect<FakeChoice | null>;
   /** Where fake Accounts live; in memory unless given. */
   readonly storage?: FakeStorage | undefined;
-}) =>
+}): AccountsLayer =>
   Layer.unwrap(
     Effect.gen(function* () {
       const source = yield* makeFakeSource(choose);
@@ -80,16 +86,35 @@ const resolveFake = (request: Request) => {
   );
 };
 
+/** Who every call is from: the fake token's User, or `as` when given. */
+interface FakeGuardOptions {
+  /** Puts this Principal (null for nobody) behind every call, whatever it
+   * carries: for handlers' tests. */
+  readonly as?: Principal | null | undefined;
+}
+
+const resolverOf = ({ as }: FakeGuardOptions) =>
+  as === undefined
+    ? resolveFake
+    : () =>
+        Effect.succeed(
+          as === null ? null : { principal: as, refreshedCookies: [] },
+        );
+
 /**
- * The Guard's server half for the browser environment's backend, in
- * process or anywhere else: reads the fake token `fakeAccounts` signs each
- * call with, and asks no one. Every fake User is admitted, Test Users
- * included, so it must never guard real data: anyone may be anyone.
+ * The Guard's server half with nobody behind it: it asks no one. Every User
+ * is admitted, Test Users included, so it must never guard real data:
+ * anyone may be anyone.
  *
- * - `fakeGuard.rpc()`: for Effect RPC, given with the group's handlers.
- * - `fakeGuard.http()`: for Effect HttpApi, given with the API's handlers.
+ * - `fakeGuard.rpc()`: for Effect RPC, given with the group's handlers. It
+ *   reads the fake token `fakeAccounts` signs each call with.
+ * - `fakeGuard.http()`: the same for Effect HttpApi.
+ * - `fakeGuard.rpc({ as })` and `fakeGuard.http({ as })`: `as` behind every
+ *   call (null for nobody), for handlers' tests.
  */
 export const fakeGuard = {
-  rpc: () => rpcGuardLayer(resolveFake, { testUsers: true }),
-  http: () => httpGuardLayer(resolveFake, { testUsers: true }),
+  rpc: (options: FakeGuardOptions = {}): RpcGuard =>
+    rpcGuardLayer(resolverOf(options), { testUsers: true }),
+  http: (options: FakeGuardOptions = {}): HttpGuard =>
+    httpGuardLayer(resolverOf(options), { testUsers: true }),
 };

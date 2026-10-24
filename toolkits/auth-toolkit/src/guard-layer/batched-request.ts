@@ -1,10 +1,8 @@
 import { Effect } from 'effect';
 import { HttpEffect, type HttpServerRequest } from 'effect/http';
 
-import {
-  appendRefreshedCookies,
-  type identify,
-} from '../verification/index.js';
+import type { identify } from './admission.js';
+import { appendRefreshedCookies } from './refreshed-cookies.js';
 
 type Verification = ReturnType<typeof identify>;
 

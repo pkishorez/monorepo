@@ -8,17 +8,11 @@ import {
 import {
   AuthWorkerRejected,
   AuthWorkerUnavailable,
-  AuthWorkerUnreachable,
-  InvalidAuthWorkerResponse,
 } from '../accounts/index.js';
 import { authWorkerApiUrl } from '../../contract/index.js';
 
 /** Why a call to the Auth Worker failed. */
-export type AuthWorkerFailure =
-  | AuthWorkerUnreachable
-  | AuthWorkerUnavailable
-  | AuthWorkerRejected
-  | InvalidAuthWorkerResponse;
+export type AuthWorkerFailure = AuthWorkerUnavailable | AuthWorkerRejected;
 
 interface Options {
   /** Sent on every call: a Device names itself to the Home Page with it. */
@@ -80,7 +74,9 @@ export const authWorker = (url: string, options: Options = {}) =>
         .pipe(
           Effect.provideService(FetchHttpClient.RequestInit, init),
           Effect.catchTag('HttpClientError', () =>
-            Effect.fail(new AuthWorkerUnreachable({ url })),
+            Effect.fail(
+              new AuthWorkerUnavailable({ url, kind: 'unreachable' }),
+            ),
           ),
           Effect.flatMap((response): Effect.Effect<A, AuthWorkerFailure> => {
             const ok =
@@ -89,12 +85,18 @@ export const authWorker = (url: string, options: Options = {}) =>
             if (ok) {
               return response.json.pipe(
                 Effect.flatMap(Schema.decodeUnknownEffect(schema)),
-                Effect.mapError(() => new InvalidAuthWorkerResponse({ url })),
+                Effect.mapError(
+                  () => new AuthWorkerUnavailable({ url, kind: 'unreadable' }),
+                ),
               );
             }
             return response.status >= 500
               ? Effect.fail(
-                  new AuthWorkerUnavailable({ url, status: response.status }),
+                  new AuthWorkerUnavailable({
+                    url,
+                    kind: 'server-error',
+                    status: response.status,
+                  }),
                 )
               : rejected(response);
           }),

@@ -1,5 +1,5 @@
 import { Effect, Layer } from 'effect';
-import { auth } from '@kestack/auth-toolkit/server/rpc';
+import { auth } from '@kestack/auth-toolkit/server';
 import { authWorkerUrl } from '../../../shared/api/auth-worker/index.ts';
 import { ConsoleApi } from '../../../shared/api/console-api/index.ts';
 import { ConsoleHandlers } from '../../handlers/console-handlers/index.ts';
@@ -36,7 +36,7 @@ export function handleRpc(
 
   const dependencies = Layer.mergeAll(
     ConsoleHandlers.pipe(Layer.provide(table.layer), Layer.provide(http)),
-    auth({ url: authWorkerUrl }),
+    auth.rpc({ url: authWorkerUrl }),
     RpcSerialization.layerNdjson,
     table.layer,
   );

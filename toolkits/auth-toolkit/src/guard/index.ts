@@ -17,3 +17,4 @@ export type {
 } from './principal.js';
 export { rpcMiddleware } from './rpc.js';
 export { bearer, expectUser, type Signature } from './sign.js';
+export type { HttpGuard, RpcGuard, Signing } from './layers.js';

@@ -56,25 +56,11 @@ const plan = {
   credentials: [],
   resources: [],
 };
-const user = {
-  id: 'alice',
-  name: 'Alice',
-  email: 'alice@example.com',
-  emailVerified: true,
-  createdAt: new Date(),
-  updatedAt: new Date(),
-};
+const user = { id: 'alice', name: 'Alice', email: 'alice@example.com' };
 const auth = {
   kind: 'session' as const,
   user,
-  session: {
-    id: 'session',
-    userId: user.id,
-    token: 'session-token',
-    expiresAt: new Date(Date.now() + 60_000),
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
+  session: { id: 'session', expiresAt: new Date(Date.now() + 60_000) },
   test: false,
 };
 

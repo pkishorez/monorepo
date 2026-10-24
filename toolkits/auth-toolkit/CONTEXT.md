@@ -89,7 +89,7 @@ The Auth Worker's second way to sign in, beside Google: naming a Test User's ema
 _Avoid_: Test Login, dev login, magic login, backdoor
 
 **Fake**:
-auth-toolkit's stand-in for the browser environment, where the whole backend runs in the tab and no Auth Worker can be reached: the `fake` door. `fakeAccounts` takes the place of `browser()` and `fakeGuard` of `auth()`. Anyone may be anyone, so it never guards real data.
+auth-toolkit's stand-in for the browser environment, where the whole backend runs in the tab and no Auth Worker can be reached: the `fake` door. `fakeAccounts` takes the place of `browser()`, and `fakeGuard.rpc()` and `fakeGuard.http()` of `auth.rpc()` and `auth.http()`. Anyone may be anyone, so it never guards real data.
 _Avoid_: Local mode (the former name), mock auth, sandbox
 
 **Fake Account**:
@@ -161,16 +161,64 @@ A named permission a User grants an OAuth Client at consent time and an Access T
 _Avoid_: permission (reserved for what an Authorization Policy decides), role
 
 **Consumer Backend**:
-Any service (other than the Auth Worker itself) that needs to know whether an incoming request is authenticated. Talks to the Auth Worker over HTTP through `auth()` from `@kestack/auth-toolkit/server/rpc` or `/server/http` — it never touches the Primary Database directly. A Backend is one.
+Any service (other than the Auth Worker itself) that needs to know whether an incoming request is authenticated. Talks to the Auth Worker over HTTP through `auth.rpc()` or `auth.http()` from `@kestack/auth-toolkit/server` — it never touches the Primary Database directly. A Backend is one.
 _Avoid_: server, app, client (reserved for the browser side)
-
-**Cookie Cache**:
-A signed, short-TTL blob better-auth writes into the session cookie itself, letting the Auth Worker (and nothing else) confirm "logged in, as whom" without a Primary Database read. Lives entirely inside the cookie — it is not a server-side cache.
-_Avoid_: session cache, server cache
 
 **Primary Database**:
 The durable store holding users, linked accounts, sessions, and verification records.
 _Avoid_: database, primary storage
+
+**Administrator**:
+A User granted the `admin` role and therefore allowed to manage users and sessions through the Auth Worker. Using the hosted dashboard does not by itself make a User an Administrator.
+_Avoid_: dashboard user, admin user
+
+**User Admission Policy**:
+An optional rule that accepts or rejects an identity when it first registers, links an account, or starts a fresh provider sign-in. It does not continuously re-evaluate existing sessions; banning handles an already-admitted User. It does not apply to Test Users.
+_Avoid_: invariant, user validation
+
+**Server-Side Verification**:
+A Consumer Backend forwarding an incoming request's cookies/headers server-to-server to the Auth Worker to validate it, getting back a Verify Payload. No CORS applies here — it's not a browser call.
+_Avoid_: forwarding, proxying (proxying implies relaying the response back to the browser, which is optional here, not implied by the term)
+
+**Current**:
+The verified Principal available while handling one guarded call in a Consumer Backend: `User`.
+_Avoid_: CurrentAuth (the former name), current user (omits how the User was established), auth context (easily confused with Effect's Context)
+
+**Resolver**:
+The part of a backend's guard that finds out who a request is from: `auth.rpc()` and `auth.http()` ask the Auth Worker (Server-Side Verification for a cookie or Device token, a local check for an Access Token), and the Fake's `fakeGuard` reads a Fake Token. Handlers' tests use `fakeGuard.rpc({ as })` or `fakeGuard.http({ as })`, which have a fixed Principal behind every call.
+_Avoid_: `authz.cloud`, `authz.device` (the former names), auth provider, RPC verifier
+
+**Unavailable**:
+The Consumer Backend could not find out who called because Server-Side Verification was unavailable: `Unavailable`, a 503. Different from a call nobody signed (`Unauthenticated`).
+_Avoid_: VerificationUnavailable (the former name), unauthenticated request, invalid session
+
+**Account Changed**:
+A Browser call refused because the cookie's Active Account is not the User the call expected (`expect-user`): another tab switched. The client re-checks its Accounts; nothing was done as the wrong User.
+_Avoid_: stale session, wrong user, conflict
+
+**Guard**:
+auth-toolkit's Middleware (see rpc-toolkit), the same for Effect RPC and Effect HttpApi, imported by both sides from the toolkit's root as `Authz`. `Authz.required` is an Authentication Requirement; `Authz.scope` and `Authz.policy` carry an Authorization Policy. Which value applies follows rpc-toolkit's Nearest Wins. Its server half is the backend's one `auth.rpc()` or `auth.http()` Layer; its client half comes with the `client/browser` and `client/device` Layers, which sign every guarded call without the app asking.
+_Avoid_: `Auth`, `AuthzHttp`, Auth Cannotation (the former names), auth middleware
+
+**Authentication Requirement**:
+A Guard without a value: the endpoint may run only for a known caller. It establishes identity but imposes no additional permission rule.
+_Avoid_: auth policy (reserved for authorization)
+
+**Authorization Policy**:
+The value a Guard carries: a rule that decides whether the caller may perform the endpoint. Usually built from an invariant and a failure reason; underneath it is an Effect that fails with Forbidden.
+_Avoid_: permission boolean, auth check
+
+**Shared Cookie Domain**:
+The parent domain (e.g. `.example.com`) the Auth Worker's session cookie is scoped to, so any subdomain's Direct Sign-in Check can read it. Configurable per deployment.
+_Avoid_: cookie domain (kept for the config field name; this term is for the concept in prose)
+
+## Internals
+
+Words for how the toolkit works inside, which a program using it never needs.
+
+**Cookie Cache**:
+A signed, short-TTL blob better-auth writes into the session cookie itself, letting the Auth Worker (and nothing else) confirm "logged in, as whom" without a Primary Database read. Lives entirely inside the cookie — it is not a server-side cache.
+_Avoid_: session cache, server cache
 
 **SQLite Dialect Group**:
 The Providers that speak SQLite for the Primary Database — currently D1 and the in-memory Provider — sharing one Common schema and Migration Recipe since the SQL is identical regardless of which SQLite actually runs it. A non-SQLite dialect (e.g. Postgres) would be its own sibling group with its own Common, not a member of this one.
@@ -188,53 +236,13 @@ _Avoid_: migrations (too generic on its own — use this term when referring to 
 An interchangeable implementation of the Primary Database. A consumer chooses one Provider for its Auth Worker.
 _Avoid_: adapter (kept as the better-auth/drizzle term for the thing a Provider builds, not for the Provider itself), backend
 
-**Administrator**:
-A User granted the `admin` role and therefore allowed to manage users and sessions through the Auth Worker. Using the hosted dashboard does not by itself make a User an Administrator.
-_Avoid_: dashboard user, admin user
-
-**User Admission Policy**:
-An optional rule that accepts or rejects an identity when it first registers, links an account, or starts a fresh provider sign-in. It does not continuously re-evaluate existing sessions; banning handles an already-admitted User. It does not apply to Test Users.
-_Avoid_: invariant, user validation
-
 **Direct Sign-in Check**:
 A Browser app calling the Auth Worker itself, with the cookie, to list its Accounts (without tokens), sign in, switch, and sign out. Allowed from any origin under the Shared Cookie Domain.
 _Avoid_: Direct Session Check (the former name), proxied check (that's the separate Server-Side Verification path)
 
-**Server-Side Verification**:
-A Consumer Backend forwarding an incoming request's cookies/headers server-to-server to the Auth Worker to validate it, getting back a Verify Payload. No CORS applies here — it's not a browser call.
-_Avoid_: forwarding, proxying (proxying implies relaying the response back to the browser, which is optional here, not implied by the term)
-
 **Verify Payload**:
 What Server-Side Verification returns to a Consumer Backend: the validated session/user data plus any refreshed cookie value. Whether the Consumer Backend relays that refreshed cookie back to the browser is the Consumer Backend's own choice — the Auth Worker utility only hands it over.
 _Avoid_: response (too generic)
-
-**Current**:
-The verified Principal available while handling one guarded call in a Consumer Backend: `User`.
-_Avoid_: CurrentAuth (the former name), current user (omits how the User was established), auth context (easily confused with Effect's Context)
-
-**Resolver**:
-The part of a backend's guard that finds out who a request is from: `auth()` asks the Auth Worker (Server-Side Verification for a cookie or Device token, a local check for an Access Token), and the Fake's `fakeGuard` reads a Fake Token. Handlers' tests use `testAuth`, which has a fixed Principal behind every call.
-_Avoid_: `authz.cloud`, `authz.device` (the former names), auth provider, RPC verifier
-
-**Unavailable**:
-The Consumer Backend could not find out who called because Server-Side Verification was unavailable: `Unavailable`, a 503. Different from a call nobody signed (`Unauthenticated`).
-_Avoid_: VerificationUnavailable (the former name), unauthenticated request, invalid session
-
-**Account Changed**:
-A Browser call refused because the cookie's Active Account is not the User the call expected (`expect-user`): another tab switched. The client re-checks its Accounts; nothing was done as the wrong User.
-_Avoid_: stale session, wrong user, conflict
-
-**Guard**:
-auth-toolkit's Middleware (see rpc-toolkit), the same for Effect RPC and Effect HttpApi, imported by both sides from the toolkit's root as `Authz`. `Authz.required` is an Authentication Requirement; `Authz.scope` and `Authz.policy` carry an Authorization Policy. Which value applies follows rpc-toolkit's Nearest Wins. Its server half is the backend's one `auth()` value; its client half comes with the `client/browser` and `client/device` Layers, which sign every guarded call without the app asking.
-_Avoid_: `Auth`, `AuthzHttp`, Auth Cannotation (the former names), auth middleware
-
-**Authentication Requirement**:
-A Guard without a value: the endpoint may run only for a known caller. It establishes identity but imposes no additional permission rule.
-_Avoid_: auth policy (reserved for authorization)
-
-**Authorization Policy**:
-The value a Guard carries: a rule that decides whether the caller may perform the endpoint. Usually built from an invariant and a failure reason; underneath it is an Effect that fails with Forbidden.
-_Avoid_: permission boolean, auth check
 
 **Batched RPC Request**:
 One HTTP request carrying multiple RPC calls. Its calls share one verification and the refreshed cookies.
@@ -243,9 +251,5 @@ _Avoid_: parallel RPCs
 **Concurrent RPC Calls**:
 Independent RPC requests running at the same time. Each request verifies and carries its own caller.
 _Avoid_: parallel RPCs
-
-**Shared Cookie Domain**:
-The parent domain (e.g. `.example.com`) the Auth Worker's session cookie is scoped to, so any subdomain's Direct Sign-in Check can read it. Configurable per deployment.
-_Avoid_: cookie domain (kept for the config field name; this term is for the concept in prose)
 
 The Gate, the Backends, each Account's Session and the device's Cache are the Web Platform's words: see [its glossary](../../platforms/web-platform/CONTEXT.md).

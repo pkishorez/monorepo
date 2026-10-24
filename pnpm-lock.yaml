@@ -21,9 +21,6 @@ catalogs:
     '@better-auth/infra':
       specifier: 0.4.5
       version: 0.4.5
-    '@better-auth/mcp':
-      specifier: 1.7.2
-      version: 1.7.2
     '@better-auth/oauth-provider':
       specifier: 1.7.2
       version: 1.7.2
@@ -1330,9 +1327,6 @@ importers:
       '@better-auth/infra':
         specifier: 'catalog:'
         version: 0.4.5(@better-auth/core@1.7.2(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(@cloudflare/workers-types@5.20260904.1)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.5.4))(jose@6.2.12)(kysely@0.29.5)(nanostores@1.5.3))(better-auth@1.7.2(84cbfadf5f056ab8c5fd770026f55cd2))(zod@4.5.4)
-      '@better-auth/mcp':
-        specifier: 'catalog:'
-        version: 1.7.2(@better-auth/core@1.7.2(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(@cloudflare/workers-types@5.20260904.1)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.5.4))(jose@6.2.12)(kysely@0.29.5)(nanostores@1.5.3))(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-auth@1.7.2(84cbfadf5f056ab8c5fd770026f55cd2))(better-call@1.4.0(zod@4.5.4))
       '@better-auth/oauth-provider':
         specifier: 'catalog:'
         version: 1.7.2(@better-auth/core@1.7.2(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(@cloudflare/workers-types@5.20260904.1)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.5.4))(jose@6.2.12)(kysely@0.29.5)(nanostores@1.5.3))(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-auth@1.7.2(84cbfadf5f056ab8c5fd770026f55cd2))(better-call@1.4.0(zod@4.5.4))
@@ -1943,13 +1937,6 @@ packages:
     peerDependenciesMeta:
       kysely:
         optional: true
-
-  '@better-auth/mcp@1.7.2':
-    resolution: {integrity: sha512-2Ge+r7OZyxHoZ+v5d7MBDaNhubNs8PW+HkIIrmb+zhIEqBZH47sqA1oGCbBXqVP4/J1ABei+mbF+uDumIOC39g==}
-    peerDependencies:
-      '@better-auth/core': ^1.7.2
-      better-auth: ^1.7.2
-      better-call: 1.4.0
 
   '@better-auth/memory-adapter@1.7.2':
     resolution: {integrity: sha512-0q1SXMzm5esH9L0xVuM6IxCk59E4G+3HySX4My9gvEwqtmUobykn+iuc/si3Y4xwUO7JODqQ5o+/pPcLDDMIrA==}
@@ -9977,17 +9964,6 @@ snapshots:
       '@better-auth/utils': 0.4.2
     optionalDependencies:
       kysely: 0.29.5
-
-  '@better-auth/mcp@1.7.2(@better-auth/core@1.7.2(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(@cloudflare/workers-types@5.20260904.1)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.5.4))(jose@6.2.12)(kysely@0.29.5)(nanostores@1.5.3))(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-auth@1.7.2(84cbfadf5f056ab8c5fd770026f55cd2))(better-call@1.4.0(zod@4.5.4))':
-    dependencies:
-      '@better-auth/core': 1.7.2(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(@cloudflare/workers-types@5.20260904.1)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.5.4))(jose@6.2.12)(kysely@0.29.5)(nanostores@1.5.3)
-      '@better-auth/oauth-provider': 1.7.2(@better-auth/core@1.7.2(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(@cloudflare/workers-types@5.20260904.1)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.5.4))(jose@6.2.12)(kysely@0.29.5)(nanostores@1.5.3))(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-auth@1.7.2(84cbfadf5f056ab8c5fd770026f55cd2))(better-call@1.4.0(zod@4.5.4))
-      better-auth: 1.7.2(84cbfadf5f056ab8c5fd770026f55cd2)
-      better-call: 1.4.0(zod@4.5.4)
-      jose: 6.2.12
-    transitivePeerDependencies:
-      - '@better-auth/utils'
-      - '@better-fetch/fetch'
 
   '@better-auth/memory-adapter@1.7.2(@better-auth/core@1.7.2(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(@cloudflare/workers-types@5.20260904.1)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.5.4))(jose@6.2.12)(kysely@0.29.5)(nanostores@1.5.3))(@better-auth/utils@0.4.2)':
     dependencies:

@@ -16,8 +16,8 @@ credential is the Auth Worker's cookie, which page code never reads. A
 **OAuth** caller is someone else's program, such as an MCP client, holding an
 Access Token after consent; the toolkit ships nothing for that side. The
 root door is the contract both sides import: `Authz`, whose `required`,
-`scope` and `policy` are the same for RPC and HttpApi, with `User` and the errors. `server/rpc` and
-`server/http` are its server half, one `auth()` value per backend.
+`scope` and `policy` are the same for RPC and HttpApi, with `User` and the errors. `server` is its
+server half, one `auth.rpc()` or `auth.http()` Layer per backend.
 `client/browser` and `client/device` each provide the same `Accounts`
 service, so app code does not care which one it runs on.
 
@@ -25,7 +25,9 @@ An agent or a preview signs in without Google as a Test User, whose email
 ends in `.test`, through the Auth Worker's Test Sign-In; each backend admits
 Test Users only with `testUsers: true`. An app whose whole backend runs in
 the tab cannot reach an Auth Worker, so it uses the `fake` door instead:
-`fakeAccounts` in place of `browser()` and `fakeGuard` in place of `auth()`.
+`fakeAccounts` in place of `browser()` and `fakeGuard.rpc()` or
+`fakeGuard.http()` in place of `auth.rpc()` or `auth.http()`. Handlers' tests
+put a fixed Principal behind every call with `fakeGuard.rpc({ as })`.
 
 The Guard is Middleware from
 [`@kestack/rpc-toolkit`](../rpc-toolkit/README.md), and the clients keep
@@ -41,7 +43,8 @@ for both protocols
 [ADR 0020](./docs/adr/0020-one-guard-for-both-protocols-as-authz.md), the Browser
 rules [ADR 0019](./docs/adr/0019-browser-callers-are-same-site-and-never-hold-tokens.md),
 Test Users and the fake
-[ADR 0022](./docs/adr/0022-test-users-at-the-auth-worker-local-mode-becomes-the-fake.md)).
+[ADR 0022](./docs/adr/0022-test-users-at-the-auth-worker-local-mode-becomes-the-fake.md),
+the one server door [ADR 0023](./docs/adr/0023-one-server-door-guards-per-protocol.md)).
 Every `authWorker` option is in
 [`docs/auth-worker-configuration.md`](./docs/auth-worker-configuration.md),
 the schema runbook in [`docs/migrations.md`](./docs/migrations.md), the
@@ -56,7 +59,7 @@ pnpm add @kestack/auth-toolkit
 
 Peer dependencies, all optional; install the ones your doors need:
 
-- `effect`: the root, `server/*`, `client/*` and `fake` doors are Effect values.
+- `effect`: the root, `server`, `client/*` and `fake` doors are Effect values.
 - `@kestack/rpc-toolkit`: the Guard is its Middleware, and the clients re-check through its `onExit`.
 - `@kestack/std-toolkit`: `client/browser`, `client/device` and `fake` keep Accounts in its StdTable adapters.
 - `better-sqlite3`: `worker/memory` runs SQLite in-process for tests.
@@ -101,36 +104,27 @@ Peer dependencies, all optional; install the ones your doors need:
 | ------------ | ------------------------------------------------------------------------------ |
 | `d1Database` | Declares the D1 database as an Alchemy resource with the package's migrations. |
 
-### `@kestack/auth-toolkit/server/rpc`
+### `@kestack/auth-toolkit/server`
 
-| Export     | What it does                                                                                                                |
-| ---------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `auth`     | The Guard's server half for Effect RPC: verifies each call against the Auth Worker; Test Users only with `testUsers: true`. |
-| `authAs`   | The same for calls whose caller was found out before they arrived, such as over a socket verified at its upgrade.           |
-| `testAuth` | The same Layer with a fixed Principal (or nobody) behind every call, for handlers' tests.                                   |
-
-### `@kestack/auth-toolkit/server/http`
-
-| Export     | What it does                                                                                                                                                         |
-| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `auth`     | The Guard's server half for Effect HttpApi; with `oauth` it is a Resource Server and serves its Protected Resource Metadata; Test Users only with `testUsers: true`. |
-| `testAuth` | The same Layer with a fixed Principal (or nobody) behind every call, for handlers' tests.                                                                            |
-| `verify`   | Without Effect: resolves who a plain `Request` is from, or null (also for a Test User, unless `testUsers: true`).                                                    |
+| Export      | What it does                                                                                                                                |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `auth.rpc`  | The Guard's server half for Effect RPC: verifies each call against the Auth Worker; Test Users only with `testUsers: true`.                 |
+| `auth.http` | The same for Effect HttpApi; with `oauth` it is a Resource Server and serves its Protected Resource Metadata.                               |
+| `authAs`    | The Guard's server half for Effect RPC calls whose caller was found out before they arrived, such as over a socket verified at its upgrade. |
+| `verify`    | Without Effect: resolves who a plain `Request` is from, or null (also for a Test User, unless `testUsers: true`).                           |
 
 ### `@kestack/auth-toolkit/client`
 
-| Export                      | What it does                                                                             |
-| --------------------------- | ---------------------------------------------------------------------------------------- |
-| `Accounts`                  | The Service for who is signed in on this client: state, sign in, switch, sign out.       |
-| `AccountsState`             | The `Checking`, `SignedIn` (and its `switchingTo`) and `SignedOut` states, and `$match`. |
-| `AuthWorkerUnreachable`     | Error when the Auth Worker could not be reached at all.                                  |
-| `AuthWorkerUnavailable`     | Error when the Auth Worker answered with a server error.                                 |
-| `AuthWorkerRejected`        | Error when the Auth Worker refused the request, with its reason.                         |
-| `InvalidAuthWorkerResponse` | Error when the Auth Worker's answer could not be read.                                   |
-| `DeviceLoginFailed`         | Error when a Device Login was denied or its code expired.                                |
-| `AccountLimitReached`       | Error when one more Account would pass the limit.                                        |
-| `TestSignInRefused`         | Error when the Auth Worker refused a Test User sign-in, with its code.                   |
-| `TestSignInUnsupported`     | Error when a Device is asked to sign a Test User in; only a Browser can.                 |
+| Export                  | What it does                                                                                         |
+| ----------------------- | ---------------------------------------------------------------------------------------------------- |
+| `Accounts`              | The Service for who is signed in on this client: state, sign in, switch, sign out.                   |
+| `AccountsState`         | The `Checking`, `SignedIn` (and its `switchingTo`) and `SignedOut` states, and `$match`.             |
+| `AuthWorkerUnavailable` | Error when the Auth Worker could not be asked: unreachable, a server error, or an unreadable answer. |
+| `AuthWorkerRejected`    | Error when the Auth Worker refused the request, with its reason.                                     |
+| `DeviceLoginFailed`     | Error when a Device Login was denied or its code expired.                                            |
+| `AccountLimitReached`   | Error when one more Account would pass the limit.                                                    |
+| `TestSignInRefused`     | Error when the Auth Worker refused a Test User sign-in, with its code.                               |
+| `TestSignInUnsupported` | Error when a Device is asked to sign a Test User in; only a Browser can.                             |
 
 ### `@kestack/auth-toolkit/client/browser`
 
@@ -148,21 +142,21 @@ Peer dependencies, all optional; install the ones your doors need:
 
 ### `@kestack/auth-toolkit/fake`
 
-| Export              | What it does                                                                                         |
-| ------------------- | ---------------------------------------------------------------------------------------------------- |
-| `fakeAccounts`      | `Accounts` for the browser environment, with no Auth Worker, plus the signing of every guarded call. |
-| `fakeChooser`       | A `choose` for `fakeAccounts` that a sign-in dialog answers.                                         |
-| `fakeAccountsTable` | The StdTable `fakeAccounts` keeps Fake Accounts in.                                                  |
-| `fakeGuard.rpc`     | The Guard's server half for Effect RPC that reads each call's Fake Token and asks no one.            |
-| `fakeGuard.http`    | The same for Effect HttpApi.                                                                         |
+| Export              | What it does                                                                                                               |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `fakeAccounts`      | `Accounts` for the browser environment, with no Auth Worker, plus the signing of every guarded call.                       |
+| `fakeChooser`       | A `choose` for `fakeAccounts` that a sign-in dialog answers.                                                               |
+| `fakeAccountsTable` | The StdTable `fakeAccounts` keeps Fake Accounts in.                                                                        |
+| `fakeGuard.rpc`     | The Guard's server half for Effect RPC that reads each call's Fake Token, or puts `as` behind every call, and asks no one. |
+| `fakeGuard.http`    | The same for Effect HttpApi.                                                                                               |
 
 ## Usage
 
 ### A Browser app and its RPC backend
 
 The contract guards `WhoAmI`; the backend at `api.example.com` serves it with
-`auth({ url })`; the web app at `app.example.com` provides `browser({ url })`
-and calls it. Lifted from `src/server/rpc/tests/rpc.test.ts` and
+`auth.rpc({ url })`; the web app at `app.example.com` provides `browser({ url })`
+and calls it. Lifted from `src/server/tests/rpc.test.ts` and
 `src/client/browser/tests/browser.test.ts`.
 
 ```ts
@@ -178,10 +172,10 @@ export const Handlers = Api.toLayer({
 
 // server.ts
 import { server } from '@kestack/rpc-toolkit/rpc/http';
-import { auth } from '@kestack/auth-toolkit/server/rpc';
+import { auth } from '@kestack/auth-toolkit/server';
 const url = 'https://auth.example.com';
 export default {
-  fetch: server(Api, Layer.mergeAll(Handlers, auth({ url }))),
+  fetch: server(Api, Layer.mergeAll(Handlers, auth.rpc({ url }))),
 };
 
 // app.ts
@@ -205,8 +199,8 @@ const whoAmI = Effect.gen(function* () {
 - When another tab switched Accounts, the backend fails the call `AccountChanged` before the handler runs, and `Accounts` checks again by itself.
 - A Batched RPC Request is verified once, and the cookies the Auth Worker refreshed go on its response.
 - `signIn()` leaves the page for the Login Screen and never completes in place.
-- With `testUsers` on the Auth Worker, `signIn({ test: { email: 'tess@example.test', key } })` signs a Test User in without leaving the page, and the backend admits them only as `auth({ url, testUsers: true })`; `Authz.User`'s `test` says which Users they are.
-- In the browser environment, `fakeAccounts({ choose })` replaces `browser({ url })` and `fakeGuard.rpc()` replaces `auth({ url })`; the contract and the app's calls stay the same.
+- With `testUsers` on the Auth Worker, `signIn({ test: { email: 'tess@example.test', key } })` signs a Test User in without leaving the page, and the backend admits them only as `auth.rpc({ url, testUsers: true })`; `Authz.User`'s `test` says which Users they are.
+- In the browser environment, `fakeAccounts({ choose })` replaces `browser({ url })` and `fakeGuard.rpc()` replaces `auth.rpc({ url })`; the contract and the app's calls stay the same.
 - `switchTo(userId)` is a round trip: until it is confirmed the state is `SignedIn` with `switchingTo`, and calls still act as the Account before; one that fails leaves the state as it was and fails ([ADR 0021](./docs/adr/0021-an-account-switch-under-way-is-state.md)).
 
 ### A CLI signing in as a Device
@@ -258,9 +252,9 @@ await Effect.runPromise(
 
 ### An MCP server with OAuth
 
-An MCP server is one HttpApi endpoint behind `server/http`'s `auth` with
+An MCP server is one HttpApi endpoint behind `auth.http` with
 `oauth`; its tools check Scopes inside. The Auth Worker lists the resource
-under `oauth.resources`. Lifted from `src/server/http/tests/http.test.ts`;
+under `oauth.resources`. Lifted from `src/server/tests/http.test.ts`;
 the MCP protocol itself is left out.
 
 ```ts
@@ -276,7 +270,7 @@ authWorker({
 
 // the MCP server
 import { Authz } from '@kestack/auth-toolkit';
-import { auth } from '@kestack/auth-toolkit/server/http';
+import { auth } from '@kestack/auth-toolkit/server';
 
 const resource = 'https://mcp.example.com/mcp';
 const Mcp = HttpApiEndpoint.post('mcp', '/mcp', {
@@ -297,7 +291,7 @@ const Handlers = HttpApiBuilder.group(Api, 'mcp', (handlers) =>
 export const App = HttpApiBuilder.layer(Api).pipe(
   Layer.provide(Handlers),
   Layer.provide(
-    auth({
+    auth.http({
       url: 'https://auth.example.com',
       oauth: { resource, scopes: ['notes:read'] },
     }),
@@ -305,7 +299,7 @@ export const App = HttpApiBuilder.layer(Api).pipe(
 );
 ```
 
-- `auth` with `oauth` serves the Protected Resource Metadata at both RFC 9728 paths, readable from any origin, naming the Auth Worker as the issuer.
+- `auth.http` with `oauth` serves the Protected Resource Metadata at both RFC 9728 paths, readable from any origin, naming the Auth Worker as the issuer.
 - A call without a token gets a 401 with the `WWW-Authenticate` challenge MCP clients follow; a missing Scope gets a 403 with `insufficient_scope`.
 - Access Tokens are checked against the Auth Worker's keys, asking it nothing per call ([ADR 0007](./docs/adr/0007-access-tokens-are-verified-locally-against-jwks.md)). A token minted for another resource is refused.
 - MCP clients register themselves; there is nothing to set up per client ([ADR 0009](./docs/adr/0009-mcp-clients-register-themselves.md)).

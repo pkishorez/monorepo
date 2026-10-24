@@ -1,4 +1,4 @@
-import { Effect, Option } from 'effect';
+import { Effect } from 'effect';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
@@ -11,19 +11,19 @@ vi.mock('../access-token.js', () => ({
   verifyAccessToken: mocks.verifyAccessToken,
 }));
 
-import type { Principal } from '../../../guard/index.js';
-import type { AuthOptions } from '../options.js';
-import { admit, resolver, verify, type Resolution } from '../verification.js';
+import { resolver, type Target } from '../verification.js';
 
 const url = 'https://auth.example.com';
 const resource = 'https://api.example.com';
 const jwt = 'eyJhbGciOiJFZERTQSJ9.eyJzdWIiOiJ1MSJ9.c2ln';
-const session = { id: 's1' };
+// better-auth's client hands the expiry over as JSON gives it.
+const session = { id: 's1', expiresAt: '2030-01-01T00:00:00.000Z' };
+const signIn = { id: 's1', expiresAt: new Date(session.expiresAt) };
 const user = { id: 'u1', email: 'ada@example.com', name: 'Ada' };
 
-const resolveWith = (options: AuthOptions, headers: Record<string, string>) =>
+const resolveWith = (target: Target, headers: Record<string, string>) =>
   Effect.runPromise(
-    resolver(options)(new Request('https://api.example.com', { headers })),
+    resolver(target)(new Request('https://api.example.com', { headers })),
   );
 
 describe('resolver', () => {
@@ -44,15 +44,15 @@ describe('resolver', () => {
 
   it('resolves a Sign-in Principal from a cookie', async () => {
     expect(await resolveWith({ url }, { cookie: 'session=abc' })).toEqual({
-      principal: { kind: 'session', session, user, test: false },
+      principal: { kind: 'session', session: signIn, user, test: false },
       refreshedCookies: ['a=1'],
     });
     expect(mocks.verifyAccessToken).not.toHaveBeenCalled();
   });
 
-  it('resolves a Token Principal when the backend is a Resource Server', async () => {
+  it('resolves a Token Principal for a Resource Server', async () => {
     const resolved = await resolveWith(
-      { url, oauth: { resource } },
+      { url, resource },
       { authorization: `Bearer ${jwt}`, cookie: 'session=abc' },
     );
     expect(resolved).toEqual({
@@ -73,7 +73,7 @@ describe('resolver', () => {
     mocks.verifyAccessToken.mockResolvedValue(null);
     mocks.verifySignIn.mockResolvedValue(null);
     const resolved = await resolveWith(
-      { url, oauth: { resource } },
+      { url, resource },
       { authorization: `Bearer ${jwt}`, cookie: 'session=abc' },
     );
     expect(resolved).toBeNull();
@@ -81,7 +81,7 @@ describe('resolver', () => {
     expect(request.headers.get('authorization')).toBe(`Bearer ${jwt}`);
   });
 
-  it('does not check Access Tokens without oauth', async () => {
+  it('does not check Access Tokens without a resource', async () => {
     mocks.verifySignIn.mockResolvedValue(null);
     expect(
       await resolveWith({ url }, { authorization: `Bearer ${jwt}` }),
@@ -89,26 +89,42 @@ describe('resolver', () => {
     expect(mocks.verifyAccessToken).not.toHaveBeenCalled();
   });
 
-  it('resolves a Sign-in Principal from a Device token, with or without oauth', async () => {
+  it('resolves a Sign-in Principal from a Device token, with or without a resource', async () => {
     mocks.verifySignIn.mockResolvedValue({
       session,
       user,
       refreshedCookies: [],
     });
     mocks.verifyAccessToken.mockResolvedValue(null);
-    for (const options of [{ url }, { url, oauth: { resource } }]) {
-      const resolved = await resolveWith(options, {
+    for (const target of [{ url }, { url, resource }]) {
+      const resolved = await resolveWith(target, {
         authorization: 'Bearer opaque-session-token',
       });
       expect(resolved?.principal).toEqual({
         kind: 'session',
-        session,
+        session: signIn,
         user,
         test: false,
       });
     }
     expect(mocks.verifyAccessToken).toHaveBeenCalledOnce();
     expect(mocks.verifySignIn).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps only the Sign-in id and expiry, never its token', async () => {
+    const expiresAt = new Date('2030-01-01T00:00:00.000Z');
+    mocks.verifySignIn.mockResolvedValue({
+      session: { id: 's1', token: 'secret', userId: 'u1', expiresAt },
+      user: { ...user, image: null, emailVerified: true },
+      refreshedCookies: [],
+    });
+    const resolved = await resolveWith({ url }, { cookie: 'session=abc' });
+    expect(resolved?.principal).toStrictEqual({
+      kind: 'session',
+      session: { id: 's1', expiresAt },
+      user,
+      test: false,
+    });
   });
 
   it('fails when the Auth Worker cannot be asked', async () => {
@@ -143,115 +159,15 @@ describe('Test Users', () => {
 
     mocks.verifyAccessToken.mockResolvedValueOnce(null);
     const device = await resolveWith(
-      { url, oauth: { resource } },
+      { url, resource },
       { authorization: 'Bearer opaque-session-token' },
     );
     expect(device?.principal).toMatchObject({ kind: 'session', test: true });
 
     const token = await resolveWith(
-      { url, oauth: { resource } },
+      { url, resource },
       { authorization: `Bearer ${jwt}` },
     );
     expect(token?.principal).toMatchObject({ kind: 'token', test: true });
-  });
-
-  it('is nobody to verify unless testUsers admits them', async () => {
-    const request = new Request('https://api.example.com/ws', {
-      headers: { cookie: 'session=abc' },
-    });
-    expect(await verify(request, { url })).toBeNull();
-    expect(await verify(request, { url, testUsers: true })).toMatchObject({
-      test: true,
-    });
-  });
-
-  describe('admit', () => {
-    const resolution = (test: boolean): Resolution => ({
-      principal: {
-        kind: 'session',
-        session,
-        user: tess,
-        test,
-      } as unknown as Principal,
-      refreshedCookies: [],
-    });
-    const run = (resolved: Resolution, testUsers: boolean) =>
-      Effect.runPromise(
-        Effect.result(
-          admit(
-            resolved,
-            new Request('https://api.example.com'),
-            Option.none(),
-            {},
-            testUsers,
-          ),
-        ),
-      );
-
-    it('refuses a Test User Forbidden, unless testUsers', async () => {
-      expect(await run(resolution(true), false)).toMatchObject({
-        failure: { _tag: 'Forbidden', reason: 'Test Users are not accepted' },
-      });
-      expect(await run(resolution(true), true)).toMatchObject({
-        success: { test: true },
-      });
-    });
-
-    it('admits anyone else either way', async () => {
-      for (const testUsers of [false, true]) {
-        expect(await run(resolution(false), testUsers)).toMatchObject({
-          success: { test: false },
-        });
-      }
-    });
-  });
-});
-
-describe('which options are refused', () => {
-  it('refuses options without a url', async () => {
-    expect(() => resolver({} as never)).toThrow(/url/);
-    expect(() => resolver({ url: '  ' })).toThrow(/url/);
-    await expect(
-      verify(new Request('https://api.example.com'), {} as never),
-    ).rejects.toThrow(/url/);
-  });
-
-  it('tells Local mode where it went, url or not', () => {
-    for (const options of [{ local: true }, { url, local: true }]) {
-      expect(() => resolver(options as never)).toThrow(
-        /`local` was removed.*fakeGuard.*@kestack\/auth-toolkit\/fake/,
-      );
-    }
-    expect(mocks.verifySignIn).not.toHaveBeenCalled();
-  });
-});
-
-describe('verify', () => {
-  beforeEach(() => {
-    mocks.verifySignIn.mockReset();
-  });
-
-  it('resolves the Principal of a plain request', async () => {
-    mocks.verifySignIn.mockResolvedValue({
-      session,
-      user,
-      refreshedCookies: [],
-    });
-    expect(
-      await verify(
-        new Request('https://api.example.com/ws', {
-          headers: { cookie: 'session=abc' },
-        }),
-        { url },
-      ),
-    ).toEqual({ kind: 'session', session, user, test: false });
-  });
-
-  it('resolves null for nobody and rejects when the Auth Worker is down', async () => {
-    mocks.verifySignIn.mockResolvedValueOnce(null);
-    const request = new Request('https://api.example.com/ws');
-    expect(await verify(request, { url })).toBeNull();
-    mocks.verifySignIn.mockRejectedValueOnce(new Error('down'));
-    await expect(verify(request, { url })).rejects.toThrow('down');
   });
 });

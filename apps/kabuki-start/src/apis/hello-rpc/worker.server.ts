@@ -1,6 +1,6 @@
 import { Effect, Layer } from 'effect';
 import { Authz } from '@kestack/auth-toolkit';
-import { auth } from '@kestack/auth-toolkit/server/rpc';
+import { auth } from '@kestack/auth-toolkit/server';
 import { server } from '@kestack/rpc-toolkit/rpc/http';
 import { HelloRpcs } from './contract.ts';
 
@@ -51,9 +51,9 @@ const corsFor = (request: Request, site: string): Record<string, string> =>
 
 /**
  * Answers requests with `guard` telling who calls, letting `site` call
- * with credentials: `auth({ url })` in the Worker, `testAuth` in a test.
+ * with credentials: `auth.rpc({ url })` in the Worker, `fakeGuard.rpc({ as })` in a test.
  */
-export const serve = (guard: ReturnType<typeof auth>, site: string) => {
+export const serve = (guard: ReturnType<typeof auth.rpc>, site: string) => {
   const answer = server(HelloRpcs, Layer.mergeAll(Handlers, guard));
   return async (request: Request): Promise<Response> => {
     const cors = corsFor(request, site);
@@ -70,5 +70,7 @@ let served: ((request: Request) => Promise<Response>) | undefined;
 
 export default {
   fetch: (request: Request, env: Env) =>
-    (served ??= serve(auth({ url: env.AUTH_URL }), env.SITE_ORIGIN))(request),
+    (served ??= serve(auth.rpc({ url: env.AUTH_URL }), env.SITE_ORIGIN))(
+      request,
+    ),
 };

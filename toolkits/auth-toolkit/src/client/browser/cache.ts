@@ -1,7 +1,7 @@
 import { Effect, type Layer, Schema } from 'effect';
 import { StdTable, type StdTableService } from '@kestack/std-toolkit/db';
 import { ESchema } from '@kestack/std-toolkit/eschema';
-import { AccountSchema, type Snapshot } from '../accounts-layer/index.js';
+import { AccountSchema, type Snapshot } from '../engine/index.js';
 
 const KnownAccounts = ESchema.make('BrowserAccounts', {
   active: Schema.NullOr(Schema.String),

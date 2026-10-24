@@ -1,13 +1,12 @@
-import { Context, Data, type Effect, type Stream } from 'effect';
+import { Context, Data, type Effect, type Layer, type Stream } from 'effect';
+import type { Signing } from '../../guard/index.js';
 import type { AccountsError } from './errors.js';
 
 export {
   AccountLimitReached,
   AuthWorkerRejected,
   AuthWorkerUnavailable,
-  AuthWorkerUnreachable,
   DeviceLoginFailed,
-  InvalidAuthWorkerResponse,
   TestSignInRefused,
   TestSignInUnsupported,
   type AccountsError,
@@ -95,3 +94,8 @@ export class Accounts
       readonly signOutAll: Effect.Effect<void, AccountsError>;
     }
   >()('@kestack/auth-toolkit/Accounts') {}
+
+/** What a client provides its app: `Accounts`, and the signing of every
+ * guarded RPC and HttpApi call. `browser()`, `device()` and `fakeAccounts()`
+ * each give one. */
+export type AccountsLayer = Layer.Layer<Accounts | Signing>;

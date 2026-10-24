@@ -4,12 +4,11 @@ export {
   AccountsState,
   AuthWorkerRejected,
   AuthWorkerUnavailable,
-  AuthWorkerUnreachable,
   DeviceLoginFailed,
-  InvalidAuthWorkerResponse,
   TestSignInRefused,
   TestSignInUnsupported,
   type Account,
   type AccountsError,
+  type AccountsLayer,
   type SignInOptions,
 } from './accounts.js';

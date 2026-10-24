@@ -3,8 +3,7 @@ import { Context, Effect, Layer } from 'effect';
 import { HttpServerRequest, HttpServerResponse } from 'effect/http';
 import type { Rpc as EffectRpc } from 'effect/rpc';
 import type { Principal } from '@kestack/auth-toolkit';
-import { verify } from '@kestack/auth-toolkit/server/http';
-import { type AuthOptions, authAs } from '@kestack/auth-toolkit/server/rpc';
+import { type AuthOptions, authAs, verify } from '@kestack/auth-toolkit/server';
 import {
   fromDurableObjectState,
   server,
@@ -119,11 +118,7 @@ const connectionOf = (
       ? new Date(caller.session.expiresAt).getTime()
       : tokenExpiry(credential['authorization']);
   return {
-    // Never its Sign-in token.
-    caller:
-      caller.kind === 'session'
-        ? { ...caller, session: { ...caller.session, token: '' } }
-        : caller,
+    caller,
     credential,
     until: Math.min(now + RECHECK_MS, expiresAt),
     expiresAt,

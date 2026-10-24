@@ -12,30 +12,28 @@
   ],
   "rules": {
     "src/client": ["src/contract", "src/guard"],
-    "src/client/accounts-layer": ["src/client/accounts"],
+    "src/client/engine": ["src/client/accounts"],
     "src/client/auth-worker": ["src/client/accounts"],
     "src/client/browser": [
       "src/client/accounts",
-      "src/client/accounts-layer",
+      "src/client/engine",
       "src/client/auth-worker"
     ],
     "src/client/device": [
       "src/client/accounts",
-      "src/client/accounts-layer",
+      "src/client/engine",
       "src/client/auth-worker"
     ],
     "src/guard": ["src/contract"],
     "src/auth": ["src/guard"],
-    "src/server": ["src/contract", "src/guard"],
-    "src/server/guard-layers": ["src/server/verification"],
-    "src/server/rpc": ["src/server/verification", "src/server/guard-layers"],
-    "src/server/http": ["src/server/verification", "src/server/guard-layers"],
+    "src/server": ["src/contract", "src/guard", "src/guard-layer"],
+    "src/guard-layer": ["src/guard"],
     "src/fake": [
       "src/contract",
       "src/guard",
       "src/client/accounts",
-      "src/client/accounts-layer",
-      "src/server/guard-layers"
+      "src/client/engine",
+      "src/guard-layer"
     ],
     "src/worker/database/sqlite/d1/database": [
       "src/worker/database/sqlite/schema"

@@ -10,7 +10,7 @@ import {
   Stream,
 } from 'effect';
 import type * as Cloudflare from 'alchemy/Cloudflare';
-import { verify } from '@kestack/auth-toolkit/server/http';
+import { verify } from '@kestack/auth-toolkit/server';
 import type { ConnectionSlot } from '@kestack/rpc-toolkit/rpc/websocket';
 import { HttpServerRequest, HttpServerResponse } from 'effect/http';
 import {

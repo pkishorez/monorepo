@@ -313,7 +313,11 @@ describe('browser', () => {
       Effect.flatMap(Accounts, (accounts) => accounts.check),
     );
     expect(down).toMatchObject(
-      Exit.fail({ _tag: 'AuthWorkerUnavailable', status: 502 }),
+      Exit.fail({
+        _tag: 'AuthWorkerUnavailable',
+        kind: 'server-error',
+        status: 502,
+      }),
     );
 
     const offline = await runExit(
@@ -325,7 +329,7 @@ describe('browser', () => {
       Effect.flatMap(Accounts, (accounts) => accounts.check),
     );
     expect(offline).toMatchObject(
-      Exit.fail({ _tag: 'AuthWorkerUnreachable', url }),
+      Exit.fail({ _tag: 'AuthWorkerUnavailable', kind: 'unreachable', url }),
     );
 
     const garbled = await runExit(
@@ -333,7 +337,7 @@ describe('browser', () => {
       Effect.flatMap(Accounts, (accounts) => accounts.check),
     );
     expect(garbled).toMatchObject(
-      Exit.fail({ _tag: 'InvalidAuthWorkerResponse' }),
+      Exit.fail({ _tag: 'AuthWorkerUnavailable', kind: 'unreadable' }),
     );
   });
 
@@ -446,12 +450,9 @@ describe('browser', () => {
     );
   });
 
-  it('refuses options without a url, and tells Local mode where it went', () => {
+  it('refuses options without a url', () => {
     expect(() => browser({} as never)).toThrow(/url/);
     expect(() => browser({ url: ' ' })).toThrow(/url/);
-    expect(() =>
-      browser({ local: { choose: Effect.succeed(null) } } as never),
-    ).toThrow(/fakeAccounts.*@kestack\/auth-toolkit\/fake/);
   });
 
   it('checks again when the tab becomes visible', async () => {

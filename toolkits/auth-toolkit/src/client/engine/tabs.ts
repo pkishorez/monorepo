@@ -1,5 +1,5 @@
 import { Effect, Schema } from 'effect';
-import type { Peers } from './accounts-layer.js';
+import type { Peers } from './engine.js';
 import { type Snapshot, SnapshotSchema } from './snapshot.js';
 
 const decode = Schema.decodeUnknownOption(SnapshotSchema);

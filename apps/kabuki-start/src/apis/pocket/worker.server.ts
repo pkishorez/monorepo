@@ -1,5 +1,5 @@
 import { Layer } from 'effect';
-import { auth } from '@kestack/auth-toolkit/server/rpc';
+import { auth } from '@kestack/auth-toolkit/server';
 import { server } from '@kestack/rpc-toolkit/rpc/http';
 import { SQLite } from '@kestack/std-toolkit/db/sqlite';
 import { makeD1SQLite } from '@kestack/std-toolkit/db/sqlite/d1';
@@ -61,11 +61,11 @@ const corsFor = (request: Request, site: string): Record<string, string> =>
 
 /**
  * Answers requests over the `pocket` table on `database`, with `guard`
- * telling who calls, letting `site` call with credentials: `auth({ url })`
- * in the Worker, `testAuth` in a test.
+ * telling who calls, letting `site` call with credentials: `auth.rpc({ url })`
+ * in the Worker, `fakeGuard.rpc({ as })` in a test.
  */
 export const serve = (
-  guard: ReturnType<typeof auth>,
+  guard: ReturnType<typeof auth.rpc>,
   site: string,
   database: D1Database,
 ) => {
@@ -91,7 +91,9 @@ let served: ((request: Request) => Promise<Response>) | undefined;
 
 export default {
   fetch: (request: Request, env: Env) =>
-    (served ??= serve(auth({ url: env.AUTH_URL }), env.SITE_ORIGIN, env.DB))(
-      request,
-    ),
+    (served ??= serve(
+      auth.rpc({ url: env.AUTH_URL }),
+      env.SITE_ORIGIN,
+      env.DB,
+    ))(request),
 };

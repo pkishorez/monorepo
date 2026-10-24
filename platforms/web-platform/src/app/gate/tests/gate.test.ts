@@ -4,7 +4,7 @@ import {
   type Account,
   Accounts,
   AccountsState,
-  AuthWorkerUnreachable,
+  AuthWorkerUnavailable,
 } from '@kestack/auth-toolkit/client';
 import { StdTable } from '@kestack/std-toolkit/db';
 import { ESchema } from '@kestack/std-toolkit/eschema';
@@ -25,7 +25,10 @@ const mary = user('mary');
 
 type Opened = { readonly id: string; readonly status: StatusCell };
 
-const unreachable = new AuthWorkerUnreachable({ url: 'https://auth.test' });
+const unreachable = new AuthWorkerUnavailable({
+  url: 'https://auth.test',
+  kind: 'unreachable',
+});
 
 /** A sign-in service and a device whose state a test moves by hand, behind
  * an `Accounts` the way `browser()` gives it: checking at start, from the

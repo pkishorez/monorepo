@@ -2,15 +2,17 @@ import { Effect, Layer, Schema } from 'effect';
 import { Rpc, RpcClient, RpcGroup, RpcTest } from 'effect/rpc';
 import { describe, expect, it } from 'vitest';
 
-import { testAuth } from '../../server/rpc/index.js';
+import { fakeGuard } from '../../fake/index.js';
 import { Authz, type PolicyGuard } from '../index.js';
 
-const signedIn = testAuth({
-  kind: 'token',
-  user: { id: 'u1', email: 'ada@example.com', name: 'Ada' },
-  client: { id: 'cli' },
-  scopes: [],
-  test: false,
+const signedIn = fakeGuard.rpc({
+  as: {
+    kind: 'token',
+    user: { id: 'u1', email: 'ada@example.com', name: 'Ada' },
+    client: { id: 'cli' },
+    scopes: [],
+    test: false,
+  },
 });
 
 const runRpc = <A extends Rpc.Any, B, E>(

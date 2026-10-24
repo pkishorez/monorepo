@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { Principal } from '@kestack/auth-toolkit';
-import { testAuth } from '@kestack/auth-toolkit/server/rpc';
+import { fakeGuard } from '@kestack/auth-toolkit/fake';
 import { OWNER } from '../access/index.ts';
 import { serve } from './worker.server.ts';
 
 /*
- * The RPC Worker answered in-process, with `testAuth` saying who calls:
+ * The RPC Worker answered in-process, with `fakeGuard.rpc({ as })` saying who calls:
  * the public call for anyone, the authenticated one for any signed-in User,
  * the authorized one for the owner alone, and CORS with credentials for the
  * site's origin alone.
@@ -46,7 +46,7 @@ const frame = (tag: Tag) =>
 
 const call = async (tag: Tag, caller: Principal | null, origin = SITE) => {
   const response = await serve(
-    testAuth(caller),
+    fakeGuard.rpc({ as: caller }),
     SITE,
   )(
     new Request('https://rpc.test/', {
@@ -98,7 +98,7 @@ describe('the RPC Worker', () => {
 
   it("answers the site's preflight", async () => {
     const response = await serve(
-      testAuth(null),
+      fakeGuard.rpc({ as: null }),
       SITE,
     )(
       new Request('https://rpc.test/', {

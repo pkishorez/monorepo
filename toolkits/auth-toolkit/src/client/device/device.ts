@@ -5,11 +5,12 @@ import { bearer, Unauthenticated } from '../../guard/index.js';
 import {
   AccountLimitReached,
   Accounts,
-  InvalidAuthWorkerResponse,
+  type AccountsLayer,
+  AuthWorkerUnavailable,
   type SignInOptions,
   TestSignInUnsupported,
 } from '../accounts/index.js';
-import { makeAccounts, signing } from '../accounts-layer/index.js';
+import { makeAccounts, signing } from '../engine/index.js';
 import { authWorker } from '../auth-worker/index.js';
 import { deviceLogin, verificationUrl } from './device-login.js';
 import { processTerminal, type Show, showIn } from './show.js';
@@ -93,7 +94,7 @@ export const device = ({
   maxAccounts = 5,
   open = 'prompt',
   show = showIn(processTerminal()),
-}: DeviceOptions) =>
+}: DeviceOptions): AccountsLayer =>
   Layer.unwrap(
     Effect.gen(function* () {
       const userAgent = userAgentOf(app, version, yield* hostname);
@@ -160,16 +161,18 @@ export const device = ({
           );
           const user = yield* login.whoIs(token).pipe(
             Effect.retry({
-              while: ({ _tag }) =>
-                _tag === 'AuthWorkerUnreachable' ||
-                _tag === 'AuthWorkerUnavailable',
+              while: (error) =>
+                error._tag === 'AuthWorkerUnavailable' &&
+                error.kind !== 'unreadable',
               schedule: Schedule.spaced('1 second'),
               times: 3,
             }),
             Effect.flatMap((named) =>
               named
                 ? Effect.succeed(named)
-                : Effect.fail(new InvalidAuthWorkerResponse({ url })),
+                : Effect.fail(
+                    new AuthWorkerUnavailable({ url, kind: 'unreadable' }),
+                  ),
             ),
           );
           const current = yield* store.read;

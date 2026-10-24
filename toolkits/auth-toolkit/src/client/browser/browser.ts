@@ -1,13 +1,8 @@
 import { Effect, Layer } from 'effect';
 import { FetchHttpClient } from 'effect/http';
 import { expectUser } from '../../guard/index.js';
-import { Accounts } from '../accounts/index.js';
-import {
-  acting,
-  makeAccounts,
-  signing,
-  watchTabs,
-} from '../accounts-layer/index.js';
+import { Accounts, type AccountsLayer } from '../accounts/index.js';
+import { acting, makeAccounts, signing, watchTabs } from '../engine/index.js';
 import { browserAccountsTable, type CacheStorage, makeCache } from './cache.js';
 import { makeCookieSource } from './cookie-source.js';
 
@@ -22,15 +17,8 @@ export interface BrowserOptions {
   readonly cache?: CacheStorage;
 }
 
-/** Throws unless `options` name the Auth Worker's `url`; `local` is refused
- * by name, so an app still on Local mode is told where it went. */
-const checkOptions = (options: BrowserOptions) => {
-  const { url, local } = options as { url?: unknown; local?: unknown };
-  if (local !== undefined) {
-    throw new Error(
-      "browser: `local` was removed; the browser environment's Accounts are `fakeAccounts` from @kestack/auth-toolkit/fake.",
-    );
-  }
+/** Throws unless `options` name the Auth Worker's `url`. */
+const checkOptions = ({ url }: BrowserOptions) => {
   if (typeof url !== 'string' || url.trim() === '') {
     throw new Error("browser: give the Auth Worker's `url`.");
   }
@@ -51,7 +39,7 @@ const checkOptions = (options: BrowserOptions) => {
  * `signIn()` leaves for the Login Screen; `signIn({ test: { email, key? }
  * })` signs a Test User in at once, where the Auth Worker allows it.
  */
-export const browser = (options: BrowserOptions) => {
+export const browser = (options: BrowserOptions): AccountsLayer => {
   checkOptions(options);
   const { url, cache } = options;
   return Layer.unwrap(

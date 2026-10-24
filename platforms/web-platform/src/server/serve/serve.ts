@@ -2,7 +2,7 @@ import { Layer } from 'effect';
 import type { Apis, RpcsOf } from '../../define/index.ts';
 import type { Rpc as EffectRpc } from 'effect/rpc';
 import type { Principal } from '@kestack/auth-toolkit';
-import { auth as guard } from '@kestack/auth-toolkit/server/rpc';
+import { auth as guard } from '@kestack/auth-toolkit/server';
 import { server } from '@kestack/rpc-toolkit/rpc/http';
 import { forOwner, type LiveAuth, liveCaller, refusal } from '../live/index.ts';
 import { webServer } from '../worker/index.ts';
@@ -75,7 +75,7 @@ export const createServer = <A extends Apis, Env>(
     return objects.getByName(owner).fetch(forOwner(request, owner));
   };
   // Who signed each call, for an app with auth.
-  const signed = auth === undefined ? null : guard(auth);
+  const signed = auth === undefined ? null : guard.rpc(auth);
   return webServer<Env>({
     route: (request, env) => {
       const path = normal(new URL(request.url).pathname);
