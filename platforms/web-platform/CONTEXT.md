@@ -25,8 +25,12 @@ The opaque strip at the top edge of an app that nothing covers, in the Theme's b
 _Avoid_: header background, notch fill
 
 **Frame**:
-The layout every app screen sits in: the Status Bar Surface, the Sidebar, and the header with its title and actions. On touch the Sidebar pushes the page aside; with a keyboard it stays beside it.
+The layout every app screen sits in: the Status Bar Surface, the Sidebar, and the header with its title and actions. On a narrow screen the Sidebar shows in its Sidebar Mode; on a wide one it stays beside the page.
 _Avoid_: app shell (the PWA's App Shell is what boots offline), layout, chrome
+
+**Sidebar Mode**:
+How the Frame's Sidebar shows on a narrow screen: Slide, beside the page as the page moves aside and dims, or Full Screen, a page of its own in the page's place. Either opens with a swipe right and closes with a swipe left.
+_Avoid_: drawer, page (as a mode), phone layout
 
 ### PWA
 
