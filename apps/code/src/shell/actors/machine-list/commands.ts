@@ -1,17 +1,19 @@
 import { Effect, Schema } from 'effect';
-import { Ai } from '@kestack/ai-toolkit/client';
 import { Machine } from '@kestack/ai-toolkit/machines';
 import { MachinesClient } from '@kestack/ai-toolkit/machines/client';
 import { Command } from '@kestack/kabuki';
-import { Store } from '@kestack/std-toolkit/replica';
-import { SavedMachines } from '../../../layer/capabilities/index.ts';
+import {
+  AccountReplicas,
+  SavedMachines,
+} from '../../../layer/capabilities/index.ts';
 import { problemOf } from './api.ts';
 
 /*
  * What the Machines actor asks of the Machines Backend, and what it keeps
- * on this device: each ends in one Message. A Machine forgotten takes its
- * records here with it: the Store stops its Instance, in every tab, and
- * deletes its database.
+ * on this device: each ends in one Message, but for `keep`. Only the
+ * records of the Machines listed are kept: one forgotten, or gone from the
+ * Backend's list, has its Instance stopped, in every tab, and its database
+ * deleted.
  */
 
 export const save = Command.make('SaveMachines', {
@@ -38,9 +40,14 @@ export const forget = Command.make('ForgetMachine', {
     ),
 });
 
-/** A forgotten Machine's records go, once it has left the list. */
-export const drop = Command.make('DropMachineRecords', {
-  args: Schema.Struct({ id: Schema.String }),
-  run: ({ id }) =>
-    Effect.flatMap(Store, (store) => Effect.ignore(store.remove(Ai, id))),
+/** Keeps the records of the Machines listed for the Account, and deletes the rest. */
+export const keep = Command.make('KeepMachineRecords', {
+  args: Schema.Struct({
+    accountId: Schema.String,
+    machineIds: Schema.Array(Schema.String),
+  }),
+  run: ({ accountId, machineIds }) =>
+    Effect.flatMap(AccountReplicas, (replicas) =>
+      replicas.keepMachines(accountId, machineIds),
+    ),
 });

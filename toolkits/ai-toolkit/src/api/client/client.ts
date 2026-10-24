@@ -234,21 +234,10 @@ const resumable =
 /*
  * A device keeps Messages as the projection made them, so the Replica's
  * name carries the projection's version: a new projection is a new Replica,
- * synced afresh, and the old ones are `retired` for the Store to delete.
- * `ai-m…` is keyed by Machine; the `ai` and `ai-p…` before it held one
- * server's records, unkeyed, and are all retired.
+ * synced afresh. An app prunes its Store to `Ai` alone, so the older ones
+ * go without being named.
  */
 const replicaName = (version: number) => `ai-m${version}`;
-const unkeyedVersions = 3;
-
-/** Replicas no longer read, for `Store.idb({ retired })`. */
-export const retired: ReadonlyArray<string> = [
-  'ai',
-  ...Array.from({ length: unkeyedVersions }, (_, at) => `ai-p${at + 1}`),
-  ...Array.from({ length: PROJECTION_VERSION - 1 }, (_, at) =>
-    replicaName(at + 1),
-  ),
-];
 
 /**
  * The records of each Machine: `Ai.get(machineId)` is the Instance of one

@@ -18,6 +18,7 @@ import {
   type IDBDatabaseConfig,
   type IDBConnection,
 } from './database/index.js';
+import { prune } from './prune/index.js';
 import { makeTableContract } from './table/index.js';
 import { reconcileIDBStore } from './upgrade/index.js';
 
@@ -237,6 +238,11 @@ const setup = <Name extends string>(
 ): Effect.Effect<void, unknown> =>
   prepareStore(table, config, config.storeName ?? table.logicalName);
 
-export const IDB = { make, setup, database: makeIDBDatabase } as const;
+export const IDB = {
+  make,
+  setup,
+  database: makeIDBDatabase,
+  prune,
+} as const;
 
 export type { IDBDatabaseConfig, IDBConnection };
