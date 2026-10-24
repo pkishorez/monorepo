@@ -1,7 +1,12 @@
-import { Context, Deferred, Effect, Layer, Stream } from 'effect';
+import { Context, Deferred, Effect, Exit, Layer, Stream } from 'effect';
 import type { Scope } from 'effect';
 import type { StdTableService } from '../../../db/index.js';
-import { partsOf, ReplicaError, type Shape } from '../../shape/index.js';
+import {
+  partsOf,
+  ReplicaError,
+  type AnyShape,
+  type Shape,
+} from '../../shape/index.js';
 import type { SPACE_TABLE } from './layout.js';
 import {
   announce,
@@ -39,7 +44,9 @@ export type { Cursor, Opening, SpaceTable, Wire, Written };
  *            Leader that crashed is never read as fresh.
  * 2. Remove  an Instance: everyone who opened it is told to stop, and it
  *            is deleted once the ones here have.
- * 3. Retire  Replicas no app reads any more: deleted as the Store starts.
+ * 3. Prune   told the whole list of what it keeps, every other Instance it
+ *            holds is removed, as in 2, so a Replica renamed or a Key gone
+ *            goes without anyone naming it.
  *
  * An adapter says where the spaces live and how participants share them.
  */
@@ -123,6 +130,13 @@ export interface Space {
 
 type KeyArgs<K> = [K] extends [void] ? [] : [key: K];
 
+type KeyOf<S> = S extends Shape<string, infer K, any> ? K : never;
+
+/** One Replica kept, and which of its Keys: none to give for a Replica without one. */
+export type Kept<S extends AnyShape> = [KeyOf<S>] extends [void]
+  ? readonly [replica: S]
+  : readonly [replica: S, keys: ReadonlyArray<KeyOf<S>>];
+
 export interface StoreShape {
   readonly open: (name: string) => Effect.Effect<Space, never, Scope.Scope>;
   /** Every Instance kept, by its Replica's name and its Key as text. */
@@ -135,6 +149,14 @@ export interface StoreShape {
     replica: Shape<string, K, any>,
     ...key: KeyArgs<K>
   ) => Effect.Effect<void, ReplicaError>;
+  /**
+   * Keeps exactly these Instances and removes every other one, as `remove`
+   * does; answers the names of those removed. `[]` removes everything.
+   * One that cannot be removed does not keep the rest: every one is tried.
+   */
+  readonly prune: <const S extends ReadonlyArray<AnyShape>>(keep: {
+    readonly [I in keyof S]: Kept<S[I]>;
+  }) => Effect.Effect<ReadonlyArray<string>, ReplicaError>;
 }
 
 /** Where Instances are kept on this device. Give it in the app's Layer: `Store.idb()` or `Store.memory()`. */
@@ -159,16 +181,8 @@ interface Opener {
   readonly closed: Deferred.Deferred<void>;
 }
 
-export interface StoreOptions {
-  /** Replicas no app reads any more: every Instance of them is deleted as the Store starts. */
-  readonly retired?: ReadonlyArray<string | { readonly name: string }>;
-}
-
 /** A Store over an adapter. Made once, so every app given the Layer shares who opened what. */
-export const makeStore = (
-  adapter: Adapter,
-  options: StoreOptions = {},
-): Layer.Layer<Store> => {
+export const makeStore = (adapter: Adapter): Layer.Layer<Store> => {
   const openers = new Map<string, Set<Opener>>();
 
   // 1. Open
@@ -189,13 +203,41 @@ export const makeStore = (
             Effect.andThen(Deferred.succeed(opener.closed, undefined)),
           ),
       );
+      // Removed here or in another tab: heard from the moment it opens, so
+      // the Space is handed out only once it listens. The first ring is its
+      // own, rung once listening.
+      const listening = yield* Deferred.make<void>();
+      yield* Effect.forkScoped(
+        adapter.doorbell.listen(removedTopic(name), true).pipe(
+          Stream.take(2),
+          Stream.runForEach(() =>
+            Effect.flatMap(Deferred.isDone(listening), (heard) =>
+              heard
+                ? Deferred.succeed(opener.removed, undefined)
+                : Deferred.succeed(listening, undefined),
+            ),
+          ),
+        ),
+      );
+      yield* Deferred.await(listening);
       const participant = crypto.randomUUID();
       const changed = adapter.doorbell.ring(name);
       const announced = adapter.doorbell.ring(announcedTopic(name));
+      // Once removed it touches its space no more: a read or write after
+      // the space is deleted would make it again. One already under way
+      // when another tab deletes it may still leave it, empty, for the
+      // next prune.
       const inTable = <A, E>(
         what: string,
         effect: Effect.Effect<A, E, StdTableOf>,
-      ) => effect.pipe(Effect.provide(table), Effect.mapError(failed(what)));
+      ) =>
+        Effect.flatMap(Deferred.isDone(opener.removed), (gone) =>
+          gone
+            ? Effect.fail(
+                new ReplicaError({ message: `Instance ${name} was removed` }),
+              )
+            : effect.pipe(Effect.provide(table), Effect.mapError(failed(what))),
+        );
       // Its record of open Windows goes with it. One that cannot go waits
       // for the next Leader, who clears it.
       yield* Effect.addFinalizer(() =>
@@ -208,24 +250,16 @@ export const makeStore = (
         name,
         participant,
         read: (collection, after) =>
-          readAfter(collection, after).pipe(
-            Effect.provide(table),
-            Effect.mapError(failed(`read ${name}`)),
-          ),
+          inTable(`read ${name}`, readAfter(collection, after)),
         cursor: (collection, scope) =>
           inTable(`read a cursor of ${name}`, cursorOf(collection, scope)),
         write: (written) =>
-          write(written).pipe(
-            Effect.provide(table),
-            Effect.mapError(failed(`write ${name}`)),
+          inTable(`write ${name}`, write(written)).pipe(
             Effect.flatMap((wrote) => (wrote ? changed : Effect.void)),
           ),
         changes: adapter.doorbell.listen(name, true),
         lead: (effect) => adapter.leader(name, effect),
-        removed: Effect.raceFirst(
-          Deferred.await(opener.removed),
-          Stream.runHead(adapter.doorbell.listen(removedTopic(name))),
-        ).pipe(Effect.asVoid),
+        removed: Deferred.await(opener.removed),
         announce: (windows) =>
           inTable(
             `record the Windows of ${name}`,
@@ -294,6 +328,37 @@ export const makeStore = (
     Effect.mapError(failed('list what it keeps')),
   );
 
+  // 3. Prune
+  const prune: StoreShape['prune'] = (keep) =>
+    Effect.gen(function* () {
+      const kept = new Set(
+        (
+          keep as ReadonlyArray<readonly [AnyShape, ReadonlyArray<unknown>?]>
+        ).flatMap(([replica, keys]) =>
+          keys === undefined
+            ? [replica.instanceName(undefined)]
+            : keys.map((key) => replica.instanceName(key)),
+        ),
+      );
+      const stored = yield* adapter.names.pipe(
+        Effect.mapError(failed('list what it keeps')),
+      );
+      // One opened here and not yet written is held too.
+      const names = new Set(stored);
+      for (const [name, here] of openers) if (here.size > 0) names.add(name);
+      // One that cannot go does not keep the rest: each is tried, and the
+      // first failure is answered once all have been.
+      const exits = yield* Effect.forEach(
+        [...names].filter((name) => !kept.has(name)),
+        (name) => Effect.exit(Effect.as(destroy(name), name)),
+      );
+      const failure = exits.find(Exit.isFailure);
+      if (failure !== undefined) return yield* Effect.failCause(failure.cause);
+      return exits.flatMap((exit) =>
+        Exit.isSuccess(exit) ? [exit.value] : [],
+      );
+    });
+
   const store: StoreShape = {
     open,
     list,
@@ -304,26 +369,8 @@ export const makeStore = (
           key[0] as Parameters<typeof replica.instanceName>[0],
         ),
       ),
+    prune,
   };
 
-  // 3. Retire
-  const retired = new Set(
-    (options.retired ?? []).map((each) =>
-      typeof each === 'string' ? each : each.name,
-    ),
-  );
-  const retire = Effect.gen(function* () {
-    if (retired.size === 0) return;
-    for (const name of yield* adapter.names)
-      if (retired.has(partsOf(name).replica)) yield* adapter.destroy(name);
-  }).pipe(
-    Effect.catch((error) =>
-      Effect.logWarning(
-        '[@kestack/std-toolkit/replica] could not delete the retired Replicas',
-        error,
-      ),
-    ),
-  );
-
-  return Layer.effect(Store, Effect.as(retire, store));
+  return Layer.succeed(Store, store);
 };

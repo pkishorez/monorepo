@@ -1,5 +1,9 @@
 export { browser as recorder } from './recorder/index.ts';
 export {
+  idb as accountReplicasIdb,
+  memory as accountReplicasMemory,
+} from './account-replicas.ts';
+export {
   idb as deviceStateIdb,
   memory as deviceStateMemory,
 } from './device-state/index.ts';

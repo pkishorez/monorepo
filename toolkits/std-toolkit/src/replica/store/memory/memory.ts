@@ -6,7 +6,6 @@ import {
   type Doorbell,
   type Leader,
   type SpaceTable,
-  type StoreOptions,
 } from '../contract/index.js';
 
 /*
@@ -57,25 +56,22 @@ const inProcessDoorbell = (): Doorbell => {
 };
 
 /** A Store in memory, shared by every app given this Layer. */
-const memory = (options: StoreOptions = {}) => {
+const memory = () => {
   const spaces = new Map<string, SpaceTable>();
-  return makeStore(
-    {
-      table: (name) => {
-        let table = spaces.get(name);
-        if (table === undefined) {
-          table = Memory.make(spaceTable).layer;
-          spaces.set(name, table);
-        }
-        return table;
-      },
-      names: Effect.sync(() => [...spaces.keys()]),
-      destroy: (name) => Effect.sync(() => spaces.delete(name)),
-      leader: inProcessLeader(),
-      doorbell: inProcessDoorbell(),
+  return makeStore({
+    table: (name) => {
+      let table = spaces.get(name);
+      if (table === undefined) {
+        table = Memory.make(spaceTable).layer;
+        spaces.set(name, table);
+      }
+      return table;
     },
-    options,
-  );
+    names: Effect.sync(() => [...spaces.keys()]),
+    destroy: (name) => Effect.sync(() => spaces.delete(name)),
+    leader: inProcessLeader(),
+    doorbell: inProcessDoorbell(),
+  });
 };
 
 export const Store = { memory };

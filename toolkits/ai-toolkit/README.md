@@ -96,7 +96,6 @@ pnpm add @kestack/ai-toolkit effect @kestack/rpc-toolkit @kestack/std-toolkit @k
 | `connection`           | Stream of the connection status of the `AiClient` in context: `connecting`, `connected` or `reconnecting`.                                        |
 | `Ai`                   | The Replica of each Machine's records, keyed by Machine id: `projects`, `sessions` and `messages`.                                                |
 | `AiLive`               | How `Ai` syncs: every Project and Session, and a Session's Messages while a Query filters on its id, each Instance over its own Machine's socket. |
-| `retired`              | Names of Replicas no longer read, for `Store.idb({ retired })` to delete.                                                                         |
 
 ### `@kestack/ai-toolkit/machines`
 
@@ -259,7 +258,6 @@ import {
   AiClients,
   AiLive,
   MachineAddress,
-  retired,
 } from '@kestack/ai-toolkit/client';
 import { Query, Replicas } from '@kestack/std-toolkit/replica';
 import { Store } from '@kestack/std-toolkit/replica/idb';
@@ -272,7 +270,7 @@ const layer = Layer.mergeAll(
       }),
     ),
   ),
-  Layer.unwrap(Effect.sync(() => Store.idb({ retired }))),
+  Layer.unwrap(Effect.sync(() => Store.idb())),
 );
 
 const ReplicasLive = Replicas.child([AiLive]);
@@ -294,4 +292,4 @@ export const Messages = Query.make('Messages', {
 - Each feed reopens after a reconnect from the newest entity it passed on, so nothing is missed or sent twice.
 - `Ai.get(machineId)` is the Instance of one Machine, with its own IndexedDB database. It syncs over that Machine's own socket, which `AiClients` opens at the address `MachineAddress` gives, so any number of Machines' Instances can be held at once ([ADR 0018](docs/adr/0018-an-app-is-on-every-machine-at-once.md)).
 - `AiClients.on(machineId, AiClient.use((api) => api.harnessBinaries()))` makes any other call to one Machine over the same socket.
-- The Replica's name carries the projection's version; `retired` lets the IndexedDB Store delete older ones, and the unkeyed ones from before Machines.
+- The Replica's name carries the projection's version. Pruning the Store to the Machines listed, `store.prune([[Ai, machineIds]])`, deletes older versions and Machines gone alike.

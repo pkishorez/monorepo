@@ -14,9 +14,12 @@ import type { Machine as MachineSchema } from '@kestack/ai-toolkit/machines';
 import { MachinesClient } from '@kestack/ai-toolkit/machines/client';
 import { Actor, type Instance, Runtime, type Running } from '@kestack/kabuki';
 import { connection as RpcConnection } from '@kestack/rpc-toolkit/rpc/websocket';
-import { Store } from '@kestack/std-toolkit/replica';
 import { describe, expect, it } from 'vitest';
-import { Machines, SavedMachines } from '../../../layer/capabilities/index.ts';
+import {
+  AccountReplicas,
+  Machines,
+  SavedMachines,
+} from '../../../layer/capabilities/index.ts';
 import {
   machines,
   savedMachinesMemory,
@@ -24,10 +27,10 @@ import {
 import { MachineListLive, RECHECK } from './actor.ts';
 
 /*
- * The Machine List with the Backend and the Store stood in for: what was
- * saved shows first and the Backend's answer replaces it and is kept;
- * Forget asks the Backend, takes the Machine out of the list and then
- * deletes its records; `Machines` says all of it to the pages, waiting for
+ * The Machine List with the Backend and the records stood in for: what
+ * was saved shows first and the Backend's answer replaces it and is kept,
+ * with only the records of the Machines on it; Forget asks the Backend,
+ * takes the Machine out of the list and then deletes its records alone; `Machines` says all of it to the pages, waiting for
  * a Machine with an address; and while a Machine's line is not up the
  * Backend is asked again, every few seconds, until every line is.
  */
@@ -65,11 +68,13 @@ type Api = AiClient['Service'];
 
 /** A test's stand-ins, and what they were asked; every line is up unless `down` says otherwise. */
 const world = (
-  listed: Effect.Effect<ReadonlyArray<Machine>>,
+  listed: Effect.Effect<ReadonlyArray<Machine>, Error>,
   down: SubscriptionRef.SubscriptionRef<ReadonlySet<string>> | null = null,
 ) => {
   const forgotten: Array<string> = [];
-  const removed: Array<string> = [];
+  const kept: Array<{ accountId: string; machineIds: ReadonlyArray<string> }> =
+    [];
+  const dropped: Array<string> = [];
   let lists = 0;
   const line = (machineId: string) =>
     down === null
@@ -108,12 +113,15 @@ const world = (
       Forget: ({ id }: { readonly id: string }) =>
         Effect.sync(() => void forgotten.push(id)),
     } as never),
-    Layer.mock(Store)({
-      remove: (_: unknown, key: string) =>
-        Effect.sync(() => void removed.push(key)),
-    } as never),
+    Layer.succeed(AccountReplicas, {
+      keepMachines: (accountId, machineIds) =>
+        Effect.sync(() => void kept.push({ accountId, machineIds })),
+      keepAccounts: () => Effect.void,
+      dropMachine: (_, machineId) =>
+        Effect.sync(() => void dropped.push(machineId)),
+    }),
   );
-  return { layer, forgotten, removed, lists: () => lists };
+  return { layer, forgotten, kept, dropped, lists: () => lists };
 };
 
 const wait = (ms = 20) =>
@@ -162,7 +170,7 @@ describe('Machine List', () => {
     const answer = await Effect.runPromise(
       Deferred.make<ReadonlyArray<Machine>>(),
     );
-    const { layer } = world(Deferred.await(answer));
+    const { layer, kept } = world(Deferred.await(answer));
     await run(
       Effect.gen(function* () {
         const saved = yield* SavedMachines;
@@ -171,6 +179,8 @@ describe('Machine List', () => {
         yield* wait();
         expect(listModel(app).machines?.map(({ id }) => id)).toEqual(['m1']);
         expect(listModel(app).fetchedAt).toBeNull();
+        // The saved list may be stale: nothing is deleted for it.
+        expect(kept).toEqual([]);
         yield* Deferred.succeed(answer, [machine('m2', 2), machine('m3', 3)]);
         yield* wait();
         expect(listModel(app).machines?.map(({ id }) => id)).toEqual([
@@ -178,12 +188,44 @@ describe('Machine List', () => {
           'm3',
         ]);
         expect(yield* saved.read('a1')).toHaveLength(2);
+        expect(kept).toEqual([{ accountId: 'a1', machineIds: ['m2', 'm3'] }]);
+      }),
+    );
+  });
+
+  it('deletes nothing for a later list, which another tab may have outrun', async () => {
+    let listed: ReadonlyArray<Machine> = [machine('m1', 1), machine('m2', 2)];
+    const { layer, kept } = world(Effect.sync(() => listed));
+    await run(
+      Effect.gen(function* () {
+        const app = yield* start(OwnerLive, layer);
+        yield* wait();
+        expect(kept).toEqual([{ accountId: 'a1', machineIds: ['m1', 'm2'] }]);
+        listed = [machine('m1', 1)];
+        app.send(list(app).id, { _tag: 'ReloadAsked' });
+        yield* wait();
+        expect(listModel(app).machines?.map(({ id }) => id)).toEqual(['m1']);
+        expect(kept).toHaveLength(1);
+      }),
+    );
+  });
+
+  it('keeps nothing less when the Backend cannot be asked', async () => {
+    const { layer, kept } = world(Effect.fail(new Error('offline')));
+    await run(
+      Effect.gen(function* () {
+        const saved = yield* SavedMachines;
+        yield* saved.write('a1', [machine('m1', 1)]);
+        const app = yield* start(OwnerLive, layer);
+        yield* wait();
+        expect(listModel(app).machines?.map(({ id }) => id)).toEqual(['m1']);
+        expect(kept).toEqual([]);
       }),
     );
   });
 
   it('forgets a Machine at the Backend, takes it out of the list, then deletes its records here', async () => {
-    const { layer, forgotten, removed } = world(
+    const { layer, forgotten, kept, dropped } = world(
       Effect.succeed([machine('m1', 5), machine('m2', 1)]),
     );
     await run(
@@ -193,7 +235,9 @@ describe('Machine List', () => {
         app.send(list(app).id, { _tag: 'ForgetAsked', id: 'm1' });
         yield* wait();
         expect(forgotten).toEqual(['m1']);
-        expect(removed).toEqual(['m1']);
+        // Its records alone: another tab may list a Machine not heard of here.
+        expect(dropped).toEqual(['m1']);
+        expect(kept).toHaveLength(1);
         expect(listModel(app).machines?.map(({ id }) => id)).toEqual(['m2']);
       }),
     );

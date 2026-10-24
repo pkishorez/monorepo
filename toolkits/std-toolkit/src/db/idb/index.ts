@@ -6,6 +6,7 @@ export {
   type IDBTable,
   type IDBTableSource,
 } from './idb.js';
+export type { IDBPruneOptions } from './prune/index.js';
 export {
   SetupRefused,
   type BackfillChoice,

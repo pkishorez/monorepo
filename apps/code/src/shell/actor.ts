@@ -8,6 +8,7 @@ import {
   CurrentAccount,
 } from '@kestack/web-platform/recipes/account-switcher';
 import {
+  AccountReplicas,
   Ask,
   DeviceState,
   Dictations,
@@ -30,7 +31,7 @@ import { ProjectPicker } from './actors/project-picker/index.ts';
 import { SessionActions } from './actors/session-actions/index.ts';
 import { SessionSwitcher } from './actors/session-switcher/index.ts';
 import { Sidebar } from './actors/sidebar/index.ts';
-import { askDictation, setVim, signedOut, signIn } from './commands.ts';
+import { askDictation, keepAccounts, setVim, signIn } from './commands.ts';
 import { Home } from './pages/home/index.ts';
 import { Project } from './pages/project/index.ts';
 import { Settings } from './pages/settings/index.ts';
@@ -48,9 +49,9 @@ import { reach } from './services/index.ts';
  *              of Device State. Vim Mode turned on or off shows at once,
  *              and is kept.
  * 2. Accounts  who is signed in, from auth-toolkit's `Accounts`, and the
- *              Account Switcher. Signed out, only signing in is drawn. An
- *              Account signed out of this device takes the records of its
- *              Machines with it.
+ *              Account Switcher. Signed out, only signing in is drawn. Once
+ *              Accounts are signed in, and each time one is signed out of
+ *              this device, only their records are kept.
  * 3. Reach     every listed Machine's Replicas and socket, Provided to
  *              everything below; the Machine List of the Account signed in
  *              says which Machines those are, through `Machines`.
@@ -111,6 +112,7 @@ export const Shell = Page.define({
     Accounts,
     Store,
     SavedMachines,
+    AccountReplicas,
     Machines,
     Dictations,
   ],
@@ -293,6 +295,12 @@ export const ShellLive = Page.build(Shell, {
   on: {
     Signed: ({ account }, { model }) => {
       const gone = goneFrom(model.account, account);
+      // Signed in at last, or one fewer: only their records are kept. A
+      // state signed out deletes nothing, since Accounts may still be
+      // kept on this device with none active; the next one signed in does.
+      const keep =
+        account._tag === 'SignedIn' &&
+        (model.account._tag !== 'SignedIn' || gone.length > 0);
       // Another Account, or none: home, in place of the page, so nothing of
       // the last Account's stays on screen and Back does not return to it.
       const switched =
@@ -302,7 +310,9 @@ export const ShellLive = Page.build(Shell, {
       return {
         model: { ...model, account, back: switched ? null : model.back },
         command: [
-          ...(gone.length > 0 ? [signedOut({ accountIds: gone })] : []),
+          ...(keep
+            ? [keepAccounts({ accountIds: account.accounts, signedOut: gone })]
+            : []),
           ...(switched ? [Router.replace(home())] : []),
         ],
       };
