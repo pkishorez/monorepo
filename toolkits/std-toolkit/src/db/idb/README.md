@@ -14,12 +14,13 @@ See the [top README](../../../README.md).
 
 ### `@kestack/std-toolkit/db/idb`
 
-| Export         | What it does                                                                              |
-| -------------- | ----------------------------------------------------------------------------------------- |
-| `IDB.make`     | Realizes a StdTable on a database connection; returns `storeName` and `layer`.            |
-| `IDB.setup`    | Prepares the store under its Stored contract now instead of on first open.                |
-| `IDB.database` | Returns a reusable connection to a named IndexedDB database, cached per name and factory. |
-| `SetupRefused` | Error raised when preparing a persistent store is refused; nothing is changed.            |
+| Export         | What it does                                                                                       |
+| -------------- | -------------------------------------------------------------------------------------------------- |
+| `IDB.make`     | Realizes a StdTable on a database connection; returns `storeName` and `layer`.                     |
+| `IDB.setup`    | Prepares the store under its Stored contract now instead of on first open.                         |
+| `IDB.database` | Returns a reusable connection to a named IndexedDB database, cached per name and factory.          |
+| `IDB.prune`    | Deletes every database under a prefix whose next `:` segment is not kept, and answers their names. |
+| `SetupRefused` | Error raised when preparing a persistent store is refused; nothing is changed.                     |
 
 ## Usage
 
@@ -48,3 +49,4 @@ const program = saveAndRead.pipe(Effect.provide(idb.layer));
 - Pass `indexedDB` in the database config to use a different factory, such as `fake-indexeddb` in tests.
 - `storeName` defaults to the table's logical name; `_std_contract` is reserved.
 - The Sync and Replica IndexedDB stores use `mode: 'disposable'`, since the Backend holds the data.
+- `IDB.prune({ prefix: 'replica:', keep: accountIds })` deletes what an app no longer keeps under a prefix it owns, by saying what it keeps; it never touches a name outside the prefix, and refuses an empty one.

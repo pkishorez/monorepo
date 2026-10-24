@@ -5,7 +5,6 @@ export {
   AiLive,
   connection,
   MachineAddress,
-  retired,
   type Address,
   type AiBuild,
   type ConnectionStatus,

@@ -15,3 +15,4 @@ export {
 } from './machines.ts';
 export { SavedMachines } from './saved-machines.ts';
 export { Ask, Dictations } from './dictations.ts';
+export { AccountReplicas } from './account-replicas.ts';

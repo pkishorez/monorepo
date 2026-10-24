@@ -171,7 +171,7 @@ describe('Store', () => {
       }),
     ));
 
-  it('deletes the Instances of retired Replicas as it starts', () =>
+  it('prunes every Instance it is not told to keep', () =>
     run(
       Effect.gen(function* () {
         const backend = makeBackend();
@@ -181,20 +181,71 @@ describe('Store', () => {
           name: 'Old',
           balance: 1,
         });
-        const first = Idb.idb();
-        yield* seed(first, 'ledger·x', 'wallets', [{ id: 'w1', entity }]);
-        yield* seed(first, 'pocket·x', 'wallets', [{ id: 'w1', entity }]);
-        expect(yield* list(first)).toEqual(
-          expect.arrayContaining([
-            { replica: 'ledger', key: 'x' },
-            { replica: 'pocket', key: 'x' },
-          ]),
+        const store = Idb.idb({ prefix: 'replica:prune:' });
+        for (const name of ['ledger·x', 'pocket·x', 'pocket·y'])
+          yield* seed(store, name, 'wallets', [{ id: 'w1', entity }]);
+
+        const pruned = yield* Effect.flatMap(Store, (kept) =>
+          kept.prune([[Pocket, ['x']]]),
+        ).pipe(Effect.provide(store));
+
+        expect([...pruned].sort()).toEqual(['ledger·x', 'pocket·y']);
+        expect(yield* list(store)).toEqual([{ replica: 'pocket', key: 'x' }]);
+      }),
+    ));
+
+  it('stops an Instance it prunes before deleting it', () =>
+    run(
+      Effect.gen(function* () {
+        const store = Memory.memory();
+        const world = makeWorld();
+        world.backend.put(Wallet, {
+          id: 'w1',
+          account: 'a',
+          name: 'Cash',
+          balance: 100,
+        });
+        const app = yield* start(world, store);
+        const seen = read(app);
+        yield* eventually(() =>
+          expect(balances(seen.mine())).toEqual({ w1: 100 }),
         );
 
-        const next = Idb.idb({ retired: ['ledger'] });
-        const kept = yield* list(next);
-        expect(kept).toContainEqual({ replica: 'pocket', key: 'x' });
-        expect(kept).not.toContainEqual({ replica: 'ledger', key: 'x' });
+        const pruned = yield* Effect.flatMap(Store, (kept) =>
+          kept.prune([[Pocket, ['b']]]),
+        ).pipe(Effect.provide(store));
+        expect(pruned).toEqual(['pocket·a']);
+        expect(seen.instance('a')).toBeUndefined();
+        yield* eventually(() =>
+          expect(seen.mine()).toMatchObject({
+            status: 'failed',
+            problem: 'Instance pocket·a stopped',
+          }),
+        );
+      }),
+    ));
+
+  it('keeps each prefix to itself', () =>
+    run(
+      Effect.gen(function* () {
+        const backend = makeBackend();
+        const entity = backend.put(Wallet, {
+          id: 'w1',
+          account: 'x',
+          name: 'Cash',
+          balance: 1,
+        });
+        const one = Idb.idb({ prefix: 'replica:one:' });
+        const two = Idb.idb({ prefix: 'replica:two:' });
+        yield* seed(one, 'pocket·x', 'wallets', [{ id: 'w1', entity }]);
+        yield* seed(two, 'pocket·y', 'wallets', [{ id: 'w1', entity }]);
+
+        yield* Effect.flatMap(Store, (kept) => kept.prune([])).pipe(
+          Effect.provide(one),
+        );
+
+        expect(yield* list(one)).toEqual([]);
+        expect(yield* list(two)).toEqual([{ replica: 'pocket', key: 'y' }]);
       }),
     ));
 

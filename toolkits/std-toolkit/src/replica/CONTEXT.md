@@ -75,8 +75,17 @@ _Avoid_: Guard, Condition.
 
 **Store**:
 Where Instances are kept on this device (IndexedDB, SQLite, memory): the only
-truth there. It lists and deletes Instances, and keeps tabs in agreement.
+truth there. It lists and deletes Instances, and keeps tabs in agreement. An
+app may keep one Store per Account, each holding only that Account's
+Instances.
 _Avoid_: Sync Store, cache, persistence.
+
+**Prune**:
+A Store told the whole list of what it keeps, Replicas and the Keys of each,
+deleting every other Instance it holds. What it keeps is declared, never what
+it drops, so a Replica renamed or a Key gone is deleted without anyone
+naming it.
+_Avoid_: retire, garbage-collect, cleanup, sweep.
 
 **Leader**:
 The one participant that runs an Instance's Strategies, those of the Windows
