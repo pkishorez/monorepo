@@ -22,6 +22,11 @@ import { reload, setSidebarMachine } from './commands.ts';
  * 4. Open      a Session the keyboard steps to.
  * 5. Unsettle  a Session from the Settled List, one at a time, on its own
  *              Machine; a refusal says why.
+ * 6. Move      a Session swiped to Settle or un-Settle it, or its Undo:
+ *              shown where it goes at once, and asked of its Machine one
+ *              after another, in the order swiped, so an Undo lands after
+ *              what it undoes. Kept until the Session as synced agrees
+ *              (`MoveSeen`); a refusal puts it back and says why.
  */
 
 const Listed = Schema.Struct({ id: Schema.String, name: Schema.String });
@@ -30,6 +35,15 @@ const Unsettling = Schema.Struct({
   machineId: Schema.String,
   sessionId: Schema.String,
   problem: Schema.NullOr(Schema.String),
+});
+
+const Move = Schema.Struct({
+  /** Its place in the order swiped. */
+  n: Schema.Finite,
+  machineId: Schema.String,
+  sessionId: Schema.String,
+  settled: Schema.Boolean,
+  done: Schema.Boolean,
 });
 
 const Model = Schema.Struct({
@@ -46,8 +60,23 @@ const Model = Schema.Struct({
   ),
   /** The Session being Un-settled, and why its Machine refused, if it did. */
   unsettling: Schema.NullOr(Unsettling),
+  /** The Sessions swiped, in the order swiped, until the synced rows agree. */
+  moving: Schema.Array(Move),
+  /** How many Moves were ever asked: the next one's `n`. */
+  moves: Schema.Finite,
+  /** The last Move refused, numbered so each is said once. */
+  refused: Schema.NullOr(
+    Schema.Struct({
+      n: Schema.Finite,
+      settled: Schema.Boolean,
+      reason: Schema.String,
+    }),
+  ),
 });
 type Model = typeof Model.Type;
+
+/** A Session swiped, where it goes, and whether its Machine has done it. */
+type Move = typeof Move.Type;
 
 const Sidebar = Actor.define('Sidebar', {
   requires: [Machines, DeviceState, AiClients, Navigation],
@@ -71,6 +100,23 @@ const Sidebar = Actor.define('Sidebar', {
     UnsettleAsked: { machineId: Schema.String, sessionId: Schema.String },
     Unsettled: { sessionId: Schema.String },
     UnsettleRefused: { sessionId: Schema.String, reason: Schema.String },
+    MoveAsked: {
+      machineId: Schema.String,
+      sessionId: Schema.String,
+      settled: Schema.Boolean,
+    },
+    Moved: {
+      machineId: Schema.String,
+      sessionId: Schema.String,
+      settled: Schema.Boolean,
+    },
+    MoveRefused: {
+      machineId: Schema.String,
+      sessionId: Schema.String,
+      settled: Schema.Boolean,
+      reason: Schema.String,
+    },
+    MoveSeen: { machineId: Schema.String, sessionId: Schema.String },
   }),
 });
 
@@ -88,6 +134,18 @@ const readOf = (model: Model) => {
 
 const sameListed = Schema.toEquivalence(Model.fields.machines);
 
+const sameSession =
+  (machineId: string, sessionId: string) =>
+  (move: { readonly machineId: string; readonly sessionId: string }) =>
+    move.machineId === machineId && move.sessionId === sessionId;
+
+/** The Moves with the one for this Session left out. */
+const without = (
+  moving: ReadonlyArray<Move>,
+  machineId: string,
+  sessionId: string,
+) => moving.filter((move) => !sameSession(machineId, sessionId)(move));
+
 export const SidebarLive = Actor.build(Sidebar, {
   init: () => ({
     model: {
@@ -96,6 +154,9 @@ export const SidebarLive = Actor.build(Sidebar, {
       chosen: null,
       unseen: {},
       unsettling: null,
+      moving: [],
+      moves: 0,
+      refused: null,
     },
   }),
   children: {
@@ -111,6 +172,47 @@ export const SidebarLive = Actor.build(Sidebar, {
     },
   },
   workers: {
+    // 6. Move: the first not yet done, then the next, till none are left.
+    move: {
+      while: ({ model }) => model.moving.some(({ done }) => !done),
+      run: (self) => {
+        // The last asked of a Machine here, as the model may not show it done yet.
+        let last = -1;
+        return Effect.forever(
+          Effect.gen(function* () {
+            const next = (yield* self.get).model.moving.find(
+              ({ n, done }) => !done && n > last,
+            );
+            // Nothing new: look again shortly, till every Move is done.
+            if (next === undefined) return yield* Effect.sleep('50 millis');
+            last = next.n;
+            const { machineId, sessionId, settled } = next;
+            const ended = yield* orRefused(
+              AiClients.on(
+                machineId,
+                AiClient.use((api) =>
+                  settled
+                    ? api.settleSession({ sessionId })
+                    : api.unsettleSession({ sessionId }),
+                ),
+              ),
+              () => ({ _tag: 'Moved' as const }),
+            );
+            yield* self.send(
+              ended._tag === 'Refused'
+                ? {
+                    _tag: 'MoveRefused',
+                    machineId,
+                    sessionId,
+                    settled,
+                    reason: ended.reason,
+                  }
+                : { _tag: 'Moved', machineId, sessionId, settled },
+            );
+          }),
+        );
+      },
+    },
     // 1. Machines: only their ids and names, so a line or a Heartbeat
     // changes nothing here.
     known: {
@@ -174,6 +276,49 @@ export const SidebarLive = Actor.build(Sidebar, {
     },
   },
   on: {
+    // 6. Move: where it goes now, after any Move not yet done.
+    MoveAsked: ({ machineId, sessionId, settled }, { model }) => ({
+      model: {
+        ...model,
+        moving: [
+          ...without(model.moving, machineId, sessionId),
+          { n: model.moves, machineId, sessionId, settled, done: false },
+        ],
+        moves: model.moves + 1,
+      },
+    }),
+    // Done, unless an Undo has since asked the other way.
+    Moved: ({ machineId, sessionId, settled }, { model }) => ({
+      model: {
+        ...model,
+        moving: model.moving.map((move) =>
+          sameSession(machineId, sessionId)(move) && move.settled === settled
+            ? { ...move, done: true }
+            : move,
+        ),
+      },
+    }),
+    MoveRefused: ({ machineId, sessionId, settled, reason }, { model }) =>
+      model.moving.some(
+        (move) =>
+          sameSession(machineId, sessionId)(move) && move.settled === settled,
+      )
+        ? {
+            model: {
+              ...model,
+              moving: without(model.moving, machineId, sessionId),
+              refused: { n: (model.refused?.n ?? 0) + 1, settled, reason },
+            },
+          }
+        : {},
+    MoveSeen: ({ machineId, sessionId }, { model }) => ({
+      model: {
+        ...model,
+        moving: model.moving.filter(
+          (move) => !(sameSession(machineId, sessionId)(move) && move.done),
+        ),
+      },
+    }),
     MachinesKnown: ({ machines, problem }, { model }) => ({
       model: { ...model, machines, problem },
     }),
