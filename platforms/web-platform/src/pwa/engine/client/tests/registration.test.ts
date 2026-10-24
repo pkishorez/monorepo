@@ -1,11 +1,11 @@
 import * as Effect from 'effect/Effect';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { config, run, statusTag } from '../../../../test/pwa/client-run.js';
+import { config, run, statusTag } from '../../../../../test/pwa/client-run.js';
 import {
   FakeBrowser,
   FakeRegistration,
   FakeWorker,
-} from '../../../../test/pwa/fake-browser.js';
+} from '../../../../../test/pwa/fake-browser.js';
 import { clearRuntimeCache } from '../index.js';
 
 let browser: FakeBrowser;

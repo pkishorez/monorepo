@@ -1,7 +1,7 @@
 import { View } from '@kestack/kabuki/react';
-import { Button } from '@kestack/web-platform/components/button';
-import { CircleCheckIcon } from '@kestack/web-platform/components/lucide';
-import { Spinner } from '@kestack/web-platform/components/spinner';
+import { Button } from '@kestack/web-platform/ui/components/button';
+import { CircleCheckIcon } from '@kestack/web-platform/ui/components/lucide';
+import { Spinner } from '@kestack/web-platform/ui/components/spinner';
 import { CheckoutLive } from './checkout.ts';
 import { CartStep, PaymentStep, ReviewStep, ShippingStep } from './steps.tsx';
 

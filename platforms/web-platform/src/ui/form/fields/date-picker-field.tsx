@@ -3,19 +3,15 @@
 import * as React from 'react';
 
 import { cn } from '#lib/utils';
-import { Button } from '#components/ui/button';
-import { Calendar } from '#components/ui/calendar';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '#components/ui/popover';
+import { Button } from '#components/button';
+import { Calendar } from '#components/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '#components/popover';
 import {
   Field,
   FieldLabel,
   FieldDescription,
   FieldError,
-} from '#components/ui/field';
+} from '#components/field';
 import { CalendarIcon } from 'lucide-react';
 import { useFieldContext } from '../context.js';
 import { getFieldMeta, toFieldErrors, type BaseFieldProps } from '../types.js';

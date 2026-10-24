@@ -1,4 +1,4 @@
-import { cn } from '@kestack/web-platform/components/utils';
+import { cn } from '@kestack/web-platform/ui/components/utils';
 
 import type { OtelStatus } from '../trace-model';
 import {

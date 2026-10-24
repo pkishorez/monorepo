@@ -1,5 +1,5 @@
 import { View } from '@kestack/kabuki/react';
-import { Spinner } from '@kestack/web-platform/components/spinner';
+import { Spinner } from '@kestack/web-platform/ui/components/spinner';
 import { Pages } from '../../../shared/pages/index.ts';
 import { PageIntro } from '../../components/index.ts';
 import { AccountsList } from './accounts/index.ts';

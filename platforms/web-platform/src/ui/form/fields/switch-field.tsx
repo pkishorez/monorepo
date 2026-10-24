@@ -3,9 +3,9 @@
 import * as React from 'react';
 
 import { cn } from '#lib/utils';
-import { Switch } from '#components/ui/switch';
-import { Field, FieldDescription, FieldError } from '#components/ui/field';
-import { Label } from '#components/ui/label';
+import { Switch } from '#components/switch';
+import { Field, FieldDescription, FieldError } from '#components/field';
+import { Label } from '#components/label';
 import { useFieldContext } from '../context.js';
 import { getFieldMeta, toFieldErrors, type BaseFieldProps } from '../types.js';
 

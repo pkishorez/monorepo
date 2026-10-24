@@ -5,7 +5,7 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from '#components/ui/card';
+} from '#components/card';
 import {
   Sheet,
   SheetContent,
@@ -13,7 +13,7 @@ import {
   SheetFooter,
   SheetHeader,
   SheetTitle,
-} from '#components/ui/sheet';
+} from '#components/sheet';
 import { type ReactNode, useId } from 'react';
 import { InstallActions, IosSteps } from './install-content.js';
 import { useInstall } from './install.js';

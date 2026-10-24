@@ -1,5 +1,5 @@
-import { play } from '@kestack/web-platform/feedback';
-import { GestureProvider, GestureZone } from '@kestack/web-platform/input';
+import { play } from '@kestack/web-platform/ui/input';
+import { GestureProvider, GestureZone } from '@kestack/web-platform/ui/input';
 import {
   type Choice,
   ThumbPicker,
@@ -72,7 +72,7 @@ export default Proof.browser({
     'Pushing left at the top list leads nowhere: the Tree Walk tells a Wrong Way once and the menu shakes; it counts on from where the finger turned, so two Steps down reach Reports.',
   page: (root) => {
     const app = createRoot(root);
-    void import('@kestack/web-platform/theme/global.css').then(() =>
+    void import('@kestack/web-platform/ui/theme/global.css').then(() =>
       app.render(
         <GestureProvider>
           <GestureZone className="h-dvh bg-background p-4 text-foreground">

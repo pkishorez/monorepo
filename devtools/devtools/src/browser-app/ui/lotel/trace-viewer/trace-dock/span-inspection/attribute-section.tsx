@@ -2,9 +2,9 @@ import { useMemo, useState } from 'react';
 
 import { ChevronRightIcon } from 'lucide-react';
 
-import { cn } from '@kestack/web-platform/components/utils';
+import { cn } from '@kestack/web-platform/ui/components/utils';
 
-import { JsonTree } from '@kestack/web-platform/components/viewers/json';
+import { JsonTree } from '@kestack/web-platform/ui/viewers/json';
 
 /**
  * Attribute keys carrying these prefixes describe the emitting

@@ -6,14 +6,14 @@ import {
   AttachmentDescription,
   AttachmentMedia,
   AttachmentTitle,
-} from '@kestack/web-platform/components/attachment';
+} from '@kestack/web-platform/ui/components/attachment';
 import {
   FileAudioIcon,
   FileIcon,
   FileTextIcon,
   FileVideoCameraIcon,
   XIcon,
-} from '@kestack/web-platform/components/lucide';
+} from '@kestack/web-platform/ui/components/lucide';
 import { formatSize, type Attachment } from './read.ts';
 
 /* One attached file: a thumbnail for an image, else an icon for its kind,

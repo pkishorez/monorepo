@@ -15,7 +15,7 @@ import {
   ContextMenuRadioGroup,
   ContextMenuRadioItem,
   ContextMenuTrigger,
-} from '#components/ui/context-menu';
+} from '#components/context-menu';
 import { useIsMobile } from '#hooks/use-mobile';
 import { cn } from '#lib/utils';
 

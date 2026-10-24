@@ -7,7 +7,7 @@ import {
 } from "@shadcn/react/message-scroller"
 import { cn } from "cn"
 
-import { Button } from "#components/ui/button"
+import { Button } from "#components/button"
 import { ArrowDownIcon } from "lucide-react"
 
 function MessageScrollerProvider(

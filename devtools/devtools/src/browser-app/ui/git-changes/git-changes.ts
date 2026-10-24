@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Effect } from 'effect';
 import type { FileDiff } from 'laymos';
 import { useQuery } from '@tanstack/react-query';
-import { toast } from '@kestack/web-platform/components/sonner';
+import { toast } from '@kestack/web-platform/ui/components/sonner';
 
 import {
   DevtoolsClient,

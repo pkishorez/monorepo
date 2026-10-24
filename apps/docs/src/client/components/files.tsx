@@ -5,7 +5,7 @@ import {
   CopyIcon,
   FileCodeIcon,
   FolderOpenIcon,
-} from '@kestack/web-platform/components/lucide';
+} from '@kestack/web-platform/ui/components/lucide';
 
 /*
  * The code behind a demo: its files as a tree on the left, the one picked

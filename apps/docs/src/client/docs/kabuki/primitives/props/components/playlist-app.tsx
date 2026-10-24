@@ -1,13 +1,13 @@
 import { Layer } from 'effect';
 import { View, toReact } from '@kestack/kabuki/react';
-import { Button } from '@kestack/web-platform/components/button';
+import { Button } from '@kestack/web-platform/ui/components/button';
 import {
   HeartIcon,
   PlayIcon,
   SkipBackIcon,
   SkipForwardIcon,
   SquareIcon,
-} from '@kestack/web-platform/components/lucide';
+} from '@kestack/web-platform/ui/components/lucide';
 import { PlaylistLive, SongLive } from './playlist.ts';
 
 /** Three bars that pulse while a song plays. */

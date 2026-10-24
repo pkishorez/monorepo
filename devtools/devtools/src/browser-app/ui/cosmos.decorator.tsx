@@ -1,4 +1,4 @@
-import { createTheme } from '@kestack/web-platform/theme';
+import { createTheme } from '@kestack/web-platform/ui/theme';
 import type { ReactNode } from 'react';
 import './cosmos.css';
 

@@ -1,6 +1,6 @@
 import { Effect, Schema, Stream } from 'effect';
 import { Page } from '@kestack/kabuki/routing';
-import { CurrentAccount } from '@kestack/web-platform/account-switcher';
+import { CurrentAccount } from '@kestack/web-platform/recipes/account-switcher';
 import { about } from '../metadata/index.ts';
 import { Caller, follow, show, shown, signedIn } from './accounts/index.ts';
 import { PocketLive } from './pocket/index.ts';

@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react';
 import { MotionConfig } from 'motion/react';
 import { Router } from '@kestack/kabuki/routing';
-import { buttonVariants } from '@kestack/web-platform/components/button';
-import { ArrowRightIcon } from '@kestack/web-platform/components/lucide';
+import { buttonVariants } from '@kestack/web-platform/ui/components/button';
+import { ArrowRightIcon } from '@kestack/web-platform/ui/components/lucide';
 import { router, toolkitOf } from '../../../../shared/index.ts';
 import { column } from '../../../components/index.ts';
 import { Hero } from './hero/hero.tsx';

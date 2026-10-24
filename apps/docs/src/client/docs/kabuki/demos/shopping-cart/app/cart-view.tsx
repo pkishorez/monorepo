@@ -1,11 +1,11 @@
 import { View } from '@kestack/kabuki/react';
-import { Button } from '@kestack/web-platform/components/button';
+import { Button } from '@kestack/web-platform/ui/components/button';
 import {
   MinusIcon,
   PlusIcon,
   ShoppingCartIcon,
   Trash2Icon,
-} from '@kestack/web-platform/components/lucide';
+} from '@kestack/web-platform/ui/components/lucide';
 import { CartLive } from './cart.ts';
 import { PRODUCTS, countOf, formatPrice, totalOf } from './products.ts';
 

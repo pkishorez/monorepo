@@ -4,7 +4,7 @@ import { revealInView } from '@kestack/use-keys/surfaces';
 import {
   GitForkIcon,
   SettingsIcon,
-} from '@kestack/web-platform/components/lucide';
+} from '@kestack/web-platform/ui/components/lucide';
 import {
   SidebarGroup,
   useAppShell,
@@ -14,7 +14,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@kestack/web-platform/recipes/frame';
-import { Skeleton } from '@kestack/web-platform/components/skeleton';
+import { Skeleton } from '@kestack/web-platform/ui/components/skeleton';
 import {
   type ReactNode,
   useEffect,

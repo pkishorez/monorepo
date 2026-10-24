@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { Branch, ChangeStatus } from 'laymos';
 
 import { ChevronDown, GitBranch, Search } from '#lib/lucide';
-import { Input } from '#components/ui/input';
+import { Input } from '#components/input';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -13,7 +13,7 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '#components/ui/dropdown-menu';
+} from '#components/dropdown-menu';
 import { cn } from '#lib/utils';
 
 export interface GitOptions {

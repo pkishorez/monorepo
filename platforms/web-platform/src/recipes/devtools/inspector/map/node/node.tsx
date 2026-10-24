@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Box, Boxes, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
-import { cn } from '../../../../components/lib/utils.ts';
+import { cn } from '../../../../../ui/components/lib/utils.ts';
 import { ink } from '../../ink/index.ts';
 import { CARD } from '../../scene/index.ts';
 import type {

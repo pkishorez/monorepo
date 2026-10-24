@@ -1,5 +1,5 @@
 import { Router, useRouter } from '@kestack/kabuki/routing';
-import { Badge } from '@kestack/web-platform/components/badge';
+import { Badge } from '@kestack/web-platform/ui/components/badge';
 import { router } from '../../shared/index.ts';
 import type { Route } from '../../shared/index.ts';
 

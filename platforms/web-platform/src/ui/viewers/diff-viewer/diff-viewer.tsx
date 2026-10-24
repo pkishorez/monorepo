@@ -20,15 +20,15 @@ import {
 import type { FileDiff } from 'laymos';
 
 import { SourceViewer } from '../source-viewer';
-import { Button } from '#components/ui/button';
+import { Button } from '#components/button';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuTrigger,
-} from '#components/ui/dropdown-menu';
+} from '#components/dropdown-menu';
 import { useIsMobile } from '#hooks/use-mobile';
-import { Switch } from '#components/ui/switch';
+import { Switch } from '#components/switch';
 import { scrollbarStyles } from '#lib/scrollStyles';
 import { cn } from '#lib/utils';
 

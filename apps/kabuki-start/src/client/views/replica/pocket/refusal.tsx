@@ -1,4 +1,4 @@
-import { CircleAlertIcon } from '@kestack/web-platform/components/lucide';
+import { CircleAlertIcon } from '@kestack/web-platform/ui/components/lucide';
 
 /** One short line beside where a write was refused. */
 export function Refusal({ reason }: { readonly reason: string | null }) {

@@ -3,9 +3,9 @@ import type { Effect } from 'effect';
 import {
   ChevronDownIcon,
   SlidersHorizontalIcon,
-} from '@kestack/web-platform/components/lucide';
-import { Skeleton } from '@kestack/web-platform/components/skeleton';
-import { cn } from '@kestack/web-platform/components/utils';
+} from '@kestack/web-platform/ui/components/lucide';
+import { Skeleton } from '@kestack/web-platform/ui/components/skeleton';
+import { cn } from '@kestack/web-platform/ui/components/utils';
 import type { ReactNode } from 'react';
 import { keys, useBound } from '../../../../../keys.ts';
 import * as Picker from '../../../../../ui/picker/index.ts';

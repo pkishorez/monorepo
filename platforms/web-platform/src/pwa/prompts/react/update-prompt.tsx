@@ -1,4 +1,4 @@
-import { createToastManager, Toaster } from '#components/ui/toast';
+import { createToastManager, Toaster } from '#components/toast';
 import { type ReactNode, useState } from 'react';
 import { usePwa } from './react.js';
 import { useUpdateToast } from './update-toast.js';

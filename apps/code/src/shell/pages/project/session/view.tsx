@@ -5,10 +5,10 @@ import { Router, useElementScrollRestoration } from '@kestack/kabuki/routing';
 import {
   GitForkIcon,
   TriangleAlertIcon,
-} from '@kestack/web-platform/components/lucide';
-import { Button } from '@kestack/web-platform/components/button';
-import { Skeleton } from '@kestack/web-platform/components/skeleton';
-import { Spinner } from '@kestack/web-platform/components/spinner';
+} from '@kestack/web-platform/ui/components/lucide';
+import { Button } from '@kestack/web-platform/ui/components/button';
+import { Skeleton } from '@kestack/web-platform/ui/components/skeleton';
+import { Spinner } from '@kestack/web-platform/ui/components/spinner';
 import * as places from '../../../places/index.ts';
 import { RunningDot } from '../../../../ui/running-dot/index.ts';
 import { keys, useBound } from '../../../../keys.ts';

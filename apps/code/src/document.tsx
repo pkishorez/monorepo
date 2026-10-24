@@ -1,6 +1,6 @@
 import type { Start } from '@kestack/kabuki/start';
 import { Pwa, PwaHead } from '@kestack/web-platform/pwa';
-import { Document as WebDocument } from '@kestack/web-platform/start';
+import { Document as WebDocument } from '@kestack/web-platform/app/document';
 import { Theme } from './ui/theme/index.ts';
 
 /**

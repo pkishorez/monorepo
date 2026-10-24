@@ -3,9 +3,9 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from '@kestack/web-platform/components/dialog';
-import { useIsMobile } from '@kestack/web-platform/components/hooks/use-mobile';
-import { BindingKeys } from '@kestack/web-platform/recipes/key-bindings';
+} from '@kestack/web-platform/ui/components/dialog';
+import { useIsMobile } from '@kestack/web-platform/ui/components/hooks/use-mobile';
+import { BindingKeys } from '@kestack/web-platform/ui/input';
 import type { ReactNode } from 'react';
 import { keys, keyTable } from '../keys.ts';
 

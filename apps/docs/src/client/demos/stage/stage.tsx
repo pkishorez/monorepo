@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import type { ReactNode } from 'react';
 import type { AppRuntime } from '@kestack/kabuki/react';
-import { KabukiDevtools } from '@kestack/web-platform/recipes/kabuki-devtools';
+import { KabukiDevtools } from '@kestack/web-platform/recipes/devtools';
 
 /*
  * A demo staged to be watched: the app on top, its tree of Actors under it,

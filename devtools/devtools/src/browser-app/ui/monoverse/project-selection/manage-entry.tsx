@@ -8,8 +8,8 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@kestack/web-platform/components/alert-dialog';
-import { Button } from '@kestack/web-platform/components/button';
+} from '@kestack/web-platform/ui/components/alert-dialog';
+import { Button } from '@kestack/web-platform/ui/components/button';
 import {
   Dialog,
   DialogContent,
@@ -17,13 +17,13 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@kestack/web-platform/components/dialog';
+} from '@kestack/web-platform/ui/components/dialog';
 import {
   CheckIcon,
   GitBranchIcon,
   Trash2Icon,
-} from '@kestack/web-platform/components/lucide';
-import { cn } from '@kestack/web-platform/components/utils';
+} from '@kestack/web-platform/ui/components/lucide';
+import { cn } from '@kestack/web-platform/ui/components/utils';
 import type { ProjectEntry, Worktree } from '../../../../rpc/index.js';
 import { EntryForm } from './entry-form.js';
 import { basename, useProjectRegistry } from './registry.js';

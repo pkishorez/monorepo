@@ -10,12 +10,12 @@ import {
   useState,
 } from 'react';
 import info from 'virtual:pwa-toolkit/client';
-import { useSubscriptionRef } from '../browser/subscription-ref.js';
+import { useSubscriptionRef } from '../../engine/browser/subscription-ref.js';
 import {
   clearRuntimeCache as clearRuntimeCacheEffect,
   Pwa,
   PwaStatus,
-} from '../client/index.js';
+} from '../../engine/client/index.js';
 import {
   type HeadTags,
   headTags,

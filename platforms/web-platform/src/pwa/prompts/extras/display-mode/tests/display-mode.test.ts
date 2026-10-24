@@ -2,7 +2,7 @@ import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
 import * as SubscriptionRef from 'effect/SubscriptionRef';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { FakeBrowser } from '../../../../../test/pwa/fake-browser.js';
+import { FakeBrowser } from '../../../../../../test/pwa/fake-browser.js';
 import { DisplayMode } from '../index.js';
 
 // Each run builds a fresh service, as a fresh page would.

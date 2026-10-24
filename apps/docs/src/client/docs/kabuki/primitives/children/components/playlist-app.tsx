@@ -1,7 +1,7 @@
 import { Layer } from 'effect';
 import { View, toReact } from '@kestack/kabuki/react';
-import { Button } from '@kestack/web-platform/components/button';
-import { HeartIcon, XIcon } from '@kestack/web-platform/components/lucide';
+import { Button } from '@kestack/web-platform/ui/components/button';
+import { HeartIcon, XIcon } from '@kestack/web-platform/ui/components/lucide';
 import { PlaylistLive, SongLive } from './playlist.ts';
 import { SONGS } from './songs.ts';
 

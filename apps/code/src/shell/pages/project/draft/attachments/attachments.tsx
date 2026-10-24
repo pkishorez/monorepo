@@ -1,8 +1,8 @@
-import { Button } from '@kestack/web-platform/components/button';
+import { Button } from '@kestack/web-platform/ui/components/button';
 import {
   CircleAlertIcon,
   PaperclipIcon,
-} from '@kestack/web-platform/components/lucide';
+} from '@kestack/web-platform/ui/components/lucide';
 import { useRef, useState } from 'react';
 import { Chip } from './chip.tsx';
 import { readFiles, type Attachment } from './read.ts';

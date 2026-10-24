@@ -4,12 +4,12 @@ import {
   useMotionValue,
   useMotionValueEvent,
   useTransform,
-} from '@kestack/web-platform/components/motion';
+} from '@kestack/web-platform/ui/components/motion';
 import {
   GestureProvider,
   GestureZone,
   useSwipe,
-} from '@kestack/web-platform/input';
+} from '@kestack/web-platform/ui/input';
 import { Effect } from 'effect';
 import { Gesture, Proof } from 'laymos/story';
 import { useState } from 'react';
@@ -115,7 +115,7 @@ export default Proof.browser({
     'A carousel zone inside a screen zone: both want a swipe right, and the innermost one whose useSwipe is enabled takes it. On the first photo the carousel’s is off, so the screen goes back.',
   page: (root) => {
     const app = createRoot(root);
-    void import('@kestack/web-platform/theme/global.css').then(() =>
+    void import('@kestack/web-platform/ui/theme/global.css').then(() =>
       app.render(
         <GestureProvider>
           <App />

@@ -2,8 +2,8 @@ import { View } from '@kestack/kabuki/react';
 import {
   TrendingDownIcon,
   TrendingUpIcon,
-} from '@kestack/web-platform/components/lucide';
-import { Switch } from '@kestack/web-platform/components/switch';
+} from '@kestack/web-platform/ui/components/lucide';
+import { Switch } from '@kestack/web-platform/ui/components/switch';
 import { QuoteLive, TickerLive } from './ticker.ts';
 
 // The price, and which way it last moved.

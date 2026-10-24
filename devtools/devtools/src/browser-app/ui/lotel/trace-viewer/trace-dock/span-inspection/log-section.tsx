@@ -2,15 +2,15 @@ import { useMemo, useState } from 'react';
 
 import { ChevronRightIcon, SearchIcon, XIcon } from 'lucide-react';
 
-import { Button } from '@kestack/web-platform/components/button';
+import { Button } from '@kestack/web-platform/ui/components/button';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from '@kestack/web-platform/components/dialog';
-import { Input } from '@kestack/web-platform/components/input';
-import { cn } from '@kestack/web-platform/components/utils';
+} from '@kestack/web-platform/ui/components/dialog';
+import { Input } from '@kestack/web-platform/ui/components/input';
+import { cn } from '@kestack/web-platform/ui/components/utils';
 
 import {
   detectLogSeverity,

@@ -1,9 +1,9 @@
 import { View } from '@kestack/kabuki/react';
-import { Button } from '@kestack/web-platform/components/button';
-import { CircleAlertIcon } from '@kestack/web-platform/components/lucide';
-import { Progress } from '@kestack/web-platform/components/progress';
-import { Skeleton } from '@kestack/web-platform/components/skeleton';
-import { Switch } from '@kestack/web-platform/components/switch';
+import { Button } from '@kestack/web-platform/ui/components/button';
+import { CircleAlertIcon } from '@kestack/web-platform/ui/components/lucide';
+import { Progress } from '@kestack/web-platform/ui/components/progress';
+import { Skeleton } from '@kestack/web-platform/ui/components/skeleton';
+import { Switch } from '@kestack/web-platform/ui/components/switch';
 import { useBound } from '../../../../../keys.ts';
 import { ago } from '../../../../../ui/time/index.ts';
 import { outOfReach, useHealth } from '../../../../connection/index.ts';

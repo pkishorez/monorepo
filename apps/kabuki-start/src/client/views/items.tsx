@@ -3,8 +3,8 @@ import { View } from '@kestack/kabuki/react';
 import {
   CircleCheckIcon,
   HourglassIcon,
-} from '@kestack/web-platform/components/lucide';
-import { Spinner } from '@kestack/web-platform/components/spinner';
+} from '@kestack/web-platform/ui/components/lucide';
+import { Spinner } from '@kestack/web-platform/ui/components/spinner';
 import { Pages, router } from '../../shared/pages/index.ts';
 import { PageIntro, clock } from '../components/index.ts';
 import { PreloadLink } from './preload-link.tsx';

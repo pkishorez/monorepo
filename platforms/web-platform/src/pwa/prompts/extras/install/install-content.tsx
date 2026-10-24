@@ -1,4 +1,4 @@
-import { Button } from '#components/ui/button';
+import { Button } from '#components/button';
 import { ShareIcon, SquarePlusIcon } from '#lib/lucide';
 import type { ReactNode } from 'react';
 

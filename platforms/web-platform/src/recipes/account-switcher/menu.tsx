@@ -3,8 +3,8 @@ import { LogOut, UserPlus } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { ComponentProps } from 'react';
 
-import { Avatar, AvatarFallback, AvatarImage } from '#components/ui/avatar';
-import { Button } from '#components/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '#components/avatar';
+import { Button } from '#components/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,8 +13,8 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '#components/ui/dropdown-menu';
-import { Spinner } from '#components/ui/spinner';
+} from '#components/dropdown-menu';
+import { Spinner } from '#components/spinner';
 
 /*
  * What the Account Switcher draws, from plain data: the slot in the header,

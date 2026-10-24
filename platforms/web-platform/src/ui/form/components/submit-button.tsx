@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 
-import { Button, type buttonVariants } from '#components/ui/button';
+import { Button, type buttonVariants } from '#components/button';
 import { useFormContext } from '../context.js';
 import type { VariantProps } from 'class-variance-authority';
 

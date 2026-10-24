@@ -3,13 +3,13 @@
 import * as React from 'react';
 
 import { cn } from '#lib/utils';
-import { Textarea } from '#components/ui/textarea';
+import { Textarea } from '#components/textarea';
 import {
   Field,
   FieldLabel,
   FieldDescription,
   FieldError,
-} from '#components/ui/field';
+} from '#components/field';
 import { useFieldContext } from '../context.js';
 import { getFieldMeta, toFieldErrors, type BaseFieldProps } from '../types.js';
 

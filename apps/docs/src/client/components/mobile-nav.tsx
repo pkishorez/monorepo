@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import type { MouseEvent } from 'react';
 import { useRouter } from '@kestack/kabuki/routing';
-import { MenuIcon } from '@kestack/web-platform/components/lucide';
+import { MenuIcon } from '@kestack/web-platform/ui/components/lucide';
 import {
   Sheet,
   SheetContent,
   SheetTitle,
   SheetTrigger,
-} from '@kestack/web-platform/components/sheet';
+} from '@kestack/web-platform/ui/components/sheet';
 import { TOOLKITS } from '../../shared/index.ts';
 import type { Route } from '../../shared/index.ts';
 import { KabukiBrand } from './brand.tsx';

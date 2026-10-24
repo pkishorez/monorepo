@@ -9,13 +9,13 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '#components/ui/select';
+} from '#components/select';
 import {
   Field,
   FieldLabel,
   FieldDescription,
   FieldError,
-} from '#components/ui/field';
+} from '#components/field';
 import { useFieldContext } from '../context.js';
 import { getFieldMeta, toFieldErrors, type BaseFieldProps } from '../types.js';
 

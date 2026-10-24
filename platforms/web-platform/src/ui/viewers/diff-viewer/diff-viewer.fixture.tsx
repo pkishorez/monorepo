@@ -20,13 +20,13 @@ const diff: FileDiff = {
         {
           kind: 'removed',
           content:
-            "import type { ChangeSet } from '../../change-set-schema/index.js';",
+            "import type { ChangeSet } from '../../../components/change-set-schema/index.js';",
           oldNumber: 3,
         },
         {
           kind: 'added',
           content:
-            "import type { ChangeSet, FileDiff } from '../../change-set-schema/index.js';",
+            "import type { ChangeSet, FileDiff } from '../../../components/change-set-schema/index.js';",
           newNumber: 3,
         },
         {

@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 import { motion, useAnimationFrame, useMotionValue } from 'motion/react';
 import { View, useLive } from '@kestack/kabuki/react';
-import { Button } from '@kestack/web-platform/components/button';
+import { Button } from '@kestack/web-platform/ui/components/button';
 import { StopwatchLive } from './stopwatch.ts';
 
 const clock = (ms: number) => {

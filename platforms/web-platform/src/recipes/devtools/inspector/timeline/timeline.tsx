@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { ChevronLeft, ChevronRight, GitBranch } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { cn } from '../../../components/lib/utils.ts';
+import { cn } from '../../../../ui/components/lib/utils.ts';
 import {
   Select,
   SelectContent,
@@ -10,7 +10,7 @@ import {
   SelectSeparator,
   SelectTrigger,
   SelectValue,
-} from '#components/ui/select';
+} from '#components/select';
 import { ink } from '../ink/index.ts';
 
 /*

@@ -5,11 +5,11 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from '@kestack/web-platform/components/command';
+} from '@kestack/web-platform/ui/components/command';
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
-} from '@kestack/web-platform/components/lucide';
+} from '@kestack/web-platform/ui/components/lucide';
 import { describe } from '@kestack/use-keys';
 import { revealInView } from '@kestack/use-keys/surfaces';
 import { Fragment, useEffect, useLayoutEffect, useRef } from 'react';

@@ -2,7 +2,7 @@ import {
   GestureProvider,
   GestureZone,
   useSwipe,
-} from '@kestack/web-platform/input';
+} from '@kestack/web-platform/ui/input';
 import { Effect } from 'effect';
 import { Gesture, Proof } from 'laymos/story';
 import { useState } from 'react';
@@ -56,7 +56,7 @@ export default Proof.browser({
     'useSwipe with `fingers: 2`: a one-finger swipe left Cancels with `fingers` and nothing changes; two fingers swiping left Commit.',
   page: (root) => {
     const app = createRoot(root);
-    void import('@kestack/web-platform/theme/global.css').then(() =>
+    void import('@kestack/web-platform/ui/theme/global.css').then(() =>
       app.render(
         <GestureProvider>
           <GestureZone className="flex h-dvh flex-col bg-background p-6 text-foreground">

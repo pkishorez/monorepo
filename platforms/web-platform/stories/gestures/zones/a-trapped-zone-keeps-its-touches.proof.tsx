@@ -1,10 +1,10 @@
-import { motion } from '@kestack/web-platform/components/motion';
+import { motion } from '@kestack/web-platform/ui/components/motion';
 import {
   GestureProvider,
   GestureZone,
   useGesture,
   useSidebar,
-} from '@kestack/web-platform/input';
+} from '@kestack/web-platform/ui/input';
 import { Effect } from 'effect';
 import { Gesture, Proof } from 'laymos/story';
 import { useRef, useState } from 'react';
@@ -115,7 +115,7 @@ export default Proof.browser({
     'The screen’s useSidebar owns one-finger touches that land in its 24px edge strip, even over a zone inside that wants them. A `trapped` zone hides its Gestures from the zones around it, so a stroke from the edge draws there; on the loose pad the same stroke opens the sidebar.',
   page: (root) => {
     const app = createRoot(root);
-    void import('@kestack/web-platform/theme/global.css').then(() =>
+    void import('@kestack/web-platform/ui/theme/global.css').then(() =>
       app.render(
         <GestureProvider>
           <GestureZone className="h-dvh overflow-hidden bg-background text-foreground">

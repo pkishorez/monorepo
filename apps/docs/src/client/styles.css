@@ -1,5 +1,5 @@
-@import '@kestack/web-platform/theme/global.css';
-@import '@kestack/web-platform/theme/font-inter.css';
+@import '@kestack/web-platform/ui/theme/global.css';
+@import '@kestack/web-platform/ui/theme/font-inter.css';
 
 @layer base {
   body {

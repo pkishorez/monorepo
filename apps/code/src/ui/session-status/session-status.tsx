@@ -3,7 +3,7 @@ import {
   CircleAlertIcon,
   SquareIcon,
   TriangleAlertIcon,
-} from '@kestack/web-platform/components/lucide';
+} from '@kestack/web-platform/ui/components/lucide';
 import { RunningDot } from '../running-dot/index.ts';
 
 /*

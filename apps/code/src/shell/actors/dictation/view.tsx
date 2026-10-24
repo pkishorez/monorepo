@@ -2,7 +2,7 @@ import { useChild, View, type Handle } from '@kestack/kabuki/react';
 import {
   CircleAlertIcon,
   MicIcon,
-} from '@kestack/web-platform/components/lucide';
+} from '@kestack/web-platform/ui/components/lucide';
 import {
   createContext,
   use,

@@ -1,7 +1,7 @@
 import { useChild, View, type ViewProps } from '@kestack/kabuki/react';
 import { Router } from '@kestack/kabuki/routing';
-import { Button } from '@kestack/web-platform/components/button';
-import { Trash2Icon } from '@kestack/web-platform/components/lucide';
+import { Button } from '@kestack/web-platform/ui/components/button';
+import { Trash2Icon } from '@kestack/web-platform/ui/components/lucide';
 import { keys } from '../../../keys.ts';
 import * as places from '../../places/index.ts';
 import * as Confirm from '../../../ui/confirm/index.ts';

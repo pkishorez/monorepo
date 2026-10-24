@@ -2,13 +2,13 @@ import * as Effect from 'effect/Effect';
 import * as Option from 'effect/Option';
 import * as TestClock from 'effect/testing/TestClock';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { run, statusTag } from '../../../../test/pwa/client-run.js';
+import { run, statusTag } from '../../../../../test/pwa/client-run.js';
 import {
   FakeBrowser,
   FakeWorker,
   fire,
   settle,
-} from '../../../../test/pwa/fake-browser.js';
+} from '../../../../../test/pwa/fake-browser.js';
 import { commandReply, matchCommand } from '../../shared/commands/index.js';
 import { Pwa } from '../index.js';
 

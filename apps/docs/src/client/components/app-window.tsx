@@ -1,10 +1,10 @@
 import { Suspense, lazy, useCallback, useSyncExternalStore } from 'react';
 import type { ReactNode } from 'react';
-import { Kbd } from '@kestack/web-platform/components/kbd';
+import { Kbd } from '@kestack/web-platform/ui/components/kbd';
 import {
   KeyboardIcon,
   RotateCwIcon,
-} from '@kestack/web-platform/components/lucide';
+} from '@kestack/web-platform/ui/components/lucide';
 import type { PlaygroundApp } from './playground/index.ts';
 
 /*
@@ -38,7 +38,7 @@ const IN_VIEW = 0.6;
 const never = () => () => {};
 
 const KabukiDevtools = lazy(() =>
-  import('@kestack/web-platform/recipes/kabuki-devtools').then((module) => ({
+  import('@kestack/web-platform/recipes/devtools').then((module) => ({
     default: module.KabukiDevtools,
   })),
 );

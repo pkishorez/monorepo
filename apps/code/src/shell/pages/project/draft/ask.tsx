@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react';
-import { Button } from '@kestack/web-platform/components/button';
+import { Button } from '@kestack/web-platform/ui/components/button';
 import {
   CheckIcon,
   CircleAlertIcon,
   CopyIcon,
   MessageCircleQuestionIcon,
   XIcon,
-} from '@kestack/web-platform/components/lucide';
-import { Spinner } from '@kestack/web-platform/components/spinner';
-import { MarkdownViewer } from '@kestack/web-platform/components/viewers/markdown-viewer';
+} from '@kestack/web-platform/ui/components/lucide';
+import { Spinner } from '@kestack/web-platform/ui/components/spinner';
+import { MarkdownViewer } from '@kestack/web-platform/ui/viewers/markdown-viewer';
 
 /*
  * The answer to a `/btw` question, in a card over the Status Line's top edge:

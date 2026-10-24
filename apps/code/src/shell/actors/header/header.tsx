@@ -3,8 +3,8 @@ import { Router } from '@kestack/kabuki/routing';
 import {
   ChevronRightIcon,
   GitForkIcon,
-} from '@kestack/web-platform/components/lucide';
-import { Skeleton } from '@kestack/web-platform/components/skeleton';
+} from '@kestack/web-platform/ui/components/lucide';
+import { Skeleton } from '@kestack/web-platform/ui/components/skeleton';
 import * as places from '../../places/index.ts';
 import type { Place } from '../../places/index.ts';
 import { ago } from '../../../ui/time/index.ts';
