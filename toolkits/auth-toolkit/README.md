@@ -63,7 +63,7 @@ Peer dependencies, all optional; install the ones your doors need:
 - `@kestack/rpc-toolkit`: the Guard is its Middleware, and the clients re-check through its `onExit`.
 - `@kestack/std-toolkit`: `client/browser`, `client/device` and `fake` keep Accounts in its StdTable adapters.
 - `better-sqlite3`: `worker/memory` runs SQLite in-process for tests.
-- `alchemy`: `worker/alchemy` declares the D1 database in `alchemy.run.ts`.
+- `alchemy` and `@alchemy.run/cloudflare`: `worker/alchemy` declares the D1 database in `alchemy.run.ts`.
 - `react`: the pages are React. The `worker` door carries its own bundled copy, so a deployment does not need it installed.
 
 ## Exports

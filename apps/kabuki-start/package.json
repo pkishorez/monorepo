@@ -25,13 +25,13 @@
     "react-dom": "catalog:"
   },
   "devDependencies": {
+    "@alchemy.run/cloudflare": "catalog:",
     "@cloudflare/workers-types": "catalog:",
     "@tailwindcss/vite": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
-    "@alchemy.run/cloudflare": "catalog:",
     "alchemy": "catalog:",
     "laymos": "workspace:*",
     "miniflare": "catalog:",
