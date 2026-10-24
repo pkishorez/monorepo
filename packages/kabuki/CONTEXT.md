@@ -274,6 +274,14 @@ _Avoid_: framework, server, SSR
 The page's HTML around the app, written once: where Start puts the Metadata, the styles and the scripts, and where code that must run before the first paint is written inline. Given no data, so it is the same for every Render Mode.
 _Avoid_: shell, layout, root, html
 
+**App Shell**:
+The Document with no app drawn in it, the same for everyone until the next deploy: the browser draws the app in it at its own URL, every place loading. What something in front of the app, such as a service worker, answers a page with when it has nothing better; for a page whose places are all client, it is the page.
+_Avoid_: shell page, skeleton, empty page
+
+**Pages**:
+What Start tells anything in front of the app about it: every Page with its path, whether its path has params, and how its first drawing is made, static, dynamic or client, worked out from the Render Modes of the places on its path; and where the App Shell is. Served by Start, from the Routes, so it cannot disagree with them.
+_Avoid_: sitemap, route manifest, page list
+
 ### Seeing the app
 
 **Timeline**:

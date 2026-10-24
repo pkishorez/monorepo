@@ -3,7 +3,14 @@ import { Loading, Router } from '../../routing/index.ts';
 import { knownOf } from '../../routing/page/index.ts';
 import type { Known } from '../../routing/page/index.ts';
 import type { Outcome, Place, RenderMode } from '../../routing/route/index.ts';
-import { Document, PATH, appOf } from '../common/index.ts';
+import {
+  Document,
+  PAGES,
+  PATH,
+  SHELL,
+  appOf,
+  pagesOf,
+} from '../common/index.ts';
 import type { Build, StartApp, Wanted } from '../common/index.ts';
 import type { Handler, Host } from '../platform/index.ts';
 import { kept } from './cache.ts';
@@ -30,7 +37,9 @@ import {
  * browser. It never runs a Runtime, and knows no platform: the adapter
  * hands it the env and the Cache, if there is one.
  *
- * 1. Route    `POST /_kabuki/load` is the Loader RPC; a page is a `GET`.
+ * 1. Route    `POST /_kabuki/load` is the Loader RPC; `GET /_kabuki/pages`
+ *             the Pages and `GET /_kabuki/shell` the App Shell, kept as a
+ *             static page is; see `common/pages.ts`. A page is a `GET`.
  * 2. Read     the URL; a redirect in the Routes, or a URL not written as its
  *             Route is, is a `308` to the Route's URL.
  * 3. Split    the Route's places into those drawn here, static and dynamic,
@@ -184,7 +193,19 @@ export const handler = (options: HandlerOptions): Handler => {
 
   // 5. Draw
   const drawn = async (at: At, status: number, cache: string) =>
-    html(await draw(at), status, cache);
+    html(await draw.page(at), status, cache);
+
+  const pages = JSON.stringify(
+    pagesOf(app.routes.every, app.routes.paths(), build.id),
+  );
+  /** The App Shell, the same for everyone until the next deploy. */
+  const shell = async (request: Request, host: Host) => {
+    const drawShell = async () =>
+      html(await draw.shell(), 200, build.id === undefined ? PRIVATE : SHARED);
+    return build.id === undefined
+      ? drawShell()
+      : kept(host.cache, SHARED, build.id, new URL(request.url), drawShell);
+  };
 
   const page = async (
     request: Request,
@@ -250,6 +271,20 @@ export const handler = (options: HandlerOptions): Handler => {
                 headers,
               )
             : new Response(null, { status: 405, headers: { allow: 'POST' } });
+        if (pathname === PAGES || pathname === SHELL) {
+          if (request.method !== 'GET' && request.method !== 'HEAD')
+            return notAllowed();
+          const response =
+            pathname === PAGES
+              ? new Response(pages, {
+                  headers: {
+                    'content-type': 'application/json',
+                    'cache-control': PRIVATE,
+                  },
+                })
+              : await shell(request, host);
+          return request.method === 'HEAD' ? headOf(response) : response;
+        }
         if (request.method === 'HEAD')
           return headOf(
             sent(
