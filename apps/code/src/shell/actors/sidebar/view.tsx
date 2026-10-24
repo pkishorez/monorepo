@@ -44,12 +44,11 @@ export const SidebarView = View.make(
     const synced = (found?.rows ?? []).map(({ row }) => row);
     const shown = shownOf(model);
     useReload(() => send({ _tag: 'ReloadAsked' }));
-    // A Move is dropped once the Session as synced agrees with it.
+    // Each result a Move waits for, once the Session as synced shows it.
     const seen = seenOf(synced, model.moving);
     useEffect(() => {
-      for (const { machineId, sessionId } of seen)
-        send({ _tag: 'MoveSeen', machineId, sessionId });
-    }, [seen.map(({ n }) => n).join()]);
+      for (const each of seen) send({ _tag: 'MoveSeen', ...each });
+    }, [seen.map((each) => `${each.sessionId}:${each.settled}`).join()]);
     // A swipe its Machine refused is back where it was; this says why.
     const { refused } = model;
     useEffect(() => {

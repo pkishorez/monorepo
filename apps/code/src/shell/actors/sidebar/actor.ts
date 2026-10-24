@@ -7,6 +7,7 @@ import { session } from '../../places/index.ts';
 import { orRefused } from '../../refusal/index.ts';
 import { across, Projects, Sessions } from '../../replica/index.ts';
 import { reload, setSidebarMachine } from './commands.ts';
+import { askedOf, doneOf, syncedOf } from './moves.ts';
 
 /*
  * The sidebar: the Projects and Sessions of the Machine chosen, or of every
@@ -25,8 +26,9 @@ import { reload, setSidebarMachine } from './commands.ts';
  * 6. Move      a Session swiped to Settle or un-Settle it, or its Undo:
  *              shown where it goes at once, and asked of its Machine one
  *              after another, in the order swiped, so an Undo lands after
- *              what it undoes. Kept until the Session as synced agrees
- *              (`MoveSeen`); a refusal puts it back and says why.
+ *              what it undoes. Kept until the Session as synced has shown
+ *              each swipe's result in turn (`MoveSeen`, `moves.ts`); a
+ *              refusal puts it back and says why.
  */
 
 const Listed = Schema.Struct({ id: Schema.String, name: Schema.String });
@@ -44,6 +46,7 @@ const Move = Schema.Struct({
   sessionId: Schema.String,
   settled: Schema.Boolean,
   done: Schema.Boolean,
+  awaiting: Schema.Array(Schema.Boolean),
 });
 
 const Model = Schema.Struct({
@@ -116,7 +119,11 @@ const Sidebar = Actor.define('Sidebar', {
       settled: Schema.Boolean,
       reason: Schema.String,
     },
-    MoveSeen: { machineId: Schema.String, sessionId: Schema.String },
+    MoveSeen: {
+      machineId: Schema.String,
+      sessionId: Schema.String,
+      settled: Schema.Boolean,
+    },
   }),
 });
 
@@ -277,26 +284,16 @@ export const SidebarLive = Actor.build(Sidebar, {
   },
   on: {
     // 6. Move: where it goes now, after any Move not yet done.
-    MoveAsked: ({ machineId, sessionId, settled }, { model }) => ({
+    MoveAsked: (swiped, { model }) => ({
       model: {
         ...model,
-        moving: [
-          ...without(model.moving, machineId, sessionId),
-          { n: model.moves, machineId, sessionId, settled, done: false },
-        ],
+        moving: askedOf(model.moving, swiped, model.moves),
         moves: model.moves + 1,
       },
     }),
     // Done, unless an Undo has since asked the other way.
-    Moved: ({ machineId, sessionId, settled }, { model }) => ({
-      model: {
-        ...model,
-        moving: model.moving.map((move) =>
-          sameSession(machineId, sessionId)(move) && move.settled === settled
-            ? { ...move, done: true }
-            : move,
-        ),
-      },
+    Moved: (swiped, { model }) => ({
+      model: { ...model, moving: doneOf(model.moving, swiped) },
     }),
     MoveRefused: ({ machineId, sessionId, settled, reason }, { model }) =>
       model.moving.some(
@@ -311,13 +308,8 @@ export const SidebarLive = Actor.build(Sidebar, {
             },
           }
         : {},
-    MoveSeen: ({ machineId, sessionId }, { model }) => ({
-      model: {
-        ...model,
-        moving: model.moving.filter(
-          (move) => !(sameSession(machineId, sessionId)(move) && move.done),
-        ),
-      },
+    MoveSeen: (seen, { model }) => ({
+      model: { ...model, moving: syncedOf(model.moving, seen) },
     }),
     MachinesKnown: ({ machines, problem }, { model }) => ({
       model: { ...model, machines, problem },
