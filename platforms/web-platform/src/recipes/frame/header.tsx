@@ -32,7 +32,7 @@ export function Header(props: { readonly config: HeaderConfig }) {
             size="icon"
             aria-label={back ? 'Back' : 'Toggle sidebar'}
             aria-expanded={back ? undefined : open}
-            className="-ml-2 size-11 rounded-full hover:bg-transparent aria-expanded:bg-transparent md:-ml-1 md:size-8 dark:hover:bg-transparent"
+            className="-ml-2 size-11 rounded-full hover:bg-transparent aria-expanded:bg-transparent keyboard:md:-ml-1 keyboard:md:size-8 dark:hover:bg-transparent"
             onClick={toggle}
           >
             {back ? (
