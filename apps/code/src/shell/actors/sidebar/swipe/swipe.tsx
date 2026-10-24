@@ -16,21 +16,19 @@ import { notify } from '../../../../ui/toast/index.ts';
  * drawn as it is.
  */
 
-/** Settles the Session, or un-Settles it, and says so with an Undo for `seconds`. */
-export const moveWithUndo = (
+/** Says a Session was Settled, or un-Settled, with an Undo for `seconds`. */
+export const sayMoved = (
   title: string,
   settled: boolean,
-  move: (settled: boolean) => void,
+  undo: () => void,
   seconds: number,
-) => {
-  move(settled);
+) =>
   notify({
     title: settled ? 'Settled' : 'Back among your sessions',
     description: title,
     seconds,
-    action: { label: 'Undo', onClick: () => move(!settled) },
+    action: { label: 'Undo', onClick: undo },
   });
-};
 
 export function SwipeToMove({
   settled,

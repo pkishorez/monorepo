@@ -80,7 +80,6 @@ describe('a Settled row', () => {
               )}
               open={null}
               at={() => undefined}
-              unsettling={null}
               onUnsettle={(_, id) => void unsettled.push(id)}
               onMove={() => {}}
               onClose={() => {}}
