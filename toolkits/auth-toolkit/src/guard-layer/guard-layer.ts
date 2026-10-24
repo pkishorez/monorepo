@@ -63,7 +63,7 @@ export const rpcGuardLayer = (
         HttpServerRequest.HttpServerRequest,
       );
       const state = Option.isSome(http)
-        ? stateOf(http.value, yield* Effect.context<never>())
+        ? yield* stateOf(http.value)
         : undefined;
 
       let resolved: Resolution | null;
