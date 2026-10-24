@@ -2,9 +2,10 @@ import { Effect, Layer } from 'effect';
 import { retired } from '@kestack/ai-toolkit/client';
 import { MachinesClient } from '@kestack/ai-toolkit/machines/client';
 import { Start } from '@kestack/kabuki/start';
+import { document } from '@kestack/web-platform/app/document';
 import { Store } from '@kestack/std-toolkit/replica/idb';
-import Document from './document.tsx';
 import { Shell } from './shell/index.ts';
+import { Theme } from './ui/theme/index.ts';
 import { router } from './pages.ts';
 import {
   deviceStateIdb,
@@ -45,6 +46,10 @@ const layer = Layer.mergeAll(
 export default Start.app({
   router,
   view: Shell.view,
-  document: Document,
+  // The Web Platform's Document: Inter, the Theme and the PWA.
+  document: document({
+    theme: Theme,
+    head: <link rel="icon" type="image/svg+xml" href="/favicon.svg" />,
+  }),
   layer,
 });

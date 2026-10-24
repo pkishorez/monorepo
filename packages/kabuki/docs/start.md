@@ -121,10 +121,10 @@ paint, like a theme bootstrap, is the Document's own. So is the font: a web
 font loaded with `font-display: swap` and nothing preloaded paints the first
 frame in another font, then reflows every line when it arrives. Preload the
 file the first paint needs, and give it a fallback whose metrics match, so
-the page never moves. An app on the Web Platform gets both by writing its
-Document as `@kestack/web-platform/app/document`'s `Document`, which preloads Inter
-and sets its fallback, with the Theme and the device marked before the
-first paint.
+the page never moves. An app on the Web Platform gets both by passing
+`document({ theme })` from `@kestack/web-platform/app/document`, which
+preloads Inter and sets its fallback, with the Theme and the device marked
+before the first paint.
 
 `Start.useDrawn()` reads, from any component, when the server drew the page
 (after its Loaders answered) and by which build, and whether that component
@@ -310,7 +310,8 @@ export default defineConfig({
 ```
 
 ```ts
-// alchemy.run.ts, or src/infra/ as apps/docs does
+// alchemy.run.ts, or src/infra/; the Web Platform's `Site` in
+// `@kestack/web-platform/app/alchemy` is this with each Stage's domain
 export const Site = Cloudflare.Website.Vite('Site', {
   compatibility: { date: '2025-07-04', flags: ['nodejs_compat'] },
   bindings: { DB: Database },

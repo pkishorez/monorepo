@@ -1,8 +1,8 @@
 import { View } from '@kestack/kabuki/react';
 import { Start } from '@kestack/kabuki/start';
+import { document } from '@kestack/web-platform/app/document';
 import { Pages, router } from '../shared/index.ts';
-import { Layout } from './components/index.ts';
-import Document from './document.tsx';
+import { Layout, Theme } from './components/index.ts';
 import { HomeView } from './pages/home/index.ts';
 import { KabukiView } from './pages/kabuki/index.ts';
 import { NotFound } from './pages/not-found/index.ts';
@@ -40,4 +40,22 @@ const AppView = View.make(Pages.AppLive, (self) => {
   );
 });
 
-export default Start.app({ router, view: AppView, document: Document });
+export default Start.app({
+  router,
+  view: AppView,
+  // The Web Platform's Document, with the site's favicons.
+  document: document({
+    theme: Theme,
+    head: (
+      <>
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+        <link
+          rel="icon"
+          type="image/png"
+          sizes="96x96"
+          href="/favicon-96x96.png"
+        />
+      </>
+    ),
+  }),
+});

@@ -7,7 +7,7 @@ import { build, createBuilder } from 'vite';
 import { afterAll, describe, expect, it } from 'vitest';
 import type { WorkerBuildInfo } from '../../shared/config/index.js';
 import type { PwaOptions } from '../../shared/config/index.js';
-import { pwa } from '../index.js';
+import { noPwa, pwa } from '../index.js';
 
 const root = fileURLToPath(new URL('./fixture', import.meta.url));
 const temp = await mkdtemp(join(tmpdir(), 'pwa-toolkit-vite-'));
@@ -102,6 +102,32 @@ describe('pwa() build', () => {
     const entry = pathToFileURL(join(installedRoot, 'dist/server.mjs')).href;
     const server = await import(/* @vite-ignore */ entry);
     expect(server.default).toMatchObject({ enabled: false, buildId: null });
+  });
+
+  it('says the build is no PWA under noPwa(), and writes no worker', async () => {
+    const offRoot = join(temp, 'off');
+    await mkdir(offRoot, { recursive: true });
+    await writeFile(
+      join(offRoot, 'server.js'),
+      "export { default, included } from 'virtual:pwa-toolkit/client';",
+    );
+    const outDir = join(offRoot, 'dist');
+    await build({
+      configFile: false,
+      root: offRoot,
+      logLevel: 'silent',
+      plugins: [noPwa()],
+      build: {
+        ssr: 'server.js',
+        outDir,
+        rolldownOptions: { output: { entryFileNames: 'server.mjs' } },
+      },
+    });
+    const server = await import(
+      /* @vite-ignore */ pathToFileURL(join(outDir, 'server.mjs')).href
+    );
+    expect(server).toMatchObject({ default: null, included: false });
+    await expect(readFile(join(outDir, 'sw.js'))).rejects.toThrow();
   });
 
   it('writes the worker, manifest, headers and Precache', async () => {

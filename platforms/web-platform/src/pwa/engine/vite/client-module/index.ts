@@ -1,1 +1,1 @@
-export { clientModulePlugin } from './client-module.js';
+export { clientModulePlugin, noPwa } from './client-module.js';

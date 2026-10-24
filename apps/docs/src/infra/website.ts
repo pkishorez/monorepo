@@ -1,27 +1,12 @@
-import { Stage } from 'alchemy';
-import * as Cloudflare from 'alchemy/Cloudflare';
-import { Effect } from 'effect';
-import {
-  assertStageIsSafe,
-  devConfigFor,
-  domainFor,
-  isDeployedStage,
-} from './stage.ts';
+import { Site } from '@kestack/web-platform/app/alchemy';
 
-export const Website = Cloudflare.Website.Vite(
-  'Worker',
-  Effect.gen(function* () {
-    const stage = yield* Stage;
-    assertStageIsSafe(stage);
-
-    const isLocal = !isDeployedStage(stage);
-
-    return {
-      compatibility: { date: '2025-07-04', flags: ['nodejs_compat'] },
-      dev: devConfigFor(isLocal),
-      domain: domainFor(stage),
-    };
-  }),
-);
-
-export type WorkerEnv = Cloudflare.InferEnv<typeof Website>;
+/*
+ * The site, as the Web Platform deploys a Kabuki Start app, at
+ * `docs.kishore.app`. Its resource keeps the id `Worker` it was first
+ * deployed with, since a new id would replace the Worker.
+ */
+export const Website = Site({
+  id: 'Worker',
+  host: 'docs',
+  zone: 'kishore.app',
+});

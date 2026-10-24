@@ -3,6 +3,8 @@ import type { Plugin } from 'vite';
 import { PwaOptions, resolvePwaConfig } from '../shared/config/index.js';
 import { buildPlugin, makeBuildState } from './build/index.js';
 import { clientModulePlugin } from './client-module/index.js';
+
+export { noPwa } from './client-module/index.js';
 import { devPlugin } from './dev/index.js';
 
 /**

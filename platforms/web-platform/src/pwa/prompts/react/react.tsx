@@ -9,7 +9,7 @@ import {
   useMemo,
   useState,
 } from 'react';
-import info from 'virtual:pwa-toolkit/client';
+import info, { included } from 'virtual:pwa-toolkit/client';
 import { useSubscriptionRef } from '../../engine/browser/subscription-ref.js';
 import {
   clearRuntimeCache as clearRuntimeCacheEffect,
@@ -99,3 +99,6 @@ export const pwaHead = (): HeadTags => headTags(info, pageVersion(info));
 
 /** The app's name, as `pwa({ name })` gave it to the manifest. */
 export const pwaName = (): string => info.name;
+
+/** Whether this build is a PWA: `false` when it was built with `noPwa()`. */
+export const pwaIncluded = (): boolean => included;

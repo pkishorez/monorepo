@@ -61,7 +61,36 @@ export const clientModulePlugin = (
         buildId: state.buildId,
         version: version ?? resolveBuildVersion(config, process.cwd()),
       });
-      return `export default ${JSON.stringify(info)};\n`;
+      return `export default ${JSON.stringify(info)};\nexport const included = true;\n`;
     },
   };
 };
+
+/**
+ * Serves `virtual:pwa-toolkit/client` for an app that is no PWA, so the
+ * Document's PWA parts still import, find `included` false and draw
+ * nothing. No worker, no manifest.
+ */
+export const noPwa = (): Plugin => ({
+  name: 'pwa-toolkit:off',
+  enforce: 'pre',
+  configEnvironment(name, environment) {
+    const consumer =
+      environment.consumer ?? (name === 'client' ? 'client' : 'server');
+    return consumer === 'client'
+      ? {
+          optimizeDeps: {
+            rolldownOptions: { external: [VIRTUAL_CLIENT_MODULE_ID] },
+          },
+        }
+      : { resolve: { noExternal: [PACKAGE] } };
+  },
+  resolveId(id) {
+    return id === VIRTUAL_CLIENT_MODULE_ID ? RESOLVED_ID : undefined;
+  },
+  load(id) {
+    return id === RESOLVED_ID
+      ? 'export default null;\nexport const included = false;\n'
+      : undefined;
+  },
+});

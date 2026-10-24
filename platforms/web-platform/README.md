@@ -11,7 +11,7 @@ It has four modules, each depending only on the ones before it:
 - `ui`: what the user sees and touches: `ui/theme`, `ui/components/*`, `ui/viewers/*`, `ui/form` and `ui/input` (device, gestures, keys, sounds).
 - `pwa`: the app installable, working offline and updated in place. `pwa/vite` builds the worker and manifest, `pwa/worker` runs in it, `pwa/rpc/*` talks to it, and `pwa` is the page's side: `PwaHead`, `Pwa`, the Update and Install Prompts and the extras.
 - `recipes/*`: whole features built from `ui` and `pwa`: the Frame, the Account Switcher, the Vim status line, Local sign-in, Kabuki's Devtools, the Thumb Picker and swipe rows.
-- `app`: putting it together: `app/document` is the Document an app draws, and `app/alchemy` holds the Stage rules its deploy follows.
+- `app`: putting it together: `app/vite` is the one Vite plugin an app lists, `app/document` the Document it passes to `Start.app`, and `app/alchemy` how it is deployed on its Stages.
 
 Why the Web Platform may break while the Toolkits keep what persists is [ADR 0006](../../docs/adr/0006-platforms-may-break-toolkits-keep-what-persists.md). It ships built `dist/` (from `vp pack`). Terms are in [CONTEXT.md](./CONTEXT.md); the PWA's decisions are in [docs/adr/](./docs/adr/).
 
@@ -19,17 +19,19 @@ Why the Web Platform may break while the Toolkits keep what persists is [ADR 000
 
 ```sh
 pnpm add @kestack/web-platform @kestack/auth-toolkit react react-dom @kestack/use-gesture
-pnpm add -D @tailwindcss/vite
+pnpm add -D @tailwindcss/vite @vitejs/plugin-react
 ```
 
-An app that renders on the server adds `@kestack/web-platform` to `ssr.noExternal` in its Vite config, as `apps/docs` and `apps/code` do. Its stylesheet imports `@kestack/web-platform/ui/theme/global.css`, which also points Tailwind at the Package's own classes.
+An app's stylesheet imports `@kestack/web-platform/ui/theme/global.css`, which also points Tailwind at the Package's own classes. `app/vite` bundles the Package for the server too; an app that lists `start()` and `pwa()` itself adds `@kestack/web-platform` to `ssr.noExternal`.
 
 - `@kestack/auth-toolkit`: `./recipes/account-switcher` follows its `Accounts`, by the sign-in service's cookie or as Fake Accounts.
 - `react`, `react-dom`: every component, Recipe and the Document render with React 19.
 - `@kestack/use-gesture`: the platform-free gesture core that `./ui/input`'s web gestures and the Thumb Picker run on.
 - `@kestack/use-keys` (optional): the Binding and Shortcut types `./ui/input` shows, and the `createKeys` keyboard `./recipes/keyboard` shows. `./ui/theme/global.css` draws every `keys.Surface` from its data attributes, so a `keys.Provider` needs no `appearance` (also alone as `./ui/theme/keys.css`).
 - `effect` (optional): the PWA subpaths and the diff and source viewers are built on it.
-- `vite` (optional): needed by `./pwa/vite`.
+- `vite` (optional): needed by `./pwa/vite` and `./app/vite`.
+- `@tailwindcss/vite`, `@vitejs/plugin-react` (optional): the Tailwind and React plugins `./app/vite` adds.
+- `alchemy` (optional): the Cloudflare Website and state `./app/alchemy` deploys with.
 - `laymos` (optional): the file diff and change types the diff, git-changes and source-explorer viewers read.
 - `use-effect-ts` (optional): runs `./ui/viewers/source-explorer`'s loaders inside React.
 - `@kestack/kabuki` (optional): the running app `./recipes/devtools` inspects, the Start parts `./app/document`'s Document draws, the Start app `./pwa/vite` builds beside, and the Actor and View `./recipes/account-switcher` is.
@@ -287,9 +289,10 @@ The PWA on the page.
 
 ### `@kestack/web-platform/pwa/vite`
 
-| Export | What it does                                                                                                                                                                      |
-| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pwa`  | Vite plugins that emit the manifest from the app's `name`, pick the Precache, compute the Build ID, build the worker (or the Kill Switch) and add `no-cache` rules to `_headers`. |
+| Export  | What it does                                                                                                                                                                      |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pwa`   | Vite plugins that emit the manifest from the app's `name`, pick the Precache, compute the Build ID, build the worker (or the Kill Switch) and add `no-cache` rules to `_headers`. |
+| `noPwa` | The Vite plugin for an app that is no PWA: `PwaHead` and `Pwa` draw nothing of their own, and there is no worker or manifest.                                                     |
 
 ### `@kestack/web-platform/pwa/worker`
 
@@ -367,75 +370,61 @@ The Account Switcher of a Kabuki app: a Child of the root page, its View in the 
 | ---------- | ----------------------------------------------------------------------------------------------------- |
 | `SwipeRow` | A row one finger swipes left to delete, arming past a distance with a click; a mouse never swipes it. |
 
+### `@kestack/web-platform/app/vite`
+
+| Export | What it does                                                                                                                                           |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `app`  | Every Vite plugin a kstack app needs: Tailwind, React, Kabuki Start and the PWA (`pwa: false` for none), with the Web Platform bundled for the server. |
+
 ### `@kestack/web-platform/app/document`
 
-The Document for an app on Kabuki Start.
-
-| Export     | What it does                                                                                                                                                            |
-| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Document` | The HTML around a Kabuki Start app: Start's head and scripts, Inter preloaded, the Theme's script and the device marked before the first paint, and the app's own head. |
+| Export     | What it does                                                                                                                                                                                          |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `document` | The Document for `Start.app({ document })`: Start's head and scripts, Inter preloaded, the Theme and the device marked before the first paint, the PWA when the build has it, and the app's own head. |
 
 ### `@kestack/web-platform/app/alchemy`
 
-| Export              | What it does                                                                                                       |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `isDeployedStage`   | Whether an alchemy stage reaches the world: `prod` or a pull request's `prN`.                                      |
-| `assertStageIsSafe` | Refuses a deployed stage unless `ALLOW_DEPLOY=true`.                                                               |
-| `domainFor`         | Where a stage is served: the domain for `prod`, `prN-<domain>` for a pull request, nowhere for anyone's own stage. |
-| `devConfigFor`      | A local stage's dev server on the `PORT` portless gives it; throws when there is none.                             |
+| Export              | What it does                                                                                                                   |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `Site`              | A Kabuki Start app as a Cloudflare Website: on its domain on a deployed Stage, on Portless's port under `alchemy dev`.         |
+| `State`             | Where alchemy keeps a Stack's state: Cloudflare's state store for a deployed Stage, `.alchemy/state` on disk for anyone's own. |
+| `where`             | Where the Stage being run serves the site and its API Workers, once it is checked it may be run.                               |
+| `isDeployedStage`   | Whether a Stage reaches the world: `prod`, `demo` or a pull request's `prN`.                                                   |
+| `assertStageIsSafe` | Refuses a deployed Stage unless `ALLOW_DEPLOY=true`.                                                                           |
+| `portlessPort`      | The `PORT` `portless run` gives `pnpm dev`; throws when there is none.                                                         |
 
 ## Usage
 
-### Building the PWA
+### A kstack app
 
-A Kabuki Start app becomes a PWA with `pwa()` in its Vite plugins and `PwaHead` and `Pwa` in its Document. Lifted from `apps/code`.
+An app writes its Vite config, its `src/app.tsx` and its `alchemy.run.ts`; the Web Platform gives the rest, and the app is a PWA. Lifted from `apps/code`.
 
 ```tsx
 // vite.config.ts
-ssr: { noExternal: ['@kestack/web-platform'] },
-plugins: [
-  tailwindcss(),
-  react(),
-  start({ platform: cloudflare(), app: 'src/app' }),
-  pwa({ name: 'Code' }),
-],
+plugins: [app({ name: 'Code', platform: cloudflare(), app: 'src/app' })],
 
-// src/document.tsx
-export default function Document({ children }: Start.DocumentProps) {
-  return (
-    <WebDocument theme={Theme} head={<PwaHead />}>
-      <Pwa>{children}</Pwa>
-    </WebDocument>
-  );
-}
+// src/app.tsx
+export default Start.app({
+  router,
+  view: Shell.view,
+  document: document({ theme: Theme, head: <link rel="icon" href="/favicon.svg" /> }),
+  layer,
+});
+
+// alchemy.run.ts
+export default Stack('Code', { providers, state: State }, Site({ host: 'code', zone: 'kishore.app' }));
 ```
 
 - Start builds the client and the Worker; `pwa()` then writes `sw.js`, `manifest.webmanifest` and a `_headers` block with `Cache-Control: no-cache` for both into the client's folder. The worker entry is the app's `src/sw.ts` if it has one, or a built-in one.
-- `name` is all the manifest needs: its colors are the default Theme's, and its icons are `icon-192.png`, `icon-512.png`, `icon-maskable-512.png` and `apple-touch-icon.png` in `public/`; the build warns about any that is missing. `manifest` overrides any field. The Install Prompt is titled with the name.
+- `name` is all the manifest needs: its colors are the default Theme's, and its icons are `icon-192.png`, `icon-512.png`, `icon-maskable-512.png` and `apple-touch-icon.png` in `public/`; the build warns about any that is missing. `pwa: { manifest }` overrides any field. The Install Prompt is titled with the name.
 - How each page works offline follows from its Render Mode, as Kabuki Start's Pages (`/_kabuki/pages`) say. On install the worker saves the Pages, the App Shell and every static page that is one URL ([ADR 0010](../../docs/adr/0010-kabuki-start-serves-the-web-platform-decides.md)). A client page is the App Shell, at once. A static page is this build's copy, saved on install or on first visit. A dynamic page, or one Start does not name, is the network within `navigation.networkTimeoutMs`, kept per Build ID; offline, the copy kept last, else the App Shell. With no Pages (an app not on Start), every page is dynamic and there is no App Shell.
-- In `vite dev` the worker is off unless `pwa({ dev: true })`. `pwa({ enabled: false })` builds the Kill Switch. Paths under `neverCache` (default `/api/auth/`), non-GET requests and `navigation.denylist` never reach the caches.
+- In `vite dev` the worker is off unless `pwa: { dev: true }`. `pwa: { enabled: false }` builds the Kill Switch, and `pwa: false` makes the app no PWA at all. Paths under `neverCache` (default `/api/auth/`), non-GET requests and `navigation.denylist` never reach the caches.
 - While an update waits, this build's copy of a page, else its App Shell, answers navigations, so every page stays on one Build ID until the user accepts ([ADR 0006](./docs/adr/0006-pending-update-pins-navigations-to-the-active-build.md)).
+- `Site` takes what the app adds, such as `env`, from a function given where the Stage serves; app-specific Workers stay in the app.
 
-### A Kabuki Start app's Document
+### What the Document puts before the first paint
 
-An app on Kabuki Start writes `src/document.tsx` as the Web Platform's
-`Document`, wrapping the app in what sits around every page. Lifted from
-`apps/kabuki-start/src/client/document.tsx`.
-
-```tsx
-// src/document.tsx
-import type { Start } from '@kestack/kabuki/start';
-import { Document as WebDocument } from '@kestack/web-platform/app/document';
-import { Devtools, Theme } from './components/index.ts';
-
-export default function Document({ children }: Start.DocumentProps) {
-  return (
-    <WebDocument theme={Theme}>
-      <Devtools>{children}</Devtools>
-    </WebDocument>
-  );
-}
-```
+`document({ theme })` draws Start's head and scripts with the Web Platform's look, and `around` wraps every page, as `apps/kabuki-start` wraps it in Kabuki's devtools.
 
 ```css
 /* src/styles.css */
@@ -452,6 +441,6 @@ export default function Document({ children }: Start.DocumentProps) {
 - The Theme's script sets light or dark on `<html>` before the body paints,
   and the device script sets `data-keyboard` and `data-touch` for the
   `keyboard:` and `touch:` variants.
-- `head` adds the app's own tags, such as icons, after the Web Platform's.
-  The same rule holds for any other web font: preload the file the first
+- `head` adds the app's own tags, such as icons, after the Web Platform's
+  and the PWA's. The same rule holds for any other web font: preload the file the first
   paint needs, and give it a fallback whose metrics match.

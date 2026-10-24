@@ -1,7 +1,5 @@
 import { cloudflare } from '@kestack/kabuki/start/platform/cloudflare';
-import { start } from '@kestack/kabuki/start/vite';
-import tailwindcss from '@tailwindcss/vite';
-import react from '@vitejs/plugin-react';
+import { app } from '@kestack/web-platform/app/vite';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
@@ -9,12 +7,11 @@ export default defineConfig({
     // Accept the Host headers the portless proxy and its Tailscale share forward during dev.
     allowedHosts: ['.kabuki-start.kishore.computer', '.ts.net'],
   },
-  // Its components are ESM with CSS-only side effects: bundle them for the server too.
-  ssr: { noExternal: ['@kestack/web-platform'] },
   plugins: [
-    tailwindcss(),
-    react(),
-    start({
+    // Kabuki Start on Cloudflare, and a PWA whose icons are the ones
+    // public/ holds by name.
+    app({
+      name: 'Kabuki Start',
       platform: cloudflare(),
       app: 'src/client/app',
       loaders: 'src/server/loaders.server',

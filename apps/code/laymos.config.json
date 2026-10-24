@@ -5,7 +5,6 @@
   "fileModules": [
     "src/app.tsx",
     "src/pages.ts",
-    "src/document.tsx",
     "src/keys.ts",
     "src/deploy/machines-api/worker.server.ts"
   ],
@@ -15,10 +14,9 @@
       "src/pages.ts",
       "src/layer/services",
       "src/sign-in",
-      "src/document.tsx"
+      "src/ui/theme"
     ],
     "src/pages.ts": ["src/shell"],
-    "src/document.tsx": ["src/ui/theme"],
     "src/layer/services": [
       "src/layer/capabilities",
       "src/layer/machine-health",

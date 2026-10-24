@@ -121,7 +121,7 @@ _Avoid_: push (the delivery channel, not the message), toast, alert
 ### Shipping
 
 **Stage**:
-One place an app is deployed to, as alchemy names it: `prod`, a pull request's `prN`, or anyone's own on their machine. Only `prod` and `prN` reach the world, and only when the deploy says so on purpose; anyone's own is served on their machine and keeps its alchemy state there.
+One place an app is deployed to, as alchemy names it: `prod`, `demo`, a pull request's `prN`, or anyone's own on their machine. Only `prod`, `demo` and `prN` reach the world, and only when the deploy says so on purpose; anyone's own is served on their machine and keeps its alchemy state there.
 _Avoid_: environment, deployment, target
 
 ### Kabuki Inspector
