@@ -37,8 +37,10 @@
       "src/shell/places",
       "src/shell/refusal",
       "src/shell/replica",
-      "src/shell/connection"
+      "src/shell/connection",
+      "src/shell/moves"
     ],
+    "src/shell/moves": ["src/shell/refusal"],
     "src/shell/pages": [
       "src/shell/places",
       "src/shell/refusal",

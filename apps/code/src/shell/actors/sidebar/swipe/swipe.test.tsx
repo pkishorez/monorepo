@@ -5,7 +5,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Toasts } from '../../../../ui/toast/index.ts';
-import { moveWithUndo, SwipeToMove } from './swipe.tsx';
+import { sayMoved, SwipeToMove } from './swipe.tsx';
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
@@ -58,9 +58,10 @@ const render = (settled: boolean) =>
         <GestureZone>
           <SwipeToMove
             settled={settled}
-            onMove={(to) =>
-              moveWithUndo('A session', to, (where) => moves.push(where), 5)
-            }
+            onMove={(to) => {
+              moves.push(to);
+              sayMoved('A session', to, () => moves.push(!to), 5);
+            }}
           >
             <div data-testid="row">A session</div>
           </SwipeToMove>

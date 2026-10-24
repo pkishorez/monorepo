@@ -49,7 +49,9 @@ by keys, a popover by its button when opened by pointer, search focused.
 - Swipe a Session row left to right to Settle it; on a Settled row, to
   un-Settle it. It commits past about 40% of the row or on a fast flick, slides
   out with a spring, and offers Undo for 5 seconds. Its Machine is asked only
-  once those have passed, or the page is hidden: an Undo asks nothing.
+  once those have passed, or the page is hidden: an Undo asks nothing. What
+  was swiped is kept on the device until its Machine confirms it, so a page
+  closed first asks it when it is opened again.
 - Pull down at the top of the Sidebar to Reload. Scrolled down, the Sidebar
   scrolls instead, wherever the finger lands, a Session row included.
 - Swipe down closes a Drawer.

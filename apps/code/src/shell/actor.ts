@@ -35,6 +35,7 @@ import { askDictation, keepAccounts, setVim, signIn } from './commands.ts';
 import { Home } from './pages/home/index.ts';
 import { Project } from './pages/project/index.ts';
 import { Settings } from './pages/settings/index.ts';
+import { layer as moves } from './moves/index.ts';
 import { reach } from './services/index.ts';
 
 /*
@@ -211,9 +212,10 @@ export const ShellLive = Page.build(Shell, {
     Settings: Settings.actor,
     Project: Project.actor,
   },
-  // At the top, as the pages are: the Account, and how each Machine is
-  // reached, are shared from here.
-  provides: () => Layer.mergeAll(CurrentAccount.layer, reach),
+  // At the top, as the pages are: the Account, how each Machine is
+  // reached, and the Moves on their way to them, are shared from here.
+  provides: () =>
+    Layer.mergeAll(CurrentAccount.layer, moves.pipe(Layer.provideMerge(reach))),
   children: {
     // The Auth Worker's `maxAccounts`: its default, 5.
     account: { actor: AccountSwitcherLive, input: () => ({ maxAccounts: 5 }) },
