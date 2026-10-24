@@ -78,7 +78,6 @@ export function Places({
   projects,
   sessions,
   isUnseen,
-  unsettling,
   projectPicker,
   onOpenSession,
   onUnsettle,
@@ -93,12 +92,6 @@ export function Places({
   /** Every Session, Settled ones too. */
   readonly sessions: ReadonlyArray<OnMachine<Session>>;
   readonly isUnseen: (session: OnMachine<Session>) => boolean;
-  /** The Session being Un-settled, and why its Machine refused, if it did. */
-  readonly unsettling: {
-    readonly machineId: string;
-    readonly sessionId: string;
-    readonly problem: string | null;
-  } | null;
   /** The Project Picker, drawn by its plus. */
   readonly projectPicker: ReactNode;
   /** Moves the app to a session, as its link would. */
@@ -213,7 +206,6 @@ export function Places({
               : { machineId: here.machineId, id: openSession }
           }
           at={at}
-          unsettling={unsettling}
           onUnsettle={onUnsettle}
           onMove={onMove}
           onClose={toggleSettled}

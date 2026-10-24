@@ -1,62 +1,95 @@
-import { Deferred, Effect, Layer, Scope, Stream } from 'effect';
-import { AiClient, AiClients } from '@kestack/ai-toolkit/client';
+import { Effect, Layer, PubSub, Scope, Stream, SubscriptionRef } from 'effect';
+import type { Session } from '@kestack/ai-toolkit/api';
 import { Runtime, type Running } from '@kestack/kabuki';
 import { Navigation } from '@kestack/kabuki/routing';
-import { connection as RpcConnection } from '@kestack/rpc-toolkit/rpc/websocket';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   DeviceState,
   Machines,
   nobody,
   nothing,
 } from '../../../layer/capabilities/index.ts';
-import type { Session } from '@kestack/ai-toolkit/api';
 import type { OnMachine } from '../../replica/index.ts';
+import { type Intent, Moves } from '../../moves/index.ts';
 import { SidebarLive } from './actor.ts';
-import { doneOf, type Move, movedOf, WINDOW } from './moves.ts';
+import { doneOf, movedOf } from './moves.ts';
 import { settledOf } from './settled-list/index.ts';
 
 /*
- * Sessions swiped in the sidebar, with every Machine stood in for and the
- * clock in the test's hands: a swipe shows where the Session goes at once
- * and asks its Machine only once its Undo window closes; an Undo inside it
- * asks nothing; each Session has its own window and its own call; the page
- * going, or the sidebar stopping, asks what is still waiting; a refusal
- * puts it back and says why.
+ * Sessions put in the sidebar, with `Moves` stood in for: a swipe goes to
+ * it as a swipe, and is said once kept; the Settled List's Un-settle goes
+ * at once; every Session is drawn where `Moves` says it goes, until the
+ * synced Session agrees; a refusal is said.
  */
 
-type Asked = { readonly sessionId: string; readonly settled: boolean };
+type Going = typeof Intent.Type;
 
-const world = (
-  first: Deferred.Deferred<void> | null,
-  refuse: ReadonlySet<string> = new Set(),
-) => {
-  const asked: Array<Asked> = [];
-  const ask = (sessionId: string, settled: boolean) =>
-    Effect.gen(function* () {
-      const waits = first !== null && asked.length === 0;
-      asked.push({ sessionId, settled });
-      if (waits) yield* Deferred.await(first);
-      if (refuse.has(sessionId)) {
-        return yield* Effect.fail({
-          _tag: 'SessionNotFound' as const,
-          sessionId,
-        });
-      }
-    });
+const row = (sessionId: string, settledAt: number | null) =>
+  ({
+    id: sessionId,
+    projectId: 'p',
+    machineId: 'm1',
+    settledAt,
+  }) as unknown as OnMachine<Session>;
+
+const going = (
+  sessionId: string,
+  settled: boolean,
+  n: number,
+  idle = false,
+): Going => ({ machineId: 'm1', sessionId, settled, n, idle });
+
+describe('Sessions put, as the sidebar draws them', () => {
+  it('show the most recently put Settled first, over any Settled before', () => {
+    const shown = movedOf(
+      [row('a', null), row('b', null), row('old', 1000)],
+      [going('a', true, 1), going('b', true, 2)],
+    );
+    expect(settledOf([], shown).map(({ session }) => session.id)).toEqual([
+      'b',
+      'a',
+      'old',
+    ]);
+  });
+
+  it('go once nothing is left to ask and the synced Session agrees', () => {
+    const now = [
+      going('a', true, 1, true),
+      going('b', false, 2, true),
+      going('c', true, 3, false),
+    ];
+    expect(
+      doneOf([row('a', 1000), row('b', 1000), row('c', 1000)], now),
+    ).toEqual([{ machineId: 'm1', sessionId: 'a', settled: true }]);
+  });
+});
+
+type Put = {
+  readonly how: 'swipe' | 'set';
+  readonly sessionId: string;
+  readonly settled: boolean;
+};
+
+const stood = Effect.gen(function* () {
+  const put: Array<Put> = [];
+  const intents = yield* SubscriptionRef.make<ReadonlyArray<Going>>([]);
+  const refusals = yield* PubSub.unbounded<{
+    settled: boolean;
+    reason: string;
+  }>();
   const layer = Layer.mergeAll(
-    AiClients.make(() =>
-      Layer.merge(
-        Layer.mock(AiClient)({
-          settleSession: ({ sessionId }: { readonly sessionId: string }) =>
-            ask(sessionId, true),
-          unsettleSession: ({ sessionId }: { readonly sessionId: string }) =>
-            ask(sessionId, false),
-        } as never),
-        Layer.mock(RpcConnection)({
-          hooks: { onConnect: Effect.void, onDisconnect: Effect.void },
-        }),
-      ),
+    Layer.succeed(
+      Moves,
+      Moves.of({
+        intents: SubscriptionRef.changes(intents),
+        refusals: Stream.fromPubSub(refusals),
+        swipe: ({ sessionId }, settled) =>
+          Effect.sync(() => put.push({ how: 'swipe', sessionId, settled })),
+        set: ({ sessionId }, settled) =>
+          Effect.sync(() => put.push({ how: 'set', sessionId, settled })),
+        hurry: Effect.void,
+        agreed: () => Effect.void,
+      }),
     ),
     Layer.mock(Machines)({
       state: Stream.concat(Stream.make(nobody), Stream.never),
@@ -67,15 +100,23 @@ const world = (
     }),
     Layer.mock(Navigation)({ push: () => Effect.void }),
   );
-  return { layer, asked };
-};
+  return { layer, put, intents, refusals };
+});
 
-/** Lets `ms` of the test's clock go by. */
-const pass = (ms: number) =>
-  Effect.promise(() => vi.advanceTimersByTimeAsync(ms));
+const wait = (ms = 30) =>
+  Effect.promise(() => new Promise((done) => setTimeout(done, ms)));
 
 const run = <A>(effect: Effect.Effect<A, unknown, Scope.Scope>) =>
   Effect.runPromise(Effect.scoped(effect) as Effect.Effect<A>);
+
+type Model = {
+  readonly moving: ReadonlyArray<Going>;
+  readonly told: { readonly title: string; readonly settled: boolean } | null;
+  readonly refused: {
+    readonly reason: string;
+    readonly settled: boolean;
+  } | null;
+};
 
 const start = (layer: Layer.Layer<any>) =>
   Runtime.start(SidebarLive as never, layer as never) as Effect.Effect<
@@ -83,234 +124,57 @@ const start = (layer: Layer.Layer<any>) =>
     never,
     Scope.Scope
   >;
-
-type Model = {
-  readonly moving: ReadonlyArray<Move>;
-  readonly refused: {
-    readonly reason: string;
-    readonly settled: boolean;
-  } | null;
-};
-
 const model = (app: Running<unknown>) => app.snapshot().model as Model;
 const send = (app: Running<unknown>, message: object) =>
   app.send(app.snapshot().id, message as never);
-const move = (sessionId: string, settled: boolean) => ({
+const asked = (sessionId: string, settled: boolean, now: boolean) => ({
   _tag: 'MoveAsked',
   machineId: 'm1',
   sessionId,
   settled,
+  title: now ? null : 'A session',
+  now,
 });
 
-beforeEach(() => {
-  vi.useFakeTimers({
-    toFake: [
-      'setTimeout',
-      'clearTimeout',
-      'setInterval',
-      'clearInterval',
-      'Date',
-      'performance',
-    ],
-  });
-});
-
-afterEach(() => {
-  vi.useRealTimers();
-});
-
-const row = (sessionId: string, settledAt: number | null) =>
-  ({
-    id: sessionId,
-    projectId: 'p',
-    machineId: 'm1',
-    settledAt,
-  }) as unknown as OnMachine<Session>;
-/** Whether the row shows Settled, with the Session as synced `settled`. */
-const shownSettled = (
-  app: Running<unknown>,
-  sessionId: string,
-  settled: boolean,
-) =>
-  movedOf([row(sessionId, settled ? 1000 : null)], model(app).moving)[0]!
-    .settledAt !== null;
-
-describe('a Session swiped in the sidebar', () => {
-  it('asks its Machine nothing for a swipe Undone inside its window, and never flips', async () => {
-    const { layer, asked } = world(null);
+describe('a Session put in the sidebar', () => {
+  it('goes to Moves as a swipe, said once kept, or at once from the Un-settle button', async () => {
+    const { layer, put } = await Effect.runPromise(stood);
     await run(
       Effect.gen(function* () {
         const app = yield* start(layer);
-        send(app, move('s1', true));
-        expect(shownSettled(app, 's1', false)).toBe(true);
-        yield* pass(1000);
-        send(app, move('s1', false));
-        const shown: Array<boolean> = [];
-        for (let at = 0; at < 8; at++) {
-          shown.push(shownSettled(app, 's1', false));
-          yield* pass(1000);
-        }
-        expect(asked).toEqual([]);
-        expect(shown.every((settled) => !settled)).toBe(true);
-        // Nothing waits: it goes as the synced row agrees.
-        expect(doneOf([row('s1', null)], model(app).moving)).toEqual([
-          { machineId: 'm1', sessionId: 's1' },
+        send(app, asked('s1', true, false));
+        yield* wait();
+        expect(model(app).told).toMatchObject({
+          title: 'A session',
+          settled: true,
+        });
+        send(app, asked('s2', false, true));
+        yield* wait();
+        expect(put).toEqual([
+          { how: 'swipe', sessionId: 's1', settled: true },
+          { how: 'set', sessionId: 's2', settled: false },
         ]);
       }),
     );
   });
 
-  it('asks its Machine once the window closes, and keeps the row where it went', async () => {
-    const { layer, asked } = world(null);
+  it('draws where Moves says each Session goes, and says each refusal', async () => {
+    const { layer, intents, refusals } = await Effect.runPromise(stood);
     await run(
       Effect.gen(function* () {
         const app = yield* start(layer);
-        send(app, move('s1', true));
-        yield* pass(WINDOW - 200);
-        expect(asked).toEqual([]);
-        yield* pass(400);
-        expect(asked).toEqual([{ sessionId: 's1', settled: true }]);
-        expect(model(app).moving).toMatchObject([
-          {
-            sessionId: 's1',
-            settled: true,
-            base: true,
-            asking: null,
-            due: null,
-          },
-        ]);
-        expect(shownSettled(app, 's1', false)).toBe(true);
-        send(app, { _tag: 'MoveSeen', machineId: 'm1', sessionId: 's1' });
-        yield* pass(10);
-        expect(model(app).moving).toEqual([]);
+        yield* SubscriptionRef.set(intents, [going('s1', true, 1)]);
+        yield* PubSub.publish(refusals, {
+          settled: false,
+          reason: 'Not found',
+        });
+        yield* wait();
+        expect(model(app).moving).toEqual([going('s1', true, 1)]);
+        expect(model(app).refused).toMatchObject({
+          settled: false,
+          reason: 'Not found',
+        });
       }),
     );
-  });
-
-  it('keeps each Session on its own: one being asked holds up no other', async () => {
-    const first = await Effect.runPromise(Deferred.make<void>());
-    const { layer, asked } = world(first);
-    await run(
-      Effect.gen(function* () {
-        const app = yield* start(layer);
-        send(app, move('a', true));
-        yield* pass(WINDOW + 200);
-        expect(asked).toEqual([{ sessionId: 'a', settled: true }]);
-        // While a's call waits: b Settled and Undone, c Settled.
-        send(app, move('b', true));
-        send(app, move('c', true));
-        yield* pass(500);
-        send(app, move('b', false));
-        yield* pass(WINDOW + 200);
-        expect(asked).toEqual([
-          { sessionId: 'a', settled: true },
-          { sessionId: 'c', settled: true },
-        ]);
-        expect(shownSettled(app, 'b', false)).toBe(false);
-        // b asked nothing and is done; c waits for its Settle to sync.
-        expect(
-          doneOf([row('b', null), row('c', null)], model(app).moving),
-        ).toEqual([{ machineId: 'm1', sessionId: 'b' }]);
-        yield* Deferred.succeed(first, undefined);
-        yield* pass(200);
-        expect(
-          model(app).moving.find(({ sessionId }) => sessionId === 'a'),
-        ).toMatchObject({ base: true, asking: null, due: null });
-      }),
-    );
-  });
-
-  it('asks a swipe made while the last is being asked once that lands, if it still differs', async () => {
-    const first = await Effect.runPromise(Deferred.make<void>());
-    const { layer, asked } = world(first);
-    await run(
-      Effect.gen(function* () {
-        const app = yield* start(layer);
-        send(app, move('s1', true));
-        yield* pass(WINDOW + 200);
-        send(app, move('s1', false));
-        yield* pass(WINDOW + 200);
-        expect(asked).toEqual([{ sessionId: 's1', settled: true }]);
-        yield* Deferred.succeed(first, undefined);
-        yield* pass(300);
-        expect(asked).toEqual([
-          { sessionId: 's1', settled: true },
-          { sessionId: 's1', settled: false },
-        ]);
-      }),
-    );
-  });
-
-  it('asks what is waiting at once as the page is hidden', async () => {
-    const { layer, asked } = world(null);
-    await run(
-      Effect.gen(function* () {
-        const app = yield* start(layer);
-        send(app, move('s1', true));
-        yield* pass(500);
-        send(app, { _tag: 'MovesFlushed' });
-        yield* pass(300);
-        expect(asked).toEqual([{ sessionId: 's1', settled: true }]);
-      }),
-    );
-  });
-
-  it('asks what is waiting as the sidebar stops', async () => {
-    const { layer, asked } = world(null);
-    await run(
-      Effect.gen(function* () {
-        const app = yield* start(layer);
-        send(app, move('s1', true));
-        yield* pass(500);
-        expect(asked).toEqual([]);
-      }),
-    );
-    await vi.advanceTimersByTimeAsync(10);
-    expect(asked).toEqual([{ sessionId: 's1', settled: true }]);
-  });
-
-  it('goes back where it was, and says why, when its Machine refuses', async () => {
-    const { layer, asked } = world(null, new Set(['s2']));
-    await run(
-      Effect.gen(function* () {
-        const app = yield* start(layer);
-        send(app, move('s1', true));
-        send(app, move('s2', false));
-        yield* pass(WINDOW + 300);
-        expect(asked).toEqual([
-          { sessionId: 's1', settled: true },
-          { sessionId: 's2', settled: false },
-        ]);
-        expect(model(app).moving.map(({ sessionId }) => sessionId)).toEqual([
-          's1',
-        ]);
-        expect(model(app).refused).toMatchObject({ settled: false });
-        expect(model(app).refused?.reason).not.toBe('');
-      }),
-    );
-  });
-});
-
-describe('Sessions swiped to Settle, before their Machine says so', () => {
-  const move = (n: number, sessionId: string): Move => ({
-    n,
-    machineId: 'm1',
-    sessionId,
-    settled: true,
-    base: false,
-    asking: null,
-    due: 0,
-  });
-
-  it('show in the Settled List the most recently swiped first, over any Settled before', () => {
-    const shown = movedOf(
-      [row('a', null), row('b', null), row('old', Date.now())],
-      [move(1, 'a'), move(2, 'b')],
-    );
-    expect(settledOf([], shown).map(({ session }) => session.id)).toEqual([
-      'b',
-      'a',
-      'old',
-    ]);
   });
 });

@@ -5,7 +5,6 @@ import {
   ArchiveRestoreIcon,
   XIcon,
 } from '@kestack/web-platform/ui/components/lucide';
-import { Spinner } from '@kestack/web-platform/ui/components/spinner';
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -61,7 +60,6 @@ export function SettledList({
   listed,
   open,
   at,
-  unsettling,
   onUnsettle,
   onMove,
   onClose,
@@ -71,12 +69,6 @@ export function SettledList({
   readonly open: { readonly machineId: string; readonly id: string } | null;
   /** Whether the keyboard's cursor is on a place. */
   readonly at: (place: string) => true | undefined;
-  /** The Session being Un-settled, and why its Machine refused, if it did. */
-  readonly unsettling: {
-    readonly machineId: string;
-    readonly sessionId: string;
-    readonly problem: string | null;
-  } | null;
   readonly onUnsettle: (machineId: string, sessionId: string) => void;
   /** A Session swiped to un-Settle it. */
   readonly onMove: (session: OnMachine<Session>, settled: boolean) => void;
@@ -109,10 +101,6 @@ export function SettledList({
         ) : (
           <SidebarMenu className="gap-0">
             {listed.map(({ place, session, project }) => {
-              const busy =
-                unsettling?.machineId === session.machineId &&
-                unsettling.sessionId === session.id;
-              const problem = busy ? unsettling.problem : null;
               return (
                 <SidebarMenuItem key={place} className="group/settled">
                   <SwipeToMove
@@ -150,7 +138,6 @@ export function SettledList({
                   </SwipeToMove>
                   <button
                     type="button"
-                    disabled={busy && problem === null}
                     aria-label={`Un-settle ${session.title || 'Untitled session'}`}
                     title="Un-settle"
                     onClick={() => onUnsettle(session.machineId, session.id)}
@@ -160,20 +147,8 @@ export function SettledList({
                         : 'sr-only'
                     }
                   >
-                    {busy && problem === null ? (
-                      <Spinner className="size-3.5" />
-                    ) : (
-                      <ArchiveRestoreIcon aria-hidden className="size-3.5" />
-                    )}
+                    <ArchiveRestoreIcon aria-hidden className="size-3.5" />
                   </button>
-                  {problem !== null && (
-                    <p
-                      role="alert"
-                      className="px-2 pb-1 text-xs text-destructive"
-                    >
-                      {problem}
-                    </p>
-                  )}
                 </SidebarMenuItem>
               );
             })}

@@ -8,7 +8,8 @@ import { boundIn } from '../../../keys.ts';
 import { session as sessionPlace } from '../../places/index.ts';
 import { everything } from '../../replica/index.ts';
 import * as Picker from '../../../ui/picker/index.ts';
-import { forkLatest, regenerateTitle, settle, stop, unsettle } from './api.ts';
+import { Moves } from '../../moves/index.ts';
+import { forkLatest, regenerateTitle, stop } from './api.ts';
 
 /*
  * Session Actions: what can be done to the open Session, on its own
@@ -22,6 +23,8 @@ import { forkLatest, regenerateTitle, settle, stop, unsettle } from './api.ts';
  * 2. Run     the Picker waits while the server does it, then closes, and
  *            the app, and the keyboard, go to the Fork or the original
  *            for those two; a refusal is said in the Picker, which stays.
+ *            Settle and Un-settle go through `Moves`, at once, as every
+ *            Settle does, and the sidebar says a refusal.
  */
 
 const Open = Schema.Struct({
@@ -124,7 +127,7 @@ const openOf = (
 };
 
 export const SessionActions = Actor.define('SessionActions', {
-  requires: [AiClients, Navigation, Replicas],
+  requires: [AiClients, Moves, Navigation, Replicas],
   props: Schema.Struct({ bindings: Bindings }),
   model: Schema.Struct({
     picking: Schema.NullOr(Picker.How),
@@ -159,10 +162,6 @@ export const SessionActions = Actor.define('SessionActions', {
 const run = (action: string, open: Open) => {
   const none = Effect.as(Effect.void, null);
   switch (action) {
-    case 'settle':
-      return Effect.as(settle(open.id), null);
-    case 'unsettle':
-      return Effect.as(unsettle(open.id), null);
     case 'fork':
       return Effect.map(forkLatest(open.id), (fork) => ({
         projectId: fork.projectId,
@@ -213,7 +212,7 @@ export const SessionActionsLive = Actor.build(SessionActions, {
   },
   provides: (self) =>
     Layer.unwrap(
-      Effect.map(Effect.context<AiClients>(), (client) =>
+      Effect.map(Effect.context<AiClients | Moves>(), (client) =>
         Actions.owner({
           done: () => self.send({ _tag: 'Closed' }),
           settle: (choices) =>
@@ -221,10 +220,18 @@ export const SessionActionsLive = Actor.build(SessionActions, {
               const { model } = yield* self.get;
               const action = choices.at(-1)?.value ?? '';
               if (model.session === null) return 'This session is not found';
-              const go = yield* AiClients.on(
-                model.machineId,
-                run(action, model.session),
-              ).pipe(Effect.provide(client));
+              const { machineId, session } = model;
+              const go =
+                action === 'settle' || action === 'unsettle'
+                  ? yield* Effect.flatMap(Moves, (moves) =>
+                      moves.set(
+                        { machineId, sessionId: session.id },
+                        action === 'settle',
+                      ),
+                    ).pipe(Effect.as(null), Effect.provide(client))
+                  : yield* AiClients.on(machineId, run(action, session)).pipe(
+                      Effect.provide(client),
+                    );
               yield* self.send({ _tag: 'Ran', go });
               return null;
             }).pipe(Effect.catch((reason) => Effect.succeed(reason))),
