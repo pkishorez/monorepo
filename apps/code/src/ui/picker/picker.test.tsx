@@ -4,7 +4,15 @@ import { createRoot, type Root as ReactRoot } from 'react-dom/client';
 import { Effect, Layer, Schema } from 'effect';
 import { Actor } from '@kestack/kabuki';
 import { toReact, View } from '@kestack/kabuki/react';
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+} from 'vitest';
 import { keys } from '../../keys.ts';
 import { Frame, How, make } from './picker.tsx';
 
@@ -14,11 +22,17 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
  * A Picker under an owner, on the app's own keyboard: a fruit, then its
  * size, which the owner loads. The page has an editor as its default Focus
  * Spot; every way the Picker closes puts focus back in it, and the owner
- * hears the choices once.
+ * hears the choices once. On a device with no keyboard, where the app's
+ * keyboard moves no focus, nothing focuses the search unless it opts in.
  */
+
+let optIn = false;
 
 const Fruit = make('FruitPicker', {
   props: Schema.Struct({ ripe: Schema.Boolean }),
+  get focusOnTouch() {
+    return optIn;
+  },
   steps: {
     fruit: {
       placeholder: () => 'Search fruit',
@@ -147,6 +161,8 @@ let ping = () => {};
 let drop = () => {};
 let pings = 0;
 let bindings: Readonly<Record<string, string>> = {};
+// What the device can be driven by: a keyboard, else touch alone.
+let device: 'keyboard' | 'touch' = 'keyboard';
 
 const OwnerView = View.make(OwnerLive, ({ model, children, send }) => {
   owner = { chosen: model.chosen, done: model.done };
@@ -154,7 +170,8 @@ const OwnerView = View.make(OwnerLive, ({ model, children, send }) => {
   drop = () => send({ _tag: 'Drop' });
   pings = model.pings;
   return (
-    <keys.Provider vim bindings={bindings}>
+    // As the app's keyboard: focus moves on its own only with a keyboard.
+    <keys.Provider vim bindings={bindings} autoFocus={device === 'keyboard'}>
       <Page how={model.picking} onOpen={(how) => send({ _tag: 'Open', how })}>
         {children.picker && <Fruit.View instance={children.picker} />}
       </Page>
@@ -247,6 +264,10 @@ beforeAll(() => {
 beforeEach(async () => {
   owner = { chosen: null, done: 0 };
   bindings = {};
+  document.documentElement.toggleAttribute(
+    'data-keyboard',
+    device === 'keyboard',
+  );
   // A History is kept under its app's name across mounts: one name each.
   const App = toReact(OwnerLive, OwnerView, Layer.empty, {
     name: `picker-test-${apps++}`,
@@ -375,5 +396,41 @@ describe('Picker', () => {
     await flush();
     expect(owner).toEqual({ chosen: ['apple', 'apple-small'], done: 1 });
     expect(document.activeElement).toBe(by('editor'));
+  });
+});
+
+describe('Picker, on a device with no keyboard', () => {
+  beforeAll(() => {
+    device = 'touch';
+  });
+  afterAll(() => {
+    device = 'keyboard';
+    optIn = false;
+  });
+  const row = (label: string) =>
+    [...document.querySelectorAll<HTMLElement>('[cmdk-item]')].find(
+      (item) => item.textContent === label,
+    )!;
+
+  it('opens without focusing its search, however it was opened', async () => {
+    await openByKeys();
+    expect(document.activeElement).not.toBe(search());
+    expect(rows()).toEqual(['Apple', 'Pear', 'PlumOut of season']);
+    await click(row('Apple'));
+    expect(search()?.placeholder).toBe('Search sizes of apple');
+    expect(document.activeElement).not.toBe(search());
+    await click(row('Small'));
+    await flush();
+    expect(owner).toEqual({ chosen: ['apple', 'apple-small'], done: 1 });
+    await click(by('trigger'));
+    expect(search()).not.toBeNull();
+    expect(document.activeElement).not.toBe(search());
+  });
+
+  it('focuses its search as it opens when the Picker opts in', async () => {
+    optIn = true;
+    await openByKeys();
+    await flush();
+    expect(document.activeElement).toBe(search());
   });
 });

@@ -11,6 +11,7 @@ import {
 } from '@kestack/web-platform/ui/components/popover';
 import { useIsMobile } from '@kestack/web-platform/ui/components/hooks/use-mobile';
 import { cn } from '@kestack/web-platform/ui/components/utils';
+import { useDevice } from '@kestack/web-platform/ui/input';
 import type { ReactElement, ReactNode } from 'react';
 import { keys } from '../../keys.ts';
 import { build, How, type Spec } from './actor.ts';
@@ -30,8 +31,9 @@ import { opened } from './opening.ts';
  *
  * It is drawn in a `Frame`: opened by keys, a centred list; by pointer, a
  * popover by its trigger. On a phone, either way, it fills the screen. Base UI moves no focus as either closes: leaving
- * the Surface puts it back where it was. A Picker closed by a click outside
- * leaves the Surface too.
+ * the Surface puts it back where it was. Nor, on a device with no keyboard,
+ * as either opens: the search waits to be tapped there, unless the Picker
+ * opts in. A Picker closed by a click outside leaves the Surface too.
  */
 
 /** A Picker, from its Steps: its actor and View, and the Layer its owner Provides. */
@@ -95,6 +97,8 @@ export function Frame({
   // A phone has no room for a popover: the Picker fills the screen.
   const phone = useIsMobile();
   const centred = how === 'keys' || (phone && how === 'pointer');
+  // With no keyboard, nothing takes focus as it opens: the List decides.
+  const initialFocus = useDevice().keyboard ? undefined : false;
   const { leave } = keys.useKeyboard();
   const openPicker = useOpen();
   const change = (
@@ -125,6 +129,7 @@ export function Frame({
           <PopoverContent
             side={side}
             align={align}
+            initialFocus={initialFocus}
             finalFocus={false}
             aria-label={label}
             className={cn('w-80 gap-0 overflow-hidden p-0', className)}
@@ -142,6 +147,7 @@ export function Frame({
       {centred && (
         <Dialog open={active} onOpenChange={change} modal={false}>
           <DialogContent
+            initialFocus={initialFocus}
             finalFocus={false}
             showCloseButton={phone}
             className="top-1/3 translate-y-0 gap-0 overflow-hidden rounded-xl! p-0 sm:max-w-lg max-md:inset-0 max-md:flex max-md:max-w-none max-md:translate-x-0 max-md:flex-col max-md:rounded-none! max-md:pt-[calc(env(safe-area-inset-top)+3.25rem)] max-md:pb-[env(safe-area-inset-bottom)] max-md:ring-0 max-md:[&_[data-slot=dialog-close]]:top-[calc(env(safe-area-inset-top)+0.5rem)] max-md:[&_[data-slot=dialog-close]]:right-2 max-md:[&_[data-slot=dialog-close]]:size-11"

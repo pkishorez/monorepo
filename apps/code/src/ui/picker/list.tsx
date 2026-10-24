@@ -10,9 +10,16 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
 } from '@kestack/web-platform/ui/components/lucide';
+import { useDevice } from '@kestack/web-platform/ui/input';
 import { describe } from '@kestack/use-keys';
 import { revealInView } from '@kestack/use-keys/surfaces';
-import { Fragment, useEffect, useLayoutEffect, useRef } from 'react';
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+} from 'react';
 import { keys } from '../../keys.ts';
 import {
   finishes,
@@ -41,7 +48,10 @@ import { isLatest, useOpening } from './opening.ts';
  * or, for choices that take the app somewhere, on to the page;
  * so is leaving it when the owner drops the Picker while it is open, as it
  * does once it has settled a choice, unless another Picker was opened
- * since, which holds the Surface now.
+ * since, which holds the Surface now. The search is the Surface's default
+ * Focus Spot, so it takes focus as the Picker opens; on a device with no
+ * keyboard the keyboard moves no focus, and the search waits to be tapped,
+ * unless the Picker opts in with `focusOnTouch`.
  */
 
 // The keys cmdk picks and moves with, which are the Surface's to decide.
@@ -62,7 +72,20 @@ export function List<P>({
   const shown = shownOf(spec, model, props);
   const { query, highlighted } = model.step;
   const { enter, leave } = keys.useKeyboard();
-  const search = keys.useFocusSpot('picker', 'search', { default: true });
+  const spot = keys.useFocusSpot('picker', 'search', { default: true });
+  const input = useRef<HTMLInputElement | null>(null);
+  const search = useCallback(
+    (element: HTMLInputElement | null) => {
+      input.current = element;
+      return spot(element);
+    },
+    [spot],
+  );
+  // Opted in, it focuses itself where the keyboard would not.
+  const focusOnTouch = !useDevice().keyboard && spec.focusOnTouch === true;
+  useEffect(() => {
+    if (focusOnTouch) input.current?.focus({ preventScroll: true });
+  }, [focusOnTouch]);
   const close = (choices: ReadonlyArray<Choice>) => {
     leave('picker');
     if (spec.lands?.(choices) === true) enter('content');
