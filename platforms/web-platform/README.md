@@ -31,7 +31,7 @@ An app's stylesheet imports `@kestack/web-platform/ui/theme/global.css`, which a
 - `effect` (optional): the PWA subpaths and the diff and source viewers are built on it.
 - `vite` (optional): needed by `./pwa/vite` and `./app/vite`.
 - `@tailwindcss/vite`, `@vitejs/plugin-react` (optional): the Tailwind and React plugins `./app/vite` adds.
-- `alchemy` (optional): the Cloudflare Website and state `./app/alchemy` deploys with.
+- `alchemy` and `@alchemy.run/cloudflare` (optional): the Cloudflare Website and state `./app/alchemy` deploys with.
 - `laymos` (optional): the file diff and change types the diff, git-changes and source-explorer viewers read.
 - `use-effect-ts` (optional): runs `./ui/viewers/source-explorer`'s loaders inside React.
 - `@kestack/kabuki` (optional): the running app `./recipes/devtools` inspects, the Start parts `./app/document`'s Document draws, the Start app `./pwa/vite` builds beside, and the Actor and View `./recipes/account-switcher` is.

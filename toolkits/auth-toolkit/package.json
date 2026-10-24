@@ -79,22 +79,22 @@
     "drizzle-orm": "catalog:"
   },
   "peerDependencies": {
+    "@alchemy.run/cloudflare": "2.0.0-beta.84",
     "@kestack/rpc-toolkit": "workspace:*",
     "@kestack/std-toolkit": "workspace:*",
-    "@alchemy.run/cloudflare": "2.0.0-beta.84",
     "alchemy": "2.0.0-beta.84",
     "better-sqlite3": "13.0.3",
     "effect": "^4.0.0",
     "react": "^19.0.0"
   },
   "peerDependenciesMeta": {
+    "@alchemy.run/cloudflare": {
+      "optional": true
+    },
     "@kestack/rpc-toolkit": {
       "optional": true
     },
     "@kestack/std-toolkit": {
-      "optional": true
-    },
-    "@alchemy.run/cloudflare": {
       "optional": true
     },
     "alchemy": {
@@ -111,6 +111,8 @@
     }
   },
   "devDependencies": {
+    "@alchemy.run/cloudflare": "catalog:",
+    "@alchemy.run/sql": "catalog:",
     "@base-ui/react": "catalog:",
     "@effect/platform-node": "catalog:",
     "@kestack/kabuki": "workspace:*",
@@ -124,8 +126,6 @@
     "@types/react-dom": "catalog:",
     "@typescript/native": "catalog:",
     "@vitejs/plugin-react": "catalog:",
-    "@alchemy.run/cloudflare": "catalog:",
-    "@alchemy.run/sql": "catalog:",
     "alchemy": "catalog:",
     "auth": "catalog:",
     "better-sqlite3": "catalog:",

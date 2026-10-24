@@ -19,7 +19,7 @@ pnpm add @kestack/rpc-toolkit @kestack/std-toolkit effect
 ```
 
 - `effect` (peer, required): every door builds on `effect/rpc` or `effect/http-api`.
-- `alchemy` (peer, optional): needed only by the `alchemy` door, which wraps Alchemy's Cloudflare resources.
+- `alchemy` and `@alchemy.run/cloudflare` (peers, optional): needed only by the `alchemy` door, which wraps Alchemy's Cloudflare resources.
 - `@kestack/std-toolkit` (peer, required): `sqliteStreamStore` keeps stream state in a StdTable on the Durable Object's SQLite.
 
 ## Exports

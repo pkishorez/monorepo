@@ -156,6 +156,7 @@
     "zustand": "catalog:"
   },
   "devDependencies": {
+    "@alchemy.run/cloudflare": "catalog:",
     "@cloudflare/workers-types": "catalog:",
     "@kestack/auth-toolkit": "workspace:*",
     "@kestack/kabuki": "workspace:*",
@@ -168,7 +169,6 @@
     "@types/react-dom": "catalog:",
     "@typescript/native": "catalog:",
     "@vitejs/plugin-react": "catalog:",
-    "@alchemy.run/cloudflare": "catalog:",
     "alchemy": "catalog:",
     "effect": "catalog:",
     "laymos": "workspace:*",
@@ -182,6 +182,7 @@
     "vitest": "catalog:"
   },
   "peerDependencies": {
+    "@alchemy.run/cloudflare": "2.0.0-beta.84",
     "@kestack/auth-toolkit": "workspace:*",
     "@kestack/use-gesture": "workspace:*",
     "@kestack/use-keys": "workspace:*",
@@ -194,10 +195,12 @@
     "vite": "^8.0.0",
     "@tailwindcss/vite": "4.3.3",
     "@vitejs/plugin-react": "6.1.2",
-    "@alchemy.run/cloudflare": "2.0.0-beta.84",
     "alchemy": "2.0.0-beta.84"
   },
   "peerDependenciesMeta": {
+    "@alchemy.run/cloudflare": {
+      "optional": true
+    },
     "@kestack/use-keys": {
       "optional": true
     },
@@ -220,9 +223,6 @@
       "optional": true
     },
     "@vitejs/plugin-react": {
-      "optional": true
-    },
-    "@alchemy.run/cloudflare": {
       "optional": true
     },
     "alchemy": {

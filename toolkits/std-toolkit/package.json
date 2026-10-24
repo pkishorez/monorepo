@@ -144,6 +144,8 @@
     "ulidx": "catalog:"
   },
   "devDependencies": {
+    "@alchemy.run/aws": "catalog:",
+    "@alchemy.run/cloudflare": "catalog:",
     "@cloudflare/workers-types": "catalog:",
     "@effect/vitest": "catalog:",
     "@kestack/kabuki": "workspace:*",
@@ -155,8 +157,6 @@
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
-    "@alchemy.run/aws": "catalog:",
-    "@alchemy.run/cloudflare": "catalog:",
     "alchemy": "catalog:",
     "better-sqlite3": "catalog:",
     "effect": "catalog:",
@@ -171,27 +171,27 @@
     "vitest": "catalog:"
   },
   "peerDependencies": {
+    "@alchemy.run/aws": "2.0.0-beta.84",
+    "@alchemy.run/cloudflare": "2.0.0-beta.84",
     "@kestack/kabuki": "workspace:*",
     "@tanstack/db": "0.15.2",
     "@tanstack/react-db": "0.5.12",
-    "@alchemy.run/aws": "2.0.0-beta.84",
-    "@alchemy.run/cloudflare": "2.0.0-beta.84",
     "alchemy": "2.0.0-beta.84",
     "effect": "^4.0.0",
     "react": "^19.0.0",
     "vitest": "^5.0.0"
   },
   "peerDependenciesMeta": {
-    "@tanstack/react-db": {
-      "optional": true
-    },
-    "react": {
-      "optional": true
-    },
     "@alchemy.run/aws": {
       "optional": true
     },
     "@alchemy.run/cloudflare": {
+      "optional": true
+    },
+    "@tanstack/react-db": {
+      "optional": true
+    },
+    "react": {
       "optional": true
     },
     "alchemy": {

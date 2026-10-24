@@ -125,10 +125,27 @@
       "isIgnored": true
     },
     {
-      "label": "OpenTelemetry stays on the 2.x SDK line @effect/opentelemetry accepts",
+      "label": "OpenTelemetry's 0.x packages and api stay where its 2.x SDK accepts them: 0.300 and api 1.10 go with SDK 3",
+      "dependencyTypes": ["pnpmCatalog"],
+      "dependencies": [
+        "@opentelemetry/api",
+        "@opentelemetry/api-logs",
+        "@opentelemetry/exporter-*",
+        "@opentelemetry/sdk-logs"
+      ],
+      "target": "patch"
+    },
+    {
+      "label": "OpenTelemetry's SDK stays on 2.x, the line @effect/opentelemetry accepts",
       "dependencyTypes": ["pnpmCatalog"],
       "dependencies": ["@opentelemetry/**"],
-      "target": "patch"
+      "target": "minor"
+    },
+    {
+      "label": "Syncpack ranks drizzle's branch builds (1.0.0-rc.5-<sha>) above its releases, so drizzle is updated by hand from its rc dist-tag",
+      "dependencyTypes": ["pnpmCatalog"],
+      "dependencies": ["drizzle-kit", "drizzle-orm"],
+      "isIgnored": true
     },
     {
       "label": "Peer dependency updates are intentional",
