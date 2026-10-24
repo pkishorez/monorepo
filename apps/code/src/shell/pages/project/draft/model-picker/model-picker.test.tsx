@@ -4,11 +4,19 @@ import { createRoot, type Root as ReactRoot } from 'react-dom/client';
 import { Layer, Schema } from 'effect';
 import { Actor } from '@kestack/kabuki';
 import { toReact, View } from '@kestack/kabuki/react';
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+} from 'vitest';
 import { keys } from '../../../../../keys.ts';
 import * as Picker from '../../../../../ui/picker/index.ts';
 import * as Catalog from '../../catalog/index.ts';
-import { ModelPicker, Triggers } from './model-picker.tsx';
+import { Chip, ModelPicker, Triggers } from './model-picker.tsx';
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
@@ -18,8 +26,13 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
  * Spot. `m` opens it at the agent; each choice opens the next Step, and
  * Mod+Enter finishes on the row highlighted. `p` and `e` open it at the
  * permissions or the effort alone, where choosing finishes. Focus comes
- * back to the editor.
+ * back to the editor. On a device with no keyboard the model chip opens a
+ * Drawer instead: each setting changes there in place, and the agent and
+ * the model open the Picker in a Dialog, where the model finishes it.
  */
+
+// A device with no keyboard: the model chip in place of the triggers.
+let chip = false;
 
 const setting = {
   key: 'effort',
@@ -96,6 +109,7 @@ const Page = Actor.define('Page', {
   message: Schema.TaggedUnion({
     Ping: {},
     Open: { how: Picker.How, at: ModelPicker.At },
+    Set: { key: Schema.String, value: Schema.String },
     Done: {
       chosen: Schema.NullOr(
         Schema.Struct({
@@ -130,7 +144,12 @@ const PageLive = Actor.build(Page, {
           catalog,
           current: model.current,
         }),
-      props: ({ model }) => ({ catalog, current: model.current }),
+      props: ({ model }) => ({
+        catalog,
+        current: model.current,
+        alone:
+          model.picking?.at === 'agent' || model.picking?.at === 'modelAlone',
+      }),
     },
   },
   provides: (self) =>
@@ -139,6 +158,15 @@ const PageLive = Actor.build(Page, {
     Ping: (_, { model }) => ({ model: { ...model, pings: model.pings + 1 } }),
     Open: ({ how, at }, { model }) => ({
       model: { ...model, picking: { how, at }, opened: model.opened + 1 },
+    }),
+    Set: ({ key, value }, { model }) => ({
+      model: {
+        ...model,
+        current: {
+          ...model.current,
+          settings: { ...model.current.settings, [key]: value },
+        },
+      },
     }),
     Done: ({ chosen }, { model }) => ({
       model: {
@@ -173,15 +201,28 @@ const PageView = View.make(PageLive, ({ model, children, send }) => {
   return (
     <keys.Provider vim>
       <Editor />
-      <Triggers
-        catalog={catalog}
-        current={model.current}
-        started={false}
-        how={model.picking}
-        onOpen={(at, how) => send({ _tag: 'Open', how, at })}
-      >
-        {children.models && <ModelPicker.View instance={children.models} />}
-      </Triggers>
+      {chip ? (
+        <Chip
+          catalog={catalog}
+          current={model.current}
+          started={false}
+          how={model.picking?.how ?? null}
+          onOpen={(at) => send({ _tag: 'Open', how: 'pointer', at })}
+          onSet={(key, value) => send({ _tag: 'Set', key, value })}
+        >
+          {children.models && <ModelPicker.View instance={children.models} />}
+        </Chip>
+      ) : (
+        <Triggers
+          catalog={catalog}
+          current={model.current}
+          started={false}
+          how={model.picking}
+          onOpen={(at, how) => send({ _tag: 'Open', how, at })}
+        >
+          {children.models && <ModelPicker.View instance={children.models} />}
+        </Triggers>
+      )}
     </keys.Provider>
   );
 });
@@ -237,6 +278,7 @@ beforeAll(() => {
 });
 
 beforeEach(async () => {
+  document.documentElement.toggleAttribute('data-keyboard', !chip);
   const App = toReact(PageLive, PageView, Layer.empty, {
     name: `model-picker-test-${apps++}`,
   });
@@ -352,5 +394,90 @@ describe('ModelPicker', () => {
     await flush();
     expect(search()).toBeNull();
     expect(page.current.settings).toEqual({ effort: 'high' });
+  });
+});
+
+describe('ModelPicker, from the model chip on a device with no keyboard', () => {
+  beforeAll(() => {
+    chip = true;
+  });
+  afterAll(() => {
+    chip = false;
+  });
+  const drawer = () => document.querySelector('[data-slot="touch-drawer"]');
+  const dialog = () => document.querySelector('[data-slot="top-dialog"]');
+  const button = (label: RegExp) =>
+    [...document.querySelectorAll<HTMLElement>('button')].find((each) =>
+      label.test(each.getAttribute('aria-label') ?? each.textContent ?? ''),
+    )!;
+  const tap = async (target: HTMLElement) => {
+    await act(async () => target.click());
+    await flush();
+  };
+  const radios = () =>
+    [...document.querySelectorAll<HTMLElement>('[role="radio"]')].map(
+      (each) => `${each.textContent}${each.ariaChecked === 'true' ? ' ✓' : ''}`,
+    );
+
+  it('says the model and its settings, and opens a Drawer of them', async () => {
+    const opener = button(/^Model and settings/);
+    expect(opener.textContent).toBe('SonnetLow · Bypass permissions');
+    await tap(opener);
+    expect(drawer()).not.toBeNull();
+    expect(button(/^Agent: Claude$/)).toBeDefined();
+    expect(button(/^Model: Sonnet$/)).toBeDefined();
+    expect(radios()).toEqual([
+      'Low ✓',
+      'High',
+      'Bypass permissions ✓',
+      'Plan only',
+    ]);
+  });
+
+  it('changes a setting in place, and stays', async () => {
+    await tap(button(/^Model and settings/));
+    await tap(button(/^High$/));
+    await tap(button(/^Plan only$/));
+    expect(page.current.settings).toEqual({
+      effort: 'high',
+      permissionMode: 'plan',
+    });
+    expect(drawer()).not.toBeNull();
+    expect(radios()).toEqual([
+      'Low',
+      'High ✓',
+      'Bypass permissions',
+      'Plan only ✓',
+    ]);
+  });
+
+  it('opens the model in a Dialog from its row, where choosing one finishes', async () => {
+    await tap(button(/^Model and settings/));
+    await tap(button(/^Model: /));
+    expect(dialog()).not.toBeNull();
+    expect(rows()).toEqual([
+      { text: 'Opus2026-05', checked: false },
+      { text: 'Sonnet', checked: true },
+    ]);
+    await tap(document.querySelector<HTMLElement>('[cmdk-item]')!);
+    expect(dialog()).toBeNull();
+    expect(page.current).toEqual({
+      harness: 'claude',
+      model: 'opus',
+      settings: {},
+    });
+  });
+
+  it('opens the agent from its row, then its model, which finishes', async () => {
+    await tap(button(/^Model and settings/));
+    await tap(button(/^Agent: /));
+    expect(rows().map(({ text }) => text)).toEqual(['Claude', 'Codex']);
+    await tap(
+      [...document.querySelectorAll<HTMLElement>('[cmdk-item]')].at(-1)!,
+    );
+    expect(rows()).toEqual([{ text: 'GPT', checked: true }]);
+    await tap(document.querySelector<HTMLElement>('[cmdk-item]')!);
+    expect(dialog()).toBeNull();
+    expect(page.current.harness).toBe('codex');
   });
 });
