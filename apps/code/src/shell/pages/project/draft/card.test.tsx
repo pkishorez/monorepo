@@ -23,6 +23,8 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
  * is a placeholder there, which offers a retry when it fails. The line
  * over it says Draft or Editing; while a Dictation records, it shows the
  * Dictation instead, and while one is written out for it, that it is.
+ * Its one primary button is the mic while there is nothing to send, Send
+ * once there is, and stops a Dictation while one records.
  */
 
 const Pending = Schema.TaggedUnion({
@@ -150,6 +152,7 @@ let ping = () => {};
 let dictate: (pending: typeof Pending.Type | null) => void = () => {};
 let record: (recording: typeof Recording.Type | null) => void = () => {};
 let shown = 0;
+let toggled = 0;
 
 const PageView = View.make(PageLive, ({ model, children, send }) => {
   page = {
@@ -207,7 +210,7 @@ function OnPage({
             }
           : model.recording,
       pending: model.pending,
-      onToggle: () => {},
+      onToggle: () => void toggled++,
       onTook: (id) => send({ _tag: 'Took', id }),
       onRetry: (id) => send({ _tag: 'Retry', id }),
       onShown: showing,
@@ -216,7 +219,10 @@ function OnPage({
   return (
     <div ref={page} tabIndex={-1} data-testid="page">
       <Card draft={draft} />
-      <StatusLine draft={draft} />
+      <StatusLine
+        draft={draft}
+        send={<button type="button" aria-label="Send" onClick={draft.send} />}
+      />
     </div>
   );
 }
@@ -332,6 +338,22 @@ describe('Draft', () => {
     expect(page.text).toBe('');
     await key('Enter', 'Enter');
     expect(page.sent).toBe(1);
+  });
+
+  it('has one primary button: Send with something to send, else the mic, which stops a Dictation recording', async () => {
+    const primary = () =>
+      document.querySelector('[data-slot="dictate"], [aria-label="Send"]')!;
+    expect(primary().getAttribute('aria-label')).toBe('Send');
+    await key('Enter', 'Enter');
+    expect(primary().getAttribute('aria-label')).toBe('Dictate');
+    const before = toggled;
+    await act(async () => (primary() as HTMLElement).click());
+    expect(toggled).toBe(before + 1);
+    await act(async () =>
+      record({ _tag: 'Recording', microphone: 'MacBook Pro Microphone' }),
+    );
+    await flush();
+    expect(primary().getAttribute('aria-label')).toBe('Stop the Dictation');
   });
 
   it('puts a skill picked by `/` in at the cursor, marked, and `u` takes it out', async () => {

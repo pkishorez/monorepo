@@ -18,12 +18,17 @@ import { ID, PageContext, RuntimeContext, usePage } from './page.ts';
  * drawn on the server only: in the browser the Router writes it after every
  * move, so React leaves the tags the server drew alone.
  */
-function Head() {
+function Head({
+  viewport = 'width=device-width, initial-scale=1',
+}: {
+  /** The viewport tag's content, as an app that draws under the notch wants it. */
+  readonly viewport?: string;
+}) {
   const { page, metadata } = usePage('<Start.Head />');
   return (
     <>
       <meta charSet="utf-8" />
-      <meta name="viewport" content="width=device-width, initial-scale=1" />
+      <meta name="viewport" content={viewport} />
       {metadata?.title !== undefined && <title>{metadata.title}</title>}
       {metadata?.tags.map(({ tag: Tag, attributes }, at) => (
         <Tag key={at} {...attributes} />

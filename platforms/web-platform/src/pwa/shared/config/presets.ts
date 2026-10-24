@@ -15,7 +15,10 @@ const DAY_SECONDS = 24 * 60 * 60;
 
 /**
  * `app` for signed-in dashboards and tools, `content` for docs and content
- * sites (settled from the playground's lifecycle runs). Images are left out of the Precache, so every preset caches them at runtime.
+ * sites. Images are left out of the Precache, so every preset caches them
+ * at runtime. Kabuki Start draws each page on request and prerenders none,
+ * so there is no App Shell to answer every route: both presets save the
+ * pages visited, per Build ID, and send the rest to the Offline Fallback.
  */
 export const PRESETS: Record<PresetName, Preset> = {
   app: {
@@ -28,7 +31,7 @@ export const PRESETS: Record<PresetName, Preset> = {
         maxAgeSeconds: 30 * DAY_SECONDS,
       },
     ],
-    navigation: { shell: true, cachePages: false },
+    navigation: { shell: false, cachePages: true },
   },
   content: {
     strategies: [

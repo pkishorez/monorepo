@@ -2,7 +2,7 @@
   "name": "@kestack/web-platform",
   "version": "0.0.2",
   "private": false,
-  "description": "The way to build a kstack app: one config made into a PWA on TanStack Start with its Theme, its APIs on a cloud or a Local Backend, several Accounts with one Session each, the screens before sign-in, and the server; plus the components, input, forms and Recipes to build screens with.",
+  "description": "The way to build a kstack app on Kabuki Start: its Document with the Theme, the PWA, the components, input, forms and Recipes to build screens with.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -29,14 +29,6 @@
     "#hooks/*": "./src/components/hooks/*.ts"
   },
   "exports": {
-    ".": {
-      "types": "./dist/app/index.d.ts",
-      "default": "./dist/app/index.js"
-    },
-    "./define": {
-      "types": "./dist/define/index.d.ts",
-      "default": "./dist/define/index.js"
-    },
     "./theme": {
       "types": "./dist/theme/index.d.ts",
       "default": "./dist/theme/index.js"
@@ -89,14 +81,6 @@
     "./recipes/*": {
       "types": "./dist/recipes/*/index.d.ts",
       "default": "./dist/recipes/*/index.js"
-    },
-    "./client": {
-      "types": "./dist/client/index.d.ts",
-      "default": "./dist/client/index.js"
-    },
-    "./client/server": {
-      "types": "./dist/client/server.d.ts",
-      "default": "./dist/client/server.js"
     },
     "./pwa": {
       "types": "./dist/pwa/index.d.ts",
@@ -188,15 +172,10 @@
     "zustand": "catalog:"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "catalog:",
     "@kestack/auth-toolkit": "workspace:*",
-    "@kestack/rpc-toolkit": "workspace:*",
-    "@kestack/std-toolkit": "workspace:*",
     "@kestack/use-gesture": "workspace:*",
     "@kestack/use-keys": "workspace:*",
     "@tailwindcss/vite": "catalog:",
-    "@tanstack/react-router": "catalog:",
-    "@tanstack/react-start": "catalog:",
     "@tsconfig/node22": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
@@ -216,14 +195,9 @@
     "vitest": "catalog:"
   },
   "peerDependencies": {
-    "@cloudflare/workers-types": "5.20260904.1",
     "@kestack/auth-toolkit": "workspace:*",
-    "@kestack/rpc-toolkit": "workspace:*",
-    "@kestack/std-toolkit": "workspace:*",
     "@kestack/use-gesture": "workspace:*",
     "@kestack/use-keys": "workspace:*",
-    "@tanstack/react-router": "1.170.32",
-    "@tanstack/react-start": "1.168.49",
     "effect": "^4.0.0",
     "@kestack/kabuki": "workspace:*",
     "laymos": "workspace:*",
@@ -233,16 +207,7 @@
     "vite": "^8.0.0"
   },
   "peerDependenciesMeta": {
-    "@cloudflare/workers-types": {
-      "optional": true
-    },
     "@kestack/use-keys": {
-      "optional": true
-    },
-    "@tanstack/react-router": {
-      "optional": true
-    },
-    "@tanstack/react-start": {
       "optional": true
     },
     "effect": {
