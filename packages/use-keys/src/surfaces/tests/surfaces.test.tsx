@@ -701,6 +701,37 @@ describe('Focus Spots', () => {
     expect(document.activeElement).toBe(document.body);
   });
 
+  it('take no focus as they mount again with autoFocus off, after the user had put it there', async () => {
+    // A layer's search, as a Picker's on a device with no keyboard.
+    function Search() {
+      const ref = keys.useFocusSpot('palette', 'search', { default: true });
+      return <input ref={ref} data-field="palette" />;
+    }
+    function Palette() {
+      if (!keys.useSurface('palette').active) return null;
+      return (
+        <keys.Surface id="palette">
+          <Search />
+        </keys.Surface>
+      );
+    }
+    render(
+      <Mail autoFocus={false}>
+        <Palette />
+      </Mail>,
+    );
+    act(() => keyboard.enter('palette'));
+    await settle();
+    expect(document.activeElement).toBe(document.body);
+    await focus('[data-field="palette"]');
+    act(() => keyboard.leave('palette'));
+    await settle();
+    expect(document.activeElement).toBe(document.body);
+    act(() => keyboard.enter('palette'));
+    await settle();
+    expect(document.activeElement).toBe(document.body);
+  });
+
   it('enter their Surface when focused, wherever they are drawn', async () => {
     render(<Mail>{spots}</Mail>);
     await focus('[data-field="search"]');
