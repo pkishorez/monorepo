@@ -12,13 +12,15 @@ import { notify } from '../../../../ui/toast/index.ts';
  * to Settle it, a Settled one to un-Settle it, with a quiet "Settle" or
  * "Keep" behind it as it goes. It slides out, the list closes the gap, and
  * a toast offers Undo for five seconds; its Machine is asked at once, and
- * Undo asks it back. A refusal brings every row swiped back afresh
- * (`SwipeBack`), even one never taken out of its list. With no touch
+ * Undo asks it back. A refusal brings its row back afresh (`SwipeBack`),
+ * even one never taken out of its list, and no other. With no touch
  * screen the row is drawn as it is.
  */
 
-/** Counts refusals: each brings a row swiped away back, drawn afresh. */
-export const SwipeBack = createContext(0);
+/** How many of a Session's Moves were refused: each brings its row back, drawn afresh. */
+export const SwipeBack = createContext<
+  (machineId: string, sessionId: string) => number
+>(() => 0);
 
 /** Says a Session was Settled, or un-Settled, with an Undo for `seconds`. */
 export const sayMoved = (
@@ -35,10 +37,15 @@ export const sayMoved = (
   });
 
 export function SwipeToMove({
+  machineId,
+  sessionId,
   settled,
   onMove,
   children,
 }: {
+  /** The Session the row is, by its Machine and its id. */
+  readonly machineId: string;
+  readonly sessionId: string;
   /** Whether the row is a Settled one: its swipe un-Settles. */
   readonly settled: boolean;
   /** Runs with where the Session goes, once the row has gone. */
@@ -46,7 +53,7 @@ export function SwipeToMove({
   readonly children: ReactNode;
 }) {
   const { touch } = useDevice();
-  const back = use(SwipeBack);
+  const back = use(SwipeBack)(machineId, sessionId);
   if (!touch) return children;
   return (
     <SwipeRow

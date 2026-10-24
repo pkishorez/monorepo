@@ -12,7 +12,7 @@ import {
 import { createContext, type ReactNode, use, useEffect } from 'react';
 import { notify } from '../../../ui/toast/index.ts';
 import { placeOf, type Route } from '../../places/index.ts';
-import { shownOf, SidebarLive } from './actor.ts';
+import { refusedKey, shownOf, SidebarLive } from './actor.ts';
 import { Places } from './sidebar.tsx';
 import { doneOf, movedOf } from './moves.ts';
 import { useReload } from './pull/index.ts';
@@ -93,8 +93,12 @@ export const SidebarView = View.make(
           onChoose={(machineId) => send({ _tag: 'MachineChosen', machineId })}
           onReload={() => send({ _tag: 'ReloadAsked' })}
         />
-        {/* A refusal brings a row swiped away back, drawn afresh. */}
-        <SwipeBack value={model.refused?.n ?? 0}>
+        {/* A refusal brings its row swiped away back, drawn afresh. */}
+        <SwipeBack
+          value={(machineId, sessionId) =>
+            model.refusals[refusedKey(machineId, sessionId)] ?? 0
+          }
+        >
           <Places
             route={route}
             projects={{

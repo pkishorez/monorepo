@@ -70,6 +70,8 @@ const stood = Effect.gen(function* () {
   const put: Array<Put> = [];
   const intents = yield* SubscriptionRef.make<ReadonlyArray<Going>>([]);
   const refusals = yield* PubSub.unbounded<{
+    machineId: string;
+    sessionId: string;
     settled: boolean;
     reason: string;
   }>();
@@ -159,6 +161,8 @@ describe('a Session put in the sidebar', () => {
         const app = yield* start(layer);
         yield* SubscriptionRef.set(intents, [going('s1', true, 1)]);
         yield* PubSub.publish(refusals, {
+          machineId: 'm1',
+          sessionId: 's1',
           settled: false,
           reason: 'Not found',
         });

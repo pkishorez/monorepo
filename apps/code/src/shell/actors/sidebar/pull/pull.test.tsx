@@ -56,7 +56,12 @@ function List() {
   return (
     <div data-testid="scroller" style={{ overflowY: 'auto' }}>
       <div data-testid="list">Projects</div>
-      <SwipeToMove settled={false} onMove={() => {}}>
+      <SwipeToMove
+        machineId="m1"
+        sessionId="s1"
+        settled={false}
+        onMove={() => {}}
+      >
         <div data-testid="session">A Session</div>
       </SwipeToMove>
     </div>
