@@ -11,20 +11,23 @@ import { notify } from '../../../../ui/toast/index.ts';
  * On a touch screen a Session row swipes left to right: an unsettled one
  * to Settle it, a Settled one to un-Settle it, with a quiet "Settle" or
  * "Keep" behind it as it goes. It slides out, the list closes the gap, and
- * a toast offers Undo for five seconds. With no touch screen the row is
+ * a toast offers Undo for as long as the swipe waits to be asked of its
+ * Machine. With no touch screen the row is
  * drawn as it is.
  */
 
-/** Settles the Session, or un-Settles it, and says so with an Undo. */
+/** Settles the Session, or un-Settles it, and says so with an Undo for `seconds`. */
 export const moveWithUndo = (
   title: string,
   settled: boolean,
   move: (settled: boolean) => void,
+  seconds: number,
 ) => {
   move(settled);
   notify({
     title: settled ? 'Settled' : 'Back among your sessions',
     description: title,
+    seconds,
     action: { label: 'Undo', onClick: () => move(!settled) },
   });
 };
