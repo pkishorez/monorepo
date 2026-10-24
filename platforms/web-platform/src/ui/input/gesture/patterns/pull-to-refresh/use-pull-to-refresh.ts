@@ -51,7 +51,8 @@ export function usePullToRefresh(options: PullToRefreshOptions): PullToRefresh {
   const pulling = useRef(false);
   const animation = useRef<AnimationPlaybackControls | undefined>(undefined);
 
-  // Under reduced motion it jumps where it would spring.
+  // Under reduced motion it jumps where it would spring. Only a Gesture
+  // moves it, so this runs in the browser alone.
   const to = (value: number) => {
     animation.current?.stop();
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
