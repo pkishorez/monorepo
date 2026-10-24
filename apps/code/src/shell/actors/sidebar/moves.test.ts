@@ -13,7 +13,14 @@ import {
 import type { Session } from '@kestack/ai-toolkit/api';
 import type { OnMachine } from '../../replica/index.ts';
 import { SidebarLive } from './actor.ts';
-import { type Move, movedOf } from './moves.ts';
+import {
+  askedOf,
+  doneOf,
+  type Move,
+  movedOf,
+  seenOf,
+  syncedOf,
+} from './moves.ts';
 import { settledOf } from './settled-list/index.ts';
 
 /*
@@ -119,7 +126,12 @@ describe('a Session swiped in the sidebar', () => {
           { sessionId: 's1', settled: true, done: true },
         ]);
         // Kept until the synced rows agree.
-        send(app, { _tag: 'MoveSeen', machineId: 'm1', sessionId: 's1' });
+        send(app, {
+          _tag: 'MoveSeen',
+          machineId: 'm1',
+          sessionId: 's1',
+          settled: true,
+        });
         yield* wait();
         expect(model(app).moving).toEqual([]);
       }),
@@ -190,6 +202,7 @@ describe('Sessions swiped to Settle, before their Machine says so', () => {
     sessionId,
     settled: true,
     done: false,
+    awaiting: [true],
   });
 
   it('show in the Settled List the most recently swiped first, over any Settled before', () => {
@@ -202,5 +215,44 @@ describe('Sessions swiped to Settle, before their Machine says so', () => {
       'a',
       'old',
     ]);
+  });
+});
+
+describe('a Settle and its Undo, as replication catches up', () => {
+  const at = { machineId: 'm1', sessionId: 's' };
+  const synced = (settledAt: number | null) =>
+    [
+      { id: 's', projectId: 'p', machineId: 'm1', settledAt },
+    ] as unknown as ReadonlyArray<OnMachine<Session>>;
+  /** What the view does with each synced snapshot, then what it shows. */
+  const hear = (moving: ReadonlyArray<Move>, settledAt: number | null) => {
+    const sessions = synced(settledAt);
+    const next = seenOf(sessions, moving).reduce(syncedOf, moving);
+    return { moving: next, settled: movedOf(sessions, next)[0]!.settledAt };
+  };
+
+  it('never shows the row Settled again once Undone, whatever arrives late', () => {
+    let moving = askedOf([], { ...at, settled: true }, 0);
+    moving = askedOf(moving, { ...at, settled: false }, 1);
+    moving = doneOf(moving, { ...at, settled: true });
+    moving = doneOf(moving, { ...at, settled: false });
+    const shown: Array<number | null> = [];
+    // The snapshot from before either landed, then each update in turn.
+    for (const settledAt of [null, 1000, null]) {
+      const heard = hear(moving, settledAt);
+      moving = heard.moving;
+      shown.push(heard.settled);
+    }
+    expect(shown).toEqual([null, null, null]);
+    // Every result shown and the Undo done: nothing is left to hold.
+    expect(moving).toEqual([]);
+  });
+
+  it('lets go once its Machine takes the swipe, if replication showed it first', () => {
+    let moving = askedOf([], { ...at, settled: true }, 0);
+    moving = hear(moving, 1000).moving;
+    expect(moving).toHaveLength(1);
+    moving = doneOf(moving, { ...at, settled: true });
+    expect(moving).toEqual([]);
   });
 });
