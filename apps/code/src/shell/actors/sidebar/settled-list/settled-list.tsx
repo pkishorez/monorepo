@@ -104,6 +104,8 @@ export function SettledList({
               return (
                 <SidebarMenuItem key={place} className="group/settled">
                   <SwipeToMove
+                    machineId={session.machineId}
+                    sessionId={session.id}
                     settled
                     onMove={(settled) => onMove(session, settled)}
                   >
