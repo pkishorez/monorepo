@@ -9,15 +9,34 @@ export default defineConfig({
   },
   plugins: [
     // Kabuki Start on Cloudflare, and a PWA whose icons are the ones
-    // public/ holds by name.
+    // public/ holds by name. Its Splash and screenshots are drawn into
+    // public/ by `pnpm draw:install`.
     app({
       name: 'Code',
       platform: cloudflare(),
       app: 'src/app',
       pwa: {
+        splash: true,
         manifest: {
+          short_name: 'Code',
           description:
             'Claude Code and Codex sessions in your project folders.',
+          screenshots: [
+            {
+              src: '/screenshots/narrow.png',
+              sizes: '1080x1920',
+              type: 'image/png',
+              form_factor: 'narrow',
+              label: 'Code',
+            },
+            {
+              src: '/screenshots/wide.png',
+              sizes: '1920x1080',
+              type: 'image/png',
+              form_factor: 'wide',
+              label: 'Code',
+            },
+          ],
         },
       },
     }),
