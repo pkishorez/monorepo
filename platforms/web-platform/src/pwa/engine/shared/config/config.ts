@@ -50,6 +50,12 @@ export const PwaOptions = Schema.Struct({
    * `icon-maskable-512.png` and `apple-touch-icon.png`.
    */
   manifest: Schema.optionalKey(ManifestOptions),
+  /**
+   * iOS startup images: one per screen `splashScreens` lists, which the app
+   * draws into `public/splash/`. Default: off, for they need
+   * `apple-mobile-web-app-capable`; see `splashHead`.
+   */
+  splash: Schema.optionalKey(Schema.Boolean),
   precache: Schema.optionalKey(
     PrecacheConfig.mapFields((f) => ({
       include: Schema.optionalKey(f.include),
@@ -93,6 +99,7 @@ export interface ResolvedPwaConfig {
   readonly dev: boolean;
   readonly preset: (typeof PRESET_NAMES)[number];
   readonly manifest: WebAppManifest;
+  readonly splash: boolean;
   readonly precache: typeof PrecacheConfig.Type;
   readonly strategies: ReadonlyArray<StrategyRule>;
   readonly navigation: NavigationConfig;
@@ -128,6 +135,7 @@ export const resolvePwaConfig = (
       ...options.manifest,
       name: options.name,
     },
+    splash: options.splash ?? false,
     precache: {
       include: options.precache?.include ?? [],
       exclude: options.precache?.exclude ?? [],
@@ -190,6 +198,10 @@ export const ClientBuildInfo = Schema.Struct({
   commit: Schema.NullOr(Schema.String),
   /** The app's name, from the manifest. */
   name: Schema.NonEmptyString,
+  /** Its name under its home-screen icon: the manifest's `short_name`, else its `name`. */
+  title: Schema.NonEmptyString,
+  /** Whether the page lists the iOS startup images. */
+  splash: Schema.Boolean,
   manifestUrl: Path,
   appleTouchIconUrl: Schema.NullOr(Schema.String),
 });

@@ -61,6 +61,7 @@ describe('resolvePwaConfig', () => {
       update: { checkIntervalMinutes: 60 },
       worker: null,
       swUrl: '/sw.js',
+      splash: false,
     });
     expect(config.strategies.map((rule) => rule.cacheName)).toEqual(['images']);
   });
@@ -145,6 +146,8 @@ describe('virtual module shapes', () => {
       builtAt: null,
       commit: null,
       name: 'Todo',
+      title: 'Todo',
+      splash: false,
       manifestUrl: '/manifest.webmanifest',
       appleTouchIconUrl: null,
     });
