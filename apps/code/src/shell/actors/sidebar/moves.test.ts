@@ -10,7 +10,11 @@ import {
   nobody,
   nothing,
 } from '../../../layer/capabilities/index.ts';
+import type { Session } from '@kestack/ai-toolkit/api';
+import type { OnMachine } from '../../replica/index.ts';
 import { SidebarLive } from './actor.ts';
+import { type Move, movedOf } from './moves.ts';
+import { settledOf } from './settled-list/index.ts';
 
 /*
  * Sessions swiped in the sidebar, with every Machine stood in for: a swipe
@@ -169,5 +173,34 @@ describe('a Session swiped in the sidebar', () => {
         expect(model(app).refused?.reason).not.toBe('');
       }),
     );
+  });
+});
+
+describe('Sessions swiped to Settle, before their Machine says so', () => {
+  const session = (id: string, settledAt: number | null) =>
+    ({
+      id,
+      projectId: 'p',
+      machineId: 'm1',
+      settledAt,
+    }) as OnMachine<Session>;
+  const move = (n: number, sessionId: string): Move => ({
+    n,
+    machineId: 'm1',
+    sessionId,
+    settled: true,
+    done: false,
+  });
+
+  it('show in the Settled List the most recently swiped first, over any Settled before', () => {
+    const shown = movedOf(
+      [session('a', null), session('b', null), session('old', Date.now())],
+      [move(1, 'a'), move(2, 'b')],
+    );
+    expect(settledOf([], shown).map(({ session }) => session.id)).toEqual([
+      'b',
+      'a',
+      'old',
+    ]);
   });
 });
