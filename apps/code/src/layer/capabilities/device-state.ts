@@ -4,26 +4,35 @@ import type { DatabaseError } from '@kestack/std-toolkit/db';
 /*
  * Device State: what this browser keeps for itself and no other device
  * sees: the user's own Bindings and whether Vim Mode is on, the
- * microphone a Dictation records from, the Machine the sidebar shows, and
- * the Unseen marks of each Machine. The store is the truth; an actor
+ * microphone a Dictation records from, the Machine the sidebar shows, the
+ * Unseen marks of each Machine, and each Machine's Sessions swiped or set
+ * to Settle or un-Settle that their Machine has yet to confirm. The store
+ * is the truth; an actor
  * that shows it reads it again after every write, from this tab or
  * another. The app Layer gives it, from `services/device-state/`.
  *
  * An Unseen mark is a Machine's Session with the end time of the last
  * Turn seen on this device. A Session is Unseen when its last Turn ended
  * after that; one never opened here has no mark, and is never Unseen.
+ *
+ * A Pending Move is where the user last put a Session, Settled or not,
+ * kept until its Machine confirms it, so a page closed or discarded first
+ * still asks it once the app is back.
  */
 
 /** One Machine's Unseen marks, by Session id. */
 export const Marks = Schema.Record(Schema.String, Schema.Finite);
 export type Marks = typeof Marks.Type;
 
+/** One Machine's Pending Moves: whether each Session goes Settled, by Session id. */
+export const Pending = Schema.Record(Schema.String, Schema.Boolean);
+
 /**
  * Device State as read: Bindings by Action id; whether Vim Mode is on; the
  * microphone chosen, by the browser's `deviceId`, null for the system
  * default; the Machine the
- * sidebar shows, null for every Machine; Unseen marks by Machine id and
- * then Session id.
+ * sidebar shows, null for every Machine; Unseen marks and Pending Moves
+ * by Machine id and then Session id.
  */
 export const Device = Schema.Struct({
   bindings: Schema.Record(Schema.String, Schema.Array(Schema.String)),
@@ -31,16 +40,18 @@ export const Device = Schema.Struct({
   microphone: Schema.NullOr(Schema.String),
   sidebarMachine: Schema.NullOr(Schema.String),
   unseen: Schema.Record(Schema.String, Marks),
+  moves: Schema.Record(Schema.String, Pending),
 });
 export type Device = typeof Device.Type;
 
-/** What a browser that keeps nothing reads: the default keys, Vim Mode off, the default microphone, every Machine, no marks. */
+/** What a browser that keeps nothing reads: the default keys, Vim Mode off, the default microphone, every Machine, no marks, no Pending Moves. */
 export const nothing: Device = {
   bindings: {},
   vim: false,
   microphone: null,
   sidebarMachine: null,
   unseen: {},
+  moves: {},
 };
 
 /** The Capability that reads and writes Device State, and says when it changed. */
@@ -62,6 +73,12 @@ export class DeviceState extends Context.Service<
       machineId: string,
       sessionId: string,
       seen: number,
+    ) => Effect.Effect<void, DatabaseError>;
+    /** Keeps a Session's Pending Move, where it goes; null forgets it. */
+    readonly setMove: (
+      machineId: string,
+      sessionId: string,
+      settled: boolean | null,
     ) => Effect.Effect<void, DatabaseError>;
     /** Once per write, here or in another tab; rings while busy fold into one. */
     readonly changes: Stream.Stream<void>;

@@ -17,6 +17,9 @@ import {
   markOf,
   marks,
   microphone,
+  moveOf,
+  moves,
+  type PendingMove,
   sidebar,
   table,
   vim,
@@ -27,7 +30,7 @@ import {
  * sees, in one IndexedDB database of its own: the user's own Bindings and
  * whether Vim Mode is on,
  * the microphone a Dictation records from, the Machine the sidebar shows,
- * and the Unseen marks of each Machine. It is local only, so it is a StdTable on
+ * the Unseen marks of each Machine, and its Pending Moves. It is local only, so it is a StdTable on
  * std-toolkit's IndexedDB adapter rather than a Replica, which mirrors a
  * server; the adapter makes its store on first open.
  *
@@ -73,18 +76,38 @@ const make = (
     }
   });
 
+  const readMoves = Effect.gen(function* () {
+    const pending: Record<string, Record<string, boolean>> = {};
+    let options: QueryOptions<PendingMove> = { limit: PAGE };
+    while (true) {
+      const page: QueryPage<Entity<PendingMove>> = yield* moves.query(
+        'primary',
+        { pk: {}, '>=': null },
+        options,
+      );
+      for (const { value, meta } of page.items)
+        if (!meta._d)
+          (pending[value.machineId] ??= {})[value.sessionId] = value.settled;
+      const last = page.items.at(-1);
+      if (!page.hasMore || last === undefined) return pending;
+      options = { limit: PAGE, after: last };
+    }
+  });
+
   const read = Effect.gen(function* () {
     const { value } = yield* keyboard.get();
     const mode = yield* vim.get();
     const chosen = yield* microphone.get();
     const shown = yield* sidebar.get();
     const unseen = yield* readMarks;
+    const pending = yield* readMoves;
     return {
       bindings: fitted(value.bindings),
       vim: mode.value.on,
       microphone: chosen.value.deviceId,
       sidebarMachine: shown.value.machineId,
       unseen,
+      moves: pending,
     };
   }).pipe(Effect.provide(layer));
 
@@ -108,6 +131,28 @@ const make = (
       }).pipe(Effect.retry({ times: RETRIES })),
     );
 
+  const setMove = (
+    machineId: string,
+    sessionId: string,
+    settled: boolean | null,
+  ) =>
+    write(
+      Effect.gen(function* () {
+        const id = { move: moveOf(machineId, sessionId) };
+        const kept = yield* moves.get(id);
+        if (settled === null) {
+          if (kept !== null && !kept.meta._d) yield* moves.delete(id);
+          return;
+        }
+        if (kept === null)
+          return yield* moves.insert({ ...id, machineId, sessionId, settled });
+        if (kept.meta._d) yield* moves.restore(id);
+        yield* moves.getAndUpdate(id, () => ({ settled }), {
+          retries: RETRIES,
+        });
+      }).pipe(Effect.retry({ times: RETRIES })),
+    );
+
   return DeviceState.of({
     read,
     setBindings: (bindings) =>
@@ -121,6 +166,7 @@ const make = (
     setSidebarMachine: (machineId) =>
       write(sidebar.getAndUpdate(() => ({ machineId }), { retries: RETRIES })),
     markSeen,
+    setMove,
     // 3. Follow
     changes: doorbell.rings,
   });
