@@ -14,9 +14,9 @@ import { HOLD, layer, Moves } from './index.ts';
 /*
  * Moves, with every Machine stood in for and the clock in the test's
  * hands: each put is asked at once; a Session's calls go one at a time,
- * in order, a later put after the call in flight, unless its Machine
- * already took it; each answer is its own call's, so only a refusal of the
- * last put drops it and says why; a Move goes once the synced Session
+ * in order, the last put always asked after the call in flight; each
+ * answer is its own call's, so only a refusal of the last put drops it and
+ * says why; a Move goes once the synced Session
  * agrees, or HOLD after its last call; each Session is on its own.
  */
 
@@ -178,7 +178,7 @@ describe('Moves', () => {
     );
   });
 
-  it('asks nothing more for a put its Machine already took', async () => {
+  it('asks the last put again after the call in flight, even one its Machine may have taken', async () => {
     const first = await held();
     const world = machines(new Map([[1, first]]));
     await run(
@@ -190,7 +190,37 @@ describe('Moves', () => {
         yield* moves.put(at('s1'), true);
         yield* Deferred.succeed(first, undefined);
         yield* pass(0);
-        expect(world.asked).toEqual([{ sessionId: 's1', settled: true }]);
+        expect(world.asked).toEqual([
+          { sessionId: 's1', settled: true },
+          { sessionId: 's1', settled: true },
+        ]);
+      }),
+    );
+  });
+
+  it('asks an Undo queued behind a call whose answer was lost, so the Machine ends where it was put', async () => {
+    const second = await held();
+    // The re-Settle lands on the Machine, but its answer never comes back.
+    const world = machines(new Map([[2, second]]), new Set([2]));
+    await run(
+      Effect.gen(function* () {
+        const { moves, shown, refused } = yield* start(world);
+        yield* moves.put(at('s1'), false);
+        yield* pass(0);
+        yield* moves.put(at('s1'), true);
+        yield* pass(0);
+        yield* moves.put(at('s1'), false);
+        yield* Deferred.succeed(second, undefined);
+        yield* pass(0);
+        expect(world.asked).toEqual([
+          { sessionId: 's1', settled: false },
+          { sessionId: 's1', settled: true },
+          { sessionId: 's1', settled: false },
+        ]);
+        expect(refused).toEqual([]);
+        expect(yield* shown()).toMatchObject([
+          { sessionId: 's1', settled: false, idle: true },
+        ]);
       }),
     );
   });
