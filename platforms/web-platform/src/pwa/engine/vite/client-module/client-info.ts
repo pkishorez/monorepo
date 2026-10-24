@@ -51,6 +51,8 @@ export const clientBuildInfo = (
     builtAt: server ? context.version.builtAt : null,
     commit: server ? context.version.commit : null,
     name: config.manifest.name,
+    title: config.manifest.short_name || config.manifest.name,
+    splash: config.splash,
     manifestUrl: MANIFEST_URL,
     appleTouchIconUrl: appleTouchIconOf(config.manifest),
   };

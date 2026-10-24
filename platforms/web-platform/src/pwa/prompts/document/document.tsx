@@ -16,7 +16,7 @@ import {
  * In a build with `noPwa()` both draw nothing of their own.
  */
 
-/** The manifest link, the Apple icon and the Build ID tags, for the Document's `head`. */
+/** The manifest link, the Apple icon and title, the Splash if on, and the Build ID tags, for the Document's `head`. */
 export function PwaHead() {
   if (!pwaIncluded()) return null;
   const { meta, links } = pwaHead();
@@ -26,7 +26,7 @@ export function PwaHead() {
         <meta key={tag.name} {...tag} />
       ))}
       {links.map((link) => (
-        <link key={link.rel} {...link} />
+        <link key={link.href} {...link} />
       ))}
     </>
   );
