@@ -146,7 +146,7 @@ export function TouchCard({
         data-writing={editing || undefined}
         data-recording={recording !== null || undefined}
         data-disabled={draft.disabled || undefined}
-        className="group/draft flex flex-col gap-1 rounded-[1.75rem] border border-border bg-card p-1.5 data-recording:border-destructive/35 data-writing:border-primary/50"
+        className="group/draft @container/draft flex flex-col gap-1 rounded-[1.75rem] border border-border bg-card p-1.5 data-recording:border-destructive/35 data-writing:border-primary/50"
       >
         {recording !== null && (
           <div className="-mb-1">
@@ -296,8 +296,11 @@ const keepFocus = (event: { preventDefault: () => void }) =>
 
 /**
  * 3. Row: the chip, the microphone in the centre, then `+`, the skills and
- * Send. The chip has its half to itself, so its settings fit; while
- * editing, `+` takes its place.
+ * Send. On a narrow card, as a phone's, the chip has what is left of the
+ * width, so its settings fit, and the microphone sits right of centre;
+ * once the card is wide enough, the two sides are as wide as each other
+ * and the microphone is in the middle. While editing, `+` takes the
+ * chip's place, Send the other side, and the microphone is centred.
  *
  * Its buttons keep their places in the tree whatever the state, and
  * `order` lays them out, so a button stays the same one as the row
@@ -316,9 +319,8 @@ function Row({
 }) {
   const editing = draft.writing;
   return (
-    // At rest the chip takes what is left of the width; Send holds its
-    // place while hidden, so the microphone never moves. Editing, `+` and
-    // Send share the sides equally, so the microphone is centred.
+    // Send holds its place while hidden, so the microphone never moves as
+    // it shows.
     <div className="flex items-center gap-1">
       <div
         className={cn(
@@ -328,28 +330,34 @@ function Row({
       >
         {chip}
       </div>
-      <div
-        onMouseDown={editing ? keepFocus : undefined}
-        className={cn(
-          'flex',
-          editing ? 'order-first min-w-0 flex-1' : 'order-2',
-        )}
-      >
-        <Add draft={draft} />
-      </div>
       <Microphone draft={draft} />
-      <div className={cn('order-3 flex', editing && 'hidden')}>
-        <Skills draft={draft} />
-      </div>
+      {/* At rest one group; editing, its buttons go either side. */}
       <div
-        onMouseDown={editing ? keepFocus : undefined}
         className={cn(
-          'flex justify-end',
-          editing ? 'order-last min-w-0 flex-1' : 'order-4',
-          !draft.filled && 'invisible',
+          editing
+            ? 'contents'
+            : 'order-2 flex items-center justify-end gap-1 @sm/draft:min-w-0 @sm/draft:flex-1',
         )}
       >
-        {send}
+        <div
+          onMouseDown={editing ? keepFocus : undefined}
+          className={cn('flex', editing && 'order-first min-w-0 flex-1')}
+        >
+          <Add draft={draft} />
+        </div>
+        <div className={cn('flex', editing && 'hidden')}>
+          <Skills draft={draft} />
+        </div>
+        <div
+          onMouseDown={editing ? keepFocus : undefined}
+          className={cn(
+            'flex justify-end',
+            editing && 'order-last min-w-0 flex-1',
+            !draft.filled && 'invisible',
+          )}
+        >
+          {send}
+        </div>
       </div>
     </div>
   );
