@@ -4,6 +4,7 @@ import {
   COMMIT_META_NAME,
 } from '../../engine/shared/build/index.js';
 import type { ClientBuildInfo } from '../../engine/shared/config/index.js';
+import { splashHead } from '../splash/index.ts';
 
 export interface HeadTags {
   readonly meta: Array<{ readonly name: string; readonly content: string }>;
@@ -11,6 +12,7 @@ export interface HeadTags {
     readonly rel: string;
     readonly href: string;
     readonly sizes?: string;
+    readonly media?: string;
   }>;
 }
 
@@ -49,19 +51,27 @@ const metaOf = (name: string, content: string | null) =>
 export const headTags = (
   info: ClientBuildInfo,
   version: PwaVersion,
-): HeadTags => ({
-  // No `apple-mobile-web-app-capable`: it puts iOS home-screen apps in the
-  // legacy mode, where the status bar ignores an in-place theme switch.
-  meta: [
-    { name: 'mobile-web-app-capable', content: 'yes' },
-    ...metaOf(BUILD_ID_META_NAME, version.buildId),
-    ...metaOf(BUILT_AT_META_NAME, version.builtAt),
-    ...metaOf(COMMIT_META_NAME, version.commit),
-  ],
-  links: [
-    { rel: 'manifest', href: info.manifestUrl },
-    ...(info.appleTouchIconUrl === null
-      ? []
-      : [{ rel: 'apple-touch-icon', href: info.appleTouchIconUrl }]),
-  ],
-});
+): HeadTags => {
+  // `apple-mobile-web-app-capable` comes only with the Splash, which iOS
+  // will not show without it. It puts iOS home-screen apps in the legacy
+  // mode, where the status bar ignores an in-place `theme-color` switch;
+  // `splashHead` counts on the Status Bar Surface to tint it instead.
+  const splash = info.splash ? splashHead() : { meta: [], links: [] };
+  return {
+    meta: [
+      { name: 'mobile-web-app-capable', content: 'yes' },
+      { name: 'apple-mobile-web-app-title', content: info.title },
+      ...splash.meta,
+      ...metaOf(BUILD_ID_META_NAME, version.buildId),
+      ...metaOf(BUILT_AT_META_NAME, version.builtAt),
+      ...metaOf(COMMIT_META_NAME, version.commit),
+    ],
+    links: [
+      { rel: 'manifest', href: info.manifestUrl },
+      ...(info.appleTouchIconUrl === null
+        ? []
+        : [{ rel: 'apple-touch-icon', href: info.appleTouchIconUrl }]),
+      ...splash.links,
+    ],
+  };
+};
