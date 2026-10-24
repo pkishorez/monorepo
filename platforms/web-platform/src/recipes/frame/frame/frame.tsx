@@ -27,8 +27,8 @@ interface FrameState {
   readonly toggle: () => void;
   readonly isMobile: boolean;
   readonly hasSidebar: boolean;
-  /** How the sidebar shows on a phone: a drawer beside the page, or a page of its own. */
-  readonly phone: 'drawer' | 'page';
+  /** The Sidebar Mode: slid in beside the page, or a page of its own. */
+  readonly sidebarMode: 'slide' | 'fullscreen';
 }
 
 const FrameContext = createContext<FrameState | null>(null);
@@ -47,8 +47,8 @@ interface FrameProps {
   /** The page. */
   readonly children: ReactNode;
   readonly swipe: 'anywhere' | 'edge' | 'off';
-  /** How the sidebar shows on a phone. */
-  readonly phone: 'drawer' | 'page';
+  /** The Sidebar Mode, how the sidebar shows on a narrow screen. */
+  readonly sidebarMode: 'slide' | 'fullscreen';
   /** The sidebar's width on a wide screen, in px. */
   readonly sidebarWidth?: number;
   /** Drawn outside the moving page, told whether the sidebar is open. */
@@ -96,7 +96,7 @@ function Page(props: {
       toggle: noop,
       isMobile,
       hasSidebar: false,
-      phone: 'drawer',
+      sidebarMode: 'slide',
     }),
     [isMobile],
   );
@@ -125,7 +125,7 @@ function WithSidebar(props: FrameProps & { readonly sidebar: ReactNode }) {
       open,
       setOpen,
       swipe: props.swipe,
-      page: props.phone === 'page',
+      fullscreen: props.sidebarMode === 'fullscreen',
     }),
     '--sidebar-mobile': useMobileProgress(),
   };
@@ -138,9 +138,9 @@ function WithSidebar(props: FrameProps & { readonly sidebar: ReactNode }) {
       toggle,
       isMobile,
       hasSidebar: true,
-      phone: props.phone,
+      sidebarMode: props.sidebarMode,
     }),
-    [shown, setOpen, toggle, isMobile, props.phone],
+    [shown, setOpen, toggle, isMobile, props.sidebarMode],
   );
   // On a phone the open sidebar covers the page, which is inert till it shuts.
   const covered = isMobile && shown;
@@ -162,7 +162,7 @@ function WithSidebar(props: FrameProps & { readonly sidebar: ReactNode }) {
                 : `${props.sidebarWidth}px`,
             // A page of its own pushes the page off the whole screen.
             '--sidebar-width-mobile':
-              props.phone === 'page' ? '100vw' : '18rem',
+              props.sidebarMode === 'fullscreen' ? '100vw' : '18rem',
           } as CSSProperties
         }
         // The page is inert while covered, so a tap on it lands here: that
