@@ -49,7 +49,7 @@ export function Header(props: { readonly config: HeaderConfig }) {
           )}
         </>
       ) : null}
-      <div className="min-w-0 flex-1 truncate text-sm font-medium">
+      <div className="min-w-0 flex-1 truncate text-sm font-medium max-md:text-base">
         {props.config.title}
       </div>
       {props.config.actions === undefined ? null : (
