@@ -11,7 +11,7 @@ import {
 } from '#components/command';
 import { Switch } from '#components/switch';
 
-import { Drawer, LayerHeader, TopDialog } from './index';
+import { Drawer, LayerHeader, raiseKeyboard, TopDialog } from './index';
 
 /*
  * A playground to try both layers on a phone: a few rows or many, the
@@ -90,7 +90,13 @@ function Choosing({
   const Layer = layer === 'drawer' ? Drawer : TopDialog;
   return (
     <div className="flex min-h-svh flex-col gap-4 p-6 pt-[max(1.5rem,env(safe-area-inset-top))] text-sm">
-      <Button className="h-11 self-start" onClick={() => setOpen(true)}>
+      <Button
+        className="h-11 self-start"
+        onClick={() => {
+          if (layer === 'dialog' && focus) raiseKeyboard();
+          setOpen(true);
+        }}
+      >
         {layer === 'drawer' ? 'Open the Drawer' : 'Open the Top Dialog'}
       </Button>
       {layer === 'dialog' && (

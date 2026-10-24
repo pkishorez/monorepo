@@ -34,6 +34,11 @@ const OUT = {
 } as const;
 // The gap it leaves closes as a drawer does: quick, then easing in.
 const CLOSE = { duration: 0.18, ease: [0.32, 0.72, 0, 1] } as const;
+const POP = { type: 'spring', duration: 0.3, bounce: 0.4 } as const;
+
+/** Under reduced motion it jumps where it would move. */
+const still = () =>
+  window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
 
 export type SwipeRowProps = {
   /**
@@ -61,6 +66,7 @@ export type SwipeRowProps = {
  * shows what letting go does; past 40% of its width, or on a fast flick, it
  * arms, with a click and a buzz, and letting go slides it out, closes the
  * gap it leaves and then calls `onSwipe`. Coming back short springs it home.
+ * Under reduced motion it jumps home, and goes at once.
  * Swipes the other way, and up and down, are left to whatever is around it,
  * such as a sidebar or the list's scroll. A mouse never swipes it.
  */
@@ -111,17 +117,14 @@ function Swiped(
     return () => observer.disconnect();
   }, [props.zone]);
 
-  const home = () => void animate(x, 0, HOME);
+  const home = () => (still() ? x.jump(0) : void animate(x, 0, HOME));
   // Out the way it went, carrying the finger's speed, then the gap closes;
   // under reduced motion it is gone at once.
   const leave = async (velocity: number) => {
     const { props, sounds, sign } = latest.current;
     if (sounds) play('success');
     const element = props.zone.current;
-    const still = window.matchMedia?.(
-      '(prefers-reduced-motion: reduce)',
-    ).matches;
-    if (element !== null && !still) {
+    if (element !== null && !still()) {
       await animate(x, sign * element.offsetWidth, {
         ...OUT,
         velocity: sign * velocity,
@@ -158,7 +161,7 @@ function Swiped(
         aria-hidden="true"
         style={{ opacity: shown }}
         className={cn(
-          'absolute inset-0 flex items-center gap-2 text-sm font-medium transition-colors duration-150',
+          'absolute inset-0 flex items-center gap-2 text-sm font-medium transition-colors duration-150 motion-reduce:transition-none',
           direction === 'left' ? 'justify-end pr-5' : 'justify-start pl-5',
           tone === 'destructive'
             ? armed
@@ -171,7 +174,7 @@ function Swiped(
       >
         <motion.span
           animate={{ scale: armed ? 1.1 : 1 }}
-          transition={{ type: 'spring', duration: 0.3, bounce: 0.4 }}
+          transition={still() ? { duration: 0 } : POP}
           className="flex items-center gap-1.5 [&_svg]:size-4"
         >
           {props.label ?? (

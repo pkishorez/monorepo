@@ -123,7 +123,10 @@ const swallowNextClick = (win: Window) => {
  * fingers are down; otherwise the browser, which scrolls, while the Gesture
  * is cancelled and nothing is tracked until every finger lifts.
  */
-export const createTouchInput = (win: Window, sink: PointerSink<Target>) => {
+export const createTouchInput = (
+  win: Window,
+  sink: PointerSink<Target, Element>,
+) => {
   const doc = win.document;
   // Each tracked pointer, with whether it is a finger and how to stop
   // listening on the element it landed on.
@@ -232,15 +235,19 @@ export const createTouchInput = (win: Window, sink: PointerSink<Target>) => {
     const dx = touch && start ? touch.clientX - start.x : 0;
     const dy = touch && start ? touch.clientY - start.y : 0;
     const direction = sink.direction() ?? directionOf(dx, dy);
-    const how = sink.pick(direction);
+    const taker = sink.pick(direction);
     const owner = ((): 'zone' | 'browser' => {
       if (touches.length !== 1 || touch === undefined) return 'zone';
       const zone = zoneOf(touch.target);
       if (zone === null) return 'zone';
       if (zoneGestureOf(touch.target) === 'enabled') return 'zone';
-      if (how === 'captures') return 'zone';
-      if (nativeScrollKeeps(touch.target, zone, dx, dy)) return 'browser';
-      return how === 'directions' ? 'zone' : 'browser';
+      if (taker?.how === 'captures') return 'zone';
+      // What scrolls between the finger and the zone that would take the
+      // touch keeps it, past any zone inside that does not want it, such
+      // as a list's swiped rows under its pull to refresh.
+      const upTo = taker?.zone ?? zone;
+      if (nativeScrollKeeps(touch.target, upTo, dx, dy)) return 'browser';
+      return taker === undefined ? 'browser' : 'zone';
     })();
     // Only a touch the zone keeps has a Direction for its listeners: one the
     // browser scrolls must not start them moving before it cancels them.

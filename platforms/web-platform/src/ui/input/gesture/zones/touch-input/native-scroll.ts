@@ -52,8 +52,8 @@ const followsFinger = (element: Element, dx: number, dy: number) => {
 
 /**
  * Whether a Native Scroll keeps a finger that landed on `target` and first
- * moved by dx, dy: some element from it up to `zone` can still scroll that
- * way.
+ * moved by dx, dy: some element from it up to `zone`, the one that would
+ * take the touch, can still scroll that way.
  */
 export const nativeScrollKeeps = (
   target: EventTarget | null,
