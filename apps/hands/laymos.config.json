@@ -1,0 +1,30 @@
+{
+  "$schema": "../../devtools/laymos/schema.json",
+  "sourceRoots": ["src"],
+  "ignoredPaths": ["src/client/styles.css", "src/env.d.ts"],
+  "fileModules": [
+    "src/client/app.tsx",
+    "src/client/document.tsx",
+    "src/server/loaders.server.ts"
+  ],
+  "rules": {
+    "src/shared/tracker": ["src/shared/gestures"],
+    "src/shared/pages": ["src/shared/gestures", "src/shared/tracker"],
+    "src/server/loaders.server.ts": ["src/shared/pages"],
+    "src/client/app.tsx": [
+      "src/shared/pages",
+      "src/client/document.tsx",
+      "src/client/tracker",
+      "src/client/views"
+    ],
+    "src/client/document.tsx": ["src/client/components"],
+    "src/client/tracker": ["src/shared/gestures", "src/shared/tracker"],
+    "src/client/stage": ["src/shared/gestures", "src/client/tracker"],
+    "src/client/views": [
+      "src/shared/gestures",
+      "src/shared/pages",
+      "src/client/stage",
+      "src/client/components"
+    ]
+  }
+}

@@ -1,0 +1,18 @@
+@import '@kestack/web-platform/theme/global.css';
+@import '@kestack/web-platform/theme/font-inter.css';
+
+@layer base {
+  body {
+    @apply bg-background font-sans text-foreground antialiased;
+  }
+}
+
+/* A checklist row flashing as its gesture fires. */
+@keyframes fired {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
