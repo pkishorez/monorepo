@@ -4,17 +4,21 @@ import {
   ArchiveRestoreIcon,
 } from '@kestack/web-platform/ui/components/lucide';
 import { useDevice } from '@kestack/web-platform/ui/input';
-import type { ReactNode } from 'react';
+import { createContext, type ReactNode, use } from 'react';
 import { notify } from '../../../../ui/toast/index.ts';
 
 /*
  * On a touch screen a Session row swipes left to right: an unsettled one
  * to Settle it, a Settled one to un-Settle it, with a quiet "Settle" or
  * "Keep" behind it as it goes. It slides out, the list closes the gap, and
- * a toast offers Undo for as long as the swipe waits to be asked of its
- * Machine. With no touch screen the row is
- * drawn as it is.
+ * a toast offers Undo for five seconds; its Machine is asked at once, and
+ * Undo asks it back. A refusal brings every row swiped back afresh
+ * (`SwipeBack`), even one never taken out of its list. With no touch
+ * screen the row is drawn as it is.
  */
+
+/** Counts refusals: each brings a row swiped away back, drawn afresh. */
+export const SwipeBack = createContext(0);
 
 /** Says a Session was Settled, or un-Settled, with an Undo for `seconds`. */
 export const sayMoved = (
@@ -42,9 +46,11 @@ export function SwipeToMove({
   readonly children: ReactNode;
 }) {
   const { touch } = useDevice();
+  const back = use(SwipeBack);
   if (!touch) return children;
   return (
     <SwipeRow
+      key={back}
       direction="right"
       tone="quiet"
       sounds={false}

@@ -1,1 +1,1 @@
-export { sayMoved, SwipeToMove } from './swipe.tsx';
+export { sayMoved, SwipeBack, SwipeToMove } from './swipe.tsx';
