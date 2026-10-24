@@ -45,8 +45,9 @@ import { Heading, type Draft } from './card.tsx';
  *             Drawer to attach a file or a photo or to choose the
  *             microphone; the skills Picker, next largest; and Send once
  *             there is something to send. While it is edited the row is
- *             only `+`, the microphone and Send, and the microphone and
- *             Send leave focus where it is.
+ *             only `+`, the microphone and Send, which leave focus where it
+ *             is as they are pressed; `+` then lets the keyboard down for
+ *             its Drawer.
  * 4. Dictate  while one records, the line over it says so. As it stops,
  *             the Draft scrolls to where its text will go and says
  *             "Transcribing…" there; its text then fades in, unless the
@@ -184,9 +185,10 @@ export function TouchCard({
                 {draft.placeholder}
               </p>
             )}
-            {/* 1. Rest: read only, its words take no tap. */}
+            {/* 1. Rest: read only, its words take no tap; a button in them,
+                such as a failed Dictation's retry, still does. */}
             <div
-              ref={draft.parent}
+              ref={draft.mount}
               style={
                 collapsed && shift > 0
                   ? { transform: `translateY(${-shift * LINE}px)` }
@@ -194,7 +196,8 @@ export function TouchCard({
               }
               className={cn(
                 'relative',
-                !editing && 'pointer-events-none',
+                !editing &&
+                  'pointer-events-none [&_button]:pointer-events-auto',
                 resting && 'opacity-0',
                 collapsed &&
                   'transition-transform duration-300 ease-out motion-reduce:transition-none',
@@ -295,6 +298,12 @@ const keepFocus = (event: { preventDefault: () => void }) =>
  * 3. Row: the chip, the microphone in the centre, then `+`, the skills and
  * Send. The chip has its half to itself, so its settings fit; while
  * editing, `+` takes its place.
+ *
+ * Its buttons keep their places in the tree whatever the state, and
+ * `order` lays them out, so a button stays the same one as the row
+ * changes around it. While editing, a press keeps focus in the Composer:
+ * focus leaving it would change the row under the finger before the tap
+ * ends, and the tap would land on another button, or none.
  */
 function Row({
   draft,
@@ -307,28 +316,40 @@ function Row({
 }) {
   const editing = draft.writing;
   return (
-    // At rest the right keeps its own width and the chip takes what is
-    // left; Send holds its place while hidden, so the microphone never
-    // moves. Editing, `+` and Send sit either side of a centred microphone.
-    <div
-      className={cn(
-        'grid items-center',
-        editing
-          ? 'grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-2'
-          : 'grid-cols-[minmax(0,1fr)_auto_auto] gap-3',
-      )}
-    >
-      <div className="flex min-w-0 items-center gap-0.5">
-        {editing ? <Add draft={draft} /> : chip}
+    // At rest the chip takes what is left of the width; Send holds its
+    // place while hidden, so the microphone never moves. Editing, `+` and
+    // Send share the sides equally, so the microphone is centred.
+    <div className="flex items-center gap-1">
+      <div
+        className={cn(
+          'flex min-w-0 flex-1 items-center gap-0.5',
+          editing && 'hidden',
+        )}
+      >
+        {chip}
+      </div>
+      <div
+        onMouseDown={editing ? keepFocus : undefined}
+        className={cn(
+          'flex',
+          editing ? 'order-first min-w-0 flex-1' : 'order-2',
+        )}
+      >
+        <Add draft={draft} />
       </div>
       <Microphone draft={draft} />
+      <div className={cn('order-3 flex', editing && 'hidden')}>
+        <Skills draft={draft} />
+      </div>
       <div
-        className="flex items-center justify-end gap-1"
         onMouseDown={editing ? keepFocus : undefined}
+        className={cn(
+          'flex justify-end',
+          editing ? 'order-last min-w-0 flex-1' : 'order-4',
+          !draft.filled && 'invisible',
+        )}
       >
-        {!editing && <Add draft={draft} />}
-        {!editing && <Skills draft={draft} />}
-        <div className={draft.filled ? 'contents' : 'invisible'}>{send}</div>
+        {send}
       </div>
     </div>
   );
@@ -348,10 +369,10 @@ function Microphone({ draft }: { readonly draft: Draft }) {
       onMouseDown={draft.writing ? keepFocus : undefined}
       onClick={onToggle}
       className={cn(
-        'shrink-0 rounded-full transition-[background-color,transform] duration-150 ease-out active:scale-[0.96] motion-reduce:transition-none',
+        'order-1 shrink-0 rounded-full transition-[background-color,transform] duration-150 ease-out active:scale-[0.96] motion-reduce:transition-none',
         draft.writing
-          ? 'size-12 [&_svg:not([class*=size-])]:size-5'
-          : 'size-14 [&_svg:not([class*=size-])]:size-6',
+          ? 'mx-1 size-12 [&_svg:not([class*=size-])]:size-5'
+          : 'mx-2 size-14 [&_svg:not([class*=size-])]:size-6',
       )}
     >
       {recording !== null ? (
@@ -431,7 +452,12 @@ function Add({ draft }: { readonly draft: Draft }) {
         aria-haspopup="dialog"
         aria-expanded={open}
         disabled={draft.disabled}
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          // Its tap has landed: the Composer lets go of focus, and the
+          // on-screen keyboard goes down for the Drawer.
+          draft.view.current?.contentDOM.blur();
+          setOpen(true);
+        }}
         className="size-11 shrink-0 rounded-full text-muted-foreground [&_svg:not([class*=size-])]:size-5"
       >
         <PlusIcon aria-hidden />
