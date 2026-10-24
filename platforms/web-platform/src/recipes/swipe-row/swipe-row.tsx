@@ -6,6 +6,7 @@ import {
   motion,
   useMotionValue,
   useMotionValueEvent,
+  useReducedMotion,
   useTransform,
 } from 'motion/react';
 import {
@@ -36,8 +37,12 @@ const OUT = {
 const CLOSE = { duration: 0.18, ease: [0.32, 0.72, 0, 1] } as const;
 const POP = { type: 'spring', duration: 0.3, bounce: 0.4 } as const;
 
-/** Under reduced motion it jumps where it would move. */
+/**
+ * Under reduced motion it jumps where it would move: read as it moves, in
+ * the browser only. A render reads it through `useReducedMotion`.
+ */
 const still = () =>
+  typeof window !== 'undefined' &&
   window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
 
 export type SwipeRowProps = {
@@ -99,6 +104,7 @@ function Swiped(
   } = props;
   const sign = direction === 'left' ? -1 : 1;
   const x = useMotionValue(0);
+  const reduced = useReducedMotion() === true;
   const [armed, setArmed] = useState(false);
   const [width, setWidth] = useState(400);
   const shown = useTransform(x, [0, sign * 24], [0, 1]);
@@ -174,7 +180,7 @@ function Swiped(
       >
         <motion.span
           animate={{ scale: armed ? 1.1 : 1 }}
-          transition={still() ? { duration: 0 } : POP}
+          transition={reduced ? { duration: 0 } : POP}
           className="flex items-center gap-1.5 [&_svg]:size-4"
         >
           {props.label ?? (
