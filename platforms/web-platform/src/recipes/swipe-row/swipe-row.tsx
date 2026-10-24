@@ -48,7 +48,8 @@ const still = () =>
 export type SwipeRowProps = {
   /**
    * Runs once the row has slid out and its gap has closed. The row stays
-   * gone: take it out of the list here.
+   * gone: take it out of the list here. To bring it back, as when what it
+   * did was refused, draw it with a new `key`: it starts afresh.
    */
   readonly onSwipe: () => void;
   /** Which way the finger goes: left by default. */
