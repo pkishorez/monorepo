@@ -23,8 +23,9 @@ import {
 import { AskAnswer } from './ask.tsx';
 import { btwQuestion } from './btw.ts';
 import { Card, PRIMARY, StatusLine, useDraft } from './card.tsx';
-import { ModelPicker, Triggers } from './model-picker/index.ts';
+import { Chip, ModelPicker, Triggers } from './model-picker/index.ts';
 import { SkillPicker } from './skills.ts';
+import { TouchCard } from './touch.tsx';
 
 /*
  * The Draft at the page's foot: the line that says why nothing can be
@@ -33,7 +34,9 @@ import { SkillPicker } from './skills.ts';
  * mic's place once there is something to send. A new session's
  * says Start session; a Session's says Send, Steer while the agent runs, or
  * Ask for a `/btw`, whose answer floats over it until Escape closes it.
- * What the page adds, such as a Session's Stop, comes through `Slots`.
+ * What the page adds, such as a Session's Stop, comes through `Slots`. On
+ * a device with no keyboard the card is the touch one (`touch.tsx`), with
+ * the model chip in place of the triggers.
  */
 
 /** What the page that holds the Draft adds to its foot. */
@@ -185,8 +188,8 @@ export const DraftView = View.make(
             </p>
           )
         )}
-        <Card draft={draft}>
-          <StatusLine
+        {draft.touch ? (
+          <TouchCard
             draft={draft}
             actions={slots.actions}
             send={
@@ -194,34 +197,74 @@ export const DraftView = View.make(
                 type="button"
                 size="icon"
                 aria-label={label}
-                title={title}
                 disabled={blocked}
                 onClick={draft.send}
-                className={`${PRIMARY} @sm/status:w-auto @sm/status:px-3.5 pointer-coarse:@sm/status:w-auto`}
+                className="size-11 shrink-0 rounded-full [&_svg:not([class*=size-])]:size-5"
               >
                 {model.starting ? <Spinner /> : <ArrowUpIcon aria-hidden />}
-                <span className="hidden @sm/status:inline">{label}</span>
               </Button>
             }
-          >
-            <Triggers
-              catalog={model.catalog}
-              current={current(model, props)}
-              started={!fresh}
-              how={picking?._tag === 'Model' ? picking : null}
-              onOpen={(at, how) =>
-                send({
-                  _tag: 'PickerOpened',
-                  picking: { _tag: 'Model', how, at },
-                })
+            chip={
+              <Chip
+                catalog={model.catalog}
+                current={current(model, props)}
+                started={!fresh}
+                how={picking?._tag === 'Model' ? picking.how : null}
+                onOpen={(at) =>
+                  send({
+                    _tag: 'PickerOpened',
+                    picking: { _tag: 'Model', how: 'pointer', at },
+                  })
+                }
+                onSet={(key, value) =>
+                  send({ _tag: 'SettingChosen', key, value })
+                }
+              >
+                {children.models && (
+                  <ModelPicker.View instance={children.models} />
+                )}
+              </Chip>
+            }
+          />
+        ) : (
+          <Card draft={draft}>
+            <StatusLine
+              draft={draft}
+              actions={slots.actions}
+              send={
+                <Button
+                  type="button"
+                  size="icon"
+                  aria-label={label}
+                  title={title}
+                  disabled={blocked}
+                  onClick={draft.send}
+                  className={`${PRIMARY} @sm/status:w-auto @sm/status:px-3.5 pointer-coarse:@sm/status:w-auto`}
+                >
+                  {model.starting ? <Spinner /> : <ArrowUpIcon aria-hidden />}
+                  <span className="hidden @sm/status:inline">{label}</span>
+                </Button>
               }
             >
-              {children.models && (
-                <ModelPicker.View instance={children.models} />
-              )}
-            </Triggers>
-          </StatusLine>
-        </Card>
+              <Triggers
+                catalog={model.catalog}
+                current={current(model, props)}
+                started={!fresh}
+                how={picking?._tag === 'Model' ? picking : null}
+                onOpen={(at, how) =>
+                  send({
+                    _tag: 'PickerOpened',
+                    picking: { _tag: 'Model', how, at },
+                  })
+                }
+              >
+                {children.models && (
+                  <ModelPicker.View instance={children.models} />
+                )}
+              </Triggers>
+            </StatusLine>
+          </Card>
+        )}
       </div>
     );
   },
