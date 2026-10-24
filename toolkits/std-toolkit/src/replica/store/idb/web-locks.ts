@@ -10,7 +10,7 @@ export type BrowserLockManager = {
 };
 
 /**
- * Holds the Web Lock of a space for as long as the effect runs. Interrupting
+ * Holds the Web Lock named `name` for as long as the effect runs. Interrupting
  * the effect while it waits aborts the request; ending it releases the lock,
  * and the next tab waiting takes over.
  */
@@ -26,15 +26,11 @@ export const webLocksLeader =
             release = resolve;
           });
           void locks
-            .request(
-              `replica:${name}`,
-              { mode: 'exclusive', signal },
-              async () => {
-                acquired = true;
-                resume(Effect.succeed({ release }));
-                await held;
-              },
-            )
+            .request(name, { mode: 'exclusive', signal }, async () => {
+              acquired = true;
+              resume(Effect.succeed({ release }));
+              await held;
+            })
             .catch((error: unknown) => {
               if (!acquired && !signal.aborted) resume(Effect.die(error));
             });

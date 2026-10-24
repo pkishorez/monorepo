@@ -4,14 +4,14 @@ import { AiClients } from '@kestack/ai-toolkit/client';
 import { Machine } from '@kestack/ai-toolkit/machines';
 import { MachinesClient } from '@kestack/ai-toolkit/machines/client';
 import { Actor } from '@kestack/kabuki';
-import { Store } from '@kestack/std-toolkit/replica';
 import {
+  AccountReplicas,
   Link,
   nobody,
   SavedMachines,
 } from '../../../layer/capabilities/index.ts';
 import { list, speechOn } from './api.ts';
-import { drop, forget, save } from './commands.ts';
+import { forget, keep, save } from './commands.ts';
 
 /*
  * The Machine List: the Machines of one Account, a Child of the root page for as long as
@@ -20,7 +20,12 @@ import { drop, forget, save } from './commands.ts';
  * 1. Saved    the list last kept for the Account shows first, so the app
  *             opens on its Machines even while the Backend is out of reach.
  * 2. Fetch    then the Backend's list, once, and again on Reload; each
- *             answer is kept for next time.
+ *             answer is kept for next time. The first answer keeps only
+ *             the records of the Machines on it: a Machine gone from it
+ *             takes its records here with it. Later answers delete
+ *             nothing, so an answer older than another tab's never stops
+ *             an Instance that tab reads, and a list that failed deletes
+ *             nothing either.
  * 3. Lines    one socket per listed Machine, followed, and its Speech to
  *             Text, watched over it.
  * 4. Recheck  while a listed Machine's line is not up, the Backend is asked
@@ -30,7 +35,8 @@ import { drop, forget, save } from './commands.ts';
  *             it stops; a line that drops starts it again.
  * 5. Forget   a Machine, asked from Settings: the Backend forgets it, it
  *             leaves the list, so nothing reads its Instance any more, and
- *             then its records here go.
+ *             then its records here go: at once once the Backend has
+ *             answered, else with its first answer, as in 2.
  * 6. Share    what it holds is what `Machines` says to every Actor, and
  *             what they ask through it comes here.
  */
@@ -62,7 +68,7 @@ const Model = Schema.Struct({
 type Model = typeof Model.Type;
 
 export const MachineList = Actor.define('MachineList', {
-  requires: [MachinesClient, SavedMachines, Store, Link, AiClients],
+  requires: [MachinesClient, SavedMachines, AccountReplicas, Link, AiClients],
   input: Schema.Struct({ accountId: Schema.String }),
   props: Schema.Struct({
     /** The Account's email, for the command that adds a Machine. */
@@ -85,6 +91,12 @@ export const MachineList = Actor.define('MachineList', {
 });
 
 const idsOf = (model: Model) => (model.machines ?? []).map(({ id }) => id);
+
+/** Only the records of the Machines listed are kept for the Account. */
+const keepListed = (
+  accountId: string,
+  machines: ReadonlyArray<typeof Machine.Type>,
+) => keep({ accountId, machineIds: machines.map(({ id }) => id) });
 
 /** Whether a listed Machine's line is not up, so the Backend is asked again. */
 export const anyDown = (model: Model) =>
@@ -187,7 +199,12 @@ export const MachineListLive = Actor.build(MachineList, {
         fetching: false,
         problem: null,
       },
-      command: save({ accountId: model.accountId, machines }),
+      command: [
+        save({ accountId: model.accountId, machines }),
+        ...(model.fetchedAt === null
+          ? [keepListed(model.accountId, machines)]
+          : []),
+      ],
     }),
     Failed: ({ problem }, { model }) => ({
       model: { ...model, fetching: false, problem },
@@ -219,7 +236,12 @@ export const MachineListLive = Actor.build(MachineList, {
       const machines = (model.machines ?? []).filter((each) => each.id !== id);
       return {
         model: { ...model, machines, forgetting: null },
-        command: [save({ accountId: model.accountId, machines }), drop({ id })],
+        command: [
+          save({ accountId: model.accountId, machines }),
+          ...(model.fetchedAt === null
+            ? []
+            : [keepListed(model.accountId, machines)]),
+        ],
       };
     },
     ForgetFailed: ({ id, problem }, { model }) =>

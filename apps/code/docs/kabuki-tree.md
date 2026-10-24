@@ -89,7 +89,7 @@ sidebar ─ Worker: unsettle, while one is asked ─────▶ Sends Unsett
 **Model**: account: who is signed in, kept across States; signInProblem: why signing in failed; back: where Settings were opened from
 **States**: Reading: nothing is drawn, the Bindings are read (BindingsRead → Ready); Ready: bindings, the keys; BindingsRead again when they change
 **Messages**: BindingsRead: a Worker; Signed: the accounts Worker; SignInAsked, SignInFailed: the View, signIn; NewSessionAsked: the `n` key; SettingsToggled: Ctrl+, and Escape; DictationAsked: Space, Ctrl+Space, the mic button, a Draft
-**Commands**: signIn: ends with SignInFailed or nothing; signedOut: deletes the records of Machines of Accounts signed out; askDictation: ends with nothing; Router.push
+**Commands**: signIn: ends with SignInFailed or nothing; keepAccounts: deletes the records of Accounts signed out, and once Accounts are signed in keeps only theirs; askDictation: ends with nothing; Router.push
 **Workers**: accounts: always, at the top, Sends Signed; read: in Reading, Sends BindingsRead; bindings: in Ready, Sends BindingsRead when the Bindings change
 **Requires**: Navigation, DeviceState, Accounts, Store, SavedMachines, Machines, Dictations
 **Provides**: CurrentAccount, at the top, from the Account Switcher; Replicas and AiClients, at the top, from `services/reach.ts`
@@ -112,7 +112,7 @@ sidebar ─ Worker: unsettle, while one is asked ─────▶ Sends Unsett
 **Model**: accountId; machines: the list, null before any; fetchedAt; fetching; problem; forgetting; lines: each Machine's Line; speech: each Machine's Speech to Text; rechecks: how many Rechecks since every Line was up
 **States**: none
 **Messages**: Saved, Fetched, Failed: its Workers; ReloadAsked: Reload, through Machines; RecheckDue: the recheck Worker; LineChanged, SpeechWatched: its Workers; ForgetAsked, ForgetDismissed: Settings, through Machines; Forgot, ForgetFailed: forget
-**Commands**: save: ends with nothing; forget: ends with Forgot or ForgetFailed; drop: deletes a Machine's records
+**Commands**: save: ends with nothing; forget: ends with Forgot or ForgetFailed; keep: keeps only the records of the Machines listed, after the first list and after Forget
 **Workers**: saved: while no list; fetch: while fetching; lines, speech: each listed Machine; recheck: while not fetching and a Line is not up, waits 3 seconds for the first 20, then 30, Sends RecheckDue; publish: always, into Machines; requests: always, from Machines
 **Requires**: MachinesClient, SavedMachines, Store, Link, AiClients
 **Provides**: none · **Services**: none · **Children**: none

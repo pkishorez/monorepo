@@ -1,1 +1,1 @@
-export { Store } from './idb.js';
+export { Store, type IdbOptions } from './idb.js';

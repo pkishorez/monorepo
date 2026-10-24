@@ -6,11 +6,11 @@ export {
   type Adapter,
   type Cursor,
   type Doorbell,
+  type Kept,
   type Leader,
   type Opening,
   type Space,
   type SpaceTable,
-  type StoreOptions,
   type Wire,
   type Written,
 } from './contract.js';
