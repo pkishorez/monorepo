@@ -15,10 +15,10 @@ import './src/server/storage/stores/index.ts';
 const productionHost: string = 'console.kishore.app';
 
 export const Database = Cloudflare.D1.Database(
-  'DatabaseV2',
+  'DatabaseV3',
   Effect.gen(function* () {
     const stage = yield* Stage;
-    return { name: `alchemy-console-v3-${stage}` };
+    return { name: `alchemy-console-v4-${stage}` };
   }),
 );
 
@@ -38,9 +38,9 @@ export const Worker = Cloudflare.Website.Vite(
     if (dev && (!Number.isInteger(port) || port < 1 || port > 65535)) {
       throw new Error('Run pnpm dev so Portless can assign PORT.');
     }
-    // The new database starts with one table and a fresh snapshot baseline.
+    // The new database starts with one table and a fresh deploy guard contract.
     const database = yield* Database;
-    const table = yield* D1.table('ConsoleTableV2', {
+    const table = yield* D1.table('ConsoleTableV3', {
       table: consoleTable,
       database,
       mode: 'persistent',
