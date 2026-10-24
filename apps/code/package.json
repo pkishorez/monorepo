@@ -12,6 +12,7 @@
     "lint": "tsc --noEmit && pnpm lint:laymos",
     "lint:laymos": "laymos lint",
     "test": "vitest run",
+    "draw:install": "node scripts/draw-install.ts",
     "deploy": "alchemy deploy",
     "deploy:prod": "ALLOW_DEPLOY=true alchemy deploy --stage prod"
   },
@@ -44,6 +45,7 @@
     "jsdom": "catalog:",
     "laymos": "workspace:*",
     "miniflare": "catalog:",
+    "playwright-core": "catalog:",
     "tailwindcss": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
