@@ -178,7 +178,6 @@ catalog:
   typescript: 7.0.2
   ulidx: 2.4.1
   use-sync-external-store: 1.7.0
-  werift: 0.25.1
   vite: npm:@voidzero-dev/vite-plus-core@1.4.0
   vite-plus: 1.4.0
   vitest: 5.0.5
