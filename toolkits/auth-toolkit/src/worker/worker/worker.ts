@@ -54,17 +54,39 @@ const admission = (
   };
 };
 
-/** A Test User is created by Test Sign-In alone, with `admit` or without. */
-const onlyTestSignInCreatesTestUsers: BetterAuthOptions['databaseHooks'] = {
+const notAdmitted = () =>
+  new APIError('FORBIDDEN', {
+    code: NOT_ADMITTED.error,
+    message: NOT_ADMITTED.errorDescription,
+  });
+
+/** A Test User is created by Test Sign-In alone, with `admit` or without,
+ * and no User's email ever crosses into or out of `.test`, as an
+ * Administrator's update could make it. */
+const testUsersStayTestUsers: BetterAuthOptions['databaseHooks'] = {
   user: {
     create: {
       before: async (user, context) => {
         if (isTestEmail(user.email) && context?.path !== TEST_SIGN_IN_PATH) {
-          throw new APIError('FORBIDDEN', {
-            code: NOT_ADMITTED.error,
-            message: NOT_ADMITTED.errorDescription,
-          });
+          throw notAdmitted();
         }
+      },
+    },
+    update: {
+      before: async (user, context) => {
+        if (typeof user.email !== 'string') return;
+        if (isTestEmail(user.email)) throw notAdmitted();
+        // Who is updated is not handed to the hook: an Administrator names
+        // them in the body, anyone else updates themselves.
+        const body = context?.body as { userId?: unknown } | undefined;
+        const userId =
+          typeof body?.userId === 'string'
+            ? body.userId
+            : context?.context.session?.user.id;
+        const current = userId
+          ? await context?.context.internalAdapter.findUserById(userId)
+          : null;
+        if (current && isTestEmail(current.email)) throw notAdmitted();
       },
     },
   },
@@ -130,7 +152,7 @@ export const makeAuthWorker = (
     user: config.admit
       ? { validateUserInfo: admission(config.admit) }
       : undefined,
-    databaseHooks: onlyTestSignInCreatesTestUsers,
+    databaseHooks: testUsersStayTestUsers,
     plugins: [
       ...(model.plugins ?? []),
       ...(authorizationServer?.plugins ?? []),

@@ -97,6 +97,9 @@ testUsers: {
 - `allow`, when set, gets the email trimmed and lowercased; `false` refuses it (403 `NOT_ALLOWED`).
 - An email that is not a `.test` email is always refused (400 `NOT_A_TEST_EMAIL`).
 - A browser already holding `maxAccounts` Accounts may sign in again as one of them, but not as another (403 `TOO_MANY_ACCOUNTS`).
+  Two sign-ins sent at once from the same cookies can both pass this check, as two Google sign-ins can.
+- A User's email never moves into or out of `.test`, not even by an Administrator's update, so a real User never becomes a Test User or the other way round.
+- A Test User can approve OAuth consent like any User. auth-toolkit's guards refuse their Access Tokens unless `testUsers: true`; a Resource Server that checks tokens some other way must refuse them itself.
 - `admit` does not apply to Test Users. Google sign-in refuses a `.test` email, with or without `admit`.
 - The answer is `{ user }`, never a token. Given the Login Screen's signed `oauth_query`, it answers `{ redirect, url }` to carry on the authorization, as a Google sign-in would.
 
