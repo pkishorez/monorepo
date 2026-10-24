@@ -40,10 +40,10 @@ import { Heading, type Draft } from './card.tsx';
  *             on-screen keyboard rises. Focus leaving it makes it read
  *             only again, two lines tall. Nothing in it moves while it
  *             has focus.
- * 3. Row      under it: `+`, a Drawer to attach a file or a photo or to
- *             choose the microphone; the model chip; in the centre, the
- *             largest, the microphone, which starts and stops a
- *             Dictation; the skills Picker, next largest; and Send once
+ * 3. Row      under it: the model chip; in the centre, the largest, the
+ *             microphone, which starts and stops a Dictation; `+`, a
+ *             Drawer to attach a file or a photo or to choose the
+ *             microphone; the skills Picker, next largest; and Send once
  *             there is something to send. While it is edited the row is
  *             only `+`, the microphone and Send, and the microphone and
  *             Send leave focus where it is.
@@ -291,7 +291,11 @@ function useMoreThan(
 const keepFocus = (event: { preventDefault: () => void }) =>
   event.preventDefault();
 
-/** 3. Row: `+` and the chip, the microphone in the centre, then the skills and Send. */
+/**
+ * 3. Row: the chip, the microphone in the centre, then `+`, the skills and
+ * Send. The chip has its half to itself, so its settings fit; while
+ * editing, `+` takes its place.
+ */
 function Row({
   draft,
   chip,
@@ -303,18 +307,28 @@ function Row({
 }) {
   const editing = draft.writing;
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1">
+    // At rest the right keeps its own width and the chip takes what is
+    // left; Send holds its place while hidden, so the microphone never
+    // moves. Editing, `+` and Send sit either side of a centred microphone.
+    <div
+      className={cn(
+        'grid items-center',
+        editing
+          ? 'grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-2'
+          : 'grid-cols-[minmax(0,1fr)_auto_auto] gap-3',
+      )}
+    >
       <div className="flex min-w-0 items-center gap-0.5">
-        <Add draft={draft} />
-        {!editing && chip}
+        {editing ? <Add draft={draft} /> : chip}
       </div>
       <Microphone draft={draft} />
       <div
-        className="flex min-w-0 items-center justify-end gap-1"
+        className="flex items-center justify-end gap-1"
         onMouseDown={editing ? keepFocus : undefined}
       >
+        {!editing && <Add draft={draft} />}
         {!editing && <Skills draft={draft} />}
-        {draft.filled && send}
+        <div className={draft.filled ? 'contents' : 'invisible'}>{send}</div>
       </div>
     </div>
   );

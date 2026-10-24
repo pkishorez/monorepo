@@ -552,7 +552,8 @@ describe('Draft, on a device with no keyboard', () => {
     expect(pill()).toBeUndefined();
     await tap(button('Send')!);
     expect(page.text).toBe('');
-    expect(button('Send')).toBeNull();
+    // Send keeps its place, hidden, so the microphone does not move.
+    expect(button('Send')!.closest('.invisible')).not.toBeNull();
     expect(button('Edit the message')).toBeNull();
     let focused = false;
     await act(async () => {

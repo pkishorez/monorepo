@@ -312,7 +312,7 @@ function ProjectGroup({
                       here.projectId === each.project.id &&
                       here.page === undefined
                     }
-                    className={`${row} ${cursorRing} text-xs font-medium text-muted-foreground data-active:font-medium`}
+                    className={`${row} ${cursorRing} text-xs font-medium text-muted-foreground data-active:font-medium max-md:mt-2 max-md:text-sm max-md:text-sidebar-foreground`}
                     render={
                       <Router.Link
                         to={places.project(
@@ -396,7 +396,9 @@ function ProjectGroup({
                     onClick={() => onShowWhole(keyOf(each.project))}
                     className={`${row} ${cursorRing} text-xs text-muted-foreground tabular-nums`}
                   >
-                    <span>+{each.hidden}</span>
+                    {/* On a phone, room to say what it does. */}
+                    <span className="md:hidden">Show {each.hidden} more</span>
+                    <span className="max-md:hidden">+{each.hidden}</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               );
