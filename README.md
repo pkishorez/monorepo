@@ -13,10 +13,9 @@ packages are at [docs.kishore.app](https://docs.kishore.app).
 
 ### Applications
 
-| Workspace                                        | Purpose                                                                                                                       |
-| ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
-| [`apps/docs`](./apps/docs)                       | Live demos of the public packages, a plain TanStack Start app deployed to Cloudflare Workers.                                 |
-| [`apps/alchemy-console`](./apps/alchemy-console) | Web console for browsing Alchemy state stores and deleting stacks, stages and resources with user-owned provider credentials. |
+| Workspace                  | Purpose                                                                                       |
+| -------------------------- | --------------------------------------------------------------------------------------------- |
+| [`apps/docs`](./apps/docs) | Live demos of the public packages, a plain TanStack Start app deployed to Cloudflare Workers. |
 
 ## kstack packages
 
