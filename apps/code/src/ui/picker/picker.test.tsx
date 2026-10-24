@@ -34,9 +34,6 @@ let mode: 'drawer' | 'dialog' = 'dialog';
 
 const Fruit = make('FruitPicker', {
   props: Schema.Struct({ ripe: Schema.Boolean }),
-  get focusOnTouch() {
-    return optIn;
-  },
   steps: {
     fruit: {
       placeholder: () => 'Search fruit',
@@ -146,6 +143,7 @@ function Page({
         how={how}
         mode={mode}
         label="Fruit"
+        focusOnTouch={optIn}
         onOpen={() => onOpen('pointer')}
         trigger={
           <button type="button" data-testid="trigger">
@@ -522,5 +520,46 @@ describe('Picker, on a device with no keyboard', () => {
     await frame();
     await frame();
     expect(document.activeElement).toBe(search());
+  });
+
+  // Opted in as the page is drawn, as an opener's Frame is.
+  describe('opted in', () => {
+    beforeAll(() => {
+      optIn = true;
+    });
+
+    it('raises the keyboard in the tap that opens it, for its search to take', async () => {
+      let raised: Element | null = null;
+      await act(async () => {
+        const target = by('trigger');
+        for (const type of ['pointerdown', 'mousedown', 'pointerup', 'mouseup'])
+          target.dispatchEvent(
+            new (type.startsWith('pointer') ? PointerEvent : MouseEvent)(type, {
+              bubbles: true,
+              button: 0,
+            }),
+          );
+        target.click();
+        // In the tap itself: iOS raises its keyboard only then.
+        raised = document.activeElement;
+      });
+      expect(raised).toBeInstanceOf(HTMLInputElement);
+      expect(raised).not.toBe(search());
+      expect((raised as unknown as HTMLInputElement).style.fontSize).toBe(
+        '16px',
+      );
+      await flush();
+      expect(dialog()).not.toBeNull();
+      await frame();
+      await frame();
+      await frame();
+      expect(document.activeElement).toBe(search());
+      expect((raised as unknown as HTMLInputElement).isConnected).toBe(false);
+    });
+  });
+
+  it('raises no keyboard in the tap when the Picker does not opt in', async () => {
+    await act(async () => by('trigger').click());
+    expect(document.activeElement).not.toBeInstanceOf(HTMLInputElement);
   });
 });
