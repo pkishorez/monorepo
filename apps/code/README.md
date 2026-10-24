@@ -281,8 +281,12 @@ On a phone the sidebar is home: the App Shell's `sidebarMode="fullscreen"` makes
 the whole screen, with the Project Picker's plus floating in its bottom
 right corner and the theme and the Account at its foot. Opening a session
 slides it away, and the header's back arrow, or a swipe from the left
-edge, brings it back. Pickers fill the screen, the header keeps only where
-you are and Session Actions, and a touch screen with no keyboard is shown
+edge, brings it back. On a touch screen a session row swipes left to right
+to Settle it, or, in the Settled List, to un-Settle it: it slides out, the
+list closes up, and a toast offers Undo for five seconds; pulling the
+sidebar down from its top Reloads the Machines. Pickers fill the screen,
+the header keeps only where you are, the Machine's offline mark and one
+`⋯` for Session Actions, and a touch screen with no keyboard is shown
 no keys: no hints, no Vim status line, no keyboard settings. Vim Mode is off
 on a device with no keyboard whatever is kept, however wide its screen, and
 nothing takes focus as it opens there, a Picker's search included. The Draft's
