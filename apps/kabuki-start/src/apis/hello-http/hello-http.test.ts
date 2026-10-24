@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { Principal } from '@kestack/auth-toolkit';
-import { testAuth } from '@kestack/auth-toolkit/server/http';
+import { fakeGuard } from '@kestack/auth-toolkit/fake';
 import { OWNER } from '../access/index.ts';
 import { serve } from './worker.server.ts';
 
 /*
- * The HTTP Worker answered in-process, with `testAuth` saying who calls:
+ * The HTTP Worker answered in-process, with `fakeGuard.http({ as })` saying who calls:
  * `/public` for anyone, `/authenticated` for any signed-in User (401
  * otherwise), `/authorized` for the owner alone (403 for anyone else), and
  * the site's preflight allowed with credentials.
@@ -31,7 +31,7 @@ const owner = {
 
 const get = (path: string, caller: Principal | null) =>
   serve(
-    testAuth(caller),
+    fakeGuard.http({ as: caller }),
     SITE,
   )(new Request(`https://http.test${path}`, { headers: { origin: SITE } }));
 
@@ -77,7 +77,7 @@ describe('the HTTP Worker', () => {
 
   it("answers the site's preflight", async () => {
     const response = await serve(
-      testAuth(null),
+      fakeGuard.http({ as: null }),
       SITE,
     )(
       new Request('https://http.test/authenticated', {

@@ -21,7 +21,7 @@ pnpm add -D @tailwindcss/vite
 
 An app that renders on the server adds `@kestack/web-platform` to `ssr.noExternal` in its Vite config, as `apps/docs` and `apps/alchemy-console` do. Its stylesheet imports `@kestack/web-platform/theme/global.css`, which also points Tailwind at the Package's own classes.
 
-- `@kestack/auth-toolkit`: its `browser()` gives the Accounts the Gate and `./account-switcher` follow, by the sign-in service's cookie or, on the Local Backend, as Local Accounts, and signs every guarded call; `createServer` and the Local Backend check calls with its `auth()`.
+- `@kestack/auth-toolkit`: its `browser()` gives the Accounts the Gate and `./account-switcher` follow, by the sign-in service's cookie, and on the Local Backend its `fakeAccounts()` gives Fake Accounts; each signs every guarded call. `createServer` checks calls with its `auth.rpc()`.
 - `@kestack/rpc-toolkit`: each API is called with its `rpc/http`, `rpc/websocket` and `rpc/in-process` Transports; `createServer` answers each `http` API with `rpc/http`'s `server`, and `liveObject` each `websocket` one with `rpc/websocket`'s `server`.
 - `@kestack/std-toolkit`: the Gate's memory, the last-known Accounts, Local Accounts, the Cache and each user's Std Sync are kept in its IndexedDB adapters.
 - `react`, `react-dom`: every component, Recipe and the root document render with React 19.
@@ -512,7 +512,7 @@ export default createServer({
 - The Host is made the first time anything asks, so `app.ts` loads on the server too. The Local Backend's code loads the first time someone chooses it; `?backend=local` in the address starts on it (`device`, its former name, still works).
 - `createServer` serves each `http` API at its path and everything else from TanStack Start. Point `tanstackStart({ server: { entry } })` at this file.
 - A `websocket` API is served by `live` instead of `backend`: each `(env) => ({ [api]: namespace })` names a Durable Object binding, and a socket opens at `getByName(userId)` once the sign-in cookie on its upgrade checks out (401 without one, 503 when the sign-in service can't be asked). The binding's class is made with `liveObject`, and opens sockets only for the user it is named for; every call on one is that user's.
-- With `auth`, each call is checked by auth-toolkit's `auth()` for the sign-in cookie (or a Device's bearer), and refreshed cookies go back on the answer; handlers need nothing of auth's. `oauth: { resource }` lets in Access Tokens for that Resource Server too, such as an MCP client's. The app's pages and Worker must sit under the sign-in service's cookie domain.
+- With `auth`, each call is checked by auth-toolkit's `auth.rpc()` for the sign-in cookie (or a Device's bearer), and refreshed cookies go back on the answer; handlers need nothing of auth's. `oauth: { resource }` lets in Access Tokens for that Resource Server too, such as an MCP client's. The app's pages and Worker must sit under the sign-in service's cookie domain.
 
 ### Building the PWA
 

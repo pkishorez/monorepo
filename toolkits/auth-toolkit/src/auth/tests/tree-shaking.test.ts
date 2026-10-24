@@ -131,10 +131,10 @@ describe('what the Guard leaves out', () => {
     for (const transport of TRANSPORTS) expect(has(transport)).toBe(false);
   }, 60_000);
 
-  it('an RPC server with `server/rpc`: no HttpApiBuilder', async () => {
+  it('an RPC server with `auth.rpc`: no HttpApiBuilder', async () => {
     const { has } = await bundle(
       `import { Authz } from '@kestack/auth-toolkit';
-       import { auth } from '@kestack/auth-toolkit/server/rpc';
+       import { auth } from '@kestack/auth-toolkit/server';
        import { server } from '@kestack/rpc-toolkit/rpc/http';
        import { Effect, Layer } from 'effect';
        import { Rpc, RpcGroup } from 'effect/rpc';
@@ -142,7 +142,7 @@ describe('what the Guard leaves out', () => {
        const Handlers = Api.toLayer({ Hello: () => Effect.void });
        export default server(
          Api,
-         Layer.mergeAll(Handlers, auth({ url: 'https://auth.test' })),
+         Layer.mergeAll(Handlers, auth.rpc({ url: 'https://auth.test' })),
        );`,
     );
     expect(has('/rpc-toolkit/dist/rpc/http/')).toBe(true);
@@ -150,10 +150,10 @@ describe('what the Guard leaves out', () => {
     expect(has(FAKE)).toBe(false);
   }, 60_000);
 
-  it('an HttpApi server with `server/http`: no RPC Transport', async () => {
+  it('an HttpApi server with `auth.http`: no RPC Transport', async () => {
     const { has } = await bundle(
       `import { Authz } from '@kestack/auth-toolkit';
-       import { auth } from '@kestack/auth-toolkit/server/http';
+       import { auth } from '@kestack/auth-toolkit/server';
        import { Effect, Layer } from 'effect';
        import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from 'effect/http-api';
        class Api extends HttpApi.make('api').add(
@@ -164,7 +164,7 @@ describe('what the Guard leaves out', () => {
        );
        export const App = HttpApiBuilder.layer(Api).pipe(
          Layer.provide(Hello),
-         Layer.provide(auth({ url: 'https://auth.test' })),
+         Layer.provide(auth.http({ url: 'https://auth.test' })),
        );`,
     );
     expect(has(HTTP_API_BUILDER)).toBe(true);

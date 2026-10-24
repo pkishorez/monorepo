@@ -1,5 +1,4 @@
 import { NodeHttpPlatform, NodeServices } from '@effect/platform-node';
-import type { Session, User } from 'better-auth';
 import { Effect, Layer, Schema } from 'effect';
 import { Etag, HttpRouter } from 'effect/http';
 import {
@@ -29,16 +28,17 @@ vi.mock('better-auth/client', () => ({
   createAuthClient: mocks.createAuthClient,
 }));
 
-import { Authz, type Principal } from '../../../auth/index.js';
-import { auth, testAuth } from '../index.js';
+import { Authz, type Principal } from '../../auth/index.js';
+import { fakeGuard } from '../../fake/index.js';
+import { auth } from '../index.js';
 
 const url = 'https://auth.example.com';
 const issuer = `${url}/api/auth`;
 
 const signedIn = (id = 'u1'): Principal => ({
   kind: 'session',
-  session: { id: `session-${id}` } as Session,
-  user: { id, email: `${id}@example.com` } as User,
+  session: { id: `session-${id}`, expiresAt: new Date(0) },
+  user: { id, email: `${id}@example.com`, name: id },
   test: false,
 });
 
@@ -83,7 +83,7 @@ beforeEach(() => {
 
 afterEach(() => vi.unstubAllGlobals());
 
-describe('server/http auth', () => {
+describe('auth.http auth', () => {
   it('provides AuthUser to a guarded handler', async () => {
     const WhoAmI = HttpApiEndpoint.get('whoAmI', '/me', {
       success: Schema.String,
@@ -101,7 +101,7 @@ describe('server/http auth', () => {
       return yield* client.private.whoAmI();
     }).pipe(
       Effect.provide(Handlers),
-      Effect.provide(testAuth(signedIn())),
+      Effect.provide(fakeGuard.http({ as: signedIn() })),
       Effect.provide(TestServices),
       Effect.scoped,
       Effect.runPromise,
@@ -134,7 +134,7 @@ describe('server/http auth', () => {
       await serve(
         FailuresApi,
         FailureHandlers,
-        auth({ url }),
+        auth.http({ url }),
         new Request(`http://localhost${path}`, { headers }),
       )
     ).response.status;
@@ -198,7 +198,7 @@ describe('server/http auth', () => {
       yield* client.policies.overridden();
     }).pipe(
       Effect.provide(Handlers),
-      Effect.provide(testAuth(signedIn())),
+      Effect.provide(fakeGuard.http({ as: signedIn() })),
       Effect.provide(TestServices),
       Effect.scoped,
       Effect.runPromise,
@@ -225,7 +225,7 @@ describe('server/http auth', () => {
     const { response } = await serve(
       FailuresApi,
       FailureHandlers,
-      auth({ url }),
+      auth.http({ url }),
       new Request('http://localhost/private', {
         headers: { cookie: 'session=old' },
       }),
@@ -270,30 +270,26 @@ describe('server/http auth', () => {
       { cookie: 'session=abc' },
       { authorization: 'Bearer device-token' },
     ]) {
-      const refused = await call(auth({ url }), headers);
+      const refused = await call(auth.http({ url }), headers);
       expect(refused.response.status).toBe(403);
       expect(JSON.parse(refused.body)).toMatchObject({
         _tag: 'Forbidden',
         reason: 'Test Users are not accepted',
       });
-      const admitted = await call(auth({ url, testUsers: true }), headers);
+      const admitted = await call(auth.http({ url, testUsers: true }), headers);
       expect(admitted.response.status).toBe(200);
       expect(JSON.parse(admitted.body)).toBe('tess@example.test');
     }
   });
 });
 
-describe('server/http auth options', () => {
-  it('needs a url, and tells Local mode where it went', () => {
-    expect(() => auth({} as never)).toThrow(/url/);
-    expect(() => auth({ local: true } as never)).toThrow(
-      /fakeGuard.*@kestack\/auth-toolkit\/fake/,
-    );
-    expect(() => auth({ url, local: true } as never)).toThrow(/removed/);
+describe('auth.http auth options', () => {
+  it('needs a url', () => {
+    expect(() => auth.http({} as never)).toThrow(/url/);
   });
 });
 
-describe('server/http auth with oauth', () => {
+describe('auth.http with oauth', () => {
   const resource = 'https://mcp.example.com/mcp';
   let privateKey: CryptoKey;
   let jwks: { keys: Record<string, unknown>[] };
@@ -361,7 +357,11 @@ describe('server/http auth with oauth', () => {
     serve(
       Api,
       Handlers,
-      auth({ url, oauth: { resource, scopes: ['notes:read'] }, testUsers }),
+      auth.http({
+        url,
+        oauth: { resource, scopes: ['notes:read'] },
+        testUsers,
+      }),
       request,
     );
   const post = (headers: Record<string, string> = {}, testUsers = false) =>

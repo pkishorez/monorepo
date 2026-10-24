@@ -1,6 +1,6 @@
 # auth-toolkit redesign
 
-> **Superseded in part.** The contract's `Auth` is now `Authz` ([ADR 0020](./adr/0020-one-guard-for-both-protocols-as-authz.md)), and rpc-toolkit's `Rpc.*` namespaces are a door per Transport ([rpc-toolkit ADR 0005](../../rpc-toolkit/docs/adr/0005-one-door-per-transport-named-exports.md)). The rest stands as the record of the design session.
+> **Superseded in part.** The contract's `Auth` is now `Authz` ([ADR 0020](./adr/0020-one-guard-for-both-protocols-as-authz.md)), rpc-toolkit's `Rpc.*` namespaces are a door per Transport ([rpc-toolkit ADR 0005](../../rpc-toolkit/docs/adr/0005-one-door-per-transport-named-exports.md)), Local mode became the `fake` door ([ADR 0022](./adr/0022-test-users-at-the-auth-worker-local-mode-becomes-the-fake.md)), and `server/rpc`, `server/http` and `testAuth` became one `server` door with `auth.rpc` and `auth.http`, beside `fakeGuard.rpc({ as })` and `fakeGuard.http({ as })` ([ADR 0023](./adr/0023-one-server-door-guards-per-protocol.md)). The rest stands as the record of the design session.
 
 The target API and behaviour agreed in the 2026-10-19 design session. Vocabulary is in [CONTEXT.md](../CONTEXT.md); the two decisions that shape it are [ADR 0018](./adr/0018-three-caller-kinds-four-doors.md) and [ADR 0019](./adr/0019-browser-callers-are-same-site-and-never-hold-tokens.md). This is a clean break: no compatibility shims, no deprecated aliases. The database schema changes only by additive migrations.
 

@@ -12,7 +12,7 @@ export type Signature<R> = Effect.Effect<
 >;
 
 /** The headers a Device signs a call with: its Account's Sign-in token, or a
- * Local Token. */
+ * Fake Token. */
 export const bearer = (token: string): Readonly<Record<string, string>> => ({
   authorization: `Bearer ${token}`,
 });

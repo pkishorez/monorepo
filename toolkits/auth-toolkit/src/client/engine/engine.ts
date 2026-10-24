@@ -101,8 +101,9 @@ const activeOf = (snapshot: Snapshot | null) => {
  *
  * An Account Switch shows at once as `switchingTo`, before it waits its
  * turn, and goes once it is answered: the new Active Account, or on failure
- * the state as it was. Of switches asked one after another, the newest is
- * shown until the last is answered. A peer's Snapshot that arrives during
+ * the state as it was. A newer switch replaces it: one not sent yet is
+ * never sent, and succeeds, and the newest is shown until it is answered.
+ * A peer's Snapshot that arrives during
  * a switch may be older than the switch's answer or newer, so once the
  * switch is done it checks instead. */
 export const makeAccounts = ({
@@ -120,19 +121,22 @@ export const makeAccounts = ({
         : stateOf(last ?? signedOut),
     );
     let known = last === null ? null : JSON.stringify(last);
-    // The Account Switches under way, oldest first.
-    const switches: Array<{ readonly userId: string }> = [];
+    // The newest Account Switch asked for, until it is answered.
+    let latest: { readonly userId: string } | null = null;
+    // How many Account Switches have been asked for and not ended, newest
+    // or not: while any has, a peer's Snapshot is checked, not trusted.
+    let running = 0;
     // How many Snapshots the state has taken.
     let commits = 0;
     const lock = yield* Semaphore.make(1);
     const serially = lock.withPermit;
 
-    /** `state` with the newest Account Switch under way, when its Account
-     * is signed in here and not active already. */
+    /** `state` with the Account Switch under way, when its Account is
+     * signed in here and not active already. */
     const switching = (state: AccountsState): AccountsState => {
       if (state._tag !== 'SignedIn') return state;
       const { active, accounts } = state;
-      const userId = switches.at(-1)?.userId;
+      const userId = latest?.userId;
       const to = accounts.find(({ id }) => id === userId && id !== active.id);
       return to
         ? AccountsState.SignedIn({ active, accounts, switchingTo: to })
@@ -140,7 +144,7 @@ export const makeAccounts = ({
     };
     const switchingId = (state: AccountsState) =>
       state._tag === 'SignedIn' ? state.switchingTo?.id : undefined;
-    // Shows the switches under way, when that changes what is shown.
+    // Shows the switch under way, when that changes what is shown.
     const reshow = SubscriptionRef.updateSome(ref, (state) => {
       const next = switching(state);
       return switchingId(next) === switchingId(state)
@@ -165,7 +169,7 @@ export const makeAccounts = ({
     const { announce } = yield* connect({
       check: Effect.suspend(() => Effect.ignore(check)),
       apply: (snapshot) => {
-        const duringSwitch = switches.length > 0;
+        const duringSwitch = running > 0;
         return serially(
           Effect.asVoid(
             duringSwitch
@@ -224,17 +228,22 @@ export const makeAccounts = ({
         Effect.suspend(() => {
           const asked = { userId };
           const done = Effect.sync(() => {
-            const at = switches.indexOf(asked);
-            if (at !== -1) switches.splice(at, 1);
+            if (latest === asked) latest = null;
           });
-          switches.push(asked);
+          latest = asked;
+          running++;
           return reshow.pipe(
             Effect.andThen(
               serially(
-                source.switchTo(userId).pipe(
-                  // Answered: what is committed shows the switch done.
-                  Effect.ensuring(done),
-                  Effect.flatMap(commit),
+                Effect.suspend(() =>
+                  // Replaced by a newer switch before its turn: never sent.
+                  latest !== asked
+                    ? Effect.void
+                    : source.switchTo(userId).pipe(
+                        // Answered: what is committed shows the switch done.
+                        Effect.ensuring(done),
+                        Effect.flatMap(commit),
+                      ),
                 ),
               ),
             ),
@@ -243,6 +252,11 @@ export const makeAccounts = ({
               exit._tag === 'Success'
                 ? Effect.void
                 : Effect.andThen(done, reshow),
+            ),
+            Effect.ensuring(
+              Effect.sync(() => {
+                running--;
+              }),
             ),
             Effect.asVoid,
           );

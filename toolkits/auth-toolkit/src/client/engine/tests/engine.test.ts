@@ -1,6 +1,6 @@
 import { Deferred, Effect, Fiber, type Scope, Stream } from 'effect';
 import { describe, expect, it } from 'vitest';
-import { AccountsState, AuthWorkerUnreachable } from '../../accounts/index.js';
+import { AccountsState, AuthWorkerUnavailable } from '../../accounts/index.js';
 import { makeAccounts, type Snapshot, type Source } from '../index.js';
 
 const ada = {
@@ -310,7 +310,10 @@ describe('makeAccounts', () => {
             yield* Deferred.await(answer);
             if (refuse)
               return yield* Effect.fail(
-                new AuthWorkerUnreachable({ url: 'https://auth.test' }),
+                new AuthWorkerUnavailable({
+                  url: 'https://auth.test',
+                  kind: 'unreachable',
+                }),
               );
             return yield* fake.source.switchTo(userId);
           }),
@@ -399,7 +402,7 @@ describe('makeAccounts', () => {
       }),
       signedInAs(ada),
     ]);
-    expect(error).toBe('AuthWorkerUnreachable');
+    expect(error).toBe('AuthWorkerUnavailable');
   });
 
   it('of two switches under way, shows the newest until the last is answered', async () => {
@@ -442,6 +445,42 @@ describe('makeAccounts', () => {
     );
   });
 
+  it('never sends a switch a newer one replaced before its turn', async () => {
+    const carol = {
+      id: 'carol',
+      email: 'carol@x.com',
+      name: 'Carol',
+      image: null,
+      test: false,
+    };
+    const three = { active: ada.id, accounts: [ada, bob, carol] };
+    const [after, asked] = await run(
+      Effect.gen(function* () {
+        const slow = yield* slowSwitch(three);
+        const { accounts } = yield* makeAccounts({
+          source: slow.source,
+          last: three,
+          checkOnStart: false,
+        });
+        const sent = yield* Effect.forkChild(accounts.switchTo(bob.id));
+        yield* Effect.yieldNow;
+        const replaced = yield* Effect.forkChild(accounts.switchTo(ada.id));
+        yield* Effect.yieldNow;
+        const newest = yield* Effect.forkChild(accounts.switchTo(carol.id));
+        yield* Effect.yieldNow;
+        yield* slow.answer;
+        yield* Fiber.join(sent);
+        yield* Fiber.join(replaced);
+        yield* Fiber.join(newest);
+        return [yield* accounts.current, slow.asked()] as const;
+      }),
+    );
+    expect(after).toEqual(
+      AccountsState.SignedIn({ active: carol, accounts: [ada, bob, carol] }),
+    );
+    expect(asked).toBe(2);
+  });
+
   it('checks, rather than trust it, a peer’s Snapshot that came during a switch', async () => {
     const [state, reads] = await run(
       Effect.gen(function* () {
@@ -465,6 +504,40 @@ describe('makeAccounts', () => {
         yield* Effect.yieldNow;
         yield* slow.answer;
         yield* Fiber.join(switching);
+        yield* Fiber.join(told);
+        return [yield* accounts.current, slow.reads()] as const;
+      }),
+    );
+    expect(state).toEqual(signedInAs(bob));
+    expect(reads).toBe(1);
+  });
+
+  it('still checks a peer’s Snapshot when a switch queued behind another is stopped', async () => {
+    const [state, reads] = await run(
+      Effect.gen(function* () {
+        const slow = yield* slowSwitch(both);
+        let apply: (snapshot: Snapshot) => Effect.Effect<void> = () =>
+          Effect.void;
+        const { accounts } = yield* makeAccounts({
+          source: slow.source,
+          last: both,
+          checkOnStart: false,
+          connect: (peers) =>
+            Effect.sync(() => {
+              apply = peers.apply;
+              return { announce: () => Effect.void };
+            }),
+        });
+        const sent = yield* Effect.forkChild(accounts.switchTo(bob.id));
+        yield* Effect.yieldNow;
+        const queued = yield* Effect.forkChild(accounts.switchTo(ada.id));
+        yield* Effect.yieldNow;
+        yield* Fiber.interrupt(queued);
+        // Another tab saw Ada active before Bob's switch reached the server.
+        const told = yield* Effect.forkChild(apply(both));
+        yield* Effect.yieldNow;
+        yield* slow.answer;
+        yield* Fiber.join(sent);
         yield* Fiber.join(told);
         return [yield* accounts.current, slow.reads()] as const;
       }),

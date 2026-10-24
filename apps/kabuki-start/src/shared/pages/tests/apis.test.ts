@@ -8,7 +8,7 @@ import {
   type Account,
   Accounts,
   AccountsState,
-  AuthWorkerUnreachable,
+  AuthWorkerUnavailable,
 } from '@kestack/auth-toolkit/client';
 import { describe, expect, it } from 'vitest';
 import { HelloHttp } from '../../../apis/hello-http/index.ts';
@@ -70,7 +70,10 @@ const fakeAccounts = Effect.gen(function* () {
         );
         if (!(yield* Deferred.await(answer))) {
           yield* SubscriptionRef.set(ref, before);
-          return yield* new AuthWorkerUnreachable({ url: 'https://auth.test' });
+          return yield* new AuthWorkerUnavailable({
+            url: 'https://auth.test',
+            kind: 'unreachable',
+          });
         }
         yield* SubscriptionRef.set(
           ref,

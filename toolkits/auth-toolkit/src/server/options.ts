@@ -6,6 +6,14 @@ export interface OAuthOptions {
   readonly resource: string;
 }
 
+/** `oauth` for `auth.http`, which also publishes its Protected Resource
+ * Metadata. */
+export interface HttpOAuthOptions extends OAuthOptions {
+  /** The Scopes this Resource Server understands, published as
+   * `scopes_supported` so an OAuth Client knows what to ask for. */
+  readonly scopes?: ReadonlyArray<string> | undefined;
+}
+
 /** Who a backend asks about its callers: the Auth Worker at `url`. */
 export interface AuthOptions<OAuth extends OAuthOptions = OAuthOptions> {
   /** The Auth Worker's deployed URL, e.g. `https://auth.example.com`. */
@@ -16,15 +24,8 @@ export interface AuthOptions<OAuth extends OAuthOptions = OAuthOptions> {
   readonly testUsers?: boolean | undefined;
 }
 
-/** Throws unless `options` name the Auth Worker's `url`; `local` is refused
- * by name, so an app still on Local mode is told where it went. */
-export const checkOptions = (options: AuthOptions): void => {
-  const { url, local } = options as { url?: unknown; local?: unknown };
-  if (local !== undefined) {
-    throw new Error(
-      "auth: `local` was removed; the browser environment's guard is `fakeGuard` from @kestack/auth-toolkit/fake.",
-    );
-  }
+/** Throws unless `options` name the Auth Worker's `url`. */
+export const checkOptions = ({ url }: AuthOptions): void => {
   if (typeof url !== 'string' || url.trim() === '') {
     throw new Error("auth: give the Auth Worker's `url`.");
   }

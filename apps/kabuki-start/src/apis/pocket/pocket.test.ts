@@ -4,7 +4,7 @@ import { RpcMiddleware } from 'effect/rpc';
 import { Miniflare } from 'miniflare';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { Principal } from '@kestack/auth-toolkit';
-import { testAuth } from '@kestack/auth-toolkit/server/rpc';
+import { fakeGuard } from '@kestack/auth-toolkit/fake';
 import { StdTable } from '@kestack/std-toolkit/db';
 import { SQLite } from '@kestack/std-toolkit/db/sqlite';
 import { makeD1SQLite } from '@kestack/std-toolkit/db/sqlite/d1';
@@ -15,7 +15,7 @@ import { serve } from './worker.server.ts';
 
 /*
  * The Pocket Worker on a D1 database in Miniflare, called through the
- * browser's `PocketRpc`, with `testAuth` saying whose cookie each request
+ * browser's `PocketRpc`, with `fakeGuard.rpc({ as })` saying whose cookie each request
  * carries. Each test signs in Users of its own, so they share one database.
  */
 
@@ -81,7 +81,11 @@ const browse = <A, E>(
   program: (pocket: PocketRpc['Service']) => Effect.Effect<A, E>,
   active?: string,
 ) => {
-  const answer = serve(testAuth(cookie?.principal ?? null), SITE, binding);
+  const answer = serve(
+    fakeGuard.rpc({ as: cookie?.principal ?? null }),
+    SITE,
+    binding,
+  );
   const fetch = (input: RequestInfo | URL, init?: RequestInit) =>
     answer(new Request(input, init));
   const signing = active === undefined ? Layer.empty : signedAsActive(active);
@@ -549,7 +553,7 @@ describe('the Pocket Worker', () => {
   });
 
   it("answers the site's preflight, and lets no other origin read it", async () => {
-    const answer = serve(testAuth(null), SITE, binding);
+    const answer = serve(fakeGuard.rpc({ as: null }), SITE, binding);
     const preflight = await answer(
       new Request('https://pocket.test/', {
         method: 'OPTIONS',

@@ -2,7 +2,7 @@ import { Effect, Schema } from 'effect';
 import { FetchHttpClient } from 'effect/http';
 import { beforeAll, describe, expect, it } from 'vitest';
 import type { Principal } from '@kestack/auth-toolkit';
-import { testAuth } from '@kestack/auth-toolkit/server/rpc';
+import { fakeGuard } from '@kestack/auth-toolkit/fake';
 import { SQLite } from '@kestack/std-toolkit/db/sqlite';
 import { makeNodeSQLite } from '@kestack/std-toolkit/db/sqlite/node';
 import { MachinesClient } from '../client/index.js';
@@ -11,7 +11,7 @@ import { machinesTable, serve, serveOver } from './index.js';
 
 /*
  * The Machines Backend over an in-memory SQLite database, called through
- * `MachinesClient`, with `testAuth` saying who signed each request. Each
+ * `MachinesClient`, with `fakeGuard.rpc({ as })` saying who signed each request. Each
  * test signs in Users of its own, so they share one database.
  */
 
@@ -56,7 +56,7 @@ const answerAs = (
   authInfo: AuthInfo = AUTH_INFO,
 ) =>
   serveOver({
-    guard: testAuth(principal),
+    guard: fakeGuard.rpc({ as: principal }),
     authInfo,
     site: SITE,
     driver,

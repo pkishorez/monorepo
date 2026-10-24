@@ -253,7 +253,13 @@ describe('device', () => {
         { fetch: async () => new Response('Bad gateway', { status: 502 }) },
         signIn,
       ),
-    ).toMatchObject(Exit.fail({ _tag: 'AuthWorkerUnavailable', status: 502 }));
+    ).toMatchObject(
+      Exit.fail({
+        _tag: 'AuthWorkerUnavailable',
+        kind: 'server-error',
+        status: 502,
+      }),
+    );
 
     expect(
       await run(
@@ -264,7 +270,9 @@ describe('device', () => {
         },
         signIn,
       ),
-    ).toMatchObject(Exit.fail({ _tag: 'AuthWorkerUnreachable' }));
+    ).toMatchObject(
+      Exit.fail({ _tag: 'AuthWorkerUnavailable', kind: 'unreachable' }),
+    );
 
     expect(
       await run(
@@ -287,7 +295,9 @@ describe('device', () => {
         },
         signIn,
       ),
-    ).toMatchObject(Exit.fail({ _tag: 'InvalidAuthWorkerResponse' }));
+    ).toMatchObject(
+      Exit.fail({ _tag: 'AuthWorkerUnavailable', kind: 'unreadable' }),
+    );
   });
 
   it('reports the Auth Worker going down while the device is polling', async () => {
@@ -305,7 +315,11 @@ describe('device', () => {
       (accounts) => accounts.signIn(),
     );
     expect(exit).toMatchObject(
-      Exit.fail({ _tag: 'AuthWorkerUnavailable', status: 503 }),
+      Exit.fail({
+        _tag: 'AuthWorkerUnavailable',
+        kind: 'server-error',
+        status: 503,
+      }),
     );
   });
 

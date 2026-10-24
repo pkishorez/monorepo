@@ -14,7 +14,8 @@ const signIn = vi.hoisted(() => ({
   expiresAt: 8.64e15,
   asked: 0,
 }));
-vi.mock('@kestack/auth-toolkit/server/http', () => ({
+vi.mock('@kestack/auth-toolkit/server', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
   verify: async (request: Request) => {
     signIn.asked += 1;
     const bearer = request.headers.get('authorization');

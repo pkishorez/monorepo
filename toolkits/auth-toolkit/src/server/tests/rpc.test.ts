@@ -1,5 +1,4 @@
 import { server as httpServer } from '@kestack/rpc-toolkit/rpc/http';
-import type { Session, User } from 'better-auth';
 import { Effect, Layer, Schema } from 'effect';
 import { Rpc, RpcClient, RpcGroup, RpcTest } from 'effect/rpc';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -13,13 +12,10 @@ vi.mock('better-auth/client', () => ({
   createAuthClient: mocks.createAuthClient,
 }));
 
-import {
-  Authz,
-  type PolicyGuard,
-  type Principal,
-} from '../../../auth/index.js';
-import { bearer, expectUser } from '../../../guard/index.js';
-import { auth, authAs, testAuth } from '../index.js';
+import { Authz, type PolicyGuard, type Principal } from '../../auth/index.js';
+import { bearer, expectUser } from '../../guard/index.js';
+import { fakeGuard } from '../../fake/index.js';
+import { auth, authAs } from '../index.js';
 
 const url = 'https://auth.example.com';
 
@@ -27,7 +23,7 @@ const runRpc = <A extends Rpc.Any, B, E, R>(
   group: RpcGroup.RpcGroup<A>,
   handlers: Layer.Layer<Rpc.ToHandler<A>, never, never>,
   use: (client: RpcClient.RpcClient<A>) => Effect.Effect<B, E, R>,
-  server: Layer.Layer<any> = auth({ url }),
+  server: Layer.Layer<any> = auth.rpc({ url }),
 ) =>
   Effect.gen(function* () {
     const client = yield* RpcTest.makeClient(group);
@@ -38,7 +34,7 @@ const sessionOf = (id: string, email = `${id}@example.com`) => ({
   data: { session: { id: `s-${id}` }, user: { id, email } },
 });
 
-describe('server/rpc auth', () => {
+describe('auth.rpc auth', () => {
   beforeEach(() => {
     mocks.getSession.mockReset();
     mocks.createAuthClient.mockReset();
@@ -184,7 +180,7 @@ describe('server/rpc auth', () => {
       One: () => Effect.map(Authz.User, ({ user }) => user.id),
       Two: () => Effect.map(Authz.User, ({ user }) => user.id),
     });
-    const answer = httpServer(Api, Layer.mergeAll(Handlers, auth({ url })));
+    const answer = httpServer(Api, Layer.mergeAll(Handlers, auth.rpc({ url })));
     const message = (id: string, tag: string) =>
       JSON.stringify({ _tag: 'Request', id, tag, payload: {}, headers: [] });
 
@@ -219,7 +215,7 @@ describe('server/rpc auth', () => {
     const Handlers = Api.toLayer({
       One: () => Effect.map(Authz.User, ({ user }) => user.id),
     });
-    const answer = httpServer(Api, Layer.mergeAll(Handlers, auth({ url })));
+    const answer = httpServer(Api, Layer.mergeAll(Handlers, auth.rpc({ url })));
     const message = (id: string, token: string) =>
       JSON.stringify({
         _tag: 'Request',
@@ -254,8 +250,8 @@ describe('Scope policies', () => {
   };
   const session: Principal = {
     kind: 'session',
-    user: user as User,
-    session: { id: 's1' } as Session,
+    user,
+    session: { id: 's1', expiresAt: new Date(0) },
     test: false,
   };
   const call = (
@@ -286,7 +282,7 @@ describe('Scope policies', () => {
           Api,
           Handlers,
           (client) => client.Write({}),
-          testAuth(principal),
+          fakeGuard.rpc({ as: principal }),
         ),
       ),
     );
@@ -367,18 +363,21 @@ describe('Test Users', () => {
       { cookie: 'session=valid' },
       bearer('device-token'),
     ]) {
-      expect(await call(auth({ url }), headers)).toMatchObject({
+      expect(await call(auth.rpc({ url }), headers)).toMatchObject({
         failure: { _tag: 'Forbidden', reason: 'Test Users are not accepted' },
       });
-      expect(await call(auth({ url, testUsers: true }), headers)).toMatchObject(
-        { success: 'tess@example.test' },
-      );
+      expect(
+        await call(auth.rpc({ url, testUsers: true }), headers),
+      ).toMatchObject({ success: 'tess@example.test' });
     }
   });
 
   it('leaves everyone else alone', async () => {
     mocks.getSession.mockResolvedValue(sessionOf('ada', 'ada@example.com'));
-    for (const server of [auth({ url }), auth({ url, testUsers: true })]) {
+    for (const server of [
+      auth.rpc({ url }),
+      auth.rpc({ url, testUsers: true }),
+    ]) {
       expect(await call(server, { cookie: 'session=valid' })).toMatchObject({
         success: 'ada@example.com',
       });
@@ -386,18 +385,14 @@ describe('Test Users', () => {
   });
 });
 
-describe('server/rpc auth options', () => {
-  it('needs a url, and tells Local mode where it went', () => {
-    expect(() => auth({} as never)).toThrow(/url/);
-    expect(() => auth({ url: '' })).toThrow(/url/);
-    expect(() => auth({ local: true } as never)).toThrow(
-      /fakeGuard.*@kestack\/auth-toolkit\/fake/,
-    );
-    expect(() => auth({ url, local: true } as never)).toThrow(/removed/);
+describe('auth.rpc auth options', () => {
+  it('needs a url', () => {
+    expect(() => auth.rpc({} as never)).toThrow(/url/);
+    expect(() => auth.rpc({ url: '' })).toThrow(/url/);
   });
 });
 
-describe('server/rpc authAs', () => {
+describe('auth.rpc authAs', () => {
   const WhoAmI = Rpc.make('WhoAmI', {
     payload: {},
     success: Schema.String,
@@ -408,8 +403,8 @@ describe('server/rpc authAs', () => {
   });
   const ada = {
     kind: 'session',
-    user: { id: 'ada' } as User,
-    session: { id: 's-ada' } as Session,
+    user: { id: 'ada', email: 'ada@example.com', name: 'Ada' },
+    session: { id: 's-ada', expiresAt: new Date(0) },
     test: false,
   } satisfies Principal;
   const call = (
@@ -462,7 +457,7 @@ describe('server/rpc authAs', () => {
   });
 });
 
-describe('server/rpc testAuth', () => {
+describe('fakeGuard.rpc as', () => {
   it('admits the Principal it is given, a Test User too', async () => {
     const Api = RpcGroup.make(
       Rpc.make('WhoAmI', { payload: {}, success: Schema.String }).pipe(
@@ -474,14 +469,44 @@ describe('server/rpc testAuth', () => {
     });
     const tess = {
       kind: 'session',
-      user: { id: 'tess', email: 'tess@example.test' } as User,
-      session: { id: 's-tess' } as Session,
+      user: { id: 'tess', email: 'tess@example.test', name: 'Tess' },
+      session: { id: 's-tess', expiresAt: new Date(0) },
       test: true,
     } satisfies Principal;
     expect(
       await Effect.runPromise(
-        runRpc(Api, Handlers, (client) => client.WhoAmI({}), testAuth(tess)),
+        runRpc(
+          Api,
+          Handlers,
+          (client) => client.WhoAmI({}),
+          fakeGuard.rpc({ as: tess }),
+        ),
       ),
     ).toBe('true');
+  });
+
+  it('with `as: null` has nobody behind every call', async () => {
+    const Api = RpcGroup.make(
+      Rpc.make('WhoAmI', { payload: {}, success: Schema.String }).pipe(
+        Authz.required,
+      ),
+    );
+    const Handlers = Api.toLayer({
+      WhoAmI: () => Effect.map(Authz.User, ({ user }) => user.id),
+    });
+    const exit = await Effect.runPromise(
+      Effect.exit(
+        runRpc(
+          Api,
+          Handlers,
+          (client) => client.WhoAmI({}),
+          fakeGuard.rpc({ as: null }),
+        ),
+      ),
+    );
+    expect(exit).toMatchObject({
+      _tag: 'Failure',
+      cause: { reasons: [{ error: { _tag: 'Unauthenticated' } }] },
+    });
   });
 });

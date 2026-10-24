@@ -1,7 +1,7 @@
 import { Effect, Layer } from 'effect';
 import { Authz } from '@kestack/auth-toolkit';
 import { fakeGuard } from '@kestack/auth-toolkit/fake';
-import { auth, type AuthOptions } from '@kestack/auth-toolkit/server/rpc';
+import { auth, type AuthOptions } from '@kestack/auth-toolkit/server';
 import { server } from '@kestack/rpc-toolkit/rpc/http';
 import { SQLite, type SQLiteDriver } from '@kestack/std-toolkit/db/sqlite';
 import {
@@ -76,11 +76,11 @@ const corsFor = (request: Request, site: string): Record<string, string> =>
 /**
  * Answers requests over the `machines` table on `driver`, with `guard`
  * telling who calls and `authInfo` what `/auth` answers, letting `site`
- * call with credentials. For a test (`testAuth`) or a local SQLite file; a
+ * call with credentials. For a test (`fakeGuard.rpc({ as })`) or a local SQLite file; a
  * Worker uses {@link serve}. The table must be set up already.
  */
 export const serveOver = (options: {
-  readonly guard: ReturnType<typeof auth>;
+  readonly guard: ReturnType<typeof auth.rpc>;
   readonly authInfo: AuthInfo;
   readonly site: string;
   readonly driver: SQLiteDriver;
@@ -132,13 +132,17 @@ export const serve = <Statement extends D1Statement<Statement>>(options: {
   readonly site: string;
   readonly database: D1SQLiteConfig<Statement>['database'];
 }) => {
-  // Only exactly `{ local: true }` is Local mode: anything else goes to the
-  // real Guard, which refuses a `local` it is given, so a mistyped config
-  // never lets anyone be anyone.
+  // Only exactly `{ local: true }` is Local mode, and any other `local` is
+  // refused, so a mistyped config never lets anyone be anyone.
   const { url, local } = options.auth as { url?: unknown; local?: unknown };
   const fake = local === true && url === undefined;
+  if (local !== undefined && !fake) {
+    throw new Error(
+      'serve: Local mode is exactly `{ local: true }`; give the Auth Worker `{ url }` otherwise.',
+    );
+  }
   return serveOver({
-    guard: fake ? fakeGuard.rpc() : auth(options.auth as AuthOptions),
+    guard: fake ? fakeGuard.rpc() : auth.rpc(options.auth as AuthOptions),
     authInfo: fake
       ? { local: true }
       : { url: (options.auth as AuthOptions).url },

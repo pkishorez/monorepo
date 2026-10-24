@@ -6,11 +6,7 @@ import {
   TestSignInRefused,
 } from '../accounts/index.js';
 import { TEST_SIGN_IN_PATH } from '../../contract/index.js';
-import {
-  signedOut,
-  type Snapshot,
-  SnapshotSchema,
-} from '../accounts-layer/index.js';
+import { signedOut, type Snapshot, SnapshotSchema } from '../engine/index.js';
 import { authWorker } from '../auth-worker/index.js';
 
 const Active = Schema.Struct({ active: Schema.NullOr(Schema.String) });

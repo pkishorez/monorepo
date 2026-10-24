@@ -10,6 +10,7 @@ import {
   httpMiddleware,
   rpcMiddleware,
   type Signature,
+  type Signing,
   type Unauthenticated,
 } from '../../guard/index.js';
 
@@ -63,7 +64,7 @@ export const signing = ({
   refused,
   recheck,
   cookie = false,
-}: SigningOptions) =>
+}: SigningOptions): Layer.Layer<Signing> =>
   Layer.unwrap(
     Effect.gen(function* () {
       const context = yield* Effect.context<never>();

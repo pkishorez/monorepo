@@ -83,8 +83,8 @@ const policy = (invariant: Invariant, reason: string): PolicyGuard => {
  * The Guard, the contract both sides import, the same for Effect RPC and
  * Effect HttpApi: `Authz.required`, `Authz.scope` and `Authz.policy` guard
  * a call, `Authz.User` is who called, and the errors are what a guarded
- * call fails with. The server half is `auth()` from `server/rpc` or
- * `server/http`; the client half comes with the `client/browser` and
+ * call fails with. The server half is `auth.rpc()` or `auth.http()`
+ * from `server`; the client half comes with the `client/browser` and
  * `client/device` Layers.
  */
 export const Authz = {
@@ -118,9 +118,4 @@ export declare namespace Authz {
   export type AccountChanged = AccountChangedError;
 }
 
-export type {
-  Invariant,
-  Principal,
-  SignInPrincipal,
-  TokenPrincipal,
-} from '../guard/index.js';
+export type { Principal } from '../guard/index.js';

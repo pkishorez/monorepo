@@ -1,10 +1,10 @@
 import { Data, Duration, Effect, Schedule, Schema } from 'effect';
 import {
   AuthWorkerRejected,
+  AuthWorkerUnavailable,
   DeviceLoginFailed,
-  InvalidAuthWorkerResponse,
 } from '../accounts/index.js';
-import type { SourceAccount } from '../accounts-layer/index.js';
+import type { SourceAccount } from '../engine/index.js';
 import type { AuthWorker } from '../auth-worker/index.js';
 
 class Pending extends Data.TaggedError('Pending') {}
@@ -72,7 +72,7 @@ export const deviceLogin = (worker: AuthWorker, app: string, url: string) => {
             | Pending
             | DeviceLoginFailed
             | AuthWorkerRejected
-            | InvalidAuthWorkerResponse
+            | AuthWorkerUnavailable
           > => {
             if (access_token) return Effect.succeed(access_token);
             switch (error) {
@@ -93,7 +93,7 @@ export const deviceLogin = (worker: AuthWorker, app: string, url: string) => {
                         status: 400,
                         reason: error,
                       })
-                    : new InvalidAuthWorkerResponse({ url }),
+                    : new AuthWorkerUnavailable({ url, kind: 'unreadable' }),
                 );
             }
           },

@@ -40,13 +40,9 @@
       "types": "./dist/worker/database/sqlite/d1/resource/index.d.ts",
       "default": "./dist/worker/database/sqlite/d1/resource/index.js"
     },
-    "./server/rpc": {
-      "types": "./dist/server/rpc/index.d.ts",
-      "default": "./dist/server/rpc/index.js"
-    },
-    "./server/http": {
-      "types": "./dist/server/http/index.d.ts",
-      "default": "./dist/server/http/index.js"
+    "./server": {
+      "types": "./dist/server/index.d.ts",
+      "default": "./dist/server/index.js"
     },
     "./client": {
       "types": "./dist/client/accounts/index.d.ts",
@@ -77,7 +73,6 @@
     "@better-auth/cimd": "catalog:",
     "@better-auth/drizzle-adapter": "catalog:",
     "@better-auth/infra": "catalog:",
-    "@better-auth/mcp": "catalog:",
     "@better-auth/oauth-provider": "catalog:",
     "@cloudflare/workers-types": "catalog:",
     "better-auth": "catalog:",

@@ -2,7 +2,7 @@ import { Effect, FileSystem, Layer, Path } from 'effect';
 import { Etag, HttpPlatform, HttpRouter } from 'effect/http';
 import { HttpApiBuilder } from 'effect/http-api';
 import { Authz } from '@kestack/auth-toolkit';
-import { auth } from '@kestack/auth-toolkit/server/http';
+import { auth } from '@kestack/auth-toolkit/server';
 import { HelloApi } from './contract.ts';
 
 /*
@@ -49,9 +49,9 @@ const Platform = Layer.mergeAll(
 
 /**
  * Answers requests with `guard` telling who calls, letting `site` call
- * with credentials: `auth({ url })` in the Worker, `testAuth` in a test.
+ * with credentials: `auth.http({ url })` in the Worker, `fakeGuard.http({ as })` in a test.
  */
-export const serve = (guard: ReturnType<typeof auth>, site: string) =>
+export const serve = (guard: ReturnType<typeof auth.http>, site: string) =>
   HttpRouter.toWebHandler(
     Layer.mergeAll(
       HttpApiBuilder.layer(HelloApi),
@@ -68,5 +68,7 @@ let served: ((request: Request) => Promise<Response>) | undefined;
 
 export default {
   fetch: (request: Request, env: Env) =>
-    (served ??= serve(auth({ url: env.AUTH_URL }), env.SITE_ORIGIN))(request),
+    (served ??= serve(auth.http({ url: env.AUTH_URL }), env.SITE_ORIGIN))(
+      request,
+    ),
 };
