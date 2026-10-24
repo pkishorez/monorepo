@@ -14,7 +14,7 @@ import { notify } from '../../../ui/toast/index.ts';
 import { placeOf, type Route } from '../../places/index.ts';
 import { shownOf, SidebarLive } from './actor.ts';
 import { Places } from './sidebar.tsx';
-import { movedOf, seenOf } from './moves.ts';
+import { doneOf, movedOf, WINDOW } from './moves.ts';
 import { useReload } from './pull/index.ts';
 import { moveWithUndo } from './swipe/index.ts';
 import { isUnseen } from './unseen.ts';
@@ -44,11 +44,28 @@ export const SidebarView = View.make(
     const synced = (found?.rows ?? []).map(({ row }) => row);
     const shown = shownOf(model);
     useReload(() => send({ _tag: 'ReloadAsked' }));
-    // Each result a Move waits for, once the Session as synced shows it.
-    const seen = seenOf(synced, model.moving);
+    // A Move with nothing left to ask goes once the Session as synced agrees.
+    const done = doneOf(synced, model.moving);
     useEffect(() => {
-      for (const each of seen) send({ _tag: 'MoveSeen', ...each });
-    }, [seen.map((each) => `${each.sessionId}:${each.settled}`).join()]);
+      for (const each of done) send({ _tag: 'MoveSeen', ...each });
+    }, [
+      done
+        .map(({ machineId, sessionId }) => `${machineId}/${sessionId}`)
+        .join(),
+    ]);
+    // The page going away asks every swipe still waiting for its window.
+    useEffect(() => {
+      const flush = () => send({ _tag: 'MovesFlushed' });
+      const hidden = () => {
+        if (document.visibilityState === 'hidden') flush();
+      };
+      document.addEventListener('visibilitychange', hidden);
+      window.addEventListener('pagehide', flush);
+      return () => {
+        document.removeEventListener('visibilitychange', hidden);
+        window.removeEventListener('pagehide', flush);
+      };
+    }, [send]);
     // A swipe its Machine refused is back where it was; this says why.
     const { refused } = model;
     useEffect(() => {
@@ -87,13 +104,18 @@ export const SidebarView = View.make(
             send({ _tag: 'UnsettleAsked', machineId, sessionId })
           }
           onMove={({ machineId, id, title }, settled) =>
-            moveWithUndo(title || 'Untitled session', settled, (to) =>
-              send({
-                _tag: 'MoveAsked',
-                machineId,
-                sessionId: id,
-                settled: to,
-              }),
+            // Undone while the toast shows, nothing is asked of its Machine.
+            moveWithUndo(
+              title || 'Untitled session',
+              settled,
+              (to) =>
+                send({
+                  _tag: 'MoveAsked',
+                  machineId,
+                  sessionId: id,
+                  settled: to,
+                }),
+              WINDOW / 1000,
             )
           }
         />
