@@ -51,20 +51,16 @@ _Avoid_: utilities, helpers, add-ons
 #### Offline
 
 **App Shell**:
-Kabuki Start's App Shell, kept by the service worker for its Build ID: what a page with nothing better is answered with offline, so it boots and loads its own data with no network. Which pages it answers for follows from their Render Mode.
-_Avoid_: shell page, skeleton, Frame (the layout every screen sits in)
+Kabuki Start's App Shell, kept by the service worker for its Build ID: what a client page is always answered with, and any other page offline when this build has no copy of it, so it boots and loads its own data with no network. There is no other offline page.
+_Avoid_: shell page, skeleton, offline page, Offline Fallback (the former page for a navigation with nothing cached), Frame (the layout every screen sits in)
 
 **Precache**:
-The set of build assets saved when a new version installs, so the App Shell opens with no network.
+What a new version saves as it installs, so the app opens with no network: the build's assets, and from Kabuki Start's Pages the App Shell and every static page that is one URL.
 _Avoid_: preload, static cache
 
 **Runtime Cache**:
-Responses saved while the app runs, chosen per route or request kind, so recently seen screens keep working offline.
+Responses saved while the app runs, chosen per request kind, so recently seen screens keep working offline: among them the pages the Precache does not hold, kept for their Build ID as each is visited.
 _Avoid_: dynamic cache, API cache
-
-**Offline Fallback**:
-The page shown for a navigation that has neither a network response nor a cached one.
-_Avoid_: offline page, error page
 
 #### Versions
 
@@ -95,7 +91,7 @@ _Avoid_: A2HS banner, install banner
 #### Setup
 
 **Preset**:
-A named bundle of defaults for one kind of app, such as a content site or a signed-in dashboard. Chosen from evidence gathered in the playground, never by guess.
+A named bundle of defaults for one kind of app, such as a content site or a signed-in dashboard. Chosen from evidence gathered in the playground, never by guess. How a page works offline is never a Preset's: its Render Mode decides.
 _Avoid_: template, profile, mode
 
 **Kill Switch**:

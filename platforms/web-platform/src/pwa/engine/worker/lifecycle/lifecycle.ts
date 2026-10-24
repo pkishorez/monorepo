@@ -10,10 +10,15 @@ import type {
   WorkerConfig,
 } from '../../shared/config/index.js';
 import { attempt, deleteCaches, GlobalScope } from '../global-scope/index.js';
-import { deleteOtherPrecaches, installPrecache } from '../precache/index.js';
+import {
+  deleteOtherPrecaches,
+  installPages,
+  installPrecache,
+} from '../precache/index.js';
 
 /**
- * Saves the Precache. The first install (no older version active) then skips
+ * Saves the Precache: the build's assets, then what Start says of its
+ * pages, with the App Shell and the static pages. The first install (no older version active) then skips
  * waiting so the first visit is controlled; later versions wait for
  * SKIP_WAITING from the Update Prompt.
  */
@@ -24,6 +29,7 @@ export const onInstall = (
     const scope = yield* GlobalScope;
     const firstInstall = !scope.hasActiveWorker();
     yield* installPrecache(info);
+    yield* installPages(info.buildId);
     if (firstInstall) yield* attempt(() => scope.skipWaiting());
   });
 
@@ -48,5 +54,5 @@ const keptRuntimeCaches = (
 ): ReadonlySet<string> =>
   new Set([
     ...config.strategies.map((rule) => runtimeCacheName(rule.cacheName)),
-    ...(config.navigation.cachePages ? [pagesCacheName(buildId)] : []),
+    pagesCacheName(buildId),
   ]);

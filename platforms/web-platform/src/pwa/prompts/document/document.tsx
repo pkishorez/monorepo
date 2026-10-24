@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { InstallPrompt, useInstall } from '../extras/index.js';
-import { PwaProvider, pwaHead, UpdatePrompt } from '../react/index.js';
+import { PwaProvider, pwaHead, pwaName, UpdatePrompt } from '../react/index.js';
 
 /*
  * The PWA in a Kabuki Start app's Document: `PwaHead` in its `head`, and
@@ -25,23 +25,15 @@ export function PwaHead() {
   );
 }
 
-/** Around the app: the worker, the Update Prompt and the Install Prompt. */
-export function Pwa(props: {
-  /** The Install Prompt's title. Default: `Install this app`. */
-  readonly installTitle?: string;
-  readonly children: ReactNode;
-}) {
+/** Around the app: the worker, the Update Prompt and the Install Prompt, titled with the manifest's name. */
+export function Pwa(props: { readonly children: ReactNode }) {
   // The browser offers install once, early, so it is caught at the root.
   useInstall();
   return (
     <PwaProvider>
       {props.children}
       <UpdatePrompt />
-      <InstallPrompt
-        {...(props.installTitle === undefined
-          ? {}
-          : { title: props.installTitle })}
-      />
+      <InstallPrompt title={`Install ${pwaName()}`} />
     </PwaProvider>
   );
 }

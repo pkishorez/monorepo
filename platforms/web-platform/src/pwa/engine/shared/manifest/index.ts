@@ -1,4 +1,5 @@
 export {
+  DEFAULT_ICONS,
   manifestIconUrls,
   WebAppManifest,
   withManifestDefaults,

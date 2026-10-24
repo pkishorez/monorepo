@@ -96,3 +96,6 @@ export const clearRuntimeCache = (): Promise<void> =>
  * Hydration-safe: in the browser they come from the tags the server rendered.
  */
 export const pwaHead = (): HeadTags => headTags(info, pageVersion(info));
+
+/** The app's name, as `pwa({ name })` gave it to the manifest. */
+export const pwaName = (): string => info.name;

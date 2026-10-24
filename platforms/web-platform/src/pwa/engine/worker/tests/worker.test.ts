@@ -9,6 +9,7 @@ import {
   runtimeCacheName,
 } from '../../shared/build/index.js';
 import {
+  type PwaOptions,
   resolvePwaConfig,
   type WorkerBuildInfo,
   workerConfigOf,
@@ -21,23 +22,27 @@ import { startServiceWorker } from '../worker.js';
 
 const BUILD = BuildId.make('b2');
 const PRECACHE = precacheCacheName(BUILD);
+const SAVED = pagesCacheName(BUILD);
+
+/** What Kabuki Start answers at `/_kabuki/pages`: one page of each kind. */
+const PAGES = {
+  build: 'k1',
+  shell: '/_kabuki/shell',
+  pages: [
+    { name: 'Home', path: '/', params: false, render: 'static' },
+    { name: 'Post', path: '/blog/:slug', params: true, render: 'static' },
+    { name: 'Feed', path: '/feed', params: false, render: 'dynamic' },
+    { name: 'Inbox', path: '/inbox', params: false, render: 'client' },
+  ],
+};
 
 const build = (
-  options: Parameters<typeof resolvePwaConfig>[0] = {},
+  options: Omit<typeof PwaOptions.Type, 'name'> = {},
 ): WorkerBuildInfo => ({
   buildId: BUILD,
-  precache: [
-    { url: '/assets/app.js', revision: 'a1' },
-    { url: '/_shell', revision: 's1' },
-    { url: '/offline', revision: 'o1' },
-  ],
-  // With the App Shell and without saved pages unless a test says so.
+  precache: [{ url: '/assets/app.js', revision: 'a1' }],
   config: workerConfigOf(
-    resolvePwaConfig({
-      preset: 'app',
-      ...options,
-      navigation: { shell: true, cachePages: false, ...options.navigation },
-    }),
+    resolvePwaConfig({ name: 'App', preset: 'app', ...options }),
   ),
 });
 
@@ -61,12 +66,25 @@ const start = (
   return fake;
 };
 
+/** This build installed: its asset, and what Start said of its pages. */
 const withPrecache = (fake: ReturnType<typeof makeFakeGlobal>) =>
   fake.caches.seed(PRECACHE, {
     '/assets/app.js': 'app-js',
-    '/_shell': 'shell',
-    '/offline': 'offline',
+    '/_kabuki/pages': JSON.stringify(PAGES),
+    '/_kabuki/shell': 'shell',
+    '/': 'home',
   });
+
+/** Start's answers as the network gives them: its Pages, and each path's body. */
+const startNetwork = (request: Request) =>
+  new URL(request.url).pathname === '/_kabuki/pages'
+    ? Response.json(PAGES)
+    : new Response(`body:${new URL(request.url).pathname}`);
+
+const navigate = (fake: ReturnType<typeof makeFakeGlobal>, path: string) =>
+  text(fake.fetchEvent(path, { mode: 'navigate' }));
+
+const offline = () => Promise.reject(new TypeError('offline'));
 
 const rule = (fields: Partial<StrategyRule>): StrategyRule => ({
   match: { origin: 'same-origin', pathPrefix: '/data/' },
@@ -88,38 +106,63 @@ describe('listeners', () => {
 });
 
 describe('install', () => {
-  it('downloads every entry bypassing the HTTP cache, then skips waiting on first install', async () => {
+  it("saves the assets, Start's Pages, the App Shell and static pages without params, then skips waiting", async () => {
     const fake = start();
-    fake.setNetwork(
-      (request) => new Response(`body:${new URL(request.url).pathname}`),
-    );
+    fake.setNetwork(startNetwork);
     await settle(fake.dispatch('install'));
     expect(fake.caches.urls(PRECACHE).sort()).toEqual([
-      '/_shell',
+      '/',
+      '/_kabuki/pages',
+      '/_kabuki/shell',
       '/assets/app.js',
-      '/offline',
     ]);
     expect(fake.requests.every((r) => r.init?.cache === 'reload')).toBe(true);
     expect(fake.calls.skipWaiting).toBe(1);
   });
 
+  it('installs with the assets alone when Start answers no Pages', async () => {
+    const fake = start();
+    fake.setNetwork((request) =>
+      request.url.endsWith('/_kabuki/pages')
+        ? new Response('', { status: 404 })
+        : new Response('ok'),
+    );
+    await settle(fake.dispatch('install'));
+    expect(fake.caches.urls(PRECACHE)).toEqual(['/assets/app.js']);
+    expect(fake.calls.skipWaiting).toBe(1);
+  });
+
   it('waits for SKIP_WAITING when an older version is active', async () => {
     const fake = start(build(), { active: true });
-    fake.setNetwork(() => new Response('ok'));
+    fake.setNetwork(startNetwork);
     await settle(fake.dispatch('install'));
     expect(fake.calls.skipWaiting).toBe(0);
   });
 
-  it('fails install when any download fails', async () => {
+  it('fails install when an asset or the App Shell fails to download', async () => {
+    for (const failing of ['/assets/app.js', '/_kabuki/shell']) {
+      const fake = start();
+      fake.setNetwork((request) =>
+        request.url.endsWith(failing)
+          ? new Response('', { status: 500 })
+          : startNetwork(request),
+      );
+      const event = fake.dispatch('install');
+      await expect(Promise.all(event.lifetimes)).rejects.toThrow(failing);
+      expect(fake.calls.skipWaiting).toBe(0);
+    }
+  });
+
+  it('leaves a static page that fails to download to the network', async () => {
     const fake = start();
     fake.setNetwork((request) =>
-      request.url.endsWith('/offline')
-        ? new Response('', { status: 404 })
-        : new Response('ok'),
+      new URL(request.url).pathname === '/'
+        ? new Response('', { status: 500 })
+        : startNetwork(request),
     );
-    const event = fake.dispatch('install');
-    await expect(Promise.all(event.lifetimes)).rejects.toThrow(/offline/);
-    expect(fake.calls.skipWaiting).toBe(0);
+    await settle(fake.dispatch('install'));
+    expect(fake.caches.urls(PRECACHE)).not.toContain('/');
+    expect(fake.calls.skipWaiting).toBe(1);
   });
 });
 
@@ -139,19 +182,13 @@ describe('activate', () => {
     expect(fake.calls.claim).toBe(1);
   });
 
-  it("keeps only this build's saved pages with cachePages, and none without", async () => {
+  it("keeps only this build's saved pages", async () => {
     const oldPages = pagesCacheName(BuildId.make('b1'));
-    const pages = pagesCacheName(BUILD);
-    const content = start(build({ navigation: { cachePages: true } }));
-    content.caches.seed(oldPages, { '/page': 'old' });
-    content.caches.seed(pages, { '/page': 'new' });
-    await settle(content.dispatch('activate'));
-    expect([...content.caches.caches.keys()]).toEqual([pages]);
-
-    const app = start();
-    app.caches.seed(pages, { '/page': 'new' });
-    await settle(app.dispatch('activate'));
-    expect([...app.caches.caches.keys()]).toEqual([]);
+    const fake = start();
+    fake.caches.seed(oldPages, { '/feed': 'old' });
+    fake.caches.seed(SAVED, { '/feed': 'new' });
+    await settle(fake.dispatch('activate'));
+    expect([...fake.caches.caches.keys()]).toEqual([SAVED]);
   });
 });
 
@@ -177,65 +214,82 @@ describe('fetch routing', () => {
 });
 
 describe('navigation', () => {
-  it('uses the network when it answers in time', async () => {
+  describe('a dynamic page', () => {
+    it('is the network when it answers in time, and kept', async () => {
+      const fake = start();
+      withPrecache(fake);
+      fake.setNetwork(() => new Response('fresh'));
+      const first = fake.fetchEvent('/feed', { mode: 'navigate' });
+      expect(await text(first)).toBe('fresh');
+      await settle(first);
+      fake.setNetwork(offline);
+      expect(await navigate(fake, '/feed')).toBe('fresh');
+    });
+
+    it('is the App Shell offline when it was never kept', async () => {
+      const fake = start();
+      withPrecache(fake);
+      fake.setNetwork(offline);
+      expect(await navigate(fake, '/feed')).toBe('shell');
+    });
+
+    it('falls back after networkTimeoutMs', async () => {
+      const fake = start(build({ navigation: { networkTimeoutMs: 20 } }));
+      withPrecache(fake);
+      fake.setNetwork(() => sleep(200).then(() => new Response('late')));
+      expect(await navigate(fake, '/feed')).toBe('shell');
+    });
+
+    it('waits for a slow network when there is nothing to fall back to', async () => {
+      const fake = start(build({ navigation: { networkTimeoutMs: 10 } }));
+      fake.setNetwork(() => sleep(40).then(() => new Response('late')));
+      expect(await navigate(fake, '/feed')).toBe('late');
+    });
+  });
+
+  describe('a static page', () => {
+    it('is the precached copy, without the network', async () => {
+      const fake = start();
+      withPrecache(fake);
+      fake.setNetwork(() => new Response('fresh'));
+      expect(await navigate(fake, '/')).toBe('home');
+      expect(fake.requests).toEqual([]);
+    });
+
+    it('with params is fetched once, then kept', async () => {
+      const fake = start();
+      withPrecache(fake);
+      fake.setNetwork(() => new Response('post'));
+      const first = fake.fetchEvent('/blog/hello', { mode: 'navigate' });
+      expect(await text(first)).toBe('post');
+      await settle(first);
+      fake.setNetwork(() => new Response('newer'));
+      expect(await navigate(fake, '/blog/hello')).toBe('post');
+      fake.setNetwork(offline);
+      expect(await navigate(fake, '/blog/other')).toBe('shell');
+    });
+  });
+
+  describe('a client page', () => {
+    it('is the App Shell, without the network', async () => {
+      const fake = start();
+      withPrecache(fake);
+      fake.setNetwork(() => new Response('drawn'));
+      expect(await navigate(fake, '/inbox?tab=1')).toBe('shell');
+      expect(fake.requests).toEqual([]);
+    });
+  });
+
+  it('treats a page Start did not name, or every page with no Pages, as dynamic', async () => {
     const fake = start();
     withPrecache(fake);
     fake.setNetwork(() => new Response('fresh'));
-    expect(await text(fake.fetchEvent('/page', { mode: 'navigate' }))).toBe(
-      'fresh',
-    );
-  });
+    expect(await navigate(fake, '/nowhere')).toBe('fresh');
 
-  it('falls back to the App Shell, then the Offline Fallback', async () => {
-    const fake = start();
-    withPrecache(fake);
-    expect(await text(fake.fetchEvent('/page', { mode: 'navigate' }))).toBe(
-      'shell',
-    );
-
-    const noShell = start(build({ navigation: { shell: false } }));
-    withPrecache(noShell);
-    const response = await noShell.fetchEvent('/page?x=1', {
-      mode: 'navigate',
-    }).response;
-    expect(response?.status).toBe(302);
-    const location = new URL(response?.headers.get('location') ?? '');
-    expect(location.pathname).toBe('/offline');
-    expect(location.searchParams.get('from')).toBe('/page?x=1');
-  });
-
-  it('serves the Offline Fallback body when the navigation is for it', async () => {
-    const fake = start(build({ navigation: { shell: false } }));
-    withPrecache(fake);
-    expect(
-      await text(
-        fake.fetchEvent('/offline?from=%2Fpage', { mode: 'navigate' }),
-      ),
-    ).toBe('offline');
-  });
-
-  it('does not redirect when the Offline Fallback is missing', async () => {
-    const fake = start(build({ navigation: { shell: false } }));
-    const response = await fake.fetchEvent('/page', { mode: 'navigate' })
-      .response;
-    expect(response?.type).toBe('error');
-  });
-
-  it('falls back after networkTimeoutMs', async () => {
-    const fake = start(build({ navigation: { networkTimeoutMs: 20 } }));
-    withPrecache(fake);
-    fake.setNetwork(() => sleep(200).then(() => new Response('late')));
-    expect(await text(fake.fetchEvent('/page', { mode: 'navigate' }))).toBe(
-      'shell',
-    );
-  });
-
-  it('waits for a slow network when there is nothing to fall back to', async () => {
-    const fake = start(build({ navigation: { networkTimeoutMs: 10 } }));
-    fake.setNetwork(() => sleep(40).then(() => new Response('late')));
-    expect(await text(fake.fetchEvent('/page', { mode: 'navigate' }))).toBe(
-      'late',
-    );
+    const bare = start();
+    bare.caches.seed(PRECACHE, { '/assets/app.js': 'app-js' });
+    bare.setNetwork(() => new Response('drawn'));
+    expect(await navigate(bare, '/inbox')).toBe('drawn');
   });
 
   it('never handles denylisted paths', () => {
@@ -245,80 +299,29 @@ describe('navigation', () => {
     ).toBeUndefined();
   });
 
-  it('saves and serves pages only with cachePages', async () => {
-    const fake = start(build({ navigation: { cachePages: true } }));
-    withPrecache(fake);
-    fake.setNetwork(() => new Response('page-v1'));
-    const first = fake.fetchEvent('/page', { mode: 'navigate' });
-    expect(await text(first)).toBe('page-v1');
-    await settle(first);
-    fake.setNetwork(() => Promise.reject(new TypeError('offline')));
-    expect(await text(fake.fetchEvent('/page', { mode: 'navigate' }))).toBe(
-      'page-v1',
-    );
-    expect(await text(fake.fetchEvent('/other', { mode: 'navigate' }))).toBe(
-      'shell',
-    );
-  });
-
-  it('serves the App Shell without the network while an update waits', async () => {
+  it("answers with this build's copy, else its App Shell, without the network while an update waits", async () => {
     const fake = start(build(), { waiting: true });
     withPrecache(fake);
+    fake.caches.seed(SAVED, { '/feed': 'feed-v1' });
     fake.setNetwork(() => new Response('newer-build'));
-    expect(await text(fake.fetchEvent('/page', { mode: 'navigate' }))).toBe(
-      'shell',
-    );
+    expect(await navigate(fake, '/feed')).toBe('feed-v1');
+    expect(await navigate(fake, '/nowhere')).toBe('shell');
     expect(fake.requests).toEqual([]);
   });
 
-  it('uses the network while an update waits when the App Shell is off or missing', async () => {
-    const noShell = start(build({ navigation: { shell: false } }), {
-      waiting: true,
-    });
-    withPrecache(noShell);
-    noShell.setNetwork(() => new Response('newer-build'));
-    expect(await text(noShell.fetchEvent('/page', { mode: 'navigate' }))).toBe(
-      'newer-build',
-    );
-
-    const missing = start(build(), { waiting: true });
-    missing.setNetwork(() => new Response('newer-build'));
-    expect(await text(missing.fetchEvent('/page', { mode: 'navigate' }))).toBe(
-      'newer-build',
-    );
-  });
-
-  it("serves this build's saved page without the network while an update waits", async () => {
-    const fake = start(
-      build({ navigation: { cachePages: true, shell: false } }),
-      { waiting: true },
-    );
-    fake.caches.seed(pagesCacheName(BUILD), { '/page': 'page-v1' });
+  it('uses the network while an update waits when this build has nothing', async () => {
+    const fake = start(build(), { waiting: true });
     fake.setNetwork(() => new Response('newer-build'));
-    expect(await text(fake.fetchEvent('/page', { mode: 'navigate' }))).toBe(
-      'page-v1',
-    );
-    expect(fake.requests).toEqual([]);
-  });
-
-  it("doesn't save pages while an update waits", async () => {
-    const fake = start(
-      build({ navigation: { cachePages: true, shell: false } }),
-      { waiting: true },
-    );
-    withPrecache(fake);
-    fake.setNetwork(() => new Response('newer-build'));
-    const event = fake.fetchEvent('/page', { mode: 'navigate' });
+    const event = fake.fetchEvent('/feed', { mode: 'navigate' });
     expect(await text(event)).toBe('newer-build');
     await settle(event);
-    expect(
-      fake.caches.caches.get(pagesCacheName(BUILD))?.entries.size ?? 0,
-    ).toBe(0);
+    // Not kept: the page belongs to the waiting build.
+    expect(fake.caches.caches.get(SAVED)?.entries.size ?? 0).toBe(0);
   });
 
   it('answers with a network error when nothing is available', async () => {
     const fake = start();
-    const event = fake.fetchEvent('/page', { mode: 'navigate' });
+    const event = fake.fetchEvent('/feed', { mode: 'navigate' });
     expect((await event.response!).type).toBe('error');
   });
 });

@@ -1,19 +1,21 @@
 import * as Schema from 'effect/Schema';
+import * as Struct from 'effect/Struct';
 import { BuildId, PrecacheList } from '../build/index.js';
-import { WebAppManifest } from '../manifest/index.js';
+import { THEME_COLORS, DEFAULT_THEME } from '../../../../ui/theme/model.ts';
+import { DEFAULT_ICONS, WebAppManifest } from '../manifest/index.js';
 import { StrategyRule } from '../strategy/index.js';
 import { PRESET_NAMES, PRESETS } from './presets.js';
 
 const Path = Schema.String.check(Schema.isStartingWith('/'));
 const PositiveInt = Schema.Int.check(Schema.isGreaterThan(0));
 
-/** How navigations resolve: network, then App Shell, then Offline Fallback. */
+/**
+ * How navigations resolve. Each page's own way follows from its Render
+ * Mode, as Kabuki Start lists them; this only says how long a page waits
+ * for the network, and which paths the worker leaves alone.
+ */
 export const NavigationConfig = Schema.Struct({
-  shell: Schema.Boolean,
-  shellPath: Path,
-  offlineFallback: Path,
   networkTimeoutMs: PositiveInt,
-  cachePages: Schema.Boolean,
   /** Path prefixes whose navigations the worker never handles. */
   denylist: Schema.Array(Path),
 });
@@ -32,12 +34,22 @@ const PrecacheConfig = Schema.Struct({
   warnAboveBytes: PositiveInt,
 });
 
-/** Options to `pwa({...})`. Everything is optional; see `resolvePwaConfig`. */
+/** The manifest beyond its name, every field optional. */
+const ManifestOptions = WebAppManifest.mapFields(Struct.omit(['name']));
+
+/** Options to `pwa({...})`. Only `name` is required; see `resolvePwaConfig`. */
 export const PwaOptions = Schema.Struct({
+  /** The app's name, as the manifest and the Install Prompt give it. */
+  name: Schema.NonEmptyString,
   enabled: Schema.optionalKey(Schema.Boolean),
   dev: Schema.optionalKey(Schema.Boolean),
   preset: Schema.optionalKey(Schema.Literals(PRESET_NAMES)),
-  manifest: Schema.optionalKey(WebAppManifest),
+  /**
+   * The rest of the manifest. Default: the default Theme's colors, and the
+   * icons in the app's `public/`: `icon-192.png`, `icon-512.png`,
+   * `icon-maskable-512.png` and `apple-touch-icon.png`.
+   */
+  manifest: Schema.optionalKey(ManifestOptions),
   precache: Schema.optionalKey(
     PrecacheConfig.mapFields((f) => ({
       include: Schema.optionalKey(f.include),
@@ -48,11 +60,7 @@ export const PwaOptions = Schema.Struct({
   strategies: Schema.optionalKey(Schema.Array(StrategyRule)),
   navigation: Schema.optionalKey(
     NavigationConfig.mapFields((f) => ({
-      shell: Schema.optionalKey(f.shell),
-      shellPath: Schema.optionalKey(f.shellPath),
-      offlineFallback: Schema.optionalKey(f.offlineFallback),
       networkTimeoutMs: Schema.optionalKey(f.networkTimeoutMs),
-      cachePages: Schema.optionalKey(f.cachePages),
       denylist: Schema.optionalKey(f.denylist),
     })),
   ),
@@ -84,7 +92,7 @@ export interface ResolvedPwaConfig {
   readonly enabled: boolean;
   readonly dev: boolean;
   readonly preset: (typeof PRESET_NAMES)[number];
-  readonly manifest: WebAppManifest | null;
+  readonly manifest: WebAppManifest;
   readonly precache: typeof PrecacheConfig.Type;
   readonly strategies: ReadonlyArray<StrategyRule>;
   readonly navigation: NavigationConfig;
@@ -113,7 +121,13 @@ export const resolvePwaConfig = (
     enabled: options.enabled ?? true,
     dev: options.dev ?? false,
     preset,
-    manifest: options.manifest ?? null,
+    manifest: {
+      theme_color: THEME_COLORS[DEFAULT_THEME],
+      background_color: THEME_COLORS[DEFAULT_THEME],
+      icons: DEFAULT_ICONS,
+      ...options.manifest,
+      name: options.name,
+    },
     precache: {
       include: options.precache?.include ?? [],
       exclude: options.precache?.exclude ?? [],
@@ -121,12 +135,7 @@ export const resolvePwaConfig = (
     },
     strategies: [...(options.strategies ?? []), ...defaults.strategies],
     navigation: {
-      shell: options.navigation?.shell ?? defaults.navigation.shell,
-      shellPath: options.navigation?.shellPath ?? '/_shell',
-      offlineFallback: options.navigation?.offlineFallback ?? '/offline',
       networkTimeoutMs: options.navigation?.networkTimeoutMs ?? 3000,
-      cachePages:
-        options.navigation?.cachePages ?? defaults.navigation.cachePages,
       denylist: options.navigation?.denylist ?? [],
     },
     neverCache: options.neverCache ?? ['/api/auth/'],
@@ -179,7 +188,9 @@ export const ClientBuildInfo = Schema.Struct({
   builtAt: Schema.NullOr(Schema.String),
   /** The git commit the build came from. Server environment only. */
   commit: Schema.NullOr(Schema.String),
-  manifestUrl: Schema.NullOr(Path),
+  /** The app's name, from the manifest. */
+  name: Schema.NonEmptyString,
+  manifestUrl: Path,
   appleTouchIconUrl: Schema.NullOr(Schema.String),
 });
 export type ClientBuildInfo = typeof ClientBuildInfo.Type;

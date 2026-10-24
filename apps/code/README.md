@@ -290,10 +290,10 @@ once there is, and a stop while a Dictation records; a narrow Draft folds
 Skills, the paperclip and the microphone behind a "+".
 
 The app is a PWA ([`@kestack/web-platform/pwa`](../../platforms/web-platform/README.md)):
-"Code" installs with its Mark as the icon (`public/`), the pages opened on
-a device open again offline, a page never opened there goes to
-`public/offline.html`, and a new version waits for "Reload" instead of
-reloading under you.
+"Code" installs with its Mark as the icon (`public/`), each page works
+offline as its Render Mode says (a page never opened there boots from the
+App Shell), and a new version waits for "Reload" instead of reloading
+under you.
 
 ## Usage
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { selectAssets, selectDocuments } from '../index.js';
+import { selectAssets } from '../index.js';
 
 const file = (path: string, text = path) => ({
   path,
@@ -59,17 +59,5 @@ describe('selectAssets', () => {
     const [b] = selectAssets([file('a.js', 'two')], options).entries;
     expect(a?.revision).toMatch(/^[0-9a-f]{16}$/);
     expect(a?.revision).not.toBe(b?.revision);
-  });
-});
-
-describe('selectDocuments', () => {
-  it('keys documents by navigation path and reports what is missing', () => {
-    const result = selectDocuments(files, ['/_shell', '/offline', '/gone']);
-    expect(result.entries.map((entry) => entry.url)).toEqual([
-      '/_shell',
-      '/offline',
-    ]);
-    expect(result.missing).toEqual(['/gone']);
-    expect(result.subfolderIndex).toEqual(['/offline']);
   });
 });

@@ -18,7 +18,7 @@ export default function Document({ children }: Start.DocumentProps) {
         </>
       }
     >
-      <Pwa installTitle="Install Code">{children}</Pwa>
+      <Pwa>{children}</Pwa>
     </WebDocument>
   );
 }

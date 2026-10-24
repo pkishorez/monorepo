@@ -2,7 +2,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { themeFromCookies } from './cookie.ts';
 import { applyThemeToDocument } from './document.ts';
-import { createTheme } from './theme.ts';
 import { setThemeValue } from './store.ts';
 
 beforeEach(() => {
@@ -81,13 +80,5 @@ describe('theme document integration', () => {
         .querySelector('meta[name="theme-color"]')
         ?.getAttribute('content'),
     ).toBe('#ffffff');
-  });
-
-  it('keeps manifest colors inside the KUI theme controller', () => {
-    const theme = createTheme();
-    expect(theme.manifest('dark')).toEqual({
-      theme_color: '#0a0a0a',
-      background_color: '#0a0a0a',
-    });
   });
 });

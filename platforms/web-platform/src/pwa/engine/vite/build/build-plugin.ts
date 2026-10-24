@@ -13,7 +13,7 @@ import {
 import type { BuildState } from './build-state.js';
 import { mergeHeaders } from './headers.js';
 import { bundleFiles, overlay, readTree } from './output-files.js';
-import { selectAssets, selectDocuments } from '../precache/index.js';
+import { selectAssets } from '../precache/index.js';
 import { workerScript } from '../worker-bundle/index.js';
 
 const NAME = 'pwa-toolkit:build';
@@ -32,8 +32,10 @@ const readOptional = (path: string): Promise<string | null> =>
 /**
  * The production pipeline. In the client environment's `generateBundle`:
  * emit the manifest, pick the non-HTML Precache entries and compute the
- * Build ID. In a post `buildApp` hook, after every environment: add the App Shell and Offline Fallback, write the worker (or
- * the Kill Switch) to the client outDir, and merge `_headers`.
+ * Build ID. In a post `buildApp` hook, after every environment: write the
+ * worker (or the Kill Switch) to the client outDir, and merge `_headers`.
+ * No page is in the build: the worker asks Start for the App Shell and the
+ * static pages when it installs.
  */
 export const buildPlugin = (
   config: ResolvedPwaConfig,
@@ -54,7 +56,7 @@ export const buildPlugin = (
     const script = config.enabled
       ? await workerScript({
           killSwitch: false,
-          info: await finalBuildInfo(outDir),
+          info: finalBuildInfo(),
           root: client.config.root,
           worker: config.worker,
           mode: vite.mode,
@@ -64,44 +66,30 @@ export const buildPlugin = (
       : await workerScript({ killSwitch: true });
     await writeOutput(join(outDir, config.swUrl), script);
     const headersPath = join(outDir, '_headers');
-    const noCache = config.manifest
-      ? [config.swUrl, MANIFEST_URL]
-      : [config.swUrl];
     await writeOutput(
       headersPath,
-      mergeHeaders(await readOptional(headersPath), noCache),
+      mergeHeaders(await readOptional(headersPath), [
+        config.swUrl,
+        MANIFEST_URL,
+      ]),
     );
   };
 
-  const finalBuildInfo = async (outDir: string) => {
+  const finalBuildInfo = () => {
     const { assets, buildId } = state;
     if (!assets || !buildId) {
       throw new Error(
         'pwa-toolkit: the client environment produced no Build ID',
       );
     }
-    const { navigation } = config;
-    const documents = selectDocuments(await readTree(outDir), [
-      ...(navigation.shell ? [navigation.shellPath] : []),
-      navigation.offlineFallback,
-    ]);
-    // Kabuki Start draws every page on request, so these are the app's
-    // own static files: `public/offline.html`, and `public/_shell.html`
-    // when it turns the App Shell on.
-    for (const path of documents.missing) {
+    if (assets.bytes > config.precache.warnAboveBytes) {
       vite.logger.warn(
-        `pwa-toolkit: not in the Precache, no ${path.slice(1)}.html in the app's public/ folder`,
-      );
-    }
-    const bytes = assets.bytes + documents.bytes;
-    if (bytes > config.precache.warnAboveBytes) {
-      vite.logger.warn(
-        `pwa-toolkit: the Precache is ${(bytes / 1024 / 1024).toFixed(1)} MiB; every install downloads all of it. Narrow it with precache.exclude.`,
+        `pwa-toolkit: the Precache is ${(assets.bytes / 1024 / 1024).toFixed(1)} MiB; every install downloads all of it. Narrow it with precache.exclude.`,
       );
     }
     return {
       buildId,
-      precache: [...assets.entries, ...documents.entries],
+      precache: assets.entries,
       config: workerConfigOf(config),
     };
   };
@@ -116,13 +104,11 @@ export const buildPlugin = (
     },
     async generateBundle(_options, bundle) {
       if (this.environment.name !== 'client') return;
-      if (config.manifest) {
-        this.emitFile({
-          type: 'asset',
-          fileName: MANIFEST_URL.slice(1),
-          source: `${JSON.stringify(withManifestDefaults(config.manifest), null, 2)}\n`,
-        });
-      }
+      this.emitFile({
+        type: 'asset',
+        fileName: MANIFEST_URL.slice(1),
+        source: `${JSON.stringify(withManifestDefaults(config.manifest), null, 2)}\n`,
+      });
       if (!config.enabled) return;
       const env = this.environment.config;
       const publicFiles =
@@ -131,7 +117,7 @@ export const buildPlugin = (
           : [];
       const assets = selectAssets(overlay(publicFiles, bundleFiles(bundle)), {
         ...config.precache,
-        iconUrls: config.manifest ? manifestIconUrls(config.manifest) : [],
+        iconUrls: manifestIconUrls(config.manifest),
         base: env.base,
       });
       for (const url of assets.missingIcons) {

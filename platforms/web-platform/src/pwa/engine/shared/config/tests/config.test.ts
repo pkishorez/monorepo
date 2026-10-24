@@ -49,22 +49,14 @@ describe('WebAppManifest', () => {
 });
 
 describe('resolvePwaConfig', () => {
-  it('fills every default for empty options', () => {
-    const config = resolvePwaConfig(decodeOptions({}));
+  it('fills every default from the name alone', () => {
+    const config = resolvePwaConfig(decodeOptions({ name: 'Todo' }));
     expect(config).toMatchObject({
       enabled: true,
       dev: false,
       preset: 'app',
-      manifest: null,
       precache: { include: [], exclude: [], warnAboveBytes: 5 * 1024 * 1024 },
-      navigation: {
-        shell: false,
-        shellPath: '/_shell',
-        offlineFallback: '/offline',
-        networkTimeoutMs: 3000,
-        cachePages: true,
-        denylist: [],
-      },
+      navigation: { networkTimeoutMs: 3000, denylist: [] },
       neverCache: ['/api/auth/'],
       update: { checkIntervalMinutes: 60 },
       worker: null,
@@ -73,12 +65,38 @@ describe('resolvePwaConfig', () => {
     expect(config.strategies.map((rule) => rule.cacheName)).toEqual(['images']);
   });
 
+  it("gives the manifest the default Theme's colors and the icons in public/", () => {
+    const { manifest } = resolvePwaConfig(decodeOptions({ name: 'Todo' }));
+    expect(manifest).toMatchObject({
+      name: 'Todo',
+      theme_color: '#0a0a0a',
+      background_color: '#0a0a0a',
+    });
+    expect(manifest.icons?.map((icon) => icon.src)).toEqual([
+      '/icon-192.png',
+      '/icon-512.png',
+      '/icon-maskable-512.png',
+      '/apple-touch-icon.png',
+    ]);
+  });
+
+  it("puts the app's manifest fields over the defaults", () => {
+    const { name, ...rest } = manifest;
+    const config = resolvePwaConfig(decodeOptions({ name, manifest: rest }));
+    expect(config.manifest).toMatchObject({
+      name: 'Todo',
+      theme_color: '#0f172a',
+      background_color: '#ffffff',
+      icons: rest.icons,
+    });
+  });
+
   it('puts explicit options over the preset and user rules first', () => {
     const config = resolvePwaConfig(
       decodeOptions({
+        name: 'Todo',
         preset: 'content',
-        manifest,
-        navigation: { shell: true },
+        navigation: { networkTimeoutMs: 500 },
         strategies: [
           {
             match: { pathPrefix: '/api/' },
@@ -89,8 +107,7 @@ describe('resolvePwaConfig', () => {
         update: { checkIntervalMinutes: 5 },
       }),
     );
-    expect(config.navigation.shell).toBe(true);
-    expect(config.navigation.cachePages).toBe(true);
+    expect(config.navigation.networkTimeoutMs).toBe(500);
     expect(config.strategies.map((rule) => rule.cacheName)).toEqual([
       'api',
       'images',
@@ -99,20 +116,21 @@ describe('resolvePwaConfig', () => {
   });
 
   it('rejects invalid options', () => {
-    expect(() => decodeOptions({ preset: 'blog' })).toThrow();
-    expect(() => decodeOptions({ swUrl: 'sw.js' })).toThrow();
+    expect(() => decodeOptions({})).toThrow();
+    expect(() => decodeOptions({ name: 'x', preset: 'blog' })).toThrow();
+    expect(() => decodeOptions({ name: 'x', swUrl: 'sw.js' })).toThrow();
     expect(() =>
-      decodeOptions({ update: { checkIntervalMinutes: 0 } }),
+      decodeOptions({ name: 'x', update: { checkIntervalMinutes: 0 } }),
     ).toThrow();
   });
 });
 
 describe('virtual module shapes', () => {
   it('round-trip through their schemas', () => {
-    const config = resolvePwaConfig(decodeOptions({}));
+    const config = resolvePwaConfig(decodeOptions({ name: 'Todo' }));
     const worker = {
       buildId: 'abc',
-      precache: [{ url: '/offline', revision: 'r1' }],
+      precache: [{ url: '/assets/app.js', revision: 'r1' }],
       config: workerConfigOf(config),
     };
     expect(Schema.decodeUnknownSync(WorkerBuildInfo)(worker).buildId).toBe(
@@ -126,6 +144,7 @@ describe('virtual module shapes', () => {
       buildId: null,
       builtAt: null,
       commit: null,
+      name: 'Todo',
       manifestUrl: '/manifest.webmanifest',
       appleTouchIconUrl: null,
     });

@@ -9,6 +9,7 @@ const info: ClientBuildInfo = {
   buildId: null,
   builtAt: null,
   commit: null,
+  name: 'App',
   manifestUrl: '/manifest.webmanifest',
   appleTouchIconUrl: null,
 };

@@ -67,31 +67,3 @@ export const selectAssets = (
       .map(([, url]) => url),
   };
 };
-
-/**
- * The prerendered App Shell and Offline Fallback. Each is keyed by its
- * navigation path (`/_shell`, `/offline`), which is what the worker looks
- * up; the file is `<path>.html`, or `<path>/index.html` as a second choice
- * (hosts that serve it only at `<path>/` then redirect, so it is reported).
- */
-export const selectDocuments = (
-  files: ReadonlyArray<OutputFile>,
-  paths: ReadonlyArray<string>,
-): Selection & {
-  readonly missing: ReadonlyArray<string>;
-  readonly subfolderIndex: ReadonlyArray<string>;
-} => {
-  const byPath = new Map(files.map((file) => [file.path, file]));
-  const found = paths.map((path) => {
-    const flat = byPath.get(`${path.slice(1)}.html`);
-    const nested = byPath.get(`${path.slice(1)}/index.html`);
-    return { path, file: flat ?? nested, nested: !flat && !!nested };
-  });
-  return {
-    ...selection(
-      found.flatMap(({ path, file }) => (file ? [[file, path] as const] : [])),
-    ),
-    missing: found.filter(({ file }) => !file).map(({ path }) => path),
-    subfolderIndex: found.filter((f) => f.nested).map(({ path }) => path),
-  };
-};

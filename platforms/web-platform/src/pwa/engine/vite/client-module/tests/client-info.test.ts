@@ -8,8 +8,8 @@ const version = { commit: 'abc1234', builtAt: '2026-09-27T10:00:00.000Z' };
 
 describe('clientBuildInfo', () => {
   const config = resolvePwaConfig({
+    name: 'x',
     manifest: {
-      name: 'x',
       theme_color: '#000',
       icons: [
         { src: '/mask.png', type: 'image/png', purpose: 'maskable' },
@@ -28,6 +28,7 @@ describe('clientBuildInfo', () => {
     ).toMatchObject({
       enabled: true,
       buildId: 'abc',
+      name: 'x',
       manifestUrl: '/manifest.webmanifest',
       appleTouchIconUrl: '/any.png',
     });
@@ -54,16 +55,17 @@ describe('clientBuildInfo', () => {
       enabled: false,
       buildId: null,
     });
-    const dev = resolvePwaConfig({ dev: true });
+    const dev = resolvePwaConfig({ name: 'App', dev: true });
     expect(clientBuildInfo(dev, serve)).toMatchObject({
       enabled: true,
       buildId: 'dev',
-      manifestUrl: null,
+      manifestUrl: '/manifest.webmanifest',
+      appleTouchIconUrl: '/apple-touch-icon.png',
     });
   });
 
   it('is off for the Kill Switch', () => {
-    const off = resolvePwaConfig({ enabled: false });
+    const off = resolvePwaConfig({ name: 'App', enabled: false });
     expect(
       clientBuildInfo(off, {
         serving: false,
