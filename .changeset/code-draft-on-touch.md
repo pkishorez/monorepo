@@ -1,0 +1,5 @@
+---
+'code': patch
+---
+
+On a device with no keyboard the Draft is read only at rest and two lines tall, with a button to show all of it and back. Its edit button makes it the Composer, at its editing size and focused in the same tap so the keyboard rises; focus leaving makes it read only again, and empty it is one "Write a message…" pill. Under it the microphone is the centre and largest button, beside a `+` Drawer (attach a file, add a photo, choose the microphone), a model chip ("Haiku 5.5 · Low · Plan only") whose Drawer opens the agent and model in a Dialog and changes effort and permissions in place, Skills, and Send once there is text. While editing, only `+`, the microphone and Send stay, and the microphone and Send keep the keyboard up. A stopped Dictation brings the spot its text goes into view, says "Transcribing…" there, and its text fades in from a blur, still while the Composer has focus. With a keyboard nothing changes.

@@ -45,6 +45,8 @@ export const Dictating = createContext<{
   readonly ask: (ask: Asked) => void;
   /** The button by the mic that opens the Microphone Picker by pointer. */
   readonly microphones: ReactNode;
+  /** Opens the Microphone Picker, as its keys do. */
+  readonly chooseMicrophone: () => void;
   /** A Draft is on screen until what it returns is called. */
   readonly shown: () => () => void;
 } | null>(null);
@@ -98,7 +100,8 @@ export const useDictation = (target: {
   readonly projectId: string;
   readonly sessionId: string | null;
 }) => {
-  const { dictation, ask, microphones, shown } = useDictating();
+  const { dictation, ask, microphones, chooseMicrophone, shown } =
+    useDictating();
   const phase = useChild(dictation, ({ state }) => state._tag);
   const microphone = useChild(dictation, ({ state }) =>
     state._tag === 'Recording' ? state.microphone : null,
@@ -137,6 +140,7 @@ export const useDictation = (target: {
     onRetry: (id: number) => ask({ _tag: 'Retry', id }),
     onShown: shown,
     microphones,
+    onChooseMicrophone: chooseMicrophone,
   };
 };
 

@@ -1,1 +1,1 @@
-export { ModelPicker, Triggers } from './model-picker.tsx';
+export { Chip, ModelPicker, Triggers } from './model-picker.tsx';
