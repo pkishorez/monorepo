@@ -190,7 +190,7 @@ const screen = createLiveQueryCollection({
 
 ### Deploy a table and refuse a breaking change
 
-An application deploys its table through `@kestack/std-toolkit/alchemy`. For a persistent table, every deploy compares the new snapshot with the one last shipped, and with the Stored contract in the database, and fails before the table is touched if a stored version was edited or removed, or the key layout moved. Lifted from `apps/alchemy-console/alchemy.run.ts`.
+An application deploys its table through `@kestack/std-toolkit/alchemy`. For a persistent table, every deploy compares the new snapshot with the one last shipped, and with the Stored contract in the database, and fails before the table is touched if a stored version was edited or removed, or the key layout moved. Lifted from the former `apps/alchemy-console/alchemy.run.ts` (tag `alchemy-console-old`).
 
 ```ts
 import { Stack, Stage } from 'alchemy';

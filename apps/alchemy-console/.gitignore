@@ -1,9 +1,0 @@
-node_modules/
-dist/
-.output/
-.alchemy/
-.tanstack/
-src/routeTree.gen.ts
-.env
-.env.*
-!.env.example
