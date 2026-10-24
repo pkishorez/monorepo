@@ -7,7 +7,7 @@ import { SessionSwitcherLive, SessionsView } from './actor.ts';
 
 /*
  * The Session Switcher, opened centred by `s` from anywhere; it has no
- * button of its own.
+ * button of its own. On a device with no keyboard it is a Dialog.
  */
 
 export const SessionSwitcherView = View.make(
@@ -24,7 +24,7 @@ export const SessionSwitcherView = View.make(
     keys.useAction('app.sessions', switcher);
     keys.useAction('app.sessionsAnywhere', switcher);
     return (
-      <Picker.Frame how={model.picking} label="Switch session">
+      <Picker.Frame how={model.picking} mode="dialog" label="Switch session">
         {children.picker && <SessionsView instance={children.picker} />}
       </Picker.Frame>
     );

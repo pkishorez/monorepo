@@ -499,6 +499,7 @@ export function StatusLine({
       >
         <Picker.Frame
           how={draft.skills.how}
+          mode="dialog"
           label="Skills and commands"
           onOpen={() => draft.skills.onOpen('pointer', false)}
           trigger={

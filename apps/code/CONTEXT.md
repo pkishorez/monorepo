@@ -13,7 +13,7 @@ How a Picker is drawn on a device with no keyboard, chosen by whoever opens it: 
 _Avoid_: tray, shade, sheet, bottom sheet
 
 **Step**:
-One list in a Picker, searched by typing, such as the agents, a model's settings, or one folder's folders.
+One list in a Picker, searched by typing, such as the agents, a model's settings, or one folder's folders. In a Picker Mode its title and a way back head it; a Step of a few choices, such as a setting's, shows no search there, and one that finishes on itself, such as a folder, has a button for it.
 _Avoid_: page, screen, level
 
 **Project Picker**:
