@@ -131,12 +131,6 @@
       "target": "patch"
     },
     {
-      "label": "Drizzle follows the exact build alchemy's peer pins",
-      "dependencyTypes": ["pnpmCatalog"],
-      "dependencies": ["drizzle-kit", "drizzle-orm"],
-      "isIgnored": true
-    },
-    {
       "label": "Peer dependency updates are intentional",
       "dependencyTypes": ["peer"],
       "isIgnored": true

@@ -104,7 +104,7 @@ for that pattern.
 ```ts
 // alchemy.run.ts — infrastructure entry point
 import { Stack } from 'alchemy';
-import * as Cloudflare from 'alchemy/Cloudflare';
+import * as Cloudflare from '@alchemy.run/cloudflare';
 import { Effect } from 'effect';
 import CounterWorker from './counter-worker.js';
 

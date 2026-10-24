@@ -194,7 +194,7 @@ An application deploys its table through `@kestack/std-toolkit/alchemy`. For a p
 
 ```ts
 import { Stack, Stage } from 'alchemy';
-import * as Cloudflare from 'alchemy/Cloudflare';
+import * as Cloudflare from '@alchemy.run/cloudflare';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
 import {
@@ -228,7 +228,10 @@ export const Worker = Cloudflare.Website.Vite(
 export default Stack(
   'AlchemyConsole',
   {
-    providers: Layer.merge(Cloudflare.providers(), stdToolkitProviders()),
+    // The D1 table runs on Cloudflare's providers, so they are given to it.
+    providers: stdToolkitProviders().pipe(
+      Layer.provideMerge(Cloudflare.providers()),
+    ),
     state: Cloudflare.state(),
   },
   Worker,

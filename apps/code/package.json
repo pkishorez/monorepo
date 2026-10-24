@@ -38,6 +38,7 @@
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
+    "@alchemy.run/cloudflare": "catalog:",
     "alchemy": "catalog:",
     "fake-indexeddb": "catalog:",
     "jsdom": "catalog:",

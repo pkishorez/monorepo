@@ -4,7 +4,7 @@ import {
   readDrizzleDirRecords,
   runMigrations,
   type SqlExecutor,
-} from 'alchemy/SQL/Migrations/index';
+} from '@alchemy.run/sql/Migrations';
 import Database from 'better-sqlite3';
 import { readMigrationFiles } from 'drizzle-orm/migrator';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
@@ -15,7 +15,9 @@ import { d1Database } from '../../d1/resource/resource.js';
 import { AUTH_MIGRATIONS_TABLE, authMigrationsDir } from '../migration.js';
 
 const { databaseResource } = vi.hoisted(() => ({ databaseResource: vi.fn() }));
-vi.mock('alchemy/Cloudflare', () => ({ D1: { Database: databaseResource } }));
+vi.mock('@alchemy.run/cloudflare', () => ({
+  D1: { Database: databaseResource },
+}));
 
 describe('auth migrations', () => {
   it('wires the D1 resource to shared Drizzle v1 migrations', () => {

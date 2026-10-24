@@ -109,7 +109,7 @@ jobs:
         run: pnpm --filter 'code^...' run build
 
       - name: Bootstrap Alchemy state store
-        run: pnpm -C apps/code exec alchemy provider cloudflare bootstrap
+        run: pnpm -C apps/code exec alchemy state bootstrap --backend cloudflare
 
       - name: Deploy code
         run: pnpm -C apps/code exec alchemy deploy --stage "$STAGE" --yes

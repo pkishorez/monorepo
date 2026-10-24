@@ -1,6 +1,6 @@
 import { Stack } from 'alchemy';
-import { providers as awsProviders } from 'alchemy/AWS';
-import * as Cloudflare from 'alchemy/Cloudflare';
+import { providers as awsProviders } from '@alchemy.run/aws';
+import * as Cloudflare from '@alchemy.run/cloudflare';
 import { State } from '@kestack/web-platform/app/alchemy';
 import * as Layer from 'effect/Layer';
 import { Website } from './src/infra/index.ts';
