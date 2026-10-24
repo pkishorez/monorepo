@@ -62,7 +62,13 @@ const Model = Schema.Struct({
       reason: Schema.String,
     }),
   ),
+  /** How many of each Session's Moves were refused, by `refusedKey`. */
+  refusals: Schema.Record(Schema.String, Schema.Finite),
 });
+
+/** A Session's key among the refusals: its Machine's and its own id. */
+export const refusedKey = (machineId: string, sessionId: string) =>
+  `${machineId} ${sessionId}`;
 type Model = typeof Model.Type;
 
 const Sidebar = Actor.define('Sidebar', {
@@ -95,7 +101,12 @@ const Sidebar = Actor.define('Sidebar', {
       title: Schema.NullOr(Schema.String),
     },
     MovesShown: { moving: Schema.Array(Intent) },
-    MoveRefused: { settled: Schema.Boolean, reason: Schema.String },
+    MoveRefused: {
+      machineId: Schema.String,
+      sessionId: Schema.String,
+      settled: Schema.Boolean,
+      reason: Schema.String,
+    },
     /** The Session as synced is where it was put. */
     MoveSeen: {
       machineId: Schema.String,
@@ -129,6 +140,7 @@ export const SidebarLive = Actor.build(Sidebar, {
       moving: [],
       told: null,
       refused: null,
+      refusals: {},
     },
   }),
   children: {
@@ -213,12 +225,19 @@ export const SidebarLive = Actor.build(Sidebar, {
       command: putMove({ machineId, sessionId, settled }),
     }),
     MovesShown: ({ moving }, { model }) => ({ model: { ...model, moving } }),
-    MoveRefused: ({ settled, reason }, { model }) => ({
-      model: {
-        ...model,
-        refused: { n: (model.refused?.n ?? 0) + 1, settled, reason },
-      },
-    }),
+    MoveRefused: ({ machineId, sessionId, settled, reason }, { model }) => {
+      const key = refusedKey(machineId, sessionId);
+      return {
+        model: {
+          ...model,
+          refused: { n: (model.refused?.n ?? 0) + 1, settled, reason },
+          refusals: {
+            ...model.refusals,
+            [key]: (model.refusals[key] ?? 0) + 1,
+          },
+        },
+      };
+    },
     MoveSeen: (seen) => ({ command: agreed(seen) }),
     MachinesKnown: ({ machines, problem }, { model }) => ({
       model: { ...model, machines, problem },

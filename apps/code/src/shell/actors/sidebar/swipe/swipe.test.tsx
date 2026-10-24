@@ -57,6 +57,8 @@ const render = (settled: boolean) =>
       <GestureProvider>
         <GestureZone>
           <SwipeToMove
+            machineId="m1"
+            sessionId="s1"
             settled={settled}
             onMove={(to) => {
               moves.push(to);
@@ -128,8 +130,13 @@ describe('a Session row swiped on a touch screen', () => {
     function Refused() {
       const [back, setBack] = useState(0);
       return (
-        <SwipeBack value={back}>
-          <SwipeToMove settled={false} onMove={() => setBack((n) => n + 1)}>
+        <SwipeBack value={() => back}>
+          <SwipeToMove
+            machineId="m1"
+            sessionId="s1"
+            settled={false}
+            onMove={() => setBack((n) => n + 1)}
+          >
             <div data-testid="row">A session</div>
           </SwipeToMove>
         </SwipeBack>
@@ -151,6 +158,71 @@ describe('a Session row swiped on a touch screen', () => {
       .closest<HTMLElement>('[data-slot="gesture-zone"]')!;
     expect(zone.style.height).not.toBe('0px');
     expect(zone.style.opacity).not.toBe('0');
+  });
+
+  it('brings back only the row refused: another mid-swipe goes on, and keeps focus', async () => {
+    let refuse = () => {};
+    const went: Array<string> = [];
+    function Rows() {
+      const [refused, setRefused] = useState(0);
+      refuse = () => setRefused((n) => n + 1);
+      return (
+        <SwipeBack value={(_, id) => (id === 'a' ? refused : 0)}>
+          {['a', 'b'].map((id) => (
+            <SwipeToMove
+              key={id}
+              machineId="m1"
+              sessionId={id}
+              settled={false}
+              onMove={() => void went.push(id)}
+            >
+              <button type="button" data-testid={`row-${id}`}>
+                Session {id}
+              </button>
+            </SwipeToMove>
+          ))}
+        </SwipeBack>
+      );
+    }
+    act(() =>
+      root.render(
+        <GestureProvider>
+          <GestureZone>
+            <Rows />
+          </GestureZone>
+        </GestureProvider>,
+      ),
+    );
+    const b = () => host.querySelector<HTMLElement>('[data-testid="row-b"]')!;
+    const touch = (type: string, x: number) => {
+      const event = new MouseEvent(type, {
+        bubbles: true,
+        cancelable: true,
+        clientX: x,
+        clientY: 20,
+        button: 0,
+      });
+      Object.assign(event, { pointerId: 1, pointerType: 'touch' });
+      b().dispatchEvent(event);
+    };
+    const before = b();
+    act(() => before.focus());
+    act(() => touch('pointerdown', 100));
+    for (let step = 1; step <= 10; step += 1) {
+      act(() => vi.advanceTimersByTime(16));
+      act(() => touch('pointermove', 100 + step * 11));
+    }
+    // a's Move is refused while b is halfway.
+    act(() => refuse());
+    expect(b()).toBe(before);
+    expect(document.activeElement).toBe(before);
+    for (let step = 11; step <= 20; step += 1) {
+      act(() => vi.advanceTimersByTime(16));
+      act(() => touch('pointermove', 100 + step * 11));
+    }
+    act(() => touch('pointerup', 320));
+    await act(async () => vi.advanceTimersByTimeAsync(500));
+    expect(went).toEqual(['b']);
   });
 
   it('springs back, doing nothing, when let go short', async () => {

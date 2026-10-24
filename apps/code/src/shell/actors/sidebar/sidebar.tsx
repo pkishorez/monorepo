@@ -340,6 +340,8 @@ function ProjectGroup({
               return (
                 <SidebarMenuItem key={each.place}>
                   <SwipeToMove
+                    machineId={session.machineId}
+                    sessionId={session.id}
                     settled={false}
                     onMove={(settled) => onMove(session, settled)}
                   >
