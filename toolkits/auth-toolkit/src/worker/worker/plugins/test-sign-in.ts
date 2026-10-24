@@ -65,27 +65,34 @@ export const testSignIn = ({
           });
         }
 
-        const { internalAdapter, secret } = ctx.context;
+        const { internalAdapter, secret, authCookies } = ctx.context;
+        const sessionCookie = authCookies.sessionToken;
+        const existing = await internalAdapter.findUserByEmail(email);
 
-        // The Users this browser is signed in as, from its signed
-        // multi-session cookies, as the multiSession plugin keeps them.
+        // The Accounts this browser holds, from its multi-session cookies.
+        // A cookie that is unsigned, revoked or expired holds none and is
+        // cleared; one for the Test User signing in again is replaced.
         const held = new Set<string>();
+        const replaced: Array<string> = [];
         for (const name of parseCookies(
           ctx.headers?.get('cookie') ?? '',
         ).keys()) {
           if (!name.includes('_multi-')) continue;
           const token = await ctx.getSignedCookie(name, secret);
           const found = token ? await internalAdapter.findSession(token) : null;
-          if (found) held.add(found.user.id);
+          const live =
+            found !== null && found.session.expiresAt.getTime() > Date.now();
+          if (live && found.user.id !== existing?.user.id) {
+            held.add(found.user.id);
+            continue;
+          }
+          if (live && token) replaced.push(token);
+          ctx.setCookie(name, '', { ...sessionCookie.attributes, maxAge: 0 });
         }
 
-        // Refused before any cookie is set: past the limit the multiSession
-        // plugin would make the new Sign-in active without listing it.
-        const existing = await internalAdapter.findUserByEmail(email);
-        if (
-          !(existing && held.has(existing.user.id)) &&
-          held.size >= maxAccounts
-        ) {
+        // Refused before the Sign-in is made, so the browser keeps the
+        // Accounts it had.
+        if (held.size >= maxAccounts) {
           throw APIError.from('FORBIDDEN', {
             code: 'TOO_MANY_ACCOUNTS',
             message: 'This browser holds as many accounts as it may.',
@@ -106,10 +113,19 @@ export const testSignIn = ({
             if (raced) return raced.user;
             throw error;
           }));
+        if (replaced.length > 0) await internalAdapter.deleteSessions(replaced);
         const session = await internalAdapter.createSession(user.id);
-        // Also adds the Account's multi-session cookie, through that
-        // plugin's after hook.
         await setSessionCookie(ctx, { session, user });
+        // The Account's multi-session cookie, set here rather than by the
+        // multiSession plugin's after hook, which counts the cookies cleared
+        // above too and would leave the new Sign-in active but unlisted. With
+        // this cookie set, that hook does nothing.
+        await ctx.setSignedCookie(
+          `${sessionCookie.name}_multi-${session.token.toLowerCase()}`,
+          session.token,
+          secret,
+          sessionCookie.attributes,
+        );
         return ctx.json({ user: parseUserOutput(ctx.context.options, user) });
       },
     ),

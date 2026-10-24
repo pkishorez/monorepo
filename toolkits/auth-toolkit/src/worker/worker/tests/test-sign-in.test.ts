@@ -7,6 +7,8 @@ import {
   makeWith,
   post,
   postAsProgram,
+  cookies,
+  signIn,
   whoIs,
 } from './fixture.js';
 
@@ -161,6 +163,35 @@ describe('Test Sign-In', () => {
     expect(again.status).toBe(200);
   });
 
+  it('counts only live Accounts towards `maxAccounts`, and lists the new one', async () => {
+    const worker = make({ testUsers: {}, maxAccounts: 1 });
+    const context = await worker.auth.$context;
+    const name = context.authCookies.sessionToken.name;
+    const expired = await signIn(worker, 'old@example.com');
+    await context.internalAdapter.updateSession(expired.token, {
+      expiresAt: new Date(Date.now() - 1000),
+    });
+    const revoked = await signIn(worker, 'gone@example.com');
+    await context.internalAdapter.deleteSession(revoked.token);
+    const cookie = cookies(
+      `${name}_multi-junk=unsigned`,
+      expired.account,
+      revoked.account,
+    );
+
+    const answer = await testSignIn(
+      worker,
+      { email: 'ada@example.test' },
+      cookie,
+    );
+    expect(answer.status).toBe(200);
+    const after = applyCookies(cookie, answer);
+    expect(await whoIs(worker, after)).toBe('ada@example.test');
+    expect(
+      (await listed(worker, after)).map((entry) => entry.user.email),
+    ).toEqual(['ada@example.test']);
+  });
+
   it('creates a new Test User once when two sign in at the same time', async () => {
     const worker = make({ testUsers: {} });
     const answers = await Promise.all(
@@ -174,6 +205,34 @@ describe('Test Sign-In', () => {
       ),
     );
     expect(new Set(ids).size).toBe(1);
+  });
+
+  it('never moves a User into or out of `.test` by an update', async () => {
+    const worker = make({ testUsers: {} });
+    const context = await worker.auth.$context;
+    const real = (await signIn(worker, 'grace@example.com')).user;
+    await expect(
+      context.internalAdapter.updateUser(real.id, {
+        email: 'grace@example.test',
+      }),
+    ).rejects.toThrow();
+
+    const admin = await signIn(worker, 'root@example.com');
+    await context.internalAdapter.updateUser(admin.user.id, { role: 'admin' });
+    await testSignIn(worker, { email: 'ada@example.test' });
+    const ada = (await context.internalAdapter.findUserByEmail(
+      'ada@example.test',
+    ))!.user;
+    const updated = await post(
+      worker,
+      '/admin/update-user',
+      { userId: ada.id, data: { email: 'ada@example.com' } },
+      { cookie: admin.active },
+    );
+    expect(updated.status).toBe(403);
+    expect((await context.internalAdapter.findUserById(ada.id))!.email).toBe(
+      'ada@example.test',
+    );
   });
 
   it('signs the same email in as the same User', async () => {
