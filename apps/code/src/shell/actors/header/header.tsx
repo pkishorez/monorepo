@@ -162,7 +162,20 @@ const pillOf = (health: ReturnType<typeof useHealth>): Pill | null => {
   }
 };
 
-/** While the Machine is out of reach, a pill that says why; nothing otherwise. */
+/** The pill's word on a phone, where the header has room for little else. */
+const shortOf = (health: ReturnType<typeof useHealth>) =>
+  health._tag === 'Down'
+    ? 'Machine down'
+    : health._tag === 'Seen' &&
+        (health.status._tag === 'Unreachable' ||
+          health.status._tag === 'OpenFailed')
+      ? 'Out of reach'
+      : 'Connecting…';
+
+/**
+ * While the Machine is out of reach, a pill that says why, in a word on a
+ * phone; nothing otherwise.
+ */
 export function Offline({ machineId }: { readonly machineId: string }) {
   const health = useHealth(machineId);
   const pill = pillOf(health);
@@ -182,7 +195,8 @@ export function Offline({ machineId }: { readonly machineId: string }) {
         )}
         <span className={`relative size-2 rounded-full ${tone}`} />
       </span>
-      {label}
+      <span className="md:hidden">{shortOf(health)}</span>
+      <span className="max-md:hidden">{label}</span>
     </span>
   );
 }

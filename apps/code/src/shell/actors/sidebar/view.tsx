@@ -9,10 +9,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@kestack/web-platform/ui/components/select';
-import { createContext, type ReactNode, use } from 'react';
+import { createContext, type ReactNode, use, useEffect } from 'react';
+import { notify } from '../../../ui/toast/index.ts';
 import { placeOf, type Route } from '../../places/index.ts';
 import { shownOf, SidebarLive } from './actor.ts';
 import { Places } from './sidebar.tsx';
+import { movedOf, seenOf } from './moves.ts';
+import { useReload } from './pull/index.ts';
+import { moveWithUndo } from './swipe/index.ts';
 import { isUnseen } from './unseen.ts';
 
 /*
@@ -37,7 +41,24 @@ export const SidebarView = View.make(
     const { projectPicker } = use(Slots);
     const [projects] = useChildren(children.projects, ({ model }) => model);
     const [found] = useChildren(children.sessions, ({ model }) => model);
+    const synced = (found?.rows ?? []).map(({ row }) => row);
     const shown = shownOf(model);
+    useReload(() => send({ _tag: 'ReloadAsked' }));
+    // A Move is dropped once the Session as synced agrees with it.
+    const seen = seenOf(synced, model.moving);
+    useEffect(() => {
+      for (const { machineId, sessionId } of seen)
+        send({ _tag: 'MoveSeen', machineId, sessionId });
+    }, [seen.map(({ n }) => n).join()]);
+    // A swipe its Machine refused is back where it was; this says why.
+    const { refused } = model;
+    useEffect(() => {
+      if (refused === null) return;
+      notify({
+        title: refused.settled ? 'Not Settled' : 'Still Settled',
+        description: refused.reason,
+      });
+    }, [refused?.n]);
     // Never listed on this device yet: a skeleton meanwhile.
     const neverListed = model.machines === null && model.problem === null;
     return (
@@ -54,7 +75,7 @@ export const SidebarView = View.make(
             rows: (projects?.rows ?? []).map(({ row }) => row),
             loading: neverListed || (projects?.neverSynced.length ?? 0) > 0,
           }}
-          sessions={(found?.rows ?? []).map(({ row }) => row)}
+          sessions={movedOf(synced, model.moving)}
           isUnseen={(each) =>
             isUnseen(model.unseen[each.machineId] ?? {}, each.id, each.endedAt)
           }
@@ -65,6 +86,16 @@ export const SidebarView = View.make(
           }
           onUnsettle={(machineId, sessionId) =>
             send({ _tag: 'UnsettleAsked', machineId, sessionId })
+          }
+          onMove={({ machineId, id, title }, settled) =>
+            moveWithUndo(title || 'Untitled session', settled, (to) =>
+              send({
+                _tag: 'MoveAsked',
+                machineId,
+                sessionId: id,
+                settled: to,
+              }),
+            )
           }
         />
       </>
@@ -98,7 +129,7 @@ function MachineFilter({
           No Machines
         </span>
       ) : others.length === 0 ? (
-        <span className="min-w-0 flex-1 truncate px-2 text-sm">
+        <span className="min-w-0 flex-1 truncate px-2 text-sm max-md:text-base max-md:font-semibold">
           {only.name}
         </span>
       ) : (
@@ -109,7 +140,7 @@ function MachineFilter({
           <SelectTrigger
             size="sm"
             aria-label="Machine"
-            className="min-w-0 flex-1 border-none shadow-none"
+            className="min-w-0 flex-1 border-none shadow-none max-md:h-11 max-md:text-base max-md:font-semibold"
           >
             <SelectValue />
           </SelectTrigger>
@@ -129,6 +160,7 @@ function MachineFilter({
         aria-label="Reload the Machines"
         title="Reload the Machines"
         onClick={onReload}
+        className="max-md:-mr-1 max-md:text-muted-foreground max-md:size-11 max-md:rounded-full"
       >
         <RefreshCwIcon />
       </Button>
