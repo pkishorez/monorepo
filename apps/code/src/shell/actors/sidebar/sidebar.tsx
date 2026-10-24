@@ -220,7 +220,9 @@ export function Places({
         />
       ) : (
         <SidebarGroup className="px-2 py-1">
-          <SidebarGroupLabel className="h-7 justify-between pr-0">
+          {/* Room for the Project Picker's plus, a finger's size with no
+              keyboard; on a phone it floats instead. */}
+          <SidebarGroupLabel className="h-7 justify-between pr-0 md:h-11 keyboard:md:h-7">
             Projects
             {projectPicker}
           </SidebarGroupLabel>

@@ -65,6 +65,7 @@ export const MachineSettingsView = View.make(
           <Button
             variant="ghost"
             size="sm"
+            className="h-11 keyboard:h-8"
             onClick={() => send({ _tag: 'Refresh' })}
           >
             Refresh
@@ -101,7 +102,7 @@ export const MachineSettingsView = View.make(
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="text-destructive"
+                      className="h-11 text-destructive keyboard:h-8"
                       aria-label={`Forget ${machine.name}`}
                       onClick={() =>
                         open(() => send({ _tag: 'Ask', id: machine.id }))
