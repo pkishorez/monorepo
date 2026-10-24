@@ -14,16 +14,16 @@ import { MACHINES_DEV_PORT, where } from './stage.ts';
  * stage signs in (`AUTH_URL`, or `AUTH_LOCAL=true` in Local mode), the one
  * origin it lets call with credentials, the site's, and a D1 database of
  * its own holding the `machines` std Table. The table goes through
- * std-toolkit's snapshot guard, which refuses a deploy whose table would no
+ * std-toolkit's deploy guard, which refuses a deploy whose table would no
  * longer read the rows already stored, and the Worker is deployed only
  * behind it.
  */
 
 export const MachinesDatabase = Cloudflare.D1.Database(
-  'MachinesDatabase',
+  'MachinesDatabaseV2',
   Effect.gen(function* () {
     const stage = yield* Stage;
-    return { name: `code-machines-${stage}` };
+    return { name: `code-machines-v2-${stage}` };
   }),
 );
 
@@ -32,7 +32,7 @@ export const MachinesWorker = Cloudflare.Worker(
   Effect.gen(function* () {
     const at = yield* where;
     const database = yield* MachinesDatabase;
-    const table = yield* D1.table('MachinesTable', {
+    const table = yield* D1.table('MachinesTableV2', {
       table: machinesTable,
       database,
       mode: 'persistent',

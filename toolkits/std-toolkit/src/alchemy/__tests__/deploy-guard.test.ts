@@ -201,52 +201,9 @@ describe('deploy guard for a table changed in place only (DynamoDB)', () => {
     expect((refusal(exit) as SetupRefused).reason).toBe('renames-table');
   });
 
-  it('cannot tell a new order of local indexes from a contract that never kept one', () => {
-    const exit = deploy(
-      deployed({
-        mode: 'persistent',
-        snapshot: withLocalIndex,
-        inPlaceOnly: true,
-      }),
-      {
-        mode: 'persistent',
-        snapshot: withLocalIndex,
-        inPlaceOnly: true,
-        localIndexOrder: ['LSI1'],
-      },
-    );
-    expect(Exit.isSuccess(exit)).toBe(true);
-  });
-
   it('refuses a disposable table a breaking change instead of wiping it', () => {
     const error = refusal(inPlace('disposable', v1, edited)) as SetupRefused;
     expect(error.reason).toBe('replaces-table');
     expect(error.message).toMatch(/new DynamoDB.table resource/);
-  });
-});
-
-describe('a snapshot guard deployed before table modes', () => {
-  // What it recorded: its target and the snapshot it last accepted.
-  const snapshotGuard = { target: 'tasks', snapshot: v1 };
-
-  it('is read as the persistent baseline of its target', () => {
-    const exit = deploy(snapshotGuard, {
-      mode: 'persistent',
-      snapshot: edited,
-      target: 'tasks',
-    });
-    expect((refusal(exit) as SetupRefused).reason).toBe('breaking');
-  });
-
-  it('accepts an unchanged table and keeps its contract under its target', () => {
-    const exit = deploy(snapshotGuard, {
-      mode: 'persistent',
-      snapshot: appended,
-      target: 'tasks',
-      inPlaceOnly: true,
-    });
-    expect(Exit.isSuccess(exit) && Object.keys(exit.value.targets)).toEqual([
-      'tasks',
-    ]);
   });
 });

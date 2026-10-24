@@ -7,7 +7,7 @@ import { State, Website } from './src/infra/index.ts';
 export default Stack(
   'KabukiStart',
   {
-    // Cloudflare's, and std-toolkit's for the Pocket table and its snapshot guard.
+    // Cloudflare's, and std-toolkit's for the Pocket table and its deploy guard.
     providers: Layer.merge(Cloudflare.providers(), stdToolkitProviders()),
     // Local on disk for a personal stage; Cloudflare's for prod, demo and PRs.
     state: State,

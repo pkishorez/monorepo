@@ -15,7 +15,7 @@ import { where } from './stage.ts';
  * cookie for `.kishore.computer` reaches it.
  *
  * The Pocket Worker keeps its records in a D1 database of its own, in the
- * `pocket` std Table. The table goes through std-toolkit's snapshot guard,
+ * `pocket` std Table. The table goes through std-toolkit's deploy guard,
  * which refuses a deploy whose table would no longer read the rows already
  * stored, and the Worker is deployed only behind it.
  */
@@ -39,10 +39,10 @@ export const HelloHttpWorker = api('HelloHttp', 'hello-http', 4581);
 export const HelloRpcWorker = api('HelloRpc', 'hello-rpc', 4582);
 
 export const PocketDatabase = Cloudflare.D1.Database(
-  'PocketDatabase',
+  'PocketDatabaseV2',
   Effect.gen(function* () {
     const stage = yield* Stage;
-    return { name: `kabuki-start-pocket-${stage}` };
+    return { name: `kabuki-start-pocket-v2-${stage}` };
   }),
 );
 
@@ -51,7 +51,7 @@ export const PocketWorker = Cloudflare.Worker(
   Effect.gen(function* () {
     const at = yield* where;
     const database = yield* PocketDatabase;
-    const table = yield* D1.table('PocketTable', {
+    const table = yield* D1.table('PocketTableV2', {
       table: pocketTable,
       database,
       mode: 'persistent',

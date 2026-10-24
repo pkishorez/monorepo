@@ -90,7 +90,7 @@ export const MachineRecord = EntityESchema.make('Machine', 'id', {
 
 export type MachineRecord = typeof MachineRecord.Type;
 
-/** The Machines Backend's table, for `SQLite.setup`, `D1.table` and the snapshot guard. */
+/** The Machines Backend's table, for `SQLite.setup`, `D1.table` and its deploy guard. */
 export const machinesTable = StdTable.make('machines')
   .primary('pk', 'sk')
   .gsi('GSI1', 'GSI1PK', 'GSI1SK')

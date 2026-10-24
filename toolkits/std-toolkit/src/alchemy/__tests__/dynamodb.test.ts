@@ -15,8 +15,8 @@ vi.mock('../deploy-guard/index.js', () => ({ guardContract: guard }));
 import { DynamoDB } from '../index.js';
 
 const guardResource = {
-  FQN: 'TasksSnapshot',
-  LogicalId: 'TasksSnapshot',
+  FQN: 'TasksDeployGuard',
+  LogicalId: 'TasksDeployGuard',
 } as unknown as DeployGuard;
 
 it('guards the table before projecting its topology onto the resource', async () => {
@@ -35,11 +35,16 @@ it('guards the table before projecting its topology onto the resource', async ()
   }) as Effect.Effect<unknown>;
   await Effect.runPromise(deploy);
 
-  expect(guard).toHaveBeenCalledWith('TasksSnapshot', stdTable, 'persistent', {
-    target: 'tasks-prod',
-    inPlaceOnly: true,
-    localIndexOrder: ['byAlternate'],
-  });
+  expect(guard).toHaveBeenCalledWith(
+    'TasksDeployGuard',
+    stdTable,
+    'persistent',
+    {
+      target: 'tasks-prod',
+      inPlaceOnly: true,
+      localIndexOrder: ['byAlternate'],
+    },
+  );
   expect(guard.mock.invocationCallOrder[0]).toBeLessThan(
     table.mock.invocationCallOrder[0]!,
   );
@@ -72,7 +77,7 @@ it('guards the table before projecting its topology onto the resource', async ()
     ],
   });
   expect(Object.keys(Output.upstreamAny(table.mock.calls[0]![1]))).toEqual([
-    'TasksSnapshot',
+    'TasksDeployGuard',
   ]);
 });
 
@@ -90,12 +95,17 @@ it('guards a disposable table in place only too', async () => {
     }) as Effect.Effect<unknown>,
   );
 
-  expect(guard).toHaveBeenCalledWith('PrefsSnapshot', stdTable, 'disposable', {
-    target: 'prefs-prod',
-    inPlaceOnly: true,
-    localIndexOrder: [],
-  });
+  expect(guard).toHaveBeenCalledWith(
+    'PrefsDeployGuard',
+    stdTable,
+    'disposable',
+    {
+      target: 'prefs-prod',
+      inPlaceOnly: true,
+      localIndexOrder: [],
+    },
+  );
   expect(Object.keys(Output.upstreamAny(table.mock.calls[0]![1]))).toEqual([
-    'TasksSnapshot',
+    'TasksDeployGuard',
   ]);
 });
