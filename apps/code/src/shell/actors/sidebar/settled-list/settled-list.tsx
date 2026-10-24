@@ -87,14 +87,14 @@ export function SettledList({
   const { keyboard } = useDevice();
   return (
     <SidebarGroup className="px-2 py-1">
-      <SidebarGroupLabel className="h-7 justify-between pr-0">
+      <SidebarGroupLabel className="h-11 justify-between pr-0 keyboard:h-7">
         Settled
         <button
           type="button"
           aria-label="Close the Settled list"
           title="Close"
           onClick={onClose}
-          className="focus-ring grid size-6 place-items-center rounded-md text-muted-foreground/70 transition-colors duration-150 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground motion-reduce:transition-none"
+          className="focus-ring grid size-11 place-items-center rounded-md text-muted-foreground/70 keyboard:size-6 transition-colors duration-150 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground motion-reduce:transition-none"
         >
           <XIcon aria-hidden className="size-3.5" />
         </button>

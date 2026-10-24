@@ -237,7 +237,7 @@ const Transcript = memo(function Transcript({
               session.projectId,
               session.forkedFrom.sessionId,
             )}
-            className="focus-ring min-w-0 truncate rounded-sm text-foreground/80 underline decoration-border underline-offset-4 transition-colors duration-150 hover:text-foreground hover:decoration-foreground motion-reduce:transition-none"
+            className="focus-ring -my-3.5 min-w-11 truncate rounded-sm py-3.5 text-foreground/80 underline keyboard:my-0 keyboard:min-w-0 keyboard:py-0 decoration-border underline-offset-4 transition-colors duration-150 hover:text-foreground hover:decoration-foreground motion-reduce:transition-none"
           >
             {original}
           </Router.Link>
