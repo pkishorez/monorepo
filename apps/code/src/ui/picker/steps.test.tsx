@@ -4,7 +4,15 @@ import { createRoot, type Root as ReactRoot } from 'react-dom/client';
 import { Effect, Layer, Schema } from 'effect';
 import { Actor } from '@kestack/kabuki';
 import { toReact, View } from '@kestack/kabuki/react';
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+} from 'vitest';
 import { keys } from '../../keys.ts';
 import { Frame, How, make, useOpen } from './picker.tsx';
 
@@ -16,7 +24,8 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
  * that names nothing opens the walk searching it, Ctrl+L goes in, and
  * Mod+Enter chooses the place open, which the owner settles while the
  * Picker waits. Two of them on one page show that a Picker opened over
- * another keeps the keyboard when the first is dropped.
+ * another keeps the keyboard when the first is dropped. On a device with
+ * no keyboard, a button chooses the place open instead.
  */
 
 const TREE: Readonly<Record<string, ReadonlyArray<string>>> = {
@@ -63,6 +72,7 @@ const Places = make('PlacePicker', {
           ? []
           : [{ value: `new:${query}`, label: `Make ${query}` }],
       finishes: 'step',
+      done: () => 'Choose this place',
       settles: true,
     },
   },
@@ -187,10 +197,10 @@ const OwnerView = View.make(OwnerLive, ({ model, children, send: own }) => {
   return (
     <keys.Provider vim>
       <Page>
-        <Frame how={model.first} label="First">
+        <Frame how={model.first} mode="dialog" label="First">
           {children.first && <Places.View instance={children.first} />}
         </Frame>
-        <Frame how={model.second} label="Second">
+        <Frame how={model.second} mode="dialog" label="Second">
           {children.second && <Places.View instance={children.second} />}
         </Frame>
       </Page>
@@ -254,7 +264,14 @@ beforeAll(() => {
   };
 });
 
+// What the device can be driven by: a keyboard, else touch alone.
+let device: 'keyboard' | 'touch' = 'keyboard';
+
 beforeEach(async () => {
+  document.documentElement.toggleAttribute(
+    'data-keyboard',
+    device === 'keyboard',
+  );
   const App = toReact(OwnerLive, OwnerView, Layer.empty, {
     name: `steps-test-${apps++}`,
   });
@@ -331,5 +348,33 @@ describe('Picker Steps', () => {
     await flush();
     expect(search()).toBeNull();
     expect(document.activeElement).toBe(by('editor'));
+  });
+});
+
+describe('Picker Steps, on a device with no keyboard', () => {
+  beforeAll(() => {
+    device = 'touch';
+  });
+  afterAll(() => {
+    device = 'keyboard';
+  });
+  const row = (label: string) =>
+    [...document.querySelectorAll<HTMLElement>('[cmdk-item]')].find(
+      (item) => item.textContent === label,
+    )!;
+  const done = () =>
+    [...document.querySelectorAll<HTMLButtonElement>('button')].find(
+      (button) => button.textContent === 'Choose this place',
+    );
+
+  it('chooses the place open with a button, as Mod+Enter does', async () => {
+    expect(done()).toBeUndefined();
+    await click(row('Walk…'));
+    await click(row('a'));
+    expect(rows()).toEqual(['b', 'c']);
+    await click(done()!);
+    await flush();
+    expect(state).toEqual({ settled: ['a'], heard: 'a' });
+    expect(search()).toBeNull();
   });
 });

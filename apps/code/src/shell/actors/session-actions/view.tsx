@@ -9,7 +9,8 @@ import { ActionsView, SessionActionsLive } from './actor.ts';
 
 /*
  * Session Actions, by the header's button while a session is open, where
- * a click opens them as a popover; `a` opens them centred.
+ * a click opens them as a popover; `a` opens them centred. A tap opens
+ * them in a Drawer.
  */
 
 export const SessionActionsView = View.make(
@@ -31,6 +32,7 @@ export const SessionActionsView = View.make(
     return (
       <Picker.Frame
         how={model.picking}
+        mode="drawer"
         label="Session actions"
         onOpen={() => send({ _tag: 'Open', how: 'pointer', ...at })}
         side="bottom"
