@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 import { MotionGlobalConfig } from '@kestack/web-platform/ui/components/motion';
 import { GestureProvider, GestureZone } from '@kestack/web-platform/ui/input';
-import { act } from 'react';
+import { act, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Toasts } from '../../../../ui/toast/index.ts';
-import { sayMoved, SwipeToMove } from './swipe.tsx';
+import { sayMoved, SwipeBack, SwipeToMove } from './swipe.tsx';
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
@@ -113,6 +113,44 @@ describe('a Session row swiped on a touch screen', () => {
     expect(document.body.textContent).toContain('Back among your sessions');
     act(() => undo()?.click());
     expect(moves).toEqual([false, true]);
+  });
+
+  it('comes back drawn afresh when its Move is refused at once, with motion', async () => {
+    MotionGlobalConfig.instantAnimations = false;
+    window.matchMedia = (query: string) =>
+      ({
+        matches: query.includes('coarse'),
+        media: query,
+        addEventListener() {},
+        removeEventListener() {},
+      }) as unknown as MediaQueryList;
+    // Refused as it goes, in the same render: it never leaves the list.
+    function Refused() {
+      const [back, setBack] = useState(0);
+      return (
+        <SwipeBack value={back}>
+          <SwipeToMove settled={false} onMove={() => setBack((n) => n + 1)}>
+            <div data-testid="row">A session</div>
+          </SwipeToMove>
+        </SwipeBack>
+      );
+    }
+    act(() =>
+      root.render(
+        <GestureProvider>
+          <GestureZone>
+            <Refused />
+          </GestureZone>
+        </GestureProvider>,
+      ),
+    );
+    await swipe(320);
+    await act(async () => vi.advanceTimersByTimeAsync(1000));
+    const zone = host
+      .querySelector('[data-testid="row"]')!
+      .closest<HTMLElement>('[data-slot="gesture-zone"]')!;
+    expect(zone.style.height).not.toBe('0px');
+    expect(zone.style.opacity).not.toBe('0');
   });
 
   it('springs back, doing nothing, when let go short', async () => {

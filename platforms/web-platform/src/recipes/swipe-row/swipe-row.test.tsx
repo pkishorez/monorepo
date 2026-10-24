@@ -115,6 +115,47 @@ describe('SwipeRow', () => {
     expect(moved()).toBe('none');
   });
 
+  it('comes back afresh when drawn with a new key after it went, with motion', async () => {
+    MotionGlobalConfig.instantAnimations = false;
+    window.matchMedia = (query: string) =>
+      ({
+        matches: false,
+        media: query,
+        addEventListener() {},
+        removeEventListener() {},
+      }) as unknown as MediaQueryList;
+    let key = 0;
+    const draw = () =>
+      act(() =>
+        root.render(
+          <GestureProvider>
+            <GestureZone>
+              <SwipeRow
+                key={key}
+                direction="right"
+                sounds={false}
+                onSwipe={() => {
+                  // Its owner keeps it: what it did was refused.
+                  key += 1;
+                  draw();
+                }}
+              >
+                <div data-testid="row">A session</div>
+              </SwipeRow>
+            </GestureZone>
+          </GestureProvider>,
+        ),
+      );
+    draw();
+    swipe(300, { steps: 20 });
+    await act(async () => vi.advanceTimersByTimeAsync(1000));
+    const zone = host
+      .querySelector('[data-testid="row"]')!
+      .closest<HTMLElement>('[data-slot="gesture-zone"]')!;
+    expect(zone.style.height).not.toBe('0px');
+    expect(zone.style.opacity).not.toBe('0');
+  });
+
   it('goes on a fast flick, however short', async () => {
     const onSwipe = vi.fn();
     render({ direction: 'right', onSwipe, sounds: false });

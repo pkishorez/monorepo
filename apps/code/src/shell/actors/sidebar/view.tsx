@@ -16,7 +16,7 @@ import { shownOf, SidebarLive } from './actor.ts';
 import { Places } from './sidebar.tsx';
 import { doneOf, movedOf } from './moves.ts';
 import { useReload } from './pull/index.ts';
-import { sayMoved } from './swipe/index.ts';
+import { sayMoved, SwipeBack } from './swipe/index.ts';
 import { isUnseen } from './unseen.ts';
 
 /*
@@ -93,39 +93,46 @@ export const SidebarView = View.make(
           onChoose={(machineId) => send({ _tag: 'MachineChosen', machineId })}
           onReload={() => send({ _tag: 'ReloadAsked' })}
         />
-        <Places
-          route={route}
-          projects={{
-            rows: (projects?.rows ?? []).map(({ row }) => row),
-            loading: neverListed || (projects?.neverSynced.length ?? 0) > 0,
-          }}
-          sessions={movedOf(synced, model.moving)}
-          isUnseen={(each) =>
-            isUnseen(model.unseen[each.machineId] ?? {}, each.id, each.endedAt)
-          }
-          projectPicker={projectPicker}
-          onOpenSession={(machineId, projectId, sessionId) =>
-            send({ _tag: 'SessionOpened', machineId, projectId, sessionId })
-          }
-          onUnsettle={(machineId, sessionId) =>
-            send({
-              _tag: 'MoveAsked',
-              machineId,
-              sessionId,
-              settled: false,
-              title: null,
-            })
-          }
-          onMove={({ machineId, id, title }, settled) =>
-            send({
-              _tag: 'MoveAsked',
-              machineId,
-              sessionId: id,
-              settled,
-              title: title || 'Untitled session',
-            })
-          }
-        />
+        {/* A refusal brings a row swiped away back, drawn afresh. */}
+        <SwipeBack value={model.refused?.n ?? 0}>
+          <Places
+            route={route}
+            projects={{
+              rows: (projects?.rows ?? []).map(({ row }) => row),
+              loading: neverListed || (projects?.neverSynced.length ?? 0) > 0,
+            }}
+            sessions={movedOf(synced, model.moving)}
+            isUnseen={(each) =>
+              isUnseen(
+                model.unseen[each.machineId] ?? {},
+                each.id,
+                each.endedAt,
+              )
+            }
+            projectPicker={projectPicker}
+            onOpenSession={(machineId, projectId, sessionId) =>
+              send({ _tag: 'SessionOpened', machineId, projectId, sessionId })
+            }
+            onUnsettle={(machineId, sessionId) =>
+              send({
+                _tag: 'MoveAsked',
+                machineId,
+                sessionId,
+                settled: false,
+                title: null,
+              })
+            }
+            onMove={({ machineId, id, title }, settled) =>
+              send({
+                _tag: 'MoveAsked',
+                machineId,
+                sessionId: id,
+                settled,
+                title: title || 'Untitled session',
+              })
+            }
+          />
+        </SwipeBack>
       </>
     );
   },
