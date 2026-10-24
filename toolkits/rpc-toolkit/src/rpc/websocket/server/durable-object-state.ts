@@ -6,7 +6,7 @@ import * as HttpServerResponse from 'effect/http/HttpServerResponse';
 /**
  * The slice of a hibernation-capable WebSocket wrapper this package needs.
  *
- * Structural on purpose: `alchemy/Cloudflare`'s `WebSocket` already satisfies
+ * Structural on purpose: `@alchemy.run/cloudflare`'s `WebSocket` already satisfies
  * it, and {@link fromDurableObjectState} builds one from raw workerd.
  */
 export interface HibernatingSocket {

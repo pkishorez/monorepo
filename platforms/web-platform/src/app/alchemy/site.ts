@@ -1,5 +1,5 @@
 import type { InputProps } from 'alchemy';
-import * as Cloudflare from 'alchemy/Cloudflare';
+import * as Cloudflare from '@alchemy.run/cloudflare';
 import * as Effect from 'effect/Effect';
 import { type Address, portlessPort, type Where, where } from './stage.ts';
 

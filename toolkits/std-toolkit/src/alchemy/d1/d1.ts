@@ -1,6 +1,6 @@
 import { Effect } from 'effect';
-import { isResolved, Resource } from 'alchemy';
-import * as Cloudflare from 'alchemy/Cloudflare';
+import { isResolved, Resource, RuntimeContext } from 'alchemy';
+import * as Cloudflare from '@alchemy.run/cloudflare';
 import * as Output from 'alchemy/Output';
 import * as Provider from 'alchemy/Provider';
 import {
@@ -78,7 +78,12 @@ const openD1 = (databaseId: string) =>
     } as unknown as Cloudflare.D1.Database;
     const query = yield* Cloudflare.D1.QueryDatabase(database);
     return makeD1SQLite({ database: yield* query.raw });
-  }).pipe(Effect.provide(Cloudflare.D1.QueryDatabaseLocal));
+  }).pipe(
+    Effect.provide(Cloudflare.D1.QueryDatabaseLocal),
+    // The runtime context only resolves a database id still to come; this
+    // one is resolved already, so none is read.
+    Effect.provide(RuntimeContext.phantom),
+  );
 
 export const D1TableProvider = () =>
   Provider.succeed(D1Table, {

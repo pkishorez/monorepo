@@ -100,7 +100,7 @@ jobs:
         run: pnpm --filter 'kabuki-start^...' run build
 
       - name: Bootstrap Alchemy state store
-        run: pnpm -C apps/kabuki-start exec alchemy provider cloudflare bootstrap
+        run: pnpm -C apps/kabuki-start exec alchemy state bootstrap --backend cloudflare
 
       - name: Deploy kabuki-start
         run: pnpm -C apps/kabuki-start exec alchemy deploy --stage "$STAGE" --yes

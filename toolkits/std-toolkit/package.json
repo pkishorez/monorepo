@@ -155,6 +155,8 @@
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
+    "@alchemy.run/aws": "catalog:",
+    "@alchemy.run/cloudflare": "catalog:",
     "alchemy": "catalog:",
     "better-sqlite3": "catalog:",
     "effect": "catalog:",
@@ -172,7 +174,9 @@
     "@kestack/kabuki": "workspace:*",
     "@tanstack/db": "0.15.2",
     "@tanstack/react-db": "0.5.12",
-    "alchemy": "2.0.0-beta.83",
+    "@alchemy.run/aws": "2.0.0-beta.84",
+    "@alchemy.run/cloudflare": "2.0.0-beta.84",
+    "alchemy": "2.0.0-beta.84",
     "effect": "^4.0.0",
     "react": "^19.0.0",
     "vitest": "^5.0.0"
@@ -182,6 +186,12 @@
       "optional": true
     },
     "react": {
+      "optional": true
+    },
+    "@alchemy.run/aws": {
+      "optional": true
+    },
+    "@alchemy.run/cloudflare": {
       "optional": true
     },
     "alchemy": {
