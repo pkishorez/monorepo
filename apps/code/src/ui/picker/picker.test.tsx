@@ -424,7 +424,26 @@ describe('Picker, on a device with no keyboard', () => {
   afterEach(() => {
     optIn = false;
     mode = 'dialog';
+    letFramesGo();
   });
+  // Animation frames held, to run one at a time with `frame`: jsdom fires
+  // them on a timer of its own, which a slow run can reach early.
+  let held: Array<FrameRequestCallback> | null = null;
+  const { requestAnimationFrame: request, cancelAnimationFrame: cancel } =
+    window;
+  const holdFrames = () => {
+    const frames: Array<FrameRequestCallback> = [];
+    held = frames;
+    window.requestAnimationFrame = (callback) => frames.push(callback);
+    window.cancelAnimationFrame = (id) => {
+      delete frames[id - 1];
+    };
+  };
+  const letFramesGo = () => {
+    held = null;
+    window.requestAnimationFrame = request;
+    window.cancelAnimationFrame = cancel;
+  };
   const dialog = () => document.querySelector('[data-slot="top-dialog"]');
   const drawer = () => document.querySelector('[data-slot="touch-drawer"]');
   const title = () =>
@@ -446,8 +465,12 @@ describe('Picker, on a device with no keyboard', () => {
     });
     await flush();
   };
+  /** Runs the frames asked for so far, as the next frame would. */
   const frame = () =>
-    act(() => new Promise((done) => requestAnimationFrame(() => done(null))));
+    act(async () => {
+      const frames = held!.splice(0);
+      for (const callback of frames) callback?.(performance.now());
+    });
   const row = (label: string) =>
     [...document.querySelectorAll<HTMLElement>('[cmdk-item]')].find(
       (item) => item.textContent === label,
@@ -513,6 +536,7 @@ describe('Picker, on a device with no keyboard', () => {
 
   it('focuses its search only once the Dialog is on screen, when the Picker opts in', async () => {
     optIn = true;
+    holdFrames();
     await openByKeys();
     expect(dialog()).not.toBeNull();
     expect(document.activeElement).not.toBe(search());
@@ -529,6 +553,7 @@ describe('Picker, on a device with no keyboard', () => {
     });
 
     it('raises the keyboard in the tap that opens it, for its search to take', async () => {
+      holdFrames();
       let raised: Element | null = null;
       await act(async () => {
         const target = by('trigger');
