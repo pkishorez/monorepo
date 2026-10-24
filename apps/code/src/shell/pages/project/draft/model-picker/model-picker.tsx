@@ -22,7 +22,9 @@ import * as Catalog from '../../catalog/index.ts';
  *
  * In the Status Line sit its two triggers, the model and the settings,
  * which give up their words as the line narrows. `m` opens it at the model
- * from the page's Normal Mode.
+ * from the page's Normal Mode. On a device with no keyboard the model's
+ * opens it in a Dialog, its settings shown without a search, and the
+ * settings' in a Drawer.
  */
 
 const trigger =
@@ -173,6 +175,7 @@ const Models = Picker.make('ModelPicker', {
       next: (_, { key, props }) => settingAfter(props.catalog, key, null),
     },
     setting: {
+      search: false,
       placeholder: ({ key, props, choices }) =>
         settingPlaceholder(props.catalog, agentOf(choices), key),
       title: ({ key, props, choices }) =>
@@ -184,6 +187,7 @@ const Models = Picker.make('ModelPicker', {
     },
     // One setting alone, opened by its keys: choosing it finishes.
     alone: {
+      search: false,
       placeholder: ({ key, props, choices }) =>
         settingPlaceholder(props.catalog, agentOf(choices), key),
       title: ({ key, props, choices }) =>
@@ -347,6 +351,7 @@ export function Triggers({
     <>
       <Picker.Frame
         how={at('model')}
+        mode="dialog"
         label="Model"
         onOpen={() => onOpen('model', 'pointer')}
         className="w-72"
@@ -375,6 +380,7 @@ export function Triggers({
       {harness.settings.length > 0 && (
         <Picker.Frame
           how={at('settings')}
+          mode="drawer"
           label="Settings"
           onOpen={() => onOpen('settings', 'pointer')}
           className="w-64"

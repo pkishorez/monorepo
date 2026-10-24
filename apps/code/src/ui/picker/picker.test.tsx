@@ -20,13 +20,17 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
 /*
  * A Picker under an owner, on the app's own keyboard: a fruit, then its
- * size, which the owner loads. The page has an editor as its default Focus
- * Spot; every way the Picker closes puts focus back in it, and the owner
- * hears the choices once. On a device with no keyboard, where the app's
- * keyboard moves no focus, nothing focuses the search unless it opts in.
+ * size, which the owner loads, a Step with no search. The page has an
+ * editor as its default Focus Spot; every way the Picker closes puts focus
+ * back in it, and the owner hears the choices once. On a device with no
+ * keyboard it is drawn in the Picker Mode its opener chose, the app's
+ * keyboard moves no focus, and nothing focuses the search unless it opts
+ * in, and then only once the Dialog is on screen.
  */
 
 let optIn = false;
+// The Picker Mode the page opens it in.
+let mode: 'drawer' | 'dialog' = 'dialog';
 
 const Fruit = make('FruitPicker', {
   props: Schema.Struct({ ripe: Schema.Boolean }),
@@ -46,6 +50,7 @@ const Fruit = make('FruitPicker', {
       next: (row) => ({ id: 'size', key: row.value }),
     },
     size: {
+      search: false,
       placeholder: ({ key }) => `Search sizes of ${key}`,
       next: () => null,
     },
@@ -139,6 +144,7 @@ function Page({
       />
       <Frame
         how={how}
+        mode={mode}
         label="Fruit"
         onOpen={() => onOpen('pointer')}
         trigger={
@@ -385,6 +391,17 @@ describe('Picker', () => {
     expect(search()).not.toBeNull();
   });
 
+  it('draws by how it was opened, whatever its Picker Mode', async () => {
+    mode = 'drawer';
+    await openByKeys();
+    expect(document.querySelector('[data-slot="touch-drawer"]')).toBeNull();
+    expect(document.querySelector('[data-slot="top-dialog"]')).toBeNull();
+    expect(
+      document.querySelector('[data-slot="dialog-content"]'),
+    ).not.toBeNull();
+    mode = 'dialog';
+  });
+
   it('opens by pointer from its trigger, and gives focus back to the editor', async () => {
     await click(by('trigger'));
     expect(search()).not.toBeNull();
@@ -405,8 +422,34 @@ describe('Picker, on a device with no keyboard', () => {
   });
   afterAll(() => {
     device = 'keyboard';
-    optIn = false;
   });
+  afterEach(() => {
+    optIn = false;
+    mode = 'dialog';
+  });
+  const dialog = () => document.querySelector('[data-slot="top-dialog"]');
+  const drawer = () => document.querySelector('[data-slot="touch-drawer"]');
+  const title = () =>
+    document.querySelector('[data-slot="layer-header"] h2')?.textContent;
+  const button = (label: string) =>
+    document.querySelector<HTMLElement>(`button[aria-label="${label}"]`);
+  /** A tap on the page outside the Picker. */
+  const outside = async () => {
+    await act(async () => {
+      const target = document.body;
+      for (const type of ['pointerdown', 'mousedown', 'pointerup', 'mouseup'])
+        target.dispatchEvent(
+          new (type.startsWith('pointer') ? PointerEvent : MouseEvent)(type, {
+            bubbles: true,
+            button: 0,
+          }),
+        );
+      target.click();
+    });
+    await flush();
+  };
+  const frame = () =>
+    act(() => new Promise((done) => requestAnimationFrame(() => done(null))));
   const row = (label: string) =>
     [...document.querySelectorAll<HTMLElement>('[cmdk-item]')].find(
       (item) => item.textContent === label,
@@ -417,8 +460,7 @@ describe('Picker, on a device with no keyboard', () => {
     expect(document.activeElement).not.toBe(search());
     expect(rows()).toEqual(['Apple', 'Pear', 'PlumOut of season']);
     await click(row('Apple'));
-    expect(search()?.placeholder).toBe('Search sizes of apple');
-    expect(document.activeElement).not.toBe(search());
+    expect(rows()).toEqual(['Small', 'Large']);
     await click(row('Small'));
     await flush();
     expect(owner).toEqual({ chosen: ['apple', 'apple-small'], done: 1 });
@@ -427,10 +469,58 @@ describe('Picker, on a device with no keyboard', () => {
     expect(document.activeElement).not.toBe(search());
   });
 
-  it('focuses its search as it opens when the Picker opts in', async () => {
+  it('draws the Picker Mode its opener chose, not the width', async () => {
+    await openByKeys();
+    expect(dialog()).not.toBeNull();
+    expect(drawer()).toBeNull();
+    expect(search()).not.toBeNull();
+    expect(document.querySelector('[data-slot="popover-content"]')).toBeNull();
+    // Not Escape: a key pressed outside a field is a real keyboard.
+    await outside();
+    expect(dialog()).toBeNull();
+    mode = 'drawer';
+    await click(by('trigger'));
+    expect(drawer()).not.toBeNull();
+    expect(dialog()).toBeNull();
+    // A Drawer never has a search.
+    expect(search()).toBeNull();
+    expect(rows()).toEqual(['Apple', 'Pear', 'PlumOut of season']);
+  });
+
+  it('names each Step in its header, goes back from it, and hides the search of a Step without one', async () => {
+    await openByKeys();
+    expect(title()).toBe('Fruit');
+    expect(button('Back')).toBeNull();
+    await click(row('Pear'));
+    expect(title()).toBe('Pear');
+    expect(search()).toBeNull();
+    expect(rows()).toEqual(['Small', 'Large']);
+    await click(button('Back')!);
+    expect(title()).toBe('Fruit');
+    expect(search()?.placeholder).toBe('Search fruit');
+  });
+
+  it('takes focus from its search on a tap outside, and closes on the next', async () => {
+    await openByKeys();
+    await act(async () => search()!.focus());
+    expect(document.activeElement).toBe(search());
+    await outside();
+    expect(document.activeElement).not.toBe(search());
+    expect(dialog()).not.toBeNull();
+    expect(owner.done).toBe(0);
+    await outside();
+    expect(dialog()).toBeNull();
+    expect(owner).toEqual({ chosen: null, done: 1 });
+  });
+
+  it('focuses its search only once the Dialog is on screen, when the Picker opts in', async () => {
     optIn = true;
     await openByKeys();
-    await flush();
+    expect(dialog()).not.toBeNull();
+    expect(document.activeElement).not.toBe(search());
+    await frame();
+    await frame();
+    await frame();
     expect(document.activeElement).toBe(search());
   });
 });
