@@ -1,7 +1,6 @@
 import {
   Deferred,
   Effect,
-  Exit,
   Layer,
   Scope,
   Stream,
@@ -10,31 +9,32 @@ import {
 import { AiClient, AiClients } from '@kestack/ai-toolkit/client';
 import { connection as RpcConnection } from '@kestack/rpc-toolkit/rpc/websocket';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { DeviceState } from '../../layer/capabilities/index.ts';
-import { deviceStateMemory } from '../../layer/services/index.ts';
-import { layer, Moves, WINDOW } from './index.ts';
+import { HOLD, layer, Moves } from './index.ts';
 
 /*
- * Moves, with every Machine stood in for, Device State in memory and the
- * clock in the test's hands: a swipe is asked once its window closes and
- * an Undo inside it asks nothing; a button is asked at once, after any call
- * of its Session in flight; each Session is on its own; the page going asks
- * everything waiting at once; what was put is kept until its Machine
- * confirms it, and asked again by the Moves that start next; a refusal
- * drops it and says why.
+ * Moves, with every Machine stood in for and the clock in the test's
+ * hands: each put is asked at once; a Session's calls go one at a time,
+ * in order, a later put after the call in flight, unless its Machine
+ * already took it; each answer is its own call's, so only a refusal of the
+ * last put drops it and says why; a Move goes once the synced Session
+ * agrees, or HOLD after its last call; each Session is on its own.
  */
 
 type Asked = { readonly sessionId: string; readonly settled: boolean };
 
-const machines = (hold: ReadonlyMap<string, Deferred.Deferred<void>>) => {
+/** Machines that note each call, `n`th from 1, holding or refusing some. */
+const machines = (
+  hold: ReadonlyMap<number, Deferred.Deferred<void>> = new Map(),
+  refuse: ReadonlySet<number> = new Set(),
+) => {
   const asked: Array<Asked> = [];
-  const refuse = new Set<string>();
   const ask = (sessionId: string, settled: boolean) =>
     Effect.gen(function* () {
       asked.push({ sessionId, settled });
-      const held = hold.get(`${sessionId}:${asked.length}`);
+      const n = asked.length;
+      const held = hold.get(n);
       if (held !== undefined) yield* Deferred.await(held);
-      if (refuse.has(sessionId))
+      if (refuse.has(n))
         return yield* Effect.fail({
           _tag: 'SessionNotFound' as const,
           sessionId,
@@ -53,7 +53,7 @@ const machines = (hold: ReadonlyMap<string, Deferred.Deferred<void>>) => {
       }),
     ),
   );
-  return { layer, asked, refuse };
+  return { layer, asked };
 };
 
 const at = (sessionId: string) => ({ machineId: 'm1', sessionId });
@@ -62,18 +62,14 @@ const at = (sessionId: string) => ({ machineId: 'm1', sessionId });
 const pass = (ms: number) =>
   Effect.promise(() => vi.advanceTimersByTimeAsync(ms));
 
-/** Moves started on `scope`, over `device` and `world`, as a page starts them. */
-const start = (
-  scope: Scope.Scope,
-  device: Layer.Layer<DeviceState>,
-  world: ReturnType<typeof machines>,
-) =>
+const start = (world: ReturnType<typeof machines>) =>
   Effect.gen(function* () {
+    const scope = yield* Effect.scope;
     const context = yield* Layer.buildWithScope(
-      layer.pipe(Layer.provide(Layer.merge(device, world.layer))),
+      layer.pipe(Layer.provide(world.layer)),
       scope,
     );
-    const service = yield* Effect.provideContext(
+    const moves = yield* Effect.provideContext(
       Effect.gen(function* () {
         return yield* Moves;
       }),
@@ -83,29 +79,25 @@ const start = (
       ReadonlyArray<{ sessionId: string; settled: boolean; idle: boolean }>
     >([]);
     yield* Effect.forkIn(
-      Stream.runForEach(service.intents, (now) =>
+      Stream.runForEach(moves.intents, (now) =>
         SubscriptionRef.set(shown, now),
       ),
       scope,
     );
     const refused: Array<{ settled: boolean; reason: string }> = [];
     yield* Effect.forkIn(
-      Stream.runForEach(service.refusals, (one) =>
+      Stream.runForEach(moves.refusals, (one) =>
         Effect.sync(() => refused.push(one)),
       ),
       scope,
     );
-    return { service, shown: () => SubscriptionRef.get(shown), refused };
+    return { moves, shown: () => SubscriptionRef.get(shown), refused };
   });
-
-const kept = (device: Layer.Layer<DeviceState>) =>
-  Effect.provide(
-    Effect.map(DeviceState.read, ({ moves }) => moves['m1'] ?? {}),
-    device,
-  );
 
 const run = <A>(effect: Effect.Effect<A, unknown, Scope.Scope>) =>
   Effect.runPromise(Effect.scoped(effect) as Effect.Effect<A>);
+
+const held = () => Effect.runPromise(Deferred.make<void>());
 
 beforeEach(() => {
   vi.useFakeTimers({
@@ -125,236 +117,136 @@ afterEach(() => {
 });
 
 describe('Moves', () => {
-  it('asks nothing for a swipe Undone inside its window, and keeps nothing', async () => {
-    const world = machines(new Map());
-    const device = deviceStateMemory();
+  it('asks its Machine at once', async () => {
+    const world = machines();
     await run(
       Effect.gen(function* () {
-        const { service, shown } = yield* start(
-          yield* Effect.scope,
-          device,
-          world,
-        );
-        yield* service.swipe(at('s1'), true);
-        expect(yield* kept(device)).toEqual({ s1: true });
-        yield* pass(1000);
-        yield* service.swipe(at('s1'), false);
-        yield* pass(WINDOW + 1000);
-        expect(world.asked).toEqual([]);
-        expect(yield* kept(device)).toEqual({});
-        expect(yield* shown()).toMatchObject([
-          { sessionId: 's1', settled: false, idle: true },
-        ]);
-        yield* service.agreed(at('s1'), false);
-        expect(yield* shown()).toEqual([]);
-      }),
-    );
-  });
-
-  it('asks a swipe once its window closes, keeping it until its Machine confirms it', async () => {
-    const world = machines(new Map());
-    const device = deviceStateMemory();
-    await run(
-      Effect.gen(function* () {
-        const { service, shown } = yield* start(
-          yield* Effect.scope,
-          device,
-          world,
-        );
-        yield* service.swipe(at('s1'), true);
-        yield* pass(WINDOW - 100);
-        expect(world.asked).toEqual([]);
-        yield* pass(200);
+        const { moves, shown } = yield* start(world);
+        yield* moves.put(at('s1'), true);
+        yield* pass(0);
         expect(world.asked).toEqual([{ sessionId: 's1', settled: true }]);
-        expect(yield* kept(device)).toEqual({});
-        // Shown Settled until the synced Session is, then gone.
         expect(yield* shown()).toMatchObject([
           { sessionId: 's1', settled: true, idle: true },
         ]);
-        yield* service.agreed(at('s1'), false);
-        expect(yield* shown()).toHaveLength(1);
-        yield* service.agreed(at('s1'), true);
-        expect(yield* shown()).toEqual([]);
       }),
     );
   });
 
-  it("asks the Un-settle button inside a swipe's window as nothing: the Machine stays un-Settled", async () => {
-    const world = machines(new Map());
-    const device = deviceStateMemory();
+  it('asks a Settle and its Undo in order, ending un-Settled, and holds the row no longer than HOLD', async () => {
+    const first = await held();
+    const world = machines(new Map([[1, first]]));
     await run(
       Effect.gen(function* () {
-        const { service, shown } = yield* start(
-          yield* Effect.scope,
-          device,
-          world,
-        );
-        yield* service.swipe(at('s1'), true);
-        yield* pass(1000);
-        yield* service.set(at('s1'), false);
-        yield* pass(WINDOW + 1000);
-        expect(world.asked).toEqual([]);
-        yield* service.agreed(at('s1'), false);
-        expect(yield* shown()).toEqual([]);
-      }),
-    );
-  });
-
-  it('asks an Un-settle after a Settle landed, and lets go only once the synced Session is un-Settled', async () => {
-    const world = machines(new Map());
-    const device = deviceStateMemory();
-    await run(
-      Effect.gen(function* () {
-        const { service, shown } = yield* start(
-          yield* Effect.scope,
-          device,
-          world,
-        );
-        yield* service.swipe(at('s1'), true);
-        yield* pass(WINDOW + 100);
-        yield* service.set(at('s1'), false);
-        yield* pass(10);
+        const { moves, shown } = yield* start(world);
+        yield* moves.put(at('s1'), true);
+        yield* pass(0);
+        yield* moves.put(at('s1'), false);
+        yield* pass(0);
+        // The Undo waits for the Settle in flight.
+        expect(world.asked).toEqual([{ sessionId: 's1', settled: true }]);
+        yield* Deferred.succeed(first, undefined);
+        yield* pass(0);
         expect(world.asked).toEqual([
           { sessionId: 's1', settled: true },
           { sessionId: 's1', settled: false },
         ]);
-        // The Settle's late update leaves it un-Settled, and held.
-        yield* service.agreed(at('s1'), true);
         expect(yield* shown()).toMatchObject([
           { sessionId: 's1', settled: false, idle: true },
         ]);
-        yield* service.agreed(at('s1'), false);
+        // A stale snapshot and the Settle's echo do not agree: held, but
+        // not past HOLD.
+        yield* moves.agreed(at('s1'), true);
+        yield* pass(HOLD - 100);
+        expect(yield* shown()).toHaveLength(1);
+        yield* pass(200);
         expect(yield* shown()).toEqual([]);
       }),
     );
   });
 
-  it("asks Session Actions' Settle at once, over a swipe still waiting, and once", async () => {
-    const world = machines(new Map());
-    const device = deviceStateMemory();
+  it('lets go at once as the synced Session agrees', async () => {
+    const world = machines();
     await run(
       Effect.gen(function* () {
-        const { service } = yield* start(yield* Effect.scope, device, world);
-        yield* service.swipe(at('s1'), true);
-        yield* pass(500);
-        yield* service.set(at('s1'), true);
-        yield* pass(10);
-        expect(world.asked).toEqual([{ sessionId: 's1', settled: true }]);
-        yield* pass(WINDOW * 2);
-        expect(world.asked).toEqual([{ sessionId: 's1', settled: true }]);
+        const { moves, shown } = yield* start(world);
+        yield* moves.put(at('s1'), true);
+        yield* pass(0);
+        yield* moves.agreed(at('s1'), true);
+        yield* pass(0);
+        expect(yield* shown()).toEqual([]);
       }),
     );
   });
 
-  it('asks a button after the call of its Session in flight, and each Session on its own', async () => {
-    const first = await Effect.runPromise(Deferred.make<void>());
-    const world = machines(new Map([['a:1', first]]));
-    const device = deviceStateMemory();
+  it('asks nothing more for a put its Machine already took', async () => {
+    const first = await held();
+    const world = machines(new Map([[1, first]]));
     await run(
       Effect.gen(function* () {
-        const { service } = yield* start(yield* Effect.scope, device, world);
-        yield* service.set(at('a'), true);
-        yield* pass(10);
-        // While a's call waits: a set back, b swiped and Undone, c swiped.
-        yield* service.set(at('a'), false);
-        yield* service.swipe(at('b'), true);
-        yield* service.swipe(at('c'), true);
-        yield* service.swipe(at('b'), false);
-        yield* pass(WINDOW + 100);
-        expect(world.asked).toEqual([
-          { sessionId: 'a', settled: true },
-          { sessionId: 'c', settled: true },
-        ]);
+        const { moves } = yield* start(world);
+        yield* moves.put(at('s1'), true);
+        yield* pass(0);
+        yield* moves.put(at('s1'), false);
+        yield* moves.put(at('s1'), true);
         yield* Deferred.succeed(first, undefined);
-        yield* pass(10);
-        expect(world.asked).toEqual([
-          { sessionId: 'a', settled: true },
-          { sessionId: 'c', settled: true },
-          { sessionId: 'a', settled: false },
-        ]);
-      }),
-    );
-  });
-
-  it('asks everything waiting at once as the page goes', async () => {
-    const world = machines(new Map());
-    const device = deviceStateMemory();
-    await run(
-      Effect.gen(function* () {
-        const { service } = yield* start(yield* Effect.scope, device, world);
-        yield* service.swipe(at('s1'), true);
-        yield* pass(500);
-        yield* service.hurry;
         yield* pass(0);
         expect(world.asked).toEqual([{ sessionId: 's1', settled: true }]);
       }),
     );
   });
 
-  it('asks again, as the next Moves start, a swipe whose page went inside its window', async () => {
-    const world = machines(new Map());
-    const device = deviceStateMemory();
+  it('still asks a later put when an earlier call is refused, and says nothing of it', async () => {
+    const first = await held();
+    const world = machines(new Map([[1, first]]), new Set([1]));
     await run(
       Effect.gen(function* () {
-        const page = yield* Scope.make();
-        const { service } = yield* start(page, device, world);
-        yield* service.swipe(at('s1'), true);
-        yield* pass(1000);
-        yield* Scope.close(page, Exit.void);
-        expect(world.asked).toEqual([]);
-        const { shown } = yield* start(yield* Effect.scope, device, world);
-        yield* pass(10);
-        expect(world.asked).toEqual([{ sessionId: 's1', settled: true }]);
-        expect(yield* kept(device)).toEqual({});
-        expect(yield* shown()).toMatchObject([
-          { sessionId: 's1', settled: true },
-        ]);
-      }),
-    );
-  });
-
-  it('keeps the newer of a call in flight and a later put as it stops, and the next Moves ask it', async () => {
-    const first = await Effect.runPromise(Deferred.make<void>());
-    const world = machines(new Map([['s1:1', first]]));
-    const device = deviceStateMemory();
-    await run(
-      Effect.gen(function* () {
-        const page = yield* Scope.make();
-        const { service } = yield* start(page, device, world);
-        yield* service.set(at('s1'), true);
-        yield* pass(10);
-        yield* service.swipe(at('s1'), false);
-        expect(yield* kept(device)).toEqual({ s1: false });
-        yield* Scope.close(page, Exit.void);
-        yield* start(yield* Effect.scope, device, world);
-        yield* pass(10);
+        const { moves, shown, refused } = yield* start(world);
+        yield* moves.put(at('s1'), true);
+        yield* pass(0);
+        yield* moves.put(at('s1'), false);
+        yield* Deferred.succeed(first, undefined);
+        yield* pass(0);
         expect(world.asked).toEqual([
           { sessionId: 's1', settled: true },
           { sessionId: 's1', settled: false },
         ]);
-        expect(yield* kept(device)).toEqual({});
+        expect(refused).toEqual([]);
+        expect(yield* shown()).toMatchObject([
+          { sessionId: 's1', settled: false, idle: true },
+        ]);
       }),
     );
   });
 
-  it('drops a refused Move, forgets it and says why', async () => {
-    const world = machines(new Map());
-    world.refuse.add('s2');
-    const device = deviceStateMemory();
+  it('puts the row back, and says why, when the last put is refused', async () => {
+    const world = machines(new Map(), new Set([1]));
     await run(
       Effect.gen(function* () {
-        const { service, shown, refused } = yield* start(
-          yield* Effect.scope,
-          device,
-          world,
-        );
-        yield* service.set(at('s2'), false);
-        yield* pass(10);
-        expect(world.asked).toEqual([{ sessionId: 's2', settled: false }]);
+        const { moves, shown, refused } = yield* start(world);
+        yield* moves.put(at('s1'), false);
+        yield* pass(0);
         expect(yield* shown()).toEqual([]);
-        expect(yield* kept(device)).toEqual({});
         expect(refused).toMatchObject([{ settled: false }]);
         expect(refused[0]?.reason).not.toBe('');
+      }),
+    );
+  });
+
+  it('keeps each Session on its own: one in flight holds up no other', async () => {
+    const first = await held();
+    const world = machines(new Map([[1, first]]));
+    await run(
+      Effect.gen(function* () {
+        const { moves } = yield* start(world);
+        yield* moves.put(at('a'), true);
+        yield* pass(0);
+        yield* moves.put(at('b'), true);
+        yield* pass(0);
+        expect(world.asked).toEqual([
+          { sessionId: 'a', settled: true },
+          { sessionId: 'b', settled: true },
+        ]);
+        yield* Deferred.succeed(first, undefined);
       }),
     );
   });

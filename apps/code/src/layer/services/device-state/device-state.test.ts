@@ -37,28 +37,6 @@ describe('Device State', () => {
       microphone: null,
       sidebarMachine: null,
       unseen: {},
-      moves: {},
-    });
-  });
-
-  it('keeps Pending Moves per Machine until forgotten, and again after', async () => {
-    const read = await run(
-      Effect.gen(function* () {
-        const device = yield* store;
-        yield* device.setMove('m1', 's1', true);
-        yield* device.setMove('m1', 's1', false);
-        yield* device.setMove('m2', 's1', true);
-        const kept = (yield* device.read).moves;
-        yield* device.setMove('m1', 's1', null);
-        const forgot = (yield* device.read).moves;
-        yield* device.setMove('m1', 's1', true);
-        return { kept, forgot, again: (yield* device.read).moves };
-      }),
-    );
-    expect(read).toEqual({
-      kept: { m1: { s1: false }, m2: { s1: true } },
-      forgot: { m2: { s1: true } },
-      again: { m1: { s1: true }, m2: { s1: true } },
     });
   });
 
