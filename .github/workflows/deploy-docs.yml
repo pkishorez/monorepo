@@ -105,7 +105,7 @@ jobs:
         run: pnpm --filter 'docs^...' run build
 
       - name: Bootstrap Alchemy state store
-        run: pnpm -C apps/docs exec alchemy provider cloudflare bootstrap
+        run: pnpm -C apps/docs exec alchemy state bootstrap --backend cloudflare
 
       - name: Deploy docs
         run: pnpm -C apps/docs exec alchemy deploy --stage "$STAGE" --yes

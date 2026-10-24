@@ -10,7 +10,7 @@ const { table, guard } = vi.hoisted(() => ({
   ),
   guard: vi.fn(),
 }));
-vi.mock('alchemy/AWS/DynamoDB', () => ({ Table: table }));
+vi.mock('@alchemy.run/aws/DynamoDB', () => ({ Table: table }));
 vi.mock('../deploy-guard/index.js', () => ({ guardContract: guard }));
 import { DynamoDB } from '../index.js';
 

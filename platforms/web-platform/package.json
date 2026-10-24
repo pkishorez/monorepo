@@ -168,6 +168,7 @@
     "@types/react-dom": "catalog:",
     "@typescript/native": "catalog:",
     "@vitejs/plugin-react": "catalog:",
+    "@alchemy.run/cloudflare": "catalog:",
     "alchemy": "catalog:",
     "effect": "catalog:",
     "laymos": "workspace:*",
@@ -193,7 +194,8 @@
     "vite": "^8.0.0",
     "@tailwindcss/vite": "4.3.3",
     "@vitejs/plugin-react": "6.1.2",
-    "alchemy": "2.0.0-beta.83"
+    "@alchemy.run/cloudflare": "2.0.0-beta.84",
+    "alchemy": "2.0.0-beta.84"
   },
   "peerDependenciesMeta": {
     "@kestack/use-keys": {
@@ -218,6 +220,9 @@
       "optional": true
     },
     "@vitejs/plugin-react": {
+      "optional": true
+    },
+    "@alchemy.run/cloudflare": {
       "optional": true
     },
     "alchemy": {

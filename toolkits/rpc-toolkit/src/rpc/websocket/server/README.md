@@ -90,7 +90,7 @@ socket map — is internal and never surfaces.
 See the [package README](../../../../README.md#install) for peer-dependency rules.
 
 Alchemy is **not** a dependency. The package talks to two structural ports — `state`
-(`getWebSockets` + `setWebSocketAutoResponse`) and `upgrade` — which `alchemy/Cloudflare`
+(`getWebSockets` + `setWebSocketAutoResponse`) and `upgrade` — which `@alchemy.run/cloudflare`
 satisfies as-is; `fromDurableObjectState` builds them from a raw workerd
 `DurableObjectState` for everyone else.
 
@@ -119,7 +119,7 @@ export class CounterRpcs extends RpcGroup.make(
 Wire the Durable Object:
 
 ```ts
-import * as Cloudflare from 'alchemy/Cloudflare';
+import * as Cloudflare from '@alchemy.run/cloudflare';
 import * as Effect from 'effect/Effect';
 import { server } from '@kestack/rpc-toolkit/rpc/websocket';
 

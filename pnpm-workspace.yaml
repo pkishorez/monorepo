@@ -7,6 +7,14 @@ packages:
 
 # Hold new releases for 24 hours (in minutes) so compromised versions have time to be reported.
 minimumReleaseAge: 1440
+# TEMPORARY: alchemy 2.0.0-beta.84 is taken before it clears the hold, by
+# choice, with its provider packages (the last, @alchemy.run/sql, at
+# 2026-10-24 04:02 UTC) and the distilled 1.0.0-rc.17 they pin. Remove after
+# 2026-10-25 04:03 UTC.
+minimumReleaseAgeExclude:
+  - alchemy
+  - '@alchemy.run/*'
+  - '@distilled.cloud/*'
 
 # Refuse a version published with weaker trust than earlier versions (for
 # example without provenance): the usual sign of a stolen publish token.
@@ -51,9 +59,6 @@ catalog:
   '@openai/codex': 0.164.0
   cloudflared: 0.7.3
   sherpa-onnx-node: 1.13.8
-  '@tanstack/ai': 1.0.0
-  '@distilled.cloud/aws': 1.0.0-rc.16
-  '@distilled.cloud/cloudflare': 1.0.0-rc.16
   '@better-auth/cimd': 1.7.12
   '@better-auth/core': 1.7.12
   '@better-auth/drizzle-adapter': 1.7.12
@@ -62,7 +67,6 @@ catalog:
   jose: 6.2.13
   zod: 4.6.7
   '@base-ui/react': 1.9.0
-  '@ast-grep/napi': 0.51.0
   '@vitest/utils': 5.0.5
   '@changesets/changelog-github': 1.0.1
   '@changesets/cli': 3.0.3
@@ -122,7 +126,10 @@ catalog:
   '@uiw/react-codemirror': 4.25.12
   '@uiw/react-json-view': 2.0.0-alpha.44
   '@vitejs/plugin-react': 6.1.2
-  alchemy: 2.0.0-beta.83
+  '@alchemy.run/aws': 2.0.0-beta.84
+  '@alchemy.run/cloudflare': 2.0.0-beta.84
+  '@alchemy.run/sql': 2.0.0-beta.84
+  alchemy: 2.0.0-beta.84
   auth: 1.7.12
   aws4fetch: 1.0.20
   better-auth: 1.7.12
@@ -132,8 +139,8 @@ catalog:
   cmdk: 1.1.1
   cn: 0.5.0
   del-cli: 8.0.1
-  drizzle-kit: 1.0.0-rc.5-ab785fc
-  drizzle-orm: 1.0.0-rc.5-ab785fc
+  drizzle-kit: 1.0.0-rc.5
+  drizzle-orm: 1.0.0-rc.5
   effect: 4.0.6
   embla-carousel-react: 8.6.0
   env-paths: 4.0.0

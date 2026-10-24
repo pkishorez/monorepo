@@ -23,7 +23,7 @@ browser ◄────────────────── subscribeMessa
 
 ## Upstream boundaries
 
-The persisted part shape is TanStack AI's `UIMessage` part union plus ai-toolkit's custom parts (`COMMON_PARTS`, `CLAUDE_PARTS`, `CODEX_PARTS`), so TanStack's UI packages can render a stored Message. `@tanstack/ai` is a devDependency only; `src/runtime/protocol/parts.test.ts` holds the shape promise at compile time.
+The persisted part shape is TanStack AI's `UIMessage` part union plus ai-toolkit's custom parts (`COMMON_PARTS`, `CLAUDE_PARTS`, `CODEX_PARTS`), so TanStack's UI packages can render a stored Message.
 
 Claude runs through `@anthropic-ai/claude-agent-sdk` with partial messages enabled, so text and thinking arrive as deltas. `thinking.budgetTokens` maps to `maxThinkingTokens`. Codex runs through the duplex `codex app-server` JSON-RPC protocol; the `codex` binary must be on `PATH`, or its path supplied through `HarnessHostConfig.codexCommand`.
 

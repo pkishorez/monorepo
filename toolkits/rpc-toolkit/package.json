@@ -59,7 +59,8 @@
   "peerDependencies": {
     "@kestack/std-toolkit": "workspace:*",
     "effect": "^4.0.0",
-    "alchemy": "2.0.0-beta.83"
+    "@alchemy.run/cloudflare": "2.0.0-beta.84",
+    "alchemy": "2.0.0-beta.84"
   },
   "devDependencies": {
     "@effect/platform-node": "catalog:",
@@ -67,6 +68,7 @@
     "@tsconfig/node22": "catalog:",
     "@types/node": "catalog:",
     "@typescript/native": "catalog:",
+    "@alchemy.run/cloudflare": "catalog:",
     "alchemy": "catalog:",
     "effect": "catalog:",
     "laymos": "workspace:*",
@@ -78,6 +80,9 @@
     "@cloudflare/workers-types": "catalog:"
   },
   "peerDependenciesMeta": {
+    "@alchemy.run/cloudflare": {
+      "optional": true
+    },
     "alchemy": {
       "optional": true
     }
