@@ -213,7 +213,7 @@ export const createStore = (flat: Flat, dispatcher: Dispatcher, vim: Vim) => {
   // it; a Focus Spot or element mounting later takes it.
   const settleFocus = () => {
     if (owed === null) return;
-    if (owed !== active) {
+    if (owed !== active || !autoFocus) {
       owed = null;
       return;
     }
@@ -243,8 +243,9 @@ export const createStore = (flat: Flat, dispatcher: Dispatcher, vim: Vim) => {
   };
   // A Focus Spot or element of the Active Surface mounted: if focus was in
   // that Surface and fell to nothing, or out of every Surface, as when its
-  // element was remounted, it goes back.
+  // element was remounted, it goes back; with `autoFocus` off, it stays.
   const mounted = (name: string) => {
+    if (!autoFocus) return;
     if (owed === name) {
       queueMicrotask(settleFocus);
       return;
@@ -374,6 +375,8 @@ export const createStore = (flat: Flat, dispatcher: Dispatcher, vim: Vim) => {
      */
     autoFocus: (on: boolean) => {
       autoFocus = on;
+      // Off, focus owed to a Surface is forgotten: none moves on its own.
+      if (!on) owed = null;
     },
 
     /** Starts hearing the page and Escape, and declaring keys. */
