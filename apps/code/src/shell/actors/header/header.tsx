@@ -67,7 +67,7 @@ export function Title({
     <span className="flex min-w-0 items-center gap-1.5">
       <Router.Link
         to={places.project(machineId, project.id)}
-        className="focus-ring hidden shrink-0 rounded-sm font-normal text-muted-foreground transition-colors duration-150 hover:text-foreground sm:block"
+        className="focus-ring hidden shrink-0 items-center rounded-sm font-normal text-muted-foreground transition-colors duration-150 hover:text-foreground sm:flex sm:min-h-11 sm:min-w-11 keyboard:sm:min-h-0 keyboard:sm:min-w-0"
       >
         {project.name}
       </Router.Link>
@@ -100,11 +100,15 @@ export function Title({
   );
 }
 
-/** The open session's agent and model, quiet, from the `md` width. */
+/**
+ * The open session's agent and model, quiet, from the `md` width with a
+ * keyboard. With none, the Draft's model chip says it, and the title keeps
+ * the room.
+ */
 export function Model({ session }: { readonly session: Session | undefined }) {
   if (session === undefined) return null;
   return (
-    <span className="hidden truncate pr-1 text-xs text-muted-foreground md:block">
+    <span className="hidden truncate pr-1 text-xs text-muted-foreground keyboard:md:block">
       {AGENT[session.harness]} · {session.model}
     </span>
   );
@@ -162,7 +166,20 @@ const pillOf = (health: ReturnType<typeof useHealth>): Pill | null => {
   }
 };
 
-/** While the Machine is out of reach, a pill that says why; nothing otherwise. */
+/** The pill's word on a phone, where the header has room for little else. */
+const shortOf = (health: ReturnType<typeof useHealth>) =>
+  health._tag === 'Down'
+    ? 'Machine down'
+    : health._tag === 'Seen' &&
+        (health.status._tag === 'Unreachable' ||
+          health.status._tag === 'OpenFailed')
+      ? 'Out of reach'
+      : 'Connecting…';
+
+/**
+ * While the Machine is out of reach, a pill that says why, in a word on a
+ * phone; nothing otherwise.
+ */
 export function Offline({ machineId }: { readonly machineId: string }) {
   const health = useHealth(machineId);
   const pill = pillOf(health);
@@ -182,7 +199,8 @@ export function Offline({ machineId }: { readonly machineId: string }) {
         )}
         <span className={`relative size-2 rounded-full ${tone}`} />
       </span>
-      {label}
+      <span className="md:hidden">{shortOf(health)}</span>
+      <span className="max-md:hidden">{label}</span>
     </span>
   );
 }

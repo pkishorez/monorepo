@@ -35,11 +35,11 @@ export function AppShell(props: {
   /** Where a swipe that opens the sidebar may start, on a touch screen. */
   readonly swipe?: 'anywhere' | 'edge' | 'off';
   /**
-   * How the sidebar shows on a phone: `drawer`, the default, slides it in
-   * beside the page; `page` makes it the whole screen, a page of its own,
-   * and the header's button a way back to it.
+   * The Sidebar Mode, how the sidebar shows on a narrow screen: `slide`, the
+   * default, slides it in beside the page; `fullscreen` makes it the whole
+   * screen, a page of its own, and the header's button a way back to it.
    */
-  readonly phone?: 'drawer' | 'page';
+  readonly sidebarMode?: 'slide' | 'fullscreen';
   /** Drawn outside the moving page, told whether the sidebar is open. */
   readonly statusBar?: (open: boolean) => ReactNode;
   /**
@@ -75,7 +75,7 @@ export function AppShell(props: {
         }
         sidebarWidth={sidebar?.width}
         swipe={props.swipe ?? 'anywhere'}
-        phone={props.phone ?? 'drawer'}
+        sidebarMode={props.sidebarMode ?? 'slide'}
         statusBar={props.statusBar}
         className={props.className}
         style={props.style}

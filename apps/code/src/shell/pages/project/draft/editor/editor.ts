@@ -14,7 +14,7 @@ import {
 } from '@codemirror/state';
 import { describe, shortcutOf } from '@kestack/use-keys';
 import { drawSelection, EditorView, keymap } from '@codemirror/view';
-import { useEffect, useRef, type RefObject } from 'react';
+import { useCallback, useEffect, useRef, type RefObject } from 'react';
 import {
   awaitedIn,
   awaiting,
@@ -35,7 +35,10 @@ import { skillChange, slashTrigger } from './slash.ts';
  * it, and it is no step of the history: it is the page's, such as the
  * text clearing once sent. It grows with its content. It is created after
  * mount, so the server renders an empty box of one line's height; its
- * field is then given to `spot`, the Focus Spot focus comes back to.
+ * field is then given to `spot`, the Focus Spot focus comes back to. The
+ * element it is drawn in is `mount`'s: given another, as when the card
+ * around it is drawn anew, the same editor moves into it, its text,
+ * selection and history with it.
  *
  * It can be typed into only while `writing`; otherwise it can still be
  * clicked to place the cursor, or dragged to select, and its selection and
@@ -95,7 +98,10 @@ const changeOf = (put: Put): Change =>
 const fromProps = Annotation.define<boolean>();
 
 export function useEditor(options: EditorOptions): {
+  /** The element it is drawn in, while there is one. */
   readonly parent: RefObject<HTMLDivElement | null>;
+  /** The ref for that element: the editor moves into each one given. */
+  readonly mount: (element: HTMLDivElement | null) => void;
   readonly view: RefObject<EditorView | null>;
   /** Puts text or a Skill in at the selection, as an insert; says whether it went in. */
   readonly insert: (put: Put) => boolean;
@@ -115,6 +121,15 @@ export function useEditor(options: EditorOptions): {
     editable: new Compartment(),
     atoms: new Compartment(),
   }).current;
+
+  const mount = useCallback((element: HTMLDivElement | null) => {
+    parent.current = element;
+    const current = view.current;
+    if (element === null || current === null) return;
+    if (current.dom.parentElement === element) return;
+    element.appendChild(current.dom);
+    current.requestMeasure();
+  }, []);
 
   useEffect(() => {
     const options = latest.current;
@@ -202,6 +217,7 @@ export function useEditor(options: EditorOptions): {
 
   return {
     parent,
+    mount,
     view,
     insert: (put) => {
       if (view.current === null || latest.current.disabled) return false;

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act } from 'react';
 import { createRoot, type Root as ReactRoot } from 'react-dom/client';
-import { Effect, Layer, Schema } from 'effect';
+import { Effect, Layer, Schema, Stream } from 'effect';
 import { AiClient, AiClients } from '@kestack/ai-toolkit/client';
 import { Actor } from '@kestack/kabuki';
 import { toReact, View } from '@kestack/kabuki/react';
@@ -11,6 +11,7 @@ import { Replicas } from '@kestack/std-toolkit/replica';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { keys } from '../../../keys.ts';
 import { session } from '../../places/index.ts';
+import { Moves } from '../../moves/index.ts';
 import * as Picker from '../../../ui/picker/index.ts';
 import { ActionsView, SessionActionsLive } from './actor.ts';
 
@@ -69,7 +70,7 @@ const Actions = View.make(SessionActionsLive, ({ model, children, send }) => {
       },
     });
   return (
-    <Picker.Frame how={model.picking} label="Session actions">
+    <Picker.Frame how={model.picking} mode="drawer" label="Session actions">
       {children.picker && <ActionsView instance={children.picker} />}
     </Picker.Frame>
   );
@@ -105,13 +106,20 @@ const OwnerView = View.make(OwnerLive, ({ model, children, send }) => {
 });
 
 const services = Layer.mergeAll(
-  // Every Machine's client is one that only Settles.
+  // A Settle goes through Moves, which only notes it.
+  Layer.succeed(
+    Moves,
+    Moves.of({
+      intents: Stream.never,
+      refusals: Stream.never,
+      put: ({ sessionId }, to) =>
+        Effect.sync(() => void (to && settled.push(sessionId))),
+      agreed: () => Effect.void,
+    }),
+  ),
   AiClients.make(() =>
     Layer.merge(
-      Layer.mock(AiClient)({
-        settleSession: ({ sessionId }) =>
-          Effect.sync(() => void settled.push(sessionId)),
-      }),
+      Layer.mock(AiClient)({}),
       Layer.mock(RpcConnection)({
         hooks: { onConnect: Effect.void, onDisconnect: Effect.void },
       }),

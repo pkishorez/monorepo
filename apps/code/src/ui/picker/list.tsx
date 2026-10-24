@@ -10,6 +10,9 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
 } from '@kestack/web-platform/ui/components/lucide';
+import { LayerHeader } from '@kestack/web-platform/recipes/touch-layers';
+import { Button } from '@kestack/web-platform/ui/components/button';
+import { cn } from '@kestack/web-platform/ui/components/utils';
 import { describe } from '@kestack/use-keys';
 import { revealInView } from '@kestack/use-keys/surfaces';
 import { Fragment, useEffect, useLayoutEffect, useRef } from 'react';
@@ -26,6 +29,7 @@ import {
   type Spec,
 } from './actor.ts';
 import { isLatest, useOpening } from './opening.ts';
+import { useDrawn } from './shape.ts';
 
 /*
  * The top Step, drawn by cmdk on the isolated `picker` Surface: the trail
@@ -41,7 +45,17 @@ import { isLatest, useOpening } from './opening.ts';
  * or, for choices that take the app somewhere, on to the page;
  * so is leaving it when the owner drops the Picker while it is open, as it
  * does once it has settled a choice, unless another Picker was opened
- * since, which holds the Surface now.
+ * since, which holds the Surface now. The search is the Surface's default
+ * Focus Spot, so it takes focus as the Picker opens.
+ *
+ * On a device with no keyboard, in a Drawer or a Dialog, a header names
+ * the Step, with a button back to the one under it; the keys' hints are
+ * gone, and so is the highlight. A Drawer has no search, nor has a Step
+ * in a Dialog that says it has none. The keyboard moves no focus there:
+ * the search waits to be tapped, unless its Frame opts in with
+ * `focusOnTouch`, when the Dialog focuses it once it is on screen. With no
+ * Mod+Enter to finish with, a Step that finishes on itself has a button
+ * at the foot that does.
  */
 
 // The keys cmdk picks and moves with, which are the Surface's to decide.
@@ -63,6 +77,9 @@ export function List<P>({
   const { query, highlighted } = model.step;
   const { enter, leave } = keys.useKeyboard();
   const search = keys.useFocusSpot('picker', 'search', { default: true });
+  const { shape, label, focusOnTouch } = useDrawn();
+  const touch = shape === 'drawer' || shape === 'dialog';
+  const searched = shape !== 'drawer' && (!touch || shown.search);
   const close = (choices: ReadonlyArray<Choice>) => {
     leave('picker');
     if (spec.lands?.(choices) === true) enter('content');
@@ -148,9 +165,10 @@ export function List<P>({
 
   const { groups } = shown;
   const trail = [
-    ...model.choices.map(({ label }) => label),
+    ...model.choices.map((choice) => choice.label),
     ...(shown.title === null ? [] : [shown.title]),
   ];
+  const back = () => send({ _tag: 'Back' });
   return (
     <keys.Surface id="picker" asChild onExit={() => send({ _tag: 'Closed' })}>
       <Command
@@ -164,9 +182,19 @@ export function List<P>({
         onKeyDown={(event) => {
           if (CMDK_KEYS.has(event.key)) event.preventDefault();
         }}
-        className="rounded-none! bg-transparent max-md:min-h-0 max-md:flex-1"
+        className={cn(
+          'rounded-none! bg-transparent',
+          touch && 'min-h-0 flex-1',
+        )}
       >
-        {trail.length > 0 && (
+        {touch && (
+          <LayerHeader
+            // The Step's own name, else the choice that opened it, else the Picker's.
+            title={shown.title ?? model.choices.at(-1)?.label ?? label}
+            {...(model.below.length > 0 ? { onBack: back } : {})}
+          />
+        )}
+        {!touch && trail.length > 0 && (
           <nav
             aria-label="Chosen so far"
             className="flex min-w-0 items-center gap-1 px-2 pt-1 pb-1.5 text-xs text-muted-foreground"
@@ -178,7 +206,7 @@ export function List<P>({
                 title={
                   hint('picker.back') ? `Back (${hint('picker.back')})` : 'Back'
                 }
-                onClick={() => send({ _tag: 'Back' })}
+                onClick={back}
                 className="focus-ring -ml-1 grid size-5 shrink-0 place-items-center rounded-sm hover:bg-muted hover:text-foreground"
               >
                 <ChevronLeftIcon aria-hidden className="size-3.5" />
@@ -201,17 +229,23 @@ export function List<P>({
             ))}
           </nav>
         )}
-        <CommandInput
-          ref={search}
-          value={query}
-          onValueChange={(next) => send({ _tag: 'Typed', query: next })}
-          placeholder={shown.placeholder}
-          // 16px on a phone, or iOS zooms in as it is focused.
-          className="max-md:text-base"
-        />
+        {searched && (
+          <CommandInput
+            ref={search}
+            value={query}
+            onValueChange={(next) => send({ _tag: 'Typed', query: next })}
+            placeholder={shown.placeholder}
+            // Opted in, a Dialog focuses it once it is on screen.
+            data-autofocus={(shape === 'dialog' && focusOnTouch) || undefined}
+          />
+        )}
         <CommandList
           ref={list}
-          className="max-h-[min(22rem,55dvh)] max-md:max-h-none max-md:flex-1"
+          className={
+            touch
+              ? 'max-h-none min-h-0 flex-1 overscroll-contain'
+              : 'max-h-[min(22rem,55dvh)]'
+          }
         >
           <CommandEmpty
             className={
@@ -235,11 +269,11 @@ export function List<P>({
                 >
                   <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                     <span className="flex min-w-0 items-baseline gap-2">
-                      <span className="shrink-0 font-medium">
+                      <span className="max-w-full shrink-0 truncate font-medium">
                         <Highlighted text={entry.label} matched={matched} />
                       </span>
                       {entry.hint !== undefined && (
-                        <span className="ml-auto truncate text-xs text-muted-foreground tabular-nums">
+                        <span className="ml-auto min-w-0 truncate text-xs text-muted-foreground tabular-nums">
                           {entry.hint}
                         </span>
                       )}
@@ -271,17 +305,30 @@ export function List<P>({
             </p>
           )}
         </CommandList>
-        <p
-          aria-hidden
-          className="flex gap-3 border-t border-border px-3 py-1.5 text-[11px] text-muted-foreground touch:hidden keyboard:flex"
-        >
-          <span>{hint('picker.pick')} pick</span>
-          <span>{hint('picker.finish')} done</span>
-          {canBack && <span>{hint('picker.back')} back</span>}
-          <span className="ml-auto">
-            {query === '' ? 'esc close' : `${hint('picker.clear')} clear`}
-          </span>
-        </p>
+        {touch && shown.done !== null && (
+          <div className="shrink-0 border-t border-border p-3">
+            <Button
+              className="h-11 w-full text-base"
+              disabled={!finishes(spec, model, props)}
+              onClick={finish}
+            >
+              {shown.done}
+            </Button>
+          </div>
+        )}
+        {!touch && (
+          <p
+            aria-hidden
+            className="flex gap-3 border-t border-border px-3 py-1.5 text-[11px] text-muted-foreground touch:hidden keyboard:flex"
+          >
+            <span>{hint('picker.pick')} pick</span>
+            <span>{hint('picker.finish')} done</span>
+            {canBack && <span>{hint('picker.back')} back</span>}
+            <span className="ml-auto">
+              {query === '' ? 'esc close' : `${hint('picker.clear')} clear`}
+            </span>
+          </p>
+        )}
       </Command>
     </keys.Surface>
   );

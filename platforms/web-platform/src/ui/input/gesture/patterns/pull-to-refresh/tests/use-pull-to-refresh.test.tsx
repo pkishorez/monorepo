@@ -109,6 +109,22 @@ describe('usePullToRefresh', () => {
     expect(onRefresh).not.toHaveBeenCalled();
   });
 
+  it('jumps back under reduced motion, rather than springing', async () => {
+    MotionGlobalConfig.instantAnimations = false;
+    const matchMedia = window.matchMedia;
+    window.matchMedia = (query: string) =>
+      ({ matches: query.includes('reduce') }) as MediaQueryList;
+    try {
+      render(vi.fn());
+      drag(100);
+      expect(pull.y.get()).toBeGreaterThan(0);
+      act(() => pointer('pointerup', 100));
+      expect(pull.y.get()).toBe(0);
+    } finally {
+      window.matchMedia = matchMedia;
+    }
+  });
+
   it('reaches its distance at twice the pull', () => {
     expect(resist(144, 144)).toBe(72);
   });

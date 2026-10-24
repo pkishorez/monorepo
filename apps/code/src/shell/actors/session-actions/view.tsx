@@ -9,7 +9,9 @@ import { ActionsView, SessionActionsLive } from './actor.ts';
 
 /*
  * Session Actions, by the header's button while a session is open, where
- * a click opens them as a popover; `a` opens them centred.
+ * a click opens them as a popover; `a` opens them centred. A tap opens
+ * them in a Drawer. On a phone the button is the header's only one, a
+ * finger wide.
  */
 
 export const SessionActionsView = View.make(
@@ -31,6 +33,7 @@ export const SessionActionsView = View.make(
     return (
       <Picker.Frame
         how={model.picking}
+        mode="drawer"
         label="Session actions"
         onOpen={() => send({ _tag: 'Open', how: 'pointer', ...at })}
         side="bottom"
@@ -44,7 +47,7 @@ export const SessionActionsView = View.make(
             title={
               bound === null ? 'Session actions' : `Session actions (${bound})`
             }
-            className="shrink-0 text-muted-foreground"
+            className="size-11 shrink-0 text-muted-foreground keyboard:md:size-8 max-md:order-last max-md:rounded-full [&_svg]:size-5 keyboard:md:[&_svg]:size-4"
           >
             <EllipsisIcon aria-hidden />
           </Button>

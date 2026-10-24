@@ -16,6 +16,8 @@ export const config = (
   builtAt: null,
   commit: null,
   name: 'App',
+  title: 'App',
+  splash: false,
   manifestUrl: '/manifest.webmanifest',
   appleTouchIconUrl: null,
   ...overrides,

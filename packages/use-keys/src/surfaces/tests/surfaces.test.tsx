@@ -155,6 +155,7 @@ function Reply() {
 
 function Mail(props: {
   readonly on?: boolean;
+  readonly autoFocus?: boolean;
   readonly replyOutside?: boolean;
   readonly bindings?: Parameters<typeof keys.Provider>[0]['bindings'];
   readonly appearance?: Parameters<typeof keys.Provider>[0]['appearance'];
@@ -164,6 +165,7 @@ function Mail(props: {
   return (
     <keys.Provider
       vim={props.on ?? true}
+      {...(props.autoFocus !== undefined && { autoFocus: props.autoFocus })}
       {...(props.bindings && { bindings: props.bindings })}
       {...(props.appearance && { appearance: props.appearance })}
     >
@@ -684,6 +686,50 @@ describe('Focus Spots', () => {
     act(() => keyboard.enter('list'));
     await settle();
     expect(document.activeElement).toBe(field('search'));
+  });
+
+  it('take no focus on their own with autoFocus off, only where the user puts it', async () => {
+    render(<Mail autoFocus={false}>{spots}</Mail>);
+    act(() => keyboard.enter('list'));
+    await settle();
+    expect(document.activeElement).toBe(document.body);
+    await focus('[data-field="search"]');
+    act(() => keyboard.enter('sidebar'));
+    await act(async () => (document.activeElement as HTMLElement).blur());
+    act(() => keyboard.enter('list'));
+    await settle();
+    expect(document.activeElement).toBe(document.body);
+  });
+
+  it('take no focus as they mount again with autoFocus off, after the user had put it there', async () => {
+    // A layer's search, as a Picker's on a device with no keyboard.
+    function Search() {
+      const ref = keys.useFocusSpot('palette', 'search', { default: true });
+      return <input ref={ref} data-field="palette" />;
+    }
+    function Palette() {
+      if (!keys.useSurface('palette').active) return null;
+      return (
+        <keys.Surface id="palette">
+          <Search />
+        </keys.Surface>
+      );
+    }
+    render(
+      <Mail autoFocus={false}>
+        <Palette />
+      </Mail>,
+    );
+    act(() => keyboard.enter('palette'));
+    await settle();
+    expect(document.activeElement).toBe(document.body);
+    await focus('[data-field="palette"]');
+    act(() => keyboard.leave('palette'));
+    await settle();
+    expect(document.activeElement).toBe(document.body);
+    act(() => keyboard.enter('palette'));
+    await settle();
+    expect(document.activeElement).toBe(document.body);
   });
 
   it('enter their Surface when focused, wherever they are drawn', async () => {

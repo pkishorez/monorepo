@@ -7,6 +7,7 @@ import {
   COMMIT_META_NAME,
 } from '../../../engine/shared/build/index.js';
 import type { ClientBuildInfo } from '../../../engine/shared/config/index.js';
+import { splashScreens } from '../../splash/index.ts';
 import { headTags } from '../head.js';
 import { PwaProvider, pwaHead, usePwa } from '../index.js';
 
@@ -19,6 +20,8 @@ const info: ClientBuildInfo = {
   builtAt: null,
   commit: null,
   name: 'App',
+  title: 'App',
+  splash: false,
   manifestUrl: '/manifest.webmanifest',
   appleTouchIconUrl: '/icons/apple-touch-icon.png',
 };
@@ -38,7 +41,7 @@ describe('hooks during SSR', () => {
 });
 
 describe('pwaHead', () => {
-  it('lists the manifest, Apple icon, Build ID, build time and commit', () => {
+  it('lists the manifest, Apple icon and title, Build ID, build time and commit', () => {
     const version = {
       buildId: 'abc',
       builtAt: '2026-09-27T10:00:00.000Z',
@@ -47,6 +50,7 @@ describe('pwaHead', () => {
     expect(headTags(info, version)).toEqual({
       meta: [
         { name: 'mobile-web-app-capable', content: 'yes' },
+        { name: 'apple-mobile-web-app-title', content: 'App' },
         { name: BUILD_ID_META_NAME, content: 'abc' },
         { name: BUILT_AT_META_NAME, content: '2026-09-27T10:00:00.000Z' },
         { name: COMMIT_META_NAME, content: 'abc1234' },
@@ -66,7 +70,23 @@ describe('pwaHead', () => {
     expect(bare.links).toEqual([
       { rel: 'manifest', href: '/manifest.webmanifest' },
     ]);
-    expect(bare.meta.map((m) => m.name)).toEqual(['mobile-web-app-capable']);
+    expect(bare.meta.map((m) => m.name)).toEqual([
+      'mobile-web-app-capable',
+      'apple-mobile-web-app-title',
+    ]);
+  });
+
+  it('leaves iOS out of its legacy mode unless the app draws a Splash', () => {
+    const none = { buildId: null, builtAt: null, commit: null };
+    const capable = { name: 'apple-mobile-web-app-capable', content: 'yes' };
+    const startup = (tags: ReturnType<typeof headTags>) =>
+      tags.links.filter((link) => link.rel === 'apple-touch-startup-image');
+    const plain = headTags(info, none);
+    expect(plain.meta).not.toContainEqual(capable);
+    expect(startup(plain)).toEqual([]);
+    const splash = headTags({ ...info, splash: true }, none);
+    expect(splash.meta).toContainEqual(capable);
+    expect(startup(splash)).toHaveLength(splashScreens.length);
   });
 
   it('reuses the server-rendered tags in the browser', () => {

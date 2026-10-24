@@ -277,23 +277,32 @@ keys are kept in Device State, handed to the Keys Provider, listed by
 `?`, and named in every title and hint, as bound. Whether the sidebar is shown is not kept: the App Shell
 holds it, open on a wide screen.
 
-On a phone the sidebar is home: the App Shell's `phone="page"` makes it
+On a phone the sidebar is home: the App Shell's `sidebarMode="fullscreen"` makes it
 the whole screen, with the Project Picker's plus floating in its bottom
 right corner and the theme and the Account at its foot. Opening a session
 slides it away, and the header's back arrow, or a swipe from the left
-edge, brings it back. Pickers fill the screen, the header keeps only where
-you are and Session Actions, and a touch screen with no keyboard is shown
+edge, brings it back. On a touch screen a session row swipes left to right
+to Settle it, or, in the Settled List, to un-Settle it: it slides out, the
+list closes up, and a toast offers Undo for five seconds; pulling the
+sidebar down from its top Reloads the Machines. Pickers fill the screen,
+the header keeps only where you are, the Machine's offline mark and one
+`⋯` for Session Actions, and a touch screen with no keyboard is shown
 no keys: no hints, no Vim status line, no keyboard settings. Vim Mode is off
-on a phone whatever is kept, and back as kept once the screen is wide. The Draft's
+on a device with no keyboard whatever is kept, however wide its screen, and
+nothing takes focus as it opens there, a Picker's search included. The Draft's
 one round button is the microphone while there is nothing to send, Send
 once there is, and a stop while a Dictation records; a narrow Draft folds
-Skills, the paperclip and the microphone behind a "+".
+Skills, the paperclip and the microphone behind a "+". With no keyboard the
+Draft is read only and two lines tall until its edit button makes it the
+Composer; under it the microphone sits in the middle, largest, beside a `+`
+Drawer (a file, a photo, the microphone), a model chip whose Drawer changes
+effort and permissions in place, Skills, and Send.
 
 The app is a PWA ([`@kestack/web-platform/pwa`](../../platforms/web-platform/README.md)):
-"Code" installs with its Mark as the icon (`public/`), each page works
-offline as its Render Mode says (a page never opened there boots from the
-App Shell), and a new version waits for "Reload" instead of reloading
-under you.
+"Code" installs with its Mark as the icon (`public/`), opens on iOS to a
+Splash of the Mark and its name, each page works offline as its Render
+Mode says (a page never opened there boots from the App Shell), and a new
+version waits for "Reload" instead of reloading under you.
 
 ## Usage
 
@@ -321,6 +330,8 @@ pnpm --filter @kestack/ai-toolkit dev:local
   shows up beside the others.
 - `pnpm --filter code lint` checks types and the Laymos Rules; `pnpm --filter
   code test` runs the tests. Videos recorded under `qa/` stay local.
+- `pnpm --filter code draw:install` redraws the iOS Splash and the
+  manifest's screenshots into `public/`, after a build of the packages.
 
 ### Run with the Machines Backend, and deploy
 

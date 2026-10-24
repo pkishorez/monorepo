@@ -4,7 +4,15 @@ import { createRoot, type Root as ReactRoot } from 'react-dom/client';
 import { Effect, Layer, Schema } from 'effect';
 import { Actor } from '@kestack/kabuki';
 import { toReact, View } from '@kestack/kabuki/react';
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+} from 'vitest';
 import { keys } from '../../keys.ts';
 import { Frame, How, make } from './picker.tsx';
 
@@ -12,10 +20,17 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
 /*
  * A Picker under an owner, on the app's own keyboard: a fruit, then its
- * size, which the owner loads. The page has an editor as its default Focus
- * Spot; every way the Picker closes puts focus back in it, and the owner
- * hears the choices once.
+ * size, which the owner loads, a Step with no search. The page has an
+ * editor as its default Focus Spot; every way the Picker closes puts focus
+ * back in it, and the owner hears the choices once. On a device with no
+ * keyboard it is drawn in the Picker Mode its opener chose, the app's
+ * keyboard moves no focus, and nothing focuses the search unless it opts
+ * in, and then only once the Dialog is on screen.
  */
+
+let optIn = false;
+// The Picker Mode the page opens it in.
+let mode: 'drawer' | 'dialog' = 'dialog';
 
 const Fruit = make('FruitPicker', {
   props: Schema.Struct({ ripe: Schema.Boolean }),
@@ -32,6 +47,7 @@ const Fruit = make('FruitPicker', {
       next: (row) => ({ id: 'size', key: row.value }),
     },
     size: {
+      search: false,
       placeholder: ({ key }) => `Search sizes of ${key}`,
       next: () => null,
     },
@@ -125,7 +141,9 @@ function Page({
       />
       <Frame
         how={how}
+        mode={mode}
         label="Fruit"
+        focusOnTouch={optIn}
         onOpen={() => onOpen('pointer')}
         trigger={
           <button type="button" data-testid="trigger">
@@ -147,6 +165,8 @@ let ping = () => {};
 let drop = () => {};
 let pings = 0;
 let bindings: Readonly<Record<string, string>> = {};
+// What the device can be driven by: a keyboard, else touch alone.
+let device: 'keyboard' | 'touch' = 'keyboard';
 
 const OwnerView = View.make(OwnerLive, ({ model, children, send }) => {
   owner = { chosen: model.chosen, done: model.done };
@@ -154,7 +174,8 @@ const OwnerView = View.make(OwnerLive, ({ model, children, send }) => {
   drop = () => send({ _tag: 'Drop' });
   pings = model.pings;
   return (
-    <keys.Provider vim bindings={bindings}>
+    // As the app's keyboard: focus moves on its own only with a keyboard.
+    <keys.Provider vim bindings={bindings} autoFocus={device === 'keyboard'}>
       <Page how={model.picking} onOpen={(how) => send({ _tag: 'Open', how })}>
         {children.picker && <Fruit.View instance={children.picker} />}
       </Page>
@@ -247,6 +268,10 @@ beforeAll(() => {
 beforeEach(async () => {
   owner = { chosen: null, done: 0 };
   bindings = {};
+  document.documentElement.toggleAttribute(
+    'data-keyboard',
+    device === 'keyboard',
+  );
   // A History is kept under its app's name across mounts: one name each.
   const App = toReact(OwnerLive, OwnerView, Layer.empty, {
     name: `picker-test-${apps++}`,
@@ -364,6 +389,17 @@ describe('Picker', () => {
     expect(search()).not.toBeNull();
   });
 
+  it('draws by how it was opened, whatever its Picker Mode', async () => {
+    mode = 'drawer';
+    await openByKeys();
+    expect(document.querySelector('[data-slot="touch-drawer"]')).toBeNull();
+    expect(document.querySelector('[data-slot="top-dialog"]')).toBeNull();
+    expect(
+      document.querySelector('[data-slot="dialog-content"]'),
+    ).not.toBeNull();
+    mode = 'dialog';
+  });
+
   it('opens by pointer from its trigger, and gives focus back to the editor', async () => {
     await click(by('trigger'));
     expect(search()).not.toBeNull();
@@ -375,5 +411,180 @@ describe('Picker', () => {
     await flush();
     expect(owner).toEqual({ chosen: ['apple', 'apple-small'], done: 1 });
     expect(document.activeElement).toBe(by('editor'));
+  });
+});
+
+describe('Picker, on a device with no keyboard', () => {
+  beforeAll(() => {
+    device = 'touch';
+  });
+  afterAll(() => {
+    device = 'keyboard';
+  });
+  afterEach(() => {
+    optIn = false;
+    mode = 'dialog';
+    letFramesGo();
+  });
+  // Animation frames held, to run one at a time with `frame`: jsdom fires
+  // them on a timer of its own, which a slow run can reach early.
+  let held: Array<FrameRequestCallback> | null = null;
+  const { requestAnimationFrame: request, cancelAnimationFrame: cancel } =
+    window;
+  const holdFrames = () => {
+    const frames: Array<FrameRequestCallback> = [];
+    held = frames;
+    window.requestAnimationFrame = (callback) => frames.push(callback);
+    window.cancelAnimationFrame = (id) => {
+      delete frames[id - 1];
+    };
+  };
+  const letFramesGo = () => {
+    held = null;
+    window.requestAnimationFrame = request;
+    window.cancelAnimationFrame = cancel;
+  };
+  const dialog = () => document.querySelector('[data-slot="top-dialog"]');
+  const drawer = () => document.querySelector('[data-slot="touch-drawer"]');
+  const title = () =>
+    document.querySelector('[data-slot="layer-header"] h2')?.textContent;
+  const button = (label: string) =>
+    document.querySelector<HTMLElement>(`button[aria-label="${label}"]`);
+  /** A tap on the page outside the Picker. */
+  const outside = async () => {
+    await act(async () => {
+      const target = document.body;
+      for (const type of ['pointerdown', 'mousedown', 'pointerup', 'mouseup'])
+        target.dispatchEvent(
+          new (type.startsWith('pointer') ? PointerEvent : MouseEvent)(type, {
+            bubbles: true,
+            button: 0,
+          }),
+        );
+      target.click();
+    });
+    await flush();
+  };
+  /** Runs the frames asked for so far, as the next frame would. */
+  const frame = () =>
+    act(async () => {
+      const frames = held!.splice(0);
+      for (const callback of frames) callback?.(performance.now());
+    });
+  const row = (label: string) =>
+    [...document.querySelectorAll<HTMLElement>('[cmdk-item]')].find(
+      (item) => item.textContent === label,
+    )!;
+
+  it('opens without focusing its search, however it was opened', async () => {
+    await openByKeys();
+    expect(document.activeElement).not.toBe(search());
+    expect(rows()).toEqual(['Apple', 'Pear', 'PlumOut of season']);
+    await click(row('Apple'));
+    expect(rows()).toEqual(['Small', 'Large']);
+    await click(row('Small'));
+    await flush();
+    expect(owner).toEqual({ chosen: ['apple', 'apple-small'], done: 1 });
+    await click(by('trigger'));
+    expect(search()).not.toBeNull();
+    expect(document.activeElement).not.toBe(search());
+  });
+
+  it('draws the Picker Mode its opener chose, not the width', async () => {
+    await openByKeys();
+    expect(dialog()).not.toBeNull();
+    expect(drawer()).toBeNull();
+    expect(search()).not.toBeNull();
+    expect(document.querySelector('[data-slot="popover-content"]')).toBeNull();
+    // Not Escape: a key pressed outside a field is a real keyboard.
+    await outside();
+    expect(dialog()).toBeNull();
+    mode = 'drawer';
+    await click(by('trigger'));
+    expect(drawer()).not.toBeNull();
+    expect(dialog()).toBeNull();
+    // A Drawer never has a search.
+    expect(search()).toBeNull();
+    expect(rows()).toEqual(['Apple', 'Pear', 'PlumOut of season']);
+  });
+
+  it('names each Step in its header, goes back from it, and hides the search of a Step without one', async () => {
+    await openByKeys();
+    expect(title()).toBe('Fruit');
+    expect(button('Back')).toBeNull();
+    await click(row('Pear'));
+    expect(title()).toBe('Pear');
+    expect(search()).toBeNull();
+    expect(rows()).toEqual(['Small', 'Large']);
+    await click(button('Back')!);
+    expect(title()).toBe('Fruit');
+    expect(search()?.placeholder).toBe('Search fruit');
+  });
+
+  it('takes focus from its search on a tap outside, and closes on the next', async () => {
+    await openByKeys();
+    await act(async () => search()!.focus());
+    expect(document.activeElement).toBe(search());
+    await outside();
+    expect(document.activeElement).not.toBe(search());
+    expect(dialog()).not.toBeNull();
+    expect(owner.done).toBe(0);
+    await outside();
+    expect(dialog()).toBeNull();
+    expect(owner).toEqual({ chosen: null, done: 1 });
+  });
+
+  it('focuses its search only once the Dialog is on screen, when the Picker opts in', async () => {
+    optIn = true;
+    holdFrames();
+    await openByKeys();
+    expect(dialog()).not.toBeNull();
+    expect(document.activeElement).not.toBe(search());
+    await frame();
+    await frame();
+    await frame();
+    expect(document.activeElement).toBe(search());
+  });
+
+  // Opted in as the page is drawn, as an opener's Frame is.
+  describe('opted in', () => {
+    beforeAll(() => {
+      optIn = true;
+    });
+
+    it('raises the keyboard in the tap that opens it, for its search to take', async () => {
+      holdFrames();
+      let raised: Element | null = null;
+      await act(async () => {
+        const target = by('trigger');
+        for (const type of ['pointerdown', 'mousedown', 'pointerup', 'mouseup'])
+          target.dispatchEvent(
+            new (type.startsWith('pointer') ? PointerEvent : MouseEvent)(type, {
+              bubbles: true,
+              button: 0,
+            }),
+          );
+        target.click();
+        // In the tap itself: iOS raises its keyboard only then.
+        raised = document.activeElement;
+      });
+      expect(raised).toBeInstanceOf(HTMLInputElement);
+      expect(raised).not.toBe(search());
+      expect((raised as unknown as HTMLInputElement).style.fontSize).toBe(
+        '16px',
+      );
+      await flush();
+      expect(dialog()).not.toBeNull();
+      await frame();
+      await frame();
+      await frame();
+      expect(document.activeElement).toBe(search());
+      expect((raised as unknown as HTMLInputElement).isConnected).toBe(false);
+    });
+  });
+
+  it('raises no keyboard in the tap when the Picker does not opt in', async () => {
+    await act(async () => by('trigger').click());
+    expect(document.activeElement).not.toBeInstanceOf(HTMLInputElement);
   });
 });

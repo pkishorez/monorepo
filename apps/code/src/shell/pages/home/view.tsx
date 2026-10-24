@@ -42,19 +42,30 @@ import { HomeLive } from './actor.ts';
 /** Opens the Project Picker, as its keys do. */
 function OpenProject({ variant }: { readonly variant: 'default' | 'outline' }) {
   const available = keys.useAvailableActions();
-  const bound = useBound('app.projects');
-  const action = available.find(({ id }) => id === 'app.projects');
+  const quick = useBound('app.projects');
+  const anywhere = useBound('app.projectsAnywhere');
+  // `o` is Vim Mode's; out of it, as with no keyboard, the one that works
+  // anywhere opens it.
+  const action =
+    available.find(({ id }) => id === 'app.projects') ??
+    available.find(({ id }) => id === 'app.projectsAnywhere');
+  const bound = action?.id === 'app.projects' ? quick : anywhere;
   return (
     <Button
       type="button"
       variant={variant}
       disabled={action === undefined}
       onClick={() => action?.run()}
-      className="self-start"
+      className="h-11 self-start keyboard:h-9"
     >
       <FolderPlusIcon aria-hidden />
       Open a folder
-      {bound !== null && <span className="text-xs opacity-70">{bound}</span>}
+      {/* Its key means nothing with no keyboard. */}
+      {bound !== null && (
+        <span className="hidden text-xs opacity-70 keyboard:inline">
+          {bound}
+        </span>
+      )}
     </Button>
   );
 }

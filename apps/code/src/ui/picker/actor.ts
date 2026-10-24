@@ -149,6 +149,11 @@ interface Listing {
 export interface StepSpec<P> {
   /** What the search field asks while it is empty. */
   readonly placeholder: (at: At<P>) => string;
+  /**
+   * False for a Step of a few rows with nothing worth typing, such as a
+   * setting's choices: on a device with no keyboard it shows no search.
+   */
+  readonly search?: boolean;
   /** The last crumb of the trail, naming this Step; null when the choice that opened it does. */
   readonly title?: (at: At<P>) => string | null;
   /** Said when no row matches. */
@@ -179,6 +184,12 @@ export interface StepSpec<P> {
   readonly scope?: (query: string) => string;
   /** What finishing ends on: the highlighted row, or this Step itself, with the choices that opened it. */
   readonly finishes?: 'row' | 'step';
+  /**
+   * What the button that finishes on this Step itself says, such as "Open
+   * this folder": on a device with no keyboard to finish with, a Step that
+   * `finishes` on itself shows one.
+   */
+  readonly done?: (at: At<P>) => string;
   /** The owner settles what is chosen here: the Picker waits for it, and says why when it refuses. */
   readonly settles?: boolean;
 }
@@ -258,6 +269,8 @@ export const shownOf = <P>(spec: Spec<P>, model: Model, props: P) => {
     loading: waiting,
     problem: model.refused ?? listing.problem ?? null,
     placeholder: own?.placeholder(at) ?? '',
+    search: own?.search !== false,
+    done: own?.finishes === 'step' ? (own.done?.(at) ?? 'Choose') : null,
     title: own?.title?.(at) ?? null,
     empty: own?.empty?.(at) ?? 'Nothing by that name',
   };

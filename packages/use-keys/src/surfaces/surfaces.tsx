@@ -156,6 +156,14 @@ export type ProviderProps<D> = {
   readonly vim?: boolean;
   /** Asked to turn Vim Mode on or off, as from the status bar. */
   readonly onVimChange?: (on: boolean) => void;
+  /**
+   * Whether focus follows the Active Surface on its own, into a Surface
+   * entered, such as its default Focus Spot, and back to one returned to.
+   * On by default. Turn it off on a device with no keyboard, where a field
+   * taking focus raises the on-screen one: focus moves only where the user
+   * puts it.
+   */
+  readonly autoFocus?: boolean;
   readonly timing?: Timing;
   /** Class names for every Surface, each state on its own. */
   readonly appearance?: Appearance;
@@ -275,6 +283,7 @@ function make(definition: Definition): Keys<Definition> {
   };
 
   function Surfaces(props: {
+    readonly autoFocus: boolean;
     readonly appearance: Appearance | undefined;
     readonly bindings: object;
     readonly children: ReactNode;
@@ -284,6 +293,10 @@ function make(definition: Definition): Keys<Definition> {
     const [store] = useState(() => createStore(flat, dispatcher, vim));
     const said = JSON.stringify(props.bindings);
     useLayoutEffect(() => store.bind(JSON.parse(said)), [store, said]);
+    useLayoutEffect(
+      () => store.autoFocus(props.autoFocus),
+      [store, props.autoFocus],
+    );
     useLayoutEffect(() => store.attach(), [store]);
     const { active, parent, inactive } = props.appearance ?? {};
     const appearance = useMemo(
@@ -315,6 +328,7 @@ function make(definition: Definition): Keys<Definition> {
         sequence={{ timeout: timing?.sequence ?? DEFAULT_SEQUENCE }}
       >
         <Surfaces
+          autoFocus={props.autoFocus ?? true}
           appearance={props.appearance}
           bindings={props.bindings ?? NO_BINDINGS}
         >

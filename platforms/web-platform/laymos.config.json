@@ -150,6 +150,7 @@
       "src/pwa/engine/client",
       "src/pwa/engine/shared/build",
       "src/pwa/engine/shared/config",
+      "src/pwa/prompts/splash",
       "src/ui/components"
     ],
     "src/recipes": ["src/ui/components", "src/ui/input"],

@@ -37,8 +37,10 @@
       "src/shell/places",
       "src/shell/refusal",
       "src/shell/replica",
-      "src/shell/connection"
+      "src/shell/connection",
+      "src/shell/moves"
     ],
+    "src/shell/moves": ["src/shell/refusal"],
     "src/shell/pages": [
       "src/shell/places",
       "src/shell/refusal",
@@ -46,6 +48,7 @@
       "src/shell/connection",
       "src/shell/actors/dictation"
     ],
+    "src/shell/actors/sidebar/settled-list": ["src/shell/actors/sidebar/swipe"],
     "src/shell/pages/project/capabilities": ["src/shell/pages/project/catalog"],
     "src/shell/pages/project/session": ["src/shell/pages/project/draft"],
     "src/shell/pages/project/draft": [

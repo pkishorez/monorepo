@@ -262,30 +262,34 @@ How a person drives the app: the device, touch gestures, keys and sounds.
 
 The PWA on the page.
 
-| Export                  | What it does                                                                                                                      |
-| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `PwaHead`               | The PWA's head tags for a Kabuki Start Document's `head`: the manifest link, the Apple icon and the Build ID.                     |
-| `Pwa`                   | Around the app in the Document: registers the worker, shows the Update Prompt while a new version waits, and offers install once. |
-| `PwaProvider`           | Registers the worker after mount and gives `usePwa` its Status; `Pwa` renders it.                                                 |
-| `pwaHead`               | Head tags: manifest link, Apple icon, and meta tags for the Build ID, build time and commit.                                      |
-| `usePwa`                | The Status with `checkForUpdate` and `applyUpdate` (`Unsupported` before mount), and the page's `version`.                        |
-| `clearRuntimeCache`     | Deletes every Runtime Cache; works outside `PwaProvider`, for example in sign-out.                                                |
-| `UpdatePrompt`          | Persistent toast while an update is ready; accepting it reloads every page into it.                                               |
-| `splashHead`            | The iOS startup image tags, one per screen iOS matches.                                                                           |
-| `splashScreens`         | Each splash image's size, its `/splash/<w>x<h>.png` path, and the screen it is for, for an app to draw them.                      |
-| `useInstall`            | Install state with `prompt` and `dismiss` (remembered 30 days); call it in the root to catch the browser's offer.                 |
-| `InstallPrompt`         | Bottom sheet on small screens, corner card on larger ones, manual steps on iOS Safari.                                            |
-| `Install`               | The Effect service behind `useInstall`, with its `layer`.                                                                         |
-| `InstallState`          | Tagged enum `Unsupported`, `Available`, `ManualIos`, `Installed`, `Dismissed`.                                                    |
-| `IosSteps`              | The Share, then Add to Home Screen steps `InstallPrompt` shows on iOS Safari, for an app's own install screen.                    |
-| `isIosSafari`           | Whether a `navigator` is Safari on iOS or iPadOS, where install has no API and only those steps work.                             |
-| `useOnline`             | Whether the browser is online; `true` before mount.                                                                               |
-| `OfflineIndicator`      | "You're offline" pill in a live region, stacked above sheets.                                                                     |
-| `Online`                | The Effect service behind `useOnline`, with its `layer`.                                                                          |
-| `useDisplayMode`        | The display mode, such as `browser` or `standalone`; `browser` before mount.                                                      |
-| `DisplayMode`           | The Effect service behind `useDisplayMode`, with its `layer`.                                                                     |
-| `useStoragePersistence` | Persisted flag with `persist` and `estimate`; `null` while unknown.                                                               |
-| `StoragePersistence`    | The Effect service behind `useStoragePersistence`, with its `layer`.                                                              |
+| Export                  | What it does                                                                                                                        |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `PwaHead`               | The PWA's head tags for a Kabuki Start Document's `head`: the manifest link, the Apple icon and title, the Splash and the Build ID. |
+| `Pwa`                   | Around the app in the Document: registers the worker, shows the Update Prompt while a new version waits, and offers install once.   |
+| `PwaProvider`           | Registers the worker after mount and gives `usePwa` its Status; `Pwa` renders it.                                                   |
+| `pwaHead`               | Head tags: manifest link, Apple icon, and meta tags for the Build ID, build time and commit.                                        |
+| `usePwa`                | The Status with `checkForUpdate` and `applyUpdate` (`Unsupported` before mount), and the page's `version`.                          |
+| `clearRuntimeCache`     | Deletes every Runtime Cache; works outside `PwaProvider`, for example in sign-out.                                                  |
+| `UpdatePrompt`          | Persistent toast while an update is ready; accepting it reloads every page into it.                                                 |
+| `splashHead`            | The iOS startup image tags, one per screen iOS matches.                                                                             |
+| `splashScreens`         | Each splash image's size, its `/splash/<w>x<h>.png` path, and the screen it is for, for an app to draw them.                        |
+| `useInstall`            | Install state with `prompt` and `dismiss` (remembered 30 days); call it in the root to catch the browser's offer.                   |
+| `InstallPrompt`         | Bottom sheet on small screens, corner card on larger ones, manual steps on iOS Safari.                                              |
+| `Install`               | The Effect service behind `useInstall`, with its `layer`.                                                                           |
+| `InstallState`          | Tagged enum `Unsupported`, `Available`, `ManualIos`, `Installed`, `Dismissed`.                                                      |
+| `IosSteps`              | The Share, then Add to Home Screen steps `InstallPrompt` shows on iOS Safari, for an app's own install screen.                      |
+| `isIosSafari`           | Whether a `navigator` is Safari on iOS or iPadOS, where install has no API and only those steps work.                               |
+| `useOnline`             | Whether the browser is online; `true` before mount.                                                                                 |
+| `OfflineIndicator`      | "You're offline" pill in a live region, stacked above sheets.                                                                       |
+| `Online`                | The Effect service behind `useOnline`, with its `layer`.                                                                            |
+| `useDisplayMode`        | The display mode, such as `browser` or `standalone`; `browser` before mount.                                                        |
+| `DisplayMode`           | The Effect service behind `useDisplayMode`, with its `layer`.                                                                       |
+| `useStoragePersistence` | Persisted flag with `persist` and `estimate`; `null` while unknown.                                                                 |
+| `StoragePersistence`    | The Effect service behind `useStoragePersistence`, with its `layer`.                                                                |
+
+### `@kestack/web-platform/pwa/splash`
+
+`splashHead` and `splashScreens` alone, without the page's React and worker, for a script that draws the Splash images.
 
 ### `@kestack/web-platform/pwa/vite`
 
@@ -317,14 +321,14 @@ The PWA on the page.
 
 ### `@kestack/web-platform/recipes/frame`
 
-| Export                                                         | What it does                                                                                                                                                                                                                                                                                                             |
-| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `AppShell`                                                     | The Frame: an optional Sidebar, an optional header with title and actions, the page, with `vim` as a floating window, the same in Vim Mode or out of it, with a status line while it is on, and `column` to wrap the header and page in one element; on a phone the page moves aside under a finger to show the Sidebar. |
-| `useAppShell`                                                  | `open`, `setOpen`, `toggle` and `isMobile`, inside an `AppShell`.                                                                                                                                                                                                                                                        |
-| `SidebarGroup`, `SidebarGroupContent`, `SidebarGroupLabel`     | Labeled groups for custom Sidebar content.                                                                                                                                                                                                                                                                               |
-| `SidebarMenu`, `SidebarMenuItem`, `SidebarMenuButton`          | Menu rows; a button shuts the Sidebar when tapped on a phone.                                                                                                                                                                                                                                                            |
-| `SidebarMenuSub`, `SidebarMenuSubItem`, `SidebarMenuSubButton` | Nested menu rows.                                                                                                                                                                                                                                                                                                        |
-| `SidebarInput`, `SidebarMenuSkeleton`                          | A search input and a loading row for the Sidebar.                                                                                                                                                                                                                                                                        |
+| Export                                                         | What it does                                                                                                                                                                                                                                                                                                                                                                          |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AppShell`                                                     | The Frame: an optional Sidebar, an optional header with title and actions, the page, with `vim` as a floating window, the same in Vim Mode or out of it, with a status line while it is on, and `column` to wrap the header and page in one element; on a narrow screen the Sidebar shows in its `sidebarMode`, `slide` beside the page or `fullscreen` in its place, under a finger. |
+| `useAppShell`                                                  | `open`, `setOpen`, `toggle` and `isMobile`, inside an `AppShell`.                                                                                                                                                                                                                                                                                                                     |
+| `SidebarGroup`, `SidebarGroupContent`, `SidebarGroupLabel`     | Labeled groups for custom Sidebar content.                                                                                                                                                                                                                                                                                                                                            |
+| `SidebarMenu`, `SidebarMenuItem`, `SidebarMenuButton`          | Menu rows; a button shuts the Sidebar when tapped on a phone.                                                                                                                                                                                                                                                                                                                         |
+| `SidebarMenuSub`, `SidebarMenuSubItem`, `SidebarMenuSubButton` | Nested menu rows.                                                                                                                                                                                                                                                                                                                                                                     |
+| `SidebarInput`, `SidebarMenuSkeleton`                          | A search input and a loading row for the Sidebar.                                                                                                                                                                                                                                                                                                                                     |
 
 ### `@kestack/web-platform/recipes/account-switcher`
 
@@ -366,9 +370,9 @@ The Account Switcher of a Kabuki app: a Child of the root page, its View in the 
 
 ### `@kestack/web-platform/recipes/swipe-row`
 
-| Export     | What it does                                                                                          |
-| ---------- | ----------------------------------------------------------------------------------------------------- |
-| `SwipeRow` | A row one finger swipes left to delete, arming past a distance with a click; a mouse never swipes it. |
+| Export     | What it does                                                                                                                                                                 |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SwipeRow` | A row one finger swipes aside, left or right, showing what it does behind it; past 40% of its width or on a flick it slides out and closes its gap. A mouse never swipes it. |
 
 ### `@kestack/web-platform/app/vite`
 
@@ -416,7 +420,8 @@ export default Stack('Code', { providers, state: State }, Site({ host: 'code', z
 ```
 
 - Start builds the client and the Worker; `pwa()` then writes `sw.js`, `manifest.webmanifest` and a `_headers` block with `Cache-Control: no-cache` for both into the client's folder. The worker entry is the app's `src/sw.ts` if it has one, or a built-in one.
-- `name` is all the manifest needs: its colors are the default Theme's, and its icons are `icon-192.png`, `icon-512.png`, `icon-maskable-512.png` and `apple-touch-icon.png` in `public/`; the build warns about any that is missing. `pwa: { manifest }` overrides any field. The Install Prompt is titled with the name.
+- `name` is all the manifest needs: its colors are the default Theme's, and its icons are `icon-192.png`, `icon-512.png`, `icon-maskable-512.png` and `apple-touch-icon.png` in `public/`; the build warns about any that is missing. `pwa: { manifest }` overrides any field. The Install Prompt is titled with the name, and iOS labels the home-screen icon with `short_name`, else `name`.
+- `pwa: { splash: true }` lists the iOS startup images, `/splash/<w>x<h>.png` for each of `splashScreens`, which the app draws into `public/`. It turns on `apple-mobile-web-app-capable`, which iOS shows them only with; the Status Bar Surface keeps the status bar on the Theme.
 - How each page works offline follows from its Render Mode, as Kabuki Start's Pages (`/_kabuki/pages`) say. On install the worker saves the Pages, the App Shell and every static page that is one URL ([ADR 0010](../../docs/adr/0010-kabuki-start-serves-the-web-platform-decides.md)). A client page is the App Shell, at once. A static page is this build's copy, saved on install or on first visit. A dynamic page, or one Start does not name, is the network within `navigation.networkTimeoutMs`, kept per Build ID; offline, the copy kept last, else the App Shell. With no Pages (an app not on Start), every page is dynamic and there is no App Shell.
 - In `vite dev` the worker is off unless `pwa: { dev: true }`. `pwa: { enabled: false }` builds the Kill Switch, and `pwa: false` makes the app no PWA at all. Paths under `neverCache` (default `/api/auth/`), non-GET requests and `navigation.denylist` never reach the caches.
 - While an update waits, this build's copy of a page, else its App Shell, answers navigations, so every page stays on one Build ID until the user accepts ([ADR 0006](./docs/adr/0006-pending-update-pins-navigations-to-the-active-build.md)).

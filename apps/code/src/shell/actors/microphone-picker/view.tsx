@@ -1,6 +1,7 @@
 import { View } from '@kestack/kabuki/react';
 import { Button } from '@kestack/web-platform/ui/components/button';
 import { ChevronUpIcon } from '@kestack/web-platform/ui/components/lucide';
+import { createContext, use, useEffect, type RefObject } from 'react';
 import { keys, useBound } from '../../../keys.ts';
 import * as Picker from '../../../ui/picker/index.ts';
 import { MicrophonePickerLive, MicrophonesView } from './actor.ts';
@@ -8,21 +9,34 @@ import { MicrophonePickerLive, MicrophonesView } from './actor.ts';
 /*
  * The Microphone Picker: `d` opens it centred from anywhere, drawn by the
  * View the shell keeps; the Button, the small chevron beside the Status
- * Line's mic, opens it by pointer as a popover by it.
+ * Line's mic, opens it by pointer as a popover by it, and by a tap in a
+ * Drawer. Whatever else opens it, such as the Draft's `+` Drawer on a
+ * device with no keyboard, does so through `Opener`, as its keys do.
  */
 
 const LABEL = 'Choose the microphone';
+
+/** Where the View keeps how to open it from elsewhere, while it is drawn. */
+export const Opener = createContext<RefObject<(() => void) | null> | null>(
+  null,
+);
 
 export const MicrophonePickerView = View.make(
   MicrophonePickerLive,
   ({ model, children, send }) => {
     const open = Picker.useOpen();
-    keys.useAction('app.microphone', () =>
-      open(() => send({ _tag: 'Open', how: 'keys' })),
-    );
+    const choose = () => open(() => send({ _tag: 'Open', how: 'keys' }));
+    keys.useAction('app.microphone', choose);
+    const opener = use(Opener);
+    useEffect(() => {
+      if (opener === null) return;
+      opener.current = choose;
+      return () => void (opener.current = null);
+    });
     return (
       <Picker.Frame
         how={model.picking === 'keys' ? 'keys' : null}
+        mode="drawer"
         label={LABEL}
       >
         {children.picker && <MicrophonesView instance={children.picker} />}
@@ -38,6 +52,7 @@ export const MicrophonePickerButton = View.make(
     return (
       <Picker.Frame
         how={model.picking === 'pointer' ? 'pointer' : null}
+        mode="drawer"
         label={LABEL}
         onOpen={() => send({ _tag: 'Open', how: 'pointer' })}
         side="top"

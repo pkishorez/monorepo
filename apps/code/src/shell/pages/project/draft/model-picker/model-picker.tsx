@@ -1,15 +1,20 @@
 import { Schema } from 'effect';
 import type { Effect } from 'effect';
 import {
+  Drawer,
+  LayerHeader,
+} from '@kestack/web-platform/recipes/touch-layers';
+import {
   ChevronDownIcon,
   SlidersHorizontalIcon,
 } from '@kestack/web-platform/ui/components/lucide';
 import { Skeleton } from '@kestack/web-platform/ui/components/skeleton';
 import { cn } from '@kestack/web-platform/ui/components/utils';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { keys, useBound } from '../../../../../keys.ts';
 import * as Picker from '../../../../../ui/picker/index.ts';
 import * as Catalog from '../../catalog/index.ts';
+import { OpenRow, Setting } from './chip.tsx';
 
 /*
  * The model Picker: the agent, then its model, then each of its settings,
@@ -22,7 +27,10 @@ import * as Catalog from '../../catalog/index.ts';
  *
  * In the Status Line sit its two triggers, the model and the settings,
  * which give up their words as the line narrows. `m` opens it at the model
- * from the page's Normal Mode.
+ * from the page's Normal Mode. On a device with no keyboard the Draft has
+ * one model chip instead, "Opus · High · Bypass permissions", which opens
+ * a Drawer: the agent and the model open the Picker in a Dialog, and
+ * choosing the model finishes it; each setting is changed there in place.
  */
 
 const trigger =
@@ -65,8 +73,20 @@ const settingFor = (
     ?.default ??
   null;
 
-/** Where it opens: at the agent or model, the first setting, or one setting alone. */
-const At = Schema.Literals(['model', 'settings', 'permissions', 'effort']);
+/**
+ * Where it opens: at the agent or model, the first setting, or one setting
+ * alone; or, from the model chip, at the agent or at the model alone,
+ * where choosing the model finishes, since the chip's Drawer holds the
+ * settings.
+ */
+const At = Schema.Literals([
+  'model',
+  'settings',
+  'permissions',
+  'effort',
+  'agent',
+  'modelAlone',
+]);
 type At = typeof At.Type;
 
 /**
@@ -128,7 +148,12 @@ const settingPlaceholder = (
   `Search ${settingNamed(catalog, agent, key)?.label.toLowerCase() ?? 'choices'}`;
 
 const Models = Picker.make('ModelPicker', {
-  props: Schema.Struct({ catalog: Catalog.Model, current: Current }),
+  props: Schema.Struct({
+    catalog: Catalog.Model,
+    current: Current,
+    /** Choosing the model finishes, with no settings after it. */
+    alone: Schema.optionalKey(Schema.Boolean),
+  }),
   steps: {
     agent: {
       placeholder: () => 'Search agents',
@@ -170,9 +195,11 @@ const Models = Picker.make('ModelPicker', {
           problem: read?.problem ?? null,
         };
       },
-      next: (_, { key, props }) => settingAfter(props.catalog, key, null),
+      next: (_, { key, props }) =>
+        props.alone === true ? null : settingAfter(props.catalog, key, null),
     },
     setting: {
+      search: false,
       placeholder: ({ key, props, choices }) =>
         settingPlaceholder(props.catalog, agentOf(choices), key),
       title: ({ key, props, choices }) =>
@@ -184,6 +211,7 @@ const Models = Picker.make('ModelPicker', {
     },
     // One setting alone, opened by its keys: choosing it finishes.
     alone: {
+      search: false,
       placeholder: ({ key, props, choices }) =>
         settingPlaceholder(props.catalog, agentOf(choices), key),
       title: ({ key, props, choices }) =>
@@ -255,6 +283,14 @@ export const ModelPicker = {
         : null;
     if (alone !== null)
       return { how, step: { id: 'alone', key: alone.key }, choices: chosen };
+    if (at === 'agent' && !started)
+      return { how, step: { id: 'agent', key: '' }, choices: [] };
+    if (at === 'modelAlone' || at === 'agent')
+      return {
+        how,
+        step: { id: 'model', key: current.harness },
+        choices: [agent],
+      };
     return started
       ? { how, step: { id: 'model', key: current.harness }, choices: [agent] }
       : { how, step: { id: 'agent', key: '' }, choices: [] };
@@ -273,6 +309,40 @@ export const ModelPicker = {
       done: (choices) => done(choices === null ? null : chosenOf(choices)),
     }),
 };
+
+/** The model in effect, by its name. */
+const modelNamed = (catalog: Catalog, current: Current) => {
+  const model = modelFor(catalog, current, current.harness) ?? '';
+  return (
+    Catalog.modelsOf(catalog, current.harness)?.list.find(
+      ({ id }) => id === model,
+    )?.name ?? model
+  );
+};
+
+/** Each of the agent's settings, with the choice in effect and its label. */
+const settingsOf = (catalog: Catalog, current: Current) =>
+  (Catalog.harnessOf(catalog, current.harness)?.settings ?? []).map(
+    (setting) => {
+      const value = settingFor(catalog, current, current.harness, setting.key);
+      return {
+        key: setting.key,
+        label:
+          setting.choices.find((each) => each.value === value)?.label ??
+          value ??
+          '',
+        shown: {
+          key: setting.key,
+          label: setting.label,
+          choices: setting.choices,
+          value,
+          segments: (ASPECTS.effort as ReadonlyArray<string>).includes(
+            setting.key,
+          ),
+        },
+      };
+    },
+  );
 
 /**
  * The model and settings triggers in the Status Line, and the Picker drawn
@@ -322,31 +392,24 @@ export function Triggers({
         <Skeleton className="h-5 w-10" />
       </div>
     );
-  const model = modelFor(catalog, current, current.harness) ?? '';
-  const name =
-    Catalog.modelsOf(catalog, current.harness)?.list.find(
-      ({ id }) => id === model,
-    )?.name ?? model;
-  const summary = harness.settings
-    .map((setting) => {
-      const value = settingFor(catalog, current, current.harness, setting.key);
-      return (
-        setting.choices.find((each) => each.value === value)?.label ?? value
-      );
-    })
+  const name = modelNamed(catalog, current);
+  const summary = settingsOf(catalog, current)
+    .map(({ label }) => label)
     .join(' · ');
   // The permissions or the effort alone are drawn by the settings trigger.
   const drawnBy = (opened: At) =>
-    opened === 'model' ||
-    (opened !== 'settings' && aspectOf(catalog, agent, opened) === null)
-      ? 'model'
-      : 'settings';
+    opened === 'settings' ||
+    ((opened === 'permissions' || opened === 'effort') &&
+      aspectOf(catalog, agent, opened) !== null)
+      ? 'settings'
+      : 'model';
   const at = (which: 'model' | 'settings') =>
     how !== null && drawnBy(how.at) === which ? how.how : null;
   return (
     <>
       <Picker.Frame
         how={at('model')}
+        mode="dialog"
         label="Model"
         onOpen={() => onOpen('model', 'pointer')}
         className="w-72"
@@ -375,6 +438,7 @@ export function Triggers({
       {harness.settings.length > 0 && (
         <Picker.Frame
           how={at('settings')}
+          mode="drawer"
           label="Settings"
           onOpen={() => onOpen('settings', 'pointer')}
           className="w-64"
@@ -398,6 +462,113 @@ export function Triggers({
           {at('settings') !== null && children}
         </Picker.Frame>
       )}
+    </>
+  );
+}
+
+/**
+ * A model's name without its agent's: "Haiku 4.5" for Claude Code's
+ * "Claude Haiku 4.5", which says it again.
+ */
+const shortName = (name: string, agent: string) => {
+  const [first = '', ...rest] = name.split(' ');
+  return rest.length > 0 && first === agent.split(' ')[0]
+    ? rest.join(' ')
+    : name;
+};
+
+/**
+ * The model chip, on a device with no keyboard: the model and its settings
+ * in one line. It opens a Drawer, which stays until it is swiped away: the
+ * agent, while the session has not started, and the model open the Picker
+ * in a Dialog, closing the Drawer; each setting changes in place.
+ */
+export function Chip({
+  catalog,
+  current,
+  started,
+  how,
+  onOpen,
+  onSet,
+  children,
+}: {
+  readonly catalog: Catalog;
+  readonly current: Current | null;
+  /** The session has started, so its agent is kept. */
+  readonly started: boolean;
+  /** How the Picker is open; null while it is not. */
+  readonly how: typeof Picker.How.Type | null;
+  /** Opens the Picker at the agent, or at the model alone. */
+  readonly onOpen: (at: 'agent' | 'modelAlone') => void;
+  /** Sets one of the agent's settings, in place. */
+  readonly onSet: (key: string, value: string) => void;
+  /** The Picker's View, while it is open. */
+  readonly children: ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  const openPicker = Picker.useOpen();
+  const harness = Catalog.harnessOf(catalog, current?.harness ?? null);
+  if (current === null || harness === null)
+    return <Skeleton className="h-11 w-32 rounded-full" />;
+  const name = modelNamed(catalog, current);
+  const settings = settingsOf(catalog, current);
+  const words = [name, ...settings.map(({ label }) => label)].join(' · ');
+  const pick = (at: 'agent' | 'modelAlone') => {
+    setOpen(false);
+    openPicker(() => onOpen(at));
+  };
+  return (
+    <>
+      <button
+        type="button"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-label={`Model and settings: ${started ? '' : `${harness.label}, `}${words}`}
+        onClick={() => setOpen(true)}
+        className="focus-ring flex h-11 min-w-0 items-center rounded-full px-3 text-left transition-colors duration-150 active:bg-muted aria-expanded:bg-muted motion-reduce:transition-none"
+      >
+        <span className="flex min-w-0 flex-col">
+          <span className="truncate text-sm leading-4.5 font-medium text-foreground/90">
+            {shortName(name, harness.label)}
+          </span>
+          {settings.length > 0 && (
+            <span className="truncate text-xs leading-4 text-muted-foreground">
+              {settings.map(({ label }) => label).join(' · ')}
+            </span>
+          )}
+        </span>
+      </button>
+      <Drawer
+        open={open}
+        onOpenChange={(next) => setOpen(next)}
+        label="Model and settings"
+      >
+        <LayerHeader title="Model and settings" />
+        <div className="flex flex-col overflow-y-auto overscroll-contain pb-2">
+          {!started && (
+            <OpenRow
+              label="Agent"
+              value={harness.label}
+              onOpen={() => pick('agent')}
+            />
+          )}
+          <OpenRow
+            label="Model"
+            value={name}
+            onOpen={() => pick('modelAlone')}
+          />
+          {settings.map(({ key, shown }) => (
+            <Setting
+              key={key}
+              setting={shown}
+              onSet={(value) => onSet(key, value)}
+            />
+          ))}
+        </div>
+      </Drawer>
+      <Picker.Frame how={how} mode="dialog" label="Model">
+        {how !== null && children}
+      </Picker.Frame>
     </>
   );
 }

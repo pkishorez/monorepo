@@ -44,6 +44,7 @@ import {
   useMachineName,
 } from '../../connection/index.ts';
 import { SettledLine, SettledList, settledOf } from './settled-list/index.ts';
+import { SwipeToMove } from './swipe/index.ts';
 
 /*
  * The sidebar: every Project of every Machine, one list, the most recently
@@ -77,10 +78,10 @@ export function Places({
   projects,
   sessions,
   isUnseen,
-  unsettling,
   projectPicker,
   onOpenSession,
   onUnsettle,
+  onMove,
 }: {
   readonly route: Place;
   readonly projects: {
@@ -91,12 +92,6 @@ export function Places({
   /** Every Session, Settled ones too. */
   readonly sessions: ReadonlyArray<OnMachine<Session>>;
   readonly isUnseen: (session: OnMachine<Session>) => boolean;
-  /** The Session being Un-settled, and why its Machine refused, if it did. */
-  readonly unsettling: {
-    readonly machineId: string;
-    readonly sessionId: string;
-    readonly problem: string | null;
-  } | null;
   /** The Project Picker, drawn by its plus. */
   readonly projectPicker: ReactNode;
   /** Moves the app to a session, as its link would. */
@@ -106,6 +101,8 @@ export function Places({
     sessionId: string,
   ) => void;
   readonly onUnsettle: (machineId: string, sessionId: string) => void;
+  /** A Session swiped to Settle it, or to un-Settle it. */
+  readonly onMove: (session: OnMachine<Session>, settled: boolean) => void;
 }) {
   const here = route._tag === 'Project' ? route : null;
   const openSession = here?.page?.sessionId ?? null;
@@ -209,13 +206,15 @@ export function Places({
               : { machineId: here.machineId, id: openSession }
           }
           at={at}
-          unsettling={unsettling}
           onUnsettle={onUnsettle}
+          onMove={onMove}
           onClose={toggleSettled}
         />
       ) : (
         <SidebarGroup className="px-2 py-1">
-          <SidebarGroupLabel className="h-7 justify-between pr-0">
+          {/* Room for the Project Picker's plus, a finger's size with no
+              keyboard; on a phone it floats instead. */}
+          <SidebarGroupLabel className="h-7 justify-between pr-0 md:h-11 keyboard:md:h-7">
             Projects
             {projectPicker}
           </SidebarGroupLabel>
@@ -234,7 +233,7 @@ export function Places({
                 {picks === null ? '' : `, or ${picks}`}.
               </p>
             ) : (
-              <SidebarMenu className="gap-1">
+              <SidebarMenu className="gap-1 max-md:gap-4">
                 {groups.map(({ project }) => (
                   <ProjectGroup
                     key={keyOf(project)}
@@ -246,6 +245,7 @@ export function Places({
                     titles={titles}
                     isUnseen={isUnseen}
                     onShowWhole={showWhole}
+                    onMove={onMove}
                   />
                 ))}
               </SidebarMenu>
@@ -265,8 +265,14 @@ export function Places({
   );
 }
 
-/** A row: 28px on a wide screen, a finger's height on a phone. */
-const row = 'h-11 gap-2 px-2 py-0 md:h-7 data-active:font-normal';
+/**
+ * A row: a finger's height, but 28px with a keyboard on a wide screen,
+ * so a tablet with no keyboard keeps rows a finger can hit.
+ */
+const row = 'h-11 gap-2 px-2 py-0 keyboard:md:h-7 data-active:font-normal';
+/** A Session's row: a little taller than a finger, to swipe, alike. */
+const sessionRow =
+  'h-12 gap-2 px-2 py-0 keyboard:md:h-7 data-active:font-normal';
 const cursorRing = 'data-cursor:ring-2 data-cursor:ring-inset';
 
 /** One Project's heading, its Sessions shown, and its "+N". */
@@ -277,6 +283,7 @@ function ProjectGroup({
   titles,
   isUnseen,
   onShowWhole,
+  onMove,
 }: {
   readonly rows: ReadonlyArray<Row>;
   readonly here: Extract<Place, { readonly _tag: 'Project' }> | null;
@@ -285,6 +292,7 @@ function ProjectGroup({
   readonly titles: ReadonlyMap<string, string>;
   readonly isUnseen: (session: OnMachine<Session>) => boolean;
   readonly onShowWhole: (key: string) => void;
+  readonly onMove: (session: OnMachine<Session>, settled: boolean) => void;
 }) {
   return (
     <SidebarMenuItem>
@@ -302,7 +310,7 @@ function ProjectGroup({
                       here.projectId === each.project.id &&
                       here.page === undefined
                     }
-                    className={`${row} ${cursorRing} text-xs font-medium text-muted-foreground data-active:font-medium`}
+                    className={`${row} ${cursorRing} text-xs font-medium text-muted-foreground data-active:font-medium max-md:mt-2 max-md:text-sm max-md:text-sidebar-foreground`}
                     render={
                       <Router.Link
                         to={places.project(
@@ -331,43 +339,50 @@ function ProjectGroup({
               const title = session.title || 'Untitled session';
               return (
                 <SidebarMenuItem key={each.place}>
-                  <SidebarMenuButton
-                    data-place={each.place}
-                    data-cursor={at(each.place)}
-                    isActive={
-                      here?.machineId === session.machineId &&
-                      here.page?.sessionId === session.id
-                    }
-                    className={`${row} ${cursorRing}`}
-                    render={
-                      <Router.Link
-                        to={places.session(
-                          session.machineId,
-                          session.projectId,
-                          session.id,
-                        )}
-                        title={
-                          original === null
-                            ? title
-                            : `${title}\nForked from ${original}`
-                        }
-                      />
-                    }
+                  <SwipeToMove
+                    machineId={session.machineId}
+                    sessionId={session.id}
+                    settled={false}
+                    onMove={(settled) => onMove(session, settled)}
                   >
-                    {original !== null && (
-                      <GitForkIcon
-                        role="img"
-                        aria-label={`Forked from ${original}`}
-                        className="size-3! text-muted-foreground/70"
-                      />
-                    )}
-                    <span
-                      className={`min-w-0 flex-1 truncate ${isUnseen(session) ? 'font-semibold text-sidebar-foreground' : ''}`}
+                    <SidebarMenuButton
+                      data-place={each.place}
+                      data-cursor={at(each.place)}
+                      isActive={
+                        here?.machineId === session.machineId &&
+                        here.page?.sessionId === session.id
+                      }
+                      className={`${sessionRow} ${cursorRing}`}
+                      render={
+                        <Router.Link
+                          to={places.session(
+                            session.machineId,
+                            session.projectId,
+                            session.id,
+                          )}
+                          title={
+                            original === null
+                              ? title
+                              : `${title}\nForked from ${original}`
+                          }
+                        />
+                      }
                     >
-                      {title}
-                    </span>
-                    <StatusDot status={session.status} />
-                  </SidebarMenuButton>
+                      {original !== null && (
+                        <GitForkIcon
+                          role="img"
+                          aria-label={`Forked from ${original}`}
+                          className="size-3! text-muted-foreground/70"
+                        />
+                      )}
+                      <span
+                        className={`min-w-0 flex-1 truncate ${isUnseen(session) ? 'font-semibold text-sidebar-foreground' : ''}`}
+                      >
+                        {title}
+                      </span>
+                      <StatusDot status={session.status} />
+                    </SidebarMenuButton>
+                  </SwipeToMove>
                 </SidebarMenuItem>
               );
             }
@@ -381,7 +396,9 @@ function ProjectGroup({
                     onClick={() => onShowWhole(keyOf(each.project))}
                     className={`${row} ${cursorRing} text-xs text-muted-foreground tabular-nums`}
                   >
-                    <span>+{each.hidden}</span>
+                    {/* On a phone, room to say what it does. */}
+                    <span className="md:hidden">Show {each.hidden} more</span>
+                    <span className="max-md:hidden">+{each.hidden}</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               );

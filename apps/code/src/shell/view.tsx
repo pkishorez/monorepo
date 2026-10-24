@@ -4,7 +4,13 @@ import { AccountSwitcherView } from '@kestack/web-platform/recipes/account-switc
 import { AppShell, useAppShell } from '@kestack/web-platform/recipes/frame';
 import { useDevice } from '@kestack/web-platform/ui/input';
 import { KeysStatusBar } from '@kestack/web-platform/recipes/keyboard';
-import { useEffect, useMemo, type ComponentProps, type ReactNode } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  type ComponentProps,
+  type ReactNode,
+} from 'react';
 import type { Ask } from '../layer/capabilities/index.ts';
 import { keys } from '../keys.ts';
 import * as places from './places/index.ts';
@@ -16,6 +22,7 @@ import {
   SignedOut,
 } from '../sign-in/index.ts';
 import { Theme, ThemeToggle } from '../ui/theme/index.ts';
+import { Toasts } from '../ui/toast/index.ts';
 import { Dictation } from './actors/dictation/index.ts';
 import { Header } from './actors/header/index.ts';
 import { MachineList } from './actors/machine-list/index.ts';
@@ -170,6 +177,7 @@ function Signed({
     enabled: route._tag === 'Project',
   });
   const drafts = Dictation.useDraftsShown();
+  const microphones = useRef<(() => void) | null>(null);
   // The Dictation itself is handed down, never its State, which moves
   // with every level heard: what reads it draws again, nothing else.
   const dictating = useMemo(
@@ -179,6 +187,7 @@ function Signed({
       microphones: (
         <MicrophonePicker.button instance={children.microphonePicker} />
       ),
+      chooseMicrophone: () => microphones.current?.(),
       shown: drafts.shown,
     }),
     [children.dictation, children.microphonePicker, send, drafts.shown],
@@ -192,69 +201,73 @@ function Signed({
   );
   return (
     <Dictation.Dictating value={dictating}>
-      <Screen
-        route={route}
-        sidebar={
-          <Sidebar.Slots value={slots}>
-            {/* On a phone the sidebar is home, so it says what home would. */}
-            {children.machines && (
-              <div className="md:hidden">
-                <MachineList.view instance={children.machines} />
-              </div>
-            )}
-            <Sidebar.view instance={children.sidebar} />
-          </Sidebar.Slots>
-        }
-        header={{
-          title: <Header.view instance={children.header} />,
-          actions: (
-            <>
-              {/* A phone keeps the header to where you are and Session Actions. */}
-              <div className="hidden md:contents">
-                <Header.model instance={children.header} />
-              </div>
-              <SessionActions.view instance={children.sessionActions} />
-              <SessionSwitcher.view instance={children.sessionSwitcher} />
-              <ProjectPicker.view instance={children.projectPicker} />
-              <MicrophonePicker.view instance={children.microphonePicker} />
-              {route._tag === 'Project' && (
-                <Header.Offline machineId={route.machineId} />
+      <MicrophonePicker.Opener value={microphones}>
+        <Screen
+          route={route}
+          sidebar={
+            <Sidebar.Slots value={slots}>
+              {/* On a phone the sidebar is home, so it says what home would. */}
+              {children.machines && (
+                <div className="md:hidden">
+                  <MachineList.view instance={children.machines} />
+                </div>
               )}
-              <div className="hidden md:contents">
-                <ThemeToggle />
-                <Account />
-              </div>
+              <Sidebar.view instance={children.sidebar} />
+            </Sidebar.Slots>
+          }
+          header={{
+            title: <Header.view instance={children.header} />,
+            actions: (
+              <>
+                {/* A phone keeps the header to where you are and Session Actions. */}
+                <div className="hidden md:contents">
+                  <Header.model instance={children.header} />
+                </div>
+                <SessionActions.view instance={children.sessionActions} />
+                {route._tag === 'Project' && (
+                  <Header.Offline machineId={route.machineId} />
+                )}
+                <div className="hidden md:contents">
+                  <ThemeToggle />
+                  <Account />
+                </div>
+              </>
+            ),
+          }}
+        >
+          {/* Opened by keys, or from elsewhere: no button of their own here. */}
+          <SessionSwitcher.view instance={children.sessionSwitcher} />
+          <ProjectPicker.view instance={children.projectPicker} />
+          <MicrophonePicker.view instance={children.microphonePicker} />
+          <ProjectPicker.notice instance={children.projectPicker} />
+          {children.Home ? (
+            <>
+              {children.machines && (
+                <MachineList.view instance={children.machines} />
+              )}
+              <Home.view instance={children.Home} />
             </>
-          ),
-        }}
-      >
-        <ProjectPicker.notice instance={children.projectPicker} />
-        {children.Home ? (
-          <>
-            {children.machines && (
-              <MachineList.view instance={children.machines} />
-            )}
-            <Home.view instance={children.Home} />
-          </>
-        ) : children.Project ? (
-          <Project.view instance={children.Project} />
-        ) : children.Settings ? (
-          <Settings.view instance={children.Settings} />
-        ) : (
-          <p className="mx-auto w-full max-w-3xl px-6 py-10 text-sm text-muted-foreground">
-            Nothing lives at this address.{' '}
-            <Router.Link
-              to={places.home()}
-              className="text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground"
-            >
-              Go to your projects
-            </Router.Link>
-          </p>
-        )}
-      </Screen>
-      <Dictation.DraftsShown value={drafts.count}>
-        <Dictation.view instance={children.dictation} />
-      </Dictation.DraftsShown>
+          ) : children.Project ? (
+            <Project.view instance={children.Project} />
+          ) : children.Settings ? (
+            <Settings.view instance={children.Settings} />
+          ) : (
+            <p className="mx-auto w-full max-w-3xl px-6 py-10 text-sm text-muted-foreground">
+              Nothing lives at this address.{' '}
+              <Router.Link
+                to={places.home()}
+                className="text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground"
+              >
+                Go to your projects
+              </Router.Link>
+            </p>
+          )}
+        </Screen>
+        <Dictation.DraftsShown value={drafts.count}>
+          <Dictation.view instance={children.dictation} />
+        </Dictation.DraftsShown>
+        <Toasts />
+      </MicrophonePicker.Opener>
     </Dictation.Dictating>
   );
 }
@@ -287,22 +300,25 @@ function Screen({
         statusLine: <KeysStatusBar keys={keys} onHelp={() => enter('help')} />,
       }}
       // On a phone the sidebar is a page of its own: home.
-      phone="page"
+      sidebarMode="fullscreen"
       sidebar={{
         width: 260,
         content: (
           <keys.Surface id="sidebar" asChild>
             <div className="flex min-h-0 flex-1 flex-col rounded-xl pt-2 md:mx-2">
               <SidebarSwitch home={route._tag === 'Home'} />
-              <div className="no-scrollbar flex min-h-0 flex-1 flex-col gap-2 overflow-auto">
-                {sidebar}
-              </div>
-              <div className="flex items-center gap-2 p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:pb-2">
+              <Sidebar.PullToReload>
+                <div className="no-scrollbar flex min-h-0 flex-1 flex-col gap-2 overflow-auto">
+                  {sidebar}
+                </div>
+              </Sidebar.PullToReload>
+              {/* The App Shell keeps it above the home indicator. */}
+              <div className="flex items-center gap-2 p-2">
                 <div className="min-w-0 flex-1">
                   <Sidebar.SettingsLink route={route} />
                 </div>
                 {/* The header's, on a phone, where the header has no room. */}
-                <div className="flex items-center gap-1 md:hidden">
+                <div className="flex items-center gap-1 md:hidden [&_[data-slot=avatar]]:size-9">
                   <ThemeToggle />
                   <Account />
                 </div>

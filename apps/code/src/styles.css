@@ -62,8 +62,48 @@
   }
 }
 
+/*
+ * On a device with no keyboard, what goes into the read-only Draft, such
+ * as a Dictation's text, comes in out of a blur instead; into the
+ * Composer, with focus in it, it comes in still. A Dictation's
+ * placeholder there says "Transcribing…", breathing while nothing has
+ * focus.
+ */
+[data-slot='draft'][data-touch] .cm-inserted {
+  animation: blurred-in 360ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+[data-slot='draft'][data-touch] .cm-focused .cm-inserted {
+  animation: none;
+}
+
+@keyframes blurred-in {
+  from {
+    opacity: 0;
+    filter: blur(4px);
+  }
+}
+
+/* At rest it is read, not written: no cursor. */
+[data-slot='draft'][data-touch]:not([data-writing]) .cm-cursorLayer {
+  display: none;
+}
+
+[data-slot='draft'][data-touch] .cm-dictation:not([data-failed]) {
+  display: inline-block;
+  font-style: normal;
+  text-transform: capitalize;
+  animation: var(--animate-breathe);
+}
+
+[data-slot='draft'][data-touch] .cm-focused .cm-dictation {
+  animation: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .cm-inserted {
+  .cm-inserted,
+  [data-slot='draft'][data-touch] .cm-inserted,
+  [data-slot='draft'][data-touch] .cm-dictation:not([data-failed]) {
     animation: none;
   }
 }

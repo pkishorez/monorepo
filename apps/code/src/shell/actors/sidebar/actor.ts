@@ -1,12 +1,11 @@
 import { Effect, Schema, Stream } from 'effect';
-import { AiClient, AiClients } from '@kestack/ai-toolkit/client';
 import { Actor } from '@kestack/kabuki';
 import { Navigation, Router } from '@kestack/kabuki/routing';
 import { DeviceState, Machines } from '../../../layer/capabilities/index.ts';
 import { session } from '../../places/index.ts';
-import { orRefused } from '../../refusal/index.ts';
 import { across, Projects, Sessions } from '../../replica/index.ts';
-import { reload, setSidebarMachine } from './commands.ts';
+import { Intent, Moves } from '../../moves/index.ts';
+import { agreed, putMove, reload, setSidebarMachine } from './commands.ts';
 
 /*
  * The sidebar: the Projects and Sessions of the Machine chosen, or of every
@@ -20,16 +19,23 @@ import { reload, setSidebarMachine } from './commands.ts';
  * 3. Marks     the Unseen marks of this device, read again after every
  *              write, from this tab or another.
  * 4. Open      a Session the keyboard steps to.
- * 5. Unsettle  a Session from the Settled List, one at a time, on its own
- *              Machine; a refusal says why.
+ * 5. Move      a Session swiped to Settle or un-Settle it, its Undo, or
+ *              the Settled List's Un-settle: each put through `Moves`,
+ *              which asks its Machine at once. Every Session is drawn
+ *              where `Moves` says it goes until the Session as synced
+ *              agrees; a swipe is said with its Undo, which asks the
+ *              Machine back, and a refusal says why.
  */
 
 const Listed = Schema.Struct({ id: Schema.String, name: Schema.String });
 
-const Unsettling = Schema.Struct({
+/** A swipe, to say with its Undo, numbered so each is said once. */
+const Told = Schema.Struct({
+  n: Schema.Finite,
   machineId: Schema.String,
   sessionId: Schema.String,
-  problem: Schema.NullOr(Schema.String),
+  settled: Schema.Boolean,
+  title: Schema.String,
 });
 
 const Model = Schema.Struct({
@@ -44,13 +50,29 @@ const Model = Schema.Struct({
     Schema.String,
     Schema.Record(Schema.String, Schema.Finite),
   ),
-  /** The Session being Un-settled, and why its Machine refused, if it did. */
-  unsettling: Schema.NullOr(Unsettling),
+  /** Where each Session put is going, as `Moves` says, until synced. */
+  moving: Schema.Array(Intent),
+  /** The last swipe. */
+  told: Schema.NullOr(Told),
+  /** The last Move refused, numbered so each is said once. */
+  refused: Schema.NullOr(
+    Schema.Struct({
+      n: Schema.Finite,
+      settled: Schema.Boolean,
+      reason: Schema.String,
+    }),
+  ),
+  /** How many of each Session's Moves were refused, by `refusedKey`. */
+  refusals: Schema.Record(Schema.String, Schema.Finite),
 });
+
+/** A Session's key among the refusals: its Machine's and its own id. */
+export const refusedKey = (machineId: string, sessionId: string) =>
+  `${machineId} ${sessionId}`;
 type Model = typeof Model.Type;
 
 const Sidebar = Actor.define('Sidebar', {
-  requires: [Machines, DeviceState, AiClients, Navigation],
+  requires: [Machines, DeviceState, Moves, Navigation],
   model: Model,
   message: Schema.TaggedUnion({
     MachinesKnown: {
@@ -68,9 +90,29 @@ const Sidebar = Actor.define('Sidebar', {
       projectId: Schema.String,
       sessionId: Schema.String,
     },
-    UnsettleAsked: { machineId: Schema.String, sessionId: Schema.String },
-    Unsettled: { sessionId: Schema.String },
-    UnsettleRefused: { sessionId: Schema.String, reason: Schema.String },
+    /**
+     * A Session put: by a swipe, which titles it to say with its Undo, or
+     * by its Undo or the Settled List's Un-settle, which do not.
+     */
+    MoveAsked: {
+      machineId: Schema.String,
+      sessionId: Schema.String,
+      settled: Schema.Boolean,
+      title: Schema.NullOr(Schema.String),
+    },
+    MovesShown: { moving: Schema.Array(Intent) },
+    MoveRefused: {
+      machineId: Schema.String,
+      sessionId: Schema.String,
+      settled: Schema.Boolean,
+      reason: Schema.String,
+    },
+    /** The Session as synced is where it was put. */
+    MoveSeen: {
+      machineId: Schema.String,
+      sessionId: Schema.String,
+      settled: Schema.Boolean,
+    },
   }),
 });
 
@@ -95,7 +137,10 @@ export const SidebarLive = Actor.build(Sidebar, {
       problem: null,
       chosen: null,
       unseen: {},
-      unsettling: null,
+      moving: [],
+      told: null,
+      refused: null,
+      refusals: {},
     },
   }),
   children: {
@@ -111,6 +156,23 @@ export const SidebarLive = Actor.build(Sidebar, {
     },
   },
   workers: {
+    // 5. Move: where each Session put goes, and each refusal.
+    moves: {
+      run: (self) =>
+        Effect.flatMap(Moves, ({ intents, refusals }) =>
+          Effect.all(
+            [
+              Stream.runForEach(intents, (moving) =>
+                self.send({ _tag: 'MovesShown', moving: [...moving] }),
+              ),
+              Stream.runForEach(refusals, (refused) =>
+                self.send({ _tag: 'MoveRefused', ...refused }),
+              ),
+            ],
+            { concurrency: 'unbounded', discard: true },
+          ),
+        ),
+    },
     // 1. Machines: only their ids and names, so a line or a Heartbeat
     // changes nothing here.
     known: {
@@ -142,38 +204,41 @@ export const SidebarLive = Actor.build(Sidebar, {
           ),
         ),
     },
-    // 5. Unsettle
-    unsettle: {
-      while: ({ model }) =>
-        model.unsettling !== null && model.unsettling.problem === null,
-      run: (self) =>
-        Effect.gen(function* () {
-          const { unsettling } = (yield* self.get).model;
-          if (unsettling === null) return;
-          const { machineId, sessionId } = unsettling;
-          yield* self.send(
-            yield* orRefused(
-              AiClients.on(
-                machineId,
-                AiClient.use((api) => api.unsettleSession({ sessionId })),
-              ),
-              () => ({ _tag: 'Unsettled' as const, sessionId }),
-            ).pipe(
-              Effect.map((ended) =>
-                ended._tag === 'Refused'
-                  ? {
-                      _tag: 'UnsettleRefused' as const,
-                      sessionId,
-                      reason: ended.reason,
-                    }
-                  : ended,
-              ),
-            ),
-          );
-        }),
-    },
   },
   on: {
+    // 5. Move
+    MoveAsked: ({ machineId, sessionId, settled, title }, { model }) => ({
+      ...(title === null
+        ? {}
+        : {
+            model: {
+              ...model,
+              told: {
+                n: (model.told?.n ?? 0) + 1,
+                machineId,
+                sessionId,
+                settled,
+                title,
+              },
+            },
+          }),
+      command: putMove({ machineId, sessionId, settled }),
+    }),
+    MovesShown: ({ moving }, { model }) => ({ model: { ...model, moving } }),
+    MoveRefused: ({ machineId, sessionId, settled, reason }, { model }) => {
+      const key = refusedKey(machineId, sessionId);
+      return {
+        model: {
+          ...model,
+          refused: { n: (model.refused?.n ?? 0) + 1, settled, reason },
+          refusals: {
+            ...model.refusals,
+            [key]: (model.refusals[key] ?? 0) + 1,
+          },
+        },
+      };
+    },
+    MoveSeen: (seen) => ({ command: agreed(seen) }),
     MachinesKnown: ({ machines, problem }, { model }) => ({
       model: { ...model, machines, problem },
     }),
@@ -189,27 +254,5 @@ export const SidebarLive = Actor.build(Sidebar, {
     SessionOpened: ({ machineId, projectId, sessionId }) => ({
       command: Router.push(session(machineId, projectId, sessionId)),
     }),
-    UnsettleAsked: ({ machineId, sessionId }, { model }) =>
-      model.unsettling !== null && model.unsettling.problem === null
-        ? {}
-        : {
-            model: {
-              ...model,
-              unsettling: { machineId, sessionId, problem: null },
-            },
-          },
-    Unsettled: ({ sessionId }, { model }) =>
-      model.unsettling?.sessionId === sessionId
-        ? { model: { ...model, unsettling: null } }
-        : {},
-    UnsettleRefused: ({ sessionId, reason }, { model }) =>
-      model.unsettling?.sessionId === sessionId
-        ? {
-            model: {
-              ...model,
-              unsettling: { ...model.unsettling, problem: reason },
-            },
-          }
-        : {},
   },
 });

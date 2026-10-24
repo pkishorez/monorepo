@@ -27,7 +27,9 @@ import { SkillPicker } from './skills.ts';
  * 3. Pick     the model Picker sets the agent, its model and settings, each
  *             its default until picked; a new agent starts from its own. A
  *             Session keeps its agent, and what is picked goes with every
- *             message from then on. The skills Picker puts a `/name` in.
+ *             message from then on. On touch the model chip sets a
+ *             setting in place, with no Picker. The skills Picker puts a
+ *             `/name` in.
  *             One Picker is open at a time, each a fresh one.
  * 4. Start    a new session's Draft starts the session, already running
  *             its first message, and the app moves to it.
@@ -132,6 +134,7 @@ const Draft = Actor.define('Draft', {
     PickerOpened: { picking: Picking },
     PickerClosed: {},
     ModelChosen: { chosen: Chosen },
+    SettingChosen: { key: Schema.String, value: Schema.String },
     SkillChosen: { name: Schema.String },
     SendAsked: {},
     Started: { sessionId: Schema.String },
@@ -346,6 +349,9 @@ export const DraftLive = Actor.build(Draft, {
       props: ({ model, props }) => ({
         catalog: model.catalog,
         current: current(model, props) ?? NOBODY,
+        alone:
+          model.picking?._tag === 'Model' &&
+          (model.picking.at === 'agent' || model.picking.at === 'modelAlone'),
       }),
     },
   },
@@ -422,6 +428,16 @@ export const DraftLive = Actor.build(Draft, {
         },
       };
     },
+    SettingChosen: ({ key, value }, { model }) => ({
+      model: {
+        ...model,
+        problem: null,
+        chosen: {
+          ...model.chosen,
+          settings: { ...model.chosen.settings, [key]: value },
+        },
+      },
+    }),
     // 4. Start, 5. Send, 6. Ask
     SendAsked: (_, { model, props }) =>
       props.to._tag === 'Session'

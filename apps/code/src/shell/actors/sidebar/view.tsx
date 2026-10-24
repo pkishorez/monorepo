@@ -9,10 +9,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@kestack/web-platform/ui/components/select';
-import { createContext, type ReactNode, use } from 'react';
+import { createContext, type ReactNode, use, useEffect } from 'react';
+import { notify } from '../../../ui/toast/index.ts';
 import { placeOf, type Route } from '../../places/index.ts';
-import { shownOf, SidebarLive } from './actor.ts';
+import { refusedKey, shownOf, SidebarLive } from './actor.ts';
 import { Places } from './sidebar.tsx';
+import { doneOf, movedOf } from './moves.ts';
+import { useReload } from './pull/index.ts';
+import { sayMoved, SwipeBack } from './swipe/index.ts';
 import { isUnseen } from './unseen.ts';
 
 /*
@@ -37,7 +41,48 @@ export const SidebarView = View.make(
     const { projectPicker } = use(Slots);
     const [projects] = useChildren(children.projects, ({ model }) => model);
     const [found] = useChildren(children.sessions, ({ model }) => model);
+    const synced = (found?.rows ?? []).map(({ row }) => row);
     const shown = shownOf(model);
+    useReload(() => send({ _tag: 'ReloadAsked' }));
+    // A Move with nothing left to ask goes once the Session as synced agrees.
+    const done = doneOf(synced, model.moving);
+    useEffect(() => {
+      for (const each of done) send({ _tag: 'MoveSeen', ...each });
+    }, [
+      done
+        .map(({ machineId, sessionId, settled }) =>
+          [machineId, sessionId, settled].join('/'),
+        )
+        .join(),
+    ]);
+    // A swipe is said with its Undo, for five seconds, which puts it back.
+    const { told } = model;
+    useEffect(() => {
+      if (told === null) return;
+      const { machineId, sessionId, settled, title } = told;
+      sayMoved(
+        title,
+        settled,
+        () =>
+          send({
+            _tag: 'MoveAsked',
+            machineId,
+            sessionId,
+            settled: !settled,
+            title: null,
+          }),
+        5,
+      );
+    }, [told?.n]);
+    // A swipe its Machine refused is back where it was; this says why.
+    const { refused } = model;
+    useEffect(() => {
+      if (refused === null) return;
+      notify({
+        title: refused.settled ? 'Not Settled' : 'Still Settled',
+        description: refused.reason,
+      });
+    }, [refused?.n]);
     // Never listed on this device yet: a skeleton meanwhile.
     const neverListed = model.machines === null && model.problem === null;
     return (
@@ -48,25 +93,50 @@ export const SidebarView = View.make(
           onChoose={(machineId) => send({ _tag: 'MachineChosen', machineId })}
           onReload={() => send({ _tag: 'ReloadAsked' })}
         />
-        <Places
-          route={route}
-          projects={{
-            rows: (projects?.rows ?? []).map(({ row }) => row),
-            loading: neverListed || (projects?.neverSynced.length ?? 0) > 0,
-          }}
-          sessions={(found?.rows ?? []).map(({ row }) => row)}
-          isUnseen={(each) =>
-            isUnseen(model.unseen[each.machineId] ?? {}, each.id, each.endedAt)
+        {/* A refusal brings its row swiped away back, drawn afresh. */}
+        <SwipeBack
+          value={(machineId, sessionId) =>
+            model.refusals[refusedKey(machineId, sessionId)] ?? 0
           }
-          unsettling={model.unsettling}
-          projectPicker={projectPicker}
-          onOpenSession={(machineId, projectId, sessionId) =>
-            send({ _tag: 'SessionOpened', machineId, projectId, sessionId })
-          }
-          onUnsettle={(machineId, sessionId) =>
-            send({ _tag: 'UnsettleAsked', machineId, sessionId })
-          }
-        />
+        >
+          <Places
+            route={route}
+            projects={{
+              rows: (projects?.rows ?? []).map(({ row }) => row),
+              loading: neverListed || (projects?.neverSynced.length ?? 0) > 0,
+            }}
+            sessions={movedOf(synced, model.moving)}
+            isUnseen={(each) =>
+              isUnseen(
+                model.unseen[each.machineId] ?? {},
+                each.id,
+                each.endedAt,
+              )
+            }
+            projectPicker={projectPicker}
+            onOpenSession={(machineId, projectId, sessionId) =>
+              send({ _tag: 'SessionOpened', machineId, projectId, sessionId })
+            }
+            onUnsettle={(machineId, sessionId) =>
+              send({
+                _tag: 'MoveAsked',
+                machineId,
+                sessionId,
+                settled: false,
+                title: null,
+              })
+            }
+            onMove={({ machineId, id, title }, settled) =>
+              send({
+                _tag: 'MoveAsked',
+                machineId,
+                sessionId: id,
+                settled,
+                title: title || 'Untitled session',
+              })
+            }
+          />
+        </SwipeBack>
       </>
     );
   },
@@ -98,7 +168,7 @@ function MachineFilter({
           No Machines
         </span>
       ) : others.length === 0 ? (
-        <span className="min-w-0 flex-1 truncate px-2 text-sm">
+        <span className="min-w-0 flex-1 truncate px-2 text-sm max-md:text-base max-md:font-semibold">
           {only.name}
         </span>
       ) : (
@@ -109,7 +179,7 @@ function MachineFilter({
           <SelectTrigger
             size="sm"
             aria-label="Machine"
-            className="min-w-0 flex-1 border-none shadow-none"
+            className="min-w-0 flex-1 border-none shadow-none data-[size=sm]:h-11 keyboard:md:data-[size=sm]:h-8 max-md:text-base max-md:font-semibold"
           >
             <SelectValue />
           </SelectTrigger>
@@ -129,6 +199,7 @@ function MachineFilter({
         aria-label="Reload the Machines"
         title="Reload the Machines"
         onClick={onReload}
+        className="size-11 keyboard:md:size-8 max-md:-mr-1 max-md:rounded-full max-md:text-muted-foreground"
       >
         <RefreshCwIcon />
       </Button>
