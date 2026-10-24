@@ -14,7 +14,6 @@ import {
   PencilIcon,
   PlusIcon,
   SquareIcon,
-  SquareSlashIcon,
 } from '@kestack/web-platform/ui/components/lucide';
 import { cn } from '@kestack/web-platform/ui/components/utils';
 import {
@@ -164,10 +163,14 @@ export function TouchCard({
             }}
             className={cn(
               'relative min-w-0 flex-1 px-3 text-foreground group-data-disabled/draft:opacity-40',
+              // Scrolled, the text fades under the card's top and bottom
+              // edges, in the padding, rather than being cut there.
+              (editing || expanded) &&
+                'max-h-[min(40dvh,20rem)] overflow-y-auto overscroll-contain py-3 [mask-image:linear-gradient(to_bottom,transparent,black_0.75rem,black_calc(100%-0.75rem),transparent)]',
               editing
-                ? 'max-h-[min(40dvh,20rem)] min-h-[calc(4*1.75rem+1rem)] overflow-y-auto overscroll-contain py-2'
+                ? 'min-h-[calc(4*1.75rem+1.5rem)]'
                 : expanded
-                  ? 'max-h-[min(40dvh,20rem)] overflow-y-auto overscroll-contain py-2'
+                  ? ''
                   : resting
                     ? 'my-2 h-8 overflow-clip'
                     : 'my-2 h-14 overflow-clip',
@@ -176,7 +179,7 @@ export function TouchCard({
             {editing && draft.empty && (
               <p
                 aria-hidden
-                className="pointer-events-none absolute inset-x-3 top-2 truncate text-base leading-[1.75] text-muted-foreground/70"
+                className="pointer-events-none absolute inset-x-3 top-3 truncate text-base leading-[1.75] text-muted-foreground/70"
               >
                 {draft.placeholder}
               </p>
@@ -363,7 +366,10 @@ function Skills({ draft }: { readonly draft: Draft }) {
           disabled={draft.disabled || !draft.skills.offered}
           className="size-12 shrink-0 rounded-full text-muted-foreground [&_svg:not([class*=size-])]:size-5"
         >
-          <SquareSlashIcon aria-hidden />
+          {/* A skill is typed after a slash: the button shows one. */}
+          <span aria-hidden className="font-mono text-xl leading-none">
+            /
+          </span>
         </Button>
       }
     >
