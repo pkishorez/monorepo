@@ -284,6 +284,60 @@ describe('GestureProvider, GestureZone and useGesture', () => {
       expect(onEnd).not.toHaveBeenCalled();
     });
 
+    // A list of swiped rows, each its own zone, under a pull to refresh in
+    // the zone around them, scrolled to `top`; a finger moves down on a row.
+    const pulledOver = (top: number) => {
+      const onDirection = vi.fn();
+      act(() =>
+        root.render(
+          <GestureProvider>
+            <GestureZone>
+              <Listener
+                name="pull"
+                directions={['down']}
+                onDirection={onDirection}
+              />
+              <div data-testid="list" style={{ overflowY: 'auto' }}>
+                <GestureZone>
+                  <Listener name="swipe" directions={['left', 'right']} />
+                  <div data-testid="row" />
+                </GestureZone>
+              </div>
+            </GestureZone>
+          </GestureProvider>,
+        ),
+      );
+      const list = find('list');
+      Object.defineProperties(list, {
+        scrollHeight: { value: 1000 },
+        clientHeight: { value: 400 },
+      });
+      list.scrollTop = top;
+      const row = find('row');
+      act(() => {
+        pointer('pointerdown', row, 1, 100, 100);
+        touch('touchstart', row, 100, 100);
+      });
+      let move: Event | undefined;
+      act(() => {
+        pointer('pointermove', row, 1, 100, 110);
+        move = touch('touchmove', row, 100, 110);
+      });
+      return { onDirection, move };
+    };
+
+    it('lets a list scrolled down keep a touch on a zone inside it that does not want it', () => {
+      const { onDirection, move } = pulledOver(200);
+      expect(move?.defaultPrevented).toBe(false);
+      expect(onDirection).not.toHaveBeenCalled();
+    });
+
+    it('gives the zone around it a touch on such a zone once the list is at its top', () => {
+      const { onDirection, move } = pulledOver(0);
+      expect(move?.defaultPrevented).toBe(true);
+      expect(onDirection).toHaveBeenCalledWith('down');
+    });
+
     // A row scrolled partway, under a listener that wants a swipe right,
     // as a sidebar that opens from anywhere does.
     const sideways = () => {
