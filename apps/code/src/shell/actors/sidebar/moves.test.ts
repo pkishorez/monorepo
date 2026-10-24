@@ -16,9 +16,9 @@ import { doneOf, movedOf } from './moves.ts';
 import { settledOf } from './settled-list/index.ts';
 
 /*
- * Sessions put in the sidebar, with `Moves` stood in for: a swipe goes to
- * it as a swipe, and is said once kept; the Settled List's Un-settle goes
- * at once; every Session is drawn where `Moves` says it goes, until the
+ * Sessions put in the sidebar, with `Moves` stood in for: a swipe, its
+ * Undo and the Settled List's Un-settle each go to it, a swipe said with
+ * its Undo; every Session is drawn where `Moves` says it goes, until the
  * synced Session agrees; a refusal is said.
  */
 
@@ -64,11 +64,7 @@ describe('Sessions put, as the sidebar draws them', () => {
   });
 });
 
-type Put = {
-  readonly how: 'swipe' | 'set';
-  readonly sessionId: string;
-  readonly settled: boolean;
-};
+type Put = { readonly sessionId: string; readonly settled: boolean };
 
 const stood = Effect.gen(function* () {
   const put: Array<Put> = [];
@@ -83,11 +79,8 @@ const stood = Effect.gen(function* () {
       Moves.of({
         intents: SubscriptionRef.changes(intents),
         refusals: Stream.fromPubSub(refusals),
-        swipe: ({ sessionId }, settled) =>
-          Effect.sync(() => put.push({ how: 'swipe', sessionId, settled })),
-        set: ({ sessionId }, settled) =>
-          Effect.sync(() => put.push({ how: 'set', sessionId, settled })),
-        hurry: Effect.void,
+        put: ({ sessionId }, settled) =>
+          Effect.sync(() => put.push({ sessionId, settled })),
         agreed: () => Effect.void,
       }),
     ),
@@ -127,33 +120,34 @@ const start = (layer: Layer.Layer<any>) =>
 const model = (app: Running<unknown>) => app.snapshot().model as Model;
 const send = (app: Running<unknown>, message: object) =>
   app.send(app.snapshot().id, message as never);
-const asked = (sessionId: string, settled: boolean, now: boolean) => ({
+const asked = (sessionId: string, settled: boolean, swiped: boolean) => ({
   _tag: 'MoveAsked',
   machineId: 'm1',
   sessionId,
   settled,
-  title: now ? null : 'A session',
-  now,
+  title: swiped ? 'A session' : null,
 });
 
 describe('a Session put in the sidebar', () => {
-  it('goes to Moves as a swipe, said once kept, or at once from the Un-settle button', async () => {
+  it('goes to Moves from a swipe, said with its Undo, and from the Un-settle button', async () => {
     const { layer, put } = await Effect.runPromise(stood);
     await run(
       Effect.gen(function* () {
         const app = yield* start(layer);
-        send(app, asked('s1', true, false));
+        send(app, asked('s1', true, true));
         yield* wait();
         expect(model(app).told).toMatchObject({
           title: 'A session',
           settled: true,
         });
-        send(app, asked('s2', false, true));
+        send(app, asked('s2', false, false));
         yield* wait();
         expect(put).toEqual([
-          { how: 'swipe', sessionId: 's1', settled: true },
-          { how: 'set', sessionId: 's2', settled: false },
+          { sessionId: 's1', settled: true },
+          { sessionId: 's2', settled: false },
         ]);
+        // The Un-settle button says nothing.
+        expect(model(app).told).toMatchObject({ settled: true });
       }),
     );
   });

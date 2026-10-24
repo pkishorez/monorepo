@@ -28,31 +28,12 @@ const Put = Schema.Struct({
   settled: Schema.Boolean,
 });
 
-/**
- * Puts a Session through `Moves`: at once, or as a swipe, waiting out its
- * Undo; a swipe titled is said, with its Undo, once it is kept.
- */
+/** Puts a Session through `Moves`, which asks its Machine at once. */
 export const putMove = Command.make('PutMove', {
-  args: Schema.Struct({
-    ...Put.fields,
-    title: Schema.NullOr(Schema.String),
-    now: Schema.Boolean,
-  }),
-  run: ({ machineId, sessionId, settled, title, now }) =>
+  args: Put,
+  run: ({ machineId, sessionId, settled }) =>
     Effect.flatMap(Moves, (moves) =>
-      (now ? moves.set : moves.swipe)({ machineId, sessionId }, settled),
-    ).pipe(
-      Effect.as(
-        title === null
-          ? undefined
-          : {
-              _tag: 'MoveKept' as const,
-              machineId,
-              sessionId,
-              settled,
-              title,
-            },
-      ),
+      moves.put({ machineId, sessionId }, settled),
     ),
 });
 
@@ -63,9 +44,4 @@ export const agreed = Command.make('AgreedMove', {
     Effect.flatMap(Moves, (moves) =>
       moves.agreed({ machineId, sessionId }, settled),
     ),
-});
-
-/** The page is going: everything waiting is asked now. */
-export const hurry = Command.make('HurryMoves', {
-  run: () => Effect.flatMap(Moves, (moves) => moves.hurry),
 });

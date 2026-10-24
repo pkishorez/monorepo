@@ -53,7 +53,7 @@ The keyboard-first way of working the app, off until turned on in this browser, 
 _Avoid_: keyboard mode, power mode
 
 **Device State**:
-What this browser keeps for itself and no other device sees: the user's Bindings, whether Vim Mode is on, the Microphone chosen, the Machine Filter, the Unseen marks, and each Session's Pending Move, where the user last put it, Settled or not, until its Machine confirms it. The app draws nothing until the Bindings have been read.
+What this browser keeps for itself and no other device sees: the user's Bindings, whether Vim Mode is on, the Microphone chosen, the Machine Filter and the Unseen marks. The app draws nothing until the Bindings have been read.
 _Avoid_: preferences, local settings, localStorage
 
 **Draft**:

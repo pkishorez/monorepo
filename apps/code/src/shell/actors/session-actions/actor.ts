@@ -224,7 +224,7 @@ export const SessionActionsLive = Actor.build(SessionActions, {
               const go =
                 action === 'settle' || action === 'unsettle'
                   ? yield* Effect.flatMap(Moves, (moves) =>
-                      moves.set(
+                      moves.put(
                         { machineId, sessionId: session.id },
                         action === 'settle',
                       ),

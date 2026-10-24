@@ -112,10 +112,8 @@ const services = Layer.mergeAll(
     Moves.of({
       intents: Stream.never,
       refusals: Stream.never,
-      swipe: () => Effect.void,
-      set: ({ sessionId }, to) =>
+      put: ({ sessionId }, to) =>
         Effect.sync(() => void (to && settled.push(sessionId))),
-      hurry: Effect.void,
       agreed: () => Effect.void,
     }),
   ),
