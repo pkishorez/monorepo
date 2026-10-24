@@ -1,7 +1,6 @@
 ---
 'laymos': patch
 '@kestack/kabuki': patch
-'@kestack/effect-webrtc': patch
 '@kestack/web-platform': patch
 '@kestack/ai-toolkit': patch
 '@kestack/auth-toolkit': patch
