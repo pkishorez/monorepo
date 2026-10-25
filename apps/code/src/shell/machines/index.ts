@@ -4,18 +4,15 @@ export {
   outOfReach,
   PageMachine,
   useHealth,
-  useMachine,
   useMachineId,
   useMachineName,
-  useMachines,
   useOffline,
 } from './connection.ts';
-export { listedOnly, reach } from './reach.ts';
+export { reach } from './reach.ts';
 export { orRefused, reasonOf, Refused } from './refusal.ts';
 export {
   across,
   everything,
-  instanceOf,
   lineage,
   Messages,
   ProjectRow,
