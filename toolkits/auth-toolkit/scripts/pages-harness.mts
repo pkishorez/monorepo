@@ -16,7 +16,7 @@
 import { createServer } from 'node:http';
 import { makeSignature } from 'better-auth/crypto';
 import { authWorker } from '../dist/worker/app/worker.js';
-import { memory } from '../dist/worker/database/sqlite/memory/index.js';
+import { memory } from '../dist/worker/database/memory/index.js';
 
 const PORT = Number(process.env.PORT ?? 8787);
 const DELAY = Number(process.env.API_DELAY_MS ?? 0);

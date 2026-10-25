@@ -2,7 +2,7 @@
   "$schema": "../../devtools/laymos/schema.json",
   "sourceRoots": ["src"],
   "ignoredPaths": [
-    "src/worker/database/sqlite/migration/migrations",
+    "src/worker/database/migration/migrations",
     "src/worker/app/styles.css"
   ],
   "fileModules": [
@@ -33,20 +33,13 @@
       "src/guard/client/engine",
       "src/guard/server/guard-layer"
     ],
-    "src/worker/database/sqlite/d1/database": [
-      "src/worker/database/sqlite/schema"
+    "src/worker/database/d1/database": ["src/worker/database/schema"],
+    "src/worker/database/d1/resource": ["src/worker/database/migration"],
+    "src/worker/database/memory": [
+      "src/worker/database/schema",
+      "src/worker/database/migration"
     ],
-    "src/worker/database/sqlite/d1/resource": [
-      "src/worker/database/sqlite/migration"
-    ],
-    "src/worker/database/sqlite/memory": [
-      "src/worker/database/sqlite/schema",
-      "src/worker/database/sqlite/migration"
-    ],
-    "src/worker/service": [
-      "src/contract",
-      "src/worker/database/sqlite/d1/database"
-    ],
+    "src/worker/service": ["src/contract", "src/worker/database/d1/database"],
     "src/worker/app/api": ["src/contract"],
     "src/worker/app/pages": ["src/worker/app/api"],
     "src/worker/app/views": [

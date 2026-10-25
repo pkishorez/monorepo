@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { memory } from '../../database/sqlite/memory/index.js';
+import { memory } from '../../database/memory/index.js';
 import {
   applyCookies,
   baseURL,

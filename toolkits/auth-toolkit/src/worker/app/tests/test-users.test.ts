@@ -1,6 +1,6 @@
 import { handler } from '@kestack/kabuki/start/server';
 import { describe, expect, it } from 'vitest';
-import { memory } from '../../database/sqlite/memory/index.js';
+import { memory } from '../../database/memory/index.js';
 import type { AuthWorkerConfig } from '../../service/config.js';
 import {
   applyCookies,

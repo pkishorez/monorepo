@@ -1,7 +1,7 @@
 import { makeSignature } from 'better-auth/crypto';
 import { handler } from '@kestack/kabuki/start/server';
 import { describe, expect, it } from 'vitest';
-import { memory } from '../../database/sqlite/memory/index.js';
+import { memory } from '../../database/memory/index.js';
 import {
   baseURL,
   config,

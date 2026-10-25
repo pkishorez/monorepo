@@ -33,12 +33,12 @@
       "default": "./dist/worker/app/worker.js"
     },
     "./worker/memory": {
-      "types": "./dist/worker/database/sqlite/memory/index.d.ts",
-      "default": "./dist/worker/database/sqlite/memory/index.js"
+      "types": "./dist/worker/database/memory/index.d.ts",
+      "default": "./dist/worker/database/memory/index.js"
     },
     "./worker/alchemy": {
-      "types": "./dist/worker/database/sqlite/d1/resource/index.d.ts",
-      "default": "./dist/worker/database/sqlite/d1/resource/index.js"
+      "types": "./dist/worker/database/d1/resource/index.d.ts",
+      "default": "./dist/worker/database/d1/resource/index.js"
     },
     "./server": {
       "types": "./dist/guard/server/index.d.ts",
@@ -62,8 +62,8 @@
     }
   },
   "scripts": {
-    "build": "rm -rf ./dist && vp build --config vite.app.config.ts && node scripts/bundle-app.mts && tsc -p tsconfig.build.json && cp -R src/worker/database/sqlite/migration/migrations dist/worker/database/sqlite/migration/",
-    "db:generate": "auth generate --config ./auth.generate.ts --output ./src/worker/database/sqlite/schema/schema.generated.ts -y && pnpm fmt && drizzle-kit generate",
+    "build": "rm -rf ./dist && vp build --config vite.app.config.ts && node scripts/bundle-app.mts && tsc -p tsconfig.build.json && cp -R src/worker/database/migration/migrations dist/worker/database/migration/",
+    "db:generate": "auth generate --config ./auth.generate.ts --output ./src/worker/database/schema/schema.generated.ts -y && pnpm fmt && drizzle-kit generate",
     "fmt": "vp fmt",
     "lint": "vp check && pnpm lint:tsc && laymos lint",
     "lint:tsc": "tsc --noEmit && tsc -p tsconfig.app.json --noEmit",

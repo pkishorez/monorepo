@@ -20,7 +20,7 @@ import {
 import { withoutSessionTokens } from './browser/no-tokens.js';
 import { TEST_SIGN_IN_METHOD, testSignIn } from './identity/test-sign-in.js';
 import { servePages, type PagesApp, type PagesContext } from './pages.js';
-import { d1 } from '../database/sqlite/d1/database/index.js';
+import { d1 } from '../database/d1/database/index.js';
 
 export { d1 };
 

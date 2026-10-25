@@ -1,4 +1,4 @@
-import { memory } from '../../database/sqlite/memory/index.js';
+import { memory } from '../../database/memory/index.js';
 import { decodeJwt } from 'jose';
 import { describe, expect, it } from 'vitest';
 import {
