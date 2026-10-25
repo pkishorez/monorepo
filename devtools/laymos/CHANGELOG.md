@@ -1,5 +1,13 @@
 # laymos
 
+## 0.0.14
+
+### Patch Changes
+
+- [#88](https://github.com/pkishorez/monorepo/pull/88) [`71c93f3`](https://github.com/pkishorez/monorepo/commit/71c93f3e7d8c13bb4845fefc70cfb28c58d1d6e1) Thanks [@kishorenuma](https://github.com/kishorenuma)! - Dependencies updated to their latest versions.
+- Updated dependencies []:
+  - @kestack/effect-tracer@0.0.14
+
 ## 0.0.13
 
 ### Patch Changes

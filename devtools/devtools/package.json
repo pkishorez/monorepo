@@ -1,6 +1,6 @@
 {
   "name": "@kestack/devtools",
-  "version": "0.0.13",
+  "version": "0.0.14",
   "private": false,
   "description": "Local DevTools server for telemetry and architecture analysis, with Client Commands for reading it back",
   "keywords": [

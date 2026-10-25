@@ -1,5 +1,25 @@
 # @kestack/ui-toolkit
 
+## 0.0.3
+
+### Patch Changes
+
+- [#88](https://github.com/pkishorez/monorepo/pull/88) [`71c93f3`](https://github.com/pkishorez/monorepo/commit/71c93f3e7d8c13bb4845fefc70cfb28c58d1d6e1) Thanks [@kishorenuma](https://github.com/kishorenuma)! - The Web Platform is for apps on Kabuki Start, in four modules: `ui`, `pwa`, `recipes` and `app`.
+
+  - Breaking: every import path changes, and the TanStack Start parts are gone.
+  - `app`: `app({ name, platform, app })` is every Vite plugin, `document({ theme })` the Document, and `app/alchemy` gives `Site` and `State`.
+  - `pwa()` needs only a name. Offline, each page follows its Render Mode, and a page marked `private` or `no-store` is never saved.
+  - Touch: `Drawer`, `TopDialog`, `SwipeRow` either way, pull to refresh, no focus ring on touch, and `AppShell`'s `sidebarMode`.
+  - Keyboard: `recipes/keyboard` with `KeysStatusBar` and `KeysHelp`; `recipes/account-switcher`; `recipes/devtools`.
+  - Inside, the PWA engine is three sides (`vite`, `worker`, `page`) on one `contract`, and the UI kit's helpers sit in `kit` under the `#kit/*` alias; no public subpath changes.
+
+- Updated dependencies [[`71c93f3`](https://github.com/pkishorez/monorepo/commit/71c93f3e7d8c13bb4845fefc70cfb28c58d1d6e1), [`71c93f3`](https://github.com/pkishorez/monorepo/commit/71c93f3e7d8c13bb4845fefc70cfb28c58d1d6e1), [`71c93f3`](https://github.com/pkishorez/monorepo/commit/71c93f3e7d8c13bb4845fefc70cfb28c58d1d6e1), [`71c93f3`](https://github.com/pkishorez/monorepo/commit/71c93f3e7d8c13bb4845fefc70cfb28c58d1d6e1), [`71c93f3`](https://github.com/pkishorez/monorepo/commit/71c93f3e7d8c13bb4845fefc70cfb28c58d1d6e1)]:
+  - @kestack/auth-toolkit@0.0.3
+  - @kestack/kabuki@0.0.3
+  - laymos@0.0.14
+  - @kestack/use-gesture@0.0.2
+  - @kestack/use-keys@0.0.2
+
 ## 0.0.2
 
 ### Patch Changes

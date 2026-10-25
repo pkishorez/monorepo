@@ -1,5 +1,20 @@
 # @kestack/auth-toolkit
 
+## 0.0.3
+
+### Patch Changes
+
+- [#88](https://github.com/pkishorez/monorepo/pull/88) [`71c93f3`](https://github.com/pkishorez/monorepo/commit/71c93f3e7d8c13bb4845fefc70cfb28c58d1d6e1) Thanks [@kishorenuma](https://github.com/kishorenuma)! - auth-toolkit is rebuilt around three Caller Kinds (Browser, Device, OAuth).
+
+  - Breaking: one `server` door with `auth.rpc({ url })` and `auth.http({ url })`; Local mode is gone, replaced by the `fake` door (`fakeAccounts`, `fakeGuard`).
+  - Test Users (emails ending in `.test`) sign in without Google, once a guard allows them with `testUsers: true`.
+  - `AccountsState.SignedIn` says `switchingTo` during an Account Switch.
+  - better-auth 1.7.12: a migration drops `account.issuer`.
+
+- Updated dependencies [[`71c93f3`](https://github.com/pkishorez/monorepo/commit/71c93f3e7d8c13bb4845fefc70cfb28c58d1d6e1), [`71c93f3`](https://github.com/pkishorez/monorepo/commit/71c93f3e7d8c13bb4845fefc70cfb28c58d1d6e1)]:
+  - @kestack/rpc-toolkit@0.0.3
+  - @kestack/std-toolkit@0.0.3
+
 ## 0.0.2
 
 ### Patch Changes
