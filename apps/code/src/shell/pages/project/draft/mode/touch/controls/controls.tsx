@@ -65,12 +65,13 @@ export function Row({
   readonly talking: boolean;
   readonly disabled: boolean;
   readonly recording: Recording;
+  /** null where none go in, as a Side Question: its button is not drawn. */
   readonly skills: {
     readonly offered: boolean;
     readonly how: typeof Picker.How.Type | null;
     readonly onOpen: (how: typeof Picker.How.Type, typed: boolean) => void;
     readonly picker: ReactNode;
-  };
+  } | null;
   readonly quick: {
     /** Starts a question on the side; null where there is no Session to ask. */
     readonly onAsk: (() => void) | null;
@@ -116,33 +117,40 @@ export function Row({
         items={{
           pair: (
             <div className="flex gap-2">
-              <Slot
-                shown={
-                  phase === 'recording'
-                    ? 'cancel'
-                    : phase === 'failed'
-                      ? 'discard'
-                      : 'skills'
-                }
-                items={{
-                  skills: quiet(
-                    'Add a skill or command',
-                    <SquareSlashIcon aria-hidden />,
-                    () => open(() => skills.onOpen('touch', false)),
-                    disabled || !skills.offered,
-                  ),
-                  cancel: quiet(
-                    'Cancel the Dictation',
-                    <XIcon aria-hidden />,
-                    onCancel,
-                  ),
-                  discard: quiet(
-                    'Throw the recording away',
-                    <Trash2Icon aria-hidden />,
-                    onCancel,
-                  ),
-                }}
-              />
+              {(skills !== null ||
+                phase === 'recording' ||
+                phase === 'failed') && (
+                <Slot
+                  shown={
+                    phase === 'recording'
+                      ? 'cancel'
+                      : phase === 'failed'
+                        ? 'discard'
+                        : 'skills'
+                  }
+                  items={{
+                    skills:
+                      skills === null
+                        ? null
+                        : quiet(
+                            'Add a skill or command',
+                            <SquareSlashIcon aria-hidden />,
+                            () => open(() => skills.onOpen('touch', false)),
+                            disabled || !skills.offered,
+                          ),
+                    cancel: quiet(
+                      'Cancel the Dictation',
+                      <XIcon aria-hidden />,
+                      onCancel,
+                    ),
+                    discard: quiet(
+                      'Throw the recording away',
+                      <Trash2Icon aria-hidden />,
+                      onCancel,
+                    ),
+                  }}
+                />
+              )}
               <Slot
                 shown={phase === 'recording' ? 'microphone' : 'actions'}
                 items={{
@@ -215,9 +223,11 @@ export function Row({
         <ArrowUpIcon aria-hidden />
       </Button>
       {/* Skills' Sheet, opened from its slot. */}
-      <Picker.Frame how={skills.how} mode="sheet" label="Skills and commands">
-        {skills.picker}
-      </Picker.Frame>
+      {skills !== null && (
+        <Picker.Frame how={skills.how} mode="sheet" label="Skills and commands">
+          {skills.picker}
+        </Picker.Frame>
+      )}
     </div>
   );
 }

@@ -226,7 +226,7 @@ export const TouchDraftView = View.make(
               talking={voice && !t.editing}
               disabled={draft.disabled}
               recording={draft.dictation.recording}
-              skills={draft.skills}
+              skills={draft.textOnly ? null : draft.skills}
               quick={{
                 onAsk: t.ask,
                 onPaste: slots.onPaste,
