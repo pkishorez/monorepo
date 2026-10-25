@@ -12,10 +12,10 @@ import { HarnessAccountsLive } from './actor.ts';
 import { Card } from './card/index.ts';
 
 /*
- * One Machine's agent accounts, one card each (card/), then the one being
- * added. Under the cards, a button per agent adds another login. Until
- * they are read, a quiet skeleton of the cards while the Machine answers,
- * and, while it does not, a line that says so.
+ * One Machine's agent accounts, a row each (card/), then the one being
+ * added. Under the rows, a quiet button per agent adds another login.
+ * Until they are read, a quiet skeleton of the rows while the Machine
+ * answers, and, while it does not, a line that says so.
  */
 
 export const HarnessAccountsView = View.make(
@@ -23,14 +23,8 @@ export const HarnessAccountsView = View.make(
   ({ root, model, children, send }) => {
     const health = useHealth(model.machineId);
     return (
-      <div {...root} className="flex flex-col gap-4">
-        <header className="flex flex-col gap-1">
-          <h3 className="text-sm font-semibold">Agents</h3>
-          <p className="text-sm text-muted-foreground">
-            The agents installed on this Machine, one card per login. Add
-            another login, such as a work account, with its own config folder.
-          </p>
-        </header>
+      <div {...root} className="flex flex-col gap-3">
+        <h3 className="text-xs font-medium text-muted-foreground">Agents</h3>
         {model.loadProblem !== null ? (
           <p
             role="alert"
@@ -54,21 +48,17 @@ export const HarnessAccountsView = View.make(
               here once it is back.
             </p>
           ) : (
-            <div className="flex flex-col gap-4" aria-busy>
+            <div className="flex flex-col gap-5" aria-busy>
               {['claude', 'codex'].map((name) => (
-                <div
-                  key={name}
-                  className="flex flex-col gap-4 rounded-xl border border-border p-5"
-                >
+                <div key={name} className="flex flex-col gap-2">
                   <Skeleton className="h-4 w-32" />
                   <Skeleton className="h-3 w-64" />
-                  <Skeleton className="h-9 w-full" />
                 </div>
               ))}
             </div>
           )
         ) : (
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-5">
             {children.cards.map((card) => (
               <Card.view key={card.key} instance={card} />
             ))}
@@ -79,8 +69,9 @@ export const HarnessAccountsView = View.make(
                     <Button
                       key={harness}
                       type="button"
-                      variant="outline"
-                      className="h-11 keyboard:h-9"
+                      variant="ghost"
+                      size="sm"
+                      className="h-11 text-muted-foreground keyboard:h-8"
                       onClick={() => send({ _tag: 'AddAsked', harness })}
                     >
                       <PlusIcon aria-hidden />
