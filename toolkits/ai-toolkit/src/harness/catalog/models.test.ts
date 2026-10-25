@@ -9,7 +9,7 @@ import {
 } from '../contract/index.js';
 import { afterEach, describe, expect, it } from 'vitest';
 import { makeFakeHarness } from '../fake/index.js';
-import { Models } from './index.js';
+import { Models } from './catalog.js';
 
 const catalog = {
   anthropic: {

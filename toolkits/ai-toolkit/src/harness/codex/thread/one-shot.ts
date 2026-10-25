@@ -10,12 +10,8 @@ import {
 } from '../../contract/index.js';
 import { start, type AppServer, type ThreadItem } from '../app-server/index.js';
 import { listModels } from '../catalog/index.js';
-import {
-  openSession,
-  restore,
-  TEXT_CHUNK,
-  type TextChunk,
-} from '../thread/index.js';
+import { TEXT_CHUNK, type TextChunk } from './streams.js';
+import { openSession, restore } from './thread.js';
 
 /** The small model the spec names; used whenever this account lists it. */
 const SMALL_MODEL = 'gpt-6-luna';
