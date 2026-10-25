@@ -89,7 +89,7 @@ function Pulled({
         role={refreshing ? 'status' : undefined}
         aria-label={refreshing ? 'Reloading the Machines' : undefined}
         style={{ y: top, opacity: shown }}
-        className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center"
+        className="pointer-events-none absolute inset-x-0 top-0 z-30 flex justify-center"
       >
         <span
           className={`grid size-8 place-items-center rounded-full border border-border bg-popover shadow-sm transition-colors duration-150 motion-reduce:transition-none ${pull.state === 'armed' || refreshing ? 'text-foreground' : 'text-muted-foreground'}`}

@@ -3,7 +3,9 @@ export {
   Connection,
   PageMachine,
   useHealth,
+  useHealths,
   useMachineId,
+  useMachines,
   useMachineName,
   useOffline,
 } from './connection.ts';
